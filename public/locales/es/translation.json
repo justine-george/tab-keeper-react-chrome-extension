@@ -240,6 +240,7 @@
   "CarryCardNameAndCount_many": "{{name}} · {{count}} Pestañas",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} Pestañas",
   "CarryNewWindowTarget": "Nueva ventana",
+  "CarryNewSessionTarget": "Nueva sesión",
   "Search looks in session names, window names, tab titles and links.": "La búsqueda incluye nombres de sesiones, nombres de ventanas, títulos de pestañas y enlaces.",
   "Open full view": "Abrir vista completa",
   "Default view": "Vista predeterminada",

@@ -230,6 +230,7 @@
   "TabCountShownOfTotal_other": "{{count}} 個中 {{shown}} 個のタブ",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} 個のタブ",
   "CarryNewWindowTarget": "新しいウィンドウ",
+  "CarryNewSessionTarget": "新しいセッション",
   "Search looks in session names, window names, tab titles and links.": "セッション名、ウィンドウ名、タブのタイトル、リンクを検索します。",
   "Open full view": "フルビューで開く",
   "Default view": "既定のビュー",

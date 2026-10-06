@@ -230,6 +230,7 @@
   "TabCountShownOfTotal_other": "{{count}} 個分頁中的 {{shown}} 個",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} 個分頁",
   "CarryNewWindowTarget": "新視窗",
+  "CarryNewSessionTarget": "新工作階段",
   "Search looks in session names, window names, tab titles and links.": "搜尋範圍包括工作階段名稱、視窗名稱、分頁標題和連結。",
   "Open full view": "開啟完整檢視",
   "Default view": "預設檢視",

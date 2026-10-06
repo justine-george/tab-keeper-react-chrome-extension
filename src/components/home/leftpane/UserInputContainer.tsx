@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useDispatch } from 'react-redux';
 
 import { css } from '@emotion/react';
 
 import Button from '../../common/Button';
+import { DropBoxLabel } from '../../common/dropBox';
+import { dropBoxStyle } from '../../common/dropBoxStyle';
 import OverflowMenu from '../../common/OverflowMenu';
 import TextBox from '../../common/TextBox';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
@@ -23,6 +25,7 @@ import {
   pickNameSourceTab,
 } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
+import { useNewSessionReceiver } from './useNewSessionReceiver';
 
 export default function UserInputContainer() {
   const { t } = useTranslation();
@@ -32,6 +35,11 @@ export default function UserInputContainer() {
 
   const [newTitle, setNewTitle] = useState<string>('');
   const [currentTabName, setCurrentTabName] = useState<string>('');
+
+  // KAN-394 P3. While a carry is live the row is a New session target.
+  const rowRef = useRef<HTMLDivElement>(null);
+  const targetRef = useRef<HTMLDivElement>(null);
+  const takesCarry = useNewSessionReceiver(rowRef, targetRef);
 
   useEffect(() => {
     // Guards loadSuggestion below against setting state after this
@@ -156,9 +164,18 @@ export default function UserInputContainer() {
   }
 
   const containerStyle = css`
+    position: relative;
     display: flex;
     justify-content: space-between;
     align-items: center;
+  `;
+
+  // Over the whole row; App.css shows it while a carry is live.
+  const sessionTargetStyle = css`
+    position: absolute;
+    inset: 0;
+    visibility: hidden;
+    pointer-events: none;
   `;
 
   /**
@@ -192,7 +209,7 @@ export default function UserInputContainer() {
   `;
 
   return (
-    <div css={containerStyle}>
+    <div ref={rowRef} data-save-row="" css={containerStyle}>
       <TextBox
         id="name"
         name="name"
@@ -301,6 +318,16 @@ export default function UserInputContainer() {
               },
             ]}
           />
+        </div>
+      )}
+      {takesCarry && (
+        <div
+          ref={targetRef}
+          data-new-session-target=""
+          aria-hidden="true"
+          css={[dropBoxStyle(COLORS), sessionTargetStyle]}
+        >
+          <DropBoxLabel text={t('CarryNewSessionTarget')} />
         </div>
       )}
     </div>
