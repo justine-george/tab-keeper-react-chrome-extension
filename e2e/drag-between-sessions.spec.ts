@@ -32,11 +32,19 @@ import {
 } from './fixtures/seed';
 import { contrast, pixelsAt, rgbToHex } from './fixtures/pixels';
 import { holdSweepAt } from './fixtures/dwell';
+import {
+  boxOf,
+  groupHandle,
+  pickUp,
+  stored,
+  tabHandle,
+  windowHandle,
+  type Point,
+} from './fixtures/sessionDrag';
 import type {
   TabMasterContainer,
   tabContainerData,
 } from '../src/redux/slices/tabContainerDataStateSlice';
-import { isValidTabMasterContainer } from '../src/utils/functions/local';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
@@ -202,17 +210,6 @@ async function openTabView(
 
 // ---- reading the store ------------------------------------------------------
 
-async function stored(page: Page): Promise<TabMasterContainer> {
-  const raw = await page.evaluate(() =>
-    localStorage.getItem('tabContainerData')
-  );
-  const parsed: unknown = JSON.parse(raw ?? 'null');
-  if (!isValidTabMasterContainer(parsed)) {
-    throw new Error(`tabContainerData is not a container: ${raw}`);
-  }
-  return parsed;
-}
-
 function sessionOf(c: TabMasterContainer, id: string): tabContainerData {
   const s = c.tabGroups.find((g) => g.tabGroupId === id);
   if (s === undefined) throw new Error(`no session ${id} stored`);
@@ -276,12 +273,6 @@ const CARD = '[data-carry-card]';
 
 const sessionRow = (page: Page, id: string): Locator =>
   page.locator(`[data-pane="sessions"] [data-drag-row-id="${id}"]`);
-
-async function boxOf(loc: Locator) {
-  const b = await loc.boundingBox();
-  if (b === null) throw new Error(`no box for ${loc.toString()}`);
-  return b;
-}
 
 interface PaneBox {
   left: number;
@@ -402,31 +393,6 @@ const clicks = (page: Page): Promise<number> =>
   page.evaluate(() => Number(document.body.dataset.clicks ?? '-1'));
 
 // ---- the gesture ------------------------------------------------------------
-
-interface Point {
-  x: number;
-  y: number;
-}
-
-// Presses `handle` and drags it past the activation distance, inside the pane.
-async function pickUp(page: Page, handle: Locator): Promise<Point> {
-  const b = await boxOf(handle);
-  const x = b.x + Math.min(60, b.width / 2);
-  const y = b.y + b.height / 2;
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  await page.mouse.move(x, y + 8, { steps: 2 });
-  return { x, y: y + 8 };
-}
-
-const tabHandle = (page: Page, tabId: string) =>
-  page.locator(`[data-drag-row-id="${tabId}"]`);
-const groupHandle = (page: Page, groupId: string) =>
-  page.locator(
-    `[data-drag-row-id="group:${groupId}"] [data-group-drag-handle]`
-  );
-const windowHandle = (page: Page, windowId: string) =>
-  page.locator(`[data-drag-row-id="${windowId}"] [data-window-drag-handle]`);
 
 // Out of the detail to the left, at the same height, onto the session list
 // -- the only place a saved drag is handed to the carry (KAN-352) -- until
