@@ -382,6 +382,9 @@ export interface moveToSessionParams {
   // re-minted in: uuidv5(oldId, remintNamespace). Minted by the action
   // creator, so the reducer stays pure and a test can pin every new id.
   remintNamespace: string;
+  // The instant the move is stamped at: the source at `now`, the target at
+  // `now + 1`. Minted by the action creator, like the namespace.
+  now: number;
 }
 
 export const initialState: TabMasterContainer = {
@@ -1143,13 +1146,17 @@ function sameChromeTabGroups(
 // A removed session has to leave a trace, or the device that still holds it
 // re-adds it on the next merge and the user can never delete it anywhere.
 // Re-deleting an id refreshes its timestamp rather than appending a duplicate.
-function bury(state: TabMasterContainer, tabGroupId: string): void {
+function bury(
+  state: TabMasterContainer,
+  tabGroupId: string,
+  at: number = Date.now()
+): void {
   const graves = (state.deletedTabGroups ??= []);
   const existing = graves.find((g) => g.tabGroupId === tabGroupId);
   if (existing) {
-    existing.deletedAt = Date.now();
+    existing.deletedAt = at;
   } else {
-    graves.push({ tabGroupId, deletedAt: Date.now() });
+    graves.push({ tabGroupId, deletedAt: at });
   }
 }
 
@@ -2271,7 +2278,7 @@ export const tabContainerDataStateSlice = createSlice({
     //     sorts above the source rather than leaving it to the ids' tiebreak.
     moveToSessionInternal: {
       reducer: (state, action: PayloadAction<moveToSessionParams>) => {
-        const { move, remintNamespace } = action.payload;
+        const { move, remintNamespace, now } = action.payload;
         const sameSession = move.carried.tabGroupId === move.to.tabGroupId;
         if (sameSession && !('newWindowId' in move.to)) return;
 
@@ -2449,11 +2456,10 @@ export const tabContainerDataStateSlice = createSlice({
           }
         }
 
-        const now = Date.now();
         const sourceEmptied = source.windows.length === 0;
         if (sourceEmptied) {
           // Tombstoned as every delete is, or the next merge brings it back.
-          bury(state, source.tabGroupId);
+          bury(state, source.tabGroupId, now);
           state.tabGroups.splice(state.tabGroups.indexOf(source), 1);
           // Q4 A: the shown source is gone, so the target is shown instead
           // of a blank detail.
@@ -2472,8 +2478,12 @@ export const tabContainerDataStateSlice = createSlice({
 
         saveToLocalStorage('tabContainerData', state);
       },
-      prepare: (move: SessionMove, remintNamespace: string = uuidv4()) => ({
-        payload: { move, remintNamespace },
+      prepare: (
+        move: SessionMove,
+        remintNamespace: string = uuidv4(),
+        now: number = Date.now()
+      ) => ({
+        payload: { move, remintNamespace, now },
       }),
     },
 

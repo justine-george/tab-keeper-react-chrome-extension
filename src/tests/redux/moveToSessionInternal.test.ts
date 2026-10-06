@@ -490,6 +490,29 @@ describe('where the two sessions sit afterwards', () => {
     expect(sessionIn(next, 'S3').contentModified).toBeUndefined();
   });
 
+  // KAN-394: a caller that built its action earlier stamps from ITS instant.
+  it('stamps from the instant the action carries, not the clock at dispatch', () => {
+    const next = reducer(
+      seeded(),
+      moveToSessionInternal(
+        {
+          carried: {
+            kind: 'tab',
+            tabGroupId: 'S1',
+            windowId: 'w1',
+            tabId: 't1',
+          },
+          to: { tabGroupId: 'S2', windowId: 'd1', toIndex: 0 },
+        },
+        NS,
+        T0 - 5_000
+      )
+    );
+
+    expect(sessionIn(next, 'S1').lastModified).toBe(T0 - 5_000);
+    expect(sessionIn(next, 'S2').lastModified).toBe(T0 - 4_999);
+  });
+
   // The target goes above even when the source was above it to begin with:
   // the ids ('S1' < 'S2') would tiebreak it the other way.
   it('the target goes above a source that sat above it', () => {
