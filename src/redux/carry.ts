@@ -93,9 +93,7 @@ export function startCarry(
   notify();
 }
 
-// KAN-394 (D18). A carry of any kind is live: App.css swaps the save row for
-// its New session target in the frame this is written, with no render to
-// wait for. On for the carry's whole life, through hand-backs.
+// KAN-394 (D18). On for a carry's whole life: App.css swaps the save row for its target in this frame, with no render.
 export function setCarrying(on: boolean): void {
   if (on) document.documentElement.setAttribute('data-carrying', '');
   else document.documentElement.removeAttribute('data-carrying');
