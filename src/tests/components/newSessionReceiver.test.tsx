@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 
 import UserInputContainer from '../../components/home/leftpane/UserInputContainer';
 import {
@@ -181,5 +181,82 @@ describe('the save row as a carry receiver', () => {
 
     expect(taken).toBe(false);
     expect(store.getState().tabContainerDataState).toBe(before);
+  });
+});
+
+// F19 (Justine's pick). The name field names a drop as it names a save, and
+// is emptied the same way: only if it still holds the text the drop used.
+describe('the name field and a drop on the save row', () => {
+  const field = (): HTMLInputElement => {
+    const el = screen.getByPlaceholderText('Name the new session');
+    if (!(el instanceof HTMLInputElement)) throw new Error('not an input');
+    return el;
+  };
+  const type = (value: string) =>
+    act(() => {
+      fireEvent.change(field(), { target: { value } });
+    });
+
+  test('a typed name names the new session, and the field empties', async () => {
+    const { store } = await renderRow();
+    type('Trip');
+    carry(T1);
+
+    act(() => {
+      receiverOnRow().take();
+    });
+
+    expect(store.getState().tabContainerDataState.tabGroups[0].title).toBe(
+      'Trip'
+    );
+    expect(field().value).toBe('');
+  });
+
+  test('with the field empty, the item names it and the field stays empty', async () => {
+    const { store } = await renderRow();
+    carry(T1);
+
+    act(() => {
+      receiverOnRow().take();
+    });
+
+    expect(store.getState().tabContainerDataState.tabGroups[0].title).toBe(
+      't1'
+    );
+    expect(field().value).toBe('');
+  });
+
+  // The name is read on the release: an edit made while carrying names it.
+  // (No edit can land between that read and the clear: take is synchronous,
+  // and React renders an input's change before the next event.)
+  test('text edited during the carry names it, and the field empties', async () => {
+    const { store } = await renderRow();
+    type('Trip');
+    carry(T1);
+    type('Trips');
+
+    act(() => {
+      receiverOnRow().take();
+    });
+
+    expect(store.getState().tabContainerDataState.tabGroups[0].title).toBe(
+      'Trips'
+    );
+    expect(field().value).toBe('');
+  });
+
+  // A refused drop consumes nothing.
+  test('a drop that moves nothing keeps the typed name', async () => {
+    const { store } = await renderRow();
+    type('Trip');
+    carry(GONE);
+    const before = store.getState().tabContainerDataState;
+
+    act(() => {
+      receiverOnRow().take();
+    });
+
+    expect(store.getState().tabContainerDataState).toBe(before);
+    expect(field().value).toBe('Trip');
   });
 });

@@ -7525,9 +7525,35 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
       await expect(detail.locator('[data-drag-row-id="a0"]')).toHaveCount(0);
       await expect(detail.getByText('Window 1', { exact: true })).toBeVisible();
       expect(await toasts(page)).toEqual([]);
+      await expect(
+        page.getByRole('textbox', { name: 'Name the new session', exact: true })
+      ).toHaveValue('');
       await expectSaveRowBack(page);
     });
   }
+
+  // F19 (Justine's pick): a typed name names it, and the field empties as
+  // after a save; hidden while carrying, the field is back empty.
+  test('a name typed in the field names the new session, and the field empties', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const before = await stored(page);
+    const field = page.getByRole('textbox', {
+      name: 'Name the new session',
+      exact: true,
+    });
+    await field.fill('Trip');
+    await ontoSaveRow(page, tabHandle(page, 'a1'));
+    await page.mouse.up();
+
+    const { made } = await newSession(page, before);
+    expect(made.title).toBe('Trip');
+    expect(layoutOf(made)).toEqual(['a1']);
+    await expect(field).toHaveValue('');
+    await expectSaveRowBack(page);
+  });
 
   test('a group: the band moves into the new session’s window, which is named for it', async ({
     context,
