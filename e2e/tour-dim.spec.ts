@@ -6,6 +6,12 @@ import { FULL_VIEW_PATH, openPage, pageGround } from './fixtures/onboarding';
 import { pixelsAt, rgbToHex } from './fixtures/pixels';
 import { boxOf } from './fixtures/savedWindows';
 import {
+  saveRowAim,
+  saveRowSeen,
+  stored,
+  watchSaveRow,
+} from './fixtures/sessionDrag';
+import {
   SAMPLE_TITLE,
   TOUR_VIEWS,
   coach,
@@ -179,6 +185,24 @@ const sampleWindows = async (page: Page): Promise<string[][]> => {
     : undefined;
   return (sample?.windows ?? []).map((w) => w.tabs.map((t) => t.title));
 };
+
+// A tab row picked up, carried out over the session list, then onto the save row.
+async function carryOntoSaveRow(page: Page, row: Locator): Promise<void> {
+  const aim = await saveRowAim(page);
+  const from = await boxOf(row);
+  const [x, y] = [from.x + 60, from.y + from.height / 2];
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 10, { steps: 3 });
+  const sessions = await boxOf(page.locator('[data-pane="sessions"]'));
+  await page.mouse.move(
+    sessions.x + sessions.width / 2,
+    sessions.y + sessions.height * 0.8,
+    { steps: 25 }
+  );
+  await expect(page.locator('[data-carry-card]')).toBeVisible();
+  await page.mouse.move(aim.x, aim.y, { steps: 8 });
+}
 
 for (const view of TOUR_VIEWS) {
   test.describe(view.name, () => {
@@ -416,6 +440,59 @@ for (const view of TOUR_VIEWS) {
       await page.keyboard.press('Escape');
       await page.mouse.up();
       await expect(coachAt(page, 4)).toBeVisible();
+    });
+
+    // KAN-394 F18. While this page runs the tour, the save row takes no
+    // carry: it stays the save row, and a release there changes nothing.
+    test('step 4: a sample tab carried onto the save row draws no New session target and changes nothing', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await startTour(context, extensionId, view);
+      for (const step of [2, 3, 4]) await nextTo(page, step);
+      const before = await stored(page);
+      await watchSaveRow(page);
+      await carryOntoSaveRow(page, page.locator(IN_ROWS).first());
+      await page.mouse.up();
+      // PREMISE: a carry was live over the save row.
+      expect(await saveRowSeen(page)).toEqual({ carrying: '1', target: '0' });
+      await expect(page.locator('[data-carry-card]')).toHaveCount(0);
+      expect(await stored(page)).toEqual(before);
+      await expect(coachAt(page, 4)).toBeVisible();
+    });
+
+    test('CONTROL, no tour: the same carry onto the save row draws the New session target', async ({
+      context,
+      extensionId,
+    }) => {
+      await seedSessions(
+        context,
+        buildContainer([buildSession({ title: 'Kept' })])
+      );
+      const page = await openPage(
+        context,
+        extensionId,
+        view.path,
+        view.viewport
+      );
+      const row = page.locator(
+        '[data-pane="detail"] [data-window-tabs] [data-drag-row-id]'
+      );
+      if (view.view === 'full') {
+        await page
+          .locator('[data-pane="sessions"]')
+          .getByRole('button', { name: 'Kept', exact: true })
+          .click();
+      }
+      await expect(row.first()).toBeVisible();
+      await watchSaveRow(page);
+      await carryOntoSaveRow(page, row.first());
+      await expect(
+        page.locator('[data-new-session-target][data-landing]')
+      ).toHaveCount(1);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+      expect(await saveRowSeen(page)).toEqual({ carrying: '1', target: '1' });
     });
 
     test('step 5: of the open menu only Delete is bright; the rest is dimmed and takes no press', async ({

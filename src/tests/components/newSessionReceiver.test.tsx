@@ -13,7 +13,12 @@ import {
   selectTabContainer,
   type CarriedRef,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import { setSearchInputText } from '../../redux/slices/globalStateSlice';
+import {
+  setSearchInputText,
+  tourStartedHere,
+  tourStoppedHere,
+} from '../../redux/slices/globalStateSlice';
+import { recordSampleTour } from '../../redux/slices/settingsDataStateSlice';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { s1, s2, tabIds } from '../fixtures/sessionMoveFixture';
 
@@ -91,6 +96,27 @@ describe('the save row as a carry receiver', () => {
 
     expect(carryReceiverAt(10, 120)).toBeNull();
     expect(target()).toBeNull();
+  });
+
+  // F18. While this page shows the tour, the row stays the save row.
+  test('is not there while this page runs the tour, and draws no target', async () => {
+    const { store } = await renderRow();
+    act(() => {
+      store.dispatch(
+        recordSampleTour({ sampleId: 'S1', step: 4, view: 'popup' })
+      );
+      store.dispatch(tourStartedHere('S1'));
+    });
+
+    expect(carryReceiverAt(10, 120)).toBeNull();
+    expect(target()).toBeNull();
+
+    // CONTROL: the tour stopped here, it is back.
+    act(() => {
+      store.dispatch(tourStoppedHere());
+    });
+    expect(carryReceiverAt(10, 120)).not.toBeNull();
+    expect(target()).not.toBeNull();
   });
 
   test('is hit on the row’s box as it is now', async () => {

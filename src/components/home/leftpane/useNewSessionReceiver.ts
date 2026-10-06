@@ -1,8 +1,9 @@
 // KAN-394 P3. A carried saved item let go on the save row becomes a new session.
 // Registered at rest too (D19), so a drag that reaches the row hands off to a
-// carry here (KAN-352); never while searching (KAN-385).
+// carry here (KAN-352); never while searching (KAN-385), nor while this page
+// shows a guided run (F18): the row then stays the save row.
 import { useEffect, type RefObject } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
 import type { AppDispatch } from '../../../redux/store';
@@ -12,6 +13,7 @@ import {
   type CarryReceiver,
 } from '../../../redux/carry';
 import { moveToNewSession } from '../../../redux/moveToNewSession';
+import { selectIsGuidedRunHere } from '../../../redux/sampleTour';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 
 // Returns whether the row takes a carry now, which is when it draws a target.
@@ -24,7 +26,8 @@ export function useNewSessionReceiver(
   const dispatch: AppDispatch = useDispatch();
   const { t } = useTranslation();
   const { isSearching } = useSavedSearch();
-  const takes = !isSearching;
+  const guidedRunHere = useSelector(selectIsGuidedRunHere);
+  const takes = !isSearching && !guidedRunHere;
 
   useEffect(() => {
     if (!takes) return;
