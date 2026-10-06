@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -50,10 +50,21 @@ export default function UserInputContainer() {
       ? normalizeTitle(currentTabName) || t('New Tab Group')
       : null;
 
+  // Only a stored session consumes the name, and never text typed since.
+  const consumeName = useCallback(
+    (typed: string) => setNewTitle((now) => (now === typed ? '' : now)),
+    []
+  );
+
   // KAN-394 P3. While a carry is live the row is a New session target.
   const rowRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef<HTMLDivElement>(null);
-  const takesCarry = useNewSessionReceiver(rowRef, targetRef);
+  const takesCarry = useNewSessionReceiver(
+    rowRef,
+    targetRef,
+    newTitle,
+    consumeName
+  );
 
   useEffect(() => {
     // Guards loadSuggestion below against setting state after this
@@ -168,8 +179,7 @@ export default function UserInputContainer() {
     if (!containerData) return;
 
     await dispatch(saveToTabContainer({ container: containerData, scope }));
-    // Only a stored session consumes the name, and never text typed since.
-    setNewTitle((now) => (now === typed ? '' : now));
+    consumeName(typed);
     // The run's save step takes its first save; any later one is ordinary (R6).
     dispatch(takeRunSave(containerData.tabGroupId));
   }

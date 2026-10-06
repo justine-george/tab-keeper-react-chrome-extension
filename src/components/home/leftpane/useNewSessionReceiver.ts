@@ -2,7 +2,7 @@
 // Registered at rest too (D19), so a drag that reaches the row hands off to a
 // carry here (KAN-352); never while searching (KAN-385), nor while this page
 // shows the first run's card (F18): the row then stays the save row.
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
@@ -21,13 +21,23 @@ export function useNewSessionReceiver(
   // The save row: its box is where a carry is taken.
   row: RefObject<HTMLElement | null>,
   // The New session target drawn over it, lit while the pointer is on it.
-  target: RefObject<HTMLElement | null>
+  target: RefObject<HTMLElement | null>,
+  // The name field's text: a non-blank one names the new session (F19).
+  typed: string,
+  // Called with that text after a drop it named, to empty the field.
+  consumeName: (typed: string) => void
 ): boolean {
   const dispatch: AppDispatch = useDispatch();
   const { t } = useTranslation();
   const { isSearching } = useSavedSearch();
   const isRunShown = useSelector(selectIsRunCardShown);
   const takes = !isSearching && !isRunShown;
+
+  // Read on the release, so typing does not re-register the receiver.
+  const typedRef = useRef(typed);
+  useEffect(() => {
+    typedRef.current = typed;
+  }, [typed]);
 
   useEffect(() => {
     if (!takes) return;
@@ -59,7 +69,12 @@ export function useNewSessionReceiver(
       take() {
         const carried = currentCarry()?.carried;
         if (carried === undefined) return false;
-        return dispatch(moveToNewSession(carried, t('New Tab Group')));
+        const name = typedRef.current;
+        const moved = dispatch(
+          moveToNewSession(carried, t('New Tab Group'), name)
+        );
+        if (moved) consumeName(name);
+        return moved;
       },
     };
 
@@ -68,7 +83,7 @@ export function useNewSessionReceiver(
       unregister();
       receiver.leave();
     };
-  }, [takes, row, target, dispatch, t]);
+  }, [takes, row, target, dispatch, t, consumeName]);
 
   return takes;
 }
