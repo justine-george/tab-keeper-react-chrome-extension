@@ -53,7 +53,7 @@ jobs:
         run: npm run typecheck:e2e
 
   e2e:
-    name: E2E shard ${{ matrix.shard }} of 5
+    name: E2E shard ${{ matrix.shard }} of 6
     runs-on: ubuntu-latest
     strategy:
       # Every shard runs to the end: a red one should not hide what the others
@@ -61,10 +61,10 @@ jobs:
       # reason.
       fail-fast: false
       matrix:
-        # Five since KAN-432: at 1289 tests shard 1 of 4 overran the 12-minute
-        # globalTimeout (KAN-404 went 3 to 4 at ~1040). Change this list and the
+        # Six since KAN-454: at 1441 tests shard 2 of 5 overran the 12-minute
+        # globalTimeout (KAN-432 went 4 to 5 at 1289). Change this list and the
         # `--shard` total below together.
-        shard: [1, 2, 3, 4, 5]
+        shard: [1, 2, 3, 4, 5, 6]
 
     steps:
       - name: Checkout repo
@@ -104,7 +104,7 @@ jobs:
       # -- run this locally without building first and it silently drives a
       # stale dist, which is how KAN-142's first bisect went wrong.
       - name: Run E2E tests
-        run: npx playwright test --shard=${{ matrix.shard }}/5
+        run: npx playwright test --shard=${{ matrix.shard }}/6
 
       # trace: 'retain-on-failure' produces nothing anyone can open unless the
       # traces leave the runner. One artifact per shard: names must be unique.
