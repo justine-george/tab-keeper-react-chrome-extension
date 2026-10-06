@@ -34,8 +34,9 @@ export function DropBoxLabel({
   const COLORS = useThemeColors();
   return (
     <div
+      data-drop-label=""
       // What the trailing block hides while unlit.
-      data-new-window-label={hiddenUnlessLit ? '' : undefined}
+      data-drop-label-unlit-hidden={hiddenUnlessLit ? '' : undefined}
       css={css`
         position: absolute;
         inset: 0;

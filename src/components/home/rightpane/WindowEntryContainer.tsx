@@ -326,7 +326,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       border-color: transparent;
       /* Not drawn at all: hidden, its content would still overflow the
          block's zero height at rest and add to the pane's scroll range. */
-      & > [data-new-window-label] {
+      & > [data-drop-label-unlit-hidden] {
         display: none;
       }
     }
