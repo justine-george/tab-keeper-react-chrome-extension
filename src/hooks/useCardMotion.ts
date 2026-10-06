@@ -95,12 +95,4 @@ export function useCardMotion(
       ].filter((element): element is HTMLElement => element !== null)
     );
   }, [frame, markRef, ringRef]);
-
-  // A card that unmounts mid-glide leaves no stale batch to settle.
-  useLayoutEffect(
-    () => () => {
-      glideId.current += 1;
-    },
-    []
-  );
 }

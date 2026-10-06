@@ -569,6 +569,36 @@ describe('motion (§10)', () => {
     expect(ring()?.style.pointerEvents).toBe('');
   });
 
+  test('a cancelled glide’s late cancel event leaves the next glide’s pointer hold alone', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function (this: HTMLElement) {
+        const left = parseFloat(this.style.left) || 0;
+        const top = parseFloat(this.style.top) || 0;
+        return { ...RECT, left, top, x: left, y: top };
+      }
+    );
+    const { rerenderAt } = await render({ step: 2 });
+    await placed();
+    animations.length = 0;
+    anchor.getBoundingClientRect = () => ({ ...RECT, top: 300, y: 300 });
+    rerenderAt({ step: 3 });
+    await waitFor(() => expect(animations.length).toBeGreaterThan(0));
+    const glideA = [...animations];
+    animations.length = 0;
+    anchor.getBoundingClientRect = () => ({ ...RECT, top: 500, y: 500 });
+    rerenderAt({ step: 4 });
+    await waitFor(() => expect(animations.length).toBeGreaterThan(0));
+    const glideB = [...animations];
+    expect(glideA.every((a) => a.cancel.mock.calls.length === 1)).toBe(true);
+    // Chrome fires A's cancel events after B has begun; B still holds the pointer.
+    glideA.forEach((a) => a.events.dispatchEvent(new Event('cancel')));
+    expect(mark()?.style.pointerEvents).toBe('none');
+    expect(ring()?.style.pointerEvents).toBe('none');
+    glideB.forEach((a) => a.events.dispatchEvent(new Event('finish')));
+    expect(mark()?.style.pointerEvents).toBe('');
+    expect(ring()?.style.pointerEvents).toBe('');
+  });
+
   test('a re-placement mid-glide leaves the running glide alone', async () => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
       function (this: HTMLElement) {
