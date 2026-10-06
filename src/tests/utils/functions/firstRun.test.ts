@@ -251,7 +251,7 @@ describe('runAtOpen', () => {
     ).toEqual({ action: 'endUnanswered', check: 'unanswered' });
   });
 
-  test('R13: the full view replaces a running popup run on its first visit', async () => {
+  test('R13: the full view replaces a running popup run on its first visit, at step 1 (the welcome was its hello)', async () => {
     expect(
       await runAtOpen(
         'full',
@@ -262,9 +262,37 @@ describe('runAtOpen', () => {
     ).toEqual({
       action: 'start',
       check: 'started',
-      run: newRun('full', 0, 'welcome'),
+      run: newRun('full', 1),
       beginsSetup: false,
     });
+  });
+
+  test.each([
+    ['ended unanswered', { ...newRun('popup', 0), ended: 'unanswered' }],
+    ['finished', { ...newRun('popup', 7), ended: 'finished' }],
+  ])(
+    'R13: a popup welcome %s was seen, so the first full-view visit starts at step 1',
+    async (_name, firstRun) => {
+      expect(
+        await runAtOpen('full', { setupState: 'pending', firstRun }, 0, free)
+      ).toEqual({
+        action: 'start',
+        check: 'started',
+        run: newRun('full', 1),
+        beginsSetup: false,
+      });
+    }
+  );
+
+  test('R13: setup begun with no record never saw the welcome, so its first full-view visit gets Hello', async () => {
+    expect(await runAtOpen('full', { setupState: 'pending' }, 0, free)).toEqual(
+      {
+        action: 'start',
+        check: 'started',
+        run: newRun('full', 0, 'welcome'),
+        beginsSetup: false,
+      }
+    );
   });
 
   test('an upgrader’s full view starts What’s new; their popup starts nothing', async () => {

@@ -227,33 +227,33 @@ export async function runAtOpen(
   lockState: () => Promise<TourLockState>
 ): Promise<RunAtOpen> {
   const record = asFirstRun(stored.firstRun);
-  if (record !== null && record.ended === null) {
-    if (record.view === view) {
-      const lock = await lockState();
-      if (lock === 'held') return { action: 'nothing', check: 'elsewhere' };
-      if (lock === 'unknown') return { action: 'nothing', check: 'unknown' };
-      if (record.welcomeShows === 1)
-        return { action: 'reshowWelcome', check: 'reshown' };
-      if (record.welcomeShows === 2)
-        return { action: 'endUnanswered', check: 'unanswered' };
-      return { action: 'resume', check: 'resumed' };
-    }
-    if (view === 'full' && isFirstFullViewVisit(stored)) {
-      return start(newRun('full', 0, 'welcome'), false);
-    }
-    return { action: 'nothing', check: 'otherView' };
+  const isRunning = record !== null && record.ended === null;
+  if (isRunning && record.view === view) {
+    const lock = await lockState();
+    if (lock === 'held') return { action: 'nothing', check: 'elsewhere' };
+    if (lock === 'unknown') return { action: 'nothing', check: 'unknown' };
+    if (record.welcomeShows === 1)
+      return { action: 'reshowWelcome', check: 'reshown' };
+    if (record.welcomeShows === 2)
+      return { action: 'endUnanswered', check: 'unanswered' };
+    return { action: 'resume', check: 'resumed' };
   }
   if (view === 'full') {
     if (isNeverSaved19User(stored, storedSessions))
       return start(newRun('full', 0, 'welcome'), true);
+    // A popup record means the welcome was seen, and it was the hello.
     if (isFirstFullViewVisit(stored))
-      return start(newRun('full', 0, 'welcome'), false);
+      return start(
+        record === null ? newRun('full', 0, 'welcome') : newRun('full', 1),
+        false
+      );
     if (isUpgrader(stored, storedSessions))
       return start(newRun('full', 0, 'whatsNew'), false);
   } else if (isNeverSaved19User(stored, storedSessions)) {
     return start(newRun('popup', 0), true);
   }
-  return { action: 'nothing', check: record === null ? 'none' : 'ended' };
+  const check = isRunning ? 'otherView' : record === null ? 'none' : 'ended';
+  return { action: 'nothing', check };
 }
 
 // R10. The session saved last, by its creation instant.

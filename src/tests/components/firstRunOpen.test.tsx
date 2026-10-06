@@ -173,7 +173,7 @@ describe('the firstRun entry', () => {
     expect(seen).not.toContain('settingsDataState/declineCloudConsent');
   });
 
-  test('R13: a new install’s first full-view visit replaces a popup run and deletes nothing', async () => {
+  test('R13: a new install’s first full-view visit replaces a popup run at step 1 and deletes nothing', async () => {
     const sample = buildSession({ tabGroupId: 'sample:x', title: 'Sample' });
     const { store, check } = await openWith(
       'full',
@@ -188,7 +188,7 @@ describe('the firstRun entry', () => {
     expect(check).toBe('started');
     await expect
       .poll(() => store.getState().settingsDataState.firstRun)
-      .toEqual(newRun('full', 0, 'welcome'));
+      .toEqual(newRun('full', 1));
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
     ).toEqual(['sample:x']);

@@ -118,7 +118,7 @@ test('CONTROL: a fresh profile whose first open is the full view gets Hello, and
   expect(await runDrawn(full)).toEqual(['hello']);
 });
 
-test('Q7: closed unanswered, it shows once more; closed again, it ends and the popup is plain', async ({
+test('Q7: closed unanswered, it shows once more; closed again, it ends and the popup is plain; the first full-view visit starts at step 1', async ({
   context,
   extensionId,
 }) => {
@@ -139,6 +139,12 @@ test('Q7: closed unanswered, it shows once more; closed again, it ends and the p
   expect(await runDrawn(third)).toEqual([]);
   expect(await storedRun(third)).toMatchObject({ ended: 'unanswered' });
   expect((await storedSettings(third)).cloudConsent).toBe('declined');
+  // The welcome was seen, so no Hello (CONTROL: the fresh full-view open above, same observer, sees it).
+  const full = await openFullView(context, extensionId);
+  await runCheck(full, 'started');
+  await expect(cardAt(full, 1)).toBeVisible();
+  await queueDone(full);
+  expect(await runDrawn(full)).toEqual(['card']);
 });
 
 for (const [theme, palette] of THEMES) {

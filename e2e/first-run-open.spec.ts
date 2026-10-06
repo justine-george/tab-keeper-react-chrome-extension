@@ -196,7 +196,7 @@ test('a full view reloaded at Hello shows Hello again', async ({
   await expect(hello(full)).toBeVisible();
 });
 
-test('R13: a Not now user’s first full-view visit starts the run at Hello; a later visit does not', async ({
+test('R13: a Not now user’s first full-view visit starts the run at step 1, never Hello; a later visit does not', async ({
   context,
   extensionId,
 }) => {
@@ -208,16 +208,21 @@ test('R13: a Not now user’s first full-view visit starts the run at Hello; a l
   await watchRunDrawn(context);
   const full = await openFullView(context, extensionId);
   await runCheck(full, 'started');
-  await expect(hello(full)).toHaveAccessibleName('Welcome to Tab Keeper');
-  // CONTROL for the later visit: the same observer saw this visit's Hello.
-  expect(await runDrawn(full)).toContain('hello');
-  await hello(full)
-    .getByRole('button', { name: 'Skip tutorial', exact: true })
-    .click();
+  await expect(cardAt(full, 1)).toBeVisible();
+  await queueDone(full);
+  // No Hello (CONTROL: the fresh full-view open below, same observer, sees it); the card is the CONTROL for the later visit.
+  expect(await runDrawn(full)).toEqual(['card']);
+  expect(await storedRun(full)).toMatchObject({
+    view: 'full',
+    step: 1,
+    ended: null,
+  });
+  await cardButton(full, 'Skip tutorial').click();
+  await expect.poll(() => storedRun(full)).toMatchObject({ ended: 'skipped' });
   await full.reload();
   await runCheck(full, 'ended');
   await queueDone(full);
-  expect(await runDrawn(full)).not.toContain('hello');
+  expect(await runDrawn(full)).not.toContain('card');
 });
 
 test('an upgrader: the popup starts nothing; the full view says What’s new, once', async ({

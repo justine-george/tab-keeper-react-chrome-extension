@@ -212,7 +212,7 @@ test('new install, Get started, Next only (Use an example): the sample is gone a
   });
 });
 
-test('new install, Not now: the popup run to ⤢, then the first full-view visit runs Hello, the run, setup and the pin guide', async ({
+test('new install, Not now: the popup run to ⤢, then the first full-view visit runs the run from step 1, setup and the pin guide', async ({
   context,
   extensionId,
   serviceWorker,
@@ -233,7 +233,7 @@ test('new install, Not now: the popup run to ⤢, then the first full-view visit
   const full = await waitForFullView(context);
   await runCheck(full, 'started');
   await expectNothingElseYet(full, serviceWorker, tests);
-  await hello(full).getByRole('button', { name: 'Start', exact: true }).click();
+  await expect(cardAt(full, 1)).toBeVisible();
   for (let step = 2; step <= 3; step++) await nextTo(full, step);
   // R10: the popup run's sample is gone, so step 3 is the save card again.
   await expect(cardButton(full, 'Use an example')).toBeVisible();

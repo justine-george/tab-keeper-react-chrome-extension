@@ -117,12 +117,6 @@ export async function finishFullRun(page: Page): Promise<void> {
   await cardButton(page, 'Not now').click();
 }
 
-// A full-view run from Hello to Not now at its end, which goes on to setup.
-export async function finishFullRunFromHello(page: Page): Promise<void> {
-  await hello(page).getByRole('button', { name: 'Start', exact: true }).click();
-  await finishFullRun(page);
-}
-
 // openRunFromHelp in another language: every name is read from the locale on screen.
 export async function openRunFromHelpIn(
   context: BrowserContext,
