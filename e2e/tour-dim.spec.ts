@@ -4,8 +4,8 @@ import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { FULL_VIEW_PATH, openPage, pageGround } from './fixtures/onboarding';
 import { pixelsAt, rgbToHex } from './fixtures/pixels';
-import { boxOf } from './fixtures/savedWindows';
 import {
+  boxOf,
   saveRowAim,
   saveRowSeen,
   stored,

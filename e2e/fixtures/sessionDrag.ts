@@ -1,26 +1,10 @@
 import type { Locator, Page } from '@playwright/test';
 
-import type { TabMasterContainer } from '../../src/redux/slices/tabContainerDataStateSlice';
-import { isValidTabMasterContainer } from '../../src/utils/functions/local';
+import { boxOf } from './savedWindows';
 
 // Saved-session drags (KAN-350, KAN-394): the store read back and the gesture, shared by every spec that drags a saved row.
 
-export async function stored(page: Page): Promise<TabMasterContainer> {
-  const raw = await page.evaluate(() =>
-    localStorage.getItem('tabContainerData')
-  );
-  const parsed: unknown = JSON.parse(raw ?? 'null');
-  if (!isValidTabMasterContainer(parsed)) {
-    throw new Error(`tabContainerData is not a container: ${raw}`);
-  }
-  return parsed;
-}
-
-export async function boxOf(loc: Locator) {
-  const b = await loc.boundingBox();
-  if (b === null) throw new Error(`no box for ${loc.toString()}`);
-  return b;
-}
+export { stored, boxOf } from './savedWindows';
 
 export interface Point {
   x: number;
@@ -75,8 +59,9 @@ export async function watchSaveRow(page: Page): Promise<void> {
     };
     new MutationObserver(() => {
       flags.sawCarrying = '1';
-      flagTarget();
     }).observe(root, { attributes: true, attributeFilter: ['data-carrying'] });
+    // Any <html> attribute can change what the target's styles resolve to.
+    new MutationObserver(flagTarget).observe(root, { attributes: true });
     new MutationObserver(flagTarget).observe(document.body, {
       childList: true,
       subtree: true,
