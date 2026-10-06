@@ -74,3 +74,8 @@ All measured, not assumed — each cost a debugging cycle to find:
 - **`testDir` in `playwright.config.ts` is load-bearing.** Playwright's default
   testDir is the repo root and its default match includes `.mjs`, so without it
   Playwright collects vitest files it cannot run.
+- **CI shards split by measured time, one test at a time.** So no spec may run
+  serially (a unit test checks). Refresh `shard-weights.json` from a green run:
+  `gh run download <run-id> -p 'timings-shard-*'`, then
+  `node scripts/e2e_shards.mjs timings-shard-*/results-shard-*.json`. A shard
+  refuses to run when under half the tests have a weight.

@@ -1,10 +1,12 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 
 import ShardByTime from './e2e_shard_reporter.mjs';
 import {
   assignShards,
-  meanSecondsPerFile,
+  meanTestSecondsByFile,
   WEIGHTS_FILE,
 } from './e2e_shards.mjs';
 
@@ -61,10 +63,18 @@ describe('assignShards', () => {
   });
 });
 
-describe('meanSecondsPerFile', () => {
+describe('meanTestSecondsByFile', () => {
   const spec = (file, ...durations) => ({
     file,
-    tests: [{ results: durations.map((duration) => ({ duration })) }],
+    tests: [
+      {
+        results: durations.map((duration) => ({ duration, status: 'passed' })),
+      },
+    ],
+  });
+  const ended = (file, status, duration) => ({
+    file,
+    tests: [{ results: [{ duration, status }] }],
   });
 
   test('averages each file across nested suites and reports', () => {
@@ -77,21 +87,37 @@ describe('meanSecondsPerFile', () => {
       ],
     };
     const b = { suites: [{ specs: [spec('a.spec.ts', 500)] }] };
-    const weights = meanSecondsPerFile([a, b]);
+    const weights = meanTestSecondsByFile([a, b]);
     expect(weights).toEqual({ 'a.spec.ts': 0.5, 'b.spec.ts': 2 });
     expect(Object.keys(weights)).toEqual(['a.spec.ts', 'b.spec.ts']);
   });
 
   test('counts a retried test once, by its last result', () => {
     const report = { suites: [{ specs: [spec('r.spec.ts', 30000, 2000)] }] };
-    expect(meanSecondsPerFile([report])).toEqual({ 'r.spec.ts': 2 });
+    expect(meanTestSecondsByFile([report])).toEqual({ 'r.spec.ts': 2 });
   });
 
   test('skips a test that has no result', () => {
     const report = {
       suites: [{ specs: [spec('n.spec.ts'), spec('n.spec.ts', 1000)] }],
     };
-    expect(meanSecondsPerFile([report])).toEqual({ 'n.spec.ts': 1 });
+    expect(meanTestSecondsByFile([report])).toEqual({ 'n.spec.ts': 1 });
+  });
+
+  test('counts only passed results, and leaves out a file with none', () => {
+    const report = {
+      suites: [
+        {
+          specs: [
+            spec('m.spec.ts', 2000),
+            ended('m.spec.ts', 'skipped', 0),
+            ended('m.spec.ts', 'timedOut', 30000),
+            ended('s.spec.ts', 'skipped', 0),
+          ],
+        },
+      ],
+    };
+    expect(meanTestSecondsByFile([report])).toEqual({ 'm.spec.ts': 2 });
   });
 });
 
@@ -107,35 +133,87 @@ describe('the committed weights', () => {
 });
 
 describe('the shard reporter', () => {
-  const run = async (shard) => {
-    const tests = ['a.spec.ts', 'b.spec.ts', 'c.spec.ts', 'd.spec.ts'].map(
-      (f) => ({ location: { file: `/repo/e2e/${f}` } })
-    );
-    const excluded = [];
+  const committed = JSON.parse(readFileSync(WEIGHTS_FILE, 'utf8'));
+  // Seven real spec files, so the reporter weighs them as CI does.
+  const FILES = Object.keys(committed).slice(0, 7);
+  const run = async (shard, { files = FILES, weightsFile } = {}) => {
+    const tests = files.map((f) => ({ location: { file: `/repo/e2e/${f}` } }));
+    const excluded = new Set();
     let skippedSharding = false;
-    await new ShardByTime().preprocess({
+    await new ShardByTime({ weightsFile }).preprocess({
       config: { shard, rootDir: '/repo/e2e' },
       suite: { allTests: () => tests },
       testRun: {
         skipSharding: () => (skippedSharding = true),
-        exclude: (t) => excluded.push(t.location.file),
+        exclude: (t) => excluded.add(tests.indexOf(t)),
       },
     });
-    return { excluded, skippedSharding };
+    const kept = files.map((_, i) => i).filter((i) => !excluded.has(i));
+    return { kept, excluded: [...excluded], skippedSharding };
+  };
+  const weightsOf = (weights) => {
+    const file = join(mkdtempSync(join(tmpdir(), 'shard-')), 'w.json');
+    writeFileSync(file, JSON.stringify(weights));
+    return file;
   };
 
   test('without --shard, leaves the run alone', async () => {
-    expect(await run(null)).toEqual({ excluded: [], skippedSharding: false });
+    expect(await run(null)).toEqual({
+      kept: FILES.map((_, i) => i),
+      excluded: [],
+      skippedSharding: false,
+    });
   });
 
-  test('under --shard, takes over and keeps only its own tests', async () => {
-    const one = await run({ total: 2, current: 1 });
-    const two = await run({ total: 2, current: 2 });
-    expect(one.skippedSharding).toBe(true);
-    expect(one.excluded).toHaveLength(2);
-    expect(two.excluded).toHaveLength(2);
-    expect([...one.excluded, ...two.excluded].sort()).toEqual(
-      ['a', 'b', 'c', 'd'].map((f) => `/repo/e2e/${f}.spec.ts`)
+  test('under --shard, each shard keeps exactly the tests assignShards gives it', async () => {
+    const shards = assignShards(FILES, committed, 3);
+    const kept = [];
+    for (const current of [1, 2, 3]) {
+      const one = await run({ total: 3, current });
+      expect(one.skippedSharding).toBe(true);
+      expect(one.kept).toEqual(
+        FILES.map((_, i) => i).filter((i) => shards[i] === current)
+      );
+      kept.push(...one.kept);
+    }
+    expect(kept.sort((a, b) => a - b)).toEqual(FILES.map((_, i) => i));
+  });
+
+  test('refuses to run when under half the tests have a weight', async () => {
+    const files = ['new-a.spec.ts', 'new-b.spec.ts', FILES[0]];
+    await expect(run({ total: 2, current: 1 }, { files })).rejects.toThrow(
+      /1 of 3 tests have a weight/
+    );
+  });
+
+  test('refuses a shard left with no tests', async () => {
+    const weightsFile = weightsOf({ 'z.spec.ts': 0 });
+    const files = ['z.spec.ts', 'z.spec.ts', 'z.spec.ts'];
+    await expect(
+      run({ total: 2, current: 2 }, { files, weightsFile })
+    ).rejects.toThrow(/shard 2\/2 got no tests/);
+  });
+});
+
+// The reporter deals tests one by one, so a serial group would be split across shards.
+describe('the e2e specs', () => {
+  const SERIAL = /describe\.serial|mode:\s*['"]serial['"]/;
+  const e2e = new URL('../e2e/', import.meta.url);
+  const sources = readdirSync(e2e, { recursive: true })
+    .filter((f) => f.endsWith('.ts'))
+    .map((f) => [f, readFileSync(new URL(f, e2e), 'utf8')]);
+
+  test('none runs serially', () => {
+    expect(sources.length).toBeGreaterThan(100);
+    expect(
+      sources.filter(([, src]) => SERIAL.test(src)).map(([f]) => f)
+    ).toEqual([]);
+  });
+
+  test('CONTROL: the check sees both ways of asking', () => {
+    expect(SERIAL.test("test.describe.serial('x', () => {})")).toBe(true);
+    expect(SERIAL.test("test.describe.configure({ mode: 'serial' })")).toBe(
+      true
     );
   });
 });
