@@ -4147,6 +4147,7 @@ const isPaneLog = (x: unknown): x is PaneFrame[] => {
 async function logPane(page: Page, leaveOut: string[]): Promise<void> {
   await page.evaluate((leaveOut) => {
     const frames: unknown[] = [];
+    delete document.body.dataset.paneFrames;
     document.body.dataset.paneLog = 'on';
     const scroller = () => {
       let el = document.querySelector(
