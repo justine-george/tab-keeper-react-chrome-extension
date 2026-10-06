@@ -695,6 +695,46 @@ describe('step 6, Sync across your devices? (Q9)', () => {
   });
 });
 
+describe('Next answers one press at a time (review)', () => {
+  test('the second click of a double-click on step 5’s Next is no answer', async () => {
+    const { store } = await render(GROUPED);
+    await toStep('Save tab groups too?');
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Next' }), {
+      detail: 2,
+    });
+    await act(async () => {});
+    expect(stepHeading()).toHaveTextContent('Save tab groups too?');
+    expect(store.getState().settingsDataState.isNeverAskAgainForTabGroups).toBe(
+      false
+    );
+  });
+
+  test('Go back pressed before Chrome answers the re-ask keeps the user where Go back put them', async () => {
+    await render();
+    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '5'));
+    await toStep('Open Tab Keeper from the keyboard');
+    // Chrome has not answered yet: the grant check of the shortcut step's re-ask waits.
+    let answer: (held: boolean) => void = () => {};
+    vi.spyOn(chrome.permissions, 'contains').mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          answer = resolve;
+        })
+    );
+    press('Next');
+    await act(async () => {});
+    expect(stepHeading()).toHaveTextContent(
+      'Open Tab Keeper from the keyboard'
+    );
+    press('Go back');
+    expect(stepHeading()).toHaveTextContent('When you click Tab Keeper, open…');
+
+    await act(async () => answer(false));
+    await act(async () => {});
+    expect(stepHeading()).toHaveTextContent('When you click Tab Keeper, open…');
+  });
+});
+
 describe('Korean captions keep their words whole (M5 B)', () => {
   // The caption's own keep-all rules whose selector matches it in the document's language now.
   const keepAllMatching = (el: Element) =>

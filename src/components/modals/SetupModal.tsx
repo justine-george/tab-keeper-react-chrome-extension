@@ -126,13 +126,16 @@ export const SetupModal: React.FC = () => {
   };
   const finish = () => void dispatch(leaveSetup());
   const next = async () => {
+    const from = stepIndex;
     if (step === 'shortcut')
       setAsksTabGroups(await shouldAskTabGroupsInSetup());
     // Q9 2a: Next with step 5 Off is the answer the pop-up offer would ask for.
     if (step === 'tabGroups' && !hasTabGroups) {
       dispatch(setNeverAskAgainForTabGroups());
     }
-    goTo(stepIndex + 1);
+    hasMoved.current = true;
+    // A Go back pressed while Chrome answered wins over this late move.
+    setStepIndex((at) => (at === from ? from + 1 : at));
   };
   const pickLanguage = (next: Language) => dispatch(chooseLanguage(next, i18n));
 
@@ -637,7 +640,11 @@ export const SetupModal: React.FC = () => {
             <button
               type="button"
               css={buttons.primary}
-              onClick={() => void next()}
+              onClick={(e) => {
+                // A double-click's second press would answer the next step unseen.
+                if (e.detail > 1) return;
+                void next();
+              }}
             >
               {t('Next')}
             </button>
