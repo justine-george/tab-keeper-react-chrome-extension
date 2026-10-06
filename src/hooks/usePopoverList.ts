@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  */
 export type PopoverAxis = 'vertical' | 'horizontal';
 
-// KAN-413. A press on the tour's coach mark is inside: its Finish must not close the menu it points at.
+// A press on the run's card counts as inside: its buttons must not close a menu open under it.
 const PRESS_INSIDE = '[data-coach-mark]';
 
 export function usePopoverList({
