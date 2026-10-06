@@ -158,11 +158,11 @@ describe('a move into a new session meets another device', () => {
 
   // The cloud is what A last wrote, accumulating: the move, then the undo.
   it.each([
-    ['a source that keeps other tabs', false, T1],
-    ['a source the move emptied (tombstoned)', true, T3],
+    ['a source that keeps other tabs', false, T1, 't1'],
+    ['a source the move emptied (tombstoned)', true, T3, 't3'],
   ] as const)(
     '(d) A syncs, undoes, syncs again, over %s: the new session stays gone, S1 is back',
-    (_, lonely, carried) => {
+    (_, lonely, carried, tabId) => {
       const { store } = makeTestStore();
       store.dispatch(replaceState(base(lonely)));
       store.dispatch(
@@ -187,9 +187,7 @@ describe('a move into a new session meets another device', () => {
       expect(graves(merged)).toContain(NEW);
       expect(sessionIds(merged)).toContain('S1');
       expect(graves(merged)).not.toContain('S1');
-      expect(
-        whereIs(merged, carried.kind === 'tab' ? carried.tabId : '')
-      ).toEqual(['S1']);
+      expect(whereIs(merged, tabId)).toEqual(['S1']);
 
       // And redo, synced over the same cloud, brings the session back.
       vi.setSystemTime(T0 + 4_000);
