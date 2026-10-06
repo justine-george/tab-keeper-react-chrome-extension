@@ -1,26 +1,10 @@
-// The dashed box a carried or dragged item can be let go in, and its name,
-// shared so every drop target of this kind looks the same.
-import { css, type SerializedStyles } from '@emotion/react';
+// A drop box's name, drawn over its dropBoxStyle box.
+import { css } from '@emotion/react';
 
 import Icon from './Icon';
-import { useThemeColors, type ThemeColors } from '../../hooks/useThemeColors';
+import { useThemeColors } from '../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
-import { RADIUS, TYPE } from '../../styles/scale';
-
-// Dashed, then the hover fill and a solid border once [data-landing] is on.
-// Where the box sits and how tall it is are the caller's.
-export function dropBoxStyle(COLORS: ThemeColors): SerializedStyles {
-  return css`
-    border-width: 1.5px;
-    border-style: dashed;
-    border-color: ${COLORS.LABEL_L2_COLOR};
-    border-radius: ${RADIUS.SQUARE};
-    &[data-landing] {
-      background-color: ${COLORS.HOVER_COLOR};
-      border-style: solid;
-    }
-  `;
-}
+import { TYPE } from '../../styles/scale';
 
 // Fills the box, which must be its nearest positioned ancestor; takes no
 // pointer, so a pointer meets what the box holds.

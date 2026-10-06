@@ -5,7 +5,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
-import { DropBoxLabel, dropBoxStyle } from '../../common/dropBox';
+import { DropBoxLabel } from '../../common/dropBox';
+import { dropBoxStyle } from '../../common/dropBoxStyle';
 import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
 import Button from '../../common/Button';
