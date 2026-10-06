@@ -124,6 +124,27 @@ describe('the firstRun entry', () => {
     ).toBe(3);
   });
 
+  // KAN-451. The answer was recorded at the first opening; a reshow only shows the welcome again.
+  test('a welcome reshow writes no consent answer; the first opening does', async () => {
+    const consentWrites = (seen: string[]) =>
+      seen.filter((type) => /(grant|decline)CloudConsent/.test(type));
+    const first = await openWith('popup', {});
+    await expect
+      .poll(() => first.store.getState().globalState.isCloudConsentModalOpen)
+      .toBe(true);
+    expect(consentWrites(first.seen)).toHaveLength(1);
+    locks.dropAll();
+    const reshow = await openWith('popup', {
+      cloudConsent: 'declined',
+      firstRun: { ...newRun('popup', 0), welcomeShows: 1 },
+    });
+    expect(reshow.check).toBe('reshown');
+    await expect
+      .poll(() => reshow.store.getState().globalState.isCloudConsentModalOpen)
+      .toBe(true);
+    expect(consentWrites(reshow.seen)).toEqual([]);
+  });
+
   test('Q7: the welcome reshows up to its fifth show, counted; the sixth open ends it unanswered and marks the callout seen', async () => {
     const second = await openWith('popup', {
       cloudConsent: 'declined',
