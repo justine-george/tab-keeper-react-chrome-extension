@@ -4072,7 +4072,7 @@ const trailingBlock = (page: Page) =>
 // height, and how far the pane can scroll. KAN-379: also each window's
 // title row top and block height, and the tops of the landing slot, the
 // source room and the held row (null where not drawn), and each band's
-// title row top.
+// title row top. KAN-394: what the save row shows (SaveRowShows).
 interface PaneFrame {
   rows: Record<string, number>;
   bands: Record<string, number>;
@@ -4086,7 +4086,17 @@ interface PaneFrame {
   slot: number | null;
   room: number | null;
   heldTop: number | null;
+  saveRow: SaveRowShows;
 }
+// Its controls; the New session target in their place, unlit or lit; or a
+// frame drawing both or neither.
+type SaveRowShows = 'controls' | 'target' | 'lit' | 'mixed';
+const SAVE_ROW_SHOWS: readonly unknown[] = [
+  'controls',
+  'target',
+  'lit',
+  'mixed',
+];
 const isTopOrNull = (x: unknown) => x === null || typeof x === 'number';
 const isNumberRecord = (x: unknown): x is Record<string, number> =>
   typeof x === 'object' &&
@@ -4123,7 +4133,9 @@ const isPaneLog = (x: unknown): x is PaneFrame[] => {
       'room' in f &&
       isTopOrNull(f.room) &&
       'heldTop' in f &&
-      isTopOrNull(f.heldTop)
+      isTopOrNull(f.heldTop) &&
+      'saveRow' in f &&
+      SAVE_ROW_SHOWS.includes(f.saveRow)
   );
 };
 
@@ -4173,6 +4185,22 @@ async function logPane(page: Page, leaveOut: string[]): Promise<void> {
       }
       const topOf = (selector: string) =>
         document.querySelector(selector)?.getBoundingClientRect().top ?? null;
+      // The save row: the name field's nearest ancestor that also holds a
+      // button, so a build with no data-save-row is read the same way.
+      let saveRow = document.getElementById('name');
+      while (saveRow !== null && saveRow.querySelector('button') === null)
+        saveRow = saveRow.parentElement;
+      const target =
+        saveRow?.querySelector('[data-new-session-target]') ?? null;
+      const targetShown =
+        target !== null && getComputedStyle(target).visibility === 'visible';
+      const controls = [
+        ...(saveRow?.querySelectorAll('input, button, [role="button"]') ?? []),
+      ]
+        .filter((el) => target === null || !target.contains(el))
+        .map((el) => getComputedStyle(el).visibility === 'visible');
+      const controlsShown = controls.length > 0 && controls.every((c) => c);
+      const controlsHidden = controls.length > 0 && controls.every((c) => !c);
       frames.push({
         rows,
         bands,
@@ -4191,6 +4219,14 @@ async function logPane(page: Page, leaveOut: string[]): Promise<void> {
         slot: topOf('[data-drag-landing-slot]'),
         room: topOf('[data-drag-source-room]'),
         heldTop: topOf('[data-drag-held]'),
+        saveRow:
+          controlsShown && !targetShown
+            ? 'controls'
+            : controlsHidden && targetShown
+              ? target?.hasAttribute('data-landing')
+                ? 'lit'
+                : 'target'
+              : 'mixed',
       });
       document.body.dataset.paneFrames = JSON.stringify(frames);
       if (document.body.dataset.paneLog === 'on') requestAnimationFrame(frame);
