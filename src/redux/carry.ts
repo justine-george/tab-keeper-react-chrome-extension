@@ -134,8 +134,8 @@ export type CarryOutcome = 'committed' | 'cancelled';
 
 // Ends the carry: unpublishes the carrying marker, the drag kind and the New
 // window marker, ends the drag hold (which applies every change held
-// meanwhile), then tells subscribers. Nothing moves here -- a receiver that commits does so before
-// calling this.
+// meanwhile), then tells subscribers. Nothing moves here -- a receiver that
+// commits does so before calling this.
 //
 // A no-op when nothing is carried, and that is load-bearing: the hold and the
 // kind are document-wide, and ending them for a carry that is not on would end
