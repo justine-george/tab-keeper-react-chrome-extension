@@ -18,10 +18,12 @@ import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import type { RootState } from '../store';
 import { closeFocusModal, openFocusModal, showToast } from './globalStateSlice';
 import {
+  getStringDate,
   isBlankTitle,
   normalizeTitle,
   saveToLocalStorage,
 } from '../../utils/functions/local';
+import { newSessionTitleOf } from '../../utils/functions/newSessionTitle';
 import {
   captureOpenWindows,
   isAlreadySaved,
@@ -49,6 +51,7 @@ import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
 import { recordValueMoment } from './settingsDataStateSlice';
 import {
   TAB_GROUP_COLORS,
+  isCarriedStillThere,
   partitionTabsIntoItems,
   type TabGroupColor,
 } from '../../utils/functions/tabGroups';
@@ -385,6 +388,21 @@ export interface moveToSessionParams {
   // The instant the move is stamped at: the source at `now`, the target at
   // `now + 1`. Minted by the action creator, like the namespace.
   now: number;
+}
+
+// KAN-394 P3. A carried item moved into a session made for it.
+export interface moveToNewSessionParams {
+  carried: CarriedRef;
+  // The new session's id and its one window's id, minted by the action
+  // creator so the reducer stays pure and the thunk can read the id.
+  tabGroupId: string;
+  newWindowId: string;
+  now: number;
+  // The name when the item and the field give none.
+  fallbackTitle: string;
+  // A name typed in the session name field; blank when none was.
+  typedTitle: string;
+  remintNamespace: string;
 }
 
 export const initialState: TabMasterContainer = {
@@ -2487,6 +2505,80 @@ export const tabContainerDataStateSlice = createSlice({
       }),
     },
 
+    moveToNewSessionInternal: {
+      reducer: (state, action: PayloadAction<moveToNewSessionParams>) => {
+        const {
+          carried,
+          tabGroupId,
+          newWindowId,
+          now,
+          fallbackTitle,
+          typedTitle,
+          remintNamespace,
+        } = action.payload;
+        // The item is gone (or never listed): there is nothing to lift, and
+        // the session made for it would be left empty (D20).
+        if (!isCarriedStillThere(state.tabGroups, carried)) return;
+
+        state.tabGroups.unshift({
+          tabGroupId,
+          title:
+            normalizeTitle(typedTitle) ||
+            newSessionTitleOf(state.tabGroups, carried) ||
+            fallbackTitle,
+          createdTime: getStringDate(new Date(now)),
+          createdAt: now,
+          windowCount: 0,
+          tabCount: 0,
+          isAutoSave: false,
+          isSelected: false,
+          windows: [],
+        });
+
+        const move: SessionMove =
+          carried.kind === 'window'
+            ? { carried, to: { tabGroupId, toIndex: 0 } }
+            : carried.kind === 'tab'
+              ? {
+                  carried,
+                  to: { tabGroupId, newWindowId, at: 'first' },
+                }
+              : {
+                  carried,
+                  to: { tabGroupId, newWindowId, at: 'first' },
+                };
+        tabContainerDataStateSlice.caseReducers.moveToSessionInternal(state, {
+          type: moveToSessionInternal.type,
+          payload: { move, remintNamespace, now },
+        });
+        tabContainerDataStateSlice.caseReducers.selectTabContainer(state, {
+          type: selectTabContainer.type,
+          payload: tabGroupId,
+        });
+      },
+      prepare: (
+        carried: CarriedRef,
+        fallbackTitle: string,
+        typedTitle: string = '',
+        minted: Partial<
+          Pick<
+            moveToNewSessionParams,
+            'tabGroupId' | 'newWindowId' | 'remintNamespace' | 'now'
+          >
+        > = {}
+      ) => ({
+        payload: {
+          carried,
+          fallbackTitle,
+          typedTitle,
+          tabGroupId: minted.tabGroupId ?? uuidv4(),
+          newWindowId: minted.newWindowId ?? uuidv4(),
+          remintNamespace: minted.remintNamespace ?? uuidv4(),
+          now: minted.now ?? Date.now(),
+        },
+      }),
+    },
+
     replaceState: (_state, action: PayloadAction<TabMasterContainer>) => {
       const next = withASelection(action.payload);
       saveToLocalStorage('tabContainerData', next);
@@ -2862,6 +2954,7 @@ export const {
   moveChromeGroupAcrossWindowsInternal,
   moveSessionInternal,
   moveToSessionInternal,
+  moveToNewSessionInternal,
   sortSessionsInternal,
   clearSessionOrder,
   replaceState,
