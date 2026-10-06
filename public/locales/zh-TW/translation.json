@@ -235,10 +235,6 @@
   "Default view": "預設檢視",
   "Compact view": "精簡檢視",
   "Full view": "完整檢視",
-  "Start here": "從這裡開始",
-  "Type a name, then press {{icon}} to save every open window.": "輸入名稱，然後按 {{icon}} 儲存所有開啟的視窗。",
-  "Pick a saved session to see its tabs.": "選擇已儲存的工作階段，即可查看其中的分頁。",
-  "Press Open to bring them all back, any time.": "隨時按「開啟」就能全部還原。",
   "A saved session shows its windows and tabs here.": "已儲存工作階段的視窗和分頁會顯示在這裡。",
   "Sample: Weekend trip": "範例：週末旅行",
   "Getting there": "交通安排",
@@ -311,5 +307,6 @@
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "已儲存的工作階段會保留每個分頁群組的名稱和顏色。Chrome 會請你允許。",
   "Sync across your devices?": "要在你的裝置間同步嗎？",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "關：你的工作階段只會保存在這台裝置上。開：會先請你確認，並說明儲存哪些內容以及{{policy}}。",
-  "privacy policy": "隱私權政策"
+  "privacy policy": "隱私權政策",
+  "Saved sessions appear here.": "已儲存的工作階段會顯示在這裡。"
 }

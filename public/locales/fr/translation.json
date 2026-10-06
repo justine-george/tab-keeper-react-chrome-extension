@@ -245,10 +245,6 @@
   "Default view": "Vue par défaut",
   "Compact view": "Vue compacte",
   "Full view": "Vue complète",
-  "Start here": "Commencez ici",
-  "Type a name, then press {{icon}} to save every open window.": "Saisissez un nom, puis appuyez sur {{icon}} pour enregistrer toutes les fenêtres ouvertes.",
-  "Pick a saved session to see its tabs.": "Choisissez une session enregistrée pour voir ses onglets.",
-  "Press Open to bring them all back, any time.": "Appuyez sur Ouvrir pour tout retrouver, à tout moment.",
   "A saved session shows its windows and tabs here.": "Une session enregistrée affiche ici ses fenêtres et ses onglets.",
   "Sample: Weekend trip": "Exemple : escapade d'un week-end",
   "Getting there": "Le trajet",
@@ -321,5 +317,6 @@
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Les sessions enregistrées gardent le nom et la couleur de chaque groupe d’onglets. Chrome vous demandera de l’autoriser.",
   "Sync across your devices?": "Synchroniser entre vos appareils ?",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Éteint : vos sessions restent sur cet appareil. Allumé vous demande d’abord de confirmer, avec ce qui est stocké et la {{policy}}.",
-  "privacy policy": "politique de confidentialité"
+  "privacy policy": "politique de confidentialité",
+  "Saved sessions appear here.": "Les sessions enregistrées apparaissent ici."
 }

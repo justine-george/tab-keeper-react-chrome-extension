@@ -240,10 +240,6 @@
   "Default view": "Default view",
   "Compact view": "Compact view",
   "Full view": "Full view",
-  "Start here": "Start here",
-  "Type a name, then press {{icon}} to save every open window.": "Type a name, then press {{icon}} to save every open window.",
-  "Pick a saved session to see its tabs.": "Pick a saved session to see its tabs.",
-  "Press Open to bring them all back, any time.": "Press Open to bring them all back, any time.",
   "A saved session shows its windows and tabs here.": "A saved session shows its windows and tabs here.",
   "Sample: Weekend trip": "Sample: Weekend trip",
   "Getting there": "Getting there",
@@ -316,5 +312,6 @@
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.",
   "Sync across your devices?": "Sync across your devices?",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.",
-  "privacy policy": "privacy policy"
+  "privacy policy": "privacy policy",
+  "Saved sessions appear here.": "Saved sessions appear here."
 }

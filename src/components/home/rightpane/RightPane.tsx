@@ -12,7 +12,7 @@ import StartHereHint from './StartHereHint';
 import TabGroupDetailsContainer from './TabGroupDetailsContainer';
 import NoMatchState from '../../common/NoMatchState';
 import { useNoMatchPlace } from '../../../hooks/useNoMatchPlace';
-import { useShowsStartHere } from '../../../hooks/useShowsStartHere';
+import { useIsSavedListEmpty } from '../../../hooks/useIsSavedListEmpty';
 
 function RightPane() {
   const tabContainerDataList = useSelector(
@@ -21,7 +21,7 @@ function RightPane() {
 
   const { text: searchText } = useSavedSearch();
   const { query, place } = useNoMatchPlace();
-  const showsStartHere = useShowsStartHere();
+  const isEmpty = useIsSavedListEmpty();
 
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
@@ -47,8 +47,8 @@ function RightPane() {
 
   if (place === 'detail')
     return <NoMatchState query={query} inset={48} scope="saved" />;
-  // KAN-7 §2. Zero sessions: say where they will show, instead of nothing.
-  if (showsStartHere) return <StartHereHint />;
+  // Zero sessions: say where they will show, instead of nothing.
+  if (isEmpty) return <StartHereHint />;
 
   return (
     <>

@@ -250,10 +250,6 @@
   "Default view": "Вид по умолчанию",
   "Compact view": "Компактный вид",
   "Full view": "Полный вид",
-  "Start here": "Начните отсюда",
-  "Type a name, then press {{icon}} to save every open window.": "Введите название и нажмите {{icon}}, чтобы сохранить все открытые окна.",
-  "Pick a saved session to see its tabs.": "Выберите сохранённую сессию, чтобы увидеть её вкладки.",
-  "Press Open to bring them all back, any time.": "Нажмите «Открыть», чтобы в любой момент вернуть их все.",
   "A saved session shows its windows and tabs here.": "Здесь сохранённая сессия показывает свои окна и вкладки.",
   "Sample: Weekend trip": "Пример: Поездка на выходные",
   "Getting there": "Как добраться",
@@ -326,5 +322,6 @@
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Сохранённые сессии запоминают название и цвет каждой группы вкладок. Chrome попросит вас разрешить это.",
   "Sync across your devices?": "Синхронизировать между вашими устройствами?",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Выкл: ваши сессии остаются на этом устройстве. При «Вкл» мы сначала попросим подтвердить, показав, что хранится, и {{policy}}.",
-  "privacy policy": "политику конфиденциальности"
+  "privacy policy": "политику конфиденциальности",
+  "Saved sessions appear here.": "Здесь появятся сохранённые сессии."
 }

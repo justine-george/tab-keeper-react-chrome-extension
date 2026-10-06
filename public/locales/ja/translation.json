@@ -235,10 +235,6 @@
   "Default view": "既定のビュー",
   "Compact view": "コンパクトビュー",
   "Full view": "フルビュー",
-  "Start here": "ここから始めましょう",
-  "Type a name, then press {{icon}} to save every open window.": "名前を入力して {{icon}} を押すと、開いているウィンドウをすべて保存できます。",
-  "Pick a saved session to see its tabs.": "保存したセッションを選ぶと、そのタブが表示されます。",
-  "Press Open to bring them all back, any time.": "「開く」を押せば、いつでもすべて元に戻せます。",
   "A saved session shows its windows and tabs here.": "保存したセッションのウィンドウとタブがここに表示されます。",
   "Sample: Weekend trip": "サンプル: 週末旅行",
   "Getting there": "行き方",
@@ -311,5 +307,6 @@
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "保存したセッションに、各タブグループの名前と色も残ります。Chrome から許可を求められます。",
   "Sync across your devices?": "デバイス間で同期しますか？",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "オフ：セッションはこのデバイスに残ります。オンにすると、保存される内容と{{policy}}を確認してから同期を始めます。",
-  "privacy policy": "プライバシーポリシー"
+  "privacy policy": "プライバシーポリシー",
+  "Saved sessions appear here.": "保存したセッションはここに表示されます。"
 }

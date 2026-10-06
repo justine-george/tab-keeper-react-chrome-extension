@@ -245,10 +245,6 @@
   "Default view": "Visualização padrão",
   "Compact view": "Visualização compacta",
   "Full view": "Visualização completa",
-  "Start here": "Comece aqui",
-  "Type a name, then press {{icon}} to save every open window.": "Digite um nome e pressione {{icon}} para salvar todas as janelas abertas.",
-  "Pick a saved session to see its tabs.": "Escolha uma sessão salva para ver as abas dela.",
-  "Press Open to bring them all back, any time.": "Pressione Abrir para trazer todas de volta, a qualquer momento.",
   "A saved session shows its windows and tabs here.": "Uma sessão salva mostra aqui as janelas e abas dela.",
   "Sample: Weekend trip": "Exemplo: Viagem de fim de semana",
   "Getting there": "Como chegar",
@@ -321,5 +317,6 @@
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "As sessões salvas mantêm o nome e a cor de cada grupo de guias. O Chrome vai pedir sua permissão.",
   "Sync across your devices?": "Sincronizar entre seus dispositivos?",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Desligado: suas sessões ficam neste dispositivo. Ligado pede sua confirmação primeiro, com o que é armazenado e a {{policy}}.",
-  "privacy policy": "política de privacidade"
+  "privacy policy": "política de privacidade",
+  "Saved sessions appear here.": "As sessões salvas aparecem aqui."
 }

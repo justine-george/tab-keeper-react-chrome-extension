@@ -61,8 +61,8 @@ describe('RightPane', () => {
     expect(screen.getByText('Morning reading')).toBeTruthy();
   });
 
-  // KAN-7 §2: zero sessions draws the Start here line, and neither child.
-  test('draws only the Start here line when the store is empty', async () => {
+  // Zero sessions draws the detail pane line, and neither child.
+  test('draws only the detail pane line when the store is empty', async () => {
     const { container } = await renderWithProviders(<RightPane />);
 
     expect(container.querySelector('[data-start-here-hint]')).not.toBeNull();

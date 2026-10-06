@@ -107,9 +107,7 @@ describe('the saved search row (S1, S2)', () => {
     await renderWithProviders(<TabGroupEntryContainer />);
 
     expect(field()).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: 'Start here' })
-    ).toBeInTheDocument();
+    expect(screen.getByText('Saved sessions appear here.')).toBeInTheDocument();
   });
 });
 
@@ -207,7 +205,7 @@ describe('a search that matches nothing (R3, R4)', () => {
     const message = screen.getByText('No saved tab matches "zzz"');
     expect(message.closest('[data-pane="detail"]')).not.toBeNull();
     expect(
-      screen.queryByRole('heading', { name: 'Start here' })
+      screen.queryByText('Saved sessions appear here.')
     ).not.toBeInTheDocument();
   });
 });

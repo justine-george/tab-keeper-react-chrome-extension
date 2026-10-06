@@ -240,10 +240,6 @@
   "Default view": "Standardvy",
   "Compact view": "Kompakt vy",
   "Full view": "Helvy",
-  "Start here": "Börja här",
-  "Type a name, then press {{icon}} to save every open window.": "Skriv ett namn och tryck sedan på {{icon}} för att spara alla öppna fönster.",
-  "Pick a saved session to see its tabs.": "Välj en sparad session för att se dess flikar.",
-  "Press Open to bring them all back, any time.": "Tryck på Öppna för att få tillbaka alla, när du vill.",
   "A saved session shows its windows and tabs here.": "En sparad session visar sina fönster och flikar här.",
   "Sample: Weekend trip": "Exempel: Helgresa",
   "Getting there": "Ta sig dit",
@@ -316,5 +312,6 @@
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Sparade sessioner behåller varje flikgrupps namn och färg. Chrome ber dig att tillåta det.",
   "Sync across your devices?": "Synka mellan dina enheter?",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Av: dina sessioner stannar på den här enheten. På ber dig bekräfta först, med vad som lagras och {{policy}}.",
-  "privacy policy": "integritetspolicyn"
+  "privacy policy": "integritetspolicyn",
+  "Saved sessions appear here.": "Sparade sessioner visas här."
 }
