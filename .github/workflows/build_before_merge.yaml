@@ -104,7 +104,17 @@ jobs:
       # -- run this locally without building first and it silently drives a
       # stale dist, which is how KAN-142's first bisect went wrong.
       - name: Run E2E tests
-        run: npx playwright test --shard=${{ matrix.shard }}/6
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: results-shard-${{ matrix.shard }}.json
+        run: npx playwright test --shard=${{ matrix.shard }}/6 --reporter=list,json
+
+      - name: Upload per-test timing report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: timings-shard-${{ matrix.shard }}
+          path: results-shard-${{ matrix.shard }}.json
+          retention-days: 7
 
       # trace: 'retain-on-failure' produces nothing anyone can open unless the
       # traces leave the runner. One artifact per shard: names must be unique.
