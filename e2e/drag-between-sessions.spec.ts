@@ -1989,7 +1989,7 @@ const newWindowBox = (page: Page, which: 'first' | 'last') =>
     );
     if (el === null) return null;
     const style = getComputedStyle(el);
-    const name = el.querySelector('[data-new-window-label]');
+    const name = el.querySelector('[data-drop-label]');
     return {
       inner: el.clientHeight,
       fill: style.backgroundColor,
@@ -2065,6 +2065,7 @@ test.describe('the target visuals (V1-V4)', () => {
     expect(lit?.landing).toBe(true);
     expect(rgbToHex(lit?.fill ?? '')).toBe(LIGHT_THEME.HOVER_COLOR);
     expect(lit?.border).toBe('solid');
+    expect(lit?.named).toBe(true);
     // The drag is live, and no landing slot is drawn: the lit box is what
     // says where the row goes (a landing on the header names no slot).
     await expect(tabHandle(page, 'carried:a1')).toHaveAttribute(
