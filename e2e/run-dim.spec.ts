@@ -13,7 +13,11 @@ import {
   hitAt,
   nextTo,
   openRunFromHelp,
+  runDrawn,
   storedRun,
+  storedTitles,
+  watchRunDrawn,
+  FULL_RUN,
 } from './fixtures/run';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 
@@ -194,3 +198,58 @@ for (const view of RUN_VIEWS) {
     });
   });
 }
+
+// The run's own save raises the usual toast over the dim; ⌘Z of that save at the next step ends the run as R2 says.
+test('full view: the run’s save toast is drawn over the dim and takes the pointer; ⌘Z at step 4 undoes the save and the run ends quietly', async ({
+  context,
+  extensionId,
+}) => {
+  const gmail = 'https://mail.google.com/mail/u/0/';
+  await context.route(gmail, (route) =>
+    route.fulfill({
+      contentType: 'text/html; charset=utf-8',
+      body: '<title>(3) Inbox – Gmail</title>',
+    })
+  );
+  await watchRunDrawn(context);
+  await (await context.newPage()).goto(gmail);
+  const page = await openRunFromHelp(context, extensionId, FULL_RUN);
+  await nextTo(page, 2);
+  await nextTo(page, 3);
+  await page
+    .locator('[data-tour-anchor="save"]')
+    .getByRole('button', {
+      name: 'Save all open windows as a session',
+      exact: true,
+    })
+    .click();
+  const toast = page.locator('[data-toast]', {
+    hasText: 'All open windows saved as a session.',
+  });
+  await expect(toast).toBeVisible();
+  await expect(cardAt(page, 4)).toBeVisible();
+  await expect(dim(page)).toHaveCount(1);
+  const [x, y] = await centreOf(toast);
+  expect(
+    await page.evaluate(
+      ([x, y]) =>
+        document.elementFromPoint(x, y)?.closest('[data-toast]') != null,
+      [x, y]
+    )
+  ).toBe(true);
+  // CONTROL: beside the toast, the same probe lands on the dim.
+  const box = await toast.boundingBox();
+  if (box === null) throw new Error('no toast');
+  expect(await hitAt(page, box.x - 10, box.y + box.height / 2)).toBe('dim');
+  expect(await storedTitles(page)).toEqual(['Inbox – Gmail']);
+
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect.poll(() => storedTitles(page)).toEqual([]);
+  await expect
+    .poll(() => storedRun(page))
+    .toMatchObject({ view: 'full', ended: 'sessionGone' });
+  await expect(card(page)).toHaveCount(0);
+  await expect(dim(page)).toHaveCount(0);
+  // R2: nothing opens after it. CONTROL: first-run-open's setup test, where this observer sees setup.
+  expect(await runDrawn(page)).toEqual(['card', 'hello']);
+});
