@@ -53,7 +53,7 @@ jobs:
         run: npm run typecheck:e2e
 
   e2e:
-    name: E2E shard ${{ matrix.shard }} of 6
+    name: E2E shard ${{ matrix.shard }} of ${{ strategy.job-total }}
     runs-on: ubuntu-latest
     strategy:
       # Every shard runs to the end: a red one should not hide what the others
@@ -61,10 +61,11 @@ jobs:
       # reason.
       fail-fast: false
       matrix:
-        # Six since KAN-454: at 1441 tests shard 2 of 5 overran the 12-minute
-        # globalTimeout (KAN-432 went 4 to 5 at 1289). Change this list and the
-        # `--shard` total below together.
-        shard: [1, 2, 3, 4, 5, 6]
+        # Shards hold equal measured time, not equal test counts (KAN-444): on
+        # six count-split shards one ran 692s of tests and another 272s. Ten
+        # time-split shards estimate ~4.5 min of tests each. The `--shard` total
+        # below follows this list's length.
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
     steps:
       - name: Checkout repo
@@ -103,8 +104,23 @@ jobs:
       # step immediately above builds dist and nothing between them touches it
       # -- run this locally without building first and it silently drives a
       # stale dist, which is how KAN-142's first bisect went wrong.
+      #
+      # No --reporter here: it would replace the config's reporters, and with
+      # them the time split (scripts/e2e_shard_reporter.mjs).
       - name: Run E2E tests
-        run: npx playwright test --shard=${{ matrix.shard }}/6
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: results-shard-${{ matrix.shard }}.json
+        run: npx playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+
+      # Per-test times: `node scripts/e2e_shards.mjs results-shard-*.json`
+      # refreshes e2e/shard-weights.json from these.
+      - name: Upload per-test timing report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: timings-shard-${{ matrix.shard }}
+          path: results-shard-${{ matrix.shard }}.json
+          retention-days: 30
 
       # trace: 'retain-on-failure' produces nothing anyone can open unless the
       # traces leave the runner. One artifact per shard: names must be unique.

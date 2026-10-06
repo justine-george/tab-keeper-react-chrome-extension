@@ -46,9 +46,6 @@ import {
 } from '../src/hooks/useThemeColors';
 import { SPRING_OPEN_MS } from '../src/components/common/springOpen';
 
-// Lets CI shards split this file's tests; each test has its own browser (KAN-432).
-test.describe.configure({ mode: 'parallel' });
-
 const POPUP = { width: 790, height: 550 };
 const TAB_VIEW = { width: 1280, height: 800 };
 // Wide enough for Open now's resize grip (KAN-321: above 1316px).
