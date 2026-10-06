@@ -37,6 +37,16 @@ async function watchNewTabs(page: Page): Promise<() => Promise<number>> {
   return async () => (await count()) - before;
 }
 
+// Whether a pointer at (x, y) lands inside the control named `label`.
+const landsOn = (page: Page, x: number, y: number, label: string) =>
+  page.evaluate(
+    ([x, y, label]) =>
+      document
+        .elementFromPoint(Number(x), Number(y))
+        ?.closest(`[aria-label="${label}"]`) != null,
+    [x, y, label] as const
+  );
+
 const ring = (page: Page) =>
   page.locator('[data-coach-ring]').evaluate((el) => {
     const { left, top, width, height, bottom } = el.getBoundingClientRect();
@@ -160,6 +170,95 @@ test('step 2 in the default folded view names the fold button it shows, and pres
     await fold.textContent()
   );
   expect(await storedRun(page)).toMatchObject({ step: 2, ended: null });
+});
+
+test('step 7: a window renamed from its title is stored, and a window folds and unfolds; the card stays at step 7', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openRunFromHelp(context, extensionId, FULL_RUN);
+  await nextTo(page, 2);
+  await nextTo(page, 3);
+  await cardButton(page, 'Use an example').click();
+  await expect(cardAt(page, 4)).toBeVisible();
+  for (let step = 5; step <= 7; step++) await nextTo(page, step);
+  const detail = page.locator('[data-pane="detail"]');
+  const title = detail.getByRole('button', {
+    name: 'Rename window: Getting there',
+    exact: true,
+  });
+  const [tx, ty] = await centreOf(title);
+  await expect
+    .poll(() => landsOn(page, tx, ty, 'Rename window: Getting there'))
+    .toBe(true);
+  await page.mouse.click(tx, ty);
+  const field = detail.getByPlaceholder('Name this window', { exact: true });
+  await field.fill('Lisbon flights');
+  await field.press('Enter');
+  await expect(
+    detail.getByRole('button', {
+      name: 'Rename window: Lisbon flights',
+      exact: true,
+    })
+  ).toBeVisible();
+  await expect
+    .poll(async () => {
+      const run = await storedRun(page);
+      const id =
+        typeof run === 'object' && run !== null
+          ? Reflect.get(run, 'sessionId')
+          : null;
+      return page.evaluate((id) => {
+        const parsed: unknown = JSON.parse(
+          localStorage.getItem('tabContainerData') ?? 'null'
+        );
+        const groups: unknown =
+          typeof parsed === 'object' && parsed !== null
+            ? Reflect.get(parsed, 'tabGroups')
+            : null;
+        if (!Array.isArray(groups)) return null;
+        const session: unknown = groups.find(
+          (g: unknown) =>
+            typeof g === 'object' &&
+            g !== null &&
+            Reflect.get(g, 'tabGroupId') === id
+        );
+        const windows: unknown =
+          typeof session === 'object' && session !== null
+            ? Reflect.get(session, 'windows')
+            : null;
+        return Array.isArray(windows)
+          ? windows.map((w: unknown) =>
+              typeof w === 'object' && w !== null
+                ? Reflect.get(w, 'title')
+                : null
+            )
+          : null;
+      }, id);
+    })
+    .toEqual(['Lisbon flights', 'Things to do']);
+  await expect(cardAt(page, 7)).toBeVisible();
+  const collapse = detail.getByRole('button', {
+    name: 'Collapse: Things to do',
+    exact: true,
+  });
+  const [cx, cy] = await centreOf(collapse);
+  // Polled: the card glides to its place at step 7, over these rows on the way.
+  await expect
+    .poll(() => landsOn(page, cx, cy, 'Collapse: Things to do'))
+    .toBe(true);
+  await page.mouse.click(cx, cy);
+  const expand = detail.getByRole('button', {
+    name: 'Expand: Things to do',
+    exact: true,
+  });
+  await expect(expand).toHaveAttribute('aria-expanded', 'false');
+  await expect(cardAt(page, 7)).toBeVisible();
+  expect(await landsOn(page, cx, cy, 'Expand: Things to do')).toBe(true);
+  await page.mouse.click(cx, cy);
+  await expect(collapse).toHaveAttribute('aria-expanded', 'true');
+  await expect(cardAt(page, 7)).toBeVisible();
+  expect(await storedRun(page)).toMatchObject({ step: 7, ended: null });
 });
 
 test('Next onto the save step glides the card there and never lifts the dim (KAN-436)', async ({
