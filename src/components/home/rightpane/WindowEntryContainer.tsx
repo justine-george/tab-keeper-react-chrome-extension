@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import ClickableRow from '../../common/ClickableRow';
+import { DropBoxLabel, dropBoxStyle } from '../../common/dropBox';
 import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
 import GroupColorPicker from '../../common/GroupColorPicker';
@@ -52,8 +53,7 @@ import { GroupFrameFollower } from './rowDrag/GroupFrameFollower';
 import { ADJACENT_GROUP_GAP_PX, BAND_MARGIN_PX } from './bandSpacing';
 import { useIsSpringOpen } from '../../../redux/springOpenWindows';
 import { springSweepStyle } from '../../common/springOpen';
-import { NEW_LAST_WINDOW, newWindowTargetBoxStyle } from './newWindowTarget';
-import { NewWindowTargetLabel } from './NewWindowTargetLabel';
+import { NEW_LAST_WINDOW } from './newWindowTarget';
 import RowOpenButton from './RowOpenButton';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
 import { placeholderStyle } from '../../../styles/placeholder';
@@ -293,7 +293,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // row (data-new-window-room) when none does, so the block is the same
   // height either way and a carry starting changes nothing.
   //
-  // Drawn blank. Lit -- the header target's look (newWindowTargetBoxStyle,
+  // Drawn blank. Lit -- the header target's look (dropBoxStyle,
   // V2 A) and its name -- only while the landing is in it: a tab or group
   // let go below the last window makes a new last window (KAN-366 B). Lit,
   // it is one row tall with its borders whether or not the list gave it
@@ -686,11 +686,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     <div
       css={
         isTrailingBlock
-          ? [
-              containerStyle,
-              newWindowTargetBoxStyle(COLORS),
-              trailingBlockStyle,
-            ]
+          ? [containerStyle, dropBoxStyle(COLORS), trailingBlockStyle]
           : containerStyle
       }
       data-drop-window-id={windowId}
@@ -729,7 +725,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     >
       {isTrailingBlock ? (
         // The target's name, over the phantom below it, shown while lit.
-        <NewWindowTargetLabel />
+        <DropBoxLabel text={t('CarryNewWindowTarget')} hiddenUnlessLit />
       ) : (
         /* The grab handle for the WINDOW drag (KAN-129), read by the area
             above this component through its handleSelector. It has to be the
