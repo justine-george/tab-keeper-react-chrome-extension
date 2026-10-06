@@ -172,14 +172,14 @@ describe('the Help category', () => {
     expect(store.getState().globalState.isRunHere).toBe(true);
   });
 
-  test('in the full view, Show me around records the run at its Hello (R11)', async () => {
+  test('in the full view, Show me around records the run at step 1, with no Hello (R11)', async () => {
     history.replaceState(null, '', '?view=tab');
     const { store } = await renderHelp();
     await read('unpinned');
     fireEvent.click(screen.getByRole('button', { name: 'Show me around' }));
     await waitFor(() =>
       expect(store.getState().settingsDataState.firstRun).toEqual(
-        newRun('full', 0, 'welcome')
+        newRun('full', 1)
       )
     );
   });

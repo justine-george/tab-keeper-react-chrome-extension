@@ -11,6 +11,7 @@ import {
   twoFrames,
 } from './fixtures/onboarding';
 import {
+  FULL_AT_HELLO,
   FULL_RUN,
   card,
   cardAt,
@@ -21,13 +22,15 @@ import {
   hitAt,
   nextTo,
   openRunFromHelp,
+  runDrawn,
   seedSessionsIfAbsent,
   startRunFromHelp,
   storedRun,
   storedTitles,
+  watchRunDrawn,
 } from './fixtures/run';
 
-// §3 on the real build, from Help: Hello, then 8 cards, each in its mocked place.
+// §3 on the real build, from Help: 8 cards, each in its mocked place.
 
 // How many tabs the browser has gained since now, read from the browser itself, not from the harness's announcement.
 async function watchNewTabs(page: Page): Promise<() => Promise<number>> {
@@ -53,11 +56,14 @@ const ring = (page: Page) =>
     return { left, top, width, height, bottom };
   });
 
-test('Hello, the eight cards in their places, Back and Next, and Not now', async ({
+test('Help starts at card 1 with no Hello; the eight cards in their places, Back and Next, and Not now', async ({
   context,
   extensionId,
 }) => {
+  await watchRunDrawn(context);
   const page = await openRunFromHelp(context, extensionId, FULL_RUN);
+  // CONTROL: 'Esc on Hello' below, where the same observer sees Hello.
+  expect(await runDrawn(page)).toEqual(['card']);
   await expect.poll(() => cardSide(page)).toBe('left');
   await expect(card(page).getByRole('progressbar')).toHaveAttribute(
     'aria-valuetext',
@@ -341,7 +347,6 @@ test('Esc on a middle card is Skip tutorial; on the last it is Not now (R5); bot
   await page.keyboard.press('Escape');
   await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'skipped' });
   await startRunFromHelp(page);
-  await hello(page).getByRole('button', { name: 'Start', exact: true }).click();
   await expect(cardAt(page, 1)).toBeVisible();
   for (let step = 2; step <= 3; step++) await nextTo(page, step);
   await cardButton(page, 'Use an example').click();
@@ -356,9 +361,11 @@ test('Esc on Hello is Skip tutorial, and is prevented (KAN-426)', async ({
   extensionId,
 }) => {
   await watchEscapes(context);
+  await watchRunDrawn(context);
+  await seedSettings(context, { firstRun: FULL_AT_HELLO });
   const page = await openPage(context, extensionId, FULL_VIEW_PATH, FULL);
-  await startRunFromHelp(page);
   await expect(hello(page)).toBeVisible();
+  expect(await runDrawn(page)).toContain('hello');
   await page.keyboard.press('Escape');
   await expect(hello(page)).toHaveCount(0);
   await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'skipped' });

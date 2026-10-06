@@ -122,9 +122,8 @@ export default function HelpSettings() {
     if (isTabView()) dispatch(showInFullView('pinGuide'));
     else void requestTabView('pinGuide');
   };
-  // R11. This view's run from its first card: Hello in the full view, the save card in the popup.
-  const showMeAround = () =>
-    void dispatch(startRun(newRun(thisView(), isTabView() ? 0 : 1)));
+  // R11. This view's run from its first card, with no Hello: whoever opens Help has met Tab Keeper.
+  const showMeAround = () => void dispatch(startRun(newRun(thisView(), 1)));
 
   return (
     <div

@@ -14,6 +14,7 @@ import { contrast, rgbToHex } from './fixtures/pixels';
 import { localeStrings } from './fixtures/locales';
 import { pairFit } from './fixtures/pairFit';
 import {
+  FULL_AT_HELLO,
   FULL_RUN,
   POPUP_RUN,
   card,
@@ -185,14 +186,20 @@ for (const lang of LANGS) {
         context,
         extensionId,
       }) => {
-        await seedRawSettingsIfAbsent(context, { ...SETTLED, language: lang });
+        // Help starts at card 1, so the full view's Hello comes from a run recorded at step 0.
+        await seedRawSettingsIfAbsent(context, {
+          ...SETTLED,
+          language: lang,
+          ...(view.view === 'full' ? { firstRun: FULL_AT_HELLO } : {}),
+        });
         const page = await openIn(context, extensionId, view);
         await expectRootTook(page);
-        await startRunFromHelp(page, say);
         if (view.view === 'full') {
           await expect(hello(page)).toBeVisible();
           await expectFits(hello(page), `${lang} ${view.name} Hello`);
           await press(hello(page), say('Start'));
+        } else {
+          await startRunFromHelp(page, say);
         }
         for (let step = 1; step <= view.total; step++) {
           await expect(cardAt(page, step)).toBeVisible();
@@ -227,7 +234,6 @@ for (const lang of LANGS) {
           if (other !== page) await other.close();
         }
         await startRunFromHelp(page, say);
-        if (view.view === 'full') await press(hello(page), say('Start'));
         for (let step = 1; step < saveStep(view); step++) {
           await press(card(page), say('Next'));
           await expect(cardAt(page, step + 1)).toBeVisible();
@@ -384,12 +390,15 @@ for (const [lang, welcomeWidth] of [
       context,
       extensionId,
     }) => {
-      await seedRawSettingsIfAbsent(context, { ...SETTLED, language: lang });
+      await seedRawSettingsIfAbsent(context, {
+        ...SETTLED,
+        language: lang,
+        firstRun: FULL_AT_HELLO,
+      });
       const page = await openIn(context, extensionId, {
         ...FULL_RUN,
         viewport: { width: 360, height: 800 },
       });
-      await startRunFromHelp(page, say);
       await expect(hello(page)).toBeVisible();
       await expectFits(hello(page), `${lang} narrow Hello`);
       // CONTROL: this width does make them wrap.
@@ -498,10 +507,13 @@ for (const [theme, palette] of THEMES) {
       context,
       extensionId,
     }) => {
-      await seedRawSettingsIfAbsent(context, { ...SETTLED, theme });
+      await seedRawSettingsIfAbsent(context, {
+        ...SETTLED,
+        theme,
+        firstRun: FULL_AT_HELLO,
+      });
       const page = await openIn(context, extensionId, FULL_RUN);
       expect(await pageGround(page)).toBe(palette.PRIMARY_COLOR);
-      await startRunFromHelp(page);
       await expect(hello(page)).toBeVisible();
       await settle(hello(page));
       await expectReadable(hello(page), `${theme} Hello`);
@@ -589,11 +601,16 @@ async function walkMotion(
   extensionId: string,
   reducedMotion: 'reduce' | 'no-preference'
 ) {
-  await seedRawSettingsIfAbsent(context, SETTLED);
+  await seedRawSettingsIfAbsent(context, {
+    ...SETTLED,
+    firstRun: FULL_AT_HELLO,
+  });
   await watchRunMotion(context);
-  const page = await openIn(context, extensionId, FULL_RUN);
+  // Emulated before the load: Hello shows as the page mounts.
+  const page = await context.newPage();
   await page.emulateMedia({ reducedMotion });
-  await startRunFromHelp(page);
+  await page.setViewportSize(FULL_RUN.viewport);
+  await page.goto(`chrome-extension://${extensionId}/${FULL_RUN.path}`);
   await expect(hello(page)).toBeVisible();
   const atHello = await runMotion(page);
   await press(hello(page), 'Start');

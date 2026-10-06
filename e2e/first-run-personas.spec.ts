@@ -20,6 +20,7 @@ import {
   type RunMay,
 } from './fixtures/tabObserver';
 import {
+  FULL_AT_HELLO,
   card,
   cardAt,
   cardButton,
@@ -346,24 +347,26 @@ for (const [view, last] of [
       extensionId,
       serviceWorker,
     }) => {
-      await seedRawSettingsIfAbsent(context, SETTLED);
+      // Help starts at card 1, so Hello comes from a recorded full-view run at step 0.
+      await seedRawSettingsIfAbsent(
+        context,
+        at === 0 ? { ...SETTLED, firstRun: FULL_AT_HELLO } : SETTLED
+      );
       await seedSessionsIfAbsent(context, KEPT);
       await watchRunDrawn(context);
       await watchTabs(serviceWorker);
       const tests = new TestTabs();
       const page = await openView(context, extensionId, view);
       await tests.add(page);
-      await startRunFromHelp(page);
       if (at === 0) {
+        await expect(hello(page)).toBeVisible();
+        // CONTROL for Help's "no Hello" below: the same observer sees this one.
+        expect(await runDrawn(page)).toContain('hello');
         await hello(page)
           .getByRole('button', { name: 'Skip tutorial', exact: true })
           .click();
       } else {
-        if (view === 'full') {
-          await hello(page)
-            .getByRole('button', { name: 'Start', exact: true })
-            .click();
-        }
+        await startRunFromHelp(page);
         await expect(cardAt(page, 1)).toBeVisible();
         for (let step = 1; step < at; step++) {
           const example = cardButton(page, 'Use an example');
@@ -388,16 +391,10 @@ for (const [view, last] of [
       expect(await runDrawn(again)).toEqual([]);
       await expectOnlyTheRunsOwn(again, serviceWorker, tests, NOTHING);
 
-      // CONTROL, and §14's "Help after Skip": the same observer sees Help start it again.
+      // CONTROL, and §14's "Help after Skip": the same observer sees Help start it again, at card 1.
       await startRunFromHelp(again);
-      if (view === 'full') {
-        await expect(hello(again)).toBeVisible();
-        await hello(again)
-          .getByRole('button', { name: 'Start', exact: true })
-          .click();
-      }
       await expect(cardAt(again, 1)).toBeVisible();
-      expect(await runDrawn(again)).toContain('card');
+      expect(await runDrawn(again)).toEqual(['card']);
     });
   }
 }

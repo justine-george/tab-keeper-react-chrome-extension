@@ -59,6 +59,15 @@ export const cardButton = (page: Page, name: string) =>
 export const cardSide = (page: Page) =>
   card(page).getAttribute('data-coach-side');
 export const hello = (page: Page) => page.locator('dialog[data-run-hello]');
+// A full-view run recorded at Hello, as a fresh profile's first full-view open leaves it.
+export const FULL_AT_HELLO = {
+  view: 'full',
+  step: 0,
+  sessionId: null,
+  hello: 'welcome',
+  welcomeShows: null,
+  ended: null,
+};
 export const runCheck = (page: Page, outcome: string) =>
   expect(page.locator('html')).toHaveAttribute('data-run-check', outcome);
 
@@ -89,11 +98,6 @@ export async function openRunFromHelp(
 ): Promise<Page> {
   const page = await openPage(context, extensionId, view.path, view.viewport);
   await startRunFromHelp(page);
-  if (view.view === 'full') {
-    await hello(page)
-      .getByRole('button', { name: 'Start', exact: true })
-      .click();
-  }
   await expect(cardAt(page, 1)).toBeVisible();
   return page;
 }
@@ -131,11 +135,6 @@ export async function openRunFromHelpIn(
   // Not the English "Sort sessions" label openPage waits for.
   await page.locator('[data-pane="sessions"]').waitFor();
   await startRunFromHelp(page, say);
-  if (view.view === 'full') {
-    await hello(page)
-      .getByRole('button', { name: say('Start'), exact: true })
-      .click();
-  }
   await expect(cardAt(page, 1)).toBeVisible();
   return page;
 }

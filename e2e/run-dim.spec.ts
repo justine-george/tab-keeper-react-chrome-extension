@@ -251,7 +251,7 @@ test('full view: the run’s save toast is drawn over the dim and takes the poin
   await expect(card(page)).toHaveCount(0);
   await expect(dim(page)).toHaveCount(0);
   // R2: nothing opens after it. CONTROL: first-run-open's setup test, where this observer sees setup.
-  expect(await runDrawn(page)).toEqual(['card', 'hello']);
+  expect(await runDrawn(page)).toEqual(['card']);
 });
 
 // A card's own fill, painted as is: a point inside its padding reads its computed background.
