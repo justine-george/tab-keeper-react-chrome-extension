@@ -288,7 +288,7 @@
   "A full view for everything you have open, plus themes, languages and a keyboard shortcut. Here's a one-minute look.": "आपकी हर खुली चीज़ के लिए पूरा व्यू, साथ में थीम, भाषाएँ और एक कीबोर्ड शॉर्टकट। एक मिनट में देखें।",
   "Start": "शुरू करें",
   "This is Open now: every window and tab you have open. It updates as you browse.": "यह \"अभी खुले टैब\" है: आपकी हर खुली विंडो और टैब। ब्राउज़ करते समय यह अपने-आप अपडेट होता है।",
-  "Search here to find an open tab fast. Drag the edge to make this wider, or press « to give Open now the whole view.": "किसी खुले टैब को जल्दी ढूँढने के लिए यहाँ खोजें। इसे चौड़ा करने के लिए किनारा खींचें, या पूरा व्यू \"अभी खुले टैब\" को देने के लिए « दबाएँ।",
+  "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "किसी खुले टैब को जल्दी ढूँढने के लिए यहाँ खोजें। इसे चौड़ा करने के लिए किनारा खींचें, या पूरा व्यू \"अभी खुले टैब\" को देने के लिए {{icon}} दबाएँ।",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "इन विंडो को एक सेशन के रूप में सहेजें। हमने इसका नाम रख दिया है; चाहें तो बदलें, फिर {{icon}} दबाएँ।",
   "Saving keeps them safe even after you close them.": "सहेजने के बाद वे बंद करने पर भी सुरक्षित रहती हैं।",
   "Use an example": "एक उदाहरण इस्तेमाल करें",
@@ -313,5 +313,6 @@
   "Sync across your devices?": "अपने डिवाइसों में सिंक करें?",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "बंद: आपके सेशन इसी डिवाइस पर रहते हैं। चालू करने पर पहले पुष्टि माँगी जाती है, साथ में यह कि क्या सहेजा जाता है और {{policy}}।",
   "privacy policy": "गोपनीयता नीति",
-  "Saved sessions appear here.": "सहेजे गए सेशन यहाँ दिखते हैं।"
+  "Saved sessions appear here.": "सहेजे गए सेशन यहाँ दिखते हैं।",
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "किसी खुले टैब को जल्दी ढूँढने के लिए यहाँ खोजें। सहेजा गया सेशन इसके बगल में दिखाने के लिए {{icon}} दबाएँ।"
 }

@@ -283,7 +283,7 @@
   "A full view for everything you have open, plus themes, languages and a keyboard shortcut. Here's a one-minute look.": "用完整视图查看您打开的一切，还新增了主题、语言和键盘快捷键。一分钟带您看看。",
   "Start": "开始",
   "This is Open now: every window and tab you have open. It updates as you browse.": "这里是“当前打开的标签页”：您打开的每个窗口和标签页都在这里，浏览时会随时更新。",
-  "Search here to find an open tab fast. Drag the edge to make this wider, or press « to give Open now the whole view.": "在这里搜索，快速找到打开的标签页。拖动边缘可以把它变宽，或按 « 让“当前打开的标签页”占满整个视图。",
+  "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "在这里搜索，快速找到打开的标签页。拖动边缘可以把它变宽，或按 {{icon}} 让“当前打开的标签页”占满整个视图。",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "把这些窗口保存为一个会话。我们已经为它取好了名字；如果需要可以修改，然后按 {{icon}}。",
   "Saving keeps them safe even after you close them.": "保存后，即使关闭它们也不会丢失。",
   "Use an example": "使用示例",
@@ -308,5 +308,6 @@
   "Sync across your devices?": "在您的设备间同步吗？",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "关：您的会话只保存在这台设备上。开：会先请您确认，并说明存储哪些内容以及{{policy}}。",
   "privacy policy": "隐私政策",
-  "Saved sessions appear here.": "已保存的会话会显示在这里。"
+  "Saved sessions appear here.": "已保存的会话会显示在这里。",
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "在这里搜索，快速找到打开的标签页。按 {{icon}} 可在旁边显示已保存的会话。"
 }

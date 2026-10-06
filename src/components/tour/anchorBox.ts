@@ -42,7 +42,7 @@ export const rowsBox: AnchorBox = (element) => {
     : intersectBox(rows, clientBox(scroller));
 };
 
-// Step 2: Open now's search row, its resize edge and «, as drawn; null when none is drawn.
+// Step 2: Open now's search row, its resize edge and fold button, as drawn; null when none is drawn.
 export const findAndFitBox: AnchorBox = (element) =>
   element.matches('[data-open-now-search]')
     ? unionBox(

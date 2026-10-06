@@ -293,7 +293,7 @@
   "A full view for everything you have open, plus themes, languages and a keyboard shortcut. Here's a one-minute look.": "Una vista completa per tutto ciò che hai aperto, più temi, lingue e una scorciatoia da tastiera. Uno sguardo di un minuto.",
   "Start": "Inizia",
   "This is Open now: every window and tab you have open. It updates as you browse.": "Questo è Schede aperte: ogni finestra e scheda che hai aperto. Si aggiorna mentre navighi.",
-  "Search here to find an open tab fast. Drag the edge to make this wider, or press « to give Open now the whole view.": "Cerca qui per trovare subito una scheda aperta. Trascina il bordo per allargare questo pannello, oppure premi « per dare a Schede aperte tutta la vista.",
+  "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "Cerca qui per trovare subito una scheda aperta. Trascina il bordo per allargare questo pannello, oppure premi {{icon}} per dare a Schede aperte tutta la vista.",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "Salva queste finestre come sessione. Le abbiamo già dato un nome; cambialo se vuoi, poi premi {{icon}}.",
   "Saving keeps them safe even after you close them.": "Una volta salvate, restano al sicuro anche dopo che le chiudi.",
   "Use an example": "Usa un esempio",
@@ -318,5 +318,6 @@
   "Sync across your devices?": "Sincronizzare tra i tuoi dispositivi?",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Spento: le sessioni restano su questo dispositivo. Acceso ti chiede prima di confermare, con cosa viene salvato e l’{{policy}}.",
   "privacy policy": "informativa sulla privacy",
-  "Saved sessions appear here.": "Le sessioni salvate compaiono qui."
+  "Saved sessions appear here.": "Le sessioni salvate compaiono qui.",
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Cerca qui per trovare subito una scheda aperta. Premi {{icon}} per mostrare accanto la sessione salvata."
 }

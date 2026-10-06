@@ -288,7 +288,7 @@
   "A full view for everything you have open, plus themes, languages and a keyboard shortcut. Here's a one-minute look.": "Eine Vollansicht für alles, was Sie geöffnet haben, dazu Themen, Sprachen und ein Tastenkürzel. Ein Überblick in einer Minute.",
   "Start": "Starten",
   "This is Open now: every window and tab you have open. It updates as you browse.": "Das sind die offenen Tabs: jedes Fenster und jeder Tab, den Sie geöffnet haben. Die Liste aktualisiert sich, während Sie surfen.",
-  "Search here to find an open tab fast. Drag the edge to make this wider, or press « to give Open now the whole view.": "Suchen Sie hier, um einen offenen Tab schnell zu finden. Ziehen Sie den Rand, um diesen Bereich zu verbreitern, oder drücken Sie «, damit die offenen Tabs die ganze Ansicht bekommen.",
+  "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "Suchen Sie hier, um einen offenen Tab schnell zu finden. Ziehen Sie den Rand, um diesen Bereich zu verbreitern, oder drücken Sie {{icon}}, damit die offenen Tabs die ganze Ansicht bekommen.",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "Speichern Sie diese Fenster als Sitzung. Wir haben ihr schon einen Namen gegeben; ändern Sie ihn, wenn Sie möchten, und drücken Sie dann {{icon}}.",
   "Saving keeps them safe even after you close them.": "Gespeichert sind sie sicher, auch nachdem Sie sie geschlossen haben.",
   "Use an example": "Beispiel verwenden",
@@ -313,5 +313,6 @@
   "Sync across your devices?": "Über Ihre Geräte hinweg synchronisieren?",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Aus: Ihre Sitzungen bleiben auf diesem Gerät. Bei Ein bestätigen Sie zuerst, mit Angaben dazu, was gespeichert wird, und der {{policy}}.",
   "privacy policy": "Datenschutzerklärung",
-  "Saved sessions appear here.": "Gespeicherte Sitzungen erscheinen hier."
+  "Saved sessions appear here.": "Gespeicherte Sitzungen erscheinen hier.",
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Suchen Sie hier, um einen offenen Tab schnell zu finden. Drücken Sie {{icon}}, um die gespeicherte Sitzung daneben anzuzeigen."
 }

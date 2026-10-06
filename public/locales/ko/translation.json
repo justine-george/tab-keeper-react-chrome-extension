@@ -283,7 +283,7 @@
   "A full view for everything you have open, plus themes, languages and a keyboard shortcut. Here's a one-minute look.": "열려 있는 모든 것을 한눈에 보는 전체 보기와 테마, 언어, 키보드 단축키가 추가되었습니다. 1분 만에 살펴보세요.",
   "Start": "시작",
   "This is Open now: every window and tab you have open. It updates as you browse.": "여기는 \"지금 열려 있는 탭\"입니다. 열려 있는 모든 창과 탭이 표시되며, 브라우징하는 동안 계속 업데이트됩니다.",
-  "Search here to find an open tab fast. Drag the edge to make this wider, or press « to give Open now the whole view.": "여기서 검색하면 열린 탭을 빠르게 찾을 수 있습니다. 가장자리를 끌어 넓히거나, «를 눌러 \"지금 열려 있는 탭\"이 화면 전체를 쓰게 하세요.",
+  "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "여기서 검색하면 열린 탭을 빠르게 찾을 수 있습니다. 가장자리를 끌어 넓히거나, {{icon}} 버튼을 눌러 \"지금 열려 있는 탭\"이 화면 전체를 쓰게 하세요.",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "이 창들을 세션으로 저장하세요. 이름은 미리 붙여 두었습니다. 원하면 바꾼 다음 {{icon}} 버튼을 누르세요.",
   "Saving keeps them safe even after you close them.": "저장해 두면 창을 닫은 뒤에도 안전하게 남아 있습니다.",
   "Use an example": "예시 사용하기",
@@ -308,5 +308,6 @@
   "Sync across your devices?": "기기 간에 동기화할까요?",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "끔: 세션이 이 기기에만 남습니다. 켬을 누르면 저장되는 내용과 {{policy}} 안내를 보여 드리고 먼저 확인을 받습니다.",
   "privacy policy": "개인정보처리방침",
-  "Saved sessions appear here.": "저장된 세션이 여기에 표시됩니다."
+  "Saved sessions appear here.": "저장된 세션이 여기에 표시됩니다.",
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "여기서 검색하면 열린 탭을 빠르게 찾을 수 있습니다. 저장된 세션을 옆에 표시하려면 {{icon}} 버튼을 누르세요."
 }

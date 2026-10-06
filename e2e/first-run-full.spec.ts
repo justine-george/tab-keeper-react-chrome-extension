@@ -7,6 +7,7 @@ import {
   FULL,
   FULL_VIEW_PATH,
   openPage,
+  storedSettings,
   twoFrames,
 } from './fixtures/onboarding';
 import {
@@ -119,6 +120,46 @@ test('Hello, the eight cards in their places, Back and Next, and Not now', async
     .poll(() => storedRun(page))
     .toMatchObject({ view: 'full', ended: 'finished' });
   await expect.poll(() => storedTitles(page)).toEqual([]);
+});
+
+test('step 2 in the default folded view names the fold button it shows, and pressing it unfolds with the card still at step 2', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openRunFromHelp(context, extensionId, FULL_RUN);
+  await nextTo(page, 2);
+  const fold = page.locator('[data-pane="open-now"] [data-tour-anchor="fold"]');
+  const glyph = (name: string) =>
+    card(page).getByRole('img', { name, exact: true });
+  await expect(fold).toHaveAccessibleName('Show the saved session');
+  await expect(card(page)).toContainText(
+    'Search here to find an open tab fast. Press'
+  );
+  await expect(card(page)).toContainText(
+    'to show the saved session beside it.'
+  );
+  await expect(card(page)).not.toContainText('Drag the edge');
+  await expect(glyph('Show the saved session')).toBeVisible();
+  expect(await glyph('Show the saved session').textContent()).toBe(
+    await fold.textContent()
+  );
+  const [x, y] = await centreOf(fold);
+  expect(['dim', 'still', 'nothing']).not.toContain(await hitAt(page, x, y));
+  await page.mouse.click(x, y);
+  await expect
+    .poll(async () => (await storedSettings(page)).foldSavedSessionInTabView)
+    .toBe(false);
+  await expect(page.locator('[data-pane="detail"]')).toBeVisible();
+  await expect(cardAt(page, 2)).toBeVisible();
+  await expect(card(page)).toContainText(
+    'Drag the edge to make this wider, or press'
+  );
+  await expect(card(page)).toContainText('to give Open now the whole view.');
+  await expect(glyph('Fold the saved session away')).toBeVisible();
+  expect(await glyph('Fold the saved session away').textContent()).toBe(
+    await fold.textContent()
+  );
+  expect(await storedRun(page)).toMatchObject({ step: 2, ended: null });
 });
 
 test('Next onto the save step glides the card there and never lifts the dim (KAN-436)', async ({

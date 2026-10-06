@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
 import CoachMark from './CoachMark';
-import SaveGlyphSentence from './SaveGlyphSentence';
+import GlyphSentence from './GlyphSentence';
 import { GLYPH_SLOT } from './glyphSlot';
 import { CARD_WIDTH, runStepPlan } from './runSteps';
 import {
@@ -15,6 +15,7 @@ import {
   type Size,
 } from './coachMarkPlacement';
 import { RunHelloDialog } from '../modals/RunHelloDialog';
+import { FOLD_ICON } from '../home/opennow/foldIcon';
 import type { AppDispatch, RootState } from '../../redux/store';
 import {
   advanceRun,
@@ -33,6 +34,7 @@ import { setRunSaveEcho } from '../../redux/slices/globalStateSlice';
 import { prefersReducedMotion } from '../modals/getStartedMotion';
 import { playSaveEcho } from './saveEcho';
 import { showSession } from '../../redux/showSession';
+import { selectIsSavedSessionFolded } from '../../redux/savedSessionFold';
 import { isSampleSession } from '../../utils/functions/sampleSession';
 import { useSampleNames } from '../../hooks/useSampleNames';
 import { useSessionListSettled } from '../../hooks/useSessionListSettled';
@@ -68,6 +70,7 @@ export default function FirstRun() {
     (s: RootState) => s.tabContainerDataState.tabGroups
   );
   const echo = useSelector((s: RootState) => s.globalState.runSaveEcho);
+  const isFolded = useSelector(selectIsSavedSessionFolded);
   const shownSession = useRef<string | null>(null);
 
   // R2, and a record ended or replaced from another page.
@@ -133,6 +136,10 @@ export default function FirstRun() {
     label: t('Use an example'),
     onPress: example,
   };
+  const saveGlyph = {
+    icon: 'library_add',
+    label: t('Save every open window as a session'),
+  } as const;
 
   const cardFor = (): Card => {
     switch (kind) {
@@ -143,10 +150,27 @@ export default function FirstRun() {
           ),
           primary: next,
         };
+      // Folded, Open now has the whole view and no edge to drag; the fold button shows the saved session.
       case 'findAndFit':
         return {
-          text: t(
-            'Search here to find an open tab fast. Drag the edge to make this wider, or press « to give Open now the whole view.'
+          text: isFolded ? (
+            <GlyphSentence
+              sentence={t(
+                'Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.',
+                { icon: GLYPH_SLOT }
+              )}
+              icon={FOLD_ICON.folded}
+              label={t('Show the saved session')}
+            />
+          ) : (
+            <GlyphSentence
+              sentence={t(
+                'Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.',
+                { icon: GLYPH_SLOT }
+              )}
+              icon={FOLD_ICON.unfolded}
+              label={t('Fold the saved session away')}
+            />
           ),
           primary: next,
         };
@@ -169,18 +193,19 @@ export default function FirstRun() {
                 icon: GLYPH_SLOT,
               });
           return {
-            text: <SaveGlyphSentence sentence={sentence} />,
+            text: <GlyphSentence sentence={sentence} {...saveGlyph} />,
             primary: next,
           };
         }
         if (saveCard === 'nothingToSave') {
           return {
             text: (
-              <SaveGlyphSentence
+              <GlyphSentence
                 sentence={t(
                   "This is where you save your open windows as a session: press {{icon}}. Only Tab Keeper is open right now, so let's try it with an example.",
                   { icon: GLYPH_SLOT }
                 )}
+                {...saveGlyph}
               />
             ),
             primary: useExample,
@@ -188,11 +213,12 @@ export default function FirstRun() {
         }
         return {
           text: (
-            <SaveGlyphSentence
+            <GlyphSentence
               sentence={t(
                 "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.",
                 { icon: GLYPH_SLOT }
               )}
+              {...saveGlyph}
             />
           ),
           fine: t('Saving keeps them safe even after you close them.'),

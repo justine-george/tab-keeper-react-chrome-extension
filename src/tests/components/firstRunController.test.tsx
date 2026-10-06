@@ -10,9 +10,15 @@ import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { startRun, takeRunSave } from '../../redux/firstRun';
-import { setRunSaveEcho } from '../../redux/slices/globalStateSlice';
+import {
+  peekSavedSession,
+  setRunSaveEcho,
+} from '../../redux/slices/globalStateSlice';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
-import { recordFirstRun } from '../../redux/slices/settingsDataStateSlice';
+import {
+  recordFirstRun,
+  setFoldSavedSessionInTabView,
+} from '../../redux/slices/settingsDataStateSlice';
 import { firstOpenDialogs } from '../../redux/firstOpenDialogs';
 import { newRun, type FirstRun as Run } from '../../utils/functions/firstRun';
 
@@ -354,6 +360,50 @@ describe('the controller', () => {
         (b) => b.textContent
       )
     ).toEqual(['Skip tutorial', 'Use an example']);
+  });
+});
+
+describe('step 2 names the fold button the view shows', () => {
+  test('folded: press » to show the saved session, no edge; unfolding switches the card to the edge and «, still at step 2', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const r = await renderAt(newRun('full', 2));
+    expect(r.store.getState().settingsDataState.foldSavedSessionInTabView).toBe(
+      true
+    );
+    expect(
+      await screen.findByRole('img', { name: 'Show the saved session' })
+    ).toHaveTextContent('keyboard_double_arrow_right');
+    expect(mark()).toHaveTextContent(
+      'Search here to find an open tab fast. Press'
+    );
+    expect(mark()).toHaveTextContent('to show the saved session beside it.');
+    expect(mark()).not.toHaveTextContent('Drag the edge');
+    act(() => {
+      r.store.dispatch(setFoldSavedSessionInTabView(false));
+    });
+    expect(
+      await screen.findByRole('img', { name: 'Fold the saved session away' })
+    ).toHaveTextContent('keyboard_double_arrow_left');
+    expect(mark()).toHaveTextContent(
+      'Search here to find an open tab fast. Drag the edge to make this wider, or press'
+    );
+    expect(mark()).toHaveTextContent('to give Open now the whole view.');
+    expect(
+      screen.queryByRole('img', { name: 'Show the saved session' })
+    ).toBeNull();
+    expect(mark()).toHaveAttribute('data-coach-step', '2');
+  });
+
+  test('folded but peeked: the saved session is beside Open now, so the card names «', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const r = await renderAt(newRun('full', 2));
+    act(() => {
+      r.store.dispatch(peekSavedSession());
+    });
+    expect(
+      await screen.findByRole('img', { name: 'Fold the saved session away' })
+    ).toBeInTheDocument();
+    expect(mark()).toHaveTextContent('Drag the edge');
   });
 });
 

@@ -283,7 +283,7 @@
   "A full view for everything you have open, plus themes, languages and a keyboard shortcut. Here's a one-minute look.": "用完整檢視查看你開啟的一切，還新增了主題、語言和鍵盤快速鍵。一分鐘帶你看看。",
   "Start": "開始",
   "This is Open now: every window and tab you have open. It updates as you browse.": "這裡是「目前開啟的分頁」：你開啟的每個視窗和分頁都在這裡，瀏覽時會隨時更新。",
-  "Search here to find an open tab fast. Drag the edge to make this wider, or press « to give Open now the whole view.": "在這裡搜尋，快速找到開啟的分頁。拖曳邊緣可以讓它變寬，或按 « 讓「目前開啟的分頁」佔滿整個檢視。",
+  "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "在這裡搜尋，快速找到開啟的分頁。拖曳邊緣可以讓它變寬，或按 {{icon}} 讓「目前開啟的分頁」佔滿整個檢視。",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "把這些視窗儲存為一個工作階段。我們已經幫它取好名字；需要的話可以修改，然後按 {{icon}}。",
   "Saving keeps them safe even after you close them.": "儲存後，即使關閉也不會遺失。",
   "Use an example": "使用範例",
@@ -308,5 +308,6 @@
   "Sync across your devices?": "要在你的裝置間同步嗎？",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "關：你的工作階段只會保存在這台裝置上。開：會先請你確認，並說明儲存哪些內容以及{{policy}}。",
   "privacy policy": "隱私權政策",
-  "Saved sessions appear here.": "已儲存的工作階段會顯示在這裡。"
+  "Saved sessions appear here.": "已儲存的工作階段會顯示在這裡。",
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "在這裡搜尋，快速找到開啟的分頁。按 {{icon}} 可在旁邊顯示已儲存的工作階段。"
 }

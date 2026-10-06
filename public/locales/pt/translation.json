@@ -293,7 +293,7 @@
   "A full view for everything you have open, plus themes, languages and a keyboard shortcut. Here's a one-minute look.": "Uma visualização completa de tudo o que você tem aberto, além de temas, idiomas e um atalho de teclado. Uma olhada de um minuto.",
   "Start": "Começar",
   "This is Open now: every window and tab you have open. It updates as you browse.": "Este é o painel Abas abertas: cada janela e aba que você tem aberta. Ele se atualiza enquanto você navega.",
-  "Search here to find an open tab fast. Drag the edge to make this wider, or press « to give Open now the whole view.": "Pesquise aqui para achar uma aba aberta rapidamente. Arraste a borda para alargar este painel ou pressione « para dar a visualização inteira a Abas abertas.",
+  "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "Pesquise aqui para achar uma aba aberta rapidamente. Arraste a borda para alargar este painel ou pressione {{icon}} para dar a visualização inteira a Abas abertas.",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "Salve estas janelas como uma sessão. Já demos um nome a ela; mude se quiser e depois pressione {{icon}}.",
   "Saving keeps them safe even after you close them.": "Salvas, elas ficam seguras mesmo depois que você as fecha.",
   "Use an example": "Usar um exemplo",
@@ -318,5 +318,6 @@
   "Sync across your devices?": "Sincronizar entre seus dispositivos?",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Desligado: suas sessões ficam neste dispositivo. Ligado pede sua confirmação primeiro, com o que é armazenado e a {{policy}}.",
   "privacy policy": "política de privacidade",
-  "Saved sessions appear here.": "As sessões salvas aparecem aqui."
+  "Saved sessions appear here.": "As sessões salvas aparecem aqui.",
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Pesquise aqui para achar uma aba aberta rapidamente. Pressione {{icon}} para mostrar a sessão salva ao lado."
 }

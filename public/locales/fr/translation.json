@@ -293,7 +293,7 @@
   "A full view for everything you have open, plus themes, languages and a keyboard shortcut. Here's a one-minute look.": "Une vue complète pour tout ce que vous avez ouvert, plus des thèmes, des langues et un raccourci clavier. Un aperçu en une minute.",
   "Start": "Commencer",
   "This is Open now: every window and tab you have open. It updates as you browse.": "Voici Onglets ouverts : chaque fenêtre et chaque onglet que vous avez ouverts. La liste se met à jour pendant que vous naviguez.",
-  "Search here to find an open tab fast. Drag the edge to make this wider, or press « to give Open now the whole view.": "Cherchez ici pour trouver vite un onglet ouvert. Faites glisser le bord pour élargir ce panneau, ou appuyez sur « pour donner toute la vue à Onglets ouverts.",
+  "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "Cherchez ici pour trouver vite un onglet ouvert. Faites glisser le bord pour élargir ce panneau, ou appuyez sur {{icon}} pour donner toute la vue à Onglets ouverts.",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "Enregistrez ces fenêtres comme une session. Nous lui avons déjà donné un nom ; modifiez-le si vous le souhaitez, puis appuyez sur {{icon}}.",
   "Saving keeps them safe even after you close them.": "Une fois enregistrées, elles restent en sécurité même après leur fermeture.",
   "Use an example": "Utiliser un exemple",
@@ -318,5 +318,6 @@
   "Sync across your devices?": "Synchroniser entre vos appareils ?",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Éteint : vos sessions restent sur cet appareil. Allumé vous demande d’abord de confirmer, avec ce qui est stocké et la {{policy}}.",
   "privacy policy": "politique de confidentialité",
-  "Saved sessions appear here.": "Les sessions enregistrées apparaissent ici."
+  "Saved sessions appear here.": "Les sessions enregistrées apparaissent ici.",
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Cherchez ici pour trouver vite un onglet ouvert. Appuyez sur {{icon}} pour afficher la session enregistrée à côté."
 }

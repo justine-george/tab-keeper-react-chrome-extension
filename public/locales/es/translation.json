@@ -293,7 +293,7 @@
   "A full view for everything you have open, plus themes, languages and a keyboard shortcut. Here's a one-minute look.": "Una vista completa para todo lo que tienes abierto, además de temas, idiomas y un atajo de teclado. Un vistazo de un minuto.",
   "Start": "Empezar",
   "This is Open now: every window and tab you have open. It updates as you browse.": "Esto es Pestañas abiertas: cada ventana y pestaña que tienes abierta. Se actualiza mientras navegas.",
-  "Search here to find an open tab fast. Drag the edge to make this wider, or press « to give Open now the whole view.": "Busca aquí para encontrar rápido una pestaña abierta. Arrastra el borde para ensanchar este panel, o pulsa « para que Pestañas abiertas ocupe toda la vista.",
+  "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "Busca aquí para encontrar rápido una pestaña abierta. Arrastra el borde para ensanchar este panel, o pulsa {{icon}} para que Pestañas abiertas ocupe toda la vista.",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "Guarda estas ventanas como una sesión. Ya le hemos puesto nombre; cámbialo si quieres y luego pulsa {{icon}}.",
   "Saving keeps them safe even after you close them.": "Una vez guardadas, siguen a salvo aunque las cierres.",
   "Use an example": "Usar un ejemplo",
@@ -318,5 +318,6 @@
   "Sync across your devices?": "¿Sincronizar entre tus dispositivos?",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Apagado: tus sesiones se quedan en este dispositivo. Encendido te pide confirmar primero, con lo que se guarda y la {{policy}}.",
   "privacy policy": "política de privacidad",
-  "Saved sessions appear here.": "Las sesiones guardadas aparecen aquí."
+  "Saved sessions appear here.": "Las sesiones guardadas aparecen aquí.",
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Busca aquí para encontrar rápido una pestaña abierta. Pulsa {{icon}} para mostrar la sesión guardada a su lado."
 }

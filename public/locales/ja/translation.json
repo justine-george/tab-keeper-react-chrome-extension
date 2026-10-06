@@ -283,7 +283,7 @@
   "A full view for everything you have open, plus themes, languages and a keyboard shortcut. Here's a one-minute look.": "開いているものすべてを見渡せるフルビューに加え、テーマ、言語、キーボードショートカットが使えるようになりました。1分でご紹介します。",
   "Start": "始める",
   "This is Open now: every window and tab you have open. It updates as you browse.": "ここは「現在開いているタブ」です。開いているすべてのウィンドウとタブが表示され、ブラウズに合わせて更新されます。",
-  "Search here to find an open tab fast. Drag the edge to make this wider, or press « to give Open now the whole view.": "ここで検索すると、開いているタブをすばやく見つけられます。端をドラッグすると幅を広げられ、« を押すと「現在開いているタブ」が画面全体に表示されます。",
+  "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "ここで検索すると、開いているタブをすばやく見つけられます。端をドラッグすると幅を広げられ、{{icon}} を押すと「現在開いているタブ」が画面全体に表示されます。",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "これらのウィンドウをセッションとして保存しましょう。名前は付けておきました。必要なら変更して、{{icon}} を押してください。",
   "Saving keeps them safe even after you close them.": "保存しておけば、閉じたあとも失われません。",
   "Use an example": "サンプルを使う",
@@ -308,5 +308,6 @@
   "Sync across your devices?": "デバイス間で同期しますか？",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "オフ：セッションはこのデバイスに残ります。オンにすると、保存される内容と{{policy}}を確認してから同期を始めます。",
   "privacy policy": "プライバシーポリシー",
-  "Saved sessions appear here.": "保存したセッションはここに表示されます。"
+  "Saved sessions appear here.": "保存したセッションはここに表示されます。",
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "ここで検索すると、開いているタブをすばやく見つけられます。{{icon}} を押すと、保存済みのセッションが横に表示されます。"
 }

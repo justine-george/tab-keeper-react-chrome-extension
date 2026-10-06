@@ -288,7 +288,7 @@
   "A full view for everything you have open, plus themes, languages and a keyboard shortcut. Here's a one-minute look.": "En helvy för allt du har öppet, plus teman, språk och ett kortkommando. En titt på en minut.",
   "Start": "Starta",
   "This is Open now: every window and tab you have open. It updates as you browse.": "Det här är Öppna flikar: alla fönster och flikar du har öppna. Listan uppdateras medan du surfar.",
-  "Search here to find an open tab fast. Drag the edge to make this wider, or press « to give Open now the whole view.": "Sök här för att snabbt hitta en öppen flik. Dra i kanten för att göra panelen bredare, eller tryck på « för att ge Öppna flikar hela vyn.",
+  "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "Sök här för att snabbt hitta en öppen flik. Dra i kanten för att göra panelen bredare, eller tryck på {{icon}} för att ge Öppna flikar hela vyn.",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "Spara de här fönstren som en session. Vi har redan gett den ett namn; ändra det om du vill och tryck sedan på {{icon}}.",
   "Saving keeps them safe even after you close them.": "Sparade är de kvar även efter att du stänger dem.",
   "Use an example": "Använd ett exempel",
@@ -313,5 +313,6 @@
   "Sync across your devices?": "Synka mellan dina enheter?",
   "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Av: dina sessioner stannar på den här enheten. På ber dig bekräfta först, med vad som lagras och {{policy}}.",
   "privacy policy": "integritetspolicyn",
-  "Saved sessions appear here.": "Sparade sessioner visas här."
+  "Saved sessions appear here.": "Sparade sessioner visas här.",
+  "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Sök här för att snabbt hitta en öppen flik. Tryck på {{icon}} för att visa den sparade sessionen bredvid."
 }
