@@ -14,6 +14,7 @@ import {
   THEMES,
   openFullView,
   openPopup,
+  openTabGroup,
   pageGround,
   storedSettings,
   twoFrames,
@@ -56,18 +57,6 @@ const pairSide = (page: Page, pair: string, side: 'On' | 'Off') =>
   setup(page)
     .getByRole('group', { name: pair, exact: true })
     .getByRole('button', { name: side, exact: true });
-
-// A real Chrome tab group, made by the worker; Tab.groupId needs no permission (liveTabGroups.ts).
-async function openTabGroup(worker: Worker): Promise<void> {
-  const groups = await worker.evaluate(async () => {
-    const tab = await chrome.tabs.create({ url: 'about:blank', active: false });
-    if (tab.id === undefined) throw new Error('no tab id');
-    await chrome.tabs.group({ tabIds: [tab.id] });
-    const tabs = await chrome.tabs.query({});
-    return new Set(tabs.map((t) => t.groupId).filter((g) => g !== -1)).size;
-  });
-  expect(groups, 'the fixture must open a real tab group').toBe(1);
-}
 
 // Names every dialog any top-level page opens from now on, so an offer that never opens is observed.
 async function watchDialogNames(context: BrowserContext): Promise<void> {

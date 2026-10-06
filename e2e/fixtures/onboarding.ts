@@ -1,4 +1,4 @@
-import type { BrowserContext, Page } from '@playwright/test';
+import type { BrowserContext, Page, Worker } from '@playwright/test';
 
 import { expect } from './extension';
 import { rgbToHex } from './pixels';
@@ -91,3 +91,15 @@ export const twoFrames = (page: Page) =>
         requestAnimationFrame(() => requestAnimationFrame(() => done()))
       )
   );
+
+// A real Chrome tab group, made by the worker; Tab.groupId needs no permission (liveTabGroups.ts).
+export async function openTabGroup(worker: Worker): Promise<void> {
+  const groups = await worker.evaluate(async () => {
+    const tab = await chrome.tabs.create({ url: 'about:blank', active: false });
+    if (tab.id === undefined) throw new Error('no tab id');
+    await chrome.tabs.group({ tabIds: [tab.id] });
+    const tabs = await chrome.tabs.query({});
+    return new Set(tabs.map((t) => t.groupId).filter((g) => g !== -1)).size;
+  });
+  expect(groups, 'the fixture must open a real tab group').toBe(1);
+}
