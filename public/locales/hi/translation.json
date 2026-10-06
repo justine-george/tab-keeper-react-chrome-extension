@@ -315,5 +315,7 @@
   "privacy policy": "गोपनीयता नीति",
   "Saved sessions appear here.": "सहेजे गए सेशन यहाँ दिखते हैं।",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "किसी खुले टैब को जल्दी ढूँढने के लिए यहाँ खोजें। सहेजा गया सेशन इसके बगल में दिखाने के लिए {{icon}} दबाएँ।",
-  "Stay here": "यहीं रहें"
+  "Stay here": "यहीं रहें",
+  "Sounds": "ध्वनियाँ",
+  "Play sounds as you use Tab Keeper.": "Tab Keeper का उपयोग करते समय ध्वनियाँ चलाएँ।"
 }

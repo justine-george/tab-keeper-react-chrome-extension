@@ -310,5 +310,7 @@
   "privacy policy": "プライバシーポリシー",
   "Saved sessions appear here.": "保存したセッションはここに表示されます。",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "ここで検索すると、開いているタブをすばやく見つけられます。{{icon}} を押すと、保存済みのセッションが横に表示されます。",
-  "Stay here": "このまま使う"
+  "Stay here": "このまま使う",
+  "Sounds": "サウンド",
+  "Play sounds as you use Tab Keeper.": "Tab Keeper の操作中にサウンドを再生します。"
 }

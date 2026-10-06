@@ -310,5 +310,7 @@
   "privacy policy": "隐私政策",
   "Saved sessions appear here.": "已保存的会话会显示在这里。",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "在这里搜索，快速找到打开的标签页。按 {{icon}} 可在旁边显示已保存的会话。",
-  "Stay here": "留在这里"
+  "Stay here": "留在这里",
+  "Sounds": "音效",
+  "Play sounds as you use Tab Keeper.": "使用 Tab Keeper 时播放音效。"
 }

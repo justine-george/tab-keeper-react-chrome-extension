@@ -315,5 +315,7 @@
   "privacy policy": "integritetspolicyn",
   "Saved sessions appear here.": "Sparade sessioner visas här.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Sök här för att snabbt hitta en öppen flik. Tryck på {{icon}} för att visa den sparade sessionen bredvid.",
-  "Stay here": "Stanna här"
+  "Stay here": "Stanna här",
+  "Sounds": "Ljud",
+  "Play sounds as you use Tab Keeper.": "Spela upp ljud när du använder Tab Keeper."
 }

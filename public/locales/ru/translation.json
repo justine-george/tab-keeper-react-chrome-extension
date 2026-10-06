@@ -325,5 +325,7 @@
   "privacy policy": "политику конфиденциальности",
   "Saved sessions appear here.": "Здесь появятся сохранённые сессии.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Ищите здесь, чтобы быстро найти открытую вкладку. Нажмите {{icon}}, чтобы показать сохранённую сессию рядом.",
-  "Stay here": "Остаться здесь"
+  "Stay here": "Остаться здесь",
+  "Sounds": "Звуки",
+  "Play sounds as you use Tab Keeper.": "Воспроизводить звуки, пока вы пользуетесь Tab Keeper."
 }
