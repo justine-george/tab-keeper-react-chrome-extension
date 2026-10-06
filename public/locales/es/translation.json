@@ -316,5 +316,10 @@
   "This is an example. Press {{icon}} any time to save your own windows.": "Esto es un ejemplo. Pulsa {{icon}} cuando quieras para guardar tus propias ventanas.",
   "Save your open windows, close them, and bring them all back later.": "Guarda tus ventanas abiertas, ciérralas y recupéralas todas más tarde.",
   "Get started opens Tab Keeper in its own tab.": "Empezar abre Tab Keeper en su propia pestaña.",
-  "Search looks in tab titles and links.": "La búsqueda incluye títulos de pestañas y enlaces."
+  "Search looks in tab titles and links.": "La búsqueda incluye títulos de pestañas y enlaces.",
+  "Save tab groups too?": "¿Guardar también los grupos de pestañas?",
+  "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Las sesiones guardadas conservan el nombre y el color de cada grupo de pestañas. Chrome te pedirá permiso.",
+  "Sync across your devices?": "¿Sincronizar entre tus dispositivos?",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Apagado: tus sesiones se quedan en este dispositivo. Encendido te pide confirmar primero, con lo que se guarda y la {{policy}}.",
+  "privacy policy": "política de privacidad"
 }

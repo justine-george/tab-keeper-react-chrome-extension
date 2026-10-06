@@ -311,5 +311,10 @@
   "This is an example. Press {{icon}} any time to save your own windows.": "यह एक उदाहरण है। अपनी खुली विंडो को सहेजने के लिए कभी भी {{icon}} दबाएँ।",
   "Save your open windows, close them, and bring them all back later.": "अपनी खुली विंडो सहेजें, उन्हें बंद करें, और बाद में सब वापस लाएँ।",
   "Get started opens Tab Keeper in its own tab.": "\"शुरू करें\" Tab Keeper को उसके अपने टैब में खोलता है।",
-  "Search looks in tab titles and links.": "खोज टैब के शीर्षक और लिंक में होती है।"
+  "Search looks in tab titles and links.": "खोज टैब के शीर्षक और लिंक में होती है।",
+  "Save tab groups too?": "टैब समूह भी सहेजें?",
+  "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "सहेजे गए सेशन हर टैब समूह का नाम और रंग रखते हैं। Chrome आपसे इसकी अनुमति माँगेगा।",
+  "Sync across your devices?": "अपने डिवाइसों में सिंक करें?",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "बंद: आपके सेशन इसी डिवाइस पर रहते हैं। चालू करने पर पहले पुष्टि माँगी जाती है, साथ में यह कि क्या सहेजा जाता है और {{policy}}।",
+  "privacy policy": "गोपनीयता नीति"
 }

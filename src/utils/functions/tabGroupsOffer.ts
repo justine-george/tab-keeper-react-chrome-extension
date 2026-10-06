@@ -35,3 +35,9 @@ export async function shouldOfferTabGroups(): Promise<number | null> {
 
   return openGroups;
 }
+
+// Q9 step 5: Chrome has groups open now and the grant is not held; the opt-out flag does not hide it.
+export async function shouldAskTabGroupsInSetup(): Promise<boolean> {
+  if (await hasTabGroupsPermission()) return false;
+  return (await countOpenTabGroups()) > 0;
+}

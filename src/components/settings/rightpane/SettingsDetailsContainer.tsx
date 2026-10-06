@@ -51,9 +51,10 @@ import {
 } from '../../../utils/functions/permissions';
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
 import SyncStatus from './Account/SyncStatus';
-import SlidingPair, { type SlidingPairMetrics } from '../../common/SlidingPair';
+import SlidingPair from '../../common/SlidingPair';
+import { SETTINGS_PAIR_METRICS } from '../../common/slidingPairMetrics';
 import { useTranslation } from 'react-i18next';
-import { CONTROL, DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
+import { CONTROL, ICON, TYPE } from '../../../styles/scale';
 import {
   openShortcutsBeside,
   usePopupShortcut,
@@ -65,18 +66,6 @@ import { chooseDefaultView } from '../../../redux/defaultViewChoice';
 
 // The theme picker's swatches live in ThemeSwatch (KAN-237), which also carries
 // the KAN-88/KAN-95 marker rule and its reasoning.
-
-// KAN-248. The Auto Sync pair on the popup's own scale: the row unit, square
-// corners, the two named durations. The export toolbar draws the same
-// component at 34px/3px/280ms (export/slidingPairStyle.ts); neither set lives
-// in the component.
-const SETTINGS_PAIR_METRICS: SlidingPairMetrics = {
-  height: CONTROL.ROW,
-  radius: RADIUS.SQUARE,
-  knobRadius: RADIUS.SQUARE,
-  slide: `${DURATION.MOVE} ease-out`,
-  press: `${DURATION.COLOR} ease-out`,
-};
 
 // Sections after the first on a pane sit 32px apart, the spacing About's
 // blocks use (KAN-241); the first keeps 20px from the pane top. Written on

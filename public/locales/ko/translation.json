@@ -306,5 +306,10 @@
   "This is an example. Press {{icon}} any time to save your own windows.": "이것은 예시입니다. 내 창을 저장하려면 언제든 {{icon}} 버튼을 누르세요.",
   "Save your open windows, close them, and bring them all back later.": "열려 있는 창을 저장하고 닫은 다음, 나중에 모두 되살릴 수 있습니다.",
   "Get started opens Tab Keeper in its own tab.": "시작하기를 누르면 Tab Keeper가 별도의 탭에서 열립니다.",
-  "Search looks in tab titles and links.": "탭 제목, 링크에서 검색합니다."
+  "Search looks in tab titles and links.": "탭 제목, 링크에서 검색합니다.",
+  "Save tab groups too?": "탭 그룹도 저장할까요?",
+  "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "저장된 세션에 탭 그룹마다 이름과 색이 남습니다. Chrome에서 허용할지 물어봅니다.",
+  "Sync across your devices?": "기기 간에 동기화할까요?",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "끔: 세션이 이 기기에만 남습니다. 켬을 누르면 저장되는 내용과 {{policy}} 안내를 보여 드리고 먼저 확인을 받습니다.",
+  "privacy policy": "개인정보처리방침"
 }

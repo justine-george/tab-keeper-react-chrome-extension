@@ -321,5 +321,10 @@
   "This is an example. Press {{icon}} any time to save your own windows.": "Это пример. Нажмите {{icon}} в любой момент, чтобы сохранить свои окна.",
   "Save your open windows, close them, and bring them all back later.": "Сохраняйте открытые окна, закрывайте их и потом возвращайте все разом.",
   "Get started opens Tab Keeper in its own tab.": "«Начать» откроет Tab Keeper в отдельной вкладке.",
-  "Search looks in tab titles and links.": "Поиск идёт по заголовкам вкладок и ссылкам."
+  "Search looks in tab titles and links.": "Поиск идёт по заголовкам вкладок и ссылкам.",
+  "Save tab groups too?": "Сохранять и группы вкладок?",
+  "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Сохранённые сессии запоминают название и цвет каждой группы вкладок. Chrome попросит вас разрешить это.",
+  "Sync across your devices?": "Синхронизировать между вашими устройствами?",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Выкл: ваши сессии остаются на этом устройстве. При «Вкл» мы сначала попросим подтвердить, показав, что хранится, и {{policy}}.",
+  "privacy policy": "политику конфиденциальности"
 }

@@ -148,7 +148,7 @@ for (const how of ['Skip setup', 'Done'] as const) {
     await expect(dialogNamed(page, SETUP)).toBeVisible();
     if (how === 'Skip setup') await skipSetup(page).click();
     else {
-      for (let n = 0; n < 3; n++)
+      for (let n = 0; n < 4; n++)
         await dialogNamed(page, SETUP)
           .getByRole('button', { name: 'Next', exact: true })
           .click();

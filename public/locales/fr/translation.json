@@ -316,5 +316,10 @@
   "This is an example. Press {{icon}} any time to save your own windows.": "Ceci est un exemple. Appuyez sur {{icon}} à tout moment pour enregistrer vos propres fenêtres.",
   "Save your open windows, close them, and bring them all back later.": "Enregistrez vos fenêtres ouvertes, fermez-les et retrouvez-les toutes plus tard.",
   "Get started opens Tab Keeper in its own tab.": "Commencer ouvre Tab Keeper dans son propre onglet.",
-  "Search looks in tab titles and links.": "La recherche porte sur les titres d’onglet et les liens."
+  "Search looks in tab titles and links.": "La recherche porte sur les titres d’onglet et les liens.",
+  "Save tab groups too?": "Enregistrer aussi les groupes d’onglets ?",
+  "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Les sessions enregistrées gardent le nom et la couleur de chaque groupe d’onglets. Chrome vous demandera de l’autoriser.",
+  "Sync across your devices?": "Synchroniser entre vos appareils ?",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Éteint : vos sessions restent sur cet appareil. Allumé vous demande d’abord de confirmer, avec ce qui est stocké et la {{policy}}.",
+  "privacy policy": "politique de confidentialité"
 }

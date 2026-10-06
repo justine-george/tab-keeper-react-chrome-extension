@@ -1,7 +1,13 @@
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
+import {
+  buildContainer,
+  seedSessions,
+  seedSettings,
+  seedSettingsIfAbsent,
+} from './fixtures/seed';
+import { CLOUD, hasCloudConfig } from './fixtures/cloud';
 import {
   FULL,
   FULL_VIEW_PATH,
@@ -10,11 +16,12 @@ import {
   openPopup,
   pageGround,
   storedSettings,
+  twoFrames,
   waitForFullView,
 } from './fixtures/onboarding';
 import { setPin, stubToolbarPin } from './fixtures/toolbarPin';
 import { expectReadable } from './fixtures/textContrast';
-import { rgbToHex } from './fixtures/pixels';
+import { contrast, rgbToHex } from './fixtures/pixels';
 import { localeStrings } from './fixtures/locales';
 import { finishFullRunFromHello } from './fixtures/run';
 import { DARKENHEIMER_THEME } from '../src/hooks/useThemeColors';
@@ -42,6 +49,49 @@ const languageCodes = (page: Page) =>
     .evaluateAll((cells) => cells.map((c) => c.getAttribute('lang')));
 const popupOf = (worker: Worker) =>
   worker.evaluate(() => chrome.action.getPopup({}));
+const progress = (page: Page) =>
+  setupAnyLanguage(page).getByRole('progressbar');
+const pairSide = (page: Page, pair: string, side: 'On' | 'Off') =>
+  setup(page)
+    .getByRole('group', { name: pair, exact: true })
+    .getByRole('button', { name: side, exact: true });
+
+// A real Chrome tab group, made by the worker; Tab.groupId needs no permission (liveTabGroups.ts).
+async function openTabGroup(worker: Worker): Promise<void> {
+  const groups = await worker.evaluate(async () => {
+    const tab = await chrome.tabs.create({ url: 'about:blank', active: false });
+    if (tab.id === undefined) throw new Error('no tab id');
+    await chrome.tabs.group({ tabIds: [tab.id] });
+    const tabs = await chrome.tabs.query({});
+    return new Set(tabs.map((t) => t.groupId).filter((g) => g !== -1)).size;
+  });
+  expect(groups, 'the fixture must open a real tab group').toBe(1);
+}
+
+// Names every dialog any top-level page opens from now on, so an offer that never opens is observed.
+async function watchDialogNames(context: BrowserContext): Promise<void> {
+  await context.addInitScript(() => {
+    if (window.top !== window) return;
+    const seen: string[] = [];
+    Object.defineProperty(window, '__dialogsSeen', { value: seen });
+    new MutationObserver(() => {
+      for (const dialog of document.querySelectorAll('dialog[open]')) {
+        const id = dialog.getAttribute('aria-labelledby');
+        const name = (id && document.getElementById(id)?.textContent) || '';
+        if (!seen.includes(name)) seen.push(name);
+      }
+    }).observe(document, { subtree: true, childList: true, attributes: true });
+  });
+}
+// Read after the page's first-open barrier and two frames.
+async function dialogsSeen(page: Page): Promise<string[]> {
+  await expect(page.locator('html')).toHaveAttribute('data-first-open', /.+/);
+  await twoFrames(page);
+  return page.evaluate(() => {
+    const seen: unknown = Reflect.get(window, '__dialogsSeen');
+    return Array.isArray(seen) ? seen.map(String) : [];
+  });
+}
 
 async function welcomeThen(
   context: BrowserContext,
@@ -91,6 +141,8 @@ test.describe('on a new install', () => {
     await expect(
       setup(full).getByText('Works in any window.', { exact: true })
     ).toBeVisible();
+    await press(full, 'Next');
+    await expect(stepHeading(full)).toHaveText('Sync across your devices?');
     await press(full, 'Done');
 
     await expect(guide(full)).toBeVisible();
@@ -278,8 +330,11 @@ for (const lang of ['en', 'de', 'ru']) {
     test(`${lang} at a ${root}px root: Go back and Next/Done are one width, inside the dialog, on every step`, async ({
       context,
       extensionId,
+      serviceWorker,
     }) => {
       const strings = localeStrings(lang);
+      // A live group, so the walk takes in all six steps.
+      await openTabGroup(serviceWorker);
       await stubToolbarPin(context, { pinned: true });
       await seedSettings(context, { language: lang, setupState: 'pending' });
       const page = await context.newPage();
@@ -312,9 +367,12 @@ for (const lang of ['en', 'de', 'ru']) {
       // Step 1 has no Go back: the one button keeps its own width.
       await expect(button(strings['Go back'])).toHaveCount(0);
       await expect(button(strings.Next)).toBeVisible();
-      for (const primary of [strings.Next, strings.Next, strings.Done]) {
-        await button(strings.Next).or(button(strings.Done)).click();
+      await expect(progress(page)).toHaveAttribute('aria-valuemax', '6');
+      const primaries = [strings.Next, strings.Next, strings.Next];
+      for (const primary of [...primaries, strings.Next, strings.Done]) {
+        await button(strings.Next).click();
         await expect(button(strings['Go back'])).toBeVisible();
+        await expect(button(primary)).toBeVisible();
         const seen = await widths(primary);
         // CONTROL: both are drawn, so a width of zero would not pass for a match.
         expect(seen.back).toBeGreaterThan(20);
@@ -525,12 +583,15 @@ for (const [theme, palette] of THEMES) {
   test(`${theme}: every setup step reads at 4.5:1`, async ({
     context,
     extensionId,
+    serviceWorker,
   }) => {
+    await openTabGroup(serviceWorker);
     await stubToolbarPin(context, { pinned: true });
     await seedSettings(context, { theme, setupState: 'pending' });
     const page = await openFullView(context, extensionId);
     expect(await pageGround(page)).toBe(palette.PRIMARY_COLOR);
-    for (const step of ['theme', 'language', 'default view', 'shortcut']) {
+    const steps = ['theme', 'language', 'default view', 'shortcut'];
+    for (const step of [...steps, 'tab groups', 'sync']) {
       // Off the dialog: a hover repaints a button, and the read is of the resting colours.
       await page.mouse.move(0, 0);
       // A button the pointer just left is still fading its hover fill out: retry until it rests.
@@ -582,7 +643,201 @@ for (const [theme, palette] of THEMES) {
         // The hint beside the button is in the read above, at LABEL_L1 on the page.
         await expect(setup(page).locator('[data-shortcut-hint]')).toBeVisible();
       }
-      if (step !== 'shortcut') await press(page, 'Next');
+      if (step === 'tab groups') {
+        await expect(stepHeading(page)).toHaveText('Save tab groups too?');
+      }
+      if (step === 'sync') {
+        // The policy link sits in the caption, in TEXT on the page.
+        const link = setup(page).getByRole('link', { name: 'privacy policy' });
+        expect(rgbToHex((await colours(link)).text)).toBe(palette.TEXT_COLOR);
+      }
+      if (step !== 'sync') await press(page, 'Next');
     }
+    // The line's fill against its track: 3:1, a graphical indicator.
+    const [fill, track] = await setup(page).evaluate((el) => [
+      getComputedStyle(el.querySelector('[data-progress-fill]') ?? el)
+        .backgroundColor,
+      getComputedStyle(el.querySelector('[data-progress-line]') ?? el)
+        .backgroundColor,
+    ]);
+    expect(contrast(rgbToHex(fill), rgbToHex(track))).toBeGreaterThanOrEqual(3);
   });
 }
+
+test.describe('step 5, Save tab groups too? (Q9)', () => {
+  test.use({ freshProfile: true });
+
+  test('leaving step 5 Off silences the tab-groups offer on the next popup open (CONTROL: before setup, it shows)', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await stubToolbarPin(context, { pinned: true });
+    // IfAbsent: a page's own save must survive the next page.
+    await seedSettingsIfAbsent(context, { setupState: 'pending' });
+    await openTabGroup(serviceWorker);
+    await watchDialogNames(context);
+
+    const before = await openPopup(context, extensionId);
+    expect(await dialogsSeen(before)).toEqual([
+      'Tab Keeper can save tab groups',
+    ]);
+    await before.close();
+
+    const full = await openFullView(context, extensionId);
+    await expect(progress(full)).toHaveAttribute('aria-valuemax', '6');
+    for (const heading of [
+      'Pick a theme',
+      'Which language do you prefer?',
+      'When you click Tab Keeper, open…',
+      'Open Tab Keeper from the keyboard',
+    ]) {
+      await expect(stepHeading(full)).toHaveText(heading);
+      await press(full, 'Next');
+    }
+    await expect(stepHeading(full)).toHaveText('Save tab groups too?');
+    await expect(pairSide(full, 'Save Tab Groups', 'Off')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await press(full, 'Next');
+    await expect(stepHeading(full)).toHaveText('Sync across your devices?');
+    expect((await storedSettings(full)).isNeverAskAgainForTabGroups).toBe(true);
+
+    const after = await openPopup(context, extensionId);
+    expect(await dialogsSeen(after)).toEqual([]);
+  });
+
+  test('skipped with no group open, shown once one is (the same profile is the CONTROL); N follows', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await stubToolbarPin(context, { pinned: true });
+    await seedSettingsIfAbsent(context, { setupState: 'pending' });
+    const full = await openFullView(context, extensionId);
+    await expect(progress(full)).toHaveAttribute('aria-valuemax', '5');
+    for (let n = 0; n < 4; n++) await press(full, 'Next');
+    await expect(stepHeading(full)).toHaveText('Sync across your devices?');
+    await expect(progress(full)).toHaveAttribute(
+      'aria-valuetext',
+      'Step 5 of 5'
+    );
+
+    await press(full, 'Go back');
+    await expect(stepHeading(full)).toHaveText(
+      'Open Tab Keeper from the keyboard'
+    );
+    await openTabGroup(serviceWorker);
+    await press(full, 'Next');
+    await expect(stepHeading(full)).toHaveText('Save tab groups too?');
+    await expect(progress(full)).toHaveAttribute(
+      'aria-valuetext',
+      'Step 5 of 6'
+    );
+  });
+});
+
+// Every request the page makes to the dev project's auth and database, aborted or not.
+function watchCloud(context: BrowserContext): string[] {
+  const requests: string[] = [];
+  context.on('request', (request) => {
+    if (CLOUD.test(request.url())) requests.push(request.url());
+  });
+  return requests;
+}
+
+// Step 6 up to the consent question, answered Not now: nothing may reach Google.
+async function step6NotNow(
+  context: BrowserContext,
+  extensionId: string,
+  requests: string[]
+): Promise<Page> {
+  const full = await openFullView(context, extensionId);
+  for (let n = 0; n < 4; n++) await press(full, 'Next');
+  await expect(stepHeading(full)).toHaveText('Sync across your devices?');
+  await pairSide(full, 'Auto Sync', 'On').click();
+  const ask = full.getByRole('dialog', {
+    name: 'Sync your sessions across devices?',
+    exact: true,
+  });
+  await expect(ask).toBeVisible();
+  // Setup stays open under the question.
+  await expect(setup(full)).toHaveAttribute('open', '');
+  await ask.getByRole('button', { name: 'Not now', exact: true }).click();
+  await expect(ask).toHaveCount(0);
+  await expect(pairSide(full, 'Auto Sync', 'Off')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  await twoFrames(full);
+  expect(requests).toEqual([]);
+  return full;
+}
+
+// Sync, then the sign-up the CONTROL waits for.
+async function step6Sync(page: Page, requests: string[]): Promise<void> {
+  await pairSide(page, 'Auto Sync', 'On').click();
+  await page
+    .getByRole('dialog', {
+      name: 'Sync your sessions across devices?',
+      exact: true,
+    })
+    .getByRole('button', { name: 'Sync', exact: true })
+    .click();
+  await expect(pairSide(page, 'Auto Sync', 'On')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  await expect
+    .poll(() => requests.some((url) => url.includes('accounts:signUp')), {
+      timeout: 15_000,
+    })
+    .toBe(true);
+}
+
+test.describe('step 6, Sync across your devices? (Q9, §14)', () => {
+  test.beforeEach(() => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
+  });
+
+  test('On opens the enable question over setup, and nothing reaches Google until Sync (CONTROL: Sync sends accounts:signUp, blocked)', async ({
+    context,
+    extensionId,
+  }) => {
+    await stubToolbarPin(context, { pinned: true });
+    await seedSettings(context, {
+      setupState: 'pending',
+      cloudConsent: 'declined',
+      isAutoSync: false,
+    });
+    const requests = watchCloud(context);
+    const full = await step6NotNow(context, extensionId, requests);
+    await step6Sync(full, requests);
+  });
+});
+
+test.describe('step 6 against the dev cloud (Q9, §14)', () => {
+  test.use({ cloud: true });
+
+  test('nothing reaches Google until Sync; Sync signs up and syncs', async ({
+    context,
+    extensionId,
+  }) => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
+    await stubToolbarPin(context, { pinned: true });
+    await seedSettings(context, {
+      setupState: 'pending',
+      cloudConsent: 'declined',
+      isAutoSync: false,
+    });
+    const requests = watchCloud(context);
+    const full = await step6NotNow(context, extensionId, requests);
+    await step6Sync(full, requests);
+    await expect
+      .poll(async () => typeof (await storedSettings(full)).lastSyncedTime, {
+        timeout: 15_000,
+      })
+      .toBe('number');
+  });
+});

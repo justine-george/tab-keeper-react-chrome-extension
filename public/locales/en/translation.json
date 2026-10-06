@@ -311,5 +311,10 @@
   "This is an example. Press {{icon}} any time to save your own windows.": "This is an example. Press {{icon}} any time to save your own windows.",
   "Save your open windows, close them, and bring them all back later.": "Save your open windows, close them, and bring them all back later.",
   "Get started opens Tab Keeper in its own tab.": "Get started opens Tab Keeper in its own tab.",
-  "Search looks in tab titles and links.": "Search looks in tab titles and links."
+  "Search looks in tab titles and links.": "Search looks in tab titles and links.",
+  "Save tab groups too?": "Save tab groups too?",
+  "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.",
+  "Sync across your devices?": "Sync across your devices?",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.",
+  "privacy policy": "privacy policy"
 }

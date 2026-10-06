@@ -316,5 +316,10 @@
   "This is an example. Press {{icon}} any time to save your own windows.": "Questo è un esempio. Premi {{icon}} quando vuoi per salvare le tue finestre.",
   "Save your open windows, close them, and bring them all back later.": "Salva le finestre aperte, chiudile e riaprile tutte più tardi.",
   "Get started opens Tab Keeper in its own tab.": "Inizia apre Tab Keeper in una scheda tutta sua.",
-  "Search looks in tab titles and links.": "La ricerca include titoli delle schede e link."
+  "Search looks in tab titles and links.": "La ricerca include titoli delle schede e link.",
+  "Save tab groups too?": "Salvare anche i gruppi di schede?",
+  "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Le sessioni salvate mantengono il nome e il colore di ogni gruppo di schede. Chrome ti chiederà di consentirlo.",
+  "Sync across your devices?": "Sincronizzare tra i tuoi dispositivi?",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Spento: le sessioni restano su questo dispositivo. Acceso ti chiede prima di confermare, con cosa viene salvato e l’{{policy}}.",
+  "privacy policy": "informativa sulla privacy"
 }

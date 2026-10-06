@@ -311,5 +311,10 @@
   "This is an example. Press {{icon}} any time to save your own windows.": "Det här är ett exempel. Tryck på {{icon}} när du vill för att spara dina egna fönster.",
   "Save your open windows, close them, and bring them all back later.": "Spara dina öppna fönster, stäng dem och ta tillbaka alla senare.",
   "Get started opens Tab Keeper in its own tab.": "Kom igång öppnar Tab Keeper i en egen flik.",
-  "Search looks in tab titles and links.": "Sökningen omfattar fliktitlar och länkar."
+  "Search looks in tab titles and links.": "Sökningen omfattar fliktitlar och länkar.",
+  "Save tab groups too?": "Spara flikgrupper också?",
+  "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Sparade sessioner behåller varje flikgrupps namn och färg. Chrome ber dig att tillåta det.",
+  "Sync across your devices?": "Synka mellan dina enheter?",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Av: dina sessioner stannar på den här enheten. På ber dig bekräfta först, med vad som lagras och {{policy}}.",
+  "privacy policy": "integritetspolicyn"
 }

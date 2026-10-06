@@ -306,5 +306,10 @@
   "This is an example. Press {{icon}} any time to save your own windows.": "这是一个示例。随时按 {{icon}} 即可保存您自己的窗口。",
   "Save your open windows, close them, and bring them all back later.": "保存您打开的窗口，关闭它们，之后再全部恢复。",
   "Get started opens Tab Keeper in its own tab.": "“开始使用”会在单独的标签页中打开 Tab Keeper。",
-  "Search looks in tab titles and links.": "搜索范围包括标签页标题和链接。"
+  "Search looks in tab titles and links.": "搜索范围包括标签页标题和链接。",
+  "Save tab groups too?": "也保存标签组吗？",
+  "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "已保存的会话会保留每个标签组的名称和颜色。Chrome 会请您允许。",
+  "Sync across your devices?": "在您的设备间同步吗？",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "关：您的会话只保存在这台设备上。开：会先请您确认，并说明存储哪些内容以及{{policy}}。",
+  "privacy policy": "隐私政策"
 }
