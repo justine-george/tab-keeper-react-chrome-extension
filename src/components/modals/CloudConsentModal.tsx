@@ -148,23 +148,18 @@ export const CloudConsentModal: React.FC = () => {
       void dispatch(welcomeGetStarted());
     });
   };
-  const notNow = () => void dispatch(welcomeNotNow());
-  // §5: Esc is Not now; during Get started's beat it cuts the beat short (R12).
-  const leaveWelcome = () => {
+  // Esc is Not now (§5); during Get started's beat either cuts the beat short, and Get started completes (R12).
+  const notNow = () => {
     if (motion.current !== null) {
       motion.current.cancel();
       return;
     }
-    notNow();
+    void dispatch(welcomeNotNow());
   };
   // Escape never uploads: existing declines (KAN-410), enable changes nothing,
   // and the welcome's Escape is Not now.
   const handleCancel =
-    variant === 'welcome'
-      ? leaveWelcome
-      : variant === 'existing'
-        ? decline
-        : close;
+    variant === 'welcome' ? notNow : variant === 'existing' ? decline : close;
 
   const buttons = dialogButtonStyles(COLORS);
 

@@ -4,7 +4,10 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 
 import MainContainer from '../../components/MainContainer';
 import { RunHelloDialog } from '../../components/modals/RunHelloDialog';
-import { renderWithProviders } from '../setup/renderWithProviders';
+import {
+  renderWithProviders,
+  type RenderWithProvidersResult,
+} from '../setup/renderWithProviders';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import {
   ENTER_EASE,
@@ -169,6 +172,64 @@ describe('the moment on the welcome', () => {
     moment()[0].release();
     await microtasks();
     expect(moment()).toHaveLength(1);
+  });
+
+  // Every run record written and every card drawn from now on.
+  function watchRunStarts(store: RenderWithProvidersResult['store']) {
+    const views: string[] = [];
+    let cards = 0;
+    const unsubscribe = store.subscribe(() => {
+      const run = store.getState().settingsDataState.firstRun;
+      if (run !== null && views[views.length - 1] !== run.view)
+        views.push(run.view);
+    });
+    const observer = new MutationObserver(() => {
+      if (document.querySelector('[data-coach-mark]') !== null) cards += 1;
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return {
+      read: () => {
+        unsubscribe();
+        observer.disconnect();
+        return { views, cards };
+      },
+    };
+  }
+
+  test('Not now while it plays neither closes the welcome nor starts the popup run; Get started completes', async () => {
+    installAnimate();
+    const { store } = await renderWithProviders(<MainContainer />, {
+      seedStore: welcome,
+    });
+    const watch = watchRunStarts(store);
+    const { moment } = pressGetStarted();
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    // Whatever of the beat is still to play, played out.
+    for (let i = 0; i < 3; i += 1) {
+      moment()[i]?.release();
+      await microtasks();
+    }
+    await waitFor(() =>
+      expect(store.getState().settingsDataState.firstRun).toEqual(FULL_RUN)
+    );
+    expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
+    expect(watch.read()).toEqual({ views: ['full'], cards: 0 });
+  });
+
+  test('CONTROL: Not now with no beat playing starts the popup run, and the watch sees it', async () => {
+    installAnimate();
+    const { store } = await renderWithProviders(<MainContainer />, {
+      seedStore: welcome,
+    });
+    const watch = watchRunStarts(store);
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    await waitFor(() =>
+      expect(store.getState().globalState.isRunHere).toBe(true)
+    );
+    await microtasks();
+    const seen = watch.read();
+    expect(seen.views).toEqual(['popup']);
+    expect(seen.cards).toBeGreaterThan(0);
   });
 
   test('reduced motion: straight on to the full-view run, and nothing animates', async () => {
