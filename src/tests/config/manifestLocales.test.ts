@@ -114,7 +114,14 @@ describe('the manifest takes its listing text from _locales (KAN-274)', () => {
   test('name, summary and toolbar title are placeholders, not literals', () => {
     expect(manifest.name).toBe('__MSG_appName__');
     expect(manifest.description).toBe('__MSG_appDesc__');
-    expect(manifest.action.default_title).toBe('__MSG_appName__');
+    expect(manifest.action.default_title).toBe('__MSG_actionTitle__');
+  });
+
+  test('the toolbar tooltip is the bare product name, never translated', () => {
+    expect(readMessages('en').actionTitle?.message).toBe('Tab Keeper');
+    for (const locale of LOCALES.filter((l) => l !== 'en')) {
+      expect(readMessages(locale), locale).not.toHaveProperty('actionTitle');
+    }
   });
 
   // The load-failure guard. Delete a key from en/messages.json and this is
@@ -156,15 +163,35 @@ describe('every _locales file', () => {
     '%s: the name fits 75 and keeps the brand first',
     (locale) => {
       const { appName } = readMessages(locale);
-      if (!appName) return; // a locale may translate only some keys
-      expect([...appName.message].length).toBeLessThanOrEqual(75);
-      expect(appName.message.startsWith('Tab Keeper')).toBe(true);
+      expect(appName, `${locale} has no appName`).toBeDefined();
+      expect([...appName!.message].length).toBeLessThanOrEqual(75);
+      expect(appName!.message.startsWith('Tab Keeper')).toBe(true);
     }
   );
 
+  test('the 13 launch locales are all present', () => {
+    expect([...LOCALES].sort()).toEqual(
+      [
+        'de',
+        'en',
+        'es',
+        'fr',
+        'hi',
+        'it',
+        'ja',
+        'ko',
+        'pt_BR',
+        'ru',
+        'sv',
+        'zh_CN',
+        'zh_TW',
+      ].sort()
+    );
+  });
+
   test.each(LOCALES)('%s: the summary fits 132', (locale) => {
     const { appDesc } = readMessages(locale);
-    if (!appDesc) return;
-    expect([...appDesc.message].length).toBeLessThanOrEqual(132);
+    expect(appDesc, `${locale} has no appDesc`).toBeDefined();
+    expect([...appDesc!.message].length).toBeLessThanOrEqual(132);
   });
 });
