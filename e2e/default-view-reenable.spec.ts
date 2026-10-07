@@ -62,9 +62,12 @@ test('a stored Full survives disabling and re-enabling the extension', async () 
     }
     const id = new URL(tabKeeper.url()).host;
 
+    // The worker's own start-up applies are lost while staging, or one can land last (KAN-462).
     await tabKeeper.evaluate(async () => {
+      const setPopup = chrome.action.setPopup.bind(chrome.action);
+      chrome.action.setPopup = () => Promise.resolve();
       await chrome.storage.local.set({ defaultView: 'full' });
-      await chrome.action.setPopup({ popup: '' });
+      await setPopup({ popup: '' });
     });
     // CONTROL: Full is applied before the disable.
     expect(await tabKeeper.evaluate(() => chrome.action.getPopup({}))).toBe('');
