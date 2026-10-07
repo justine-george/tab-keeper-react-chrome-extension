@@ -13,7 +13,13 @@ import {
   selectTabContainer,
   type CarriedRef,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import { setSearchInputText } from '../../redux/slices/globalStateSlice';
+import {
+  runShownHere,
+  runStoppedHere,
+  setSearchInputText,
+} from '../../redux/slices/globalStateSlice';
+import { recordFirstRun } from '../../redux/slices/settingsDataStateSlice';
+import { newRun } from '../../utils/functions/firstRun';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { s1, s2, tabIds } from '../fixtures/sessionMoveFixture';
 
@@ -91,6 +97,40 @@ describe('the save row as a carry receiver', () => {
 
     expect(carryReceiverAt(10, 120)).toBeNull();
     expect(target()).toBeNull();
+  });
+
+  // F18. While this page shows the first run's card, the row stays the save row.
+  test('is not there while this page shows the first run, and draws no target', async () => {
+    const { store } = await renderRow();
+    act(() => {
+      // Popup step 6 lets a tab be carried; the run's session is the one shown.
+      store.dispatch(
+        recordFirstRun({ ...newRun('popup', 6), sessionId: 'S1' })
+      );
+      store.dispatch(runShownHere());
+    });
+
+    expect(carryReceiverAt(10, 120)).toBeNull();
+    expect(target()).toBeNull();
+
+    // CONTROL: another session shown hides the run's card, and the row is back.
+    act(() => {
+      store.dispatch(selectTabContainer('S2'));
+    });
+    expect(carryReceiverAt(10, 120)).not.toBeNull();
+    expect(target()).not.toBeNull();
+
+    act(() => {
+      store.dispatch(selectTabContainer('S1'));
+    });
+    expect(carryReceiverAt(10, 120)).toBeNull();
+
+    // CONTROL: the run stopped here, it is back.
+    act(() => {
+      store.dispatch(runStoppedHere());
+    });
+    expect(carryReceiverAt(10, 120)).not.toBeNull();
+    expect(target()).not.toBeNull();
   });
 
   test('is hit on the row’s box as it is now', async () => {
