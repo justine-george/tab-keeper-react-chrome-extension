@@ -6,9 +6,13 @@ import {
   type Worker,
 } from '@playwright/test';
 
-import { hasCloudConfig } from './fixtures/cloud';
+import {
+  commitLanded,
+  hasCloudConfig,
+  openSecondDevice,
+  seedOnce,
+} from './fixtures/cloud';
 import { test, expect } from './fixtures/extension';
-import { commitLanded, openSecondDevice, seedOnce } from './fixtures/cloud';
 import { buildSession } from './fixtures/seed';
 
 // Syncs with the dev cloud (KAN-383).
