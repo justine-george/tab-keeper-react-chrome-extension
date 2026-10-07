@@ -6,6 +6,7 @@ import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 import {
   closeOpenTab,
   closeOpenWindow,
+  recreateClosed,
   reopenClosed,
 } from '../../../utils/functions/reopen';
 import { setupChromeFake } from '../../setup/chrome.fake';
@@ -137,7 +138,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
     expect(await windowIds()).toEqual([1]);
     if (!item) throw new Error('close failed');
 
-    expect(await reopenClosed(item)).toMatchObject({ kind: 'window' });
+    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'window' });
 
     const reopened = await newWindow([1]);
     const id = idOf(reopened);
@@ -219,7 +220,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 
     const item = await closeOpenWindow(w2);
     if (!item) throw new Error('close failed');
-    expect(await reopenClosed(item)).toMatchObject({ kind: 'window' });
+    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'window' });
 
     expect(await newWindow([1])).toMatchObject({
       left: 300,
@@ -259,7 +260,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
     });
     expect(await windowIds()).toEqual([1]);
     if (!item) throw new Error('close failed');
-    expect(await reopenClosed(item)).toMatchObject({ kind: 'window' });
+    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'window' });
 
     expect(await newWindow([1])).toMatchObject({
       left: 140,
@@ -288,7 +289,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
     const item = await closeOpenWindow(await openWindow(2));
     if (!item) throw new Error('close failed');
 
-    expect(await reopenClosed(item)).toMatchObject({ kind: 'window' });
+    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'window' });
 
     const id = idOf(await newWindow([1]));
     expect(await shape(id)).toEqual(['a*', 'c']);
@@ -314,7 +315,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
       if (w.id !== undefined) createdWindowIds.push(w.id);
     });
 
-    expect(await reopenClosed(item)).toBeNull();
+    expect(await reopenClosed(item, false)).toBeNull();
 
     expect(createdWindowIds).toHaveLength(1);
     expect(handle.removedWindowIds).toContain(createdWindowIds[0]);
@@ -359,7 +360,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
     if (!item) throw new Error('close failed');
     expect(chrome.tabGroups).toBeUndefined();
 
-    expect(await reopenClosed(item)).toMatchObject({ kind: 'window' });
+    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'window' });
 
     const id = idOf(await newWindow([1]));
     expect(await shape(id)).toEqual(['a*', 'b', 'c']);
@@ -381,7 +382,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
       new Error('Incognito mode is disabled.')
     );
 
-    expect(await reopenClosed(item)).toBeNull();
+    expect(await reopenClosed(item, false)).toBeNull();
     expect(handle.createdTabs).toEqual([]);
   });
 
@@ -394,7 +395,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
     if (!item) throw new Error('close failed');
     handle.restore();
 
-    await expect(reopenClosed(item)).resolves.toBeNull();
+    await expect(reopenClosed(item, false)).resolves.toBeNull();
   });
 });
 
@@ -420,7 +421,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     expect(await shape(2)).toEqual(['a*', 'c']);
     if (!item) throw new Error('close failed');
 
-    expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
     expect(await shape(2)).toEqual(['a*', 'b', 'c']);
     expect((await tabNamed(2, 'b')).groupId).toBe(50);
@@ -458,7 +459,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     if (!item) throw new Error('close failed');
     expect(item).toMatchObject({ kind: 'tab', group: { id: 50 } });
 
-    expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
     const b = await tabNamed(2, 'b');
     expect(await shape(2)).toEqual(['a*', 'b', 'c']);
@@ -510,7 +511,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     const item = await closeOpenTab(w2, tabIn(w2, 'b'));
     if (!item) throw new Error('close failed');
 
-    expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
     const b = await tabNamed(2, 'b');
     expect(b.groupId).not.toBe(-1);
@@ -544,7 +545,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     // Closing the last tab took the window with it.
     expect(await windowIds()).toEqual([1]);
 
-    expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
     const reopened = await newWindow([1]);
     expect(reopened).toMatchObject({
@@ -590,7 +591,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     const item = await closeOpenTab(w2, tabIn(w2, 'solo'));
     if (!item) throw new Error('close failed');
     expect(await windowIds()).toEqual([1]);
-    expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
     const reopened = await newWindow([1]);
     expect(reopened).toMatchObject({
@@ -649,7 +650,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
       const { item, overSpot } = await closeXThenGroupAB();
       expect(item).toMatchObject({ kind: 'tab', group: null });
 
-      expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+      expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
       expect((await tabNamed(2, 'x')).groupId).toBe(-1);
       expect((await tabNamed(2, 'a')).groupId).toBe(overSpot);
@@ -664,7 +665,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
         new Error('Tabs cannot be edited right now.')
       );
 
-      expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+      expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
       expect(await shape(2)).toEqual(['a*', 'x', 'b']);
       expect(warn).toHaveBeenCalledTimes(1);
@@ -678,7 +679,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
       const { item, overSpot } = await closeXThenGroupAB();
       expect(item).toMatchObject({ kind: 'tab', group: { id: 50 } });
 
-      expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+      expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
       const x = await tabNamed(2, 'x');
       expect(x.groupId).not.toBe(overSpot);
@@ -710,7 +711,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
       if (!item) throw new Error('close failed');
       expect(item).toMatchObject({ kind: 'tab', group: null });
 
-      expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+      expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
       expect((await tabNamed(2, 'x')).groupId).toBe(5);
     });
@@ -775,7 +776,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
       });
       const steps = spyOnTabSteps();
 
-      expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+      expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
       const x = await tabNamed(2, 'x');
       expect(x).toMatchObject({ active: true, groupId: -1 });
@@ -815,7 +816,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
       handle.browser.activateTab(z.id);
       const steps = spyOnTabSteps();
 
-      expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+      expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
       const x = await tabNamed(2, 'x');
       expect(x).toMatchObject({ active: true, groupId: 50 });
@@ -850,7 +851,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
       if (!item) throw new Error('close failed');
       const steps = spyOnTabSteps();
 
-      expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+      expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
       expect(await tabNamed(2, 'x')).toMatchObject({ active: false });
       expect(steps.update).not.toHaveBeenCalled();
@@ -863,7 +864,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
         new Error('Tabs cannot be edited right now.')
       );
 
-      expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+      expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
       // x came back inside a and b's run, and ungrouping it moves it to just
       // after the run, as Chrome does (KAN-309; Part E Task 6a, Q5#6).
@@ -892,7 +893,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     if (!item) throw new Error('close failed');
     await chrome.tabs.remove(tabIn(w2, 'b').id);
 
-    expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
     expect(handle.createdTabs.map((props) => props.index)).toEqual([2]);
     expect(await shape(2)).toEqual(['a*', 'c']);
@@ -917,7 +918,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     const item = await closeOpenTab(w2, tabIn(w2, 'p'));
     if (!item) throw new Error('close failed');
 
-    expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
     expect(await shape(2)).toEqual(['p(pin)', 'a*', 'b']);
   });
@@ -933,7 +934,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     const item = await closeOpenTab(w2, tabIn(w2, 'a'));
     if (!item) throw new Error('close failed');
 
-    expect(await reopenClosed(item)).toMatchObject({ kind: 'tab' });
+    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
     expect(await shape(2)).toEqual(['a*', 'b']);
     expect(await focusedWindowIds()).toEqual([1]);
@@ -957,7 +958,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     const item = await closeOpenTab(w2, refused);
     if (!item) throw new Error('close failed');
 
-    expect(await reopenClosed(item)).toBeNull();
+    expect(await reopenClosed(item, false)).toBeNull();
     expect(await shape(2)).toEqual(['a*']);
   });
 });
@@ -978,7 +979,7 @@ describe('reopenClosed resolves to what it reopened (KAN-311)', () => {
     const item = await closeOpenTab(w2, b);
     if (!item) throw new Error('close failed');
 
-    const reopened = await reopenClosed(item);
+    const reopened = await reopenClosed(item, false);
 
     const back = await tabNamed(2, 'b');
     // PREMISE: Chrome gave it a new id, so the old one cannot pass for it.
@@ -994,7 +995,7 @@ describe('reopenClosed resolves to what it reopened (KAN-311)', () => {
     const item = await closeOpenTab(w2, tabIn(w2, 'solo'));
     if (!item) throw new Error('close failed');
 
-    const reopened = await reopenClosed(item);
+    const reopened = await reopenClosed(item, false);
 
     const id = idOf(await newWindow([1]));
     expect(reopened).toEqual({
@@ -1013,7 +1014,7 @@ describe('reopenClosed resolves to what it reopened (KAN-311)', () => {
     const item = await closeOpenWindow(await openWindow(2));
     if (!item) throw new Error('close failed');
 
-    const reopened = await reopenClosed(item);
+    const reopened = await reopenClosed(item, false);
 
     const id = idOf(await newWindow([1]));
     expect(id).not.toBe(2);
@@ -1500,5 +1501,77 @@ describe('closeOpenTab / closeOpenWindow record Chrome’s recently closed entry
     expect(second).toBeNull();
     expect(await closeOpenWindow(w2)).not.toBeNull();
     expect(await closeOpenWindow(w2)).toBeNull();
+  });
+});
+
+describe('recreateClosed adds a pinned Tab Keeper tab when asked (KAN-459)', () => {
+  const STUB_URL = 'chrome-extension://faketestid/pinned.html';
+  // The seed of 'a window: its new id' above.
+  const windowSeed = () => ({
+    windows: [
+      tabKeeperWindow,
+      { id: 2, tabs: [{ url: url('a') }, { url: url('b') }] },
+    ],
+  });
+
+  test('On: a recreated window starts with a pinned stub', async () => {
+    handle = setupChromeFake(windowSeed());
+    const item = await closeOpenWindow(await openWindow(2));
+    if (!item) throw new Error('close failed');
+
+    const reopened = await recreateClosed(item, true);
+
+    if (reopened?.kind !== 'window') throw new Error('no window came back');
+    const tabs = (
+      await chrome.tabs.query({ windowId: reopened.windowId })
+    ).sort((a, b) => a.index - b.index);
+    expect(tabs[0]).toMatchObject({
+      url: STUB_URL,
+      pinned: true,
+      active: false,
+    });
+  });
+
+  test('Off: a recreated window gets nothing extra', async () => {
+    handle = setupChromeFake(windowSeed());
+    const item = await closeOpenWindow(await openWindow(2));
+    if (!item) throw new Error('close failed');
+
+    const reopened = await recreateClosed(item, false);
+
+    if (reopened?.kind !== 'window') throw new Error('no window came back');
+    const urls = (await chrome.tabs.query({ windowId: reopened.windowId })).map(
+      (t) => t.url
+    );
+    expect(urls).not.toContain(STUB_URL);
+  });
+
+  test('a reopened TAB never gets a stub', async () => {
+    // The seed of 'comes back where it was, in its surviving group' above.
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), groupId: 50, active: true },
+            { url: url('b'), groupId: 50 },
+            { url: url('c') },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 50, windowId: 2, title: 'Kyoto', color: 'green' }],
+    });
+    const w2 = await openWindow(2);
+    const item = await closeOpenTab(w2, tabIn(w2, 'b'));
+    if (!item) throw new Error('close failed');
+    const before = handle.createdTabs.length;
+
+    await recreateClosed(item, true);
+
+    expect(handle.createdTabs.slice(before).map((p) => p.url)).not.toContain(
+      STUB_URL
+    );
   });
 });

@@ -28,6 +28,7 @@ import type { ChromeFakeHandle } from '../setup/chrome.fake';
 import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import { closeOpenTab, closeOpenWindow } from '../../utils/functions/reopen';
+import { setPinTabKeeperInNewWindows } from '../../redux/slices/settingsDataStateSlice';
 import type { ClosedItem } from '../../utils/functions/reopen';
 import {
   closeAllToasts,
@@ -514,5 +515,40 @@ describe('the reopened row to focus (KAN-311)', () => {
     vi.advanceTimersByTime(2000);
 
     expect(pendingReopenFocus()).toEqual({ kind: 'window', windowId: 9 });
+  });
+});
+
+describe('reopenFromOffer reads the Pin Tab Keeper setting (KAN-459)', () => {
+  const STUB_URL = 'chrome-extension://faketestid/pinned.html';
+
+  async function reopenedWindowHasStub(on: boolean): Promise<boolean> {
+    handle = setupChromeFake({
+      windows: [
+        { id: 1, focused: true, tabs: [{ url: url('home'), active: true }] },
+        { id: 2, tabs: [{ url: url('a') }, { url: url('b') }] },
+      ],
+    });
+    const item = await closeOpenWindow(await openWindow(2));
+    if (!item) throw new Error('close failed');
+    const { store } = makeTestStore();
+    store.dispatch(setPinTabKeeperInNewWindows(on));
+    await store.dispatch(offerReopen(item));
+    const id = shownOfferId(store.getState());
+    if (id === null) throw new Error('no offer id');
+
+    await store.dispatch(reopenFromOffer(id));
+
+    const back = (await chrome.windows.getAll({ populate: true })).find(
+      (w) => w.id !== 1
+    );
+    return (back?.tabs ?? []).some((tab) => tab.url === STUB_URL);
+  }
+
+  test('On: the reopened window gets the stub', async () => {
+    expect(await reopenedWindowHasStub(true)).toBe(true);
+  });
+
+  test('Off: it does not', async () => {
+    expect(await reopenedWindowHasStub(false)).toBe(false);
   });
 });

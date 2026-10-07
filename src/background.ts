@@ -97,10 +97,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         console.warn('Could not answer Reopen: ', error);
       }
     };
-    void reopenPreferringHistory(message.item).then(answer, (error) => {
-      console.warn('Reopen failed: ', error);
-      answer(null);
-    });
+    void reopenPreferringHistory(message.item, message.pinTabKeeper).then(
+      answer,
+      (error) => {
+        console.warn('Reopen failed: ', error);
+        answer(null);
+      }
+    );
     return true;
   }
 

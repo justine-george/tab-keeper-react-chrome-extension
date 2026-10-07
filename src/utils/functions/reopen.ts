@@ -6,6 +6,7 @@ import type {
   OpenWindowBounds,
 } from './openNow';
 import { hasSessionsPermission } from './permissions';
+import { ensurePinnedStub } from './pinnedTabKeeper';
 import { isReopened, REOPEN_PREFERRING_HISTORY_MESSAGE } from './reopenRequest';
 import type { ReopenPreferringHistoryRequest } from './reopenRequest';
 
@@ -200,11 +201,17 @@ export type Reopened =
 // never a second, local recreate after a restore (Justine's ruling). There
 // is no timeout, for the same reason. Resolves to what came back, or null.
 // Never rejects.
-export async function reopenClosed(item: ClosedItem): Promise<Reopened | null> {
-  if (item.restorableSessionId === null) return recreateClosed(item);
+export async function reopenClosed(
+  item: ClosedItem,
+  pinTabKeeper: boolean
+): Promise<Reopened | null> {
+  if (item.restorableSessionId === null) {
+    return recreateClosed(item, pinTabKeeper);
+  }
   const request: ReopenPreferringHistoryRequest = {
     type: REOPEN_PREFERRING_HISTORY_MESSAGE,
     item,
+    pinTabKeeper,
   };
   let answer: unknown;
   try {
@@ -215,7 +222,7 @@ export async function reopenClosed(item: ClosedItem): Promise<Reopened | null> {
   } catch (error) {
     if (error instanceof Error && error.message.includes(NO_RECEIVING_END)) {
       console.warn('No service worker to ask, so reopening here: ', error);
-      return recreateClosed(item);
+      return recreateClosed(item, pinTabKeeper);
     }
     console.warn('Reopen may or may not have run in the worker: ', error);
     return null;
@@ -237,12 +244,15 @@ const NO_RECEIVING_END =
 // new history. Resolves to what came back, or null when nothing could. Never
 // rejects.
 export async function recreateClosed(
-  item: ClosedItem
+  item: ClosedItem,
+  pinTabKeeper: boolean
 ): Promise<Reopened | null> {
   try {
     if (item.kind === 'tab') return await recreateTab(item);
     const rebuilt = await recreateWindow(item.window);
-    return rebuilt && { kind: 'window', windowId: rebuilt.windowId };
+    if (rebuilt === null) return null;
+    if (pinTabKeeper) await ensurePinnedStub(rebuilt.windowId);
+    return { kind: 'window', windowId: rebuilt.windowId };
   } catch (error) {
     console.warn('Could not reopen: ', error);
     return null;
@@ -263,19 +273,20 @@ export async function recreateClosed(
 // outright -- only warns, because the item did come back. Resolves to what
 // came back, or null. Never rejects.
 export async function reopenPreferringHistory(
-  item: ClosedItem
+  item: ClosedItem,
+  pinTabKeeper: boolean
 ): Promise<Reopened | null> {
   try {
     const sessionId = item.restorableSessionId;
     if (sessionId === null || !(await sessionsHeld())) {
-      return await recreateClosed(item);
+      return await recreateClosed(item, pinTabKeeper);
     }
     // Read before the restore, which changes all of it.
     const focusedWindowId = await lastFocusedWindowId();
     if (item.kind === 'tab') {
       const place = await tabPlaceNow(item);
       const restored = await restoreEntry(sessionId);
-      if (restored === null) return await recreateClosed(item);
+      if (restored === null) return await recreateClosed(item, pinTabKeeper);
       // Taken before the undo, so whatever the undo does, they are answered.
       const tabId = restored.tab?.id;
       await finishUndo(() =>
@@ -284,11 +295,13 @@ export async function reopenPreferringHistory(
       return tabId === undefined ? null : { kind: 'tab', tabId };
     }
     const restored = await restoreEntry(sessionId);
-    if (restored === null) return await recreateClosed(item);
+    if (restored === null) return await recreateClosed(item, pinTabKeeper);
     const windowId = restored.window?.id;
     await finishUndo(() =>
       undoWindowRestore(item.window, restored, focusedWindowId)
     );
+    if (windowId !== undefined && pinTabKeeper)
+      await ensurePinnedStub(windowId);
     return windowId === undefined ? null : { kind: 'window', windowId };
   } catch (error) {
     console.warn('Could not reopen: ', error);
