@@ -33,7 +33,7 @@ function fakeTab(overrides: Partial<chrome.tabs.Tab> = {}): chrome.tabs.Tab {
 
 type Calls = {
   queries: { url: string }[];
-  updates: { tabId: number; props: { active: boolean } }[];
+  updates: { tabId: number; props: { active: boolean; url?: string } }[];
   focusWindows: number[];
   creates: {
     url: string;
@@ -50,6 +50,7 @@ type Calls = {
 function makeTabApi(
   options: {
     matches?: chrome.tabs.Tab[];
+    stubMatches?: chrome.tabs.Tab[];
     rejectQuery?: boolean;
     rejectAnnounce?: boolean;
   } = {}
@@ -67,7 +68,9 @@ function makeTabApi(
     query: async (q) => {
       calls.queries.push(q);
       if (options.rejectQuery) throw new Error('query failed');
-      return options.matches ?? [];
+      return q.url.includes('pinned.html')
+        ? options.stubMatches ?? []
+        : options.matches ?? [];
     },
     update: async (tabId, props) => {
       calls.updates.push({ tabId, props });
@@ -154,6 +157,7 @@ describe('openOrFocusTabView', () => {
 
     expect(calls.queries).toEqual([
       { url: 'chrome-extension://x/index.html?view=tab*' },
+      { url: 'chrome-extension://x/pinned.html*' },
     ]);
   });
 
@@ -207,6 +211,89 @@ describe('openOrFocusTabView', () => {
         active: true,
       },
     ]);
+  });
+
+  test('KAN-459: a Tab Keeper tab in the asking window wins over one elsewhere', async () => {
+    const { api, calls } = makeTabApi({
+      matches: [
+        fakeTab({
+          id: 7,
+          windowId: 3,
+          url: 'chrome-extension://x/index.html?view=tab',
+        }),
+      ],
+      stubMatches: [
+        fakeTab({
+          id: 9,
+          windowId: 5,
+          url: 'chrome-extension://x/pinned.html',
+        }),
+      ],
+    });
+    await openOrFocusTabView(api, request(5));
+    expect(calls.updates).toEqual([{ tabId: 9, props: { active: true } }]);
+    expect(calls.focusWindows).toEqual([5]);
+    expect(calls.creates).toEqual([]);
+  });
+
+  test('KAN-459: a stub elsewhere still counts as existing; nothing is created', async () => {
+    const { api, calls } = makeTabApi({
+      stubMatches: [
+        fakeTab({
+          id: 9,
+          windowId: 5,
+          url: 'chrome-extension://x/pinned.html',
+        }),
+      ],
+    });
+    await openOrFocusTabView(api, request(2));
+    expect(calls.updates).toEqual([{ tabId: 9, props: { active: true } }]);
+    expect(calls.creates).toEqual([]);
+  });
+
+  test('KAN-459: a stub asked to show a dialog is sent to the full view with it, not announced to', async () => {
+    const { api, calls } = makeTabApi({
+      stubMatches: [
+        fakeTab({
+          id: 9,
+          windowId: 5,
+          url: 'chrome-extension://x/pinned.html',
+        }),
+      ],
+    });
+    await openOrFocusTabView(api, { ...request(5), show: 'pinGuide' });
+    expect(calls.updates).toEqual([
+      {
+        tabId: 9,
+        props: {
+          active: true,
+          url: 'chrome-extension://x/index.html?view=tab&show=pinGuide',
+        },
+      },
+    ]);
+    expect(calls.focusWindows).toEqual([5]);
+    expect(calls.announces).toEqual([]);
+  });
+
+  test('KAN-459: a loaded full view in the asking window beats a stub in the same window', async () => {
+    const { api, calls } = makeTabApi({
+      matches: [
+        fakeTab({
+          id: 7,
+          windowId: 5,
+          url: 'chrome-extension://x/index.html?view=tab',
+        }),
+      ],
+      stubMatches: [
+        fakeTab({
+          id: 9,
+          windowId: 5,
+          url: 'chrome-extension://x/pinned.html',
+        }),
+      ],
+    });
+    await openOrFocusTabView(api, request(5));
+    expect(calls.updates).toEqual([{ tabId: 7, props: { active: true } }]);
   });
 
   test('a query rejection does not throw or reject; it is swallowed like the restore branch', async () => {
