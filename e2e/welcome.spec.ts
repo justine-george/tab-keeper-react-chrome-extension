@@ -38,10 +38,10 @@ test('the welcome: hero, one line, the hint, Stay here and Get started (never No
 }) => {
   const page = await openPopup(context, extensionId);
   await expect(welcome(page)).toBeVisible();
-  await expect(welcome(page).locator('[data-hero-frame]')).toHaveAttribute(
-    'aria-hidden',
-    'true'
-  );
+  // The drawing is hidden from assistive tech; only Play again is not (KAN-464).
+  await expect(
+    welcome(page).locator('[data-hero-frame] > [aria-hidden="true"]')
+  ).toHaveCount(1);
   await expect(welcome(page)).toContainText(
     'Get started opens Tab Keeper in its own tab.'
   );
@@ -565,4 +565,73 @@ test("reduced motion: the full view's Hello shows a still hero at its end, chips
   await expect(dialog.locator('[data-hero-frame="end"]')).toBeVisible();
   expect(await heroPlayStates(page)).toEqual([]);
   expectHome(await chipsHome(dialog));
+  await expect(
+    dialog.getByRole('button', { name: 'Play again', includeHidden: true })
+  ).toHaveCount(0);
+});
+
+// KAN-464: Play again, hidden while the loop plays, replays it once it rests.
+const allFinished = (page: import('@playwright/test').Page) =>
+  expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          document.getAnimations().every((a) => a.playState === 'finished')
+        ),
+      { timeout: 4000 }
+    )
+    .toBe(true);
+
+async function expectReplay(
+  page: import('@playwright/test').Page,
+  dialog: import('@playwright/test').Locator
+) {
+  const button = dialog.getByRole('button', {
+    name: 'Play again',
+    exact: true,
+  });
+  await expect(button).toBeHidden();
+  await allFinished(page);
+  await expect(button).toBeVisible();
+  // A glyph, not its ligature name drawn as text.
+  const glyph = await button
+    .locator('.material-symbols-outlined')
+    .evaluate((el) => el.getBoundingClientRect().width);
+  expect(glyph).toBeLessThan(24);
+  await button.click();
+  expect(await heroPlayStates(page)).toContain('running');
+  await expect(button).toBeHidden();
+  await allFinished(page);
+  await expect(button).toBeVisible();
+  expectHome(await chipsHome(dialog));
+}
+
+test("the full view's Hello: Play again appears when the loop rests and replays it", async ({
+  context,
+  extensionId,
+}) => {
+  await seedRawSettingsIfAbsent(context, {
+    ...AT_HELLO,
+    firstRun: {
+      view: 'full',
+      step: 0,
+      sessionId: null,
+      hello: 'whatsNew',
+      welcomeShows: null,
+      ended: null,
+    },
+  });
+  const page = await context.newPage();
+  await page.setViewportSize(FULL);
+  await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
+  await expectReplay(page, hello(page));
+});
+
+test('the popup welcome: Play again appears when the loop rests and replays it', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openPopup(context, extensionId);
+  await expect(welcome(page)).toBeVisible();
+  await expectReplay(page, welcome(page));
 });

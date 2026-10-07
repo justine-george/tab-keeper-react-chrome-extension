@@ -30,7 +30,7 @@ import {
   prefersReducedMotion,
   type Motion,
 } from './getStartedMotion';
-import { playWelcomeLoop, type HeroLoop } from './welcomeMotion';
+import { useHeroLoop } from './useHeroLoop';
 
 const TITLE_ID = 'cloud-consent-title';
 const BODY_ID = 'cloud-consent-body';
@@ -60,7 +60,8 @@ export const CloudConsentModal: React.FC = () => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const getStartedRef = useRef<HTMLButtonElement>(null);
   const motion = useRef<Motion | null>(null);
-  const loop = useRef<HeroLoop | null>(null);
+  const loop = useHeroLoop();
+  const { play, cancel } = loop;
   // Decided once: a still hero shows its end frame (reduced motion, or no Web Animations).
   const [heroFrame] = useState<'start' | 'end'>(() =>
     prefersReducedMotion() || typeof Element.prototype.animate !== 'function'
@@ -94,9 +95,9 @@ export const CloudConsentModal: React.FC = () => {
     const hero = dialog?.querySelector<HTMLElement>(
       '[data-hero-frame="start"]'
     );
-    if (hero) loop.current = playWelcomeLoop(hero);
-    return () => loop.current?.cancel();
-  }, [isOpen]);
+    if (hero) play(hero);
+    return cancel;
+  }, [isOpen, play, cancel]);
 
   if (!isOpen) return null;
 
@@ -125,8 +126,7 @@ export const CloudConsentModal: React.FC = () => {
   // The moment plays once; a press while it plays does nothing.
   const getStarted = () => {
     if (motion.current !== null) return;
-    loop.current?.finish();
-    loop.current = null;
+    loop.finish();
     const dialog = dialogRef.current;
     const button = getStartedRef.current;
     if (
@@ -276,7 +276,16 @@ export const CloudConsentModal: React.FC = () => {
             <TabKeeperMark size={ICON.DEFAULT} />
             {t('Welcome to Tab Keeper')}
           </h2>
-          <WelcomeHero frame={heroFrame} />
+          <WelcomeHero
+            frame={heroFrame}
+            isResting={loop.isResting}
+            onReplay={() => {
+              const hero = dialogRef.current?.querySelector<HTMLElement>(
+                '[data-hero-frame="start"]'
+              );
+              if (hero) play(hero);
+            }}
+          />
           <p id={BODY_ID} css={bodyStyle}>
             {t(
               'Save your open windows, close them, and bring them all back later.'

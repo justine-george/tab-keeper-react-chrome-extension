@@ -28,9 +28,15 @@ export interface HeroLoop {
   finish(): void;
   // A remount: drops the fill, so a replay starts from the start frame.
   cancel(): void;
+  // True once every beat has ended or been finished; false if any was cancelled.
+  readonly done: Promise<boolean>;
 }
 
-const NO_LOOP: HeroLoop = { finish: () => undefined, cancel: () => undefined };
+const NO_LOOP: HeroLoop = {
+  finish: () => undefined,
+  cancel: () => undefined,
+  done: Promise.resolve(false),
+};
 
 // §5's beats once, about 2.4s; measured on start, so any dialog width draws the same arcs.
 export function playWelcomeLoop(hero: HTMLElement): HeroLoop {
@@ -177,5 +183,9 @@ export function playWelcomeLoop(hero: HTMLElement): HeroLoop {
   return {
     finish: () => running.forEach((animation) => animation.finish()),
     cancel: () => running.forEach((animation) => animation.cancel()),
+    done: Promise.all(running.map((animation) => animation.finished)).then(
+      () => true,
+      () => false
+    ),
   };
 }

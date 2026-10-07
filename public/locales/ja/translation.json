@@ -302,6 +302,7 @@
   "This is an example. Press {{icon}} any time to save your own windows.": "これはサンプルです。{{icon}} を押すと、いつでもご自身のウィンドウを保存できます。",
   "Save your open windows, close them, and bring them all back later.": "開いているウィンドウを保存して閉じ、あとでまとめて元に戻せます。",
   "Get started opens Tab Keeper in its own tab.": "「はじめる」を押すと、Tab Keeper が専用のタブで開きます。",
+  "Play again": "もう一度再生",
   "Search looks in tab titles and links.": "タブのタイトルとリンクを検索します。",
   "Save tab groups too?": "タブグループも保存しますか？",
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "保存したセッションに、各タブグループの名前と色も残ります。Chrome から許可を求められます。",
