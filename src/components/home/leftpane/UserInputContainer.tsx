@@ -56,7 +56,7 @@ export default function UserInputContainer() {
     []
   );
 
-  // KAN-394 P3. While a carry is live the row is a New session target.
+  // KAN-394 P3. From a carriable drag's pick-up the row is a New session target.
   const rowRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef<HTMLDivElement>(null);
   const takesCarry = useNewSessionReceiver(
@@ -191,7 +191,7 @@ export default function UserInputContainer() {
     align-items: center;
   `;
 
-  // Over the whole row; App.css shows it while a carry is live.
+  // Over the whole row; App.css shows it on the New session marker (setDragNewSession).
   const sessionTargetStyle = css`
     position: absolute;
     inset: 0;

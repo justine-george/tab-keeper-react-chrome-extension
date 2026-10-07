@@ -50,6 +50,7 @@ afterEach(() => {
   document.documentElement.removeAttribute('data-dragging');
   document.documentElement.removeAttribute('data-drag-new-window');
   document.documentElement.removeAttribute('data-carrying');
+  document.documentElement.removeAttribute('data-drag-new-session');
 });
 
 describe('the carry channel', () => {
@@ -258,6 +259,8 @@ describe('the New window marker', () => {
 // New session target is drawn in the frame the carry starts.
 describe('the carrying marker', () => {
   const carrying = () => document.documentElement.hasAttribute('data-carrying');
+  const offersNewSession = () =>
+    document.documentElement.hasAttribute('data-drag-new-session');
   const WINDOW: CarriedRef = {
     kind: 'window',
     tabGroupId: 'S1',
@@ -275,12 +278,15 @@ describe('the carrying marker', () => {
 
       startCarry(carried, card, 40, 50);
       expect(carrying()).toBe(true);
+      expect(offersNewSession()).toBe(true);
       setCarryOwner('area');
       setCarryOwner('layer');
       expect(carrying()).toBe(true);
+      expect(offersNewSession()).toBe(true);
 
       endCarry('committed');
       expect(carrying()).toBe(false);
+      expect(offersNewSession()).toBe(false);
     }
   );
 
@@ -296,6 +302,7 @@ describe('the carrying marker', () => {
 
     expect(currentCarry()).toBeNull();
     expect(carrying()).toBe(false);
+    expect(offersNewSession()).toBe(false);
   });
 });
 

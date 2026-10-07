@@ -4083,7 +4083,8 @@ const trailingBlock = (page: Page) =>
 // height, and how far the pane can scroll. KAN-379: also each window's
 // title row top and block height, and the tops of the landing slot, the
 // source room and the held row (null where not drawn), and each band's
-// title row top. KAN-394: what the save row shows (SaveRowShows).
+// title row top. KAN-394: what the save row shows (SaveRowShows), and
+// whether a carry is live (data-carrying on <html>).
 interface PaneFrame {
   rows: Record<string, number>;
   bands: Record<string, number>;
@@ -4098,6 +4099,7 @@ interface PaneFrame {
   room: number | null;
   heldTop: number | null;
   saveRow: SaveRowShows;
+  carrying: boolean;
 }
 // Its controls; the New session target in their place, unlit or lit; or a
 // frame drawing both or neither.
@@ -4146,7 +4148,9 @@ const isPaneLog = (x: unknown): x is PaneFrame[] => {
       'heldTop' in f &&
       isTopOrNull(f.heldTop) &&
       'saveRow' in f &&
-      SAVE_ROW_SHOWS.includes(f.saveRow)
+      SAVE_ROW_SHOWS.includes(f.saveRow) &&
+      'carrying' in f &&
+      typeof f.carrying === 'boolean'
   );
 };
 
@@ -4239,6 +4243,7 @@ async function logPane(page: Page, leaveOut: string[]): Promise<void> {
                 ? 'lit'
                 : 'target'
               : 'mixed',
+        carrying: document.documentElement.hasAttribute('data-carrying'),
       });
       document.body.dataset.paneFrames = JSON.stringify(frames);
       if (document.body.dataset.paneLog === 'on') requestAnimationFrame(frame);
@@ -7390,11 +7395,12 @@ const loggedCarryFrames = (page: Page, n: number) =>
     )
     .toBeGreaterThanOrEqual(n);
 
-// The frame the carry starts in (its card's first) shows the target, and
-// every frame before it the save row's controls.
-function expectSwapAtCarryStart(frames: PaneFrame[]): number {
-  const start = frames.findIndex((f) => f.card);
-  // PREMISE: the log spans the carry's start.
+// N1 (revised 2026-10-07). The frame the drag is picked up in (its held row's
+// or its card's first) shows the target, and every frame before it the save
+// row's controls.
+function expectSwapAtPickUp(frames: PaneFrame[]): number {
+  const start = frames.findIndex((f) => f.held || f.card);
+  // PREMISE: the log spans the pick-up.
   expect(start).toBeGreaterThan(0);
   expect(frames.slice(0, start).map((f) => f.saveRow)).toEqual(
     frames.slice(0, start).map(() => 'controls')
@@ -7490,7 +7496,7 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     },
   ];
   for (const view of views) {
-    test(`a tab in ${view.name}: the target from the carry's first frame, lit; let go, a1 alone in a new session named for it, shown`, async ({
+    test(`a tab in ${view.name}: the target from the pick-up's first frame, lit; let go, a1 alone in a new session named for it, shown`, async ({
       context,
       extensionId,
     }) => {
@@ -7503,7 +7509,7 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
       await logPane(page, ['a1', 'tab:a1']);
       await ontoSaveRow(page, tabHandle(page, 'a1'));
       await loggedCarryFrames(page, 6);
-      expectSwapAtCarryStart(await paneLog(page));
+      expectSwapAtPickUp(await paneLog(page));
       expect(await targetLook(page)).toEqual({
         landing: true,
         fill: expect.any(String),
@@ -7766,7 +7772,62 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     await expectSaveRowBack(page);
   }
 
-  test('N6: an ordinary tab drag inside the detail never draws it', async ({
+  // N1 (revised 2026-10-07): a drag of a saved tab, group or window shows the
+  // target from its pick-up, with no carry and without leaving the detail.
+  const pickUps = [
+    { what: 'tab', handle: (page: Page) => tabHandle(page, 'a1') },
+    { what: 'group', handle: (page: Page) => groupHandle(page, 'alpha') },
+    { what: 'window', handle: (page: Page) => windowHandle(page, 'w2') },
+  ];
+  for (const { what, handle } of pickUps) {
+    test(`N1: a ${what} picked up in the detail shows it at once; Esc there changes nothing`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      const before = await stored(page);
+      // PREMISE: the save row at rest.
+      expect(await saveRowNow(page)).toBe('controls');
+
+      await pickUp(page, handle(page));
+      await expect(
+        page.locator('[data-pane="detail"] [data-drag-held]')
+      ).toHaveCount(1);
+      expect(await saveRowNow(page)).toBe('target');
+      expect(await targetLook(page)).toEqual({
+        landing: false,
+        fill: expect.any(String),
+        border: 'dashed',
+        label: 'New session',
+      });
+      // No carry: the pointer never left the detail.
+      await expect(page.locator('html[data-carrying]')).toHaveCount(0);
+
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+      await expectSaveRowBack(page);
+      expect(await stored(page)).toEqual(before);
+    });
+  }
+
+  test('N1: a tab dropped inside the detail reorders as ever, and the save row comes back', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await expect(tabHandle(page, 'a1')).toHaveAttribute('data-drag-held', '');
+    expect(await saveRowNow(page)).toBe('target');
+    const a2 = await boxOf(tabHandle(page, 'a2'));
+    await page.mouse.move(at.x, a2.y + a2.height * 0.75, { steps: 6 });
+    await page.mouse.up();
+    await expect
+      .poll(() => layout(page, 'S1'))
+      .toEqual(['a0 a2 a1 al0* al1*', 'b0 b1']);
+    await expectSaveRowBack(page);
+  });
+
+  test('N6: a session row dragged in the session list never draws it', async ({
     context,
     extensionId,
   }) => {
@@ -7774,14 +7835,12 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     await controlSeesTheTarget(page);
 
     await watchSaveRow(page);
-    const at = await pickUp(page, tabHandle(page, 'a1'));
-    await expect(tabHandle(page, 'a1')).toHaveAttribute('data-drag-held', '');
-    const a2 = await boxOf(tabHandle(page, 'a2'));
-    await page.mouse.move(at.x, a2.y + a2.height * 0.75, { steps: 6 });
+    const at = await pickUp(page, sessionRow(page, 'S2'));
+    await expect(sessionRow(page, 'S2')).toHaveAttribute('data-drag-held', '');
+    const s3 = await boxOf(sessionRow(page, 'S3'));
+    await page.mouse.move(at.x, s3.y + s3.height * 0.75, { steps: 6 });
     await page.mouse.up();
-    await expect
-      .poll(() => layout(page, 'S1'))
-      .toEqual(['a0 a2 a1 al0* al1*', 'b0 b1']);
+    await expect(page.locator('[data-drag-held]')).toHaveCount(0);
     expect(await saveRowSeen(page)).toEqual({ carrying: '0', target: '0' });
   });
 
@@ -7855,9 +7914,12 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     await ontoSaveRow(page, tabHandle(page, 'a1'));
     await loggedCarryFrames(page, 4);
     const frames = await paneLog(page);
-    const start = expectSwapAtCarryStart(frames);
-    expect(frames.slice(start).map((f) => f.saveRow)).toEqual(
-      frames.slice(start).map(() => 'lit')
+    const start = expectSwapAtPickUp(frames);
+    // The carry starts on the row, in one move: lit from its first frame.
+    const on = frames.findIndex((f) => f.carrying);
+    expect(on).toBeGreaterThanOrEqual(start);
+    expect(frames.slice(on).map((f) => f.saveRow)).toEqual(
+      frames.slice(on).map(() => 'lit')
     );
     await page.keyboard.press('Escape');
     await page.mouse.up();

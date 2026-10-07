@@ -912,6 +912,18 @@ export function setDragNewWindow(on: boolean, withRoom = false): void {
   );
 }
 
+// KAN-394 N1 (revised 2026-10-07). "This drag can make a new session": App.css
+// swaps the save row for its New session target while it is on, as the
+// marker above swaps the toolbar row, and for the same reason -- in force in
+// the frame the drag starts, with no React render to wait for. On for a drag
+// whose list has a carry for the held row (RowDragAreaProps.carryOut), and
+// for a carry's whole life (startCarry): never for Open now or the session
+// list, which cannot carry.
+export function setDragNewSession(on: boolean): void {
+  if (on) document.documentElement.setAttribute('data-drag-new-session', '');
+  else document.documentElement.removeAttribute('data-drag-new-session');
+}
+
 // Whether the trailing block has its row of room now (KAN-366 Q4).
 export function hasNewWindowRoom(): boolean {
   return (

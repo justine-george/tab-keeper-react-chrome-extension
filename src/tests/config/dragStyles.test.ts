@@ -123,3 +123,20 @@ describe('the Open now resize rule', () => {
     expect(rule).toContain('user-select: none !important');
   });
 });
+
+// KAN-394 N1 (revised 2026-10-07). The save row's New session target swaps in
+// on the drag's marker, from the pick-up, not on a live carry alone.
+describe('the New session target rule', () => {
+  test('the marker hides the save row’s controls and shows its target', () => {
+    expect(flat).toContain(
+      '[data-drag-new-session] [data-save-row]:has(> [data-new-session-target]) > :not([data-new-session-target]) { visibility: hidden; }'
+    );
+    expect(flat).toContain(
+      '[data-drag-new-session] [data-new-session-target] { visibility: visible; }'
+    );
+  });
+
+  test('CONTROL: no rule waits for a live carry', () => {
+    expect(flat).not.toContain('[data-carrying]');
+  });
+});

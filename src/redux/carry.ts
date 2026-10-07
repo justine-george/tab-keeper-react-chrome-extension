@@ -26,6 +26,7 @@ import { endDragHold } from './dragHold';
 import { foldBackSpringOpened } from './springOpenWindows';
 import {
   setDragging,
+  setDragNewSession,
   setDragNewWindow,
 } from '../components/home/rightpane/rowDrag/dropRules';
 
@@ -89,11 +90,12 @@ export function startCarry(
   carry = { carried, card, x, y, owner: 'layer' };
   restoreOnCancel = onCancel ?? null;
   setDragNewWindow(carried.kind !== 'window');
+  setDragNewSession(true);
   setCarrying(true);
   notify();
 }
 
-// KAN-394 (D18). On for a carry's whole life: App.css swaps the save row for its target in this frame, with no render.
+// KAN-394 (D18). On for a carry's whole life, and only then: a drag that may become one shows the save row's target too (setDragNewSession).
 export function setCarrying(on: boolean): void {
   if (on) document.documentElement.setAttribute('data-carrying', '');
   else document.documentElement.removeAttribute('data-carrying');
@@ -131,7 +133,7 @@ export function moveCarry(x: number, y: number): void {
 export type CarryOutcome = 'committed' | 'cancelled';
 
 // Ends the carry: unpublishes the carrying marker, the drag kind and the New
-// window marker, ends the drag hold (which applies every change held
+// window and New session markers, ends the drag hold (which applies every change held
 // meanwhile), then tells subscribers. Nothing moves here -- a receiver that
 // commits does so before calling this.
 //
@@ -156,6 +158,7 @@ export function endCarry(outcome: CarryOutcome): void {
   restoreOnCancel = null;
   try {
     // First, so nothing below that throws leaves the save row hidden.
+    setDragNewSession(false);
     setCarrying(false);
     // The engine's order at a drop: unpublish, then apply held changes.
     setDragging(false);

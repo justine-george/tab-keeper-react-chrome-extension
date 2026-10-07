@@ -113,13 +113,17 @@ body {
   visibility: visible;
 }
 
-/* KAN-394 P3. A live carry swaps the save row's controls for its New session target. */
-[data-carrying]
+/* KAN-394 N1 (revised 2026-10-07). From the pick-up of a drag that can carry,
+   and for the carry's life, the save row's controls give way to its New
+   session target, by the same document marker pattern as the New window
+   target above (setDragNewSession). No target is drawn while searching or
+   for a first run here (useNewSessionReceiver), so the row stays as it is. */
+[data-drag-new-session]
   [data-save-row]:has(> [data-new-session-target])
   > :not([data-new-session-target]) {
   visibility: hidden;
 }
-[data-carrying] [data-new-session-target] {
+[data-drag-new-session] [data-new-session-target] {
   visibility: visible;
 }
 
