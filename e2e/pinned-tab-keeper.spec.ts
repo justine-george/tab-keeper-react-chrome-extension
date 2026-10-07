@@ -336,11 +336,20 @@ test.describe('Switch', () => {
     expect(after).toHaveLength(2);
     const carriedIn = has(after, fullViewUrl(extensionId));
     expect(carriedIn).toHaveLength(1);
-    expect(carriedIn[0].tabs[0]).toMatchObject({
-      id: fullTab.tabId,
-      url: fullViewUrl(extensionId),
-      pinned: true,
-    });
+    expect(carriedIn[0].tabs).toEqual([
+      {
+        id: fullTab.tabId,
+        url: fullViewUrl(extensionId),
+        pinned: true,
+        active: false,
+      },
+      {
+        id: expect.any(Number),
+        url: dataUrl('One'),
+        pinned: false,
+        active: true,
+      },
+    ]);
     // The same page, not a reload: the marker set before is still on its window.
     expect(await full.evaluate(() => Reflect.get(window, '__survivor'))).toBe(
       'kan-459'
@@ -396,8 +405,7 @@ test.describe('Switch', () => {
       other
     );
     const before = await windowsNow(serviceWorker);
-    // PREMISE: Chrome names the other window last focused, and lists home's stub first,
-    // so carrying the other's is the focus rule, not the order.
+    // PREMISE: the other window is last focused and its stub listed second, so the carry follows focus, not order.
     expect(
       await serviceWorker.evaluate(
         async () => (await chrome.windows.getLastFocused()).id
@@ -430,9 +438,9 @@ test.describe('Switch', () => {
     const second = settled.find((tabs) =>
       tabs.some((t) => t.url === dataUrl('Two'))
     );
-    expect(focused?.map((t) => [t.id, t.url, t.pinned])).toEqual([
-      [otherStub, stubUrl(extensionId), true],
-      [expect.any(Number), dataUrl('One'), false],
+    expect(focused?.map((t) => [t.id, t.url, t.pinned, t.active])).toEqual([
+      [otherStub, stubUrl(extensionId), true, false],
+      [expect.any(Number), dataUrl('One'), false, true],
     ]);
     expect(second?.map((t) => t.url)).toEqual([
       stubUrl(extensionId),

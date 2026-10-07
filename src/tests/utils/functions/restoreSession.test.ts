@@ -123,7 +123,10 @@ describe('Switch (closeOtherWindows true)', () => {
     handle = setupChromeFake({ windows: [pinnedFullViewIn(1, true)] });
     await restoreSession(request(['a', 'b'], true, true));
     const all = await layout();
-    expect(all[0].tabs.map((t) => t.url)).toEqual([FULL, web('a')]);
+    expect(all[0].tabs).toEqual([
+      { url: FULL, pinned: true, active: false },
+      { url: web('a'), pinned: false, active: true },
+    ]);
     expect(all[1].tabs.map((t) => t.url)).toEqual([STUB, web('b')]);
     expect(all[1].tabs[0].pinned).toBe(true);
   });
