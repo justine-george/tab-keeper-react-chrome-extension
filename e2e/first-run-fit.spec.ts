@@ -19,6 +19,7 @@ import {
   POPUP_RUN,
   card,
   cardAt,
+  cardButton,
   centreOf,
   hello,
   nextTo,
@@ -168,6 +169,27 @@ async function expectFits(root: Locator, label: string) {
 const press = (root: Locator, name: string) =>
   root.getByRole('button', { name, exact: true }).click();
 
+// KAN-457: Back and Pin this tab share a row; Not now shares it or sits wholly above.
+async function expectPinRow(
+  page: Page,
+  say: (key: string) => string,
+  lang: string
+) {
+  const top = (name: string) =>
+    cardButton(page, say(name)).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom };
+    });
+  const [notNow, back, pin] = await Promise.all(
+    ['Not now', 'Back', 'Pin this tab'].map(top)
+  );
+  expect(Math.abs(back.top - pin.top), `${lang} Back + Pin`).toBeLessThan(1);
+  expect(
+    Math.abs(notNow.top - back.top) < 1 || notNow.bottom <= back.top,
+    `${lang} Not now beside or above`
+  ).toBe(true);
+}
+
 // The words of a {{icon}} sentence before its glyph, enough to know which card shows.
 const lead = (sentence: string) => sentence.split('{{icon}}')[0].trim();
 
@@ -204,7 +226,10 @@ for (const lang of LANGS) {
         for (let step = 1; step <= view.total; step++) {
           await expect(cardAt(page, step)).toBeVisible();
           await expectFits(card(page), `${lang} ${view.name} step ${step}`);
-          if (step === view.total) break;
+          if (step === view.total) {
+            if (view.view === 'full') await expectPinRow(page, say, lang);
+            break;
+          }
           if (step !== saveStep(view)) {
             await press(card(page), say('Next'));
             continue;
@@ -530,7 +555,11 @@ for (const [theme, palette] of THEMES) {
         await expectCardReads(
           page,
           `${theme} full step ${step}`,
-          step === 8 ? ['Undo any time: right-click the tab → Unpin.'] : []
+          step === 8
+            ? [
+                'It stays small at the left of your tabs. To undo, right-click it and choose Unpin.',
+              ]
+            : []
         );
         if (step !== 3) continue;
         await expectLineReads(page, `${theme} full`);

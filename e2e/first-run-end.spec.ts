@@ -162,3 +162,48 @@ for (const how of ['Skip setup', 'Done'] as const) {
     expect(await seen()).toEqual([SETUP]);
   });
 }
+
+// KAN-457: step 8 is one row at the default size, and its notch points up at the tab strip.
+test('step 8: Not now left, Back and Pin this tab right, one row; the notch up at the card’s top left', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openRunningFullView(context, extensionId, false);
+  await walkFullRunToLastStep(page);
+  const card = cardAt(page, 8);
+  const geometry = await card.evaluate((el) => {
+    const box = (e: Element | null) => {
+      if (e === null) throw new Error('missing');
+      return e.getBoundingClientRect();
+    };
+    const button = (name: string) =>
+      box(
+        [...el.querySelectorAll('button')].find(
+          (b) => b.textContent === name
+        ) ?? null
+      );
+    const notch = box(el.querySelector('[data-coach-notch]'));
+    const card = box(el);
+    return {
+      width: card.width,
+      tops: ['Not now', 'Back', 'Pin this tab'].map((n) => button(n).top),
+      notNowRight: button('Not now').right,
+      backLeft: button('Back').left,
+      notch: {
+        left: notch.left - card.left,
+        bottom: notch.bottom - card.top,
+        top: notch.top,
+      },
+    };
+  });
+  expect(geometry.width).toBe(400);
+  const [notNow, back, pin] = geometry.tops;
+  expect(Math.abs(notNow - back)).toBeLessThan(1);
+  expect(Math.abs(back - pin)).toBeLessThan(1);
+  expect(geometry.notNowRight).toBeLessThan(geometry.backLeft);
+  // Above the card, near its left edge, and still inside the page.
+  expect(geometry.notch.bottom).toBeLessThanOrEqual(0);
+  expect(geometry.notch.left).toBeGreaterThan(0);
+  expect(geometry.notch.left).toBeLessThan(80);
+  expect(geometry.notch.top).toBeGreaterThanOrEqual(0);
+});

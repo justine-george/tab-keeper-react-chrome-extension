@@ -17,11 +17,13 @@ import { useCoachPlacement } from '../../hooks/useCoachPlacement';
 import { useCardMotion } from '../../hooks/useCardMotion';
 import ProgressLine from '../common/ProgressLine';
 import {
+  COACH,
   clipPathWithHole,
   ringBox,
   type AnchoredPlacement,
   type Box,
   type CoachAction,
+  type CoachSide,
   type Size,
 } from './coachMarkPlacement';
 import type { AnchorBox, Spotlight } from './anchorBox';
@@ -45,6 +47,7 @@ interface CoachMarkProps {
   ) => AnchoredPlacement;
   onSkip?: () => void;
   onBack?: () => void;
+  // Drawn as the left link in Skip tutorial's place.
   secondary?: CoachAction;
   primary: CoachAction;
   onEscape: () => void;
@@ -52,18 +55,20 @@ interface CoachMarkProps {
 
 // The callout's notch, turned toward the anchor: a BORDER triangle under a PRIMARY one.
 function Notch({
-  placement,
+  side,
+  notch,
   border,
   fill,
 }: {
-  placement: AnchoredPlacement;
+  side: CoachSide;
+  notch: number;
   border: string;
   fill: string;
 }) {
   // Off the facing edge by `out`, centred `half` before the notch point.
   const at = (out: number, half: number): CSSProperties => {
-    const along = placement.notch - half;
-    switch (placement.side) {
+    const along = notch - half;
+    switch (side) {
       case 'below':
         return { top: out, left: along };
       case 'right':
@@ -73,7 +78,7 @@ function Notch({
     }
   };
   const triangle = (size: number, color: string) => {
-    const pointsUp = placement.side === 'below';
+    const pointsUp = side === 'below';
     const solid = `${size}px solid ${color}`;
     const clear = `${size}px solid transparent`;
     return css`
@@ -82,16 +87,8 @@ function Notch({
       height: 0;
       border-top: ${pointsUp ? 'none' : clear};
       border-bottom: ${pointsUp ? solid : clear};
-      border-left: ${pointsUp
-        ? clear
-        : placement.side === 'left'
-          ? solid
-          : 'none'};
-      border-right: ${pointsUp
-        ? clear
-        : placement.side === 'right'
-          ? solid
-          : 'none'};
+      border-left: ${pointsUp ? clear : side === 'left' ? solid : 'none'};
+      border-right: ${pointsUp ? clear : side === 'right' ? solid : 'none'};
     `;
   };
   return (
@@ -279,9 +276,14 @@ export default function CoachMark({
           total={total}
           label={t('Step {{n}} of {{total}}', { n: step, total })}
         />
-        {frame?.kind === 'anchored' && (
+        {frame && (
           <Notch
-            placement={frame.placement}
+            side={frame.kind === 'anchored' ? frame.placement.side : 'below'}
+            notch={
+              frame.kind === 'anchored'
+                ? frame.placement.notch
+                : COACH.FREE_NOTCH
+            }
             border={COLORS.BORDER_COLOR}
             fill={COLORS.PRIMARY_COLOR}
           />
@@ -291,24 +293,25 @@ export default function CoachMark({
         </p>
         {fine !== undefined && <p css={fineStyle}>{fine}</p>}
         <div css={footStyle}>
-          {onSkip && (
-            <button type="button" css={buttons.link} onClick={onSkip}>
-              {t('Skip tutorial')}
+          {secondary ? (
+            <button
+              type="button"
+              css={buttons.link}
+              onClick={secondary.onPress}
+            >
+              {secondary.label}
             </button>
+          ) : (
+            onSkip && (
+              <button type="button" css={buttons.link} onClick={onSkip}>
+                {t('Skip tutorial')}
+              </button>
+            )
           )}
           <span css={endStyle}>
             {onBack && (
               <button type="button" css={buttons.quiet} onClick={onBack}>
                 {t('Back')}
-              </button>
-            )}
-            {secondary && (
-              <button
-                type="button"
-                css={buttons.quiet}
-                onClick={secondary.onPress}
-              >
-                {secondary.label}
               </button>
             )}
             <button
