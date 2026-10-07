@@ -296,7 +296,7 @@
   "Delete removes the saved session. Your open windows stay as they are.": "“删除”会移除这个已保存的会话。您打开的窗口不受影响。",
   "Each window can be opened on its own. Click a window's title to rename it.": "每个窗口都可以单独打开。点击窗口标题即可重命名。",
   "Pin Tab Keeper so it's always one click away.": "固定 Tab Keeper，随时一键即可打开。",
-  "It stays small at the left of your tabs. To undo, right-click it and choose Unpin.": "它会以小图标停在标签页最左侧。要撤销，请右键点击它并选择“取消固定”。",
+  "It stays small at the left of your tabs. You can turn this off in Settings → Sessions.": "它会以小图标停在标签页最左侧。您可以在 设置 → 会话 中关闭此功能。",
   "Pin this tab": "固定此标签页",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "“切换”会保存您打开的窗口，将它们关闭，再打开这个会话代替它们。",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "想查看和搜索您打开的一切？都在完整视图里。按 ⤢ 立即打开，以后也随时可以打开。",

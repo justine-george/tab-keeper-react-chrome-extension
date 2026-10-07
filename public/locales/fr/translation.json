@@ -306,7 +306,7 @@
   "Delete removes the saved session. Your open windows stay as they are.": "Effacer supprime la session enregistrée. Vos fenêtres ouvertes restent telles quelles.",
   "Each window can be opened on its own. Click a window's title to rename it.": "Chaque fenêtre peut s’ouvrir séparément. Cliquez sur le titre d’une fenêtre pour la renommer.",
   "Pin Tab Keeper so it's always one click away.": "Épinglez Tab Keeper pour l’avoir toujours à un clic.",
-  "It stays small at the left of your tabs. To undo, right-click it and choose Unpin.": "Il reste petit, à gauche de vos onglets. Pour annuler, faites un clic droit dessus et choisissez Retirer l’épingle.",
+  "It stays small at the left of your tabs. You can turn this off in Settings → Sessions.": "Il reste petit, à gauche de vos onglets. Vous pouvez désactiver cette option dans Paramètres → Sessions.",
   "Pin this tab": "Épingler cet onglet",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Basculer enregistre vos fenêtres ouvertes, les ferme et ouvre cette session à leur place.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Vous voulez voir et rechercher tout ce que vous avez ouvert ? Tout est dans la vue complète. Appuyez sur ⤢ pour l’ouvrir maintenant, ou plus tard.",

@@ -264,7 +264,7 @@ export default function FirstRun() {
         return {
           text: t("Pin Tab Keeper so it's always one click away."),
           fine: t(
-            'It stays small at the left of your tabs. To undo, right-click it and choose Unpin.'
+            'It stays small at the left of your tabs. You can turn this off in Settings → Sessions.'
           ),
           width: PIN_CARD_WIDTH,
           secondary: { label: t('Not now'), onPress: finish },

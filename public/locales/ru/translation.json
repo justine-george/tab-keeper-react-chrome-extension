@@ -311,7 +311,7 @@
   "Delete removes the saved session. Your open windows stay as they are.": "«Удалить» убирает сохранённую сессию. Ваши открытые окна останутся как есть.",
   "Each window can be opened on its own. Click a window's title to rename it.": "Каждое окно можно открыть отдельно. Чтобы переименовать окно, щёлкните его заголовок.",
   "Pin Tab Keeper so it's always one click away.": "Закрепите Tab Keeper, чтобы он всегда был в одном клике.",
-  "It stays small at the left of your tabs. To undo, right-click it and choose Unpin.": "Он остаётся маленьким слева от ваших вкладок. Чтобы отменить, щёлкните его правой кнопкой и выберите «Открепить».",
+  "It stays small at the left of your tabs. You can turn this off in Settings → Sessions.": "Он остаётся маленьким слева от ваших вкладок. Это можно отключить в Настройки → Сессии.",
   "Pin this tab": "Закрепить эту вкладку",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "«Перейти» сохраняет открытые окна, закрывает их и открывает вместо них эту сессию.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Хотите видеть и искать всё, что у вас открыто? Всё это есть в полном виде. Нажмите ⤢, чтобы открыть его сейчас или в любой момент позже.",

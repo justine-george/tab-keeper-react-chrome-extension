@@ -301,7 +301,7 @@
   "Delete removes the saved session. Your open windows stay as they are.": "Radera tar bort den sparade sessionen. Dina öppna fönster förblir som de är.",
   "Each window can be opened on its own. Click a window's title to rename it.": "Varje fönster kan öppnas för sig. Klicka på ett fönsters titel för att byta namn på det.",
   "Pin Tab Keeper so it's always one click away.": "Fäst Tab Keeper så att det alltid är ett klick bort.",
-  "It stays small at the left of your tabs. To undo, right-click it and choose Unpin.": "Den ligger liten till vänster om dina flikar. Ångra genom att högerklicka på den och välja Lossa.",
+  "It stays small at the left of your tabs. You can turn this off in Settings → Sessions.": "Den ligger liten till vänster om dina flikar. Du kan stänga av det under Inställningar → Sessioner.",
   "Pin this tab": "Fäst den här fliken",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Byt sparar fönstren du har öppna, stänger dem och öppnar den här sessionen i stället.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Vill du se och söka bland allt du har öppet? Allt finns i helvyn. Tryck på ⤢ för att öppna den nu, eller när du vill.",

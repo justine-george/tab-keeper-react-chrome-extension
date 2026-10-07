@@ -561,7 +561,7 @@ for (const [theme, palette] of THEMES) {
           `${theme} full step ${step}`,
           step === 8
             ? [
-                'It stays small at the left of your tabs. To undo, right-click it and choose Unpin.',
+                'It stays small at the left of your tabs. You can turn this off in Settings → Sessions.',
               ]
             : []
         );

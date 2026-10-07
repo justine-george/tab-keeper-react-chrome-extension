@@ -301,7 +301,7 @@
   "Delete removes the saved session. Your open windows stay as they are.": "\"मिटाना\" सहेजा गया सेशन हटा देता है। आपकी खुली विंडो जैसी हैं, वैसी ही रहती हैं।",
   "Each window can be opened on its own. Click a window's title to rename it.": "हर विंडो को अलग से खोला जा सकता है। किसी विंडो का नाम बदलने के लिए उसके शीर्षक पर क्लिक करें।",
   "Pin Tab Keeper so it's always one click away.": "Tab Keeper को पिन करें ताकि यह हमेशा एक क्लिक की दूरी पर रहे।",
-  "It stays small at the left of your tabs. To undo, right-click it and choose Unpin.": "यह आपके टैब के बाईं ओर छोटा-सा रहता है। वापस लेने के लिए, उस पर राइट-क्लिक करें और अनपिन करें चुनें।",
+  "It stays small at the left of your tabs. You can turn this off in Settings → Sessions.": "यह आपके टैब के बाईं ओर छोटा-सा रहता है। आप इसे सेटिंग्स → सेशन में बंद कर सकते हैं।",
   "Pin this tab": "यह टैब पिन करें",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "\"बदलें\" आपकी खुली विंडो सहेजता है, उन्हें बंद करता है, और उनकी जगह यह सेशन खोलता है।",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "अपनी हर खुली चीज़ देखना और खोजना चाहते हैं? सब कुछ पूरे व्यू में है। अभी खोलने के लिए ⤢ दबाएँ, या बाद में कभी भी।",
