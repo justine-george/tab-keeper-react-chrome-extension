@@ -7925,6 +7925,231 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     await page.mouse.up();
   });
 
+  // N1 (revised 2026-10-07): on the target the session list slides down one
+  // row and opens an empty place at its top; leaving slides it back; a
+  // release fills it with the new session's row, with no jump.
+  const PLACE = '[data-new-session-place]';
+
+  // Logs, every animation frame until read, each session row's top and the
+  // place's box (null when not drawn).
+  async function logSessionList(page: Page): Promise<void> {
+    await page.evaluate(() => {
+      const frames: unknown[] = [];
+      document.body.dataset.listLog = 'on';
+      const frame = () => {
+        const rows: Record<string, number> = {};
+        for (const el of document.querySelectorAll<HTMLElement>(
+          '[data-pane="sessions"] [data-drag-row-id]'
+        ))
+          rows[el.dataset.dragRowId ?? ''] = el.getBoundingClientRect().top;
+        const p = document.querySelector('[data-new-session-place]');
+        const b = p?.getBoundingClientRect();
+        frames.push({
+          rows,
+          place: b === undefined ? null : { top: b.top, height: b.height },
+        });
+        document.body.dataset.listFrames = JSON.stringify(frames);
+        if (document.body.dataset.listLog === 'on')
+          requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    });
+  }
+  interface ListFrame {
+    rows: Record<string, number>;
+    place: { top: number; height: number } | null;
+  }
+  const isListLog = (x: unknown): x is ListFrame[] =>
+    Array.isArray(x) &&
+    x.every(
+      (f: unknown) =>
+        typeof f === 'object' &&
+        f !== null &&
+        'rows' in f &&
+        typeof f.rows === 'object' &&
+        'place' in f
+    );
+  async function listLog(page: Page): Promise<ListFrame[]> {
+    const raw = await page.evaluate(() => {
+      document.body.dataset.listLog = 'off';
+      return document.body.dataset.listFrames ?? '[]';
+    });
+    const frames: unknown = JSON.parse(raw);
+    if (!isListLog(frames)) throw new Error(`not a list log: ${raw}`);
+    return frames;
+  }
+  const topOf = async (page: Page, id: string) =>
+    (await boxOf(sessionRow(page, id))).y;
+  // The list at rest: S1's top and the pitch from S1 to S2.
+  async function listAtRest(page: Page) {
+    const s1 = await topOf(page, 'S1');
+    return { s1, pitch: (await topOf(page, 'S2')) - s1 };
+  }
+  // Strictly between two tops, half a pixel clear of each: a frame mid-slide.
+  const midSlide = (top: number, a: number, b: number) =>
+    top > Math.min(a, b) + 0.5 && top < Math.max(a, b) - 0.5;
+
+  test('N1: on the target the list slides down a row to an empty dashed place at its top; leaving slides it back', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const rest = await listAtRest(page);
+    // PREMISE: a row and its divider apart, and no place at rest.
+    expect(rest.pitch).toBeGreaterThan(30);
+    await expect(page.locator(PLACE)).toHaveCount(0);
+
+    await logSessionList(page);
+    await ontoSaveRow(page, tabHandle(page, 'a1'));
+    await expect.poll(() => saveRowNow(page)).toBe('lit');
+    await expect
+      .poll(() => topOf(page, 'S1'))
+      .toBeCloseTo(rest.s1 + rest.pitch, 1);
+    const place = await boxOf(page.locator(PLACE));
+    expect(place.y).toBeCloseTo(rest.s1, 1);
+    expect(place.height).toBeCloseTo(rest.pitch, 1);
+    expect(
+      await page.locator(PLACE).evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return [cs.borderTopWidth, cs.borderTopStyle, cs.borderTopColor];
+      })
+    ).toEqual(['1.5px', 'dashed', expect.any(String)]);
+    expect(
+      rgbToHex(
+        await page
+          .locator(PLACE)
+          .evaluate((el) => getComputedStyle(el).borderTopColor)
+      )
+    ).toBe(LIGHT_THEME.LABEL_L2_COLOR);
+    // Slid, not jumped: some frame drew S1 between its two places.
+    const opening = await listLog(page);
+    expect(
+      opening.some((f) =>
+        midSlide(f.rows.S1 ?? NaN, rest.s1, rest.s1 + rest.pitch)
+      )
+    ).toBe(true);
+
+    // Into the list, off the target.
+    await logSessionList(page);
+    const s4 = await boxOf(sessionRow(page, 'S4'));
+    await page.mouse.move(s4.x + s4.width / 2, s4.y + s4.height / 2);
+    await expect(page.locator(PLACE)).toHaveCount(0);
+    await expect.poll(() => topOf(page, 'S1')).toBeCloseTo(rest.s1, 1);
+    const closing = await listLog(page);
+    expect(
+      closing.some((f) =>
+        midSlide(f.rows.S1 ?? NaN, rest.s1, rest.s1 + rest.pitch)
+      )
+    ).toBe(true);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test('N1: a release on it puts the new session first and selected in the place, with no frame that jumps', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const before = await stored(page);
+    const rest = await listAtRest(page);
+    await ontoSaveRow(page, tabHandle(page, 'a1'));
+    await expect
+      .poll(() => topOf(page, 'S1'))
+      .toBeCloseTo(rest.s1 + rest.pitch, 1);
+
+    await logSessionList(page);
+    // PREMISE: the log is running with the place open.
+    await expect
+      .poll(() =>
+        page
+          .evaluate(() => document.body.dataset.listFrames ?? '')
+          .then((raw) => raw.length > 2)
+      )
+      .toBe(true);
+    await page.mouse.up();
+    const { made } = await newSession(page, before);
+    await expect(page.locator(PLACE)).toHaveCount(0);
+    const frames = await listLog(page);
+    const id = made.tabGroupId;
+
+    // The new row is first, and selected.
+    await expect(
+      page.locator('[data-pane="sessions"] [data-drag-row-id]').first()
+    ).toHaveAttribute('data-drag-row-id', id);
+    // Every frame: S1 where the open place put it, never back up.
+    const s1Tops = frames.map((f) => f.rows.S1);
+    expect(
+      s1Tops.filter((t) => Math.abs((t ?? NaN) - (rest.s1 + rest.pitch)) > 0.5)
+    ).toEqual([]);
+    // From its first frame, the new row stands where the place stood.
+    const first = frames.findIndex((f) => f.rows[id] !== undefined);
+    // PREMISE: the log spans the drop.
+    expect(first).toBeGreaterThan(0);
+    expect(
+      frames
+        .slice(first)
+        .filter((f) => Math.abs((f.rows[id] ?? NaN) - rest.s1) > 0.5)
+    ).toEqual([]);
+    // The place is gone in the frame the row comes in.
+    expect(frames[first]?.place).toBeNull();
+    expect(frames[first - 1]?.place).not.toBeNull();
+  });
+
+  test('N1: from the open place straight onto S2, the session list aims at S2, and the drop lands there', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const rest = await listAtRest(page);
+    const s2 = await boxOf(sessionRow(page, 'S2'));
+    await ontoSaveRow(page, tabHandle(page, 'a1'));
+    await expect
+      .poll(() => topOf(page, 'S1'))
+      .toBeCloseTo(rest.s1 + rest.pitch, 1);
+
+    // In one move, onto S2's middle at rest: the list is still slid down.
+    await page.mouse.move(s2.x + s2.width / 2, s2.y + s2.height / 2);
+    await expect.poll(() => carryTargets(page)).toEqual(['S2']);
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => layoutOf(sessionOf(await stored(page), 'S2'))[0])
+      .toBe('a1');
+    expect(layoutOf(sessionOf(await stored(page), 'S1'))).toEqual([
+      'a0 a2 al0* al1*',
+      'b0 b1',
+    ]);
+  });
+
+  test('N1, reduced motion: the place opens and closes without a slide', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const rest = await listAtRest(page);
+    await logSessionList(page);
+    await ontoSaveRow(page, tabHandle(page, 'a1'));
+    await expect(page.locator(PLACE)).toHaveCount(1);
+    await expect
+      .poll(() => topOf(page, 'S1'))
+      .toBeCloseTo(rest.s1 + rest.pitch, 1);
+    const s4 = await boxOf(sessionRow(page, 'S4'));
+    await page.mouse.move(s4.x + s4.width / 2, s4.y + s4.height / 2);
+    await expect(page.locator(PLACE)).toHaveCount(0);
+    await expect.poll(() => topOf(page, 'S1')).toBeCloseTo(rest.s1, 1);
+    const frames = await listLog(page);
+    // PREMISE: the log saw it open.
+    expect(frames.some((f) => f.place !== null)).toBe(true);
+    expect(
+      frames.filter((f) =>
+        midSlide(f.rows.S1 ?? NaN, rest.s1, rest.s1 + rest.pitch)
+      )
+    ).toEqual([]);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
   test('a window the carry spring-opened on its way folds back after the drop (KAN-379)', async ({
     context,
     extensionId,

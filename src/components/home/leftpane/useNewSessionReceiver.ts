@@ -11,6 +11,11 @@ import {
 } from '../../../redux/carry';
 import { moveToNewSession } from '../../../redux/moveToNewSession';
 import { selectRunHere } from '../../../redux/firstRun';
+import {
+  closeNewSessionSlot,
+  fillNewSessionSlot,
+  openNewSessionSlot,
+} from './newSessionSlot';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 
 // Returns whether the row takes a carry now, which is when it draws a target.
@@ -41,10 +46,13 @@ export function useNewSessionReceiver(
     if (!takes) return;
 
     let lit = false;
+    // Lit, the session list opens its place for the new session.
     const light = (on: boolean) => {
       lit = on;
       if (on) target.current?.setAttribute('data-landing', '');
       else target.current?.removeAttribute('data-landing');
+      if (on) openNewSessionSlot();
+      else closeNewSessionSlot();
     };
 
     const measureHit = (): ((x: number, y: number) => boolean) => {
@@ -70,7 +78,10 @@ export function useNewSessionReceiver(
         const moved = dispatch(
           moveToNewSession(carried, t('New Tab Group'), name)
         );
-        if (moved) consumeName(name);
+        if (moved) {
+          consumeName(name);
+          fillNewSessionSlot();
+        }
         return moved;
       },
     };
