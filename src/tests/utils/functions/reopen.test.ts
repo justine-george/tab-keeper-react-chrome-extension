@@ -1132,6 +1132,74 @@ describe('closeOpenTab / closeOpenWindow record Chrome’s recently closed entry
     expect(tabIds).not.toContain(id);
   });
 
+  // Open now's snapshot leaves Tab Keeper's own pages out; Chrome's entry keeps them.
+  test.each([
+    ['a pinned stub', 'chrome-extension://faketestid/pinned.html', true],
+    ['a full view', 'chrome-extension://faketestid/index.html?view=tab', false],
+  ])(
+    'a window holding %s still records its window entry',
+    async (_name, ownUrl, pinned) => {
+      handle = setupChromeFake({
+        grantedPermissions: ['sessions'],
+        windows: [
+          tabKeeperWindow,
+          {
+            id: 2,
+            tabs: [
+              { url: ownUrl, pinned },
+              { url: url('a'), active: true },
+              { url: url('b') },
+            ],
+          },
+        ],
+      });
+      const w2 = await openWindow(2);
+      // PREMISE: the snapshot lists only the web tabs.
+      expect(w2.tabs.map((tab) => tab.url)).toEqual([url('a'), url('b')]);
+
+      const item = await closeOpenWindow(w2);
+
+      const [entry] = await chrome.sessions.getRecentlyClosed();
+      // PREMISE: Chrome's entry kept Tab Keeper's page.
+      expect(entry.window?.tabs).toHaveLength(3);
+      expect(item).toEqual({
+        kind: 'window',
+        window: w2,
+        restorableSessionId: entry.window?.sessionId,
+      });
+      expect(entry.window?.sessionId).toEqual(expect.any(String));
+    }
+  );
+
+  test('a window whose web tabs differ from the snapshot still records no entry, Tab Keeper tab or not', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['sessions'],
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: 'chrome-extension://faketestid/pinned.html', pinned: true },
+            { url: url('a'), active: true },
+            { url: url('b') },
+          ],
+        },
+      ],
+    });
+    const w2 = await openWindow(2);
+    // The window changes under the snapshot: b becomes c before the close.
+    const [, , b] = await chrome.tabs.query({ windowId: 2 });
+    await chrome.tabs.update(b.id as number, { url: url('c') });
+
+    const item = await closeOpenWindow(w2);
+
+    expect(item).toEqual({
+      kind: 'window',
+      window: w2,
+      restorableSessionId: null,
+    });
+  });
+
   test("a window's only tab closed as a tab records a TAB entry, and the window is gone", async () => {
     handle = setupChromeFake({
       grantedPermissions: ['sessions'],

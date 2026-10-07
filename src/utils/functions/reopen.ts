@@ -1,3 +1,4 @@
+import { resolveTabUrl } from './local';
 import { toOpenWindowBounds } from './openNow';
 import type {
   OpenGroup,
@@ -119,13 +120,22 @@ function tabEntryIdIfMatching(
     entry.tab?.url === tab.url ? entry.tab.sessionId : undefined;
 }
 
+// isTabKeeperPage's rule, restated: capture.ts is not worker-safe to import here.
+const isOwnPage = (tab: chrome.tabs.Tab): boolean =>
+  resolveTabUrl(tab.url || tab.pendingUrl || '').startsWith(
+    chrome.runtime.getURL('')
+  );
+
 // Only a window entry, holding the snapshot's addresses in the same order.
 function windowEntryIdIfMatching(
   openWindow: OpenWindow
 ): (entry: chrome.sessions.Session) => string | undefined {
   const urls = openWindow.tabs.map((tab) => tab.url);
   return (entry) => {
-    const closedTabs = entry.window?.tabs;
+    // Open now's snapshot leaves Tab Keeper's own pages out (isTabKeeperPage); Chrome's entry keeps them.
+    const closedTabs = entry.window?.tabs?.filter(
+      (closed) => !isOwnPage(closed)
+    );
     return closedTabs !== undefined &&
       closedTabs.length === urls.length &&
       closedTabs.every((closed, index) => closed.url === urls[index])

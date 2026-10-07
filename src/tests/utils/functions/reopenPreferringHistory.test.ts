@@ -1347,17 +1347,15 @@ describe('a reopened window gets a pinned Tab Keeper tab when asked (KAN-459)', 
     );
     const closed = await closeWindow(2);
     if (closed?.kind !== 'window') throw new Error('close failed');
-    // The snapshot leaves Tab Keeper's own tab out, so the close cannot match
-    // Chrome's entry to the window; hand it Chrome's id as the list holds it.
+    // PREMISE: the close matched Chrome's entry, so Reopen goes through history.
+    expect(closed.restorableSessionId).toEqual(expect.any(String));
     const [entry] = await chrome.sessions.getRecentlyClosed();
-    const restorableSessionId = entry.window?.sessionId ?? null;
     // PREMISE: Chrome's entry is the window with its pinned tab view.
     expect(entry.window?.tabs?.map((t) => t.url)).toContain(
       `${TAB_VIEW_URL}?view=tab`
     );
-    const historyItem = { ...closed, restorableSessionId };
 
-    const reopened = await reopenPreferringHistory(historyItem, true);
+    const reopened = await reopenPreferringHistory(closed, true);
 
     if (reopened?.kind !== 'window') throw new Error('no window came back');
     const urls = (await chrome.tabs.query({ windowId: reopened.windowId })).map(
