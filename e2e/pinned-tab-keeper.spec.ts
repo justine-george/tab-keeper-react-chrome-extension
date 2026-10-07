@@ -729,6 +729,75 @@ test('⤢ with Tab Keeper tabs in two windows lands on the asking window’s stu
   ]);
 });
 
+test('⤢ asking for the pin guide turns the asking window’s stub into the full view, with the guide open', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  await stubsStayHidden(context);
+  await seedSessions(context);
+  const popup = await openPage(context, extensionId, 'index.html', POPUP);
+  const { windowId: asking } = await tabOf(popup);
+  const other = await openWindow(serviceWorker, [fullViewUrl(extensionId)]);
+  const stub = await addStub(serviceWorker, extensionId, asking);
+  // PREMISE: a full view elsewhere, a pinned stub in the asking window.
+  await expect
+    .poll(async () => withoutIds(await tabsOf(serviceWorker, other)))
+    .toEqual([{ url: fullViewUrl(extensionId), pinned: false, active: true }]);
+  expect(
+    (await tabsOf(serviceWorker, asking)).find((t) => t.id === stub)?.url
+  ).toBe(stubUrl(extensionId));
+  const ownBefore = (await windowsNow(serviceWorker))
+    .flatMap((w) => w.tabs)
+    .filter((t) => isOwnPage(extensionId, t.url)).length;
+
+  // What requestTabView('pinGuide') sends from Help.
+  await popup.evaluate(
+    (windowId) =>
+      chrome.runtime.sendMessage({
+        type: 'openInTab',
+        windowId,
+        show: 'pinGuide',
+      }),
+    asking
+  );
+
+  await expect
+    .poll(async () =>
+      (await tabsOf(serviceWorker, asking)).find((t) => t.id === stub)
+    )
+    .toMatchObject({ pinned: true, active: true });
+  await expect
+    .poll(
+      async () =>
+        (await tabsOf(serviceWorker, asking))
+          .find((t) => t.id === stub)
+          ?.url.startsWith(fullViewUrl(extensionId)) ?? false
+    )
+    .toBe(true);
+  let shown: Page | undefined;
+  for (const page of context.pages()) {
+    if (!page.url().startsWith(fullViewUrl(extensionId))) continue;
+    if ((await tabOf(page)).tabId === stub) shown = page;
+  }
+  if (shown === undefined) throw new Error('no page in the stub’s tab');
+  await expect(
+    shown.getByRole('dialog', {
+      name: 'Pin Tab Keeper to your toolbar',
+      exact: true,
+    })
+  ).toBeVisible();
+  // No second Tab Keeper tab, and the other window's full view stayed as it was.
+  expect(
+    (await windowsNow(serviceWorker))
+      .flatMap((w) => w.tabs)
+      .filter((t) => isOwnPage(extensionId, t.url))
+  ).toHaveLength(ownBefore);
+  expect(withoutIds(await tabsOf(serviceWorker, other))).toEqual([
+    { url: fullViewUrl(extensionId), pinned: false, active: true },
+  ]);
+});
+
 // pinned.js against the faked hidden state (stubsStayHidden); the no-CDP test below is the real-Chrome proof.
 test('the stub paints its theme’s ground while hidden, and becomes the full view when shown', async ({
   context,
