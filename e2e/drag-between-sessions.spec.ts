@@ -1493,40 +1493,51 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
     });
   }
 
-  // KAN-382. CONTROL: S4, never the origin or the target, is ground all along.
+  // Q1 A (2026-10-07): the origin row is drawn as at rest mid-carry; only the
+  // row under the pointer changes. CONTROL: the same probe sees the target's
+  // outline on the row the pointer is on.
   for (const theme of ['Light', 'Darkenheimer']) {
-    test(`the origin row keeps a dashed outline after another session opens (${theme})`, async ({
+    test(`the origin row draws no outline mid-carry, before and after another session opens (${theme})`, async ({
       context,
       extensionId,
     }) => {
       await seedSettings(context, { theme });
       const page = await openPopup(context, extensionId);
-      const at = await pickUp(page, tabHandle(page, 'a1'));
-      await carryOutLeft(page, at);
-      await springOpen(page, 'S3');
-      // Off the rows, so no hover touches S1 or S4.
-      await page.mouse.move(at.x - 40, (await boxOf(sessionRow(page, 'S3'))).y);
+      // The row's top strip, and its own ground below it.
       const edge = async (id: string) => {
         const r = await boxOf(sessionRow(page, id));
         const xs = Array.from({ length: 60 }, (_, i) => r.x + 8 + i * 2);
-        return pixelsAt(page, [
+        const px = await pixelsAt(page, [
           ...xs.map((x): [number, number] => [x, r.y + 1]),
           [r.x + r.width / 2, r.y + 8],
         ]);
+        const ground = px[px.length - 1];
+        return px.slice(0, -1).filter((p) => p !== ground).length;
       };
-      const s1 = await edge('S1');
-      const s4 = await edge('S4');
-      const ground = s1[s1.length - 1];
-      // PREMISE: S1 is no longer shown, so its ground is S4's.
-      expect(s4[s4.length - 1]).toBe(ground);
-      expect(s4.slice(0, -1).every((px) => px === ground)).toBe(true);
-      const dashes = s1.slice(0, -1).filter((px) => contrast(px, ground) >= 3);
-      const gaps = s1.slice(0, -1).filter((px) => px === ground);
-      console.log(
-        `[${theme}] origin edge: ${dashes.length} dash px, ${gaps.length} gap px of 60`
-      );
-      expect(dashes.length).toBeGreaterThan(10);
-      expect(gaps.length).toBeGreaterThan(10);
+      const outlineStyle = (id: string) =>
+        sessionRow(page, id).evaluate((row) =>
+          row.firstElementChild === null
+            ? 'missing'
+            : getComputedStyle(row.firstElementChild).outlineStyle
+        );
+      // PREMISE: at rest S1's top strip is its ground.
+      expect(await edge('S1')).toBe(0);
+      const at = await pickUp(page, tabHandle(page, 'a1'));
+      await carryOutLeft(page, at);
+      await onto(page, 'S2');
+      // CONTROL: the probe sees the target's outline.
+      expect(await outlineStyle('S2')).toBe('solid');
+      expect(await edge('S2')).toBeGreaterThan(10);
+      expect(await outlineStyle('S1')).toBe('none');
+      expect(await edge('S1')).toBe(0);
+
+      await springOpen(page, 'S3');
+      // Off the rows, so no hover touches S1.
+      await page.mouse.move(at.x - 40, (await boxOf(sessionRow(page, 'S3'))).y);
+      await expect.poll(() => carryTargets(page)).toEqual([]);
+      expect(await outlineStyle('S1')).toBe('none');
+      expect(await edge('S1')).toBe(0);
+      await expect(page.locator('[data-carry-origin]')).toHaveCount(0);
       await page.keyboard.press('Escape');
       await page.mouse.up();
     });
