@@ -85,6 +85,22 @@ describe('the loop', () => {
     expect(String(arcs[0].keyframes[2].transform)).toMatch(/scale\(0\.35\)$/);
   });
 
+  test('arcs undo an ancestor’s scale, so a chip at half size still lands home', async () => {
+    const hero = await heroOf();
+    const firstLanding = () =>
+      String(
+        played.find((p) => p.el.matches('[data-hero-part="chip"]'))
+          ?.keyframes[2].transform
+      );
+    vi.spyOn(hero, 'offsetWidth', 'get').mockReturnValue(44);
+    playWelcomeLoop(hero);
+    expect(firstLanding()).toMatch(/^translate\(0px, 10px\)/);
+    played = [];
+    vi.spyOn(hero, 'offsetWidth', 'get').mockReturnValue(88);
+    playWelcomeLoop(hero);
+    expect(firstLanding()).toMatch(/^translate\(0px, 20px\)/);
+  });
+
   test('finish ends every beat at once', async () => {
     playWelcomeLoop(await heroOf()).finish();
     expect(played).toHaveLength(21);
