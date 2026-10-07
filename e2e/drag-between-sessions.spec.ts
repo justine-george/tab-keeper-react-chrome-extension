@@ -7935,6 +7935,7 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
   async function logSessionList(page: Page): Promise<void> {
     await page.evaluate(() => {
       const frames: unknown[] = [];
+      delete document.body.dataset.listFrames;
       document.body.dataset.listLog = 'on';
       const frame = () => {
         const rows: Record<string, number> = {};
