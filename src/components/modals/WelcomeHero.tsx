@@ -1,8 +1,10 @@
 import { css } from '@emotion/react';
+import { useTranslation } from 'react-i18next';
 
 import Icon from '../common/Icon';
+import { focusRingCss } from '../common/focusRing';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { ICON, RADIUS } from '../../styles/scale';
+import { DURATION, ICON, RADIUS } from '../../styles/scale';
 
 // Geometry from the approved mock, in px: the hero is a drawing, not text.
 const HERO = {
@@ -20,9 +22,54 @@ const HERO = {
 const LINE_WIDTHS = [120, 96, 130, 80] as const;
 
 // §5's wordless loop: tabs saved into the floppy and back out. Still, it shows its end frame.
-export default function WelcomeHero({ frame }: { frame: 'start' | 'end' }) {
+// An animated hero offers Play again once its loop rests (KAN-464).
+export default function WelcomeHero({
+  frame,
+  isResting = false,
+  onReplay,
+}: {
+  frame: 'start' | 'end';
+  isResting?: boolean;
+  onReplay?: () => void;
+}) {
+  const { t } = useTranslation();
   const COLORS = useThemeColors();
   const isEnd = frame === 'end';
+  const drawingStyle = css`
+    position: absolute;
+    inset: 0;
+  `;
+  const replayStyle = css`
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background-color: transparent;
+    cursor: pointer;
+    transition:
+      opacity 150ms ease-out,
+      visibility 0s,
+      background-color ${DURATION.COLOR};
+    &:hover {
+      background-color: ${COLORS.ICON_HOVER_COLOR};
+    }
+    &:active {
+      background-color: ${COLORS.ICON_ACTIVE_COLOR};
+    }
+    &:not([data-resting]) {
+      opacity: 0;
+      visibility: hidden;
+      transition:
+        opacity 150ms ease-out,
+        visibility 0s linear 150ms;
+    }
+    ${focusRingCss(COLORS)}
+  `;
   const heroStyle = css`
     position: relative;
     height: ${HERO.HEIGHT}px;
@@ -108,74 +155,91 @@ export default function WelcomeHero({ frame }: { frame: 'start' | 'end' }) {
   const lineTop = (i: number) => HERO.WIN_TOP + 40 + i * 20;
 
   return (
-    <div aria-hidden="true" data-hero-frame={frame} css={heroStyle}>
-      <div data-hero-part="window-left" css={windowStyle('left')}>
-        <div css={barStyle} />
-      </div>
-      <div data-hero-part="window-right" css={windowStyle('right')}>
-        <div css={barStyle} />
-      </div>
-      {LINE_WIDTHS.map((width, i) => (
-        <span
-          key={`left-${width}`}
-          data-hero-part="line-left"
-          css={lineStyle}
-          style={{
-            left: HERO.WIN_INSET + 14,
-            top: lineTop(i),
-            width,
-            opacity: isEnd ? 0.15 : 1,
-          }}
-        />
-      ))}
-      {LINE_WIDTHS.map((width, i) => (
-        <span
-          key={`right-${width}`}
-          data-hero-part="line-right"
-          css={lineStyle}
-          style={{
-            right: HERO.WIN_INSET + HERO.WIN_W - 14 - width,
-            top: lineTop(i),
-            width,
-            opacity: isEnd ? 1 : 0,
-          }}
-        />
-      ))}
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          data-hero-part="chip"
-          css={chipStyle}
-          style={chipPlace(i)}
-        >
-          <i css={chipDotStyle} />
-          <b css={chipLineStyle} />
+    <div data-hero-frame={frame} css={heroStyle}>
+      <div aria-hidden="true" css={drawingStyle}>
+        <div data-hero-part="window-left" css={windowStyle('left')}>
+          <div css={barStyle} />
+        </div>
+        <div data-hero-part="window-right" css={windowStyle('right')}>
+          <div css={barStyle} />
+        </div>
+        {LINE_WIDTHS.map((width, i) => (
+          <span
+            key={`left-${width}`}
+            data-hero-part="line-left"
+            css={lineStyle}
+            style={{
+              left: HERO.WIN_INSET + 14,
+              top: lineTop(i),
+              width,
+              opacity: isEnd ? 0.15 : 1,
+            }}
+          />
+        ))}
+        {LINE_WIDTHS.map((width, i) => (
+          <span
+            key={`right-${width}`}
+            data-hero-part="line-right"
+            css={lineStyle}
+            style={{
+              right: HERO.WIN_INSET + HERO.WIN_W - 14 - width,
+              top: lineTop(i),
+              width,
+              opacity: isEnd ? 1 : 0,
+            }}
+          />
+        ))}
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            data-hero-part="chip"
+            css={chipStyle}
+            style={chipPlace(i)}
+          >
+            <i css={chipDotStyle} />
+            <b css={chipLineStyle} />
+          </span>
+        ))}
+        <div data-hero-part="floppy" css={floppyStyle}>
+          <span
+            css={floppyPart(
+              'left: 16px; right: 16px; top: 4px; height: 22px;',
+              COLORS.PRIMARY_COLOR
+            )}
+          />
+          <span
+            data-hero-part="shutter"
+            css={floppyPart(
+              'left: 38px; top: 6px; width: 12px; height: 18px;',
+              COLORS.LABEL_L3_COLOR
+            )}
+          />
+          <span
+            css={floppyPart(
+              'left: 12px; right: 12px; bottom: 6px; height: 26px;',
+              COLORS.PRIMARY_COLOR
+            )}
+          />
+        </div>
+        <span data-hero-part="check" css={checkStyle}>
+          <Icon type="check" size={ICON.SMALL} color={COLORS.TEXT_COLOR} />
         </span>
-      ))}
-      <div data-hero-part="floppy" css={floppyStyle}>
-        <span
-          css={floppyPart(
-            'left: 16px; right: 16px; top: 4px; height: 22px;',
-            COLORS.PRIMARY_COLOR
-          )}
-        />
-        <span
-          data-hero-part="shutter"
-          css={floppyPart(
-            'left: 38px; top: 6px; width: 12px; height: 18px;',
-            COLORS.LABEL_L3_COLOR
-          )}
-        />
-        <span
-          css={floppyPart(
-            'left: 12px; right: 12px; bottom: 6px; height: 26px;',
-            COLORS.PRIMARY_COLOR
-          )}
-        />
       </div>
-      <span data-hero-part="check" css={checkStyle}>
-        <Icon type="check" size={ICON.SMALL} color={COLORS.TEXT_COLOR} />
-      </span>
+      {onReplay && frame === 'start' && (
+        <button
+          type="button"
+          css={replayStyle}
+          data-resting={isResting ? '' : undefined}
+          aria-label={t('Play again')}
+          onClick={onReplay}
+        >
+          <Icon
+            type="replay"
+            size={ICON.XSMALL}
+            color={COLORS.LABEL_L2_COLOR}
+          />
+        </button>
+      )}
     </div>
   );
 }

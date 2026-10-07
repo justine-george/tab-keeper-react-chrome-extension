@@ -101,6 +101,19 @@ describe('the loop', () => {
     expect(firstLanding()).toMatch(/^translate\(0px, 20px\)/);
   });
 
+  test('done is true once every beat ends, false if one was cancelled', async () => {
+    expect(await playWelcomeLoop(await heroOf()).done).toBe(true);
+    Object.defineProperty(Element.prototype, 'animate', {
+      configurable: true,
+      value: () => ({
+        finish: () => undefined,
+        cancel: () => undefined,
+        finished: Promise.reject(new Error('cancelled')),
+      }),
+    });
+    expect(await playWelcomeLoop(await heroOf()).done).toBe(false);
+  });
+
   test('finish ends every beat at once', async () => {
     playWelcomeLoop(await heroOf()).finish();
     expect(played).toHaveLength(21);

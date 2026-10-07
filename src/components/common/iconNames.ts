@@ -51,6 +51,7 @@ export const LIGATURE_ICON_NAMES = [
   'print',
   'redo',
   'reopen_window',
+  'replay',
   'schedule',
   'school',
   'search',

@@ -5,7 +5,7 @@ import { css } from '@emotion/react';
 
 import TabKeeperMark from '../common/TabKeeperMark';
 import WelcomeHero from './WelcomeHero';
-import { playWelcomeLoop } from './welcomeMotion';
+import { useHeroLoop } from './useHeroLoop';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import type { AppDispatch } from '../../redux/store';
@@ -33,6 +33,8 @@ export const RunHelloDialog: React.FC<{
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const loop = useHeroLoop();
+  const { play, cancel } = loop;
   // Decided once, as the popup welcome's: a still hero shows its end frame.
   const [heroFrame] = useState<'start' | 'end'>(() =>
     prefersReducedMotion() || typeof Element.prototype.animate !== 'function'
@@ -55,14 +57,21 @@ export const RunHelloDialog: React.FC<{
     const hero = dialog?.querySelector<HTMLElement>(
       '[data-hero-frame="start"]'
     );
-    const loop = hero ? playWelcomeLoop(hero) : null;
-    return () => loop?.cancel();
-  }, []);
+    if (hero) play(hero);
+    return cancel;
+  }, [play, cancel]);
 
   // Once an upgrader has seen What's new, no later open starts it again.
   useEffect(() => {
     if (hello === 'whatsNew') dispatch(markWhatsNew2Seen());
   }, [hello, dispatch]);
+
+  const replay = () => {
+    const hero = dialogRef.current?.querySelector<HTMLElement>(
+      '[data-hero-frame="start"]'
+    );
+    if (hero) play(hero);
+  };
 
   const buttons = dialogButtonStyles(COLORS);
   const dialogStyle = css`
@@ -133,7 +142,11 @@ export const RunHelloDialog: React.FC<{
           ? t("What's new in Tab Keeper 2.0")
           : t('Welcome to Tab Keeper')}
       </h2>
-      <WelcomeHero frame={heroFrame} />
+      <WelcomeHero
+        frame={heroFrame}
+        isResting={loop.isResting}
+        onReplay={replay}
+      />
       <p id={BODY_ID} css={bodyStyle}>
         {hello === 'whatsNew'
           ? t(

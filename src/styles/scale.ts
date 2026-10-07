@@ -94,6 +94,8 @@ export const CONTROL = {
  * with the bundled font; Justine picked it from a side-by-side mock.
  */
 export const ICON = {
+  /** Body-text size, for a control on a drawing: the welcome's Play again (KAN-464). */
+  XSMALL: '1rem',
   /** Secondary or inline actions, subordinate to the control they sit in. */
   SMALL: '1.25rem',
   /**

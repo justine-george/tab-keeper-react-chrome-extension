@@ -255,10 +255,12 @@ describe('the welcome (KAN-410)', () => {
       '0 0 128 128'
     );
     expect(title.querySelector('.material-symbols-outlined')).toBeNull();
-    expect(dialog.querySelector('[data-hero-frame]')).toHaveAttribute(
-      'aria-hidden',
-      'true'
-    );
+    // The drawing is hidden from assistive tech; only Play again is not (KAN-464).
+    expect(
+      dialog
+        .querySelector('[data-hero-part="floppy"]')
+        ?.closest('[aria-hidden]')
+    ).toHaveAttribute('aria-hidden', 'true');
     expect(dialog).toHaveAccessibleDescription(
       'Save your open windows, close them, and bring them all back later.'
     );
