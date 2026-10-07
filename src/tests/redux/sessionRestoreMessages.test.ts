@@ -22,6 +22,7 @@ import {
   restoreContainer,
   type TabMasterContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { setPinTabKeeperInNewWindows } from '../../redux/slices/settingsDataStateSlice';
 import type { RestoreSessionRequest } from '../../utils/functions/windows';
 import { setupChromeFake } from '../setup/chrome.fake';
 import { makeTestStore } from '../setup/makeStore';
@@ -118,6 +119,7 @@ describe('every restore call site posts one RestoreSessionRequest to the worker'
 
     const request = firstSentRequest(handle);
     expect(request.closeOtherWindows).toBe(false);
+    expect(request.pinTabKeeper).toBe(false);
     expect(request.specs).toHaveLength(1);
     expect(request.specs[0].focused).toBe(true);
     expect(request.specs[0].tabs.map((t) => t.url)).toEqual([
@@ -139,6 +141,7 @@ describe('every restore call site posts one RestoreSessionRequest to the worker'
 
     const request = firstSentRequest(handle);
     expect(request.closeOtherWindows).toBe(false);
+    expect(request.pinTabKeeper).toBe(false);
     expect(request.specs).toHaveLength(2);
     expect(request.specs[0].focused).toBe(true);
     expect(request.specs[1].focused).toBe(false);
@@ -175,6 +178,7 @@ describe('every restore call site posts one RestoreSessionRequest to the worker'
 
     const request = firstSentRequest(handle);
     expect(request.closeOtherWindows).toBe(true);
+    expect(request.pinTabKeeper).toBe(false);
     expect(request.specs).toHaveLength(2);
     expect(request.specs[0].focused).toBe(true);
     expect(request.specs[1].focused).toBe(false);
@@ -183,4 +187,42 @@ describe('every restore call site posts one RestoreSessionRequest to the worker'
       'https://b.example/',
     ]);
   });
+
+  it.each([
+    [
+      'openTabsInAWindow',
+      openTabsInAWindow({
+        tabGroupId: 'group-1',
+        windowId: 'w-b',
+        goToURLText: GO_TO_URL_TEXT,
+      }),
+    ],
+    [
+      'openAllTabContainer',
+      openAllTabContainer({
+        tabGroupId: 'group-1',
+        goToURLText: GO_TO_URL_TEXT,
+      }),
+    ],
+    [
+      'focusTabContainer',
+      focusTabContainer({
+        tabGroupId: 'group-1',
+        goToURLText: GO_TO_URL_TEXT,
+        saveTitle: 'Auto-saved before switching',
+      }),
+    ],
+  ])(
+    '%s carries Pin Tab Keeper in new windows as the page has it',
+    async (_name, thunk) => {
+      handle = setupChromeFake({
+        windows: [{ id: 1, tabs: [{ id: 1, url: 'https://open.example/' }] }],
+      });
+      const { store } = makeTestStore();
+      store.dispatch(restoreContainer(SESSION));
+      store.dispatch(setPinTabKeeperInNewWindows(true));
+      await store.dispatch(thunk);
+      expect(firstSentRequest(handle).pinTabKeeper).toBe(true);
+    }
+  );
 });
