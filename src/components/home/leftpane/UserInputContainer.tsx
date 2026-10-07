@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
 import Button from '../../common/Button';
+import { DropBoxLabel } from '../../common/dropBox';
+import { dropBoxStyle } from '../../common/dropBoxStyle';
 import OverflowMenu from '../../common/OverflowMenu';
 import TextBox from '../../common/TextBox';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
@@ -26,6 +28,7 @@ import {
   pickNameSourceTab,
 } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
+import { useNewSessionReceiver } from './useNewSessionReceiver';
 
 export default function UserInputContainer() {
   const { t } = useTranslation();
@@ -46,6 +49,22 @@ export default function UserInputContainer() {
     currentTabName !== ''
       ? normalizeTitle(currentTabName) || t('New Tab Group')
       : null;
+
+  // Only a stored session consumes the name, and never text typed since.
+  const consumeName = useCallback(
+    (typed: string) => setNewTitle((now) => (now === typed ? '' : now)),
+    []
+  );
+
+  // KAN-394 P3. From a carriable drag's pick-up the row is a New session target.
+  const rowRef = useRef<HTMLDivElement>(null);
+  const targetRef = useRef<HTMLDivElement>(null);
+  const takesCarry = useNewSessionReceiver(
+    rowRef,
+    targetRef,
+    newTitle,
+    consumeName
+  );
 
   useEffect(() => {
     // Guards loadSuggestion below against setting state after this
@@ -160,16 +179,24 @@ export default function UserInputContainer() {
     if (!containerData) return;
 
     await dispatch(saveToTabContainer({ container: containerData, scope }));
-    // Only a stored session consumes the name, and never text typed since.
-    setNewTitle((now) => (now === typed ? '' : now));
+    consumeName(typed);
     // The run's save step takes its first save; any later one is ordinary (R6).
     dispatch(takeRunSave(containerData.tabGroupId));
   }
 
   const containerStyle = css`
+    position: relative;
     display: flex;
     justify-content: space-between;
     align-items: center;
+  `;
+
+  // Over the whole row; App.css shows it on the New session marker (setDragNewSession).
+  const sessionTargetStyle = css`
+    position: absolute;
+    inset: 0;
+    visibility: hidden;
+    pointer-events: none;
   `;
 
   /**
@@ -203,7 +230,12 @@ export default function UserInputContainer() {
   `;
 
   return (
-    <div css={containerStyle} data-tour-anchor="save">
+    <div
+      ref={rowRef}
+      data-save-row=""
+      css={containerStyle}
+      data-tour-anchor="save"
+    >
       <TextBox
         id="name"
         name="name"
@@ -312,6 +344,16 @@ export default function UserInputContainer() {
               },
             ]}
           />
+        </div>
+      )}
+      {takesCarry && (
+        <div
+          ref={targetRef}
+          data-new-session-target=""
+          aria-hidden="true"
+          css={[dropBoxStyle(COLORS), sessionTargetStyle]}
+        >
+          <DropBoxLabel text={t('CarryNewSessionTarget')} />
         </div>
       )}
     </div>

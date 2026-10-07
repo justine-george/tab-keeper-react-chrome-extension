@@ -1204,7 +1204,7 @@ describe('the trailing block (KAN-361/366)', () => {
     const blocks = document.querySelectorAll('[data-drop-window-id]');
     expect(blocks[blocks.length - 1]).toBe(el);
     // Blank: its name is there, unseen, and its border has no colour.
-    const name = el.querySelector('[data-new-window-label]');
+    const name = el.querySelector('[data-drop-label-unlit-hidden]');
     if (name === null) throw new Error('no name');
     expect(name.textContent).toContain('New window');
     expect(seen(name)).toBe(false);
@@ -1238,7 +1238,7 @@ describe('the trailing block (KAN-361/366)', () => {
     expect(style.borderTopColor).not.toMatch(NO_COLOUR);
     expect(LIGHT_THEME.HOVER_COLOR).toBe('#E4E7EB');
     expect(style.backgroundColor).toMatch(/(#E4E7EB|rgb\(228, ?231, ?235\))/i);
-    const name = el.querySelector('[data-new-window-label]');
+    const name = el.querySelector('[data-drop-label-unlit-hidden]');
     if (name === null) throw new Error('no name');
     expect(seen(name)).toBe(true);
   });

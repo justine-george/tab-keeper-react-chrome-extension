@@ -6,6 +6,7 @@
 //
 // Every targetIds returns exactly the id list its reducer splices toIndex
 // into (KAN-131: an index is only valid in the list that produced it).
+import type { UnknownAction } from '@reduxjs/toolkit';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { DropOnTop } from './dropOnTop';
@@ -19,12 +20,15 @@ import {
   isWindowMove,
   moveToSessionInternal,
   moveWindowInternal,
+  type CarriedRef,
   type NewWindowPlace,
   type SessionMove,
   type TabMasterContainer,
 } from './slices/tabContainerDataStateSlice';
+import { landedRowId } from '../utils/functions/carriedView';
 import {
   groupItemIdOf,
+  isCarriedStillThere,
   itemIdOf,
   partitionTabsIntoItems,
 } from '../utils/functions/tabGroups';
@@ -221,26 +225,10 @@ export function sessionMoveDrop(move: SessionMove): DropOnTop {
     return w.tabs.map((t) => t.tabId);
   };
 
-  const rowId =
-    carried.kind === 'tab'
-      ? carried.tabId
-      : carried.kind === 'group'
-        ? groupItemIdOf(carried.groupId)
-        : carried.windowId;
+  const rowId = landedRowId(carried);
 
-  const rowExists = (s: TabMasterContainer): boolean => {
-    const from = windowIn(s, carried.tabGroupId, carried.windowId);
-    if (!from) return false;
-    if (carried.kind === 'tab') {
-      return from.tabs.some((t) => t.tabId === carried.tabId);
-    }
-    if (carried.kind === 'group') {
-      return partitionTabsIntoItems(from.tabs, from.chromeTabGroups)
-        .map(itemIdOf)
-        .includes(rowId);
-    }
-    return true;
-  };
+  const rowExists = (s: TabMasterContainer): boolean =>
+    isCarriedStillThere(s.tabGroups, carried);
 
   return {
     rowId,
@@ -270,4 +258,21 @@ function withToIndex(move: SessionMove, toIndex: number): SessionMove {
   return 'newWindowId' in move.to
     ? move
     : { carried: move.carried, to: { ...move.to, toIndex } };
+}
+
+// KAN-394. A carried item dropped on the save row. A new session has no list
+// to re-aim in, so targetIds is empty and toIndex is 0; `moveAction` is built
+// once by the caller (it mints the new session's id) and ignores the index.
+// rowExists repeats the reducer's own check (D20) as belt and braces.
+export function newSessionDrop(
+  carried: CarriedRef,
+  moveAction: UnknownAction
+): DropOnTop {
+  return {
+    rowId: landedRowId(carried),
+    toIndex: 0,
+    targetIds: () => [],
+    rowExists: (s) => isCarriedStillThere(s.tabGroups, carried),
+    move: () => moveAction,
+  };
 }

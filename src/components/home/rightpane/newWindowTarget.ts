@@ -6,11 +6,7 @@
 // Written straight to the DOM, as a band's drop-target mark is
 // (useTabDropGeometry's onDropTargetChange): it changes as the pointer moves,
 // and React never renders this attribute, so a re-render cannot drop it.
-import { css, type SerializedStyles } from '@emotion/react';
-
-import type { ThemeColors } from '../../../hooks/useThemeColors';
 import type { NewWindowPlace } from '../../../redux/slices/tabContainerDataStateSlice';
-import { RADIUS } from '../../../styles/scale';
 
 // The window a landing names when it makes a new window: placed first, by
 // the session header's target (KAN-361), or last, by the list's trailing
@@ -64,25 +60,6 @@ export function measureNewFirstWindowTarget(
   doc: Document
 ): ((x: number, y: number) => boolean) | null {
   return newWindowTargetHit(doc.querySelector(NEW_FIRST_TARGET));
-}
-
-// What a New window target's box looks like, wherever it is drawn: the
-// session header's toolbar row (KAN-361 N1 B, HeroContainerRight) and the
-// list's trailing block, lit (WindowEntryContainer). One look in one place,
-// so the two cannot drift apart. A dashed box, and lit -- the hover fill and a solid
-// border -- while the landing is in it. Where it sits and how tall it is are
-// the caller's; its name is NewWindowTargetLabel.
-export function newWindowTargetBoxStyle(COLORS: ThemeColors): SerializedStyles {
-  return css`
-    border-width: 1.5px;
-    border-style: dashed;
-    border-color: ${COLORS.LABEL_L2_COLOR};
-    border-radius: ${RADIUS.SQUARE};
-    &[data-landing] {
-      background-color: ${COLORS.HOVER_COLOR};
-      border-style: solid;
-    }
-  `;
 }
 
 // A drag area's onLandingWindowChange: lights the target the landing window

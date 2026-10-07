@@ -70,8 +70,6 @@ interface TabGroupEntryProps {
   onFocusClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
   carryTarget?: CarryTargetLook;
-  // The session a carried item came from (KAN-382); never also the target.
-  carryOrigin?: boolean;
 }
 
 const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
@@ -81,7 +79,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   onFocusClick,
   onDeleteClick,
   carryTarget,
-  carryOrigin,
 }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -355,13 +352,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       ${pressedStyle}
     }
     background-color: ${drawsSelection && COLORS.SELECTION_COLOR};
-    /* The item's own place, in the slot's dashed look; before the target, which wins. */
-    &[data-carry-origin] {
-      outline-width: 1.5px;
-      outline-style: dashed;
-      outline-color: ${COLORS.LABEL_L2_COLOR};
-      outline-offset: -2px;
-    }
     /* KAN-350 D2 A. The row a carry rests on: the hover fill, a selected row
        included (the outline is 4.02:1 on Petal's hover fill, 3.06 on its
        selection), and a 2px LABEL_L2 outline inside the edge.
@@ -371,9 +361,9 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
        below only changes how the fill arrives. After the hover and press
        rules, so it wins over both.
 
-       The outline is on the outline property, which only the origin mark
-       above also writes: the fill is the box-shadow (hover's channel, which the
-       target takes over here in full), the selection is background-color.
+       The outline is on the outline property, which nothing else writes: the
+       fill is the box-shadow (hover's channel, which the target takes over
+       here in full), the selection is background-color.
        Inset by a negative offset, so the next row cannot paint over it.
 
        The actions are hidden while the row is a target: there is nothing to
@@ -416,7 +406,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       data-run-engaged={isRunEngaged ? '' : undefined}
       data-carry-target={carryTarget === undefined ? undefined : ''}
       data-carry-dwell={carryTarget?.dwellSweep ? '' : undefined}
-      data-carry-origin={carryOrigin ? '' : undefined}
     >
       <ClickableRow
         ariaLabel={title}

@@ -1,4 +1,8 @@
-import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
+import type {
+  CarriedRef,
+  tabContainerData,
+  tabData,
+} from '../../redux/slices/tabContainerDataStateSlice';
 
 // This module is imported by the service worker (via windows.ts) AND by the
 // right pane, so it must stay DOM-free -- no `window`, no `document`. Same
@@ -178,4 +182,30 @@ export function groupIdOfItemId(itemId: string): string | undefined {
   return itemId.startsWith(GROUP_ITEM)
     ? itemId.slice(GROUP_ITEM.length)
     : undefined;
+}
+
+/**
+ * Whether the store still holds the carried item where the carry found it:
+ * its session, its window, and the tab, the group (with a tab in it, as the
+ * move reducer's partition sees it) or the window. False means the move would
+ * find nothing to lift, so the carry has nothing left to carry.
+ */
+export function isCarriedStillThere(
+  tabGroups: readonly tabContainerData[],
+  carried: CarriedRef
+): boolean {
+  const w = tabGroups
+    .find((g) => g.tabGroupId === carried.tabGroupId)
+    ?.windows.find((x) => x.windowId === carried.windowId);
+  if (w === undefined) return false;
+  switch (carried.kind) {
+    case 'window':
+      return true;
+    case 'tab':
+      return w.tabs.some((t) => t.tabId === carried.tabId);
+    case 'group':
+      return partitionTabsIntoRuns(w.tabs, w.chromeTabGroups).some(
+        (run) => run.kind === 'group' && run.group.groupId === carried.groupId
+      );
+  }
 }

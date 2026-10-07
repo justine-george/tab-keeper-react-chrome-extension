@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -40,11 +47,18 @@ import {
   currentCarry,
   registerCarryReceiver,
   subscribeCarry,
-  useCarried,
   type CarryReceiver,
 } from '../../../redux/carry';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
+import { dropBoxStyle } from '../../common/dropBoxStyle';
+import { DURATION } from '../../../styles/scale';
+import {
+  newSessionPitch,
+  settleNewSessionSlot,
+  translateYOf,
+  useNewSessionSlot,
+} from './newSessionSlot';
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
@@ -54,6 +68,8 @@ export default function TabGroupEntryContainer() {
   // The scrolling element, so KAN-143's effect scopes its lookup to this list
   // rather than searching the whole document.
   const listRef = useRef<HTMLDivElement>(null);
+  // The rows' column, which slides down to open the New session place.
+  const columnRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const focusSearchField = () => {
     const input = searchInputRef.current;
@@ -196,6 +212,9 @@ export default function TabGroupEntryContainer() {
 
     const measure = (el: HTMLElement) => {
       const box = el.getBoundingClientRect();
+      // At rest: entered from the New session target, the column may still be sliding back.
+      const shift =
+        columnRef.current === null ? 0 : translateYOf(columnRef.current);
       const rows = [
         ...el.querySelectorAll<HTMLElement>('[data-drag-row-id]'),
       ].flatMap((row) => {
@@ -205,8 +224,8 @@ export default function TabGroupEntryContainer() {
         return [
           {
             id,
-            top: r.top - box.top + el.scrollTop,
-            bottom: r.bottom - box.top + el.scrollTop,
+            top: r.top - shift - box.top + el.scrollTop,
+            bottom: r.bottom - shift - box.top + el.scrollTop,
           },
         ];
       });
@@ -322,7 +341,24 @@ export default function TabGroupEntryContainer() {
     return () => clearTimeout(timer);
   }, [dwellId, dispatch]);
 
-  const originId = useCarried()?.tabGroupId ?? null;
+  // KAN-394 N1. The place a release on the New session target fills, a row and its divider tall.
+  const newSessionSlot = useNewSessionSlot();
+  useLayoutEffect(() => {
+    const column = columnRef.current;
+    if (newSessionSlot !== 'open' || column === null) return;
+    // Picked A: at once, so the place and the release land in view; the list receiver re-measures on entry.
+    const list = listRef.current;
+    if (list !== null && list.scrollTop > 0) list.scrollTop = 0;
+    column.style.setProperty(
+      '--new-session-pitch',
+      `${newSessionPitch(column)}px`
+    );
+  }, [newSessionSlot]);
+  // Two frames, so the fill is painted first; never cancelled, so it cannot stay filled.
+  useEffect(() => {
+    if (newSessionSlot !== 'filled') return;
+    requestAnimationFrame(() => requestAnimationFrame(settleNewSessionSlot));
+  }, [newSessionSlot]);
 
   // Reduced motion draws no sweep; the session still opens after the wait.
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
@@ -347,9 +383,31 @@ export default function TabGroupEntryContainer() {
     overflow: auto;
   `;
 
+  // Slides as a dragged list's rows do; filled, the new row stands in the place at once.
   const filledContainerStyle = css`
     display: flex;
     flex-direction: column;
+    position: relative;
+    transition: transform ${DURATION.MOVE} ease;
+    &[data-new-session-slot='open'] {
+      transform: translateY(var(--new-session-pitch, 0px));
+    }
+    &[data-new-session-slot='filled'] {
+      transition: none;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  `;
+
+  // Above the column's top, so it slides in with the rows; the scroller clips it at rest.
+  const newSessionPlaceStyle = css`
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(-1 * var(--new-session-pitch, 0px));
+    height: var(--new-session-pitch, 0px);
+    pointer-events: none;
   `;
 
   return (
@@ -374,7 +432,21 @@ export default function TabGroupEntryContainer() {
             <EmptySavedList />
           ) : null
         ) : (
-          <div css={filledContainerStyle}>
+          <div
+            ref={columnRef}
+            css={filledContainerStyle}
+            data-session-column=""
+            data-new-session-slot={
+              newSessionSlot === 'closed' ? undefined : newSessionSlot
+            }
+          >
+            {newSessionSlot === 'open' && (
+              <div
+                aria-hidden="true"
+                data-new-session-place=""
+                css={[dropBoxStyle(COLORS), newSessionPlaceStyle]}
+              />
+            )}
             {/* KAN-130. No handleSelector -- a session row contains no nested
                 drag area, so the whole row is the handle. No resolveDrop -- a
                 session belongs to nothing. Off while searching (KAN-385). */}
@@ -427,10 +499,6 @@ export default function TabGroupEntryContainer() {
                                 !reducedMotion,
                             }
                           : undefined
-                      }
-                      carryOrigin={
-                        tabGroupData.tabGroupId === originId &&
-                        tabGroupData.tabGroupId !== carryTargetId
                       }
                     />
                     {/* <Divider /> */}
