@@ -47,10 +47,12 @@ export async function restoreSession(
   const toClose = planWindowClosure(snapshotIds, created);
   if (!toClose) return;
 
+  // P4: a pinned Tab Keeper tab is never closed by a Switch, so with nowhere to carry it, its window stays.
   let keepOpen: number | undefined;
-  if (carried !== null && target?.id !== undefined) {
-    if (!(await carryPinnedTab(carried.id, target.id))) {
-      // P4: a pinned Tab Keeper tab is never closed by a Switch.
+  if (carried !== null) {
+    if (target?.id === undefined) {
+      keepOpen = carried.windowId;
+    } else if (!(await carryPinnedTab(carried.id, target.id))) {
       keepOpen = carried.windowId;
       if (request.pinTabKeeper) await addPinnedStub(target.id);
     }

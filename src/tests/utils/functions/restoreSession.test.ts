@@ -165,6 +165,27 @@ describe('Switch (closeOtherWindows true)', () => {
     expect(handle.removedWindowIds).toEqual([1]);
   });
 
+  test('no window marked focused: the pinned tab stays in its window, which stays open; the others close', async () => {
+    handle = setupChromeFake({
+      windows: [
+        pinnedFullViewIn(1, true),
+        { id: 2, tabs: [{ id: 30, url: web('other') }] },
+      ],
+    });
+    const unfocused = request(['a', 'b'], true, true);
+    await restoreSession({
+      ...unfocused,
+      specs: unfocused.specs.map((s) => ({ ...s, focused: false })),
+    });
+    expect(handle.removedWindowIds).toEqual([2]);
+    expect(await windowOf(10)).toBe(1);
+    expect((await layout()).find((w) => w.id === 1)?.tabs[0]).toEqual({
+      url: FULL,
+      pinned: true,
+      active: false,
+    });
+  });
+
   test('a failed window moves nothing and closes nothing', async () => {
     handle = setupChromeFake({
       windows: [pinnedFullViewIn(1, true)],
