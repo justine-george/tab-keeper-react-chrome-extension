@@ -74,7 +74,7 @@ afterEach(async () => {
 });
 
 describe('the tab-history row sits under Save Tab Groups', () => {
-  test('its own section, after Save Tab Groups and before Keyboard shortcut', async () => {
+  test('its own section, after Save Tab Groups and before Default view', async () => {
     const { container } = await renderSessions(false);
 
     expect(pair()).toHaveAccessibleName(LABEL);
