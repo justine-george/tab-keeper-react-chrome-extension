@@ -240,7 +240,7 @@ export const TabGroupsPermissionModal: React.FC<
         <button type="button" css={buttons.link} onClick={handleNotNow}>
           {t('TabGroupsPromptDismiss')}
         </button>
-        <button type="button" css={buttons.primary} onClick={handleEnable}>
+        <button type="button" css={buttons.filled} onClick={handleEnable}>
           {t('Turn on')}
         </button>
       </div>

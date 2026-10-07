@@ -5,6 +5,7 @@ import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import { THEMES } from './fixtures/onboarding';
 import { expectReadable } from './fixtures/textContrast';
 import { rgbToHex } from './fixtures/pixels';
+import { mixHex } from '../src/styles/mixHex';
 
 // KAN-450. The tab-group offer closes like the other first-open dialogs: Not
 // now as a link on the left, a filled Turn on on the right.
@@ -110,16 +111,20 @@ for (const [theme, palette] of THEMES) {
         .then((c) => expect(rgbToHex(c)).toBe(hex));
 
     await page.mouse.move(0, 0);
-    await expect(fillIs(palette.SELECTION_COLOR)).toPass();
+    await expect(fillIs(palette.TEXT_COLOR)).toPass();
     await expectReadable(turnOn, `${theme} Turn on, rest`);
     await expectReadable(notNow, `${theme} Not now, rest`);
 
     await turnOn.hover();
-    await expect(fillIs(palette.ICON_HOVER_COLOR)).toPass();
+    await expect(
+      fillIs(mixHex(palette.TEXT_COLOR, palette.PRIMARY_COLOR, 0.88))
+    ).toPass();
     await expectReadable(turnOn, `${theme} Turn on, hover`);
 
     await page.mouse.down();
-    await expect(fillIs(palette.ICON_ACTIVE_COLOR)).toPass();
+    await expect(
+      fillIs(mixHex(palette.TEXT_COLOR, palette.PRIMARY_COLOR, 0.76))
+    ).toPass();
     await expectReadable(turnOn, `${theme} Turn on, press`);
     await page.mouse.up();
   });

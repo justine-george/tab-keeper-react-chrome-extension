@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { TabGroupsPermissionModal } from '../../components/modals/TabGroupsPermissionModal';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { openTabGroupsPrompt } from '../../redux/slices/globalStateSlice';
+import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { SettingsData } from '../../redux/slices/settingsDataStateSlice';
 import {
   asPartialSettings,
@@ -30,6 +31,9 @@ const seedSettings = (settings: Partial<SettingsData>) =>
 const openWith =
   (count: number) => (store: { dispatch: (a: unknown) => void }) =>
     store.dispatch(openTabGroupsPrompt(count));
+
+const rgb = (hex: string) =>
+  `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
 
 describe('TabGroupsPermissionModal', () => {
   test('renders nothing when no prompt is open', async () => {
@@ -60,6 +64,10 @@ describe('TabGroupsPermissionModal', () => {
     expect(notNow.nextElementSibling).toBe(turnOn);
     expect(turnOn.parentElement?.lastElementChild).toBe(turnOn);
     expect(turnOn.querySelector('.material-symbols-outlined')).toBeNull();
+    // The `filled` dialog style: TEXT_COLOR ground, PRIMARY_COLOR letters.
+    const fill = getComputedStyle(turnOn);
+    expect(fill.backgroundColor).toBe(rgb(LIGHT_THEME.TEXT_COLOR));
+    expect(fill.color).toBe(rgb(LIGHT_THEME.PRIMARY_COLOR));
     expect(
       screen.queryByRole('button', { name: 'Enable tab group support' })
     ).toBeNull();
