@@ -20,6 +20,8 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import { recordFirstRun } from '../../redux/slices/settingsDataStateSlice';
 import { newRun } from '../../utils/functions/firstRun';
+import { selectIsRunCardShown } from '../../redux/firstRun';
+import { showSession } from '../../redux/showSession';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { s1, s2, tabIds } from '../fixtures/sessionMoveFixture';
 
@@ -99,8 +101,8 @@ describe('the save row as a carry receiver', () => {
     expect(target()).toBeNull();
   });
 
-  // F18. While this page shows the first run's card, the row stays the save row.
-  test('is not there while this page shows the first run, and draws no target', async () => {
+  // F18 (Q2 A). For the whole run on this page the row stays the save row.
+  test('is not there while the first run is on this page, and draws no target', async () => {
     const { store } = await renderRow();
     act(() => {
       // Popup step 6 lets a tab be carried; the run's session is the one shown.
@@ -113,17 +115,12 @@ describe('the save row as a carry receiver', () => {
     expect(carryReceiverAt(10, 120)).toBeNull();
     expect(target()).toBeNull();
 
-    // CONTROL: another session shown hides the run's card, and the row is back.
+    // Another session shown hides the run's card; the run is still here.
     act(() => {
       store.dispatch(selectTabContainer('S2'));
     });
-    expect(carryReceiverAt(10, 120)).not.toBeNull();
-    expect(target()).not.toBeNull();
-
-    act(() => {
-      store.dispatch(selectTabContainer('S1'));
-    });
     expect(carryReceiverAt(10, 120)).toBeNull();
+    expect(target()).toBeNull();
 
     // CONTROL: the run stopped here, it is back.
     act(() => {
@@ -131,6 +128,29 @@ describe('the save row as a carry receiver', () => {
     });
     expect(carryReceiverAt(10, 120)).not.toBeNull();
     expect(target()).not.toBeNull();
+  });
+
+  // The worst path for F18: a spring-open mid-carry hides the run's card.
+  test('does not appear mid-carry when a spring-open hides the run’s card', async () => {
+    const { store } = await renderRow();
+    act(() => {
+      store.dispatch(
+        recordFirstRun({ ...newRun('popup', 6), sessionId: 'S1' })
+      );
+      store.dispatch(runShownHere());
+    });
+    carry(T1);
+    // PREMISE: the run's card is shown, and the row takes nothing.
+    expect(selectIsRunCardShown(store.getState())).toBe(true);
+    expect(carryReceiverAt(10, 120)).toBeNull();
+
+    act(() => {
+      store.dispatch(showSession('S2'));
+    });
+
+    expect(selectIsRunCardShown(store.getState())).toBe(false);
+    expect(carryReceiverAt(10, 120)).toBeNull();
+    expect(target()).toBeNull();
   });
 
   test('is hit on the row’s box as it is now', async () => {

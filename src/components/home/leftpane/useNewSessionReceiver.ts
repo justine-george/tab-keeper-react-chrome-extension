@@ -1,4 +1,4 @@
-// KAN-394 P3. A carry let go on the save row becomes a new session; not while searching or while the first run shows here.
+// KAN-394 P3. A carry let go on the save row becomes a new session; not while searching or for the whole first run here (F18).
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,7 @@ import {
   type CarryReceiver,
 } from '../../../redux/carry';
 import { moveToNewSession } from '../../../redux/moveToNewSession';
-import { selectIsRunCardShown } from '../../../redux/firstRun';
+import { selectRunHere } from '../../../redux/firstRun';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 
 // Returns whether the row takes a carry now, which is when it draws a target.
@@ -27,8 +27,9 @@ export function useNewSessionReceiver(
   const dispatch: AppDispatch = useDispatch();
   const { t } = useTranslation();
   const { isSearching } = useSavedSearch();
-  const isRunShown = useSelector(selectIsRunCardShown);
-  const takes = !isSearching && !isRunShown;
+  // The whole run, not its card: a spring-open hiding the card mid-carry must not draw the target.
+  const isRunHere = useSelector(selectRunHere) !== null;
+  const takes = !isSearching && !isRunHere;
 
   // Read on the release, so typing does not re-register the receiver.
   const typedRef = useRef(typed);
