@@ -310,9 +310,12 @@ describe('Hello enters (A7)', () => {
   test('as the dialog: opacity 0 to 1 and scale 0.97 to 1, 220ms', async () => {
     installAnimate();
     await renderHello();
-    expect(runs).toHaveLength(1);
-    expect(runs[0].target).toBe(document.querySelector('[data-run-hello]'));
-    expect(runs[0].keyframes).toEqual([
+    const dialog = document.querySelector('[data-run-hello]');
+    const own = runs.filter((r) => r.target === dialog);
+    expect(own).toHaveLength(1);
+    // KAN-456: the rest are the hero's loop, once.
+    expect(runs.length - own.length).toBe(21);
+    expect(own[0].keyframes).toEqual([
       { opacity: 0, transform: 'translate(-50%, -50%) scale(0.97)' },
       { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' },
     ]);
