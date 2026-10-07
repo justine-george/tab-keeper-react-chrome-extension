@@ -85,7 +85,8 @@ for (const [which, cta, open] of [
   ],
   [
     'the tab groups offer',
-    'Enable tab group support',
+    // Not now leads the footer, so the first Tab lands on it.
+    'Not now',
     (c: BrowserContext, w: Worker, id: string) => openTabGroupsPrompt(c, w, id),
   ],
 ] as const) {

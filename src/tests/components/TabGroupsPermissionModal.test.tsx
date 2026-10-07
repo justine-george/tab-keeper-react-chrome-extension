@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { TabGroupsPermissionModal } from '../../components/modals/TabGroupsPermissionModal';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { openTabGroupsPrompt } from '../../redux/slices/globalStateSlice';
+import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { SettingsData } from '../../redux/slices/settingsDataStateSlice';
 import {
   asPartialSettings,
@@ -31,6 +32,9 @@ const openWith =
   (count: number) => (store: { dispatch: (a: unknown) => void }) =>
     store.dispatch(openTabGroupsPrompt(count));
 
+const rgb = (hex: string) =>
+  `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
+
 describe('TabGroupsPermissionModal', () => {
   test('renders nothing when no prompt is open', async () => {
     await renderWithProviders(<TabGroupsPermissionModal />);
@@ -44,10 +48,29 @@ describe('TabGroupsPermissionModal', () => {
     });
 
     expect(screen.getByText('Tab Keeper can save tab groups')).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Enable tab group support' })
-    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Turn on' })).toBeTruthy();
     expect(screen.getByText('Not now')).toBeTruthy();
+  });
+
+  test('the footer is Not now on the left and a filled Turn on on the right', async () => {
+    await renderWithProviders(<TabGroupsPermissionModal />, {
+      seedStore: openWith(2),
+    });
+
+    const notNow = screen.getByRole('button', { name: 'Not now' });
+    const turnOn = screen.getByRole('button', { name: 'Turn on' });
+    // One row, Not now first; the layout itself is measured in e2e.
+    expect(notNow.parentElement).toBe(turnOn.parentElement);
+    expect(notNow.nextElementSibling).toBe(turnOn);
+    expect(turnOn.parentElement?.lastElementChild).toBe(turnOn);
+    expect(turnOn.querySelector('.material-symbols-outlined')).toBeNull();
+    // The `filled` dialog style: TEXT_COLOR ground, PRIMARY_COLOR letters.
+    const fill = getComputedStyle(turnOn);
+    expect(fill.backgroundColor).toBe(rgb(LIGHT_THEME.TEXT_COLOR));
+    expect(fill.color).toBe(rgb(LIGHT_THEME.PRIMARY_COLOR));
+    expect(
+      screen.queryByRole('button', { name: 'Enable tab group support' })
+    ).toBeNull();
   });
 
   test('one group reads as singular, with no count in the sentence', async () => {
@@ -155,9 +178,7 @@ describe('TabGroupsPermissionModal permission request', () => {
       await chrome.permissions.contains({ permissions: ['tabGroups'] })
     ).toBe(false);
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Enable tab group support' })
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Turn on' }));
 
     expect(
       await chrome.permissions.contains({ permissions: ['tabGroups'] })
@@ -175,9 +196,7 @@ describe('TabGroupsPermissionModal permission request', () => {
       seedStore: openWith(2),
     });
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Enable tab group support' })
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Turn on' }));
 
     expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
   });
@@ -189,9 +208,7 @@ describe('TabGroupsPermissionModal permission request', () => {
       seedStore: openWith(2),
     });
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Enable tab group support' })
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Turn on' }));
 
     expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
   });
@@ -207,9 +224,7 @@ describe('TabGroupsPermissionModal permission request', () => {
       seedStore: openWith(2),
     });
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Enable tab group support' })
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Turn on' }));
 
     expect(storedSettings().isNeverAskAgainForTabGroups ?? false).toBe(false);
   });
@@ -229,9 +244,7 @@ describe('TabGroupsPermissionModal permission request', () => {
 
     expect(screen.queryByText("Don't ask again")).toBeNull();
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Enable tab group support' })
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Turn on' }));
 
     // Chrome's answer never reaches us, so the flag is what the NEXT popup
     // reads to decide whether the escape hatch has been earned.
