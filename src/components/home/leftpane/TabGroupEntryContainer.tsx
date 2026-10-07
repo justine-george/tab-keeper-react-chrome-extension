@@ -346,6 +346,9 @@ export default function TabGroupEntryContainer() {
   useLayoutEffect(() => {
     const column = columnRef.current;
     if (newSessionSlot !== 'open' || column === null) return;
+    // Picked A: at once, so the place and the release land in view; the list receiver re-measures on entry.
+    const list = listRef.current;
+    if (list !== null && list.scrollTop > 0) list.scrollTop = 0;
     column.style.setProperty(
       '--new-session-pitch',
       `${newSessionPitch(column)}px`

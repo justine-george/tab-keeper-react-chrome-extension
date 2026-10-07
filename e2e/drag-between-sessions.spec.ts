@@ -7947,6 +7947,9 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
         frames.push({
           rows,
           place: b === undefined ? null : { top: b.top, height: b.height },
+          scroll:
+            document.querySelector('[data-session-column]')?.parentElement
+              ?.scrollTop ?? -1,
         });
         document.body.dataset.listFrames = JSON.stringify(frames);
         if (document.body.dataset.listLog === 'on')
@@ -7958,6 +7961,7 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
   interface ListFrame {
     rows: Record<string, number>;
     place: { top: number; height: number } | null;
+    scroll: number;
   }
   const isListLog = (x: unknown): x is ListFrame[] =>
     Array.isArray(x) &&
@@ -7967,7 +7971,9 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
         f !== null &&
         'rows' in f &&
         typeof f.rows === 'object' &&
-        'place' in f
+        'place' in f &&
+        'scroll' in f &&
+        typeof f.scroll === 'number'
     );
   async function listLog(page: Page): Promise<ListFrame[]> {
     const raw = await page.evaluate(() => {
@@ -8123,6 +8129,123 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
       'a0 a2 al0* al1*',
       'b0 b1',
     ]);
+  });
+
+  // Scrolled list (picked A): ten more sessions, so the list scrolls.
+  const longList = () => [
+    S1(),
+    S2(),
+    S3(),
+    S4(),
+    ...Array.from({ length: 10 }, (_, i) =>
+      session(`X${i}`, `Extra ${i}`, [win(`xw${i}`, [tab(`x${i}`)])])
+    ),
+  ];
+  const sessionScroller = (page: Page) =>
+    page.locator('[data-pane="sessions"] [data-session-column]').locator('..');
+  const SCROLLED = 150;
+  // Scrolls the list to SCROLLED; returns its box.
+  async function scrollList(page: Page) {
+    const list = sessionScroller(page);
+    // PREMISE: the list can scroll that far.
+    expect(
+      await list.evaluate((el) => el.scrollHeight - el.clientHeight)
+    ).toBeGreaterThan(SCROLLED);
+    await list.evaluate((el, top) => {
+      el.scrollTop = top;
+    }, SCROLLED);
+    await expect.poll(() => list.evaluate((el) => el.scrollTop)).toBe(SCROLLED);
+    return boxOf(list);
+  }
+  const inBox = (
+    b: { y: number; height: number },
+    box: { y: number; height: number }
+  ) => b.y >= box.y - 0.5 && b.y + b.height <= box.y + box.height + 0.5;
+
+  test('N1, scrolled list: on the target it jumps to its top with the place in view; the release lands first, selected, in view, and the list never moves', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId, longList());
+    const rest = await listAtRest(page);
+    const box = await scrollList(page);
+    const list = sessionScroller(page);
+
+    await logSessionList(page);
+    await ontoSaveRow(page, tabHandle(page, 'a1'));
+    await expect.poll(() => list.evaluate((el) => el.scrollTop)).toBe(0);
+    await expect
+      .poll(() => topOf(page, 'S1'))
+      .toBeCloseTo(rest.s1 + rest.pitch, 1);
+    expect(inBox(await boxOf(page.locator(PLACE)), box)).toBe(true);
+    const opening = await listLog(page);
+    // PREMISE: the log saw it scrolled.
+    expect(opening[0]?.scroll).toBe(SCROLLED);
+    // At once: no frame between the two scrolls.
+    expect(opening.filter((f) => f.scroll > 0 && f.scroll < SCROLLED)).toEqual(
+      []
+    );
+
+    const before = await stored(page);
+    await logSessionList(page);
+    await expect
+      .poll(() =>
+        page
+          .evaluate(() => document.body.dataset.listFrames ?? '')
+          .then((raw) => raw.length > 2)
+      )
+      .toBe(true);
+    await page.mouse.up();
+    const { made } = await newSession(page, before);
+    const id = made.tabGroupId;
+    const row = sessionRow(page, id);
+    await expect(
+      page.locator('[data-pane="sessions"] [data-drag-row-id]').first()
+    ).toHaveAttribute('data-drag-row-id', id);
+    expect(inBox(await boxOf(row), box)).toBe(true);
+    // Past KAN-143's follow-up frame.
+    await page.waitForTimeout(300);
+    const frames = await listLog(page);
+    expect(frames.filter((f) => f.scroll !== 0)).toEqual([]);
+    expect(
+      frames.filter(
+        (f) => Math.abs((f.rows.S1 ?? NaN) - (rest.s1 + rest.pitch)) > 0.5
+      )
+    ).toEqual([]);
+    const first = frames.findIndex((f) => f.rows[id] !== undefined);
+    // PREMISE: the log spans the drop.
+    expect(first).toBeGreaterThan(0);
+    expect(
+      frames
+        .slice(first)
+        .filter((f) => Math.abs((f.rows[id] ?? NaN) - rest.s1) > 0.5)
+    ).toEqual([]);
+  });
+
+  test('N1, scrolled list: from the place straight onto S2, the list aims at S2 where it now is, and the drop lands there', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId, longList());
+    const rest = await listAtRest(page);
+    const s2 = await boxOf(sessionRow(page, 'S2'));
+    await scrollList(page);
+    await ontoSaveRow(page, tabHandle(page, 'a1'));
+    await expect
+      .poll(() => sessionScroller(page).evaluate((el) => el.scrollTop))
+      .toBe(0);
+    await expect
+      .poll(() => topOf(page, 'S1'))
+      .toBeCloseTo(rest.s1 + rest.pitch, 1);
+
+    // S2's middle at scroll 0, at rest: read before the list was scrolled.
+    await page.mouse.move(s2.x + s2.width / 2, s2.y + s2.height / 2);
+    await expect.poll(() => carryTargets(page)).toEqual(['S2']);
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => layoutOf(sessionOf(await stored(page), 'S2'))[0])
+      .toBe('a1');
   });
 
   test('N1, reduced motion: the place opens and closes without a slide', async ({

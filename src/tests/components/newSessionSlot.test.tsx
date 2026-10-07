@@ -212,6 +212,25 @@ describe('the New session place in the session list', () => {
     expect(slot()).toBeNull();
   });
 
+  // Scrolled list (picked A): the place is at the list's top, so the list goes there at once.
+  test('on the target a scrolled list jumps to its top; elsewhere it keeps its scroll', async () => {
+    await renderPane();
+    const list = scroller();
+    if (list === null) throw new Error('no scroller');
+    list.scrollTop = 120;
+    // PREMISE: scrolled.
+    expect(list.scrollTop).toBe(120);
+    carry();
+    // CONTROL: over the list, off the target.
+    fireEvent.pointerMove(document, ON_LIST);
+    expect(list.scrollTop).toBe(120);
+
+    fireEvent.pointerMove(document, ON_TARGET);
+
+    expect(slot()).toBe('open');
+    expect(list.scrollTop).toBe(0);
+  });
+
   test('one row: the pitch is its height and the divider it gains', async () => {
     await renderPane([s1()]);
     carry();
