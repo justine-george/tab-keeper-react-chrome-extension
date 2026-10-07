@@ -351,8 +351,7 @@ export default function TabGroupEntryContainer() {
       `${newSessionPitch(column)}px`
     );
   }, [newSessionSlot]);
-  // Two frames: the first may still be the one the fill is painted in. Not
-  // cancelled on unmount, so the slot never stays filled with no list.
+  // Two frames, so the fill is painted first; never cancelled, so it cannot stay filled.
   useEffect(() => {
     if (newSessionSlot !== 'filled') return;
     requestAnimationFrame(() => requestAnimationFrame(settleNewSessionSlot));

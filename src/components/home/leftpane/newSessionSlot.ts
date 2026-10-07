@@ -1,16 +1,7 @@
-// KAN-394 N1 (revised 2026-10-07). The empty place the session list opens at
-// its top while a carry rests on the save row's New session target: where the
-// new session lands. Presentation only; nothing in the store moves until the
-// release.
-//
-// The receiver (useNewSessionReceiver) writes it; the list
-// (TabGroupEntryContainer) draws it. Read through useSyncExternalStore, so a
-// write from a native pointer event is rendered before the next paint, and a
-// fill made beside the move that makes the session lands in that move's commit.
+// KAN-394 N1 (revised). The session list's place for a new session; a sync-lane store, so a fill renders in the same commit as the move it follows.
 import { useSyncExternalStore } from 'react';
 
-// closed: at rest. open: the list slid down one row, the place drawn.
-// filled: the new session's row took the place, so the list stands still.
+// open: slid down a row, the place drawn; filled: the new row took the place, so nothing slides back.
 export type NewSessionSlot = 'closed' | 'open' | 'filled';
 
 let slot: NewSessionSlot = 'closed';
@@ -55,9 +46,7 @@ export function useNewSessionSlot(): NewSessionSlot {
 // The Divider under every row but the last (common/Divider: a 1px border).
 const DIVIDER_PX = 1;
 
-// How far the list moves when a row goes in on top: the distance between its
-// first two rows, or, for one, its height and the divider it then gains. A
-// difference of two rects, so a transform already on the column cancels out.
+// What a row going in on top moves the list by; a difference of rects, so the column's own transform cancels.
 export function newSessionPitch(column: HTMLElement): number {
   const [first, second] = column.querySelectorAll('[data-drag-row-id]');
   if (first === undefined) return 0;
@@ -66,8 +55,7 @@ export function newSessionPitch(column: HTMLElement): number {
   return second.getBoundingClientRect().top - top.top;
 }
 
-// The y translation a transform puts on `el` now, mid-transition included;
-// 0 for none, or for any value that is not a matrix.
+// The y of `el`'s transform now, mid-transition included; 0 for none.
 export function translateYOf(el: Element): number {
   const t = getComputedStyle(el).transform;
   const m = /^matrix(3d)?\((.*)\)$/.exec(t);

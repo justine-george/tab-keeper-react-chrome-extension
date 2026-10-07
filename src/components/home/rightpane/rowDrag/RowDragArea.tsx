@@ -1511,9 +1511,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (offersNewWindow) {
         setDragNewWindow(true, !l.adopted && l.maxScroll > 0);
       }
-      // KAN-394 N1 (revised). The save row's New session target, from the
-      // pick-up, for a drag that can hand off to a carry. An adopted drag's
-      // carry already wrote it, and endCarry ends it.
+      // KAN-394 N1 (revised). Only a drag that can hand off to a carry; an adopted one's carry wrote it.
       const out = l.adopted ? null : carryOut?.(l.rowId) ?? null;
       if (out !== null) setDragNewSession(true);
       // KAN-279 D12. From here until the drag ends, a change this page did
