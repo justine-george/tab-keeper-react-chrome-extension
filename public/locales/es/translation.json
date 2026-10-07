@@ -243,6 +243,8 @@
   "Search looks in session names, window names, tab titles and links.": "La búsqueda incluye nombres de sesiones, nombres de ventanas, títulos de pestañas y enlaces.",
   "Open full view": "Abrir vista completa",
   "Default view": "Vista predeterminada",
+  "Pin Tab Keeper in new windows": "Fijar Tab Keeper en las ventanas nuevas",
+  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Las ventanas que Tab Keeper abre o a las que cambia empiezan con Tab Keeper fijado.",
   "Compact view": "Vista compacta",
   "Full view": "Vista completa",
   "A saved session shows its windows and tabs here.": "Aquí, una sesión guardada muestra sus ventanas y pestañas.",

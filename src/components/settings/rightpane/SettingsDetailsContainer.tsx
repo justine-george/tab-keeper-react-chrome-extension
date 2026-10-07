@@ -24,6 +24,7 @@ import {
 } from '../../../redux/slices/globalStateSlice';
 import {
   setTheme,
+  setPinTabKeeperInNewWindows,
   setUiSoundOn,
   setUserRatedAndReviewed,
   toggleAutoSync,
@@ -89,6 +90,7 @@ const SettingsDetailsContainer: React.FC = () => {
   // The tab-history help line's id, which its pair points at (KAN-280).
   const tabHistoryHelpId = useId();
   const soundsHelpId = useId();
+  const pinTabKeeperHelpId = useId();
   const popupShortcut = usePopupShortcut();
   const { i18n } = useTranslation();
   const { t } = useTranslation();
@@ -747,6 +749,55 @@ const SettingsDetailsContainer: React.FC = () => {
               metrics={SETTINGS_PAIR_METRICS}
             />
           </div>
+        </div>
+
+        {/* KAN-459. Whether windows Tab Keeper opens start with it pinned. */}
+        <div
+          data-settings-section
+          css={css`
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 32px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Pin Tab Keeper in new windows')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+          <div
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            <SlidingPair
+              label={t('Pin Tab Keeper in new windows')}
+              options={[
+                { value: 'on', label: t('On') },
+                { value: 'off', label: t('Off') },
+              ]}
+              value={settingsData.pinTabKeeperInNewWindows ? 'on' : 'off'}
+              onChange={(next) =>
+                dispatch(setPinTabKeeperInNewWindows(next === 'on'))
+              }
+              metrics={SETTINGS_PAIR_METRICS}
+              describedBy={pinTabKeeperHelpId}
+            />
+          </div>
+          <p id={pinTabKeeperHelpId} css={helpLineStyle}>
+            {t(
+              'Windows Tab Keeper opens or switches to start with Tab Keeper pinned.'
+            )}
+          </p>
         </div>
 
         {/* Keyboard shortcut. KAN-256: a sentence that says what the key

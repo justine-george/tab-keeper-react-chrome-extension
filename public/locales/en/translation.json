@@ -238,6 +238,8 @@
   "Search looks in session names, window names, tab titles and links.": "Search looks in session names, window names, tab titles and links.",
   "Open full view": "Open full view",
   "Default view": "Default view",
+  "Pin Tab Keeper in new windows": "Pin Tab Keeper in new windows",
+  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.",
   "Compact view": "Compact view",
   "Full view": "Full view",
   "A saved session shows its windows and tabs here.": "A saved session shows its windows and tabs here.",

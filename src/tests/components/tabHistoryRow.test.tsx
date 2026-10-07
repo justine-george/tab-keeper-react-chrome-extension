@@ -82,6 +82,7 @@ describe('the tab-history row sits under Save Tab Groups', () => {
       'Save Tab Groups',
       LABEL,
       'Default view',
+      'Pin Tab Keeper in new windows',
       'Keyboard shortcut',
     ]);
   });

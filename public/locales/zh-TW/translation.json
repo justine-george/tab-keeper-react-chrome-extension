@@ -233,6 +233,8 @@
   "Search looks in session names, window names, tab titles and links.": "搜尋範圍包括工作階段名稱、視窗名稱、分頁標題和連結。",
   "Open full view": "開啟完整檢視",
   "Default view": "預設檢視",
+  "Pin Tab Keeper in new windows": "在新視窗中釘選 Tab Keeper",
+  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper 開啟或切換到的視窗，會先釘選 Tab Keeper。",
   "Compact view": "精簡檢視",
   "Full view": "完整檢視",
   "A saved session shows its windows and tabs here.": "已儲存工作階段的視窗和分頁會顯示在這裡。",

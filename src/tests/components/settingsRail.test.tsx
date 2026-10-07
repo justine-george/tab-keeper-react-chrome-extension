@@ -93,6 +93,6 @@ describe('sections within a pane sit 32px apart, as About blocks do', () => {
     const margins = [
       ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
     ].map((el) => getComputedStyle(el).marginTop);
-    expect(margins).toEqual(['20px', '32px', '32px', '32px']);
+    expect(margins).toEqual(['20px', '32px', '32px', '32px', '32px']);
   });
 });

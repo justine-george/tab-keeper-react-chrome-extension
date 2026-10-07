@@ -102,7 +102,7 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
   // tabs as placeholders, so there is nothing to choose.
   // KAN-280 added the second pair, "Bring back tab history when reopening";
   // tabHistoryRow.test.tsx covers it.
-  test('Sessions has three pairs, Save Tab Groups, tab history and Default view, and no memory setting', async () => {
+  test('Sessions has four pairs, Save Tab Groups, tab history, Default view and Pin Tab Keeper, and no memory setting', async () => {
     await renderOn(SettingsCategory.SESSIONS);
 
     const groups = screen.getByRole('group', { name: 'Save Tab Groups' });
@@ -117,6 +117,7 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
       'Save Tab Groups',
       'Bring back tab history when reopening',
       'Default view',
+      'Pin Tab Keeper in new windows',
     ]);
     expect(
       screen.queryByText('Optimize Memory Usage On Session Restore')

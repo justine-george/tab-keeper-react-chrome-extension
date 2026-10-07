@@ -238,6 +238,8 @@
   "Search looks in session names, window names, tab titles and links.": "Sökningen omfattar sessionsnamn, fönsternamn, fliktitlar och länkar.",
   "Open full view": "Öppna helvy",
   "Default view": "Standardvy",
+  "Pin Tab Keeper in new windows": "Fäst Tab Keeper i nya fönster",
+  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Fönster som Tab Keeper öppnar eller byter till börjar med Tab Keeper fäst.",
   "Compact view": "Kompakt vy",
   "Full view": "Helvy",
   "A saved session shows its windows and tabs here.": "En sparad session visar sina fönster och flikar här.",

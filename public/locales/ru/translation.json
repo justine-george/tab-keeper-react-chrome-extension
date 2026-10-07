@@ -248,6 +248,8 @@
   "Search looks in session names, window names, tab titles and links.": "Поиск идёт по названиям сессий и окон, заголовкам вкладок и ссылкам.",
   "Open full view": "Открыть полный вид",
   "Default view": "Вид по умолчанию",
+  "Pin Tab Keeper in new windows": "Закреплять Tab Keeper в новых окнах",
+  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Окна, которые Tab Keeper открывает или на которые переключается, начинаются с закреплённого Tab Keeper.",
   "Compact view": "Компактный вид",
   "Full view": "Полный вид",
   "A saved session shows its windows and tabs here.": "Здесь сохранённая сессия показывает свои окна и вкладки.",

@@ -233,6 +233,8 @@
   "Search looks in session names, window names, tab titles and links.": "搜索范围包括会话名称、窗口名称、标签页标题和链接。",
   "Open full view": "打开完整视图",
   "Default view": "默认视图",
+  "Pin Tab Keeper in new windows": "在新窗口中固定 Tab Keeper",
+  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper 打开或切换到的窗口会先固定 Tab Keeper。",
   "Compact view": "紧凑视图",
   "Full view": "完整视图",
   "A saved session shows its windows and tabs here.": "已保存会话的窗口和标签页会显示在这里。",
