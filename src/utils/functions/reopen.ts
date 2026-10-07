@@ -304,8 +304,9 @@ export async function reopenPreferringHistory(
     await finishUndo(() =>
       undoWindowRestore(item.window, restored, focusedWindowId)
     );
-    if (windowId !== undefined && pinTabKeeper)
+    if (windowId !== undefined && pinTabKeeper) {
       await ensurePinnedStub(windowId);
+    }
     return windowId === undefined ? null : { kind: 'window', windowId };
   } catch (error) {
     console.warn('Could not reopen: ', error);
