@@ -148,7 +148,12 @@ jobs:
       # dist it did not build (KAN-142).
       - name: Generate dist folder
         timeout-minutes: 5
-        run: npm run build:e2e
+        run: |
+          if [ "${{ matrix.shard }}" = 1 ]; then sleep 420; fi
+          npm run build:e2e
+
+      - name: TEMP job limit probe
+        run: if [ "${{ matrix.shard }}" = 2 ]; then sleep 1080; fi
 
       # A Dependabot bump of @playwright/test without the image tag above would
       # otherwise fail every test with a missing-executable error.
