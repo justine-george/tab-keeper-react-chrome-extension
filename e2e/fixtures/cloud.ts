@@ -28,10 +28,10 @@ export async function countCloudRequests(
 // A Google API key is in the bundle only if the build had a Firebase config.
 // Read on call: every spec imports this module through the fixture.
 export function hasCloudConfig(): boolean {
-  const assets = fileURLToPath(new URL('../../dist/assets', import.meta.url));
-  return readdirSync(assets).some(
+  const dist = fileURLToPath(new URL('../../dist', import.meta.url));
+  return readdirSync(dist, { recursive: true, encoding: 'utf8' }).some(
     (f) =>
       f.endsWith('.js') &&
-      /AIza[\w-]{35}/.test(readFileSync(join(assets, f), 'utf8'))
+      /AIza[\w-]{35}/.test(readFileSync(join(dist, f), 'utf8'))
   );
 }

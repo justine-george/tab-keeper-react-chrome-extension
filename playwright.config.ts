@@ -19,12 +19,20 @@ export default defineConfig({
   // writes no newline per test -- so a stuck run and a progressing one look
   // identical in a GitHub Actions log. That is exactly how the 13m51s hang
   // read as "still running".
-  reporter: 'list',
+  // The shard reporter splits --shard runs by measured time (KAN-444); `json`
+  // writes the timings it is refreshed from, when CI names a file for it.
+  reporter: [
+    ['list'],
+    ['./scripts/e2e_shard_reporter.mjs'],
+    ...(process.env.PLAYWRIGHT_JSON_OUTPUT_NAME ? ([['json']] as const) : []),
+  ],
 
-  // Every spec launches its own browser with the extension loaded. Serial
-  // keeps those launches from fighting over profile directories.
-  workers: 1,
-  fullyParallel: false,
+  // Any test may run on any worker or shard: each launches its own browser on
+  // a fresh profile and only reads dist/ (KAN-444). Locally 4 workers ran the
+  // full suite in 10.2 min against ~35 at 1. CI keeps one browser per VM and
+  // gets its parallelism from shards.
+  workers: process.env.CI ? 1 : 4,
+  fullyParallel: true,
 
   // Still zero now that CI runs this (KAN-146), and deliberately so. A retry
   // turns a flake into a pass, and this repo has just paid for what a hidden

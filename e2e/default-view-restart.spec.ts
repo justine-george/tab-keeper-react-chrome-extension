@@ -31,9 +31,12 @@ test('a stored Full is applied again at the next browser start', async () => {
     const first = await launch(dir);
     const before = await workerOf(first);
     // The page's mirror says Full; the popup disagrees, as after a lost apply.
+    // The worker's own start-up applies are lost too, or one can land last (KAN-461).
     await before.evaluate(async () => {
+      const setPopup = chrome.action.setPopup.bind(chrome.action);
+      chrome.action.setPopup = () => Promise.resolve();
       await chrome.storage.local.set({ defaultView: 'full' });
-      await chrome.action.setPopup({ popup: 'index.html' });
+      await setPopup({ popup: 'index.html' });
     });
     // CONTROL: the disagreement is real before the restart.
     expect(await before.evaluate(() => chrome.action.getPopup({}))).toMatch(

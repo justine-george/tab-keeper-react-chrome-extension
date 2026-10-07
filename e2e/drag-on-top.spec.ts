@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { hasCloudConfig } from './fixtures/cloud';
 import { test, expect } from './fixtures/extension';
 import {
   buildContainer,
@@ -33,8 +34,8 @@ test.use({ cloud: true });
 // cloud; this device's next read is held until a drag has started.
 //
 // Needs a build that carries the Firebase config (a local build with a .env).
-// PR CI builds without one (KAN-147) and makes no cloud request at all, so
-// the tests skip there rather than passing on nothing.
+// PR CI builds without one (KAN-147), so each test skips there before it
+// starts rather than passing on nothing.
 
 const DIST = fileURLToPath(new URL('../dist', import.meta.url));
 const CLOUD = /firestore\.googleapis\.com|identitytoolkit\.googleapis\.com/;
@@ -196,14 +197,11 @@ async function stage(
   extensionId: string,
   serviceWorker: Worker
 ) {
+  test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
   // 1. Device A: a fresh id, so its startup sync writes its local copy.
   await seedOnce(context, [A, B, C, D]);
   const a = await openPopup(context, extensionId);
   const synced = await a.committed;
-  test.skip(
-    !synced && a.cloudRequests.length === 0,
-    'this build has no cloud config (CI)'
-  );
   expect(synced, "device A's startup sync never wrote").toBe(true);
   const reads = a.cloudRequests.filter((u) => READ.test(u));
   console.log(`[D12] device A's reads: ${JSON.stringify(reads)}`);
