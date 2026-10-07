@@ -123,10 +123,16 @@ describe('addPinnedStub / ensurePinnedStub', () => {
   });
 
   test('a refused create is logged, never thrown', async () => {
-    handle = setupChromeFake({ refusedUrls: [STUB] });
+    handle = setupChromeFake({
+      windows: [{ id: 5, tabs: [{ id: 1, url: web('a'), active: true }] }],
+      refusedUrls: [STUB],
+    });
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await expect(addPinnedStub(99)).resolves.toBeUndefined();
+    await expect(addPinnedStub(5)).resolves.toBeUndefined();
     expect(warn).toHaveBeenCalled();
+    expect(await tabsOf(5)).toEqual([
+      { url: web('a'), pinned: false, active: true },
+    ]);
   });
 
   test('ensurePinnedStub adds nothing when the window already has a pinned Tab Keeper tab', async () => {
@@ -173,6 +179,26 @@ describe('carryPinnedTab', () => {
       { url: FULL, pinned: true, active: false },
       { url: web('new'), pinned: false, active: true },
     ]);
+  });
+
+  test('a refused re-pin still answers true: the tab is in the new window', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 10, url: FULL, pinned: true },
+            { id: 11, url: web('old') },
+          ],
+        },
+        { id: 2, tabs: [{ id: 20, url: web('new'), active: true }] },
+      ],
+    });
+    vi.spyOn(chrome.tabs, 'update').mockRejectedValue(new Error('refused'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    expect(await carryPinnedTab(10, 2)).toBe(true);
+    expect(warn).toHaveBeenCalled();
+    expect((await tabsOf(2)).map((t) => t.url)).toEqual([FULL, web('new')]);
   });
 
   test('a refused move answers false and leaves the tab where it was', async () => {
