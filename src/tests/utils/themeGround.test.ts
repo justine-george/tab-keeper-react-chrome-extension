@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 
 import {
   BB_PINK_THEME,
@@ -7,6 +7,8 @@ import {
   LIGHT_THEME,
   WARM_LIGHT_THEME,
 } from '../../hooks/useThemeColors';
+import type { ThemeColors } from '../../hooks/useThemeColors';
+import { Theme } from '../../redux/slices/settingsDataStateSlice';
 
 // public/theme-ground.js paints the stored theme's ground before React; its table must follow the palettes.
 const source = Object.values(
@@ -30,21 +32,24 @@ function groundFor(storage: Pick<Storage, 'getItem'>): string | undefined {
 
 const stored = (value: string | null) => ({ getItem: () => value });
 
-afterEach(() => localStorage.clear());
+// As useThemeColors maps them; a theme added to Theme without a palette here fails.
+const PALETTES: Record<Theme, ThemeColors> = {
+  [Theme.LIGHT]: LIGHT_THEME,
+  [Theme.WARM_LIGHT]: WARM_LIGHT_THEME,
+  [Theme.BB_PINK]: BB_PINK_THEME,
+  [Theme.DARKENHEIMER]: DARKENHEIMER_THEME,
+  [Theme.BLUE]: BLUE_THEME,
+};
 
 describe('theme-ground.js', () => {
   test('exists', () => {
     expect(source).toContain('--app-background');
   });
 
-  test.each([
-    ['Light', LIGHT_THEME.PRIMARY_COLOR],
-    ['WarmLight', WARM_LIGHT_THEME.PRIMARY_COLOR],
-    ['BBPink', BB_PINK_THEME.PRIMARY_COLOR],
-    ['Darkenheimer', DARKENHEIMER_THEME.PRIMARY_COLOR],
-    ['Blue', BLUE_THEME.PRIMARY_COLOR],
-  ])('%s paints its PRIMARY_COLOR', (theme, ground) => {
-    expect(groundFor(stored(JSON.stringify({ theme })))).toBe(ground);
+  test.each(Object.values(Theme))('%s paints its PRIMARY_COLOR', (theme) => {
+    expect(groundFor(stored(JSON.stringify({ theme })))).toBe(
+      PALETTES[theme].PRIMARY_COLOR
+    );
   });
 
   test.each([
