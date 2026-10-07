@@ -599,7 +599,10 @@ async function undoWindowRestore(
   // Chrome brings the tabs back in the snapshot's order: the entry was
   // matched on exactly these addresses at close (Task 5). A different count
   // leaves the front tab and groups as Chrome made them.
-  const restoredTabs = restored.window?.tabs ?? [];
+  // The snapshot omits Tab Keeper's own pages; Chrome's restore keeps them.
+  const restoredTabs = (restored.window?.tabs ?? []).filter(
+    (tab) => !isTabKeeperPage(tab)
+  );
   if (restoredTabs.length === snapshot.tabs.length) {
     const activeAt = snapshot.tabs.findIndex((tab) => tab.active);
     const activeId = restoredTabs[Math.max(activeAt, 0)]?.id;

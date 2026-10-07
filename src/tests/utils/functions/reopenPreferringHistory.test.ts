@@ -1410,3 +1410,89 @@ describe('a reopened window gets a pinned Tab Keeper tab when asked (KAN-459)', 
     expect(await stubsIn(reopened.windowId)).toHaveLength(1);
   });
 });
+
+describe('a window holding a Tab Keeper page gets its front tab and groups back (KAN-469)', () => {
+  const STUB_URL = 'chrome-extension://faketestid/pinned.html';
+  const frontAndGroups = async (windowId: number) => ({
+    active: (await chrome.tabs.query({ windowId, active: true })).map(
+      (t) => t.url
+    ),
+    groups: (await chrome.tabGroups.query({ windowId }))
+      .map(({ title, color, collapsed }) => ({ title, color, collapsed }))
+      .sort((x, y) => (x.title ?? '').localeCompare(y.title ?? '')),
+  });
+
+  test('a pinned stub first: the grouped front tab is in front again, groups as they were', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: GRANTED,
+      windows: [
+        tabViewWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: STUB_URL, pinned: true },
+            { url: url('a'), groupId: 60 },
+            { url: url('b'), groupId: 61, active: true },
+            { url: url('c'), groupId: 62 },
+          ],
+        },
+      ],
+      tabGroups: [
+        { id: 60, windowId: 2, title: 'Osaka', color: 'red', collapsed: true },
+        { id: 61, windowId: 2, title: 'Kyoto', color: 'blue' },
+        { id: 62, windowId: 2, title: 'Nara', color: 'green', collapsed: true },
+      ],
+    });
+    const item = await closeWindow(2);
+    if (item?.kind !== 'window') throw new Error('close failed');
+    // PREMISE: the close matched Chrome's entry, so Reopen goes through history.
+    expect(item.restorableSessionId).toEqual(expect.any(String));
+
+    const reopened = await reopenPreferringHistory(item, true);
+
+    if (reopened?.kind !== 'window') throw new Error('no window came back');
+    expect(await frontAndGroups(reopened.windowId)).toEqual({
+      active: [url('b')],
+      groups: [
+        { title: 'Kyoto', color: 'blue', collapsed: false },
+        { title: 'Nara', color: 'green', collapsed: true },
+        { title: 'Osaka', color: 'red', collapsed: true },
+      ],
+    });
+  });
+
+  test('an unpinned tab view last: the collapsed group Chrome put in front is collapsed again', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: GRANTED,
+      windows: [
+        tabViewWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), groupId: 60 },
+            { url: url('b'), groupId: 61, active: true },
+            { url: `${TAB_VIEW_URL}?view=tab` },
+          ],
+        },
+      ],
+      tabGroups: [
+        { id: 60, windowId: 2, title: 'Osaka', color: 'red', collapsed: true },
+        { id: 61, windowId: 2, title: 'Kyoto', color: 'blue' },
+      ],
+    });
+    const item = await closeWindow(2);
+    if (item?.kind !== 'window') throw new Error('close failed');
+    expect(item.restorableSessionId).toEqual(expect.any(String));
+
+    const reopened = await reopenPreferringHistory(item, false);
+
+    if (reopened?.kind !== 'window') throw new Error('no window came back');
+    expect(await frontAndGroups(reopened.windowId)).toEqual({
+      active: [url('b')],
+      groups: [
+        { title: 'Kyoto', color: 'blue', collapsed: false },
+        { title: 'Osaka', color: 'red', collapsed: true },
+      ],
+    });
+  });
+});

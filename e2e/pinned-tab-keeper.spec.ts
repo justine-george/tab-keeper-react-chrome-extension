@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { test, expect } from './fixtures/extension';
+import { grantedTest } from './fixtures/grantedExtension';
 import {
   buildContainer,
   buildSession,
@@ -590,8 +591,89 @@ test.describe('Open now: Reopen a window', () => {
       pinned: true,
       active: false,
     });
+    expect(
+      (await tabsOf(serviceWorker, reopened)).find((t) => t.active)?.url
+    ).toBe(dataUrl('Front'));
   });
 });
+
+// Chrome restores a window whose front tab was grouped with its first tab, here the stub, in front.
+grantedTest(
+  'On, with history and groups (KAN-469): the grouped front tab is in front again, its groups as they were',
+  async ({ context, extensionId, serviceWorker }) => {
+    const site = await servePages(context);
+    await stubsStayHidden(context);
+    await seedSettings(context, { pinTabKeeperInNewWindows: true });
+    await turnHistoryOn(context, extensionId);
+    const page = await openPage(context, extensionId, FULL_VIEW_PATH, FULL);
+    const windowId = await openWindow(serviceWorker, [
+      dataUrl('Front'),
+      site(1),
+      dataUrl('Next'),
+    ]);
+    const [front, historyTab, next] = await tabsOf(serviceWorker, windowId);
+    await loadedAt(serviceWorker, historyTab.id, site(1));
+    await navigate(serviceWorker, historyTab.id, site(2));
+    await navigate(serviceWorker, historyTab.id, site(3));
+    await serviceWorker.evaluate(
+      async ({ windowId, front, next }) => {
+        const trip = await chrome.tabs.group({
+          tabIds: [front],
+          createProperties: { windowId },
+        });
+        await chrome.tabGroups.update(trip, { title: 'Trip', color: 'blue' });
+        const later = await chrome.tabs.group({
+          tabIds: [next],
+          createProperties: { windowId },
+        });
+        await chrome.tabGroups.update(later, { title: 'Later', color: 'red' });
+        await chrome.tabs.update(front, { active: true });
+      },
+      { windowId, front: front.id, next: next.id }
+    );
+    await addStub(serviceWorker, extensionId, windowId);
+
+    // PREMISE: a pinned stub at index 0, and Front, in Trip, in front.
+    await expect
+      .poll(async () => withoutIds(await tabsOf(serviceWorker, windowId)))
+      .toEqual([
+        { url: stubUrl(extensionId), pinned: true, active: false },
+        { url: dataUrl('Front'), pinned: false, active: true },
+        { url: site(3), pinned: false, active: false },
+        { url: dataUrl('Next'), pinned: false, active: false },
+      ]);
+    await expect.poll(() => historyLengthsAt(context, site(3))).toEqual([3]);
+
+    const reopened = await closeAndReopen(page, serviceWorker, windowId, 3);
+
+    // PREMISE: it came back through Chrome's history, not a recreate.
+    await expect.poll(() => historyLengthsAt(context, site(3))).toEqual([3]);
+    await expect
+      .poll(async () =>
+        (await tabsOf(serviceWorker, reopened)).filter((t) =>
+          isOwnPage(extensionId, t.url)
+        )
+      )
+      .toHaveLength(1);
+    expect(
+      (await tabsOf(serviceWorker, reopened)).find((t) => t.active)?.url
+    ).toBe(dataUrl('Front'));
+    expect(await groupsIn(serviceWorker, reopened)).toEqual([
+      {
+        urls: [dataUrl('Front')],
+        title: 'Trip',
+        color: 'blue',
+        collapsed: false,
+      },
+      {
+        urls: [dataUrl('Next')],
+        title: 'Later',
+        color: 'red',
+        collapsed: false,
+      },
+    ]);
+  }
+);
 
 test('⤢ with Tab Keeper tabs in two windows lands on the asking window’s stub', async ({
   context,
@@ -819,6 +901,24 @@ async function turnHistoryOn(context: BrowserContext, extensionId: string) {
     .toBe(true);
   await page.close();
 }
+
+// Each group in the window, with its tabs' addresses, in tab order.
+const groupsIn = (worker: Worker, windowId: number) =>
+  worker.evaluate(async (windowId: number) => {
+    const tabs = (await chrome.tabs.query({ windowId })).sort(
+      (a, b) => a.index - b.index
+    );
+    const groups = await chrome.tabGroups.query({ windowId });
+    const firstAt = (id: number) => tabs.findIndex((t) => t.groupId === id);
+    return groups
+      .sort((a, b) => firstAt(a.id) - firstAt(b.id))
+      .map((g) => ({
+        urls: tabs.filter((t) => t.groupId === g.id).map((t) => t.url),
+        title: g.title,
+        color: g.color,
+        collapsed: g.collapsed,
+      }));
+  }, windowId);
 
 async function loadedAt(worker: Worker, tabId: number, url: string) {
   await expect
