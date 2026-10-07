@@ -77,7 +77,7 @@ async function render(overrides: Partial<Props> = {}) {
     text: TEXT,
     anchors: ['[data-test-anchor]'],
     isLive: true,
-    width: 300,
+    width: '300px',
     place,
     primary: { label: 'Next', onPress: onNext },
     onSkip,
@@ -403,7 +403,7 @@ describe('the card’s footer and line (§6)', () => {
     expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
   });
 
-  test('the last step: no Skip; Back, the secondary, then the primary', async () => {
+  test('the last step: the secondary as the left link in Skip’s place, then Back and the primary', async () => {
     const onNotNow = vi.fn();
     const onPin = vi.fn();
     await render({
@@ -415,10 +415,15 @@ describe('the card’s footer and line (§6)', () => {
     await placed();
     expect(screen.queryByRole('button', { name: 'Skip tutorial' })).toBeNull();
     expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual([
-      'Back',
       'Not now',
+      'Back',
       'Pin this tab',
     ]);
+    // The left link sits outside the right-hand group, as Skip tutorial does.
+    const notNow = screen.getByRole('button', { name: 'Not now' });
+    const back = screen.getByRole('button', { name: 'Back' });
+    expect(notNow.parentElement).not.toBe(back.parentElement);
+    expect(back.parentElement?.parentElement).toBe(notNow.parentElement);
     fireEvent.click(screen.getByRole('button', { name: 'Pin this tab' }));
     expect(onPin).toHaveBeenCalledTimes(1);
     expect(onNotNow).not.toHaveBeenCalled();
@@ -481,7 +486,7 @@ describe('IME and Esc (D1)', () => {
 });
 
 describe('the free step and the still box', () => {
-  test('no anchors: the card sits at the top left, the whole page dimmed, no ring, no notch', async () => {
+  test('no anchors: the card sits at the top left, the whole page dimmed, no ring, a notch up at its left', async () => {
     await render({ anchors: [] });
     await placed();
     expect(mark()).toHaveAttribute('data-coach-side', 'free');
@@ -490,7 +495,10 @@ describe('the free step and the still box', () => {
     expect(dim()).not.toBeNull();
     expect(dim()?.style.clipPath).toBe('');
     expect(ring()).toBeNull();
-    expect(document.querySelector('[data-coach-notch]')).toBeNull();
+    const notch = document.querySelector<HTMLElement>('[data-coach-notch]');
+    expect(notch?.style.left).toBe('40px');
+    expect(notch?.style.top).toBe('-9px');
+    expect(notch && getComputedStyle(notch).borderBottomStyle).toBe('solid');
   });
 
   test('a look-only step draws a still box exactly over the bright box', async () => {

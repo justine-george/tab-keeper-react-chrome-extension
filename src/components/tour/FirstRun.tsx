@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import CoachMark from './CoachMark';
 import GlyphSentence from './GlyphSentence';
 import { GLYPH_SLOT } from './glyphSlot';
-import { CARD_WIDTH, runStepPlan } from './runSteps';
+import { CARD_WIDTH, PIN_CARD_WIDTH, runStepPlan } from './runSteps';
 import {
   placeBeside,
   placeInPopupPane,
@@ -48,6 +48,7 @@ import {
 interface Card {
   text: ReactNode;
   fine?: string;
+  width?: string;
   primary: CoachAction;
   secondary?: CoachAction;
 }
@@ -261,10 +262,11 @@ export default function FirstRun() {
         };
       case 'twoViews':
         return {
-          text: t(
-            "The Tab Keeper button opens a quick list of your saved sessions. This page is for everything you have open. Keep it in a pinned tab so it's one click away?"
+          text: t("Pin Tab Keeper so it's always one click away."),
+          fine: t(
+            'It stays small at the left of your tabs. To undo, right-click it and choose Unpin.'
           ),
-          fine: t('Undo any time: right-click the tab → Unpin.'),
+          width: PIN_CARD_WIDTH,
           secondary: { label: t('Not now'), onPress: finish },
           primary: { label: t('Pin this tab'), onPress: pin },
         };
@@ -301,7 +303,7 @@ export default function FirstRun() {
       anchors={plan.anchors}
       boxOf={plan.boxOf}
       isLive={plan.isLive}
-      width={CARD_WIDTH[run.view]}
+      width={card.width ?? CARD_WIDTH[run.view]}
       place={place}
       onSkip={isLast ? undefined : skip}
       onBack={run.step >= 2 ? goBack : undefined}

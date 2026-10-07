@@ -288,7 +288,7 @@ describe('the controller', () => {
     expect(warn).toHaveBeenCalled();
   });
 
-  test('the last full-view step: Back, Not now, Pin this tab', async () => {
+  test('the last full-view step: Not now, Back, Pin this tab, on a 25rem card (400px at a 16px root)', async () => {
     history.replaceState(null, '', '?view=tab');
     await renderAt({ ...newRun('full', 8), sessionId: 'own' });
     await screen.findByRole('button', { name: 'Pin this tab' });
@@ -296,7 +296,9 @@ describe('the controller', () => {
       [...document.querySelectorAll('[data-coach-mark] button')].map(
         (b) => b.textContent
       )
-    ).toEqual(['Back', 'Not now', 'Pin this tab']);
+    ).toEqual(['Not now', 'Back', 'Pin this tab']);
+    const mark = document.querySelector('[data-coach-mark]');
+    expect(mark && getComputedStyle(mark).width).toBe('400px');
   });
 
   test('Next onto the save step keeps the card mounted: it moves, it is not drawn anew (KAN-436)', async () => {

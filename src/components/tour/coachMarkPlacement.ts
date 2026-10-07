@@ -22,7 +22,7 @@ export interface AnchoredPlacement {
   notch: number;
 }
 
-// A card with no anchor: at the top of the page, with no notch.
+// A card with no anchor: at the top of the page, its notch pointing up at the tab strip.
 export interface FreePlacement {
   side: 'free';
   left: number;
@@ -58,6 +58,7 @@ export const COACH = {
   RING_INSET: 4,
   FREE_LEFT: 40,
   FREE_TOP: 20,
+  FREE_NOTCH: 48,
 } as const;
 
 const clamp = (value: number, low: number, high: number): number =>
