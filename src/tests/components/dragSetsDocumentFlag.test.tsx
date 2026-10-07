@@ -10,6 +10,7 @@ import {
   decideNewWindowRoom,
   publishNewWindowFree,
   setDragNewWindow,
+  type ResolveDrop,
 } from '../../components/home/rightpane/rowDrag/dropRules';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
@@ -46,15 +47,18 @@ const box = (top: number, height: number) =>
 const Harness = ({
   offersNewWindow,
   carryOut,
+  resolveDrop,
 }: {
   offersNewWindow?: boolean;
   carryOut?: (rowId: string) => CarryOut | null;
+  resolveDrop?: ResolveDrop;
 }) => (
   <RowDragArea
     rowIds={['a', 'b', 'c']}
     onMove={() => undefined}
     offersNewWindow={offersNewWindow}
     carryOut={carryOut}
+    resolveDrop={resolveDrop}
   >
     {['a', 'b', 'c'].map((id) => (
       <DraggableRow key={id} rowId={id}>
@@ -229,6 +233,72 @@ describe('the New session marker', () => {
 
     unmount();
     expect(offersNewSession()).toBe(false);
+  });
+
+  test('a pointercancel clears it', () => {
+    render(<Harness carryOut={carryOut} />);
+    layout();
+    press('a', 15);
+    moveTo(50);
+    expect(offersNewSession()).toBe(true);
+
+    fireEvent.pointerCancel(window);
+    expect(offersNewSession()).toBe(false);
+  });
+});
+
+// The worst path at a release: the drop's judge throws. No marker may outlive the drag.
+describe('a release whose judge throws', () => {
+  test('clears the kind, the New window and the New session markers', () => {
+    let boom = false;
+    const resolveDrop: ResolveDrop = () => {
+      if (boom) throw new Error('judge failed');
+      return { bandId: undefined };
+    };
+    const thrown: unknown[] = [];
+    const onError = (e: ErrorEvent) => {
+      thrown.push(e.error);
+      e.preventDefault();
+    };
+    window.addEventListener('error', onError);
+    render(
+      <Harness
+        offersNewWindow
+        resolveDrop={resolveDrop}
+        carryOut={(rowId) => ({
+          carried: {
+            kind: 'tab',
+            tabGroupId: 'S1',
+            windowId: 'w1',
+            tabId: rowId,
+          },
+          card: { kind: 'tab', title: rowId, faviconUrl: '' },
+        })}
+      />
+    );
+    layout();
+    press('a', 15);
+    moveTo(50);
+    // PREMISE: all three are on.
+    expect(isDragging()).toBe(true);
+    expect(offersNewWindow()).toBe(true);
+    expect(document.documentElement.hasAttribute('data-drag-new-session')).toBe(
+      true
+    );
+
+    boom = true;
+    release(50);
+    window.removeEventListener('error', onError);
+
+    // PREMISE: the judge did throw.
+    expect(thrown.map((e) => (e instanceof Error ? e.message : e))).toEqual([
+      'judge failed',
+    ]);
+    expect(isDragging()).toBe(false);
+    expect(offersNewWindow()).toBe(false);
+    expect(document.documentElement.hasAttribute('data-drag-new-session')).toBe(
+      false
+    );
   });
 });
 

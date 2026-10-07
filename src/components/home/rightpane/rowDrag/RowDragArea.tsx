@@ -1995,7 +1995,19 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       }
       if (!l) return;
       // Judged first, while the drag's layout still stands -- see judgeDrop.
-      const drop = commit && l.started ? judgeDrop(l) : undefined;
+      let drop: ReturnType<typeof judgeDrop>;
+      let judged = false;
+      try {
+        drop = commit && l.started ? judgeDrop(l) : undefined;
+        judged = true;
+      } finally {
+        // A throwing judge must not leave the markers on for the page's life.
+        if (!judged && !l.adopted) {
+          setDragging(false);
+          setDragNewWindow(false);
+          setDragNewSession(false);
+        }
+      }
       // KAN-379 Q3 A. Read before anything folds back: an adopted drag's onMove ends the carry.
       const keep =
         drop?.toWindowId !== undefined && isSpringOpen(drop.toWindowId)
