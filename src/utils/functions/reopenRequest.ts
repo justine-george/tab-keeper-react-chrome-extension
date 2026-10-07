@@ -19,6 +19,7 @@ export const REOPEN_PREFERRING_HISTORY_MESSAGE = 'reopenPreferringHistory';
 export interface ReopenPreferringHistoryRequest {
   type: typeof REOPEN_PREFERRING_HISTORY_MESSAGE;
   item: ClosedItem;
+  pinTabKeeper: boolean;
 }
 
 // The worker's answer, checked on the page's side.
@@ -38,7 +39,8 @@ export function isReopenPreferringHistoryRequest(
   return (
     isRecord(message) &&
     message.type === REOPEN_PREFERRING_HISTORY_MESSAGE &&
-    isClosedItem(message.item)
+    isClosedItem(message.item) &&
+    typeof message.pinTabKeeper === 'boolean'
   );
 }
 

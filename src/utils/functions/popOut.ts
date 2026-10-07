@@ -12,6 +12,8 @@
 // implements against the real chrome.* APIs, and what tests implement
 // against a fake.
 
+import { STUB_PATH, TAB_VIEW_PATH } from './pinnedTabKeeper';
+
 export const OPEN_IN_TAB_MESSAGE = 'openInTab';
 
 // A dialog the full view is asked to show as it opens or is focused.
@@ -98,7 +100,7 @@ export async function requestTabView(show?: FullViewShow): Promise<void> {
 export interface TabApi {
   getURL(path: string): string;
   query(q: { url: string }): Promise<chrome.tabs.Tab[]>;
-  update(tabId: number, p: { active: boolean }): Promise<unknown>;
+  update(tabId: number, p: { active: boolean; url?: string }): Promise<unknown>;
   focusWindow(windowId: number): Promise<unknown>;
   create(p: {
     url: string;
@@ -123,18 +125,34 @@ export async function openOrFocusTabView(
   request: OpenInTabRequest
 ): Promise<void> {
   try {
-    const url = api.getURL('index.html?view=tab');
-    const matches = await api.query({ url: `${url}*` });
-
-    // chrome.tabs.Tab's `id` is optional (Chrome can omit it for a tab this
-    // extension cannot see the id of); `windowId` is not. A match with no id
-    // is nothing update()/focusWindow() can act on, so it is treated as no
-    // match at all rather than as a reason to throw.
-    const existing = matches.find(
+    const url = api.getURL(TAB_VIEW_PATH);
+    const stubUrl = api.getURL(STUB_PATH);
+    // Tab views before stubs, so a loaded one wins within a window.
+    // chrome.tabs.Tab's `id` is optional; a match with no id is nothing
+    // update()/focusWindow() can act on, so it counts as no match.
+    const matches = [
+      ...(await api.query({ url: `${url}*` })),
+      ...(await api.query({ url: `${stubUrl}*` })),
+    ].filter(
       (tab): tab is chrome.tabs.Tab & { id: number } => tab.id !== undefined
     );
+    // With a Tab Keeper tab pinned in every window, the asking window's is the one to show.
+    const existing =
+      matches.find((tab) => tab.windowId === request.windowId) ?? matches[0];
 
     if (existing) {
+      const isStubTab = (existing.url || existing.pendingUrl || '').startsWith(
+        stubUrl
+      );
+      if (isStubTab && request.show !== undefined) {
+        // A stub cannot hear the announcement; send it to the full view with the dialog.
+        await api.update(existing.id, {
+          active: true,
+          url: `${url}&show=${request.show}`,
+        });
+        await api.focusWindow(existing.windowId);
+        return;
+      }
       await api.update(existing.id, { active: true });
       await api.focusWindow(existing.windowId);
       if (request.show !== undefined) {

@@ -24,6 +24,7 @@ import {
   recordFirstRun,
   setFirstRunSession,
   setFirstRunStep,
+  setPinTabKeeperInNewWindows,
 } from './slices/settingsDataStateSlice';
 import {
   deleteTabContainerInternal,
@@ -415,7 +416,7 @@ export const finishRunHere =
     await dispatch(followWithSetup());
   };
 
-// Pins Tab Keeper's own tab, only when pressed; already pinned or a refusal pins nothing, and the run ends either way.
+// Pins Tab Keeper's own tab and turns on pinning in new windows; a refusal pins nothing, and the run ends either way.
 export const pinThisTab = (): Thunk<Promise<void>> => async (dispatch) => {
   try {
     const tab = await chrome.tabs.getCurrent();
@@ -425,6 +426,7 @@ export const pinThisTab = (): Thunk<Promise<void>> => async (dispatch) => {
   } catch (error) {
     console.warn('Could not pin the Tab Keeper tab:', error);
   }
+  dispatch(setPinTabKeeperInNewWindows(true));
   await dispatch(finishRunHere());
 };
 

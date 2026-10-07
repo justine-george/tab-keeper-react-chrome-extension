@@ -37,12 +37,13 @@ afterEach(() => {
 });
 
 describe('the Default view row (KAN-7 §7)', () => {
-  test('sits between tab history and Keyboard shortcut, with Compact pressed', async () => {
+  test('sits between tab history and Pin Tab Keeper in new windows, with Compact pressed', async () => {
     const { container } = await renderSessions();
     expect(sectionLabels(container)).toEqual([
       'Save Tab Groups',
       'Bring back tab history when reopening',
       'Default view',
+      'Pin Tab Keeper in new windows',
       'Keyboard shortcut',
     ]);
     expect(side('Compact view')).toHaveAttribute('aria-pressed', 'true');

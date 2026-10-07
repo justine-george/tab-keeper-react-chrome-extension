@@ -4,6 +4,7 @@ import { closeOfferToast, showToast } from './slices/globalStateSlice';
 import { expectReopenedRow } from './reopenFocus';
 import { storeReopenOffer, takeReopenOffer } from './reopenOfferStore';
 import { noteTabKeeperAction } from './openNowMoveUndo';
+import type { RootState } from './store';
 import { reopenClosed } from '../utils/functions/reopen';
 import type { ClosedItem } from '../utils/functions/reopen';
 import { TOAST_MESSAGES, WINDOW_CLOSED_FRAME } from '../utils/constants/common';
@@ -51,7 +52,11 @@ export const reopenFromOffer = createAsyncThunk(
     const item = takeReopenOffer(offerId);
     if (item === null) return;
     thunkAPI.dispatch(closeOfferToast(offerId));
-    const reopened = await reopenClosed(item);
+    const reopened = await reopenClosed(
+      item,
+      (thunkAPI.getState() as RootState).settingsDataState
+        .pinTabKeeperInNewWindows
+    );
     if (reopened === null) {
       await thunkAPI.dispatch(
         showToast({ toastText: TOAST_MESSAGES.REOPEN_FAILED })

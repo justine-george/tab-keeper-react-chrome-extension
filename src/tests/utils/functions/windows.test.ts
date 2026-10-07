@@ -313,6 +313,7 @@ describe('isRestoreSessionRequest', () => {
     specs: [],
     goToURLText: 'Go',
     closeOtherWindows: true,
+    pinTabKeeper: false,
   };
 
   test('accepts a well-formed request', () => {
@@ -328,6 +329,17 @@ describe('isRestoreSessionRequest', () => {
   test('rejects a non-boolean closeOtherWindows', () => {
     expect(
       isRestoreSessionRequest({ ...valid, closeOtherWindows: 'yes' })
+    ).toBe(false);
+  });
+
+  test('rejects a request without pinTabKeeper (a page from an older build)', () => {
+    expect(
+      isRestoreSessionRequest({
+        type: RESTORE_SESSION_MESSAGE,
+        specs: [],
+        goToURLText: 'x',
+        closeOtherWindows: false,
+      })
     ).toBe(false);
   });
 

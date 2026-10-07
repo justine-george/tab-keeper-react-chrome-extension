@@ -52,6 +52,8 @@ export interface RestoreSessionRequest {
   specs: WindowSpec[];
   goToURLText: string;
   closeOtherWindows: boolean;
+  // KAN-459. Settings → Sessions → Pin Tab Keeper in new windows, as the page read it.
+  pinTabKeeper: boolean;
 }
 
 export function isRestoreSessionRequest(
@@ -63,7 +65,8 @@ export function isRestoreSessionRequest(
     candidate.type === RESTORE_SESSION_MESSAGE &&
     Array.isArray(candidate.specs) &&
     typeof candidate.goToURLText === 'string' &&
-    typeof candidate.closeOtherWindows === 'boolean'
+    typeof candidate.closeOtherWindows === 'boolean' &&
+    typeof candidate.pinTabKeeper === 'boolean'
   );
 }
 

@@ -14,12 +14,8 @@ import {
 import { reopenPreferringHistory } from './utils/functions/reopen';
 import type { Reopened } from './utils/functions/reopen';
 import { isReopenPreferringHistoryRequest } from './utils/functions/reopenRequest';
-import {
-  createWindowWithRetries,
-  isRestoreSessionRequest,
-  planWindowClosure,
-  RestoreSessionRequest,
-} from './utils/functions/windows';
+import { restoreSession } from './utils/functions/restoreSession';
+import { isRestoreSessionRequest } from './utils/functions/windows';
 
 // Lazy load restores every tab past the first as a placeholder document, and
 // something has to turn that placeholder into the real page when the user
@@ -39,43 +35,6 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
     }
   });
 });
-
-// Every restore runs here -- see RestoreSessionRequest. Focus mode is this
-// plus closeOtherWindows. Focus mode has to run here for the same reason the
-// listener above does: the popup is destroyed the moment the first restored
-// window takes focus, and every step after that point still has to happen.
-// The popup has already saved the windows this is about to close before it
-// sends this message.
-async function restoreSession(request: RestoreSessionRequest) {
-  // Only focus mode closes anything, so only focus mode needs the snapshot.
-  const snapshotIds = request.closeOtherWindows
-    ? (await chrome.windows.getAll({ windowTypes: ['normal'] }))
-        .map((openWindow) => openWindow.id)
-        .filter((id): id is number => id !== undefined)
-    : [];
-
-  const created = await Promise.all(
-    request.specs.map((spec) =>
-      createWindowWithRetries(spec, request.goToURLText, 2)
-    )
-  );
-
-  if (!request.closeOtherWindows) return;
-
-  const toClose = planWindowClosure(snapshotIds, created);
-
-  // Null means at least one window never opened. Leaving everything as it is
-  // costs the user a tidy-up; the alternative costs them their browser state.
-  if (!toClose) return;
-
-  toClose.forEach((id) =>
-    chrome.windows.remove(id, () => {
-      // A window the user closed themselves while this was running sets
-      // lastError. Reading it is what keeps it from being logged as unchecked.
-      void chrome.runtime.lastError;
-    })
-  );
-}
 
 // The real TabApi (see popOut.ts), pointed at chrome.tabs/chrome.windows.
 // windows.update's `{ focused: true }` is what chrome.tabs.update itself has
@@ -138,10 +97,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         console.warn('Could not answer Reopen: ', error);
       }
     };
-    void reopenPreferringHistory(message.item).then(answer, (error) => {
-      console.warn('Reopen failed: ', error);
-      answer(null);
-    });
+    void reopenPreferringHistory(message.item, message.pinTabKeeper).then(
+      answer,
+      (error) => {
+        console.warn('Reopen failed: ', error);
+        answer(null);
+      }
+    );
     return true;
   }
 

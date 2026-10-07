@@ -598,8 +598,12 @@ const scenarios: Record<string, Scenario> = {
 
 describe('reopenPreferringHistory ends exactly where recreate does (KAN-280 Part D)', () => {
   test.each(Object.entries(scenarios))('%s', async (_name, scenario) => {
-    const history = await run(scenario, reopenPreferringHistory);
-    const recreated = await run(scenario, recreateClosed);
+    const history = await run(scenario, (item) =>
+      reopenPreferringHistory(item, false)
+    );
+    const recreated = await run(scenario, (item) =>
+      recreateClosed(item, false)
+    );
 
     // PREMISE: the close recorded Chrome's entry, so the history path had
     // something to restore.
@@ -612,7 +616,9 @@ describe('reopenPreferringHistory ends exactly where recreate does (KAN-280 Part
   test.each(Object.entries(scenarios))(
     '%s: the window focused before is focused after',
     async (_name, scenario) => {
-      const history = await run(scenario, reopenPreferringHistory);
+      const history = await run(scenario, (item) =>
+        reopenPreferringHistory(item, false)
+      );
 
       expect(history.focusedAfter).toBe(history.focusedBefore);
       const focused = history.world.windows.filter((w) => w.focused);
@@ -632,7 +638,7 @@ describe('KNOWN LIMITATION: a reopened window keeps history only for its ungroup
     const item = await closeWindow(2);
     if (!item) throw new Error('close failed');
 
-    const reopened = await reopenPreferringHistory(item);
+    const reopened = await reopenPreferringHistory(item, false);
 
     if (reopened?.kind !== 'window') throw new Error('no window came back');
     const tabs = (
@@ -674,7 +680,7 @@ describe("a collapsed group over the tab's old spot (KAN-316)", () => {
     await scenario.between?.(handle);
     const seen = watchGroup('H');
 
-    const reopened = await reopenPreferringHistory(item);
+    const reopened = await reopenPreferringHistory(item, false);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     // PREMISE: it came back through the restore, which put it in front.
@@ -698,7 +704,7 @@ describe("a collapsed group over the tab's old spot (KAN-316)", () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const seen = watchGroup('H');
 
-    const reopened = await reopenPreferringHistory(item);
+    const reopened = await reopenPreferringHistory(item, false);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     // PREMISE: the move did expand it along the way.
@@ -735,7 +741,9 @@ describe('the undo refocuses first (KAN-280 Part D)', () => {
       vi.spyOn(chrome.tabGroups, 'update'),
     ];
 
-    expect(await reopenPreferringHistory(item)).toMatchObject({ kind: 'tab' });
+    expect(await reopenPreferringHistory(item, false)).toMatchObject({
+      kind: 'tab',
+    });
 
     expect(windowUpdate).toHaveBeenCalledWith(1, { focused: true });
     const [refocus] = windowUpdate.mock.invocationCallOrder;
@@ -763,7 +771,7 @@ describe('the undo refocuses first for a window too (KAN-280 Part D)', () => {
       vi.spyOn(chrome.tabGroups, 'update'),
     ];
 
-    expect(await reopenPreferringHistory(item)).toMatchObject({
+    expect(await reopenPreferringHistory(item, false)).toMatchObject({
       kind: 'window',
     });
 
@@ -808,7 +816,7 @@ describe('reopenPreferringHistory falls back to recreate (KAN-280 Part D)', () =
     await chrome.sessions.restore(item.restorableSessionId);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const reopened = await reopenPreferringHistory(item);
+    const reopened = await reopenPreferringHistory(item, false);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     expect(handle.restoredFromSession(reopened.tabId)).toBe(false);
@@ -828,7 +836,7 @@ describe('reopenPreferringHistory falls back to recreate (KAN-280 Part D)', () =
     });
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const reopened = await reopenPreferringHistory(item);
+    const reopened = await reopenPreferringHistory(item, false);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     expect(handle.restoredFromSession(reopened.tabId)).toBe(false);
@@ -844,7 +852,7 @@ describe('reopenPreferringHistory falls back to recreate (KAN-280 Part D)', () =
     expect(chrome.sessions).toBeDefined();
     const restore = vi.spyOn(chrome.sessions, 'restore');
 
-    const reopened = await reopenPreferringHistory(item);
+    const reopened = await reopenPreferringHistory(item, false);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     expect(restore).not.toHaveBeenCalled();
@@ -858,10 +866,13 @@ describe('reopenPreferringHistory falls back to recreate (KAN-280 Part D)', () =
     if (!item) throw new Error('close failed');
     const restore = vi.spyOn(chrome.sessions, 'restore');
 
-    const reopened = await reopenPreferringHistory({
-      ...item,
-      restorableSessionId: null,
-    });
+    const reopened = await reopenPreferringHistory(
+      {
+        ...item,
+        restorableSessionId: null,
+      },
+      false
+    );
 
     expect(reopened).toMatchObject({ kind: 'tab' });
     expect(restore).not.toHaveBeenCalled();
@@ -872,7 +883,7 @@ describe('reopenPreferringHistory falls back to recreate (KAN-280 Part D)', () =
     const item = await closeTab(2, 'b');
     if (!item) throw new Error('close failed');
 
-    const reopened = await reopenPreferringHistory(item);
+    const reopened = await reopenPreferringHistory(item, false);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     expect(handle.restoredFromSession(reopened.tabId)).toBe(true);
@@ -889,7 +900,7 @@ describe('reopenPreferringHistory falls back to recreate (KAN-280 Part D)', () =
     );
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const reopened = await reopenPreferringHistory(item);
+    const reopened = await reopenPreferringHistory(item, false);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     expect(handle.restoredFromSession(reopened.tabId)).toBe(true);
@@ -941,7 +952,7 @@ describe('reopenPreferringHistory without the tabGroups grant (KAN-280 Part D)',
     expect(item).toMatchObject({ group: null, tab: { groupId: null } });
     const warn = vi.spyOn(console, 'warn');
 
-    const reopened = await reopenPreferringHistory(item);
+    const reopened = await reopenPreferringHistory(item, false);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     expect(handle.restoredFromSession(reopened.tabId)).toBe(true);
@@ -957,7 +968,7 @@ describe('reopenPreferringHistory without the tabGroups grant (KAN-280 Part D)',
     const item = await closeTab(2, 'a');
     if (!item) throw new Error('close failed');
 
-    await reopenPreferringHistory(item);
+    await reopenPreferringHistory(item, false);
 
     expect(handle.groupState(50)?.collapsed).toBe(false);
   });
@@ -968,7 +979,7 @@ describe('reopenPreferringHistory without the tabGroups grant (KAN-280 Part D)',
     if (!item) throw new Error('close failed');
     const warn = vi.spyOn(console, 'warn');
 
-    const reopened = await reopenPreferringHistory(item);
+    const reopened = await reopenPreferringHistory(item, false);
 
     if (reopened?.kind !== 'window') throw new Error('no window came back');
     const tabs = (
@@ -1004,7 +1015,7 @@ describe('a read before the restore that throws at once (KAN-280 Part D)', () =>
       throw new Error("'tabGroups.get' is not available in this context.");
     });
 
-    const reopened = await reopenPreferringHistory(item);
+    const reopened = await reopenPreferringHistory(item, false);
 
     if (reopened?.kind !== 'tab') throw new Error('nothing came back');
     expect(handle.restoredFromSession(reopened.tabId)).toBe(true);
@@ -1033,7 +1044,7 @@ describe('after a restore that ran, the ids are answered even if the undo throws
     );
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    expect(await reopenPreferringHistory(item)).toEqual({
+    expect(await reopenPreferringHistory(item, false)).toEqual({
       kind: 'tab',
       tabId: a.id,
     });
@@ -1066,6 +1077,7 @@ describe('the service worker answers the request (KAN-280 Part D)', () => {
     const answer = await chrome.runtime.sendMessage({
       type: REOPEN_PREFERRING_HISTORY_MESSAGE,
       item,
+      pinTabKeeper: false,
     });
 
     const b = await tabIdNamed('b');
@@ -1088,6 +1100,7 @@ describe('the service worker answers the request (KAN-280 Part D)', () => {
       const answer = await chrome.runtime.sendMessage({
         type: REOPEN_PREFERRING_HISTORY_MESSAGE,
         item,
+        pinTabKeeper: false,
       });
 
       expect(answer).toBeNull();
@@ -1105,6 +1118,7 @@ describe('the service worker answers the request (KAN-280 Part D)', () => {
     const answer = await chrome.runtime.sendMessage({
       type: REOPEN_PREFERRING_HISTORY_MESSAGE,
       item: { ...item, kind: 'group' },
+      pinTabKeeper: false,
     });
 
     expect(answer).toBeUndefined();
@@ -1133,7 +1147,7 @@ describe('the service worker answers the request (KAN-280 Part D)', () => {
     process.once('unhandledRejection', onUnhandledRejection);
 
     listener(
-      { type: REOPEN_PREFERRING_HISTORY_MESSAGE, item },
+      { type: REOPEN_PREFERRING_HISTORY_MESSAGE, item, pinTabKeeper: false },
       { id: 'faketestid' },
       () => {
         throw new Error('the popup is gone');
@@ -1169,12 +1183,12 @@ describe('reopenClosed, the page side (KAN-280 Part D)', () => {
     const item = await closeTab(2, 'b');
     if (!item) throw new Error('close failed');
 
-    const reopened = await reopenClosed(item);
+    const reopened = await reopenClosed(item, false);
 
     const b = await tabIdNamed('b');
     expect(reopened).toEqual({ kind: 'tab', tabId: b });
     expect(handle.sentMessages).toEqual([
-      { type: REOPEN_PREFERRING_HISTORY_MESSAGE, item },
+      { type: REOPEN_PREFERRING_HISTORY_MESSAGE, item, pinTabKeeper: false },
     ]);
     expect(handle.restoredFromSession(b)).toBe(true);
     // Never a second, local recreate after a restore that ran.
@@ -1190,7 +1204,7 @@ describe('reopenClosed, the page side (KAN-280 Part D)', () => {
     // PREMISE: without `sessions` the close recorded no id.
     expect(item.restorableSessionId).toBeNull();
 
-    const reopened = await reopenClosed(item);
+    const reopened = await reopenClosed(item, false);
 
     const b = await tabIdNamed('b');
     expect(reopened).toEqual({ kind: 'tab', tabId: b });
@@ -1209,7 +1223,7 @@ describe('reopenClosed, the page side (KAN-280 Part D)', () => {
     );
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const reopened = await reopenClosed(item);
+    const reopened = await reopenClosed(item, false);
 
     if (reopened?.kind !== 'tab') throw new Error('no tab came back');
     expect(handle.restoredFromSession(reopened.tabId)).toBe(false);
@@ -1230,7 +1244,7 @@ describe('reopenClosed, the page side (KAN-280 Part D)', () => {
     );
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    expect(await reopenClosed(item)).toBeNull();
+    expect(await reopenClosed(item, false)).toBeNull();
     expect(handle.createdTabs).toEqual([]);
     expect(await tabsAt(url('b'))).toEqual([]);
     expect(warn).toHaveBeenCalledTimes(1);
@@ -1248,7 +1262,7 @@ describe('reopenClosed, the page side (KAN-280 Part D)', () => {
     if (!item) throw new Error('close failed');
     workerAnswering(null);
 
-    expect(await reopenClosed(item)).toBeNull();
+    expect(await reopenClosed(item, false)).toBeNull();
     expect(handle.createdTabs).toEqual([]);
   });
 
@@ -1260,11 +1274,225 @@ describe('reopenClosed, the page side (KAN-280 Part D)', () => {
       if (!item) throw new Error('close failed');
       workerAnswering(answer);
 
-      expect(await reopenClosed(item)).toBeNull();
+      expect(await reopenClosed(item, false)).toBeNull();
       expect(handle.createdTabs).toEqual([]);
       handle.restore();
     }
     handle = undefined;
     expect(warn).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('a reopened window gets a pinned Tab Keeper tab when asked (KAN-459)', () => {
+  const STUB_URL = 'chrome-extension://faketestid/pinned.html';
+  // Copied from the request-to-the-worker seed above.
+  const windowSeed = (
+    extra: { url: string; pinned: boolean }[]
+  ): ChromeSeed => ({
+    grantedPermissions: GRANTED,
+    action: {},
+    windows: [
+      tabViewWindow,
+      {
+        id: 2,
+        left: 10,
+        top: 20,
+        width: 800,
+        height: 600,
+        tabs: [
+          { url: url('a'), active: true, groupId: 50 },
+          { url: url('b') },
+          ...extra,
+        ],
+      },
+    ],
+    tabGroups: [{ id: 50, windowId: 2, title: 'Kyoto', color: 'blue' }],
+  });
+  const stubsIn = async (windowId: number) =>
+    (await chrome.tabs.query({ windowId })).filter((t) => t.url === STUB_URL);
+
+  test('On: the restored window starts with a pinned, inactive stub', async () => {
+    handle = setupChromeFake(windowSeed([]));
+    const item = await closeWindow(2);
+    if (item?.kind !== 'window') throw new Error('close failed');
+
+    const reopened = await reopenPreferringHistory(item, true);
+
+    if (reopened?.kind !== 'window') throw new Error('no window came back');
+    expect(item.restorableSessionId).toEqual(expect.any(String));
+    const tabs = (
+      await chrome.tabs.query({ windowId: reopened.windowId })
+    ).sort((a, b) => a.index - b.index);
+    expect(tabs[0]).toMatchObject({
+      url: STUB_URL,
+      pinned: true,
+      active: false,
+    });
+  });
+
+  test('Off: the restored window gets nothing extra', async () => {
+    handle = setupChromeFake(windowSeed([]));
+    const item = await closeWindow(2);
+    if (item?.kind !== 'window') throw new Error('close failed');
+
+    const reopened = await reopenPreferringHistory(item, false);
+
+    if (reopened?.kind !== 'window') throw new Error('no window came back');
+    expect(await stubsIn(reopened.windowId)).toEqual([]);
+  });
+
+  test('On: a restored window that already has a pinned Tab Keeper tab gets no second one', async () => {
+    handle = setupChromeFake(
+      windowSeed([{ url: `${TAB_VIEW_URL}?view=tab`, pinned: true }])
+    );
+    const closed = await closeWindow(2);
+    if (closed?.kind !== 'window') throw new Error('close failed');
+    // PREMISE: the close matched Chrome's entry, so Reopen goes through history.
+    expect(closed.restorableSessionId).toEqual(expect.any(String));
+    const [entry] = await chrome.sessions.getRecentlyClosed();
+    // PREMISE: Chrome's entry is the window with its pinned tab view.
+    expect(entry.window?.tabs?.map((t) => t.url)).toContain(
+      `${TAB_VIEW_URL}?view=tab`
+    );
+
+    const reopened = await reopenPreferringHistory(closed, true);
+
+    if (reopened?.kind !== 'window') throw new Error('no window came back');
+    const urls = (await chrome.tabs.query({ windowId: reopened.windowId })).map(
+      (t) => t.url
+    );
+    // PREMISE: the pinned tab view came back with the window.
+    expect(urls).toContain(`${TAB_VIEW_URL}?view=tab`);
+    expect(
+      urls.filter((u) => u?.startsWith('chrome-extension://faketestid/'))
+    ).toHaveLength(1);
+  });
+
+  test('On: a restored TAB never gets a stub', async () => {
+    handle = setupChromeFake(windowSeed([]));
+    const item = await closeTab(2, 'b');
+    if (item?.kind !== 'tab') throw new Error('close failed');
+
+    await reopenPreferringHistory(item, true);
+
+    expect(
+      (await chrome.tabs.query({})).filter((t) => t.url === STUB_URL)
+    ).toEqual([]);
+  });
+
+  test('On: when the id is spent, the recreate fallback adds the stub too', async () => {
+    handle = setupChromeFake(windowSeed([]));
+    const item = await closeWindow(2);
+    if (item?.kind !== 'window') throw new Error('close failed');
+    vi.spyOn(chrome.sessions, 'restore').mockRejectedValue(
+      new Error('Invalid session id: "x".')
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const reopened = await reopenPreferringHistory(item, true);
+
+    if (reopened?.kind !== 'window') throw new Error('no window came back');
+    expect(await stubsIn(reopened.windowId)).toHaveLength(1);
+  });
+
+  test('the page asks the worker with the flag, and the worker applies it', async () => {
+    handle = setupChromeFake(windowSeed([]));
+    await startWorker();
+    const item = await closeWindow(2);
+    if (!item) throw new Error('close failed');
+
+    const reopened = await reopenClosed(item, true);
+
+    if (reopened?.kind !== 'window') throw new Error('no window came back');
+    expect(handle.sentMessages).toEqual([
+      { type: REOPEN_PREFERRING_HISTORY_MESSAGE, item, pinTabKeeper: true },
+    ]);
+    expect(await stubsIn(reopened.windowId)).toHaveLength(1);
+  });
+});
+
+describe('a window holding a Tab Keeper page gets its front tab and groups back (KAN-469)', () => {
+  const STUB_URL = 'chrome-extension://faketestid/pinned.html';
+  const frontAndGroups = async (windowId: number) => ({
+    active: (await chrome.tabs.query({ windowId, active: true })).map(
+      (t) => t.url
+    ),
+    groups: (await chrome.tabGroups.query({ windowId }))
+      .map(({ title, color, collapsed }) => ({ title, color, collapsed }))
+      .sort((x, y) => (x.title ?? '').localeCompare(y.title ?? '')),
+  });
+
+  test('a pinned stub first: the grouped front tab is in front again, groups as they were', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: GRANTED,
+      windows: [
+        tabViewWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: STUB_URL, pinned: true },
+            { url: url('a'), groupId: 60 },
+            { url: url('b'), groupId: 61, active: true },
+            { url: url('c'), groupId: 62 },
+          ],
+        },
+      ],
+      tabGroups: [
+        { id: 60, windowId: 2, title: 'Osaka', color: 'red', collapsed: true },
+        { id: 61, windowId: 2, title: 'Kyoto', color: 'blue' },
+        { id: 62, windowId: 2, title: 'Nara', color: 'green', collapsed: true },
+      ],
+    });
+    const item = await closeWindow(2);
+    if (item?.kind !== 'window') throw new Error('close failed');
+    // PREMISE: the close matched Chrome's entry, so Reopen goes through history.
+    expect(item.restorableSessionId).toEqual(expect.any(String));
+
+    const reopened = await reopenPreferringHistory(item, true);
+
+    if (reopened?.kind !== 'window') throw new Error('no window came back');
+    expect(await frontAndGroups(reopened.windowId)).toEqual({
+      active: [url('b')],
+      groups: [
+        { title: 'Kyoto', color: 'blue', collapsed: false },
+        { title: 'Nara', color: 'green', collapsed: true },
+        { title: 'Osaka', color: 'red', collapsed: true },
+      ],
+    });
+  });
+
+  test('an unpinned tab view last: the collapsed group Chrome put in front is collapsed again', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: GRANTED,
+      windows: [
+        tabViewWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), groupId: 60 },
+            { url: url('b'), groupId: 61, active: true },
+            { url: `${TAB_VIEW_URL}?view=tab` },
+          ],
+        },
+      ],
+      tabGroups: [
+        { id: 60, windowId: 2, title: 'Osaka', color: 'red', collapsed: true },
+        { id: 61, windowId: 2, title: 'Kyoto', color: 'blue' },
+      ],
+    });
+    const item = await closeWindow(2);
+    if (item?.kind !== 'window') throw new Error('close failed');
+    expect(item.restorableSessionId).toEqual(expect.any(String));
+
+    const reopened = await reopenPreferringHistory(item, false);
+
+    if (reopened?.kind !== 'window') throw new Error('no window came back');
+    expect(await frontAndGroups(reopened.windowId)).toEqual({
+      active: [url('b')],
+      groups: [
+        { title: 'Kyoto', color: 'blue', collapsed: false },
+        { title: 'Osaka', color: 'red', collapsed: true },
+      ],
+    });
   });
 });

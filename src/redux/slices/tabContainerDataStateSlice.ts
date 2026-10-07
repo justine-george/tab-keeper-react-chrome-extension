@@ -440,6 +440,8 @@ export const openTabsInAWindow = createAsyncThunk(
       specs: [toWindowSpec(windowGroup, true)],
       goToURLText: params.goToURLText,
       closeOtherWindows: false,
+      pinTabKeeper: (thunkAPI.getState() as RootState).settingsDataState
+        .pinTabKeeperInNewWindows,
     };
     // KAN-149. The last instant the popup can record anything: sendMessage
     // hands the restore to the worker, which creates focused windows, which
@@ -477,6 +479,8 @@ export const openAllTabContainer = createAsyncThunk(
       ),
       goToURLText: params.goToURLText,
       closeOtherWindows: false,
+      pinTabKeeper: (thunkAPI.getState() as RootState).settingsDataState
+        .pinTabKeeperInNewWindows,
     };
     // KAN-149. Recorded here for the reason spelled out in openTabsInAWindow:
     // this is the last instant the popup exists. Not for the sample (KAN-7).
@@ -600,6 +604,8 @@ export const focusTabContainer = createAsyncThunk(
       ),
       goToURLText: params.goToURLText,
       closeOtherWindows: true,
+      pinTabKeeper: (thunkAPI.getState() as RootState).settingsDataState
+        .pinTabKeeperInNewWindows,
     };
 
     // KAN-149. Recorded here for the reason spelled out in openTabsInAWindow:

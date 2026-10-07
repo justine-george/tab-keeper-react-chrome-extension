@@ -82,7 +82,11 @@ describe('the request the page sends the worker (KAN-280 Part D)', () => {
     for (const item of [tab, win]) {
       expect(
         isReopenPreferringHistoryRequest(
-          asReceived({ type: REOPEN_PREFERRING_HISTORY_MESSAGE, item })
+          asReceived({
+            type: REOPEN_PREFERRING_HISTORY_MESSAGE,
+            item,
+            pinTabKeeper: false,
+          })
         )
       ).toBe(true);
     }
@@ -93,25 +97,28 @@ describe('the request the page sends the worker (KAN-280 Part D)', () => {
     const item = await closeTab(2, 'b');
     if (item?.kind !== 'tab') throw new Error('close failed');
     const type = REOPEN_PREFERRING_HISTORY_MESSAGE;
+    const base = { type, pinTabKeeper: false };
 
     for (const message of [
       null,
       undefined,
       'reopenPreferringHistory',
       { type },
+      { type, item },
+      { type, item, pinTabKeeper: 'yes' },
       { type: 'restoreSession', item },
-      { type, item: null },
-      { type, item: { ...item, kind: 'group' } },
-      { type, item: { ...item, restorableSessionId: 7 } },
-      { type, item: { ...item, tab: undefined } },
-      { type, item: { ...item, tab: { ...item.tab, index: '2' } } },
-      { type, item: { ...item, tab: { ...item.tab, url: 1 } } },
-      { type, item: { ...item, group: 'none' } },
-      { type, item: { ...item, window: { ...item.window, tabs: 'x' } } },
-      { type, item: { ...item, window: { ...item.window, groups: {} } } },
-      { type, item: { ...item, window: { ...item.window, id: '2' } } },
+      { ...base, item: null },
+      { ...base, item: { ...item, kind: 'group' } },
+      { ...base, item: { ...item, restorableSessionId: 7 } },
+      { ...base, item: { ...item, tab: undefined } },
+      { ...base, item: { ...item, tab: { ...item.tab, index: '2' } } },
+      { ...base, item: { ...item, tab: { ...item.tab, url: 1 } } },
+      { ...base, item: { ...item, group: 'none' } },
+      { ...base, item: { ...item, window: { ...item.window, tabs: 'x' } } },
+      { ...base, item: { ...item, window: { ...item.window, groups: {} } } },
+      { ...base, item: { ...item, window: { ...item.window, id: '2' } } },
       {
-        type,
+        ...base,
         item: { ...item, window: { ...item.window, tabs: [{ url: 'x' }] } },
       },
     ]) {
