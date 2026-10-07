@@ -162,6 +162,8 @@ export interface SettingsData {
   isWhatsNew2Seen: boolean;
   // Settings → Sounds; on unless turned off, including for settings saved before it existed.
   isUiSoundOn: boolean;
+  // KAN-459. Windows Tab Keeper opens or switches start with a pinned Tab Keeper tab.
+  pinTabKeeperInNewWindows: boolean;
 }
 
 /**
@@ -322,6 +324,7 @@ const defaultSettings: SettingsData = {
   foldSavedSessionInTabView: true,
   openNowWidth: null,
   isUiSoundOn: true,
+  pinTabKeeperInNewWindows: false,
   ...ONBOARDING_DEFAULTS,
 };
 
@@ -337,6 +340,8 @@ export const initialState: SettingsData = {
   // is unvalidated (asPartialSettings checks only "is an object"), so a
   // hand-edited or corrupted value must not survive into the grid.
   openNowWidth: asOpenNowWidth(settingsDataLocal.openNowWidth),
+  // KAN-459. Guarded: settingsDataLocal is unvalidated.
+  pinTabKeeperInNewWindows: asFlag(settingsDataLocal.pinTabKeeperInNewWindows),
   // KAN-7. Guarded like openNowWidth: settingsDataLocal is unvalidated.
   ...guardOnboarding(settingsDataLocal, ONBOARDING_DEFAULTS),
 };
@@ -490,6 +495,11 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
+    setPinTabKeeperInNewWindows: (state, action: PayloadAction<boolean>) => {
+      state.pinTabKeeperInNewWindows = action.payload;
+      saveToLocalStorage('settingsData', state);
+    },
+
     // KAN-321 O1a. The grip's release, an arrow key, or a double-click (null).
     setOpenNowWidth: (state, action: PayloadAction<number | null>) => {
       state.openNowWidth = action.payload;
@@ -629,6 +639,7 @@ export const {
   setFoldSavedSessionInTabView,
   setOpenNowWidth,
   setUiSoundOn,
+  setPinTabKeeperInNewWindows,
   beginSetup,
   finishSetup,
   restartSetup,

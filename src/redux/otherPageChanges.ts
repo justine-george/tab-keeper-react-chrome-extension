@@ -103,6 +103,11 @@ export const applyOtherPageSettings =
         'openNowWidth' in incoming
           ? asOpenNowWidth(incoming.openNowWidth)
           : current.openNowWidth,
+      // KAN-459. A flag another page wrote; absent means an older page, keep ours.
+      pinTabKeeperInNewWindows:
+        'pinTabKeeperInNewWindows' in incoming
+          ? incoming.pinTabKeeperInNewWindows === true
+          : current.pinTabKeeperInNewWindows,
       // KAN-7. Same rule for the onboarding answers.
       ...guardOnboarding(loaded, current),
     };

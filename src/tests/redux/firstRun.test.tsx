@@ -620,6 +620,31 @@ describe('the last steps', () => {
     expect(runOf(store)?.ended).toBe('finished');
   });
 
+  const pinSetting = (store: Store) =>
+    store.getState().settingsDataState.pinTabKeeperInNewWindows;
+
+  test('Pin this tab also turns on Pin Tab Keeper in new windows', async () => {
+    history.replaceState(null, '', '?view=tab');
+    setupChromeFake({ windows: [OPEN_PAGE], tabs: [TK_TAB], currentTabId: 7 });
+    const store = withSessions(OWN);
+    await store.dispatch(startRun({ ...newRun('full', 8), sessionId: 'own' }));
+    expect(pinSetting(store)).toBe(false);
+    await store.dispatch(pinThisTab());
+    expect(pinSetting(store)).toBe(true);
+  });
+
+  test('a pin Chrome refuses still turns the setting on: the user asked for it', async () => {
+    history.replaceState(null, '', '?view=tab');
+    setupChromeFake({ windows: [OPEN_PAGE], tabs: [TK_TAB], currentTabId: 7 });
+    vi.spyOn(chrome.tabs, 'update').mockRejectedValue(new Error('refused'));
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const store = withSessions(OWN);
+    await store.dispatch(startRun({ ...newRun('full', 8), sessionId: 'own' }));
+    await store.dispatch(pinThisTab());
+    expect(pinSetting(store)).toBe(true);
+    expect(runOf(store)?.ended).toBe('finished');
+  });
+
   test('with no tab of its own (a popup), Pin this tab pins nothing and the run ends', async () => {
     history.replaceState(null, '', '?view=tab');
     const update = vi.spyOn(chrome.tabs, 'update');
