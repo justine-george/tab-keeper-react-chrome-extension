@@ -154,9 +154,7 @@ describe('a drag interrupted by unmount', () => {
   });
 });
 
-// KAN-394 N1 (revised 2026-10-07). A drag that can become a carry -- its list
-// has one for the held row -- shows the save row's New session target from
-// its pick-up, as the New window target shows (KAN-361), not from the carry.
+// KAN-394 N1 (revised). A drag that can become a carry marks New session from its pick-up.
 describe('the New session marker', () => {
   const offersNewSession = () =>
     document.documentElement.hasAttribute('data-drag-new-session');

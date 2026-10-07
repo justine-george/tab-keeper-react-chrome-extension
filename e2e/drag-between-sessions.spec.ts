@@ -1493,9 +1493,7 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
     });
   }
 
-  // Q1 A (2026-10-07): the origin row is drawn as at rest mid-carry; only the
-  // row under the pointer changes. CONTROL: the same probe sees the target's
-  // outline on the row the pointer is on.
+  // Q1 A: the origin row is drawn as at rest mid-carry; CONTROL: the probe sees the target's outline.
   for (const theme of ['Light', 'Darkenheimer']) {
     test(`the origin row draws no outline mid-carry, before and after another session opens (${theme})`, async ({
       context,
@@ -7395,9 +7393,7 @@ const loggedCarryFrames = (page: Page, n: number) =>
     )
     .toBeGreaterThanOrEqual(n);
 
-// N1 (revised 2026-10-07). The frame the drag is picked up in (its held row's
-// or its card's first) shows the target, and every frame before it the save
-// row's controls.
+// N1 (revised). The target from the pick-up's frame (held row or card), the controls before it.
 function expectSwapAtPickUp(frames: PaneFrame[]): number {
   const start = frames.findIndex((f) => f.held || f.card);
   // PREMISE: the log spans the pick-up.
@@ -7772,8 +7768,7 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     await expectSaveRowBack(page);
   }
 
-  // N1 (revised 2026-10-07): a drag of a saved tab, group or window shows the
-  // target from its pick-up, with no carry and without leaving the detail.
+  // N1 (revised): a saved tab, group or window shows the target from its pick-up, before any carry.
   const pickUps = [
     { what: 'tab', handle: (page: Page) => tabHandle(page, 'a1') },
     { what: 'group', handle: (page: Page) => groupHandle(page, 'alpha') },
@@ -7925,13 +7920,10 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     await page.mouse.up();
   });
 
-  // N1 (revised 2026-10-07): on the target the session list slides down one
-  // row and opens an empty place at its top; leaving slides it back; a
-  // release fills it with the new session's row, with no jump.
+  // N1 (revised): the list slides down to a place on the target, back on leaving; a release fills it.
   const PLACE = '[data-new-session-place]';
 
-  // Logs, every animation frame until read, each session row's top and the
-  // place's box (null when not drawn).
+  // Each frame until read: every session row's top, the place's box (or null) and the list's scroll.
   async function logSessionList(page: Page): Promise<void> {
     await page.evaluate(() => {
       const frames: unknown[] = [];

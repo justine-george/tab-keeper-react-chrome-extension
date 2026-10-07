@@ -16,12 +16,7 @@ import { setIsNotDirty } from '../../redux/slices/globalStateSlice';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { s1, s2 } from '../fixtures/sessionMoveFixture';
 
-// KAN-394 N1 (revised 2026-10-07). While a carry rests on the New session
-// target, the session list slides down one row and opens an empty place at
-// its top; leaving slides it back, and a release fills it with the new row.
-//
-// jsdom has no layout: the save row sits at y 0..58, the list's scroller at
-// 100..400, and its rows 60 apart.
+// KAN-394 N1 (revised). No layout in jsdom: save row y 0..58, scroller 100..400, rows 60 apart.
 
 const ROW_H = 60;
 const ON_TARGET = { clientX: 10, clientY: 20 };
@@ -187,9 +182,7 @@ describe('the New session place in the session list', () => {
     expect(slot()).toBeNull();
   });
 
-  // The worst path: the release makes nothing, so nothing takes the place.
-  // The layer's own order at a release: take, then leave. Without the layer,
-  // which would end a carry of an item already gone before any release.
+  // Worst path, in the layer's release order (take, then leave); no layer, which would end a carry of a gone item.
   test('a release that moves nothing slides it back', async () => {
     const { store } = await renderPane(undefined, false);
     carry(GONE);

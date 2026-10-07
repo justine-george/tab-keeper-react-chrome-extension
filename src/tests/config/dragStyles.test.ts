@@ -124,8 +124,7 @@ describe('the Open now resize rule', () => {
   });
 });
 
-// KAN-394 N1 (revised 2026-10-07). The save row's New session target swaps in
-// on the drag's marker, from the pick-up, not on a live carry alone.
+// KAN-394 N1 (revised). The New session target swaps in on the drag's marker, not on a live carry.
 describe('the New session target rule', () => {
   test('the marker hides the save row’s controls and shows its target', () => {
     expect(flat).toContain(
