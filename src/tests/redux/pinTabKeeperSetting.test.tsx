@@ -84,6 +84,36 @@ describe('another page writing it', () => {
     expect(await hydrate({ pinTabKeeperInNewWindows: true })).toBe(true);
   });
 
+  it('writing settings without it, while this page is On, keeps On', async () => {
+    vi.resetModules();
+    const { makeTestStore } = await import('../setup/makeStore');
+    const { applyOtherPageSettings } = await import(
+      '../../redux/otherPageChanges'
+    );
+    const { setPinTabKeeperInNewWindows } = await import(
+      '../../redux/slices/settingsDataStateSlice'
+    );
+    const { store } = makeTestStore();
+    store.dispatch(setPinTabKeeperInNewWindows(true));
+    const older = Object.fromEntries(
+      Object.entries(store.getState().settingsDataState).filter(
+        ([key]) => key !== 'pinTabKeeperInNewWindows'
+      )
+    );
+    // PREMISE: the write differs from this page only in the theme, and lacks the key.
+    expect(store.getState().settingsDataState.theme).not.toBe('Blue');
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({ ...older, theme: 'Blue' })
+    );
+    store.dispatch(applyOtherPageSettings());
+    // The other page's write landed, and On stayed.
+    expect(store.getState().settingsDataState).toMatchObject({
+      theme: 'Blue',
+      pinTabKeeperInNewWindows: true,
+    });
+  });
+
   it('reads a malformed value as Off', async () => {
     expect(await hydrate({ pinTabKeeperInNewWindows: 'yes' })).toBe(false);
   });
