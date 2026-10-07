@@ -9,7 +9,7 @@ on:
 #
 #   checks  lint, E2E typecheck                         one runner
 #   unit    the vitest suite, in 2 shards               one runner per shard
-#   e2e     the E2E suite, in 10 shards                 one runner per shard
+#   e2e     the E2E suite, in 15 shards                 one runner per shard
 #   gate    "Build before merge": passes only if every job above did
 #
 # This was one job of ~10 minutes, 7m17s of it the E2E suite running serially
@@ -83,15 +83,26 @@ jobs:
       # reason.
       fail-fast: false
       matrix:
-        # Shards hold equal measured time, not equal test counts (KAN-444): on
-        # six count-split shards one ran 692s of tests and another 272s. Ten
-        # time-split shards estimate ~4.5 min of tests each. The `--shard` total
-        # below follows this list's length.
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        # Shards hold equal measured time, not equal test counts (KAN-444).
+        # 15 hold ~3 min of tests each (KAN-465); with checks, unit and the gate
+        # that is 19 jobs, under a public repo's 20 concurrent, so one PR never
+        # queues (two at once do). The `--shard` total follows this length.
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
     steps:
+      # Depth 2: the merge commit's first parent is main, for the version check below.
       - name: Checkout repo
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      # A release PR (it changes package.json's version) checks every locale;
+      # other PRs check five (KAN-465). Each shard decides alike from the commit.
+      - name: All languages on a release PR
+        run: |
+          if [ "$(git show HEAD^1:package.json | jq -r .version)" != "$(jq -r .version package.json)" ]; then
+            echo "E2E_ALL_LANGS=1" >> "$GITHUB_ENV"
+          fi
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -118,8 +129,25 @@ jobs:
       - name: Generate dist folder
         run: npm run build:e2e
 
+      - name: Read the Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # The browser download is cached; its system libraries are not (KAN-465).
+      - name: Cache Playwright Chromium
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
       - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system libraries
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       # `playwright test` directly rather than `npm run test:e2e`, which would
       # repeat the typecheck and the build above. That is safe ONLY because the

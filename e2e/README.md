@@ -80,3 +80,6 @@ All measured, not assumed — each cost a debugging cycle to find:
   `node scripts/e2e_shards.mjs timings-shard-*/results-shard-*.json`. A shard
   refuses to run when under half the tests have a weight, so a PR that renames
   most spec files renames their keys in `shard-weights.json` too.
+- **`first-run-fit` checks five locales on a PR, all 13 before a release.** A PR
+  that changes `package.json`'s version runs all 13 in CI, and
+  `npm run test:e2e:langs` runs them locally.

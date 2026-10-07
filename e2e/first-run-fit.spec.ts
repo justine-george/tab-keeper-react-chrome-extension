@@ -34,7 +34,8 @@ import type { ThemeColors } from '../src/hooks/useThemeColors';
 
 test.use({ freshProfile: true });
 
-const LANGS = [
+// Every locale before a release: a release PR or `npm run test:e2e:langs` (KAN-465).
+const ALL_LANGS = [
   'de',
   'en',
   'es',
@@ -49,6 +50,9 @@ const LANGS = [
   'zh',
   'zh-TW',
 ] as const;
+// Each PR: the longest Latin strings (fr, de) and one locale per other script.
+const PR_LANGS = ['de', 'fr', 'ru', 'hi', 'ja'] as const;
+const LANGS = process.env.E2E_ALL_LANGS === '1' ? ALL_LANGS : PR_LANGS;
 const ROOT_PX = 24;
 const SETTLED = {
   cloudConsent: 'declined',
