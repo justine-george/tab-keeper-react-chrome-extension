@@ -8008,12 +8008,16 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     const place = await boxOf(page.locator(PLACE));
     expect(place.y).toBeCloseTo(rest.s1, 1);
     expect(place.height).toBeCloseTo(rest.pitch, 1);
-    expect(
-      await page.locator(PLACE).evaluate((el) => {
+    // Dashed, at the width the target's dashed 1.5px draws at (device pixels).
+    const border = (selector: string) =>
+      page.locator(selector).evaluate((el) => {
         const cs = getComputedStyle(el);
-        return [cs.borderTopWidth, cs.borderTopStyle, cs.borderTopColor];
-      })
-    ).toEqual(['1.5px', 'dashed', expect.any(String)]);
+        return `${cs.borderTopWidth} ${cs.borderTopStyle}`;
+      });
+    expect(await border(PLACE)).toMatch(/ dashed$/);
+    expect((await border(PLACE)).split(' ')[0]).toBe(
+      (await border('[data-new-session-target]')).split(' ')[0]
+    );
     expect(
       rgbToHex(
         await page
