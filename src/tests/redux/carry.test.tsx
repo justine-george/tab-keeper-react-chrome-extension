@@ -23,6 +23,14 @@ import {
   setDragging,
   setDragNewWindow,
 } from '../../components/home/rightpane/rowDrag/dropRules';
+import { foldBackSpringOpened } from '../../redux/springOpenWindows';
+
+// Real unless a test makes it throw.
+vi.mock('../../redux/springOpenWindows', async (importOriginal) => {
+  const real =
+    await importOriginal<typeof import('../../redux/springOpenWindows')>();
+  return { ...real, foldBackSpringOpened: vi.fn(real.foldBackSpringOpened) };
+});
 
 // KAN-350. The carry channel: module state that outlives every drag area. A
 // .tsx file only so it runs under jsdom -- endCarry unpublishes the drag kind
@@ -41,6 +49,8 @@ afterEach(() => {
   endDragHold();
   document.documentElement.removeAttribute('data-dragging');
   document.documentElement.removeAttribute('data-drag-new-window');
+  document.documentElement.removeAttribute('data-carrying');
+  document.documentElement.removeAttribute('data-drag-new-session');
 });
 
 describe('the carry channel', () => {
@@ -242,6 +252,57 @@ describe('the New window marker', () => {
     endCarry('cancelled');
 
     expect(marked()).toBe(true);
+  });
+});
+
+// KAN-394 (D18). A carry of any kind marks the document, so the save row's
+// New session target is drawn in the frame the carry starts.
+describe('the carrying marker', () => {
+  const carrying = () => document.documentElement.hasAttribute('data-carrying');
+  const offersNewSession = () =>
+    document.documentElement.hasAttribute('data-drag-new-session');
+  const WINDOW: CarriedRef = {
+    kind: 'window',
+    tabGroupId: 'S1',
+    windowId: 'w1',
+  };
+
+  test.each([
+    ['tab', CARRIED, CARD],
+    ['window', WINDOW, { kind: 'window', title: 'w1', number: 1, tabCount: 2 }],
+  ] as const)(
+    'a carried %s marks it from the start, through a hand-back, until its end',
+    (_kind, carried, card) => {
+      // PREMISE: nothing had marked it.
+      expect(carrying()).toBe(false);
+
+      startCarry(carried, card, 40, 50);
+      expect(carrying()).toBe(true);
+      expect(offersNewSession()).toBe(true);
+      setCarryOwner('area');
+      setCarryOwner('layer');
+      expect(carrying()).toBe(true);
+      expect(offersNewSession()).toBe(true);
+
+      endCarry('committed');
+      expect(carrying()).toBe(false);
+      expect(offersNewSession()).toBe(false);
+    }
+  );
+
+  // The worst path: something endCarry runs throws. The save row must not
+  // stay hidden for the page's life.
+  test('an end that throws still clears it', () => {
+    startCarry(CARRIED, CARD, 40, 50);
+    vi.mocked(foldBackSpringOpened).mockImplementationOnce(() => {
+      throw new Error('fold back failed');
+    });
+
+    expect(() => endCarry('cancelled')).toThrow('fold back failed');
+
+    expect(currentCarry()).toBeNull();
+    expect(carrying()).toBe(false);
+    expect(offersNewSession()).toBe(false);
   });
 });
 

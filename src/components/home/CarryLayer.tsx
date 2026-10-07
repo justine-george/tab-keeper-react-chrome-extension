@@ -19,7 +19,7 @@ import { useSavedSearch } from '../../hooks/useSavedSearch';
 import { RADIUS, TYPE } from '../../styles/scale';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
 import { windowLabel } from '../../utils/functions/windowLabel';
-import { isCarriedStillThere } from '../../utils/functions/carriedView';
+import { isCarriedStillThere } from '../../utils/functions/tabGroups';
 import { createClickSuppressor } from './rightpane/rowDrag/clickSuppressor';
 import type { AppDispatch, RootState } from '../../redux/store';
 import { showSession } from '../../redux/showSession';

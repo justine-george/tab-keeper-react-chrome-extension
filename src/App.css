@@ -113,6 +113,16 @@ body {
   visibility: visible;
 }
 
+/* KAN-394 N1 (revised). From a carriable drag's pick-up, the save row's controls give way to New session, as the New window target above does. */
+[data-drag-new-session]
+  [data-save-row]:has(> [data-new-session-target])
+  > :not([data-new-session-target]) {
+  visibility: hidden;
+}
+[data-drag-new-session] [data-new-session-target] {
+  visibility: visible;
+}
+
 /* KAN-361/366 (Q4). In the same drags, when the list already scrolls at rest,
    its trailing block -- the empty block after its last window
    (TabGroupDetailsContainer), zero height at rest -- takes its border and one

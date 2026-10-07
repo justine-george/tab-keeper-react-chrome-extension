@@ -52,6 +52,7 @@ import {
   newWindowFree,
   publishNewWindowFree,
   setDragging,
+  setDragNewSession,
   setDragNewWindow,
   windowBlockAt,
   windowBlocksIn,
@@ -1510,6 +1511,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (offersNewWindow) {
         setDragNewWindow(true, !l.adopted && l.maxScroll > 0);
       }
+      // KAN-394 N1 (revised). Only a drag that can hand off to a carry; an adopted one's carry wrote it.
+      const out = l.adopted ? null : carryOut?.(l.rowId) ?? null;
+      if (out !== null) setDragNewSession(true);
       // KAN-279 D12. From here until the drag ends, a change this page did
       // not make waits (dragHold): applying it would move the list under
       // rects measured once, below.
@@ -1720,10 +1724,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // the next setDrag draw the row as hidden (heldShownAsCard), and the
       // card goes up in the commit that does -- see the layout effect below
       // the listeners.
-      if (!l.adopted) {
-        const out = carryOut?.(l.rowId) ?? null;
-        if (out !== null) l.card = out.card;
-      }
+      if (out !== null) l.card = out.card;
     };
 
     // KAN-379. Patched, not re-measured: a row the preview moved reads displaced.
@@ -1994,7 +1995,19 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       }
       if (!l) return;
       // Judged first, while the drag's layout still stands -- see judgeDrop.
-      const drop = commit && l.started ? judgeDrop(l) : undefined;
+      let drop: ReturnType<typeof judgeDrop>;
+      let judged = false;
+      try {
+        drop = commit && l.started ? judgeDrop(l) : undefined;
+        judged = true;
+      } finally {
+        // A throwing judge must not leave the markers on for the page's life.
+        if (!judged && !l.adopted) {
+          setDragging(false);
+          setDragNewWindow(false);
+          setDragNewSession(false);
+        }
+      }
       // KAN-379 Q3 A. Read before anything folds back: an adopted drag's onMove ends the carry.
       const keep =
         drop?.toWindowId !== undefined && isSpringOpen(drop.toWindowId)
@@ -2007,6 +2020,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       if (!l.adopted) {
         setDragging(false);
         setDragNewWindow(false);
+        setDragNewSession(false);
         // KAN-379 Q2 A. The windows this drag opened fold back.
         foldedBack = foldBackSpringOpened();
       }
@@ -2266,6 +2280,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       } else if (l?.started) {
         setDragging(false);
         setDragNewWindow(false);
+        setDragNewSession(false);
         foldBackSpringOpened();
         // KAN-279 D12. finish() never runs on this path, so the hold it would
         // have ended is ended here -- or every later merge would wait for a

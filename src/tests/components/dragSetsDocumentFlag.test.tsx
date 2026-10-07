@@ -10,10 +10,12 @@ import {
   decideNewWindowRoom,
   publishNewWindowFree,
   setDragNewWindow,
+  type ResolveDrop,
 } from '../../components/home/rightpane/rowDrag/dropRules';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
+import { currentCarry, type CarryOut } from '../../redux/carry';
 
 // KAN-134 / KAN-135. What a drag publishes to the document, so CSS can react.
 //
@@ -42,11 +44,21 @@ const box = (top: number, height: number) =>
     toJSON: () => ({}),
   }) as DOMRect;
 
-const Harness = ({ offersNewWindow }: { offersNewWindow?: boolean }) => (
+const Harness = ({
+  offersNewWindow,
+  carryOut,
+  resolveDrop,
+}: {
+  offersNewWindow?: boolean;
+  carryOut?: (rowId: string) => CarryOut | null;
+  resolveDrop?: ResolveDrop;
+}) => (
   <RowDragArea
     rowIds={['a', 'b', 'c']}
     onMove={() => undefined}
     offersNewWindow={offersNewWindow}
+    carryOut={carryOut}
+    resolveDrop={resolveDrop}
   >
     {['a', 'b', 'c'].map((id) => (
       <DraggableRow key={id} rowId={id}>
@@ -80,6 +92,7 @@ const offersNewWindow = () =>
 afterEach(() => {
   document.documentElement.removeAttribute('data-dragging');
   document.documentElement.removeAttribute('data-drag-new-window');
+  document.documentElement.removeAttribute('data-drag-new-session');
 });
 
 describe('a drag publishes a flag on the document', () => {
@@ -138,6 +151,152 @@ describe('a drag interrupted by unmount', () => {
 
     expect(isDragging()).toBe(false);
     expect(offersNewWindow()).toBe(false);
+  });
+});
+
+// KAN-394 N1 (revised). A drag that can become a carry marks New session from its pick-up.
+describe('the New session marker', () => {
+  const offersNewSession = () =>
+    document.documentElement.hasAttribute('data-drag-new-session');
+  // A carry for rows `a` and `b`, none for `c`.
+  const carryOut = (rowId: string): CarryOut | null =>
+    rowId === 'c'
+      ? null
+      : {
+          carried: {
+            kind: 'tab',
+            tabGroupId: 'S1',
+            windowId: 'w1',
+            tabId: rowId,
+          },
+          card: { kind: 'tab', title: rowId, faviconUrl: '' },
+        };
+
+  test('on from the pick-up, with no carry yet, and off at the drop', () => {
+    render(<Harness carryOut={carryOut} />);
+    layout();
+    press('a', 15);
+    moveTo(17);
+    // PREMISE: below the threshold this is still a click.
+    expect(offersNewSession()).toBe(false);
+
+    moveTo(50);
+    expect(currentCarry()).toBeNull();
+    expect(offersNewSession()).toBe(true);
+
+    release(50);
+    expect(offersNewSession()).toBe(false);
+  });
+
+  test('Escape clears it', () => {
+    render(<Harness carryOut={carryOut} />);
+    layout();
+    press('a', 15);
+    moveTo(50);
+    expect(offersNewSession()).toBe(true);
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(offersNewSession()).toBe(false);
+  });
+
+  // Open now's lists and the session list have no carryOut.
+  test('CONTROL: a list that cannot carry never sets it', () => {
+    render(<Harness offersNewWindow />);
+    layout();
+    press('a', 15);
+    moveTo(50);
+    // PREMISE: a drag started.
+    expect(isDragging()).toBe(true);
+    expect(offersNewSession()).toBe(false);
+    release(50);
+  });
+
+  test('a row its list has no carry for never sets it', () => {
+    render(<Harness carryOut={carryOut} />);
+    layout();
+    press('c', 75);
+    moveTo(20);
+    // PREMISE: a drag started.
+    expect(isDragging()).toBe(true);
+    expect(offersNewSession()).toBe(false);
+    release(20);
+  });
+
+  test('a list unmounted mid-drag does not leave it set', () => {
+    const { unmount } = render(<Harness carryOut={carryOut} />);
+    layout();
+    press('a', 15);
+    moveTo(50);
+    expect(offersNewSession()).toBe(true);
+
+    unmount();
+    expect(offersNewSession()).toBe(false);
+  });
+
+  test('a pointercancel clears it', () => {
+    render(<Harness carryOut={carryOut} />);
+    layout();
+    press('a', 15);
+    moveTo(50);
+    expect(offersNewSession()).toBe(true);
+
+    fireEvent.pointerCancel(window);
+    expect(offersNewSession()).toBe(false);
+  });
+});
+
+// The worst path at a release: the drop's judge throws. No marker may outlive the drag.
+describe('a release whose judge throws', () => {
+  test('clears the kind, the New window and the New session markers', () => {
+    let boom = false;
+    const resolveDrop: ResolveDrop = () => {
+      if (boom) throw new Error('judge failed');
+      return { bandId: undefined };
+    };
+    const thrown: unknown[] = [];
+    const onError = (e: ErrorEvent) => {
+      thrown.push(e.error);
+      e.preventDefault();
+    };
+    window.addEventListener('error', onError);
+    render(
+      <Harness
+        offersNewWindow
+        resolveDrop={resolveDrop}
+        carryOut={(rowId) => ({
+          carried: {
+            kind: 'tab',
+            tabGroupId: 'S1',
+            windowId: 'w1',
+            tabId: rowId,
+          },
+          card: { kind: 'tab', title: rowId, faviconUrl: '' },
+        })}
+      />
+    );
+    layout();
+    press('a', 15);
+    moveTo(50);
+    // PREMISE: all three are on.
+    expect(isDragging()).toBe(true);
+    expect(offersNewWindow()).toBe(true);
+    expect(document.documentElement.hasAttribute('data-drag-new-session')).toBe(
+      true
+    );
+
+    boom = true;
+    release(50);
+    window.removeEventListener('error', onError);
+
+    // PREMISE: the judge did throw.
+    expect(thrown.map((e) => (e instanceof Error ? e.message : e))).toEqual([
+      'judge failed',
+    ]);
+    expect(isDragging()).toBe(false);
+    expect(offersNewWindow()).toBe(false);
+    expect(document.documentElement.hasAttribute('data-drag-new-session')).toBe(
+      false
+    );
   });
 });
 

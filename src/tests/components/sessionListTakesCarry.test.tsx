@@ -348,61 +348,25 @@ describe('reduced motion', () => {
   });
 });
 
-const origins = () =>
-  [...document.querySelectorAll<HTMLElement>('[data-carry-origin]')].map(
-    (o) => o.closest<HTMLElement>('[data-drag-row-id]')?.dataset.dragRowId
-  );
-
-describe('the origin mark (KAN-382 A)', () => {
-  test('the carried item’s session wears a dashed LABEL_L2 outline, and no other row does', async () => {
-    await renderList();
-    expect(origins()).toEqual([]);
-    handOff();
-
-    expect(origins()).toEqual(['S1']);
-    const style = getComputedStyle(entryOf('S1'));
-    expect(style.outlineStyle).toBe('dashed');
-    expect(style.outlineWidth).toBe('1.5px');
-    expect(style.outlineColor).toMatch(asWritten(LIGHT_THEME.LABEL_L2_COLOR));
-    expect(style.outlineOffset).toBe('-2px');
-  });
-
-  test('it stays after another session springs open', async () => {
+// Q1 A (2026-10-07): the item's own session row is drawn as at rest; only the row under the pointer changes.
+describe('no origin mark (Q1 A)', () => {
+  test('mid-carry the carried item’s session row has no outline, before and after another session springs open', async () => {
     const { store } = await renderList();
+    // CONTROL: the probe sees an outline, on the row under the pointer.
     handOff();
+    moveTo(rowY(1));
+    expect(getComputedStyle(entryOf('S2')).outlineStyle).toBe('solid');
+
     moveTo(rowY(2));
+    expect(getComputedStyle(entryOf('S1')).outlineStyle).toBe('none');
     wait(SPRING_OPEN_MS);
+    // PREMISE: S3 opened, so S1 is neither shown nor the target.
     expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
       'S3'
     );
-
-    expect(origins()).toEqual(['S1']);
-  });
-
-  test('resting on the origin, the target’s solid outline wins', async () => {
-    await renderList();
-    handOff();
-    moveTo(rowY(0));
-
-    expect(targetId()).toEqual(['S1']);
-    expect(origins()).toEqual([]);
-    expect(getComputedStyle(entryOf('S1')).outlineStyle).toBe('solid');
-    moveTo(rowY(1));
-    expect(origins()).toEqual(['S1']);
-  });
-
-  test('it is gone after Esc and after a release', async () => {
-    await renderList();
-    handOff();
-    expect(origins()).toEqual(['S1']);
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(origins()).toEqual([]);
-
-    handOff();
-    moveTo(rowY(1));
-    expect(origins()).toEqual(['S1']);
-    releaseAt(rowY(1));
-    expect(origins()).toEqual([]);
+    moveTo(rowY(4));
+    expect(getComputedStyle(entryOf('S1')).outlineStyle).toBe('none');
+    expect(document.querySelectorAll('[data-carry-origin]')).toHaveLength(0);
   });
 });
 

@@ -5,6 +5,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
+import { DropBoxLabel } from '../../common/dropBox';
+import { dropBoxStyle } from '../../common/dropBoxStyle';
 import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
 import Button from '../../common/Button';
@@ -47,8 +49,6 @@ import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
-import { newWindowTargetBoxStyle } from './newWindowTarget';
-import { NewWindowTargetLabel } from './NewWindowTargetLabel';
 import { useNewFirstWindowReceiver } from './useNewFirstWindowReceiver';
 
 export default function HeroContainerRight() {
@@ -648,9 +648,9 @@ export default function HeroContainerRight() {
           ref={newWindowTargetRef}
           data-new-window-target="first"
           aria-hidden="true"
-          css={[newWindowTargetBoxStyle(COLORS), newWindowTargetStyle]}
+          css={[dropBoxStyle(COLORS), newWindowTargetStyle]}
         >
-          <NewWindowTargetLabel />
+          <DropBoxLabel text={t('CarryNewWindowTarget')} />
         </div>
       </div>
     </div>

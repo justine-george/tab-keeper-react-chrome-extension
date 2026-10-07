@@ -912,6 +912,12 @@ export function setDragNewWindow(on: boolean, withRoom = false): void {
   );
 }
 
+// KAN-394 N1 (revised). "This drag can make a new session", on the document for the reason the New window marker is.
+export function setDragNewSession(on: boolean): void {
+  if (on) document.documentElement.setAttribute('data-drag-new-session', '');
+  else document.documentElement.removeAttribute('data-drag-new-session');
+}
+
 // Whether the trailing block has its row of room now (KAN-366 Q4).
 export function hasNewWindowRoom(): boolean {
   return (

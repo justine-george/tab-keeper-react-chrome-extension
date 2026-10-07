@@ -235,6 +235,7 @@
   "CarryCardNameAndCount_one": "{{name}} · {{count}} Tab",
   "CarryCardNameAndCount_other": "{{name}} · {{count}} Tabs",
   "CarryNewWindowTarget": "New window",
+  "CarryNewSessionTarget": "New session",
   "Search looks in session names, window names, tab titles and links.": "Search looks in session names, window names, tab titles and links.",
   "Open full view": "Open full view",
   "Default view": "Default view",

@@ -2,8 +2,15 @@ import type { Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
-import { pageGround, twoFrames } from './fixtures/onboarding';
+import { openPage, pageGround, twoFrames } from './fixtures/onboarding';
 import { pixelsAt, rgbToHex } from './fixtures/pixels';
+import {
+  boxOf,
+  saveRowAim,
+  saveRowSeen,
+  stored,
+  watchSaveRow,
+} from './fixtures/sessionDrag';
 import {
   RUN_VIEWS,
   card,
@@ -18,6 +25,7 @@ import {
   storedTitles,
   watchRunDrawn,
   FULL_RUN,
+  type RunViewCase,
 } from './fixtures/run';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 
@@ -313,3 +321,99 @@ test('full view step 7: a tab drags with its card, and carried out over the dimm
   await page.mouse.up();
   await expect(cardAt(page, 7)).toBeVisible();
 });
+
+// The step whose bright box holds the run session's windows, where a tab can be picked up.
+const WINDOWS_STEP = { popup: 6, full: 7 } as const;
+
+async function walkToWindowsStep(page: Page, view: RunViewCase): Promise<void> {
+  const save = view.view === 'full' ? 3 : 1;
+  for (let step = 2; step <= save; step++) await nextTo(page, step);
+  await cardButton(page, 'Use an example').click();
+  await expect(cardAt(page, save + 1)).toBeVisible();
+  for (let step = save + 2; step <= WINDOWS_STEP[view.view]; step++) {
+    await nextTo(page, step);
+  }
+}
+
+// A tab row picked up, carried out over the session list, then onto the save row.
+async function carryOntoSaveRow(page: Page, row: Locator): Promise<void> {
+  const aim = await saveRowAim(page);
+  const from = await boxOf(row);
+  const [x, y] = [from.x + 60, from.y + from.height / 2];
+  // Polled: the card glides to its place, over these rows on the way.
+  await expect
+    .poll(() =>
+      row.evaluate(
+        (el, [px, py]) => el.contains(document.elementFromPoint(px, py)),
+        [x, y]
+      )
+    )
+    .toBe(true);
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 10, { steps: 3 });
+  const sessions = await boxOf(page.locator('[data-pane="sessions"]'));
+  await page.mouse.move(
+    sessions.x + sessions.width / 2,
+    sessions.y + sessions.height * 0.8,
+    { steps: 25 }
+  );
+  await expect(page.locator('[data-carry-card]')).toBeVisible();
+  await page.mouse.move(aim.x, aim.y, { steps: 8 });
+}
+
+const WINDOW_TABS =
+  '[data-pane="detail"] [data-window-tabs] [data-drag-row-id]';
+
+// KAN-394 F18: while this page shows the run, the save row takes no carry and a release there changes nothing.
+for (const view of RUN_VIEWS) {
+  test(`${view.name} step ${
+    WINDOWS_STEP[view.view]
+  }: a tab carried onto the save row draws no New session target and changes nothing`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openRunFromHelp(context, extensionId, view);
+    await walkToWindowsStep(page, view);
+    const before = await stored(page);
+    await watchSaveRow(page);
+    await carryOntoSaveRow(page, page.locator(WINDOW_TABS).first());
+    // PREMISE: the run's card is shown while the carry is over the save row.
+    await expect(cardAt(page, WINDOWS_STEP[view.view])).toBeVisible();
+    await page.mouse.up();
+    // PREMISE: a carry was live over the save row.
+    expect(await saveRowSeen(page)).toEqual({ carrying: '1', target: '0' });
+    await expect(page.locator('[data-carry-card]')).toHaveCount(0);
+    expect(await stored(page)).toEqual(before);
+    await expect(cardAt(page, WINDOWS_STEP[view.view])).toBeVisible();
+  });
+
+  test(`${view.name}, CONTROL, no run: the same carry onto the save row draws the New session target`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSessions(
+      context,
+      buildContainer([buildSession({ title: 'Kept' })])
+    );
+    const page = await openPage(context, extensionId, view.path, view.viewport);
+    const row = page.locator(WINDOW_TABS);
+    if (view.view === 'full') {
+      await page
+        .locator('[data-pane="sessions"]')
+        .getByRole('button', { name: 'Kept', exact: true })
+        .click();
+    }
+    await expect(row.first()).toBeVisible();
+    // PREMISE: no run is shown here.
+    await expect(card(page)).toHaveCount(0);
+    await watchSaveRow(page);
+    await carryOntoSaveRow(page, row.first());
+    await expect(
+      page.locator('[data-new-session-target][data-landing]')
+    ).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    expect(await saveRowSeen(page)).toEqual({ carrying: '1', target: '1' });
+  });
+}

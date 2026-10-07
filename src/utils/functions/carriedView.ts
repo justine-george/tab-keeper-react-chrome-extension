@@ -70,32 +70,6 @@ export function carriedView(
   return changed ? { tabGroupId: shown.tabGroupId, windows } : shown;
 }
 
-/**
- * Whether the store still holds the carried item where the carry found it:
- * its session, its window, and the tab, the group (with a tab in it, as the
- * move reducer's partition sees it) or the window. False means the move would
- * find nothing to lift, so the carry has nothing left to carry.
- */
-export function isCarriedStillThere(
-  tabGroups: readonly tabContainerData[],
-  carried: CarriedRef
-): boolean {
-  const w = tabGroups
-    .find((g) => g.tabGroupId === carried.tabGroupId)
-    ?.windows.find((x) => x.windowId === carried.windowId);
-  if (w === undefined) return false;
-  switch (carried.kind) {
-    case 'window':
-      return true;
-    case 'tab':
-      return w.tabs.some((t) => t.tabId === carried.tabId);
-    case 'group':
-      return partitionTabsIntoRuns(w.tabs, w.chromeTabGroups).some(
-        (run) => run.kind === 'group' && run.group.groupId === carried.groupId
-      );
-  }
-}
-
 // What a phantom row's ids are made from: the carried item's own, prefixed,
 // so the phantom is never the same row as the item -- which its source still
 // has in the store, and which the source's list may still draw (Q2 A shows

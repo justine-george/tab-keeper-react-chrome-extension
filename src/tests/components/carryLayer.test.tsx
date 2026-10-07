@@ -343,6 +343,8 @@ describe('receivers (Ruling 2)', () => {
     expect(reported).toHaveLength(1);
     expect(currentCarry()).toBeNull();
     expect(isDragHeld()).toBe(false);
+    // KAN-394: the save row is back.
+    expect(document.documentElement.hasAttribute('data-carrying')).toBe(false);
     off();
   });
 
