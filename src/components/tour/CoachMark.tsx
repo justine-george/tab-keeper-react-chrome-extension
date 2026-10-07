@@ -38,7 +38,7 @@ interface CoachMarkProps {
   boxOf?: AnchorBox;
   spotlight?: Spotlight;
   isLive: boolean;
-  width: number;
+  width: string;
   place: (
     anchor: Box,
     mark: Size,
@@ -160,7 +160,8 @@ export default function CoachMark({
     box-sizing: border-box;
     display: grid;
     gap: 10px;
-    width: ${width}px;
+    width: ${width};
+    max-width: calc(100vw - ${2 * COACH.GUTTER}px);
     margin: 0;
     padding: 18px 16px 12px;
     background-color: ${COLORS.PRIMARY_COLOR};

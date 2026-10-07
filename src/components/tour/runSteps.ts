@@ -16,9 +16,10 @@ export interface RunStepPlan {
   isLive: boolean;
 }
 
-export const CARD_WIDTH = { popup: 290, full: 300 } as const;
-// Step 8's three actions on one row (KAN-457).
-export const PIN_CARD_WIDTH = 400;
+// CSS lengths.
+export const CARD_WIDTH = { popup: '290px', full: '300px' } as const;
+// Step 8's three actions on one row, in rem so it grows with the text (KAN-457).
+export const PIN_CARD_WIDTH = '25rem';
 
 const OPEN_NOW = '[data-pane="open-now"]';
 const SAVE = '[data-pane="sessions"] [data-tour-anchor="save"]';

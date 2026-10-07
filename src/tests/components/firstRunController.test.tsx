@@ -288,7 +288,7 @@ describe('the controller', () => {
     expect(warn).toHaveBeenCalled();
   });
 
-  test('the last full-view step: Not now, Back, Pin this tab, on a 400px card', async () => {
+  test('the last full-view step: Not now, Back, Pin this tab, on a 25rem card (400px at a 16px root)', async () => {
     history.replaceState(null, '', '?view=tab');
     await renderAt({ ...newRun('full', 8), sessionId: 'own' });
     await screen.findByRole('button', { name: 'Pin this tab' });

@@ -48,7 +48,7 @@ import {
 interface Card {
   text: ReactNode;
   fine?: string;
-  width?: number;
+  width?: string;
   primary: CoachAction;
   secondary?: CoachAction;
 }

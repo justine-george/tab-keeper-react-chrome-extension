@@ -77,7 +77,7 @@ async function render(overrides: Partial<Props> = {}) {
     text: TEXT,
     anchors: ['[data-test-anchor]'],
     isLive: true,
-    width: 300,
+    width: '300px',
     place,
     primary: { label: 'Next', onPress: onNext },
     onSkip,
