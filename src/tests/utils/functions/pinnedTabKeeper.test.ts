@@ -82,6 +82,21 @@ describe('findCarriedTab', () => {
     expect(found?.id).toBe(21);
   });
 
+  test('within the chosen window, a loaded full view is carried over a stub', () => {
+    handle = setupChromeFake();
+    const found = findCarriedTab(
+      [
+        win(1, [{ id: 11, url: FULL, pinned: true }]),
+        win(2, [
+          { id: 21, url: STUB, pinned: true },
+          { id: 22, url: FULL, pinned: true },
+        ]),
+      ],
+      2
+    );
+    expect(found?.id).toBe(22);
+  });
+
   test('with no last-focused match, the first found', () => {
     handle = setupChromeFake();
     const found = findCarriedTab(

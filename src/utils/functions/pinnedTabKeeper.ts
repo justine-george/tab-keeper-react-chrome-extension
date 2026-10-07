@@ -18,7 +18,7 @@ export const isTabKeeperTab = (tab: Addressed): boolean =>
 
 type TabWithId = chrome.tabs.Tab & { id: number };
 
-// The pinned Tab Keeper tab a Switch carries: the last-focused window's, else the first found.
+// The pinned Tab Keeper tab a Switch carries: the last-focused window's, else the first found's; a loaded full view over a stub.
 export function findCarriedTab(
   windows: chrome.windows.Window[],
   lastFocusedId: number | undefined
@@ -29,9 +29,11 @@ export function findCarriedTab(
       (tab): tab is TabWithId =>
         tab.pinned && tab.id !== undefined && isTabKeeperTab(tab)
     );
-  return (
-    pinned.find((tab) => tab.windowId === lastFocusedId) ?? pinned[0] ?? null
-  );
+  const chosen = (
+    pinned.find((tab) => tab.windowId === lastFocusedId) ?? pinned[0]
+  )?.windowId;
+  const inChosen = pinned.filter((tab) => tab.windowId === chosen);
+  return inChosen.find((tab) => !isStub(tab)) ?? inChosen[0] ?? null;
 }
 
 // Never rejects: a missing stub costs the window its pinned tab, never the restore.
