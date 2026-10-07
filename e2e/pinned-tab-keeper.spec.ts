@@ -50,6 +50,30 @@ const SESSION = buildSession({
   ],
 });
 
+// Chrome refuses to open this address from an extension, so its window fails.
+const REFUSED = 'chrome://kill';
+const sessionWindow = (n: number, title: string, url: string) => ({
+  windowId: `w${n}`,
+  windowHeight: 600,
+  windowWidth: 800,
+  windowOffsetTop: 0,
+  windowOffsetLeft: 0,
+  tabCount: 1,
+  title: '',
+  tabs: [{ tabId: `t${n}`, favicon: '', title, url }],
+});
+const FAILING = buildSession({
+  tabGroupId: 's2',
+  title: 'Half',
+  windowCount: 3,
+  tabCount: 3,
+  windows: [
+    sessionWindow(1, 'One', dataUrl('One')),
+    sessionWindow(2, 'Two', dataUrl('Two')),
+    sessionWindow(3, 'Refused', REFUSED),
+  ],
+});
+
 type TabFact = { id: number; url: string; pinned: boolean; active: boolean };
 type Facts = { id: number; tabs: TabFact[] }[];
 const windowsNow = (worker: Worker): Promise<Facts> =>
@@ -82,9 +106,7 @@ const fullViewUrl = (extensionId: string) =>
 const isOwnPage = (extensionId: string, url: string) =>
   url.startsWith(`chrome-extension://${extensionId}/`);
 
-// Playwright reports every page it attaches to as visible, so a stub born in the background
-// becomes the full view at once (measured: 'visible' for an active:false stub). Here a stub
-// reports hidden until a test shows it; real Chrome's hidden-then-shown is the no-CDP test below.
+// Playwright makes every page visible, so a stub reports hidden until shown; the no-CDP test is real Chrome.
 async function stubsStayHidden(context: BrowserContext) {
   await context.addInitScript(() => {
     if (!location.pathname.endsWith('/pinned.html')) return;
@@ -207,6 +229,32 @@ async function closeAndReopen(
   return reopened;
 }
 
+const statusesIn = (worker: Worker, windowIds: number[]): Promise<string[]> =>
+  worker.evaluate(
+    async (ids) =>
+      (await chrome.tabs.query({}))
+        .filter((t) => ids.includes(t.windowId))
+        .map((t) => t.status ?? ''),
+    windowIds
+  );
+
+// Stubs come after their windows, so an absence is read once every tab loaded, the same twice.
+async function settledTabs(
+  worker: Worker,
+  windowIds: number[]
+): Promise<TabFact[][]> {
+  await expect
+    .poll(async () =>
+      (await statusesIn(worker, windowIds)).every((s) => s === 'complete')
+    )
+    .toBe(true);
+  const sample = () => Promise.all(windowIds.map((id) => tabsOf(worker, id)));
+  const first = await sample();
+  await new Promise((done) => setTimeout(done, 1000));
+  expect(await sample()).toEqual(first);
+  return first;
+}
+
 test.describe('Open session', () => {
   for (const pin of [false, true]) {
     test(`${pin ? 'On' : 'Off'}: each new window ${
@@ -220,23 +268,32 @@ test.describe('Open session', () => {
         .click();
       const made = async () =>
         (await windowsNow(serviceWorker)).filter((w) => !before.includes(w.id));
-      // Each window holds its session tab, so a stub, when made, was made first.
+      if (!pin) {
+        await expect.poll(async () => (await made()).length).toBe(2);
+        const settled = await settledTabs(
+          serviceWorker,
+          (await made()).map((w) => w.id)
+        );
+        expect(
+          settled
+            .map((tabs) => withoutIds(tabs))
+            .sort((a, b) => a[0].url.localeCompare(b[0].url))
+        ).toEqual([
+          [{ url: dataUrl('One'), pinned: false, active: true }],
+          [{ url: dataUrl('Two'), pinned: false, active: true }],
+        ]);
+        return;
+      }
       await expect
         .poll(async () => (await made()).map((w) => w.tabs.length))
-        .toEqual(pin ? [2, 2] : [1, 1]);
+        .toEqual([2, 2]);
       for (const win of await made()) {
-        if (pin) {
-          expect(withoutIds(win.tabs)[0]).toEqual({
-            url: stubUrl(extensionId),
-            pinned: true,
-            active: false,
-          });
-          expect(win.tabs[1]).toMatchObject({ pinned: false, active: true });
-        } else {
-          expect(win.tabs.some((t) => isOwnPage(extensionId, t.url))).toBe(
-            false
-          );
-        }
+        expect(withoutIds(win.tabs)[0]).toEqual({
+          url: stubUrl(extensionId),
+          pinned: true,
+          active: false,
+        });
+        expect(win.tabs[1]).toMatchObject({ pinned: false, active: true });
       }
     });
   }
@@ -321,6 +378,123 @@ test.describe('Switch', () => {
       });
     }
   });
+
+  test('On, Tab Keeper pinned in two windows: the last-focused one is carried, the other closes, no window gets two', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await setup(context, true);
+    const popup = await openPage(context, extensionId, 'index.html', POPUP);
+    const { windowId: home } = await tabOf(popup);
+    const homeStub = await addStub(serviceWorker, extensionId, home);
+    const other = await openWindow(serviceWorker, [dataUrl('Elsewhere')]);
+    const otherStub = await addStub(serviceWorker, extensionId, other);
+    await serviceWorker.evaluate(
+      (id) => chrome.windows.update(id, { focused: true }),
+      other
+    );
+    const before = await windowsNow(serviceWorker);
+    // PREMISE: Chrome names the other window last focused, and lists home's stub first,
+    // so carrying the other's is the focus rule, not the order.
+    expect(
+      await serviceWorker.evaluate(
+        async () => (await chrome.windows.getLastFocused()).id
+      )
+    ).toBe(other);
+    expect(
+      before
+        .flatMap((w) => w.tabs)
+        .filter((t) => t.pinned && isOwnPage(extensionId, t.url))
+        .map((t) => t.id)
+    ).toEqual([homeStub, otherStub]);
+
+    await pressSwitch(popup);
+    await expect
+      .poll(async () =>
+        (await windowsNow(serviceWorker)).every(
+          (w) => !before.some((b) => b.id === w.id)
+        )
+      )
+      .toBe(true);
+    const made = await windowsNow(serviceWorker);
+    expect(made).toHaveLength(2);
+    const settled = await settledTabs(
+      serviceWorker,
+      made.map((w) => w.id)
+    );
+    const focused = settled.find((tabs) =>
+      tabs.some((t) => t.url === dataUrl('One'))
+    );
+    const second = settled.find((tabs) =>
+      tabs.some((t) => t.url === dataUrl('Two'))
+    );
+    expect(focused?.map((t) => [t.id, t.url, t.pinned])).toEqual([
+      [otherStub, stubUrl(extensionId), true],
+      [expect.any(Number), dataUrl('One'), false],
+    ]);
+    expect(second?.map((t) => t.url)).toEqual([
+      stubUrl(extensionId),
+      dataUrl('Two'),
+    ]);
+    expect(second?.[0]).toMatchObject({ pinned: true, active: false });
+    expect([homeStub, otherStub]).not.toContain(second?.[0].id);
+  });
+
+  test('On, a window fails to open: nothing moves, nothing closes, and the stub made in a window that opened stays', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await stubsStayHidden(context);
+    await seedSessions(context, buildContainer([FAILING]));
+    await seedSettings(context, { pinTabKeeperInNewWindows: true });
+    const popup = await openPage(context, extensionId, 'index.html', POPUP);
+    const { windowId: home } = await tabOf(popup);
+    const homeStub = await addStub(serviceWorker, extensionId, home);
+    // PREMISE: Chrome refuses the third window's address.
+    expect(
+      await serviceWorker.evaluate(
+        (url) =>
+          chrome.windows.create({ url, focused: false }).then(
+            () => 'opened',
+            (error: unknown) => String(error)
+          ),
+        REFUSED
+      )
+    ).not.toBe('opened');
+    const before = await windowsNow(serviceWorker);
+
+    await pressSwitch(popup);
+    const made = async () =>
+      (await windowsNow(serviceWorker)).filter(
+        (w) => !before.some((b) => b.id === w.id)
+      );
+    await expect.poll(async () => (await made()).length).toBe(2);
+    const madeIds = (await made()).map((w) => w.id);
+    const [homeTabs, ...settled] = await settledTabs(serviceWorker, [
+      home,
+      ...madeIds,
+    ]);
+    // Nothing closed, and the pinned tab is still home's first tab.
+    expect(await allWindowIds(serviceWorker)).toEqual(
+      expect.arrayContaining(before.map((w) => w.id))
+    );
+    expect(homeTabs[0]).toEqual({
+      id: homeStub,
+      url: stubUrl(extensionId),
+      pinned: true,
+      active: false,
+    });
+    const second = settled.find((tabs) =>
+      tabs.some((t) => t.url === dataUrl('Two'))
+    );
+    expect(second?.map((t) => [t.url, t.pinned])).toEqual([
+      [stubUrl(extensionId), true],
+      [dataUrl('Two'), false],
+    ]);
+    expect(settled.flat().map((t) => t.id)).not.toContain(homeStub);
+  });
 });
 
 test.describe('Open now: Reopen a window', () => {
@@ -349,16 +523,20 @@ test.describe('Open now: Reopen a window', () => {
         { url: dataUrl('Alpha'), pinned: false, active: true },
         { url: dataUrl('Beta'), pinned: false, active: false },
       ];
+      if (!pin) {
+        await expect
+          .poll(async () => (await tabsOf(serviceWorker, reopened)).length)
+          .toBeGreaterThanOrEqual(2);
+        const [settled] = await settledTabs(serviceWorker, [reopened]);
+        expect(withoutIds(settled)).toEqual(back);
+        return;
+      }
       await expect
         .poll(async () => withoutIds(await tabsOf(serviceWorker, reopened)))
-        .toEqual(
-          pin
-            ? [
-                { url: stubUrl(extensionId), pinned: true, active: false },
-                ...back,
-              ]
-            : back
-        );
+        .toEqual([
+          { url: stubUrl(extensionId), pinned: true, active: false },
+          ...back,
+        ]);
     });
   }
 
@@ -461,6 +639,7 @@ test('⤢ with Tab Keeper tabs in two windows lands on the asking window’s stu
   ]);
 });
 
+// pinned.js against the faked hidden state (stubsStayHidden); the no-CDP test below is the real-Chrome proof.
 test('the stub paints its theme’s ground while hidden, and becomes the full view when shown', async ({
   context,
   extensionId,
@@ -500,27 +679,31 @@ test('the stub paints its theme’s ground while hidden, and becomes the full vi
   await stub.locator('[aria-label="Sort sessions"]').first().waitFor();
 });
 
-// No CDP attached, so Chrome reports visibility as it does for a user. The worker of a copy of the
-// built extension makes a stub in the background, reads it, activates it, and reads it again.
+// No CDP, so visibility is real: a copy of the build's worker makes a background stub, reads, activates, reads.
 const DIST = fileURLToPath(new URL('../dist', import.meta.url));
 const PROBE = `
 chrome.runtime.onInstalled.addListener(async () => {
-  const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
   const read = async (id) => {
     const tab = await chrome.tabs.get(id);
     const url = (tab.url || tab.pendingUrl || '').replace(chrome.runtime.getURL(''), '');
-    return { url, pinned: tab.pinned, active: tab.active };
+    return { url, status: tab.status, pinned: tab.pinned, active: tab.active };
+  };
+  const until = async (id, done) => {
+    for (let waited = 0; waited < 10000; waited += 100) {
+      const tab = await read(id);
+      if (done(tab)) return tab;
+      await new Promise((next) => setTimeout(next, 100));
+    }
+    return read(id);
   };
   try {
     const win = await chrome.windows.create({ url: 'data:text/html,<title>Front</title>' });
     const stub = await chrome.tabs.create({
       windowId: win.id, url: chrome.runtime.getURL('pinned.html'), index: 0, pinned: true, active: false,
     });
-    await sleep(2000);
-    const background = await read(stub.id);
+    const background = await until(stub.id, (tab) => tab.status === 'complete');
     await chrome.tabs.update(stub.id, { active: true });
-    await sleep(2000);
-    const shown = await read(stub.id);
+    const shown = await until(stub.id, (tab) => tab.url !== 'pinned.html' && tab.status === 'complete');
     console.log('KAN459PROBE ' + JSON.stringify({ background, shown }) + ' KAN459END');
   } catch (error) {
     console.log('KAN459PROBE ' + JSON.stringify({ error: String(error) }) + ' KAN459END');
@@ -572,8 +755,18 @@ base(
       });
       const facts: unknown = JSON.parse(line);
       expect(facts).toEqual({
-        background: { url: 'pinned.html', pinned: true, active: false },
-        shown: { url: FULL_VIEW_PATH, pinned: true, active: true },
+        background: {
+          url: 'pinned.html',
+          status: 'complete',
+          pinned: true,
+          active: false,
+        },
+        shown: {
+          url: FULL_VIEW_PATH,
+          status: 'complete',
+          pinned: true,
+          active: true,
+        },
       });
     } finally {
       browser.kill();
@@ -584,8 +777,7 @@ base(
   }
 );
 
-// The history pieces, as in open-now-history.spec.ts: pages from a local server, since a data:
-// URL cannot hold a history, and the switch that grants `sessions`.
+// From open-now-history.spec.ts: a local page server (a data: URL holds no history) and the sessions switch.
 type Site = (n: number) => string;
 
 async function servePages(context: BrowserContext): Promise<Site> {
