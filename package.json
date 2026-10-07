@@ -15,6 +15,7 @@
     "build:e2e": "npm run build && npm run prune-remote-code",
     "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit",
     "test:e2e": "npm run typecheck:e2e && npm run build:e2e && playwright test",
+    "test:e2e:langs": "npm run build:e2e && E2E_ALL_LANGS=1 playwright test e2e/first-run-fit.spec.ts",
     "test": "vitest run",
     "test-dev": "vitest",
     "test-build": "npm run test && npm run build",
