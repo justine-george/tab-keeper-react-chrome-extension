@@ -9,7 +9,6 @@ import {
   setSearchInputText,
 } from '../../redux/slices/globalStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
-import { ICON } from '../../styles/scale';
 import { TAB_GROUP_COLOR_HEX } from '../../utils/functions/tabGroups';
 import type {
   chromeTabGroupData,
@@ -716,10 +715,8 @@ describe('a pinned saved tab (KAN-458)', () => {
     expect(getComputedStyle(glyph).color).toMatch(
       asWritten(LIGHT_THEME.LABEL_L2_COLOR)
     );
-    // jsdom resolves rem against the 16px root.
-    expect(getComputedStyle(glyph).fontSize).toBe(
-      `${parseFloat(ICON.MARK) * 16}px`
-    );
+    // The owner's pick (B); jsdom resolves rem against the 16px root.
+    expect(getComputedStyle(glyph).fontSize).toBe('16px');
   });
 
   test('is described "Pinned", as Open now describes a pinned tab (KAN-307); the name is unchanged', async () => {

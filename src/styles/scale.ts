@@ -95,7 +95,7 @@ export const CONTROL = {
  */
 export const ICON = {
   /** A mark beside a title, not a control: the saved row's pin (KAN-458). */
-  MARK: '0.8125rem',
+  MARK: '1rem',
   /** Body-text size, for a control on a drawing: the welcome's Play again (KAN-464). */
   XSMALL: '1rem',
   /** Secondary or inline actions, subordinate to the control they sit in. */
