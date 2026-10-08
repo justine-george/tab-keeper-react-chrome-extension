@@ -766,6 +766,8 @@ const isValidWindowGroupData = (data: unknown): data is windowGroupData => {
     (data.chromeTabGroups === undefined ||
       (Array.isArray(data.chromeTabGroups) &&
         data.chromeTabGroups.every(isValidChromeTabGroupData))) &&
+    // KAN-458. A name with no tab is a fallback at restore, not an error.
+    (data.activeTabId === undefined || typeof data.activeTabId === 'string') &&
     Array.isArray(data.tabs) &&
     data.tabs.every(isValidTabData)
   );
@@ -779,7 +781,10 @@ const isValidTabData = (data: unknown): data is tabData => {
     typeof data.favicon === 'string' &&
     typeof data.title === 'string' &&
     typeof data.url === 'string' &&
-    (data.chromeGroupId === undefined || typeof data.chromeGroupId === 'string')
+    (data.chromeGroupId === undefined ||
+      typeof data.chromeGroupId === 'string') &&
+    // KAN-458. Nothing writes false, so anything but true or absent is a hand edit.
+    (data.pinned === undefined || data.pinned === true)
   );
 };
 

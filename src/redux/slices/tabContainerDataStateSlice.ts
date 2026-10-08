@@ -69,6 +69,8 @@ export interface tabData {
   // which is also why this is an absent field rather than a nullable one: it
   // costs nothing on disk for the common case.
   chromeGroupId?: string;
+  // KAN-458. Present only when the tab was pinned; restore pins it again. Never false: absent is unpinned.
+  pinned?: true;
 }
 
 export interface windowGroupData {
@@ -84,6 +86,8 @@ export interface windowGroupData {
   // because capture writes nothing here unless the tabGroups permission has
   // been granted. Absent = restore does no grouping.
   chromeTabGroups?: chromeTabGroupData[];
+  // KAN-458. The saved tabId restore opens on; absent, or naming no tab, falls back to the first unpinned tab.
+  activeTabId?: string;
 }
 
 export interface tabContainerData {
@@ -1114,6 +1118,8 @@ function sameWindowContent(a: windowGroupData, b: windowGroupData): boolean {
     a.windowOffsetTop === b.windowOffsetTop &&
     a.windowOffsetLeft === b.windowOffsetLeft &&
     a.tabCount === b.tabCount &&
+    // KAN-458. Synced and restored, so content: an undo of a delete must outrank the cloud.
+    a.activeTabId === b.activeTabId &&
     a.tabs.length === b.tabs.length &&
     a.tabs.every(
       (tab, i) =>
@@ -1121,6 +1127,7 @@ function sameWindowContent(a: windowGroupData, b: windowGroupData): boolean {
         tab.title === b.tabs[i].title &&
         tab.url === b.tabs[i].url &&
         tab.favicon === b.tabs[i].favicon &&
+        tab.pinned === b.tabs[i].pinned &&
         // The join key to chromeTabGroups. Ungrouping already shows up in the
         // group list below, but this is the field that says WHICH group a tab
         // belongs to, and a comparator that ignores it is one refactor away
