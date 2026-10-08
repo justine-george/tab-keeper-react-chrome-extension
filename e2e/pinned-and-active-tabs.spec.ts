@@ -449,11 +449,16 @@ test.describe('Open, then Switch to the same session', () => {
   });
 });
 
-// KNOWN DEFECT (A4): Chrome stamps a never-activated tab's lastAccessed at creation, so the last placeholder outranks the target.
-test.fail(
-  'Open, then the pinned full view made active: Save keeps the tab the window opened on',
-  async ({ context, extensionId, serviceWorker }) => {
-    await seedSettings(context, { pinTabKeeperInNewWindows: true });
+// A4: Chrome stamps a never-activated tab's lastAccessed at creation, so only the worker's record names the tab in use.
+test.describe('Save with a Tab Keeper page active keeps the tab in use before it', () => {
+  // A window opened on Target, with tabs created after it.
+  async function openOnTarget(
+    context: BrowserContext,
+    extensionId: string,
+    worker: Worker,
+    pinTabKeeperInNewWindows: boolean
+  ) {
+    await seedSettings(context, { pinTabKeeperInNewWindows });
     const popup = await openPage(context, extensionId, 'index.html', POPUP);
     // Seeded once, not by init script: that re-seeds every page, erasing the save.
     await popup.evaluate(
@@ -477,32 +482,30 @@ test.fail(
         .filter((p) => !p.url().startsWith('chrome-extension://'))
         .map((p) => p.close())
     );
-    const before = await ids(serviceWorker);
+    const before = await ids(worker);
     await pressOpen(popup);
-    const tabs = await settledWindowWith(serviceWorker, 'Last', before);
-    // PREMISE: the stub first, then the window open on Target with placeholders made after it.
-    expect(tabs[0].url).toMatch(
-      new RegExp(`^chrome-extension://${extensionId}/`)
-    );
-    expect(tabs[0]).toMatchObject({ pinned: true, active: false });
-    expect(tabs.slice(1).map(shape)).toEqual([
+    const tabs = await settledWindowWith(worker, 'Last', before);
+    const restored = tabs.slice(pinTabKeeperInNewWindows ? 1 : 0);
+    // PREMISE: open on Target, the placeholders made after it.
+    expect(restored.map(shape)).toEqual([
       { title: 'First', loaded: false, pinned: false, active: false },
       { title: 'Target', loaded: true, pinned: false, active: true },
       { title: 'Third', loaded: false, pinned: false, active: false },
       { title: 'Last', loaded: false, pinned: false, active: false },
     ]);
+    const windowId = (await windowsNow(worker)).find((w) =>
+      w.tabs.some((t) => t.id === tabs[0].id)
+    )?.id;
+    if (windowId === undefined) throw new Error('the restored window is gone');
+    return { popup, tabs, windowId };
+  }
 
-    await serviceWorker.evaluate(
-      (id) => chrome.tabs.update(id, { active: true }),
-      tabs[0].id
-    );
-    await expect
-      .poll(async () =>
-        (await windowsNow(serviceWorker))
-          .flatMap((w) => w.tabs)
-          .find((t) => t.id === tabs[0].id)
-      )
-      .toMatchObject({ active: true });
+  const activeIn = async (worker: Worker, windowId: number) =>
+    (await windowsNow(worker))
+      .find((w) => w.id === windowId)
+      ?.tabs.find((t) => t.active);
+
+  async function savedActiveTitle(popup: Page) {
     await popup
       .locator('[data-tour-anchor="save"]')
       .getByRole('button', {
@@ -510,18 +513,83 @@ test.fail(
         exact: true,
       })
       .click();
-
     await expect
       .poll(async () => (await stored(popup)).tabGroups.length)
       .toBe(2);
     const saved = (await stored(popup)).tabGroups
       .find((s) => s.tabGroupId !== 's1')
       ?.windows.find((w) => w.tabs.some((t) => t.title === 'Last'));
-    expect(saved?.tabs.find((t) => t.tabId === saved.activeTabId)?.title).toBe(
-      'Target'
-    );
+    return saved?.tabs.find((t) => t.tabId === saved.activeTabId)?.title;
   }
-);
+
+  test('the pinned stub made active: Target, not the last placeholder', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const { popup, tabs, windowId } = await openOnTarget(
+      context,
+      extensionId,
+      serviceWorker,
+      true
+    );
+    // PREMISE: the stub leads the window, pinned.
+    expect(tabs[0].url).toMatch(
+      new RegExp(`^chrome-extension://${extensionId}/`)
+    );
+    expect(tabs[0]).toMatchObject({ pinned: true, active: false });
+
+    await serviceWorker.evaluate(
+      (id) => chrome.tabs.update(id, { active: true }),
+      tabs[0].id
+    );
+    await expect
+      .poll(async () => (await activeIn(serviceWorker, windowId))?.id)
+      .toBe(tabs[0].id);
+
+    expect(await savedActiveTitle(popup)).toBe('Target');
+  });
+
+  test('a background tab opened after it, then the full view: Target, not the background tab', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const { popup, windowId } = await openOnTarget(
+      context,
+      extensionId,
+      serviceWorker,
+      false
+    );
+    await serviceWorker.evaluate(
+      ({ windowId, url }) =>
+        chrome.tabs.create({ windowId, url, active: false }),
+      { windowId, url: page('Background') }
+    );
+    await expect
+      .poll(
+        async () =>
+          (await windowsNow(serviceWorker))
+            .find((w) => w.id === windowId)
+            ?.tabs.find((t) => t.title === 'Background')
+      )
+      .toMatchObject({ active: false, status: 'complete' });
+    await serviceWorker.evaluate(
+      (windowId) =>
+        chrome.tabs.create({
+          windowId,
+          url: chrome.runtime.getURL('index.html?view=tab'),
+          active: true,
+        }),
+      windowId
+    );
+    await expect
+      .poll(async () => (await activeIn(serviceWorker, windowId))?.url)
+      .toMatch(new RegExp(`^chrome-extension://${extensionId}/`));
+
+    expect(await savedActiveTitle(popup)).toBe('Target');
+  });
+});
 
 // Where the preview shows the held row among a window's rows, read off their shifts (group-drag.spec.ts's reading).
 const previewIndex = (p: Page, windowId: string, rowSelector: string) =>
