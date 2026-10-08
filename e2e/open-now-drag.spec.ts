@@ -57,7 +57,9 @@ declare global {
   interface Window {
     __openNowPreview?: (scope: Scope) => Preview;
     __openNowAtRelease?: Preview | null;
-    __openNowScrollLog?: number[];
+    // The pane's scrollTop at the release and on each frame after it, up to
+    // the frame the re-read reorders the rows (rereadAt, null if none did).
+    __openNowScrollLog?: { beforeReread: number[]; rereadAt: number | null };
   }
 }
 
@@ -1784,11 +1786,19 @@ test("9. in the narrow tab view's drawer, a drop moves the real tab as in the pa
 // `nearest` scrolls nothing, and Open now keeps the saved lists' follow
 // (R28 removed the opt-out Task 6c had added). This pins what the user sees:
 // if the follow ever outran the re-read, the view would jump back.
-test('11. after an auto-scrolled drop, the pane stays where the drop left it, and the moved row is on screen', async ({
-  context,
-  extensionId,
-  serviceWorker: worker,
-}) => {
+//
+// The frames are read only until the re-read reorders the rows: the re-read
+// itself moves scrollTop (scroll anchoring, below), and on CI it landed
+// inside a fixed six-frame window (KAN-372). `frameGapMs` spaces the reads
+// out so that it lands among them every time.
+async function expectDropKeepsScroll(
+  {
+    context,
+    extensionId,
+    worker,
+  }: { context: BrowserContext; extensionId: string; worker: Worker },
+  frameGapMs: number
+) {
   const page = await openTabView(context, extensionId);
   const titles = (p: string) =>
     Array.from({ length: 12 }, (_, k) => `${p}${k}`);
@@ -1845,32 +1855,49 @@ test('11. after an auto-scrolled drop, the pane stays where the drop left it, an
   const atRest = (await paneOf(page))?.scrollTop ?? 0;
   expect(atRest).toBeGreaterThan(oldBottom);
 
-  await page.evaluate(() => {
+  await page.evaluate((gapMs) => {
     let el =
       document.querySelector('[data-open-window-id]')?.parentElement ?? null;
     while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
       el = el.parentElement;
     const scroller = el;
-    window.__openNowScrollLog = [];
+    const order = () =>
+      Array.from(document.querySelectorAll('[data-open-tab-id]'), (row) =>
+        row.getAttribute('data-open-tab-id')
+      ).join();
+    delete window.__openNowScrollLog;
     window.addEventListener(
       'pointerup',
       () => {
-        const log: number[] = [];
-        const frame = (left: number) => {
-          log.push(scroller?.scrollTop ?? -1);
-          if (left > 0) requestAnimationFrame(() => frame(left - 1));
-          else window.__openNowScrollLog = log;
+        const atRelease = order();
+        const beforeReread = [scroller?.scrollTop ?? -1];
+        // A task first, so each read runs after the frame callbacks the drop
+        // queued (the follow's scrollIntoView, KAN-155).
+        const next = () =>
+          setTimeout(() => requestAnimationFrame(frame), gapMs);
+        const frame = () => {
+          const reread = order() !== atRelease;
+          if (reread || beforeReread.length === 60) {
+            window.__openNowScrollLog = {
+              beforeReread,
+              rereadAt: reread ? beforeReread.length : null,
+            };
+            return;
+          }
+          beforeReread.push(scroller?.scrollTop ?? -1);
+          next();
         };
-        frame(5);
+        next();
       },
       { capture: true, once: true }
     );
-  });
+  }, frameGapMs);
   const preview = await release(page, 'tabs');
   await expect
-    .poll(() => page.evaluate(() => window.__openNowScrollLog?.length ?? 0))
-    .toBe(6);
-  const frames = await page.evaluate(() => window.__openNowScrollLog ?? []);
+    .poll(() => page.evaluate(() => window.__openNowScrollLog !== undefined))
+    .toBe(true);
+  const log = await page.evaluate(() => window.__openNowScrollLog);
+  if (log === undefined) throw new Error('no scroll log');
 
   // PREMISE: the drop crossed windows, so a change of window in Chrome is
   // the move having happened.
@@ -1886,7 +1913,8 @@ test('11. after an auto-scrolled drop, the pane stays where the drop left it, an
       {
         before: startTop,
         atRest,
-        releaseAndFrames: frames,
+        releaseAndFramesBeforeReread: log.beforeReread,
+        rereadAt: log.rereadAt,
         afterReread: after?.scrollTop,
         oldBottom,
         rowNow: [rowBox.y, rowBox.y + rowBox.height],
@@ -1899,9 +1927,13 @@ test('11. after an auto-scrolled drop, the pane stays where the drop left it, an
   });
 
   await expectLandedAsPreviewed(page, grab.id, preview);
-  // The scroll never followed the row back to its old place: through the
-  // frames after the drop it stays where the release left it...
-  for (const top of frames)
+  // PREMISE: a frame after the drop's own was read before the re-read.
+  expect(log.beforeReread.length).toBeGreaterThanOrEqual(2);
+  // PREMISE: spaced reads do catch the re-read among them.
+  if (frameGapMs > 0) expect(log.rereadAt).not.toBeNull();
+  // The scroll never followed the row back to its old place: from the
+  // release to the re-read it stays where the release left it...
+  for (const top of log.beforeReread)
     expect(Math.abs(top - atRest)).toBeLessThanOrEqual(1);
   // ...and after the re-read the old place is still off screen above. (The
   // re-read itself may move scrollTop by the row's height: the row left from
@@ -1911,4 +1943,16 @@ test('11. after an auto-scrolled drop, the pane stays where the drop left it, an
   // ...and the row, re-read into its new place, is on screen.
   expect(rowBox.y).toBeGreaterThanOrEqual(pane.top);
   expect(rowBox.y + rowBox.height).toBeLessThanOrEqual(pane.bottom);
-});
+}
+
+test('11. after an auto-scrolled drop, the pane stays where the drop left it, and the moved row is on screen', ({
+  context,
+  extensionId,
+  serviceWorker: worker,
+}) => expectDropKeepsScroll({ context, extensionId, worker }, 0));
+
+test('11b. as 11, with the re-read landing among the frames read (KAN-372)', ({
+  context,
+  extensionId,
+  serviceWorker: worker,
+}) => expectDropKeepsScroll({ context, extensionId, worker }, 25));
