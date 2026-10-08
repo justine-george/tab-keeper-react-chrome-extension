@@ -111,7 +111,8 @@ function isOpenTab(value: unknown): value is OpenTab {
     typeof value.audible === 'boolean' &&
     typeof value.muted === 'boolean' &&
     (value.groupId === null || typeof value.groupId === 'number') &&
-    typeof value.index === 'number'
+    typeof value.index === 'number' &&
+    (value.lastAccessed === undefined || Number.isFinite(value.lastAccessed))
   );
 }
 
