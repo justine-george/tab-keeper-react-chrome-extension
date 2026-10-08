@@ -82,7 +82,12 @@ async function settledWindowWith(
     .toBe(true);
   const first = await read();
   await new Promise((done) => setTimeout(done, 1000));
-  expect(await read()).toEqual(first);
+  // A Tab Keeper page retitles itself once its script runs: that is not the strip changing.
+  const steady = (tabs?: TabFact[]) =>
+    tabs?.map((t) =>
+      t.url.startsWith('chrome-extension://') ? { ...t, title: '' } : t
+    );
+  expect(steady(await read())).toEqual(steady(first));
   if (first === undefined) throw new Error(`no new window holds ${title}`);
   return first;
 }
