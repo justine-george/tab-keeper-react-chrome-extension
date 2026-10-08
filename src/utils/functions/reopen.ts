@@ -36,10 +36,11 @@ export type ClosedItem =
     };
 
 // The snapshot with the window's bounds and state as Chrome reports them
-// now (KAN-280 rule 5, KAN-308; Open now's Save, KAN-476). A move, resize or maximize fires no event
-// Open now re-reads on, so the snapshot can hold the window's old place. Read
-// before the remove: a tab close can take its window with it. A failed read
-// keeps the snapshot's place, and the close still goes ahead.
+// now (KAN-280 rule 5, KAN-308; Open now's Save, KAN-476). A move, resize or
+// maximize fires no event Open now re-reads on, so the snapshot can hold the
+// window's old place. Read before the remove: a tab close can take its window
+// with it. A failed read keeps the snapshot's place, and the close still goes
+// ahead.
 export async function withCurrentPlacement(
   openWindow: OpenWindow
 ): Promise<OpenWindow> {

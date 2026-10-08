@@ -267,9 +267,6 @@ describe('captureOpenWindows against the chrome fake', () => {
     expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([A]);
   });
 
-  // The worst path: a popup is the only thing open. Returning null is the
-  // caller's cue that there is no session to save, so focus mode does not
-  // promise a save it will not make.
   test('stores state only for a maximized or full-screen window (KAN-460)', async () => {
     handle = setupChromeFake({
       windows: [
@@ -309,6 +306,9 @@ describe('captureOpenWindows against the chrome fake', () => {
     expect('state' in byTab.d).toBe(false);
   });
 
+  // The worst path: a popup is the only thing open. Returning null is the
+  // caller's cue that there is no session to save, so focus mode does not
+  // promise a save it will not make.
   test('returns null when only popup windows are open', async () => {
     handle = setupChromeFake({
       windows: [
