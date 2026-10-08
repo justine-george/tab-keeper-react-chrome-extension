@@ -167,29 +167,11 @@ export async function applyTabGroups(
   }
 }
 
-// KAN-460, measured: Chrome resets a new window's state when it reveals it, at its first tab's commit or within this long after.
-export const WINDOW_REVEAL_CAP_MS = 500;
+// KAN-460, measured: Chrome drops a state applied to a window younger than ~300ms, on data and http pages alike; no event marks when it is safe.
+export const WINDOW_SETTLE_MS = 500;
 
-// Resolves on the first of the tab's first 'loading' update or capMs. Never rejects; always unhooks.
-export function windowRevealed(
-  tabId: number | undefined,
-  capMs: number
-): { revealed: Promise<void>; cancel: () => void } {
-  let cancel = () => {};
-  const revealed = new Promise<void>((resolve) => {
-    const onUpdated = (id: number, info: chrome.tabs.OnUpdatedInfo) => {
-      if (id === tabId && info.status === 'loading') cancel();
-    };
-    cancel = () => {
-      clearTimeout(timer);
-      chrome.tabs.onUpdated.removeListener(onUpdated);
-      resolve();
-    };
-    if (tabId !== undefined) chrome.tabs.onUpdated.addListener(onUpdated);
-    const timer = setTimeout(cancel, capMs);
-  });
-  return { revealed, cancel };
-}
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 // Resolves to the created window, or to null once the retries are spent.
 // Returning a promise is the whole point: a callback that has not fired yet
@@ -265,12 +247,10 @@ async function fillRestoredWindow(
   const windowId = newWindow.id;
   if (windowId === undefined) return;
 
+  // Counted from create, so the time spent on tabs and groups counts toward the window's age.
+  const oldEnough =
+    spec.state === undefined ? undefined : wait(WINDOW_SETTLE_MS);
   const targetId = newWindow.tabs?.[0]?.id;
-  // Attached now so the commit cannot be missed while tabs and groups are created.
-  const reveal =
-    spec.state === undefined
-      ? undefined
-      : windowRevealed(targetId, WINDOW_REVEAL_CAP_MS);
   // Pinned before any create so later pinned tabs queue behind it; a refused pin (never seen) would also cost order.
   if (spec.tabs[targetIndex].pinned === true && targetId !== undefined) {
     await pinRestoredTab(targetId);
@@ -306,12 +286,13 @@ async function fillRestoredWindow(
   }
 
   if (spec.state !== undefined) {
-    await reveal?.revealed;
+    await oldEnough;
     await applySavedWindowState(windowId, spec.state);
+    await confirmSavedWindowState(windowId, spec.state);
   }
 }
 
-// Never throws: a refused state leaves the window normal, never fails the restore.
+// Never throws: a refused state costs the state, never the restore.
 async function applySavedWindowState(
   windowId: number,
   state: SavedWindowState
@@ -320,6 +301,21 @@ async function applySavedWindowState(
     await chrome.windows.update(windowId, { state });
   } catch (error) {
     console.warn('Could not restore a window state:', error);
+  }
+}
+
+// Reads the state back once more, and applies it once more if Chrome dropped it anyway (measured: 0 of 48 needed it). Never throws.
+async function confirmSavedWindowState(
+  windowId: number,
+  state: SavedWindowState
+): Promise<void> {
+  await wait(WINDOW_SETTLE_MS);
+  try {
+    if ((await chrome.windows.get(windowId)).state !== state) {
+      await chrome.windows.update(windowId, { state });
+    }
+  } catch (error) {
+    console.warn('Could not confirm a restored window state:', error);
   }
 }
 

@@ -10,7 +10,7 @@ import {
 } from './fixtures/seed';
 import { openPage, POPUP } from './fixtures/onboarding';
 import { stored } from './fixtures/savedWindows';
-import { WINDOW_REVEAL_CAP_MS } from '../src/utils/functions/windows';
+import { WINDOW_SETTLE_MS } from '../src/utils/functions/windows';
 
 // KAN-460 Part 1 on the real artifact: a collapsed group is saved and comes
 // back collapsed; the group holding the tab a window opens on stays open; and
@@ -284,9 +284,9 @@ const windowsNow = (worker: Worker) =>
 const lastFocusedId = (worker: Worker) =>
   worker.evaluate(async () => (await chrome.windows.getLastFocused()).id);
 
-// Past the restore's reveal cap, so a state Chrome is about to reset has been reset.
-const pastRevealCap = () =>
-  new Promise((r) => setTimeout(r, WINDOW_REVEAL_CAP_MS + 250));
+// Long enough after the state shows for the restore's read-back to have run.
+const pastReadBack = () =>
+  new Promise((r) => setTimeout(r, WINDOW_SETTLE_MS + 250));
 
 test.describe('window state (KAN-460 Part 2)', () => {
   test('4. a maximized Window 2 is saved maximized; Switch brings it back maximized and Window 1 keeps focus', async ({
@@ -350,7 +350,7 @@ test.describe('window state (KAN-460 Part 2)', () => {
       (await windowsNow(serviceWorker)).find((w) => w.titles.includes('Max'))
         ?.state ?? null;
     await expect.poll(maxState, { timeout: 15_000 }).toBe('maximized');
-    await pastRevealCap();
+    await pastReadBack();
     expect(await maxState()).toBe('maximized');
 
     const windowOne = (await windowsNow(serviceWorker)).filter(
@@ -417,7 +417,7 @@ test.describe('window state (KAN-460 Part 2)', () => {
     };
     const expected = ['fullscreen', 'maximized', 'normal'];
     await expect.poll(states, { timeout: 15_000 }).toEqual(expected);
-    await pastRevealCap();
+    await pastReadBack();
     expect(await states()).toEqual(expected);
 
     const windowOne = (await fresh()).find((w) => w.titles.includes('FS'));
