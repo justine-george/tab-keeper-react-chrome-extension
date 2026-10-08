@@ -20,9 +20,13 @@ import type { IconName } from '../../common/iconNames';
 import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
+import { useRecentTabs } from '../../../hooks/useRecentTabs';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { formatOpenNowCounts } from '../../../utils/functions/local';
-import { thisWindowFirst } from '../../../utils/functions/openNow';
+import {
+  lastUsedTabId,
+  thisWindowFirst,
+} from '../../../utils/functions/openNow';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 import type { MovedTabs } from '../../../utils/functions/openNowMoves';
 import {
@@ -161,6 +165,13 @@ export default function OpenNowPane({
   // Chrome's. Memoized: the drop tables are rebuilt when it changes.
   const listed = useMemo(() => thisWindowFirst(inChromeOrder), [inChromeOrder]);
   const tabCount = listed.reduce((sum, w) => sum + w.tabs.length, 0);
+  // KAN-475. This window's active tab is this page, which is not listed; the
+  // tab it came from wears the active mark instead.
+  const thisWindow = listed.find((w) => w.isThisWindow);
+  const thisWindowRecent = useRecentTabs(thisWindow?.id ?? null);
+  const thisWindowLastUsed = thisWindow
+    ? lastUsedTabId(thisWindow, thisWindowRecent)
+    : null;
 
   const searchTerm = searchTermOf(searchText);
   // A save lands in the saved list, so it waits for that list's search.
@@ -629,6 +640,9 @@ export default function OpenNowPane({
                       key={openWindow.id}
                       openWindow={openWindow}
                       number={inChromeOrder.indexOf(openWindow) + 1}
+                      lastUsedTabId={
+                        openWindow.isThisWindow ? thisWindowLastUsed : null
+                      }
                       matchedTabIds={matchedTabIds}
                       isOpen={!foldedIds.has(openWindow.id)}
                       onToggle={() => toggleWindow(openWindow.id)}

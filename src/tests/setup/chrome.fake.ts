@@ -304,6 +304,15 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   const sessionArea = new Map<string, unknown>(
     Object.entries(seed.sessionArea ?? {})
   );
+  // KAN-475. After a write, the keys whose value changed, as Chrome reports them.
+  const sessionOnChanged =
+    registry<(changes: Record<string, chrome.storage.StorageChange>) => void>();
+  const reportSessionChanges = (
+    changes: Record<string, chrome.storage.StorageChange>
+  ) => {
+    if (Object.keys(changes).length === 0) return;
+    void Promise.resolve().then(() => sessionOnChanged.fire(changes));
+  };
   let isOnToolbar = seed.action?.isOnToolbar ?? false;
   const userSettingsListeners = new Set<
     (change: chrome.action.UserSettingsChange) => void
@@ -1712,17 +1721,30 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           );
         },
         set: (items: Record<string, unknown>) => {
+          const changes: Record<string, chrome.storage.StorageChange> = {};
           for (const [key, value] of Object.entries(items)) {
+            const had = sessionArea.has(key);
+            const old = sessionArea.get(key);
             sessionArea.set(key, value);
+            if (had && JSON.stringify(old) === JSON.stringify(value)) continue;
+            changes[key] = had
+              ? { oldValue: old, newValue: value }
+              : { newValue: value };
           }
+          reportSessionChanges(changes);
           return Promise.resolve();
         },
         remove: (keys: string | string[]) => {
+          const changes: Record<string, chrome.storage.StorageChange> = {};
           for (const key of Array.isArray(keys) ? keys : [keys]) {
+            if (!sessionArea.has(key)) continue;
+            changes[key] = { oldValue: sessionArea.get(key) };
             sessionArea.delete(key);
           }
+          reportSessionChanges(changes);
           return Promise.resolve();
         },
+        onChanged: sessionOnChanged,
       },
     },
 
