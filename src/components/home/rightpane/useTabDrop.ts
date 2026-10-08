@@ -726,7 +726,6 @@ export function useTabDrop(
             toIndex: collapsedTabIndex(
               windows.find((w) => w.windowId === described.toWindowId)?.tabs ??
                 [],
-              held.tabId,
               isTabPinnedIn(tabContainerDataState.tabGroups, held)
             ),
           }

@@ -11,6 +11,8 @@ import {
   foldBackSpringOpened,
   springOpenWindow,
 } from '../../redux/springOpenWindows';
+import { endCarry, startCarry } from '../../redux/carry';
+import { carriedRowId } from '../../utils/functions/carriedView';
 import {
   saveToTabContainerInternal,
   type chromeTabGroupData,
@@ -93,6 +95,7 @@ function setup(collapseWB: boolean) {
       )
       ?.tabs.find((t) => t.tabId === tabId)?.chromeGroupId;
   return {
+    store,
     wrapper,
     wB,
     groupOf,
@@ -102,6 +105,7 @@ function setup(collapseWB: boolean) {
 
 afterEach(() => {
   act(() => foldBackSpringOpened());
+  endCarry('cancelled');
 });
 
 describe('a drop on a collapsed window keeps the pin (KAN-458)', () => {
@@ -177,6 +181,55 @@ describe('a drop on a collapsed window keeps the pin (KAN-458)', () => {
       ['b1', false],
       ['b2', false],
     ]);
+  });
+
+  // A carried tab keeps its id until it lands, so it can share one with a tab of the target.
+  test('a carried tab sharing an id with a pinned tab there lands after the pinned run', () => {
+    const { store, wrapper, wB } = setup(true);
+    store.dispatch(
+      saveToTabContainerInternal({
+        tabGroupId: 'src',
+        title: 'Source',
+        createdTime: '2026-10-07 08:00:00',
+        windowCount: 1,
+        tabCount: 1,
+        isAutoSave: false,
+        isSelected: false,
+        windows: [win('ws', [tab('pB'), tab('s2')])],
+      })
+    );
+    const carried = {
+      kind: 'tab' as const,
+      tabGroupId: 'src',
+      windowId: 'ws',
+      tabId: 'pB',
+    };
+    // The phantom row the pane draws for the carried tab, in wA.
+    const phantom = carriedRowId(carried);
+    const paneWindows = {
+      tabGroupId: 'tg',
+      windows: [
+        { ...WINDOWS[0], tabs: [...WINDOWS[0].tabs, tab(phantom)] },
+        WINDOWS[1],
+      ],
+    };
+    const { result } = renderHook(() => useTabDrop(paneWindows, true), {
+      wrapper,
+    });
+    act(() =>
+      startCarry(carried, { kind: 'tab', title: 'pB', faviconUrl: '' }, 0, 0)
+    );
+    act(() => result.current.onMove(phantom, 0, undefined, 'wB'));
+    const landed = wB();
+    expect(landed?.map(([, pinned]) => pinned)).toEqual([
+      true,
+      false,
+      false,
+      false,
+    ]);
+    expect(landed?.[0][0]).toBe('pB');
+    // PREMISE: the carried tab landed, re-minted.
+    expect(landed?.[1][0]).not.toBe('b1');
   });
 
   test('a group lands right after the pinned run, not refused', () => {

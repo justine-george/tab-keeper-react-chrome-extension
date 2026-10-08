@@ -61,14 +61,12 @@ export function groupLandingRange(
 }
 
 // A window drawn with no rows gives position no meaning, so a drop there keeps the pin, at the start of its own run.
+// The held tab is never counted: it cannot be picked up from such a window, and a carried one is not in it, whatever its id.
 export function collapsedTabIndex(
-  targetTabs: readonly Pick<tabData, 'tabId' | 'pinned'>[],
-  tabId: string,
+  targetTabs: readonly Pinnable[],
   heldPinned: boolean
 ): number {
-  return heldPinned
-    ? 0
-    : pinnedRunLength(targetTabs.filter((tab) => tab.tabId !== tabId));
+  return heldPinned ? 0 : pinnedRunLength(targetTabs);
 }
 
 export function isTabPinnedIn(

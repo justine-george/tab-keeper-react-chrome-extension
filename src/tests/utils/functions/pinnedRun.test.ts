@@ -137,29 +137,29 @@ describe('collapsedTabIndex (edge ruling: a collapsed window keeps the pin)', ()
   const target = [p('a'), p('b'), t('c')];
 
   test('a pinned tab: index 0', () => {
-    expect(collapsedTabIndex(target, 'x', true)).toBe(0);
+    expect(collapsedTabIndex(target, true)).toBe(0);
   });
 
   test('an unpinned tab: right after the pinned run', () => {
-    expect(collapsedTabIndex(target, 'x', false)).toBe(2);
+    expect(collapsedTabIndex(target, false)).toBe(2);
   });
 
   test('a window with no pinned tabs: index 0 either way', () => {
-    expect(collapsedTabIndex([t('c')], 'x', false)).toBe(0);
-    expect(collapsedTabIndex([t('c')], 'x', true)).toBe(0);
+    expect(collapsedTabIndex([t('c')], false)).toBe(0);
+    expect(collapsedTabIndex([t('c')], true)).toBe(0);
   });
 
-  test('the held tab is not counted in its own window', () => {
-    expect(collapsedTabIndex([p('x'), p('a'), t('c')], 'x', false)).toBe(1);
+  test('a tab of any id there is counted: a carried tab may share one until it is re-minted', () => {
+    expect(collapsedTabIndex([p('x'), p('a'), t('c')], false)).toBe(2);
   });
 
   test('at the index it gives, isPinnedSlot keeps the pin', () => {
-    expect(
-      isPinnedSlot(target, collapsedTabIndex(target, 'x', true), true)
-    ).toBe(true);
-    expect(
-      isPinnedSlot(target, collapsedTabIndex(target, 'x', false), false)
-    ).toBe(false);
+    expect(isPinnedSlot(target, collapsedTabIndex(target, true), true)).toBe(
+      true
+    );
+    expect(isPinnedSlot(target, collapsedTabIndex(target, false), false)).toBe(
+      false
+    );
   });
 });
 
