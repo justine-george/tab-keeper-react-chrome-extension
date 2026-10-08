@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
+  applyTabGroups,
   createWindowWithRetries,
   isRestoreSessionRequest,
   planWindowClosure,
@@ -217,6 +218,99 @@ describe('createWindowWithRetries with tab groups', () => {
     expect(groups[0].color).toBe('grey');
   });
 
+  // KAN-460. Read back from Chrome, not from the calls: the fake models Chrome's own collapse rules.
+  const collapsedByTitle = async () =>
+    Object.fromEntries(
+      (await chrome.tabGroups.query({})).map((g) => [g.title, g.collapsed])
+    );
+
+  test('a group saved collapsed comes back collapsed; an open one open (KAN-460)', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+
+    await createWindowWithRetries(
+      spec({
+        tabs: [
+          { ...tab('https://a.test'), tabId: 't1' },
+          { ...tab('https://b.test'), tabId: 't2', chromeGroupId: 'g1' },
+          { ...tab('https://c.test'), tabId: 't3', chromeGroupId: 'g2' },
+        ],
+        groups: [
+          { groupId: 'g1', title: 'Folded', color: 'blue', collapsed: true },
+          { groupId: 'g2', title: 'Open', color: 'red' },
+        ],
+      }),
+      'Go',
+      2
+    );
+
+    expect(await collapsedByTitle()).toEqual({ Folded: true, Open: false });
+  });
+
+  test('the group holding the opening tab stays open, and that tab stays active (KAN-460)', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+
+    const created = await createWindowWithRetries(
+      spec({
+        tabs: [
+          { ...tab('https://a.test'), tabId: 't1' },
+          { ...tab('https://b.test'), tabId: 't2', chromeGroupId: 'g1' },
+        ],
+        groups: [
+          {
+            groupId: 'g1',
+            title: 'Holds active',
+            color: 'blue',
+            collapsed: true,
+          },
+        ],
+        activeTabId: 't2',
+      }),
+      'Go',
+      2
+    );
+
+    expect(await collapsedByTitle()).toEqual({ 'Holds active': false });
+    const [active] = await chrome.tabs.query({
+      windowId: created!.id,
+      active: true,
+    });
+    expect(active.url).toBe('https://b.test');
+  });
+
+  test('a refused collapse keeps title and colour, and the restore resolves (KAN-460)', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    const real = chrome.tabGroups.update.bind(chrome.tabGroups);
+    const groups = chrome.tabGroups as unknown as {
+      update: typeof chrome.tabGroups.update;
+    };
+    groups.update = ((id: number, props: chrome.tabGroups.UpdateProperties) =>
+      props.collapsed === true
+        ? Promise.reject(new Error('refused'))
+        : real(id, props)) as typeof chrome.tabGroups.update;
+
+    const created = await createWindowWithRetries(
+      spec({
+        tabs: [
+          { ...tab('https://a.test'), tabId: 't1' },
+          { ...tab('https://b.test'), tabId: 't2', chromeGroupId: 'g1' },
+        ],
+        groups: [
+          { groupId: 'g1', title: 'Work', color: 'blue', collapsed: true },
+        ],
+      }),
+      'Go',
+      2
+    );
+
+    expect(created).not.toBeNull();
+    const [only] = await chrome.tabGroups.query({});
+    expect(only).toMatchObject({
+      title: 'Work',
+      color: 'blue',
+      collapsed: false,
+    });
+  });
+
   test('does no grouping at all when the permission is absent', async () => {
     handle = setupChromeFake();
     delete (globalThis as { chrome?: { tabGroups?: unknown } }).chrome!
@@ -225,7 +319,9 @@ describe('createWindowWithRetries with tab groups', () => {
     await createWindowWithRetries(
       spec({
         tabs: [{ ...tab('https://a.test'), tabId: 't1', chromeGroupId: 'g1' }],
-        groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
+        groups: [
+          { groupId: 'g1', title: 'Work', color: 'blue', collapsed: true },
+        ],
       }),
       'Go',
       2
@@ -632,5 +728,29 @@ describe('restore opens on the saved active tab, pinned tabs pinned (KAN-458)', 
     handle = setupChromeFake({ refusedUrls: [live('a1')] });
     expect(await restore([page('a1'), page('b2')], 'a1')).toBeNull();
     expect(await chrome.windows.getAll({})).toEqual([]);
+  });
+});
+
+// KAN-460 D5. A band's Open (WindowEntryContainer) calls applyTabGroups with no rule: the group it opened is shown, never collapsed.
+describe('applyTabGroups with the default rule', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+  });
+
+  test('collapses nothing, even a group saved collapsed', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    const win = await chrome.windows.create({ url: 'https://a.test/' });
+    const tabId = win!.tabs![0].id!;
+
+    await applyTabGroups(
+      win!.id!,
+      [{ groupId: 'g1', title: 'Band', color: 'blue', collapsed: true }],
+      new Map([['g1', [tabId]]])
+    );
+
+    const [only] = await chrome.tabGroups.query({});
+    expect(only).toMatchObject({ title: 'Band', collapsed: false });
   });
 });
