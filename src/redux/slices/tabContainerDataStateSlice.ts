@@ -1161,7 +1161,8 @@ function sameChromeTabGroups(
       (group, i) =>
         group.groupId === right[i].groupId &&
         group.title === right[i].title &&
-        group.color === right[i].color
+        group.color === right[i].color &&
+        group.collapsed === right[i].collapsed
     )
   );
 }

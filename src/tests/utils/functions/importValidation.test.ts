@@ -166,3 +166,61 @@ describe('isValidTabMasterContainer with pinned and active tabs (KAN-458)', () =
     );
   });
 });
+
+// KAN-460 D6. A group's `collapsed` is true or absent, never false.
+describe("a saved group's collapsed field (KAN-460)", () => {
+  const withGroup = (group: Record<string, unknown>) => ({
+    lastModified: 1,
+    selectedTabGroupId: null,
+    tabGroups: [
+      {
+        tabGroupId: 's',
+        title: 'S',
+        createdTime: '2026-10-08 10:00:00',
+        windowCount: 1,
+        tabCount: 1,
+        isAutoSave: false,
+        isSelected: false,
+        windows: [
+          {
+            windowId: 'w',
+            windowHeight: 800,
+            windowWidth: 1200,
+            windowOffsetTop: 0,
+            windowOffsetLeft: 0,
+            tabCount: 1,
+            title: '',
+            tabs: [
+              {
+                tabId: 't',
+                favicon: '',
+                title: 't',
+                url: 'https://t.test/',
+                chromeGroupId: 'g',
+              },
+            ],
+            chromeTabGroups: [
+              { groupId: 'g', title: 'G', color: 'blue', ...group },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  test('absent and true are valid', () => {
+    expect(isValidTabMasterContainer(withGroup({}))).toBe(true);
+    expect(isValidTabMasterContainer(withGroup({ collapsed: true }))).toBe(
+      true
+    );
+  });
+
+  test('false and a non-boolean are not', () => {
+    expect(isValidTabMasterContainer(withGroup({ collapsed: false }))).toBe(
+      false
+    );
+    expect(isValidTabMasterContainer(withGroup({ collapsed: 'yes' }))).toBe(
+      false
+    );
+  });
+});
