@@ -1,4 +1,4 @@
-import { isTabKeeperPage } from './capture';
+import { isTabKeeperPage, pickActiveTabIndex } from './capture';
 import { sanitizeTabGroupColor } from './tabGroups';
 import type { TabGroupColor } from './tabGroups';
 
@@ -165,6 +165,18 @@ export function thisWindowFirst(windows: readonly OpenWindow[]): OpenWindow[] {
   return self
     ? [self, ...windows.filter((window) => window !== self)]
     : [...windows];
+}
+
+// KAN-475. When a window's active tab is a Tab Keeper page (unlisted), the
+// tab Save would store as active (KAN-458's rule); null when a listed tab is
+// active or none can be picked.
+export function lastUsedTabId(
+  window: OpenWindow,
+  recentTabIds: readonly number[]
+): number | null {
+  if (window.tabs.some((tab) => tab.active)) return null;
+  const index = pickActiveTabIndex(window.tabs, recentTabIds);
+  return index === undefined ? null : window.tabs[index].id;
 }
 
 // Activates a tab and brings its window to the front -- the Open now pane's

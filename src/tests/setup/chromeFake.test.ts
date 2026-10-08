@@ -4670,3 +4670,38 @@ describe('moves Chrome measured for Open now drag (KAN-280 Part E)', () => {
     });
   });
 });
+
+// KAN-475. Open now follows the worker's record of activated tabs live, as
+// Chrome reports a session-area change: after the write, only keys whose
+// value changed.
+describe('chrome.storage.session.onChanged (KAN-475)', () => {
+  test('a set reports each changed key, old and new; an unchanged one is left out', async () => {
+    handle = setupChromeFake({ sessionArea: { kept: 1, moved: [1] } });
+    const seen: Record<string, chrome.storage.StorageChange>[] = [];
+    chrome.storage.session.onChanged.addListener((changes) =>
+      seen.push(changes)
+    );
+    await chrome.storage.session.set({ kept: 1, moved: [2, 1], added: 'x' });
+    await vi.waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen[0]).toEqual({
+      moved: { oldValue: [1], newValue: [2, 1] },
+      added: { newValue: 'x' },
+    });
+  });
+
+  test('a remove reports the old value; a set that changes nothing reports nothing', async () => {
+    handle = setupChromeFake({ sessionArea: { gone: [3] } });
+    const seen: Record<string, chrome.storage.StorageChange>[] = [];
+    const listener = (changes: Record<string, chrome.storage.StorageChange>) =>
+      seen.push(changes);
+    chrome.storage.session.onChanged.addListener(listener);
+    await chrome.storage.session.set({ gone: [3] });
+    await chrome.storage.session.remove('gone');
+    await vi.waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen[0]).toEqual({ gone: { oldValue: [3] } });
+    chrome.storage.session.onChanged.removeListener(listener);
+    await chrome.storage.session.set({ gone: [4] });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(seen).toHaveLength(1);
+  });
+});

@@ -95,6 +95,9 @@ interface OpenNowWindowProps {
   openWindow: OpenWindow;
   // "Window N": its place in Chrome's order, not where it is drawn (KAN-472).
   number: number;
+  // KAN-475. A tab drawn with the active mark though not active: the one This
+  // window came from. Null for every other window.
+  lastUsedTabId: number | null;
   // KAN-330 O14a. The ids of this window's tabs a search matches, or null
   // when no search is held and every tab is drawn. The window itself stays
   // whole: a tab's click and close still act on the real tab. The window's own
@@ -114,6 +117,7 @@ interface OpenNowWindowProps {
 export default function OpenNowWindow({
   openWindow,
   number,
+  lastUsedTabId,
   matchedTabIds,
   isOpen,
   onToggle,
@@ -391,17 +395,21 @@ export default function OpenNowWindow({
         ? t('Audio playing')
         : null;
     const soundId = `open-now-sound-${tab.id}`;
-    // KAN-280 O11c: "Pinned", then the sound. Two ids, so each phrase stays
-    // the locale's own and the browser joins them (no joiner, KAN-307).
+    // "Last used tab" (KAN-475), "Pinned" (O11c), then the sound. One id
+    // each, so each phrase stays the locale's own and the browser joins them
+    // (no joiner, KAN-307).
     const pinnedId = `open-now-pinned-${tab.id}`;
+    const isLastUsed = tab.id === lastUsedTabId;
+    const lastUsedId = `open-now-last-used-${tab.id}`;
     const describedBy = [
+      ...(isLastUsed ? [lastUsedId] : []),
       ...(tab.pinned ? [pinnedId] : []),
       ...(sound === null ? [] : [soundId]),
     ].join(' ');
     return (
       <div
         key={tab.id}
-        css={childrenStyle(tab.active)}
+        css={childrenStyle(tab.active || isLastUsed)}
         data-open-tab-id={tab.id}
         data-pinned-boundary={tab.id === pinnedBoundaryTabId ? '' : undefined}
         onMouseEnter={() => setHoveredTabId(tab.id)}
@@ -454,6 +462,11 @@ export default function OpenNowWindow({
             </span>
           )}
         </ClickableRow>
+        {isLastUsed && (
+          <span id={lastUsedId} css={descriptionStyle}>
+            {t('Last used tab')}
+          </span>
+        )}
         {tab.pinned && (
           <span id={pinnedId} css={descriptionStyle}>
             {t('Pinned')}
