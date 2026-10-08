@@ -97,8 +97,7 @@ export function restoreTargetIndex(
 // the group it opened), or each saved one except the group holding the tab the
 // window opens on -- Chrome does not keep the active tab's group collapsed.
 export type CollapseRule =
-  | { kind: 'none' }
-  | { kind: 'saved'; openTabId: number | undefined };
+  { kind: 'none' } | { kind: 'saved'; openTabId: number | undefined };
 
 const collapses = (
   rule: CollapseRule,

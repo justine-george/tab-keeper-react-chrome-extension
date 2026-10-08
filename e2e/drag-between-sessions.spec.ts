@@ -320,8 +320,9 @@ const setDetailScroll = (page: Page, top: number) =>
 // The session list's scrolling box.
 const listBox = (page: Page): Promise<PaneBox> =>
   page.evaluate(() => {
-    let el = document.querySelector('[data-pane="sessions"] [data-drag-row-id]')
-      ?.parentElement;
+    let el = document.querySelector(
+      '[data-pane="sessions"] [data-drag-row-id]'
+    )?.parentElement;
     while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
       el = el.parentElement;
     if (!el) throw new Error('no session list');
@@ -337,8 +338,9 @@ const listBox = (page: Page): Promise<PaneBox> =>
 
 const setListScroll = (page: Page, top: number) =>
   page.evaluate((top) => {
-    let el = document.querySelector('[data-pane="sessions"] [data-drag-row-id]')
-      ?.parentElement;
+    let el = document.querySelector(
+      '[data-pane="sessions"] [data-drag-row-id]'
+    )?.parentElement;
     while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
       el = el.parentElement;
     if (!el) throw new Error('no session list');
@@ -1897,11 +1899,8 @@ test.describe('Review Focus 3: a long list, a long session', () => {
     await page.mouse.up();
 
     await expect
-      .poll(
-        async () =>
-          sessionOf(await stored(page), 'S1').windows[0]?.tabs.map(
-            (t) => t.tabId
-          )
+      .poll(async () =>
+        sessionOf(await stored(page), 'S1').windows[0]?.tabs.map((t) => t.tabId)
       )
       .toEqual([tabId]);
     // No Moved toast (Q3 A): the drop has to be seen where it lands.
@@ -3992,11 +3991,10 @@ test.describe('the toolbar target makes a new first window (KAN-361)', () => {
 
       // Let go there: a new first window of the session on screen.
       await expect
-        .poll(
-          async () =>
-            sessionOf(await stored(page), sc.shown).windows[0]?.tabs.map(
-              (t) => t.tabId
-            )
+        .poll(async () =>
+          sessionOf(await stored(page), sc.shown).windows[0]?.tabs.map(
+            (t) => t.tabId
+          )
         )
         .toEqual([tabId]);
     });
@@ -4454,11 +4452,10 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     expect(rgbToHex(blank?.fill ?? '')).not.toBe(LIGHT_THEME.HOVER_COLOR);
     // Lit, as a landing in it would light it: the header target's look.
     const header = await newWindowBox(page, 'first');
-    await page.evaluate(
-      () =>
-        document
-          .querySelector('[data-new-window-target="last"]')
-          ?.setAttribute('data-landing', '')
+    await page.evaluate(() =>
+      document
+        .querySelector('[data-new-window-target="last"]')
+        ?.setAttribute('data-landing', '')
     );
     const lit = await newWindowBox(page, 'last');
     expect(rgbToHex(lit?.fill ?? '')).toBe(LIGHT_THEME.HOVER_COLOR);

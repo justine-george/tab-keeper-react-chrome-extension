@@ -79,8 +79,9 @@ test('the save group is exactly as tall as the name box', async ({
   const edges = await page.evaluate((label: string) => {
     const box = document.querySelector('input#name');
     // The group is the save button's bordered parent.
-    const group = document.querySelector(`button[aria-label="${label}"]`)
-      ?.parentElement;
+    const group = document.querySelector(
+      `button[aria-label="${label}"]`
+    )?.parentElement;
     if (!box || !group) return null;
     const a = box.getBoundingClientRect();
     const b = group.getBoundingClientRect();

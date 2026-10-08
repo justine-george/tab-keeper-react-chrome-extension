@@ -202,9 +202,9 @@ export default function ExportEditor({
           t('Rename tab'),
           css`
             font-size: 14px;
-            color: ${/^https?:\/\//i.test(tab.url)
-              ? palette.link
-              : palette.plain};
+            color: ${
+              /^https?:\/\//i.test(tab.url) ? palette.link : palette.plain
+            };
           `
         )}
         <span

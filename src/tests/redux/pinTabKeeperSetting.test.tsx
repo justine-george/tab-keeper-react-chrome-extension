@@ -68,9 +68,8 @@ describe('another page writing it', () => {
   const hydrate = async (written: Record<string, unknown>) => {
     vi.resetModules();
     const { makeTestStore } = await import('../setup/makeStore');
-    const { applyOtherPageSettings } = await import(
-      '../../redux/otherPageChanges'
-    );
+    const { applyOtherPageSettings } =
+      await import('../../redux/otherPageChanges');
     const { store } = makeTestStore();
     localStorage.setItem(
       'settingsData',
@@ -87,12 +86,10 @@ describe('another page writing it', () => {
   it('writing settings without it, while this page is On, keeps On', async () => {
     vi.resetModules();
     const { makeTestStore } = await import('../setup/makeStore');
-    const { applyOtherPageSettings } = await import(
-      '../../redux/otherPageChanges'
-    );
-    const { setPinTabKeeperInNewWindows } = await import(
-      '../../redux/slices/settingsDataStateSlice'
-    );
+    const { applyOtherPageSettings } =
+      await import('../../redux/otherPageChanges');
+    const { setPinTabKeeperInNewWindows } =
+      await import('../../redux/slices/settingsDataStateSlice');
     const { store } = makeTestStore();
     store.dispatch(setPinTabKeeperInNewWindows(true));
     const older = Object.fromEntries(

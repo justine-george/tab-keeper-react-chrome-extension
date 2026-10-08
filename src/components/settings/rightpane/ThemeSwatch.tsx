@@ -88,9 +88,9 @@ export default function ThemeSwatch({
     background-color: ${palette.PRIMARY_COLOR};
     border: 1px solid ${PAGE.BORDER_COLOR};
     transition: border-color ${DURATION.COLOR};
-    ${isActive
-      ? `border-color: ${PAGE.LABEL_L3_COLOR}; border-width: 2px;`
-      : ''}
+    ${
+      isActive ? `border-color: ${PAGE.LABEL_L3_COLOR}; border-width: 2px;` : ''
+    }
     /* The frame answers the pointer. Named properties, never the all
        keyword; and only the colour moves, so the box never does. */
     button:hover > & {

@@ -241,8 +241,7 @@ async function joinAcross(
 // without the tabGroups grant (Task 6a Q3), and hidden Tab Keeper pages are
 // in the strip, so a run they start or end is seen whole.
 type RunAround =
-  | { inside: false }
-  | { inside: true; groupId: number; start: number };
+  { inside: false } | { inside: true; groupId: number; start: number };
 
 const NOT_INSIDE: RunAround = { inside: false };
 

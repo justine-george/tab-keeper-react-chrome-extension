@@ -39,8 +39,8 @@ const strings = en as Record<string, string>;
 
 describe('Save and Add are different verbs', () => {
   test('no add-operation string calls itself a save', () => {
-    const offenders = ADD_OPERATIONS.filter(
-      (key) => strings[key]?.toLowerCase().includes('save')
+    const offenders = ADD_OPERATIONS.filter((key) =>
+      strings[key]?.toLowerCase().includes('save')
     ).map((key) => `${key} -> ${strings[key]}`);
 
     expect(offenders).toEqual([]);

@@ -808,7 +808,7 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
         const paneEl = el.closest('[data-pane]');
         return paneEl === null
           ? 'outside the panes'
-          : paneEl.getAttribute('data-pane') ?? 'unnamed pane';
+          : (paneEl.getAttribute('data-pane') ?? 'unnamed pane');
       });
     // PREMISE: the saved detail has a control to start from.
     expect(await focusLastIn('detail')).not.toBeNull();

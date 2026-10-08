@@ -1132,23 +1132,19 @@ test.describe('The Reopen toast is as wide as its line (KAN-280 O8b)', () => {
   }
   const widestLines: WidestLine[] = [
     ...['ru', 'de', 'ja'].flatMap((lang) =>
-      (['mac', 'win'] as const).map(
-        (os): WidestLine => ({
-          name: `11. ${lang}, ${os}: "Window closed (5 tabs)" shows whole, in a toast 300px to 30rem wide`,
-          lang,
-          os,
-          rootPx: null,
-        })
-      )
-    ),
-    ...['de', 'ru', 'ja'].map(
-      (lang): WidestLine => ({
-        name: `11b. ${lang}, win, font size Large (a 20px root): "Window closed (5 tabs)" shows whole, in a toast at most 30rem wide`,
+      (['mac', 'win'] as const).map((os): WidestLine => ({
+        name: `11. ${lang}, ${os}: "Window closed (5 tabs)" shows whole, in a toast 300px to 30rem wide`,
         lang,
-        os: 'win',
-        rootPx: 20,
-      })
+        os,
+        rootPx: null,
+      }))
     ),
+    ...['de', 'ru', 'ja'].map((lang): WidestLine => ({
+      name: `11b. ${lang}, win, font size Large (a 20px root): "Window closed (5 tabs)" shows whole, in a toast at most 30rem wide`,
+      lang,
+      os: 'win',
+      rootPx: 20,
+    })),
   ];
   for (const { name, lang, os, rootPx } of widestLines) {
     test(name, async ({ context, extensionId, serviceWorker }) => {

@@ -317,9 +317,11 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
                    of ring into the 6px gap leaves 2px of clearance, so it does
                    not touch its neighbours -- the reason an earlier ring in
                    Settings was rejected. */
-                box-shadow: ${swatch === current
-                  ? `0 0 0 2px ${COLORS.PRIMARY_COLOR}, 0 0 0 4px ${COLORS.LABEL_L3_COLOR}`
-                  : 'none'};
+                box-shadow: ${
+                  swatch === current
+                    ? `0 0 0 2px ${COLORS.PRIMARY_COLOR}, 0 0 0 4px ${COLORS.LABEL_L3_COLOR}`
+                    : 'none'
+                };
               `}
             />
           ))}

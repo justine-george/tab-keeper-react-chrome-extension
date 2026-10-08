@@ -122,7 +122,7 @@ export function notTheOpen(entries: readonly string[]): string[] {
       entry
     )?.[1];
   const made = new Set(
-    entries.flatMap((e) => (e.startsWith('created ') ? idOf(e) ?? [] : []))
+    entries.flatMap((e) => (e.startsWith('created ') ? (idOf(e) ?? []) : []))
   );
   return entries.filter((entry) => {
     if (/^window created \d+$/.test(entry)) return false;

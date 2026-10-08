@@ -48,12 +48,7 @@ import { dialogButtonStyles } from './dialogButtons';
 
 const TITLE_ID = 'setup-title';
 type Step =
-  | 'theme'
-  | 'language'
-  | 'defaultView'
-  | 'shortcut'
-  | 'tabGroups'
-  | 'sync';
+  'theme' | 'language' | 'defaultView' | 'shortcut' | 'tabGroups' | 'sync';
 const FIRST_STEPS: readonly Step[] = [
   'theme',
   'language',

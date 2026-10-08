@@ -144,8 +144,7 @@ export type GroupRun<T extends GroupableTab = tabData> = Extract<
 
 // A top-level row of a window: a loose tab, or a whole group.
 export type TabItem<T extends GroupableTab = tabData> =
-  | { kind: 'tab'; tab: T }
-  | GroupRun<T>;
+  { kind: 'tab'; tab: T } | GroupRun<T>;
 
 // The rows a window draws at the top level, in order (KAN-160): each loose tab
 // on its own, each group as one item holding its tabs.

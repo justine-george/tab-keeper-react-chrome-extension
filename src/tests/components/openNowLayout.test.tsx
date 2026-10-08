@@ -253,12 +253,10 @@ describe('the peek (O5)', () => {
 
     vi.resetModules();
     const fresh = await import('../setup/renderWithProviders');
-    const { default: FreshMainContainer } = await import(
-      '../../components/MainContainer'
-    );
-    const tabSlice = await import(
-      '../../redux/slices/tabContainerDataStateSlice'
-    );
+    const { default: FreshMainContainer } =
+      await import('../../components/MainContainer');
+    const tabSlice =
+      await import('../../redux/slices/tabContainerDataStateSlice');
     await fresh.renderWithProviders(<FreshMainContainer />, {
       seedStore: (store) => {
         store.dispatch(tabSlice.saveToTabContainerInternal(first()));

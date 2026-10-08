@@ -2043,8 +2043,8 @@ describe('chrome.sessions (KAN-280 Part D)', () => {
       expect(handle.restoredFromSession(11)).toBe(false);
       expect(handle.restoredFromSession(restoredTab.tab?.id ?? -1)).toBe(true);
       expect(
-        (restoredWindow.window?.tabs ?? []).map(
-          (t) => handle?.restoredFromSession(t.id ?? -1)
+        (restoredWindow.window?.tabs ?? []).map((t) =>
+          handle?.restoredFromSession(t.id ?? -1)
         )
       ).toEqual([true, true]);
     });

@@ -141,8 +141,7 @@ describe('undoing a create survives the next sync (KAN-80)', () => {
 
     const calls = mocks.saveToFirestore.mock.calls;
     const written = calls[calls.length - 1]?.[1] as
-      | { deletedTabGroups?: { tabGroupId: string }[] }
-      | undefined;
+      { deletedTabGroups?: { tabGroupId: string }[] } | undefined;
     expect(written?.deletedTabGroups?.map((g) => g.tabGroupId)).toContain(
       'created-here'
     );

@@ -2279,7 +2279,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const urls =
           typeof data.url === 'string'
             ? [data.url]
-            : data.url ?? ['chrome://newtab/'];
+            : (data.url ?? ['chrome://newtab/']);
         const refused = urls.find((url) =>
           (seed.refusedUrls ?? []).includes(url)
         );

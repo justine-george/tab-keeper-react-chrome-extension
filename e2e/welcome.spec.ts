@@ -212,7 +212,7 @@ async function watchAnimations(
     const animate = Element.prototype.animate;
     Element.prototype.animate = function (this: Element, keyframes, options) {
       const timing =
-        typeof options === 'number' ? { duration: options } : options ?? {};
+        typeof options === 'number' ? { duration: options } : (options ?? {});
       seen.push({
         target:
           this.getAttribute('data-hero-part') ??

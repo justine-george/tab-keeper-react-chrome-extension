@@ -215,7 +215,9 @@ export default function SlidingPair<T extends string>({
           onKnob
             ? `font-variation-settings: 'FILL' 1;
                rotate: ${
-                 option.value === value ? option.pressedTurn ?? '0deg' : '0deg'
+                 option.value === value
+                   ? (option.pressedTurn ?? '0deg')
+                   : '0deg'
                };
                ${moving ? `transition: rotate ${metrics.slide};` : ''}
                @media (prefers-reduced-motion: reduce) { transition: none; }`

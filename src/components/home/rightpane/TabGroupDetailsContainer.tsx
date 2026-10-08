@@ -258,8 +258,9 @@ export default function TabGroupDetailsContainer() {
 
   // As drawn (D1), but a search must not renumber: it counts the stored session.
   const numberedFrom = isSearching
-    ? tabContainerDataList.tabGroups.find((g) => g.tabGroupId === tabGroupId) ??
-      shownSession
+    ? (tabContainerDataList.tabGroups.find(
+        (g) => g.tabGroupId === tabGroupId
+      ) ?? shownSession)
     : shownSession;
   const leaveOut = new Set([NEW_LAST_WINDOW]);
   const windowPhantomId = adoptRowIdFor('window');

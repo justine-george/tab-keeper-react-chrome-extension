@@ -69,8 +69,8 @@ function makeTabApi(
       calls.queries.push(q);
       if (options.rejectQuery) throw new Error('query failed');
       return q.url.includes('pinned.html')
-        ? options.stubMatches ?? []
-        : options.matches ?? [];
+        ? (options.stubMatches ?? [])
+        : (options.matches ?? []);
     },
     update: async (tabId, props) => {
       calls.updates.push({ tabId, props });

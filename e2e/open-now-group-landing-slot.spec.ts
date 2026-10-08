@@ -227,8 +227,9 @@ test.describe('in Open now, a dragged group is shown landing where it lands', ()
 
       const slotTop = shown.slot?.top ?? Number.NaN;
       console.log(
-        `Open now ${c.name}: slot ${slotTop}..${shown.slot
-          ?.bottom}, landed title row ${landed.top}..${
+        `Open now ${c.name}: slot ${slotTop}..${
+          shown.slot?.bottom
+        }, landed title row ${landed.top}..${
           landed.bottom
         }, slot sits on [${overlapped(shown).join(', ')}]`
       );

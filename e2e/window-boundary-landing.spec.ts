@@ -195,8 +195,9 @@ test.describe('the gap between two windows', () => {
     const w2 = await boxOf(page, '[data-drop-window-id="w2"]');
     const y = w2.y + w2.height + 40;
     const paneBottom = await page.evaluate(() => {
-      let el = document.querySelector('[data-drop-window-id="w2"]')
-        ?.parentElement;
+      let el = document.querySelector(
+        '[data-drop-window-id="w2"]'
+      )?.parentElement;
       while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
         el = el.parentElement;
       return el?.getBoundingClientRect().bottom ?? NaN;
