@@ -204,34 +204,27 @@ async function fillRestoredWindow(
   const windowId = newWindow.id;
   if (windowId === undefined) return;
 
-  const ids: (number | undefined)[] = spec.tabs.map(() => undefined);
   const targetId = newWindow.tabs?.[0]?.id;
-  ids[targetIndex] = targetId;
   if (spec.tabs[targetIndex].pinned === true && targetId !== undefined) {
     await pinRestoredTab(targetId);
   }
 
-  // One at a time: each index counts the tabs already placed, so a refused create shifts nothing after it.
-  let placed = 0;
-  for (let i = 0; i < targetIndex; i++) {
-    ids[i] = await createPlaceholderTab(
-      windowId,
-      spec.tabs[i],
-      goToURLText,
-      placed
-    );
-    if (ids[i] !== undefined) placed += 1;
-  }
-  const after = await Promise.all(
-    spec.tabs
-      .slice(targetIndex + 1)
-      .map((tabInfo) =>
-        createPlaceholderTab(windowId, tabInfo, goToURLText, undefined)
-      )
+  // All at once, appended in saved order: Chrome runs them in call order and keeps pinned ones in the leading run.
+  const ids = await Promise.all(
+    spec.tabs.map((tabInfo, i) =>
+      i === targetIndex
+        ? targetId
+        : createPlaceholderTab(windowId, tabInfo, goToURLText)
+    )
   );
-  after.forEach((id, k) => {
-    ids[targetIndex + 1 + k] = id;
-  });
+
+  // The target sits first in its run; it moves past the tabs Chrome created before it (a refused one does not count).
+  const targetSlot = ids
+    .slice(0, targetIndex)
+    .filter((id) => id !== undefined).length;
+  if (targetSlot > 0 && targetId !== undefined) {
+    await moveRestoredTab(targetId, targetSlot);
+  }
 
   if (spec.groups && spec.groups.length > 0) {
     await applyTabGroups(windowId, spec.groups, groupMembers(spec.tabs, ids));
@@ -242,8 +235,7 @@ async function fillRestoredWindow(
 function createPlaceholderTab(
   windowId: number,
   tabInfo: tabData,
-  goToURLText: string,
-  index: number | undefined
+  goToURLText: string
 ): Promise<number | undefined> {
   return new Promise((done) => {
     chrome.tabs.create(
@@ -257,7 +249,6 @@ function createPlaceholderTab(
         ),
         active: false,
         ...(tabInfo.pinned === true ? { pinned: true } : {}),
-        ...(index === undefined ? {} : { index }),
       },
       (created) => done(created?.id)
     );
@@ -270,6 +261,15 @@ async function pinRestoredTab(tabId: number): Promise<void> {
     await chrome.tabs.update(tabId, { pinned: true });
   } catch (error) {
     console.warn('Could not pin a restored tab:', error);
+  }
+}
+
+// Never throws: a move Chrome refuses costs the target its place, never the restore.
+async function moveRestoredTab(tabId: number, index: number): Promise<void> {
+  try {
+    await chrome.tabs.move(tabId, { index });
+  } catch (error) {
+    console.warn('Could not place the restored active tab:', error);
   }
 }
 

@@ -550,6 +550,78 @@ describe('restore opens on the saved active tab, pinned tabs pinned (KAN-458)', 
     ]);
   });
 
+  test('a late active tab: every lazy tab is created at once, then the strip is in saved order', async () => {
+    handle = setupChromeFake();
+    const create = chrome.tabs.create;
+    let inFlight = 0;
+    let maxInFlight = 0;
+    // Chrome answers each create a round trip later; the fake answers at once, which would hide a serial await.
+    vi.spyOn(chrome.tabs, 'create').mockImplementation(
+      (
+        props: chrome.tabs.CreateProperties,
+        cb?: (tab: chrome.tabs.Tab) => void
+      ) => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        return create(props, (created) =>
+          setTimeout(() => {
+            inFlight -= 1;
+            cb?.(created);
+          }, 0)
+        );
+      }
+    );
+    const ids = Array.from({ length: 30 }, (_, i) => `t${i}`);
+    const win = await restore(
+      ids.map((id, i) => (i < 3 ? pin(id) : page(id))),
+      't29'
+    );
+    expect(maxInFlight).toBe(29);
+    expect(await strip(win)).toEqual(
+      ids.map((id, i) => ({
+        url: i === 29 ? live(id) : lazy(id),
+        pinned: i < 3,
+        active: i === 29,
+      }))
+    );
+  });
+
+  test('a lazy tab Chrome refuses before a pinned active tab: the pinned run keeps its order', async () => {
+    handle = setupChromeFake({ refusedUrls: [lazy('p1')] });
+    const win = await restore(
+      [pin('p1'), pin('p2'), pin('p3'), pin('p4'), page('a5')],
+      'p3'
+    );
+    expect(await strip(win)).toEqual([
+      { url: lazy('p2'), pinned: true, active: false },
+      { url: live('p3'), pinned: true, active: true },
+      { url: lazy('p4'), pinned: true, active: false },
+      { url: lazy('a5'), pinned: false, active: false },
+    ]);
+  });
+
+  test('a move Chrome refuses costs the active tab its place, never the window or its groups', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    vi.spyOn(chrome.tabs, 'move').mockRejectedValue(new Error('refused'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const win = await createWindowWithRetries(
+      spec({
+        tabs: [page('a', { chromeGroupId: 'g1' }), page('b')],
+        groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
+        activeTabId: 'b',
+      }),
+      'Go',
+      2
+    );
+    expect(win).not.toBeNull();
+    expect(warn).toHaveBeenCalled();
+    expect(handle.groupedTabs).toHaveLength(1);
+    expect((await strip(win)).map((t) => t.url)).toEqual([
+      live('b'),
+      lazy('a'),
+    ]);
+  });
+
   test('a refused tab that is also the fallback: the window fails, as before', async () => {
     handle = setupChromeFake({ refusedUrls: [live('a1')] });
     expect(await restore([page('a1'), page('b2')], 'a1')).toBeNull();
