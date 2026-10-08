@@ -7,7 +7,9 @@ vi.hoisted(() => {
   });
 });
 
-const firestore = vi.hoisted(() => ({ setDoc: vi.fn() }));
+const firestore = vi.hoisted(() => ({
+  setDoc: vi.fn<(ref: unknown, data: TabMasterContainer) => Promise<void>>(),
+}));
 
 vi.mock('firebase/app', () => ({ initializeApp: vi.fn(() => ({})) }));
 vi.mock('firebase/auth', () => ({
