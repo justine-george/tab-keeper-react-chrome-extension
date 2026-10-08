@@ -175,6 +175,7 @@ describe('createWindowWithRetries with tab groups', () => {
   let handle: ReturnType<typeof setupChromeFake> | undefined;
 
   afterEach(() => {
+    vi.restoreAllMocks();
     handle?.restore();
     handle = undefined;
   });
