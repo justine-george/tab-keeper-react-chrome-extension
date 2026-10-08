@@ -78,6 +78,9 @@ export interface tabData {
   pinned?: true;
 }
 
+// KAN-460 D2. The window states a restore brings back; normal, minimized and locked-fullscreen store nothing.
+export type SavedWindowState = 'maximized' | 'fullscreen';
+
 export interface windowGroupData {
   windowId: string;
   windowHeight: number;
@@ -93,6 +96,8 @@ export interface windowGroupData {
   chromeTabGroups?: chromeTabGroupData[];
   // KAN-458. The saved tabId restore opens on; absent, or naming no tab, falls back to the first unpinned tab.
   activeTabId?: string;
+  // KAN-460. Present only for a maximized or full-screen window; restore applies it last.
+  state?: SavedWindowState;
 }
 
 export interface tabContainerData {
@@ -1128,6 +1133,8 @@ function sameWindowContent(a: windowGroupData, b: windowGroupData): boolean {
     a.tabCount === b.tabCount &&
     // KAN-458. Content: a backup Replace or Merge that changes only the active tab must outrank the cloud.
     a.activeTabId === b.activeTabId &&
+    // KAN-460. Content: a backup or undo that changes only a window's state must outrank the cloud.
+    a.state === b.state &&
     a.tabs.length === b.tabs.length &&
     a.tabs.every(
       (tab, i) =>
