@@ -228,7 +228,7 @@ export function pickActiveTabIndex(
     const recent = tabs.findIndex((tab) => tab.id === tabId);
     if (recent !== -1) return recent;
   }
-  // No record: Chrome stamps lastAccessed at creation, so a never-opened placeholder would outrank the tab in use.
+  // No recorded tab here: Chrome stamps lastAccessed at creation, so a never-opened placeholder would outrank the tab in use.
   let picked: number | undefined;
   let latest = 0;
   tabs.forEach((tab, index) => {

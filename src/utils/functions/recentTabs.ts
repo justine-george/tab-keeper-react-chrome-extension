@@ -28,9 +28,11 @@ export interface SessionArea {
 
 export interface RecentTabsRecorder {
   activated(info: { tabId: number; windowId: number }): Promise<void>;
-  tabRemoved(
-    tabId: number,
-    info: { windowId: number; isWindowClosing: boolean }
+  tabRemoved(tabId: number, info: { windowId: number }): Promise<void>;
+  replaced(
+    windowId: number,
+    addedTabId: number,
+    removedTabId: number
   ): Promise<void>;
   windowRemoved(windowId: number): Promise<void>;
 }
@@ -57,17 +59,25 @@ export function recentTabsRecorder(area: SessionArea): RecentTabsRecorder {
           [recentTabsKey(windowId)]: withActivated(await read(windowId), tabId),
         });
       }),
-    // A closing window's own event drops its whole list.
-    tabRemoved: (tabId, { windowId, isWindowClosing }) =>
-      isWindowClosing
-        ? queue
-        : enqueue(async () => {
-            const list = await read(windowId);
-            if (!list.includes(tabId)) return;
-            await area.set({
-              [recentTabsKey(windowId)]: list.filter((id) => id !== tabId),
-            });
-          }),
+    tabRemoved: (tabId, { windowId }) =>
+      enqueue(async () => {
+        const list = await read(windowId);
+        if (!list.includes(tabId)) return;
+        await area.set({
+          [recentTabsKey(windowId)]: list.filter((id) => id !== tabId),
+        });
+      }),
+    // Chrome swaps a tab's id (prerender); the old id would never match again and Save would pick an older tab.
+    replaced: (windowId, addedTabId, removedTabId) =>
+      enqueue(async () => {
+        const list = await read(windowId);
+        if (!list.includes(removedTabId)) return;
+        await area.set({
+          [recentTabsKey(windowId)]: list.map((id) =>
+            id === removedTabId ? addedTabId : id
+          ),
+        });
+      }),
     windowRemoved: (windowId) =>
       enqueue(() => area.remove([recentTabsKey(windowId)])),
   };
@@ -84,6 +94,12 @@ export function recordRecentTabs(): void {
   chrome.tabs.onRemoved.addListener(
     (tabId, info) => void recorder.tabRemoved(tabId, info)
   );
+  chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
+    chrome.tabs
+      .get(addedTabId)
+      .then((tab) => recorder.replaced(tab.windowId, addedTabId, removedTabId))
+      .catch(() => {});
+  });
   chrome.windows.onRemoved.addListener(
     (windowId) => void recorder.windowRemoved(windowId)
   );

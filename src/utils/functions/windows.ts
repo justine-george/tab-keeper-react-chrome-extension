@@ -205,6 +205,7 @@ async function fillRestoredWindow(
   if (windowId === undefined) return;
 
   const targetId = newWindow.tabs?.[0]?.id;
+  // Pinned before any create so later pinned tabs queue behind it; a refused pin (never seen) would also cost order.
   if (spec.tabs[targetIndex].pinned === true && targetId !== undefined) {
     await pinRestoredTab(targetId);
   }

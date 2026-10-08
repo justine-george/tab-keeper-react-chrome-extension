@@ -195,6 +195,8 @@ export type ChromeFakeHandle = {
     // window (other windows keep theirs) and onActivated fires. Throws on an
     // unknown id, like closeTab.
     activateTab(tabId: number): void;
+    // Chrome swapping a tab's id (prerender): same tab, new id, onReplaced fires.
+    replaceTab(removedTabId: number, addedTabId: number): void;
     setGroup(
       groupId: number,
       patch: Partial<
@@ -533,6 +535,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     registry<(tabId: number, info: chrome.tabs.OnDetachedInfo) => void>();
   const tabsOnActivated =
     registry<(info: chrome.tabs.OnActivatedInfo) => void>();
+  const tabsOnReplaced =
+    registry<(addedTabId: number, removedTabId: number) => void>();
   const windowsOnCreated = registry<(win: chrome.windows.Window) => void>();
   const windowsOnRemoved = registry<(windowId: number) => void>();
   const tabGroupsOnCreated =
@@ -1341,6 +1345,16 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         }
         windowsOnRemoved.fire(windowId);
       },
+      replaceTab(removedTabId, addedTabId) {
+        const target = tabs.find((tab) => tab.id === removedTabId);
+        if (!target) {
+          throw new Error(
+            `browser.replaceTab: no seeded tab with id ${removedTabId}`
+          );
+        }
+        target.id = addedTabId;
+        tabsOnReplaced.fire(addedTabId, removedTabId);
+      },
       activateTab(tabId) {
         const target = tabs.find((tab) => tab.id === tabId);
         if (!target) {
@@ -2026,6 +2040,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // every tab switch, so a real registry must keep that working exactly
       // as it did.
       onActivated: tabsOnActivated,
+      onReplaced: tabsOnReplaced,
       // Into an EXISTING group (Part E Task 1, Q3; Part E Task 6a, Q3): a tab
       // in the group's own window next to the run joins in place, firing
       // tabs.onUpdated {groupId} only (Q3_group#2, 6a Q5#5); one further

@@ -69,10 +69,7 @@ describe('recentTabsRecorder', () => {
     handle = setupChromeFake({
       sessionArea: { 'recentTabs.1': [12, 11], 'recentTabs.2': [11] },
     });
-    await recentTabsRecorder(area()).tabRemoved(11, {
-      windowId: 1,
-      isWindowClosing: false,
-    });
+    await recentTabsRecorder(area()).tabRemoved(11, { windowId: 1 });
     expect(session()).toEqual({
       'recentTabs.1': [12],
       'recentTabs.2': [11],
@@ -84,9 +81,20 @@ describe('recentTabsRecorder', () => {
       sessionArea: { 'recentTabs.1': [12, 11], 'recentTabs.2': [21] },
     });
     const recorder = recentTabsRecorder(area());
-    await recorder.tabRemoved(12, { windowId: 1, isWindowClosing: true });
+    await recorder.tabRemoved(12, { windowId: 1 });
     await recorder.windowRemoved(1);
     expect(session()).toEqual({ 'recentTabs.2': [21] });
+  });
+
+  test('a replaced tab keeps its place under its new id', async () => {
+    handle = setupChromeFake({
+      sessionArea: { 'recentTabs.1': [10, 11, 12], 'recentTabs.2': [11] },
+    });
+    await recentTabsRecorder(area()).replaced(1, 13, 11);
+    expect(session()).toEqual({
+      'recentTabs.1': [10, 13, 12],
+      'recentTabs.2': [11],
+    });
   });
 
   test.each([
@@ -167,6 +175,46 @@ describe("the worker's listeners, through to a save", () => {
     handle.browser.activateTab(10);
     await vi.waitFor(() =>
       expect(session()).toEqual({ 'recentTabs.1': [10, 11] })
+    );
+
+    const captured = await captureOpenWindows('S', 'all-windows');
+    const w = captured?.windows[0];
+    expect(w?.tabs.find((t) => t.tabId === w.activeTabId)?.title).toBe(
+      'Target'
+    );
+  });
+
+  test('Chrome replaces the tab the user was on: Save still stores it', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            buildChromeTab({ id: 10, index: 0, url: TAB_VIEW }),
+            buildChromeTab({
+              id: 11,
+              index: 1,
+              url: 'https://a.test/',
+              title: 'Earlier',
+              active: true,
+            }),
+            buildChromeTab({
+              id: 12,
+              index: 2,
+              url: 'https://t.test/',
+              title: 'Target',
+            }),
+          ],
+        },
+      ],
+    });
+    recordRecentTabs();
+    handle.browser.activateTab(11);
+    handle.browser.activateTab(12);
+    handle.browser.activateTab(10);
+    handle.browser.replaceTab(12, 13);
+    await vi.waitFor(() =>
+      expect(session()).toEqual({ 'recentTabs.1': [10, 13, 11] })
     );
 
     const captured = await captureOpenWindows('S', 'all-windows');
