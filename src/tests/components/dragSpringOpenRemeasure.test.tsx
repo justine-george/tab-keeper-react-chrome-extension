@@ -631,11 +631,14 @@ describe('a drop into a window this drag opened keeps the pinned rules of an ope
     expect(opened.after).toEqual(control.after);
   });
 
+  const GC_HANDLE = '[data-drag-row-id="group:gc"] [data-group-drag-handle]';
+
+  // 285 is below b0's midpoint: index 1, right after the pinned run.
   test('a group held above the pinned tab previews and lands after it, as in a drag started with it open', async () => {
     const run: Run = {
       held: 'group:gc',
-      press: '[data-drag-row-id="group:gc"] [data-group-drag-handle]',
-      aims: [275],
+      press: GC_HANDLE,
+      aims: [275, 285],
       release: 275,
       pane: UNSCROLLED,
       windows: pinnedW2,
@@ -643,9 +646,32 @@ describe('a drop into a window this drag opened keeps the pinned rules of an ope
     const control = await drag(false, run);
     const opened = await drag(true, run);
 
-    // PREMISE: the control lands right after the pinned run.
+    // The rows that make room; the held one follows the pointer.
+    const room = ({ rows }: (typeof control.previews)[0]) => ({
+      ...rows,
+      'group:gc': undefined,
+    });
+    // PREMISE: held above the pinned tab, the control makes room after it, as at 285, and lands there.
+    expect(room(control.previews[0])).toEqual(room(control.previews[1]));
     expect(control.after[1]).toBe('b0^ c0* c1* b1* b2*');
     expect(opened.previews).toEqual(control.previews);
     expect(opened.after).toEqual(control.after);
+  });
+
+  test('a group dropped on a window drawn with no rows is taken, and lands after its pinned run', async () => {
+    const { store, pane, unmount } = await render(true, pinnedW2);
+    const { restore } = stubLayout(pane, UNSCROLLED);
+    const handle = pane.querySelector<HTMLElement>(GC_HANDLE);
+    if (handle === null) throw new Error('no gc handle');
+    const start = midOf(handle);
+    fireEvent.pointerDown(handle, { clientX: X, clientY: start, button: 0 });
+    moveTo(start + 6);
+    moveTo(260);
+    fireEvent.pointerUp(document, { clientX: X, clientY: 260 });
+    const after = windowsOf(store);
+    unmount();
+    restore();
+
+    expect(after[1]).toBe('b0^ c0* c1* b1* b2*');
   });
 });

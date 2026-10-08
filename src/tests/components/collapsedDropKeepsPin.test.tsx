@@ -85,7 +85,19 @@ function setup(collapseWB: boolean) {
         (w) => w.windowId === 'wB'
       )
       ?.tabs.map((t) => [t.tabId, t.pinned === true]);
-  return { wrapper, wB, paneWindows: { tabGroupId: 'tg', windows: WINDOWS } };
+  const groupOf = (windowId: string, tabId: string) =>
+    store
+      .getState()
+      .tabContainerDataState.tabGroups[0].windows.find(
+        (w) => w.windowId === windowId
+      )
+      ?.tabs.find((t) => t.tabId === tabId)?.chromeGroupId;
+  return {
+    wrapper,
+    wB,
+    groupOf,
+    paneWindows: { tabGroupId: 'tg', windows: WINDOWS },
+  };
 }
 
 afterEach(() => {
@@ -123,7 +135,7 @@ describe('a drop on a collapsed window keeps the pin (KAN-458)', () => {
   });
 
   test('a grouped tab leaves its band: a collapsed window draws none to join', () => {
-    const { wrapper, wB, paneWindows } = setup(true);
+    const { wrapper, wB, groupOf, paneWindows } = setup(true);
     const { result } = renderHook(() => useTabDrop(paneWindows, true), {
       wrapper,
     });
@@ -134,6 +146,7 @@ describe('a drop on a collapsed window keeps the pin (KAN-458)', () => {
       ['b1', false],
       ['b2', false],
     ]);
+    expect(groupOf('wB', 'a2')).toBeUndefined();
   });
 
   test('CONTROL: the same drop on the open window pins it, where it was dropped', () => {
