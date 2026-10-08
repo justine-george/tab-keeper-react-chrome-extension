@@ -382,6 +382,38 @@ afterEach(() => {
 });
 
 describe('captureOpenWindows with tab groups', () => {
+  test('stores collapsed: true only on a collapsed group (KAN-460)', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [{ id: 1, type: 'normal' }],
+      tabGroups: [
+        { id: 5, windowId: 1, title: 'Folded', color: 'blue', collapsed: true },
+        { id: 6, windowId: 1, title: 'Open', color: 'red', collapsed: false },
+      ],
+      tabs: [
+        { id: 11, windowId: 1, url: 'https://a.test', title: 'a', groupId: 5 },
+        {
+          id: 12,
+          windowId: 1,
+          url: 'https://b.test',
+          title: 'b',
+          groupId: 6,
+          active: true,
+        },
+      ],
+    });
+
+    const captured = await captureOpenWindows('session', 'all-windows');
+    const groups = captured!.windows[0].chromeTabGroups ?? [];
+
+    expect(groups.map((g) => [g.title, g.collapsed])).toEqual([
+      ['Folded', true],
+      ['Open', undefined],
+    ]);
+    // Absent, not false: an open group is stored exactly as before.
+    expect('collapsed' in groups[1]).toBe(false);
+  });
+
   test('captures group title, colour and membership when granted', async () => {
     handle = setupChromeFake({
       grantedPermissions: ['tabGroups'],

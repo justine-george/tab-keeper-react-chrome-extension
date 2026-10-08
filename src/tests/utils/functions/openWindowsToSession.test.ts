@@ -56,6 +56,31 @@ const NOW = new Date(2026, 8, 24, 14, 5, 9);
 const NO_RECORD = () => [];
 
 describe('openWindowsToSession (KAN-280 O13)', () => {
+  test('a collapsed live group is saved collapsed; an open one has no field (KAN-460)', () => {
+    const win = openWindow(
+      1,
+      [
+        openTab(11, 'A', { groupId: 5 }),
+        openTab(12, 'B', { groupId: 6, active: true }),
+      ],
+      {
+        groups: [
+          { id: 5, title: 'Folded', color: 'blue', collapsed: true },
+          { id: 6, title: 'Open', color: 'red', collapsed: false },
+        ],
+      }
+    );
+
+    const session = openWindowsToSession([win], 'T', NOW, NO_RECORD);
+    const groups = session.windows[0].chromeTabGroups ?? [];
+
+    expect(groups.map((g) => [g.title, g.collapsed])).toEqual([
+      ['Folded', true],
+      ['Open', undefined],
+    ]);
+    expect('collapsed' in groups[1]).toBe(false);
+  });
+
   test('builds the saved shape: counts, bounds, tab fields and fresh ids', () => {
     const session = openWindowsToSession(
       [
