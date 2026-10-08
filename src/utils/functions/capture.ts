@@ -243,6 +243,13 @@ export function pickActiveTabIndex(
   return picked;
 }
 
+// KAN-460 D2. Maximized and full screen are kept; normal, minimized and locked-fullscreen store nothing.
+export function savedWindowState(
+  state: string | undefined
+): Pick<windowGroupData, 'state'> {
+  return state === 'maximized' || state === 'fullscreen' ? { state } : {};
+}
+
 // One window in storage shape. Extracted so "add current window to a session"
 // (HeroContainerRight) cannot drift from the session save -- capture.ts's
 // header already records why two captures that drift are a problem, and a
@@ -280,6 +287,7 @@ export function toWindowGroupData(
     ...(activeIndex === undefined
       ? {}
       : { activeTabId: tabsData[activeIndex].tabId }),
+    ...savedWindowState(window.state),
   };
 }
 

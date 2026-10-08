@@ -1,6 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
 
-import { isNotANameSource, pickActiveTabIndex, toStoredTab } from './capture';
+import {
+  isNotANameSource,
+  pickActiveTabIndex,
+  savedWindowState,
+  toStoredTab,
+} from './capture';
 import { getStringDate, normalizeTitle } from './local';
 import type { OpenWindow } from './openNow';
 import type { RecentTabsOf } from './recentTabs';
@@ -63,6 +68,7 @@ function toSavedWindow(
     ...(activeIndex === undefined
       ? {}
       : { activeTabId: tabs[activeIndex].tabId }),
+    ...savedWindowState(openWindow.state),
   };
 }
 
