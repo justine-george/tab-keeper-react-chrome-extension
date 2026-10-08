@@ -28,14 +28,17 @@ export const box = (top: number, height: number): DOMRect => ({
 
 export const url = (name: string) => `https://${name}.test/`;
 
-export async function snapshot(hasTabGroups: boolean): Promise<OpenWindow[]> {
+export async function snapshot(
+  hasTabGroups: boolean,
+  thisWindowId: number | null = null
+): Promise<OpenWindow[]> {
   const all = await chrome.windows.getAll({
     populate: true,
     windowTypes: ['normal'],
   });
   const groups =
     hasTabGroups && chrome.tabGroups ? await chrome.tabGroups.query({}) : null;
-  return toOpenWindows(all, groups, null);
+  return toOpenWindows(all, groups, thisWindowId);
 }
 
 export function find(selector: string): HTMLElement {

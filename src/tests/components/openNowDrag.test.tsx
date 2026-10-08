@@ -51,7 +51,18 @@ afterEach(() => {
   document.documentElement.removeAttribute('data-dragging');
 });
 
-async function renderPane(seed: ChromeSeed, hasTabGroups: boolean) {
+// `drawOrder`: the window ids top to bottom, when This window moves first.
+async function renderPane(
+  seed: ChromeSeed,
+  hasTabGroups: boolean,
+  {
+    thisWindowId = null,
+    drawOrder,
+  }: {
+    thisWindowId?: number | null;
+    drawOrder?: number[];
+  } = {}
+) {
   const onMoved = vi.fn();
   // The fake is installed by renderWithProviders; the snapshot is read from
   // it after, and the pane re-rendered with it.
@@ -71,7 +82,7 @@ async function renderPane(seed: ChromeSeed, hasTabGroups: boolean) {
         store.dispatch(setHasTabGroupsPermission(hasTabGroups)),
     }
   );
-  const windows = await snapshot(hasTabGroups);
+  const windows = await snapshot(hasTabGroups, thisWindowId);
   result.rerender(
     <OpenNowPane
       windows={windows}
@@ -84,7 +95,14 @@ async function renderPane(seed: ChromeSeed, hasTabGroups: boolean) {
     />
   );
   await screen.findAllByRole('button', { name: /^Switch to tab: / });
-  return { ...result, windows, onMoved, top: layOut(windows) };
+  const drawn = drawOrder
+    ? drawOrder.map((id) => {
+        const window = windows.find((w) => w.id === id);
+        if (!window) throw new Error(`no window ${id}`);
+        return window;
+      })
+    : windows;
+  return { ...result, windows, onMoved, top: layOut(drawn) };
 }
 
 describe('a tab dragged in Open now moves the real tab', () => {
@@ -170,6 +188,58 @@ describe('a tab dragged in Open now moves the real tab', () => {
     expect(onMoved).not.toHaveBeenCalled();
     const p1 = await chrome.tabs.get(11);
     expect([p1.windowId, p1.index, p1.pinned]).toEqual([1, 0, true]);
+  });
+});
+
+// KAN-472. This window (2) draws first: W2 [21*, 22], then W1 [11*, 12].
+describe('with This window drawn first', () => {
+  const seed = (): ChromeSeed => ({
+    windows: [
+      {
+        id: 1,
+        tabs: [
+          { id: 11, url: url('a'), title: 'A', active: true },
+          { id: 12, url: url('b'), title: 'B' },
+        ],
+      },
+      {
+        id: 2,
+        tabs: [
+          { id: 21, url: url('c'), title: 'C', active: true },
+          { id: 22, url: url('d'), title: 'D' },
+        ],
+      },
+    ],
+  });
+  const thisFirst = { thisWindowId: 2, drawOrder: [2, 1] };
+
+  test('B released on the top row lands first in This window', async () => {
+    const { top, onMoved } = await renderPane(seed(), false, thisFirst);
+    drag(tabRow(12), (top.get('12') ?? 0) + ROW / 2, (top.get('21') ?? 0) + 2);
+    await waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
+    expect(moveOpenTab).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: '12', toWindowId: '2', toIndex: 0 }),
+      expect.anything(),
+      false
+    );
+    const b = await chrome.tabs.get(12);
+    expect([b.windowId, b.index]).toEqual([2, 0]);
+  });
+
+  test('C released between A and B, below This window, lands there', async () => {
+    const { top, onMoved } = await renderPane(seed(), false, thisFirst);
+    drag(tabRow(21), (top.get('21') ?? 0) + ROW / 2, (top.get('12') ?? 0) + 2);
+    await waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
+    const c = await chrome.tabs.get(21);
+    expect([c.windowId, c.index]).toEqual([1, 1]);
+  });
+
+  test('released above This window, nothing moves', async () => {
+    const { top, onMoved } = await renderPane(seed(), false, thisFirst);
+    drag(tabRow(12), (top.get('12') ?? 0) + ROW / 2, -ROW);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(moveOpenTab).not.toHaveBeenCalled();
+    expect(onMoved).not.toHaveBeenCalled();
   });
 });
 

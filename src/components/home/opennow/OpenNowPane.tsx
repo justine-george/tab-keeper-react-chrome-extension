@@ -3,6 +3,7 @@ import {
   Ref,
   RefObject,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -21,6 +22,7 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { formatOpenNowCounts } from '../../../utils/functions/local';
+import { thisWindowFirst } from '../../../utils/functions/openNow';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 import type { MovedTabs } from '../../../utils/functions/openNowMoves';
 import {
@@ -154,7 +156,10 @@ export default function OpenNowPane({
     () => new Set()
   );
 
-  const listed = windows ?? NO_WINDOWS;
+  const inChromeOrder = windows ?? NO_WINDOWS;
+  // KAN-472. Drawn, searched, dragged and saved in this order; numbered in
+  // Chrome's. Memoized: the drop tables are rebuilt when it changes.
+  const listed = useMemo(() => thisWindowFirst(inChromeOrder), [inChromeOrder]);
   const tabCount = listed.reduce((sum, w) => sum + w.tabs.length, 0);
 
   const searchTerm = searchTermOf(searchText);
@@ -313,23 +318,21 @@ export default function OpenNowPane({
     );
   };
 
-  // This window first, as a capture orders them (windowsInScope), so a
-  // restore brings the user back where they were. Named from This window
-  // alone, which is exactly the name box's suggestion; a This window holding
-  // only Tab Keeper is not listed, and falls back.
+  // In `listed`'s order, This window first, as a capture orders them
+  // (windowsInScope), so a restore brings the user back where they were.
+  // Named from This window alone, which is exactly the name box's
+  // suggestion; a This window holding only Tab Keeper is not listed, and
+  // falls back.
   const handleSaveAll = async () => {
     const thisWindow = listed.find((w) => w.isThisWindow);
-    const ordered = thisWindow
-      ? [thisWindow, ...listed.filter((w) => w !== thisWindow)]
-      : listed;
     const title = thisWindow
       ? await suggestTitleForWindow(thisWindow.id, t('New Tab Group'))
       : t('New Tab Group');
-    const recentTabsOf = await readRecentTabs(ordered.map((w) => w.id));
+    const recentTabsOf = await readRecentTabs(listed.map((w) => w.id));
     void dispatch(
       saveToTabContainer({
         container: openWindowsToSession(
-          ordered,
+          listed,
           title,
           new Date(),
           recentTabsOf
@@ -612,9 +615,10 @@ export default function OpenNowPane({
                 acceptsWindow={drop.items.acceptsWindow}
                 disabled={searchTerm !== null}
               >
-                {listed.map((openWindow, index) => {
-                  // Hidden by the search. `index` is still the window's place
-                  // in the WHOLE list, so "Window 3" stays Window 3 (O14a).
+                {listed.map((openWindow) => {
+                  // Hidden by the search. Numbered by its place in Chrome's
+                  // WHOLE list, so "Window 3" stays Window 3 under a search
+                  // (O14a) and drawn first (KAN-472).
                   const matchedTabIds =
                     matches === null
                       ? null
@@ -624,7 +628,7 @@ export default function OpenNowPane({
                     <OpenNowWindow
                       key={openWindow.id}
                       openWindow={openWindow}
-                      index={index}
+                      number={inChromeOrder.indexOf(openWindow) + 1}
                       matchedTabIds={matchedTabIds}
                       isOpen={!foldedIds.has(openWindow.id)}
                       onToggle={() => toggleWindow(openWindow.id)}

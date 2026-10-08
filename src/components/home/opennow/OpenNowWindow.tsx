@@ -93,7 +93,8 @@ function onFirstClickOnly(action: () => void): React.MouseEventHandler {
 
 interface OpenNowWindowProps {
   openWindow: OpenWindow;
-  index: number;
+  // "Window N": its place in Chrome's order, not where it is drawn (KAN-472).
+  number: number;
   // KAN-330 O14a. The ids of this window's tabs a search matches, or null
   // when no search is held and every tab is drawn. The window itself stays
   // whole: a tab's click and close still act on the real tab. The window's own
@@ -112,7 +113,7 @@ interface OpenNowWindowProps {
 // (O7a), and Save window (O13). The pane owns what a close or a save does.
 export default function OpenNowWindow({
   openWindow,
-  index,
+  number,
   matchedTabIds,
   isOpen,
   onToggle,
@@ -317,7 +318,7 @@ export default function OpenNowWindow({
     padding-right: 9px;
   `;
 
-  const title = windowLabel('', index + 1, t('Window')).text;
+  const title = windowLabel('', number, t('Window')).text;
 
   const windowHeader = (
     <>
