@@ -395,8 +395,9 @@ export default function OpenNowWindow({
         ? t('Audio playing')
         : null;
     const soundId = `open-now-sound-${tab.id}`;
-    // KAN-280 O11c: "Pinned", then the sound. Two ids, so each phrase stays
-    // the locale's own and the browser joins them (no joiner, KAN-307).
+    // "Last used tab" (KAN-475), "Pinned" (O11c), then the sound. One id
+    // each, so each phrase stays the locale's own and the browser joins them
+    // (no joiner, KAN-307).
     const pinnedId = `open-now-pinned-${tab.id}`;
     const isLastUsed = tab.id === lastUsedTabId;
     const lastUsedId = `open-now-last-used-${tab.id}`;
