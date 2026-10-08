@@ -550,8 +550,10 @@ describe('restore opens on the saved active tab, pinned tabs pinned (KAN-458)', 
     ]);
   });
 
-  test('a late active tab: every lazy tab is created at once, then the strip is in saved order', async () => {
+  test('a late active tab: every lazy tab is created at once, in place, with no move', async () => {
     handle = setupChromeFake();
+    // Measured: a tabs.move issued after the creates answer waits ~550ms in real Chrome.
+    const move = vi.spyOn(chrome.tabs, 'move');
     const create = chrome.tabs.create;
     let inFlight = 0;
     let maxInFlight = 0;
@@ -577,6 +579,7 @@ describe('restore opens on the saved active tab, pinned tabs pinned (KAN-458)', 
       't29'
     );
     expect(maxInFlight).toBe(29);
+    expect(move).not.toHaveBeenCalled();
     expect(await strip(win)).toEqual(
       ids.map((id, i) => ({
         url: i === 29 ? live(id) : lazy(id),
@@ -601,12 +604,15 @@ describe('restore opens on the saved active tab, pinned tabs pinned (KAN-458)', 
   });
 
   test('a move Chrome refuses costs the active tab its place, never the window or its groups', async () => {
-    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      refusedUrls: [lazy('x')],
+    });
     vi.spyOn(chrome.tabs, 'move').mockRejectedValue(new Error('refused'));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const win = await createWindowWithRetries(
       spec({
-        tabs: [page('a', { chromeGroupId: 'g1' }), page('b')],
+        tabs: [page('x'), page('a', { chromeGroupId: 'g1' }), page('b')],
         groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
         activeTabId: 'b',
       }),

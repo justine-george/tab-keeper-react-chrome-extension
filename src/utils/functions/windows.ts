@@ -209,20 +209,25 @@ async function fillRestoredWindow(
     await pinRestoredTab(targetId);
   }
 
-  // All at once, appended in saved order: Chrome runs them in call order and keeps pinned ones in the leading run.
+  // All at once: Chrome runs one extension's calls in order, so index i lands each earlier tab before the target.
   const ids = await Promise.all(
     spec.tabs.map((tabInfo, i) =>
       i === targetIndex
         ? targetId
-        : createPlaceholderTab(windowId, tabInfo, goToURLText)
+        : createPlaceholderTab(
+            windowId,
+            tabInfo,
+            goToURLText,
+            i < targetIndex ? i : undefined
+          )
     )
   );
 
-  // The target sits first in its run; it moves past the tabs Chrome created before it (a refused one does not count).
+  // A refused earlier tab leaves the ones after it past the target, so the target moves after them.
   const targetSlot = ids
     .slice(0, targetIndex)
     .filter((id) => id !== undefined).length;
-  if (targetSlot > 0 && targetId !== undefined) {
+  if (targetSlot !== targetIndex && targetId !== undefined) {
     await moveRestoredTab(targetId, targetSlot);
   }
 
@@ -235,7 +240,8 @@ async function fillRestoredWindow(
 function createPlaceholderTab(
   windowId: number,
   tabInfo: tabData,
-  goToURLText: string
+  goToURLText: string,
+  index: number | undefined
 ): Promise<number | undefined> {
   return new Promise((done) => {
     chrome.tabs.create(
@@ -249,6 +255,7 @@ function createPlaceholderTab(
         ),
         active: false,
         ...(tabInfo.pinned === true ? { pinned: true } : {}),
+        ...(index === undefined ? {} : { index }),
       },
       (created) => done(created?.id)
     );
