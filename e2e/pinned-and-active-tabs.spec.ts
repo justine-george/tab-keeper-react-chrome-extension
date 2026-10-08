@@ -118,9 +118,10 @@ const oneWindow = (tabs: tabData[], activeTabId?: string) =>
 async function seedOneWindow(
   context: BrowserContext,
   tabs: tabData[],
-  activeTabId?: string
+  activeTabId?: string,
+  settings: Record<string, unknown> = {}
 ) {
-  await seedSettings(context, {});
+  await seedSettings(context, settings);
   await seedSessions(context, oneWindow(tabs, activeTabId));
 }
 
@@ -292,6 +293,60 @@ test.describe('Open', () => {
       { title: 'Refused', loaded: false, pinned: false, active: false },
     ]);
   });
+});
+
+// Saved order, the pinned run leading, wherever the target sits; the stub (when on) before them all.
+test.describe('Open puts every tab in saved order', () => {
+  const run = (count: number, pinned: number) =>
+    Array.from({ length: count }, (_, i) => savedTab(`T${i}`, i < pinned));
+  const CASES = [
+    ['a pinned target mid-run, the stub on', run(5, 3), 'T1', true],
+    [
+      '30 tabs, 3 pinned, the target last, the stub on',
+      run(30, 3),
+      'T29',
+      true,
+    ],
+    [
+      '30 tabs, 3 pinned, the target mid-window, the stub off',
+      run(30, 3),
+      'T15',
+      false,
+    ],
+  ] as const;
+
+  for (const [name, tabs, target, pinTabKeeperInNewWindows] of CASES) {
+    test(name, async ({ context, extensionId, serviceWorker }) => {
+      await seedOneWindow(context, [...tabs], target, {
+        pinTabKeeperInNewWindows,
+      });
+      const popup = await openPage(context, extensionId, 'index.html', POPUP);
+      const before = await ids(serviceWorker);
+      await pressOpen(popup);
+      const strip = await settledWindowWith(
+        serviceWorker,
+        tabs[tabs.length - 1].title,
+        before
+      );
+      const own = `chrome-extension://${extensionId}/`;
+      expect(
+        strip.map((t) => ({
+          title: t.url.startsWith(own) ? 'stub' : t.title,
+          pinned: t.pinned,
+          active: t.active,
+        }))
+      ).toEqual([
+        ...(pinTabKeeperInNewWindows
+          ? [{ title: 'stub', pinned: true, active: false }]
+          : []),
+        ...tabs.map((t) => ({
+          title: t.title,
+          pinned: t.pinned === true,
+          active: t.title === target,
+        })),
+      ]);
+    });
+  }
 });
 
 // Switch saves only unsaved work: a pin is content, the active tab is not.
