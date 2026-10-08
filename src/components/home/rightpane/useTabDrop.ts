@@ -19,7 +19,7 @@ import type { AppDispatch, RootState } from '../../../redux/store';
 import { collapsedWindowIdsOf } from '../../../redux/slices/globalStateSlice';
 import { isDrawnFolded } from '../../../redux/springOpenWindows';
 import {
-  collapsedTabIndex,
+  noRowsTabIndex,
   isTabPinnedIn,
 } from '../../../utils/functions/pinnedRun';
 import { dropOnTop } from '../../../redux/dropOnTop';
@@ -723,7 +723,7 @@ export function useTabDrop(
         ? {
             ...described,
             toGroupId: undefined,
-            toIndex: collapsedTabIndex(
+            toIndex: noRowsTabIndex(
               windows.find((w) => w.windowId === described.toWindowId)?.tabs ??
                 [],
               isTabPinnedIn(tabContainerDataState.tabGroups, held)

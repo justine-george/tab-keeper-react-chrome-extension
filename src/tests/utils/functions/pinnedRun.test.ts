@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import {
-  collapsedTabIndex,
+  noRowsTabIndex,
   forgetMissingActiveTab,
   groupLandingRange,
   isPinnedSlot,
@@ -133,31 +133,29 @@ describe('groupLandingRange', () => {
   });
 });
 
-describe('collapsedTabIndex (edge ruling: a collapsed window keeps the pin)', () => {
+describe('noRowsTabIndex (edge ruling: a window drawn with no rows keeps the pin)', () => {
   const target = [p('a'), p('b'), t('c')];
 
   test('a pinned tab: index 0', () => {
-    expect(collapsedTabIndex(target, true)).toBe(0);
+    expect(noRowsTabIndex(target, true)).toBe(0);
   });
 
   test('an unpinned tab: right after the pinned run', () => {
-    expect(collapsedTabIndex(target, false)).toBe(2);
+    expect(noRowsTabIndex(target, false)).toBe(2);
   });
 
   test('a window with no pinned tabs: index 0 either way', () => {
-    expect(collapsedTabIndex([t('c')], false)).toBe(0);
-    expect(collapsedTabIndex([t('c')], true)).toBe(0);
+    expect(noRowsTabIndex([t('c')], false)).toBe(0);
+    expect(noRowsTabIndex([t('c')], true)).toBe(0);
   });
 
   test('a tab of any id there is counted: a carried tab may share one until it is re-minted', () => {
-    expect(collapsedTabIndex([p('x'), p('a'), t('c')], false)).toBe(2);
+    expect(noRowsTabIndex([p('x'), p('a'), t('c')], false)).toBe(2);
   });
 
   test('at the index it gives, isPinnedSlot keeps the pin', () => {
-    expect(isPinnedSlot(target, collapsedTabIndex(target, true), true)).toBe(
-      true
-    );
-    expect(isPinnedSlot(target, collapsedTabIndex(target, false), false)).toBe(
+    expect(isPinnedSlot(target, noRowsTabIndex(target, true), true)).toBe(true);
+    expect(isPinnedSlot(target, noRowsTabIndex(target, false), false)).toBe(
       false
     );
   });
