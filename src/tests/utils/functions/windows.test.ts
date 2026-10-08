@@ -874,7 +874,7 @@ describe('the saved state waits until the window is old enough to keep it', () =
   const stateCalls = (update: { mock: { calls: unknown[][] } }) =>
     update.mock.calls.filter(([, props]) => 'state' in (props as object));
 
-  test('the state is not applied before the window is 500ms old, and is at 500ms', async () => {
+  test('the state is not applied before the window is WINDOW_SETTLE_MS old, and is then', async () => {
     handle = setupChromeFake();
     const update = vi.spyOn(chrome.windows, 'update');
     const done = createWindowWithRetries(spec({ state: 'maximized' }), 'Go', 2);

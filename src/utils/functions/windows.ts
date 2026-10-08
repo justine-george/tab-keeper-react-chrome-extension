@@ -167,7 +167,7 @@ export async function applyTabGroups(
   }
 }
 
-// KAN-460, measured: Chrome drops a state applied to a window younger than ~300ms, on data and http pages alike; no event marks when it is safe.
+// KAN-460, measured: Chrome can drop a state applied in a window's first 50ms; at 300ms it held 48/48 (data and http); no tab event tried marks when it is safe.
 export const WINDOW_SETTLE_MS = 500;
 
 const wait = (ms: number) =>
