@@ -32,6 +32,8 @@ export interface WindowSpec {
   bounds: WindowBounds | null;
   // Absent, or empty, means there is nothing to group.
   groups?: TabGroupSpec[];
+  // KAN-458. The saved tabId to open on; absent or naming no tab falls back (restoreTargetIndex).
+  activeTabId?: string;
 }
 
 export const RESTORE_SESSION_MESSAGE = 'restore-session';
@@ -68,6 +70,20 @@ export function isRestoreSessionRequest(
     typeof candidate.closeOtherWindows === 'boolean' &&
     typeof candidate.pinTabKeeper === 'boolean'
   );
+}
+
+// KAN-458. The tab a restored window opens on: the saved active tab, else the first unpinned, else the first.
+export function restoreTargetIndex(
+  tabs: readonly tabData[],
+  activeTabId: string | undefined
+): number {
+  const saved =
+    activeTabId === undefined
+      ? -1
+      : tabs.findIndex((tab) => tab.tabId === activeTabId);
+  if (saved !== -1) return saved;
+  const firstUnpinned = tabs.findIndex((tab) => tab.pinned !== true);
+  return firstUnpinned === -1 ? 0 : firstUnpinned;
 }
 
 // Recreate the saved groups in a window whose tabs now exist.
@@ -127,85 +143,158 @@ export function createWindowWithRetries(
   if (retryCount <= 0 || spec.tabs.length === 0) {
     return Promise.resolve(null);
   }
+  const targetIndex = restoreTargetIndex(spec.tabs, spec.activeTabId);
 
   return new Promise((resolve) => {
     chrome.windows.create(
       {
-        url: resolveTabUrl(spec.tabs[0].url),
+        // KAN-458. The window's first tab is the one that loads, so it is the target.
+        url: resolveTabUrl(spec.tabs[targetIndex].url),
         focused: spec.focused,
         ...(spec.bounds ?? {}),
       },
       (newWindow) => {
         if (!newWindow) {
           resolve(
-            createWindowWithRetries(
-              { ...spec, bounds: null },
-              goToURLText,
-              retryCount - 1
-            )
+            retryAfterFailure(spec, targetIndex, goToURLText, retryCount)
           );
           return;
         }
-
-        // Group membership by saved group id. Built as tabs are created,
-        // because chrome.tabs.group needs ids and ids only exist afterwards --
-        // which is the whole reason restore had to leave the popup.
-        const tabIdsByGroupId = new Map<string, number[]>();
-        const remember = (tabInfo: tabData, tabId: number | undefined) => {
-          if (tabId === undefined || tabInfo.chromeGroupId === undefined)
-            return;
-          const existing = tabIdsByGroupId.get(tabInfo.chromeGroupId) ?? [];
-          existing.push(tabId);
-          tabIdsByGroupId.set(tabInfo.chromeGroupId, existing);
-        };
-
-        remember(spec.tabs[0], newWindow.tabs?.[0]?.id);
-
-        // Every tab after the first is a placeholder that loads when the
-        // user activates it (KAN-250: this used to be a setting, "Optimize
-        // Memory Usage On Session Restore", defaulting to on; the off state --
-        // every tab loading at once -- is gone until someone asks for it).
-        //
-        // No record of what was opened is kept beyond the ids: the placeholder
-        // carries its own page, and the background worker reads it back when
-        // the user activates the tab. See placeholderTarget in
-        // utils/functions/local.
-        const rest = spec.tabs.slice(1).map(
-          (tabInfo) =>
-            new Promise<void>((done) => {
-              chrome.tabs.create(
-                {
-                  windowId: newWindow.id,
-                  url: generatePlaceholderURL(
-                    tabInfo.title,
-                    tabInfo.favicon || '/images/favicon.ico',
-                    resolveTabUrl(tabInfo.url),
-                    goToURLText
-                  ),
-                  active: false,
-                },
-                (created) => {
-                  remember(tabInfo, created?.id);
-                  done();
-                }
-              );
-            })
-        );
-
-        void Promise.all(rest)
-          .then(async () => {
-            if (
-              spec.groups &&
-              spec.groups.length > 0 &&
-              newWindow.id !== undefined
-            ) {
-              await applyTabGroups(newWindow.id, spec.groups, tabIdsByGroupId);
-            }
-          })
-          .finally(() => resolve(newWindow));
+        void fillRestoredWindow(
+          newWindow,
+          spec,
+          targetIndex,
+          goToURLText
+        ).finally(() => resolve(newWindow));
       }
     );
   });
+}
+
+// Bounds are the likeliest cause, so they go first; then a refused saved active tab falls back once (KAN-458).
+function retryAfterFailure(
+  spec: WindowSpec,
+  targetIndex: number,
+  goToURLText: string,
+  retryCount: number
+): Promise<chrome.windows.Window | null> {
+  if (retryCount > 1) {
+    return createWindowWithRetries(
+      { ...spec, bounds: null },
+      goToURLText,
+      retryCount - 1
+    );
+  }
+  if (restoreTargetIndex(spec.tabs, undefined) === targetIndex) {
+    return Promise.resolve(null);
+  }
+  const { tabs, focused, groups } = spec;
+  return createWindowWithRetries(
+    {
+      tabs,
+      focused,
+      bounds: null,
+      ...(groups === undefined ? {} : { groups }),
+    },
+    goToURLText,
+    1
+  );
+}
+
+// Every tab but the target is a placeholder the worker swaps for its page on activation (placeholderTarget, KAN-250).
+async function fillRestoredWindow(
+  newWindow: chrome.windows.Window,
+  spec: WindowSpec,
+  targetIndex: number,
+  goToURLText: string
+): Promise<void> {
+  const windowId = newWindow.id;
+  if (windowId === undefined) return;
+
+  const ids: (number | undefined)[] = spec.tabs.map(() => undefined);
+  const targetId = newWindow.tabs?.[0]?.id;
+  ids[targetIndex] = targetId;
+  if (spec.tabs[targetIndex].pinned === true && targetId !== undefined) {
+    await pinRestoredTab(targetId);
+  }
+
+  // One at a time: each index counts the tabs already placed, so a refused create shifts nothing after it.
+  let placed = 0;
+  for (let i = 0; i < targetIndex; i++) {
+    ids[i] = await createPlaceholderTab(
+      windowId,
+      spec.tabs[i],
+      goToURLText,
+      placed
+    );
+    if (ids[i] !== undefined) placed += 1;
+  }
+  const after = await Promise.all(
+    spec.tabs
+      .slice(targetIndex + 1)
+      .map((tabInfo) =>
+        createPlaceholderTab(windowId, tabInfo, goToURLText, undefined)
+      )
+  );
+  after.forEach((id, k) => {
+    ids[targetIndex + 1 + k] = id;
+  });
+
+  if (spec.groups && spec.groups.length > 0) {
+    await applyTabGroups(windowId, spec.groups, groupMembers(spec.tabs, ids));
+  }
+}
+
+// Resolves to the new tab's id, or undefined when Chrome refused it: that tab is skipped, never the restore.
+function createPlaceholderTab(
+  windowId: number,
+  tabInfo: tabData,
+  goToURLText: string,
+  index: number | undefined
+): Promise<number | undefined> {
+  return new Promise((done) => {
+    chrome.tabs.create(
+      {
+        windowId,
+        url: generatePlaceholderURL(
+          tabInfo.title,
+          tabInfo.favicon || '/images/favicon.ico',
+          resolveTabUrl(tabInfo.url),
+          goToURLText
+        ),
+        active: false,
+        ...(tabInfo.pinned === true ? { pinned: true } : {}),
+        ...(index === undefined ? {} : { index }),
+      },
+      (created) => done(created?.id)
+    );
+  });
+}
+
+// Never throws: a pin Chrome refuses costs the pin, never the restore.
+async function pinRestoredTab(tabId: number): Promise<void> {
+  try {
+    await chrome.tabs.update(tabId, { pinned: true });
+  } catch (error) {
+    console.warn('Could not pin a restored tab:', error);
+  }
+}
+
+// Ids by saved group, in saved order: the target was created first, but it is not first in its group.
+function groupMembers(
+  tabs: readonly tabData[],
+  ids: readonly (number | undefined)[]
+): Map<string, number[]> {
+  const members = new Map<string, number[]>();
+  tabs.forEach((tab, i) => {
+    const id = ids[i];
+    if (id === undefined || tab.chromeGroupId === undefined) return;
+    members.set(tab.chromeGroupId, [
+      ...(members.get(tab.chromeGroupId) ?? []),
+      id,
+    ]);
+  });
+  return members;
 }
 
 // Decides which windows focus mode may close, given the windows that were

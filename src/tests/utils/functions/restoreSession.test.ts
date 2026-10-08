@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
+import { generatePlaceholderURL } from '../../../utils/functions/local';
 import { restoreSession } from '../../../utils/functions/restoreSession';
 import {
   RESTORE_SESSION_MESSAGE,
@@ -215,5 +216,42 @@ describe('Switch (closeOtherWindows true)', () => {
     expect(all.find((w) => w.id === 1)?.tabs[0].url).toBe(FULL);
     const made = all.find((w) => w.id !== 1);
     expect(made?.tabs.map((t) => t.url)).toEqual([STUB, web('a')]);
+  });
+
+  test('a refused saved active tab: the window opens on the fallback and the old windows still close (KAN-458)', async () => {
+    handle = setupChromeFake(seed({ refusedUrls: [web('a3')] }));
+    const tab = (name: string, pinned: boolean) => ({
+      tabId: name,
+      favicon: '',
+      title: name,
+      url: web(name),
+      ...(pinned ? { pinned: true as const } : {}),
+    });
+    const lazy = (name: string) =>
+      generatePlaceholderURL(
+        name,
+        '/images/favicon.ico',
+        web(name),
+        'Visit Site'
+      );
+    await restoreSession({
+      ...request([], true, false),
+      specs: [
+        {
+          tabs: [tab('p1', true), tab('x2', false), tab('a3', false)],
+          focused: true,
+          bounds: null,
+          activeTabId: 'a3',
+        },
+      ],
+    });
+    expect(handle.removedWindowIds).toEqual([1]);
+    expect((await layout()).map((w) => w.tabs)).toEqual([
+      [
+        { url: lazy('p1'), pinned: true, active: false },
+        { url: web('x2'), pinned: false, active: true },
+        { url: lazy('a3'), pinned: false, active: false },
+      ],
+    ]);
   });
 });

@@ -434,6 +434,9 @@ function toWindowSpec(
     ...(windowGroup.chromeTabGroups && windowGroup.chromeTabGroups.length > 0
       ? { groups: windowGroup.chromeTabGroups }
       : {}),
+    ...(windowGroup.activeTabId === undefined
+      ? {}
+      : { activeTabId: windowGroup.activeTabId }),
   };
 }
 
