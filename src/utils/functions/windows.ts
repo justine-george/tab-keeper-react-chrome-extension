@@ -24,6 +24,8 @@ export interface TabGroupSpec {
   groupId: string;
   title: string;
   color: string;
+  // KAN-460. Collapse it again after it is formed, when the caller's CollapseRule allows.
+  collapsed?: true;
 }
 
 export interface WindowSpec {
@@ -86,6 +88,31 @@ export function restoreTargetIndex(
   return firstUnpinned === -1 ? 0 : firstUnpinned;
 }
 
+// KAN-460. Which saved collapses a caller applies: none (a band's Open shows
+// the group it opened), or each saved one except the group holding the tab the
+// window opens on -- Chrome does not keep the active tab's group collapsed.
+export type CollapseRule =
+  | { kind: 'none' }
+  | { kind: 'saved'; openTabId: number | undefined };
+
+const collapses = (
+  rule: CollapseRule,
+  group: TabGroupSpec,
+  tabIds: readonly number[]
+): boolean =>
+  rule.kind === 'saved' &&
+  group.collapsed === true &&
+  (rule.openTabId === undefined || !tabIds.includes(rule.openTabId));
+
+// Never throws: a refused collapse costs the collapse, never the group or the restore.
+async function collapseRestoredGroup(groupId: number): Promise<void> {
+  try {
+    await chrome.tabGroups.update(groupId, { collapsed: true });
+  } catch (error) {
+    console.warn('Could not collapse a restored tab group:', error);
+  }
+}
+
 // Recreate the saved groups in a window whose tabs now exist.
 //
 // Never throws, and never reports failure to the caller. Two reasons: the tabs
@@ -100,7 +127,8 @@ export function restoreTargetIndex(
 export async function applyTabGroups(
   windowId: number,
   groups: TabGroupSpec[],
-  tabIdsByGroupId: Map<string, number[]>
+  tabIdsByGroupId: Map<string, number[]>,
+  collapse: CollapseRule = { kind: 'none' }
 ): Promise<void> {
   // The namespace is undefined -- not throwing -- while the tabGroups
   // permission is ungranted, so this is feature detection, not try/catch.
@@ -124,6 +152,10 @@ export async function applyTabGroups(
         // restore. Chrome rejects a colour outside its enum.
         color: sanitizeTabGroupColor(group.color),
       });
+      // Its own call, after the look: a refused collapse leaves the title and colour applied.
+      if (collapses(collapse, group, tabIds)) {
+        await collapseRestoredGroup(groupId);
+      }
     } catch (error) {
       console.warn('Could not restore a tab group:', error);
     }
@@ -233,7 +265,10 @@ async function fillRestoredWindow(
   }
 
   if (spec.groups && spec.groups.length > 0) {
-    await applyTabGroups(windowId, spec.groups, groupMembers(spec.tabs, ids));
+    await applyTabGroups(windowId, spec.groups, groupMembers(spec.tabs, ids), {
+      kind: 'saved',
+      openTabId: targetId,
+    });
   }
 }
 

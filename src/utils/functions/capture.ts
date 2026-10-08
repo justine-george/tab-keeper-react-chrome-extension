@@ -168,6 +168,8 @@ export async function readCurrentWindowGroups(
       // stored type `string` and gives the empty case one representation.
       title: group.title ?? '',
       color: group.color,
+      // KAN-460. Absent when open, so an uncollapsed group is stored as before.
+      ...(group.collapsed ? { collapsed: true as const } : {}),
     };
   });
 

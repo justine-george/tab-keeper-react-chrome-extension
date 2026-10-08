@@ -754,7 +754,8 @@ const isValidChromeTabGroupData = (data: unknown): data is chromeTabGroupData =>
   isRecord(data) &&
   typeof data.groupId === 'string' &&
   typeof data.title === 'string' &&
-  typeof data.color === 'string';
+  typeof data.color === 'string' &&
+  (data.collapsed === undefined || data.collapsed === true);
 
 // validate import JSON structure - windowGroupData
 const isValidWindowGroupData = (data: unknown): data is windowGroupData => {

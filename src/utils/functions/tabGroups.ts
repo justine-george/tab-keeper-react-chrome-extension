@@ -54,6 +54,8 @@ export interface chromeTabGroupData {
   groupId: string;
   title: string;
   color: string;
+  // KAN-460. Present only when the group was collapsed; restore collapses it again. Never false: absent is open.
+  collapsed?: true;
 }
 
 const KNOWN_COLORS: readonly string[] = TAB_GROUP_COLORS;

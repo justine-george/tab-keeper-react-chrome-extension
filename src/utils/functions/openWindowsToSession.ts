@@ -24,6 +24,8 @@ function toSavedWindow(
     groupId: uuidv4(),
     title: group.title,
     color: group.color,
+    // KAN-460. Absent when open, as a capture writes it.
+    ...(group.collapsed ? { collapsed: true as const } : {}),
   }));
   const idByChromeId = new Map(
     openWindow.groups.map((group, i) => [group.id, groups[i].groupId])
