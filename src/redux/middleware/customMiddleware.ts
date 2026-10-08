@@ -250,7 +250,7 @@ export const customMiddleware: Middleware = (store) => {
       // the one that WAS present a moment ago.
       const withdrawTabGroupIds =
         action.type === UNDO_ACTION
-          ? prevState.undoRedo.present.addedTabGroupIds ?? []
+          ? (prevState.undoRedo.present.addedTabGroupIds ?? [])
           : [];
 
       // update tabContainerDataState from the latest presentState

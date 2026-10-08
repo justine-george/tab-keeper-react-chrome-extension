@@ -788,7 +788,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     ): number => {
       if (landing === undefined) return from;
       const row = rowsIn(l, landing.windowId)[landing.index];
-      return row === undefined ? from : l.slotOfRow[row.index] ?? row.index;
+      return row === undefined ? from : (l.slotOfRow[row.index] ?? row.index);
     };
 
     // Where a row landing in ANOTHER window is inserted (KAN-132): the slot it
@@ -812,7 +812,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       const row = rowsIn(l, landing.windowId)[landing.index];
       return row === undefined
         ? l.slots.length
-        : l.slotOfRow[row.index] ?? l.slots.length;
+        : (l.slotOfRow[row.index] ?? l.slots.length);
     };
 
     // Where a release at the pointer's current position lands, or undefined
@@ -1116,8 +1116,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       const gapChanges =
         landing === undefined
           ? []
-          : gapChangesBy?.(l.rowId, landing.index, target, landing.windowId) ??
-            [];
+          : (gapChangesBy?.(l.rowId, landing.index, target, landing.windowId) ??
+            []);
       // Each resolved to the band's own title row, which is the first thing
       // the gap above it displaces. A band this list cannot place is dropped
       // rather than guessed at.
@@ -1512,7 +1512,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         setDragNewWindow(true, !l.adopted && l.maxScroll > 0);
       }
       // KAN-394 N1 (revised). Only a drag that can hand off to a carry; an adopted one's carry wrote it.
-      const out = l.adopted ? null : carryOut?.(l.rowId) ?? null;
+      const out = l.adopted ? null : (carryOut?.(l.rowId) ?? null);
       if (out !== null) setDragNewSession(true);
       // KAN-279 D12. From here until the drag ends, a change this page did
       // not make waits (dragHold): applying it would move the list under
@@ -2347,7 +2347,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       nearest: ctx,
       byScope:
         scope === undefined
-          ? parent?.byScope ?? {}
+          ? (parent?.byScope ?? {})
           : { ...parent?.byScope, [scope]: ctx },
     }),
     [ctx, parent, scope]
@@ -2467,7 +2467,7 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
     ? 0
     : held
       ? drag.offset - drag.heldWindowShift
-      : drag.shifts[rowId] ?? 0;
+      : (drag.shifts[rowId] ?? 0);
 
   return (
     <div

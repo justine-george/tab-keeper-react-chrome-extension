@@ -261,17 +261,17 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
        The fill is readable in every theme because KAN-204 made it so; nothing
        here repaints the text to compensate. */
     &:hover {
-      background-color: ${danger
-        ? COLORS.DELETE_ICON_HOVER_COLOR
-        : COLORS.HOVER_COLOR};
+      background-color: ${
+        danger ? COLORS.DELETE_ICON_HOVER_COLOR : COLORS.HOVER_COLOR
+      };
     }
     /* KAN-205. A menu item is the one place a press most needs confirming --
        the menu closes on release, so without this the only feedback a click
        gets is the menu disappearing. A danger item keeps its red; see Icon. */
     &:active {
-      background-color: ${danger
-        ? COLORS.DELETE_ICON_HOVER_COLOR
-        : COLORS.ACTIVE_COLOR};
+      background-color: ${
+        danger ? COLORS.DELETE_ICON_HOVER_COLOR : COLORS.ACTIVE_COLOR
+      };
     }
   `;
 

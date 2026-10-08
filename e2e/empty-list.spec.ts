@@ -168,8 +168,8 @@ test.describe('on a new install', () => {
     ).toBeVisible();
     await expect(line(page)).toBeAttached();
     expect(
-      await page.evaluate(
-        () => document.querySelector('dialog[open]')?.matches(':modal')
+      await page.evaluate(() =>
+        document.querySelector('dialog[open]')?.matches(':modal')
       )
     ).toBe(true);
   });

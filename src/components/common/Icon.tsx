@@ -203,16 +203,17 @@ const Icon: React.FC<IconProps> = ({
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: ${boxSizedFor
-      ? `calc(4px + (${boxSizedFor} - ${size}) / 2)`
-      : '4px'};
+    padding: ${
+      boxSizedFor ? `calc(4px + (${boxSizedFor} - ${size}) / 2)` : '4px'
+    };
     cursor: ${isActionable ? 'pointer' : 'inherit'};
     user-select: none;
     transition: background-color ${DURATION.MOVE};
     background-color: ${backgroundColor};
     ${onClick ? focusRingCss(COLORS) : ''}
-    ${isActionable &&
-    `&:hover {
+    ${
+      isActionable &&
+      `&:hover {
       background-color: ${hoverColor};
     }
     /* KAN-205. The press, one rung past the hover, so a click confirms itself.
@@ -241,7 +242,8 @@ const Icon: React.FC<IconProps> = ({
     &[aria-haspopup][aria-expanded='true'] {
       background-color: ${COLORS.ICON_ACTIVE_COLOR};
     }
-    ${hoverMotion ? hoverMotionCss(hoverMotion) : ''}`}
+    ${hoverMotion ? hoverMotionCss(hoverMotion) : ''}`
+    }
     ${style && style}
   `;
 

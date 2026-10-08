@@ -9,7 +9,7 @@ export const withASelection = (
     (g) => g.tabGroupId === preferredId
   )
     ? preferredId
-    : container.tabGroups[0]?.tabGroupId ?? null;
+    : (container.tabGroups[0]?.tabGroupId ?? null);
   const agrees =
     container.selectedTabGroupId === selectedTabGroupId &&
     container.tabGroups.every(

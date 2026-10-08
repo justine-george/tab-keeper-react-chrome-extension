@@ -351,8 +351,10 @@ export default function MenuContainer() {
             css={css`
               position: relative;
               display: inline-flex;
-              ${isFullViewCalloutOpen &&
-              `outline: 1.5px dashed ${COLORS.LABEL_L2_COLOR}; outline-offset: 2px;`}
+              ${
+                isFullViewCalloutOpen &&
+                `outline: 1.5px dashed ${COLORS.LABEL_L2_COLOR}; outline-offset: 2px;`
+              }
             `}
           >
             <Icon

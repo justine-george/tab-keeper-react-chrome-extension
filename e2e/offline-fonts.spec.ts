@@ -64,8 +64,8 @@ async function expectGlyphs(page: Page) {
     withProbe.find((icon) => icon.name === 'delete_forever')?.overflow,
     'the control name must read as text'
   ).toBeGreaterThan(1);
-  await page.evaluate(
-    () => document.querySelector('[data-probe="text"]')?.remove()
+  await page.evaluate(() =>
+    document.querySelector('[data-probe="text"]')?.remove()
   );
 
   const icons = await iconWidths(page);

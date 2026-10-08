@@ -342,8 +342,9 @@ describe('only side by side (O1a)', () => {
     const { store } = await renderHome();
     await mounted();
     expect(openNowTrack()).toBe('622px');
-    const gridBefore = document.querySelector('[data-pane="open-now"]')
-      ?.parentElement;
+    const gridBefore = document.querySelector(
+      '[data-pane="open-now"]'
+    )?.parentElement;
     await act(async () => {
       await store.dispatch(openSettingsPage(undefined));
     });

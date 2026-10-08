@@ -202,13 +202,11 @@ export interface chromeTabGroupTargetParams {
   groupId: string;
 }
 
-export interface updateChromeTabGroupColorParams
-  extends chromeTabGroupTargetParams {
+export interface updateChromeTabGroupColorParams extends chromeTabGroupTargetParams {
   color: string;
 }
 
-export interface addCurrTabToChromeGroupParams
-  extends chromeTabGroupTargetParams {
+export interface addCurrTabToChromeGroupParams extends chromeTabGroupTargetParams {
   tabData: tabData;
 }
 

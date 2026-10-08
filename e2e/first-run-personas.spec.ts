@@ -370,9 +370,8 @@ for (const [view, last] of [
         await expect(cardAt(page, 1)).toBeVisible();
         for (let step = 1; step < at; step++) {
           const example = cardButton(page, 'Use an example');
-          await ((await example.isVisible())
-            ? example
-            : cardButton(page, 'Next')
+          await (
+            (await example.isVisible()) ? example : cardButton(page, 'Next')
           ).click();
           await expect(cardAt(page, step + 1)).toBeVisible();
         }

@@ -154,7 +154,7 @@ async function preview(page: Page) {
       if (el === null || (held !== null && held.contains(el))) return [];
       const key =
         el instanceof HTMLElement
-          ? el.dataset.dragRowId ?? el.dataset.fixedRowId ?? '?'
+          ? (el.dataset.dragRowId ?? el.dataset.fixedRowId ?? '?')
           : '?';
       const s = span(el);
       return s.height > 0 ? [{ key, top: s.top, bottom: s.bottom }] : [];

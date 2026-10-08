@@ -1345,8 +1345,8 @@ async function recordRelease(page: Page): Promise<void> {
     const name = (e: Element | null) =>
       e === null
         ? 'null'
-        : e.closest('[data-drag-row-id]')?.getAttribute('data-drag-row-id') ??
-          e.tagName;
+        : (e.closest('[data-drag-row-id]')?.getAttribute('data-drag-row-id') ??
+          e.tagName);
     window.addEventListener(
       'pointerup',
       (e) => {

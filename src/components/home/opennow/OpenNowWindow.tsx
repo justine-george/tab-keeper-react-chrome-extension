@@ -175,9 +175,9 @@ export default function OpenNowWindow({
     position: relative;
     display: flex;
     justify-content: space-between;
-    ${goesToWindow
-      ? `&:hover { background-color: ${COLORS.HOVER_COLOR}; }`
-      : ''}
+    ${
+      goesToWindow ? `&:hover { background-color: ${COLORS.HOVER_COLOR}; }` : ''
+    }
   `;
 
   const parentLeftStyle = css`
@@ -220,9 +220,9 @@ export default function OpenNowWindow({
     top: 50%;
     right: 0;
     transform: translateY(-50%);
-    background-color: ${hoveredTabId === tabId
-      ? COLORS.HOVER_COLOR
-      : 'transparent'};
+    background-color: ${
+      hoveredTabId === tabId ? COLORS.HOVER_COLOR : 'transparent'
+    };
     & > * {
       opacity: ${hoveredTabId === tabId ? 1 : 0};
       transition: opacity ${DURATION.COLOR} ease-out;

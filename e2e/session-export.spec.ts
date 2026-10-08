@@ -853,7 +853,7 @@ function nameContrasts(elements: Element[]): NameContrast[] {
       luminance(ground.fill),
     ].sort((x, y) => y - x);
     return {
-      name: el instanceof HTMLInputElement ? el.value : el.textContent ?? '',
+      name: el instanceof HTMLInputElement ? el.value : (el.textContent ?? ''),
       inGroup: ground.inGroup,
       ratio: (a + 0.05) / (b + 0.05),
     };
@@ -1000,8 +1000,9 @@ for (const width of [1200, 800, 480]) {
           )
         ).size;
       const groups = [...document.querySelectorAll('[role="group"]')];
-      const bar = document.querySelector('button')!.closest('div')!
-        .parentElement!;
+      const bar = document
+        .querySelector('button')!
+        .closest('div')!.parentElement!;
       return {
         groups: groups.length,
         splitGroups: groups.filter((group) => linesIn(group) > 1).length,
@@ -1064,8 +1065,9 @@ test('the toolbar survives German at the popup width', async ({
         )
       ).size;
     const groups = [...document.querySelectorAll('[role="group"]')];
-    const bar = document.querySelector('button')!.closest('div')!
-      .parentElement!;
+    const bar = document
+      .querySelector('button')!
+      .closest('div')!.parentElement!;
     return {
       splitGroups: groups.filter((group) => linesIn(group) > 1).length,
       clipped: bar.scrollWidth > bar.clientWidth + 1,

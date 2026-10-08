@@ -189,8 +189,7 @@ export async function closeOpenWindow(
 // row once Open now lists it (KAN-311, O8c). A tab whose window had gone is
 // still a tab, in the window made around it.
 export type Reopened =
-  | { kind: 'tab'; tabId: number }
-  | { kind: 'window'; windowId: number };
+  { kind: 'tab'; tabId: number } | { kind: 'window'; windowId: number };
 
 // Reopen, from the page (the toast's button and ⌘Z / Ctrl+Z, KAN-311). An
 // item with Chrome's recently closed id goes to the service worker, which

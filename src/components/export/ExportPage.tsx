@@ -85,8 +85,7 @@ const HEADER_CONTENT_MAX_PX = 1100;
  * show stale windows.
  */
 export type ExportSource =
-  | { kind: 'saved'; tabGroupId: string }
-  | { kind: 'open-windows' };
+  { kind: 'saved'; tabGroupId: string } | { kind: 'open-windows' };
 
 export default function ExportPage({ source }: { source: ExportSource }) {
   const { t, i18n } = useTranslation();
@@ -171,7 +170,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   }, [source.kind, t]);
 
   const session =
-    source.kind === 'saved' ? savedSession : captured ?? undefined;
+    source.kind === 'saved' ? savedSession : (captured ?? undefined);
   const capturing = source.kind === 'open-windows' && captured === undefined;
 
   // Every output -- the preview, the saved file, the PDF, the clipboard --

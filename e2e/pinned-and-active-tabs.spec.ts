@@ -171,11 +171,10 @@ test('Save keeps two pinned tabs and the active third; Switch brings them back t
   }, ['PinnedOne', 'PinnedTwo', 'ActiveThree', 'LastFour'].map(page));
   // PREMISE: Chrome shows the window that way.
   await expect
-    .poll(
-      async () =>
-        (await windowsNow(serviceWorker))
-          .find((w) => w.tabs.some((t) => t.title === 'LastFour'))
-          ?.tabs.map(({ title, pinned, active }) => ({ title, pinned, active }))
+    .poll(async () =>
+      (await windowsNow(serviceWorker))
+        .find((w) => w.tabs.some((t) => t.title === 'LastFour'))
+        ?.tabs.map(({ title, pinned, active }) => ({ title, pinned, active }))
     )
     .toEqual([
       { title: 'PinnedOne', pinned: true, active: false },
@@ -573,11 +572,10 @@ test.describe('Save with a Tab Keeper page active keeps the tab in use before it
       { windowId, url: page('Background') }
     );
     await expect
-      .poll(
-        async () =>
-          (await windowsNow(worker))
-            .find((w) => w.id === windowId)
-            ?.tabs.find((t) => t.title === 'Background')
+      .poll(async () =>
+        (await windowsNow(worker))
+          .find((w) => w.id === windowId)
+          ?.tabs.find((t) => t.title === 'Background')
       )
       .toMatchObject({ active: false, status: 'complete' });
     // PREMISE: by lastAccessed alone, Background outranks Target.

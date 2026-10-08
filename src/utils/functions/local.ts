@@ -157,7 +157,7 @@ export const filterTabGroups = (
             // this list -- an import or a merge can produce one -- simply
             // never joins, exactly as partitionTabsIntoRuns treats it.
             const matchedGroupIds = new Set(
-              (searchGroupTitles ? window.chromeTabGroups ?? [] : [])
+              (searchGroupTitles ? (window.chromeTabGroups ?? []) : [])
                 .filter((group) =>
                   group.title.toLowerCase().includes(searchTerm)
                 )

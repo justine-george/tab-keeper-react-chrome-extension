@@ -640,7 +640,7 @@ export default function OpenNowPane({
                   const matchedTabIds =
                     matches === null
                       ? null
-                      : matches.get(openWindow.id) ?? null;
+                      : (matches.get(openWindow.id) ?? null);
                   if (matches !== null && matchedTabIds === null) return null;
                   return (
                     <OpenNowWindow

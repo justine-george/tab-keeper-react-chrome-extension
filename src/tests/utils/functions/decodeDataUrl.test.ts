@@ -33,9 +33,8 @@ vi.mock('../../../utils/functions/external', () => ({
   displayToast: vi.fn(),
 }));
 
-const { decodeDataUrl, placeholderTarget, resolveTabUrl } = await import(
-  '../../../utils/functions/local'
-);
+const { decodeDataUrl, placeholderTarget, resolveTabUrl } =
+  await import('../../../utils/functions/local');
 
 const PLACEHOLDER = 'data:text/html;base64,';
 

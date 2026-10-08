@@ -582,7 +582,9 @@ test.describe('Switch', () => {
     expect(
       tabs.map((t) => ({
         tab:
-          t.id === fullTab.tabId ? 'full view' : placeholderOf(t.url) ?? t.url,
+          t.id === fullTab.tabId
+            ? 'full view'
+            : (placeholderOf(t.url) ?? t.url),
         pinned: t.pinned,
         active: t.active,
       }))

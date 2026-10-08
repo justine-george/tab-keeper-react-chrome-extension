@@ -316,16 +316,18 @@ export default function MainContainer() {
   // `detail` instead: the same grid either way, so nothing changes sides.
   const tabContainerStyle = css`
     display: grid;
-    grid-template-columns: 356px minmax(0, 1fr) ${folded
-        ? '0'
-        : 'var(--open-now-width)'};
+    grid-template-columns: 356px minmax(0, 1fr) ${
+        folded ? '0' : 'var(--open-now-width)'
+      };
     grid-template-areas: 'sessions detail active-session';
-    ${!folded &&
-    css`
-      @media ${OPEN_NOW_RAIL_QUERY} {
-        grid-template-columns: 356px minmax(0, 1fr) 44px;
-      }
-    `}
+    ${
+      !folded &&
+      css`
+        @media ${OPEN_NOW_RAIL_QUERY} {
+          grid-template-columns: 356px minmax(0, 1fr) 44px;
+        }
+      `
+    }
   `;
 
   const tabContainerSettingsStyle = css`

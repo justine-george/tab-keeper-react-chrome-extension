@@ -349,12 +349,11 @@ test('while the card glides from step 6 to step 7 it takes no pointer, and takes
   ).toHaveAttribute('aria-expanded', 'false');
   // Landed: the glide runs out at normal speed, and the card takes the pointer again.
   await cdp.send('Animation.setPlaybackRate', { playbackRate: 1 });
-  await page.evaluate(
-    () =>
-      document
-        .querySelector('[data-coach-mark]')
-        ?.getAnimations()
-        .forEach((glide) => glide.play())
+  await page.evaluate(() =>
+    document
+      .querySelector('[data-coach-mark]')
+      ?.getAnimations()
+      .forEach((glide) => glide.play())
   );
   await expect
     .poll(() =>

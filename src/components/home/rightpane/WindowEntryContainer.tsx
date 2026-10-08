@@ -260,9 +260,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
        the mask they sit on. */
     /* No mask while editing: the field is beneath this block, so painting
        HOVER_COLOR here would drop a grey box onto a white input. */
-    background-color: ${isParentHovered && !isEditing
-      ? COLORS.HOVER_COLOR
-      : 'transparent'};
+    background-color: ${
+      isParentHovered && !isEditing ? COLORS.HOVER_COLOR : 'transparent'
+    };
     & > * {
       /* isEditing, because the confirm tick is not a hover affordance -- it is
          the editor's own control and has to be there whether or not the
@@ -394,9 +394,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     right: 0;
     transform: translateY(-50%);
     /* Mask in one frame, icons ease -- see parentRightStyle (KAN-100). */
-    background-color: ${hoveredTabId === tabId
-      ? COLORS.HOVER_COLOR
-      : 'transparent'};
+    background-color: ${
+      hoveredTabId === tabId ? COLORS.HOVER_COLOR : 'transparent'
+    };
     & > * {
       opacity: ${hoveredTabId === tabId ? 1 : 0};
       transition: opacity ${DURATION.COLOR} ease-out;
@@ -1286,9 +1286,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                              what puts the menu over them. */
                             /* The row owning an open menu outranks its
                              siblings; see openMenuGroupId above. */
-                            z-index: ${openMenuGroupId === item.group.groupId
-                              ? 3
-                              : 1};
+                            z-index: ${
+                              openMenuGroupId === item.group.groupId ? 3 : 1
+                            };
                           `}
                         >
                           {/* Hidden while searching, like every whole-item action (R7). */}

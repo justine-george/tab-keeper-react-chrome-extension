@@ -36,12 +36,7 @@ import type { CloudConsent } from '../../../../redux/slices/settingsDataStateSli
  * `title` and `line` are i18n keys; the card passes them through t().
  */
 export type SyncKind =
-  | 'unavailable'
-  | 'off'
-  | 'manual'
-  | 'failed'
-  | 'syncing'
-  | 'on';
+  'unavailable' | 'off' | 'manual' | 'failed' | 'syncing' | 'on';
 
 export interface SyncPresentation {
   kind: SyncKind;

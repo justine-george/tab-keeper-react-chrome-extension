@@ -1487,14 +1487,13 @@ describe('window labels while a window is carried', () => {
   };
   // The real windows' labels, from their titles; the phantom draws its own.
   const labels = () =>
-    ['d1', 'd2'].map(
-      (id) =>
-        document
-          .querySelector(
-            `[data-drop-window-id="${id}"] button[aria-label^="Rename window: "]`
-          )
-          ?.getAttribute('aria-label')
-          ?.replace('Rename window: ', '')
+    ['d1', 'd2'].map((id) =>
+      document
+        .querySelector(
+          `[data-drop-window-id="${id}"] button[aria-label^="Rename window: "]`
+        )
+        ?.getAttribute('aria-label')
+        ?.replace('Rename window: ', '')
     );
 
   test('the phantom window is left out of the numbering', async () => {
