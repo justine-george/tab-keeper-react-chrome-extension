@@ -267,3 +267,143 @@ test("3. Window 1 is the window saved from, even when it is not Chrome's first, 
     )
     .toContain('SecondA');
 });
+
+// Every normal window Chrome has: its id, state and tab titles.
+const windowsNow = (worker: Worker) =>
+  worker.evaluate(async () =>
+    (
+      await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] })
+    ).map((w) => ({
+      id: w.id ?? -1,
+      state: w.state,
+      titles: (w.tabs ?? []).map((t) => t.title ?? ''),
+    }))
+  );
+
+test.describe('window state (KAN-460 Part 2)', () => {
+  test('4. a maximized Window 2 is saved maximized; Switch brings it back maximized and Window 1 keeps focus', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedSettings(context, {});
+    const popup = await openPage(context, extensionId, 'index.html', POPUP);
+    await serviceWorker.evaluate(
+      async (urls) => {
+        const win = await chrome.windows.create({ url: urls, focused: false });
+        // Headless drops a state set before a new window settles (measured); its tabs loading is the barrier.
+        const loading = async () => {
+          const tabs = await chrome.tabs.query({ windowId: win!.id });
+          return (
+            tabs.length < urls.length ||
+            tabs.some((t) => t.status !== 'complete')
+          );
+        };
+        while (await loading()) await new Promise((r) => setTimeout(r, 20));
+        await chrome.windows.update(win!.id!, { state: 'maximized' });
+      },
+      [page('Max'), page('Max2')]
+    );
+    // PREMISE: Chrome reports it maximized (KAN-308 measured headless refusing once; see the plan).
+    await expect
+      .poll(
+        async () =>
+          (await windowsNow(serviceWorker)).find((w) =>
+            w.titles.includes('Max')
+          )?.state
+      )
+      .toBe('maximized');
+
+    await saveAll(popup);
+    await expect
+      .poll(async () => (await stored(popup)).tabGroups.length)
+      .toBe(1);
+    const saved = (await stored(popup)).tabGroups[0].windows;
+    expect(saved).toHaveLength(2);
+    const max = saved.find((w) => w.tabs.some((t) => t.title === 'Max'));
+    const other = saved.find((w) => w !== max);
+    expect(max?.state).toBe('maximized');
+    expect(other && 'state' in other).toBe(false);
+
+    const before = (await windowsNow(serviceWorker)).map((w) => w.id);
+    await pressSwitch(popup);
+    await expect
+      .poll(
+        async () => {
+          const restored = (await windowsNow(serviceWorker)).find(
+            (w) => !before.includes(w.id) && w.titles.includes('Max')
+          );
+          return restored?.state ?? null;
+        },
+        { timeout: 15_000 }
+      )
+      .toBe('maximized');
+    const focused = await serviceWorker.evaluate(async () => {
+      const w = await chrome.windows.getLastFocused({ populate: true });
+      return (w.tabs ?? []).map((t) => t.title ?? '');
+    });
+    expect(focused).not.toContain('Max');
+  });
+
+  test('5. Open brings back a full-screen Window 1, a maximized Window 2 and a normal Window 3', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const tab = (id: string) => ({
+      tabId: id,
+      favicon: '',
+      title: id,
+      url: page(id),
+    });
+    const win = (
+      id: string,
+      title: string,
+      state?: 'maximized' | 'fullscreen'
+    ) => ({
+      windowId: id,
+      windowHeight: 600,
+      windowWidth: 800,
+      windowOffsetTop: 0,
+      windowOffsetLeft: 0,
+      tabCount: 1,
+      title: '',
+      tabs: [tab(title)],
+      ...(state === undefined ? {} : { state }),
+    });
+    await seedSettings(context, {});
+    await seedSessions(
+      context,
+      buildContainer([
+        buildSession({
+          tabGroupId: 's1',
+          title: 'States',
+          windowCount: 3,
+          tabCount: 3,
+          windows: [
+            win('w1', 'FS', 'fullscreen'),
+            win('w2', 'Big', 'maximized'),
+            win('w3', 'Plain'),
+          ],
+        }),
+      ])
+    );
+    const popup = await openPage(context, extensionId, 'index.html', POPUP);
+    const before = (await windowsNow(serviceWorker)).map((w) => w.id);
+    await pressOpen(popup);
+
+    await expect
+      .poll(
+        async () => {
+          const fresh = (await windowsNow(serviceWorker)).filter(
+            (w) => !before.includes(w.id)
+          );
+          const of = (t: string) =>
+            fresh.find((w) => w.titles.includes(t))?.state ?? null;
+          return [of('FS'), of('Big'), of('Plain')];
+        },
+        { timeout: 15_000 }
+      )
+      .toEqual(['fullscreen', 'maximized', 'normal']);
+  });
+});
