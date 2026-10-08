@@ -504,6 +504,94 @@ test.describe('Switch', () => {
     ]);
     expect(settled.flat().map((t) => t.id)).not.toContain(homeStub);
   });
+
+  test("Off, a hand-pinned full view into a session with a pinned tab: Tab Keeper stays first, before the session's pin (KAN-458)", async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await stubsStayHidden(context);
+    await seedSessions(
+      context,
+      buildContainer([
+        buildSession({
+          tabGroupId: 's3',
+          title: 'Pins',
+          windowCount: 1,
+          tabCount: 2,
+          windows: [
+            {
+              windowId: 'w1',
+              windowHeight: 600,
+              windowWidth: 800,
+              windowOffsetTop: 0,
+              windowOffsetLeft: 0,
+              tabCount: 2,
+              title: '',
+              tabs: [
+                {
+                  tabId: 'tp',
+                  favicon: '',
+                  title: 'Pinned',
+                  url: dataUrl('Pinned'),
+                  pinned: true,
+                },
+                {
+                  tabId: 'ts',
+                  favicon: '',
+                  title: 'Second',
+                  url: dataUrl('Second'),
+                },
+              ],
+            },
+          ],
+        }),
+      ])
+    );
+    await seedSettings(context, {
+      pinTabKeeperInNewWindows: false,
+      theme: 'Darkenheimer',
+    });
+    const full = await openPage(context, extensionId, FULL_VIEW_PATH, FULL);
+    await full.evaluate(async () => {
+      const tab = await chrome.tabs.getCurrent();
+      if (tab?.id !== undefined) {
+        await chrome.tabs.update(tab.id, { pinned: true });
+      }
+    });
+    const fullTab = await tabOf(full);
+    const before = await windowsNow(serviceWorker);
+    const popup = await openPage(context, extensionId, 'index.html', POPUP);
+    await pressSwitch(popup);
+    const made = async () =>
+      (await windowsNow(serviceWorker)).filter(
+        (w) => !before.some((b) => b.id === w.id)
+      );
+    await expect
+      .poll(async () => (await windowsNow(serviceWorker)).length)
+      .toBe(1);
+    await expect.poll(async () => (await made())[0]?.tabs.length).toBe(3);
+    const [tabs] = await settledTabs(serviceWorker, [(await made())[0].id]);
+    // The session's pinned tab opens as a lazy placeholder: a base64 page titled after it.
+    const placeholderOf = (url: string) =>
+      url.startsWith('data:text/html;base64,')
+        ? /<title>(.*?)<\/title>/.exec(
+            Buffer.from(url.slice(22), 'base64').toString()
+          )?.[1]
+        : undefined;
+    expect(
+      tabs.map((t) => ({
+        tab:
+          t.id === fullTab.tabId ? 'full view' : placeholderOf(t.url) ?? t.url,
+        pinned: t.pinned,
+        active: t.active,
+      }))
+    ).toEqual([
+      { tab: 'full view', pinned: true, active: false },
+      { tab: 'Pinned', pinned: true, active: false },
+      { tab: dataUrl('Second'), pinned: false, active: true },
+    ]);
+  });
 });
 
 test.describe('Open now: Reopen a window', () => {

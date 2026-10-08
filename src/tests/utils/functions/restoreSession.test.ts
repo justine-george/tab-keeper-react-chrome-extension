@@ -255,3 +255,64 @@ describe('Switch (closeOtherWindows true)', () => {
     ]);
   });
 });
+
+describe('a session with pinned tabs (KAN-458)', () => {
+  const pinnedSpec = (): WindowSpec => ({
+    tabs: [
+      { tabId: 'p', favicon: '', title: 'p', url: web('p'), pinned: true },
+      { tabId: 'a', favicon: '', title: 'a', url: web('a') },
+    ],
+    focused: true,
+    bounds: null,
+  });
+  const pinnedRequest = (
+    closeOtherWindows: boolean,
+    pinTabKeeper: boolean
+  ): RestoreSessionRequest => ({
+    type: RESTORE_SESSION_MESSAGE,
+    specs: [pinnedSpec()],
+    goToURLText: 'Visit Site',
+    closeOtherWindows,
+    pinTabKeeper,
+  });
+  const lazyP = generatePlaceholderURL(
+    'p',
+    '/images/favicon.ico',
+    web('p'),
+    'Visit Site'
+  );
+
+  test('On: the stub first, then the session pinned tab, the first unpinned tab active', async () => {
+    handle = setupChromeFake(seed());
+    await restoreSession(pinnedRequest(false, true));
+    const [made] = await newWindows([1]);
+    expect(made.tabs).toEqual([
+      { url: STUB, pinned: true, active: false },
+      { url: lazyP, pinned: true, active: false },
+      { url: web('a'), pinned: false, active: true },
+    ]);
+  });
+
+  test('Switch carries a pinned full view to index 0, before the session pinned tab', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          focused: true,
+          tabs: [
+            { id: 10, url: FULL, pinned: true },
+            { id: 11, url: web('old'), active: true },
+          ],
+        },
+      ],
+    });
+    await restoreSession(pinnedRequest(true, false));
+    const all = await layout();
+    expect(all).toHaveLength(1);
+    expect(all[0].tabs).toEqual([
+      { url: FULL, pinned: true, active: false },
+      { url: lazyP, pinned: true, active: false },
+      { url: web('a'), pinned: false, active: true },
+    ]);
+  });
+});
