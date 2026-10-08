@@ -5,10 +5,13 @@
 // a window never provides one of its own. ONE component rather than the
 // per-window area each window used to build for itself, so the wiring behind
 // it can only be changed in one place.
-import React, { useCallback, type ReactNode } from 'react';
-import { useSelector } from 'react-redux';
+import React, { useCallback, useMemo, type ReactNode } from 'react';
+import { useSelector, useStore } from 'react-redux';
 
 import type { RootState } from '../../../redux/store';
+import { collapsedWindowIdsOf } from '../../../redux/slices/globalStateSlice';
+import { isDrawnFolded } from '../../../redux/springOpenWindows';
+import { groupLandingRange } from '../../../utils/functions/pinnedRun';
 import { RowDragArea } from './rowDrag/RowDragArea';
 import { useKeepWindowOpen } from './useKeepWindowOpen';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
@@ -40,6 +43,21 @@ export const GroupDragArea: React.FC<{
     (rowId: string) => groupCarryOut(itemList, rowId),
     [itemList]
   );
+  const store = useStore<RootState>();
+  // Read live: the engine asks mid-drag, when a window it opened is drawn open with the stored fold intact (KAN-379).
+  const landingRange = useMemo(
+    () =>
+      groupLandingRange(itemList.windows, (windowId) =>
+        isDrawnFolded(
+          collapsedWindowIdsOf(
+            store.getState().globalState.collapsedWindows,
+            itemList.tabGroupId
+          ),
+          windowId
+        )
+      ),
+    [itemList, store]
+  );
 
   return (
     <RowDragArea
@@ -59,6 +77,8 @@ export const GroupDragArea: React.FC<{
       // applied to the group's own window -- a silent wrong move that dirties
       // the session for a cloud write (measured, Task 11 fix round 1).
       dropsAcrossWindows
+      // KAN-458. A group never lands inside a window's pinned run; clamped in the decision the preview shares.
+      landingRange={landingRange}
       // Only a group's title row is a handle, so a press on a tab reaches this
       // list's begin, finds no handle, and is left to the tab list.
       handleSelector="[data-group-drag-handle]"

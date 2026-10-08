@@ -19,6 +19,14 @@ export function isSpringOpen(windowId: string): boolean {
   return opened.has(windowId);
 }
 
+// KAN-458 R1. Drawn with no rows: folded in the store and not opened by this drag.
+export function isDrawnFolded(
+  storedFolded: readonly string[],
+  windowId: string
+): boolean {
+  return storedFolded.includes(windowId) && !opened.has(windowId);
+}
+
 // Whether any window folded back. A no-op when nothing is held, so it does not notify.
 export function foldBackSpringOpened(): boolean {
   if (opened.size === 0) return false;
