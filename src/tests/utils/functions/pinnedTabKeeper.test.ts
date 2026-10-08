@@ -181,6 +181,33 @@ describe('carryPinnedTab', () => {
     ]);
   });
 
+  test("lands before the window's own pinned tabs (KAN-458)", async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 10, url: FULL, pinned: true },
+            { id: 11, url: web('old') },
+          ],
+        },
+        {
+          id: 2,
+          tabs: [
+            { id: 20, url: web('mail'), pinned: true },
+            { id: 21, url: web('new'), active: true },
+          ],
+        },
+      ],
+    });
+    expect(await carryPinnedTab(10, 2)).toBe(true);
+    expect(await tabsOf(2)).toEqual([
+      { url: FULL, pinned: true, active: false },
+      { url: web('mail'), pinned: true, active: false },
+      { url: web('new'), pinned: false, active: true },
+    ]);
+  });
+
   test('a refused re-pin still answers true: the tab is in the new window', async () => {
     handle = setupChromeFake({
       windows: [
@@ -199,6 +226,39 @@ describe('carryPinnedTab', () => {
     expect(await carryPinnedTab(10, 2)).toBe(true);
     expect(warn).toHaveBeenCalled();
     expect((await tabsOf(2)).map((t) => t.url)).toEqual([FULL, web('new')]);
+  });
+
+  test('a refused placement still answers true: the tab stays pinned, after the window pins', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 10, url: FULL, pinned: true },
+            { id: 11, url: web('old') },
+          ],
+        },
+        {
+          id: 2,
+          tabs: [
+            { id: 20, url: web('mail'), pinned: true },
+            { id: 21, url: web('new'), active: true },
+          ],
+        },
+      ],
+    });
+    const move = chrome.tabs.move;
+    vi.spyOn(chrome.tabs, 'move')
+      .mockImplementationOnce(move)
+      .mockRejectedValueOnce(new Error('refused'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    expect(await carryPinnedTab(10, 2)).toBe(true);
+    expect(warn).toHaveBeenCalled();
+    expect(await tabsOf(2)).toEqual([
+      { url: web('mail'), pinned: true, active: false },
+      { url: FULL, pinned: true, active: false },
+      { url: web('new'), pinned: false, active: true },
+    ]);
   });
 
   test('a refused move answers false and leaves the tab where it was', async () => {

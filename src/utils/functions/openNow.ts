@@ -20,6 +20,8 @@ export interface OpenTab {
   // Keeper pages that this pane leaves out. Reopen puts the tab back here
   // (KAN-280 O8).
   index: number;
+  // KAN-458 A4. For the saved active tab when the active one is a Tab Keeper page.
+  lastAccessed?: number;
 }
 
 export interface OpenGroup {
@@ -91,6 +93,7 @@ function toOpenTab(
     muted: tab.mutedInfo?.muted ?? false,
     groupId,
     index: tab.index,
+    lastAccessed: tab.lastAccessed,
   };
 }
 

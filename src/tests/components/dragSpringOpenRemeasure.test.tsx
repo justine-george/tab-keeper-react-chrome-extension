@@ -180,12 +180,13 @@ function stubLayout(
   return { w2Reads, restore: () => spy.mockRestore() };
 }
 
-const tab = (id: string, g?: string) => ({
+const tab = (id: string, g?: string, pinned = false) => ({
   tabId: id,
   favicon: '',
   title: `Tab ${id}`,
   url: `https://${id}.test`,
   ...(g ? { chromeGroupId: g } : {}),
+  ...(pinned ? { pinned: true as const } : {}),
 });
 
 const win = (
@@ -206,7 +207,20 @@ const win = (
 
 const A = Array.from({ length: 10 }, (_, i) => `a${i}`);
 
-async function render(w2Folded: boolean) {
+const WINDOWS = [
+  win(
+    'w1',
+    A.map((id) => tab(id))
+  ),
+  win(
+    'w2',
+    [tab('b0'), tab('b1', 'gb'), tab('b2', 'gb')],
+    [{ groupId: 'gb', title: 'GB', color: 'red' }]
+  ),
+  win('w3', [tab('c0'), tab('c1')]),
+];
+
+async function render(w2Folded: boolean, windows = WINDOWS) {
   const result = await renderWithProviders(<TabGroupDetailsContainer />, {
     seedStore: (store) => {
       store.dispatch(setHasTabGroupsPermission(true));
@@ -215,22 +229,11 @@ async function render(w2Folded: boolean) {
           tabGroupId: 'tg',
           title: 'Session',
           createdTime: '2026-10-02 09:00:00',
-          windowCount: 3,
-          tabCount: 15,
+          windowCount: windows.length,
+          tabCount: windows.reduce((n, w) => n + w.tabs.length, 0),
           isAutoSave: false,
           isSelected: true,
-          windows: [
-            win(
-              'w1',
-              A.map((id) => tab(id))
-            ),
-            win(
-              'w2',
-              [tab('b0'), tab('b1', 'gb'), tab('b2', 'gb')],
-              [{ groupId: 'gb', title: 'GB', color: 'red' }]
-            ),
-            win('w3', [tab('c0'), tab('c1')]),
-          ],
+          windows,
         })
       );
       store.dispatch(selectTabContainer('tg'));
@@ -299,7 +302,11 @@ const windowsOf = (store: RenderWithProvidersResult['store']) =>
   store
     .getState()
     .tabContainerDataState.tabGroups[0].windows.map((w) =>
-      w.tabs.map((t) => t.tabId + (t.chromeGroupId ? '*' : '')).join(' ')
+      w.tabs
+        .map(
+          (t) => t.tabId + (t.chromeGroupId ? '*' : '') + (t.pinned ? '^' : '')
+        )
+        .join(' ')
     );
 
 interface Run {
@@ -307,14 +314,21 @@ interface Run {
   aims: number[];
   release: number;
   pane: Pane;
+  windows?: typeof WINDOWS;
+  // What the press lands on, when it is not the held row itself (a group's title).
+  press?: string;
 }
 
 // Holds `held`, rests on w2's title (opening it if folded), aims, releases.
 async function drag(w2Folded: boolean, run: Run) {
-  const { store, pane, unmount } = await render(w2Folded);
+  const { store, pane, unmount } = await render(w2Folded, run.windows);
   const { restore } = stubLayout(pane, run.pane);
   const y = (content: number) => content - run.pane.scrollTop;
-  const held = rowEl(pane, run.held);
+  const held =
+    run.press === undefined
+      ? rowEl(pane, run.held)
+      : pane.querySelector<HTMLElement>(run.press);
+  if (held === null) throw new Error(`no ${run.press}`);
   const start = midOf(held);
   fireEvent.pointerDown(held, { clientX: X, clientY: start, button: 0 });
   moveTo(start + 6);
@@ -580,5 +594,84 @@ describe('a window opened mid-drag is measured as if it had been open (KAN-379)'
 
     expect(pane.scrollTop).toBe(374 - 150 + 84);
     fireEvent.keyDown(window, { key: 'Escape' });
+  });
+});
+
+// KAN-458 R1. A window this drag opened draws its rows, so position decides there as in one started open.
+describe('a drop into a window this drag opened keeps the pinned rules of an open one (KAN-458)', () => {
+  // w2's b0 is pinned; w3 holds a group gc. 275 is above b0's midpoint: index 0, inside the pinned run.
+  const pinnedW2 = [
+    WINDOWS[0],
+    win(
+      'w2',
+      [tab('b0', undefined, true), tab('b1', 'gb'), tab('b2', 'gb')],
+      [{ groupId: 'gb', title: 'GB', color: 'red' }]
+    ),
+    win(
+      'w3',
+      [tab('c0', 'gc'), tab('c1', 'gc')],
+      [{ groupId: 'gc', title: 'GC', color: 'green' }]
+    ),
+  ];
+
+  test('a tab dropped above the pinned tab is pinned there, as in a drag started with it open', async () => {
+    const run: Run = {
+      held: 'a9',
+      aims: [275],
+      release: 275,
+      pane: UNSCROLLED,
+      windows: pinnedW2,
+    };
+    const control = await drag(false, run);
+    const opened = await drag(true, run);
+
+    // PREMISE: the control lands first in w2, pinned.
+    expect(control.after[1]).toBe('a9^ b0^ b1* b2*');
+    expect(opened.previews).toEqual(control.previews);
+    expect(opened.after).toEqual(control.after);
+  });
+
+  const GC_HANDLE = '[data-drag-row-id="group:gc"] [data-group-drag-handle]';
+
+  // 285 is below b0's midpoint: index 1, right after the pinned run.
+  test('a group held above the pinned tab previews and lands after it, as in a drag started with it open', async () => {
+    const run: Run = {
+      held: 'group:gc',
+      press: GC_HANDLE,
+      aims: [275, 285],
+      release: 275,
+      pane: UNSCROLLED,
+      windows: pinnedW2,
+    };
+    const control = await drag(false, run);
+    const opened = await drag(true, run);
+
+    // The rows that make room; the held one follows the pointer.
+    const room = ({ rows }: (typeof control.previews)[0]) => ({
+      ...rows,
+      'group:gc': undefined,
+    });
+    // PREMISE: held above the pinned tab, the control makes room after it, as at 285, and lands there.
+    expect(room(control.previews[0])).toEqual(room(control.previews[1]));
+    expect(control.after[1]).toBe('b0^ c0* c1* b1* b2*');
+    expect(opened.previews).toEqual(control.previews);
+    expect(opened.after).toEqual(control.after);
+  });
+
+  test('a group dropped on a window drawn with no rows is taken, and lands after its pinned run', async () => {
+    const { store, pane, unmount } = await render(true, pinnedW2);
+    const { restore } = stubLayout(pane, UNSCROLLED);
+    const handle = pane.querySelector<HTMLElement>(GC_HANDLE);
+    if (handle === null) throw new Error('no gc handle');
+    const start = midOf(handle);
+    fireEvent.pointerDown(handle, { clientX: X, clientY: start, button: 0 });
+    moveTo(start + 6);
+    moveTo(260);
+    fireEvent.pointerUp(document, { clientX: X, clientY: 260 });
+    const after = windowsOf(store);
+    unmount();
+    restore();
+
+    expect(after[1]).toBe('b0^ c0* c1* b1* b2*');
   });
 });

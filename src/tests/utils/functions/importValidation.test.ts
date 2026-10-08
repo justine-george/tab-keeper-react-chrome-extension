@@ -120,3 +120,49 @@ describe('isValidTabMasterContainer with tab groups', () => {
     ).toBe(false);
   });
 });
+
+// KAN-458. Absent is every session saved before the fields; a malformed value is a hand edit.
+const withTab = (fields: Record<string, unknown>) =>
+  container({
+    tabs: [
+      {
+        tabId: 't1',
+        favicon: '',
+        title: 'a',
+        url: 'https://a.test',
+        ...fields,
+      },
+    ],
+  });
+
+describe('isValidTabMasterContainer with pinned and active tabs (KAN-458)', () => {
+  test('accepts a tab with pinned: true', () => {
+    expect(isValidTabMasterContainer(withTab({ pinned: true }))).toBe(true);
+  });
+
+  test.each([
+    ['false', false],
+    ['a string', 'yes'],
+    ['null', null],
+  ])('rejects pinned as %s', (_, value) => {
+    expect(isValidTabMasterContainer(withTab({ pinned: value }))).toBe(false);
+  });
+
+  test('accepts a window whose activeTabId names one of its tabs', () => {
+    expect(isValidTabMasterContainer(container({ activeTabId: 't1' }))).toBe(
+      true
+    );
+  });
+
+  test('accepts an activeTabId that names no tab: restore falls back', () => {
+    expect(isValidTabMasterContainer(container({ activeTabId: 'gone' }))).toBe(
+      true
+    );
+  });
+
+  test('rejects an activeTabId that is not a string', () => {
+    expect(isValidTabMasterContainer(container({ activeTabId: 7 }))).toBe(
+      false
+    );
+  });
+});

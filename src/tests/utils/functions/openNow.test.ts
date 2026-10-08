@@ -452,3 +452,21 @@ describe('focusOpenWindow (KAN-331)', () => {
     await expect(focusOpenWindow(99)).rejects.toThrow('No window with id: 99.');
   });
 });
+
+describe('toOpenWindows carries lastAccessed (KAN-458)', () => {
+  test("a tab's lastAccessed reaches the pane's snapshot", async () => {
+    handle = setupChromeFake({
+      windows: [
+        { id: 1, tabs: [{ url: 'https://a.test/', lastAccessed: 42 }] },
+      ],
+    });
+
+    const result = toOpenWindows(
+      await chrome.windows.getAll({ populate: true }),
+      null,
+      null
+    );
+
+    expect(result[0].tabs[0].lastAccessed).toBe(42);
+  });
+});

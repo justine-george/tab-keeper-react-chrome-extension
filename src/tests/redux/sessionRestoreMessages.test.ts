@@ -225,4 +225,31 @@ describe('every restore call site posts one RestoreSessionRequest to the worker'
       expect(firstSentRequest(handle).pinTabKeeper).toBe(true);
     }
   );
+
+  it('a window saved with an active tab sends it in its spec; one without sends none (KAN-458)', async () => {
+    handle = setupChromeFake();
+    const [first, second] = SESSION.tabGroups[0].windows;
+    const withActiveTab: TabMasterContainer = {
+      ...SESSION,
+      tabGroups: [
+        {
+          ...SESSION.tabGroups[0],
+          windows: [{ ...first, activeTabId: 't-a' }, second],
+        },
+      ],
+    };
+
+    const { store } = makeTestStore();
+    store.dispatch(restoreContainer(withActiveTab));
+    await store.dispatch(
+      openAllTabContainer({
+        tabGroupId: 'group-1',
+        goToURLText: GO_TO_URL_TEXT,
+      })
+    );
+
+    const request = firstSentRequest(handle);
+    expect(request.specs[0].activeTabId).toBe('t-a');
+    expect('activeTabId' in request.specs[1]).toBe(false);
+  });
 });

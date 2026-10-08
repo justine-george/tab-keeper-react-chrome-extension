@@ -4,9 +4,12 @@ import {
   createWindowWithRetries,
   isRestoreSessionRequest,
   planWindowClosure,
+  restoreTargetIndex,
   RESTORE_SESSION_MESSAGE,
   WindowSpec,
 } from '../../../utils/functions/windows';
+import { generatePlaceholderURL } from '../../../utils/functions/local';
+import type { tabData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { setupChromeFake } from '../../setup/chrome.fake';
 
 // Repeated rather than imported: it is private to local.ts, and the module
@@ -349,5 +352,285 @@ describe('isRestoreSessionRequest', () => {
     );
     expect(isRestoreSessionRequest('nope')).toBe(false);
     expect(isRestoreSessionRequest(null)).toBe(false);
+  });
+});
+
+describe('restoreTargetIndex (KAN-458)', () => {
+  const t = (tabId: string, pinned = false): tabData =>
+    pinned
+      ? { tabId, favicon: '', title: tabId, url: tabId, pinned: true }
+      : { tabId, favicon: '', title: tabId, url: tabId };
+
+  test('the saved active tab', () => {
+    expect(restoreTargetIndex([t('p', true), t('a'), t('b')], 'b')).toBe(2);
+  });
+
+  test('no saved active tab: the first unpinned', () => {
+    expect(restoreTargetIndex([t('p', true), t('a'), t('b')], undefined)).toBe(
+      1
+    );
+  });
+
+  test('a saved active tab that names no tab: the first unpinned', () => {
+    expect(restoreTargetIndex([t('p', true), t('a')], 'gone')).toBe(1);
+  });
+
+  test('only pinned tabs: the first', () => {
+    expect(restoreTargetIndex([t('p', true), t('q', true)], undefined)).toBe(0);
+  });
+});
+
+describe('restore opens on the saved active tab, pinned tabs pinned (KAN-458)', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+  });
+
+  const live = (id: string) => `https://${id}.test/`;
+  const lazy = (id: string) =>
+    generatePlaceholderURL(id, '/images/favicon.ico', live(id), 'Go');
+  const page = (id: string, extra: Partial<tabData> = {}): tabData => ({
+    tabId: id,
+    favicon: '',
+    title: id,
+    url: live(id),
+    ...extra,
+  });
+  const pin = (id: string): tabData => page(id, { pinned: true });
+
+  const restore = (tabs: tabData[], activeTabId?: string) =>
+    createWindowWithRetries(
+      spec({ tabs, ...(activeTabId === undefined ? {} : { activeTabId }) }),
+      'Go',
+      2
+    );
+
+  async function strip(win: chrome.windows.Window | null) {
+    if (win?.id === undefined) throw new Error('no window was created');
+    return (await chrome.tabs.query({ windowId: win.id }))
+      .sort((a, b) => a.index - b.index)
+      .map((t) => ({ url: t.url, pinned: t.pinned, active: t.active }));
+  }
+
+  test('pinned tabs come back pinned and first; the saved active tab loads and is active; the rest are lazy', async () => {
+    handle = setupChromeFake();
+    const win = await restore(
+      [pin('p1'), pin('p2'), page('a3'), page('b4')],
+      'a3'
+    );
+    expect(await strip(win)).toEqual([
+      { url: lazy('p1'), pinned: true, active: false },
+      { url: lazy('p2'), pinned: true, active: false },
+      { url: live('a3'), pinned: false, active: true },
+      { url: lazy('b4'), pinned: false, active: false },
+    ]);
+  });
+
+  test('no saved active tab: the first unpinned tab loads', async () => {
+    handle = setupChromeFake();
+    const win = await restore([pin('p1'), page('a2'), page('b3')]);
+    expect(await strip(win)).toEqual([
+      { url: lazy('p1'), pinned: true, active: false },
+      { url: live('a2'), pinned: false, active: true },
+      { url: lazy('b3'), pinned: false, active: false },
+    ]);
+  });
+
+  test('a saved active tab that is gone: the first unpinned tab loads', async () => {
+    handle = setupChromeFake();
+    const win = await restore([pin('p1'), page('a2')], 'gone');
+    expect((await strip(win))[1]).toEqual({
+      url: live('a2'),
+      pinned: false,
+      active: true,
+    });
+  });
+
+  test('only pinned tabs: the first loads, pinned', async () => {
+    handle = setupChromeFake();
+    const win = await restore([pin('p1'), pin('p2')]);
+    expect(await strip(win)).toEqual([
+      { url: live('p1'), pinned: true, active: true },
+      { url: lazy('p2'), pinned: true, active: false },
+    ]);
+  });
+
+  test('a pinned active tab loads in its place in the pinned run', async () => {
+    handle = setupChromeFake();
+    const win = await restore([pin('p1'), pin('p2'), page('a3')], 'p2');
+    expect(await strip(win)).toEqual([
+      { url: lazy('p1'), pinned: true, active: false },
+      { url: live('p2'), pinned: true, active: true },
+      { url: lazy('a3'), pinned: false, active: false },
+    ]);
+  });
+
+  test('an old session (no fields): the first tab loads, as before', async () => {
+    handle = setupChromeFake();
+    const win = await restore([page('a1'), page('b2')]);
+    expect(await strip(win)).toEqual([
+      { url: live('a1'), pinned: false, active: true },
+      { url: lazy('b2'), pinned: false, active: false },
+    ]);
+  });
+
+  test('a group around the active tab is re-formed with its tabs in saved order', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
+    const win = await createWindowWithRetries(
+      spec({
+        tabs: [
+          page('a', { chromeGroupId: 'g1' }),
+          page('b', { chromeGroupId: 'g1' }),
+          page('c'),
+        ],
+        groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
+        activeTabId: 'b',
+      }),
+      'Go',
+      2
+    );
+    if (win?.id === undefined) throw new Error('no window was created');
+    const all = await chrome.tabs.query({ windowId: win.id });
+    const idOf = (url: string) => all.find((t) => t.url === url)?.id;
+    expect(handle.groupedTabs).toHaveLength(1);
+    expect(handle.groupedTabs[0].tabIds).toEqual([
+      idOf(lazy('a')),
+      idOf(live('b')),
+    ]);
+  });
+
+  test('a lazy tab Chrome refuses is skipped, and the tabs before the active one keep their order', async () => {
+    handle = setupChromeFake({ refusedUrls: [lazy('x2')] });
+    const win = await restore(
+      [pin('p1'), page('x2'), page('y3'), page('a4')],
+      'a4'
+    );
+    expect(await strip(win)).toEqual([
+      { url: lazy('p1'), pinned: true, active: false },
+      { url: lazy('y3'), pinned: false, active: false },
+      { url: live('a4'), pinned: false, active: true },
+    ]);
+  });
+
+  test('a saved active tab Chrome refuses: the window opens on the first unpinned tab instead', async () => {
+    handle = setupChromeFake({ refusedUrls: [live('a3')] });
+    const win = await restore([pin('p1'), page('x2'), page('a3')], 'a3');
+    expect(await strip(win)).toEqual([
+      { url: lazy('p1'), pinned: true, active: false },
+      { url: live('x2'), pinned: false, active: true },
+      { url: lazy('a3'), pinned: false, active: false },
+    ]);
+  });
+
+  test('a saved active tab Chrome refuses: the fallback still re-forms the groups', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      refusedUrls: [live('a3')],
+    });
+    const win = await createWindowWithRetries(
+      spec({
+        tabs: [
+          page('x1', { chromeGroupId: 'g1' }),
+          page('y2', { chromeGroupId: 'g1' }),
+          page('a3'),
+        ],
+        groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
+        activeTabId: 'a3',
+      }),
+      'Go',
+      1
+    );
+    if (win?.id === undefined) throw new Error('no window was created');
+    const all = await chrome.tabs.query({ windowId: win.id });
+    const idOf = (url: string) => all.find((t) => t.url === url)?.id;
+    expect(handle.groupedTabs.map((g) => g.tabIds)).toEqual([
+      [idOf(live('x1')), idOf(lazy('y2'))],
+    ]);
+  });
+
+  test('a late active tab: every lazy tab is created at once, in place, with no move', async () => {
+    handle = setupChromeFake();
+    // Measured: a tabs.move issued after the creates answer waits ~550ms in real Chrome.
+    const move = vi.spyOn(chrome.tabs, 'move');
+    const create = chrome.tabs.create;
+    let inFlight = 0;
+    let maxInFlight = 0;
+    // Chrome answers each create a round trip later; the fake answers at once, which would hide a serial await.
+    vi.spyOn(chrome.tabs, 'create').mockImplementation(
+      (
+        props: chrome.tabs.CreateProperties,
+        cb?: (tab: chrome.tabs.Tab) => void
+      ) => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        return create(props, (created) =>
+          setTimeout(() => {
+            inFlight -= 1;
+            cb?.(created);
+          }, 0)
+        );
+      }
+    );
+    const ids = Array.from({ length: 30 }, (_, i) => `t${i}`);
+    const win = await restore(
+      ids.map((id, i) => (i < 3 ? pin(id) : page(id))),
+      't29'
+    );
+    expect(maxInFlight).toBe(29);
+    expect(move).not.toHaveBeenCalled();
+    expect(await strip(win)).toEqual(
+      ids.map((id, i) => ({
+        url: i === 29 ? live(id) : lazy(id),
+        pinned: i < 3,
+        active: i === 29,
+      }))
+    );
+  });
+
+  test('a lazy tab Chrome refuses before a pinned active tab: the pinned run keeps its order', async () => {
+    handle = setupChromeFake({ refusedUrls: [lazy('p1')] });
+    const win = await restore(
+      [pin('p1'), pin('p2'), pin('p3'), pin('p4'), page('a5')],
+      'p3'
+    );
+    expect(await strip(win)).toEqual([
+      { url: lazy('p2'), pinned: true, active: false },
+      { url: live('p3'), pinned: true, active: true },
+      { url: lazy('p4'), pinned: true, active: false },
+      { url: lazy('a5'), pinned: false, active: false },
+    ]);
+  });
+
+  test('a move Chrome refuses costs the active tab its place, never the window or its groups', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      refusedUrls: [lazy('x')],
+    });
+    vi.spyOn(chrome.tabs, 'move').mockRejectedValue(new Error('refused'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const win = await createWindowWithRetries(
+      spec({
+        tabs: [page('x'), page('a', { chromeGroupId: 'g1' }), page('b')],
+        groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
+        activeTabId: 'b',
+      }),
+      'Go',
+      2
+    );
+    expect(win).not.toBeNull();
+    expect(warn).toHaveBeenCalled();
+    expect(handle.groupedTabs).toHaveLength(1);
+    expect((await strip(win)).map((t) => t.url)).toEqual([
+      live('b'),
+      lazy('a'),
+    ]);
+  });
+
+  test('a refused tab that is also the fallback: the window fails, as before', async () => {
+    handle = setupChromeFake({ refusedUrls: [live('a1')] });
+    expect(await restore([page('a1'), page('b2')], 'a1')).toBeNull();
+    expect(await chrome.windows.getAll({})).toEqual([]);
   });
 });

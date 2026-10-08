@@ -75,6 +75,8 @@ export type ChromeSeed = {
     tabs?: Partial<chrome.tabs.Tab>[];
   })[];
   storage?: Record<string, unknown>;
+  // chrome.storage.session at start (KAN-458's record of activated tabs).
+  sessionArea?: Record<string, unknown>;
   tabGroups?: Partial<chrome.tabGroups.TabGroup>[];
   // Optional permissions the profile already holds. Defaults to none, which is
   // what a fresh install looks like. Holding `sessions` here makes
@@ -193,6 +195,8 @@ export type ChromeFakeHandle = {
     // window (other windows keep theirs) and onActivated fires. Throws on an
     // unknown id, like closeTab.
     activateTab(tabId: number): void;
+    // Chrome swapping a tab's id (prerender): same tab, new id, onReplaced fires.
+    replaceTab(removedTabId: number, addedTabId: number): void;
     setGroup(
       groupId: number,
       patch: Partial<
@@ -223,6 +227,8 @@ export type ChromeFakeHandle = {
   popupsSet: string[];
   // chrome.storage.local as it is now (KAN-7's defaultView mirror).
   localArea(): Record<string, unknown>;
+  // chrome.storage.session as it is now (KAN-458).
+  sessionArea(): Record<string, unknown>;
   // The user pinning or unpinning in Chrome's puzzle menu: fires
   // onUserSettingsChanged when the seed has it (KAN-7).
   setToolbarPin(isOnToolbar: boolean): void;
@@ -295,6 +301,9 @@ function registry<F extends (...args: never[]) => void>(): Registry<F> {
 export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   const storage = new Map<string, unknown>(Object.entries(seed.storage ?? {}));
   const localArea = new Map<string, unknown>();
+  const sessionArea = new Map<string, unknown>(
+    Object.entries(seed.sessionArea ?? {})
+  );
   let isOnToolbar = seed.action?.isOnToolbar ?? false;
   const userSettingsListeners = new Set<
     (change: chrome.action.UserSettingsChange) => void
@@ -526,6 +535,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     registry<(tabId: number, info: chrome.tabs.OnDetachedInfo) => void>();
   const tabsOnActivated =
     registry<(info: chrome.tabs.OnActivatedInfo) => void>();
+  const tabsOnReplaced =
+    registry<(addedTabId: number, removedTabId: number) => void>();
   const windowsOnCreated = registry<(win: chrome.windows.Window) => void>();
   const windowsOnRemoved = registry<(windowId: number) => void>();
   const tabGroupsOnCreated =
@@ -1253,6 +1264,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     sentMessages: [],
     popupsSet: [],
     localArea: () => Object.fromEntries(localArea),
+    sessionArea: () => Object.fromEntries(sessionArea),
     setToolbarPin(next) {
       isOnToolbar = next;
       if (!hasUserSettingsEvent) return;
@@ -1332,6 +1344,16 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           if (tabs[i].windowId === windowId) tabs.splice(i, 1);
         }
         windowsOnRemoved.fire(windowId);
+      },
+      replaceTab(removedTabId, addedTabId) {
+        const target = tabs.find((tab) => tab.id === removedTabId);
+        if (!target) {
+          throw new Error(
+            `browser.replaceTab: no seeded tab with id ${removedTabId}`
+          );
+        }
+        target.id = addedTabId;
+        tabsOnReplaced.fire(addedTabId, removedTabId);
       },
       activateTab(tabId) {
         const target = tabs.find((tab) => tab.id === tabId);
@@ -1672,6 +1694,36 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           return Promise.resolve();
         },
       },
+      // KAN-458. Its own area too; Chrome clears it when the browser closes.
+      session: {
+        get: (keys?: string | string[] | null) => {
+          const wanted =
+            keys == null
+              ? [...sessionArea.keys()]
+              : Array.isArray(keys)
+                ? keys
+                : [keys];
+          return Promise.resolve(
+            Object.fromEntries(
+              wanted
+                .filter((key) => sessionArea.has(key))
+                .map((key) => [key, sessionArea.get(key)])
+            )
+          );
+        },
+        set: (items: Record<string, unknown>) => {
+          for (const [key, value] of Object.entries(items)) {
+            sessionArea.set(key, value);
+          }
+          return Promise.resolve();
+        },
+        remove: (keys: string | string[]) => {
+          for (const key of Array.isArray(keys) ? keys : [keys]) {
+            sessionArea.delete(key);
+          }
+          return Promise.resolve();
+        },
+      },
     },
 
     tabs: {
@@ -1838,7 +1890,29 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         if (!target)
           return fail<chrome.tabs.Tab>(`No tab with id: ${tabId}.`, cb);
         const { muted, ...rest } = props;
+        const wasPinned = target.pinned;
         Object.assign(target, rest);
+        if (rest.pinned !== undefined && rest.pinned !== wasPinned) {
+          // Measured 2026-10-07 (KAN-458): a pin or unpin lands the tab on the pinned boundary, onUpdated then onMoved.
+          tabsOnUpdated.fire(tabId, { pinned: rest.pinned }, target);
+          const fromIndex = target.index;
+          const others = windowTabsInOrder(target.windowId).filter(
+            (tab) => tab !== target
+          );
+          tabs.splice(tabs.indexOf(target), 1);
+          insertAtSlot(
+            target,
+            others,
+            others.filter((tab) => tab.pinned).length
+          );
+          if (target.index !== fromIndex) {
+            tabsOnMoved.fire(tabId, {
+              windowId: target.windowId,
+              fromIndex,
+              toIndex: target.index,
+            });
+          }
+        }
         // A window has one front tab: activating one takes the front from
         // the rest of its window, and from no other window (Task 1, Q2b:
         // other windows' front tabs were untouched, 25/25). A tab in a
@@ -1966,6 +2040,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // every tab switch, so a real registry must keep that working exactly
       // as it did.
       onActivated: tabsOnActivated,
+      onReplaced: tabsOnReplaced,
       // Into an EXISTING group (Part E Task 1, Q3; Part E Task 6a, Q3): a tab
       // in the group's own window next to the run joins in place, firing
       // tabs.onUpdated {groupId} only (Q3_group#2, 6a Q5#5); one further

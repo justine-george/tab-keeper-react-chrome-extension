@@ -77,8 +77,10 @@ export async function carryPinnedTab(
   }
   try {
     await chrome.tabs.update(tabId, { pinned: true });
+    // Pinning lands it at the end of the pinned run; Tab Keeper goes before the session's pinned tabs.
+    await chrome.tabs.move(tabId, { index: 0 });
   } catch (error) {
-    console.warn('Could not pin the carried Tab Keeper tab:', error);
+    console.warn('Could not pin or place the carried Tab Keeper tab:', error);
   }
   return true;
 }

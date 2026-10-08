@@ -11,6 +11,7 @@ import {
   openOrFocusTabView,
   TabApi,
 } from './utils/functions/popOut';
+import { recordRecentTabs } from './utils/functions/recentTabs';
 import { reopenPreferringHistory } from './utils/functions/reopen';
 import type { Reopened } from './utils/functions/reopen';
 import { isReopenPreferringHistoryRequest } from './utils/functions/reopenRequest';
@@ -35,6 +36,9 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
     }
   });
 });
+
+// KAN-458 A4. A save made from a Tab Keeper page reads which tab the user was on before it.
+recordRecentTabs();
 
 // The real TabApi (see popOut.ts), pointed at chrome.tabs/chrome.windows.
 // windows.update's `{ focused: true }` is what chrome.tabs.update itself has

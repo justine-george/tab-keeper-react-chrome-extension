@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 
-import { getStringDate, resolveTabUrl } from './local';
+import { getStringDate, isLazyPlaceholder, resolveTabUrl } from './local';
+import { readRecentTabs } from './recentTabs';
 import { dropNotificationCount } from './sessionExportHtml';
 import { hasTabGroupsPermission } from './permissions';
 import type { chromeTabGroupData } from './tabGroups';
@@ -10,12 +11,14 @@ import type {
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
-// A window reduced to the thing that decides whether it is already saved: the
-// URLs it holds, in order. JSON rather than a join so that a URL containing
-// the separator cannot forge a different window's signature.
+// A window reduced to what decides whether it is already saved: each tab's URL and pin, in order.
+// A pin is content (KAN-458); the active tab is not, or every Switch would save a copy.
+// JSON rather than a join, so a URL containing a separator cannot forge another window's signature.
 function windowSignatures(windows: windowGroupData[]): string[] {
   return windows
-    .map((window) => JSON.stringify(window.tabs.map((tab) => tab.url)))
+    .map((window) =>
+      JSON.stringify(window.tabs.map((tab) => [tab.url, tab.pinned === true]))
+    )
     .sort();
 }
 
@@ -171,6 +174,10 @@ export async function readCurrentWindowGroups(
   return { groups, idByChromeId };
 }
 
+// KAN-458. Absent, never false: an unpinned tab costs nothing in the document.
+const pinnedField = (pinned: boolean): Pick<tabData, 'pinned'> =>
+  pinned ? { pinned: true } : {};
+
 /**
  * A live Chrome tab in storage shape (KAN-211).
  *
@@ -193,14 +200,45 @@ export async function readCurrentWindowGroups(
  * mapping from Chrome's numeric ids to ours.
  */
 export function toStoredTab(
-  tab: Pick<chrome.tabs.Tab, 'favIconUrl' | 'title' | 'url'>
+  tab: Pick<chrome.tabs.Tab, 'favIconUrl' | 'title' | 'url' | 'pinned'>
 ): tabData {
   return {
     tabId: uuidv4(),
     favicon: tab.favIconUrl || '',
     title: dropNotificationCount(tab.title || ''),
     url: resolveTabUrl(tab.url || ''),
+    ...pinnedField(tab.pinned),
   };
+}
+
+// KAN-458 A4. `tabs` leave out Tab Keeper's pages, so none active means one was: then the latest activated tab still here.
+export function pickActiveTabIndex(
+  tabs: readonly {
+    id?: number;
+    active: boolean;
+    lastAccessed?: number;
+    url?: string;
+    pendingUrl?: string;
+  }[],
+  recentTabIds: readonly number[]
+): number | undefined {
+  const active = tabs.findIndex((tab) => tab.active);
+  if (active !== -1) return active;
+  for (const tabId of recentTabIds) {
+    const recent = tabs.findIndex((tab) => tab.id === tabId);
+    if (recent !== -1) return recent;
+  }
+  // No recorded tab here: Chrome stamps lastAccessed at creation, so a never-opened placeholder would outrank the tab in use.
+  let picked: number | undefined;
+  let latest = 0;
+  tabs.forEach((tab, index) => {
+    const at = tab.lastAccessed ?? 0;
+    if (at > latest && !isLazyPlaceholder(tab.url || tab.pendingUrl || '')) {
+      picked = index;
+      latest = at;
+    }
+  });
+  return picked;
 }
 
 // One window in storage shape. Extracted so "add current window to a session"
@@ -212,7 +250,8 @@ export function toStoredTab(
 export function toWindowGroupData(
   window: chrome.windows.Window,
   groups: chromeTabGroupData[] | undefined,
-  idByChromeId: Map<number, string>
+  idByChromeId: Map<number, string>,
+  recentTabIds: readonly number[]
 ): windowGroupData {
   const tabsData = (window.tabs ?? []).map((tab) => {
     const chromeGroupId =
@@ -224,6 +263,7 @@ export function toWindowGroupData(
       ...(chromeGroupId === undefined ? {} : { chromeGroupId }),
     };
   });
+  const activeIndex = pickActiveTabIndex(window.tabs ?? [], recentTabIds);
 
   return {
     windowId: uuidv4(),
@@ -235,6 +275,9 @@ export function toWindowGroupData(
     title: '',
     tabs: tabsData,
     ...(groups && groups.length > 0 ? { chromeTabGroups: groups } : {}),
+    ...(activeIndex === undefined
+      ? {}
+      : { activeTabId: tabsData[activeIndex].tabId }),
   };
 }
 
@@ -315,6 +358,9 @@ export async function captureOpenWindows(
   // readCurrentWindowGroups's header for why a per-window check would be
   // wrong.
   const granted = await hasTabGroupsPermission();
+  const recentTabsOf = await readRecentTabs(
+    windowList.flatMap((window) => (window.id === undefined ? [] : [window.id]))
+  );
 
   const windowsGroupData: windowGroupData[] = [];
   let tabCount = 0;
@@ -330,7 +376,8 @@ export async function captureOpenWindows(
     const windowGroup = toWindowGroupData(
       { ...window, tabs },
       read?.groups,
-      read?.idByChromeId ?? new Map()
+      read?.idByChromeId ?? new Map(),
+      recentTabsOf(window.id)
     );
 
     tabCount += windowGroup.tabCount;

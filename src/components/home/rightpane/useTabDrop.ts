@@ -13,9 +13,15 @@
 // valid in the list that produced it (KAN-131), and that lesson now applies one
 // level up.
 import { useCallback, useMemo } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useStore } from 'react-redux';
 
-import type { AppDispatch } from '../../../redux/store';
+import type { AppDispatch, RootState } from '../../../redux/store';
+import { collapsedWindowIdsOf } from '../../../redux/slices/globalStateSlice';
+import { isDrawnFolded } from '../../../redux/springOpenWindows';
+import {
+  noRowsTabIndex,
+  isTabPinnedIn,
+} from '../../../utils/functions/pinnedRun';
 import { dropOnTop } from '../../../redux/dropOnTop';
 import { intoNewWindow, tabDrop } from '../../../redux/dropSpecs';
 import { dropCarriedTab } from '../../../redux/dropCarried';
@@ -670,6 +676,7 @@ export function useTabDrop(
   hasTabGroupsPermission: boolean
 ) {
   const dispatch: AppDispatch = useDispatch();
+  const store = useStore<RootState>();
   const { windows, tabGroupId } = tabList;
   const { describeTabMove, ...geometry } = useTabDropGeometry(
     windows,
@@ -690,9 +697,39 @@ export function useTabDrop(
       toChromeGroupId?: string,
       toWindowId?: string
     ) => {
-      const move = describeTabMove(tabId, toIndex, toChromeGroupId, toWindowId);
-      if (move === undefined) return;
+      const described = describeTabMove(
+        tabId,
+        toIndex,
+        toChromeGroupId,
+        toWindowId
+      );
+      if (described === undefined) return;
       const carried = currentCarry()?.carried;
+      const held =
+        carried?.kind === 'tab'
+          ? carried
+          : {
+              tabGroupId,
+              windowId: described.fromWindowId,
+              tabId: described.tabId,
+            };
+      // Read at the drop: the engine keeps a window it opened open before calling this (KAN-379).
+      const { globalState, tabContainerDataState } = store.getState();
+      // KAN-458. A window drawn with no rows gives position no meaning: the tab keeps its pin, at the start of its own run.
+      const move = isDrawnFolded(
+        collapsedWindowIdsOf(globalState.collapsedWindows, tabGroupId),
+        described.toWindowId
+      )
+        ? {
+            ...described,
+            toGroupId: undefined,
+            toIndex: noRowsTabIndex(
+              windows.find((w) => w.windowId === described.toWindowId)?.tabs ??
+                [],
+              isTabPinnedIn(tabContainerDataState.tabGroups, held)
+            ),
+          }
+        : described;
       if (carried?.kind === 'tab') {
         const moved = dispatch(
           dropCarriedTab(carried, {
@@ -740,7 +777,7 @@ export function useTabDrop(
         )
       );
     },
-    [dispatch, tabGroupId, describeTabMove]
+    [dispatch, store, tabGroupId, windows, describeTabMove]
   );
 
   return { ...geometry, onMove };

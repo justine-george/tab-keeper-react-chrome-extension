@@ -1,4 +1,10 @@
-import React, { MouseEventHandler, useMemo, useRef, useState } from 'react';
+import React, {
+  MouseEventHandler,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -20,6 +26,7 @@ import {
   resolveTabUrl,
   resolveFaviconUrl,
 } from '../../../utils/functions/local';
+import { visuallyHiddenStyle } from '../../../styles/visuallyHidden';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import {
   deleteTab,
@@ -56,7 +63,7 @@ import { useIsSpringOpen } from '../../../redux/springOpenWindows';
 import { springSweepStyle } from '../../common/springOpen';
 import { NEW_LAST_WINDOW } from './newWindowTarget';
 import RowOpenButton from './RowOpenButton';
-import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
+import { CONTROL, DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
 import { placeholderStyle } from '../../../styles/placeholder';
 import { windowLabel } from '../../../utils/functions/windowLabel';
 import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
@@ -442,6 +449,17 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     cursor: pointer;
   `;
 
+  // The title truncates first, so the pin always shows (KAN-458).
+  const pinMarkStyle = css`
+    display: flex;
+    align-items: center;
+    flex: none;
+    margin-left: 10px;
+  `;
+
+  // Unique per window: legacy data can repeat a tab id across windows.
+  const descriptionIdPrefix = useId();
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewTitle(e.target.value);
   };
@@ -625,7 +643,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // drag -- reveals the wrong row's actions. It also removes the cross-run
   // index arithmetic this used to need, since a run's local index and the
   // window-wide one no longer have to be reconciled.
-  function renderTab({ tabId, favicon, title, url }: tabData) {
+  function renderTab({ tabId, favicon, title, url, pinned }: tabData) {
+    const pinnedId = `${descriptionIdPrefix}-pinned-${tabId}`;
     return (
       <div
         key={tabId}
@@ -640,6 +659,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             into the name. */}
         <ClickableRow
           ariaLabel={t('Open in new tab') + ': ' + title}
+          // As Open now says a pinned tab: its own description, no joiner (KAN-307).
+          ariaDescribedBy={pinned ? pinnedId : undefined}
           tooltipText={openBlockedBecause ?? undefined}
           disable={isOpenBlocked}
           onClick={() => handleTabClick(url)}
@@ -658,8 +679,23 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               size={TYPE.BODY}
               style="padding-left: 4px; height: 100%; max-width: 100%;"
             />
+            {pinned && (
+              <span data-pin css={pinMarkStyle}>
+                <Icon
+                  type="keep"
+                  size={ICON.MARK}
+                  color={COLORS.LABEL_L2_COLOR}
+                  style={`${NON_INTERACTIVE_ICON_STYLE} padding: 0;`}
+                />
+              </span>
+            )}
           </div>
         </ClickableRow>
+        {pinned && (
+          <span id={pinnedId} css={visuallyHiddenStyle}>
+            {t('Pinned')}
+          </span>
+        )}
         {/* data-row-actions is the stylesheet's hook for hiding this strip
             during a drag (KAN-135). The reveal above is an emotion class keyed
             on React state, which App.css cannot name. */}

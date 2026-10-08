@@ -90,6 +90,16 @@ describe('the request the page sends the worker (KAN-280 Part D)', () => {
         )
       ).toBe(true);
     }
+    if (tab?.kind !== 'tab') throw new Error('close failed');
+    expect(
+      isReopenPreferringHistoryRequest(
+        asReceived({
+          type: REOPEN_PREFERRING_HISTORY_MESSAGE,
+          item: { ...tab, tab: { ...tab.tab, lastAccessed: 1700000000000.5 } },
+          pinTabKeeper: false,
+        })
+      )
+    ).toBe(true);
   });
 
   test('rejects anything malformed', async () => {
@@ -113,6 +123,8 @@ describe('the request the page sends the worker (KAN-280 Part D)', () => {
       { ...base, item: { ...item, tab: undefined } },
       { ...base, item: { ...item, tab: { ...item.tab, index: '2' } } },
       { ...base, item: { ...item, tab: { ...item.tab, url: 1 } } },
+      { ...base, item: { ...item, tab: { ...item.tab, lastAccessed: 'x' } } },
+      { ...base, item: { ...item, tab: { ...item.tab, lastAccessed: NaN } } },
       { ...base, item: { ...item, group: 'none' } },
       { ...base, item: { ...item, window: { ...item.window, tabs: 'x' } } },
       { ...base, item: { ...item, window: { ...item.window, groups: {} } } },

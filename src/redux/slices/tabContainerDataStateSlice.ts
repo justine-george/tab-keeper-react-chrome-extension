@@ -56,6 +56,11 @@ import {
   type TabGroupColor,
 } from '../../utils/functions/tabGroups';
 import type { chromeTabGroupData } from '../../utils/functions/tabGroups';
+import {
+  forgetMissingActiveTab,
+  landTab,
+  pinnedRunLength,
+} from '../../utils/functions/pinnedRun';
 
 export type { chromeTabGroupData };
 
@@ -69,6 +74,8 @@ export interface tabData {
   // which is also why this is an absent field rather than a nullable one: it
   // costs nothing on disk for the common case.
   chromeGroupId?: string;
+  // KAN-458. Present only when the tab was pinned; restore pins it again. Never false: absent is unpinned.
+  pinned?: true;
 }
 
 export interface windowGroupData {
@@ -84,6 +91,8 @@ export interface windowGroupData {
   // because capture writes nothing here unless the tabGroups permission has
   // been granted. Absent = restore does no grouping.
   chromeTabGroups?: chromeTabGroupData[];
+  // KAN-458. The saved tabId restore opens on; absent, or naming no tab, falls back to the first unpinned tab.
+  activeTabId?: string;
 }
 
 export interface tabContainerData {
@@ -430,6 +439,9 @@ function toWindowSpec(
     ...(windowGroup.chromeTabGroups && windowGroup.chromeTabGroups.length > 0
       ? { groups: windowGroup.chromeTabGroups }
       : {}),
+    ...(windowGroup.activeTabId === undefined
+      ? {}
+      : { activeTabId: windowGroup.activeTabId }),
   };
 }
 
@@ -1114,6 +1126,8 @@ function sameWindowContent(a: windowGroupData, b: windowGroupData): boolean {
     a.windowOffsetTop === b.windowOffsetTop &&
     a.windowOffsetLeft === b.windowOffsetLeft &&
     a.tabCount === b.tabCount &&
+    // KAN-458. Content: a backup Replace or Merge that changes only the active tab must outrank the cloud.
+    a.activeTabId === b.activeTabId &&
     a.tabs.length === b.tabs.length &&
     a.tabs.every(
       (tab, i) =>
@@ -1121,6 +1135,7 @@ function sameWindowContent(a: windowGroupData, b: windowGroupData): boolean {
         tab.title === b.tabs[i].title &&
         tab.url === b.tabs[i].url &&
         tab.favicon === b.tabs[i].favicon &&
+        tab.pinned === b.tabs[i].pinned &&
         // The join key to chromeTabGroups. Ungrouping already shows up in the
         // group list below, but this is the field that says WHICH group a tab
         // belongs to, and a comparator that ignores it is one refactor away
@@ -1400,10 +1415,10 @@ export const tabContainerDataStateSlice = createSlice({
           // increment tab count of tabGroup and windowGroup
           state.tabGroups[tabGroupIndex].tabCount += 1;
           state.tabGroups[tabGroupIndex].windows[windowIndex].tabCount += 1;
-          // add to windowGroup
-          state.tabGroups[tabGroupIndex].windows[windowIndex].tabs.unshift(
-            currentTabData
-          );
+          // The front, but never above a pinned tab; a pinned one ends the pinned run (KAN-458 R8).
+          const windowTabs =
+            state.tabGroups[tabGroupIndex].windows[windowIndex].tabs;
+          windowTabs.splice(pinnedRunLength(windowTabs), 0, currentTabData);
           touchContent(state, state.tabGroups[tabGroupIndex]);
         }
       }
@@ -1547,13 +1562,11 @@ export const tabContainerDataStateSlice = createSlice({
       const firstMemberIndex = window.tabs.findIndex(
         (tab) => tab.chromeGroupId === groupId
       );
-      window.tabs.splice(firstMemberIndex, 0, {
-        ...currentTabData,
-        // The deliberate exception to KAN-11's rule that a tab added from
-        // another window is stored ungrouped. Inheriting a group silently
-        // would be inventing data; the user naming this group is not.
-        chromeGroupId: groupId,
-      });
+      // The deliberate exception to KAN-11's rule that a tab added from
+      // another window is stored ungrouped: the user named this group. A band unpins (A6).
+      const added: tabData = { ...currentTabData };
+      landTab(added, window.tabs, firstMemberIndex, groupId);
+      window.tabs.splice(firstMemberIndex, 0, added);
 
       container.tabCount += 1;
       window.tabCount += 1;
@@ -1650,6 +1663,7 @@ export const tabContainerDataStateSlice = createSlice({
         (tab) => tab.chromeGroupId === groupId
       ).length;
       window.tabs = window.tabs.filter((tab) => tab.chromeGroupId !== groupId);
+      forgetMissingActiveTab(window);
       // Unlike deleteTabInternal, the group entry goes too. Deleting a group's
       // tabs one at a time leaves an orphaned entry behind today; it renders
       // as nothing and applyTabGroups skips it, but it is not worth inheriting.
@@ -1741,6 +1755,9 @@ export const tabContainerDataStateSlice = createSlice({
               tabIndex,
               1
             );
+            forgetMissingActiveTab(
+              state.tabGroups[tabGroupIndex].windows[windowIndex]
+            );
           }
           // if this was the last tab in the window, delete this window
           if (
@@ -1816,13 +1833,13 @@ export const tabContainerDataStateSlice = createSlice({
       const fromChromeGroupId = moved.chromeGroupId;
       windowGroup.tabs.splice(target, 0, moved);
 
-      // `delete`, not `= undefined`. Absent is the stored representation, and
-      // Firestore's setDoc rejects an explicit undefined outright (KAN-48).
-      if (toChromeGroupId === undefined) {
-        delete moved.chromeGroupId;
-      } else {
-        moved.chromeGroupId = toChromeGroupId;
-      }
+      // KAN-458. Its group, and its pin by where it landed.
+      landTab(
+        moved,
+        windowGroup.tabs.filter((_, i) => i !== target),
+        target,
+        toChromeGroupId
+      );
 
       // Only the group the tab LEFT can have emptied.
       //
@@ -1892,18 +1909,19 @@ export const tabContainerDataStateSlice = createSlice({
       const target = Math.min(Math.max(0, toIndex), to.tabs.length);
       to.tabs.splice(target, 0, moved);
 
-      // `delete`, not `= undefined`. Absent is the stored representation, and
-      // Firestore's setDoc rejects an explicit undefined outright (KAN-48).
-      if (toChromeGroupId === undefined) {
-        delete moved.chromeGroupId;
-      } else {
-        moved.chromeGroupId = toChromeGroupId;
-      }
+      // KAN-458. Its group, and its pin by where it landed (the destination without it).
+      landTab(
+        moved,
+        to.tabs.filter((_, i) => i !== target),
+        target,
+        toChromeGroupId
+      );
 
       // Unlike both reorder reducers this one moves COUNTS. The session's
       // total is deliberately untouched: the tab is still in the session.
       from.tabCount -= 1;
       to.tabCount += 1;
+      forgetMissingActiveTab(from);
 
       // Only the group the tab LEFT can have emptied, and only in the
       // source.
@@ -2175,7 +2193,11 @@ export const tabContainerDataStateSlice = createSlice({
 
       // Resolved before the comparison below, as in moveWindowInternal: a raw
       // out-of-range value would not equal the slot it actually lands in.
-      const target = Math.min(Math.max(0, toIndex), items.length - 1);
+      // KAN-458. The drag list never offers a slot in the pinned run (groupLandingRange); this guards other dispatchers.
+      const target = Math.max(
+        Math.min(Math.max(0, toIndex), items.length - 1),
+        pinnedRunLength(windowGroup.tabs)
+      );
 
       // Put back where it was: not an edit. No stamp, no save, no undo step,
       // no sync.
@@ -2236,7 +2258,11 @@ export const tabContainerDataStateSlice = createSlice({
       // toIndex indexes the destination's items with the group not yet among
       // them, so the last valid slot is length -- not length - 1 as within
       // one window.
-      const target = Math.min(Math.max(0, toIndex), toItems.length);
+      // KAN-458. As within one window: never inside the pinned run; a window drawn with no rows relies on it.
+      const target = Math.max(
+        Math.min(Math.max(0, toIndex), toItems.length),
+        pinnedRunLength(to.tabs)
+      );
       toItems.splice(target, 0, run);
       to.tabs = toItems.flatMap((item) =>
         item.kind === 'tab' ? [item.tab] : item.tabs
@@ -2253,6 +2279,7 @@ export const tabContainerDataStateSlice = createSlice({
       // is deliberately untouched: the tabs are still in the session.
       from.tabCount -= run.tabs.length;
       to.tabCount += run.tabs.length;
+      forgetMissingActiveTab(from);
 
       // "An empty window is not a thing" -- the same cascade deleteTabInternal
       // runs. No tombstone path: the destination just gained tabs, so the
@@ -2339,12 +2366,19 @@ export const tabContainerDataStateSlice = createSlice({
           if (taken.windows.has(from.windowId)) {
             from.windowId = remint(from.windowId);
           }
+          // KAN-458 R3. The active tab is followed by position through a re-mint.
+          const activeIndex = from.tabs.findIndex(
+            (t) => t.tabId === from.activeTabId
+          );
           remintTabsAndGroups(
             from.tabs,
             from.chromeTabGroups ?? [],
             taken,
             remint
           );
+          if (activeIndex !== -1) {
+            from.activeTabId = from.tabs[activeIndex].tabId;
+          }
 
           target.windows.splice(
             clampIndex(move.to.toIndex, target.windows.length),
@@ -2404,6 +2438,7 @@ export const tabContainerDataStateSlice = createSlice({
           }
           from.tabCount -= tabs.length;
           source.tabCount -= tabs.length;
+          forgetMissingActiveTab(from);
 
           const taken = idsIn(target);
           remintTabsAndGroups(
@@ -2435,25 +2470,25 @@ export const tabContainerDataStateSlice = createSlice({
             target.windowCount += 1;
           } else if (group === undefined) {
             const [tab] = tabs;
-            if (landing.toChromeGroupId !== undefined) {
-              tab.chromeGroupId = landing.toChromeGroupId;
-            }
-            landing.window.tabs.splice(
-              clampIndex(landing.toIndex, landing.window.tabs.length),
-              0,
-              tab
+            const slot = clampIndex(
+              landing.toIndex,
+              landing.window.tabs.length
             );
+            // KAN-458. Its group, and its pin by where it landed.
+            landTab(tab, landing.window.tabs, slot, landing.toChromeGroupId);
+            landing.window.tabs.splice(slot, 0, tab);
             landing.window.tabCount += 1;
           } else {
             const items = partitionTabsIntoItems(
               landing.window.tabs,
               landing.window.chromeTabGroups
             );
-            items.splice(clampIndex(landing.toIndex, items.length), 0, {
-              kind: 'group',
-              group,
-              tabs,
-            });
+            // KAN-458. Never inside the pinned run (groupLandingRange offers no such slot).
+            const slot = Math.max(
+              clampIndex(landing.toIndex, items.length),
+              pinnedRunLength(landing.window.tabs)
+            );
+            items.splice(slot, 0, { kind: 'group', group, tabs });
             landing.window.tabs = items.flatMap((item) =>
               item.kind === 'tab' ? [item.tab] : item.tabs
             );

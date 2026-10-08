@@ -44,6 +44,7 @@ import {
   showToast,
 } from '../../../redux/slices/globalStateSlice';
 import { copySessionLinks } from '../../../utils/functions/copySessionLinks';
+import { readRecentTabs } from '../../../utils/functions/recentTabs';
 import { tidySessionForExport } from '../../../utils/functions/sessionExportHtml';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import { isTabView } from '../../../utils/functions/viewMode';
@@ -192,10 +193,14 @@ export default function HeroContainerRight() {
     if (tabs.length === 0) return;
 
     const read = await readCurrentWindowGroups(windowData.id);
+    const recentTabsOf = await readRecentTabs(
+      windowData.id === undefined ? [] : [windowData.id]
+    );
     const window = toWindowGroupData(
       { ...windowData, tabs },
       read?.groups,
-      read?.idByChromeId ?? new Map()
+      read?.idByChromeId ?? new Map(),
+      recentTabsOf(windowData.id)
     );
 
     dispatch(addCurrWindowToTabGroup({ tabGroupId, window }));
