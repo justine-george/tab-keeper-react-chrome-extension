@@ -118,8 +118,11 @@ grantedTest.describe('collapsed groups (KAN-460)', () => {
         .poll(
           async () => {
             const g = await groupsNow(serviceWorker);
-            return g.Folded && !before.includes(g.Folded.windowId)
-              ? [g.Folded.collapsed, g.Open?.collapsed]
+            return g.Folded &&
+              g.Open &&
+              !before.includes(g.Folded.windowId) &&
+              !before.includes(g.Open.windowId)
+              ? [g.Folded.collapsed, g.Open.collapsed]
               : null;
           },
           { timeout: 15_000 }
@@ -189,15 +192,19 @@ grantedTest.describe('collapsed groups (KAN-460)', () => {
           { timeout: 15_000 }
         )
         .toEqual([false, true]);
-      const activeTitle = await serviceWorker.evaluate(async () => {
-        const [g] = await chrome.tabGroups.query({ title: 'HoldsActive' });
-        const [t] = await chrome.tabs.query({
-          windowId: g.windowId,
-          active: true,
-        });
-        return t?.title ?? null;
-      });
-      expect(activeTitle).toBe('InA');
+      await expect
+        .poll(() =>
+          serviceWorker.evaluate(async () => {
+            const [g] = await chrome.tabGroups.query({ title: 'HoldsActive' });
+            if (!g) return null;
+            const [t] = await chrome.tabs.query({
+              windowId: g.windowId,
+              active: true,
+            });
+            return t?.title ?? null;
+          })
+        )
+        .toBe('InA');
     }
   );
 });
@@ -237,8 +244,10 @@ test("3. Window 1 is the window saved from, even when it is not Chrome's first, 
 
   await saveAll(popup);
   await expect.poll(async () => (await stored(popup)).tabGroups.length).toBe(1);
-  const first = (await stored(popup)).tabGroups[0].windows[0];
-  expect(first.tabs.map((t) => t.title)).toEqual(['SecondA', 'SecondB']);
+  const windows = (await stored(popup)).tabGroups[0].windows;
+  // PREMISE: both windows are saved, so Open has a wrong one to focus.
+  expect(windows).toHaveLength(2);
+  expect(windows[0].tabs.map((t) => t.title)).toEqual(['SecondA', 'SecondB']);
 
   const before = order;
   await pressOpen(popup);
