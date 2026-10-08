@@ -9,6 +9,7 @@ import {
   setSearchInputText,
 } from '../../redux/slices/globalStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
+import { ICON } from '../../styles/scale';
 import { TAB_GROUP_COLOR_HEX } from '../../utils/functions/tabGroups';
 import type {
   chromeTabGroupData,
@@ -21,6 +22,12 @@ import type {
 // permission is on" is the baseline every one of them was written against.
 // Callers that care about the ungranted path pass hasTabGroupsPermission
 // explicitly.
+// A colour as emotion wrote it, or as jsdom normalises it.
+const asWritten = (hex: string) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
+};
+
 async function renderWindow(
   props: {
     tabs: tabData[];
@@ -374,12 +381,6 @@ describe('the window title editor', () => {
 
 // KAN-394. An unnamed window is drawn as "Window N", muted; a name is drawn as text.
 describe('the window label', () => {
-  // A colour as emotion wrote it, or as jsdom normalises it.
-  const asWritten = (hex: string) => {
-    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-    return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
-  };
-
   const renderLabelled = (
     title: string,
     { searching = false }: { searching?: boolean } = {}
@@ -683,5 +684,56 @@ describe('the title renames, Open opens', () => {
       'placeholder',
       'Name this window'
     );
+  });
+});
+
+describe('a pinned saved tab (KAN-458)', () => {
+  const tabs: tabData[] = [
+    {
+      tabId: 't1',
+      favicon: '',
+      title: 'Inbox',
+      url: 'https://a.test',
+      pinned: true,
+    },
+    { tabId: 't2', favicon: '', title: 'Docs', url: 'https://b.test' },
+  ];
+
+  test('shows a pin after its title, in the same box', async () => {
+    await renderWindow({ tabs });
+
+    const row = screen.getByRole('button', { name: 'Open in new tab: Inbox' });
+    const mark = row.querySelector('[data-pin]');
+    if (!(mark instanceof HTMLElement)) throw new Error('no pin mark');
+    const title = within(row).getByText('Inbox');
+
+    expect(mark.parentElement).toBe(title.parentElement?.parentElement);
+    expect(
+      title.compareDocumentPosition(mark) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    const glyph = within(mark).getByText('keep');
+    expect(glyph.closest('[aria-hidden="true"]')).not.toBeNull();
+    expect(getComputedStyle(glyph).color).toMatch(
+      asWritten(LIGHT_THEME.LABEL_L2_COLOR)
+    );
+    // jsdom resolves rem against the 16px root.
+    expect(getComputedStyle(glyph).fontSize).toBe(
+      `${parseFloat(ICON.MARK) * 16}px`
+    );
+  });
+
+  test('is described "Pinned", as Open now describes a pinned tab (KAN-307); the name is unchanged', async () => {
+    await renderWindow({ tabs });
+
+    const row = screen.getByRole('button', { name: 'Open in new tab: Inbox' });
+    expect(row).toHaveAccessibleDescription('Pinned');
+  });
+
+  test('CONTROL: an unpinned tab has no pin and no description', async () => {
+    await renderWindow({ tabs });
+
+    const row = screen.getByRole('button', { name: 'Open in new tab: Docs' });
+    expect(row.querySelector('[data-pin]')).toBeNull();
+    expect(row).not.toHaveAttribute('aria-describedby');
   });
 });
