@@ -167,6 +167,30 @@ export async function applyTabGroups(
   }
 }
 
+// KAN-460, measured: Chrome resets a new window's state when it reveals it, at its first tab's commit or within this long after.
+export const WINDOW_REVEAL_CAP_MS = 500;
+
+// Resolves on the first of the tab's first 'loading' update or capMs. Never rejects; always unhooks.
+export function windowRevealed(
+  tabId: number | undefined,
+  capMs: number
+): { revealed: Promise<void>; cancel: () => void } {
+  let cancel = () => {};
+  const revealed = new Promise<void>((resolve) => {
+    const onUpdated = (id: number, info: chrome.tabs.OnUpdatedInfo) => {
+      if (id === tabId && info.status === 'loading') cancel();
+    };
+    cancel = () => {
+      clearTimeout(timer);
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      resolve();
+    };
+    if (tabId !== undefined) chrome.tabs.onUpdated.addListener(onUpdated);
+    const timer = setTimeout(cancel, capMs);
+  });
+  return { revealed, cancel };
+}
+
 // Resolves to the created window, or to null once the retries are spent.
 // Returning a promise is the whole point: a callback that has not fired yet
 // is indistinguishable from one that never will, so a caller that needs to
@@ -242,6 +266,11 @@ async function fillRestoredWindow(
   if (windowId === undefined) return;
 
   const targetId = newWindow.tabs?.[0]?.id;
+  // Attached now so the commit cannot be missed while tabs and groups are created.
+  const reveal =
+    spec.state === undefined
+      ? undefined
+      : windowRevealed(targetId, WINDOW_REVEAL_CAP_MS);
   // Pinned before any create so later pinned tabs queue behind it; a refused pin (never seen) would also cost order.
   if (spec.tabs[targetIndex].pinned === true && targetId !== undefined) {
     await pinRestoredTab(targetId);
@@ -277,6 +306,7 @@ async function fillRestoredWindow(
   }
 
   if (spec.state !== undefined) {
+    await reveal?.revealed;
     await applySavedWindowState(windowId, spec.state);
   }
 }

@@ -100,6 +100,8 @@ export type ChromeSeed = {
   // (KAN-280 O8) recreates a tab at its real address and has to survive
   // Chrome declining some of them.
   refusedUrls?: string[];
+  // KAN-460. A created window's first tab reports status 'loading' on its own, as Chrome does at commit; true holds it until handle.commitWindowTab(tabId).
+  holdWindowCommit?: boolean;
   // What runtime.getPlatformInfo() reports as the os (KAN-311: the Reopen
   // button hints ⌘Z on a Mac, Ctrl+Z elsewhere). Absent means 'linux', the
   // non-Mac form, so a test that seeds nothing never sees the Mac one.
@@ -211,6 +213,8 @@ export type ChromeFakeHandle = {
   // detached everything, not just that the component stopped reacting to
   // one of them.
   liveEventListenerCount(): number;
+  // KAN-460. Fires the status loading update for a window's opening tab (see holdWindowCommit).
+  commitWindowTab(tabId: number): void;
   // Whether this tab came back through chrome.sessions.restore rather than
   // being made by tabs.create, windows.create or the seed. Chrome's own
   // evidence is the page's history.length (Task 1, Q2: 3 after a restore, 1
@@ -536,6 +540,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         tab: chrome.tabs.Tab
       ) => void
     >();
+  function commitWindowTab(tabId: number) {
+    const tab = tabs.find((t) => t.id === tabId);
+    if (tab) tabsOnUpdated.fire(tabId, { status: 'loading' }, tab);
+  }
   const tabsOnMoved =
     registry<(tabId: number, moveInfo: chrome.tabs.OnMovedInfo) => void>();
   const tabsOnAttached =
@@ -1386,6 +1394,9 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         Object.assign(target, patch);
         tabGroupsOnUpdated.fire(target);
       },
+    },
+    commitWindowTab(tabId: number) {
+      commitWindowTab(tabId);
     },
     liveEventListenerCount() {
       return [
@@ -2311,6 +2322,11 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         windowsOnCreated.fire(created);
         for (const tab of tabs) {
           if (tab.windowId === windowId) tabsOnCreated.fire(tab);
+        }
+        // KAN-460, measured: the opening tab's first onUpdated is status 'loading' (Chrome reveals the window about then).
+        const openingTab = tabs.find((tab) => tab.windowId === windowId);
+        if (openingTab && !seed.holdWindowCommit) {
+          setTimeout(() => commitWindowTab(idOf(openingTab)), 0);
         }
         return settle(populate(created), cb);
       },

@@ -4733,3 +4733,35 @@ describe('windows.create refuses a state Chrome refuses', () => {
     expect(created?.state).toBe('maximized');
   });
 });
+
+// KAN-460: Chrome reports the opening tab's first 'loading' on its own after a window is created.
+describe('windows.create reports the opening tab as loading', () => {
+  const collect = () => {
+    const seen: Array<[number, string | undefined]> = [];
+    chrome.tabs.onUpdated.addListener((id, info) =>
+      seen.push([id, info.status])
+    );
+    return seen;
+  };
+
+  test('fires onUpdated status loading for the first tab only', async () => {
+    handle = setupChromeFake();
+    const seen = collect();
+    const created = await chrome.windows.create({
+      url: ['https://a.test/', 'https://b.test/'],
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    expect(seen).toEqual([[created!.tabs![0].id, 'loading']]);
+  });
+
+  test('holdWindowCommit holds it until commitWindowTab', async () => {
+    handle = setupChromeFake({ holdWindowCommit: true });
+    const seen = collect();
+    const created = await chrome.windows.create({ url: 'https://a.test/' });
+    await new Promise((r) => setTimeout(r, 5));
+    expect(seen).toEqual([]);
+
+    handle.commitWindowTab(created!.tabs![0].id!);
+    expect(seen).toEqual([[created!.tabs![0].id, 'loading']]);
+  });
+});

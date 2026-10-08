@@ -6,6 +6,7 @@ import {
   isRestoreSessionRequest,
   planWindowClosure,
   restoreTargetIndex,
+  WINDOW_REVEAL_CAP_MS,
   RESTORE_SESSION_MESSAGE,
   WindowSpec,
 } from '../../../utils/functions/windows';
@@ -856,5 +857,96 @@ describe('restore puts back a saved window state', () => {
     expect(update.mock.calls.filter(([, props]) => 'state' in props)).toEqual(
       []
     );
+  });
+});
+
+// KAN-460 R6. Chrome resets a new window's state at its reveal; the state waits for the opening tab's commit or the cap.
+describe('the saved state waits for Chrome to reveal the window', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+  const stateCalls = (update: { mock: { calls: unknown[][] } }) =>
+    update.mock.calls.filter(([, props]) => 'state' in (props as object));
+  const tick = (ms = 20) => new Promise((r) => setTimeout(r, ms));
+  const openingTabId = async () => (await chrome.tabs.query({}))[0].id!;
+
+  test('the state is applied after the opening tab commits, not before', async () => {
+    handle = setupChromeFake({ holdWindowCommit: true });
+    const update = vi.spyOn(chrome.windows, 'update');
+    const done = createWindowWithRetries(spec({ state: 'maximized' }), 'Go', 2);
+
+    await tick();
+    expect(stateCalls(update)).toEqual([]);
+
+    handle.commitWindowTab(await openingTabId());
+    const created = await done;
+
+    expect(stateCalls(update)).toHaveLength(1);
+    expect((await chrome.windows.get(created!.id!)).state).toBe('maximized');
+  });
+
+  test('a commit of some other tab does not release it', async () => {
+    handle = setupChromeFake({ holdWindowCommit: true });
+    const update = vi.spyOn(chrome.windows, 'update');
+    const done = createWindowWithRetries(spec({ state: 'maximized' }), 'Go', 2);
+    await tick();
+
+    handle.commitWindowTab((await openingTabId()) + 999);
+    await tick();
+    expect(stateCalls(update)).toEqual([]);
+
+    handle.commitWindowTab(await openingTabId());
+    await done;
+    expect(stateCalls(update)).toHaveLength(1);
+  });
+
+  test('with no commit the state is applied once the cap passes', async () => {
+    vi.useFakeTimers();
+    handle = setupChromeFake({ holdWindowCommit: true });
+    const update = vi.spyOn(chrome.windows, 'update');
+    const done = createWindowWithRetries(
+      spec({ state: 'fullscreen' }),
+      'Go',
+      2
+    );
+
+    await vi.advanceTimersByTimeAsync(WINDOW_REVEAL_CAP_MS - 1);
+    expect(stateCalls(update)).toEqual([]);
+
+    await vi.advanceTimersByTimeAsync(1);
+    const created = await done;
+    expect(stateCalls(update)).toHaveLength(1);
+    expect((await chrome.windows.get(created!.id!)).state).toBe('fullscreen');
+  });
+
+  test('the listener and timer are gone afterwards', async () => {
+    handle = setupChromeFake({ holdWindowCommit: true });
+    const before = handle.liveEventListenerCount();
+    const update = vi.spyOn(chrome.windows, 'update');
+    const done = createWindowWithRetries(spec({ state: 'maximized' }), 'Go', 2);
+    await tick();
+    const tabId = await openingTabId();
+    handle.commitWindowTab(tabId);
+    await done;
+
+    expect(handle.liveEventListenerCount()).toBe(before);
+    handle.commitWindowTab(tabId);
+    await tick();
+    expect(stateCalls(update)).toHaveLength(1);
+  });
+
+  test('a window with no saved state attaches no listener', async () => {
+    handle = setupChromeFake({ holdWindowCommit: true });
+    const before = handle.liveEventListenerCount();
+    const add = vi.spyOn(chrome.tabs.onUpdated, 'addListener');
+
+    await createWindowWithRetries(spec(), 'Go', 2);
+
+    expect(add).not.toHaveBeenCalled();
+    expect(handle.liveEventListenerCount()).toBe(before);
   });
 });
