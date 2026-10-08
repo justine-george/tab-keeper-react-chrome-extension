@@ -457,7 +457,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     margin-left: 10px;
   `;
 
-  // Unique per window: the same tab id can be drawn twice (a drag's phantom beside its row).
+  // Unique per window: legacy data can repeat a tab id across windows.
   const descriptionIdPrefix = useId();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
