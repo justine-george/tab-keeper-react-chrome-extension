@@ -11,29 +11,32 @@ const NONE: readonly number[] = [];
  * read, and when there is no record.
  */
 export function useRecentTabs(windowId: number | null): readonly number[] {
-  const [recent, setRecent] = useState<readonly number[]>(NONE);
+  // Keyed by window, so a list read for another window is never returned.
+  const [read, setRead] = useState<{
+    windowId: number;
+    recent: readonly number[];
+  } | null>(null);
 
   useEffect(() => {
-    setRecent(NONE);
     if (windowId === null) return;
     let live = true;
     const key = recentTabsKey(windowId);
-    const read = () =>
+    const reread = () =>
       void readRecentTabs([windowId]).then((of) => {
-        if (live) setRecent(of(windowId));
+        if (live) setRead({ windowId, recent: of(windowId) });
       });
     const onChanged = (
       changes: Record<string, chrome.storage.StorageChange>
     ) => {
-      if (key in changes) read();
+      if (key in changes) reread();
     };
     chrome.storage.session.onChanged.addListener(onChanged);
-    read();
+    reread();
     return () => {
       live = false;
       chrome.storage.session.onChanged.removeListener(onChanged);
     };
   }, [windowId]);
 
-  return recent;
+  return read !== null && read.windowId === windowId ? read.recent : NONE;
 }
