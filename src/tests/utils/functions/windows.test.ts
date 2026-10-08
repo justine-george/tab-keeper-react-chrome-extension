@@ -524,6 +524,32 @@ describe('restore opens on the saved active tab, pinned tabs pinned (KAN-458)', 
     ]);
   });
 
+  test('a saved active tab Chrome refuses: the fallback still re-forms the groups', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      refusedUrls: [live('a3')],
+    });
+    const win = await createWindowWithRetries(
+      spec({
+        tabs: [
+          page('x1', { chromeGroupId: 'g1' }),
+          page('y2', { chromeGroupId: 'g1' }),
+          page('a3'),
+        ],
+        groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
+        activeTabId: 'a3',
+      }),
+      'Go',
+      1
+    );
+    if (win?.id === undefined) throw new Error('no window was created');
+    const all = await chrome.tabs.query({ windowId: win.id });
+    const idOf = (url: string) => all.find((t) => t.url === url)?.id;
+    expect(handle.groupedTabs.map((g) => g.tabIds)).toEqual([
+      [idOf(live('x1')), idOf(lazy('y2'))],
+    ]);
+  });
+
   test('a refused tab that is also the fallback: the window fails, as before', async () => {
     handle = setupChromeFake({ refusedUrls: [live('a1')] });
     expect(await restore([page('a1'), page('b2')], 'a1')).toBeNull();

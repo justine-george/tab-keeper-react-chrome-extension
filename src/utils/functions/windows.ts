@@ -188,17 +188,10 @@ function retryAfterFailure(
   if (restoreTargetIndex(spec.tabs, undefined) === targetIndex) {
     return Promise.resolve(null);
   }
-  const { tabs, focused, groups } = spec;
-  return createWindowWithRetries(
-    {
-      tabs,
-      focused,
-      bounds: null,
-      ...(groups === undefined ? {} : { groups }),
-    },
-    goToURLText,
-    1
-  );
+  // Spread, not picked: every other field, today's and future ones, survives the retry.
+  const fallback: WindowSpec = { ...spec, bounds: null };
+  delete fallback.activeTabId;
+  return createWindowWithRetries(fallback, goToURLText, 1);
 }
 
 // Every tab but the target is a placeholder the worker swaps for its page on activation (placeholderTarget, KAN-250).
