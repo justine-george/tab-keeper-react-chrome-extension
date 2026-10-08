@@ -134,6 +134,19 @@ const shownOrder = (page: Page, windowId: number): Promise<number[]> =>
 const windowOf = (worker: Worker, tabId: number): Promise<number> =>
   worker.evaluate(async (id) => (await chrome.tabs.get(id)).windowId, tabId);
 
+// A drawn window's name, from its chevron ("Collapse: Window 4"), and whether
+// its row carries the This window tag.
+async function rowOf(block: Locator): Promise<string> {
+  const row = block.locator('[data-window-row]');
+  const name =
+    (await row
+      .getByRole('button', { name: /^Collapse: / })
+      .getAttribute('aria-label')) ?? '';
+  const tagged =
+    (await row.getByText('This window', { exact: true }).count()) > 0;
+  return name.replace(/^Collapse: /, '') + (tagged ? ' · This window' : '');
+}
+
 const tabRow = (page: Page, tabId: number): Locator =>
   page.locator(`[data-open-tab-id="${tabId}"]`);
 
@@ -189,15 +202,14 @@ test.describe('Open now draws This window first (KAN-472)', () => {
       s.third,
     ]);
     const blocks = s.page.locator(BLOCK);
-    await expect(blocks.nth(0).locator('[data-window-row]')).toHaveText(
-      /^Window 4\s*This window$/
-    );
-    await expect(blocks.nth(1).locator('[data-window-row]')).toHaveText(
-      /^Window 1$/
-    );
-    await expect(blocks.nth(3).locator('[data-window-row]')).toHaveText(
-      /^Window 3$/
-    );
+    const rows: string[] = [];
+    for (let i = 0; i < 4; i++) rows.push(await rowOf(blocks.nth(i)));
+    expect(rows).toEqual([
+      'Window 4 · This window',
+      'Window 1',
+      'Window 2',
+      'Window 3',
+    ]);
   });
 
   test('2. under a search This window stays first among the matches', async ({
@@ -210,9 +222,10 @@ test.describe('Open now draws This window first (KAN-472)', () => {
     await s.page.getByPlaceholder('Search open tabs').fill('re');
     await expect(s.page.locator(BLOCK)).toHaveCount(2);
     expect(await drawnWindowIds(s.page)).toEqual([s.self, s.third]);
-    await expect(
-      s.page.locator(BLOCK).nth(0).locator('[data-window-row]')
-    ).toHaveText(/^Window 4\s*This window$/);
+    expect(await rowOf(s.page.locator(BLOCK).nth(0))).toBe(
+      'Window 4 · This window'
+    );
+    expect(await rowOf(s.page.locator(BLOCK).nth(1))).toBe('Window 3');
   });
 
   test('3. a tab dropped on the top row lands first in This window', async ({
