@@ -10,7 +10,7 @@ import {
   type WindowSpec,
 } from './windows';
 
-// macOS can hand focus to an older window ~550ms after a background full-screen starts, when its animation ends (measured headed, KAN-460).
+// macOS sometimes (3/10) hands focus to an older window ~550ms after another window's full-screen bounds change (measured headed, KAN-460).
 export const FULLSCREEN_FOCUS_SETTLE_MS = 800;
 
 // Every restore runs in the worker (see RestoreSessionRequest): the popup dies when the first window takes focus.
@@ -36,7 +36,7 @@ export async function restoreSession(
   const target =
     created[request.specs.findIndex((spec) => spec.focused)] ?? null;
   const focusBack = focusBackPlan(request.specs, created, target);
-  if (focusBack) await focusRestoredWindow(focusBack.windowId);
+  if (focusBack) await focusWindowOne(focusBack.windowId);
 
   // Finally, so Open's early return gets the late re-focus too.
   try {
@@ -79,7 +79,7 @@ export async function restoreSession(
       await new Promise((resolve) =>
         setTimeout(resolve, FULLSCREEN_FOCUS_SETTLE_MS)
       );
-      await focusRestoredWindow(focusBack.windowId);
+      await focusWindowOne(focusBack.windowId);
     }
   }
 }
@@ -100,7 +100,7 @@ function focusBackPlan(
 }
 
 // Never throws: a refused focus costs Window 1 its focus, never the restore.
-async function focusRestoredWindow(windowId: number): Promise<void> {
+async function focusWindowOne(windowId: number): Promise<void> {
   try {
     await chrome.windows.update(windowId, { focused: true });
   } catch (error) {

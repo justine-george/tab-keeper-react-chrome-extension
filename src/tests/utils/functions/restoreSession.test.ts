@@ -426,6 +426,34 @@ describe('Window 1 gets focus back after other windows take their saved state', 
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  test('a Switch with nothing to close and a full-screen Window 2: Window 1 still gets the second focus call', async () => {
+    handle = setupChromeFake({ windows: [] });
+    const update = vi.spyOn(chrome.windows, 'update');
+    const done = restoreSession(stated([undefined, 'fullscreen'], true));
+    await filled();
+    const id = await windowOne();
+    await vi.advanceTimersByTimeAsync(FULLSCREEN_FOCUS_SETTLE_MS);
+    await done;
+    expect(handle.removedWindowIds).toEqual([]);
+    expect(focusCalls(update)).toEqual([
+      [id, { focused: true }],
+      [id, { focused: true }],
+    ]);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  test('Window 2 has a state but its window fails to open: no focus call', async () => {
+    handle = setupChromeFake(seed({ refusedUrls: [web('w2')] }));
+    const update = vi.spyOn(chrome.windows, 'update');
+    const done = restoreSession(stated([undefined, 'fullscreen'], false));
+    await filled();
+    await vi.advanceTimersByTimeAsync(FULLSCREEN_FOCUS_SETTLE_MS);
+    await done;
+    expect(await newWindows([1])).toHaveLength(1);
+    expect(focusCalls(update)).toEqual([]);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   test('a refused focus warns, and the restore still resolves', async () => {
     handle = setupChromeFake(seed());
     const update = chrome.windows.update.bind(chrome.windows);
