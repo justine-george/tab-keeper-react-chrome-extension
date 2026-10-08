@@ -10,12 +10,14 @@ import type {
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
-// A window reduced to the thing that decides whether it is already saved: the
-// URLs it holds, in order. JSON rather than a join so that a URL containing
-// the separator cannot forge a different window's signature.
+// A window reduced to what decides whether it is already saved: each tab's URL and pin, in order.
+// A pin is content (KAN-458); the active tab is not, or every Switch would save a copy.
+// JSON rather than a join, so a URL containing a separator cannot forge another window's signature.
 function windowSignatures(windows: windowGroupData[]): string[] {
   return windows
-    .map((window) => JSON.stringify(window.tabs.map((tab) => tab.url)))
+    .map((window) =>
+      JSON.stringify(window.tabs.map((tab) => [tab.url, tab.pinned === true]))
+    )
     .sort();
 }
 
@@ -171,6 +173,10 @@ export async function readCurrentWindowGroups(
   return { groups, idByChromeId };
 }
 
+// KAN-458. Absent, never false: an unpinned tab costs nothing in the document.
+const pinnedField = (pinned: boolean): Pick<tabData, 'pinned'> =>
+  pinned ? { pinned: true } : {};
+
 /**
  * A live Chrome tab in storage shape (KAN-211).
  *
@@ -193,14 +199,33 @@ export async function readCurrentWindowGroups(
  * mapping from Chrome's numeric ids to ours.
  */
 export function toStoredTab(
-  tab: Pick<chrome.tabs.Tab, 'favIconUrl' | 'title' | 'url'>
+  tab: Pick<chrome.tabs.Tab, 'favIconUrl' | 'title' | 'url' | 'pinned'>
 ): tabData {
   return {
     tabId: uuidv4(),
     favicon: tab.favIconUrl || '',
     title: dropNotificationCount(tab.title || ''),
     url: resolveTabUrl(tab.url || ''),
+    ...pinnedField(tab.pinned),
   };
+}
+
+// KAN-458. The tab a restore opens on: Chrome's active one, else (a left-out Tab Keeper page was) the most recently used (A4).
+export function pickActiveTabIndex(
+  tabs: readonly { active: boolean; lastAccessed?: number }[]
+): number | undefined {
+  const active = tabs.findIndex((tab) => tab.active);
+  if (active !== -1) return active;
+  let picked: number | undefined;
+  let latest = 0;
+  tabs.forEach((tab, index) => {
+    const at = tab.lastAccessed ?? 0;
+    if (at > latest) {
+      picked = index;
+      latest = at;
+    }
+  });
+  return picked;
 }
 
 // One window in storage shape. Extracted so "add current window to a session"
@@ -224,6 +249,7 @@ export function toWindowGroupData(
       ...(chromeGroupId === undefined ? {} : { chromeGroupId }),
     };
   });
+  const activeIndex = pickActiveTabIndex(window.tabs ?? []);
 
   return {
     windowId: uuidv4(),
@@ -235,6 +261,9 @@ export function toWindowGroupData(
     title: '',
     tabs: tabsData,
     ...(groups && groups.length > 0 ? { chromeTabGroups: groups } : {}),
+    ...(activeIndex === undefined
+      ? {}
+      : { activeTabId: tabsData[activeIndex].tabId }),
   };
 }
 

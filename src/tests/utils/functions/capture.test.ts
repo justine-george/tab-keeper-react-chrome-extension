@@ -4,12 +4,15 @@ import {
   captureOpenWindows,
   isAlreadySaved,
   isNameSourceNoise,
+  pickActiveTabIndex,
+  toStoredTab,
 } from '../../../utils/functions/capture';
 import { generatePlaceholderURL } from '../../../utils/functions/local';
 import { setupChromeFake } from '../../setup/chrome.fake';
 import { buildChromeTab } from '../../fixtures/chromeTab';
 import type {
   tabContainerData,
+  tabData,
   windowGroupData,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 
@@ -927,5 +930,219 @@ describe('isNameSourceNoise (§8)', () => {
     'chrome://settings/',
   ])('%s is a name source', (url) => {
     expect(isNameSourceNoise(buildChromeTab({ url }))).toBe(false);
+  });
+});
+
+describe('toStoredTab (KAN-458)', () => {
+  test('a pinned tab is stored pinned: true', () => {
+    expect(toStoredTab(buildChromeTab({ url: A, pinned: true })).pinned).toBe(
+      true
+    );
+  });
+
+  test('an unpinned tab has no pinned key', () => {
+    expect('pinned' in toStoredTab(buildChromeTab({ url: A }))).toBe(false);
+  });
+});
+
+describe('pickActiveTabIndex (KAN-458 A4)', () => {
+  test('the active tab wins over a later lastAccessed', () => {
+    expect(
+      pickActiveTabIndex([
+        { active: false, lastAccessed: 9 },
+        { active: true, lastAccessed: 1 },
+      ])
+    ).toBe(1);
+  });
+
+  test('no active tab: the most recently used', () => {
+    expect(
+      pickActiveTabIndex([
+        { active: false, lastAccessed: 3 },
+        { active: false, lastAccessed: 8 },
+        { active: false, lastAccessed: 5 },
+      ])
+    ).toBe(1);
+  });
+
+  test('a tie keeps the first', () => {
+    expect(
+      pickActiveTabIndex([
+        { active: false, lastAccessed: 4 },
+        { active: false, lastAccessed: 4 },
+      ])
+    ).toBe(0);
+  });
+
+  test('nothing stamped, absent or 0: undefined', () => {
+    expect(
+      pickActiveTabIndex([
+        { active: false },
+        { active: false, lastAccessed: 0 },
+      ])
+    ).toBeUndefined();
+  });
+
+  test('no tabs: undefined', () => {
+    expect(pickActiveTabIndex([])).toBeUndefined();
+  });
+});
+
+describe('isAlreadySaved and pins (KAN-458)', () => {
+  const pin = (t: tabData): tabData => ({ ...t, pinned: true });
+  const firstPinned = (w: windowGroupData): windowGroupData => ({
+    ...w,
+    tabs: w.tabs.map((t, i) => (i === 0 ? pin(t) : t)),
+  });
+
+  test('a tab pinned since the save is unsaved work', () => {
+    expect(
+      isAlreadySaved(sessionOf(firstPinned(windowOf(A, B))), [
+        sessionOf(windowOf(A, B)),
+      ])
+    ).toBe(false);
+  });
+
+  test('CONTROL: the same pins are already saved', () => {
+    expect(
+      isAlreadySaved(sessionOf(firstPinned(windowOf(A, B))), [
+        sessionOf(firstPinned(windowOf(A, B))),
+      ])
+    ).toBe(true);
+  });
+
+  test('a different active tab is not unsaved work', () => {
+    expect(
+      isAlreadySaved(sessionOf({ ...windowOf(A, B), activeTabId: 't1' }), [
+        sessionOf({ ...windowOf(A, B), activeTabId: 't0' }),
+      ])
+    ).toBe(true);
+  });
+});
+
+describe('a capture remembers pinned tabs and the active tab (KAN-458)', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+  });
+
+  const D = 'https://d.example';
+  const TAB_VIEW = 'chrome-extension://faketestid/index.html?view=tab';
+
+  test('pinned tabs are stored pinned; the active tab is the activeTabId', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            buildChromeTab({
+              id: 1,
+              index: 0,
+              url: A,
+              title: 'A',
+              pinned: true,
+            }),
+            buildChromeTab({
+              id: 2,
+              index: 1,
+              url: B,
+              title: 'B',
+              pinned: true,
+            }),
+            buildChromeTab({
+              id: 3,
+              index: 2,
+              url: C,
+              title: 'C',
+              active: true,
+            }),
+            buildChromeTab({ id: 4, index: 3, url: D, title: 'D' }),
+          ],
+        },
+      ],
+    });
+
+    const [w] = requireCaptured(
+      await captureOpenWindows('probe', 'all-windows')
+    ).windows;
+
+    expect(w.tabs.map((t) => t.pinned)).toEqual([
+      true,
+      true,
+      undefined,
+      undefined,
+    ]);
+    expect('pinned' in w.tabs[2]).toBe(false);
+    expect(w.activeTabId).toBe(w.tabs[2].tabId);
+  });
+
+  test('Tab Keeper is the active tab: the most recently used other tab (A4)', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            buildChromeTab({
+              id: 1,
+              index: 0,
+              url: TAB_VIEW,
+              active: true,
+              lastAccessed: 900,
+            }),
+            buildChromeTab({
+              id: 2,
+              index: 1,
+              url: A,
+              title: 'A',
+              lastAccessed: 300,
+            }),
+            buildChromeTab({
+              id: 3,
+              index: 2,
+              url: B,
+              title: 'B',
+              lastAccessed: 700,
+            }),
+            buildChromeTab({
+              id: 4,
+              index: 3,
+              url: C,
+              title: 'C',
+              lastAccessed: 100,
+            }),
+          ],
+        },
+      ],
+    });
+
+    const [w] = requireCaptured(
+      await captureOpenWindows('probe', 'all-windows')
+    ).windows;
+
+    expect(w.tabs.map((t) => t.url)).toEqual([A, B, C]);
+    expect(w.activeTabId).toBe(w.tabs[1].tabId);
+  });
+
+  test('Tab Keeper is the active tab and no other tab is stamped: no activeTabId', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            buildChromeTab({ id: 1, index: 0, url: TAB_VIEW, active: true }),
+            buildChromeTab({ id: 2, index: 1, url: A, title: 'A' }),
+            buildChromeTab({ id: 3, index: 2, url: B, title: 'B' }),
+          ],
+        },
+      ],
+    });
+
+    const [w] = requireCaptured(
+      await captureOpenWindows('probe', 'all-windows')
+    ).windows;
+
+    expect('activeTabId' in w).toBe(false);
   });
 });

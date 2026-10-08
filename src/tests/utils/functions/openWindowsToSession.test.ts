@@ -256,3 +256,47 @@ describe('suggestTitleForWindow skips the store and the New Tab page (§8)', () 
     expect(await nameOf([{ ...only, lastAccessed: 3 }])).toBe('New Tab Group');
   });
 });
+
+describe('openWindowsToSession keeps pins and the active tab (KAN-458)', () => {
+  test('a pinned tab is saved pinned, and the active tab is the activeTabId', () => {
+    const [w] = openWindowsToSession(
+      [
+        openWindow(1, [
+          openTab(11, 'A', { pinned: true }),
+          openTab(12, 'B', { active: true }),
+          openTab(13, 'C'),
+        ]),
+      ],
+      'S',
+      NOW
+    ).windows;
+
+    expect(w.tabs.map((t) => t.pinned)).toEqual([true, undefined, undefined]);
+    expect(w.activeTabId).toBe(w.tabs[1].tabId);
+  });
+
+  test('no listed tab is active (Tab Keeper was): the most recently used (A4)', () => {
+    const [w] = openWindowsToSession(
+      [
+        openWindow(1, [
+          openTab(11, 'A', { lastAccessed: 200 }),
+          openTab(12, 'B', { lastAccessed: 500 }),
+        ]),
+      ],
+      'S',
+      NOW
+    ).windows;
+
+    expect(w.activeTabId).toBe(w.tabs[1].tabId);
+  });
+
+  test('nothing active and nothing stamped: no activeTabId', () => {
+    const [w] = openWindowsToSession(
+      [openWindow(1, [openTab(11, 'A'), openTab(12, 'B')])],
+      'S',
+      NOW
+    ).windows;
+
+    expect('activeTabId' in w).toBe(false);
+  });
+});
