@@ -1126,7 +1126,7 @@ function sameWindowContent(a: windowGroupData, b: windowGroupData): boolean {
     a.windowOffsetTop === b.windowOffsetTop &&
     a.windowOffsetLeft === b.windowOffsetLeft &&
     a.tabCount === b.tabCount &&
-    // KAN-458. Synced and restored, so content: an undo of a delete must outrank the cloud.
+    // KAN-458. Content: a backup Replace or Merge that changes only the active tab must outrank the cloud.
     a.activeTabId === b.activeTabId &&
     a.tabs.length === b.tabs.length &&
     a.tabs.every(
