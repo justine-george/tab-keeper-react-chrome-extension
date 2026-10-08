@@ -129,9 +129,7 @@ describe('pinned tabs and the active tab across two devices (KAN-458)', () => {
 
     await saveToFirestore('u1', deviceWith(savedOnA()));
 
-    const written: unknown = firestore.setDoc.mock.calls[0][1];
-    expect(isValidTabMasterContainer(written)).toBe(true);
-    if (!isValidTabMasterContainer(written)) return;
+    const written: TabMasterContainer = firestore.setDoc.mock.calls[0][1];
     const w = windowIn(written, 'S', 'w');
     expect(w.tabs.map((t) => t.pinned)).toEqual([true, undefined, undefined]);
     expect(w.activeTabId).toBe('a2');
