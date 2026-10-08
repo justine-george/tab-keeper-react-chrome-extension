@@ -1838,7 +1838,29 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         if (!target)
           return fail<chrome.tabs.Tab>(`No tab with id: ${tabId}.`, cb);
         const { muted, ...rest } = props;
+        const wasPinned = target.pinned;
         Object.assign(target, rest);
+        if (rest.pinned !== undefined && rest.pinned !== wasPinned) {
+          // Measured 2026-10-07 (KAN-458): a pin or unpin lands the tab on the pinned boundary, onUpdated then onMoved.
+          tabsOnUpdated.fire(tabId, { pinned: rest.pinned }, target);
+          const fromIndex = target.index;
+          const others = windowTabsInOrder(target.windowId).filter(
+            (tab) => tab !== target
+          );
+          tabs.splice(tabs.indexOf(target), 1);
+          insertAtSlot(
+            target,
+            others,
+            others.filter((tab) => tab.pinned).length
+          );
+          if (target.index !== fromIndex) {
+            tabsOnMoved.fire(tabId, {
+              windowId: target.windowId,
+              fromIndex,
+              toIndex: target.index,
+            });
+          }
+        }
         // A window has one front tab: activating one takes the front from
         // the rest of its window, and from no other window (Task 1, Q2b:
         // other windows' front tabs were untouched, 25/25). A tab in a

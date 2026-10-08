@@ -2366,6 +2366,68 @@ describe('chrome.tabs.move (KAN-280 Part D)', () => {
   });
 });
 
+// Measured 2026-10-07 in headless Chromium (KAN-458 Task 4 probe).
+describe('tabs.update({pinned}) moves the tab to the pinned boundary (KAN-458)', () => {
+  const strip = async (windowId: number) =>
+    (await chrome.tabs.query({ windowId }))
+      .sort((a, b) => a.index - b.index)
+      .map((t) => `${t.id}${t.pinned ? '*' : ''}`);
+  const seed = (pins: number) =>
+    setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [10, 11, 12, 13].map((id, i) => ({
+            id,
+            url: `https://${id}.test/`,
+            pinned: i < pins,
+          })),
+        },
+      ],
+    });
+  const record = () => {
+    const events: string[] = [];
+    chrome.tabs.onUpdated.addListener((id, change) => {
+      if ('pinned' in change) events.push(`updated ${id} ${change.pinned}`);
+    });
+    chrome.tabs.onMoved.addListener((id, info) =>
+      events.push(`moved ${id} ${info.fromIndex}->${info.toIndex}`)
+    );
+    return events;
+  };
+
+  test('pinning lands the tab at the end of the pinned run, then fires onMoved', async () => {
+    handle = seed(1);
+    const events = record();
+
+    const tab = await chrome.tabs.update(12, { pinned: true });
+
+    expect(tab).toMatchObject({ index: 1, pinned: true });
+    expect(await strip(1)).toEqual(['10*', '12*', '11', '13']);
+    expect(events).toEqual(['updated 12 true', 'moved 12 2->1']);
+  });
+
+  test('unpinning lands the tab at the start of the unpinned run', async () => {
+    handle = seed(3);
+    const events = record();
+
+    await chrome.tabs.update(10, { pinned: false });
+
+    expect(await strip(1)).toEqual(['11*', '12*', '10', '13']);
+    expect(events).toEqual(['updated 10 false', 'moved 10 0->2']);
+  });
+
+  test('CONTROL: pinning the first unpinned tab moves nothing', async () => {
+    handle = seed(1);
+    const events = record();
+
+    await chrome.tabs.update(11, { pinned: true });
+
+    expect(await strip(1)).toEqual(['10*', '11*', '12', '13']);
+    expect(events).toEqual(['updated 11 true']);
+  });
+});
+
 describe('a restored window never has its front tab in a collapsed group', () => {
   // Task 1, Q2b: when the active tab was grouped, tab 0 comes back active.
   // Chrome never shows a front tab inside a collapsed group, so tab 0's own
