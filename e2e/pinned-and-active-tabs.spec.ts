@@ -560,6 +560,31 @@ test.describe('Save with a Tab Keeper page active keeps the tab in use before it
       .find((w) => w.id === windowId)
       ?.tabs.find((t) => t.active);
 
+  // A middle-click: loaded, never activated, created after Target, so its lastAccessed outranks Target's.
+  async function openInBackground(worker: Worker, windowId: number) {
+    await worker.evaluate(
+      ({ windowId, url }) =>
+        chrome.tabs.create({ windowId, url, active: false }),
+      { windowId, url: page('Background') }
+    );
+    await expect
+      .poll(
+        async () =>
+          (await windowsNow(worker))
+            .find((w) => w.id === windowId)
+            ?.tabs.find((t) => t.title === 'Background')
+      )
+      .toMatchObject({ active: false, status: 'complete' });
+    // PREMISE: by lastAccessed alone, Background outranks Target.
+    const stamps = await worker.evaluate(async (windowId) => {
+      const tabs = await chrome.tabs.query({ windowId });
+      const at = (title: string) =>
+        tabs.find((t) => t.title === title)?.lastAccessed ?? 0;
+      return { target: at('Target'), background: at('Background') };
+    }, windowId);
+    expect(stamps.background).toBeGreaterThan(stamps.target);
+  }
+
   async function savedActiveTitle(popup: Page) {
     await popup
       .locator('[data-tour-anchor="save"]')
@@ -577,7 +602,7 @@ test.describe('Save with a Tab Keeper page active keeps the tab in use before it
     return saved?.tabs.find((t) => t.tabId === saved.activeTabId)?.title;
   }
 
-  test('the pinned stub made active: Target, not the last placeholder', async ({
+  test('a background tab opened, then the pinned stub made active: Target', async ({
     context,
     extensionId,
     serviceWorker,
@@ -593,6 +618,7 @@ test.describe('Save with a Tab Keeper page active keeps the tab in use before it
       new RegExp(`^chrome-extension://${extensionId}/`)
     );
     expect(tabs[0]).toMatchObject({ pinned: true, active: false });
+    await openInBackground(serviceWorker, windowId);
 
     await serviceWorker.evaluate(
       (id) => chrome.tabs.update(id, { active: true }),
@@ -605,7 +631,7 @@ test.describe('Save with a Tab Keeper page active keeps the tab in use before it
     expect(await savedActiveTitle(popup)).toBe('Target');
   });
 
-  test('a background tab opened after it, then the full view: Target, not the background tab', async ({
+  test('a background tab opened, then the full view made active: Target', async ({
     context,
     extensionId,
     serviceWorker,
@@ -616,19 +642,7 @@ test.describe('Save with a Tab Keeper page active keeps the tab in use before it
       serviceWorker,
       false
     );
-    await serviceWorker.evaluate(
-      ({ windowId, url }) =>
-        chrome.tabs.create({ windowId, url, active: false }),
-      { windowId, url: page('Background') }
-    );
-    await expect
-      .poll(
-        async () =>
-          (await windowsNow(serviceWorker))
-            .find((w) => w.id === windowId)
-            ?.tabs.find((t) => t.title === 'Background')
-      )
-      .toMatchObject({ active: false, status: 'complete' });
+    await openInBackground(serviceWorker, windowId);
     await serviceWorker.evaluate(
       (windowId) =>
         chrome.tabs.create({
