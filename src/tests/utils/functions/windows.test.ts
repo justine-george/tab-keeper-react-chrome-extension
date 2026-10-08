@@ -281,13 +281,14 @@ describe('createWindowWithRetries with tab groups', () => {
   test('a refused collapse keeps title and colour, and the restore resolves (KAN-460)', async () => {
     handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
     const real = chrome.tabGroups.update.bind(chrome.tabGroups);
-    const groups = chrome.tabGroups as unknown as {
-      update: typeof chrome.tabGroups.update;
-    };
-    groups.update = ((id: number, props: chrome.tabGroups.UpdateProperties) =>
+    vi.spyOn(chrome.tabGroups, 'update').mockImplementation(((
+      id: number,
+      props: chrome.tabGroups.UpdateProperties
+    ) =>
       props.collapsed === true
         ? Promise.reject(new Error('refused'))
-        : real(id, props)) as typeof chrome.tabGroups.update;
+        : real(id, props)) as typeof chrome.tabGroups.update);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     const created = await createWindowWithRetries(
       spec({
@@ -304,6 +305,10 @@ describe('createWindowWithRetries with tab groups', () => {
     );
 
     expect(created).not.toBeNull();
+    expect(warn).toHaveBeenCalledWith(
+      'Could not collapse a restored tab group:',
+      expect.any(Error)
+    );
     const [only] = await chrome.tabGroups.query({});
     expect(only).toMatchObject({
       title: 'Work',

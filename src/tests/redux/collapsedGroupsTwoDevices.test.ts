@@ -9,6 +9,7 @@ vi.hoisted(() => {
 
 const firestore = vi.hoisted(() => ({
   setDoc: vi.fn<(ref: unknown, data: TabMasterContainer) => Promise<void>>(),
+  getDoc: vi.fn(),
 }));
 
 vi.mock('firebase/app', () => ({ initializeApp: vi.fn(() => ({})) }));
@@ -20,7 +21,7 @@ vi.mock('firebase/auth', () => ({
 vi.mock('firebase/firestore/lite', () => ({
   doc: vi.fn(() => ({})),
   getFirestore: vi.fn(() => ({})),
-  getDoc: vi.fn(),
+  getDoc: firestore.getDoc,
   setDoc: firestore.setDoc,
 }));
 
@@ -31,6 +32,7 @@ vi.mock('../../utils/functions/external', async (importActual) => ({
 }));
 
 import reducer, {
+  moveToSessionInternal,
   replaceState,
   updateTabGroupTitle,
   type TabMasterContainer,
@@ -38,10 +40,7 @@ import reducer, {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { saveToFirestore } from '../../utils/functions/external';
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
-import {
-  compressToBytes,
-  decompressFromBytes,
-} from '../../utils/functions/compression';
+import { fetchDataFromFirestore } from '../../config/firebase';
 import {
   isValidTabMasterContainer,
   readImportedContainer,
@@ -115,15 +114,48 @@ describe('a collapsed group across two devices (KAN-460)', () => {
     expect(collapsedOf(merged)).toEqual([undefined, undefined]);
   });
 
-  it('the cloud write and read keep the field', async () => {
+  it('the real cloud write, read back by the real cloud read, keeps the field', async () => {
+    firestore.setDoc.mockReset().mockResolvedValue(undefined);
     const data = deviceWith(savedOnA());
-    const back: unknown = JSON.parse(
-      await decompressFromBytes(await compressToBytes(JSON.stringify(data)))
-    );
+    await saveToFirestore('u1', data);
+    const written = firestore.setDoc.mock.calls[0][1];
+    firestore.getDoc.mockReset().mockResolvedValue({
+      exists: () => true,
+      data: () => written,
+    });
+
+    const back: unknown = await fetchDataFromFirestore('u1');
 
     expect(isValidTabMasterContainer(back)).toBe(true);
     if (!isValidTabMasterContainer(back)) return;
     expect(windowIn(back, 'S', 'w')).toEqual(windowIn(data, 'S', 'w'));
+    expect(collapsedOf(back)).toEqual([true, undefined]);
+  });
+
+  it('moving the window to another session keeps the collapsed group', () => {
+    const dest = session('D', 'Dest', T0 - 30_000, [
+      win('d', [tab('x1', 'g1')], [group('g1')]),
+    ]);
+    const state = reducer(
+      undefined,
+      replaceState(container([savedOnA(), dest]))
+    );
+
+    const next = reducer(
+      state,
+      moveToSessionInternal(
+        {
+          carried: { kind: 'window', tabGroupId: 'S', windowId: 'w' },
+          to: { tabGroupId: 'D', toIndex: 1 },
+        },
+        '6f1c2d3e-4b5a-4c6d-8e7f-9a0b1c2d3e4f'
+      )
+    );
+
+    // g1 collides with the destination's g1, so it is re-minted on the way in.
+    const groups = windowIn(next, 'D', 'w').chromeTabGroups ?? [];
+    expect(groups[0].groupId).not.toBe('g1');
+    expect(groups.map((g) => g.collapsed)).toEqual([true, undefined]);
   });
 
   it('the real cloud write sends the collapsed group', async () => {
