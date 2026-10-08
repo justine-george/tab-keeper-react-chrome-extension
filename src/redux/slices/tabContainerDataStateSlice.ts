@@ -447,6 +447,7 @@ function toWindowSpec(
     ...(windowGroup.activeTabId === undefined
       ? {}
       : { activeTabId: windowGroup.activeTabId }),
+    ...(windowGroup.state === undefined ? {} : { state: windowGroup.state }),
   };
 }
 

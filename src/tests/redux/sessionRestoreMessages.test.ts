@@ -252,4 +252,31 @@ describe('every restore call site posts one RestoreSessionRequest to the worker'
     expect(request.specs[0].activeTabId).toBe('t-a');
     expect('activeTabId' in request.specs[1]).toBe(false);
   });
+
+  it('a window saved maximized sends its state in its spec; one without sends none (KAN-460)', async () => {
+    handle = setupChromeFake();
+    const [first, second] = SESSION.tabGroups[0].windows;
+    const withState: TabMasterContainer = {
+      ...SESSION,
+      tabGroups: [
+        {
+          ...SESSION.tabGroups[0],
+          windows: [first, { ...second, state: 'maximized' }],
+        },
+      ],
+    };
+
+    const { store } = makeTestStore();
+    store.dispatch(restoreContainer(withState));
+    await store.dispatch(
+      openAllTabContainer({
+        tabGroupId: 'group-1',
+        goToURLText: GO_TO_URL_TEXT,
+      })
+    );
+
+    const request = firstSentRequest(handle);
+    expect('state' in request.specs[0]).toBe(false);
+    expect(request.specs[1].state).toBe('maximized');
+  });
 });

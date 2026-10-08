@@ -1,4 +1,7 @@
-import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
+import type {
+  SavedWindowState,
+  tabData,
+} from '../../redux/slices/tabContainerDataStateSlice';
 import { generatePlaceholderURL, resolveTabUrl } from './local';
 import { sanitizeTabGroupColor } from './tabGroups';
 
@@ -36,6 +39,8 @@ export interface WindowSpec {
   groups?: TabGroupSpec[];
   // KAN-458. The saved tabId to open on; absent or naming no tab falls back (restoreTargetIndex).
   activeTabId?: string;
+  // KAN-460. Applied last with windows.update: create refuses a state with bounds or unfocused.
+  state?: SavedWindowState;
 }
 
 export const RESTORE_SESSION_MESSAGE = 'restore-session';
@@ -269,6 +274,22 @@ async function fillRestoredWindow(
       kind: 'saved',
       openTabId: targetId,
     });
+  }
+
+  if (spec.state !== undefined) {
+    await applySavedWindowState(windowId, spec.state);
+  }
+}
+
+// Never throws: a refused state leaves the window normal, never fails the restore.
+async function applySavedWindowState(
+  windowId: number,
+  state: SavedWindowState
+): Promise<void> {
+  try {
+    await chrome.windows.update(windowId, { state });
+  } catch (error) {
+    console.warn('Could not restore a window state:', error);
   }
 }
 
