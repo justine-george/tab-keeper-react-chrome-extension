@@ -377,3 +377,43 @@ describe('saving from the Open now pane (KAN-280 O13)', () => {
     ]);
   });
 });
+
+describe('the saved active tab is the one the worker recorded before Tab Keeper (KAN-458 A4)', () => {
+  // A was in use before the tab view, though B was stamped later.
+  const windows = [
+    {
+      id: 1,
+      focused: true,
+      tabs: [tabView(), tab(11, 'A', 100), tab(12, 'B', 300)],
+    },
+    { id: 2, tabs: [{ ...tab(21, 'D', 200), active: true }] },
+  ];
+  const seed: ChromeSeed = {
+    currentTabId: TAB_VIEW_ID,
+    windows,
+    sessionArea: { 'recentTabs.1': [TAB_VIEW_ID, 11] },
+  };
+  const activeTitle = (w: {
+    tabs: { tabId: string; title: string }[];
+    activeTabId?: string;
+  }) => w.tabs.find((t) => t.tabId === w.activeTabId)?.title;
+
+  test('Save window', async () => {
+    const { store } = await renderOpenNow(seed);
+    fireEvent.click(
+      within(blockOf(1)).getByRole('button', {
+        name: 'Save window as a session: Window 1',
+      })
+    );
+    expect(activeTitle((await savedSession(store)).windows[0])).toBe('A');
+  });
+
+  test('Save all', async () => {
+    const { store } = await renderOpenNow(seed);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save all open windows as a session' })
+    );
+    const saved = await savedSession(store);
+    expect(saved.windows.map(activeTitle)).toEqual(['A', 'D']);
+  });
+});

@@ -683,3 +683,46 @@ describe('"Add current window" saves the window unnamed (KAN-394 L4)', () => {
     expect(added.title).toBe('');
   });
 });
+
+describe('the saved active tab is the one the worker recorded before Tab Keeper (KAN-458 A4)', () => {
+  // Mail was in use before the tab view, though Docs was stamped later.
+  const recordedSeed = {
+    ...tabViewSeed,
+    sessionArea: { 'recentTabs.1': [10, 12] },
+  };
+  const activeTitle = (w: {
+    tabs: { tabId: string; title: string }[];
+    activeTabId?: string;
+  }) => w.tabs.find((t) => t.tabId === w.activeTabId)?.title;
+
+  test('Save current window', async () => {
+    goToTabView();
+    const { store } = await renderWithProviders(<UserInputContainer />, {
+      seed: recordedSeed,
+    });
+    await act(async () => {});
+
+    await clickSaveCurrentWindow();
+
+    await waitFor(() =>
+      expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1)
+    );
+    const [w] = store.getState().tabContainerDataState.tabGroups[0].windows;
+    expect(activeTitle(w)).toBe('Mail');
+  });
+
+  test('Add current window', async () => {
+    goToTabView();
+    const { store } = await renderHeroWithSelectedSession(recordedSeed);
+
+    await clickAddCurrentWindow();
+
+    await waitFor(() =>
+      expect(
+        store.getState().tabContainerDataState.tabGroups[0].windows
+      ).toHaveLength(2)
+    );
+    const [added] = store.getState().tabContainerDataState.tabGroups[0].windows;
+    expect(activeTitle(added)).toBe('Mail');
+  });
+});

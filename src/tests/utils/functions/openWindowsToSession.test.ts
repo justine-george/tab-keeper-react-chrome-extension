@@ -53,6 +53,7 @@ function openWindow(
 }
 
 const NOW = new Date(2026, 8, 24, 14, 5, 9);
+const NO_RECORD = () => [];
 
 describe('openWindowsToSession (KAN-280 O13)', () => {
   test('builds the saved shape: counts, bounds, tab fields and fresh ids', () => {
@@ -64,7 +65,8 @@ describe('openWindowsToSession (KAN-280 O13)', () => {
         openWindow(2, [openTab(21, 'C')]),
       ],
       'My session',
-      NOW
+      NOW,
+      NO_RECORD
     );
 
     expect(session.tabGroupId).toMatch(UUID);
@@ -124,7 +126,8 @@ describe('openWindowsToSession (KAN-280 O13)', () => {
         ),
       ],
       'Grouped',
-      NOW
+      NOW,
+      NO_RECORD
     );
 
     const [saved] = session.windows;
@@ -150,7 +153,8 @@ describe('openWindowsToSession (KAN-280 O13)', () => {
     const session = openWindowsToSession(
       [openWindow(1, [openTab(11, 'A')])],
       'Plain',
-      NOW
+      NOW,
+      NO_RECORD
     );
 
     expect('chromeTabGroups' in session.windows[0]).toBe(false);
@@ -160,7 +164,8 @@ describe('openWindowsToSession (KAN-280 O13)', () => {
     const session = openWindowsToSession(
       [openWindow(1, [openTab(11, '(3) Inbox'), openTab(12, 'Docs')])],
       'Mail',
-      NOW
+      NOW,
+      NO_RECORD
     );
 
     expect(session.windows[0].tabs[0].title).toBe('Inbox');
@@ -174,7 +179,8 @@ describe('openWindowsToSession (KAN-280 O13)', () => {
         openWindow(2, [openTab(21, 'C')]),
       ],
       'Two',
-      NOW
+      NOW,
+      NO_RECORD
     );
 
     // PREMISE: each window's first tab has a title it could have been named by.
@@ -186,7 +192,8 @@ describe('openWindowsToSession (KAN-280 O13)', () => {
     const session = openWindowsToSession(
       [openWindow(1, [openTab(11, 'A')])],
       'Timed',
-      NOW
+      NOW,
+      NO_RECORD
     );
 
     expect(session.createdTime).toBe(getStringDate(NOW));
@@ -203,7 +210,8 @@ describe('openWindowsToSession (KAN-280 O13)', () => {
     const session = openWindowsToSession(
       [openWindow(1, [untitled])],
       'Untitled',
-      NOW
+      NOW,
+      NO_RECORD
     );
 
     expect(session.windows[0].tabs[0].title).toBe('https://untitled.test/');
@@ -268,7 +276,8 @@ describe('openWindowsToSession keeps pins and the active tab (KAN-458)', () => {
         ]),
       ],
       'S',
-      NOW
+      NOW,
+      NO_RECORD
     ).windows;
 
     expect(w.tabs.map((t) => t.pinned)).toEqual([true, undefined, undefined]);
@@ -284,7 +293,28 @@ describe('openWindowsToSession keeps pins and the active tab (KAN-458)', () => {
         ]),
       ],
       'S',
-      NOW
+      NOW,
+      NO_RECORD
+    ).windows;
+
+    expect(w.activeTabId).toBe(w.tabs[1].tabId);
+  });
+
+  test("no listed tab is active: the window's latest recorded tab wins over a later lastAccessed (A4)", () => {
+    // 99 is the Tab Keeper page the user was on, never listed; 12 the tab before it.
+    const recentTabsOf = (windowId: number | undefined) =>
+      windowId === 1 ? [99, 12, 11] : [];
+    const [w] = openWindowsToSession(
+      [
+        openWindow(1, [
+          openTab(11, 'A', { lastAccessed: 200 }),
+          openTab(12, 'B', { lastAccessed: 100 }),
+          openTab(13, 'C', { lastAccessed: 500 }),
+        ]),
+      ],
+      'S',
+      NOW,
+      recentTabsOf
     ).windows;
 
     expect(w.activeTabId).toBe(w.tabs[1].tabId);
@@ -294,7 +324,8 @@ describe('openWindowsToSession keeps pins and the active tab (KAN-458)', () => {
     const [w] = openWindowsToSession(
       [openWindow(1, [openTab(11, 'A'), openTab(12, 'B')])],
       'S',
-      NOW
+      NOW,
+      NO_RECORD
     ).windows;
 
     expect('activeTabId' in w).toBe(false);

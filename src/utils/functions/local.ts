@@ -438,6 +438,10 @@ export function decodeDataUrl(url: string): string {
   return url;
 }
 
+// One of our lazy-load placeholders, whatever page it stands for (KAN-458).
+export const isLazyPlaceholder = (url: string): boolean =>
+  url.startsWith(PLACEHOLDER_URL_PREFIX) && decodeDataUrl(url) !== url;
+
 // Parameter names that tab suspenders use to carry the page they stand for.
 const SUSPENDED_URL_PARAMS = ['url', 'uri'];
 

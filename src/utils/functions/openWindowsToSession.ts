@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { isNotANameSource, pickActiveTabIndex, toStoredTab } from './capture';
 import { getStringDate, normalizeTitle } from './local';
 import type { OpenWindow } from './openNow';
+import type { RecentTabsOf } from './recentTabs';
 import { dropNotificationCount } from './sessionExportHtml';
 import { pickNameSourceTab } from './viewMode';
 import type {
@@ -13,7 +14,10 @@ import type {
 // One listed window in storage shape, as toWindowGroupData writes a captured
 // one: fresh ids, unnamed (KAN-394 L4), and chromeTabGroups only when there
 // is a group, so a window without one matches a capture's shape.
-function toSavedWindow(openWindow: OpenWindow): windowGroupData {
+function toSavedWindow(
+  openWindow: OpenWindow,
+  recentTabIds: readonly number[]
+): windowGroupData {
   // Chrome's group ids last only as long as this browser session, so each
   // group gets an id of ours and its tabs point at that.
   const groups = openWindow.groups.map((group) => ({
@@ -43,7 +47,7 @@ function toSavedWindow(openWindow: OpenWindow): windowGroupData {
   });
 
   const bounds = openWindow.bounds;
-  const activeIndex = pickActiveTabIndex(openWindow.tabs);
+  const activeIndex = pickActiveTabIndex(openWindow.tabs, recentTabIds);
   return {
     windowId: uuidv4(),
     windowHeight: bounds?.height ?? 0,
@@ -66,9 +70,12 @@ function toSavedWindow(openWindow: OpenWindow): windowGroupData {
 export function openWindowsToSession(
   windows: OpenWindow[],
   title: string,
-  now: Date
+  now: Date,
+  recentTabsOf: RecentTabsOf
 ): tabContainerData {
-  const saved = windows.map(toSavedWindow);
+  const saved = windows.map((window) =>
+    toSavedWindow(window, recentTabsOf(window.id))
+  );
   return {
     tabGroupId: uuidv4(),
     title,

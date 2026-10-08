@@ -75,6 +75,8 @@ export type ChromeSeed = {
     tabs?: Partial<chrome.tabs.Tab>[];
   })[];
   storage?: Record<string, unknown>;
+  // chrome.storage.session at start (KAN-458's record of activated tabs).
+  sessionArea?: Record<string, unknown>;
   tabGroups?: Partial<chrome.tabGroups.TabGroup>[];
   // Optional permissions the profile already holds. Defaults to none, which is
   // what a fresh install looks like. Holding `sessions` here makes
@@ -223,6 +225,8 @@ export type ChromeFakeHandle = {
   popupsSet: string[];
   // chrome.storage.local as it is now (KAN-7's defaultView mirror).
   localArea(): Record<string, unknown>;
+  // chrome.storage.session as it is now (KAN-458).
+  sessionArea(): Record<string, unknown>;
   // The user pinning or unpinning in Chrome's puzzle menu: fires
   // onUserSettingsChanged when the seed has it (KAN-7).
   setToolbarPin(isOnToolbar: boolean): void;
@@ -295,6 +299,9 @@ function registry<F extends (...args: never[]) => void>(): Registry<F> {
 export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   const storage = new Map<string, unknown>(Object.entries(seed.storage ?? {}));
   const localArea = new Map<string, unknown>();
+  const sessionArea = new Map<string, unknown>(
+    Object.entries(seed.sessionArea ?? {})
+  );
   let isOnToolbar = seed.action?.isOnToolbar ?? false;
   const userSettingsListeners = new Set<
     (change: chrome.action.UserSettingsChange) => void
@@ -1253,6 +1260,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     sentMessages: [],
     popupsSet: [],
     localArea: () => Object.fromEntries(localArea),
+    sessionArea: () => Object.fromEntries(sessionArea),
     setToolbarPin(next) {
       isOnToolbar = next;
       if (!hasUserSettingsEvent) return;
@@ -1668,6 +1676,36 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         set: (items: Record<string, unknown>) => {
           for (const [key, value] of Object.entries(items)) {
             localArea.set(key, value);
+          }
+          return Promise.resolve();
+        },
+      },
+      // KAN-458. Its own area too; Chrome clears it when the browser closes.
+      session: {
+        get: (keys?: string | string[] | null) => {
+          const wanted =
+            keys == null
+              ? [...sessionArea.keys()]
+              : Array.isArray(keys)
+                ? keys
+                : [keys];
+          return Promise.resolve(
+            Object.fromEntries(
+              wanted
+                .filter((key) => sessionArea.has(key))
+                .map((key) => [key, sessionArea.get(key)])
+            )
+          );
+        },
+        set: (items: Record<string, unknown>) => {
+          for (const [key, value] of Object.entries(items)) {
+            sessionArea.set(key, value);
+          }
+          return Promise.resolve();
+        },
+        remove: (keys: string | string[]) => {
+          for (const key of Array.isArray(keys) ? keys : [keys]) {
+            sessionArea.delete(key);
           }
           return Promise.resolve();
         },

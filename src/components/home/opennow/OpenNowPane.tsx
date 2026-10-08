@@ -27,6 +27,7 @@ import {
   openWindowsToSession,
   suggestTitleForWindow,
 } from '../../../utils/functions/openWindowsToSession';
+import { readRecentTabs } from '../../../utils/functions/recentTabs';
 import {
   countMatchedTabs,
   matchOpenWindows,
@@ -298,9 +299,15 @@ export default function OpenNowPane({
       openWindow.id,
       t('New Tab Group')
     );
+    const recentTabsOf = await readRecentTabs([openWindow.id]);
     void dispatch(
       saveToTabContainer({
-        container: openWindowsToSession([openWindow], title, new Date()),
+        container: openWindowsToSession(
+          [openWindow],
+          title,
+          new Date(),
+          recentTabsOf
+        ),
         scope: 'one-window',
       })
     );
@@ -318,9 +325,15 @@ export default function OpenNowPane({
     const title = thisWindow
       ? await suggestTitleForWindow(thisWindow.id, t('New Tab Group'))
       : t('New Tab Group');
+    const recentTabsOf = await readRecentTabs(ordered.map((w) => w.id));
     void dispatch(
       saveToTabContainer({
-        container: openWindowsToSession(ordered, title, new Date()),
+        container: openWindowsToSession(
+          ordered,
+          title,
+          new Date(),
+          recentTabsOf
+        ),
         scope: 'all-windows',
       })
     );
