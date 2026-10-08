@@ -10,6 +10,7 @@ import {
 } from './fixtures/seed';
 import { openPage, POPUP } from './fixtures/onboarding';
 import { stored } from './fixtures/savedWindows';
+import { WINDOW_REVEAL_CAP_MS } from '../src/utils/functions/windows';
 
 // KAN-460 Part 1 on the real artifact: a collapsed group is saved and comes
 // back collapsed; the group holding the tab a window opens on stays open; and
@@ -280,6 +281,13 @@ const windowsNow = (worker: Worker) =>
     }))
   );
 
+const lastFocusedId = (worker: Worker) =>
+  worker.evaluate(async () => (await chrome.windows.getLastFocused()).id);
+
+// Past the restore's reveal cap, so a state Chrome is about to reset has been reset.
+const pastRevealCap = () =>
+  new Promise((r) => setTimeout(r, WINDOW_REVEAL_CAP_MS + 250));
+
 test.describe('window state (KAN-460 Part 2)', () => {
   test('4. a maximized Window 2 is saved maximized; Switch brings it back maximized and Window 1 keeps focus', async ({
     context,
@@ -291,16 +299,18 @@ test.describe('window state (KAN-460 Part 2)', () => {
     await serviceWorker.evaluate(
       async (urls) => {
         const win = await chrome.windows.create({ url: urls, focused: false });
-        // Headless drops a state set before a new window settles (measured); its tabs loading is the barrier.
+        const id = win?.id;
+        if (id === undefined) throw new Error('windows.create gave no id');
+        // Chrome drops a state set before it reveals a new window (measured); its tabs loading is the barrier.
         const loading = async () => {
-          const tabs = await chrome.tabs.query({ windowId: win!.id });
+          const tabs = await chrome.tabs.query({ windowId: id });
           return (
             tabs.length < urls.length ||
             tabs.some((t) => t.status !== 'complete')
           );
         };
         while (await loading()) await new Promise((r) => setTimeout(r, 20));
-        await chrome.windows.update(win!.id!, { state: 'maximized' });
+        await chrome.windows.update(id, { state: 'maximized' });
       },
       [page('Max'), page('Max2')]
     );
@@ -327,22 +337,27 @@ test.describe('window state (KAN-460 Part 2)', () => {
 
     const before = (await windowsNow(serviceWorker)).map((w) => w.id);
     await pressSwitch(popup);
+    // Switch is done once every window it started from is closed.
     await expect
       .poll(
-        async () => {
-          const restored = (await windowsNow(serviceWorker)).find(
-            (w) => !before.includes(w.id) && w.titles.includes('Max')
-          );
-          return restored?.state ?? null;
-        },
+        async () =>
+          (await windowsNow(serviceWorker)).filter((w) => before.includes(w.id))
+            .length,
         { timeout: 15_000 }
       )
-      .toBe('maximized');
-    const focused = await serviceWorker.evaluate(async () => {
-      const w = await chrome.windows.getLastFocused({ populate: true });
-      return (w.tabs ?? []).map((t) => t.title ?? '');
-    });
-    expect(focused).not.toContain('Max');
+      .toBe(0);
+    const maxState = async () =>
+      (await windowsNow(serviceWorker)).find((w) => w.titles.includes('Max'))
+        ?.state ?? null;
+    await expect.poll(maxState, { timeout: 15_000 }).toBe('maximized');
+    await pastRevealCap();
+    expect(await maxState()).toBe('maximized');
+
+    const windowOne = (await windowsNow(serviceWorker)).filter(
+      (w) => !w.titles.includes('Max')
+    );
+    expect(windowOne).toHaveLength(1);
+    await expect.poll(() => lastFocusedId(serviceWorker)).toBe(windowOne[0].id);
   });
 
   test('5. Open brings back a full-screen Window 1, a maximized Window 2 and a normal Window 3', async ({
@@ -392,18 +407,20 @@ test.describe('window state (KAN-460 Part 2)', () => {
     const before = (await windowsNow(serviceWorker)).map((w) => w.id);
     await pressOpen(popup);
 
-    await expect
-      .poll(
-        async () => {
-          const fresh = (await windowsNow(serviceWorker)).filter(
-            (w) => !before.includes(w.id)
-          );
-          const of = (t: string) =>
-            fresh.find((w) => w.titles.includes(t))?.state ?? null;
-          return [of('FS'), of('Big'), of('Plain')];
-        },
-        { timeout: 15_000 }
-      )
-      .toEqual(['fullscreen', 'maximized', 'normal']);
+    const fresh = async () =>
+      (await windowsNow(serviceWorker)).filter((w) => !before.includes(w.id));
+    const states = async () => {
+      const now = await fresh();
+      const of = (t: string) =>
+        now.find((w) => w.titles.includes(t))?.state ?? null;
+      return [of('FS'), of('Big'), of('Plain')];
+    };
+    const expected = ['fullscreen', 'maximized', 'normal'];
+    await expect.poll(states, { timeout: 15_000 }).toEqual(expected);
+    await pastRevealCap();
+    expect(await states()).toEqual(expected);
+
+    const windowOne = (await fresh()).find((w) => w.titles.includes('FS'));
+    await expect.poll(() => lastFocusedId(serviceWorker)).toBe(windowOne?.id);
   });
 });
