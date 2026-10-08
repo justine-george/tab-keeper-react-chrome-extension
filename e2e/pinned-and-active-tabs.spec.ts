@@ -449,6 +449,80 @@ test.describe('Open, then Switch to the same session', () => {
   });
 });
 
+// KNOWN DEFECT (A4): Chrome stamps a never-activated tab's lastAccessed at creation, so the last placeholder outranks the target.
+test.fail(
+  'Open, then the pinned full view made active: Save keeps the tab the window opened on',
+  async ({ context, extensionId, serviceWorker }) => {
+    await seedSettings(context, { pinTabKeeperInNewWindows: true });
+    const popup = await openPage(context, extensionId, 'index.html', POPUP);
+    // Seeded once, not by init script: that re-seeds every page, erasing the save.
+    await popup.evaluate(
+      (data) => localStorage.setItem('tabContainerData', data),
+      JSON.stringify(
+        oneWindow(
+          [
+            savedTab('First'),
+            savedTab('Target'),
+            savedTab('Third'),
+            savedTab('Last'),
+          ],
+          'Target'
+        )
+      )
+    );
+    await popup.reload();
+    await Promise.all(
+      context
+        .pages()
+        .filter((p) => !p.url().startsWith('chrome-extension://'))
+        .map((p) => p.close())
+    );
+    const before = await ids(serviceWorker);
+    await pressOpen(popup);
+    const tabs = await settledWindowWith(serviceWorker, 'Last', before);
+    // PREMISE: the stub first, then the window open on Target with placeholders made after it.
+    expect(tabs[0].url).toMatch(
+      new RegExp(`^chrome-extension://${extensionId}/`)
+    );
+    expect(tabs[0]).toMatchObject({ pinned: true, active: false });
+    expect(tabs.slice(1).map(shape)).toEqual([
+      { title: 'First', loaded: false, pinned: false, active: false },
+      { title: 'Target', loaded: true, pinned: false, active: true },
+      { title: 'Third', loaded: false, pinned: false, active: false },
+      { title: 'Last', loaded: false, pinned: false, active: false },
+    ]);
+
+    await serviceWorker.evaluate(
+      (id) => chrome.tabs.update(id, { active: true }),
+      tabs[0].id
+    );
+    await expect
+      .poll(async () =>
+        (await windowsNow(serviceWorker))
+          .flatMap((w) => w.tabs)
+          .find((t) => t.id === tabs[0].id)
+      )
+      .toMatchObject({ active: true });
+    await popup
+      .locator('[data-tour-anchor="save"]')
+      .getByRole('button', {
+        name: 'Save all open windows as a session',
+        exact: true,
+      })
+      .click();
+
+    await expect
+      .poll(async () => (await stored(popup)).tabGroups.length)
+      .toBe(2);
+    const saved = (await stored(popup)).tabGroups
+      .find((s) => s.tabGroupId !== 's1')
+      ?.windows.find((w) => w.tabs.some((t) => t.title === 'Last'));
+    expect(saved?.tabs.find((t) => t.tabId === saved.activeTabId)?.title).toBe(
+      'Target'
+    );
+  }
+);
+
 // Where the preview shows the held row among a window's rows, read off their shifts (group-drag.spec.ts's reading).
 const previewIndex = (p: Page, windowId: string, rowSelector: string) =>
   p.evaluate(
