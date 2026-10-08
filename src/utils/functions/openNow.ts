@@ -157,6 +157,16 @@ export function toOpenWindows(
   return result;
 }
 
+// KAN-472. Open now's drawing order: This window first, the rest in Chrome's
+// order. Display only: no Chrome window moves, and "Window N" still counts
+// Chrome's order (KAN-394 P1), so This window keeps its number.
+export function thisWindowFirst(windows: readonly OpenWindow[]): OpenWindow[] {
+  const self = windows.find((window) => window.isThisWindow);
+  return self
+    ? [self, ...windows.filter((window) => window !== self)]
+    : [...windows];
+}
+
 // Activates a tab and brings its window to the front -- the Open now pane's
 // "Switch to tab" action. Two calls because Chrome has no single one:
 // tabs.update({active:true}) only raises the tab within its own window, so

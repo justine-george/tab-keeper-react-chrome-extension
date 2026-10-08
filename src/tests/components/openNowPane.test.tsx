@@ -105,10 +105,12 @@ async function renderPane(
     thisWindowId = 2,
     groups = 'read',
     actions = [],
+    searchText = '',
   }: {
     thisWindowId?: number | null;
     groups?: 'read' | 'none';
     actions?: OpenNowHeaderAction[];
+    searchText?: string;
   } = {}
 ) {
   const result = await renderWithProviders(
@@ -132,7 +134,7 @@ async function renderPane(
       windows={windows}
       actions={actions}
       headingId="open-now-heading"
-      searchText=""
+      searchText={searchText}
       onSearchTextChange={() => undefined}
       searchInputRef={createRef<HTMLInputElement>()}
     />
@@ -271,7 +273,8 @@ describe('the Open now pane (KAN-280)', () => {
     const current = screen
       .getAllByRole('button', { current: true })
       .map((el) => el.ariaLabel);
-    expect(current).toEqual(['Switch to tab: A', 'Switch to tab: C']);
+    // Window 2 is This window, so it draws first (KAN-472).
+    expect(current).toEqual(['Switch to tab: C', 'Switch to tab: A']);
     expect(tabRow('B')).not.toHaveAttribute('aria-current');
   });
 
@@ -441,6 +444,69 @@ describe('the Open now pane (KAN-280)', () => {
     expect(
       screen.getByRole('button', { name: 'Collapse: Window 2', expanded: true })
     ).toBeInTheDocument();
+  });
+});
+
+// Three windows of one tab each: Alpha notes, Bravo notes, Charlie.
+const threeWindows = (): ChromeSeed => ({
+  windows: [1, 2, 3].map((id) => ({
+    id,
+    tabs: [
+      {
+        title: ['Alpha notes', 'Bravo notes', 'Charlie'][id - 1],
+        url: `https://w${id}.test/`,
+        active: true,
+        pinned: false,
+        audible: false,
+      },
+    ],
+  })),
+});
+
+// The window blocks on screen, top to bottom, by Chrome id.
+const drawnWindowIds = () =>
+  [...document.querySelectorAll('[data-open-window-id]')].map((block) =>
+    Number(block.getAttribute('data-open-window-id'))
+  );
+
+// KAN-472. This window is drawn first and keeps its Chrome-order number; the
+// rest follow in Chrome's order.
+describe('This window is drawn first (KAN-472)', () => {
+  test('the third of three windows draws first, still named Window 3', async () => {
+    await renderPane(threeWindows(), { thisWindowId: 3 });
+    expect(drawnWindowIds()).toEqual([3, 1, 2]);
+    const first = document.querySelector('[data-open-window-id]');
+    if (!(first instanceof HTMLElement)) throw new Error('no window drawn');
+    expect(within(first).getByText('Window 3')).toBeInTheDocument();
+    expect(within(first).getByText('This window')).toBeInTheDocument();
+    expect(
+      within(windowBlock('Window 1')).getByText('Alpha notes')
+    ).toBeTruthy();
+    expect(
+      within(windowBlock('Window 2')).getByText('Bravo notes')
+    ).toBeTruthy();
+  });
+
+  test('with This window not listed, every window keeps Chrome order', async () => {
+    await renderPane(threeWindows(), { thisWindowId: null });
+    expect(drawnWindowIds()).toEqual([1, 2, 3]);
+    expect(screen.queryByText('This window')).toBeNull();
+  });
+
+  test('under a search it stays first among the windows that match', async () => {
+    // "ha" matches Alpha notes and Charlie, not Bravo notes.
+    await renderPane(threeWindows(), { thisWindowId: 3, searchText: 'ha' });
+    expect(drawnWindowIds()).toEqual([3, 1]);
+    expect(screen.getByText('Window 3')).toBeInTheDocument();
+    expect(screen.getByText('Window 1')).toBeInTheDocument();
+  });
+
+  test('a search This window does not match leaves the rest in Chrome order', async () => {
+    await renderPane(threeWindows(), {
+      thisWindowId: 3,
+      searchText: 'notes',
+    });
+    expect(drawnWindowIds()).toEqual([1, 2]);
   });
 });
 
