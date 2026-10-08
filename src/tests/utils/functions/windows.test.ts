@@ -218,7 +218,7 @@ describe('createWindowWithRetries with tab groups', () => {
     expect(groups[0].color).toBe('grey');
   });
 
-  // KAN-460. Read back from Chrome, not from the calls: the fake models Chrome's own collapse rules.
+  // KAN-460. Reads state back from the fake, which records `collapsed` as written.
   const collapsedByTitle = async () =>
     Object.fromEntries(
       (await chrome.tabGroups.query({})).map((g) => [g.title, g.collapsed])
@@ -246,7 +246,7 @@ describe('createWindowWithRetries with tab groups', () => {
     expect(await collapsedByTitle()).toEqual({ Folded: true, Open: false });
   });
 
-  test('the group holding the opening tab stays open, and that tab stays active (KAN-460)', async () => {
+  test('the group holding the opening tab stays open (KAN-460)', async () => {
     handle = setupChromeFake({ grantedPermissions: ['tabGroups'] });
 
     const created = await createWindowWithRetries(
@@ -274,6 +274,7 @@ describe('createWindowWithRetries with tab groups', () => {
       windowId: created!.id,
       active: true,
     });
+    // KAN-458 guard: the opening tab is still the active one.
     expect(active.url).toBe('https://b.test');
   });
 
