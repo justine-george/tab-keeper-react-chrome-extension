@@ -335,6 +335,58 @@ describe('saving from the Open now pane (KAN-280 O13)', () => {
     ]);
   });
 
+  // KAN-476. A move or maximize fires no event the pane re-reads on; Save must not store the old place.
+  test('Save window stores the place and state the window has now, not the ones the pane read', async () => {
+    const { store } = await renderOpenNow({
+      currentTabId: TAB_VIEW_ID,
+      windows: [
+        { id: 1, focused: true, tabs: [tabView(), tab(11, 'A', 100)] },
+        { id: 2, tabs: [tab(21, 'D', 200)] },
+      ],
+    });
+
+    await chrome.windows.update(2, {
+      left: 5,
+      top: 6,
+      width: 700,
+      height: 500,
+    });
+    await chrome.windows.update(2, { state: 'maximized' });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save window as a session: Window 2' })
+    );
+
+    const [saved] = (await savedSession(store)).windows;
+    expect(saved.state).toBe('maximized');
+    expect([
+      saved.windowOffsetLeft,
+      saved.windowOffsetTop,
+      saved.windowWidth,
+      saved.windowHeight,
+    ]).toEqual([5, 6, 700, 500]);
+  });
+
+  test('Save all stores each window as it is now', async () => {
+    const { store } = await renderOpenNow({
+      currentTabId: TAB_VIEW_ID,
+      windows: [
+        { id: 1, focused: true, tabs: [tabView(), tab(11, 'A', 100)] },
+        { id: 2, tabs: [tab(21, 'D', 200)] },
+      ],
+    });
+
+    await chrome.windows.update(2, { state: 'fullscreen' });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save all open windows as a session' })
+    );
+
+    const saved = await savedSession(store);
+    expect(saved.windows.map((w) => w.state)).toEqual([
+      undefined,
+      'fullscreen',
+    ]);
+  });
+
   test('a saved group keeps its name and colour', async () => {
     const { store } = await renderOpenNow(
       {

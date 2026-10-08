@@ -39,7 +39,11 @@ import {
   matchOpenWindows,
   searchTermOf,
 } from '../../../utils/functions/openNowSearch';
-import { closeOpenTab, closeOpenWindow } from '../../../utils/functions/reopen';
+import {
+  closeOpenTab,
+  closeOpenWindow,
+  withCurrentPlacement,
+} from '../../../utils/functions/reopen';
 import { offerReopen } from '../../../redux/reopenOffer';
 import {
   clearReopenFocus,
@@ -308,7 +312,7 @@ export default function OpenNowPane({
     if (item) void dispatch(offerReopen(item));
   };
 
-  // KAN-280 O13. The snapshot on screen is what is saved, named by rule 1 and
+  // KAN-280 O13. The window's tabs as listed are saved, named by rule 1 and
   // announced by rule 2.
   const handleSaveWindow = async (openWindow: OpenWindow) => {
     const title = await suggestTitleForWindow(
@@ -319,7 +323,8 @@ export default function OpenNowPane({
     void dispatch(
       saveToTabContainer({
         container: openWindowsToSession(
-          [openWindow],
+          // KAN-476. Place and state as Chrome has them now.
+          [await withCurrentPlacement(openWindow)],
           title,
           new Date(),
           recentTabsOf
@@ -340,10 +345,12 @@ export default function OpenNowPane({
       ? await suggestTitleForWindow(thisWindow.id, t('New Tab Group'))
       : t('New Tab Group');
     const recentTabsOf = await readRecentTabs(listed.map((w) => w.id));
+    // KAN-476. Place and state as Chrome has them now.
+    const current = await Promise.all(listed.map(withCurrentPlacement));
     void dispatch(
       saveToTabContainer({
         container: openWindowsToSession(
-          listed,
+          current,
           title,
           new Date(),
           recentTabsOf

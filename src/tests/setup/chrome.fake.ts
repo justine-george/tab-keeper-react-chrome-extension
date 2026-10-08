@@ -2266,6 +2266,16 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         data: chrome.windows.CreateData,
         cb?: (win?: chrome.windows.Window) => void
       ) => {
+        // KAN-460, measured: Chrome refuses a maximized or full-screen create with bounds or unfocused.
+        if (
+          (data.state === 'maximized' || data.state === 'fullscreen') &&
+          (data.focused === false ||
+            [data.left, data.top, data.width, data.height].some(
+              (v) => v !== undefined
+            ))
+        ) {
+          return fail<chrome.windows.Window>('Invalid value for state', cb);
+        }
         const urls =
           typeof data.url === 'string'
             ? [data.url]

@@ -267,6 +267,45 @@ describe('captureOpenWindows against the chrome fake', () => {
     expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([A]);
   });
 
+  test('stores state only for a maximized or full-screen window (KAN-460)', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          focused: true,
+          state: 'maximized',
+          tabs: [{ id: 11, url: 'https://a.test/', title: 'a' }],
+        },
+        {
+          id: 2,
+          state: 'fullscreen',
+          tabs: [{ id: 21, url: 'https://b.test/', title: 'b' }],
+        },
+        {
+          id: 3,
+          state: 'normal',
+          tabs: [{ id: 31, url: 'https://c.test/', title: 'c' }],
+        },
+        {
+          id: 4,
+          state: 'minimized',
+          tabs: [{ id: 41, url: 'https://d.test/', title: 'd' }],
+        },
+      ],
+    });
+
+    const captured = await captureOpenWindows('session', 'all-windows');
+    const byTab = Object.fromEntries(
+      (captured?.windows ?? []).map((w) => [w.tabs[0].title, w])
+    );
+
+    expect(byTab.a.state).toBe('maximized');
+    expect(byTab.b.state).toBe('fullscreen');
+    // Absent, not 'normal': a normal or minimized window is stored exactly as before.
+    expect('state' in byTab.c).toBe(false);
+    expect('state' in byTab.d).toBe(false);
+  });
+
   // The worst path: a popup is the only thing open. Returning null is the
   // caller's cue that there is no session to save, so focus mode does not
   // promise a save it will not make.

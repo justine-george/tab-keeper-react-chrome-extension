@@ -56,6 +56,29 @@ const NOW = new Date(2026, 8, 24, 14, 5, 9);
 const NO_RECORD = () => [];
 
 describe('openWindowsToSession (KAN-280 O13)', () => {
+  test('a maximized or full-screen window is saved with its state; a normal one has no field (KAN-460)', () => {
+    const session = openWindowsToSession(
+      [
+        openWindow(1, [openTab(11, 'A')], { state: 'maximized' }),
+        openWindow(2, [openTab(21, 'B')], { state: 'fullscreen' }),
+        openWindow(3, [openTab(31, 'C')], { state: 'normal' }),
+        openWindow(4, [openTab(41, 'D')], { state: 'minimized' }),
+      ],
+      'T',
+      NOW,
+      NO_RECORD
+    );
+
+    expect(session.windows.map((w) => w.state)).toEqual([
+      'maximized',
+      'fullscreen',
+      undefined,
+      undefined,
+    ]);
+    expect('state' in session.windows[2]).toBe(false);
+    expect('state' in session.windows[3]).toBe(false);
+  });
+
   test('a collapsed live group is saved collapsed; an open one has no field (KAN-460)', () => {
     const win = openWindow(
       1,

@@ -773,6 +773,10 @@ const isValidWindowGroupData = (data: unknown): data is windowGroupData => {
         data.chromeTabGroups.every(isValidChromeTabGroupData))) &&
     // KAN-458. A name with no tab is a fallback at restore, not an error.
     (data.activeTabId === undefined || typeof data.activeTabId === 'string') &&
+    // KAN-460. Absent, or one of the two states a restore applies.
+    (data.state === undefined ||
+      data.state === 'maximized' ||
+      data.state === 'fullscreen') &&
     Array.isArray(data.tabs) &&
     data.tabs.every(isValidTabData)
   );

@@ -6,6 +6,7 @@ import {
   isRestoreSessionRequest,
   planWindowClosure,
   restoreTargetIndex,
+  WINDOW_SETTLE_MS,
   RESTORE_SESSION_MESSAGE,
   WindowSpec,
 } from '../../../utils/functions/windows';
@@ -759,5 +760,204 @@ describe('applyTabGroups with the default rule', () => {
 
     const [only] = await chrome.tabGroups.query({});
     expect(only).toMatchObject({ title: 'Band', collapsed: false });
+  });
+});
+
+// KAN-460 D2. Read back from the fake; created at the saved bounds, then the state, as Reopen does.
+describe('restore puts back a saved window state', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+  const stateOf = async (win: chrome.windows.Window | null) =>
+    (await chrome.windows.get(win!.id!)).state;
+  // Past the age wait and the read-back.
+  const restore = async (windowSpec: WindowSpec) => {
+    const done = createWindowWithRetries(windowSpec, 'Go', 2);
+    await vi.advanceTimersByTimeAsync(2 * WINDOW_SETTLE_MS);
+    return done;
+  };
+
+  test.each(['maximized', 'fullscreen'] as const)(
+    'a window saved %s comes back that way',
+    async (state) => {
+      handle = setupChromeFake();
+      const created = await restore(spec({ state }));
+      expect(await stateOf(created)).toBe(state);
+    }
+  );
+
+  test('an unfocused window gets its state and stays unfocused', async () => {
+    handle = setupChromeFake();
+    const created = await restore(spec({ focused: false, state: 'maximized' }));
+    const read = await chrome.windows.get(created!.id!);
+    expect([read.state, read.focused]).toEqual(['maximized', false]);
+  });
+
+  test('a refused state leaves the window normal, and the restore resolves', async () => {
+    handle = setupChromeFake();
+    const update = chrome.windows.update.bind(chrome.windows);
+    vi.spyOn(chrome.windows, 'update').mockImplementation(((
+      id: number,
+      props: chrome.windows.UpdateInfo
+    ) =>
+      props.state === undefined
+        ? update(id, props)
+        : Promise.reject(
+            new Error('refused')
+          )) as typeof chrome.windows.update);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const created = await restore(spec({ state: 'maximized' }));
+
+    expect(created).not.toBeNull();
+    expect(await stateOf(created)).toBe('normal');
+    expect(warn).toHaveBeenCalledWith(
+      'Could not restore a window state:',
+      expect.any(Error)
+    );
+  });
+
+  test('the retry without bounds still applies the state', async () => {
+    handle = setupChromeFake();
+    const create = chrome.windows.create.bind(chrome.windows);
+    const calls: chrome.windows.CreateData[] = [];
+    vi.spyOn(chrome.windows, 'create').mockImplementation(((
+      data: chrome.windows.CreateData,
+      cb: (win?: chrome.windows.Window) => void
+    ) => {
+      calls.push(data);
+      if (calls.length === 1) {
+        cb(undefined);
+        return;
+      }
+      return create(data, cb);
+    }) as typeof chrome.windows.create);
+
+    const created = await restore(spec({ state: 'fullscreen' }));
+
+    expect(calls[1].width).toBeUndefined();
+    expect(await stateOf(created)).toBe('fullscreen');
+  });
+
+  test('a window with no saved state is never sent a state, and leaves no timer', async () => {
+    handle = setupChromeFake();
+    const update = vi.spyOn(chrome.windows, 'update');
+
+    await createWindowWithRetries(spec(), 'Go', 2);
+
+    expect(update.mock.calls.filter(([, props]) => 'state' in props)).toEqual(
+      []
+    );
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+// KAN-460 R8. Chrome drops a state applied to a too-young window, so the state waits on the window's age, then is read back.
+describe('the saved state waits until the window is old enough to keep it', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+  const stateCalls = (update: { mock: { calls: unknown[][] } }) =>
+    update.mock.calls.filter(([, props]) => 'state' in (props as object));
+
+  test('the state is not applied before the window is WINDOW_SETTLE_MS old, and is then', async () => {
+    handle = setupChromeFake();
+    const update = vi.spyOn(chrome.windows, 'update');
+    const done = createWindowWithRetries(spec({ state: 'maximized' }), 'Go', 2);
+
+    await vi.advanceTimersByTimeAsync(WINDOW_SETTLE_MS - 1);
+    expect(stateCalls(update)).toEqual([]);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(stateCalls(update)).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(WINDOW_SETTLE_MS);
+    const created = await done;
+    expect(stateCalls(update)).toHaveLength(1);
+    expect((await chrome.windows.get(created!.id!)).state).toBe('maximized');
+  });
+
+  test('the age counts from create, not from when the tabs are made', async () => {
+    handle = setupChromeFake();
+    const createTab = chrome.tabs.create.bind(chrome.tabs);
+    vi.spyOn(chrome.tabs, 'create').mockImplementation(((
+      props: chrome.tabs.CreateProperties,
+      cb: (tab: chrome.tabs.Tab) => void
+    ) => {
+      setTimeout(() => createTab(props, cb), 300);
+    }) as typeof chrome.tabs.create);
+    const update = vi.spyOn(chrome.windows, 'update');
+    const done = createWindowWithRetries(
+      spec({
+        tabs: [tab('https://a.test/'), tab('https://b.test/')],
+        state: 'fullscreen',
+      }),
+      'Go',
+      2
+    );
+
+    await vi.advanceTimersByTimeAsync(WINDOW_SETTLE_MS);
+    expect(stateCalls(update)).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(WINDOW_SETTLE_MS);
+    await done;
+  });
+
+  test('a state Chrome drops after the apply is read back and applied again', async () => {
+    handle = setupChromeFake();
+    const chromeSets = chrome.windows.update.bind(chrome.windows);
+    const update = vi.spyOn(chrome.windows, 'update');
+    const done = createWindowWithRetries(
+      spec({ state: 'fullscreen' }),
+      'Go',
+      2
+    );
+
+    await vi.advanceTimersByTimeAsync(WINDOW_SETTLE_MS);
+    const [[windowId]] = stateCalls(update) as [[number]];
+    await chromeSets(windowId, { state: 'normal' });
+
+    await vi.advanceTimersByTimeAsync(WINDOW_SETTLE_MS);
+    await done;
+    expect((await chrome.windows.get(windowId)).state).toBe('fullscreen');
+    expect(stateCalls(update)).toEqual([
+      [windowId, { state: 'fullscreen' }],
+      [windowId, { state: 'fullscreen' }],
+    ]);
+  });
+
+  test('a refused re-apply warns, and the restore still resolves', async () => {
+    handle = setupChromeFake();
+    const chromeSets = chrome.windows.update.bind(chrome.windows);
+    const update = vi.spyOn(chrome.windows, 'update');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const done = createWindowWithRetries(spec({ state: 'maximized' }), 'Go', 2);
+
+    await vi.advanceTimersByTimeAsync(WINDOW_SETTLE_MS);
+    const [[windowId]] = stateCalls(update) as [[number]];
+    await chromeSets(windowId, { state: 'normal' });
+    update.mockRejectedValueOnce(new Error('refused'));
+
+    await vi.advanceTimersByTimeAsync(WINDOW_SETTLE_MS);
+    expect(await done).not.toBeNull();
+    expect(warn).toHaveBeenCalledWith(
+      'Could not confirm a restored window state:',
+      expect.any(Error)
+    );
+    expect((await chrome.windows.get(windowId)).state).toBe('normal');
   });
 });

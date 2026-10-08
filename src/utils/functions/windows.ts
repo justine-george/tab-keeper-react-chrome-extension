@@ -1,4 +1,7 @@
-import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
+import type {
+  SavedWindowState,
+  tabData,
+} from '../../redux/slices/tabContainerDataStateSlice';
 import { generatePlaceholderURL, resolveTabUrl } from './local';
 import { sanitizeTabGroupColor } from './tabGroups';
 
@@ -36,6 +39,8 @@ export interface WindowSpec {
   groups?: TabGroupSpec[];
   // KAN-458. The saved tabId to open on; absent or naming no tab falls back (restoreTargetIndex).
   activeTabId?: string;
+  // KAN-460. Applied last with windows.update: create refuses a state with bounds or unfocused.
+  state?: SavedWindowState;
 }
 
 export const RESTORE_SESSION_MESSAGE = 'restore-session';
@@ -162,6 +167,12 @@ export async function applyTabGroups(
   }
 }
 
+// KAN-460, measured: Chrome can drop a state applied in a window's first 50ms; at 300ms it held 48/48 (data and http); no tab event tried marks when it is safe.
+export const WINDOW_SETTLE_MS = 500;
+
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 // Resolves to the created window, or to null once the retries are spent.
 // Returning a promise is the whole point: a callback that has not fired yet
 // is indistinguishable from one that never will, so a caller that needs to
@@ -236,6 +247,9 @@ async function fillRestoredWindow(
   const windowId = newWindow.id;
   if (windowId === undefined) return;
 
+  // Counted from create, so the time spent on tabs and groups counts toward the window's age.
+  const oldEnough =
+    spec.state === undefined ? undefined : wait(WINDOW_SETTLE_MS);
   const targetId = newWindow.tabs?.[0]?.id;
   // Pinned before any create so later pinned tabs queue behind it; a refused pin (never seen) would also cost order.
   if (spec.tabs[targetIndex].pinned === true && targetId !== undefined) {
@@ -269,6 +283,39 @@ async function fillRestoredWindow(
       kind: 'saved',
       openTabId: targetId,
     });
+  }
+
+  if (spec.state !== undefined) {
+    await oldEnough;
+    await applySavedWindowState(windowId, spec.state);
+    await confirmSavedWindowState(windowId, spec.state);
+  }
+}
+
+// Never throws: a refused state costs the state, never the restore.
+async function applySavedWindowState(
+  windowId: number,
+  state: SavedWindowState
+): Promise<void> {
+  try {
+    await chrome.windows.update(windowId, { state });
+  } catch (error) {
+    console.warn('Could not restore a window state:', error);
+  }
+}
+
+// Reads the state back once more, and applies it once more if Chrome dropped it anyway (measured: 0 of 48 needed it). Never throws.
+async function confirmSavedWindowState(
+  windowId: number,
+  state: SavedWindowState
+): Promise<void> {
+  await wait(WINDOW_SETTLE_MS);
+  try {
+    if ((await chrome.windows.get(windowId)).state !== state) {
+      await chrome.windows.update(windowId, { state });
+    }
+  } catch (error) {
+    console.warn('Could not confirm a restored window state:', error);
   }
 }
 

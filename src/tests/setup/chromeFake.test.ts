@@ -4705,3 +4705,31 @@ describe('chrome.storage.session.onChanged (KAN-475)', () => {
     expect(seen).toHaveLength(1);
   });
 });
+
+// KAN-460, measured on Chromium 151 (plan 2026-10-08): windows.create refuses a maximized or full-screen state with bounds or unfocused.
+describe('windows.create refuses a state Chrome refuses', () => {
+  test.each([
+    ['bounds', { left: 1, top: 1, width: 400, height: 300 }],
+    ['focused: false', { focused: false }],
+  ])(
+    'maximized or fullscreen with %s rejects with Invalid value for state',
+    async (_name, extra) => {
+      handle = setupChromeFake();
+      for (const state of ['maximized', 'fullscreen'] as const) {
+        await expect(
+          chrome.windows.create({ url: 'https://a.test/', state, ...extra })
+        ).rejects.toThrow('Invalid value for state');
+      }
+    }
+  );
+
+  test('CONTROL: maximized and focused with no bounds is created maximized', async () => {
+    handle = setupChromeFake();
+    const created = await chrome.windows.create({
+      url: 'https://a.test/',
+      state: 'maximized',
+      focused: true,
+    });
+    expect(created?.state).toBe('maximized');
+  });
+});

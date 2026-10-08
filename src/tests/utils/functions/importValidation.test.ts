@@ -224,3 +224,57 @@ describe("a saved group's collapsed field (KAN-460)", () => {
     );
   });
 });
+
+// KAN-460 D2/D6. A window's state is maximized, fullscreen or absent.
+describe("a saved window's state field (KAN-460)", () => {
+  const withWindow = (extra: Record<string, unknown>) => ({
+    lastModified: 1,
+    selectedTabGroupId: null,
+    tabGroups: [
+      {
+        tabGroupId: 's',
+        title: 'S',
+        createdTime: '2026-10-08 10:00:00',
+        windowCount: 1,
+        tabCount: 1,
+        isAutoSave: false,
+        isSelected: false,
+        windows: [
+          {
+            windowId: 'w',
+            windowHeight: 800,
+            windowWidth: 1200,
+            windowOffsetTop: 0,
+            windowOffsetLeft: 0,
+            tabCount: 1,
+            title: '',
+            tabs: [
+              { tabId: 't', favicon: '', title: 't', url: 'https://t.test/' },
+            ],
+            ...extra,
+          },
+        ],
+      },
+    ],
+  });
+
+  test('absent, maximized and fullscreen are valid', () => {
+    expect(isValidTabMasterContainer(withWindow({}))).toBe(true);
+    expect(isValidTabMasterContainer(withWindow({ state: 'maximized' }))).toBe(
+      true
+    );
+    expect(isValidTabMasterContainer(withWindow({ state: 'fullscreen' }))).toBe(
+      true
+    );
+  });
+
+  test('minimized, normal and a non-string are not', () => {
+    expect(isValidTabMasterContainer(withWindow({ state: 'minimized' }))).toBe(
+      false
+    );
+    expect(isValidTabMasterContainer(withWindow({ state: 'normal' }))).toBe(
+      false
+    );
+    expect(isValidTabMasterContainer(withWindow({ state: 1 }))).toBe(false);
+  });
+});
