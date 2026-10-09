@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
+import { createSplitApi } from '../../utils/functions/splitView';
 import { setupChromeFake } from './chrome.fake';
 import { buildChromeTab } from '../fixtures/chromeTab';
 
@@ -4860,5 +4861,88 @@ describe('incognito access', () => {
       url: 'https://x.test/',
     });
     expect(tab?.windowId).toBe(1);
+  });
+});
+
+// KAN-460 Part 4, measured on Chrome for Testing 155 (ledger 2026-10-09-kan-460-part-4-split-measurement.md).
+describe('split view (Chrome 155+)', () => {
+  const sixTabs = (extra: Partial<chrome.tabs.Tab>[] = []) =>
+    setupChromeFake({
+      splitView: true,
+      windows: [
+        {
+          id: 1,
+          tabs: ['A', 'B', 'C', 'D'].map((title, i) => ({
+            id: 10 + i,
+            title,
+            url: `https://${title}.test/`,
+            ...(extra[i] ?? {}),
+          })),
+        },
+      ],
+    });
+  const createSplit = (ids: number[]) => {
+    const api = createSplitApi();
+    if (api === null) throw new Error('no createSplit');
+    return api(ids);
+  };
+  const splitOf = async (id: number) => (await chrome.tabs.get(id)).splitViewId;
+
+  test('absent unless seeded, as on Chrome before 155', () => {
+    handle = setupChromeFake();
+    expect(createSplitApi()).toBeNull();
+  });
+
+  test('two adjacent tabs share a new split id, in either order', async () => {
+    handle = sixTabs();
+    const id = await createSplit([11, 10]);
+    expect([await splitOf(10), await splitOf(11)]).toEqual([id, id]);
+    expect(await splitOf(12)).toBe(-1);
+  });
+
+  test.each([
+    [
+      'non-adjacent',
+      [10, 12],
+      [],
+      'Cannot create split view with non-adjacent tabs.',
+    ],
+    [
+      'mixed pinned',
+      [10, 11],
+      [{ pinned: true }],
+      "Cannot create split view with tabs of mismatching 'pinned' states.",
+    ],
+    [
+      'mixed group',
+      [10, 11],
+      [{ groupId: 5 }],
+      "Cannot create split view with tabs of mismatching 'groupId' states.",
+    ],
+  ])('refuses %s', async (_name, ids, extra, message) => {
+    handle = sixTabs(extra);
+    await expect(createSplit(ids)).rejects.toThrow(message);
+    expect(await splitOf(10)).toBe(-1);
+  });
+
+  test('refuses a tab already in a split', async () => {
+    handle = sixTabs();
+    await createSplit([10, 11]);
+    await expect(createSplit([11, 12])).rejects.toThrow(
+      'is already in a split view.'
+    );
+  });
+
+  test('refuses one or three tabs', () => {
+    handle = sixTabs();
+    expect(() => createSplit([10])).toThrow('at least 2 items');
+    expect(() => createSplit([10, 11, 12])).toThrow('at most 2 items');
+  });
+
+  test('moving a split tab ends the split for both', async () => {
+    handle = sixTabs();
+    await createSplit([10, 11]);
+    await chrome.tabs.move(10, { index: 3 });
+    expect([await splitOf(10), await splitOf(11)]).toEqual([-1, -1]);
   });
 });

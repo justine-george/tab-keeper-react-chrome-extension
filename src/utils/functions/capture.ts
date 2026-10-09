@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { getStringDate, isLazyPlaceholder, resolveTabUrl } from './local';
 import { readRecentTabs } from './recentTabs';
+import { SPLIT_VIEW_ID_NONE } from './splitView';
 import { dropNotificationCount } from './sessionExportHtml';
 import { hasTabGroupsPermission } from './permissions';
 import type { chromeTabGroupData } from './tabGroups';
@@ -250,6 +251,21 @@ export function savedWindowState(
   return state === 'maximized' || state === 'fullscreen' ? { state } : {};
 }
 
+// KAN-460 Part 4. Chrome's split ids last a browser session, so each split gets one of ours per capture, as groups do.
+export function splitIdMinter(): (
+  splitViewId: number | undefined
+) => Pick<tabData, 'splitId'> {
+  const ours = new Map<number, string>();
+  return (splitViewId) => {
+    if (splitViewId === undefined || splitViewId === SPLIT_VIEW_ID_NONE) {
+      return {};
+    }
+    const splitId = ours.get(splitViewId) ?? uuidv4();
+    ours.set(splitViewId, splitId);
+    return { splitId };
+  };
+}
+
 // KAN-460 Part 3. An incognito window stores true; a normal one stores nothing.
 export const savedIncognito = (
   incognito: boolean
@@ -267,11 +283,13 @@ export function toWindowGroupData(
   idByChromeId: Map<number, string>,
   recentTabIds: readonly number[]
 ): windowGroupData {
+  const splitIdOf = splitIdMinter();
   const tabsData = (window.tabs ?? []).map((tab) => {
     const chromeGroupId =
       tab.groupId === undefined ? undefined : idByChromeId.get(tab.groupId);
     return {
       ...toStoredTab(tab),
+      ...splitIdOf(tab.splitViewId),
       // Absent, never null: an ungrouped tab costs zero bytes in the document,
       // and ungrouped is the common case.
       ...(chromeGroupId === undefined ? {} : { chromeGroupId }),

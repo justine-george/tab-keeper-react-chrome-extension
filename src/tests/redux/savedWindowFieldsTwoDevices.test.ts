@@ -55,10 +55,16 @@ import {
   windowIn,
 } from '../fixtures/sessionMoveFixture';
 
-// KAN-460 D6. Device A saves a full-screen, a maximized incognito and a plain window; another device, or an older writer, must not cost them silently.
+// KAN-460 D6. Device A saves a full-screen window holding a split pair, a maximized incognito and a plain window; another device, or an older writer, must not cost them silently.
 const savedOnA = (): tabContainerData =>
   session('S', 'Trip', T0 - 60_000, [
-    { ...win('w1', [tab('a1')]), state: 'fullscreen' },
+    {
+      ...win('w1', [
+        { ...tab('a1'), splitId: 'sp' },
+        { ...tab('a2'), splitId: 'sp' },
+      ]),
+      state: 'fullscreen',
+    },
     { ...win('w2', [tab('b1')]), state: 'maximized', incognito: true },
     win('w3', [tab('c1')]),
   ]);
@@ -66,6 +72,8 @@ const deviceWith = (s: tabContainerData): TabMasterContainer =>
   reducer(undefined, replaceState(container([s])));
 const fieldsOf = (c: TabMasterContainer, id = 'S') =>
   sessionIn(c, id).windows.map((w) => [w.state, w.incognito]);
+const splitsOf = (c: TabMasterContainer, id = 'S') =>
+  sessionIn(c, id).windows[0].tabs.map((t) => t.splitId);
 const SAVED = [
   ['fullscreen', undefined],
   ['maximized', true],
@@ -82,7 +90,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('saved window state and incognito across two devices (KAN-460)', () => {
+describe('saved window state, incognito and split ids across two devices (KAN-460)', () => {
   it('B renames the session A saved: the fields survive the merge', () => {
     const a = deviceWith(savedOnA());
     vi.setSystemTime(T0 + 2_000);
@@ -95,6 +103,7 @@ describe('saved window state and incognito across two devices (KAN-460)', () => 
 
     expect(sessionIn(merged, 'S').title).toBe('Renamed on B');
     expect(fieldsOf(merged)).toEqual(SAVED);
+    expect(splitsOf(merged)).toEqual(['sp', 'sp']);
   });
 
   it("an older writer's later copy wins without the fields", () => {
@@ -133,6 +142,7 @@ describe('saved window state and incognito across two devices (KAN-460)', () => 
     expect(isValidTabMasterContainer(back)).toBe(true);
     if (!isValidTabMasterContainer(back)) return;
     expect(fieldsOf(back)).toEqual(SAVED);
+    expect(splitsOf(back)).toEqual(['sp', 'sp']);
   });
 
   it('moving a window to another session keeps its state and incognito', () => {
@@ -166,5 +176,6 @@ describe('saved window state and incognito across two devices (KAN-460)', () => 
     );
 
     expect(fieldsOf(loaded)).toEqual(SAVED);
+    expect(splitsOf(loaded)).toEqual(['sp', 'sp']);
   });
 });

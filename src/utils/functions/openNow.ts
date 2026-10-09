@@ -1,4 +1,5 @@
 import { isTabKeeperPage, pickActiveTabIndex } from './capture';
+import { SPLIT_VIEW_ID_NONE } from './splitView';
 import { sanitizeTabGroupColor } from './tabGroups';
 import type { TabGroupColor } from './tabGroups';
 
@@ -22,6 +23,8 @@ export interface OpenTab {
   index: number;
   // KAN-458 A4. For the saved active tab when the active one is a Tab Keeper page.
   lastAccessed?: number;
+  // KAN-460 Part 4. Chrome's split id; absent in no split, and before Chrome 140.
+  splitViewId?: number;
 }
 
 export interface OpenGroup {
@@ -94,6 +97,9 @@ function toOpenTab(
     groupId,
     index: tab.index,
     lastAccessed: tab.lastAccessed,
+    ...(tab.splitViewId === undefined || tab.splitViewId === SPLIT_VIEW_ID_NONE
+      ? {}
+      : { splitViewId: tab.splitViewId }),
   };
 }
 

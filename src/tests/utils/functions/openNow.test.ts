@@ -75,6 +75,28 @@ describe('toOpenWindows', () => {
     expect(result[1].isThisWindow).toBe(true);
   });
 
+  test("carries a tab's split id, and none for SPLIT_VIEW_ID_NONE or an older Chrome (KAN-460 Part 4)", async () => {
+    handle = setupChromeFake({
+      splitView: true,
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { url: 'https://a.test/', splitViewId: 9 },
+            { url: 'https://b.test/' },
+          ],
+        },
+        { id: 2, tabs: [{ url: 'https://c.test/', splitViewId: undefined }] },
+      ],
+    });
+
+    const [one, two] = toOpenWindows(await getWindows(), null, null);
+
+    expect(one.tabs.map((t) => t.splitViewId)).toEqual([9, undefined]);
+    expect('splitViewId' in one.tabs[1]).toBe(false);
+    expect('splitViewId' in two.tabs[0]).toBe(false);
+  });
+
   test('excludes a tab whose url is the Tab Keeper page, and one whose pendingUrl is when url is empty', async () => {
     handle = setupChromeFake({
       windows: [

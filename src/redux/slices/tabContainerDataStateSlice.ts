@@ -76,6 +76,8 @@ export interface tabData {
   chromeGroupId?: string;
   // KAN-458. Present only when the tab was pinned; restore pins it again. Never false: absent is unpinned.
   pinned?: true;
+  // KAN-460 Part 4. Shared by the two tabs of a Chrome split view; minted per capture, as chromeGroupId is.
+  splitId?: string;
 }
 
 // KAN-460 D2. The window states a restore brings back; normal, minimized and locked-fullscreen store nothing.
@@ -1185,6 +1187,7 @@ function sameWindowContent(a: windowGroupData, b: windowGroupData): boolean {
         tab.url === b.tabs[i].url &&
         tab.favicon === b.tabs[i].favicon &&
         tab.pinned === b.tabs[i].pinned &&
+        tab.splitId === b.tabs[i].splitId &&
         // The join key to chromeTabGroups. Ungrouping already shows up in the
         // group list below, but this is the field that says WHICH group a tab
         // belongs to, and a comparator that ignores it is one refactor away
