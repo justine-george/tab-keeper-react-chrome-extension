@@ -495,10 +495,13 @@ test.describe('incognito (KAN-460 Part 3)', () => {
     const restored = made.find((w) => w.tabs.some((t) => t.title === 'I1'));
     expect(restored?.incognito).toBe(true);
     expect(restored?.tabs.map((t) => t.title)).toEqual(['I1', 'I2']);
-    // Each new normal window starts with its stub; the incognito one has none.
+    // Each new normal window has its stub and nothing else of Tab Keeper's; the incognito one has none.
     for (const w of made.filter((m) => m !== restored)) {
       expect(w.tabs[0]).toMatchObject({ pinned: true });
       expect(w.tabs[0].url).toContain('/pinned.html');
+      expect(
+        w.tabs.filter((t) => t.url.startsWith('chrome-extension://'))
+      ).toHaveLength(1);
     }
     expect(
       restored?.tabs.some((t) => t.url.startsWith('chrome-extension://'))
