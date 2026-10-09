@@ -377,7 +377,7 @@ export default function MenuContainer() {
             )}
           </span>
         )}
-        {/* KAN-437 A. The full view's way back, in ⤢'s slot and drawn as ⤢ is; the worker opens the popup, closing this tab first unless it is pinned or the last. */}
+        {/* KAN-437 A. The full view's way back, in ⤢'s slot and drawn as ⤢ is; the worker opens the popup, closing this tab first unless it is pinned or the last tab Chrome has. */}
         {isTabView() && (
           <Icon
             ariaLabel={t('Open in popup')}

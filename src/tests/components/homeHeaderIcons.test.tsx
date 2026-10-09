@@ -6,11 +6,11 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { ICON } from '../../styles/scale';
 
 // KAN-340. Two glyphs in the row read wrong at DEFAULT: the gear (the
-// heaviest ink) and open_in_full (thin, but reaching its corners). Both draw
-// at ICON.MEDIUM, picked by Justine from a side-by-side mock after SMALL made
-// the gear read too small. Their BOXES are unchanged; that is a layout fact
-// jsdom cannot measure, so e2e/home-header.spec.ts owns it.
-// KAN-437: open_in_full (and Open in popup) moved to MEDIUM_SMALL, pick B.
+// heaviest ink) and open_in_full (thin, but reaching its corners). The gear
+// draws at ICON.MEDIUM (Justine's pick after SMALL read too small); open_in_full
+// and Open in popup draw at ICON.MEDIUM_SMALL (KAN-437, pick B). Their BOXES are
+// unchanged; that is a layout fact jsdom cannot measure, so
+// e2e/home-header.spec.ts owns it.
 
 /** An ICON step as jsdom reports it: rem resolved against the 16px root. */
 const px = (rem: string) => `${parseFloat(rem) * 16}px`;
@@ -47,17 +47,33 @@ describe('home header glyph sizes (KAN-340)', () => {
   });
 
   // The guard against a blanket change: resizing the whole row would pass
-  // the test above.
-  test('every other header icon stays at ICON.DEFAULT', async () => {
-    await renderWithProviders(<MenuContainer />);
+  // the tests above.
+  test.each([
+    ['popup', '?'],
+    ['full view', '?view=tab'],
+  ])(
+    'in the %s, every other header icon stays at ICON.DEFAULT',
+    async (_view, search) => {
+      history.replaceState(null, '', search);
+      try {
+        await renderWithProviders(<MenuContainer />);
 
-    // The default store is signed out, so the sync button is dimmed and
-    // named for why (KAN-342).
-    for (const name of ['Sort sessions', 'Undo', 'Redo', 'Sync unavailable']) {
-      expect({ name, size: glyphSize(name) }).toEqual({
-        name,
-        size: px(ICON.DEFAULT),
-      });
+        // The default store is signed out, so the sync button is dimmed and
+        // named for why (KAN-342).
+        for (const name of [
+          'Sort sessions',
+          'Undo',
+          'Redo',
+          'Sync unavailable',
+        ]) {
+          expect({ name, size: glyphSize(name) }).toEqual({
+            name,
+            size: px(ICON.DEFAULT),
+          });
+        }
+      } finally {
+        history.replaceState(null, '', '?');
+      }
     }
-  });
+  );
 });
