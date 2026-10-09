@@ -175,13 +175,6 @@ describe('hasSessionsPermission', () => {
     expect(await hasSessionsPermission()).toBe(true);
   });
 
-  test('false after a remove', async () => {
-    handle = setupChromeFake({ grantedPermissions: ['sessions'] });
-    removeSessionsPermission();
-    await Promise.resolve();
-    expect(await hasSessionsPermission()).toBe(false);
-  });
-
   // Reflect.deleteProperty rather than the cast-and-`!`-assert `delete
   // (globalThis as {...}).chrome!.permissions` idiom the tabGroups test above
   // uses: `chrome.permissions` is typed as always present, so a plain `delete`

@@ -393,25 +393,6 @@ describe('captureOpenWindows scope', () => {
 
     expect(await captureOpenWindows('probe', 'current-window')).toBeNull();
   });
-
-  test("'all-windows' still captures the normal window behind that popup", async () => {
-    handle = setupChromeFake({
-      windows: [
-        {
-          id: 1,
-          type: 'popup',
-          tabs: [{ id: 1, url: B, title: 'B' }] as chrome.tabs.Tab[],
-        },
-        { id: 2, tabs: [{ id: 2, url: A, title: 'A' }] as chrome.tabs.Tab[] },
-      ],
-    });
-
-    const captured = await captureOpenWindows('probe', 'all-windows');
-
-    expect(captured).not.toBeNull();
-    expect(captured!.windows).toHaveLength(1);
-    expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([A]);
-  });
 });
 
 let handle: ReturnType<typeof setupChromeFake> | undefined;

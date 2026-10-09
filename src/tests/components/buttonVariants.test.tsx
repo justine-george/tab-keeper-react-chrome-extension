@@ -35,7 +35,7 @@ describe('Button variants (KAN-205)', () => {
     await render();
 
     expect(getComputedStyle(button()).backgroundColor).toBe(
-      getComputedStyle(button()).backgroundColor
+      rgb(LIGHT_THEME.PRIMARY_COLOR).text
     );
     expect(hoverRulesFor(button())).toMatch(fill(LIGHT_THEME.ICON_HOVER_COLOR));
     expect(activeRulesFor(button())).toMatch(
