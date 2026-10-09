@@ -2,6 +2,7 @@ import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { test as ungrantedTest } from './fixtures/extension';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
+import { allowInIncognito } from './fixtures/incognito';
 import { seedSettings } from './fixtures/seed';
 
 // KAN-280 Part E (spec O11-O11h) on the real artifact: a drag in Open now
@@ -1093,53 +1094,6 @@ test.describe('the pinned boundary (KAN-280 O11c, K1)', () => {
 });
 
 // ---- 6: incognito --------------------------------------------------------------
-
-// What chrome://extensions offers its own page, as much of it as this spec
-// uses. Not in @types/chrome: developerPrivate is Chrome's private API behind
-// the extensions page.
-interface DeveloperPrivate {
-  updateProfileConfiguration(update: {
-    inDeveloperMode: boolean;
-  }): Promise<void>;
-  updateExtensionConfiguration(update: {
-    extensionId: string;
-    incognitoAccess: boolean;
-  }): Promise<void>;
-  getExtensionInfo(id: string): Promise<{ state: string }>;
-}
-
-// Task 1 Q4's recipe: "Allow in Incognito" set from chrome://extensions,
-// with developer mode on first (without it the unpacked copy reloads
-// DISABLED). The extension reloads, which closes its pages and stops its
-// worker for good, so everything after this runs from an extension page.
-async function allowInIncognito(context: BrowserContext, extensionId: string) {
-  const settings = await context.newPage();
-  await settings.goto('chrome://extensions');
-  const state = await settings.evaluate(async (id) => {
-    const found: unknown = Reflect.get(chrome, 'developerPrivate');
-    const isDeveloperPrivate = (x: unknown): x is DeveloperPrivate =>
-      typeof x === 'object' &&
-      x !== null &&
-      typeof Reflect.get(x, 'updateProfileConfiguration') === 'function' &&
-      typeof Reflect.get(x, 'updateExtensionConfiguration') === 'function' &&
-      typeof Reflect.get(x, 'getExtensionInfo') === 'function';
-    if (!isDeveloperPrivate(found)) return 'no developerPrivate';
-    await found.updateProfileConfiguration({ inDeveloperMode: true });
-    await new Promise((r) => setTimeout(r, 300));
-    await found.updateExtensionConfiguration({
-      extensionId: id,
-      incognitoAccess: true,
-    });
-    for (let i = 0; i < 50; i++) {
-      const info = await found.getExtensionInfo(id);
-      if (info.state === 'ENABLED') return info.state;
-      await new Promise((r) => setTimeout(r, 100));
-    }
-    return 'never re-enabled';
-  }, extensionId);
-  expect(state).toBe('ENABLED');
-  await settings.close();
-}
 
 test("6. incognito and normal windows refuse each other's rows: no slot, and a release puts it back (O11d)", async ({
   context,
