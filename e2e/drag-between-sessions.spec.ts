@@ -941,6 +941,7 @@ test.describe('a cancel returns to the source (KAN-406)', () => {
       'S1'
     );
     expect(await setDetailScroll(page, 300)).toBe(300);
+    const before = await layout(page, 'S1');
     const pane = await detailPane(page);
     // A tab in the middle of the pane, clear of both auto-scroll zones.
     const tabId = await page.evaluate(
@@ -972,7 +973,7 @@ test.describe('a cancel returns to the source (KAN-406)', () => {
 
     await expect.poll(() => selected(page)).toBe('S1');
     await expect.poll(async () => (await detailPane(page)).scrollTop).toBe(300);
-    expect((await windowIdsOf(page, 'S1')).length).toBe(5);
+    expect(await layout(page, 'S1')).toEqual(before);
   });
 
   test('a scrolled list, auto-scrolled under the carry, a spring-open, then Esc: the list at the scroll it had', async ({
