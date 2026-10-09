@@ -1,30 +1,8 @@
-// KAN-354 and KAN-355 on the real artifact: a drag inside a saved session's
-// tab, group or window list is drawn by the card at the pointer, and the row
-// it holds hides but keeps its room.
-//
-// What jsdom cannot show, and so what this file is for: src/App.css. jsdom
-// never loads it, and its `!important` lift shadow on a held TAB is exactly
-// what KAN-355 is -- the adopted phantom, invisible since KAN-350, still cast
-// that shadow as an empty box at the pointer (measured on main:
-// `rgba(0,0,0,0.35) 0 2px 8px`, and over Gamma also
-// `rgb(129,201,149) 4px 0 0 inset`, the KAN-164 stripe).
-//
-// Organised by claim, a describe each:
-//
-//   KAN-355    the adopted phantom casts no shadow
-//   C1         a saved list's drag is drawn by the card (tab, group, window;
-//              the popup and the tab view)
-//   C2         the session list and Open now keep their lifted row, no card
-//   KAN-359    the pick-up, frame by frame: card and hidden row arrive at once
-//   C3         a drag into another window outlines the room it leaves there
-//              (both directions, a group, Q2, Q3, and none inside one window)
-//   hand-off   a carry keeps the drag's card element
-//   click      the release's click lands on the hidden row, and is eaten
-//   scrolled   auto-scroll, a folded window drag, and the outline, scrolled
-//   contrast   the outline and the slot in all five themes, reported
-//
-// Driven as the popup (790x550) unless the tab view is named, with the
-// tabGroups grant (grantedTest) so a group band exists at all.
+// KAN-354/355 on the real artifact: a drag in a saved tab, group or window list is drawn by the card at the pointer; the held row hides but keeps its room.
+// For what jsdom cannot load: src/App.css, whose `!important` lift shadow on a held tab is KAN-355
+// (measured on main: `rgba(0,0,0,0.35) 0 2px 8px`, over Gamma also the KAN-164 stripe `rgb(129,201,149) 4px 0 0 inset`).
+// A describe per claim: KAN-355, C1 (card), C2 (no card in the session list and Open now), KAN-359 (pick-up frames), C3 (room outline),
+// hand-off, click, scrolled, contrast. Popup (790x550) unless the tab view is named, with the tabGroups grant.
 
 import type { BrowserContext, Locator, Page } from '@playwright/test';
 
@@ -93,11 +71,7 @@ const session = (
     windows,
   });
 
-// S1, the session on screen: w1 holds three loose tabs and the group alpha,
-// w2 two loose tabs. S2, the carry's target: d1 holds two loose tabs, the
-// group gamma, then one more loose tab; d2 two loose tabs. The same shapes
-// drag-between-sessions.spec.ts uses, small enough that no pane scrolls in
-// the popup.
+// S1 and S2 as in drag-between-sessions.spec.ts: no popup pane scrolls.
 const S1 = () =>
   session('S1', 'Source', [
     win(
@@ -300,10 +274,7 @@ async function expectCardAt(page: Page, at: Point): Promise<void> {
     .toEqual({ dx: 8, dy: 4 });
 }
 
-// Everything the held row draws of itself, read as it reaches the screen:
-// each element under it with a box (its slots excepted), at the product of
-// its own and every ancestor's opacity, up to the page. The wrapper itself
-// paints only a shadow, a background or a border, so those are read too.
+// Everything the held row paints, as it reaches the screen: each boxed element under it (slots excepted) at its effective opacity, plus the wrapper's shadow, background and border.
 const paintedOfHeld = (held: Locator) =>
   held.evaluate((el) => {
     const effective = (e: Element) => {
@@ -502,11 +473,7 @@ test.describe('KAN-355: the adopted phantom casts no shadow', () => {
     await cancel(page);
   });
 
-  // The polls above wait until `none`, so they cannot see a shadow that
-  // lasts a frame or two. And there is a gap to fear: `activate` writes
-  // `data-drag-held` straight to the DOM at the adoption, while
-  // `data-held-as-card` comes with the engine's next render. Every frame
-  // across the adoption is read, from before it until well after.
+  // Every frame across the adoption: `data-drag-held` is written at once, `data-held-as-card` on the next render, so a shadow can last a frame.
   const SHADOWED_HELD = (frames: PickUpFrame[]) =>
     frames.filter((f) => f.held && f.shadow !== 'none');
   const frameReport = (frames: PickUpFrame[]) =>
@@ -790,10 +757,7 @@ test.describe('C2: the session list keeps its lifted row', () => {
 
 // ---- the pick-up, frame by frame --------------------------------------------
 
-// One animation frame as it is about to be painted: the card, and the row
-// being picked up. Read in requestAnimationFrame, which runs after the
-// frame's input events and the microtasks they queued, and before its style
-// and paint -- so a frame's record is the DOM that frame draws.
+// One frame as it is about to paint, read in requestAnimationFrame: after its input and microtasks, before style and paint.
 interface PickUpFrame {
   t: number;
   card: boolean;
@@ -862,13 +826,7 @@ const framePictures = (frames: PickUpFrame[]): string[] =>
     .filter((p, i, all) => i === 0 || all[i - 1] !== p);
 
 test.describe('the pick-up, frame by frame', () => {
-  // KAN-359. The card used to go up at activation, drawn through
-  // useSyncExternalStore, which renders on React's sync lane, while the row
-  // is hidden through the engine's setDrag, which a pointermove schedules on
-  // the continuous lane -- and two frames painted both the card AND the row
-  // it stands for (12 of 12 pick-ups, every kind). The card now goes up in
-  // the commit that hides the row. Every frame from before the press through
-  // the activation is read.
+  // KAN-359: the card (sync lane) and the hidden row (continuous lane) painted together for two frames (12 of 12 pick-ups). Every frame from before the press.
   const PICK_UPS: {
     kind: string;
     rowId: string;
@@ -937,10 +895,7 @@ test.describe('C3: the outline over the room a cross-window drag leaves', () => 
       return Number(el.dataset.windowShift ?? 0);
     });
 
-  // The outline's paint: dotted, at 0.45 (its own inline opacity, which
-  // the held row's `opacity: 0` on its content could not outrank), visible,
-  // and the landing slot's colour and line width -- 1.5px, which
-  // Chrome snaps to whole device pixels (1px at this DPR) for both alike.
+  // Dotted at 0.45 (inline, so the held row's `opacity: 0` cannot outrank it), the slot's colour, 1.5px (Chrome snaps both to 1px at this DPR).
   async function expectOutlineLook(page: Page): Promise<void> {
     const look = await page.locator(OUTLINE).evaluate((el) => {
       const s = getComputedStyle(el);
@@ -1080,10 +1035,7 @@ test.describe('C3: the outline over the room a cross-window drag leaves', () => 
     await cancel(page);
   });
 
-  // NEGATIVE, aimed where the outline would sit: the same row on the first
-  // half of the same path, still inside w1, down to w1's last place -- the
-  // very box the downward drag outlines. A drag inside one window leaves no
-  // room behind (C1 A: rows close up as the pointer passes them).
+  // NEGATIVE along the downward drag's own path to w1's last place: a drag inside one window leaves no room behind (C1 A).
   test('inside one window, along the same path to w1’s bottom: no outline', async ({
     context,
     extensionId,
@@ -1394,12 +1346,8 @@ async function storedTabs(page: Page): Promise<string> {
 }
 
 test.describe('the click after a release lands on the hidden row', () => {
-  // KAN-354 hides the held row with opacity alone, so it still takes hits:
-  // Chrome aims the click it synthesizes for a release at the row under the
-  // pointer, and the held row tracks the pointer. The click rules (KAN-128,
-  // KAN-177, clickSuppressor.ts) eat THAT click. A row that took no hits
-  // would hand the click to whatever row is underneath -- and click-after-
-  // drag.spec.ts counts clicks, not their target, so only this sees it.
+  // The held row is hidden by opacity alone, so it takes Chrome's release click, which the click rules eat (KAN-128, KAN-177).
+  // A row taking no hits would pass the click to the row beneath; click-after-drag.spec.ts counts clicks, not targets.
 
   // CONTROL: a plain click on the row opens its tab, so the probe below can
   // see a tab open at all.
@@ -1470,15 +1418,8 @@ test.describe('the click after a release lands on the hidden row', () => {
   });
 });
 
-// Refused: above the pane, where no window is (KAN-158). The release lands
-// outside every row -- the held row stays in its list, and the pointer
-// does not -- so the click Chrome sends for it is not aimed at the hidden
-// row, and this cannot speak for the suppressor (the describe above does).
-// What it pins is the refusal itself.
-//
-// Above the toolbar row too: from pick-up its New window target stands in
-// the 40px above the pane, and a release there makes a new first window
-// (KAN-361 N1 B).
+// Refused above the pane (KAN-158): the click is not aimed at the hidden row, so this pins the refusal, not the suppressor.
+// Above the toolbar row too, whose target makes a new first window (KAN-361 N1 B).
 test.describe('a refused release', () => {
   test('changes nothing and opens nothing', async ({
     context,
@@ -1603,10 +1544,7 @@ test.describe('a long, scrolled session', () => {
     await expectCardAt(page, low);
     await expect(held).toHaveAttribute('data-held-as-card', '');
     await expectNothingOfHeldDrawn(held);
-    // PREMISE, not a claim: the slot is drawn. Measured, it sits about a row
-    // from the held row here (slot 481..513, row 513..545), where a lifted
-    // row's fading slot is near 1 already, so this barely tells the two
-    // looks apart; C1's pick-up, at distance 0, does.
+    // PREMISE: the slot is drawn. About a row from the held row here (slot 481..513, row 513..545), so C1's pick-up tells the looks apart, not this.
     const slot = seen.slot;
     if (slot === null) throw new Error('no landing slot drawn');
     expect(slot.opacity).toBe('1');
@@ -1697,18 +1635,9 @@ test.describe('a long, scrolled session', () => {
 
 // ---- contrast, held to floors --------------------------------------------------
 
-// The outline (0.45) and the landing slot (1), each drawn as its border colour
-// composited at its EFFECTIVE opacity (its own times every ancestor's) over
-// what is painted behind it -- the held row excluded, which is invisible --
-// against that backdrop.
-//
-// C5 A (Justine, 2026-10-01) kept the outline faint on purpose: it is
-// supplementary (the drop is the same whether it is seen; the dashed slot,
-// >= 3:1, says where the row goes), so its floor guards against fading
-// further, not WCAG 1.4.11's 3:1. Floors sit a hair under the measured values
-// (outline 1.81 Paper, 1.84 Parchment, 1.81 Petal, 1.97 Graphite, 1.97 Ink;
-// slot 4.31 to 4.89) so a theme change that fades either fails and rounding
-// noise does not.
+// The outline (0.45) and slot (1) as their border colour at effective opacity over what is painted behind, the held row excluded.
+// C5 A: the outline stays faint on purpose (the dashed slot, >= 3:1, says where the row goes), so its floor guards fading, not WCAG 1.4.11.
+// Floors sit just under the measured values (outline 1.81 Paper, 1.84 Parchment, 1.81 Petal, 1.97 Graphite, 1.97 Ink; slot 4.31 to 4.89).
 const OUTLINE_CONTRAST_FLOOR = 1.75;
 const SLOT_CONTRAST_FLOOR = 3;
 const THEMES: [string, string][] = [

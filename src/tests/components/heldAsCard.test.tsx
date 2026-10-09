@@ -27,21 +27,9 @@ import { standInSessionList } from '../setup/standInSessionList';
 import { s1, s2, s3, tabIds, windowIn } from '../fixtures/sessionMoveFixture';
 import { snapshot, layOut, tabRow } from '../setup/openNowDragHarness';
 
-// KAN-354 C1 A, C2 A. An ordinary drag inside a saved session's tab, group or
-// window list hides the row it holds -- the row keeps its box, so its room,
-// its translate and every number the engine reads from it -- and shows the
-// card at the pointer instead, the one a carry shows (KAN-350). Only those
-// three lists, and only where the list has a card to show (carryOut). The
-// session list and Open now keep their sliding row with its lift shadow.
-//
-// jsdom applies emotion's rules to a computed style but never loads
-// src/App.css, so the `!important` lift shadow App.css puts on a held TAB --
-// KAN-355 -- is pinned in e2e/in-session-card.spec.ts. Here: the attribute
-// that rule now keys on, and everything the engine draws itself.
-//
-// S1 (shown): w1 [t1, g1a*g1, g1b*g1, t2, t4*g2], w2 [t3]. Every box the
-// engine reads is given one in the pane's content space (as
-// openedSessionTakesCarry.test.tsx does); anything not listed is a zero box.
+// KAN-354 C1 A, C2 A: a drag in a saved tab, group or window list hides the held row (it keeps its box) and shows the carry's card instead,
+// only where carryOut has a card. The session list and Open now keep their lifted row. App.css's held-tab shadow (KAN-355) is e2e's (in-session-card).
+// S1 (shown): w1 [t1, g1a*g1, g1b*g1, t2, t4*g2], w2 [t3]. Unlisted boxes measure zero.
 
 const PANE_W = 400;
 
@@ -498,19 +486,8 @@ describe('the hand-off to the carry', () => {
   });
 });
 
-// KAN-359. The card and the hidden row arrive in ONE commit. In the popup the
-// card went up from activation, on the pointermove itself: CarryLayer reads it
-// through useSyncExternalStore, which renders on the sync lane, in a
-// microtask, inside the same frame. The row is hidden by the engine's
-// setDrag, which a native pointermove schedules on the continuous lane, as a
-// later task, after that frame has painted -- so two frames drew both the
-// card and the row it stands for (e2e/in-session-card.spec.ts, "the pick-up,
-// frame by frame").
-//
-// RTL's fireEvent runs inside act, which renders both lanes together and so
-// cannot show the gap. The events below are dispatched as the browser
-// dispatches them, outside act, so each update waits in its own lane exactly
-// as it does in the popup.
+// KAN-359: the card and the hidden row arrive in ONE commit. The card renders on the sync lane, the row's setDrag on the continuous lane,
+// so two frames drew both. act renders both lanes together, so these events are dispatched outside act, as the browser dispatches them.
 declare global {
   // React's own flag (react-dom reads it off the global object); RTL sets it.
   var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
@@ -551,19 +528,8 @@ describe('the pick-up arrives in one commit (KAN-359)', () => {
     return { published, stop };
   }
 
-  // Outside act, as the browser dispatches them -- `window.event` included,
-  // which is what React reads to pick an update's lane. jsdom's own stops
-  // working the first time React handles an event. react-dom's dev build
-  // assigns `window.event` (invokeGuardedCallbackDev), and that lands in
-  // vitest's jsdom environment, not in jsdom: populateGlobal puts each
-  // window key on the global behind a setter that stores the value in an
-  // `overrideObject`, and a getter that answers it from then on, in place
-  // of jsdom's. So it answers that event for good -- here the press's
-  // pointerdown, a DISCRETE event, which put the engine's setDrag on the
-  // sync lane with the card and hid the gap this test is about. (Plain
-  // jsdom, with the same assignment and descriptor restore, keeps
-  // answering the event being dispatched.) So the dispatch says what the
-  // browser would.
+  // Outside act, with `window.event` set, which React reads to pick a lane. vitest's jsdom environment keeps the first event react-dom assigns
+  // (populateGlobal's override), here the press's discrete pointerdown, which put setDrag on the sync lane and hid the gap. So the dispatch says what the browser would.
   const dispatchAsBrowser = (event: Event) => {
     const before = Object.getOwnPropertyDescriptor(window, 'event');
     Object.defineProperty(window, 'event', {
@@ -618,11 +584,7 @@ describe('the pick-up arrives in one commit (KAN-359)', () => {
   );
 
   test('in the browser’s order: no card until the commit that hides the row, then both, at the latest pointer', async () => {
-    // Whether the card was up in the commit that first hid the row. A
-    // Profiler's onRender runs in that commit's layout phase, after every
-    // layout effect inside it -- the area's included. A card shown from a
-    // passive effect would still be down there, and a frame could paint the
-    // hidden row with no card.
+    // Whether the card was up in the commit that first hid the row: a Profiler's onRender runs after that commit's layout effects. A card shown from a passive effect would be down.
     const cardUpWhenHidden: boolean[] = [];
     const onCommit = () => {
       const el = document.querySelector('[data-drag-row-id="t2"]');
@@ -739,10 +701,7 @@ describe('the pick-up arrives in one commit (KAN-359)', () => {
   });
 });
 
-// The click Chrome synthesizes for the release is aimed at the held row
-// (KAN-177), hidden or not. The rules of dragSuppressesClick.test.tsx, run
-// again with a card on: the drag's own click is swallowed, the one after it
-// is not, and a press that never became a drag is a click.
+// Chrome aims the release's click at the held row (KAN-177). dragSuppressesClick's rules with a card on: the drag's click is eaten, the next is not.
 describe('the release’s click, with a card on', () => {
   let clicks = 0;
   const count = () => {
@@ -888,10 +847,7 @@ describe('CONTROLS: no card, the old look', () => {
     release(at + 8);
   });
 
-  // The rule is "this drag has a card", not "this list has carryOut": a
-  // list whose carryOut has nothing for the held row draws it as today. In
-  // the app the groups list's carryOut is null for a loose tab, which that
-  // list never lets a press pick up; the engine is held to it directly.
+  // The rule is "this drag has a card", not "this list has carryOut". The groups list's carryOut is null for a loose tab, which it never picks up, so the engine is held to it directly.
   test('a list whose carryOut has nothing for the held row', async () => {
     await renderWithProviders(
       <>
