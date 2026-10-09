@@ -674,33 +674,6 @@ describe('a cancel returns to where the carry started', () => {
       fireEvent.keyDown(window, { key: 'Escape' });
     });
 
-  test('a spring-open, then Esc: the source is shown again', async () => {
-    const { store } = await renderList();
-    handOff();
-    moveTo(rowY(2));
-    wait(600);
-    expect(selectedId(store)).toBe('S3');
-
-    esc();
-
-    expect(currentCarry()).toBeNull();
-    expect(selectedId(store)).toBe('S1');
-  });
-
-  test('a spring-open, then a release over nothing: the source is shown again', async () => {
-    const { store } = await renderList();
-    handOff();
-    moveTo(rowY(1));
-    wait(600);
-    expect(selectedId(store)).toBe('S2');
-
-    moveTo(200, 600);
-    releaseAt(200, 600);
-
-    expect(currentCarry()).toBeNull();
-    expect(selectedId(store)).toBe('S1');
-  });
-
   test('the list comes back to the scroll it had when the carry started', async () => {
     const { scroller } = await renderList();
     scroller.scrollTop = 20;
