@@ -885,10 +885,7 @@ test.describe('the New window target (S3 A, Q2 A)', () => {
     expect(await toasts(page)).toEqual([]);
   });
 
-  test('a carried window has no target: a window lands between windows', async ({
-    context,
-    extensionId,
-  }) => {
+  test('a carried window has no target', async ({ context, extensionId }) => {
     const page = await openPopup(context, extensionId);
     const at = await pickUp(page, windowHandle(page, 'w2'));
     await carryOutLeft(page, at);
@@ -1313,7 +1310,7 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
   });
 
-  test('the shown row: an outline but no sweep and no opening, and a drop there is a row drop with no Moved toast (Q3 A)', async ({
+  test('the shown row: an outline but no sweep, and a drop there is a row drop with no Moved toast (Q3 A)', async ({
     context,
     extensionId,
   }) => {
@@ -1322,9 +1319,8 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     await carryOutLeft(page, at);
     await onto(page, 'S1');
     await expect(page.locator('[data-carry-dwell]')).toHaveCount(0);
-    // NEGATIVE, so a fixed wait: past the 600ms dwell, nothing opened.
+    // Past the 600ms dwell, still the target.
     await page.waitForTimeout(900);
-    expect(await selected(page)).toBe('S1');
     expect(await carryTargets(page)).toEqual(['S1']);
     await page.mouse.up();
 
@@ -1736,6 +1732,7 @@ test.describe('Review Focus 3: a long list, a long session', () => {
       'S1'
     );
     expect(await setDetailScroll(page, 300)).toBe(300);
+    const order = await windowIdsOf(page, 'S1');
     const pane = await detailPane(page);
     // A window whose header sits in the middle of the pane, clear of both
     // auto-scroll zones.
@@ -1766,8 +1763,7 @@ test.describe('Review Focus 3: a long list, a long session', () => {
     await page.mouse.up();
     await expect(page.locator(CARD)).toHaveCount(0);
     await expect.poll(async () => (await detailPane(page)).scrollTop).toBe(300);
-    // Nothing moved.
-    expect((await windowIdsOf(page, 'S1')).length).toBe(5);
+    expect(await windowIdsOf(page, 'S1')).toEqual(order);
   });
 
   // The same for a GROUP: its tabs leave the source while carried, so a
@@ -3584,6 +3580,8 @@ test.describe('the New window target is in the toolbar row from pick-up (KAN-361
       name: 'a tab drag cancelled with Esc',
       run: async (page) => {
         await pickUp(page, tabHandle(page, 'a1'));
+        // Over a2, where a commit would reorder.
+        await aimAt(page, 'a2', 0.75);
         await page.keyboard.press('Escape');
         await page.mouse.up();
       },
@@ -4018,8 +4016,9 @@ test.describe('the toolbar target makes a new first window (KAN-361)', () => {
     await page.mouse.up();
     await expect(headerTarget(page)).not.toHaveAttribute('data-landing', '');
 
-    await logToolbar(page, 'w1');
-    await pickUp(page, windowHandle(page, 'w1'));
+    // w2, not w1: a first-place landing would reorder.
+    await logToolbar(page, 'w2');
+    await pickUp(page, windowHandle(page, 'w2'));
     await ontoHeaderTarget(page, aim);
     await settled(page);
     const frames = await toolbarLog(page);

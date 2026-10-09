@@ -1411,7 +1411,10 @@ test.describe('the click after a release lands on the hidden row', () => {
     const before = context.pages().length;
     const b = await boxOf(row(page, 'a1'));
     await page.mouse.click(b.x + 60, b.y + b.height / 2);
-    await expect.poll(() => context.pages().length).toBe(before + 1);
+    // The negatives below wait 1s: a tab that opens later passes them too.
+    await expect
+      .poll(() => context.pages().length, { timeout: 1000 })
+      .toBe(before + 1);
   });
 
   test('a drag that changes nothing: the click lands on the held row, and opens nothing', async ({
