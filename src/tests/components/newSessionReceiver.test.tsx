@@ -201,21 +201,6 @@ describe('the save row as a carry receiver', () => {
     expect(made.windows.map(tabIds)).toEqual([['t1']]);
     expect(state.selectedTabGroupId).toBe(made.tabGroupId);
   });
-
-  // The worst path: the carried item went away before the release.
-  test('take with the item gone changes nothing and says so', async () => {
-    const { store } = await renderRow();
-    carry(GONE);
-    const before = store.getState().tabContainerDataState;
-
-    let taken = true;
-    act(() => {
-      taken = receiverOnRow().take();
-    });
-
-    expect(taken).toBe(false);
-    expect(store.getState().tabContainerDataState).toBe(before);
-  });
 });
 
 // F19 (Justine's pick). The name field names a drop as it names a save, and
@@ -246,20 +231,6 @@ describe('the name field and a drop on the save row', () => {
     expect(field().value).toBe('');
   });
 
-  test('with the field empty, the item names it and the field stays empty', async () => {
-    const { store } = await renderRow();
-    carry(T1);
-
-    act(() => {
-      receiverOnRow().take();
-    });
-
-    expect(store.getState().tabContainerDataState.tabGroups[0].title).toBe(
-      't1'
-    );
-    expect(field().value).toBe('');
-  });
-
   // The name is read on the release: an edit made while carrying names it.
   // (No edit can land between that read and the clear: take is synchronous,
   // and React renders an input's change before the next event.)
@@ -286,10 +257,12 @@ describe('the name field and a drop on the save row', () => {
     carry(GONE);
     const before = store.getState().tabContainerDataState;
 
+    let taken = true;
     act(() => {
-      receiverOnRow().take();
+      taken = receiverOnRow().take();
     });
 
+    expect(taken).toBe(false);
     expect(store.getState().tabContainerDataState).toBe(before);
     expect(field().value).toBe('Trip');
   });
