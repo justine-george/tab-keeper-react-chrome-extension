@@ -31,11 +31,11 @@ const LOCALES: Record<string, Record<string, string>> = {
   'zh-TW': zhTW,
 };
 
-describe('"Open in popup" in every locale (KAN-437)', () => {
+describe('"Open compact view" in every locale (KAN-437)', () => {
   test.each(Object.keys(LOCALES))(
     '%s names it, apart from Open full view',
     (lang) => {
-      const value = LOCALES[lang]['Open in popup'];
+      const value = LOCALES[lang]['Open compact view'];
       expect(typeof value === 'string' && value.length > 0).toBe(true);
       expect(value).not.toBe(LOCALES[lang]['Open full view']);
     }
@@ -44,9 +44,17 @@ describe('"Open in popup" in every locale (KAN-437)', () => {
   test.each(Object.keys(LOCALES).filter((l) => l !== 'en'))(
     '%s translates it',
     (lang) => {
-      const value = LOCALES[lang]['Open in popup'];
+      const value = LOCALES[lang]['Open compact view'];
       expect(value).toEqual(expect.any(String));
-      expect(value).not.toBe('Open in popup');
+      expect(value).not.toBe('Open compact view');
+    }
+  );
+
+  // The label it replaced (Justine, 2026-10-08): a leftover key is dead text.
+  test.each(Object.keys(LOCALES))(
+    '%s no longer has "Open in popup"',
+    (lang) => {
+      expect(LOCALES[lang]).not.toHaveProperty(['Open in popup']);
     }
   );
 });

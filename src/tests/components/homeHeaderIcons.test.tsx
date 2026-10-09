@@ -8,7 +8,7 @@ import { ICON } from '../../styles/scale';
 // KAN-340. Two glyphs in the row read wrong at DEFAULT: the gear (the
 // heaviest ink) and open_in_full (thin, but reaching its corners). The gear
 // draws at ICON.MEDIUM (Justine's pick after SMALL read too small); open_in_full
-// and Open in popup draw at ICON.MEDIUM_SMALL (KAN-437, pick B). Their BOXES are
+// and Open compact view draw at ICON.MEDIUM_SMALL (KAN-437, pick B). Their BOXES are
 // unchanged; that is a layout fact jsdom cannot measure, so
 // e2e/home-header.spec.ts owns it.
 
@@ -35,12 +35,12 @@ describe('home header glyph sizes (KAN-340)', () => {
     expect(glyphSize('Open full view')).toBe(px(ICON.MEDIUM_SMALL));
   });
 
-  test('in the full view, Open in popup draws at ICON.MEDIUM_SMALL, as Open full view does (KAN-437)', async () => {
+  test('in the full view, Open compact view draws at ICON.MEDIUM_SMALL, as Open full view does (KAN-437)', async () => {
     history.replaceState(null, '', '?view=tab');
     try {
       await renderWithProviders(<MenuContainer />);
 
-      expect(glyphSize('Open in popup')).toBe(px(ICON.MEDIUM_SMALL));
+      expect(glyphSize('Open compact view')).toBe(px(ICON.MEDIUM_SMALL));
     } finally {
       history.replaceState(null, '', '?');
     }

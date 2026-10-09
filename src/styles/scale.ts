@@ -91,7 +91,7 @@ export const CONTROL = {
  * beside the 22.5px-wide cloud. At MEDIUM its ink sits between Undo (16.5px)
  * and Search (18.5px). Measured with the bundled font; Justine picked it from
  * a side-by-side mock (KAN-340). open_in_full drew at MEDIUM too until KAN-437
- * moved it, with Open in popup, to MEDIUM_SMALL.
+ * moved it, with Open compact view, to MEDIUM_SMALL.
  */
 export const ICON = {
   /** A mark beside a title, not a control: the saved row's pin (KAN-458). */
@@ -101,7 +101,7 @@ export const ICON = {
   /** Secondary or inline actions, subordinate to the control they sit in. */
   SMALL: '1.25rem',
   /**
-   * ⤢ and Open in popup. At 22px ⤢'s ink is 16.5px to the gear's 18.5px
+   * ⤢ and Open compact view. At 22px ⤢'s ink is 16.5px to the gear's 18.5px
    * (KAN-437 size mock), yet its arrows reach the box corners, so it reads
    * big. Justine picked B, 21px.
    */

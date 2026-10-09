@@ -238,7 +238,7 @@
   "CarryNewSessionTarget": "नया सेशन",
   "Search looks in session names, window names, tab titles and links.": "खोज सेशन के नाम, विंडो के नाम, टैब के शीर्षक और लिंक में होती है।",
   "Open full view": "पूरा व्यू खोलें",
-  "Open in popup": "पॉप-अप में खोलें",
+  "Open compact view": "संक्षिप्त व्यू खोलें",
   "Default view": "डिफ़ॉल्ट व्यू",
   "Pin Tab Keeper in new windows": "नई विंडो में Tab Keeper पिन करें",
   "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper जो विंडो खोलता है या जिन पर स्विच करता है, वे Tab Keeper पिन किए हुए शुरू होती हैं।",

@@ -1,4 +1,4 @@
-// KAN-437. The full view's "Open in popup": the page only asks; the worker closes the full view, then opens the popup.
+// KAN-437. The full view's "Open compact view": the page only asks; the worker closes the full view, then opens the popup.
 // Measured headed (KAN-437, 2026-10-06): a popup opened before its tab closes dies with that tab.
 // Worker-safe, like popOut.ts: no window, no redux, chrome types only.
 import { popupFor } from './defaultView';

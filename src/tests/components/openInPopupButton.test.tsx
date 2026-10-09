@@ -17,19 +17,19 @@ afterEach(() => {
   history.replaceState(null, '', '?');
 });
 
-describe("the full view's Open in popup button (KAN-437)", () => {
+describe("the full view's Open compact view button (KAN-437)", () => {
   test("sits in Open full view's slot: first, then Sort sessions", async () => {
     await renderFullView();
 
     const names = screen.getAllByRole('button').map((el) => el.ariaLabel);
-    expect(names.slice(0, 2)).toEqual(['Open in popup', 'Sort sessions']);
+    expect(names.slice(0, 2)).toEqual(['Open compact view', 'Sort sessions']);
   });
 
   test('draws close_fullscreen, the inward twin of open_in_full', async () => {
     await renderFullView();
 
     expect(
-      screen.getByRole('button', { name: 'Open in popup' })
+      screen.getByRole('button', { name: 'Open compact view' })
     ).toHaveTextContent('close_fullscreen');
   });
 
@@ -37,14 +37,14 @@ describe("the full view's Open in popup button (KAN-437)", () => {
     await renderFullView();
 
     expect(
-      screen.getByRole('button', { name: 'Open in popup' })
-    ).toHaveAttribute('title', 'Open in popup');
+      screen.getByRole('button', { name: 'Open compact view' })
+    ).toHaveAttribute('title', 'Open compact view');
   });
 
   test('a click sends one openInPopup message', async () => {
     const { chrome } = await renderFullView();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open in popup' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open compact view' }));
 
     await waitFor(() => expect(chrome.sentMessages).toHaveLength(1));
     expect(chrome.sentMessages).toEqual([{ type: OPEN_IN_POPUP_MESSAGE }]);
@@ -56,7 +56,7 @@ describe("the full view's Open in popup button (KAN-437)", () => {
     });
 
     expect(
-      screen.queryByRole('button', { name: 'Open in popup' })
+      screen.queryByRole('button', { name: 'Open compact view' })
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Open full view' })

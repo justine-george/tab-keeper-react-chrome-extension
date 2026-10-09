@@ -233,7 +233,7 @@
   "CarryNewSessionTarget": "새 세션",
   "Search looks in session names, window names, tab titles and links.": "세션 이름, 창 이름, 탭 제목, 링크에서 검색합니다.",
   "Open full view": "전체 보기 열기",
-  "Open in popup": "팝업에서 열기",
+  "Open compact view": "컴팩트 보기 열기",
   "Default view": "기본 보기",
   "Pin Tab Keeper in new windows": "새 창에 Tab Keeper 고정",
   "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper가 열거나 전환하는 창은 Tab Keeper가 고정된 상태로 시작됩니다.",

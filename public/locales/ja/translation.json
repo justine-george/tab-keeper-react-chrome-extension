@@ -233,7 +233,7 @@
   "CarryNewSessionTarget": "新しいセッション",
   "Search looks in session names, window names, tab titles and links.": "セッション名、ウィンドウ名、タブのタイトル、リンクを検索します。",
   "Open full view": "フルビューで開く",
-  "Open in popup": "ポップアップで開く",
+  "Open compact view": "コンパクトビューで開く",
   "Default view": "既定のビュー",
   "Pin Tab Keeper in new windows": "新しいウィンドウに Tab Keeper を固定",
   "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper が開くウィンドウや切り替え先のウィンドウは、Tab Keeper を固定した状態で始まります。",

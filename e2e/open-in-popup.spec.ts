@@ -3,13 +3,13 @@ import type { BrowserContext, Page, Worker } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { seedSessions } from './fixtures/seed';
 
-// KAN-437. The full view's Open in popup, on the built artifact.
+// KAN-437. The full view's Open compact view, on the built artifact.
 // Tests 1-6 read what the worker did: the full view's tab, and each
 // chrome.action.openPopup call, recorded by a stub in the worker.
 // Test 7 calls the real openPopup, which opens a popup headless (plan Task 1, Q1/Q2).
 
 const VIEW_TAB = 'index.html?view=tab';
-const BUTTON = 'Open in popup';
+const BUTTON = 'Open compact view';
 const INDEX_POPUP = expect.stringMatching(/\/index\.html$/);
 
 interface TabFacts {
@@ -143,7 +143,7 @@ async function fullViewIn(
 const press = (page: Page) =>
   page.getByRole('button', { name: BUTTON, exact: true }).click();
 
-test.describe('Open in popup (KAN-437)', () => {
+test.describe('Open compact view (KAN-437)', () => {
   test('1. beside other tabs: the full view closes first, then the popup opens over its window', async ({
     context,
     serviceWorker,

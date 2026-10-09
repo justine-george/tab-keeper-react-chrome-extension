@@ -308,7 +308,7 @@ export default function MenuContainer() {
   // Sort), history (Undo, Redo), account and app (Sync, Settings). 8px
   // between pairs, none inside one, so hover fills within a pair still meet
   // as they always have. The leftmost icon is Open full view in the popup and
-  // Open in popup in the tab view (KAN-437), and the cluster is right-aligned,
+  // Open compact view in the tab view (KAN-437), and the cluster is right-aligned,
   // so the five shared icons sit at the same x in both.
   const clusterStyle = css`
     display: flex;
@@ -380,8 +380,8 @@ export default function MenuContainer() {
         {/* KAN-437 A. The full view's way back, in ⤢'s slot and drawn as ⤢ is; the worker opens the popup, closing this tab first unless it is pinned or the last tab Chrome has. */}
         {isTabView() && (
           <Icon
-            ariaLabel={t('Open in popup')}
-            tooltipText={t('Open in popup')}
+            ariaLabel={t('Open compact view')}
+            tooltipText={t('Open compact view')}
             type="close_fullscreen"
             size={ICON.MEDIUM_SMALL}
             boxSizedFor={ICON.DEFAULT}

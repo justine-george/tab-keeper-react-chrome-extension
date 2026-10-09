@@ -233,7 +233,7 @@
   "CarryNewSessionTarget": "新工作階段",
   "Search looks in session names, window names, tab titles and links.": "搜尋範圍包括工作階段名稱、視窗名稱、分頁標題和連結。",
   "Open full view": "開啟完整檢視",
-  "Open in popup": "在彈出式視窗中開啟",
+  "Open compact view": "開啟精簡檢視",
   "Default view": "預設檢視",
   "Pin Tab Keeper in new windows": "在新視窗中釘選 Tab Keeper",
   "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper 開啟或切換到的視窗，會先釘選 Tab Keeper。",
