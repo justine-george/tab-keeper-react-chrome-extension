@@ -330,6 +330,45 @@ describe('captureOpenWindows against the chrome fake', () => {
     expect('incognito' in byTab.b).toBe(false);
   });
 
+  test('a split pair shares one new id per capture; a tab in no split has none (KAN-460 Part 4)', async () => {
+    handle = setupChromeFake({
+      splitView: true,
+      windows: [
+        {
+          id: 1,
+          focused: true,
+          tabs: [
+            { id: 11, url: 'https://a.test/', title: 'a', splitViewId: 77 },
+            { id: 12, url: 'https://b.test/', title: 'b', splitViewId: 77 },
+            { id: 13, url: 'https://c.test/', title: 'c' },
+          ],
+        },
+        {
+          id: 2,
+          tabs: [
+            { id: 21, url: 'https://d.test/', title: 'd', splitViewId: 78 },
+            { id: 22, url: 'https://e.test/', title: 'e', splitViewId: 78 },
+          ],
+        },
+      ],
+    });
+
+    const first = await captureOpenWindows('session', 'all-windows');
+    const second = await captureOpenWindows('session', 'all-windows');
+    const ids = (c: typeof first) =>
+      (c?.windows ?? []).flatMap((w) => w.tabs.map((t) => t.splitId));
+
+    const [a, b, c, d, e] = ids(first);
+    expect(typeof a).toBe('string');
+    expect(b).toBe(a);
+    expect(c).toBeUndefined();
+    expect('splitId' in (first?.windows[0].tabs[2] ?? {})).toBe(false);
+    expect(d).toBe(e);
+    expect(d).not.toBe(a);
+    // Chrome's ids last a browser session; ours are minted per capture.
+    expect(ids(second)[0]).not.toBe(a);
+  });
+
   // The worst path: a popup is the only thing open. Returning null is the
   // caller's cue that there is no session to save, so focus mode does not
   // promise a save it will not make.

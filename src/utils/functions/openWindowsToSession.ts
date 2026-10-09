@@ -5,6 +5,7 @@ import {
   pickActiveTabIndex,
   savedIncognito,
   savedWindowState,
+  splitIdMinter,
   toStoredTab,
 } from './capture';
 import { getStringDate, normalizeTitle } from './local';
@@ -37,6 +38,7 @@ function toSavedWindow(
     openWindow.groups.map((group, i) => [group.id, groups[i].groupId])
   );
 
+  const splitIdOf = splitIdMinter();
   const tabs = openWindow.tabs.map((tab) => {
     const chromeGroupId =
       tab.groupId === null ? undefined : idByChromeId.get(tab.groupId);
@@ -50,6 +52,7 @@ function toSavedWindow(
         url: tab.url,
         pinned: tab.pinned,
       }),
+      ...splitIdOf(tab.splitViewId),
       ...(chromeGroupId === undefined ? {} : { chromeGroupId }),
     };
   });

@@ -102,6 +102,8 @@ export type ChromeSeed = {
   refusedUrls?: string[];
   // KAN-460 Part 3. "Allow in Incognito"; absent means off, as Chrome installs an extension.
   incognitoAllowed?: boolean;
+  // KAN-460 Part 4. Chrome 155+: tabs.createSplit exists and every tab reports a splitViewId. Absent is Chromium 151, the e2e browser.
+  splitView?: boolean;
   // What runtime.getPlatformInfo() reports as the os (KAN-311: the Reopen
   // button hints ⌘Z on a Mac, Ctrl+Z elsewhere). Absent means 'linux', the
   // non-Mac form, so a test that seeds nothing never sees the Mac one.
@@ -290,6 +292,9 @@ function settle<T>(value: T, callback?: (value: T) => void): Promise<T> {
 // so a seed of `{ tabs: [...] }` alone behaves as it always has.
 const DEFAULT_WINDOW_ID = 1;
 
+// chrome.tabs.SPLIT_VIEW_ID_NONE.
+const SPLIT_VIEW_ID_NONE = -1;
+
 // What runtime.getURL prefixes every Tab Keeper page with.
 const EXTENSION_ORIGIN = 'chrome-extension://faketestid/';
 
@@ -406,6 +411,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       pinned: false,
       audible: false,
       mutedInfo: { muted: false },
+      ...(seed.splitView ? { splitViewId: SPLIT_VIEW_ID_NONE } : {}),
       ...tab,
       windowId,
     } as chrome.tabs.Tab;
@@ -681,6 +687,61 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   // not inside the call. No tabs.onRemoved: no tab closed. Not measured:
   // whether the window enters the recently-closed list, and which window
   // has focus afterwards; the fake records nothing and leaves focus alone.
+  // KAN-460 Part 4. Both tabs of the split `tab` is in leave it; a tab in none is untouched.
+  const endSplit = (tab: chrome.tabs.Tab): void => {
+    const id = tab.splitViewId;
+    if (id === undefined || id === SPLIT_VIEW_ID_NONE) return;
+    for (const other of tabs) {
+      if (other.splitViewId === id) other.splitViewId = SPLIT_VIEW_ID_NONE;
+    }
+  };
+
+  // KAN-460 Part 4, measured on Chrome for Testing 155: the schema refuses a
+  // count other than 2 at the call; then Chrome refuses a tab already split, a
+  // mixed window, pinned state or group, and non-adjacent tabs. Which of those
+  // Chrome checks first when several apply is not measured.
+  const createSplit = (tabIds: number[]): Promise<number> => {
+    if (tabIds.length < 2 || tabIds.length > 2) {
+      throw new TypeError(
+        `Error in invocation of tabs.createSplit(array tabIds, optional function callback): Error at parameter 'tabIds': Array must have at ${tabIds.length < 2 ? 'least' : 'most'} 2 items; found ${tabIds.length}.`
+      );
+    }
+    const pair = tabIds.map((id) => tabs.find((tab) => tab.id === id));
+    const [a, b] = pair;
+    if (a === undefined || b === undefined) {
+      return Promise.reject(
+        new Error(`No tab with id: ${tabIds[pair.indexOf(undefined)]}.`)
+      );
+    }
+    const split = [a, b].find(
+      (tab) =>
+        tab.splitViewId !== undefined && tab.splitViewId !== SPLIT_VIEW_ID_NONE
+    );
+    if (split !== undefined) {
+      return Promise.reject(
+        new Error(`Tab ID ${split.id} is already in a split view.`)
+      );
+    }
+    for (const field of ['windowId', 'pinned', 'groupId'] as const) {
+      if (a[field] !== b[field]) {
+        return Promise.reject(
+          new Error(
+            `Cannot create split view with tabs of mismatching '${field}' states.`
+          )
+        );
+      }
+    }
+    if (Math.abs(a.index - b.index) !== 1) {
+      return Promise.reject(
+        new Error('Cannot create split view with non-adjacent tabs.')
+      );
+    }
+    const id = nextId++;
+    a.splitViewId = id;
+    b.splitViewId = id;
+    return Promise.resolve(id);
+  };
+
   const closeIfEmpty = (windowId: number): void => {
     if (windowTabsInOrder(windowId).length > 0) return;
     const index = windows.findIndex((win) => win.id === windowId);
@@ -2049,6 +2110,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const target = tabs.find((tab) => tab.id === tabId);
         if (!target)
           return fail<chrome.tabs.Tab>(`No tab with id: ${tabId}.`, cb);
+        // KAN-460 Part 4, measured (M13): moving one tab of a split ends the split. Across windows not measured; assumed the same.
+        endSplit(target);
         if (
           props.windowId !== undefined &&
           props.windowId !== target.windowId
@@ -2107,6 +2170,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         if (expanded) tabGroupsOnUpdated.fire(expanded);
         return settle(target, cb);
       },
+      ...(seed.splitView ? { createSplit } : {}),
       onCreated: tabsOnCreated,
       onRemoved: tabsOnRemoved,
       onUpdated: tabsOnUpdated,

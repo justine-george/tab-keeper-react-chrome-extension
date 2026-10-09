@@ -94,6 +94,26 @@ describe('openWindowsToSession (KAN-280 O13)', () => {
     expect('incognito' in session.windows[1]).toBe(false);
   });
 
+  test('a split pair is saved with one shared id; a tab in no split has none (KAN-460 Part 4)', () => {
+    const session = openWindowsToSession(
+      [
+        openWindow(1, [
+          openTab(11, 'A', { splitViewId: 5 }),
+          openTab(12, 'B', { splitViewId: 5 }),
+          openTab(13, 'C'),
+        ]),
+      ],
+      'T',
+      NOW,
+      NO_RECORD
+    );
+
+    const [a, b, c] = session.windows[0].tabs;
+    expect(typeof a.splitId).toBe('string');
+    expect(b.splitId).toBe(a.splitId);
+    expect('splitId' in c).toBe(false);
+  });
+
   test('a collapsed live group is saved collapsed; an open one has no field (KAN-460)', () => {
     const win = openWindow(
       1,

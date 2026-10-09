@@ -61,4 +61,21 @@ describe("restoreContainer reads a window's state as content (KAN-460)", () => {
     );
     expect(sessionIn(next, 'S').lastModified).toBe(T0 + 5_000);
   });
+
+  it("a payload whose only change is a tab's split id is stamped past the live copy (Part 4)", () => {
+    const [a, b] = plain().tabs;
+    const next = reducer(
+      live(),
+      restoreContainer(
+        withWindow({
+          ...plain(),
+          tabs: [
+            { ...a, splitId: 's' },
+            { ...b, splitId: 's' },
+          ],
+        })
+      )
+    );
+    expect(sessionIn(next, 'S').lastModified).toBe(T0 + 5_000);
+  });
 });
