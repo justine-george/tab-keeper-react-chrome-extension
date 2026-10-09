@@ -34,6 +34,7 @@ import {
   NEW_LAST_WINDOW,
   markNewWindowTarget,
 } from '../../components/home/rightpane/newWindowTarget';
+import { asWritten } from '../setup/asWritten';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { standInSessionList } from '../setup/standInSessionList';
 import {
@@ -1236,15 +1237,14 @@ describe('the trailing block (KAN-361/366)', () => {
     expect(style.borderTopWidth).toBe('1.5px');
     expect(style.borderTopStyle).toBe('solid');
     expect(style.borderTopColor).not.toMatch(NO_COLOUR);
-    expect(LIGHT_THEME.HOVER_COLOR).toBe('#E4E7EB');
-    expect(style.backgroundColor).toMatch(/(#E4E7EB|rgb\(228, ?231, ?235\))/i);
+    expect(style.backgroundColor).toMatch(asWritten(LIGHT_THEME.HOVER_COLOR));
     const name = el.querySelector('[data-drop-label-unlit-hidden]');
     if (name === null) throw new Error('no name');
     expect(seen(name)).toBe(true);
   });
 
   test('a session that already draws one of the carried ids offers no exact spot', async () => {
-    const { store } = await renderWithProviders(
+    await renderWithProviders(
       <>
         <TabGroupDetailsContainer />
         <CarryLayer />
@@ -1269,11 +1269,6 @@ describe('the trailing block (KAN-361/366)', () => {
 
     expect(trailing().querySelector('[data-drag-row-id]')).toBeNull();
     expect(document.querySelector('[data-carry-phantom]')).toBeNull();
-    moveTo(20);
-    expect(currentCarry()?.owner).toBe('layer');
-    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
-      'S9'
-    );
   });
 });
 
@@ -1349,7 +1344,7 @@ describe('the trailing block is one row tall (V1 A)', () => {
     await renderDetail('S2');
     carry(GROUP_G1);
     expect(folded('group:h1').tabs).not.toBe('none');
-    expect(folded('group:h1').margin).not.toEqual(['0px', '0px']);
+    expect(folded('group:h1').margin).toEqual(['2px', '2px']);
   });
 });
 

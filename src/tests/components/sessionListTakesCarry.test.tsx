@@ -28,6 +28,7 @@ import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import type { RootState } from '../../redux/store';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
+import { asWritten } from '../setup/asWritten';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { toastTexts } from '../setup/toasts';
 import {
@@ -829,12 +830,6 @@ describe('edgeScrollStep', () => {
     expect(edgeScrollStep(box, 300)).toBe(edgeScrollStep(box, 400));
   });
 });
-
-/** A colour as emotion writes it, or as jsdom normalises it. */
-function asWritten(hex: string): RegExp {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
-}
 
 function hexToRgb(hex: string): string {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
