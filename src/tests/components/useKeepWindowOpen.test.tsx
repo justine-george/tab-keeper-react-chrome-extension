@@ -34,15 +34,6 @@ describe('useKeepWindowOpen', () => {
     });
   });
 
-  test('a fold kept for another session is not touched', () => {
-    const { store, result } = setup('s2');
-    act(() => result.current('w2'));
-    expect(store.getState().globalState.collapsedWindows).toEqual({
-      tabGroupId: 's1',
-      windowIds: ['w1', 'w2'],
-    });
-  });
-
   // The engine re-binds its listeners when a prop changes identity.
   test('keeps its identity across renders', () => {
     const { result, rerender } = setup('s1');

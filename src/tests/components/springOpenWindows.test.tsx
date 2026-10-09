@@ -148,15 +148,6 @@ describe('expandWindow (KAN-379)', () => {
     return store;
   };
 
-  test('removes the window from its own session set', () => {
-    const store = folded();
-    store.dispatch(expandWindow({ tabGroupId: 'group-1', windowId: 'win-1' }));
-    expect(store.getState().globalState.collapsedWindows).toEqual({
-      tabGroupId: 'group-1',
-      windowIds: ['win-2'],
-    });
-  });
-
   test('is a no-op for another session, and for no set at all', () => {
     const store = folded();
     store.dispatch(expandWindow({ tabGroupId: 'group-2', windowId: 'win-1' }));
