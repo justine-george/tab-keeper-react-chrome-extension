@@ -18,6 +18,12 @@ import {
   stored,
 } from './fixtures/savedWindows';
 import { groupHandle, pickUp, tabHandle } from './fixtures/sessionDrag';
+import {
+  focusConfirm,
+  pressOpen,
+  pressSwitch,
+  sessionsRow,
+} from './fixtures/sessionActions';
 import type {
   tabData,
   windowGroupData,
@@ -128,25 +134,6 @@ async function seedOneWindow(
 ) {
   await seedSettings(context, settings);
   await seedSessions(context, oneWindow(tabs, activeTabId));
-}
-
-const sessionsRow = (p: Page) => p.locator('[data-pane="sessions"]');
-const focusDialog = (p: Page) =>
-  p.locator('dialog[open][aria-labelledby="focus-confirm-title"]');
-
-async function pressSwitch(popup: Page) {
-  await sessionsRow(popup)
-    .getByRole('button', { name: 'Switch', exact: true })
-    .click();
-  await focusDialog(popup)
-    .getByRole('button', { name: 'Switch', exact: true })
-    .click();
-}
-
-async function pressOpen(popup: Page) {
-  await sessionsRow(popup)
-    .getByRole('button', { name: 'Open', exact: true })
-    .click();
 }
 
 const ids = async (worker: Worker) =>
@@ -410,7 +397,7 @@ test.describe('Open, then Switch to the same session', () => {
     popup: Page
   ) {
     const before = await ids(worker);
-    await focusDialog(popup)
+    await focusConfirm(popup)
       .getByRole('button', { name: 'Switch', exact: true })
       .click();
     await settledWindowWith(worker, 'Third', before);
@@ -428,7 +415,7 @@ test.describe('Open, then Switch to the same session', () => {
     await sessionsRow(popup)
       .getByRole('button', { name: 'Switch', exact: true })
       .click();
-    await expect(focusDialog(popup)).toContainText('already saved');
+    await expect(focusConfirm(popup)).toContainText('already saved');
     const sessions = await sessionsAfterSwitch(
       context,
       extensionId,
@@ -458,7 +445,7 @@ test.describe('Open, then Switch to the same session', () => {
     await sessionsRow(popup)
       .getByRole('button', { name: 'Switch', exact: true })
       .click();
-    await expect(focusDialog(popup)).toContainText('already saved');
+    await expect(focusConfirm(popup)).toContainText('already saved');
     const sessions = await sessionsAfterSwitch(
       context,
       extensionId,
@@ -489,7 +476,7 @@ test.describe('Open, then Switch to the same session', () => {
     await sessionsRow(popup)
       .getByRole('button', { name: 'Switch', exact: true })
       .click();
-    await expect(focusDialog(popup)).toContainText('will be saved');
+    await expect(focusConfirm(popup)).toContainText('will be saved');
     const sessions = await sessionsAfterSwitch(
       context,
       extensionId,

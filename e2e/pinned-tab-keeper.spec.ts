@@ -18,6 +18,7 @@ import {
 } from './fixtures/seed';
 import { FULL, FULL_VIEW_PATH, openPage, POPUP } from './fixtures/onboarding';
 import { rgbToHex } from './fixtures/pixels';
+import { pressSwitch, sessionsRow } from './fixtures/sessionActions';
 import { DARKENHEIMER_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-459. The spec's "Through Save / Open / Switch" table, in the real browser.
@@ -130,19 +131,6 @@ async function setup(context: BrowserContext, pin: boolean) {
     pinTabKeeperInNewWindows: pin,
     theme: 'Darkenheimer',
   });
-}
-
-const sessionsRow = (page: Page): Locator =>
-  page.locator('[data-pane="sessions"]');
-
-async function pressSwitch(popup: Page) {
-  await sessionsRow(popup)
-    .getByRole('button', { name: 'Switch', exact: true })
-    .click();
-  await popup
-    .locator('dialog[open][aria-labelledby="focus-confirm-title"]')
-    .getByRole('button', { name: 'Switch', exact: true })
-    .click();
 }
 
 async function addStub(
