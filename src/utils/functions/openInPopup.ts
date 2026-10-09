@@ -135,11 +135,20 @@ export async function openInPopup(
       await openPopupOnce(api, windowLeft ? tab.windowId : undefined);
     } catch (error) {
       console.warn('No popup opened; reopening the full view:', error);
-      await api.createTab({
-        url: api.getURL(TAB_VIEW_PATH),
-        active: true,
-        ...(windowLeft ? { windowId: tab.windowId, index: tab.index } : {}),
-      });
+      const url = api.getURL(TAB_VIEW_PATH);
+      const reopenWhereChromeChooses = () =>
+        api.createTab({ url, active: true });
+      // Its window can close meanwhile; then Chrome chooses where, once.
+      await (windowLeft
+        ? api
+            .createTab({
+              url,
+              active: true,
+              windowId: tab.windowId,
+              index: tab.index,
+            })
+            .catch(reopenWhereChromeChooses)
+        : reopenWhereChromeChooses());
     }
   } catch (error) {
     console.warn('Could not open the popup:', error);

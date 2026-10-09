@@ -34,6 +34,8 @@ function makeApi(options: {
   refusePopup?: boolean;
   refuseRemove?: boolean;
   refuseCreate?: boolean;
+  // Refuses a create naming a window: that window closed after the check.
+  refuseCreateInWindow?: boolean;
   refuseRestore?: boolean;
 }): { api: PopupApi; log: Entry[] } {
   const tabs = options.tabs.map((t) => ({ ...t }));
@@ -79,6 +81,9 @@ function makeApi(options: {
     createTab: async (props) => {
       log.push({ call: 'createTab', props });
       if (options.refuseCreate) throw new Error('create refused');
+      if (options.refuseCreateInWindow && props.windowId !== undefined) {
+        throw new Error(`No window with id: ${props.windowId}.`);
+      }
     },
   };
   return { api, log };
@@ -195,6 +200,28 @@ describe('openInPopup (KAN-437)', () => {
     });
   });
 
+  test('Chrome refuses, then the window closes before the reopen: reopens letting Chrome choose', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { api, log } = makeApi({
+      tabs: BESIDE,
+      refusePopup: true,
+      refuseCreateInWindow: true,
+    });
+
+    await openInPopup(api, 7);
+
+    expect(log.slice(-2)).toEqual([
+      {
+        call: 'createTab',
+        props: { url: VIEW, active: true, windowId: 1, index: 1 },
+      },
+      { call: 'createTab', props: { url: VIEW, active: true } },
+    ]);
+    expect(warn.mock.calls.map(([message]) => message)).toEqual([
+      'No popup opened; reopening the full view:',
+    ]);
+  });
+
   test('Chrome refuses a kept tab: the tab stays, nothing reopens, and it warns', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { api, log } = makeApi({
@@ -300,15 +327,17 @@ describe('openInPopup (KAN-437)', () => {
     expect(log).toEqual([{ call: 'removeTab', tabId: 7 }]);
   });
 
-  test('never rejects: the popup and the reopen are both refused', async () => {
+  test('never rejects: the popup, the reopen and its retry are all refused', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const { api } = makeApi({
+    const { api, log } = makeApi({
       tabs: BESIDE,
       refusePopup: true,
       refuseCreate: true,
     });
 
     await expect(openInPopup(api, 7)).resolves.toBeUndefined();
+
+    expect(log.filter((entry) => entry.call === 'createTab')).toHaveLength(2);
 
     expect(warn).toHaveBeenLastCalledWith(
       'Could not open the popup:',
