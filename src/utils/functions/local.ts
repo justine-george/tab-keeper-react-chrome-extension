@@ -782,7 +782,10 @@ const isValidTabData = (data: unknown): data is tabData => {
     (data.chromeGroupId === undefined ||
       typeof data.chromeGroupId === 'string') &&
     // KAN-458. Nothing writes false, so anything but true or absent is a hand edit.
-    (data.pinned === undefined || data.pinned === true)
+    (data.pinned === undefined || data.pinned === true) &&
+    // KAN-460 Part 4.
+    (data.splitId === undefined ||
+      (typeof data.splitId === 'string' && data.splitId !== ''))
   );
 };
 

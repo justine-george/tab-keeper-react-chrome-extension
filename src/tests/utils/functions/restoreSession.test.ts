@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { generatePlaceholderURL } from '../../../utils/functions/local';
+import {
+  decodeDataUrl,
+  generatePlaceholderURL,
+  isLazyPlaceholder,
+} from '../../../utils/functions/local';
 import type { SavedWindowState } from '../../../redux/slices/tabContainerDataStateSlice';
 import {
   FULLSCREEN_FOCUS_SETTLE_MS,
@@ -12,6 +16,7 @@ import {
   type WindowSpec,
   WINDOW_SETTLE_MS,
 } from '../../../utils/functions/windows';
+import { createSplitApi } from '../../../utils/functions/splitView';
 import { setupChromeFake } from '../../setup/chrome.fake';
 import type { ChromeFakeHandle, ChromeSeed } from '../../setup/chrome.fake';
 
@@ -615,5 +620,197 @@ describe('incognito windows', () => {
       urls: [FULL, web('w1')],
     });
     expect(made[web('w2')].urls).toEqual([STUB, web('w2')]);
+  });
+});
+
+// KAN-460 Part 4 (ledger 2026-10-09-kan-460-part-4-split-measurement.md). Pick (a): a pair Chrome would refuse opens as ordinary tabs.
+describe('split view', () => {
+  type Saved = { name: string; split?: string; pinned?: true; group?: string };
+  const splitRequest = (
+    saved: Saved[],
+    activeTabId?: string
+  ): RestoreSessionRequest => ({
+    type: RESTORE_SESSION_MESSAGE,
+    specs: [
+      {
+        tabs: saved.map(({ name, split, pinned, group }) => ({
+          tabId: name,
+          favicon: '',
+          title: name,
+          url: web(name),
+          ...(split === undefined ? {} : { splitId: split }),
+          ...(pinned === undefined ? {} : { pinned }),
+          ...(group === undefined ? {} : { chromeGroupId: group }),
+        })),
+        focused: true,
+        bounds: null,
+        groups: [
+          ...new Set(saved.flatMap((s) => (s.group ? [s.group] : []))),
+        ].map((groupId) => ({ groupId, title: groupId, color: 'blue' })),
+        ...(activeTabId === undefined ? {} : { activeTabId }),
+      },
+    ],
+    goToURLText: 'Visit Site',
+    closeOtherWindows: false,
+    pinTabKeeper: false,
+  });
+  // The new window's tabs in order: its page's name, ~ when still a lazy placeholder, and a letter per split.
+  async function restored() {
+    const [made] = (await chrome.windows.getAll({ populate: true })).filter(
+      (w) => w.id !== 1
+    );
+    const letters = new Map<number, string>();
+    return (made.tabs ?? [])
+      .slice()
+      .sort((a, b) => a.index - b.index)
+      .map((t) => {
+        const url = t.url ?? '';
+        const id = t.splitViewId ?? -1;
+        if (id !== -1 && !letters.has(id)) {
+          letters.set(id, `S${letters.size + 1}`);
+        }
+        const name = new URL(decodeDataUrl(url)).hostname.split('.')[0];
+        const lazy = isLazyPlaceholder(url) ? '~' : '';
+        return `${lazy}${name}${id === -1 ? '' : `[${letters.get(id)}]`}`;
+      });
+  }
+  // Records createSplit calls, or replaces it.
+  const splitCalls = (impl?: () => Promise<number>) => {
+    const calls: number[][] = [];
+    const real = createSplitApi();
+    Reflect.set(chrome.tabs, 'createSplit', (ids: number[]) => {
+      calls.push(ids);
+      if (impl) return impl();
+      return real ? real(ids) : Promise.reject(new Error('no createSplit'));
+    });
+    return calls;
+  };
+
+  test('a saved pair is split again, and both of its tabs load their real page', async () => {
+    handle = setupChromeFake(seed({ splitView: true }));
+    await restoreSession(
+      splitRequest([
+        { name: 'a' },
+        { name: 'b', split: 's' },
+        { name: 'c', split: 's' },
+        { name: 'd' },
+      ])
+    );
+    expect(await restored()).toEqual(['a', 'b[S1]', 'c[S1]', '~d']);
+  });
+
+  test('before Chrome 155: two ordinary lazy tabs', async () => {
+    handle = setupChromeFake(seed());
+    await restoreSession(
+      splitRequest([
+        { name: 'a' },
+        { name: 'b', split: 's' },
+        { name: 'c', split: 's' },
+      ])
+    );
+    expect(await restored()).toEqual(['a', '~b', '~c']);
+  });
+
+  test.each([
+    [
+      'separated by an edit',
+      [
+        { name: 'a' },
+        { name: 'b', split: 's' },
+        { name: 'x' },
+        { name: 'c', split: 's' },
+      ],
+    ],
+    [
+      'three tabs share it',
+      [
+        { name: 'a' },
+        { name: 'b', split: 's' },
+        { name: 'c', split: 's' },
+        { name: 'd', split: 's' },
+      ],
+    ],
+    ['one tab left', [{ name: 'a' }, { name: 'b', split: 's' }]],
+    [
+      'mixed pinned',
+      [
+        { name: 'b', split: 's', pinned: true },
+        { name: 'c', split: 's' },
+        { name: 'a' },
+      ],
+    ],
+    [
+      'mixed group',
+      [
+        { name: 'a' },
+        { name: 'b', split: 's', group: 'g' },
+        { name: 'c', split: 's' },
+      ],
+    ],
+  ] satisfies [string, Saved[]][])(
+    '%s: no split, every tab lazy but the first',
+    async (_name, saved) => {
+      handle = setupChromeFake(seed({ splitView: true }));
+      const calls = splitCalls();
+      await restoreSession(splitRequest(saved, 'a'));
+      expect(calls).toEqual([]);
+      expect((await restored()).filter((t) => t.startsWith('~')).length).toBe(
+        saved.length - 1
+      );
+    }
+  );
+
+  test('a pair in one group is grouped and split', async () => {
+    handle = setupChromeFake(seed({ splitView: true }));
+    await restoreSession(
+      splitRequest([
+        { name: 'a' },
+        { name: 'b', split: 's', group: 'g' },
+        { name: 'c', split: 's', group: 'g' },
+      ])
+    );
+    expect(await restored()).toEqual(['a', 'b[S1]', 'c[S1]']);
+    const [b, c] = (await chrome.tabs.query({})).filter(
+      (t) => t.splitViewId !== -1
+    );
+    expect(b.groupId).not.toBe(-1);
+    expect(c.groupId).toBe(b.groupId);
+  });
+
+  test('the split comes after the opening tab is moved into place, which would end it', async () => {
+    // x is refused, so the opening tab c is moved back one slot after the others are made.
+    handle = setupChromeFake(
+      seed({ splitView: true, refusedUrls: [web('x')] })
+    );
+    await restoreSession(
+      splitRequest(
+        [
+          { name: 'y', split: 't' },
+          { name: 'x', split: 't' },
+          { name: 'b', split: 's' },
+          { name: 'c', split: 's' },
+        ],
+        'c'
+      )
+    );
+    expect(await restored()).toEqual(['y', 'b[S1]', 'c[S1]']);
+  });
+
+  test('a refused split warns, and the window keeps its tabs', async () => {
+    handle = setupChromeFake(seed({ splitView: true }));
+    splitCalls(() => Promise.reject(new Error('refused')));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await restoreSession(
+      splitRequest([
+        { name: 'a' },
+        { name: 'b', split: 's' },
+        { name: 'c', split: 's' },
+      ])
+    );
+    expect(await restored()).toEqual(['a', 'b', 'c']);
+    expect(warn).toHaveBeenCalledWith(
+      'Could not restore a split view:',
+      expect.any(Error)
+    );
   });
 });
