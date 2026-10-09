@@ -602,3 +602,83 @@ test.describe('incognito (KAN-460 Part 3)', () => {
     expect((await everyWindow(worker)).filter((w) => w.incognito)).toEqual([]);
   });
 });
+
+// KAN-460 Part 4. Needs Chrome 155+ (Playwright 1.64's Chromium 156); on an older browser the premise fails loudly, never skips.
+test.describe('split view (KAN-460 Part 4)', () => {
+  test('9. a split pair is saved with one id, and Switch brings it back split with both tabs loaded', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedSettings(context, {});
+    const popup = await openPage(context, extensionId, 'index.html', POPUP);
+    const made = await serviceWorker.evaluate(async (urls) => {
+      const isCreateSplit = (
+        f: unknown
+      ): f is (tabIds: number[]) => Promise<number> => typeof f === 'function';
+      const createSplit: unknown = Reflect.get(chrome.tabs, 'createSplit');
+      if (!isCreateSplit(createSplit)) return 'no tabs.createSplit';
+      const win = await chrome.windows.create({ url: urls, focused: false });
+      const ids = (win?.tabs ?? []).flatMap((t) =>
+        t.id === undefined ? [] : [t.id]
+      );
+      await createSplit.call(chrome.tabs, [ids[1], ids[2]]);
+      return 'split';
+    }, ['SplitA', 'SplitB', 'SplitC', 'SplitD'].map(page));
+    // PREMISE: this browser can make a split (Chrome 155+).
+    expect(made).toBe('split');
+
+    await saveRowSaveAll(popup).click();
+    await expect
+      .poll(async () => (await stored(popup)).tabGroups.length)
+      .toBe(1);
+    const saved = (await stored(popup)).tabGroups[0].windows.find((w) =>
+      w.tabs.some((t) => t.title === 'SplitA')
+    );
+    const [a, b, c, d] = saved?.tabs ?? [];
+    expect(typeof b?.splitId).toBe('string');
+    expect(c?.splitId).toBe(b?.splitId);
+    expect([a, d].map((t) => t && 'splitId' in t)).toEqual([false, false]);
+
+    const before = (await windowsNow(serviceWorker)).map((w) => w.id);
+    await pressSwitch(popup);
+    await expect
+      .poll(
+        async () =>
+          (await windowsNow(serviceWorker)).filter((w) => before.includes(w.id))
+            .length,
+        { timeout: 15_000 }
+      )
+      .toBe(0);
+
+    // Each tab of the restored window: title, real page or lazy placeholder, split id.
+    const restored = () =>
+      serviceWorker.evaluate(async () => {
+        const all = await chrome.windows.getAll({ populate: true });
+        const win = all.find((w) =>
+          (w.tabs ?? []).some((t) => t.title === 'SplitA')
+        );
+        return (win?.tabs ?? [])
+          .slice()
+          .sort((x, y) => x.index - y.index)
+          .map((t) => ({
+            title: t.title ?? '',
+            lazy: (t.url ?? '').startsWith('data:text/html;base64,'),
+            split: t.splitViewId ?? -1,
+          }));
+      });
+    await expect
+      .poll(async () => (await restored()).length, { timeout: 15_000 })
+      .toBe(4);
+    const tabs = await restored();
+    expect(tabs.map((t) => [t.title, t.lazy])).toEqual([
+      ['SplitA', false],
+      ['SplitB', false],
+      ['SplitC', false],
+      ['SplitD', true],
+    ]);
+    expect(tabs[1].split).not.toBe(-1);
+    expect(tabs[2].split).toBe(tabs[1].split);
+    expect([tabs[0].split, tabs[3].split]).toEqual([-1, -1]);
+  });
+});
