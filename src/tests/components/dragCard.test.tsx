@@ -89,7 +89,7 @@ describe('the drag card', () => {
 
   test('CONTROL: a release, Esc or cancel drives nothing for a drag card; only its owner hides it', async () => {
     await renderWithProviders(<CarryLayer />);
-    // What a carry's end would undo, and what a carry's routing would call.
+    // The hold and kind a layer driving this drag would release.
     setDragging(true, 'tab');
     beginDragHold();
     const receiver = {
@@ -110,7 +110,7 @@ describe('the drag card', () => {
     expect(receiver.hit).not.toHaveBeenCalled();
     expect(receiver.hover).not.toHaveBeenCalled();
     expect(receiver.take).not.toHaveBeenCalled();
-    // endCarry would have unpublished the kind and ended the hold.
+    // Nothing released the hold or unpublished the kind (endCarry is a no-op with no carry).
     expect(isDragHeld()).toBe(true);
     expect(document.documentElement.hasAttribute('data-dragging')).toBe(true);
     // Nothing moved the card, and nothing hid it.

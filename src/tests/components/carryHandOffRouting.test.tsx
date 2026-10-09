@@ -22,16 +22,8 @@ import { setIsNotDirty } from '../../redux/slices/globalStateSlice';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { T0, s1, s2, s3 } from '../fixtures/sessionMoveFixture';
 
-// KAN-350 final review: how a saved drag reaches the session list, the list
-// and the detail rendered together.
-//   - finding 8: the move that hands a drag to the carry, or hands an
-//     adopted one back, is routed to the list, so the row under it is the
-//     target at once;
-//   - finding 7: a detail drag reads the list's box once, when it starts,
-//     not on every move.
-//
-// jsdom has no layout. The list's scroller sits at x 0..300, y 100..400,
-// with 60px rows; the detail pane beside it at x 400..800.
+// KAN-350 final review, list and detail together. Finding 8: the move that hands a drag off, or back, is routed to the list, so the row under it is the target at once.
+// Finding 7: a detail drag reads the list's box once, at its start. jsdom: the list's scroller at x 0..300, y 100..400, 60px rows; the detail at x 400..800.
 
 const LIST_TOP = 100;
 const LIST_H = 300;
@@ -194,10 +186,7 @@ describe('finding 8: the move that hands over is routed to the list', () => {
   });
 });
 
-// Every saved detail drag asked the list for its box on EVERY pointermove --
-// a forced layout read per move, the cost the engine's measure-once rule
-// exists to avoid -- carry or not. The list's box is read once per drag,
-// when the drag starts, and the hand-off still happens where the list is.
+// A forced layout read per pointermove is what the engine's measure-once rule avoids: the list's box is read once per drag, and the hand-off still lands where the list is.
 describe('finding 7: a detail drag reads the list’s box once, when it starts', () => {
   const pressT2 = () => {
     const t2 = document.querySelector<HTMLElement>('[data-drag-row-id="t2"]');

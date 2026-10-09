@@ -29,10 +29,7 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import type { makeTestStore } from '../setup/makeStore';
 import { s1, s2, tab } from '../fixtures/sessionMoveFixture';
 
-// KAN-350. The CarryLayer drives a carry while the pointer is outside every
-// area that can take it: it draws the D1 card at the pointer, asks the
-// receivers, and ends the carry on Esc, pointercancel, or a release no
-// receiver took -- so nothing moves.
+// KAN-350: CarryLayer drives a carry outside every area that can take it: draws the D1 card, asks the receivers, and ends it on Esc, pointercancel or a refused release.
 
 const TAB: CarriedRef = {
   kind: 'tab',

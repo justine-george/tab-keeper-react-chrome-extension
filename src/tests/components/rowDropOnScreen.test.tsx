@@ -34,17 +34,9 @@ import {
   windowIds,
 } from '../fixtures/sessionMoveFixture';
 
-// KAN-350 final review: a carried item let go on a session ROW, the list and
-// the detail rendered together.
-//   - finding 1: a new window that would rebuild the window the item is
-//     already alone in, first, changes nothing, and the carry is cancelled;
-//   - finding 2: a window let go on its own session's row while another
-//     session is on screen is announced as a tab or group there is;
-//   - finding 5: a row drop that lands in the session on screen is followed
-//     into view in the detail, as an adopted drop is (KAN-155).
-//
-// jsdom has no layout. The list's scroller sits at x 0..300, y 100..400,
-// with 60px rows; the detail pane beside it at x 400..800.
+// KAN-350 final review, list and detail together. Finding 1: a new window that rebuilds the one the item is already alone and first in changes nothing and cancels.
+// Finding 2: a window on its own row with another session shown is announced, as a tab or group is. Finding 5: a drop into the shown session is followed into view (KAN-155).
+// jsdom has no layout: the list's scroller at x 0..300, y 100..400, 60px rows; the detail at x 400..800.
 
 const LIST_TOP = 100;
 const LIST_H = 300;
@@ -261,10 +253,7 @@ describe('finding 1: on its own row, a new window that changes nothing', () => {
   });
 });
 
-// The Show rule, for every kind on its own session's row: the Moved toast
-// when the row's session was not on screen at the drop, and its Show while
-// it is still not on screen after it. S1 is carried from, S2 is opened by a
-// rest on its row, then the item is let go on S1's row.
+// The Show rule on the item's own row: a Moved toast when that session was not on screen at the drop, with Show while it still is not. Carried from S1, S2 opened by a rest, let go on S1's row.
 describe('finding 2: on its own row with another session on screen, every kind is announced', () => {
   const cases: [string, CarriedRef, CarryCard][] = [
     [

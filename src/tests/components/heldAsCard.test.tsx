@@ -320,8 +320,7 @@ describe('a drag in a saved list is drawn by the card (KAN-354 C1 A)', () => {
       expect(getComputedStyle(held).pointerEvents).not.toBe('none');
       expect(getComputedStyle(held).visibility).not.toBe('hidden');
       expect(held.inert).not.toBe(true);
-      // The property alone cannot see an `inert` attribute: jsdom has no
-      // `inert` property, so it reads undefined whatever the markup says.
+      // jsdom has no `inert` property, so the attribute is the read.
       expect(held.hasAttribute('inert')).toBe(false);
 
       act(() => {

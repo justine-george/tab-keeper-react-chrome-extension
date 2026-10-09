@@ -44,16 +44,8 @@ import {
   windowIds,
 } from '../fixtures/sessionMoveFixture';
 
-// KAN-350 Task 4. The saved session list takes a carry: the row under the
-// pointer is the target (D2 A), resting on it for 600ms opens that session
-// (S1 A), and letting go on it moves the carried item in as a new first
-// window (S2 A).
-//
-// jsdom has no layout, so the list's scroller and rows get boxes here: a
-// 300px scroller at y 100..400, 60px rows, six sessions -- the sixth below
-// the fold. Rows are laid out against the scroller's scrollTop, as a real
-// list is, so a hit read in the wrong space names the wrong row once the list
-// has scrolled.
+// KAN-350 Task 4: the session list takes a carry. The row under the pointer is the target (D2 A), 600ms on it opens it (S1 A), a release moves the item in as a new first window (S2 A).
+// jsdom has no layout: a 300px scroller at y 100..400, 60px rows, six sessions (the sixth below the fold), laid out against scrollTop so a hit read in the wrong space names the wrong row.
 
 const LIST_TOP = 100;
 const LIST_H = 300;

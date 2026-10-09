@@ -363,10 +363,7 @@ describe('moveToSession: one step to undo, and synced', () => {
   });
 });
 
-// Review Focus 1. The drop goes through dropOnTop: a change that arrived while
-// the item was carried is applied first. One that removed the source item or
-// the destination leaves the removal standing: nothing moves, and nothing is
-// announced.
+// Review Focus 1: the drop goes through dropOnTop, so a change that arrived mid-carry applies first. One that removed the source or target leaves nothing moved or announced.
 describe('moveToSession at the drop: a change that arrived while carried', () => {
   // Hold, and queue a change this page did not make, applied at the drop.
   const holdWithChange = (

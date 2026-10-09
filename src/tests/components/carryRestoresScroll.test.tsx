@@ -18,15 +18,8 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { s1, s2 } from '../fixtures/sessionMoveFixture';
 import { standInSessionList } from '../setup/standInSessionList';
 
-// KAN-350 + KAN-157. A window or group drag folds the list, and the fold can
-// clamp the scroll ("five windows scrolled to 300 ended at 0"). A refused drag
-// puts the press's scroll back; a CANCELLED carry of the same drag must too.
-// A committed one must not: the view is where the move left it.
-//
-// jsdom has no layout: the pane gets inline overflow, a box, and scroll
-// metrics, and the fold's clamp is played by hand (scrollTop = 0 after the
-// hand-off). The restore runs on the frame after the carry ends, once the
-// source draws the carried row again, so frames are run by hand too.
+// KAN-350 + KAN-157: a window or group drag's fold can clamp the scroll. A refused drag or a cancelled carry puts the press's scroll back; a committed carry does not.
+// jsdom: inline overflow, a box and scroll metrics; the clamp is played by hand, and frames are run by hand (the restore runs the frame after the carry ends).
 
 const PRESS_SCROLL = 300;
 
