@@ -32,6 +32,7 @@ async function renderWindow(
     tabs: tabData[];
     chromeTabGroups?: chromeTabGroupData[];
     onOpenWindow?: () => void;
+    onUpdateWindowGroupTitle?: (title: string) => void;
   },
   { hasTabGroupsPermission = true }: { hasTabGroupsPermission?: boolean } = {}
 ) {
@@ -256,24 +257,28 @@ describe('finishing a window rename', () => {
   test('the tick commits and leaves the editor closed', async () => {
     const user = userEvent.setup();
     const onOpenWindow = vi.fn();
-    const { store } = await renderWindow({
+    const onUpdateWindowGroupTitle = vi.fn();
+    await renderWindow({
       tabs: [
         { tabId: 't1', favicon: '', title: 'Inbox', url: 'https://a.test' },
       ],
       onOpenWindow,
+      onUpdateWindowGroupTitle,
     });
 
     await user.click(
       screen.getByRole('button', { name: 'Rename window: Window 1' })
     );
+    await user.clear(screen.getByRole('textbox'));
+    await user.type(screen.getByRole('textbox'), 'Trip');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
+    expect(onUpdateWindowGroupTitle).toHaveBeenCalledWith('Trip');
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Rename window: Window 1' })
     ).toBeInTheDocument();
     expect(onOpenWindow).not.toHaveBeenCalled();
-    expect(store).toBeDefined();
   });
 });
 
