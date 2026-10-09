@@ -17,7 +17,7 @@ import {
 import { expect } from './grantedExtension';
 import { stored, type Point, boxOf } from './sessionDrag';
 
-// Shared by drag-between-sessions and new-session-drop (split for KAN-480).
+// Shared by drag-between-sessions, new-session-drop (KAN-480) and spring-open-windows (KAN-481).
 
 export const POPUP = { width: 790, height: 550 };
 export const TAB_VIEW = { width: 1280, height: 800 };
@@ -578,3 +578,155 @@ export async function ontoTitle(page: Page, windowId: string, x: number) {
 // Drawn folded: no rows.
 export const isFolded = async (page: Page, windowId: string) =>
   (await page.locator(`${blockOf(windowId)} [data-window-tabs]`).count()) === 0;
+
+export const THEMES = ['Light', 'WarmLight', 'BBPink', 'Darkenheimer', 'Blue'];
+
+// A window's stored Chrome-group entries, by group id.
+export const groupEntries = async (
+  page: Page,
+  id: string,
+  windowIndex: number
+): Promise<string[]> =>
+  (
+    sessionOf(await stored(page), id).windows[windowIndex]?.chromeTabGroups ??
+    []
+  ).map((g) => g.groupId);
+
+// Onto a session row's centre. Leaves the pointer resting there.
+export async function onto(page: Page, sessionId: string): Promise<void> {
+  const b = await boxOf(sessionRow(page, sessionId));
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 5 });
+  await expect.poll(() => carryTargets(page)).toEqual([sessionId]);
+}
+
+// Onto the phantom's own place, where nothing is shifted, so rows read as the drag measured them. Read after adoption: it compresses a group (KAN-160).
+// A tab's or group's phantom rests in the trailing block (KAN-361/366), so the pane is scrolled to its end first.
+export async function adoptPhantom(
+  page: Page,
+  phantomId: string
+): Promise<void> {
+  const phantom = page.locator(`[data-drag-row-id="${phantomId}"]`);
+  await expect(phantom).toBeAttached();
+  // PREMISE: where the phantom rests. A window's is a window row of its
+  // own, in no window block; a tab's or group's, in the trailing block.
+  const home = await phantom.evaluate((el) => ({
+    isWindow: el.querySelector('[data-drop-window-id]') !== null,
+    block:
+      el
+        .closest('[data-drop-window-id]')
+        ?.getAttribute('data-new-window-target') ?? null,
+  }));
+  expect(home.block).toBe(home.isWindow ? null : 'last');
+  if (!home.isWindow) await setDetailScroll(page, 1e6);
+  const b = await boxOf(phantom);
+  const x = b.x + Math.min(60, b.width / 2);
+  await page.mouse.move(x, b.y + b.height / 2, { steps: 8 });
+  await expect(phantom).toHaveAttribute('data-drag-held', '');
+  const ownCentre = () =>
+    phantom.evaluate((el: HTMLElement) => {
+      const shift = Number(
+        /translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0
+      );
+      const r = el.getBoundingClientRect();
+      return { y: r.top - shift + r.height / 2, shift };
+    });
+  for (let i = 0; i < 3; i++) {
+    const own = await ownCentre();
+    if (Math.abs(own.shift) < 1) break;
+    await page.mouse.move(x, own.y, { steps: 4 });
+  }
+  await expect
+    .poll(async () => Math.abs((await ownCentre()).shift))
+    .toBeLessThan(1);
+  // The rows ease into place (KAN-165): until they have.
+  await settled(page);
+}
+
+// The pointer to `frac` of the way down `rowId`'s box, as it is now.
+export async function aimAt(
+  page: Page,
+  rowId: string,
+  frac: number
+): Promise<void> {
+  const b = await boxOf(page.locator(`[data-drag-row-id="${rowId}"]`));
+  await page.mouse.move(
+    b.x + Math.min(60, b.width / 2),
+    b.y + b.height * frac,
+    {
+      steps: 8,
+    }
+  );
+  await settled(page);
+}
+
+// Two LayoutUnits (1/64px each): rows easing back under a transform snap their subpixel offset by up to one each (measured 451.5 -> 451.484375).
+export const SLOT_EDGE_TOLERANCE = 2 / 64;
+
+export async function expectSlotAsWideAs(
+  page: Page,
+  ref: { left: number; right: number }
+): Promise<void> {
+  // PREMISE: the landing is out of the target, where the slot is drawn (a
+  // landing inside it lights the box and hides the slot, V2 A).
+  expect(
+    await page.locator('[data-new-window-target][data-landing]').count()
+  ).toBe(0);
+  // PREMISE: the reference row is indented, so a layout with no indent
+  // cannot match it.
+  expect(ref.left - (await detailPane(page)).left).toBeGreaterThan(60);
+  const slot = await box(page, '[data-drag-landing-slot]');
+  if (slot === null) throw new Error('no landing slot drawn');
+  // Raw boxes, unrounded: the rows sit on half pixels (435.5).
+  expect(
+    Math.abs(slot.left - ref.left),
+    `slot left ${slot.left} vs ${ref.left}`
+  ).toBeLessThanOrEqual(SLOT_EDGE_TOLERANCE);
+  expect(
+    Math.abs(slot.right - ref.right),
+    `slot right ${slot.right} vs ${ref.right}`
+  ).toBeLessThanOrEqual(SLOT_EDGE_TOLERANCE);
+}
+
+export const rowBox = async (page: Page, rowId: string) => {
+  const b = await box(page, `[data-drag-row-id="${rowId}"]`);
+  if (b === null) throw new Error(`no row ${rowId}`);
+  return b;
+};
+
+export const dragRow = (id: string) => `[data-drag-row-id="${id}"]`;
+// An element's own box: where it is drawn, less the translate a drag gives it.
+export const ownBox = (page: Page, selector: string) =>
+  page.locator(selector).evaluate((el) => {
+    if (!(el instanceof HTMLElement)) throw new Error('not an HTMLElement');
+    const shift = Number(
+      /translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0
+    );
+    const r = el.getBoundingClientRect();
+    return { top: r.top - shift, bottom: r.bottom - shift };
+  });
+
+// "Below the list", as the plan measured it on main: midway between the
+// last window's bottom and the pane's bottom. Read at rest.
+export async function belowTheList(
+  page: Page,
+  lastWindowId: string
+): Promise<number> {
+  const last = await boxOf(
+    page.locator(`[data-drop-window-id="${lastWindowId}"]`)
+  );
+  const pane = await detailPane(page);
+  return (last.y + last.height + pane.bottom) / 2;
+}
+
+// The detail pane's scroll range: how far it can scroll, 0 for a list that
+// fits.
+export const scrollRange = (page: Page) =>
+  page.evaluate(() => {
+    let el = document.querySelector(
+      '[data-pane="detail"] [data-drop-window-id]'
+    )?.parentElement;
+    while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+      el = el.parentElement;
+    if (!el) throw new Error('no detail pane');
+    return el.scrollHeight - el.clientHeight;
+  });
