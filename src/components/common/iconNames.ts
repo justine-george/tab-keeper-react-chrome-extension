@@ -50,6 +50,7 @@ export const LIGATURE_ICON_NAMES = [
   'open_in_full',
   'playlist_add',
   'print',
+  'published_with_changes',
   'redo',
   'reopen_window',
   'replay',
