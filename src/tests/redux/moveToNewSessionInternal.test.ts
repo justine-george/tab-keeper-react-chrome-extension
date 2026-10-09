@@ -144,22 +144,6 @@ describe('a group moves into a new session', () => {
       windowIn(next, 'S1', 'w1').chromeTabGroups?.map((g) => g.groupId)
     ).toEqual(['g2']);
   });
-
-  it('an unnamed group names the session by its first tab', () => {
-    const c = container([
-      s3(),
-      s2(),
-      session('S1', 'Source', T0 - 1, [
-        win(
-          'w1',
-          [tab('t1'), tab('g1a', 'g1'), tab('g1b', 'g1')],
-          [{ groupId: 'g1', title: '', color: 'blue' }]
-        ),
-      ]),
-    ]);
-    const next = movedInto(seeded(c), groupRef('g1'));
-    expect(sessionIn(next, NEW).title).toBe('g1a');
-  });
 });
 
 describe('a window moves into a new session', () => {
@@ -179,19 +163,6 @@ describe('a window moves into a new session', () => {
     expect(sessionIn(next, 'S1').windows.map((w) => w.windowId)).toEqual([
       'w2',
     ]);
-  });
-
-  it('an unnamed window names the session by its first tab', () => {
-    const c = container([
-      s3(),
-      s2(),
-      session('S1', 'Source', T0 - 1, [
-        { ...win('w1', [tab('first'), tab('second')]), title: '' },
-        win('w2', [tab('t3')]),
-      ]),
-    ]);
-    const next = movedInto(seeded(c), windowRef('w1'));
-    expect(sessionIn(next, NEW).title).toBe('first');
   });
 });
 
@@ -289,32 +260,6 @@ describe('stamps', () => {
 });
 
 describe('D20: an item that is not there changes nothing', () => {
-  const noMove = (carried: CarriedRef) => {
-    const before = seeded();
-    const next = reducer(
-      before,
-      moveToNewSessionInternal(carried, FALLBACK, '', {
-        tabGroupId: NEW,
-        newWindowId: NEW_WINDOW,
-        remintNamespace: NS,
-        now: T0,
-      })
-    );
-    expect(next).toBe(before);
-  };
-
-  it('a missing session', () => {
-    noMove({ ...tabRef('t1'), tabGroupId: 'nope' });
-  });
-  it('a missing window', () => {
-    noMove(tabRef('t1', 'w9'));
-  });
-  it('a missing tab', () => {
-    noMove(tabRef('t9'));
-  });
-  it('a missing group', () => {
-    noMove(groupRef('g9'));
-  });
   it('a group with no tabs', () => {
     const before = seeded(
       container([

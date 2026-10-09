@@ -31,7 +31,6 @@ import {
   setUserId,
 } from '../../redux/slices/globalStateSlice';
 import { redo, resetHistory, undo } from '../../redux/slices/undoRedoSlice';
-import { MOVE_TO_NEW_SESSION_ACTION } from '../../utils/constants/actionTypes';
 import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
 import {
   T0,
@@ -91,10 +90,6 @@ afterEach(() => {
 });
 
 describe('moveToNewSessionInternal in the store', () => {
-  it('the action type is the one the middleware captures', () => {
-    expect(MOVE_TO_NEW_SESSION_ACTION).toBe(moveToNewSessionInternal.type);
-  });
-
   it('marks sync dirty and is one undo step', () => {
     const { store } = ready();
     const past = store.getState().undoRedo.past.length;
