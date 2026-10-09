@@ -69,8 +69,11 @@ const showOther = (store: Store) =>
   act(() => {
     store.dispatch(selectTabContainer('S2'));
   });
-const windowsOf = (store: Store) =>
-  store.getState().tabContainerDataState.tabGroups.map((g) => g.windows);
+// Every session field but the selection, which a cancel changes.
+const sessionsOf = (store: Store) =>
+  store
+    .getState()
+    .tabContainerDataState.tabGroups.map((g) => ({ ...g, isSelected: false }));
 
 const card = () => document.querySelector<HTMLElement>('[data-carry-card]');
 // The card's words, without an icon's ligature.
@@ -211,7 +214,7 @@ describe('Esc, a release over nothing and pointercancel end the carry, and nothi
     showOther(store);
     const held = vi.fn();
     whenDragReleases(held);
-    const before = windowsOf(store);
+    const before = sessionsOf(store);
 
     act(end);
 
@@ -221,7 +224,7 @@ describe('Esc, a release over nothing and pointercancel end the carry, and nothi
     expect(isDragHeld()).toBe(false);
     expect(held).toHaveBeenCalledTimes(1);
     expect(document.documentElement.hasAttribute('data-dragging')).toBe(false);
-    expect(windowsOf(store)).toEqual(before);
+    expect(sessionsOf(store)).toEqual(before);
     // Cancelled, so the source is shown again (KAN-406).
     expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
       'S1'
@@ -296,7 +299,7 @@ describe('receivers (Ruling 2)', () => {
     const off = registerCarryReceiver(r);
     handOff(TAB_CARD);
     showOther(store);
-    const before = windowsOf(store);
+    const before = sessionsOf(store);
 
     fireEvent.pointerMove(window, { clientX: 50, clientY: 10 });
     act(() => {
@@ -306,7 +309,7 @@ describe('receivers (Ruling 2)', () => {
     expect(calls).toContain('take');
     expect(currentCarry()).toBeNull();
     expect(isDragHeld()).toBe(false);
-    expect(windowsOf(store)).toEqual(before);
+    expect(sessionsOf(store)).toEqual(before);
     expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
       'S1'
     );
