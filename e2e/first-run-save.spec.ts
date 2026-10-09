@@ -13,16 +13,12 @@ import {
   storedRun,
   storedTitles,
 } from './fixtures/run';
+import { saveRowSaveAll } from './fixtures/sessionActions';
 
 // §8 and the first save on the real build: the prefill, the run's own save, the echo, Q3.
 
 const GMAIL = 'https://mail.google.com/mail/u/0/';
 const field = (page: Page) => page.locator('[data-tour-anchor="save"] input');
-const saveAll = (page: Page) =>
-  page.locator('[data-tour-anchor="save"]').getByRole('button', {
-    name: 'Save all open windows as a session',
-    exact: true,
-  });
 
 test.beforeEach(async ({ context }) => {
   await context.route(GMAIL, (route) =>
@@ -70,14 +66,14 @@ test('the field holds the name an empty save would give, and saving it is the ru
 }) => {
   const page = await popupRunBesideGmail(context, extensionId);
   await expect(field(page)).toHaveValue('Inbox – Gmail');
-  await saveAll(page).click();
+  await saveRowSaveAll(page).click();
   await expect(cardAt(page, 2)).toBeVisible();
   await expect.poll(() => storedTitles(page)).toEqual(['Inbox – Gmail']);
   await expect(field(page)).toHaveValue('');
   // The same tabs: an empty save names a session exactly as the prefill did.
   await cardButton(page, 'Back').click();
   await expect(cardAt(page, 1)).toBeVisible();
-  await saveAll(page).click();
+  await saveRowSaveAll(page).click();
   await expect
     .poll(() => storedTitles(page))
     .toEqual(['Inbox – Gmail', 'Inbox – Gmail']);
@@ -89,7 +85,7 @@ test('the first save echoes on its tab dots, and only the first', async ({
 }) => {
   const page = await popupRunBesideGmail(context, extensionId);
   await watchDotEchoes(page);
-  await saveAll(page).click();
+  await saveRowSaveAll(page).click();
   await expect(cardAt(page, 2)).toBeVisible();
   await expect.poll(async () => (await echoes(page)).length).toBeGreaterThan(0);
   expect(
@@ -98,7 +94,7 @@ test('the first save echoes on its tab dots, and only the first', async ({
   const count = (await echoes(page)).length;
   await cardButton(page, 'Back').click();
   await expect(cardAt(page, 1)).toBeVisible();
-  await saveAll(page).click();
+  await saveRowSaveAll(page).click();
   await expect.poll(() => storedTitles(page)).toHaveLength(2);
   await twoFrames(page);
   expect((await echoes(page)).length).toBe(count);
@@ -110,7 +106,7 @@ test.describe('reduced motion', () => {
     const page = await popupRunBesideGmail(context, extensionId);
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await watchDotEchoes(page);
-    await saveAll(page).click();
+    await saveRowSaveAll(page).click();
     await expect(cardAt(page, 2)).toBeVisible();
     await expect.poll(() => storedTitles(page)).toHaveLength(1);
     await twoFrames(page);
@@ -123,7 +119,7 @@ test('Back to the save card after the run’s save: it says it saved, and Next i
   extensionId,
 }) => {
   const page = await popupRunBesideGmail(context, extensionId);
-  await saveAll(page).click();
+  await saveRowSaveAll(page).click();
   await expect(cardAt(page, 2)).toBeVisible();
   await cardButton(page, 'Back').click();
   await expect(cardAt(page, 1)).toBeVisible();
@@ -155,7 +151,7 @@ test('full view: Back to step 3 after the run’s save says it saved; Next goes 
   await nextTo(page, 2);
   await nextTo(page, 3);
   await expect(field(page)).toHaveValue('Inbox – Gmail');
-  await saveAll(page).click();
+  await saveRowSaveAll(page).click();
   await expect(cardAt(page, 4)).toBeVisible();
   await cardButton(page, 'Back').click();
   await expect(cardAt(page, 3)).toBeVisible();

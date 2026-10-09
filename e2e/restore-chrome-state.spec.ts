@@ -1,4 +1,4 @@
-import type { Page, Worker } from '@playwright/test';
+import type { Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { grantedTest } from './fixtures/grantedExtension';
@@ -10,6 +10,11 @@ import {
 } from './fixtures/seed';
 import { openPage, POPUP } from './fixtures/onboarding';
 import { stored } from './fixtures/savedWindows';
+import {
+  pressOpen,
+  pressSwitch,
+  saveRowSaveAll,
+} from './fixtures/sessionActions';
 import { WINDOW_SETTLE_MS } from '../src/utils/functions/windows';
 
 // KAN-460 Part 1 on the real artifact: a collapsed group is saved and comes
@@ -18,34 +23,6 @@ import { WINDOW_SETTLE_MS } from '../src/utils/functions/windows';
 // the one focused after a restore. Every check reads Chrome back.
 
 const page = (name: string) => `data:text/html,<title>${name}</title>`;
-
-const sessionsRow = (p: Page) => p.locator('[data-pane="sessions"]');
-
-async function pressSwitch(popup: Page) {
-  await sessionsRow(popup)
-    .getByRole('button', { name: 'Switch', exact: true })
-    .click();
-  await popup
-    .locator('dialog[open][aria-labelledby="focus-confirm-title"]')
-    .getByRole('button', { name: 'Switch', exact: true })
-    .click();
-}
-
-async function pressOpen(popup: Page) {
-  await sessionsRow(popup)
-    .getByRole('button', { name: 'Open', exact: true })
-    .click();
-}
-
-async function saveAll(popup: Page) {
-  await popup
-    .locator('[data-tour-anchor="save"]')
-    .getByRole('button', {
-      name: 'Save all open windows as a session',
-      exact: true,
-    })
-    .click();
-}
 
 // Every group Chrome has, by title: collapsed or not, and the window it is in.
 const groupsNow = (worker: Worker) =>
@@ -94,7 +71,7 @@ grantedTest.describe('collapsed groups (KAN-460)', () => {
         })
         .toEqual([true, false]);
 
-      await saveAll(popup);
+      await saveRowSaveAll(popup).click();
       await expect
         .poll(async () => (await stored(popup)).tabGroups.length)
         .toBe(1);
@@ -243,7 +220,7 @@ test("3. Window 1 is the window saved from, even when it is not Chrome's first, 
   );
   expect(order.indexOf(second)).toBe(1);
 
-  await saveAll(popup);
+  await saveRowSaveAll(popup).click();
   await expect.poll(async () => (await stored(popup)).tabGroups.length).toBe(1);
   const windows = (await stored(popup)).tabGroups[0].windows;
   // PREMISE: both windows are saved, so Open has a wrong one to focus.
@@ -324,7 +301,7 @@ test.describe('window state (KAN-460 Part 2)', () => {
       )
       .toBe('maximized');
 
-    await saveAll(popup);
+    await saveRowSaveAll(popup).click();
     await expect
       .poll(async () => (await stored(popup)).tabGroups.length)
       .toBe(1);
