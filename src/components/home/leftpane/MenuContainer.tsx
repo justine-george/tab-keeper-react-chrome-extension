@@ -42,6 +42,7 @@ import {
 import { isTabView } from '../../../utils/functions/viewMode';
 import { getPrettyDate } from '../../../utils/functions/local';
 import { requestTabView } from '../../../utils/functions/popOut';
+import { requestPopup } from '../../../utils/functions/openInPopup';
 import { endRunAtFullViewButton } from '../../../redux/firstRun';
 
 export default function MenuContainer() {
@@ -306,11 +307,9 @@ export default function MenuContainer() {
   // KAN-340 A + R1. Three pairs by what they do: views (Open full view,
   // Sort), history (Undo, Redo), account and app (Sync, Settings). 8px
   // between pairs, none inside one, so hover fills within a pair still meet
-  // as they always have. Open full view is the cluster's leftmost icon and
-  // the cluster is right-aligned, so the five shared icons sit at the same x
-  // in the popup and the tab view, where Sort stands alone in the first pair.
-  // `gap` only spaces siblings that exist, so that lone pair leaves no
-  // leading gap.
+  // as they always have. The leftmost icon is Open full view in the popup and
+  // Open in popup in the tab view (KAN-437), and the cluster is right-aligned,
+  // so the five shared icons sit at the same x in both.
   const clusterStyle = css`
     display: flex;
     gap: 8px;
@@ -377,6 +376,19 @@ export default function MenuContainer() {
               />
             )}
           </span>
+        )}
+        {/* KAN-437 A. The full view's way back, in ⤢'s slot and drawn as ⤢ is; the worker opens the popup, closing this tab first unless it is pinned or the last. */}
+        {isTabView() && (
+          <Icon
+            ariaLabel={t('Open in popup')}
+            tooltipText={t('Open in popup')}
+            type="close_fullscreen"
+            size={ICON.MEDIUM_SMALL}
+            boxSizedFor={ICON.DEFAULT}
+            // KAN-437. It shrinks: ⤢'s stretch mirrored inward (mock pick A).
+            hoverMotion={{ scale: 0.88, duration: DURATION.MOVE }}
+            onClick={requestPopup}
+          />
         )}
         <OverflowMenu
           ariaLabel={t('Sort sessions')}

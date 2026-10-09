@@ -35,6 +35,17 @@ describe('home header glyph sizes (KAN-340)', () => {
     expect(glyphSize('Open full view')).toBe(px(ICON.MEDIUM_SMALL));
   });
 
+  test('in the full view, Open in popup draws at ICON.MEDIUM_SMALL, as Open full view does (KAN-437)', async () => {
+    history.replaceState(null, '', '?view=tab');
+    try {
+      await renderWithProviders(<MenuContainer />);
+
+      expect(glyphSize('Open in popup')).toBe(px(ICON.MEDIUM_SMALL));
+    } finally {
+      history.replaceState(null, '', '?');
+    }
+  });
+
   // The guard against a blanket change: resizing the whole row would pass
   // the test above.
   test('every other header icon stays at ICON.DEFAULT', async () => {
