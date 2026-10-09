@@ -21,6 +21,7 @@ export const LIGATURE_ICON_NAMES = [
   'check',
   'check_circle',
   'close',
+  'close_fullscreen',
   'cloud',
   'cloud_done',
   'cloud_off',
