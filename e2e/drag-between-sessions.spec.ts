@@ -1,25 +1,7 @@
-// KAN-350 on the real artifact: a saved tab, group or window dragged out of
-// the session on screen and into another saved session -- a MOVE, saved to
-// saved, that never touches Chrome.
-//
-// What jsdom could not show, and so what this file is for: real geometry
-// (the pane's box, the hand-off where the pointer reaches the session list
-// (KAN-352), the list's rows and its auto-scroll), real timing (the 0.6s
-// dwell, the frame the KAN-157 scroll comes back on, the frame KAN-155
-// follows the dropped row on), and real paint (the target's outline and dwell
-// sweep against the row's actual fill, the card over the list, the toast at a
-// 20px root).
-//
-// Driven as the popup (790x550) and as the tab view, side by side and folded
-// with a peek. Every move is read back from localStorage, where the app keeps
-// it. The New window target's height, the lit target's slot, what shows where
-// a carried window will land, and the target appearing in the source are
-// Justine's picks V1-V4 (all A), pinned in "the target visuals" below.
-//
-// Pointer paths are aimed in the layout the drag measures: an adopted drag
-// measures every row once, at adoption, with the held phantom at its own
-// place. So each exact-spot drop first brings the pointer to the phantom's own
-// centre (where nothing is shifted), reads the rows there, and only then aims.
+// KAN-350 on the real artifact: a saved tab, group or window carried into another saved session, a move that never touches Chrome.
+// For what jsdom cannot show: real geometry (the KAN-352 hand-off, auto-scroll), timing (the 0.6s dwell, the KAN-155/157 frames) and paint.
+// Popup (790x550) and tab view, side by side and folded. Moves are read back from localStorage. V1-V4 (all A) are pinned in "the target visuals".
+// An adopted drag measures its rows once, with the phantom at its own place: exact-spot drops reach the phantom's centre first, then aim.
 
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
@@ -112,10 +94,7 @@ const session = (
     windows,
   });
 
-// S1, the session on screen: w1 holds three loose tabs and the group alpha,
-// w2 two loose tabs. S2, the usual target: d1 holds two loose tabs, the group
-// gamma, then one more loose tab; d2 two loose tabs. Small enough that no
-// pane scrolls in the popup, so no drag here auto-scrolls by accident.
+// S1 (on screen): w1 = three loose tabs + group alpha, w2 = two tabs. S2: d1 = two tabs, gamma, one tab; d2 = two tabs. No popup pane scrolls.
 const S1 = () =>
   session('S1', 'Source', [
     win(
@@ -412,13 +391,8 @@ async function carryOutLeft(page: Page, from: Point): Promise<void> {
   await expect(page.locator(CARD)).toHaveCount(1);
 }
 
-// Records, from now on, whether a carry's card or its phantom was ever drawn
-// -- even for one frame -- so a test can say neither ever was.
-//
-// The phantom read here is a carried tab's or group's, resting in the list's
-// New window block (`[data-new-window-target] [data-carry-phantom]`), which
-// only a carry draws: the toolbar row's target (KAN-361) is shown for every
-// ordinary tab drag, so it is no sign of a carry.
+// Records whether a carry's card or phantom was ever drawn, even for a frame.
+// The phantom read is the trailing block's, which only a carry draws; the toolbar target shows for any tab drag (KAN-361).
 async function watchForCarry(page: Page): Promise<void> {
   await page.evaluate(() => {
     // Each flag is written once: the observer hears attribute writes, its
@@ -472,21 +446,8 @@ async function springOpen(page: Page, sessionId: string): Promise<void> {
   await expect.poll(() => selected(page), { timeout: 3000 }).toBe(sessionId);
 }
 
-// Into the opened session, onto the phantom's own place: the list adopts the
-// carried item, and with the held row at its own place nothing is shifted, so
-// the rows can be read where the drag measured them.
-//
-// The own place is read AFTER the adoption, untransformed: adopting a group
-// compresses it (KAN-160), which moves its own centre up from where the
-// phantom was drawn before.
-//
-// A tab's or group's phantom rests in the list's trailing block, after the
-// last window (KAN-361/366), so in a session longer than the pane it is
-// below the fold. For one, the pane is scrolled to its end first, as the
-// wheel would -- the layer drives the carry until the adoption, so nothing
-// is measured yet. A no-op for a pane with nothing to scroll; for one that
-// scrolls, the end is where the bottom edge's auto-scroll has nothing left
-// to do.
+// Onto the phantom's own place, where nothing is shifted, so rows read as the drag measured them. Read after adoption: it compresses a group (KAN-160).
+// A tab's or group's phantom rests in the trailing block (KAN-361/366), so the pane is scrolled to its end first.
 async function adoptPhantom(page: Page, phantomId: string): Promise<void> {
   const phantom = page.locator(`[data-drag-row-id="${phantomId}"]`);
   await expect(phantom).toBeAttached();
@@ -538,10 +499,7 @@ async function aimAt(page: Page, rowId: string, frac: number): Promise<void> {
   await settled(page);
 }
 
-// Until every row the preview moved has arrived: two frames for the move
-// to render and its transitions to start, then each running transition's
-// own end, until none is left. The state a measurement waits for, not a
-// guess at how long it takes.
+// Until every row the preview moved has arrived: two frames, then each running transition's end.
 async function settled(page: Page): Promise<void> {
   await page.evaluate(async () => {
     const frame = () =>
@@ -1803,13 +1761,7 @@ test.describe('Review Focus 3: a long list, a long session', () => {
     expect((await detailPane(page)).scrollTop).toBeLessThan(scrollTo);
     await carryOutLeft(page, at);
     expect(await currentCarriedKind(page)).toBe('group');
-    // PREMISE: carried, the scroll is still not the press's -- the group's
-    // rows left the source, which got shorter than the press's scroll, so
-    // the browser clamped it to the new end (measured: scrollTop 51 of a
-    // 467px list in a 416px pane, pressed at 186). The New window target
-    // moves nothing: it is in the header's toolbar row, and the carried
-    // phantom rests in the trailing block after the last window. So the
-    // scroll has to be put back, not merely left alone.
+    // PREMISE: the group left the source, which clamped the scroll (measured: 51 of a 467px list in a 416px pane, pressed at 186).
     expect((await detailPane(page)).scrollTop).not.toBe(scrollTo);
     await page.keyboard.press('Escape');
     await page.mouse.up();
@@ -1857,10 +1809,7 @@ test.describe('Review Focus 3: a long list, a long session', () => {
     expect((await detailPane(page)).scrollTop).toBeGreaterThan(0);
   });
 
-  // A row drop on the session on screen makes its new first window at the
-  // TOP of the detail (Q3 A, no Moved toast). Carried out of the lower part
-  // of a long session, the tab must not just vanish: the new window is
-  // followed into view.
+  // Q3 A: a row drop on the shown session makes its new first window at the top, and it is followed into view.
   test('a long session scrolled down: a tab let go on its own row is followed into view as its new first window', async ({
     context,
     extensionId,
@@ -1981,10 +1930,7 @@ const newWindowBox = (page: Page, which: 'first' | 'last') =>
 const heightOf = async (loc: Locator) => (await boxOf(loc)).height;
 
 test.describe('the target visuals (V1-V4)', () => {
-  // V1 A. One row tall whatever is carried, before the pointer comes in and
-  // after: a carried group's phantom is held folded to its header. The box
-  // is the trailing block the phantom rests in (KAN-361/366); the header's
-  // target is the toolbar row's height (its own describe).
+  // V1 A: one row tall whatever is carried; a carried group's phantom is held folded.
   for (const kind of ['tab', 'group'] as const) {
     test(`V1: the trailing block is one tab row tall for a ${kind}, before and after entry`, async ({
       context,
@@ -2015,10 +1961,7 @@ test.describe('the target visuals (V1-V4)', () => {
     });
   }
 
-  // V2 A, already built: the box lights up -- the hover fill and a solid
-  // border -- and no landing slot is seen. The box a carry lights is the
-  // header's (KAN-361 N1 B); the trailing block's look, blank and lit, is
-  // read where it has its room (the Q4 test).
+  // V2 A: lit, the box takes the hover fill and a solid border, and no slot is seen. The trailing block's look is read in the Q4 test.
   test('V2: a landing in the target lights the box, with no dashed slot seen', async ({
     context,
     extensionId,
@@ -2152,11 +2095,7 @@ test.describe('the target visuals (V1-V4)', () => {
     await page.mouse.up();
   });
 
-  // V4 A, already built: what a carry draws in the list appears at once --
-  // no transition, no animation. S1 fits its pane, so a pick-up gives the
-  // trailing block no room (Q4 is for a list that scrolls): it is a row tall
-  // from the frame the carry starts, when the phantom comes to rest in it --
-  // one step, no slide, never back.
+  // V4 A: S1 fits, so the trailing block is a row tall from the carry's first frame, in one step.
   test('V4: the trailing block takes the phantom at once as the carry starts, with no slide', async ({
     context,
     extensionId,
@@ -2232,15 +2171,8 @@ const isHeightLog = (x: unknown): x is [number, boolean][] => {
 
 // ---- the carried group's preview is the engine's (derive the box) ----------
 
-// A carried group let go at an exact spot opens the gap the engine opens for
-// ANY group dragged to that spot: the band's real footprint, its margin
-// included, measured from the band as drawn (footprintOf). The New window
-// target used to zero the band's margin to stay one row tall (V1 A), which
-// opened a gap 2px short of every other group drag's.
-//
-// Measured locally, between the rows either side of the spot: first the
-// engine's own drag of a same-size group there, on a page of its own, then
-// the carried group, which must open the same gap, and land there.
+// A carried group opens the same gap as any group drag to that spot: the band's footprint, margin included (footprintOf).
+// Measured between the rows either side: the engine's own group drag on a page of its own, then the carry.
 test.describe('a carried group opens the gap any group drag opens', () => {
   // The distance from `above`'s bottom to `below`'s top, as drawn.
   const gapBetween = (page: Page, above: string, below: string) =>
@@ -2296,10 +2228,7 @@ test.describe('a carried group opens the gap any group drag opens', () => {
       ['c0 c1 ga0* ga1* al0* al1* c2 de0* de1*', 'e0 e1'],
     ],
   ];
-  // In the tab view, side by side, where S2 fits its pane: the carried
-  // group's phantom rests after S2's last window (KAN-361/366), and adopting
-  // it there in the popup, whose pane scrolls for S2, left the spots in the
-  // top auto-scroll band.
+  // Tab view, side by side, where S2 fits. In the popup S2's pane scrolls and the spots sat in the top auto-scroll band.
   for (const [name, above, below, want] of spots) {
     test(`${name}`, async ({ context, extensionId }) => {
       const sessions = () => [S1(), S2_TWO_BANDS(), S3()];
@@ -2342,10 +2271,7 @@ test.describe('a carried group opens the gap any group drag opens', () => {
 
 // ---- KAN-362 ------------------------------------------------------------------
 
-// The landing slot is drawn inside the held row. An adopted carry's held row
-// is the phantom in the trailing block, which takes no window's indent, so
-// the slot is only as wide as a landing row because it takes the box of the
-// row the item lands as (KAN-364), not the phantom's.
+// The slot takes the box of the row the item lands as (KAN-364), not the phantom's, which has no window indent.
 const box = (page: Page, selector: string) =>
   page.evaluate((selector) => {
     const el = document.querySelector(selector);
@@ -2354,13 +2280,7 @@ const box = (page: Page, selector: string) =>
     return { left: b.left, right: b.right };
   }, selector);
 
-// How far a measured slot edge may sit from the row it matches: two
-// LayoutUnits (1/64px each, Chromium's layout precision). The slot's edge is
-// the held row's box plus (landing box - held box), and the two boxes are
-// read at the adoption, while the rows the carry let go of ease back under a
-// transform -- whose subpixel offset Chromium snaps, by up to one LayoutUnit
-// each (measured: a member at rest at 451.5 read 451.484375). Nothing is
-// moving at an ordinary drag's activation, so there the error is 0.
+// Two LayoutUnits (1/64px each): rows easing back under a transform snap their subpixel offset by up to one each (measured 451.5 -> 451.484375).
 const SLOT_EDGE_TOLERANCE = 2 / 64;
 
 async function expectSlotAsWideAs(
@@ -2510,11 +2430,7 @@ test.describe('a carried tab or group lands in a slot as wide as the row it beco
 
 // ---- KAN-363 ------------------------------------------------------------------
 
-// The rows under the pointer that PAINT their hover fill: a `:hover` element
-// inside a row that is not the held one, whose background is the theme's
-// hover colour. Compared with the colour itself, not "any background": a band
-// lit as a drop target is another colour, and meant. Also any group's action
-// strip revealed (KAN-100).
+// Rows under the pointer painting the theme's hover fill (not any background: a lit band is meant), or showing a group's action strip (KAN-100).
 const paintedHover = (page: Page, hoverHex: string) =>
   page.evaluate((hoverHex) => {
     const probe = document.createElement('div');
@@ -2559,11 +2475,7 @@ const rowHitAt = (page: Page, x: number, y: number) =>
     [x, y] as const
   );
 
-// Steps the pointer down the detail pane, then says what it met: at every
-// step no row paints its hover fill (asserted first: that is the bug), and
-// no row is what the pointer would hit. Returns how many steps had a non-held
-// row's box under the pointer -- a sweep that missed every row could pass for
-// nothing.
+// Steps the pointer down the pane: no row may paint hover or be the hit target. Returns the steps that crossed a row, so a sweep missing every row fails.
 async function sweepRows(page: Page, x: number): Promise<number> {
   const pane = await detailPane(page);
   let overRows = 0;
@@ -2643,11 +2555,7 @@ test.describe('no row under a held carry shows its hover (KAN-363)', () => {
   });
 
   const kinds = [
-    // How many sweep steps must cross a row: a window carry folds every
-    // window to its header (KAN-153), so Source then holds w1's header
-    // alone, and the preview moves it aside as the pointer passes -- one
-    // step. (Main painted it at two: :hover is worked out at the mouse
-    // event, before the preview moves the row.)
+    // Steps that must cross a row. A window carry folds every window (KAN-153), so Source holds w1's header alone: one.
     { kind: 'tab', phantom: 'carried:a0', overRows: 5 },
     { kind: 'group', phantom: 'group:carried:alpha', overRows: 5 },
     { kind: 'window', phantom: 'carried:w2', overRows: 1 },
@@ -2836,11 +2744,7 @@ test.describe('no row under a held carry shows its hover (KAN-363)', () => {
 
 // ---- KAN-364 ------------------------------------------------------------------
 
-// A tab that lands inside a group's band becomes a member, whose row starts
-// past the band's colour bar; one that lands outside every band is a loose
-// row. The slot has the box of the row the tab becomes, whatever box the
-// held row has: in an ordinary drag the held row is the tab's OLD row, and in
-// a carry it is the phantom.
+// The slot has the box of the row the tab becomes (a member inside a band, loose outside), whatever the held row's box.
 test.describe('the slot is the box of the row the tab becomes, across a band edge (KAN-364)', () => {
   const cases = [
     {
@@ -2912,12 +2816,7 @@ test.describe('the slot is the box of the row the tab becomes, across a band edg
     });
   }
 
-  // A refused release goes back where it came from: the slot is drawn at the
-  // held row's own place, with its own box. For a member that is a member's
-  // box, not the loose one a refused pointer, over no band, would pick.
-  //
-  // Refused beside the pane, below the list: below the last window inside
-  // the pane makes a new last window (KAN-366 B).
+  // A refused release goes home: the slot at the held row's own place, with its member's box. Beside the pane, since below the last window inside it is a new last window (KAN-366 B).
   test('a member refused beside the pane keeps its own box, at its own place', async ({
     context,
     extensionId,
@@ -2990,12 +2889,7 @@ test.describe('the slot is the box of the row the tab becomes, across a band edg
 
 // ---- KAN-365 ------------------------------------------------------------------
 
-// Where an adopted carry's release is refused it moves nothing: the item
-// goes back to its source, which is not a place in this list. So nothing is
-// drawn as a landing -- on main the slot sat at the phantom's own place,
-// inside the unlit New window target, 1px inside its border, and the
-// target's indent on the KAN-362 branch made it show. Refused beside the
-// pane: below the last window inside it is a new last window (KAN-366 B).
+// A refused adopted release moves nothing and goes back to its source, so no landing is drawn. Refused beside the pane (KAN-366 B).
 const slotsDrawn = (page: Page) =>
   page.evaluate(
     () =>
@@ -3068,10 +2962,7 @@ test.describe('refused, or lit below the list, a carried item draws no slot (KAN
     });
   }
 
-  // Frame by frame, from over the last window down past the list: no frame
-  // draws a slot inside the block the phantom rests in -- the trailing block
-  // (KAN-361/366), where main's in-list target was -- the frames it is the
-  // landing in included, lit (KAN-366 B).
+  // Frame by frame down past the list: no frame draws a slot inside the trailing block, lit frames included (KAN-366 B).
   test('frame by frame on the way down, no frame draws a slot inside the target', async ({
     context,
     extensionId,
@@ -3221,12 +3112,8 @@ const toolbarShows = (f: ToolbarFrame): string =>
       ? 'target'
       : `target ${f.target}, controls ${f.controls}`;
 
-// Logs the toolbar row every frame from now until toolbarLog. `held` is the
-// row a drag will hold, left out of the rows: it tracks the pointer.
-//
-// Each log is a numbered run, and a frame from any other run writes nothing
-// and stops: a stopped log's last frame is still queued when the next log
-// starts, and it must neither overwrite the new log nor run on beside it.
+// Logs the toolbar row every frame until toolbarLog, leaving out `held`, which tracks the pointer.
+// Each log is a numbered run: a queued frame from an earlier run writes nothing and stops.
 async function logToolbar(page: Page, held: string | null): Promise<void> {
   await page.evaluate((held) => {
     const run = String(Number(document.body.dataset.toolbarRun ?? '0') + 1);
@@ -3375,10 +3262,7 @@ test.describe('the New window target is in the toolbar row from pick-up (KAN-361
         const rest = await toolbarNow(page);
         expect(rest).toMatchObject(AT_REST);
 
-        // Where it stands: the controls' strip and the 2px of the row's
-        // padding above it (34px tall, as the trailing box is, Justine's R5
-        // pick 2026-10-01), inset 8px from the row's sides, and it takes no
-        // pointer and no screen reader's notice.
+        // The controls' strip plus the row's 2px top padding (34px, as the trailing box; R5 pick), inset 8px; no pointer, no screen reader.
         const target = page.locator('[data-new-window-target="first"]');
         await expect(target).toHaveAttribute('aria-hidden', 'true');
         expect(
@@ -3677,10 +3561,7 @@ test.describe('the New window target is in the toolbar row from pick-up (KAN-361
 const headerTarget = (page: Page) =>
   page.locator('[data-new-window-target="first"]');
 
-// Where the toolbar row's New window target stands (KAN-361): the controls'
-// strip it covers, read at rest from the "Open session" control there --
-// which main draws in the same place, so either build is aimed at the same
-// point. Read before a drag, which hides the controls.
+// The toolbar target's aim, read at rest from "Open session" (the same place on main), before a drag hides the controls.
 async function headerAim(page: Page): Promise<Point & { bottom: number }> {
   const b = await boxOf(page.getByRole('button', { name: 'Open session' }));
   return {
@@ -4072,14 +3953,8 @@ test.describe('the toolbar target makes a new first window (KAN-361)', () => {
 const trailingBlock = (page: Page) =>
   page.locator('[data-new-window-target="last"]');
 
-// One frame of the detail pane: every row's top (the held row and any
-// phantom left out, which a drag moves on purpose), whether a carry's card
-// is up, whether a carried phantom is held (adopted), the trailing block's
-// height, and how far the pane can scroll. KAN-379: also each window's
-// title row top and block height, and the tops of the landing slot, the
-// source room and the held row (null where not drawn), and each band's
-// title row top. KAN-394: what the save row shows (SaveRowShows), and
-// whether a carry is live (data-carrying on <html>).
+// One frame of the detail pane: row tops (held row and phantoms left out), card, adoption, trailing block height, scroll range.
+// KAN-379: window title tops and heights, slot, source room, held row, band title tops. KAN-394: the save row and data-carrying.
 interface PaneFrame {
   rows: Record<string, number>;
   bands: Record<string, number>;
@@ -4496,11 +4371,7 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     await page.mouse.up();
   });
 
-  // "Drag it to the end" keeps its slack (half the held row) past the last
-  // window's last row, though that point is inside the trailing block, where
-  // a release from any other window makes a new last window (KAN-132,
-  // KAN-366 B). In a list that scrolls, where the block has its room,
-  // scrolled into it.
+  // KAN-132's slack (half the held row past the last row) still lands last, though inside the trailing block (KAN-366 B).
   test('a tab let go just past the last window’s last row, inside the trailing block, still lands last there', async ({
     context,
     extensionId,
@@ -4535,13 +4406,8 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
       .toBe('s5-0 s5-2 s5-3 s5-1');
   });
 
-  // KAN-366 Q4 never makes a list scroll: the room is for a list that
-  // already does. One that fits with less than the room to spare would
-  // otherwise begin to scroll at the pick-up, and the scrollbar that
-  // appears (headed Chrome draws a 10px one) would narrow every row in the
-  // frame the drag starts. Headless runs with --hide-scrollbars, so no row
-  // can be seen to narrow here: the scroll range staying at 0 is what says
-  // no scrollbar could appear.
+  // Q4 never makes a list scroll: a pick-up adding a scroll range would add a scrollbar (10px headed) and narrow every row.
+  // Headless hides scrollbars, so the range staying 0 is the read.
   test('a list that fits with less than a row to spare gains no scroll range at the pick-up, and no row moves', async ({
     context,
     extensionId,
@@ -4569,10 +4435,7 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
       ),
     ]);
     const page = await openPopup(context, extensionId, [fits, S2()], 'S8');
-    // The room left in the pane below the content: its inner height, less
-    // what the content takes -- from the pane's content top to the last
-    // window's bottom, its margin included. Not from scrollHeight, which is
-    // never less than clientHeight and so reads 0 for any list that fits.
+    // The pane's inner height less the content's, to the last window's bottom with its margin. Not scrollHeight, which never reads below clientHeight.
     const spare = await page.evaluate(() => {
       let el = document.querySelector(
         '[data-pane="detail"] [data-drop-window-id]'
@@ -4610,13 +4473,8 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     await page.mouse.up();
   });
 
-  // The end of a drag that scrolled into the room: the block goes back to
-  // zero, the browser clamps the scroll, and the list settles by up to the
-  // room -- the ordinary end-of-drag settle, like the window fold's
-  // (KAN-153) and KAN-157's scroll put back. Pinned as measured: every row
-  // moves together, downward, in consecutive frames -- one for a drop, a
-  // few for Esc, where the held row eases home -- by at most the room, and
-  // the rows are drawn in the stored order.
+  // After a drag that scrolled into the room the list settles by at most the room: every row together, downward, in consecutive frames
+  // (one for a drop, a few for Esc), in stored order.
   for (const ending of [
     'Esc',
     'a release at the end of the last window',
@@ -4637,10 +4495,7 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
       const at = await pickUp(page, tabHandle(page, 's5-1'));
       await intoTheRoom(page, at.x, pane);
       if (ending !== 'Esc') {
-        // Within the slack below the last row: lands last. s5-3's own box,
-        // not where the preview draws it: with the pointer in the room the
-        // drag can be landing in the trailing block (KAN-366 B), and s5-1's
-        // window closes up under it (Q2 ii).
+        // s5-3's own box: with the pointer in the room the preview can be landing in the trailing block (KAN-366 B).
         const last = await ownBox(page, dragRow('s5-3'));
         await page.mouse.move(at.x, last.bottom + 6, { steps: 4 });
         await settled(page);
@@ -4750,10 +4605,7 @@ const newWindowMarker = (page: Page) =>
     document.documentElement.getAttribute('data-drag-new-window')
   );
 
-// The trailing block as drawn now, beside the header target's border colour
-// and the last window's bottom: what expectLitBox judges. Read while the
-// drag is live; judged when the test is ready to. Null where the list draws
-// no trailing block.
+// The trailing block, the header target's border colour and the last window's bottom, read while live for expectLitBox. Null with no trailing block.
 async function litBoxOf(page: Page, lastWindowId: string) {
   if ((await trailingBlock(page).count()) === 0) return null;
   const look = await newWindowBox(page, 'last');
@@ -4784,11 +4636,7 @@ const paneInnerBottom = (page: Page) =>
     return el.getBoundingClientRect().top + el.clientTop + el.clientHeight;
   });
 
-// Lit, the trailing block has the header target's look -- the hover fill,
-// a solid border of its colour, its name -- and a box of its own: one row
-// and its borders, whatever room the list gave it (V1 A, V2 A, ruling 2),
-// below the last window. Always a full row, even where the list fits with
-// less than a row free (Justine's R2 pick, 2026-10-01).
+// Lit, the trailing block has the header target's look and a full row with its borders below the last window, whatever its room (V1 A, V2 A, R2).
 function expectLitBox(
   m: Awaited<ReturnType<typeof litBoxOf>>,
   rowH: number
@@ -4912,11 +4760,7 @@ async function stopLitLog(page: Page) {
   return parsed;
 }
 
-// What a tight-fit frame log must show once the cap is gone (Justine's R2
-// pick): the box a full row (`rowBox`: the row and its borders) in every lit
-// frame; the scroll range 0 until it lights and no more than the row's
-// overflow of the space free at rest while lit; and no row moved by it --
-// the scroll range grows, the scroll position does not.
+// R2: every lit frame a full row; the scroll range 0 until lit, then at most the row's overflow; the scroll position never moves.
 function expectFullRowLog(
   log: Awaited<ReturnType<typeof stopLitLog>>,
   rowBox: number,
@@ -4936,18 +4780,10 @@ function expectFullRowLog(
   for (const f of lit)
     expect(f.range).toBeLessThanOrEqual(rowBox - freeAtRest + 1);
   expect(lit.filter((f) => f.range > 0).length).toBeGreaterThan(0);
-  // Nothing is drawn elsewhere for it. The pane never scrolls, and in every
-  // lit frame each row has its first lit frame's left and width. The held
-  // row and the carried phantom are not rows of the list (excluded by the
-  // log). Tops are compared once they have settled: before that, the rows
-  // below the source window slide as it closes up, which has begun before
-  // the box lights (its own motion, not the box's).
+  // No row moves sideways in a lit frame, and the pane never scrolls. Tops are compared once settled: rows below the source window slide as it closes up.
   expect(log.filter((f) => f.scrollTop !== 0)).toEqual([]);
   expect(new Set(lit.map((f) => f.cols)).size).toBe(1);
-  // Tops are compared only in lit frames after `settled()` returned. PREMISE:
-  // there are at least 8 of them. A failure names each distinct tops string
-  // and the log frame indexes it appeared in, so a CI log shows which row
-  // moved and by how much.
+  // PREMISE: at least 8 settled lit frames. A failure names each distinct tops string and its frames.
   const after = log.flatMap((f, index) =>
     f.lit && f.afterSettled ? [{ index, tops: f.tops }] : []
   );
@@ -4966,10 +4802,7 @@ function expectFullRowLog(
   ).toBe(1);
 }
 
-// One ⌘Z puts every session in `ids` back as `before` held it: every field
-// but the session's own timestamp, which the undo moves past the move's
-// (KAN-55), and whether it is selected, which a spring-open changed and no
-// undo puts back.
+// One ⌘Z puts every session in `ids` back as `before` held it, but for its timestamp (KAN-55) and selection, which no undo restores.
 async function expectOneUndoRestoresAll(
   page: Page,
   before: TabMasterContainer,
@@ -4994,13 +4827,8 @@ async function expectOneUndoRestoresAll(
 const freeBelowLastWindow = async (page: Page) =>
   (await paneInnerBottom(page)) - (await boxOf(trailingBlock(page))).y;
 
-// S8, a two-window session that fits the tab view's detail pane (side by
-// side) with the free space `free(row)` below its last window: fa holding f0
-// -- not the last window, so a drag of f0 has no overshoot slack below it --
-// and fb as many tabs as leave less than a row free; then the viewport's
-// height is set so the free space is what was asked for. The tab view, not
-// the popup: its pane follows the viewport, the popup's does not. Returns
-// the page, showing S8, and a tab row's height.
+// S8 in the tab view (whose pane follows the viewport): fa holds f0, not last, so no slack below it; fb leaves less than a row free.
+// The viewport then sets the free space. Returns the page and a tab row's height.
 async function openTightFit(
   context: BrowserContext,
   extensionId: string,
@@ -5051,10 +4879,7 @@ async function openTightFit(
 }
 
 test.describe('below the last window makes a new last window (KAN-366)', () => {
-  // An ordinary drag in S1, let go below w2 (the last window), past every
-  // row's slack: lit, no slot, its own window closes up with no outline
-  // (KAN-378 C), and the release makes a new LAST window -- one move, one
-  // ⌘Z.
+  // An ordinary drag let go below w2, past every slack: lit, no slot, no outline (KAN-378 C), a new last window, one ⌘Z.
   const ordinary = [
     {
       name: 'loose tab a1',
@@ -5324,12 +5149,7 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     }
   }
 
-  // The worst path for the move: the sole tab of the session's last window.
-  // A new last window holding it would stand where that window stands,
-  // holding exactly what it holds: no move, and nothing is written. The
-  // session has a window before it, so the last window is not also the
-  // first: a drop routed as a new FIRST window would be a move, and this
-  // test would see it.
+  // Worst path: the last window's sole tab as a new last window is no move. With a window before it, a drop routed as a new FIRST window would show.
   test('the sole tab of the last window, let go below the list: lit, and no move', async ({
     context,
     extensionId,
@@ -5499,10 +5319,7 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2']);
   });
 
-  // R2 (Justine's alternative pick, 2026-10-01). In a list that fits with
-  // less than a row free below its last window, the lit box is still a full
-  // row: the list scrolls a little while it is lit, and no row moves. Frame
-  // by frame, from the pick-up into the space.
+  // R2: in a list that fits with less than a row free, the lit box is still a full row; the list scrolls a little and no row moves.
   test('a list that fits with less than a row free: lit, the box is a full row, the list scrolls a little, and no row moves', async ({
     context,
     extensionId,
@@ -5572,12 +5389,7 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     expect(await windowIdsOf(page, 'S1')).toEqual(['w1', 'w2']);
   });
 
-  // KAN-366 ruling: in a list that fits, the space below the last window is
-  // a new window only with at least half a row free below it -- the held
-  // row's half, the overshoot slack's own measure. With less, the lit box
-  // would be a sliver nobody sees, so the release is refused as on main.
-  // Both sides set from the real free space: the threshold, derived from
-  // f0's height, less or plus 2px.
+  // KAN-366: in a list that fits, the space below is a new window only with half a row free (the held row's half). Both sides: f0's half, -/+2px.
   for (const side of ['under', 'over'] as const) {
     test(
       side === 'under'
@@ -5633,10 +5445,7 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     );
   }
 
-  // R2 for an adopted carry: a fitting session whose free space below its
-  // last window is the phantom's row and a pixel, so lit, its borders reach
-  // past the pane. Lit, the box is a full row, the list scrolls a little,
-  // and no row moves.
+  // R2 for an adopted carry: a row and a pixel free, so lit, the box is a full row and the list scrolls a little.
   test('a carry adopted in a session that fits with a row and a pixel free: lit, the box is a full row, the list scrolls a little, and no row moves', async ({
     context,
     extensionId,
@@ -5682,11 +5491,7 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
 
   // NEGATIVES, aimed where the trailing block's rule would fire.
 
-  // "Drag it to the end" keeps priority (KAN-132's slack): a row of the LAST
-  // window let go within half its height past that window's last row lands
-  // last in its own window, though the point is inside the trailing block's
-  // space. Just past the slack it is a new window. Both sides measured from
-  // the slack, read at rest.
+  // KAN-132's slack wins: within half a row past the last row lands last in its window; just past it, a new window. Measured at rest.
   const slack = [
     { held: 'b1', inside: [W1_START, 'b0 b1'], past: [W1_START, 'b0', 'b1'] },
     { held: 'b0', inside: [W1_START, 'b1 b0'], past: [W1_START, 'b1', 'b0'] },
@@ -5909,10 +5714,7 @@ test.describe('a carry’s room follows the session it shows (KAN-366 Q4)', () =
     await page.mouse.up();
   });
 
-  // Decided in the commit that draws the session: from the first frame the
-  // spring-opened session is painted in, no row of it moves and its
-  // trailing block keeps one height -- the room is there before the pointer
-  // can come in, not a frame later.
+  // From the first frame the spring-opened session is painted, no row moves and the trailing block keeps one height.
   test('across the spring-open, from the first frame the session is drawn: no row moves and the trailing block keeps its height', async ({
     context,
     extensionId,
