@@ -25,7 +25,7 @@ interface FakeTab {
   pinned?: boolean;
 }
 
-// A hand-made browser: a window closes with its last tab, and openPopup rejects as Chrome 154 measured.
+// A hand-made browser: a window closes with its last tab, and openPopup naming a gone window rejects.
 function makeApi(options: {
   tabs: FakeTab[];
   popup?: string;
@@ -137,6 +137,7 @@ describe('openInPopup (KAN-437)', () => {
   });
 
   test('pinned: keeps the tab and opens the popup over its window', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { api, log } = makeApi({
       tabs: [
         { id: 7, windowId: 1, index: 0, pinned: true },
@@ -147,14 +148,17 @@ describe('openInPopup (KAN-437)', () => {
     await openInPopup(api, 7);
 
     expect(log).toEqual([{ call: 'openPopup', windowId: 1 }]);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   test('the only tab of the only normal window: keeps it and opens the popup over it', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { api, log } = makeApi({ tabs: [{ id: 7, windowId: 1, index: 0 }] });
 
     await openInPopup(api, 7);
 
     expect(log).toEqual([{ call: 'openPopup', windowId: 1 }]);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   test('Chrome refuses after the close: reopens the full view at its index in its window', async () => {
@@ -172,7 +176,7 @@ describe('openInPopup (KAN-437)', () => {
       },
     ]);
     expect(warn).toHaveBeenCalledWith(
-      'Chrome refused the popup; reopening the full view:',
+      'No popup opened; reopening the full view:',
       expect.any(Error)
     );
   });
@@ -206,11 +210,13 @@ describe('openInPopup (KAN-437)', () => {
   });
 
   test('not sent from a tab: opens the popup and closes nothing', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { api, log } = makeApi({ tabs: BESIDE });
 
     await openInPopup(api, undefined);
 
     expect(log).toEqual([{ call: 'openPopup', windowId: undefined }]);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   test('Default view Full: sets the popup for this open, then puts it back', async () => {
@@ -433,5 +439,39 @@ describe('chromePopupApi against the chrome fake (KAN-437)', () => {
     ]);
     expect(await chrome.action.getPopup({})).toBe('');
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  test('Default view Full and the popup cannot be set: the full view comes back, the setting stays', async () => {
+    const warn = silenceWarn();
+    const action: { setPopupRejects?: boolean } = {};
+    handle = setupChromeFake({
+      action,
+      windows: [
+        {
+          id: 1,
+          focused: true,
+          tabs: [
+            { id: 11, url: 'https://a.test/' },
+            { id: 12, url: FAKE_VIEW, active: true },
+          ],
+        },
+      ],
+    });
+    await chrome.action.setPopup({ popup: '' });
+    // The fake reads setPopupRejects at each call, so Chrome refuses only from here on.
+    action.setPopupRejects = true;
+
+    await openInPopup(chromePopupApi, 12);
+
+    expect(handle.removedTabIds).toEqual([12]);
+    expect(handle.openPopupCalls).toEqual([]);
+    expect(handle.createdTabs).toEqual([
+      { url: FAKE_VIEW, active: true, windowId: 1, index: 1 },
+    ]);
+    expect(await chrome.action.getPopup({})).toBe('');
+    expect(warn).toHaveBeenCalledWith(
+      'No popup opened; reopening the full view:',
+      expect.any(Error)
+    );
   });
 });

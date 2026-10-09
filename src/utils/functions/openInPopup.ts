@@ -102,7 +102,7 @@ async function openPopupOnce(
   }
 }
 
-// Never rejects: no page is left to tell, so every failure is logged, as openOrFocusTabView's are.
+// Never rejects: the page waits for no answer, so every failure is logged, as openOrFocusTabView's are.
 export async function openInPopup(
   api: PopupApi,
   fromTabId: number | undefined
@@ -127,7 +127,7 @@ export async function openInPopup(
     try {
       await openPopupOnce(api, windowLeft ? tab.windowId : undefined);
     } catch (error) {
-      console.warn('Chrome refused the popup; reopening the full view:', error);
+      console.warn('No popup opened; reopening the full view:', error);
       await api.createTab({
         url: api.getURL(TAB_VIEW_PATH),
         active: true,
