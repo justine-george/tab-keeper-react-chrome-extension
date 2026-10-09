@@ -9,17 +9,9 @@ import type { CarriedRef } from '../../../redux/slices/tabContainerDataStateSlic
 import { s1, s2, session, tab, win } from '../../fixtures/sessionMoveFixture';
 import { NEW_LAST_WINDOW } from '../../../components/home/rightpane/newWindowTarget';
 
-// KAN-350 Task 5. What the detail draws while something is carried, with a
-// place for it to land: the session on screen as the carry leaves it, and
-// the carried item as a PHANTOM row -- a tab or group in a synthetic LAST
-// window (NEW_LAST_WINDOW, the list's trailing block, KAN-361/366), so no
-// row of the session moves to make room for it (a group's only tab at home
-// excepted, KAN-371); a window as the first window. The engine adopts that
-// row as an ordinary drag. Its rows go by PHANTOM ids ("carried:" + the
-// item's own), so it is never the same row as the item itself.
-//
-// S1: w1 [t1, g1a*g1, g1b*g1, t2, t4*g2], w2 [t3]. S2: d1 [u1, u2*h1,
-// u3*h1], d2 [u4].
+// KAN-350 Task 5: the detail during a carry: the session as the carry leaves it, plus the item as a phantom ("carried:" ids), never the item's own row.
+// A tab or group rests in the trailing NEW_LAST_WINDOW (KAN-361/366), so nothing moves for it (a group's only tab at home excepted, KAN-371); a window is first.
+// S1: w1 [t1, g1a*g1, g1b*g1, t2, t4*g2], w2 [t3]. S2: d1 [u1, u2*h1, u3*h1], d2 [u4].
 
 const tabRef = (tabId: string, windowId = 'w1'): CarriedRef => ({
   kind: 'tab',

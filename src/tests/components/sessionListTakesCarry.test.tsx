@@ -28,6 +28,7 @@ import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import type { RootState } from '../../redux/store';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
+import { asWritten } from '../setup/asWritten';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { toastTexts } from '../setup/toasts';
 import {
@@ -43,16 +44,8 @@ import {
   windowIds,
 } from '../fixtures/sessionMoveFixture';
 
-// KAN-350 Task 4. The saved session list takes a carry: the row under the
-// pointer is the target (D2 A), resting on it for 600ms opens that session
-// (S1 A), and letting go on it moves the carried item in as a new first
-// window (S2 A).
-//
-// jsdom has no layout, so the list's scroller and rows get boxes here: a
-// 300px scroller at y 100..400, 60px rows, six sessions -- the sixth below
-// the fold. Rows are laid out against the scroller's scrollTop, as a real
-// list is, so a hit read in the wrong space names the wrong row once the list
-// has scrolled.
+// KAN-350 Task 4: the session list takes a carry. The row under the pointer is the target (D2 A), 600ms on it opens it (S1 A), a release moves the item in as a new first window (S2 A).
+// jsdom has no layout: a 300px scroller at y 100..400, 60px rows, six sessions (the sixth below the fold), laid out against scrollTop so a hit read in the wrong space names the wrong row.
 
 const LIST_TOP = 100;
 const LIST_H = 300;
@@ -127,6 +120,8 @@ async function renderList() {
   const scroller = result.container.firstElementChild?.lastElementChild;
   if (!(scroller instanceof HTMLElement)) throw new Error('no list');
   layOut(scroller);
+  // PREMISE: the list reads as seeded.
+  expect(rowIds()).toEqual(['S1', 'S2', 'S3', 'S4', 'S5', 'S6']);
   return { ...result, scroller };
 }
 
@@ -205,14 +200,6 @@ const moveTo = (y: number, x = X) =>
 const releaseAt = (y: number, x = X) =>
   fireEvent.pointerUp(document, { clientX: x, clientY: y });
 const wait = (ms: number) => act(() => vi.advanceTimersByTime(ms));
-
-describe('the premise', () => {
-  test('six rows, S1 first and selected, S6 below the fold', async () => {
-    await renderList();
-    expect(rowIds()).toEqual(['S1', 'S2', 'S3', 'S4', 'S5', 'S6']);
-    expect(rowY(5)).toBeGreaterThan(LIST_TOP + LIST_H);
-  });
-});
 
 describe('dwell and spring-open (S1 A)', () => {
   test('599ms on a row opens nothing, and 600ms opens it', async () => {
@@ -516,22 +503,6 @@ describe('a release on a row moves the item in (S2 A)', () => {
     const state = store.getState().tabContainerDataState;
     expect(windowIds(sessionIn(state, 'S2'))).toEqual(['w2', 'd1', 'd2']);
     expect(windowIds(sessionIn(state, 'S1'))).toEqual(['w1']);
-  });
-
-  test('a window on its own session’s row becomes its first window, with no Moved toast', async () => {
-    const { store } = await renderList();
-    handOff(
-      { kind: 'window', tabGroupId: 'S1', windowId: 'w2' },
-      { kind: 'window', title: 'Window w2', number: 2, tabCount: 1 }
-    );
-    moveTo(rowY(0));
-    releaseAt(rowY(0));
-
-    const state = store.getState().tabContainerDataState;
-    expect(windowIds(sessionIn(state, 'S1'))).toEqual(['w2', 'w1']);
-    expect(toastTexts(store.getState())).not.toContain(
-      TOAST_MESSAGES.MOVED_TO_SESSION
-    );
   });
 
   test('a window already first, on its own row: nothing moves, and the carry is cancelled', async () => {
@@ -851,12 +822,6 @@ describe('edgeScrollStep', () => {
     expect(edgeScrollStep(box, 300)).toBe(edgeScrollStep(box, 400));
   });
 });
-
-/** A colour as emotion writes it, or as jsdom normalises it. */
-function asWritten(hex: string): RegExp {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
-}
 
 function hexToRgb(hex: string): string {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));

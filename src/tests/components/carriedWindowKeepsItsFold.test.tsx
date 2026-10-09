@@ -23,17 +23,8 @@ import {
   windowIds,
 } from '../fixtures/sessionMoveFixture';
 
-// KAN-350 final review, finding 9 (inferred from code, so seen first). A
-// carried window is lifted out of its source while carried, which unmounts
-// its WindowEntryContainer; if its fold were the component's own state, it
-// would come back expanded after a cancel or a drop in its own session.
-//
-// It is not the component's: the fold lives in globalState (KAN-206), keyed
-// by session and window id, and neither a cancel nor windowDrop changes
-// either id. Pinned here so it stays that way.
-//
-// jsdom has no layout: the list at x 0..300, y 100..400, 60px rows; the
-// detail beside it at x 400..800.
+// KAN-350 finding 9: a carried window unmounts from its source, so its fold must not be component state. It lives in globalState (KAN-206), keyed by ids
+// neither a cancel nor windowDrop changes. jsdom: the list at x 0..300, y 100..400, 60px rows; the detail at x 400..800.
 
 const LIST_TOP = 100;
 const ROW_H = 60;

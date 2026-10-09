@@ -51,18 +51,9 @@ import {
   windowIn,
 } from '../fixtures/sessionMoveFixture';
 
-// KAN-350 Task 5. A carried item let go at an exact spot in the session on
-// screen, or on its New window target. Three routes:
-//   - the session header's New window target (NEW_FIRST_WINDOW, KAN-361):
-//     moveToSession, as a new first window;
-//   - the session on screen is the item's own: today's tabDrop / groupDrop /
-//     windowDrop, from the item's ORIGINAL window, so their no-op guards and
-//     prune rules are unchanged (plan Decision);
-//   - another session: moveToSession, at that exact spot.
-// None sends a Moved toast (S5 A). Each says whether the item moved.
-//
-// S1: w1 [t1, g1a*g1, g1b*g1, t2, t4*g2], w2 [t3]. S2: d1 [u1, u2*h1,
-// u3*h1], d2 [u4].
+// KAN-350 Task 5: a carried item let go at an exact spot. The header target (NEW_FIRST_WINDOW, KAN-361): moveToSession, a new first window.
+// Its own session: tabDrop / groupDrop / windowDrop from its original window, so their no-op and prune rules hold. Another session: moveToSession at that spot.
+// No Moved toast (S5 A); each says whether it moved. S1: w1 [t1, g1a*g1, g1b*g1, t2, t4*g2], w2 [t3]. S2: d1 [u1, u2*h1, u3*h1], d2 [u4].
 
 type Store = ReturnType<typeof makeTestStore>['store'];
 
@@ -324,10 +315,7 @@ describe('on the header’s New window target (KAN-361)', () => {
   });
 });
 
-// KAN-366 B. Below the last window, the list's trailing block names its own
-// window, NEW_LAST_WINDOW -- where an adopted phantom rests, so a release at
-// its own place lands here too: a new LAST window of the session on screen,
-// one move, no toast.
+// KAN-366 B: the trailing block is NEW_LAST_WINDOW, where an adopted phantom rests, so a release at its own place makes a new last window: one move, no toast.
 describe('in the list’s trailing block (KAN-366 B)', () => {
   it.each([
     ['another session', 'S2', ['d1', 'd2']],

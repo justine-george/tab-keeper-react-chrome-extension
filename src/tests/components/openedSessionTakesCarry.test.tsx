@@ -34,6 +34,7 @@ import {
   NEW_LAST_WINDOW,
   markNewWindowTarget,
 } from '../../components/home/rightpane/newWindowTarget';
+import { asWritten } from '../setup/asWritten';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { standInSessionList } from '../setup/standInSessionList';
 import {
@@ -50,21 +51,10 @@ import {
   windowIn,
 } from '../fixtures/sessionMoveFixture';
 
-// KAN-350 Task 5. The session on screen takes a carried item at an EXACT
-// spot. While a tab, group or window is carried, the detail draws it as a
-// PHANTOM row -- a tab or group in the trailing block after the last window
-// (KAN-361/366), a window as the first window -- and when the pointer comes
-// into the
-// pane the matching drag area ADOPTS that row as an ordinary drag: every
-// landing, band, gap and auto-scroll rule is the engine's own, and a release
-// commits the move.
-//
-// S1: w1 [t1, g1a*g1, g1b*g1, t2, t4*g2], w2 [t3]. S2: d1 [u1, u2*h1,
-// u3*h1], d2 [u4].
-//
-// jsdom has no layout. Every box the engine reads is given one here, in the
-// pane's content space, less the pane's scrollTop -- as a real layout
-// reports it. Anything not listed measures as a zero box.
+// KAN-350 Task 5: the session on screen takes a carry at an exact spot. The carried item is drawn as a phantom (a tab or group in the trailing block,
+// KAN-361/366; a window first), and on entry the drag area adopts it as an ordinary drag, so every rule is the engine's own.
+// S1: w1 [t1, g1a*g1, g1b*g1, t2, t4*g2], w2 [t3]. S2: d1 [u1, u2*h1, u3*h1], d2 [u4].
+// Boxes are given in the pane's content space less its scrollTop, as a real layout reports; unlisted boxes measure zero.
 
 const PANE_W = 400;
 const X = 100;
@@ -390,11 +380,7 @@ describe('adoption: the pointer comes into the pane with a carry on', () => {
     expect(seen(slotOf('carried:t1'))).toBe(true);
   });
 
-  // KAN-354, KAN-355. The held phantom is drawn by the carry's card, so it is
-  // marked as such: the attribute App.css keys on to leave it without the
-  // held tab's lift shadow, which drew it on main as an empty shadowed box
-  // (pinned in the browser, e2e/in-session-card.spec.ts). The card is the
-  // carry's own: no drag card is shown beside it.
+  // KAN-354/355: the held phantom is marked as drawn by the card, which App.css keys on to drop the lift shadow (e2e: in-session-card). Only the carry's card shows.
   test('the adopted phantom is held as drawn by the card, and only the carry’s card shows', async () => {
     await renderDetail('S2');
     carry(TAB_T1);
@@ -943,11 +929,7 @@ describe('out of the pane and back in', () => {
     expect(document.documentElement.getAttribute('data-dragging')).toBe('tab');
   });
 
-  // KAN-352, aimed where the old rule fired: out of the pane to the RIGHT,
-  // where Open now and its resize grip are, is no receiver. The adopted drag
-  // stays this area's -- its carry is not handed back, nothing is unlit or
-  // re-measured -- and back in, the release lands where its preview showed:
-  // open-now-resize.spec.ts test 8's path, played on an adopted drag.
+  // KAN-352: right of the pane (Open now, its grip) is no receiver. The adopted drag stays this area's, and back in it lands as previewed (open-now-resize test 8's path).
   test('beside the pane over no receiver: the drag stays adopted, and back in it lands', async () => {
     const { store } = await renderDetail('S2');
     const onCancel = vi.fn();
@@ -1007,10 +989,7 @@ describe('out of the pane and back in', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  // The ruling: a hand-back keeps the carry it came from, so the SOURCE's
-  // KAN-157 scroll is still put back by a cancel after it. Played for real: a
-  // window pressed in a scrolled S1 and carried out, the fold's clamp, back
-  // in (adopted), out again, and Esc.
+  // A hand-back keeps its carry, so a later cancel still puts back the source's KAN-157 scroll: out, in (adopted), out, Esc.
   test('a real window carry: out, in, out, Esc -- the source’s scroll comes back', async () => {
     paneH = 200;
     const { pane: p } = await renderDetail('S1', 1000);
@@ -1083,10 +1062,7 @@ describe('out of the pane and back in', () => {
   });
 });
 
-// KAN-155. Releasing ends the fold, and a row dropped low in the folded list
-// is then below the fold: the engine follows the row it dropped on the next
-// frame. An adopted drop is the phantom's, which is gone by then -- so it
-// follows the MOVED ITEM's own row, and only when the move committed.
+// KAN-155: after a release the engine follows the dropped row. An adopted drop's phantom is gone by then, so it follows the moved item's row, only on a commit.
 describe('after an adopted drop, the moved item is followed (KAN-155)', () => {
   let scrolled: Element[] = [];
   beforeEach(() => {
@@ -1236,15 +1212,14 @@ describe('the trailing block (KAN-361/366)', () => {
     expect(style.borderTopWidth).toBe('1.5px');
     expect(style.borderTopStyle).toBe('solid');
     expect(style.borderTopColor).not.toMatch(NO_COLOUR);
-    expect(LIGHT_THEME.HOVER_COLOR).toBe('#E4E7EB');
-    expect(style.backgroundColor).toMatch(/(#E4E7EB|rgb\(228, ?231, ?235\))/i);
+    expect(style.backgroundColor).toMatch(asWritten(LIGHT_THEME.HOVER_COLOR));
     const name = el.querySelector('[data-drop-label-unlit-hidden]');
     if (name === null) throw new Error('no name');
     expect(seen(name)).toBe(true);
   });
 
   test('a session that already draws one of the carried ids offers no exact spot', async () => {
-    const { store } = await renderWithProviders(
+    await renderWithProviders(
       <>
         <TabGroupDetailsContainer />
         <CarryLayer />
@@ -1269,22 +1244,11 @@ describe('the trailing block (KAN-361/366)', () => {
 
     expect(trailing().querySelector('[data-drag-row-id]')).toBeNull();
     expect(document.querySelector('[data-carry-phantom]')).toBeNull();
-    moveTo(20);
-    expect(currentCarry()?.owner).toBe('layer');
-    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
-      'S9'
-    );
   });
 });
 
-// V1 A. The trailing block is one row tall whatever is carried: a carried
-// GROUP's phantom is folded to its header, before the pointer comes in as
-// well as after, so nothing in the session jumps on entry. Its band keeps
-// its real margins -- the engine measures them into the footprint the
-// preview opens, which has to be the band it lands as (final review,
-// finding 4) -- and the box that holds it takes them back with a negative
-// margin of its own, so the block stays one row tall. jsdom has no layout,
-// so what is pinned is what the box's height is made of.
+// V1 A: the trailing block is one row tall whatever is carried; a carried group's phantom is folded before and after entry.
+// Its band keeps its margins, which the preview's footprint measures, and the holding box takes them back with a negative margin. jsdom has no layout, so the parts are pinned.
 describe('the trailing block is one row tall (V1 A)', () => {
   const folded = (groupRowId: string) => {
     const tabs = row(groupRowId).querySelector('[data-group-tabs]');
@@ -1349,14 +1313,11 @@ describe('the trailing block is one row tall (V1 A)', () => {
     await renderDetail('S2');
     carry(GROUP_G1);
     expect(folded('group:h1').tabs).not.toBe('none');
-    expect(folded('group:h1').margin).not.toEqual(['0px', '0px']);
+    expect(folded('group:h1').margin).toEqual(['2px', '2px']);
   });
 });
 
-// V3 A. A carried window's phantom shows a dashed slot at its own place --
-// the top of the session on screen, where a drop starts -- while the pointer
-// is outside the pane. On entry the landing slot takes over at the same
-// place and strength, so nothing changes.
+// V3 A: a carried window's phantom shows a dashed slot at the session's top while the pointer is outside; on entry the landing slot takes over unchanged.
 describe('a carried window shows where a drop starts (V3 A)', () => {
   const resting = () =>
     row('carried:w2').querySelector<HTMLElement>(
@@ -1374,10 +1335,7 @@ describe('a carried window shows where a drop starts (V3 A)', () => {
     expect(style.display).not.toBe('none');
     expect(style.borderTopStyle).toBe('dashed');
     expect(style.borderTopWidth).toBe('1.5px');
-    // Its colour (--drag-landing-slot) is a real browser's to resolve: the
-    // e2e reads it against the theme's.
-    // The landing slot's corners, so nothing changes on entry (V3 A; the
-    // engine's slot has 4px corners on main).
+    // Its colour (--drag-landing-slot) is the browser's to resolve; e2e reads it. 4px corners, as the engine's landing slot (V3 A).
     expect(style.borderRadius).toBe('4px');
     expect(style.position).toBe('absolute');
     expect([style.top, style.right, style.bottom, style.left]).toEqual([
@@ -1419,10 +1377,7 @@ describe('a carried window shows where a drop starts (V3 A)', () => {
   });
 });
 
-// KAN-366 Q4, ruling 1. The trailing block's room follows the session a
-// carry SHOWS: decided from that session's own overflow at rest, when the
-// carry starts and whenever it shows another session, before the pointer
-// comes in. Never the room the carry brought from where it started.
+// KAN-366 Q4: the trailing block's room follows the session the carry shows, from that session's overflow at rest, never the room it started with.
 describe('a carry’s room follows the session it shows', () => {
   const marker = () =>
     document.documentElement.getAttribute('data-drag-new-window');

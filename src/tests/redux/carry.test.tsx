@@ -221,10 +221,7 @@ describe('the New window marker', () => {
     expect(marked()).toBe(false);
   });
 
-  // KAN-366 Q4. A drag in a list that scrolls publishes it with room (the
-  // trailing block's row). The carry that drag starts, and a drag that
-  // adopts it, write the marker again: the room the phantom now fills stays,
-  // or the list would lose a row under the pointer at the hand-off.
+  // KAN-366 Q4: a carry started from a drag with room, and a drag adopting it, keep the room, or the list loses a row under the pointer at the hand-off.
   test('a carry started from a drag with room keeps the room; its end clears it', () => {
     const value = () =>
       document.documentElement.getAttribute('data-drag-new-window');

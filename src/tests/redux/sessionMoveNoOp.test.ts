@@ -44,15 +44,8 @@ import {
   windowIds,
 } from '../fixtures/sessionMoveFixture';
 
-// KAN-350 final review, finding 1. A new window made in the item's OWN
-// session, from a window that holds nothing but that item and is already the
-// session's first window, would rebuild that same window: a new id, no
-// title in place of its own, the session stamped and sorted to
-// the top. The drop changes nothing the user can see, so it must change
-// nothing at all -- and say so, so the carry ends as a cancel.
-//
-// S9: `only` holds the lone tab, then w2. G9: `gw` holds the group gg and
-// nothing else, then w2.
+// KAN-350 finding 1: a new window in the item's own session, from a window holding only that item and already first, would rebuild it (new id, no title, restamped, re-sorted).
+// It must change nothing and say so, so the carry ends as a cancel. S9: `only` holds the lone tab, then w2. G9: `gw` holds only group gg, then w2.
 
 const NS = '6f1c2d3e-4b5a-4c6d-8e7f-9a0b1c2d3e4f';
 const HOUR = 3_600_000;
@@ -323,20 +316,5 @@ describe('moveToSession says whether anything moved', () => {
     expect(result).toBe(false);
     expect(data(store)).toBe(before);
     expect(toasts(store)).toEqual([]);
-  });
-
-  it('a same-session move to an exact spot, which the reducer is not for: false', () => {
-    const store = ready(container([s9(), s3()]));
-    const result = store.dispatch(
-      moveToSession({
-        move: {
-          carried: LONE,
-          to: { tabGroupId: 'S9', windowId: 'w2', toIndex: 0 },
-        },
-        announceMoved: true,
-      })
-    );
-
-    expect(result).toBe(false);
   });
 });

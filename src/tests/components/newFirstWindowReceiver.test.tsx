@@ -13,12 +13,7 @@ import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { s1, s2 } from '../fixtures/sessionMoveFixture';
 
-// KAN-361. The session header's New window target, as a carry receiver,
-// hit-tests the element it lights -- the one its ref holds -- and not
-// whichever element the document finds first under the same attribute.
-// Here a decoy sits first in the document, where the receiver's own target
-// is not, so a receiver that measured the document's first match would be
-// hit where nothing it lights is drawn, and missed where it is.
+// KAN-361: the header target, as a receiver, hit-tests the element its ref holds, not the document's first match. A decoy sits first here.
 
 const T1: CarriedRef = {
   kind: 'tab',

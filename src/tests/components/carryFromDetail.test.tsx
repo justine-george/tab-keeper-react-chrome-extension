@@ -22,17 +22,8 @@ import { s1, s2, s3 } from '../fixtures/sessionMoveFixture';
 import { snapshot, layOut, tabRow } from '../setup/openNowDragHarness';
 import { standInSessionList } from '../setup/standInSessionList';
 
-// KAN-350. The three saved detail lists -- tabs, groups, windows -- hand a
-// drag that reaches the session list to the carry (KAN-352: only there), and
-// the detail then draws the source without the carried item. The session
-// list and Open now do not.
-//
-// S1 (shown): w1 [t1, g1a*g1, g1b*g1, t2, t4*g2], w2 [t3].
-//
-// jsdom computes no emotion class and has no layout, so the pane's overflow
-// is set inline and it gets a box (as dragDeadSpace.test.tsx does); the rows
-// keep jsdom's zero boxes, which is enough to start a drag. What is pinned is
-// the wiring: which list hands off, and what it hands.
+// KAN-350: the three detail lists hand a drag reaching the session list (only there, KAN-352) to the carry, and the source is drawn without the item.
+// The session list and Open now do not. S1 (shown): w1 [t1, g1a*g1, g1b*g1, t2, t4*g2], w2 [t3]. Overflow inline and a pane box; zero row boxes suffice to start a drag.
 
 const PANE_W = 400;
 const box = (top: number, height: number, width = PANE_W): DOMRect =>

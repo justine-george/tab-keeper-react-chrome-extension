@@ -26,12 +26,10 @@ import {
 } from '../../redux/dragHold';
 import { setDragging } from '../../components/home/rightpane/rowDrag/dropRules';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import type { makeTestStore } from '../setup/makeStore';
 import { s1, s2, tab } from '../fixtures/sessionMoveFixture';
 
-// KAN-350. The CarryLayer drives a carry while the pointer is outside every
-// area that can take it: it draws the D1 card at the pointer, asks the
-// receivers, and ends the carry on Esc, pointercancel, or a release no
-// receiver took -- so nothing moves.
+// KAN-350: CarryLayer drives a carry outside every area that can take it: draws the D1 card, asks the receivers, and ends it on Esc, pointercancel or a refused release.
 
 const TAB: CarriedRef = {
   kind: 'tab',
@@ -63,6 +61,19 @@ function handOff(card: CarryCard, carried: CarriedRef = TAB, x = 300, y = 40) {
   beginDragHold();
   act(() => startCarry(carried, card, x, y));
 }
+
+type Store = ReturnType<typeof makeTestStore>['store'];
+
+// As a spring-open leaves it: another session on screen, so a cancel is seen showing S1 again.
+const showOther = (store: Store) =>
+  act(() => {
+    store.dispatch(selectTabContainer('S2'));
+  });
+// Every session field but the selection, which a cancel changes.
+const sessionsOf = (store: Store) =>
+  store
+    .getState()
+    .tabContainerDataState.tabGroups.map((g) => ({ ...g, isSelected: false }));
 
 const card = () => document.querySelector<HTMLElement>('[data-carry-card]');
 // The card's words, without an icon's ligature.
@@ -200,9 +211,10 @@ describe('Esc, a release over nothing and pointercancel end the carry, and nothi
   ])('%s', async (_how, end) => {
     const { store } = await renderLayer();
     handOff(TAB_CARD);
+    showOther(store);
     const held = vi.fn();
     whenDragReleases(held);
-    const before = store.getState().tabContainerDataState;
+    const before = sessionsOf(store);
 
     act(end);
 
@@ -212,8 +224,11 @@ describe('Esc, a release over nothing and pointercancel end the carry, and nothi
     expect(isDragHeld()).toBe(false);
     expect(held).toHaveBeenCalledTimes(1);
     expect(document.documentElement.hasAttribute('data-dragging')).toBe(false);
-    // Nothing moved.
-    expect(store.getState().tabContainerDataState).toBe(before);
+    expect(sessionsOf(store)).toEqual(before);
+    // Cancelled, so the source is shown again (KAN-406).
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'S1'
+    );
   });
 });
 
@@ -283,7 +298,8 @@ describe('receivers (Ruling 2)', () => {
     const { r, calls } = fake(false);
     const off = registerCarryReceiver(r);
     handOff(TAB_CARD);
-    const before = store.getState().tabContainerDataState;
+    showOther(store);
+    const before = sessionsOf(store);
 
     fireEvent.pointerMove(window, { clientX: 50, clientY: 10 });
     act(() => {
@@ -293,7 +309,10 @@ describe('receivers (Ruling 2)', () => {
     expect(calls).toContain('take');
     expect(currentCarry()).toBeNull();
     expect(isDragHeld()).toBe(false);
-    expect(store.getState().tabContainerDataState).toBe(before);
+    expect(sessionsOf(store)).toEqual(before);
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'S1'
+    );
     off();
   });
 

@@ -18,15 +18,8 @@ import {
 } from '../../redux/dragHold';
 import { standInSessionList } from '../setup/standInSessionList';
 
-// KAN-350. A saved drag that reaches a carry receiver -- the session list --
-// is handed to the carry, which outlives the area (the area's unmount would
-// otherwise end the drag). ONLY there (KAN-352): beside the pane, over the
-// Open now resize grip or Open now itself, nothing changes; above or below
-// the pane is how a drag auto-scrolls (KAN-152). The controls below prove it.
-//
-// jsdom has no layout and computes no emotion class, so the pane's overflow is
-// set inline and the pane and rows get boxes, as dragAutoScroll.test.tsx and
-// dragDeadSpace.test.tsx do. What is pinned is the DECISION.
+// KAN-350: a saved drag reaching a receiver (the session list) is handed to the carry, which outlives the area. Only there (KAN-352): beside the pane, over the grip or Open now,
+// nothing changes; above or below is auto-scroll (KAN-152). jsdom has no layout or emotion classes, so overflow is inline and boxes are given. The decision is pinned.
 
 const ROW_H = 30;
 // The pane: x 0..200, y 0..90, showing three of four 30px rows.
@@ -296,10 +289,7 @@ describe('any other exit is today’s drag', () => {
     expect(pane.scrollTop).toBeLessThan(30);
   });
 
-  // KAN-352, aimed where the old rule fired: right of the pane, where Open
-  // now's resize grip sits, is a sideways exit -- and no receiver. The drag
-  // stays the area's: no carry, its preview still drawn, and the release
-  // there lands where that preview showed.
+  // KAN-352: right of the pane (Open now's grip) is no receiver. The drag stays the area's, its preview drawn, and the release lands there.
   test('beside the pane over no receiver: no hand-off, and the release still lands', () => {
     const onMove = vi.fn();
     const carryOut = vi.fn(() => OUT);

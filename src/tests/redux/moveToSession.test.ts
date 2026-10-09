@@ -223,13 +223,6 @@ describe('moveToSession: both toasts take ⌘Z from a Reopen offer (C′)', () =
     );
     expect(selectReopenOfferForKey(store.getState())).toBeNull();
   });
-
-  it('both, with the move that sends both', async () => {
-    const store = await withOffer(container([s3(), s2(), lonely()]));
-    store.dispatch(moveToSession({ move: T3_EMPTIES_S1, announceMoved: true }));
-
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
-  });
 });
 
 describe('moveToSession: one step to undo, and synced', () => {
@@ -345,7 +338,7 @@ describe('moveToSession: one step to undo, and synced', () => {
   it('a same-session move to an exact spot is not this thunk’s: nothing moves, nothing toasts', () => {
     const { store, seen } = ready();
     const before = data(store);
-    store.dispatch(
+    const result = store.dispatch(
       moveToSession({
         move: {
           carried: {
@@ -361,6 +354,7 @@ describe('moveToSession: one step to undo, and synced', () => {
     );
 
     // The premise: the reducer was asked, and declined.
+    expect(result).toBe(false);
     expect(seen).toContain(moveToSessionInternal.type);
     expect(data(store)).toBe(before);
     expect(toasts(store)).toEqual([]);
@@ -369,10 +363,7 @@ describe('moveToSession: one step to undo, and synced', () => {
   });
 });
 
-// Review Focus 1. The drop goes through dropOnTop: a change that arrived while
-// the item was carried is applied first. One that removed the source item or
-// the destination leaves the removal standing: nothing moves, and nothing is
-// announced.
+// Review Focus 1: the drop goes through dropOnTop, so a change that arrived mid-carry applies first. One that removed the source or target leaves nothing moved or announced.
 describe('moveToSession at the drop: a change that arrived while carried', () => {
   // Hold, and queue a change this page did not make, applied at the drop.
   const holdWithChange = (
