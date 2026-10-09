@@ -4,6 +4,8 @@ import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import prettierRecommended from 'eslint-plugin-prettier/recommended';
+import vitest from '@vitest/eslint-plugin';
+import playwright from 'eslint-plugin-playwright';
 
 export default tseslint.config(
   // Flat config has no .eslintignore. `dist` and `coverage` are build output;
@@ -76,6 +78,32 @@ export default tseslint.config(
     rules: {
       'react-hooks/rules-of-hooks': 'off',
       'no-empty-pattern': 'off',
+    },
+  },
+
+  // Test lint gate (KAN-356): a test must assert, every expect must be checked, and no two tests share a name.
+  {
+    files: ['src/**/*.test.{ts,tsx}'],
+    plugins: { vitest },
+    rules: {
+      'vitest/expect-expect': [
+        'error',
+        { assertFunctionNames: ['expect', 'expect*'] },
+      ],
+      'vitest/valid-expect': ['error', { maxArgs: 2 }],
+      'vitest/no-identical-title': 'error',
+    },
+  },
+  {
+    files: ['e2e/**/*.spec.ts'],
+    plugins: { playwright },
+    rules: {
+      'playwright/expect-expect': [
+        'error',
+        { assertFunctionPatterns: ['^expect'] },
+      ],
+      'playwright/valid-expect': 'error',
+      'playwright/no-identical-title': 'error',
     },
   },
 

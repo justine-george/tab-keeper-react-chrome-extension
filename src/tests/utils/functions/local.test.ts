@@ -17,8 +17,6 @@ import {
   getStringDate,
   isEmptyObject,
   isValidDate,
-  isValidEmail,
-  isValidPassword,
   isValidTabMasterContainer,
   loadFromLocalStorage,
   placeholderTarget,
@@ -61,46 +59,6 @@ describe('getStringDate', () => {
   test('should return formatted date string', () => {
     const date = new Date(2023, 9, 17, 10, 30, 45);
     expect(getStringDate(date)).toBe('2023-10-17 10:30:45');
-  });
-});
-
-describe('isValidEmail', () => {
-  // Valid emails
-  test('should return true if email is valid', () => {
-    expect(isValidEmail('test@gmail.com')).toBe(true);
-  });
-
-  // Invalid emails
-  test('should return false if email is invalid', () => {
-    expect(isValidEmail('@gmail.com')).toBe(false);
-    expect(isValidEmail('testgmail.com')).toBe(false);
-    expect(isValidEmail('test@.com')).toBe(false);
-    expect(isValidEmail('test@gmailcom')).toBe(false);
-    expect(isValidEmail('test@gmail.')).toBe(false);
-    expect(isValidEmail('')).toBe(false);
-  });
-});
-
-describe('isValidPassword', () => {
-  // Valid password
-  test('should return true if password is valid', () => {
-    expect(isValidPassword('abcd1234')).toBe(true);
-  });
-
-  // Invalid passwords - less than 8 characters
-  test('should return false if password is invalid', () => {
-    expect(isValidPassword('abcd123')).toBe(false);
-    expect(isValidPassword('')).toBe(false);
-  });
-
-  // Invalid passwords - no letters
-  test('should return false if password is invalid', () => {
-    expect(isValidPassword('12345678')).toBe(false);
-  });
-
-  // Invalid passwords - no numbers
-  test('should return false if password is invalid', () => {
-    expect(isValidPassword('abcdefgh')).toBe(false);
   });
 });
 
@@ -615,7 +573,7 @@ describe('isValidTabMasterContainer', () => {
     expect(isValidTabMasterContainer(invalidData)).toBe(false);
   });
 
-  test('should return false for invalid TabMasterContainer structure', () => {
+  test('should return false without lastModified', () => {
     const invalidData = {
       selectedTabGroupId: 'sample-id',
       tabGroups: [
@@ -654,7 +612,7 @@ describe('isValidTabMasterContainer', () => {
     expect(isValidTabMasterContainer(invalidData)).toBe(false);
   });
 
-  test('should return false for invalid TabMasterContainer structure', () => {
+  test('should return false without selectedTabGroupId', () => {
     const invalidData = {
       lastModified: Date.now(),
       tabGroups: [
@@ -693,7 +651,7 @@ describe('isValidTabMasterContainer', () => {
     expect(isValidTabMasterContainer(invalidData)).toBe(false);
   });
 
-  test('should return false for invalid TabMasterContainer structure', () => {
+  test('should return false when a session has no tabGroupId', () => {
     const invalidData = {
       lastModified: Date.now(),
       selectedTabGroupId: 'sample-id',
@@ -732,7 +690,7 @@ describe('isValidTabMasterContainer', () => {
     expect(isValidTabMasterContainer(invalidData)).toBe(false);
   });
 
-  test('should return false for invalid TabMasterContainer structure', () => {
+  test('should return false when a window has no windowId', () => {
     const invalidData = {
       lastModified: Date.now(),
       selectedTabGroupId: 'sample-id',
@@ -771,7 +729,7 @@ describe('isValidTabMasterContainer', () => {
     expect(isValidTabMasterContainer(invalidData)).toBe(false);
   });
 
-  test('should return false for invalid TabMasterContainer structure', () => {
+  test('should return false when a tab has no tabId', () => {
     const invalidData = {
       lastModified: Date.now(),
       selectedTabGroupId: 'sample-id',

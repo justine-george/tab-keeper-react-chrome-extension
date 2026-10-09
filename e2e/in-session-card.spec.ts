@@ -456,6 +456,7 @@ test.describe('KAN-355: the adopted phantom casts no shadow', () => {
     const phantom = await adoptPhantom(page, 'carried:a1');
 
     // At its own place. Soft, so the band below is still measured.
+    // eslint-disable-next-line playwright/valid-expect -- expect.soft.poll is valid Playwright; the rule does not know the pair.
     await expect.soft.poll(() => shadowOf(phantom)).toBe('none');
 
     // Over Gamma's band: the band is marked, and the phantom wears no

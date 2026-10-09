@@ -314,7 +314,7 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
   // The held row is below the window that opens: the frame it opens in
   // already shows everything where it rests (Task 3's re-measure, before
   // paint), and the title row it rests on does not move (D12).
-  async function openAbove(
+  async function expectOpensAbove(
     page: Page,
     w: {
       opens: string;
@@ -414,7 +414,7 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
   }) => {
     const page = await openPopup(context, extensionId);
     await collapseWindow(page, 'w1');
-    await openAbove(page, {
+    await expectOpensAbove(page, {
       opens: 'w1',
       opensRow: 'a0',
       opensBands: ['alpha'],
@@ -439,7 +439,7 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     // PREMISE: the folded list still scrolls, and stands at 200.
     expect((await detailPane(page)).scrollTop).toBe(200);
     expect(await scrollRange(page)).toBeGreaterThan(200);
-    await openAbove(page, {
+    await expectOpensAbove(page, {
       opens: 'sw2',
       opensRow: 's2-0',
       opensBands: [],

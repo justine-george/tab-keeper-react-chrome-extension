@@ -203,7 +203,7 @@ const belowRow = async (page: Page, id: string) => {
 
 // Drives one case end to end: seed what the drop produces, measure it, then
 // assert the drag predicts exactly that.
-async function predicts(
+async function expectPredicts(
   context: BrowserContext,
   extensionId: string,
   opts: {
@@ -230,7 +230,7 @@ test.describe('a row arriving between two adjacent bands', () => {
     context,
     extensionId,
   }) => {
-    await predicts(context, extensionId, {
+    await expectPredicts(context, extensionId, {
       before: ADJACENT,
       after: [
         tab('a0'),
@@ -246,7 +246,7 @@ test.describe('a row arriving between two adjacent bands', () => {
   });
 
   test('a loose tab from below', async ({ context, extensionId }) => {
-    await predicts(context, extensionId, {
+    await expectPredicts(context, extensionId, {
       before: ADJACENT,
       after: [
         tab('a0'),
@@ -262,7 +262,7 @@ test.describe('a row arriving between two adjacent bands', () => {
   });
 
   test('a loose tab from above', async ({ context, extensionId }) => {
-    await predicts(context, extensionId, {
+    await expectPredicts(context, extensionId, {
       before: ADJACENT,
       after: [
         tab('b0', 'beta'),
@@ -280,7 +280,7 @@ test.describe('a row arriving between two adjacent bands', () => {
 
 test.describe('the row between two bands leaving, wherever it goes', () => {
   test('upward, above both bands', async ({ context, extensionId }) => {
-    await predicts(context, extensionId, {
+    await expectPredicts(context, extensionId, {
       before: SEPARATED,
       after: [
         tab('a0'),
@@ -299,7 +299,7 @@ test.describe('the row between two bands leaving, wherever it goes', () => {
   // The landing sits BELOW the band whose gap changed, so the slot has to move
   // with the rows that closed up -- measured 4px out before this.
   test('downward, to the end of the list', async ({ context, extensionId }) => {
-    await predicts(context, extensionId, {
+    await expectPredicts(context, extensionId, {
       before: SEPARATED,
       after: [
         tab('a0'),
@@ -319,7 +319,7 @@ test.describe('the row between two bands leaving, wherever it goes', () => {
   // DOES travel with the band -- the one case where landing "at" the band
   // means below its title row rather than in the gap above it.
   test('into the lower band, at its head', async ({ context, extensionId }) => {
-    await predicts(context, extensionId, {
+    await expectPredicts(context, extensionId, {
       before: SEPARATED,
       after: [
         tab('a0'),
@@ -348,7 +348,7 @@ test('CONTROL: a band whose neighbour above is a loose tab is unaffected', async
   context,
   extensionId,
 }) => {
-  await predicts(context, extensionId, {
+  await expectPredicts(context, extensionId, {
     before: [
       tab('a0'),
       tab('a1'),

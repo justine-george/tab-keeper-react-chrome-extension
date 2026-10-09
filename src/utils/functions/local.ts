@@ -84,19 +84,6 @@ export function debounce(func: any, delay: number) {
   };
 }
 
-// validate email format
-export function isValidEmail(email: string): boolean {
-  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return regex.test(email);
-}
-
-// validate password format
-export function isValidPassword(password: string): boolean {
-  const hasLetters = /[a-zA-Z]/.test(password);
-  const hasNumbers = /\d/.test(password);
-  return password.length >= 8 && hasLetters && hasNumbers;
-}
-
 // a value read back from chrome.storage.sync is only usable as the Firestore
 // documentId if it is a non-empty string
 export function isUsableToken(value: unknown): value is string {

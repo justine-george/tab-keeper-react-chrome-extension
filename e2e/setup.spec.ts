@@ -834,7 +834,7 @@ function watchCloud(context: BrowserContext): string[] {
 }
 
 // Step 6 up to the consent question, answered Not now: nothing may reach Google.
-async function step6NotNow(
+async function expectStep6NotNow(
   context: BrowserContext,
   extensionId: string,
   requests: string[]
@@ -862,7 +862,7 @@ async function step6NotNow(
 }
 
 // Sync, then the sign-up the CONTROL waits for.
-async function step6Sync(page: Page, requests: string[]): Promise<void> {
+async function expectStep6Sync(page: Page, requests: string[]): Promise<void> {
   await pairSide(page, 'Auto Sync', 'On').click();
   await page
     .getByRole('dialog', {
@@ -898,8 +898,8 @@ test.describe('step 6, Sync across your devices? (Q9, §14)', () => {
       isAutoSync: false,
     });
     const requests = watchCloud(context);
-    const full = await step6NotNow(context, extensionId, requests);
-    await step6Sync(full, requests);
+    const full = await expectStep6NotNow(context, extensionId, requests);
+    await expectStep6Sync(full, requests);
   });
 });
 
@@ -918,8 +918,8 @@ test.describe('step 6 against the dev cloud (Q9, §14)', () => {
       isAutoSync: false,
     });
     const requests = watchCloud(context);
-    const full = await step6NotNow(context, extensionId, requests);
-    await step6Sync(full, requests);
+    const full = await expectStep6NotNow(context, extensionId, requests);
+    await expectStep6Sync(full, requests);
     await expect
       .poll(async () => typeof (await storedSettings(full)).lastSyncedTime, {
         timeout: 15_000,
