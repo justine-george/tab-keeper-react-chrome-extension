@@ -170,6 +170,12 @@ export interface addCurrWindowToTabGroupParams {
   window: windowGroupData;
 }
 
+export interface replaceSessionContentParams {
+  tabGroupId: string;
+  windows: windowGroupData[];
+  now: number;
+}
+
 export interface addCurrTabToWindowParams {
   tabGroupId: string;
   windowId: string;
@@ -1401,6 +1407,22 @@ export const tabContainerDataStateSlice = createSlice({
       state.lastModified = Date.now();
 
       // update localstorage
+      saveToLocalStorage('tabContainerData', state);
+    },
+
+    // KAN-468. A content edit: the windows are what is open now; id, name, created date and rank stay.
+    replaceSessionContentInternal: (
+      state,
+      action: PayloadAction<replaceSessionContentParams>
+    ) => {
+      const { tabGroupId, windows, now } = action.payload;
+      const group = state.tabGroups.find((g) => g.tabGroupId === tabGroupId);
+      if (!group) return;
+      group.windows = windows;
+      group.windowCount = windows.length;
+      group.tabCount = windows.reduce((n, w) => n + w.tabs.length, 0);
+      touchContent(state, group, now);
+      state.lastModified = now;
       saveToLocalStorage('tabContainerData', state);
     },
 
@@ -2976,6 +2998,7 @@ export const {
   saveToTabContainerInternal,
   selectTabContainer,
   addCurrWindowToTabGroupInternal,
+  replaceSessionContentInternal,
   addCurrTabToWindowInternal,
   updateTabGroupTitle,
   updateWindowGroupTitle,
