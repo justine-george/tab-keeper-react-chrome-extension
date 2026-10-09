@@ -4748,7 +4748,7 @@ describe('chrome.action.openPopup', () => {
     await chrome.action.setPopup({ popup: 'index.html' });
     await chrome.action.openPopup();
 
-    expect(handle.popupsOpened).toEqual([
+    expect(handle.openPopupCalls).toEqual([
       { windowId: 3, popup: '' },
       { windowId: undefined, popup: 'index.html' },
     ]);
@@ -4781,7 +4781,7 @@ describe('chrome.action.openPopup', () => {
     await expect(chrome.action.openPopup()).rejects.toThrow(
       'Failed to open popup.'
     );
-    expect(handle.popupsOpened).toHaveLength(1);
+    expect(handle.openPopupCalls).toHaveLength(1);
   });
 
   test('CONTROL: an unseeded fake has no chrome.action', () => {

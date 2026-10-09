@@ -117,7 +117,7 @@ export type ChromeSeed = {
     // getUserSettings never settles: Chrome has not answered yet.
     getUserSettingsPending?: boolean;
     hasUserSettingsEvent?: boolean;
-    // KAN-437. openPopup refuses, as Chrome does with "Failed to open popup.".
+    // KAN-437. openPopup refuses with "Failed to open popup.", as Chrome 154 does while another openPopup is still opening.
     openPopupRejects?: boolean;
   };
   // KAN-7. chrome.i18n, present only when seeded: name -> message. A name it
@@ -227,8 +227,8 @@ export type ChromeFakeHandle = {
   groupState(groupId: number): chrome.tabGroups.TabGroup | undefined;
   // Every chrome.action.setPopup popup, in call order (KAN-7).
   popupsSet: string[];
-  // Every chrome.action.openPopup call: the window it named and the popup set then (KAN-437).
-  popupsOpened: { windowId: number | undefined; popup: string }[];
+  // A log of every chrome.action.openPopup call, rejected calls included: window named, popup set then (KAN-437).
+  openPopupCalls: { windowId: number | undefined; popup: string }[];
   // chrome.storage.local as it is now (KAN-7's defaultView mirror).
   localArea(): Record<string, unknown>;
   // chrome.storage.session as it is now (KAN-458).
@@ -1276,7 +1276,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   const handle: ChromeFakeHandle = {
     sentMessages: [],
     popupsSet: [],
-    popupsOpened: [],
+    openPopupCalls: [],
     localArea: () => Object.fromEntries(localArea),
     sessionArea: () => Object.fromEntries(sessionArea),
     setToolbarPin(next) {
@@ -1635,7 +1635,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       ),
     // KAN-437, measured: a gone window rejects; popup '' rejects; no window means the last-focused one.
     openPopup: (options?: chrome.action.OpenPopupOptions): Promise<void> => {
-      handle.popupsOpened.push({ windowId: options?.windowId, popup });
+      handle.openPopupCalls.push({ windowId: options?.windowId, popup });
       if (seed.action?.openPopupRejects) {
         return Promise.reject(new Error('Failed to open popup.'));
       }
