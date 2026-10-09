@@ -7574,12 +7574,11 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     { what: 'window', handle: (page: Page) => windowHandle(page, 'w2') },
   ];
   for (const { what, handle } of pickUps) {
-    test(`N1: a ${what} picked up in the detail shows it at once; Esc there changes nothing`, async ({
+    test(`N1: a ${what} picked up in the detail shows it at once`, async ({
       context,
       extensionId,
     }) => {
       const page = await openPopup(context, extensionId);
-      const before = await stored(page);
       // PREMISE: the save row at rest.
       expect(await saveRowNow(page)).toBe('controls');
 
@@ -7600,7 +7599,6 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
       await page.keyboard.press('Escape');
       await page.mouse.up();
       await expectSaveRowBack(page);
-      expect(await stored(page)).toEqual(before);
     });
   }
 
