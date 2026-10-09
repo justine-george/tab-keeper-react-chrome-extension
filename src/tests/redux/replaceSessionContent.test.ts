@@ -120,6 +120,9 @@ describe('replaceSessionContentInternal', () => {
       before.windowCount,
       before.tabCount,
     ]);
+    // Back in its old place, with its old edited date.
+    expect(back.contentModified).toBe(before.contentModified);
+    expect(sessionIds(data(store))).toEqual(['S3', 'S2', 'S1']);
     store.dispatch(redo());
     expect(sessionIn(data(store), 'S1').windows.map((w) => w.windowId)).toEqual(
       ['n1', 'n2']
