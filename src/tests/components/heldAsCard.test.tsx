@@ -486,6 +486,7 @@ describe('the hand-off to the carry', () => {
     expect(carryOnWhenHidden).toEqual([true]);
     expect(currentCarry()?.carried).toMatchObject({ tabId: 't2' });
     expect(carryCard()).toBe(el);
+    expect(el?.style.transform).toBe('translate(-32px, 188px)');
     expect(dragCard()).toBeNull();
     expect(currentDragCard()).toBeNull();
     // takeRecords, not the callback: the callback runs after this test body.

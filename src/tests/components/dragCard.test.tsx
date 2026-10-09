@@ -6,7 +6,6 @@ import {
   currentCarry,
   endCarry,
   registerCarryReceiver,
-  startCarry,
   type CarryCard,
 } from '../../redux/carry';
 import {
@@ -17,9 +16,7 @@ import {
 } from '../../redux/dragCard';
 import { beginDragHold, endDragHold, isDragHeld } from '../../redux/dragHold';
 import { setDragging } from '../../components/home/rightpane/rowDrag/dropRules';
-import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import { s1 } from '../fixtures/sessionMoveFixture';
 
 // KAN-354. An ordinary drag inside a saved session shows the same card at the
 // pointer that a carry does. The drag engine publishes it through dragCard.ts;
@@ -88,47 +85,6 @@ describe('the drag card', () => {
     const before = currentDragCard();
     act(() => moveDragCard(OWNER, 100, 50));
     expect(currentDragCard()).toBe(before);
-  });
-
-  test('a hand-off to a carry keeps the same element', async () => {
-    // Seeded, so the layer finds the carried tab still there.
-    await renderWithProviders(<CarryLayer />, {
-      seedStore: (store) => {
-        store.dispatch(saveToTabContainerInternal(s1()));
-      },
-    });
-    const removed: Node[] = [];
-    const observer = new MutationObserver((records) => {
-      for (const r of records) removed.push(...Array.from(r.removedNodes));
-    });
-    observer.observe(document.body, { subtree: true, childList: true });
-
-    act(() => showDragCard(OWNER, TAB_CARD, 100, 50));
-    const el = dragCard();
-    expect(el).not.toBeNull();
-
-    // The order the engine's hand-off uses: the carry starts, then the drag
-    // card is hidden.
-    act(() => {
-      startCarry(
-        { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 't1' },
-        TAB_CARD,
-        120,
-        60
-      );
-      hideDragCard(OWNER);
-    });
-
-    expect(carryCard()).toBe(el);
-    expect(el?.hasAttribute('data-drag-card')).toBe(false);
-    expect(dragCard()).toBeNull();
-    expect(el?.style.transform).toBe('translate(128px, 64px)');
-    // takeRecords, not the callback: the callback runs after this test body.
-    removed.push(
-      ...observer.takeRecords().flatMap((r) => Array.from(r.removedNodes))
-    );
-    observer.disconnect();
-    expect(removed).not.toContain(el);
   });
 
   test('CONTROL: a release, Esc or cancel drives nothing for a drag card; only its owner hides it', async () => {
