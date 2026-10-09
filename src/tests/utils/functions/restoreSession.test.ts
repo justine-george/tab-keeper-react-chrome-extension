@@ -586,6 +586,17 @@ describe('incognito windows', () => {
     expect(handle.removedWindowIds).toEqual([]);
   });
 
+  test('Switch, Window 1 incognito, a refused carry: the old window stays open and Window 2 gets the stub', async () => {
+    handle = setupChromeFake(pinnedFullView(true));
+    vi.spyOn(chrome.tabs, 'move').mockRejectedValue(new Error('refused'));
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await restoreSession(incognitoRequest([true, false], true, true));
+    const made = await byWindow();
+    expect(made[web('old')].urls).toEqual([FULL, web('old')]);
+    expect(made[web('w1')].urls).toEqual([web('w1')]);
+    expect(made[web('w2')].urls).toEqual([STUB, web('w2')]);
+  });
+
   test('Switch, Window 1 incognito, nothing pinned, On: Window 2 gets the stub, Window 1 none', async () => {
     handle = setupChromeFake(seed({ incognitoAllowed: true }));
     await restoreSession(incognitoRequest([true, false], true, true));
