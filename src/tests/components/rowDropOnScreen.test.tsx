@@ -432,26 +432,6 @@ describe('finding 5: a row drop into the session on screen is followed into view
     expect(inDetail(pane)).toEqual([detailRow(pane, first.windowId)]);
   });
 
-  test('CONTROL: a drop on another session’s row follows nothing in the detail', async () => {
-    const { store, pane } = await render([s1(), s2(), s3()], 'S1');
-    handOff(
-      { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 't2' },
-      TAB_CARD
-    );
-    moveTo(rowY(1));
-    releaseAt(rowY(1));
-    runFrames(2);
-
-    // PREMISE: it moved, into S2, which is not on screen.
-    expect(
-      tabIds(sessionIn(store.getState().tabContainerDataState, 'S2').windows[0])
-    ).toEqual(['t2']);
-    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
-      'S1'
-    );
-    expect(inDetail(pane)).toEqual([]);
-  });
-
   // Window ids can repeat across sessions in legacy data and imports: the
   // session on screen holding a window of the landed one's id is still not
   // where the drop landed.

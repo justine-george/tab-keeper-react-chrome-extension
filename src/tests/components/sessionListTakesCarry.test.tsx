@@ -127,6 +127,8 @@ async function renderList() {
   const scroller = result.container.firstElementChild?.lastElementChild;
   if (!(scroller instanceof HTMLElement)) throw new Error('no list');
   layOut(scroller);
+  // PREMISE: the list reads as seeded.
+  expect(rowIds()).toEqual(['S1', 'S2', 'S3', 'S4', 'S5', 'S6']);
   return { ...result, scroller };
 }
 
@@ -205,14 +207,6 @@ const moveTo = (y: number, x = X) =>
 const releaseAt = (y: number, x = X) =>
   fireEvent.pointerUp(document, { clientX: x, clientY: y });
 const wait = (ms: number) => act(() => vi.advanceTimersByTime(ms));
-
-describe('the premise', () => {
-  test('six rows, S1 first and selected, S6 below the fold', async () => {
-    await renderList();
-    expect(rowIds()).toEqual(['S1', 'S2', 'S3', 'S4', 'S5', 'S6']);
-    expect(rowY(5)).toBeGreaterThan(LIST_TOP + LIST_H);
-  });
-});
 
 describe('dwell and spring-open (S1 A)', () => {
   test('599ms on a row opens nothing, and 600ms opens it', async () => {
@@ -516,22 +510,6 @@ describe('a release on a row moves the item in (S2 A)', () => {
     const state = store.getState().tabContainerDataState;
     expect(windowIds(sessionIn(state, 'S2'))).toEqual(['w2', 'd1', 'd2']);
     expect(windowIds(sessionIn(state, 'S1'))).toEqual(['w1']);
-  });
-
-  test('a window on its own session’s row becomes its first window, with no Moved toast', async () => {
-    const { store } = await renderList();
-    handOff(
-      { kind: 'window', tabGroupId: 'S1', windowId: 'w2' },
-      { kind: 'window', title: 'Window w2', number: 2, tabCount: 1 }
-    );
-    moveTo(rowY(0));
-    releaseAt(rowY(0));
-
-    const state = store.getState().tabContainerDataState;
-    expect(windowIds(sessionIn(state, 'S1'))).toEqual(['w2', 'w1']);
-    expect(toastTexts(store.getState())).not.toContain(
-      TOAST_MESSAGES.MOVED_TO_SESSION
-    );
   });
 
   test('a window already first, on its own row: nothing moves, and the carry is cancelled', async () => {

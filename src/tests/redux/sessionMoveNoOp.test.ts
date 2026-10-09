@@ -324,19 +324,4 @@ describe('moveToSession says whether anything moved', () => {
     expect(data(store)).toBe(before);
     expect(toasts(store)).toEqual([]);
   });
-
-  it('a same-session move to an exact spot, which the reducer is not for: false', () => {
-    const store = ready(container([s9(), s3()]));
-    const result = store.dispatch(
-      moveToSession({
-        move: {
-          carried: LONE,
-          to: { tabGroupId: 'S9', windowId: 'w2', toIndex: 0 },
-        },
-        announceMoved: true,
-      })
-    );
-
-    expect(result).toBe(false);
-  });
 });
