@@ -8,6 +8,8 @@ import {
   type PopupApi,
 } from '../../../utils/functions/openInPopup';
 import { OPEN_IN_TAB_MESSAGE } from '../../../utils/functions/popOut';
+import { DEFAULT_VIEW_KEY } from '../../../utils/functions/defaultView';
+import type * as DefaultViewModule from '../../../utils/functions/defaultView';
 import { setupChromeFake } from '../../setup/chrome.fake';
 
 const VIEW = 'chrome-extension://x/index.html?view=tab';
@@ -473,5 +475,68 @@ describe('chromePopupApi against the chrome fake (KAN-437)', () => {
       'No popup opened; reopening the full view:',
       expect.any(Error)
     );
+  });
+});
+
+// R9. Chrome sleeps the worker after ~30s idle, so a press usually starts it, and its startup reapply runs beside the press.
+describe('the worker runs a press after its startup reapply (KAN-437)', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+  });
+
+  test("Default view Full: a press during the reapply waits, so the reapply's '' cannot land inside the open", async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    handle = setupChromeFake({
+      action: {},
+      windows: [
+        { id: 1, focused: true, tabs: [{ id: 11, url: 'https://a.test/' }] },
+      ],
+    });
+    await chrome.storage.local.set({ [DEFAULT_VIEW_KEY]: 'full' });
+    await chrome.action.setPopup({ popup: '' });
+    // The startup reapply, held until the press has been sent.
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.resetModules();
+    vi.doMock(
+      '../../../utils/functions/defaultView',
+      async (importOriginal) => {
+        const original = await importOriginal<typeof DefaultViewModule>();
+        return {
+          ...original,
+          reapplyDefaultView: async (
+            ...args: Parameters<typeof original.reapplyDefaultView>
+          ) => {
+            await held;
+            return original.reapplyDefaultView(...args);
+          },
+        };
+      }
+    );
+    try {
+      await import('../../../background');
+    } finally {
+      vi.doUnmock('../../../utils/functions/defaultView');
+    }
+
+    await chrome.runtime.sendMessage({ type: OPEN_IN_POPUP_MESSAGE });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // PREMISE: the reapply has not written yet.
+    expect(handle.popupsSet).toEqual(['']);
+    expect(handle.openPopupCalls).toEqual([]);
+
+    release();
+
+    await vi.waitFor(() =>
+      expect(handle?.popupsSet).toEqual(['', '', 'index.html', ''])
+    );
+    expect(handle.openPopupCalls).toEqual([
+      { windowId: undefined, popup: 'index.html' },
+    ]);
+    expect(warn).not.toHaveBeenCalled();
   });
 });

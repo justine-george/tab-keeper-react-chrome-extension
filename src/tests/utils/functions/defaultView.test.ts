@@ -99,6 +99,21 @@ describe('reapplyDefaultView (the worker at every start)', () => {
     expect(popups).toEqual(['index.html']);
     expect(warn).toHaveBeenCalledTimes(1);
   });
+
+  // KAN-437 R9: the worker chains a press on this, so it must resolve even when both halves fail.
+  test('an unreadable store and a refused setPopup still resolve', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { api } = action(true);
+    await expect(
+      reapplyDefaultView(
+        store(async () => {
+          throw new Error('storage gone');
+        }),
+        api
+      )
+    ).resolves.toBe('compact');
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('openFullViewFromToolbar', () => {

@@ -67,8 +67,11 @@ const defaultViewStore: DefaultViewStore = {
       .get(DEFAULT_VIEW_KEY)
       .then((items) => items[DEFAULT_VIEW_KEY]),
 };
-const reapplyDefaultViewNow = () =>
-  void reapplyDefaultView(defaultViewStore, chromeActionApi);
+// Never rejects (reapplyDefaultView logs its own failures), so a press chained on it always runs.
+let defaultViewApplied: Promise<unknown> = Promise.resolve();
+const reapplyDefaultViewNow = () => {
+  defaultViewApplied = reapplyDefaultView(defaultViewStore, chromeActionApi);
+};
 // Also at load: disabling then enabling resets the popup and fires neither event.
 reapplyDefaultViewNow();
 chrome.runtime.onStartup.addListener(reapplyDefaultViewNow);
@@ -128,7 +131,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // KAN-437. The asking tab is the full view: the worker closes it, then opens the popup.
+  // After the worker's startup reapply, which otherwise races it (measured: a set right after worker start was overwritten, 1 of 8 probe runs).
   if (isOpenInPopupRequest(message)) {
-    void openInPopup(chromePopupApi, sender.tab?.id);
+    void defaultViewApplied.then(() =>
+      openInPopup(chromePopupApi, sender.tab?.id)
+    );
   }
 });
