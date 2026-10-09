@@ -166,7 +166,7 @@ test.describe('Open compact view (KAN-437)', () => {
           fullViewsOpen: 0,
         },
       ]);
-    // No reopen after a successful open.
+    // No reopen after a successful open; a success sends no "done" event, so the hold is a fixed 1s.
     expect(await mostFullViewsWithin(serviceWorker, 1000)).toBe(0);
   });
 
@@ -309,10 +309,8 @@ test.describe('Open compact view (KAN-437)', () => {
       before: 1,
       after: 0,
     });
-    // Full as the page's choice leaves it: stored, then applied. The worker's
-    // startup reapply (plan Task 1, R3) starts at worker start, before the full
-    // view draws; the store says full, so even a late one writes ''.
-    // The premise reads the popup before the press.
+    // Full as the page's choice leaves it: stored, then applied; the premise reads it before the press.
+    // The press waits for the worker's startup reapply (R9), which reads this store, so it writes '' before the open, never inside it.
     await serviceWorker.evaluate(async () => {
       await chrome.storage.local.set({ defaultView: 'full' });
       await chrome.action.setPopup({ popup: '' });
@@ -357,7 +355,7 @@ test.describe('Open compact view (KAN-437)', () => {
       .poll(async () => (await viewTabs(serviceWorker)).length)
       .toBe(0);
     await expect.poll(popups).toBe(1);
-    // No reopen after a successful open.
+    // No reopen after a successful open; a success sends no "done" event, so the hold is a fixed 1s.
     expect(await mostFullViewsWithin(serviceWorker, 1000)).toBe(0);
   });
 });
