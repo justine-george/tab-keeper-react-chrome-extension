@@ -11,6 +11,11 @@ import {
   openOrFocusTabView,
   TabApi,
 } from './utils/functions/popOut';
+import {
+  chromePopupApi,
+  isOpenInPopupRequest,
+  openInPopup,
+} from './utils/functions/openInPopup';
 import { recordRecentTabs } from './utils/functions/recentTabs';
 import { reopenPreferringHistory } from './utils/functions/reopen';
 import type { Reopened } from './utils/functions/reopen';
@@ -62,8 +67,11 @@ const defaultViewStore: DefaultViewStore = {
       .get(DEFAULT_VIEW_KEY)
       .then((items) => items[DEFAULT_VIEW_KEY]),
 };
-const reapplyDefaultViewNow = () =>
-  void reapplyDefaultView(defaultViewStore, chromeActionApi);
+// Never rejects (reapplyDefaultView logs its own failures), so a press chained on it always runs.
+let defaultViewApplied: Promise<unknown> = Promise.resolve();
+const reapplyDefaultViewNow = () => {
+  defaultViewApplied = reapplyDefaultView(defaultViewStore, chromeActionApi);
+};
 // Also at load: disabling then enabling resets the popup and fires neither event.
 reapplyDefaultViewNow();
 chrome.runtime.onStartup.addListener(reapplyDefaultViewNow);
@@ -82,7 +90,7 @@ chrome.action.onClicked.addListener((tab) => void onToolbarClick(tab));
 // The e2e harness cannot click the toolbar; it calls this instead.
 Object.assign(globalThis, { tabKeeperToolbarClick: onToolbarClick });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Open now's Reopen with history (KAN-280 Part D). Here, not in the page:
   // the restore focuses a window, and the undo after it has to outlive the
   // popup. The answer carries the new ids for the tab view's row focus
@@ -120,5 +128,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (isOpenInTabRequest(message)) {
     void openOrFocusTabView(chromeTabApi, message);
+  }
+
+  // KAN-437. The asking tab is the full view: the worker closes it, then opens the popup.
+  // After the worker's startup reapply, which otherwise races it (measured: a set right after worker start was overwritten, 1 of 8 probe runs).
+  if (isOpenInPopupRequest(message)) {
+    void defaultViewApplied.then(() =>
+      openInPopup(chromePopupApi, sender.tab?.id)
+    );
   }
 });

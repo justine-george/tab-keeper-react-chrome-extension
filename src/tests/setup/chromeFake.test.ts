@@ -4733,3 +4733,59 @@ describe('windows.create refuses a state Chrome refuses', () => {
     expect(created?.state).toBe('maximized');
   });
 });
+
+// KAN-437, measured headed in Chrome 154 (KAN-437 comment 10696).
+describe('chrome.action.openPopup', () => {
+  const seed = {
+    action: {},
+    windows: [{ id: 3, tabs: [{ id: 31, url: 'https://a.test/' }] }],
+  };
+
+  test('records the window it named and the popup set at the time', async () => {
+    handle = setupChromeFake(seed);
+    await chrome.action.setPopup({ popup: '' });
+    await chrome.action.openPopup({ windowId: 3 }).catch(() => undefined);
+    await chrome.action.setPopup({ popup: 'index.html' });
+    await chrome.action.openPopup();
+
+    expect(handle.openPopupCalls).toEqual([
+      { windowId: 3, popup: '' },
+      { windowId: undefined, popup: 'index.html' },
+    ]);
+  });
+
+  test('a window that is gone rejects with No window with id', async () => {
+    handle = setupChromeFake(seed);
+    await expect(chrome.action.openPopup({ windowId: 9 })).rejects.toThrow(
+      'No window with id: 9.'
+    );
+  });
+
+  test('with the popup set to an empty string it rejects', async () => {
+    handle = setupChromeFake(seed);
+    await chrome.action.setPopup({ popup: '' });
+    await expect(chrome.action.openPopup({ windowId: 3 })).rejects.toThrow(
+      'Extension does not have a popup on the active tab.'
+    );
+  });
+
+  test('a live window with a popup resolves', async () => {
+    handle = setupChromeFake(seed);
+    await expect(
+      chrome.action.openPopup({ windowId: 3 })
+    ).resolves.toBeUndefined();
+  });
+
+  test('seeded to refuse, it rejects with Failed to open popup.', async () => {
+    handle = setupChromeFake({ ...seed, action: { openPopupRejects: true } });
+    await expect(chrome.action.openPopup()).rejects.toThrow(
+      'Failed to open popup.'
+    );
+    expect(handle.openPopupCalls).toHaveLength(1);
+  });
+
+  test('CONTROL: an unseeded fake has no chrome.action', () => {
+    handle = setupChromeFake();
+    expect(Reflect.get(chrome, 'action')).toBeUndefined();
+  });
+});

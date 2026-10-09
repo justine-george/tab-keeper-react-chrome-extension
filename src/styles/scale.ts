@@ -73,8 +73,8 @@ export const CONTROL = {
 } as const;
 
 /**
- * Icon sizes. Two main levels, because the app genuinely uses two, and one
- * between them for glyphs that read wrong at either (KAN-340).
+ * Icon sizes. Two main levels, because the app genuinely uses two, and steps
+ * between them for glyphs that read wrong at either (KAN-340, KAN-437).
  *
  * Collapsing these to one was tried and reverted: every icon at DEFAULT made
  * the save pair and the "add current window" control heavier than the jobs they
@@ -86,12 +86,12 @@ export const CONTROL = {
  * read as undersized next to its neighbour. Two named levels, and a third is a
  * line in this file when something needs it -- not an override at a call site.
  *
- * MEDIUM is that line. Two glyphs in the home header's row of DEFAULT icons
- * read wrong at both levels: the gear (the heaviest ink in the row) looked
- * too big at DEFAULT and too small at SMALL beside the 22.5px-wide cloud, and
- * open_in_full, thin but reaching its corners, looked big at DEFAULT. At
- * MEDIUM both sit between Undo (16.5px of ink) and Search (18.5px). Measured
- * with the bundled font; Justine picked it from a side-by-side mock.
+ * MEDIUM is that line, for the gear: the heaviest ink in the home header's
+ * row of DEFAULT icons, it looked too big at DEFAULT and too small at SMALL
+ * beside the 22.5px-wide cloud. At MEDIUM its ink sits between Undo (16.5px)
+ * and Search (18.5px). Measured with the bundled font; Justine picked it from
+ * a side-by-side mock (KAN-340). open_in_full drew at MEDIUM too until KAN-437
+ * moved it, with Open compact view, to MEDIUM_SMALL.
  */
 export const ICON = {
   /** A mark beside a title, not a control: the saved row's pin (KAN-458). */
@@ -100,6 +100,12 @@ export const ICON = {
   XSMALL: '1rem',
   /** Secondary or inline actions, subordinate to the control they sit in. */
   SMALL: '1.25rem',
+  /**
+   * ⤢ and Open compact view. At 22px ⤢'s ink is 16.5px to the gear's 18.5px
+   * (KAN-437 size mock), yet its arrows reach the box corners, so it reads
+   * big. Justine picked B, 21px.
+   */
+  MEDIUM_SMALL: '1.3125rem',
   /**
    * A glyph among DEFAULT neighbours whose ink reads too big at DEFAULT and
    * too small at SMALL. Drawn in a DEFAULT box (Icon's `boxSizedFor`).

@@ -42,6 +42,10 @@ import {
 import { isTabView } from '../../../utils/functions/viewMode';
 import { getPrettyDate } from '../../../utils/functions/local';
 import { requestTabView } from '../../../utils/functions/popOut';
+import {
+  canOpenPopup,
+  requestPopup,
+} from '../../../utils/functions/openInPopup';
 import { endRunAtFullViewButton } from '../../../redux/firstRun';
 
 export default function MenuContainer() {
@@ -306,11 +310,9 @@ export default function MenuContainer() {
   // KAN-340 A + R1. Three pairs by what they do: views (Open full view,
   // Sort), history (Undo, Redo), account and app (Sync, Settings). 8px
   // between pairs, none inside one, so hover fills within a pair still meet
-  // as they always have. Open full view is the cluster's leftmost icon and
-  // the cluster is right-aligned, so the five shared icons sit at the same x
-  // in the popup and the tab view, where Sort stands alone in the first pair.
-  // `gap` only spaces siblings that exist, so that lone pair leaves no
-  // leading gap.
+  // as they always have. The leftmost icon is Open full view in the popup and
+  // Open compact view in the tab view (KAN-437), and the cluster is right-aligned,
+  // so the five shared icons sit at the same x in both.
   const clusterStyle = css`
     display: flex;
     gap: 8px;
@@ -363,8 +365,8 @@ export default function MenuContainer() {
               type="open_in_full"
               // KAN-340. Thin, but its arrows reach the corners: at DEFAULT its
               // ink spans 18.5px square, the largest in the row, and it read big.
-              // MEDIUM (17px) matches the gear, in the same box.
-              size={ICON.MEDIUM}
+              // MEDIUM_SMALL (21px) since KAN-437: still read big at MEDIUM.
+              size={ICON.MEDIUM_SMALL}
               boxSizedFor={ICON.DEFAULT}
               // KAN-344. It stretches: "the same thing, bigger".
               hoverMotion={{ scale: 1.14, duration: DURATION.MOVE }}
@@ -377,6 +379,20 @@ export default function MenuContainer() {
               />
             )}
           </span>
+        )}
+        {/* KAN-437 A. The full view's way back, in ⤢'s slot and drawn as ⤢ is; the worker opens the popup, closing this tab first unless it is pinned or the last tab Chrome has. */}
+        {/* KAN-437 R10. Absent where Chrome cannot open the popup (before 127), as toolbarPin.ts feature-detects. */}
+        {isTabView() && canOpenPopup() && (
+          <Icon
+            ariaLabel={t('Open compact view')}
+            tooltipText={t('Open compact view')}
+            type="close_fullscreen"
+            size={ICON.MEDIUM_SMALL}
+            boxSizedFor={ICON.DEFAULT}
+            // KAN-437. It shrinks: ⤢'s stretch mirrored inward (mock pick A).
+            hoverMotion={{ scale: 0.88, duration: DURATION.MOVE }}
+            onClick={requestPopup}
+          />
         )}
         <OverflowMenu
           ariaLabel={t('Sort sessions')}

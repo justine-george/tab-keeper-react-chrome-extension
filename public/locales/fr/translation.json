@@ -243,6 +243,7 @@
   "CarryNewSessionTarget": "Nouvelle session",
   "Search looks in session names, window names, tab titles and links.": "La recherche porte sur les noms de session, les noms de fenêtre, les titres d’onglet et les liens.",
   "Open full view": "Ouvrir la vue complète",
+  "Open compact view": "Ouvrir la vue compacte",
   "Default view": "Vue par défaut",
   "Pin Tab Keeper in new windows": "Épingler Tab Keeper dans les nouvelles fenêtres",
   "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Les fenêtres que Tab Keeper ouvre ou vers lesquelles il bascule commencent avec Tab Keeper épinglé.",
