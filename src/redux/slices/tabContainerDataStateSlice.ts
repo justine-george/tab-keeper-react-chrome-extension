@@ -826,6 +826,38 @@ export const addCurrWindowToTabGroup = createAsyncThunk(
   }
 );
 
+// KAN-468. Every open window, captured as Save does, replaces the session's; the session keeps its name.
+export const replaceSessionWithOpenWindows = createAsyncThunk<
+  boolean,
+  string,
+  { state: RootState }
+>('global/replaceSessionWithOpenWindows', async (tabGroupId, thunkAPI) => {
+  const sessionOf = () =>
+    thunkAPI
+      .getState()
+      .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === tabGroupId);
+  const group = sessionOf();
+  if (!group) return false;
+  const captured = await captureOpenWindows(group.title, 'all-windows');
+  // Gone while capturing (deleted, or synced away): nothing to replace.
+  if (!captured || !sessionOf()) return false;
+  thunkAPI.dispatch(
+    replaceSessionContentInternal({
+      tabGroupId,
+      windows: captured.windows,
+      now: Date.now(),
+    })
+  );
+  thunkAPI.dispatch(
+    showToast({
+      toastText: TOAST_MESSAGES.SESSION_REPLACED,
+      duration: 3000,
+      announcesSavedChange: true,
+    })
+  );
+  return true;
+});
+
 // add current tab to the specified window container and display a toast message
 export const addCurrTabToWindow = createAsyncThunk(
   'global/addCurrTabToWindow',

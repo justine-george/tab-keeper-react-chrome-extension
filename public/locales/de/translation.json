@@ -68,6 +68,7 @@
   "Current tab added to this window.": "Aktueller Tab zu diesem Fenster hinzugefügt.",
   "Current window added to this session.": "Aktuelles Fenster zu dieser Sitzung hinzugefügt.",
   "Session deleted.": "Sitzung gelöscht.",
+  "Session replaced with all open windows.": "Sitzung durch alle offenen Fenster ersetzt.",
   "Session window deleted.": "Sitzungsfenster gelöscht.",
   "Session tab deleted.": "Sitzungstab gelöscht.",
   "Sync unavailable: your saved account token could not be read.": "Synchronisierung nicht verfügbar: Ihr gespeichertes Konto-Token konnte nicht gelesen werden.",

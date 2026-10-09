@@ -68,6 +68,7 @@
   "Current tab added to this window.": "Aktuell flik har lagts till i det här fönstret.",
   "Current window added to this session.": "Aktuellt fönster har lagts till i den här sessionen.",
   "Session deleted.": "Sessionen har raderats.",
+  "Session replaced with all open windows.": "Sessionen har ersatts med alla öppna fönster.",
   "Session window deleted.": "Fönstret har raderats från sessionen.",
   "Session tab deleted.": "Fliken har raderats från sessionen.",
   "Back": "Tillbaka",

@@ -70,6 +70,7 @@
   "Current tab added to this window.": "Pestaña actual añadida a esta ventana.",
   "Current window added to this session.": "Ventana actual añadida a esta sesión.",
   "Session deleted.": "Sesión eliminada.",
+  "Session replaced with all open windows.": "Sesión reemplazada con todas las ventanas abiertas.",
   "Session window deleted.": "Ventana de la sesión eliminada.",
   "Session tab deleted.": "Pestaña de la sesión eliminada.",
   "Sync unavailable: your saved account token could not be read.": "Sincronización no disponible: no se pudo leer el token de cuenta guardado.",

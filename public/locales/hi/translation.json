@@ -68,6 +68,7 @@
   "Current tab added to this window.": "वर्तमान टैब इस विंडो में जोड़ा गया।",
   "Current window added to this session.": "वर्तमान विंडो इस सत्र में जोड़ी गई।",
   "Session deleted.": "सत्र हटा दिया गया।",
+  "Session replaced with all open windows.": "सत्र को सभी खुली विंडो से बदल दिया गया।",
   "Session window deleted.": "सत्र विंडो हटाई गई।",
   "Session tab deleted.": "सत्र टैब हटाई गई।",
   "Sync unavailable: your saved account token could not be read.": "सिंक अनुपलब्ध: आपका सहेजा गया खाता टोकन पढ़ा नहीं जा सका।",
