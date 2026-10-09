@@ -21,6 +21,13 @@ export function isOpenInPopupRequest(
   );
 }
 
+// action.openPopup is Chrome 127+ for every extension; on older Chrome the full view has no way back to offer.
+export function canOpenPopup(): boolean {
+  const action: Partial<typeof chrome.action> | undefined =
+    typeof chrome === 'undefined' ? undefined : chrome.action;
+  return typeof action?.openPopup === 'function';
+}
+
 // The page's half: its tab is about to close, so it waits for nothing.
 export function requestPopup(): void {
   const request: OpenInPopupRequest = { type: OPEN_IN_POPUP_MESSAGE };

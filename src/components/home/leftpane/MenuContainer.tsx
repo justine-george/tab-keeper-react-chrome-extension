@@ -42,7 +42,10 @@ import {
 import { isTabView } from '../../../utils/functions/viewMode';
 import { getPrettyDate } from '../../../utils/functions/local';
 import { requestTabView } from '../../../utils/functions/popOut';
-import { requestPopup } from '../../../utils/functions/openInPopup';
+import {
+  canOpenPopup,
+  requestPopup,
+} from '../../../utils/functions/openInPopup';
 import { endRunAtFullViewButton } from '../../../redux/firstRun';
 
 export default function MenuContainer() {
@@ -378,7 +381,8 @@ export default function MenuContainer() {
           </span>
         )}
         {/* KAN-437 A. The full view's way back, in ⤢'s slot and drawn as ⤢ is; the worker opens the popup, closing this tab first unless it is pinned or the last tab Chrome has. */}
-        {isTabView() && (
+        {/* KAN-437 R10. Absent where Chrome cannot open the popup (before 127), as toolbarPin.ts feature-detects. */}
+        {isTabView() && canOpenPopup() && (
           <Icon
             ariaLabel={t('Open compact view')}
             tooltipText={t('Open compact view')}

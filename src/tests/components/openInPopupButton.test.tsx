@@ -3,13 +3,15 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import type { ChromeSeed } from '../setup/chrome.fake';
 import { OPEN_IN_POPUP_MESSAGE } from '../../utils/functions/openInPopup';
 
 // KAN-437. The button only sends; openInPopup.test.ts covers what the worker does with it.
-const renderFullView = () => {
+// action: {} is Chrome 127+, where action.openPopup exists.
+const renderFullView = (action: ChromeSeed['action'] = {}) => {
   history.replaceState(null, '', '?view=tab');
   return renderWithProviders(<MenuContainer />, {
-    seed: { windows: [{ id: 7 }] },
+    seed: { action, windows: [{ id: 7 }] },
   });
 };
 
@@ -52,12 +54,46 @@ describe("the full view's Open compact view button (KAN-437)", () => {
 
   test('is absent in the popup, where Open full view stands instead', async () => {
     await renderWithProviders(<MenuContainer />, {
+      seed: { action: {}, windows: [{ id: 7 }] },
+    });
+
+    expect(
+      screen.queryByRole('button', { name: 'Open compact view' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Open full view' })
+    ).toBeInTheDocument();
+  });
+
+  // R10. Before Chrome 127 an ordinary extension has no action.openPopup; the press would do nothing.
+  test('is absent in a full view whose Chrome has no action.openPopup', async () => {
+    await renderFullView({ hasOpenPopup: false });
+
+    expect(
+      screen.queryByRole('button', { name: 'Open compact view' })
+    ).not.toBeInTheDocument();
+    // PREMISE: the full view's header drew.
+    expect(
+      screen.getByRole('button', { name: 'Sort sessions' })
+    ).toBeInTheDocument();
+  });
+
+  test('is absent in a full view with no chrome.action at all', async () => {
+    history.replaceState(null, '', '?view=tab');
+    await renderWithProviders(<MenuContainer />, {
       seed: { windows: [{ id: 7 }] },
     });
 
     expect(
       screen.queryByRole('button', { name: 'Open compact view' })
     ).not.toBeInTheDocument();
+  });
+
+  test("CONTROL: without action.openPopup, the popup's Open full view still stands", async () => {
+    await renderWithProviders(<MenuContainer />, {
+      seed: { action: { hasOpenPopup: false }, windows: [{ id: 7 }] },
+    });
+
     expect(
       screen.getByRole('button', { name: 'Open full view' })
     ).toBeInTheDocument();

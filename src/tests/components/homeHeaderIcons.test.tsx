@@ -38,7 +38,7 @@ describe('home header glyph sizes (KAN-340)', () => {
   test('in the full view, Open compact view draws at ICON.MEDIUM_SMALL, as Open full view does (KAN-437)', async () => {
     history.replaceState(null, '', '?view=tab');
     try {
-      await renderWithProviders(<MenuContainer />);
+      await renderWithProviders(<MenuContainer />, { seed: { action: {} } });
 
       expect(glyphSize('Open compact view')).toBe(px(ICON.MEDIUM_SMALL));
     } finally {

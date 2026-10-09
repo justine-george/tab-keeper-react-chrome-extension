@@ -119,6 +119,8 @@ export type ChromeSeed = {
     hasUserSettingsEvent?: boolean;
     // KAN-437. openPopup refuses with "Failed to open popup.", as Chrome 154 does while another openPopup is still opening.
     openPopupRejects?: boolean;
+    // KAN-437 R10. false leaves openPopup undefined (before Chrome 127).
+    hasOpenPopup?: boolean;
   };
   // KAN-7. chrome.i18n, present only when seeded: name -> message. A name it
   // lacks answers '' as Chrome does.
@@ -1618,6 +1620,25 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     removeListener: () => undefined,
     hasListener: () => false,
   };
+  // KAN-437, measured: a gone window rejects; popup '' rejects; no window means the last-focused one.
+  const openPopup = (
+    options?: chrome.action.OpenPopupOptions
+  ): Promise<void> => {
+    handle.openPopupCalls.push({ windowId: options?.windowId, popup });
+    if (seed.action?.openPopupRejects) {
+      return Promise.reject(new Error('Failed to open popup.'));
+    }
+    const windowId = options?.windowId;
+    if (windowId !== undefined && !windows.some((w) => w.id === windowId)) {
+      return Promise.reject(new Error(`No window with id: ${windowId}.`));
+    }
+    if (popup === '') {
+      return Promise.reject(
+        new Error('Extension does not have a popup on the active tab.')
+      );
+    }
+    return Promise.resolve();
+  };
   // getPopup answers as Chrome does: a full URL, or '' for none.
   const actionApi = {
     onClicked: unfiredEvent,
@@ -1633,23 +1654,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       Promise.resolve(
         popup === '' ? '' : `chrome-extension://faketestid/${popup}`
       ),
-    // KAN-437, measured: a gone window rejects; popup '' rejects; no window means the last-focused one.
-    openPopup: (options?: chrome.action.OpenPopupOptions): Promise<void> => {
-      handle.openPopupCalls.push({ windowId: options?.windowId, popup });
-      if (seed.action?.openPopupRejects) {
-        return Promise.reject(new Error('Failed to open popup.'));
-      }
-      const windowId = options?.windowId;
-      if (windowId !== undefined && !windows.some((w) => w.id === windowId)) {
-        return Promise.reject(new Error(`No window with id: ${windowId}.`));
-      }
-      if (popup === '') {
-        return Promise.reject(
-          new Error('Extension does not have a popup on the active tab.')
-        );
-      }
-      return Promise.resolve();
-    },
+    ...(seed.action?.hasOpenPopup === false ? {} : { openPopup }),
     ...(seed.action?.isOnToolbar === undefined
       ? {}
       : {
