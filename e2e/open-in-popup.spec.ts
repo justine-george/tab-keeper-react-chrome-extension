@@ -26,7 +26,7 @@ const allTabs = (worker: Worker): Promise<TabFacts[]> =>
     chrome.tabs.query({}).then((tabs) =>
       tabs.map((t) => ({
         id: t.id ?? -1,
-        url: t.url ?? t.pendingUrl ?? '',
+        url: t.url || t.pendingUrl || '',
         index: t.index,
         pinned: t.pinned,
         active: t.active,
@@ -37,6 +37,22 @@ const allTabs = (worker: Worker): Promise<TabFacts[]> =>
 
 const viewTabs = async (worker: Worker) =>
   (await allTabs(worker)).filter((t) => t.url.includes(VIEW_TAB));
+
+// Samples for `ms`: the most full views open at any one read.
+async function mostFullViewsWithin(worker: Worker, ms: number) {
+  let most = 0;
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    most = Math.max(most, (await viewTabs(worker)).length);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return most;
+}
+
+const windowIds = (worker: Worker) =>
+  worker.evaluate(async () =>
+    (await chrome.windows.getAll({})).map((w) => w.id ?? -1)
+  );
 
 // Each call's arguments, the popup set then, and how many full views were still open.
 async function stubOpenPopup(worker: Worker, refuse: boolean): Promise<void> {
@@ -51,7 +67,7 @@ async function stubOpenPopup(worker: Worker, refuse: boolean): Promise<void> {
           args,
           popup: await chrome.action.getPopup({}),
           fullViewsOpen: tabs.filter((t) =>
-            (t.url ?? t.pendingUrl ?? '').includes(view)
+            (t.url || t.pendingUrl || '').includes(view)
           ).length,
         });
         if (refuseIt) throw new Error('Failed to open popup.');
@@ -150,7 +166,8 @@ test.describe('Open in popup (KAN-437)', () => {
           fullViewsOpen: 0,
         },
       ]);
-    expect(await viewTabs(serviceWorker)).toEqual([]);
+    // No reopen after a successful open.
+    expect(await mostFullViewsWithin(serviceWorker, 1000)).toBe(0);
   });
 
   test('2. alone in its window: the window goes with it, and the popup names no window', async ({
@@ -173,9 +190,9 @@ test.describe('Open in popup (KAN-437)', () => {
     await expect
       .poll(() => openPopupCalls(serviceWorker))
       .toEqual([{ args: [], popup: INDEX_POPUP, fullViewsOpen: 0 }]);
-    expect((await allTabs(serviceWorker)).map((t) => t.windowId)).not.toContain(
-      tab.windowId
-    );
+    await expect
+      .poll(() => windowIds(serviceWorker))
+      .not.toContain(tab.windowId);
   });
 
   test('3. pinned: the full view stays, and the popup opens over it', async ({
@@ -292,9 +309,10 @@ test.describe('Open in popup (KAN-437)', () => {
       before: 1,
       after: 0,
     });
-    // Full as the page's choice leaves it: mirrored, then applied. Set once the
-    // full view has drawn, after the worker's startup reapply (plan Task 1, R3),
-    // and mirrored so a late reapply would also write ''.
+    // Full as the page's choice leaves it: stored, then applied. The worker's
+    // startup reapply (plan Task 1, R3) starts at worker start, before the full
+    // view draws; the store says full, so even a late one writes ''.
+    // The premise reads the popup before the press.
     await serviceWorker.evaluate(async () => {
       await chrome.storage.local.set({ defaultView: 'full' });
       await chrome.action.setPopup({ popup: '' });
@@ -339,5 +357,7 @@ test.describe('Open in popup (KAN-437)', () => {
       .poll(async () => (await viewTabs(serviceWorker)).length)
       .toBe(0);
     await expect.poll(popups).toBe(1);
+    // No reopen after a successful open.
+    expect(await mostFullViewsWithin(serviceWorker, 1000)).toBe(0);
   });
 });

@@ -236,7 +236,7 @@ test.describe('the icons sit in three pairs, 8px apart (KAN-340 A + R1)', () => 
       expect(lastInset, 'no stray gap after Settings').toBe(0);
       // The mock's B crowded the title out; A must not.
       const first = await boxOf(control(page, TAB_ORDER[0]));
-      const frame = await boxOf(mark(page).locator('xpath=..'));
+      const frame = await boxOf(markFrame(page));
       const titleBox = await boxOf(title(page));
       expect(first.x, 'no control overlaps the mark').toBeGreaterThanOrEqual(
         frame.x + frame.width
