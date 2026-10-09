@@ -27,24 +27,30 @@ export async function restoreSession(
   const carried = request.closeOtherWindows
     ? findCarriedTab(before, await lastFocusedWindowId())
     : null;
+  // Not allowed, Chrome still opens an incognito window but hands back null, so each retry would open another (measured, KAN-460 Part 3).
+  const specs = (await isIncognitoAllowed())
+    ? request.specs
+    : request.specs.map(withoutIncognito);
 
   const created = await Promise.all(
-    request.specs.map((spec) =>
-      createWindowWithRetries(spec, request.goToURLText, 2)
-    )
+    specs.map((spec) => createWindowWithRetries(spec, request.goToURLText, 2))
   );
-  const target =
-    created[request.specs.findIndex((spec) => spec.focused)] ?? null;
-  const focusBack = focusBackPlan(request.specs, created, target);
+  const target = created[specs.findIndex((spec) => spec.focused)] ?? null;
+  // A Tab Keeper page cannot live in an incognito window: Switch carries it to the first restored normal one (KAN-460 Part 3, pick b).
+  const carryTo =
+    target?.incognito === true
+      ? (created.find((win) => win !== null && !win.incognito) ?? null)
+      : target;
+  const focusBack = focusBackPlan(specs, created, target);
   if (focusBack) await focusWindowOne(focusBack.windowId);
 
   // Finally, so Open's early return gets the late re-focus too.
   try {
-    // The focused window is left for the carried tab.
+    // The carried tab's window gets no stub.
     if (request.pinTabKeeper) {
       for (const win of created) {
         if (win?.id === undefined) continue;
-        if (carried !== null && win === target) continue;
+        if (carried !== null && win === carryTo) continue;
         await addPinnedStub(win.id);
       }
     }
@@ -58,11 +64,11 @@ export async function restoreSession(
     // P4: a pinned Tab Keeper tab is never closed by a Switch, so with nowhere to carry it, its window stays.
     let keepOpen: number | undefined;
     if (carried !== null) {
-      if (target?.id === undefined) {
+      if (carryTo?.id === undefined) {
         keepOpen = carried.windowId;
-      } else if (!(await carryPinnedTab(carried.id, target.id))) {
+      } else if (!(await carryPinnedTab(carried.id, carryTo.id))) {
         keepOpen = carried.windowId;
-        if (request.pinTabKeeper) await addPinnedStub(target.id);
+        if (request.pinTabKeeper) await addPinnedStub(carryTo.id);
       }
     }
 
@@ -106,6 +112,22 @@ async function focusWindowOne(windowId: number): Promise<void> {
   } catch (error) {
     console.warn('Could not give the restored Window 1 focus back:', error);
   }
+}
+
+// Never throws: a refused check reads as not allowed, so a window comes back normal rather than unseen.
+async function isIncognitoAllowed(): Promise<boolean> {
+  try {
+    return await chrome.extension.isAllowedIncognitoAccess();
+  } catch (error) {
+    console.warn('Could not read incognito access:', error);
+    return false;
+  }
+}
+
+function withoutIncognito(spec: WindowSpec): WindowSpec {
+  const normal = { ...spec };
+  delete normal.incognito;
+  return normal;
 }
 
 async function lastFocusedWindowId(): Promise<number | undefined> {

@@ -79,6 +79,21 @@ describe('openWindowsToSession (KAN-280 O13)', () => {
     expect('state' in session.windows[3]).toBe(false);
   });
 
+  test('an incognito window is saved with incognito; a normal one has no field (KAN-460 Part 3)', () => {
+    const session = openWindowsToSession(
+      [
+        openWindow(1, [openTab(11, 'A')], { incognito: true }),
+        openWindow(2, [openTab(21, 'B')]),
+      ],
+      'T',
+      NOW,
+      NO_RECORD
+    );
+
+    expect(session.windows[0].incognito).toBe(true);
+    expect('incognito' in session.windows[1]).toBe(false);
+  });
+
   test('a collapsed live group is saved collapsed; an open one has no field (KAN-460)', () => {
     const win = openWindow(
       1,

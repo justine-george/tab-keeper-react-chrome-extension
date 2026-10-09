@@ -39,6 +39,8 @@ export function findCarriedTab(
 // Never rejects: a missing stub costs the window its pinned tab, never the restore.
 export async function addPinnedStub(windowId: number): Promise<void> {
   try {
+    // Chrome would open it in a normal window instead: an extension page cannot live in an incognito tab (KAN-485).
+    if ((await chrome.windows.get(windowId)).incognito) return;
     await chrome.tabs.create({
       windowId,
       url: chrome.runtime.getURL(STUB_PATH),

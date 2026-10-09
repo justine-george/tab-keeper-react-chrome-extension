@@ -250,6 +250,11 @@ export function savedWindowState(
   return state === 'maximized' || state === 'fullscreen' ? { state } : {};
 }
 
+// KAN-460 Part 3. An incognito window stores true; a normal one stores nothing.
+export const savedIncognito = (
+  incognito: boolean
+): Pick<windowGroupData, 'incognito'> => (incognito ? { incognito: true } : {});
+
 // One window in storage shape. Extracted so "add current window to a session"
 // (HeroContainerRight) cannot drift from the session save -- capture.ts's
 // header already records why two captures that drift are a problem, and a
@@ -288,6 +293,7 @@ export function toWindowGroupData(
       ? {}
       : { activeTabId: tabsData[activeIndex].tabId }),
     ...savedWindowState(window.state),
+    ...savedIncognito(window.incognito),
   };
 }
 

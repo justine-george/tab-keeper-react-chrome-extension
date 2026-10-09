@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   isNotANameSource,
   pickActiveTabIndex,
+  savedIncognito,
   savedWindowState,
   toStoredTab,
 } from './capture';
@@ -69,6 +70,7 @@ function toSavedWindow(
       ? {}
       : { activeTabId: tabs[activeIndex].tabId }),
     ...savedWindowState(openWindow.state),
+    ...savedIncognito(openWindow.incognito),
   };
 }
 

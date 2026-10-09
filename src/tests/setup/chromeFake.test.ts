@@ -1214,6 +1214,7 @@ describe('extension calls fire what Chrome fires (KAN-280 O8)', () => {
   test('windows.create honours bounds, state and incognito; with no url it opens a new tab page', async () => {
     const handle = setupChromeFake({
       windows: [{ id: 1, tabs: [{ url: 'https://a.test/' }] }],
+      incognitoAllowed: true,
     });
     const events: string[] = [];
     chrome.windows.onCreated.addListener(() => events.push('window'));
@@ -4787,5 +4788,77 @@ describe('chrome.action.openPopup', () => {
   test('CONTROL: an unseeded fake has no chrome.action', () => {
     handle = setupChromeFake();
     expect(Reflect.get(chrome, 'action')).toBeUndefined();
+  });
+});
+
+// KAN-460 Part 3, measured on Chromium 151 (ledger 2026-10-09-kan-460-part-3-incognito-measurement.md).
+describe('incognito access', () => {
+  test('isAllowedIncognitoAccess is false unless seeded, as Chrome installs it', async () => {
+    handle = setupChromeFake();
+    expect(await chrome.extension.isAllowedIncognitoAccess()).toBe(false);
+    handle.restore();
+    handle = setupChromeFake({ incognitoAllowed: true });
+    expect(await chrome.extension.isAllowedIncognitoAccess()).toBe(true);
+  });
+
+  test('not allowed: an incognito create opens a window the extension never sees, and hands back null', async () => {
+    handle = setupChromeFake({
+      windows: [{ id: 1, tabs: [{ url: 'https://a.test/' }] }],
+    });
+    let called: unknown = 'never';
+    const promised = await chrome.windows.create(
+      { url: 'https://b.test/', incognito: true },
+      (win) => {
+        called = win;
+      }
+    );
+    expect(promised).toBeNull();
+    expect(called).toBeNull();
+    expect(chrome.runtime.lastError).toBeUndefined();
+    expect(handle.unseenIncognitoWindows).toBe(1);
+    expect((await chrome.windows.getAll()).map((w) => w.id)).toEqual([1]);
+  });
+
+  test('allowed: an incognito create is an ordinary, visible incognito window', async () => {
+    handle = setupChromeFake({ incognitoAllowed: true });
+    const win = await chrome.windows.create({
+      url: 'https://b.test/',
+      incognito: true,
+    });
+    expect(win?.incognito).toBe(true);
+    expect(handle.unseenIncognitoWindows).toBe(0);
+  });
+
+  test('a Tab Keeper page asked into an incognito window opens in the first normal window instead', async () => {
+    handle = setupChromeFake({
+      incognitoAllowed: true,
+      windows: [
+        { id: 1, incognito: true, tabs: [{ id: 10, url: 'https://i.test/' }] },
+        { id: 2, tabs: [{ id: 20, url: 'https://n.test/' }] },
+      ],
+    });
+    const tab = await chrome.tabs.create({
+      windowId: 1,
+      url: chrome.runtime.getURL('pinned.html'),
+      pinned: true,
+      index: 0,
+    });
+    expect(tab?.windowId).toBe(2);
+    expect(tab?.index).toBe(0);
+  });
+
+  test('CONTROL: a web page asked into an incognito window opens there', async () => {
+    handle = setupChromeFake({
+      incognitoAllowed: true,
+      windows: [
+        { id: 1, incognito: true, tabs: [{ id: 10, url: 'https://i.test/' }] },
+        { id: 2, tabs: [{ id: 20, url: 'https://n.test/' }] },
+      ],
+    });
+    const tab = await chrome.tabs.create({
+      windowId: 1,
+      url: 'https://x.test/',
+    });
+    expect(tab?.windowId).toBe(1);
   });
 });

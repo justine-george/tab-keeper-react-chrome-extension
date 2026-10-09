@@ -53,4 +53,12 @@ describe("restoreContainer reads a window's state as content (KAN-460)", () => {
     );
     expect(sessionIn(next, 'S').lastModified).toBe(T0 + 5_000);
   });
+
+  it('a payload whose only change is an incognito window is stamped past the live copy (Part 3)', () => {
+    const next = reducer(
+      live(),
+      restoreContainer(withWindow({ ...plain(), incognito: true }))
+    );
+    expect(sessionIn(next, 'S').lastModified).toBe(T0 + 5_000);
+  });
 });

@@ -306,6 +306,30 @@ describe('captureOpenWindows against the chrome fake', () => {
     expect('state' in byTab.d).toBe(false);
   });
 
+  test('stores incognito only for an incognito window (KAN-460 Part 3)', async () => {
+    handle = setupChromeFake({
+      incognitoAllowed: true,
+      windows: [
+        {
+          id: 1,
+          focused: true,
+          incognito: true,
+          tabs: [{ id: 11, url: 'https://a.test/', title: 'a' }],
+        },
+        { id: 2, tabs: [{ id: 21, url: 'https://b.test/', title: 'b' }] },
+      ],
+    });
+
+    const captured = await captureOpenWindows('session', 'all-windows');
+    const byTab = Object.fromEntries(
+      (captured?.windows ?? []).map((w) => [w.tabs[0].title, w])
+    );
+
+    expect(byTab.a.incognito).toBe(true);
+    // Absent, not false: a normal window is stored exactly as before.
+    expect('incognito' in byTab.b).toBe(false);
+  });
+
   // The worst path: a popup is the only thing open. Returning null is the
   // caller's cue that there is no session to save, so focus mode does not
   // promise a save it will not make.
