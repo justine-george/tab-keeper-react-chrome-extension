@@ -16,6 +16,7 @@ import {
   isOpenInPopupRequest,
   openInPopup,
 } from './utils/functions/openInPopup';
+import { keepPinnedTabKeeperWindows } from './utils/functions/pinnedTabKeeperWindows';
 import { recordRecentTabs } from './utils/functions/recentTabs';
 import { reopenPreferringHistory } from './utils/functions/reopen';
 import type { Reopened } from './utils/functions/reopen';
@@ -44,6 +45,9 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
 
 // KAN-458 A4. A save made from a Tab Keeper page reads which tab the user was on before it.
 recordRecentTabs();
+
+// KAN-470 A. An update closes every Tab Keeper tab: the windows that pinned one get a stub back.
+keepPinnedTabKeeperWindows();
 
 // The real TabApi (see popOut.ts), pointed at chrome.tabs/chrome.windows.
 // windows.update's `{ focused: true }` is what chrome.tabs.update itself has

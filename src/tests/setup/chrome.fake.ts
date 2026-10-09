@@ -238,6 +238,9 @@ export type ChromeFakeHandle = {
   // The user pinning or unpinning in Chrome's puzzle menu: fires
   // onUserSettingsChanged when the seed has it (KAN-7).
   setToolbarPin(isOnToolbar: boolean): void;
+  // What Chrome fires at a worker's start after an install or update, and at a browser start (KAN-470).
+  fireInstalled(details: chrome.runtime.InstalledDetails): void;
+  fireStartup(): void;
   restore(): void;
 };
 
@@ -1275,7 +1278,13 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     },
   };
 
+  const runtimeOnInstalled =
+    registry<(details: chrome.runtime.InstalledDetails) => void>();
+  const runtimeOnStartup = registry<() => void>();
+
   const handle: ChromeFakeHandle = {
+    fireInstalled: (details) => runtimeOnInstalled.fire(details),
+    fireStartup: () => runtimeOnStartup.fire(),
     sentMessages: [],
     popupsSet: [],
     openPopupCalls: [],
@@ -1613,8 +1622,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     onMoved: tabGroupsOnMoved,
   };
 
-  // KAN-7. onStartup/onInstalled/onClicked: the worker registers them at load;
-  // nothing in the fake fires them.
+  // KAN-7. onClicked: the worker registers it at load; nothing in the fake fires it.
   const unfiredEvent = {
     addListener: () => undefined,
     removeListener: () => undefined,
@@ -2471,8 +2479,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           if (!keptOpen) sendResponse(undefined);
         });
       },
-      onStartup: unfiredEvent,
-      onInstalled: unfiredEvent,
+      onStartup: runtimeOnStartup,
+      onInstalled: runtimeOnInstalled,
       onMessage: {
         addListener: (listener: MessageListener) =>
           void messageListeners.add(listener),
