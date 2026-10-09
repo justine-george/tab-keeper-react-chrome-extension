@@ -764,6 +764,8 @@ const isValidWindowGroupData = (data: unknown): data is windowGroupData => {
     (data.state === undefined ||
       data.state === 'maximized' ||
       data.state === 'fullscreen') &&
+    // KAN-460 Part 3. Absent or true.
+    (data.incognito === undefined || data.incognito === true) &&
     Array.isArray(data.tabs) &&
     data.tabs.every(isValidTabData)
   );

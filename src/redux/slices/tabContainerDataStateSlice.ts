@@ -98,6 +98,8 @@ export interface windowGroupData {
   activeTabId?: string;
   // KAN-460. Present only for a maximized or full-screen window; restore applies it last.
   state?: SavedWindowState;
+  // KAN-460 Part 3. Present only for an incognito window; restore makes it incognito when Tab Keeper is allowed there.
+  incognito?: true;
 }
 
 export interface tabContainerData {
@@ -452,6 +454,7 @@ function toWindowSpec(
       ? {}
       : { activeTabId: windowGroup.activeTabId }),
     ...(windowGroup.state === undefined ? {} : { state: windowGroup.state }),
+    ...(windowGroup.incognito === true ? { incognito: true } : {}),
   };
 }
 
@@ -1172,6 +1175,8 @@ function sameWindowContent(a: windowGroupData, b: windowGroupData): boolean {
     a.activeTabId === b.activeTabId &&
     // KAN-460. Content: a backup or undo that changes only a window's state must outrank the cloud.
     a.state === b.state &&
+    // KAN-460 Part 3. Content, as state is.
+    a.incognito === b.incognito &&
     a.tabs.length === b.tabs.length &&
     a.tabs.every(
       (tab, i) =>

@@ -279,4 +279,31 @@ describe('every restore call site posts one RestoreSessionRequest to the worker'
     expect('state' in request.specs[0]).toBe(false);
     expect(request.specs[1].state).toBe('maximized');
   });
+
+  it('an incognito window sends incognito in its spec; a normal one sends none (KAN-460 Part 3)', async () => {
+    handle = setupChromeFake();
+    const [first, second] = SESSION.tabGroups[0].windows;
+    const withIncognito: TabMasterContainer = {
+      ...SESSION,
+      tabGroups: [
+        {
+          ...SESSION.tabGroups[0],
+          windows: [first, { ...second, incognito: true }],
+        },
+      ],
+    };
+
+    const { store } = makeTestStore();
+    store.dispatch(restoreContainer(withIncognito));
+    await store.dispatch(
+      openAllTabContainer({
+        tabGroupId: 'group-1',
+        goToURLText: GO_TO_URL_TEXT,
+      })
+    );
+
+    const request = firstSentRequest(handle);
+    expect('incognito' in request.specs[0]).toBe(false);
+    expect(request.specs[1].incognito).toBe(true);
+  });
 });

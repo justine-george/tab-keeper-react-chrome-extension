@@ -477,3 +477,143 @@ describe('Window 1 gets focus back after other windows take their saved state', 
     expect(handle.removedWindowIds).toEqual([1]);
   });
 });
+
+// KAN-460 Part 3 (ledger 2026-10-09-kan-460-part-3-incognito-measurement.md). Pick (b): Switch carries the Tab Keeper tab into the first restored normal window.
+describe('incognito windows', () => {
+  const incognitoRequest = (
+    incognito: readonly boolean[],
+    closeOtherWindows: boolean,
+    pinTabKeeper: boolean
+  ): RestoreSessionRequest => {
+    const base = request(
+      incognito.map((_, i) => `w${i + 1}`),
+      closeOtherWindows,
+      pinTabKeeper
+    );
+    return {
+      ...base,
+      specs: base.specs.map((s, i) =>
+        incognito[i] ? { ...s, incognito: true } : s
+      ),
+    };
+  };
+  const pinnedFullView = (incognitoAllowed: boolean): ChromeSeed => ({
+    incognitoAllowed,
+    windows: [
+      {
+        id: 1,
+        focused: true,
+        tabs: [
+          { id: 10, url: FULL, pinned: true },
+          { id: 11, url: web('old'), active: true },
+        ],
+      },
+    ],
+  });
+  // Each window as incognito plus its urls, keyed by its first session tab.
+  async function byWindow() {
+    const all = await chrome.windows.getAll({ populate: true });
+    return Object.fromEntries(
+      all.map((win) => {
+        const urls = (win.tabs ?? [])
+          .slice()
+          .sort((a, b) => a.index - b.index)
+          .map((t) => t.url ?? '');
+        const key = urls.find((u) => !u.startsWith(EXT)) ?? `window ${win.id}`;
+        return [key, { incognito: win.incognito, urls }];
+      })
+    );
+  }
+
+  test('allowed: a window saved incognito opens incognito, the other normal', async () => {
+    handle = setupChromeFake(seed({ incognitoAllowed: true }));
+    await restoreSession(incognitoRequest([true, false], false, false));
+    const made = await byWindow();
+    expect(made[web('w1')]).toEqual({ incognito: true, urls: [web('w1')] });
+    expect(made[web('w2')]).toEqual({ incognito: false, urls: [web('w2')] });
+  });
+
+  test('not allowed: it opens normal, and Chrome is never asked for an incognito window', async () => {
+    handle = setupChromeFake(seed());
+    await restoreSession(incognitoRequest([true], true, false));
+    expect((await byWindow())[web('w1')]).toEqual({
+      incognito: false,
+      urls: [web('w1')],
+    });
+    expect(handle.unseenIncognitoWindows).toBe(0);
+    expect(handle.removedWindowIds).toEqual([1]);
+  });
+
+  test('a refused access check reads as not allowed', async () => {
+    handle = setupChromeFake(seed({ incognitoAllowed: true }));
+    vi.spyOn(chrome.extension, 'isAllowedIncognitoAccess').mockRejectedValue(
+      new Error('refused')
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await restoreSession(incognitoRequest([true], false, false));
+    expect((await byWindow())[web('w1')].incognito).toBe(false);
+  });
+
+  test('Open, On: the normal window gets a stub, the incognito one none, and no stub lands anywhere else', async () => {
+    handle = setupChromeFake(seed({ incognitoAllowed: true }));
+    await restoreSession(incognitoRequest([true, false], false, true));
+    const made = await byWindow();
+    expect(made[web('w1')].urls).toEqual([web('w1')]);
+    expect(made[web('w2')].urls).toEqual([STUB, web('w2')]);
+    expect(made[web('old')].urls).toEqual([web('old')]);
+  });
+
+  test('Switch, Window 1 incognito: the pinned full view is carried into Window 2, which gets no stub; the old window closes', async () => {
+    handle = setupChromeFake(pinnedFullView(true));
+    await restoreSession(incognitoRequest([true, false], true, true));
+    const made = await byWindow();
+    expect(Object.keys(made)).toHaveLength(2);
+    expect(made[web('w1')]).toEqual({ incognito: true, urls: [web('w1')] });
+    expect(made[web('w2')].urls).toEqual([FULL, web('w2')]);
+    expect((await chrome.tabs.query({})).find((t) => t.id === 10)?.pinned).toBe(
+      true
+    );
+    expect(handle.removedWindowIds).toEqual([1]);
+  });
+
+  test('Switch, every window incognito: the window holding the pinned tab stays open, no stub anywhere', async () => {
+    handle = setupChromeFake(pinnedFullView(true));
+    await restoreSession(incognitoRequest([true, true], true, true));
+    const made = await byWindow();
+    expect(made[web('old')].urls).toEqual([FULL, web('old')]);
+    expect(made[web('w1')].urls).toEqual([web('w1')]);
+    expect(made[web('w2')].urls).toEqual([web('w2')]);
+    expect(handle.removedWindowIds).toEqual([]);
+  });
+
+  test('Switch, Window 1 incognito, a refused carry: the old window stays open and Window 2 gets the stub', async () => {
+    handle = setupChromeFake(pinnedFullView(true));
+    vi.spyOn(chrome.tabs, 'move').mockRejectedValue(new Error('refused'));
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await restoreSession(incognitoRequest([true, false], true, true));
+    const made = await byWindow();
+    expect(made[web('old')].urls).toEqual([FULL, web('old')]);
+    expect(made[web('w1')].urls).toEqual([web('w1')]);
+    expect(made[web('w2')].urls).toEqual([STUB, web('w2')]);
+  });
+
+  test('Switch, Window 1 incognito, nothing pinned, On: Window 2 gets the stub, Window 1 none', async () => {
+    handle = setupChromeFake(seed({ incognitoAllowed: true }));
+    await restoreSession(incognitoRequest([true, false], true, true));
+    const made = await byWindow();
+    expect(made[web('w1')].urls).toEqual([web('w1')]);
+    expect(made[web('w2')].urls).toEqual([STUB, web('w2')]);
+    expect(handle.removedWindowIds).toEqual([1]);
+  });
+
+  test('Switch, Window 1 saved incognito but not allowed: as today, carried into Window 1', async () => {
+    handle = setupChromeFake(pinnedFullView(false));
+    await restoreSession(incognitoRequest([true, false], true, true));
+    const made = await byWindow();
+    expect(made[web('w1')]).toEqual({
+      incognito: false,
+      urls: [FULL, web('w1')],
+    });
+    expect(made[web('w2')].urls).toEqual([STUB, web('w2')]);
+  });
+});

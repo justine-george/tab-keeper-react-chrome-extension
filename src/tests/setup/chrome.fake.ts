@@ -100,6 +100,8 @@ export type ChromeSeed = {
   // (KAN-280 O8) recreates a tab at its real address and has to survive
   // Chrome declining some of them.
   refusedUrls?: string[];
+  // KAN-460 Part 3. "Allow in Incognito"; absent means off, as Chrome installs an extension.
+  incognitoAllowed?: boolean;
   // What runtime.getPlatformInfo() reports as the os (KAN-311: the Reopen
   // button hints ⌘Z on a Mac, Ctrl+Z elsewhere). Absent means 'linux', the
   // non-Mac form, so a test that seeds nothing never sees the Mac one.
@@ -138,6 +140,8 @@ export type ChromeFakeHandle = {
   // Every chrome.windows.remove() CALL, in order -- including one that goes
   // on to reject for an unknown id. Pushed before that check runs.
   removedWindowIds: number[];
+  // KAN-460 Part 3. Incognito windows a create opened while not allowed: Chrome opens them, but the extension never sees them.
+  unseenIncognitoWindows: number;
   // Every tab id chrome.tabs.remove() actually CLOSED, in the order it
   // closed them -- not every id the call was given. tabs.remove below stops
   // at the first unknown id in a batch, so only the ids before it are ever
@@ -285,6 +289,9 @@ function settle<T>(value: T, callback?: (value: T) => void): Promise<T> {
 // A tab seeded without an explicit windowId belongs to this window. Kept at 1
 // so a seed of `{ tabs: [...] }` alone behaves as it always has.
 const DEFAULT_WINDOW_ID = 1;
+
+// What runtime.getURL prefixes every Tab Keeper page with.
+const EXTENSION_ORIGIN = 'chrome-extension://faketestid/';
 
 // One of these per KAN-280 live event. `fire`/`size` are the fake's own
 // levers -- production code only ever gets addListener/removeListener/
@@ -1299,6 +1306,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     },
     createdTabs: [],
     removedWindowIds: [],
+    unseenIncognitoWindows: 0,
     removedTabIds: [],
     groupedTabs: [],
     tabsQueryCalls: [],
@@ -1841,11 +1849,23 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         // window this seed declared, matching `currentWindowId` above.
         // Falls to DEFAULT_WINDOW_ID only when the seed declares no window
         // at all.
-        const windowId = props.windowId ?? currentWindowId ?? DEFAULT_WINDOW_ID;
-        if (!windows.some((win) => win.id === windowId)) {
-          return fail<chrome.tabs.Tab>(`No window with id: ${windowId}.`, cb);
+        const asked = props.windowId ?? currentWindowId ?? DEFAULT_WINDOW_ID;
+        if (!windows.some((win) => win.id === asked)) {
+          return fail<chrome.tabs.Tab>(`No window with id: ${asked}.`, cb);
         }
         const url = props.url ?? '';
+        // KAN-460 Part 3, measured: an extension page cannot live in an incognito tab, so Chrome opens it in a normal window, no error.
+        const windowId =
+          url.startsWith(EXTENSION_ORIGIN) &&
+          windows.find((win) => win.id === asked)?.incognito === true
+            ? windows.find((win) => win.incognito !== true)?.id
+            : asked;
+        if (windowId === undefined) {
+          return fail<chrome.tabs.Tab>(
+            'chrome fake: unmeasured -- a Tab Keeper page with no normal window to land in',
+            cb
+          );
+        }
         if ((seed.refusedUrls ?? []).includes(url)) {
           return fail<chrome.tabs.Tab>(
             `Cannot create a tab with url: ${url}`,
@@ -2297,9 +2317,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       // No `url` at all opens a single chrome://newtab/ tab, as Chrome does
       // (KAN-280 O8). Only the FIRST tab is made active, matching a real
       // multi-url window.create().
+      // The callback and promise carry null for an incognito window opened while not allowed (measured); @types/chrome says undefined.
       create: (
         data: chrome.windows.CreateData,
-        cb?: (win?: chrome.windows.Window) => void
+        cb?: (win?: chrome.windows.Window | null) => void
       ) => {
         // KAN-460, measured: Chrome refuses a maximized or full-screen create with bounds or unfocused.
         if (
@@ -2310,6 +2331,11 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
             ))
         ) {
           return fail<chrome.windows.Window>('Invalid value for state', cb);
+        }
+        // KAN-460 Part 3, measured: not allowed, Chrome still opens the window, then hands back null with no lastError and never lists it.
+        if (data.incognito === true && seed.incognitoAllowed !== true) {
+          handle.unseenIncognitoWindows += 1;
+          return settle(null, cb);
         }
         const urls =
           typeof data.url === 'string'
@@ -2441,6 +2467,10 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       onRemoved: windowsOnRemoved,
     },
 
+    extension: {
+      isAllowedIncognitoAccess: (cb?: (allowed: boolean) => void) =>
+        settle(seed.incognitoAllowed === true, cb),
+    },
     runtime: {
       // The id an extension mute stamps onto mutedInfo.extensionId
       // (KAN-280 O10), and what getURL already builds its path on.
@@ -2489,7 +2519,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         hasListener: (listener: MessageListener) =>
           messageListeners.has(listener),
       },
-      getURL: (path: string) => `chrome-extension://faketestid/${path}`,
+      getURL: (path: string) => `${EXTENSION_ORIGIN}${path}`,
       getPlatformInfo: (cb?: (info: chrome.runtime.PlatformInfo) => void) =>
         settle<chrome.runtime.PlatformInfo>(
           { os: seed.platformOs ?? 'linux', arch: 'x86-64' },

@@ -41,6 +41,8 @@ export interface WindowSpec {
   activeTabId?: string;
   // KAN-460. Applied last with windows.update: create refuses a state with bounds or unfocused.
   state?: SavedWindowState;
+  // KAN-460 Part 3. Created incognito; restoreSession drops it when Tab Keeper is not allowed there.
+  incognito?: true;
 }
 
 export const RESTORE_SESSION_MESSAGE = 'restore-session';
@@ -194,6 +196,7 @@ export function createWindowWithRetries(
         url: resolveTabUrl(spec.tabs[targetIndex].url),
         focused: spec.focused,
         ...(spec.bounds ?? {}),
+        ...(spec.incognito === true ? { incognito: true } : {}),
       },
       (newWindow) => {
         if (!newWindow) {

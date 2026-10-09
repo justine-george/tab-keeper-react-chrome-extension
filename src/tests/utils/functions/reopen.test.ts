@@ -1614,6 +1614,31 @@ describe('recreateClosed adds a pinned Tab Keeper tab when asked (KAN-459)', () 
     expect(urls).not.toContain(STUB_URL);
   });
 
+  test('On, an incognito window: no stub in it, and none in a normal window instead (KAN-460 Part 3)', async () => {
+    handle = setupChromeFake({
+      incognitoAllowed: true,
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          incognito: true,
+          tabs: [{ url: url('a') }, { url: url('b') }],
+        },
+      ],
+    });
+    const item = await closeOpenWindow(await openWindow(2));
+    if (!item) throw new Error('close failed');
+    const before = handle.createdTabs.length;
+
+    const reopened = await recreateClosed(item, true);
+
+    if (reopened?.kind !== 'window') throw new Error('no window came back');
+    expect((await chrome.windows.get(reopened.windowId)).incognito).toBe(true);
+    expect(handle.createdTabs.slice(before).map((p) => p.url)).not.toContain(
+      STUB_URL
+    );
+  });
+
   test('a reopened TAB never gets a stub', async () => {
     // The seed of 'comes back where it was, in its surviving group' above.
     handle = setupChromeFake({

@@ -278,3 +278,53 @@ describe("a saved window's state field (KAN-460)", () => {
     expect(isValidTabMasterContainer(withWindow({ state: 1 }))).toBe(false);
   });
 });
+
+// KAN-460 Part 3. A window's incognito is true or absent, never false.
+describe("a saved window's incognito field (KAN-460 Part 3)", () => {
+  const withWindow = (extra: Record<string, unknown>) => ({
+    lastModified: 1,
+    selectedTabGroupId: null,
+    tabGroups: [
+      {
+        tabGroupId: 's',
+        title: 'S',
+        createdTime: '2026-10-09 10:00:00',
+        windowCount: 1,
+        tabCount: 1,
+        isAutoSave: false,
+        isSelected: false,
+        windows: [
+          {
+            windowId: 'w',
+            windowHeight: 800,
+            windowWidth: 1200,
+            windowOffsetTop: 0,
+            windowOffsetLeft: 0,
+            tabCount: 1,
+            title: '',
+            tabs: [
+              { tabId: 't', favicon: '', title: 't', url: 'https://t.test/' },
+            ],
+            ...extra,
+          },
+        ],
+      },
+    ],
+  });
+
+  test('absent and true are valid', () => {
+    expect(isValidTabMasterContainer(withWindow({}))).toBe(true);
+    expect(isValidTabMasterContainer(withWindow({ incognito: true }))).toBe(
+      true
+    );
+  });
+
+  test('false and a non-boolean are not', () => {
+    expect(isValidTabMasterContainer(withWindow({ incognito: false }))).toBe(
+      false
+    );
+    expect(isValidTabMasterContainer(withWindow({ incognito: 'yes' }))).toBe(
+      false
+    );
+  });
+});

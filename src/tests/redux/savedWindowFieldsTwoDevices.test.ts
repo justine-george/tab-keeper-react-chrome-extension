@@ -55,17 +55,22 @@ import {
   windowIn,
 } from '../fixtures/sessionMoveFixture';
 
-// KAN-460 D6. Device A saves a maximized and a full-screen window; another device, or an older writer, must not cost them silently.
+// KAN-460 D6. Device A saves a full-screen, a maximized incognito and a plain window; another device, or an older writer, must not cost them silently.
 const savedOnA = (): tabContainerData =>
   session('S', 'Trip', T0 - 60_000, [
     { ...win('w1', [tab('a1')]), state: 'fullscreen' },
-    { ...win('w2', [tab('b1')]), state: 'maximized' },
+    { ...win('w2', [tab('b1')]), state: 'maximized', incognito: true },
     win('w3', [tab('c1')]),
   ]);
 const deviceWith = (s: tabContainerData): TabMasterContainer =>
   reducer(undefined, replaceState(container([s])));
-const statesOf = (c: TabMasterContainer, id = 'S') =>
-  sessionIn(c, id).windows.map((w) => w.state);
+const fieldsOf = (c: TabMasterContainer, id = 'S') =>
+  sessionIn(c, id).windows.map((w) => [w.state, w.incognito]);
+const SAVED = [
+  ['fullscreen', undefined],
+  ['maximized', true],
+  [undefined, undefined],
+];
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -77,8 +82,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('window state across two devices (KAN-460)', () => {
-  it('B renames the session A saved: the states survive the merge', () => {
+describe('saved window state and incognito across two devices (KAN-460)', () => {
+  it('B renames the session A saved: the fields survive the merge', () => {
     const a = deviceWith(savedOnA());
     vi.setSystemTime(T0 + 2_000);
     const cloud = reducer(
@@ -89,10 +94,10 @@ describe('window state across two devices (KAN-460)', () => {
     const { merged } = mergeTabContainers(a, cloud, T0 + 3_000);
 
     expect(sessionIn(merged, 'S').title).toBe('Renamed on B');
-    expect(statesOf(merged)).toEqual(['fullscreen', 'maximized', undefined]);
+    expect(fieldsOf(merged)).toEqual(SAVED);
   });
 
-  it("an older writer's later copy wins without the field", () => {
+  it("an older writer's later copy wins without the fields", () => {
     const a = deviceWith(savedOnA());
     const cloud = deviceWith({
       ...session('S', 'Edited by an older version', T0 - 60_000, [
@@ -106,10 +111,14 @@ describe('window state across two devices (KAN-460)', () => {
     const { merged } = mergeTabContainers(a, cloud, T0 + 3_000);
 
     expect(sessionIn(merged, 'S').title).toBe('Edited by an older version');
-    expect(statesOf(merged)).toEqual([undefined, undefined, undefined]);
+    expect(fieldsOf(merged)).toEqual([
+      [undefined, undefined],
+      [undefined, undefined],
+      [undefined, undefined],
+    ]);
   });
 
-  it('the real cloud write, read back by the real cloud read, keeps the field', async () => {
+  it('the real cloud write, read back by the real cloud read, keeps the fields', async () => {
     firestore.setDoc.mockReset().mockResolvedValue(undefined);
     const data = deviceWith(savedOnA());
     await saveToFirestore('u1', data);
@@ -123,10 +132,10 @@ describe('window state across two devices (KAN-460)', () => {
 
     expect(isValidTabMasterContainer(back)).toBe(true);
     if (!isValidTabMasterContainer(back)) return;
-    expect(statesOf(back)).toEqual(['fullscreen', 'maximized', undefined]);
+    expect(fieldsOf(back)).toEqual(SAVED);
   });
 
-  it('moving a window to another session keeps its state', () => {
+  it('moving a window to another session keeps its state and incognito', () => {
     const dest = session('D', 'Dest', T0 - 30_000, [win('d', [tab('x1')])]);
     const state = reducer(
       undefined,
@@ -144,15 +153,18 @@ describe('window state across two devices (KAN-460)', () => {
       )
     );
 
-    expect(windowIn(next, 'D', 'w2').state).toBe('maximized');
+    expect(windowIn(next, 'D', 'w2')).toMatchObject({
+      state: 'maximized',
+      incognito: true,
+    });
   });
 
-  it('a backup file keeps the field', () => {
+  it('a backup file keeps the fields', () => {
     const loaded = readImportedContainer(
       JSON.stringify(deviceWith(savedOnA())),
       'en'
     );
 
-    expect(statesOf(loaded)).toEqual(['fullscreen', 'maximized', undefined]);
+    expect(fieldsOf(loaded)).toEqual(SAVED);
   });
 });

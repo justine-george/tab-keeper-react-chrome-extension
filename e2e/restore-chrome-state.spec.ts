@@ -2,6 +2,7 @@ import type { Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { grantedTest } from './fixtures/grantedExtension';
+import { allowInIncognito } from './fixtures/incognito';
 import {
   buildContainer,
   buildSession,
@@ -399,5 +400,205 @@ test.describe('window state (KAN-460 Part 2)', () => {
 
     const windowOne = (await fresh()).find((w) => w.titles.includes('FS'));
     await expect.poll(() => lastFocusedId(serviceWorker)).toBe(windowOne?.id);
+  });
+});
+
+// Every window Chrome shows the extension: incognito, and each tab's title, url and pin.
+const everyWindow = (worker: Worker) =>
+  worker.evaluate(async () =>
+    (await chrome.windows.getAll({ populate: true })).map((w) => ({
+      id: w.id ?? -1,
+      incognito: w.incognito,
+      tabs: (w.tabs ?? [])
+        .slice()
+        .sort((a, b) => a.index - b.index)
+        .map((t) => ({
+          id: t.id ?? -1,
+          title: t.title ?? '',
+          url: t.url || t.pendingUrl || '',
+          pinned: t.pinned,
+        })),
+    }))
+  );
+
+const savedWindow = (id: string, title: string, incognito: boolean) => ({
+  windowId: id,
+  windowHeight: 600,
+  windowWidth: 800,
+  windowOffsetTop: 0,
+  windowOffsetLeft: 0,
+  tabCount: 1,
+  title: '',
+  tabs: [{ tabId: title, favicon: '', title, url: page(title) }],
+  ...(incognito ? { incognito: true as const } : {}),
+});
+
+const seedTwoWindowSession = (
+  context: Parameters<typeof seedSessions>[0],
+  first: [string, boolean],
+  second: [string, boolean]
+) =>
+  seedSessions(
+    context,
+    buildContainer([
+      buildSession({
+        tabGroupId: 's1',
+        title: 'Private',
+        windowCount: 2,
+        tabCount: 2,
+        windows: [savedWindow('w1', ...first), savedWindow('w2', ...second)],
+      }),
+    ])
+  );
+
+test.describe('incognito (KAN-460 Part 3)', () => {
+  test('6. allowed: an incognito window is saved incognito, Open brings it back incognito, and no Tab Keeper tab lands anywhere but the normal window', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, { pinTabKeeperInNewWindows: true });
+    const worker = await allowInIncognito(context, extensionId);
+    await worker.evaluate(
+      async (urls) => {
+        await chrome.windows.create({
+          url: urls,
+          incognito: true,
+          focused: false,
+        });
+      },
+      [page('I1'), page('I2')]
+    );
+    const popup = await openPage(context, extensionId, 'index.html', POPUP);
+
+    await saveRowSaveAll(popup).click();
+    await expect
+      .poll(async () => (await stored(popup)).tabGroups.length)
+      .toBe(1);
+    const saved = (await stored(popup)).tabGroups[0].windows;
+    const inc = saved.find((w) => w.tabs.some((t) => t.title === 'I1'));
+    expect(inc?.incognito).toBe(true);
+    expect(
+      saved.filter((w) => w !== inc).every((w) => !('incognito' in w))
+    ).toBe(true);
+
+    const before = await everyWindow(worker);
+    await pressOpen(popup);
+    const fresh = async () =>
+      (await everyWindow(worker)).filter(
+        (w) => !before.some((b) => b.id === w.id)
+      );
+    await expect
+      .poll(async () => (await fresh()).length, { timeout: 15_000 })
+      .toBe(saved.length);
+
+    const made = await fresh();
+    const restored = made.find((w) => w.tabs.some((t) => t.title === 'I1'));
+    expect(restored?.incognito).toBe(true);
+    expect(restored?.tabs.map((t) => t.title)).toEqual(['I1', 'I2']);
+    // Each new normal window has its stub and nothing else of Tab Keeper's; the incognito one has none.
+    for (const w of made.filter((m) => m !== restored)) {
+      expect(w.tabs[0]).toMatchObject({ pinned: true });
+      expect(w.tabs[0].url).toContain('/pinned.html');
+      expect(
+        w.tabs.filter((t) => t.url.startsWith('chrome-extension://'))
+      ).toHaveLength(1);
+    }
+    expect(
+      restored?.tabs.some((t) => t.url.startsWith('chrome-extension://'))
+    ).toBe(false);
+    // KAN-485: no stub went to a window that was already open.
+    const now = await everyWindow(worker);
+    for (const old of before) {
+      const same = now.find((w) => w.id === old.id);
+      expect(same?.tabs.map((t) => t.url)).toEqual(old.tabs.map((t) => t.url));
+    }
+  });
+
+  test('7. allowed: Switch to a session whose Window 1 is incognito carries the pinned Tab Keeper tab into Window 2, and every old window closes', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, { pinTabKeeperInNewWindows: true });
+    await seedTwoWindowSession(context, ['Secret', true], ['Plain', false]);
+    const worker = await allowInIncognito(context, extensionId);
+    const fullView = await worker.evaluate(async (url) => {
+      const tab = await chrome.tabs.create({
+        url,
+        pinned: true,
+        active: false,
+      });
+      return tab.id ?? -1;
+    }, `chrome-extension://${extensionId}/index.html?view=tab`);
+    const popup = await openPage(context, extensionId, 'index.html', POPUP);
+    const before = (await everyWindow(worker)).map((w) => w.id);
+    // PREMISE: the pinned full view is in a window the Switch will close.
+    expect(
+      (await everyWindow(worker)).some((w) =>
+        w.tabs.some((t) => t.id === fullView && t.pinned)
+      )
+    ).toBe(true);
+
+    await pressSwitch(popup);
+    await expect
+      .poll(
+        async () =>
+          (await everyWindow(worker)).filter((w) => before.includes(w.id))
+            .length,
+        { timeout: 15_000 }
+      )
+      .toBe(0);
+
+    const now = await everyWindow(worker);
+    expect(now).toHaveLength(2);
+    const secret = now.find((w) => w.tabs.some((t) => t.title === 'Secret'));
+    const plain = now.find((w) => w.tabs.some((t) => t.title === 'Plain'));
+    expect(secret?.incognito).toBe(true);
+    expect(secret?.tabs.map((t) => t.title)).toEqual(['Secret']);
+    expect(plain?.incognito).toBe(false);
+    // The carried tab itself, and no stub beside it.
+    expect(
+      plain?.tabs.map((t) => [t.id === fullView, t.pinned, t.title])
+    ).toEqual([
+      [true, true, 'Tab Keeper'],
+      [false, false, 'Plain'],
+    ]);
+  });
+
+  test('8. not allowed: a window saved incognito comes back normal, and Chrome opened no incognito window', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedSettings(context, {});
+    await seedTwoWindowSession(context, ['Secret', true], ['Plain', false]);
+    const popup = await openPage(context, extensionId, 'index.html', POPUP);
+    // PREMISE: Tab Keeper is not allowed in incognito.
+    expect(
+      await serviceWorker.evaluate(() =>
+        chrome.extension.isAllowedIncognitoAccess()
+      )
+    ).toBe(false);
+
+    await pressOpen(popup);
+    const secretWindow = async () =>
+      (await everyWindow(serviceWorker)).find((w) =>
+        w.tabs.some((t) => t.title === 'Secret')
+      ) ?? null;
+    await expect
+      .poll(async () => (await secretWindow())?.incognito ?? null, {
+        timeout: 15_000,
+      })
+      .toBe(false);
+    await expect
+      .poll(async () =>
+        (await everyWindow(serviceWorker)).some((w) =>
+          w.tabs.some((t) => t.title === 'Plain')
+        )
+      )
+      .toBe(true);
+
+    // An incognito window Chrome opened while not allowed is unseen until allowed (measured).
+    const worker = await allowInIncognito(context, extensionId);
+    expect((await everyWindow(worker)).filter((w) => w.incognito)).toEqual([]);
   });
 });
