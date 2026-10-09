@@ -101,6 +101,11 @@ export const ICON = {
   /** Secondary or inline actions, subordinate to the control they sit in. */
   SMALL: '1.25rem',
   /**
+   * ⤢ and its mirror: arrows that reach the box's corners read big even at
+   * MEDIUM (measured: ink 16.5px against the gear's 18.5px). Justine's pick B, KAN-437.
+   */
+  MEDIUM_SMALL: '1.3125rem',
+  /**
    * A glyph among DEFAULT neighbours whose ink reads too big at DEFAULT and
    * too small at SMALL. Drawn in a DEFAULT box (Icon's `boxSizedFor`).
    */

@@ -363,8 +363,8 @@ export default function MenuContainer() {
               type="open_in_full"
               // KAN-340. Thin, but its arrows reach the corners: at DEFAULT its
               // ink spans 18.5px square, the largest in the row, and it read big.
-              // MEDIUM (17px) matches the gear, in the same box.
-              size={ICON.MEDIUM}
+              // MEDIUM_SMALL (21px) since KAN-437: still read big at MEDIUM.
+              size={ICON.MEDIUM_SMALL}
               boxSizedFor={ICON.DEFAULT}
               // KAN-344. It stretches: "the same thing, bigger".
               hoverMotion={{ scale: 1.14, duration: DURATION.MOVE }}

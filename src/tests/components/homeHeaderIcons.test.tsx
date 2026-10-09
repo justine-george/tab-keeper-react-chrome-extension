@@ -10,6 +10,7 @@ import { ICON } from '../../styles/scale';
 // at ICON.MEDIUM, picked by Justine from a side-by-side mock after SMALL made
 // the gear read too small. Their BOXES are unchanged; that is a layout fact
 // jsdom cannot measure, so e2e/home-header.spec.ts owns it.
+// KAN-437: open_in_full (and Open in popup) moved to MEDIUM_SMALL, pick B.
 
 /** An ICON step as jsdom reports it: rem resolved against the 16px root. */
 const px = (rem: string) => `${parseFloat(rem) * 16}px`;
@@ -23,15 +24,15 @@ function glyphSize(name: string): string {
 }
 
 describe('home header glyph sizes (KAN-340)', () => {
-  test('Settings and Open full view draw at ICON.MEDIUM', async () => {
+  test('Settings draws at ICON.MEDIUM', async () => {
     await renderWithProviders(<MenuContainer />);
+    expect(glyphSize('Settings')).toBe(px(ICON.MEDIUM));
+  });
 
-    for (const name of ['Settings', 'Open full view']) {
-      expect({ name, size: glyphSize(name) }).toEqual({
-        name,
-        size: px(ICON.MEDIUM),
-      });
-    }
+  // KAN-437 pick B: the arrows reach their corners, so they draw a step under the gear.
+  test('Open full view draws at ICON.MEDIUM_SMALL', async () => {
+    await renderWithProviders(<MenuContainer />);
+    expect(glyphSize('Open full view')).toBe(px(ICON.MEDIUM_SMALL));
   });
 
   // The guard against a blanket change: resizing the whole row would pass
