@@ -34,6 +34,7 @@ import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import {
   addCurrWindowToTabGroup,
   deleteTabContainer,
+  replaceSessionWithOpenWindows,
   openAllTabContainer,
   requestFocusTabContainer,
   updateTabGroupTitle,
@@ -581,6 +582,14 @@ export default function HeroContainerRight() {
                         ),
                       });
                     },
+                  },
+                  {
+                    // KAN-468. Every open window replaces this session's; one ⌘Z undoes it.
+                    key: 'replace',
+                    label: t('Replace with open windows'),
+                    icon: 'published_with_changes',
+                    onSelect: () =>
+                      void dispatch(replaceSessionWithOpenWindows(tabGroupId)),
                   },
                   {
                     key: 'delete',

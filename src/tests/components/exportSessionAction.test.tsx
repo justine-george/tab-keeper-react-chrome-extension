@@ -74,9 +74,9 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     expect(screen.queryByRole('button', { name: 'Delete session' })).toBeNull();
   });
 
-  // KAN-209. Cheap, heavier, destructive: Copy finishes here, Export opens a
-  // tab, Delete goes last.
-  test('the menu holds Copy, then Export, then Delete', async () => {
+  // KAN-209, KAN-468. Cheap, heavier, destructive: Copy finishes here, Export opens a
+  // tab, Replace overwrites (⌘Z undoes it), Delete goes last.
+  test('the menu holds Copy, then Export, then Replace, then Delete', async () => {
     const user = userEvent.setup();
     await renderHeader();
 
@@ -84,10 +84,13 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
 
     // By accessible name: textContent includes each glyph's ligature text.
     const items = within(menu).getAllByRole('menuitem');
-    expect(items).toHaveLength(3);
+    expect(items).toHaveLength(4);
     expect(items).toEqual([
       within(menu).getByRole('menuitem', { name: 'Copy all links' }),
       within(menu).getByRole('menuitem', { name: 'Export…' }),
+      within(menu).getByRole('menuitem', {
+        name: 'Replace with open windows',
+      }),
       within(menu).getByRole('menuitem', { name: 'Delete session' }),
     ]);
   });

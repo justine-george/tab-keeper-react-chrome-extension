@@ -1274,8 +1274,8 @@ test('the session menu paints above the tab rows it opens over', async ({
   await sessionHeaderMenu(popup).click();
 
   const items = popup.getByRole('menuitem');
-  // Copy, Export, Delete: an empty or half-open menu cannot pass vacuously.
-  await expect(items).toHaveCount(3);
+  // Copy, Export, Replace, Delete: an empty or half-open menu cannot pass vacuously.
+  await expect(items).toHaveCount(4);
 
   const hits = await items.evaluateAll((elements) =>
     elements.map((item) => {

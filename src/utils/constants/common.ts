@@ -106,6 +106,7 @@ export const TOAST_MESSAGES = {
   SESSION_ORDER_CHANGED:
     'Sessions reordered. Undo to restore the previous order.',
   DELETE_TAB_CONTAINER_SUCCESS: 'Session deleted.',
+  SESSION_REPLACED: 'Session replaced with all open windows.',
   DELETE_WINDOW_SUCCESS: 'Session window deleted.',
   DELETE_TAB_SUCCESS: 'Session tab deleted.',
   UNREADABLE_ACCOUNT_TOKEN:
