@@ -2,7 +2,12 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import { countCloudRequests, hasCloudConfig } from './fixtures/cloud';
 import { test, expect } from './fixtures/extension';
-import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
+import {
+  buildContainer,
+  buildSession,
+  seedSessions,
+  seedSettings,
+} from './fixtures/seed';
 import { storedSettings } from './fixtures/onboarding';
 import { cardAt, cardButton } from './fixtures/run';
 import { rgbToHex } from './fixtures/pixels';
@@ -294,4 +299,74 @@ test.describe('dialog buttons answer a press', () => {
     await page.mouse.move(0, 0);
     await page.mouse.up();
   });
+});
+
+// KAN-415. Loading a backup uploaded with Auto Sync on and no consent. A stored
+// "declined" with Auto Sync still on opens no question, so the load is
+// reachable; the granted case is the control that the load does upload.
+test.describe('loading a backup asks consent before uploading (KAN-415)', () => {
+  const FROM_FILE = buildContainer([
+    buildSession({ tabGroupId: 'f1', title: 'From the file' }),
+  ]);
+
+  for (const { consent, writes } of [
+    { consent: 'declined', writes: 0 },
+    { consent: 'granted', writes: 1 },
+  ] as const) {
+    test(`consent ${consent}, Auto Sync on: a merged backup makes ${writes} Firestore request${writes === 1 ? '' : 's'}`, async ({
+      context,
+      extensionId,
+    }) => {
+      test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
+      const cloudHits = await countCloudRequests(context);
+      await seedSessions(
+        context,
+        buildContainer([buildSession({ tabGroupId: 'h1', title: 'Here one' })])
+      );
+      await seedSettings(context, { cloudConsent: consent, isAutoSync: true });
+      const page = await openPopup(context, extensionId);
+      await page.locator('[aria-label="Settings"]').click();
+      await page.locator('button[aria-label="Sync & Backup"]').click();
+      const firestore = () =>
+        cloudHits.filter((url) => url.includes('firestore.googleapis.com'))
+          .length;
+      // PREMISE: nothing reached for the cloud before the load.
+      expect(firestore()).toBe(0);
+
+      const chooser = page.waitForEvent('filechooser');
+      await page
+        .getByRole('button', { name: 'Load sessions from a backup' })
+        .click();
+      await (
+        await chooser
+      ).setFiles({
+        name: 'backup.json',
+        mimeType: 'application/json',
+        buffer: Buffer.from(JSON.stringify(FROM_FILE)),
+      });
+      await page.getByRole('button', { name: 'Merge sessions' }).click();
+      // Settings covers the list: the merge is read from storage.
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              (
+                JSON.parse(localStorage.getItem('tabContainerData')!) as {
+                  tabGroups: unknown[];
+                }
+              ).tabGroups.length
+          )
+        )
+        .toBe(2);
+
+      if (writes > 0) {
+        await expect.poll(firestore).toBe(writes);
+      } else {
+        // The control's write lands within a second; wait past it.
+        await page.waitForTimeout(3000);
+        expect(firestore()).toBe(0);
+      }
+      expect((await storedSettings(page)).cloudConsent).toBe(consent);
+    });
+  }
 });
