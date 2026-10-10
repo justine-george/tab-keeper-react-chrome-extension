@@ -37,6 +37,8 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   const toasts = useSelector((state: RootState) => state.globalState.toasts);
   // KAN-488. Open while held: the pointer on the stack or focus in it.
   const [open, setOpen] = useState(false);
+  // An empty stack takes the hover with it (the effect below), so it is not open either.
+  if (toasts.length === 0 && open) setOpen(false);
   const { shown, refFor } = useToastStack(toasts, open);
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
@@ -69,7 +71,6 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     if (toasts.length === 0) {
       hovered.current = false;
       focused.current = false;
-      setOpen(false);
       return;
     }
     if (hovered.current || focused.current) holdToasts();

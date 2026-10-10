@@ -250,6 +250,27 @@ describe('the stack sits collapsed until hovered or focused (KAN-488)', () => {
     expect(transforms()).toEqual(COLLAPSED);
   });
 
+  // The pointer was on the last toast when it left: no mouseleave ever comes.
+  test('a toast arriving after the stack emptied under the pointer sits collapsed', async () => {
+    const rendered = await three();
+    fireEvent.mouseEnter(liveToasts()[2]);
+    // PREMISE: open.
+    expect(transforms()).toEqual(OPEN);
+    act(() => {
+      rendered.store.dispatch(closePlainToasts());
+      rendered.store.dispatch(closeOfferToast(1));
+    });
+    expect(liveToasts()).toEqual([]);
+
+    await show(rendered, 'Four');
+    await show(rendered, 'Five');
+
+    expect(transforms()).toEqual([
+      'translateY(-8px) scale(0.95)',
+      'translateY(0px)',
+    ]);
+  });
+
   test('one toast sits in place, collapsed or open', async () => {
     const rendered = await renderWithProviders(<Toast />);
     await show(rendered, 'Only');
