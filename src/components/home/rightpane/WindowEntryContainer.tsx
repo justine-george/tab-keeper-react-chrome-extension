@@ -67,6 +67,7 @@ import { CONTROL, DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
 import { placeholderStyle } from '../../../styles/placeholder';
 import { windowLabel } from '../../../utils/functions/windowLabel';
 import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
+import { useFocusOnRemount } from '../../../hooks/useFocusOnRemount';
 
 /**
  * The Chrome group title, and the editor that replaces it (KAN-205).
@@ -168,6 +169,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const [groupDraft, setGroupDraft] = useState('');
   // The group field's Esc, read by its blur as renameCancelled is (D13).
   const groupRenameCancelled = useRef(false);
+  // Enter, Esc and the tick end a window or group rename on its title button (KAN-400); a blur leaves focus where it went.
+  const titleFocus = useFocusOnRemount();
   // Which group's overflow menu is open, so its action strip can outrank its
   // siblings. Every strip is a stacking context of its own (transform), so
   // equal z-indexes leave DOM order deciding -- and a LOWER group's strip then
@@ -809,7 +812,17 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   onBlur={handleBlur}
                   onChange={handleChange}
                   onKeyDown={(e) =>
-                    renameKeyDown(e, handleBlur, cancelWindowRename)
+                    renameKeyDown(
+                      e,
+                      () => {
+                        titleFocus.ask('window');
+                        handleBlur();
+                      },
+                      () => {
+                        titleFocus.ask('window');
+                        cancelWindowRename();
+                      }
+                    )
                   }
                   autoFocus
                   css={css`
@@ -835,6 +848,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               <ClickableRow
                 ariaLabel={t('Rename window') + ': ' + label.text}
                 onClick={startEditing}
+                buttonRef={titleFocus.refFor('window')}
                 style={parentLinkStyle + titleButtonStyle}
               >
                 <NormalLabel
@@ -860,6 +874,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   type="done"
                   onClick={(e) => {
                     e.stopPropagation();
+                    titleFocus.ask('window');
                     handleBlur();
                   }}
                 />
@@ -1167,8 +1182,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                           onKeyDown={(e) =>
                             renameKeyDown(
                               e,
-                              () => commitGroupRename(item.group),
-                              cancelGroupRename
+                              () => {
+                                titleFocus.ask(item.group.groupId);
+                                commitGroupRename(item.group);
+                              },
+                              () => {
+                                titleFocus.ask(item.group.groupId);
+                                cancelGroupRename();
+                              }
                             )
                           }
                           autoFocus
@@ -1218,6 +1239,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         <ClickableRow
                           ariaLabel={renameGroupLabel(item.group)}
                           onClick={() => startEditingGroup(item.group)}
+                          buttonRef={titleFocus.refFor(item.group.groupId)}
                           // align-self, because the strip centres its children
                           // -- without it the clickable is only as tall as its
                           // text and the row has 8px of dead zone above and
@@ -1254,6 +1276,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                             type="done"
                             onClick={(e) => {
                               e.stopPropagation();
+                              titleFocus.ask(item.group.groupId);
                               commitGroupRename(item.group);
                             }}
                           />

@@ -28,6 +28,8 @@ interface ClickableRowProps {
   // KAN-413. Announced as unavailable and a click does nothing; it stays in the tab order and draggable.
   disable?: boolean;
   style?: string;
+  // KAN-389. For a caller that hands focus back to the row.
+  buttonRef?: React.Ref<HTMLButtonElement>;
   children: React.ReactNode;
 }
 
@@ -53,6 +55,7 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
   tourAnchor,
   disable,
   style,
+  buttonRef,
   children,
 }) => {
   // The UA stylesheet for <button> is what makes this swap risky, so the
@@ -79,6 +82,7 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
 
   return (
     <button
+      ref={buttonRef}
       type="button"
       title={tooltipText}
       aria-label={ariaLabel}

@@ -346,13 +346,17 @@ describe('Review Focus 1 and 3', () => {
     ).toBeInTheDocument();
   });
 
-  // KAN-389: no focus return after any session rename, search or not.
+  // KAN-496. Still on body: the header unmounts for one commit until the list selects the next match.
   test.fails(
-    'renaming the selected session out of the match leaves focus off body (KAN-389: it lands on body)',
+    'renaming the selected session out of the match leaves focus on the next match title',
     async () => {
       await renameAlphaOutOfTheMatch();
 
-      expect(document.activeElement).not.toBe(document.body);
+      expect(document.activeElement).toBe(
+        await screen.findByRole('button', {
+          name: 'Rename session: Research beta',
+        })
+      );
     }
   );
 
