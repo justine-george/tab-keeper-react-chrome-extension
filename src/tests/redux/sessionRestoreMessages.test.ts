@@ -253,6 +253,59 @@ describe('every restore call site posts one RestoreSessionRequest to the worker'
     expect('activeTabId' in request.specs[1]).toBe(false);
   });
 
+  it('a window an older version left a pin out of place in sends its tabs as Chrome opens them (KAN-473)', async () => {
+    handle = setupChromeFake();
+    const [first, second] = SESSION.tabGroups[0].windows;
+    const tab = (tabId: string, extra: object = {}) => ({
+      tabId,
+      favicon: '',
+      title: tabId,
+      url: `https://${tabId}.example/`,
+      ...extra,
+    });
+    const outOfPlace: TabMasterContainer = {
+      ...SESSION,
+      tabGroups: [
+        {
+          ...SESSION.tabGroups[0],
+          windows: [
+            {
+              ...first,
+              tabCount: 4,
+              tabs: [
+                tab('u'),
+                tab('p', { pinned: true }),
+                tab('g', { pinned: true, chromeGroupId: 'grp' }),
+                tab('h', { chromeGroupId: 'grp' }),
+              ],
+              chromeTabGroups: [{ groupId: 'grp', title: '', color: 'blue' }],
+            },
+            second,
+          ],
+        },
+      ],
+    };
+
+    const { store } = makeTestStore();
+    store.dispatch(restoreContainer(outOfPlace));
+    await store.dispatch(
+      openAllTabContainer({
+        tabGroupId: 'group-1',
+        goToURLText: GO_TO_URL_TEXT,
+      })
+    );
+
+    const request = firstSentRequest(handle);
+    expect(
+      request.specs[0].tabs.map((t) => [t.tabId, t.pinned === true])
+    ).toEqual([
+      ['p', true],
+      ['u', false],
+      ['g', false],
+      ['h', false],
+    ]);
+  });
+
   it('a window saved maximized sends its state in its spec; one without sends none (KAN-460)', async () => {
     handle = setupChromeFake();
     const [first, second] = SESSION.tabGroups[0].windows;
