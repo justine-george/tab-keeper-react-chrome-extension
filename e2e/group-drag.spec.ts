@@ -782,7 +782,11 @@ test.describe('a tab drag says which group it will join', () => {
   }) => {
     const page = await open(context, extensionId);
 
-    const start = await page.evaluate(() => {
+    // KAN-441. Every aim below -- w1's title, alpha, beta -- must sit clear of
+    // both 48px auto-scroll zones, or the list scrolls under the held pointer
+    // and the mark read depends on the machine. Centring a0 put beta's centre
+    // at 578, below the 550px popup, so centre the span from w1's title to beta.
+    const { start, pane } = await page.evaluate(() => {
       const w1 = document.querySelector<HTMLElement>(
         '[data-drag-row-id="w1"]'
       )!;
@@ -792,17 +796,37 @@ test.describe('a tab drag says which group it will join', () => {
         !['auto', 'scroll'].includes(getComputedStyle(pane).overflowY)
       )
         pane = pane.parentElement;
-      const held = document.querySelector<HTMLElement>(
-        '[data-drag-row-id="a0"]'
-      )!;
-      const hb = held.getBoundingClientRect();
+      const title = w1
+        .querySelector('[data-window-drag-handle]')!
+        .getBoundingClientRect();
+      const beta = document
+        .querySelector('[data-band-id="beta"]')!
+        .getBoundingClientRect();
       const pb = pane!.getBoundingClientRect();
-      pane!.scrollTop += hb.top + hb.height / 2 - (pb.top + pb.height / 2);
+      const mid =
+        (title.top + title.height / 2 + beta.top + beta.height / 2) / 2;
+      pane!.scrollTop += mid - (pb.top + pb.height / 2);
       const h = document
         .querySelector<HTMLElement>('[data-drag-row-id="a0"]')!
         .getBoundingClientRect();
-      return { x: h.left + 80, y: h.top + h.height / 2 };
+      return {
+        start: { x: h.left + 80, y: h.top + h.height / 2 },
+        pane: { top: pb.top, bottom: pb.bottom },
+      };
     });
+    // PREMISE: the pick-up itself is clear of both zones.
+    expect(start.y).toBeGreaterThan(pane.top + 48);
+    expect(start.y).toBeLessThan(pane.bottom - 48);
+
+    // PREMISE for every aim: clear of both zones, and the list did not move.
+    const aimAt = async (y: number) => {
+      expect(y).toBeGreaterThan(pane.top + 48);
+      expect(y).toBeLessThan(pane.bottom - 48);
+      const scrollBefore = await paneScrollTop(page);
+      await page.mouse.move(start.x, y, { steps: 6 });
+      await page.waitForTimeout(120);
+      expect(await paneScrollTop(page)).toBe(scrollBefore);
+    };
 
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
@@ -816,8 +840,7 @@ test.describe('a tab drag says which group it will join', () => {
           .getBoundingClientRect();
         return r.top + r.height / 2;
       }, id);
-      await page.mouse.move(start.x, y, { steps: 6 });
-      await page.waitForTimeout(120);
+      await aimAt(y);
     };
 
     const marked = () =>
@@ -926,7 +949,7 @@ test.describe('a tab drag says which group it will join', () => {
         .getBoundingClientRect();
       return r.top + r.height / 2;
     });
-    await page.mouse.move(start.x, aboveBands, { steps: 6 });
+    await aimAt(aboveBands);
 
     // PREMISE: the pointer really is clear of every band, which is the whole
     // condition under test. Without it a band that drifted back under the
