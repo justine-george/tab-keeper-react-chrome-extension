@@ -292,6 +292,7 @@
   "This is Open now: every window and tab you have open. It updates as you browse.": "ここは「現在開いているタブ」です。開いているすべてのウィンドウとタブが表示され、ブラウズに合わせて更新されます。",
   "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "ここで検索すると、開いているタブをすばやく見つけられます。端をドラッグすると幅を広げられ、{{icon}} を押すと「現在開いているタブ」が画面全体に表示されます。",
   "Search here to find an open tab fast. Press {{icon}} to give Open now the whole view.": "ここで検索すると、開いているタブをすばやく見つけられます。{{icon}} を押すと「現在開いているタブ」が画面全体に表示されます。",
+  "Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.": "ウィンドウが狭い間、「現在開いているタブ」はここにまとめられます。{{icon}} を押すと、開いているすべてのタブを表示して検索できます。",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "これらのウィンドウをセッションとして保存しましょう。名前は付けておきました。必要なら変更して、{{icon}} を押してください。",
   "Saving keeps them safe even after you close them.": "保存しておけば、閉じたあとも失われません。",
   "Use an example": "サンプルを使う",

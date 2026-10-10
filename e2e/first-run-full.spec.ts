@@ -138,6 +138,31 @@ test('Help starts at card 1 with no Hello; the eight cards in their places, Back
   await expect.poll(() => storedTitles(page)).toEqual([]);
 });
 
+// KAN-500. Under 1100px Open now is the rail: one button, with search and « in its drawer.
+test('step 2 on the narrow rail names the rail’s button, not a search field, edge or «', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSettings(context, { foldSavedSessionInTabView: false });
+  const page = await openRunFromHelp(context, extensionId, {
+    ...FULL_RUN,
+    viewport: { width: 1000, height: 800 },
+  });
+  await nextTo(page, 2);
+  await expect(
+    page.locator('[data-pane="open-now"] [data-open-now-search]')
+  ).toHaveCount(0);
+  await expect(card(page)).toContainText(
+    'Open now is tucked in here while the window is narrow. Press'
+  );
+  await expect(card(page)).toContainText('to see and search every open tab.');
+  await expect(card(page)).not.toContainText('Search here');
+  await expect(card(page)).not.toContainText('Drag the edge');
+  await expect(
+    card(page).getByRole('img', { name: 'Open now', exact: true })
+  ).toHaveText('tab');
+});
+
 // KAN-500. The card offers the edge exactly where the grip is drawn, and follows a resize across 1316px.
 test('step 2 side by side: the edge only in a window wide enough for the grip', async ({
   context,

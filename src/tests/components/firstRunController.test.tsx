@@ -7,6 +7,7 @@ import {
   type RenderWithProvidersResult,
 } from '../setup/renderWithProviders';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
+import { OPEN_NOW_RAIL_QUERY } from '../../components/home/opennow/railQuery';
 import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { startRun, takeRunSave } from '../../redux/firstRun';
@@ -435,6 +436,30 @@ describe('step 2 names the fold button the view shows', () => {
       'Search here to find an open tab fast. Press'
     );
     expect(mark()).toHaveTextContent('to give Open now the whole view.');
+    expect(mark()).not.toHaveTextContent('Drag the edge');
+  });
+
+  test('on the narrow rail: the rail’s own button, and no search field, edge or « it does not draw (KAN-500)', async () => {
+    widthOf(1000);
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        new FakeMediaQueryList(query, query === OPEN_NOW_RAIL_QUERY)
+    );
+    history.replaceState(null, '', '?view=tab');
+    const r = await renderAt(newRun('full', 2));
+    act(() => {
+      r.store.dispatch(setFoldSavedSessionInTabView(false));
+    });
+    await waitFor(() =>
+      expect(mark()).toHaveTextContent(
+        'Open now is tucked in here while the window is narrow. Press'
+      )
+    );
+    expect(mark()).toHaveTextContent('to see and search every open tab.');
+    expect(
+      await screen.findByRole('img', { name: 'Open now' })
+    ).toHaveTextContent('tab');
+    expect(mark()).not.toHaveTextContent('Search here');
     expect(mark()).not.toHaveTextContent('Drag the edge');
   });
 

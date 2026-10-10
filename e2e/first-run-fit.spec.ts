@@ -207,6 +207,35 @@ for (const lang of LANGS) {
       await rootAt(context, ROOT_PX);
     });
 
+    // KAN-500. Under 1100px, side by side, Open now is the rail: step 2 names its button.
+    test('full view on the narrow rail: step 2 fits and names the rail’s button', async ({
+      context,
+      extensionId,
+    }) => {
+      await seedRawSettingsIfAbsent(context, {
+        ...SETTLED,
+        language: lang,
+        foldSavedSessionInTabView: false,
+      });
+      const page = await openIn(context, extensionId, {
+        ...FULL_RUN,
+        viewport: { width: 1000, height: 800 },
+      });
+      await expectRootTook(page);
+      await startRunFromHelp(page, say);
+      await expect(cardAt(page, 1)).toBeVisible();
+      await press(card(page), say('Next'));
+      await expect(cardAt(page, 2)).toBeVisible();
+      await expect(card(page)).toContainText(
+        lead(
+          say(
+            'Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.'
+          )
+        )
+      );
+      await expectFits(card(page), `${lang} rail step 2`);
+    });
+
     for (const view of [POPUP_RUN, FULL_RUN]) {
       test(`${view.name}: Hello, every card, and the save card after a save fit; footers wrap inside`, async ({
         context,
