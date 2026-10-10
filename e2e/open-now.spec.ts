@@ -618,7 +618,8 @@ test.describe('Open now in the tab view (KAN-280)', () => {
       .locator(`${DETAIL} [aria-label="More actions"][aria-haspopup="menu"]`)
       .click();
     await page.getByRole('menuitem', { name: 'Copy all links' }).click();
-    const toast = page.getByText('Links copied', { exact: true });
+    // The toast's own box, not its text's.
+    const toast = page.locator('[data-toast]', { hasText: 'Links copied' });
     await expect(toast).toBeVisible();
 
     await page.getByRole('button', { name: /^Open now/ }).click();
