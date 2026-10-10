@@ -156,8 +156,28 @@ describe('import size guard (KAN-27)', () => {
     expect(store.getState().globalState.isDirty).toBe(false);
   });
 
+  // KAN-495. JSON.parse's SyntaxError is thrown on purpose (readImportedContainer);
+  // the handler's catch is what turns it into the toast, not a crash.
+  test('a file that is not JSON gets the error toast, with the parser detail, and changes nothing', async () => {
+    const inputs = captureFileInput();
+    const { store } = await renderSyncAndBackup();
+
+    await userEvent.click(
+      await screen.findByText('Load sessions from a backup')
+    );
+    dropFile(inputs[0], '{not json');
+
+    await waitFor(() => {
+      expect(newestToast(store.getState())?.text).toBe(IMPORT_ERROR_FRAME);
+    });
+    expect(newestToast(store.getState())?.params?.detail).toMatch(/JSON/);
+    expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(0);
+    expect(store.getState().globalState.isDirty).toBe(false);
+    expect(screen.getByText('Load sessions from a backup')).toBeTruthy();
+  });
+
   // The control. Without this, a guard that rejected every import would pass
-  // the test above.
+  // the tests above.
   test('still imports a backup that fits', async () => {
     const inputs = captureFileInput();
     const { store } = await renderSyncAndBackup();
