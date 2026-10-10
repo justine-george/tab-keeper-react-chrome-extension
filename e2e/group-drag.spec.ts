@@ -162,6 +162,57 @@ const paneScrollTop = (page: Page) =>
     return el!.scrollTop;
   });
 
+// KAN-441. Scroll so the span between two rows' centres sits at the pane's
+// middle, then return a0's grab point and the pane's box. Every aim between the
+// two rows then sits clear of both 48px auto-scroll zones.
+async function centreSpanAndGrab(page: Page, top: string, bottom: string) {
+  return page.evaluate(
+    ([top, bottom]) => {
+      const w1 = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="w1"]'
+      )!;
+      let pane = w1.parentElement;
+      while (
+        pane &&
+        !['auto', 'scroll'].includes(getComputedStyle(pane).overflowY)
+      )
+        pane = pane.parentElement;
+      const centre = (selector: string) => {
+        const r = document.querySelector(selector)!.getBoundingClientRect();
+        return r.top + r.height / 2;
+      };
+      const pb = pane!.getBoundingClientRect();
+      pane!.scrollTop +=
+        (centre(top) + centre(bottom)) / 2 - (pb.top + pb.height / 2);
+      const h = document
+        .querySelector<HTMLElement>('[data-drag-row-id="a0"]')!
+        .getBoundingClientRect();
+      return {
+        start: { x: h.left + 80, y: h.top + h.height / 2 },
+        pane: { top: pb.top, bottom: pb.bottom },
+      };
+    },
+    [top, bottom]
+  );
+}
+
+// KAN-441. A held move whose aim is clear of both auto-scroll zones, and which
+// leaves the list where it was: in a zone the list scrolls under the pointer.
+async function aimInsidePane(
+  page: Page,
+  pane: { top: number; bottom: number },
+  at: { x: number; y: number },
+  steps: number,
+  settleMs: number
+) {
+  expect(at.y).toBeGreaterThan(pane.top + 48);
+  expect(at.y).toBeLessThan(pane.bottom - 48);
+  const scrollBefore = await paneScrollTop(page);
+  await page.mouse.move(at.x, at.y, { steps });
+  await page.waitForTimeout(settleMs);
+  expect(await paneScrollTop(page)).toBe(scrollBefore);
+}
+
 // w1's stored items, derived from the stored tab order.
 const itemOrder = (page: Page) =>
   page.evaluate(() => {
@@ -782,27 +833,17 @@ test.describe('a tab drag says which group it will join', () => {
   }) => {
     const page = await open(context, extensionId);
 
-    const start = await page.evaluate(() => {
-      const w1 = document.querySelector<HTMLElement>(
-        '[data-drag-row-id="w1"]'
-      )!;
-      let pane = w1.parentElement;
-      while (
-        pane &&
-        !['auto', 'scroll'].includes(getComputedStyle(pane).overflowY)
-      )
-        pane = pane.parentElement;
-      const held = document.querySelector<HTMLElement>(
-        '[data-drag-row-id="a0"]'
-      )!;
-      const hb = held.getBoundingClientRect();
-      const pb = pane!.getBoundingClientRect();
-      pane!.scrollTop += hb.top + hb.height / 2 - (pb.top + pb.height / 2);
-      const h = document
-        .querySelector<HTMLElement>('[data-drag-row-id="a0"]')!
-        .getBoundingClientRect();
-      return { x: h.left + 80, y: h.top + h.height / 2 };
-    });
+    // KAN-441. Its aims run from w1's title down to beta; centring a0 put
+    // beta's centre at 578, below the 550px popup.
+    const { start, pane } = await centreSpanAndGrab(
+      page,
+      '[data-drag-row-id="w1"] [data-window-drag-handle]',
+      '[data-band-id="beta"]'
+    );
+    expect(start.y).toBeGreaterThan(pane.top + 48);
+    expect(start.y).toBeLessThan(pane.bottom - 48);
+    const aimAt = (y: number) =>
+      aimInsidePane(page, pane, { x: start.x, y }, 6, 120);
 
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
@@ -816,8 +857,7 @@ test.describe('a tab drag says which group it will join', () => {
           .getBoundingClientRect();
         return r.top + r.height / 2;
       }, id);
-      await page.mouse.move(start.x, y, { steps: 6 });
-      await page.waitForTimeout(120);
+      await aimAt(y);
     };
 
     const marked = () =>
@@ -926,7 +966,7 @@ test.describe('a tab drag says which group it will join', () => {
         .getBoundingClientRect();
       return r.top + r.height / 2;
     });
-    await page.mouse.move(start.x, aboveBands, { steps: 6 });
+    await aimAt(aboveBands);
 
     // PREMISE: the pointer really is clear of every band, which is the whole
     // condition under test. Without it a band that drifted back under the
@@ -973,27 +1013,13 @@ test.describe('a group travels whole', () => {
   }) => {
     const page = await open(context, extensionId);
 
-    const start = await page.evaluate(() => {
-      const w1 = document.querySelector<HTMLElement>(
-        '[data-drag-row-id="w1"]'
-      )!;
-      let pane = w1.parentElement;
-      while (
-        pane &&
-        !['auto', 'scroll'].includes(getComputedStyle(pane).overflowY)
-      )
-        pane = pane.parentElement;
-      const held = document.querySelector<HTMLElement>(
-        '[data-drag-row-id="a0"]'
-      )!;
-      const hb = held.getBoundingClientRect();
-      const pb = pane!.getBoundingClientRect();
-      pane!.scrollTop += hb.top + hb.height / 2 - (pb.top + pb.height / 2);
-      const h = document
-        .querySelector<HTMLElement>('[data-drag-row-id="a0"]')!
-        .getBoundingClientRect();
-      return { x: h.left + 80, y: h.top + h.height / 2 };
-    });
+    // KAN-441. Its aim is just past a1; centring a0 put it at 500, inside the
+    // bottom auto-scroll zone.
+    const { start, pane } = await centreSpanAndGrab(
+      page,
+      '[data-drag-row-id="a0"]',
+      '[data-drag-row-id="a1"]'
+    );
 
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
@@ -1005,8 +1031,7 @@ test.describe('a group travels whole', () => {
         .getBoundingClientRect();
       return r.top + r.height / 2 + 4;
     });
-    await page.mouse.move(start.x, pastAlpha, { steps: 12 });
-    await page.waitForTimeout(320);
+    await aimInsidePane(page, pane, { x: start.x, y: pastAlpha }, 12, 320);
 
     const geom = await page.evaluate(() => {
       const shift = (el: HTMLElement) =>
