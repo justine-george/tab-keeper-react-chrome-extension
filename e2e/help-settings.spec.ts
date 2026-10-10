@@ -121,3 +121,43 @@ test.describe('contrast', () => {
     });
   }
 });
+
+// KAN-502. An icon-and-label button's content sits centred: as much room before
+// the glyph's box as after the label, on every such button in Help and About.
+for (const category of ['Help', 'About'] as const) {
+  test(`${category}: each icon-and-label button is centred`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openFullView(context, extensionId);
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: category, exact: true }).click();
+    const gaps = await page.evaluate(() =>
+      // The settings content; the left pane's Back is a borderless link, not a Button.
+      [...document.querySelectorAll('[data-pane="detail"] button')].flatMap(
+        (button) => {
+          const glyph = button.querySelector('.material-symbols-outlined');
+          const label = [...button.querySelectorAll('span')].find(
+            (span) =>
+              !span.classList.contains('material-symbols-outlined') &&
+              span.children.length === 0 &&
+              (span.textContent ?? '').trim() !== ''
+          );
+          if (glyph === null || label === undefined) return [];
+          const box = button.getBoundingClientRect();
+          const before = glyph.getBoundingClientRect().left - box.left;
+          const after = box.right - label.getBoundingClientRect().right;
+          return [{ name: label.textContent, before, after }];
+        }
+      )
+    );
+    // CONTROL: the probe found the buttons it measures.
+    expect(gaps.length).toBeGreaterThanOrEqual(category === 'Help' ? 3 : 2);
+    for (const { name, before, after } of gaps) {
+      expect(
+        Math.abs(before - after),
+        `${name}: ${before} vs ${after}`
+      ).toBeLessThanOrEqual(0.5);
+    }
+  });
+}
