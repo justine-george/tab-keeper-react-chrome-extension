@@ -366,7 +366,19 @@ describe('the controller', () => {
 });
 
 describe('step 2 names the fold button the view shows', () => {
+  // KAN-500. The grip needs a window above 1316px; jsdom's own is 1024px.
+  const ORIGINAL_INNER_WIDTH = window.innerWidth;
+  const widthOf = (px: number) => {
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: px,
+    });
+    window.dispatchEvent(new Event('resize'));
+  };
+  afterEach(() => widthOf(ORIGINAL_INNER_WIDTH));
+
   test('folded: press » to show the saved session, no edge; unfolding switches the card to the edge and «, still at step 2', async () => {
+    widthOf(1400);
     history.replaceState(null, '', '?view=tab');
     const r = await renderAt(newRun('full', 2));
     expect(r.store.getState().settingsDataState.foldSavedSessionInTabView).toBe(
@@ -397,6 +409,7 @@ describe('step 2 names the fold button the view shows', () => {
   });
 
   test('folded but peeked: the saved session is beside Open now, so the card names «', async () => {
+    widthOf(1400);
     history.replaceState(null, '', '?view=tab');
     const r = await renderAt(newRun('full', 2));
     act(() => {
@@ -406,6 +419,37 @@ describe('step 2 names the fold button the view shows', () => {
       await screen.findByRole('img', { name: 'Fold the saved session away' })
     ).toBeInTheDocument();
     expect(mark()).toHaveTextContent('Drag the edge');
+  });
+
+  test('side by side in a window with no grip: « and no edge to drag (KAN-500)', async () => {
+    widthOf(1200);
+    history.replaceState(null, '', '?view=tab');
+    const r = await renderAt(newRun('full', 2));
+    act(() => {
+      r.store.dispatch(setFoldSavedSessionInTabView(false));
+    });
+    expect(
+      await screen.findByRole('img', { name: 'Fold the saved session away' })
+    ).toBeInTheDocument();
+    expect(mark()).toHaveTextContent(
+      'Search here to find an open tab fast. Press'
+    );
+    expect(mark()).toHaveTextContent('to give Open now the whole view.');
+    expect(mark()).not.toHaveTextContent('Drag the edge');
+  });
+
+  test('a resize past the grip’s width changes the sentence while the card shows (KAN-500)', async () => {
+    widthOf(1400);
+    history.replaceState(null, '', '?view=tab');
+    const r = await renderAt(newRun('full', 2));
+    act(() => {
+      r.store.dispatch(setFoldSavedSessionInTabView(false));
+    });
+    await waitFor(() => expect(mark()).toHaveTextContent('Drag the edge'));
+    act(() => widthOf(1200));
+    await waitFor(() => expect(mark()).not.toHaveTextContent('Drag the edge'));
+    act(() => widthOf(1400));
+    await waitFor(() => expect(mark()).toHaveTextContent('Drag the edge'));
   });
 });
 

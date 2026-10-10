@@ -37,6 +37,7 @@ import { showSession } from '../../redux/showSession';
 import { selectIsSavedSessionFolded } from '../../redux/savedSessionFold';
 import { isSampleSession } from '../../utils/functions/sampleSession';
 import { useSampleNames } from '../../hooks/useSampleNames';
+import { useIsOpenNowGripShown } from '../../hooks/useIsOpenNowGripShown';
 import { useSessionListSettled } from '../../hooks/useSessionListSettled';
 import {
   needsSession,
@@ -72,6 +73,7 @@ export default function FirstRun() {
   );
   const echo = useSelector((s: RootState) => s.globalState.runSaveEcho);
   const isFolded = useSelector(selectIsSavedSessionFolded);
+  const hasGrip = useIsOpenNowGripShown();
   const shownSession = useRef<string | null>(null);
 
   // R2, and a record ended or replaced from another page.
@@ -165,10 +167,18 @@ export default function FirstRun() {
             />
           ) : (
             <GlyphSentence
-              sentence={t(
-                'Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.',
-                { icon: GLYPH_SLOT }
-              )}
+              // KAN-500. The edge only where the grip is drawn.
+              sentence={
+                hasGrip
+                  ? t(
+                      'Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.',
+                      { icon: GLYPH_SLOT }
+                    )
+                  : t(
+                      'Search here to find an open tab fast. Press {{icon}} to give Open now the whole view.',
+                      { icon: GLYPH_SLOT }
+                    )
+              }
               icon={FOLD_ICON.unfolded}
               label={t('Fold the saved session away')}
             />

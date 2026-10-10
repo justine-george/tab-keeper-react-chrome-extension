@@ -138,6 +138,29 @@ test('Help starts at card 1 with no Hello; the eight cards in their places, Back
   await expect.poll(() => storedTitles(page)).toEqual([]);
 });
 
+// KAN-500. The card offers the edge exactly where the grip is drawn, and follows a resize across 1316px.
+test('step 2 side by side: the edge only in a window wide enough for the grip', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSettings(context, { foldSavedSessionInTabView: false });
+  const page = await openRunFromHelp(context, extensionId, FULL_RUN);
+  const grip = page.locator('[data-resize-grip]');
+  await page.setViewportSize({ width: 1400, height: 800 });
+  await nextTo(page, 2);
+  await expect(grip).toHaveCount(1);
+  await expect(card(page)).toContainText(
+    'Drag the edge to make this wider, or press'
+  );
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(grip).toHaveCount(0);
+  await expect(card(page)).not.toContainText('Drag the edge');
+  await expect(card(page)).toContainText('to give Open now the whole view.');
+  await page.setViewportSize({ width: 1400, height: 800 });
+  await expect(grip).toHaveCount(1);
+  await expect(card(page)).toContainText('Drag the edge');
+});
+
 test('step 2 in the default folded view names the fold button it shows, and pressing it unfolds with the card still at step 2', async ({
   context,
   extensionId,
@@ -167,8 +190,11 @@ test('step 2 in the default folded view names the fold button it shows, and pres
     .toBe(false);
   await expect(page.locator('[data-pane="detail"]')).toBeVisible();
   await expect(cardAt(page, 2)).toBeVisible();
+  // KAN-500. 1280px leaves no range to drag through: no grip, so no edge in the card.
+  await expect(page.locator('[data-resize-grip]')).toHaveCount(0);
+  await expect(card(page)).not.toContainText('Drag the edge');
   await expect(card(page)).toContainText(
-    'Drag the edge to make this wider, or press'
+    'Search here to find an open tab fast. Press'
   );
   await expect(card(page)).toContainText('to give Open now the whole view.');
   await expect(glyph('Fold the saved session away')).toBeVisible();
