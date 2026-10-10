@@ -6,25 +6,9 @@ import {
   DraggableRow,
 } from '../../components/home/rightpane/rowDrag/RowDragArea';
 
-// KAN-152. A drag can reach a target that is off screen.
-//
-// Before this, the list did not move during a drag, so in a session with three
-// windows of twenty tabs the drop target simply could not be reached: the
-// pointer had nowhere to go and the gesture had to be abandoned.
-//
-// THE HARD PART IS NOT THE SCROLLING, IT IS THE ARITHMETIC. The engine measures
-// every row ONCE, at activation, because reading rects on every move would
-// report positions already displaced by the drag's own shifts. Those
-// measurements are viewport-relative, so the moment the list scrolls underneath
-// them they describe where rows USED to be. Every comparison is therefore done
-// in the list's content space -- viewport y plus scrollTop -- which is
-// invariant under scrolling.
-//
-// jsdom has no layout and no scrolling: rects are all zero and scrollTop is an
-// inert stored number. So the rows are given real boxes, the scroller is given
-// real metrics, and what is pinned here is the DECISION -- how far it scrolls
-// and which index it computes -- not any visual result. That a row visibly
-// travels is a real-browser claim and is checked there.
+// KAN-152. A drag can reach a target that is off screen. Rows are measured ONCE at activation, viewport-relative, so every
+// comparison is in content space (viewport y + scrollTop), which scrolling does not move. jsdom has no layout or scrolling, so
+// rows and scroller get real metrics and the DECISION is pinned -- how far it scrolls, which index -- not the visual result.
 
 const ROW_H = 30;
 const VIEW_H = 90;
@@ -61,9 +45,7 @@ const nodeFor = (label: string): HTMLElement => {
 
 const scroller = () => screen.getByTestId('scroller');
 
-// A viewport 90px tall showing a 120px list, so there is exactly one row's
-// worth of travel available. `scrollTop` is a plain settable number in jsdom,
-// which is all the engine needs.
+// A 90px viewport over a 120px list: one row of travel.
 const layout = () => {
   const el = scroller();
   Object.defineProperty(el, 'clientHeight', {
@@ -97,8 +79,7 @@ afterEach(() => {
   document.documentElement.removeAttribute('data-dragging');
 });
 
-// Runs the auto-scroll loop by hand. Each frame re-registers the next one, so
-// draining and re-reading is what a real rAF loop does over N frames.
+// Runs the rAF loop by hand: each frame registers the next.
 const runFrames = (n: number) => {
   for (let i = 0; i < n; i++) {
     const due = frames;
@@ -110,8 +91,7 @@ const runFrames = (n: number) => {
 const startDragAt = (label: string, y: number) => {
   layout();
   fireEvent.pointerDown(nodeFor(label), { clientX: 10, clientY: y, button: 0 });
-  // Past ACTIVATION_DISTANCE_PX, which is what makes it a drag rather than a
-  // click and is where the rects are measured.
+  // Past ACTIVATION_DISTANCE_PX: a drag, and the rects are measured here.
   fireEvent.pointerMove(document, { clientX: 10, clientY: y + 10 });
 };
 
@@ -138,9 +118,7 @@ describe('holding a drag near an edge travels the list', () => {
     expect(scroller().scrollTop).toBeLessThan(30);
   });
 
-  // THE CONTROL. Without it, an implementation that scrolled on every frame
-  // regardless of the pointer would satisfy both tests above -- and would make
-  // the list unusable, since any drag at all would run away.
+  // CONTROL: scrolling every frame regardless of the pointer would pass both tests above.
   test('CONTROL: held in the middle, the list does not move', () => {
     render(<Harness onMove={() => {}} />);
     startDragAt('Row A', 10);
@@ -151,9 +129,7 @@ describe('holding a drag near an edge travels the list', () => {
     expect(scroller().scrollTop).toBe(0);
   });
 
-  // The middle test above cannot see a runaway on its own: at scrollTop 0 an
-  // upward scroll is clamped to 0, so "no movement" and "moving the wrong way,
-  // clamped" look identical. Starting part-scrolled is what separates them.
+  // At scrollTop 0 an upward runaway clamps to 0 and looks still; part-scrolled tells them apart.
   test('CONTROL: held in the middle of a part-scrolled list, it stays put', () => {
     render(<Harness onMove={() => {}} />);
     startDragAt('Row A', 10);
@@ -165,23 +141,13 @@ describe('holding a drag near an edge travels the list', () => {
     expect(scroller().scrollTop).toBe(15);
   });
 
-  // THE ONE JSDOM ALMOST MISSED. A transform EXTENDS the scrollable overflow
-  // area, and the held row carries one -- so in a real browser every pixel of
-  // auto-scroll added a pixel of content and the end of the list retreated as
-  // fast as the pointer approached it. Measured in the popup: scrollHeight
-  // climbed 820 -> 1393 in step with scrollTop, and the scroll never terminated.
-  //
-  // Reproduced by making scrollHeight a function of scrollTop, which is what
-  // the browser was effectively doing. The limit is captured once at
-  // pointer-down, before any transform exists, so a growing content box cannot
-  // move it.
+  // The held row's transform EXTENDS the scrollable area, so the end retreated as fast as the pointer approached. Measured in
+  // the popup: scrollHeight climbed 820 -> 1393 with scrollTop, never ending. The limit is captured before any transform exists.
   test('a content box that grows while scrolling does not scroll forever', () => {
     render(<Harness onMove={() => {}} />);
     startDragAt('Row A', 10);
 
-    // Installed AFTER the drag has begun, which is when it happens for real:
-    // the content only grows once the held row carries a transform. It also has
-    // to be after layout(), which would otherwise redefine it straight back.
+    // After the drag begins, as for real, and after layout(), which would redefine it.
     const el = scroller();
     Object.defineProperty(el, 'scrollHeight', {
       // Grows by one pixel per pixel scrolled, exactly like the real transform.
@@ -210,10 +176,7 @@ describe('holding a drag near an edge travels the list', () => {
 });
 
 describe('the landing index survives the list scrolling under it', () => {
-  // THE POINT OF THE CONTENT-SPACE ARITHMETIC. The rects were measured before
-  // any scrolling; if they were compared in viewport space, scrolling by one
-  // row would shift every midpoint past the pointer and the drop would land a
-  // row away from where the user pointed.
+  // Content-space arithmetic: compared in viewport space, one row of scroll would land the drop a row off.
   test('a drop after scrolling lands where the pointer is', () => {
     const onMove = vi.fn();
     render(<Harness onMove={onMove} />);
@@ -226,16 +189,11 @@ describe('the landing index survives the list scrolling under it', () => {
     fireEvent.pointerUp(document, { clientX: 10, clientY: 88 });
 
     expect(onMove).toHaveBeenCalledTimes(1);
-    // Content y = 88 + 30 = 118, past the midpoints of b (45), c (75) and
-    // d (105) -- so the held row lands last.
+    // Content y = 88 + 30 = 118, past b (45), c (75) and d (105): last.
     expect(onMove.mock.calls[0][1]).toBe(3);
   });
 
-  // A drag that BEGINS on an already-scrolled list. The rects are measured with
-  // the list part-scrolled, so the measurement itself has to be lifted into
-  // content space -- measuring in viewport space and comparing in content space
-  // is off by exactly the scroll position at pick-up, which is the subtlest way
-  // this could be wrong and the one no unscrolled test can see.
+  // Begun part-scrolled: the measurement itself is lifted into content space, or it is off by the scroll at pick-up.
   test('a drag that starts on an already-scrolled list lands correctly', () => {
     const onMove = vi.fn();
     render(<Harness onMove={onMove} />);
@@ -245,13 +203,11 @@ describe('the landing index survives the list scrolling under it', () => {
     fireEvent.pointerMove(document, { clientX: 10, clientY: 50 });
     fireEvent.pointerUp(document, { clientX: 10, clientY: 50 });
 
-    // Content mids are 15, 45, 75, 105 whatever the scroll. Content y is
-    // 50 + 30 = 80, past b (45) and c (75) but not d (105).
+    // Content mids 15, 45, 75, 105. Content y = 50 + 30 = 80: past b and c, not d.
     expect(onMove.mock.calls[0][1]).toBe(2);
   });
 
-  // The mirror: with no scrolling at all the answer must be unchanged from
-  // what the engine always gave, or this refactor moved every existing drop.
+  // CONTROL: with no scrolling the index is unchanged from before.
   test('CONTROL: with no scrolling the index is what it always was', () => {
     const onMove = vi.fn();
     render(<Harness onMove={onMove} />);
@@ -265,17 +221,10 @@ describe('the landing index survives the list scrolling under it', () => {
   });
 });
 
-// KAN-155. Releasing ends the collapse, so the list springs back from a third
-// of its height to all of it -- and a row dropped at the bottom of the folded
-// list is then far below the fold. The user placed it deliberately and cannot
-// see where it went.
-//
-// Asserted on WHICH element was asked to scroll, not on any visual result:
-// jsdom implements no scrolling at all (see the stub in componentSetup.ts).
+// KAN-155. Releasing unfolds the list, so a row dropped at the bottom of the folded list ends far below the fold.
+// Asserted on which element was asked to scroll: jsdom implements no scrolling.
 describe('after a drop, the row you placed is brought into view', () => {
-  // Both the element AND the argument: `nearest` is what leaves a row that is
-  // already on screen exactly where it is, so a drop the user can already see
-  // does not jump the list. Recording only the element cannot see that.
+  // The argument too: `nearest` leaves a row already on screen where it is.
   const scrolled: {
     rowId: string | undefined;
     options: ScrollIntoViewOptions | boolean | undefined;
@@ -299,8 +248,7 @@ describe('after a drop, the row you placed is brought into view', () => {
     fireEvent.pointerMove(document, { clientX: 10, clientY: toY });
     if (commit) fireEvent.pointerUp(document, { clientX: 10, clientY: toY });
     else fireEvent.keyDown(document, { key: 'Escape' });
-    // The scroll is deferred a frame, because the reorder has to commit and lay
-    // out before there is anything to scroll to.
+    // Deferred a frame: the reorder must commit and lay out first.
     runFrames(1);
   };
 
@@ -312,8 +260,7 @@ describe('after a drop, the row you placed is brought into view', () => {
     expect(scrolled).toEqual([{ rowId: 'a', options: { block: 'nearest' } }]);
   });
 
-  // THE CONTROL. A cancelled drag moved nothing, and yanking the list after an
-  // Escape would be the app arguing with the user.
+  // CONTROL: a cancelled drag moved nothing, so nothing scrolls after Esc.
   test('CONTROL: a cancelled drag scrolls nothing', () => {
     render(<Harness onMove={() => {}} />);
 
@@ -322,8 +269,7 @@ describe('after a drop, the row you placed is brought into view', () => {
     expect(scrolled).toEqual([]);
   });
 
-  // The other control: a press that never became a drag is a click, and the
-  // row's own handler owns it.
+  // CONTROL: a click is the row's own.
   test('CONTROL: a plain click scrolls nothing', () => {
     render(<Harness onMove={() => {}} />);
     layout();
