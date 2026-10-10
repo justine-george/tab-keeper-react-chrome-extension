@@ -51,6 +51,13 @@ describe('addToast (KAN-349)', () => {
     expect(ids(list)).toEqual([2, 3]);
   });
 
+  // KAN-489. Each saved change is its own event: two saves in a row are two toasts.
+  test('T5: a toast announcing a saved change stacks beside its twin', () => {
+    let list = addToast([], plain(1, 'Saved'), true);
+    list = addToast(list, plain(2, 'Saved'), true);
+    expect(ids(list)).toEqual([1, 2]);
+  });
+
   test('T5: the same key with different params is a different toast', () => {
     let list = addToast([], plain(1, 'Window closed', { count: 3 }), false);
     list = addToast(list, plain(2, 'Window closed', { count: 2 }), false);

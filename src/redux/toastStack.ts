@@ -39,7 +39,8 @@ function sameParams(a: ToastItem['params'], b: ToastItem['params']): boolean {
 //   time), or is appended if there is none. Two closes of one tab read the
 //   same, so an offer never goes through T5, which would move it.
 // - T5: a plain toast replaces its twin (same key, same params), and goes to
-//   the bottom.
+//   the bottom -- unless it announces a saved-session change: each of those
+//   is its own event, so two saves in a row are two toasts (KAN-489).
 // - Q1 C′: a toast announcing a saved-session change takes ⌘Z from the offer.
 // - T2: past MAX_TOASTS, the oldest go.
 export function addToast(
@@ -53,12 +54,14 @@ export function addToast(
     next =
       at === -1 ? [...list, toast] : list.map((t, i) => (i === at ? toast : t));
   } else {
-    next = list.filter(
-      (t) =>
-        t.reopenOffer !== null ||
-        t.text !== toast.text ||
-        !sameParams(t.params, toast.params)
-    );
+    next = announcesSavedChange
+      ? [...list]
+      : list.filter(
+          (t) =>
+            t.reopenOffer !== null ||
+            t.text !== toast.text ||
+            !sameParams(t.params, toast.params)
+        );
     if (announcesSavedChange) {
       next = next.map((t) =>
         t.reopenOffer === null

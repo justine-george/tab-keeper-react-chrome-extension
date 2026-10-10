@@ -604,3 +604,29 @@ test.describe('the stack collapses until hovered (KAN-488)', () => {
     );
   });
 });
+
+// KAN-489. Each saved change is its own event: two saves in a row are two
+// toasts, where a twin used to replace the first.
+test('9. two saves in a row are two toasts; a twin that saves nothing still replaces', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  await seedSession(context);
+  const page = await openPage(context, extensionId);
+  await openSeededSession(page);
+  await openWindow(serviceWorker, ['Keep']);
+  await clickInPlace(saveAll(page));
+  await clickInPlace(saveAll(page));
+  await expect(liveToasts(page)).toHaveCount(2);
+  for (const i of [0, 1]) {
+    await expect(liveToasts(page).nth(i)).toHaveText(ALL_SAVED);
+  }
+
+  // CONTROL: Links copied announces no saved change, so its twin replaces it.
+  await copyLinksInPlace(page);
+  await copyLinksInPlace(page);
+  await expect(liveToasts(page)).toHaveCount(3);
+  await expect(liveToasts(page).nth(2)).toHaveText(LINKS_COPIED);
+  await expect(liveToasts(page).nth(1)).toHaveText(ALL_SAVED);
+});
