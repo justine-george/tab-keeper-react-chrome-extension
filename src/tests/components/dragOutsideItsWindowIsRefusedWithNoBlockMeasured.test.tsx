@@ -138,19 +138,11 @@ describe('a tab released outside its own window, with no block measured to land 
 
     expect(tabsOf(store, 0)).toEqual(['wA-t0', 'wA-t1', 'wA-t2']);
     expect(tabsOf(store, 1)).toEqual(['wB-t0', 'wB-t1']);
-  });
-
-  test('and does not dirty the session', async () => {
-    const { container, store } = await render();
-    const node = layout(container);
-
-    drag(node('wA-t0'), 10, 235);
-
     expect(store.getState().globalState.isDirty).toBe(false);
   });
 
-  // THE CONTROL. Without it, an area that refused every drop would pass the two
-  // tests above while breaking the feature outright.
+  // THE CONTROL. Without it, an area that refused every drop would pass the
+  // test above while breaking the feature outright.
   test('CONTROL: the same tab still reorders inside its own window', async () => {
     const { container, store } = await render();
     const node = layout(container);

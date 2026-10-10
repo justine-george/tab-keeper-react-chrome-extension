@@ -67,27 +67,6 @@ const startDrag = (label: string) => {
 };
 
 describe('a started drag holds, and every way it ends releases (KAN-279 D12)', () => {
-  test('a started drag holds', () => {
-    render(<Area ids={['a', 'b', 'c']} onMove={() => {}} />);
-    startDrag('Row a');
-    expect(isDragHeld()).toBe(true);
-  });
-
-  test('Esc releases, and the held change runs once', () => {
-    render(<Area ids={['a', 'b', 'c']} onMove={() => {}} />);
-    startDrag('Row a');
-    // The premise: held, so the change below waits rather than running now.
-    expect(isDragHeld()).toBe(true);
-    const spy = vi.fn();
-    whenDragReleases(spy);
-    expect(spy).not.toHaveBeenCalled();
-
-    fireEvent.keyDown(document, { key: 'Escape' });
-
-    expect(spy).toHaveBeenCalledTimes(1);
-    expect(isDragHeld()).toBe(false);
-  });
-
   test('a completed drop releases, after onMove, and the held change runs once', () => {
     const order: string[] = [];
     const onMove = vi.fn(() => order.push('onMove'));

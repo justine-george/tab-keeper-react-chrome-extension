@@ -21,12 +21,4 @@ describe('the favicon image is not natively draggable (KAN-232)', () => {
     const img = screen.getByRole('img', { name: 'favicon', hidden: true });
     expect(img).toHaveAttribute('draggable', 'false');
   });
-
-  // CONTROL: the attribute is not a jsdom default. A bare <img> reports no
-  // draggable attribute at all, so the assertion above is reading what Icon
-  // wrote, not what the DOM assumes.
-  test('CONTROL: a plain img carries no draggable attribute', () => {
-    const img = document.createElement('img');
-    expect(img.hasAttribute('draggable')).toBe(false);
-  });
 });

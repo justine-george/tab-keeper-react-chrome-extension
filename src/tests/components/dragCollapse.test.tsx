@@ -55,16 +55,6 @@ describe('the published drag kind', () => {
     setDragging(false);
     expect(document.documentElement.hasAttribute('data-dragging')).toBe(false);
   });
-
-  // Every existing rule is written `[data-dragging]` with no value, and an
-  // attribute selector matches whatever the value is -- so publishing a kind
-  // must not have quietly stopped the grabbing cursor or the hidden row actions
-  // matching. The rules themselves are asserted in dragStyles.test.ts, which
-  // runs in the project that can read CSS text.
-  test('CONTROL: a kinded attribute still matches the valueless selector', () => {
-    setDragging(true, 'window');
-    expect(document.documentElement.matches('[data-dragging]')).toBe(true);
-  });
 });
 
 describe('the collapse happens before the rows are measured', () => {

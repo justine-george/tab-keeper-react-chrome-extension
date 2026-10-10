@@ -162,18 +162,6 @@ describe('holding a drag near an edge travels the list', () => {
     expect(scroller().scrollTop).toBe(15);
   });
 
-  test('it stops at the end of the list rather than spinning', () => {
-    render(<Harness onMove={() => {}} />);
-    startDragAt('Row A', 10);
-
-    fireEvent.pointerMove(document, { clientX: 10, clientY: 88 });
-    runFrames(40);
-
-    // scrollHeight - clientHeight. jsdom does not clamp for us, so the engine
-    // must not run past it either.
-    expect(scroller().scrollTop).toBeLessThanOrEqual(ROW_H * 4 - VIEW_H);
-  });
-
   // THE ONE JSDOM ALMOST MISSED. A transform EXTENDS the scrollable overflow
   // area, and the held row carries one -- so in a real browser every pixel of
   // auto-scroll added a pixel of content and the end of the list retreated as

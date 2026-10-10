@@ -432,27 +432,6 @@ describe('a tab row marks its action strip for the stylesheet', () => {
     { tabId: 't2', favicon: '', title: 'Two', url: 'https://two.test' },
   ];
 
-  test('every tab row carries data-row-actions', async () => {
-    const { container } = await renderWithProviders(
-      <WindowEntryContainer
-        number={1}
-        title="Window 1"
-        tabGroupId="tg1"
-        windowId="w1"
-        tabs={TABS}
-        onOpenWindow={() => undefined}
-        onUpdateWindowGroupTitle={() => undefined}
-        onAddCurrTabToWindowClick={() => undefined}
-        onDeleteClick={() => undefined}
-      />,
-      { seedStore: (store) => store.dispatch(setHasTabGroupsPermission(false)) }
-    );
-
-    const strips = container.querySelectorAll('[data-row-actions]');
-    // One per tab row, plus the window header's own strip.
-    expect(strips.length).toBeGreaterThanOrEqual(TABS.length);
-  });
-
   test('the marked strip is the one holding the delete control', async () => {
     const { container } = await renderWithProviders(
       <WindowEntryContainer

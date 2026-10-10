@@ -141,21 +141,6 @@ describe('another area cannot end this drag', () => {
   });
 });
 
-// CONTROL, and the half the old cleanup existed for: the area that OWNS the
-// drag going away mid-drag must not leave the document stuck in a drag. Also
-// pinned in dragSetsDocumentFlag.test.tsx; restated here beside the tests that
-// narrow when the flag may be cleared, because narrowing it too far is the
-// obvious way to break this.
-test('CONTROL: the dragging area unmounting clears the flag', () => {
-  const { unmount } = render(<Area ids={['a', 'b']} onMove={() => {}} />);
-  startDrag('Row a');
-  expect(flag()).toBe('window');
-
-  unmount();
-
-  expect(flag()).toBeNull();
-});
-
 // The real trigger, through the real component: a store update that rebuilds
 // the session data with UNCHANGED content, as a sync that finds nothing new
 // does. restoreContainer rebuilds the container and every id list below it.

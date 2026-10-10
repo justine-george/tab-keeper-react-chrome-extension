@@ -216,18 +216,12 @@ describe('a drop that opens the gap between two bands', () => {
       a3: -4,
     });
   });
-
-  test('the bands above the change do not move', () => {
-    const seen = attributable('a0', 120);
-    expect(seen.Beta).toBeUndefined();
-    expect(seen.b0).toBeUndefined();
-    expect(seen['Beta:tail']).toBeUndefined();
-  });
 });
 
 describe('where the landing sits relative to the anchor', () => {
   // Landing ABOVE the anchor: the held row settles among rows that have not
-  // moved, so its own slot is untouched by the gap change.
+  // moved, so its own slot is untouched by the gap change. y=120 is also the
+  // GAP at the anchor (side 'before'): the band moves away beneath the row.
   test('landing above it leaves the slot alone', () => {
     expect(attributable('a0', 120).__slot).toBeUndefined();
   });
@@ -243,11 +237,6 @@ describe('where the landing sits relative to the anchor', () => {
 // Landing AT the anchor is two different things, and the index cannot tell
 // them apart -- slotLandingBeside gives both the same slot.
 describe('landing at the anchor band itself', () => {
-  test('in the GAP above it, the band moves away beneath the row', () => {
-    // side 'before' -- the row takes the band's old place.
-    expect(attributable('a0', 120).__slot).toBeUndefined();
-  });
-
   test('INSIDE it at its head, the row goes with it', () => {
     render(<HarnessJoining changes={OPENS} />);
     const withJoin = holdOn('a0', 120);

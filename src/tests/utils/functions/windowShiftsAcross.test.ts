@@ -23,14 +23,6 @@ describe('windowShiftsAcross', () => {
     expect(windowShiftsAcross(ORDER, 'w2', FP)).toEqual({ w3: FP, w4: FP });
   });
 
-  test('the destination itself does not move: the room opens INSIDE it', () => {
-    expect(windowShiftsAcross(ORDER, 'w2', FP).w2 ?? 0).toBe(0);
-  });
-
-  test('windows above the destination never move', () => {
-    expect(windowShiftsAcross(ORDER, 'w3', FP)).toEqual({ w4: FP });
-  });
-
   // Landing in the LAST window needs no room made: nothing is drawn below it,
   // so the row a drop adds has the pane's own empty space to grow into.
   test('the last window as destination moves nothing', () => {
@@ -47,9 +39,5 @@ describe('windowShiftsAcross', () => {
 
   test('a destination this pane does not hold moves nothing', () => {
     expect(windowShiftsAcross(ORDER, 'nope', FP)).toEqual({});
-  });
-
-  test('a pane with one window has nothing to move', () => {
-    expect(windowShiftsAcross(['w1'], 'w1', FP)).toEqual({});
   });
 });

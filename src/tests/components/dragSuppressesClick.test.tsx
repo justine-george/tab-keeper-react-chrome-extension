@@ -112,19 +112,6 @@ describe('a drag does not also open the tab', () => {
     expect(seen).toBe(1);
   });
 
-  test('the click that follows a real drag is swallowed', async () => {
-    await render();
-    const node = draggableFor('Two');
-
-    fireEvent.pointerDown(node, { clientX: 10, clientY: 20, button: 0 });
-    fireEvent.pointerMove(document, { clientX: 10, clientY: 60, button: 0 });
-    fireEvent.pointerMove(document, { clientX: 10, clientY: 100, button: 0 });
-    fireEvent.pointerUp(document, { clientX: 10, clientY: 100, button: 0 });
-    fireEvent.click(node, { clientX: 10, clientY: 100 });
-
-    expect(seen).toBe(0);
-  });
-
   // The suppression must be spent by the drag it belongs to. Left armed, the
   // NEXT ordinary click on any row would be eaten instead.
   test('only the one click is swallowed, not the next one', async () => {

@@ -153,17 +153,7 @@ describe('a tab drag inside a filtered list', () => {
     dragToTop(rows[1], ROW_H + 15);
 
     expect(storedTabIds(store)).toEqual(['t1', 't2', 't3', 't4']);
-  });
-
-  // The consequences the reducer would have had, asserted separately: a drag
-  // that reorders nothing but still dirties the session would sync a write for
-  // an edit that did not happen.
-  test('and does not dirty the session', async () => {
-    const { container, store } = await render('match');
-    const rows = layoutTabRows(container);
-
-    dragToTop(rows[1], ROW_H + 15);
-
+    // A drag that reorders nothing but dirties the session would sync a write for no edit.
     expect(store.getState().globalState.isDirty).toBe(false);
   });
 

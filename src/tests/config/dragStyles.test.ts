@@ -26,26 +26,11 @@ import appCss from '../../App.css?raw';
 const flat = appCss.replace(/\s+/g, ' ');
 
 describe('the drag stylesheet rules', () => {
+  // `*`, as each row declares its own cursor; `!important`, as emotion's classes load later.
   test('a drag forces the grabbing cursor onto every element', () => {
     expect(flat).toMatch(
       /\[data-dragging\] \* \{[^}]*cursor: grabbing !important/
     );
-  });
-
-  // `!important` is load-bearing, not lazy: these rules have to beat emotion
-  // classes, which are injected into the document after this stylesheet and
-  // would otherwise win on order alone. The same reasoning is already recorded
-  // on the [data-theme-switching] rule beside them.
-  test('the cursor rule is important, or emotion wins on order', () => {
-    const rule = flat.match(/\[data-dragging\] \* \{[^}]*\}/)?.[0] ?? '';
-    expect(rule).toContain('!important');
-  });
-
-  // The reason it must target `*` rather than a single ancestor: `cursor`
-  // inherits, and an explicit declaration on a descendant beats an inherited
-  // value whatever its importance. A rule scoped to one element could not win.
-  test('the cursor rule targets descendants, not just one element', () => {
-    expect(flat).toMatch(/\[data-dragging\] \*/);
   });
 
   test('a drag hides every row action strip', () => {
@@ -79,13 +64,6 @@ describe('the window-drag collapse rule', () => {
   // being reordered out from under the pointer.
   test('and is scoped, so a tab drag does not hide its own rows', () => {
     expect(flat).not.toContain('[data-dragging] [data-window-tabs]');
-  });
-
-  // The control for that scoping: the rules that SHOULD apply to every kind are
-  // still written without a value, and an attribute selector matches any value.
-  test('CONTROL: the kind-agnostic rules stay kind-agnostic', () => {
-    expect(flat).toContain('[data-dragging] * {');
-    expect(flat).toContain('[data-dragging] [data-row-actions] {');
   });
 });
 

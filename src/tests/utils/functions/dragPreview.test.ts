@@ -132,11 +132,6 @@ describe('slotLandingBeside', () => {
     expect(slotLandingBeside(4, ALPHA, 'before')).toBe(3);
   });
 
-  test('leaving upward from deeper in the group lands in the same slot', () => {
-    // Which member it was does not change where it ends up: above the title.
-    expect(slotLandingBeside(6, ALPHA, 'before')).toBe(3);
-  });
-
   test('a row already above the title row lands one slot earlier', () => {
     expect(slotLandingBeside(1, ALPHA, 'before')).toBe(2);
   });

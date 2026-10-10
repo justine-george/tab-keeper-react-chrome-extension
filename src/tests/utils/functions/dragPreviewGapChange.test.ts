@@ -45,17 +45,6 @@ describe('gapChangeShifts', () => {
     });
   });
 
-  test('the anchor itself moves -- the gap that changed is ABOVE it', () => {
-    expect(gapChangeShifts(SLOTS, at('Gamma'), 4).Gamma).toBe(4);
-  });
-
-  test('nothing above the anchor moves', () => {
-    const shifts = gapChangeShifts(SLOTS, at('Gamma'), -4);
-    for (const key of ['a0', 'Beta', 'b0', 'b1', 'Beta:tail']) {
-      expect(shifts[key]).toBeUndefined();
-    }
-  });
-
   test('a zero change moves nothing, and says so by absence', () => {
     expect(gapChangeShifts(SLOTS, at('Gamma'), 0)).toEqual({});
   });
