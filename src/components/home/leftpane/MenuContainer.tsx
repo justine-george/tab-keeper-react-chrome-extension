@@ -432,22 +432,30 @@ export default function MenuContainer() {
           onClick={handleClickSync}
           disable={dimmedBecause !== null}
         />
-        <Icon
-          ariaLabel={t('Settings')}
-          tooltipText={t('Settings')}
-          type="settings"
-          // KAN-340. The heaviest glyph in the row: at DEFAULT its ink is
-          // 20.5px square, 2.6x Sort's; at SMALL it read too small beside the
-          // 22.5px-wide cloud. MEDIUM (18.5px of ink) sits between Undo and
-          // Search, in the same box, so nothing moves and the target stays whole.
-          size={ICON.MEDIUM}
-          boxSizedFor={ICON.DEFAULT}
-          onClick={handleClickSettings}
-          // KAN-344. Half a turn, the one flourish in the row: the gear has
-          // six teeth, but only 180deg is the same pose (120deg differs by 8%
-          // of its ink, so it jumped).
-          hoverMotion={{ rotate: '180deg', duration: DURATION.FLOURISH }}
-        />
+        {/* KAN-499. The note after the run points here. */}
+        <span
+          data-tour-anchor="settings"
+          css={css`
+            display: inline-flex;
+          `}
+        >
+          <Icon
+            ariaLabel={t('Settings')}
+            tooltipText={t('Settings')}
+            type="settings"
+            // KAN-340. The heaviest glyph in the row: at DEFAULT its ink is
+            // 20.5px square, 2.6x Sort's; at SMALL it read too small beside the
+            // 22.5px-wide cloud. MEDIUM (18.5px of ink) sits between Undo and
+            // Search, in the same box, so nothing moves and the target stays whole.
+            size={ICON.MEDIUM}
+            boxSizedFor={ICON.DEFAULT}
+            onClick={handleClickSettings}
+            // KAN-344. Half a turn, the one flourish in the row: the gear has
+            // six teeth, but only 180deg is the same pose (120deg differs by 8%
+            // of its ink, so it jumped).
+            hoverMotion={{ rotate: '180deg', duration: DURATION.FLOURISH }}
+          />
+        </span>
       </div>
     </div>
   );

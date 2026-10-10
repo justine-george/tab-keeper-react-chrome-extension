@@ -29,9 +29,14 @@ import {
 import type { AnchorBox, Spotlight } from './anchorBox';
 import { TYPE } from '../../styles/scale';
 
-interface CoachMarkProps {
+// The run's step and its last; null for the note after the run, which has no progress line.
+export interface CoachProgress {
   step: number;
   total: number;
+}
+
+interface CoachMarkProps {
+  progress: CoachProgress | null;
   text: ReactNode;
   fine?: string;
   anchors: readonly string[];
@@ -114,8 +119,7 @@ const swallow = (event: SyntheticEvent) => {
 
 // KAN-413's card on the run's steps: not modal, takes no focus; the dim blocks the pointer, never the keyboard.
 export default function CoachMark({
-  step,
-  total,
+  progress,
   text,
   fine,
   anchors,
@@ -137,7 +141,7 @@ export default function CoachMark({
   const markRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
   const frame = useCoachPlacement(markRef, anchors, place, boxOf, spotlight);
-  useCardMotion(markRef, ringRef, step, frame);
+  useCardMotion(markRef, ringRef, progress?.step ?? null, frame);
   const buttons = dialogButtonStyles(COLORS);
   const isPlaced = frame !== null;
 
@@ -263,7 +267,7 @@ export default function CoachMark({
         aria-labelledby={textId}
         aria-hidden={isPlaced ? undefined : true}
         data-coach-mark
-        data-coach-step={step}
+        data-coach-step={progress?.step}
         data-coach-side={frame?.placement.side}
         css={markStyle}
         style={
@@ -272,11 +276,16 @@ export default function CoachMark({
             : { left: 0, top: 0, visibility: 'hidden' }
         }
       >
-        <ProgressLine
-          n={step}
-          total={total}
-          label={t('Step {{n}} of {{total}}', { n: step, total })}
-        />
+        {progress !== null && (
+          <ProgressLine
+            n={progress.step}
+            total={progress.total}
+            label={t('Step {{n}} of {{total}}', {
+              n: progress.step,
+              total: progress.total,
+            })}
+          />
+        )}
         {frame && (
           <Notch
             side={frame.kind === 'anchored' ? frame.placement.side : 'below'}

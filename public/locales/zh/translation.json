@@ -279,6 +279,8 @@
   "Show me how": "告诉我怎么做",
   "Learn the basics": "了解基础操作",
   "Show me around": "带我看看",
+  "Want to see this tour again? Go to {{path}}.": "想再看一遍这个介绍？请前往 {{path}}。",
+  "Got it": "知道了",
   "See your saved sessions and open tabs side by side.": "并排查看已保存的会话和打开的标签页。",
   "Opens under the toolbar icon": "在工具栏图标下方打开",
   "Opens in its own tab": "在单独的标签页中打开",
