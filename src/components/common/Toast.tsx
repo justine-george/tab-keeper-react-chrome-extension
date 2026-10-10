@@ -102,7 +102,10 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     @media (prefers-reduced-motion: reduce) {
       transition: opacity ${TOAST_FADE_REDUCED};
     }
-    background-color: ${COLORS.PRIMARY_COLOR};
+    /* KAN-487. The card, not the list's own colour, lifted by the floating
+       shadow: the Reopen chip's fill is tuned on this card (chipContrast). */
+    background-color: ${COLORS.SECONDARY_COLOR};
+    box-shadow: ${COLORS.FLOATING_SHADOW};
     color: ${COLORS.TEXT_COLOR};
     padding: 10px;
     border: 1px solid ${COLORS.BORDER_COLOR};
