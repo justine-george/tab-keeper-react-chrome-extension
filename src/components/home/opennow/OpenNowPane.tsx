@@ -481,6 +481,10 @@ export default function OpenNowPane({
     drawnSwitchButtons(paneRef.current)[0]?.click();
   };
 
+  const reservedLineStyle = css`
+    visibility: hidden;
+  `;
+
   const emptyStyle = css`
     display: flex;
     height: 100%;
@@ -525,6 +529,18 @@ export default function OpenNowPane({
             color={COLORS.LABEL_L2_COLOR}
             style="padding-top: 2px; padding-left: 8px;"
           />
+          {/* KAN-491 (D). The count line's room, kept below the text when it
+              is left out, so the buttons and the search do not move. */}
+          {listed.length === 0 && (
+            <span aria-hidden="true" css={reservedLineStyle}>
+              <NormalLabel
+                value={'\u00a0'}
+                size={TYPE.META}
+                color={COLORS.LABEL_L1_COLOR}
+                style="padding-top: 2px; padding-left: 8px;"
+              />
+            </span>
+          )}
         </div>
         <div
           css={css`
