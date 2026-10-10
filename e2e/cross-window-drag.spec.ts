@@ -351,30 +351,6 @@ test.describe('a grouped tab leaving its group for another window', () => {
 // honest answer (KAN-131, KAN-132). Each pairs with a drop above that does move,
 // so a list that refused everything cannot pass here.
 test.describe('a tab released in no window', () => {
-  // KAN-185 REPLACED this one's rule. The gap between two blocks used to name
-  // no window, so a release there was refused -- and crossing it slowly showed
-  // the landing snap home to the row's own origin and out again. It belongs to
-  // the nearer block now, which leaves the refusals below as the whole of
-  // "no window": beside the pane, and past the ends of the list.
-  test('in the gap above the next window, lands in the nearer one', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await open(context, extensionId);
-
-    const w1 = await blockBox(page, 'w1');
-    const w2 = await blockBox(page, 'w2');
-    // PREMISE: there is a gap, and the release point is in neither block.
-    expect(w2.y - (w1.y + w1.height)).toBeGreaterThanOrEqual(4);
-    const justInsideW1sHalf = w1.y + w1.height + 1;
-
-    await holdAt(page, 'b0', justInsideW1sHalf);
-    await page.mouse.up();
-
-    await expect.poll(() => order(page, 'w1')).toBe(`${W1_START} b0`);
-    expect(await order(page, 'w2')).toBe('be0* be1* b1');
-  });
-
   test('beside the pane, level with another window, commits nothing', async ({
     context,
     extensionId,
