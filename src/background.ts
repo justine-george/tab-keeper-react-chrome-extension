@@ -22,6 +22,7 @@ import { reopenPreferringHistory } from './utils/functions/reopen';
 import type { Reopened } from './utils/functions/reopen';
 import { isReopenPreferringHistoryRequest } from './utils/functions/reopenRequest';
 import { restoreSession } from './utils/functions/restoreSession';
+import { tracedPress } from './utils/functions/openInPopupTrace';
 import { isRestoreSessionRequest } from './utils/functions/windows';
 
 // Lazy load restores every tab past the first as a placeholder document, and
@@ -137,8 +138,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // KAN-437. The asking tab is the full view: the worker closes it, then opens the popup.
   // After the worker's startup reapply, which otherwise races it (measured: a set right after worker start was overwritten, 1 of 8 probe runs).
   if (isOpenInPopupRequest(message)) {
-    void defaultViewApplied.then(() =>
-      openInPopup(chromePopupApi, sender.tab?.id)
-    );
+    const trace = tracedPress(chromePopupApi);
+    void defaultViewApplied
+      .then(() => openInPopup(trace.api, sender.tab?.id))
+      .finally(() => trace.finish(sender.tab?.id));
   }
 });
