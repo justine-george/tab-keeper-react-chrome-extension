@@ -35,7 +35,9 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   const dispatch: AppDispatch = useDispatch();
 
   const toasts = useSelector((state: RootState) => state.globalState.toasts);
-  const { shown, refFor } = useToastStack(toasts);
+  // KAN-488. Open while held: the pointer on the stack or focus in it.
+  const [open, setOpen] = useState(false);
+  const { shown, refFor } = useToastStack(toasts, open);
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
   );
@@ -56,6 +58,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     const isHeld = hovered.current || focused.current;
     if (!wasHeld && isHeld) holdToasts();
     if (wasHeld && !isHeld) releaseToasts();
+    setOpen(isHeld);
   };
   // After every change to the list: an empty stack takes the hold with it
   // (the timers start the next toast unheld), and a toast arriving while the
@@ -66,6 +69,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     if (toasts.length === 0) {
       hovered.current = false;
       focused.current = false;
+      setOpen(false);
       return;
     }
     if (hovered.current || focused.current) holdToasts();
@@ -99,6 +103,14 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     transition:
       transform ${TOAST_MOVE},
       opacity ${TOAST_MOVE};
+    /* KAN-488. Collapsed, an older toast narrows toward the newest's bottom edge, and shows only its edge. */
+    transform-origin: bottom center;
+    & > * {
+      transition: opacity ${TOAST_LEAVE_MS}ms;
+    }
+    [data-stack='collapsed'] &:not([data-depth='0']) > * {
+      opacity: 0;
+    }
     @media (prefers-reduced-motion: reduce) {
       transition: opacity ${TOAST_FADE_REDUCED};
     }
@@ -188,6 +200,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
       // screen reader read out the whole stack again. Each is its own
       // message (KAN-349 A).
       aria-atomic="false"
+      data-stack={open ? 'open' : 'collapsed'}
       css={regionStyle}
       onMouseEnter={() => setHold({ hovered: true })}
       onMouseLeave={() => setHold({ hovered: false })}
@@ -220,7 +233,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
               css={[toastStyle, leaving && leavingStyle]}
               aria-hidden={leaving || undefined}
             >
-              {message}
+              <span>{message}</span>
             </div>
           );
         }

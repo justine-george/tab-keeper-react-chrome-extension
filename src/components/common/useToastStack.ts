@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
-import type { ToastItem } from '../../redux/toastStack';
+import { MAX_TOASTS, type ToastItem } from '../../redux/toastStack';
+
+// Newest drawn over the older ones it hides; leaving toasts keep theirs.
+const MAX_DEPTH = MAX_TOASTS + 1;
 
 // KAN-349 motion, as settled on the bench (T1–T5 A): a new toast rises 12px
 // into place and fades in, and the ones above move up with it; a leaving one
@@ -11,6 +14,9 @@ export const TOAST_RISE_PX = 12;
 export const TOAST_MOVE = '220ms cubic-bezier(0.2, 0, 0, 1)';
 export const TOAST_LEAVE_MS = 160;
 export const TOAST_FADE_REDUCED = '120ms linear';
+// KAN-488. Collapsed, each older toast peeks this far above the one in front of it, this much narrower.
+export const TOAST_PEEK_PX = 8;
+export const TOAST_PEEK_SCALE = 0.05;
 
 // A toast drawn on screen: one in the store, or one that has just left it
 // and is fading out for TOAST_LEAVE_MS.
@@ -45,8 +51,9 @@ export function mergeShown(
 
 // What Toast draws, and a ref callback per toast. After each change the live
 // toasts are stacked from the bottom, newest lowest, by transform, so a CSS
-// transition carries every move.
-export function useToastStack(toasts: readonly ToastItem[]) {
+// transition carries every move: open, each in full; collapsed (KAN-488), the
+// newest in front and the older ones peeking above it.
+export function useToastStack(toasts: readonly ToastItem[], open: boolean) {
   const [shown, setShown] = useState<ShownToast[]>(() =>
     toasts.map((toast) => ({ toast, leaving: false }))
   );
@@ -81,6 +88,7 @@ export function useToastStack(toasts: readonly ToastItem[]) {
 
   useLayoutEffect(() => {
     let below = 0;
+    let depth = 0;
     for (let i = shown.length - 1; i >= 0; i -= 1) {
       const { toast, leaving } = shown[i];
       const el = elements.current.get(toast.id);
@@ -97,7 +105,11 @@ export function useToastStack(toasts: readonly ToastItem[]) {
         placed.current.delete(toast.id);
         continue;
       }
-      const y = -below;
+      const y = open ? -below : -depth * TOAST_PEEK_PX;
+      const scale =
+        open || depth === 0 ? '' : ` scale(${1 - depth * TOAST_PEEK_SCALE})`;
+      el.dataset.depth = String(depth);
+      el.style.zIndex = String(MAX_DEPTH - depth);
       if (!placed.current.has(toast.id)) {
         // Start 12px low and clear, and have the browser take that in before
         // the move, so the transition runs from it.
@@ -106,11 +118,12 @@ export function useToastStack(toasts: readonly ToastItem[]) {
         el.getBoundingClientRect();
         placed.current.add(toast.id);
       }
-      el.style.transform = `translateY(${y}px)`;
+      el.style.transform = `translateY(${y}px)${scale}`;
       el.style.opacity = '1';
       below += el.offsetHeight + TOAST_GAP_PX;
+      depth += 1;
     }
-  }, [shown]);
+  }, [shown, open]);
 
   const refFor = (id: number) => (el: HTMLElement | null) => {
     if (el === null) elements.current.delete(id);
