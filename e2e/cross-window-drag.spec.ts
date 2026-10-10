@@ -1,14 +1,6 @@
-// KAN-132. A tab drag is one drag area over every tab in the session, rather
-// than one per window, so that a tab can be dropped into another window.
-//
-// A drag inside one window must behave as it did when each window had a list of
-// its own: it moves only that window's rows and lands at its place in that
-// window. A release over another window moves the tab there, previewed in each
-// window's own frame; a release in no window at all is refused.
-//
-// Previews are read from the COMMANDED inline transforms, never from rects: the
-// rows ease into place over 0.18s (KAN-165), and a rect read straight after a
-// move describes a row still on its way.
+// KAN-132. One drag area over every tab in the session, so a tab can drop into another window. Inside one window it moves
+// only that window's rows; over another it moves there, previewed in each window's own frame; in no window it is refused.
+// Previews are read from the COMMANDED transforms, never rects: rows ease over 0.18s (KAN-165).
 
 import type { BrowserContext, Page } from '@playwright/test';
 
@@ -41,13 +33,8 @@ const win = (
   chromeTabGroups: groups,
 });
 
-// w1: three loose tabs, then a one-tab group. w2: a LEADING group, then two
-// loose tabs -- so w2's group starts at window-local index 0, the same number as
-// w1's first tab.
-//
-// As small as those shapes allow: the popup's pane is a fixed 415px whatever
-// the viewport, and a session that overflows it scrolls, which a drag near an
-// edge turns into auto-scroll moving rows under the held pointer.
+// w1: three loose tabs, then a one-tab group. w2: a LEADING group, then two loose tabs, so w2's group starts at local
+// index 0, like w1's first tab. Small, because the popup's pane is a fixed 415px and an overflowing session auto-scrolls.
 const WINDOWS = [
   win(
     'w1',
@@ -84,8 +71,7 @@ async function open(
   await page.goto(`chrome-extension://${extensionId}/index.html`);
   // goto resolves before React mounts (KAN-105), and the bands need the grant.
   await expect(page.locator('[data-band-id="beta"]')).toBeAttached();
-  // PREMISE: nothing scrolls, so no drag here can auto-scroll -- none of these
-  // claims is about scrolling.
+  // PREMISE: nothing scrolls, so no drag here auto-scrolls.
   const pane = await page.evaluate(() => {
     let el = document.querySelector<HTMLElement>(
       '[data-drag-row-id="w1"]'
@@ -121,9 +107,7 @@ const order = async (page: Page, windowId: string) =>
     .map((t) => t.tabId + (t.chromeGroupId ? '*' : ''))
     .join(' ');
 
-// A window's own stored Chrome-group metadata, by group id. Distinct from
-// order()'s '*' markers, which come off the TABS' membership and would still
-// read empty if a tab-less group entry were left behind uncleaned.
+// A window's own stored group entries: order()'s '*' would still read empty with a tab-less entry left behind.
 const chromeGroupIdsOf = async (page: Page, windowId: string) =>
   ((await storedWindow(page, windowId)).chromeTabGroups ?? []).map(
     (g) => g.groupId
@@ -145,8 +129,7 @@ async function holdAt(page: Page, rowId: string, toY: number) {
   return x;
 }
 
-// Every commanded shift inside a window's block: its tab and item rows, and its
-// groups' title rows, which the frame follower moves by transform.
+// Every commanded shift in a window's block: tab and item rows, and its groups' title rows.
 const shiftsIn = (page: Page, windowId: string) =>
   page.evaluate((windowId) => {
     const block = document.querySelector<HTMLElement>(
@@ -178,8 +161,7 @@ const marked = (page: Page) =>
   );
 
 test.describe('a tab drag inside one window', () => {
-  // The regression guard for a pane-wide preview range: the rows the preview
-  // shifts must stay inside the window the drag is in.
+  // A pane-wide preview range would shift rows outside the window the drag is in.
   test('moves no row in the other window', async ({ context, extensionId }) => {
     const page = await open(context, extensionId);
 
@@ -187,9 +169,7 @@ test.describe('a tab drag inside one window', () => {
     const a0 = await rowBox(page, 'a0');
     await holdAt(page, 'a1', a0.y + 4);
 
-    // THE CONTROL: the preview is live in w1 -- a0 steps down into a1's slot,
-    // and nothing past a1 moves. Without it, "nothing moved in w2" would pass
-    // for a preview that moved nothing anywhere.
+    // CONTROL: the preview is live in w1, or "nothing moved in w2" would pass for a preview that moved nothing.
     await expect
       .poll(() => shiftsIn(page, 'w1'))
       .toEqual({ a0: expect.any(Number) });
@@ -212,8 +192,7 @@ test.describe('a tab drag inside one window', () => {
     expect(await order(page, 'w2')).toBe(W2_START);
   });
 
-  // The index a drop reports is applied to the tab's own window, so it must
-  // count that window's rows -- not every row above it in the pane.
+  // The reported index applies to the tab's own window, so it counts that window's rows only.
   test('in the second window, lands at its place in that window', async ({
     context,
     extensionId,
@@ -229,9 +208,7 @@ test.describe('a tab drag inside one window', () => {
     expect(await order(page, 'w1')).toBe(W1_START);
   });
 
-  // A release inside another window's band joins that group, so the band says
-  // so (KAN-164) -- and the band the pointer left, in the other window, goes
-  // dark rather than staying lit beside it.
+  // A release in another window's band joins it, so that band lights (KAN-164) and the one left goes dark.
   test('marks the band of whichever window it is over, and clears the one it left', async ({
     context,
     extensionId,
@@ -261,8 +238,7 @@ test.describe('a tab drag inside one window', () => {
         [x, betaY]
       )
     ).toBe(true);
-    // THE CLAIM. Marking is synchronous with the move that has already
-    // resolved, so this is the answer for the pointer where it now is.
+    // Marking is synchronous with the resolved move, so this is the answer for the pointer where it is now.
     expect(await marked(page)).toEqual(['beta']);
 
     await page.keyboard.press('Escape');
@@ -308,10 +284,7 @@ test.describe('a tab released over another window', () => {
   });
 });
 
-// Addendum required addition 2. A grouped tab dragged LOOSE into another
-// window -- not onto a band -- carries no membership into it, and since al0 is
-// alpha's only member, the group it leaves behind is gone: Task 1 covered this
-// in the reducer; nothing end to end did.
+// A grouped tab dragged LOOSE into another window carries no membership, and the group it leaves, now empty, is gone.
 test.describe('a grouped tab leaving its group for another window', () => {
   test('lands with no group membership, and its old group is gone', async ({
     context,
@@ -324,24 +297,17 @@ test.describe('a grouped tab leaving its group for another window', () => {
     await holdAt(page, 'al0', b0.y + b0.height - 4);
     await page.mouse.up();
 
-    // THE STORED MEMBERSHIP: al0 arrives with no chromeGroupId, so order()
-    // reports it with no trailing '*'.
+    // THE STORED MEMBERSHIP: al0 arrives with no chromeGroupId, so no '*'.
     await expect.poll(() => order(page, 'w2')).toBe('be0* be1* b0 al0 b1');
-    // THE SOURCE: alpha had exactly one member, so it is gone from w1 -- no
-    // more grouped tabs there, and its title row no longer renders.
+    // THE SOURCE: alpha's only member left, so it is gone from w1, title row too.
     expect(await order(page, 'w1')).toBe('a0 a1 a2');
     await expect(page.locator('[data-band-id="alpha"]')).toHaveCount(0);
-    // THE STORED PRUNE, directly: not just "no tab claims it" (order()) or "no
-    // title row draws it" (the DOM), but the window's own chromeTabGroups no
-    // longer lists alpha at all -- otherwise a stale, tab-less entry could
-    // still be there, invisible to both of those.
+    // THE STORED PRUNE: alpha is gone from w1's chromeTabGroups, not just unclaimed and undrawn.
     expect(await chromeGroupIdsOf(page, 'w1')).toEqual([]);
   });
 });
 
-// A release that names no window has nowhere to go, and doing nothing is the
-// honest answer (KAN-131, KAN-132). Each pairs with a drop above that does move,
-// so a list that refused everything cannot pass here.
+// A release naming no window is refused (KAN-131, KAN-132). Each pairs with a drop above that moves.
 test.describe('a tab released in no window', () => {
   test('beside the pane, level with another window, commits nothing', async ({
     context,
@@ -366,9 +332,7 @@ test.describe('a tab released in no window', () => {
   });
 });
 
-// The landing slot's top. The slot rides on the held row, and neither carries a
-// transition, so -- unlike the rows stepping aside -- its box is where it was
-// commanded to be the moment the pointer stops.
+// The landing slot's top: it rides the held row and neither eases, so its box is already where it was commanded.
 const slotTop = (page: Page) =>
   page.evaluate(() => {
     const slot = document.querySelector('[data-drag-landing-slot]');
@@ -379,11 +343,8 @@ const slotTop = (page: Page) =>
 const titleBox = (page: Page, bandId: string) =>
   boxOf(page.locator(`[data-band-id="${bandId}"] [data-group-drag-handle]`));
 
-// KAN-132. Each window is previewed in its OWN frame: the one the tab leaves
-// closes up below it, the one it enters opens up from the insertion point down,
-// and nothing else moves. A single range across both windows -- the design's
-// first claim -- lifted the destination's rows above that point into their own
-// window's header, and drew the landing slot one row past where the tab lands.
+// KAN-132. Each window is previewed in its OWN frame: the one left closes up, the one entered opens from the insertion
+// point down, nothing else moves. One range across both lifted rows into a header and drew the slot a row late.
 test.describe('what a drag into another window previews', () => {
   test('down into the middle: only rows past the landing point step down', async ({
     context,
@@ -445,8 +406,7 @@ test.describe('what a drag into another window previews', () => {
     await expect.poll(() => order(page, 'w1')).toBe('a0 a1 b0 a2 al0*');
   });
 
-  // Past another window's last row there is no row to step aside for. The slot
-  // goes where a row appended to that window is drawn: its block's bottom.
+  // Past another window's last row nothing steps aside; the slot goes to the block's bottom.
   test("past another window's last row: nothing there moves, and the slot sits at its end", async ({
     context,
     extensionId,
@@ -471,9 +431,7 @@ test.describe('what a drag into another window previews', () => {
     expect(await order(page, 'w1')).toBe('a1 a2 al0*');
   });
 
-  // A collapsed window draws no rows, so a release anywhere on it passes no
-  // midpoint: index 0, which is where adding a tab to a window already puts it
-  // (spec 7.1). The slot is under its header, where that row will be.
+  // A collapsed window draws no rows, so a release on it is index 0 (spec 7.1); the slot sits under its header.
   test('into a collapsed window: lands first, and the slot sits under its header', async ({
     context,
     extensionId,
@@ -489,8 +447,7 @@ test.describe('what a drag into another window previews', () => {
     const w2 = await blockBox(page, 'w2');
 
     await holdAt(page, 'a0', w2.y + w2.height / 2);
-    // Resting on its title opens it (KAN-379): the sweep is held at 0, so
-    // these reads see it folded.
+    // Resting on its title opens it (KAN-379); the sweep is held at 0, so these reads see it folded.
     await holdSweepAt(
       page,
       '[data-drop-window-id="w2"] > [data-window-drag-handle]',
@@ -511,9 +468,7 @@ test.describe('what a drag into another window previews', () => {
     expect(await order(page, 'w1')).toBe('a1 a2 al0*');
   });
 
-  // Group edges in the destination are answered by the destination's own
-  // positions, with no allowance for a held row that was never in its list
-  // (KAN-170's lift-out adjustment applies only to a row the list contains).
+  // The destination's group edges come from its own positions: KAN-170's lift-out applies only to a row the list contains.
   test("loose, just above another window's group: lands before its title row", async ({
     context,
     extensionId,
@@ -532,12 +487,7 @@ test.describe('what a drag into another window previews', () => {
       .toBe(2);
     const fp = (await shiftsIn(page, 'w1')).al0;
     expect(await shiftsIn(page, 'w1')).toEqual({ 'title:alpha': fp, al0: fp });
-    // AGAINST WHERE THE TAB RESTS, not against another drawn edge (KAN-167).
-    // This used to assert the slot sat at the title row's top, which is the
-    // band's border box -- 2px below the tab's resting place, because the
-    // band's top margin is spacing a loose tab does not pay. Asserting one
-    // drawn edge against another cannot see that; a2's bottom is where the
-    // tab actually lands, flush under the row above it.
+    // AGAINST WHERE THE TAB RESTS (KAN-167): the title row's top is 2px lower, the band's margin a loose tab does not pay.
     expect(await slotTop(page)).toBeCloseTo(a2.y + a2.height, 0);
     expect(await marked(page)).toEqual([]);
 
@@ -545,12 +495,7 @@ test.describe('what a drag into another window previews', () => {
     await expect.poll(() => order(page, 'w1')).toBe('a0 a1 a2 b0 al0*');
   });
 
-  // Strengthened (Task 6): the weak form only checked that SOME shift landed on
-  // al0, which passed under two Task 5 mutations (M5, the flat range across
-  // both windows, and M8, the lift-out adjustment applied to a row from
-  // another window). Naming the exact footprint and the exact w2 shift closes
-  // both: M5 pulls extra rows into the shifted set (be0/be1/title:beta as well
-  // as b1) and M8 changes what al0's shift is measured against.
+  // Exact footprint and exact w2 shift: a flat range across both windows, or the lift-out applied to another window's row, fails here.
   test("inside another window's group, at its head: joins it under the title row", async ({
     context,
     extensionId,
@@ -566,14 +511,10 @@ test.describe('what a drag into another window previews', () => {
     await expect
       .poll(() => shiftsIn(page, 'w1'))
       .toEqual({ al0: expect.any(Number) });
-    // THE DESTINATION SHIFT: the window b0 enters opens by exactly its own
-    // footprint -- al0 is alpha's only other member, so it is the one row
-    // that has to make room.
+    // THE DESTINATION SHIFT: al0, alpha's only other member, makes room by exactly b0's footprint.
     const fp = (await shiftsIn(page, 'w1')).al0;
     expect(fp).toBeCloseTo(b0.height, 0);
-    // THE SOURCE SHIFT, exactly: only b1 moves in w2, by the same footprint
-    // the other way. Anything else in w2's shift set (be0, be1, title:beta)
-    // would mean the range crossed the group above the join.
+    // THE SOURCE SHIFT, exactly: only b1 moves in w2; be0, be1 or title:beta would mean the range crossed the group.
     expect(await shiftsIn(page, 'w2')).toEqual({ b1: -fp });
     expect(await slotTop(page)).toBeCloseTo(al0.y, 0);
 
@@ -582,10 +523,7 @@ test.describe('what a drag into another window previews', () => {
     expect(await order(page, 'w2')).toBe('be0* be1* b1');
   });
 
-  // Addendum required addition 3: joining another window's group away from its
-  // head. Unlike the head case, the row index changes -- the tab passes the
-  // members it lands beside -- so these exercise the count of PASSED
-  // midpoints, not the fixed-row/title-row special case.
+  // Mid-group in another window: the index changes, so this counts PASSED midpoints, not the title-row special case.
   test("inside another window's group, mid-group: joins between its members", async ({
     context,
     extensionId,
@@ -608,8 +546,7 @@ test.describe('what a drag into another window previews', () => {
     const page = await open(context, extensionId);
     const be1 = await rowBox(page, 'be1');
 
-    // Past be1's midpoint, still on be1's own row -- inside the band, joining
-    // after its last member rather than landing loose below the group.
+    // Past be1's midpoint, still on its row: joins after the last member, not loose below the group.
     await holdAt(page, 'a0', be1.y + be1.height - 4);
     await page.mouse.up();
 
@@ -618,10 +555,7 @@ test.describe('what a drag into another window previews', () => {
   });
 });
 
-// A window's block is a drop into that window, and its own header is part of
-// its block: a release there lands first, as it does on any other window's
-// header. The top of the header used to be refused, being further than half a
-// row above the first row.
+// A window's header is part of its block: a release there lands first. Its top used to be refused, past half a row above the first row.
 test.describe('a tab released on its own window header', () => {
   test('lands first in that window', async ({ context, extensionId }) => {
     const page = await open(context, extensionId);
@@ -630,8 +564,7 @@ test.describe('a tab released on its own window header', () => {
     );
     const a0 = await rowBox(page, 'a0');
     const y = header.y + 4;
-    // PREMISE: beyond the half-row overshoot above the first row, which is all
-    // the list accepted there before a window's block counted.
+    // PREMISE: beyond the half-row overshoot above the first row.
     expect(y).toBeLessThan(a0.y - a0.height / 2);
 
     await holdAt(page, 'a2', y);
@@ -642,11 +575,8 @@ test.describe('a tab released on its own window header', () => {
   });
 });
 
-// Spec §2.1, re-measured 2026-09-12. `isInsideList`'s slack is half the held
-// row, so window A's accepted zone reaches past its own block into a sliver of
-// window B's header. This is the ONLY test on the branch that can pin header
-// precedence over that overshoot: nothing else exercises a release that is
-// BOTH inside B's header and inside A's old forgiveness zone at once.
+// Spec §2.1, re-measured 2026-09-12. isInsideList's half-row slack reaches into a sliver of the next window's header: the
+// only test of header precedence over that overshoot.
 test.describe("the 8px residue at another window's header (spec §2.1)", () => {
   test('a drop on the next window header goes into that window, not the end of this one', async ({
     context,
@@ -659,10 +589,7 @@ test.describe("the 8px residue at another window's header (spec §2.1)", () => {
     );
     const y = header.y + 4;
 
-    // MEASURED 2026-09-12 at 790x550: al0 (w1's last row) ends at 319, w2's
-    // header starts at 329 -- a 10px gap. Half a row is 16px, so w1's old
-    // overshoot zone reached to 335, which is 6px into w2's header (329-361).
-    // Logged rather than only asserted, per the report's numbers.
+    // MEASURED 2026-09-12 at 790x550: al0 ends at 319 and w2's header starts at 329; half a row (16) reached 335, 6px into it. Logged.
     console.log(
       `al0Bottom=${al0.y + al0.height} header.top=${header.y} probe=${y}`
     );
@@ -670,9 +597,7 @@ test.describe("the 8px residue at another window's header (spec §2.1)", () => {
     // PREMISE 1: the probe really is inside w2's header.
     expect(y).toBeGreaterThanOrEqual(header.y);
     expect(y).toBeLessThan(header.y + header.height);
-    // PREMISE 2: the probe is also inside w1's old overshoot zone (its last
-    // row's bottom, plus half a row of slack) -- the sliver the interim rule
-    // used to saturate into.
+    // PREMISE 2: also inside w1's old overshoot zone (last row's bottom plus half a row).
     expect(header.y + 4).toBeLessThan(al0.y + al0.height + al0.height / 2);
 
     await holdAt(page, 'a0', y);
@@ -683,10 +608,7 @@ test.describe("the 8px residue at another window's header (spec §2.1)", () => {
     expect(await order(page, 'w1')).toBe('a1 a2 al0*');
   });
 
-  // THE CONTROL. Without it, a list that refused every release near A's last
-  // row would also pass the test above for the wrong reason. This pins that
-  // the overshoot forgiveness itself still works: a release inside it, but
-  // NOT inside B's header, still lands last in A.
+  // CONTROL: the overshoot itself still works -- inside it but short of B's header, the release lands last in A.
   test("CONTROL: a release just past A's last row, short of B's header, still lands in A", async ({
     context,
     extensionId,
@@ -714,9 +636,7 @@ test.describe("the 8px residue at another window's header (spec §2.1)", () => {
   });
 });
 
-// Spec §7.1 and Task 1's reducer test (moveTabAcrossWindowsInternal), now
-// end to end: "an empty window is not a thing". A window's own fixture, since
-// the shared WINDOWS shape has no single-tab window to empty.
+// Spec §7.1, end to end: "an empty window is not a thing". Its own fixture: WINDOWS has no single-tab window.
 test.describe('a one-tab window emptied by the move', () => {
   const soloTab = tab('solo');
 
@@ -758,8 +678,7 @@ test.describe('a one-tab window emptied by the move', () => {
 
     // THE STORED MOVE.
     await expect.poll(() => order(page, 'w2')).toBe('b0 solo b1');
-    // THE CLAIM: w1 is gone, not just emptied -- no window block for it, and
-    // the container's own bookkeeping (windowCount, the windows array) agrees.
+    // THE CLAIM: w1 is gone, block and bookkeeping (windowCount, windows) alike.
     await expect(page.locator('[data-drop-window-id="w1"]')).toHaveCount(0);
     const g = await s1(page);
     expect({
