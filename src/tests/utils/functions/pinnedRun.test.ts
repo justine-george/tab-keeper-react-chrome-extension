@@ -8,6 +8,7 @@ import {
   isTabPinnedIn,
   landTab,
   pinnedRunLength,
+  tabsAsRestored,
 } from '../../../utils/functions/pinnedRun';
 import type {
   tabContainerData,
@@ -218,5 +219,46 @@ describe('forgetMissingActiveTab', () => {
     const win = w([t('a')], 'a');
     forgetMissingActiveTab(win);
     expect(win.activeTabId).toBe('a');
+  });
+});
+
+// KAN-473. An older version knows no pins: it can leave one below an unpinned tab or inside a group.
+describe('tabsAsRestored', () => {
+  const shape = (tabs: tabData[]) =>
+    tabs.map((tab) => [tab.tabId, tab.pinned, tab.chromeGroupId]);
+
+  test('a pinned tab below an unpinned one leads, the rest keep their order', () => {
+    expect(shape(tabsAsRestored([t('a'), p('b'), t('c'), p('d')]))).toEqual([
+      ['b', true, undefined],
+      ['d', true, undefined],
+      ['a', undefined, undefined],
+      ['c', undefined, undefined],
+    ]);
+  });
+
+  test('a grouped tab loses its pin and keeps its place and group', () => {
+    const restored = tabsAsRestored([
+      t('a'),
+      t('b', { pinned: true, chromeGroupId: 'g' }),
+      t('c', { chromeGroupId: 'g' }),
+    ]);
+    expect(shape(restored)).toEqual([
+      ['a', undefined, undefined],
+      ['b', undefined, 'g'],
+      ['c', undefined, 'g'],
+    ]);
+    expect('pinned' in restored[1]).toBe(false);
+  });
+
+  test('CONTROL: a window already in Chrome order comes back as it is', () => {
+    const tabs = [p('a'), t('b', { chromeGroupId: 'g' }), t('c')];
+    expect(tabsAsRestored(tabs)).toEqual(tabs);
+  });
+
+  test('leaves the saved tabs untouched', () => {
+    const tabs = [t('a'), t('b', { pinned: true, chromeGroupId: 'g' }), p('c')];
+    const before = structuredClone(tabs);
+    tabsAsRestored(tabs);
+    expect(tabs).toEqual(before);
   });
 });

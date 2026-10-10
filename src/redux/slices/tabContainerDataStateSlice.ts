@@ -60,6 +60,7 @@ import {
   forgetMissingActiveTab,
   landTab,
   pinnedRunLength,
+  tabsAsRestored,
 } from '../../utils/functions/pinnedRun';
 
 export type { chromeTabGroupData };
@@ -439,7 +440,7 @@ function toWindowSpec(
   focused: boolean
 ): WindowSpec {
   return {
-    tabs: windowGroup.tabs,
+    tabs: tabsAsRestored(windowGroup.tabs),
     focused,
     bounds: {
       height: windowGroup.windowHeight || DEFAULT_WINDOW_HEIGHT,

@@ -4,6 +4,7 @@ import { getStringDate, isLazyPlaceholder, resolveTabUrl } from './local';
 import { readRecentTabs } from './recentTabs';
 import { dropNotificationCount } from './sessionExportHtml';
 import { hasTabGroupsPermission } from './permissions';
+import { tabsAsRestored } from './pinnedRun';
 import type { chromeTabGroupData } from './tabGroups';
 import type {
   tabContainerData,
@@ -11,13 +12,15 @@ import type {
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
-// A window reduced to what decides whether it is already saved: each tab's URL and pin, in order.
+// A window reduced to what decides whether it is already saved: each tab's URL and pin, in the order a restore opens them (KAN-473).
 // A pin is content (KAN-458); the active tab is not, or every Switch would save a copy.
 // JSON rather than a join, so a URL containing a separator cannot forge another window's signature.
 function windowSignatures(windows: windowGroupData[]): string[] {
   return windows
     .map((window) =>
-      JSON.stringify(window.tabs.map((tab) => [tab.url, tab.pinned === true]))
+      JSON.stringify(
+        tabsAsRestored(window.tabs).map((tab) => [tab.url, tab.pinned === true])
+      )
     )
     .sort();
 }

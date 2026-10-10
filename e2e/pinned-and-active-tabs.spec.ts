@@ -28,6 +28,7 @@ import type {
   tabData,
   windowGroupData,
 } from '../src/redux/slices/tabContainerDataStateSlice';
+import type { chromeTabGroupData } from '../src/utils/functions/tabGroups';
 
 // KAN-458. The spec's "Through Save / Open / Switch" table for pinned tabs and the active tab, in the real browser.
 const page = (name: string) => `data:text/html,<title>${name}</title>`;
@@ -103,7 +104,11 @@ const savedTab = (name: string, pinned = false): tabData =>
     ? { tabId: name, favicon: '', title: name, url: page(name), pinned: true }
     : { tabId: name, favicon: '', title: name, url: page(name) };
 
-const oneWindow = (tabs: tabData[], activeTabId?: string) =>
+const oneWindow = (
+  tabs: tabData[],
+  activeTabId?: string,
+  chromeTabGroups?: chromeTabGroupData[]
+) =>
   buildContainer([
     buildSession({
       tabGroupId: 's1',
@@ -121,6 +126,7 @@ const oneWindow = (tabs: tabData[], activeTabId?: string) =>
           title: '',
           tabs,
           ...(activeTabId === undefined ? {} : { activeTabId }),
+          ...(chromeTabGroups === undefined ? {} : { chromeTabGroups }),
         },
       ],
     }),
@@ -340,6 +346,61 @@ test.describe('Open puts every tab in saved order', () => {
   }
 });
 
+// Opens the one session `container` holds, with no other page Switch would save; the restored strip once settled.
+async function openOnly(
+  context: BrowserContext,
+  extensionId: string,
+  worker: Worker,
+  container: ReturnType<typeof oneWindow>
+) {
+  await seedSettings(context, {});
+  const popup = await openPage(context, extensionId, 'index.html', POPUP);
+  // Seeded once, not by init script: that re-seeds every page, erasing a save made before it opened.
+  await popup.evaluate(
+    (data) => localStorage.setItem('tabContainerData', data),
+    JSON.stringify(container)
+  );
+  await popup.reload();
+  await expect(
+    sessionsRow(popup).getByRole('button', { name: 'Open', exact: true })
+  ).toBeVisible();
+  // Only the restored window may hold a page Switch would save.
+  await Promise.all(
+    context
+      .pages()
+      .filter((p) => !p.url().startsWith('chrome-extension://'))
+      .map((p) => p.close())
+  );
+  const before = await ids(worker);
+  await pressOpen(popup);
+  const tabs = await settledWindowWith(worker, 'Third', before);
+  // PREMISE: no other window holds a page outside Tab Keeper.
+  const own = `chrome-extension://${extensionId}/`;
+  expect(
+    (await windowsNow(worker)).filter((w) =>
+      w.tabs.some((t) => !t.url.startsWith(own))
+    )
+  ).toHaveLength(1);
+  return { popup, tabs };
+}
+
+// Switch closes the popup's window; a fresh page reads the same storage.
+async function sessionsAfterSwitch(
+  context: BrowserContext,
+  extensionId: string,
+  worker: Worker,
+  popup: Page
+) {
+  const before = await ids(worker);
+  await focusConfirm(popup)
+    .getByRole('button', { name: 'Switch', exact: true })
+    .click();
+  await settledWindowWith(worker, 'Third', before);
+  await expect.poll(async () => (await ids(worker)).length).toBe(1);
+  const reader = await openPage(context, extensionId, 'index.html', POPUP);
+  return (await stored(reader)).tabGroups;
+}
+
 // Switch saves only unsaved work: a pin is content, the active tab is not.
 test.describe('Open, then Switch to the same session', () => {
   async function openTrip(
@@ -347,63 +408,22 @@ test.describe('Open, then Switch to the same session', () => {
     extensionId: string,
     worker: Worker
   ) {
-    await seedSettings(context, {});
-    const popup = await openPage(context, extensionId, 'index.html', POPUP);
-    // Seeded once, not by init script: that re-seeds every page, erasing a save made before it opened.
-    await popup.evaluate(
-      (data) => localStorage.setItem('tabContainerData', data),
-      JSON.stringify(
-        oneWindow(
-          [savedTab('Pinned', true), savedTab('Second'), savedTab('Third')],
-          'Third'
-        )
+    const { popup, tabs } = await openOnly(
+      context,
+      extensionId,
+      worker,
+      oneWindow(
+        [savedTab('Pinned', true), savedTab('Second'), savedTab('Third')],
+        'Third'
       )
     );
-    await popup.reload();
-    await expect(
-      sessionsRow(popup).getByRole('button', { name: 'Open', exact: true })
-    ).toBeVisible();
-    // Only the restored window may hold a page Switch would save.
-    await Promise.all(
-      context
-        .pages()
-        .filter((p) => !p.url().startsWith('chrome-extension://'))
-        .map((p) => p.close())
-    );
-    const before = await ids(worker);
-    await pressOpen(popup);
-    const tabs = await settledWindowWith(worker, 'Third', before);
     // PREMISE: the restore re-pinned the pinned tab and opened on the saved active one.
     expect(tabs.map(shape)).toEqual([
       { title: 'Pinned', loaded: false, pinned: true, active: false },
       { title: 'Second', loaded: false, pinned: false, active: false },
       { title: 'Third', loaded: true, pinned: false, active: true },
     ]);
-    // PREMISE: no other window holds a page outside Tab Keeper.
-    const own = `chrome-extension://${extensionId}/`;
-    expect(
-      (await windowsNow(worker)).filter((w) =>
-        w.tabs.some((t) => !t.url.startsWith(own))
-      )
-    ).toHaveLength(1);
     return { popup, tabs };
-  }
-
-  // Switch closes the popup's window; a fresh page reads the same storage.
-  async function sessionsAfterSwitch(
-    context: BrowserContext,
-    extensionId: string,
-    worker: Worker,
-    popup: Page
-  ) {
-    const before = await ids(worker);
-    await focusConfirm(popup)
-      .getByRole('button', { name: 'Switch', exact: true })
-      .click();
-    await settledWindowWith(worker, 'Third', before);
-    await expect.poll(async () => (await ids(worker)).length).toBe(1);
-    const reader = await openPage(context, extensionId, 'index.html', POPUP);
-    return (await stored(reader)).tabGroups;
   }
 
   test('as restored: nothing new is saved', async ({
@@ -761,5 +781,114 @@ grantedTest(
     await expect
       .poll(async () => (await w1Tabs(p)).map(([id]) => id))
       .toEqual(['w1-t0', 'g1-t0', 'g1-t1', 'w1-t1']);
+  }
+);
+
+// KAN-473. An older version knows no pins, so it can leave one below an unpinned tab or inside a group.
+grantedTest.describe(
+  'Open, then Switch, when an older version left a pin out of place',
+  () => {
+    const GROUP: chromeTabGroupData[] = [
+      { groupId: 'g1', title: 'Group', color: 'blue' },
+    ];
+    const inGroup = (tab: tabData): tabData => ({
+      ...tab,
+      chromeGroupId: 'g1',
+    });
+    // Each restored tab as [title, pinned, grouped]: the saved order, a pin leading, a grouped tab unpinned.
+    type Restored = [string, boolean, boolean][];
+    const CASES: [
+      string,
+      tabData[],
+      string,
+      Restored,
+      chromeTabGroupData[]?,
+    ][] = [
+      [
+        'a pinned tab below an unpinned one',
+        [savedTab('Second'), savedTab('Pinned', true), savedTab('Third')],
+        'Third',
+        [
+          ['Pinned', true, false],
+          ['Second', false, false],
+          ['Third', false, false],
+        ],
+      ],
+      [
+        'a pinned tab below an unpinned one, and the tab open',
+        [savedTab('Second'), savedTab('Pinned', true), savedTab('Third')],
+        'Pinned',
+        [
+          ['Pinned', true, false],
+          ['Second', false, false],
+          ['Third', false, false],
+        ],
+      ],
+      [
+        'a pinned tab leading a group',
+        [
+          inGroup(savedTab('Pinned', true)),
+          inGroup(savedTab('Second')),
+          savedTab('Third'),
+        ],
+        'Third',
+        [
+          ['Pinned', false, true],
+          ['Second', false, true],
+          ['Third', false, false],
+        ],
+        GROUP,
+      ],
+      [
+        'a pinned tab second in a group',
+        [
+          savedTab('First'),
+          inGroup(savedTab('Second')),
+          inGroup(savedTab('Pinned', true)),
+          savedTab('Third'),
+        ],
+        'Third',
+        [
+          ['First', false, false],
+          ['Second', false, true],
+          ['Pinned', false, true],
+          ['Third', false, false],
+        ],
+        GROUP,
+      ],
+    ];
+
+    for (const [name, tabs, active, restored, groups] of CASES) {
+      grantedTest(name, async ({ context, extensionId, serviceWorker }) => {
+        const { popup, tabs: strip } = await openOnly(
+          context,
+          extensionId,
+          serviceWorker,
+          oneWindow(tabs, active, groups)
+        );
+        const grouped = await serviceWorker.evaluate(
+          async (ids) =>
+            Promise.all(
+              ids.map(async (id) => (await chrome.tabs.get(id)).groupId !== -1)
+            ),
+          strip.map((t) => t.id)
+        );
+        // PREMISE: Chrome's own rules, measured on main: a group unpins its tabs, and pinned tabs lead.
+        expect(strip.map((t, i) => [t.title, t.pinned, grouped[i]])).toEqual(
+          restored
+        );
+        await sessionsRow(popup)
+          .getByRole('button', { name: 'Switch', exact: true })
+          .click();
+        await expect(focusConfirm(popup)).toContainText('already saved');
+        const sessions = await sessionsAfterSwitch(
+          context,
+          extensionId,
+          serviceWorker,
+          popup
+        );
+        expect(sessions.map((s) => s.tabGroupId)).toEqual(['s1']);
+      });
+    }
   }
 );

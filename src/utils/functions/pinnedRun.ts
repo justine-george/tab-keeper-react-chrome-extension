@@ -41,6 +41,20 @@ export function landTab(
   else delete tab.pinned;
 }
 
+// KAN-473. The order a restore opens a saved window in. An older version can leave a pin in a group (Chrome's group unpins it) or below an unpinned tab (Chrome leads with it).
+export function tabsAsRestored(tabs: readonly tabData[]): tabData[] {
+  const unpinnedInGroups = tabs.map((tab): tabData => {
+    if (tab.pinned !== true || tab.chromeGroupId === undefined) return tab;
+    const unpinned = { ...tab };
+    delete unpinned.pinned;
+    return unpinned;
+  });
+  return [
+    ...unpinnedInGroups.filter((tab) => tab.pinned === true),
+    ...unpinnedInGroups.filter((tab) => tab.pinned !== true),
+  ];
+}
+
 // The group list's landingRange (RowDragArea): no ceiling, since the engine bounds it to the rows that exist.
 // A window drawn with no rows offers only index 0; the reducer floor puts the group after its pinned run.
 export function groupLandingRange(

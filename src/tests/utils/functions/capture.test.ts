@@ -1232,6 +1232,69 @@ describe('isAlreadySaved and pins (KAN-458)', () => {
   });
 });
 
+// KAN-473. A pin an older version left out of place: restore opens it in Chrome's order, which is no new work.
+describe('isAlreadySaved and a pin out of place', () => {
+  const withTabs = (
+    tabs: (t: tabData[]) => tabData[],
+    ...urls: string[]
+  ): windowGroupData => {
+    const w = windowOf(...urls);
+    return { ...w, tabs: tabs(w.tabs) };
+  };
+
+  test('a pinned tab saved below an unpinned one, opened first, is already saved', () => {
+    const saved = withTabs(
+      ([a, b, c]) => [a, { ...b, pinned: true }, c],
+      A,
+      B,
+      C
+    );
+    const open = withTabs(
+      ([b, a, c]) => [{ ...b, pinned: true }, a, c],
+      B,
+      A,
+      C
+    );
+    expect(isAlreadySaved(sessionOf(open), [sessionOf(saved)])).toBe(true);
+  });
+
+  test('a pinned tab saved in a group, opened unpinned in it, is already saved', () => {
+    const saved = withTabs(
+      ([a, b, c]) => [
+        a,
+        { ...b, pinned: true, chromeGroupId: 'g' },
+        { ...c, chromeGroupId: 'g' },
+      ],
+      A,
+      B,
+      C
+    );
+    const open = withTabs(
+      ([a, b, c]) => [
+        a,
+        { ...b, chromeGroupId: 'x' },
+        { ...c, chromeGroupId: 'x' },
+      ],
+      A,
+      B,
+      C
+    );
+    expect(isAlreadySaved(sessionOf(open), [sessionOf(saved)])).toBe(true);
+  });
+
+  test('CONTROL: the same tab left in place and unpinned is unsaved work', () => {
+    const saved = withTabs(
+      ([a, b, c]) => [a, { ...b, pinned: true }, c],
+      A,
+      B,
+      C
+    );
+    expect(
+      isAlreadySaved(sessionOf(windowOf(A, B, C)), [sessionOf(saved)])
+    ).toBe(false);
+  });
+});
+
 describe('a capture remembers pinned tabs and the active tab (KAN-458)', () => {
   let handle: ReturnType<typeof setupChromeFake> | undefined;
 
