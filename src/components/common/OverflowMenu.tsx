@@ -86,6 +86,11 @@ interface OverflowMenuProps {
    * leaves a dead strip above and below it inside the group.
    */
   triggerStyle?: string;
+  /**
+   * The trigger takes the full height the menu is given, rather than its
+   * content's (KAN-492): the save row's segment, whose height follows the row.
+   */
+  fillsHeight?: boolean;
 }
 
 /**
@@ -127,6 +132,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
   onOpenChange,
   align = 'end',
   triggerStyle,
+  fillsHeight = false,
 }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -275,16 +281,20 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     }
   `;
 
+  const fillStyle = css`
+    display: flex;
+  `;
+
   return (
     <div
       ref={wrapperRef}
       css={css`
         position: relative;
         display: flex;
-        align-items: center;
+        align-items: ${fillsHeight ? 'stretch' : 'center'};
       `}
     >
-      <div ref={triggerRef}>
+      <div ref={triggerRef} css={fillsHeight ? fillStyle : undefined}>
         <Icon
           type={triggerIcon}
           tooltipText={ariaLabel}
