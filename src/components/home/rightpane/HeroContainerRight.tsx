@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
+import { useFocusOnRemount } from '../../../hooks/useFocusOnRemount';
 import { DropBoxLabel } from '../../common/dropBox';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
 import Icon from '../../common/Icon';
@@ -120,6 +121,8 @@ export default function HeroContainerRight() {
   const newWindowTargetRef = useRef<HTMLDivElement>(null);
   // Set by Esc so the blur that follows in the same batch commits nothing.
   const renameCancelled = useRef(false);
+  // Enter, Esc and the tick end a rename on the title button (KAN-389); a blur leaves focus where it went.
+  const titleFocus = useFocusOnRemount();
   useNewFirstWindowReceiver(newWindowTargetRef, selectedTabGroup?.tabGroupId);
 
   // KAN-413. Open and Switch on the tour's own sample wait for it, dimmed as Undo is.
@@ -295,7 +298,19 @@ export default function HeroContainerRight() {
               value={editableTitle}
               onBlur={handleBlur}
               onChange={handleChange}
-              onKeyDown={(e) => renameKeyDown(e, handleBlur, cancelRename)}
+              onKeyDown={(e) =>
+                renameKeyDown(
+                  e,
+                  () => {
+                    titleFocus.ask('title');
+                    handleBlur();
+                  },
+                  () => {
+                    titleFocus.ask('title');
+                    cancelRename();
+                  }
+                )
+              }
               autoFocus
               data-tour-anchor="title"
               css={css`
@@ -325,6 +340,7 @@ export default function HeroContainerRight() {
             <ClickableRow
               ariaLabel={t('Rename session') + ': ' + title}
               onClick={startEditing}
+              buttonRef={titleFocus.refFor('title')}
               tourAnchor="title"
               // min-width: 0 is load-bearing. A <button> has `overflow:
               // visible`, so its `min-width: auto` does NOT collapse to zero
@@ -373,6 +389,7 @@ export default function HeroContainerRight() {
                   backgroundColor={COLORS.SECONDARY_COLOR}
                   onClick={(e) => {
                     e.stopPropagation();
+                    titleFocus.ask('title');
                     handleBlur();
                   }}
                 />

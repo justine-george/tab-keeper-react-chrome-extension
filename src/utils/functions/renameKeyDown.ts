@@ -12,6 +12,8 @@ export function renameKeyDown(
     return;
   }
   if (e.key === 'Enter') {
+    // Its keypress would otherwise reach the title button the commit focuses, and reopen the field (KAN-389).
+    e.preventDefault();
     commit();
   } else if (e.key === 'Escape') {
     // Chrome closes the popup on any Esc nothing prevented.
