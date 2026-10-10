@@ -264,10 +264,12 @@ test.describe('toasts stack (KAN-349)', () => {
     await expect(liveToasts(page)).toHaveCount(1, { timeout: 4500 });
     await expect(liveToasts(page).first()).toContainText(TAB_CLOSED);
 
-    // A second saved toast, then the pointer on the OLDER one, the offer:
-    // both hold, past either's time.
+    // A second saved toast, then the pointer on the stack -- collapsed, the
+    // newer toast in front (KAN-488) -- opens it, and the OLDER one, the
+    // offer, takes the pointer: both hold, past either's time.
     await saveWindowIn(block).click();
     await expect(liveToasts(page)).toHaveCount(2);
+    await liveToasts(page).last().hover();
     await liveToasts(page).first().hover();
     await page.waitForTimeout(10_000);
     await expect(liveToasts(page)).toHaveCount(2);
@@ -564,16 +566,20 @@ test.describe('the stack collapses until hovered (KAN-488)', () => {
       expect(older.y + older.height).toBeLessThanOrEqual(
         newest.y + newest.height
       );
+      // Behind it, not above it: its bottom is under the front toast.
+      expect(older.y + older.height).toBeGreaterThan(newest.y);
     }
+    // A peek is at most 8px, less what its narrowing takes off its top.
+    expect(newest.y - middle.y).toBeLessThanOrEqual(8);
+    expect(middle.y - oldest.y).toBeLessThanOrEqual(8);
     expect(await contentOpacity(toasts)).toEqual([0, 0, 1]);
-    // The peek is the older toast's own: the pointer there is on the stack.
-    const peek = await page.evaluate(
+    // The pointer on a peek is on the stack, so it opens it like the front toast.
+    const onPeek = await page.evaluate(
       ({ x, y }) =>
-        document.elementFromPoint(x, y)?.closest('[role="status"] > div')
-          ?.textContent ?? null,
-      { x: newest.x + newest.width / 2, y: middle.y + 2 }
+        document.elementFromPoint(x, y)?.closest('[role="status"]') !== null,
+      { x: newest.x + newest.width / 2, y: (oldest.y + middle.y) / 2 }
     );
-    expect(peek).toBe(WINDOW_SAVED);
+    expect(onPeek).toBe(true);
 
     // Hovering the front toast opens test 1's stack: every toast in full, 8px apart.
     await page.mouse.move(newest.x + 20, newest.y + newest.height / 2);
