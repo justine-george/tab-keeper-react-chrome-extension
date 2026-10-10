@@ -41,18 +41,17 @@ import {
 // drag itself applied, and would be compared against a toIndex derived from
 // pre-drag positions.
 
-const box = (top: number, height: number) =>
-  ({
-    top,
-    bottom: top + height,
-    left: 0,
-    right: 200,
-    height,
-    width: 200,
-    x: 0,
-    y: top,
-    toJSON: () => ({}),
-  }) as DOMRect;
+const box = (top: number, height: number): DOMRect => ({
+  top,
+  bottom: top + height,
+  left: 0,
+  right: 200,
+  height,
+  width: 200,
+  x: 0,
+  y: top,
+  toJSON: () => ({}),
+});
 
 const win = (id: string, title: string, n: number) => ({
   windowId: id,
@@ -98,8 +97,13 @@ const render = () =>
   });
 
 const layout = (container: HTMLElement) => {
-  const node = (id: string) =>
-    container.querySelector<HTMLElement>(`[data-drag-row-id="${id}"]`)!;
+  const node = (id: string): HTMLElement => {
+    const el = container.querySelector<HTMLElement>(
+      `[data-drag-row-id="${id}"]`
+    );
+    if (!el) throw new Error(`no row ${id}`);
+    return el;
+  };
   A_TABS.forEach((id, i) => {
     node(id).getBoundingClientRect = () => box(i * TAB_H, TAB_H);
   });

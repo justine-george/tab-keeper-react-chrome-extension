@@ -31,18 +31,17 @@ import { currentCarry, type CarryOut } from '../../redux/carry';
 
 const ROW_H = 30;
 
-const box = (top: number, height: number) =>
-  ({
-    top,
-    bottom: top + height,
-    left: 0,
-    right: 200,
-    height,
-    width: 200,
-    x: 0,
-    y: top,
-    toJSON: () => ({}),
-  }) as DOMRect;
+const box = (top: number, height: number): DOMRect => ({
+  top,
+  bottom: top + height,
+  left: 0,
+  right: 200,
+  height,
+  width: 200,
+  x: 0,
+  y: top,
+  toJSON: () => ({}),
+});
 
 const Harness = ({
   offersNewWindow,
@@ -68,8 +67,11 @@ const Harness = ({
   </RowDragArea>
 );
 
-const nodeFor = (id: string) =>
-  document.querySelector<HTMLElement>(`[data-drag-row-id="${id}"]`)!;
+const nodeFor = (id: string): HTMLElement => {
+  const el = document.querySelector<HTMLElement>(`[data-drag-row-id="${id}"]`);
+  if (!el) throw new Error(`no row ${id}`);
+  return el;
+};
 
 const layout = () =>
   ['a', 'b', 'c'].forEach((id, i) => {

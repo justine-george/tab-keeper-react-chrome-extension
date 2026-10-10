@@ -29,18 +29,17 @@ import {
 const ROW_H = 30;
 const VIEW_H = 90;
 
-const box = (top: number, height: number) =>
-  ({
-    top,
-    bottom: top + height,
-    left: 0,
-    right: 200,
-    height,
-    width: 200,
-    x: 0,
-    y: top,
-    toJSON: () => ({}),
-  }) as DOMRect;
+const box = (top: number, height: number): DOMRect => ({
+  top,
+  bottom: top + height,
+  left: 0,
+  right: 200,
+  height,
+  width: 200,
+  x: 0,
+  y: top,
+  toJSON: () => ({}),
+});
 
 const Harness = ({ onMove }: { onMove: () => void }) => (
   <div data-testid="scroller" style={{ overflowY: 'auto' }}>
@@ -54,7 +53,11 @@ const Harness = ({ onMove }: { onMove: () => void }) => (
   </div>
 );
 
-const nodeFor = (label: string) => screen.getByText(label).parentElement!;
+const nodeFor = (label: string): HTMLElement => {
+  const el = screen.getByText(label).parentElement;
+  if (!el) throw new Error(`no row around ${label}`);
+  return el;
+};
 
 const scroller = () => screen.getByTestId('scroller');
 
@@ -285,7 +288,7 @@ describe('after a drop, the row you placed is brought into view', () => {
       options?: ScrollIntoViewOptions | boolean
     ) {
       scrolled.push({
-        rowId: (this as HTMLElement).dataset?.dragRowId,
+        rowId: this instanceof HTMLElement ? this.dataset.dragRowId : undefined,
         options,
       });
     });

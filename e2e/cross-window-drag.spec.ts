@@ -15,6 +15,7 @@ import type { BrowserContext, Page } from '@playwright/test';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { holdSweepAt } from './fixtures/dwell';
+import { boxOf, stored } from './fixtures/savedWindows';
 
 const tab = (id: string, g?: string) => ({
   tabId: id,
@@ -88,57 +89,48 @@ async function open(
   const pane = await page.evaluate(() => {
     let el = document.querySelector<HTMLElement>(
       '[data-drag-row-id="w1"]'
-    )!.parentElement;
+    )?.parentElement;
     while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
       el = el.parentElement;
-    return { scrollHeight: el!.scrollHeight, clientHeight: el!.clientHeight };
+    if (!el) throw new Error('no scrolling pane around w1');
+    return { scrollHeight: el.scrollHeight, clientHeight: el.clientHeight };
   });
   expect(pane.scrollHeight).toBeLessThanOrEqual(pane.clientHeight);
   return page;
 }
 
+// The stored session s1.
+async function s1(page: Page) {
+  const session = (await stored(page)).tabGroups.find(
+    (g) => g.tabGroupId === 's1'
+  );
+  if (session === undefined) throw new Error('no session s1 stored');
+  return session;
+}
+
+// One stored window of s1.
+async function storedWindow(page: Page, windowId: string) {
+  const window = (await s1(page)).windows.find((w) => w.windowId === windowId);
+  if (window === undefined) throw new Error(`no window ${windowId} stored`);
+  return window;
+}
+
 // A window's stored tab order, with a star on every grouped tab.
-const order = (page: Page, windowId: string) =>
-  page.evaluate((windowId) => {
-    const data = JSON.parse(localStorage.getItem('tabContainerData')!) as {
-      tabGroups: {
-        tabGroupId: string;
-        windows: {
-          windowId: string;
-          tabs: { tabId: string; chromeGroupId?: string }[];
-        }[];
-      }[];
-    };
-    return data.tabGroups
-      .find((g) => g.tabGroupId === 's1')!
-      .windows.find((w) => w.windowId === windowId)!
-      .tabs.map((t) => t.tabId + (t.chromeGroupId ? '*' : ''))
-      .join(' ');
-  }, windowId);
+const order = async (page: Page, windowId: string) =>
+  (await storedWindow(page, windowId)).tabs
+    .map((t) => t.tabId + (t.chromeGroupId ? '*' : ''))
+    .join(' ');
 
 // A window's own stored Chrome-group metadata, by group id. Distinct from
 // order()'s '*' markers, which come off the TABS' membership and would still
 // read empty if a tab-less group entry were left behind uncleaned.
-const chromeGroupIdsOf = (page: Page, windowId: string) =>
-  page.evaluate((windowId) => {
-    const data = JSON.parse(localStorage.getItem('tabContainerData')!) as {
-      tabGroups: {
-        tabGroupId: string;
-        windows: {
-          windowId: string;
-          chromeTabGroups?: { groupId: string }[];
-        }[];
-      }[];
-    };
-    return (
-      data.tabGroups
-        .find((g) => g.tabGroupId === 's1')!
-        .windows.find((w) => w.windowId === windowId)!.chromeTabGroups ?? []
-    ).map((g) => g.groupId);
-  }, windowId);
+const chromeGroupIdsOf = async (page: Page, windowId: string) =>
+  ((await storedWindow(page, windowId)).chromeTabGroups ?? []).map(
+    (g) => g.groupId
+  );
 
-const rowBox = async (page: Page, rowId: string) =>
-  (await page.locator(`[data-drag-row-id="${rowId}"]`).boundingBox())!;
+const rowBox = (page: Page, rowId: string) =>
+  boxOf(page.locator(`[data-drag-row-id="${rowId}"]`));
 
 // Picks `rowId` up and holds it at `toY`, without releasing.
 async function holdAt(page: Page, rowId: string, toY: number) {
@@ -159,15 +151,17 @@ const shiftsIn = (page: Page, windowId: string) =>
   page.evaluate((windowId) => {
     const block = document.querySelector<HTMLElement>(
       `[data-drop-window-id="${windowId}"]`
-    )!;
+    );
+    if (!block) throw new Error(`no block for ${windowId}`);
     const out: Record<string, number> = {};
     for (const el of block.querySelectorAll<HTMLElement>(
       '[data-drag-row-id], [data-group-drag-handle]'
     )) {
       if (el.hasAttribute('data-drag-held')) continue;
-      const key =
-        el.dataset.dragRowId ??
-        `title:${el.closest<HTMLElement>('[data-band-id]')!.dataset.bandId}`;
+      const band = el.closest<HTMLElement>('[data-band-id]')?.dataset.bandId;
+      if (el.dataset.dragRowId === undefined && band === undefined)
+        throw new Error('a title row outside any band');
+      const key = el.dataset.dragRowId ?? `title:${band}`;
       const n = Number(
         /translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0
       );
@@ -245,9 +239,7 @@ test.describe('a tab drag inside one window', () => {
     const page = await open(context, extensionId);
 
     const centre = async (bandId: string) => {
-      const b = (await page
-        .locator(`[data-band-id="${bandId}"]`)
-        .boundingBox())!;
+      const b = await boxOf(page.locator(`[data-band-id="${bandId}"]`));
       return b.y + b.height / 2;
     };
 
@@ -261,9 +253,9 @@ test.describe('a tab drag inside one window', () => {
     expect(
       await page.evaluate(
         ([x, y]) => {
-          const r = document
-            .querySelector('[data-band-id="beta"]')!
-            .getBoundingClientRect();
+          const band = document.querySelector('[data-band-id="beta"]');
+          if (!band) throw new Error('no beta band');
+          const r = band.getBoundingClientRect();
           return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
         },
         [x, betaY]
@@ -280,8 +272,8 @@ test.describe('a tab drag inside one window', () => {
 });
 
 // A window's block -- header and tabs -- in the viewport.
-const blockBox = async (page: Page, windowId: string) =>
-  (await page.locator(`[data-drop-window-id="${windowId}"]`).boundingBox())!;
+const blockBox = (page: Page, windowId: string) =>
+  boxOf(page.locator(`[data-drop-window-id="${windowId}"]`));
 
 test.describe('a tab released over another window', () => {
   // KAN-132. The drop this whole ticket is for.
@@ -378,17 +370,14 @@ test.describe('a tab released in no window', () => {
 // transition, so -- unlike the rows stepping aside -- its box is where it was
 // commanded to be the moment the pointer stops.
 const slotTop = (page: Page) =>
-  page.evaluate(
-    () =>
-      document
-        .querySelector('[data-drag-landing-slot]')!
-        .getBoundingClientRect().top
-  );
+  page.evaluate(() => {
+    const slot = document.querySelector('[data-drag-landing-slot]');
+    if (!slot) throw new Error('no landing slot drawn');
+    return slot.getBoundingClientRect().top;
+  });
 
-const titleBox = async (page: Page, bandId: string) =>
-  (await page
-    .locator(`[data-band-id="${bandId}"] [data-group-drag-handle]`)
-    .boundingBox())!;
+const titleBox = (page: Page, bandId: string) =>
+  boxOf(page.locator(`[data-band-id="${bandId}"] [data-group-drag-handle]`));
 
 // KAN-132. Each window is previewed in its OWN frame: the one the tab leaves
 // closes up below it, the one it enters opens up from the insertion point down,
@@ -636,9 +625,9 @@ test.describe('what a drag into another window previews', () => {
 test.describe('a tab released on its own window header', () => {
   test('lands first in that window', async ({ context, extensionId }) => {
     const page = await open(context, extensionId);
-    const header = (await page
-      .locator('[data-drop-window-id="w1"] [data-window-drag-handle]')
-      .boundingBox())!;
+    const header = await boxOf(
+      page.locator('[data-drop-window-id="w1"] [data-window-drag-handle]')
+    );
     const a0 = await rowBox(page, 'a0');
     const y = header.y + 4;
     // PREMISE: beyond the half-row overshoot above the first row, which is all
@@ -665,9 +654,9 @@ test.describe("the 8px residue at another window's header (spec §2.1)", () => {
   }) => {
     const page = await open(context, extensionId);
     const al0 = await rowBox(page, 'al0');
-    const header = (await page
-      .locator('[data-drop-window-id="w2"] [data-window-drag-handle]')
-      .boundingBox())!;
+    const header = await boxOf(
+      page.locator('[data-drop-window-id="w2"] [data-window-drag-handle]')
+    );
     const y = header.y + 4;
 
     // MEASURED 2026-09-12 at 790x550: al0 (w1's last row) ends at 319, w2's
@@ -704,9 +693,9 @@ test.describe("the 8px residue at another window's header (spec §2.1)", () => {
   }) => {
     const page = await open(context, extensionId);
     const al0 = await rowBox(page, 'al0');
-    const header = (await page
-      .locator('[data-drop-window-id="w2"] [data-window-drag-handle]')
-      .boundingBox())!;
+    const header = await boxOf(
+      page.locator('[data-drop-window-id="w2"] [data-window-drag-handle]')
+    );
     const y = al0.y + al0.height + 4;
 
     console.log(
@@ -772,21 +761,10 @@ test.describe('a one-tab window emptied by the move', () => {
     // THE CLAIM: w1 is gone, not just emptied -- no window block for it, and
     // the container's own bookkeeping (windowCount, the windows array) agrees.
     await expect(page.locator('[data-drop-window-id="w1"]')).toHaveCount(0);
-    expect(
-      await page.evaluate(() => {
-        const data = JSON.parse(localStorage.getItem('tabContainerData')!) as {
-          tabGroups: {
-            tabGroupId: string;
-            windowCount: number;
-            windows: { windowId: string }[];
-          }[];
-        };
-        const g = data.tabGroups.find((g) => g.tabGroupId === 's1')!;
-        return {
-          windowCount: g.windowCount,
-          windowIds: g.windows.map((w) => w.windowId),
-        };
-      })
-    ).toEqual({ windowCount: 1, windowIds: ['w2'] });
+    const g = await s1(page);
+    expect({
+      windowCount: g.windowCount,
+      windowIds: g.windows.map((w) => w.windowId),
+    }).toEqual({ windowCount: 1, windowIds: ['w2'] });
   });
 });

@@ -23,23 +23,36 @@ import { setDragging } from '../../components/home/rightpane/rowDrag/dropRules';
 // attribute is published BEFORE the rows are measured. The visual result is a
 // browser claim and is checked there.
 
-const box = (top: number, height: number) =>
-  ({
-    top,
-    bottom: top + height,
-    left: 0,
-    right: 200,
-    height,
-    width: 200,
-    x: 0,
-    y: top,
-    toJSON: () => ({}),
-  }) as DOMRect;
+const box = (top: number, height: number): DOMRect => ({
+  top,
+  bottom: top + height,
+  left: 0,
+  right: 200,
+  height,
+  width: 200,
+  x: 0,
+  y: top,
+  toJSON: () => ({}),
+});
 
 afterEach(() => {
   document.documentElement.removeAttribute('data-dragging');
   vi.restoreAllMocks();
 });
+
+// A row's draggable wrapper, found by its text.
+const rowOf = (label: string): HTMLElement => {
+  const el = screen.getByText(label).parentElement;
+  if (!el) throw new Error(`no row around ${label}`);
+  return el;
+};
+
+// The scrolling box a test renders first.
+const scrollerIn = (container: HTMLElement): HTMLElement => {
+  const el = container.firstElementChild;
+  if (!(el instanceof HTMLElement)) throw new Error('no scroller rendered');
+  return el;
+};
 
 describe('the published drag kind', () => {
   test.each(['tab', 'window', 'session', 'group'] as const)(
@@ -82,7 +95,7 @@ describe('the collapse happens before the rows are measured', () => {
     );
 
     ['Row A', 'Row B'].forEach((label, i) => {
-      const el = screen.getByText(label).parentElement!;
+      const el = rowOf(label);
       el.getBoundingClientRect = () => {
         seenAtMeasure.push(
           document.documentElement.getAttribute('data-dragging')
@@ -91,7 +104,7 @@ describe('the collapse happens before the rows are measured', () => {
       };
     });
 
-    fireEvent.pointerDown(screen.getByText('Row A').parentElement!, {
+    fireEvent.pointerDown(rowOf('Row A'), {
       clientX: 10,
       clientY: 5,
       button: 0,
@@ -168,10 +181,10 @@ describe('a drag that starts scrolled, on a list that collapses', () => {
       </div>
     );
 
-    const scroller = container.firstElementChild as HTMLElement;
+    const scroller = scrollerIn(container);
     const { rowH } = mountClampingScroller(scroller);
     ['a', 'b', 'c', 'd'].forEach((id, i) => {
-      const row = screen.getByText(`Row ${id}`).parentElement!;
+      const row = rowOf(`Row ${id}`);
       row.getBoundingClientRect = () =>
         box(i * rowH() - scroller.scrollTop, rowH());
     });
@@ -181,7 +194,7 @@ describe('a drag that starts scrolled, on a list that collapses', () => {
     scroller.scrollTop = 999;
     expect(scroller.scrollTop).toBe(OPEN_H * 4 - VIEW);
 
-    const held = screen.getByText('Row d').parentElement!;
+    const held = rowOf('Row d');
     fireEvent.pointerDown(held, { clientX: 10, clientY: 65, button: 0 });
     fireEvent.pointerMove(document, { clientX: 10, clientY: 20 });
     fireEvent.pointerUp(document, { clientX: 10, clientY: 20 });
@@ -230,7 +243,7 @@ describe('a drop on a list that is still scrolled while folded', () => {
       </div>
     );
 
-    const scroller = container.firstElementChild as HTMLElement;
+    const scroller = scrollerIn(container);
     const folded = () =>
       document.documentElement.getAttribute('data-dragging') === 'window';
     const rowH = () => (folded() ? SHUT_H : OPEN_H);
@@ -251,14 +264,14 @@ describe('a drop on a list that is still scrolled while folded', () => {
     });
     scroller.getBoundingClientRect = () => box(0, VIEW);
     IDS.forEach((id, i) => {
-      screen.getByText(`Row ${id}`).parentElement!.getBoundingClientRect = () =>
+      rowOf(`Row ${id}`).getBoundingClientRect = () =>
         box(i * rowH() - scroller.scrollTop, rowH());
     });
 
     // Expanded: 180 of content in a 90 view, scrolled to the bottom.
     scroller.scrollTop = 90;
     // Row d's expanded box is content 90..120, so viewport 0..30.
-    const held = screen.getByText('Row d').parentElement!;
+    const held = rowOf('Row d');
     fireEvent.pointerDown(held, { clientX: 10, clientY: 15, button: 0 });
     fireEvent.pointerMove(document, { clientX: 10, clientY: 25 });
 

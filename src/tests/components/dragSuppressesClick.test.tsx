@@ -63,7 +63,7 @@ const draggableFor = (title: string): HTMLElement => {
   const el = screen.getByLabelText(`Open in new tab: ${title}`);
   const node = el.parentElement?.parentElement;
   if (!node) throw new Error(`no draggable node for ${title}`);
-  return node as HTMLElement;
+  return node;
 };
 
 describe('a drag does not also open the tab', () => {

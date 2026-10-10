@@ -17,18 +17,17 @@ import type { BandGapChange } from '../../components/home/rightpane/rowDrag/drop
 //
 // Beta's band ends at 98 and Gamma's begins at 106: the 8px adjacent gap.
 
-const box = (top: number, height: number) =>
-  ({
-    top,
-    bottom: top + height,
-    left: 0,
-    right: 200,
-    height,
-    width: 200,
-    x: 0,
-    y: top,
-    toJSON: () => ({}),
-  }) as DOMRect;
+const box = (top: number, height: number): DOMRect => ({
+  top,
+  bottom: top + height,
+  left: 0,
+  right: 200,
+  height,
+  width: 200,
+  x: 0,
+  y: top,
+  toJSON: () => ({}),
+});
 
 afterEach(() => {
   cleanup();
@@ -143,7 +142,11 @@ const HarnessJoining = ({ changes }: { changes: BandGapChange[] }) => (
   </RowDragArea>
 );
 
-const node = (id: string) => screen.getByText(`Row ${id}`).parentElement!;
+const node = (id: string): HTMLElement => {
+  const el = screen.getByText(`Row ${id}`).parentElement;
+  if (!el) throw new Error(`no row ${id}`);
+  return el;
+};
 const translateOf = (el: HTMLElement | null) =>
   Number(
     /translateY\((-?[\d.]+)px\)/.exec(el?.style.transform ?? '')?.[1] ?? 0
@@ -154,10 +157,18 @@ const translateOf = (el: HTMLElement | null) =>
 const readAll = (held: string) => {
   const out: Record<string, number> = {};
   for (const id of IDS) if (id !== held) out[id] = translateOf(node(id));
-  const published = JSON.parse(
-    screen.getByTestId('fixed').textContent!
-  ) as Record<string, number>;
-  for (const key of FIXED_KEYS) out[key] = published[key];
+  const published: unknown = JSON.parse(
+    screen.getByTestId('fixed').textContent ?? 'null'
+  );
+  for (const key of FIXED_KEYS) {
+    const shift: unknown =
+      typeof published === 'object' && published !== null
+        ? Object.getOwnPropertyDescriptor(published, key)?.value
+        : undefined;
+    if (typeof shift !== 'number')
+      throw new Error(`no shift published for ${key}`);
+    out[key] = shift;
+  }
   out.__slot =
     translateOf(document.querySelector('[data-drag-landing-slot]')) +
     translateOf(node(held));

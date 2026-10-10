@@ -23,18 +23,17 @@ import {
 // below. Row n occupies [n*30, n*30+30), so the midpoints are 15, 45 and 75.
 const ROW_H = 30;
 
-const box = (top: number, height: number, left = 0, width = 200) =>
-  ({
-    top,
-    bottom: top + height,
-    left,
-    right: left + width,
-    height,
-    width,
-    x: left,
-    y: top,
-    toJSON: () => ({}),
-  }) as DOMRect;
+const box = (top: number, height: number, left = 0, width = 200): DOMRect => ({
+  top,
+  bottom: top + height,
+  left,
+  right: left + width,
+  height,
+  width,
+  x: left,
+  y: top,
+  toJSON: () => ({}),
+});
 
 type OnMove = (tabId: string, toIndex: number, group?: string) => void;
 
@@ -92,7 +91,11 @@ const Harness = ({
 );
 
 // The draggable node is the parent of the row content.
-const nodeFor = (label: string) => screen.getByText(label).parentElement!;
+const nodeFor = (label: string): HTMLElement => {
+  const el = screen.getByText(label).parentElement;
+  if (!el) throw new Error(`no row around ${label}`);
+  return el;
+};
 
 const layout = () => {
   ['Row A', 'Row B', 'Row C'].forEach((label, i) => {
@@ -146,8 +149,13 @@ describe('handleSelector decides which press starts a drag', () => {
     </div>
   );
 
-  const rowFor = (id: string) =>
-    document.querySelector<HTMLElement>(`[data-drag-row-id="${id}"]`)!;
+  const rowFor = (id: string): HTMLElement => {
+    const el = document.querySelector<HTMLElement>(
+      `[data-drag-row-id="${id}"]`
+    );
+    if (!el) throw new Error(`no row ${id}`);
+    return el;
+  };
 
   beforeEach(() => {
     onMove = vi.fn<OnMove>();

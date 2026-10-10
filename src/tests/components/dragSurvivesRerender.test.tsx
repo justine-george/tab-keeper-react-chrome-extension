@@ -38,18 +38,17 @@ import { isDragHeld } from '../../redux/dragHold';
 // unmounted, so a tab list unmounting could end a window drag's fold.
 
 const ROW_H = 30;
-const box = (top: number, height: number) =>
-  ({
-    top,
-    bottom: top + height,
-    left: 0,
-    right: 200,
-    height,
-    width: 200,
-    x: 0,
-    y: top,
-    toJSON: () => ({}),
-  }) as DOMRect;
+const box = (top: number, height: number): DOMRect => ({
+  top,
+  bottom: top + height,
+  left: 0,
+  right: 200,
+  height,
+  width: 200,
+  x: 0,
+  y: top,
+  toJSON: () => ({}),
+});
 
 afterEach(() => {
   document.documentElement.removeAttribute('data-dragging');
@@ -85,7 +84,8 @@ const Area = ({
 );
 
 const startDrag = (label: string) => {
-  const row = screen.getByText(label).parentElement!;
+  const row = screen.getByText(label).parentElement;
+  if (!row) throw new Error(`no row around ${label}`);
   fireEvent.pointerDown(row, { clientX: 10, clientY: 15, button: 0 });
   fireEvent.pointerMove(document, { clientX: 10, clientY: 30 });
 };
@@ -181,11 +181,17 @@ describe('a store update landing mid-drag', () => {
         },
       }
     );
-    const node = (id: string) =>
-      container.querySelector<HTMLElement>(`[data-drag-row-id="${id}"]`)!;
+    const node = (id: string): HTMLElement => {
+      const el = container.querySelector<HTMLElement>(
+        `[data-drag-row-id="${id}"]`
+      );
+      if (!el) throw new Error(`no row ${id}`);
+      return el;
+    };
     node('wA').getBoundingClientRect = () => box(0, 30);
     node('wB').getBoundingClientRect = () => box(30, 30);
-    const handle = node('wA').querySelector('[data-window-drag-handle]')!;
+    const handle = node('wA').querySelector('[data-window-drag-handle]');
+    if (!handle) throw new Error('no drag handle on wA');
 
     fireEvent.pointerDown(handle, { clientX: 10, clientY: 15, button: 0 });
     fireEvent.pointerMove(document, { clientX: 10, clientY: 30 });
