@@ -1,28 +1,37 @@
 import type { BrowserContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import {
+  buildContainer,
+  buildSession,
+  seedSessions,
+  seedSettings,
+} from './fixtures/seed';
 import { localeStrings } from './fixtures/locales';
 import { waitForFontsLoaded } from './fixtures/fonts';
 
 // KAN-205. The save row's bottom edge meets the session header card's. This
-// was the search row's job while the search was a mode in the same place; the
-// save row has the same ROW_HEIGHT (KAN-385).
+// was the search row's job while the search was a mode in the same place
+// (KAN-385).
 //
-// The two panes are sized independently -- the left stacks a 64px toolbar above
-// a control row, the right card is content-sized and starts 8px lower -- so the
-// edges line up only because the row carries a deliberate 2px over
-// CONTROL.DEFAULT. That is a coincidence held in place by one number, and this
-// is what makes it fail loudly when something moves it: a title that starts
-// wrapping, a change to either pane's padding, or a nudge to the scale.
+// The two panes are sized independently, so the edges meet only because the
+// row is built to the card's measure: two of its caption lines plus 26px
+// (KAN-492). This fails loudly when something moves either side: a title that
+// starts wrapping, a change to either pane's padding, or a nudge to the scale.
 //
 // An e2e test rather than a component one: neither pane knows about the other,
 // so only the assembled popup can say whether their edges meet.
 
-test('the save row and the session header end on the same line', async ({
-  context,
-  extensionId,
-}) => {
+// Chrome's Small, Medium, Large and Very large (KAN-492). Very small (9px) is
+// left out: there the card's icon row stops shrinking and the left header's
+// does not, so the edges part by up to 2.5px.
+const ROOTS = [12, 16, 20, 24] as const;
+
+async function openPopupAt(
+  context: BrowserContext,
+  extensionId: string,
+  rootPx: number
+): Promise<Page> {
   const session = buildSession({
     tabGroupId: 's0',
     title: 'Pull requests · justine-george/tab-keeper-react',
@@ -38,66 +47,187 @@ test('the save row and the session header end on the same line', async ({
   await page.setViewportSize({ width: 790, height: 550 });
   await page.goto(`chrome-extension://${extensionId}/index.html`);
   await expect(page.locator('input#name')).toBeVisible();
+  await waitForFontsLoaded(page);
+  await page.evaluate((px) => {
+    document.documentElement.style.fontSize = `${px}px`;
+  }, rootPx);
+  return page;
+}
 
-  const edges = await page.evaluate(() => {
-    const input = document.querySelector('input#name');
-    if (input === null) throw new Error('no name box');
-    const add = document.querySelector('[aria-label^="Add current window"]');
-    if (add === null) throw new Error('no Add current window button');
-    // The card is the first ancestor of the add button that draws a border;
-    // width alone finds the action strip, which is full width too.
-    let card = add.parentElement;
-    while (card && getComputedStyle(card).borderTopWidth === '0px') {
-      card = card.parentElement;
-    }
-    if (card === null) throw new Error('no bordered header card');
-    return {
-      saveRow: input.getBoundingClientRect().bottom,
-      headerCard: card.getBoundingClientRect().bottom,
-    };
+for (const rootPx of ROOTS) {
+  test(`at a ${rootPx}px root, the save row and the session header end on the same line`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopupAt(context, extensionId, rootPx);
+
+    const edges = await page.evaluate(() => {
+      const input = document.querySelector('input#name');
+      if (input === null) throw new Error('no name box');
+      const add = document.querySelector('[aria-label^="Add current window"]');
+      if (add === null) throw new Error('no Add current window button');
+      // The card is the first ancestor of the add button that draws a border;
+      // width alone finds the action strip, which is full width too.
+      let card = add.parentElement;
+      while (card && getComputedStyle(card).borderTopWidth === '0px') {
+        card = card.parentElement;
+      }
+      if (card === null) throw new Error('no bordered header card');
+      return {
+        saveRow: input.getBoundingClientRect().bottom,
+        headerCard: card.getBoundingClientRect().bottom,
+      };
+    });
+
+    // A pixel of slack, no more: 2px is what it looked like before, and that
+    // read as a mistake rather than as a choice.
+    expect(Math.abs(edges.saveRow - edges.headerCard)).toBeLessThanOrEqual(1);
   });
+}
 
-  // A pixel of slack, no more: 2px is what it looked like before, and that read
-  // as a mistake rather than as a choice.
-  expect(Math.abs(edges.saveRow - edges.headerCard)).toBeLessThanOrEqual(1);
-});
-
-// KAN-216, on the one row left beside the name box: the search panel's box and
-// button are gone (KAN-385), and the save group must span the box's height as
-// the search button had to.
-test('the save group is exactly as tall as the name box', async ({
+// KAN-492. The row's height comes from its own column, not from the card, so
+// it does not move when the first save brings the card in.
+test('at a 20px root, the save row keeps its height when the first save brings in the session header', async ({
   context,
   extensionId,
 }) => {
+  await seedSessions(context, buildContainer([]));
   const page = await context.newPage();
   await page.setViewportSize({ width: 790, height: 550 });
   await page.goto(`chrome-extension://${extensionId}/index.html`);
   await expect(page.locator('input#name')).toBeVisible();
+  await waitForFontsLoaded(page);
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '20px';
+  });
+  const rowHeight = () =>
+    page.evaluate(
+      () =>
+        document.querySelector('[data-save-row]')?.getBoundingClientRect()
+          .height ?? null
+    );
+  const card = page.locator('[aria-label^="Add current window"]');
 
-  // The key is not the en string (the button reads "Save all open windows...").
+  // PREMISE: an empty list, so no session header card.
+  await expect(page.getByText('Saved sessions appear here.')).toBeVisible();
+  await expect(card).toHaveCount(0);
+  const before = await rowHeight();
+
   const saveAll = localeStrings('en')['Save every open window as a session'];
-  const edges = await page.evaluate((label: string) => {
-    const box = document.querySelector('input#name');
-    // The group is the save button's bordered parent.
-    const group = document.querySelector(
-      `button[aria-label="${label}"]`
-    )?.parentElement;
-    if (!box || !group) return null;
-    const a = box.getBoundingClientRect();
-    const b = group.getBoundingClientRect();
-    return {
-      groupBorder: getComputedStyle(group).borderTopWidth,
-      box: { top: a.top, bottom: a.bottom },
-      group: { top: b.top, bottom: b.bottom },
-    };
-  }, saveAll);
-  if (edges === null) throw new Error('no name box or save group');
+  await page.getByRole('button', { name: saveAll, exact: true }).click();
+  await expect(card).toBeVisible();
+  const after = await rowHeight();
 
-  // PREMISE: the right element, or a match proves nothing.
-  expect(edges.groupBorder).toBe('1px');
-  expect(edges.group.top).toBeCloseTo(edges.box.top, 0);
-  expect(edges.group.bottom).toBeCloseTo(edges.box.bottom, 0);
+  // 64 at Large: taller than the 58 the row has at the default root.
+  expect(before).toBeCloseTo(64, 0);
+  expect(after).toBeCloseTo(before ?? NaN, 1);
 });
+
+// KAN-492 in the tab view: each column's list box starts on one line, the
+// saved list's (left), the session's (middle) and Open now's (right).
+for (const rootPx of ROOTS) {
+  test(`tab view at a ${rootPx}px root: the three list boxes start on one line`, async ({
+    context,
+    extensionId,
+  }) => {
+    const session = buildSession({
+      tabGroupId: 's0',
+      title: 'Reading list',
+      isSelected: true,
+    });
+    await seedSessions(context, {
+      ...buildContainer([session]),
+      selectedTabGroupId: 's0',
+    });
+    await seedSettings(context, { foldSavedSessionInTabView: false });
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1180, height: 800 });
+    await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+    await page.locator('input[aria-label="Search open tabs"]').waitFor();
+    await waitForFontsLoaded(page);
+    await page.evaluate((px) => {
+      document.documentElement.style.fontSize = `${px}px`;
+    }, rootPx);
+
+    const tops = await page.evaluate(() => {
+      // A list box is the bordered frame its search row (or, in the middle,
+      // its first window row) sits in.
+      const frameOf = (el: Element | null) => {
+        let box = el?.parentElement ?? null;
+        while (box && getComputedStyle(box).borderTopWidth === '0px') {
+          box = box.parentElement;
+        }
+        if (box === null) throw new Error('no bordered list box');
+        return box.getBoundingClientRect().top;
+      };
+      const detail = document.querySelector('[data-pane="detail"]');
+      const header = detail?.querySelector('[data-session-toolbar]');
+      if (!detail || !header) throw new Error('no session header');
+      // The middle list box is the first bordered box below the header card.
+      const below = [...detail.querySelectorAll('*')].find(
+        (el) =>
+          getComputedStyle(el).borderTopWidth !== '0px' &&
+          el.getBoundingClientRect().top > header.getBoundingClientRect().bottom
+      );
+      if (below === undefined) throw new Error('no middle list box');
+      return {
+        left: frameOf(document.querySelector('[data-saved-search]')),
+        middle: below.getBoundingClientRect().top,
+        right: frameOf(
+          document.querySelector('input[aria-label="Search open tabs"]')
+        ),
+      };
+    });
+
+    expect(Math.abs(tops.left - tops.middle)).toBeLessThanOrEqual(1);
+    expect(Math.abs(tops.right - tops.middle)).toBeLessThanOrEqual(1);
+  });
+}
+
+// KAN-216, on the one row left beside the name box: the search panel's box and
+// button are gone (KAN-385), and the save group must span the box's height as
+// the search button had to.
+for (const rootPx of ROOTS) {
+  test(`at a ${rootPx}px root, the save group and its menu trigger are exactly as tall as the name box`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopupAt(context, extensionId, rootPx);
+
+    // The key is not the en string (the button reads "Save all open windows...").
+    const saveAll = localeStrings('en')['Save every open window as a session'];
+    const edges = await page.evaluate((label: string) => {
+      const box = document.querySelector('input#name');
+      // The group is the save button's bordered parent.
+      const group = document.querySelector(
+        `button[aria-label="${label}"]`
+      )?.parentElement;
+      const trigger = document.querySelector(
+        '[data-save-row] [aria-label="More actions"]'
+      );
+      if (!box || !group || !trigger) return null;
+      const a = box.getBoundingClientRect();
+      const b = group.getBoundingClientRect();
+      const c = trigger.getBoundingClientRect();
+      return {
+        groupBorder: getComputedStyle(group).borderTopWidth,
+        box: { top: a.top, bottom: a.bottom },
+        group: { top: b.top, bottom: b.bottom },
+        trigger: { top: c.top, bottom: c.bottom },
+      };
+    }, saveAll);
+    if (edges === null) throw new Error('no name box, save group or trigger');
+
+    // PREMISE: the right element, or a match proves nothing.
+    expect(edges.groupBorder).toBe('1px');
+    expect(edges.group.top).toBeCloseTo(edges.box.top, 0);
+    expect(edges.group.bottom).toBeCloseTo(edges.box.bottom, 0);
+    // The trigger fills the group inside its border, so its divider and its
+    // hover fill run the row's full height.
+    expect(edges.trigger.top).toBeCloseTo(edges.group.top + 1, 0);
+    expect(edges.trigger.bottom).toBeCloseTo(edges.group.bottom - 1, 0);
+  });
+}
 
 // KAN-385 S3. The magnifier's ink sits on the text edge the session rows
 // pad to, and the search text starts where every session title starts. At a

@@ -8,9 +8,11 @@ import Button from '../../common/Button';
 import { DropBoxLabel } from '../../common/dropBox';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
 import OverflowMenu from '../../common/OverflowMenu';
+import { NormalLabel } from '../../common/Label';
 import TextBox from '../../common/TextBox';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { TYPE } from '../../../styles/scale';
 import { AppDispatch } from '../../../redux/store';
 import {
   captureOpenWindows,
@@ -188,7 +190,7 @@ export default function UserInputContainer() {
     position: relative;
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: stretch;
   `;
 
   // Over the whole row; App.css shows it on the New session marker (setDragNewSession).
@@ -200,23 +202,29 @@ export default function UserInputContainer() {
   `;
 
   /**
-   * An ALIGNMENT, not a control size -- which is why it is here and not in the
-   * scale, and why it is not a multiple of anything.
+   * The row's height, set by an invisible column rather than a number (KAN-492).
    *
-   * The left column stacks a content-sized header (32px of controls in 12px of
-   * padding, so 56px) above this row; the right pane's session header card is
-   * content-sized at 106px and starts 8px lower. This is the height at which
-   * the two panes' first blocks end on the same line:
-   *
-   *     1 (border) + 56 (header) + 58 (this) = 115 = the card's bottom
-   *
-   * Every term in that sum can move. If the session title ever wraps to a
-   * second line, or either pane's padding changes, this number is wrong and the
-   * edges part again -- so it is pinned by e2e/searchRowAlignment.spec.ts
-   * rather than left to be noticed in a screenshot months later. It has already
-   * caught one such change: shortening the header by 16px.
+   * The session header card beside this column is a title line, two caption
+   * lines and a row of icons; the header above this row is the same icons in
+   * 24px of padding. The row makes up the difference so the two end on one
+   * line: two of the card's caption lines, drawn here, plus 26px for the
+   * card's 8px offset, 2px of border, 32px title line and 8px above its icons,
+   * less this header's 24px. The captions' height comes from the font, not a
+   * constant, so only the same labels keep pace at every font size. Pinned by
+   * e2e/searchRowAlignment.spec.ts.
    */
-  const ROW_HEIGHT = '58px';
+  const rowHeightStyle = css`
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    width: 0;
+    padding-top: 26px;
+    overflow: hidden;
+    visibility: hidden;
+  `;
+  const captionLine = (
+    <NormalLabel value={'\u00a0'} size={TYPE.META} style="padding-top: 2px;" />
+  );
 
   // The save button and the menu trigger share one border and one height with
   // the field beside them, so the row reads as one block. Box-sizing is
@@ -225,7 +233,6 @@ export default function UserInputContainer() {
   const saveGroupStyle = css`
     display: flex;
     flex-shrink: 0;
-    height: ${ROW_HEIGHT};
     border: 1px solid ${COLORS.BORDER_COLOR};
   `;
 
@@ -246,9 +253,7 @@ export default function UserInputContainer() {
         onKeyEnter={
           isSearching ? undefined : () => createTabGroup('all-windows')
         }
-        style={`${
-          isSearching ? '' : 'margin-right: 8px; '
-        }height: ${ROW_HEIGHT};`}
+        style={`${isSearching ? '' : 'margin-right: 8px; '}height: auto;`}
       />
       {/* One wide save and a menu (KAN-208).
 
@@ -312,12 +317,11 @@ export default function UserInputContainer() {
             // box drawn tight around the glyph.
             //
             // `padding: 0` is what lets the box be narrower than 32 at all:
-            // Icon otherwise adds 4px all round. Height is separate -- 2px is
-            // the group's own top and bottom borders, which border-box puts
-            // inside ROW_HEIGHT, and the Button beside it reaches the same 56px
-            // through `height: 100%`, which an Icon inside the menu's
-            // relatively-positioned wrapper cannot see.
-            triggerStyle={`width: 28px; height: calc(${ROW_HEIGHT} - 2px); padding: 0;
+            // Icon otherwise adds 4px all round. Its height comes from
+            // fillsHeight: the group inside its border, as the Button beside it
+            // gets through `height: 100%`.
+            fillsHeight
+            triggerStyle={`width: 28px; padding: 0;
                          border-left: 1px solid ${COLORS.BORDER_COLOR};`}
             items={[
               {
@@ -346,6 +350,10 @@ export default function UserInputContainer() {
           />
         </div>
       )}
+      <span aria-hidden="true" css={rowHeightStyle}>
+        {captionLine}
+        {captionLine}
+      </span>
       {takesCarry && (
         <div
           ref={targetRef}
