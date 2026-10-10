@@ -1250,3 +1250,65 @@ test.describe('Open now with no other tabs (KAN-330)', () => {
     expect(Math.abs(facts.label.cy - facts.scroller.cy)).toBeLessThanOrEqual(1);
   });
 });
+
+// KAN-491 (D). Open now's header keeps its height with nothing listed: its
+// search and its buttons stay where they sit with tabs open, at Chrome's Large
+// font too, so at the default root the search lines up with the saved one.
+test.describe('Open now’s header with nothing listed (KAN-491)', () => {
+  for (const root of [16, 20]) {
+    test(`at a ${root}px root, the search and the buttons stay put when the last other tab closes`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPage(context, extensionId, VIEW_TAB, {
+        width: 1180,
+        height: 800,
+      });
+      await page.evaluate((px) => {
+        document.documentElement.style.fontSize = `${px}px`;
+      }, root);
+      const measure = () =>
+        page.evaluate(() => {
+          const top = (selector: string) => {
+            const el = document.querySelector(selector);
+            return el === null ? null : el.getBoundingClientRect().top;
+          };
+          return {
+            saved: top('input[aria-label="Search saved tabs"]'),
+            open: top('input[aria-label="Search open tabs"]'),
+            // The » (Show the saved session), the one button drawn either way.
+            buttons: top(
+              '[data-open-now-header] [aria-label="Show the saved session"]'
+            ),
+          };
+        });
+      // PREMISE: something is listed (the launch window's about:blank).
+      await expect(
+        page
+          .locator(OPEN_NOW)
+          .getByText('No other tabs are open', { exact: true })
+      ).toHaveCount(0);
+      const listed = await measure();
+
+      for (const other of context.pages()) {
+        if (other !== page) await other.close();
+      }
+      await expect(
+        page
+          .locator(OPEN_NOW)
+          .getByText('No other tabs are open', { exact: true })
+      ).toBeVisible();
+      const empty = await measure();
+      console.log(`[header ${root}] ${JSON.stringify({ listed, empty })}`);
+
+      // Nothing in Open now's header moves when the last other tab closes.
+      expect(empty.open).toBeCloseTo(listed.open ?? NaN, 0);
+      expect(empty.buttons).toBeCloseTo(listed.buttons ?? NaN, 0);
+      // At the default root the two searches line up (at 20px they do not, listed or not: KAN-492).
+      if (root === 16) {
+        expect(listed.open).toBeCloseTo(listed.saved ?? NaN, 0);
+        expect(empty.open).toBeCloseTo(empty.saved ?? NaN, 0);
+      }
+    });
+  }
+});
