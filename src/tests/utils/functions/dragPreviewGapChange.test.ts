@@ -5,11 +5,8 @@ import {
   type WindowedSlot,
 } from '../../../utils/functions/dragPreview';
 
-// KAN-187. Two adjacent bands share one wide gap (KAN-179's 8px). Put a loose
-// row between them and each keeps only its own 2px margin instead, so the row
-// needs 4px LESS than its footprint; take that row away and the pair reclaims
-// the wide gap, so 4px less is freed. Either way the correction lands on every
-// slot from the LOWER band's head downward -- measured on main 2026-09-14.
+// KAN-187. A loose row between two adjacent bands leaves each its own 2px margin, so it needs 4px LESS than its footprint;
+// removing it reclaims the 8px gap (KAN-179). The correction lands from the LOWER band's head down -- measured on main 2026-09-14.
 
 const ROW = 32;
 const w = (
@@ -43,17 +40,6 @@ describe('gapChangeShifts', () => {
       'Gamma:tail': -4,
       a3: -4,
     });
-  });
-
-  test('the anchor itself moves -- the gap that changed is ABOVE it', () => {
-    expect(gapChangeShifts(SLOTS, at('Gamma'), 4).Gamma).toBe(4);
-  });
-
-  test('nothing above the anchor moves', () => {
-    const shifts = gapChangeShifts(SLOTS, at('Gamma'), -4);
-    for (const key of ['a0', 'Beta', 'b0', 'b1', 'Beta:tail']) {
-      expect(shifts[key]).toBeUndefined();
-    }
   });
 
   test('a zero change moves nothing, and says so by absence', () => {

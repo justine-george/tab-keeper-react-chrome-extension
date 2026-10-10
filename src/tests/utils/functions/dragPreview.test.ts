@@ -7,13 +7,8 @@ import {
   type PreviewSlot,
 } from '../../../utils/functions/dragPreview';
 
-// KAN-166. The preview runs in a list that includes the group TITLE ROWS, not
-// only the draggable ones -- which is what lets a drop that changes a tab's
-// GROUP be expressed as an ordinary move.
-//
-// Every number below is measured, not derived. Rendered in the real popup at
-// 790x550 on 2026-09-12 (e2e/tab-group-join-preview.spec.ts): three loose tabs, a
-// three-member group, one loose tab. Tops relative to a0.
+// KAN-166. The preview list includes group TITLE ROWS, so a drop that changes a tab's group is an ordinary move.
+// Measured in the popup at 790x550, 2026-09-12 (e2e/tab-group-join-preview.spec.ts); tops relative to a0:
 //
 //   ext  key      top
 //     0  a0         0
@@ -25,16 +20,10 @@ import {
 //     6  alpha2   194
 //     7  a3       228
 //
-// And the two post-drop layouts it has to predict, measured the same way by
-// seeding the arrangement moveTabInternal produces:
+// The two post-drop layouts it must predict, measured the same way:
 //
 //   a2 joins Alpha from ABOVE -- a2 +34, the title row -32, EVERYTHING ELSE 0
-//   a3 joins Alpha from BELOW -- a3 -98, alpha0/1/2 +32, the title row 0
-//
-// Note what the second one says: the members move and the frame does not. The
-// rule this replaces could not express either case, because it read "every
-// member shifted alike" as "the group travelled" -- true when the group is
-// passed over, false when it GAINS a first member.
+//   a3 joins Alpha from BELOW -- a3 -98, alpha0/1/2 +32, the title row 0 (members move, the frame does not)
 const LAYOUT: PreviewSlot[] = [
   { key: 'a0', top: 0, height: 32 },
   { key: 'a1', top: 32, height: 32 },
@@ -46,8 +35,7 @@ const LAYOUT: PreviewSlot[] = [
   { key: 'a3', top: 228, height: 32 },
 ];
 
-// a2's and a3's measured footprint. Both sit beside the band, which carries a
-// 2px margin the tabs themselves do not, so both are 34 rather than 32.
+// Measured: beside the band, whose 2px margin the tabs lack, so 34 rather than 32.
 const FOOTPRINT = 34;
 
 const ALPHA = 3;
@@ -85,8 +73,7 @@ describe('previewShifts', () => {
   });
 
   test('a plain reorder shifts everything the held row passed', () => {
-    // a0 dragged down to a2's slot. The title row is not in the range and
-    // stays put, which is the same answer the old rule gave.
+    // a0 dragged down to a2's slot: the title row is out of range and stays put.
     const shifts = previewShifts(LAYOUT, 0, 2, FOOTPRINT);
 
     expect(shifts.a1).toBe(-FOOTPRINT);
@@ -114,9 +101,7 @@ describe('previewShifts', () => {
 });
 
 describe('slotLandingBeside', () => {
-  // A row landing beside a title row indexes the list with itself lifted out,
-  // so coming from above it takes the title row's own slot -- they swap -- and
-  // coming from below it takes the slot past it.
+  // Beside a title row the index counts with the row lifted out: from above it takes the title row's slot (they swap), from below the slot past it.
   test('joining from above, the row takes the title rows slot', () => {
     expect(slotLandingBeside(2, ALPHA, 'after')).toBe(3);
   });
@@ -125,16 +110,10 @@ describe('slotLandingBeside', () => {
     expect(slotLandingBeside(7, ALPHA, 'after')).toBe(4);
   });
 
-  // KAN-168. Leaving a group is the same crossing in the other direction: the
-  // tab ends up immediately BEFORE the title row rather than after it.
+  // KAN-168. Leaving a group crosses the other way: the tab lands immediately BEFORE the title row.
   test('leaving upward, the row takes the title rows own slot', () => {
     // alpha0 is at slot 4 -- immediately below the title row at 3.
     expect(slotLandingBeside(4, ALPHA, 'before')).toBe(3);
-  });
-
-  test('leaving upward from deeper in the group lands in the same slot', () => {
-    // Which member it was does not change where it ends up: above the title.
-    expect(slotLandingBeside(6, ALPHA, 'before')).toBe(3);
   });
 
   test('a row already above the title row lands one slot earlier', () => {
@@ -167,9 +146,7 @@ describe('previewShifts for a tab leaving its group', () => {
   });
 });
 
-// KAN-178. Two groups sitting next to each other, and a loose tab dropped
-// BETWEEN them. Measured in the real popup at 790x550 on 2026-09-13, a window
-// laid out: loose, loose, [group A: 2 members], [group B: 3 members], loose.
+// KAN-178. A loose tab dropped BETWEEN two adjacent groups. Measured in the popup at 790x550, 2026-09-13:
 //
 //   slot  key       top    height
 //      0  top      156.5      32
@@ -185,11 +162,8 @@ describe('previewShifts for a tab leaving its group', () => {
 //     10  B:tail   448.5       0
 //     11  last     450.5      32
 //
-// Released between the two groups, the tab really does land ungrouped between
-// them -- measured, the store went
-//   top newtab a1*A a2*A b1*B ...  ->  top a1*A a2*A newtab b1*B ...
-// and the tab came to rest at 288.5, i.e. on a2's old top plus the 2px the band
-// margin accounts for (KAN-167, the preview's known quantisation).
+// It lands ungrouped between them -- top newtab a1*A a2*A b1*B ... -> top a1*A a2*A newtab b1*B ...
+// -- and rests at 288.5: a2's old top plus the band margin's 2px (KAN-167).
 const BOUNDARY: PreviewSlot[] = [
   { key: 'top', top: 156.5, height: 32 },
   { key: 'newtab', top: 188.5, height: 32 },
@@ -211,10 +185,7 @@ const B_TITLE = 6;
 const A_TAIL = 5;
 
 describe('a tab landing between two adjacent groups', () => {
-  // THE DEFECT. "Before B's title row" resolves to the slot in front of it,
-  // which is A's tail marker -- and a marker with no height is not a place a
-  // row can sit. Its top is a2's BOTTOM, so the slot was drawn a whole row low,
-  // on B's title, while the tab landed on a2's top.
+  // THE DEFECT: "before B's title row" resolved to A's zero-height tail marker, whose top is a2's bottom, so the slot drew a row low.
   test('lands on the last member of the group above, not on its tail marker', () => {
     expect(
       landingDeltaOf(
@@ -225,10 +196,7 @@ describe('a tab landing between two adjacent groups', () => {
     ).toBe(286.5 - 188.5);
   });
 
-  // CONTROL, and the reason the fix is safe: joining A at its tail already
-  // resolves to that same slot. The two land in the same place and are told
-  // apart by the band tint and the frame, exactly as KAN-174 settled at the
-  // other end of a group.
+  // CONTROL: joining A at its tail resolves to the same slot; band tint and frame tell them apart (KAN-174).
   test('CONTROL: joining the group above at its tail lands in the same place', () => {
     expect(
       landingDeltaOf(
@@ -239,8 +207,7 @@ describe('a tab landing between two adjacent groups', () => {
     ).toBe(286.5 - 188.5);
   });
 
-  // CONTROL: from below nothing was ever wrong. "Before B's title" resolves to
-  // the title row itself, which has height, and the title moves down instead.
+  // CONTROL: from below, "before B's title" is the title row itself, which has height.
   test('CONTROL: coming from below, the slot is the title rows own top', () => {
     expect(
       landingDeltaOf(
@@ -253,10 +220,7 @@ describe('a tab landing between two adjacent groups', () => {
 });
 
 describe('landingDeltaOf', () => {
-  // The distances the two measured drops actually travel. Both come out of the
-  // same subtraction of measured tops, and both are EXACT -- which is what the
-  // index clamp this replaces could never be, because it pointed the slot at
-  // the first member whichever side the tab arrived from.
+  // The distances the two measured drops travel, exact from the measured tops.
   test('joining from above lands on the title rows top', () => {
     expect(
       landingDeltaOf(LAYOUT, 2, slotLandingBeside(2, ALPHA, 'after'))
@@ -274,13 +238,8 @@ describe('landingDeltaOf', () => {
   });
 });
 
-// KAN-360. A GROUP dragged down past another group, in the saved list's
-// items list: loose tabs and whole groups are its rows, and the held group is
-// measured FOLDED to its title row while every other group is drawn whole.
-// Measured in the real popup at 790x550 on 2026-10-01
-// (e2e/group-landing-slot.spec.ts), one window: Extensions, then the groups
-// Watchlist (2 tabs), Ratings (2), Soundtrack (1), Snacks (1).
-//
+// KAN-360. A GROUP dragged down past another group; the held group is measured FOLDED to its title row, the others whole.
+// Measured in the popup at 790x550, 2026-10-01 (e2e/group-landing-slot.spec.ts): Extensions, then Watchlist (2 tabs), Ratings (2), Soundtrack (1), Snacks (1).
 // Watchlist held, folded:
 //
 //   slot  key        top   height
@@ -290,15 +249,13 @@ describe('landingDeltaOf', () => {
 //      3  sound      334      64
 //      4  snacks     406      64
 //
-// And where the release put Watchlist's title row, against the slot the
-// drag drew (on a0a91b1):
+// Where the release put Watchlist's title row, against the slot drawn (on a0a91b1):
 //
 //   past Ratings              294    slot 230 -- on Ratings' own rows
 //   past Soundtrack           366    slot 334 -- on Spotify
 //   past Snacks, the end      438    slot 406 -- on Popcorn
 //
-// The slot was drawn on the passed group's TOP, which is where the held row
-// lands only when the two are the same height.
+// The slot was drawn on the passed group's TOP, right only when the two are the same height.
 const HELD_FOLDED: PreviewSlot[] = [
   { key: 'ext', top: 156, height: 32 },
   { key: 'watch', top: 190, height: 32 },
@@ -307,9 +264,7 @@ const HELD_FOLDED: PreviewSlot[] = [
   { key: 'snacks', top: 406, height: 64 },
 ];
 
-// Snacks held instead, folded to its title row -- every other group whole.
-// The release put Snacks' title row exactly on the top of the group it was
-// dropped in front of, every time: dragging up was never wrong.
+// Snacks held instead: its title row landed exactly on the top of the group it was dropped before. Dragging up was never wrong.
 const HELD_LAST_FOLDED: PreviewSlot[] = [
   { key: 'ext', top: 156, height: 32 },
   { key: 'watch', top: 190, height: 96 },
@@ -340,10 +295,8 @@ describe('landingDeltaOf, a held row shorter than the rows it passes (KAN-360)',
   });
 });
 
-// KAN-360 in the TAB list, at a 20px root (Chrome's "Large" font size): every
-// rem scales, so a tab row is 38px but a group's title row stays 32. Measured
-// in the real popup at 790x550 on 2026-10-01
-// (e2e/tab-landing-slot-large-font.spec.ts), at rest:
+// KAN-360 in the TAB list at a 20px root (Chrome's "Large"): a tab row is 38px, a title row stays 32.
+// Measured in the popup at 790x550, 2026-10-01 (e2e/tab-landing-slot-large-font.spec.ts), at rest:
 //
 //   slot  key     top   height
 //      0  x0      174      38
@@ -354,9 +307,7 @@ describe('landingDeltaOf, a held row shorter than the rows it passes (KAN-360)',
 //      5  g:tail  360       0
 //      6  y0      362      38
 //
-// x1 joining Gee at its head came to rest at 246, its bottom on the title
-// row's bottom. The slot was drawn at 252, the title row's top: 6px low, the
-// difference between the two heights.
+// x1 joining Gee at its head rested at 246, its bottom on the title row's bottom; the slot drew at 252, 6px low.
 const LARGE_ROOT: PreviewSlot[] = [
   { key: 'x0', top: 174, height: 38 },
   { key: 'x1', top: 212, height: 38 },

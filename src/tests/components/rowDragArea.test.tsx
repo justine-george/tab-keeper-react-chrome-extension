@@ -12,37 +12,25 @@ import {
   whenDragReleases,
 } from '../../redux/dragHold';
 
-// The drag layer on its own, without WindowEntryContainer around it. What is
-// pinned here is the BEHAVIOUR the pane relies on -- when a drag starts, where
-// it says the tab landed, which group it says the tab joined, and what happens
-// when it is abandoned.
-//
-// jsdom reports every rect as zero, so the midpoint arithmetic that decides the
-// landing index would be untestable as-is: every row would share a midpoint of
-// 0 and every drag would compute the same answer. The rows are given real boxes
-// below. Row n occupies [n*30, n*30+30), so the midpoints are 15, 45 and 75.
+// The drag layer alone: when a drag starts, where it lands, which group it joins, and what an abandon does.
+// Rows get real boxes (jsdom reports 0): row n spans [n*30, n*30+30), so the midpoints are 15, 45 and 75.
 const ROW_H = 30;
 
-const box = (top: number, height: number, left = 0, width = 200) =>
-  ({
-    top,
-    bottom: top + height,
-    left,
-    right: left + width,
-    height,
-    width,
-    x: left,
-    y: top,
-    toJSON: () => ({}),
-  }) as DOMRect;
+const box = (top: number, height: number, left = 0, width = 200): DOMRect => ({
+  top,
+  bottom: top + height,
+  left,
+  right: left + width,
+  height,
+  width,
+  x: left,
+  y: top,
+  toJSON: () => ({}),
+});
 
 type OnMove = (tabId: string, toIndex: number, group?: string) => void;
 
-// `bandAt` answers only the band half of a drop (KAN-132 widened
-// `ResolveDrop` to also name a window); this harness has no window question of
-// its own, so it composes bandAt into the wider shape RowDragArea now expects,
-// same as useTabDrop's real resolveDrop does (moved there from
-// WindowEntryContainer in Task 8).
+// bandAt answers only the band half of a drop; composed into the wider ResolveDrop shape, as useTabDrop's real one is.
 const resolveDrop = (container: HTMLElement | null, x: number, y: number) => ({
   windowId: undefined,
   bandId: bandAt(container, x, y),
@@ -59,16 +47,12 @@ const Harness = ({
   disabled,
 }: {
   onMove: OnMove;
-  // Optional and additive: every existing Harness usage renders with this
-  // unset, and RowDragArea already treats a missing onDropTargetChange as
-  // "nobody is listening" -- see the `if (onDropTargetChange && resolveDrop)`
-  // guard beside the notifier.
+  // Optional: unset, RowDragArea treats it as nobody listening.
   onDropTargetChange?: OnDropTargetChange;
   // Optional for the same reason; RowDragArea defaults it to false.
   disabled?: boolean;
 }) => (
-  // `bandAt` is passed in rather than known to the area: the tab list is the
-  // only caller that has a membership question at all.
+  // bandAt is passed in: only the tab list has a membership question.
   <RowDragArea
     rowIds={['a', 'b', 'c']}
     onMove={onMove}
@@ -92,7 +76,11 @@ const Harness = ({
 );
 
 // The draggable node is the parent of the row content.
-const nodeFor = (label: string) => screen.getByText(label).parentElement!;
+const nodeFor = (label: string): HTMLElement => {
+  const el = screen.getByText(label).parentElement;
+  if (!el) throw new Error(`no row around ${label}`);
+  return el;
+};
 
 const layout = () => {
   ['Row A', 'Row B', 'Row C'].forEach((label, i) => {
@@ -111,21 +99,13 @@ const moveTo = (y: number) =>
 const release = (y: number) =>
   fireEvent.pointerUp(document, { clientX: 10, clientY: y, button: 0 });
 
-// handleSelector names the part of a row that may start a drag, and it is what
-// lets one list nest inside another (KAN-129): a window's draggable node wraps
-// its own tabs, so without a handle every tab drag would begin a window drag
-// underneath it.
-//
-// The rows here each carry a handle and a patch of non-handle area, and the
-// whole AREA sits inside an element that also matches the selector -- which is
-// the case the containment rule exists for.
+// handleSelector names the part of a row that may start a drag, which is what lets one list nest in another (KAN-129).
+// The whole area sits inside an element that also matches the selector: the case the containment rule exists for.
 describe('handleSelector decides which press starts a drag', () => {
   let onMove: ReturnType<typeof vi.fn<OnMove>>;
 
   const HandleHarness = () => (
-    // An outer element matching the same selector. `closest` walks to the
-    // document, so an area that only asked "is there a handle above the
-    // press?" would answer yes for every press in this tree.
+    // An outer match: an unbounded `closest` would find a handle above every press here.
     <div data-handle>
       <RowDragArea
         rowIds={['a', 'b', 'c']}
@@ -146,8 +126,13 @@ describe('handleSelector decides which press starts a drag', () => {
     </div>
   );
 
-  const rowFor = (id: string) =>
-    document.querySelector<HTMLElement>(`[data-drag-row-id="${id}"]`)!;
+  const rowFor = (id: string): HTMLElement => {
+    const el = document.querySelector<HTMLElement>(
+      `[data-drag-row-id="${id}"]`
+    );
+    if (!el) throw new Error(`no row ${id}`);
+    return el;
+  };
 
   beforeEach(() => {
     onMove = vi.fn<OnMove>();
@@ -176,9 +161,7 @@ describe('handleSelector decides which press starts a drag', () => {
     expect(onMove.mock.calls[0][1]).toBe(0);
   });
 
-  // The nesting case, at the level the rule is implemented rather than through
-  // two real components: a press on the part of the row that is NOT the handle
-  // -- where a nested list's own rows live -- must start nothing here.
+  // The nesting case at the rule's level: a press off the handle, where a nested list's rows live, starts nothing.
   test('a press outside the handle starts nothing', () => {
     fireEvent.pointerDown(screen.getByText('Body c'), {
       clientX: 10,
@@ -192,10 +175,7 @@ describe('handleSelector decides which press starts a drag', () => {
     expect(onMove).not.toHaveBeenCalled();
   });
 
-  // THE CONTAINMENT RULE. The press below has a matching ancestor -- the
-  // wrapper around the whole area -- but it is not THIS row's handle, and an
-  // unbounded `closest` would accept it. That would put the nesting bug back
-  // one level higher up, where it is harder to see.
+  // THE CONTAINMENT RULE: a matching ancestor outside this row is not its handle, or the nesting bug returns a level up.
   test('a matching ancestor outside the row does not count as its handle', () => {
     fireEvent.pointerDown(screen.getByText('Body a'), {
       clientX: 10,
@@ -223,7 +203,7 @@ describe('what a drag reports when it lands', () => {
     document.documentElement.removeAttribute('data-dragging');
   });
 
-  test('dragging to the top of the list lands at index 0', () => {
+  test('dragging to the top of the list lands at index 0, inside the band, so in its group', () => {
     press('Row C', 75);
     moveTo(40);
     moveTo(5);
@@ -232,19 +212,20 @@ describe('what a drag reports when it lands', () => {
     expect(onMove).toHaveBeenCalledTimes(1);
     expect(onMove.mock.calls[0][0]).toBe('c');
     expect(onMove.mock.calls[0][1]).toBe(0);
+    expect(onMove.mock.calls[0][2]).toBe('grp');
   });
 
-  test('dragging to the bottom lands at the last index', () => {
+  test('dragging to the bottom lands at the last index, outside every band, so in no group', () => {
     press('Row A', 15);
     moveTo(50);
     moveTo(85);
     release(85);
 
     expect(onMove.mock.calls[0][1]).toBe(2);
+    expect(onMove.mock.calls[0][2]).toBeUndefined();
   });
 
-  // The midpoint is the boundary, not the row's edge: a tab has to pass the
-  // middle of its neighbour before it is considered past it.
+  // The boundary is the neighbour's midpoint, not its edge.
   test('stopping short of the next midpoint does not advance the index', () => {
     press('Row A', 15);
     moveTo(40); // below Row B's midpoint of 45
@@ -252,33 +233,10 @@ describe('what a drag reports when it lands', () => {
 
     expect(onMove.mock.calls[0][1]).toBe(0);
   });
-
-  test('releasing inside a band joins that group', () => {
-    press('Row C', 75);
-    moveTo(40);
-    moveTo(5); // inside the band's box
-    release(5);
-
-    expect(onMove.mock.calls[0][2]).toBe('grp');
-  });
-
-  test('releasing outside every band joins no group', () => {
-    press('Row A', 15);
-    moveTo(50);
-    moveTo(85);
-    release(85);
-
-    expect(onMove.mock.calls[0][2]).toBeUndefined();
-  });
 });
 
-// KAN-132 fix round 1. The controller addendum's whole reason for comparing
-// `.bandId` rather than the object resolveDrop returns: a fresh object
-// compares unequal on every pointermove even when the band hasn't changed,
-// which would fire onDropTargetChange once per move instead of once per
-// change (KAN-164's contract). No test exercised onDropTargetChange at all
-// before this -- `grep -rn "onDropTargetChange" src/tests` had no hits -- so
-// a regression to comparing the object had nothing to catch it.
+// KAN-132. Compared by `.bandId`, not resolveDrop's object: a fresh object differs on every move and would announce once
+// per move instead of once per change (KAN-164).
 describe('what onDropTargetChange announces', () => {
   let onMove: ReturnType<typeof vi.fn<OnMove>>;
   let onDropTargetChange: ReturnType<typeof vi.fn<OnDropTargetChange>>;
@@ -304,9 +262,7 @@ describe('what onDropTargetChange announces', () => {
     moveTo(3); // still inside the band -- no new call
 
     expect(onDropTargetChange).toHaveBeenCalledTimes(1);
-    // The argument is the band id ITSELF -- a string -- not the { windowId,
-    // bandId } object resolveDrop returns. Pinning the type as well as the
-    // value is what a mutation forwarding the object instead would fail.
+    // The band id ITSELF, a string, not resolveDrop's object: forwarding the object fails here.
     expect(onDropTargetChange.mock.calls[0][0]).toBe('grp');
     expect(typeof onDropTargetChange.mock.calls[0][0]).toBe('string');
 
@@ -315,9 +271,7 @@ describe('what onDropTargetChange announces', () => {
     expect(onDropTargetChange.mock.calls[1][0]).toBeUndefined();
 
     release(50);
-    // Already undefined when the drag ends, so finish's own "clear on end"
-    // call (RowDragArea.tsx's `if (l.dropTarget !== undefined)`) has nothing
-    // to announce -- no third call.
+    // Already undefined when the drag ends, so finish's clear-on-end announces nothing more.
     expect(onDropTargetChange).toHaveBeenCalledTimes(2);
   });
 });
@@ -339,15 +293,6 @@ describe('when a drag should not happen at all', () => {
     press('Row A', 15);
     moveTo(17); // 2px, under the 5px activation distance
     release(17);
-
-    expect(onMove).not.toHaveBeenCalled();
-  });
-
-  test('Escape abandons the drag without moving anything', () => {
-    press('Row A', 15);
-    moveTo(85);
-    fireEvent.keyDown(window, { key: 'Escape' });
-    release(85);
 
     expect(onMove).not.toHaveBeenCalled();
   });
@@ -391,12 +336,9 @@ describe('when a drag should not happen at all', () => {
   });
 });
 
-// KAN-335 (O14c). A list that turns drag off while a row is already held --
-// Open now, when a search starts mid-drag -- cancels that drag, and it ends
-// the way Esc ends one: nothing moves, the row goes back, the flag and the
-// hold (KAN-279 D12) are released with the held change run once, and the
-// click Chrome synthesizes for the release is swallowed. Every assertion runs
-// against Esc too, so "as Esc does" is checked here rather than claimed.
+// KAN-335 (O14c). A list turning drag off mid-hold (Open now, a search starting) cancels as Esc does: nothing moves, the
+// row goes back, the flag and hold (KAN-279 D12) release with the held change run once, the release click is swallowed.
+// Each assertion runs against Esc too.
 describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
   let clicks: number;
   const onClick = () => {
@@ -405,8 +347,7 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
 
   beforeEach(() => {
     clicks = 0;
-    // Bubble phase on document, where React's root delegation sits: a click
-    // this never sees is a click no row handler runs on.
+    // Bubble phase on document, where React delegates: a click this misses, no row handler runs on.
     document.addEventListener('click', onClick);
   });
 
@@ -443,8 +384,7 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
       );
       expect(nodeFor('Row A').style.transform).toBe('');
 
-      // The release that follows does nothing, and the click Chrome
-      // dispatches for it opens nothing.
+      // The release that follows does nothing, and its click opens nothing.
       release(85);
       fireEvent.click(nodeFor('Row A'), { clientX: 10, clientY: 85 });
       expect(onMove).not.toHaveBeenCalled();
@@ -452,11 +392,8 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
     }
   );
 
-  // The cancelled press's own click, however late its release comes. Chrome
-  // dispatches it when the press and the release share an element -- the
-  // held row, back in place after the cancel -- and a release is not bound by
-  // the 400ms a drop's click has: measured on the real artifact, a release
-  // 800ms after the cancel opened the tab (e2e/open-now-search.spec.ts).
+  // The cancelled press's own click, however late: no 400ms bound here. Measured on the real artifact: a release 800ms
+  // after the cancel opened the tab (e2e/open-now-search.spec.ts).
   test.each(ways)(
     '%s: a release long after the cancel opens nothing, and the next click does',
     (way) => {
@@ -490,10 +427,7 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
     }
   );
 
-  // Armed until the release is not armed for ever: from the release it is the
-  // usual 400ms. A release off the row gets no click from Chrome, and a click
-  // with no press of its own -- Enter or Space on a focused button -- must
-  // not be the one that spends it.
+  // From the release it is the usual 400ms, and a click with no press (Enter or Space) does not spend it.
   test.each(ways)(
     '%s: 400ms after the release, a click with no press goes through',
     (way) => {
@@ -520,9 +454,7 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
     }
   );
 
-  // A pointer Chrome cancels is never released, so the suppression is left
-  // waiting for a release that never comes; a click meanwhile still goes
-  // through.
+  // A cancelled pointer is never released, so the suppression waits; a click meanwhile goes through.
   test('after an Esc and a pointercancel, a click goes through', () => {
     const onMove = vi.fn<OnMove>();
     render(<Harness onMove={onMove} />);
@@ -536,10 +468,7 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
     expect(clicks).toBe(1);
   });
 
-  // While the cancelled press is still down, a click with no press of its
-  // own -- Enter or Space on a row reached with the arrows, Undo, a dialog
-  // button -- is the user's, not Chrome's for the press (that one only ever
-  // follows the pointerup), so it goes through (KAN-337).
+  // With the cancelled press still down, a click with no press of its own is the user's (KAN-337).
   test.each(ways)(
     '%s, press still down: a keyboard click on another row goes through',
     (way) => {
@@ -559,9 +488,7 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
     }
   );
 
-  // A press still under the threshold when drag turns off is dropped too:
-  // left alone, the next move past the threshold would start a drag in a list
-  // that has turned drag off.
+  // A press under the threshold is dropped too, or its next move would start a drag in a list that turned drag off.
   test('a press under the threshold when drag turns off never becomes a drag', () => {
     const onMove = vi.fn<OnMove>();
     const { rerender } = render(<Harness onMove={onMove} />);
@@ -576,62 +503,7 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
   });
 });
 
-// MOVED, and the move is the point. These three used to assert
-// `document.body.style.cursor === 'grabbing'` -- an assertion that was true
-// throughout, while the pointer rendered `pointer` for the whole gesture
-// (KAN-134). jsdom resolves no cascade, so the body's own style says nothing
-// about what any element shows.
-//
-// The flag those tests should have been checking is now pinned in
-// dragSetsDocumentFlag.test.tsx, the rule it triggers in dragStyles.test.ts,
-// and the rendered cursor in a browser. Nothing here asserts a cursor, because
-// nothing here can.
-describe('the drag flag while dragging', () => {
-  let onMove: ReturnType<typeof vi.fn<OnMove>>;
-
-  const dragging = () => document.documentElement.hasAttribute('data-dragging');
-
-  beforeEach(() => {
-    onMove = vi.fn<OnMove>();
-    render(<Harness onMove={onMove} />);
-    layout();
-  });
-
-  afterEach(() => {
-    document.documentElement.removeAttribute('data-dragging');
-  });
-
-  // On the document, not the row: during a drag the pointer travels over other
-  // rows and gaps, and anything scoped to the source element stops applying as
-  // soon as it leaves, which reads as the drag letting go.
-  test('the document is flagged during the drag and cleared after', () => {
-    press('Row A', 15);
-    moveTo(50);
-    expect(dragging()).toBe(true);
-
-    release(50);
-    expect(dragging()).toBe(false);
-  });
-
-  test('Escape also clears it', () => {
-    press('Row A', 15);
-    moveTo(50);
-    expect(dragging()).toBe(true);
-
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(dragging()).toBe(false);
-  });
-
-  test('a press below the threshold never sets it', () => {
-    press('Row A', 15);
-    moveTo(17);
-    expect(dragging()).toBe(false);
-    release(17);
-  });
-});
-
-// bandAt is the whole membership decision, so it is worth pinning on its own
-// rather than only through a drag.
+// bandAt is the whole membership decision, so it is pinned on its own.
 describe('bandAt', () => {
   const container = () => {
     const root = document.createElement('div');

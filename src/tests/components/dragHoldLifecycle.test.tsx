@@ -11,14 +11,8 @@ import {
   whenDragReleases,
 } from '../../redux/dragHold';
 
-// KAN-279 D12. A started drag holds changes this page did not make, and every
-// way a started drag can end releases them: a completed drop, Esc, and the
-// area unmounting mid-drag. A hold left on would queue every later sync merge
-// for good.
-//
-// The bare RowDragArea's onMove is a plain mock, so nothing here calls
-// dropOnTop: the queue is flushed by endDragHold alone. In the app the
-// consumer's dropOnTop flushes it first, and endDragHold then finds it empty.
+// KAN-279 D12. A started drag holds changes this page did not make, and every end releases them: drop, Esc, unmount.
+// A hold left on queues every later merge for good. onMove is a plain mock, so endDragHold alone flushes the queue here.
 
 const ROW_H = 30;
 const box = (top: number, height: number): DOMRect =>
@@ -67,27 +61,6 @@ const startDrag = (label: string) => {
 };
 
 describe('a started drag holds, and every way it ends releases (KAN-279 D12)', () => {
-  test('a started drag holds', () => {
-    render(<Area ids={['a', 'b', 'c']} onMove={() => {}} />);
-    startDrag('Row a');
-    expect(isDragHeld()).toBe(true);
-  });
-
-  test('Esc releases, and the held change runs once', () => {
-    render(<Area ids={['a', 'b', 'c']} onMove={() => {}} />);
-    startDrag('Row a');
-    // The premise: held, so the change below waits rather than running now.
-    expect(isDragHeld()).toBe(true);
-    const spy = vi.fn();
-    whenDragReleases(spy);
-    expect(spy).not.toHaveBeenCalled();
-
-    fireEvent.keyDown(document, { key: 'Escape' });
-
-    expect(spy).toHaveBeenCalledTimes(1);
-    expect(isDragHeld()).toBe(false);
-  });
-
   test('a completed drop releases, after onMove, and the held change runs once', () => {
     const order: string[] = [];
     const onMove = vi.fn(() => order.push('onMove'));
@@ -105,8 +78,7 @@ describe('a started drag holds, and every way it ends releases (KAN-279 D12)', (
     expect(onMove).toHaveBeenCalledWith('a', 1, undefined);
     expect(spy).toHaveBeenCalledTimes(1);
     expect(isDragHeld()).toBe(false);
-    // onMove first: in the app it is onMove's dropOnTop that applies the held
-    // change, so the drop can be re-aimed on top of it.
+    // onMove first: in the app its dropOnTop applies the held change, so the drop is re-aimed on top of it.
     expect(order).toEqual(['onMove', 'held']);
   });
 
@@ -126,16 +98,12 @@ describe('a started drag holds, and every way it ends releases (KAN-279 D12)', (
     expect(isDragHeld()).toBe(false);
   });
 
-  // A consumer that throws must not leave the hold on: every later merge
-  // would queue behind a drop that has already ended, for the life of the
-  // page.
+  // A throwing consumer must not leave the hold on: later merges would queue behind an ended drop for the page's life.
   test('an onMove that throws still releases, and the held change runs once', () => {
     const onMove = vi.fn(() => {
       throw new Error('consumer failed');
     });
-    // jsdom reports a listener's exception as a window `error` event rather
-    // than rethrowing it into the test. Caught here so it is asserted on --
-    // proving onMove really threw -- instead of printed.
+    // jsdom reports a listener's throw as a window `error` event; caught so the throw is asserted, not printed.
     const reported: unknown[] = [];
     const onError = (e: ErrorEvent) => {
       reported.push(e.error);
@@ -161,11 +129,8 @@ describe('a started drag holds, and every way it ends releases (KAN-279 D12)', (
     expect(isDragHeld()).toBe(false);
   });
 
-  // A second button-0 press while a drag is already started (a second finger
-  // or pen on touch) must not strand the hold. `begin` used to overwrite
-  // `live.current` unconditionally, so finish() then saw an UNSTARTED record
-  // and returned before reaching endDragHold() -- and every later change
-  // queued behind a drop that could never happen.
+  // A second press mid-drag (another finger or pen) must not strand the hold: overwriting `live` made finish() see an
+  // UNSTARTED record and skip endDragHold().
   test('a second press mid-drag does not leak the hold', () => {
     render(<Area ids={['a', 'b', 'c']} onMove={() => {}} />);
     startDrag('Row a');
@@ -182,8 +147,7 @@ describe('a started drag holds, and every way it ends releases (KAN-279 D12)', (
     expect(document.documentElement.hasAttribute('data-dragging')).toBe(false);
   });
 
-  // CONTROL: a press that never passes the threshold is a click, not a drag.
-  // It never holds, so a change arriving then applies at once.
+  // CONTROL: a press under the threshold is a click; it never holds, so a change then applies at once.
   test('CONTROL: a click never holds', () => {
     render(<Area ids={['a', 'b', 'c']} onMove={() => {}} />);
     press('Row a');

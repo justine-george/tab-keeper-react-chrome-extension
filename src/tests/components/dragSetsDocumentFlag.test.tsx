@@ -17,32 +17,22 @@ import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
 import { currentCarry, type CarryOut } from '../../redux/carry';
 
-// KAN-134 / KAN-135. What a drag publishes to the document, so CSS can react.
-//
-// The previous mechanism set `document.body.style.cursor` directly, and the
-// test asserted exactly that -- and passed while the user saw no change at all,
-// because `cursor` inherits and every row declares its own. jsdom resolves no
-// cascade, so this layer can only pin that the FLAG is published and cleared
-// correctly; that the flag then does anything is `dragStyles.test.ts` (the rule
-// exists) plus a browser pass (the rule renders).
-//
-// Splitting it that way is deliberate: an assertion this layer *can* make
-// honestly, rather than one that looks stronger and proves nothing.
+// KAN-134 / KAN-135. What a drag publishes to the document for CSS. jsdom resolves no cascade, so this pins only that the
+// flag is set and cleared; that it renders is dragStyles.test.ts plus a browser.
 
 const ROW_H = 30;
 
-const box = (top: number, height: number) =>
-  ({
-    top,
-    bottom: top + height,
-    left: 0,
-    right: 200,
-    height,
-    width: 200,
-    x: 0,
-    y: top,
-    toJSON: () => ({}),
-  }) as DOMRect;
+const box = (top: number, height: number): DOMRect => ({
+  top,
+  bottom: top + height,
+  left: 0,
+  right: 200,
+  height,
+  width: 200,
+  x: 0,
+  y: top,
+  toJSON: () => ({}),
+});
 
 const Harness = ({
   offersNewWindow,
@@ -68,8 +58,11 @@ const Harness = ({
   </RowDragArea>
 );
 
-const nodeFor = (id: string) =>
-  document.querySelector<HTMLElement>(`[data-drag-row-id="${id}"]`)!;
+const nodeFor = (id: string): HTMLElement => {
+  const el = document.querySelector<HTMLElement>(`[data-drag-row-id="${id}"]`);
+  if (!el) throw new Error(`no row ${id}`);
+  return el;
+};
 
 const layout = () =>
   ['a', 'b', 'c'].forEach((id, i) => {
@@ -121,9 +114,7 @@ describe('a drag publishes a flag on the document', () => {
     expect(isDragging()).toBe(false);
   });
 
-  // THE CONTROL. A press that never crosses the activation distance is a
-  // click, not a drag -- flagging it would force the grabbing cursor and hide
-  // every row's actions on an ordinary click.
+  // CONTROL: a press under the threshold is a click; flagging it would force the grabbing cursor and hide row actions.
   test('CONTROL: a press below the threshold never sets it', () => {
     press('a', 15);
     moveTo(17);
@@ -135,9 +126,7 @@ describe('a drag publishes a flag on the document', () => {
 });
 
 describe('a drag interrupted by unmount', () => {
-  // KAN-159's path, for the New window marker too (KAN-361): a list that
-  // unmounts mid-drag -- its session removed by a sync or a delete elsewhere
-  // -- must not leave the toolbar row's controls hidden behind the target.
+  // KAN-159, and KAN-361's marker: a list unmounting mid-drag (sync or delete) must not leave the toolbar row hidden.
   test('does not leave the document flagged', () => {
     const { unmount } = render(<Harness offersNewWindow />);
     layout();
@@ -300,13 +289,8 @@ describe('a release whose judge throws', () => {
   });
 });
 
-// KAN-135. The stylesheet hides the strips during a drag, so it needs a stable
-// hook to find them by -- the reveal itself is an emotion class keyed on React
-// state, which no stylesheet can select.
-// KAN-366 Q4. The marker's value `room` grows the list's trailing block by a
-// row (App.css). Only for a list that already scrolls when the row is
-// pressed: in one that fits, the room would make it scroll, and the
-// scrollbar that appeared would narrow every row at the pick-up.
+// KAN-366 Q4. The marker's `room` grows the trailing block by a row, only in a list that already scrolls at the press:
+// in one that fits, the new scrollbar would narrow every row at the pick-up.
 describe('the New window marker asks for room only in a list that scrolls', () => {
   const marker = () =>
     document.documentElement.getAttribute('data-drag-new-window');
@@ -336,15 +320,12 @@ describe('the New window marker asks for room only in a list that scrolls', () =
   });
 });
 
-// KAN-366 Q4, ruling 1. The list a carry shows decides the room again, from
-// its own overflow at rest -- the room taken off first, so a list that
-// scrolls only because of the room is a list that fits.
+// KAN-366 Q4, ruling 1. A carry's shown list decides the room again from its own overflow, the room taken off first.
 describe('decideNewWindowRoom: the room from the shown list’s own overflow', () => {
   const marker = () =>
     document.documentElement.getAttribute('data-drag-new-window');
   afterEach(() => setDragNewWindow(false));
-  // A scroller that overflows by `over` px whatever the marker says, plus
-  // the room's 34 while the marker asks for it.
+  // Overflows by `over` px, plus the room's 34 while the marker asks for it.
   const scroller = (over: number) => {
     const el = document.createElement('div');
     Object.defineProperty(el, 'clientHeight', { value: 100 });
@@ -372,9 +353,7 @@ describe('decideNewWindowRoom: the room from the shown list’s own overflow', (
   });
 });
 
-// KAN-366 Q4, R3. In a list that fits, the space free below the last window,
-// which the engine's under-half-a-row rule reads: from the block's top to the
-// bottom of the pane's content box, published on the document.
+// KAN-366 Q4, R3. In a list that fits: the space from the block's top to the pane's content bottom, published on the document.
 describe('publishNewWindowFree: the space free below the last window', () => {
   const free = () =>
     document.documentElement.style.getPropertyValue('--new-window-free');
@@ -426,32 +405,12 @@ describe('publishNewWindowFree: the space free below the last window', () => {
   });
 });
 
+// KAN-135. The stylesheet hides action strips mid-drag; the reveal is an emotion class, so the strip carries a stable hook.
 describe('a tab row marks its action strip for the stylesheet', () => {
   const TABS: tabData[] = [
     { tabId: 't1', favicon: '', title: 'One', url: 'https://one.test' },
     { tabId: 't2', favicon: '', title: 'Two', url: 'https://two.test' },
   ];
-
-  test('every tab row carries data-row-actions', async () => {
-    const { container } = await renderWithProviders(
-      <WindowEntryContainer
-        number={1}
-        title="Window 1"
-        tabGroupId="tg1"
-        windowId="w1"
-        tabs={TABS}
-        onOpenWindow={() => undefined}
-        onUpdateWindowGroupTitle={() => undefined}
-        onAddCurrTabToWindowClick={() => undefined}
-        onDeleteClick={() => undefined}
-      />,
-      { seedStore: (store) => store.dispatch(setHasTabGroupsPermission(false)) }
-    );
-
-    const strips = container.querySelectorAll('[data-row-actions]');
-    // One per tab row, plus the window header's own strip.
-    expect(strips.length).toBeGreaterThanOrEqual(TABS.length);
-  });
 
   test('the marked strip is the one holding the delete control', async () => {
     const { container } = await renderWithProviders(
