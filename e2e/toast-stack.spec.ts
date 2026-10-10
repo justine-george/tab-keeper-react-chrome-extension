@@ -264,10 +264,12 @@ test.describe('toasts stack (KAN-349)', () => {
     await expect(liveToasts(page)).toHaveCount(1, { timeout: 4500 });
     await expect(liveToasts(page).first()).toContainText(TAB_CLOSED);
 
-    // A second saved toast, then the pointer on the OLDER one, the offer:
-    // both hold, past either's time.
+    // A second saved toast, then the pointer on the stack -- collapsed, the
+    // newer toast in front (KAN-488) -- opens it, and the OLDER one, the
+    // offer, takes the pointer: both hold, past either's time.
     await saveWindowIn(block).click();
     await expect(liveToasts(page)).toHaveCount(2);
+    await liveToasts(page).last().hover();
     await liveToasts(page).first().hover();
     await page.waitForTimeout(10_000);
     await expect(liveToasts(page)).toHaveCount(2);
@@ -507,5 +509,98 @@ test.describe('toasts stack (KAN-349)', () => {
 
     await expect(rowsIn(block)).toHaveCount(2);
     expect(await storedSessionCount(page)).toBe(before);
+  });
+});
+
+// KAN-488. At rest the stack collapses: the newest toast in front, the older
+// ones peeking above it, narrower, content hidden. Hover opens it into test
+// 1's layout; leaving closes it again.
+test.describe('the stack collapses until hovered (KAN-488)', () => {
+  const boxesOf = (toasts: Locator) =>
+    Promise.all(
+      [0, 1, 2].map(async (i) => {
+        const box = await toasts.nth(i).boundingBox();
+        if (box === null) throw new Error(`toast ${i} has no box`);
+        return box;
+      })
+    );
+  const contentOpacity = (toasts: Locator) =>
+    Promise.all(
+      [0, 1, 2].map((i) =>
+        toasts
+          .nth(i)
+          .evaluate((el: Element) =>
+            Number(
+              el.firstElementChild === null
+                ? NaN
+                : getComputedStyle(el.firstElementChild).opacity
+            )
+          )
+      )
+    );
+
+  test('8. the newest in front, the older two peek above it; hovering opens the stack, leaving closes it', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId);
+    const { block } = await offerFromClose(page, serviceWorker);
+    // The pointer stays on Open now's ×, off the stack.
+    await clickInPlace(saveWindowIn(block));
+    await clickInPlace(saveAll(page));
+    const toasts = liveToasts(page);
+    await expect(toasts).toHaveCount(3);
+    await settled(page);
+
+    const shut = await boxesOf(toasts);
+    console.log(`[collapsed] ${JSON.stringify(shut)}`);
+    const [oldest, middle, newest] = shut;
+    // The newest in the corner, where the toast has always been.
+    expect(newest.y + newest.height).toBeCloseTo(TAB_VIEWPORT.height - EDGE, 0);
+    expect(newest.x).toBeCloseTo(EDGE, 0);
+    // Each older toast peeks above the one in front of it and ends behind it.
+    expect(middle.y).toBeLessThan(newest.y);
+    expect(oldest.y).toBeLessThan(middle.y);
+    for (const older of [oldest, middle]) {
+      expect(older.y + older.height).toBeLessThanOrEqual(
+        newest.y + newest.height
+      );
+      // Behind it, not above it: its bottom is under the front toast.
+      expect(older.y + older.height).toBeGreaterThan(newest.y);
+    }
+    // A peek is at most 8px, less what its narrowing takes off its top.
+    expect(newest.y - middle.y).toBeLessThanOrEqual(8);
+    expect(middle.y - oldest.y).toBeLessThanOrEqual(8);
+    expect(await contentOpacity(toasts)).toEqual([0, 0, 1]);
+    // The pointer on a peek is on the stack, so it opens it like the front toast.
+    const onPeek = await page.evaluate(
+      ({ x, y }) =>
+        document.elementFromPoint(x, y)?.closest('[role="status"]') !== null,
+      { x: newest.x + newest.width / 2, y: (oldest.y + middle.y) / 2 }
+    );
+    expect(onPeek).toBe(true);
+
+    // Hovering the front toast opens test 1's stack: every toast in full, 8px apart.
+    await page.mouse.move(newest.x + 20, newest.y + newest.height / 2);
+    await settled(page);
+    const opened = await boxesOf(toasts);
+    for (const i of [1, 2]) {
+      const gap = opened[i].y - (opened[i - 1].y + opened[i - 1].height);
+      expect(gap, `gap above toast ${i}`).toBeCloseTo(GAP, 0);
+    }
+    expect(await contentOpacity(toasts)).toEqual([1, 1, 1]);
+    // Collapsed, each was its full width less 5% per toast in front of it.
+    expect(shut[0].width / opened[0].width).toBeCloseTo(0.9, 2);
+    expect(shut[1].width / opened[1].width).toBeCloseTo(0.95, 2);
+    expect(shut[2].width).toBeCloseTo(opened[2].width, 0);
+
+    // Leaving closes it again.
+    await page.mouse.move(TAB_VIEWPORT.width - 10, 10);
+    await settled(page);
+    const again = await boxesOf(toasts);
+    expect(again.map((b) => Math.round(b.y))).toEqual(
+      shut.map((b) => Math.round(b.y))
+    );
   });
 });

@@ -182,3 +182,101 @@ describe('the Reopen hint follows the key (Q1 C′)', () => {
     expect(reopenButton().getAttribute('aria-keyshortcuts')).toBeNull();
   });
 });
+
+// KAN-488. At rest the stack sits collapsed: the newest toast in front, the
+// older ones peeking 8px apiece above it, narrower, their content hidden.
+// Hover or focus in the stack opens it into the full layout above.
+describe('the stack sits collapsed until hovered or focused (KAN-488)', () => {
+  // jsdom lays nothing out: every toast is 40px, so the open places are known.
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(40);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const transforms = () => liveToasts().map((el) => el.style.transform);
+  const OPEN = ['translateY(-96px)', 'translateY(-48px)', 'translateY(0px)'];
+  const COLLAPSED = [
+    'translateY(-16px) scale(0.9)',
+    'translateY(-8px) scale(0.95)',
+    'translateY(0px)',
+  ];
+  // Whether each toast's content shows, oldest first.
+  const contentShown = () =>
+    liveToasts().map((el) => {
+      const first = el.firstElementChild;
+      if (first === null) throw new Error('a toast with no content element');
+      return getComputedStyle(first).opacity !== '0';
+    });
+
+  async function three() {
+    const rendered = await renderWithProviders(<Toast />);
+    await show(rendered, TOAST_MESSAGES.TAB_CLOSED, { reopenOfferId: 1 });
+    await show(rendered, 'Two');
+    await show(rendered, 'Three');
+    return rendered;
+  }
+
+  test('at rest: the newest in front, the older two peek 8px and 16px above it, narrower, content hidden', async () => {
+    await three();
+    expect(transforms()).toEqual(COLLAPSED);
+    expect(contentShown()).toEqual([false, false, true]);
+    // Newest drawn over the older ones.
+    const z = liveToasts().map((el) => Number(el.style.zIndex));
+    expect(z[2]).toBeGreaterThan(z[1]);
+    expect(z[1]).toBeGreaterThan(z[0]);
+  });
+
+  test('hovering opens it into the full stack, and leaving closes it', async () => {
+    await three();
+    fireEvent.mouseEnter(liveToasts()[2]);
+    expect(transforms()).toEqual(OPEN);
+    expect(contentShown()).toEqual([true, true, true]);
+
+    fireEvent.mouseLeave(liveToasts()[2]);
+    expect(transforms()).toEqual(COLLAPSED);
+  });
+
+  test('focus on an older toast’s Reopen opens it; focus leaving the stack closes it', async () => {
+    await three();
+    const reopen = within(liveToasts()[0]).getByRole('button', {
+      name: 'Reopen',
+    });
+    act(() => reopen.focus());
+    expect(transforms()).toEqual(OPEN);
+
+    act(() => reopen.blur());
+    expect(transforms()).toEqual(COLLAPSED);
+  });
+
+  // The pointer was on the last toast when it left: no mouseleave ever comes.
+  test('a toast arriving after the stack emptied under the pointer sits collapsed', async () => {
+    const rendered = await three();
+    fireEvent.mouseEnter(liveToasts()[2]);
+    // PREMISE: open.
+    expect(transforms()).toEqual(OPEN);
+    act(() => {
+      rendered.store.dispatch(closePlainToasts());
+      rendered.store.dispatch(closeOfferToast(1));
+    });
+    expect(liveToasts()).toEqual([]);
+
+    await show(rendered, 'Four');
+    await show(rendered, 'Five');
+
+    expect(transforms()).toEqual([
+      'translateY(-8px) scale(0.95)',
+      'translateY(0px)',
+    ]);
+  });
+
+  test('one toast sits in place, collapsed or open', async () => {
+    const rendered = await renderWithProviders(<Toast />);
+    await show(rendered, 'Only');
+    expect(transforms()).toEqual(['translateY(0px)']);
+    expect(contentShown()).toEqual([true]);
+    fireEvent.mouseEnter(liveToasts()[0]);
+    expect(transforms()).toEqual(['translateY(0px)']);
+  });
+});
