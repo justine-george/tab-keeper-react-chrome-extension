@@ -49,6 +49,7 @@ import { isSampleSession } from '../../utils/functions/sampleSession';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
 import {
+  cloudSyncAllowed,
   recordSyncedNow,
   recordValueMoment,
   setAutoSync,
@@ -767,9 +768,9 @@ export const deleteCloudData = createAsyncThunk(
 
 /**
  * The tail every answer to "Load sessions from a backup" shares (KAN-252,
- * KAN-261): mark dirty, write to the cloud only with Auto Sync on (KAN-257 --
- * off, the container stays dirty and the next manual sync carries it, like
- * any edit), and say how it went. The local change is done and persisted
+ * KAN-261): mark dirty, write to the cloud only with Auto Sync on and consent
+ * given (KAN-257, KAN-415 -- otherwise the container stays dirty and the next
+ * allowed sync carries it, like any edit), and say how it went. The local change is done and persisted
  * before the write, so the toast reports the state of the WRITE --
  * requestStatus, not unwrap(): a rejection here is a sync problem, and "Error
  * restoring tabs" would be the one untrue thing to say.
@@ -785,8 +786,8 @@ async function finishBackupLoad(
   let syncFailed = false;
   if (changed) {
     thunkAPI.dispatch(setIsDirty());
-    const { isAutoSync } = (thunkAPI.getState() as RootState).settingsDataState;
-    if (isAutoSync) {
+    const { settingsDataState } = thunkAPI.getState() as RootState;
+    if (cloudSyncAllowed(settingsDataState)) {
       const saveResult = await thunkAPI.dispatch(saveToFirestoreIfDirty());
       syncFailed = saveResult.meta.requestStatus === 'rejected';
     }

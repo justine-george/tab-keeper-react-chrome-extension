@@ -11,7 +11,11 @@ import {
 } from '../../redux/slices/settingsCategoryStateSlice';
 import { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
 import { saveToFirestore } from '../../utils/functions/external';
-import { toggleAutoSync } from '../../redux/slices/settingsDataStateSlice';
+import {
+  declineCloudConsent,
+  grantCloudConsent,
+  toggleAutoSync,
+} from '../../redux/slices/settingsDataStateSlice';
 import { setSignedIn, setUserId } from '../../redux/slices/globalStateSlice';
 import {
   IMPORT_ERROR_FRAME,
@@ -191,7 +195,13 @@ describe('import sync failure (KAN-43)', () => {
     );
 
     const inputs = captureFileInput();
-    const { store } = await renderSyncAndBackup();
+    // Consent given, so the write is allowed and only the cloud refuses it.
+    const { store } = await renderWithProviders(<SettingsDetailsContainer />, {
+      seedStore: (s) => {
+        s.dispatch(selectCategory(SettingsCategory.SYNC));
+        s.dispatch(grantCloudConsent());
+      },
+    });
 
     await userEvent.click(
       await screen.findByText('Load sessions from a backup')
@@ -264,13 +274,14 @@ describe('import respects Auto Sync (KAN-257)', () => {
     expect(store.getState().globalState.isDirty).toBe(true);
   });
 
-  test('control: with Auto Sync on, the restore still writes once', async () => {
+  test('control: with Auto Sync on and consent given, the restore still writes once', async () => {
     const inputs = captureFileInput();
     const { store } = await renderWithProviders(<SettingsDetailsContainer />, {
       seedStore: (s) => {
         s.dispatch(selectCategory(SettingsCategory.SYNC));
         s.dispatch(setSignedIn());
         s.dispatch(setUserId('uuid-1'));
+        s.dispatch(grantCloudConsent());
       },
     });
 
@@ -286,4 +297,60 @@ describe('import respects Auto Sync (KAN-257)', () => {
       TOAST_MESSAGES.IMPORT_SUCCESS
     );
   });
+});
+
+// KAN-415. The same write checked Auto Sync alone, so with the sync question
+// unanswered (Auto Sync defaults on) a loaded backup went to the cloud with no
+// yes. Every other sync starter needs consent AND the flag (KAN-259).
+describe('import respects cloud consent (KAN-415)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.mocked(saveToFirestore).mockReset();
+  });
+
+  const cases = [
+    { consent: 'unanswered', seed: () => [] },
+    // Declining turns Auto Sync off; an older stored state can hold it on.
+    {
+      consent: 'declined',
+      seed: () => [declineCloudConsent(), toggleAutoSync()],
+    },
+  ] as const;
+
+  for (const { consent, seed } of cases) {
+    test(`with consent ${consent} and Auto Sync on, the restore is local: no write, container left dirty`, async () => {
+      const inputs = captureFileInput();
+      const { store } = await renderWithProviders(
+        <SettingsDetailsContainer />,
+        {
+          seedStore: (s) => {
+            s.dispatch(selectCategory(SettingsCategory.SYNC));
+            s.dispatch(setSignedIn());
+            s.dispatch(setUserId('uuid-1'));
+            for (const action of seed()) s.dispatch(action);
+          },
+        }
+      );
+      // PREMISE: Auto Sync on, consent not given.
+      const settings = store.getState().settingsDataState;
+      expect(settings.isAutoSync).toBe(true);
+      expect(settings.cloudConsent).toBe(
+        consent === 'declined' ? 'declined' : ''
+      );
+
+      await userEvent.click(
+        await screen.findByText('Load sessions from a backup')
+      );
+      dropFile(inputs[0], buildSmallBackup());
+
+      await waitFor(() => {
+        expect(newestToast(store.getState())?.text).toBe(
+          TOAST_MESSAGES.IMPORT_SUCCESS
+        );
+      });
+      expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
+      expect(saveToFirestore).not.toHaveBeenCalled();
+      expect(store.getState().globalState.isDirty).toBe(true);
+    });
+  }
 });
