@@ -1,28 +1,12 @@
 import { describe, expect, test } from 'vitest';
 
-// `?raw` rather than node:fs. tsconfig's `types` array omits "node"
-// deliberately -- its comment says so -- to stop src/ reaching for APIs that do
-// not exist in a browser, and a readFileSync here fails `tsc` for exactly that
-// reason. This resolves through the same bundler the app uses, so the file
-// asserted on is provably the file that ships.
+// `?raw`, not node:fs: tsconfig omits node types on purpose, and this is the same file the bundler ships.
 import appCss from '../../App.css?raw';
 
-// KAN-134 / KAN-135. The drag's two visual rules live in App.css rather than in
-// an emotion style, and that is deliberate — see the comments in the file.
-//
-// Asserted against the STYLESHEET TEXT, which is unusual and is the whole point.
-// The bug being guarded against is a declaration that is set and inert:
-// `setBodyGrabbing` really did set `document.body.style.cursor = 'grabbing'`,
-// the old test asserted exactly that and passed, and the user still saw
-// `pointer` — because `cursor` inherits and every row declares its own. jsdom
-// resolves no cascade, so no assertion about a rendered cursor is available at
-// this layer at all. Pinning the rule's existence is what is left; the rendered
-// effect is verified in a browser.
-//
-// Same shape as KAN-111, which asserted generated CSS because jsdom applies no
-// `:hover`.
+// KAN-134 / KAN-135. Asserted on the STYLESHEET TEXT: a cursor set on body was set and inert
+// (cursor inherits and every row declares its own), and jsdom resolves no cascade. The rendered effect is checked in a browser.
 
-// Collapse whitespace so the assertions do not depend on formatting.
+// Whitespace collapsed, so formatting cannot fail an assertion.
 const flat = appCss.replace(/\s+/g, ' ');
 
 describe('the drag stylesheet rules', () => {
@@ -37,21 +21,14 @@ describe('the drag stylesheet rules', () => {
     expect(flat).toMatch(/\[data-dragging\] \[data-row-actions\]/);
   });
 
-  // CONTROL. The rules must be scoped to a drag; unscoped, they would hide
-  // every row's actions and force a grabbing cursor permanently.
+  // CONTROL: unscoped, the rules would hide every row's actions and force the grabbing cursor for good.
   test('CONTROL: neither rule applies outside a drag', () => {
     expect(flat).not.toMatch(/(^|})\s*\* \{[^}]*cursor: grabbing/);
     expect(flat).not.toMatch(/(^|})\s*\[data-row-actions\] \{[^}]*opacity: 0/);
   });
 });
 
-// KAN-153. Dragging a WINDOW folds every window shut so the whole session fits
-// on screen while it is being rearranged.
-//
-// A stylesheet rule rather than lifted React state, and that is the design: no
-// component's open/closed state is touched, so "it comes back exactly how it
-// was" needs no bookkeeping and cannot be left half-applied by a drag that ends
-// in an unanticipated way.
+// KAN-153. A WINDOW drag folds every window, by stylesheet rule: no component state changes, so nothing can be left half-applied.
 describe('the window-drag collapse rule', () => {
   test('folds window tab lists away while a window is dragged', () => {
     expect(flat).toContain(
@@ -59,9 +36,7 @@ describe('the window-drag collapse rule', () => {
     );
   });
 
-  // THE SCOPE IS THE POINT. `[data-dragging]` matches whatever the value is, so
-  // an unscoped rule would fire during a TAB drag too and take the very rows
-  // being reordered out from under the pointer.
+  // `[data-dragging]` matches any value: unscoped, a TAB drag would hide the rows being reordered.
   test('and is scoped, so a tab drag does not hide its own rows', () => {
     expect(flat).not.toContain('[data-dragging] [data-window-tabs]');
   });
@@ -76,9 +51,7 @@ describe('the group-drag fold rule', () => {
     );
   });
 
-  // THE SCOPE IS THE POINT. Folding any group ABOVE the held one moves it off
-  // the cursor, and with main's pick-up rule the pick-up then opens refused
-  // (measured: 128px, KAN-161). Unkeyed, a tab drag would fold groups too.
+  // Folding a group ABOVE the held one moves it off the cursor, and the pick-up opens refused (measured: 128px, KAN-161).
   test('and nothing wider: not other groups, not other drag kinds', () => {
     expect(flat).not.toMatch(
       /\[data-dragging(='group')?\] \[data-group-tabs\]/
@@ -87,9 +60,7 @@ describe('the group-drag fold rule', () => {
   });
 });
 
-// KAN-321 O1a. Resizing Open now shows the resize cursor and selects nothing,
-// wherever the pointer strays. The same shape as the drag rule, for the same
-// KAN-134 reason: a flag and a descendant rule, never body.style.
+// KAN-321 O1a. Resizing Open now shows the resize cursor and selects nothing: a flag and a descendant rule, never body.style (KAN-134).
 describe('the Open now resize rule', () => {
   const rule = flat.match(/\[data-resizing\] \* \{[^}]*\}/)?.[0] ?? '';
 

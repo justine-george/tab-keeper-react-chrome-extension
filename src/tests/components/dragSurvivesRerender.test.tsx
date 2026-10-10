@@ -18,24 +18,10 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import { isDragHeld } from '../../redux/dragHold';
 
-// KAN-159. A drag must survive the list re-rendering underneath it.
-//
-// The area's listener effect cleared the document's drag flag in its cleanup.
-// That was written for UNMOUNT -- "a drag interrupted by unmount must not leave
-// the document stuck in grabbing" -- but React runs an effect's cleanup every
-// time its inputs change, too. So anything that handed the area a new rowIds
-// or onMove mid-drag cleared the flag while the row was still held.
-//
-// Measured in the popup: the app rewrote the session data ~450ms into a window
-// drag (the startup sync landing), all seven drag areas re-ran their effects in
-// the same commit, and data-dragging vanished with the row still in hand. The
-// windows unfolded under the pointer, the grabbing cursor went, the row actions
-// came back, and the drag carried on against rects measured in the folded
-// layout. Started after the app settled, the same drag kept its flag
-// throughout -- which is why it looked intermittent.
-//
-// The same cleanup also cleared the flag when a DIFFERENT area re-rendered or
-// unmounted, so a tab list unmounting could end a window drag's fold.
+// KAN-159. A drag must survive the list re-rendering under it. The listener effect's cleanup cleared the drag flag, and React
+// runs cleanup on every input change, not only unmount. Measured in the popup: the startup sync rewrote the sessions ~450ms into a
+// window drag, every area re-ran its effects, and data-dragging vanished with the row in hand -- the windows unfolded and the drag
+// went on against folded rects. A different area re-rendering or unmounting cleared it too.
 
 const ROW_H = 30;
 const box = (top: number, height: number): DOMRect => ({
@@ -91,8 +77,7 @@ const startDrag = (label: string) => {
 };
 
 describe('a re-render mid-drag keeps the drag alive', () => {
-  // Same ids, NEW ARRAY: exactly what a store update that rebuilds the
-  // container does to every memoised id list.
+  // Same ids, NEW ARRAY: what a store update that rebuilds the container does to every memoised id list.
   test('a new rowIds array: still flagged, and the drop still lands', () => {
     const onMove = vi.fn();
     const { rerender } = render(<Area ids={['a', 'b', 'c']} onMove={onMove} />);
@@ -120,8 +105,7 @@ describe('a re-render mid-drag keeps the drag alive', () => {
 });
 
 describe('another area cannot end this drag', () => {
-  // The tab list of one window unmounting -- deleting it, or the window
-  // collapsing by hand -- while a session drag is live elsewhere.
+  // One window's tab list unmounting (deleted, or collapsed by hand) while a session drag is live elsewhere.
   test('an area that is not dragging unmounts: the flag stays', () => {
     const Page = ({ showOther }: { showOther: boolean }) => (
       <>
@@ -141,9 +125,7 @@ describe('another area cannot end this drag', () => {
   });
 });
 
-// The real trigger, through the real component: a store update that rebuilds
-// the session data with UNCHANGED content, as a sync that finds nothing new
-// does. restoreContainer rebuilds the container and every id list below it.
+// The real trigger: a store update rebuilding the sessions with UNCHANGED content, as a sync that finds nothing new does.
 describe('a store update landing mid-drag', () => {
   const win = (id: string) => ({
     windowId: id,
@@ -197,18 +179,13 @@ describe('a store update landing mid-drag', () => {
     fireEvent.pointerMove(document, { clientX: 10, clientY: 30 });
     expect(flag()).toBe('window');
 
-    // A DEEP COPY, because that is what a sync delivers: the cloud document
-    // parsed from JSON -- the same content, every object new. Passing the
-    // current state back instead keeps the session's identity, the memoised id
-    // list never changes, and this test passed against the broken code. The
-    // memo in TabGroupDetailsContainer was the earlier mitigation for this
-    // exact bug; it only holds while the session object survives.
+    // A DEEP COPY, as a sync delivers: passing current state back keeps the session's identity, the id list never changes,
+    // and this test passed against the broken code.
     const before = store.getState().tabContainerDataState;
     act(() => {
       store.dispatch(restoreContainer(JSON.parse(JSON.stringify(before))));
     });
-    // The premise: the selected session really is a new object now. Without
-    // it, "still flagged" could just mean nothing re-rendered.
+    // PREMISE: the selected session is a new object, or "still flagged" could mean nothing re-rendered.
     const selected = (s: typeof before) =>
       s.tabGroups.find((g) => g.tabGroupId === 'g1');
     expect(selected(store.getState().tabContainerDataState)).not.toBe(

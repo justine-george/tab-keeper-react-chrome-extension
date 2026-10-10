@@ -7,19 +7,9 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
 
-// A drag must not also open the tab it moved.
-//
-// Chrome synthesizes a `click` after `mouseup`, and the held row is translated
-// to follow the pointer, so the row is still the target at release. Measured in
-// the real popup: the click reaches the row's ClickableRow and opens the tab --
-// but ONLY when the drop commits no reorder. A committed move makes React move
-// the DOM node during the pointerup handler, before the click is dispatched,
-// which is what swallowed it and made the bug look intermittent. The drags that
-// move nothing are precisely the ones that open a tab.
-//
-// jsdom does not synthesize a click from a pointer sequence, so the click is
-// dispatched explicitly here -- which is exactly what the browser does, and
-// what the suppression has to intercept.
+// A drag must not also open the tab it moved. Chrome dispatches a click after mouseup on the held row. Measured in the
+// popup: it opens the tab ONLY when the drop moves nothing -- a committed move re-parents the node first -- so it looked
+// intermittent. jsdom synthesizes no click, so it is dispatched here, as the browser does.
 
 const TABS: tabData[] = [
   { tabId: 't1', favicon: '', title: 'One', url: 'https://one.test' },
@@ -29,10 +19,7 @@ const TABS: tabData[] = [
 
 const render = () =>
   renderWithProviders(
-    // A window renders no tab list of its own any more (KAN-132): the pane
-    // always provides it. This harness gives it one, the same shape
-    // TabGroupDetailsContainer uses, so the drag under test has somewhere to
-    // start.
+    // A window renders no tab list of its own (KAN-132); this gives it TabGroupDetailsContainer's shape.
     <TabDragArea
       tabList={{
         tabGroupId: 'tg1',
@@ -75,8 +62,7 @@ describe('a drag does not also open the tab', () => {
     spy = () => {
       seen += 1;
     };
-    // Bubble phase on document is where React's root delegation sits, so a
-    // click this listener never sees is a click no row handler runs on.
+    // Bubble phase on document, where React delegates: a click this misses, no row handler runs on.
     document.addEventListener('click', spy);
   });
 
@@ -85,8 +71,7 @@ describe('a drag does not also open the tab', () => {
     vi.useRealTimers();
   });
 
-  // THE CONTROL. Without it, a suppression that swallowed EVERY click would
-  // pass the test below while breaking the pane's primary action.
+  // CONTROL: a suppression that swallowed EVERY click would pass the test below.
   test('CONTROL: a plain click with no drag still reaches the row', async () => {
     await render();
     const node = draggableFor('Two');
@@ -112,8 +97,7 @@ describe('a drag does not also open the tab', () => {
     expect(seen).toBe(1);
   });
 
-  // The suppression must be spent by the drag it belongs to. Left armed, the
-  // NEXT ordinary click on any row would be eaten instead.
+  // Spent by its own drag: left armed, it would eat the NEXT ordinary click.
   test('only the one click is swallowed, not the next one', async () => {
     await render();
     const node = draggableFor('Two');

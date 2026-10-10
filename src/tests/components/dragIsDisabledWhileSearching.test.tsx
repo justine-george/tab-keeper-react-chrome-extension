@@ -14,20 +14,9 @@ import {
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
-// KAN-131. A drag reports a position in the list ON SCREEN; the reducers apply
-// it to the list in the STORE. Those are the same list right up until a search
-// narrows the rendered one -- filterTabGroups drops non-matching tabs from a
-// window and non-matching windows from a session (local.ts:133-160) -- and then
-// the index crosses a boundary between two different arrays.
-//
-// The failure is silent and it is not a no-op: the computed target genuinely
-// differs from the source index, so the move commits, stamps the session and
-// queues a cloud write, landing the row somewhere the user never pointed at.
-//
-// jsdom reports every rect as zero, so the rows are given real boxes below --
-// otherwise every row would share a midpoint of 0 and the landing index would
-// be the same number however the pointer moved, which would make the CONTROLS
-// prove nothing.
+// KAN-131. A drag reports an index in the list ON SCREEN; reducers apply it to the list in the STORE. A search narrows the
+// rendered list, the index crosses arrays, and the move commits somewhere the user never pointed -- silently, with a cloud write.
+// Rows get real boxes below: in jsdom every midpoint is 0 and the CONTROLS would prove nothing.
 const ROW_H = 30;
 
 const box = (top: number, height: number): DOMRect => ({
@@ -42,8 +31,7 @@ const box = (top: number, height: number): DOMRect => ({
   toJSON: () => ({}),
 });
 
-// Two of the four tabs match "match", so a search leaves a window rendering
-// half its stored tabs.
+// Two of the four tabs match "match", so a search renders half the window.
 const buildSession = () => ({
   tabGroupId: 'group-1',
   title: 'Research',
@@ -90,17 +78,12 @@ const render = (searchText?: string) =>
       if (searchText !== undefined) {
         store.dispatch(setSearchInputText(searchText));
       }
-      // Saving the session dirtied it on the way in. Without this reset the
-      // dirty assertion below would be reading the seed rather than the drag,
-      // and would fail against correct code.
+      // Saving dirtied it: reset, so the dirty assertion reads the drag, not the seed.
       store.dispatch(setIsNotDirty());
     },
   });
 
-// Only the tab rows: the window list and the group list (KAN-160) add
-// draggable nodes of their own, and giving those boxes here would put them in
-// the same coordinate space as the tabs. The group list's ids are prefixed
-// `tab:` / `group:`, so a bare `^="t"` would also match `tab:t1`.
+// Only the tab rows: other lists' rows would share their coordinates, and a bare ^="t" would match `tab:t1`.
 const layoutTabRows = (container: HTMLElement): HTMLElement[] => {
   const rows = [
     ...container.querySelectorAll<HTMLElement>(
@@ -130,9 +113,7 @@ afterEach(() => {
 });
 
 describe('a tab drag inside a filtered list', () => {
-  // THE CONTROL. Without it a guard that disabled dragging outright -- or a
-  // harness whose pointer events never reached the area at all -- would pass
-  // the test below while proving nothing.
+  // CONTROL: a guard that disabled dragging outright, or events that never reached the area, would pass the test below.
   test('CONTROL: with no search running, the same drag does reorder', async () => {
     const { container, store } = await render();
     const rows = layoutTabRows(container);
@@ -167,8 +148,7 @@ describe('a tab drag inside a filtered list', () => {
     expect(storedTabIds(store)).toEqual(['t4', 't1', 't2', 't3']);
   });
 
-  // The gate is the text (KAN-385): clearing it ends the search and hands the
-  // drag back. Without this, disabling dragging for good would pass the rest.
+  // The gate is the text (KAN-385): clearing it hands the drag back. Disabling dragging for good would pass the rest.
   test('CONTROL: clearing the box allows dragging again', async () => {
     const { container, store } = await render('match');
     // act, because a bare dispatch after render does not flush.

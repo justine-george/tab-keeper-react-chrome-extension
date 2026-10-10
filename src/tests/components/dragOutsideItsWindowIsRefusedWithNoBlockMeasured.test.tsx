@@ -13,33 +13,11 @@ import {
   setIsNotDirty,
 } from '../../redux/slices/globalStateSlice';
 
-// KAN-132. THIS IS A PROPERTY OF THIS HARNESS, NOT OF THE PRODUCT. Moving a
-// tab between windows on a real release IS built now -- see
-// e2e/cross-window-drag.spec.ts for what a release over another window's
-// block actually does there.
-//
-// `layout` below stubs a rect for every ROW, but never for the window blocks
-// WindowEntryContainer renders around them (`[data-drop-window-id]`): those
-// keep jsdom's default zero-area rect, so no pointer position ever lands
-// inside one and landingBlock (RowDragArea.tsx) always answers null. With
-// no block to land in, every release here falls back to the held row's OWN
-// window (dropRules.isInsideList), and a release deep inside window B's rows
-// is outside window A's own rows-plus-slack -- so it is refused, the same
-// answer this harness gave before KAN-132 existed, when saturation rather than
-// a missing block was the reason:
-//
-//   window A   wA-t1, wA-t2, wA-t0      <- moved, and not where anyone pointed
-//   window B   wB-t0, wB-t1             <- untouched
-//   isDirty    true
-//
-// That saturation is gone -- moveTabAcrossWindowsInternal exists now -- but a
-// harness that measures no second window's block can never reach it. What
-// these tests pin is the guard's OTHER path: refusing a release with nowhere
-// to land, rather than dropping it to the bottom of its own window. The drop
-// is bounded by the rows the area MEASURED AT DRAG START -- not by the
-// container's rect read at drop time, which by then reflects the shifts the
-// drag itself applied, and would be compared against a toIndex derived from
-// pre-drag positions.
+// KAN-132. A PROPERTY OF THIS HARNESS, NOT THE PRODUCT (cross-window drops: e2e/cross-window-drag.spec.ts).
+// `layout` stubs every row's rect but no window block, so landingBlock finds none and a release falls back to the held row's
+// own window (isInsideList). Deep in window B's rows that is outside A's rows-plus-slack, so it is refused. Pinned here: a release
+// with nowhere to land is refused, not dropped to the bottom of its own window -- bounded by the rows measured at drag start,
+// not the container rect read at drop, which already holds the drag's own shifts.
 
 const box = (top: number, height: number): DOMRect => ({
   top,
@@ -80,8 +58,7 @@ const buildSession = () => ({
   windows: [win('wA', 'Window A', 3), win('wB', 'Window B', 2)],
 });
 
-// Window A's three tabs tile [0,60); window B's two tile [200,240). The gap is
-// where B's header sits.
+// Window A's three tabs tile [0,60); window B's two tile [200,240). B's header sits in the gap.
 const TAB_H = 20;
 const A_TABS = ['wA-t0', 'wA-t1', 'wA-t2'];
 const B_TABS = ['wB-t0', 'wB-t1'];
@@ -145,8 +122,7 @@ describe('a tab released outside its own window, with no block measured to land 
     expect(store.getState().globalState.isDirty).toBe(false);
   });
 
-  // THE CONTROL. Without it, an area that refused every drop would pass the
-  // test above while breaking the feature outright.
+  // CONTROL: an area that refused every drop would pass the test above.
   test('CONTROL: the same tab still reorders inside its own window', async () => {
     const { container, store } = await render();
     const node = layout(container);
@@ -156,10 +132,7 @@ describe('a tab released outside its own window, with no block measured to land 
     expect(tabsOf(store, 0)).toEqual(['wA-t1', 'wA-t2', 'wA-t0']);
   });
 
-  // THE OTHER CONTROL, and the one that decides where the boundary sits.
-  // "Drag to the end of the list" is a real gesture and people overshoot the
-  // last row slightly while doing it. The slack is half the held row, so a drop
-  // just past the last row's bottom is still a move, not a no-op.
+  // CONTROL, and where the boundary sits: the slack is half the held row, so a slight overshoot past the last row still moves it.
   test('CONTROL: overshooting the last row slightly still lands at the end', async () => {
     const { container, store } = await render();
     const node = layout(container);
@@ -170,10 +143,7 @@ describe('a tab released outside its own window, with no block measured to land 
     expect(tabsOf(store, 0)).toEqual(['wA-t1', 'wA-t2', 'wA-t0']);
   });
 
-  // The user dragged. They did not ask to open the tab, so the click Chrome
-  // synthesizes afterwards must still be swallowed even though nothing moved --
-  // and a refused drop is exactly the case that commits no reorder, which is
-  // what makes the click reach the row in the first place.
+  // The user dragged, not asked to open the tab: a refused drop commits nothing, so its click would reach the row unless swallowed.
   test('the click after a refused drop is still swallowed', async () => {
     const { container, chrome } = await render();
     const node = layout(container);
