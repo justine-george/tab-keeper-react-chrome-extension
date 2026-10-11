@@ -10,7 +10,7 @@ import {
 import { openPopup, storedSettings } from './fixtures/onboarding';
 import { escapesPrevented, watchEscapes } from './fixtures/escapeProbe';
 import { hasCloudConfig } from './fixtures/cloud';
-import { cardAt, cardButton } from './fixtures/run';
+import { cardAt, cardButton, closeReplayNote } from './fixtures/run';
 
 // KAN-426. Chrome closes the popup on an Esc keydown the page leaves unprevented, so each dialog's Esc must be
 // prevented and still do what it did. Headless cannot show the popup closing; the prevented keydown is the proof.
@@ -63,6 +63,7 @@ test.describe('a new install', () => {
       .click();
     await expect(cardAt(page, 1)).toBeVisible();
     await cardButton(page, 'Skip tutorial').click();
+    await closeReplayNote(page);
     await page.locator('[aria-label="Settings"]').click();
     await page.locator('button[aria-label="Sync & Backup"]').click();
     await autoSync(page, 'On').click();

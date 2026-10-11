@@ -8,8 +8,10 @@ import { selectIsSavedSessionFolded } from './savedSessionFold';
 import {
   closeCloudConsentModal,
   closeFullViewCallout,
+  closeReplayNote,
   closeSettingsPage,
   openCloudConsentModal,
+  openReplayNote,
   runShownHere,
   runStoppedHere,
   setRunSaveCard,
@@ -406,14 +408,29 @@ export const endRun =
     dispatch(stopRunHere());
   };
 
-// The last step done; a full-view run goes on to setup (begun for an upgrader), then the pin guide.
+// KAN-499. Skip tutorial or Esc: the run ends here, and the note says where to see it again.
+export const skipRun = (): Thunk<void> => (dispatch, getState) => {
+  const run = selectRunHere(getState());
+  dispatch(endRun('skipped'));
+  if (run !== null) dispatch(openReplayNote({ leadsToSetup: false }));
+};
+
+// The last step done, then the note; a full-view run goes on to setup (begun for an upgrader) once the note closes.
 export const finishRunHere =
   (): Thunk<Promise<void>> => async (dispatch, getState) => {
     const run = selectRunHere(getState());
     dispatch(endRun('finished'));
-    if (run === null || run.view !== 'full') return;
-    dispatch(beginSetup());
-    await dispatch(followWithSetup());
+    if (run === null) return;
+    if (run.view === 'full') dispatch(beginSetup());
+    dispatch(openReplayNote({ leadsToSetup: run.view === 'full' }));
+  };
+
+// Got it or Esc on the note.
+export const leaveReplayNote =
+  (): Thunk<Promise<void>> => async (dispatch, getState) => {
+    const leadsToSetup = getState().globalState.doesReplayNoteLeadToSetup;
+    dispatch(closeReplayNote());
+    if (leadsToSetup) await dispatch(followWithSetup());
   };
 
 // Pins Tab Keeper's own tab and turns on pinning in new windows; a refusal pins nothing, and the run ends either way.

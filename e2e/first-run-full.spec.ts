@@ -18,10 +18,12 @@ import {
   cardButton,
   cardSide,
   centreOf,
+  closeReplayNote,
   hello,
   hitAt,
   nextTo,
   openRunFromHelp,
+  replayNote,
   runDrawn,
   seedSessionsIfAbsent,
   startRunFromHelp,
@@ -131,11 +133,60 @@ test('Help starts at card 1 with no Hello; the eight cards in their places, Back
   await expect(cardButton(page, 'Skip tutorial')).toHaveCount(0);
   expect(await opened()).toBe(0);
   await cardButton(page, 'Not now').click();
+  await closeReplayNote(page);
   await expect(card(page)).toHaveCount(0);
   await expect
     .poll(() => storedRun(page))
     .toMatchObject({ view: 'full', ended: 'finished' });
   await expect.poll(() => storedTitles(page)).toEqual([]);
+});
+
+// KAN-500. Under 1100px Open now is the rail: one button, with search and « in its drawer.
+test('step 2 on the narrow rail names the rail’s button, not a search field, edge or «', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSettings(context, { foldSavedSessionInTabView: false });
+  const page = await openRunFromHelp(context, extensionId, {
+    ...FULL_RUN,
+    viewport: { width: 1000, height: 800 },
+  });
+  await nextTo(page, 2);
+  await expect(
+    page.locator('[data-pane="open-now"] [data-open-now-search]')
+  ).toHaveCount(0);
+  await expect(card(page)).toContainText(
+    'Open now is tucked in here while the window is narrow. Press'
+  );
+  await expect(card(page)).toContainText('to see and search every open tab.');
+  await expect(card(page)).not.toContainText('Search here');
+  await expect(card(page)).not.toContainText('Drag the edge');
+  await expect(
+    card(page).getByRole('img', { name: 'Open now', exact: true })
+  ).toHaveText('tab');
+});
+
+// KAN-500. The card offers the edge exactly where the grip is drawn, and follows a resize across 1316px.
+test('step 2 side by side: the edge only in a window wide enough for the grip', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSettings(context, { foldSavedSessionInTabView: false });
+  const page = await openRunFromHelp(context, extensionId, FULL_RUN);
+  const grip = page.locator('[data-resize-grip]');
+  await page.setViewportSize({ width: 1400, height: 800 });
+  await nextTo(page, 2);
+  await expect(grip).toHaveCount(1);
+  await expect(card(page)).toContainText(
+    'Drag the edge to make this wider, or press'
+  );
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(grip).toHaveCount(0);
+  await expect(card(page)).not.toContainText('Drag the edge');
+  await expect(card(page)).toContainText('to give Open now the whole view.');
+  await page.setViewportSize({ width: 1400, height: 800 });
+  await expect(grip).toHaveCount(1);
+  await expect(card(page)).toContainText('Drag the edge');
 });
 
 test('step 2 in the default folded view names the fold button it shows, and pressing it unfolds with the card still at step 2', async ({
@@ -167,8 +218,11 @@ test('step 2 in the default folded view names the fold button it shows, and pres
     .toBe(false);
   await expect(page.locator('[data-pane="detail"]')).toBeVisible();
   await expect(cardAt(page, 2)).toBeVisible();
+  // KAN-500. 1280px leaves no range to drag through: no grip, so no edge in the card.
+  await expect(page.locator('[data-resize-grip]')).toHaveCount(0);
+  await expect(card(page)).not.toContainText('Drag the edge');
   await expect(card(page)).toContainText(
-    'Drag the edge to make this wider, or press'
+    'Search here to find an open tab fast. Press'
   );
   await expect(card(page)).toContainText('to give Open now the whole view.');
   await expect(glyph('Fold the saved session away')).toBeVisible();
@@ -429,6 +483,7 @@ test('Next onto the save step glides the card there and never lifts the dim (KAN
   expect(await motion()).toEqual(['glide']);
   // CONTROL: the same observer sees the dim lifted when the run ends.
   await cardButton(page, 'Skip tutorial').click();
+  await closeReplayNote(page);
   await expect(card(page)).toHaveCount(0);
   expect(await lifted()).toBe(true);
 });
@@ -450,7 +505,7 @@ test('Pin this tab pins this tab and ends the run', async ({
   await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'finished' });
 });
 
-test('Esc on a middle card is Skip tutorial; on the last it is Not now (R5); both prevented', async ({
+test('Esc on a middle card is Skip tutorial; on the last it is Not now (R5); on the note it closes it; all prevented', async ({
   context,
   extensionId,
 }) => {
@@ -458,6 +513,9 @@ test('Esc on a middle card is Skip tutorial; on the last it is Not now (R5); bot
   const page = await openRunFromHelp(context, extensionId, FULL_RUN);
   await page.keyboard.press('Escape');
   await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'skipped' });
+  await expect(replayNote(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(replayNote(page)).toHaveCount(0);
   await startRunFromHelp(page);
   await expect(cardAt(page, 1)).toBeVisible();
   for (let step = 2; step <= 3; step++) await nextTo(page, step);
@@ -465,7 +523,10 @@ test('Esc on a middle card is Skip tutorial; on the last it is Not now (R5); bot
   for (let step = 5; step <= 8; step++) await nextTo(page, step);
   await page.keyboard.press('Escape');
   await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'finished' });
-  expect(await escapesPrevented(page)).toEqual([true, true]);
+  await expect(replayNote(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(replayNote(page)).toHaveCount(0);
+  expect(await escapesPrevented(page)).toEqual([true, true, true, true]);
 });
 
 test('Esc on Hello is Skip tutorial, and is prevented (KAN-426)', async ({

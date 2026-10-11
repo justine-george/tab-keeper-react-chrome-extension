@@ -15,7 +15,8 @@ import {
 export function useCardMotion(
   markRef: RefObject<HTMLElement | null>,
   ringRef: RefObject<HTMLElement | null>,
-  step: number,
+  // Null for a card outside the run's steps: it appears, and never glides.
+  step: number | null,
   frame: CoachFrame | null
 ): void {
   const running = useRef<Animation[]>([]);

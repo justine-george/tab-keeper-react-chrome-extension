@@ -9,7 +9,7 @@ import {
   seedSettings,
 } from './fixtures/seed';
 import { storedSettings } from './fixtures/onboarding';
-import { cardAt, cardButton } from './fixtures/run';
+import { cardAt, cardButton, closeReplayNote } from './fixtures/run';
 import { rgbToHex } from './fixtures/pixels';
 import { mixHex } from '../src/styles/mixHex';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
@@ -83,6 +83,7 @@ test.describe('the cloud question (KAN-259)', () => {
       // §4. Stay here starts the popup run; Skip tutorial leaves the popup plain.
       await expect(cardAt(page, 1)).toBeVisible();
       await cardButton(page, 'Skip tutorial').click();
+      await closeReplayNote(page);
 
       await page.locator('[aria-label="Settings"]').click();
       await page.locator('button[aria-label="Sync & Backup"]').click();
@@ -112,6 +113,7 @@ test.describe('the cloud question (KAN-259)', () => {
         .click();
       await expect(cardAt(first, 1)).toBeVisible();
       await cardButton(first, 'Skip tutorial').click();
+      await closeReplayNote(first);
 
       const again = await openPopup(context, extensionId);
       await expect(again.locator('[aria-label="Settings"]')).toBeVisible();
@@ -131,6 +133,7 @@ test.describe('the cloud question (KAN-259)', () => {
         .click();
       await expect(cardAt(page, 1)).toBeVisible();
       await cardButton(page, 'Skip tutorial').click();
+      await closeReplayNote(page);
       await page.locator('[aria-label="Settings"]').click();
       await page.locator('button[aria-label="Sync & Backup"]').click();
       await page
