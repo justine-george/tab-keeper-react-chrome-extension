@@ -13,6 +13,8 @@ import {
   FULL_RUN,
   cardAt,
   cardButton,
+  closeReplayNote,
+  replayNote,
   runCheck,
   storedRun,
   walkFullRunToLastStep,
@@ -90,6 +92,10 @@ test('Not now at step 8: setup, then on Skip setup the pin guide', async ({
   const seen = await watchDialogs(page);
   await walkFullRunToLastStep(page);
   await cardButton(page, 'Not now').click();
+  // KAN-499. The note first, and setup only once it closes.
+  await expect(replayNote(page)).toBeVisible();
+  await expect(dialogNamed(page, SETUP)).toHaveCount(0);
+  await closeReplayNote(page);
   await expect(dialogNamed(page, SETUP)).toBeVisible();
   await expect(dialogNamed(page, GUIDE)).toHaveCount(0);
   await skipSetup(page).click();
@@ -107,6 +113,7 @@ test('pinned: setup, and nothing after it', async ({
   const seen = await watchDialogs(page);
   await walkFullRunToLastStep(page);
   await cardButton(page, 'Pin this tab').click();
+  await closeReplayNote(page);
   await expect(dialogNamed(page, SETUP)).toBeVisible();
   await skipSetup(page).click();
   await expect(page.locator('dialog:modal')).toHaveCount(0);
@@ -115,7 +122,7 @@ test('pinned: setup, and nothing after it', async ({
   expect(await seen()).toEqual([SETUP]);
 });
 
-test('Skip tutorial: nothing opens after it (R8)', async ({
+test('Skip tutorial: the note, and nothing opens after it (R8, KAN-499)', async ({
   context,
   extensionId,
 }) => {
@@ -124,6 +131,7 @@ test('Skip tutorial: nothing opens after it (R8)', async ({
   const seen = await watchDialogs(page);
   await cardButton(page, 'Skip tutorial').click();
   await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'skipped' });
+  await closeReplayNote(page);
   expect(await seen()).toEqual([]);
   await expect(page.locator('dialog:modal')).toHaveCount(0);
   expect((await storedSettings(page)).setupState).toBe('none');

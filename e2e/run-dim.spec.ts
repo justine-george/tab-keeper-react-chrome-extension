@@ -20,6 +20,7 @@ import {
   hitAt,
   nextTo,
   openRunFromHelp,
+  replayNote,
   runDrawn,
   storedRun,
   storedTitles,
@@ -154,7 +155,9 @@ for (const view of RUN_VIEWS) {
       await twoFrames(page);
       await expect(cardAt(page, 1)).toBeVisible();
       expect(await homeLeft()).toBe(false);
-      // CONTROL: with the run gone, the same press opens Settings, and the observer sees it.
+      // CONTROL: with the run and its note gone, the same press opens Settings, and the observer sees it.
+      await page.keyboard.press('Escape');
+      await expect(replayNote(page)).toBeVisible();
       await page.keyboard.press('Escape');
       await expect(card(page)).toHaveCount(0);
       await page.mouse.click(x, y);

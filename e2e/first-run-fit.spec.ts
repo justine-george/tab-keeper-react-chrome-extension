@@ -23,6 +23,7 @@ import {
   centreOf,
   hello,
   nextTo,
+  replayNote,
   seedRawSettingsIfAbsent,
   seedSessionsIfAbsent,
   startRunFromHelp,
@@ -121,6 +122,45 @@ const settle = (root: Locator) =>
     )
     .toBe(0);
 
+// KAN-499. Settings → Help → Show me around wraps only after an arrow, whatever the language.
+async function expectPathWhole(
+  note: Locator,
+  say: (key: string) => string,
+  lang: string
+) {
+  const path = [say('Settings'), say('Help'), say('Show me around')].join(
+    '\u00a0→ '
+  );
+  const breaks = await note
+    .locator('p')
+    .first()
+    .evaluate((p, path) => {
+      const text = p.textContent ?? '';
+      const start = text.indexOf(path);
+      if (start < 0) return null;
+      const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+      const tops: number[] = [];
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        for (let i = 0; i < (node.textContent ?? '').length; i++) {
+          const range = document.createRange();
+          range.setStart(node, i);
+          range.setEnd(node, i + 1);
+          tops.push(Math.round(range.getBoundingClientRect().top));
+        }
+      }
+      // Each line start inside the path, as the two characters before it.
+      const before: string[] = [];
+      for (let i = start + 1; i < start + path.length; i++) {
+        if (tops[i] > tops[i - 1]) before.push(text.slice(i - 2, i));
+      }
+      return before;
+    }, path);
+  expect(breaks, `${lang}: the path is in the note`).not.toBeNull();
+  for (const pair of breaks ?? []) {
+    expect(pair, `${lang}: the path breaks only after an arrow`).toBe('→ ');
+  }
+}
+
 // Inside the window; no element or line of text wider than the root or out of its own box; no sideways scroll.
 async function expectFits(root: Locator, label: string) {
   await settle(root);
@@ -207,6 +247,35 @@ for (const lang of LANGS) {
       await rootAt(context, ROOT_PX);
     });
 
+    // KAN-500. Under 1100px, side by side, Open now is the rail: step 2 names its button.
+    test('full view on the narrow rail: step 2 fits and names the rail’s button', async ({
+      context,
+      extensionId,
+    }) => {
+      await seedRawSettingsIfAbsent(context, {
+        ...SETTLED,
+        language: lang,
+        foldSavedSessionInTabView: false,
+      });
+      const page = await openIn(context, extensionId, {
+        ...FULL_RUN,
+        viewport: { width: 1000, height: 800 },
+      });
+      await expectRootTook(page);
+      await startRunFromHelp(page, say);
+      await expect(cardAt(page, 1)).toBeVisible();
+      await press(card(page), say('Next'));
+      await expect(cardAt(page, 2)).toBeVisible();
+      await expect(card(page)).toContainText(
+        lead(
+          say(
+            'Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.'
+          )
+        )
+      );
+      await expectFits(card(page), `${lang} rail step 2`);
+    });
+
     for (const view of [POPUP_RUN, FULL_RUN]) {
       test(`${view.name}: Hello, every card, and the save card after a save fit; footers wrap inside`, async ({
         context,
@@ -250,6 +319,11 @@ for (const lang of LANGS) {
           await expectFits(card(page), `${lang} ${view.name} saved line`);
           await press(card(page), say('Next'));
         }
+        // KAN-499. The last card's way out, then the note.
+        await press(card(page), say(view.view === 'full' ? 'Not now' : 'Done'));
+        await expect(replayNote(page)).toBeVisible();
+        await expectFits(replayNote(page), `${lang} ${view.name} replay note`);
+        await expectPathWhole(replayNote(page), say, lang);
       });
 
       test(`${view.name}: the only-Tab-Keeper save card and the example line fit`, async ({

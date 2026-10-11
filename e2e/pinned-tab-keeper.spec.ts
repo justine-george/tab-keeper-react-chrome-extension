@@ -1,7 +1,6 @@
 import { test as base, chromium } from '@playwright/test';
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
-import { spawn } from 'node:child_process';
 import { appendFileSync, cpSync, mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -18,6 +17,7 @@ import {
 } from './fixtures/seed';
 import { FULL, FULL_VIEW_PATH, openPage, POPUP } from './fixtures/onboarding';
 import { rgbToHex } from './fixtures/pixels';
+import { startProcessGroup, stopProcessGroup } from './fixtures/processGroup';
 import { pressSwitch, sessionsRow } from './fixtures/sessionActions';
 import { DARKENHEIMER_THEME } from '../src/hooks/useThemeColors';
 
@@ -956,7 +956,7 @@ base(
     const profile = mkdtempSync(join(tmpdir(), 'tabkeeper-nocdp-profile-'));
     cpSync(DIST, copy, { recursive: true });
     appendFileSync(join(copy, 'background.js'), PROBE);
-    const browser = spawn(chromium.executablePath(), [
+    const browser = startProcessGroup(chromium.executablePath(), [
       '--headless=new',
       // As Playwright launches every other spec's browser (chromiumSandbox: false).
       '--no-sandbox',
@@ -968,11 +968,6 @@ base(
       '--no-default-browser-check',
       'about:blank',
     ]);
-    // A browser that never started ends the wait with its error, not the timeout.
-    const exited = new Promise((done) => {
-      browser.on('exit', done);
-      browser.on('error', done);
-    });
     try {
       const line = await new Promise<string>((resolve, reject) => {
         let log = '';
@@ -1006,10 +1001,10 @@ base(
         },
       });
     } finally {
-      browser.kill();
-      await exited;
+      // Every Chrome process, not just the browser: a survivor writes into the profile (KAN-479).
+      await stopProcessGroup(browser);
       rmSync(copy, { recursive: true, force: true });
-      rmSync(profile, { recursive: true, force: true, maxRetries: 3 });
+      rmSync(profile, { recursive: true, force: true });
     }
   }
 );

@@ -21,6 +21,7 @@ import {
   endRunAtFullViewButton,
   finishRunHere,
   goToRunStep,
+  leaveReplayNote,
   leaveRunHere,
   pinThisTab,
   reconcileRunHere,
@@ -28,6 +29,7 @@ import {
   selectIsRunCardShown,
   selectRunHere,
   selectRunSession,
+  skipRun,
   startRun,
   stepRunBack,
   takeExampleForRun,
@@ -794,6 +796,7 @@ describe('after the full-view run (§3)', () => {
     store.dispatch(beginSetup());
     await store.dispatch(startRun({ ...newRun('full', 8), sessionId: null }));
     await store.dispatch(finishRunHere());
+    await store.dispatch(leaveReplayNote());
     expect(openedOf(store)).toEqual([true, false]);
     await store.dispatch(leaveSetup());
     expect(openedOf(store)).toEqual([false, true]);
@@ -803,6 +806,7 @@ describe('after the full-view run (§3)', () => {
     const { store } = makeTestStore();
     await store.dispatch(startRun(newRun('full', 8)));
     await store.dispatch(finishRunHere());
+    await store.dispatch(leaveReplayNote());
     expect(store.getState().settingsDataState.setupState).toBe('pending');
     expect(store.getState().globalState.isSetupOpen).toBe(true);
   });
@@ -813,6 +817,7 @@ describe('after the full-view run (§3)', () => {
     store.dispatch(finishSetup());
     await store.dispatch(startRun(newRun('full', 8)));
     await store.dispatch(finishRunHere());
+    await store.dispatch(leaveReplayNote());
     expect(openedOf(store)).toEqual([false, true]);
   });
 
@@ -822,14 +827,16 @@ describe('after the full-view run (§3)', () => {
     store.dispatch(finishSetup());
     await store.dispatch(startRun(newRun('full', 8)));
     await store.dispatch(finishRunHere());
+    await store.dispatch(leaveReplayNote());
     expect(openedOf(store)).toEqual([false, false]);
   });
 
-  test('Skip tutorial opens nothing after it (R8)', async () => {
+  test('Skip tutorial opens nothing after the note (R8, KAN-499)', async () => {
     const { store } = makeTestStore();
     store.dispatch(beginSetup());
     await store.dispatch(startRun(newRun('full', 3)));
-    store.dispatch(endRun('skipped'));
+    store.dispatch(skipRun());
+    await store.dispatch(leaveReplayNote());
     expect(openedOf(store)).toEqual([false, false]);
   });
 
@@ -839,6 +846,7 @@ describe('after the full-view run (§3)', () => {
     store.dispatch(beginSetup());
     await store.dispatch(startRun(newRun('popup', 7)));
     await store.dispatch(finishRunHere());
+    await store.dispatch(leaveReplayNote());
     expect(openedOf(store)).toEqual([false, false]);
     expect(store.getState().settingsDataState.setupState).toBe('pending');
   });
@@ -861,5 +869,92 @@ describe('after the full-view run (§3)', () => {
     store.dispatch(openSetup());
     await store.dispatch(leaveSetup());
     expect(openedOf(store)).toEqual([false, true]);
+  });
+});
+
+describe('the replay note (KAN-499)', () => {
+  beforeEach(() => history.replaceState(null, '', '?view=tab'));
+  afterEach(() => history.replaceState(null, '', '?'));
+
+  const noteAndSetup = (store: Store) => [
+    store.getState().globalState.isReplayNoteOpen,
+    store.getState().globalState.isSetupOpen,
+  ];
+
+  test('Skip ends the run as skipped and opens the note, not setup', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(beginSetup());
+    await store.dispatch(startRun(newRun('full', 3)));
+    store.dispatch(skipRun());
+    expect(runOf(store)?.ended).toBe('skipped');
+    expect(selectRunHere(store.getState())).toBeNull();
+    expect(noteAndSetup(store)).toEqual([true, false]);
+    await store.dispatch(leaveReplayNote());
+    expect(noteAndSetup(store)).toEqual([false, false]);
+  });
+
+  test('Skip removes the example as it did before the note', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(startRun(newRun('full', 3)));
+    store.dispatch(takeExampleForRun(NAMES));
+    const sample = runOf(store)?.sessionId ?? '';
+    expect(isSampleSession(sample)).toBe(true);
+    store.dispatch(skipRun());
+    expect(ids(store)).not.toContain(sample);
+  });
+
+  test('a finished full-view run shows the note first, and setup once it closes', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(beginSetup());
+    await store.dispatch(startRun(newRun('full', 8)));
+    await store.dispatch(finishRunHere());
+    expect(runOf(store)?.ended).toBe('finished');
+    expect(noteAndSetup(store)).toEqual([true, false]);
+    await store.dispatch(leaveReplayNote());
+    expect(noteAndSetup(store)).toEqual([false, true]);
+  });
+
+  test('Pin this tab shows the note before setup too', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(beginSetup());
+    await store.dispatch(startRun(newRun('full', 8)));
+    await store.dispatch(pinThisTab());
+    expect(noteAndSetup(store)).toEqual([true, false]);
+  });
+
+  test('a finished popup run shows the note, and nothing after it', async () => {
+    history.replaceState(null, '', '?');
+    const { store } = makeTestStore();
+    store.dispatch(beginSetup());
+    await store.dispatch(startRun(newRun('popup', 7)));
+    await store.dispatch(finishRunHere());
+    expect(noteAndSetup(store)).toEqual([true, false]);
+    await store.dispatch(leaveReplayNote());
+    expect(noteAndSetup(store)).toEqual([false, false]);
+  });
+
+  test('the popup ⤢ ends the run with no note: the popup is closing', async () => {
+    history.replaceState(null, '', '?');
+    const { store } = makeTestStore();
+    await store.dispatch(startRun(newRun('popup', 7)));
+    store.dispatch(endRunAtFullViewButton());
+    expect(noteAndSetup(store)).toEqual([false, false]);
+  });
+
+  test('with no run here, Skip and finish open no note', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(beginSetup());
+    store.dispatch(skipRun());
+    await store.dispatch(finishRunHere());
+    expect(noteAndSetup(store)).toEqual([false, false]);
+  });
+
+  test('a run whose session is gone ends quietly, with no note (R2)', async () => {
+    const store = withSessions(OWN);
+    await store.dispatch(startRun({ ...newRun('full', 5), sessionId: 'own' }));
+    store.dispatch(deleteTabContainerInternal('own'));
+    store.dispatch(reconcileRunHere());
+    expect(runOf(store)?.ended).toBe('sessionGone');
+    expect(noteAndSetup(store)).toEqual([false, false]);
   });
 });

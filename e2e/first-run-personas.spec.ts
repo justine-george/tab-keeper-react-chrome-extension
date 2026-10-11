@@ -25,8 +25,10 @@ import {
   cardAt,
   cardButton,
   centreOf,
+  closeReplayNote,
   hello,
   nextTo,
+  replayNote,
   runCheck,
   runDrawn,
   seedRawSettingsIfAbsent,
@@ -169,6 +171,7 @@ test('new install, Get started, each step done by hand; then setup, then the pin
   await expect(cardAt(full, 4)).toBeVisible();
   for (let step = 5; step <= 8; step++) await nextTo(full, step);
   await cardButton(full, 'Pin this tab').click();
+  await closeReplayNote(full);
   await skipSetupThenGuide(full);
   expect(await storedRun(full)).toMatchObject({ ended: 'finished' });
   expect(await storedTitles(full)).toHaveLength(1);
@@ -204,6 +207,7 @@ test('new install, Get started, Next only (Use an example): the sample is gone a
   expect(await storedTitles(full)).toEqual(['Sample: Weekend trip']);
   for (let step = 5; step <= 8; step++) await nextTo(full, step);
   await cardButton(full, 'Not now').click();
+  await closeReplayNote(full);
   await skipSetupThenGuide(full);
   await expect.poll(() => storedTitles(full)).toEqual([]);
   await saveNow(full);
@@ -242,6 +246,7 @@ test('new install, Stay here: the popup run to ⤢, then the first full-view vis
   await expect(cardAt(full, 4)).toBeVisible();
   for (let step = 5; step <= 8; step++) await nextTo(full, step);
   await cardButton(full, 'Not now').click();
+  await closeReplayNote(full);
   await skipSetupThenGuide(full);
   await expect.poll(() => storedTitles(full)).toEqual([]);
   await saveNow(full);
@@ -264,6 +269,7 @@ async function upgraderRun(full: Page) {
   for (let step = 4; step <= 8; step++) await nextTo(full, step);
   expect(await storedRun(full)).toMatchObject({ sessionId: 'new' });
   await cardButton(full, 'Not now').click();
+  await closeReplayNote(full);
   await skipSetupThenGuide(full);
   // Review Focus 5: the run's session is the upgrader's own, and stays.
   expect(await storedTitles(full)).toEqual(['Latest', 'Older']);
@@ -377,6 +383,8 @@ for (const [view, last] of [
         }
         await cardButton(page, 'Skip tutorial').click();
       }
+      // KAN-499. A skip at any step, Hello too, goes to the note.
+      await expect(replayNote(page)).toBeVisible();
       await expect
         .poll(() => storedRun(page))
         .toMatchObject({ ended: 'skipped' });

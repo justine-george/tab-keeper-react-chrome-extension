@@ -133,6 +133,10 @@ export interface Global {
   isSetupOpen: boolean;
   // Whether closing setup goes on to the pin guide: not when Help opened it.
   doesSetupLeadToPinGuide: boolean;
+  // KAN-499. The note after the run, pointing at Settings → Help → Show me around.
+  isReplayNoteOpen: boolean;
+  // Whether closing the note goes on to setup: only after a finished full-view run.
+  doesReplayNoteLeadToSetup: boolean;
   // "the tabGroups permission is granted right now". Mirrors
   // chrome.permissions.contains(), re-read on every popup mount and updated by
   // the permission change listeners -- never persisted, because the user can
@@ -288,6 +292,8 @@ export const initialState: Global = {
   isPinGuideOpen: false,
   isSetupOpen: false,
   doesSetupLeadToPinGuide: true,
+  isReplayNoteOpen: false,
+  doesReplayNoteLeadToSetup: false,
   hasTabGroupsPermission: false,
   hasSessionsPermission: false,
   collapsedWindows: null,
@@ -1024,6 +1030,18 @@ export const globalStateSlice = createSlice({
       state.isSetupOpen = false;
     },
 
+    openReplayNote: (
+      state,
+      action: PayloadAction<{ leadsToSetup: boolean }>
+    ) => {
+      state.isReplayNoteOpen = true;
+      state.doesReplayNoteLeadToSetup = action.payload.leadsToSetup;
+    },
+
+    closeReplayNote: (state) => {
+      state.isReplayNoteOpen = false;
+    },
+
     openFullViewCallout: (state) => {
       state.isFullViewCalloutOpen = true;
     },
@@ -1344,6 +1362,8 @@ export const {
   closePinGuide,
   openSetup,
   closeSetup,
+  openReplayNote,
+  closeReplayNote,
   openFullViewCallout,
   closeFullViewCallout,
   setSearchInputText,
