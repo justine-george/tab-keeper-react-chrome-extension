@@ -46,21 +46,56 @@ afterEach(() => {
 });
 
 describe('the Help category', () => {
-  test('unpinned: three rows, each a label, a line and a button', async () => {
-    await renderHelp();
+  // KAN-512. The tour leads: Help is where people come to learn.
+  test('unpinned: three rows, the tour first, each a label, a line and a button', async () => {
+    const { container } = await renderHelp();
     await read('unpinned');
     for (const text of [
-      'Make Tab Keeper yours',
-      'Choose your theme, language, default view and shortcut again.',
-      PIN_ROW,
-      'Show Tab Keeper next to the address bar, one click away.',
       'Learn the basics',
       'A one-minute tour of this view. Your open tabs and saved sessions stay just as they are.',
+      'Make Tab Keeper yours',
+      'Go through the first-time setup again.',
+      PIN_ROW,
+      'Show Tab Keeper next to the address bar, one click away.',
     ]) {
       expect(screen.getByText(text)).toBeInTheDocument();
     }
-    for (const name of ['Run setup again', 'Show me how', 'Show me around']) {
-      expect(screen.getByRole('button', { name })).toBeInTheDocument();
+    const buttons = [...container.querySelectorAll('[data-help] button')].map(
+      (b) => b.getAttribute('aria-label') ?? b.textContent
+    );
+    expect(buttons.map((b) => b?.replace(/^[a-z_]+/, ''))).toEqual([
+      'Show me around',
+      'Run setup again',
+      'Show me how',
+    ]);
+  });
+
+  // KAN-512. A list of setup's steps went stale (it named four of six); the line now names none.
+  test('the setup line lists no steps', async () => {
+    await renderHelp();
+    await read('unpinned');
+    expect(
+      screen.queryByText(
+        'Choose your theme, language, default view and shortcut again.'
+      )
+    ).toBeNull();
+  });
+
+  // KAN-512. Every Help button is About's width, not its words'.
+  test('every button is 250px wide, centred', async () => {
+    const { container } = await renderHelp();
+    await read('unpinned');
+    const buttons = [
+      ...container.querySelectorAll<HTMLElement>('[data-help] button'),
+    ];
+    expect(buttons).toHaveLength(3);
+    for (const b of buttons) {
+      const style = getComputedStyle(b);
+      expect([style.width, style.maxWidth, style.justifyContent]).toEqual([
+        '100%',
+        '250px',
+        'center',
+      ]);
     }
   });
 

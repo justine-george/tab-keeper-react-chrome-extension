@@ -91,6 +91,50 @@ test('pinned: there is no pin row', async ({ context, extensionId }) => {
   await expect(row(popup, 'Run setup again')).toBeVisible();
 });
 
+// KAN-512. The tour first, then setup, then the pin row; every button About's 250px, in the popup and the full view.
+for (const view of ['popup', 'full view'] as const) {
+  test(`${view}, unpinned: the tour leads, and every Help button is 250×48`, async ({
+    context,
+    extensionId,
+  }) => {
+    await stubToolbarPin(context, { pinned: false });
+    const page =
+      view === 'popup'
+        ? await openPopup(context, extensionId)
+        : await openFullView(context, extensionId);
+    await openHelp(page);
+    const boxes = await help(page)
+      .getByRole('button')
+      .evaluateAll((els) =>
+        els.map((el) => {
+          const r = el.getBoundingClientRect();
+          return {
+            name: (el.textContent ?? '').replace(/^[a-z_]+/, ''),
+            y: r.y,
+            w: Math.round(r.width),
+            h: Math.round(r.height),
+          };
+        })
+      );
+    expect(boxes.map((b) => b.name)).toEqual([
+      'Show me around',
+      'Run setup again',
+      'Show me how',
+    ]);
+    expect(boxes.map((b) => [b.w, b.h])).toEqual([
+      [250, 48],
+      [250, 48],
+      [250, 48],
+    ]);
+    expect(boxes[0].y).toBeLessThan(boxes[1].y);
+    await expect(
+      help(page).getByText('Go through the first-time setup again.', {
+        exact: true,
+      })
+    ).toBeVisible();
+  });
+}
+
 test('popup: Show me around returns home and records the popup run at its save card', async ({
   context,
   extensionId,
