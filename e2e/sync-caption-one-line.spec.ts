@@ -3,9 +3,10 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { RUN_FINISHED } from './fixtures/seed';
 import { localeStrings } from './fixtures/locales';
-import { FULL_RUN, POPUP_RUN, seedRawSettingsIfAbsent } from './fixtures/run';
+import { FULL_RUN, seedRawSettingsIfAbsent } from './fixtures/run';
 
 // KAN-519: setup's sync caption ("Off keeps your sessions on this device. …") is one line in every locale, at Chrome's default font size.
+// Setup runs only in the full view: the popup hands it there.
 
 test.use({ freshProfile: true });
 
@@ -46,15 +47,23 @@ const lineCount = (caption: Locator) =>
 async function captionAtSyncStep(page: Page, lang: string): Promise<Locator> {
   const say = (key: string) => localeStrings(lang)[key] ?? key;
   const dialog = page.locator('dialog[open][aria-labelledby="setup-title"]');
-  const heading = dialog.getByRole('heading', { level: 3 });
-  for (let step = 0; step < 6; step++) {
-    if ((await heading.textContent()) === say('Sync across your devices?'))
-      break;
+  const link = dialog.getByRole('link', {
+    name: say('privacy policy'),
+    exact: true,
+  });
+  const progress = dialog.getByRole('progressbar');
+  // Step by step, each Next waited out on the progress bar, until the sync step shows its policy link.
+  for (let step = 1; !(await link.isVisible()); step++) {
+    await expect(progress).toHaveAttribute('aria-valuenow', String(step));
     await dialog
       .getByRole('button', { name: say('Next'), exact: true })
       .click();
+    await expect(progress).toHaveAttribute('aria-valuenow', String(step + 1));
   }
-  await expect(heading).toHaveText(say('Sync across your devices?'));
+  await expect(dialog.getByRole('heading', { level: 3 })).toHaveText(
+    say('Sync across your devices?')
+  );
+  // Matched inside each <p>, so it carries no outer scope of its own.
   return dialog.locator('p', {
     has: page.getByRole('link', { name: say('privacy policy'), exact: true }),
   });
@@ -71,23 +80,21 @@ async function openSetup(
   await page.locator('[data-pane="sessions"]').waitFor();
 }
 
-for (const view of [POPUP_RUN, FULL_RUN]) {
-  for (const lang of LANGS) {
-    test(`${view.name}, ${lang}: the sync caption is one line`, async ({
-      context,
-      extensionId,
-    }) => {
-      await seedRawSettingsIfAbsent(context, {
-        ...SETTLED,
-        setupState: 'pending',
-        language: lang,
-        firstRun: RUN_FINISHED,
-      });
-      const page = await context.newPage();
-      await openSetup(page, view.path, view.viewport, extensionId);
-      expect(await lineCount(await captionAtSyncStep(page, lang))).toBe(1);
+for (const lang of LANGS) {
+  test(`${lang}: the sync caption is one line`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedRawSettingsIfAbsent(context, {
+      ...SETTLED,
+      setupState: 'pending',
+      language: lang,
+      firstRun: RUN_FINISHED,
     });
-  }
+    const page = await context.newPage();
+    await openSetup(page, FULL_RUN.path, FULL_RUN.viewport, extensionId);
+    expect(await lineCount(await captionAtSyncStep(page, lang))).toBe(1);
+  });
 }
 
 // CONTROL: the count sees a wrap, so 1 above is a measurement and not a blind spot.
