@@ -509,7 +509,7 @@ test('Change shortcut opens Chrome shortcuts right after Tab Keeper, as its chil
   await press(page, 'Next');
   await press(page, 'Next');
   await expect(setup(page).locator('[data-shortcut-hint]')).toHaveText(
-    'Opens next to this tab. Close it to come back.'
+    'Opens Chrome’s shortcuts page next to this tab. Close that page to come back.'
   );
   const before = await tabRows(serviceWorker);
   const mine = before.find((tab) => tab.url.endsWith('index.html?view=tab'));

@@ -855,7 +855,7 @@ describe('the name in another language', () => {
 
     expect(
       screen.getByRole('separator', {
-        name: 'Breite des Bereichs "Offene Tabs" ändern',
+        name: 'Breite des Bereichs „Offene Tabs“ ändern',
       })
     ).toBeInTheDocument();
     expect(
