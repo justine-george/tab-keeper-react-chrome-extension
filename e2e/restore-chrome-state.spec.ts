@@ -10,6 +10,7 @@ import {
   seedSettings,
 } from './fixtures/seed';
 import { openPage, POPUP } from './fixtures/onboarding';
+import { stubsStayHidden } from './fixtures/pinnedStub';
 import { stored } from './fixtures/savedWindows';
 import {
   pressOpen,
@@ -417,9 +418,23 @@ const everyWindow = (worker: Worker) =>
           title: t.title ?? '',
           url: t.url || t.pendingUrl || '',
           pinned: t.pinned,
+          loaded: t.status === 'complete',
         })),
     }))
   );
+
+// A tab's title is its URL until its page loads (KAN-504), so read titles only after this.
+const untilEveryTabLoads = (worker: Worker) =>
+  expect
+    .poll(
+      async () =>
+        (await everyWindow(worker))
+          .flatMap((w) => w.tabs)
+          .filter((t) => !t.loaded)
+          .map((t) => t.url),
+      { timeout: 15_000 }
+    )
+    .toEqual([]);
 
 const savedWindow = (id: string, title: string, incognito: boolean) => ({
   windowId: id,
@@ -456,6 +471,7 @@ test.describe('incognito (KAN-460 Part 3)', () => {
     context,
     extensionId,
   }) => {
+    await stubsStayHidden(context);
     await seedSettings(context, { pinTabKeeperInNewWindows: true });
     const worker = await allowInIncognito(context, extensionId);
     await worker.evaluate(
@@ -469,6 +485,7 @@ test.describe('incognito (KAN-460 Part 3)', () => {
       [page('I1'), page('I2')]
     );
     const popup = await openPage(context, extensionId, 'index.html', POPUP);
+    await untilEveryTabLoads(worker);
 
     await saveRowSaveAll(popup).click();
     await expect
@@ -490,6 +507,7 @@ test.describe('incognito (KAN-460 Part 3)', () => {
     await expect
       .poll(async () => (await fresh()).length, { timeout: 15_000 })
       .toBe(saved.length);
+    await untilEveryTabLoads(worker);
 
     const made = await fresh();
     const restored = made.find((w) => w.tabs.some((t) => t.title === 'I1'));
@@ -547,6 +565,7 @@ test.describe('incognito (KAN-460 Part 3)', () => {
         { timeout: 15_000 }
       )
       .toBe(0);
+    await untilEveryTabLoads(worker);
 
     const now = await everyWindow(worker);
     expect(now).toHaveLength(2);
