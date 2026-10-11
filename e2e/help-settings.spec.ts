@@ -132,6 +132,13 @@ for (const category of ['Help', 'About'] as const) {
     const page = await openFullView(context, extensionId);
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('button', { name: category, exact: true }).click();
+    // The pane's own buttons drawn first: a probe right after the click can run before they render.
+    await expect(
+      page.locator('[data-pane="detail"]').getByRole('button', {
+        name: category === 'Help' ? 'Show me around' : 'Rate this extension',
+        exact: true,
+      })
+    ).toBeVisible();
     const gaps = await page.evaluate(() =>
       // The settings content; the left pane's Back is a borderless link, not a Button.
       [...document.querySelectorAll('[data-pane="detail"] button')].flatMap(
