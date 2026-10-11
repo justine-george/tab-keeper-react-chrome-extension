@@ -231,7 +231,7 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
             disable={true}
             style="padding: 0;"
           />
-          {t(`Rate this app`)}
+          <span>{t(`Rate this app`)}</span>
         </button>
       </div>
       {/* Earned, not offered: the permanent opt-out appears only after the
