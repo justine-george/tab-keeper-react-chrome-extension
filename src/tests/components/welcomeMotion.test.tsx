@@ -122,7 +122,7 @@ describe('the loop', () => {
 });
 
 describe('Get started’s closing beat', () => {
-  test('press 150ms, the shutter 250ms ease-in-out, then the exit 150ms ease-in to −8px', async () => {
+  test('press 150ms, the shutter 250ms ease-in-out, a 400ms hold, then the exit 150ms ease-in to −8px', async () => {
     const fake = () => ({
       animate: vi.fn<Animatable['animate']>(() => ({
         finished: Promise.resolve(),
@@ -133,13 +133,15 @@ describe('Get started’s closing beat', () => {
       button: fake(),
       shutter: fake(),
       dialog: fake(),
-      onShutter: vi.fn(),
+      onShutterStart: vi.fn(),
+      onShutterShut: vi.fn(),
     };
     const motion = playGetStarted(parts);
     expect(await motion.finished).toBe(true);
     expect(GET_STARTED).toEqual({
       PRESS_MS: 150,
       SHUTTER_MS: 250,
+      HOLD_MS: 400,
       LEAVE_MS: 150,
     });
     expect(parts.shutter.animate.mock.calls[0][1]).toMatchObject({
@@ -147,11 +149,15 @@ describe('Get started’s closing beat', () => {
       easing: SHUTTER_EASE,
     });
     expect(SHUTTER_EASE).toBe('ease-in-out');
-    expect(parts.dialog.animate.mock.calls[0][0][1]).toMatchObject({
+    // KAN-513. The dialog's first animation is the still hold; the exit is its second.
+    expect(parts.dialog.animate.mock.calls[0][1]).toMatchObject({
+      duration: 400,
+    });
+    expect(parts.dialog.animate.mock.calls[1][0][1]).toMatchObject({
       opacity: 0,
       transform: 'translate(-50%, calc(-50% - 8px))',
     });
-    expect(parts.dialog.animate.mock.calls[0][1]).toMatchObject({
+    expect(parts.dialog.animate.mock.calls[1][1]).toMatchObject({
       duration: 150,
       easing: 'ease-in',
     });

@@ -4,6 +4,8 @@
 export const GET_STARTED = {
   PRESS_MS: 150,
   SHUTTER_MS: 250,
+  // KAN-513. The closed floppy rests after the click, so the sound lands before the dialog goes.
+  HOLD_MS: 400,
   LEAVE_MS: 150,
 } as const;
 export const SHUTTER_EASE = 'ease-in-out';
@@ -30,8 +32,10 @@ export interface GetStartedParts {
   button: Animatable;
   shutter: Animatable | null;
   dialog: Animatable;
-  // Called once as the shutter starts to move; a beat cut short before then never calls it.
-  onShutter: () => void;
+  // Called once as the shutter starts to slide: time to get the click ready.
+  onShutterStart: () => void;
+  // Called once as the shutter shuts; a beat cut short before then never calls it.
+  onShutterShut: () => void;
 }
 
 export interface Motion {
@@ -86,8 +90,19 @@ export function playGetStarted(parts: GetStartedParts): Motion {
           ],
           { duration: GET_STARTED.SHUTTER_MS, easing: SHUTTER_EASE }
         );
-        if (!isCancelled) parts.onShutter();
+        // The slide runs off the main thread, so readying the sound here does not stall it.
+        if (!isCancelled) parts.onShutterStart();
         await shutter;
+        if (!isCancelled) parts.onShutterShut();
+        // A still animation rather than a timer, so a cancel ends the hold like every other step.
+        await run(
+          parts.dialog,
+          [
+            { opacity: 1, transform: CENTRED },
+            { opacity: 1, transform: CENTRED },
+          ],
+          { duration: GET_STARTED.HOLD_MS }
+        );
       }
       await run(
         parts.dialog,

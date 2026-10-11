@@ -106,7 +106,7 @@ afterEach(() => {
 });
 
 describe('the moment on the welcome', () => {
-  test('the loop ends at once, then press, the shutter, the welcome leaves; then the full-view run is recorded', async () => {
+  test('the loop ends at once, then press, the shutter, the hold, the welcome leaves; then the full-view run is recorded', async () => {
     installAnimate();
     const { store } = await renderWithProviders(<MainContainer />, {
       seedStore: welcome,
@@ -125,12 +125,16 @@ describe('the moment on the welcome', () => {
 
     moment()[1].release();
     await waitFor(() => expect(moment()).toHaveLength(3));
+    // KAN-513. The hold: the welcome stays put after the click.
     expect(moment()[2].target).toBe(welcomeDialog());
+    moment()[2].release();
+    await waitFor(() => expect(moment()).toHaveLength(4));
+    expect(moment()[3].target).toBe(welcomeDialog());
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(true);
 
     expect(store.getState().settingsDataState.firstRun).toBeNull();
 
-    moment()[2].release();
+    moment()[3].release();
     await waitFor(() =>
       expect(store.getState().settingsDataState.firstRun).toEqual(FULL_RUN)
     );
@@ -152,7 +156,8 @@ describe('the moment on the welcome', () => {
     expect(live.every((r) => r.isFinished())).toBe(true);
   });
 
-  test('the shutter click sounds once, as the shutter starts to move: never as the welcome opens, nor at the press', async () => {
+  // KAN-513. The click belongs to the shutter snapping shut, not to it starting to slide.
+  test('the shutter click sounds once, as the shutter shuts: never as the welcome opens, at the press, or while it slides', async () => {
     installAnimate();
     installFakeAudio();
     await renderWithProviders(<MainContainer />, { seedStore: welcome });
@@ -162,10 +167,15 @@ describe('the moment on the welcome', () => {
     moment()[0].release();
     await waitFor(() => expect(moment()).toHaveLength(2));
     expect(moment()[1].target).toHaveAttribute('data-hero-part', 'shutter');
-    expect(startedTicks()).toEqual([2, expect.closeTo(2.035, 6)]);
+    await microtasks();
+    expect(startedTicks()).toEqual([]);
     moment()[1].release();
     await waitFor(() => expect(moment()).toHaveLength(3));
+    expect(startedTicks()).toEqual([2, expect.closeTo(2.035, 6)]);
+    // The hold, then the exit; no second click.
     moment()[2].release();
+    await waitFor(() => expect(moment()).toHaveLength(4));
+    moment()[3].release();
     await microtasks();
     expect(startedTicks()).toHaveLength(2);
   });
@@ -360,18 +370,26 @@ describe('playGetStarted and playHelloEntrance', () => {
     const shutter = fakeTarget(log);
     const dialog = fakeTarget(log);
     const logAtShutter: number[] = [];
+    const logAtStart: number[] = [];
     const motion = playGetStarted({
       button: button.target,
       shutter: shutter.target,
       dialog: dialog.target,
-      onShutter: () => logAtShutter.push(log.length),
+      onShutterStart: () => logAtStart.push(log.length),
+      onShutterShut: () => logAtShutter.push(log.length),
     });
     button.finishAll();
     await vi.waitFor(() => expect(log).toHaveLength(2));
-    // Once, as the shutter's animation starts: after the press, before the exit.
-    expect(logAtShutter).toEqual([2]);
+    // KAN-513. The sound gets ready as the shutter starts to slide, but does not play ...
+    expect(logAtStart).toEqual([2]);
+    await Promise.resolve();
+    expect(logAtShutter).toEqual([]);
     shutter.finishAll();
     await vi.waitFor(() => expect(log).toHaveLength(3));
+    // ... but once it has shut, before the hold starts.
+    expect(logAtShutter).toEqual([2]);
+    dialog.finishAll();
+    await vi.waitFor(() => expect(log).toHaveLength(4));
     dialog.finishAll();
     expect(await motion.finished).toBe(true);
 
@@ -391,7 +409,15 @@ describe('playGetStarted and playHelloEntrance', () => {
       ],
       options: { duration: 250, easing: 'ease-in-out' },
     });
+    // KAN-513. The dialog holds still for 400ms after the click.
     expect(log[2]).toEqual({
+      keyframes: [
+        { opacity: 1, transform: 'translate(-50%, -50%)' },
+        { opacity: 1, transform: 'translate(-50%, -50%)' },
+      ],
+      options: { duration: 400 },
+    });
+    expect(log[3]).toEqual({
       keyframes: [
         { opacity: 1, transform: 'translate(-50%, -50%)' },
         { opacity: 0, transform: 'translate(-50%, calc(-50% - 8px))' },
@@ -406,18 +432,41 @@ describe('playGetStarted and playHelloEntrance', () => {
       [];
     const button = fakeTarget(log);
     const dialog = fakeTarget(log);
-    const onShutter = vi.fn();
+    const onShutterShut = vi.fn();
     const motion = playGetStarted({
       button: button.target,
       shutter: null,
       dialog: dialog.target,
-      onShutter,
+      onShutterStart: vi.fn(),
+      onShutterShut,
     });
     button.finishAll();
     await vi.waitFor(() => expect(log).toHaveLength(2));
     dialog.finishAll();
     expect(await motion.finished).toBe(true);
-    expect(onShutter).not.toHaveBeenCalled();
+    expect(onShutterShut).not.toHaveBeenCalled();
+  });
+
+  test('a cancel while the shutter slides never clicks (KAN-513)', async () => {
+    const log: { keyframes: Keyframe[]; options: KeyframeAnimationOptions }[] =
+      [];
+    const button = fakeTarget(log);
+    const shutter = fakeTarget(log);
+    const dialog = fakeTarget(log);
+    const onShutterShut = vi.fn();
+    const motion = playGetStarted({
+      button: button.target,
+      shutter: shutter.target,
+      dialog: dialog.target,
+      onShutterStart: vi.fn(),
+      onShutterShut,
+    });
+    button.finishAll();
+    await vi.waitFor(() => expect(log).toHaveLength(2));
+    motion.cancel();
+    shutter.finishAll();
+    expect(await motion.finished).toBe(false);
+    expect(onShutterShut).not.toHaveBeenCalled();
   });
 
   test('a cancel between the press finishing and the shutter moving never clicks', async () => {
@@ -426,18 +475,19 @@ describe('playGetStarted and playHelloEntrance', () => {
     const button = fakeTarget(log);
     const shutter = fakeTarget(log);
     const dialog = fakeTarget(log);
-    const onShutter = vi.fn();
+    const onShutterShut = vi.fn();
     const motion = playGetStarted({
       button: button.target,
       shutter: shutter.target,
       dialog: dialog.target,
-      onShutter,
+      onShutterStart: vi.fn(),
+      onShutterShut,
     });
     // The press settles, and the cancel lands before the continuation runs.
     button.finishAll();
     motion.cancel();
     expect(await motion.finished).toBe(false);
-    expect(onShutter).not.toHaveBeenCalled();
+    expect(onShutterShut).not.toHaveBeenCalled();
   });
 
   test('Hello enters: opacity 0 to 1, scale 0.97 to 1, 220ms', () => {

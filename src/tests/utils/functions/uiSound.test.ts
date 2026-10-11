@@ -93,4 +93,22 @@ describe('playShutterClick', () => {
     const { playShutterClick } = await loadSound();
     expect(() => playShutterClick()).not.toThrow();
   });
+
+  // KAN-513. Opening the audio blocks the page for about 130ms (measured in Chrome), so it is done before the click is due.
+  test('prepareShutterClick opens the one context and plays nothing; the click after it reuses that context', async () => {
+    const { contexts, sources } = installFakeAudio();
+    const { prepareShutterClick, playShutterClick } = await loadSound();
+    prepareShutterClick();
+    expect(contexts).toHaveLength(1);
+    expect(sources).toHaveLength(0);
+    playShutterClick();
+    expect(contexts).toHaveLength(1);
+    expect(sources).toHaveLength(2);
+  });
+
+  test('prepareShutterClick with no AudioContext: nothing throws', async () => {
+    uninstallFakeAudio();
+    const { prepareShutterClick } = await loadSound();
+    expect(() => prepareShutterClick()).not.toThrow();
+  });
 });
