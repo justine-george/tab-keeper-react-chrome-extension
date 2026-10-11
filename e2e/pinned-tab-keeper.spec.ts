@@ -16,6 +16,7 @@ import {
   seedSettings,
 } from './fixtures/seed';
 import { FULL, FULL_VIEW_PATH, openPage, POPUP } from './fixtures/onboarding';
+import { stubsStayHidden } from './fixtures/pinnedStub';
 import { rgbToHex } from './fixtures/pixels';
 import { startProcessGroup, stopProcessGroup } from './fixtures/processGroup';
 import { pressSwitch, sessionsRow } from './fixtures/sessionActions';
@@ -107,22 +108,6 @@ const fullViewUrl = (extensionId: string) =>
   `chrome-extension://${extensionId}/${FULL_VIEW_PATH}`;
 const isOwnPage = (extensionId: string, url: string) =>
   url.startsWith(`chrome-extension://${extensionId}/`);
-
-// Playwright makes every page visible, so a stub reports hidden until shown; the no-CDP test is real Chrome.
-async function stubsStayHidden(context: BrowserContext) {
-  await context.addInitScript(() => {
-    if (!location.pathname.endsWith('/pinned.html')) return;
-    const hidden = () => Reflect.get(window, '__shown') !== true;
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      get: () => (hidden() ? 'hidden' : 'visible'),
-    });
-    Object.defineProperty(document, 'hidden', {
-      configurable: true,
-      get: hidden,
-    });
-  });
-}
 
 async function setup(context: BrowserContext, pin: boolean) {
   await stubsStayHidden(context);
