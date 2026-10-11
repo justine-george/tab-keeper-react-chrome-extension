@@ -502,8 +502,16 @@ test.describe('Open compact view goes back (KAN-507)', () => {
     worker: Worker
   ): Promise<void> {
     await seedSettings(context, { defaultView: 'full' });
+    // After the worker's start-up reapplies: one that read compact before this write would land last (KAN-518).
     await worker.evaluate(async () => {
       await chrome.storage.local.set({ defaultView: 'full' });
+      const applied: unknown = Reflect.get(
+        globalThis,
+        'tabKeeperDefaultViewApplied'
+      );
+      if (typeof applied !== 'function')
+        throw new Error('no tabKeeperDefaultViewApplied');
+      await applied();
       await chrome.action.setPopup({ popup: '' });
     });
   }
