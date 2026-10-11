@@ -17,9 +17,10 @@ import {
   SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { APP_CHROME_WEBSTORE_LINK } from '../../utils/constants/common';
-import Button from '../common/Button';
+import Icon from '../common/Icon';
+import { dialogButtonStyles } from './dialogButtons';
 import { cardFadeIn } from '../common/cardFade';
-import { RADIUS, TYPE } from '../../styles/scale';
+import { DIALOG, ICON, RADIUS, TYPE } from '../../styles/scale';
 import {
   asPartialSettings,
   loadFromLocalStorage,
@@ -113,25 +114,81 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
     cleanUp();
   };
 
-  // KAN-75. Both dismissals are real <button>s, not NormalLabels with onClick.
+  // KAN-75. The dismissals are real <button>s: a NormalLabel is a bare
+  // `<div onClick>` no keyboard user can reach.
   //
-  // NormalLabel renders a bare `<div onClick>`: no role, no tab stop. Measured
-  // in a live popup on the equivalent KAN-74 modal, the dismissal reached the
-  // accessibility tree as StaticText -- a control no keyboard user can reach.
-  // Since this modal has no Escape handler and no close affordance, that left
-  // a keyboard-only user who could reach the CTA with no way to decline it.
-  //
-  // Kept in sync with TabGroupsPermissionModal's identical block by hand. Two
-  // copies rather than a shared component: there are exactly two, and the
-  // abstraction would have to carry the modal's whole visual language to earn
-  // its name.
-  const dismissStyle = css`
-    align-self: center;
+  // KAN-501 (A1). Built like the confirm dialogs (CloudConsentModal): their
+  // width and icon-and-title row, the offer's footer with the dismissal as a
+  // link on the left and the filled action on the right, and the earned
+  // opt-out as a quiet line under it.
+  const buttons = dialogButtonStyles(COLORS);
+  const dialogStyle = css`
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+    padding: 20px;
+    width: ${DIALOG.WIDTH};
+    max-width: none;
+    max-height: none;
+    background-color: ${COLORS.PRIMARY_COLOR};
+    color: ${COLORS.LABEL_L1_COLOR};
+    border: 1px solid ${COLORS.BORDER_COLOR};
+    border-radius: ${RADIUS.SQUARE};
+    font-family: ${FONT_FAMILY};
+    font-size: ${TYPE.BODY};
+    &[open] {
+      display: block;
+    }
+    /* The container carries initial focus (KAN-243) and is never reached by
+       Tab, so a ring on it would mark nothing anyone can act on. */
+    &:focus {
+      outline: none;
+    }
+    &::backdrop {
+      background: rgba(0, 0, 0, 0.8);
+    }
+    ${style ?? ''}
+  `;
+  const titleStyle = css`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 12px 0;
+    font-size: ${TYPE.SECTION};
+    font-weight: 500;
+    color: ${COLORS.TEXT_COLOR};
+  `;
+  const bodyStyle = css`
+    margin: 0 0 20px 0;
+    line-height: 1.5;
+    color: ${COLORS.LABEL_L1_COLOR};
+  `;
+  // KAN-242. Signed, on its own line in LABEL_L2, so it reads as a signature.
+  const signStyle = css`
+    display: block;
+    margin-top: 8px;
+    color: ${COLORS.LABEL_L2_COLOR};
+  `;
+  const footerStyle = css`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  `;
+  const rateStyle = css`
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  `;
+  const neverStyle = css`
+    display: block;
+    margin: 12px auto 0;
     background: none;
     border: none;
     padding: 0;
-    font-family: ${FONT_FAMILY};
-    font-size: ${TYPE.BODY};
+    font: inherit;
     color: ${COLORS.TEXT_COLOR};
     cursor: pointer;
     &:hover {
@@ -140,135 +197,47 @@ export const RateAndReviewModal: React.FC<RateAndReviewModalProps> = ({
   `;
 
   return (
-    // The overlay div is gone: ::backdrop is the browser's own, and it dims
-    // the top layer rather than sitting in the page, which is what stops the
-    // content behind from being reachable at all.
     <dialog
       ref={dialogRef}
       // Focusable only by script, never by Tab; see the effect above.
       tabIndex={-1}
       aria-labelledby={TITLE_ID}
       aria-describedby={BODY_ID}
-      // Escape reaches this, and it means the same thing the visible
-      // dismissal means -- not now, ask again later. Without it the dialog
-      // would close itself in the DOM while the store still believed it open,
-      // and it could never be reopened.
+      // Escape means what the visible dismissal means: not now, ask later.
       onCancel={handleRemindLater}
-      css={[
-        cardFadeIn,
-        css`
-          /* The UA gives <dialog> its own box; reset it back to the card's
-           geometry. Same reset as FocusConfirmModal. */
-          position: fixed;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          margin: 0;
-          max-width: none;
-          max-height: none;
-          background-color: ${COLORS.PRIMARY_COLOR};
-          color: ${COLORS.LABEL_L1_COLOR};
-          border: 1px solid ${COLORS.BORDER_COLOR};
-          width: 500px;
-          padding: 20px;
-          align-items: flex-start;
-          border-radius: ${RADIUS.SQUARE};
-          flex-direction: column;
-          padding-bottom: 25px;
-          gap: 20px;
-
-          /* Scoped to [open] so the dialog stays hidden until showModal() runs,
-           rather than flashing as a non-modal box for a frame. */
-          &[open] {
-            display: flex;
-          }
-
-          &::backdrop {
-            background: rgba(0, 0, 0, 0.8);
-          }
-
-          /* The container carries initial focus (KAN-243) and is never reached
-           by Tab, so a ring on it would mark nothing anyone can act on. */
-          outline: none;
-
-          ${style}
-        `,
-      ]}
+      css={[cardFadeIn, dialogStyle]}
     >
-      <h2
-        id={TITLE_ID}
-        css={css`
-          font-weight: 500;
-          font-family: ${FONT_FAMILY};
-          font-size: ${TYPE.TITLE};
-          margin: 10px 0;
-        `}
-      >
+      <h2 id={TITLE_ID} css={titleStyle}>
+        <Icon type="thumb_up" size={ICON.DEFAULT} disable={true} />
         {t('RequestUserReviewHeader')}
       </h2>
-      {/* Body copy, not a control. This carried its own
-            `onClick={handleRateExtension}` -- an invisible click target that
-            opened the Web Store, duplicating the CTA directly beneath it and
-            just as unreachable by keyboard. A sentence is not a button, so the
-            handler is gone rather than promoted; the CTA below is the only way
-            to the review page.
-
-            A <p> also escapes NormalLabel's `white-space: nowrap;
-            overflow: hidden`, which silently clips any body copy too long for
-            the 500px card. Nothing clips today -- pt is the longest at 56
-            characters -- but that is a property of the current copy, not of
-            the markup. */}
-      <p
-        id={BODY_ID}
-        css={css`
-          font-family: ${FONT_FAMILY};
-          font-size: ${TYPE.BODY};
-          color: ${COLORS.TEXT_COLOR};
-          text-align: left;
-          margin: 0 0 10px 0;
-        `}
-      >
+      <p id={BODY_ID} css={bodyStyle}>
         {t(`RequestUserReviewText`)}
-        {/* KAN-242. Signed, because the sentence is in the first person and
-            used to name nobody. Inside the described paragraph, so a screen
-            reader hears who is asking too; its own line in LABEL_L2, so it
-            reads as a signature rather than as the sentence's last clause. A
-            first name on purpose: this is a note, not a credit -- the About
-            page carries the full name. */}
-        <span
-          css={css`
-            display: block;
-            margin-top: 8px;
-            color: ${COLORS.LABEL_L2_COLOR};
-          `}
-        >
-          {t(`RequestUserReviewSignOff`)}
-        </span>
+        <span css={signStyle}>{t(`RequestUserReviewSignOff`)}</span>
       </p>
-      {/* Full width, never a fixed one. This was `width: 217px` -- sized to
-            the English label and wrong for everyone else: measured in a real
-            browser, 7 of the 10 locales wrapped it onto two lines inside the
-            button while the card had 500px going spare (KAN-78). Spanning the
-            card removes the bet that no future translation outgrows a number.
-
-            Matches TabGroupsPermissionModal deliberately: both are "offer"
-            modals and should read as one component. FocusConfirmModal is a
-            different family -- a compact confirm with a right-aligned button
-            pair -- and is left alone. */}
-      <Button
-        text={t(`Rate this app`)}
-        onClick={handleRateExtension}
-        ariaLabel={t(`Rate this app`)}
-        iconType="thumb_up"
-        style="width: 100%; margin-bottom: 10px; cursor: pointer; justify-content: center;"
-      />
-      <button type="button" css={dismissStyle} onClick={handleRemindLater}>
-        {t(`Maybe Later`)}
-      </button>
+      <div css={footerStyle}>
+        <button type="button" css={buttons.link} onClick={handleRemindLater}>
+          {t(`Maybe Later`)}
+        </button>
+        <button
+          type="button"
+          css={[buttons.filled, rateStyle]}
+          onClick={handleRateExtension}
+        >
+          <Icon
+            type="star"
+            size={ICON.SMALL}
+            color={COLORS.PRIMARY_COLOR}
+            disable={true}
+            style="padding: 0;"
+          />
+          <span>{t(`Rate this app`)}</span>
+        </button>
+      </div>
       {/* Earned, not offered: the permanent opt-out appears only after the
             user has already skipped once. */}
       {isSkippedUserReviewOnce && (
-        <button type="button" css={dismissStyle} onClick={handleNeverAskAgain}>
+        <button type="button" css={neverStyle} onClick={handleNeverAskAgain}>
           {t(`Never Remind Again`)}
         </button>
       )}

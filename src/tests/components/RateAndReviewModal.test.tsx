@@ -4,6 +4,9 @@ import userEvent from '@testing-library/user-event';
 
 import { RateAndReviewModal } from '../../components/modals/RateAndReviewModal';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { classRulesFor } from '../setup/hoverRules';
+import { LIGHT_THEME } from '../../hooks/useThemeColors';
+import { DIALOG } from '../../styles/scale';
 import { openRateAndReviewModal } from '../../redux/slices/globalStateSlice';
 import { SettingsData } from '../../redux/slices/settingsDataStateSlice';
 import {
@@ -63,13 +66,13 @@ describe('RateAndReviewModal', () => {
   // against the broken markup either way, which is why the behaviour tests
   // below deliberately keep using getByText and these two carry the role
   // check on their own.
-  test('"Maybe Later" is a real button, reachable by keyboard', async () => {
+  test('"Maybe later" is a real button, reachable by keyboard', async () => {
     await renderWithProviders(<RateAndReviewModal />, { seedStore: openModal });
 
-    expect(screen.getByRole('button', { name: 'Maybe Later' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Maybe later' })).toBeTruthy();
   });
 
-  test('"Never Remind Again" is a real button, reachable by keyboard', async () => {
+  test('"Never remind again" is a real button, reachable by keyboard', async () => {
     // Earned, not offered: the permanent opt-out renders only after the user
     // has already skipped once.
     seedSettings({ isSkippedUserReviewOnce: true });
@@ -77,7 +80,7 @@ describe('RateAndReviewModal', () => {
     await renderWithProviders(<RateAndReviewModal />, { seedStore: openModal });
 
     expect(
-      screen.getByRole('button', { name: 'Never Remind Again' })
+      screen.getByRole('button', { name: 'Never remind again' })
     ).toBeTruthy();
   });
 
@@ -122,23 +125,77 @@ describe('RateAndReviewModal', () => {
   // Swapping a div for a button must not change what the controls DO. These
   // drive the dismissals by text, so they pass against both markups and pin
   // the behaviour rather than the role.
-  test('"Maybe Later" records the skip and closes', async () => {
+  test('"Maybe later" records the skip and closes', async () => {
     await renderWithProviders(<RateAndReviewModal />, { seedStore: openModal });
 
-    await userEvent.click(screen.getByText('Maybe Later'));
+    await userEvent.click(screen.getByText('Maybe later'));
 
     expect(storedSettings().isSkippedUserReviewOnce).toBe(true);
     expect(screen.queryByText(BODY_TEXT)).toBeNull();
   });
 
-  test('"Never Remind Again" opts out for good and closes', async () => {
+  test('"Never remind again" opts out for good and closes', async () => {
     seedSettings({ isSkippedUserReviewOnce: true });
 
     await renderWithProviders(<RateAndReviewModal />, { seedStore: openModal });
 
-    await userEvent.click(screen.getByText('Never Remind Again'));
+    await userEvent.click(screen.getByText('Never remind again'));
 
     expect(storedSettings().isNeverAskAgainToRate).toBe(true);
     expect(screen.queryByText(BODY_TEXT)).toBeNull();
   });
 });
+
+// KAN-501 (A1). Built like the confirm dialogs: their width, an icon-and-title
+// row, and the offer's footer with the filled action on the right and a star.
+describe('RateAndReviewModal in the dialog family', () => {
+  const dialog = () => {
+    const found = document.querySelector('dialog');
+    if (found === null) throw new Error('no dialog');
+    return found;
+  };
+
+  test('is as wide as the confirm dialogs', async () => {
+    await renderWithProviders(<RateAndReviewModal />, { seedStore: openModal });
+    expect(getComputedStyle(dialog()).width).toBe(DIALOG.WIDTH);
+  });
+
+  test('the title carries the thumbs-up glyph, hidden from the name', async () => {
+    await renderWithProviders(<RateAndReviewModal />, { seedStore: openModal });
+    const title = screen.getByRole('heading', { name: 'Enjoying Tab Keeper?' });
+    const glyph = title.querySelector('.material-symbols-outlined');
+    expect(glyph?.textContent).toBe('thumb_up');
+  });
+
+  test('Maybe later comes first, then the filled Rate button with a star', async () => {
+    await renderWithProviders(<RateAndReviewModal />, { seedStore: openModal });
+    const later = screen.getByRole('button', { name: 'Maybe later' });
+    const rate = screen.getByRole('button', { name: CTA_TEXT });
+    expect(
+      later.compareDocumentPosition(rate) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(rate.querySelector('.material-symbols-outlined')?.textContent).toBe(
+      'star'
+    );
+    const resting = classRulesFor(rate)
+      .split('\n')
+      .filter((rule) => !/:(hover|active|focus)/.test(rule))
+      .join('\n');
+    expect(resting).toContain(
+      `background-color: ${rgb(LIGHT_THEME.TEXT_COLOR)}`
+    );
+  });
+
+  test('Never remind again stays a quiet line under the footer', async () => {
+    seedSettings({ isSkippedUserReviewOnce: true });
+    await renderWithProviders(<RateAndReviewModal />, { seedStore: openModal });
+    const rate = screen.getByRole('button', { name: CTA_TEXT });
+    const never = screen.getByRole('button', { name: 'Never remind again' });
+    expect(
+      rate.compareDocumentPosition(never) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+});
+
+const rgb = (hex: string) =>
+  `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;

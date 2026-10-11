@@ -1,3 +1,4 @@
+import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   act,
@@ -183,4 +184,16 @@ describe('the full-view callout', () => {
     );
     expect(callout()).toBeNull();
   });
+});
+
+// KAN-501. Try it is the filled button the tour and Hello use.
+test('Try it is the filled button', async () => {
+  await render();
+  const hex = LIGHT_THEME.TEXT_COLOR;
+  const rgb = `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
+  expect(
+    getComputedStyle(
+      within(openCallout()).getByRole('button', { name: 'Try it' })
+    ).backgroundColor
+  ).toBe(rgb);
 });

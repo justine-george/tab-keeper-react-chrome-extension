@@ -67,7 +67,15 @@ async function watchDialogNames(context: BrowserContext): Promise<void> {
     new MutationObserver(() => {
       for (const dialog of document.querySelectorAll('dialog[open]')) {
         const id = dialog.getAttribute('aria-labelledby');
-        const name = (id && document.getElementById(id)?.textContent) || '';
+        const heading = id ? document.getElementById(id) : null;
+        // The name a screen reader hears: an aria-hidden title glyph is no part of it.
+        const copy = heading?.cloneNode(true);
+        if (copy instanceof Element) {
+          copy
+            .querySelectorAll('[aria-hidden="true"]')
+            .forEach((n) => n.remove());
+        }
+        const name = copy?.textContent ?? '';
         if (!seen.includes(name)) seen.push(name);
       }
     }).observe(document, { subtree: true, childList: true, attributes: true });
@@ -314,10 +322,10 @@ for (const lang of ['en', 'de', 'ru']) {
   });
 }
 
-// KAN-428. Go back and Next/Done share one width, in any language at any root size.
+// KAN-428. Back and Next/Done share one width, in any language at any root size.
 for (const lang of ['en', 'de', 'ru']) {
   for (const root of [16, 20, 24]) {
-    test(`${lang} at a ${root}px root: Go back and Next/Done are one width, inside the dialog, on every step`, async ({
+    test(`${lang} at a ${root}px root: Back and Next/Done are one width, inside the dialog, on every step`, async ({
       context,
       extensionId,
       serviceWorker,
@@ -338,9 +346,7 @@ for (const lang of ['en', 'de', 'ru']) {
         setupAnyLanguage(page).getByRole('button', { name, exact: true });
       const widths = async (primary: string) => {
         const [back, end, dialog] = await Promise.all([
-          button(strings['Go back']).evaluate((el) =>
-            el.getBoundingClientRect()
-          ),
+          button(strings.Back).evaluate((el) => el.getBoundingClientRect()),
           button(primary).evaluate((el) => el.getBoundingClientRect()),
           setupAnyLanguage(page).evaluate((el) => el.getBoundingClientRect()),
         ]);
@@ -354,14 +360,14 @@ for (const lang of ['en', 'de', 'ru']) {
         };
       };
 
-      // Step 1 has no Go back: the one button keeps its own width.
-      await expect(button(strings['Go back'])).toHaveCount(0);
+      // Step 1 has no Back: the one button keeps its own width.
+      await expect(button(strings.Back)).toHaveCount(0);
       await expect(button(strings.Next)).toBeVisible();
       await expect(progress(page)).toHaveAttribute('aria-valuemax', '6');
       const primaries = [strings.Next, strings.Next, strings.Next];
       for (const primary of [...primaries, strings.Next, strings.Done]) {
         await button(strings.Next).click();
-        await expect(button(strings['Go back'])).toBeVisible();
+        await expect(button(strings.Back)).toBeVisible();
         await expect(button(primary)).toBeVisible();
         const seen = await widths(primary);
         // CONTROL: both are drawn, so a width of zero would not pass for a match.
@@ -810,7 +816,7 @@ test.describe('step 5, Save tab groups too? (Q9)', () => {
       'Step 5 of 5'
     );
 
-    await press(full, 'Go back');
+    await press(full, 'Back');
     await expect(stepHeading(full)).toHaveText(
       'Open Tab Keeper from the keyboard'
     );

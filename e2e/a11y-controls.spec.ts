@@ -523,8 +523,8 @@ test.describe('controls are reachable by keyboard', () => {
 
     const names = await tabOrderNames(page);
 
-    expect(names).toContain('Maybe Later');
-    expect(names).toContain('Never Remind Again');
+    expect(names).toContain('Maybe later');
+    expect(names).toContain('Never remind again');
   });
 
   test('the rate prompt dismissals are buttons with accessible names (KAN-75)', async ({
@@ -534,11 +534,11 @@ test.describe('controls are reachable by keyboard', () => {
     const page = await openRatePrompt(context, extensionId);
     await expect(page.getByText(RATE_PROMPT_BODY)).toBeVisible();
 
-    await expect(page.getByRole('button', { name: 'Maybe Later' })).toHaveCount(
+    await expect(page.getByRole('button', { name: 'Maybe later' })).toHaveCount(
       1
     );
     await expect(
-      page.getByRole('button', { name: 'Never Remind Again' })
+      page.getByRole('button', { name: 'Never remind again' })
     ).toHaveCount(1);
   });
 
