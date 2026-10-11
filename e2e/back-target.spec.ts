@@ -89,11 +89,10 @@ test.describe('the Back control on the settings page', () => {
     const glyph = await boxOf(glyphOf(control));
     const text = await boxOf(label(control));
 
-    // The glyph sits flush with the row's content edge, the label 8px
-    // after the 32px glyph, both vertically centred in the 56px row:
-    // exactly where they were.
+    // The glyph flush with the row's content edge, the label 3px after the
+    // 32px glyph (KAN-517), both centred in the 56px row.
     expect(glyph.x).toBe(row.x);
-    expect(text.x).toBe(row.x + 32 + 8);
+    expect(text.x).toBe(row.x + 32 + 3);
     expect(glyph.y + glyph.height / 2).toBe(row.y + row.height / 2);
     expect(row.height).toBe(56);
   });

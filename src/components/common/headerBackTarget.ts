@@ -1,3 +1,5 @@
+import { ICON } from '../../styles/scale';
+
 /**
  * The hit area of a header "Back" control (KAN-240).
  *
@@ -19,3 +21,9 @@ export const HEADER_BACK_TARGET = `
   padding: 12px 16px 12px 8px;
   margin: -12px -16px -12px -8px;
 `;
+
+// KAN-517. Between the Back glyph's box and its label: a 12px ink gap (Justine's pick).
+export const BACK_LABEL_GAP = '3px';
+
+// The Back label's left edge from the control's content edge: a default Icon's box (its glyph and 4px a side), then the gap. Settings' category labels start here too.
+export const BACK_LABEL_INSET = `calc(${ICON.DEFAULT} + 8px + ${BACK_LABEL_GAP})`;

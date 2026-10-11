@@ -2,7 +2,10 @@ import { useDispatch } from 'react-redux';
 
 import Icon from '../../common/Icon';
 import ClickableRow from '../../common/ClickableRow';
-import { HEADER_BACK_TARGET } from '../../common/headerBackTarget';
+import {
+  BACK_LABEL_GAP,
+  HEADER_BACK_TARGET,
+} from '../../common/headerBackTarget';
 import { NormalLabel } from '../../common/Label';
 import { AppDispatch } from '../../../redux/store';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -43,7 +46,7 @@ export default function MenuContainer() {
         value={t('Back')}
         size={TYPE.SECTION}
         color={COLORS.TEXT_COLOR}
-        style="padding-left: 8px; cursor: pointer;"
+        style={`padding-left: ${BACK_LABEL_GAP}; cursor: pointer;`}
       />
     </ClickableRow>
   );

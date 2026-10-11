@@ -15,6 +15,7 @@ import {
 } from '../../../redux/slices/settingsCategoryStateSlice';
 import { useTranslation } from 'react-i18next';
 import { DURATION, TYPE } from '../../../styles/scale';
+import { BACK_LABEL_INSET } from '../../common/headerBackTarget';
 
 export interface SettingsCategoryContainer {
   name: SettingsCategory;
@@ -91,7 +92,8 @@ const SettingsCategoryContainer: React.FC = () => {
     background-color: ${
       isSelected ? COLORS.SELECTION_COLOR : COLORS.PRIMARY_COLOR
     };
-    padding: 15px clamp(10px, 12%, 38px);
+    /* KAN-517. The label starts where the header's "Back" does: its inset, less this box's 1px border. */
+    padding: 15px clamp(10px, 12%, 38px) 15px calc(${BACK_LABEL_INSET} - 1px);
   `;
 
   return (
