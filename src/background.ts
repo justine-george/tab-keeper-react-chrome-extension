@@ -69,14 +69,21 @@ const defaultViewStore: DefaultViewStore = {
       .then((items) => items[DEFAULT_VIEW_KEY]),
 };
 // Never rejects (reapplyDefaultView logs its own failures), so a press chained on it always runs.
+// Chained, so it settles only once every reapply has (load and onInstalled both run at install).
 let defaultViewApplied: Promise<unknown> = Promise.resolve();
 const reapplyDefaultViewNow = () => {
-  defaultViewApplied = reapplyDefaultView(defaultViewStore, chromeActionApi);
+  defaultViewApplied = defaultViewApplied.then(() =>
+    reapplyDefaultView(defaultViewStore, chromeActionApi)
+  );
 };
 // Also at load: disabling then enabling resets the popup and fires neither event.
 reapplyDefaultViewNow();
 chrome.runtime.onStartup.addListener(reapplyDefaultViewNow);
 chrome.runtime.onInstalled.addListener(reapplyDefaultViewNow);
+// KAN-518. A spec that stages Default view waits on this, or a reapply that read before it lands after it.
+Object.assign(globalThis, {
+  tabKeeperDefaultViewApplied: () => defaultViewApplied,
+});
 
 // Fires only while the popup is '' (Default view = Full); the shortcut and the puzzle menu follow.
 // One open at a time: a double click would otherwise query before either create.
