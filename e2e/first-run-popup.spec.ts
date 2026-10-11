@@ -15,6 +15,7 @@ import {
   cardAt,
   cardButton,
   cardSide,
+  closeReplayNote,
   nextTo,
   openRunFromHelp,
   openRunFromHelpIn,
@@ -68,6 +69,7 @@ test('the seven cards in their places, then Done; the callout is marked seen; no
   }
   await expect(cardButton(page, 'Skip tutorial')).toHaveCount(0);
   await cardButton(page, 'Done').click();
+  await closeReplayNote(page);
   await expect(card(page)).toHaveCount(0);
   await expect
     .poll(() => storedRun(page))
@@ -137,6 +139,7 @@ test('the user’s own session keeps an undimmed Open through and after the run'
   expect(await openLook(page, sample)).toEqual(['opacity(0.3)', 'true']);
   for (let step = 3; step <= 7; step++) await nextTo(page, step);
   await cardButton(page, 'Done').click();
+  await closeReplayNote(page);
   await expect(card(page)).toHaveCount(0);
   await expect.poll(() => storedTitles(page)).toEqual(['Kept']);
   expect(await openLook(page, 'kept')).toEqual(['none', null]);
@@ -174,6 +177,7 @@ test('the user’s own save is the run’s session: its Open is dimmed during th
   expect(await openLook(page, own)).toEqual(['opacity(0.3)', 'true']);
   for (let step = 3; step <= 7; step++) await nextTo(page, step);
   await cardButton(page, 'Done').click();
+  await closeReplayNote(page);
   await expect(card(page)).toHaveCount(0);
   await expect.poll(() => openLook(page, own)).toEqual(['none', null]);
   expect(await storedTitles(page)).toEqual(['Inbox – Gmail']);

@@ -139,6 +139,7 @@ describe('the controller', () => {
       new Event('cancel', { cancelable: true })
     );
     expect(runOf(r)?.ended).toBe('skipped');
+    expect(r.store.getState().globalState.isReplayNoteOpen).toBe(true);
   });
 
   test('popup step 1: the save card, its glyph named, and Use an example', async () => {
@@ -211,6 +212,7 @@ describe('the controller', () => {
     expect(screen.queryByRole('button', { name: 'Skip tutorial' })).toBeNull();
     fireEvent.click(done);
     expect(runOf(r)?.ended).toBe('finished');
+    expect(r.store.getState().globalState.isReplayNoteOpen).toBe(true);
   });
 
   test('Esc on a middle card is Skip tutorial (§6)', async () => {
@@ -218,6 +220,16 @@ describe('the controller', () => {
     await screen.findByRole('button', { name: 'Use an example' });
     escape();
     expect(runOf(r)?.ended).toBe('skipped');
+    expect(r.store.getState().globalState.isReplayNoteOpen).toBe(true);
+  });
+
+  test('Skip tutorial ends the run and opens the note (KAN-499)', async () => {
+    const r = await renderAt(newRun('popup', 1));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Skip tutorial' })
+    );
+    expect(runOf(r)?.ended).toBe('skipped');
+    expect(r.store.getState().globalState.isReplayNoteOpen).toBe(true);
   });
 
   test('Esc on the last card is its non-pin button (R5)', async () => {

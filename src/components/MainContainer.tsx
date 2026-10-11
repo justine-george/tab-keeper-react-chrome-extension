@@ -9,6 +9,7 @@ import LeftPane from './home/leftpane/LeftPane';
 import { Toast } from './common/Toast';
 import { CarryLayer } from './home/CarryLayer';
 import FirstRun from './tour/FirstRun';
+import ReplayNote from './tour/ReplayNote';
 import RightPane from './home/rightpane/RightPane';
 import OpenNowColumn from './home/opennow/OpenNowColumn';
 import OpenNowResizeGrip from './home/opennow/OpenNowResizeGrip';
@@ -433,6 +434,7 @@ export default function MainContainer() {
       <CarryLayer />
       {/* Draws nothing unless this page shows the run; R3 hides its card while Settings is open. */}
       <FirstRun />
+      <ReplayNote />
       {isRateAndReviewModalOpen && <RateAndReviewModal />}
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}

@@ -114,11 +114,28 @@ export async function walkFullRunToLastStep(page: Page): Promise<void> {
   for (let step = 5; step <= 8; step++) await nextTo(page, step);
 }
 
-// A full-view run from its first card to Not now at its end, which goes on to setup.
+// KAN-499. The note after the run: a card with no step, at Settings.
+export const replayNote = (page: Page) =>
+  page.locator('[data-coach-mark]:not([data-coach-step]):not([aria-hidden])');
+
+// The note after a skip or the last card; Got it closes it, and setup follows a finished full-view run.
+export async function closeReplayNote(
+  page: Page,
+  gotIt = 'Got it'
+): Promise<void> {
+  await expect(replayNote(page)).toBeVisible();
+  await replayNote(page)
+    .getByRole('button', { name: gotIt, exact: true })
+    .click();
+  await expect(replayNote(page)).toHaveCount(0);
+}
+
+// A full-view run from its first card to Not now at its end, then the note, which goes on to setup.
 export async function finishFullRun(page: Page): Promise<void> {
   await expect(cardAt(page, 1)).toBeVisible();
   await walkFullRunToLastStep(page);
   await cardButton(page, 'Not now').click();
+  await closeReplayNote(page);
 }
 
 // openRunFromHelp in another language: every name is read from the locale on screen.

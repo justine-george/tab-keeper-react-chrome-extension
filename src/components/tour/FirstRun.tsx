@@ -20,13 +20,13 @@ import type { AppDispatch, RootState } from '../../redux/store';
 import {
   advanceRun,
   beginSaveStep,
-  endRun,
   finishRunHere,
   goToRunStep,
   pinThisTab,
   reconcileRunHere,
   selectIsRunCardShown,
   selectRunHere,
+  skipRun,
   stepRunBack,
   takeExampleForRun,
 } from '../../redux/firstRun';
@@ -122,7 +122,7 @@ export default function FirstRun() {
   const start = useCallback(() => dispatch(goToRunStep(1)), [dispatch]);
   const goNext = useCallback(() => void dispatch(advanceRun()), [dispatch]);
   const goBack = useCallback(() => void dispatch(stepRunBack()), [dispatch]);
-  const skip = useCallback(() => dispatch(endRun('skipped')), [dispatch]);
+  const skip = useCallback(() => dispatch(skipRun()), [dispatch]);
   const finish = useCallback(() => void dispatch(finishRunHere()), [dispatch]);
   const pin = useCallback(() => void dispatch(pinThisTab()), [dispatch]);
   const example = useCallback(
@@ -325,8 +325,7 @@ export default function FirstRun() {
 
   return (
     <CoachMark
-      step={run.step}
-      total={RUN_STEPS[run.view]}
+      progress={{ step: run.step, total: RUN_STEPS[run.view] }}
       text={card.text}
       fine={card.fine}
       anchors={plan.anchors}

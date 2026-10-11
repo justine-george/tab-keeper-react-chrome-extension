@@ -18,10 +18,12 @@ import {
   cardButton,
   cardSide,
   centreOf,
+  closeReplayNote,
   hello,
   hitAt,
   nextTo,
   openRunFromHelp,
+  replayNote,
   runDrawn,
   seedSessionsIfAbsent,
   startRunFromHelp,
@@ -131,6 +133,7 @@ test('Help starts at card 1 with no Hello; the eight cards in their places, Back
   await expect(cardButton(page, 'Skip tutorial')).toHaveCount(0);
   expect(await opened()).toBe(0);
   await cardButton(page, 'Not now').click();
+  await closeReplayNote(page);
   await expect(card(page)).toHaveCount(0);
   await expect
     .poll(() => storedRun(page))
@@ -480,6 +483,7 @@ test('Next onto the save step glides the card there and never lifts the dim (KAN
   expect(await motion()).toEqual(['glide']);
   // CONTROL: the same observer sees the dim lifted when the run ends.
   await cardButton(page, 'Skip tutorial').click();
+  await closeReplayNote(page);
   await expect(card(page)).toHaveCount(0);
   expect(await lifted()).toBe(true);
 });
@@ -501,7 +505,7 @@ test('Pin this tab pins this tab and ends the run', async ({
   await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'finished' });
 });
 
-test('Esc on a middle card is Skip tutorial; on the last it is Not now (R5); both prevented', async ({
+test('Esc on a middle card is Skip tutorial; on the last it is Not now (R5); on the note it closes it; all prevented', async ({
   context,
   extensionId,
 }) => {
@@ -509,6 +513,9 @@ test('Esc on a middle card is Skip tutorial; on the last it is Not now (R5); bot
   const page = await openRunFromHelp(context, extensionId, FULL_RUN);
   await page.keyboard.press('Escape');
   await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'skipped' });
+  await expect(replayNote(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(replayNote(page)).toHaveCount(0);
   await startRunFromHelp(page);
   await expect(cardAt(page, 1)).toBeVisible();
   for (let step = 2; step <= 3; step++) await nextTo(page, step);
@@ -516,7 +523,10 @@ test('Esc on a middle card is Skip tutorial; on the last it is Not now (R5); bot
   for (let step = 5; step <= 8; step++) await nextTo(page, step);
   await page.keyboard.press('Escape');
   await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'finished' });
-  expect(await escapesPrevented(page)).toEqual([true, true]);
+  await expect(replayNote(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(replayNote(page)).toHaveCount(0);
+  expect(await escapesPrevented(page)).toEqual([true, true, true, true]);
 });
 
 test('Esc on Hello is Skip tutorial, and is prevented (KAN-426)', async ({
