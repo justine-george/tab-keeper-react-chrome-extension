@@ -7,7 +7,13 @@ import {
   openInPopup,
   type PopupApi,
 } from '../../../utils/functions/openInPopup';
-import { OPEN_IN_TAB_MESSAGE } from '../../../utils/functions/popOut';
+import {
+  chromeTabApi,
+  OPEN_IN_TAB_MESSAGE,
+  openOrFocusTabView,
+} from '../../../utils/functions/popOut';
+import { recordFullViewOrigins } from '../../../utils/functions/fullViewOrigin';
+import { recordRecentTabs } from '../../../utils/functions/recentTabs';
 import { DEFAULT_VIEW_KEY } from '../../../utils/functions/defaultView';
 import type * as DefaultViewModule from '../../../utils/functions/defaultView';
 import { setupChromeFake } from '../../setup/chrome.fake';
@@ -18,7 +24,8 @@ type Entry =
   | { call: 'removeTab'; tabId: number }
   | { call: 'setPopup'; popup: string }
   | { call: 'openPopup'; windowId: number | undefined }
-  | { call: 'createTab'; props: Parameters<PopupApi['createTab']>[0] };
+  | { call: 'createTab'; props: Parameters<PopupApi['createTab']>[0] }
+  | { call: 'activate'; tabId: number };
 
 interface FakeTab {
   id: number;
@@ -37,6 +44,12 @@ function makeApi(options: {
   // Refuses a create naming a window: that window closed after the check.
   refuseCreateInWindow?: boolean;
   refuseRestore?: boolean;
+  // KAN-507. The tab ⤢ was pressed on, recorded for the full view 7.
+  origin?: number;
+  // Each window's recently used tabs, newest first.
+  recent?: Record<number, number[]>;
+  refuseRecords?: boolean;
+  refuseActivate?: boolean;
 }): { api: PopupApi; log: Entry[] } {
   const tabs = options.tabs.map((t) => ({ ...t }));
   let popup = options.popup ?? 'chrome-extension://x/index.html';
@@ -84,6 +97,21 @@ function makeApi(options: {
       if (options.refuseCreateInWindow && props.windowId !== undefined) {
         throw new Error(`No window with id: ${props.windowId}.`);
       }
+    },
+    originOf: async ({ tabId }) => {
+      if (options.refuseRecords) throw new Error('storage refused');
+      return tabId === 7 ? options.origin : undefined;
+    },
+    recentTabsIn: async (windowId) => {
+      if (options.refuseRecords) throw new Error('storage refused');
+      return options.recent?.[windowId] ?? [];
+    },
+    activate: async (tabId) => {
+      log.push({ call: 'activate', tabId });
+      if (options.refuseActivate) throw new Error('activate refused');
+      const tab = tabs.find((t) => t.id === tabId);
+      if (!tab) throw new Error(`No tab with id: ${tabId}.`);
+      return tab.windowId;
     },
   };
   return { api, log };
@@ -346,6 +374,135 @@ describe('openInPopup (KAN-437)', () => {
   });
 });
 
+describe('KAN-507: back to the tab the full view was opened from', () => {
+  test('origin beside it: that tab first, then the full view closes, then the popup opens over it', async () => {
+    const { api, log } = makeApi({ tabs: BESIDE, origin: 6 });
+
+    await openInPopup(api, 7);
+
+    expect(log).toEqual([
+      { call: 'activate', tabId: 6 },
+      { call: 'removeTab', tabId: 7 },
+      { call: 'openPopup', windowId: 1 },
+    ]);
+  });
+
+  test('origin in another window: that window’s tab, and the popup opens there', async () => {
+    const { api, log } = makeApi({ tabs: ALONE, origin: 20 });
+
+    await openInPopup(api, 7);
+
+    expect(log).toEqual([
+      { call: 'activate', tabId: 20 },
+      { call: 'removeTab', tabId: 7 },
+      { call: 'openPopup', windowId: 2 },
+    ]);
+  });
+
+  test('pinned: goes back to the origin and the pinned tab stays', async () => {
+    const { api, log } = makeApi({
+      tabs: [
+        { id: 6, windowId: 1, index: 1 },
+        { id: 7, windowId: 1, index: 0, pinned: true },
+        { id: 20, windowId: 2, index: 0 },
+      ],
+      origin: 20,
+    });
+
+    await openInPopup(api, 7);
+
+    expect(log).toEqual([
+      { call: 'activate', tabId: 20 },
+      { call: 'openPopup', windowId: 2 },
+    ]);
+  });
+
+  test('origin closed meanwhile: the last tab used beside the full view instead', async () => {
+    const { api, log } = makeApi({
+      tabs: BESIDE,
+      origin: 99,
+      recent: { 1: [7, 98, 6] },
+    });
+
+    await openInPopup(api, 7);
+
+    expect(log).toEqual([
+      { call: 'activate', tabId: 6 },
+      { call: 'removeTab', tabId: 7 },
+      { call: 'openPopup', windowId: 1 },
+    ]);
+  });
+
+  test('no origin recorded (the full view was reached without ⤢): the last tab used beside it', async () => {
+    const { api, log } = makeApi({
+      tabs: [...BESIDE, { id: 5, windowId: 1, index: 2 }],
+      recent: { 1: [7, 5, 6], 2: [20] },
+    });
+
+    await openInPopup(api, 7);
+
+    expect(log[0]).toEqual({ call: 'activate', tabId: 5 });
+  });
+
+  test('the records cannot be read: as before KAN-507, and it warns', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { api, log } = makeApi({ tabs: BESIDE, refuseRecords: true });
+
+    await openInPopup(api, 7);
+
+    expect(log).toEqual([
+      { call: 'removeTab', tabId: 7 },
+      { call: 'openPopup', windowId: 1 },
+    ]);
+    expect(warn).toHaveBeenCalledWith(
+      'Could not read where to go back to:',
+      expect.any(Error)
+    );
+  });
+
+  test('Chrome refuses the switch: as before KAN-507, and it warns', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { api, log } = makeApi({
+      tabs: ALONE,
+      origin: 20,
+      refuseActivate: true,
+    });
+
+    await openInPopup(api, 7);
+
+    expect(log).toEqual([
+      { call: 'activate', tabId: 20 },
+      { call: 'removeTab', tabId: 7 },
+      { call: 'openPopup', windowId: undefined },
+    ]);
+    expect(warn).toHaveBeenCalledWith(
+      'Could not go back to the tab:',
+      expect.any(Error)
+    );
+  });
+
+  test('Chrome refuses the popup after going back: the full view reopens where it was', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { api, log } = makeApi({
+      tabs: BESIDE,
+      origin: 6,
+      refusePopup: true,
+    });
+
+    await openInPopup(api, 7);
+
+    expect(log).toEqual([
+      { call: 'activate', tabId: 6 },
+      { call: 'removeTab', tabId: 7 },
+      { call: 'openPopup', windowId: 1 },
+      {
+        call: 'createTab',
+        props: { url: VIEW, active: true, windowId: 1, index: 1 },
+      },
+    ]);
+  });
+});
+
 describe('chromePopupApi against the chrome fake (KAN-437)', () => {
   let handle: ReturnType<typeof setupChromeFake> | undefined;
   afterEach(() => {
@@ -567,5 +724,103 @@ describe('the worker runs a press after its startup reapply (KAN-437)', () => {
       { windowId: undefined, popup: 'index.html' },
     ]);
     expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe('KAN-507 against the chrome fake: ⤢, then Open compact view', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+  });
+  const FAKE_VIEW = 'chrome-extension://faketestid/index.html?view=tab';
+  const activeIn = async (windowId: number) =>
+    (await chrome.tabs.query({ active: true, windowId }))[0]?.id;
+  // ⤢ from a window: the worker opens or focuses the full view; resolves to its tab id.
+  const pressOpenFullView = async (windowId: number) => {
+    await openOrFocusTabView(chromeTabApi, {
+      type: OPEN_IN_TAB_MESSAGE,
+      windowId,
+    });
+    const [fullView] = await chrome.tabs.query({ url: `${FAKE_VIEW}*` });
+    if (fullView?.id === undefined) throw new Error('no full view');
+    return fullView.id;
+  };
+  // Chrome would land on 11, the full view's right-hand neighbour, if nothing chose for it.
+  const THREE_TABS = [
+    { id: 11, url: 'https://a.test/' },
+    { id: 12, url: 'https://b.test/', active: true },
+    { id: 13, url: 'https://c.test/' },
+  ];
+
+  test('lands back on the tab ⤢ was pressed on, not on the full view’s neighbour', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    handle = setupChromeFake({
+      action: {},
+      windows: [{ id: 1, focused: true, tabs: THREE_TABS }],
+    });
+    recordRecentTabs();
+    recordFullViewOrigins();
+
+    const fullView = await pressOpenFullView(1);
+    await openInPopup(chromePopupApi, fullView);
+
+    expect(await activeIn(1)).toBe(12);
+    expect(handle.removedTabIds).toEqual([fullView]);
+    expect(handle.openPopupCalls).toEqual([
+      { windowId: 1, popup: 'index.html' },
+    ]);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  test('a visit to another tab in between: lands on the last tab used, not the stale origin', async () => {
+    handle = setupChromeFake({
+      action: {},
+      windows: [{ id: 1, focused: true, tabs: THREE_TABS }],
+    });
+    recordRecentTabs();
+    recordFullViewOrigins();
+
+    const fullView = await pressOpenFullView(1);
+    handle.browser.activateTab(13);
+    handle.browser.activateTab(fullView);
+    await openInPopup(chromePopupApi, fullView);
+
+    expect(await activeIn(1)).toBe(13);
+    expect(handle.removedTabIds).toEqual([fullView]);
+  });
+
+  test('⤢ jumped to a pinned full view in another window: back in the first window, the pinned tab stays', async () => {
+    handle = setupChromeFake({
+      action: {},
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 10, url: FAKE_VIEW, pinned: true, active: true },
+            { id: 11, url: 'https://a.test/' },
+          ],
+        },
+        {
+          id: 2,
+          focused: true,
+          tabs: [{ id: 21, url: 'https://b.test/', active: true }],
+        },
+      ],
+    });
+    recordRecentTabs();
+    recordFullViewOrigins();
+
+    const fullView = await pressOpenFullView(2);
+    expect(fullView).toBe(10);
+    // PREMISE: ⤢ moved the user to window 1.
+    expect((await chrome.windows.getLastFocused()).id).toBe(1);
+    await openInPopup(chromePopupApi, fullView);
+
+    expect((await chrome.windows.getLastFocused()).id).toBe(2);
+    expect(handle.removedTabIds).toEqual([]);
+    expect(handle.openPopupCalls).toEqual([
+      { windowId: 2, popup: 'index.html' },
+    ]);
   });
 });

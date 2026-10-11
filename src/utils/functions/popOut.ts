@@ -7,11 +7,11 @@
 // Worker-safe on purpose, like windows.ts: no import from redux/ or
 // utils/constants/common.ts (window.screen at module load), and no call
 // into viewMode.ts's isTabView() -- it assumes it is running in a tab,
-// which the worker never is. Only @types/chrome's ambient `chrome` types
-// are used, and only as types -- TabApi below is what background.ts
-// implements against the real chrome.* APIs, and what tests implement
-// against a fake.
+// which the worker never is. chrome.* is read only inside calls, never at
+// load: chromeTabApi below implements TabApi against the real APIs for
+// background.ts, and tests implement it against a fake.
 
+import { chromeFullViewOrigins, type FullViewTabRef } from './fullViewOrigin';
 import { STUB_PATH, TAB_VIEW_PATH } from './pinnedTabKeeper';
 
 export const OPEN_IN_TAB_MESSAGE = 'openInTab';
@@ -107,10 +107,39 @@ export interface TabApi {
     index: number;
     windowId?: number;
     active: boolean;
-  }): Promise<unknown>;
+  }): Promise<{ id?: number; windowId: number }>;
   // Tells the extension's pages; only the full view it names acts.
   announce(message: ShowInFullViewMessage): Promise<unknown>;
+  // undefined window: the last-focused one. undefined result: it has no active tab.
+  activeTabId(windowId: number | undefined): Promise<number | undefined>;
+  // KAN-507. The tab the full view was opened from, for Open compact view to go back to.
+  rememberOrigin(
+    fullView: FullViewTabRef,
+    originTabId: number
+  ): Promise<unknown>;
 }
+
+// The real TabApi, pointed at chrome.tabs/chrome.windows; it reads chrome.* at each call.
+// windows.update's `{ focused: true }` is what chrome.tabs.update itself has
+// no equivalent for -- activating a tab does not raise its window.
+export const chromeTabApi: TabApi = {
+  getURL: (path) => chrome.runtime.getURL(path),
+  query: (q) => chrome.tabs.query(q),
+  update: (tabId, props) => chrome.tabs.update(tabId, props),
+  focusWindow: (windowId) => chrome.windows.update(windowId, { focused: true }),
+  create: (props) => chrome.tabs.create(props),
+  announce: (message) => chrome.runtime.sendMessage(message),
+  activeTabId: async (windowId) =>
+    (
+      await chrome.tabs.query(
+        windowId === undefined
+          ? { active: true, lastFocusedWindow: true }
+          : { active: true, windowId }
+      )
+    )[0]?.id,
+  rememberOrigin: (fullView, originTabId) =>
+    chromeFullViewOrigins.remember(fullView, originTabId),
+};
 
 // Finds the extension's own tab-view tab and focuses it, or opens a new one.
 //
@@ -125,6 +154,19 @@ export async function openOrFocusTabView(
   request: OpenInTabRequest
 ): Promise<void> {
   try {
+    // KAN-507. Read before anything below moves the asking window's focus.
+    const origin = await api
+      .activeTabId(request.windowId)
+      .catch(() => undefined);
+    const remember = async (fullView: FullViewTabRef) => {
+      if (origin === undefined || origin === fullView.tabId) return;
+      await api.rememberOrigin(fullView, origin).catch((error: unknown) => {
+        console.warn(
+          'Could not remember where the full view was opened from:',
+          error
+        );
+      });
+    };
     const url = api.getURL(TAB_VIEW_PATH);
     const stubUrl = api.getURL(STUB_PATH);
     // Tab views before stubs, so a loaded one wins within a window.
@@ -151,10 +193,12 @@ export async function openOrFocusTabView(
           url: `${url}&show=${request.show}`,
         });
         await api.focusWindow(existing.windowId);
+        await remember({ tabId: existing.id, windowId: existing.windowId });
         return;
       }
       await api.update(existing.id, { active: true });
       await api.focusWindow(existing.windowId);
+      await remember({ tabId: existing.id, windowId: existing.windowId });
       if (request.show !== undefined) {
         await api.announce({
           type: SHOW_IN_FULL_VIEW_MESSAGE,
@@ -165,12 +209,15 @@ export async function openOrFocusTabView(
       return;
     }
 
-    await api.create({
+    const created = await api.create({
       url: request.show === undefined ? url : `${url}&show=${request.show}`,
       index: 0,
       ...(request.windowId === undefined ? {} : { windowId: request.windowId }),
       active: true,
     });
+    if (created.id !== undefined) {
+      await remember({ tabId: created.id, windowId: created.windowId });
+    }
   } catch (error) {
     console.warn('Could not open or focus the tab view:', error);
   }

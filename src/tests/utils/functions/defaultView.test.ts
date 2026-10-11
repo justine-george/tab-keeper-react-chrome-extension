@@ -39,9 +39,11 @@ const tabs = (open: chrome.tabs.Tab[]) => {
     },
     create: async (props) => {
       creates.push(props);
-      return undefined;
+      return { id: 99, windowId: props.windowId ?? 1 };
     },
     announce: async () => undefined,
+    activeTabId: async () => undefined,
+    rememberOrigin: async () => undefined,
   };
   return { api, creates, focused };
 };

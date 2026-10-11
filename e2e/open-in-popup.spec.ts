@@ -359,3 +359,140 @@ test.describe('Open compact view (KAN-437)', () => {
     expect(await mostFullViewsWithin(serviceWorker, 1000)).toBe(0);
   });
 });
+
+// KAN-507. Open compact view goes back to the tab the full view was opened from.
+test.describe('Open compact view goes back (KAN-507)', () => {
+  // A focused window [A, B, C] with B active. ⤢ puts the full view at index 0, so Chrome alone would land on A.
+  async function windowOnB(worker: Worker) {
+    return worker.evaluate(async () => {
+      const win = await chrome.windows.create({
+        url: ['A', 'B', 'C'].map((t) => `data:text/html,<title>${t}</title>`),
+        focused: true,
+      });
+      const [a, b, c] = (win?.tabs ?? []).map((t) => t.id ?? -1);
+      if (win?.id === undefined) throw new Error('no window');
+      await chrome.tabs.update(b, { active: true });
+      return { windowId: win.id, a, b, c };
+    });
+  }
+  // What the popup's ⤢ sends: its own window's id. Headless has no toolbar popup, so a page in
+  // another window sends it; opened first, as a new page lands in the focused window.
+  async function senderPage(context: BrowserContext, extensionId: string) {
+    const sender = await context.newPage();
+    await sender.goto(`chrome-extension://${extensionId}/index.html`);
+    return sender;
+  }
+  async function pressOpenFullView(
+    context: BrowserContext,
+    sender: Page,
+    windowId: number
+  ) {
+    await sender.evaluate((id) => {
+      void chrome.runtime
+        .sendMessage({ type: 'openInTab', windowId: id })
+        .catch(() => undefined);
+    }, windowId);
+    return fullViewPage(context);
+  }
+  const activeIn = (worker: Worker, windowId: number) =>
+    worker.evaluate(
+      async (id) =>
+        (await chrome.tabs.query({ active: true, windowId: id }))[0]?.id,
+      windowId
+    );
+
+  test('8. ⤢ on B, then Open compact view: back on B, the popup over its window', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedSessions(context);
+    const sender = await senderPage(context, extensionId);
+    const w = await windowOnB(serviceWorker);
+    const page = await pressOpenFullView(context, sender, w.windowId);
+    const [fullView] = await viewTabs(serviceWorker);
+    // PREMISE: the full view opened in B's window, in front, at index 0.
+    expect(fullView).toMatchObject({
+      windowId: w.windowId,
+      index: 0,
+      active: true,
+    });
+    await stubOpenPopup(serviceWorker, false);
+
+    await press(page);
+
+    await expect
+      .poll(() => openPopupCalls(serviceWorker))
+      .toEqual([
+        {
+          args: [{ windowId: w.windowId }],
+          popup: INDEX_POPUP,
+          fullViewsOpen: 0,
+        },
+      ]);
+    expect(await activeIn(serviceWorker, w.windowId)).toBe(w.b);
+  });
+
+  test('9. ⤢ on B, then a visit to C and back: Open compact view lands on C', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedSessions(context);
+    const sender = await senderPage(context, extensionId);
+    const w = await windowOnB(serviceWorker);
+    const page = await pressOpenFullView(context, sender, w.windowId);
+    const [fullView] = await viewTabs(serviceWorker);
+    await serviceWorker.evaluate(
+      async ({ c, fv }) => {
+        await chrome.tabs.update(c, { active: true });
+        await chrome.tabs.update(fv, { active: true });
+      },
+      { c: w.c, fv: fullView.id }
+    );
+    // PREMISE: the worker has recorded both switches.
+    await expect
+      .poll(() =>
+        serviceWorker.evaluate(
+          async (id) =>
+            (await chrome.storage.session.get(`recentTabs.${id}`))[
+              `recentTabs.${id}`
+            ],
+          w.windowId
+        )
+      )
+      .toEqual(expect.arrayContaining([fullView.id, w.c]));
+    await stubOpenPopup(serviceWorker, false);
+
+    await press(page);
+
+    await expect.poll(() => openPopupCalls(serviceWorker)).toHaveLength(1);
+    expect(await activeIn(serviceWorker, w.windowId)).toBe(w.c);
+  });
+
+  test('10. unstubbed: back on B, and Chrome’s popup opens and stays open', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedSessions(context);
+    const sender = await senderPage(context, extensionId);
+    const w = await windowOnB(serviceWorker);
+    const page = await pressOpenFullView(context, sender, w.windowId);
+    const popups = () =>
+      serviceWorker.evaluate(
+        async () =>
+          (await chrome.runtime.getContexts({ contextTypes: ['POPUP'] })).length
+      );
+    // PREMISE: no popup is open yet.
+    expect(await popups()).toBe(0);
+
+    await press(page);
+
+    await expect.poll(popups).toBe(1);
+    expect(await activeIn(serviceWorker, w.windowId)).toBe(w.b);
+    // A popup opened before the switch or the close would die with it (KAN-437); this one stays.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    expect(await popups()).toBe(1);
+  });
+});
