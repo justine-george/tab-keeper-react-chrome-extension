@@ -111,7 +111,7 @@ export default function FullViewCallout({
         />
       </div>
       <div css={actionsStyle}>
-        <button type="button" css={buttons.primary} onClick={onTry}>
+        <button type="button" css={buttons.filled} onClick={onTry}>
           {t('Try it')}
         </button>
       </div>

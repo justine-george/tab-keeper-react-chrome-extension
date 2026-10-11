@@ -115,9 +115,7 @@ describe('Make Tab Keeper yours', () => {
     await render();
     expect(document.activeElement).toBe(dialog());
     expect(stepHeading()).toHaveTextContent('Pick a theme');
-    expect(
-      within(dialog()).queryByRole('button', { name: 'Go back' })
-    ).toBeNull();
+    expect(within(dialog()).queryByRole('button', { name: 'Back' })).toBeNull();
     for (const name of ['Paper', 'Parchment', 'Petal', 'Graphite', 'Ink']) {
       expect(
         within(dialog()).getByRole('button', { name })
@@ -144,7 +142,7 @@ describe('Make Tab Keeper yours', () => {
     press('Next');
     expect(stepHeading()).toHaveTextContent('Which language do you prefer?');
     expect(document.activeElement).toBe(stepHeading());
-    press('Go back');
+    press('Back');
     expect(stepHeading()).toHaveTextContent('Pick a theme');
   });
 
@@ -555,15 +553,15 @@ describe('step 5, Save tab groups too? (Q9)', () => {
     expect(stepHeading()).toHaveTextContent('Sync across your devices?');
   });
 
-  for (const how of ['Go back', 'Skip setup', 'Esc'] as const) {
+  for (const how of ['Back', 'Skip setup', 'Esc'] as const) {
     test(`${how} on step 5 is no answer: the pop-up offer stays armed`, async () => {
       const { store } = await render(GROUPED);
       await toStep('Save tab groups too?');
-      if (how === 'Go back') press('Go back');
+      if (how === 'Back') press('Back');
       else if (how === 'Skip setup') fireEvent.click(skipLink());
       else pressEscape();
       // Each did what it does, so the flag below is read after the action.
-      if (how === 'Go back') {
+      if (how === 'Back') {
         expect(stepHeading()).toHaveTextContent(
           'Open Tab Keeper from the keyboard'
         );
@@ -726,7 +724,7 @@ describe('Next answers one press at a time (review)', () => {
     expect(stepHeading()).toHaveTextContent(
       'Open Tab Keeper from the keyboard'
     );
-    press('Go back');
+    press('Back');
     expect(stepHeading()).toHaveTextContent('When you click Tab Keeper, open…');
 
     await act(async () => answer(false));
@@ -768,5 +766,42 @@ describe('Korean captions keep their words whole (M5 B)', () => {
     // The rule is there; it does not reach Japanese.
     expect(classRulesFor(caption)).toContain('keep-all');
     expect(keepAllMatching(caption)).toEqual([]);
+  });
+});
+
+// KAN-501. The way forward is the filled button the tour and Hello use; the way back is Back, as everywhere else.
+describe('setup’s buttons (KAN-501)', () => {
+  const button = (name: string) =>
+    within(dialog()).getByRole('button', { name });
+  // The resting rule: jsdom answers a pressed button's computed style with its :hover rung.
+  const restingFill = (el: HTMLElement) =>
+    classRulesFor(el)
+      .split('\n')
+      .filter((rule) => !/:(hover|active|focus)/.test(rule))
+      .join('\n');
+  const hex = LIGHT_THEME.TEXT_COLOR;
+  const FILLED = `background-color: rgb(${[1, 3, 5]
+    .map((i) => parseInt(hex.slice(i, i + 2), 16))
+    .join(', ')})`;
+
+  test('Next and Done are filled, and the way back is Back', async () => {
+    await render();
+    expect(restingFill(button('Next'))).toContain(FILLED);
+    press('Next');
+    await act(async () => {});
+    expect(button('Back')).toBeInTheDocument();
+    expect(
+      within(dialog()).queryByRole('button', { name: 'Go back' })
+    ).toBeNull();
+    for (
+      let i = 0;
+      i < 6 &&
+      within(dialog()).queryByRole('button', { name: 'Done' }) === null;
+      i++
+    ) {
+      press('Next');
+      await act(async () => {});
+    }
+    expect(restingFill(button('Done'))).toContain(FILLED);
   });
 });

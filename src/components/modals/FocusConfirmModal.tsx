@@ -154,7 +154,7 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
         <button type="button" css={buttons.quiet} onClick={handleCancel}>
           {t('FocusConfirmCancel')}
         </button>
-        <button type="button" css={buttons.primary} onClick={handleConfirm}>
+        <button type="button" css={buttons.filled} onClick={handleConfirm}>
           {t('FocusConfirmConfirm')}
         </button>
       </div>

@@ -325,7 +325,7 @@ export const CloudConsentModal: React.FC = () => {
             <button type="button" css={buttons.quiet} onClick={close}>
               {t('Not now')}
             </button>
-            <button type="button" css={buttons.primary} onClick={grant}>
+            <button type="button" css={buttons.filled} onClick={grant}>
               {t('Sync')}
             </button>
           </div>
@@ -349,7 +349,7 @@ export const CloudConsentModal: React.FC = () => {
             <button type="button" css={buttons.quiet} onClick={decline}>
               {t('Turn off sync')}
             </button>
-            <button type="button" css={buttons.primary} onClick={grant}>
+            <button type="button" css={buttons.filled} onClick={grant}>
               {t('Keep sync on')}
             </button>
           </div>

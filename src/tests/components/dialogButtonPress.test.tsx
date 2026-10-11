@@ -20,6 +20,9 @@ import {
 import { dialogButtonStyles } from '../../components/modals/dialogButtons';
 import { mixHex } from '../../styles/mixHex';
 
+const hexToRgb = (hex: string) =>
+  `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
+
 // KAN-259. The three bordered-button dialogs each carried a copy of one style
 // with a hover rung and no press rung, so pressing looked like hovering --
 // the defect KAN-236 fixed on the settings rows. They share dialogButtons now,
@@ -80,6 +83,23 @@ describe.each(DIALOGS)('$name buttons answer a press (KAN-259)', (dialog) => {
       if (!isDanger) expect(bg(active)).not.toBe(bg(hover));
     }
   });
+});
+
+// KAN-501. A dialog's way forward is the filled button the tour and Hello use.
+test.each([
+  ['CloudConsentModal', 'Sync'],
+  ['FocusConfirmModal', 'Switch'],
+] as const)('%s: %s is the filled button', async (name, label) => {
+  const dialog = DIALOGS.find((d) => d.name === name);
+  if (dialog === undefined) throw new Error(`no ${name}`);
+  const { container } = await dialog.render();
+  const button = [...container.querySelectorAll('dialog button')].find(
+    (b) => b.textContent?.trim() === label
+  );
+  if (button === undefined) throw new Error(`no ${label} button`);
+  expect(getComputedStyle(button).backgroundColor).toBe(
+    hexToRgb(LIGHT_THEME.TEXT_COLOR)
+  );
 });
 
 test('CONTROL: the rungs are Button own tokens on Paper', () => {
@@ -160,7 +180,7 @@ describe('the filled button', () => {
 
   test('CONTROL: the other styles keep the inside ring', async () => {
     const { container } = await renderWithProviders(
-      <button css={dialogButtonStyles(COLORS).primary}>Next</button>
+      <button css={dialogButtonStyles(COLORS).quiet}>Back</button>
     );
     const button = container.querySelector('button');
     if (button === null) throw new Error('no button');

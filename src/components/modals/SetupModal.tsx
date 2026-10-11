@@ -624,17 +624,17 @@ export const SetupModal: React.FC = () => {
               css={buttons.quiet}
               onClick={() => goTo(stepIndex - 1)}
             >
-              {t('Go back')}
+              {t('Back')}
             </button>
           )}
           {isLast ? (
-            <button type="button" css={buttons.primary} onClick={finish}>
+            <button type="button" css={buttons.filled} onClick={finish}>
               {t('Done')}
             </button>
           ) : (
             <button
               type="button"
-              css={buttons.primary}
+              css={buttons.filled}
               onClick={(e) => {
                 // A double-click's second press would answer the next step unseen.
                 if (e.detail > 1) return;
