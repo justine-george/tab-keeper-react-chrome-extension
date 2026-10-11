@@ -604,7 +604,7 @@ export default function HeroContainerRight() {
                     // KAN-468. Every open window replaces this session's; one ⌘Z undoes it.
                     key: 'replace',
                     label: t('Replace with open windows'),
-                    icon: 'published_with_changes',
+                    icon: 'browser_updated',
                     onSelect: () =>
                       void dispatch(replaceSessionWithOpenWindows(tabGroupId)),
                   },
