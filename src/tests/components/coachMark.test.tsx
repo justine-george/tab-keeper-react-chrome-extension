@@ -72,8 +72,7 @@ async function render(overrides: Partial<Props> = {}) {
   const onBack = vi.fn();
   const onEscape = vi.fn();
   const propsFor = (more: Partial<Props>): Props => ({
-    step: 1,
-    total: 8,
+    progress: { step: 1, total: 8 },
     text: TEXT,
     anchors: ['[data-test-anchor]'],
     isLive: true,
@@ -379,7 +378,9 @@ describe('the coach mark', () => {
 
 describe('the card’s footer and line (§6)', () => {
   test('a middle step: the line says where, no number on screen; Skip, Back and a filled Next', async () => {
-    const { onNext, onSkip, onBack } = await render({ step: 2 });
+    const { onNext, onSkip, onBack } = await render({
+      progress: { step: 2, total: 8 },
+    });
     await placed();
     expect(line()).toHaveAttribute('aria-valuenow', '2');
     expect(line()).toHaveAttribute('aria-valuemax', '8');
@@ -397,8 +398,15 @@ describe('the card’s footer and line (§6)', () => {
     ]);
   });
 
+  test('no progress, as on the note after the run: no line and no step (KAN-499)', async () => {
+    await render({ progress: null, onSkip: undefined });
+    await placed();
+    expect(document.querySelector('[role="progressbar"]')).toBeNull();
+    expect(mark()).not.toHaveAttribute('data-coach-step');
+  });
+
   test('step 1: no Back', async () => {
-    await render({ step: 1, onBack: undefined });
+    await render({ progress: { step: 1, total: 8 }, onBack: undefined });
     await placed();
     expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
   });
@@ -407,7 +415,7 @@ describe('the card’s footer and line (§6)', () => {
     const onNotNow = vi.fn();
     const onPin = vi.fn();
     await render({
-      step: 8,
+      progress: { step: 8, total: 8 },
       onSkip: undefined,
       secondary: { label: 'Not now', onPress: onNotNow },
       primary: { label: 'Pin this tab', onPress: onPin },
@@ -524,7 +532,7 @@ describe('the free step and the still box', () => {
 
 describe('motion (§10)', () => {
   test('the first appearance fades and grows from the side facing the anchor', async () => {
-    await render({ step: 2 });
+    await render({ progress: { step: 2, total: 8 } });
     await placed();
     const appear = animations.find((a) => a.el === mark());
     expect(appear?.keyframes[0]).toMatchObject({
@@ -550,7 +558,7 @@ describe('motion (§10)', () => {
         };
       }
     );
-    const { rerenderAt } = await render({ step: 2 });
+    const { rerenderAt } = await render({ progress: { step: 2, total: 8 } });
     await placed();
     animations.length = 0;
     anchor.getBoundingClientRect = () => ({
@@ -559,7 +567,7 @@ describe('motion (§10)', () => {
       y: 300,
       bottom: 340,
     });
-    rerenderAt({ step: 3 });
+    rerenderAt({ progress: { step: 3, total: 8 } });
     await waitFor(() =>
       expect(animations.some((a) => a.el === mark())).toBe(true)
     );
@@ -585,16 +593,16 @@ describe('motion (§10)', () => {
         return { ...RECT, left, top, x: left, y: top };
       }
     );
-    const { rerenderAt } = await render({ step: 2 });
+    const { rerenderAt } = await render({ progress: { step: 2, total: 8 } });
     await placed();
     animations.length = 0;
     anchor.getBoundingClientRect = () => ({ ...RECT, top: 300, y: 300 });
-    rerenderAt({ step: 3 });
+    rerenderAt({ progress: { step: 3, total: 8 } });
     await waitFor(() => expect(animations.length).toBeGreaterThan(0));
     const glideA = [...animations];
     animations.length = 0;
     anchor.getBoundingClientRect = () => ({ ...RECT, top: 500, y: 500 });
-    rerenderAt({ step: 4 });
+    rerenderAt({ progress: { step: 4, total: 8 } });
     await waitFor(() => expect(animations.length).toBeGreaterThan(0));
     const glideB = [...animations];
     expect(glideA.every((a) => a.cancel.mock.calls.length === 1)).toBe(true);
@@ -615,11 +623,11 @@ describe('motion (§10)', () => {
         return { ...RECT, left, top, x: left, y: top };
       }
     );
-    const { rerenderAt } = await render({ step: 2 });
+    const { rerenderAt } = await render({ progress: { step: 2, total: 8 } });
     await placed();
     animations.length = 0;
     anchor.getBoundingClientRect = () => ({ ...RECT, top: 300, y: 300 });
-    rerenderAt({ step: 3 });
+    rerenderAt({ progress: { step: 3, total: 8 } });
     await waitFor(() => expect(animations.length).toBeGreaterThan(0));
     const started = [...animations];
     anchor.getBoundingClientRect = () => ({ ...RECT, top: 500, y: 500 });
@@ -631,7 +639,7 @@ describe('motion (§10)', () => {
   });
 
   test('a re-placement during the first appearance leaves it running', async () => {
-    await render({ step: 2 });
+    await render({ progress: { step: 2, total: 8 } });
     await placed();
     const appear = animations.find((a) => a.el === mark());
     anchor.getBoundingClientRect = () => ({ ...RECT, top: 300, y: 300 });
@@ -644,7 +652,7 @@ describe('motion (§10)', () => {
     vi.spyOn(window, 'matchMedia').mockImplementation(
       (query: string) => new FakeMediaQueryList(query, true)
     );
-    await render({ step: 2 });
+    await render({ progress: { step: 2, total: 8 } });
     await placed();
     expect(animations).toEqual([]);
     expect(mark()?.style.pointerEvents).toBe('');

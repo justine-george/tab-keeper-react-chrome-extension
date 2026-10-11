@@ -284,6 +284,8 @@
   "Show me how": "Show me how",
   "Learn the basics": "Learn the basics",
   "Show me around": "Show me around",
+  "Want to see this tour again? Go to {{path}}.": "Want to see this tour again? Go to {{path}}.",
+  "Got it": "Got it",
   "See your saved sessions and open tabs side by side.": "See your saved sessions and open tabs side by side.",
   "Opens under the toolbar icon": "Opens under the toolbar icon",
   "Opens in its own tab": "Opens in its own tab",

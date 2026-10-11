@@ -284,6 +284,8 @@
   "Show me how": "कैसे करें, दिखाएँ",
   "Learn the basics": "बुनियादी बातें सीखें",
   "Show me around": "टूर शुरू करें",
+  "Want to see this tour again? Go to {{path}}.": "यह टूर फिर से देखना चाहते हैं? {{path}} पर जाएँ।",
+  "Got it": "ठीक है",
   "See your saved sessions and open tabs side by side.": "अपने सहेजे गए सेशन और खुले टैब साथ-साथ देखें।",
   "Opens under the toolbar icon": "टूलबार आइकन के नीचे खुलता है",
   "Opens in its own tab": "अपने अलग टैब में खुलता है",
