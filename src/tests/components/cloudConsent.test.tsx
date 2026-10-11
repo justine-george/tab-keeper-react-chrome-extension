@@ -321,7 +321,7 @@ describe('the welcome (KAN-410)', () => {
     );
   });
 
-  test('Esc closes it with no tour: the run ends skipped, the note points to Help, and Esc is consumed (KAN-514, KAN-403)', async () => {
+  test('Esc is Show me here: the popup run at its first step, never a skip, and Esc is consumed (KAN-516, KAN-403)', async () => {
     const { store, dialog } = await freshWelcome();
     const notPrevented = fireEvent(
       dialog,
@@ -331,12 +331,13 @@ describe('the welcome (KAN-410)', () => {
     expect(
       screen.queryByRole('dialog', { name: 'Welcome to Tab Keeper' })
     ).toBeNull();
-    expect(store.getState().settingsDataState.firstRun).toEqual({
-      ...newRun('popup', 0),
-      ended: 'skipped',
-    });
-    expect(store.getState().globalState.isRunHere).toBe(false);
-    expect(store.getState().globalState.isReplayNoteOpen).toBe(true);
+    await waitFor(() =>
+      expect(store.getState().settingsDataState.firstRun).toEqual(
+        newRun('popup', 1)
+      )
+    );
+    expect(store.getState().globalState.isRunHere).toBe(true);
+    expect(store.getState().globalState.isReplayNoteOpen).toBe(false);
     expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
   });
 

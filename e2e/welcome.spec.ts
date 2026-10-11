@@ -79,7 +79,7 @@ test('Show me here: the popup run starts at its save card', async ({
   await expect(cardAt(page, 1)).toBeVisible();
 });
 
-test('Esc closes the welcome with no tour: the run ends skipped, the note shows, and the popup keeps the key (KAN-514, KAN-426)', async ({
+test('Esc is Show me here: the popup tour at its first step, never a skip, and the popup keeps the key (KAN-516, KAN-426)', async ({
   context,
   extensionId,
 }) => {
@@ -88,12 +88,9 @@ test('Esc closes the welcome with no tour: the run ends skipped, the note shows,
   await expect(welcome(page)).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(welcome(page)).toHaveCount(0);
-  await expect(replayNote(page)).toBeVisible();
-  await expect(page.locator('[data-coach-step]')).toHaveCount(0);
-  expect(await storedRun(page)).toMatchObject({
-    view: 'popup',
-    ended: 'skipped',
-  });
+  await expect(cardAt(page, 1)).toBeVisible();
+  await expect(replayNote(page)).toHaveCount(0);
+  expect(await storedRun(page)).toMatchObject({ view: 'popup', ended: null });
   expect(await escapesPrevented(page)).toEqual([true]);
 });
 

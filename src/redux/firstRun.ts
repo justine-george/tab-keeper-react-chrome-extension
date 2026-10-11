@@ -233,12 +233,6 @@ export const welcomeShowMeHere =
     await dispatch(startRun(newRun('popup', 1)));
   };
 
-// KAN-514. Esc: no tour; the run ends as a skip, and its note says where the tour lives.
-export const welcomeNoTour = (): Thunk<void> => (dispatch) => {
-  dispatch(closeCloudConsentModal());
-  dispatch(skipRun());
-};
-
 // Ends an unanswered welcome at once; else what the decision opens, null when nothing.
 export function runOpener(
   decision: RunAtOpen,
