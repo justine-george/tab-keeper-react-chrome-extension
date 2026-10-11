@@ -19,6 +19,7 @@ import {
   WARM_LIGHT_THEME,
 } from '../src/hooks/useThemeColors';
 import type { ThemeColors } from '../src/hooks/useThemeColors';
+import { NEEDS_YOU_TOAST_MS } from '../src/redux/toastDuration';
 
 // KAN-280 on the real artifact: Open now's close controls, the Reopen
 // toast and Save window / Save all. What jsdom cannot show: Chrome's own
@@ -35,11 +36,6 @@ const TAB_VIEWPORT = { width: 1280, height: 800 };
 const VIEW_TAB = 'index.html?view=tab';
 const OPEN_NOW = '[data-pane="open-now"]';
 const SESSIONS = '[data-pane="sessions"]';
-
-// The Reopen toast's time on screen, REOPEN_TOAST_MS in
-// src/redux/reopenOffer.ts. Not imported: that module pulls in the store,
-// which Node cannot load (manifest.json needs an import attribute).
-const REOPEN_TOAST_MS = 8000;
 
 // Where tests 1, 2 and 4 put the window they close and reopen.
 const BOUNDS = { left: 140, top: 90, width: 900, height: 640 };
@@ -847,7 +843,7 @@ test.describe('Open now close controls in a real browser (KAN-280)', () => {
     // spent before the hover (about 4s), where a restart would take 8s. The
     // 1s on top is for the poll and the pointer's own travel.
     await page.mouse.move(TAB_VIEWPORT.width - 10, 10);
-    const timeLeft = REOPEN_TOAST_MS - spent;
+    const timeLeft = NEEDS_YOU_TOAST_MS - spent;
     await expect(status).not.toContainText('Tab closed', {
       timeout: timeLeft + 1000,
     });

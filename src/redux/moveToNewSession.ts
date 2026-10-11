@@ -43,7 +43,6 @@ export const moveToNewSession =
         showToast({
           toastText: TOAST_MESSAGES.SESSION_EMPTIED_REMOVED,
           toastParams: { title: sourceTitle },
-          duration: 5000,
           announcesSavedChange: true,
         })
       );

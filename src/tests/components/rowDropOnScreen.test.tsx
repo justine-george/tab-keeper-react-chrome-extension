@@ -281,7 +281,6 @@ describe('finding 2: on its own row with another session on screen, every kind i
       await store.dispatch(
         showToast({
           toastText: TOAST_MESSAGES.TAB_CLOSED,
-          duration: 20_000,
           reopenOfferId: 7,
         })
       );

@@ -12,7 +12,6 @@ vi.hoisted(() => {
 vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: vi.fn(async () => undefined),
   saveToFirestore: vi.fn(async () => undefined),
-  displayToast: vi.fn(),
 }));
 
 import { makeTestStore } from '../setup/makeStore';
@@ -197,7 +196,6 @@ describe('moveToSession: both toasts take ⌘Z from a Reopen offer (C′)', () =
     await made.store.dispatch(
       showToast({
         toastText: TOAST_MESSAGES.TAB_CLOSED,
-        duration: 8000,
         reopenOfferId: 7,
       })
     );

@@ -14,7 +14,6 @@ vi.hoisted(() => {
 vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: vi.fn(),
   saveToFirestore: vi.fn(),
-  displayToast: vi.fn(),
 }));
 
 import { rootReducer } from '../../redux/storeConfig';

@@ -18,7 +18,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: mocks.loadFromFirestore,
   saveToFirestore: mocks.saveToFirestore,
-  displayToast: vi.fn(),
 }));
 
 import {

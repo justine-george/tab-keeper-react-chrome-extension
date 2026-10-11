@@ -12,7 +12,6 @@ vi.hoisted(() => {
 vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: vi.fn(),
   saveToFirestore: vi.fn(),
-  displayToast: vi.fn(),
 }));
 
 import { makeTestStore } from '../setup/makeStore';
@@ -24,6 +23,8 @@ import {
   showToast,
 } from '../../redux/slices/globalStateSlice';
 import { holdToasts, releaseToasts } from '../../redux/toastTimers';
+import { TOAST_MS } from '../../redux/toastDuration';
+import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 // KAN-349. Several toasts at once: each keeps its own timer (T3), a hold on
 // any of them holds them all, and ⌘Z's claim on a Reopen offer follows Q1 C′.
@@ -36,7 +37,7 @@ const texts = (store: Store) =>
 const show = (
   store: Store,
   text: string,
-  extra: { duration?: number; reopenOfferId?: number } = {}
+  extra: { reopenOfferId?: number } = {}
 ) => store.dispatch(showToast({ toastText: text, ...extra }));
 
 const showSavedChange = (store: Store, text: string) =>
@@ -53,25 +54,27 @@ afterEach(() => {
 describe('each toast keeps its own timer (T3)', () => {
   test('toasts leave one by one, each on its own length', async () => {
     const { store } = makeTestStore();
-    await show(store, 'A', { duration: 5000 });
+    // B is an error, so it stays 8s (KAN-508).
+    const B = TOAST_MESSAGES.REOPEN_FAILED;
+    await show(store, 'A');
     vi.advanceTimersByTime(1000);
-    await show(store, 'B', { duration: 8000 });
-    expect(texts(store)).toEqual(['A', 'B']);
+    await show(store, B);
+    expect(texts(store)).toEqual(['A', B]);
 
     vi.advanceTimersByTime(4000);
-    expect(texts(store)).toEqual(['B']);
+    expect(texts(store)).toEqual([B]);
 
     vi.advanceTimersByTime(3999);
-    expect(texts(store)).toEqual(['B']);
+    expect(texts(store)).toEqual([B]);
     vi.advanceTimersByTime(1);
     expect(texts(store)).toEqual([]);
   });
 
   test('a replaced twin (T5) leaves on the NEW timer, not the old one', async () => {
     const { store } = makeTestStore();
-    await show(store, 'A', { duration: 5000 });
+    await show(store, 'A');
     vi.advanceTimersByTime(4000);
-    await show(store, 'A', { duration: 5000 });
+    await show(store, 'A');
 
     vi.advanceTimersByTime(1000);
     expect(texts(store)).toEqual(['A']);
@@ -89,9 +92,9 @@ describe('each toast keeps its own timer (T3)', () => {
 describe('a hold holds every toast (T3)', () => {
   test('a hold keeps each timer’s time left, and release resumes it', async () => {
     const { store } = makeTestStore();
-    await show(store, 'A', { duration: 5000 });
+    await show(store, 'A');
     vi.advanceTimersByTime(1000);
-    await show(store, 'B', { duration: 5000 });
+    await show(store, 'B');
     vi.advanceTimersByTime(3900);
 
     holdToasts();
@@ -109,9 +112,9 @@ describe('a hold holds every toast (T3)', () => {
 
   test('a toast that arrives during a hold waits for the release', async () => {
     const { store } = makeTestStore();
-    await show(store, 'A', { duration: 5000 });
+    await show(store, 'A');
     holdToasts();
-    await show(store, 'B', { duration: 5000 });
+    await show(store, 'B');
 
     vi.advanceTimersByTime(30_000);
     expect(texts(store)).toEqual(['A', 'B']);
@@ -127,7 +130,7 @@ describe('a hold holds every toast (T3)', () => {
     holdToasts();
     store.dispatch(closeAllToasts());
 
-    await show(store, 'B', { duration: 5000 });
+    await show(store, 'B');
     vi.advanceTimersByTime(5000);
     expect(texts(store)).toEqual([]);
   });
@@ -136,7 +139,7 @@ describe('a hold holds every toast (T3)', () => {
 describe('closing', () => {
   test('closePlainToasts leaves the offer', async () => {
     const { store } = makeTestStore();
-    await show(store, 'Tab closed', { reopenOfferId: 7, duration: 8000 });
+    await show(store, 'Tab closed', { reopenOfferId: 7 });
     await show(store, 'Links copied');
     store.dispatch(closePlainToasts());
     expect(texts(store)).toEqual(['Tab closed']);
@@ -144,7 +147,7 @@ describe('closing', () => {
 
   test('closeAllToasts closes every toast', async () => {
     const { store } = makeTestStore();
-    await show(store, 'Tab closed', { reopenOfferId: 7, duration: 8000 });
+    await show(store, 'Tab closed', { reopenOfferId: 7 });
     await show(store, 'Links copied');
     store.dispatch(closeAllToasts());
     expect(texts(store)).toEqual([]);
@@ -152,7 +155,7 @@ describe('closing', () => {
 
   test('closeOfferToast closes only the toast naming that offer', async () => {
     const { store } = makeTestStore();
-    await show(store, 'Tab closed', { reopenOfferId: 7, duration: 8000 });
+    await show(store, 'Tab closed', { reopenOfferId: 7 });
     await show(store, 'Links copied');
 
     store.dispatch(closeOfferToast(6));
@@ -164,7 +167,7 @@ describe('closing', () => {
 
 describe('which offer ⌘Z takes (Q1 C′)', () => {
   const offerOn = (store: Store) =>
-    show(store, 'Tab closed', { reopenOfferId: 7, duration: 8000 });
+    show(store, 'Tab closed', { reopenOfferId: 7 });
 
   test('an offer alone has the key', async () => {
     const { store } = makeTestStore();
@@ -199,11 +202,10 @@ describe('which offer ⌘Z takes (Q1 C′)', () => {
     await store.dispatch(
       showToast({
         toastText: 'Tab deleted',
-        duration: 3000,
         announcesSavedChange: true,
       })
     );
-    vi.advanceTimersByTime(3000);
+    vi.advanceTimersByTime(TOAST_MS);
     expect(texts(store)).toEqual(['Tab closed']);
     expect(selectReopenOfferForKey(store.getState())).toBeNull();
   });
@@ -221,7 +223,7 @@ describe('which offer ⌘Z takes (Q1 C′)', () => {
     const { store } = makeTestStore();
     await offerOn(store);
     await showSavedChange(store, 'Tab deleted');
-    await show(store, 'Tab closed', { reopenOfferId: 8, duration: 8000 });
+    await show(store, 'Tab closed', { reopenOfferId: 8 });
     expect(selectReopenOfferForKey(store.getState())).toBe(8);
   });
 });

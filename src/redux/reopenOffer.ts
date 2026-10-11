@@ -11,12 +11,9 @@ import { TOAST_MESSAGES, WINDOW_CLOSED_FRAME } from '../utils/constants/common';
 
 export { takeReopenOffer } from './reopenOfferStore';
 
-// KAN-280 O8a. Longer than a plain toast's 5s: this one asks for a decision.
-export const REOPEN_TOAST_MS = 8000;
-
-// Shows "Tab closed" / "Window closed (N tabs)" with Reopen for
-// REOPEN_TOAST_MS. It replaces the offer showing, in its place in the stack
-// (KAN-349 T4); other toasts stay.
+// Shows "Tab closed" / "Window closed (N tabs)" with Reopen, for
+// NEEDS_YOU_TOAST_MS (KAN-508: it asks for a decision). It replaces the offer
+// showing, in its place in the stack (KAN-349 T4); other toasts stay.
 export const offerReopen = createAsyncThunk(
   'global/offerReopen',
   async (item: ClosedItem, thunkAPI) => {
@@ -28,13 +25,11 @@ export const offerReopen = createAsyncThunk(
       item.kind === 'tab'
         ? showToast({
             toastText: TOAST_MESSAGES.TAB_CLOSED,
-            duration: REOPEN_TOAST_MS,
             reopenOfferId,
           })
         : showToast({
             toastText: WINDOW_CLOSED_FRAME,
             toastParams: { count: item.window.tabs.length },
-            duration: REOPEN_TOAST_MS,
             reopenOfferId,
           })
     );

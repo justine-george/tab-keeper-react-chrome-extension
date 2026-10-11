@@ -22,7 +22,6 @@ export const movedToSessionToast = (
   showToast({
     toastText: TOAST_MESSAGES.MOVED_TO_SESSION,
     toastParams: { title: target.title },
-    duration: 8000,
     announcesSavedChange: true,
     show:
       selectedAfter === target.tabGroupId
@@ -111,7 +110,6 @@ export const moveToSession =
         showToast({
           toastText: TOAST_MESSAGES.SESSION_EMPTIED_REMOVED,
           toastParams: { title: sourceTitle },
-          duration: 5000,
           announcesSavedChange: true,
         })
       );

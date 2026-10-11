@@ -30,7 +30,6 @@ vi.mock('js-base64', () => ({
 vi.mock('../../../utils/functions/external', () => ({
   loadFromFirestore: vi.fn(),
   saveToFirestore: vi.fn(),
-  displayToast: vi.fn(),
 }));
 
 const { decodeDataUrl, placeholderTarget, resolveTabUrl } =

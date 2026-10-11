@@ -577,7 +577,6 @@ export default function HeroContainerRight() {
                       dispatch(
                         showToast({
                           toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
-                          duration: 3000,
                         })
                       );
                     },

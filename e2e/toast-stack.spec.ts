@@ -10,6 +10,7 @@ import { test, expect } from './fixtures/extension';
 import { sessionHeaderMenu } from './fixtures/menus';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
+import { NEEDS_YOU_TOAST_MS, TOAST_MS } from '../src/redux/toastDuration';
 
 // KAN-349 on the real artifact: toasts stack, newest at the bottom, older
 // ones above, 8px apart, at most 3; each keeps its own time and a hover on
@@ -161,7 +162,7 @@ test.describe('toasts stack (KAN-349)', () => {
   }) => {
     const page = await openPage(context, extensionId);
     const { block } = await offerFromClose(page, serviceWorker);
-    // Held from here on, so the 3s toasts wait to be measured.
+    // Held from here on, so the 5s toasts wait to be measured.
     await liveToasts(page).first().hover();
     await clickInPlace(saveWindowIn(block));
     await clickInPlace(saveAll(page));
@@ -253,15 +254,17 @@ test.describe('toasts stack (KAN-349)', () => {
     extensionId,
     serviceWorker,
   }) => {
-    // 8s + 3s + 10s held, plus polls: past the 30s default.
+    // 8s + 5s + 10s held, plus polls: past the 30s default.
     test.setTimeout(60_000);
     const page = await openPage(context, extensionId);
     const { block } = await offerFromClose(page, serviceWorker);
     await saveWindowIn(block).click();
     await expect(liveToasts(page)).toHaveCount(2);
 
-    // The saved toast's 3s runs out first; the offer's 8s is still going.
-    await expect(liveToasts(page)).toHaveCount(1, { timeout: 4500 });
+    // The saved toast's 5s runs out first; the offer's 8s is still going.
+    await expect(liveToasts(page)).toHaveCount(1, {
+      timeout: NEEDS_YOU_TOAST_MS - 500,
+    });
     await expect(liveToasts(page).first()).toContainText(TAB_CLOSED);
 
     // A second saved toast, then the pointer on the stack -- collapsed, the
@@ -329,15 +332,17 @@ test.describe('toasts stack (KAN-349)', () => {
       )
     ).toBe(true);
 
-    // In the gap below "Window saved": past both saved toasts' 3s.
+    // In the gap below "Window saved": past both saved toasts' 5s.
     await page.mouse.move(saved.x + 150, saved.y + saved.height + GAP / 2);
-    await page.waitForTimeout(4000);
+    await page.waitForTimeout(TOAST_MS + 1000);
     await expect(liveToasts(page)).toHaveCount(3);
 
     // Beside it, where only the offer above is that wide: not the stack, so
     // the saved toasts' time runs out.
     await page.mouse.move(besideSaved.x, besideSaved.y);
-    await expect(liveToasts(page)).toHaveCount(1, { timeout: 4500 });
+    await expect(liveToasts(page)).toHaveCount(1, {
+      timeout: TOAST_MS + 1500,
+    });
   });
 
   test('3c. the status region announces each toast alone (not atomic)', async ({

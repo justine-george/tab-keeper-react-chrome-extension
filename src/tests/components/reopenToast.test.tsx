@@ -11,7 +11,8 @@ import de from '../../../public/locales/de/translation.json';
 import ru from '../../../public/locales/ru/translation.json';
 import MainContainer from '../../components/MainContainer';
 import { Toast } from '../../components/common/Toast';
-import { offerReopen, REOPEN_TOAST_MS } from '../../redux/reopenOffer';
+import { offerReopen } from '../../redux/reopenOffer';
+import { NEEDS_YOU_TOAST_MS } from '../../redux/toastDuration';
 import {
   openSettingsPage,
   showToast,
@@ -240,10 +241,10 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     });
     const button = screen.getByRole('button', { name: 'Reopen' });
     act(() => button.focus());
-    act(() => vi.advanceTimersByTime(REOPEN_TOAST_MS * 3));
+    act(() => vi.advanceTimersByTime(NEEDS_YOU_TOAST_MS * 3));
     expect(isOpen()).toBe(true);
     act(() => button.blur());
-    act(() => vi.advanceTimersByTime(REOPEN_TOAST_MS - 1));
+    act(() => vi.advanceTimersByTime(NEEDS_YOU_TOAST_MS - 1));
     expect(isOpen()).toBe(true);
     act(() => vi.advanceTimersByTime(1));
     expect(isOpen()).toBe(false);
@@ -266,7 +267,7 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     fireEvent.mouseEnter(visibleToast());
     act(() => screen.getByRole('button', { name: 'Reopen' }).focus());
     fireEvent.mouseLeave(visibleToast());
-    act(() => vi.advanceTimersByTime(REOPEN_TOAST_MS * 3));
+    act(() => vi.advanceTimersByTime(NEEDS_YOU_TOAST_MS * 3));
     expect(isOpen()).toBe(true);
   });
 
@@ -287,11 +288,11 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await act(async () => {
       await store.dispatch(offerReopen(item));
     });
-    act(() => vi.advanceTimersByTime(REOPEN_TOAST_MS * 3));
+    act(() => vi.advanceTimersByTime(NEEDS_YOU_TOAST_MS * 3));
     expect(isOpen()).toBe(true);
 
     fireEvent.mouseLeave(visibleToast());
-    act(() => vi.advanceTimersByTime(REOPEN_TOAST_MS));
+    act(() => vi.advanceTimersByTime(NEEDS_YOU_TOAST_MS));
     expect(isOpen()).toBe(false);
   });
 
@@ -317,7 +318,7 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     await act(async () => {
       await store.dispatch(offerReopen(await closeTabB()));
     });
-    act(() => vi.advanceTimersByTime(REOPEN_TOAST_MS));
+    act(() => vi.advanceTimersByTime(NEEDS_YOU_TOAST_MS));
     expect(isToastShowing(store.getState())).toBe(false);
   });
 
@@ -337,12 +338,12 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     const button = screen.getByRole('button', { name: 'Reopen' });
     act(() => button.focus());
     fireEvent.focusOut(button, { relatedTarget: visibleToast() });
-    act(() => vi.advanceTimersByTime(REOPEN_TOAST_MS * 3));
+    act(() => vi.advanceTimersByTime(NEEDS_YOU_TOAST_MS * 3));
     expect(isOpen()).toBe(true);
 
     // CONTROL: focus leaving for outside the toast does release it.
     fireEvent.focusOut(button, { relatedTarget: document.body });
-    act(() => vi.advanceTimersByTime(REOPEN_TOAST_MS));
+    act(() => vi.advanceTimersByTime(NEEDS_YOU_TOAST_MS));
     expect(isOpen()).toBe(false);
   });
 
@@ -601,7 +602,7 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
     await act(async () => {
       await store.dispatch(offerReopen(item));
     });
-    act(() => vi.advanceTimersByTime(REOPEN_TOAST_MS));
+    act(() => vi.advanceTimersByTime(NEEDS_YOU_TOAST_MS));
     // PREMISE: the toast has gone.
     expect(isToastShowing(store.getState())).toBe(false);
     const before = seen.length;

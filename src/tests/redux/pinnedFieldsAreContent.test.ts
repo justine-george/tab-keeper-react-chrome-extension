@@ -11,7 +11,6 @@ vi.hoisted(() => {
 vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: vi.fn(async () => undefined),
   saveToFirestore: vi.fn(async () => undefined),
-  displayToast: vi.fn(),
 }));
 
 import reducer, {

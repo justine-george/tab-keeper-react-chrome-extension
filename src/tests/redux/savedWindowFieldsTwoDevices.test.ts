@@ -28,7 +28,6 @@ vi.mock('firebase/firestore/lite', () => ({
 vi.mock('../../utils/functions/external', async (importActual) => ({
   ...(await importActual<typeof import('../../utils/functions/external')>()),
   loadFromFirestore: vi.fn(async () => undefined),
-  displayToast: vi.fn(),
 }));
 
 import reducer, {
