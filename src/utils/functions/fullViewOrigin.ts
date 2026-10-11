@@ -20,6 +20,25 @@ const isOriginRecord = (value: unknown): value is OriginRecord =>
   'originTabId' in value &&
   typeof value.originTabId === 'number';
 
+// A stored record's origin, if it names this full view.
+export const originIn = (
+  value: unknown,
+  fullViewTabId: number
+): number | undefined =>
+  isOriginRecord(value) && value.fullViewTabId === fullViewTabId
+    ? value.originTabId
+    : undefined;
+
+// KAN-507/509. Where going back lands: the origin if still open, else the newest open tab in the window's record.
+export function tabToReturnTo(
+  origin: number | undefined,
+  recent: readonly number[],
+  openTabIds: readonly number[]
+): number | undefined {
+  if (origin !== undefined && openTabIds.includes(origin)) return origin;
+  return recent.find((id) => openTabIds.includes(id));
+}
+
 export interface FullViewTabRef {
   tabId: number;
   windowId: number;
@@ -63,8 +82,12 @@ export function fullViewOrigins(area: SessionArea): FullViewOrigins {
       ),
     originOf: async ({ tabId, windowId }) => {
       await queue;
-      const record = await read(windowId);
-      return record?.fullViewTabId === tabId ? record.originTabId : undefined;
+      return originIn(
+        (await area.get([fullViewOriginKey(windowId)]))[
+          fullViewOriginKey(windowId)
+        ],
+        tabId
+      );
     },
     activated: ({ tabId, windowId }) =>
       enqueue(async () => {

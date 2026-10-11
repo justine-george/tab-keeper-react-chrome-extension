@@ -6,6 +6,11 @@ import {
   type ActionApi,
   type DefaultViewStore,
 } from './utils/functions/defaultView';
+import {
+  chromeBackApi,
+  isReturnFromFullViewRequest,
+  returnFromFullView,
+} from './utils/functions/backFromFullView';
 import { recordFullViewOrigins } from './utils/functions/fullViewOrigin';
 import {
   chromeTabApi,
@@ -128,6 +133,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // KAN-437. The asking tab is the full view: the worker closes it, then opens the popup.
   // After the worker's startup reapply, which otherwise races it (measured: a set right after worker start was overwritten, 1 of 8 probe runs).
+  // KAN-509. Under Default view Full, Back: the asking tab is the full view; no popup is involved.
+  if (isReturnFromFullViewRequest(message)) {
+    void returnFromFullView(chromeBackApi, sender.tab?.id);
+  }
+
   if (isOpenInPopupRequest(message)) {
     void defaultViewApplied.then(() =>
       openInPopup(chromePopupApi, sender.tab?.id)

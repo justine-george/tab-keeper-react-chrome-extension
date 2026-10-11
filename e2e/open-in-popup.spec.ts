@@ -1,7 +1,7 @@
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { seedSessions } from './fixtures/seed';
+import { seedSessions, seedSettings } from './fixtures/seed';
 
 // KAN-437. The full view's Open compact view, on the built artifact.
 // Tests 1-6 read what the worker did: the full view's tab, and each
@@ -494,5 +494,109 @@ test.describe('Open compact view goes back (KAN-507)', () => {
     // A popup opened before the switch or the close would die with it (KAN-437); this one stays.
     await new Promise((resolve) => setTimeout(resolve, 1000));
     expect(await popups()).toBe(1);
+  });
+
+  // KAN-509. Default view Full, as the page's setting and the worker's store both hold it.
+  async function defaultViewFull(
+    context: BrowserContext,
+    worker: Worker
+  ): Promise<void> {
+    await seedSettings(context, { defaultView: 'full' });
+    await worker.evaluate(async () => {
+      await chrome.storage.local.set({ defaultView: 'full' });
+      await chrome.action.setPopup({ popup: '' });
+    });
+  }
+  const backButton = (page: Page) =>
+    page.getByRole('button', { name: 'Back to last tab', exact: true });
+  // The full view's page, once it has drawn Back.
+  async function fullViewWithBack(context: BrowserContext): Promise<Page> {
+    let found: Page | undefined;
+    await expect
+      .poll(() => {
+        found = context.pages().find((p) => p.url().endsWith(VIEW_TAB));
+        return found !== undefined;
+      })
+      .toBe(true);
+    if (found === undefined) throw new Error('no full view page');
+    await backButton(found).waitFor();
+    return found;
+  }
+
+  test('11. Default view Full: the toolbar on B, then Back: back on B, the full view closed, no popup', async ({
+    context,
+    serviceWorker,
+  }) => {
+    await seedSessions(context);
+    await defaultViewFull(context, serviceWorker);
+    const w = await windowOnB(serviceWorker);
+    // The toolbar click (Default view Full): the harness cannot click the toolbar, so it calls the worker's handler.
+    await serviceWorker.evaluate(async (windowId) => {
+      const click = Reflect.get(globalThis, 'tabKeeperToolbarClick');
+      if (typeof click !== 'function') throw new Error('no toolbar hook');
+      await click({ windowId });
+    }, w.windowId);
+    const page = await fullViewWithBack(context);
+    // PREMISE: the full view opened in B's window, in front, with no Open compact view.
+    expect((await viewTabs(serviceWorker))[0]).toMatchObject({
+      windowId: w.windowId,
+      active: true,
+    });
+    await expect(
+      page.getByRole('button', { name: BUTTON, exact: true })
+    ).toHaveCount(0);
+    await stubOpenPopup(serviceWorker, false);
+
+    await expect(backButton(page)).not.toHaveAttribute('aria-disabled');
+    await backButton(page).click();
+
+    await expect
+      .poll(async () => (await viewTabs(serviceWorker)).length)
+      .toBe(0);
+    expect(await activeIn(serviceWorker, w.windowId)).toBe(w.b);
+    // No popup, and Default view stays Full.
+    expect(await openPopupCalls(serviceWorker)).toEqual([]);
+    expect(await popupOf(serviceWorker)).toBe('');
+  });
+
+  test('12. Default view Full: a pinned full view alone in its window has nowhere to go; a tab used beside it brings Back to life', async ({
+    context,
+    serviceWorker,
+  }) => {
+    await seedSessions(context);
+    await defaultViewFull(context, serviceWorker);
+    const windowId = await serviceWorker.evaluate(async (view) => {
+      const win = await chrome.windows.create({
+        url: chrome.runtime.getURL(view),
+        focused: true,
+      });
+      const tab = win?.tabs?.[0];
+      if (win?.id === undefined || tab?.id === undefined)
+        throw new Error('no window');
+      await chrome.tabs.update(tab.id, { pinned: true });
+      return win.id;
+    }, VIEW_TAB);
+    const page = await fullViewWithBack(context);
+
+    await expect(backButton(page)).toHaveAttribute('aria-disabled', 'true');
+
+    // A tab opened beside it and used, then back to the full view.
+    const fullViewId = await serviceWorker.evaluate(async (id) => {
+      const [view] = await chrome.tabs.query({ windowId: id, pinned: true });
+      const other = await chrome.tabs.create({
+        windowId: id,
+        url: 'data:text/html,<title>Other</title>',
+        active: true,
+      });
+      if (view?.id === undefined || other.id === undefined)
+        throw new Error('no tabs');
+      await chrome.tabs.update(view.id, { active: true });
+      return view.id;
+    }, windowId);
+    await expect(backButton(page)).not.toHaveAttribute('aria-disabled');
+    // PREMISE: the same full view, still pinned.
+    expect(
+      (await viewTabs(serviceWorker)).find((t) => t.id === fullViewId)
+    ).toMatchObject({ pinned: true });
   });
 });

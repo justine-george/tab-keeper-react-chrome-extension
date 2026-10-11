@@ -4,6 +4,7 @@ import { css } from '@emotion/react';
 
 import FullViewCallout from './FullViewCallout';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useBackPlan } from '../../../hooks/useBackPlan';
 
 import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
@@ -42,6 +43,7 @@ import {
 import { isTabView } from '../../../utils/functions/viewMode';
 import { getPrettyDate } from '../../../utils/functions/local';
 import { requestTabView } from '../../../utils/functions/popOut';
+import { requestReturn } from '../../../utils/functions/backFromFullView';
 import {
   canOpenPopup,
   requestPopup,
@@ -79,6 +81,12 @@ export default function MenuContainer() {
   const dispatch: AppDispatch = useDispatch();
 
   const isUndoable = useSelector(isUndoableSelector);
+  const defaultView = useSelector(
+    (state: RootState) => state.settingsDataState.defaultView
+  );
+  // Read only in the full view; the popup never draws Back.
+  const backPlan = useBackPlan(isTabView() && defaultView === 'full');
+  const canGoBack = backPlan !== null && backPlan.kind !== 'none';
   const isRedoable = useSelector(isRedoableSelector);
 
   function handleClickUndo() {
@@ -382,7 +390,18 @@ export default function MenuContainer() {
         )}
         {/* KAN-437 A. The full view's way back, in ⤢'s slot and drawn as ⤢ is; the worker opens the popup, closing this tab first unless it is pinned or the last tab Chrome has. */}
         {/* KAN-437 R10. Absent where Chrome cannot open the popup (before 127), as toolbarPin.ts feature-detects. */}
-        {isTabView() && canOpenPopup() && (
+        {/* KAN-509. Under Default view Full the way back skips the popup the user chose not to use; dimmed, like Undo, with nowhere to go. */}
+        {isTabView() && defaultView === 'full' && (
+          <Icon
+            ariaLabel={t('Back to last tab')}
+            tooltipText={t('Back to last tab')}
+            type="arrow_back"
+            onClick={requestReturn}
+            style={canGoBack ? 'opacity: 1;' : 'opacity: 0.3;'}
+            disable={!canGoBack}
+          />
+        )}
+        {isTabView() && defaultView !== 'full' && canOpenPopup() && (
           <Icon
             ariaLabel={t('Open compact view')}
             tooltipText={t('Open compact view')}
