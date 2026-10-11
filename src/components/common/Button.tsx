@@ -5,6 +5,7 @@ import { css } from '@emotion/react';
 import Icon from './Icon';
 import type { IconName } from './iconNames';
 import { useFontFamily } from '../../hooks/useFontFamily';
+import { mixHex } from '../../styles/mixHex';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../styles/scale';
 import { silenceRepeatedTitle } from './silenceRepeatedTitle';
@@ -75,6 +76,7 @@ interface ButtonProps {
 /**
  * `quiet`   the default. A bordered button on the page's own ground.
  * `primary` the one action a view is steering toward. At most one per view.
+ *           Filled as the dialogs' main action is (KAN-501, KAN-511).
  * `danger`  destructive. Its fill is the same red the delete affordances use.
  * `chip`    a borderless tinted fill, for a control sitting on a card rather
  *           than on the page's ground (KAN-214).
@@ -103,8 +105,9 @@ const Button: React.FC<ButtonProps> = ({
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
 
-  // Each kind is a resting fill and the two rungs above it, plus its edge, so a
-  // variant can never be half-defined: adding one means answering all four.
+  // Each kind is a resting fill and the two rungs above it, plus its edge and
+  // its ink, so a variant can never be half-defined: adding one means
+  // answering all five.
   const bordered = `1px solid ${COLORS.BORDER_COLOR}`;
   const PALETTE = {
     quiet: {
@@ -112,12 +115,15 @@ const Button: React.FC<ButtonProps> = ({
       hover: COLORS.ICON_HOVER_COLOR,
       press: COLORS.ICON_ACTIVE_COLOR,
       border: bordered,
+      ink: COLORS.TEXT_COLOR,
     },
+    // The dialogs' filled rungs (dialogButtons.ts), so the two never drift.
     primary: {
-      rest: COLORS.SELECTION_COLOR,
-      hover: COLORS.ICON_HOVER_COLOR,
-      press: COLORS.ICON_ACTIVE_COLOR,
-      border: bordered,
+      rest: COLORS.TEXT_COLOR,
+      hover: mixHex(COLORS.TEXT_COLOR, COLORS.PRIMARY_COLOR, 0.88),
+      press: mixHex(COLORS.TEXT_COLOR, COLORS.PRIMARY_COLOR, 0.76),
+      border: `1px solid ${COLORS.TEXT_COLOR}`,
+      ink: COLORS.PRIMARY_COLOR,
     },
     // Holds its red while pressed, as every other destructive control does:
     // measured, there is no deeper red at this hue that keeps the label on it
@@ -127,6 +133,7 @@ const Button: React.FC<ButtonProps> = ({
       hover: COLORS.DELETE_ICON_HOVER_COLOR,
       press: COLORS.DELETE_ICON_HOVER_COLOR,
       border: bordered,
+      ink: COLORS.TEXT_COLOR,
     },
     // The fill is the whole affordance, so there is no border. CHIP_COLOR sits
     // 1.20:1 from the card, which leaves the icon tokens a visible step each
@@ -137,12 +144,14 @@ const Button: React.FC<ButtonProps> = ({
       hover: COLORS.ICON_HOVER_COLOR,
       press: COLORS.ICON_ACTIVE_COLOR,
       border: 'none',
+      ink: COLORS.TEXT_COLOR,
     },
     outline: {
       rest: 'transparent',
       hover: COLORS.ICON_HOVER_COLOR,
       press: COLORS.ICON_ACTIVE_COLOR,
       border: `1px solid ${COLORS.DIVIDER_COLOR}`,
+      ink: COLORS.TEXT_COLOR,
     },
   }[variant];
 
@@ -171,20 +180,20 @@ const Button: React.FC<ButtonProps> = ({
     font-size: ${TYPE.BODY};
     cursor: pointer;
     transition: background-color ${DURATION.COLOR};
-    color: ${COLORS.TEXT_COLOR};
-    /* KAN-311. A key hint steps up to TEXT on the same trigger as the fill,
-       so it never sits on the darker fill in its resting colour. */
+    color: ${PALETTE.ink};
+    /* KAN-311. A key hint steps up to the ink on the same trigger as the
+       fill, so it never sits on the darker fill in its resting colour. */
     &:hover {
       background-color: ${PALETTE.hover};
       [data-key-hint] {
-        color: ${COLORS.TEXT_COLOR};
+        color: ${PALETTE.ink};
       }
     }
     /* KAN-205. One rung past the hover, so a click confirms itself. */
     &:active {
       background-color: ${PALETTE.press};
       [data-key-hint] {
-        color: ${COLORS.TEXT_COLOR};
+        color: ${PALETTE.ink};
       }
     }
     ${focusRingCss(COLORS)}
@@ -237,7 +246,7 @@ const Button: React.FC<ButtonProps> = ({
           type={faceIcon}
           disable={true}
           size={iconSize}
-          color={iconColor}
+          color={iconColor ?? PALETTE.ink}
           style={iconSpacing}
         />
       )}

@@ -5,6 +5,7 @@ import Button from '../../components/common/Button';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { activeRulesFor, hoverRulesFor } from '../setup/hoverRules';
+import { mixHex } from '../../styles/mixHex';
 
 // KAN-205. 22 components carry an onClick; 7 imported Button. The other 15 each
 // built their own clickable surface, which is where the inconsistency people
@@ -43,13 +44,38 @@ describe('Button variants (KAN-205)', () => {
     );
   });
 
-  test('primary rests on a fill of its own', async () => {
-    await render({ variant: 'primary' });
+  // KAN-511. Drawn as the dialogs draw their main action (KAN-501): the text colour as the fill, the page's ground as the ink.
+  test('primary is the filled main action: text-colour fill, ground-colour label and icon', async () => {
+    await render({ variant: 'primary', iconType: 'star' });
 
     // Derived from the token: a literal here is the exact staleness this
     // ticket spent its time removing from three other test files.
     expect(getComputedStyle(button()).backgroundColor).toBe(
-      rgb(LIGHT_THEME.SELECTION_COLOR).text
+      rgb(LIGHT_THEME.TEXT_COLOR).text
+    );
+    expect(getComputedStyle(button()).color).toBe(
+      rgb(LIGHT_THEME.PRIMARY_COLOR).text
+    );
+    expect(getComputedStyle(button()).border).toContain(
+      rgb(LIGHT_THEME.TEXT_COLOR).text
+    );
+    const glyph = button().querySelector('.material-symbols-outlined');
+    expect(glyph && getComputedStyle(glyph).color).toBe(
+      rgb(LIGHT_THEME.PRIMARY_COLOR).text
+    );
+    expect(hoverRulesFor(button())).toMatch(
+      fill(mixHex(LIGHT_THEME.TEXT_COLOR, LIGHT_THEME.PRIMARY_COLOR, 0.88))
+    );
+    expect(activeRulesFor(button())).toMatch(
+      fill(mixHex(LIGHT_THEME.TEXT_COLOR, LIGHT_THEME.PRIMARY_COLOR, 0.76))
+    );
+  });
+
+  test('quiet keeps the text colour for its label', async () => {
+    await render();
+
+    expect(getComputedStyle(button()).color).toBe(
+      rgb(LIGHT_THEME.TEXT_COLOR).text
     );
   });
 
