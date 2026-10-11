@@ -80,3 +80,46 @@ describe('Button icon spacing', () => {
     );
   });
 });
+
+// KAN-502. Beside a label the icon also kept Icon's 4px left padding, so the
+// content started 25px from the button's left edge and ended 21px from its right.
+describe('Button icon centring', () => {
+  test('starts flush with the button padding beside a label', async () => {
+    const { container } = await renderWithProviders(
+      <Button text="Show me around" iconType="school" />
+    );
+    expect(getComputedStyle(iconContainerOf(container)).paddingLeft).toBe(
+      '0px'
+    );
+  });
+
+  test('starts flush beside an image', async () => {
+    const { container } = await renderWithProviders(
+      <Button imageSrc="https://example.com/i.png" iconType="download" />
+    );
+    expect(getComputedStyle(iconContainerOf(container)).paddingLeft).toBe(
+      '0px'
+    );
+  });
+
+  test('keeps its own padding on both sides with nothing beside it', async () => {
+    const { container } = await renderWithProviders(
+      <Button iconType="download" />
+    );
+    const style = getComputedStyle(iconContainerOf(container));
+    expect([style.paddingLeft, style.paddingRight]).toEqual(['4px', '4px']);
+  });
+
+  test("a caller's own padding still wins on the left", async () => {
+    const { container } = await renderWithProviders(
+      <Button
+        text="Add window"
+        iconType="add"
+        iconStyle="padding: 4px 4px 2px 4px;"
+      />
+    );
+    expect(getComputedStyle(iconContainerOf(container)).paddingLeft).toBe(
+      '4px'
+    );
+  });
+});

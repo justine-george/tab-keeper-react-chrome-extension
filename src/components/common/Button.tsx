@@ -211,14 +211,15 @@ const Button: React.FC<ButtonProps> = ({
 
   // Space the icon away from whatever sits next to it, but only when there is
   // something next to it -- on an icon-only button the padding would just be a
-  // bare asymmetry.
+  // bare asymmetry. Beside something, its left padding goes too (KAN-502): the
+  // label has none on its right, so the content would sit 4px right of centre.
   //
   // iconStyle goes last so a caller's own padding wins. The single caller that
   // passes it (HeroContainerRight's "Add window") sends the shorthand
   // `padding: 4px 4px 2px 4px`, which is meant to override this outright.
   // Reversing the order would silently restyle that button.
   const iconSpacing = [
-    imageSrc || text ? 'padding-right: 8px;' : '',
+    imageSrc || text ? 'padding-left: 0; padding-right: 8px;' : '',
     iconStyle ?? '',
   ]
     .filter(Boolean)
