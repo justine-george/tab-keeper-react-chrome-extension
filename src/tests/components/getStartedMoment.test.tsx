@@ -219,6 +219,8 @@ describe('the moment on the welcome', () => {
       expect(store.getState().settingsDataState.firstRun).toEqual(FULL_RUN)
     );
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
+    // KAN-514: Esc's no-tour skip never ran under it.
+    expect(store.getState().globalState.isReplayNoteOpen).toBe(false);
     // The press it cancelled finishing late starts nothing after it.
     moment()[0].release();
     await microtasks();
@@ -267,27 +269,6 @@ describe('the moment on the welcome', () => {
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
     expect(watch.read()).toEqual({ views: ['full'], cards: 0 });
     expect(startedTicks()).toEqual([]);
-  });
-
-  test('Esc while it plays ends no run: Get started completes (KAN-514, R12)', async () => {
-    installAnimate();
-    installFakeAudio();
-    const { store } = await renderWithProviders(<MainContainer />, {
-      seedStore: welcome,
-    });
-    const { moment } = pressGetStarted();
-    fireEvent(
-      screen.getByRole('dialog', { name: 'Welcome to Tab Keeper' }),
-      new Event('cancel', { bubbles: false, cancelable: true })
-    );
-    for (let i = 0; i < 3; i += 1) {
-      moment()[i]?.release();
-      await microtasks();
-    }
-    await waitFor(() =>
-      expect(store.getState().settingsDataState.firstRun).toEqual(FULL_RUN)
-    );
-    expect(store.getState().globalState.isReplayNoteOpen).toBe(false);
   });
 
   test('CONTROL: Show me here with no beat playing starts the popup run, and the watch sees it', async () => {
