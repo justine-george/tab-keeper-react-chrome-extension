@@ -12,7 +12,7 @@ import { storedSettings } from './fixtures/onboarding';
 import { cardAt, cardButton } from './fixtures/run';
 import { rgbToHex } from './fixtures/pixels';
 import { mixHex } from '../src/styles/mixHex';
-import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { DARKENHEIMER_THEME, LIGHT_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-259. Nothing leaves the device until the user says yes. A new install
 // is welcomed without a question and recorded local-only (KAN-410); sync is
@@ -370,3 +370,39 @@ test.describe('loading a backup asks consent before uploading (KAN-415)', () => 
     });
   }
 });
+
+// KAN-501. Sync is the filled button the tour and Hello use, in a light theme and a dark one.
+for (const [theme, colors] of [
+  ['Light', LIGHT_THEME],
+  ['Darkenheimer', DARKENHEIMER_THEME],
+] as const) {
+  test(`${theme}: Sync is the filled button`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, {
+      cloudConsent: 'declined',
+      isAutoSync: false,
+      theme,
+    });
+    const page = await openPopup(context, extensionId);
+    await page.locator('[aria-label="Settings"]').click();
+    await page.locator('button[aria-label="Sync & Backup"]').click();
+    await page
+      .getByRole('group', { name: 'Auto Sync' })
+      .getByRole('button', { name: 'On', exact: true })
+      .click();
+    const sync = page
+      .getByRole('dialog', { name: 'Sync your sessions across devices?' })
+      .getByRole('button', { name: 'Sync', exact: true });
+    await expect(sync).toBeVisible();
+    // Off the button, so no hover rung shows.
+    await page.mouse.move(1, 1);
+    const paint = await sync.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { ground: style.backgroundColor, letters: style.color };
+    });
+    expect(rgbToHex(paint.ground)).toBe(colors.TEXT_COLOR.toUpperCase());
+    expect(rgbToHex(paint.letters)).toBe(colors.PRIMARY_COLOR.toUpperCase());
+  });
+}
