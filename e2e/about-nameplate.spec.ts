@@ -50,8 +50,12 @@ async function openAbout(page: Page): Promise<void> {
 const PRIVACY_POLICY_LINK =
   'https://github.com/justine-george/tab-keeper-react-chrome-extension/blob/main/PRIVACY.md';
 
-/** The nameplate's mark: the one svg on the page that is not inside a button. */
-const mark = (page: Page) => page.locator('svg:not(button svg)');
+/** The nameplate's mark (KAN-521): the header's, shutter and all. */
+const mark = (page: Page) =>
+  page.locator('svg:has([data-mark-part="shutter"])');
+const versionLine = (page: Page) => page.getByText(/^Version \d+\.\d+\.\d+$/);
+const credit = (page: Page) =>
+  page.getByRole('img', { name: 'love' }).locator('..');
 
 const box = async (l: ReturnType<Page['locator']>) => (await l.boundingBox())!;
 
@@ -80,65 +84,67 @@ for (const [theme, palette] of [
       expect(rate.x).toBe(themes.x);
     });
 
-    test('puts the mark on the name line, in the text colour, at ICON.DEFAULT', async ({
+    // KAN-521. Option C: the 40px mark beside the name, with the version under the name.
+    test('puts the 40px mark beside the name and the version, centred on the pair', async ({
       context,
       extensionId,
     }) => {
       const page = await openSettings(context, extensionId, theme);
       await openAbout(page);
 
-      const glyph = mark(page);
-      const g = await box(glyph);
+      const g = await box(mark(page));
       const name = await box(page.getByText('Tab Keeper', { exact: true }));
+      const v = await box(versionLine(page));
 
-      expect(g.width).toBe(24);
-      expect(g.height).toBe(24);
-      // Vertically centred on the name, not on the two-line block.
-      const gMid = g.y + g.height / 2;
-      const nMid = name.y + name.height / 2;
-      expect(Math.abs(gMid - nMid)).toBeLessThanOrEqual(1);
-      // Drawn with currentColor, so the svg's own colour is what paints it.
-      expect(await glyph.evaluate((el) => getComputedStyle(el).color)).toBe(
-        rgb(palette.TEXT_COLOR)
-      );
+      expect(g.width).toBe(40);
+      expect(g.height).toBe(40);
+      expect(name.x).toBe(g.x + 40 + 12);
+      expect(v.x).toBe(name.x);
+      const pairMid = (name.y + v.y + v.height) / 2;
+      expect(Math.abs(g.y + g.height / 2 - pairMid)).toBeLessThanOrEqual(1);
     });
 
-    test('sets the version in LABEL_L1 directly under the name', async ({
+    test('sets the version in LABEL_L1 right under the name', async ({
       context,
       extensionId,
     }) => {
       const page = await openSettings(context, extensionId, theme);
       await openAbout(page);
 
-      const version = page.getByText(/^v\d+\.\d+\.\d+$/);
-      // The name row is the Icon's 32px box with the name centred on it.
-      const row = await box(
-        page
-          .getByText('Tab Keeper', { exact: true })
-          .locator('..')
-          .locator('..')
-      );
+      const version = versionLine(page);
+      const name = await box(page.getByText('Tab Keeper', { exact: true }));
       const v = await box(version);
 
       expect(await version.evaluate((el) => getComputedStyle(el).color)).toBe(
         rgb(palette.LABEL_L1_COLOR)
       );
-      // On the next line, not at the floor: the version's line starts 6px
-      // under the name row. The LINE, not the version's own span: the credit
-      // beside it carries an emoji, whose taller line box the span is centred
-      // within (3px lower, measured).
-      const line = await box(version.locator('..').locator('..'));
-      expect(row.height).toBe(32);
-      expect(line.y).toBe(row.y + row.height + 6);
-      expect(v.y).toBeGreaterThanOrEqual(line.y);
-      expect(v.y + v.height).toBeLessThanOrEqual(line.y + line.height);
+      expect(Math.abs(v.y - (name.y + name.height + 2))).toBeLessThanOrEqual(1);
+    });
+
+    test('the credit is its own line on the inset, its heart drawn in LABEL_L2', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openSettings(context, extensionId, theme);
+      const themes = await box(page.getByText('Themes', { exact: true }));
+      await openAbout(page);
+
+      const c = await box(credit(page));
+      const g = await box(mark(page));
+      expect(c.x).toBe(themes.x);
+      expect(c.y).toBe(g.y + g.height + 14);
+      const heart = page.getByRole('img', { name: 'love' });
+      expect(await heart.evaluate((el) => getComputedStyle(el).color)).toBe(
+        rgb(palette.LABEL_L2_COLOR)
+      );
+      await expect(credit(page)).toHaveText(/^Made with\s+by Justine George$/);
     });
 
     // KAN-260. A third line: the policy link, on the inset, 6px under the
     // version line, in the text colour so it reads as a link beside two labels
     // in LABEL_L1/L2. It opens the policy in a tab and leaves the popup where
     // it is -- a popup that follows a link navigates itself away.
-    test('links the privacy policy under the version, on the inset', async ({
+    test('links the privacy policy under the credit, on the inset', async ({
       context,
       extensionId,
     }) => {
@@ -147,8 +153,7 @@ for (const [theme, palette] of [
       await openAbout(page);
 
       const link = page.getByRole('link', { name: 'Privacy policy' });
-      const version = page.getByText(/^v\d+\.\d+\.\d+$/);
-      const line = await box(version.locator('..').locator('..'));
+      const line = await box(credit(page));
       const l = await box(link);
 
       expect(l.x).toBe(themes.x);
@@ -242,4 +247,44 @@ test('the thank-you heading is gone', async ({ context, extensionId }) => {
   await openAbout(page);
 
   await expect(page.getByText(/Thank you for using/)).toHaveCount(0);
+});
+
+// KAN-521. A click on About's mark plays the header's beat, and the shutter click once it has shut.
+test('a click on the About mark slides its shutter, then clicks once as it shuts', async ({
+  context,
+  extensionId,
+}) => {
+  await context.addInitScript(() => {
+    if (window.top !== window) return;
+    const log: { what: string; at: number }[] = [];
+    Object.defineProperty(window, '__beat', { value: log });
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (keyframes, options) {
+      if (this.getAttribute('data-mark-part') === 'shutter')
+        log.push({ what: 'shutter', at: performance.now() });
+      return animate.call(this, keyframes, options);
+    };
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (when, offset, duration) {
+      log.push({ what: 'tick', at: performance.now() });
+      start.call(this, when, offset, duration);
+    };
+  });
+  const page = await openSettings(context, extensionId, 'Light');
+  await openAbout(page);
+  await mark(page).click();
+
+  const read = () =>
+    page.evaluate(
+      () => Reflect.get(window, '__beat') as { what: string; at: number }[]
+    );
+  await expect.poll(async () => (await read()).length).toBe(3);
+  const log = await read();
+  const shutter = log.find((e) => e.what === 'shutter')!;
+  const ticks = log.filter((e) => e.what === 'tick');
+  // PREMISE: the shutter slid, and one click (two ticks) sounded.
+  expect(shutter).toBeDefined();
+  expect(ticks).toHaveLength(2);
+  // The 60ms delay plus the 300ms slide: the click once it has shut, not as it starts.
+  expect(ticks[0].at - shutter.at).toBeGreaterThanOrEqual(340);
 });

@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest';
-import { screen } from '@testing-library/react';
+import { afterEach, describe, expect, test, vi } from 'vitest';
+import { fireEvent, screen } from '@testing-library/react';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
@@ -9,7 +9,7 @@ import {
   SettingsCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
 import { APP_VERSION, PRIVACY_POLICY_LINK } from '../../utils/constants/common';
-import { TYPE } from '../../styles/scale';
+import { ICON, TYPE } from '../../styles/scale';
 
 // KAN-241. Settings -> About is a nameplate over the same section anatomy the
 // other four panes use.
@@ -42,25 +42,51 @@ const renderAbout = () =>
     },
   });
 
+afterEach(() => {
+  Reflect.deleteProperty(Element.prototype, 'animate');
+  vi.restoreAllMocks();
+});
+
 describe('the About nameplate', () => {
-  test('draws the mark as a one-colour path in the text colour, hidden from AT', async () => {
+  // KAN-521. The header's mark, not the old one-colour floppy glyph.
+  test('draws the header’s mark, shutter and all, at NAMEPLATE size, hidden from AT', async () => {
     const { container } = await renderAbout();
 
-    // Not the share button's X: the nameplate's mark is the svg that sits in
-    // no button. Without this filter the test passed against the old page.
-    const svg =
-      Array.from(container.querySelectorAll('svg')).find(
-        (s) => s.closest('button') === null
-      ) ?? null;
-    expect(svg).not.toBeNull();
-    // A real path, not an empty element that happens to be an <svg>.
-    expect(svg!.querySelector('path')?.getAttribute('d')).toMatch(/^M[\d.]/);
-    expect(svg!.getAttribute('aria-hidden')).toBe('true');
-    // fill="currentColor" against the page's ink, the way every glyph is.
-    expect(svg!.getAttribute('fill')).toBe('currentColor');
-    expect(getComputedStyle(svg!).color).toMatch(
-      asWritten(LIGHT_THEME.TEXT_COLOR)
+    const marks = container.querySelectorAll(
+      'svg:has([data-mark-part="shutter"])'
     );
+    expect(marks).toHaveLength(1);
+    const mark = marks[0];
+    expect(mark.getAttribute('aria-hidden')).toBe('true');
+    expect(getComputedStyle(mark).width).toBe(px(ICON.NAMEPLATE));
+    // The one-colour glyph is gone: outside the buttons, the only other svg is the credit's heart.
+    const others = Array.from(container.querySelectorAll('svg')).filter(
+      (s) => s !== mark && s.closest('button') === null
+    );
+    expect(others.map((s) => s.getAttribute('role'))).toEqual(['img']);
+  });
+
+  test('a click on the mark presses it and slides its shutter, as in the header', async () => {
+    const targets: Element[] = [];
+    Object.defineProperty(Element.prototype, 'animate', {
+      configurable: true,
+      value(this: Element) {
+        targets.push(this);
+        return {
+          finished: new Promise(() => undefined),
+          cancel: () => undefined,
+        };
+      },
+    });
+    const { container } = await renderAbout();
+    const mark = container.querySelector(
+      'svg:has([data-mark-part="shutter"])'
+    )!;
+    fireEvent.click(mark);
+    expect(targets).toEqual([
+      mark,
+      mark.querySelector('[data-mark-part="shutter"]'),
+    ]);
   });
 
   test('names the product at SECTION size in the text colour', async () => {
@@ -78,21 +104,28 @@ describe('the About nameplate', () => {
   test('sets the version in LABEL_L1, not the L3 marker token', async () => {
     await renderAbout();
 
-    const version = screen.getByText(`v${APP_VERSION}`);
+    const version = screen.getByText(`Version ${APP_VERSION}`);
     expect(getComputedStyle(version).color).toMatch(
       asWritten(LIGHT_THEME.LABEL_L1_COLOR)
     );
     expect(getComputedStyle(version).fontSize).toBe(px(TYPE.SECONDARY));
   });
 
-  test('sets the credit in LABEL_L2 at SECONDARY size', async () => {
-    await renderAbout();
+  // KAN-521. A drawn heart in the credit's own grey, named for AT; the red emoji is gone.
+  test('sets the credit, "Made with ♥ by Justine George", in LABEL_L2 at SECONDARY size', async () => {
+    const { container } = await renderAbout();
 
-    const credit = screen.getByText(/Crafted with/);
+    const heart = screen.getByRole('img', { name: 'love' });
+    const credit = heart.parentElement!;
+    expect(credit.textContent?.replace(/\s+/g, ' ')).toBe(
+      'Made with by Justine George'
+    );
     expect(getComputedStyle(credit).color).toMatch(
       asWritten(LIGHT_THEME.LABEL_L2_COLOR)
     );
     expect(getComputedStyle(credit).fontSize).toBe(px(TYPE.SECONDARY));
+    expect(heart.getAttribute('fill')).toBe('currentColor');
+    expect(container.textContent).not.toMatch(/❤|Crafted/);
   });
 
   test('drops the thank-you heading', async () => {
@@ -142,7 +175,9 @@ describe('the About nameplate', () => {
       expect(link.getAttribute('href')).toBe(PRIVACY_POLICY_LINK);
       // In the nameplate section, not among the Feedback & Share actions.
       expect(link.closest('[data-settings-section]')).toBe(
-        screen.getByText(`v${APP_VERSION}`).closest('[data-settings-section]')
+        screen
+          .getByText(`Version ${APP_VERSION}`)
+          .closest('[data-settings-section]')
       );
       expect(getComputedStyle(link).fontSize).toBe(px(TYPE.SECONDARY));
     });
