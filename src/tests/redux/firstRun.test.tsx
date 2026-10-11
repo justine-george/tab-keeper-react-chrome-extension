@@ -958,3 +958,54 @@ describe('the replay note (KAN-499)', () => {
     expect(noteAndSetup(store)).toEqual([false, false]);
   });
 });
+
+// KAN-505. A second save on the "Saved." card puts another session on screen;
+// moving onto a step about the run's session brings that session back.
+describe('moving onto a session step shows the run’s session', () => {
+  test('save, Back, a second save, Next: the card shows, on the run’s session', async () => {
+    const store = withSessions(OWN, OLDER);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(takeRunSave('own'));
+    await store.dispatch(stepRunBack());
+    // The ordinary second save (R6): it is the session on screen now.
+    store.dispatch(
+      saveToTabContainerInternal(
+        buildSession({ tabGroupId: 'second', title: 'Second', createdAt: 3000 })
+      )
+    );
+    store.dispatch(takeRunSave('second'));
+    expect(runOf(store)).toMatchObject({ step: 1, sessionId: 'own' });
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'second'
+    );
+    await store.dispatch(advanceRun());
+    expect(runOf(store)).toMatchObject({ step: 2, sessionId: 'own' });
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'own'
+    );
+    expect(selectIsRunCardShown(store.getState())).toBe(true);
+  });
+
+  test('Back onto a session step brings the run’s session back too', async () => {
+    const store = withSessions(OWN, OLDER);
+    await store.dispatch(startRun({ ...newRun('popup', 3), sessionId: 'own' }));
+    store.dispatch(selectTabContainer('own'));
+    await store.dispatch(advanceRun());
+    store.dispatch(selectTabContainer('older'));
+    expect(selectIsRunCardShown(store.getState())).toBe(false);
+    await store.dispatch(stepRunBack());
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'own'
+    );
+    expect(selectIsRunCardShown(store.getState())).toBe(true);
+  });
+
+  test('CONTROL: browsing to another session on a session step still hides its card (R3)', async () => {
+    const store = withSessions(OWN, OLDER);
+    await store.dispatch(startRun({ ...newRun('popup', 2), sessionId: 'own' }));
+    store.dispatch(selectTabContainer('own'));
+    expect(selectIsRunCardShown(store.getState())).toBe(true);
+    store.dispatch(selectTabContainer('older'));
+    expect(selectIsRunCardShown(store.getState())).toBe(false);
+  });
+});

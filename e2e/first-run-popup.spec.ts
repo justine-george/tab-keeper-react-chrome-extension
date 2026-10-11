@@ -182,3 +182,42 @@ test('the user’s own save is the run’s session: its Open is dimmed during th
   await expect.poll(() => openLook(page, own)).toEqual(['none', null]);
   expect(await storedTitles(page)).toEqual(['Inbox – Gmail']);
 });
+
+// KAN-505. A second save on the "Saved." card put another session on screen,
+// and every card after it hid: the tour looked stopped.
+test('save, Back, save again, Next: the next card shows, on the run’s session', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openRunFromHelp(context, extensionId, POPUP_RUN);
+  const save = page.locator('[data-tour-anchor="save"]').getByRole('button', {
+    name: 'Save all open windows as a session',
+    exact: true,
+  });
+  await save.click();
+  await expect(cardAt(page, 2)).toBeVisible();
+  await cardButton(page, 'Back').click();
+  await expect(cardAt(page, 1)).toContainText('Saved.');
+  await save.click();
+  await expect.poll(async () => (await storedTitles(page)).length).toBe(2);
+  // CONTROL: the second save is ordinary; the run keeps its first session.
+  const run = await storedRun(page);
+  const own =
+    typeof run === 'object' && run !== null
+      ? Reflect.get(run, 'sessionId')
+      : null;
+  if (typeof own !== 'string') throw new Error('the run has no session');
+  await cardButton(page, 'Next').click();
+  await expect(cardAt(page, 2)).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem('tabContainerData') ?? '{}')
+            .selectedTabGroupId
+      )
+    )
+    .toBe(own);
+  // And the tour goes on.
+  await nextTo(page, 3);
+});
