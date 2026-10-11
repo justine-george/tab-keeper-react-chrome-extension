@@ -77,10 +77,11 @@ async function openTabGroupsPrompt(
   return page;
 }
 
-for (const [which, cta, open] of [
+for (const [which, firstButton, open] of [
   [
     'the rate-and-review prompt',
-    'Rate this extension',
+    // Maybe later leads the footer too (KAN-501), so the first Tab lands on it.
+    'Maybe later',
     (c: BrowserContext, _w: Worker, id: string) => openRatePrompt(c, id),
   ],
   [
@@ -106,7 +107,7 @@ for (const [which, cta, open] of [
       expect(s.dialogOutline).toBe('none');
     });
 
-    test('CONTROL: the first Tab reaches the CTA, lit', async ({
+    test("CONTROL: the first Tab reaches the footer's first button, lit", async ({
       context,
       serviceWorker,
       extensionId,
@@ -116,7 +117,7 @@ for (const [which, cta, open] of [
       await page.keyboard.press('Tab');
       const focused = page.locator(':focus');
       await expect(focused).toHaveRole('button');
-      await expect(focused).toHaveAccessibleName(cta);
+      await expect(focused).toHaveAccessibleName(firstButton);
       expect((await state(page)).focusedIsFocusVisible).toBe(true);
     });
 

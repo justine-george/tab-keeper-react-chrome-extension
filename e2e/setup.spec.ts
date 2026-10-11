@@ -67,7 +67,15 @@ async function watchDialogNames(context: BrowserContext): Promise<void> {
     new MutationObserver(() => {
       for (const dialog of document.querySelectorAll('dialog[open]')) {
         const id = dialog.getAttribute('aria-labelledby');
-        const name = (id && document.getElementById(id)?.textContent) || '';
+        const heading = id ? document.getElementById(id) : null;
+        // The name a screen reader hears: an aria-hidden title glyph is no part of it.
+        const copy = heading?.cloneNode(true);
+        if (copy instanceof Element) {
+          copy
+            .querySelectorAll('[aria-hidden="true"]')
+            .forEach((n) => n.remove());
+        }
+        const name = copy?.textContent ?? '';
         if (!seen.includes(name)) seen.push(name);
       }
     }).observe(document, { subtree: true, childList: true, attributes: true });
