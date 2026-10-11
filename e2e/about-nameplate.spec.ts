@@ -69,7 +69,7 @@ for (const [theme, palette] of [
 
       await openAbout(page);
       const glyph = await box(mark(page));
-      const label = await box(page.getByText('Feedback & Share'));
+      const label = await box(page.getByText('Feedback', { exact: true }));
       const rate = await box(
         page.getByRole('button', { name: 'Rate this extension' })
       );
@@ -169,10 +169,10 @@ for (const [theme, palette] of [
       await expect.poll(() => tab.url()).toBe(PRIVACY_POLICY_LINK);
       // The popup is still the popup.
       expect(page.url()).toBe(`chrome-extension://${extensionId}/index.html`);
-      await expect(page.getByText('Feedback & Share')).toBeVisible();
+      await expect(page.getByText('Feedback', { exact: true })).toBeVisible();
     });
 
-    test('stacks the three actions the way Backup & Restore does', async ({
+    test('stacks the two actions the way Backup & Restore does', async ({
       context,
       extensionId,
     }) => {
@@ -185,8 +185,7 @@ for (const [theme, palette] of [
       const mail = await box(
         page.getByRole('button', { name: 'Share your feedback' })
       );
-      const x = await box(page.getByRole('button', { name: 'Share on X' }));
-      const label = await box(page.getByText('Feedback & Share'));
+      const label = await box(page.getByText('Feedback', { exact: true }));
       const policy = await box(
         page.getByRole('link', { name: 'Privacy policy' })
       );
@@ -196,13 +195,44 @@ for (const [theme, palette] of [
       // more under it than a setting does.
       expect(label.y).toBe(policy.y + policy.height + 32);
 
-      for (const b of [rate, mail, x]) {
+      for (const b of [rate, mail]) {
         expect(b.width).toBe(250);
         expect(b.height).toBe(48);
       }
       expect(rate.y).toBe(label.y + label.height + 8);
       expect(mail.y).toBe(rate.y + 48 + 12);
-      expect(x.y).toBe(mail.y + 48 + 12);
+      // KAN-511. Share on X is gone.
+      await expect(
+        page.getByRole('button', { name: 'Share on X' })
+      ).toHaveCount(0);
+    });
+
+    // KAN-511. Rate is the filled main action: the theme's text colour as the fill, its ground as the ink.
+    test('Rate is the filled button with the star, in this theme’s colours', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openSettings(context, extensionId, theme);
+      await openAbout(page);
+      const rate = page.getByRole('button', { name: 'Rate this extension' });
+
+      const drawn = await rate.evaluate((el) => {
+        const glyph = el.querySelector('.material-symbols-outlined');
+        return {
+          fill: getComputedStyle(el).backgroundColor,
+          ink: getComputedStyle(el).color,
+          glyph: glyph?.textContent,
+          glyphInk: glyph ? getComputedStyle(glyph).color : null,
+        };
+      });
+      const rgb = (hex: string) =>
+        `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
+      expect(drawn).toEqual({
+        fill: rgb(palette.TEXT_COLOR),
+        ink: rgb(palette.PRIMARY_COLOR),
+        glyph: 'star',
+        glyphInk: rgb(palette.PRIMARY_COLOR),
+      });
     });
   });
 }

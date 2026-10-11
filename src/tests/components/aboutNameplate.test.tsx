@@ -63,21 +63,6 @@ describe('the About nameplate', () => {
     );
   });
 
-  // The mark is not the X share glyph borrowed for the job. Both are brand
-  // marks drawn through the same table, so the wrong one is one typo away and
-  // the assertion above would not notice.
-  test('the mark is not the X glyph', async () => {
-    const { container } = await renderAbout();
-
-    const paths = Array.from(container.querySelectorAll('svg path')).map((p) =>
-      p.getAttribute('d')
-    );
-    // The share button's own X glyph is still on the page ...
-    expect(paths.some((d) => d?.startsWith('M18.244'))).toBe(true);
-    // ... and the nameplate's mark is a different path.
-    expect(paths.filter((d) => !d?.startsWith('M18.244'))).toHaveLength(1);
-  });
-
   test('names the product at SECTION size in the text colour', async () => {
     await renderAbout();
 
@@ -116,17 +101,34 @@ describe('the About nameplate', () => {
     expect(screen.queryByText(/Thank you for using/)).toBeNull();
   });
 
-  test('keeps the three actions, under one section label', async () => {
+  // KAN-511. Share on X is gone; the section is named for what is left.
+  test('keeps two actions under "Feedback": Rate first, then Share your feedback, and no Share on X', async () => {
     await renderAbout();
 
-    expect(screen.getByText('Feedback & Share')).toBeTruthy();
+    expect(screen.getByText('Feedback', { exact: true })).toBeTruthy();
+    expect(screen.queryByText('Feedback & Share')).toBeNull();
+    const rate = screen.getByRole('button', { name: 'Rate this extension' });
+    const mail = screen.getByRole('button', { name: 'Share your feedback' });
     expect(
-      screen.getByRole('button', { name: 'Rate this extension' })
+      rate.compareDocumentPosition(mail) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Share your feedback' })
-    ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Share on X' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Share on X' })).toBeNull();
+  });
+
+  test('Rate carries the star and is the filled button; Share your feedback stays quiet', async () => {
+    await renderAbout();
+
+    const rate = screen.getByRole('button', { name: 'Rate this extension' });
+    const mail = screen.getByRole('button', { name: 'Share your feedback' });
+    expect(rate.querySelector('.material-symbols-outlined')?.textContent).toBe(
+      'star'
+    );
+    expect(getComputedStyle(rate).backgroundColor).not.toBe(
+      getComputedStyle(mail).backgroundColor
+    );
+    expect(getComputedStyle(rate).color).toBe(
+      getComputedStyle(mail).backgroundColor
+    );
   });
 
   // KAN-260. The policy is a file in the repository; the consent dialog links

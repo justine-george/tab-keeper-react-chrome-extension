@@ -37,7 +37,6 @@ import {
   IMPORT_ERROR_FRAME,
   NON_INTERACTIVE_ICON_STYLE,
   PRIVACY_POLICY_LINK,
-  SHARE_X_TEXT,
 } from '../../../utils/constants/common';
 import { SettingsCategoryContainer } from '../leftpane/SettingsCategoryContainer';
 import { TabMasterContainer } from '../../../redux/slices/tabContainerDataStateSlice';
@@ -1057,15 +1056,14 @@ const SettingsDetailsContainer: React.FC = () => {
             `}
           >
             <NormalLabel
-              value={t('Feedback & Share')}
+              value={t('Feedback')}
               size={TYPE.BODY}
               color={COLORS.LABEL_L1_COLOR}
             />
           </div>
 
-          {/* The Backup & Restore stack. Not a row: the three natural widths
-              total ~560px in English against the 435px available here, so a
-              row would wrap differently in every locale. */}
+          {/* The Backup & Restore stack. Not a row: a stack keeps one shape in
+              every locale. */}
           <div
             css={css`
               display: flex;
@@ -1077,9 +1075,11 @@ const SettingsDetailsContainer: React.FC = () => {
               margin-top: 8px;
             `}
           >
+            {/* KAN-511. The one thing the page asks for, drawn as the dialogs draw their main action, with the rating dialog's star. */}
             <Button
               text={t('Rate this app')}
-              iconType="thumb_up"
+              iconType="star"
+              variant="primary"
               onClick={() => {
                 window.open(APP_CHROME_WEBSTORE_LINK + '/reviews');
                 // KAN-149. The modal's own CTA has always recorded this; this
@@ -1104,13 +1104,6 @@ const SettingsDetailsContainer: React.FC = () => {
               onClick={() =>
                 (window.location.href = `mailto:${DEV_EMAIL}?subject=${FEEDBACK_MAIL_SUBJECT}`)
               }
-              style="width: 100%;
-              max-width: 250px; justify-content: center; margin-top: 12px;"
-            />
-            <Button
-              text={t('Share on X')}
-              iconType="x"
-              onClick={() => window.open(SHARE_X_TEXT)}
               style="width: 100%;
               max-width: 250px; justify-content: center; margin-top: 12px;"
             />
