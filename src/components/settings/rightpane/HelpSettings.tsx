@@ -81,9 +81,16 @@ function HelpRow({
       <div
         css={css`
           margin-top: 8px;
+          width: 100%;
         `}
       >
-        <Button text={button} iconType={icon} onClick={onClick} />
+        {/* KAN-512. About's width, so the Settings buttons are one family. */}
+        <Button
+          text={button}
+          iconType={icon}
+          onClick={onClick}
+          style="width: 100%; max-width: 250px; justify-content: center;"
+        />
       </div>
     </div>
   );
@@ -137,12 +144,21 @@ export default function HelpSettings() {
     >
       {pin !== null && (
         <>
+          {/* KAN-512. The tour first: Help is where people come to learn. */}
           <HelpRow
             isFirst
-            label={t('Make Tab Keeper yours')}
+            label={t('Learn the basics')}
             description={t(
-              'Choose your theme, language, default view and shortcut again.'
+              'A one-minute tour of this view. Your open tabs and saved sessions stay just as they are.'
             )}
+            button={t('Show me around')}
+            icon={HELP_ICONS.tour}
+            onClick={showMeAround}
+          />
+          <HelpRow
+            isFirst={false}
+            label={t('Make Tab Keeper yours')}
+            description={t('Go through the first-time setup again.')}
             button={t('Run setup again')}
             icon={HELP_ICONS.setup}
             onClick={runSetupAgain}
@@ -159,16 +175,6 @@ export default function HelpSettings() {
               onClick={showPinGuide}
             />
           )}
-          <HelpRow
-            isFirst={false}
-            label={t('Learn the basics')}
-            description={t(
-              'A one-minute tour of this view. Your open tabs and saved sessions stay just as they are.'
-            )}
-            button={t('Show me around')}
-            icon={HELP_ICONS.tour}
-            onClick={showMeAround}
-          />
         </>
       )}
     </div>
