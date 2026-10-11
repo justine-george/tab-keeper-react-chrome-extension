@@ -201,7 +201,7 @@ describe('the moment on the welcome', () => {
       expect(store.getState().settingsDataState.firstRun).toEqual(FULL_RUN)
     );
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
-    // KAN-514: Esc's no-tour skip never ran under it.
+    // Neither Show me here's run nor a skip ran under it.
     expect(store.getState().globalState.isReplayNoteOpen).toBe(false);
     // The press it cancelled finishing late starts nothing after it.
     moment()[0].release();

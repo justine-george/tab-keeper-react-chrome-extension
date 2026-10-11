@@ -19,11 +19,7 @@ import {
   grantCloudConsent,
   setAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
-import {
-  welcomeGetStarted,
-  welcomeNoTour,
-  welcomeShowMeHere,
-} from '../../redux/firstRun';
+import { welcomeGetStarted, welcomeShowMeHere } from '../../redux/firstRun';
 import {
   playShutterClick,
   prepareShutterClick,
@@ -160,22 +156,22 @@ export const CloudConsentModal: React.FC = () => {
       void dispatch(welcomeGetStarted());
     });
   };
-  // During Get started's beat, Show me here or Esc cuts the beat short, and Get started completes (R12).
-  const unlessGettingStarted = (then: () => void) => () => {
+  // Esc is Show me here (KAN-516); during Get started's beat either cuts the beat short, and Get started completes (R12).
+  const showMeHere = () => {
     if (motion.current !== null) {
       motion.current.cancel();
       return;
     }
-    then();
+    void dispatch(welcomeShowMeHere());
   };
-  const showMeHere = unlessGettingStarted(
-    () => void dispatch(welcomeShowMeHere())
-  );
-  const noTour = unlessGettingStarted(() => dispatch(welcomeNoTour()));
   // Escape never uploads: existing declines (KAN-410), enable changes nothing,
-  // and the welcome's Escape starts no tour (KAN-514).
+  // and the welcome's Escape is Show me here.
   const handleCancel =
-    variant === 'welcome' ? noTour : variant === 'existing' ? decline : close;
+    variant === 'welcome'
+      ? showMeHere
+      : variant === 'existing'
+        ? decline
+        : close;
 
   const buttons = dialogButtonStyles(COLORS);
 

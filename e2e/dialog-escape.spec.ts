@@ -42,7 +42,7 @@ const autoSync = (page: Page, state: 'On' | 'Off') =>
 test.describe('a new install', () => {
   test.use({ freshProfile: true });
 
-  test('welcome: Esc is consumed, and starts no tour (KAN-514)', async ({
+  test('welcome: Esc is consumed, and is Show me here (KAN-516)', async ({
     context,
     extensionId,
   }) => {
@@ -53,8 +53,8 @@ test.describe('a new install', () => {
     await page.keyboard.press('Escape');
 
     await expect(dialog(page, 'Welcome to Tab Keeper')).toHaveCount(0);
-    await expect(replayNote(page)).toBeVisible();
-    await expect(cardAt(page, 1)).toHaveCount(0);
+    await expect(cardAt(page, 1)).toBeVisible();
+    await expect(replayNote(page)).toHaveCount(0);
     expect(await escapesPrevented(page)).toEqual([true]);
   });
 

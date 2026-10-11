@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 
 import MainContainer from '../../components/MainContainer';
 import {
@@ -70,7 +70,7 @@ const CASES: Case[] = [
     },
   },
   {
-    name: 'welcome: closes, no tour (KAN-514)',
+    name: 'welcome: Show me here (KAN-516)',
     dialog: 'Welcome to Tab Keeper',
     open: (s) => {
       s.dispatch(beginSetup());
@@ -78,10 +78,12 @@ const CASES: Case[] = [
       s.dispatch(runShownHere());
       s.dispatch(openCloudConsentModal({ variant: 'welcome' }));
     },
-    outcome: ({ store }) => {
+    outcome: async ({ store }) => {
       expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
-      expect(store.getState().settingsDataState.firstRun?.ended).toBe(
-        'skipped'
+      await waitFor(() =>
+        expect(store.getState().settingsDataState.firstRun).toEqual(
+          newRun('popup', 1)
+        )
       );
     },
   },
