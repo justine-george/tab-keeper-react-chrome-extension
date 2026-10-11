@@ -72,4 +72,19 @@ describe('Replace with open windows', () => {
       TOAST_MESSAGES.SESSION_REPLACED
     );
   });
+
+  // KAN-506. A window with an arrow coming in; Export's ios_share points out.
+  test('is drawn with browser_updated', async () => {
+    const user = userEvent.setup();
+    await renderHeader();
+
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    const item = within(screen.getByRole('menu')).getByRole('menuitem', {
+      name: 'Replace with open windows',
+    });
+
+    expect(item.querySelector('.material-symbols-outlined')?.textContent).toBe(
+      'browser_updated'
+    );
+  });
 });
