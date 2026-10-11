@@ -903,10 +903,10 @@ const SettingsDetailsContainer: React.FC = () => {
           <div
             css={css`
               display: grid;
-              /* Two columns at every size. Without a definite width the grid
-                 shrink-wraps and auto-fit collapses to a single column. */
-              grid-template-columns: 1fr 1fr;
-              width: 100%;
+              /* KAN-510. Two 200px columns from the label's edge: half the
+                 pane each grew to 745px at 1920. The pane's inner width is
+                 434px at every root size, so two always fit. */
+              grid-template-columns: repeat(2, 200px);
               gap: 12px;
               align-items: center;
               margin-top: 8px;
