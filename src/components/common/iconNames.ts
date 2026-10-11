@@ -60,6 +60,7 @@ export const LIGATURE_ICON_NAMES = [
   'settings',
   'sort',
   'sort_by_alpha',
+  'star',
   'sync',
   'sync_problem',
   'tab',

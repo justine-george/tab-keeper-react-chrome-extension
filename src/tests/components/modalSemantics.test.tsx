@@ -133,8 +133,11 @@ describe.each(MODALS)('$name is a real dialog (KAN-89)', (modal) => {
     const heading = container.querySelector(`#${labelledBy}`);
     expect(heading).not.toBeNull();
     expect(heading!.textContent?.trim()).toBeTruthy();
+    // The name a screen reader announces: an aria-hidden glyph in the heading is no part of it.
     if (modal.expectedName) {
-      expect(heading!.textContent?.trim()).toBe(modal.expectedName);
+      expect(screen.getByRole('dialog', { name: modal.expectedName })).toBe(
+        dialog
+      );
     }
   });
 
