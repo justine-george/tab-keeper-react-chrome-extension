@@ -6,6 +6,7 @@ import { TabGroupsPermissionModal } from '../../components/modals/TabGroupsPermi
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { openTabGroupsPrompt } from '../../redux/slices/globalStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
+import { DIALOG } from '../../styles/scale';
 import { SettingsData } from '../../redux/slices/settingsDataStateSlice';
 import {
   asPartialSettings,
@@ -263,5 +264,30 @@ describe('TabGroupsPermissionModal permission request', () => {
     expect(
       screen.getByRole('button', { name: "Don't ask again" })
     ).toBeTruthy();
+  });
+});
+
+// KAN-501. Built like the confirm dialogs and the review prompt: their width
+// and an icon-and-title row with the tab-group glyph.
+describe('TabGroupsPermissionModal in the dialog family', () => {
+  test('is as wide as the confirm dialogs', async () => {
+    await renderWithProviders(<TabGroupsPermissionModal />, {
+      seedStore: openWith(2),
+    });
+    const dialog = document.querySelector('dialog');
+    if (dialog === null) throw new Error('no dialog');
+    expect(getComputedStyle(dialog).width).toBe(DIALOG.WIDTH);
+  });
+
+  test('the title carries the tab-group glyph, hidden from the name', async () => {
+    await renderWithProviders(<TabGroupsPermissionModal />, {
+      seedStore: openWith(2),
+    });
+    const title = screen.getByRole('heading', {
+      name: 'Tab Keeper can save tab groups',
+    });
+    expect(title.querySelector('.material-symbols-outlined')?.textContent).toBe(
+      'tab_group'
+    );
   });
 });

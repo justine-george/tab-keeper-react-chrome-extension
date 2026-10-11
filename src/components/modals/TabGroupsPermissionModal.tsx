@@ -15,7 +15,8 @@ import {
   SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { requestTabGroupsPermission } from '../../utils/functions/permissions';
-import { RADIUS, TYPE } from '../../styles/scale';
+import { DIALOG, ICON, RADIUS, TYPE } from '../../styles/scale';
+import Icon from '../common/Icon';
 import { dialogButtonStyles } from './dialogButtons';
 import {
   asPartialSettings,
@@ -147,7 +148,8 @@ export const TabGroupsPermissionModal: React.FC<
   `;
   // The earned opt-out stays a quiet line under the footer.
   const neverStyle = css`
-    align-self: center;
+    display: block;
+    margin: 12px auto 0;
     background: none;
     border: none;
     padding: 0;
@@ -175,31 +177,28 @@ export const TabGroupsPermissionModal: React.FC<
       // which is what unlocks the permanent opt-out -- otherwise a user who
       // only ever pressed Escape would never earn an escape hatch.
       onCancel={handleNotNow}
+      // KAN-501. Built like the confirm dialogs (CloudConsentModal) and the review prompt.
       css={css`
-        /* The UA gives <dialog> its own box; reset it back to the card's
-           geometry. Same reset as FocusConfirmModal. */
         position: fixed;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
         margin: 0;
+        padding: 20px;
+        width: ${DIALOG.WIDTH};
         max-width: none;
         max-height: none;
         background-color: ${COLORS.PRIMARY_COLOR};
         color: ${COLORS.LABEL_L1_COLOR};
         border: 1px solid ${COLORS.BORDER_COLOR};
-        width: 500px;
-        padding: 20px;
-        align-items: flex-start;
         border-radius: ${RADIUS.SQUARE};
-        flex-direction: column;
-        padding-bottom: 25px;
-        gap: 20px;
+        font-family: ${FONT_FAMILY};
+        font-size: ${TYPE.BODY};
 
         /* Scoped to [open] so the dialog stays hidden until showModal() runs,
            rather than flashing as a non-modal box for a frame. */
         &[open] {
-          display: flex;
+          display: block;
         }
 
         &::backdrop {
@@ -216,22 +215,24 @@ export const TabGroupsPermissionModal: React.FC<
       <h2
         id={TITLE_ID}
         css={css`
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin: 0 0 12px 0;
+          font-size: ${TYPE.SECTION};
           font-weight: 500;
-          font-family: ${FONT_FAMILY};
-          font-size: ${TYPE.TITLE};
-          margin: 10px 0;
+          color: ${COLORS.TEXT_COLOR};
         `}
       >
+        <Icon type="tab_group" size={ICON.DEFAULT} disable={true} />
         {t('TabGroupsPromptTitle')}
       </h2>
       <p
         id={BODY_ID}
         css={css`
-          font-family: ${FONT_FAMILY};
-          font-size: ${TYPE.BODY};
-          color: ${COLORS.TEXT_COLOR};
-          text-align: left;
-          margin: 0 0 10px 0;
+          margin: 0 0 20px 0;
+          line-height: 1.5;
+          color: ${COLORS.LABEL_L1_COLOR};
         `}
       >
         {t(bodyKey, { count: tabGroupsPromptCount })}

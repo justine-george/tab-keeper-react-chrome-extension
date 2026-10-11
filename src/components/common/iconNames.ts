@@ -64,6 +64,7 @@ export const LIGATURE_ICON_NAMES = [
   'sync',
   'sync_problem',
   'tab',
+  'tab_group',
   'thumb_up',
   'tune',
   'undo',
