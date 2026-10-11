@@ -293,6 +293,8 @@
   "Start": "开始",
   "This is Open now: every window and tab you have open. It updates as you browse.": "这里是“当前打开的标签页”：您打开的每个窗口和标签页都在这里，浏览时会随时更新。",
   "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "在这里搜索，快速找到打开的标签页。拖动边缘可以把它变宽，或按 {{icon}} 让“当前打开的标签页”占满整个视图。",
+  "Search here to find an open tab fast. Press {{icon}} to give Open now the whole view.": "在这里搜索，快速找到打开的标签页。按 {{icon}} 让“当前打开的标签页”占满整个视图。",
+  "Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.": "窗口较窄时，“当前打开的标签页”收在这里。按 {{icon}} 可查看并搜索所有打开的标签页。",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "把这些窗口保存为一个会话。我们已经为它取好了名字；如果需要可以修改，然后按 {{icon}}。",
   "Saving keeps them safe even after you close them.": "保存后，即使关闭它们也不会丢失。",
   "Use an example": "使用示例",

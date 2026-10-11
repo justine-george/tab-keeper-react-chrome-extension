@@ -308,6 +308,8 @@
   "Start": "Начать",
   "This is Open now: every window and tab you have open. It updates as you browse.": "Это «Открытые вкладки»: все окна и вкладки, которые у вас открыты. Список обновляется, пока вы просматриваете страницы.",
   "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "Ищите здесь, чтобы быстро найти открытую вкладку. Потяните за край, чтобы расширить панель, или нажмите {{icon}}, чтобы «Открытые вкладки» заняли весь вид.",
+  "Search here to find an open tab fast. Press {{icon}} to give Open now the whole view.": "Ищите здесь, чтобы быстро найти открытую вкладку. Нажмите {{icon}}, чтобы «Открытые вкладки» заняли весь вид.",
+  "Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.": "Пока окно узкое, «Открытые вкладки» спрятаны здесь. Нажмите {{icon}}, чтобы увидеть все открытые вкладки и искать по ним.",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "Сохраните эти окна как сессию. Мы уже дали ей название; измените его, если хотите, и нажмите {{icon}}.",
   "Saving keeps them safe even after you close them.": "После сохранения они не потеряются, даже если вы их закроете.",
   "Use an example": "Использовать пример",

@@ -37,6 +37,9 @@ import { showSession } from '../../redux/showSession';
 import { selectIsSavedSessionFolded } from '../../redux/savedSessionFold';
 import { isSampleSession } from '../../utils/functions/sampleSession';
 import { useSampleNames } from '../../hooks/useSampleNames';
+import { useIsOpenNowGripShown } from '../../hooks/useIsOpenNowGripShown';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { OPEN_NOW_RAIL_QUERY } from '../home/opennow/railQuery';
 import { useSessionListSettled } from '../../hooks/useSessionListSettled';
 import {
   needsSession,
@@ -72,6 +75,9 @@ export default function FirstRun() {
   );
   const echo = useSelector((s: RootState) => s.globalState.runSaveEcho);
   const isFolded = useSelector(selectIsSavedSessionFolded);
+  const hasGrip = useIsOpenNowGripShown();
+  // Open now as the narrow rail: one button, its search and « inside the drawer it opens.
+  const isRail = useMediaQuery(OPEN_NOW_RAIL_QUERY) && !isFolded;
   const shownSession = useRef<string | null>(null);
 
   // R2, and a record ended or replaced from another page.
@@ -153,6 +159,21 @@ export default function FirstRun() {
         };
       // Folded, Open now has the whole view and no edge to drag; the fold button shows the saved session.
       case 'findAndFit':
+        if (isRail) {
+          return {
+            text: (
+              <GlyphSentence
+                sentence={t(
+                  'Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.',
+                  { icon: GLYPH_SLOT }
+                )}
+                icon="tab"
+                label={t('Open now')}
+              />
+            ),
+            primary: next,
+          };
+        }
         return {
           text: isFolded ? (
             <GlyphSentence
@@ -165,10 +186,18 @@ export default function FirstRun() {
             />
           ) : (
             <GlyphSentence
-              sentence={t(
-                'Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.',
-                { icon: GLYPH_SLOT }
-              )}
+              // KAN-500. The edge only where the grip is drawn.
+              sentence={
+                hasGrip
+                  ? t(
+                      'Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.',
+                      { icon: GLYPH_SLOT }
+                    )
+                  : t(
+                      'Search here to find an open tab fast. Press {{icon}} to give Open now the whole view.',
+                      { icon: GLYPH_SLOT }
+                    )
+              }
               icon={FOLD_ICON.unfolded}
               label={t('Fold the saved session away')}
             />

@@ -14,13 +14,10 @@ import RightPane from './home/rightpane/RightPane';
 import OpenNowColumn from './home/opennow/OpenNowColumn';
 import OpenNowResizeGrip from './home/opennow/OpenNowResizeGrip';
 import { OPEN_NOW_RAIL_QUERY } from './home/opennow/railQuery';
-import {
-  isOpenNowResizable,
-  shownOpenNowWidth,
-} from './home/opennow/openNowWidth';
-import { useMediaQuery } from '../hooks/useMediaQuery';
+import { shownOpenNowWidth } from './home/opennow/openNowWidth';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { useViewportWidth } from '../hooks/useViewportWidth';
+import { useIsOpenNowGripShown } from '../hooks/useIsOpenNowGripShown';
 import { useDialogEscape } from '../hooks/useDialogEscape';
 import { APP_HEIGHT } from '../utils/constants/common';
 import { AppDispatch, RootState } from '../redux/store';
@@ -112,6 +109,8 @@ export default function MainContainer() {
 
   // KAN-280 O4/O5. Folded, Open now takes the saved session's column.
   const folded = useSelector(selectIsSavedSessionFolded);
+  // Settings needs no test here: it renders its own grid, with no Open now and no grip.
+  const showResizeGrip = useIsOpenNowGripShown();
 
   // KAN-321 O1/O1a. The user's dragged width (or null, the default) and the
   // window's current CSS width; shownOpenNowWidth (openNowWidth.ts) turns
@@ -124,8 +123,6 @@ export default function MainContainer() {
   // Held here, not in the grip, because the grid track below is drawn from
   // it; the store only takes the width on release.
   const [liveOpenNowWidth, setLiveOpenNowWidth] = useState<number | null>(null);
-  // O2. Below 1100px Open now's column is the rail, with no line to drag.
-  const isNarrow = useMediaQuery(OPEN_NOW_RAIL_QUERY);
 
   // Open now's drawn width, in px: the drag in flight, else the stored width
   // (or the default), clamped to this window (openNowWidth.ts) -- the live
@@ -368,14 +365,6 @@ export default function MainContainer() {
     /* Side by side, the detail pane's right border is already this edge. */
     ${!folded && 'border-left: none;'}
   `;
-
-  // KAN-321 O1a. Only side by side is there a line between the saved
-  // session and Open now to drag, and only where the window leaves both
-  // panes their 480px is there a range to drag it through (above 1316px).
-  // Settings needs no test here: it renders its own grid below, with no Open
-  // now and no grip.
-  const showResizeGrip =
-    isTab && !folded && !isNarrow && isOpenNowResizable(viewportWidth);
 
   return (
     <div>
