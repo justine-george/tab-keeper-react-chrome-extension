@@ -58,3 +58,22 @@ describe('"Open compact view" in every locale (KAN-437)', () => {
     }
   );
 });
+
+describe('"Back to last tab" in every locale (KAN-509)', () => {
+  test.each(Object.keys(LOCALES))(
+    '%s names it, apart from Open compact view and Back',
+    (lang) => {
+      const value = LOCALES[lang]['Back to last tab'];
+      expect(typeof value === 'string' && value.length > 0).toBe(true);
+      expect(value).not.toBe(LOCALES[lang]['Open compact view']);
+      expect(value).not.toBe(LOCALES[lang]['Back']);
+    }
+  );
+
+  test.each(Object.keys(LOCALES).filter((l) => l !== 'en'))(
+    '%s translates it',
+    (lang) => {
+      expect(LOCALES[lang]['Back to last tab']).not.toBe('Back to last tab');
+    }
+  );
+});

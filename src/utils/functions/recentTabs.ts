@@ -10,6 +10,10 @@ export const recentTabsKey = (windowId: number): string =>
 const isTabIdList = (value: unknown): value is number[] =>
   Array.isArray(value) && value.every((id) => typeof id === 'number');
 
+// A stored entry as a list, empty when it is not one.
+export const asTabIdList = (value: unknown): readonly number[] =>
+  isTabIdList(value) ? value : [];
+
 export function withActivated(
   list: readonly number[],
   tabId: number

@@ -2,7 +2,11 @@
 // Measured headed (KAN-437, 2026-10-06): a popup opened before its tab closes dies with that tab.
 // Worker-safe, like popOut.ts: no window, no redux, chrome types only.
 import { popupFor } from './defaultView';
-import { chromeFullViewOrigins, type FullViewTabRef } from './fullViewOrigin';
+import {
+  chromeFullViewOrigins,
+  tabToReturnTo,
+  type FullViewTabRef,
+} from './fullViewOrigin';
 import { readRecentTabs } from './recentTabs';
 import { TAB_VIEW_PATH } from './pinnedTabKeeper';
 
@@ -115,10 +119,10 @@ async function tabToGoBackTo(
   openTabIds: readonly number[]
 ): Promise<number | undefined> {
   try {
-    const origin = await api.originOf(fullView);
-    if (origin !== undefined && openTabIds.includes(origin)) return origin;
-    return (await api.recentTabsIn(fullView.windowId)).find((id) =>
-      openTabIds.includes(id)
+    return tabToReturnTo(
+      await api.originOf(fullView),
+      await api.recentTabsIn(fullView.windowId),
+      openTabIds
     );
   } catch (error) {
     console.warn('Could not read where to go back to:', error);
