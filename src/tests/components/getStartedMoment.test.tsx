@@ -247,7 +247,7 @@ describe('the moment on the welcome', () => {
     };
   }
 
-  test('Stay here while it plays neither closes the welcome nor starts the popup run; Get started completes', async () => {
+  test('Show me here while it plays neither closes the welcome nor starts the popup run; Get started completes', async () => {
     installAnimate();
     installFakeAudio();
     const { store } = await renderWithProviders(<MainContainer />, {
@@ -255,7 +255,7 @@ describe('the moment on the welcome', () => {
     });
     const watch = watchRunStarts(store);
     const { moment } = pressGetStarted();
-    fireEvent.click(screen.getByRole('button', { name: 'Stay here' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show me here' }));
     // Whatever of the beat is still to play, played out.
     for (let i = 0; i < 3; i += 1) {
       moment()[i]?.release();
@@ -269,13 +269,34 @@ describe('the moment on the welcome', () => {
     expect(startedTicks()).toEqual([]);
   });
 
-  test('CONTROL: Stay here with no beat playing starts the popup run, and the watch sees it', async () => {
+  test('Esc while it plays ends no run: Get started completes (KAN-514, R12)', async () => {
+    installAnimate();
+    installFakeAudio();
+    const { store } = await renderWithProviders(<MainContainer />, {
+      seedStore: welcome,
+    });
+    const { moment } = pressGetStarted();
+    fireEvent(
+      screen.getByRole('dialog', { name: 'Welcome to Tab Keeper' }),
+      new Event('cancel', { bubbles: false, cancelable: true })
+    );
+    for (let i = 0; i < 3; i += 1) {
+      moment()[i]?.release();
+      await microtasks();
+    }
+    await waitFor(() =>
+      expect(store.getState().settingsDataState.firstRun).toEqual(FULL_RUN)
+    );
+    expect(store.getState().globalState.isReplayNoteOpen).toBe(false);
+  });
+
+  test('CONTROL: Show me here with no beat playing starts the popup run, and the watch sees it', async () => {
     installAnimate();
     const { store } = await renderWithProviders(<MainContainer />, {
       seedStore: welcome,
     });
     const watch = watchRunStarts(store);
-    fireEvent.click(screen.getByRole('button', { name: 'Stay here' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show me here' }));
     await waitFor(() =>
       expect(store.getState().globalState.isRunHere).toBe(true)
     );

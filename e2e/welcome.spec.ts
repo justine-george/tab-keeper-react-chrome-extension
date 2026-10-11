@@ -16,6 +16,7 @@ import { expectReadable } from './fixtures/textContrast';
 import {
   cardAt,
   hello,
+  replayNote,
   runCheck,
   runDrawn,
   seedRawSettingsIfAbsent,
@@ -32,7 +33,7 @@ const welcome = (page: import('@playwright/test').Page) =>
 const queueDone = (page: import('@playwright/test').Page) =>
   expect(page.locator('html')).toHaveAttribute('data-first-open', /.+/);
 
-test('the welcome: hero, one line, the hint, Stay here and Get started (never Not now); the run recorded at the welcome', async ({
+test('the welcome: hero, one line, the hint, Show me here and Get started (never Not now); the run recorded at the welcome', async ({
   context,
   extensionId,
 }) => {
@@ -43,10 +44,10 @@ test('the welcome: hero, one line, the hint, Stay here and Get started (never No
     welcome(page).locator('[data-hero-frame] > [aria-hidden="true"]')
   ).toHaveCount(1);
   await expect(welcome(page)).toContainText(
-    'Get started opens Tab Keeper in its own tab.'
+    'Get started opens Tab Keeper in its own tab. Show me here keeps the tour in this popup.'
   );
   await expect(
-    welcome(page).getByRole('button', { name: 'Stay here', exact: true })
+    welcome(page).getByRole('button', { name: 'Show me here', exact: true })
   ).toBeVisible();
   await expect(
     welcome(page).getByRole('button', { name: 'Not now', exact: true })
@@ -67,18 +68,18 @@ test('the welcome: hero, one line, the hint, Stay here and Get started (never No
   });
 });
 
-test('Stay here: the popup run starts at its save card', async ({
+test('Show me here: the popup run starts at its save card', async ({
   context,
   extensionId,
 }) => {
   const page = await openPopup(context, extensionId);
   await welcome(page)
-    .getByRole('button', { name: 'Stay here', exact: true })
+    .getByRole('button', { name: 'Show me here', exact: true })
     .click();
   await expect(cardAt(page, 1)).toBeVisible();
 });
 
-test('Esc is Stay here, and the popup keeps it (KAN-426)', async ({
+test('Esc closes the welcome with no tour: the run ends skipped, the note shows, and the popup keeps the key (KAN-514, KAN-426)', async ({
   context,
   extensionId,
 }) => {
@@ -86,7 +87,13 @@ test('Esc is Stay here, and the popup keeps it (KAN-426)', async ({
   const page = await openPopup(context, extensionId);
   await expect(welcome(page)).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(cardAt(page, 1)).toBeVisible();
+  await expect(welcome(page)).toHaveCount(0);
+  await expect(replayNote(page)).toBeVisible();
+  await expect(page.locator('[data-coach-step]')).toHaveCount(0);
+  expect(await storedRun(page)).toMatchObject({
+    view: 'popup',
+    ended: 'skipped',
+  });
   expect(await escapesPrevented(page)).toEqual([true]);
 });
 

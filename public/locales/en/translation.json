@@ -317,7 +317,7 @@
   "Saved. Press {{icon}} any time to save your windows again.": "Saved. Press {{icon}} any time to save your windows again.",
   "This is an example. Press {{icon}} any time to save your own windows.": "This is an example. Press {{icon}} any time to save your own windows.",
   "Save your open windows, close them, and bring them all back later.": "Save your open windows, close them, and bring them all back later.",
-  "Get started opens Tab Keeper in its own tab.": "Get started opens Tab Keeper in its own tab.",
+  "Get started opens Tab Keeper in its own tab. Show me here keeps the tour in this popup.": "Get started opens Tab Keeper in its own tab. Show me here keeps the tour in this popup.",
   "Play again": "Play again",
   "Search looks in tab titles and links.": "Search looks in tab titles and links.",
   "Save tab groups too?": "Save tab groups too?",
@@ -327,7 +327,7 @@
   "privacy policy": "privacy policy",
   "Saved sessions appear here.": "Saved sessions appear here.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.",
-  "Stay here": "Stay here",
+  "Show me here": "Show me here",
   "Sounds": "Sounds",
   "Play sounds as you use Tab Keeper.": "Play sounds as you use Tab Keeper."
 }

@@ -312,7 +312,7 @@
   "Saved. Press {{icon}} any time to save your windows again.": "已保存。随时按 {{icon}} 即可再次保存您的窗口。",
   "This is an example. Press {{icon}} any time to save your own windows.": "这是一个示例。随时按 {{icon}} 即可保存您自己的窗口。",
   "Save your open windows, close them, and bring them all back later.": "保存您打开的窗口，关闭它们，之后再全部恢复。",
-  "Get started opens Tab Keeper in its own tab.": "“开始使用”会在单独的标签页中打开 Tab Keeper。",
+  "Get started opens Tab Keeper in its own tab. Show me here keeps the tour in this popup.": "“开始使用”会在单独的标签页中打开 Tab Keeper。“在这里看看”会在此弹出窗口中带你了解。",
   "Play again": "再次播放",
   "Search looks in tab titles and links.": "搜索范围包括标签页标题和链接。",
   "Save tab groups too?": "也保存标签组吗？",
@@ -322,7 +322,7 @@
   "privacy policy": "隐私政策",
   "Saved sessions appear here.": "已保存的会话会显示在这里。",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "在这里搜索，快速找到打开的标签页。按 {{icon}} 可在旁边显示已保存的会话。",
-  "Stay here": "留在这里",
+  "Show me here": "在这里看看",
   "Sounds": "音效",
   "Play sounds as you use Tab Keeper.": "使用 Tab Keeper 时播放音效。"
 }

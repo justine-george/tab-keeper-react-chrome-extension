@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 
 import MainContainer from '../../components/MainContainer';
 import {
@@ -17,11 +17,13 @@ import {
   openRateAndReviewModal,
   openSetup,
   openTabGroupsPrompt,
+  runShownHere,
 } from '../../redux/slices/globalStateSlice';
 import {
   beginSetup,
   declineCloudConsent,
   initialState as settingsInitial,
+  recordFirstRun,
   settingsDataStateSlice,
 } from '../../redux/slices/settingsDataStateSlice';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
@@ -68,18 +70,18 @@ const CASES: Case[] = [
     },
   },
   {
-    name: 'welcome: Stay here',
+    name: 'welcome: closes, no tour (KAN-514)',
     dialog: 'Welcome to Tab Keeper',
     open: (s) => {
       s.dispatch(beginSetup());
+      s.dispatch(recordFirstRun(newRun('popup', 0)));
+      s.dispatch(runShownHere());
       s.dispatch(openCloudConsentModal({ variant: 'welcome' }));
     },
-    outcome: async ({ store }) => {
+    outcome: ({ store }) => {
       expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
-      await waitFor(() =>
-        expect(store.getState().settingsDataState.firstRun).toEqual(
-          newRun('popup', 1)
-        )
+      expect(store.getState().settingsDataState.firstRun?.ended).toBe(
+        'skipped'
       );
     },
   },

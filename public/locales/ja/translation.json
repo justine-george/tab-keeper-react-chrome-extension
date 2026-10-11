@@ -312,7 +312,7 @@
   "Saved. Press {{icon}} any time to save your windows again.": "保存しました。{{icon}} を押すと、いつでもウィンドウをもう一度保存できます。",
   "This is an example. Press {{icon}} any time to save your own windows.": "これはサンプルです。{{icon}} を押すと、いつでもご自身のウィンドウを保存できます。",
   "Save your open windows, close them, and bring them all back later.": "開いているウィンドウを保存して閉じ、あとでまとめて元に戻せます。",
-  "Get started opens Tab Keeper in its own tab.": "「はじめる」を押すと、Tab Keeper が専用のタブで開きます。",
+  "Get started opens Tab Keeper in its own tab. Show me here keeps the tour in this popup.": "「はじめる」を押すと、Tab Keeper が専用のタブで開きます。「ここで見る」を押すと、このポップアップで案内します。",
   "Play again": "もう一度再生",
   "Search looks in tab titles and links.": "タブのタイトルとリンクを検索します。",
   "Save tab groups too?": "タブグループも保存しますか？",
@@ -322,7 +322,7 @@
   "privacy policy": "プライバシーポリシー",
   "Saved sessions appear here.": "保存したセッションはここに表示されます。",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "ここで検索すると、開いているタブをすばやく見つけられます。{{icon}} を押すと、保存済みのセッションが横に表示されます。",
-  "Stay here": "このまま使う",
+  "Show me here": "ここで見る",
   "Sounds": "サウンド",
   "Play sounds as you use Tab Keeper.": "Tab Keeper の操作中にサウンドを再生します。"
 }

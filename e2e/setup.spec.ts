@@ -94,7 +94,7 @@ async function dialogsSeen(page: Page): Promise<string[]> {
 async function welcomeThen(
   context: BrowserContext,
   extensionId: string,
-  answer: 'Get started' | 'Stay here'
+  answer: 'Get started' | 'Show me here'
 ): Promise<Page> {
   const popup = await openPopup(context, extensionId);
   await popup
@@ -156,12 +156,12 @@ test.describe('on a new install', () => {
     });
   });
 
-  test('Stay here, then the first full-view open: the run, setup, then the guide', async ({
+  test('Show me here, then the first full-view open: the run, setup, then the guide', async ({
     context,
     extensionId,
   }) => {
     await stubToolbarPin(context, { pinned: false });
-    await welcomeThen(context, extensionId, 'Stay here');
+    await welcomeThen(context, extensionId, 'Show me here');
     const full = await openFullView(context, extensionId);
     await finishFullRun(full);
     await expect(stepHeading(full)).toHaveText('Pick a theme');
@@ -175,7 +175,7 @@ test.describe('on a new install', () => {
     extensionId,
   }) => {
     await stubToolbarPin(context, { pinned: true });
-    await welcomeThen(context, extensionId, 'Stay here');
+    await welcomeThen(context, extensionId, 'Show me here');
     const first = await openFullView(context, extensionId);
     await finishFullRun(first);
     await press(first, 'Next');

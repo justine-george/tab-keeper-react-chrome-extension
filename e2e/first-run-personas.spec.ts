@@ -217,7 +217,7 @@ test('new install, Get started, Next only (Use an example): the sample is gone a
   });
 });
 
-test('new install, Stay here: the popup run to ⤢, then the first full-view visit runs the run from step 1, setup and the pin guide', async ({
+test('new install, Show me here: the popup run to ⤢, then the first full-view visit runs the run from step 1, setup and the pin guide', async ({
   context,
   extensionId,
   serviceWorker,
@@ -228,7 +228,7 @@ test('new install, Stay here: the popup run to ⤢, then the first full-view vis
   const popup = await openPopup(context, extensionId);
   await tests.add(popup);
   await welcome(popup)
-    .getByRole('button', { name: 'Stay here', exact: true })
+    .getByRole('button', { name: 'Show me here', exact: true })
     .click();
   await expect(cardAt(popup, 1)).toBeVisible();
   await cardButton(popup, 'Use an example').click();

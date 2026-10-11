@@ -226,10 +226,17 @@ export const welcomeGetStarted =
     await requestTabView();
   };
 
-// Stay here: the popup run, from its save card.
-export const welcomeStayHere = (): Thunk<Promise<void>> => async (dispatch) => {
+// Show me here: the popup run, from its save card.
+export const welcomeShowMeHere =
+  (): Thunk<Promise<void>> => async (dispatch) => {
+    dispatch(closeCloudConsentModal());
+    await dispatch(startRun(newRun('popup', 1)));
+  };
+
+// KAN-514. Esc: no tour; the run ends as a skip, and its note says where the tour lives.
+export const welcomeNoTour = (): Thunk<void> => (dispatch) => {
   dispatch(closeCloudConsentModal());
-  await dispatch(startRun(newRun('popup', 1)));
+  dispatch(skipRun());
 };
 
 // Ends an unanswered welcome at once; else what the decision opens, null when nothing.

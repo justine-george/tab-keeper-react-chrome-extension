@@ -229,10 +229,10 @@ describe('after the cloud question (KAN-7 §3)', () => {
     expect(store.getState().settingsDataState.setupState).toBe('none');
   });
 
-  test('CONTROL: the same check sees the run the welcome’s Stay here starts', async () => {
+  test('CONTROL: the same check sees the run the welcome’s Show me here starts', async () => {
     const { store } = await renderWithProviders(<App />);
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Stay here' })
+      await screen.findByRole('button', { name: 'Show me here' })
     );
     await settled();
 
