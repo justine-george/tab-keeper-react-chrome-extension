@@ -325,6 +325,12 @@ const moveRun =
       if (selectRunHere(getState())?.step !== run.step) return;
     }
     dispatch(setFirstRunStep(target));
+    // KAN-505. A step about the run's session shows it: a second save on the
+    // "Saved." card put another on screen, and R3 would hide every card after.
+    const kind = runStepKind(run.view, target);
+    if (kind !== null && needsSession(kind) && run.sessionId !== null) {
+      dispatch(showSession(run.sessionId));
+    }
   };
 
 export const advanceRun = (): Thunk<Promise<void>> =>
