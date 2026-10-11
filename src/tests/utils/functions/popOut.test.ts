@@ -42,6 +42,12 @@ type Calls = {
     active: boolean;
   }[];
   announces: ShowInFullViewMessage[];
+  remembered: {
+    fullView: { tabId: number; windowId: number };
+    origin: number;
+  }[];
+  // Every call by name, in the order made.
+  order: string[];
 };
 
 // Hand-made TabApi fake: records every call it receives rather than
@@ -53,6 +59,9 @@ function makeTabApi(
     stubMatches?: chrome.tabs.Tab[];
     rejectQuery?: boolean;
     rejectAnnounce?: boolean;
+    // The active tab of each window, by window id; absent windows have none.
+    activeTabs?: Record<number, number>;
+    rejectRemember?: boolean;
   } = {}
 ): { api: TabApi; calls: Calls } {
   const calls: Calls = {
@@ -61,6 +70,8 @@ function makeTabApi(
     focusWindows: [],
     creates: [],
     announces: [],
+    remembered: [],
+    order: [],
   };
 
   const api: TabApi = {
@@ -73,6 +84,7 @@ function makeTabApi(
         : (options.matches ?? []);
     },
     update: async (tabId, props) => {
+      calls.order.push('update');
       calls.updates.push({ tabId, props });
       return undefined;
     },
@@ -81,13 +93,25 @@ function makeTabApi(
       return undefined;
     },
     create: async (props) => {
+      calls.order.push('create');
       calls.creates.push(props);
-      return undefined;
+      return { id: 99, windowId: props.windowId ?? 4 };
     },
     announce: async (message) => {
       calls.announces.push(message);
       if (options.rejectAnnounce) throw new Error('no page listening');
       return undefined;
+    },
+    activeTabId: async (windowId) => {
+      calls.order.push('activeTabId');
+      return windowId === undefined
+        ? undefined
+        : options.activeTabs?.[windowId];
+    },
+    rememberOrigin: async (fullView, origin) => {
+      calls.order.push('rememberOrigin');
+      calls.remembered.push({ fullView, origin });
+      if (options.rejectRemember) throw new Error('storage refused');
     },
   };
 
@@ -408,5 +432,85 @@ describe('a request to show a dialog in the full view (KAN-7)', () => {
     await expect(
       openOrFocusTabView(api, { ...request(5), show: 'setup' })
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('KAN-507: the tab the full view was opened from', () => {
+  test('an existing full view elsewhere: the asking window’s active tab is read first, then remembered for that full view', async () => {
+    const { api, calls } = makeTabApi({
+      matches: [fakeTab({ id: 7, windowId: 3 })],
+      activeTabs: { 5: 50 },
+    });
+
+    await openOrFocusTabView(api, request(5));
+
+    expect(calls.order[0]).toBe('activeTabId');
+    expect(calls.order.indexOf('activeTabId')).toBeLessThan(
+      calls.order.indexOf('update')
+    );
+    expect(calls.remembered).toEqual([
+      { fullView: { tabId: 7, windowId: 3 }, origin: 50 },
+    ]);
+  });
+
+  test('a new full view: remembered under the tab Chrome created', async () => {
+    const { api, calls } = makeTabApi({ matches: [], activeTabs: { 5: 50 } });
+
+    await openOrFocusTabView(api, request(5));
+
+    expect(calls.order.indexOf('activeTabId')).toBeLessThan(
+      calls.order.indexOf('create')
+    );
+    expect(calls.remembered).toEqual([
+      { fullView: { tabId: 99, windowId: 5 }, origin: 50 },
+    ]);
+  });
+
+  test('a stub sent to the full view with a dialog: remembered for the stub’s tab', async () => {
+    const { api, calls } = makeTabApi({
+      stubMatches: [
+        fakeTab({
+          id: 8,
+          windowId: 5,
+          url: 'chrome-extension://x/pinned.html',
+        }),
+      ],
+      activeTabs: { 5: 50 },
+    });
+
+    await openOrFocusTabView(api, { ...request(5), show: 'setup' });
+
+    expect(calls.remembered).toEqual([
+      { fullView: { tabId: 8, windowId: 5 }, origin: 50 },
+    ]);
+  });
+
+  test('nothing is remembered when the full view is already the active tab, or the window has none', async () => {
+    const already = makeTabApi({
+      matches: [fakeTab({ id: 7, windowId: 5 })],
+      activeTabs: { 5: 7 },
+    });
+    await openOrFocusTabView(already.api, request(5));
+    expect(already.calls.remembered).toEqual([]);
+
+    const none = makeTabApi({ matches: [fakeTab({ id: 7, windowId: 3 })] });
+    await openOrFocusTabView(none.api, request(5));
+    expect(none.calls.remembered).toEqual([]);
+    expect(none.calls.updates).toEqual([{ tabId: 7, props: { active: true } }]);
+  });
+
+  test('a refused remember is logged; the full view is still shown', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { api, calls } = makeTabApi({
+      matches: [fakeTab({ id: 7, windowId: 3 })],
+      activeTabs: { 5: 50 },
+      rejectRemember: true,
+    });
+
+    await expect(openOrFocusTabView(api, request(5))).resolves.toBeUndefined();
+
+    expect(calls.updates).toEqual([{ tabId: 7, props: { active: true } }]);
+    expect(calls.focusWindows).toEqual([3]);
+    expect(warn).toHaveBeenCalled();
   });
 });

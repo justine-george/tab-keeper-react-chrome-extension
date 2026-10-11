@@ -2,6 +2,8 @@
 // Measured headed (KAN-437, 2026-10-06): a popup opened before its tab closes dies with that tab.
 // Worker-safe, like popOut.ts: no window, no redux, chrome types only.
 import { popupFor } from './defaultView';
+import { chromeFullViewOrigins, type FullViewTabRef } from './fullViewOrigin';
+import { readRecentTabs } from './recentTabs';
 import { TAB_VIEW_PATH } from './pinnedTabKeeper';
 
 export const OPEN_IN_POPUP_MESSAGE = 'openInPopup';
@@ -63,6 +65,12 @@ export interface PopupApi {
     windowId?: number;
     index?: number;
   }): Promise<unknown>;
+  // KAN-507. The tab ⤢ was pressed on, if a record names this full view.
+  originOf(fullView: FullViewTabRef): Promise<number | undefined>;
+  // A window's recently used tabs, newest first.
+  recentTabsIn(windowId: number): Promise<readonly number[]>;
+  // Makes the tab active and focuses its window; resolves to that window.
+  activate(tabId: number): Promise<number>;
 }
 
 // The real PopupApi; it reads chrome.* at each call, so a test can replace one member.
@@ -89,7 +97,48 @@ export const chromePopupApi: PopupApi = {
       ? chrome.action.openPopup()
       : chrome.action.openPopup({ windowId }),
   createTab: (props) => chrome.tabs.create(props),
+  originOf: (fullView) => chromeFullViewOrigins.originOf(fullView),
+  recentTabsIn: async (windowId) =>
+    (await readRecentTabs([windowId]))(windowId),
+  activate: async (tabId) => {
+    const tab = await chrome.tabs.update(tabId, { active: true });
+    if (!tab) throw new Error(`No tab with id: ${tabId}.`);
+    await chrome.windows.update(tab.windowId, { focused: true });
+    return tab.windowId;
+  },
 };
+
+// KAN-507. The tab ⤢ was pressed on, else the last one used beside the full view; undefined when neither is open.
+async function tabToGoBackTo(
+  api: PopupApi,
+  fullView: FullViewTabRef,
+  openTabIds: readonly number[]
+): Promise<number | undefined> {
+  try {
+    const origin = await api.originOf(fullView);
+    if (origin !== undefined && openTabIds.includes(origin)) return origin;
+    return (await api.recentTabsIn(fullView.windowId)).find((id) =>
+      openTabIds.includes(id)
+    );
+  } catch (error) {
+    console.warn('Could not read where to go back to:', error);
+    return undefined;
+  }
+}
+
+// Resolves to the window the user is back in, or undefined when the switch failed.
+async function goBack(
+  api: PopupApi,
+  tabId: number | undefined
+): Promise<number | undefined> {
+  if (tabId === undefined) return undefined;
+  try {
+    return await api.activate(tabId);
+  } catch (error) {
+    console.warn('Could not go back to the tab:', error);
+    return undefined;
+  }
+}
 
 // Under Default view Full there is no popup to open, so set one for this open and put '' back after.
 async function openPopupOnce(
@@ -123,16 +172,33 @@ export async function openInPopup(
     const otherTabs = (await api.normalTabIds()).filter(
       (id) => id !== fromTabId
     );
-    // A pinned full view, or the last tab Chrome has, stays; the popup opens over it.
-    if (tab.pinned || otherTabs.length === 0) {
+    // The last tab Chrome has stays; the popup opens over it.
+    if (otherTabs.length === 0) {
       await openPopupOnce(api, tab.windowId);
+      return;
+    }
+    // Switched to first: the popup must open after the full view closes, on the tab it lands on.
+    const backInWindow = await goBack(
+      api,
+      await tabToGoBackTo(
+        api,
+        { tabId: fromTabId, windowId: tab.windowId },
+        otherTabs
+      )
+    );
+    // A pinned full view stays.
+    if (tab.pinned) {
+      await openPopupOnce(api, backInWindow ?? tab.windowId);
       return;
     }
     await api.removeTab(fromTabId);
     // A tab alone in its window took the window with it; naming that window rejects.
     const windowLeft = await api.windowExists(tab.windowId);
     try {
-      await openPopupOnce(api, windowLeft ? tab.windowId : undefined);
+      await openPopupOnce(
+        api,
+        backInWindow ?? (windowLeft ? tab.windowId : undefined)
+      );
     } catch (error) {
       console.warn('No popup opened; reopening the full view:', error);
       const url = api.getURL(TAB_VIEW_PATH);

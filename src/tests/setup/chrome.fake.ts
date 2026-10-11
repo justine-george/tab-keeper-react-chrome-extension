@@ -1808,8 +1808,30 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         cb?: (result: chrome.tabs.Tab[]) => void
       ) => {
         handle.tabsQueryCalls.push(queryInfo);
+        // KAN-507. `url` is a match pattern: `*` is any run, all else literal, checked against url or pendingUrl.
+        const patterns =
+          queryInfo.url === undefined
+            ? undefined
+            : (Array.isArray(queryInfo.url)
+                ? queryInfo.url
+                : [queryInfo.url]
+              ).map(
+                (pattern) =>
+                  new RegExp(
+                    `^${pattern
+                      .split('*')
+                      .map((part) =>
+                        part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+                      )
+                      .join('.*')}$`
+                  )
+              );
         const matched = tabs.filter(
           (tab) =>
+            (patterns === undefined ||
+              patterns.some((re) =>
+                re.test(tab.url || tab.pendingUrl || '')
+              )) &&
             (queryInfo.active === undefined ||
               tab.active === queryInfo.active) &&
             (queryInfo.windowId === undefined ||

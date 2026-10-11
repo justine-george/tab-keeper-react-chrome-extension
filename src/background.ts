@@ -6,10 +6,11 @@ import {
   type ActionApi,
   type DefaultViewStore,
 } from './utils/functions/defaultView';
+import { recordFullViewOrigins } from './utils/functions/fullViewOrigin';
 import {
+  chromeTabApi,
   isOpenInTabRequest,
   openOrFocusTabView,
-  TabApi,
 } from './utils/functions/popOut';
 import {
   chromePopupApi,
@@ -46,20 +47,11 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
 // KAN-458 A4. A save made from a Tab Keeper page reads which tab the user was on before it.
 recordRecentTabs();
 
+// KAN-507. Open compact view goes back to the tab ⤢ was pressed on.
+recordFullViewOrigins();
+
 // KAN-470 A. An update closes every Tab Keeper tab: the windows that pinned one get a stub back.
 keepPinnedTabKeeperWindows();
-
-// The real TabApi (see popOut.ts), pointed at chrome.tabs/chrome.windows.
-// windows.update's `{ focused: true }` is what chrome.tabs.update itself has
-// no equivalent for -- activating a tab does not raise its window.
-const chromeTabApi: TabApi = {
-  getURL: (path) => chrome.runtime.getURL(path),
-  query: (q) => chrome.tabs.query(q),
-  update: (tabId, props) => chrome.tabs.update(tabId, props),
-  focusWindow: (windowId) => chrome.windows.update(windowId, { focused: true }),
-  create: (props) => chrome.tabs.create(props),
-  announce: (message) => chrome.runtime.sendMessage(message),
-};
 
 // KAN-7 §7. Default view, applied again at every start: Task 1 measured whether Chrome keeps setPopup itself.
 const chromeActionApi: ActionApi = {
