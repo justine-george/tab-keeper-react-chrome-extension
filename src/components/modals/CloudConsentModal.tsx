@@ -20,7 +20,7 @@ import {
   setAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
 import { welcomeGetStarted, welcomeStayHere } from '../../redux/firstRun';
-import { clickShutter } from '../../redux/uiSound';
+import { clickShutter, prepareShutter } from '../../redux/uiSound';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
@@ -144,7 +144,8 @@ export const CloudConsentModal: React.FC = () => {
       button,
       shutter: dialog.querySelector('[data-hero-part="shutter"]'),
       dialog,
-      onShutter: () => dispatch(clickShutter()),
+      onShutterStart: () => dispatch(prepareShutter()),
+      onShutterShut: () => dispatch(clickShutter()),
     });
     // R12: cut short or not, Get started was chosen and completes.
     void motion.current.finished.then(() => {

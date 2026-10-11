@@ -29,6 +29,15 @@ function openAudio(): { context: AudioContext; noise: AudioBuffer } {
   return audio;
 }
 
+// KAN-513. Opening the audio blocks the page for about 130ms (measured in Chrome), so it is opened ahead of the click.
+export function prepareShutterClick(): void {
+  try {
+    openAudio();
+  } catch {
+    // The click will try again, and play nothing if it fails too.
+  }
+}
+
 // A sound is never worth an error: anything Web Audio refuses plays nothing.
 export function playShutterClick(): void {
   try {

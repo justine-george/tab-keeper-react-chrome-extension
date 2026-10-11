@@ -457,6 +457,62 @@ test('the welcome opens with no sound; Get started plays the shutter click once'
   expectOneClick(await soundStarts(page));
 });
 
+// KAN-513. The click as the shutter shuts, then a 400ms hold before the welcome leaves, in real time.
+test('Get started: the click comes as the shutter shuts, and the welcome leaves about 400ms later', async ({
+  context,
+  extensionId,
+}) => {
+  await context.addInitScript(() => {
+    if (window.top !== window) return;
+    const log: { what: string; at: number; duration?: number }[] = [];
+    Object.defineProperty(window, '__beat', { value: log });
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (keyframes, options) {
+      const duration =
+        typeof options === 'number' ? options : Number(options?.duration);
+      const part = this.getAttribute('data-hero-part');
+      const what =
+        part === 'shutter'
+          ? 'shutter'
+          : this.tagName === 'DIALOG'
+            ? 'dialog'
+            : 'other';
+      log.push({ what, at: performance.now(), duration });
+      return animate.call(this, keyframes, options);
+    };
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (when, offset, duration) {
+      log.push({ what: 'click', at: performance.now() });
+      start.call(this, when, offset, duration);
+    };
+  });
+  const page = await openPopup(context, extensionId);
+  await expect(welcome(page)).toBeVisible();
+  await welcome(page)
+    .getByRole('button', { name: 'Get started', exact: true })
+    .click();
+  await waitForFullView(context);
+  const log = (await page.evaluate((): unknown =>
+    Reflect.get(window, '__beat')
+  )) as {
+    what: string;
+    at: number;
+    duration?: number;
+  }[];
+  const shutter = log.find((e) => e.what === 'shutter' && e.duration === 250);
+  const click = log.find((e) => e.what === 'click');
+  const hold = log.find((e) => e.what === 'dialog' && e.duration === 400);
+  const leave = log.find((e) => e.what === 'dialog' && e.duration === 150);
+  // PREMISE: every step of the beat was seen.
+  expect([shutter, click, hold, leave].every(Boolean)).toBe(true);
+  // The click once the shutter's 250ms slide is over, not as it starts.
+  expect(click!.at - shutter!.at).toBeGreaterThanOrEqual(230);
+  // The hold starts with the click, and the welcome leaves about 400ms after it.
+  expect(hold!.at - click!.at).toBeLessThan(50);
+  expect(leave!.at - click!.at).toBeGreaterThanOrEqual(380);
+  expect(leave!.at - click!.at).toBeLessThan(520);
+});
+
 test('reduced motion: no beat is drawn, and Get started still plays the click once', async ({
   context,
   extensionId,
