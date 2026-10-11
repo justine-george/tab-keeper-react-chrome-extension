@@ -12,8 +12,7 @@ import { setPinTabKeeperInNewWindows } from '../../redux/slices/settingsDataStat
 
 // KAN-459. Settings → Sessions → Pin Tab Keeper in new windows, after Default view.
 const LABEL = 'Pin Tab Keeper in new windows';
-const CAPTION =
-  'Windows Tab Keeper opens or switches to start with Tab Keeper pinned.';
+const CAPTION = 'Tab Keeper is pinned in every window it opens or switches to.';
 
 const renderSessions = (on = false) =>
   renderWithProviders(<SettingsDetailsContainer />, {

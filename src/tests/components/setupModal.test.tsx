@@ -426,7 +426,8 @@ describe('Make Tab Keeper yours', () => {
   });
 
   describe('the shortcut step beside the tab (KAN-423)', () => {
-    const HINT = 'Opens next to this tab. Close it to come back.';
+    const HINT =
+      'Opens Chrome’s shortcuts page next to this tab. Close that page to come back.';
     const inTab: ChromeSeed = {
       ...BOUND,
       windows: [{ id: 1, tabs: [{ id: 10 }, { id: 11 }] }],
@@ -645,7 +646,7 @@ describe('step 6, Sync across your devices? (Q9)', () => {
       'true'
     );
     expect(dialog()).toHaveTextContent(
-      'Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the privacy policy.'
+      'Off: your sessions stay on this device. On: you see what is stored and the privacy policy, then confirm.'
     );
     const link = within(dialog()).getByRole('link', { name: 'privacy policy' });
     fireEvent.click(link);
