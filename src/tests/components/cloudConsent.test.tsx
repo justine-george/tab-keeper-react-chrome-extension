@@ -245,7 +245,7 @@ describe('the welcome (KAN-410)', () => {
     return { ...rendered, dialog };
   };
 
-  test('the mark and title, the still hero, one line, the hint, Stay here and Get started; no sync wording', async () => {
+  test('the mark and title, the still hero, one line, the hint, Show me here and Get started; no sync wording', async () => {
     const { dialog } = await freshWelcome();
     const title = within(dialog).getByRole('heading', { level: 2 });
     expect(title).toHaveTextContent(/^Welcome to Tab Keeper$/);
@@ -264,13 +264,13 @@ describe('the welcome (KAN-410)', () => {
       'Save your open windows, close them, and bring them all back later.'
     );
     expect(dialog).toHaveTextContent(
-      'Get started opens Tab Keeper in its own tab.'
+      'Get started opens Tab Keeper in its own tab. Show me here keeps the tour in this popup.'
     );
     expect(
       within(dialog)
         .getAllByRole('button')
         .map((b) => b.textContent)
-    ).toEqual(['Stay here', 'Get started']);
+    ).toEqual(['Show me here', 'Get started']);
     expect(within(dialog).queryByRole('link')).toBeNull();
     expect(dialog.textContent).not.toMatch(/sync|privacy|device|cloud/i);
     // Opens unlit (KAN-243).
@@ -305,10 +305,12 @@ describe('the welcome (KAN-410)', () => {
     expect(store.getState().globalState.isRunHere).toBe(true);
   });
 
-  test('Stay here closes it and the popup run starts at its save card', async () => {
+  test('Show me here closes it and the popup run starts at its save card', async () => {
     const user = userEvent.setup();
     const { store, dialog } = await freshWelcome();
-    await user.click(within(dialog).getByRole('button', { name: 'Stay here' }));
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Show me here' })
+    );
     expect(
       screen.queryByRole('dialog', { name: 'Welcome to Tab Keeper' })
     ).toBeNull();
@@ -319,18 +321,22 @@ describe('the welcome (KAN-410)', () => {
     );
   });
 
-  test('Esc is Stay here, and is consumed (KAN-403, KAN-426)', async () => {
+  test('Esc closes it with no tour: the run ends skipped, the note points to Help, and Esc is consumed (KAN-514, KAN-403)', async () => {
     const { store, dialog } = await freshWelcome();
     const notPrevented = fireEvent(
       dialog,
       new Event('cancel', { bubbles: false, cancelable: true })
     );
     expect(notPrevented).toBe(false);
-    await waitFor(() =>
-      expect(store.getState().settingsDataState.firstRun).toEqual(
-        newRun('popup', 1)
-      )
-    );
+    expect(
+      screen.queryByRole('dialog', { name: 'Welcome to Tab Keeper' })
+    ).toBeNull();
+    expect(store.getState().settingsDataState.firstRun).toEqual({
+      ...newRun('popup', 0),
+      ended: 'skipped',
+    });
+    expect(store.getState().globalState.isRunHere).toBe(false);
+    expect(store.getState().globalState.isReplayNoteOpen).toBe(true);
     expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
   });
 
@@ -370,7 +376,9 @@ describe('the welcome (KAN-410)', () => {
       s.dispatch(setSignedIn());
       s.dispatch(setUserId('uuid-1'));
     });
-    await user.click(within(dialog).getByRole('button', { name: 'Stay here' }));
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Show me here' })
+    );
     await waitFor(() =>
       expect(store.getState().settingsDataState.firstRun).toEqual(
         newRun('popup', 1)

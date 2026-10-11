@@ -322,7 +322,7 @@
   "Saved. Press {{icon}} any time to save your windows again.": "Enregistré. Appuyez sur {{icon}} à tout moment pour enregistrer de nouveau vos fenêtres.",
   "This is an example. Press {{icon}} any time to save your own windows.": "Ceci est un exemple. Appuyez sur {{icon}} à tout moment pour enregistrer vos propres fenêtres.",
   "Save your open windows, close them, and bring them all back later.": "Enregistrez vos fenêtres ouvertes, fermez-les et retrouvez-les toutes plus tard.",
-  "Get started opens Tab Keeper in its own tab.": "Commencer ouvre Tab Keeper dans son propre onglet.",
+  "Get started opens Tab Keeper in its own tab. Show me here keeps the tour in this popup.": "Commencer ouvre Tab Keeper dans son propre onglet. Montrez-moi ici fait la visite dans cette fenêtre.",
   "Play again": "Rejouer",
   "Search looks in tab titles and links.": "La recherche porte sur les titres d’onglet et les liens.",
   "Save tab groups too?": "Enregistrer aussi les groupes d’onglets ?",
@@ -332,7 +332,5 @@
   "privacy policy": "politique de confidentialité",
   "Saved sessions appear here.": "Les sessions enregistrées apparaissent ici.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Cherchez ici pour trouver vite un onglet ouvert. Appuyez sur {{icon}} pour afficher la session enregistrée à côté.",
-  "Stay here": "Rester ici",
-  "Sounds": "Sons",
-  "Play sounds as you use Tab Keeper.": "Émettre des sons lorsque vous utilisez Tab Keeper."
+  "Show me here": "Montrez-moi ici"
 }

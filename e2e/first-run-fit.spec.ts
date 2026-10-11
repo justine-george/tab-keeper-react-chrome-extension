@@ -401,7 +401,9 @@ for (const lang of LANGS) {
       await expectRootTook(page);
       await expect(welcome(page)).toBeVisible();
       await expect(welcome(page)).toContainText(
-        say('Get started opens Tab Keeper in its own tab.')
+        say(
+          'Get started opens Tab Keeper in its own tab. Show me here keeps the tour in this popup.'
+        )
       );
       await expectFits(welcome(page), `${lang} welcome`);
     });
@@ -485,7 +487,11 @@ for (const [lang, welcomeWidth] of [
       await expectFits(welcome(page), `${lang} narrow welcome`);
       // CONTROL: this width does make them wrap.
       expect(
-        await secondRowGap(welcome(page), say('Stay here'), say('Get started'))
+        await secondRowGap(
+          welcome(page),
+          say('Show me here'),
+          say('Get started')
+        )
       ).toBeGreaterThanOrEqual(0);
     });
 

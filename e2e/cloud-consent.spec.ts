@@ -73,14 +73,14 @@ test.describe('the cloud question (KAN-259)', () => {
       await page.keyboard.press('Enter');
       await expect(dialog).toBeVisible();
       await page.keyboard.press('Tab');
-      await expect(page.locator(':focus')).toHaveAccessibleName('Stay here');
+      await expect(page.locator(':focus')).toHaveAccessibleName('Show me here');
       expect((await lit()).litInside).toBe(1);
 
       await dialog
-        .getByRole('button', { name: 'Stay here', exact: true })
+        .getByRole('button', { name: 'Show me here', exact: true })
         .click();
       await expect(dialog).toHaveCount(0);
-      // §4. Stay here starts the popup run; Skip tutorial leaves the popup plain.
+      // §4. Show me here starts the popup run; Skip tutorial leaves the popup plain.
       await expect(cardAt(page, 1)).toBeVisible();
       await cardButton(page, 'Skip tutorial').click();
       await closeReplayNote(page);
@@ -109,7 +109,7 @@ test.describe('the cloud question (KAN-259)', () => {
       const first = await openPopup(context, extensionId);
       await first
         .getByRole('dialog', { name: 'Welcome to Tab Keeper' })
-        .getByRole('button', { name: 'Stay here', exact: true })
+        .getByRole('button', { name: 'Show me here', exact: true })
         .click();
       await expect(cardAt(first, 1)).toBeVisible();
       await cardButton(first, 'Skip tutorial').click();
@@ -129,7 +129,7 @@ test.describe('the cloud question (KAN-259)', () => {
       const page = await openPopup(context, extensionId);
       await page
         .getByRole('dialog', { name: 'Welcome to Tab Keeper' })
-        .getByRole('button', { name: 'Stay here', exact: true })
+        .getByRole('button', { name: 'Show me here', exact: true })
         .click();
       await expect(cardAt(page, 1)).toBeVisible();
       await cardButton(page, 'Skip tutorial').click();

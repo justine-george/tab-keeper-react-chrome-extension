@@ -18,10 +18,7 @@ import {
   type Animatable,
 } from '../../components/modals/getStartedMotion';
 import { openCloudConsentModal } from '../../redux/slices/globalStateSlice';
-import {
-  beginSetup,
-  setUiSoundOn,
-} from '../../redux/slices/settingsDataStateSlice';
+import { beginSetup } from '../../redux/slices/settingsDataStateSlice';
 import {
   installFakeAudio,
   startedTicks,
@@ -180,21 +177,6 @@ describe('the moment on the welcome', () => {
     expect(startedTicks()).toHaveLength(2);
   });
 
-  test('Sounds turned off after the welcome opened: Get started plays no click', async () => {
-    installAnimate();
-    installFakeAudio();
-    const { store } = await renderWithProviders(<MainContainer />, {
-      seedStore: welcome,
-    });
-    store.dispatch(setUiSoundOn(false));
-    const { moment } = pressGetStarted();
-    moment()[0].release();
-    await waitFor(() => expect(moment()).toHaveLength(2));
-    moment()[1].release();
-    await waitFor(() => expect(moment()).toHaveLength(3));
-    expect(startedTicks()).toEqual([]);
-  });
-
   test('a second press while it plays does nothing', async () => {
     installAnimate();
     await renderWithProviders(<MainContainer />, { seedStore: welcome });
@@ -219,6 +201,8 @@ describe('the moment on the welcome', () => {
       expect(store.getState().settingsDataState.firstRun).toEqual(FULL_RUN)
     );
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
+    // KAN-514: Esc's no-tour skip never ran under it.
+    expect(store.getState().globalState.isReplayNoteOpen).toBe(false);
     // The press it cancelled finishing late starts nothing after it.
     moment()[0].release();
     await microtasks();
@@ -247,7 +231,7 @@ describe('the moment on the welcome', () => {
     };
   }
 
-  test('Stay here while it plays neither closes the welcome nor starts the popup run; Get started completes', async () => {
+  test('Show me here while it plays neither closes the welcome nor starts the popup run; Get started completes', async () => {
     installAnimate();
     installFakeAudio();
     const { store } = await renderWithProviders(<MainContainer />, {
@@ -255,7 +239,7 @@ describe('the moment on the welcome', () => {
     });
     const watch = watchRunStarts(store);
     const { moment } = pressGetStarted();
-    fireEvent.click(screen.getByRole('button', { name: 'Stay here' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show me here' }));
     // Whatever of the beat is still to play, played out.
     for (let i = 0; i < 3; i += 1) {
       moment()[i]?.release();
@@ -269,13 +253,13 @@ describe('the moment on the welcome', () => {
     expect(startedTicks()).toEqual([]);
   });
 
-  test('CONTROL: Stay here with no beat playing starts the popup run, and the watch sees it', async () => {
+  test('CONTROL: Show me here with no beat playing starts the popup run, and the watch sees it', async () => {
     installAnimate();
     const { store } = await renderWithProviders(<MainContainer />, {
       seedStore: welcome,
     });
     const watch = watchRunStarts(store);
-    fireEvent.click(screen.getByRole('button', { name: 'Stay here' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show me here' }));
     await waitFor(() =>
       expect(store.getState().globalState.isRunHere).toBe(true)
     );

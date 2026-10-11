@@ -19,8 +19,15 @@ import {
   grantCloudConsent,
   setAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
-import { welcomeGetStarted, welcomeStayHere } from '../../redux/firstRun';
-import { clickShutter, prepareShutter } from '../../redux/uiSound';
+import {
+  welcomeGetStarted,
+  welcomeNoTour,
+  welcomeShowMeHere,
+} from '../../redux/firstRun';
+import {
+  playShutterClick,
+  prepareShutterClick,
+} from '../../utils/functions/uiSound';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
@@ -39,7 +46,7 @@ const BODY_ID = 'cloud-consent-body';
  * The cloud question (KAN-259), asked before anything is uploaded.
  *
  * 'welcome' is a fresh install and asks nothing (KAN-410): what Tab Keeper
- * does, Get started into the full view, or Stay here into the popup run. Its
+ * does, Get started into the full view, or Show me here into the popup run. Its
  * opening already recorded the device as local-only; sync comes later,
  * through 'enable'. 'existing' is a user whose sessions are already synced:
  * the current state first, then what is stored, then the question, then what
@@ -136,7 +143,7 @@ export const CloudConsentModal: React.FC = () => {
       !canAnimate(dialog)
     ) {
       // No beat is drawn, so the click sounds at the press.
-      dispatch(clickShutter());
+      playShutterClick();
       void dispatch(welcomeGetStarted());
       return;
     }
@@ -144,8 +151,8 @@ export const CloudConsentModal: React.FC = () => {
       button,
       shutter: dialog.querySelector('[data-hero-part="shutter"]'),
       dialog,
-      onShutterStart: () => dispatch(prepareShutter()),
-      onShutterShut: () => dispatch(clickShutter()),
+      onShutterStart: prepareShutterClick,
+      onShutterShut: playShutterClick,
     });
     // R12: cut short or not, Get started was chosen and completes.
     void motion.current.finished.then(() => {
@@ -153,18 +160,22 @@ export const CloudConsentModal: React.FC = () => {
       void dispatch(welcomeGetStarted());
     });
   };
-  // Esc is Stay here (§5); during Get started's beat either cuts the beat short, and Get started completes (R12).
-  const stayHere = () => {
+  // During Get started's beat, Show me here or Esc cuts the beat short, and Get started completes (R12).
+  const unlessGettingStarted = (then: () => void) => () => {
     if (motion.current !== null) {
       motion.current.cancel();
       return;
     }
-    void dispatch(welcomeStayHere());
+    then();
   };
+  const showMeHere = unlessGettingStarted(
+    () => void dispatch(welcomeShowMeHere())
+  );
+  const noTour = unlessGettingStarted(() => dispatch(welcomeNoTour()));
   // Escape never uploads: existing declines (KAN-410), enable changes nothing,
-  // and the welcome's Escape is Stay here.
+  // and the welcome's Escape starts no tour (KAN-514).
   const handleCancel =
-    variant === 'welcome' ? stayHere : variant === 'existing' ? decline : close;
+    variant === 'welcome' ? noTour : variant === 'existing' ? decline : close;
 
   const buttons = dialogButtonStyles(COLORS);
 
@@ -293,11 +304,13 @@ export const CloudConsentModal: React.FC = () => {
             )}
           </p>
           <p css={hintStyle}>
-            {t('Get started opens Tab Keeper in its own tab.')}
+            {t(
+              'Get started opens Tab Keeper in its own tab. Show me here keeps the tour in this popup.'
+            )}
           </p>
           <div css={welcomeActionsStyle}>
-            <button type="button" css={buttons.link} onClick={stayHere}>
-              {t('Stay here')}
+            <button type="button" css={buttons.link} onClick={showMeHere}>
+              {t('Show me here')}
             </button>
             <button
               ref={getStartedRef}
