@@ -21,7 +21,6 @@ vi.mock('../../utils/functions/external', () => ({
   saveToFirestore: vi.fn(),
   deleteFromFirestore: mocks.deleteFromFirestore,
   ensureCloudSessionReady: vi.fn(async () => undefined),
-  displayToast: vi.fn(),
 }));
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';

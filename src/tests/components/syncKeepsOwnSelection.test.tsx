@@ -29,7 +29,6 @@ vi.mock('../../utils/functions/external', () => ({
   ensureCloudSessionReady: vi.fn(async () => {
     mocks.ensureCloudSession();
   }),
-  displayToast: vi.fn(),
 }));
 
 import App from '../../App';

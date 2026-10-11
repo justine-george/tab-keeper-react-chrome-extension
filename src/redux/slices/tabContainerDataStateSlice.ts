@@ -697,7 +697,6 @@ function announceIfReordered(
   thunkAPI.dispatch(
     showToast({
       toastText: TOAST_MESSAGES.SESSION_ORDER_CHANGED,
-      duration: 3000,
       announcesSavedChange: true,
     })
   );
@@ -802,7 +801,6 @@ export const saveToTabContainer = createAsyncThunk(
     thunkAPI.dispatch(
       showToast({
         toastText: SAVED_TOAST[params.scope],
-        duration: 3000,
         announcesSavedChange: true,
       })
     );
@@ -823,7 +821,6 @@ export const addCurrWindowToTabGroup = createAsyncThunk(
     thunkAPI.dispatch(
       showToast({
         toastText: TOAST_MESSAGES.ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS,
-        duration: 3000,
         announcesSavedChange: true,
       })
     );
@@ -855,7 +852,6 @@ export const replaceSessionWithOpenWindows = createAsyncThunk<
   thunkAPI.dispatch(
     showToast({
       toastText: TOAST_MESSAGES.SESSION_REPLACED,
-      duration: 3000,
       announcesSavedChange: true,
     })
   );
@@ -871,7 +867,6 @@ export const addCurrTabToWindow = createAsyncThunk(
     thunkAPI.dispatch(
       showToast({
         toastText: TOAST_MESSAGES.ADD_CURR_TAB_TO_WINDOW_SUCCESS,
-        duration: 3000,
         announcesSavedChange: true,
       })
     );
@@ -887,7 +882,6 @@ export const deleteTabContainer = createAsyncThunk(
     thunkAPI.dispatch(
       showToast({
         toastText: TOAST_MESSAGES.DELETE_TAB_CONTAINER_SUCCESS,
-        duration: 3000,
         announcesSavedChange: true,
       })
     );
@@ -903,7 +897,6 @@ export const deleteWindow = createAsyncThunk(
     thunkAPI.dispatch(
       showToast({
         toastText: TOAST_MESSAGES.DELETE_WINDOW_SUCCESS,
-        duration: 3000,
         announcesSavedChange: true,
       })
     );
@@ -919,7 +912,6 @@ export const deleteTab = createAsyncThunk(
     thunkAPI.dispatch(
       showToast({
         toastText: TOAST_MESSAGES.DELETE_TAB_SUCCESS,
-        duration: 3000,
         announcesSavedChange: true,
       })
     );

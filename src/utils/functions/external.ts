@@ -8,27 +8,9 @@ import {
   CloudCandidate,
   ensureCloudSessionReady,
 } from '../../config/firebase';
-import { showToast } from '../../redux/slices/globalStateSlice';
 import { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
-import { AppDispatch } from '../../redux/store';
 import { stripEmbeddedFavicons } from './local';
 import { isMissingDocumentError } from './firestoreErrors';
-
-// display a toast message
-export const displayToast = (
-  dispatch: AppDispatch,
-  text: string,
-  duration?: number,
-  error?: any
-) => {
-  const displayText = error ? error.message || 'An error occurred.' : text;
-  dispatch(
-    showToast({
-      toastText: displayText,
-      duration: duration || 3000,
-    })
-  );
-};
 
 // load data from Firestore
 export async function loadFromFirestore(

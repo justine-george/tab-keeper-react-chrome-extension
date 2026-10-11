@@ -12,7 +12,6 @@ vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: vi.fn(),
   saveToFirestore: vi.fn(),
   ensureCloudSessionReady: vi.fn(async () => undefined),
-  displayToast: vi.fn(),
 }));
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';

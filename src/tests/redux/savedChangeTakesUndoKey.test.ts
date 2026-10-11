@@ -12,7 +12,6 @@ vi.hoisted(() => {
 vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: vi.fn(),
   saveToFirestore: vi.fn(),
-  displayToast: vi.fn(),
 }));
 
 import { makeTestStore } from '../setup/makeStore';
@@ -86,7 +85,6 @@ async function withOffer() {
   await store.dispatch(
     showToast({
       toastText: TOAST_MESSAGES.TAB_CLOSED,
-      duration: 8000,
       reopenOfferId: 7,
     })
   );
@@ -178,7 +176,6 @@ describe('a saved-session change takes ⌘Z from the offer (Q1 C′)', () => {
     await store.dispatch(
       showToast({
         toastText: TOAST_MESSAGES.TAB_CLOSED,
-        duration: 8000,
         reopenOfferId: 7,
       })
     );

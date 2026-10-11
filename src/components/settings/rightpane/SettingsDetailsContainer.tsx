@@ -254,7 +254,6 @@ const SettingsDetailsContainer: React.FC = () => {
                     ? t(error.i18nKey, error.i18nParams)
                     : error.message,
               },
-              duration: 3000,
             })
           );
         }

@@ -68,7 +68,6 @@ describe('error toasts are translated (KAN-86)', () => {
         showToast({
           toastText: IMPORT_ERROR_FRAME,
           toastParams: { detail: testI18n.t(IMPORT_INVALID_STRUCTURE) },
-          duration: 10_000,
         })
       );
     });
@@ -97,7 +96,6 @@ describe('error toasts are translated (KAN-86)', () => {
         showToast({
           toastText: SYNC_SIZE_REFUSAL,
           toastParams: { used: '1.4', limit: '1.0' },
-          duration: 10_000,
         })
       );
     });
@@ -125,7 +123,6 @@ describe('error toasts are translated (KAN-86)', () => {
         showToast({
           toastText: IMPORT_ERROR_FRAME,
           toastParams: { detail: raw },
-          duration: 10_000,
         })
       );
     });
@@ -152,7 +149,6 @@ describe('the move toasts are translated (KAN-350)', () => {
         showToast({
           toastText: TOAST_MESSAGES.MOVED_TO_SESSION,
           toastParams: { title: 'Reiseplanung' },
-          duration: 8_000,
         })
       );
     });

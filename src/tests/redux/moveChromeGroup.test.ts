@@ -9,7 +9,6 @@ vi.hoisted(() => {
 vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: vi.fn(),
   saveToFirestore: vi.fn(),
-  displayToast: vi.fn(),
 }));
 
 import { makeTestStore } from '../setup/makeStore';

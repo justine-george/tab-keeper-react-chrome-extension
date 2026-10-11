@@ -14,6 +14,7 @@ import { isDragHeld, whenDragReleases } from '../dragHold';
 import { addToast } from '../toastStack';
 import type { ToastItem } from '../toastStack';
 import { startToastTimer } from '../toastTimers';
+import { NEEDS_YOU_TOAST_MS, TOAST_MS } from '../toastDuration';
 import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
 import type { RunSaveCard } from '../../utils/functions/firstRun';
 import {
@@ -46,7 +47,10 @@ import {
 } from '../../utils/functions/withOwnSelection';
 import { sameContainerData } from '../../utils/functions/sameContainerData';
 import { isSampleSession } from '../../utils/functions/sampleSession';
-import { TOAST_MESSAGES } from '../../utils/constants/common';
+import {
+  IMPORT_ERROR_FRAME,
+  TOAST_MESSAGES,
+} from '../../utils/constants/common';
 import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
 import {
   cloudSyncAllowed,
@@ -336,7 +340,6 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
             showToast({
               toastText: SYNC_SIZE_REFUSAL,
               toastParams: params,
-              duration: 6000,
             })
           );
           // The rejection reason stays the key. Nothing renders it -- the
@@ -468,7 +471,6 @@ export const syncStateWithFirestore = createAsyncThunk<
       thunkAPI.dispatch(
         showToast({
           toastText: TOAST_MESSAGES.UNREADABLE_CLOUD_DOCUMENT,
-          duration: 6000,
         })
       );
       return;
@@ -552,9 +554,7 @@ export const syncStateWithFirestore = createAsyncThunk<
       }
 
       if (changedFromLocal) {
-        thunkAPI.dispatch(
-          showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED, duration: 3000 })
-        );
+        thunkAPI.dispatch(showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED }));
 
         // KAN-149. A value moment, but only when a SESSION arrived.
         //
@@ -666,9 +666,7 @@ export const applyHeldCloudMerge =
       : merged;
     const loaded = dispatch(loadSessionsIntoPage(combined));
     dispatch(resetHistory({ tabContainerDataState: loaded }));
-    dispatch(
-      showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED, duration: 3000 })
-    );
+    dispatch(showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED }));
 
     // KAN-149, mirrored from syncStateWithFirestore's both-sides branch: a
     // value moment only when a SESSION arrived, judged against what
@@ -803,7 +801,6 @@ async function finishBackupLoad(
       toastText: syncFailed
         ? TOAST_MESSAGES.IMPORT_SYNC_FAILED
         : TOAST_MESSAGES.IMPORT_SUCCESS,
-      duration: 3000,
     })
   );
 }
@@ -875,10 +872,20 @@ export const openSettingsPage = createAsyncThunk(
   }
 );
 
+// KAN-508. The toasts that report a failure; each stays for NEEDS_YOU_TOAST_MS.
+export const ERROR_TOASTS: ReadonlySet<string> = new Set([
+  TOAST_MESSAGES.UNREADABLE_ACCOUNT_TOKEN,
+  TOAST_MESSAGES.UNREADABLE_CLOUD_DOCUMENT,
+  TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED,
+  TOAST_MESSAGES.IMPORT_SYNC_FAILED,
+  TOAST_MESSAGES.REOPEN_FAILED,
+  IMPORT_ERROR_FRAME,
+  SYNC_SIZE_REFUSAL,
+]);
+
 interface ShowToastPayload {
   toastText: string;
   toastParams?: Record<string, string | number>;
-  duration?: number;
   // KAN-280 O8a. Set only by offerReopen.
   reopenOfferId?: number;
   // KAN-349 Q1 C′. The toast announces a saved-session change the user just
@@ -899,7 +906,6 @@ export const showToast = createAsyncThunk(
     {
       toastText,
       toastParams,
-      duration = 5000,
       reopenOfferId,
       announcesSavedChange = false,
       show,
@@ -924,7 +930,14 @@ export const showToast = createAsyncThunk(
         announcesSavedChange,
       })
     );
-    startToastTimer(id, duration, () => thunkAPI.dispatch(toastsRemoved([id])));
+    // A button (Reopen, Show) or an error needs the user; anything else is a plain notice.
+    const needsYou =
+      ERROR_TOASTS.has(toastText) ||
+      reopenOfferId !== undefined ||
+      show !== undefined;
+    startToastTimer(id, needsYou ? NEEDS_YOU_TOAST_MS : TOAST_MS, () =>
+      thunkAPI.dispatch(toastsRemoved([id]))
+    );
   }
 );
 

@@ -26,7 +26,6 @@ vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: mocks.loadFromFirestore,
   saveToFirestore: mocks.saveToFirestore,
   ensureCloudSessionReady: vi.fn(async () => undefined),
-  displayToast: vi.fn(),
 }));
 
 import {

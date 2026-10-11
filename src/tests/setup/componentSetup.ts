@@ -18,7 +18,6 @@ vi.mock('../../utils/functions/external', () => ({
   // 'error' status: a test of that path would pass for the wrong reason.
   // A file testing the wait itself mocks this module with its own.
   ensureCloudSessionReady: vi.fn(async () => undefined),
-  displayToast: vi.fn(),
 }));
 
 // KAN-89. jsdom implements <dialog> as an element but not its modal methods:

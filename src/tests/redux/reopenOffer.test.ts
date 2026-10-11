@@ -12,7 +12,6 @@ vi.hoisted(() => {
 vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: vi.fn(),
   saveToFirestore: vi.fn(),
-  displayToast: vi.fn(),
 }));
 
 import { makeTestStore } from '../setup/makeStore';
@@ -39,9 +38,9 @@ import {
 import {
   offerReopen,
   reopenFromOffer,
-  REOPEN_TOAST_MS,
   takeReopenOffer,
 } from '../../redux/reopenOffer';
+import { NEEDS_YOU_TOAST_MS } from '../../redux/toastDuration';
 import {
   clearReopenFocus,
   expectReopenedRow,
@@ -228,7 +227,7 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
     const { store } = makeTestStore();
     vi.useFakeTimers();
 
-    expect(REOPEN_TOAST_MS).toBe(8000);
+    expect(NEEDS_YOU_TOAST_MS).toBe(8000);
     await store.dispatch(offerReopen(item));
     vi.advanceTimersByTime(7999);
     expect(openState(store)).toBe(true);
@@ -252,7 +251,7 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
     await store.dispatch(offerReopen(item));
     const id = shownOfferId(store.getState());
     if (id === null) throw new Error('no offer id');
-    vi.advanceTimersByTime(REOPEN_TOAST_MS);
+    vi.advanceTimersByTime(NEEDS_YOU_TOAST_MS);
 
     expect(openState(store)).toBe(false);
     expect(takeReopenOffer(id)).toBeNull();
