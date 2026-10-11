@@ -160,8 +160,6 @@ export interface SettingsData {
   firstRun: FirstRun | null;
   // Set when an upgrader's What's new Hello first shows; no later open starts one.
   isWhatsNew2Seen: boolean;
-  // Settings → Sounds; on unless turned off, including for settings saved before it existed.
-  isUiSoundOn: boolean;
   // KAN-459. Windows Tab Keeper opens or switches start with a pinned Tab Keeper tab.
   pinTabKeeperInNewWindows: boolean;
 }
@@ -246,6 +244,7 @@ export type SessionDateBasis = 'edited' | 'created';
 const RETIRED_KEYS: readonly string[] = [
   'sampleTour',
   'isFullViewOfferAnswered',
+  'isUiSoundOn',
 ];
 
 const withoutRetiredKeys = (stored: unknown): unknown =>
@@ -323,7 +322,6 @@ const defaultSettings: SettingsData = {
   // gets: initialState lays the stored object over these defaults.
   foldSavedSessionInTabView: true,
   openNowWidth: null,
-  isUiSoundOn: true,
   pinTabKeeperInNewWindows: false,
   ...ONBOARDING_DEFAULTS,
 };
@@ -490,11 +488,6 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
-    setUiSoundOn: (state, action: PayloadAction<boolean>) => {
-      state.isUiSoundOn = action.payload;
-      saveToLocalStorage('settingsData', state);
-    },
-
     setPinTabKeeperInNewWindows: (state, action: PayloadAction<boolean>) => {
       state.pinTabKeeperInNewWindows = action.payload;
       saveToLocalStorage('settingsData', state);
@@ -638,7 +631,6 @@ export const {
   setExportLayout,
   setFoldSavedSessionInTabView,
   setOpenNowWidth,
-  setUiSoundOn,
   setPinTabKeeperInNewWindows,
   beginSetup,
   finishSetup,

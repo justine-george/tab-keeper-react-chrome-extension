@@ -24,7 +24,10 @@ import {
   welcomeNoTour,
   welcomeShowMeHere,
 } from '../../redux/firstRun';
-import { clickShutter, prepareShutter } from '../../redux/uiSound';
+import {
+  playShutterClick,
+  prepareShutterClick,
+} from '../../utils/functions/uiSound';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
@@ -140,7 +143,7 @@ export const CloudConsentModal: React.FC = () => {
       !canAnimate(dialog)
     ) {
       // No beat is drawn, so the click sounds at the press.
-      dispatch(clickShutter());
+      playShutterClick();
       void dispatch(welcomeGetStarted());
       return;
     }
@@ -148,8 +151,8 @@ export const CloudConsentModal: React.FC = () => {
       button,
       shutter: dialog.querySelector('[data-hero-part="shutter"]'),
       dialog,
-      onShutterStart: () => dispatch(prepareShutter()),
-      onShutterShut: () => dispatch(clickShutter()),
+      onShutterStart: prepareShutterClick,
+      onShutterShut: playShutterClick,
     });
     // R12: cut short or not, Get started was chosen and completes.
     void motion.current.finished.then(() => {

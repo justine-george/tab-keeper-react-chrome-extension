@@ -25,7 +25,6 @@ import {
 import {
   setTheme,
   setPinTabKeeperInNewWindows,
-  setUiSoundOn,
   setUserRatedAndReviewed,
   toggleAutoSync,
 } from '../../../redux/slices/settingsDataStateSlice';
@@ -88,7 +87,6 @@ const SettingsDetailsContainer: React.FC = () => {
   `;
   // The tab-history help line's id, which its pair points at (KAN-280).
   const tabHistoryHelpId = useId();
-  const soundsHelpId = useId();
   const pinTabKeeperHelpId = useId();
   const popupShortcut = usePopupShortcut();
   const { i18n } = useTranslation();
@@ -330,51 +328,6 @@ const SettingsDetailsContainer: React.FC = () => {
               />
             ))}
           </div>
-        </div>
-
-        {/* Sounds: the same pair and help line as the Sessions rows. */}
-        <div
-          data-settings-section
-          css={css`
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
-            width: 100%;
-            margin-top: 32px;
-          `}
-        >
-          <div
-            css={css`
-              display: flex;
-              align-items: flex-start;
-              width: 100%;
-            `}
-          >
-            <NormalLabel
-              value={t('Sounds')}
-              size={TYPE.BODY}
-              color={COLORS.LABEL_L1_COLOR}
-            />
-          </div>
-          <div
-            css={css`
-              margin-top: 8px;
-            `}
-          >
-            <SlidingPair
-              label={t('Sounds')}
-              options={[
-                { value: 'on', label: t('On') },
-                { value: 'off', label: t('Off') },
-              ]}
-              value={settingsData.isUiSoundOn ? 'on' : 'off'}
-              onChange={(next) => dispatch(setUiSoundOn(next === 'on'))}
-              metrics={SETTINGS_PAIR_METRICS}
-              describedBy={soundsHelpId}
-            />
-          </div>
-          <p id={soundsHelpId} css={helpLineStyle}>
-            {t('Play sounds as you use Tab Keeper.')}
-          </p>
         </div>
       </div>
     );

@@ -317,7 +317,7 @@
   "Saved. Press {{icon}} any time to save your windows again.": "Gespeichert. Drücken Sie {{icon}} jederzeit, um Ihre Fenster erneut zu speichern.",
   "This is an example. Press {{icon}} any time to save your own windows.": "Das ist ein Beispiel. Drücken Sie {{icon}} jederzeit, um Ihre eigenen Fenster zu speichern.",
   "Save your open windows, close them, and bring them all back later.": "Speichern Sie Ihre offenen Fenster, schließen Sie sie und holen Sie später alle zurück.",
-  "Get started opens Tab Keeper in its own tab. Show me here keeps the tour in this popup.": "„Loslegen“ öffnet Tab Keeper in einem eigenen Tab. „Hier zeigen“ führt dich direkt in diesem Pop-up durch die Einführung.",
+  "Get started opens Tab Keeper in its own tab. Show me here keeps the tour in this popup.": "„Loslegen“ öffnet Tab Keeper in einem eigenen Tab. „Hier zeigen“ führt Sie direkt in diesem Pop-up durch die Einführung.",
   "Play again": "Erneut abspielen",
   "Search looks in tab titles and links.": "Die Suche umfasst Tab-Titel und Links.",
   "Save tab groups too?": "Auch Tab-Gruppen speichern?",
@@ -327,7 +327,5 @@
   "privacy policy": "Datenschutzerklärung",
   "Saved sessions appear here.": "Gespeicherte Sitzungen erscheinen hier.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Suchen Sie hier, um einen offenen Tab schnell zu finden. Drücken Sie {{icon}}, um die gespeicherte Sitzung daneben anzuzeigen.",
-  "Show me here": "Hier zeigen",
-  "Sounds": "Töne",
-  "Play sounds as you use Tab Keeper.": "Töne abspielen, während Sie Tab Keeper verwenden."
+  "Show me here": "Hier zeigen"
 }

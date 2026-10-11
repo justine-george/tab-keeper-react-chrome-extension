@@ -537,21 +537,20 @@ test('reduced motion: no beat is drawn, and Get started still plays the click on
   expectOneClick(await soundStarts(page));
 });
 
-test('Sounds off: Get started plays no click', async ({
+test('a pre-release isUiSoundOn: false still clicks, and is dropped from storage (KAN-515)', async ({
   context,
   extensionId,
 }) => {
-  // Only Sounds is stored: the profile is otherwise a new install, so the welcome opens.
+  // Only it is stored: the profile is otherwise a new install, so the welcome opens.
   await seedRawSettingsIfAbsent(context, { isUiSoundOn: false });
   await watchSounds(context);
   const page = await openPopup(context, extensionId);
+  expect(await storedSettings(page)).not.toHaveProperty('isUiSoundOn');
   await welcome(page)
     .getByRole('button', { name: 'Get started', exact: true })
     .click();
-  const full = await waitForFullView(context);
-  await expect(cardAt(full, 1)).toBeVisible();
-  // CONTROL: the click test above, where the same observer hears it.
-  expect(await soundStarts(page)).toEqual([]);
+  await waitForFullView(context);
+  expectOneClick(await soundStarts(page));
 });
 
 // KAN-456: the full view's Hello, either variant, carries the welcome's drawing.

@@ -18,10 +18,7 @@ import {
   type Animatable,
 } from '../../components/modals/getStartedMotion';
 import { openCloudConsentModal } from '../../redux/slices/globalStateSlice';
-import {
-  beginSetup,
-  setUiSoundOn,
-} from '../../redux/slices/settingsDataStateSlice';
+import { beginSetup } from '../../redux/slices/settingsDataStateSlice';
 import {
   installFakeAudio,
   startedTicks,
@@ -178,21 +175,6 @@ describe('the moment on the welcome', () => {
     moment()[3].release();
     await microtasks();
     expect(startedTicks()).toHaveLength(2);
-  });
-
-  test('Sounds turned off after the welcome opened: Get started plays no click', async () => {
-    installAnimate();
-    installFakeAudio();
-    const { store } = await renderWithProviders(<MainContainer />, {
-      seedStore: welcome,
-    });
-    store.dispatch(setUiSoundOn(false));
-    const { moment } = pressGetStarted();
-    moment()[0].release();
-    await waitFor(() => expect(moment()).toHaveLength(2));
-    moment()[1].release();
-    await waitFor(() => expect(moment()).toHaveLength(3));
-    expect(startedTicks()).toEqual([]);
   });
 
   test('a second press while it plays does nothing', async () => {
