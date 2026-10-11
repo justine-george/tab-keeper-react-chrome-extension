@@ -318,7 +318,7 @@
   "Save tab groups too?": "也要儲存分頁群組嗎？",
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "已儲存的工作階段會保留每個分頁群組的名稱和顏色。Chrome 會請你允許。",
   "Sync across your devices?": "要在你的裝置間同步嗎？",
-  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "關：你的工作階段只會保留在這部裝置上。開：你會先看到儲存哪些內容以及{{policy}}，然後再確認。",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "關：你的工作階段只會保留在這部裝置上。開：在你的各部裝置間同步。請參閱{{policy}}。",
   "privacy policy": "隱私權政策",
   "Saved sessions appear here.": "已儲存的工作階段會顯示在這裡。",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "在這裡搜尋，快速找到開啟的分頁。按 {{icon}} 可在旁邊顯示已儲存的工作階段。",

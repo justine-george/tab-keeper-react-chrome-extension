@@ -323,7 +323,7 @@
   "Save tab groups too?": "Auch Tab-Gruppen speichern?",
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Gespeicherte Sitzungen behalten Name und Farbe jeder Tab-Gruppe. Chrome bittet Sie, das zu erlauben.",
   "Sync across your devices?": "Über Ihre Geräte hinweg synchronisieren?",
-  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Aus: Ihre Sitzungen bleiben auf diesem Gerät. Ein: Sie sehen, was gespeichert wird, sowie die {{policy}} und bestätigen dann.",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Aus: Sitzungen bleiben auf diesem Gerät. Ein: auf allen Geräten. Siehe {{policy}}.",
   "privacy policy": "Datenschutzerklärung",
   "Saved sessions appear here.": "Gespeicherte Sitzungen erscheinen hier.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Suchen Sie hier, um einen offenen Tab schnell zu finden. Drücken Sie {{icon}}, um die gespeicherte Sitzung daneben anzuzeigen.",

@@ -323,7 +323,7 @@
   "Save tab groups too?": "Spara flikgrupper också?",
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Sparade sessioner behåller varje flikgrupps namn och färg. Chrome ber dig att tillåta det.",
   "Sync across your devices?": "Synka mellan dina enheter?",
-  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Av: dina sessioner stannar på den här enheten. På: du ser vad som lagras och {{policy}} och bekräftar sedan.",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Av behåller dina sessioner på enheten. På synkar dem mellan enheter. Se {{policy}}.",
   "privacy policy": "integritetspolicyn",
   "Saved sessions appear here.": "Sparade sessioner visas här.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Sök här för att snabbt hitta en öppen flik. Tryck på {{icon}} för att visa den sparade sessionen bredvid.",

@@ -328,7 +328,7 @@
   "Save tab groups too?": "Enregistrer aussi les groupes d’onglets ?",
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Les sessions enregistrées gardent le nom et la couleur de chaque groupe d’onglets. Chrome vous demandera de l’autoriser.",
   "Sync across your devices?": "Synchroniser entre vos appareils ?",
-  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Éteint : vos sessions restent sur cet appareil. Allumé : vous voyez ce qui est stocké et la {{policy}}, puis vous confirmez.",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Éteint : sessions locales. Allumé : synchronisées. Voir la {{policy}}.",
   "privacy policy": "politique de confidentialité",
   "Saved sessions appear here.": "Les sessions enregistrées apparaissent ici.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Cherchez ici pour trouver vite un onglet ouvert. Appuyez sur {{icon}} pour afficher la session enregistrée à côté.",

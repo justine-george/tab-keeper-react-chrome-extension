@@ -323,7 +323,7 @@
   "Save tab groups too?": "Save tab groups too?",
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.",
   "Sync across your devices?": "Sync across your devices?",
-  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Off: your sessions stay on this device. On: you see what is stored and the {{policy}}, then confirm.",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Off keeps your sessions on this device. On syncs them across devices. See the {{policy}}.",
   "privacy policy": "privacy policy",
   "Saved sessions appear here.": "Saved sessions appear here.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.",

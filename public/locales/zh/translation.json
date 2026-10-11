@@ -318,7 +318,7 @@
   "Save tab groups too?": "也保存标签组吗？",
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "已保存的会话会保留每个标签组的名称和颜色。Chrome 会请求您授予权限。",
   "Sync across your devices?": "在您的设备间同步吗？",
-  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "关：您的会话只保留在此设备上。开：您会先看到存储的内容和{{policy}}，然后进行确认。",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "关：您的会话只保留在此设备上。开：在您的设备间同步会话。请参阅{{policy}}。",
   "privacy policy": "隐私政策",
   "Saved sessions appear here.": "已保存的会话会显示在这里。",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "在这里搜索，快速找到打开的标签页。按 {{icon}} 可在旁边显示已保存的会话。",

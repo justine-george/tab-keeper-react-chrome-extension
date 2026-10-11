@@ -333,7 +333,7 @@
   "Save tab groups too?": "Сохранять и группы вкладок?",
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Сохранённые сессии запоминают название и цвет каждой группы вкладок. Chrome попросит вас разрешить это.",
   "Sync across your devices?": "Синхронизировать между вашими устройствами?",
-  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Выкл: ваши сессии остаются на этом устройстве. Вкл: вы увидите, что хранится, и {{policy}}, а затем подтвердите.",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Выкл: только это устройство. Вкл: все устройства. См. {{policy}}.",
   "privacy policy": "политику конфиденциальности",
   "Saved sessions appear here.": "Здесь появятся сохранённые сессии.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Ищите здесь, чтобы быстро найти открытую вкладку. Нажмите {{icon}}, чтобы показать сохранённую сессию рядом.",

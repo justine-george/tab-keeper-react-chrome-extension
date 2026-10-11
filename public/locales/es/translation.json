@@ -328,7 +328,7 @@
   "Save tab groups too?": "¿Guardar también los grupos de pestañas?",
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "Las sesiones guardadas conservan el nombre y el color de cada grupo de pestañas. Chrome te pedirá permiso.",
   "Sync across your devices?": "¿Sincronizar entre tus dispositivos?",
-  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Apagado: tus sesiones se quedan en este dispositivo. Encendido: ves lo que se guarda y la {{policy}}, y luego confirmas.",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "Apagado: tus sesiones quedan aquí. Encendido: se sincronizan. Lee la {{policy}}.",
   "privacy policy": "política de privacidad",
   "Saved sessions appear here.": "Las sesiones guardadas aparecen aquí.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Busca aquí para encontrar rápido una pestaña abierta. Pulsa {{icon}} para mostrar la sesión guardada a su lado.",

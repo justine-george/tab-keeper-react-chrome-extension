@@ -318,7 +318,7 @@
   "Save tab groups too?": "タブグループも保存しますか？",
   "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it.": "保存したセッションに、各タブグループの名前と色も残ります。Chrome から許可を求められます。",
   "Sync across your devices?": "デバイス間で同期しますか？",
-  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "オフ：セッションはこのデバイスに残ります。オン：保存される内容と{{policy}}を確認してから確定します。",
+  "Off: your sessions stay on this device. On asks you to confirm first, with what is stored and the {{policy}}.": "オフはこのデバイスのみ、オンはデバイス間で同期。詳しくは{{policy}}へ。",
   "privacy policy": "プライバシーポリシー",
   "Saved sessions appear here.": "保存したセッションはここに表示されます。",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "ここで検索すると、開いているタブをすばやく見つけられます。{{icon}} を押すと、保存済みのセッションが横に表示されます。",

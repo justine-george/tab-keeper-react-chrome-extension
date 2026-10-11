@@ -646,7 +646,7 @@ describe('step 6, Sync across your devices? (Q9)', () => {
       'true'
     );
     expect(dialog()).toHaveTextContent(
-      'Off: your sessions stay on this device. On: you see what is stored and the privacy policy, then confirm.'
+      'Off keeps your sessions on this device. On syncs them across devices. See the privacy policy.'
     );
     const link = within(dialog()).getByRole('link', { name: 'privacy policy' });
     fireEvent.click(link);
