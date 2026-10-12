@@ -387,23 +387,10 @@ async function closeHistoryTab(
   await expect(page.getByRole('status')).toContainText('Tab closed');
 }
 
-// The ways this spec presses Reopen: the toast's button, or the key.
-type Press = 'button' | 'key';
-
-async function pressReopen(
-  page: Page,
-  worker: Worker,
-  press: Press
-): Promise<void> {
+// Reopen pressed on the toast. The key's own wiring is open-now-close 14.
+async function pressReopen(page: Page): Promise<void> {
   await expect(reopenButton(page)).toBeVisible();
-  if (press === 'button') {
-    await reopenButton(page).click();
-    return;
-  }
-  const os = await worker.evaluate(
-    async () => (await chrome.runtime.getPlatformInfo()).os
-  );
-  await page.keyboard.press(`${os === 'mac' ? 'Meta' : 'Control'}+z`);
+  await reopenButton(page).click();
 }
 
 // Exactly `count` tabs at `url`, held for a second, so a second copy that
@@ -566,27 +553,20 @@ test.describe('the switch, in the popup and the tab view (KAN-280 Part D)', () =
 });
 
 grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
-  // Case 4 (with the toast's button, then with the key) and its control,
-  // case 5. The window is [Front, History, Next], History and Next in the
-  // group Trip, Front in front; History is closed from Open now.
-  const runs: { name: string; history: boolean; press: Press }[] = [
+  // Case 4 and its control, case 5. The window is [Front, History, Next],
+  // History and Next in the group Trip, Front in front; History is closed
+  // from Open now.
+  const runs: { name: string; history: boolean }[] = [
     {
       name: '4. On: a tab closed from Open now and reopened with the toast’s Reopen comes back with its history, in its place, in its group, behind, and the undo gives the focus back',
       history: true,
-      press: 'button',
-    },
-    {
-      name: '4b. On: the same, reopened with ⌘Z / Ctrl+Z',
-      history: true,
-      press: 'key',
     },
     {
       name: '5. CONTROL, Off: the same steps recreate it, with no history',
       history: false,
-      press: 'button',
     },
   ];
-  for (const { name, history, press } of runs) {
+  for (const { name, history } of runs) {
     grantedTest(name, async ({ context, extensionId, serviceWorker }) => {
       const site = await servePages(context);
       if (history) await turnHistoryOn(context, extensionId);
@@ -618,7 +598,7 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
 
       await recordFocusRequests(serviceWorker);
       await closeHistoryTab(page, serviceWorker, made, 'Trip');
-      await pressReopen(page, serviceWorker, press);
+      await pressReopen(page);
 
       // One copy, where it was: index 1 of its window, in Trip, behind.
       const [back] = await expectCopies(serviceWorker, made.url, 1);
@@ -648,7 +628,7 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
         // show the focus returning).
         expect(await lastFocusRequest(serviceWorker)).toBe(tabView.windowId);
         console.log(
-          `[${press}] getLastFocused after: ${JSON.stringify(
+          `getLastFocused after: ${JSON.stringify(
             await inFront(serviceWorker)
           )}, History's window ${made.windowId}`
         );
@@ -706,7 +686,7 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
       await expectCopies(serviceWorker, made.url, 1);
       await expect.poll(() => historyLengthsAt(context, made.url)).toEqual([3]);
 
-      await pressReopen(page, serviceWorker, 'button');
+      await pressReopen(page);
       // Exactly one more copy, the recreate's: a new history.
       await expectCopies(serviceWorker, made.url, 2);
       await expect
@@ -756,7 +736,7 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
         (await allWindowIds(serviceWorker)).filter(
           (id) => !before.includes(id)
         );
-      await pressReopen(page, serviceWorker, 'button');
+      await pressReopen(page);
       await expect.poll(since).toHaveLength(1);
       const [reopenedId] = await since();
 
@@ -917,7 +897,7 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
       await expect.poll(() => holdsSessions(page)).toBe(false);
       await expectPressed(row, 'Off');
 
-      await pressReopen(page, serviceWorker, 'button');
+      await pressReopen(page);
       await expectCopies(serviceWorker, made.url, 1);
       await expect.poll(() => historyLengthsAt(context, made.url)).toEqual([1]);
       await expect(page.getByRole('status')).not.toContainText(REOPEN_FAILED);
@@ -1050,7 +1030,7 @@ test.describe('measured: a minimized window (KAN-280 Part D)', () => {
       };
       Reflect.set(globalThis, 'minimizedSampler', setInterval(sample, 5));
     }, made.windowId);
-    await pressReopen(page, serviceWorker, 'button');
+    await pressReopen(page);
 
     const [back] = await expectCopies(serviceWorker, made.url, 1);
     expect(back).toMatchObject({ windowId: made.windowId, index: 1 });
@@ -1255,7 +1235,7 @@ grantedTest.describe('an ungrouped tab and a collapsed group (KAN-316)', () => {
           .toEqual(['A[H,collapsed]', 'B[H,collapsed]', 'Z*']);
         await recordGroupChanges(serviceWorker);
 
-        await pressReopen(page, serviceWorker, 'button');
+        await pressReopen(page);
         await expectCopies(serviceWorker, made.url, 1);
         await page.waitForTimeout(1000);
 
@@ -1532,7 +1512,7 @@ test.describe('measured: no tabGroups grant (KAN-280 Part D)', () => {
     ]);
 
     await closeHistoryTab(page, serviceWorker, made);
-    await pressReopen(page, serviceWorker, 'button');
+    await pressReopen(page);
 
     const [back] = await expectCopies(serviceWorker, made.url, 1);
     expect(back).toMatchObject({
@@ -1559,46 +1539,4 @@ test('14. the built worker starts with its message listener', async ({
     await serviceWorker.evaluate(() => chrome.runtime.onMessage.hasListeners())
   ).toBe(true);
   expect(errors).toEqual([]);
-});
-
-test('15. measured, harness: headless keeps naming a window focused after the focus moves back', async ({
-  context,
-  extensionId,
-  serviceWorker,
-}) => {
-  const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
-  const tabView = await tabViewIds(page);
-  const other = await serviceWorker.evaluate(async () => {
-    const win = await chrome.windows.create({
-      focused: false,
-      url: 'data:text/html,<title>Other</title>',
-    });
-    return win?.id ?? -1;
-  });
-  const lastFocused = async () => (await inFront(serviceWorker)).windowId;
-  // PREMISE: an unfocused create leaves the tab view's window in front.
-  expect(await lastFocused()).toBe(tabView.windowId);
-
-  await serviceWorker.evaluate(
-    (id: number) => chrome.windows.update(id, { focused: true }),
-    other
-  );
-  // CONTROL: a focus change is visible here.
-  await expect.poll(lastFocused).toBe(other);
-
-  await serviceWorker.evaluate(
-    (id: number) => chrome.windows.update(id, { focused: true }),
-    tabView.windowId
-  );
-  await settle(1500);
-  const focusedFlags = await serviceWorker.evaluate(async () =>
-    (await chrome.windows.getAll()).map((w) => w.focused)
-  );
-  console.log(
-    `[15] after focusing back: getLastFocused ${await lastFocused()} (tab view ${
-      tabView.windowId
-    }, other ${other}), focused flags ${JSON.stringify(focusedFlags)}`
-  );
-  // The focus going back is invisible: why recordFocusRequests exists.
-  expect(await lastFocused()).toBe(other);
 });
