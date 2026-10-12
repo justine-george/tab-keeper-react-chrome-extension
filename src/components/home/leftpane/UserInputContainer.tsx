@@ -16,6 +16,7 @@ import { TYPE } from '../../../styles/scale';
 import { AppDispatch } from '../../../redux/store';
 import {
   captureOpenWindows,
+  hasTabsToSave,
   isNameSourceNoise,
   isNotANameSource,
   isTabKeeperPage,
@@ -25,6 +26,8 @@ import { dropNotificationCount } from '../../../utils/functions/sessionExportHtm
 import { selectRunAwaitsSave, takeRunSave } from '../../../redux/firstRun';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { normalizeTitle } from '../../../utils/functions/local';
+import { showToast } from '../../../redux/slices/globalStateSlice';
+import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import {
   isTabView,
   pickNameSourceTab,
@@ -178,7 +181,18 @@ export default function UserInputContainer() {
     // out of its own accord now (isTabKeeperPage, capture.ts), so there is
     // nothing left for this call site to ask for.
     const containerData = await captureOpenWindows(title, scope);
-    if (!containerData) return;
+    // KAN-522. Nothing but Tab Keeper in scope: say so rather than do nothing.
+    if (!containerData) {
+      void dispatch(
+        showToast({
+          toastText:
+            scope === 'current-window'
+              ? TOAST_MESSAGES.NOTHING_TO_SAVE_IN_WINDOW
+              : TOAST_MESSAGES.NOTHING_TO_SAVE,
+        })
+      );
+      return;
+    }
 
     await dispatch(saveToTabContainer({ container: containerData, scope }));
     consumeName(typed);
@@ -334,7 +348,14 @@ export default function UserInputContainer() {
                 key: 'export-open-windows',
                 label: t('Export open windows'),
                 icon: 'ios_share',
-                onSelect: () => {
+                onSelect: async () => {
+                  // KAN-522. Checked first: with only Tab Keeper open the page would have nothing to export.
+                  if (!(await hasTabsToSave())) {
+                    void dispatch(
+                      showToast({ toastText: TOAST_MESSAGES.NOTHING_TO_EXPORT })
+                    );
+                    return;
+                  }
                   // Opening a tab takes focus, which destroys the popup.
                   // Nothing may be sequenced after this call -- the page
                   // captures the windows for itself when it loads, which is
