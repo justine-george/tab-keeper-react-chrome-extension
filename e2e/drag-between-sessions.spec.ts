@@ -1332,11 +1332,25 @@ test.describe('Review Focus 3: a long list, a long session', () => {
     );
     expect(list.scrollTop).toBe(0);
     await page.mouse.move(list.left + 100, list.bottom - 10, { steps: 6 });
-    await expect
-      .poll(() => carryTargets(page), { timeout: 10000 })
-      .toEqual(['L29']);
+    // Let go in the frame L29 lights, not on a backed-off poll (KAN-536):
+    // resting SPRING_OPEN_MS opens it (S1 A), and a drop into the session on
+    // screen sends no Moved toast (Q3 A).
+    await page.waitForFunction(
+      () => {
+        const lit = [...document.querySelectorAll('[data-carry-target]')];
+        return (
+          lit.length === 1 &&
+          lit[0]?.closest<HTMLElement>('[data-drag-row-id]')?.dataset
+            .dragRowId === 'L29'
+        );
+      },
+      undefined,
+      { polling: 'raf', timeout: 10000 }
+    );
     await page.mouse.up();
 
+    // PREMISE: let go before L29 opened.
+    expect(await selected(page)).toBe('S1');
     await expect.poll(() => layout(page, 'L29')).toEqual(['a1', 'l29']);
     expect(await layout(page, 'S1')).toEqual(['a0 a2 al0* al1*', 'b0 b1']);
     await expect
