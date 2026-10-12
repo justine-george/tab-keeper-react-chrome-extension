@@ -120,6 +120,38 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     expect(chrome.createdTabs[0].url).toContain('session=session-kyoto');
   });
 
+  // KAN-527. Not at the end: closing it lands back on the tab it came from.
+  test('Export opens the page right after the active tab, as its child', async () => {
+    const user = userEvent.setup();
+    const { chrome } = await renderWithProviders(<HeroContainerRight />, {
+      seed: {
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 10, url: 'https://kagi.com/', active: true },
+              { id: 11, url: 'https://example.com/' },
+            ],
+          },
+        ],
+      },
+      seedStore: (store) => {
+        store.dispatch(replaceState(buildContainer([SESSION])));
+      },
+    });
+
+    await openMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Export…' }));
+
+    await waitFor(() => expect(chrome.createdTabs).toHaveLength(1));
+    expect(chrome.createdTabs[0]).toEqual({
+      url: 'chrome-extension://faketestid/export.html?session=session-kyoto',
+      index: 1,
+      openerTabId: 10,
+      windowId: 1,
+    });
+  });
+
   // CONTROL: with one session seeded, a hardcoded index would pass.
   test('Export is for the selected session, not the first one', async () => {
     const user = userEvent.setup();

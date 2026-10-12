@@ -48,6 +48,7 @@ import {
 import { copySessionLinks } from '../../../utils/functions/copySessionLinks';
 import { readRecentTabs } from '../../../utils/functions/recentTabs';
 import { tidySessionForExport } from '../../../utils/functions/sessionExportHtml';
+import { openBesideActiveTab } from '../../../utils/functions/openBesideActiveTab';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
@@ -590,13 +591,13 @@ export default function HeroContainerRight() {
                       // Nothing may be sequenced after this call -- the whole
                       // address is built first, so there is nothing left to do
                       // when the context dies.
-                      chrome.tabs.create({
-                        url: chrome.runtime.getURL(
+                      void openBesideActiveTab(
+                        chrome.runtime.getURL(
                           `export.html?session=${encodeURIComponent(
                             tabGroupId
                           )}`
-                        ),
-                      });
+                        )
+                      );
                     },
                   },
                   {

@@ -360,6 +360,38 @@ describe('the save row menu (KAN-208)', () => {
     expect(toastTexts(store.getState())).toEqual([]);
   });
 
+  // KAN-527. Not at the end: closing it lands back on the tab it came from.
+  test('Export open windows… opens the page right after the active tab, as its child', async () => {
+    const { chrome } = await renderWithProviders(<UserInputContainer />, {
+      seed: {
+        windows: [
+          {
+            id: 7,
+            tabs: [
+              { id: 1, url: 'https://kagi.com/' },
+              { id: 2, url: 'https://example.com/', active: true },
+              { id: 3, url: 'https://example.org/' },
+            ],
+          },
+        ],
+      },
+    });
+    await act(async () => {});
+
+    const menu = await openSaveMenu();
+    await userEvent.click(
+      within(menu).getByRole('menuitem', { name: 'Export open windows…' })
+    );
+
+    await waitFor(() => expect(chrome.createdTabs).toHaveLength(1));
+    expect(chrome.createdTabs[0]).toEqual({
+      url: 'chrome-extension://faketestid/export.html?source=open-windows',
+      index: 2,
+      openerTabId: 2,
+      windowId: 7,
+    });
+  });
+
   // CONTROL for the test above: the other item DOES save, through the same
   // menu -- so "nothing saved" is a property of the export item rather than of
   // the menu.
