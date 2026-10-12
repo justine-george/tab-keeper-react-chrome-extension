@@ -337,11 +337,21 @@ describe('the save row menu (KAN-208)', () => {
   });
 
   test('Export open windows… opens the live export page and saves nothing', async () => {
-    // tabs.create() (called with no windowId) lands in the fake's current
-    // window -- windows[0], window 7 here.
+    // Its active tab sits in a declared window, so tabs.create() can open
+    // beside it (KAN-527); twoWindows' active tab is in no declared window.
     const { store, seen, chrome } = await renderWithProviders(
       <UserInputContainer />,
-      { seed: twoWindows }
+      {
+        seed: {
+          windows: [
+            {
+              id: 7,
+              tabs: [{ id: 1, url: 'https://kagi.com/', active: true }],
+            },
+            { id: 8, tabs: [{ id: 2, url: 'https://example.com/' }] },
+          ],
+        },
+      }
     );
     await act(async () => {});
 
@@ -358,6 +368,38 @@ describe('the save row menu (KAN-208)', () => {
     expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
     expect(seen).not.toContain(SAVE_TAB_CONTAINER_ACTION);
     expect(toastTexts(store.getState())).toEqual([]);
+  });
+
+  // KAN-527. Not at the end: closing it lands back on the tab it came from.
+  test('Export open windows… opens the page right after the active tab, as its child', async () => {
+    const { chrome } = await renderWithProviders(<UserInputContainer />, {
+      seed: {
+        windows: [
+          {
+            id: 7,
+            tabs: [
+              { id: 1, url: 'https://kagi.com/' },
+              { id: 2, url: 'https://example.com/', active: true },
+              { id: 3, url: 'https://example.org/' },
+            ],
+          },
+        ],
+      },
+    });
+    await act(async () => {});
+
+    const menu = await openSaveMenu();
+    await userEvent.click(
+      within(menu).getByRole('menuitem', { name: 'Export open windows…' })
+    );
+
+    await waitFor(() => expect(chrome.createdTabs).toHaveLength(1));
+    expect(chrome.createdTabs[0]).toEqual({
+      url: 'chrome-extension://faketestid/export.html?source=open-windows',
+      index: 2,
+      openerTabId: 2,
+      windowId: 7,
+    });
   });
 
   // CONTROL for the test above: the other item DOES save, through the same

@@ -26,6 +26,7 @@ import { dropNotificationCount } from '../../../utils/functions/sessionExportHtm
 import { selectRunAwaitsSave, takeRunSave } from '../../../redux/firstRun';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { normalizeTitle } from '../../../utils/functions/local';
+import { openBesideActiveTab } from '../../../utils/functions/openBesideActiveTab';
 import { showToast } from '../../../redux/slices/globalStateSlice';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import {
@@ -360,11 +361,9 @@ export default function UserInputContainer() {
                   // Nothing may be sequenced after this call -- the page
                   // captures the windows for itself when it loads, which is
                   // also why no snapshot is handed over here.
-                  chrome.tabs.create({
-                    url: chrome.runtime.getURL(
-                      'export.html?source=open-windows'
-                    ),
-                  });
+                  void openBesideActiveTab(
+                    chrome.runtime.getURL('export.html?source=open-windows')
+                  );
                 },
               },
             ]}
