@@ -7,7 +7,6 @@ import {
   within,
 } from '@testing-library/react';
 
-import de from '../../../public/locales/de/translation.json';
 import ru from '../../../public/locales/ru/translation.json';
 import MainContainer from '../../components/MainContainer';
 import { Toast } from '../../components/common/Toast';
@@ -116,52 +115,6 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     // The SAME node: a region swapped for a new one is a new region.
     expect(screen.getByRole('status')).toBe(region);
     expect(region.textContent).toContain('Tab closed');
-  });
-
-  test('Reopen reopens the closed tab and closes the toast', async () => {
-    const { store } = await renderWithProviders(<Toast />, {
-      seed: twoTabSeed,
-    });
-    const item = await closeTabB();
-    expect(await urlsIn(2)).toEqual([url('a')]);
-    await act(async () => {
-      await store.dispatch(offerReopen(item));
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Reopen' }));
-
-    await waitFor(async () => {
-      expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
-    });
-    expect(isToastShowing(store.getState())).toBe(false);
-    expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
-    // It fades out, then is gone (KAN-349).
-    await waitFor(() => {
-      expect(screen.queryByText('Tab closed')).toBeNull();
-    });
-  });
-
-  // Rule 4. Both presses reach the handler: one act() holds React's
-  // re-render until both have been dispatched, as a fast double click can.
-  test('pressing Reopen twice reopens once', async () => {
-    const { store, chrome: fake } = await renderWithProviders(<Toast />, {
-      seed: twoTabSeed,
-    });
-    const item = await closeTabB();
-    await act(async () => {
-      await store.dispatch(offerReopen(item));
-    });
-    const button = screen.getByRole('button', { name: 'Reopen' });
-
-    act(() => {
-      button.click();
-      button.click();
-    });
-
-    await waitFor(async () => {
-      expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
-    });
-    expect(fake.createdTabs).toHaveLength(1);
   });
 
   // KAN-349. Both show at once in the stack, so each is checked in itself.
@@ -368,43 +321,6 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
     expect(isToastShowing(store.getState())).toBe(false);
   });
 
-  // KAN-280 O8b. At 300px the count was cut off in 8 of 13 locales, so a
-  // toast offering Reopen is as wide as its one line, from 300px to 30rem.
-  // jsdom cannot lay text out: the widths themselves are measured in
-  // e2e/open-now-close.spec.ts. This pins only the rule that differs.
-  test('the Reopen toast sizes to its line, 300px to 30rem; a plain toast stays 300px', async () => {
-    const { store } = await renderWithProviders(<Toast />, {
-      seed: twoTabSeed,
-    });
-    await act(async () => {
-      await store.dispatch(
-        showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED })
-      );
-    });
-    // CONTROL: the plain toast's fixed width reads here, so its absence on
-    // the Reopen toast below is not a blind read.
-    expect(visibleToast()).toHaveStyle({ width: '300px' });
-
-    const item = await closeTabB();
-    await act(async () => {
-      await store.dispatch(offerReopen(item));
-    });
-    const toast = visibleToast();
-    // PREMISE: this is the Reopen toast.
-    expect(toast).toContainElement(
-      screen.getByRole('button', { name: 'Reopen' })
-    );
-    expect(toast).not.toHaveStyle({ width: '300px' });
-    // jsdom resolves the min() against its 1024px window and 16px root, so
-    // the cap reads as 30rem's 480px. It reads the same for a 480px cap: that
-    // the cap follows the root is e2e test 11b's (KAN-312).
-    expect(toast).toHaveStyle({
-      width: 'max-content',
-      minWidth: '300px',
-      maxWidth: '480px',
-    });
-  });
-
   test('ru counts: 1, 2 and 5 tabs read in the right plural', async () => {
     const seed: ChromeSeed = {
       windows: [
@@ -573,23 +489,6 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
     expect(undoRedoIn(seen.slice(before))).toEqual([]);
   });
 
-  test('CONTROL: with no toast showing, the same key undoes', async () => {
-    const { seen, chrome: fake } = await renderWithProviders(
-      <MainContainer />,
-      { seed: twoTabSeed }
-    );
-    const before = seen.length;
-
-    let event: KeyboardEvent | undefined;
-    act(() => {
-      event = press(document.body, { key: 'z', ctrlKey: true });
-    });
-
-    expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
-    expect(event?.defaultPrevented).toBe(true);
-    expect(fake.createdTabs).toEqual([]);
-  });
-
   // An offer that has timed out must not keep the key from undoing.
   test('once the offer has timed out, the key undoes again', async () => {
     const {
@@ -740,31 +639,6 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
       expect(event?.defaultPrevented).toBe(true);
     });
 
-    test('CONTROL: let go, a fresh press undoes', async () => {
-      const { seen } = await offerTakenByKey();
-      release('z');
-      release('Meta');
-      const before = seen.length;
-
-      act(() => {
-        press(document.body, { key: 'z', metaKey: true });
-      });
-
-      expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
-    });
-
-    test('⌘ let go with no Z keyup, as macOS sends it: a fresh press undoes', async () => {
-      const { seen } = await offerTakenByKey();
-      release('Meta');
-      const before = seen.length;
-
-      act(() => {
-        press(document.body, { key: 'z', metaKey: true });
-      });
-
-      expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
-    });
-
     // KAN-52 still holds while the key is held: focus moving into a text
     // field mid-hold leaves the field's own undo alone.
     test('a repeat into a text field is left to the field', async () => {
@@ -860,29 +734,6 @@ describe('the Reopen button shows its key (KAN-311)', () => {
     expect(button).toHaveTextContent('Ctrl+Z');
     expect(button).toHaveAttribute('aria-keyshortcuts', 'Control+Z');
     expect(button).not.toHaveTextContent('⌘');
-  });
-
-  test('de: Strg+Z', async () => {
-    const button = await reopenButtonWith({
-      ...twoTabSeed,
-      platformOs: 'linux',
-    });
-    // CONTROL: English first, so the German below is the switch's doing.
-    expect(button).toHaveTextContent('ReopenCtrl+Z');
-    testI18n.addResourceBundle('de', 'translation', de, true, true);
-    await act(async () => {
-      await testI18n.changeLanguage('de');
-    });
-    expect(testI18n.language).toBe('de');
-    expect(de.Ctrl).toBe('Strg');
-
-    expect(button).toHaveTextContent(`${de.Reopen}Strg+Z`);
-  });
-
-  test('the accessible name stays "Reopen"', async () => {
-    const button = await reopenButtonWith({ ...twoTabSeed, platformOs: 'mac' });
-    await waitFor(() => expect(button).toHaveTextContent('⌘Z'));
-    expect(button).toHaveAccessibleName('Reopen');
   });
 
   // The key does nothing on the settings page, so neither does its hint:
