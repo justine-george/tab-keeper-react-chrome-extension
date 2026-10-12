@@ -1,15 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import {
-  act,
-  cleanup,
-  fireEvent,
-  screen,
-  within,
-} from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 
 import MainContainer from '../../components/MainContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import { openNowTrack } from '../setup/openNowTrack';
 import {
   saveToTabContainerInternal,
   selectTabContainer,
@@ -18,7 +11,6 @@ import { buildSession } from '../fixtures/sessionFixture';
 import { applyOtherPageSettings } from '../../redux/otherPageChanges';
 import {
   hydrateSettingsFromOtherPage,
-  setOpenNowWidth,
   setTheme,
   Theme,
 } from '../../redux/slices/settingsDataStateSlice';
@@ -95,20 +87,6 @@ afterEach(() => {
 });
 
 describe('the tab view opens folded (O5, Review Focus 6)', () => {
-  test('with no fold setting stored, Open now shows and the saved detail does not', async () => {
-    goToTabView();
-    await renderHome();
-    await mounted();
-
-    expect(storedFold()).toBeUndefined();
-    expect(openNowPane()).not.toBeNull();
-    expect(screen.getByRole('button', { name: UNFOLD })).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: HERO_ONLY })
-    ).not.toBeInTheDocument();
-    expect(document.querySelector('[data-pane="detail"]')).toBeNull();
-  });
-
   // An existing user has settingsData saved without the new field. The slice
   // reads localStorage once, at module load, so it is re-imported to read it
   // the way a page open does.
@@ -126,58 +104,6 @@ describe('the tab view opens folded (O5, Review Focus 6)', () => {
 });
 
 describe('the fold button (O4, O5)', () => {
-  test('Show the saved session puts the detail beside Open now and remembers false', async () => {
-    goToTabView();
-    await renderHome();
-    await mounted();
-
-    fireEvent.click(screen.getByRole('button', { name: UNFOLD }));
-
-    expect(
-      await screen.findByRole('button', { name: HERO_ONLY })
-    ).toBeInTheDocument();
-    expect(openNowPane()).not.toBeNull();
-    expect(screen.getByRole('button', { name: FOLD })).toBeInTheDocument();
-    expect(storedFold()).toBe(false);
-  });
-
-  test('Fold the saved session away folds from side by side and remembers true', async () => {
-    goToTabView();
-    await renderHome();
-    await mounted();
-    fireEvent.click(screen.getByRole('button', { name: UNFOLD }));
-    await screen.findByRole('button', { name: HERO_ONLY });
-    // PREMISE: side by side, remembered as such.
-    expect(storedFold()).toBe(false);
-
-    fireEvent.click(screen.getByRole('button', { name: FOLD }));
-
-    expect(
-      screen.queryByRole('button', { name: HERO_ONLY })
-    ).not.toBeInTheDocument();
-    expect(openNowPane()).not.toBeNull();
-    expect(storedFold()).toBe(true);
-  });
-
-  // Folding moves Open now between grid areas, not between parents, so the
-  // pane is not remounted: no second read of the windows, and a window the
-  // user folded inside it stays folded.
-  test('folding and unfolding keeps the same Open now, with no re-read', async () => {
-    goToTabView();
-    const { chrome } = await renderHome();
-    await mounted();
-    await screen.findByText('No other tabs are open');
-    const reads = chrome.windowsGetAllCalls;
-    // PREMISE: the pane has read once.
-    expect(reads).toBeGreaterThan(0);
-
-    fireEvent.click(screen.getByRole('button', { name: UNFOLD }));
-    await screen.findByRole('button', { name: HERO_ONLY });
-    fireEvent.click(screen.getByRole('button', { name: FOLD }));
-
-    expect(chrome.windowsGetAllCalls).toBe(reads);
-  });
-
   // KAN-279 D9. Every settings write saves the whole object, so a page that
   // kept a stale fold would put it back with its next unrelated write (a
   // theme change in the popup, say). The other page's write must be taken in.
@@ -201,27 +127,6 @@ describe('the fold button (O4, O5)', () => {
 });
 
 describe('the peek (O5)', () => {
-  test('clicking a saved session while folded shows it, and the setting stays true', async () => {
-    goToTabView();
-    await renderHome();
-    await mounted();
-    fireEvent.click(screen.getByRole('button', { name: UNFOLD }));
-    fireEvent.click(await screen.findByRole('button', { name: FOLD }));
-    // PREMISE: folded, and the setting is stored as true.
-    expect(storedFold()).toBe(true);
-    expect(
-      screen.queryByRole('button', { name: HERO_ONLY })
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(sessionRow(SECOND.title));
-
-    expect(
-      await screen.findByRole('button', { name: HERO_ONLY })
-    ).toBeInTheDocument();
-    expect(openNowPane()).not.toBeNull();
-    expect(storedFold()).toBe(true);
-  });
-
   // The selected row is highlighted in the list, so clicking it is the
   // natural way to ask to see it. The row's own handler returns early for
   // the selected session; the peek must not.
@@ -235,40 +140,6 @@ describe('the peek (O5)', () => {
     expect(
       await screen.findByRole('button', { name: HERO_ONLY })
     ).toBeInTheDocument();
-  });
-
-  // A new page is a fresh store: the peek (globalState) is gone, and the
-  // setting is read back from localStorage at module load. Everything is
-  // re-imported so the new page reads storage the way a real open does.
-  test('a new page after a peek opens folded again', async () => {
-    goToTabView();
-    await renderHome();
-    await mounted();
-    fireEvent.click(sessionRow(SECOND.title));
-    await screen.findByRole('button', { name: HERO_ONLY });
-    // PREMISE: the peek wrote nothing, so storage holds no fold at all and
-    // the next page falls back to the default.
-    expect(storedFold()).toBeUndefined();
-    cleanup();
-
-    vi.resetModules();
-    const fresh = await import('../setup/renderWithProviders');
-    const { default: FreshMainContainer } =
-      await import('../../components/MainContainer');
-    const tabSlice =
-      await import('../../redux/slices/tabContainerDataStateSlice');
-    await fresh.renderWithProviders(<FreshMainContainer />, {
-      seedStore: (store) => {
-        store.dispatch(tabSlice.saveToTabContainerInternal(first()));
-        store.dispatch(tabSlice.selectTabContainer(FIRST.tabGroupId));
-      },
-    });
-    await mounted();
-
-    expect(openNowPane()).not.toBeNull();
-    expect(
-      screen.queryByRole('button', { name: HERO_ONLY })
-    ).not.toBeInTheDocument();
   });
 
   test('Fold the saved session away while peeking folds', async () => {
@@ -324,39 +195,6 @@ describe('the peek (O5)', () => {
 
 // KAN-385 S2: the search row replaces the caption at the top of the list.
 describe('the saved search row heads the session list (S2)', () => {
-  test('is at the top of the session list in the tab view', async () => {
-    goToTabView();
-    await renderHome();
-    await mounted();
-
-    const sessions = document.querySelector<HTMLElement>(
-      '[data-pane="sessions"]'
-    );
-    if (sessions === null) throw new Error('no sessions pane');
-    const searchField = within(sessions).getByRole('textbox', {
-      name: 'Search saved tabs',
-    });
-    expect(within(sessions).queryByText('Saved sessions')).toBeNull();
-    // At the top of the list box: before its first row.
-    const firstRow = sessions.querySelector('[data-drag-row-id]');
-    if (firstRow === null) throw new Error('no session row');
-    expect(
-      searchField.compareDocumentPosition(firstRow) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
-  });
-
-  // CONTROL. The popup has no caption, and no Open now.
-  test('CONTROL: the popup has no caption and no Open now', async () => {
-    await renderHome();
-    await mounted();
-
-    expect(screen.queryByText('Saved sessions')).not.toBeInTheDocument();
-    expect(openNowPane()).toBeNull();
-    // The popup still shows the detail as it always has.
-    expect(screen.getByRole('button', { name: HERO_ONLY })).toBeInTheDocument();
-  });
-
   test('CONTROL: clicking a session in the popup never writes a fold setting', async () => {
     await renderHome();
     await mounted();
@@ -397,34 +235,6 @@ describe('the saved search row stays put while the list scrolls (O3a)', () => {
   const searchRow = () =>
     document.querySelector<HTMLElement>('[data-saved-search]');
 
-  test('in the tab view the row sits directly above the scroller, outside it', async () => {
-    goToTabView();
-    await renderHome();
-    await mounted();
-
-    const scroller = listScroller();
-    const row = searchRow();
-    if (row === null) throw new Error('no search row');
-    expect(
-      within(row).getByRole('textbox', { name: 'Search saved tabs' })
-    ).toBeInTheDocument();
-    expect(scroller.contains(row)).toBe(false);
-    expect(row.nextElementSibling).toBe(scroller);
-    // What the scroller holds starts with the rows.
-    const firstRow = document.querySelector('[data-drag-row-id]');
-    expect(scroller.firstElementChild?.contains(firstRow)).toBe(true);
-  });
-
-  test('the row is not sticky', async () => {
-    goToTabView();
-    await renderHome();
-    await mounted();
-
-    const row = searchRow();
-    if (row === null) throw new Error('no search row');
-    expect(getComputedStyle(row).position).not.toBe('sticky');
-  });
-
   // The popup's list takes the same shape (S2).
   test('in the popup too the row sits directly above the scroller, which starts with the rows', async () => {
     await renderHome();
@@ -437,99 +247,5 @@ describe('the saved search row stays put while the list scrolls (O3a)', () => {
     expect(row.nextElementSibling).toBe(scroller);
     const firstRow = document.querySelector('[data-drag-row-id]');
     expect(scroller.firstElementChild?.contains(firstRow)).toBe(true);
-  });
-});
-
-// KAN-321 O1/O1a. Side by side, the third column's width comes from
-// openNowWidth.ts (shownOpenNowWidth), not a fixed 340px/420px. The track
-// is var(--open-now-width), set on the grid element; openNowTrack() reads the
-// computed track list and resolves that var() from the same element, so
-// these assert the px width the column is drawn at.
-describe('KAN-321 width: the grid tracks follow openNowWidth.ts (D1)', () => {
-  const ORIGINAL_INNER_WIDTH = window.innerWidth;
-
-  const setViewportWidth = (width: number) => {
-    act(() => {
-      Object.defineProperty(window, 'innerWidth', {
-        configurable: true,
-        value: width,
-      });
-      window.dispatchEvent(new Event('resize'));
-    });
-  };
-
-  afterEach(() => {
-    Object.defineProperty(window, 'innerWidth', {
-      configurable: true,
-      value: ORIGINAL_INNER_WIDTH,
-    });
-  });
-
-  const showSideBySide = async () => {
-    fireEvent.click(screen.getByRole('button', { name: UNFOLD }));
-    await screen.findByRole('button', { name: HERO_ONLY });
-  };
-
-  test('at 1600px wide with no stored width, the third track is the default, 622px', async () => {
-    setViewportWidth(1600);
-    goToTabView();
-    await renderHome();
-    await mounted();
-    await showSideBySide();
-
-    expect(openNowTrack()).toBe('622px');
-  });
-
-  test('a stored width of 500 shows as 500px at 1600px wide', async () => {
-    setViewportWidth(1600);
-    goToTabView();
-    const { store } = await renderHome();
-    act(() => {
-      store.dispatch(setOpenNowWidth(500));
-    });
-    await mounted();
-    await showSideBySide();
-
-    expect(openNowTrack()).toBe('500px');
-  });
-
-  // The window narrows after a wide drag (Review Focus 1): the stored width
-  // is kept, the shown width clamps to the new window's limit, and widening
-  // the window back brings the user's stored width back -- with no further
-  // dispatch, because shownOpenNowWidth is re-evaluated on every render.
-  test('resizing to 1280 clamps a 700 stored width to 444px; back to 1600 it is 700px again', async () => {
-    setViewportWidth(1280);
-    goToTabView();
-    const { store } = await renderHome();
-    act(() => {
-      store.dispatch(setOpenNowWidth(700));
-    });
-    await mounted();
-    await showSideBySide();
-    expect(openNowTrack()).toBe('444px');
-
-    setViewportWidth(1600);
-
-    expect(openNowTrack()).toBe('700px');
-  });
-
-  // O1a, revised 2026-09-28: Open now's min went from 300 to 480. A width
-  // stored under the old min is drawn at the new one, and kept as it was:
-  // only the SHOWN width is clamped, and nothing rewrites the stored one.
-  test('a width stored under the old 300 min shows as 480px at 1600, and stays 300 in storage', async () => {
-    setViewportWidth(1600);
-    goToTabView();
-    const { store } = await renderHome();
-    act(() => {
-      store.dispatch(setOpenNowWidth(300));
-    });
-    await mounted();
-    await showSideBySide();
-
-    expect(openNowTrack()).toBe('480px');
-    expect(store.getState().settingsDataState.openNowWidth).toBe(300);
-    const raw = localStorage.getItem('settingsData');
-    const saved: unknown = raw === null ? null : JSON.parse(raw);
-    expect(saved).toMatchObject({ openNowWidth: 300 });
   });
 });

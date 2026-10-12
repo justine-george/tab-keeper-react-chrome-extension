@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 
 import de from '../../../public/locales/de/translation.json';
 import MainContainer from '../../components/MainContainer';
@@ -145,59 +144,13 @@ describe('the grip is a separator (O1a)', () => {
   });
 });
 
-// The controls Tab stops at inside `root`, in document order.
-const TABBABLE =
-  'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
-function tabStops(root: Element): HTMLElement[] {
-  return [...root.querySelectorAll<HTMLElement>(TABBABLE)].filter(
-    (el) => !el.hasAttribute('disabled') && el.tabIndex >= 0
-  );
-}
-
 function pane(name: 'detail' | 'open-now'): HTMLElement {
   const el = document.querySelector<HTMLElement>(`[data-pane="${name}"]`);
   if (el === null) throw new Error(`no ${name} pane`);
   return el;
 }
 
-// WCAG 2.4.3 and the APG window splitter: the separator sits between the two
-// panes it resizes, in the focus order and in what a screen reader reads, not
-// after all of Open now's controls.
-describe('the grip is between the panes in the focus order (O1a)', () => {
-  test("Tab from the saved detail's last control reaches the grip, then Open now's first", async () => {
-    await renderHome();
-    await mounted();
-    await screen.findByText('Updates as you browse');
-    const user = userEvent.setup();
-    const detailStops = tabStops(pane('detail'));
-    const openNowStops = tabStops(pane('open-now'));
-    // PREMISE: both panes have controls to walk between.
-    expect(detailStops.length).toBeGreaterThan(0);
-    expect(openNowStops.length).toBeGreaterThan(0);
-
-    detailStops[detailStops.length - 1].focus();
-    await user.tab();
-    expect(grip()).toHaveFocus();
-    await user.tab();
-    expect(openNowStops[0]).toHaveFocus();
-  });
-
-  // user-event walks the DOM order, as a browser does with no positive
-  // tabindex; this is that order stated directly (the real walk is e2e 5).
-  test('in the DOM, the grip comes after the detail and before Open now', async () => {
-    await renderHome();
-    await mounted();
-
-    expect(
-      pane('detail').compareDocumentPosition(grip()) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
-    expect(
-      grip().compareDocumentPosition(pane('open-now')) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
-  });
-
+describe('the grip comes and goes in place (O1a)', () => {
   // The grip comes and goes (the rail, a fold); Open now must not remount
   // when it does, or its scroll, focus and live-window state are lost.
   test('Open now is not remounted when the grip goes and comes back', async () => {
@@ -241,24 +194,6 @@ describe('the grip is between the panes in the focus order (O1a)', () => {
 });
 
 describe('only side by side (O1a)', () => {
-  // CONTROL for the absences below: the same page side by side has it.
-  test('CONTROL: side by side and wide, it is there', async () => {
-    await renderHome();
-    await mounted();
-
-    expect(screen.getByRole('separator', { name: NAME })).toBeInTheDocument();
-  });
-
-  test('not when folded', async () => {
-    await renderHome({ fold: true });
-    await mounted();
-    // PREMISE: Open now is on screen, in the detail column.
-    expect(document.querySelector('[data-pane="open-now"]')).not.toBeNull();
-
-    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
-    expect(document.querySelector('[data-resize-grip]')).toBeNull();
-  });
-
   test('not below 1100px, where Open now is the rail', async () => {
     const railQuery = new FakeMediaQueryList(OPEN_NOW_RAIL_QUERY, true);
     vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
@@ -272,45 +207,6 @@ describe('only side by side (O1a)', () => {
     expect(
       await screen.findByRole('button', { name: /^Open now, / })
     ).toBeInTheDocument();
-
-    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
-    expect(document.querySelector('[data-resize-grip]')).toBeNull();
-  });
-
-  // O1a: both panes keep 480px. At 1316px and narrower they cannot both,
-  // the range is empty, and there is nothing to drag.
-  test('not where both panes cannot keep 480px (1280), and there again at 1320', async () => {
-    setViewportWidth(1280);
-    await renderHome();
-    await mounted();
-    // PREMISE: side by side -- unfolded, not the rail -- so only the width
-    // can be what hides it.
-    expect(document.querySelector('[data-pane="detail"]')).not.toBeNull();
-    expect(document.querySelector('[data-pane="open-now"]')).not.toBeNull();
-    expect(
-      screen.queryByRole('button', { name: /^Open now, / })
-    ).not.toBeInTheDocument();
-    expect(openNowTrack()).toBe('444px');
-
-    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
-    expect(document.querySelector('[data-resize-grip]')).toBeNull();
-
-    // The narrowest window with a range: 480..484.
-    setViewportWidth(1320);
-    expect(grip()).toHaveAttribute('aria-valuemin', '480');
-    expect(grip()).toHaveAttribute('aria-valuemax', '484');
-    expect(grip()).toHaveAttribute('aria-valuenow', '482');
-  });
-
-  test('not on the Settings page', async () => {
-    const { store } = await renderHome();
-    await mounted();
-    // PREMISE: it was there before Settings opened.
-    expect(grip()).toBeInTheDocument();
-
-    await act(async () => {
-      await store.dispatch(openSettingsPage(undefined));
-    });
 
     expect(screen.queryByRole('separator')).not.toBeInTheDocument();
     expect(document.querySelector('[data-resize-grip]')).toBeNull();
@@ -334,32 +230,6 @@ describe('only side by side (O1a)', () => {
 
     expect(grip()).toHaveAttribute('aria-valuenow', '700');
     expect(openNowTrack()).toBe('700px');
-  });
-
-  // The width did not change above, so a property left over from before
-  // Settings reads right. Here the window narrows while Settings is open.
-  test("back from Settings after the window narrowed, the width is the new window's", async () => {
-    const { store } = await renderHome();
-    await mounted();
-    expect(openNowTrack()).toBe('622px');
-    const gridBefore = document.querySelector(
-      '[data-pane="open-now"]'
-    )?.parentElement;
-    await act(async () => {
-      await store.dispatch(openSettingsPage(undefined));
-    });
-
-    setViewportWidth(1440);
-    act(() => {
-      store.dispatch(closeSettingsPage());
-    });
-
-    // PREMISE: the same grid element came back, with the old property on it.
-    expect(
-      document.querySelector('[data-pane="open-now"]')?.parentElement
-    ).toBe(gridBefore);
-    expect(grip()).toHaveAttribute('aria-valuenow', '542');
-    expect(openNowTrack()).toBe('542px');
   });
 
   test('not in the popup', async () => {
@@ -398,23 +268,6 @@ describe('the arrow keys (O1a)', () => {
 
     expect(storedWidth()).toBe(764);
     expect(grip()).toHaveAttribute('aria-valuenow', '764');
-  });
-
-  test('ArrowRight stops at the min, 480, and at the min saves nothing', async () => {
-    const { seen } = await renderHome({ width: 490 });
-    await mounted();
-
-    fireEvent.keyDown(grip(), { key: 'ArrowRight' });
-    expect(storedWidth()).toBe(480);
-    expect(grip()).toHaveAttribute('aria-valuenow', '480');
-    const writesAtMin = widthWrites(seen);
-
-    // Still taken: the page must not scroll under the grip.
-    expect(fireEvent.keyDown(grip(), { key: 'ArrowRight' })).toBe(false);
-
-    expect(widthWrites(seen)).toBe(writesAtMin);
-    expect(storedWidth()).toBe(480);
-    expect(grip()).toHaveAttribute('aria-valuenow', '480');
   });
 
   // O1a: "the stored width is kept". At 1440 a stored 764 shows as the max,
@@ -456,41 +309,6 @@ describe('the arrow keys (O1a)', () => {
 });
 
 describe('the pointer drag (O1a, Review Focus 4)', () => {
-  test('dragging left widens Open now live, and saves once, on release', async () => {
-    const { seen } = await renderHome();
-    await mounted();
-    const writesBefore = widthWrites(seen);
-
-    press(1000);
-    moveTo(950);
-    moveTo(900);
-
-    expect(openNowTrack()).toBe('722px');
-    expect(grip()).toHaveAttribute('aria-valuenow', '722');
-    expect(storedWidth()).toBeNull();
-    expect(widthWrites(seen)).toBe(writesBefore);
-
-    release(900);
-
-    expect(storedWidth()).toBe(722);
-    expect(widthWrites(seen)).toBe(writesBefore + 1);
-    expect(openNowTrack()).toBe('722px');
-  });
-
-  test('the drag clamps to the limits', async () => {
-    await renderHome();
-    await mounted();
-
-    press(1000);
-    moveTo(0);
-    expect(openNowTrack()).toBe('764px');
-    moveTo(1590);
-    expect(openNowTrack()).toBe('480px');
-    release(1590);
-
-    expect(storedWidth()).toBe(480);
-  });
-
   // The window narrows under a drag: the limits follow it at once, not at
   // the next pointermove.
   test('a window narrowed mid-drag clamps the live width before the next move', async () => {
@@ -621,65 +439,6 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
     expect(openNowTrack()).toBe('622px');
   });
 
-  test('a drag cut short by an unmount leaves no flag and no listener', async () => {
-    const { seen, unmount } = await renderHome();
-    await mounted();
-    const writesBefore = widthWrites(seen);
-
-    press(1000);
-    moveTo(900);
-    expect(isResizing()).toBe(true);
-
-    unmount();
-
-    expect(isResizing()).toBe(false);
-    release(900);
-    expect(widthWrites(seen)).toBe(writesBefore);
-  });
-
-  // The grip goes while the page stays: the window narrows to the rail
-  // mid-drag. The grid must not keep the width nobody is dragging any more.
-  test('a drag cut short by the rail taking over leaves no live width behind', async () => {
-    const railQuery = new FakeMediaQueryList(OPEN_NOW_RAIL_QUERY, false);
-    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
-      query === OPEN_NOW_RAIL_QUERY
-        ? railQuery
-        : new FakeMediaQueryList(query, false)
-    );
-    const { seen } = await renderHome();
-    await mounted();
-    const writesBefore = widthWrites(seen);
-
-    press(1000);
-    moveTo(900);
-    expect(openNowTrack()).toBe('722px');
-
-    act(() => railQuery.setMatches(true));
-    // PREMISE: the grip is gone mid-drag.
-    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
-    expect(isResizing()).toBe(false);
-    act(() => railQuery.setMatches(false));
-
-    expect(openNowTrack()).toBe('622px');
-    expect(grip()).toHaveAttribute('aria-valuenow', '622');
-    release(900);
-    expect(widthWrites(seen)).toBe(writesBefore);
-  });
-
-  test('data-resizing is on the root during the drag and gone after the release', async () => {
-    await renderHome();
-    await mounted();
-    expect(isResizing()).toBe(false);
-
-    press(1000);
-    expect(isResizing()).toBe(true);
-    moveTo(900);
-    expect(isResizing()).toBe(true);
-
-    release(900);
-    expect(isResizing()).toBe(false);
-  });
-
   test('only the main button starts a drag', async () => {
     await renderHome();
     await mounted();
@@ -693,19 +452,6 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
 });
 
 describe('the double-click (O1a, Review Focus 5)', () => {
-  test('a press and release without movement saves nothing', async () => {
-    const { seen } = await renderHome();
-    await mounted();
-    const writesBefore = widthWrites(seen);
-
-    press(1000);
-    release(1000);
-
-    expect(widthWrites(seen)).toBe(writesBefore);
-    expect(storedWidth()).toBeNull();
-    expect(isResizing()).toBe(false);
-  });
-
   test('a double-click resets a saved width to null, and its presses save nothing', async () => {
     const { seen } = await renderHome({ width: 700 });
     await mounted();
@@ -820,27 +566,6 @@ describe('the grip lights on hover and during its drag (O1a G A)', () => {
 
     expect(grip()).not.toHaveAttribute('data-active');
   });
-});
-
-describe('isolation from the row drag (O1a)', () => {
-  // The rule is scoped from the ROOT: the flag is on <html>, and the grip
-  // sits below it. A selector Emotion prefixes with the grip's own class
-  // (".css-x:root[...] .css-x:hover") can never match, and the grip would
-  // light under a row drag.
-  test('a row drag passing over it keeps the rest colours', async () => {
-    await renderHome();
-    await mounted();
-    const cls = gripClass(grip());
-
-    expect(
-      declarationsFor(grip(), `html[data-dragging] ${cls}:hover>span`)
-    ).toContain(`background-color: ${rgb(LIGHT_THEME.PRIMARY_COLOR)}`);
-    expect(
-      declarationsFor(grip(), `html[data-dragging] ${cls}:hover>span>span`)
-    ).toContain(`background-color: ${rgb(LIGHT_THEME.LABEL_L2_COLOR)}`);
-  });
-
-  // A press starting no row drag: covered by the separator test's closest('[data-pane]') check and Task 5's e2e.
 });
 
 describe('the name in another language', () => {

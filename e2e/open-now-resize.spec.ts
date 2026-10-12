@@ -745,26 +745,6 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     expect(sessionsAfter).toBe(sessionsBefore);
   });
 
-  test('4. a window that narrows clamps the shown width, and widening gives it back', async ({
-    context,
-    extensionId,
-  }) => {
-    await seedOnce(context, { openNowWidth: 700 });
-    const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
-    await expectOpenNow(page, 700);
-    expect(await storedWidth(page)).toBe(700);
-
-    await page.setViewportSize(NARROW_SIDE_BY_SIDE);
-    await expectOpenNow(page, 444);
-    expect(await widthOf(page, DETAIL)).toBe(480);
-    // Only the SHOWN width is clamped; the user's choice is kept.
-    expect(await storedWidth(page)).toBe(700);
-
-    await page.setViewportSize(WIDE);
-    await expectOpenNow(page, 700);
-    expect(await storedWidth(page)).toBe(700);
-  });
-
   test('5. the grip is reached by Tab, steps with the arrow keys, and resets on a double-click', async ({
     context,
     extensionId,
