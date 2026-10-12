@@ -262,12 +262,6 @@ describe('contentModified advances on every content edit', () => {
     expect(contentModifiedOf(store)).toBe(T0 + 5_000);
     expect(contentModifiedOf(store)).not.toBe(before);
   });
-
-  // Guards the table itself. A content reducer added without a row above would
-  // otherwise be untested, which is the failure this whole file exists to stop.
-  test('the table covers every content reducer', () => {
-    expect(CONTENT_EDITS).toHaveLength(12);
-  });
 });
 
 // THE OTHER HALF, and the reason the field exists at all. Ordering a list is

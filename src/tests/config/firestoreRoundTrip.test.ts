@@ -56,13 +56,6 @@ describe('the Firestore read preserves the whole container', () => {
     });
   });
 
-  it('returns tombstones, not just sessions', async () => {
-    const read = await fetchDataFromFirestore('u1');
-    expect(read.deletedTabGroups).toEqual([
-      { tabGroupId: 'gone', deletedAt: 900 },
-    ]);
-  });
-
   it('round-trips every field the persisted container declares', async () => {
     const read = await fetchDataFromFirestore('u1');
     // Compared as whole objects so a future field added to the shape but

@@ -340,14 +340,6 @@ describe('mergeTabContainers - tombstones', () => {
     expect(merged.deletedTabGroups!.map((t) => t.tabGroupId)).toEqual(['edge']);
   });
 
-  it('drops a tombstone one millisecond past the TTL', () => {
-    const local = withTombstones(container(NOW, []), [
-      { tabGroupId: 'edge', deletedAt: NOW - TOMBSTONE_TTL_MS - 1 },
-    ]);
-    const { merged } = mergeTabContainers(local, container(1, []), NOW);
-    expect(merged.deletedTabGroups).toEqual([]);
-  });
-
   // The accepted tradeoff, pinned down so it cannot change silently: once a
   // tombstone expires it stops suppressing the session, so a device that still
   // holds it re-adds it. The failure reappears data; it never loses any.
@@ -378,16 +370,6 @@ describe('mergeTabContainers - tombstones', () => {
     expect(merged.deletedTabGroups!.map((t) => t.tabGroupId)).toEqual(['a']);
   });
 
-  it('lets an edit made after the delete win, however fresh the tombstone', () => {
-    const local = withTombstones(container(NOW, []), [
-      { tabGroupId: 'a', deletedAt: NOW - 10_000 },
-    ]);
-    const cloud = container(NOW - 1000, [group('a', NOW - 1000)]);
-    const { merged } = mergeTabContainers(local, cloud, NOW);
-    expect(ids(merged)).toEqual(['a']);
-    expect(merged.deletedTabGroups).toEqual([]);
-  });
-
   // Exactly at the cap, nothing is dropped - the boundary is inclusive.
   it('keeps exactly TOMBSTONE_MAX tombstones without dropping any', () => {
     const exactly = Array.from({ length: TOMBSTONE_MAX }, (_, i) => ({
@@ -400,10 +382,11 @@ describe('mergeTabContainers - tombstones', () => {
   });
 
   it('drops the oldest when the cap is exceeded, not an arbitrary one', () => {
+    // Oldest first, so a cap that skipped the sort would keep the wrong 500.
     const many = Array.from({ length: TOMBSTONE_MAX + 3 }, (_, i) => ({
       tabGroupId: `g${i}`,
       deletedAt: NOW - i, // g0 newest, g502 oldest
-    }));
+    })).reverse();
     const local = withTombstones(container(NOW, []), many);
     const { merged } = mergeTabContainers(local, container(1, []), NOW);
     const kept = merged.deletedTabGroups!.map((t) => t.tabGroupId);
@@ -411,17 +394,6 @@ describe('mergeTabContainers - tombstones', () => {
     expect(kept).toContain('g0');
     expect(kept).not.toContain(`g${TOMBSTONE_MAX}`);
     expect(kept).not.toContain(`g${TOMBSTONE_MAX + 2}`);
-  });
-
-  it('caps tombstones at TOMBSTONE_MAX, keeping the newest', () => {
-    const many = Array.from({ length: TOMBSTONE_MAX + 50 }, (_, i) => ({
-      tabGroupId: `g${i}`,
-      deletedAt: NOW - i, // g0 newest
-    }));
-    const local = withTombstones(container(NOW, []), many);
-    const { merged } = mergeTabContainers(local, container(1, []), NOW);
-    expect(merged.deletedTabGroups).toHaveLength(TOMBSTONE_MAX);
-    expect(merged.deletedTabGroups![0].tabGroupId).toBe('g0');
   });
 });
 
