@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { openBesideActiveTab } from '../../../utils/functions/openBesideActiveTab';
+import { buildChromeTab } from '../../fixtures/chromeTab';
 import { setupChromeFake } from '../../setup/chrome.fake';
 
 // KAN-527. Closing the opened tab returns to the tab it was opened from only
@@ -80,6 +81,25 @@ describe('openBesideActiveTab', () => {
     await openBesideActiveTab(URL);
 
     expect(handle.createdTabs).toEqual([{ url: URL }]);
+  });
+
+  // The window can close between the query and the create: the query still
+  // reports a tab in window 99, which the create is then refused for.
+  test('when the placed create is refused, opens it as before', async () => {
+    handle = setupChromeFake(seed());
+    vi.spyOn(chrome.tabs, 'query').mockImplementation(() =>
+      Promise.resolve([
+        buildChromeTab({ id: 11, index: 1, windowId: 99, active: true }),
+      ])
+    );
+
+    await openBesideActiveTab(URL);
+
+    // Every create CALL, the refused one included.
+    expect(handle.createdTabs).toEqual([
+      { url: URL, index: 2, openerTabId: 11, windowId: 99 },
+      { url: URL },
+    ]);
   });
 
   test('when reading the active tab fails, still opens it', async () => {

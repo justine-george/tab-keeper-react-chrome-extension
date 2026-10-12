@@ -6,8 +6,9 @@
  * opener alone opens at the end.
  *
  * Opens it as Chrome would by default, at the end of the window, when there
- * is no active tab to read or it is incognito: a Tab Keeper page cannot live
- * in an incognito window, so Chrome moves it to a normal one (KAN-460 Part 3).
+ * is no active tab to read, it is incognito, or the placed create is refused
+ * (its window closed meanwhile). A Tab Keeper page cannot live in an incognito
+ * window, so Chrome moves it to a normal one (KAN-460 Part 3).
  *
  * Resolves once the tab is created. A caller in the popup gets nothing after
  * that: the new tab takes focus and destroys the popup.
@@ -16,14 +17,19 @@ export async function openBesideActiveTab(url: string): Promise<void> {
   const [active] = await chrome.tabs
     .query({ active: true, currentWindow: true })
     .catch(() => []);
-  if (active?.id === undefined || active.incognito) {
-    await chrome.tabs.create({ url });
-    return;
+  if (active?.id !== undefined && !active.incognito) {
+    const placed = await chrome.tabs
+      .create({
+        url,
+        index: active.index + 1,
+        openerTabId: active.id,
+        windowId: active.windowId,
+      })
+      .then(
+        () => true,
+        () => false
+      );
+    if (placed) return;
   }
-  await chrome.tabs.create({
-    url,
-    index: active.index + 1,
-    openerTabId: active.id,
-    windowId: active.windowId,
-  });
+  await chrome.tabs.create({ url });
 }
