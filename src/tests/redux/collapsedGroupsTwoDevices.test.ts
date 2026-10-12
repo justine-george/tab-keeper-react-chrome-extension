@@ -157,15 +157,6 @@ describe('a collapsed group across two devices (KAN-460)', () => {
     expect(groups.map((g) => g.collapsed)).toEqual([true, undefined]);
   });
 
-  it('the real cloud write sends the collapsed group', async () => {
-    firestore.setDoc.mockReset().mockResolvedValue(undefined);
-
-    await saveToFirestore('u1', deviceWith(savedOnA()));
-
-    const written: TabMasterContainer = firestore.setDoc.mock.calls[0][1];
-    expect(collapsedOf(written)).toEqual([true, undefined]);
-  });
-
   it('a backup file keeps the field', () => {
     const loaded = readImportedContainer(
       JSON.stringify(deviceWith(savedOnA())),

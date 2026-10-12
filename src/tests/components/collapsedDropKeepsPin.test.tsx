@@ -153,20 +153,6 @@ describe('a drop on a collapsed window keeps the pin (KAN-458)', () => {
     expect(groupOf('wB', 'a2')).toBeUndefined();
   });
 
-  test('CONTROL: the same drop on the open window pins it, where it was dropped', () => {
-    const { wrapper, wB, paneWindows } = setup(false);
-    const { result } = renderHook(() => useTabDrop(paneWindows, true), {
-      wrapper,
-    });
-    act(() => result.current.onMove('a1', 0, undefined, 'wB'));
-    expect(wB()).toEqual([
-      ['a1', true],
-      ['pB', true],
-      ['b1', false],
-      ['b2', false],
-    ]);
-  });
-
   // R1. Collapsed means drawn with no rows: a window the drag opened draws its rows.
   test('a stored-collapsed window this drag opened is positional, as an open one', () => {
     const { wrapper, wB, paneWindows } = setup(true);

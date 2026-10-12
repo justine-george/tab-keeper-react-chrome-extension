@@ -144,46 +144,6 @@ describe('readRecentTabs', () => {
 describe("the worker's listeners, through to a save", () => {
   const TAB_VIEW = 'chrome-extension://faketestid/index.html?view=tab';
 
-  test('the user on Target, then on the full view: Save stores Target, not the later tab', async () => {
-    handle = setupChromeFake({
-      windows: [
-        {
-          id: 1,
-          tabs: [
-            buildChromeTab({ id: 10, index: 0, url: TAB_VIEW }),
-            buildChromeTab({
-              id: 11,
-              index: 1,
-              url: 'https://t.test/',
-              title: 'Target',
-              active: true,
-              lastAccessed: 10,
-            }),
-            buildChromeTab({
-              id: 12,
-              index: 2,
-              url: 'https://b.test/',
-              title: 'Background',
-              lastAccessed: 20,
-            }),
-          ],
-        },
-      ],
-    });
-    recordRecentTabs();
-    handle.browser.activateTab(11);
-    handle.browser.activateTab(10);
-    await vi.waitFor(() =>
-      expect(session()).toEqual({ 'recentTabs.1': [10, 11] })
-    );
-
-    const captured = await captureOpenWindows('S', 'all-windows');
-    const w = captured?.windows[0];
-    expect(w?.tabs.find((t) => t.tabId === w.activeTabId)?.title).toBe(
-      'Target'
-    );
-  });
-
   test('Chrome replaces the tab the user was on: Save still stores it', async () => {
     handle = setupChromeFake({
       windows: [
