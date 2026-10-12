@@ -621,12 +621,23 @@ test.describe('the mark before the title', () => {
     };
     const shipped = await shot(page, await boxOf(mark(page)));
 
+    // The source is drawn at a device pixel ratio of 3, not by the capture's
+    // scale: on Chromium 156 a scaled capture of this page draws the SVG ~1.5x
+    // too big, cropped (KAN-559).
     const scratch = await context.newPage();
-    await scratch.setViewportSize({ width: 100, height: 100 });
+    const scratchCdp = await context.newCDPSession(scratch);
+    await scratchCdp.send('Emulation.setDeviceMetricsOverride', {
+      width: 100,
+      height: 100,
+      deviceScaleFactor: 3,
+      mobile: false,
+    });
     await scratch.setContent(
       `<body style="margin:0;background:${ground}"><span id="m" style="display:block;width:20px;height:20px;filter:saturate(0.6)">${SOURCE_MARK}</span></body>`
     );
-    const source = await shot(scratch, await boxOf(scratch.locator('#m')));
+    const { data: source } = await scratchCdp.send('Page.captureScreenshot', {
+      clip: { ...(await boxOf(scratch.locator('#m'))), scale: 1 },
+    });
 
     const delta = await scratch.evaluate(
       async ([a, b]) => {
