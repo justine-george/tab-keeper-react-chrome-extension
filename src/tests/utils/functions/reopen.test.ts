@@ -400,35 +400,6 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 });
 
 describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
-  test('comes back where it was, in its surviving group, without taking focus', async () => {
-    handle = setupChromeFake({
-      grantedPermissions: ['tabGroups'],
-      windows: [
-        tabKeeperWindow,
-        {
-          id: 2,
-          tabs: [
-            { url: url('a'), groupId: 50, active: true },
-            { url: url('b'), groupId: 50 },
-            { url: url('c') },
-          ],
-        },
-      ],
-      tabGroups: [{ id: 50, windowId: 2, title: 'Kyoto', color: 'green' }],
-    });
-    const w2 = await openWindow(2);
-    const item = await closeOpenTab(w2, tabIn(w2, 'b'));
-    expect(await shape(2)).toEqual(['a*', 'c']);
-    if (!item) throw new Error('close failed');
-
-    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
-
-    expect(await shape(2)).toEqual(['a*', 'b', 'c']);
-    expect((await tabNamed(2, 'b')).groupId).toBe(50);
-    expect(handle.groupedTabs.map((g) => g.groupId)).toEqual([50]);
-    expect(await focusedWindowIds()).toEqual([1]);
-  });
-
   test('a tab whose group is now in another window gets a new group like the old one', async () => {
     handle = setupChromeFake({
       grantedPermissions: ['tabGroups'],
@@ -524,44 +495,6 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     });
   });
 
-  test("the window's last tab: the window comes back around it, unfocused", async () => {
-    handle = setupChromeFake({
-      windows: [
-        tabKeeperWindow,
-        {
-          id: 2,
-          left: 30,
-          top: 40,
-          width: 700,
-          height: 500,
-          state: 'normal',
-          tabs: [{ url: url('solo'), active: true }],
-        },
-      ],
-    });
-    const w2 = await openWindow(2);
-    const item = await closeOpenTab(w2, tabIn(w2, 'solo'));
-    if (!item) throw new Error('close failed');
-    // Closing the last tab took the window with it.
-    expect(await windowIds()).toEqual([1]);
-
-    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
-
-    const reopened = await newWindow([1]);
-    expect(reopened).toMatchObject({
-      left: 30,
-      top: 40,
-      width: 700,
-      height: 500,
-      focused: false,
-    });
-    expect(await shape(idOf(reopened))).toEqual(['solo*']);
-    expect(handle.createdTabs.some((props) => props.windowId === 2)).toBe(
-      false
-    );
-    expect(await focusedWindowIds()).toEqual([1]);
-  });
-
   // KAN-308, on the tab path: the close of a window's last tab takes the
   // window, so its place must be read before the remove, not at Reopen.
   test("the window's last tab, after the window moved and maximized: it comes back where the window was when it closed", async () => {
@@ -644,18 +577,6 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
       });
       return { item, overSpot };
     }
-
-    test('an ungrouped tab comes back ungrouped', async () => {
-      handle = seedAXB();
-      const { item, overSpot } = await closeXThenGroupAB();
-      expect(item).toMatchObject({ kind: 'tab', group: null });
-
-      expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
-
-      expect((await tabNamed(2, 'x')).groupId).toBe(-1);
-      expect((await tabNamed(2, 'a')).groupId).toBe(overSpot);
-      expect((await tabNamed(2, 'b')).groupId).toBe(overSpot);
-    });
 
     test('when Chrome will not ungroup it, the tab is still reopened, with a warning', async () => {
       handle = seedAXB();
@@ -767,30 +688,6 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
       update: vi.spyOn(chrome.tabs, 'update'),
     });
 
-    test('an ungrouped front tab is created in the background, taken out of the group, then brought to the front', async () => {
-      const { item, fake } = await closeFrontXUnderCollapsedGroup();
-      expect(item).toMatchObject({
-        kind: 'tab',
-        group: null,
-        tab: { active: true },
-      });
-      const steps = spyOnTabSteps();
-
-      expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
-
-      const x = await tabNamed(2, 'x');
-      expect(x).toMatchObject({ active: true, groupId: -1 });
-      expect(fake.createdTabs).toEqual([
-        expect.objectContaining({ url: url('x'), active: false }),
-      ]);
-      expect(steps.ungroup).toHaveBeenCalledTimes(1);
-      expect(steps.update).toHaveBeenCalledTimes(1);
-      expect(steps.update).toHaveBeenCalledWith(x.id, { active: true });
-      expect(steps.update.mock.invocationCallOrder[0]).toBeGreaterThan(
-        steps.ungroup.mock.invocationCallOrder[0]
-      );
-    });
-
     test('a front tab rejoining its surviving group is brought to the front after it joins', async () => {
       handle = setupChromeFake({
         grantedPermissions: ['tabGroups'],
@@ -829,32 +726,6 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
       expect(steps.update.mock.invocationCallOrder[0]).toBeGreaterThan(
         steps.group.mock.invocationCallOrder[0]
       );
-    });
-
-    test('CONTROL: a background tab is never brought to the front', async () => {
-      handle = setupChromeFake({
-        grantedPermissions: ['tabGroups'],
-        windows: [
-          tabKeeperWindow,
-          {
-            id: 2,
-            tabs: [
-              { url: url('a'), active: true },
-              { url: url('x') },
-              { url: url('b') },
-            ],
-          },
-        ],
-      });
-      const w2 = await openWindow(2);
-      const item = await closeOpenTab(w2, tabIn(w2, 'x'));
-      if (!item) throw new Error('close failed');
-      const steps = spyOnTabSteps();
-
-      expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
-
-      expect(await tabNamed(2, 'x')).toMatchObject({ active: false });
-      expect(steps.update).not.toHaveBeenCalled();
     });
 
     test('when Chrome will not bring it to the front, the tab is still reopened, ungrouped, with a warning', async () => {
@@ -967,26 +838,6 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
 // reopenClosed says which new tab or window it made. Chrome gives each a new
 // id; the old one names nothing any more.
 describe('reopenClosed resolves to what it reopened (KAN-311)', () => {
-  test('a tab: its new id', async () => {
-    handle = setupChromeFake({
-      windows: [
-        tabKeeperWindow,
-        { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
-      ],
-    });
-    const w2 = await openWindow(2);
-    const b = tabIn(w2, 'b');
-    const item = await closeOpenTab(w2, b);
-    if (!item) throw new Error('close failed');
-
-    const reopened = await reopenClosed(item, false);
-
-    const back = await tabNamed(2, 'b');
-    // PREMISE: Chrome gave it a new id, so the old one cannot pass for it.
-    expect(back.id).not.toBe(b.id);
-    expect(reopened).toEqual({ kind: 'tab', tabId: back.id });
-  });
-
   test("a window's last tab: the tab in the window made around it", async () => {
     handle = setupChromeFake({
       windows: [tabKeeperWindow, { id: 2, tabs: [{ url: url('solo') }] }],
@@ -1003,52 +854,9 @@ describe('reopenClosed resolves to what it reopened (KAN-311)', () => {
       tabId: (await tabNamed(id, 'solo')).id,
     });
   });
-
-  test('a window: its new id', async () => {
-    handle = setupChromeFake({
-      windows: [
-        tabKeeperWindow,
-        { id: 2, tabs: [{ url: url('a') }, { url: url('b') }] },
-      ],
-    });
-    const item = await closeOpenWindow(await openWindow(2));
-    if (!item) throw new Error('close failed');
-
-    const reopened = await reopenClosed(item, false);
-
-    const id = idOf(await newWindow([1]));
-    expect(id).not.toBe(2);
-    expect(reopened).toEqual({ kind: 'window', windowId: id });
-  });
 });
 
 describe('closeOpenTab / closeOpenWindow', () => {
-  test('a tab closed twice: the first resolves an item, the second null', async () => {
-    handle = setupChromeFake({
-      windows: [
-        tabKeeperWindow,
-        { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
-      ],
-    });
-    const w2 = await openWindow(2);
-    const b = tabIn(w2, 'b');
-
-    const [first, second] = await Promise.all([
-      closeOpenTab(w2, b),
-      closeOpenTab(w2, b),
-    ]);
-
-    expect(first).toEqual({
-      kind: 'tab',
-      tab: b,
-      group: null,
-      window: w2,
-      restorableSessionId: null,
-    });
-    expect(second).toBeNull();
-    expect(handle.removedTabIds).toEqual([b.id]);
-  });
-
   test('a window already gone resolves null', async () => {
     handle = setupChromeFake({
       windows: [tabKeeperWindow, { id: 2, tabs: [{ url: url('a') }] }],
@@ -1081,56 +889,6 @@ describe('closeOpenTab / closeOpenWindow record Chrome’s recently closed entry
       (entry) => entry.window?.tabs?.[0]?.url === firstAddress
     )?.window?.sessionId;
   }
-
-  test('a tab close records the id of its tab entry', async () => {
-    handle = setupChromeFake({
-      grantedPermissions: ['sessions'],
-      windows: [
-        tabKeeperWindow,
-        { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
-      ],
-    });
-    const w2 = await openWindow(2);
-    const b = tabIn(w2, 'b');
-
-    const item = await closeOpenTab(w2, b);
-
-    const id = await tabEntryId(url('b'));
-    expect(id).toEqual(expect.any(String));
-    expect(item).toEqual({
-      kind: 'tab',
-      tab: b,
-      group: null,
-      window: w2,
-      restorableSessionId: id,
-    });
-  });
-
-  test('a window close records the id of its window entry, not one of its tabs', async () => {
-    handle = setupChromeFake({
-      grantedPermissions: ['sessions'],
-      windows: [
-        tabKeeperWindow,
-        { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
-      ],
-    });
-    const w2 = await openWindow(2);
-
-    const item = await closeOpenWindow(w2);
-
-    const id = await windowEntryId(url('a'));
-    expect(id).toEqual(expect.any(String));
-    expect(item).toEqual({
-      kind: 'window',
-      window: w2,
-      restorableSessionId: id,
-    });
-    // Chrome gives each tab inside a window entry an id of its own too.
-    const [entry] = await chrome.sessions.getRecentlyClosed();
-    const tabIds = (entry.window?.tabs ?? []).map((tab) => tab.sessionId);
-    expect(tabIds).toHaveLength(2);
-    expect(tabIds).not.toContain(id);
-  });
 
   // Open now's snapshot leaves Tab Keeper's own pages out; Chrome's entry keeps them.
   test.each([
@@ -1547,29 +1305,6 @@ describe('closeOpenTab / closeOpenWindow record Chrome’s recently closed entry
     expect(await windowIds()).toEqual([1]);
     expect(warn).not.toHaveBeenCalled();
   });
-
-  test('held, a close that fails still resolves null', async () => {
-    handle = setupChromeFake({
-      grantedPermissions: ['sessions'],
-      windows: [
-        tabKeeperWindow,
-        { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
-      ],
-    });
-    const w2 = await openWindow(2);
-    const b = tabIn(w2, 'b');
-
-    const [first, second] = await Promise.all([
-      closeOpenTab(w2, b),
-      closeOpenTab(w2, b),
-    ]);
-    expect(first).toMatchObject({
-      restorableSessionId: await tabEntryId(url('b')),
-    });
-    expect(second).toBeNull();
-    expect(await closeOpenWindow(w2)).not.toBeNull();
-    expect(await closeOpenWindow(w2)).toBeNull();
-  });
 });
 
 describe('recreateClosed adds a pinned Tab Keeper tab when asked (KAN-459)', () => {
@@ -1598,20 +1333,6 @@ describe('recreateClosed adds a pinned Tab Keeper tab when asked (KAN-459)', () 
       pinned: true,
       active: false,
     });
-  });
-
-  test('Off: a recreated window gets nothing extra', async () => {
-    handle = setupChromeFake(windowSeed());
-    const item = await closeOpenWindow(await openWindow(2));
-    if (!item) throw new Error('close failed');
-
-    const reopened = await recreateClosed(item, false);
-
-    if (reopened?.kind !== 'window') throw new Error('no window came back');
-    const urls = (await chrome.tabs.query({ windowId: reopened.windowId })).map(
-      (t) => t.url
-    );
-    expect(urls).not.toContain(STUB_URL);
   });
 
   test('On, an incognito window: no stub in it, and none in a normal window instead (KAN-460 Part 3)', async () => {

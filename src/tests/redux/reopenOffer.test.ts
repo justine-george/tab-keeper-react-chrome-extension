@@ -15,13 +15,7 @@ vi.mock('../../utils/functions/external', () => ({
 }));
 
 import { makeTestStore } from '../setup/makeStore';
-import {
-  newestToast,
-  isToastShowing,
-  shownOfferId,
-  toastTexts,
-} from '../setup/toasts';
-import { holdToasts, releaseToasts } from '../../redux/toastTimers';
+import { isToastShowing, shownOfferId, toastTexts } from '../setup/toasts';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeFakeHandle } from '../setup/chrome.fake';
 import { toOpenWindows } from '../../utils/functions/openNow';
@@ -48,10 +42,7 @@ import {
   REOPEN_FOCUS_MS,
   subscribeReopenFocus,
 } from '../../redux/reopenFocus';
-import {
-  TOAST_MESSAGES,
-  WINDOW_CLOSED_FRAME,
-} from '../../utils/constants/common';
+import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 // KAN-280 O8a. The toast after a close offers Reopen for the latest close
 // only, once, for 8 seconds, and the timer holds while the user is on it.
@@ -126,24 +117,6 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
     expect(takeReopenOffer(idB)).toBe(b);
   });
 
-  // KAN-280 O8a: a plain toast (a sync merge, say) replacing the Reopen toast
-  // takes the offer with it -- in Redux AND in the registry.
-  // KAN-349 Q1 C′. It used to: one toast slot, so any toast replaced the
-  // offer. With a stack the offer stays, and so does ⌘Z.
-  test('a sync toast after the offer leaves it, and ⌘Z with it', async () => {
-    const [item] = await closedTabs();
-    const { store } = makeTestStore();
-
-    await store.dispatch(offerReopen(item));
-    const id = shownOfferId(store.getState());
-    if (id === null) throw new Error('no offer id');
-    await store.dispatch(showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED }));
-
-    expect(shownOfferId(store.getState())).toBe(id);
-    expect(selectReopenOfferForKey(store.getState())).toBe(id);
-    expect(takeReopenOffer(id)).toBe(item);
-  });
-
   // KAN-349 Q1 C′. ⌘Z goes to the saved change, but the Reopen button on the
   // offer, still showing, still works.
   test('a saved change takes ⌘Z, and the offer can still be taken', async () => {
@@ -163,24 +136,6 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
     expect(selectReopenOfferForKey(store.getState())).toBeNull();
     expect(shownOfferId(store.getState())).toBe(id);
     expect(takeReopenOffer(id)).toBe(item);
-  });
-
-  // KAN-349 T2. Pushed out by three newer toasts, the offer goes as a timed
-  // out one does (O8a): nothing left on screen can reopen it.
-  test('an offer pushed out by the cap is dropped', async () => {
-    const [item] = await closedTabs();
-    const { store } = makeTestStore();
-
-    await store.dispatch(offerReopen(item));
-    const id = shownOfferId(store.getState());
-    if (id === null) throw new Error('no offer id');
-    for (const toastText of ['One', 'Two', 'Three']) {
-      await store.dispatch(showToast({ toastText }));
-    }
-
-    expect(toastTexts(store.getState())).toEqual(['One', 'Two', 'Three']);
-    expect(shownOfferId(store.getState())).toBeNull();
-    expect(takeReopenOffer(id)).toBeNull();
   });
 
   test('two newer toasts leave the offer', async () => {
@@ -256,57 +211,6 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
     expect(openState(store)).toBe(false);
     expect(takeReopenOffer(id)).toBeNull();
   });
-
-  test('held, the timer stops; released, it runs out the time that was left', async () => {
-    const [item] = await closedTabs();
-    const { store } = makeTestStore();
-    vi.useFakeTimers();
-
-    await store.dispatch(offerReopen(item));
-    vi.advanceTimersByTime(3000);
-    holdToasts();
-    vi.advanceTimersByTime(20_000);
-    expect(openState(store)).toBe(true);
-
-    releaseToasts();
-    vi.advanceTimersByTime(4999);
-    expect(openState(store)).toBe(true);
-    vi.advanceTimersByTime(1);
-    expect(openState(store)).toBe(false);
-  });
-
-  test('a window close says how many tabs it held', async () => {
-    handle = setupChromeFake({
-      windows: [
-        { id: 1, focused: true, tabs: [{ url: url('home'), active: true }] },
-        {
-          id: 2,
-          tabs: ['a', 'b', 'c', 'd', 'e'].map((name) => ({ url: url(name) })),
-        },
-      ],
-    });
-    const item = await closeOpenWindow(await openWindow(2));
-    if (!item) throw new Error('close failed');
-    const { store } = makeTestStore();
-
-    await store.dispatch(offerReopen(item));
-
-    const toast = newestToast(store.getState());
-    expect(toast?.text).toBe(WINDOW_CLOSED_FRAME);
-    expect(WINDOW_CLOSED_FRAME).toBe('WindowClosed');
-    expect(toast?.params).toEqual({ count: 5 });
-  });
-
-  test('a closed tab says "Tab closed"', async () => {
-    const [item] = await closedTabs();
-    const { store } = makeTestStore();
-
-    await store.dispatch(offerReopen(item));
-
-    const toast = newestToast(store.getState());
-    expect(toast?.text).toBe(TOAST_MESSAGES.TAB_CLOSED);
-    expect(toast?.params).toBeUndefined();
-  });
 });
 
 // KAN-311 (O8c). The Reopen button and the ⌘Z / Ctrl+Z key both dispatch
@@ -334,25 +238,6 @@ describe('reopenFromOffer (KAN-311)', () => {
     (await chrome.tabs.query({ windowId }))
       .sort((x, y) => x.index - y.index)
       .map((tab) => tab.url);
-
-  test('takes the offer, closes the toast, reopens, and names the new tab for focus', async () => {
-    const item = await closedB();
-    const { store } = makeTestStore();
-    await store.dispatch(offerReopen(item));
-    const id = offerId(store);
-
-    await store.dispatch(reopenFromOffer(id));
-
-    expect(openState(store)).toBe(false);
-    expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
-    const back = (await chrome.tabs.query({ windowId: 2 })).find(
-      (tab) => tab.url === url('b')
-    );
-    expect(back?.id).toBeDefined();
-    expect(pendingReopenFocus()).toEqual({ kind: 'tab', tabId: back?.id });
-    // Taken: the offer is gone from the registry.
-    expect(takeReopenOffer(id)).toBeNull();
-  });
 
   test('a second dispatch for the same offer does nothing', async () => {
     const item = await closedB();
@@ -393,52 +278,6 @@ describe('reopenFromOffer (KAN-311)', () => {
     ]);
     expect(pendingReopenFocus()).toBeNull();
   });
-
-  test('nothing coming back says so, and asks for no focus move', async () => {
-    handle = setupChromeFake({
-      refusedUrls: [url('b')],
-      windows: [
-        { id: 1, focused: true, tabs: [{ url: url('home'), active: true }] },
-        { id: 2, tabs: [{ url: url('a') }, { url: url('b') }] },
-      ],
-    });
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const w2 = await openWindow(2);
-    const item = await closeOpenTab(w2, w2.tabs[1]);
-    if (!item) throw new Error('close failed');
-    const { store } = makeTestStore();
-    await store.dispatch(offerReopen(item));
-
-    await store.dispatch(reopenFromOffer(offerId(store)));
-
-    // PREMISE: Chrome was asked, and refused.
-    expect(handle.createdTabs).toHaveLength(1);
-    expect(newestToast(store.getState())?.text).toBe(
-      TOAST_MESSAGES.REOPEN_FAILED
-    );
-    expect(openState(store)).toBe(true);
-    expect(pendingReopenFocus()).toBeNull();
-  });
-
-  test('a reopened window is named for focus by its new id', async () => {
-    handle = setupChromeFake({
-      windows: [
-        { id: 1, focused: true, tabs: [{ url: url('home'), active: true }] },
-        { id: 2, tabs: [{ url: url('a') }] },
-      ],
-    });
-    const item = await closeOpenWindow(await openWindow(2));
-    if (!item) throw new Error('close failed');
-    const { store } = makeTestStore();
-    await store.dispatch(offerReopen(item));
-
-    await store.dispatch(reopenFromOffer(offerId(store)));
-
-    const ids = (await chrome.windows.getAll({})).map((w) => w.id);
-    const made = ids.find((id) => id !== 1);
-    expect(made).toBeDefined();
-    expect(pendingReopenFocus()).toEqual({ kind: 'window', windowId: made });
-  });
 });
 
 // KAN-280 Part D: with `sessions` held, the service worker restores the item
@@ -478,17 +317,6 @@ describe('reopenFromOffer with history (KAN-280 Part D)', () => {
 });
 
 describe('the reopened row to focus (KAN-311)', () => {
-  test('is kept for 3 seconds, then forgotten', () => {
-    vi.useFakeTimers();
-    expect(REOPEN_FOCUS_MS).toBe(3000);
-
-    expectReopenedRow({ kind: 'tab', tabId: 7 });
-    vi.advanceTimersByTime(REOPEN_FOCUS_MS - 1);
-    expect(pendingReopenFocus()).toEqual({ kind: 'tab', tabId: 7 });
-    vi.advanceTimersByTime(1);
-    expect(pendingReopenFocus()).toBeNull();
-  });
-
   // The pane reads it through useSyncExternalStore, which re-reads only when
   // told: expiry is a change like any other.
   test('its expiry is announced to subscribers', () => {

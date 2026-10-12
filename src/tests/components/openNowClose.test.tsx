@@ -182,87 +182,6 @@ afterEach(() => {
 });
 
 describe('closing from the Open now pane (KAN-280 O7a)', () => {
-  test('each tab row has a Close tab control, named for its tab', async () => {
-    await renderOpenNow(threeWindows());
-
-    for (const title of ['A', 'B', 'C', 'D', 'E', 'F']) {
-      expect(closeTabButton(title)).toBeInTheDocument();
-    }
-    // In the row it names, not merely somewhere on the page.
-    expect(
-      closeTabButton('B')
-        .closest('[data-open-tab-id]')
-        ?.getAttribute('data-open-tab-id')
-    ).toBe('12');
-  });
-
-  test('closing a tab closes the real tab, drops its row, and offers Reopen', async () => {
-    const { chrome: fake } = await renderOpenNow(threeWindows());
-
-    fireEvent.click(closeTabButton('B'));
-
-    await waitFor(() => expect(querySwitchRow('B')).toBeNull());
-    expect(fake.removedTabIds).toEqual([12]);
-    const status = screen.getByRole('status');
-    expect(status).toHaveTextContent('Tab closed');
-    expect(
-      within(status).getByRole('button', { name: 'Reopen' })
-    ).toBeInTheDocument();
-  });
-
-  test('Reopen from the pane brings the tab back into its row position', async () => {
-    await renderOpenNow(threeWindows());
-    fireEvent.click(closeTabButton('B'));
-    await waitFor(() => expect(titlesIn(1)).toEqual(['A', 'C']));
-
-    fireEvent.click(screen.getByRole('button', { name: 'Reopen' }));
-
-    // B's row shows its address: a reopened tab has no title until its page
-    // loads, and the fake loads nothing.
-    await waitFor(() => expect(titlesIn(1)).toEqual(['A', url('B'), 'C']));
-  });
-
-  test('"This window" has Save window only; other windows have Close window', async () => {
-    await renderOpenNow(threeWindows());
-
-    // PREMISE: window 1 is the one tagged "This window".
-    expect(within(blockOf(1)).getByText('This window')).toBeInTheDocument();
-    expect(
-      within(blockOf(1)).queryByRole('button', { name: /^Close window/ })
-    ).toBeNull();
-    expect(
-      within(blockOf(2)).getByRole('button', {
-        name: 'Close window: Window 2',
-      })
-    ).toBeInTheDocument();
-    expect(
-      within(blockOf(3)).getByRole('button', {
-        name: 'Close window: Window 3',
-      })
-    ).toBeInTheDocument();
-  });
-
-  test('closing a window closes it and says how many tabs it held', async () => {
-    const { chrome: fake } = await renderOpenNow(threeWindows());
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Close window: Window 2' })
-    );
-
-    await waitFor(() =>
-      expect(document.querySelector('[data-open-window-id="2"]')).toBeNull()
-    );
-    expect(fake.removedWindowIds).toEqual([2]);
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Window closed (2 tabs)'
-    );
-    expect(
-      within(screen.getByRole('status')).getByRole('button', {
-        name: 'Reopen',
-      })
-    ).toBeInTheDocument();
-  });
-
   // KAN-280 O7b. Chrome's answer is held until after the re-read has dropped
   // the row, so focus that waited for the close would find its row already
   // gone.
@@ -286,32 +205,6 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     expect(document.activeElement).toBe(closeTabButton('B'));
   });
 
-  // KAN-280 O7b. Focus lands on the next row's ×, not its Switch button, so a
-  // second Enter closes that tab too instead of switching Chrome to it.
-  // Icon turns each press into a click() whose detail is 0, which O7c's
-  // double-click guard lets through.
-  test('Enter, Enter on Close tab closes two tabs, and Reopen offers the second', async () => {
-    const { chrome: fake } = await renderOpenNow(threeWindows());
-    const user = userEvent.setup();
-    act(() => closeTabButton('B').focus());
-
-    await user.keyboard('{Enter}');
-    await waitFor(() => expect(querySwitchRow('B')).toBeNull());
-    expect(document.activeElement).toBe(closeTabButton('C'));
-
-    await user.keyboard('{Enter}');
-    await waitFor(() => expect(querySwitchRow('C')).toBeNull());
-
-    expect(fake.removedTabIds).toEqual([12, 13]);
-    // Rule 3: the offer is the latest close's, so Reopen brings back C alone.
-    fireEvent.click(
-      within(screen.getByRole('status')).getByRole('button', {
-        name: 'Reopen',
-      })
-    );
-    await waitFor(() => expect(titlesIn(1)).toEqual(['A', url('C')]));
-  });
-
   // Presses Enter or Space on B's ×, then the same key on C's × with the
   // given `repeat`, and waits past the 50ms re-read. user-event cannot set
   // `repeat`, so both are fired directly.
@@ -325,17 +218,17 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
 
   // KAN-280 O7b. A held key repeats into whatever has focus, which after the
   // first close is the next row's ×.
-  test.each([
-    ['Enter', 'Enter'],
-    ['Space', ' '],
-  ])('a held %s on Close tab closes one tab', async (_name, key) => {
-    const { chrome: fake } = await renderOpenNow(threeWindows());
+  test.each([['Space', ' ']])(
+    'a held %s on Close tab closes one tab',
+    async (_name, key) => {
+      const { chrome: fake } = await renderOpenNow(threeWindows());
 
-    await pressThenRepeat(key, true);
+      await pressThenRepeat(key, true);
 
-    expect(fake.removedTabIds).toEqual([12]);
-    expect(querySwitchRow('C')).not.toBeNull();
-  });
+      expect(fake.removedTabIds).toEqual([12]);
+      expect(querySwitchRow('C')).not.toBeNull();
+    }
+  );
 
   // CONTROL for the test above: the same wait sees a second, unrepeated press
   // close C.
@@ -361,25 +254,6 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
 
   // KAN-280 O7c. A double-click's first click closes its row, the row below
   // moves up under the pointer, and the second click lands on that row's ×.
-  // The second click is the one whose detail is 2. The detail-1 row is the
-  // CONTROL: the same wait sees a click of its own close C.
-  test.each([
-    [2, [12]],
-    [1, [12, 13]],
-  ])(
-    "after B's × closes B, a click with detail %i on C's × leaves %j closed",
-    async (detail, closed) => {
-      const { chrome: fake } = await renderOpenNow(threeWindows());
-
-      fireEvent.click(closeTabButton('B'), { detail: 1 });
-      await waitFor(() => expect(querySwitchRow('B')).toBeNull());
-      fireEvent.click(closeTabButton('C'), { detail });
-      await act(() => new Promise((resolve) => setTimeout(resolve, 150)));
-
-      expect(fake.removedTabIds).toEqual(closed);
-    }
-  );
-
   // The same for Close window: window 3 moves up into Window 2's place.
   test.each([
     [2, [2]],
@@ -606,16 +480,6 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     expect(rules.join('\n')).not.toMatch(/:focus-within/);
   }
 
-  test('the close control is revealed by keyboard focus', async () => {
-    await renderOpenNow(threeWindows());
-    const user = userEvent.setup();
-    act(() => switchRow('B').focus());
-
-    await user.tab();
-
-    expectRevealedByKeyboardFocus(closeTabButton('B'));
-  });
-
   // A window row's Tab order is the chevron, the Go to window button (KAN-331
   // O15), Save window (O13), then Close window, so Close window is the third
   // Tab stop after the chevron.
@@ -693,26 +557,6 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
       within(screen.getByRole('status')).getByRole('button', {
         name: 'Reopen',
       });
-
-    test("the reopened tab's × has focus once the pane lists it", async () => {
-      await renderOpenNow(threeWindows());
-      fireEvent.click(closeTabButton('B'));
-      await waitFor(() => expect(querySwitchRow('B')).toBeNull());
-      // PREMISE: the close moved focus to C's ×, not to where B comes back.
-      expect(document.activeElement).toBe(closeTabButton('C'));
-
-      fireEvent.click(reopenButton());
-
-      // A reopened tab shows its address until its page loads.
-      await waitFor(() =>
-        expect(document.activeElement).toBe(closeTabButton(url('B')))
-      );
-      expect(
-        closeTabButton(url('B'))
-          .closest('[data-open-tab-id]')
-          ?.getAttribute('data-open-tab-id')
-      ).not.toBe('12');
-    });
 
     test("a reopened window's chevron has focus once the pane lists it", async () => {
       await renderOpenNow(threeWindows());

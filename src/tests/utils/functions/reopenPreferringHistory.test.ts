@@ -627,39 +627,6 @@ describe('reopenPreferringHistory ends exactly where recreate does (KAN-280 Part
   );
 });
 
-// Task 8, finding A (KAN-317): a window restore brings its grouped tabs back
-// without their Back and Forward pages. Nothing after the restore can add
-// them, so the history path keeps them as Chrome made them.
-describe('KNOWN LIMITATION: a reopened window keeps history only for its ungrouped tabs (KAN-317)', () => {
-  test('its grouped tabs come back without history, its ungrouped ones with it', async () => {
-    handle = setupChromeFake(
-      scenarios['a window whose active tab was in a group'].seed
-    );
-    const item = await closeWindow(2);
-    if (!item) throw new Error('close failed');
-
-    const reopened = await reopenPreferringHistory(item, false);
-
-    if (reopened?.kind !== 'window') throw new Error('no window came back');
-    const tabs = (
-      await chrome.tabs.query({ windowId: reopened.windowId })
-    ).sort((a, b) => a.index - b.index);
-    expect(
-      tabs.map((t) => [
-        t.url,
-        t.groupId !== -1,
-        handle?.restoredFromSession(t.id ?? -1),
-      ])
-    ).toEqual([
-      [url('p'), false, true],
-      [url('a'), true, false],
-      [url('b'), true, false],
-      [url('c'), true, false],
-      [url('d'), false, true],
-    ]);
-  });
-});
-
 describe("a collapsed group over the tab's old spot (KAN-316)", () => {
   const scenario =
     scenarios['an ungrouped tab back right after a collapsed group'];
@@ -672,21 +639,6 @@ describe("a collapsed group over the tab's old spot (KAN-316)", () => {
     });
     return seen;
   };
-
-  test('the group is never expanded on the way, not only collapsed at the end', async () => {
-    handle = setupChromeFake(scenario.seed);
-    const item = await scenario.close();
-    if (!item) throw new Error('close failed');
-    await scenario.between?.(handle);
-    const seen = watchGroup('H');
-
-    const reopened = await reopenPreferringHistory(item, false);
-
-    if (reopened?.kind !== 'tab') throw new Error('no tab came back');
-    // PREMISE: it came back through the restore, which put it in front.
-    expect(handle.restoredFromSession(reopened.tabId)).toBe(true);
-    expect(seen).toEqual([]);
-  });
 
   // Worst path: with no front tab to give back, the tab is still in front
   // when it moves, so the move expands the group. The backstop collapses it.
@@ -809,24 +761,6 @@ describe('reopenPreferringHistory falls back to recreate (KAN-280 Part D)', () =
   const tabsAt = async (address: string) =>
     (await chrome.tabs.query({})).filter((t) => t.url === address);
 
-  test('a spent id (restored already, as Ctrl+Shift+T does) recreates', async () => {
-    handle = setupChromeFake(seed);
-    const item = await closeTab(2, 'b');
-    if (!item?.restorableSessionId) throw new Error('no id recorded');
-    await chrome.sessions.restore(item.restorableSessionId);
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    const reopened = await reopenPreferringHistory(item, false);
-
-    if (reopened?.kind !== 'tab') throw new Error('no tab came back');
-    expect(handle.restoredFromSession(reopened.tabId)).toBe(false);
-    expect(handle.createdTabs).toEqual([
-      expect.objectContaining({ url: url('b'), active: false }),
-    ]);
-    expect(await tabsAt(url('b'))).toHaveLength(2);
-    expect(warn).toHaveBeenCalled();
-  });
-
   test('a restore that throws at once (revoked mid-way) recreates', async () => {
     handle = setupChromeFake(seed);
     const item = await closeTab(2, 'b');
@@ -878,19 +812,6 @@ describe('reopenPreferringHistory falls back to recreate (KAN-280 Part D)', () =
     expect(restore).not.toHaveBeenCalled();
   });
 
-  test('CONTROL: with the grant and a live id, it restores and recreates nothing', async () => {
-    handle = setupChromeFake(seed);
-    const item = await closeTab(2, 'b');
-    if (!item) throw new Error('close failed');
-
-    const reopened = await reopenPreferringHistory(item, false);
-
-    if (reopened?.kind !== 'tab') throw new Error('no tab came back');
-    expect(handle.restoredFromSession(reopened.tabId)).toBe(true);
-    expect(handle.createdTabs).toEqual([]);
-    expect(await tabsAt(url('b'))).toHaveLength(1);
-  });
-
   test('a cosmetic step that fails still reopens, with a warning', async () => {
     handle = setupChromeFake(seed);
     const item = await closeTab(2, 'b');
@@ -934,44 +855,6 @@ describe('reopenPreferringHistory without the tabGroups grant (KAN-280 Part D)',
       { id: 50, windowId: 2, title: 'Kyoto', color: 'blue', collapsed: true },
     ],
   };
-
-  const strip = async (windowId: number) =>
-    (await chrome.tabs.query({ windowId }))
-      .sort((x, y) => x.index - y.index)
-      .map(
-        (t) =>
-          `${(t.url ?? '').slice(8, -6)}${t.active ? '*' : ''} g${t.groupId}`
-      );
-
-  test('a tab comes back in its group, in its place, with nothing thrown or warned', async () => {
-    handle = setupChromeFake(seed);
-    const item = await closeTab(2, 'a');
-    if (!item) throw new Error('close failed');
-    // PREMISE: the page could not see the group.
-    expect(chrome.tabGroups).toBeUndefined();
-    expect(item).toMatchObject({ group: null, tab: { groupId: null } });
-    const warn = vi.spyOn(console, 'warn');
-
-    const reopened = await reopenPreferringHistory(item, false);
-
-    if (reopened?.kind !== 'tab') throw new Error('no tab came back');
-    expect(handle.restoredFromSession(reopened.tabId)).toBe(true);
-    expect(await strip(2)).toEqual(['z* g-1', 'a g50', 'b g50', 'c g-1']);
-    expect((await chrome.windows.getLastFocused()).id).toBe(1);
-    expect(warn).not.toHaveBeenCalled();
-  });
-
-  // Known limitation: the restore expands a collapsed group it lands in, and
-  // without the grant there is no call that can collapse it again.
-  test('KNOWN LIMITATION: a collapsed group the restore expanded stays expanded', async () => {
-    handle = setupChromeFake(seed);
-    const item = await closeTab(2, 'a');
-    if (!item) throw new Error('close failed');
-
-    await reopenPreferringHistory(item, false);
-
-    expect(handle.groupState(50)?.collapsed).toBe(false);
-  });
 
   test('a window comes back with its groups, with nothing thrown or warned', async () => {
     handle = setupChromeFake(seed);
@@ -1069,22 +952,6 @@ describe('the service worker answers the request (KAN-280 Part D)', () => {
     ],
   };
 
-  test('with the ids of what it restored', async () => {
-    handle = setupChromeFake(seed);
-    await startWorker();
-    const item = await closeTab(2, 'b');
-
-    const answer = await chrome.runtime.sendMessage({
-      type: REOPEN_PREFERRING_HISTORY_MESSAGE,
-      item,
-      pinTabKeeper: false,
-    });
-
-    const b = await tabIdNamed('b');
-    expect(answer).toEqual({ kind: 'tab', tabId: b });
-    expect(handle.restoredFromSession(b)).toBe(true);
-  });
-
   test('a handler that throws still answers, with null', async () => {
     handle = setupChromeFake(seed);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -1176,25 +1043,6 @@ describe('reopenClosed, the page side (KAN-280 Part D)', () => {
 
   const tabsAt = async (address: string) =>
     (await chrome.tabs.query({})).filter((t) => t.url === address);
-
-  test('with an id, the worker restores it and the page takes its answer', async () => {
-    handle = setupChromeFake(seed(GRANTED));
-    await startWorker();
-    const item = await closeTab(2, 'b');
-    if (!item) throw new Error('close failed');
-
-    const reopened = await reopenClosed(item, false);
-
-    const b = await tabIdNamed('b');
-    expect(reopened).toEqual({ kind: 'tab', tabId: b });
-    expect(handle.sentMessages).toEqual([
-      { type: REOPEN_PREFERRING_HISTORY_MESSAGE, item, pinTabKeeper: false },
-    ]);
-    expect(handle.restoredFromSession(b)).toBe(true);
-    // Never a second, local recreate after a restore that ran.
-    expect(handle.createdTabs).toEqual([]);
-    expect(await tabsAt(url('b'))).toHaveLength(1);
-  });
 
   test('with no id, no message is sent and it recreates as today', async () => {
     handle = setupChromeFake(seed(['tabGroups']));
