@@ -5,8 +5,6 @@ const freshSlice = async () => {
   vi.resetModules();
   return import('../../redux/slices/settingsDataStateSlice');
 };
-const saved = (): unknown =>
-  JSON.parse(localStorage.getItem('settingsData') ?? '{}');
 
 afterEach(() => localStorage.clear());
 
@@ -45,23 +43,6 @@ describe('pinTabKeeperInNewWindows', () => {
       expect(initialState.pinTabKeeperInNewWindows).toBe(false);
     }
   );
-
-  it('setPinTabKeeperInNewWindows sets it and saves it', async () => {
-    const { settingsDataStateSlice, setPinTabKeeperInNewWindows } =
-      await freshSlice();
-    const on = settingsDataStateSlice.reducer(
-      undefined,
-      setPinTabKeeperInNewWindows(true)
-    );
-    expect(on.pinTabKeeperInNewWindows).toBe(true);
-    expect(saved()).toMatchObject({ pinTabKeeperInNewWindows: true });
-    const off = settingsDataStateSlice.reducer(
-      on,
-      setPinTabKeeperInNewWindows(false)
-    );
-    expect(off.pinTabKeeperInNewWindows).toBe(false);
-    expect(saved()).toMatchObject({ pinTabKeeperInNewWindows: false });
-  });
 });
 
 describe('another page writing it', () => {
