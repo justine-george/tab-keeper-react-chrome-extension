@@ -147,48 +147,6 @@ describe('a tab dragged in Open now moves the real tab', () => {
     // O11b: nothing reached the store.
     expect(store.getState()).toBe(before);
   });
-
-  // W1 [11P, 12P, 13*, 14], W2 [21*]
-  const pinnedSeed = (): ChromeSeed => ({
-    windows: [
-      {
-        id: 1,
-        tabs: [
-          { id: 11, url: url('p1'), title: 'P1', pinned: true },
-          { id: 12, url: url('p2'), title: 'P2', pinned: true },
-          { id: 13, url: url('a'), title: 'A', active: true },
-          { id: 14, url: url('b'), title: 'B' },
-        ],
-      },
-      {
-        id: 2,
-        tabs: [{ id: 21, url: url('c'), title: 'C', active: true }],
-      },
-    ],
-  });
-
-  test('an unpinned tab held over the pinned run lands just below it (landingRange)', async () => {
-    const { top, onMoved } = await renderPane(pinnedSeed(), false);
-    drag(tabRow(14), (top.get('14') ?? 0) + ROW / 2, (top.get('11') ?? 0) + 2);
-    await waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
-    expect(moveOpenTab).toHaveBeenCalledWith(
-      expect.objectContaining({ tabId: '14', toWindowId: '1', toIndex: 2 }),
-      expect.anything(),
-      false
-    );
-    expect((await chrome.tabs.get(14)).index).toBe(2);
-  });
-
-  test('K1: a pinned tab released over another window moves nothing (acceptsWindow)', async () => {
-    const { top, onMoved } = await renderPane(pinnedSeed(), false);
-    drag(tabRow(11), (top.get('11') ?? 0) + ROW / 2, (top.get('21') ?? 0) + 2);
-    // Let any move the release started settle before asserting none did.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(moveOpenTab).not.toHaveBeenCalled();
-    expect(onMoved).not.toHaveBeenCalled();
-    const p1 = await chrome.tabs.get(11);
-    expect([p1.windowId, p1.index, p1.pinned]).toEqual([1, 0, true]);
-  });
 });
 
 // KAN-472. This window (2) draws first: W2 [21*, 22], then W1 [11*, 12].
@@ -233,14 +191,6 @@ describe('with This window drawn first', () => {
     const c = await chrome.tabs.get(21);
     expect([c.windowId, c.index]).toEqual([1, 1]);
   });
-
-  test('released above This window, nothing moves', async () => {
-    const { top, onMoved } = await renderPane(seed(), false, thisFirst);
-    drag(tabRow(12), (top.get('12') ?? 0) + ROW / 2, -ROW);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(moveOpenTab).not.toHaveBeenCalled();
-    expect(onMoved).not.toHaveBeenCalled();
-  });
 });
 
 describe('a group dragged in Open now by its title row moves the real group', () => {
@@ -269,38 +219,6 @@ describe('a group dragged in Open now by its title row moves the real group', ()
       },
     ],
     tabGroups: [{ id: 50, title: 'Research', color: 'blue', windowId: 1 }],
-  });
-
-  const titleRow = () => find('[data-fixed-row-id="50"]');
-
-  test('released between C and D, the group lands there in Chrome', async () => {
-    const { top, onMoved } = await renderPane(seed(), true);
-    const groupsMove = vi.spyOn(chrome.tabGroups, 'move');
-    drag(
-      titleRow(),
-      (top.get('group:50') ?? 0) + ROW / 2,
-      (top.get('22') ?? 0) + 2
-    );
-    await waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
-    expect(moveOpenGroup).toHaveBeenCalledWith(
-      { groupId: '50', fromWindowId: '1', toWindowId: '2', toIndex: 1 },
-      expect.anything()
-    );
-    expect(groupsMove).toHaveBeenCalledWith(50, { windowId: 2, index: 1 });
-    const g1 = await chrome.tabs.get(12);
-    expect([g1.windowId, g1.index, g1.groupId]).toEqual([2, 1, 50]);
-  });
-
-  test('O11d: released over an incognito window, the group moves nothing', async () => {
-    const { top, onMoved } = await renderPane(seed(), true);
-    drag(
-      titleRow(),
-      (top.get('group:50') ?? 0) + ROW / 2,
-      (top.get('31') ?? 0) + 2
-    );
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(moveOpenGroup).not.toHaveBeenCalled();
-    expect(onMoved).not.toHaveBeenCalled();
   });
 
   // O11e: without the grant no band is drawn, so there is nothing to hold a

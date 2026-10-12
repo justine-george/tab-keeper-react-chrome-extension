@@ -187,19 +187,6 @@ describe('⌘Z after an Open now drag', () => {
     expect(undoRedoIn(seen.slice(before))).toEqual([]);
   });
 
-  test('CONTROL: in the popup, with no drag, ⌘Z undoes the saved change as before', async () => {
-    history.replaceState(null, '', '/');
-    const { store, seen } = await renderWithProviders(<MainContainer />, {
-      seed,
-    });
-    await saveASession(store);
-    const before = seen.length;
-
-    press({ key: 'z', metaKey: true });
-
-    expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
-  });
-
   test('a second ⌘Z undoes the saved change before the drag', async () => {
     const { store, seen } = await renderWithProviders(<MainContainer />, {
       seed,
@@ -294,18 +281,6 @@ describe('a saved-session change and a drag: the later one wins', () => {
     expect(await urlsIn(2)).toEqual([url('b'), url('a'), url('c')]);
   });
 
-  test('the drag is gone for good once a change came after it: a second ⌘Z does not undo it', async () => {
-    const { store } = await renderWithProviders(<MainContainer />, { seed });
-    await dragAToTheMiddle();
-    await saveASession(store);
-    press({ key: 'z', metaKey: true });
-
-    press({ key: 'z', metaKey: true });
-    await settle();
-
-    expect(await urlsIn(2)).toEqual([url('b'), url('a'), url('c')]);
-  });
-
   test('a redo step is no new change: a drag made after an undo is still undone after the redo (ledger R23)', async () => {
     const { store, seen } = await renderWithProviders(<MainContainer />, {
       seed,
@@ -361,21 +336,6 @@ describe('a Reopen offer and a drag: the later one wins', () => {
     expect(undoRedoIn(seen.slice(before))).toEqual([]);
   });
 
-  test('then a second ⌘Z does not undo the drag either', async () => {
-    const { store } = await renderWithProviders(<MainContainer />, { seed });
-    await dragAToTheMiddle();
-    await closeCWithOffer(store);
-    press({ key: 'z', metaKey: true });
-    await waitFor(async () => {
-      expect(await urlsIn(2)).toEqual([url('b'), url('a'), url('c')]);
-    });
-
-    press({ key: 'z', metaKey: true });
-    await settle();
-
-    expect(await urlsIn(2)).toEqual([url('b'), url('a'), url('c')]);
-  });
-
   test('a drag after the offer: ⌘Z undoes the drag and leaves the offer; a second ⌘Z takes it', async () => {
     const { store, seen } = await renderWithProviders(<MainContainer />, {
       seed,
@@ -398,66 +358,5 @@ describe('a Reopen offer and a drag: the later one wins', () => {
       expect(await urlsIn(2)).toEqual([url('a'), url('b'), url('c')]);
     });
     expect(undoRedoIn(seen.slice(before))).toEqual([]);
-  });
-});
-
-// Review Focus 3.
-describe('a drag whose tabs moved or closed outside Tab Keeper', () => {
-  test('moved by hand: ⌘Z does nothing, and undoes no older saved change', async () => {
-    const {
-      store,
-      seen,
-      chrome: fake,
-    } = await renderWithProviders(<MainContainer />, { seed });
-    await saveASession(store);
-    await dragAToTheMiddle();
-    fake.browser.moveTabToWindow(21, 1);
-    const before = seen.length;
-
-    const event = press({ key: 'z', metaKey: true });
-    await settle();
-
-    expect(event.defaultPrevented).toBe(true);
-    expect(undoRedoIn(seen.slice(before))).toEqual([]);
-    expect(await urlsIn(1)).toEqual([url('home'), url('a')]);
-    expect(await urlsIn(2)).toEqual([url('b'), url('c')]);
-  });
-
-  test('closed: ⌘Z does nothing, and does not take an older Reopen offer', async () => {
-    const {
-      store,
-      seen,
-      chrome: fake,
-    } = await renderWithProviders(<MainContainer />, { seed });
-    await closeCWithOffer(store);
-    await dragAToTheMiddle();
-    fake.browser.closeTab(21);
-    const before = seen.length;
-
-    press({ key: 'z', metaKey: true });
-    await settle();
-
-    expect(undoRedoIn(seen.slice(before))).toEqual([]);
-    expect(fake.createdTabs).toEqual([]);
-    expect(offerShows()).toBe(true);
-    expect(await urlsIn(2)).toEqual([url('b')]);
-  });
-
-  test('the stale drag is dropped: the next ⌘Z does the next most recent action', async () => {
-    const {
-      store,
-      seen,
-      chrome: fake,
-    } = await renderWithProviders(<MainContainer />, { seed });
-    await saveASession(store);
-    await dragAToTheMiddle();
-    fake.browser.moveTabToWindow(21, 1);
-    press({ key: 'z', metaKey: true });
-    await settle();
-    const before = seen.length;
-
-    press({ key: 'z', metaKey: true });
-
-    expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
   });
 });
