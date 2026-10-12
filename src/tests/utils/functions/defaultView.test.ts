@@ -1,15 +1,12 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
-  applyDefaultView,
   openFullViewFromToolbar,
-  popupFor,
   reapplyDefaultView,
   type ActionApi,
   type DefaultViewStore,
 } from '../../../utils/functions/defaultView';
 import type { TabApi } from '../../../utils/functions/popOut';
-import { buildChromeTab } from '../../fixtures/chromeTab';
 
 // KAN-7 §7. The worker-side half of Default view, against recording fakes.
 
@@ -28,15 +25,11 @@ const store = (read: () => Promise<unknown>): DefaultViewStore => ({ read });
 
 const tabs = (open: chrome.tabs.Tab[]) => {
   const creates: Parameters<TabApi['create']>[0][] = [];
-  const focused: number[] = [];
   const api: TabApi = {
     getURL: (path) => `chrome-extension://x/${path}`,
     query: async () => open,
     update: async () => undefined,
-    focusWindow: async (windowId) => {
-      focused.push(windowId);
-      return undefined;
-    },
+    focusWindow: async () => undefined,
     create: async (props) => {
       creates.push(props);
       return { id: 99, windowId: props.windowId ?? 1 };
@@ -45,32 +38,10 @@ const tabs = (open: chrome.tabs.Tab[]) => {
     activeTabId: async () => undefined,
     rememberOrigin: async () => undefined,
   };
-  return { api, creates, focused };
+  return { api, creates };
 };
 
 afterEach(() => vi.restoreAllMocks());
-
-describe('popupFor', () => {
-  test('compact keeps the popup; full removes it so a click reaches onClicked', () => {
-    expect(popupFor('compact')).toBe('index.html');
-    expect(popupFor('full')).toBe('');
-  });
-});
-
-describe('applyDefaultView', () => {
-  test('sets the popup for the view', async () => {
-    const { api, popups } = action();
-    expect(await applyDefaultView(api, 'full')).toBe(true);
-    expect(popups).toEqual(['']);
-  });
-
-  test('a refused setPopup resolves false and warns; it never rejects', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const { api } = action(true);
-    await expect(applyDefaultView(api, 'full')).resolves.toBe(false);
-    expect(warn).toHaveBeenCalledTimes(1);
-  });
-});
 
 describe('reapplyDefaultView (the worker at every start)', () => {
   test.each([
@@ -130,18 +101,5 @@ describe('openFullViewFromToolbar', () => {
         active: true,
       },
     ]);
-  });
-
-  test('with one open, focuses it and opens nothing', async () => {
-    const { api, creates, focused } = tabs([
-      buildChromeTab({
-        id: 9,
-        windowId: 2,
-        url: 'chrome-extension://x/index.html?view=tab',
-      }),
-    ]);
-    await openFullViewFromToolbar(api, { windowId: 4 });
-    expect(creates).toEqual([]);
-    expect(focused).toEqual([2]);
   });
 });

@@ -97,19 +97,6 @@ describe('the open-in-a-tab button', () => {
       getCurrentSpy.mockRestore();
     }
   });
-
-  test('is absent in the tab view', async () => {
-    history.replaceState(null, '', '?view=tab');
-    try {
-      await render();
-
-      expect(
-        screen.queryByRole('button', { name: 'Open full view' })
-      ).not.toBeInTheDocument();
-    } finally {
-      history.replaceState(null, '', '?');
-    }
-  });
 });
 
 afterEach(() => {

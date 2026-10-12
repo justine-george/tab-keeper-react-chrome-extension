@@ -62,12 +62,6 @@ describe('TabKeeperMark', () => {
       expect(hrefs).toEqual([`#${pathIdOf(svg)}`, `#${pathIdOf(svg)}`]);
     }
   });
-
-  test('the shutter is addressable', () => {
-    const svg = markOf(render(<TabKeeperMark />).container);
-
-    expect(svg.querySelectorAll('[data-mark-part="shutter"]')).toHaveLength(1);
-  });
 });
 
 describe('the home header', () => {

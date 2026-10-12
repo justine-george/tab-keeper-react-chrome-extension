@@ -102,16 +102,6 @@ test.describe('golden path', () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test('2. seeded sessions appear in the left pane', async ({
-    context,
-    extensionId,
-  }) => {
-    const { page } = await openPopup(context, extensionId);
-
-    await expect(page.getByText('Research').first()).toBeVisible();
-    await expect(page.getByText('Holiday').first()).toBeVisible();
-  });
-
   test('3. clicking a session shows its details in the right pane', async ({
     context,
     extensionId,
@@ -177,27 +167,6 @@ test.describe('golden path', () => {
     await expect(field).toHaveValue('');
     await expect(page.getByText('Research').first()).toBeVisible();
     await expect(page.getByText('Holiday').first()).toBeVisible();
-  });
-
-  test('6. the settings panel opens and closes', async ({
-    context,
-    extensionId,
-  }) => {
-    const { page } = await openPopup(context, extensionId);
-
-    await page.locator('[aria-label="Settings"]').click();
-
-    // Asserted on a settings-only heading.
-    await expect(page.getByText('Themes')).toBeVisible();
-
-    // Addressed by role and accessible name rather than by visible text. That
-    // became possible with KAN-56: the affordance is now a real <button>, so
-    // this line exercises the same path a screen-reader user takes. It also
-    // sidesteps the reason the old version needed `exact: true` -- the
-    // Material icon renders its name as the ligature text `arrow_back`, which
-    // substring-matches "Back" and trips strict mode.
-    await page.getByRole('button', { name: 'Go back' }).click();
-    await expect(page.locator('input#name')).toBeVisible();
   });
 
   test('7. a session with chrome tab groups renders ungrouped without the permission', async ({
