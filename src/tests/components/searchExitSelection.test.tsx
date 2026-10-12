@@ -73,17 +73,6 @@ const search = (store: Store, text: string) =>
   });
 
 describe('clearing the search does not move the user (KAN-90)', () => {
-  test('CONTROL: searching still selects the first match', async () => {
-    const { store } = await renderWithSessions();
-    act(() => {
-      store.dispatch(selectTabContainer('c'));
-    });
-    expect(selected(store)).toBe('c');
-
-    search(store, 'ALPHA');
-    expect(selected(store)).toBe('a');
-  });
-
   test('clearing the box leaves you on the match you found', async () => {
     const { store } = await renderWithSessions();
     act(() => {

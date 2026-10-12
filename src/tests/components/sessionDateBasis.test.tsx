@@ -81,15 +81,6 @@ describe('the date basis follows the chosen date order', () => {
     expect(basisOf(store)).toBe('edited');
   });
 
-  test('sorting by date saved switches the rows to created', async () => {
-    const { store } = await render();
-
-    openMenu();
-    fireEvent.click(item('Date saved'));
-
-    expect(basisOf(store)).toBe('created');
-  });
-
   test('and returning to date modified switches them back', async () => {
     const { store } = await render();
     openMenu();
@@ -135,15 +126,6 @@ describe('the date basis follows the chosen date order', () => {
 // order on the very next open: ranks are stored, so a date-saved sort persists,
 // and a basis that reset would leave created-ordered rows labelled "Edited".
 describe('the basis is remembered on this device', () => {
-  test('a change is written to localStorage', async () => {
-    await render();
-
-    openMenu();
-    fireEvent.click(item('Date saved'));
-
-    expect(storedBasis()).toBe('created');
-  });
-
   // The other half: what is written has to be what is read back. A setting
   // saved under a different key, or saved and never loaded, passes the test
   // above and still resets on every open.

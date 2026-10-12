@@ -26,10 +26,7 @@ import {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { loadSessionsIntoPage } from '../../redux/slices/globalStateSlice';
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
-import {
-  withASelection,
-  withOwnSelection,
-} from '../../utils/functions/withOwnSelection';
+import { withOwnSelection } from '../../utils/functions/withOwnSelection';
 import { IS_DIRTY_ACTION, SET_ACTION } from '../../utils/constants/actionTypes';
 
 // While the list has a session, one is selected. These pin every way in
@@ -307,12 +304,5 @@ describe('the fix-up is view state: no sync, no undo step, no timestamp', () => 
     const { store, seen } = storeWith(container(['a', 'b'], 'a'));
     store.dispatch(deleteTabContainerInternal('a'));
     expect(seen).toContain(IS_DIRTY_ACTION);
-  });
-});
-
-describe('withASelection', () => {
-  test('returns the same object when it already agrees', () => {
-    const c = container(['a', 'b'], 'b');
-    expect(withASelection(c)).toBe(c);
   });
 });

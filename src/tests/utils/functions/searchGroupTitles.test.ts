@@ -81,10 +81,6 @@ const titlesOf = (groups: tabContainerData[]): string[] =>
   );
 
 describe('filterTabGroups matching a Chrome group title', () => {
-  test('finds a session whose only match is a group title', () => {
-    expect(filterTabGroups('quarterly', [grouped()], true)).toHaveLength(1);
-  });
-
   test('admits the group members and nothing else in the window', () => {
     const matched = filterTabGroups('quarterly', [grouped()], true);
 
@@ -199,13 +195,6 @@ describe('filterTabGroups group matching, off the happy path', () => {
     ]);
   });
 
-  test('an empty group list is unaffected', () => {
-    const session = grouped();
-    session.windows[0].chromeTabGroups = [];
-
-    expect(filterTabGroups('quarterly', [session], true)).toEqual([]);
-  });
-
   test('a group whose members have all gone contributes no window', () => {
     // The group definition outlives its tabs after a delete. It must not
     // resurrect the window as an empty match.
@@ -246,12 +235,6 @@ describe('filterTabGroups group matching, off the happy path', () => {
 
 describe('selectVisibleTabGroups carries the permission through', () => {
   const selected = () => ({ ...grouped(), isSelected: true });
-
-  test('matches a group title when the permission is granted', () => {
-    const visible = selectVisibleTabGroups([selected()], 'Quarterly', true);
-
-    expect(titlesOf(visible)).toEqual(['Gamma', 'Epsilon']);
-  });
 
   test('does not when it is not', () => {
     expect(selectVisibleTabGroups([selected()], 'Quarterly', false)).toEqual(

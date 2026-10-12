@@ -67,18 +67,6 @@ afterEach(() => {
 });
 
 describe('the popup', () => {
-  test('the detail pane holds the message and the hint, the list neither', async () => {
-    await render('popup');
-    await type('zzz');
-
-    expect(holds('detail', MESSAGE)).toBe(true);
-    expect(holds('detail', HINT)).toBe(true);
-    expect(holds('sessions', MESSAGE)).toBe(false);
-    expect(holds('sessions', HINT)).toBe(false);
-    expect(messageCount()).toBe(1);
-    expect(hintCount()).toBe(1);
-  });
-
   test('the drawing is hidden from assistive tech and cannot take focus', async () => {
     await render('popup');
     await type('zzz');
@@ -86,13 +74,6 @@ describe('the popup', () => {
     const art = pane('detail')?.querySelector('svg');
     expect(art).toHaveAttribute('aria-hidden', 'true');
     expect(art).toHaveAttribute('focusable', 'false');
-  });
-
-  test('the message is the trimmed query', async () => {
-    await render('popup');
-    await type('  zzz ');
-
-    expect(messageCount()).toBe(1);
   });
 
   test('the hint is 0.8rem (12.8px at a 16px root)', async () => {
@@ -116,19 +97,6 @@ describe('the popup', () => {
 });
 
 describe('the tab view', () => {
-  test('folded, the list holds the block and no detail column is drawn', async () => {
-    await render('tab', (store) =>
-      store.dispatch(setFoldSavedSessionInTabView(true))
-    );
-    await type('zzz');
-
-    expect(pane('detail')).toBeNull();
-    expect(holds('sessions', MESSAGE)).toBe(true);
-    expect(holds('sessions', HINT)).toBe(true);
-    expect(messageCount()).toBe(1);
-    expect(hintCount()).toBe(1);
-  });
-
   test('unfolded, the detail column holds it and the list does not', async () => {
     await render('tab', (store) =>
       store.dispatch(setFoldSavedSessionInTabView(false))

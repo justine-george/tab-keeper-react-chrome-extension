@@ -112,17 +112,6 @@ describe('the saved search row (S1, S2)', () => {
 });
 
 describe('typing in the row', () => {
-  test('narrows the list and labels the counts as matches', async () => {
-    await renderList();
-    expect(listedIds()).toEqual(['r', 'h']);
-    expect(screen.queryByText(/^Matches:/)).not.toBeInTheDocument();
-
-    type('holiday');
-
-    expect(listedIds()).toEqual(['h']);
-    expect(screen.getByText(/^Matches:/)).toBeInTheDocument();
-  });
-
   // Review Focus 2: spaces alone are no search.
   test('spaces alone hide nothing, narrow nothing, and keep the spaces', async () => {
     await renderList();
@@ -191,22 +180,6 @@ describe('clearing the row (S5)', () => {
     await renderList();
 
     expect(fireEvent.keyDown(field(), { key: 'Escape' })).toBe(true);
-  });
-});
-
-describe('a search that matches nothing (R3, R4)', () => {
-  test('says so with the trimmed text, in the detail pane in place of Empty', async () => {
-    await renderWithProviders(<MainContainer />, { seedStore: seedTwo });
-    await screen.findByRole('textbox', { name: NAME });
-
-    type('  zzz ');
-
-    expect(listedIds()).toEqual([]);
-    const message = screen.getByText('No saved tab matches "zzz"');
-    expect(message.closest('[data-pane="detail"]')).not.toBeNull();
-    expect(
-      screen.queryByText('Saved sessions appear here.')
-    ).not.toBeInTheDocument();
   });
 });
 

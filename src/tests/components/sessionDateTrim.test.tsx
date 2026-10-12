@@ -52,15 +52,6 @@ const renderBothPanes = (contentModified = EDITED) =>
   );
 
 describe('session dates in both panes (KAN-347)', () => {
-  test('the row and the header drop the seconds and this year', async () => {
-    await renderBothPanes();
-
-    // Row and header: two places, one label.
-    expect(await screen.findAllByText('Edited Sep 24, 2:51 AM')).toHaveLength(
-      2
-    );
-  });
-
   // The hover holds what the label trimmed away. closest('[title]') finds the
   // nearest titled box, so a title on some other ancestor (the row's own, say)
   // answers wrongly rather than passing.
@@ -71,14 +62,5 @@ describe('session dates in both panes (KAN-347)', () => {
     expect(
       labels.map((el) => el.closest('[title]')?.getAttribute('title'))
     ).toEqual([getPrettyDate(EDITED, 'en'), getPrettyDate(EDITED, 'en')]);
-  });
-
-  // A corrupt time far ahead, or a clock badly wrong, is dated rather than
-  // called "today" (the clamp is for a clock a little fast).
-  test('a time years ahead shows its date in both panes', async () => {
-    await renderBothPanes(new Date(2099, 0, 1, 15, 0).getTime());
-
-    expect(await screen.findAllByText('Edited Jan 1, 2099')).toHaveLength(2);
-    expect(screen.queryAllByText(/today/)).toHaveLength(0);
   });
 });

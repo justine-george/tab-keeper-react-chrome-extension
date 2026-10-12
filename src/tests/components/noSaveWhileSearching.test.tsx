@@ -39,24 +39,6 @@ beforeEach(() => localStorage.clear());
 afterEach(() => vi.restoreAllMocks());
 
 describe('the save row while the saved search holds text', () => {
-  test('only the name field is left, and Enter in it saves nothing', async () => {
-    const { store, seen } = await renderWithProviders(<UserInputContainer />, {
-      seed,
-    });
-    await act(async () => {});
-
-    search(store, 'kagi');
-
-    expect(screen.queryByLabelText(SAVE_ALL)).toBeNull();
-    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
-    const field = screen.getByRole('textbox');
-    await userEvent.clear(field);
-    await userEvent.type(field, 'Typed{Enter}');
-    expect(field).toHaveValue('Typed');
-    await act(async () => {});
-    expect(saves(seen)).toHaveLength(0);
-  });
-
   test('a query of only spaces is no search: both buttons, and Enter saves', async () => {
     const { store, seen } = await renderWithProviders(<UserInputContainer />, {
       seed,

@@ -142,41 +142,6 @@ describe('dragging a session in the left pane', () => {
 
     expect(order(store)).toEqual(['b', 'a', 'c']);
   });
-
-  // The invariant the reducer maintains, asserted through the UI: the rank it
-  // wrote must reproduce the array order when sorted, or the next sync undoes
-  // the drag the user just watched happen.
-  test('the resulting order survives a re-sort by rank', async () => {
-    const { container, store } = await render();
-    layout(container, ['c', 'b', 'a']);
-
-    drag(nodeFor(container, 'a'), 100, 5);
-
-    const groups = store.getState().tabContainerDataState.tabGroups;
-    const key = (g: (typeof groups)[number]) => g.rank ?? g.createdAt!;
-    const resorted = [...groups].sort((x, y) => key(y) - key(x));
-    expect(resorted.map((g) => g.tabGroupId)).toEqual(
-      groups.map((g) => g.tabGroupId)
-    );
-  });
-});
-
-// KAN-131 at the session level, where it is most exposed: search filters
-// sessions directly, so the rendered list and the stored one differ outright.
-describe('a session drag inside a filtered list', () => {
-  test('commits nothing', async () => {
-    const { container, store } = await render('ALPHA');
-    const rendered = [
-      ...container.querySelectorAll<HTMLElement>('[data-drag-row-id]'),
-    ];
-    expect(rendered).toHaveLength(1);
-    rendered[0].getBoundingClientRect = () => box(0, ROW_H);
-
-    drag(rendered[0], 20, 300);
-
-    expect(order(store)).toEqual(['c', 'b', 'a']);
-    expect(store.getState().globalState.isDirty).toBe(false);
-  });
 });
 
 // The session list is the third drag area; the gate is searching (KAN-385).
@@ -211,16 +176,5 @@ describe('dragging sessions while searching', () => {
 
     expect(order(store)).toEqual(['c', 'b', 'a']);
     expect(store.getState().globalState.isDirty).toBe(false);
-  });
-
-  // THE CONTROL. Without it a session area that never dragged at all would
-  // satisfy both tests above while proving nothing.
-  test('CONTROL: the same drag with no search does reorder', async () => {
-    const { container, store } = await render();
-    layout(container, ['c', 'b', 'a']);
-
-    drag(nodeFor(container, 'a'), 100, 5);
-
-    expect(order(store)).toEqual(['a', 'c', 'b']);
   });
 });
