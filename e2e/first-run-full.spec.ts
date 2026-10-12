@@ -341,7 +341,8 @@ test('while the card glides from step 6 to step 7 it takes no pointer, and takes
   const cdp = await context.newCDPSession(page);
   await cdp.send('Animation.enable');
   await cdp.send('Animation.setPlaybackRate', { playbackRate: 0 });
-  await cardButton(page, 'Next').click();
+  // force: with every animation frozen, Playwright 1.64's stability wait never ends (KAN-559).
+  await cardButton(page, 'Next').click({ force: true });
   await expect(cardAt(page, 7)).toBeVisible();
   // Held in turn at points along the glide: paused, not finished or cancelled, so the card is still mid-glide.
   const hold = (ms: number) =>
