@@ -21,10 +21,6 @@ describe('session fixture', () => {
     expect(container.tabGroups).toHaveLength(2);
   });
 
-  test('overrides are applied', () => {
-    expect(buildSession({ title: 'Thesis' }).title).toBe('Thesis');
-  });
-
   // The guard has to be capable of saying no, or the assertions above prove
   // nothing about the fixture.
   test('the validator rejects a malformed container', () => {

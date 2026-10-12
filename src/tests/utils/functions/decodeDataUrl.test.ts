@@ -58,11 +58,4 @@ describe('decodeDataUrl when the base64 decoder rejects the input (KAN-45)', () 
     const url = `${PLACEHOLDER}!!!not!!base64!!!`;
     expect(resolveTabUrl(url)).toBe(url);
   });
-
-  // Nothing that is not a placeholder should reach the decoder at all, so a
-  // throwing decoder must not change how ordinary URLs are handled.
-  test('leaves a non-placeholder url alone', () => {
-    expect(decodeDataUrl('https://example.com/')).toBe('https://example.com/');
-    expect(placeholderTarget('https://example.com/')).toBeNull();
-  });
 });

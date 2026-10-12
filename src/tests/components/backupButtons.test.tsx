@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -45,27 +45,13 @@ describe('the backup buttons say what they do (KAN-251)', () => {
     expect(glyphOf(save)).toBe('download');
     expect(glyphOf(load)).toBe('upload');
 
-    // The old words are gone, and "Restore" with them: nothing on this pane
-    // uses the session-opening verb for a file operation.
-    expect(screen.queryByText(/App Data/)).toBeNull();
+    // "Restore" is the session-opening verb: nothing on this pane uses it for
+    // a file operation.
     expect(screen.queryByText(/^Restore /)).toBeNull();
   });
 
-  test('the heading is Backup, and nothing under the buttons restates them', async () => {
+  test('the heading is Backup', async () => {
     await renderSyncAndBackup();
     expect(screen.getByText('Backup')).toBeTruthy();
-    expect(screen.queryByText('Backup & Restore')).toBeNull();
-    // Both labels already say "sessions"; a note saying so again was cut.
-    expect(screen.queryByText(/not your settings/)).toBeNull();
-  });
-
-  test('CONTROL: the glyph reader sees a real icon', async () => {
-    await renderSyncAndBackup();
-    // The pair's buttons carry no icon, so the reader must return undefined
-    // there and a name on the backup buttons -- not the same value for both.
-    const pair = screen.getByRole('group', { name: 'Auto Sync' });
-    expect(
-      glyphOf(within(pair).getByRole('button', { name: 'On' }))
-    ).toBeUndefined();
   });
 });

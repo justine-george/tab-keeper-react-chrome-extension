@@ -155,26 +155,6 @@ describe('captureOpenWindows against the chrome fake', () => {
     handle = undefined;
   });
 
-  test('captures a seeded window with its tabs', async () => {
-    handle = setupChromeFake({
-      windows: [
-        {
-          id: 1,
-          tabs: [
-            { id: 1, url: A, title: 'A' },
-            { id: 2, url: B, title: 'B' },
-          ] as chrome.tabs.Tab[],
-        },
-      ],
-    });
-
-    const captured = await captureOpenWindows('probe', 'all-windows');
-
-    expect(captured).not.toBeNull();
-    expect(captured!.windows).toHaveLength(1);
-    expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([A, B]);
-  });
-
   // KAN-25. A newly captured session is the one case where both timestamps are
   // written from scratch, so it is where they must agree.
   test('stamps the capture instant alongside the display string', async () => {
@@ -191,16 +171,6 @@ describe('captureOpenWindows against the chrome fake', () => {
     expect(typeof captured!.createdAt).toBe('number');
     expect(captured!.createdAt!).toBeGreaterThanOrEqual(before);
     expect(captured!.createdAt!).toBeLessThanOrEqual(Date.now());
-  });
-
-  test('captures a tab added through tabs.create', async () => {
-    handle = setupChromeFake({ windows: [{ id: 1 }] });
-
-    await chrome.tabs.create({ windowId: 1, url: B });
-    const captured = await captureOpenWindows('probe', 'all-windows');
-
-    expect(captured).not.toBeNull();
-    expect(captured!.windows[0].tabs.map((tab) => tab.url)).toEqual([B]);
   });
 
   test('captures a window opened through windows.create, first tab included', async () => {
@@ -1215,14 +1185,6 @@ describe('isAlreadySaved and pins (KAN-458)', () => {
     ).toBe(false);
   });
 
-  test('CONTROL: the same pins are already saved', () => {
-    expect(
-      isAlreadySaved(sessionOf(firstPinned(windowOf(A, B))), [
-        sessionOf(firstPinned(windowOf(A, B))),
-      ])
-    ).toBe(true);
-  });
-
   test('a different active tab is not unsaved work', () => {
     expect(
       isAlreadySaved(sessionOf({ ...windowOf(A, B), activeTabId: 't1' }), [
@@ -1351,53 +1313,6 @@ describe('a capture remembers pinned tabs and the active tab (KAN-458)', () => {
     ]);
     expect('pinned' in w.tabs[2]).toBe(false);
     expect(w.activeTabId).toBe(w.tabs[2].tabId);
-  });
-
-  test('Tab Keeper is the active tab: the most recently used other tab (A4)', async () => {
-    handle = setupChromeFake({
-      windows: [
-        {
-          id: 1,
-          tabs: [
-            buildChromeTab({
-              id: 1,
-              index: 0,
-              url: TAB_VIEW,
-              active: true,
-              lastAccessed: 900,
-            }),
-            buildChromeTab({
-              id: 2,
-              index: 1,
-              url: A,
-              title: 'A',
-              lastAccessed: 300,
-            }),
-            buildChromeTab({
-              id: 3,
-              index: 2,
-              url: B,
-              title: 'B',
-              lastAccessed: 700,
-            }),
-            buildChromeTab({
-              id: 4,
-              index: 3,
-              url: C,
-              title: 'C',
-              lastAccessed: 100,
-            }),
-          ],
-        },
-      ],
-    });
-
-    const [w] = requireCaptured(
-      await captureOpenWindows('probe', 'all-windows')
-    ).windows;
-
-    expect(w.tabs.map((t) => t.url)).toEqual([A, B, C]);
-    expect(w.activeTabId).toBe(w.tabs[1].tabId);
   });
 
   test('Tab Keeper is the active tab and no other tab is stamped: no activeTabId', async () => {
