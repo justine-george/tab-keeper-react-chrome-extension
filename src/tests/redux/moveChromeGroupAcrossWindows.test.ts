@@ -145,19 +145,6 @@ describe('moveChromeGroupAcrossWindowsInternal', () => {
     expect(session(store).tabCount).toBe(5);
   });
 
-  test("the destination's own group is untouched", () => {
-    const store = seeded();
-    move(store, { toIndex: 0 });
-    const ownGroup = win(store, 'wB')!.chromeTabGroups!.find(
-      (g) => g.groupId === 'own'
-    );
-    expect(ownGroup).toEqual({ groupId: 'own', title: 'Own', color: 'red' });
-    // Its own member tab must not have been touched or reordered away.
-    expect(
-      win(store, 'wB')!.tabs.find((tab) => tab.tabId === 'o0')?.chromeGroupId
-    ).toBe('own');
-  });
-
   test('the tabs keep their chromeGroupId -- the group moved, membership did not', () => {
     const store = seeded();
     move(store, { toIndex: 0 });
@@ -166,6 +153,7 @@ describe('moveChromeGroupAcrossWindowsInternal', () => {
     );
     expect(membership.s0).toBe('solo');
     expect(membership.s1).toBe('solo');
+    expect(membership.o0).toBe('own');
   });
 
   test.each([

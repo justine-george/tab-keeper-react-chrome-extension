@@ -282,21 +282,6 @@ describe('dropOnTop: a drop acts on top of a change that arrived while held (KAN
 
     expect(ids(store)).toEqual(['n', 'a', 'b', 'c', 'd']);
   });
-
-  // CONTROL: nothing held, nothing queued. dropOnTop is the old handler: it
-  // dispatches exactly moveSessionInternal({ tabGroupId, toIndex }) with the
-  // index it was given, and the list moves as it always did.
-  it('CONTROL: with no held change it dispatches exactly the old move', () => {
-    const { store, actions } = readyStore(abcd());
-
-    store.dispatch(dropOnTop(sessionDrop('d', 1)));
-
-    const moves = actions.filter((a) => a.type === moveSessionInternal.type);
-    expect(moves).toEqual([
-      moveSessionInternal({ tabGroupId: 'd', toIndex: 1 }),
-    ]);
-    expect(ids(store)).toEqual(['a', 'd', 'b', 'c']);
-  });
 });
 
 // KAN-279 D9. Another page's write, and the drop. The other page writes

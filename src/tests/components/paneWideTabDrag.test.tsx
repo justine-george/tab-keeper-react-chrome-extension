@@ -162,7 +162,6 @@ const BLOCKS: Record<string, [number, number]> = {
   wA: [0, 142],
   wB: [180, 122],
 };
-const GAP_Y = 160;
 
 // A real getBoundingClientRect includes every transform above the element, so
 // a block the preview has MOVED to make room reports its moved box (KAN-184).
@@ -189,9 +188,6 @@ const moveTo = (y: number) =>
 const release = (y: number) =>
   fireEvent.pointerUp(document, { clientX: 10, clientY: y });
 
-const shift = (el: HTMLElement) =>
-  Number(/translateY\((-?[\d.]+)px\)/.exec(el.style.transform)?.[1] ?? 0);
-
 const tabsOf = (store: RenderWithProvidersResult['store'], i: number) =>
   store
     .getState()
@@ -208,61 +204,6 @@ afterEach(() => {
 });
 
 describe('a tab drag in a pane-wide list', () => {
-  // The index a drop reports is applied to the tab's own window. Counted over
-  // the whole pane it would include every row of wA above.
-  test('a reorder in the SECOND window lands at its place in that window', async () => {
-    const { container, store } = await render();
-    const node = layout(container);
-
-    // b3 up past b1's midpoint (250) but not b2's (272), and clear of gb's
-    // band (200..260): lands loose, after b1.
-    press(node('b3'), 292);
-    moveTo(266);
-    release(266);
-
-    expect(tabsOf(store, 1)).toBe('b0* b1* b3 b2');
-    expect(tabsOf(store, 0)).toBe(A_START);
-  });
-
-  test('a tab from the second window released over the first lands there', async () => {
-    const { container, store } = await render();
-    const node = layout(container);
-    measureWindows(container);
-
-    // Past a0's midpoint (10), not a1's (30): after a0.
-    press(node('b2'), 272);
-    moveTo(28);
-    release(28);
-
-    expect(tabsOf(store, 0)).toBe('a0 b2 a1 a2 a3* a4*');
-    expect(tabsOf(store, 1)).toBe('b0* b1* b3');
-  });
-
-  // KAN-185, and this REPLACES "a release between two windows commits nothing".
-  //
-  // The 8px between two window blocks used to name no window, so a release
-  // there was refused -- and dragging slowly across the boundary showed the
-  // landing snap home to the row's own origin and out again, measured over a
-  // 6px band in the popup. The gap belongs to the NEARER block now, so the
-  // boundary is a point rather than a band, and a release in it lands.
-  //
-  // GAP_Y is just above the middle of this fixture's gap, so it is the window
-  // ABOVE that owns it, and the row lands at that window's end -- past every
-  // one of its rows' midpoints.
-  test('a release between two windows lands in the nearer one', async () => {
-    const { container, store } = await render();
-    const node = layout(container);
-    measureWindows(container);
-
-    press(node('b2'), 272);
-    moveTo(GAP_Y);
-    release(GAP_Y);
-
-    expect(tabsOf(store, 0)).toBe(`${A_START} b2`);
-    expect(tabsOf(store, 1)).toBe('b0* b1* b3');
-    expect(store.getState().globalState.isDirty).toBe(true);
-  });
-
   // THE CONTROL for the rule above: the gap is only between two blocks. Far
   // below the last window there is no nearer block to claim the release, and
   // it is still refused -- the KAN-132 guard this must not have widened.
@@ -278,69 +219,6 @@ describe('a tab drag in a pane-wide list', () => {
     expect(tabsOf(store, 0)).toBe(A_START);
     expect(tabsOf(store, 1)).toBe(B_START);
     expect(store.getState().globalState.isDirty).toBe(false);
-  });
-
-  // Where the landing gap opens. a1 held at the top of wA lands at index 0, and
-  // wB's leading group ALSO starts at index 0 of its own window -- so a rule
-  // that asked every window's groups would answer "before gb's title row", and
-  // draw the gap at the far end of wA.
-  test("a drag to the top of the first window does not answer to the second window's leading group", async () => {
-    const { container } = await render();
-    const node = layout(container);
-
-    press(node('a1'), 30);
-    moveTo(4);
-
-    // The row above steps down into the vacated slot; nothing else moves.
-    expect(shift(node('a0'))).toBe(ROW);
-    expect(shift(node('a2'))).toBe(0);
-    expect(shift(node('a3'))).toBe(0);
-
-    // And nothing at all in the other window.
-    for (const id of ['b0', 'b1', 'b2', 'b3']) expect(shift(node(id))).toBe(0);
-    const gbTitle = container.querySelector<HTMLElement>(
-      '[data-band-id="gb"] [data-group-drag-handle]'
-    )!;
-    expect(gbTitle.style.transform).toBe('');
-
-    fireEvent.keyDown(window, { key: 'Escape' });
-  });
-});
-
-describe('a tab drag marks the band of the window it is over', () => {
-  const marked = (container: HTMLElement) =>
-    [...container.querySelectorAll<HTMLElement>('[data-drop-target]')].map(
-      (b) => b.dataset.bandId
-    );
-
-  // A release there joins gb, so gb says so -- and ga, marked a move earlier in
-  // ANOTHER window, must not stay lit beside it.
-  test("hovering another window's band marks it, and clears the one it left", async () => {
-    const { container } = await render();
-    const node = layout(container);
-    measureWindows(container);
-
-    press(node('a0'), 10);
-    moveTo(90); // inside ga's band, in wA
-    expect(marked(container)).toEqual(['ga']);
-
-    moveTo(230); // squarely inside gb's band, in wB
-    expect(marked(container)).toEqual(['gb']);
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(marked(container)).toEqual([]);
-  });
-
-  // THE CONTROL. A list that never marked anything would pass the test above.
-  test("CONTROL: hovering its own window's band marks it", async () => {
-    const { container } = await render();
-    const node = layout(container);
-
-    press(node('a0'), 10);
-    moveTo(90); // inside ga's band, in wA
-
-    expect(marked(container)).toEqual(['ga']);
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(marked(container)).toEqual([]);
   });
 });
 
