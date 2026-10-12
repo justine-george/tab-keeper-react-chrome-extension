@@ -1,6 +1,7 @@
 import { isAction, Middleware } from '@reduxjs/toolkit';
 
 import { set, setPresentWithoutHistory } from '../slices/undoRedoSlice';
+import type { ApplyUndoSnapshotPayload } from '../slices/tabContainerDataStateSlice';
 import { cloudSyncAllowed } from '../slices/settingsDataStateSlice';
 import { debounce } from '../../utils/functions/local';
 import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
@@ -264,12 +265,13 @@ export const customMiddleware: Middleware = (store) => {
       // merge re-apply the delete, so undo appears to work and then reverses
       // itself. The create direction is the mirror image, and needs the
       // withdrawal above for the same reason.
+      const payload: ApplyUndoSnapshotPayload = {
+        snapshot: presentState.tabContainerDataState,
+        withdrawTabGroupIds,
+      };
       store.dispatch({
         type: TAB_CONTAINER_APPLY_UNDO_SNAPSHOT_ACTION,
-        payload: {
-          snapshot: presentState.tabContainerDataState,
-          withdrawTabGroupIds,
-        },
+        payload,
       });
       store.dispatch(setIsDirty());
     } else if (isDataStateChangeAction(action.type, prevState, nextState)) {

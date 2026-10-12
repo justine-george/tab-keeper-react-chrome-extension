@@ -17,6 +17,7 @@ import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 // same reason, as the header comment in mergeTabData.ts.
 import type { RootState } from '../store';
 import { closeFocusModal, openFocusModal, showToast } from './globalStateSlice';
+import { initialState } from './tabContainerInitialState';
 import {
   getStringDate,
   isBlankTitle,
@@ -425,12 +426,6 @@ export interface moveToNewSessionParams {
   typedTitle: string;
   remintNamespace: string;
 }
-
-export const initialState: TabMasterContainer = {
-  lastModified: Date.now(), // timestamp
-  selectedTabGroupId: null,
-  tabGroups: [],
-};
 
 // Bounds are resolved here rather than inside createWindowWithRetries because
 // the defaults come from `window.screen`, which the service worker that shares
@@ -1372,6 +1367,13 @@ function deleteSessionById(
 
 const clampIndex = (index: number, length: number): number =>
   Math.min(Math.max(0, index), length);
+
+// customMiddleware dispatches this action as a plain object, not through the
+// creator, so it types its payload with this to keep it checked (KAN-551).
+export interface ApplyUndoSnapshotPayload {
+  snapshot: TabMasterContainer;
+  withdrawTabGroupIds: string[];
+}
 
 export const tabContainerDataStateSlice = createSlice({
   name: TAB_CONTAINER_SLICE_NAME,
@@ -2791,32 +2793,9 @@ export const tabContainerDataStateSlice = createSlice({
     // other.
     applyUndoSnapshot: (
       state,
-      action: PayloadAction<{
-        // Optional because the dispatcher genuinely can pass nothing -- see the
-        // guard below. Declaring it required did not make it so; it only hid
-        // the case from the compiler.
-        snapshot: TabMasterContainer | undefined;
-        withdrawTabGroupIds: string[];
-      }>
+      action: PayloadAction<ApplyUndoSnapshotPayload>
     ) => {
       const { snapshot, withdrawTabGroupIds } = action.payload;
-
-      // There may be no snapshot to restore, and the type above said otherwise
-      // (KAN-137). customMiddleware builds this action as a plain object
-      // literal rather than through the action creator, so nothing checks the
-      // payload: it passes `presentState.tabContainerDataState`, which is
-      // undefined until `present` has been seeded. reconcileAssertedContainer
-      // then read `.tabGroups` off undefined and threw INSIDE dispatch().
-      //
-      // The damage surfaced nowhere near here. In MainContainer's cmd+Z
-      // handler the throw unwound before the next line -- event.preventDefault()
-      // -- so the visible symptom was a keyboard shortcut that dispatched undo
-      // yet left the event un-prevented, and nine tests failed for a change
-      // that touched neither keyboard handling nor sessions.
-      //
-      // Nothing to restore means nothing to do; the alternative is replacing
-      // the container with undefined.
-      if (!snapshot) return state;
 
       const liveAt = new Map(
         state.tabGroups.map((tabGroup) => [
