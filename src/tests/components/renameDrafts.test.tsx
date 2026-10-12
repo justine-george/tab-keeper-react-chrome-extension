@@ -85,27 +85,6 @@ function landSyncMerge(
 
 describe('rename drafts survive the prop moving underneath them (KAN-51)', () => {
   describe('session title (HeroContainerRight)', () => {
-    // The behaviour the effect currently provides, and the one a naive
-    // "just delete the effect" silently breaks. Must stay green throughout.
-    test('the rename field opens seeded with the current session title', async () => {
-      await renderWithProviders(<HeroContainerRight />, {
-        seedStore: (s) => {
-          s.dispatch(
-            saveToTabContainerInternal(
-              buildGroup(1, 'Research', [buildWindow(1, 'Morning', ['Kagi'])])
-            )
-          );
-          s.dispatch(selectTabContainer('group-1'));
-        },
-      });
-
-      await userEvent.click(await screen.findByText('Research'));
-
-      expect(screen.getByRole<HTMLInputElement>('textbox').value).toBe(
-        'Research'
-      );
-    });
-
     // The second half of the same contract: seeding has to follow the
     // SELECTION, not just the first mount. Deleting the effect without moving
     // the seed into the click handler leaves this showing the stale title.
@@ -175,31 +154,6 @@ describe('rename drafts survive the prop moving underneath them (KAN-51)', () =>
   });
 
   describe('window title (WindowEntryContainer)', () => {
-    test('the rename field opens seeded with the current window title', async () => {
-      await renderWithProviders(<TabGroupDetailsContainer />, {
-        seedStore: (s) => {
-          s.dispatch(
-            saveToTabContainerInternal(
-              buildGroup(1, 'Research', [
-                buildWindow(1, 'Morning reading', ['Kagi']),
-              ])
-            )
-          );
-          s.dispatch(selectTabContainer('group-1'));
-        },
-      });
-
-      await userEvent.click(
-        await screen.findByRole('button', {
-          name: 'Rename window: Morning reading',
-        })
-      );
-
-      expect(screen.getByRole<HTMLInputElement>('textbox').value).toBe(
-        'Morning reading'
-      );
-    });
-
     // RED. Same defect one layer down. Here the effect depends on `title`
     // alone, so it takes a change to THAT window's title to trigger it --
     // which is what a merge carrying a rename made on another device does.

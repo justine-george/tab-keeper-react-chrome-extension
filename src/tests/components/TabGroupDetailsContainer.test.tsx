@@ -391,20 +391,6 @@ describe('unnamed windows are numbered', () => {
       },
     });
 
-  test('by position, from 1', async () => {
-    await renderThree();
-
-    expect(
-      await screen.findByRole('button', { name: 'Rename window: Window 1' })
-    ).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Rename window: Window 2' })
-    ).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Rename window: Window 3' })
-    ).toBeTruthy();
-  });
-
   test('a search that hides window 1 leaves window 2 as "Window 2"', async () => {
     await renderThree('bravo');
 

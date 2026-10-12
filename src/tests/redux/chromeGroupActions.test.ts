@@ -345,16 +345,19 @@ describe('recolouring a Chrome tab group', () => {
   const colourOf = (s: TabMasterContainer) =>
     s.tabGroups[0].windows[0].chromeTabGroups![0].color;
 
-  it('stores the new colour', () => {
-    expect(colourOf(recolour(seed(), 'pink'))).toBe('pink');
+  // Every colour but blue, the seed's: a row equal to the seed passes with a reducer that does nothing.
+  it.each([
+    ['grey'],
+    ['red'],
+    ['yellow'],
+    ['green'],
+    ['pink'],
+    ['purple'],
+    ['cyan'],
+    ['orange'],
+  ])('accepts %s', (color) => {
+    expect(colourOf(recolour(seed(), color))).toBe(color);
   });
-
-  it.each([['grey'], ['blue'], ['red'], ['yellow'], ['green']])(
-    'accepts %s',
-    (color) => {
-      expect(colourOf(recolour(seed(), color))).toBe(color);
-    }
-  );
 
   // sanitizeTabGroupColor exists so an unrecognised colour costs one group its
   // colour rather than failing a whole session. A value that never renders

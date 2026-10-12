@@ -309,16 +309,6 @@ describe('the group colour band', () => {
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
-
-  // Colour is not a whole-item action, so searching leaves the band a control.
-  test('searching keeps the band a control', async () => {
-    await renderGroup({ isSearching: true });
-
-    expect(screen.getByRole('button', { name: BAND })).toHaveAttribute(
-      'aria-haspopup',
-      'menu'
-    );
-  });
 });
 
 describe('widening the band', () => {

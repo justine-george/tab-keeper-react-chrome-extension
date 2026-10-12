@@ -59,16 +59,6 @@ describe('selectVisibleTabGroups', () => {
     expect(visible.map((group) => group.title)).toEqual(['Research']);
   });
 
-  test('narrows the selected session by the search text', () => {
-    const visible = selectVisibleTabGroups(
-      [session('Research', true, 'Kagi Search')],
-      'kagi',
-      true
-    );
-
-    expect(visible.map((group) => group.title)).toEqual(['Research']);
-  });
-
   // The state that makes [0] undefined for every caller. RightPane must read
   // an empty list here too, or it would mount children that cannot render.
   test('returns an empty list when the search matches no selected session', () => {

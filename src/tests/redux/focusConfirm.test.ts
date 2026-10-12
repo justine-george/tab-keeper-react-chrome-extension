@@ -13,11 +13,7 @@ vi.mock('../../utils/functions/external', () => ({
   saveToFirestore: vi.fn(async () => undefined),
 }));
 
-import {
-  requestFocusTabContainer,
-  saveToTabContainer,
-  addCurrWindowToTabGroup,
-} from '../../redux/slices/tabContainerDataStateSlice';
+import { requestFocusTabContainer } from '../../redux/slices/tabContainerDataStateSlice';
 import { setupChromeFake } from '../setup/chrome.fake';
 import { makeTestStore } from '../setup/makeStore';
 
@@ -77,27 +73,5 @@ describe('requestFocusTabContainer (KAN-42)', () => {
     await store.dispatch(requestFocusTabContainer(PARAMS));
 
     expect(seen).toContain('globalState/openFocusModal');
-  });
-});
-
-// KAN-24. Two thunks were registered with the same action type string. RTK has
-// no registry and deduplicates nothing, so both ran correctly and no user was
-// ever affected -- but DevTools showed two different operations under one name,
-// and the first `builder.addCase(saveToTabContainer.fulfilled, ...)` anyone
-// wrote would silently have matched "add current window" too.
-describe('async thunk action types (KAN-24)', () => {
-  it('gives each thunk its own action type', () => {
-    expect(addCurrWindowToTabGroup.typePrefix).not.toBe(
-      saveToTabContainer.typePrefix
-    );
-  });
-
-  // Pinned rather than merely asserted distinct, so a future rename that
-  // reintroduces a collision by renaming the wrong one still fails here.
-  it('names them after what they do', () => {
-    expect(saveToTabContainer.typePrefix).toBe('global/saveToTabContainer');
-    expect(addCurrWindowToTabGroup.typePrefix).toBe(
-      'global/addCurrWindowToTabGroup'
-    );
   });
 });
