@@ -44,9 +44,19 @@ describe('openBesideActiveTab', () => {
     ]);
   });
 
-  // CONTROL: window 2's active tab is a second candidate the query must skip.
+  // CONTROL: window 2's active tab is listed FIRST, so a query that drops
+  // currentWindow picks it. Window 1 stays current: it is declared first.
   test("never another window's active tab", async () => {
-    handle = setupChromeFake(seed());
+    handle = setupChromeFake({
+      windows: [
+        { id: 1 },
+        { id: 2, tabs: [{ id: 20, url: 'https://x.example/', active: true }] },
+      ],
+      tabs: [
+        { id: 10, url: 'https://a.example/', windowId: 1 },
+        { id: 11, url: 'https://b.example/', windowId: 1, active: true },
+      ],
+    });
 
     await openBesideActiveTab(URL);
 
