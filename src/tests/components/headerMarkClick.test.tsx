@@ -206,3 +206,9 @@ describe('clicking the header mark', () => {
     expect(startedTicks()).toEqual(ONE_CLICK);
   });
 });
+
+// KAN-524. Clickable, so it shows a pointer, as every clickable thing here does (cursor-affordance.spec.ts).
+test('the mark’s box shows a pointer', async () => {
+  const { mark } = await setup();
+  expect(getComputedStyle(mark.parentElement!).cursor).toBe('pointer');
+});

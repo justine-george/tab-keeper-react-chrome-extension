@@ -54,6 +54,8 @@ export default function ClickableTabKeeperMark({
         align-items: center;
         justify-content: center;
         flex: none;
+        /* KAN-524. A click plays it, so it shows a pointer like every clickable thing. */
+        cursor: pointer;
       `}
     >
       <TabKeeperMark size={markSize} />

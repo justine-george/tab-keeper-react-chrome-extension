@@ -575,3 +575,20 @@ grantedTest.describe(
     }
   }
 );
+
+// KAN-524. A click on the mark plays it, in the header and in About, so it shows a pointer there.
+test.describe('the clickable Tab Keeper mark shows a pointer (KAN-524)', () => {
+  const mark = (page: Page) =>
+    page.locator('svg:has([data-mark-part="shutter"])').first();
+
+  test('in the header', async ({ context, extensionId }) => {
+    const page = await openPopup(context, extensionId);
+    expect(await cursorAtCentreOf(page, mark(page))).toBe('pointer');
+  });
+
+  test('on the About nameplate', async ({ context, extensionId }) => {
+    const page = await openPopup(context, extensionId);
+    await openSettingsCategory(page, 'About');
+    expect(await cursorAtCentreOf(page, mark(page))).toBe('pointer');
+  });
+});
