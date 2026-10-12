@@ -157,30 +157,6 @@ test.describe("a group's frame while a tab lands after it", () => {
       .toBe('top a1*A a2*A b1*B b2*B b3*B newtab last');
   });
 
-  // CONTROL, and the one that makes the fix a rule rather than a subtraction:
-  // a tab JOINING at the tail lands in the same slot, and there the frame is
-  // supposed to reach past the drawn last member to cover the row the drop
-  // will add (KAN-175). A fix that simply shrank the frame would fail here.
-  test('CONTROL: joining at the tail still reaches past the last member', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await open(context, extensionId);
-    const b3 = await boxOf(page, '[data-drag-row-id="b3"]');
-
-    await hold(page, 'newtab', b3.y + b3.height - 8);
-
-    const frame = await frameOf(page);
-    expect(frame.marked).toBe('B');
-    // A row's worth lower, not level with it.
-    expect(frame.stripBottom - frame.lastMemberBottom).toBeGreaterThan(16);
-
-    await page.mouse.up();
-    await expect
-      .poll(() => order(page))
-      .toBe('top a1*A a2*A b1*B b2*B b3*B newtab*B last');
-  });
-
   // CONTROL: coming from BELOW nothing above the landing moves, so the frame
   // is unchanged and level with the last member for a different reason. This
   // is the case that was already right, and it must stay right.

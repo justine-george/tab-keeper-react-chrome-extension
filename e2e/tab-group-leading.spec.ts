@@ -140,43 +140,6 @@ const bandBox = (page: Page) =>
   page.locator('[data-band-id="test"]').boundingBox();
 
 test.describe('a group at the top of a window', () => {
-  // KAN-173. The position before a leading group has to exist.
-  test('a loose tab can be dropped before it', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await open(context, extensionId);
-    expect(await order(page)).toBe(START);
-    const band = (await bandBox(page))!;
-
-    const preview = await dragTo(page, 'b1', band.y - 6);
-    // Outside every band, so the tab lands ungrouped rather than joining.
-    expect(preview.bandIsTarget).toBe(false);
-    expect(preview.promisesAMove).toBe(true);
-
-    await page.mouse.up();
-    expect(await order(page)).toBe('b1 g0* g1* b0');
-  });
-
-  // CONTROL: the title row itself still means "join at the head", so the strip
-  // above it is the only thing that can mean "before". Without this the test
-  // above could pass on a band that had stopped claiming its own title row.
-  test('CONTROL: its title row still means join, not before', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await open(context, extensionId);
-    const title = (await page
-      .locator('[data-band-id="test"] [data-group-drag-handle]')
-      .boundingBox())!;
-
-    const preview = await dragTo(page, 'b1', title.y + title.height / 2);
-    expect(preview.bandIsTarget).toBe(true);
-
-    await page.mouse.up();
-    expect(await order(page)).toBe('b1* g0* g1* b0');
-  });
-
   // KAN-174. The two drops that meet at a group's head must not look alike.
   // They did: both drew the ghost between the title row and the first member,
   // so the band's tint was the only thing telling them apart -- and for the

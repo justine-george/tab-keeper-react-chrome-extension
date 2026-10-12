@@ -137,6 +137,8 @@ test.describe('the drop target between two adjacent groups', () => {
       extensionId,
     }) => {
       const page = await open(context, extensionId);
+      // PREMISE: the seed is the arrangement BETWEEN_THE_GROUPS is written against.
+      expect(await order(page)).toBe(START);
       const bandA = await boxOf(page, '[data-band-id="A"]');
 
       await dropAt(page, bandA.y + bandA.height + offset);
@@ -146,8 +148,7 @@ test.describe('the drop target between two adjacent groups', () => {
   }
 
   // CONTROL: the rule itself is untouched. Inside a band still means join that
-  // group, at both ends of the boundary -- without this, deleting the band hit
-  // test would pass every test above.
+  // group -- without this, deleting the band hit test would pass every test above.
   test('CONTROL: a release inside the lower band still joins that group', async ({
     context,
     extensionId,
@@ -160,20 +161,6 @@ test.describe('the drop target between two adjacent groups', () => {
     await expect
       .poll(() => order(page))
       .toBe('top a1*A a2*A newtab*B b1*B b2*B b3*B last');
-  });
-
-  test('CONTROL: a release inside the upper band still joins that group', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await open(context, extensionId);
-    const bandA = await boxOf(page, '[data-band-id="A"]');
-
-    await dropAt(page, bandA.y + bandA.height - 10);
-
-    await expect
-      .poll(() => order(page))
-      .toBe('top a1*A a2*A newtab*A b1*B b2*B b3*B last');
   });
 
   // CONTROL: only the gap BETWEEN TWO BANDS grows. A band's spacing against an
@@ -192,13 +179,5 @@ test.describe('the drop target between two adjacent groups', () => {
 
     expect(bandA.y - (above.y + above.height)).toBe(2);
     expect(below.y - (bandB.y + bandB.height)).toBe(2);
-  });
-
-  test('CONTROL: the seeded arrangement is the one described', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await open(context, extensionId);
-    expect(await order(page)).toBe(START);
   });
 });

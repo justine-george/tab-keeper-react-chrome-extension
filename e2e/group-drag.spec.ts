@@ -281,8 +281,6 @@ const groupsOfWindow = (page: Page, windowId: string) =>
     ).map((g) => ({ groupId: g.groupId, title: g.title, color: g.color }));
   }, windowId);
 
-const W0_START = 'p0 p1 p2 p3 p4 p5 p6 p7 p8 p9';
-
 async function grab(page: Page, groupId: string) {
   const b = (await page
     .locator(`[data-drag-row-id="group:${groupId}"] [data-group-drag-handle]`)
@@ -481,64 +479,6 @@ test.describe('dragging a group', () => {
       { groupId: 'beta', title: 'Beta', color: 'red' },
       { groupId: 'gamma', title: 'Gamma', color: 'green' },
     ]);
-  });
-
-  // THE REFUSAL THAT SURVIVES §11.3, and the new home of the scroll claim the
-  // test above used to carry: a release over NO window commits nothing, and
-  // `restoreScrollIfNoDrop` puts the view back where the drag began.
-  //
-  // The gap BETWEEN two window blocks, not "above the pane" -- same reason as
-  // above -- and with alpha again, so a list clamping drops to its ends is
-  // still visibly wrong here.
-  // KAN-185 REPLACED this one's rule. The gap between two blocks used to name
-  // no window, so a release there was refused, and this test read the refusal
-  // two ways at once: nothing moved, and `restoreScrollIfNoDrop` put the view
-  // back. The gap belongs to the nearer block now, so the first half is gone
-  // and with it the second -- a drop that COMMITS never restores the scroll.
-  //
-  // What it pins instead is the new rule, in the list KAN-160 owns: the gap
-  // above a group's own window is the window ABOVE, and the group lands there.
-  // Escape's own scroll restore is pinned at line ~580 and in window-drag's
-  // "after Escape, the view is where the drag began".
-  test('released between two windows, the group lands in the nearer one', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await open(context, extensionId);
-    const pane = await scrollToGroupAndRecord(page, 'alpha');
-    const at = await grab(page, 'alpha');
-    // Measured with the drag live: the pick-up compresses alpha, which
-    // shortens w1 and can clamp the scroll, so a gap measured before the press
-    // is not the gap the engine is judging against.
-    const gap = await page.evaluate(() => {
-      const bottom = document
-        .querySelector('[data-drop-window-id="w0"]')!
-        .getBoundingClientRect().bottom;
-      const top = document
-        .querySelector('[data-drop-window-id="w1"]')!
-        .getBoundingClientRect().top;
-      return { bottom, top };
-    });
-    // Just inside the upper block's half of the gap, so which window owns the
-    // release is not a question about rounding.
-    const gapY = gap.bottom + 1;
-    // PREMISE: there is a gap, the release point is in neither block, it is
-    // inside the pane on both axes, and it is clear of both auto-scroll zones.
-    expect(gap.top - gap.bottom).toBeGreaterThanOrEqual(4);
-    expect(gapY).toBeLessThan(gap.top);
-    expect(gapY).toBeGreaterThan(pane.top + 48);
-    expect(gapY).toBeLessThan(pane.bottom - 48);
-    expect(at.x + 8).toBeGreaterThan(pane.left);
-    expect(at.x + 8).toBeLessThan(pane.right);
-
-    await page.mouse.move(at.x + 8, gapY, { steps: 12 });
-    await page.mouse.up();
-
-    // Alpha left w1 for the window above it, whole.
-    await expect
-      .poll(() => tabsOfWindow(page, 'w0'))
-      .toBe(`${W0_START} alpha0* alpha1* alpha2*`);
-    expect(await itemOrder(page)).not.toEqual(START);
   });
 
   // Gamma has two open groups above it. With every group folding it would

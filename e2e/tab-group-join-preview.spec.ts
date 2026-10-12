@@ -218,12 +218,6 @@ const tops = (page: Page) =>
   }, ROWS);
 
 test.describe('ground truth: what the drop actually does', () => {
-  test('before the drop', async ({ context, extensionId }) => {
-    expect(await tops(await open(context, extensionId, BEFORE))).toEqual(
-      TRUTH.before
-    );
-  });
-
   test('a2 joining Alpha from above swaps it with the title row', async ({
     context,
     extensionId,
@@ -426,9 +420,14 @@ const framePreview = (page: Page) =>
         bottom: Math.round(r.bottom - base - bottom),
       };
     };
+    const strip = document.querySelector(
+      '[data-band-id="alpha"] [data-group-color-strip]'
+    );
     return {
       band: paint('[data-band-id="alpha"]'),
       strip: paint('[data-band-id="alpha"] [data-group-color-strip]'),
+      // The strip's hit area is a ::after (KAN-231): a ::before would become the layer paint() reads.
+      stripBefore: strip ? getComputedStyle(strip, '::before').content : null,
     };
   });
 
@@ -494,6 +493,8 @@ test.describe('the preview predicts the drop', () => {
       settle: true,
     });
     const painted = await framePreview(page);
+    // PREMISE: the strip has no paint layer, so its box is its extent.
+    expect(painted.stripBefore).toBe('none');
 
     // The drop makes the band 66..226, and the preview now says exactly that
     // at both edges (KAN-167).

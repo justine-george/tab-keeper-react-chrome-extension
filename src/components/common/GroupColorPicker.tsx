@@ -228,8 +228,8 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
                measures. Measured: with top and bottom both 0 the numbers
                happen to agree today, so that spec stays green -- which is
                exactly why the coupling is dangerous rather than loud. The
-               hit area stays a ::after, and e2e/group-strip-target.spec
-               pins that the ::before still computes to none. */
+               hit area stays a ::after, and tab-group-join-preview.spec's
+               framePreview asserts the ::before still computes to none. */
             position: relative;
             &::after {
               content: '';
