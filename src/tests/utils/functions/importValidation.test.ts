@@ -328,3 +328,52 @@ describe("a saved window's incognito field (KAN-460 Part 3)", () => {
     );
   });
 });
+
+// KAN-460 Part 4. A tab's splitId is a non-empty string or absent.
+describe("a saved tab's splitId field (KAN-460 Part 4)", () => {
+  const withTab = (extra: Record<string, unknown>) => ({
+    lastModified: 1,
+    selectedTabGroupId: null,
+    tabGroups: [
+      {
+        tabGroupId: 's',
+        title: 'S',
+        createdTime: '2026-10-09 10:00:00',
+        windowCount: 1,
+        tabCount: 1,
+        isAutoSave: false,
+        isSelected: false,
+        windows: [
+          {
+            windowId: 'w',
+            windowHeight: 800,
+            windowWidth: 1200,
+            windowOffsetTop: 0,
+            windowOffsetLeft: 0,
+            tabCount: 1,
+            title: '',
+            tabs: [
+              {
+                tabId: 't',
+                favicon: '',
+                title: 't',
+                url: 'https://t.test/',
+                ...extra,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  test('absent and a string are valid', () => {
+    expect(isValidTabMasterContainer(withTab({}))).toBe(true);
+    expect(isValidTabMasterContainer(withTab({ splitId: 'x' }))).toBe(true);
+  });
+
+  test('an empty string and a number are not', () => {
+    expect(isValidTabMasterContainer(withTab({ splitId: '' }))).toBe(false);
+    expect(isValidTabMasterContainer(withTab({ splitId: 7 }))).toBe(false);
+  });
+});

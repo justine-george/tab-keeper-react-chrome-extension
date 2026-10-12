@@ -3,6 +3,7 @@ import type {
   tabData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { generatePlaceholderURL, resolveTabUrl } from './local';
+import { createSplitApi, type CreateSplit } from './splitView';
 import { sanitizeTabGroupColor } from './tabGroups';
 
 // This module is imported by the service worker, so it must stay free of
@@ -168,6 +169,39 @@ export async function applyTabGroups(
   }
 }
 
+// KAN-460 Part 4. The saved pairs a restore splits: exactly two tabs share a
+// splitId, side by side, both pinned or neither, in the same group. Chrome
+// refuses any other pair (measured), so it opens as ordinary tabs (pick a).
+export function splitPairs(tabs: readonly tabData[]): [number, number][] {
+  const at = new Map<string, number[]>();
+  tabs.forEach((tab, i) => {
+    if (tab.splitId === undefined) return;
+    at.set(tab.splitId, [...(at.get(tab.splitId) ?? []), i]);
+  });
+  return [...at.values()].flatMap((indexes): [number, number][] => {
+    if (indexes.length !== 2) return [];
+    const [i, j] = indexes;
+    const [a, b] = [tabs[i], tabs[j]];
+    return j === i + 1 &&
+      a.pinned === b.pinned &&
+      a.chromeGroupId === b.chromeGroupId
+      ? [[i, j]]
+      : [];
+  });
+}
+
+// Never throws: a refused split costs the split, never the tabs or the restore.
+async function splitRestoredPair(
+  createSplit: CreateSplit,
+  tabIds: [number, number]
+): Promise<void> {
+  try {
+    await createSplit(tabIds);
+  } catch (error) {
+    console.warn('Could not restore a split view:', error);
+  }
+}
+
 // KAN-460, measured: Chrome can drop a state applied in a window's first 50ms; at 300ms it held 48/48 (data and http); no tab event tried marks when it is safe.
 export const WINDOW_SETTLE_MS = 500;
 
@@ -239,7 +273,7 @@ function retryAfterFailure(
   return createWindowWithRetries(fallback, goToURLText, 1);
 }
 
-// Every tab but the target is a placeholder the worker swaps for its page on activation (placeholderTarget, KAN-250).
+// Every tab but the target and split pairs is a placeholder the worker swaps for its page on activation (placeholderTarget, KAN-250).
 async function fillRestoredWindow(
   newWindow: chrome.windows.Window,
   spec: WindowSpec,
@@ -253,6 +287,10 @@ async function fillRestoredWindow(
   const oldEnough =
     spec.state === undefined ? undefined : wait(WINDOW_SETTLE_MS);
   const targetId = newWindow.tabs?.[0]?.id;
+  // A split shows both tabs, but only the one clicked gets onActivated, so both load their page (measured, Part 4).
+  const createSplit = createSplitApi();
+  const pairs = createSplit === null ? [] : splitPairs(spec.tabs);
+  const loadsPage = new Set(pairs.flat());
   // Pinned before any create so later pinned tabs queue behind it; a refused pin (never seen) would also cost order.
   if (spec.tabs[targetIndex].pinned === true && targetId !== undefined) {
     await pinRestoredTab(targetId);
@@ -263,10 +301,12 @@ async function fillRestoredWindow(
     spec.tabs.map((tabInfo, i) =>
       i === targetIndex
         ? targetId
-        : createPlaceholderTab(
+        : createRestoredTab(
             windowId,
             tabInfo,
-            goToURLText,
+            loadsPage.has(i)
+              ? resolveTabUrl(tabInfo.url)
+              : placeholderUrl(tabInfo, goToURLText),
             i < targetIndex ? i : undefined
           )
     )
@@ -285,6 +325,16 @@ async function fillRestoredWindow(
       kind: 'saved',
       openTabId: targetId,
     });
+  }
+
+  // Last of the tab steps: a move ends a split (measured, Part 4).
+  if (createSplit !== null) {
+    for (const [i, j] of pairs) {
+      const [a, b] = [ids[i], ids[j]];
+      if (a !== undefined && b !== undefined) {
+        await splitRestoredPair(createSplit, [a, b]);
+      }
+    }
   }
 
   if (spec.state !== undefined) {
@@ -321,23 +371,26 @@ async function confirmSavedWindowState(
   }
 }
 
+const placeholderUrl = (tabInfo: tabData, goToURLText: string): string =>
+  generatePlaceholderURL(
+    tabInfo.title,
+    tabInfo.favicon || '/images/favicon.ico',
+    resolveTabUrl(tabInfo.url),
+    goToURLText
+  );
+
 // Resolves to the new tab's id, or undefined when Chrome refused it: that tab is skipped, never the restore.
-function createPlaceholderTab(
+function createRestoredTab(
   windowId: number,
   tabInfo: tabData,
-  goToURLText: string,
+  url: string,
   index: number | undefined
 ): Promise<number | undefined> {
   return new Promise((done) => {
     chrome.tabs.create(
       {
         windowId,
-        url: generatePlaceholderURL(
-          tabInfo.title,
-          tabInfo.favicon || '/images/favicon.ico',
-          resolveTabUrl(tabInfo.url),
-          goToURLText
-        ),
+        url,
         active: false,
         ...(tabInfo.pinned === true ? { pinned: true } : {}),
         ...(index === undefined ? {} : { index }),
