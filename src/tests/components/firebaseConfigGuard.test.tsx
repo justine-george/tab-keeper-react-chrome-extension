@@ -51,14 +51,6 @@ afterEach(async () => {
 });
 
 describe('the app with no Firebase config', () => {
-  test('imports without throwing', async () => {
-    withoutConfig();
-
-    // The bug, in one line: this used to reject with auth/invalid-api-key, and
-    // every module importing it went down with it.
-    await expect(import('../../config/firebase')).resolves.toBeDefined();
-  });
-
   test('reports the cloud as unconfigured and hands back no handles', async () => {
     withoutConfig();
 

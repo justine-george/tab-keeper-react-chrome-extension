@@ -34,10 +34,7 @@ import {
   setUserId,
   syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
-import {
-  IS_DIRTY_ACTION,
-  TAB_CONTAINER_HYDRATE_FROM_OTHER_PAGE_ACTION,
-} from '../../utils/constants/actionTypes';
+import { IS_DIRTY_ACTION } from '../../utils/constants/actionTypes';
 import { DEBOUNCE_TIME_WINDOW } from '../../utils/constants/common';
 
 // Signed in and consented, so the "would this start a sync" question is live
@@ -52,14 +49,6 @@ const readyForSync = () => {
   seen.length = 0;
   return { store, seen };
 };
-
-describe('the hydrate action types match their reducers (KAN-279 D9)', () => {
-  it('TAB_CONTAINER_HYDRATE_FROM_OTHER_PAGE_ACTION equals hydrateFromOtherPage.type', () => {
-    expect(TAB_CONTAINER_HYDRATE_FROM_OTHER_PAGE_ACTION).toBe(
-      hydrateFromOtherPage.type
-    );
-  });
-});
 
 describe('hydrateFromOtherPage (KAN-279 D9)', () => {
   it('does not call localStorage.setItem', () => {

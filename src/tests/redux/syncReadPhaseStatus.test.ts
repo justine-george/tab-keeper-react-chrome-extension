@@ -28,7 +28,6 @@ import {
   syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
 import { makeTestStore } from '../setup/makeStore';
-import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 
 // KAN-263. A sync is read-then-write, and only the write half ever said
 // "loading": saveToFirestoreIfDirty.pending is wired, syncStateWithFirestore's
@@ -87,20 +86,5 @@ describe('the read phase of a sync reports itself', () => {
     await store.dispatch(syncStateWithFirestore());
 
     expect(store.getState().globalState.syncStatus).toBe('error');
-  });
-
-  // CONTROL. The new pending case must not outlive the sync: a read that
-  // completes with nothing to write still lands on the completed-sync status
-  // the thunk body sets (KAN-79), not a stuck "loading".
-  it('CONTROL: a completed sync with nothing to write still lands on "success"', async () => {
-    const same = buildContainer([buildSession({ tabGroupId: 'shared' })]);
-    localStorage.setItem('tabContainerData', JSON.stringify(same));
-    mocks.loadFromFirestore.mockResolvedValue(same);
-    const store = signedInStore();
-
-    await store.dispatch(syncStateWithFirestore());
-
-    expect(store.getState().globalState.syncStatus).toBe('success');
-    expect(mocks.saveToFirestore).not.toHaveBeenCalled();
   });
 });

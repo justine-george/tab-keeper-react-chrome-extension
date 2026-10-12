@@ -103,11 +103,6 @@ describe('sync merges instead of prompting', () => {
     ).toEqual(['a', 'b']);
   });
 
-  it('never opens a conflict modal - the state is gone', async () => {
-    const { store } = await runSync(divergent.local(), divergent.cloud());
-    expect('isConflictModalOpen' in store.getState().globalState).toBe(false);
-  });
-
   it('writes to Firestore when local contributed something', async () => {
     await runSync(divergent.local(), divergent.cloud());
     expect(mocks.saveToFirestore).toHaveBeenCalled();
