@@ -610,6 +610,44 @@ test.describe('the stack collapses until hovered (KAN-488)', () => {
   });
 });
 
+// KAN-523. A front toast taller than the ones behind it (its text wraps) still shows both peeks.
+test('8b. a taller front toast still shows the two peeks, 8px or less apiece above its top', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const page = await openPage(context, extensionId);
+  const { block } = await offerFromClose(page, serviceWorker);
+  await clickInPlace(saveWindowIn(block));
+  await clickInPlace(saveAll(page));
+  const toasts = liveToasts(page);
+  await expect(toasts).toHaveCount(3);
+  await settled(page);
+  const before = await toasts.nth(2).boundingBox();
+  // The front toast's text runs to a second line; opening and closing the stack lays it out again.
+  await toasts
+    .nth(2)
+    .evaluate((el: Element) =>
+      el.firstElementChild?.append(' and a few more words, so the line wraps.')
+    );
+  const front = await toasts.nth(2).boundingBox();
+  await page.mouse.move(front!.x + 20, front!.y + front!.height / 2);
+  await settled(page);
+  await page.mouse.move(TAB_VIEWPORT.width - 10, 10);
+  await settled(page);
+
+  const [oldest, middle, newest] = await Promise.all(
+    [0, 1, 2].map(async (i) => (await toasts.nth(i).boundingBox())!)
+  );
+  // PREMISE: the front toast really is taller now.
+  expect(newest.height).toBeGreaterThan(before!.height + 10);
+  // Each older toast's top is above the one in front of it, by a peek of at most 8px.
+  expect(newest.y - middle.y).toBeGreaterThan(0);
+  expect(newest.y - middle.y).toBeLessThanOrEqual(8);
+  expect(middle.y - oldest.y).toBeGreaterThan(0);
+  expect(middle.y - oldest.y).toBeLessThanOrEqual(8);
+});
+
 // KAN-489. Each saved change is its own event: two saves in a row are two
 // toasts, where a twin used to replace the first.
 test('9. two saves in a row are two toasts; a twin that saves nothing still replaces', async ({

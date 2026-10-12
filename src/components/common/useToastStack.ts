@@ -89,6 +89,9 @@ export function useToastStack(toasts: readonly ToastItem[], open: boolean) {
   useLayoutEffect(() => {
     let below = 0;
     let depth = 0;
+    // KAN-523. Collapsed, each older toast's top sits depth × PEEK above the FRONT toast's top, so a taller or
+    // shorter front toast neither covers the peeks nor over-reveals them.
+    let frontHeight: number | null = null;
     for (let i = shown.length - 1; i >= 0; i -= 1) {
       const { toast, leaving } = shown[i];
       const el = elements.current.get(toast.id);
@@ -105,7 +108,9 @@ export function useToastStack(toasts: readonly ToastItem[], open: boolean) {
         placed.current.delete(toast.id);
         continue;
       }
-      const y = open ? -below : -depth * TOAST_PEEK_PX;
+      const height = el.offsetHeight;
+      if (frontHeight === null) frontHeight = height;
+      const y = open ? -below : height - frontHeight - depth * TOAST_PEEK_PX;
       const scale =
         open || depth === 0 ? '' : ` scale(${1 - depth * TOAST_PEEK_SCALE})`;
       el.dataset.depth = String(depth);
@@ -120,7 +125,7 @@ export function useToastStack(toasts: readonly ToastItem[], open: boolean) {
       }
       el.style.transform = `translateY(${y}px)${scale}`;
       el.style.opacity = '1';
-      below += el.offsetHeight + TOAST_GAP_PX;
+      below += height + TOAST_GAP_PX;
       depth += 1;
     }
   }, [shown, open]);
