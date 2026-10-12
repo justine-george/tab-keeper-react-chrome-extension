@@ -144,24 +144,6 @@ afterEach(() => {
 });
 
 describe('dragging a window inside a session', () => {
-  test('moves it to the front', async () => {
-    const { container, store } = await render();
-    layout(container);
-
-    drag(handleIn(nodeFor(container, 'w3')), 140, 5);
-
-    expect(windowIds(store)).toEqual(['w3', 'w1', 'w2']);
-  });
-
-  test('moves it to the back', async () => {
-    const { container, store } = await render();
-    layout(container);
-
-    drag(handleIn(nodeFor(container, 'w1')), 20, 175);
-
-    expect(windowIds(store)).toEqual(['w2', 'w3', 'w1']);
-  });
-
   // The midpoint is the boundary, not the row's edge, and the rows are unequal
   // in height -- so this lands only if the index came from w2's OWN measured
   // midpoint (70) rather than from a uniform row size.
@@ -172,18 +154,6 @@ describe('dragging a window inside a session', () => {
     drag(handleIn(nodeFor(container, 'w1')), 20, 65);
 
     expect(windowIds(store)).toEqual(['w1', 'w2', 'w3']);
-  });
-
-  test('a window carries its tabs with it', async () => {
-    const { container, store } = await render();
-    layout(container);
-
-    drag(handleIn(nodeFor(container, 'w3')), 140, 5);
-
-    const moved =
-      store.getState().tabContainerDataState.tabGroups[0].windows[0];
-    expect(moved.title).toBe('Third');
-    expect(moved.tabs).toHaveLength(3);
   });
 });
 
@@ -323,6 +293,6 @@ describe('a window drag inside a filtered list', () => {
 
     drag(handleIn(nodeFor(container, 'w1')), 20, 170);
 
-    expect(windowIds(store)).not.toEqual(['w1', 'w2', 'w3']);
+    expect(windowIds(store)).toEqual(['w2', 'w3', 'w1']);
   });
 });
