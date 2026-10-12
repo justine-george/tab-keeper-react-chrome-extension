@@ -21,6 +21,7 @@ import {
   closeReplayNote,
   hello,
   hitAt,
+  landedAt,
   nextTo,
   openRunFromHelp,
   replayNote,
@@ -242,6 +243,7 @@ test('step 7: a window renamed from its title is stored, and a window folds and 
   await cardButton(page, 'Use an example').click();
   await expect(cardAt(page, 4)).toBeVisible();
   for (let step = 5; step <= 7; step++) await nextTo(page, step);
+  await landedAt(page, 7);
   const detail = page.locator('[data-pane="detail"]');
   const title = detail.getByRole('button', {
     name: 'Rename window: Getting there',
@@ -328,15 +330,7 @@ test('while the card glides from step 6 to step 7 it takes no pointer, and takes
   await cardButton(page, 'Use an example').click();
   await expect(cardAt(page, 4)).toBeVisible();
   for (let step = 5; step <= 6; step++) await nextTo(page, step);
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          document.querySelector('[data-coach-mark]')?.getAnimations().length ??
-          -1
-      )
-    )
-    .toBe(0);
+  await landedAt(page, 6);
   // Slowed 100x from before Next, so the glide cannot end under the probes.
   // Not rate 0: on Chromium 156 that also stalls the card's change of step (KAN-559).
   const cdp = await context.newCDPSession(page);

@@ -107,6 +107,30 @@ export async function nextTo(page: Page, step: number): Promise<void> {
   await expect(cardAt(page, step)).toBeVisible();
 }
 
+// Until the card has landed at `step` (KAN-558). It shows the step at once, but is
+// placed for it in the next frame, committed in the task after that frame (React's
+// scheduler posts a message), and then glides there.
+export async function landedAt(page: Page, step: number): Promise<void> {
+  await expect(cardAt(page, step)).toBeVisible();
+  await page.evaluate(async () => {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = resolve;
+      channel.port2.postMessage(null);
+    });
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.querySelector('[data-coach-mark]')?.getAnimations().length ??
+          -1
+      )
+    )
+    .toBe(0);
+}
+
 // From the full-view run's first card to its last, with an example as its session.
 export async function walkFullRunToLastStep(page: Page): Promise<void> {
   for (let step = 2; step <= 3; step++) await nextTo(page, step);
