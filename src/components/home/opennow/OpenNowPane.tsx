@@ -28,7 +28,6 @@ import {
   thisWindowFirst,
 } from '../../../utils/functions/openNow';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
-import type { MovedTabs } from '../../../utils/functions/openNowMoves';
 import {
   openWindowsToSession,
   suggestTitleForWindow,
@@ -91,12 +90,6 @@ interface OpenNowPaneProps {
   onSearchTextChange: (text: string) => void;
   // The field. The caller holds it so the drawer can focus it on open (R1).
   searchInputRef: RefObject<HTMLInputElement>;
-  // Told of every drag Chrome carried out, with each moved tab's place before
-  // and after (KAN-280 Part E), after the drop is kept for ⌘Z. No product
-  // caller passes it: the undo record is kept by useOpenNowDrop itself
-  // (storeOpenNowDrop), whether or not this is given. The drag tests use it
-  // to know a committed drop has settled.
-  onMoved?: (moved: MovedTabs) => void;
 }
 
 // Stands in for `windows` while the first read is in flight, the same array
@@ -149,7 +142,6 @@ export default function OpenNowPane({
   searchText,
   onSearchTextChange,
   searchInputRef,
-  onMoved,
 }: OpenNowPaneProps) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -226,7 +218,6 @@ export default function OpenNowPane({
     windows: listed,
     hasTabGroups: hasTabGroupsPermission,
     collapsedIds: foldedIds,
-    onMoved,
   });
 
   const toggleWindow = (id: number) =>

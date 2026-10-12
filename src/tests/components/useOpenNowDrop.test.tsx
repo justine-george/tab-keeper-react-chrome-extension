@@ -21,8 +21,10 @@ import {
 import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import { moveOpenGroup, moveOpenTab } from '../../utils/functions/openNowMoves';
-import type { MovedTabs } from '../../utils/functions/openNowMoves';
-import { noteTabKeeperAction } from '../../redux/openNowMoveUndo';
+import {
+  noteTabKeeperAction,
+  takeOpenNowDrop,
+} from '../../redux/openNowMoveUndo';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeFakeHandle, ChromeSeed } from '../setup/chrome.fake';
 
@@ -81,7 +83,6 @@ function renderDrop(
   options: {
     hasTabGroups?: boolean;
     collapsedIds?: ReadonlySet<number>;
-    onMoved?: (moved: MovedTabs) => void;
   } = {}
 ) {
   return renderHook(() =>
@@ -89,7 +90,6 @@ function renderDrop(
       windows,
       hasTabGroups: options.hasTabGroups ?? true,
       collapsedIds: options.collapsedIds ?? new Set(),
-      onMoved: options.onMoved,
     })
   );
 }
@@ -343,13 +343,11 @@ describe('a drop becomes Chrome calls, or none', () => {
   // Task 4's refusal paths, each of which Open now's callers can reach: the
   // geometry describes no move, and nothing is asked of Chrome.
   test('a tab the snapshot does not hold calls nothing', async () => {
-    const onMoved = vi.fn();
-    const { result } = renderDrop(await install(fourWindows()), { onMoved });
+    const { result } = renderDrop(await install(fourWindows()));
     expect(await result.current.tabs.onMove('999', 0, undefined, '1')).toBe(
       null
     );
     expect(moveOpenTab).not.toHaveBeenCalled();
-    expect(onMoved).not.toHaveBeenCalled();
   });
 
   test('a tab drop that names no window calls nothing', async () => {
@@ -388,16 +386,15 @@ describe('a drop becomes Chrome calls, or none', () => {
   });
 
   // Off the happy path: Chrome refuses (the tab closed during the hold). The
-  // hook passes the refusal on as null and records nothing.
-  test('a move Chrome refuses hands no record on', async () => {
+  // hook passes the refusal on as null and keeps nothing for ⌘Z.
+  test('a move Chrome refuses leaves nothing to undo', async () => {
     const windows = await install(fourWindows());
-    const onMoved = vi.fn();
-    const { result } = renderDrop(windows, { onMoved });
+    const { result } = renderDrop(windows);
     await chrome.tabs.remove(LOOSE_A);
     expect(
       await result.current.tabs.onMove(String(LOOSE_A), 0, undefined, '2')
     ).toBe(null);
     expect(moveOpenTab).toHaveBeenCalled();
-    expect(onMoved).not.toHaveBeenCalled();
+    expect(takeOpenNowDrop()).toBeNull();
   });
 });

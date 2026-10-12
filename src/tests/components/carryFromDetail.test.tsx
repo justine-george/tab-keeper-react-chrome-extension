@@ -257,7 +257,6 @@ describe('the session list and Open now keep today’s drag on a carry receiver'
       searchText: '',
       onSearchTextChange: () => undefined,
       searchInputRef: createRef<HTMLInputElement>(),
-      onMoved: () => undefined,
     };
     const result = await renderWithProviders(
       <OpenNowPane windows={null} {...props} />,

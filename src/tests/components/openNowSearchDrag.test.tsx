@@ -1,6 +1,6 @@
 import { createRef, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Spied, not replaced: the real moves run against the fake, so a test sees
@@ -24,6 +24,7 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 import {
   ROW,
   drag,
+  expectMoveCarriedOut,
   find,
   layOut,
   snapshot,
@@ -49,13 +50,7 @@ afterEach(() => {
   document.documentElement.removeAttribute('data-dragging');
 });
 
-function SearchablePane({
-  windows,
-  onMoved,
-}: {
-  windows: OpenWindow[] | null;
-  onMoved: () => void;
-}) {
+function SearchablePane({ windows }: { windows: OpenWindow[] | null }) {
   const [text, setText] = useState('');
   const [inputRef] = useState(() => createRef<HTMLInputElement>());
   return (
@@ -63,7 +58,6 @@ function SearchablePane({
       windows={windows}
       actions={[]}
       headingId="open-now-heading"
-      onMoved={onMoved}
       searchText={text}
       onSearchTextChange={setText}
       searchInputRef={inputRef}
@@ -72,19 +66,15 @@ function SearchablePane({
 }
 
 async function renderSearchable(seed: ChromeSeed, hasTabGroups: boolean) {
-  const onMoved = vi.fn();
-  const result = await renderWithProviders(
-    <SearchablePane windows={null} onMoved={onMoved} />,
-    {
-      seed,
-      seedStore: (store) =>
-        store.dispatch(setHasTabGroupsPermission(hasTabGroups)),
-    }
-  );
+  const result = await renderWithProviders(<SearchablePane windows={null} />, {
+    seed,
+    seedStore: (store) =>
+      store.dispatch(setHasTabGroupsPermission(hasTabGroups)),
+  });
   const windows = await snapshot(hasTabGroups);
-  result.rerender(<SearchablePane windows={windows} onMoved={onMoved} />);
+  result.rerender(<SearchablePane windows={windows} />);
   await screen.findAllByRole('button', { name: /^Switch to tab: / });
-  return { ...result, windows, onMoved, top: layOut(windows) };
+  return { ...result, windows, top: layOut(windows) };
 }
 
 const searchBox = () =>
@@ -134,26 +124,25 @@ const groupSeed = (): ChromeSeed => ({
 
 describe('drag is off while searching (KAN-330 O14c)', () => {
   test('spaces only is no search: drag stays on', async () => {
-    const { top, onMoved } = await renderSearchable(seed(), false);
+    const { top } = await renderSearchable(seed(), false);
     await userEvent.setup().type(searchBox(), '   ');
     drag(tabRow(12), (top.get('12') ?? 0) + ROW / 2, (top.get('22') ?? 0) + 2);
-    await waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
+    await expectMoveCarriedOut(vi.mocked(moveOpenTab));
   });
 
   test('with a search held, a group held by its title row moves nothing', async () => {
-    const { top, onMoved } = await renderSearchable(groupSeed(), true);
+    const { top } = await renderSearchable(groupSeed(), true);
     const title = find('[data-fixed-row-id="50"]');
     await userEvent.setup().type(searchBox(), 'test');
     expect(find('[data-fixed-row-id="50"]')).toBe(title);
     drag(title, (top.get('group:50') ?? 0) + ROW / 2, (top.get('22') ?? 0) + 2);
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(moveOpenGroup).not.toHaveBeenCalled();
-    expect(onMoved).not.toHaveBeenCalled();
     expect((await chrome.tabs.get(12)).windowId).toBe(1);
   });
 
   test('CONTROL: after clearing the search, the same drag moves the group', async () => {
-    const { top, onMoved } = await renderSearchable(groupSeed(), true);
+    const { top } = await renderSearchable(groupSeed(), true);
     const user = userEvent.setup();
     await user.type(searchBox(), 'test');
     await user.click(screen.getByRole('button', { name: 'Clear search' }));
@@ -162,8 +151,7 @@ describe('drag is off while searching (KAN-330 O14c)', () => {
       (top.get('group:50') ?? 0) + ROW / 2,
       (top.get('22') ?? 0) + 2
     );
-    await waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
-    expect(moveOpenGroup).toHaveBeenCalledTimes(1);
+    await expectMoveCarriedOut(vi.mocked(moveOpenGroup));
   });
 });
 
@@ -175,7 +163,7 @@ describe('a search that starts while a row is held (KAN-330 O14c)', () => {
   // from the rows as they were measured before the filter. A drag that is
   // disabled mid-flight now cancels as Esc does, so nothing moves.
   test('B held past the threshold, then the text changes, then released among the original rows', async () => {
-    const { top, onMoved } = await renderSearchable(seed(), false);
+    const { top } = await renderSearchable(seed(), false);
     const from = (top.get('12') ?? 0) + ROW / 2;
     fireEvent.pointerDown(tabRow(12), {
       clientX: 10,
@@ -190,6 +178,5 @@ describe('a search that starts while a row is held (KAN-330 O14c)', () => {
     fireEvent.pointerUp(document, { clientX: 10, clientY: to });
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(moveOpenTab).not.toHaveBeenCalled();
-    expect(onMoved).not.toHaveBeenCalled();
   });
 });

@@ -22,6 +22,7 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 import {
   ROW,
   drag,
+  expectMoveCarriedOut,
   find,
   layOut,
   snapshot,
@@ -63,7 +64,6 @@ async function renderPane(
     drawOrder?: number[];
   } = {}
 ) {
-  const onMoved = vi.fn();
   // The fake is installed by renderWithProviders; the snapshot is read from
   // it after, and the pane re-rendered with it.
   const result = await renderWithProviders(
@@ -74,7 +74,6 @@ async function renderPane(
       searchText=""
       onSearchTextChange={() => undefined}
       searchInputRef={createRef<HTMLInputElement>()}
-      onMoved={onMoved}
     />,
     {
       seed,
@@ -91,7 +90,6 @@ async function renderPane(
       searchText=""
       onSearchTextChange={() => undefined}
       searchInputRef={createRef<HTMLInputElement>()}
-      onMoved={onMoved}
     />
   );
   await screen.findAllByRole('button', { name: /^Switch to tab: / });
@@ -102,7 +100,7 @@ async function renderPane(
         return window;
       })
     : windows;
-  return { ...result, windows, onMoved, top: layOut(drawn) };
+  return { ...result, windows, top: layOut(drawn) };
 }
 
 describe('a tab dragged in Open now moves the real tab', () => {
@@ -126,12 +124,12 @@ describe('a tab dragged in Open now moves the real tab', () => {
     ],
   });
 
-  test('B released between C and D lands there in Chrome, and the record is handed on', async () => {
-    const { top, onMoved, store } = await renderPane(seed(), false);
+  test('B released between C and D lands there in Chrome, and nothing reaches the store', async () => {
+    const { top, store } = await renderPane(seed(), false);
     const before = store.getState();
     const d = top.get('22') ?? 0;
     drag(tabRow(12), (top.get('12') ?? 0) + ROW / 2, d + 2);
-    await waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
+    await expectMoveCarriedOut(vi.mocked(moveOpenTab));
     expect(moveOpenTab).toHaveBeenCalledWith(
       expect.objectContaining({
         tabId: '12',
@@ -172,9 +170,9 @@ describe('with This window drawn first', () => {
   const thisFirst = { thisWindowId: 2, drawOrder: [2, 1] };
 
   test('B released on the top row lands first in This window', async () => {
-    const { top, onMoved } = await renderPane(seed(), false, thisFirst);
+    const { top } = await renderPane(seed(), false, thisFirst);
     drag(tabRow(12), (top.get('12') ?? 0) + ROW / 2, (top.get('21') ?? 0) + 2);
-    await waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
+    await expectMoveCarriedOut(vi.mocked(moveOpenTab));
     expect(moveOpenTab).toHaveBeenCalledWith(
       expect.objectContaining({ tabId: '12', toWindowId: '2', toIndex: 0 }),
       expect.anything(),
@@ -185,9 +183,9 @@ describe('with This window drawn first', () => {
   });
 
   test('C released between A and B, below This window, lands there', async () => {
-    const { top, onMoved } = await renderPane(seed(), false, thisFirst);
+    const { top } = await renderPane(seed(), false, thisFirst);
     drag(tabRow(21), (top.get('21') ?? 0) + ROW / 2, (top.get('12') ?? 0) + 2);
-    await waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
+    await expectMoveCarriedOut(vi.mocked(moveOpenTab));
     const c = await chrome.tabs.get(21);
     expect([c.windowId, c.index]).toEqual([1, 1]);
   });
@@ -259,7 +257,7 @@ describe('a group dropped on a folded window with pinned tabs', () => {
   });
 
   test('lands at the first unpinned index in Chrome', async () => {
-    const { windows, onMoved } = await renderPane(seed(), true);
+    const { windows } = await renderPane(seed(), true);
     fireEvent.click(screen.getByRole('button', { name: 'Collapse: Window 2' }));
     await waitFor(() =>
       expect(document.querySelector('[data-drag-row-id="21"]')).toBeNull()
@@ -271,7 +269,7 @@ describe('a group dropped on a folded window with pinned tabs', () => {
       (top.get('group:50') ?? 0) + ROW / 2,
       (top.get('window:2') ?? 0) + ROW / 2
     );
-    await waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
+    await expectMoveCarriedOut(vi.mocked(moveOpenGroup));
     expect(moveOpenGroup).toHaveBeenCalledWith(
       { groupId: '50', fromWindowId: '1', toWindowId: '2', toIndex: 0 },
       expect.anything()
