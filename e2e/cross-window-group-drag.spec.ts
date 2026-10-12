@@ -417,12 +417,6 @@ test.describe('a group released over another window', () => {
     expect(await order(page, 'w1')).toBe('a0 a2');
     expect(await groupsOf(page, 'w2')).toEqual([BETA, ALPHA]);
     // And the rows really are there once the window is opened again.
-    //
-    // The 400ms is the drag's own click suppression (RowDragArea swallows the
-    // first click after a drag, so releasing a row does not also open it). It
-    // is a fixed product constant, not a race: without waiting it out, this
-    // click is the one that gets swallowed and the window stays shut.
-    await page.waitForTimeout(450);
     await page
       .locator('[data-drop-window-id="w2"]')
       .getByRole('button', { name: /^Expand(: |$)/ })
