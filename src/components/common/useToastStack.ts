@@ -108,6 +108,13 @@ export function useToastStack(toasts: readonly ToastItem[], open: boolean) {
         placed.current.delete(toast.id);
         continue;
       }
+      const entering = !placed.current.has(toast.id);
+      if (entering) {
+        // Start 12px low and clear BEFORE anything reads layout: a height read first would give a new toast a
+        // resting style, and setting the start after it would itself animate (KAN-523).
+        el.style.transform = `translateY(${TOAST_RISE_PX}px)`;
+        el.style.opacity = '0';
+      }
       const height = el.offsetHeight;
       if (frontHeight === null) frontHeight = height;
       const y = open ? -below : height - frontHeight - depth * TOAST_PEEK_PX;
@@ -115,11 +122,9 @@ export function useToastStack(toasts: readonly ToastItem[], open: boolean) {
         open || depth === 0 ? '' : ` scale(${1 - depth * TOAST_PEEK_SCALE})`;
       el.dataset.depth = String(depth);
       el.style.zIndex = String(MAX_DEPTH - depth);
-      if (!placed.current.has(toast.id)) {
-        // Start 12px low and clear, and have the browser take that in before
-        // the move, so the transition runs from it.
+      if (entering) {
+        // Have the browser take the start in before the move, so the transition runs from it.
         el.style.transform = `translateY(${y + TOAST_RISE_PX}px)`;
-        el.style.opacity = '0';
         el.getBoundingClientRect();
         placed.current.add(toast.id);
       }

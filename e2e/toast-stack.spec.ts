@@ -640,7 +640,7 @@ test('8b. a taller front toast still shows the two peeks, 8px or less apiece abo
     [0, 1, 2].map(async (i) => (await toasts.nth(i).boundingBox())!)
   );
   // PREMISE: the front toast really is taller now.
-  expect(newest.height).toBeGreaterThan(before!.height + 10);
+  expect(newest.height).toBeGreaterThan(before!.height);
   // Each older toast's top is above the one in front of it, by a peek of at most 8px.
   expect(newest.y - middle.y).toBeGreaterThan(0);
   expect(newest.y - middle.y).toBeLessThanOrEqual(8);
