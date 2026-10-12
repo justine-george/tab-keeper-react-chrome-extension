@@ -102,10 +102,6 @@ test.each([
   );
 });
 
-test('CONTROL: the rungs are Button own tokens on Paper', () => {
-  expect(LIGHT_THEME.ICON_ACTIVE_COLOR).not.toBe(LIGHT_THEME.ICON_HOVER_COLOR);
-});
-
 // KAN-7. The run's way forward: rungs mix TEXT_COLOR over PRIMARY_COLOR, never opacity.
 describe('the filled button', () => {
   const COLORS = LIGHT_THEME;

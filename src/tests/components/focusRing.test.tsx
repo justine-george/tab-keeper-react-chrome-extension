@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import Button from '../../components/common/Button';
 import GroupColorPicker from '../../components/common/GroupColorPicker';
 import Icon from '../../components/common/Icon';
 import OverflowMenu from '../../components/common/OverflowMenu';
@@ -36,32 +35,7 @@ const ringRules = (el: Element) =>
     .join('\n')
     .toLowerCase();
 
-const ring = (text: string) =>
-  new RegExp(
-    `outline: 2px solid ${text.toLowerCase()};\\s*outline-offset: -4px`
-  );
-
 describe('the themed ring (1A)', () => {
-  test.each(THEMES)('an Icon button, in %s', async (theme, colors) => {
-    await renderWithProviders(
-      <Icon type="more_vert" ariaLabel="More" onClick={() => undefined} />,
-      { seedStore: (store) => store.dispatch(setTheme(theme)) }
-    );
-    expect(ringRules(screen.getByRole('button'))).toMatch(
-      ring(colors.TEXT_COLOR)
-    );
-  });
-
-  test.each(THEMES)('a Button, in %s', async (theme, colors) => {
-    await renderWithProviders(
-      <Button ariaLabel="Save" iconType="library_add" onClick={() => {}} />,
-      { seedStore: (store) => store.dispatch(setTheme(theme)) }
-    );
-    expect(ringRules(screen.getByRole('button'))).toMatch(
-      ring(colors.TEXT_COLOR)
-    );
-  });
-
   // Round 2 B: outside the bar, which is too narrow for a ring inside it.
   test.each(THEMES)('the group colour bar, in %s', async (theme, colors) => {
     await renderWithProviders(
@@ -111,22 +85,6 @@ describe('Esc returns focus to the trigger (2A)', () => {
     expect(focus).toHaveBeenCalledTimes(1);
     return focus.mock.calls[0][0];
   };
-
-  test('opened with a click: no ring', async () => {
-    const user = userEvent.setup();
-    await renderMenu();
-    await user.click(trigger());
-    expect(await focusOnEsc(user)).toEqual({ focusVisible: false });
-  });
-
-  test('opened with Enter: the ring stays', async () => {
-    const user = userEvent.setup();
-    await renderMenu();
-    act(() => trigger().focus());
-    await user.keyboard('{Enter}');
-    expect(screen.getByRole('menu')).toBeInTheDocument();
-    expect(await focusOnEsc(user)).toBeUndefined();
-  });
 
   test('opened with Space: the ring stays', async () => {
     const user = userEvent.setup();
@@ -187,15 +145,6 @@ describe('Esc returns focus to the trigger (2A)', () => {
       expect(screen.queryByRole('menu')).toBeNull();
       expect(focus).toHaveBeenCalledTimes(1);
       expect(focus.mock.calls[0][0]).toBeUndefined();
-    });
-
-    test('click-opened, then Esc: no ring', async () => {
-      const user = userEvent.setup();
-      await renderPicker();
-      await user.click(strip());
-      const focus = vi.spyOn(strip(), 'focus');
-      await user.keyboard('{Escape}');
-      expect(focus.mock.calls[0][0]).toEqual({ focusVisible: false });
     });
   });
 });

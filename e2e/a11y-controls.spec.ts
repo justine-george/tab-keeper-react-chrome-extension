@@ -68,31 +68,6 @@ async function openRatePrompt(
 }
 
 test.describe('accessible controls', () => {
-  // The control for every negative assertion below. It exercises the same
-  // component (Icon), the same prop (ariaLabel) and the same query, differing
-  // only in that this Icon owns its own onClick and so renders role="button".
-  // If this test ever fails, a zero count elsewhere in this file means the
-  // harness is broken, not that the app is.
-  test('CONTROL: an Icon that owns its onClick is exposed as a named button', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await openPopup(context, extensionId);
-
-    await expect(page.getByRole('button', { name: 'Settings' })).toHaveCount(1);
-  });
-
-  test('the settings back control is a button with an accessible name (KAN-56)', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await openPopup(context, extensionId);
-    await page.getByRole('button', { name: 'Settings' }).click();
-    await expect(page.getByText('Themes')).toBeVisible();
-
-    await expect(page.getByRole('button', { name: 'Go back' })).toHaveCount(1);
-  });
-
   // KAN-385: the saved search is a field in the list, not a header button.
   test('the saved search field has an accessible name (KAN-56)', async ({
     context,

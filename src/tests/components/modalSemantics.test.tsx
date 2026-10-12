@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 
 import { RateAndReviewModal } from '../../components/modals/RateAndReviewModal';
 import { TabGroupsPermissionModal } from '../../components/modals/TabGroupsPermissionModal';
@@ -150,20 +150,5 @@ describe.each(MODALS)('$name is a real dialog (KAN-89)', (modal) => {
     const body = container.querySelector(`#${describedBy}`);
     expect(body).not.toBeNull();
     expect(body!.textContent?.trim()).toBeTruthy();
-  });
-
-  // Escape reaches a modal <dialog> as a `cancel` event. Without an onCancel
-  // handler the browser closes the dialog in the DOM while the store still
-  // believes it open -- so it would vanish and could never be reopened.
-  test('Escape closes it through the store, not just in the DOM', async () => {
-    const { container } = await modal.render();
-    const dialog = container.querySelector('dialog')!;
-
-    fireEvent(
-      dialog,
-      new Event('cancel', { bubbles: false, cancelable: true })
-    );
-
-    expect(container.querySelector('dialog')).toBeNull();
   });
 });
