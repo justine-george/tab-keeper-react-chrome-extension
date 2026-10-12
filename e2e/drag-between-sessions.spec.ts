@@ -1332,11 +1332,25 @@ test.describe('Review Focus 3: a long list, a long session', () => {
     );
     expect(list.scrollTop).toBe(0);
     await page.mouse.move(list.left + 100, list.bottom - 10, { steps: 6 });
-    await expect
-      .poll(() => carryTargets(page), { timeout: 10000 })
-      .toEqual(['L29']);
+    // Let go in the frame L29 lights, not on a backed-off poll (KAN-536):
+    // resting SPRING_OPEN_MS opens it (S1 A), and a drop into the session on
+    // screen sends no Moved toast (Q3 A).
+    await page.waitForFunction(
+      () => {
+        const lit = [...document.querySelectorAll('[data-carry-target]')];
+        return (
+          lit.length === 1 &&
+          lit[0]?.closest<HTMLElement>('[data-drag-row-id]')?.dataset
+            .dragRowId === 'L29'
+        );
+      },
+      undefined,
+      { polling: 'raf', timeout: 10000 }
+    );
     await page.mouse.up();
 
+    // PREMISE: let go before L29 opened.
+    expect(await selected(page)).toBe('S1');
     await expect.poll(() => layout(page, 'L29')).toEqual(['a1', 'l29']);
     expect(await layout(page, 'S1')).toEqual(['a0 a2 al0* al1*', 'b0 b1']);
     await expect
@@ -2831,6 +2845,19 @@ const loggedFrames = (page: Page, n: number, of = '"dragging":') =>
 const loggedDragFrames = (page: Page, n: number) =>
   loggedFrames(page, n, '"dragging":true');
 
+// Until the pane log holds `n` frames with a row held: under load a settle
+// can come back in fewer frames (KAN-525).
+const loggedHeldFrames = (page: Page, n: number) =>
+  expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (document.body.dataset.paneFrames ?? '').split('"held":true').length -
+          1
+      )
+    )
+    .toBeGreaterThanOrEqual(n);
+
 // The toolbar row as it is drawn now: one frame's log.
 async function toolbarNow(page: Page): Promise<ToolbarFrame> {
   await logToolbar(page, null);
@@ -3417,15 +3444,17 @@ test.describe('the toolbar target makes a new first window (KAN-361)', () => {
       await ontoHeaderTarget(page, aim);
       await logToolbar(page, null);
       await loggedFrames(page, 12);
-      const frames = (await toolbarLog(page)).map(
-        ({ dragging, held, lit, scrollTop }) => ({
+      // The first 12: the log runs on until read, and a late read would ask
+      // for more travel than the list has (KAN-525).
+      const frames = (await toolbarLog(page))
+        .slice(0, 12)
+        .map(({ dragging, held, lit, scrollTop }) => ({
           dragging,
           held,
           lit,
           scrollTop,
-        })
-      );
-      expect(frames.length).toBeGreaterThanOrEqual(12);
+        }));
+      expect(frames.length).toBe(12);
       // Every frame: the list's own drag, the target lit.
       expect(frames.filter((f) => !f.dragging || !f.held || !f.lit)).toEqual(
         []
@@ -3670,6 +3699,7 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     await logPane(page, [pick, `tab:${pick}`]);
     await pickUp(page, tabHandle(page, pick));
     await settled(page);
+    await loggedHeldFrames(page, 6);
     const frames = await paneLog(page);
     const atRest = frames[0];
     const held = frames.filter((f) => f.held);
@@ -3846,6 +3876,7 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     await logPane(page, ['f1', 'tab:f1']);
     await pickUp(page, tabHandle(page, 'f1'));
     await settled(page);
+    await loggedHeldFrames(page, 6);
     const frames = await paneLog(page);
     const held = frames.filter((f) => f.held);
     // PREMISE: logged at rest and held, the rows of the session in each.

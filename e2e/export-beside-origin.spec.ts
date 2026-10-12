@@ -38,7 +38,12 @@ const tabAt = (worker: Worker, prefix: string): Promise<Placed> =>
   }, prefix);
 
 /** Two plain tabs after the popup, so "the end" and "beside it" differ. */
-async function addTabsAfter(worker: Worker, windowId: number): Promise<void> {
+async function addTabsAfter(
+  context: BrowserContext,
+  worker: Worker,
+  windowId: number
+): Promise<void> {
+  const pages = context.pages().length;
   await worker.evaluate(async (windowId) => {
     for (const title of ['After-one', 'After-two']) {
       await chrome.tabs.create({
@@ -48,6 +53,8 @@ async function addTabsAfter(worker: Worker, windowId: number): Promise<void> {
       });
     }
   }, windowId);
+  // Until both are pages: a late one is the next 'page' event (KAN-560).
+  await expect.poll(() => context.pages().length).toBe(pages + 2);
 }
 
 async function openPopup(
@@ -103,7 +110,7 @@ test.describe('the export page opens beside its tab (KAN-527)', () => {
         serviceWorker,
         `chrome-extension://${extensionId}/index.html`
       );
-      await addTabsAfter(serviceWorker, origin.windowId);
+      await addTabsAfter(context, serviceWorker, origin.windowId);
 
       // PREMISE: the popup is its window's active tab, with two tabs after it.
       const before = await serviceWorker.evaluate(
@@ -118,6 +125,10 @@ test.describe('the export page opens beside its tab (KAN-527)', () => {
         entry.choose(popup),
       ]);
       await exportPage.waitForLoadState();
+      // PREMISE: the page event caught is the export page's.
+      expect(exportPage.url()).toBe(
+        `chrome-extension://${extensionId}/${entry.page}`
+      );
 
       const opened = await tabAt(
         serviceWorker,
