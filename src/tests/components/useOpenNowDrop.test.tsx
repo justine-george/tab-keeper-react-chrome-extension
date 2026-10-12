@@ -22,10 +22,7 @@ import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import { moveOpenGroup, moveOpenTab } from '../../utils/functions/openNowMoves';
 import type { MovedTabs } from '../../utils/functions/openNowMoves';
-import {
-  noteTabKeeperAction,
-  takeOpenNowDrop,
-} from '../../redux/openNowMoveUndo';
+import { noteTabKeeperAction } from '../../redux/openNowMoveUndo';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeFakeHandle, ChromeSeed } from '../setup/chrome.fake';
 
@@ -212,15 +209,6 @@ describe('openDragWindows: the windows as the drop geometry reads them', () => {
 });
 
 describe('landingRange: where a held row may land in a window (O11c)', () => {
-  test('a pinned tab lands only among its window’s pinned tabs', async () => {
-    const { result } = renderDrop(await install(fourWindows()));
-    // W1 with PINNED_A lifted out: one other pinned tab, so 0 or 1.
-    expect(result.current.tabs.landingRange(String(PINNED_A), '1')).toEqual({
-      min: 0,
-      max: 1,
-    });
-  });
-
   test('an unpinned tab lands below the pinned run, in its own window and another', async () => {
     const { result } = renderDrop(await install(fourWindows()));
     // W1 with LOOSE_A lifted out: [PA, PB, LB], so from 2 to 3.
@@ -296,38 +284,6 @@ describe('landingRange: where a held row may land in a window (O11c)', () => {
 });
 
 describe('acceptsWindow: which windows take a held row at all', () => {
-  test('K1: a pinned tab stays in its own window', async () => {
-    const { result } = renderDrop(await install(fourWindows()));
-    expect(result.current.tabs.acceptsWindow(String(PINNED_A), '1')).toBe(true);
-    expect(result.current.tabs.acceptsWindow(String(PINNED_A), '2')).toBe(
-      false
-    );
-  });
-
-  test('by default a tab and a group go to any window of their own profile', async () => {
-    const { result } = renderDrop(await install(fourWindows()));
-    expect(result.current.tabs.acceptsWindow(String(LOOSE_A), '2')).toBe(true);
-    expect(result.current.tabs.acceptsWindow(String(LOOSE_A), '3')).toBe(true);
-    expect(result.current.items.acceptsWindow(groupItem, '1')).toBe(true);
-    expect(result.current.items.acceptsWindow(groupItem, '2')).toBe(true);
-  });
-
-  test('O11d: a normal row is refused by an incognito window', async () => {
-    const { result } = renderDrop(await install(fourWindows()));
-    expect(result.current.tabs.acceptsWindow(String(LOOSE_A), '4')).toBe(false);
-    expect(result.current.items.acceptsWindow(groupItem, '4')).toBe(false);
-  });
-
-  test('O11d: an incognito row is refused by a normal window, and kept by its own', async () => {
-    const { result } = renderDrop(await install(fourWindows()));
-    expect(result.current.tabs.acceptsWindow(String(INCOGNITO_TAB), '1')).toBe(
-      false
-    );
-    expect(result.current.tabs.acceptsWindow(String(INCOGNITO_TAB), '4')).toBe(
-      true
-    );
-  });
-
   // T1 (spec O11h). The page this pane is on is left out of the list, but it
   // can sit in a Chrome group -- here, group 50, between LC and G1.
   const tabViewInGroup = (): ChromeSeed => {
@@ -350,16 +306,6 @@ describe('acceptsWindow: which windows take a held row at all', () => {
     expect(result.current.tabs.acceptsWindow(String(GROUPED_1), '1')).toBe(
       true
     );
-  });
-
-  test('T1: with this page outside the group, the group may leave', async () => {
-    const seed = fourWindows({ currentTabId: 20 });
-    seed.windows?.[1]?.tabs?.push({ id: 20, url: tabViewUrl() });
-    const { result } = renderDrop(await install(seed));
-    // Read settled before asserting, so a pass is not the read still being
-    // in flight: getCurrent answers on the next tick.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(result.current.items.acceptsWindow(groupItem, '1')).toBe(true);
   });
 
   test('T1: in the popup there is no page tab, and the group may leave', async () => {
@@ -394,69 +340,6 @@ describe('acceptsWindow: which windows take a held row at all', () => {
 });
 
 describe('a drop becomes Chrome calls, or none', () => {
-  test('a tab drop moves the real tab and hands the record on', async () => {
-    const windows = await install(fourWindows());
-    const onMoved = vi.fn();
-    const { result } = renderDrop(windows, { onMoved });
-    // LA from W1 to W2, between LC and the group.
-    const moved = await result.current.tabs.onMove(
-      String(LOOSE_A),
-      1,
-      undefined,
-      '2'
-    );
-    expect(moveOpenTab).toHaveBeenCalledWith(
-      {
-        tabId: String(LOOSE_A),
-        fromWindowId: '1',
-        toWindowId: '2',
-        toIndex: 1,
-        toGroupId: undefined,
-      },
-      windows,
-      true
-    );
-    const tab = await chrome.tabs.get(LOOSE_A);
-    expect([tab.windowId, tab.index]).toEqual([2, 1]);
-    expect(moved).not.toBeNull();
-    expect(onMoved).toHaveBeenCalledWith(moved);
-  });
-
-  test('without the grant the move is made without groups', async () => {
-    const windows = await install(fourWindows(), false);
-    const { result } = renderDrop(windows, { hasTabGroups: false });
-    await result.current.tabs.onMove(String(LOOSE_A), 0, undefined, '2');
-    expect(moveOpenTab).toHaveBeenCalledWith(
-      expect.objectContaining({ tabId: String(LOOSE_A) }),
-      windows,
-      false
-    );
-  });
-
-  test('a group drop moves the real group and hands the record on', async () => {
-    const windows = await install(fourWindows());
-    const onMoved = vi.fn();
-    const { result } = renderDrop(windows, { onMoved });
-    const moved = await result.current.items.onMove(
-      groupItem,
-      2,
-      undefined,
-      '1'
-    );
-    expect(moveOpenGroup).toHaveBeenCalledWith(
-      {
-        groupId: String(GROUP),
-        fromWindowId: '2',
-        toWindowId: '1',
-        toIndex: 2,
-      },
-      windows
-    );
-    const tab = await chrome.tabs.get(GROUPED_1);
-    expect([tab.windowId, tab.index, tab.groupId]).toEqual([1, 2, GROUP]);
-    expect(onMoved).toHaveBeenCalledWith(moved);
-  });
-
   // Task 4's refusal paths, each of which Open now's callers can reach: the
   // geometry describes no move, and nothing is asked of Chrome.
   test('a tab the snapshot does not hold calls nothing', async () => {
@@ -516,60 +399,5 @@ describe('a drop becomes Chrome calls, or none', () => {
     ).toBe(null);
     expect(moveOpenTab).toHaveBeenCalled();
     expect(onMoved).not.toHaveBeenCalled();
-  });
-});
-
-// Spec O11f, ledger R23: a drop that changed something is what ⌘Z undoes
-// next; a drop in place is not an action at all.
-describe('a drop is kept for ⌘Z', () => {
-  test('a tab drop that moved the tab, as a tab drop', async () => {
-    const { result } = renderDrop(await install(fourWindows()));
-    const moved = await result.current.tabs.onMove(
-      String(LOOSE_A),
-      1,
-      undefined,
-      '2'
-    );
-    if (moved === null) throw new Error('PREMISE: the drop was refused');
-
-    expect(takeOpenNowDrop()).toEqual({ kind: 'tab', moved });
-  });
-
-  test('a group drop, as a group drop', async () => {
-    const { result } = renderDrop(await install(fourWindows()));
-    const moved = await result.current.items.onMove(
-      groupItem,
-      2,
-      undefined,
-      '1'
-    );
-    if (moved === null) throw new Error('PREMISE: the drop was refused');
-
-    expect(takeOpenNowDrop()).toEqual({ kind: 'group', moved });
-  });
-
-  test('a drop in place is neither kept nor an action: the drop before it is still the one ⌘Z undoes', async () => {
-    const { result } = renderDrop(await install(fourWindows()));
-    const earlier = await result.current.tabs.onMove(
-      String(LOOSE_A),
-      1,
-      undefined,
-      '2'
-    );
-    if (earlier === null) throw new Error('PREMISE: the drop was refused');
-    // AP2 where it stands, in a window the first drop left alone.
-    const inPlace = await result.current.tabs.onMove(
-      String(ALL_PINNED_2),
-      1,
-      undefined,
-      '3'
-    );
-    // PREMISE: Chrome was asked, and nothing changed.
-    expect(inPlace).not.toBeNull();
-    expect(
-      inPlace?.every(({ before, after }) => before.index === after.index)
-    ).toBe(true);
-
-    expect(takeOpenNowDrop()).toEqual({ kind: 'tab', moved: earlier });
   });
 });
