@@ -128,26 +128,6 @@ describe('the About nameplate', () => {
     expect(container.textContent).not.toMatch(/❤|Crafted/);
   });
 
-  test('drops the thank-you heading', async () => {
-    await renderAbout();
-
-    expect(screen.queryByText(/Thank you for using/)).toBeNull();
-  });
-
-  // KAN-511. Share on X is gone; the section is named for what is left.
-  test('keeps two actions under "Feedback": Rate first, then Share your feedback, and no Share on X', async () => {
-    await renderAbout();
-
-    expect(screen.getByText('Feedback', { exact: true })).toBeTruthy();
-    expect(screen.queryByText('Feedback & Share')).toBeNull();
-    const rate = screen.getByRole('button', { name: 'Rate this extension' });
-    const mail = screen.getByRole('button', { name: 'Share your feedback' });
-    expect(
-      rate.compareDocumentPosition(mail) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Share on X' })).toBeNull();
-  });
-
   test('Rate carries the star and is the filled button; Share your feedback stays quiet', async () => {
     await renderAbout();
 

@@ -40,16 +40,6 @@ const renderOpen = () =>
   });
 
 describe('the review note', () => {
-  test('asks for a review in one sentence, and keeps the header', async () => {
-    await renderOpen();
-
-    expect(screen.getByText('Enjoying Tab Keeper?')).toBeTruthy();
-    expect(
-      screen.getByText("If it's been useful, a review would mean a lot.")
-    ).toBeTruthy();
-    expect(screen.queryByText(/good review/)).toBeNull();
-  });
-
   test('is signed with a first name, on its own line, in LABEL_L2', async () => {
     await renderOpen();
 

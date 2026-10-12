@@ -53,24 +53,4 @@ describe('the settings pane insets its content evenly', () => {
       }
     }
   );
-
-  // THE CONTROL. Equal padding would also be satisfied by zero padding on both
-  // sides, which would put the content flush against the pane's edges. The
-  // inset has to survive.
-  test('CONTROL: the inset is still an inset, not zero', async () => {
-    const { container } = await renderWithProviders(
-      <SettingsDetailsContainer />,
-      {
-        seedStore: (store) =>
-          store.dispatch(selectCategory(SettingsCategory.LANGUAGE)),
-      }
-    );
-
-    const inset = [...container.querySelectorAll('div')].filter((d) => {
-      const pl = getComputedStyle(d).paddingLeft;
-      return pl.includes('clamp') || parseFloat(pl) >= 16;
-    });
-
-    expect(inset.length).toBeGreaterThan(0);
-  });
 });

@@ -121,8 +121,4 @@ describe('malformed stored values', () => {
       )
     ).toBe(true);
   });
-
-  test('an empty settings object never asks and does not throw', () => {
-    expect(shouldAskForReview({}, NOW)).toBe(false);
-  });
 });

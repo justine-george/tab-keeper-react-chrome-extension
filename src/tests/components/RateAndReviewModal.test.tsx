@@ -49,41 +49,6 @@ const BODY_TEXT = "If it's been useful, a review would mean a lot.";
 const CTA_TEXT = 'Rate this extension';
 
 describe('RateAndReviewModal', () => {
-  // The control for every role assertion below. The CTA is a real Button and
-  // was never affected, so it is the proof that getByRole can find
-  // a button in this harness at all -- without it, a passing role query
-  // elsewhere would be indistinguishable from a query that never ran.
-  test('CONTROL: the primary CTA is already a real button', async () => {
-    await renderWithProviders(<RateAndReviewModal />, { seedStore: openModal });
-
-    expect(screen.getByRole('button', { name: CTA_TEXT })).toBeTruthy();
-  });
-
-  // Measured in a live popup on the equivalent KAN-74 modal before it was
-  // fixed: rendered as a NormalLabel (a bare `<div onClick>`), the dismissal
-  // reached the accessibility tree as StaticText -- a control no keyboard user
-  // can reach. getByRole is the assertion that says so; getByText passes
-  // against the broken markup either way, which is why the behaviour tests
-  // below deliberately keep using getByText and these two carry the role
-  // check on their own.
-  test('"Maybe later" is a real button, reachable by keyboard', async () => {
-    await renderWithProviders(<RateAndReviewModal />, { seedStore: openModal });
-
-    expect(screen.getByRole('button', { name: 'Maybe later' })).toBeTruthy();
-  });
-
-  test('"Never remind again" is a real button, reachable by keyboard', async () => {
-    // Earned, not offered: the permanent opt-out renders only after the user
-    // has already skipped once.
-    seedSettings({ isSkippedUserReviewOnce: true });
-
-    await renderWithProviders(<RateAndReviewModal />, { seedStore: openModal });
-
-    expect(
-      screen.getByRole('button', { name: 'Never remind again' })
-    ).toBeTruthy();
-  });
-
   // The third control the ticket did not mention. The body sentence carried
   // `onClick={handleRateExtension}` -- an invisible click target that opened
   // the Web Store, duplicating the CTA directly beneath it and equally

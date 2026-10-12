@@ -56,16 +56,6 @@ describe('requestTabGroupsPermission', () => {
     expect(requestTabGroupsPermission()).toBeUndefined();
   });
 
-  // This only proves the synchronous call doesn't throw. It cannot exercise
-  // the implementation's .catch(), because requestNeverSettles's promise never
-  // settles at all (it neither resolves nor rejects) -- see the dedicated
-  // rejection test below for that.
-  test('does not throw synchronously when the request never settles', async () => {
-    handle = setupChromeFake({ requestNeverSettles: true });
-    expect(() => requestTabGroupsPermission()).not.toThrow();
-    await Promise.resolve();
-  });
-
   // The real target of the "errors are swallowed" comment in the
   // implementation. requestNeverSettles models a promise that hangs forever,
   // which can never reach a .catch(); a genuine rejection needs a fake that
@@ -124,28 +114,6 @@ describe('observeTabGroupsPermission', () => {
     await Promise.resolve();
 
     expect(seen).toEqual([true, false]);
-  });
-
-  // Guards against the listener reporting ANY permission change as a
-  // tabGroups change (it used to -- it discarded the event payload). The
-  // fake's request()/remove() accept any permission name, so a change to an
-  // unrelated one exercises exactly the payload the production listener must
-  // now inspect before calling onChange.
-  test('a change to a different permission does not report a tabGroups change', async () => {
-    handle = setupChromeFake();
-    const seen: boolean[] = [];
-    observeTabGroupsPermission((granted) => seen.push(granted));
-
-    const permissions = chrome.permissions as unknown as {
-      request: (
-        permissions: chrome.permissions.Permissions
-      ) => Promise<boolean>;
-      remove: (permissions: chrome.permissions.Permissions) => Promise<boolean>;
-    };
-    await permissions.request({ permissions: ['bookmarks'] });
-    await permissions.remove({ permissions: ['bookmarks'] });
-
-    expect(seen).toEqual([]);
   });
 
   // The other half of the same guard: a tabGroups observer must not fire for

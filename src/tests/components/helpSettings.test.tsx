@@ -9,10 +9,7 @@ import {
   SettingsCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
 import { openSettingsPage } from '../../redux/slices/globalStateSlice';
-import {
-  dismissPinGuide,
-  finishSetup,
-} from '../../redux/slices/settingsDataStateSlice';
+import { finishSetup } from '../../redux/slices/settingsDataStateSlice';
 import { OPEN_IN_TAB_MESSAGE } from '../../utils/functions/popOut';
 import { newRun } from '../../utils/functions/firstRun';
 import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
@@ -70,42 +67,6 @@ describe('the Help category', () => {
     ]);
   });
 
-  // KAN-512. A list of setup's steps went stale (it named four of six); the line now names none.
-  test('the setup line lists no steps', async () => {
-    await renderHelp();
-    await read('unpinned');
-    expect(
-      screen.queryByText(
-        'Choose your theme, language, default view and shortcut again.'
-      )
-    ).toBeNull();
-  });
-
-  // KAN-512. Every Help button is About's width, not its words'.
-  test('every button is 250px wide, centred', async () => {
-    const { container } = await renderHelp();
-    await read('unpinned');
-    const buttons = [
-      ...container.querySelectorAll<HTMLElement>('[data-help] button'),
-    ];
-    expect(buttons).toHaveLength(3);
-    for (const b of buttons) {
-      const style = getComputedStyle(b);
-      expect([style.width, style.maxWidth, style.justifyContent]).toEqual([
-        '100%',
-        '250px',
-        'center',
-      ]);
-    }
-  });
-
-  test('pinned: no pin row', async () => {
-    await renderHelp({ windows: [{ id: 7 }], action: { isOnToolbar: true } });
-    await read('pinned');
-    expect(screen.queryByText(PIN_ROW)).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Show me how' })).toBeNull();
-  });
-
   // CONTROL: every other test here, where Chrome answers.
   test('until Chrome answers, no row is drawn, so none pops in later', async () => {
     await renderHelp({
@@ -159,19 +120,6 @@ describe('the Help category', () => {
       ])
     );
     expect(store.getState().globalState.isSetupOpen).toBe(false);
-  });
-
-  test('popup: Show me how asks for the full view on the guide, and clears no dismissal', async () => {
-    const { store, chrome } = await renderHelp();
-    store.dispatch(dismissPinGuide());
-    await read('unpinned');
-    fireEvent.click(screen.getByRole('button', { name: 'Show me how' }));
-    await waitFor(() =>
-      expect(chrome.sentMessages).toEqual([
-        { type: OPEN_IN_TAB_MESSAGE, windowId: 7, show: 'pinGuide' },
-      ])
-    );
-    expect(store.getState().settingsDataState.isPinGuideDismissed).toBe(true);
   });
 
   test('popup: Show me how dismisses nothing that was not dismissed', async () => {

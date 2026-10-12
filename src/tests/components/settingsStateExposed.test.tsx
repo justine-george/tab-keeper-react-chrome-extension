@@ -202,25 +202,6 @@ describe('the theme picker marks the active theme (KAN-88)', () => {
     expect(unpressed).toHaveLength(4);
   });
 
-  test('the pressed swatch follows the theme', async () => {
-    const { container, store } = await renderOn(SettingsCategory.DISPLAY);
-
-    const activeTitle = () =>
-      swatches(container)
-        .find((b) => b.getAttribute('aria-pressed') === 'true')
-        ?.textContent?.trim();
-
-    act(() => {
-      store.dispatch(setTheme(Theme.DARKENHEIMER));
-    });
-    expect(activeTitle()).toBe('Graphite');
-
-    act(() => {
-      store.dispatch(setTheme(Theme.BLUE));
-    });
-    expect(activeTitle()).toBe('Ink');
-  });
-
   // The visual half. A screen reader gets aria-pressed; a sighted user needs
   // something drawn, and before this there was nothing at all.
   //

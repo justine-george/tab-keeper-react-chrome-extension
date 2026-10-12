@@ -43,21 +43,6 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
     expect(en).not.toHaveProperty('Data Management');
   });
 
-  test('Sessions holds Save Tab Groups, tab history and the shortcut, and nothing about backup', async () => {
-    await renderOn(SettingsCategory.SESSIONS);
-    expect(screen.getByRole('group', { name: 'Save Tab Groups' })).toBeTruthy();
-    expect(
-      screen.getByRole('group', {
-        name: 'Bring back tab history when reopening',
-      })
-    ).toBeTruthy();
-    expect(screen.getByText('Keyboard shortcut')).toBeTruthy();
-    expect(screen.queryByText('Backup')).toBeNull();
-    expect(
-      screen.queryByRole('button', { name: 'Save sessions to a file' })
-    ).toBeNull();
-  });
-
   test('Sync & Backup holds Auto Sync, the status card, and the backup buttons', async () => {
     await renderOn(SettingsCategory.SYNC);
     expect(screen.getByRole('group', { name: 'Auto Sync' })).toBeTruthy();

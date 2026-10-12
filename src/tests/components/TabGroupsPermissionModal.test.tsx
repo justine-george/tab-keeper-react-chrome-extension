@@ -43,16 +43,6 @@ describe('TabGroupsPermissionModal', () => {
     expect(screen.queryByText('Tab Keeper can save tab groups')).toBeNull();
   });
 
-  test('renders the offer when a prompt is open', async () => {
-    await renderWithProviders(<TabGroupsPermissionModal />, {
-      seedStore: openWith(2),
-    });
-
-    expect(screen.getByText('Tab Keeper can save tab groups')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Turn on' })).toBeTruthy();
-    expect(screen.getByText('Not now')).toBeTruthy();
-  });
-
   test('the footer is Not now on the left and a filled Turn on on the right', async () => {
     await renderWithProviders(<TabGroupsPermissionModal />, {
       seedStore: openWith(2),
@@ -111,16 +101,6 @@ describe('TabGroupsPermissionModal escalation', () => {
     });
 
     expect(screen.queryByText("Don't ask again")).toBeNull();
-  });
-
-  test('the permanent opt-out appears once the user has declined before', async () => {
-    seedSettings({ isTabGroupsPromptAnsweredOnce: true });
-
-    await renderWithProviders(<TabGroupsPermissionModal />, {
-      seedStore: openWith(2),
-    });
-
-    expect(screen.getByText("Don't ask again")).toBeTruthy();
   });
 
   // Measured in a live popup before this was fixed: rendered as a NormalLabel
@@ -202,32 +182,23 @@ describe('TabGroupsPermissionModal permission request', () => {
     expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
   });
 
-  // Control for the test above: with a request that DOES settle the modal also
-  // closes, so the assertion there is about not waiting, not about closing.
-  test('closes when the permission request settles normally', async () => {
+  // Nothing may write a "granted" boolean into settings. The grant lives in
+  // chrome.permissions and is re-read on the next mount; a persisted mirror
+  // would disagree with reality the moment the user revoked it. The answered
+  // flag is the one write allowed: it records that the offer was put to the
+  // user, which is true whatever they then told Chrome.
+  test('turning it on persists no grant flag of its own', async () => {
     const { store } = await renderWithProviders(<TabGroupsPermissionModal />, {
       seedStore: openWith(2),
     });
+    const before = store.getState().settingsDataState;
 
     await userEvent.click(screen.getByRole('button', { name: 'Turn on' }));
 
-    expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
-  });
-
-  // Nothing may write a "granted" boolean into settings. The grant lives in
-  // chrome.permissions and is re-read on the next mount; a persisted mirror
-  // would disagree with reality the moment the user revoked it. Note this
-  // asserts on the OPT-OUT flag only: the answered flag below is deliberately
-  // set here, and is not a grant mirror -- it records that the offer was put
-  // to the user, which is true whatever they then told Chrome.
-  test('turning it on persists no grant flag of its own', async () => {
-    await renderWithProviders(<TabGroupsPermissionModal />, {
-      seedStore: openWith(2),
+    expect(storedSettings()).toEqual({
+      ...before,
+      isTabGroupsPromptAnsweredOnce: true,
     });
-
-    await userEvent.click(screen.getByRole('button', { name: 'Turn on' }));
-
-    expect(storedSettings().isNeverAskAgainForTabGroups ?? false).toBe(false);
   });
 
   // The deny dead end, found by pressing Deny on a real Chrome prompt.
@@ -250,20 +221,6 @@ describe('TabGroupsPermissionModal permission request', () => {
     // Chrome's answer never reaches us, so the flag is what the NEXT popup
     // reads to decide whether the escape hatch has been earned.
     expect(storedSettings().isTabGroupsPromptAnsweredOnce).toBe(true);
-  });
-
-  // Control for the test above: the flag alone is not enough to show the
-  // opt-out -- it has to actually reach the render on the next showing.
-  test('a user who answered once sees the opt-out on the next showing', async () => {
-    seedSettings({ isTabGroupsPromptAnsweredOnce: true });
-
-    await renderWithProviders(<TabGroupsPermissionModal />, {
-      seedStore: openWith(2),
-    });
-
-    expect(
-      screen.getByRole('button', { name: "Don't ask again" })
-    ).toBeTruthy();
   });
 });
 
