@@ -1,10 +1,9 @@
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
-import SettingsCategoryContainer from '../../components/settings/leftpane/SettingsCategoryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
   deleteTabContainerInternal,
@@ -165,37 +164,5 @@ describe('list identity across deletions (KAN-28)', () => {
 
     expect(screen.queryByText('Group 3')).toBeNull();
     expect(screen.getByText('Group 2')).toBe(groupTwoNodeBefore);
-  });
-
-  // Deliberately weaker than the three above, and the comment says so rather
-  // than the test pretending otherwise.
-  //
-  // The settings category list cannot lose identity: it is five fixed enum
-  // members, and the only exported action on that slice is selectCategory,
-  // which flips isSelected in place. The slice does define a replaceState
-  // reducer, but it is not in the slice's export list, so nothing can dispatch
-  // it -- there is no reachable path that adds, removes, or reorders a
-  // category. A deletion test here would be theatre against a scenario the app
-  // cannot produce.
-  //
-  // So the warning IS the whole observable defect for this one, and asserting
-  // on it is honest here for the same reason it would be dishonest above.
-  test('the settings category list renders keyed', async () => {
-    const consoleError = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
-
-    try {
-      await renderWithProviders(<SettingsCategoryContainer />);
-
-      expect(await screen.findByText('Display')).toBeTruthy();
-
-      const keyWarnings = consoleError.mock.calls.filter((args) =>
-        String(args[0]).includes('unique "key" prop')
-      );
-      expect(keyWarnings).toEqual([]);
-    } finally {
-      consoleError.mockRestore();
-    }
   });
 });

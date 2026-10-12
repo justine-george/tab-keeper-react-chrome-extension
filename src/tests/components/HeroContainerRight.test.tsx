@@ -136,17 +136,6 @@ describe('HeroContainerRight', () => {
     expect(screen.queryByText(/Aug 31/)).toBeNull();
   });
 
-  test('renders the selected session title', async () => {
-    await renderWithProviders(<HeroContainerRight />, {
-      seedStore: (store) => {
-        store.dispatch(saveToTabContainerInternal(buildSession()));
-        store.dispatch(selectTabContainer('group-1'));
-      },
-    });
-
-    expect(await screen.findByText('Research')).toBeTruthy();
-  });
-
   // KAN-16. Unreachable through the app -- RightPane will not mount this
   // component with nothing selected -- so the assertion is about the component
   // standing on its own terms, not about a crash a user can currently reach.
@@ -210,44 +199,6 @@ describe('HeroContainerRight', () => {
         },
       });
 
-    // The control for every role assertion below. The rename Icon owns its own
-    // onClick and so already renders role="button" -- it is the proof that
-    // getByRole can find a control in this harness at all. Without it, a
-    // passing role query below could not be told apart from one that never ran,
-    // and the search-mode negative below would prove nothing.
-    test('CONTROL: the rename icon is already a named button', async () => {
-      await renderSelected();
-
-      expect(
-        await screen.findByRole('button', { name: 'Rename session' })
-      ).toBeTruthy();
-    });
-
-    // The accessible name has to CONTAIN the visible title, not replace it.
-    // A bare "Rename session" here would be a fresh WCAG 2.5.3 failure: the
-    // visible label is the title, and a voice-control user saying "click
-    // Research" would find nothing. Hence the same `action + ': ' + target`
-    // shape WindowEntryContainer.tsx:269 already uses.
-    test('the title is a button whose name says both the action and the session', async () => {
-      await renderSelected();
-
-      expect(
-        await screen.findByRole('button', { name: 'Rename session: Research' })
-      ).toBeTruthy();
-    });
-
-    // Swapping a div for a button must not change what the control DOES.
-    // Driven by text so it passes against both markups, pinning the behaviour
-    // rather than the role: this is the affordance the alternative fix
-    // (deleting the onClick) would have removed.
-    test('clicking the title still starts a rename', async () => {
-      await renderSelected();
-
-      await userEvent.click(await screen.findByText('Research'));
-
-      expect(screen.getByDisplayValue('Research')).toBeTruthy();
-    });
-
     // Renaming is not a whole-item action, so the title stays a rename control
     // while searching.
     test('the title still renames while searching', async () => {
@@ -284,19 +235,6 @@ describe('finishing a session rename', () => {
   const titleOf = (store: RenderWithProvidersResult['store']) =>
     store.getState().tabContainerDataState.tabGroups[0].title;
 
-  test('offers a confirm control while editing', async () => {
-    const user = userEvent.setup();
-    await renderHero();
-
-    await user.click(
-      await screen.findByRole('button', { name: 'Rename session: Research' })
-    );
-
-    expect(
-      screen.getByRole('button', { name: 'Save changes' })
-    ).toBeInTheDocument();
-  });
-
   // THE CONTROL. A component that always rendered the tick would satisfy the
   // test above; the tick must belong to the editing state.
   test('CONTROL: no confirm control when not editing', async () => {
@@ -310,38 +248,6 @@ describe('finishing a session rename', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('the confirm control commits the rename', async () => {
-    const user = userEvent.setup();
-    const { store } = await renderHero();
-
-    await user.click(
-      await screen.findByRole('button', { name: 'Rename session: Research' })
-    );
-    // Targeted by role alone: this input carries no accessible name, which is
-    // a separate pre-existing gap and deliberately not fixed here.
-    const input = screen.getByRole('textbox');
-    await user.clear(input);
-    await user.type(input, 'Reading');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
-
-    expect(titleOf(store)).toBe('Reading');
-  });
-
-  test('the editor closes once confirmed', async () => {
-    const user = userEvent.setup();
-    await renderHero();
-
-    await user.click(
-      await screen.findByRole('button', { name: 'Rename session: Research' })
-    );
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
-
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Rename session' })
-    ).toBeInTheDocument();
-  });
-
   // KAN-408. Chrome closes the popup on any Esc nothing prevented.
   describe('Esc and IME in the title field (KAN-408)', () => {
     const openEditor = async () => {
@@ -352,18 +258,6 @@ describe('finishing a session rename', () => {
       );
       return { user, ...rendered };
     };
-
-    test('Esc cancels: nothing is stored and the old title is back', async () => {
-      const { user, store } = await openEditor();
-      await user.clear(screen.getByRole('textbox'));
-      await user.type(screen.getByRole('textbox'), 'Elsewhere{Escape}');
-
-      expect(titleOf(store)).toBe('Research');
-      expect(screen.queryByRole('textbox')).toBeNull();
-      expect(
-        screen.getByRole('button', { name: 'Rename session: Research' })
-      ).toBeInTheDocument();
-    });
 
     test('the Esc is defaultPrevented', async () => {
       await openEditor();

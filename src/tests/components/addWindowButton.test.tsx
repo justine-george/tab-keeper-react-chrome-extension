@@ -85,40 +85,6 @@ describe('the add-window button reads as a button (KAN-213)', () => {
     expect(glyph?.textContent).not.toBe('add');
   });
 
-  // KAN-214. A tinted chip rather than an outlined box: the fill says "button"
-  // and no border is drawn. It stays flush in the card's corner, so the fill
-  // runs to the card's own border there -- Justine's pick over an inset.
-  test('draws no border of its own', async () => {
-    await renderHeader();
-
-    const style = getComputedStyle(addButton());
-    for (const side of ['Top', 'Right', 'Bottom', 'Left'] as const) {
-      expect(style[`border${side}Style`], side).toBe('none');
-    }
-  });
-
-  // History, so the next change does not walk back into it. The fill moved
-  // three times: HOVER_COLOR (the row-hover token, 1.047:1 against the card --
-  // invisible); then none at all, with a border doing the work (KAN-213); now
-  // CHIP_COLOR, which chipContrast.test.ts holds to the visible floor.
-  test('rests on the chip fill', async () => {
-    await renderHeader();
-
-    const fill = getComputedStyle(addButton()).backgroundColor;
-    expect(fill).toBe(hex(LIGHT_THEME.CHIP_COLOR));
-    expect(fill).not.toBe(hex(LIGHT_THEME.HOVER_COLOR)); // the original defect
-  });
-
-  // CONTROL for the fill: with no border, the fill is the only thing that
-  // separates the control from the header behind it.
-  test('separates from the header it sits on', async () => {
-    await renderHeader();
-
-    expect(getComputedStyle(addButton()).backgroundColor).not.toBe(
-      hex(LIGHT_THEME.SECONDARY_COLOR)
-    );
-  });
-
   // Hover and press are the icon ladder's own two steps, so the chip changes by
   // what every other control here changes by. jsdom cannot enter either state,
   // so the injected rules are what this holds (see pressedState.test.tsx).

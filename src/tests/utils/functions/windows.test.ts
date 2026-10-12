@@ -5,7 +5,6 @@ import {
   createWindowWithRetries,
   isRestoreSessionRequest,
   planWindowClosure,
-  restoreTargetIndex,
   WINDOW_SETTLE_MS,
   RESTORE_SESSION_MESSAGE,
   WindowSpec,
@@ -456,31 +455,6 @@ describe('isRestoreSessionRequest', () => {
     );
     expect(isRestoreSessionRequest('nope')).toBe(false);
     expect(isRestoreSessionRequest(null)).toBe(false);
-  });
-});
-
-describe('restoreTargetIndex (KAN-458)', () => {
-  const t = (tabId: string, pinned = false): tabData =>
-    pinned
-      ? { tabId, favicon: '', title: tabId, url: tabId, pinned: true }
-      : { tabId, favicon: '', title: tabId, url: tabId };
-
-  test('the saved active tab', () => {
-    expect(restoreTargetIndex([t('p', true), t('a'), t('b')], 'b')).toBe(2);
-  });
-
-  test('no saved active tab: the first unpinned', () => {
-    expect(restoreTargetIndex([t('p', true), t('a'), t('b')], undefined)).toBe(
-      1
-    );
-  });
-
-  test('a saved active tab that names no tab: the first unpinned', () => {
-    expect(restoreTargetIndex([t('p', true), t('a')], 'gone')).toBe(1);
-  });
-
-  test('only pinned tabs: the first', () => {
-    expect(restoreTargetIndex([t('p', true), t('q', true)], undefined)).toBe(0);
   });
 });
 

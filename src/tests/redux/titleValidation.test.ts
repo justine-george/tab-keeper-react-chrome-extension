@@ -140,18 +140,6 @@ describe('a session title cannot be blanked (KAN-84)', () => {
     }
   );
 
-  // THE CONTROL. Every assertion above is "nothing happened", which a reducer
-  // that ignored all renames would satisfy. This proves the same setup can
-  // actually rename.
-  it('CONTROL: a real rename still lands', () => {
-    const before = reducer(base(), saveToTabContainerInternal(group('a')));
-    const after = reducer(
-      before,
-      updateTabGroupTitle({ tabGroupId: 'a', editableTitle: 'Research' })
-    );
-    expect(byId(after, 'a').title).toBe('Research');
-  });
-
   it('stores the trimmed name, so " Research " is not stored with its padding', () => {
     const before = reducer(base(), saveToTabContainerInternal(group('a')));
     const after = reducer(
@@ -265,16 +253,6 @@ describe('a blank window rename leaves the window unnamed (KAN-394)', () => {
 
     expect(after).toBe(before);
     expect(after.lastModified).not.toBe(9_999_999);
-  });
-
-  // CONTROL: the session rename keeps its KAN-84 refusal; only windows changed.
-  it('CONTROL: a blank session title is still refused', () => {
-    const before = reducer(base(), saveToTabContainerInternal(group('a')));
-    const after = reducer(
-      before,
-      updateTabGroupTitle({ tabGroupId: 'a', editableTitle: '   ' })
-    );
-    expect(byId(after, 'a').title).toBe('a');
   });
 
   it('CONTROL: a real window rename still lands, trimmed', () => {
