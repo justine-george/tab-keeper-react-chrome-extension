@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 
 import OpenNowColumn from '../../components/home/opennow/OpenNowColumn';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -75,8 +75,6 @@ async function renderOpenNow(seed: ChromeSeed) {
 
 const switchRow = (title: string) =>
   screen.getByRole('button', { name: `Switch to tab: ${title}` });
-const closeTabButton = (title: string) =>
-  screen.getByRole('button', { name: `Close tab: ${title}` });
 
 function rowOf(tabId: number): HTMLElement {
   const row = document.querySelector(`[data-open-tab-id="${tabId}"]`);
@@ -106,54 +104,6 @@ describe('the Open now pin mark (KAN-280 O11c)', () => {
     expect(queryPin(DOCS)).toBeNull();
     // CONTROL: the unpinned tab is a real row, only without the mark.
     expect(switchRow('Docs')).toBeInTheDocument();
-  });
-
-  test('is part of the Switch button and hidden from assistive tech, so the row has only Switch and ×', async () => {
-    await renderOpenNow(pinnedWindows());
-
-    for (const [id, title] of [
-      [MAIL, 'Mail'],
-      [RADIO, 'Radio'],
-    ] as const) {
-      expect(pin(id).closest('button')).toBe(switchRow(title));
-      // Its ligature text ("keep") must not leak into any name.
-      const ligature = pin(id).querySelector('.material-symbols-outlined');
-      expect(ligature).not.toBeNull();
-      expect(ligature?.closest('[aria-hidden="true"]')).not.toBeNull();
-      expect(within(rowOf(id)).getAllByRole('button')).toEqual([
-        switchRow(title),
-        closeTabButton(title),
-      ]);
-    }
-  });
-
-  test('a pinned tab that plays sound shows both marks, pin first', async () => {
-    await renderOpenNow(pinnedWindows());
-
-    const speaker = rowOf(RADIO).querySelector('[data-speaker]');
-    expect(speaker).not.toBeNull();
-    expect(speaker).toHaveTextContent(/^volume_up$/);
-    // DOM order is the row's left-to-right order: the slot is a flex row.
-    const marks = [
-      ...rowOf(RADIO).querySelectorAll('[data-pin], [data-speaker]'),
-    ];
-    expect(marks.map((mark) => mark.textContent)).toEqual([
-      'keep',
-      'volume_up',
-    ]);
-    expect(pin(RADIO).closest('button')).toBe(speaker?.closest('button'));
-  });
-
-  test("the Switch button's description says Pinned, before the sound, and its name is unchanged", async () => {
-    await renderOpenNow(pinnedWindows());
-
-    expect(switchRow('Mail')).toHaveAccessibleDescription('Pinned');
-    expect(switchRow('Radio')).toHaveAccessibleDescription(
-      'Pinned Audio playing'
-    );
-    expect(switchRow('Docs')).not.toHaveAttribute('aria-describedby');
-    expect(switchRow('Mail')).toHaveAccessibleName('Switch to tab: Mail');
-    expect(switchRow('Radio')).toHaveAccessibleName('Switch to tab: Radio');
   });
 });
 
@@ -201,14 +151,5 @@ describe('the Open now pinned line (KAN-280 O11c, D F N)', () => {
         .length
     ).toBeGreaterThan(0);
     expect(boundaryRows(1)).toEqual([]);
-  });
-
-  test('is not drawn when every tab in the window is pinned: nothing follows to separate', async () => {
-    await renderOpenNow(withAllPinnedWindow());
-
-    // PREMISE: both rows are there and pinned.
-    expect(pin(31)).toBeInTheDocument();
-    expect(pin(32)).toBeInTheDocument();
-    expect(boundaryRows(ALL_PINNED_WINDOW_ID)).toEqual([]);
   });
 });

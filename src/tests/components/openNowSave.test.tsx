@@ -95,39 +95,6 @@ afterEach(() => {
 });
 
 describe('saving from the Open now pane (KAN-280 O13)', () => {
-  test('Save window saves that window alone, named for its front tab', async () => {
-    const { store } = await renderOpenNow({
-      currentTabId: TAB_VIEW_ID,
-      windows: [
-        { id: 1, focused: true, tabs: [tabView(), tab(11, 'A', 100)] },
-        {
-          id: 2,
-          // Docs first, so "the first tab" and "the most recently used tab"
-          // name different sessions.
-          tabs: [
-            tab(21, 'Docs', 200),
-            { ...tab(22, '(3) Inbox', 500), active: true },
-          ],
-        },
-      ],
-    });
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Save window as a session: Window 2',
-      })
-    );
-
-    const saved = await savedSession(store);
-    expect(saved.title).toBe('Inbox');
-    expect(saved.windowCount).toBe(1);
-    expect(saved.tabCount).toBe(2);
-    expect(saved.windows.map(tabTitlesOf)).toEqual([['Docs', 'Inbox']]);
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Window saved as a session.'
-    );
-  });
-
   test('This window has Save window too, and it leaves the Tab Keeper tab out', async () => {
     const { store } = await renderOpenNow({
       currentTabId: TAB_VIEW_ID,

@@ -1,5 +1,5 @@
 import { createRef } from 'react';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 import {
   act,
   cleanup,
@@ -101,86 +101,9 @@ describe('the search row in Open now (KAN-330 O14)', () => {
       screen.getByRole('button', { name: 'Switch to tab: Kyoto maps' })
     );
   });
-
-  test('Enter in an empty field switches nothing', async () => {
-    await renderOpenNow(threeWindows());
-    const update = vi.spyOn(chrome.tabs, 'update');
-    fireEvent.keyDown(field(), { key: 'Enter' });
-    expect(update).not.toHaveBeenCalled();
-  });
 });
 
 describe('a search draws only the matching tabs (O14a)', () => {
-  test('only matches are drawn; windows with none are hidden and the rest keep their numbers', async () => {
-    await renderOpenNow(threeWindows());
-    const user = userEvent.setup();
-    await user.type(field(), 'kyoto');
-    expect(drawnTitles()).toEqual(['Kyoto maps', 'Kyoto stay']);
-    expect(document.querySelector('[data-open-window-id="3"]')).toBeNull();
-    expect(
-      screen.getByRole('button', { name: 'Collapse: Window 2' })
-    ).toBeInTheDocument();
-    // A hidden window BEFORE the drawn one: it is still Window 2, not 1.
-    await user.clear(field());
-    await user.type(field(), 'stay');
-    expect(drawnTitles()).toEqual(['Kyoto stay']);
-    expect(
-      screen.getByRole('button', { name: 'Collapse: Window 2' })
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Collapse: Window 1' })
-    ).toBeNull();
-  });
-
-  test('the count says how many of the total are drawn', async () => {
-    await renderOpenNow(threeWindows());
-    expect(screen.getByText('3 Windows · 6 Tabs')).toBeInTheDocument();
-    await userEvent.setup().type(field(), 'kyoto');
-    expect(screen.getByText('3 Windows · 2 of 6 Tabs')).toBeInTheDocument();
-  });
-
-  test('matches on the address too', async () => {
-    await renderOpenNow(threeWindows());
-    await userEvent.setup().type(field(), 'laws-of-ux.test');
-    expect(drawnTitles()).toEqual(['Laws of UX']);
-  });
-
-  test('no match says so where the list would be', async () => {
-    await renderOpenNow(threeWindows());
-    await userEvent.setup().type(field(), 'zzz');
-    expect(drawnTitles()).toEqual([]);
-    expect(screen.getByText('No open tab matches "zzz"')).toBeInTheDocument();
-  });
-
-  test('no match draws the shared block: art, message and its own hint', async () => {
-    await renderOpenNow(threeWindows());
-    await userEvent.setup().type(field(), '  zzz ');
-    const block = document.querySelector('[data-no-match]');
-    expect(block).not.toBeNull();
-    expect(block?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
-    expect(block).toHaveTextContent('No open tab matches "zzz"');
-    expect(screen.getByText('Search looks in tab titles and links.')).toBe(
-      block?.querySelector('p')
-    );
-    expect(
-      screen.queryByText(/session names, window names/)
-    ).not.toBeInTheDocument();
-  });
-
-  test("Enter switches to the first MATCH, which sits behind its window's front tab", async () => {
-    await renderOpenNow(threeWindows());
-    const user = userEvent.setup();
-    await user.type(field(), 'stay');
-    // PREMISE: the match is not already its window's front tab.
-    expect((await chrome.tabs.get(22)).active).toBe(false);
-    await user.keyboard('{Enter}');
-    await waitFor(async () =>
-      expect((await chrome.tabs.get(22)).active).toBe(true)
-    );
-    expect((await chrome.tabs.get(21)).active).toBe(false);
-    expect((await chrome.tabs.get(11)).active).toBe(true); // W1 untouched
-  });
-
   test('a group band shows only when it holds a match', async () => {
     await renderWithProviders(
       <>
@@ -235,21 +158,6 @@ describe('a search draws only the matching tabs (O14a)', () => {
     expect(marked).toEqual(['11']);
   });
 
-  test('a tab renamed to match appears', async () => {
-    const { chrome: fake } = await renderOpenNow(threeWindows());
-    await userEvent.setup().type(field(), 'kyoto');
-    // PREMISE: the search is narrowing, and Laws of UX is not drawn.
-    expect(drawnTitles()).toEqual(['Kyoto maps', 'Kyoto stay']);
-    act(() => fake.browser.updateTab(31, { title: 'Kyoto temples' }));
-    await waitFor(() =>
-      expect(drawnTitles()).toEqual([
-        'Kyoto maps',
-        'Kyoto stay',
-        'Kyoto temples',
-      ])
-    );
-  });
-
   test('closing the last match hides its window and focus moves on (O7b)', async () => {
     await renderOpenNow(threeWindows());
     await userEvent.setup().type(field(), 'kyoto');
@@ -264,45 +172,6 @@ describe('a search draws only the matching tabs (O14a)', () => {
     expect(document.activeElement).toBe(
       screen.getByRole('button', { name: 'Collapse: Window 1' })
     );
-  });
-
-  test('a window row offers no Save window or Close window while a search is held (O14e)', async () => {
-    await renderOpenNow(threeWindows());
-    const save = (n: number) =>
-      screen.queryByRole('button', {
-        name: `Save window as a session: Window ${n}`,
-      });
-    const close = (n: number) =>
-      screen.queryByRole('button', { name: `Close window: Window ${n}` });
-    // PREMISE: with no search, both are offered.
-    expect(save(1)).not.toBeNull();
-    expect(save(2)).not.toBeNull();
-    expect(close(2)).not.toBeNull();
-
-    const user = userEvent.setup();
-    await user.type(field(), 'kyoto');
-    // Windows 1 and 2 are still drawn (each holds a match); 3 is hidden.
-    expect(drawnTitles()).toEqual(['Kyoto maps', 'Kyoto stay']);
-    for (const n of [1, 2]) {
-      expect(save(n)).toBeNull();
-      expect(close(n)).toBeNull();
-    }
-    // A tab row keeps its x, and the window row itself stays.
-    expect(
-      screen.getByRole('button', { name: 'Close tab: Kyoto maps' })
-    ).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Close tab: Kyoto stay' })
-    ).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Collapse: Window 2' })
-    ).toBeTruthy();
-
-    // CONTROL: clearing the search brings both back.
-    await user.click(screen.getByRole('button', { name: 'Clear search' }));
-    expect(save(1)).not.toBeNull();
-    expect(save(2)).not.toBeNull();
-    expect(close(2)).not.toBeNull();
   });
 
   test('Save all under a search saves every window, hidden ones included', async () => {

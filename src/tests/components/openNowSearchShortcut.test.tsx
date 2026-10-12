@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act, fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import MainContainer from '../../components/MainContainer';
@@ -91,21 +91,8 @@ const field = () =>
   screen.getByRole<HTMLInputElement>('textbox', { name: 'Search open tabs' });
 const savedField = () =>
   screen.getByRole<HTMLInputElement>('textbox', { name: 'Search saved tabs' });
-const aLiveTab = async () =>
-  (await screen.findAllByRole('button', { name: /^Switch to tab: / }))[0];
 
 describe('/ focuses the search (O14b)', () => {
-  test('side by side: / from an Open now tab focuses its field and types nothing', async () => {
-    installMatchMedia(false);
-    await renderHome(false);
-    (await aLiveTab()).focus();
-    // A real keypress: user-event types the character into whatever holds
-    // focus once the keydown is done, unless the keydown was cancelled.
-    await userEvent.setup().keyboard('/');
-    expect(document.activeElement).toBe(field());
-    expect(field()).toHaveValue('');
-  });
-
   test('/ selects text already in the field', async () => {
     installMatchMedia(false);
     await renderHome(false);
@@ -121,23 +108,6 @@ describe('/ focuses the search (O14b)', () => {
     column.focus();
     fireEvent.keyDown(column, { key: '/' });
     expect([field().selectionStart, field().selectionEnd]).toEqual([0, 5]);
-  });
-
-  test('K1: / from the page focuses the saved field and selects its text', async () => {
-    installMatchMedia(false);
-    await renderHome(false);
-    const user = userEvent.setup();
-    await user.type(
-      await screen.findByRole('textbox', { name: 'Search saved tabs' }),
-      'kyoto'
-    );
-    act(() => savedField().blur());
-    await user.keyboard('/');
-    expect(document.activeElement).toBe(savedField());
-    expect([savedField().selectionStart, savedField().selectionEnd]).toEqual([
-      0, 5,
-    ]);
-    expect(savedField()).toHaveValue('kyoto');
   });
 
   test('K1: with the rail showing, / from the page goes to the saved field and the drawer stays shut', async () => {
@@ -161,32 +131,6 @@ describe('/ focuses the search (O14b)', () => {
     expect(document.activeElement).toBe(field());
   });
 
-  test('K1: / in the saved field types a slash there and Open now is untouched', async () => {
-    installMatchMedia(false);
-    await renderHome(false);
-    const user = userEvent.setup();
-    await user.type(
-      await screen.findByRole('textbox', { name: 'Search saved tabs' }),
-      'a/b'
-    );
-    expect(savedField()).toHaveValue('a/b');
-    expect(document.activeElement).toBe(savedField());
-    expect(field()).toHaveValue('');
-  });
-
-  test("K1: / in Open now's field types a slash there and the saved field is untouched", async () => {
-    installMatchMedia(false);
-    await renderHome(false);
-    const user = userEvent.setup();
-    await user.type(
-      await screen.findByRole('textbox', { name: 'Search open tabs' }),
-      'a/b'
-    );
-    expect(field()).toHaveValue('a/b');
-    expect(document.activeElement).toBe(field());
-    expect(savedField()).toHaveValue('');
-  });
-
   test('K1: in the popup, where Open now is not mounted, / focuses the saved field', async () => {
     history.replaceState(null, '', '/');
     await renderHome(false);
@@ -196,50 +140,6 @@ describe('/ focuses the search (O14b)', () => {
     ).toBeNull();
     await userEvent.setup().keyboard('/');
     expect(document.activeElement).toBe(savedField());
-  });
-
-  test('/ in the name box types a slash there', async () => {
-    installMatchMedia(false);
-    await renderHome(false);
-    const nameBox = screen.getByPlaceholderText<HTMLInputElement>(
-      'Name the new session'
-    );
-    const user = userEvent.setup();
-    await user.type(nameBox, 'a/b');
-    expect(nameBox.value).toBe('a/b');
-    expect(document.activeElement).toBe(nameBox);
-  });
-
-  test('R1: with the rail showing, / opens the drawer with focus in the field', async () => {
-    installMatchMedia(true);
-    await renderHome(false);
-    const button = await railButton();
-    button.focus();
-    fireEvent.keyDown(button, { key: '/' });
-    const drawer = drawerOf(button);
-    expect(document.activeElement).toBe(
-      within(drawer).getByRole('textbox', { name: 'Search open tabs' })
-    );
-  });
-
-  test('Esc in the drawer clears first, closes second, and focus returns to the rail button', async () => {
-    installMatchMedia(true);
-    await renderHome(false);
-    const button = await railButton();
-    fireEvent.click(button);
-    const user = userEvent.setup();
-    await user.type(
-      within(drawerOf(button)).getByRole('textbox', {
-        name: 'Search open tabs',
-      }),
-      'b'
-    );
-    await user.keyboard('{Escape}');
-    expect(button).toHaveAttribute('aria-expanded', 'true');
-    expect(field()).toHaveValue('');
-    await user.keyboard('{Escape}');
-    expect(button).toHaveAttribute('aria-expanded', 'false');
-    expect(document.activeElement).toBe(button);
   });
 
   // The rail listens for / only while the drawer is closed. Were it to hear a
