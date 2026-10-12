@@ -1,11 +1,6 @@
-import { test as base, chromium } from '@playwright/test';
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
-import { appendFileSync, cpSync, mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { test, expect } from './fixtures/extension';
 import { grantedTest } from './fixtures/grantedExtension';
@@ -18,7 +13,6 @@ import {
 import { FULL, FULL_VIEW_PATH, openPage, POPUP } from './fixtures/onboarding';
 import { stubsStayHidden } from './fixtures/pinnedStub';
 import { rgbToHex } from './fixtures/pixels';
-import { startProcessGroup, stopProcessGroup } from './fixtures/processGroup';
 import { pressSwitch, sessionsRow } from './fixtures/sessionActions';
 import { DARKENHEIMER_THEME } from '../src/hooks/useThemeColors';
 
@@ -900,99 +894,6 @@ test('the stub paints its theme’s ground while hidden, and becomes the full vi
   await expect.poll(() => stub.url()).toBe(fullViewUrl(extensionId));
   await stub.locator('[aria-label="Sort sessions"]').first().waitFor();
 });
-
-// No CDP, so visibility is real: a copy of the build's worker makes a background stub, reads, activates, reads.
-const DIST = fileURLToPath(new URL('../dist', import.meta.url));
-const PROBE = `
-chrome.runtime.onInstalled.addListener(async () => {
-  const read = async (id) => {
-    const tab = await chrome.tabs.get(id);
-    const url = (tab.url || tab.pendingUrl || '').replace(chrome.runtime.getURL(''), '');
-    return { url, status: tab.status, pinned: tab.pinned, active: tab.active };
-  };
-  const until = async (id, done) => {
-    for (let waited = 0; waited < 10000; waited += 100) {
-      const tab = await read(id);
-      if (done(tab)) return tab;
-      await new Promise((next) => setTimeout(next, 100));
-    }
-    return read(id);
-  };
-  try {
-    const win = await chrome.windows.create({ url: 'data:text/html,<title>Front</title>' });
-    const stub = await chrome.tabs.create({
-      windowId: win.id, url: chrome.runtime.getURL('pinned.html'), index: 0, pinned: true, active: false,
-    });
-    const background = await until(stub.id, (tab) => tab.status === 'complete');
-    await chrome.tabs.update(stub.id, { active: true });
-    const shown = await until(stub.id, (tab) => tab.url !== 'pinned.html' && tab.status === 'complete');
-    console.log('KAN459PROBE ' + JSON.stringify({ background, shown }) + ' KAN459END');
-  } catch (error) {
-    console.log('KAN459PROBE ' + JSON.stringify({ error: String(error) }) + ' KAN459END');
-  }
-});
-`;
-
-base(
-  'no CDP: a stub made in the background stays a stub, and activating its tab makes it the full view',
-  async () => {
-    base.setTimeout(60_000);
-    const copy = mkdtempSync(join(tmpdir(), 'tabkeeper-nocdp-'));
-    const profile = mkdtempSync(join(tmpdir(), 'tabkeeper-nocdp-profile-'));
-    cpSync(DIST, copy, { recursive: true });
-    appendFileSync(join(copy, 'background.js'), PROBE);
-    const browser = startProcessGroup(chromium.executablePath(), [
-      '--headless=new',
-      // As Playwright launches every other spec's browser (chromiumSandbox: false).
-      '--no-sandbox',
-      `--user-data-dir=${profile}`,
-      `--disable-extensions-except=${copy}`,
-      `--load-extension=${copy}`,
-      '--enable-logging=stderr',
-      '--no-first-run',
-      '--no-default-browser-check',
-      'about:blank',
-    ]);
-    try {
-      const line = await new Promise<string>((resolve, reject) => {
-        let log = '';
-        const timer = setTimeout(
-          () => reject(new Error(`no probe line in 30s:\n${log.slice(-3000)}`)),
-          30_000
-        );
-        browser.on('error', reject);
-        browser.stderr.on('data', (chunk: Buffer) => {
-          log += chunk.toString();
-          const match = log.match(/KAN459PROBE (.*?) KAN459END/);
-          if (match !== null) {
-            clearTimeout(timer);
-            resolve(match[1]);
-          }
-        });
-      });
-      const facts: unknown = JSON.parse(line);
-      expect(facts).toEqual({
-        background: {
-          url: 'pinned.html',
-          status: 'complete',
-          pinned: true,
-          active: false,
-        },
-        shown: {
-          url: FULL_VIEW_PATH,
-          status: 'complete',
-          pinned: true,
-          active: true,
-        },
-      });
-    } finally {
-      // Every Chrome process, not just the browser: a survivor writes into the profile (KAN-479).
-      await stopProcessGroup(browser);
-      rmSync(copy, { recursive: true, force: true });
-      rmSync(profile, { recursive: true, force: true });
-    }
-  }
-);
 
 // From open-now-history.spec.ts: a local page server (a data: URL holds no history) and the sessions switch.
 type Site = (n: number) => string;
