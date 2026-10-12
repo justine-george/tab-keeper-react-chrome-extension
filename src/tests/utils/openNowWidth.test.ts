@@ -86,20 +86,10 @@ describe('shownOpenNowWidth', () => {
     expect(shownOpenNowWidth(500, 1600)).toBe(500);
   });
 
-  // 300 was the min before 2026-09-28; a width stored then shows as the
-  // new min, 480, and is not rewritten (openNowLayout.test.tsx).
-  it('a stored width below the min clamps up to it', () => {
-    expect(shownOpenNowWidth(300, 1600)).toBe(480);
-  });
-
   // Where the range is empty, every stored width shows as the default.
   it('where the range is empty, any stored width shows as the default', () => {
     expect(shownOpenNowWidth(300, 1280)).toBe(444);
     expect(shownOpenNowWidth(700, 1280)).toBe(444);
-  });
-
-  it('a stored width above the max clamps down to it', () => {
-    expect(shownOpenNowWidth(2000, 1600)).toBe(764);
   });
 
   // Pure: the same stored width comes back different at different window

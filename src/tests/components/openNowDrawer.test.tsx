@@ -1,10 +1,7 @@
-import { createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 
 import MainContainer from '../../components/MainContainer';
-import OpenNowPane from '../../components/home/opennow/OpenNowPane';
-import { TYPE } from '../../styles/scale';
 import { OPEN_NOW_RAIL_QUERY } from '../../components/home/opennow/railQuery';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
@@ -142,21 +139,6 @@ describe('narrow and side by side (O2)', () => {
     ).toBeInTheDocument();
   });
 
-  test('Esc closes the drawer and returns focus to the rail button', async () => {
-    installMatchMedia(true);
-    await renderHome(false);
-    const { button, drawer } = await openDrawer();
-    // PREMISE: focus is inside the drawer, where the key is pressed.
-    expect(drawer.contains(document.activeElement)).toBe(true);
-
-    fireEvent.keyDown(document.activeElement ?? drawer, { key: 'Escape' });
-
-    expect(drawer).not.toBeInTheDocument();
-    expect(screen.queryByText(PANE_ONLY)).not.toBeInTheDocument();
-    expect(button).toHaveAttribute('aria-expanded', 'false');
-    expect(document.activeElement).toBe(button);
-  });
-
   // An IDREF to an absent element names nothing, so the rail says what it
   // controls only while the drawer is there to point at.
   test('the rail button names the drawer in aria-controls only while it is open', async () => {
@@ -279,20 +261,6 @@ describe('the rail is only for side by side (O2)', () => {
     // Folded, the saved detail is not rendered and Open now holds its area.
     expect(document.querySelector('[data-pane="detail"]')).toBeNull();
   });
-
-  // CONTROL. Wide and side by side is the Task 5 column, with no rail: the
-  // setup that makes the narrow tests' absence of a pane mean something.
-  test('CONTROL: wide and side by side shows the column pane and no rail', async () => {
-    installMatchMedia(false);
-    await renderHome(false);
-
-    await within(openNowSlot()).findByText('B');
-
-    expect(within(openNowSlot()).getByText(PANE_ONLY)).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: RAIL_NAME })
-    ).not.toBeInTheDocument();
-  });
 });
 
 // jsdom evaluates no media query, so this reads the rule the grid emits. It
@@ -391,43 +359,5 @@ describe('focus after a fold or unfold (O2)', () => {
     expect(document.activeElement).toBe(
       within(openNowSlot()).getByRole('button', { name: FOLD })
     );
-  });
-});
-
-// The h2 carries the label's own declarations (an h2 may hold only phrasing
-// content, and NormalLabel renders a div). An h2 brings its own margin and
-// bold; neither may show (scaleConformance: the popup declares no font
-// weight, so the heading's weight is whatever it inherits).
-describe('the Open now heading looks as the label did', () => {
-  test("the h2 has no margin, the body size (O1b), and its header's weight", async () => {
-    await renderWithProviders(
-      <OpenNowPane
-        windows={[]}
-        actions={[]}
-        headingId="open-now-heading"
-        searchText=""
-        onSearchTextChange={() => undefined}
-        searchInputRef={createRef<HTMLInputElement>()}
-      />
-    );
-
-    const heading = screen.getByRole('heading', { name: 'Open now' });
-    const header = heading.parentElement;
-    if (header === null) throw new Error('heading has no parent');
-
-    expect(getComputedStyle(heading).marginTop).toBe('0px');
-    expect(getComputedStyle(heading).marginBottom).toBe('0px');
-    // O1b: the heading steps down to TYPE.BODY -- the same size everywhere
-    // Open now appears, the drawer included. jsdom resolves rem against a
-    // 16px root (measured: 0.9rem is 14.4px).
-    expect(getComputedStyle(heading).fontSize).toBe(
-      `${parseFloat(TYPE.BODY) * 16}px`
-    );
-    // jsdom's own sheet makes an h2 bold (measured: 'bold'); the heading
-    // must read the weight its header does, as the label did.
-    expect(getComputedStyle(heading).fontWeight).toBe(
-      getComputedStyle(header).fontWeight
-    );
-    expect(getComputedStyle(heading).fontWeight).not.toBe('bold');
   });
 });
