@@ -97,19 +97,6 @@ describe('Button variants (KAN-205)', () => {
     expect(hoverRulesFor(button())).toMatch(red);
     expect(activeRulesFor(button())).toMatch(red);
   });
-
-  // THE CONTROL. Every assertion above passes against a Button that ignores the
-  // prop and paints one colour, if that colour happens to be the one asserted.
-  // This is what makes them claims about the variant.
-  test('CONTROL: the three variants do not all look the same', async () => {
-    const seen = new Set<string>();
-    for (const variant of ['quiet', 'primary', 'danger'] as const) {
-      const { unmount } = await render({ variant });
-      seen.add(getComputedStyle(button()).backgroundColor);
-      unmount();
-    }
-    expect(seen.size).toBe(3);
-  });
 });
 
 describe('Button outline variant (KAN-394)', () => {

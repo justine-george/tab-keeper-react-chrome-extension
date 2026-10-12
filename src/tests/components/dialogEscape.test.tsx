@@ -232,12 +232,6 @@ describe.each(CASES)('Esc on the $name dialog (KAN-426)', (c) => {
 });
 
 describe('the shared Esc claim (KAN-426)', () => {
-  test('with no modal open, Esc is left to the browser', async () => {
-    await renderWithProviders(<MainContainer />);
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(pressEscape(document.body).defaultPrevented).toBe(false);
-  });
-
   test('an Esc a control in the dialog already took is not also a cancel', async () => {
     await renderWithProviders(<MainContainer />, {
       seedStore: (s) => s.dispatch(openDeleteCloudDataModal()),

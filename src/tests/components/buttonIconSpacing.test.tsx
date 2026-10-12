@@ -33,9 +33,8 @@ describe('Button icon spacing', () => {
       <Button text="Save sessions to a file" iconType="download" />
     );
 
-    expect(getComputedStyle(iconContainerOf(container)).paddingRight).toBe(
-      '8px'
-    );
+    const style = getComputedStyle(iconContainerOf(container));
+    expect([style.paddingLeft, style.paddingRight]).toEqual(['0px', '8px']);
   });
 
   test('separates the icon from an adjacent image', async () => {
@@ -43,9 +42,8 @@ describe('Button icon spacing', () => {
       <Button imageSrc="https://example.com/i.png" iconType="download" />
     );
 
-    expect(getComputedStyle(iconContainerOf(container)).paddingRight).toBe(
-      '8px'
-    );
+    const style = getComputedStyle(iconContainerOf(container));
+    expect([style.paddingLeft, style.paddingRight]).toEqual(['0px', '8px']);
   });
 
   // The only caller in the codebase that passes iconStyle is
@@ -62,64 +60,19 @@ describe('Button icon spacing', () => {
       />
     );
 
-    expect(getComputedStyle(iconContainerOf(container)).paddingRight).toBe(
-      '4px'
-    );
-  });
-
-  // Nothing to separate the icon from, so the padding would be a bare
-  // asymmetry. This is the one branch the old `&&` chain got right.
-  test('adds no separation to an icon with no label or image', async () => {
-    const { container } = await renderWithProviders(
-      <Button iconType="download" />
-    );
-
-    // Icon's own containerStyle padding, untouched.
-    expect(getComputedStyle(iconContainerOf(container)).paddingRight).toBe(
-      '4px'
-    );
+    const style = getComputedStyle(iconContainerOf(container));
+    expect([style.paddingLeft, style.paddingRight]).toEqual(['4px', '4px']);
   });
 });
 
 // KAN-502. Beside a label the icon also kept Icon's 4px left padding, so the
 // content started 25px from the button's left edge and ended 21px from its right.
 describe('Button icon centring', () => {
-  test('starts flush with the button padding beside a label', async () => {
-    const { container } = await renderWithProviders(
-      <Button text="Show me around" iconType="school" />
-    );
-    expect(getComputedStyle(iconContainerOf(container)).paddingLeft).toBe(
-      '0px'
-    );
-  });
-
-  test('starts flush beside an image', async () => {
-    const { container } = await renderWithProviders(
-      <Button imageSrc="https://example.com/i.png" iconType="download" />
-    );
-    expect(getComputedStyle(iconContainerOf(container)).paddingLeft).toBe(
-      '0px'
-    );
-  });
-
   test('keeps its own padding on both sides with nothing beside it', async () => {
     const { container } = await renderWithProviders(
       <Button iconType="download" />
     );
     const style = getComputedStyle(iconContainerOf(container));
     expect([style.paddingLeft, style.paddingRight]).toEqual(['4px', '4px']);
-  });
-
-  test("a caller's own padding still wins on the left", async () => {
-    const { container } = await renderWithProviders(
-      <Button
-        text="Add window"
-        iconType="add"
-        iconStyle="padding: 4px 4px 2px 4px;"
-      />
-    );
-    expect(getComputedStyle(iconContainerOf(container)).paddingLeft).toBe(
-      '4px'
-    );
   });
 });
