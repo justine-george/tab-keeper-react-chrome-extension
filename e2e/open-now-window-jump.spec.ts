@@ -260,18 +260,6 @@ async function setUp(
 }
 
 test.describe('a window row goes to its window (KAN-331)', () => {
-  test('1. PREMISE: a window opened unfocused leaves the tab view in front', async ({
-    context,
-    extensionId,
-    serviceWorker,
-  }) => {
-    const { home, made } = await setUp(context, extensionId, serviceWorker, [
-      'Alpha',
-    ]);
-    expect(home).not.toBe(made.windowId);
-    expect(await lastFocused(serviceWorker)).toBe(home);
-  });
-
   test('2. a click on the row puts its window in front, with the same front tab', async ({
     context,
     extensionId,

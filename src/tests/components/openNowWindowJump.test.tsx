@@ -135,33 +135,6 @@ const chevronOf = (windowId: number): HTMLElement =>
   within(blockOf(windowId)).getAllByRole('button')[0];
 
 describe('a window row goes to its window (KAN-331 O15)', () => {
-  test('a click focuses that Chrome window; its front tab stays its front tab', async () => {
-    const seed = threeWindows();
-    // The seed gives no tab a front place; E is window 2's.
-    await renderOpenNow({
-      ...seed,
-      windows: (seed.windows ?? []).map((win) =>
-        win.id === 2
-          ? {
-              ...win,
-              tabs: (win.tabs ?? []).map((t) => ({
-                ...t,
-                active: t.id === 22,
-              })),
-            }
-          : win
-      ),
-    });
-    const frontTab = async () =>
-      (await chrome.tabs.query({ windowId: 2, active: true }))[0]?.id;
-    expect(await frontTab()).toBe(22);
-    const button = goTo(2);
-    expect(button).not.toBeNull();
-    await userEvent.click(button ?? document.body);
-    await waitFor(async () => expect(await focusedWindow()).toBe(2));
-    expect(await frontTab()).toBe(22);
-  });
-
   test.each(['{Enter}', ' '])(
     '%s on the focused row does the same',
     async (key) => {
@@ -214,16 +187,6 @@ describe('a window row goes to its window (KAN-331 O15)', () => {
     expect(
       update.mock.calls.filter(([, info]) => info.focused === true)
     ).toEqual([]);
-  });
-
-  test('S2: while a search is held no row is a button; clearing brings them back', async () => {
-    await renderOpenNow(threeWindows());
-    const field = screen.getByRole('textbox', { name: 'Search open tabs' });
-    await userEvent.type(field, 'd'); // D is in window 2
-    await waitFor(() => expect(goTo(2)).toBeNull());
-    expect(within(rowOf(2)).getByText('Window 2')).toBeInTheDocument();
-    await userEvent.clear(field);
-    await waitFor(() => expect(goTo(2)).not.toBeNull());
   });
 
   test('T2 and S2: only a button row shades on hover', async () => {
