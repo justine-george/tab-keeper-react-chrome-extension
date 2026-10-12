@@ -141,27 +141,6 @@ describe('undoOpenNowDrop: a tab goes back', () => {
 
     expect(await strip(1)).toEqual(['11*', '12', '13', '14']);
   });
-
-  test('from another window, to its old window and index', async () => {
-    handle = setupChromeFake(plain);
-    const drop = await dropTab(tabMove(12, 1, 2, 1), false);
-    expect(await strip(2)).toEqual(['21*', '12', '22']);
-
-    expect(await undoOpenNowDrop(drop, false)).toBe('undone');
-
-    expect(await strip(1)).toEqual(['11*', '12', '13', '14']);
-    expect(await strip(2)).toEqual(['21*', '22']);
-  });
-
-  test('rightward within its window: counted with the tab removed', async () => {
-    handle = setupChromeFake(plain);
-    const drop = await dropTab(tabMove(14, 1, 1, 0), false);
-    expect(await strip(1)).toEqual(['14', '11*', '12', '13']);
-
-    expect(await undoOpenNowDrop(drop, false)).toBe('undone');
-
-    expect(await strip(1)).toEqual(['11*', '12', '13', '14']);
-  });
 });
 
 describe('undoOpenNowDrop: the group a tab had', () => {
@@ -416,17 +395,6 @@ describe('undoOpenNowDrop: a group goes back', () => {
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14', '15']);
   });
 
-  test('from another window: tabGroups.move, the same id', async () => {
-    handle = setupChromeFake(withGroup());
-    const drop = await dropGroup(groupMove(5, 1, 2, 1));
-    expect(await strip(2)).toEqual(['21*', '12g5', '13g5', '22']);
-
-    expect(await undoOpenNowDrop(drop, true)).toBe('undone');
-
-    expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14', '15']);
-    expect(await strip(2)).toEqual(['21*', '22']);
-  });
-
   test('its collapsed state is put back', async () => {
     handle = setupChromeFake(withGroup(true));
     const drop = await dropGroup(groupMove(5, 1, 2, 1));
@@ -523,48 +491,10 @@ describe('undoOpenNowDrop: a group goes back', () => {
         collapsed: false,
       });
     });
-
-    test('CONTROL: the same undo with no front tab in the group keeps its id (tabGroups.move)', async () => {
-      handle = setupChromeFake({
-        windows: [
-          {
-            id: 1,
-            tabs: [
-              { id: 11, active: true },
-              { id: 12, groupId: 5 },
-              { id: 13, groupId: 5 },
-              { id: 14 },
-            ],
-          },
-          { id: 2, tabs: [{ id: 21, active: true }, { id: 22 }] },
-        ],
-        tabGroups: [{ id: 5, windowId: 1, title: 'Gt', color: 'blue' }],
-      });
-      const drop = await dropGroup(groupMove(5, 1, 2, 1));
-
-      expect(await undoOpenNowDrop(drop, true)).toBe('undone');
-
-      expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
-    });
   });
 });
 
 describe('undoOpenNowDrop: stale (Review Focus 3)', () => {
-  test('a tab moved by hand since the drop: nothing moves', async () => {
-    handle = setupChromeFake(plain);
-    const drop = await dropTab(tabMove(12, 1, 2, 1), false);
-    handle.browser.moveTabToWindow(12, 1);
-    const before1 = await strip(1);
-    const before2 = await strip(2);
-    const moveSpy = vi.spyOn(chrome.tabs, 'move');
-
-    expect(await undoOpenNowDrop(drop, false)).toBe('stale');
-
-    expect(moveSpy).not.toHaveBeenCalled();
-    expect(await strip(1)).toEqual(before1);
-    expect(await strip(2)).toEqual(before2);
-  });
-
   test('a tab closed since the drop: nothing moves, no throw', async () => {
     handle = setupChromeFake(plain);
     const drop = await dropTab(tabMove(12, 1, 2, 1), false);

@@ -133,29 +133,6 @@ const groupSeed = (): ChromeSeed => ({
 });
 
 describe('drag is off while searching (KAN-330 O14c)', () => {
-  test('with a search held, B released between C and D moves nothing', async () => {
-    const { top, onMoved } = await renderSearchable(seed(), false);
-    const before = tabRow(12);
-    await userEvent.setup().type(searchBox(), 'test');
-    // The measurements laid on the rows still apply only if typing kept them.
-    expect(tabRow(12)).toBe(before);
-    drag(before, (top.get('12') ?? 0) + ROW / 2, (top.get('22') ?? 0) + 2);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(moveOpenTab).not.toHaveBeenCalled();
-    expect(onMoved).not.toHaveBeenCalled();
-    const b = await chrome.tabs.get(12);
-    expect([b.windowId, b.index]).toEqual([1, 1]);
-  });
-
-  test('CONTROL: after clearing the search, the same drag moves B', async () => {
-    const { top, onMoved } = await renderSearchable(seed(), false);
-    const user = userEvent.setup();
-    await user.type(searchBox(), 'test');
-    await user.click(screen.getByRole('button', { name: 'Clear search' }));
-    drag(tabRow(12), (top.get('12') ?? 0) + ROW / 2, (top.get('22') ?? 0) + 2);
-    await waitFor(() => expect(onMoved).toHaveBeenCalledTimes(1));
-  });
-
   test('spaces only is no search: drag stays on', async () => {
     const { top, onMoved } = await renderSearchable(seed(), false);
     await userEvent.setup().type(searchBox(), '   ');

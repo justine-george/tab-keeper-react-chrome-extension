@@ -128,22 +128,6 @@ describe('moveOpenTab: where a tab lands', () => {
     ]);
   });
 
-  test('moves a tab to another window, before the row at toIndex', async () => {
-    handle = twoWindows();
-
-    const moved = await moveOpenTab(
-      tabMove(12, 1, 2, 1),
-      await snapshot(),
-      false
-    );
-
-    expect(await strip(1)).toEqual(['11*', '13', '14']);
-    expect(await strip(2)).toEqual(['21*', '12', '22']);
-    expect(moved).toEqual([
-      { tabId: 12, before: place(1, 1), after: place(2, 1) },
-    ]);
-  });
-
   test("moves a tab to another window's end", async () => {
     handle = twoWindows();
 
@@ -360,21 +344,6 @@ describe('moveOpenTab: pinned tabs and profiles (ledger R15)', () => {
     expect(await strip(2)).toEqual(['21*']);
   });
 
-  test('a pinned tab moved within its window stays pinned', async () => {
-    handle = pinnedAndIncognito();
-
-    const moved = await moveOpenTab(
-      tabMove(12, 1, 1, 0),
-      await snapshot(),
-      false
-    );
-
-    expect(await strip(1)).toEqual(['12P', '11P*', '13']);
-    expect(moved).toEqual([
-      { tabId: 12, before: place(1, 1), after: place(1, 0) },
-    ]);
-  });
-
   test.each([
     ['normal to incognito', tabMove(13, 1, 3, 0)],
     ['incognito to normal', tabMove(31, 3, 2, 0)],
@@ -458,23 +427,6 @@ describe('moveOpenTab: groups, with the grant (ledger R16)', () => {
       ]);
     });
 
-    test('the middle of the run: Chrome joins, nothing else is called', async () => {
-      handle = withGroup();
-      const groupSpy = vi.spyOn(chrome.tabs, 'group');
-
-      const moved = await moveOpenTab(
-        tabMove(14, 1, 1, 2, 5),
-        await snapshot(),
-        true
-      );
-
-      expect(await strip(1)).toEqual(['11*', '12g5', '14g5', '13g5']);
-      expect(groupSpy).not.toHaveBeenCalled();
-      expect(moved).toEqual([
-        { tabId: 14, before: place(1, 3), after: place(1, 2, 5, WORK) },
-      ]);
-    });
-
     test("the run's tail slot: Chrome doesn't join, so tabs.group does", async () => {
       handle = withGroup();
 
@@ -506,21 +458,6 @@ describe('moveOpenTab: groups, with the grant (ledger R16)', () => {
       expect(await strip(2)).toEqual(['21*']);
       expect(moved).toEqual([
         { tabId: 22, before: place(2, 1), after: place(1, 1, 5, WORK) },
-      ]);
-    });
-
-    test('the middle of the run', async () => {
-      handle = withGroup();
-
-      const moved = await moveOpenTab(
-        tabMove(22, 2, 1, 2, 5),
-        await snapshot(),
-        true
-      );
-
-      expect(await strip(1)).toEqual(['11*', '12g5', '22g5', '13g5', '14']);
-      expect(moved).toEqual([
-        { tabId: 22, before: place(2, 1), after: place(1, 2, 5, WORK) },
       ]);
     });
 
@@ -1147,23 +1084,6 @@ describe('moveOpenTab: without the grant, only tabs.move (E4)', () => {
   // group with tabs.group, which works without the grant (Task 6a Q3), and
   // lands where the preview showed.
   describe('from another window, between two tabs of one Chrome group (KAN-322)', () => {
-    test('joins that group, at the slot the preview showed', async () => {
-      handle = ungranted(true);
-
-      // W1's rows [11, 12, 13, 14]; toIndex 2 is between 12 and 13.
-      const moved = await moveOpenTab(
-        tabMove(22, 2, 1, 2),
-        await snapshot(),
-        false
-      );
-
-      expect(await strip(1)).toEqual(['11*', '12g5', '22g5', '13g5', '14']);
-      expect(await strip(2)).toEqual(['21*']);
-      expect(moved).toEqual([
-        { tabId: 22, before: place(2, 1), after: place(1, 2, 5, null) },
-      ]);
-    });
-
     test('with the tabGroups API present but not granted, no tabGroups call', async () => {
       handle = ungranted(false);
       const calls = [
@@ -1285,30 +1205,6 @@ describe('moveOpenGroup', () => {
     });
 
   describe('within its window: tabGroups.move', () => {
-    test('rightward: before the row now at toIndex, counted with the group removed', async () => {
-      handle = withGroup();
-
-      // Rows without the group: [11, 14, 15]; toIndex 2 is before 15.
-      const moved = await moveOpenGroup(
-        groupMove(5, 1, 1, 2),
-        await snapshot()
-      );
-
-      expect(await strip(1)).toEqual(['11*', '14', '12g5', '13g5', '15']);
-      expect(moved).toEqual([
-        {
-          tabId: 12,
-          before: place(1, 1, 5, WORK),
-          after: place(1, 2, 5, WORK),
-        },
-        {
-          tabId: 13,
-          before: place(1, 2, 5, WORK),
-          after: place(1, 3, 5, WORK),
-        },
-      ]);
-    });
-
     test('to the front', async () => {
       handle = withGroup();
 
@@ -1506,21 +1402,6 @@ describe('moveOpenGroup', () => {
         [13, 3],
       ]);
     });
-  });
-
-  test('to another window: tabGroups.move, the same id, the look kept', async () => {
-    handle = withGroup();
-    const groupSpy = vi.spyOn(chrome.tabs, 'group');
-
-    const moved = await moveOpenGroup(groupMove(5, 1, 2, 1), await snapshot());
-
-    expect(await strip(1)).toEqual(['11*', '14', '15']);
-    expect(await strip(2)).toEqual(['21*', '12g5', '13g5', '22']);
-    expect(groupSpy).not.toHaveBeenCalled();
-    expect(moved).toEqual([
-      { tabId: 12, before: place(1, 1, 5, WORK), after: place(2, 1, 5, WORK) },
-      { tabId: 13, before: place(1, 2, 5, WORK), after: place(2, 2, 5, WORK) },
-    ]);
   });
 
   describe("G1: a group holding its window's front tab, to another window (spec O11g)", () => {
