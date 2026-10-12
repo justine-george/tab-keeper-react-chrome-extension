@@ -13,10 +13,18 @@ export const MARK_CLICK = {
   SHUTTER_DELAY_MS: 60,
 } as const;
 
+// The shutter's two moments, as Get started has them (KAN-513): ready the click as it starts, play it as it shuts.
+export interface ShutterBeat {
+  onShutterStart: () => void;
+  // Once, as the shutter shuts; a click cut short before then never calls it.
+  onShutterShut: () => void;
+}
+
 // Plays nothing, and returns null, when motion is off or unavailable.
 export function playMarkClick(
   mark: Element,
-  shutter: Element | null
+  shutter: Element | null,
+  beat?: ShutterBeat
 ): Motion | null {
   if (prefersReducedMotion() || !canAnimate(mark)) return null;
   const press = mark.animate(
@@ -43,13 +51,25 @@ export function playMarkClick(
             easing: 'ease-in-out',
           }
         );
+  let isCancelled = false;
+  if (beat !== undefined) {
+    beat.onShutterStart();
+    // With no shutter drawn, the press ending is the shut.
+    void (slide ?? press).finished.then(
+      () => {
+        if (!isCancelled) beat.onShutterShut();
+      },
+      () => undefined
+    );
+  }
   const finished = Promise.all([press.finished, slide?.finished]).then(
-    () => true,
+    () => !isCancelled,
     () => false
   );
   return {
     finished,
     cancel: () => {
+      isCancelled = true;
       press.cancel();
       slide?.cancel();
     },

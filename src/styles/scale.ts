@@ -96,6 +96,8 @@ export const CONTROL = {
 export const ICON = {
   /** A mark beside a title, not a control: the saved row's pin (KAN-458). */
   MARK: '1rem',
+  /** The About nameplate's mark, beside the name and version (KAN-521). */
+  NAMEPLATE: '2.5rem',
   /** Body-text size, for a control on a drawing: the welcome's Play again (KAN-464). */
   XSMALL: '1rem',
   /** Secondary or inline actions, subordinate to the control they sit in. */

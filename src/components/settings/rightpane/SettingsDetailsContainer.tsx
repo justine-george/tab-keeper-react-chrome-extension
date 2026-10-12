@@ -5,7 +5,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import Button from '../../common/Button';
-import Icon from '../../common/Icon';
+import ClickableTabKeeperMark from '../../common/ClickableTabKeeperMark';
+import { HeartGlyph } from '../../common/glyphs';
 import HelpSettings from './HelpSettings';
 import ThemeSwatch from './ThemeSwatch';
 import { chromeLanguageOrder } from './languageOptions';
@@ -34,7 +35,6 @@ import {
   DEV_EMAIL,
   FEEDBACK_MAIL_SUBJECT,
   IMPORT_ERROR_FRAME,
-  NON_INTERACTIVE_ICON_STYLE,
   PRIVACY_POLICY_LINK,
 } from '../../../utils/constants/common';
 import { SettingsCategoryContainer } from '../leftpane/SettingsCategoryContainer';
@@ -71,6 +71,8 @@ import { chooseDefaultView } from '../../../redux/defaultViewChoice';
 // blocks use (KAN-241); the first keeps 20px from the pane top. Written on
 // each section rather than as a constant so a section reads as a unit; the
 // settingsRail test holds them to it.
+
+const HEART_SLOT = '\u2063';
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
@@ -890,6 +892,11 @@ const SettingsDetailsContainer: React.FC = () => {
       </div>
     );
   } else if (selectedSettingsCategory.name === SettingsCategory.ABOUT) {
+    // An invisible separator marks where the heart goes, so each locale can put it anywhere.
+    const [creditBefore, creditAfter = ''] = t(
+      'Made with {{heart}} by Justine George',
+      { heart: HEART_SLOT }
+    ).split(HEART_SLOT);
     // KAN-241. Built as sections under the same inset as the four panes
     // above, where it used to be the one centred pane: a thank-you heading,
     // three buttons, and the version pushed to the floor in LABEL_L3 -- the
@@ -904,8 +911,7 @@ const SettingsDetailsContainer: React.FC = () => {
           align-items: center;
         `}
       >
-        {/* Nameplate: the mark on the name line, the way the header's gear
-            sits on "Settings"; then the version and the credit on one line. */}
+        {/* Nameplate (KAN-521): the header's mark beside the name and the version, then the credit. */}
         <div
           data-settings-section
           css={css`
@@ -922,45 +928,43 @@ const SettingsDetailsContainer: React.FC = () => {
             css={css`
               display: flex;
               align-items: center;
+              gap: 12px;
             `}
           >
-            {/* 4px into the inset, so the mark's box -- not its padding --
-                sits on the edge the version and the section label below
-                start from. Without it the floppy read as indented. */}
-            <Icon
-              type="tab_keeper"
-              style={`${NON_INTERACTIVE_ICON_STYLE} margin-left: -4px;`}
-            />
-            <NormalLabel
-              value={t('Tab Keeper')}
-              size={TYPE.SECTION}
-              color={COLORS.TEXT_COLOR}
-              style="padding-left: 4px;"
-            />
+            <ClickableTabKeeperMark markSize={ICON.NAMEPLATE} />
+            <div
+              css={css`
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+              `}
+            >
+              <NormalLabel
+                value={t('Tab Keeper')}
+                size={TYPE.SECTION}
+                color={COLORS.TEXT_COLOR}
+              />
+              {/* LABEL_L1, not L2: L2 is 4.32:1 on Graphite, and this is the
+                  line a bug report has to be able to read. */}
+              <NormalLabel
+                value={t('Version {{version}}', { version: APP_VERSION })}
+                size={TYPE.SECONDARY}
+                color={COLORS.LABEL_L1_COLOR}
+              />
+            </div>
           </div>
-          <div
+          {/* The heart is drawn in the line's own grey, where the locale puts it. */}
+          <span
             css={css`
-              display: flex;
-              align-items: center;
-              margin-top: 6px;
+              margin-top: 14px;
+              font-size: ${TYPE.SECONDARY};
+              color: ${COLORS.LABEL_L2_COLOR};
             `}
           >
-            {/* LABEL_L1, not L2: L2 is 4.32:1 on Graphite, and this is the
-                line that has to be readable. */}
-            <NormalLabel
-              value={`v${APP_VERSION}`}
-              size={TYPE.SECONDARY}
-              color={COLORS.LABEL_L1_COLOR}
-            />
-            {/* The separator is drawn, not written, so it is neither
-                translated nor announced. */}
-            <NormalLabel
-              value={t(`Crafted with ❤️ by Justine George`)}
-              size={TYPE.SECONDARY}
-              color={COLORS.LABEL_L2_COLOR}
-              style="&::before { content: '·'; margin: 0 6px; }"
-            />
-          </div>
+            {creditBefore}
+            <HeartGlyph size="1em" label={t('love')} />
+            {creditAfter}
+          </span>
           {/* KAN-260. The policy, on its own line under the version at the
               same step and 6px rhythm: a third fact about the product, not a
               fourth action. In the text colour, as the consent dialog sets its
