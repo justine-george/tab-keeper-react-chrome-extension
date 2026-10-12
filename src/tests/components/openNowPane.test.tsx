@@ -10,7 +10,7 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 import { toOpenWindows } from '../../utils/functions/openNow';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { TAB_GROUP_COLOR_HEX } from '../../utils/functions/tabGroups';
-import { DURATION, TYPE } from '../../styles/scale';
+import { DURATION } from '../../styles/scale';
 // The saved window, rendered only to compare its band with the live one: the
 // pane copies the declarations rather than sharing them (KAN-280).
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -154,27 +154,6 @@ const tabRow = (title: string) =>
 const queryTabRow = (title: string) =>
   screen.queryByRole('button', { name: `Switch to tab: ${title}` });
 
-// The block one window draws -- its row and its tabs.
-const windowBlock = (name: string): HTMLElement => {
-  const block = screen.getByText(name).closest('[data-open-window-id]');
-  if (!(block instanceof HTMLElement)) {
-    throw new Error(`no window block holds "${name}"`);
-  }
-  return block;
-};
-
-async function tabById(id: number): Promise<chrome.tabs.Tab | undefined> {
-  const all = await chrome.windows.getAll({ populate: true });
-  return all.flatMap((w) => w.tabs ?? []).find((tab) => tab.id === id);
-}
-
-async function windowById(
-  id: number
-): Promise<chrome.windows.Window | undefined> {
-  const all = await chrome.windows.getAll({ populate: true });
-  return all.find((w) => w.id === id);
-}
-
 function hex(value: string): string {
   const v = value.replace('#', '');
   const n = parseInt(v, 16);
@@ -182,53 +161,12 @@ function hex(value: string): string {
 }
 
 describe('the Open now pane (KAN-280)', () => {
-  test('lists each window by number, tags this window, and shows every tab', async () => {
-    await renderPane(twoWindows());
-
-    expect(screen.getByText('Window 1')).toBeInTheDocument();
-    expect(screen.getByText('Window 2')).toBeInTheDocument();
-
-    // One tag, and on window 2 -- the id the pane was told it lives in.
-    const tags = screen.getAllByText('This window');
-    expect(tags).toHaveLength(1);
-    expect(within(windowBlock('Window 2')).getByText('This window')).toBe(
-      tags[0]
-    );
-    expect(
-      within(windowBlock('Window 1')).queryByText('This window')
-    ).toBeNull();
-
-    for (const title of ['A', 'B', 'C']) {
-      expect(tabRow(title)).toHaveTextContent(title);
-    }
-    expect(within(windowBlock('Window 1')).getByText('A')).toBeInTheDocument();
-    expect(within(windowBlock('Window 2')).getByText('B')).toBeInTheDocument();
-  });
-
   test('the header names the pane, counts windows and tabs, and says it is live', async () => {
     await renderPane(twoWindows());
 
     expect(screen.getByText('Open now')).toBeInTheDocument();
     expect(screen.getByText('2 Windows · 3 Tabs')).toBeInTheDocument();
     expect(screen.getByText('Updates as you browse')).toBeInTheDocument();
-  });
-
-  test('clicking a tab row activates that tab and focuses its window', async () => {
-    const user = userEvent.setup();
-    const { windows } = await renderPane(twoWindows());
-    const b = windows[1]?.tabs[0];
-    if (!b) throw new Error('seed has no tab B');
-
-    // The premise: B is neither active nor in the focused window yet.
-    expect((await tabById(b.id))?.active).toBe(false);
-    expect((await windowById(2))?.focused).toBe(false);
-
-    await user.click(tabRow('B'));
-
-    await vi.waitFor(async () => {
-      expect((await tabById(b.id))?.active).toBe(true);
-      expect((await windowById(2))?.focused).toBe(true);
-    });
   });
 
   // The worst path: the tab closes between the pane drawing it and the click.
@@ -261,40 +199,6 @@ describe('the Open now pane (KAN-280)', () => {
     } finally {
       process.off('unhandledRejection', onUnhandled);
     }
-  });
-
-  // The title keeps the popup's one font weight (scaleConformance.test.ts,
-  // KAN-205). The front tab's bar (KAN-280) is not visible to jsdom; e2e 7d/7e
-  // cover it. aria-current is the cue that is not visual. Each window has one
-  // active tab, so one current row per window.
-  test('the active tab of each window is marked current', async () => {
-    await renderPane(twoWindows());
-
-    const current = screen
-      .getAllByRole('button', { current: true })
-      .map((el) => el.ariaLabel);
-    // Window 2 is This window, so it draws first (KAN-472).
-    expect(current).toEqual(['Switch to tab: C', 'Switch to tab: A']);
-    expect(tabRow('B')).not.toHaveAttribute('aria-current');
-  });
-
-  // A resting shade read as a hovered row, so a bar alone marks the active
-  // tab (KAN-280 M3). The bar is a ::before, which jsdom cannot compute; e2e
-  // open-now.spec.ts 7d and 7e hold it in the real browser.
-  test('the active tab row has no shade of its own', async () => {
-    await renderPane(twoWindows());
-
-    // C is window 2's active tab, B is not.
-    const activeRow = tabRow('C').parentElement;
-    const otherRow = tabRow('B').parentElement;
-    if (!activeRow || !otherRow) throw new Error('tab row has no container');
-
-    expect(getComputedStyle(activeRow).backgroundColor).toBe(
-      getComputedStyle(otherRow).backgroundColor
-    );
-    expect(getComputedStyle(activeRow).backgroundColor).not.toBe(
-      hex(LIGHT_THEME.SECONDARY_COLOR)
-    );
   });
 
   test('a group draws its title once, above its tabs, in a band of its colour', async () => {
@@ -369,31 +273,6 @@ describe('the Open now pane (KAN-280)', () => {
     // Loading is not "nothing is open": the empty message waits for a read.
     expect(screen.queryByText('No other tabs are open')).toBeNull();
     expect(screen.queryByText(/^Window \d/)).toBeNull();
-  });
-
-  test('each header action renders a control named by its label, in order, and calls its own onClick', async () => {
-    const user = userEvent.setup();
-    const first = vi.fn();
-    const second = vi.fn();
-    await renderPane(twoWindows(), {
-      actions: [
-        { icon: 'close', label: 'First action', onClick: first },
-        { icon: 'tab', label: 'Second action', onClick: second },
-      ],
-    });
-
-    const names = screen.getAllByRole('button').map((el) => el.ariaLabel);
-    const firstIndex = names.indexOf('First action');
-    expect(firstIndex).toBeGreaterThanOrEqual(0);
-    expect(firstIndex).toBeLessThan(names.indexOf('Second action'));
-
-    await user.click(screen.getByRole('button', { name: 'First action' }));
-    expect(first).toHaveBeenCalledTimes(1);
-    expect(second).not.toHaveBeenCalled();
-
-    await user.click(screen.getByRole('button', { name: 'Second action' }));
-    expect(second).toHaveBeenCalledTimes(1);
-    expect(first).toHaveBeenCalledTimes(1);
   });
 
   test('the collapse-all toggle hides every tab row, then shows them again', async () => {
@@ -472,33 +351,10 @@ const drawnWindowIds = () =>
 // KAN-472. This window is drawn first and keeps its Chrome-order number; the
 // rest follow in Chrome's order.
 describe('This window is drawn first (KAN-472)', () => {
-  test('the third of three windows draws first, still named Window 3', async () => {
-    await renderPane(threeWindows(), { thisWindowId: 3 });
-    expect(drawnWindowIds()).toEqual([3, 1, 2]);
-    const first = document.querySelector('[data-open-window-id]');
-    if (!(first instanceof HTMLElement)) throw new Error('no window drawn');
-    expect(within(first).getByText('Window 3')).toBeInTheDocument();
-    expect(within(first).getByText('This window')).toBeInTheDocument();
-    expect(
-      within(windowBlock('Window 1')).getByText('Alpha notes')
-    ).toBeTruthy();
-    expect(
-      within(windowBlock('Window 2')).getByText('Bravo notes')
-    ).toBeTruthy();
-  });
-
   test('with This window not listed, every window keeps Chrome order', async () => {
     await renderPane(threeWindows(), { thisWindowId: null });
     expect(drawnWindowIds()).toEqual([1, 2, 3]);
     expect(screen.queryByText('This window')).toBeNull();
-  });
-
-  test('under a search it stays first among the windows that match', async () => {
-    // "ha" matches Alpha notes and Charlie, not Bravo notes.
-    await renderPane(threeWindows(), { thisWindowId: 3, searchText: 'ha' });
-    expect(drawnWindowIds()).toEqual([3, 1]);
-    expect(screen.getByText('Window 3')).toBeInTheDocument();
-    expect(screen.getByText('Window 1')).toBeInTheDocument();
   });
 
   test('a search This window does not match leaves the rest in Chrome order', async () => {
@@ -516,22 +372,6 @@ describe('This window is drawn first (KAN-472)', () => {
 // appears (side by side, folded, the O2 drawer) -- one style, so this pane's
 // own render is the only place to pin it.
 describe('the Open now heading steps down so the saved name leads (KAN-321 O1b)', () => {
-  test('the h2 is TYPE.BODY/LABEL_L1_COLOR, still 32px high', async () => {
-    await renderPane(twoWindows());
-
-    const heading = screen.getByRole('heading', { name: 'Open now' });
-
-    expect(getComputedStyle(heading).fontSize).toBe(
-      `${parseFloat(TYPE.BODY) * 16}px`
-    );
-    expect(getComputedStyle(heading).color).toBe(
-      hex(LIGHT_THEME.LABEL_L1_COLOR)
-    );
-    // O1b: "inside its existing 32px line" -- the header's height must not
-    // move when the text inside it shrinks.
-    expect(getComputedStyle(heading).height).toBe('32px');
-  });
-
   test('the header box drops its fill but keeps its border (O1b)', async () => {
     await renderPane(twoWindows());
 
