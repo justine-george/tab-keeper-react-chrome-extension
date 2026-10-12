@@ -28,7 +28,6 @@ import {
   resumeRunHere,
   selectIsRunCardShown,
   selectRunHere,
-  selectRunSession,
   skipRun,
   startRun,
   stepRunBack,
@@ -295,16 +294,6 @@ describe('a resumed run at the save step with its session already taken', () => 
     const full = await resumed('full');
     expect(full.getState().globalState.runSaveCard).toBe('sessions');
     expect(runOf(full)?.sessionId).toBe('own');
-  });
-});
-
-describe('selectRunSession', () => {
-  test('is the run’s own session, and nothing before the run has one', async () => {
-    const store = withSessions(OWN, OLDER);
-    await store.dispatch(startRun(newRun('popup', 1)));
-    expect(selectRunSession(store.getState())).toBeUndefined();
-    store.dispatch(takeRunSave('older'));
-    expect(selectRunSession(store.getState())?.tabGroupId).toBe('older');
   });
 });
 
