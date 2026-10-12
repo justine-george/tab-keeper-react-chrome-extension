@@ -83,6 +83,11 @@ export const TOAST_MESSAGES = {
   // window, most often not the one the tab view is in, so "Current window…"
   // would name the wrong one.
   SAVE_WINDOW_SUCCESS: 'Window saved as a session.',
+  // KAN-522. Nothing open but Tab Keeper: the save row says why it did nothing.
+  NOTHING_TO_SAVE: 'No tabs to save. Only Tab Keeper is open.',
+  NOTHING_TO_SAVE_IN_WINDOW:
+    'No tabs to save in this window. Only Tab Keeper is open here.',
+  NOTHING_TO_EXPORT: 'No tabs to export. Only Tab Keeper is open.',
   // KAN-209. Reuses the key the export page's inline note already uses, rather
   // than adding a second string for the same event -- it is already translated
   // in all ten locales, and two wordings for one outcome is how "Links copied"
