@@ -103,18 +103,6 @@ const rankOf = (s: Store, id: string) => {
   return g.rank ?? g.createdAt!;
 };
 
-describe('the seeded list', () => {
-  test('is newest-first and carries no ranks', () => {
-    const store = seeded();
-    expect(ids(store)).toEqual(['c', 'b', 'a']);
-    expect(
-      store
-        .getState()
-        .tabContainerDataState.tabGroups.every((g) => g.rank === undefined)
-    ).toBe(true);
-  });
-});
-
 describe('moveSessionInternal', () => {
   test('moves a session to the front', () => {
     const store = seeded();

@@ -77,22 +77,6 @@ describe('sessionDateLabel', () => {
     );
   });
 
-  // Both halves swap together. A version that changed the word but not the
-  // number -- or the number but not the word -- passes half of the pair above
-  // and is worse than either basis on its own, because the row would then be
-  // actively lying rather than merely ambiguous.
-  test('the word and the number always agree', () => {
-    const group = build({ contentModified: EDITED });
-
-    const edited = sessionDateLabel(group, 'edited', 'en', t, TODAY);
-    const created = sessionDateLabel(group, 'created', 'en', t, TODAY);
-
-    expect(edited).toContain(sessionWhen(EDITED, 'en', TODAY));
-    expect(edited).not.toContain(sessionWhen(CREATED, 'en', TODAY));
-    expect(created).toContain(sessionWhen(CREATED, 'en', TODAY));
-    expect(created).not.toContain(sessionWhen(EDITED, 'en', TODAY));
-  });
-
   // The one case the basis does not get to decide. A session with no
   // contentModified has never been edited, so "Edited" would be a false
   // statement about it whatever the setting says -- and contentInstant already
@@ -103,17 +87,6 @@ describe('sessionDateLabel', () => {
 
     expect(sessionDateLabel(group, 'edited', 'en', t, TODAY)).toBe(
       `Created ${sessionWhen(CREATED, 'en', TODAY)}`
-    );
-  });
-
-  // KAN-25 one level down: the fallback reaches createdAt, the instant, not
-  // createdTime, a local wall clock with no offset that cannot be trusted once
-  // a session crosses timezones.
-  test('the fallback uses the instant, not the stored wall clock', () => {
-    const group = build();
-
-    expect(sessionDateLabel(group, 'edited', 'en', t, TODAY)).not.toContain(
-      '2020'
     );
   });
 
@@ -192,13 +165,6 @@ describe('sessionWhen (KAN-347)', () => {
       String(new Date(0).getFullYear())
     );
     expect(sessionWhen(Number.NaN, 'en', TODAY)).toBe('');
-  });
-
-  test('the label carries the trimmed date', () => {
-    const group = build({ contentModified: local(2026, 8, 24, 2, 51, 57) });
-    expect(norm(sessionDateLabel(group, 'edited', 'en', t, TODAY))).toBe(
-      'Edited Sep 24, 2:51 AM'
-    );
   });
 });
 

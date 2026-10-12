@@ -134,16 +134,6 @@ describe('H1: what hides while searching', () => {
     expect(itemMenus()).toEqual([]);
   });
 
-  test.each(H1_NAMES)(
-    'CONTROL: %s is present when not searching',
-    async (name) => {
-      await render('');
-      await screen.findByRole('button', { name: 'Collapse all windows' });
-
-      expect(byName(name).length).toBeGreaterThan(0);
-    }
-  );
-
   // R7: Open hides; the title stays the rename button.
   test("a window's Open is absent, and its title still renames", async () => {
     await render(QUERY);

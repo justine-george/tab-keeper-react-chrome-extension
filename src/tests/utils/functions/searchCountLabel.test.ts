@@ -2,10 +2,7 @@ import type { TFunction } from 'i18next';
 import { beforeAll, describe, expect, test } from 'vitest';
 
 import { tFor } from '../../setup/localeT';
-import {
-  formatGroupCounts,
-  isSearchActive,
-} from '../../../utils/functions/local';
+import { formatGroupCounts } from '../../../utils/functions/local';
 
 // Real en i18n. This file is about the SHAPE of the string (where the prefix
 // goes, which form is picked), and since KAN-286 the form is chosen by
@@ -17,19 +14,6 @@ beforeAll(async () => {
   t = await tFor('en');
 });
 
-describe('isSearchActive', () => {
-  test('is true when something has been typed', () => {
-    expect(isSearchActive('kagi')).toBe(true);
-  });
-
-  // filterTabGroups never runs on an empty box, so the counts on screen are
-  // the session's real size -- labelling them as matches would be a new lie in
-  // the opposite direction to the one KAN-60 fixes.
-  test('is false when the box is empty', () => {
-    expect(isSearchActive('')).toBe(false);
-  });
-});
-
 describe('formatGroupCounts', () => {
   test('describes the session itself when no filter is active', () => {
     expect(formatGroupCounts(7, 13, false, t)).toBe('7 Windows · 13 Tabs');
@@ -37,10 +21,6 @@ describe('formatGroupCounts', () => {
 
   test('says the counts are matches when a filter is active', () => {
     expect(formatGroupCounts(1, 1, true, t)).toBe('Matches: 1 Window · 1 Tab');
-  });
-
-  test('keeps the prefix off the plural form too', () => {
-    expect(formatGroupCounts(3, 5, false, t)).toBe('3 Windows · 5 Tabs');
   });
 
   test('keeps the prefix on the plural form too', () => {

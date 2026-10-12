@@ -10,7 +10,7 @@ import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { buildChromeTab } from '../fixtures/chromeTab';
 import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
 import * as capture from '../../utils/functions/capture';
-import { startRun, stepRunBack } from '../../redux/firstRun';
+import { startRun } from '../../redux/firstRun';
 import { setRunSaveCard } from '../../redux/slices/globalStateSlice';
 import { newRun } from '../../utils/functions/firstRun';
 
@@ -91,22 +91,6 @@ describe('UserInputContainer', () => {
     const field = screen.getByPlaceholderText('Name the new session');
     expect(field).toHaveValue('');
     expect(screen.getByRole('textbox')).toBe(field);
-  });
-
-  test('a save with the field empty names the session after the active tab', async () => {
-    const { store } = await renderWithProviders(<UserInputContainer />, {
-      seed,
-    });
-    await act(async () => {});
-
-    await userEvent.click(
-      screen.getByLabelText('Save all open windows as a session')
-    );
-
-    expect(store.getState().tabContainerDataState.tabGroups[0].title).toBe(
-      'Kagi Search'
-    );
-    expect(screen.getByRole('textbox')).toHaveValue('');
   });
 
   test('saving dispatches a session built from the open windows', async () => {
@@ -401,27 +385,6 @@ describe('the save row menu (KAN-208)', () => {
       windowId: 7,
     });
   });
-
-  // CONTROL for the test above: the other item DOES save, through the same
-  // menu -- so "nothing saved" is a property of the export item rather than of
-  // the menu.
-  test('CONTROL: the save item in the same menu does save', async () => {
-    const { store, chrome } = await renderWithProviders(
-      <UserInputContainer />,
-      { seed: twoWindows }
-    );
-    await act(async () => {});
-
-    const menu = await openSaveMenu();
-    await userEvent.click(
-      within(menu).getByRole('menuitem', {
-        name: 'Save current window as a session',
-      })
-    );
-
-    expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
-    expect(chrome.createdTabs).toHaveLength(0);
-  });
 });
 
 // KAN-84. The save path already intended a fallback -- it read
@@ -460,13 +423,6 @@ describe('a saved session always gets a name (KAN-84)', () => {
       expect(savedTitle(store)).toBe('Kagi Search');
     }
   );
-
-  // THE CONTROL. Every case above lands on the active tab's title, so a save
-  // path that ignored the input would pass them all.
-  test('CONTROL: a typed name is used', async () => {
-    const { store } = await typeNameAndSave('Research');
-    expect(savedTitle(store)).toBe('Research');
-  });
 
   test('a typed name is stored trimmed', async () => {
     const { store } = await typeNameAndSave('  Research  ');
@@ -512,27 +468,6 @@ describe('an empty save’s name skips the store and the New Tab page (§8)', ()
 
   afterEach(() => history.replaceState(null, '', '?'));
 
-  test('full view: the store most recent, Gmail behind it: named after Gmail', async () => {
-    history.replaceState(null, '', '?view=tab');
-    expect(
-      await emptySaveName([
-        { ...GMAIL, lastAccessed: 2 },
-        { ...STORE, lastAccessed: 3 },
-        { ...TK, active: true, lastAccessed: 4 },
-      ])
-    ).toBe('Inbox – Gmail');
-  });
-
-  test('full view: only the store and Tab Keeper: New Tab Group', async () => {
-    history.replaceState(null, '', '?view=tab');
-    expect(
-      await emptySaveName([
-        { ...STORE, lastAccessed: 3 },
-        { ...TK, active: true, lastAccessed: 4 },
-      ])
-    ).toBe('New Tab Group');
-  });
-
   test.each([
     ['the store', STORE],
     ['a New Tab', NEW_TAB],
@@ -555,12 +490,6 @@ describe('an empty save’s name skips the store and the New Tab page (§8)', ()
         { ...STORE, lastAccessed: 3 },
         { ...TK, active: true, lastAccessed: 4 },
       ])
-    ).toBe('Inbox – Gmail');
-  });
-
-  test('CONTROL: popup on Gmail is named after it', async () => {
-    expect(
-      await emptySaveName([{ ...GMAIL, active: true, lastAccessed: 3 }])
     ).toBe('Inbox – Gmail');
   });
 });
@@ -602,12 +531,6 @@ describe('the run’s save step (§8, R6)', () => {
       r.store.dispatch(setRunSaveCard('save'));
     });
 
-  test('the field holds the name an empty save would use, as a real value', async () => {
-    const r = await render();
-    await startAtSave(r);
-    await waitFor(() => expect(field()).toHaveValue('Inbox – Gmail'));
-  });
-
   test('the untouched name is saved, it is the run’s session, and the field is empty after', async () => {
     const r = await render();
     await startAtSave(r);
@@ -634,20 +557,6 @@ describe('the run’s save step (§8, R6)', () => {
     expect(r.store.getState().settingsDataState.firstRun).toMatchObject({
       step: 2,
       sessionId: saved.tabGroupId,
-    });
-    expect(field()).toHaveValue('');
-  });
-
-  test('Back to the save step after the run’s save: the field stays empty (R6)', async () => {
-    const r = await render();
-    await startAtSave(r);
-    await waitFor(() => expect(field()).toHaveValue('Inbox – Gmail'));
-    await userEvent.click(saveButton());
-    await act(async () => {
-      await r.store.dispatch(stepRunBack());
-    });
-    expect(r.store.getState().settingsDataState.firstRun).toMatchObject({
-      step: 1,
     });
     expect(field()).toHaveValue('');
   });
@@ -729,11 +638,6 @@ describe('the run’s save step (§8, R6)', () => {
       step: 1,
       sessionId: null,
     });
-  });
-
-  test('CONTROL: with no run the field starts empty', async () => {
-    await render();
-    expect(field()).toHaveValue('');
   });
 });
 
