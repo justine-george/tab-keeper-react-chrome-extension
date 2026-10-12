@@ -1,6 +1,6 @@
 import {
-  useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   type CSSProperties,
   type ReactNode,
@@ -145,8 +145,8 @@ export default function CoachMark({
   const buttons = dialogButtonStyles(COLORS);
   const isPlaced = frame !== null;
 
-  // Only while drawn; the last step's Esc is its non-pin button.
-  useEffect(() => {
+  // Only while drawn; the last step's Esc is its non-pin button. A layout effect, so it lands in the commit that shows the card (KAN-520).
+  useLayoutEffect(() => {
     if (!isPlaced) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (!isUnclaimedEscape(event)) return;
