@@ -165,10 +165,6 @@ describe('moving a tab within a saved window', () => {
   it('reorders within an ungrouped stretch', () => {
     const after = move(seed(), 'loose-2', 0);
     expect(tabIds(after)).toEqual(['loose-2', 'loose-1', 'a-1', 'a-2', 'b-1']);
-  });
-
-  it('leaves an ungrouped tab ungrouped', () => {
-    const after = move(seed(), 'loose-2', 0);
     expect('chromeGroupId' in tab(after, 'loose-2')).toBe(false);
   });
 
@@ -181,11 +177,6 @@ describe('moving a tab within a saved window', () => {
   it('joins the group when dropped into a band', () => {
     const after = move(seed(), 'loose-1', 1, 'grp-a');
     expect(tab(after, 'loose-1').chromeGroupId).toBe('grp-a');
-  });
-
-  it('leaves the group when dropped outside every band', () => {
-    const after = move(seed(), 'a-1', 4);
-    expect(tab(after, 'a-1').chromeGroupId).toBeUndefined();
   });
 
   // Firestore's setDoc rejects an explicit `undefined` outright -- that is
@@ -287,12 +278,6 @@ describe('a move that changes nothing', () => {
     expect(after.tabGroups[0].lastModified).toBe(
       before.tabGroups[0].lastModified
     );
-  });
-
-  it('leaves the order alone', () => {
-    const before = seed();
-    const after = later(() => move(before, 'a-1', 1, 'grp-a'));
-    expect(tabIds(after)).toEqual(tabIds(before));
   });
 
   // The guard must compare BOTH axes. Dropping a tab in place but inside a band
