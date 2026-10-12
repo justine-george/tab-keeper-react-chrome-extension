@@ -142,6 +142,26 @@ describe('the coach mark', () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
+  // KAN-520: a loaded runner's Scheduler yields between the commit and the passive effects.
+  test('an Esc the moment the card shows is the card’s, however busy the frame', async () => {
+    let now = performance.now();
+    vi.spyOn(performance, 'now').mockImplementation(() => (now += 10));
+    const event = escape();
+    const shown = new MutationObserver(() => {
+      if (mark()?.hasAttribute('aria-hidden') !== false) return;
+      shown.disconnect();
+      document.dispatchEvent(event);
+    });
+    shown.observe(document.body, {
+      subtree: true,
+      attributeFilter: ['aria-hidden'],
+    });
+    const { onEscape } = await render();
+    await placed();
+    expect(onEscape).toHaveBeenCalledTimes(1);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
   test('an Esc a field already used is left alone', async () => {
     const { onEscape } = await render();
     await placed();
