@@ -31,7 +31,6 @@ import {
 import {
   deleteTabContainerInternal,
   saveToTabContainerInternal,
-  type tabContainerData,
 } from './slices/tabContainerDataStateSlice';
 import {
   buildSampleSession,
@@ -88,15 +87,6 @@ export const selectRunHere = (state: RootState): FirstRun | null => {
     run.view === thisView()
     ? run
     : null;
-};
-
-export const selectRunSession = (
-  state: RootState
-): tabContainerData | undefined => {
-  const id = selectRunHere(state)?.sessionId ?? null;
-  return id === null
-    ? undefined
-    : state.tabContainerDataState.tabGroups.find((g) => g.tabGroupId === id);
 };
 
 // R3. Settings or a search hide every card; another session or the fold hides a session step's.
