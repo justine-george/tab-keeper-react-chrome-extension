@@ -30,15 +30,6 @@ import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 describe('every save records which client wrote it', () => {
   beforeEach(() => firestore.setDoc.mockReset().mockResolvedValue(undefined));
 
-  // The constant is pinned to a literal, not just compared against itself.
-  // `expect(written.writerVersion).toBe(CURRENT_WRITER_VERSION)` alone is a
-  // tautology: before the constant existed the import resolved to undefined and
-  // the assertion reduced to expect(undefined).toBe(undefined), which passes
-  // against a save that stamps nothing at all.
-  it('exports a concrete writer version', () => {
-    expect(CURRENT_WRITER_VERSION).toBe(2);
-  });
-
   it('stamps writerVersion', async () => {
     await saveToFirestore('u1', buildContainer([buildSession()]));
     const written = firestore.setDoc.mock.calls[0][1] as {

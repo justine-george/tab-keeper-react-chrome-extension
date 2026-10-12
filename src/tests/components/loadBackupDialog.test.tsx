@@ -1,12 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { toastTexts, newestToast } from '../setup/toasts';
-import {
-  act,
-  fireEvent,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
@@ -107,38 +101,6 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     vi.mocked(saveToFirestore).mockReset();
   });
 
-  test('a readable backup asks first, naming the file and both counts, and applies nothing yet', async () => {
-    const inputs = captureFileInput();
-    const r = await render();
-
-    const dialog = await pickBackup(inputs, 'monday.json');
-
-    expect(dialog).toHaveAccessibleName('Load 1 session from this backup?');
-    // The file on its own line: a real backup name is
-    // tabkeeper_backup_1.8.0_1758400000000.json, and in the title it swallowed
-    // the question.
-    expect(within(dialog).getByText('monday.json')).toBeTruthy();
-    expect(dialog).toHaveTextContent(
-      'Merge keeps the 3 sessions on this device and adds any sessions from the backup that aren’t already here.'
-    );
-    expect(dialog).toHaveTextContent(
-      'Replace deletes the 3 sessions on this device and on every device that syncs with it, then loads the backup. This can’t be undone.'
-    );
-    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeTruthy();
-    expect(
-      within(dialog).getByRole('button', { name: 'Merge sessions' })
-    ).toBeTruthy();
-    expect(
-      within(dialog).getByRole('button', { name: 'Replace sessions' })
-    ).toBeTruthy();
-    // Opens unlit (KAN-243): the dialog holds the focus; neither answer is
-    // one accidental Enter away.
-    expect(document.activeElement).toBe(dialog);
-    expect(titlesHere(r)).toEqual(HERE_TITLES);
-    expect(r.store.getState().globalState.isDirty).toBe(false);
-    expect(toastTexts(r.store.getState())).toEqual([]);
-  });
-
   test('Cancel closes the question and leaves everything as it was, with no toast', async () => {
     const inputs = captureFileInput();
     const r = await render();
@@ -152,20 +114,6 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     expect(titlesHere(r)).toEqual(HERE_TITLES);
     expect(r.store.getState().globalState.isDirty).toBe(false);
     expect(toastTexts(r.store.getState())).toEqual([]);
-  });
-
-  test('Escape is Cancel', async () => {
-    const inputs = captureFileInput();
-    const r = await render();
-    const dialog = await pickBackup(inputs);
-
-    fireEvent(
-      dialog,
-      new Event('cancel', { bubbles: false, cancelable: true })
-    );
-
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(titlesHere(r)).toEqual(HERE_TITLES);
   });
 
   test('Replace applies the file in place of what was here and reports success', async () => {

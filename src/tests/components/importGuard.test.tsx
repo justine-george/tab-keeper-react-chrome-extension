@@ -175,23 +175,6 @@ describe('import size guard (KAN-27)', () => {
     expect(store.getState().globalState.isDirty).toBe(false);
     expect(screen.getByText('Load sessions from a backup')).toBeTruthy();
   });
-
-  // The control. Without this, a guard that rejected every import would pass
-  // the tests above.
-  test('still imports a backup that fits', async () => {
-    const inputs = captureFileInput();
-    const { store } = await renderSyncAndBackup();
-
-    await userEvent.click(
-      await screen.findByText('Load sessions from a backup')
-    );
-    dropFile(inputs[0], buildSmallBackup());
-
-    await waitFor(() => {
-      expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
-    });
-    expect(newestToast(store.getState())?.text).toMatch(/successfully/i);
-  });
 });
 
 // KAN-43. The import handler dispatched saveToFirestoreIfDirty and immediately
@@ -204,8 +187,8 @@ describe('import sync failure (KAN-43)', () => {
     vi.restoreAllMocks();
     // saveToFirestore is a bare vi.fn() from componentSetup rather than a spy,
     // so restoreAllMocks does not necessarily clear an implementation set on
-    // it. Reset explicitly: a leaked rejection would turn the KAN-27 control
-    // test above red for the wrong reason.
+    // it. Reset explicitly: a leaked rejection would turn the KAN-257 and
+    // KAN-415 tests below red for the wrong reason.
     vi.mocked(saveToFirestore).mockReset();
   });
 

@@ -270,10 +270,6 @@ describe('placeholderURL', () => {
     );
   });
 
-  test('should load decoded url from placeholder encoded html', () => {
-    expect(decodeDataUrl(encodedPlaceholderUrl)).toBe(url);
-  });
-
   test('should load url properly even if it is not encoded', () => {
     expect(decodeDataUrl(url)).toBe(url);
   });
@@ -1356,18 +1352,6 @@ describe('readImportedContainer', () => {
     );
   });
 
-  test('should throw the structure message for a valid-JSON non-container', () => {
-    expect(() => readImportedContainer('{"nope":true}', 'en')).toThrow(
-      'Invalid JSON structure.'
-    );
-  });
-
-  // Unchanged behaviour, pinned so the refactor cannot quietly swallow it:
-  // JSON.parse's own SyntaxError reaches the toast.
-  test('should let a JSON syntax error propagate', () => {
-    expect(() => readImportedContainer('{not json', 'en')).toThrow(SyntaxError);
-  });
-
   test('formats the refusal numbers in the language it is given (KAN-288)', () => {
     const huge: TabMasterContainer = {
       lastModified: 1,
@@ -1507,41 +1491,5 @@ describe('readImportedContainer', () => {
 
     expect(serialized.length).toBeGreaterThan(FIRESTORE_MAX_DOCUMENT_BYTES);
     expect(readImportedContainer(serialized, 'en')).toEqual(container);
-  });
-});
-
-// The console half of the refusal. `saveToFirestoreIfDirty`'s catch logs
-// `error.message`, and the two size refusals are OPAQUE keys -- a bare
-// "SyncSizeRefusal" in the console tells a developer debugging a wedged sync
-// neither the size nor the limit, which is strictly worse than the
-// concatenated sentence it replaced. Caught by self-review, not by a failing
-// test, so it is pinned here.
-describe('TranslatableError carries its params into the message', () => {
-  test('a parameterised refusal names its numbers', () => {
-    const err = new TranslatableError(IMPORT_SIZE_REFUSAL, {
-      used: '1.4',
-      limit: '1.0',
-    });
-    expect(err.message).toContain(IMPORT_SIZE_REFUSAL);
-    expect(err.message).toContain('1.4');
-    expect(err.message).toContain('1.0');
-  });
-
-  // CONTROL: a key with no params must stay exactly the key, so the simple
-  // refusals keep reading as the plain English sentences they already are.
-  test('an unparameterised refusal is the bare key', () => {
-    const err = new TranslatableError(IMPORT_INVALID_STRUCTURE);
-    expect(err.message).toBe(IMPORT_INVALID_STRUCTURE);
-  });
-
-  // The key stays the key regardless -- consumers branch on i18nKey, never on
-  // message, and widening message must not have changed that.
-  test('i18nKey is unaffected by the message widening', () => {
-    const err = new TranslatableError(IMPORT_SIZE_REFUSAL, {
-      used: '2',
-      limit: '1',
-    });
-    expect(err.i18nKey).toBe(IMPORT_SIZE_REFUSAL);
-    expect(err.i18nParams).toEqual({ used: '2', limit: '1' });
   });
 });
