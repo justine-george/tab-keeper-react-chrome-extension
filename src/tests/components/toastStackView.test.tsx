@@ -280,3 +280,47 @@ describe('the stack sits collapsed until hovered or focused (KAN-488)', () => {
     expect(transforms()).toEqual(['translateY(0px)']);
   });
 });
+
+// KAN-523. Peeks are measured from the FRONT toast's top, not the stack's bottom: toasts differ in height, and a
+// taller front toast used to cover the older ones (a shorter one let them stick out by their full difference).
+describe('collapsed peeks sit 8px apiece above the front toast, whatever the heights (KAN-523)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+  // Each toast's height by its own text, as a real layout would differ.
+  const heights = (byText: Record<string, number>) =>
+    vi
+      .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        const text = this.textContent ?? '';
+        const hit = Object.entries(byText).find(([t]) => text.includes(t));
+        return hit ? hit[1] : 40;
+      });
+  const transforms = () => liveToasts().map((el) => el.style.transform);
+
+  test('a taller front toast: the older ones rise by the difference, then peek', async () => {
+    heights({ One: 40, Two: 40, Three: 64 });
+    const rendered = await renderWithProviders(<Toast />);
+    await show(rendered, 'One');
+    await show(rendered, 'Two');
+    await show(rendered, 'Three');
+    expect(transforms()).toEqual([
+      'translateY(-40px) scale(0.9)',
+      'translateY(-32px) scale(0.95)',
+      'translateY(0px)',
+    ]);
+  });
+
+  test('a shorter front toast: the older ones drop by the difference, then peek', async () => {
+    heights({ One: 64, Two: 64, Three: 40 });
+    const rendered = await renderWithProviders(<Toast />);
+    await show(rendered, 'One');
+    await show(rendered, 'Two');
+    await show(rendered, 'Three');
+    expect(transforms()).toEqual([
+      'translateY(8px) scale(0.9)',
+      'translateY(16px) scale(0.95)',
+      'translateY(0px)',
+    ]);
+  });
+});

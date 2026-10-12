@@ -89,6 +89,9 @@ export function useToastStack(toasts: readonly ToastItem[], open: boolean) {
   useLayoutEffect(() => {
     let below = 0;
     let depth = 0;
+    // KAN-523. Collapsed, each older toast's top sits depth × PEEK above the FRONT toast's top, so a taller or
+    // shorter front toast neither covers the peeks nor over-reveals them.
+    let frontHeight: number | null = null;
     for (let i = shown.length - 1; i >= 0; i -= 1) {
       const { toast, leaving } = shown[i];
       const el = elements.current.get(toast.id);
@@ -105,22 +108,29 @@ export function useToastStack(toasts: readonly ToastItem[], open: boolean) {
         placed.current.delete(toast.id);
         continue;
       }
-      const y = open ? -below : -depth * TOAST_PEEK_PX;
+      const entering = !placed.current.has(toast.id);
+      if (entering) {
+        // Start 12px low and clear BEFORE anything reads layout: a height read first would give a new toast a
+        // resting style, and setting the start after it would itself animate (KAN-523).
+        el.style.transform = `translateY(${TOAST_RISE_PX}px)`;
+        el.style.opacity = '0';
+      }
+      const height = el.offsetHeight;
+      if (frontHeight === null) frontHeight = height;
+      const y = open ? -below : height - frontHeight - depth * TOAST_PEEK_PX;
       const scale =
         open || depth === 0 ? '' : ` scale(${1 - depth * TOAST_PEEK_SCALE})`;
       el.dataset.depth = String(depth);
       el.style.zIndex = String(MAX_DEPTH - depth);
-      if (!placed.current.has(toast.id)) {
-        // Start 12px low and clear, and have the browser take that in before
-        // the move, so the transition runs from it.
+      if (entering) {
+        // Have the browser take the start in before the move, so the transition runs from it.
         el.style.transform = `translateY(${y + TOAST_RISE_PX}px)`;
-        el.style.opacity = '0';
         el.getBoundingClientRect();
         placed.current.add(toast.id);
       }
       el.style.transform = `translateY(${y}px)${scale}`;
       el.style.opacity = '1';
-      below += el.offsetHeight + TOAST_GAP_PX;
+      below += height + TOAST_GAP_PX;
       depth += 1;
     }
   }, [shown, open]);
