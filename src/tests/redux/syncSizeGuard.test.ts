@@ -54,14 +54,12 @@ describe('the sync write refuses a document Firestore would reject', () => {
     mocks.saveToFirestore.mockReset().mockResolvedValue(undefined);
   });
 
-  it('the fixture really is over the limit (guards the test itself)', () => {
+  it('does not call setDoc with an over-limit container', async () => {
+    // The premise: the fixture really is over the limit, or this passes vacuously.
     const json = JSON.stringify(oversizedContainer());
     expect(new TextEncoder().encode(json).byteLength).toBeGreaterThan(
       FIRESTORE_MAX_DOCUMENT_BYTES
     );
-  });
-
-  it('does not call setDoc with an over-limit container', async () => {
     const { store } = makeTestStore();
     store.dispatch(setUserId('u1'));
     store.dispatch(replaceState(oversizedContainer()));
