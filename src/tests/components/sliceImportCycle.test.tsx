@@ -17,13 +17,19 @@
 // It never reached users: rollup hoists cyclic bindings differently from
 // vitest's module runner, and the built extension worked. It failed CI, which
 // is enough -- the next person to import this slice would lose the same hour.
-import { clearSessionOrder } from '../../redux/slices/tabContainerDataStateSlice';
+import {
+  clearSessionOrder,
+  saveToTabContainerInternal,
+} from '../../redux/slices/tabContainerDataStateSlice';
 
 import { describe, expect, test } from 'vitest';
 import { act } from '@testing-library/react';
 
 import MainContainer from '../../components/MainContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { makeTestStore } from '../setup/makeStore';
+import { buildSession } from '../fixtures/sessionFixture';
+import { undo } from '../../redux/slices/undoRedoSlice';
 
 describe('importing the session slice early', () => {
   test('the action creator is defined, not a partially initialised module', () => {
@@ -59,5 +65,16 @@ describe('importing the session slice early', () => {
     // the flag alone, a failure here reads as a keyboard bug.
     expect(errors).toEqual([]);
     expect(event.defaultPrevented).toBe(true);
+  });
+
+  // KAN-551. This import order once let vitest run undoRedoSlice before the
+  // session slice had its initial state, so undo history began undefined and
+  // undoing the first change threw inside dispatch (KAN-137).
+  test('undoing the first change brings back the empty list', () => {
+    const { store } = makeTestStore();
+    store.dispatch(saveToTabContainerInternal(buildSession()));
+    expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
+    store.dispatch(undo());
+    expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
   });
 });
