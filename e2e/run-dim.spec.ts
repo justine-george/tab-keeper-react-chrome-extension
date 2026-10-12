@@ -69,6 +69,16 @@ async function withAndWithoutDim(
   page: Page,
   points: [number, number][]
 ): Promise<{ shown: string[]; hidden: string[] }> {
+  // Every finite animation over first: a ground still fading would differ between the two shots.
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every(
+        (a) =>
+          a.playState !== 'running' ||
+          a.effect?.getComputedTiming().endTime === Infinity
+      )
+  );
   const shown = await pixelsAt(page, points);
   await dim(page).evaluate((el) => {
     if (el instanceof HTMLElement) el.style.visibility = 'hidden';

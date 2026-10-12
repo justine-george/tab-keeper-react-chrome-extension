@@ -337,10 +337,11 @@ test('while the card glides from step 6 to step 7 it takes no pointer, and takes
       )
     )
     .toBe(0);
-  // Rate 0 from before Next: the glide starts frozen and cannot end under the probes.
+  // Slowed 100x from before Next, so the glide cannot end under the probes.
+  // Not rate 0: on Chromium 156 that also stalls the card's change of step (KAN-559).
   const cdp = await context.newCDPSession(page);
   await cdp.send('Animation.enable');
-  await cdp.send('Animation.setPlaybackRate', { playbackRate: 0 });
+  await cdp.send('Animation.setPlaybackRate', { playbackRate: 0.01 });
   await cardButton(page, 'Next').click();
   await expect(cardAt(page, 7)).toBeVisible();
   // Held in turn at points along the glide: paused, not finished or cancelled, so the card is still mid-glide.

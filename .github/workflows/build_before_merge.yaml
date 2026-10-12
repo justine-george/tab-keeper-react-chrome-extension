@@ -90,7 +90,7 @@ jobs:
     # --user 1001 is the runner's uid, so git and the workspace agree on owner;
     # --ipc=host stops Chromium running out of the container's 64 MB /dev/shm.
     container:
-      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
       options: --user 1001 --ipc=host
     strategy:
       # Every shard runs to the end: a red one should not hide what the others
