@@ -2845,6 +2845,19 @@ const loggedFrames = (page: Page, n: number, of = '"dragging":') =>
 const loggedDragFrames = (page: Page, n: number) =>
   loggedFrames(page, n, '"dragging":true');
 
+// Until the pane log holds `n` frames with a row held: under load a settle
+// can come back in fewer frames (KAN-525).
+const loggedHeldFrames = (page: Page, n: number) =>
+  expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (document.body.dataset.paneFrames ?? '').split('"held":true').length -
+          1
+      )
+    )
+    .toBeGreaterThanOrEqual(n);
+
 // The toolbar row as it is drawn now: one frame's log.
 async function toolbarNow(page: Page): Promise<ToolbarFrame> {
   await logToolbar(page, null);
@@ -3431,15 +3444,17 @@ test.describe('the toolbar target makes a new first window (KAN-361)', () => {
       await ontoHeaderTarget(page, aim);
       await logToolbar(page, null);
       await loggedFrames(page, 12);
-      const frames = (await toolbarLog(page)).map(
-        ({ dragging, held, lit, scrollTop }) => ({
+      // The first 12: the log runs on until read, and a late read would ask
+      // for more travel than the list has (KAN-525).
+      const frames = (await toolbarLog(page))
+        .slice(0, 12)
+        .map(({ dragging, held, lit, scrollTop }) => ({
           dragging,
           held,
           lit,
           scrollTop,
-        })
-      );
-      expect(frames.length).toBeGreaterThanOrEqual(12);
+        }));
+      expect(frames.length).toBe(12);
       // Every frame: the list's own drag, the target lit.
       expect(frames.filter((f) => !f.dragging || !f.held || !f.lit)).toEqual(
         []
@@ -3684,6 +3699,7 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     await logPane(page, [pick, `tab:${pick}`]);
     await pickUp(page, tabHandle(page, pick));
     await settled(page);
+    await loggedHeldFrames(page, 6);
     const frames = await paneLog(page);
     const atRest = frames[0];
     const held = frames.filter((f) => f.held);
@@ -3860,6 +3876,7 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     await logPane(page, ['f1', 'tab:f1']);
     await pickUp(page, tabHandle(page, 'f1'));
     await settled(page);
+    await loggedHeldFrames(page, 6);
     const frames = await paneLog(page);
     const held = frames.filter((f) => f.held);
     // PREMISE: logged at rest and held, the rows of the session in each.
