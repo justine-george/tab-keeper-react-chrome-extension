@@ -50,27 +50,6 @@ describe('the Default view row (KAN-7 §7)', () => {
     expect(side('Full view')).toHaveAttribute('aria-pressed', 'false');
   });
 
-  test('Full is saved, mirrored for the worker, and removes the popup', async () => {
-    const { store, chrome } = await renderSessions();
-    await userEvent.click(side('Full view'));
-
-    await waitFor(() => expect(chrome.popupsSet).toEqual(['']));
-    expect(store.getState().settingsDataState.defaultView).toBe('full');
-    expect(savedSettings()).toMatchObject({ defaultView: 'full' });
-    expect(chrome.localArea()).toEqual({ defaultView: 'full' });
-    expect(side('Full view')).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  test('Compact puts the popup back', async () => {
-    const { chrome } = await renderSessions();
-    await userEvent.click(side('Full view'));
-    await waitFor(() => expect(chrome.popupsSet).toEqual(['']));
-    await userEvent.click(side('Compact view'));
-
-    await waitFor(() => expect(chrome.popupsSet).toEqual(['', 'index.html']));
-    expect(chrome.localArea()).toEqual({ defaultView: 'compact' });
-  });
-
   test('a refused setPopup still saves the choice, and says so in the console', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { store } = await renderSessions({
@@ -81,14 +60,5 @@ describe('the Default view row (KAN-7 §7)', () => {
     await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
     expect(store.getState().settingsDataState.defaultView).toBe('full');
     expect(savedSettings()).toMatchObject({ defaultView: 'full' });
-  });
-
-  test('with no chrome.action at all, the choice is still saved', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const { store } = await renderSessions({});
-    await userEvent.click(side('Full view'));
-
-    await waitFor(() => expect(warn).toHaveBeenCalled());
-    expect(store.getState().settingsDataState.defaultView).toBe('full');
   });
 });

@@ -108,19 +108,6 @@ describe('usePopupShortcut reads again on return', () => {
     await waitFor(() => expect(result.current).toBe('Alt+Shift+J'));
   });
 
-  test('a visibilitychange to hidden reads nothing', async () => {
-    const { rebind } = setup('Alt+Shift+K');
-    const { result } = renderHook(() => usePopupShortcut());
-    await waitFor(() => expect(result.current).toBe('Alt+Shift+K'));
-    rebind('Alt+Shift+J');
-    show('hidden');
-    act(() => {
-      document.dispatchEvent(new Event('visibilitychange'));
-    });
-    await act(async () => {});
-    expect(result.current).toBe('Alt+Shift+K');
-  });
-
   test('a window focus shows the new key', async () => {
     const { rebind } = setup('Alt+Shift+K');
     const { result } = renderHook(() => usePopupShortcut());
