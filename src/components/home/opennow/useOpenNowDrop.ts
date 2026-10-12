@@ -272,7 +272,8 @@ export function useOpenNowDrop({
 
   // The drop, as Chrome calls. A drop the geometry describes no move for
   // (a row this snapshot does not hold, or a release that names no window)
-  // calls nothing. Resolves with the record handed on, or null.
+  // calls nothing. Resolves with each moved tab's place before and after, or
+  // null when nothing moved.
   const onTabMove = useCallback(
     async (
       rowId: string,

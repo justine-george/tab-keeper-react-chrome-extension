@@ -124,7 +124,7 @@ describe('a tab dragged in Open now moves the real tab', () => {
     ],
   });
 
-  test('B released between C and D lands there in Chrome, and the record is handed on', async () => {
+  test('B released between C and D lands there in Chrome, and nothing reaches the store', async () => {
     const { top, store } = await renderPane(seed(), false);
     const before = store.getState();
     const d = top.get('22') ?? 0;
