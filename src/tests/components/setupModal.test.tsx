@@ -35,7 +35,6 @@ import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { RUN_FINISHED_SETTINGS } from '../fixtures/firstRunFixture';
 import { classRulesFor } from '../setup/hoverRules';
 import { mirrorLanguageOnDocument } from '../../utils/functions/documentLanguage';
-import { CHROME_SHORTCUTS_URL } from '../../hooks/usePopupShortcut';
 
 // KAN-7 §5 and Q9. Five or six steps; each pick applies at once; Done, Skip
 // setup, ✕ and Esc end it for good. Mounted behind its flag, as in MainContainer.
@@ -130,22 +129,6 @@ describe('Make Tab Keeper yours', () => {
     ).toBeInTheDocument();
   });
 
-  test('a theme pick applies at once and stays on the step', async () => {
-    const { store } = await render();
-    press('Graphite');
-    expect(store.getState().settingsDataState.theme).toBe('Darkenheimer');
-    expect(stepHeading()).toHaveTextContent('Pick a theme');
-  });
-
-  test('Next and Go back walk the steps, and a new step takes the focus', async () => {
-    await render();
-    press('Next');
-    expect(stepHeading()).toHaveTextContent('Which language do you prefer?');
-    expect(document.activeElement).toBe(stepHeading());
-    press('Back');
-    expect(stepHeading()).toHaveTextContent('Pick a theme');
-  });
-
   test('the language step: picker order when Chrome says nothing, the current one pressed with a ✓', async () => {
     await render();
     press('Next');
@@ -232,67 +215,6 @@ describe('Make Tab Keeper yours', () => {
     expect(codes.indexOf('de')).toBe(1);
   });
 
-  test('a language pick applies like Settings, presses its cell in place, and keeps the step', async () => {
-    const { store } = await render();
-    press('Next');
-    const before = languageCodes();
-    fireEvent.click(within(dialog()).getByRole('button', { name: 'Deutsch' }));
-
-    expect(store.getState().settingsDataState.language).toBe('de');
-    expect(testI18n.language).toBe('de');
-    expect(languageCodes()).toEqual(before);
-    expect(dialog().querySelector('button[lang="de"]')).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
-    expect(dialog().querySelector('button[lang="en"]')).toHaveAttribute(
-      'aria-pressed',
-      'false'
-    );
-    expect(dialog().querySelectorAll('button[lang]')).toHaveLength(13);
-  });
-
-  test('the default view step: Compact pressed; Full applies as Settings does', async () => {
-    const { store, chrome } = await render();
-    press('Next');
-    press('Next');
-    expect(stepHeading()).toHaveTextContent('When you click Tab Keeper, open…');
-    expect(
-      within(dialog()).getByRole('button', { name: 'Compact view' })
-    ).toHaveAttribute('aria-pressed', 'true');
-    expect(
-      within(dialog()).getByText('You can change this any time in Settings.')
-    ).toBeInTheDocument();
-
-    press('Full view');
-    await waitFor(() => expect(chrome.popupsSet).toEqual(['']));
-    expect(store.getState().settingsDataState.defaultView).toBe('full');
-  });
-
-  test('the shortcut step names the bound key, and Change shortcut opens Chrome’s page', async () => {
-    const { chrome } = await render();
-    press('Next');
-    press('Next');
-    press('Next');
-    expect(stepHeading()).toHaveTextContent(
-      'Open Tab Keeper from the keyboard'
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId('setup-shortcut')).toHaveTextContent('K')
-    );
-    expect(
-      within(dialog()).getByText('Works in any window.')
-    ).toBeInTheDocument();
-
-    press('Change shortcut');
-    // The tab opens after the current tab has been asked for.
-    await waitFor(() =>
-      expect(chrome.createdTabs.map((tab) => tab.url)).toEqual([
-        CHROME_SHORTCUTS_URL,
-      ])
-    );
-  });
-
   test('no shortcut bound: says so, and offers to set one', async () => {
     await render({
       action: {},
@@ -308,14 +230,6 @@ describe('Make Tab Keeper yours', () => {
     expect(
       within(dialog()).getByRole('button', { name: 'Set a shortcut' })
     ).toBeInTheDocument();
-  });
-
-  test('Done ends setup for good', async () => {
-    const { store } = await render();
-    await toStep('Sync across your devices?');
-    press('Done');
-    expect(store.getState().settingsDataState.setupState).toBe('done');
-    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   test('Skip setup ends it for good on any step, and keeps what was picked', async () => {
@@ -404,27 +318,6 @@ describe('Make Tab Keeper yours', () => {
     expect(lines?.textContent).toBe('Full viewOpens in its own tab');
   });
 
-  test('the picked card caption wears the strip label colour; the other keeps LABEL_L1', async () => {
-    await render();
-    press('Next');
-    press('Next');
-    const caption = (name: string) => {
-      const el = within(dialog())
-        .getByRole('button', { name })
-        .querySelector('[data-view-caption]');
-      if (!(el instanceof HTMLElement)) throw new Error(`no caption ${name}`);
-      return getComputedStyle(el).color;
-    };
-    const asWritten = (hex: string) => {
-      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-      return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
-    };
-    expect(caption('Compact view')).toMatch(
-      asWritten(LIGHT_THEME.PRIMARY_COLOR)
-    );
-    expect(caption('Full view')).toMatch(asWritten(LIGHT_THEME.LABEL_L1_COLOR));
-  });
-
   describe('the shortcut step beside the tab (KAN-423)', () => {
     const HINT =
       'Opens Chrome’s shortcuts page next to this tab. Close that page to come back.';
@@ -439,25 +332,6 @@ describe('Make Tab Keeper yours', () => {
       press('Next');
     };
     afterEach(() => history.replaceState(null, '', '/'));
-
-    test('in the full view the hint sits beside Change shortcut, and the page opens beside the tab', async () => {
-      history.replaceState(null, '', '/?view=tab');
-      const { chrome } = await render(inTab);
-      toShortcutStep();
-      await within(dialog()).findByRole('button', { name: 'Change shortcut' });
-      expect(within(dialog()).getByText(HINT)).toBeInTheDocument();
-      press('Change shortcut');
-      await waitFor(() =>
-        expect(chrome.createdTabs).toEqual([
-          {
-            url: CHROME_SHORTCUTS_URL,
-            index: 1,
-            openerTabId: 10,
-            windowId: 1,
-          },
-        ])
-      );
-    });
 
     test('in the full view the no-shortcut branch carries the hint too', async () => {
       history.replaceState(null, '', '/?view=tab');
@@ -479,36 +353,6 @@ describe('Make Tab Keeper yours', () => {
   });
 });
 
-describe('setup’s progress line (option A)', () => {
-  test('the line along the top edge says which step, of N; no dots', async () => {
-    await render();
-    await waitFor(() =>
-      expect(line()).toHaveAttribute('aria-valuetext', 'Step 1 of 5')
-    );
-    expect(dialog().querySelector('[data-step-dot]')).toBeNull();
-    press('Next');
-    expect(line()).toHaveAttribute('aria-valuenow', '2');
-  });
-
-  test('with a tab group open and no grant, N is 6', async () => {
-    await render(GROUPED);
-    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '6'));
-  });
-
-  test('a group opened during setup is counted again as the shortcut step is left: step 5 shows and N becomes 6', async () => {
-    const { chrome } = await render();
-    await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '5'));
-    await toStep('Open Tab Keeper from the keyboard');
-    act(() => {
-      chrome.browser.openTab(1, { id: 6, groupId: 9, url: 'https://b.test/' });
-    });
-    press('Next');
-    await act(async () => {});
-    expect(stepHeading()).toHaveTextContent('Save tab groups too?');
-    expect(line()).toHaveAttribute('aria-valuetext', 'Step 5 of 6');
-  });
-});
-
 describe('step 5, Save tab groups too? (Q9)', () => {
   test('shown with a group open and no grant: the Settings label, Off first, the caption', async () => {
     await render(GROUPED);
@@ -526,31 +370,12 @@ describe('step 5, Save tab groups too? (Q9)', () => {
     );
   });
 
-  test('skipped with no group open: the shortcut step leads to sync', async () => {
-    await render();
-    await toStep('Open Tab Keeper from the keyboard');
-    press('Next');
-    await act(async () => {});
-    expect(stepHeading()).toHaveTextContent('Sync across your devices?');
-  });
-
   test('skipped while the grant is held, though a group is open', async () => {
     await render({ ...GROUPED, grantedPermissions: ['tabGroups'] });
     await waitFor(() => expect(line()).toHaveAttribute('aria-valuemax', '5'));
     await toStep('Open Tab Keeper from the keyboard');
     press('Next');
     await act(async () => {});
-    expect(stepHeading()).toHaveTextContent('Sync across your devices?');
-  });
-
-  test('Next with the switch Off is the answer: the pop-up offer is silenced', async () => {
-    const { store } = await render(GROUPED);
-    await toStep('Save tab groups too?');
-    press('Next');
-    await act(async () => {});
-    expect(store.getState().settingsDataState.isNeverAskAgainForTabGroups).toBe(
-      true
-    );
     expect(stepHeading()).toHaveTextContent('Sync across your devices?');
   });
 

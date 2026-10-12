@@ -94,40 +94,27 @@ test('Esc is Show me here: the popup tour at its first step, never a skip, and t
   expect(await escapesPrevented(page)).toEqual([true]);
 });
 
-for (const attempt of [1, 2, 3, 4, 5]) {
-  test(`Get started opens the full view on step 1's card, never Hello, every time (Review Focus 1, run ${attempt})`, async ({
-    context,
-    extensionId,
-  }) => {
-    await watchRunDrawn(context);
-    const page = await openPopup(context, extensionId);
-    await welcome(page)
-      .getByRole('button', { name: 'Get started', exact: true })
-      .click();
-    const full = await waitForFullView(context);
-    await runCheck(full, 'resumed');
-    await expect(cardAt(full, 1)).toBeVisible();
-    await queueDone(full);
-    // The CONTROL that Hello is drawn is the next test, 'a fresh profile whose first open is the full view gets Hello'.
-    expect(await runDrawn(full)).toEqual(['card']);
-    expect(await storedRun(full)).toMatchObject({
-      view: 'full',
-      step: 1,
-      ended: null,
-    });
-  });
-}
-
-test('CONTROL: a fresh profile whose first open is the full view gets Hello, and the same observer sees it', async ({
+// The race it once lost is cloudConsent.test's lock-then-record order; repeats belong to --repeat-each.
+test("Get started opens the full view on step 1's card, never Hello (Review Focus 1)", async ({
   context,
   extensionId,
 }) => {
   await watchRunDrawn(context);
-  const full = await openFullView(context, extensionId);
-  await runCheck(full, 'started');
-  await expect(hello(full)).toHaveAccessibleName('Welcome to Tab Keeper');
+  const page = await openPopup(context, extensionId);
+  await welcome(page)
+    .getByRole('button', { name: 'Get started', exact: true })
+    .click();
+  const full = await waitForFullView(context);
+  await runCheck(full, 'resumed');
+  await expect(cardAt(full, 1)).toBeVisible();
   await queueDone(full);
-  expect(await runDrawn(full)).toEqual(['hello']);
+  // The CONTROL that Hello is drawn is first-run-open's 'a fresh profile whose first open is the full view gets Hello'.
+  expect(await runDrawn(full)).toEqual(['card']);
+  expect(await storedRun(full)).toMatchObject({
+    view: 'full',
+    step: 1,
+    ended: null,
+  });
 });
 
 test('Q7: closed unanswered, it shows again up to five times; the sixth open ends it and the popup is plain; the first full-view visit starts at step 1', async ({
@@ -162,7 +149,7 @@ test('Q7: closed unanswered, it shows again up to five times; the sixth open end
     cloudConsent: 'declined',
     isFullViewCalloutSeen: true,
   });
-  // The welcome was seen, so no Hello; the CONTROL that Hello is drawn is the test 'a fresh profile whose first open is the full view gets Hello'.
+  // The welcome was seen, so no Hello; the CONTROL that Hello is drawn is first-run-open's 'a fresh profile whose first open is the full view gets Hello'.
   const full = await openFullView(context, extensionId);
   await runCheck(full, 'started');
   await expect(cardAt(full, 1)).toBeVisible();

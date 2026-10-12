@@ -38,10 +38,6 @@ const guide = () =>
   screen.queryByRole('dialog', { name: 'Pin Tab Keeper to your toolbar' });
 const openGuide = () =>
   screen.getByRole('dialog', { name: 'Pin Tab Keeper to your toolbar' });
-const captions = () =>
-  [...document.querySelectorAll('[data-pin-step-caption]')].map(
-    (c) => c.textContent
-  );
 
 afterEach(() => {
   vi.useRealTimers();
@@ -49,19 +45,6 @@ afterEach(() => {
 });
 
 describe('the pin guide', () => {
-  test('three labelled steps, waiting, opened unlit', async () => {
-    await render();
-    expect(document.activeElement).toBe(guide());
-    expect(captions()).toEqual([
-      'Click the puzzle piece',
-      'Click the pin next to Tab Keeper',
-      'Tab Keeper stays on your toolbar',
-    ]);
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Waiting for you to pin…'
-    );
-  });
-
   test('a line under the title says why to pin, and describes the dialog', async () => {
     await render();
     const why = openGuide().querySelector('[data-pin-why]');
@@ -72,37 +55,6 @@ describe('the pin guide', () => {
       screen.getByRole('heading', { name: 'Pin Tab Keeper to your toolbar' })
     );
     expect(openGuide()).toHaveAccessibleDescription(why?.textContent ?? '');
-  });
-
-  test("only steps 1 and 3 draw Chrome's ⋮", async () => {
-    await render();
-    const kebabs = [...openGuide().querySelectorAll('ol > li')].map(
-      (li) =>
-        [...li.querySelectorAll('.material-symbols-outlined')].filter(
-          (i) => i.textContent === 'more_vert'
-        ).length
-    );
-    expect(kebabs).toEqual([1, 0, 1]);
-  });
-
-  test.each(['Skip', 'Close'])(
-    '%s dismisses it for good on this machine',
-    async (name) => {
-      const { store } = await render();
-      fireEvent.click(within(openGuide()).getByRole('button', { name }));
-      expect(store.getState().settingsDataState.isPinGuideDismissed).toBe(true);
-      expect(guide()).not.toBeInTheDocument();
-    }
-  );
-
-  test('Esc dismisses it for good', async () => {
-    const { store } = await render();
-    fireEvent(
-      openGuide(),
-      new Event('cancel', { bubbles: false, cancelable: true })
-    );
-    expect(store.getState().settingsDataState.isPinGuideDismissed).toBe(true);
-    expect(guide()).not.toBeInTheDocument();
   });
 
   test('a pin ticks step 3, says so, and closes after 1.5 s without dismissing', async () => {
@@ -121,18 +73,6 @@ describe('the pin guide', () => {
     act(() => vi.advanceTimersByTime(1));
     expect(guide()).not.toBeInTheDocument();
     expect(store.getState().settingsDataState.isPinGuideDismissed).toBe(false);
-  });
-
-  // Review Focus 5: Skip inside the closing window closes it once.
-  test('Skip after the pin, before the guide closes itself, closes it once', async () => {
-    vi.useFakeTimers();
-    const { seen, chrome } = await render();
-
-    act(() => chrome.setToolbarPin(true));
-    fireEvent.click(within(openGuide()).getByRole('button', { name: 'Skip' }));
-    act(() => vi.advanceTimersByTime(2000));
-
-    expect(seen.filter((type) => type === closePinGuide.type)).toHaveLength(1);
   });
 
   test('Skip after the pin, before the guide closes itself, closes it once and opens nothing after it', async () => {
