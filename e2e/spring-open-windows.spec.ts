@@ -73,6 +73,8 @@ import {
 // block from now on, timestamped when the observer hears it.
 interface DwellRecord {
   t: number;
+  // document.timeline's time then: the sweep's clock, which lags `t` by up to a frame.
+  tl: number;
   id: string;
   attr: 'dwell' | 'collapsed';
   on: boolean;
@@ -86,6 +88,8 @@ const isDwellLog = (x: unknown): x is DwellRecord[] => {
       r !== null &&
       't' in r &&
       typeof r.t === 'number' &&
+      'tl' in r &&
+      typeof r.tl === 'number' &&
       'id' in r &&
       typeof r.id === 'string' &&
       'attr' in r &&
@@ -100,11 +104,13 @@ async function watchDwell(page: Page): Promise<void> {
     document.body.dataset.dwellLog = '[]';
     new MutationObserver((records) => {
       const t = performance.now();
+      const tl = Number(document.timeline.currentTime);
       for (const r of records) {
         if (!(r.target instanceof HTMLElement) || r.attributeName === null)
           continue;
         log.push({
           t,
+          tl,
           id: r.target.dataset.dropWindowId ?? '?',
           attr: r.attributeName === 'data-spring-dwell' ? 'dwell' : 'collapsed',
           // Added when it had no old value.
@@ -135,7 +141,11 @@ function dwellToOpen(log: DwellRecord[], windowId: string) {
     .slice(0, opened < 0 ? log.length : opened)
     .filter((r) => r.id === windowId && r.attr === 'dwell' && r.on)
     .pop();
-  return { started: started?.t, opened: log[opened]?.t };
+  return {
+    started: started?.t,
+    startedOnTimeline: started?.tl,
+    opened: log[opened]?.t,
+  };
 }
 
 // The title row's animations: the sweep, when one runs.
@@ -298,10 +308,19 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     const at = await pickUp(page, groupHandle(page, 'alpha'));
     await ontoTitle(page, 'w2', at.x);
     await expect(tabHandle(page, 'tab:b0')).toBeVisible();
-    const { started, opened } = dwellToOpen(await dwellLog(page), 'w2');
-    if (started === undefined || opened === undefined)
+    const { started, startedOnTimeline, opened } = dwellToOpen(
+      await dwellLog(page),
+      'w2'
+    );
+    if (
+      started === undefined ||
+      startedOnTimeline === undefined ||
+      opened === undefined
+    )
       throw new Error('w2 never dwelt and opened');
-    expect(opened - started).toBeGreaterThanOrEqual(SPRING_OPEN_MS);
+    // From the sweep's own start clock (KAN-530): timed from `started`,
+    // a correct 600ms sweep reads up to a frame short.
+    expect(opened - startedOnTimeline).toBeGreaterThanOrEqual(SPRING_OPEN_MS);
     await settled(page);
     await aimAtOwn(page, at.x, 'tab:b1', 0.25);
     await page.mouse.up();
@@ -467,10 +486,19 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     expect(right).toBe(LIGHT_THEME.HOVER_COLOR.toUpperCase());
     await playSweep(page, 'w2');
     await expect(tabHandle(page, 'b0')).toBeVisible();
-    const { started, opened } = dwellToOpen(await dwellLog(page), 'w2');
-    if (started === undefined || opened === undefined)
+    const { started, startedOnTimeline, opened } = dwellToOpen(
+      await dwellLog(page),
+      'w2'
+    );
+    if (
+      started === undefined ||
+      startedOnTimeline === undefined ||
+      opened === undefined
+    )
       throw new Error('w2 never dwelt and opened');
-    expect(opened - started).toBeGreaterThanOrEqual(SPRING_OPEN_MS);
+    // From the sweep's own start clock (KAN-530): timed from `started`,
+    // a correct 600ms sweep reads up to a frame short.
+    expect(opened - startedOnTimeline).toBeGreaterThanOrEqual(SPRING_OPEN_MS);
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
@@ -534,10 +562,19 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     expect(
       currents.filter((c, i) => i > 0 && c < (currents[i - 1] ?? 0))
     ).toEqual([]);
-    const { started, opened } = dwellToOpen(await dwellLog(page), 'w2');
-    if (started === undefined || opened === undefined)
+    const { started, startedOnTimeline, opened } = dwellToOpen(
+      await dwellLog(page),
+      'w2'
+    );
+    if (
+      started === undefined ||
+      startedOnTimeline === undefined ||
+      opened === undefined
+    )
       throw new Error('w2 never dwelt and opened');
-    expect(opened - started).toBeGreaterThanOrEqual(SPRING_OPEN_MS);
+    // From the sweep's own start clock (KAN-530): timed from `started`,
+    // a correct 600ms sweep reads up to a frame short.
+    expect(opened - startedOnTimeline).toBeGreaterThanOrEqual(SPRING_OPEN_MS);
     // PREMISE: the moves took a good share of the wait.
     expect(lastMove - started).toBeGreaterThan(SPRING_OPEN_MS / 4);
     expect(opened).toBeLessThan(lastMove + SPRING_OPEN_MS);
@@ -565,14 +602,20 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     );
     await expect(tabHandle(page, 'b0')).toBeVisible();
     const log = await dwellLog(page);
-    const { started, opened } = dwellToOpen(log, 'w2');
-    if (started === undefined || opened === undefined)
+    const { started, startedOnTimeline, opened } = dwellToOpen(log, 'w2');
+    if (
+      started === undefined ||
+      startedOnTimeline === undefined ||
+      opened === undefined
+    )
       throw new Error('w2 never dwelt and opened');
     // PREMISE: two dwells, the first ended.
     expect(
       log.filter((r) => r.id === 'w2' && r.attr === 'dwell').map((r) => r.on)
     ).toEqual([true, false, true, false]);
-    expect(opened - started).toBeGreaterThanOrEqual(SPRING_OPEN_MS);
+    // From the sweep's own start clock (KAN-530): timed from `started`,
+    // a correct 600ms sweep reads up to a frame short.
+    expect(opened - startedOnTimeline).toBeGreaterThanOrEqual(SPRING_OPEN_MS);
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
