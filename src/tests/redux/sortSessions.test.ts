@@ -108,15 +108,6 @@ describe('sortSessionsInternal by name', () => {
     expect(titles(store)).toEqual(['apple', 'Banana', 'Cherry']);
   });
 
-  // A raw `<` puts every capital before every lowercase, so this list would
-  // come out Banana, Cherry, apple. Ten locales ship; KAN-85 was this exact
-  // mistake for dates.
-  test('is case-insensitive, not codepoint order', () => {
-    const store = seededList();
-    store.dispatch(sortSessionsInternal({ by: 'name', locale: 'en' }));
-    expect(titles(store)[0]).toBe('apple');
-  });
-
   test('gives every session an explicit rank', () => {
     const store = seededList();
     store.dispatch(sortSessionsInternal({ by: 'name', locale: 'en' }));

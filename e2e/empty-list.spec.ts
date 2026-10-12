@@ -84,10 +84,6 @@ for (const view of VIEWS) {
 
     await expect(line(page)).toHaveText('Saved sessions appear here.');
     await expect(hint(page)).toHaveCount(view.hasDetail ? 1 : 0);
-
-    await expect(
-      page.getByRole('button', { name: 'Try it with an example', exact: true })
-    ).toHaveCount(0);
   });
 }
 

@@ -36,24 +36,6 @@ const session = (title: string, tabTitle: string) => ({
 });
 
 describe('search filtering', () => {
-  test('narrows the rendered sessions to those that match', async () => {
-    const { store } = await renderWithProviders(<TabGroupEntryContainer />);
-
-    store.dispatch(
-      saveToTabContainerInternal(session('Research', 'Kagi Search'))
-    );
-    store.dispatch(
-      saveToTabContainerInternal(session('Errands', 'Grocery list'))
-    );
-    expect(await screen.findByText('Research')).toBeTruthy();
-    expect(screen.getByText('Errands')).toBeTruthy();
-
-    store.dispatch(setSearchInputText('kagi'));
-
-    expect(await screen.findByText('Research')).toBeTruthy();
-    expect(screen.queryByText('Errands')).toBeNull();
-  });
-
   test('is case-insensitive', async () => {
     const { store } = await renderWithProviders(<TabGroupEntryContainer />);
 

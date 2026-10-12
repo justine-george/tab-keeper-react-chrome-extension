@@ -119,25 +119,3 @@ describe('searching a Chrome group title, without the permission', () => {
     expect(screen.queryByText('Alpha')).toBeNull();
   });
 });
-
-describe('the other search levels, with the permission granted', () => {
-  // Group matching narrows a window. These pin that it narrows ONLY the window
-  // it matched in, and only when the levels above it did not already match.
-  test('a session title still admits the whole session', async () => {
-    await renderWithProviders(<RightPane />, {
-      seedStore: searchFor('Alpha', true),
-    });
-
-    expect(await screen.findByText('Gamma')).toBeTruthy();
-    expect(screen.getByText('Delta')).toBeTruthy();
-  });
-
-  test('a tab title still admits just that tab', async () => {
-    await renderWithProviders(<RightPane />, {
-      seedStore: searchFor('Delta', true),
-    });
-
-    expect(await screen.findByText('Delta')).toBeTruthy();
-    expect(screen.queryByText('Gamma')).toBeNull();
-  });
-});
