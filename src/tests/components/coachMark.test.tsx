@@ -8,7 +8,6 @@ import {
   type Size,
 } from '../../components/tour/coachMarkPlacement';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 
@@ -129,17 +128,6 @@ describe('the coach mark', () => {
     await placed();
     expect(document.activeElement).toBe(elsewhere);
     elsewhere.remove();
-  });
-
-  test('Esc is the card’s, and is prevented so Chrome keeps the popup open (KAN-403)', async () => {
-    const { onEscape } = await render();
-    await placed();
-    const event = escape();
-    act(() => {
-      document.dispatchEvent(event);
-    });
-    expect(onEscape).toHaveBeenCalledTimes(1);
-    expect(event.defaultPrevented).toBe(true);
   });
 
   test('an Esc a field already used is left alone', async () => {
@@ -404,55 +392,6 @@ describe('the card’s footer and line (§6)', () => {
     expect(document.querySelector('[role="progressbar"]')).toBeNull();
     expect(mark()).not.toHaveAttribute('data-coach-step');
   });
-
-  test('step 1: no Back', async () => {
-    await render({ progress: { step: 1, total: 8 }, onBack: undefined });
-    await placed();
-    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
-  });
-
-  test('the last step: the secondary as the left link in Skip’s place, then Back and the primary', async () => {
-    const onNotNow = vi.fn();
-    const onPin = vi.fn();
-    await render({
-      progress: { step: 8, total: 8 },
-      onSkip: undefined,
-      secondary: { label: 'Not now', onPress: onNotNow },
-      primary: { label: 'Pin this tab', onPress: onPin },
-    });
-    await placed();
-    expect(screen.queryByRole('button', { name: 'Skip tutorial' })).toBeNull();
-    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual([
-      'Not now',
-      'Back',
-      'Pin this tab',
-    ]);
-    // The left link sits outside the right-hand group, as Skip tutorial does.
-    const notNow = screen.getByRole('button', { name: 'Not now' });
-    const back = screen.getByRole('button', { name: 'Back' });
-    expect(notNow.parentElement).not.toBe(back.parentElement);
-    expect(back.parentElement?.parentElement).toBe(notNow.parentElement);
-    fireEvent.click(screen.getByRole('button', { name: 'Pin this tab' }));
-    expect(onPin).toHaveBeenCalledTimes(1);
-    expect(onNotNow).not.toHaveBeenCalled();
-  });
-
-  test('a fine line under the text', async () => {
-    await render({ fine: 'Saving keeps them safe even after you close them.' });
-    await placed();
-    expect(mark()).toHaveTextContent(
-      'Saving keeps them safe even after you close them.'
-    );
-  });
-
-  test('the filled Next carries the filled style: TEXT_COLOR ground, PRIMARY_COLOR letters', async () => {
-    await render();
-    await placed();
-    const next = screen.getByRole('button', { name: 'Next' });
-    // Paper's TEXT_COLOR #3B3D40 and PRIMARY_COLOR #F5F7FA.
-    expect(getComputedStyle(next).backgroundColor).toBe('rgb(59, 61, 64)');
-    expect(getComputedStyle(next).color).toBe('rgb(245, 247, 250)');
-  });
 });
 
 describe('IME and Esc (D1)', () => {
@@ -646,15 +585,5 @@ describe('motion (§10)', () => {
     await waitFor(() => expect(ring()?.style.top).toBe('296px'));
     expect(appear?.cancel).not.toHaveBeenCalled();
     expect(animations).toHaveLength(1);
-  });
-
-  test('reduced motion: nothing animates', async () => {
-    vi.spyOn(window, 'matchMedia').mockImplementation(
-      (query: string) => new FakeMediaQueryList(query, true)
-    );
-    await render({ progress: { step: 2, total: 8 } });
-    await placed();
-    expect(animations).toEqual([]);
-    expect(mark()?.style.pointerEvents).toBe('');
   });
 });

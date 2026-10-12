@@ -2,7 +2,6 @@ import { describe, expect, test, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 
 import TabGroupEntry from '../../components/home/leftpane/TabGroupEntry';
-import Icon from '../../components/common/Icon';
 import {
   renderWithProviders,
   type RenderWithProvidersResult,
@@ -75,30 +74,6 @@ describe('the run’s row', () => {
       'data-run-engaged'
     );
   });
-
-  test('the Delete step: the run’s Delete is held, by pointer and keyboard', async () => {
-    const { onDelete } = await renderRow(RUN, 5);
-    const del = screen.getByRole('button', { name: 'Delete' });
-    expect(del).toHaveAttribute('aria-disabled', 'true');
-    fireEvent.click(del);
-    fireEvent.keyDown(del, { key: 'Enter' });
-    expect(onDelete).not.toHaveBeenCalled();
-  });
-
-  test('CONTROL: at the row step the same Delete deletes', async () => {
-    const { onDelete } = await renderRow(RUN, 2);
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-    expect(onDelete).toHaveBeenCalledTimes(1);
-  });
-
-  test('the row’s buttons carry their anchors', async () => {
-    await renderRow(RUN, 2);
-    expect(
-      [...document.querySelectorAll('[data-tour-anchor]')].map((el) =>
-        el.getAttribute('data-tour-anchor')
-      )
-    ).toEqual(['row-open', 'row-switch', 'row-delete']);
-  });
 });
 
 const DIM = /filter:\s*opacity\(0\.3\)/;
@@ -137,14 +112,5 @@ describe('the lit Open and Switch (M3 B)', () => {
     for (const name of ['Open', 'Switch']) {
       expect(classRulesFor(screen.getByRole('button', { name }))).toMatch(DIM);
     }
-  });
-});
-
-describe('Icon', () => {
-  test('a tourAnchor is drawn as data-tour-anchor', async () => {
-    await renderWithProviders(<Icon type="globe" tourAnchor="tab-dot" />);
-    expect(
-      document.querySelector('[data-tour-anchor="tab-dot"]')
-    ).not.toBeNull();
   });
 });

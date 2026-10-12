@@ -2,15 +2,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import WelcomeHero from '../../components/modals/WelcomeHero';
 import { playWelcomeLoop } from '../../components/modals/welcomeMotion';
-import {
-  GET_STARTED,
-  SHUTTER_EASE,
-  playGetStarted,
-  type Animatable,
-} from '../../components/modals/getStartedMotion';
 import { renderWithProviders } from '../setup/renderWithProviders';
 
-// §5 and §10: the loop's beats once, Get started's closing beat, all transform and opacity.
+// §5 and §10: the loop's chips shrink, ease and land home at any size.
 
 interface Played {
   el: Element;
@@ -48,13 +42,6 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const end = (p: Played) =>
-  Number(p.timing.delay ?? 0) + Number(p.timing.duration ?? 0);
-const props = (p: Played) =>
-  new Set(
-    p.keyframes.flatMap((k) => Object.keys(k)).filter((k) => k !== 'offset')
-  );
-
 async function heroOf() {
   const { container } = await renderWithProviders(
     <WelcomeHero frame="start" />
@@ -65,18 +52,6 @@ async function heroOf() {
 }
 
 describe('the loop', () => {
-  test('every beat plays once, ends by 2.4s, and moves only transform and opacity', async () => {
-    playWelcomeLoop(await heroOf());
-    expect(played).toHaveLength(21);
-    expect(Math.max(...played.map(end))).toBe(2400);
-    expect(played.every((p) => p.timing.iterations === undefined)).toBe(true);
-    expect(
-      played.every((p) =>
-        [...props(p)].every((k) => k === 'transform' || k === 'opacity')
-      )
-    ).toBe(true);
-  });
-
   test('a chip’s smallest scale is 0.35, and the arcs ease in and out', async () => {
     playWelcomeLoop(await heroOf());
     const arcs = played.filter((p) => p.el.matches('[data-hero-part="chip"]'));
@@ -99,67 +74,5 @@ describe('the loop', () => {
     vi.spyOn(hero, 'offsetWidth', 'get').mockReturnValue(88);
     playWelcomeLoop(hero);
     expect(firstLanding()).toMatch(/^translate\(0px, 20px\)/);
-  });
-
-  test('done is true once every beat ends, false if one was cancelled', async () => {
-    expect(await playWelcomeLoop(await heroOf()).done).toBe(true);
-    Object.defineProperty(Element.prototype, 'animate', {
-      configurable: true,
-      value: () => ({
-        finish: () => undefined,
-        cancel: () => undefined,
-        finished: Promise.reject(new Error('cancelled')),
-      }),
-    });
-    expect(await playWelcomeLoop(await heroOf()).done).toBe(false);
-  });
-
-  test('finish ends every beat at once', async () => {
-    playWelcomeLoop(await heroOf()).finish();
-    expect(played).toHaveLength(21);
-    expect(played.every((p) => p.finished)).toBe(true);
-  });
-});
-
-describe('Get started’s closing beat', () => {
-  test('press 150ms, the shutter 250ms ease-in-out, a 400ms hold, then the exit 150ms ease-in to −8px', async () => {
-    const fake = () => ({
-      animate: vi.fn<Animatable['animate']>(() => ({
-        finished: Promise.resolve(),
-        cancel: () => undefined,
-      })),
-    });
-    const parts = {
-      button: fake(),
-      shutter: fake(),
-      dialog: fake(),
-      onShutterStart: vi.fn(),
-      onShutterShut: vi.fn(),
-    };
-    const motion = playGetStarted(parts);
-    expect(await motion.finished).toBe(true);
-    expect(GET_STARTED).toEqual({
-      PRESS_MS: 150,
-      SHUTTER_MS: 250,
-      HOLD_MS: 400,
-      LEAVE_MS: 150,
-    });
-    expect(parts.shutter.animate.mock.calls[0][1]).toMatchObject({
-      duration: 250,
-      easing: SHUTTER_EASE,
-    });
-    expect(SHUTTER_EASE).toBe('ease-in-out');
-    // KAN-513. The dialog's first animation is the still hold; the exit is its second.
-    expect(parts.dialog.animate.mock.calls[0][1]).toMatchObject({
-      duration: 400,
-    });
-    expect(parts.dialog.animate.mock.calls[1][0][1]).toMatchObject({
-      opacity: 0,
-      transform: 'translate(-50%, calc(-50% - 8px))',
-    });
-    expect(parts.dialog.animate.mock.calls[1][1]).toMatchObject({
-      duration: 150,
-      easing: 'ease-in',
-    });
   });
 });

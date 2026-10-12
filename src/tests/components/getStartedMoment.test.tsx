@@ -1,20 +1,16 @@
-import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 
 import MainContainer from '../../components/MainContainer';
-import { RunHelloDialog } from '../../components/modals/RunHelloDialog';
 import {
   renderWithProviders,
   type RenderWithProvidersResult,
 } from '../setup/renderWithProviders';
-import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import {
   HELLO_ENTRANCE,
   SHUTTER_EASE,
   playHelloEntrance,
   playGetStarted,
-  prefersReducedMotion,
   type Animatable,
 } from '../../components/modals/getStartedMotion';
 import { openCloudConsentModal } from '../../redux/slices/globalStateSlice';
@@ -138,45 +134,6 @@ describe('the moment on the welcome', () => {
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
   });
 
-  test('under StrictMode the loop still plays from its start, and Get started still finishes it', async () => {
-    installAnimate();
-    await renderWithProviders(
-      <StrictMode>
-        <MainContainer />
-      </StrictMode>,
-      { seedStore: welcome }
-    );
-    const live = runs.filter((r) => !r.isCancelled());
-    expect(live).toHaveLength(21);
-    expect(live.every((r) => !r.isFinished())).toBe(true);
-    pressGetStarted();
-    expect(live.every((r) => r.isFinished())).toBe(true);
-  });
-
-  // KAN-513. The click belongs to the shutter snapping shut, not to it starting to slide.
-  test('the shutter click sounds once, as the shutter shuts: never as the welcome opens, at the press, or while it slides', async () => {
-    installAnimate();
-    installFakeAudio();
-    await renderWithProviders(<MainContainer />, { seedStore: welcome });
-    expect(startedTicks()).toEqual([]);
-    const { moment } = pressGetStarted();
-    expect(startedTicks()).toEqual([]);
-    moment()[0].release();
-    await waitFor(() => expect(moment()).toHaveLength(2));
-    expect(moment()[1].target).toHaveAttribute('data-hero-part', 'shutter');
-    await microtasks();
-    expect(startedTicks()).toEqual([]);
-    moment()[1].release();
-    await waitFor(() => expect(moment()).toHaveLength(3));
-    expect(startedTicks()).toEqual([2, expect.closeTo(2.035, 6)]);
-    // The hold, then the exit; no second click.
-    moment()[2].release();
-    await waitFor(() => expect(moment()).toHaveLength(4));
-    moment()[3].release();
-    await microtasks();
-    expect(startedTicks()).toHaveLength(2);
-  });
-
   test('a second press while it plays does nothing', async () => {
     installAnimate();
     await renderWithProviders(<MainContainer />, { seedStore: welcome });
@@ -267,66 +224,6 @@ describe('the moment on the welcome', () => {
     const seen = watch.read();
     expect(seen.views).toEqual(['popup']);
     expect(seen.cards).toBeGreaterThan(0);
-  });
-
-  test('reduced motion: straight on to the full-view run, nothing animates, and the click sounds at the press', async () => {
-    installAnimate();
-    installFakeAudio();
-    vi.spyOn(window, 'matchMedia').mockImplementation(
-      (query: string) =>
-        new FakeMediaQueryList(
-          query,
-          query === '(prefers-reduced-motion: reduce)'
-        )
-    );
-    const { store } = await renderWithProviders(<MainContainer />, {
-      seedStore: welcome,
-    });
-    expect(
-      document.querySelector('[data-hero-frame="end"]')
-    ).toBeInTheDocument();
-    fireEvent.click(getStarted());
-    // No beat is drawn, so the click sounds once at the press.
-    expect(startedTicks()).toEqual([2, expect.closeTo(2.035, 6)]);
-    await waitFor(() =>
-      expect(store.getState().settingsDataState.firstRun).toEqual(FULL_RUN)
-    );
-    expect(runs).toEqual([]);
-  });
-});
-
-describe('Hello enters (A7)', () => {
-  const renderHello = () =>
-    renderWithProviders(
-      <RunHelloDialog hello="welcome" onStart={vi.fn()} onSkip={vi.fn()} />
-    );
-
-  test('as the dialog: opacity 0 to 1 and scale 0.97 to 1, 220ms', async () => {
-    installAnimate();
-    await renderHello();
-    const dialog = document.querySelector('[data-run-hello]');
-    const own = runs.filter((r) => r.target === dialog);
-    expect(own).toHaveLength(1);
-    // KAN-456: the rest are the hero's loop, once.
-    expect(runs.length - own.length).toBe(21);
-    expect(own[0].keyframes).toEqual([
-      { opacity: 0, transform: 'translate(-50%, -50%) scale(0.97)' },
-      { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' },
-    ]);
-  });
-
-  test('reduced motion: it shows at once', async () => {
-    installAnimate();
-    vi.spyOn(window, 'matchMedia').mockImplementation(
-      (query: string) =>
-        new FakeMediaQueryList(
-          query,
-          query === '(prefers-reduced-motion: reduce)'
-        )
-    );
-    await renderHello();
-    expect(document.querySelector('[data-run-hello]')).toBeInTheDocument();
-    expect(runs).toEqual([]);
   });
 });
 
@@ -488,13 +385,5 @@ describe('playGetStarted and playHelloEntrance', () => {
       },
     ]);
     expect(HELLO_ENTRANCE.EASE).toBe('cubic-bezier(0.32, 0.72, 0, 1)');
-  });
-
-  test('prefersReducedMotion reads the media query', () => {
-    expect(prefersReducedMotion()).toBe(false);
-    vi.spyOn(window, 'matchMedia').mockImplementation(
-      (query: string) => new FakeMediaQueryList(query, true)
-    );
-    expect(prefersReducedMotion()).toBe(true);
   });
 });

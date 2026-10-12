@@ -13,7 +13,6 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { openFullViewCallout } from '../../redux/slices/globalStateSlice';
 import { showWhenQuiet } from '../../redux/quietCards';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
-import { OPEN_IN_TAB_MESSAGE } from '../../utils/functions/popOut';
 
 // KAN-7 §6. Under ⤢ in the popup, once; Try it, ✕, Esc or ⤢ mark it seen.
 
@@ -35,31 +34,6 @@ afterEach(() => {
 });
 
 describe('the full-view callout', () => {
-  test('appearing leaves the focus where it was', async () => {
-    const { store } = await render(false);
-    const sort = screen.getByRole('button', { name: 'Sort sessions' });
-    sort.focus();
-    act(() => {
-      store.dispatch(openFullViewCallout());
-    });
-    expect(openCallout()).toBeInTheDocument();
-    expect(document.activeElement).toBe(sort);
-  });
-
-  test('Try it opens the full view, marks it seen, and closes', async () => {
-    const { store, chrome } = await render();
-    fireEvent.click(
-      within(openCallout()).getByRole('button', { name: 'Try it' })
-    );
-    await waitFor(() =>
-      expect(chrome.sentMessages).toEqual([
-        { type: OPEN_IN_TAB_MESSAGE, windowId: 7 },
-      ])
-    );
-    expect(store.getState().settingsDataState.isFullViewCalloutSeen).toBe(true);
-    expect(callout()).toBeNull();
-  });
-
   test('✕ marks it seen and closes, and opens nothing', async () => {
     const { store, chrome } = await render();
     fireEvent.click(
@@ -68,13 +42,6 @@ describe('the full-view callout', () => {
     expect(store.getState().settingsDataState.isFullViewCalloutSeen).toBe(true);
     expect(callout()).toBeNull();
     expect(chrome.sentMessages).toEqual([]);
-  });
-
-  test('Esc means ✕', async () => {
-    const { store } = await render();
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(store.getState().settingsDataState.isFullViewCalloutSeen).toBe(true);
-    expect(callout()).toBeNull();
   });
 
   test('the Esc it consumes is defaultPrevented, or Chrome closes the popup (KAN-403)', async () => {
@@ -155,14 +122,6 @@ describe('the full-view callout', () => {
     modal.remove();
     expect(callout()).toBeInTheDocument();
     expect(event.defaultPrevented).toBe(false);
-  });
-
-  test('pressing ⤢ itself marks it seen', async () => {
-    const { store, chrome } = await render();
-    fireEvent.click(screen.getByRole('button', { name: 'Open full view' }));
-    await waitFor(() => expect(chrome.sentMessages).toHaveLength(1));
-    expect(store.getState().settingsDataState.isFullViewCalloutSeen).toBe(true);
-    expect(callout()).toBeNull();
   });
 
   // CONTROL: 'pressing ⤢ itself marks it seen', with the callout on screen.

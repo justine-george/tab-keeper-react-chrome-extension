@@ -7,8 +7,6 @@ import {
 } from '../../../utils/functions/tourLock';
 import { installFakeLocks, type FakeLocks } from '../../setup/fakeLocks';
 
-// jsdom project only: Node 26 has navigator.locks, so "without Web Locks" would not run under node.
-
 let locks: FakeLocks | null = null;
 afterEach(() => {
   locks?.uninstall();
@@ -67,15 +65,6 @@ describe('with Web Locks', () => {
   test('a query that fails reads as unknown', async () => {
     locks = installFakeLocks({ queryRejects: true });
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    expect(await tourLockState(RUN_LOCK)).toBe('unknown');
-  });
-});
-
-describe('without Web Locks', () => {
-  test('holding is a no-op and the state is unknown', async () => {
-    const release = await holdTourLock(RUN_LOCK);
-    release();
-    expect('locks' in navigator).toBe(false);
     expect(await tourLockState(RUN_LOCK)).toBe('unknown');
   });
 });

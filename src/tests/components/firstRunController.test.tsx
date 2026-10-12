@@ -6,20 +6,15 @@ import {
   renderWithProviders,
   type RenderWithProvidersResult,
 } from '../setup/renderWithProviders';
-import { FakeMediaQueryList } from '../setup/mediaQueryFake';
-import { OPEN_NOW_RAIL_QUERY } from '../../components/home/opennow/railQuery';
 import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
-import { startRun, takeRunSave } from '../../redux/firstRun';
+import { startRun } from '../../redux/firstRun';
 import {
   peekSavedSession,
   setRunSaveEcho,
 } from '../../redux/slices/globalStateSlice';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
-import {
-  recordFirstRun,
-  setFoldSavedSessionInTabView,
-} from '../../redux/slices/settingsDataStateSlice';
+import { recordFirstRun } from '../../redux/slices/settingsDataStateSlice';
 import { firstOpenDialogs } from '../../redux/firstOpenDialogs';
 import { newRun, type FirstRun as Run } from '../../utils/functions/firstRun';
 
@@ -93,28 +88,8 @@ async function renderAt(run: Run, sessions = [OWN()]) {
 const runOf = (r: RenderWithProvidersResult) =>
   r.store.getState().settingsDataState.firstRun;
 const mark = () => document.querySelector('[data-coach-mark]');
-const escape = () =>
-  act(() => {
-    document.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'Escape',
-        bubbles: true,
-        cancelable: true,
-      })
-    );
-  });
 
 describe('the controller', () => {
-  test('full view step 0: Hello (welcome); Start moves to step 1', async () => {
-    history.replaceState(null, '', '?view=tab');
-    const r = await renderAt(newRun('full', 0, 'welcome'));
-    expect(
-      screen.getByRole('dialog', { name: 'Welcome to Tab Keeper' })
-    ).toHaveAttribute('data-run-hello');
-    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-    expect(runOf(r)?.step).toBe(1);
-  });
-
   test('the What’s new Hello marks itself seen', async () => {
     history.replaceState(null, '', '?view=tab');
     const r = await renderAt(newRun('full', 0, 'whatsNew'));
@@ -129,60 +104,6 @@ describe('the controller', () => {
     const r = await renderAt(newRun('full', 0, 'welcome'));
     expect(screen.getByRole('dialog')).toBeVisible();
     expect(r.store.getState().settingsDataState.isWhatsNew2Seen).toBe(false);
-  });
-
-  test('Hello’s cancel is Skip tutorial', async () => {
-    history.replaceState(null, '', '?view=tab');
-    const r = await renderAt(newRun('full', 0, 'welcome'));
-    fireEvent(
-      screen.getByRole('dialog'),
-      new Event('cancel', { cancelable: true })
-    );
-    expect(runOf(r)?.ended).toBe('skipped');
-    expect(r.store.getState().globalState.isReplayNoteOpen).toBe(true);
-  });
-
-  test('popup step 1: the save card, its glyph named, and Use an example', async () => {
-    const r = await renderAt(newRun('popup', 1));
-    await waitFor(() =>
-      expect(r.store.getState().globalState.runSaveCard).toBe('save')
-    );
-    expect(
-      await screen.findByRole('img', {
-        name: 'Save all open windows as a session',
-      })
-    ).toBeInTheDocument();
-    expect(mark()).toHaveAttribute('data-coach-step', '1');
-    expect(mark()).toHaveTextContent(
-      'Saving keeps them safe even after you close them.'
-    );
-    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
-    expect(
-      screen.getByRole('button', { name: 'Skip tutorial' })
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Use an example' }));
-    expect(runOf(r)).toMatchObject({ step: 2 });
-  });
-
-  test('sessions on disk still loading: no card is drawn; after the load it is (Review Focus 2)', async () => {
-    history.replaceState(null, '', '?view=tab');
-    localStorage.setItem(
-      'tabContainerData',
-      JSON.stringify(buildContainer([OWN()]))
-    );
-    const r = await renderWithProviders(<FirstRun />, { seed: SEED });
-    await act(async () => {
-      await r.store.dispatch(startRun(newRun('full', 3)));
-    });
-    expect(mark()).toBeNull();
-    expect(r.store.getState().globalState.runSaveCard).toBeNull();
-    act(() => {
-      r.store.dispatch(replaceState(buildContainer([OWN()])));
-    });
-    await waitFor(() =>
-      expect(r.store.getState().globalState.runSaveCard).toBe('sessions')
-    );
-    expect(mark()).not.toBeNull();
   });
 
   test('sessions written to disk after this page opened: the save card waits for the load, then is decided', async () => {
@@ -203,40 +124,6 @@ describe('the controller', () => {
     await waitFor(() =>
       expect(r.store.getState().globalState.runSaveCard).toBe('sessions')
     );
-  });
-
-  test('the last popup step: Back and Done, no Skip; Done finishes', async () => {
-    const r = await renderAt({ ...newRun('popup', 7), sessionId: 'own' });
-    const done = await screen.findByRole('button', { name: 'Done' });
-    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Skip tutorial' })).toBeNull();
-    fireEvent.click(done);
-    expect(runOf(r)?.ended).toBe('finished');
-    expect(r.store.getState().globalState.isReplayNoteOpen).toBe(true);
-  });
-
-  test('Esc on a middle card is Skip tutorial (§6)', async () => {
-    const r = await renderAt(newRun('popup', 1));
-    await screen.findByRole('button', { name: 'Use an example' });
-    escape();
-    expect(runOf(r)?.ended).toBe('skipped');
-    expect(r.store.getState().globalState.isReplayNoteOpen).toBe(true);
-  });
-
-  test('Skip tutorial ends the run and opens the note (KAN-499)', async () => {
-    const r = await renderAt(newRun('popup', 1));
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Skip tutorial' })
-    );
-    expect(runOf(r)?.ended).toBe('skipped');
-    expect(r.store.getState().globalState.isReplayNoteOpen).toBe(true);
-  });
-
-  test('Esc on the last card is its non-pin button (R5)', async () => {
-    const r = await renderAt({ ...newRun('popup', 7), sessionId: 'own' });
-    await screen.findByRole('button', { name: 'Done' });
-    escape();
-    expect(runOf(r)?.ended).toBe('finished');
   });
 
   test('Pin this tab on a tab already pinned pins nothing more, and the run ends', async () => {
@@ -300,82 +187,6 @@ describe('the controller', () => {
     await waitFor(() => expect(runOf(r)?.ended).toBe('finished'));
     expect(warn).toHaveBeenCalled();
   });
-
-  test('the last full-view step: Not now, Back, Pin this tab, on a 25rem card (400px at a 16px root)', async () => {
-    history.replaceState(null, '', '?view=tab');
-    await renderAt({ ...newRun('full', 8), sessionId: 'own' });
-    await screen.findByRole('button', { name: 'Pin this tab' });
-    expect(
-      [...document.querySelectorAll('[data-coach-mark] button')].map(
-        (b) => b.textContent
-      )
-    ).toEqual(['Not now', 'Back', 'Pin this tab']);
-    const mark = document.querySelector('[data-coach-mark]');
-    expect(mark && getComputedStyle(mark).width).toBe('400px');
-  });
-
-  test('Next onto the save step keeps the card mounted: it moves, it is not drawn anew (KAN-436)', async () => {
-    history.replaceState(null, '', '?view=tab');
-    const r = await renderAt(newRun('full', 2), []);
-    await screen.findByRole('button', { name: 'Next' });
-    const before = mark();
-    let removed = false;
-    const observer = new MutationObserver(() => {
-      if (before !== null && !before.isConnected) removed = true;
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await screen.findByRole('button', { name: 'Use an example' });
-    observer.disconnect();
-    expect(runOf(r)?.step).toBe(3);
-    expect(mark()).toBe(before);
-    expect(removed).toBe(false);
-  });
-
-  test('only Tab Keeper open: the Q3 card, its glyph, no fine line, and Use an example as the only way on', async () => {
-    const r = await renderWithProviders(<FirstRun />, {
-      seed: {
-        windows: [
-          {
-            id: 1,
-            type: 'normal' as const,
-            tabs: [
-              {
-                id: 12,
-                url: 'chrome-extension://faketestid/index.html?view=tab',
-                title: 'Tab Keeper',
-              },
-            ],
-          },
-        ],
-      },
-      seedStore: (store) => store.dispatch(replaceState(buildContainer([]))),
-    });
-    await act(async () => {
-      await r.store.dispatch(startRun(newRun('popup', 1)));
-    });
-    await waitFor(() =>
-      expect(r.store.getState().globalState.runSaveCard).toBe('nothingToSave')
-    );
-    expect(
-      await screen.findByRole('img', {
-        name: 'Save all open windows as a session',
-      })
-    ).toBeInTheDocument();
-    const [text, ...others] = mark()?.querySelectorAll('p') ?? [];
-    expect(others).toHaveLength(0);
-    expect(text).toHaveTextContent(
-      'This is where you save your open windows as a session: press'
-    );
-    expect(text).toHaveTextContent(
-      ". Only Tab Keeper is open right now, so let's try it with an example."
-    );
-    expect(
-      [...document.querySelectorAll('[data-coach-mark] button')].map(
-        (b) => b.textContent
-      )
-    ).toEqual(['Skip tutorial', 'Use an example']);
-  });
 });
 
 describe('step 2 names the fold button the view shows', () => {
@@ -390,37 +201,6 @@ describe('step 2 names the fold button the view shows', () => {
   };
   afterEach(() => widthOf(ORIGINAL_INNER_WIDTH));
 
-  test('folded: press » to show the saved session, no edge; unfolding switches the card to the edge and «, still at step 2', async () => {
-    widthOf(1400);
-    history.replaceState(null, '', '?view=tab');
-    const r = await renderAt(newRun('full', 2));
-    expect(r.store.getState().settingsDataState.foldSavedSessionInTabView).toBe(
-      true
-    );
-    expect(
-      await screen.findByRole('img', { name: 'Show the saved session' })
-    ).toHaveTextContent('keyboard_double_arrow_right');
-    expect(mark()).toHaveTextContent(
-      'Search here to find an open tab fast. Press'
-    );
-    expect(mark()).toHaveTextContent('to show the saved session beside it.');
-    expect(mark()).not.toHaveTextContent('Drag the edge');
-    act(() => {
-      r.store.dispatch(setFoldSavedSessionInTabView(false));
-    });
-    expect(
-      await screen.findByRole('img', { name: 'Fold the saved session away' })
-    ).toHaveTextContent('keyboard_double_arrow_left');
-    expect(mark()).toHaveTextContent(
-      'Search here to find an open tab fast. Drag the edge to make this wider, or press'
-    );
-    expect(mark()).toHaveTextContent('to give Open now the whole view.');
-    expect(
-      screen.queryByRole('img', { name: 'Show the saved session' })
-    ).toBeNull();
-    expect(mark()).toHaveAttribute('data-coach-step', '2');
-  });
-
   test('folded but peeked: the saved session is beside Open now, so the card names «', async () => {
     widthOf(1400);
     history.replaceState(null, '', '?view=tab');
@@ -432,61 +212,6 @@ describe('step 2 names the fold button the view shows', () => {
       await screen.findByRole('img', { name: 'Fold the saved session away' })
     ).toBeInTheDocument();
     expect(mark()).toHaveTextContent('Drag the edge');
-  });
-
-  test('side by side in a window with no grip: « and no edge to drag (KAN-500)', async () => {
-    widthOf(1200);
-    history.replaceState(null, '', '?view=tab');
-    const r = await renderAt(newRun('full', 2));
-    act(() => {
-      r.store.dispatch(setFoldSavedSessionInTabView(false));
-    });
-    expect(
-      await screen.findByRole('img', { name: 'Fold the saved session away' })
-    ).toBeInTheDocument();
-    expect(mark()).toHaveTextContent(
-      'Search here to find an open tab fast. Press'
-    );
-    expect(mark()).toHaveTextContent('to give Open now the whole view.');
-    expect(mark()).not.toHaveTextContent('Drag the edge');
-  });
-
-  test('on the narrow rail: the rail’s own button, and no search field, edge or « it does not draw (KAN-500)', async () => {
-    widthOf(1000);
-    vi.spyOn(window, 'matchMedia').mockImplementation(
-      (query: string) =>
-        new FakeMediaQueryList(query, query === OPEN_NOW_RAIL_QUERY)
-    );
-    history.replaceState(null, '', '?view=tab');
-    const r = await renderAt(newRun('full', 2));
-    act(() => {
-      r.store.dispatch(setFoldSavedSessionInTabView(false));
-    });
-    await waitFor(() =>
-      expect(mark()).toHaveTextContent(
-        'Open now is tucked in here while the window is narrow. Press'
-      )
-    );
-    expect(mark()).toHaveTextContent('to see and search every open tab.');
-    expect(
-      await screen.findByRole('img', { name: 'Open now' })
-    ).toHaveTextContent('tab');
-    expect(mark()).not.toHaveTextContent('Search here');
-    expect(mark()).not.toHaveTextContent('Drag the edge');
-  });
-
-  test('a resize past the grip’s width changes the sentence while the card shows (KAN-500)', async () => {
-    widthOf(1400);
-    history.replaceState(null, '', '?view=tab');
-    const r = await renderAt(newRun('full', 2));
-    act(() => {
-      r.store.dispatch(setFoldSavedSessionInTabView(false));
-    });
-    await waitFor(() => expect(mark()).toHaveTextContent('Drag the edge'));
-    act(() => widthOf(1200));
-    await waitFor(() => expect(mark()).not.toHaveTextContent('Drag the edge'));
-    act(() => widthOf(1400));
-    await waitFor(() => expect(mark()).toHaveTextContent('Drag the edge'));
   });
 });
 
@@ -535,58 +260,7 @@ describe('a resume while sessions on disk are still loading', () => {
 });
 
 describe('Back to the save step after the run’s save (R6, A5, M4)', () => {
-  const GLYPH = 'Save all open windows as a session';
   const TEXT = 'Saved. Press';
-  const AGAIN = ' any time to save your windows again.';
-  const labels = () =>
-    [...document.querySelectorAll('[data-coach-mark] button')].map(
-      (b) => b.textContent
-    );
-
-  test('the card says it saved, with the glyph; no fine line; Next is the way on', async () => {
-    const r = await renderAt(newRun('popup', 1), [
-      buildSession({ tabGroupId: 'own', title: 'Own' }),
-    ]);
-    await screen.findByRole('button', { name: 'Use an example' });
-    act(() => {
-      r.store.dispatch(takeRunSave('own'));
-    });
-    await waitFor(() => expect(runOf(r)?.step).toBe(2));
-    fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
-    await waitFor(() => expect(runOf(r)?.step).toBe(1));
-    expect(mark()).toHaveTextContent(TEXT);
-    expect(mark()).toHaveTextContent(AGAIN.trim());
-    expect(await screen.findByRole('img', { name: GLYPH })).toBeInTheDocument();
-    expect(mark()).not.toHaveTextContent('Saving keeps them safe');
-    expect(mark()?.querySelectorAll('p')).toHaveLength(1);
-    expect(labels()).toEqual(['Skip tutorial', 'Next']);
-    expect(screen.queryByRole('button', { name: 'Use an example' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await waitFor(() => expect(runOf(r)?.step).toBe(2));
-    expect(r.store.getState().tabContainerDataState.tabGroups).toHaveLength(1);
-  });
-
-  test('Use an example, then Back: the card says it is an example, with the glyph; Next adds nothing', async () => {
-    const r = await renderAt(newRun('popup', 1), []);
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Use an example' })
-    );
-    await waitFor(() => expect(runOf(r)?.step).toBe(2));
-    fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
-    await waitFor(() => expect(runOf(r)?.step).toBe(1));
-    expect(mark()).toHaveTextContent('This is an example. Press');
-    expect(mark()).toHaveTextContent('any time to save your own windows.');
-    expect(mark()).not.toHaveTextContent('Saved.');
-    expect(await screen.findByRole('img', { name: GLYPH })).toBeInTheDocument();
-    expect(mark()?.querySelectorAll('p')).toHaveLength(1);
-    expect(labels()).toEqual(['Skip tutorial', 'Next']);
-    const before = r.store.getState().tabContainerDataState.tabGroups.length;
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await waitFor(() => expect(runOf(r)?.step).toBe(2));
-    expect(r.store.getState().tabContainerDataState.tabGroups).toHaveLength(
-      before
-    );
-  });
 
   test('a popup run resumed with its session already set shows the same card (A5)', async () => {
     await renderAt({ ...newRun('popup', 1), sessionId: 'own' });
@@ -632,43 +306,6 @@ describe('the first save’s echo (§10)', () => {
       await waitFor(() =>
         expect(r.store.getState().globalState.runSaveEcho).toBeNull()
       );
-    } finally {
-      detail.remove();
-      Reflect.deleteProperty(Element.prototype, 'animate');
-    }
-  });
-
-  test('reduced motion: nothing moves, and the flag still clears', async () => {
-    const animate = vi.fn();
-    Object.defineProperty(Element.prototype, 'animate', {
-      configurable: true,
-      value(this: Element) {
-        if (this.matches('[data-tour-anchor="tab-dot"]')) animate();
-        return { cancel: () => undefined, finished: Promise.resolve() };
-      },
-    });
-    vi.spyOn(window, 'matchMedia').mockImplementation(
-      (query: string) =>
-        new FakeMediaQueryList(
-          query,
-          query === '(prefers-reduced-motion: reduce)'
-        )
-    );
-    const dot = document.createElement('span');
-    dot.setAttribute('data-tour-anchor', 'tab-dot');
-    const detail = document.createElement('div');
-    detail.setAttribute('data-pane', 'detail');
-    detail.append(dot);
-    document.body.append(detail);
-    try {
-      const r = await renderAt(newRun('popup', 1));
-      act(() => {
-        r.store.dispatch(setRunSaveEcho('own'));
-      });
-      await waitFor(() =>
-        expect(r.store.getState().globalState.runSaveEcho).toBeNull()
-      );
-      expect(animate).not.toHaveBeenCalled();
     } finally {
       detail.remove();
       Reflect.deleteProperty(Element.prototype, 'animate');

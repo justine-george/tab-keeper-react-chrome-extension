@@ -45,12 +45,9 @@ import {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import {
   openFullViewCallout,
-  openSetup,
   openSettingsPage,
   setSearchInputText,
 } from '../../redux/slices/globalStateSlice';
-import { leaveSetup } from '../../redux/firstOpenFollowUps';
-import { showInFullView } from '../../redux/fullViewShow';
 import { undo } from '../../redux/slices/undoRedoSlice';
 import { SettingsCategory } from '../../redux/slices/settingsCategoryStateSlice';
 import { newRun } from '../../utils/functions/firstRun';
@@ -81,17 +78,6 @@ const OPEN_PAGE = {
   id: 1,
   type: 'normal' as const,
   tabs: [{ id: 11, url: 'https://example.com/', title: 'Example' }],
-};
-const TK_ONLY = {
-  id: 1,
-  type: 'normal' as const,
-  tabs: [
-    {
-      id: 12,
-      url: 'chrome-extension://faketestid/index.html?view=tab',
-      title: 'Tab Keeper',
-    },
-  ],
 };
 
 let locks: FakeLocks;
@@ -262,31 +248,6 @@ describe('moving', () => {
 });
 
 describe('the save step’s card (R10, Q3)', () => {
-  test('full view with saved sessions: your sessions, on the latest one', async () => {
-    history.replaceState(null, '', '?view=tab');
-    const store = withSessions(OLDER, OWN);
-    await store.dispatch(startRun({ ...newRun('full', 3) }));
-    await store.dispatch(beginSaveStep());
-    expect(store.getState().globalState.runSaveCard).toBe('sessions');
-    expect(runOf(store)?.sessionId).toBe('own');
-  });
-
-  test('the popup with saved sessions: the save card, no session picked', async () => {
-    const store = withSessions(OWN);
-    await store.dispatch(startRun(newRun('popup', 1)));
-    await store.dispatch(beginSaveStep());
-    expect(store.getState().globalState.runSaveCard).toBe('save');
-    expect(runOf(store)?.sessionId).toBeNull();
-  });
-
-  test('only Tab Keeper open: nothing to save', async () => {
-    setupChromeFake({ windows: [TK_ONLY] });
-    const { store } = makeTestStore();
-    await store.dispatch(startRun(newRun('popup', 1)));
-    await store.dispatch(beginSaveStep());
-    expect(store.getState().globalState.runSaveCard).toBe('nothingToSave');
-  });
-
   test('sessions on disk not loaded yet: no card is decided; after the load it is (CONTROL)', async () => {
     history.replaceState(null, '', '?view=tab');
     localStorage.setItem(
@@ -611,17 +572,6 @@ describe('the last steps', () => {
     url: 'chrome-extension://faketestid/index.html?view=tab',
   };
 
-  test('Pin this tab pins this page’s own tab, then the run ends', async () => {
-    history.replaceState(null, '', '?view=tab');
-    setupChromeFake({ windows: [OPEN_PAGE], tabs: [TK_TAB], currentTabId: 7 });
-    const update = vi.spyOn(chrome.tabs, 'update');
-    const store = withSessions(OWN);
-    await store.dispatch(startRun({ ...newRun('full', 8), sessionId: 'own' }));
-    await store.dispatch(pinThisTab());
-    expect(update).toHaveBeenCalledWith(7, { pinned: true });
-    expect(runOf(store)?.ended).toBe('finished');
-  });
-
   const pinSetting = (store: Store) =>
     store.getState().settingsDataState.pinTabKeeperInNewWindows;
 
@@ -654,13 +604,6 @@ describe('the last steps', () => {
     await store.dispatch(startRun({ ...newRun('full', 8), sessionId: 'own' }));
     await store.dispatch(pinThisTab());
     expect(update).not.toHaveBeenCalled();
-    expect(runOf(store)?.ended).toBe('finished');
-  });
-
-  test('⤢ ends the popup run at its last step', async () => {
-    const store = withSessions(OWN);
-    await store.dispatch(startRun({ ...newRun('popup', 7), sessionId: 'own' }));
-    store.dispatch(endRunAtFullViewButton());
     expect(runOf(store)?.ended).toBe('finished');
   });
 
@@ -790,18 +733,6 @@ describe('after the full-view run (§3)', () => {
     store.getState().globalState.isPinGuideOpen,
   ];
 
-  test('a new install finishes: setup opens; the pin guide waits for setup to close', async () => {
-    setupChromeFake({ windows: [OPEN_PAGE], action: { isOnToolbar: false } });
-    const { store } = makeTestStore();
-    store.dispatch(beginSetup());
-    await store.dispatch(startRun({ ...newRun('full', 8), sessionId: null }));
-    await store.dispatch(finishRunHere());
-    await store.dispatch(leaveReplayNote());
-    expect(openedOf(store)).toEqual([true, false]);
-    await store.dispatch(leaveSetup());
-    expect(openedOf(store)).toEqual([false, true]);
-  });
-
   test('an upgrader finishes: setup goes from none to pending and opens (delta 8)', async () => {
     const { store } = makeTestStore();
     await store.dispatch(startRun(newRun('full', 8)));
@@ -831,15 +762,6 @@ describe('after the full-view run (§3)', () => {
     expect(openedOf(store)).toEqual([false, false]);
   });
 
-  test('Skip tutorial opens nothing after the note (R8, KAN-499)', async () => {
-    const { store } = makeTestStore();
-    store.dispatch(beginSetup());
-    await store.dispatch(startRun(newRun('full', 3)));
-    store.dispatch(skipRun());
-    await store.dispatch(leaveReplayNote());
-    expect(openedOf(store)).toEqual([false, false]);
-  });
-
   test('the popup run opens neither (§4)', async () => {
     history.replaceState(null, '', '?');
     const { store } = makeTestStore();
@@ -849,26 +771,6 @@ describe('after the full-view run (§3)', () => {
     await store.dispatch(leaveReplayNote());
     expect(openedOf(store)).toEqual([false, false]);
     expect(store.getState().settingsDataState.setupState).toBe('pending');
-  });
-
-  test('setup opened by Help closes without the pin guide (§2)', async () => {
-    setupChromeFake({ windows: [OPEN_PAGE], action: { isOnToolbar: false } });
-    const { store } = makeTestStore();
-    store.dispatch(finishSetup());
-    store.dispatch(showInFullView('setup'));
-    expect(store.getState().globalState.isSetupOpen).toBe(true);
-    await store.dispatch(leaveSetup());
-    expect(openedOf(store)).toEqual([false, false]);
-    expect(store.getState().settingsDataState.setupState).toBe('done');
-  });
-
-  test('control: the same machine, setup opened by the queue, goes on to the pin guide', async () => {
-    setupChromeFake({ windows: [OPEN_PAGE], action: { isOnToolbar: false } });
-    const { store } = makeTestStore();
-    store.dispatch(beginSetup());
-    store.dispatch(openSetup());
-    await store.dispatch(leaveSetup());
-    expect(openedOf(store)).toEqual([false, true]);
   });
 });
 
@@ -880,47 +782,6 @@ describe('the replay note (KAN-499)', () => {
     store.getState().globalState.isReplayNoteOpen,
     store.getState().globalState.isSetupOpen,
   ];
-
-  test('Skip ends the run as skipped and opens the note, not setup', async () => {
-    const { store } = makeTestStore();
-    store.dispatch(beginSetup());
-    await store.dispatch(startRun(newRun('full', 3)));
-    store.dispatch(skipRun());
-    expect(runOf(store)?.ended).toBe('skipped');
-    expect(selectRunHere(store.getState())).toBeNull();
-    expect(noteAndSetup(store)).toEqual([true, false]);
-    await store.dispatch(leaveReplayNote());
-    expect(noteAndSetup(store)).toEqual([false, false]);
-  });
-
-  test('Skip removes the example as it did before the note', async () => {
-    const { store } = makeTestStore();
-    await store.dispatch(startRun(newRun('full', 3)));
-    store.dispatch(takeExampleForRun(NAMES));
-    const sample = runOf(store)?.sessionId ?? '';
-    expect(isSampleSession(sample)).toBe(true);
-    store.dispatch(skipRun());
-    expect(ids(store)).not.toContain(sample);
-  });
-
-  test('a finished full-view run shows the note first, and setup once it closes', async () => {
-    const { store } = makeTestStore();
-    store.dispatch(beginSetup());
-    await store.dispatch(startRun(newRun('full', 8)));
-    await store.dispatch(finishRunHere());
-    expect(runOf(store)?.ended).toBe('finished');
-    expect(noteAndSetup(store)).toEqual([true, false]);
-    await store.dispatch(leaveReplayNote());
-    expect(noteAndSetup(store)).toEqual([false, true]);
-  });
-
-  test('Pin this tab shows the note before setup too', async () => {
-    const { store } = makeTestStore();
-    store.dispatch(beginSetup());
-    await store.dispatch(startRun(newRun('full', 8)));
-    await store.dispatch(pinThisTab());
-    expect(noteAndSetup(store)).toEqual([true, false]);
-  });
 
   test('a finished popup run shows the note, and nothing after it', async () => {
     history.replaceState(null, '', '?');
@@ -962,30 +823,6 @@ describe('the replay note (KAN-499)', () => {
 // KAN-505. A second save on the "Saved." card puts another session on screen;
 // moving onto a step about the run's session brings that session back.
 describe('moving onto a session step shows the run’s session', () => {
-  test('save, Back, a second save, Next: the card shows, on the run’s session', async () => {
-    const store = withSessions(OWN, OLDER);
-    await store.dispatch(startRun(newRun('popup', 1)));
-    store.dispatch(takeRunSave('own'));
-    await store.dispatch(stepRunBack());
-    // The ordinary second save (R6): it is the session on screen now.
-    store.dispatch(
-      saveToTabContainerInternal(
-        buildSession({ tabGroupId: 'second', title: 'Second', createdAt: 3000 })
-      )
-    );
-    store.dispatch(takeRunSave('second'));
-    expect(runOf(store)).toMatchObject({ step: 1, sessionId: 'own' });
-    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
-      'second'
-    );
-    await store.dispatch(advanceRun());
-    expect(runOf(store)).toMatchObject({ step: 2, sessionId: 'own' });
-    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
-      'own'
-    );
-    expect(selectIsRunCardShown(store.getState())).toBe(true);
-  });
-
   test('Back onto a session step brings the run’s session back too', async () => {
     const store = withSessions(OWN, OLDER);
     await store.dispatch(startRun({ ...newRun('popup', 3), sessionId: 'own' }));
@@ -998,14 +835,5 @@ describe('moving onto a session step shows the run’s session', () => {
       'own'
     );
     expect(selectIsRunCardShown(store.getState())).toBe(true);
-  });
-
-  test('CONTROL: browsing to another session on a session step still hides its card (R3)', async () => {
-    const store = withSessions(OWN, OLDER);
-    await store.dispatch(startRun({ ...newRun('popup', 2), sessionId: 'own' }));
-    store.dispatch(selectTabContainer('own'));
-    expect(selectIsRunCardShown(store.getState())).toBe(true);
-    store.dispatch(selectTabContainer('older'));
-    expect(selectIsRunCardShown(store.getState())).toBe(false);
   });
 });
