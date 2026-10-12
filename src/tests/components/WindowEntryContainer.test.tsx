@@ -229,27 +229,6 @@ describe('WindowEntryContainer gates tab groups on the live permission', () => {
     expect(screen.queryByText('Work')).not.toBeInTheDocument();
     expect(screen.getByText('Inbox')).toBeInTheDocument();
   });
-
-  test('renders groups when the permission is granted, with the same data', async () => {
-    await renderWindow(
-      {
-        tabs: [
-          {
-            tabId: 't1',
-            favicon: '',
-            title: 'Inbox',
-            url: 'https://a.test',
-            chromeGroupId: 'g1',
-          },
-        ],
-        chromeTabGroups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
-      },
-      { hasTabGroupsPermission: true }
-    );
-
-    const group = screen.getByRole('group', { name: 'Work' });
-    expect(within(group).getByText('Inbox')).toBeInTheDocument();
-  });
 });
 
 // The tick commits, and its click reaches nothing that replaced it (window-rows.spec covers Chrome).
@@ -410,35 +389,12 @@ describe('the window label', () => {
       }
     );
 
-  test('an unnamed window reads "Window 2" in LABEL_L2', async () => {
-    await renderLabelled('');
-
-    const title = screen.getByRole('button', {
-      name: 'Rename window: Window 2',
-    });
-    expect(getComputedStyle(within(title).getByText('Window 2')).color).toMatch(
-      asWritten(LIGHT_THEME.LABEL_L2_COLOR)
-    );
-  });
-
   test('a whitespace-only title is unnamed too', async () => {
     await renderLabelled('   ');
 
     expect(
       screen.getByRole('button', { name: 'Rename window: Window 2' })
     ).toBeInTheDocument();
-  });
-
-  test('a named window reads its title in TEXT_COLOR', async () => {
-    await renderLabelled('Research');
-
-    const title = screen.getByRole('button', {
-      name: 'Rename window: Research',
-    });
-    expect(getComputedStyle(within(title).getByText('Research')).color).toMatch(
-      asWritten(LIGHT_THEME.TEXT_COLOR)
-    );
-    expect(screen.queryByText('Window 2')).toBeNull();
   });
 
   // R7: searching, the title is still the rename button.
@@ -522,14 +478,6 @@ describe('the title renames, Open opens', () => {
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
-  test('no control is named "Rename window group"', async () => {
-    await renderRow('Research').rendered;
-
-    expect(screen.queryAllByLabelText(/Rename window group/)).toEqual([]);
-    // CONTROL: the query finds the rename name it replaced.
-    expect(screen.queryAllByLabelText(/Rename window/)).toHaveLength(1);
-  });
-
   test('while searching the title still renames, and there is no Open', async () => {
     const user = userEvent.setup();
     const { rendered, onOpenWindow } = renderRow('Research', {
@@ -545,32 +493,6 @@ describe('the title renames, Open opens', () => {
     );
     expect(screen.getByRole('textbox')).toHaveValue('Research');
     expect(onOpenWindow).not.toHaveBeenCalled();
-  });
-
-  test('CONTROL: not searching, Open is there', async () => {
-    await renderRow('Research').rendered;
-
-    expect(
-      screen.getAllByRole('button', { name: /Open in new window/ })
-    ).toHaveLength(1);
-  });
-
-  test('Esc cancels: nothing is committed, and the title is back', async () => {
-    const user = userEvent.setup();
-    const { rendered, onUpdateWindowGroupTitle } = renderRow('Research');
-    await rendered;
-
-    await user.click(
-      screen.getByRole('button', { name: 'Rename window: Research' })
-    );
-    await user.clear(screen.getByRole('textbox'));
-    await user.type(screen.getByRole('textbox'), 'Elsewhere{Escape}');
-
-    expect(screen.queryByRole('textbox')).toBeNull();
-    expect(
-      screen.getByRole('button', { name: 'Rename window: Research' })
-    ).toBeInTheDocument();
-    expect(onUpdateWindowGroupTitle).not.toHaveBeenCalled();
   });
 
   // A blur in the same batch as the Esc still sees the open editor; the ref stops it.

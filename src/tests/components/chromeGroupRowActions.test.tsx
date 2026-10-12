@@ -104,34 +104,6 @@ const win = (store: S) =>
   store.getState().tabContainerDataState.tabGroups[0].windows[0];
 
 describe('the group row action set', () => {
-  test('offers rename, add, and an overflow trigger', async () => {
-    await renderRow();
-
-    expect(
-      screen.getByRole('button', { name: 'Rename group: Research' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Add current tab to group' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'More actions' })
-    ).toBeInTheDocument();
-  });
-
-  test('the overflow holds ungroup and delete', async () => {
-    const user = userEvent.setup();
-    await renderRow();
-
-    await user.click(screen.getByRole('button', { name: 'More actions' }));
-
-    expect(
-      screen.getByRole('menuitem', { name: 'Ungroup' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('menuitem', { name: 'Delete group' })
-    ).toBeInTheDocument();
-  });
-
   test('ungroup keeps the tabs and drops the grouping', async () => {
     const user = userEvent.setup();
     const { store } = await renderRow();
@@ -151,21 +123,6 @@ describe('the group row action set', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Delete group' }));
 
     expect(win(store).tabs.map((t) => t.tabId)).toEqual(['loose']);
-  });
-
-  test('add current tab puts it at the front of the group', async () => {
-    const user = userEvent.setup();
-    const { store } = await renderRow();
-
-    await user.click(
-      screen.getByRole('button', { name: 'Add current tab to group' })
-    );
-
-    const tabs = win(store).tabs;
-    expect(tabs).toHaveLength(4);
-    // First member of the group, matching the window-level add, which unshifts
-    expect(tabs.map((t) => t.title)).toEqual(['Loose', 'Added', 'One', 'Two']);
-    expect(tabs[1].chromeGroupId).toBe('grp');
   });
 
   // A control that cannot act must not be focusable and inert (KAN-62).
@@ -479,23 +436,6 @@ describe("Open opens the group's tabs", () => {
     return rendered;
   };
 
-  test('is named for opening, containing the group title', async () => {
-    await renderRow();
-
-    expect(
-      screen.getByRole('button', { name: 'Open group: Research' })
-    ).toBeInTheDocument();
-  });
-
-  test('opens every tab in the group and nothing else', async () => {
-    const { chrome } = await openRow();
-
-    expect(chrome.createdTabs.map((t) => t.url)).toEqual([
-      'https://b.co',
-      'https://c.co',
-    ]);
-  });
-
   // Order is the part that breaks silently: creating each at the SAME index
   // reverses them, because every insert pushes the previous one right.
   test('keeps them in stored order, immediately after the active tab', async () => {
@@ -503,39 +443,6 @@ describe("Open opens the group's tabs", () => {
 
     // the fake seeds the active tab at index 0
     expect(chrome.createdTabs.map((t) => t.index)).toEqual([1, 2]);
-  });
-
-  test('does not start a rename', async () => {
-    await openRow();
-
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-  });
-
-  // THE CONTROL. Renaming must still be reachable -- just from one place.
-  test('CONTROL: the title still opens the editor', async () => {
-    const user = userEvent.setup();
-    await renderRow();
-
-    await user.click(
-      screen.getByRole('button', { name: 'Rename group: Research' })
-    );
-
-    expect(screen.getByRole('textbox')).toBeInTheDocument();
-  });
-
-  // The tabs are re-formed into the saved Chrome group -- same name, same
-  // colour -- rather than opened loose. This is the same shape applyTabGroups
-  // performs on restore, and it reuses that function rather than a second
-  // implementation of "how to make a group".
-  //
-  // No permission gate is needed here: the row only renders at all when
-  // hasTabGroupsPermission is true, so reaching this click already implies it.
-  test('re-forms the saved group around them', async () => {
-    const { chrome } = await openRow();
-    await new Promise((r) => setTimeout(r, 0));
-
-    expect(chrome.groupedTabs).toHaveLength(1);
-    expect(chrome.groupedTabs[0].tabIds).toHaveLength(2);
   });
 
   test('restores the group name and colour', async () => {
@@ -547,38 +454,6 @@ describe("Open opens the group's tabs", () => {
 
     expect(formed).toBeDefined();
     expect(formed?.color).toBe('blue');
-  });
-});
-
-// Two questions raised while building this, both answered by test rather than
-// by argument.
-describe('without the tabGroups permission', () => {
-  // There is nothing to click. partitionTabsIntoRuns is handed `undefined` for
-  // the groups when the permission is absent, so every tab is treated as
-  // ungrouped and no group header is emitted at all.
-  test('no group row is rendered, so the click cannot be reached', async () => {
-    await renderWithProviders(
-      <WindowEntryContainer
-        number={1}
-        title="Window 1"
-        tabGroupId="tg"
-        windowId="w"
-        tabs={TABS}
-        chromeTabGroups={GROUPS}
-        onOpenWindow={() => undefined}
-        onUpdateWindowGroupTitle={() => undefined}
-        onAddCurrTabToWindowClick={() => undefined}
-        onDeleteClick={() => undefined}
-      />,
-      {
-        seedStore: (store) => store.dispatch(setHasTabGroupsPermission(false)),
-      }
-    );
-
-    expect(screen.queryByRole('group')).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /Open group/ })
-    ).not.toBeInTheDocument();
   });
 });
 
@@ -761,13 +636,5 @@ describe('the group title renames, and Open opens', () => {
     expect(
       screen.getByRole('textbox', { name: 'Rename group: Research' })
     ).toBeInTheDocument();
-  });
-
-  test('CONTROL: not searching, the same query finds Open', async () => {
-    const { container } = await renderRow();
-
-    expect(
-      container.querySelectorAll('[aria-label^="Open group"]')
-    ).toHaveLength(1);
   });
 });

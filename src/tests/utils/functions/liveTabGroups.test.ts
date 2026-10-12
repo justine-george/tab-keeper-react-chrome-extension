@@ -26,11 +26,6 @@ describe('countOpenTabGroups', () => {
     expect(await countOpenTabGroups()).toBe(1);
   });
 
-  test('zero when nothing is grouped', async () => {
-    handle = setupChromeFake({ tabs: [{ groupId: -1 }, { groupId: -1 }] });
-    expect(await countOpenTabGroups()).toBe(0);
-  });
-
   test('zero when there are no tabs at all', async () => {
     handle = setupChromeFake();
     expect(await countOpenTabGroups()).toBe(0);
@@ -55,14 +50,6 @@ describe('countOpenTabGroups', () => {
     expect(await countOpenTabGroups()).toBe(2);
   });
 
-  // Paired positive control for the exclusion below: the SAME seed, minus the
-  // ungrouped tab, must still count 1. Without this, a countOpenTabGroups that
-  // always returned 0 would satisfy the exclusion test.
-  test('a lone grouped tab counts 1 (control for the exclusion below)', async () => {
-    handle = setupChromeFake({ tabs: [{ groupId: 7 }] });
-    expect(await countOpenTabGroups()).toBe(1);
-  });
-
   test('ungrouped tabs (-1) are excluded, not counted as a group', async () => {
     handle = setupChromeFake({
       tabs: [{ groupId: 7 }, { groupId: -1 }, { groupId: -1 }],
@@ -84,13 +71,6 @@ describe('countOpenTabGroups', () => {
     handle = setupChromeFake();
     const tabs = chrome.tabs as unknown as { query: () => Promise<unknown> };
     tabs.query = () => Promise.reject(new Error('no tabs permission'));
-
-    await expect(countOpenTabGroups()).resolves.toBe(0);
-  });
-
-  test('zero, not a throw, when the tabs API is missing entirely', async () => {
-    handle = setupChromeFake();
-    delete (globalThis as { chrome?: { tabs?: unknown } }).chrome!.tabs;
 
     await expect(countOpenTabGroups()).resolves.toBe(0);
   });

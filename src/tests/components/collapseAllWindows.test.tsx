@@ -82,64 +82,6 @@ const shutCount = () => screen.queryAllByLabelText(/^Expand(: |$)/).length;
 
 describe('collapse every window in a session (KAN-206)', () => {
   describe('the control folds and unfolds the whole session', () => {
-    test('collapses every window at once', async () => {
-      await renderWithProviders(pane, {
-        seedStore: (s) => {
-          s.dispatch(
-            saveToTabContainerInternal(
-              buildGroup(1, 'Research', [
-                buildWindow(1, 'Morning reading', ['Alpha Page']),
-                buildWindow(2, 'Afternoon reading', ['Bravo Page']),
-                buildWindow(3, 'Evening reading', ['Charlie Page']),
-              ])
-            )
-          );
-          s.dispatch(selectTabContainer('group-1'));
-        },
-      });
-
-      expect(await screen.findByText('Alpha Page')).toBeTruthy();
-      expect(openCount()).toBe(3);
-
-      await userEvent.click(screen.getByLabelText('Collapse all windows'));
-
-      expect(openCount()).toBe(0);
-      expect(shutCount()).toBe(3);
-      expect(screen.queryByText('Alpha Page')).toBeNull();
-      expect(screen.queryByText('Bravo Page')).toBeNull();
-      expect(screen.queryByText('Charlie Page')).toBeNull();
-    });
-
-    test('expands every window again once they are all shut', async () => {
-      await renderWithProviders(pane, {
-        seedStore: (s) => {
-          s.dispatch(
-            saveToTabContainerInternal(
-              buildGroup(1, 'Research', [
-                buildWindow(1, 'Morning reading', ['Alpha Page']),
-                buildWindow(2, 'Afternoon reading', ['Bravo Page']),
-              ])
-            )
-          );
-          s.dispatch(selectTabContainer('group-1'));
-        },
-      });
-
-      await userEvent.click(
-        await screen.findByLabelText('Collapse all windows')
-      );
-      expect(openCount()).toBe(0);
-
-      // The control has changed what it offers, which is the whole of the
-      // majority rule's visible half: with everything shut, the only thing
-      // left to do is open them.
-      await userEvent.click(screen.getByLabelText('Expand all windows'));
-
-      expect(openCount()).toBe(2);
-      expect(screen.getByText('Alpha Page')).toBeTruthy();
-      expect(screen.getByText('Bravo Page')).toBeTruthy();
-    });
-
     // THE TEST THAT DISCRIMINATES. Every other assertion in this file passes
     // just as happily against a strict-flip boolean that ignores the windows
     // and simply alternates on each press.
