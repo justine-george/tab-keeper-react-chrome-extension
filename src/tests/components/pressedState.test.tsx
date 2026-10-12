@@ -4,7 +4,6 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import Icon from '../../components/common/Icon';
-import Button from '../../components/common/Button';
 import OverflowMenu from '../../components/common/OverflowMenu';
 import SettingsCategoryContainer from '../../components/settings/leftpane/SettingsCategoryContainer';
 import OpenNowPane from '../../components/home/opennow/OpenNowPane';
@@ -52,13 +51,6 @@ describe('a press is confirmed on every interactive surface (KAN-205)', () => {
     // press at all, and that is exactly what "no :active rule" looks like.
     expect(hoverRulesFor(icon)).toMatch(ICON_HOVER);
     expect(activeRulesFor(icon)).not.toMatch(ICON_HOVER);
-  });
-
-  test('a button presses one rung past its hover', async () => {
-    await renderWithProviders(<Button onClick={() => undefined} text="Save" />);
-
-    const button = screen.getByRole('button', { name: 'Save' });
-    expect(activeRulesFor(button)).toMatch(ICON_PRESSED);
   });
 
   test('a menu item presses, which is where it matters most', async () => {

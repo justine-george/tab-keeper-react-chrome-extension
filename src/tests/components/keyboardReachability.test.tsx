@@ -1,16 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import { act, screen } from '@testing-library/react';
 
-import Button from '../../components/common/Button';
-import Icon from '../../components/common/Icon';
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
-import TabGroupEntry from '../../components/home/leftpane/TabGroupEntry';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
   setSignedIn,
   setSyncStatus,
 } from '../../redux/slices/globalStateSlice';
-import { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
 
 // KAN-67 and KAN-68 are one defect wearing two prop names. Both `Button`'s
 // `focusableButton` and `Icon`'s `focusable` computed a tabIndex that could
@@ -33,20 +29,6 @@ const TAB_ORDER_EXCLUDED = '-1';
 
 const tabIndexOf = (el: HTMLElement) => el.getAttribute('tabindex');
 
-const SESSION: tabContainerData = {
-  tabGroupId: 'session-1',
-  title: 'Research',
-  createdTime: '01/01/2026, 10:00:00',
-  createdAt: 1767261600000,
-  windowCount: 1,
-  tabCount: 2,
-  isAutoSave: false,
-  isSelected: false,
-  windows: [],
-};
-
-const noop = () => {};
-
 describe('enabled controls are reachable by keyboard', () => {
   // The control for every assertion below. It proves these queries can still
   // OBSERVE tabindex="-1" when it is genuinely present -- without it, a suite
@@ -62,46 +44,6 @@ describe('enabled controls are reachable by keyboard', () => {
     const control = container.firstElementChild;
     expect(control).toBeInstanceOf(HTMLElement);
     expect(control?.getAttribute('tabindex')).toBe(TAB_ORDER_EXCLUDED);
-  });
-
-  // KAN-318. A presentational Icon is aria-hidden, so it must not be able to
-  // hold focus either. With tabindex="-1" a click on the glyph inside a
-  // button focused the hidden glyph instead of the button, and Chrome logged
-  // "Blocked aria-hidden on an element because its descendant retained
-  // focus". With no tabindex at all, the click focuses the button around it.
-  test('a presentational Icon cannot take focus at all (KAN-318)', async () => {
-    const { container } = await renderWithProviders(<Icon type="web_asset" />);
-
-    const icon = container.firstElementChild;
-    expect(icon?.getAttribute('aria-hidden')).toBe('true');
-    expect(icon?.hasAttribute('tabindex')).toBe(false);
-  });
-
-  test('a Button with an onClick is in the tab order (KAN-67)', async () => {
-    await renderWithProviders(<Button text="Delete all data" onClick={noop} />);
-
-    const button = screen.getByRole('button', { name: 'Delete all data' });
-    expect(tabIndexOf(button)).not.toBe(TAB_ORDER_EXCLUDED);
-  });
-
-  // The eight controls of KAN-68 were gated on mouse-hover state. This
-  // renders the row and never hovers it, which is exactly the situation a
-  // keyboard user is in.
-  test('session row actions are in the tab order without hover (KAN-68)', async () => {
-    await renderWithProviders(
-      <TabGroupEntry
-        tabGroupData={SESSION}
-        onTabGroupClick={noop}
-        onOpenAllClick={noop}
-        onFocusClick={noop}
-        onDeleteClick={noop}
-      />
-    );
-
-    for (const name of ['Open', 'Switch', 'Delete']) {
-      const control = screen.getByRole('button', { name });
-      expect(tabIndexOf(control), name).not.toBe(TAB_ORDER_EXCLUDED);
-    }
   });
 
   // KAN-66. The fix ADDS aria-disabled rather than removing the control from

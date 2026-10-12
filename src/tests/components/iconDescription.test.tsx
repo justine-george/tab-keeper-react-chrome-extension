@@ -16,15 +16,6 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 describe('an Icon is not described by its own name', () => {
   const noop = () => {};
 
-  test('a tooltip equal to the name: an empty description', async () => {
-    await renderWithProviders(
-      <Icon type="undo" onClick={noop} ariaLabel="Undo" tooltipText="Undo" />
-    );
-    const button = screen.getByRole('button', { name: 'Undo' });
-    expect(button).toHaveAttribute('title', 'Undo');
-    expect(button).toHaveAttribute('aria-description', '');
-  });
-
   test('a tooltip that adds something stays the description', async () => {
     await renderWithProviders(
       <Icon

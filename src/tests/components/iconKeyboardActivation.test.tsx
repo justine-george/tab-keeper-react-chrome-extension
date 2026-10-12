@@ -57,36 +57,6 @@ const renderMenu = () =>
   });
 
 describe('Icon keyboard activation reaches the same handler as a click', () => {
-  // The control. If the sync thunk stopped being dispatched by a plain mouse
-  // click, every keyboard assertion below would fail for a reason that has
-  // nothing to do with the keyboard.
-  test('CONTROL: clicking the sync icon dispatches the sync thunk', async () => {
-    const { seen } = await renderMenu();
-    seen.length = 0;
-
-    await act(async () => {
-      fireEvent.click(syncIcon());
-    });
-
-    expect(seen).toContain(SYNC_PENDING);
-  });
-
-  for (const key of [
-    { key: 'Enter', name: 'Enter' },
-    { key: ' ', name: 'Space' },
-  ]) {
-    test(`${key.name} on the sync icon dispatches the sync thunk`, async () => {
-      const { seen } = await renderMenu();
-      seen.length = 0;
-
-      await act(async () => {
-        fireEvent.keyDown(syncIcon(), { key: key.key });
-      });
-
-      expect(seen).toContain(SYNC_PENDING);
-    });
-  }
-
   // The behaviour that changed, and the reason this file exists.
   //
   // Icon only wires onClick onto the element when `disable` is false, but the

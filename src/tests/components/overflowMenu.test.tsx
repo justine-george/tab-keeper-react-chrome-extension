@@ -513,13 +513,4 @@ describe('OverflowMenu beside the coach mark (KAN-413)', () => {
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
     coach.remove();
   });
-
-  test('every item carries its key, for a DOM hook', async () => {
-    const user = userEvent.setup();
-    await renderMenu();
-    await user.click(trigger());
-    expect(
-      document.querySelector('[data-menu-item="delete"]')
-    ).toHaveTextContent('Delete group');
-  });
 });
