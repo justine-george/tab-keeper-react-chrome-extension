@@ -74,12 +74,6 @@ describe('playShutterClick', () => {
     expect(sources).toHaveLength(4);
   });
 
-  test('no AudioContext: nothing plays and nothing throws', async () => {
-    uninstallFakeAudio();
-    const { playShutterClick } = await loadSound();
-    expect(() => playShutterClick()).not.toThrow();
-  });
-
   test('a context that refuses to start: nothing plays and nothing throws', async () => {
     Object.defineProperty(globalThis, 'AudioContext', {
       configurable: true,

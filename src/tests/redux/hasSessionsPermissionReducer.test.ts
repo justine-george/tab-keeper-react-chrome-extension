@@ -33,28 +33,11 @@ vi.mock('../../utils/functions/external', () => ({
   saveToFirestore: vi.fn(async () => undefined),
 }));
 
-import reducer, {
-  initialState,
-  setHasSessionsPermission,
-} from '../../redux/slices/globalStateSlice';
+import { initialState } from '../../redux/slices/globalStateSlice';
 
-// setHasTabGroupsPermission has no dedicated reducer test of its own -- every
-// existing use is a seedStore call in a component test -- so this is a fresh,
-// minimal test rather than a mirrored one, covering the sessions flag the same
-// way a tabGroups one would.
+// The setter is proven through App in appSessionsPermissionWiring.test.tsx.
 describe('setHasSessionsPermission', () => {
   test('defaults to false', () => {
     expect(initialState.hasSessionsPermission).toBe(false);
-  });
-
-  test('sets the flag to true', () => {
-    const next = reducer(initialState, setHasSessionsPermission(true));
-    expect(next.hasSessionsPermission).toBe(true);
-  });
-
-  test('sets the flag back to false', () => {
-    const granted = reducer(initialState, setHasSessionsPermission(true));
-    const revoked = reducer(granted, setHasSessionsPermission(false));
-    expect(revoked.hasSessionsPermission).toBe(false);
   });
 });

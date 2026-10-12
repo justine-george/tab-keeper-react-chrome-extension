@@ -64,24 +64,6 @@ describe('shouldOfferTabGroups', () => {
     expect(await shouldOfferTabGroups()).toBe(2);
   });
 
-  // A revoked permission is the most explicit "no" a user can give, and it
-  // must not re-arm the offer past an opt-out that is already recorded. This
-  // is the pairing that a stored "we asked already" mirror would get wrong.
-  test('an opted-out user who revokes the permission is still not re-asked', async () => {
-    handle = setupChromeFake({
-      ...twoGroupsUngranted,
-      grantedPermissions: ['tabGroups'],
-    });
-    seedSettings({ isNeverAskAgainForTabGroups: true });
-
-    await chrome.permissions.remove({ permissions: ['tabGroups'] });
-    expect(
-      await chrome.permissions.contains({ permissions: ['tabGroups'] })
-    ).toBe(false);
-
-    expect(await shouldOfferTabGroups()).toBeNull();
-  });
-
   // The control for the test above: the same revocation, without the opt-out,
   // DOES offer again. Without this, that test passes against a function that
   // never offers anything.

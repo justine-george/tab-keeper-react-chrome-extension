@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { act, screen, within } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -31,32 +31,8 @@ const renderOnDisplay = () =>
   });
 
 describe('settings panel identity (KAN-44)', () => {
-  test('does not recycle a theme swatch into the Auto Sync button', async () => {
-    const { store, container } = await renderOnDisplay();
-
-    // The five theme swatches are the only buttons on the Display panel.
-    const swatches = [...container.querySelectorAll('button')];
-    expect(swatches.length).toBeGreaterThan(0);
-    const firstSwatch = swatches[0];
-
-    act(() => {
-      store.dispatch(selectCategory(SettingsCategory.SYNC));
-    });
-
-    // The Auto Sync pair's first button (KAN-248): the group's "On" side.
-    const autoSync = within(
-      await screen.findByRole('group', { name: 'Auto Sync' })
-    ).getByRole('button', { name: 'On' });
-
-    // Unkeyed, React matches <button> to <button> at the same position and
-    // hands the swatch's own node to Auto Sync, carrying its computed
-    // background with it.
-    expect(autoSync).not.toBe(firstSwatch);
-  });
-
-  // The general statement of the same defect: no node *inside* the panel should
-  // survive a category change, because the two panels are not the same panel.
-  // Without this, a fix that only special-cased buttons would still pass above.
+  // No node *inside* the panel may survive a category change, because the two
+  // panels are not the same panel.
   //
   // The component's own outer container is excluded on purpose -- it lives
   // outside the keyed Fragment and is meant to persist. Asserting on every node
@@ -81,7 +57,7 @@ describe('settings panel identity (KAN-44)', () => {
   });
 
   // The control: keying the panel must not break the panel. A fix that
-  // remounted into an empty tree would satisfy both tests above.
+  // remounted into an empty tree would satisfy the test above.
   test('still renders the Sync panel after the switch', async () => {
     const { store } = await renderOnDisplay();
 
