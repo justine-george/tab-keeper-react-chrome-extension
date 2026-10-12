@@ -137,7 +137,7 @@ describe('undoOpenNowDrop: a tab goes back', () => {
     // PREMISE: the drop moved it.
     expect(await strip(1)).toEqual(['12', '13', '11*', '14']);
 
-    expect(await undoOpenNowDrop(drop, false)).toBe('undone');
+    await undoOpenNowDrop(drop, false);
 
     expect(await strip(1)).toEqual(['11*', '12', '13', '14']);
   });
@@ -149,7 +149,7 @@ describe('undoOpenNowDrop: the group a tab had', () => {
     const drop = await dropTab(tabMove(12, 1, 1, 3), true);
     expect(await strip(1)).toEqual(['11*', '13g5', '14', '12']);
 
-    expect(await undoOpenNowDrop(drop, true)).toBe('undone');
+    await undoOpenNowDrop(drop, true);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
   });
@@ -159,7 +159,7 @@ describe('undoOpenNowDrop: the group a tab had', () => {
     const drop = await dropTab(tabMove(12, 1, 2, 0), true);
     expect(await strip(1)).toEqual(['11*', '13g5', '14']);
 
-    expect(await undoOpenNowDrop(drop, true)).toBe('undone');
+    await undoOpenNowDrop(drop, true);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
     expect(await strip(2)).toEqual(['21*', '22']);
@@ -186,7 +186,7 @@ describe('undoOpenNowDrop: the group a tab had', () => {
     const drop = await dropTab(tabMove(13, 1, 2, 0), true);
     expect(await strip(1)).toEqual(['11*', '12g5', '14g5', '15']);
 
-    expect(await undoOpenNowDrop(drop, true)).toBe('undone');
+    await undoOpenNowDrop(drop, true);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14g5', '15']);
     expect(await strip(2)).toEqual(['21*']);
@@ -197,7 +197,7 @@ describe('undoOpenNowDrop: the group a tab had', () => {
     const drop = await dropTab(tabMove(14, 1, 1, 1, 5), true);
     expect(await strip(1)).toEqual(['11*', '14g5', '12g5', '13g5']);
 
-    expect(await undoOpenNowDrop(drop, true)).toBe('undone');
+    await undoOpenNowDrop(drop, true);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
   });
@@ -207,7 +207,7 @@ describe('undoOpenNowDrop: the group a tab had', () => {
     const drop = await dropTab(tabMove(22, 2, 1, 2, 5), true);
     expect(await strip(1)).toEqual(['11*', '12g5', '22g5', '13g5', '14']);
 
-    expect(await undoOpenNowDrop(drop, true)).toBe('undone');
+    await undoOpenNowDrop(drop, true);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
     expect(await strip(2)).toEqual(['21*', '22']);
@@ -219,7 +219,7 @@ describe('undoOpenNowDrop: the group a tab had', () => {
     // PREMISE: only its group changed.
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14g5']);
 
-    expect(await undoOpenNowDrop(drop, true)).toBe('undone');
+    await undoOpenNowDrop(drop, true);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
   });
@@ -247,7 +247,7 @@ describe('undoOpenNowDrop: the group a tab had', () => {
     // PREMISE: the group is expanded now.
     expect(handle.groupState(5)?.collapsed).toBe(false);
 
-    expect(await undoOpenNowDrop(drop, true)).toBe('undone');
+    await undoOpenNowDrop(drop, true);
 
     expect(await strip(1)).toEqual(['11', '12*g5', '13g5', '14']);
     expect(handle.groupState(5)?.collapsed).toBe(true);
@@ -284,7 +284,7 @@ describe('undoOpenNowDrop: a lone tab whose group Chrome removed (settled A)', (
       // PREMISE: Chrome removed the group.
       expect(handle.groupState(7)).toBeUndefined();
 
-      expect(await undoOpenNowDrop(drop, true)).toBe('undone');
+      await undoOpenNowDrop(drop, true);
 
       const rebuilt = await groupOf(12);
       expect(rebuilt).not.toBe(-1);
@@ -311,7 +311,7 @@ describe('undoOpenNowDrop: a lone tab whose group Chrome removed (settled A)', (
       group: null,
     });
 
-    expect(await undoOpenNowDrop(drop, false)).toBe('undone');
+    await undoOpenNowDrop(drop, false);
 
     expect(await strip(3)).toEqual(['11*', '12', '13']);
     expect(groupSpy).not.toHaveBeenCalled();
@@ -321,7 +321,7 @@ describe('undoOpenNowDrop: a lone tab whose group Chrome removed (settled A)', (
     handle = setupChromeFake(loneTab());
     const drop = await dropTab(tabMove(12, 3, 4, 0), false);
 
-    expect(await undoOpenNowDrop(drop, true)).toBe('undone');
+    await undoOpenNowDrop(drop, true);
 
     expect(await strip(3)).toEqual(['11*', '12', '13']);
   });
@@ -334,7 +334,7 @@ describe('undoOpenNowDrop: without the grant (spec O11e, E4)', () => {
     // PREMISE: Chrome took it out (Task 1 Q3), and nothing put it back.
     expect(await strip(1)).toEqual(['11*', '13g5', '14', '12']);
 
-    expect(await undoOpenNowDrop(drop, false)).toBe('undone');
+    await undoOpenNowDrop(drop, false);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
   });
@@ -345,7 +345,7 @@ describe('undoOpenNowDrop: without the grant (spec O11e, E4)', () => {
     // PREMISE: Chrome joined it (Part D M2).
     expect(await strip(1)).toEqual(['11*', '12g5', '14g5', '13g5']);
 
-    expect(await undoOpenNowDrop(drop, false)).toBe('undone');
+    await undoOpenNowDrop(drop, false);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
   });
@@ -357,7 +357,7 @@ describe('undoOpenNowDrop: without the grant (spec O11e, E4)', () => {
     expect(await strip(1)).toEqual(['11*', '12g5', '22g5', '13g5', '14']);
     expect(drop.moved.map(({ after }) => after.groupId)).toEqual([5]);
 
-    expect(await undoOpenNowDrop(drop, false)).toBe('undone');
+    await undoOpenNowDrop(drop, false);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
     expect(await strip(2)).toEqual(['21*', '22']);
@@ -390,7 +390,7 @@ describe('undoOpenNowDrop: a group goes back', () => {
     const drop = await dropGroup(groupMove(5, 1, 1, 3));
     expect(await strip(1)).toEqual(['11*', '14', '15', '12g5', '13g5']);
 
-    expect(await undoOpenNowDrop(drop, true)).toBe('undone');
+    await undoOpenNowDrop(drop, true);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14', '15']);
   });
@@ -400,7 +400,7 @@ describe('undoOpenNowDrop: a group goes back', () => {
     const drop = await dropGroup(groupMove(5, 1, 2, 1));
     handle.browser.setGroup(5, { collapsed: false });
 
-    expect(await undoOpenNowDrop(drop, true)).toBe('undone');
+    await undoOpenNowDrop(drop, true);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14', '15']);
     expect(handle.groupState(5)?.collapsed).toBe(true);
@@ -432,7 +432,7 @@ describe('undoOpenNowDrop: a group goes back', () => {
       const newId = drop.moved[0]?.after.groupId;
       if (newId === undefined) throw new Error('no record');
 
-      expect(await undoOpenNowDrop(drop, true)).toBe('undone');
+      await undoOpenNowDrop(drop, true);
 
       expect(await strip(1)).toEqual([
         '11',
@@ -474,7 +474,7 @@ describe('undoOpenNowDrop: a group goes back', () => {
       expect(await strip(2)).toEqual(['21', '12*g5', '13g5', '22']);
       const groupMoveSpy = vi.spyOn(chrome.tabGroups, 'move');
 
-      expect(await undoOpenNowDrop(drop, true)).toBe('undone');
+      await undoOpenNowDrop(drop, true);
 
       expect(groupMoveSpy).not.toHaveBeenCalled();
       const regrouped = await groupOf(12);
@@ -501,7 +501,7 @@ describe('undoOpenNowDrop: stale (Review Focus 3)', () => {
     handle.browser.closeTab(12);
     const moveSpy = vi.spyOn(chrome.tabs, 'move');
 
-    expect(await undoOpenNowDrop(drop, false)).toBe('stale');
+    await undoOpenNowDrop(drop, false);
 
     expect(moveSpy).not.toHaveBeenCalled();
     expect(await strip(1)).toEqual(['11*', '13', '14']);
@@ -516,7 +516,7 @@ describe('undoOpenNowDrop: stale (Review Focus 3)', () => {
     expect(await strip(1)).toEqual(['13', '11*', '14']);
     const moveSpy = vi.spyOn(chrome.tabs, 'move');
 
-    expect(await undoOpenNowDrop(drop, false)).toBe('stale');
+    await undoOpenNowDrop(drop, false);
 
     expect(moveSpy).not.toHaveBeenCalled();
     expect(await strip(1)).toEqual(['13', '11*', '14']);
@@ -539,7 +539,7 @@ describe('undoOpenNowDrop: stale (Review Focus 3)', () => {
     const moveSpy = vi.spyOn(chrome.tabs, 'move');
     const ungroupSpy = vi.spyOn(chrome.tabs, 'ungroup');
 
-    expect(await undoOpenNowDrop(drop, true)).toBe('stale');
+    await undoOpenNowDrop(drop, true);
 
     expect(moveSpy).not.toHaveBeenCalled();
     expect(ungroupSpy).not.toHaveBeenCalled();
@@ -558,7 +558,7 @@ describe('undoOpenNowDrop: stale (Review Focus 3)', () => {
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '22g5', '14']);
     const moveSpy = vi.spyOn(chrome.tabs, 'move');
 
-    expect(await undoOpenNowDrop(drop, false)).toBe('stale');
+    await undoOpenNowDrop(drop, false);
 
     expect(moveSpy).not.toHaveBeenCalled();
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '22g5', '14']);
@@ -572,7 +572,7 @@ describe('undoOpenNowDrop: stale (Review Focus 3)', () => {
     const groupMoveSpy = vi.spyOn(chrome.tabGroups, 'move');
     const moveSpy = vi.spyOn(chrome.tabs, 'move');
 
-    expect(await undoOpenNowDrop(drop, true)).toBe('stale');
+    await undoOpenNowDrop(drop, true);
 
     expect(groupMoveSpy).not.toHaveBeenCalled();
     expect(moveSpy).not.toHaveBeenCalled();
@@ -586,7 +586,7 @@ describe('undoOpenNowDrop: Chrome refuses part way (no throw; the list re-reads)
     const drop = await dropTab(tabMove(12, 1, 1, 3), true);
     vi.spyOn(chrome.tabs, 'group').mockRejectedValue(new Error('refused'));
 
-    expect(await undoOpenNowDrop(drop, true)).toBe('refused');
+    await undoOpenNowDrop(drop, true);
 
     expect(await strip(1)).toEqual(['11*', '12', '13g5', '14']);
   });
@@ -605,7 +605,7 @@ describe('undoOpenNowDrop: Chrome refuses part way (no throw; the list re-reads)
       (await chrome.windows.getAll({})).map((window) => window.id)
     ).toEqual([2]);
 
-    expect(await undoOpenNowDrop(drop, false)).toBe('refused');
+    await undoOpenNowDrop(drop, false);
 
     expect(await strip(2)).toEqual(['21*', '11']);
   });
@@ -630,7 +630,7 @@ describe('undoOpenNowDrop: Chrome refuses part way (no throw; the list re-reads)
     handle.browser.activateTab(12);
     vi.spyOn(chrome.tabs, 'group').mockRejectedValue(new Error('refused'));
 
-    expect(await undoOpenNowDrop(drop, true)).toBe('refused');
+    await undoOpenNowDrop(drop, true);
 
     expect(await strip(1)).toEqual(['11*', '12', '13', '14']);
   });

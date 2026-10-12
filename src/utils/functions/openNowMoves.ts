@@ -588,12 +588,6 @@ export function changedAnyPlace(moved: MovedTabs): boolean {
   );
 }
 
-// What an undo did: 'undone', every tab back; 'stale', nothing, because a
-// tab is no longer where the drop left it (moved or closed outside Tab
-// Keeper); 'refused', Chrome refused a step part way, and the tabs are
-// wherever Chrome left them.
-export type UndoOutcome = 'undone' | 'stale' | 'refused';
-
 // Each recorded tab as Chrome has it now, when every one is still where the
 // drop left it (its `after` window, index and group, ledger R14); null when
 // any has moved, been regrouped or closed since. A tab regrouped by hand in
@@ -761,22 +755,19 @@ async function putGroupBack(
 export async function undoOpenNowDrop(
   drop: OpenNowDrop,
   hasTabGroups: boolean
-): Promise<UndoOutcome> {
+): Promise<void> {
   const states = await whereTheDropLeftThem(drop.moved);
-  if (states === null) return 'stale';
+  if (states === null) return;
   // The look is only read or set with the grant, and chrome.tabGroups is
   // absent without it.
   const withLook = hasTabGroups && Boolean(chrome.tabGroups);
 
   if (drop.kind === 'group') {
-    if (!withLook) return 'refused';
-    return (await putGroupBack(drop.moved, states)) ? 'undone' : 'refused';
+    if (withLook) await putGroupBack(drop.moved, states);
+    return;
   }
   for (const [i, tab] of drop.moved.entries()) {
     const now = states[i];
-    if (now === undefined || !(await putTabBack(tab, now, withLook))) {
-      return 'refused';
-    }
+    if (now === undefined || !(await putTabBack(tab, now, withLook))) return;
   }
-  return 'undone';
 }

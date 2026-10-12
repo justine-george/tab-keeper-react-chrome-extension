@@ -1,4 +1,5 @@
-import { fireEvent } from '@testing-library/react';
+import { fireEvent, waitFor } from '@testing-library/react';
+import { expect, type Mock } from 'vitest';
 
 import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
@@ -111,3 +112,13 @@ export function drag(el: HTMLElement, from: number, to: number) {
 }
 
 export const tabRow = (id: number) => find(`[data-drag-row-id="${id}"]`);
+
+// A drop has settled once the one real move it asked Chrome for has resolved,
+// and that move was carried out (not refused). The hook keeps its ⌘Z record in
+// that same promise's continuation, which runs before this one.
+export async function expectMoveCarriedOut<
+  F extends (...args: never[]) => Promise<unknown>,
+>(move: Mock<F>): Promise<void> {
+  await waitFor(() => expect(move).toHaveBeenCalledTimes(1));
+  expect(await move.mock.results[0]?.value).not.toBeNull();
+}

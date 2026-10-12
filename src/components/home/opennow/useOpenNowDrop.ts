@@ -128,10 +128,6 @@ interface Options {
   hasTabGroups: boolean;
   // The windows the pane has folded shut, by Chrome id.
   collapsedIds: ReadonlySet<number>;
-  // Every move Chrome carried out, with each tab's place before and after
-  // (openNowMoves' MovedTabs). A drop in place hands on a record whose
-  // places are equal; a refused one hands on nothing.
-  onMoved?: (moved: MovedTabs) => void;
 }
 
 /**
@@ -142,7 +138,6 @@ export function useOpenNowDrop({
   windows,
   hasTabGroups,
   collapsedIds,
-  onMoved,
 }: Options) {
   const dragWindows = useMemo(
     () => openDragWindows(windows, hasTabGroups),
@@ -226,13 +221,6 @@ export function useOpenNowDrop({
     };
   }, [windows]);
 
-  // The latest callback, read at the moment a move settles, so a caller
-  // passing a new function each render does not re-bind the engine.
-  const onMovedRef = useRef(onMoved);
-  useEffect(() => {
-    onMovedRef.current = onMoved;
-  }, [onMoved]);
-
   const accepts = useCallback(
     (held: Held | undefined, windowId: string): boolean => {
       // A row the snapshot does not hold describes no move either; nothing to
@@ -297,7 +285,6 @@ export function useOpenNowDrop({
       const moved = await moveOpenTab(move, windows, hasTabGroups);
       if (moved !== null) {
         keepForUndo({ kind: 'tab', moved });
-        onMovedRef.current?.(moved);
       }
       return moved;
     },
@@ -316,7 +303,6 @@ export function useOpenNowDrop({
       const moved = await moveOpenGroup(move, windows);
       if (moved !== null) {
         keepForUndo({ kind: 'group', moved });
-        onMovedRef.current?.(moved);
       }
       return moved;
     },

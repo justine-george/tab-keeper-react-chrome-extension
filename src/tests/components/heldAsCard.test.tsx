@@ -819,7 +819,6 @@ describe('CONTROLS: no card, the old look', () => {
       searchText: '',
       onSearchTextChange: () => undefined,
       searchInputRef: createRef<HTMLInputElement>(),
-      onMoved: () => undefined,
     };
     const result = await renderWithProviders(
       <>
