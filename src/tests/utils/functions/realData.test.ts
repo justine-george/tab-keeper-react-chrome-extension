@@ -14,17 +14,14 @@ import { isValidTabMasterContainer } from '../../../utils/functions/local';
 // UI, one of them spanning two windows).
 describe('validator against real saved data', () => {
   it('accepts a container captured from a real profile', () => {
-    expect(isValidTabMasterContainer(real)).toBe(true);
-  });
-
-  // Guards the test above against becoming vacuous: a fixture trimmed to a
-  // hand-written minimal object would still pass the assertion while proving
-  // nothing about real saved sessions.
-  it('the fixture is a populated capture, not a minimal stand-in', () => {
+    // The premise: a populated capture, not a minimal stand-in that would pass
+    // while proving nothing about real saved sessions.
     expect(real.tabGroups.length).toBeGreaterThanOrEqual(3);
     expect(real.tabGroups.some((g) => g.windows.length > 1)).toBe(true);
     expect(
       real.tabGroups.every((g) => g.windows.every((w) => w.tabs.length > 0))
     ).toBe(true);
+
+    expect(isValidTabMasterContainer(real)).toBe(true);
   });
 });
