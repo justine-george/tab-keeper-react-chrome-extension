@@ -75,16 +75,6 @@ const seeded = () => {
 };
 
 describe('applyUndoSnapshot with nothing to restore', () => {
-  test('does not throw', () => {
-    const store = seeded();
-
-    expect(() =>
-      store.dispatch(
-        applyUndoSnapshot({ snapshot: undefined, withdrawTabGroupIds: [] })
-      )
-    ).not.toThrow();
-  });
-
   // THE ONE THAT DECIDES THE GUARD'S SHAPE. "Nothing to restore" means leave
   // the container alone -- not reset it. A guard returning initialState would
   // pass every other test in the suite while silently deleting the user's

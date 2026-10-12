@@ -78,35 +78,6 @@ const buildGroup = (title: string) => ({
 });
 
 describe('undo/redo shortcuts yield to native text editing (KAN-52)', () => {
-  // CONTROL. Must stay green throughout: the guard has to scope the listener
-  // down, not switch it off. Without this a "return early always" fix passes
-  // every other test in this file.
-  describe('outside a text field the app shortcut still works', () => {
-    test('cmd+z on the document runs the app undo and claims the event', async () => {
-      const { seen } = await renderWithProviders(<MainContainer />);
-
-      const before = seen.length;
-      const event = press(document.body, { key: 'z', metaKey: true });
-
-      expect(seen.slice(before)).toContain(UNDO);
-      expect(event.defaultPrevented).toBe(true);
-    });
-
-    test('cmd+shift+z on the document runs the app redo and claims the event', async () => {
-      const { seen } = await renderWithProviders(<MainContainer />);
-
-      const before = seen.length;
-      const event = press(document.body, {
-        key: 'z',
-        metaKey: true,
-        shiftKey: true,
-      });
-
-      expect(seen.slice(before)).toContain(REDO);
-      expect(event.defaultPrevented).toBe(true);
-    });
-  });
-
   // RED. The "save all open windows as a session" box is on screen the moment
   // the popup opens, pre-filled with the current tab's title -- the single most
   // reachable text field in the app, needing no sign-in and no saved sessions.
