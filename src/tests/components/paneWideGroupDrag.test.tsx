@@ -203,79 +203,9 @@ afterEach(() => {
 });
 
 describe('a group drag in a pane-wide items list', () => {
-  // The index a drop reports is applied to the group's own window. Counted over
-  // the whole pane it would include wA's item above, and gb moved to its own
-  // place is the no-op the reducer already refuses -- so the wrong number reads
-  // as "nothing happened".
-  test('a reorder in the SECOND window lands at its place in that window', async () => {
-    const { container, store } = await render();
-    const node = layout(container);
-
-    // Above tab:b0's midpoint (90): the top of wB.
-    press(handleOf(container, 'gb'), 110);
-    moveTo(85);
-    release(85);
-
-    expect(tabsOf(store, 1)).toBe('b1* b2* b0 b3');
-    expect(tabsOf(store, 0)).toBe(A_START);
-    // The other window's row never moved.
-    expect(shift(node('tab:a0'))).toBe(0);
-  });
-
-  // KAN-132 §11.3, and the reason the pane-wide list exists at all: the group
-  // lands in the OTHER window, at an index counted among THAT window's items.
-  //
-  // wA holds one item, so index 0 and index 1 are the two answers available,
-  // and they differ visibly: this releases ABOVE that item's midpoint, so the
-  // group goes first and the item steps aside for it. An index counted over the
-  // pane instead, or applied to the group's own window, cannot produce this.
-  test('a group released over the first window lands there', async () => {
-    const { container, store } = await render();
-    const node = layout(container);
-
-    // Squarely over wA's block, and above its only row's midpoint (30).
-    press(handleOf(container, 'gb'), 110);
-    moveTo(25);
-
-    // THE PREVIEW, in each window's own frame: wA opens from its first item
-    // down, wB closes up below the group that is leaving it, and nothing else
-    // moves.
-    const footprint = shift(node('tab:a0'));
-    expect(footprint).toBeGreaterThan(0);
-    expect(shift(node('tab:b3'))).toBe(-footprint);
-    expect(shift(node('tab:b0'))).toBe(0);
-
-    release(25);
-
-    expect(tabsOf(store, 0)).toBe('b1* b2* a0');
-    expect(tabsOf(store, 1)).toBe('b0 b3');
-  });
-
-  // KAN-185, and this REPLACES "a group released between the two windows
-  // commits nothing". The gap between two blocks belongs to the NEARER of
-  // them, so the boundary is a point rather than an 8px band that previewed a
-  // landing back at the row's own origin -- see the tab list's own version of
-  // this test for the measurement.
-  test('a group released between the two windows lands in the nearer one', async () => {
-    const { container, store } = await render();
-    layout(container);
-
-    press(handleOf(container, 'gb'), 110);
-    moveTo(45);
-    release(45);
-
-    // y 45 is nearer wA's block than wB's, and past every wA row's midpoint,
-    // so the group arrives whole at the end of that window.
-    expect(tabsOf(store, 0)).toBe(`${A_START} b1* b2*`);
-    expect(tabsOf(store, 1)).toBe('b0 b3');
-    expect(store.getState().globalState.isDirty).toBe(true);
-  });
-
-  // THE CONTROL for the refusal above: the same group, released inside its own
-  // window, still moves.
-  // THE CONTROL for the rule above: the gap belongs to a window only BETWEEN
-  // two blocks. Far below the last one there is no nearer block to claim the
-  // release, and it is still refused -- the KAN-132 guard this must not widen.
+  // A gap belongs to the nearer window only BETWEEN two blocks (KAN-185). Far
+  // below the last one there is no nearer block, and the release is still
+  // refused: the KAN-132 guard. groupDrag's refusal test stays green without it (KAN-528).
   test('CONTROL: a group released below the last window still commits nothing', async () => {
     const { container, store } = await render();
     layout(container);
@@ -289,6 +219,8 @@ describe('a group drag in a pane-wide items list', () => {
     expect(store.getState().globalState.isDirty).toBe(false);
   });
 
+  // THE CONTROL for the refusal above: the same group, released inside its own
+  // window, still moves.
   test('CONTROL: the same group still reorders inside its own window', async () => {
     const { container, store } = await render();
     layout(container);

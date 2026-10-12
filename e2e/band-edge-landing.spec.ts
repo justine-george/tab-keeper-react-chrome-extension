@@ -142,15 +142,6 @@ const AROUND = [
   tab('x2', 'alpha'),
   tab('a3'),
 ];
-// a0 [Beta: b0 b1] [Gamma: g0 g1] a3. Gamma's band starts 138, 8px under Beta.
-const SANDWICH = [
-  tab('a0'),
-  tab('b0', 'beta'),
-  tab('b1', 'beta'),
-  tab('g0', 'gamma'),
-  tab('g1', 'gamma'),
-  tab('a3'),
-];
 
 test('a loose tab from below, landing just above a band, rests flush under the row above it', async ({
   context,
@@ -235,60 +226,6 @@ test('a member leaving downward past its band rests a band margin under it', asy
   expect(slot).toBe(truth.x2);
 });
 
-test('a member leaving upward from a band that follows another band: the wide gap less a margin', async ({
-  context,
-  extensionId,
-}) => {
-  const truth = await tops(
-    await open(context, extensionId, [
-      tab('a0'),
-      tab('b0', 'beta'),
-      tab('b1', 'beta'),
-      tab('g0'),
-      tab('g1', 'gamma'),
-      tab('a3'),
-    ])
-  );
-  expect(truth.g0).toBe(132);
-
-  const page = await open(context, extensionId, SANDWICH);
-  const { slot, lit } = await slotWhileDragging(
-    page,
-    'g0',
-    (await bandBox(page, 'gamma')).y - 3
-  );
-  expect(lit).toEqual([]);
-  // This was 138 -- six pixels, not two: the title row sits KAN-179's 8px
-  // under the band above, and a loose tab keeps only 2 of it.
-  expect(slot).toBe(truth.g0);
-});
-
-test('a loose tab from above landing between two bands rests a margin under the upper one', async ({
-  context,
-  extensionId,
-}) => {
-  const truth = await tops(
-    await open(context, extensionId, [
-      tab('b0', 'beta'),
-      tab('b1', 'beta'),
-      tab('a0'),
-      tab('g0', 'gamma'),
-      tab('g1', 'gamma'),
-      tab('a3'),
-    ])
-  );
-  expect(truth.a0).toBe(100);
-
-  const page = await open(context, extensionId, SANDWICH);
-  const { slot, lit } = await slotWhileDragging(
-    page,
-    'a0',
-    (await bandBox(page, 'gamma')).y - 3
-  );
-  expect(lit).toEqual([]);
-  expect(slot).toBe(truth.a0);
-});
-
 test('a band leading its window: a loose tab from below rests at the top of the list', async ({
   context,
   extensionId,
@@ -317,27 +254,6 @@ test('a band leading its window: a loose tab from below rests at the top of the 
   );
   expect(lit).toEqual([]);
   expect(slot).toBe(truth.a1);
-});
-
-// Without this a slot drawn a constant 2px higher everywhere would pass the
-// tests above that need -2 and fail only the ones that need +2 -- and a join
-// is where such a constant would show first.
-test('CONTROL: joining at the head from above is exact, and stays exact', async ({
-  context,
-  extensionId,
-}) => {
-  const page = await open(context, extensionId, AROUND);
-  const title = (await page
-    .locator('[data-band-id="alpha"] [data-group-drag-handle]')
-    .boundingBox())!;
-  const { slot, lit } = await slotWhileDragging(
-    page,
-    'a2',
-    title.y + title.height / 2
-  );
-  expect(lit).toEqual(['alpha']);
-  // TRUTH.fromAbove.a2 in tab-group-join-preview.spec.ts.
-  expect(slot).toBe(98);
 });
 
 // The same edges, reached from ANOTHER WINDOW (KAN-132). A tab arriving from

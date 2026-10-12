@@ -840,18 +840,7 @@ test.describe('undoing a cross-window group move', () => {
       .toBe('be0* be1* b0 al0* al1* b1');
     expect(await order(page, 'w1')).toBe('a0 a2');
 
-    // RowDragArea's own click suppression (the same 400ms the "into a
-    // collapsed window" test above waits out before its Expand click) is a
-    // capture-phase listener on `window`, not scoped to rows -- it swallows
-    // the very next click ANYWHERE in the document after a drag ends. Undo
-    // sits in the left pane, nowhere near the dragged row, and still eats it:
-    // MEASURED by running this assertion without the wait below, which timed
-    // out with w1 still 'a0 a2' -- the click landed on Undo (no error, no
-    // navigation) but the drop's own suppression consumed it before
-    // handleClickUndo ever ran, so nothing was dispatched. Waiting it out
-    // first is the fixed product constant Task 12 concern 6 named, not a
-    // race, and the same idiom this file already uses.
-    await page.waitForTimeout(450);
+    // At once: the drop's click suppression ends at the next press, Undo's included (KAN-177).
     const undo = page.getByRole('button', { name: 'Undo' });
     await expect(undo).not.toHaveAttribute('aria-disabled', 'true');
     await undo.click();

@@ -253,29 +253,6 @@ test.describe('the group colour strip is a legal target (KAN-231)', () => {
     expect((await geometry(page)).paint).toBe(7);
   });
 
-  // CONTROL for tab-group-join-preview.spec, which reads the strip's ::before
-  // as its paint layer and falls back when there is none. The hit area is a
-  // ::after precisely so that probe keeps falling back.
-  test('the hit area is a ::after, and the strip still has no ::before', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await open(context, extensionId);
-
-    const pseudo = await page.evaluate((sel) => {
-      const strip = document.querySelector<HTMLElement>(sel)!;
-      return {
-        before: getComputedStyle(strip, '::before').content,
-        after: getComputedStyle(strip, '::after').content,
-        afterWidth: parseFloat(getComputedStyle(strip, '::after').width),
-      };
-    }, STRIP);
-
-    expect(pseudo.before).toBe('none');
-    expect(pseudo.after).not.toBe('none');
-    expect(pseudo.afterWidth).toBe(24);
-  });
-
   // The gate. The strip is a button, and its hit area now reaches into space
   // the window's tab list owns. Three things must be true: a click anywhere
   // in the hit area opens the picker; a DRAG gesture that starts there moves

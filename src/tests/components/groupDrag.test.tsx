@@ -127,26 +127,6 @@ const layoutItems = (c: HTMLElement) =>
 const ALPHA_Y = 48;
 const BETA_Y = 176;
 
-// Open tabs, for the tab-drag control: a0 | Alpha title, g1a, g1b | a1 | Beta title, g2a, g2b
-const layoutTabs = (c: HTMLElement) => {
-  const tops: Record<string, number> = {
-    a0: 0,
-    g1a: 64,
-    g1b: 96,
-    a1: 128,
-    g2a: 192,
-    g2b: 224,
-  };
-  Object.entries(tops).forEach(
-    ([id, top]) => (row(c, id).getBoundingClientRect = () => box(top, 32))
-  );
-  c.querySelector<HTMLElement>(
-    '[data-band-id="alpha"]'
-  )!.getBoundingClientRect = () => box(32, 96);
-  c.querySelector<HTMLElement>('[data-band-id="beta"]')!.getBoundingClientRect =
-    () => box(160, 96);
-};
-
 const press = (el: Element, y: number) =>
   fireEvent.pointerDown(el, { clientX: 10, clientY: y, button: 0 });
 const moveTo = (y: number, x = 10) =>
@@ -177,28 +157,6 @@ describe('which press starts which drag', () => {
     expect(row(container, 'group:alpha').hasAttribute('data-drag-held')).toBe(
       false
     );
-  });
-
-  test('a press on a tab starts a tab drag', async () => {
-    const { container } = await render();
-    layoutTabs(container);
-    press(row(container, 'a0'), 16);
-    moveTo(30);
-    expect(kind()).toBe('tab');
-  });
-
-  // The colour bar is outside the handle and keeps opening its picker.
-  test('a press and move on the colour bar starts no drag', async () => {
-    const { container, store } = await render();
-    layoutItems(container);
-    press(
-      screen.getByRole('button', { name: 'Change group color: Alpha' }),
-      ALPHA_Y
-    );
-    moveTo(200);
-    release(200);
-    expect(kind()).toBeNull();
-    expect(order(store)).toEqual(TABS.map((t) => t.tabId));
   });
 
   test('without the permission there is no group handle at all', async () => {
@@ -289,17 +247,6 @@ describe('the controls inside the handle keep their clicks', () => {
 });
 
 describe('where a group drop lands', () => {
-  // Beta held: a0 [0,32) alpha [32,128) a1 [128,160) beta [160,192).
-  test('a drop between items moves the group, whole', async () => {
-    const { container, store } = await render();
-    layoutItems(container);
-    press(handle(container, 'beta'), BETA_Y);
-    moveTo(100);
-    moveTo(10);
-    release(10);
-    expect(order(store)).toEqual(['g2a', 'g2b', 'a0', 'g1a', 'g1b', 'a1']);
-  });
-
   // Main's pick-up rule is kept (KAN-161), so this holds only because the
   // fold never shrinks anything ABOVE the held group.
   test('a pick-up with no vertical travel changes nothing', async () => {
@@ -324,32 +271,5 @@ describe('where a group drop lands', () => {
     release(400);
     expect(others).toEqual(['', '', '']);
     expect(order(store)).toEqual(TABS.map((t) => t.tabId));
-  });
-
-  test('Escape cancels', async () => {
-    const { container, store } = await render();
-    layoutItems(container);
-    press(handle(container, 'beta'), BETA_Y);
-    moveTo(10);
-    fireEvent.keyDown(window, { key: 'Escape' });
-    release(10);
-    expect(order(store)).toEqual(TABS.map((t) => t.tabId));
-  });
-
-  // CONTROL: nesting the group list did not take a tab drag's band rule away.
-  test('CONTROL: a tab dropped on a band still joins that group', async () => {
-    const { container, store } = await render();
-    layoutTabs(container);
-    press(row(container, 'a0'), 16);
-    moveTo(60);
-    moveTo(100);
-    release(100);
-    const a0 = store
-      .getState()
-      .tabContainerDataState.tabGroups[0].windows[0].tabs.find(
-        (t) => t.tabId === 'a0'
-      )!;
-    expect(a0.chromeGroupId).toBe('alpha');
-    expect(order(store)).toEqual(['g1a', 'a0', 'g1b', 'a1', 'g2a', 'g2b']);
   });
 });

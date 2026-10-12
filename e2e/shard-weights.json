@@ -52,7 +52,6 @@
   "full-view-show.spec.ts": 1.3,
   "golden-path.spec.ts": 0.96,
   "granted-profile-consented.spec.ts": 0.79,
-  "group-boundary-slot.spec.ts": 1.68,
   "group-drag.spec.ts": 1.76,
   "group-landing-slot.spec.ts": 1.87,
   "group-strip-target.spec.ts": 1.59,

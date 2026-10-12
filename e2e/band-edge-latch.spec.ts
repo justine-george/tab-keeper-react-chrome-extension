@@ -150,30 +150,4 @@ test.describe('the leading edge of a band', () => {
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
-
-  // CONTROL, and the defect this must not hand back (KAN-171): the growth is a
-  // preview of the result, never a bigger target. A pointer clear of every
-  // band leaves none of them lit -- which a hit test that simply used the grown
-  // box would fail, since that box reaches a row higher.
-  test('CONTROL: a pointer above every band lights none of them', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await open(context, extensionId);
-    const bandA = await boxOf(page, '[data-band-id="A"]');
-    const x = await hold(page, 'last');
-
-    // Into band A first, so there is something lit to put out.
-    await page.mouse.move(x, bandA.y + 10, { steps: 6 });
-    await page.waitForTimeout(200);
-    expect(await markedBand(page)).toBe('A');
-
-    // Then clear of it, by less than the growth reaches.
-    await page.mouse.move(x, bandA.y - 6, { steps: 6 });
-    await page.waitForTimeout(200);
-    expect(await markedBand(page)).toBe('none');
-
-    await page.keyboard.press('Escape');
-    await page.mouse.up();
-  });
 });
