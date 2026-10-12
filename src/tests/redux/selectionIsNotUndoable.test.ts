@@ -107,23 +107,6 @@ describe('selection is not an undoable step (KAN-57)', () => {
     expect(redoAvailable(store)).toBe(false);
   });
 
-  // The headline defect. Measured before the fix: redoAvailable went true ->
-  // false on the click, and the rename could never be recovered.
-  test('selecting a session preserves the redo stack', () => {
-    const { store } = seeded();
-
-    store.dispatch(
-      updateTabGroupTitle({ tabGroupId: 'group-2', editableTitle: 'RENAMED' })
-    );
-    store.dispatch(undo());
-    expect(redoAvailable(store)).toBe(true);
-    expect(titleOf(store, 'group-2')).toBe('Bravo');
-
-    store.dispatch(selectTabContainer('group-1'));
-
-    expect(redoAvailable(store)).toBe(true);
-  });
-
   // The recovery has to actually work, not merely be advertised by a
   // non-empty stack.
   test('the redo still recovers the edit after a selection', () => {

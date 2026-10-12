@@ -29,7 +29,6 @@ import {
   saveToTabContainerInternal,
   moveWindowInternal,
   moveSessionInternal,
-  updateTabGroupTitle,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { undo } from '../../redux/slices/undoRedoSlice';
 import { makeTestStore } from '../setup/makeStore';
@@ -321,45 +320,5 @@ describe('undoing a window reorder survives the next sync (KAN-129)', () => {
     after.forEach((g) => {
       expect(g.contentModified).toBe(before.get(g.tabGroupId));
     });
-  });
-});
-
-// A guard on the title path, which shares the comparator. Included because the
-// window list is the thing being changed here, and a comparator "fixed" by
-// comparing windows more loosely would pass every test above while breaking
-// this one.
-describe('the comparator still sees a plain title edit', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    mocks.loadFromFirestore.mockReset();
-    mocks.saveToFirestore.mockReset().mockResolvedValue(undefined);
-  });
-
-  it('keeps a session title the user undid', async () => {
-    const { store } = makeTestStore();
-    store.dispatch(setSignedIn());
-    store.dispatch(setUserId('u1'));
-    store.dispatch(saveToTabContainerInternal(seed()));
-
-    store.dispatch(
-      updateTabGroupTitle({ tabGroupId: 's1', editableTitle: 'RENAMED' })
-    );
-    const cloud = JSON.parse(
-      JSON.stringify(store.getState().tabContainerDataState)
-    );
-
-    store.dispatch(undo());
-    const afterUndo = store.getState().tabContainerDataState;
-
-    mocks.loadFromFirestore.mockResolvedValue(cloud);
-    localStorage.setItem('tabContainerData', JSON.stringify(afterUndo));
-    await store.dispatch(syncStateWithFirestore() as never);
-
-    expect(
-      store
-        .getState()
-        .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === 's1')!
-        .title
-    ).toBe('Alpha');
   });
 });

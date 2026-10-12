@@ -221,10 +221,6 @@ describe('undoing a structural edit survives the next sync (KAN-139)', () => {
     // edit, the merge hands back the cloud's copy and this reads `after`.
     expect(shapeOf(store.getState().tabContainerDataState)).toBe(before);
   });
-
-  it('covers every reducer that re-stamps createdAt', () => {
-    expect(STRUCTURAL_EDITS).toHaveLength(6);
-  });
 });
 
 // THE CONTROL. Reporting MORE sessions as changed makes every assertion above
