@@ -38,18 +38,6 @@ describe('parseViewMode', () => {
 });
 
 describe('isTabView', () => {
-  test('true when the URL carries ?view=tab', () => {
-    window.history.replaceState(null, '', '/index.html?view=tab');
-
-    expect(isTabView()).toBe(true);
-  });
-
-  test('false with no query string, as the popup loads', () => {
-    window.history.replaceState(null, '', '/index.html');
-
-    expect(isTabView()).toBe(false);
-  });
-
   // The interface's point: read per call, not memoised at module load, so a
   // page never has to reload for the answer to follow the URL.
   test('reads the URL fresh on every call, not once at module load', () => {

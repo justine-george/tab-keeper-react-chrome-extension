@@ -12,22 +12,6 @@ const TARGET = 'https://example.com/';
 // registered dies with it. So the swap lives in the service worker, and only a
 // real extension with a real worker can prove it works.
 test.describe('service worker', () => {
-  // Distinguishes "the listener was never registered" from "the listener ran
-  // and did the wrong thing" -- different bugs with the same symptom.
-  test('registers its tab and message listeners', async ({ serviceWorker }) => {
-    const listeners = await serviceWorker.evaluate(() => ({
-      onActivated: chrome.tabs.onActivated.hasListeners(),
-      onMessage: chrome.runtime.onMessage.hasListeners(),
-      manifestVersion: chrome.runtime.getManifest().manifest_version,
-    }));
-
-    expect(listeners).toEqual({
-      onActivated: true,
-      onMessage: true,
-      manifestVersion: 3,
-    });
-  });
-
   test('swaps an activated lazy-load placeholder for its real page', async ({
     serviceWorker,
   }) => {

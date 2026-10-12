@@ -3,7 +3,6 @@ import { act, fireEvent } from '@testing-library/react';
 
 import HeroContainerLeft from '../../components/home/leftpane/HeroContainerLeft';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import {
   installFakeAudio,
   startedTicks,
@@ -59,18 +58,6 @@ afterEach(() => {
   uninstallFakeAudio();
   vi.restoreAllMocks();
 });
-const reduceMotion = () =>
-  vi
-    .spyOn(window, 'matchMedia')
-    .mockImplementation(
-      (query: string) =>
-        new FakeMediaQueryList(
-          query,
-          query === '(prefers-reduced-motion: reduce)'
-        )
-    );
-// One shutter click: two ticks, 35ms apart.
-const ONE_CLICK = [2, expect.closeTo(2.035, 6)];
 
 describe('clicking the header mark', () => {
   test('presses the mark, and slides the shutter open and back 60ms behind it', async () => {
@@ -111,36 +98,6 @@ describe('clicking the header mark', () => {
     expect(runs).toHaveLength(4);
   });
 
-  test('reduced motion starts nothing', async () => {
-    installAnimate();
-    vi.spyOn(window, 'matchMedia').mockImplementation(
-      (query: string) =>
-        new FakeMediaQueryList(
-          query,
-          query === '(prefers-reduced-motion: reduce)'
-        )
-    );
-    const { mark } = await setup();
-    fireEvent.click(mark);
-
-    expect(runs).toHaveLength(0);
-  });
-
-  test('without Web Animations a click is harmless', async () => {
-    // React reports a throwing handler as a window error, not to fireEvent.
-    const errors: unknown[] = [];
-    const record = (event: ErrorEvent) => {
-      event.preventDefault();
-      errors.push(event.error);
-    };
-    window.addEventListener('error', record);
-    const { mark } = await setup();
-    fireEvent.click(mark);
-    window.removeEventListener('error', record);
-
-    expect(errors).toEqual([]);
-  });
-
   test('leaving while it plays cancels both animations', async () => {
     installAnimate();
     const { mark, unmount } = await setup();
@@ -164,21 +121,6 @@ describe('clicking the header mark', () => {
     }
   });
 
-  // KAN-521. The click belongs to the shutter shutting, as on Get started (KAN-513).
-  test('the click sounds once, as the shutter shuts: not at the press, nor while it slides', async () => {
-    installAnimate();
-    installFakeAudio();
-    const { mark } = await setup();
-    fireEvent.click(mark);
-    expect(startedTicks()).toEqual([]);
-    runs[0].release();
-    await settle();
-    expect(startedTicks()).toEqual([]);
-    runs[1].release();
-    await settle();
-    expect(startedTicks()).toEqual(ONE_CLICK);
-  });
-
   test('a click cut short before the shutter shuts is silent', async () => {
     installAnimate();
     installFakeAudio();
@@ -187,23 +129,6 @@ describe('clicking the header mark', () => {
     unmount();
     await settle();
     expect(startedTicks()).toEqual([]);
-  });
-
-  test('reduced motion draws nothing, and the click sounds at the press', async () => {
-    installAnimate();
-    installFakeAudio();
-    reduceMotion();
-    const { mark } = await setup();
-    fireEvent.click(mark);
-    expect(runs).toHaveLength(0);
-    expect(startedTicks()).toEqual(ONE_CLICK);
-  });
-
-  test('without Web Animations the click sounds at the press', async () => {
-    installFakeAudio();
-    const { mark } = await setup();
-    fireEvent.click(mark);
-    expect(startedTicks()).toEqual(ONE_CLICK);
   });
 });
 

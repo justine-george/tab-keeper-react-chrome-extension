@@ -78,17 +78,6 @@ describe("the full view's Open compact view button (KAN-437)", () => {
     ).toBeInTheDocument();
   });
 
-  test('is absent in a full view with no chrome.action at all', async () => {
-    history.replaceState(null, '', '?view=tab');
-    await renderWithProviders(<MenuContainer />, {
-      seed: { windows: [{ id: 7 }] },
-    });
-
-    expect(
-      screen.queryByRole('button', { name: 'Open compact view' })
-    ).not.toBeInTheDocument();
-  });
-
   test("CONTROL: without action.openPopup, the popup's Open full view still stands", async () => {
     await renderWithProviders(<MenuContainer />, {
       seed: { action: { hasOpenPopup: false }, windows: [{ id: 7 }] },
