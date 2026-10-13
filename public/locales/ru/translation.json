@@ -210,7 +210,7 @@
   "This window": "Это окно",
   "Switch to tab": "Перейти на вкладку",
   "Go to window": "Перейти к окну",
-  "No other tabs are open": "Других открытых вкладок нет",
+  "No other tabs are open.": "Других открытых вкладок нет.",
   "Fold the saved session away": "Скрыть сохранённую сессию",
   "Show the saved session": "Показать сохранённую сессию",
   "Close Open now": "Закрыть панель «Открытые вкладки»",

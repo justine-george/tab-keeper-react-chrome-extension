@@ -15,6 +15,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import Icon from '../../common/Icon';
 import { NormalLabel } from '../../common/Label';
+import EmptyListLine from '../../common/EmptyListLine';
 import NoMatchState from '../../common/NoMatchState';
 import type { IconName } from '../../common/iconNames';
 import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
@@ -476,13 +477,6 @@ export default function OpenNowPane({
     visibility: hidden;
   `;
 
-  const emptyStyle = css`
-    display: flex;
-    height: 100%;
-    justify-content: center;
-    align-items: center;
-  `;
-
   return (
     <div
       ref={paneRef}
@@ -596,12 +590,10 @@ export default function OpenNowPane({
         />
         <div css={scrollerStyle} onKeyDown={handleListKeyDown}>
           {windows !== null && windows.length === 0 ? (
-            <div css={emptyStyle}>
-              <NormalLabel
-                value={t('No other tabs are open')}
-                color={COLORS.LABEL_L2_COLOR}
-              />
-            </div>
+            <EmptyListLine
+              list="open-now"
+              text={t('No other tabs are open.')}
+            />
           ) : windows !== null && matches !== null && matches.size === 0 ? (
             <NoMatchState query={searchText.trim()} inset={24} scope="open" />
           ) : (

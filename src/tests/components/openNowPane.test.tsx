@@ -10,7 +10,8 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 import { toOpenWindows } from '../../utils/functions/openNow';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { TAB_GROUP_COLOR_HEX } from '../../utils/functions/tabGroups';
-import { DURATION } from '../../styles/scale';
+import { DURATION, TYPE } from '../../styles/scale';
+import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 // The saved window, rendered only to compare its band with the live one: the
 // pane copies the declarations rather than sharing them (KAN-280).
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -154,6 +155,17 @@ const tabRow = (title: string) =>
 const queryTabRow = (title: string) =>
   screen.queryByRole('button', { name: `Switch to tab: ${title}` });
 
+// The empty line's own declarations (KAN-571).
+const LINE_PROPS = [
+  'margin',
+  'padding',
+  'text-align',
+  'font-family',
+  'font-size',
+  'line-height',
+  'color',
+] as const;
+
 function hex(value: string): string {
   const v = value.replace('#', '');
   const n = parseInt(v, 16);
@@ -248,11 +260,43 @@ describe('the Open now pane (KAN-280)', () => {
       />
     );
 
-    expect(screen.getByText('No other tabs are open')).toBeInTheDocument();
+    expect(screen.getByText('No other tabs are open.')).toBeInTheDocument();
     // Not a search result, so not the no-match block.
     expect(document.querySelector('[data-no-match]')).toBeNull();
     expect(screen.getByText('Open now')).toBeInTheDocument();
     expect(screen.queryByText(/·/)).toBeNull();
+  });
+
+  // KAN-571. Drawn as the saved list's empty line, at the top of the list.
+  test("the empty line is the saved list's: same box, type and colour", async () => {
+    const { unmount } = await renderWithProviders(<TabGroupEntryContainer />);
+    const want = stylesOf(
+      screen.getByText('Saved sessions appear here.'),
+      LINE_PROPS
+    );
+    unmount();
+
+    await renderWithProviders(
+      <OpenNowPane
+        windows={[]}
+        actions={[]}
+        headingId="open-now-heading"
+        searchText=""
+        onSearchTextChange={() => undefined}
+        searchInputRef={createRef<HTMLInputElement>()}
+      />
+    );
+    const line = screen.getByText('No other tabs are open.');
+    expect(stylesOf(line, LINE_PROPS)).toEqual(want);
+    // jsdom resolves rem against its 16px root.
+    expect(want['font-size']).toBe(`${px(TYPE.BODY) * 16}px`);
+    expect(want.color).toBe(hex(LIGHT_THEME.LABEL_L1_COLOR));
+    expect(want.padding).toBe('24px 16px 16px');
+    // The scroller's first child, not centred in a wrapper of its own.
+    expect(line.parentElement?.firstElementChild).toBe(line);
+    expect(getComputedStyle(line.parentElement as Element).overflow).toBe(
+      'auto'
+    );
   });
 
   test('while loading (null) there is no counts line and the body is empty', async () => {
@@ -271,7 +315,7 @@ describe('the Open now pane (KAN-280)', () => {
     expect(screen.getByText('Updates as you browse')).toBeInTheDocument();
     expect(screen.queryByText(/·/)).toBeNull();
     // Loading is not "nothing is open": the empty message waits for a read.
-    expect(screen.queryByText('No other tabs are open')).toBeNull();
+    expect(screen.queryByText('No other tabs are open.')).toBeNull();
     expect(screen.queryByText(/^Window \d/)).toBeNull();
   });
 
