@@ -54,6 +54,7 @@ import {
 import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
 import {
   cloudSyncAllowed,
+  forgetLastSync,
   recordSyncedNow,
   recordValueMoment,
   setAutoSync,
@@ -763,6 +764,7 @@ export const deleteCloudData = createAsyncThunk(
       return;
     }
     thunkAPI.dispatch(setAutoSync(false));
+    thunkAPI.dispatch(forgetLastSync());
     thunkAPI.dispatch(setSyncStatus('idle'));
     thunkAPI.dispatch(
       showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETED })
