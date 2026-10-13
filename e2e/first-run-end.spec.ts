@@ -14,6 +14,7 @@ import {
   cardAt,
   cardButton,
   closeReplayNote,
+  landedAt,
   replayNote,
   runCheck,
   storedRun,
@@ -179,6 +180,9 @@ test('step 8: Not now left, Back and Pin this tab right, one row; the notch up a
   const page = await openRunningFullView(context, extensionId, false);
   await walkFullRunToLastStep(page);
   const card = cardAt(page, 8);
+  // KAN-569: the step changes a frame before the card moves; measure once it sits free and has glided there.
+  await expect(card).toHaveAttribute('data-coach-side', 'free');
+  await landedAt(page, 8);
   const geometry = await card.evaluate((el) => {
     const box = (e: Element | null) => {
       if (e === null) throw new Error('missing');
