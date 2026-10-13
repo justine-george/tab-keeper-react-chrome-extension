@@ -13,7 +13,7 @@ import { css } from '@emotion/react';
 
 import Divider from '../../common/Divider';
 import TabGroupEntry from './TabGroupEntry';
-import EmptySavedList from './EmptySavedList';
+import EmptyListLine from '../../common/EmptyListLine';
 import { SPRING_OPEN_MS } from '../../common/springOpen';
 import {
   SAVED_SEARCH_GLASS_INSET,
@@ -429,7 +429,10 @@ export default function TabGroupEntryContainer() {
           noMatchPlace === 'list' ? (
             <NoMatchState query={noMatchQuery} inset={24} scope="saved" />
           ) : isEmpty ? (
-            <EmptySavedList />
+            <EmptyListLine
+              list="saved"
+              text={t('Saved sessions appear here.')}
+            />
           ) : null
         ) : (
           <div

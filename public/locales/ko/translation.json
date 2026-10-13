@@ -204,7 +204,7 @@
   "This window": "이 창",
   "Switch to tab": "탭으로 전환",
   "Go to window": "창으로 이동",
-  "No other tabs are open": "열려 있는 다른 탭이 없습니다",
+  "No other tabs are open.": "열려 있는 다른 탭이 없습니다.",
   "Fold the saved session away": "저장된 세션 접기",
   "Show the saved session": "저장된 세션 보기",
   "Close Open now": "\"지금 열려 있는 탭\" 패널 닫기",

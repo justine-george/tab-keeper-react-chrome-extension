@@ -32,7 +32,10 @@ async function watchEmptyLine(context: BrowserContext): Promise<void> {
       configurable: true,
     });
     new MutationObserver(() => {
-      if (document.querySelector('[data-empty-list]') && !seen.includes('line'))
+      if (
+        document.querySelector('[data-empty-list="saved"]') &&
+        !seen.includes('line')
+      )
         seen.push('line');
       if (
         document.querySelector('[data-start-here-hint]') &&

@@ -204,7 +204,7 @@
   "This window": "このウィンドウ",
   "Switch to tab": "タブに切り替え",
   "Go to window": "ウィンドウに移動",
-  "No other tabs are open": "他に開いているタブはありません",
+  "No other tabs are open.": "他に開いているタブはありません。",
   "Fold the saved session away": "保存済みのセッションを折りたたむ",
   "Show the saved session": "保存済みのセッションを表示",
   "Close Open now": "「現在開いているタブ」パネルを閉じる",
