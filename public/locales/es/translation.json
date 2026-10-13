@@ -337,5 +337,6 @@
   "privacy policy": "política de privacidad",
   "Saved sessions appear here.": "Las sesiones guardadas aparecen aquí.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Busca aquí para encontrar rápido una pestaña abierta. Pulsa {{icon}} para mostrar la sesión guardada a su lado.",
-  "Show me here": "Muéstramelo aquí"
+  "Show me here": "Muéstramelo aquí",
+  "In a split view with {{title}}": "En vista dividida con «{{title}}»"
 }

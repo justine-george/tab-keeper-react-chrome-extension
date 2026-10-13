@@ -327,5 +327,6 @@
   "privacy policy": "プライバシーポリシー",
   "Saved sessions appear here.": "保存したセッションはここに表示されます。",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "ここで検索すると、開いているタブをすばやく見つけられます。{{icon}} を押すと、保存済みのセッションが横に表示されます。",
-  "Show me here": "ここで見る"
+  "Show me here": "ここで見る",
+  "In a split view with {{title}}": "「{{title}}」と分割表示"
 }

@@ -51,6 +51,7 @@ import type {
   GroupRun,
 } from '../../../utils/functions/tabGroups';
 import { applyTabGroups } from '../../../utils/functions/windows';
+import { savedSplitPartners } from '../../../utils/functions/splitPartners';
 import { isTabKeeperPage, toStoredTab } from '../../../utils/functions/capture';
 import { isTabView } from '../../../utils/functions/viewMode';
 
@@ -462,6 +463,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   // Unique per window: legacy data can repeat a tab id across windows.
   const descriptionIdPrefix = useId();
+  // KAN-564. Each tab's other half, for the pairs a restore splits.
+  const splitPartners = savedSplitPartners(tabs);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewTitle(e.target.value);
@@ -648,6 +651,17 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // window-wide one no longer have to be reconciled.
   function renderTab({ tabId, favicon, title, url, pinned }: tabData) {
     const pinnedId = `${descriptionIdPrefix}-pinned-${tabId}`;
+    // KAN-564 A. The other half of the split this tab restores into.
+    const partner = splitPartners.get(tabId);
+    const splitId = `${descriptionIdPrefix}-split-${tabId}`;
+    const splitText =
+      partner === undefined
+        ? null
+        : t('In a split view with {{title}}', { title: partner.title });
+    const describedBy = [
+      ...(pinned ? [pinnedId] : []),
+      ...(splitText === null ? [] : [splitId]),
+    ].join(' ');
     return (
       <div
         key={tabId}
@@ -663,7 +677,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         <ClickableRow
           ariaLabel={t('Open in new tab') + ': ' + title}
           // As Open now says a pinned tab: its own description, no joiner (KAN-307).
-          ariaDescribedBy={pinned ? pinnedId : undefined}
+          ariaDescribedBy={describedBy === '' ? undefined : describedBy}
           tooltipText={openBlockedBecause ?? undefined}
           disable={isOpenBlocked}
           onClick={() => handleTabClick(url)}
@@ -692,11 +706,27 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 />
               </span>
             )}
+            {splitText !== null && (
+              <span data-split css={pinMarkStyle}>
+                <Icon
+                  type="view_column_2"
+                  size={ICON.MARK}
+                  color={COLORS.LABEL_L2_COLOR}
+                  tooltipText={splitText}
+                  style={`${NON_INTERACTIVE_ICON_STYLE} padding: 0;`}
+                />
+              </span>
+            )}
           </div>
         </ClickableRow>
         {pinned && (
           <span id={pinnedId} css={visuallyHiddenStyle}>
             {t('Pinned')}
+          </span>
+        )}
+        {splitText !== null && (
+          <span id={splitId} css={visuallyHiddenStyle}>
+            {splitText}
           </span>
         )}
         {/* data-row-actions is the stylesheet's hook for hiding this strip

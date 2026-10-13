@@ -13,6 +13,7 @@ import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import { resolveFaviconUrl } from '../../../utils/functions/local';
+import { openSplitPartners } from '../../../utils/functions/splitPartners';
 import {
   focusOpenWindow,
   switchToOpenTab,
@@ -90,6 +91,9 @@ function onFirstClickOnly(action: () => void): React.MouseEventHandler {
     action();
   };
 }
+
+// KAN-564. Which half of an on-screen split a row is, top to bottom.
+type SplitHalf = 'upper' | 'lower';
 
 interface OpenNowWindowProps {
   openWindow: OpenWindow;
@@ -243,24 +247,26 @@ export default function OpenNowWindow({
   // no shade): a resting shade read as a hovered row. The bar is LABEL_L2,
   // KAN-199's quietest token clearing 3:1 on the pane and on hover. Drawn as
   // ::before so the row keeps the saved row's size.
-  const frontTabBar = `
+  // KAN-564 P. A split on screen is one bar down both halves: the upper
+  // half's runs to its bottom edge, the lower half's from its top.
+  const frontTabBar = (join: SplitHalf | null) => `
     &::before {
       content: '';
       position: absolute;
       left: 0;
-      top: 8px;
-      bottom: 8px;
+      top: ${join === 'lower' ? 0 : 8}px;
+      bottom: ${join === 'upper' ? 0 : 8}px;
       width: 3px;
       background: ${COLORS.LABEL_L2_COLOR};
       pointer-events: none;
     }
   `;
-  const childrenStyle = (active: boolean) => css`
+  const childrenStyle = (active: boolean, join: SplitHalf | null) => css`
     position: relative;
     display: flex;
     align-items: stretch;
     justify-content: space-between;
-    ${active ? frontTabBar : ''}
+    ${active ? frontTabBar(join) : ''}
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
     }
@@ -357,6 +363,8 @@ export default function OpenNowWindow({
     matchedTabIds === null
       ? openWindow.tabs
       : openWindow.tabs.filter((tab) => matchedTabIds.has(tab.id));
+  // KAN-564. Each drawn half of a live split, and its other half.
+  const splitPartners = openSplitPartners(drawnTabs);
   const tabsById = new Map(openWindow.tabs.map((tab) => [String(tab.id), tab]));
   const items = partitionTabsIntoItems(
     drawnTabs.map((tab) => ({
@@ -401,15 +409,34 @@ export default function OpenNowWindow({
     const pinnedId = `open-now-pinned-${tab.id}`;
     const isLastUsed = tab.id === lastUsedTabId;
     const lastUsedId = `open-now-last-used-${tab.id}`;
+    // KAN-564. Both halves of a split are on screen, so the active mark
+    // covers the pair (P), whichever half Chrome calls active.
+    const partner = splitPartners.get(tab.id);
+    const splitId = `open-now-split-${tab.id}`;
+    const splitText =
+      partner === undefined
+        ? null
+        : t('In a split view with {{title}}', { title: partner.title });
+    const isFront = (other: OpenTab) =>
+      other.active || other.id === lastUsedTabId;
+    const isOnScreen =
+      isFront(tab) || (partner !== undefined && isFront(partner));
+    const join: SplitHalf | null =
+      partner === undefined || !isOnScreen
+        ? null
+        : tab.index < partner.index
+          ? 'upper'
+          : 'lower';
     const describedBy = [
       ...(isLastUsed ? [lastUsedId] : []),
       ...(tab.pinned ? [pinnedId] : []),
+      ...(splitText === null ? [] : [splitId]),
       ...(sound === null ? [] : [soundId]),
     ].join(' ');
     return (
       <div
         key={tab.id}
-        css={childrenStyle(tab.active || isLastUsed)}
+        css={childrenStyle(isOnScreen, join)}
         data-open-tab-id={tab.id}
         data-pinned-boundary={tab.id === pinnedBoundaryTabId ? '' : undefined}
         onMouseEnter={() => setHoveredTabId(tab.id)}
@@ -440,7 +467,7 @@ export default function OpenNowWindow({
               style="padding-left: 4px; height: 100%; max-width: 100%;"
             />
           </div>
-          {(tab.pinned || sound !== null) && (
+          {(tab.pinned || splitText !== null || sound !== null) && (
             // Inside the Switch button, so a click on a mark switches to the
             // tab, where Chrome's own pin and mute are. A presentational Icon
             // is aria-hidden; the descriptions below say the pin and the
@@ -449,6 +476,15 @@ export default function OpenNowWindow({
               {tab.pinned && (
                 <span data-pin css={markStyle}>
                   <Icon type="keep" style={NON_INTERACTIVE_ICON_STYLE} />
+                </span>
+              )}
+              {splitText !== null && (
+                <span data-split css={markStyle}>
+                  <Icon
+                    type="view_column_2"
+                    tooltipText={splitText}
+                    style={NON_INTERACTIVE_ICON_STYLE}
+                  />
                 </span>
               )}
               {sound !== null && (
@@ -470,6 +506,11 @@ export default function OpenNowWindow({
         {tab.pinned && (
           <span id={pinnedId} css={descriptionStyle}>
             {t('Pinned')}
+          </span>
+        )}
+        {splitText !== null && (
+          <span id={splitId} css={descriptionStyle}>
+            {splitText}
           </span>
         )}
         {sound !== null && (

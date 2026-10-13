@@ -661,3 +661,70 @@ describe('a pinned saved tab (KAN-458)', () => {
     expect(row).not.toHaveAttribute('aria-describedby');
   });
 });
+
+describe('a saved split pair (KAN-564, pick A)', () => {
+  const tab = (tabId: string, title: string, extra: Partial<tabData> = {}) => ({
+    tabId,
+    favicon: '',
+    title,
+    url: `https://${tabId}.test`,
+    ...extra,
+  });
+  const row = (title: string) =>
+    screen.getByRole('button', { name: `Open in new tab: ${title}` });
+
+  test('both halves show the split mark after the title, described and titled with the other half', async () => {
+    await renderWindow({
+      tabs: [
+        tab('t1', 'Docs'),
+        tab('t2', 'Wiki', { splitId: 's1' }),
+        tab('t3', 'Guide', { splitId: 's1' }),
+      ],
+    });
+
+    for (const [title, other] of [
+      ['Wiki', 'Guide'],
+      ['Guide', 'Wiki'],
+    ]) {
+      const mark = row(title).querySelector('[data-split]');
+      if (!(mark instanceof HTMLElement))
+        throw new Error(`no mark on ${title}`);
+      const glyph = within(mark).getByText('view_column_2');
+      expect(glyph.closest('[aria-hidden="true"]')).not.toBeNull();
+      expect(mark.querySelector('[title]')).toHaveAttribute(
+        'title',
+        `In a split view with “${other}”`
+      );
+      expect(row(title)).toHaveAccessibleDescription(
+        `In a split view with “${other}”`
+      );
+    }
+    expect(row('Docs').querySelector('[data-split]')).toBeNull();
+  });
+
+  test('a pinned half reads both, Pinned first', async () => {
+    await renderWindow({
+      tabs: [
+        tab('t1', 'Wiki', { splitId: 's1', pinned: true }),
+        tab('t2', 'Guide', { splitId: 's1', pinned: true }),
+      ],
+    });
+    expect(row('Wiki')).toHaveAccessibleDescription(
+      'Pinned In a split view with “Guide”'
+    );
+  });
+
+  test('CONTROL: a pair a restore would not split shows no mark', async () => {
+    await renderWindow({
+      tabs: [
+        tab('t1', 'Wiki', { splitId: 's1' }),
+        tab('t2', 'Docs'),
+        tab('t3', 'Guide', { splitId: 's1' }),
+      ],
+    });
+    for (const title of ['Wiki', 'Guide']) {
+      expect(row(title).querySelector('[data-split]')).toBeNull();
+      expect(row(title)).not.toHaveAttribute('aria-describedby');
+    }
+  });
+});

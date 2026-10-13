@@ -327,5 +327,6 @@
   "privacy policy": "隱私權政策",
   "Saved sessions appear here.": "已儲存的工作階段會顯示在這裡。",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "在這裡搜尋，快速找到開啟的分頁。按 {{icon}} 可在旁邊顯示已儲存的工作階段。",
-  "Show me here": "在這裡看看"
+  "Show me here": "在這裡看看",
+  "In a split view with {{title}}": "與「{{title}}」分割畫面顯示"
 }
