@@ -204,7 +204,7 @@
   "This window": "這個視窗",
   "Switch to tab": "切換至分頁",
   "Go to window": "前往視窗",
-  "No other tabs are open": "沒有其他開啟的分頁",
+  "No other tabs are open.": "沒有其他開啟的分頁。",
   "Fold the saved session away": "收合已儲存的工作階段",
   "Show the saved session": "顯示已儲存的工作階段",
   "Close Open now": "關閉「目前開啟的分頁」面板",

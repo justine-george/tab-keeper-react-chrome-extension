@@ -1206,11 +1206,14 @@ test.describe('with a classic scrollbar (KAN-330)', () => {
 
 // ---- the empty message in the new scroller ----
 
-test.describe('Open now with no other tabs (KAN-330)', () => {
-  test('"No other tabs are open" is centred in the scroller under the search row', async ({
+// KAN-571. Open now's empty line is the saved list's: the same line, at the
+// top of its scroller.
+test.describe('Open now with no other tabs (KAN-330, KAN-571)', () => {
+  test('"No other tabs are open." sits at the top of the scroller, drawn as the saved list’s empty line', async ({
     context,
     extensionId,
-  }) => {
+  }, testInfo) => {
+    await seedSessions(context, buildContainer([]));
     const page = await openPage(context, extensionId, VIEW_TAB, {
       width: 1600,
       height: 800,
@@ -1221,33 +1224,57 @@ test.describe('Open now with no other tabs (KAN-330)', () => {
     }
     const message = page
       .locator(OPEN_NOW)
-      .getByText('No other tabs are open', { exact: true });
+      .getByText('No other tabs are open.', { exact: true });
     await expect(message).toBeVisible();
-    const facts = await message.evaluate((label) => {
-      let s: Element | null = label;
-      while (s && !['auto', 'scroll'].includes(getComputedStyle(s).overflowY))
-        s = s.parentElement;
+    await expect(page.locator(`${SESSIONS} [data-empty-list]`)).toBeVisible();
+    const facts = await page.evaluate(() => {
+      const measure = (pane: string) => {
+        const line = document.querySelector(
+          `[data-pane="${pane}"] [data-empty-list]`
+        );
+        let s: Element | null = line;
+        while (s && !['auto', 'scroll'].includes(getComputedStyle(s).overflowY))
+          s = s.parentElement;
+        if (line === null || s === null) return null;
+        const l = line.getBoundingClientRect();
+        const r = s.getBoundingClientRect();
+        const cs = getComputedStyle(line);
+        return {
+          top: l.top,
+          scrollerTop: r.top,
+          cx: (l.left + l.right) / 2,
+          scrollerCx: (r.left + r.right) / 2,
+          style: [
+            cs.fontSize,
+            cs.lineHeight,
+            cs.color,
+            cs.padding,
+            cs.textAlign,
+            cs.fontFamily,
+          ],
+        };
+      };
       const row = document.querySelector(
         '[data-pane="open-now"] [data-open-now-search]'
       );
-      if (s === null || row === null) return null;
-      const box = (el: Element) => {
-        const r = el.getBoundingClientRect();
-        return {
-          top: r.top,
-          bottom: r.bottom,
-          cx: (r.left + r.right) / 2,
-          cy: (r.top + r.bottom) / 2,
-        };
+      return {
+        open: measure('open-now'),
+        saved: measure('sessions'),
+        rowBottom: row?.getBoundingClientRect().bottom ?? null,
       };
-      return { label: box(label), scroller: box(s), row: box(row) };
     });
     console.log(`[empty] ${JSON.stringify(facts)}`);
-    if (facts === null) throw new Error('no scroller or search row');
-    // The scroller starts under the search row (and its 4px gap).
-    expect(facts.scroller.top).toBeGreaterThanOrEqual(facts.row.bottom);
-    expect(Math.abs(facts.label.cx - facts.scroller.cx)).toBeLessThanOrEqual(1);
-    expect(Math.abs(facts.label.cy - facts.scroller.cy)).toBeLessThanOrEqual(1);
+    await page.screenshot({ path: testInfo.outputPath('empty-lines.png') });
+    const { open, saved, rowBottom } = facts;
+    if (open === null || saved === null || rowBottom === null)
+      throw new Error('no empty line, scroller or search row');
+    // The scroller starts under the search row; the line is its first box.
+    expect(open.scrollerTop).toBeGreaterThanOrEqual(rowBottom);
+    expect(open.top).toBeCloseTo(open.scrollerTop, 0);
+    expect(Math.abs(open.cx - open.scrollerCx)).toBeLessThanOrEqual(1);
+    // Drawn as the saved list's line, at the same height across the panes.
+    expect(open.style).toEqual(saved.style);
+    expect(open.top).toBeCloseTo(saved.top, 0);
   });
 });
 
@@ -1286,7 +1313,7 @@ test.describe('Open now’s header with nothing listed (KAN-491)', () => {
       await expect(
         page
           .locator(OPEN_NOW)
-          .getByText('No other tabs are open', { exact: true })
+          .getByText('No other tabs are open.', { exact: true })
       ).toHaveCount(0);
       const listed = await measure();
 
@@ -1296,7 +1323,7 @@ test.describe('Open now’s header with nothing listed (KAN-491)', () => {
       await expect(
         page
           .locator(OPEN_NOW)
-          .getByText('No other tabs are open', { exact: true })
+          .getByText('No other tabs are open.', { exact: true })
       ).toBeVisible();
       const empty = await measure();
       console.log(`[header ${root}] ${JSON.stringify({ listed, empty })}`);
