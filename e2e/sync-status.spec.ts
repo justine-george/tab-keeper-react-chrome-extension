@@ -132,11 +132,13 @@ test.describe('the sync status line agrees with the Auto Sync pair (KAN-248)', (
 // the state that shows it in every build (on resolves to unavailable without
 // a cloud), and it is the state where the time matters most.
 test.describe('the status line shows when it last synced (KAN-255)', () => {
-  test('manual sync with a recorded time shows it, formatted like the session cards', async ({
+  test('manual sync with a recorded time shows it, dated like a session', async ({
     context,
     extensionId,
   }) => {
-    const at = Date.UTC(2026, 8, 18, 16, 2, 41);
+    // Another year, so the words hold whatever the real clock says (KAN-584:
+    // a date, no time; a time of day would race midnight).
+    const at = new Date(2025, 2, 3, 16, 2, 41).getTime();
     await seedSessions(context, buildContainer());
     await seedSettings(context, { isAutoSync: false, lastSyncedTime: at });
     const page = await context.newPage();
@@ -149,7 +151,9 @@ test.describe('the status line shows when it last synced (KAN-255)', () => {
     await expect(status).toHaveAttribute('data-sync-state', 'manual');
     const synced = status.locator('[data-sync-synced]');
     await expect(synced).toBeVisible();
-    const expected = await page.evaluate(
+    await expect(synced).toHaveText('Last synced Mar 3, 2025');
+    // The full timestamp is the hover, as on a session's date.
+    const full = await page.evaluate(
       (ms) =>
         new Intl.DateTimeFormat('en', {
           dateStyle: 'medium',
@@ -157,7 +161,7 @@ test.describe('the status line shows when it last synced (KAN-255)', () => {
         }).format(new Date(ms)),
       at
     );
-    await expect(synced).toHaveText(`Last synced ${expected}`);
+    await expect(synced).toHaveAttribute('title', full);
     // Manual keeps its instruction under the time.
     await expect(status.locator('[data-sync-line]')).toContainText(
       'cloud button'

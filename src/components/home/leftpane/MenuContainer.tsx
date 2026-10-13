@@ -42,7 +42,8 @@ import {
   type SyncKind,
 } from '../../settings/rightpane/Account/describeSyncState';
 import { isTabView } from '../../../utils/functions/viewMode';
-import { getPrettyDate } from '../../../utils/functions/local';
+import { sessionWhen } from '../../../utils/functions/sessionDate';
+import { useToday } from '../../../hooks/useToday';
 import { requestTabView } from '../../../utils/functions/popOut';
 import {
   backCloses,
@@ -78,6 +79,7 @@ export default function MenuContainer() {
   const lastSyncedTime = useSelector(
     (state: RootState) => state.settingsDataState.lastSyncedTime
   );
+  const today = useToday();
 
   const COLORS = useThemeColors();
   const isFullViewCalloutOpen = useSelector(
@@ -203,11 +205,14 @@ export default function MenuContainer() {
   // instead of "Sync now", as the card does (KAN-255). A click still reads
   // the cloud for other devices' changes -- firestore/lite has no listener --
   // so the name stays the action. Keyed on the glyph that says synced.
+  // Dated like a session (KAN-584); a time that isn't a date says nothing.
+  const syncedTime =
+    lastSyncedTime === ''
+      ? ''
+      : sessionWhen(lastSyncedTime, i18n.language, today);
   const syncedWhen =
-    syncIconType === 'cloud_done' && lastSyncedTime !== ''
-      ? t('Last synced {{time}}', {
-          time: getPrettyDate(lastSyncedTime, i18n.language),
-        })
+    syncIconType === 'cloud_done' && syncedTime !== ''
+      ? t('Last synced {{time}}', { time: syncedTime })
       : null;
   const syncDetail =
     syncedWhen === null ? syncState : `${syncState}\n${syncedWhen}`;
