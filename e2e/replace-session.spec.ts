@@ -1,7 +1,6 @@
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { sessionHeaderMenu } from './fixtures/menus';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { stored } from './fixtures/savedWindows';
 
@@ -71,10 +70,10 @@ const trip = async (popup: Page) => {
 const urlsOf = (s: Awaited<ReturnType<typeof trip>>) =>
   s.windows.flatMap((w) => w.tabs.map((t) => t.url));
 
+// KAN-581. In the session header's row, beside Open and Switch.
 async function replace(popup: Page): Promise<void> {
-  await sessionHeaderMenu(popup).click();
   await popup
-    .getByRole('menuitem', { name: 'Replace with open windows' })
+    .getByRole('button', { name: 'Replace with open windows', exact: true })
     .click();
 }
 

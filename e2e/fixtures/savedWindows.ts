@@ -22,6 +22,7 @@ import {
   WARM_LIGHT_THEME,
   type ThemeColors,
 } from '../../src/hooks/useThemeColors';
+import { ON_TITLE } from './savedRow';
 
 // A saved session's window rows, as the popup and the tab view draw them (KAN-394).
 
@@ -143,7 +144,7 @@ export async function openSaved(
   if (view === 'tab view') {
     await page
       .locator(`[data-pane="sessions"] [data-drag-row-id="${selected}"]`)
-      .click();
+      .click(ON_TITLE);
   }
   // goto resolves before React mounts (KAN-105).
   const first = sessions.find((s) => s.tabGroupId === selected)?.windows[0]

@@ -151,8 +151,8 @@ for (const lang of ['en', 'de', 'ru'] as const) {
     expect(g.btn.h, 'the button must not grow the header').toBe(32);
 
     // 2. The strip is anchored at the other end and must be untouched. Its
-    //    width is four 32px icons; its left edge is the row's own.
-    expect(g.strip.w, 'the icon strip has not changed width').toBe(128);
+    //    width is five 32px icons (KAN-581 added Replace); its left edge is the row's own.
+    expect(g.strip.w, 'the icon strip has not changed width').toBe(160);
     expect(g.strip.left, 'the icon strip has not moved').toBe(g.row.left);
 
     // 3. One row. The button grows leftward into slack that already existed,

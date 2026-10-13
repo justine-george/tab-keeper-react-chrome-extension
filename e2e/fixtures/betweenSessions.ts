@@ -16,6 +16,7 @@ import {
 } from '@playwright/test';
 import { expect } from './grantedExtension';
 import { stored, type Point, boxOf } from './sessionDrag';
+import { ON_TITLE } from './savedRow';
 
 // Shared by drag-between-sessions, new-session-drop (KAN-480) and spring-open-windows (KAN-481).
 
@@ -161,7 +162,7 @@ export async function openTabView(
   await expect(page.locator('[data-pane="detail"]')).toHaveCount(
     folded ? 0 : 1
   );
-  await row.click();
+  await row.click(ON_TITLE);
   await expect(page.locator('[data-drag-row-id="w1"]')).toBeVisible();
   return page;
 }

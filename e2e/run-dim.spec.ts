@@ -29,6 +29,7 @@ import {
   type RunViewCase,
 } from './fixtures/run';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { ON_TITLE } from './fixtures/savedRow';
 
 // KAN-421 on the run: the page is dimmed outside the step's bright box, and a press there does nothing.
 
@@ -415,7 +416,7 @@ for (const view of RUN_VIEWS) {
       await page
         .locator('[data-pane="sessions"]')
         .getByRole('button', { name: 'Kept', exact: true })
-        .click();
+        .click(ON_TITLE);
     }
     await expect(row.first()).toBeVisible();
     // PREMISE: no run is shown here.

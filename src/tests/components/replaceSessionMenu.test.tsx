@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import HeroContainerRight from '../../components/home/rightpane/HeroContainerRight';
@@ -10,8 +10,9 @@ import { buildChromeTab } from '../fixtures/chromeTab';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { setPresentStartup } from '../../redux/slices/undoRedoSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
+import { setSearchInputText } from '../../redux/slices/globalStateSlice';
 
-// KAN-468. The ⋮ menu's Replace takes every open window into this session.
+// KAN-468. Replace takes every open window into this session; KAN-581 moved it from the ⋮ menu to the header row.
 
 const SESSION = buildSession({
   tabGroupId: 'session-kyoto',
@@ -50,11 +51,8 @@ describe('Replace with open windows', () => {
     const user = userEvent.setup();
     const { store } = await renderHeader();
 
-    await user.click(screen.getByRole('button', { name: 'More actions' }));
     await user.click(
-      within(screen.getByRole('menu')).getByRole('menuitem', {
-        name: 'Replace with open windows',
-      })
+      screen.getByRole('button', { name: 'Replace with open windows' })
     );
 
     await waitFor(() => {
@@ -75,16 +73,27 @@ describe('Replace with open windows', () => {
 
   // KAN-506. A window with an arrow coming in; Export's ios_share points out.
   test('is drawn with browser_updated', async () => {
-    const user = userEvent.setup();
     await renderHeader();
 
-    await user.click(screen.getByRole('button', { name: 'More actions' }));
-    const item = within(screen.getByRole('menu')).getByRole('menuitem', {
+    const button = screen.getByRole('button', {
       name: 'Replace with open windows',
     });
 
-    expect(item.querySelector('.material-symbols-outlined')?.textContent).toBe(
-      'browser_updated'
-    );
+    expect(
+      button.querySelector('.material-symbols-outlined')?.textContent
+    ).toBe('browser_updated');
+  });
+
+  // As Open and Switch: a search hides the header's actions on the session.
+  test('a search hides it', async () => {
+    const { store } = await renderHeader();
+
+    act(() => {
+      store.dispatch(setSearchInputText('kyoto'));
+    });
+
+    expect(
+      screen.queryByRole('button', { name: 'Replace with open windows' })
+    ).toBeNull();
   });
 });

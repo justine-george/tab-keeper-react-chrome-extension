@@ -12,6 +12,7 @@ import {
 } from './fixtures/seed';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 import { TYPE } from '../src/styles/scale';
+import { ON_TITLE } from './fixtures/savedRow';
 
 // KAN-280 Part A on the real artifact: the Open now pane in the tab view
 // (`index.html?view=tab`). What jsdom cannot show: the grid's real widths at
@@ -461,7 +462,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     await page
       .locator(SESSIONS)
       .getByRole('button', { name: OTHER.title, exact: true })
-      .click();
+      .click(ON_TITLE);
     await expect(page.locator(DETAIL)).toBeVisible();
     // KAN-321 O1 (D1): the default at TAB_VIEWPORT's 1280px is 444.
     await expectSideBySide(page, 444);
