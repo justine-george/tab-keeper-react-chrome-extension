@@ -287,7 +287,7 @@ async function isUndimmed(page: Page, card: Locator): Promise<boolean> {
   return painted === rgbToHex(fill);
 }
 
-test('full view step 7: a tab drags with its card, and carried out over the dimmed list its carry card is drawn over the dim', async ({
+test('full view step 8: a tab drags with its card, and carried out over the dimmed list its carry card is drawn over the dim', async ({
   context,
   extensionId,
 }) => {
@@ -296,7 +296,7 @@ test('full view step 7: a tab drags with its card, and carried out over the dimm
   await nextTo(page, 3);
   await cardButton(page, 'Use an example').click();
   await expect(cardAt(page, 4)).toBeVisible();
-  for (let step = 5; step <= 7; step++) await nextTo(page, step);
+  for (let step = 5; step <= 8; step++) await nextTo(page, step);
   const from = await page
     .locator(
       '[data-pane="detail"] [data-tour-anchor="windows"] [data-window-tabs] [data-drag-row-id]'
@@ -305,7 +305,7 @@ test('full view step 7: a tab drags with its card, and carried out over the dimm
     .boundingBox();
   if (from === null) throw new Error('no tab row');
   const [x, y] = [from.x + 60, from.y + from.height / 2];
-  // Polled: the card glides to its place at step 7, over these rows on the way.
+  // Polled: the card glides to its place at step 8, over these rows on the way.
   await expect
     .poll(async () => (await hitAt(page, x, y)).includes('Flights to Lisbon'))
     .toBe(true);
@@ -333,11 +333,11 @@ test('full view step 7: a tab drags with its card, and carried out over the dimm
   await expect.poll(() => isUndimmed(page, carried)).toBe(true);
   await page.keyboard.press('Escape');
   await page.mouse.up();
-  await expect(cardAt(page, 7)).toBeVisible();
+  await expect(cardAt(page, 8)).toBeVisible();
 });
 
 // The step whose bright box holds the run session's windows, where a tab can be picked up.
-const WINDOWS_STEP = { popup: 6, full: 7 } as const;
+const WINDOWS_STEP = { popup: 7, full: 8 } as const;
 
 async function walkToWindowsStep(page: Page, view: RunViewCase): Promise<void> {
   const save = view.view === 'full' ? 3 : 1;

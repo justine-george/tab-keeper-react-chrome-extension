@@ -170,7 +170,7 @@ test('new install, Get started, each step done by hand; then setup, then the pin
     .getByRole('button', { name: SAVE_ALL, exact: true })
     .click();
   await expect(cardAt(full, 4)).toBeVisible();
-  for (let step = 5; step <= 8; step++) await nextTo(full, step);
+  for (let step = 5; step <= 9; step++) await nextTo(full, step);
   await cardButton(full, 'Pin this tab').click();
   await closeReplayNote(full);
   await skipSetupThenGuide(full);
@@ -206,7 +206,7 @@ test('new install, Get started, Next only (Use an example): the sample is gone a
   await cardButton(full, 'Use an example').click();
   await expect(cardAt(full, 4)).toBeVisible();
   expect(await storedTitles(full)).toEqual(['Sample: Weekend trip']);
-  for (let step = 5; step <= 8; step++) await nextTo(full, step);
+  for (let step = 5; step <= 9; step++) await nextTo(full, step);
   await cardButton(full, 'Not now').click();
   await closeReplayNote(full);
   await skipSetupThenGuide(full);
@@ -234,7 +234,7 @@ test('new install, Show me here: the popup run to ⤢, then the first full-view 
   await expect(cardAt(popup, 1)).toBeVisible();
   await cardButton(popup, 'Use an example').click();
   await expect(cardAt(popup, 2)).toBeVisible();
-  for (let step = 3; step <= 7; step++) await nextTo(popup, step);
+  for (let step = 3; step <= 8; step++) await nextTo(popup, step);
   await popup.locator('[data-tour-anchor="expand"] [role="button"]').click();
   const full = await waitForFullView(context);
   await runCheck(full, 'started');
@@ -245,7 +245,7 @@ test('new install, Show me here: the popup run to ⤢, then the first full-view 
   await expect(cardButton(full, 'Use an example')).toBeVisible();
   await cardButton(full, 'Use an example').click();
   await expect(cardAt(full, 4)).toBeVisible();
-  for (let step = 5; step <= 8; step++) await nextTo(full, step);
+  for (let step = 5; step <= 9; step++) await nextTo(full, step);
   await cardButton(full, 'Not now').click();
   await closeReplayNote(full);
   await skipSetupThenGuide(full);
@@ -267,7 +267,7 @@ async function upgraderRun(full: Page) {
   await expect(card(full)).toContainText(
     'Your saved sessions are all here, just as you left them.'
   );
-  for (let step = 4; step <= 8; step++) await nextTo(full, step);
+  for (let step = 4; step <= 9; step++) await nextTo(full, step);
   expect(await storedRun(full)).toMatchObject({ sessionId: 'new' });
   await cardButton(full, 'Not now').click();
   await closeReplayNote(full);
@@ -416,7 +416,7 @@ const running = (view: 'popup' | 'full', step: number) => ({
   ended: null,
 });
 
-for (let at = 1; at <= 7; at++) {
+for (let at = 1; at <= 8; at++) {
   test(`popup closed at step ${at}: the next open shows step ${at}`, async ({
     context,
     extensionId,
@@ -436,7 +436,7 @@ for (let at = 1; at <= 7; at++) {
   });
 }
 
-for (let at = 1; at <= 8; at++) {
+for (let at = 1; at <= 9; at++) {
   test(`full view reloaded, then closed and reopened, at step ${at}: the same step shows`, async ({
     context,
     extensionId,

@@ -606,7 +606,7 @@ for (const [theme, palette] of THEMES) {
       await expect(card(page)).toContainText('This is an example.');
       await expectCardReads(page, `${theme} popup example line`);
       await nextTo(page, 2);
-      for (let step = 2; step <= 7; step++) {
+      for (let step = 2; step <= 8; step++) {
         if (step > 2) await nextTo(page, step);
         await expectCardReads(page, `${theme} popup step ${step}`);
       }
@@ -633,13 +633,13 @@ for (const [theme, palette] of THEMES) {
         palette,
         `${theme} Start`
       );
-      for (let step = 1; step <= 8; step++) {
+      for (let step = 1; step <= 9; step++) {
         if (step > 1 && step !== 4) await nextTo(page, step);
         await expect(cardAt(page, step)).toBeVisible();
         await expectCardReads(
           page,
           `${theme} full step ${step}`,
-          step === 8
+          step === 9
             ? [
                 'It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Sessions.',
               ]

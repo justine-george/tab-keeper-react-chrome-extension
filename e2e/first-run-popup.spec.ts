@@ -24,7 +24,7 @@ import {
 } from './fixtures/run';
 import { COACH } from '../src/components/tour/coachMarkPlacement';
 
-// §4 on the real build, from Help: 7 cards in the popup, ending on ⤢.
+// §4 on the real build, from Help: 8 cards in the popup, ending on ⤢.
 
 async function toStepTwo(page: Page) {
   await expect.poll(() => cardSide(page)).toBe('right');
@@ -44,7 +44,7 @@ const openLook = (page: Page, id: string) =>
       el.getAttribute('aria-disabled'),
     ]);
 
-test('the seven cards in their places, then Done; the callout is marked seen; nothing opens after', async ({
+test('the eight cards in their places, then Done; the callout is marked seen; nothing opens after', async ({
   context,
   extensionId,
 }) => {
@@ -55,13 +55,14 @@ test('the seven cards in their places, then Done; the callout is marked seen; no
     [3, 'below'],
     [4, 'below'],
     [5, 'below'],
-    [6, 'left'],
-    [7, 'below'],
+    [6, 'below'],
+    [7, 'left'],
+    [8, 'below'],
   ] as const) {
     if (step > 2) await nextTo(page, step);
     await expect.poll(() => cardSide(page)).toBe(side);
-    // Step 6 sits in the left pane, 40px in, as the popup mock places it (A2).
-    if (step === 6) {
+    // Step 7 sits in the left pane, 40px in, as the popup mock places it (A2).
+    if (step === 7) {
       await expect
         .poll(async () => (await card(page).boundingBox())?.x)
         .toBe(COACH.POPUP_LEFT);
@@ -79,13 +80,13 @@ test('the seven cards in their places, then Done; the callout is marked seen; no
   await expect.poll(() => storedTitles(page)).toEqual([]);
 });
 
-test('⤢ at step 7 ends the run, then opens the full view', async ({
+test('⤢ at step 8 ends the run, then opens the full view', async ({
   context,
   extensionId,
 }) => {
   const page = await openRunFromHelp(context, extensionId, POPUP_RUN);
   await toStepTwo(page);
-  for (let step = 3; step <= 7; step++) await nextTo(page, step);
+  for (let step = 3; step <= 8; step++) await nextTo(page, step);
   await page.locator('[data-tour-anchor="expand"] [role="button"]').click();
   const full = await waitForFullView(context);
   await expect
@@ -137,7 +138,7 @@ test('the user’s own session keeps an undimmed Open through and after the run'
   if (typeof sample !== 'string') throw new Error('the run has no session');
   // CONTROL: the run's own session's Open is dimmed and blocked at step 2.
   expect(await openLook(page, sample)).toEqual(['opacity(0.3)', 'true']);
-  for (let step = 3; step <= 7; step++) await nextTo(page, step);
+  for (let step = 3; step <= 8; step++) await nextTo(page, step);
   await cardButton(page, 'Done').click();
   await closeReplayNote(page);
   await expect(card(page)).toHaveCount(0);
@@ -175,7 +176,7 @@ test('the user’s own save is the run’s session: its Open is dimmed during th
   if (typeof own !== 'string') throw new Error('the run has no session');
   // CONTROL: the run's session's Open is dimmed and blocked while the run points at it.
   expect(await openLook(page, own)).toEqual(['opacity(0.3)', 'true']);
-  for (let step = 3; step <= 7; step++) await nextTo(page, step);
+  for (let step = 3; step <= 8; step++) await nextTo(page, step);
   await cardButton(page, 'Done').click();
   await closeReplayNote(page);
   await expect(card(page)).toHaveCount(0);
