@@ -1344,3 +1344,49 @@ describe('a window holding a Tab Keeper page gets its front tab and groups back 
     });
   });
 });
+
+// Open now re-reads 50 ms after a group event, so a Close can come before the
+// read that would carry a rename. Chrome's restore has the new look; the undo
+// must not write the old one over it.
+describe('a group changed since Open now read it comes back as it was at the close (KAN-570)', () => {
+  test('a window: the renamed, recoloured group keeps its new title and colour', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: GRANTED,
+      windows: [
+        tabViewWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), groupId: 60, active: true },
+            { url: url('b'), groupId: 61 },
+          ],
+        },
+      ],
+      tabGroups: [
+        { id: 60, windowId: 2, title: 'Trip', color: 'blue' },
+        { id: 61, windowId: 2, title: '', color: 'grey' },
+      ],
+    });
+    const listed = await openWindow(2);
+    await chrome.tabGroups.update(61, { title: 'Later', color: 'red' });
+
+    const item = await closeOpenWindow(listed);
+    if (item?.kind !== 'window') throw new Error('close failed');
+    // PREMISE: the close matched Chrome's entry, so Reopen goes through history.
+    expect(item.restorableSessionId).toEqual(expect.any(String));
+    const reopened = await reopenPreferringHistory(item, false);
+
+    if (reopened?.kind !== 'window') throw new Error('no window came back');
+    const groups = await chrome.tabGroups.query({
+      windowId: reopened.windowId,
+    });
+    expect(
+      groups
+        .map(({ title, color }) => ({ title, color }))
+        .sort((x, y) => (x.title ?? '').localeCompare(y.title ?? ''))
+    ).toEqual([
+      { title: 'Later', color: 'red' },
+      { title: 'Trip', color: 'blue' },
+    ]);
+  });
+});
