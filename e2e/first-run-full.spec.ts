@@ -72,6 +72,10 @@ test('Help starts at card 1 with no Hello; the eight cards in their places, Back
     'aria-valuetext',
     'Step 1 of 8'
   );
+  // KAN-562: led by the name, so it can't read as "this is open at the moment".
+  await expect(card(page)).toContainText(
+    'Open now shows every window and tab in Chrome, kept up to date as you browse.'
+  );
   await expect(cardButton(page, 'Back')).toHaveCount(0);
   // Step 1 is look-only: Open now takes no press.
   expect(
@@ -495,6 +499,10 @@ test('Pin this tab pins this tab and ends the run', async ({
   for (let step = 2; step <= 3; step++) await nextTo(page, step);
   await cardButton(page, 'Use an example').click();
   for (let step = 5; step <= 8; step++) await nextTo(page, step);
+  // KAN-562: about the tab, so it isn't read as the toolbar pin that follows.
+  await expect(card(page)).toContainText(
+    'Keep Tab Keeper open in a pinned tab.'
+  );
   await cardButton(page, 'Pin this tab').click();
   await expect.poll(pinned).toBe(true);
   await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'finished' });
