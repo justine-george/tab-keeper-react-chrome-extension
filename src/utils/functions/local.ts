@@ -432,9 +432,10 @@ export const isLazyPlaceholder = (url: string): boolean =>
 // Parameter names that tab suspenders use to carry the page they stand for.
 const SUSPENDED_URL_PARAMS = ['url', 'uri'];
 
-// Only http(s) is worth restoring. This also stops a crafted extension page
-// from redirecting a restore to javascript:, data: or another extension.
-function isRestorablePageUrl(value: string): boolean {
+// A suspender's parameter is trusted only to name a web page. This stops a
+// crafted extension page from redirecting a restore to javascript:, data: or
+// another extension.
+function isWebPageUrl(value: string): boolean {
   try {
     const { protocol } = new URL(value);
     return protocol === 'http:' || protocol === 'https:';
@@ -465,14 +466,14 @@ export function unwrapSuspendedUrl(url: string): string {
   const rawUriIndex = fragment.indexOf('uri=');
   if (rawUriIndex >= 0) {
     const candidate = fragment.slice(rawUriIndex + 4);
-    if (isRestorablePageUrl(candidate)) return candidate;
+    if (isWebPageUrl(candidate)) return candidate;
   }
 
   const params = [...parsed.searchParams, ...new URLSearchParams(fragment)];
 
   for (const name of SUSPENDED_URL_PARAMS) {
     const match = params.find(([key]) => key === name);
-    if (match && isRestorablePageUrl(match[1])) return match[1];
+    if (match && isWebPageUrl(match[1])) return match[1];
   }
 
   // An unrecognised suspender may name its parameter anything, so fall back to
@@ -480,7 +481,7 @@ export function unwrapSuspendedUrl(url: string): string {
   // suspend page, so an ordinary extension page that merely references a URL
   // (an onboarding screen with ?ref=, say) is never rewritten.
   if (/suspend/i.test(parsed.pathname)) {
-    const match = params.find(([, value]) => isRestorablePageUrl(value));
+    const match = params.find(([, value]) => isWebPageUrl(value));
     if (match) return match[1];
   }
 
@@ -511,14 +512,52 @@ export function resolveTabUrl(url: string): string {
 // Returns null for everything that is not one of our placeholders. The worker
 // asks this of every tab the user activates, and a wrong answer would navigate
 // a page they were reading, so a foreign data: document, a decode that yields
-// nothing, and any non-http(s) target all decline.
-export function placeholderTarget(tabUrl: string): string | null {
+// nothing, and any target the swap cannot or must not load all decline.
+export function placeholderTarget(
+  tabUrl: string,
+  ownExtensionId: string
+): string | null {
   if (!tabUrl.startsWith(PLACEHOLDER_URL_PREFIX)) return null;
 
   const resolved = resolveTabUrl(tabUrl);
   if (resolved === tabUrl) return null;
 
-  return isRestorablePageUrl(resolved) ? resolved : null;
+  return restoreRoute(resolved, ownExtensionId) === 'swap' ? resolved : null;
+}
+
+// How a restored tab that does not load at once comes back (KAN-561, measured on Chromium 156):
+// 'swap' a placeholder the worker swaps on activation, since tabs.update loads it;
+// 'open' its own page now, since tabs.update ignores data: and blocks another extension's page;
+// 'keep' a placeholder that never swaps: Chrome refuses it (javascript:, devtools:) or hands it to an app (mailto:).
+export type RestoreRoute = 'swap' | 'open' | 'keep';
+
+// chrome://crash, quit and the like are refused by tabs.update itself, so chrome: is safe to swap.
+const SWAPPED_SCHEMES = [
+  'http:',
+  'https:',
+  'chrome:',
+  'about:',
+  'file:',
+  'view-source:',
+  'blob:',
+];
+
+export function restoreRoute(
+  url: string,
+  ownExtensionId: string
+): RestoreRoute {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return 'keep';
+  }
+  if (SWAPPED_SCHEMES.includes(parsed.protocol)) return 'swap';
+  if (parsed.protocol === 'data:') return 'open';
+  if (parsed.protocol === 'chrome-extension:') {
+    return parsed.host === ownExtensionId ? 'swap' : 'open';
+  }
+  return 'keep';
 }
 
 // Firestore rejects any document larger than 1 MiB.

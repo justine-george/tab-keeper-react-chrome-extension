@@ -16,6 +16,7 @@ import { setupChromeFake } from '../../setup/chrome.fake';
 // Repeated rather than imported: it is private to local.ts, and the module
 // that exports it publicly pulls in window.screen, which these tests lack.
 const PLACEHOLDER_URL_PREFIX = 'data:text/html;base64,';
+const OWN_ID = 'tabkeeperownid';
 
 function tab(url: string, title = 'a title') {
   return { tabId: 'id', favicon: '', title, url };
@@ -40,6 +41,7 @@ function stubChrome(results: (chrome.windows.Window | undefined)[]) {
   let nextTabId = 100;
 
   const chromeStub = {
+    runtime: { id: OWN_ID },
     windows: {
       create: (
         options: chrome.windows.CreateData,
@@ -134,6 +136,34 @@ describe('createWindowWithRetries', () => {
     expect(createdTabs[0]).toMatchObject({ windowId: 7, active: false });
     expect(createdTabs[0].url).toContain(PLACEHOLDER_URL_PREFIX);
     expect(createdTabs[0].url).not.toBe('https://second.example');
+  });
+
+  // KAN-561. A page the worker's swap cannot load opens with its own url; the rest stay placeholders.
+  test("opens data: and another extension's page directly, and placeholders the rest", async () => {
+    const { createdTabs } = stubChrome([fakeWindow(7)]);
+    const later = [
+      'data:text/html,<title>Data</title>hi',
+      'chrome-extension://anotherextension/page.html',
+      'chrome://settings/',
+      `chrome-extension://${OWN_ID}/index.html`,
+      'file:///etc/hosts',
+      'mailto:a@b.c',
+    ];
+
+    await createWindowWithRetries(
+      spec({
+        tabs: [tab('https://first.example'), ...later.map((url) => tab(url))],
+      }),
+      'Go to URL',
+      2
+    );
+
+    const urls = createdTabs.map((props) => props.url ?? '');
+    expect(urls.slice(0, 2)).toEqual(later.slice(0, 2));
+    for (const url of urls.slice(2)) {
+      expect(url.startsWith(PLACEHOLDER_URL_PREFIX)).toBe(true);
+    }
+    expect(urls.slice(2)).not.toContain(later[2]);
   });
 
   test('retries without bounds after a failed attempt', async () => {

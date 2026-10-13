@@ -20,6 +20,7 @@ import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
   placeholderTarget,
+  restoreRoute,
   saveToLocalStorage,
   stripEmbeddedFavicons,
   resolveFaviconUrl,
@@ -29,6 +30,9 @@ import {
   bytesToMB,
 } from '../../../utils/functions/local';
 import { TabMasterContainer } from '../../../redux/slices/tabContainerDataStateSlice';
+
+// The worker passes chrome.runtime.id.
+const OWN_ID = 'tabkeeperownid';
 
 describe('isValidDate', () => {
   // Valid dates
@@ -351,7 +355,7 @@ describe('placeholder HTML escaping', () => {
     const withAmpersand = 'https://example.com/search?a=1&b=2';
     const placeholder = generatePlaceholderURL('t', 'f', withAmpersand, 'go');
 
-    expect(placeholderTarget(placeholder)).toBe(withAmpersand);
+    expect(placeholderTarget(placeholder, OWN_ID)).toBe(withAmpersand);
   });
 
   test('round-trips a url containing a literal escaped entity', () => {
@@ -1200,7 +1204,7 @@ describe('placeholderTarget', () => {
   test('should give the real page for a lazy-load placeholder', () => {
     const url = 'https://github.com/justine-george';
     const placeholder = generatePlaceholderURL('title', 'favicon', url, 'go');
-    expect(placeholderTarget(placeholder)).toBe(url);
+    expect(placeholderTarget(placeholder, OWN_ID)).toBe(url);
   });
 
   test('should give the final page for a placeholder around a suspended url', () => {
@@ -1209,15 +1213,15 @@ describe('placeholderTarget', () => {
       page
     )}`;
     const placeholder = generatePlaceholderURL('t', 'f', suspended, 'go');
-    expect(placeholderTarget(placeholder)).toBe(page);
+    expect(placeholderTarget(placeholder, OWN_ID)).toBe(page);
   });
 
   // the common case by far - every ordinary tab switch reaches this
   test('should return null for a page the user is actually reading', () => {
-    expect(placeholderTarget('https://example.com/article')).toBeNull();
-    expect(placeholderTarget('chrome://extensions/')).toBeNull();
-    expect(placeholderTarget('file:///Users/j/x.pdf')).toBeNull();
-    expect(placeholderTarget('')).toBeNull();
+    expect(placeholderTarget('https://example.com/article', OWN_ID)).toBeNull();
+    expect(placeholderTarget('chrome://extensions/', OWN_ID)).toBeNull();
+    expect(placeholderTarget('file:///Users/j/x.pdf', OWN_ID)).toBeNull();
+    expect(placeholderTarget('', OWN_ID)).toBeNull();
   });
 
   // worst path: a data: tab that is not ours must never be navigated
@@ -1225,7 +1229,7 @@ describe('placeholderTarget', () => {
     const foreign = `data:text/html;base64,${btoa(
       '<html><body>hello</body></html>'
     )}`;
-    expect(placeholderTarget(foreign)).toBeNull();
+    expect(placeholderTarget(foreign, OWN_ID)).toBeNull();
   });
 
   test('should refuse a placeholder wrapping a non-http scheme', () => {
@@ -1235,14 +1239,36 @@ describe('placeholderTarget', () => {
       'javascript:alert(1)',
       'go'
     );
-    expect(placeholderTarget(hostile)).toBeNull();
+    expect(placeholderTarget(hostile, OWN_ID)).toBeNull();
+  });
+
+  // KAN-561. Every page tabs.update loads is swapped, not only http(s).
+  test.each([
+    'chrome://settings/',
+    'about:blank',
+    'file:///Users/j/notes.txt',
+    'view-source:https://example.com/',
+    `chrome-extension://${OWN_ID}/index.html`,
+  ])('should give %s, a page the swap loads', (url) => {
+    const placeholder = generatePlaceholderURL('t', 'f', url, 'go');
+    expect(placeholderTarget(placeholder, OWN_ID)).toBe(url);
+  });
+
+  // KAN-561. tabs.update ignores data: and blocks another extension's page, so those open directly instead.
+  test.each([
+    'data:text/html,<title>Data</title>hi',
+    'chrome-extension://anotherextension/page.html',
+    'mailto:a@b.c',
+  ])('should decline %s, which no swap can load or must not', (url) => {
+    const placeholder = generatePlaceholderURL('t', 'f', url, 'go');
+    expect(placeholderTarget(placeholder, OWN_ID)).toBeNull();
   });
 
   test('should return null rather than throw on malformed base64', () => {
-    expect(placeholderTarget('data:text/html;base64,!!!not!!base64!!!')).toBe(
-      null
-    );
-    expect(placeholderTarget('data:text/html;base64,')).toBeNull();
+    expect(
+      placeholderTarget('data:text/html;base64,!!!not!!base64!!!', OWN_ID)
+    ).toBe(null);
+    expect(placeholderTarget('data:text/html;base64,', OWN_ID)).toBeNull();
   });
 });
 
@@ -1491,5 +1517,45 @@ describe('readImportedContainer', () => {
 
     expect(serialized.length).toBeGreaterThan(FIRESTORE_MAX_DOCUMENT_BYTES);
     expect(readImportedContainer(serialized, 'en')).toEqual(container);
+  });
+});
+
+// KAN-561, measured on Chromium 156: what tabs.create and tabs.update each do with a saved page.
+describe('restoreRoute', () => {
+  test.each([
+    'https://example.com/',
+    'http://example.com/',
+    'chrome://settings/',
+    'chrome://newtab/',
+    'about:blank',
+    'file:///etc/hosts',
+    'view-source:https://example.com/',
+    'blob:https://example.com/0f8c',
+    `chrome-extension://${OWN_ID}/index.html`,
+  ])('swaps %s: tabs.update loads it', (url) => {
+    expect(restoreRoute(url, OWN_ID)).toBe('swap');
+  });
+
+  test.each([
+    'data:text/html,<title>Data</title>hi',
+    'data:text/plain,plain',
+    'chrome-extension://anotherextension/page.html',
+  ])('opens %s directly: tabs.update cannot load it', (url) => {
+    expect(restoreRoute(url, OWN_ID)).toBe('open');
+  });
+
+  // Worst path: Chrome refuses these, or hands them to another app, so they never load.
+  test.each([
+    'javascript:alert(1)',
+    'devtools://devtools/bundled/inspector.html',
+    'chrome-untrusted://print/',
+    'mailto:a@b.c',
+    'tel:+15550100',
+    'slack://open',
+    'ftp://example.com/',
+    'not a url',
+    '',
+  ])('keeps %s a placeholder', (url) => {
+    expect(restoreRoute(url, OWN_ID)).toBe('keep');
   });
 });

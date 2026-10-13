@@ -2,7 +2,7 @@ import type {
   SavedWindowState,
   tabData,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import { generatePlaceholderURL, resolveTabUrl } from './local';
+import { generatePlaceholderURL, resolveTabUrl, restoreRoute } from './local';
 import { createSplitApi, type CreateSplit } from './splitView';
 import { sanitizeTabGroupColor } from './tabGroups';
 
@@ -273,7 +273,7 @@ function retryAfterFailure(
   return createWindowWithRetries(fallback, goToURLText, 1);
 }
 
-// Every tab but the target and split pairs is a placeholder the worker swaps for its page on activation (placeholderTarget, KAN-250).
+// Every tab but the target, split pairs and pages no swap loads (KAN-561) is a placeholder the worker swaps on activation (placeholderTarget, KAN-250).
 async function fillRestoredWindow(
   newWindow: chrome.windows.Window,
   spec: WindowSpec,
@@ -291,6 +291,13 @@ async function fillRestoredWindow(
   const createSplit = createSplitApi();
   const pairs = createSplit === null ? [] : splitPairs(spec.tabs);
   const loadsPage = new Set(pairs.flat());
+  spec.tabs.forEach((tabInfo, i) => {
+    if (
+      restoreRoute(resolveTabUrl(tabInfo.url), chrome.runtime.id) === 'open'
+    ) {
+      loadsPage.add(i);
+    }
+  });
   // Pinned before any create so later pinned tabs queue behind it; a refused pin (never seen) would also cost order.
   if (spec.tabs[targetIndex].pinned === true && targetId !== undefined) {
     await pinRestoredTab(targetId);

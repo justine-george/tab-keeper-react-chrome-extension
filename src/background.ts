@@ -42,9 +42,12 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
     // lastError, and leaving it unread logs an unchecked-error warning.
     if (chrome.runtime.lastError || !tab?.url) return;
 
-    const target = placeholderTarget(tab.url);
+    const target = placeholderTarget(tab.url, chrome.runtime.id);
     if (target) {
-      chrome.tabs.update(tabId, { url: target });
+      // KAN-561. Chrome refuses some (chrome://crash, file: without file access): the placeholder stays.
+      chrome.tabs.update(tabId, { url: target }).catch((error) => {
+        console.warn('Could not load a restored tab:', error);
+      });
     }
   });
 });

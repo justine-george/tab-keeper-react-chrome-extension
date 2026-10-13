@@ -1,6 +1,7 @@
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { standIn } from './fixtures/standInPages';
 import { grantedTest } from './fixtures/grantedExtension';
 import {
   buildContainer,
@@ -31,7 +32,8 @@ import type {
 import type { chromeTabGroupData } from '../src/utils/functions/tabGroups';
 
 // KAN-458. The spec's "Through Save / Open / Switch" table for pinned tabs and the active tab, in the real browser.
-const page = (name: string) => `data:text/html,<title>${name}</title>`;
+// A page that restores lazily (KAN-561: data: opens directly).
+const page = standIn;
 const PLACEHOLDER = 'data:text/html;base64,';
 // Measured 2026-10-07: windows.create and tabs.create reject it from an extension.
 const REFUSED = 'chrome://kill';
