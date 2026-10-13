@@ -6,6 +6,7 @@ import {
   startGeometryEvidence,
   withGeometryEvidence,
 } from './fixtures/dragEvidence';
+import { AUTO_SCROLL_BAND } from './fixtures/savedWindows';
 
 // KAN-184. A window being dropped INTO has to make room for the row.
 //
@@ -125,6 +126,48 @@ async function centreOn(page: Page, selector: string) {
   }, selector);
 }
 
+// Put the given element's top `below` px under the pane's top edge.
+async function placeBelowPaneTop(page: Page, selector: string, below: number) {
+  return page.evaluate(
+    ({ selector, below }) => {
+      let pane = document.querySelector<HTMLElement>(
+        '[data-drag-row-id="w1"]'
+      )!.parentElement;
+      while (
+        pane &&
+        !['auto', 'scroll'].includes(getComputedStyle(pane).overflowY)
+      )
+        pane = pane.parentElement;
+      const target = document.querySelector(selector)!.getBoundingClientRect();
+      pane!.scrollTop +=
+        target.top - (pane!.getBoundingClientRect().top + below);
+      return pane!.scrollTop;
+    },
+    { selector, below }
+  );
+}
+
+// A pointer held in either auto-scroll band scrolls the list under it, so
+// every grab and aim must sit clear of both (KAN-572, as KAN-200).
+async function expectClearOfAutoScroll(page: Page, y: number) {
+  const pane = await page.evaluate(() => {
+    let el = document.querySelector<HTMLElement>(
+      '[data-drag-row-id="w1"]'
+    )!.parentElement;
+    while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+      el = el.parentElement;
+    const r = el!.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom };
+  });
+  expect(y).toBeGreaterThan(pane.top + AUTO_SCROLL_BAND);
+  expect(y).toBeLessThan(pane.bottom - AUTO_SCROLL_BAND);
+}
+
+async function aim(page: Page, x: number, y: number, steps = 8) {
+  await expectClearOfAutoScroll(page, y);
+  await page.mouse.move(x, y, { steps });
+}
+
 const boxOf = async (page: Page, selector: string) =>
   (await page.locator(selector).boundingBox())!;
 
@@ -163,9 +206,10 @@ async function grabGroup(page: Page, groupId: string) {
   );
   const x = b.x + 40;
   const y = b.y + b.height / 2;
+  await expectClearOfAutoScroll(page, y);
   await page.mouse.move(x, y);
   await page.mouse.down();
-  await page.mouse.move(x, y - 8, { steps: 2 });
+  await aim(page, x, y - 8, 2);
   return x;
 }
 
@@ -178,7 +222,7 @@ test.describe('a window makes room for a row landing in it', () => {
 
     const x = await grabGroup(page, 'beta');
     const a4 = await boxOf(page, '[data-drag-row-id="tab:a4"]');
-    await page.mouse.move(x, a4.y + 4, { steps: 8 });
+    await aim(page, x, a4.y + 4);
     await page.waitForTimeout(320);
 
     // w1's LAST row is the one pushed down by the landing above it.
@@ -216,7 +260,7 @@ test.describe('a window makes room for a row landing in it', () => {
     // the resting position again before asking what the LANDING moved.
     const afterPickup = await boxOf(page, '[data-drop-window-id="w2"]');
     const a4 = await boxOf(page, '[data-drag-row-id="tab:a4"]');
-    await page.mouse.move(x, a4.y + 4, { steps: 8 });
+    await aim(page, x, a4.y + 4);
     await page.waitForTimeout(320);
 
     const during = await boxOf(page, '[data-drop-window-id="w2"]');
@@ -270,7 +314,7 @@ test.describe('a window makes room for a row landing in it', () => {
 
     const x = await grabGroup(page, 'beta');
     const w1 = await boxOf(page, '[data-drop-window-id="w1"]');
-    await page.mouse.move(x, w1.y + w1.height - 3, { steps: 8 });
+    await aim(page, x, w1.y + w1.height - 3);
     await page.waitForTimeout(320);
 
     const slot = await slotBox(page);
@@ -302,7 +346,7 @@ test.describe('a window makes room for a row landing in it', () => {
     const x = await grabGroup(page, 'beta');
     const a4 = await boxOf(page, '[data-drag-row-id="tab:a4"]');
     const at = a4.y + 4;
-    await page.mouse.move(x, at, { steps: 8 });
+    await aim(page, x, at);
     await page.waitForTimeout(320);
 
     // The held row is drawn INSIDE the window it came from, and that window is
@@ -326,7 +370,7 @@ test.describe('a window makes room for a row landing in it', () => {
     const x = await grabGroup(page, 'beta');
     const resting = await boxOf(page, '[data-drop-window-id="w3"]');
     const b2 = await boxOf(page, '[data-drag-row-id="tab:b2"]');
-    await page.mouse.move(x, b2.y + b2.height - 4, { steps: 8 });
+    await aim(page, x, b2.y + b2.height - 4);
     await page.waitForTimeout(320);
 
     const during = await boxOf(page, '[data-drop-window-id="w3"]');
@@ -342,11 +386,19 @@ test.describe('a window makes room for a row landing in it', () => {
     extensionId,
   }) => {
     const page = await open(context, extensionId);
-    await centreOn(page, '[data-drop-window-id="w3"]');
+    // Not centreOn(w3): the pane cannot scroll that far, and at its end beta's
+    // handle sits inside the top band, so the list scrolled during the grab
+    // and the aim at c2 read a moving layout (KAN-572). Two bands down, the
+    // grab is clear of the top band and c2 of the bottom one.
+    await placeBelowPaneTop(
+      page,
+      '[data-drag-row-id="group:beta"]',
+      2 * AUTO_SCROLL_BAND
+    );
 
     const x = await grabGroup(page, 'beta');
     const c2 = await boxOf(page, '[data-drag-row-id="tab:c2"]');
-    await page.mouse.move(x, c2.y + 4, { steps: 8 });
+    await aim(page, x, c2.y + 4);
     await page.waitForTimeout(320);
 
     const slot = await slotBox(page);
@@ -379,7 +431,7 @@ test.describe('a window makes room for a row landing in it', () => {
     const at = w1.y + w1.height - 3;
 
     for (let i = 0; i < 3; i++) {
-      await page.mouse.move(x, at, { steps: 4 });
+      await aim(page, x, at, 4);
       await page.waitForTimeout(220);
       const w2 = await boxOf(page, '[data-drop-window-id="w2"]');
       // The pointer now sits ABOVE w2's drawn top only because w2 moved; what
