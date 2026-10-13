@@ -10,6 +10,7 @@ import { hasSessionsPermission } from './permissions';
 import { ensurePinnedStub } from './pinnedTabKeeper';
 import { isReopened, REOPEN_PREFERRING_HISTORY_MESSAGE } from './reopenRequest';
 import type { ReopenPreferringHistoryRequest } from './reopenRequest';
+import { sanitizeTabGroupColor } from './tabGroups';
 
 // Close a live tab or window from the Open now pane, and put it back exactly
 // with Reopen (KAN-280 O8). DOM-free -- no `window`, no `document`, and never
@@ -52,6 +53,41 @@ export async function withCurrentPlacement(
       state: current.state ?? 'normal',
     };
   } catch {
+    return openWindow;
+  }
+}
+
+// The snapshot with each group's title, colour and fold as Chrome has them
+// now (KAN-570). Open now re-reads 50 ms after a group event, so a Close can
+// come before the read that carries a rename, and Reopen would write the old
+// look back. Read before the remove, which takes the groups with it. A group
+// Chrome no longer has, or a failed read, keeps the snapshot's.
+async function withCurrentGroupVisuals(
+  openWindow: OpenWindow
+): Promise<OpenWindow> {
+  if (openWindow.groups.length === 0 || !chrome.tabGroups) return openWindow;
+  try {
+    const current = new Map(
+      (await chrome.tabGroups.query({ windowId: openWindow.id })).map(
+        (group) => [group.id, group]
+      )
+    );
+    return {
+      ...openWindow,
+      groups: openWindow.groups.map((group) => {
+        const now = current.get(group.id);
+        return now
+          ? {
+              ...group,
+              title: now.title ?? '',
+              color: sanitizeTabGroupColor(now.color),
+              collapsed: now.collapsed,
+            }
+          : group;
+      }),
+    };
+  } catch (error) {
+    console.warn('Could not read the tab groups before a close: ', error);
     return openWindow;
   }
 }
@@ -146,7 +182,9 @@ export async function closeOpenTab(
   openWindow: OpenWindow,
   tab: OpenTab
 ): Promise<ClosedItem | null> {
-  const placed = await withCurrentPlacement(openWindow);
+  const current = await withCurrentGroupVisuals(
+    await withCurrentPlacement(openWindow)
+  );
   const listedBefore = await listedEntryIds();
   try {
     await chrome.tabs.remove(tab.id);
@@ -156,8 +194,8 @@ export async function closeOpenTab(
   return {
     kind: 'tab',
     tab,
-    group: openWindow.groups.find((group) => group.id === tab.groupId) ?? null,
-    window: placed,
+    group: current.groups.find((group) => group.id === tab.groupId) ?? null,
+    window: current,
     restorableSessionId: await addedEntryId(
       listedBefore,
       tabEntryIdIfMatching(tab)
@@ -168,7 +206,9 @@ export async function closeOpenTab(
 export async function closeOpenWindow(
   openWindow: OpenWindow
 ): Promise<ClosedItem | null> {
-  const placed = await withCurrentPlacement(openWindow);
+  const current = await withCurrentGroupVisuals(
+    await withCurrentPlacement(openWindow)
+  );
   const listedBefore = await listedEntryIds();
   try {
     await chrome.windows.remove(openWindow.id);
@@ -177,7 +217,7 @@ export async function closeOpenWindow(
   }
   return {
     kind: 'window',
-    window: placed,
+    window: current,
     restorableSessionId: await addedEntryId(
       listedBefore,
       windowEntryIdIfMatching(openWindow)

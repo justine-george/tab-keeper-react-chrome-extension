@@ -448,8 +448,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
 
   test('a tab whose group no longer exists at all gets a new group like the old one', async () => {
     // Chrome removes a group with its last tab, so tabGroups.get(50)
-    // rejects by the time Reopen runs. The fake has no group 50; the
-    // snapshot is built from the groups Chrome reported at close.
+    // rejects by the time Reopen runs.
     handle = setupChromeFake({
       grantedPermissions: ['tabGroups'],
       windows: [
@@ -462,25 +461,13 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
           ],
         },
       ],
+      tabGroups: [{ id: 50, windowId: 2, title: 'Gone', color: 'orange' }],
     });
-    const groupsAtClose: chrome.tabGroups.TabGroup[] = [
-      {
-        id: 50,
-        windowId: 2,
-        title: 'Gone',
-        color: 'orange',
-        collapsed: false,
-        shared: false,
-      },
-    ];
-    const all = await chrome.windows.getAll({
-      populate: true,
-      windowTypes: ['normal'],
-    });
-    const w2 = toOpenWindows(all, groupsAtClose, null).find((w) => w.id === 2);
-    if (!w2) throw new Error('no window 2');
+    const w2 = await openWindow(2);
     const item = await closeOpenTab(w2, tabIn(w2, 'b'));
     if (!item) throw new Error('close failed');
+    // PREMISE: the group went with its only tab.
+    await expect(chrome.tabGroups.get(50)).rejects.toThrow();
 
     expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
 
@@ -1386,6 +1373,77 @@ describe('recreateClosed adds a pinned Tab Keeper tab when asked (KAN-459)', () 
 
     expect(handle.createdTabs.slice(before).map((p) => p.url)).not.toContain(
       STUB_URL
+    );
+  });
+});
+
+// Open now re-reads 50 ms after a group event, so a Close can come before the
+// read that would carry a rename.
+describe('a group changed since Open now read it is recreated as it was at the close (KAN-570)', () => {
+  test('a tab alone in its group: the new group has the new title, colour and fold', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), active: true },
+            { url: url('b'), groupId: 51 },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 51, windowId: 2, title: '', color: 'grey' }],
+    });
+    const listed = await openWindow(2);
+    await chrome.tabGroups.update(51, {
+      title: 'Later',
+      color: 'red',
+      collapsed: true,
+    });
+
+    const item = await closeOpenTab(listed, tabIn(listed, 'b'));
+    if (item === null) throw new Error('close failed');
+    // PREMISE: the group went with its only tab, so the recreate makes a new one.
+    expect(await chrome.tabGroups.query({ windowId: 2 })).toEqual([]);
+    await recreateClosed(item, false);
+
+    expect(
+      (await chrome.tabGroups.query({ windowId: 2 })).map(
+        ({ title, color, collapsed }) => ({ title, color, collapsed })
+      )
+    ).toEqual([{ title: 'Later', color: 'red', collapsed: true }]);
+  });
+
+  test('when the groups cannot be read, the close goes ahead with the groups as listed, and warns', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), active: true },
+            { url: url('b'), groupId: 51 },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 51, windowId: 2, title: 'Kyoto', color: 'blue' }],
+    });
+    const listed = await openWindow(2);
+    vi.spyOn(chrome.tabGroups, 'query').mockRejectedValue(new Error('gone'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const item = await closeOpenWindow(listed);
+
+    expect(await windowIds()).toEqual([1]);
+    expect(item).toMatchObject({
+      kind: 'window',
+      window: { groups: listed.groups },
+    });
+    expect(warn).toHaveBeenCalledWith(
+      'Could not read the tab groups before a close: ',
+      expect.any(Error)
     );
   });
 });
