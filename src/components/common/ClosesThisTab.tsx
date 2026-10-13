@@ -20,8 +20,7 @@ interface ClosesThisTabProps {
   onGo: () => void;
   text: string;
   goLabel: string;
-  // Absent where a pinned tab would have nowhere to go.
-  pinLabel?: string;
+  pinLabel: string;
   // Which edge of the control the card lines up with, and the notch's distance from it.
   align: 'left' | 'right';
   notchInset: string;
@@ -139,7 +138,7 @@ export default function ClosesThisTab({
 interface ClosesThisTabCardProps {
   text: string;
   goLabel: string;
-  pinLabel: string | undefined;
+  pinLabel: string;
   align: 'left' | 'right';
   notchInset: string;
   onGo: () => void;
@@ -255,11 +254,9 @@ function ClosesThisTabCard({
           white-space: nowrap;
         `}
       >
-        {pinLabel !== undefined && (
-          <button type="button" css={buttons.quiet} onClick={onPin}>
-            {pinLabel}
-          </button>
-        )}
+        <button type="button" css={buttons.quiet} onClick={onPin}>
+          {pinLabel}
+        </button>
         <button type="button" css={buttons.filled} onClick={onGo} autoFocus>
           {goLabel}
         </button>

@@ -46,20 +46,37 @@ export interface BackFacts {
   fullView: FullViewTabRef & { pinned: boolean };
   origin: number | undefined;
   recent: readonly number[];
-  // Normal tabs in the full view's window, and in every window.
+  // Normal tabs in the full view's window, in tab order, and in every window.
   windowTabIds: readonly number[];
   openTabIds: readonly number[];
 }
 
-// A recorded tab to switch to; else closing an unpinned full view beside other tabs; else nothing.
+// A recorded tab to switch to; else, beside other tabs, close an unpinned full view or
+// leave a pinned one for its neighbour (KAN-580: so a Pin from the card has somewhere to go).
 export function planBack(facts: BackFacts): BackPlan {
   const { fullView } = facts;
   const others = facts.openTabIds.filter((id) => id !== fullView.tabId);
   const target = tabToReturnTo(facts.origin, facts.recent, others);
   if (target !== undefined)
     return { kind: 'switch', tabId: target, closes: !fullView.pinned };
-  const besideIt = facts.windowTabIds.some((id) => id !== fullView.tabId);
-  return !fullView.pinned && besideIt ? { kind: 'close' } : { kind: 'none' };
+  if (!fullView.pinned)
+    return facts.windowTabIds.some((id) => id !== fullView.tabId)
+      ? { kind: 'close' }
+      : { kind: 'none' };
+  const neighbour = neighbourOf(fullView.tabId, facts.windowTabIds);
+  return neighbour === undefined
+    ? { kind: 'none' }
+    : { kind: 'switch', tabId: neighbour, closes: false };
+}
+
+// The tab to its right, else to its left.
+function neighbourOf(
+  tabId: number,
+  tabIds: readonly number[]
+): number | undefined {
+  const at = tabIds.indexOf(tabId);
+  if (at === -1) return undefined;
+  return tabIds[at + 1] ?? tabIds[at - 1];
 }
 
 export type BackApi = Pick<

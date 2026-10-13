@@ -57,9 +57,32 @@ describe('planBack', () => {
     expect(planBack(facts())).toEqual({ kind: 'close' });
   });
 
-  test('no record and pinned: nowhere to go', () => {
+  // KAN-580. So a Pin from the card always has somewhere to go.
+  test('no record and pinned: the tab to its right, kept open', () => {
+    expect(
+      planBack(
+        facts({
+          fullView: { tabId: 7, windowId: 1, pinned: true },
+          windowTabIds: [6, 7, 8],
+        })
+      )
+    ).toEqual({ kind: 'switch', tabId: 8, closes: false });
+  });
+
+  test('no record and pinned, last in its window: the tab to its left', () => {
     expect(
       planBack(facts({ fullView: { tabId: 7, windowId: 1, pinned: true } }))
+    ).toEqual({ kind: 'switch', tabId: 6, closes: false });
+  });
+
+  test('no record and pinned, alone in its window: nowhere to go', () => {
+    expect(
+      planBack(
+        facts({
+          fullView: { tabId: 7, windowId: 1, pinned: true },
+          windowTabIds: [7],
+        })
+      )
     ).toEqual({ kind: 'none' });
   });
 
@@ -183,6 +206,20 @@ describe('returnFromFullView', () => {
     await returnFromFullView(api, 7);
 
     expect(log).toEqual([{ call: 'removeTab', tabId: 7 }]);
+  });
+
+  test('pinned, no record, beside other tabs: switches to its neighbour and stays (KAN-580)', async () => {
+    const { api, log } = makeApi({
+      tabs: [
+        { id: 6, windowId: 1 },
+        { id: 7, windowId: 1, pinned: true },
+        { id: 20, windowId: 2 },
+      ],
+    });
+
+    await returnFromFullView(api, 7);
+
+    expect(log).toEqual([{ call: 'activate', tabId: 6 }]);
   });
 
   test('nowhere to go: nothing happens', async () => {
