@@ -94,7 +94,7 @@ export const CONTROL = {
  * moved it, with Open compact view, to MEDIUM_SMALL.
  */
 export const ICON = {
-  /** A mark beside a title, not a control: the saved row's pin (KAN-458). */
+  /** A row's marks, not controls: pin, split, sound, in both panes (KAN-458, KAN-566). */
   MARK: '1rem',
   /** The About nameplate's mark, beside the name and version (KAN-521). */
   NAMEPLATE: '2.5rem',

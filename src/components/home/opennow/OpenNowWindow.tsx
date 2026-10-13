@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import ClickableRow from '../../common/ClickableRow';
 import Icon from '../../common/Icon';
+import { RowMarkIcon, RowMarkSlot } from '../../common/RowMarks';
 import { NormalLabel } from '../../common/Label';
 import { Tag } from '../../common/Tag';
 import { GROUP_STRIP_TRANSITION } from '../../common/groupColorStrip';
@@ -33,7 +34,7 @@ import { DraggableRow } from '../rightpane/rowDrag/RowDragArea';
 import { useDragState } from '../rightpane/rowDrag/dragContext';
 import { markRowContainer } from '../rightpane/rowDrag/dropRules';
 import { GroupFrameFollower } from '../rightpane/rowDrag/GroupFrameFollower';
-import { DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
+import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
 import { windowLabel } from '../../../utils/functions/windowLabel';
 import { OPEN_ITEMS_SCOPE, OPEN_TABS_SCOPE } from './useOpenNowDrop';
 
@@ -42,18 +43,8 @@ import { OPEN_ITEMS_SCOPE, OPEN_TABS_SCOPE } from './useOpenNowDrop';
 // reason the styles below are.
 const GROUP_TITLE_SIZE = '0.85rem';
 
-// Icon's box: its glyph plus 4px padding a side. rem-based, so it follows
-// Chrome's font size (KAN-312).
-const ICON_SLOT = `calc(${ICON.DEFAULT} + 8px)`;
-// The row's marks, the pin (O11c) then the speaker (O10b), side by side and
-// one slot in from the row's edge, so × keeps the same column on every row
-// (KAN-280 O10a 1B, kept by O10b).
-const markSlotStyle = css`
-  display: flex;
-  align-items: center;
-  flex: none;
-  margin-right: ${ICON_SLOT};
-`;
+// The row's marks, the pin (O11c), the split (KAN-564), then the speaker
+// (O10b), in RowMarkSlot (KAN-566).
 const markStyle = css`
   display: flex;
   align-items: center;
@@ -270,21 +261,6 @@ export default function OpenNowWindow({
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
     }
-    /* KAN-280 O11c (D F N): where the pinned tabs end. DIVIDER_COLOR, the
-       row divider (KAN-189). Over the row's bottom pixel, so it adds no
-       height and the drag geometry does not move. From the favicon's left
-       edge (Icon's 4px padding) to the row's end. Last in the row, so it
-       paints over the hover shade and the × strip's. */
-    &[data-pinned-boundary]::after {
-      content: '';
-      position: absolute;
-      left: 4px;
-      right: 0;
-      bottom: 0;
-      height: 1px;
-      background: ${COLORS.DIVIDER_COLOR};
-      pointer-events: none;
-    }
   `;
 
   // A plain string, not css``: handed to ClickableRow's `style` prop.
@@ -381,17 +357,6 @@ export default function OpenNowWindow({
     }))
   );
 
-  // The row that carries the pinned line: the last pinned tab, and only when
-  // an unpinned tab follows it (O11c N). Pinned tabs come first in a Chrome
-  // window, so "the last pinned" is the end of the pinned run -- the last
-  // pinned DRAWN tab (KAN-330 O14a): under a search the last pinned tab may
-  // be hidden, and the line would be drawn nowhere.
-  const pinnedTabs = drawnTabs.filter((tab) => tab.pinned);
-  const pinnedBoundaryTabId =
-    pinnedTabs.length > 0 && pinnedTabs.length < drawnTabs.length
-      ? pinnedTabs[pinnedTabs.length - 1].id
-      : null;
-
   function renderTab(tab: OpenTab) {
     // KAN-280 O10b: the speaker shows Chrome's sound and changes nothing.
     // Tab Keeper never mutes, because Chrome's own controls cannot undo an
@@ -438,7 +403,6 @@ export default function OpenNowWindow({
         key={tab.id}
         css={childrenStyle(isOnScreen, join)}
         data-open-tab-id={tab.id}
-        data-pinned-boundary={tab.id === pinnedBoundaryTabId ? '' : undefined}
         onMouseEnter={() => setHoveredTabId(tab.id)}
         onMouseLeave={() => setHoveredTabId(null)}
       >
@@ -472,30 +436,23 @@ export default function OpenNowWindow({
             // tab, where Chrome's own pin and mute are. A presentational Icon
             // is aria-hidden; the descriptions below say the pin and the
             // sound instead.
-            <span css={markSlotStyle}>
+            <RowMarkSlot>
               {tab.pinned && (
                 <span data-pin css={markStyle}>
-                  <Icon type="keep" style={NON_INTERACTIVE_ICON_STYLE} />
+                  <RowMarkIcon type="keep" />
                 </span>
               )}
               {splitText !== null && (
                 <span data-split css={markStyle}>
-                  <Icon
-                    type="view_column_2"
-                    tooltipText={splitText}
-                    style={NON_INTERACTIVE_ICON_STYLE}
-                  />
+                  <RowMarkIcon type="view_column_2" tooltipText={splitText} />
                 </span>
               )}
               {sound !== null && (
                 <span data-speaker css={markStyle}>
-                  <Icon
-                    type={tab.muted ? 'volume_off' : 'volume_up'}
-                    style={NON_INTERACTIVE_ICON_STYLE}
-                  />
+                  <RowMarkIcon type={tab.muted ? 'volume_off' : 'volume_up'} />
                 </span>
               )}
-            </span>
+            </RowMarkSlot>
           )}
         </ClickableRow>
         {isLastUsed && (

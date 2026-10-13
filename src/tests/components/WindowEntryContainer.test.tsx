@@ -625,15 +625,19 @@ describe('a pinned saved tab (KAN-458)', () => {
     { tabId: 't2', favicon: '', title: 'Docs', url: 'https://b.test' },
   ];
 
-  test('shows a pin after its title, in the same box', async () => {
+  test("shows a pin at the row's end, after the title's box, as Open now does (KAN-566)", async () => {
     await renderWindow({ tabs });
 
     const row = screen.getByRole('button', { name: 'Open in new tab: Inbox' });
     const mark = row.querySelector('[data-pin]');
     if (!(mark instanceof HTMLElement)) throw new Error('no pin mark');
     const title = within(row).getByText('Inbox');
+    const titleBox = title.parentElement?.parentElement;
 
-    expect(mark.parentElement).toBe(title.parentElement?.parentElement);
+    // Not inside the title's box, but the row's last item, after it.
+    expect(titleBox?.contains(mark)).toBe(false);
+    expect(mark.parentElement?.parentElement).toBe(row);
+    expect(mark.parentElement?.nextElementSibling).toBeNull();
     expect(
       title.compareDocumentPosition(mark) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();

@@ -14,6 +14,7 @@ import ClickableRow from '../../common/ClickableRow';
 import { DropBoxLabel } from '../../common/dropBox';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
 import Icon from '../../common/Icon';
+import { RowMarkIcon, RowMarkSlot } from '../../common/RowMarks';
 import OverflowMenu from '../../common/OverflowMenu';
 import GroupColorPicker from '../../common/GroupColorPicker';
 import { NormalLabel } from '../../common/Label';
@@ -64,7 +65,7 @@ import { useIsSpringOpen } from '../../../redux/springOpenWindows';
 import { springSweepStyle } from '../../common/springOpen';
 import { NEW_LAST_WINDOW } from './newWindowTarget';
 import RowOpenButton from './RowOpenButton';
-import { CONTROL, DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
+import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
 import { placeholderStyle } from '../../../styles/placeholder';
 import { windowLabel } from '../../../utils/functions/windowLabel';
 import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
@@ -454,11 +455,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   `;
 
   // The title truncates first, so the pin always shows (KAN-458).
-  const pinMarkStyle = css`
+  const markStyle = css`
     display: flex;
     align-items: center;
-    flex: none;
-    margin-left: 10px;
   `;
 
   // Unique per window: legacy data can repeat a tab id across windows.
@@ -696,28 +695,22 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               size={TYPE.BODY}
               style="padding-left: 4px; height: 100%; max-width: 100%;"
             />
-            {pinned && (
-              <span data-pin css={pinMarkStyle}>
-                <Icon
-                  type="keep"
-                  size={ICON.MARK}
-                  color={COLORS.LABEL_L2_COLOR}
-                  style={`${NON_INTERACTIVE_ICON_STYLE} padding: 0;`}
-                />
-              </span>
-            )}
-            {splitText !== null && (
-              <span data-split css={pinMarkStyle}>
-                <Icon
-                  type="view_column_2"
-                  size={ICON.MARK}
-                  color={COLORS.LABEL_L2_COLOR}
-                  tooltipText={splitText}
-                  style={`${NON_INTERACTIVE_ICON_STYLE} padding: 0;`}
-                />
-              </span>
-            )}
           </div>
+          {(pinned || splitText !== null) && (
+            // At the row's end, as Open now draws them (KAN-566).
+            <RowMarkSlot>
+              {pinned && (
+                <span data-pin css={markStyle}>
+                  <RowMarkIcon type="keep" />
+                </span>
+              )}
+              {splitText !== null && (
+                <span data-split css={markStyle}>
+                  <RowMarkIcon type="view_column_2" tooltipText={splitText} />
+                </span>
+              )}
+            </RowMarkSlot>
+          )}
         </ClickableRow>
         {pinned && (
           <span id={pinnedId} css={visuallyHiddenStyle}>

@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, test } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 
 import OpenNowColumn from '../../components/home/opennow/OpenNowColumn';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeSeed } from '../setup/chrome.fake';
+import { LIGHT_THEME } from '../../hooks/useThemeColors';
 
 // KAN-280 O11c (Part E, Justine's pick P1). A pinned tab's row shows a pin
 // mark, Material Symbols `keep`, in the icon slot left of ×: the O10b
@@ -107,49 +108,26 @@ describe('the Open now pin mark (KAN-280 O11c)', () => {
   });
 });
 
-// KAN-280 O11c, D F N (settled 2026-09-28). A 1px line in DIVIDER_COLOR over
-// the last pinned row's bottom pixel, where pinned tabs end and the others
-// begin. The row that carries it is marked data-pinned-boundary; the line
-// itself is a ::after, which jsdom cannot paint, so its colour, extent and
-// place above the hover shade are e2e/open-now-pinned.spec.ts's.
-const ALL_PINNED_WINDOW_ID = 3;
-
-function withAllPinnedWindow(): ChromeSeed {
-  const seed = pinnedWindows();
-  return {
-    ...seed,
-    windows: [
-      ...(seed.windows ?? []),
-      {
-        id: ALL_PINNED_WINDOW_ID,
-        tabs: [
-          { id: 31, title: 'Cal', url: url('Cal'), pinned: true },
-          { id: 32, title: 'Chat', url: url('Chat'), pinned: true },
-        ],
-      },
-    ],
-  };
-}
-
-const boundaryRows = (windowId: number): number[] =>
-  [
-    ...document.querySelectorAll(
-      `[data-open-window-id="${windowId}"] [data-open-tab-id]`
-    ),
-  ]
-    .filter((row) => row.hasAttribute('data-pinned-boundary'))
-    .map((row) => Number(row.getAttribute('data-open-tab-id')));
-
-describe('the Open now pinned line (KAN-280 O11c, D F N)', () => {
-  test('sits on the last pinned row only, and not on a window without pinned tabs', async () => {
-    await renderOpenNow(withAllPinnedWindow());
-
-    expect(boundaryRows(2)).toEqual([RADIO]);
-    // CONTROL: the query sees rows of window 1, which has no pinned tab.
-    expect(
-      document.querySelectorAll('[data-open-window-id="1"] [data-open-tab-id]')
-        .length
-    ).toBeGreaterThan(0);
-    expect(boundaryRows(1)).toEqual([]);
+// KAN-566. The marks are the saved row's: the same size and colour as the
+// saved pin (KAN-458), for every mark Open now draws.
+describe("Open now's marks are the saved row's (KAN-566)", () => {
+  test('the pin and the speaker are 16px glyphs in LABEL_L2', async () => {
+    await renderOpenNow(pinnedWindows());
+    const [r, g, b] = [1, 3, 5].map((i) =>
+      parseInt(LIGHT_THEME.LABEL_L2_COLOR.slice(i, i + 2), 16)
+    );
+    const labelL2 = new RegExp(
+      `(${LIGHT_THEME.LABEL_L2_COLOR}|rgb\\(${r}, ?${g}, ?${b}\\))`,
+      'i'
+    );
+    const speaker = rowOf(RADIO).querySelector<HTMLElement>('[data-speaker]');
+    if (speaker === null) throw new Error('no speaker on Radio');
+    for (const glyph of [
+      within(pin(MAIL)).getByText('keep'),
+      within(speaker).getByText(/^volume_/),
+    ]) {
+      expect(getComputedStyle(glyph).fontSize).toBe('16px');
+      expect(getComputedStyle(glyph).color).toMatch(labelL2);
+    }
   });
 });

@@ -325,7 +325,8 @@ test.describe('The speaker without sound (KAN-280 O10b)', () => {
           0.5
         );
         expect(title.right).toBeLessThanOrEqual(speaker.left);
-        expect(Math.abs(speaker.width - slotPx)).toBeLessThanOrEqual(0.5);
+        // The saved row's mark size, 1rem (KAN-566); × keeps its slot.
+        expect(Math.abs(speaker.width - rootPx)).toBeLessThanOrEqual(0.5);
         expect(Math.abs(close.width - slotPx)).toBeLessThanOrEqual(0.5);
         // The glyph is the one extra in-flow part of a row, and it must not
         // make its row taller than a row without one ("Rows look like saved
