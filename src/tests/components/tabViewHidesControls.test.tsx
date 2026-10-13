@@ -47,6 +47,7 @@ const renderTabGroupEntryRow = () =>
       onTabGroupClick={noop}
       onOpenAllClick={noop}
       onFocusClick={noop}
+      onReplaceClick={noop}
       onDeleteClick={noop}
     />
   );

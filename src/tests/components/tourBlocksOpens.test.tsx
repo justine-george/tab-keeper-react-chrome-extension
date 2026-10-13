@@ -140,6 +140,7 @@ describe('opens on the tour’s sample', () => {
         onTabGroupClick={() => undefined}
         onOpenAllClick={onOpenAllClick}
         onFocusClick={onFocusClick}
+        onReplaceClick={() => undefined}
         onDeleteClick={() => undefined}
       />,
       { seedStore: tourHere }

@@ -45,6 +45,7 @@ async function renderRow(session: typeof RUN, step: RunStep) {
       onTabGroupClick={() => undefined}
       onOpenAllClick={onOpen}
       onFocusClick={onFocus}
+      onReplaceClick={() => undefined}
       onDeleteClick={onDelete}
     />,
     { seedStore: atStep(step) }

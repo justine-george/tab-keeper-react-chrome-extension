@@ -203,6 +203,7 @@ describe('Label in Name holds in every locale (WCAG 2.5.3)', () => {
             onTabGroupClick={noop}
             onOpenAllClick={noop}
             onFocusClick={noop}
+            onReplaceClick={noop}
             onDeleteClick={noop}
           />
           <HeroContainerRight />

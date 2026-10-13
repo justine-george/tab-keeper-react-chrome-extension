@@ -68,6 +68,8 @@ interface TabGroupEntryProps {
   onTabGroupClick: () => void;
   onOpenAllClick: MouseEventHandler;
   onFocusClick: MouseEventHandler;
+  // KAN-581. The ⋮ menu's Replace with open windows, on the row.
+  onReplaceClick: MouseEventHandler;
   onDeleteClick: MouseEventHandler;
   carryTarget?: CarryTargetLook;
 }
@@ -77,6 +79,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   onTabGroupClick,
   onOpenAllClick,
   onFocusClick,
+  onReplaceClick,
   onDeleteClick,
   carryTarget,
 }) => {
@@ -487,6 +490,17 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
               style={blockedStyle(litButton === 'switch')}
             />
           )}
+          <Icon
+            tooltipText={t('Replace with open windows')}
+            text={t('Replace')}
+            ariaLabel={t('Replace')}
+            type="browser_updated"
+            onClick={(e) => {
+              e.stopPropagation();
+              onReplaceClick(e);
+            }}
+            style="padding: 14px 10px; width: 57px;"
+          />
           <Icon
             tooltipText={t('Delete session')}
             text={t('Delete')}
