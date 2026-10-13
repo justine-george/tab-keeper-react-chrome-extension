@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 
 import Icon from '../../components/common/Icon';
@@ -15,7 +15,7 @@ import {
   setLastSyncedTime,
   toggleAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
-import { getPrettyDate } from '../../utils/functions/local';
+import { sessionWhen } from '../../utils/functions/sessionDate';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { testI18n } from '../setup/i18nForTests';
 import type { makeTestStore } from '../setup/makeStore';
@@ -35,9 +35,22 @@ import type { makeTestStore } from '../setup/makeStore';
 
 type Store = ReturnType<typeof makeTestStore>['store'];
 
-/** When the last sync finished, as the card shows it (KAN-255). */
-const SYNCED_AT = Date.UTC(2026, 8, 29, 23, 28, 40);
-const WHEN = `Last synced ${getPrettyDate(SYNCED_AT, 'en')}`;
+/**
+ * When the last sync finished, dated like a session (KAN-584): earlier today
+ * on a pinned clock, so the words don't drift as real time passes.
+ * lastSyncedDate.test.tsx pins the format itself.
+ */
+const SYNCED_AT = new Date(2026, 8, 29, 16, 28, 40).getTime();
+const NOW = new Date(2026, 8, 29, 18, 0);
+const WHEN = `Last synced ${sessionWhen(SYNCED_AT, 'en', new Date(2026, 8, 29))}`;
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(NOW);
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 /** Signed in, a cloud configured, and the sync question answered yes. */
 function ready(store: Store): void {

@@ -368,8 +368,10 @@ describe('the status line shows when it last synced (KAN-255)', () => {
   test('on, with a time: the time stands in for the sentence', async () => {
     await renderWith({ autoSync: true, lastSyncedTime: AT });
     const line = card().querySelector('[data-sync-synced]');
-    expect(line?.textContent).toMatch(/^Last synced /);
-    expect(line?.textContent).toContain(getPrettyDate(AT, 'en'));
+    expect(line?.textContent).toMatch(/^Last synced \S/);
+    // The full timestamp is the hover (KAN-584; the words are pinned in
+    // lastSyncedDate.test.tsx).
+    expect(line?.getAttribute('title')).toBe(getPrettyDate(AT, 'en'));
     expect(card().querySelector('[data-sync-line]')).toBeNull();
   });
 

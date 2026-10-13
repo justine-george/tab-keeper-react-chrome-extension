@@ -2,6 +2,8 @@ import { css } from '@emotion/react';
 import { shallowEqual, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { getPrettyDate } from '../../../../utils/functions/local';
+import { sessionWhen } from '../../../../utils/functions/sessionDate';
+import { useToday } from '../../../../hooks/useToday';
 
 import Icon from '../../../common/Icon';
 import { describeSyncState } from './describeSyncState';
@@ -38,6 +40,12 @@ const SyncStatus: React.FC = () => {
   const lastSyncedTime = useSelector(
     (s: RootState) => s.settingsDataState.lastSyncedTime
   );
+  const today = useToday();
+  // Dated like a session (KAN-584); a time that isn't a date reads as none.
+  const syncedTime =
+    lastSyncedTime === ''
+      ? ''
+      : sessionWhen(lastSyncedTime, i18n.language, today);
   // shallowEqual: describeSyncState builds a fresh object every call, so
   // without it any store change re-rendered this component and react-redux's
   // dev check warned that the selector is unstable (seen from the KAN-252
@@ -112,15 +120,17 @@ const SyncStatus: React.FC = () => {
           sentence explains what will happen, the time says it did. Manual
           keeps its sentence, an instruction, with the time above it. Failed
           and unavailable show no time: there it would read as reassurance. */}
-      {lastSyncedTime !== '' &&
+      {syncedTime !== '' &&
         (state.kind === 'on' || state.kind === 'manual') && (
-          <p css={syncedStyle} data-sync-synced>
-            {t('Last synced {{time}}', {
-              time: getPrettyDate(lastSyncedTime, i18n.language),
-            })}
+          <p
+            css={syncedStyle}
+            data-sync-synced
+            title={getPrettyDate(lastSyncedTime, i18n.language)}
+          >
+            {t('Last synced {{time}}', { time: syncedTime })}
           </p>
         )}
-      {!(lastSyncedTime !== '' && state.kind === 'on') && (
+      {!(syncedTime !== '' && state.kind === 'on') && (
         <p css={lineStyle} data-sync-line>
           {t(state.line)}
         </p>
