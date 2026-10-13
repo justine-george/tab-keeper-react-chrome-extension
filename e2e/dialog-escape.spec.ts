@@ -7,7 +7,7 @@ import {
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
-import { openPopup, storedSettings } from './fixtures/onboarding';
+import { openFullView, openPopup, storedSettings } from './fixtures/onboarding';
 import { escapesPrevented, watchEscapes } from './fixtures/escapeProbe';
 import { hasCloudConfig } from './fixtures/cloud';
 import {
@@ -26,9 +26,10 @@ const dialog = (page: Page, name: string) =>
 
 async function openSyncAndBackup(
   context: BrowserContext,
-  extensionId: string
+  extensionId: string,
+  open = openPopup
 ): Promise<Page> {
-  const page = await openPopup(context, extensionId);
+  const page = await open(context, extensionId);
   await page.locator('[aria-label="Settings"]').click();
   await page.locator('button[aria-label="Sync & Backup"]').click();
   return page;
@@ -181,7 +182,8 @@ test('delete cloud data: Esc is consumed, and is Cancel', async ({
   expect(await escapesPrevented(page)).toEqual([true]);
 });
 
-test('load backup: Esc is consumed, and is Cancel', async ({
+// KAN-579. The load dialog opens only in the full view now, where its Esc is still Cancel.
+test('load backup (full view): Esc is consumed, and is Cancel', async ({
   context,
   extensionId,
 }) => {
@@ -190,7 +192,7 @@ test('load backup: Esc is consumed, and is Cancel', async ({
     buildSession({ tabGroupId: 'h1', title: 'Here one' }),
   ]);
   await seedSessions(context, here);
-  const page = await openSyncAndBackup(context, extensionId);
+  const page = await openSyncAndBackup(context, extensionId, openFullView);
   const chooser = page.waitForEvent('filechooser');
   await page
     .getByRole('button', { name: 'Load sessions from a backup' })

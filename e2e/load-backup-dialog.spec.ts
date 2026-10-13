@@ -2,13 +2,14 @@ import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import { FULL_VIEW_PATH } from './fixtures/onboarding';
 
 // KAN-252 / KAN-261. "Load sessions from a backup" reads the file, then asks:
 // Merge (keep everything here, add the file's) or Replace (throw away what is
 // here first). The unit tests drive the handler with a synthetic file event;
 // what a real browser adds is the file chooser itself, the dialog in the top
 // layer, and the unlit opening (KAN-243) that jsdom's showModal shim cannot
-// reproduce.
+// reproduce. In the full view: the popup hands its file step there (KAN-579).
 
 const HERE = buildContainer([
   buildSession({ tabGroupId: 'h1', title: 'Here one' }),
@@ -29,7 +30,7 @@ async function openSyncAndBackup(
   await seedSessions(context, HERE);
   const page = await context.newPage();
   await page.setViewportSize({ width: 790, height: 550 });
-  await page.goto(`chrome-extension://${extensionId}/index.html`);
+  await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
   await page.locator('[aria-label="Settings"]').click();
   await page.locator('button[aria-label="Sync & Backup"]').click();
   await expect(
