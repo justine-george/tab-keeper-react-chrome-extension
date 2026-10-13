@@ -785,8 +785,18 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     await page.mouse.up();
     const { made } = await newSession(page, before);
     await expect(page.locator(PLACE)).toHaveCount(0);
-    const frames = await listLog(page);
     const id = made.tabGroupId;
+    // The row is in the DOM a frame before the log's next frame records it; stop the log only once it has.
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (rowId) =>
+            (document.body.dataset.listFrames ?? '').includes(`"${rowId}":`),
+          id
+        )
+      )
+      .toBe(true);
+    const frames = await listLog(page);
 
     // The new row is first, and selected.
     await expect(
