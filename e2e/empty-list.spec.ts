@@ -123,8 +123,9 @@ for (const view of VIEWS) {
 
     const { leftGap, rightGap, textTop } = await placement(page);
     expect(Math.abs(leftGap - rightGap)).toBeLessThanOrEqual(1);
-    expect(textTop).toBeGreaterThanOrEqual(0);
-    expect(textTop).toBeLessThanOrEqual(17);
+    // 24px of padding, then the line's half-leading (KAN-571).
+    expect(textTop).toBeGreaterThanOrEqual(24);
+    expect(textTop).toBeLessThanOrEqual(25);
   });
 }
 

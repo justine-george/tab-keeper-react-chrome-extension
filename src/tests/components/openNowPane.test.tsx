@@ -291,6 +291,7 @@ describe('the Open now pane (KAN-280)', () => {
     // jsdom resolves rem against its 16px root.
     expect(want['font-size']).toBe(`${px(TYPE.BODY) * 16}px`);
     expect(want.color).toBe(hex(LIGHT_THEME.LABEL_L1_COLOR));
+    expect(want.padding).toBe('24px 16px 16px');
     // The scroller's first child, not centred in a wrapper of its own.
     expect(line.parentElement?.firstElementChild).toBe(line);
     expect(getComputedStyle(line.parentElement as Element).overflow).toBe(
