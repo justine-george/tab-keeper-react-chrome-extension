@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { revealRowActions } from './fixtures/savedRow';
+import { showRowActions } from './fixtures/savedRow';
 import { buildContainer, buildSession, seedSettings } from './fixtures/seed';
 import { escapesPrevented, watchEscapes } from './fixtures/escapeProbe';
 import {
@@ -122,14 +122,16 @@ test('Help starts at card 1 with no Hello; the eight cards in their places, Back
   await nextTo(page, 6);
   await twoFrames(page);
   expect(await opened()).toBe(0);
-  const del = page.locator(
-    '[data-pane="sessions"] [data-tour-anchor="row-delete"]'
-  );
+  // KAN-582. Delete is in the session header's ⋮, held while this step shows.
+  const del = page
+    .locator('[data-pane="detail"] [data-tour-anchor="session-menu"]')
+    .getByRole('button', { name: 'More actions' });
   expect(await hitAt(page, ...(await centreOf(del)))).toBe('still');
   await del.focus();
   await del.press('Enter');
-  // CONTROL: the 'with saved sessions' Delete test, where the same press deletes.
+  // CONTROL: the 'with saved sessions' Delete test, where the same menu deletes.
   await twoFrames(page);
+  await expect(page.getByRole('menu')).toHaveCount(0);
   expect(await storedTitles(page)).toEqual(['Sample: Weekend trip']);
   await nextTo(page, 7);
   await expect.poll(() => cardSide(page)).toBe('left');
@@ -652,7 +654,7 @@ test.describe('with saved sessions', () => {
     ).toHaveCount(1);
   });
 
-  test('steps 5 and 6 light the run’s row’s own buttons, not another row’s', async ({
+  test('step 5 lights the run’s row’s own Open, not another row’s, and step 6 its header’s ⋮', async ({
     context,
     extensionId,
   }) => {
@@ -660,12 +662,15 @@ test.describe('with saved sessions', () => {
     for (let step = 2; step <= 5; step++) await nextTo(page, step);
     for (const [step, anchor] of [
       [5, 'row-open'],
-      [6, 'row-delete'],
+      [6, 'session-menu'],
     ] as const) {
       if (step === 6) await nextTo(page, 6);
+      // KAN-582. Step 6, Delete, points at the session header's ⋮.
       const own = await page
         .locator(
-          `[data-pane="sessions"] [data-drag-row-id="new"] [data-tour-anchor="${anchor}"]`
+          step === 6
+            ? `[data-pane="detail"] [data-tour-anchor="${anchor}"]`
+            : `[data-pane="sessions"] [data-drag-row-id="new"] [data-tour-anchor="${anchor}"]`
         )
         .boundingBox();
       if (own === null) throw new Error(`no ${anchor}`);
@@ -685,16 +690,18 @@ test.describe('with saved sessions', () => {
     const page = await openPage(context, extensionId, FULL_VIEW_PATH, FULL);
     const row = page.locator('[data-pane="sessions"] [data-drag-row-id="old"]');
     const opened = await watchNewTabs(page);
-    await revealRowActions(row);
+    await showRowActions(row);
     await page.mouse.click(
       ...(await centreOf(row.locator('[data-tour-anchor="row-open"]')))
     );
     await twoFrames(page);
     expect(await opened()).toBeGreaterThan(0);
     await page.bringToFront();
-    const del = row.locator('[data-tour-anchor="row-delete"]');
-    await del.focus();
-    await del.press('Enter');
+    await page
+      .locator('[data-pane="detail"] [data-tour-anchor="session-menu"]')
+      .getByRole('button', { name: 'More actions' })
+      .click();
+    await page.getByRole('menuitem', { name: 'Delete session' }).click();
     await twoFrames(page);
     expect(await storedTitles(page)).toEqual(['Latest']);
   });

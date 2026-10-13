@@ -505,54 +505,9 @@ test.describe('a row reveals its actions and fills as one state', () => {
     expectNoSeam(frames, 'a click selects the hovered row');
   });
 
-  // KAN-100, the other direction, and it needs its own test because the entry
-  // test CANNOT see this one.
-  //
-  // Once the fill lands in a single frame, a mask that lingers is invisible on
-  // the way in -- the row is already at the destination colour, so whatever the
-  // mask does over it composites to the same value. Leaving is where it shows:
-  // the row drops to the page colour in one frame while the mask is still on
-  // its way out, so the strip is briefly the only lit part of an unlit row.
-  //
-  // The mutation that pins this is giving the mask a colour transition
-  // (`transition: background-color 0.2s` on the block). Measured: the entry
-  // test stays green, this one fails 4 times out of 4.
-  //
-  // NOTE the margin is thin -- 1 to 2 disagreeing frames out of ~63, because
-  // the mask is leaving while the row has already gone. It is reliable, but if
-  // a future change makes it thinner this test degrades quietly rather than
-  // loudly. If that happens, do not loosen the assertion; sample the first
-  // post-departure frames directly instead.
-  //
-  // An earlier revision of this comment claimed the mutation was restoring the
-  // block's `opacity` fade. That was wrong: the mask now lives on
-  // background-color, which goes transparent instantly, so fading an already
-  // transparent block changes nothing. The test's apparent failure under that
-  // mutation was the flake below, not detection.
-  test('the action strip does not outlast the row fill when the pointer leaves', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await openWith(context, extensionId);
-    const first = rowFor(page, 'First session');
-    const second = rowFor(page, 'Second session');
-
-    await first.click({ position: { x: 20, y: 20 } });
-    await second.hover({ position: { x: 20, y: 20 } });
-
-    // Settle first: sampling must start from a fully engaged row, or the
-    // frames captured would be the arrival, not the departure. Not the shown
-    // session, so its strip comes after the dwell (KAN-582).
-    await expect.poll(() => revealOf(second)).toBe('1');
-
-    await startSeamSampler(page, 'Second session');
-
-    await page.mouse.move(0, 0);
-    await page.waitForTimeout(500);
-
-    expectNoSeam(await readSeam(page), 'the pointer leaves');
-  });
-
+  // KAN-100's other direction (the strip outlasting the fill as the pointer
+  // leaves) had a test here. KAN-582 left it nothing to measure: only the
+  // session shown has a strip, and its fill does not change on hover.
   // KAN-100 was measured at two sites, not one. The right pane's window row
   // had the same pairing -- `transition: background-color 0.2s` on the fill,
   // `transition: opacity 0.1s` on the strip -- and the same shape when

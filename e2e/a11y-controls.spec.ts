@@ -464,18 +464,19 @@ test.describe('controls are reachable by keyboard', () => {
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    const deleteAction = page.getByRole('button', {
-      name: 'Delete',
+    // KAN-582: Replace, now that Delete is in the header's menu.
+    const rowAction = page.getByRole('button', {
+      name: 'Replace',
       exact: true,
     });
 
     // The control: unfocused and unhovered, it really is invisible, so the
     // assertion below can tell the two states apart.
-    await expect(deleteAction).toHaveCSS('opacity', '0');
+    await expect(rowAction).toHaveCSS('opacity', '0');
 
-    await deleteAction.focus();
+    await rowAction.focus();
 
-    await expect(deleteAction).toHaveCSS('opacity', '1');
+    await expect(rowAction).toHaveCSS('opacity', '1');
   });
 
   // KAN-75. RateAndReviewModal rendered both dismissals as a NormalLabel with

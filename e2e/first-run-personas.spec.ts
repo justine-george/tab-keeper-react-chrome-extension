@@ -1,7 +1,7 @@
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { revealRowActions } from './fixtures/savedRow';
+import { showRowActions } from './fixtures/savedRow';
 import { buildContainer, buildSession } from './fixtures/seed';
 import {
   openFullView,
@@ -99,7 +99,7 @@ async function expectOnlyTheRunsOwn(
   await twoFrames(page);
   const before = (await tabLog(worker)).length;
   const row = page.locator('[data-pane="sessions"] [data-drag-row-id]').first();
-  await revealRowActions(row);
+  await showRowActions(row);
   await page.mouse.click(
     ...(await centreOf(row.locator('[data-tour-anchor="row-open"]')))
   );

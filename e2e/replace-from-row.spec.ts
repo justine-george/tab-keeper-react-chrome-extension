@@ -7,7 +7,7 @@ import {
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
-import { revealRowActions } from './fixtures/savedRow';
+import { showRowActions } from './fixtures/savedRow';
 import { stored } from './fixtures/savedWindows';
 import { localeStrings } from './fixtures/locales';
 
@@ -87,22 +87,20 @@ const openTwoWindows = (worker: Worker) =>
   );
 
 for (const view of ['popup', 'full'] as const) {
-  test(`${view}: the row's Replace sits before Delete, fills that session with what is open, leaves the shown one shown, and ⌘Z takes it back`, async ({
+  test(`${view}: the row's Replace, last on the row, fills that session with what is open, and ⌘Z takes it back`, async ({
     context,
     extensionId,
     serviceWorker,
   }) => {
     const list = await openList(context, extensionId, view);
     await openTwoWindows(serviceWorker);
-    // KAN-582. Trip is not the session shown: its actions come after a dwell.
-    await revealRowActions(
+    // KAN-582. Only the session shown has row actions (Delete is in the header's menu).
+    await showRowActions(
       list.locator('[data-pane="sessions"] [data-drag-row-id="s-trip"]')
     );
     const actions = actionsOf(list, 'Trip');
     await expect(actions.getByRole('button')).toHaveText(
-      view === 'popup'
-        ? [/Open/, /Switch/, /Replace/, /Delete/]
-        : [/Open/, /Replace/, /Delete/]
+      view === 'popup' ? [/Open/, /Switch/, /Replace/] : [/Open/, /Replace/]
     );
 
     await actions.getByRole('button', { name: 'Replace', exact: true }).click();
@@ -111,12 +109,10 @@ for (const view of ['popup', 'full'] as const) {
       .poll(() => trip(list))
       .toEqual(expect.arrayContaining([page('Open A'), page('Open B')]));
     expect(await trip(list)).not.toContain(OLD[0]);
-    expect((await stored(list)).selectedTabGroupId).toBe('s-shown');
-    // The popup shows the selected session beside the list; the full view shows Open now there.
-    if (view === 'popup')
-      await expect(
-        list.getByRole('button', { name: 'Rename session: Shown' })
-      ).toBeVisible();
+    expect((await stored(list)).selectedTabGroupId).toBe('s-trip');
+    await expect(
+      list.getByRole('button', { name: 'Rename session: Trip' })
+    ).toBeVisible();
     await expect(
       list.getByText('Session replaced with all open windows.')
     ).toBeVisible();
@@ -159,7 +155,7 @@ for (const view of ['popup', 'full'] as const) {
       const actions = actionsOf(list, 'Shown');
       // PREMISE: the row has all its buttons, and Replace is in this language.
       await expect(actions.getByRole('button')).toHaveCount(
-        view === 'popup' ? 4 : 3
+        view === 'popup' ? 3 : 2
       );
       await expect(
         actions
