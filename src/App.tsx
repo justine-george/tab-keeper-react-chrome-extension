@@ -18,6 +18,7 @@ import { useTabCloudReads } from './hooks/useTabCloudReads';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { isTabView } from './utils/functions/viewMode';
 import { firstOpenDialogs } from './redux/firstOpenDialogs';
+import { offerTabGroupsOnReturn } from './redux/tabGroupsOfferOnReturn';
 import { takeShowFromAddress } from './utils/functions/fullViewShow';
 import { fullViewShowEntry } from './redux/fullViewShow';
 import { openFirstDialog } from './utils/functions/dialogQueue';
@@ -181,11 +182,20 @@ function App() {
     const requested = isTabView() ? takeShowFromAddress() : null;
     const entries =
       requested === null ? dialogs : [fullViewShowEntry(requested, dispatch)];
+    // KAN-565. The full view watches for returns once the load's queue settles.
+    let isUnmounted = false;
+    let stopOfferOnReturn: () => void = () => undefined;
     void openFirstDialog(
       entries,
       () => reduxStore.getState().globalState.hasRunShownHere
     ).then((opened) => {
       document.documentElement.dataset.firstOpen = opened ?? 'none';
+      if (!isTabView() || isUnmounted) return;
+      stopOfferOnReturn = offerTabGroupsOnReturn(
+        dispatch,
+        reduxStore.getState,
+        opened === 'tabGroups'
+      );
     });
 
     void hasTabGroupsPermission().then((granted) =>
@@ -201,6 +211,10 @@ function App() {
     observeSessionsPermission((granted) =>
       dispatch(setHasSessionsPermission(granted))
     );
+    return () => {
+      isUnmounted = true;
+      stopOfferOnReturn();
+    };
   }, []);
 
   useEffect(() => {
