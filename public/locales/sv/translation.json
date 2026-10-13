@@ -332,5 +332,6 @@
   "privacy policy": "integritetspolicyn",
   "Saved sessions appear here.": "Sparade sessioner visas här.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Sök här för att snabbt hitta en öppen flik. Tryck på {{icon}} för att visa den sparade sessionen bredvid.",
-  "Show me here": "Visa mig här"
+  "Show me here": "Visa mig här",
+  "In a split view with {{title}}": "I delad vy med ”{{title}}”"
 }

@@ -14,6 +14,7 @@ import ClickableRow from '../../common/ClickableRow';
 import { DropBoxLabel } from '../../common/dropBox';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
 import Icon from '../../common/Icon';
+import { RowMarkIcon, RowMarkSlot } from '../../common/RowMarks';
 import OverflowMenu from '../../common/OverflowMenu';
 import GroupColorPicker from '../../common/GroupColorPicker';
 import { NormalLabel } from '../../common/Label';
@@ -51,6 +52,7 @@ import type {
   GroupRun,
 } from '../../../utils/functions/tabGroups';
 import { applyTabGroups } from '../../../utils/functions/windows';
+import { savedSplitPartners } from '../../../utils/functions/splitPartners';
 import { isTabKeeperPage, toStoredTab } from '../../../utils/functions/capture';
 import { isTabView } from '../../../utils/functions/viewMode';
 
@@ -63,7 +65,7 @@ import { useIsSpringOpen } from '../../../redux/springOpenWindows';
 import { springSweepStyle } from '../../common/springOpen';
 import { NEW_LAST_WINDOW } from './newWindowTarget';
 import RowOpenButton from './RowOpenButton';
-import { CONTROL, DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
+import { CONTROL, DURATION, RADIUS, TYPE } from '../../../styles/scale';
 import { placeholderStyle } from '../../../styles/placeholder';
 import { windowLabel } from '../../../utils/functions/windowLabel';
 import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
@@ -453,15 +455,15 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   `;
 
   // The title truncates first, so the pin always shows (KAN-458).
-  const pinMarkStyle = css`
+  const markStyle = css`
     display: flex;
     align-items: center;
-    flex: none;
-    margin-left: 10px;
   `;
 
   // Unique per window: legacy data can repeat a tab id across windows.
   const descriptionIdPrefix = useId();
+  // KAN-564. Each tab's other half, for the pairs a restore splits.
+  const splitPartners = savedSplitPartners(tabs);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewTitle(e.target.value);
@@ -648,6 +650,17 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // window-wide one no longer have to be reconciled.
   function renderTab({ tabId, favicon, title, url, pinned }: tabData) {
     const pinnedId = `${descriptionIdPrefix}-pinned-${tabId}`;
+    // KAN-564 A. The other half of the split this tab restores into.
+    const partner = splitPartners.get(tabId);
+    const splitId = `${descriptionIdPrefix}-split-${tabId}`;
+    const splitText =
+      partner === undefined
+        ? null
+        : t('In a split view with {{title}}', { title: partner.title });
+    const describedBy = [
+      ...(pinned ? [pinnedId] : []),
+      ...(splitText === null ? [] : [splitId]),
+    ].join(' ');
     return (
       <div
         key={tabId}
@@ -663,7 +676,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         <ClickableRow
           ariaLabel={t('Open in new tab') + ': ' + title}
           // As Open now says a pinned tab: its own description, no joiner (KAN-307).
-          ariaDescribedBy={pinned ? pinnedId : undefined}
+          ariaDescribedBy={describedBy === '' ? undefined : describedBy}
           tooltipText={openBlockedBecause ?? undefined}
           disable={isOpenBlocked}
           onClick={() => handleTabClick(url)}
@@ -682,21 +695,31 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               size={TYPE.BODY}
               style="padding-left: 4px; height: 100%; max-width: 100%;"
             />
-            {pinned && (
-              <span data-pin css={pinMarkStyle}>
-                <Icon
-                  type="keep"
-                  size={ICON.MARK}
-                  color={COLORS.LABEL_L2_COLOR}
-                  style={`${NON_INTERACTIVE_ICON_STYLE} padding: 0;`}
-                />
-              </span>
-            )}
           </div>
+          {(pinned || splitText !== null) && (
+            // At the row's end, as Open now draws them (KAN-566).
+            <RowMarkSlot>
+              {pinned && (
+                <span data-pin css={markStyle}>
+                  <RowMarkIcon type="keep" />
+                </span>
+              )}
+              {splitText !== null && (
+                <span data-split css={markStyle}>
+                  <RowMarkIcon type="view_column_2" tooltipText={splitText} />
+                </span>
+              )}
+            </RowMarkSlot>
+          )}
         </ClickableRow>
         {pinned && (
           <span id={pinnedId} css={visuallyHiddenStyle}>
             {t('Pinned')}
+          </span>
+        )}
+        {splitText !== null && (
+          <span id={splitId} css={visuallyHiddenStyle}>
+            {splitText}
           </span>
         )}
         {/* data-row-actions is the stylesheet's hook for hiding this strip

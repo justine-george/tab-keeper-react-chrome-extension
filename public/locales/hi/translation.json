@@ -332,5 +332,6 @@
   "privacy policy": "गोपनीयता नीति",
   "Saved sessions appear here.": "सहेजे गए सेशन यहाँ दिखते हैं।",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "किसी खुले टैब को जल्दी ढूँढने के लिए यहाँ खोजें। सहेजा गया सेशन इसके बगल में दिखाने के लिए {{icon}} दबाएँ।",
-  "Show me here": "यहीं दिखाएँ"
+  "Show me here": "यहीं दिखाएँ",
+  "In a split view with {{title}}": "“{{title}}” के साथ स्प्लिट व्यू में"
 }

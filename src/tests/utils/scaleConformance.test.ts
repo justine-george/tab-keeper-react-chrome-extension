@@ -145,6 +145,10 @@ describe('components take their sizes from the shared scales (KAN-205)', () => {
   // arbitrary emphasis precisely because it was the only bold text in the pane.
   // Modals are allowed 500 on their own title, which predates this and is a
   // self-contained surface.
+  // One exception, through the scale rather than a literal: Open now's active
+  // tab title at WEIGHT.ACTIVE_ROW (KAN-567, his pick B). There weight marks a
+  // state, "on screen", not emphasis, and replaced a bar that clashed with a
+  // group's colour strip.
   test('the popup declares no font weight', () => {
     const offenders = FILES.filter(
       (f) => !f.name.includes('components/modals/')

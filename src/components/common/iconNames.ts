@@ -71,6 +71,7 @@ export const LIGATURE_ICON_NAMES = [
   'unfold_less',
   'unfold_more',
   'upload',
+  'view_column_2',
   'visibility',
   'visibility_off',
   'volume_off',

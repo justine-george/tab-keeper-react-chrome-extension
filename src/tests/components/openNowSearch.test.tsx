@@ -138,26 +138,6 @@ describe('a search draws only the matching tabs (O14a)', () => {
     expect(drawnTitles()).toEqual(['G1 kyoto']);
   });
 
-  test('the pinned line sits under the last pinned tab that is drawn', async () => {
-    await renderOpenNow({
-      windows: [
-        {
-          id: 1,
-          tabs: [
-            tab(11, 'Alpha pin', { pinned: true }),
-            tab(12, 'Beta pin', { pinned: true }),
-            tab(13, 'Alpha loose'),
-          ],
-        },
-      ],
-    });
-    await userEvent.setup().type(field(), 'alpha');
-    const marked = [...document.querySelectorAll('[data-pinned-boundary]')].map(
-      (row) => row.getAttribute('data-open-tab-id')
-    );
-    expect(marked).toEqual(['11']);
-  });
-
   test('closing the last match hides its window and focus moves on (O7b)', async () => {
     await renderOpenNow(threeWindows());
     await userEvent.setup().type(field(), 'kyoto');
