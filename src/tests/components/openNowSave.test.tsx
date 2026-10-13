@@ -299,6 +299,8 @@ describe('saving from the Open now pane (KAN-280 O13)', () => {
       'Collapse all windows',
       'Save all open windows as a session',
       'Show the saved session',
+      // KAN-577. In the header's bottom-right corner.
+      'Back to last tab',
     ]);
   });
 

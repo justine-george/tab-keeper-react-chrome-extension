@@ -515,8 +515,11 @@ test.describe('Open compact view goes back (KAN-507)', () => {
       await chrome.action.setPopup({ popup: '' });
     });
   }
+  // The left header's Back; Open now's header has its own since KAN-577.
   const backButton = (page: Page) =>
-    page.getByRole('button', { name: 'Back to last tab', exact: true });
+    page
+      .getByRole('button', { name: 'Back to last tab', exact: true })
+      .and(page.locator(':not([data-open-now-header] *)'));
   // The full view's page, once it has drawn Back.
   async function fullViewWithBack(context: BrowserContext): Promise<Page> {
     let found: Page | undefined;

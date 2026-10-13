@@ -13,16 +13,19 @@ import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 
+import Button from '../../common/Button';
 import Icon from '../../common/Icon';
 import { NormalLabel } from '../../common/Label';
 import EmptyListLine from '../../common/EmptyListLine';
 import NoMatchState from '../../common/NoMatchState';
 import type { IconName } from '../../common/iconNames';
+import { useBackPlan } from '../../../hooks/useBackPlan';
 import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useRecentTabs } from '../../../hooks/useRecentTabs';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { requestReturn } from '../../../utils/functions/backFromFullView';
 import { formatOpenNowCounts } from '../../../utils/functions/local';
 import {
   lastUsedTabId,
@@ -52,7 +55,7 @@ import {
 } from '../../../redux/reopenFocus';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import type { AppDispatch, RootState } from '../../../redux/store';
-import { TYPE } from '../../../styles/scale';
+import { ICON, TYPE } from '../../../styles/scale';
 
 import { RowDragArea } from '../rightpane/rowDrag/RowDragArea';
 import OpenNowSearchRow from './OpenNowSearchRow';
@@ -147,6 +150,9 @@ export default function OpenNowPane({
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
+  // KAN-577 (pick A). The left header's Back (KAN-509), in both Default views; Open now lives only in the full view.
+  const backPlan = useBackPlan(true);
+  const canGoBack = backPlan !== null && backPlan.kind !== 'none';
   const dispatch: AppDispatch = useDispatch();
   const paneRef = useRef<HTMLDivElement>(null);
 
@@ -387,9 +393,8 @@ export default function OpenNowPane({
   // reset, and the label's margin-right is padding here, so the h2 keeps the
   // header's full width and the text the same room.
   //
-  // O1b: "Open now" names a panel, not the pane's content, so it steps down
-  // from TYPE.SECTION/TEXT_COLOR to TYPE.BODY/LABEL_L1_COLOR -- inside the
-  // same 32px line, so the header's height does not move.
+  // KAN-576 undoes O1b's step-down: a session title's
+  // TYPE.SECTION/TEXT_COLOR, inside the same 32px line, so nothing moves.
   const headingStyle = css`
     display: flex;
     align-items: center;
@@ -399,9 +404,9 @@ export default function OpenNowPane({
     margin: 0;
     padding: 0 8px;
     font-family: ${FONT_FAMILY};
-    font-size: ${TYPE.BODY};
+    font-size: ${TYPE.SECTION};
     font-weight: inherit;
-    color: ${COLORS.LABEL_L1_COLOR};
+    color: ${COLORS.TEXT_COLOR};
     overflow: hidden;
     white-space: nowrap;
   `;
@@ -530,7 +535,9 @@ export default function OpenNowPane({
         <div
           css={css`
             display: flex;
+            align-items: flex-end;
             padding-top: 8px;
+            width: 100%;
           `}
         >
           {/* Only with something to fold; with no windows it would offer
@@ -578,6 +585,44 @@ export default function OpenNowPane({
               onClick={action.onClick}
             />
           ))}
+          {/* KAN-577. Add window's chip and corner (HeroContainerRight); dimmed like the left header's Back with nowhere to go.
+              margin-top -8px: its 32px outgrew the icons at a 12px root and pushed the list 6px down (searchRowAlignment.spec).
+              Shrinks to the room left, label cut with an ellipsis (his pick): ru is 321px, the drawer leaves ~220. */}
+          {/* At least 8px between the icons and a shrunk chip. */}
+          <span
+            aria-hidden="true"
+            css={css`
+              flex: 1 0 8px;
+            `}
+          />
+          <Button
+            text={t('Back to last tab')}
+            iconSize={ICON.SMALL}
+            tooltipText={t('Back to last tab')}
+            ariaLabel={t('Back to last tab')}
+            iconType="arrow_back"
+            onClick={requestReturn}
+            ariaDisabled={!canGoBack}
+            iconStyle="padding: 4px 4px 2px 4px;"
+            variant="chip"
+            style={`
+              margin-top: -8px;
+              min-width: 0;
+              height: 32px;
+              & > :first-child {
+                flex-shrink: 0;
+              }
+              & > span {
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              }
+              font-size: ${TYPE.SECONDARY};
+              padding: 5px 6px 3px 3px;
+              ${canGoBack ? '' : 'opacity: 0.3;'}
+            `}
+          />
         </div>
       </div>
       <div css={listBoxStyle}>
