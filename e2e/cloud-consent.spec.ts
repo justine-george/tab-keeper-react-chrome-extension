@@ -8,7 +8,7 @@ import {
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
-import { storedSettings } from './fixtures/onboarding';
+import { openFullView, storedSettings } from './fixtures/onboarding';
 import { cardAt, cardButton, closeReplayNote } from './fixtures/run';
 import { rgbToHex } from './fixtures/pixels';
 import { mixHex } from '../src/styles/mixHex';
@@ -327,7 +327,8 @@ test.describe('loading a backup asks consent before uploading (KAN-415)', () => 
         buildContainer([buildSession({ tabGroupId: 'h1', title: 'Here one' })])
       );
       await seedSettings(context, { cloudConsent: consent, isAutoSync: true });
-      const page = await openPopup(context, extensionId);
+      // KAN-579. The file step is the full view's.
+      const page = await openFullView(context, extensionId);
       await page.locator('[aria-label="Settings"]').click();
       await page.locator('button[aria-label="Sync & Backup"]').click();
       const firestore = () =>

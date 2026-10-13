@@ -337,7 +337,8 @@ afterEach(() => {
 
 describe('a request to show a dialog in the full view (KAN-7)', () => {
   test('isOpenInTabRequest takes a known show and refuses an unknown one', () => {
-    for (const show of ['setup', 'pinGuide']) {
+    // KAN-579: the popup's backup buttons hand their file step to the full view.
+    for (const show of ['setup', 'pinGuide', 'saveBackup', 'loadBackup']) {
       expect(
         isOpenInTabRequest({ type: OPEN_IN_TAB_MESSAGE, windowId: 1, show })
       ).toBe(true);

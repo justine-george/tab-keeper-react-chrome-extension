@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest';
-import { screen } from '@testing-library/react';
+import { afterEach, describe, expect, test, vi } from 'vitest';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -7,6 +7,7 @@ import {
   selectCategory,
   SettingsCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
+import { OPEN_IN_TAB_MESSAGE } from '../../utils/functions/popOut';
 
 // KAN-251. "Backup App Data to File" / "Restore App Data from File" misled
 // three ways. "Restore" is the app's verb for opening a saved session; here
@@ -53,5 +54,72 @@ describe('the backup buttons say what they do (KAN-251)', () => {
   test('the heading is Backup', async () => {
     await renderSyncAndBackup();
     expect(screen.getByText('Backup')).toBeTruthy();
+  });
+});
+
+// KAN-579. A native file picker takes the focus, and Chrome closes a popup that loses it: Cancel or Esc there
+// closed the popup. The popup hands both file steps to the full view; the full view does them itself.
+describe('where the backup file step happens (KAN-579)', () => {
+  afterEach(() => {
+    history.replaceState(null, '', '?');
+    vi.restoreAllMocks();
+  });
+
+  const spyFileSteps = () => ({
+    download: vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined),
+    picker: vi
+      .spyOn(HTMLInputElement.prototype, 'click')
+      .mockImplementation(() => undefined),
+  });
+
+  test.each([
+    ['Save sessions to a file', 'saveBackup'],
+    ['Load sessions from a backup', 'loadBackup'],
+  ] as const)(
+    'popup, %s: asks the full view, and opens no file step here',
+    async (name, show) => {
+      const { chrome } = await renderSyncAndBackup();
+      const { download, picker } = spyFileSteps();
+
+      fireEvent.click(screen.getByRole('button', { name }));
+
+      await waitFor(() =>
+        expect(chrome.sentMessages).toEqual([
+          expect.objectContaining({ type: OPEN_IN_TAB_MESSAGE, show }),
+        ])
+      );
+      expect(download).not.toHaveBeenCalled();
+      expect(picker).not.toHaveBeenCalled();
+    }
+  );
+
+  test('full view: Save downloads here and asks nothing', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const { chrome } = await renderSyncAndBackup();
+    const { download } = spyFileSteps();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save sessions to a file' })
+    );
+
+    expect(download).toHaveBeenCalledTimes(1);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(chrome.sentMessages).toEqual([]);
+  });
+
+  test('full view: Load opens the picker here and asks nothing', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const { chrome } = await renderSyncAndBackup();
+    const { picker } = spyFileSteps();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Load sessions from a backup' })
+    );
+
+    expect(picker).toHaveBeenCalledTimes(1);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(chrome.sentMessages).toEqual([]);
   });
 });

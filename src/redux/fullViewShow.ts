@@ -1,7 +1,14 @@
 import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
+import i18next from 'i18next';
 
 import type { AppDispatch, RootState } from './store';
-import { openPinGuide, openSetup } from './slices/globalStateSlice';
+import {
+  openPinGuide,
+  openSettingsPage,
+  openSetup,
+} from './slices/globalStateSlice';
+import { SettingsCategory } from './slices/settingsCategoryStateSlice';
+import { loadBackupFile, saveBackupFile } from './backupFile';
 import { restartSetup } from './slices/settingsDataStateSlice';
 import type { FullViewShow } from '../utils/functions/popOut';
 import type { DialogEntry } from '../utils/functions/dialogQueue';
@@ -16,7 +23,16 @@ export const showInFullView =
       dispatch(openSetup({ leadsToPinGuide: false }));
       return;
     }
-    dispatch(openPinGuide());
+    if (show === 'pinGuide') {
+      dispatch(openPinGuide());
+      return;
+    }
+    // KAN-579. On the pane its button sits on, so a picker Chrome refuses leaves the button to press.
+    void dispatch(openSettingsPage(SettingsCategory.SYNC));
+    // i18next's default instance is the app's (config/i18n.tsx).
+    dispatch(
+      show === 'saveBackup' ? saveBackupFile() : loadBackupFile(i18next)
+    );
   };
 
 // A full view opened for a dialog decides only that one, through the same queue.

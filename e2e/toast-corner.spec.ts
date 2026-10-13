@@ -25,8 +25,10 @@ async function corner(page: Page) {
   };
 }
 
+// KAN-579. The popup's Settings can no longer raise a toast (the bad backup file is the full view's), so the
+// popup's 790x550 window is measured with a full view at that size: the same Settings layout.
 for (const [view, path, size] of [
-  ['popup', 'index.html', POPUP],
+  ["full view at the popup's size", FULL_VIEW_PATH, POPUP],
   ['full view', FULL_VIEW_PATH, FULL],
 ] as const) {
   test(`${view}: a toast on Settings sits bottom-left, as on home`, async ({

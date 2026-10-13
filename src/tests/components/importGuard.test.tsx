@@ -1,4 +1,4 @@
-import { describe, expect, test, vi, afterEach } from 'vitest';
+import { beforeEach, describe, expect, test, vi, afterEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -30,6 +30,7 @@ import {
 // on the fly: it is created, wired and clicked inside handleImportJSON and never
 // rendered, so there is nothing in the tree to select. Spying on createElement
 // is the only seam that does not require changing production code to be testable.
+// (Since KAN-579 it is built in loadBackupFile, redux/backupFile.ts.)
 const captureFileInput = () => {
   const inputs: HTMLInputElement[] = [];
   const real = document.createElement.bind(document);
@@ -53,10 +54,14 @@ const captureFileInput = () => {
 
 const dropFile = (input: HTMLInputElement, text: string) => {
   const file = new File([text], 'backup.json', { type: 'application/json' });
-  // The handler reads `(event.target as HTMLInputElement).files![0]`, so the
-  // event only has to carry that much shape.
-  input.onchange?.({ target: { files: [file] } } as unknown as Event);
+  // The handler reads input.files, which jsdom only lets a test set this way.
+  Object.defineProperty(input, 'files', { value: [file] });
+  input.onchange?.(new Event('change'));
 };
+
+// KAN-579. The file step runs in the full view; the popup hands it there (backupButtons.test.tsx).
+beforeEach(() => history.replaceState(null, '', '?view=tab'));
+afterEach(() => history.replaceState(null, '', '?'));
 
 const renderSyncAndBackup = () =>
   renderWithProviders(<SettingsDetailsContainer />, {
