@@ -2,6 +2,7 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { RUN_FINISHED, seedSettings } from './fixtures/seed';
+import { platformSays } from './fixtures/platform';
 import { stubToolbarPin } from './fixtures/toolbarPin';
 import {
   FULL,
@@ -68,16 +69,17 @@ async function watchDialogs(page: Page): Promise<() => Promise<string[]>> {
 async function openRunningFullView(
   context: BrowserContext,
   extensionId: string,
-  pinned: boolean
+  pinned: boolean,
+  step = 1
 ): Promise<Page> {
   await stubToolbarPin(context, { pinned });
   await seedSettings(context, {
     isPinGuideDismissed: false,
-    firstRun: { ...RUN_FINISHED, step: 1, ended: null },
+    firstRun: { ...RUN_FINISHED, step, ended: null },
   });
   const page = await openPage(context, extensionId, FULL_RUN.path, FULL);
   await runCheck(page, 'resumed');
-  await expect(cardAt(page, 1)).toBeVisible();
+  await expect(cardAt(page, step)).toBeVisible();
   return page;
 }
 
@@ -138,6 +140,53 @@ test('Skip tutorial: the note, and nothing opens after it (R8, KAN-499)', async 
   expect((await storedSettings(page)).setupState).toBe('none');
 });
 
+// KAN-563: a run resumed at step 8 draws its card before Chrome has said the platform; no drawn frame points anywhere but the aim.
+for (const [os, aim] of [
+  ['mac', 140],
+  ['win', 88],
+] as const) {
+  test(`step 8 resumed (${os}): every drawn frame's notch points at ${aim}px`, async ({
+    context,
+    extensionId,
+  }) => {
+    await platformSays(context, os);
+    // Each frame the card is drawn free, its notch tip from layout (the glide's transform moves card and notch together).
+    await context.addInitScript(() => {
+      const tips: number[] = [];
+      Object.defineProperty(window, '__notchTips', { value: tips });
+      const read = () => {
+        const mark = document.querySelector<HTMLElement>('[data-coach-mark]');
+        const notch = mark?.querySelector<HTMLElement>('[data-coach-notch]');
+        if (
+          mark &&
+          notch &&
+          !mark.hasAttribute('aria-hidden') &&
+          mark.getAttribute('data-coach-side') === 'free'
+        ) {
+          const border = parseFloat(getComputedStyle(mark).borderLeftWidth);
+          tips.push(
+            parseFloat(mark.style.left) +
+              border +
+              parseFloat(notch.style.left) +
+              notch.offsetWidth / 2
+          );
+        }
+        requestAnimationFrame(read);
+      };
+      requestAnimationFrame(read);
+    });
+    const page = await openRunningFullView(context, extensionId, false, 8);
+    await landedAt(page, 8);
+    const tips = await page.evaluate((): unknown =>
+      Reflect.get(window, '__notchTips')
+    );
+    if (!Array.isArray(tips)) throw new Error('no notch record');
+    expect(tips.length).toBeGreaterThan(0);
+    // One tip only, 1px past the aim: the notch is drawn inside the card's border.
+    expect([...new Set(tips)]).toEqual([aim + 1]);
+  });
+}
+
 // §2: Help's Run setup again behaves as today, so no guide follows it.
 for (const how of ['Skip setup', 'Done'] as const) {
   test(`Help, Run setup again, ${how}: no pin guide while unpinned and undismissed`, async ({
@@ -173,49 +222,55 @@ for (const how of ['Skip setup', 'Done'] as const) {
 }
 
 // KAN-457: step 8 is one row at the default size, and its notch points up at the tab strip.
-test('step 8: Not now left, Back and Pin this tab right, one row; the notch up at the card’s top left', async ({
-  context,
-  extensionId,
-}) => {
-  const page = await openRunningFullView(context, extensionId, false);
-  await walkFullRunToLastStep(page);
-  const card = cardAt(page, 8);
-  // KAN-569: the step changes a frame before the card moves; measure once it sits free and has glided there.
-  await expect(card).toHaveAttribute('data-coach-side', 'free');
-  await landedAt(page, 8);
-  const geometry = await card.evaluate((el) => {
-    const box = (e: Element | null) => {
-      if (e === null) throw new Error('missing');
-      return e.getBoundingClientRect();
-    };
-    const button = (name: string) =>
-      box(
-        [...el.querySelectorAll('button')].find(
-          (b) => b.textContent === name
-        ) ?? null
-      );
-    const notch = box(el.querySelector('[data-coach-notch]'));
-    const card = box(el);
-    return {
-      width: card.width,
-      tops: ['Not now', 'Back', 'Pin this tab'].map((n) => button(n).top),
-      notNowRight: button('Not now').right,
-      backLeft: button('Back').left,
-      notch: {
-        left: notch.left - card.left,
-        bottom: notch.bottom - card.top,
-        top: notch.top,
-      },
-    };
+// KAN-563: at the first tab on a Mac (140), elsewhere where it always was (88).
+for (const [os, aim] of [
+  ['mac', 140],
+  ['win', 88],
+] as const) {
+  test(`step 8 (${os}): Not now left, Back and Pin this tab right, one row; the notch up at ${aim}px`, async ({
+    context,
+    extensionId,
+  }) => {
+    await platformSays(context, os);
+    const page = await openRunningFullView(context, extensionId, false);
+    await walkFullRunToLastStep(page);
+    const card = cardAt(page, 8);
+    // KAN-569: the step changes a frame before the card moves; measure once it sits free and has glided there.
+    await expect(card).toHaveAttribute('data-coach-side', 'free');
+    await landedAt(page, 8);
+    const geometry = await card.evaluate((el) => {
+      const box = (e: Element | null) => {
+        if (e === null) throw new Error('missing');
+        return e.getBoundingClientRect();
+      };
+      const button = (name: string) =>
+        box(
+          [...el.querySelectorAll('button')].find(
+            (b) => b.textContent === name
+          ) ?? null
+        );
+      const notch = box(el.querySelector('[data-coach-notch]'));
+      const card = box(el);
+      return {
+        width: card.width,
+        tops: ['Not now', 'Back', 'Pin this tab'].map((n) => button(n).top),
+        notNowRight: button('Not now').right,
+        backLeft: button('Back').left,
+        notch: {
+          tip: notch.left + notch.width / 2,
+          bottom: notch.bottom - card.top,
+          top: notch.top,
+        },
+      };
+    });
+    expect(geometry.width).toBe(400);
+    const [notNow, back, pin] = geometry.tops;
+    expect(Math.abs(notNow - back)).toBeLessThan(1);
+    expect(Math.abs(back - pin)).toBeLessThan(1);
+    expect(geometry.notNowRight).toBeLessThan(geometry.backLeft);
+    // Above the card, its tip on the aim (drawn inside the card's 1px border), and still inside the page.
+    expect(geometry.notch.bottom).toBeLessThanOrEqual(0);
+    expect(Math.abs(geometry.notch.tip - aim)).toBeLessThanOrEqual(1);
+    expect(geometry.notch.top).toBeGreaterThanOrEqual(0);
   });
-  expect(geometry.width).toBe(400);
-  const [notNow, back, pin] = geometry.tops;
-  expect(Math.abs(notNow - back)).toBeLessThan(1);
-  expect(Math.abs(back - pin)).toBeLessThan(1);
-  expect(geometry.notNowRight).toBeLessThan(geometry.backLeft);
-  // Above the card, near its left edge, and still inside the page.
-  expect(geometry.notch.bottom).toBeLessThanOrEqual(0);
-  expect(geometry.notch.left).toBeGreaterThan(0);
-  expect(geometry.notch.left).toBeLessThan(80);
-  expect(geometry.notch.top).toBeGreaterThanOrEqual(0);
-});
+}

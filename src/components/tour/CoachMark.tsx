@@ -15,9 +15,11 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useCoachPlacement } from '../../hooks/useCoachPlacement';
 import { useCardMotion } from '../../hooks/useCardMotion';
+import { useIsMac } from '../../hooks/useIsMac';
 import ProgressLine from '../common/ProgressLine';
 import {
   COACH,
+  freeAimFor,
   clipPathWithHole,
   ringBox,
   type AnchoredPlacement,
@@ -140,7 +142,15 @@ export default function CoachMark({
   const textId = useId();
   const markRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
-  const frame = useCoachPlacement(markRef, anchors, place, boxOf, spotlight);
+  const isMac = useIsMac();
+  const frame = useCoachPlacement(
+    markRef,
+    anchors,
+    place,
+    freeAimFor(isMac),
+    boxOf,
+    spotlight
+  );
   useCardMotion(markRef, ringRef, progress?.step ?? null, frame);
   const buttons = dialogButtonStyles(COLORS);
   const isPlaced = frame !== null;
@@ -289,11 +299,7 @@ export default function CoachMark({
         {frame && (
           <Notch
             side={frame.kind === 'anchored' ? frame.placement.side : 'below'}
-            notch={
-              frame.kind === 'anchored'
-                ? frame.placement.notch
-                : COACH.FREE_NOTCH
-            }
+            notch={frame.placement.notch}
             border={COLORS.BORDER_COLOR}
             fill={COLORS.PRIMARY_COLOR}
           />

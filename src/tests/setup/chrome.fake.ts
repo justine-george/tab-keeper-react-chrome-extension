@@ -108,6 +108,8 @@ export type ChromeSeed = {
   // button hints ⌘Z on a Mac, Ctrl+Z elsewhere). Absent means 'linux', the
   // non-Mac form, so a test that seeds nothing never sees the Mac one.
   platformOs?: chrome.runtime.PlatformInfo['os'];
+  // KAN-563. When set, getPlatformInfo() returns this promise instead, so a test can hold the answer or fail it.
+  platformAnswer?: Promise<chrome.runtime.PlatformInfo>;
   // KAN-7. chrome.action, present only when seeded: outside an extension
   // page (and in every older test) it is absent. setPopupRejects makes
   // setPopup reject, Default view's failure path. isOnToolbar is
@@ -2607,6 +2609,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       },
       getURL: (path: string) => `${EXTENSION_ORIGIN}${path}`,
       getPlatformInfo: (cb?: (info: chrome.runtime.PlatformInfo) => void) =>
+        seed.platformAnswer ??
         settle<chrome.runtime.PlatformInfo>(
           { os: seed.platformOs ?? 'linux', arch: 'x86-64' },
           cb

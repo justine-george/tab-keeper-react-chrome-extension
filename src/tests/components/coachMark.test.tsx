@@ -65,7 +65,10 @@ afterEach(() => {
 });
 
 type Props = Parameters<typeof CoachMark>[0];
-async function render(overrides: Partial<Props> = {}) {
+async function render(
+  overrides: Partial<Props> = {},
+  seed?: NonNullable<Parameters<typeof renderWithProviders>[1]>['seed']
+) {
   const onNext = vi.fn();
   const onSkip = vi.fn();
   const onBack = vi.fn();
@@ -84,7 +87,9 @@ async function render(overrides: Partial<Props> = {}) {
     ...overrides,
     ...more,
   });
-  const result = await renderWithProviders(<CoachMark {...propsFor({})} />);
+  const result = await renderWithProviders(<CoachMark {...propsFor({})} />, {
+    seed,
+  });
   const rerenderAt = (more: Partial<Props>) =>
     result.rerender(<CoachMark {...propsFor(more)} />);
   return { onNext, onSkip, onBack, onEscape, rerenderAt };
@@ -433,7 +438,17 @@ describe('IME and Esc (D1)', () => {
 });
 
 describe('the free step and the still box', () => {
-  test('no anchors: the card sits at the top left, the whole page dimmed, no ring, a notch up at its left', async () => {
+  const notch = () => document.querySelector<HTMLElement>('[data-coach-notch]');
+  // The page x of the notch's tip: the card's left, then the 16px border triangle's middle.
+  const notchTip = () =>
+    parseFloat(mark()?.style.left ?? 'NaN') +
+    parseFloat(notch()?.style.left ?? 'NaN') +
+    8;
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(400);
+  });
+
+  test('no anchors: the card sits at the top left, the whole page dimmed, no ring, a notch up at 88px', async () => {
     await render({ anchors: [] });
     await placed();
     expect(mark()).toHaveAttribute('data-coach-side', 'free');
@@ -442,10 +457,48 @@ describe('the free step and the still box', () => {
     expect(dim()).not.toBeNull();
     expect(dim()?.style.clipPath).toBe('');
     expect(ring()).toBeNull();
-    const notch = document.querySelector<HTMLElement>('[data-coach-notch]');
-    expect(notch?.style.left).toBe('40px');
-    expect(notch?.style.top).toBe('-9px');
-    expect(notch && getComputedStyle(notch).borderBottomStyle).toBe('solid');
+    expect(notch()?.style.left).toBe('40px');
+    expect(notchTip()).toBe(88);
+    expect(notch()?.style.top).toBe('-9px');
+    const drawn = notch();
+    expect(drawn && getComputedStyle(drawn).borderBottomStyle).toBe('solid');
+  });
+
+  // KAN-563: on a Mac the strip starts after the traffic lights and Tab search, so the notch aims at the first tab.
+  test('no anchors on a Mac: the card stays put, its notch up at 140px', async () => {
+    await render({ anchors: [] }, { platformOs: 'mac' });
+    await placed();
+    await waitFor(() => expect(notchTip()).toBe(140));
+    expect(mark()?.style.left).toBe('40px');
+    expect(notch()?.style.top).toBe('-9px');
+  });
+
+  // Worst path: the card must not be drawn at 88 and then jump once Chrome answers.
+  test('no anchors, platform not answered yet: the card waits unplaced, then appears with its notch at 140px', async () => {
+    let answer: (info: chrome.runtime.PlatformInfo) => void = () => {};
+    const held = new Promise<chrome.runtime.PlatformInfo>((resolve) => {
+      answer = resolve;
+    });
+    await render({ anchors: [] }, { platformAnswer: held });
+    await twoFrames();
+    await twoFrames();
+    expect(mark()).toHaveAttribute('aria-hidden', 'true');
+    expect(notch()).toBeNull();
+    await act(async () => {
+      answer({ os: 'mac', arch: 'arm' });
+      await held;
+    });
+    await placed();
+    expect(notchTip()).toBe(140);
+  });
+
+  test('no anchors, platform read fails: the card still appears, its notch at 88px', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const failed = Promise.reject(new Error('no platform'));
+    failed.catch(() => {});
+    await render({ anchors: [] }, { platformAnswer: failed });
+    await placed();
+    expect(notchTip()).toBe(88);
   });
 
   test('a look-only step draws a still box exactly over the bright box', async () => {
