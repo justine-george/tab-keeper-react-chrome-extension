@@ -23,6 +23,11 @@ import {
   TOAST_MOVE,
   useToastStack,
 } from './useToastStack';
+import { APP_WIDTH, SETTINGS_COLUMN } from '../../utils/constants/common';
+import { isTabView } from '../../utils/functions/viewMode';
+
+// The stack's distance from the window's left and bottom edges.
+const EDGE_PX = 20;
 
 interface ToastProps {
   style?: string;
@@ -43,6 +48,12 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
   );
+  // KAN-574. On Settings a toast stays inside the category column, as far from its right edge as from the window's left.
+  // Only plain toasts: opening Settings clears the stack, so no Reopen offer is ever drawn there.
+  const settingsColumn = isTabView()
+    ? `${SETTINGS_COLUMN.TAB_PX}px`
+    : `calc(${APP_WIDTH} * ${SETTINGS_COLUMN.POPUP_PERCENT} / 100)`;
+  const settingsCap = `calc(${settingsColumn} - ${2 * EDGE_PX}px)`;
   // KAN-349 Q1 C′. The hint names the key only while the key takes the offer.
   const keyOfferId = useSelector(selectReopenOfferForKey);
 
@@ -76,13 +87,13 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     if (hovered.current || focused.current) holdToasts();
   }, [toasts]);
 
-  // Fixed at the corner the toast has always used, with no size of its own:
+  // Fixed at the bottom-left on every page (KAN-574), with no size of its own:
   // only the toasts take the pointer, so the page beside a narrow toast stays
   // clickable (a 300px toast under a wider offer).
   const regionStyle = css`
     position: fixed;
-    bottom: 20px;
-    ${isSettingsPage ? `right: 20px` : `left: 20px`};
+    bottom: ${EDGE_PX}px;
+    left: ${EDGE_PX}px;
     /* Over the menus (1000) and the tour's dim and mark (1010, 1020); under the drag card (1100). */
     z-index: 1050;
   `;
@@ -90,7 +101,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   const toastStyle = css`
     position: absolute;
     bottom: 0;
-    ${isSettingsPage ? `right: 0` : `left: 0`};
+    left: 0;
     /* The gap above a toast is part of it for the pointer, so crossing from
        one toast to the next stays on the stack and keeps the hold. */
     [data-toast] + &::before {
@@ -123,7 +134,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     padding: 10px;
     border: 1px solid ${COLORS.BORDER_COLOR};
     border-radius: ${RADIUS.SQUARE};
-    width: 300px;
+    width: ${isSettingsPage ? `min(300px, ${settingsCap})` : '300px'};
     min-height: ${CONTROL.DEFAULT};
     display: flex;
     justify-content: center;
@@ -146,7 +157,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     padding: 6px 6px 6px 12px;
     width: max-content;
     min-width: 300px;
-    max-width: min(30rem, calc(100vw - 40px));
+    max-width: min(30rem, calc(100vw - ${2 * EDGE_PX}px));
   `;
   const chipStyle = `
     height: 34px;

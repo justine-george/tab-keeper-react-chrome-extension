@@ -19,7 +19,7 @@ import { useThemeColors } from '../hooks/useThemeColors';
 import { useViewportWidth } from '../hooks/useViewportWidth';
 import { useIsOpenNowGripShown } from '../hooks/useIsOpenNowGripShown';
 import { useDialogEscape } from '../hooks/useDialogEscape';
-import { APP_HEIGHT } from '../utils/constants/common';
+import { APP_HEIGHT, SETTINGS_COLUMN } from '../utils/constants/common';
 import { AppDispatch, RootState } from '../redux/store';
 import { redo, undo } from '../redux/slices/undoRedoSlice';
 import { selectIsSavedSessionFolded } from '../redux/savedSessionFold';
@@ -289,7 +289,7 @@ export default function MainContainer() {
   `;
 
   const leftPaneSettingsStyle = css`
-    width: 30%;
+    width: ${SETTINGS_COLUMN.POPUP_PERCENT}%;
     height: ${APP_HEIGHT};
     min-width: 0;
     border: 1px solid ${COLORS.BORDER_COLOR};
@@ -297,7 +297,7 @@ export default function MainContainer() {
   `;
 
   const rightPaneSettingsStyle = css`
-    width: 70%;
+    width: ${100 - SETTINGS_COLUMN.POPUP_PERCENT}%;
     height: ${APP_HEIGHT};
     min-width: 0;
     border: 1px solid ${COLORS.BORDER_COLOR};
@@ -330,7 +330,7 @@ export default function MainContainer() {
 
   const tabContainerSettingsStyle = css`
     display: grid;
-    grid-template-columns: 238px minmax(0, 1fr) 0;
+    grid-template-columns: ${SETTINGS_COLUMN.TAB_PX}px minmax(0, 1fr) 0;
     grid-template-areas: 'sessions detail active-session';
   `;
 

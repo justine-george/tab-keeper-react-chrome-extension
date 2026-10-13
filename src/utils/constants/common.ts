@@ -8,6 +8,8 @@ export const NON_INTERACTIVE_ICON_STYLE =
 
 // app container dimensions
 export const APP_HEIGHT = '550px';
+// The Settings page's category column: a share of the popup, a fixed width in the full view. Toasts on that page stay inside it (KAN-574).
+export const SETTINGS_COLUMN = { POPUP_PERCENT: 30, TAB_PX: 238 } as const;
 export const APP_WIDTH = '790px';
 
 // default dimensions for a new window
