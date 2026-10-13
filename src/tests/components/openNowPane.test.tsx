@@ -145,7 +145,7 @@ async function renderPane(
 
 // A live band's colour strip.
 const stripOf = (band: HTMLElement): HTMLElement => {
-  const strip = band.querySelector('[data-open-now-group-strip]');
+  const strip = band.querySelector('[data-group-color-strip]');
   if (!(strip instanceof HTMLElement)) throw new Error('band has no strip');
   return strip;
 };
@@ -712,7 +712,7 @@ describe('the live group band matches the saved one (KAN-280)', () => {
       screen.getByRole('group', { name: 'Later' }),
       liveStrip,
       required(
-        liveStrip.nextElementSibling?.firstElementChild ?? null,
+        liveBand.querySelector('[data-group-drag-handle]'),
         'live title row'
       ),
       required(
@@ -775,5 +775,155 @@ describe('the live group band matches the saved one (KAN-280)', () => {
       'transition-duration': DURATION.COLOR,
       'transition-timing-function': 'cubic-bezier(0.2, 0, 0, 1)',
     });
+  });
+});
+
+// KAN-568 (picks 1-A, 2-U1): the saved band's rename and colour controls, writing Chrome's own group.
+describe('a live group is renamed and recoloured from its band', () => {
+  const renameButton = (name = 'Research') =>
+    screen.getByRole('button', { name: `Rename group: ${name}` });
+
+  test('clicking the name opens a field holding it; Enter renames the Chrome group', async () => {
+    const user = userEvent.setup();
+    await renderPane(groupedWindow(), { thisWindowId: 1 });
+
+    await user.click(renameButton());
+    const field = screen.getByRole('textbox', {
+      name: 'Rename group: Research',
+    });
+    expect(field).toHaveValue('Research');
+    expect(field).toHaveAttribute('placeholder', 'Name this group');
+    await user.clear(field);
+    await user.type(field, 'Reading{Enter}');
+
+    await vi.waitFor(async () =>
+      expect((await chrome.tabGroups.get(50)).title).toBe('Reading')
+    );
+    expect(screen.queryByRole('textbox', { name: /Rename group/ })).toBeNull();
+  });
+
+  test('the check button and leaving the field both rename', async () => {
+    const user = userEvent.setup();
+    await renderPane(groupedWindow(), { thisWindowId: 1 });
+
+    await user.click(renameButton());
+    await user.type(
+      screen.getByRole('textbox', { name: /Rename group/ }),
+      ' notes'
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await vi.waitFor(async () =>
+      expect((await chrome.tabGroups.get(50)).title).toBe('Research notes')
+    );
+
+    await user.click(renameButton('Research notes'));
+    await user.type(screen.getByRole('textbox', { name: /Rename group/ }), '!');
+    await user.click(tabRow('G1').ownerDocument.body);
+    await vi.waitFor(async () =>
+      expect((await chrome.tabGroups.get(50)).title).toBe('Research notes!')
+    );
+  });
+
+  // Worst paths: a cancel and a no-op must not write Chrome.
+  test('Escape cancels, and an unchanged name writes nothing', async () => {
+    const user = userEvent.setup();
+    await renderPane(groupedWindow(), { thisWindowId: 1 });
+    const update = vi.spyOn(chrome.tabGroups, 'update');
+
+    await user.click(renameButton());
+    await user.type(
+      screen.getByRole('textbox', { name: /Rename group/ }),
+      'xyz{Escape}'
+    );
+    await user.click(renameButton());
+    await user.type(
+      screen.getByRole('textbox', { name: /Rename group/ }),
+      '{Enter}'
+    );
+
+    expect(update).not.toHaveBeenCalled();
+    expect((await chrome.tabGroups.get(50)).title).toBe('Research');
+  });
+
+  test('clearing the name leaves the group unnamed', async () => {
+    const user = userEvent.setup();
+    await renderPane(groupedWindow(), { thisWindowId: 1 });
+
+    await user.click(renameButton());
+    await user.clear(screen.getByRole('textbox', { name: /Rename group/ }));
+    await user.keyboard('{Enter}');
+
+    await vi.waitFor(async () =>
+      expect((await chrome.tabGroups.get(50)).title).toBe('')
+    );
+  });
+
+  // Open now re-reads after Chrome's event; until then the new name stands in (measured: the old one flashed).
+  test('the band shows the new name before the next read', async () => {
+    const user = userEvent.setup();
+    await renderPane(groupedWindow(), { thisWindowId: 1 });
+
+    await user.click(renameButton());
+    await user.type(
+      screen.getByRole('textbox', { name: /Rename group/ }),
+      ' notes{Enter}'
+    );
+
+    expect(renameButton('Research notes')).toBeInTheDocument();
+    expect(
+      screen.getByRole('group', { name: 'Research notes' })
+    ).toBeInTheDocument();
+  });
+
+  // Worst path: Chrome refuses (the group closed meanwhile), so the band shows what Chrome has.
+  test('a refused rename shows the name Chrome kept', async () => {
+    const user = userEvent.setup();
+    await renderPane(groupedWindow(), { thisWindowId: 1 });
+    vi.spyOn(chrome.tabGroups, 'update').mockRejectedValue(
+      new Error('No group with id: 50.')
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await user.click(renameButton());
+    await user.type(
+      screen.getByRole('textbox', { name: /Rename group/ }),
+      ' notes{Enter}'
+    );
+
+    await vi.waitFor(() =>
+      expect(renameButton('Research')).toBeInTheDocument()
+    );
+    expect(screen.queryByRole('button', { name: /Research notes/ })).toBeNull();
+  });
+
+  test('an unnamed group opens an empty field', async () => {
+    const user = userEvent.setup();
+    const seed = groupedWindow();
+    seed.tabGroups = [{ id: 50, title: '', color: 'blue', windowId: 1 }];
+    await renderPane(seed, { thisWindowId: 1 });
+
+    await user.click(renameButton('Unnamed group'));
+    expect(screen.getByRole('textbox', { name: /Rename group/ })).toHaveValue(
+      ''
+    );
+  });
+
+  test('the strip opens the picker, and a swatch recolours the Chrome group', async () => {
+    const user = userEvent.setup();
+    await renderPane(groupedWindow(), { thisWindowId: 1 });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Change group color: Research' })
+    );
+    expect(screen.getByRole('menuitemradio', { name: 'Blue' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    await user.click(screen.getByRole('menuitemradio', { name: 'Green' }));
+
+    await vi.waitFor(async () =>
+      expect((await chrome.tabGroups.get(50)).color).toBe('green')
+    );
+    expect(screen.queryByRole('menu')).toBeNull();
   });
 });

@@ -1,4 +1,6 @@
-// Reading Chrome's LIVE tab groups -- the ones open in the browser right now.
+import type { TabGroupColor } from './tabGroups';
+
+// Reading and editing Chrome's LIVE tab groups -- the ones open in the browser right now.
 //
 // Distinct from tabGroups.ts, which is about groups already SAVED into a
 // session and keyed by the uuid minted at capture. Nothing here touches stored
@@ -57,4 +59,19 @@ export async function countOpenTabGroups(): Promise<number> {
   }
 
   return groupIds.size;
+}
+
+// KAN-568. Open now's rename and recolour: Chrome's own group, never a saved session.
+// Never throws: a group closed, or a grant revoked, since the pane read it costs the edit; the next read shows Chrome's.
+export async function updateLiveGroup(
+  groupId: number,
+  props: { title?: string; color?: TabGroupColor }
+): Promise<boolean> {
+  try {
+    await chrome.tabGroups.update(groupId, props);
+    return true;
+  } catch (error) {
+    console.warn('Could not edit the tab group:', error);
+    return false;
+  }
 }

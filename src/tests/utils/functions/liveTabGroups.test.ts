@@ -4,7 +4,10 @@ import {
   setupChromeFake,
   type ChromeFakeHandle,
 } from '../../setup/chrome.fake';
-import { countOpenTabGroups } from '../../../utils/functions/liveTabGroups';
+import {
+  countOpenTabGroups,
+  updateLiveGroup,
+} from '../../../utils/functions/liveTabGroups';
 
 let handle: ChromeFakeHandle;
 afterEach(() => handle?.restore());
@@ -73,5 +76,44 @@ describe('countOpenTabGroups', () => {
     tabs.query = () => Promise.reject(new Error('no tabs permission'));
 
     await expect(countOpenTabGroups()).resolves.toBe(0);
+  });
+});
+
+// KAN-568. Open now's rename and recolour write Chrome's own group.
+describe('updateLiveGroup', () => {
+  const seed = {
+    windows: [{ id: 1, tabs: [{ title: 'G1', groupId: 50 }] }],
+    tabGroups: [
+      { id: 50, title: 'Research', color: 'blue' as const, windowId: 1 },
+    ],
+  };
+
+  test('renames the live group', async () => {
+    handle = setupChromeFake(seed);
+    expect(await updateLiveGroup(50, { title: 'Reading' })).toBe(true);
+    expect(await chrome.tabGroups.get(50)).toMatchObject({
+      title: 'Reading',
+      color: 'blue',
+    });
+  });
+
+  test('recolours the live group', async () => {
+    handle = setupChromeFake(seed);
+    expect(await updateLiveGroup(50, { color: 'green' })).toBe(true);
+    expect(await chrome.tabGroups.get(50)).toMatchObject({
+      title: 'Research',
+      color: 'green',
+    });
+  });
+
+  // Worst paths: the group closed since the pane read it, or the grant was revoked mid-edit.
+  test('resolves false, never throws, for a group that is gone', async () => {
+    handle = setupChromeFake(seed);
+    expect(await updateLiveGroup(51, { title: 'Reading' })).toBe(false);
+  });
+
+  test('resolves false, never throws, when chrome.tabGroups is absent', async () => {
+    handle = setupChromeFake({ ...seed, tabGroupsApiAbsent: true });
+    expect(await updateLiveGroup(50, { title: 'Reading' })).toBe(false);
   });
 });
