@@ -406,9 +406,7 @@ export default function MenuContainer() {
             onGo={requestReturn}
             text={t('Going back closes this tab. Pin it to keep it open.')}
             goLabel={t('Go back')}
-            pinLabel={
-              backPlan?.kind === 'switch' ? t('Pin and go back') : undefined
-            }
+            pinLabel={t('Pin and go back')}
             align="left"
             notchInset={ICON_NOTCH_INSET}
           >

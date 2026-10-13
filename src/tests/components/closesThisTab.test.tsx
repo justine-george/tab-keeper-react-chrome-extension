@@ -230,8 +230,8 @@ describe('Back to last tab, when the press closes nothing or only closes (KAN-57
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  // Nothing recorded to switch to: going back only closes, so a pin would leave nothing to do.
-  test('nowhere to switch to: the card offers Go back only', async () => {
+  // KAN-580. Nothing recorded: a pinned full view goes to its neighbour, so Pin still has somewhere to go.
+  test('nothing recorded to switch to: the card still offers Pin and go back', async () => {
     await renderMenu('full', {
       seed: { ...seedFor(), sessionArea: {} },
     });
@@ -241,9 +241,7 @@ describe('Back to last tab, when the press closes nothing or only closes (KAN-57
 
     await screen.findByRole('dialog');
     expect(cardButton('Go back')).toBeInTheDocument();
-    expect(
-      within(card()).queryByRole('button', { name: 'Pin and go back' })
-    ).not.toBeInTheDocument();
+    expect(cardButton('Pin and go back')).toBeInTheDocument();
   });
 });
 

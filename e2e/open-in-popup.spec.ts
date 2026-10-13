@@ -648,7 +648,7 @@ test.describe('Open compact view goes back (KAN-507)', () => {
     expect(await popupOf(serviceWorker)).toBe('');
   });
 
-  test('12. Default view Full: a pinned full view alone in its window has nowhere to go; a tab used beside it brings Back to life', async ({
+  test('12. Default view Full: a pinned full view alone in its window has nowhere to go; a tab beside it brings Back to life', async ({
     context,
     serviceWorker,
   }) => {
@@ -721,6 +721,92 @@ test.describe('Open compact view goes back (KAN-507)', () => {
     await expect.poll(() => activeIn(serviceWorker, w.windowId)).toBe(w.b);
     expect(await viewTabs(serviceWorker)).toEqual([
       expect.objectContaining({ windowId: w.windowId, pinned: true }),
+    ]);
+  });
+
+  test('16. ⤢ on B, then the card’s Pin and open: back on B, the popup over its window, the full view kept, pinned', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedSessions(context);
+    await unanswered(context);
+    const sender = await senderPage(context, extensionId);
+    const w = await windowOnB(serviceWorker);
+    const page = await pressOpenFullView(context, sender, w.windowId);
+    await stubOpenPopup(serviceWorker, false);
+
+    await press(page);
+    await card(page)
+      .getByRole('button', { name: 'Pin and open', exact: true })
+      .click();
+
+    await expect
+      .poll(() => openPopupCalls(serviceWorker))
+      .toEqual([
+        {
+          args: [{ windowId: w.windowId }],
+          popup: INDEX_POPUP,
+          fullViewsOpen: 1,
+        },
+      ]);
+    expect(await activeIn(serviceWorker, w.windowId)).toBe(w.b);
+    expect(await viewTabs(serviceWorker)).toEqual([
+      expect.objectContaining({ windowId: w.windowId, pinned: true }),
+    ]);
+  });
+
+  // KAN-580. The records live in chrome.storage.session, which an extension reload clears.
+  test('17. Default view Full, nothing recorded: the card still offers Pin and go back, which lands beside the pinned full view', async ({
+    context,
+    serviceWorker,
+  }) => {
+    await seedSessions(context);
+    await defaultViewFull(context, serviceWorker);
+    await seedSettings(context, {
+      defaultView: 'full',
+      isClosesThisTabCardAnswered: false,
+    });
+    // [A, full view, B]; B used last, then the full view.
+    const w = await serviceWorker.evaluate(async (view) => {
+      const win = await chrome.windows.create({
+        url: [
+          'data:text/html,<title>A</title>',
+          chrome.runtime.getURL(view),
+          'data:text/html,<title>B</title>',
+        ],
+        focused: true,
+      });
+      const [a, fv, b] = (win?.tabs ?? []).map((t) => t.id ?? -1);
+      if (win?.id === undefined) throw new Error('no window');
+      await chrome.tabs.update(b, { active: true });
+      await chrome.tabs.update(fv, { active: true });
+      return { windowId: win.id, a, fv, b };
+    }, VIEW_TAB);
+    const records = () =>
+      serviceWorker.evaluate(() => chrome.storage.session.get(null));
+    // The worker's record of the last switch lands, and only then is cleared, as a reload would.
+    await expect
+      .poll(async () => {
+        const recent: unknown = (await records())[`recentTabs.${w.windowId}`];
+        return Array.isArray(recent) ? recent.slice(0, 2) : recent;
+      })
+      .toEqual([w.fv, w.b]);
+    await serviceWorker.evaluate(() => chrome.storage.session.clear());
+    // PREMISE: nothing recorded, so B is not known as the last tab.
+    expect(await records()).toEqual({});
+    const page = await fullViewWithBack(context);
+    await expect(backButton(page)).not.toHaveAttribute('aria-disabled');
+
+    await backButton(page).click();
+    await card(page)
+      .getByRole('button', { name: 'Pin and go back', exact: true })
+      .click();
+
+    // Pinning moved it to the front, [full view, A, B], so the tab beside it is A.
+    await expect.poll(() => activeIn(serviceWorker, w.windowId)).toBe(w.a);
+    expect(await viewTabs(serviceWorker)).toEqual([
+      expect.objectContaining({ id: w.fv, index: 0, pinned: true }),
     ]);
   });
 });
