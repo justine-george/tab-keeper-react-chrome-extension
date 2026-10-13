@@ -162,6 +162,14 @@ async function openPopupOnce(
   }
 }
 
+// KAN-578: an unpinned full view closes, unless it is the last tab Chrome has.
+export function compactViewCloses(
+  pinned: boolean,
+  otherTabCount: number
+): boolean {
+  return !pinned && otherTabCount > 0;
+}
+
 // Never rejects: the page waits for no answer, so every failure is logged, as openOrFocusTabView's are.
 export async function openInPopup(
   api: PopupApi,
@@ -190,8 +198,7 @@ export async function openInPopup(
         otherTabs
       )
     );
-    // A pinned full view stays.
-    if (tab.pinned) {
+    if (!compactViewCloses(tab.pinned, otherTabs.length)) {
       await openPopupOnce(api, backInWindow ?? tab.windowId);
       return;
     }

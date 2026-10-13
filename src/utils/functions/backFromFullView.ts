@@ -31,9 +31,16 @@ export function requestReturn(): void {
   });
 }
 
-// What a press would do.
+// What a press would do. A switch closes the full view it leaves unless it is pinned.
 export type BackPlan =
-  { kind: 'switch'; tabId: number } | { kind: 'close' } | { kind: 'none' };
+  | { kind: 'switch'; tabId: number; closes: boolean }
+  | { kind: 'close' }
+  | { kind: 'none' };
+
+// KAN-578: whether the press closes the full view, so the page can warn first.
+export function backCloses(plan: BackPlan): boolean {
+  return plan.kind === 'close' || (plan.kind === 'switch' && plan.closes);
+}
 
 export interface BackFacts {
   fullView: FullViewTabRef & { pinned: boolean };
@@ -49,7 +56,8 @@ export function planBack(facts: BackFacts): BackPlan {
   const { fullView } = facts;
   const others = facts.openTabIds.filter((id) => id !== fullView.tabId);
   const target = tabToReturnTo(facts.origin, facts.recent, others);
-  if (target !== undefined) return { kind: 'switch', tabId: target };
+  if (target !== undefined)
+    return { kind: 'switch', tabId: target, closes: !fullView.pinned };
   const besideIt = facts.windowTabIds.some((id) => id !== fullView.tabId);
   return !fullView.pinned && besideIt ? { kind: 'close' } : { kind: 'none' };
 }
@@ -109,7 +117,7 @@ export async function returnFromFullView(
     });
     if (plan.kind === 'none') return;
     if (plan.kind === 'switch') await api.activate(plan.tabId);
-    if (!tab.pinned) await api.removeTab(fromTabId);
+    if (backCloses(plan)) await api.removeTab(fromTabId);
   } catch (error) {
     console.warn('Could not go back from the full view:', error);
   }
