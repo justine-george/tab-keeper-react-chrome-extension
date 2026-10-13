@@ -12,6 +12,8 @@ import {
 import { setupChromeFake } from '../../setup/chrome.fake';
 import type { ChromeFakeHandle } from '../../setup/chrome.fake';
 
+const OWN_ID = 'tabkeeperownid';
+
 let handle: ChromeFakeHandle | undefined;
 
 afterEach(() => {
@@ -182,7 +184,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
     const createdUrls = handle.createdTabs.map((props) => props.url ?? '');
     expect(createdUrls).toEqual(w2.tabs.map((tab) => tab.url));
     for (const created of createdUrls) {
-      expect(placeholderTarget(created)).toBeNull();
+      expect(placeholderTarget(created, OWN_ID)).toBeNull();
       expect(created.startsWith('data:')).toBe(false);
     }
   });

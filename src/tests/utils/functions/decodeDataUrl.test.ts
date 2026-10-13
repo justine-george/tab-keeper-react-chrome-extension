@@ -36,6 +36,7 @@ const { decodeDataUrl, placeholderTarget, resolveTabUrl } =
   await import('../../../utils/functions/local');
 
 const PLACEHOLDER = 'data:text/html;base64,';
+const OWN_ID = 'tabkeeperownid';
 
 describe('decodeDataUrl when the base64 decoder rejects the input (KAN-45)', () => {
   // The one that matters: background.ts calls placeholderTarget from
@@ -44,7 +45,9 @@ describe('decodeDataUrl when the base64 decoder rejects the input (KAN-45)', () 
   // silently never resolves to its real page -- KAN-36's defect, by a
   // different route.
   test('placeholderTarget declines instead of throwing', () => {
-    expect(placeholderTarget(`${PLACEHOLDER}!!!not!!base64!!!`)).toBeNull();
+    expect(
+      placeholderTarget(`${PLACEHOLDER}!!!not!!base64!!!`, OWN_ID)
+    ).toBeNull();
   });
 
   test('decodeDataUrl hands back the url it was given', () => {

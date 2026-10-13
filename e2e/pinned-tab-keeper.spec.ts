@@ -13,6 +13,7 @@ import {
 import { FULL, FULL_VIEW_PATH, openPage, POPUP } from './fixtures/onboarding';
 import { stubsStayHidden } from './fixtures/pinnedStub';
 import { rgbToHex } from './fixtures/pixels';
+import { standIn } from './fixtures/standInPages';
 import { pressSwitch, sessionsRow } from './fixtures/sessionActions';
 import { DARKENHEIMER_THEME } from '../src/hooks/useThemeColors';
 
@@ -500,14 +501,14 @@ test.describe('Switch', () => {
                   tabId: 'tp',
                   favicon: '',
                   title: 'Pinned',
-                  url: dataUrl('Pinned'),
+                  url: standIn('Pinned'),
                   pinned: true,
                 },
                 {
                   tabId: 'ts',
                   favicon: '',
                   title: 'Second',
-                  url: dataUrl('Second'),
+                  url: standIn('Second'),
                 },
               ],
             },
@@ -558,7 +559,7 @@ test.describe('Switch', () => {
     ).toEqual([
       { tab: 'full view', pinned: true, active: false },
       { tab: 'Pinned', pinned: true, active: false },
-      { tab: dataUrl('Second'), pinned: false, active: true },
+      { tab: standIn('Second'), pinned: false, active: true },
     ]);
   });
 });

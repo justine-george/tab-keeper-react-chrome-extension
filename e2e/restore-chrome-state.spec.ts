@@ -1,6 +1,7 @@
 import type { Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { standIn } from './fixtures/standInPages';
 import { grantedTest } from './fixtures/grantedExtension';
 import { allowInIncognito } from './fixtures/incognito';
 import {
@@ -24,7 +25,8 @@ import { WINDOW_SETTLE_MS } from '../src/utils/functions/windows';
 // Window 1 -- the window saved from, even when it is not Chrome's first -- is
 // the one focused after a restore. Every check reads Chrome back.
 
-const page = (name: string) => `data:text/html,<title>${name}</title>`;
+// A page that restores lazily (KAN-561: data: opens directly).
+const page = standIn;
 
 // Every group Chrome has, by title: collapsed or not, and the window it is in.
 const groupsNow = (worker: Worker) =>
