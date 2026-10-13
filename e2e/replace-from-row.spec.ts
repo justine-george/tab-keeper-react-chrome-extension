@@ -7,6 +7,7 @@ import {
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
+import { revealRowActions } from './fixtures/savedRow';
 import { stored } from './fixtures/savedWindows';
 import { localeStrings } from './fixtures/locales';
 
@@ -93,6 +94,10 @@ for (const view of ['popup', 'full'] as const) {
   }) => {
     const list = await openList(context, extensionId, view);
     await openTwoWindows(serviceWorker);
+    // KAN-582. Trip is not the session shown: its actions come after a dwell.
+    await revealRowActions(
+      list.locator('[data-pane="sessions"] [data-drag-row-id="s-trip"]')
+    );
     const actions = actionsOf(list, 'Trip');
     await expect(actions.getByRole('button')).toHaveText(
       view === 'popup'
@@ -145,9 +150,13 @@ for (const view of ['popup', 'full'] as const) {
   }) => {
     const spills: string[] = [];
     for (const lang of LANGS) {
-      await seedSettings(context, { language: lang });
+      // KAN-582. The shown session's row has its actions at once (the full view unfolded to show it).
+      await seedSettings(context, {
+        language: lang,
+        foldSavedSessionInTabView: false,
+      });
       const list = await openList(context, extensionId, view);
-      const actions = actionsOf(list, 'Trip');
+      const actions = actionsOf(list, 'Shown');
       // PREMISE: the row has all its buttons, and Replace is in this language.
       await expect(actions.getByRole('button')).toHaveCount(
         view === 'popup' ? 4 : 3

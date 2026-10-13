@@ -74,7 +74,8 @@ async function openWith(
   //
   // Waiting on the COUNT rather than the first node, because that is what the
   // tests below actually assume: three seeded sessions, all rendered.
-  await expect(page.locator(SESSION_ACTIONS)).toHaveCount(3);
+  // KAN-582: only the shown session has its actions; every row's strip is the same box.
+  await expect(page.locator(SESSION_ACTIONS)).toHaveCount(1);
 
   return page;
 }
@@ -115,7 +116,7 @@ test.describe('a row action icon is inset by a stated amount', () => {
 
     // CONTROL: there are rows to measure at all, and they have real height.
     // Without this an empty list would satisfy every assertion below.
-    expect(metrics.length, 'the seeded sessions should render').toBe(3);
+    expect(metrics.length, "the shown session's actions should render").toBe(1);
     expect(
       metrics.every((m) => m.rowH > 0 && m.iconH > 0),
       'rows and icons should have measurable height'

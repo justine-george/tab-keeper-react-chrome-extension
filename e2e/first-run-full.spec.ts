@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { revealRowActions } from './fixtures/savedRow';
 import { buildContainer, buildSession, seedSettings } from './fixtures/seed';
 import { escapesPrevented, watchEscapes } from './fixtures/escapeProbe';
 import {
@@ -684,7 +685,7 @@ test.describe('with saved sessions', () => {
     const page = await openPage(context, extensionId, FULL_VIEW_PATH, FULL);
     const row = page.locator('[data-pane="sessions"] [data-drag-row-id="old"]');
     const opened = await watchNewTabs(page);
-    await row.hover();
+    await revealRowActions(row);
     await page.mouse.click(
       ...(await centreOf(row.locator('[data-tour-anchor="row-open"]')))
     );
