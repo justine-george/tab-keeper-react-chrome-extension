@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Inlined rather than imported: a vi.hoisted block runs before the module
@@ -35,6 +35,11 @@ import {
   setSignedIn,
   setUserId,
 } from '../../redux/slices/globalStateSlice';
+import {
+  grantCloudConsent,
+  setAutoSync,
+  setLastSyncedTime,
+} from '../../redux/slices/settingsDataStateSlice';
 
 // KAN-254. Settings -> Sync & Backup gets a "Delete cloud data" action behind
 // a confirm dialog. The pane test pins that the button opens the dialog and
@@ -107,4 +112,48 @@ describe('the Delete cloud data dialog (KAN-254)', () => {
     expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(false);
     expect(store.getState().settingsDataState.isAutoSync).toBe(false);
   });
+});
+
+// KAN-573. With nothing left in the cloud, the card must not still say when it last synced.
+describe('after Delete cloud data, Sync Status (KAN-573)', () => {
+  for (const isAutoSync of [true, false]) {
+    test(`Auto Sync ${isAutoSync ? 'on' : 'off'}: no "Last synced" time, and the card says sync is manual`, async () => {
+      const user = userEvent.setup();
+      await renderWithProviders(
+        <>
+          <SettingsDetailsContainer />
+          <DeleteCloudDataModal />
+        </>,
+        {
+          seedStore: (s) => {
+            s.dispatch(selectCategory(SettingsCategory.SYNC));
+            s.dispatch(setSignedIn());
+            s.dispatch(setUserId('uuid-1'));
+            s.dispatch(grantCloudConsent());
+            s.dispatch(setAutoSync(isAutoSync));
+            s.dispatch(setLastSyncedTime(Date.UTC(2026, 9, 12, 5, 5, 40)));
+          },
+        }
+      );
+      const card = screen.getByTestId('sync-status');
+      // PREMISE: the time shows before the delete (manual shows it; on needs a cloud this build lacks).
+      if (!isAutoSync)
+        expect(card.querySelector('[data-sync-synced]')).not.toBeNull();
+
+      await user.click(
+        screen.getByRole('button', { name: 'Delete cloud data' })
+      );
+      await user.click(
+        within(screen.getByRole('dialog')).getByRole('button', {
+          name: 'Delete',
+        })
+      );
+
+      await waitFor(() =>
+        expect(card).toHaveAttribute('data-sync-state', 'manual')
+      );
+      expect(card.querySelector('[data-sync-synced]')).toBeNull();
+      expect(card.textContent).not.toMatch(/Last synced/);
+    });
+  }
 });

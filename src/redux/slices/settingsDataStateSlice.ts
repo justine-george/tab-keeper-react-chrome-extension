@@ -432,6 +432,12 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
+    // KAN-573. After Delete cloud data: nothing is in the cloud, so no time to show.
+    forgetLastSync: (state) => {
+      state.lastSyncedTime = '';
+      saveToLocalStorage('settingsData', state);
+    },
+
     // For tests and seeds; the app stamps through recordSyncedNow.
     setLastSyncedTime: (state, action: PayloadAction<number | ''>) => {
       state.lastSyncedTime = action.payload;
@@ -625,6 +631,7 @@ export const {
   recordValueMoment,
   recordSyncedNow,
   setLastSyncedTime,
+  forgetLastSync,
   setTabGroupsPromptAnsweredOnce,
   setNeverAskAgainForTabGroups,
   setSessionDateBasis,

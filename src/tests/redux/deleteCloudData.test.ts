@@ -30,6 +30,7 @@ import {
   setSignedIn,
   setUserId,
 } from '../../redux/slices/globalStateSlice';
+import { setLastSyncedTime } from '../../redux/slices/settingsDataStateSlice';
 import { makeTestStore } from '../setup/makeStore';
 import { newestToast } from '../setup/toasts';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
@@ -46,10 +47,11 @@ describe('deleteCloudData', () => {
     mocks.ensureCloudSessionReady.mockReset().mockResolvedValue(undefined);
   });
 
-  it('deletes the document, turns auto sync off, closes the dialog, and says so', async () => {
+  it('deletes the document, turns auto sync off, forgets the last sync, closes the dialog, and says so', async () => {
     const { store } = makeTestStore();
     store.dispatch(setSignedIn());
     store.dispatch(setUserId('uuid-1'));
+    store.dispatch(setLastSyncedTime(1_760_000_000_000));
     store.dispatch(openDeleteCloudDataModal());
     expect(store.getState().settingsDataState.isAutoSync).toBe(true);
 
@@ -58,6 +60,8 @@ describe('deleteCloudData', () => {
     expect(mocks.deleteFromFirestore).toHaveBeenCalledWith('uuid-1');
     expect(mocks.deleteFromFirestore).toHaveBeenCalledTimes(1);
     expect(store.getState().settingsDataState.isAutoSync).toBe(false);
+    // KAN-573: nothing is in the cloud, so no "Last synced" time.
+    expect(store.getState().settingsDataState.lastSyncedTime).toBe('');
     expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(false);
     expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.CLOUD_DATA_DELETED
@@ -67,16 +71,20 @@ describe('deleteCloudData', () => {
     expect(store.getState().globalState.userId).toBe('uuid-1');
   });
 
-  it('on failure, leaves auto sync as it was and says it failed', async () => {
+  it('on failure, leaves auto sync and the last sync as they were and says it failed', async () => {
     mocks.deleteFromFirestore.mockRejectedValue(new Error('denied'));
     const { store } = makeTestStore();
     store.dispatch(setSignedIn());
     store.dispatch(setUserId('uuid-1'));
+    store.dispatch(setLastSyncedTime(1_760_000_000_000));
     store.dispatch(openDeleteCloudDataModal());
 
     await store.dispatch(deleteCloudData());
 
     expect(store.getState().settingsDataState.isAutoSync).toBe(true);
+    expect(store.getState().settingsDataState.lastSyncedTime).toBe(
+      1_760_000_000_000
+    );
     expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(false);
     expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
