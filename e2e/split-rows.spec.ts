@@ -2,6 +2,7 @@ import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { saveRowSaveAll } from './fixtures/sessionActions';
+import { ON_TITLE } from './fixtures/savedRow';
 
 // KAN-564 on the real artifact (picks A and P). A Chrome split shows a split
 // mark on both halves, in Open now and in the saved session, and Open now
@@ -109,7 +110,9 @@ test.describe('a split view in the rows (KAN-564)', () => {
     await saveRowSaveAll(page).click();
     // The full view keeps Open now beside the list; the session's own rows
     // show once it is picked.
-    await page.locator('[data-pane="sessions"] [data-drag-row-id]').click();
+    await page
+      .locator('[data-pane="sessions"] [data-drag-row-id]')
+      .click(ON_TITLE);
 
     const saved = (title: string) =>
       page.locator(DETAIL).getByRole('button', {
