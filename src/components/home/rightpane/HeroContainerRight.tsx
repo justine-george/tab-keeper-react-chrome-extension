@@ -525,6 +525,17 @@ export default function HeroContainerRight() {
               }}
             />
           )}
+          {/* KAN-468, KAN-581. Every open window replaces this session's; one ⌘Z undoes it. */}
+          {!isSearching && (
+            <Icon
+              tooltipText={t('Replace with open windows')}
+              ariaLabel={t('Replace with open windows')}
+              type="browser_updated"
+              onClick={() =>
+                void dispatch(replaceSessionWithOpenWindows(tabGroupId))
+              }
+            />
+          )}
           {/* KAN-193. Export and Delete live behind one trigger rather than as
               two more icons. A menu item carries words, so export cannot be
               misread the way its download glyph was once the flow began with
@@ -599,14 +610,6 @@ export default function HeroContainerRight() {
                         )
                       );
                     },
-                  },
-                  {
-                    // KAN-468. Every open window replaces this session's; one ⌘Z undoes it.
-                    key: 'replace',
-                    label: t('Replace with open windows'),
-                    icon: 'browser_updated',
-                    onSelect: () =>
-                      void dispatch(replaceSessionWithOpenWindows(tabGroupId)),
                   },
                   {
                     key: 'delete',

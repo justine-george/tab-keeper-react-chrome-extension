@@ -30,6 +30,7 @@ import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useIsSavedListEmpty } from '../../../hooks/useIsSavedListEmpty';
 import {
   deleteTabContainer,
+  replaceSessionWithOpenWindows,
   openAllTabContainer,
   requestFocusTabContainer,
   selectTabContainer,
@@ -491,6 +492,11 @@ export default function TabGroupEntryContainer() {
                           })
                         );
                       }}
+                      onReplaceClick={() =>
+                        void dispatch(
+                          replaceSessionWithOpenWindows(tabGroupData.tabGroupId)
+                        )
+                      }
                       onDeleteClick={() =>
                         dispatch(deleteTabContainer(tabGroupData.tabGroupId))
                       }

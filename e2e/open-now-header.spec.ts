@@ -5,6 +5,7 @@ import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import { FULL, FULL_VIEW_PATH, openPage } from './fixtures/onboarding';
 import { savedWindow, session } from './fixtures/savedWindows';
 import { standIn } from './fixtures/standInPages';
+import { ON_TITLE } from './fixtures/savedRow';
 
 // KAN-576 and KAN-577 (pick A, icon arrow_back). Open now's header beside a selected session's, on the built artifact.
 // KAN-578. Seeded answered (ONBOARDING_ANSWERED), so a press acts at once; the card's own tests seed it unanswered.
@@ -89,7 +90,7 @@ test("the title is the session title's size and colour, and Back sits in Add win
   await page
     .getByRole('button', { name: 'Q4 product roadmap' })
     .first()
-    .click();
+    .click(ON_TITLE);
   const sessionTitle = page
     .locator('[data-tour-anchor="title"]')
     .getByText('Q4 product roadmap', { exact: true });

@@ -59,13 +59,14 @@ const openMenu = async (user: ReturnType<typeof userEvent.setup>) => {
   return screen.getByRole('menu');
 };
 
-describe('the session header keeps two actions and a menu (KAN-193)', () => {
-  test('the header offers Open, Switch and More actions, and no loose export or delete icon', async () => {
+describe('the session header keeps three actions and a menu (KAN-193, KAN-581)', () => {
+  test('the header offers Open, Switch, Replace and More actions, and no loose export or delete icon', async () => {
     await renderHeader();
 
     for (const name of [
       'Open session, keeping current windows',
       'Close current windows and open this session',
+      'Replace with open windows',
       'More actions',
     ]) {
       expect(screen.queryByRole('button', { name }), name).not.toBeNull();
@@ -74,9 +75,9 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
     expect(screen.queryByRole('button', { name: 'Delete session' })).toBeNull();
   });
 
-  // KAN-209, KAN-468. Cheap, heavier, destructive: Copy finishes here, Export opens a
-  // tab, Replace overwrites (⌘Z undoes it), Delete goes last.
-  test('the menu holds Copy, then Export, then Replace, then Delete', async () => {
+  // KAN-209, KAN-581. Cheap, heavier, destructive: Copy finishes here, Export opens a
+  // tab, Delete goes last. Replace left for the header row.
+  test('the menu holds Copy, then Export, then Delete', async () => {
     const user = userEvent.setup();
     await renderHeader();
 
@@ -84,13 +85,10 @@ describe('the session header keeps two actions and a menu (KAN-193)', () => {
 
     // By accessible name: textContent includes each glyph's ligature text.
     const items = within(menu).getAllByRole('menuitem');
-    expect(items).toHaveLength(4);
+    expect(items).toHaveLength(3);
     expect(items).toEqual([
       within(menu).getByRole('menuitem', { name: 'Copy all links' }),
       within(menu).getByRole('menuitem', { name: 'Export…' }),
-      within(menu).getByRole('menuitem', {
-        name: 'Replace with open windows',
-      }),
       within(menu).getByRole('menuitem', { name: 'Delete session' }),
     ]);
   });

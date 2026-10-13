@@ -71,6 +71,7 @@ import {
   belowTheList,
   scrollRange,
 } from './fixtures/betweenSessions';
+import { ON_TITLE } from './fixtures/savedRow';
 
 // Wide enough for Open now's resize grip (KAN-321: above 1316px).
 const TAB_VIEW_WIDE = { width: 1600, height: 900 };
@@ -1918,7 +1919,7 @@ test.describe('a carried group opens the gap any group drag opens', () => {
         false,
         sessions()
       );
-      await sessionRow(control, 'S2').click();
+      await sessionRow(control, 'S2').click(ON_TITLE);
       await expect(control.locator('[data-drag-row-id="d1"]')).toBeVisible();
       await pickUp(control, groupHandle(control, 'delta'));
       await aimAt(control, below, 0.25);
@@ -4258,7 +4259,7 @@ async function openTightFit(
     fits,
     ...others,
   ]);
-  await sessionRow(page, 'S8').click();
+  await sessionRow(page, 'S8').click(ON_TITLE);
   await expect(page.locator('[data-drag-row-id="fa"]')).toBeVisible();
   const want = free(sizes.row);
   const now = await freeBelowLastWindow(page);
@@ -4852,7 +4853,7 @@ test.describe('below the last window makes a new last window (KAN-366)', () => {
     );
     const free = await freeBelowLastWindow(page);
     // Back to S1, and carry a1 from there into S8.
-    await sessionRow(page, 'S1').click();
+    await sessionRow(page, 'S1').click(ON_TITLE);
     await expect(page.locator('[data-drag-row-id="w1"]')).toBeVisible();
     const at = await pickUp(page, tabHandle(page, 'a1'));
     await carryOutLeft(page, at);

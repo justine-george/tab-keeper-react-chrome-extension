@@ -11,6 +11,7 @@ import { sessionHeaderMenu } from './fixtures/menus';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
 import { NEEDS_YOU_TOAST_MS, TOAST_MS } from '../src/redux/toastDuration';
+import { ON_TITLE } from './fixtures/savedRow';
 
 // KAN-349 on the real artifact: toasts stack, newest at the bottom, older
 // ones above, 8px apart, at most 3; each keeps its own time and a hover on
@@ -123,7 +124,7 @@ async function openSeededSession(page: Page): Promise<void> {
   await page
     .locator('[data-pane="sessions"]')
     .getByRole('button', { name: 'Research', exact: true })
-    .click();
+    .click(ON_TITLE);
   await expect(sessionHeaderMenu(page)).toBeVisible();
 }
 

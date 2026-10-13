@@ -9,7 +9,7 @@ import {
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
-// KAN-377. Collapse all leads, as in Open now; More stays last.
+// KAN-377. Collapse all leads, as in Open now; More stays last. KAN-581: Replace just before it.
 
 const SESSION = buildSession({ tabGroupId: 'session-kyoto' });
 
@@ -31,20 +31,22 @@ const headerNames = async () => {
 };
 
 describe('the session header order (KAN-377)', () => {
-  test('popup: Collapse all, Open, Switch, More', async () => {
+  test('popup: Collapse all, Open, Switch, Replace, More', async () => {
     expect(await headerNames()).toEqual([
       'Collapse all windows',
       'Open session, keeping current windows',
       'Close current windows and open this session',
+      'Replace with open windows',
       'More actions',
     ]);
   });
 
-  test('tab view: Collapse all, Open, More', async () => {
+  test('tab view: Collapse all, Open, Replace, More', async () => {
     history.replaceState(null, '', '?view=tab');
     expect(await headerNames()).toEqual([
       'Collapse all windows',
       'Open session, keeping current windows',
+      'Replace with open windows',
       'More actions',
     ]);
   });
