@@ -1011,17 +1011,16 @@ test.describe('Open now heading and empty-list layout (KAN-280)', () => {
     });
     expect(facts.text.left).toBe(8);
     expect(facts.text.top).toBe((facts.box.height - facts.text.height) / 2);
-    // O1b: the body size and LABEL_L1_COLOR (the profile opens in Light) --
-    // "Open now" names a panel, so it steps down from the section size and
-    // TEXT_COLOR it drew at before -- and the header's face and weight, cut
-    // with an ellipsis when it cannot fit.
+    // KAN-576: a session title's section size and TEXT_COLOR (the profile
+    // opens in Light), undoing O1b's step-down -- and the header's face and
+    // weight, cut with an ellipsis when it cannot fit.
     expect(facts.fontSize).toBeCloseTo(
-      facts.rootFontSize * parseFloat(TYPE.BODY),
+      facts.rootFontSize * parseFloat(TYPE.SECTION),
       2
     );
     expect(facts.fontFamily).toBe(facts.headerFontFamily);
     expect(facts.fontWeight).toBe(facts.headerFontWeight);
-    expect(facts.color).toBe(rgb(LIGHT_THEME.LABEL_L1_COLOR));
+    expect(facts.color).toBe(rgb(LIGHT_THEME.TEXT_COLOR));
     expect(facts.textOverflow).toBe('ellipsis');
   });
 
