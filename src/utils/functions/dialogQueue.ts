@@ -1,4 +1,5 @@
 // KAN-7 §8. The first-open dialogs: one ordered list per surface, at most one opened.
+import type { FullViewShow } from './popOut';
 
 export type DialogId =
   | 'cloudConsent'
@@ -14,8 +15,11 @@ export const STAND_DOWN = 'standDown';
 
 type Decision = (() => void) | null | typeof STAND_DOWN;
 
+// A full view opened for a request (KAN-579: a backup file step, too) queues only that.
+export type EntryId = DialogId | FullViewShow;
+
 export interface DialogEntry {
-  id: DialogId;
+  id: EntryId;
   // The opener when this dialog should show on this open, null for no, or STAND_DOWN.
   decide(): Decision | Promise<Decision>;
 }
@@ -26,7 +30,7 @@ export interface DialogEntry {
 export async function openFirstDialog(
   entries: readonly DialogEntry[],
   standsDown: () => boolean = () => false
-): Promise<DialogId | null> {
+): Promise<EntryId | null> {
   for (const entry of entries) {
     if (standsDown()) return null;
     let open: Decision;

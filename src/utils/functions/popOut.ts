@@ -16,11 +16,18 @@ import { STUB_PATH, TAB_VIEW_PATH } from './pinnedTabKeeper';
 
 export const OPEN_IN_TAB_MESSAGE = 'openInTab';
 
-// A dialog the full view is asked to show as it opens or is focused.
-export type FullViewShow = 'setup' | 'pinGuide';
+// What the full view is asked to show as it opens or is focused: a dialog, or (KAN-579) a backup file step.
+export type FullViewShow = 'setup' | 'pinGuide' | 'saveBackup' | 'loadBackup';
+
+const FULL_VIEW_SHOWS: readonly unknown[] = [
+  'setup',
+  'pinGuide',
+  'saveBackup',
+  'loadBackup',
+] satisfies FullViewShow[];
 
 export const isFullViewShow = (value: unknown): value is FullViewShow =>
-  value === 'setup' || value === 'pinGuide';
+  FULL_VIEW_SHOWS.includes(value);
 
 export interface OpenInTabRequest {
   type: typeof OPEN_IN_TAB_MESSAGE;

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { toastTexts, newestToast } from '../setup/toasts';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -49,8 +49,13 @@ const captureFileInput = () => {
 
 const dropFile = (input: HTMLInputElement, text: string, name: string) => {
   const file = new File([text], name, { type: 'application/json' });
-  input.onchange?.({ target: { files: [file] } } as unknown as Event);
+  Object.defineProperty(input, 'files', { value: [file] });
+  input.onchange?.(new Event('change'));
 };
+
+// KAN-579. The file step runs in the full view; the popup hands it there (backupButtons.test.tsx).
+beforeEach(() => history.replaceState(null, '', '?view=tab'));
+afterEach(() => history.replaceState(null, '', '?'));
 
 const HERE = buildContainer([
   buildSession({ tabGroupId: 'h1', title: 'Here one' }),

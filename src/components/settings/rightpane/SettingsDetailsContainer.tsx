@@ -18,8 +18,6 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { chooseLanguage } from '../../../redux/languageChoice';
 import {
-  loadSessionsFromBackup,
-  showToast,
   openDeleteCloudDataModal,
   openCloudConsentModal,
 } from '../../../redux/slices/globalStateSlice';
@@ -34,15 +32,12 @@ import {
   APP_VERSION,
   DEV_EMAIL,
   FEEDBACK_MAIL_SUBJECT,
-  IMPORT_ERROR_FRAME,
   PRIVACY_POLICY_LINK,
 } from '../../../utils/constants/common';
 import { SettingsCategoryContainer } from '../leftpane/SettingsCategoryContainer';
-import { TabMasterContainer } from '../../../redux/slices/tabContainerDataStateSlice';
-import {
-  readImportedContainer,
-  TranslatableError,
-} from '../../../utils/functions/local';
+import { loadBackupFile, saveBackupFile } from '../../../redux/backupFile';
+import { requestTabView } from '../../../utils/functions/popOut';
+import { isTabView } from '../../../utils/functions/viewMode';
 import {
   removeSessionsPermission,
   removeTabGroupsPermission,
@@ -116,10 +111,6 @@ const SettingsDetailsContainer: React.FC = () => {
     (state: RootState) => state.globalState.hasSessionsPermission
   );
 
-  const tabMasterContainer: TabMasterContainer = useSelector(
-    (state: RootState) => state.tabContainerDataState
-  );
-
   const containerStyle = css`
     display: flex;
     flex-direction: column;
@@ -178,89 +169,17 @@ const SettingsDetailsContainer: React.FC = () => {
     }
   };
 
+  // KAN-579. A native file picker takes the focus, and Chrome closes a popup
+  // that loses it -- Cancel or Esc there closed the popup. So the popup asks the
+  // full view (requestTabView), which opens on this pane and does the file step.
   const handleExportJSON = () => {
-    const dataStr =
-      'data:text/json;charset=utf-8,' +
-      encodeURIComponent(JSON.stringify(tabMasterContainer));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute('href', dataStr);
-    downloadAnchorNode.setAttribute(
-      'download',
-      `tabkeeper_backup_${APP_VERSION}_${Date.now().toString()}.json`
-    );
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    if (isTabView()) dispatch(saveBackupFile());
+    else void requestTabView('saveBackup');
   };
 
   const handleImportJSON = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-
-    input.onchange = (event) => {
-      const file = (event.target as HTMLInputElement).files![0];
-      const reader = new FileReader();
-
-      reader.onload = (fileEvent) => {
-        try {
-          const content = fileEvent.target!.result as string;
-          // Parses, validates the structure, and refuses anything that would
-          // not fit in a Firestore document (KAN-27). Throws on every one of
-          // those, which the catch below turns into the error toast.
-          const tabDataFromJSON: TabMasterContainer = readImportedContainer(
-            content,
-            i18n.language
-          );
-
-          // KAN-252/261. Replacing was the most destructive action in the
-          // app, with neither an undo (restoreContainer is excluded from the
-          // snapshots) nor a confirm. Now the file is read first and then the
-          // user is asked -- Merge or Replace -- so an unreadable file still
-          // gets its error and a readable one gets a question with the real
-          // numbers in it. Unless nothing is saved here, where the two
-          // answers would do the same thing: then it just applies.
-          //
-          // KAN-265. Whether anything is saved here is decided in the thunk,
-          // from the store as it is NOW. This closure is the render that
-          // handled the click, and the file lands seconds later; the
-          // container it captured has had time to change.
-          void dispatch(
-            loadSessionsFromBackup({
-              container: tabDataFromJSON,
-              fileName: file.name,
-            })
-          );
-        } catch (error: any) {
-          console.warn('Error restoring tabs', error);
-          // KAN-86. This used to dispatch a concatenated sentence, which
-          // matched no i18n key, so t() handed it straight back and every
-          // locale saw English on the one path a user most needs to read.
-          //
-          // Two kinds of failure arrive here and they cannot be treated alike.
-          // Our own refusals are TranslatableErrors carrying a key, so they
-          // translate. A platform error -- JSON.parse's SyntaxError, which
-          // names the offending token -- is an unbounded English string with
-          // no key to have; it is passed through as raw technical detail
-          // inside a translated frame, which is strictly better than dropping
-          // the only part that says what is actually wrong with the file.
-          dispatch(
-            showToast({
-              toastText: IMPORT_ERROR_FRAME,
-              toastParams: {
-                detail:
-                  error instanceof TranslatableError
-                    ? t(error.i18nKey, error.i18nParams)
-                    : error.message,
-              },
-            })
-          );
-        }
-      };
-      reader.readAsText(file);
-    };
-
-    input.click();
+    if (isTabView()) dispatch(loadBackupFile(i18n));
+    else void requestTabView('loadBackup');
   };
 
   let settingsOptionsDiv;

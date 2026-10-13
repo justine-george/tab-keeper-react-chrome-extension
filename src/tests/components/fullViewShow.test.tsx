@@ -24,6 +24,7 @@ import {
   settingsDataStateSlice,
 } from '../../redux/slices/settingsDataStateSlice';
 import { RUN_FINISHED_SETTINGS } from '../fixtures/firstRunFixture';
+import { SettingsCategory } from '../../redux/slices/settingsCategoryStateSlice';
 
 // KAN-7, in the full view: asked on the address or by the worker's message.
 
@@ -84,6 +85,70 @@ describe('showInFullView', () => {
     store.dispatch(showInFullView('setup'));
     expect(store.getState().globalState.isSetupOpen).toBe(false);
     expect(store.getState().settingsDataState.setupState).toBe('none');
+  });
+});
+
+// KAN-579. A native file picker closes the popup, so the popup's backup buttons ask the full view to do it.
+describe('showInFullView: the backup file steps', () => {
+  test('saveBackup: Settings on Sync & Backup, and the backup file downloads', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const { store } = makeTestStore();
+    const clicked: HTMLAnchorElement[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement
+    ) {
+      clicked.push(this);
+    });
+
+    store.dispatch(showInFullView('saveBackup'));
+
+    await waitFor(() =>
+      expect(store.getState().globalState.isSettingsPage).toBe(true)
+    );
+    expect(
+      store.getState().settingsCategoryState.find((c) => c.isSelected)?.name
+    ).toBe(SettingsCategory.SYNC);
+    expect(clicked).toHaveLength(1);
+    expect(clicked[0].download).toMatch(/^tabkeeper_backup_.*\.json$/);
+    expect(clicked[0].href).toMatch(/^data:text\/json/);
+  });
+
+  test('loadBackup: Settings on Sync & Backup, and the file picker opens', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const { store } = makeTestStore();
+    const picked: HTMLInputElement[] = [];
+    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (
+      this: HTMLInputElement
+    ) {
+      picked.push(this);
+    });
+
+    store.dispatch(showInFullView('loadBackup'));
+
+    await waitFor(() =>
+      expect(store.getState().globalState.isSettingsPage).toBe(true)
+    );
+    expect(
+      store.getState().settingsCategoryState.find((c) => c.isSelected)?.name
+    ).toBe(SettingsCategory.SYNC);
+    expect(picked.map((input) => [input.type, input.accept])).toEqual([
+      ['file', '.json'],
+    ]);
+  });
+
+  test('a new full view opened with show=loadBackup opens the picker', async () => {
+    history.replaceState(null, '', '?view=tab&show=loadBackup');
+    const picked = vi
+      .spyOn(HTMLInputElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+
+    await renderWithProviders(<App />, {
+      seed: { tabs: [{ id: 5, windowId: 1 }], currentTabId: 5 },
+      seedStore: granted,
+    });
+
+    await waitFor(() => expect(picked).toHaveBeenCalledTimes(1));
+    expect(window.location.search).toBe('?view=tab');
   });
 });
 
