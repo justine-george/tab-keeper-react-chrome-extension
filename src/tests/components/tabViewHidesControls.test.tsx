@@ -49,7 +49,6 @@ const renderTabGroupEntryRow = () =>
       onOpenAllClick={noop}
       onFocusClick={noop}
       onReplaceClick={noop}
-      onDeleteClick={noop}
     />,
     // KAN-582. Actions show on the session shown; the tab view starts folded, so peek it.
     { seedStore: (store) => store.dispatch(peekSavedSession()) }

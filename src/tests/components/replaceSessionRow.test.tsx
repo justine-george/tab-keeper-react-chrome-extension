@@ -1,15 +1,8 @@
-import { afterEach, describe, expect, test, vi } from 'vitest';
-import {
-  act,
-  fireEvent,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react';
+import { afterEach, describe, expect, test } from 'vitest';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
-import { ROW_ACTIONS_DWELL_MS } from '../../components/home/leftpane/useRowActionReveal';
 import { peekSavedSession } from '../../redux/slices/globalStateSlice';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { newestToast } from '../setup/toasts';
@@ -81,18 +74,18 @@ afterEach(() => {
 });
 
 describe('the row’s Replace (KAN-581)', () => {
-  test('popup: Open, Switch, Replace, Delete', async () => {
+  // KAN-582: Delete moved to the header's ⋮.
+  test('popup: Open, Switch, Replace', async () => {
     await renderList('popup');
 
     expect(labels(rowActions('Q4 product roadmap'))).toEqual([
       'Open',
       'Switch',
       'Replace',
-      'Delete',
     ]);
   });
 
-  test('full view: Open, Replace, Delete', async () => {
+  test('full view: Open, Replace', async () => {
     const { store } = await renderList('tab');
     // The tab view starts folded; a row's actions show on the session shown (KAN-582).
     act(() => {
@@ -102,7 +95,6 @@ describe('the row’s Replace (KAN-581)', () => {
     expect(labels(rowActions('Q4 product roadmap'))).toEqual([
       'Open',
       'Replace',
-      'Delete',
     ]);
   });
 
@@ -119,46 +111,37 @@ describe('the row’s Replace (KAN-581)', () => {
     expect(replace).toHaveTextContent('browser_updated');
   });
 
-  test('on a row not shown: that session takes the open windows, keeps its name, says so, and the shown session stays shown', async () => {
+  // KAN-582: only the session shown has row actions, so the row's Replace is that session's.
+  test('the session takes the open windows, keeps its name, says so, and stays shown', async () => {
     const user = userEvent.setup();
     const { store } = await renderList();
-    // KAN-582. Another row's actions show after a dwell on it.
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    fireEvent.pointerOver(
-      screen.getByRole('button', { name: 'Weekend in Kyoto' })
-    );
-    act(() => {
-      vi.advanceTimersByTime(ROW_ACTIONS_DWELL_MS);
-    });
-    vi.useRealTimers();
 
     await user.click(
-      within(rowActions('Weekend in Kyoto')).getByRole('button', {
+      within(rowActions('Q4 product roadmap')).getByRole('button', {
         name: 'Replace',
       })
     );
 
     await waitFor(() => {
-      const kyoto = store
+      const shown = store
         .getState()
         .tabContainerDataState.tabGroups.find(
-          (s) => s.tabGroupId === OTHER.tabGroupId
+          (s) => s.tabGroupId === SHOWN.tabGroupId
         );
-      expect(kyoto?.windows.flatMap((w) => w.tabs.map((t) => t.url))).toEqual([
+      expect(shown?.windows.flatMap((w) => w.tabs.map((t) => t.url))).toEqual([
         'https://open.test/',
       ]);
     });
     const state = store.getState().tabContainerDataState;
-    const kyoto = state.tabGroups.find(
-      (s) => s.tabGroupId === OTHER.tabGroupId
-    );
-    expect(kyoto?.title).toBe('Weekend in Kyoto');
+    expect(
+      state.tabGroups.find((s) => s.tabGroupId === SHOWN.tabGroupId)?.title
+    ).toBe('Q4 product roadmap');
     expect(state.selectedTabGroupId).toBe(SHOWN.tabGroupId);
     expect(
       state.tabGroups
-        .find((s) => s.tabGroupId === SHOWN.tabGroupId)
+        .find((s) => s.tabGroupId === OTHER.tabGroupId)
         ?.windows.flatMap((w) => w.tabs.map((t) => t.url))
-    ).toEqual(SHOWN.windows.flatMap((w) => w.tabs.map((t) => t.url)));
+    ).toEqual(OTHER.windows.flatMap((w) => w.tabs.map((t) => t.url)));
     expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.SESSION_REPLACED
     );

@@ -29,7 +29,6 @@ import { setSearchInputText } from '../../../redux/slices/globalStateSlice';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useIsSavedListEmpty } from '../../../hooks/useIsSavedListEmpty';
 import {
-  deleteTabContainer,
   replaceSessionWithOpenWindows,
   openAllTabContainer,
   requestFocusTabContainer,
@@ -496,9 +495,6 @@ export default function TabGroupEntryContainer() {
                         void dispatch(
                           replaceSessionWithOpenWindows(tabGroupData.tabGroupId)
                         )
-                      }
-                      onDeleteClick={() =>
-                        dispatch(deleteTabContainer(tabGroupData.tabGroupId))
                       }
                       carryTarget={
                         tabGroupData.tabGroupId === carryTargetId

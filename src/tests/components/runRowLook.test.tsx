@@ -16,7 +16,7 @@ import {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { newRun, type RunStep } from '../../utils/functions/firstRun';
 
-// Spec delta 2 and hard rule 2: the run's row is drawn engaged at its row steps, and its lit Delete does nothing.
+// Spec delta 2: the run's row is drawn engaged at its row steps. KAN-582: Delete left the row, so the Delete step (5) points at the header's ⋮ instead.
 
 const RUN = buildSession({
   tabGroupId: 'run',
@@ -36,7 +36,6 @@ const atStep =
   };
 
 async function renderRow(session: typeof RUN, step: RunStep) {
-  const onDelete = vi.fn();
   const onOpen = vi.fn();
   const onFocus = vi.fn();
   const r = await renderWithProviders(
@@ -46,16 +45,15 @@ async function renderRow(session: typeof RUN, step: RunStep) {
       onOpenAllClick={onOpen}
       onFocusClick={onFocus}
       onReplaceClick={() => undefined}
-      onDeleteClick={onDelete}
     />,
     { seedStore: atStep(step) }
   );
-  return { ...r, onDelete, onOpen, onFocus };
+  return { ...r, onOpen, onFocus };
 }
 const rowOf = (container: HTMLElement) => container.firstElementChild;
 
 describe('the run’s row', () => {
-  test.each([2, 3, 4, 5] as const)(
+  test.each([2, 3, 4] as const)(
     'step %s: the run’s row is engaged, by its own rule',
     async (step) => {
       const { container } = await renderRow(RUN, step);
@@ -71,9 +69,10 @@ describe('the run’s row', () => {
     expect(rowOf((await renderRow(OTHER, 2)).container)).not.toHaveAttribute(
       'data-run-engaged'
     );
-    expect(rowOf((await renderRow(RUN, 6)).container)).not.toHaveAttribute(
-      'data-run-engaged'
-    );
+    for (const step of [5, 6] as const)
+      expect(rowOf((await renderRow(RUN, step)).container)).not.toHaveAttribute(
+        'data-run-engaged'
+      );
   });
 });
 

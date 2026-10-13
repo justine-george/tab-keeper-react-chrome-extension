@@ -24,11 +24,10 @@ import { useTranslation } from 'react-i18next';
 import { DURATION, TYPE } from '../../../styles/scale';
 import { springSweepStyle } from '../../common/springOpen';
 import { SAVED_TEXT_INSET } from './savedListInset';
-import { useRowActionReveal } from './useRowActionReveal';
+import { useRowActionGuard } from './useRowActionGuard';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import {
   selectRunEngagedRowId,
-  selectRunHoldsDelete,
   selectRunLitRowButton,
 } from '../../../redux/firstRun';
 
@@ -71,7 +70,6 @@ interface TabGroupEntryProps {
   onFocusClick: MouseEventHandler;
   // KAN-581. The ⋮ menu's Replace with open windows, on the row.
   onReplaceClick: MouseEventHandler;
-  onDeleteClick: MouseEventHandler;
   carryTarget?: CarryTargetLook;
 }
 
@@ -81,7 +79,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   onOpenAllClick,
   onFocusClick,
   onReplaceClick,
-  onDeleteClick,
   carryTarget,
 }) => {
   const COLORS = useThemeColors();
@@ -112,9 +109,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     (state: RootState) =>
       selectRunEngagedRowId(state) === tabGroupData.tabGroupId
   );
-  const holdsDelete = useSelector((state: RootState) =>
-    selectRunHoldsDelete(state, tabGroupData.tabGroupId)
-  );
   // The button the step lights stays at full strength, though still blocked.
   const litButton = useSelector((state: RootState) =>
     selectRunEngagedRowId(state) === tabGroupData.tabGroupId
@@ -126,10 +120,9 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       isOpenBlocked && !lit ? ' filter: opacity(0.3);' : ''
     }`;
 
-  // KAN-582. Selected (or the tour's row): actions at once; any other row after a dwell, guarded.
-  const { shown, strip, rowEvents, pressable } = useRowActionReveal(
-    drawsSelection || isRunEngaged
-  );
+  // KAN-582. Only the session shown (or the tour's row) has its actions.
+  const shown = drawsSelection || isRunEngaged;
+  const { strip, rowEvents, pressable } = useRowActionGuard(shown);
   const press =
     (act: MouseEventHandler): MouseEventHandler =>
     (e) => {
@@ -309,7 +302,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
 
     /* ENGAGEMENT IS ONE STATE, SO IT GETS ONE CONDITION (KAN-92).
 
-       A row engaged with does two things: it reveals its Open/Switch/Delete
+       A row engaged with does two things: it reveals its Open/Switch/Replace
        block, and it fills. Those used to run off different triggers -- the
        reveal off a React isHovered set by onMouseEnter/onMouseLeave, or the
        block's own :focus-within; the fill off this container's :hover alone.
@@ -412,7 +405,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   // tab order as an anonymous stop that announced nothing.
   //
   // It cannot simply become a <button> or gain role="button" either, because
-  // the Open/Switch/Delete controls are inside it and nesting buttons is
+  // the Open/Switch/Replace controls are inside it and nesting buttons is
   // invalid HTML. Moving the action onto the left column instead makes them
   // siblings. `leftStyle` is width: 100%, so the clickable area is unchanged;
   // the action block is absolutely positioned on top of it.
@@ -504,16 +497,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             ariaLabel={t('Replace')}
             type="browser_updated"
             onClick={press(onReplaceClick)}
-            style="padding: 14px 10px; width: 57px;"
-          />
-          <Icon
-            tooltipText={t('Delete session')}
-            text={t('Delete')}
-            ariaLabel={t('Delete')}
-            type="delete"
-            tourAnchor="row-delete"
-            disable={holdsDelete}
-            onClick={press(onDeleteClick)}
             style="padding: 14px 10px; width: 57px;"
           />
         </div>

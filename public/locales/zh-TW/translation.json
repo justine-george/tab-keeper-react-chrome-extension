@@ -312,7 +312,7 @@
   "Your saved sessions are all here, just as you left them.": "你儲存的工作階段都在這裡，和你離開時一樣。",
   "Here are your saved sessions. The selected one shows its windows and tabs on the right.": "這些是你儲存的工作階段。選取的工作階段會在右側顯示它的視窗和分頁。",
   "Open brings back all of this session's windows and tabs, beside the ones you have open.": "「開啟」會還原這個工作階段的所有視窗和分頁，放在你已開啟的視窗旁邊。",
-  "Delete removes the saved session. Your open windows stay as they are.": "「刪除」會移除這個已儲存的工作階段。你開啟的視窗不受影響。",
+  "Delete, in this menu, removes the saved session. Your open windows stay as they are.": "這個選單中的「刪除」會移除這個已儲存的工作階段。你開啟的視窗不受影響。",
   "Each window can be opened on its own. Click a window's title to rename it.": "每個視窗都可以單獨開啟。按一下視窗標題即可重新命名。",
   "Keep Tab Keeper open in a pinned tab.": "讓 Tab Keeper 在固定分頁中保持開啟。",
   "It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Sessions.": "它會變成分頁列最前面的一個小分頁，在這裡以及 Tab Keeper 開啟的每個視窗中都是如此。你可以在「設定 → 工作階段」中關閉這項功能。",

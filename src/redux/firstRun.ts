@@ -105,7 +105,8 @@ export const selectIsRunCardShown = (state: RootState): boolean => {
   return run.sessionId !== null && shown?.tabGroupId === run.sessionId;
 };
 
-const ROW_KINDS = ['row', 'open', 'switch', 'delete'] as const;
+// KAN-582: not 'delete', which points at the session header's ⋮.
+const ROW_KINDS = ['row', 'open', 'switch'] as const;
 
 // Spec delta 2: the row the run points at is drawn engaged, so its Open, Switch and Delete show.
 export const selectRunEngagedRowId = (state: RootState): string | null => {
@@ -115,7 +116,7 @@ export const selectRunEngagedRowId = (state: RootState): string | null => {
   return ROW_KINDS.some((k) => k === kind) ? run.sessionId : null;
 };
 
-// Hard rule 2: while the Delete step shows, the run's Delete explains only.
+// Hard rule 2: while the Delete step shows, the run's Delete (in its header's ⋮) explains only.
 export const selectRunHoldsDelete = (
   state: RootState,
   tabGroupId: string
