@@ -153,7 +153,7 @@ export default function FirstRun() {
       case 'openNow':
         return {
           text: t(
-            'This is Open now: every window and tab you have open. It updates as you browse.'
+            'Open now shows every window and tab in Chrome, kept up to date as you browse.'
           ),
           primary: next,
         };
@@ -291,9 +291,9 @@ export default function FirstRun() {
         };
       case 'twoViews':
         return {
-          text: t("Pin Tab Keeper so it's always one click away."),
+          text: t('Keep Tab Keeper open in a pinned tab.'),
           fine: t(
-            'It stays small at the left of your tabs. You can turn this off in Settings → Sessions.'
+            'It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Sessions.'
           ),
           width: PIN_CARD_WIDTH,
           secondary: { label: t('Not now'), onPress: finish },
