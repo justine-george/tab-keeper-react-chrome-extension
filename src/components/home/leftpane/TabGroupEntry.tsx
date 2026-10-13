@@ -361,6 +361,15 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       ${pressedStyle}
     }
     background-color: ${drawsSelection && COLORS.SELECTION_COLOR};
+    /* KAN-582. The session shown keeps its actions drawn at rest, not only on
+       hover: they are its actions, and the only row's. Before the carry rule,
+       which hides them mid-drag. */
+    ${
+      drawsSelection
+        ? `[data-row-actions] { background-color: ${COLORS.SELECTION_COLOR}; }
+           [data-row-actions] > * { opacity: 1; }`
+        : ''
+    }
     /* KAN-350 D2 A. The row a carry rests on: the hover fill, a selected row
        included (the outline is 4.02:1 on Petal's hover fill, 3.06 on its
        selection), and a 2px LABEL_L2 outline inside the edge.

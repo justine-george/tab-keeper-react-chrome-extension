@@ -56,21 +56,6 @@ const rowFor = (page: Page, title: string): Locator =>
 /** The absolutely-positioned Open/Switch/Delete block inside a row. */
 const actionsIn = (row: Locator): Locator => row.locator('[data-row-actions]');
 
-/**
- * How revealed the row's actions are, as an opacity string.
- *
- * Read from an ICON, not from the block (KAN-100). The block carries the
- * opaque mask and must land in one frame, so it no longer fades and its own
- * opacity is now 1 in every state. Asserting on the block would therefore be
- * trivially true and would go green against a build that never reveals
- * anything -- which is exactly what it did on the first run of this change.
- */
-const revealOf = (row: Locator): Promise<string> =>
-  actionsIn(row)
-    .locator('> *')
-    .first()
-    .evaluate((el) => getComputedStyle(el).opacity);
-
 type SeamFrame = { left: string; right: string; strip: boolean };
 
 /**
@@ -333,32 +318,41 @@ test.describe('a row reveals its actions and fills as one state', () => {
   // already decides whether a given focus deserves a visible indicator, and it
   // says no for a click. Measured on the broken build with the pointer parked
   // away: :focus-within true, :has(:focus-visible) false, actions opacity 1.
-  test('a row clicked with the mouse does not stay engaged once the pointer leaves', async ({
+  //
+  // KAN-582: a clicked row is now the session shown, whose actions stay drawn
+  // by design, so the stickiness is checked where it can still show: a row
+  // that is not shown, holding focus a mouse interaction left (no
+  // :focus-visible), must not look engaged once the pointer leaves.
+  test('a row holding focus without a visible focus does not look engaged once the pointer leaves', async ({
     context,
     extensionId,
   }) => {
     const page = await openWith(context, extensionId);
     const first = rowFor(page, 'First session');
+    const second = rowFor(page, 'Second session');
 
     await first.click({ position: { x: 20, y: 20 } });
-
-    // CONTROL: the click really did leave focus inside the row. Without this
-    // the test could pass on a build where clicking focuses nothing at all,
-    // which is a different app, not a fixed one.
-    expect(
-      await first.evaluate((el) => el.matches(':focus-within')),
-      'the click should leave focus inside the row -- otherwise this test ' +
-        'proves nothing about focus-driven stickiness'
-    ).toBe(true);
-
     await page.mouse.move(0, 0);
+    // After a mouse interaction a programmatic focus is not :focus-visible.
+    await page
+      .getByRole('button', { name: 'Second session', exact: true })
+      .focus();
 
-    await expect
-      .poll(() => revealOf(first), {
-        message:
-          'a clicked row must not keep showing its actions after the pointer leaves',
-      })
-      .toBe('0');
+    // CONTROL: focus really is inside the row, and is not a visible focus;
+    // without this the test proves nothing about focus-driven stickiness.
+    expect(
+      await second.evaluate((el) => [
+        el.matches(':focus-within'),
+        el.matches(':has(:focus-visible)'),
+      ]),
+      'focus should sit inside the row, without :focus-visible'
+    ).toEqual([true, false]);
+
+    await page.waitForTimeout(300);
+    expect(
+      await fillOf(second),
+      'a row holding mouse-left focus must not take the engaged fill'
+    ).toMatch(TRANSPARENT);
   });
 
   // KAN-98. The action strip must never disagree with the row it masks.

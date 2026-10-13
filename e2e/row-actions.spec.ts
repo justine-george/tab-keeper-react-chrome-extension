@@ -47,7 +47,7 @@ const nameUnder = (page: Page, at: { x: number; y: number }) =>
     at
   );
 
-test('only the session shown has row actions, Open, Switch and Replace; another row has none however long it is hovered', async ({
+test('only the session shown has row actions, Open, Switch and Replace, drawn at rest; another row has none however long it is hovered', async ({
   context,
   extensionId,
 }) => {
@@ -59,6 +59,11 @@ test('only the session shown has row actions, Open, Switch and Replace; another 
     /Switch/,
     /Replace/,
   ]);
+
+  // Drawn at rest, not on hover (KAN-582): the pointer is parked away.
+  await page.mouse.move(0, 0);
+  for (const name of ['Open', 'Switch', 'Replace'])
+    await expect(button(page, 'S1', name)).toHaveCSS('opacity', '1');
 
   const { x, y } = await centreOf(row(page, 'S3'));
   await page.mouse.move(x, y, { steps: 4 });

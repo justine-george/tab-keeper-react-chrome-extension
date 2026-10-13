@@ -69,6 +69,15 @@ describe('which rows have actions (KAN-582)', () => {
     expect(actionsOf('Weekend in Kyoto')).toBeNull();
   });
 
+  test('the session shown draws its actions at rest, with no hover or focus', async () => {
+    await renderList();
+
+    for (const name of ['Open', 'Switch', 'Replace'])
+      expect(getComputedStyle(action('Q4 product roadmap', name)).opacity).toBe(
+        '1'
+      );
+  });
+
   test('another row shows none however long the pointer stays on it', async () => {
     await renderList();
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
