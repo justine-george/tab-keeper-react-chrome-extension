@@ -112,3 +112,8 @@ if (typeof HTMLDialogElement !== 'undefined') {
 if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
   window.matchMedia = (query: string) => new FakeMediaQueryList(query, false);
 }
+
+// KAN-582. jsdom has no layout, so nothing is ever under the pointer: null. A test about what is overrides it.
+if (!document.elementFromPoint) {
+  document.elementFromPoint = () => null;
+}

@@ -327,7 +327,7 @@
   "Your saved sessions are all here, just as you left them.": "Все ваши сохранённые сессии здесь — в том виде, в каком вы их оставили.",
   "Here are your saved sessions. The selected one shows its windows and tabs on the right.": "Это ваши сохранённые сессии. Окна и вкладки выбранной сессии показаны справа.",
   "Open brings back all of this session's windows and tabs, beside the ones you have open.": "«Открыть» возвращает все окна и вкладки этой сессии рядом с теми, что у вас уже открыты.",
-  "Delete removes the saved session. Your open windows stay as they are.": "«Удалить» убирает сохранённую сессию. Ваши открытые окна останутся как есть.",
+  "Delete, in this menu, removes the saved session. Your open windows stay as they are.": "«Удалить» в этом меню убирает сохранённую сессию. Ваши открытые окна останутся как есть.",
   "Each window can be opened on its own. Click a window's title to rename it.": "Каждое окно можно открыть отдельно. Чтобы переименовать окно, щёлкните его заголовок.",
   "Keep Tab Keeper open in a pinned tab.": "Держите Tab Keeper открытым в закреплённой вкладке.",
   "It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Sessions.": "Он станет маленькой вкладкой в начале панели вкладок — здесь и в каждом окне, которое открывает Tab Keeper. Это можно отключить в разделе «Настройки → Сессии».",

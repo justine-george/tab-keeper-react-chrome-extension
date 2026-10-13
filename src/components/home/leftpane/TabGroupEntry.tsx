@@ -24,10 +24,10 @@ import { useTranslation } from 'react-i18next';
 import { DURATION, TYPE } from '../../../styles/scale';
 import { springSweepStyle } from '../../common/springOpen';
 import { SAVED_TEXT_INSET } from './savedListInset';
+import { useRowActionGuard } from './useRowActionGuard';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import {
   selectRunEngagedRowId,
-  selectRunHoldsDelete,
   selectRunLitRowButton,
 } from '../../../redux/firstRun';
 
@@ -70,7 +70,6 @@ interface TabGroupEntryProps {
   onFocusClick: MouseEventHandler;
   // KAN-581. The ⋮ menu's Replace with open windows, on the row.
   onReplaceClick: MouseEventHandler;
-  onDeleteClick: MouseEventHandler;
   carryTarget?: CarryTargetLook;
 }
 
@@ -80,7 +79,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   onOpenAllClick,
   onFocusClick,
   onReplaceClick,
-  onDeleteClick,
   carryTarget,
 }) => {
   const COLORS = useThemeColors();
@@ -111,9 +109,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     (state: RootState) =>
       selectRunEngagedRowId(state) === tabGroupData.tabGroupId
   );
-  const holdsDelete = useSelector((state: RootState) =>
-    selectRunHoldsDelete(state, tabGroupData.tabGroupId)
-  );
   // The button the step lights stays at full strength, though still blocked.
   const litButton = useSelector((state: RootState) =>
     selectRunEngagedRowId(state) === tabGroupData.tabGroupId
@@ -124,6 +119,17 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     `padding: 14px 10px; width: 57px;${
       isOpenBlocked && !lit ? ' filter: opacity(0.3);' : ''
     }`;
+
+  // KAN-582. Only the session shown (or the tour's row) has its actions.
+  const shown = drawsSelection || isRunEngaged;
+  const { strip, rowEvents, pressable } = useRowActionGuard(shown);
+  const press =
+    (act: MouseEventHandler): MouseEventHandler =>
+    (e) => {
+      e.stopPropagation();
+      if (pressable(e.currentTarget)) act(e);
+      else onTabGroupClick();
+    };
 
   // A plain string, not css``, because it is handed to ClickableRow's `style`
   // prop, which composes it into the button's own reset.
@@ -296,7 +302,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
 
     /* ENGAGEMENT IS ONE STATE, SO IT GETS ONE CONDITION (KAN-92).
 
-       A row engaged with does two things: it reveals its Open/Switch/Delete
+       A row engaged with does two things: it reveals its Open/Switch/Replace
        block, and it fills. Those used to run off different triggers -- the
        reveal off a React isHovered set by onMouseEnter/onMouseLeave, or the
        block's own :focus-within; the fill off this container's :hover alone.
@@ -355,6 +361,15 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       ${pressedStyle}
     }
     background-color: ${drawsSelection && COLORS.SELECTION_COLOR};
+    /* KAN-582. The session shown keeps its actions drawn at rest, not only on
+       hover: they are its actions, and the only row's. Before the carry rule,
+       which hides them mid-drag. */
+    ${
+      drawsSelection
+        ? `[data-row-actions] { background-color: ${COLORS.SELECTION_COLOR}; }
+           [data-row-actions] > * { opacity: 1; }`
+        : ''
+    }
     /* KAN-350 D2 A. The row a carry rests on: the hover fill, a selected row
        included (the outline is 4.02:1 on Petal's hover fill, 3.06 on its
        selection), and a 2px LABEL_L2 outline inside the edge.
@@ -399,7 +414,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   // tab order as an anonymous stop that announced nothing.
   //
   // It cannot simply become a <button> or gain role="button" either, because
-  // the Open/Switch/Delete controls are inside it and nesting buttons is
+  // the Open/Switch/Replace controls are inside it and nesting buttons is
   // invalid HTML. Moving the action onto the left column instead makes them
   // siblings. `leftStyle` is width: 100%, so the clickable area is unchanged;
   // the action block is absolutely positioned on top of it.
@@ -409,6 +424,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       data-run-engaged={isRunEngaged ? '' : undefined}
       data-carry-target={carryTarget === undefined ? undefined : ''}
       data-carry-dwell={carryTarget?.dwellSweep ? '' : undefined}
+      {...rowEvents}
     >
       <ClickableRow
         ariaLabel={title}
@@ -458,8 +474,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           )}
         </div>
       </ClickableRow>
-      {!isSearching && (
-        <div data-row-actions css={rightStyle}>
+      {!isSearching && shown && (
+        <div data-row-actions ref={strip} css={rightStyle}>
           <Icon
             tooltipText={openBlockedBecause ?? t('Open session')}
             text={t('Open')}
@@ -467,10 +483,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             type="reopen_window"
             tourAnchor="row-open"
             disable={isOpenBlocked}
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenAllClick(e);
-            }}
+            onClick={press(onOpenAllClick)}
             style={blockedStyle(litButton === 'open')}
           />
           {/* KAN-279 D7. Switching closes the windows hosting Tab Keeper
@@ -483,10 +496,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
               type="filter_center_focus"
               tourAnchor="row-switch"
               disable={isOpenBlocked}
-              onClick={(e) => {
-                e.stopPropagation();
-                onFocusClick(e);
-              }}
+              onClick={press(onFocusClick)}
               style={blockedStyle(litButton === 'switch')}
             />
           )}
@@ -495,23 +505,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             text={t('Replace')}
             ariaLabel={t('Replace')}
             type="browser_updated"
-            onClick={(e) => {
-              e.stopPropagation();
-              onReplaceClick(e);
-            }}
-            style="padding: 14px 10px; width: 57px;"
-          />
-          <Icon
-            tooltipText={t('Delete session')}
-            text={t('Delete')}
-            ariaLabel={t('Delete')}
-            type="delete"
-            tourAnchor="row-delete"
-            disable={holdsDelete}
-            onClick={(e) => {
-              e.stopPropagation();
-              onDeleteClick(e);
-            }}
+            onClick={press(onReplaceClick)}
             style="padding: 14px 10px; width: 57px;"
           />
         </div>

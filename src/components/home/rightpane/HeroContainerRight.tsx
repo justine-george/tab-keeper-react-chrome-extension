@@ -54,6 +54,7 @@ import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
 import { useNewFirstWindowReceiver } from './useNewFirstWindowReceiver';
+import { selectRunHoldsDelete } from '../../../redux/firstRun';
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
@@ -128,6 +129,12 @@ export default function HeroContainerRight() {
 
   // KAN-413. Open and Switch on the tour's own sample wait for it, dimmed as Undo is.
   const isOpenBlocked = useIsOpenBlockedByTour(selectedTabGroup?.tabGroupId);
+  // KAN-582. The tour's Delete step points at this ⋮, which then explains only (hard rule 2).
+  const holdsDelete = useSelector(
+    (state: RootState) =>
+      selectedTabGroup !== undefined &&
+      selectRunHoldsDelete(state, selectedTabGroup.tabGroupId)
+  );
 
   // Belt and braces: RightPane does not mount this component when the list is
   // empty, so this should be unreachable -- but it is what makes the component
@@ -551,6 +558,7 @@ export default function HeroContainerRight() {
             >
               <OverflowMenu
                 ariaLabel={t('More actions')}
+                disabled={holdsDelete}
                 // The trigger sits near the START of the row, so the menu opens
                 // rightward, inside this pane. End-aligned, it crossed the pane
                 // divider and covered the session list.

@@ -312,7 +312,7 @@
   "Your saved sessions are all here, just as you left them.": "您保存的会话都在这里，和您离开时一样。",
   "Here are your saved sessions. The selected one shows its windows and tabs on the right.": "这些是您保存的会话。选中的会话会在右侧显示它的窗口和标签页。",
   "Open brings back all of this session's windows and tabs, beside the ones you have open.": "“打开”会恢复这个会话的所有窗口和标签页，放在您已打开的窗口旁边。",
-  "Delete removes the saved session. Your open windows stay as they are.": "“删除”会移除这个已保存的会话。您打开的窗口不受影响。",
+  "Delete, in this menu, removes the saved session. Your open windows stay as they are.": "此菜单中的“删除”会移除这个已保存的会话。您打开的窗口不受影响。",
   "Each window can be opened on its own. Click a window's title to rename it.": "每个窗口都可以单独打开。点击窗口标题即可重命名。",
   "Keep Tab Keeper open in a pinned tab.": "让 Tab Keeper 在固定标签页中保持打开。",
   "It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Sessions.": "它会变成标签栏最前面的一个小标签页，在这里以及 Tab Keeper 打开的每个窗口中都是如此。您可以在 设置 → 会话 中关闭此功能。",

@@ -91,6 +91,8 @@ interface OverflowMenuProps {
    * content's (KAN-492): the save row's segment, whose height follows the row.
    */
   fillsHeight?: boolean;
+  // KAN-582. The trigger is held: it opens nothing (the tour's Delete step explains only).
+  disabled?: boolean;
 }
 
 /**
@@ -133,6 +135,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
   align = 'end',
   triggerStyle,
   fillsHeight = false,
+  disabled = false,
 }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -302,6 +305,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
           ariaHasPopup="menu"
           ariaExpanded={isOpen}
           style={triggerStyle}
+          disable={disabled}
           onClick={(e) => {
             e.stopPropagation();
             setOpen(!isOpen);

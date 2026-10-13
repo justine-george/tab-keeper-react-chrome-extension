@@ -322,7 +322,7 @@
   "Your saved sessions are all here, just as you left them.": "Toutes vos sessions enregistrées sont ici, telles que vous les avez laissées.",
   "Here are your saved sessions. The selected one shows its windows and tabs on the right.": "Voici vos sessions enregistrées. Celle qui est sélectionnée affiche ses fenêtres et ses onglets à droite.",
   "Open brings back all of this session's windows and tabs, beside the ones you have open.": "Ouvrir restaure toutes les fenêtres et tous les onglets de cette session, à côté de ceux que vous avez déjà ouverts.",
-  "Delete removes the saved session. Your open windows stay as they are.": "Effacer supprime la session enregistrée. Vos fenêtres ouvertes restent telles quelles.",
+  "Delete, in this menu, removes the saved session. Your open windows stay as they are.": "Effacer, dans ce menu, supprime la session enregistrée. Vos fenêtres ouvertes restent telles quelles.",
   "Each window can be opened on its own. Click a window's title to rename it.": "Chaque fenêtre peut s’ouvrir séparément. Cliquez sur le titre d’une fenêtre pour la renommer.",
   "Keep Tab Keeper open in a pinned tab.": "Gardez Tab Keeper ouvert dans un onglet épinglé.",
   "It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Sessions.": "Il devient un petit onglet au début de votre barre d’onglets, ici et dans chaque fenêtre que Tab Keeper ouvre. Vous pouvez désactiver cette option dans Paramètres → Sessions.",

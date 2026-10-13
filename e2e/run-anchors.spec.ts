@@ -10,7 +10,8 @@ const ANCHORS_EVERYWHERE = [
   '[data-pane="detail"] [data-tour-anchor="windows"]',
   '[data-pane="detail"] [data-tour-anchor="tab-dot"]',
   '[data-pane="sessions"] [data-tour-anchor="row-open"]',
-  '[data-pane="sessions"] [data-tour-anchor="row-delete"]',
+  // KAN-582: the Delete step's ⋮.
+  '[data-pane="detail"] [data-tour-anchor="session-menu"]',
 ];
 
 test.beforeEach(async ({ context }) => {

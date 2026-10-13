@@ -278,7 +278,7 @@ export default function FirstRun() {
       case 'delete':
         return {
           text: t(
-            'Delete removes the saved session. Your open windows stay as they are.'
+            'Delete, in this menu, removes the saved session. Your open windows stay as they are.'
           ),
           primary: next,
         };

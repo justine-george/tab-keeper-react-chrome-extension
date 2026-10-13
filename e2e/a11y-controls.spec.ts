@@ -423,7 +423,8 @@ test.describe('controls are reachable by keyboard', () => {
 
     expect(names).toContain('Open');
     expect(names).toContain('Switch');
-    expect(names).toContain('Delete');
+    // KAN-582: Delete moved to the session header's menu.
+    expect(names).toContain('Replace');
   });
 
   // Delete tab and Delete window group are the two that matter most: unlike
@@ -459,23 +460,22 @@ test.describe('controls are reachable by keyboard', () => {
   // would pass against a build that reveals nothing at all. It is also the
   // more faithful target for what this test says it cares about -- whether the
   // thing focus lands on is painted.
-  test('focusing a row action reveals it (KAN-68)', async ({
+  // KAN-582: the session shown draws its actions at rest, so focus never
+  // lands on a hidden one; another row has none to land on.
+  test('the shown session’s row actions are drawn before focus reaches them (KAN-68)', async ({
     context,
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    const deleteAction = page.getByRole('button', {
-      name: 'Delete',
+    const rowAction = page.getByRole('button', {
+      name: 'Replace',
       exact: true,
     });
+    await page.mouse.move(0, 0);
 
-    // The control: unfocused and unhovered, it really is invisible, so the
-    // assertion below can tell the two states apart.
-    await expect(deleteAction).toHaveCSS('opacity', '0');
-
-    await deleteAction.focus();
-
-    await expect(deleteAction).toHaveCSS('opacity', '1');
+    await expect(rowAction).toHaveCSS('opacity', '1');
+    await rowAction.focus();
+    await expect(rowAction).toHaveCSS('opacity', '1');
   });
 
   // KAN-75. RateAndReviewModal rendered both dismissals as a NormalLabel with
