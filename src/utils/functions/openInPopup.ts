@@ -42,6 +42,16 @@ export function requestPopup(): void {
   });
 }
 
+// KAN-578. The page's read of whether its press would close it; rejects outside a tab.
+export async function compactViewWouldClose(): Promise<boolean> {
+  const self = await chrome.tabs.getCurrent();
+  if (self?.id === undefined) throw new Error('Not in a tab.');
+  const others = (await chromePopupApi.normalTabIds()).filter(
+    (id) => id !== self.id
+  );
+  return compactViewCloses(self.pinned, others.length);
+}
+
 // What openInPopup reads of the full view's tab.
 export interface FullViewTab {
   index: number;

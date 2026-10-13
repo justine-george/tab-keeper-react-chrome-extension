@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 
 import Button from '../../common/Button';
+import ClosesThisTab from '../../common/ClosesThisTab';
 import Icon from '../../common/Icon';
 import { NormalLabel } from '../../common/Label';
 import EmptyListLine from '../../common/EmptyListLine';
@@ -25,7 +26,10 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useRecentTabs } from '../../../hooks/useRecentTabs';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import { requestReturn } from '../../../utils/functions/backFromFullView';
+import {
+  backCloses,
+  requestReturn,
+} from '../../../utils/functions/backFromFullView';
 import { formatOpenNowCounts } from '../../../utils/functions/local';
 import {
   lastUsedTabId,
@@ -595,34 +599,50 @@ export default function OpenNowPane({
               flex: 1 0 8px;
             `}
           />
-          <Button
-            text={t('Back to last tab')}
-            iconSize={ICON.SMALL}
-            tooltipText={t('Back to last tab')}
-            ariaLabel={t('Back to last tab')}
-            iconType="arrow_back"
-            onClick={requestReturn}
-            ariaDisabled={!canGoBack}
-            iconStyle="padding: 4px 4px 2px 4px;"
-            variant="chip"
-            style={`
-              margin-top: -8px;
-              min-width: 0;
-              height: 32px;
-              & > :first-child {
-                flex-shrink: 0;
-              }
-              & > span {
-                min-width: 0;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-              }
-              font-size: ${TYPE.SECONDARY};
-              padding: 5px 6px 3px 3px;
-              ${canGoBack ? '' : 'opacity: 0.3;'}
-            `}
-          />
+          {/* KAN-578. The card lines up with the chip's right edge, its notch under the arrow. */}
+          <ClosesThisTab
+            wouldClose={() => backPlan !== null && backCloses(backPlan)}
+            onGo={requestReturn}
+            text={t('Going back closes this tab. Pin it to keep it open.')}
+            goLabel={t('Go back')}
+            pinLabel={
+              backPlan?.kind === 'switch' ? t('Pin and go back') : undefined
+            }
+            align="right"
+            notchInset="40px"
+            shrinks
+          >
+            {(press) => (
+              <Button
+                text={t('Back to last tab')}
+                iconSize={ICON.SMALL}
+                tooltipText={t('Back to last tab')}
+                ariaLabel={t('Back to last tab')}
+                iconType="arrow_back"
+                onClick={press}
+                ariaDisabled={!canGoBack}
+                iconStyle="padding: 4px 4px 2px 4px;"
+                variant="chip"
+                style={`
+                  margin-top: -8px;
+                  min-width: 0;
+                  height: 32px;
+                  & > :first-child {
+                    flex-shrink: 0;
+                  }
+                  & > span {
+                    min-width: 0;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                  }
+                  font-size: ${TYPE.SECONDARY};
+                  padding: 5px 6px 3px 3px;
+                  ${canGoBack ? '' : 'opacity: 0.3;'}
+                `}
+              />
+            )}
+          </ClosesThisTab>
         </div>
       </div>
       <div css={listBoxStyle}>

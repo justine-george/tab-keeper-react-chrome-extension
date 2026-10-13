@@ -5,6 +5,7 @@ import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import { OPEN_IN_POPUP_MESSAGE } from '../../utils/functions/openInPopup';
+import { markClosesThisTabCardAnswered } from '../../redux/slices/settingsDataStateSlice';
 
 // KAN-437. The button only sends; openInPopup.test.ts covers what the worker does with it.
 // action: {} is Chrome 127+, where action.openPopup exists.
@@ -12,6 +13,8 @@ const renderFullView = (action: ChromeSeed['action'] = {}) => {
   history.replaceState(null, '', '?view=tab');
   return renderWithProviders(<MenuContainer />, {
     seed: { action, windows: [{ id: 7 }] },
+    // Answered: a press acts at once. The first press's card is closesThisTab.test.tsx.
+    seedStore: (store) => store.dispatch(markClosesThisTabCardAnswered()),
   });
 };
 

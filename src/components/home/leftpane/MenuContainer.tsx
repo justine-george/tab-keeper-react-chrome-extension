@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import FullViewCallout from './FullViewCallout';
+import ClosesThisTab from '../../common/ClosesThisTab';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useBackPlan } from '../../../hooks/useBackPlan';
 
@@ -43,12 +44,19 @@ import {
 import { isTabView } from '../../../utils/functions/viewMode';
 import { getPrettyDate } from '../../../utils/functions/local';
 import { requestTabView } from '../../../utils/functions/popOut';
-import { requestReturn } from '../../../utils/functions/backFromFullView';
+import {
+  backCloses,
+  requestReturn,
+} from '../../../utils/functions/backFromFullView';
 import {
   canOpenPopup,
+  compactViewWouldClose,
   requestPopup,
 } from '../../../utils/functions/openInPopup';
 import { endRunAtFullViewButton } from '../../../redux/firstRun';
+
+// KAN-578. The card's notch under the middle of an icon box; the card starts 8px left of it.
+const ICON_NOTCH_INSET = `calc((${ICON.DEFAULT} + 8px) / 2)`;
 
 export default function MenuContainer() {
   const syncStatus = useSelector(
@@ -391,27 +399,56 @@ export default function MenuContainer() {
         {/* KAN-437 A. The full view's way back, in ⤢'s slot and drawn as ⤢ is; the worker opens the popup, closing this tab first unless it is pinned or the last tab Chrome has. */}
         {/* KAN-437 R10. Absent where Chrome cannot open the popup (before 127), as toolbarPin.ts feature-detects. */}
         {/* KAN-509. Under Default view Full the way back skips the popup the user chose not to use; dimmed, like Undo, with nowhere to go. */}
+        {/* KAN-578. Both may close this tab; the first such press asks. */}
         {isTabView() && defaultView === 'full' && (
-          <Icon
-            ariaLabel={t('Back to last tab')}
-            tooltipText={t('Back to last tab')}
-            type="arrow_back"
-            onClick={requestReturn}
-            style={canGoBack ? 'opacity: 1;' : 'opacity: 0.3;'}
-            disable={!canGoBack}
-          />
+          <ClosesThisTab
+            wouldClose={() => backPlan !== null && backCloses(backPlan)}
+            onGo={requestReturn}
+            text={t('Going back closes this tab. Pin it to keep it open.')}
+            goLabel={t('Go back')}
+            pinLabel={
+              backPlan?.kind === 'switch' ? t('Pin and go back') : undefined
+            }
+            align="left"
+            notchInset={ICON_NOTCH_INSET}
+          >
+            {(press) => (
+              <Icon
+                ariaLabel={t('Back to last tab')}
+                tooltipText={t('Back to last tab')}
+                type="arrow_back"
+                onClick={press}
+                style={canGoBack ? 'opacity: 1;' : 'opacity: 0.3;'}
+                disable={!canGoBack}
+              />
+            )}
+          </ClosesThisTab>
         )}
         {isTabView() && defaultView !== 'full' && canOpenPopup() && (
-          <Icon
-            ariaLabel={t('Open compact view')}
-            tooltipText={t('Open compact view')}
-            type="close_fullscreen"
-            size={ICON.MEDIUM_SMALL}
-            boxSizedFor={ICON.DEFAULT}
-            // KAN-437. It shrinks: ⤢'s stretch mirrored inward (mock pick A).
-            hoverMotion={{ scale: 0.88, duration: DURATION.MOVE }}
-            onClick={requestPopup}
-          />
+          <ClosesThisTab
+            wouldClose={compactViewWouldClose}
+            onGo={requestPopup}
+            text={t(
+              'Opening compact view closes this tab. Pin it to keep it open.'
+            )}
+            goLabel={t('Open compact view')}
+            pinLabel={t('Pin and open')}
+            align="left"
+            notchInset={ICON_NOTCH_INSET}
+          >
+            {(press) => (
+              <Icon
+                ariaLabel={t('Open compact view')}
+                tooltipText={t('Open compact view')}
+                type="close_fullscreen"
+                size={ICON.MEDIUM_SMALL}
+                boxSizedFor={ICON.DEFAULT}
+                // KAN-437. It shrinks: ⤢'s stretch mirrored inward (mock pick A).
+                hoverMotion={{ scale: 0.88, duration: DURATION.MOVE }}
+                onClick={press}
+              />
+            )}
+          </ClosesThisTab>
         )}
         <OverflowMenu
           ariaLabel={t('Sort sessions')}
