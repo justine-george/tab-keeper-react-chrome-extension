@@ -33,6 +33,8 @@ export const ONBOARDING_ANSWERED = {
   isFullViewCalloutSeen: true,
   isWhatsNew2Seen: true,
   firstRun: RUN_FINISHED,
+  // KAN-578. A press that closes the full view acts at once.
+  isClosesThisTabCardAnswered: true,
 };
 
 /**
