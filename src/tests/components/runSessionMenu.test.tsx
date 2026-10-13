@@ -23,7 +23,7 @@ const RUN = buildSession({ tabGroupId: 'run', title: 'Lisbon trip' });
 
 afterEach(() => history.replaceState(null, '', '/'));
 
-const DELETE_STEP: RunStep = 5;
+const DELETE_STEP: RunStep = 6;
 
 async function renderHeader(step: RunStep) {
   return renderWithProviders(<HeroContainerRight />, {
@@ -41,7 +41,7 @@ async function renderHeader(step: RunStep) {
 const more = () => screen.getByRole('button', { name: 'More actions' });
 
 describe('the run’s Delete step (KAN-582)', () => {
-  test('step 5 is the Delete step in the popup', () => {
+  test('step 6 is the Delete step in the popup', () => {
     expect(runStepKind('popup', DELETE_STEP)).toBe('delete');
   });
 

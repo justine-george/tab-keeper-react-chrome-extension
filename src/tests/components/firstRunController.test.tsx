@@ -147,7 +147,7 @@ describe('the controller', () => {
     const update = vi.spyOn(chrome.tabs, 'update');
     await act(async () => {
       await r.store.dispatch(
-        startRun({ ...newRun('full', 8), sessionId: 'own' })
+        startRun({ ...newRun('full', 9), sessionId: 'own' })
       );
     });
     fireEvent.click(
@@ -178,7 +178,7 @@ describe('the controller', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     await act(async () => {
       await r.store.dispatch(
-        startRun({ ...newRun('full', 8), sessionId: 'own' })
+        startRun({ ...newRun('full', 9), sessionId: 'own' })
       );
     });
     fireEvent.click(

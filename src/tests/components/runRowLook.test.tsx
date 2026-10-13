@@ -16,7 +16,7 @@ import {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { newRun, type RunStep } from '../../utils/functions/firstRun';
 
-// Spec delta 2: the run's row is drawn engaged at its row steps. KAN-582: Delete left the row, so the Delete step (5) points at the header's ⋮ instead.
+// Spec delta 2: the run's row is drawn engaged at its row steps. KAN-582: Delete left the row, so the Delete step (6) points at the header's ⋮ instead.
 
 const RUN = buildSession({
   tabGroupId: 'run',
@@ -53,7 +53,7 @@ async function renderRow(session: typeof RUN, step: RunStep) {
 const rowOf = (container: HTMLElement) => container.firstElementChild;
 
 describe('the run’s row', () => {
-  test.each([2, 3, 4] as const)(
+  test.each([2, 3, 4, 5] as const)(
     'step %s: the run’s row is engaged, by its own rule',
     async (step) => {
       const { container } = await renderRow(RUN, step);
@@ -69,7 +69,7 @@ describe('the run’s row', () => {
     expect(rowOf((await renderRow(OTHER, 2)).container)).not.toHaveAttribute(
       'data-run-engaged'
     );
-    for (const step of [5, 6] as const)
+    for (const step of [6, 7] as const)
       expect(rowOf((await renderRow(RUN, step)).container)).not.toHaveAttribute(
         'data-run-engaged'
       );

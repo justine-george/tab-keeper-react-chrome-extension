@@ -275,6 +275,13 @@ export default function FirstRun() {
           ),
           primary: next,
         };
+      case 'replace':
+        return {
+          text: t(
+            'Replace overwrites this saved session with what you have open now. Nothing closes.'
+          ),
+          primary: next,
+        };
       case 'delete':
         return {
           text: t(

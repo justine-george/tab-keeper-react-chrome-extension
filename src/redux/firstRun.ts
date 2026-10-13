@@ -106,7 +106,7 @@ export const selectIsRunCardShown = (state: RootState): boolean => {
 };
 
 // KAN-582: not 'delete', which points at the session header's ⋮.
-const ROW_KINDS = ['row', 'open', 'switch'] as const;
+const ROW_KINDS = ['row', 'open', 'switch', 'replace'] as const;
 
 // Spec delta 2: the row the run points at is drawn engaged, so its Open, Switch and Delete show.
 export const selectRunEngagedRowId = (state: RootState): string | null => {
@@ -132,10 +132,12 @@ export const selectRunHoldsDelete = (
 // The row button the current step lights, if it is one the run also blocks.
 export const selectRunLitRowButton = (
   state: RootState
-): 'open' | 'switch' | null => {
+): 'open' | 'switch' | 'replace' | null => {
   const run = selectRunHere(state);
   const kind = run === null ? null : runStepKind(run.view, run.step);
-  return kind === 'open' || kind === 'switch' ? kind : null;
+  return kind === 'open' || kind === 'switch' || kind === 'replace'
+    ? kind
+    : null;
 };
 
 const hasSession = (state: RootState, id: string): boolean =>
