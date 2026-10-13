@@ -1348,7 +1348,7 @@ grantedTest.describe(
           liveRow(page, 'Alpha'),
           OPEN_NOW,
           {
-            strip: '[data-open-now-group-strip]',
+            strip: '[data-group-color-strip]',
             windowBlock: '[data-open-window-id]',
           }
         );

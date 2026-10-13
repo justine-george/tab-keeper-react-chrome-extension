@@ -1,19 +1,23 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
 import ClickableRow from '../../common/ClickableRow';
+import GroupColorPicker from '../../common/GroupColorPicker';
 import Icon from '../../common/Icon';
 import { RowMarkIcon, RowMarkSlot } from '../../common/RowMarks';
 import { NormalLabel } from '../../common/Label';
 import { Tag } from '../../common/Tag';
-import { GROUP_STRIP_TRANSITION } from '../../common/groupColorStrip';
+import { useFocusOnRemount } from '../../../hooks/useFocusOnRemount';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
+import { updateLiveGroup } from '../../../utils/functions/liveTabGroups';
 import { resolveFaviconUrl } from '../../../utils/functions/local';
+import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
+import { placeholderStyle } from '../../../styles/placeholder';
 import { openSplitPartners } from '../../../utils/functions/splitPartners';
 import {
   focusOpenWindow,
@@ -24,7 +28,6 @@ import {
   itemIdOf,
   partitionTabsIntoItems,
   sanitizeTabGroupColor,
-  TAB_GROUP_COLOR_HEX,
 } from '../../../utils/functions/tabGroups';
 import {
   ADJACENT_GROUP_GAP_PX,
@@ -120,6 +123,55 @@ export default function OpenNowWindow({
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
+  // KAN-568. The saved band's rename (WindowEntryContainer), on Chrome's group: the draft is seeded at start (KAN-51).
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [groupDraft, setGroupDraft] = useState('');
+  const groupRenameCancelled = useRef(false);
+  const titleFocus = useFocusOnRemount();
+  // Open now re-reads ~50ms after Chrome's event, and measured, the old name showed again for those frames.
+  // So the new one stands in while Chrome still reports the name it replaced (or until the update fails).
+  const [renamed, setRenamed] = useState<{
+    groupId: string;
+    replaced: string;
+    title: string;
+  } | null>(null);
+  const titleOf = (group: { groupId: string; title: string }) =>
+    renamed?.groupId === group.groupId && renamed.replaced === group.title
+      ? renamed.title
+      : group.title;
+  const liveTitle = renamed
+    ? openWindow.groups.find((group) => String(group.id) === renamed.groupId)
+        ?.title
+    : undefined;
+  // Once the read moves on, from Chrome or from this edit, the stand-in is spent (set during render, not in an effect).
+  if (renamed && liveTitle !== renamed.replaced) setRenamed(null);
+  const startEditingGroup = (group: { groupId: string; title: string }) => {
+    groupRenameCancelled.current = false;
+    setGroupDraft(titleOf(group));
+    setEditingGroupId(group.groupId);
+  };
+  // Opening and closing the field writes nothing; a blank leaves the group unnamed, as Chrome allows.
+  const commitGroupRename = (group: { groupId: string; title: string }) => {
+    if (groupRenameCancelled.current) return;
+    setEditingGroupId(null);
+    if (titleOf(group) !== groupDraft) {
+      const edit = {
+        groupId: group.groupId,
+        replaced: group.title,
+        title: groupDraft,
+      };
+      setRenamed(edit);
+      void updateLiveGroup(Number(group.groupId), { title: groupDraft }).then(
+        (updated) => {
+          if (!updated) setRenamed((now) => (now === edit ? null : now));
+        }
+      );
+    }
+  };
+  const cancelGroupRename = () => {
+    groupRenameCancelled.current = true;
+    setEditingGroupId(null);
+  };
 
   // How far this window's block moves to make room for a row landing in
   // another one (KAN-184), as a saved window's does. Either list can carry a
@@ -571,7 +623,8 @@ export default function OpenNowWindow({
             // Already a TabGroupColor on the way in; the partition hands it
             // back as the saved shape's string, so it is narrowed again.
             const color = sanitizeTabGroupColor(item.group.color);
-            const groupName = item.group.title || t('Unnamed group');
+            const groupTitle = titleOf(item.group);
+            const groupName = groupTitle || t('Unnamed group');
             return (
               // The saved band, at rest (KAN-280: a live grouped tab sits
               // exactly where a saved one does). Copied, not shared, for the
@@ -588,8 +641,8 @@ export default function OpenNowWindow({
               //               WindowEntryContainer.tsx (516-522)
               // With the drag rules too (KAN-280 Part E): the band is the
               // `items` list's row for its group, and its frame follows a tab
-              // drag through GroupFrameFollower, as a saved band's does. Not
-              // the strip's hover widen: this strip opens nothing.
+              // drag through GroupFrameFollower, as a saved band's does. The
+              // strip and title are the saved band's controls (KAN-568).
               <DraggableRow
                 key={itemIdOf(item)}
                 scope={OPEN_ITEMS_SCOPE}
@@ -640,30 +693,15 @@ export default function OpenNowWindow({
                     groupId={item.group.groupId}
                     scope={OPEN_TABS_SCOPE}
                   />
-                  {/* The strip's length follows the frame through margins
-                      (KAN-171) and it widens for a drop target (KAN-164),
-                      as GroupColorPicker's bandStyle does; both are 0 and
-                      7px at rest. It eases as the saved strip does, through
-                      the same fragment (KAN-328). */}
-                  <div
-                    aria-hidden="true"
-                    data-open-now-group-strip
-                    data-group-color-strip
-                    css={css`
-                      flex: 0 0 7px;
-                      width: 7px;
-                      margin-right: 9px;
-                      align-self: stretch;
-                      background-color: ${TAB_GROUP_COLOR_HEX[color]};
-                      margin-top: var(--frame-top, 0px);
-                      margin-bottom: calc(-1 * var(--frame-bottom, 0px));
-                      ${GROUP_STRIP_TRANSITION};
-                      [data-drop-target] & {
-                        flex-basis: 16px;
-                        width: 16px;
-                        margin-right: 0;
-                      }
-                    `}
+                  {/* KAN-568. The saved band's picker: Chrome's group, so the next read shows the colour. */}
+                  <GroupColorPicker
+                    color={color}
+                    ariaLabel={t('Change group color') + ': ' + groupName}
+                    onSelect={(picked) =>
+                      void updateLiveGroup(Number(item.group.groupId), {
+                        color: picked,
+                      })
+                    }
                   />
                   <div
                     css={css`
@@ -671,13 +709,10 @@ export default function OpenNowWindow({
                       min-width: 0;
                     `}
                   >
-                    {/* No hover fill: unlike the saved title, this one opens
-                      nothing. The saved row's padding-right: 100px keeps its
-                      title clear of the action strip; there is none here.
-                      data-group-drag-handle: a group is held by this row
+                    {/* data-group-drag-handle: a group is held by this row
                       (KAN-160). data-fixed-row-id: drawn in the tab list
                       but not one of its rows (KAN-166); it glides with the
-                      rows (KAN-165). */}
+                      rows (KAN-165). Fills on hover as the saved row does. */}
                     <div
                       data-group-drag-handle
                       data-fixed-row-id={item.group.groupId}
@@ -687,31 +722,99 @@ export default function OpenNowWindow({
                         align-items: center;
                         min-height: 32px;
                         transition: transform ${DURATION.MOVE} ease;
+                        &:hover,
+                        &:focus-within {
+                          background-color: ${COLORS.HOVER_COLOR};
+                        }
                       `}
                     >
-                      <div
-                        css={css`
-                          display: flex;
-                          align-items: center;
-                          align-self: stretch;
-                          min-width: 0;
-                          width: 100%;
-                          box-sizing: border-box;
-                        `}
-                      >
-                        <NormalLabel
-                          value={groupName}
-                          color={
-                            item.group.title
-                              ? COLORS.LABEL_L2_COLOR
-                              : COLORS.LABEL_L3_COLOR
-                          }
-                          size={GROUP_TITLE_SIZE}
-                          style={`padding-left: 4px;${
-                            item.group.title ? '' : ' font-style: italic;'
-                          }`}
-                        />
-                      </div>
+                      {editingGroupId === item.group.groupId ? (
+                        <>
+                          <input
+                            value={groupDraft}
+                            aria-label={t('Rename group') + ': ' + groupName}
+                            onBlur={() => commitGroupRename(item.group)}
+                            onChange={(e) => setGroupDraft(e.target.value)}
+                            placeholder={t('Name this group')}
+                            onKeyDown={(e) =>
+                              renameKeyDown(
+                                e,
+                                () => {
+                                  titleFocus.ask(item.group.groupId);
+                                  commitGroupRename(item.group);
+                                },
+                                () => {
+                                  titleFocus.ask(item.group.groupId);
+                                  cancelGroupRename();
+                                }
+                              )
+                            }
+                            autoFocus
+                            css={css`
+                              color: ${COLORS.TEXT_COLOR};
+                              background-color: ${COLORS.PRIMARY_COLOR};
+                              border: 1px solid ${COLORS.BORDER_COLOR};
+                              display: flex;
+                              align-items: center;
+                              font-family: ${FONT_FAMILY};
+                              font-size: ${GROUP_TITLE_SIZE};
+                              padding-left: 8px;
+                              align-self: stretch;
+                              width: 100%;
+                              min-width: 0;
+                              &:focus {
+                                outline: none;
+                              }
+                              ${placeholderStyle(COLORS.PLACEHOLDER_COLOR)}
+                            `}
+                          />
+                          {/* preventDefault keeps focus in the input, so onClick is the one commit path. */}
+                          <span
+                            css={css`
+                              position: absolute;
+                              top: 50%;
+                              right: 0;
+                              transform: translateY(-50%);
+                              display: flex;
+                              align-items: center;
+                              z-index: 1;
+                            `}
+                            onMouseDown={(e) => e.preventDefault()}
+                          >
+                            <Icon
+                              tooltipText={t('Save changes')}
+                              ariaLabel={t('Save changes')}
+                              type="done"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                titleFocus.ask(item.group.groupId);
+                                commitGroupRename(item.group);
+                              }}
+                            />
+                          </span>
+                        </>
+                      ) : (
+                        // Shrunk to its text, as the saved title is, so the rest of the row is only a drag handle.
+                        <ClickableRow
+                          ariaLabel={t('Rename group') + ': ' + groupName}
+                          onClick={() => startEditingGroup(item.group)}
+                          buttonRef={titleFocus.refFor(item.group.groupId)}
+                          style="display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box; flex: 0 1 auto; max-width: 100%; cursor: text;"
+                        >
+                          <NormalLabel
+                            value={groupName}
+                            color={
+                              groupTitle
+                                ? COLORS.LABEL_L2_COLOR
+                                : COLORS.LABEL_L3_COLOR
+                            }
+                            size={GROUP_TITLE_SIZE}
+                            style={`padding-left: 4px;${
+                              groupTitle ? '' : ' font-style: italic;'
+                            }`}
+                          />
+                        </ClickableRow>
+                      )}
                     </div>
                     {/* data-group-tabs: the held group folds to its title
                       row (App.css, KAN-160). The zero-height marker is the
