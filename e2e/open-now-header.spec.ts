@@ -7,6 +7,10 @@ import { savedWindow, session } from './fixtures/savedWindows';
 import { standIn } from './fixtures/standInPages';
 
 // KAN-576 and KAN-577 (pick A, icon arrow_back). Open now's header beside a selected session's, on the built artifact.
+// KAN-578. Seeded answered (ONBOARDING_ANSWERED), so a press acts at once; the card's own tests seed it unanswered.
+test.beforeEach(async ({ context }) => {
+  await seedSettings(context, {});
+});
 const openNowHeader = (page: Page) => page.locator('[data-open-now-header]');
 const chip = (page: Page) =>
   openNowHeader(page).getByRole('button', {
@@ -130,6 +134,32 @@ for (const view of ['compact', 'full'] as const) {
     await expect.poll(() => activeTabId(serviceWorker)).toBe(from);
   });
 }
+
+// KAN-578. Unanswered, the chip asks first; the card's Go back goes back and closes the full view.
+test("Open now's Back asks first; Go back goes back and closes the full view", async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  await seedSettings(context, { isClosesThisTabCardAnswered: false });
+  const { page, from } = await fullViewFrom(
+    context,
+    serviceWorker,
+    extensionId
+  );
+  await expect(chip(page)).not.toHaveAttribute('aria-disabled');
+
+  await chip(page).click();
+  const card = page.getByRole('dialog');
+  await expect(card).toContainText(
+    'Going back closes this tab. Pin it to keep it open.'
+  );
+  expect(await activeTabId(serviceWorker)).not.toBe(from);
+  await card.getByRole('button', { name: 'Go back', exact: true }).click();
+
+  await expect.poll(() => activeTabId(serviceWorker)).toBe(from);
+  await expect.poll(() => page.isClosed()).toBe(true);
+});
 
 // Worst path: the longest label (ru, 321px) in the narrowest header (the drawer). Cut with an ellipsis, never over the icons.
 test('ru, in the drawer: the chip shrinks clear of the icons, its label cut, still in the corner', async ({

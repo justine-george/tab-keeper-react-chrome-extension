@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   chromePopupApi,
+  compactViewCloses,
   isOpenInPopupRequest,
   OPEN_IN_POPUP_MESSAGE,
   openInPopup,
@@ -131,6 +132,20 @@ const ALONE: FakeTab[] = [
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe('compactViewCloses (KAN-578)', () => {
+  test('unpinned beside other tabs: closes', () => {
+    expect(compactViewCloses(false, 1)).toBe(true);
+  });
+
+  test('pinned: stays, however many tabs are open', () => {
+    expect(compactViewCloses(true, 3)).toBe(false);
+  });
+
+  test('the only tab Chrome has: stays, pinned or not', () => {
+    expect(compactViewCloses(false, 0)).toBe(false);
+  });
 });
 
 describe('isOpenInPopupRequest', () => {

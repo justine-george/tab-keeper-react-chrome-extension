@@ -42,6 +42,16 @@ export function requestPopup(): void {
   });
 }
 
+// KAN-578. The page's read of whether its press would close it; rejects outside a tab.
+export async function compactViewWouldClose(): Promise<boolean> {
+  const self = await chrome.tabs.getCurrent();
+  if (self?.id === undefined) throw new Error('Not in a tab.');
+  const others = (await chromePopupApi.normalTabIds()).filter(
+    (id) => id !== self.id
+  );
+  return compactViewCloses(self.pinned, others.length);
+}
+
 // What openInPopup reads of the full view's tab.
 export interface FullViewTab {
   index: number;
@@ -162,6 +172,14 @@ async function openPopupOnce(
   }
 }
 
+// KAN-578: an unpinned full view closes, unless it is the last tab Chrome has.
+export function compactViewCloses(
+  pinned: boolean,
+  otherTabCount: number
+): boolean {
+  return !pinned && otherTabCount > 0;
+}
+
 // Never rejects: the page waits for no answer, so every failure is logged, as openOrFocusTabView's are.
 export async function openInPopup(
   api: PopupApi,
@@ -190,8 +208,7 @@ export async function openInPopup(
         otherTabs
       )
     );
-    // A pinned full view stays.
-    if (tab.pinned) {
+    if (!compactViewCloses(tab.pinned, otherTabs.length)) {
       await openPopupOnce(api, backInWindow ?? tab.windowId);
       return;
     }

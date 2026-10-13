@@ -18,6 +18,7 @@ import {
   dismissPinGuide,
   finishSetup,
   guardOnboarding,
+  markClosesThisTabCardAnswered,
   markFullViewCalloutSeen,
   markFullViewOpened,
   markWhatsNew2Seen,
@@ -52,6 +53,7 @@ const GARBAGE = {
   defaultView: 'tab',
   firstRun: { view: 'tab', step: 1 },
   isWhatsNew2Seen: 'yes',
+  isClosesThisTabCardAnswered: 'true',
 };
 
 const ALL_SET = {
@@ -69,6 +71,7 @@ const ALL_SET = {
     ended: null,
   },
   isWhatsNew2Seen: true,
+  isClosesThisTabCardAnswered: true,
 } as const;
 
 const ONBOARDING_KEYS: string[] = Object.keys(ONBOARDING_DEFAULTS);
@@ -184,6 +187,11 @@ describe('the onboarding reducers persist what they set', () => {
       markFullViewCalloutSeen(),
       { isFullViewCalloutSeen: true },
     ],
+    [
+      'markClosesThisTabCardAnswered',
+      markClosesThisTabCardAnswered(),
+      { isClosesThisTabCardAnswered: true },
+    ],
     ['setDefaultView', setDefaultView('full'), { defaultView: 'full' }],
   ] as const)('%s sets and saves', (_name, action, expected) => {
     expect(reduce([action])).toMatchObject(expected);
@@ -195,6 +203,7 @@ describe('the onboarding reducers persist what they set', () => {
   it.each([
     ['markFullViewOpened', markFullViewOpened()],
     ['markFullViewCalloutSeen', markFullViewCalloutSeen()],
+    ['markClosesThisTabCardAnswered', markClosesThisTabCardAnswered()],
   ] as const)('%s writes only the first time', (_name, action) => {
     const once = reduce([action]);
     const setItem = vi.spyOn(localStorage, 'setItem');

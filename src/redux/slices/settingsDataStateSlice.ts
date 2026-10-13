@@ -162,6 +162,8 @@ export interface SettingsData {
   isWhatsNew2Seen: boolean;
   // KAN-459. Windows Tab Keeper opens or switches start with a pinned Tab Keeper tab.
   pinTabKeeperInNewWindows: boolean;
+  // KAN-578. Go back, or a Pin that worked, on the card warning a press closes the full view.
+  isClosesThisTabCardAnswered: boolean;
 }
 
 /**
@@ -186,6 +188,7 @@ export type OnboardingSettings = Pick<
   | 'defaultView'
   | 'firstRun'
   | 'isWhatsNew2Seen'
+  | 'isClosesThisTabCardAnswered'
 >;
 
 export const ONBOARDING_DEFAULTS: OnboardingSettings = {
@@ -196,6 +199,7 @@ export const ONBOARDING_DEFAULTS: OnboardingSettings = {
   defaultView: 'compact',
   firstRun: null,
   isWhatsNew2Seen: false,
+  isClosesThisTabCardAnswered: false,
 };
 
 export function asSetupState(value: unknown): SetupState {
@@ -231,6 +235,7 @@ export function guardOnboarding(
     defaultView: read('defaultView', asDefaultView),
     firstRun: read('firstRun', asFirstRun),
     isWhatsNew2Seen: read('isWhatsNew2Seen', asFlag),
+    isClosesThisTabCardAnswered: read('isClosesThisTabCardAnswered', asFlag),
   };
 }
 
@@ -544,6 +549,13 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
+    // Every answer dispatches this; only the first writes.
+    markClosesThisTabCardAnswered: (state) => {
+      if (state.isClosesThisTabCardAnswered) return;
+      state.isClosesThisTabCardAnswered = true;
+      saveToLocalStorage('settingsData', state);
+    },
+
     setDefaultView: (state, action: PayloadAction<DefaultView>) => {
       state.defaultView = action.payload;
       saveToLocalStorage('settingsData', state);
@@ -645,6 +657,7 @@ export const {
   dismissPinGuide,
   markFullViewOpened,
   markFullViewCalloutSeen,
+  markClosesThisTabCardAnswered,
   setDefaultView,
   recordFirstRun,
   setFirstRunStep,

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
+  backCloses,
   chromeBackApi,
   isReturnFromFullViewRequest,
   planBack,
@@ -40,6 +41,7 @@ describe('planBack', () => {
     expect(planBack(facts({ origin: 20 }))).toEqual({
       kind: 'switch',
       tabId: 20,
+      closes: true,
     });
   });
 
@@ -47,6 +49,7 @@ describe('planBack', () => {
     expect(planBack(facts({ origin: 99, recent: [7, 98, 6] }))).toEqual({
       kind: 'switch',
       tabId: 6,
+      closes: true,
     });
   });
 
@@ -62,6 +65,27 @@ describe('planBack', () => {
 
   test('alone in its window with no record: nowhere to go, even with other windows open', () => {
     expect(planBack(facts({ windowTabIds: [7] }))).toEqual({ kind: 'none' });
+  });
+
+  // KAN-578. The card asks only when the press would close the full view.
+  test('pinned with a recorded tab: switches and keeps the full view', () => {
+    expect(
+      planBack(
+        facts({ origin: 20, fullView: { tabId: 7, windowId: 1, pinned: true } })
+      )
+    ).toEqual({ kind: 'switch', tabId: 20, closes: false });
+  });
+});
+
+describe('backCloses (KAN-578)', () => {
+  test('a switch from an unpinned full view, and a plain close, close it', () => {
+    expect(backCloses({ kind: 'switch', tabId: 6, closes: true })).toBe(true);
+    expect(backCloses({ kind: 'close' })).toBe(true);
+  });
+
+  test('a switch from a pinned full view, and nowhere to go, keep it', () => {
+    expect(backCloses({ kind: 'switch', tabId: 6, closes: false })).toBe(false);
+    expect(backCloses({ kind: 'none' })).toBe(false);
   });
 });
 

@@ -4,7 +4,10 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
-import { setDefaultView } from '../../redux/slices/settingsDataStateSlice';
+import {
+  markClosesThisTabCardAnswered,
+  setDefaultView,
+} from '../../redux/slices/settingsDataStateSlice';
 import { RETURN_FROM_FULL_VIEW_MESSAGE } from '../../utils/functions/backFromFullView';
 import { fullViewOriginKey } from '../../utils/functions/fullViewOrigin';
 import { recentTabsKey } from '../../utils/functions/recentTabs';
@@ -34,7 +37,11 @@ const renderFullView = (view: DefaultView, seed: Partial<ChromeSeed> = {}) => {
       ],
       ...seed,
     },
-    seedStore: (store) => store.dispatch(setDefaultView(view)),
+    // Answered: a press acts at once. The first press's card is closesThisTab.test.tsx.
+    seedStore: (store) => {
+      store.dispatch(setDefaultView(view));
+      store.dispatch(markClosesThisTabCardAnswered());
+    },
   });
 };
 const back = () => screen.getByRole('button', { name: 'Back to last tab' });

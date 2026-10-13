@@ -5,7 +5,10 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import OpenNowPane from '../../components/home/opennow/OpenNowPane';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
-import { setDefaultView } from '../../redux/slices/settingsDataStateSlice';
+import {
+  markClosesThisTabCardAnswered,
+  setDefaultView,
+} from '../../redux/slices/settingsDataStateSlice';
 import { RETURN_FROM_FULL_VIEW_MESSAGE } from '../../utils/functions/backFromFullView';
 import { fullViewOriginKey } from '../../utils/functions/fullViewOrigin';
 import type { DefaultView } from '../../utils/functions/defaultView';
@@ -44,7 +47,11 @@ const renderPane = (view: DefaultView, seed: Partial<ChromeSeed> = {}) => {
         ],
         ...seed,
       },
-      seedStore: (store) => store.dispatch(setDefaultView(view)),
+      // Answered: a press acts at once. The first press's card is closesThisTab.test.tsx.
+      seedStore: (store) => {
+        store.dispatch(setDefaultView(view));
+        store.dispatch(markClosesThisTabCardAnswered());
+      },
     }
   );
 };

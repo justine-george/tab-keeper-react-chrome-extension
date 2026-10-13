@@ -12,6 +12,11 @@ const VIEW_TAB = 'index.html?view=tab';
 const BUTTON = 'Open compact view';
 const INDEX_POPUP = expect.stringMatching(/\/index\.html$/);
 
+// KAN-578. Seeded answered (ONBOARDING_ANSWERED), so a press acts at once; the card's own tests seed it unanswered.
+test.beforeEach(async ({ context }) => {
+  await seedSettings(context, {});
+});
+
 interface TabFacts {
   id: number;
   url: string;
@@ -361,6 +366,79 @@ test.describe('Open compact view (KAN-437)', () => {
 });
 
 // KAN-507. Open compact view goes back to the tab the full view was opened from.
+// KAN-578 (pick A). The first press that would close the full view asks; a later seed wins.
+const unanswered = (context: BrowserContext) =>
+  seedSettings(context, { isClosesThisTabCardAnswered: false });
+const card = (page: Page) => page.getByRole('dialog');
+
+test.describe('the card before Open compact view closes the full view (KAN-578)', () => {
+  test('13. the card first, nothing closed; its Open compact view closes the full view and opens the popup', async ({
+    context,
+    serviceWorker,
+  }) => {
+    await seedSessions(context);
+    await unanswered(context);
+    await stubOpenPopup(serviceWorker, false);
+    const { page, tab } = await fullViewIn(context, serviceWorker, {
+      before: 1,
+      after: 0,
+    });
+
+    await press(page);
+
+    await expect(card(page)).toContainText(
+      'Opening compact view closes this tab. Pin it to keep it open.'
+    );
+    const go = card(page).getByRole('button', { name: BUTTON, exact: true });
+    await expect(go).toBeFocused();
+    expect(await mostFullViewsWithin(serviceWorker, 500)).toBe(1);
+    expect(await openPopupCalls(serviceWorker)).toEqual([]);
+
+    await go.click();
+
+    await expect
+      .poll(() => openPopupCalls(serviceWorker))
+      .toEqual([
+        {
+          args: [{ windowId: tab.windowId }],
+          popup: INDEX_POPUP,
+          fullViewsOpen: 0,
+        },
+      ]);
+  });
+
+  test('14. Pin and open: the full view stays, pinned, and the popup opens over it', async ({
+    context,
+    serviceWorker,
+  }) => {
+    await seedSessions(context);
+    await unanswered(context);
+    await stubOpenPopup(serviceWorker, false);
+    const { page, tab } = await fullViewIn(context, serviceWorker, {
+      before: 1,
+      after: 0,
+    });
+
+    await press(page);
+    await card(page)
+      .getByRole('button', { name: 'Pin and open', exact: true })
+      .click();
+
+    await expect
+      .poll(() => openPopupCalls(serviceWorker))
+      .toEqual([
+        {
+          args: [{ windowId: tab.windowId }],
+          popup: INDEX_POPUP,
+          fullViewsOpen: 1,
+        },
+      ]);
+    expect(await viewTabs(serviceWorker)).toEqual([
+      expect.objectContaining({ id: tab.id, pinned: true }),
+    ]);
+  });
+});
+
 test.describe('Open compact view goes back (KAN-507)', () => {
   // A focused window [A, B, C] with B active. ⤢ puts the full view at index 0, so Chrome alone would land on A.
   async function windowOnB(worker: Worker) {
@@ -609,5 +687,40 @@ test.describe('Open compact view goes back (KAN-507)', () => {
     expect(
       (await viewTabs(serviceWorker)).find((t) => t.id === fullViewId)
     ).toMatchObject({ pinned: true });
+  });
+
+  test('15. Default view Full: Back asks first; Pin and go back lands on B and keeps the full view, pinned', async ({
+    context,
+    serviceWorker,
+  }) => {
+    await seedSessions(context);
+    await defaultViewFull(context, serviceWorker);
+    // One seed holds both: a later seedSettings replaces the whole settingsData.
+    await seedSettings(context, {
+      defaultView: 'full',
+      isClosesThisTabCardAnswered: false,
+    });
+    const w = await windowOnB(serviceWorker);
+    await serviceWorker.evaluate(async (windowId) => {
+      const click = Reflect.get(globalThis, 'tabKeeperToolbarClick');
+      if (typeof click !== 'function') throw new Error('no toolbar hook');
+      await click({ windowId });
+    }, w.windowId);
+    const page = await fullViewWithBack(context);
+    await expect(backButton(page)).not.toHaveAttribute('aria-disabled');
+
+    await backButton(page).click();
+    await expect(card(page)).toContainText(
+      'Going back closes this tab. Pin it to keep it open.'
+    );
+    expect(await activeIn(serviceWorker, w.windowId)).not.toBe(w.b);
+    await card(page)
+      .getByRole('button', { name: 'Pin and go back', exact: true })
+      .click();
+
+    await expect.poll(() => activeIn(serviceWorker, w.windowId)).toBe(w.b);
+    expect(await viewTabs(serviceWorker)).toEqual([
+      expect.objectContaining({ windowId: w.windowId, pinned: true }),
+    ]);
   });
 });
