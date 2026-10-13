@@ -93,6 +93,16 @@ export const CONTROL = {
  * a side-by-side mock (KAN-340). open_in_full drew at MEDIUM too until KAN-437
  * moved it, with Open compact view, to MEDIUM_SMALL.
  */
+/**
+ * The one row weight besides the body's 400 (KAN-567, his pick B): Open now's
+ * active tab, which shows "on screen" by its title alone, so it never
+ * competes with a group's colour strip and hover stays the row's only fill.
+ * Weight carries a state here, not emphasis; see scaleConformance.test.ts.
+ */
+export const WEIGHT = {
+  ACTIVE_ROW: 600,
+} as const;
+
 export const ICON = {
   /** A row's marks, not controls: pin, split, sound, in both panes (KAN-458, KAN-566). */
   MARK: '1rem',

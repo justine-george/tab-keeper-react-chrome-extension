@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 
 import OpenNowColumn from '../../components/home/opennow/OpenNowColumn';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -9,8 +9,7 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 // KAN-564 (picks A and P). Both halves of a live Chrome split show a split
 // mark beside the pin and speaker, naming the other half; and when the split
 // is on screen, the active bar marks both halves, whichever one Chrome calls
-// active. The bar is a ::before jsdom cannot compute, so "wears the bar" is
-// told by emotion class here; e2e/split-rows.spec.ts measures the drawn bar.
+// active; since KAN-567 that mark is the title's weight.
 
 function tabViewUrl(): string {
   const scratch = setupChromeFake();
@@ -79,6 +78,15 @@ const rowOf = (title: string): HTMLElement => {
   return row;
 };
 
+// KAN-567 B. The tab on screen is marked by its title's weight: the label
+// box NormalLabel draws around the title text.
+const titleWeight = (title: string): 'active' | 'plain' => {
+  const text = within(switchRow(title)).getByText(title);
+  const label = text.parentElement;
+  if (label === null) throw new Error(`no label for ${title}`);
+  return getComputedStyle(label).fontWeight === '600' ? 'active' : 'plain';
+};
+
 const splitMark = (title: string) =>
   rowOf(title).querySelector<HTMLElement>('[data-split]');
 
@@ -107,27 +115,20 @@ describe('Open now shows a split view (KAN-564)', () => {
     }
   });
 
-  test('a split on screen wears the active bar on both halves, as one bar; aria-current stays on the half Chrome calls active', async () => {
+  test('a split on screen wears the active title on both halves; aria-current stays on the half Chrome calls active', async () => {
     await renderOpenNow();
-    const plain = rowOf('Docs').className;
-    const upper = rowOf('Wiki').className;
-    const lower = rowOf('Guide').className;
-    // CONTROL: a lone active tab's bar, the one KAN-280 M3 draws.
-    const loneActive = rowOf('Mail').className;
-    expect(loneActive).not.toBe(plain);
-    // Both halves wear a bar, and not the lone tab's: the halves join.
-    expect([upper, lower].filter((c) => c === plain)).toEqual([]);
-    expect(upper).not.toBe(loneActive);
-    expect(lower).not.toBe(loneActive);
-    expect(upper).not.toBe(lower);
+    // CONTROL: a lone active tab wears it, and a tab not on screen does not.
+    expect(titleWeight('Mail')).toBe('active');
+    expect(titleWeight('Docs')).toBe('plain');
+    expect(titleWeight('Wiki')).toBe('active');
+    expect(titleWeight('Guide')).toBe('active');
     expect(switchRow('Guide')).toHaveAttribute('aria-current', 'true');
     expect(switchRow('Wiki')).not.toHaveAttribute('aria-current', 'true');
   });
 
-  test('a split that is not on screen wears no bar', async () => {
+  test('a split that is not on screen wears no active title', async () => {
     await renderOpenNow();
-    const plain = rowOf('Docs').className;
-    expect(rowOf('Maps').className).toBe(plain);
-    expect(rowOf('Notes').className).toBe(plain);
+    expect(titleWeight('Maps')).toBe('plain');
+    expect(titleWeight('Notes')).toBe('plain');
   });
 });

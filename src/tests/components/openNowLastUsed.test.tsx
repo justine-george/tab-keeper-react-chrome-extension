@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { act, cleanup, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
 
 import OpenNowColumn from '../../components/home/opennow/OpenNowColumn';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -64,12 +64,13 @@ async function renderOpenNow(chromeSeed: ChromeSeed) {
 const switchRow = (title: string) =>
   screen.getByRole('button', { name: `Switch to tab: ${title}` });
 
-// The row a tab draws: its bar is this element's ::before, which jsdom cannot
-// compute, so "the same mark" is the same emotion class as an active row.
-const rowOf = (title: string): HTMLElement => {
-  const row = switchRow(title).closest<HTMLElement>('[data-open-tab-id]');
-  if (row === null) throw new Error(`no row for ${title}`);
-  return row;
+// KAN-567 B. The tab on screen is marked by its title's weight: the label
+// box NormalLabel draws around the title text.
+const titleWeight = (title: string): 'active' | 'plain' => {
+  const text = within(switchRow(title)).getByText(title);
+  const label = text.parentElement;
+  if (label === null) throw new Error(`no label for ${title}`);
+  return getComputedStyle(label).fontWeight === '600' ? 'active' : 'plain';
 };
 
 describe('Open now marks the tab you came from in This window (KAN-475)', () => {
@@ -78,9 +79,10 @@ describe('Open now marks the tab you came from in This window (KAN-475)', () => 
     await waitFor(() =>
       expect(switchRow('Bravo')).toHaveAccessibleDescription('Last used tab')
     );
-    expect(rowOf('Bravo').className).toBe(rowOf('Alpha').className);
+    expect(titleWeight('Bravo')).toBe('active');
+    expect(titleWeight('Alpha')).toBe('active');
     expect(switchRow('Bravo')).not.toHaveAttribute('aria-current');
-    expect(rowOf('Charlie').className).not.toBe(rowOf('Alpha').className);
+    expect(titleWeight('Charlie')).toBe('plain');
     expect(switchRow('Charlie')).not.toHaveAccessibleDescription(
       'Last used tab'
     );
@@ -91,8 +93,8 @@ describe('Open now marks the tab you came from in This window (KAN-475)', () => 
     await waitFor(() =>
       expect(switchRow('Charlie')).toHaveAccessibleDescription('Last used tab')
     );
-    expect(rowOf('Charlie').className).toBe(rowOf('Alpha').className);
-    expect(rowOf('Bravo').className).not.toBe(rowOf('Alpha').className);
+    expect(titleWeight('Charlie')).toBe('active');
+    expect(titleWeight('Bravo')).toBe('plain');
   });
 
   test('the mark follows the record as the worker writes it', async () => {
@@ -133,6 +135,7 @@ describe('Open now marks the tab you came from in This window (KAN-475)', () => 
     await renderOpenNow(behind);
     expect(switchRow('Bravo')).toHaveAttribute('aria-current', 'true');
     expect(screen.queryByText('Last used tab')).toBeNull();
-    expect(rowOf('Charlie').className).not.toBe(rowOf('Bravo').className);
+    expect(titleWeight('Bravo')).toBe('active');
+    expect(titleWeight('Charlie')).toBe('plain');
   });
 });

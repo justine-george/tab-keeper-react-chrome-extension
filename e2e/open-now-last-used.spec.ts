@@ -3,10 +3,11 @@ import type { Locator, Page, Worker } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 
 // KAN-475 on the real artifact: in This window, whose active tab is the tab
-// view itself (not listed), the tab you came from wears the active tab's bar
-// and reads "Last used tab". What jsdom cannot show: the worker's real record
-// of tabs.onActivated, chrome.storage.session.onChanged reaching the page,
-// and the bar's ::before as Chrome computes it.
+// view itself (not listed), the tab you came from wears the active tab's mark
+// (its title's weight since KAN-567) and reads "Last used tab". What jsdom
+// cannot show: the worker's real record of tabs.onActivated,
+// chrome.storage.session.onChanged reaching the page, and the weight as
+// Chrome computes it.
 
 const VIEWPORT = { width: 1280, height: 800 };
 const VIEW_TAB = 'index.html?view=tab';
@@ -17,15 +18,20 @@ const dataUrl = (title: string) =>
 const switchRow = (page: Page, title: string): Locator =>
   page.getByRole('button', { name: `Switch to tab: ${title}`, exact: true });
 
-// The bar is the row's ::before: its width and fill, or null when none.
-const barOf = (page: Page, tabId: number) =>
+// The front-tab mark: the row's title weight when it is the heavier one,
+// or null when the title is plain (KAN-567).
+const markOf = (page: Page, tabId: number) =>
   page.evaluate((id) => {
     const row = document.querySelector(`[data-open-tab-id="${id}"]`);
-    if (row === null) return null;
-    const before = getComputedStyle(row, '::before');
-    return before.content === 'none'
-      ? null
-      : { width: before.width, fill: before.backgroundColor };
+    const title = [...(row?.querySelectorAll('button span') ?? [])].find(
+      (span) =>
+        span.children.length === 0 &&
+        (span.textContent ?? '').trim() !== '' &&
+        span.closest('[aria-hidden="true"]') === null
+    );
+    if (title === undefined) return null;
+    const weight = getComputedStyle(title).fontWeight;
+    return weight === '400' ? null : { weight };
   }, tabId);
 
 const activate = (worker: Worker, tabId: number) =>
@@ -90,10 +96,10 @@ test.describe('Open now marks the tab This window came from (KAN-475)', () => {
       'Last used tab'
     );
     // CONTROL: Alpha is its window's real active tab, so it has the bar.
-    const activeBar = await barOf(page, ids.alpha);
-    expect(activeBar).toEqual({ width: '3px', fill: expect.any(String) });
-    await expect.poll(() => barOf(page, ids.budget)).toEqual(activeBar);
-    expect(await barOf(page, ids.report)).toBeNull();
+    const activeMark = await markOf(page, ids.alpha);
+    expect(activeMark).toEqual({ weight: '600' });
+    await expect.poll(() => markOf(page, ids.budget)).toEqual(activeMark);
+    expect(await markOf(page, ids.report)).toBeNull();
     await expect(switchRow(page, 'Budget sheet')).not.toHaveAttribute(
       'aria-current'
     );
@@ -108,8 +114,8 @@ test.describe('Open now marks the tab This window came from (KAN-475)', () => {
     await expect(
       switchRow(page, 'Quarterly report')
     ).toHaveAccessibleDescription('Last used tab');
-    await expect.poll(() => barOf(page, ids.report)).toEqual(activeBar);
-    expect(await barOf(page, ids.budget)).toBeNull();
+    await expect.poll(() => markOf(page, ids.report)).toEqual(activeMark);
+    expect(await markOf(page, ids.budget)).toBeNull();
     await expect(page.getByText('Last used tab', { exact: true })).toHaveCount(
       1
     );

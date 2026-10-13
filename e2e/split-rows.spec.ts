@@ -4,10 +4,10 @@ import { test, expect } from './fixtures/extension';
 import { saveRowSaveAll } from './fixtures/sessionActions';
 
 // KAN-564 on the real artifact (picks A and P). A Chrome split shows a split
-// mark on both halves, in Open now and in the saved session, and Open now's
-// active bar runs down both halves as one bar. What jsdom cannot show: a split
-// Chrome made (tabs.createSplit, Chrome 155+), the bar's drawn ::before, and
-// the glyph from the bundled icon subset.
+// mark on both halves, in Open now and in the saved session, and Open now
+// marks both halves of the split on screen (KAN-567: by title weight). What
+// jsdom cannot show: a split Chrome made (tabs.createSplit, Chrome 155+), the
+// weight as Chrome computes it, and the glyph from the bundled icon subset.
 
 const VIEW_TAB = 'index.html?view=tab';
 const OPEN_NOW = '[data-pane="open-now"]';
@@ -51,24 +51,21 @@ const liveRow = (page: Page, windowId: number, title: string): Locator =>
     .locator(`${OPEN_NOW} [data-open-window-id="${windowId}"]`)
     .getByRole('button', { name: `Switch to tab: ${title}`, exact: true });
 
-// The bar's drawn span, in viewport pixels, or null when the row has none.
-const barOf = (row: Locator) =>
+// The title's computed weight: 600 marks the tab on screen (KAN-567).
+const titleWeight = (row: Locator) =>
   row.evaluate((button) => {
-    const el = button.closest('[data-open-tab-id]');
-    if (el === null) throw new Error('no row');
-    const before = getComputedStyle(el, '::before');
-    if (before.content === 'none' || before.content === 'normal') return null;
-    const box = el.getBoundingClientRect();
-    return {
-      top: box.top + parseFloat(before.top),
-      bottom: box.bottom - parseFloat(before.bottom),
-      rowTop: box.top,
-      rowBottom: box.bottom,
-    };
+    const title = [...button.querySelectorAll('span')].find(
+      (span) =>
+        span.children.length === 0 &&
+        (span.textContent ?? '').trim() !== '' &&
+        span.closest('[aria-hidden="true"]') === null
+    );
+    if (title === undefined) throw new Error('no title');
+    return getComputedStyle(title).fontWeight;
   });
 
 test.describe('a split view in the rows (KAN-564)', () => {
-  test('1. Open now: both halves wear the split mark, named for the other half, and one bar runs down both', async ({
+  test('1. Open now: both halves wear the split mark, named for the other half, and both wear the on-screen title', async ({
     context,
     extensionId,
     serviceWorker,
@@ -90,18 +87,13 @@ test.describe('a split view in the rows (KAN-564)', () => {
     const glyph = row('SplitB').locator('[data-split]');
     expect((await glyph.boundingBox())?.width ?? 0).toBeLessThan(40);
 
-    // P: Chrome calls C active, yet the bar runs from B's top inset to C's
-    // bottom inset with no break.
+    // P, drawn as KAN-567 B: Chrome calls C active, yet both halves wear the
+    // heavier title; the tabs outside the split do not.
     await expect(row('SplitC')).toHaveAttribute('aria-current', 'true');
-    const b = await barOf(row('SplitB'));
-    const c = await barOf(row('SplitC'));
-    if (b === null || c === null) throw new Error('a half has no bar');
-    expect(b.top - b.rowTop).toBeCloseTo(8, 1);
-    expect(c.rowBottom - c.bottom).toBeCloseTo(8, 1);
-    expect(c.top).toBeCloseTo(b.bottom, 1);
-    // CONTROL: the tabs outside the split wear no bar.
-    expect(await barOf(row('SplitA'))).toBeNull();
-    expect(await barOf(row('SplitD'))).toBeNull();
+    expect(await titleWeight(row('SplitB'))).toBe('600');
+    expect(await titleWeight(row('SplitC'))).toBe('600');
+    expect(await titleWeight(row('SplitA'))).toBe('400');
+    expect(await titleWeight(row('SplitD'))).toBe('400');
   });
 
   test('2. the saved session: both halves of the saved pair wear the split mark', async ({

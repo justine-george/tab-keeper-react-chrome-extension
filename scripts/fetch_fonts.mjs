@@ -63,10 +63,11 @@ if (symbols.length !== 1) {
 }
 await save(symbols[0].url, 'material-symbols-outlined-subset.woff2');
 
-// Libre Franklin is a variable font: one file per script subset covers both
-// weights, so the 400 and 500 faces name the same URLs.
+// Libre Franklin is a variable font: one file per script subset covers every
+// weight (Google serves the same file for 400..900), so the 400, 500 and 600
+// faces name the same URLs.
 const franklin = await faces(
-  'https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500'
+  'https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600'
 );
 const subsets = new Map(franklin.map(({ label, url }) => [label, url]));
 for (const [label, url] of subsets) {

@@ -10,15 +10,7 @@ import {
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
-import { contrast, pixelsAt, rgbToHex } from './fixtures/pixels';
-import {
-  BB_PINK_THEME,
-  BLUE_THEME,
-  DARKENHEIMER_THEME,
-  LIGHT_THEME,
-  WARM_LIGHT_THEME,
-} from '../src/hooks/useThemeColors';
-import type { ThemeColors } from '../src/hooks/useThemeColors';
+import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 import { TYPE } from '../src/styles/scale';
 
 // KAN-280 Part A on the real artifact: the Open now pane in the tab view
@@ -314,105 +306,34 @@ function expectWithinHalfPixel(
 
 // Every theme, by the name the picker shows and the value settingsData
 // stores: the pane and hover fill the bar sits on differ in each.
-const FRONT_TAB_THEMES: ReadonlyArray<{
-  name: string;
-  stored: string;
-  colors: ThemeColors;
-}> = [
-  { name: 'Paper', stored: 'Light', colors: LIGHT_THEME },
-  { name: 'Parchment', stored: 'WarmLight', colors: WARM_LIGHT_THEME },
-  { name: 'Petal', stored: 'BBPink', colors: BB_PINK_THEME },
-  { name: 'Graphite', stored: 'Darkenheimer', colors: DARKENHEIMER_THEME },
-  { name: 'Ink', stored: 'Blue', colors: BLUE_THEME },
-];
 
-// WCAG's floor for a non-text mark; KAN-199's segment marker is held to it.
-const MARKER_FLOOR = 3;
-
-interface MarkerFacts {
-  // The row's ::before, as computed. Its box is not in the layout API.
-  content: string;
-  position: string;
-  left: string;
-  top: string;
-  width: string;
-  height: string;
-  color: string;
-  // The row it is drawn in. rowFill is the row's own background, which is
-  // transparent at rest; backdrop is what is painted behind the bar: the
-  // first ancestor-or-self fill that is not transparent.
-  rowPosition: string;
-  rowFill: string;
-  backdrop: string;
-  rowLeft: number;
-  rowTop: number;
-  rowHeight: number;
-}
-
-// A live tab row's front-tab bar, read from the row that holds the button.
-async function readMarker(row: Locator): Promise<MarkerFacts> {
+// KAN-567 B. A live row's front-tab mark: its title's computed weight, the
+// row's own fill, and what (if anything) it draws at its left edge.
+async function readFront(row: Locator) {
   await expect(row).toBeVisible();
   const facts = await row.evaluate((button: Element) => {
     const rowEl = button.parentElement;
-    if (rowEl === null) return null;
-    const bar = getComputedStyle(rowEl, '::before');
-    const own = getComputedStyle(rowEl);
-    const r = rowEl.getBoundingClientRect();
-    let backdrop = 'rgba(0, 0, 0, 0)';
-    for (let n: Element | null = rowEl; n; n = n.parentElement) {
-      const fill = getComputedStyle(n).backgroundColor;
-      if (fill !== 'rgba(0, 0, 0, 0)' && fill !== 'transparent') {
-        backdrop = fill;
-        break;
-      }
-    }
+    const title = [...button.querySelectorAll('span')].find(
+      (span) =>
+        span.children.length === 0 &&
+        (span.textContent ?? '').trim() !== '' &&
+        span.closest('[aria-hidden="true"]') === null
+    );
+    if (rowEl === null || title === undefined) return null;
     return {
-      content: bar.content,
-      position: bar.position,
-      left: bar.left,
-      top: bar.top,
-      width: bar.width,
-      height: bar.height,
-      color: bar.backgroundColor,
-      rowPosition: own.position,
-      rowFill: own.backgroundColor,
-      backdrop,
-      rowLeft: r.left,
-      rowTop: r.top,
-      rowHeight: r.height,
+      weight: getComputedStyle(title).fontWeight,
+      fill: getComputedStyle(rowEl).backgroundColor,
+      before: getComputedStyle(rowEl, '::before').content,
     };
   });
-  if (facts === null) throw new Error('the live tab button has no row');
+  if (facts === null) throw new Error('the live tab button has no title');
   return facts;
-}
-
-// No ::before rule computes `content` as none; an empty string is a box.
-const drawsBar = (m: MarkerFacts): boolean =>
-  m.content !== 'none' && m.content !== 'normal';
-
-// The bar's shape: 3px wide, 16px tall and centred on the 32px row, flush
-// with the row's left edge.
-function expectBarShape(m: MarkerFacts): void {
-  expect(drawsBar(m), `the row draws a bar (content ${m.content})`).toBe(true);
-  expect(m.rowPosition, 'the row positions the bar').toBe('relative');
-  expect(m.position).toBe('absolute');
-  expect(m.left, 'flush with the row').toBe('0px');
-  expect(m.width).toBe('3px');
-  expect(m.height).toBe('16px');
-  expect(m.top).toBe('8px');
-  expectWithinHalfPixel(m.rowHeight, 32, 'row height');
 }
 
 // A row with no fill of its own, as getComputedStyle reports it.
 const NO_FILL = 'rgba(0, 0, 0, 0)';
-
-// The bar and the fill just above it, as painted: centre column of the 3px
-// bar, at the row's middle and 3px under its top edge.
-const paintedBarAndFill = (page: Page, m: MarkerFacts): Promise<string[]> =>
-  pixelsAt(page, [
-    [Math.floor(m.rowLeft) + 1, m.rowTop + m.rowHeight / 2],
-    [Math.floor(m.rowLeft) + 1, m.rowTop + 3],
-  ]);
+// No ::before rule computes `content` as none or normal.
+const NO_BEFORE = ['none', 'normal'];
 
 test.describe('Open now in the tab view (KAN-280)', () => {
   test('1. folded by default: Open now fills the detail column', async ({
@@ -756,132 +677,75 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     expectWithinHalfPixel(live.img.height, saved.img.height, 'img height');
   });
 
-  for (const { name, stored, colors } of FRONT_TAB_THEMES) {
-    test(`7d. ${name}: the front tab has no fill and a bar that clears 3:1 on the pane and on hover; a back tab has neither`, async ({
-      context,
-      extensionId,
-      serviceWorker,
-    }, testInfo) => {
-      await seedSettings(context, { theme: stored });
-      const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
-
-      // A second window with two tabs, the second one in front.
-      const made = await serviceWorker.evaluate(
-        async (urls: string[]) => {
-          const win = await chrome.windows.create({
-            url: urls,
-            focused: false,
-          });
-          const back = win?.tabs?.[0]?.id;
-          const front = win?.tabs?.[1]?.id;
-          if (win?.id === undefined || back === undefined) return null;
-          if (front === undefined) return null;
-          await chrome.tabs.update(front, { active: true });
-          const [b, f] = await Promise.all([
-            chrome.tabs.get(back),
-            chrome.tabs.get(front),
-          ]);
-          return { windowId: win.id, back: b.active, front: f.active };
-        },
-        [
-          'data:text/html,<title>Back</title>',
-          'data:text/html,<title>Front</title>',
-        ]
-      );
-      if (made === null) throw new Error('Chrome gave no window or tabs');
-      // PREMISE: Chrome says which of the two is in front.
-      expect(made).toMatchObject({ back: false, front: true });
-
-      const win = page.locator(
-        `${OPEN_NOW} [data-open-window-id="${made.windowId}"]`
-      );
-      const front = win.getByRole('button', {
-        name: 'Switch to tab: Front',
-        exact: true,
-      });
-      const back = win.getByRole('button', {
-        name: 'Switch to tab: Back',
-        exact: true,
-      });
-      // PREMISE: the pane knows it too.
-      await expect(front).toHaveAttribute('aria-current', 'true');
-      await expect(back).not.toHaveAttribute('aria-current');
-
-      // PREMISE: the seeded theme took, so the pane behind the rows is this
-      // theme's (a misspelt theme seeds nothing, silently, and every run is
-      // Paper). Read off the back row, which has no fill of its own.
-      await page.mouse.move(0, 0);
-      await expect
-        .poll(async () => (await readMarker(back)).backdrop)
-        .toBe(rgb(colors.PRIMARY_COLOR));
-
-      // At rest the front row has no fill: a resting shade read as hover.
-      const atRest = await readMarker(front);
-      expect(atRest.rowFill, 'the front row has no fill of its own').toBe(
-        NO_FILL
-      );
-      const behind = await readMarker(back);
-      expect(behind.rowFill, 'nor does a back row').toBe(NO_FILL);
-      expectBarShape(atRest);
-      // Against what is painted behind the bar, never the row's transparent
-      // fill, which would give a ratio against black.
-      expect(atRest.backdrop, 'the bar sits on the pane').toBe(behind.backdrop);
-      const onPane = contrast(
-        rgbToHex(atRest.color),
-        rgbToHex(atRest.backdrop)
-      );
-      expect(
-        onPane,
-        `bar ${atRest.color} on the pane ${atRest.backdrop}`
-      ).toBeGreaterThanOrEqual(MARKER_FLOOR);
-      expect(atRest.color, 'the bar is LABEL_L2 (KAN-199)').toBe(
-        rgb(colors.LABEL_L2_COLOR)
-      );
-      const [barAtRest, pane] = await paintedBarAndFill(page, atRest);
-      // CONTROL: the sample above the bar is the backdrop the ratio used.
-      expect(pane, 'the fill sample lands on the pane').toBe(
-        rgbToHex(atRest.backdrop)
-      );
-      expect(barAtRest, 'the bar is painted').toBe(rgbToHex(atRest.color));
-
-      // Hovering fills the row, and the bar stays.
-      await front.hover();
-      await expect
-        .poll(async () => (await readMarker(front)).rowFill)
-        .toBe(rgb(colors.HOVER_COLOR));
-      const hovered = await readMarker(front);
-      expectBarShape(hovered);
-      expect(hovered.color).toBe(atRest.color);
-      expect(hovered.backdrop, 'the bar sits on the hover fill').toBe(
-        hovered.rowFill
-      );
-      const onHover = contrast(
-        rgbToHex(hovered.color),
-        rgbToHex(hovered.backdrop)
-      );
-      expect(
-        onHover,
-        `bar ${hovered.color} on the hover fill ${hovered.backdrop}`
-      ).toBeGreaterThanOrEqual(MARKER_FLOOR);
-      const [barHovered, hoverFill] = await paintedBarAndFill(page, hovered);
-      expect(hoverFill, 'the fill sample lands on the hover fill').toBe(
-        rgbToHex(hovered.backdrop)
-      );
-      expect(barHovered, 'the bar is painted on hover').toBe(
-        rgbToHex(hovered.color)
-      );
-      console.log(
-        `[front-tab bar, ${name}] ${JSON.stringify({ onPane, onHover })}`
-      );
-
-      // A tab not in front has no bar.
-      await page.mouse.move(0, 0);
-      expect(drawsBar(behind), `a back tab's content ${behind.content}`).toBe(
-        false
-      );
-      await page.screenshot({ path: testInfo.outputPath('front-tab.png') });
+  test('7d. the front tab is marked by its title alone, in a real 600 weight, with no fill and no bar; a back tab is not (KAN-567)', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    // A second window with two tabs, the second one in front.
+    const made = await serviceWorker.evaluate(
+      async (urls: string[]) => {
+        const win = await chrome.windows.create({ url: urls, focused: false });
+        const back = win?.tabs?.[0]?.id;
+        const front = win?.tabs?.[1]?.id;
+        if (win?.id === undefined || back === undefined) return null;
+        if (front === undefined) return null;
+        await chrome.tabs.update(front, { active: true });
+        return { windowId: win.id };
+      },
+      [
+        'data:text/html,<title>Back</title>',
+        'data:text/html,<title>Front</title>',
+      ]
+    );
+    if (made === null) throw new Error('Chrome gave no window or tabs');
+    const win = page.locator(
+      `${OPEN_NOW} [data-open-window-id="${made.windowId}"]`
+    );
+    const front = win.getByRole('button', {
+      name: 'Switch to tab: Front',
+      exact: true,
     });
-  }
+    const back = win.getByRole('button', {
+      name: 'Switch to tab: Back',
+      exact: true,
+    });
+    // PREMISE: the pane knows which is in front.
+    await expect(front).toHaveAttribute('aria-current', 'true');
+    await expect(back).not.toHaveAttribute('aria-current');
+
+    await page.mouse.move(0, 0);
+    const atFront = await readFront(front);
+    const atBack = await readFront(back);
+    expect(atFront.weight).toBe('600');
+    expect(atBack.weight).toBe('400');
+    // No fill at rest (a resting shade read as hover, KAN-280 M3) and no bar.
+    for (const facts of [atFront, atBack]) {
+      expect(facts.fill).toBe(NO_FILL);
+      expect(NO_BEFORE).toContain(facts.before);
+    }
+
+    // A real 600, not a faked bold: Libre Franklin is variable, and its face
+    // must cover 600, or Chrome draws 500 thickened at 500's widths.
+    const widths = await page.evaluate(async () => {
+      await document.fonts.ready;
+      const probe = (weight: number) => {
+        const span = document.createElement('span');
+        span.style.cssText = `position:absolute;visibility:hidden;font:${weight} 16px 'Libre Franklin';white-space:nowrap`;
+        span.textContent = 'Tab (interface) - Wikipedia browser.tabs API';
+        document.body.append(span);
+        const width = span.getBoundingClientRect().width;
+        span.remove();
+        return width;
+      };
+      return { w400: probe(400), w500: probe(500), w600: probe(600) };
+    });
+    expect(widths.w500).toBeGreaterThan(widths.w400);
+    expect(widths.w600, JSON.stringify(widths)).toBeGreaterThan(
+      widths.w500 + 1
+    );
+  });
 
   test('8. the popup has no Open now; both views open the list with the search row', async ({
     context,
@@ -1550,7 +1414,7 @@ grantedTest.describe(
     );
 
     grantedTest(
-      '7e. a front tab in a group has the bar at its own row edge, clear of the strip',
+      '7e. a front tab in a group is marked by its title, and nothing is drawn beside the strip (KAN-567)',
       async ({ context, extensionId, serviceWorker }, testInfo) => {
         const page = await openPage(
           context,
@@ -1588,49 +1452,11 @@ grantedTest.describe(
         await expect(row).toHaveAttribute('aria-current', 'true');
 
         await page.mouse.move(0, 0);
-        const m = await readMarker(row);
-        expect(m.rowFill, 'the front row has no fill of its own').toBe(NO_FILL);
-        expectBarShape(m);
-        expect(
-          contrast(rgbToHex(m.color), rgbToHex(m.backdrop)),
-          `bar ${m.color} on ${m.backdrop}`
-        ).toBeGreaterThanOrEqual(MARKER_FLOOR);
-        expect(m.color).toBe(rgb(LIGHT_THEME.LABEL_L2_COLOR));
-
-        const edges = await band.evaluate((bandEl: Element) => {
-          const strip = bandEl.querySelector('[data-open-now-group-strip]');
-          const paneEl = document.querySelector('[data-pane="open-now"]');
-          if (strip === null || paneEl === null) return null;
-          const style = getComputedStyle(paneEl);
-          return {
-            contentLeft:
-              paneEl.getBoundingClientRect().left +
-              parseFloat(style.borderLeftWidth) +
-              parseFloat(style.paddingLeft),
-            stripRight: strip.getBoundingClientRect().right,
-          };
-        });
-        if (edges === null) throw new Error('the band has no strip or pane');
-        const barLeft = m.rowLeft + parseFloat(m.left);
-        console.log(
-          `[front-tab bar, grouped] ${JSON.stringify({
-            barLeft: barLeft - edges.contentLeft,
-            stripRight: edges.stripRight - edges.contentLeft,
-          })}`
-        );
-        // At its own row's edge (95px in the pane), not on the strip (79-86px).
-        expectWithinHalfPixel(barLeft - edges.contentLeft, 95, 'bar x');
-        expectWithinHalfPixel(
-          edges.stripRight - edges.contentLeft,
-          86,
-          'strip right'
-        );
-
-        const [bar, fill] = await paintedBarAndFill(page, m);
-        expect(fill, 'the fill sample lands on the backdrop').toBe(
-          rgbToHex(m.backdrop)
-        );
-        expect(bar, 'the bar is painted').toBe(rgbToHex(m.color));
+        const m = await readFront(row);
+        expect(m.weight).toBe('600');
+        expect(m.fill, 'the front row has no fill of its own').toBe(NO_FILL);
+        // Nothing drawn at the row's edge, so nothing beside the strip.
+        expect(NO_BEFORE).toContain(m.before);
         await page.screenshot({
           path: testInfo.outputPath('front-tab-grouped.png'),
         });

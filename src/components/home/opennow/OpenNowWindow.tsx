@@ -34,7 +34,7 @@ import { DraggableRow } from '../rightpane/rowDrag/RowDragArea';
 import { useDragState } from '../rightpane/rowDrag/dragContext';
 import { markRowContainer } from '../rightpane/rowDrag/dropRules';
 import { GroupFrameFollower } from '../rightpane/rowDrag/GroupFrameFollower';
-import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
+import { DURATION, RADIUS, TYPE, WEIGHT } from '../../../styles/scale';
 import { windowLabel } from '../../../utils/functions/windowLabel';
 import { OPEN_ITEMS_SCOPE, OPEN_TABS_SCOPE } from './useOpenNowDrop';
 
@@ -82,9 +82,6 @@ function onFirstClickOnly(action: () => void): React.MouseEventHandler {
     action();
   };
 }
-
-// KAN-564. Which half of an on-screen split a row is, top to bottom.
-type SplitHalf = 'upper' | 'lower';
 
 interface OpenNowWindowProps {
   openWindow: OpenWindow;
@@ -234,30 +231,11 @@ export default function OpenNowWindow({
     padding-left: 70px;
   `;
 
-  // The bar alone marks the active tab (KAN-280 M3, Justine's pick B3, then
-  // no shade): a resting shade read as a hovered row. The bar is LABEL_L2,
-  // KAN-199's quietest token clearing 3:1 on the pane and on hover. Drawn as
-  // ::before so the row keeps the saved row's size.
-  // KAN-564 P. A split on screen is one bar down both halves: the upper
-  // half's runs to its bottom edge, the lower half's from its top.
-  const frontTabBar = (join: SplitHalf | null) => `
-    &::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: ${join === 'lower' ? 0 : 8}px;
-      bottom: ${join === 'upper' ? 0 : 8}px;
-      width: 3px;
-      background: ${COLORS.LABEL_L2_COLOR};
-      pointer-events: none;
-    }
-  `;
-  const childrenStyle = (active: boolean, join: SplitHalf | null) => css`
+  const childrenStyle = css`
     position: relative;
     display: flex;
     align-items: stretch;
     justify-content: space-between;
-    ${active ? frontTabBar(join) : ''}
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
     }
@@ -386,12 +364,6 @@ export default function OpenNowWindow({
       other.active || other.id === lastUsedTabId;
     const isOnScreen =
       isFront(tab) || (partner !== undefined && isFront(partner));
-    const join: SplitHalf | null =
-      partner === undefined || !isOnScreen
-        ? null
-        : tab.index < partner.index
-          ? 'upper'
-          : 'lower';
     const describedBy = [
       ...(isLastUsed ? [lastUsedId] : []),
       ...(tab.pinned ? [pinnedId] : []),
@@ -401,7 +373,7 @@ export default function OpenNowWindow({
     return (
       <div
         key={tab.id}
-        css={childrenStyle(isOnScreen, join)}
+        css={childrenStyle}
         data-open-tab-id={tab.id}
         onMouseEnter={() => setHoveredTabId(tab.id)}
         onMouseLeave={() => setHoveredTabId(null)}
@@ -425,10 +397,12 @@ export default function OpenNowWindow({
               value={tab.title}
               color={COLORS.TEXT_COLOR}
               size={TYPE.BODY}
-              // The active title keeps the one weight the popup uses
-              // (scaleConformance.test.ts, KAN-205); the row's bar alone
-              // marks it (KAN-280 M3).
-              style="padding-left: 4px; height: 100%; max-width: 100%;"
+              // KAN-567 B. The tab on screen is marked by its title's weight
+              // alone, so nothing competes with a group's strip and hover
+              // stays the row's only fill (WEIGHT.ACTIVE_ROW).
+              style={`padding-left: 4px; height: 100%; max-width: 100%;${
+                isOnScreen ? ` font-weight: ${WEIGHT.ACTIVE_ROW};` : ''
+              }`}
             />
           </div>
           {(tab.pinned || splitText !== null || sound !== null) && (
