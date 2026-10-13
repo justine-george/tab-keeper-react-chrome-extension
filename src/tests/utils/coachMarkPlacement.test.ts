@@ -2,6 +2,8 @@ import { describe, expect, test } from 'vitest';
 
 import {
   clipPathWithHole,
+  COACH,
+  freeAimFor,
   intersectBox,
   placeBeside,
   placeFree,
@@ -289,7 +291,7 @@ describe('sameFrame', () => {
   });
   const free = {
     kind: 'free' as const,
-    placement: { side: 'free' as const, left: 40, top: 20 },
+    placement: { side: 'free' as const, left: 40, top: 20, notch: 100 },
   };
   test('free frames: same place is the same, a moved one or an anchored one is not', () => {
     expect(sameFrame(free, { ...free })).toBe(true);
@@ -298,6 +300,9 @@ describe('sameFrame', () => {
     ).toBe(false);
     expect(
       sameFrame(free, { ...free, placement: { ...free.placement, top: 21 } })
+    ).toBe(false);
+    expect(
+      sameFrame(free, { ...free, placement: { ...free.placement, notch: 48 } })
     ).toBe(false);
     const sameSpot = {
       ...frame,
@@ -311,21 +316,50 @@ describe('sameFrame', () => {
   });
 });
 
+describe('freeAimFor', () => {
+  test('a Mac aims at the first tab, anything else where it always did, and an unknown platform nowhere yet', () => {
+    expect(freeAimFor(true)).toBe(COACH.FREE_AIM_MAC);
+    expect(freeAimFor(false)).toBe(COACH.FREE_AIM_DEFAULT);
+    expect(freeAimFor(null)).toBeNull();
+  });
+});
+
 describe('placeFree', () => {
-  test('40px in and 20px down, with no notch', () => {
-    expect(placeFree(POPUP_MARK, POPUP_VIEW)).toEqual({
+  // KAN-563: the notch's tip lands on `aim`, the first tab's x as measured on a Mac.
+  test('40px in and 20px down, the notch tip at the aim', () => {
+    expect(placeFree(POPUP_MARK, POPUP_VIEW, COACH.FREE_AIM_MAC)).toEqual({
       side: 'free',
       left: 40,
       top: 20,
+      notch: 100,
+    });
+    expect(placeFree(POPUP_MARK, POPUP_VIEW, COACH.FREE_AIM_DEFAULT)).toEqual({
+      side: 'free',
+      left: 40,
+      top: 20,
+      notch: 48,
     });
   });
 
-  test('a narrow window keeps the card inside its gutter', () => {
+  test('the measured Mac aim is inside the first tab, past Tab search', () => {
+    // Chrome 155 and 156, windowed and full screen: Tab search 92-120, the first tab from 114.
+    expect(COACH.FREE_AIM_MAC).toBeGreaterThan(120);
+    expect(COACH.FREE_AIM_MAC).toBeLessThan(154);
+  });
+
+  test('a narrow window keeps the card inside its gutter, and the notch on the aim', () => {
     expect(
-      placeFree({ width: 300, height: 150 }, { width: 320, height: 500 })
-    ).toMatchObject({ left: 12, top: 20 });
+      placeFree({ width: 300, height: 150 }, { width: 320, height: 500 }, 140)
+    ).toMatchObject({ left: 12, top: 20, notch: 128 });
     expect(
-      placeFree({ width: 400, height: 150 }, { width: 320, height: 500 })
-    ).toMatchObject({ left: 8 });
+      placeFree({ width: 400, height: 150 }, { width: 320, height: 500 }, 140)
+    ).toMatchObject({ left: 8, notch: 132 });
+  });
+
+  test('an aim off the card keeps the notch on its top edge, NOTCH_MIN in', () => {
+    expect(placeFree(POPUP_MARK, POPUP_VIEW, 0).notch).toBe(COACH.NOTCH_MIN);
+    expect(placeFree(POPUP_MARK, POPUP_VIEW, 5000).notch).toBe(
+      POPUP_MARK.width - COACH.NOTCH_MIN
+    );
   });
 });

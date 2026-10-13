@@ -10,6 +10,7 @@ import {
   seedSettings,
 } from './fixtures/seed';
 import { contrast, pixelsAt, rgbToHex } from './fixtures/pixels';
+import { platformSays } from './fixtures/platform';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
 import {
   BB_PINK_THEME,
@@ -1097,18 +1098,6 @@ test.describe('The Reopen toast is as wide as its line (KAN-280 O8b)', () => {
 
   // The Reopen button's key hint (KAN-311) is ⌘Z on a Mac and Ctrl+Z (de
   // Strg+Z) elsewhere, whatever machine runs this, so each is measured.
-  // Overridden in the page, before the app reads it, as
-  // first-run-language.spec.ts does for the UI language.
-  const platformSays = (context: BrowserContext, os: 'mac' | 'win') =>
-    context.addInitScript((platformOs: 'mac' | 'win') => {
-      const runtime = globalThis.chrome?.runtime;
-      if (runtime) {
-        Object.defineProperty(runtime, 'getPlatformInfo', {
-          value: async () => ({ os: platformOs, arch: 'x86-64' }),
-          configurable: true,
-        });
-      }
-    }, os);
 
   // The toast's cap, 30rem, in px at the page's own root.
   const thirtyRem = (page: Page): Promise<number> =>

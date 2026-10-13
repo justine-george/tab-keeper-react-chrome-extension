@@ -283,6 +283,20 @@ describe('chrome.runtime fake', () => {
     expect((await chrome.runtime.getPlatformInfo()).os).toBe('mac');
   });
 
+  test('a seeded platformAnswer is what getPlatformInfo returns, held or failed', async () => {
+    const answer = Promise.resolve({ os: 'mac', arch: 'arm' } as const);
+    handle = setupChromeFake({ platformOs: 'win', platformAnswer: answer });
+    expect(chrome.runtime.getPlatformInfo()).toBe(answer);
+    handle.restore();
+
+    const failed = Promise.reject(new Error('no platform'));
+    failed.catch(() => {});
+    handle = setupChromeFake({ platformAnswer: failed });
+    await expect(chrome.runtime.getPlatformInfo()).rejects.toThrow(
+      'no platform'
+    );
+  });
+
   test('getPlatformInfo also takes a callback', () => {
     handle = setupChromeFake({ platformOs: 'win' });
     const cb = vi.fn();

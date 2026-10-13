@@ -43,19 +43,23 @@ function firstAnchor(
 }
 
 // KAN-413. Re-read every frame: scrolling, folding, renaming and drags move the anchor.
+// freeAim: the page x a card with no anchor points its notch at; null holds that card unplaced.
 export function useCoachPlacement(
   markRef: RefObject<HTMLElement>,
   anchors: readonly string[],
   place: Place,
+  freeAim: number | null,
   boxOf: AnchorBox = ownBox,
   spotlight?: Spotlight
 ): CoachFrame | null {
   const [frame, setFrame] = useState<CoachFrame | null>(null);
   const placeRef = useRef(place);
+  const freeAimRef = useRef(freeAim);
   const boxOfRef = useRef(boxOf);
   const spotlightRef = useRef(spotlight);
   useLayoutEffect(() => {
     placeRef.current = place;
+    freeAimRef.current = freeAim;
     boxOfRef.current = boxOf;
     spotlightRef.current = spotlight;
   });
@@ -78,13 +82,18 @@ export function useCoachPlacement(
       }
       let next: CoachFrame | null = null;
       if (mark !== null && selectors.length === 0) {
-        next = {
-          kind: 'free',
-          placement: placeFree(
-            { width: mark.offsetWidth, height: mark.offsetHeight },
-            { width: window.innerWidth, height: window.innerHeight }
-          ),
-        };
+        const aim = freeAimRef.current;
+        next =
+          aim === null
+            ? null
+            : {
+                kind: 'free',
+                placement: placeFree(
+                  { width: mark.offsetWidth, height: mark.offsetHeight },
+                  { width: window.innerWidth, height: window.innerHeight },
+                  aim
+                ),
+              };
       } else if (found !== null && mark !== null) {
         const box = found.box;
         const lit = spotlightRef.current;
