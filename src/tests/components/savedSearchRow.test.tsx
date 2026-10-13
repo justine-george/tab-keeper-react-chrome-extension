@@ -121,9 +121,12 @@ describe('typing in the row', () => {
     expect(field()).toHaveValue('   ');
     expect(listedIds()).toEqual(['r', 'h']);
     expect(screen.queryByText(/^Matches:/)).not.toBeInTheDocument();
+    // Not a search: the shown session keeps its actions (KAN-582: only it has them at once).
     expect(
-      sessionRows().filter((row) => row.querySelector('[data-row-actions]'))
-    ).toHaveLength(2);
+      sessionRows()
+        .filter((row) => row.querySelector('[data-row-actions]'))
+        .map((row) => row.dataset.dragRowId)
+    ).toEqual(['r']);
     expect(screen.queryByText(/No saved tab matches/)).not.toBeInTheDocument();
   });
 

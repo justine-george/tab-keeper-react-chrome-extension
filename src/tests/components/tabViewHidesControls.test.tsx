@@ -3,6 +3,7 @@ import { screen } from '@testing-library/react';
 
 import TabGroupEntry from '../../components/home/leftpane/TabGroupEntry';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { peekSavedSession } from '../../redux/slices/globalStateSlice';
 import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
 
 // KAN-279 D7. The tab view hides the row's Switch (e2e tab-view checks the
@@ -49,7 +50,9 @@ const renderTabGroupEntryRow = () =>
       onFocusClick={noop}
       onReplaceClick={noop}
       onDeleteClick={noop}
-    />
+    />,
+    // KAN-582. Actions show on the session shown; the tab view starts folded, so peek it.
+    { seedStore: (store) => store.dispatch(peekSavedSession()) }
   );
 
 afterEach(() => {
@@ -64,5 +67,6 @@ describe('the session row (D7)', () => {
     expect(
       await screen.findByRole('button', { name: 'Open' })
     ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Switch' })).toBeNull();
   });
 });

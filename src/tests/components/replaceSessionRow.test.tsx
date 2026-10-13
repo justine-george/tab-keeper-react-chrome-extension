@@ -1,8 +1,16 @@
-import { afterEach, describe, expect, test } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { afterEach, describe, expect, test, vi } from 'vitest';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
+import { ROW_ACTIONS_DWELL_MS } from '../../components/home/leftpane/useRowActionReveal';
+import { peekSavedSession } from '../../redux/slices/globalStateSlice';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { newestToast } from '../setup/toasts';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
@@ -76,7 +84,7 @@ describe('the row’s Replace (KAN-581)', () => {
   test('popup: Open, Switch, Replace, Delete', async () => {
     await renderList('popup');
 
-    expect(labels(rowActions('Weekend in Kyoto'))).toEqual([
+    expect(labels(rowActions('Q4 product roadmap'))).toEqual([
       'Open',
       'Switch',
       'Replace',
@@ -85,9 +93,13 @@ describe('the row’s Replace (KAN-581)', () => {
   });
 
   test('full view: Open, Replace, Delete', async () => {
-    await renderList('tab');
+    const { store } = await renderList('tab');
+    // The tab view starts folded; a row's actions show on the session shown (KAN-582).
+    act(() => {
+      store.dispatch(peekSavedSession());
+    });
 
-    expect(labels(rowActions('Weekend in Kyoto'))).toEqual([
+    expect(labels(rowActions('Q4 product roadmap'))).toEqual([
       'Open',
       'Replace',
       'Delete',
@@ -97,9 +109,12 @@ describe('the row’s Replace (KAN-581)', () => {
   test('its tooltip names the whole action, and it is drawn as the menu item is', async () => {
     await renderList();
 
-    const replace = within(rowActions('Weekend in Kyoto')).getByRole('button', {
-      name: 'Replace',
-    });
+    const replace = within(rowActions('Q4 product roadmap')).getByRole(
+      'button',
+      {
+        name: 'Replace',
+      }
+    );
     expect(replace).toHaveAttribute('title', 'Replace with open windows');
     expect(replace).toHaveTextContent('browser_updated');
   });
@@ -107,6 +122,15 @@ describe('the row’s Replace (KAN-581)', () => {
   test('on a row not shown: that session takes the open windows, keeps its name, says so, and the shown session stays shown', async () => {
     const user = userEvent.setup();
     const { store } = await renderList();
+    // KAN-582. Another row's actions show after a dwell on it.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    fireEvent.pointerOver(
+      screen.getByRole('button', { name: 'Weekend in Kyoto' })
+    );
+    act(() => {
+      vi.advanceTimersByTime(ROW_ACTIONS_DWELL_MS);
+    });
+    vi.useRealTimers();
 
     await user.click(
       within(rowActions('Weekend in Kyoto')).getByRole('button', {

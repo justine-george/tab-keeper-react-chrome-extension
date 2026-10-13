@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { DURATION, TYPE } from '../../../styles/scale';
 import { springSweepStyle } from '../../common/springOpen';
 import { SAVED_TEXT_INSET } from './savedListInset';
+import { useRowActionReveal } from './useRowActionReveal';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import {
   selectRunEngagedRowId,
@@ -124,6 +125,18 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     `padding: 14px 10px; width: 57px;${
       isOpenBlocked && !lit ? ' filter: opacity(0.3);' : ''
     }`;
+
+  // KAN-582. Selected (or the tour's row): actions at once; any other row after a dwell, guarded.
+  const { shown, strip, rowEvents, pressable } = useRowActionReveal(
+    drawsSelection || isRunEngaged
+  );
+  const press =
+    (act: MouseEventHandler): MouseEventHandler =>
+    (e) => {
+      e.stopPropagation();
+      if (pressable(e.currentTarget)) act(e);
+      else onTabGroupClick();
+    };
 
   // A plain string, not css``, because it is handed to ClickableRow's `style`
   // prop, which composes it into the button's own reset.
@@ -409,6 +422,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       data-run-engaged={isRunEngaged ? '' : undefined}
       data-carry-target={carryTarget === undefined ? undefined : ''}
       data-carry-dwell={carryTarget?.dwellSweep ? '' : undefined}
+      {...rowEvents}
     >
       <ClickableRow
         ariaLabel={title}
@@ -458,8 +472,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           )}
         </div>
       </ClickableRow>
-      {!isSearching && (
-        <div data-row-actions css={rightStyle}>
+      {!isSearching && shown && (
+        <div data-row-actions ref={strip} css={rightStyle}>
           <Icon
             tooltipText={openBlockedBecause ?? t('Open session')}
             text={t('Open')}
@@ -467,10 +481,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             type="reopen_window"
             tourAnchor="row-open"
             disable={isOpenBlocked}
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenAllClick(e);
-            }}
+            onClick={press(onOpenAllClick)}
             style={blockedStyle(litButton === 'open')}
           />
           {/* KAN-279 D7. Switching closes the windows hosting Tab Keeper
@@ -483,10 +494,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
               type="filter_center_focus"
               tourAnchor="row-switch"
               disable={isOpenBlocked}
-              onClick={(e) => {
-                e.stopPropagation();
-                onFocusClick(e);
-              }}
+              onClick={press(onFocusClick)}
               style={blockedStyle(litButton === 'switch')}
             />
           )}
@@ -495,10 +503,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             text={t('Replace')}
             ariaLabel={t('Replace')}
             type="browser_updated"
-            onClick={(e) => {
-              e.stopPropagation();
-              onReplaceClick(e);
-            }}
+            onClick={press(onReplaceClick)}
             style="padding: 14px 10px; width: 57px;"
           />
           <Icon
@@ -508,10 +513,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             type="delete"
             tourAnchor="row-delete"
             disable={holdsDelete}
-            onClick={(e) => {
-              e.stopPropagation();
-              onDeleteClick(e);
-            }}
+            onClick={press(onDeleteClick)}
             style="padding: 14px 10px; width: 57px;"
           />
         </div>
