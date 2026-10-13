@@ -695,7 +695,11 @@ test.describe('Open compact view goes back (KAN-507)', () => {
   }) => {
     await seedSessions(context);
     await defaultViewFull(context, serviceWorker);
-    await unanswered(context);
+    // One seed holds both: a later seedSettings replaces the whole settingsData.
+    await seedSettings(context, {
+      defaultView: 'full',
+      isClosesThisTabCardAnswered: false,
+    });
     const w = await windowOnB(serviceWorker);
     await serviceWorker.evaluate(async (windowId) => {
       const click = Reflect.get(globalThis, 'tabKeeperToolbarClick');
