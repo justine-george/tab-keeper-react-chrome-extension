@@ -48,6 +48,7 @@ import { getPrettyDate } from '../../utils/functions/local';
 
 const base = {
   isSignedIn: true,
+  awaitsDeviceId: false,
   isAutoSync: true,
   isCloudConfigured: true,
   cloudConsent: 'granted' as const,
@@ -134,6 +135,18 @@ describe('describeSyncState', () => {
       describeSyncState({ ...base, isSignedIn: false, syncStatus: 'error' })
         .kind
     ).toBe('unavailable');
+  });
+
+  // KAN-599. A fresh install holds no id until the yes; that is off, not unavailable.
+  test('no id yet, awaiting the yes, is off; with the yes it is not unavailable either', () => {
+    const awaiting = { ...base, isSignedIn: false, awaitsDeviceId: true };
+    expect(
+      describeSyncState({ ...awaiting, cloudConsent: 'declined' }).kind
+    ).toBe('off');
+    expect(describeSyncState({ ...awaiting, cloudConsent: '' }).kind).toBe(
+      'off'
+    );
+    expect(describeSyncState(awaiting).kind).toBe('on');
   });
 
   test('no cloud in the build is unavailable, but auto-off still reads manual', () => {

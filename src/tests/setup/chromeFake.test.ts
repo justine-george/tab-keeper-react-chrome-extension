@@ -4722,6 +4722,40 @@ describe('chrome.storage.session.onChanged (KAN-475)', () => {
   });
 });
 
+// KAN-599. A page follows the device id when Chrome Sync brings another machine's.
+describe('chrome.storage.sync.onChanged (KAN-599)', () => {
+  test('a set reports each changed key, old and new; an unchanged one is left out', async () => {
+    handle = setupChromeFake({ storage: { tokenValue: 'X', kept: 1 } });
+    const seen: Record<string, chrome.storage.StorageChange>[] = [];
+    chrome.storage.sync.onChanged.addListener((changes) => seen.push(changes));
+    await chrome.storage.sync.set({ tokenValue: 'Y', kept: 1, added: 'z' });
+    await vi.waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen[0]).toEqual({
+      tokenValue: { oldValue: 'X', newValue: 'Y' },
+      added: { newValue: 'z' },
+    });
+  });
+
+  test('a remove and a clear report the old value; a removed listener hears nothing', async () => {
+    handle = setupChromeFake({ storage: { tokenValue: 'X', other: 2 } });
+    const seen: Record<string, chrome.storage.StorageChange>[] = [];
+    const listener = (changes: Record<string, chrome.storage.StorageChange>) =>
+      seen.push(changes);
+    chrome.storage.sync.onChanged.addListener(listener);
+    await chrome.storage.sync.remove('tokenValue');
+    await chrome.storage.sync.clear();
+    await vi.waitFor(() => expect(seen).toHaveLength(2));
+    expect(seen).toEqual([
+      { tokenValue: { oldValue: 'X' } },
+      { other: { oldValue: 2 } },
+    ]);
+    chrome.storage.sync.onChanged.removeListener(listener);
+    await chrome.storage.sync.set({ tokenValue: 'Z' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(seen).toHaveLength(2);
+  });
+});
+
 // KAN-460, measured on Chromium 151 (plan 2026-10-08): windows.create refuses a maximized or full-screen state with bounds or unfocused.
 describe('windows.create refuses a state Chrome refuses', () => {
   test.each([

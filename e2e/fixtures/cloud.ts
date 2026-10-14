@@ -3,7 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { chromium, type BrowserContext, type Page } from '@playwright/test';
+import {
+  chromium,
+  type BrowserContext,
+  type Page,
+  type Worker,
+} from '@playwright/test';
 
 import {
   buildContainer,
@@ -81,28 +86,46 @@ export interface SecondDevice {
   close(): Promise<void>;
 }
 
-// A second profile that adopts `token` (a device id is only a uuid in chrome.storage.sync) and
-// opens the popup holding `sessions`; it stays open until close().
-export async function openSecondDevice(
-  token: string,
-  sessions: ReturnType<typeof buildSession>[]
-): Promise<SecondDevice> {
+export interface Profile {
+  context: BrowserContext;
+  close(): Promise<void>;
+}
+
+// Another machine: its own profile with the extension loaded and nothing stored, not even an answer to the cloud question.
+export async function launchProfile(): Promise<Profile> {
   const dir = mkdtempSync(join(tmpdir(), 'tabkeeper-e2e-b-'));
   const context = await chromium.launchPersistentContext(dir, {
     headless: true,
     channel: 'chromium',
     args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
   });
-  const close = async () => {
-    await context.close();
-    rmSync(dir, { recursive: true, force: true });
+  return {
+    context,
+    close: async () => {
+      await context.close();
+      rmSync(dir, { recursive: true, force: true });
+    },
   };
+}
+
+// A profile's service worker; the event, because serviceWorkers() is empty right after launch.
+export async function workerOf(context: BrowserContext): Promise<Worker> {
+  return (
+    context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
+  );
+}
+
+// A second profile that adopts `token` (a device id is only a uuid in chrome.storage.sync) and
+// opens the popup holding `sessions`; it stays open until close().
+export async function openSecondDevice(
+  token: string,
+  sessions: ReturnType<typeof buildSession>[]
+): Promise<SecondDevice> {
+  const { context, close } = await launchProfile();
   try {
     await seedCloudConsentIfSettingsAbsent(context);
     await seedOnce(context, sessions);
-    const worker =
-      context.serviceWorkers()[0] ??
-      (await context.waitForEvent('serviceworker'));
+    const worker = await workerOf(context);
     await worker.evaluate(
       (t: string) => chrome.storage.sync.set({ tokenValue: t }),
       token

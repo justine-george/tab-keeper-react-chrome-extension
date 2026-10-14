@@ -58,6 +58,7 @@ import {
   TOAST_MESSAGES,
 } from '../../utils/constants/common';
 import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
+import { mintDeviceIdIfNone } from '../deviceId';
 import {
   cloudSyncAllowed,
   forgetLastSync,
@@ -88,6 +89,11 @@ export interface Global {
   //
   // It is NOT permission to call Firestore. See isFirebaseAuthed (KAN-70).
   isSignedIn: boolean;
+  // KAN-599. "chrome.storage.sync is readable and holds no id yet": one is
+  // minted at the yes to sync, not at the open, so Chrome Sync has until then
+  // to bring another machine's. Not "unavailable", which is isSignedIn false
+  // with this false too.
+  awaitsDeviceId: boolean;
   // "Firebase anonymous auth has landed", i.e. request.auth is non-null and the
   // security rules will accept a request. Written ONLY by onAuthStateChanged.
   //
@@ -283,6 +289,7 @@ export const initialState: Global = {
   hasSyncedBefore: false,
   holdsPlaceholderSessions: true,
   isSignedIn: false,
+  awaitsDeviceId: false,
   isFirebaseAuthed: false,
   isCloudConfigured: false,
   userId: null,
@@ -318,9 +325,10 @@ export const initialState: Global = {
 };
 
 // save data to Firestore if dirty, saves latest to localStorage at the end
+// KAN-599. A sync passes the doc it read, so a page that follows a new device id mid-sync never writes one doc's merge into another.
 export const saveToFirestoreIfDirty = createAsyncThunk(
   'global/saveToFirestoreIfDirty',
-  async (_, thunkAPI) => {
+  async (docId: string | undefined, thunkAPI) => {
     const state = thunkAPI.getState() as RootState;
 
     try {
@@ -355,10 +363,9 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
           throw new TranslatableError(SYNC_SIZE_REFUSAL, params);
         }
 
-        await saveToFirestore(
-          state.globalState.userId!,
-          state.tabContainerDataState
-        );
+        const to = docId ?? state.globalState.userId;
+        if (!to) throw new Error('No device id to save to');
+        await saveToFirestore(to, state.tabContainerDataState);
         // Save to localStorage after successful Firestore update. The CURRENT
         // state, not `state` from before the await (KAN-291): an edit made
         // while the write was in flight has already persisted itself, and
@@ -452,9 +459,12 @@ export const syncStateWithFirestore = createAsyncThunk<
   'global/syncStateWithFirestore',
   async (_, thunkAPI) => {
     const state = thunkAPI.getState();
+    // KAN-599. Read once: the merge is written back to the doc it came from.
+    const docId = state.globalState.userId;
+    if (!docId) throw new Error('No device id to sync with');
 
     // load from Firestore
-    const cloudCandidate = await loadFromFirestore(state.globalState.userId!);
+    const cloudCandidate = await loadFromFirestore(docId);
 
     // The cloud side gets the same treatment localStorage gets below. Without
     // this, an unrecognised document reaches mergeTabContainers and throws
@@ -542,7 +552,7 @@ export const syncStateWithFirestore = createAsyncThunk<
       if (changedFromCloud) {
         thunkAPI.dispatch(setIsDirtyWithoutSync());
         // saveToFirestoreIfDirty's own fulfilled reducer reports the success.
-        thunkAPI.dispatch(saveToFirestoreIfDirty());
+        thunkAPI.dispatch(saveToFirestoreIfDirty(docId));
       } else {
         // Nothing to write, which is the MOST in-sync a user can be and the
         // usual outcome of opening the popup. It has to say so: syncStatus is
@@ -627,7 +637,7 @@ export const syncStateWithFirestore = createAsyncThunk<
         loadStoredSessionsIntoPage(tabDataFromLocalStorage)
       );
       thunkAPI.dispatch(setIsDirtyWithoutSync());
-      thunkAPI.dispatch(saveToFirestoreIfDirty());
+      thunkAPI.dispatch(saveToFirestoreIfDirty(docId));
       if (!state.globalState.hasSyncedBefore) {
         // reset presentState in the undoRedoState
         thunkAPI.dispatch(
@@ -643,7 +653,7 @@ export const syncStateWithFirestore = createAsyncThunk<
       // real state, not a placeholder: a later load keeps its selection.
       thunkAPI.dispatch(endPlaceholderSessions());
       thunkAPI.dispatch(setIsDirtyWithoutSync());
-      thunkAPI.dispatch(saveToFirestoreIfDirty());
+      thunkAPI.dispatch(saveToFirestoreIfDirty(docId));
       thunkAPI.dispatch(setHasSyncedBefore());
     }
   },
@@ -739,7 +749,13 @@ const resyncAfterHold =
  */
 export const syncNowWhenSignedIn =
   () =>
-  async (dispatch: AppDispatch): Promise<void> => {
+  async (dispatch: AppDispatch, getState: () => RootState): Promise<void> => {
+    // KAN-599. A yes on a device with no id yet mints it before this reads.
+    await dispatch(mintDeviceIdIfNone());
+    if (!getState().globalState.userId) {
+      dispatch(setSyncStatus('error'));
+      return;
+    }
     try {
       await ensureCloudSessionReady(dispatch);
     } catch (error) {
@@ -1196,6 +1212,10 @@ export const globalStateSlice = createSlice({
       state.userId = null;
     },
 
+    setAwaitsDeviceId: (state, action: PayloadAction<boolean>) => {
+      state.awaitsDeviceId = action.payload;
+    },
+
     replaceState: (state, action: PayloadAction<typeof state>) =>
       action.payload,
 
@@ -1432,6 +1452,7 @@ export const {
   setSyncStatus,
   setUserId,
   removeUserId,
+  setAwaitsDeviceId,
   setHasTabGroupsPermission,
   setHasSessionsPermission,
   toggleWindowCollapse,
