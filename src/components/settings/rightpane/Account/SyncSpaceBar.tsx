@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useFontFamily } from '../../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../../hooks/useThemeColors';
 import { RootState } from '../../../../redux/store';
-import { DURATION, TYPE } from '../../../../styles/scale';
+import { DURATION, RADIUS, TYPE } from '../../../../styles/scale';
 import {
   estimateFirestoreBytes,
   FIRESTORE_MAX_DOCUMENT_BYTES,
@@ -65,7 +65,7 @@ const SyncSpaceBar: React.FC = () => {
         aria-valuetext={text}
         css={css`
           height: 6px;
-          border-radius: 3px;
+          border-radius: ${RADIUS.SQUARE};
           background: ${COLORS.DIVIDER_COLOR};
           overflow: hidden;
         `}
