@@ -17,7 +17,10 @@ import { makeTestStore } from '../setup/makeStore';
 import { takeShowFromAddress } from '../../utils/functions/fullViewShow';
 import { showInFullView } from '../../redux/fullViewShow';
 import { SHOW_IN_FULL_VIEW_MESSAGE } from '../../utils/functions/popOut';
-import { closePinGuide } from '../../redux/slices/globalStateSlice';
+import {
+  closePinGuide,
+  openSettingsPage,
+} from '../../redux/slices/globalStateSlice';
 import {
   finishSetup,
   initialState as settingsInitial,
@@ -73,6 +76,17 @@ describe('showInFullView', () => {
     store.dispatch(finishSetup());
     store.dispatch(showInFullView('setup'));
     expect(store.getState().settingsDataState.setupState).toBe('pending');
+    expect(store.getState().globalState.isSetupOpen).toBe(true);
+  });
+
+  // KAN-589. From Settings → Help, setup opens over the home page, as Show me around's run does.
+  test('setup: leaves the Settings page first', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(openSettingsPage(SettingsCategory.HELP));
+    // PREMISE: on the Settings page.
+    expect(store.getState().globalState.isSettingsPage).toBe(true);
+    store.dispatch(showInFullView('setup'));
+    expect(store.getState().globalState.isSettingsPage).toBe(false);
     expect(store.getState().globalState.isSetupOpen).toBe(true);
   });
 
