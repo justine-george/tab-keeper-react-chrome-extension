@@ -23,6 +23,8 @@ export interface ToastItem {
   params: Record<string, string | number> | undefined;
   reopenOffer: ToastOffer | null;
   show: ToastShow | null;
+  // KAN-583. An Undo button: true only while the change this toast announces is the latest undo step.
+  offersUndo: boolean;
 }
 
 function sameParams(a: ToastItem['params'], b: ToastItem['params']): boolean {

@@ -9,7 +9,13 @@ import {
 } from '@reduxjs/toolkit';
 
 import { AppDispatch, RootState } from '../store';
-import { resetHistory, setPresentStartup } from './undoRedoSlice';
+import {
+  redo,
+  resetHistory,
+  set,
+  setPresentStartup,
+  undo,
+} from './undoRedoSlice';
 import { isDragHeld, whenDragReleases } from '../dragHold';
 import { addToast } from '../toastStack';
 import type { ToastItem } from '../toastStack';
@@ -896,9 +902,14 @@ interface ShowToastPayload {
   // KAN-350. A Show chip that puts this session on screen. Twins replace
   // (T5) and the cap applies; T4 is for offers only.
   show?: { tabGroupId: string };
+  // KAN-583. An Undo button. Set only when the change announced was just recorded as the latest undo step.
+  offersUndo?: boolean;
 }
 
 let lastToastId = 0;
+
+const withoutUndo = (toasts: ToastItem[]): ToastItem[] =>
+  toasts.map((t) => (t.offersUndo ? { ...t, offersUndo: false } : t));
 
 // Timers and the Reopen registry are settled after every change to the list
 // by toastMiddleware, whichever action made it.
@@ -911,6 +922,7 @@ export const showToast = createAsyncThunk(
       reopenOfferId,
       announcesSavedChange = false,
       show,
+      offersUndo = false,
     }: ShowToastPayload,
     thunkAPI
   ) => {
@@ -928,15 +940,17 @@ export const showToast = createAsyncThunk(
               ? null
               : { id: reopenOfferId, keepsUndoKey: true },
           show: show ?? null,
+          offersUndo,
         },
         announcesSavedChange,
       })
     );
-    // A button (Reopen, Show) or an error needs the user; anything else is a plain notice.
+    // A button (Reopen, Show, Undo) or an error needs the user; anything else is a plain notice.
     const needsYou =
       ERROR_TOASTS.has(toastText) ||
       reopenOfferId !== undefined ||
-      show !== undefined;
+      show !== undefined ||
+      offersUndo;
     startToastTimer(id, needsYou ? NEEDS_YOU_TOAST_MS : TOAST_MS, () =>
       thunkAPI.dispatch(toastsRemoved([id]))
     );
@@ -1291,6 +1305,22 @@ export const globalStateSlice = createSlice({
       // that effect has since grown a guard of its own
       // (TabGroupEntryContainer:104) and keeps the selection when it is still
       // among the results, so it does not re-dispatch per keystroke.
+      // KAN-583. Undo steps back from the latest step only. A new step (L1) or
+      // a reset history leaves the older toast with no step of its own to undo,
+      // so it keeps its text and loses the button; an undo or redo has moved
+      // off the step, so its toast closes, as ⌘Z closes a plain one.
+      .addCase(set, (state) => {
+        state.toasts = withoutUndo(state.toasts);
+      })
+      .addCase(resetHistory, (state) => {
+        state.toasts = withoutUndo(state.toasts);
+      })
+      .addCase(undo, (state) => {
+        state.toasts = state.toasts.filter((t) => !t.offersUndo);
+      })
+      .addCase(redo, (state) => {
+        state.toasts = state.toasts.filter((t) => !t.offersUndo);
+      })
       .addCase(selectTabContainer, (state, action) => {
         if (
           state.collapsedWindows &&

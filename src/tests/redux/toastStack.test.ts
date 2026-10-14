@@ -17,6 +17,7 @@ const plain = (
   params,
   reopenOffer: null,
   show: null,
+  offersUndo: false,
 });
 
 const offer = (id: number, offerId: number): ToastItem => ({
@@ -25,6 +26,7 @@ const offer = (id: number, offerId: number): ToastItem => ({
   params: undefined,
   reopenOffer: { id: offerId, keepsUndoKey: true },
   show: null,
+  offersUndo: false,
 });
 
 const ids = (list: readonly ToastItem[]) => list.map((t) => t.id);

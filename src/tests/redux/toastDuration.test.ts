@@ -19,6 +19,7 @@ import { toastTexts } from '../setup/toasts';
 import { showToast } from '../../redux/slices/globalStateSlice';
 import {
   deleteTab,
+  deleteTabContainer,
   replaceState,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { NEEDS_YOU_TOAST_MS, TOAST_MS } from '../../redux/toastDuration';
@@ -104,6 +105,22 @@ describe('toast time by kind (KAN-508)', () => {
     expectLastsExactly(
       store,
       TOAST_MESSAGES.MOVED_TO_SESSION,
+      NEEDS_YOU_TOAST_MS
+    );
+  });
+
+  test('deleting a session shows its Undo toast for 8s (KAN-583)', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(replaceState(buildContainer([buildSession()])));
+    vi.useFakeTimers();
+
+    await store.dispatch(deleteTabContainer('session-1'));
+    // PREMISE: it offers Undo.
+    expect(store.getState().globalState.toasts[0]?.offersUndo).toBe(true);
+
+    expectLastsExactly(
+      store,
+      TOAST_MESSAGES.DELETE_TAB_CONTAINER_SUCCESS,
       NEEDS_YOU_TOAST_MS
     );
   });
