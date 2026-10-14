@@ -158,8 +158,11 @@ test('K1: the ⋮ shows ⌫ beside Delete session, readable on its red hover', a
   const item = page.getByRole('menuitem', { name: 'Delete session' });
   const hint = item.locator('[data-key-hint]');
 
-  // Chrome reports this headless run's platform as a Mac (macOS host).
-  await expect(hint).toHaveText('⌫');
+  // Per the host: CI runs Linux, a Mac run reads the Mac form.
+  const isMac = await page.evaluate(
+    async () => (await chrome.runtime.getPlatformInfo()).os === 'mac'
+  );
+  await expect(hint).toHaveText(isMac ? '⌫' : 'Del');
   await expect(hint).toHaveAttribute('aria-hidden', 'true');
   const color = (l: Locator) => l.evaluate((e) => getComputedStyle(e).color);
   expect(await color(hint)).not.toBe(await color(item));
@@ -170,6 +173,6 @@ test('K1: the ⋮ shows ⌫ beside Delete session, readable on its red hover', a
   // The key's name is the row's; the item's is its label alone.
   await expect(row(page, 'Alpha')).toHaveAttribute(
     'aria-keyshortcuts',
-    'Backspace Meta+Backspace Delete'
+    isMac ? 'Backspace Meta+Backspace Delete' : 'Delete Backspace'
   );
 });
