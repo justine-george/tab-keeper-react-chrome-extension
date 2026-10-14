@@ -215,6 +215,7 @@
   "MovedToSession": "已移至“{{title}}”",
   "SessionEmptiedRemoved": "会话“{{title}}”已为空，已将其移除。",
   "Ctrl": "Ctrl",
+  "Del": "Del",
   "Tab closed": "标签页已关闭",
   "Couldn't reopen.": "无法重新打开。",
   "WindowClosed_other": "窗口已关闭（{{count}} 个标签页）",

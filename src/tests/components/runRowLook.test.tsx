@@ -45,6 +45,8 @@ async function renderRow(session: typeof RUN, step: RunStep) {
       onOpenAllClick={onOpen}
       onFocusClick={onFocus}
       onReplaceClick={() => undefined}
+      onDeleteKey={() => undefined}
+      deleteKeyShortcuts="Delete Backspace"
     />,
     { seedStore: atStep(step) }
   );

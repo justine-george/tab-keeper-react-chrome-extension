@@ -217,6 +217,7 @@
   "MovedToSession": "Nach „{{title}}“ verschoben",
   "SessionEmptiedRemoved": "„{{title}}“ war leer und wurde entfernt.",
   "Ctrl": "Strg",
+  "Del": "Entf",
   "Tab closed": "Tab geschlossen",
   "Couldn't reopen.": "Konnte nicht wieder geöffnet werden.",
   "WindowClosed_one": "Fenster geschlossen ({{count}} Tab)",

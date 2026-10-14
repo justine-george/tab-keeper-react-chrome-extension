@@ -20,3 +20,23 @@ export function useIsMac(): boolean | null {
   }, []);
   return isMac;
 }
+
+// KAN-592. For naming keys: false until Chrome says Mac, so a PC renders once and never again.
+export function useMacKeys(): boolean {
+  const [isMac, setIsMac] = useState(false);
+  useEffect(() => {
+    let live = true;
+    chrome.runtime
+      .getPlatformInfo()
+      .then((info) => {
+        if (live && info.os === 'mac') setIsMac(true);
+      })
+      .catch((error: unknown) => {
+        console.warn('Could not read the platform: ', error);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+  return isMac;
+}

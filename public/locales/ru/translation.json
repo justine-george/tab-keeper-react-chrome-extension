@@ -221,6 +221,7 @@
   "MovedToSession": "Перемещено в «{{title}}»",
   "SessionEmptiedRemoved": "Сессия «{{title}}» опустела и была удалена.",
   "Ctrl": "Ctrl",
+  "Del": "Del",
   "Tab closed": "Вкладка закрыта",
   "Couldn't reopen.": "Не удалось открыть снова.",
   "WindowClosed_one": "Окно закрыто ({{count}} вкладка)",

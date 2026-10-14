@@ -28,6 +28,7 @@ import { useRowActionGuard } from './useRowActionGuard';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import {
   selectRunEngagedRowId,
+  selectRunHoldsDelete,
   selectRunLitRowButton,
 } from '../../../redux/firstRun';
 
@@ -70,8 +71,18 @@ interface TabGroupEntryProps {
   onFocusClick: MouseEventHandler;
   // KAN-581. The ⋮ menu's Replace with open windows, on the row.
   onReplaceClick: MouseEventHandler;
+  // KAN-592. The ⋮ menu's Delete session, by key on the focused row.
+  onDeleteKey: () => void;
+  deleteKeyShortcuts: string;
   carryTarget?: CarryTargetLook;
 }
+
+// KAN-592. ⌫, Delete (fn⌫ on a Mac) and ⌘⌫; Ctrl, Alt or Shift with it is another command.
+const isDeleteKey = (e: React.KeyboardEvent): boolean =>
+  (e.key === 'Backspace' || e.key === 'Delete') &&
+  !e.ctrlKey &&
+  !e.altKey &&
+  !e.shiftKey;
 
 const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   tabGroupData,
@@ -79,6 +90,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   onOpenAllClick,
   onFocusClick,
   onReplaceClick,
+  onDeleteKey,
+  deleteKeyShortcuts,
   carryTarget,
 }) => {
   const COLORS = useThemeColors();
@@ -124,6 +137,11 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     `padding: 14px 10px; width: 57px;${
       isOpenBlocked && !lit ? ' filter: opacity(0.3);' : ''
     }`;
+
+  // KAN-582. While the tour's Delete step shows, the key is held as the header's ⋮ is.
+  const holdsDelete = useSelector((state: RootState) =>
+    selectRunHoldsDelete(state, tabGroupData.tabGroupId)
+  );
 
   // KAN-582. Only the session shown (or the tour's row) has its actions.
   const shown = drawsSelection || isRunEngaged;
@@ -435,6 +453,14 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
         ariaLabel={title}
         onClick={onTabGroupClick}
         style={leftStyle}
+        ariaKeyShortcuts={deleteKeyShortcuts}
+        onKeyDown={(e) => {
+          if (!isDeleteKey(e)) return;
+          // Before the repeat check: a held key must not fall through to the browser either.
+          e.preventDefault();
+          if (e.repeat || holdsDelete) return;
+          onDeleteKey();
+        }}
       >
         <NormalLabel
           style="max-width: 100%;"

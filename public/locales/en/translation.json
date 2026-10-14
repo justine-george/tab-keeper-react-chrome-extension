@@ -217,6 +217,7 @@
   "MovedToSession": "Moved to “{{title}}”",
   "SessionEmptiedRemoved": "“{{title}}” was empty and was removed.",
   "Ctrl": "Ctrl",
+  "Del": "Del",
   "Tab closed": "Tab closed",
   "Couldn't reopen.": "Couldn't reopen.",
   "WindowClosed_one": "Window closed ({{count}} tab)",

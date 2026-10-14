@@ -217,6 +217,7 @@
   "MovedToSession": "“{{title}}” में ले जाया गया",
   "SessionEmptiedRemoved": "सत्र “{{title}}” खाली था, इसलिए उसे हटा दिया गया।",
   "Ctrl": "Ctrl",
+  "Del": "Del",
   "Tab closed": "टैब बंद किया गया",
   "Couldn't reopen.": "फिर से नहीं खोला जा सका।",
   "WindowClosed_one": "विंडो बंद की गई ({{count}} टैब)",

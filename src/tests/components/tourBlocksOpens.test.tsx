@@ -154,6 +154,8 @@ describe('opens on the tour’s sample', () => {
         onOpenAllClick={onOpenAllClick}
         onFocusClick={onFocusClick}
         onReplaceClick={onReplaceClick}
+        onDeleteKey={() => undefined}
+        deleteKeyShortcuts="Delete Backspace"
       />,
       { seedStore: tourHere }
     );

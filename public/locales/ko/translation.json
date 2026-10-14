@@ -215,6 +215,7 @@
   "MovedToSession": "“{{title}}” 세션으로 이동했습니다",
   "SessionEmptiedRemoved": "“{{title}}” 세션이 비어 있어서 삭제했습니다.",
   "Ctrl": "Ctrl",
+  "Del": "Del",
   "Tab closed": "탭을 닫았습니다",
   "Couldn't reopen.": "다시 열지 못했습니다.",
   "WindowClosed_other": "창을 닫았습니다(탭 {{count}}개)",

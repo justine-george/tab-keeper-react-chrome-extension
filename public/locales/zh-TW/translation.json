@@ -215,6 +215,7 @@
   "MovedToSession": "已移至「{{title}}」",
   "SessionEmptiedRemoved": "工作階段「{{title}}」已沒有內容，因此已移除。",
   "Ctrl": "Ctrl",
+  "Del": "Del",
   "Tab closed": "分頁已關閉",
   "Couldn't reopen.": "無法重新開啟。",
   "WindowClosed_other": "視窗已關閉（{{count}} 個分頁）",

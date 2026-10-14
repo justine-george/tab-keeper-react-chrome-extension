@@ -219,6 +219,7 @@
   "MovedToSession": "Se movió a «{{title}}»",
   "SessionEmptiedRemoved": "La sesión «{{title}}» estaba vacía y se eliminó.",
   "Ctrl": "Ctrl",
+  "Del": "Supr",
   "Tab closed": "Pestaña cerrada",
   "Couldn't reopen.": "No se pudo reabrir.",
   "WindowClosed_one": "Ventana cerrada ({{count}} pestaña)",
