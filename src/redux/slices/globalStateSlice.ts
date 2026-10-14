@@ -1282,6 +1282,22 @@ export const globalStateSlice = createSlice({
 
   extraReducers: (builder) => {
     builder
+      // KAN-583. Undo steps back from the latest step only. A new step (L1) or
+      // a reset history leaves the older toast with no step of its own to undo,
+      // so it keeps its text and loses the button; an undo or redo has moved
+      // off the step, so its toast closes, as ⌘Z closes a plain one.
+      .addCase(set, (state) => {
+        state.toasts = withoutUndo(state.toasts);
+      })
+      .addCase(resetHistory, (state) => {
+        state.toasts = withoutUndo(state.toasts);
+      })
+      .addCase(undo, (state) => {
+        state.toasts = state.toasts.filter((t) => !t.offersUndo);
+      })
+      .addCase(redo, (state) => {
+        state.toasts = state.toasts.filter((t) => !t.offersUndo);
+      })
       // KAN-206. Leaving a session forgets how it was folded.
       //
       // This is the half of the reset that the tabGroupId pairing does NOT
@@ -1305,22 +1321,6 @@ export const globalStateSlice = createSlice({
       // that effect has since grown a guard of its own
       // (TabGroupEntryContainer:104) and keeps the selection when it is still
       // among the results, so it does not re-dispatch per keystroke.
-      // KAN-583. Undo steps back from the latest step only. A new step (L1) or
-      // a reset history leaves the older toast with no step of its own to undo,
-      // so it keeps its text and loses the button; an undo or redo has moved
-      // off the step, so its toast closes, as ⌘Z closes a plain one.
-      .addCase(set, (state) => {
-        state.toasts = withoutUndo(state.toasts);
-      })
-      .addCase(resetHistory, (state) => {
-        state.toasts = withoutUndo(state.toasts);
-      })
-      .addCase(undo, (state) => {
-        state.toasts = state.toasts.filter((t) => !t.offersUndo);
-      })
-      .addCase(redo, (state) => {
-        state.toasts = state.toasts.filter((t) => !t.offersUndo);
-      })
       .addCase(selectTabContainer, (state, action) => {
         if (
           state.collapsedWindows &&
