@@ -211,4 +211,19 @@ describe('Recently deleted page (KAN-595)', () => {
       });
     }
   });
+
+  // A wide full view would put Restore a screen away from its session: the
+  // heading and the list keep the reading width the other panes' text keeps.
+  test('the heading and the list stop at the settings reading width', async () => {
+    await renderPage();
+    await stock(entries);
+    const row = (await screen.findAllByTestId('recently-deleted-row'))[0];
+    const column = row.closest<HTMLElement>('[data-recently-deleted-column]');
+    expect(column).not.toBeNull();
+    expect(
+      column?.contains(screen.getByRole('button', { name: 'Empty' }))
+    ).toBe(true);
+    // 36rem; jsdom resolves it against its 16px root.
+    expect(getComputedStyle(column as HTMLElement).maxWidth).toBe('576px');
+  });
 });
