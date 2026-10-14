@@ -3,6 +3,7 @@ import i18next from 'i18next';
 
 import type { AppDispatch, RootState } from './store';
 import {
+  closeSettingsPage,
   openPinGuide,
   openSettingsPage,
   openSetup,
@@ -19,6 +20,8 @@ export const showInFullView =
   (dispatch) => {
     if (document.querySelector('dialog:modal') !== null) return;
     if (show === 'setup') {
+      // KAN-589. Over the home page, as Show me around's run starts there.
+      dispatch(closeSettingsPage());
       dispatch(restartSetup());
       dispatch(openSetup({ leadsToPinGuide: false }));
       return;

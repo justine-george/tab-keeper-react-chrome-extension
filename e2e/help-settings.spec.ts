@@ -46,15 +46,40 @@ test('popup: Run setup again opens the full view on setup’s first step', async
   );
 });
 
-test('full view: Run setup again shows setup right here', async ({
+// KAN-589. Setup opens over the home page, not over Settings. The save row is
+// the home page's own (Settings' left pane is data-pane="sessions" too).
+const home = (page: Page) =>
+  page.locator('[data-pane="sessions"] [data-tour-anchor="save"]');
+
+test('full view: Run setup again leaves Settings and shows setup over the home page', async ({
   context,
   extensionId,
 }) => {
   const full = await openFullView(context, extensionId);
   await openHelp(full);
+  // PREMISE: on Settings, the home page hidden.
+  await expect(home(full)).toBeHidden();
   await row(full, 'Run setup again').click();
   await expect(setup(full)).toBeVisible();
+  await expect(help(full)).toHaveCount(0);
+  await expect(home(full)).toBeVisible();
   expect((await storedSettings(full)).setupState).toBe('pending');
+});
+
+test('popup, with the full view open on Settings: Run setup again shows setup there over the home page', async ({
+  context,
+  extensionId,
+}) => {
+  const full = await openFullView(context, extensionId);
+  await openHelp(full);
+  // PREMISE: the full view sits on Settings.
+  await expect(home(full)).toBeHidden();
+  const popup = await openPopup(context, extensionId);
+  await openHelp(popup);
+  await row(popup, 'Run setup again').click();
+  await expect(setup(full)).toBeVisible();
+  await expect(help(full)).toHaveCount(0);
+  await expect(home(full)).toBeVisible();
 });
 
 test('popup, unpinned: Show me how opens the full view on the guide, though it was dismissed', async ({
