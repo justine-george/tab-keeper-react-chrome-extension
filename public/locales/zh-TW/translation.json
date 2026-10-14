@@ -341,5 +341,17 @@
   "Sync space used": "已用同步空間",
   "SyncSpaceUsed": "已使用 {{used}}，共 {{limit}} 同步空間",
   "SyncSpaceUsedNear": "已使用 {{used}}，共 {{limit}} 同步空間。達到 {{limit}} 時將停止同步：請移除不再需要的工作階段。",
-  "SyncSpaceUsedFull": "已使用 {{used}}，共 {{limit}} 同步空間。過大，無法同步：請移除不再需要的工作階段。"
+  "SyncSpaceUsedFull": "已使用 {{used}}，共 {{limit}} 同步空間。過大，無法同步：請移除不再需要的工作階段。",
+  "Recently deleted": "最近刪除",
+  "Kept for 30 days, then permanently deleted.": "保留 30 天，之後永久刪除。",
+  "RestoreDeletedSession": "復原",
+  "RestoreDeletedSessionNamed": "復原「{{title}}」",
+  "EmptyRecentlyDeleted": "清空",
+  "DeletedSessionTabs_other": "{{count}} 個分頁",
+  "DeletedOn": "刪除於 {{when}}",
+  "DaysLeft_other": "還剩 {{count}} 天",
+  "Session restored.": "已復原工作階段。",
+  "EmptyRecentlyDeletedTitle_other": "永久刪除 {{count}} 個工作階段？",
+  "EmptyRecentlyDeletedBody_other": "之後將無法復原。",
+  "Nothing deleted in the last 30 days.": "過去 30 天內沒有刪除任何項目。"
 }

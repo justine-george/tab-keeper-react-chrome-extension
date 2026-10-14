@@ -45,9 +45,16 @@ import {
   SORT_SESSIONS_ACTION,
   CLEAR_SESSION_ORDER_ACTION,
   MERGE_SESSIONS_FROM_BACKUP_ACTION,
+  RESTORE_DELETED_SESSION_ACTION,
 } from '../../utils/constants/actionTypes';
 import type { RootState } from '../store';
 import { noteTabKeeperAction } from '../openNowMoveUndo';
+import {
+  putBackDeleted,
+  recordDeleted,
+  spendDeleted,
+} from '../../utils/functions/recentlyDeleted';
+import { isSampleSession } from '../../utils/functions/sampleSession';
 
 // add actions to capture under undo/redo
 const actionsToCapture = [
@@ -86,6 +93,8 @@ const actionsToCapture = [
   CLEAR_SESSION_ORDER_ACTION,
   // KAN-261. Additive, so undoable: undo withdraws what the merge added.
   MERGE_SESSIONS_FROM_BACKUP_ACTION,
+  // KAN-595. Undo buries it again.
+  RESTORE_DELETED_SESSION_ACTION,
 
   // actions in globalStateSlice
   IS_DIRTY_ACTION,
@@ -118,19 +127,44 @@ const viewStateOnlyActions = [SELECT_TAB_CONTAINER_ACTION];
 const isUndoRedoAction = (type: string) =>
   [UNDO_ACTION, REDO_ACTION].includes(type);
 
+// The session ids present in `a` and not in `b`.
+const liveOnlyIn = (a: RootState, b: RootState) => {
+  const inB = new Set(
+    b.tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
+  );
+  return a.tabContainerDataState.tabGroups
+    .map((g) => g.tabGroupId)
+    .filter((id) => !inB.has(id));
+};
+
 // The session ids present after this action that were not present before it.
 //
 // Both states are read one action apart inside a single middleware pass, so
 // this is a statement about what the user's action did, not a guess recovered
 // later from two snapshots that have since drifted apart (KAN-80/KAN-83).
-const addedTabGroupIds = (prevState: RootState, nextState: RootState) => {
-  const before = new Set(
-    prevState.tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
+const addedTabGroupIds = (prevState: RootState, nextState: RootState) =>
+  liveOnlyIn(nextState, prevState);
+
+// KAN-595. Deletes the user made that took a whole session; a move that empties one is not a delete.
+const recordsDeletes = [
+  DELETE_TAB_CONTAINER_ACTION,
+  DELETE_WINDOW_ACTION,
+  DELETE_TAB_ACTION,
+  DELETE_CHROME_GROUP_ACTION,
+];
+
+// The sessions this action removed, read one action apart like addedTabGroupIds.
+const removedSessions = (prevState: RootState, nextState: RootState) => {
+  const after = new Set(
+    nextState.tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
   );
-  return nextState.tabContainerDataState.tabGroups
-    .map((g) => g.tabGroupId)
-    .filter((id) => !before.has(id));
+  return prevState.tabContainerDataState.tabGroups.filter(
+    (g) => !after.has(g.tabGroupId) && !isSampleSession(g.tabGroupId)
+  );
 };
+
+const logRecentlyDeleted = (error: unknown) =>
+  console.error('Recently deleted: could not update', error);
 
 const isDataStateChangeAction = (
   type: string,
@@ -274,6 +308,13 @@ export const customMiddleware: Middleware = (store) => {
         payload,
       });
       store.dispatch(setIsDirty());
+
+      // KAN-595. What the undo or redo brought back spends its entry; what it took away gets its entry back.
+      const afterState = store.getState() as RootState;
+      spendDeleted(liveOnlyIn(afterState, prevState)).catch(logRecentlyDeleted);
+      putBackDeleted(liveOnlyIn(prevState, afterState), Date.now()).catch(
+        logRecentlyDeleted
+      );
     } else if (isDataStateChangeAction(action.type, prevState, nextState)) {
       const { tabContainerDataState } = nextState;
       const isViewStateOnly = viewStateOnlyActions.includes(action.type);
@@ -290,6 +331,15 @@ export const customMiddleware: Middleware = (store) => {
               addedTabGroupIds: addedTabGroupIds(prevState, nextState),
             })
       );
+
+      // KAN-595. The delete stands even if recording it fails. A session back
+      // (a restore, a backup merge) spends its entry.
+      if (recordsDeletes.includes(action.type)) {
+        recordDeleted(removedSessions(prevState, nextState), Date.now()).catch(
+          logRecentlyDeleted
+        );
+      }
+      spendDeleted(liveOnlyIn(nextState, prevState)).catch(logRecentlyDeleted);
 
       if (!isViewStateOnly) {
         // A new saved-session change: the most recent Tab Keeper action now,

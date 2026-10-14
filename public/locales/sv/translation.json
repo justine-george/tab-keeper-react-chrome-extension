@@ -346,5 +346,21 @@
   "Sync space used": "Använt synkutrymme",
   "SyncSpaceUsed": "{{used}} av {{limit}} synkutrymme använt",
   "SyncSpaceUsedNear": "{{used}} av {{limit}} synkutrymme använt. Synken stannar vid {{limit}}: ta bort sessioner du inte längre behöver.",
-  "SyncSpaceUsedFull": "{{used}} av {{limit}} synkutrymme använt. För stort för att synkas: ta bort sessioner du inte längre behöver."
+  "SyncSpaceUsedFull": "{{used}} av {{limit}} synkutrymme använt. För stort för att synkas: ta bort sessioner du inte längre behöver.",
+  "Recently deleted": "Nyligen raderade",
+  "Kept for 30 days, then permanently deleted.": "Sparas i 30 dagar och raderas sedan permanent.",
+  "RestoreDeletedSession": "Återställ",
+  "RestoreDeletedSessionNamed": "Återställ {{title}}",
+  "EmptyRecentlyDeleted": "Töm",
+  "DeletedSessionTabs_one": "{{count}} flik",
+  "DeletedSessionTabs_other": "{{count}} flikar",
+  "DeletedOn": "Raderad {{when}}",
+  "DaysLeft_one": "{{count}} dag kvar",
+  "DaysLeft_other": "{{count}} dagar kvar",
+  "Session restored.": "Sessionen har återställts.",
+  "EmptyRecentlyDeletedTitle_one": "Radera {{count}} session permanent?",
+  "EmptyRecentlyDeletedTitle_other": "Radera {{count}} sessioner permanent?",
+  "EmptyRecentlyDeletedBody_one": "Den går inte att återställa efteråt.",
+  "EmptyRecentlyDeletedBody_other": "De går inte att återställa efteråt.",
+  "Nothing deleted in the last 30 days.": "Inget har raderats de senaste 30 dagarna."
 }

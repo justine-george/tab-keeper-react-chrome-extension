@@ -336,6 +336,15 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     if (Object.keys(changes).length === 0) return;
     void Promise.resolve().then(() => sessionOnChanged.fire(changes));
   };
+  // KAN-595. The same, for chrome.storage.local.
+  const localOnChanged =
+    registry<(changes: Record<string, chrome.storage.StorageChange>) => void>();
+  const reportLocalChanges = (
+    changes: Record<string, chrome.storage.StorageChange>
+  ) => {
+    if (Object.keys(changes).length === 0) return;
+    void Promise.resolve().then(() => localOnChanged.fire(changes));
+  };
   let isOnToolbar = seed.action?.isOnToolbar ?? false;
   const userSettingsListeners = new Set<
     (change: chrome.action.UserSettingsChange) => void
@@ -1803,11 +1812,30 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           );
         },
         set: (items: Record<string, unknown>) => {
+          const changes: Record<string, chrome.storage.StorageChange> = {};
           for (const [key, value] of Object.entries(items)) {
+            const had = localArea.has(key);
+            const old = localArea.get(key);
             localArea.set(key, value);
+            if (had && JSON.stringify(old) === JSON.stringify(value)) continue;
+            changes[key] = had
+              ? { oldValue: old, newValue: value }
+              : { newValue: value };
           }
+          reportLocalChanges(changes);
           return Promise.resolve();
         },
+        remove: (keys: string | string[]) => {
+          const changes: Record<string, chrome.storage.StorageChange> = {};
+          for (const key of Array.isArray(keys) ? keys : [keys]) {
+            if (!localArea.has(key)) continue;
+            changes[key] = { oldValue: localArea.get(key) };
+            localArea.delete(key);
+          }
+          reportLocalChanges(changes);
+          return Promise.resolve();
+        },
+        onChanged: localOnChanged,
       },
       // KAN-458. Its own area too; Chrome clears it when the browser closes.
       session: {

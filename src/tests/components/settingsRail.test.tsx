@@ -24,15 +24,17 @@ const renderOn = (category: SettingsCategory) =>
   });
 
 describe('the settings rail names what each pane holds (KAN-253)', () => {
-  test('the six categories, in order, and none of the old names', () => {
+  test('the seven categories, in order, and none of the old names', () => {
     // Two pairs, then About and Help: how it looks (Display, Language), then
     // what it does with your data (Sync & Backup, then Sessions -- the
-    // consequential one first). Display stays the landing pane.
+    // consequential one first). Display stays the landing pane. Recently
+    // deleted follows Sessions (KAN-595).
     expect(initialState.map((c) => c.name)).toEqual([
       'Display',
       'Language',
       'Sync & Backup',
       'Sessions',
+      'Recently deleted',
       'About',
       'Help',
     ]);

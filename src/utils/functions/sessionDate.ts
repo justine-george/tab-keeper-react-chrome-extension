@@ -2,7 +2,11 @@ import type { TFunction } from 'i18next';
 
 import { calendarDaysBefore } from './calendarDay';
 import { FALLBACK_LOCALE, getPrettyDate } from './local';
-import { contentInstant, createdInstant } from './mergeTabData';
+import {
+  TOMBSTONE_TTL_MS,
+  contentInstant,
+  createdInstant,
+} from './mergeTabData';
 import type { SessionDateBasis } from '../../redux/slices/settingsDataStateSlice';
 import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
 
@@ -123,6 +127,38 @@ export function sessionWhen(
       : { dateStyle: 'medium' },
     at
   );
+}
+
+/**
+ * When a session was deleted (KAN-595): "today" or "yesterday", else the day,
+ * with the year only when it is not this year. No time: the row says which day.
+ */
+export function deletedWhen(
+  instant: number,
+  locale: string,
+  today: Date
+): string {
+  const at = new Date(instant);
+  if (Number.isNaN(at.getTime())) return '';
+
+  const days = calendarDaysBefore(instant, today);
+  if (days >= -1 && days <= 1) return relativeDay(locale, days <= 0 ? 0 : 1);
+
+  return formatIn(
+    locale,
+    at.getFullYear() === today.getFullYear()
+      ? { month: 'short', day: 'numeric' }
+      : { dateStyle: 'medium' },
+    at
+  );
+}
+
+const DAY_MS = 86_400_000;
+
+// Days until a deleted session goes for good, only in its last week (KAN-595).
+export function daysLeft(deletedAt: number, now: number): number | null {
+  const left = Math.ceil((deletedAt + TOMBSTONE_TTL_MS - now) / DAY_MS);
+  return left >= 1 && left <= 7 ? left : null;
 }
 
 // `locale` comes from localStorage, so a malformed tag is possible; Intl

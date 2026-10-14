@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import Button from '../../common/Button';
+import { RecentlyDeleted } from './RecentlyDeleted';
 import ClickableTabKeeperMark from '../../common/ClickableTabKeeperMark';
 import { HeartGlyph } from '../../common/glyphs';
 import HelpSettings from './HelpSettings';
@@ -458,6 +459,20 @@ const SettingsDetailsContainer: React.FC = () => {
             />
           </div>
         </div>
+      </div>
+    );
+  } else if (
+    selectedSettingsCategory.name === SettingsCategory.RECENTLY_DELETED
+  ) {
+    settingsOptionsDiv = (
+      <div
+        css={css`
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        `}
+      >
+        <RecentlyDeleted />
       </div>
     );
   } else if (selectedSettingsCategory.name === SettingsCategory.SESSIONS) {
