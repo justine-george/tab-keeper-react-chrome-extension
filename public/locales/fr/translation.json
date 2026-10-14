@@ -371,5 +371,8 @@
   "EmptyRecentlyDeletedBody_one": "Elle ne pourra plus être restaurée.",
   "EmptyRecentlyDeletedBody_many": "Elles ne pourront plus être restaurées.",
   "EmptyRecentlyDeletedBody_other": "Elles ne pourront plus être restaurées.",
-  "Nothing deleted in the last 30 days.": "Rien n’a été supprimé ces 30 derniers jours."
+  "Nothing deleted in the last 30 days.": "Rien n’a été supprimé ces 30 derniers jours.",
+  "Time format": "Format de l’heure",
+  "12-hour": "12 heures",
+  "24-hour": "24 heures"
 }

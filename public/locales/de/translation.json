@@ -362,5 +362,8 @@
   "EmptyRecentlyDeletedTitle_other": "{{count}} Sitzungen endgültig löschen?",
   "EmptyRecentlyDeletedBody_one": "Sie kann danach nicht wiederhergestellt werden.",
   "EmptyRecentlyDeletedBody_other": "Sie können danach nicht wiederhergestellt werden.",
-  "Nothing deleted in the last 30 days.": "In den letzten 30 Tagen wurde nichts gelöscht."
+  "Nothing deleted in the last 30 days.": "In den letzten 30 Tagen wurde nichts gelöscht.",
+  "Time format": "Zeitformat",
+  "12-hour": "12-Stunden",
+  "24-hour": "24-Stunden"
 }

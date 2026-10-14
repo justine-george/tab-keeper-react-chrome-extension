@@ -61,6 +61,9 @@ describe('session dates in both panes (KAN-347)', () => {
     const labels = await screen.findAllByText('Edited Sep 24, 2:51 AM');
     expect(
       labels.map((el) => el.closest('[title]')?.getAttribute('title'))
-    ).toEqual([getPrettyDate(EDITED, 'en'), getPrettyDate(EDITED, 'en')]);
+    ).toEqual([
+      getPrettyDate(EDITED, 'en', 'h12'),
+      getPrettyDate(EDITED, 'en', 'h12'),
+    ]);
   });
 });

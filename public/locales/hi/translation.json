@@ -362,5 +362,8 @@
   "EmptyRecentlyDeletedTitle_other": "{{count}} सेशन हमेशा के लिए हटाएँ?",
   "EmptyRecentlyDeletedBody_one": "इसके बाद इसे वापस नहीं लाया जा सकेगा।",
   "EmptyRecentlyDeletedBody_other": "इसके बाद इन्हें वापस नहीं लाया जा सकेगा।",
-  "Nothing deleted in the last 30 days.": "पिछले 30 दिनों में कुछ नहीं हटाया गया।"
+  "Nothing deleted in the last 30 days.": "पिछले 30 दिनों में कुछ नहीं हटाया गया।",
+  "Time format": "समय प्रारूप",
+  "12-hour": "12 घंटे",
+  "24-hour": "24 घंटे"
 }

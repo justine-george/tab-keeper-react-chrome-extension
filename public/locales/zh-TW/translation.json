@@ -353,5 +353,8 @@
   "Session restored.": "已復原工作階段。",
   "EmptyRecentlyDeletedTitle_other": "永久刪除 {{count}} 個工作階段？",
   "EmptyRecentlyDeletedBody_other": "之後將無法復原。",
-  "Nothing deleted in the last 30 days.": "過去 30 天內沒有刪除任何項目。"
+  "Nothing deleted in the last 30 days.": "過去 30 天內沒有刪除任何項目。",
+  "Time format": "時間格式",
+  "12-hour": "12小時制",
+  "24-hour": "24小時制"
 }

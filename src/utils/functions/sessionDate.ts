@@ -7,7 +7,10 @@ import {
   contentInstant,
   createdInstant,
 } from './mergeTabData';
-import type { SessionDateBasis } from '../../redux/slices/settingsDataStateSlice';
+import type {
+  SessionDateBasis,
+  TimeFormat,
+} from '../../redux/slices/settingsDataStateSlice';
 import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
 
 /**
@@ -33,11 +36,12 @@ export function sessionDateLabel(
   group: tabContainerData,
   basis: SessionDateBasis,
   locale: string,
+  timeFormat: TimeFormat,
   t: TFunction,
   today: Date
 ): string {
   const { showCreated, instant } = datedInstant(group, basis);
-  const date = sessionWhen(instant, locale, today);
+  const date = sessionWhen(instant, locale, timeFormat, today);
 
   // One phrase with the date inside it, not a word glued in front (KAN-286):
   // ja and hi put the date first.
@@ -51,9 +55,10 @@ export function sessionDateLabel(
 export function sessionDateTitle(
   group: tabContainerData,
   basis: SessionDateBasis,
-  locale: string
+  locale: string,
+  timeFormat: TimeFormat
 ): string {
-  return getPrettyDate(datedInstant(group, basis).instant, locale);
+  return getPrettyDate(datedInstant(group, basis).instant, locale, timeFormat);
 }
 
 /**
@@ -65,10 +70,11 @@ export function sessionDateStamp(
   group: tabContainerData,
   basis: SessionDateBasis,
   locale: string,
+  timeFormat: TimeFormat,
   t: TFunction
 ): string {
   const { showCreated, instant } = datedInstant(group, basis);
-  const date = getPrettyDate(instant, locale);
+  const date = getPrettyDate(instant, locale, timeFormat);
   return showCreated ? t('CreatedOn', { date }) : t('EditedOn', { date });
 }
 
@@ -96,11 +102,13 @@ function datedInstant(
  * drops the time.
  *
  * `today` is passed in, never read here, so the caller that redraws when the
- * day changes decides what "this year" is, and tests can pin it.
+ * day changes decides what "this year" is, and tests can pin it. So is
+ * `timeFormat` (KAN-587): the caller selects it and redraws when it changes.
  */
 export function sessionWhen(
   instant: number,
   locale: string,
+  timeFormat: TimeFormat,
   today: Date
 ): string {
   const at = new Date(instant);
@@ -115,13 +123,19 @@ export function sessionWhen(
   // or a clock badly wrong, and is dated like any other (KAN-348).
   if (days >= -1 && days <= 1) {
     const word = relativeDay(locale, days <= 0 ? 0 : 1);
-    const time = formatIn(locale, { hour: 'numeric', minute: '2-digit' }, at);
+    const time = formatIn(
+      locale,
+      timeFormat,
+      { hour: 'numeric', minute: '2-digit' },
+      at
+    );
     // A comma reads as a list break in CJK; those join with a space.
     return `${word}${/^(ja|zh|ko)\b/i.test(locale) ? ' ' : ', '}${time}`;
   }
 
   return formatIn(
     locale,
+    timeFormat,
     at.getFullYear() === today.getFullYear()
       ? { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }
       : { dateStyle: 'medium' },
@@ -138,16 +152,19 @@ export function daysLeft(deletedAt: number, now: number): number | null {
 }
 
 // `locale` comes from localStorage, so a malformed tag is possible; Intl
-// throws a RangeError for one (getPrettyDate does the same).
+// throws a RangeError for one (getPrettyDate does the same). hourCycle beside
+// dateStyle alone (another year) is legal and draws no time.
 function formatIn(
   locale: string,
+  timeFormat: TimeFormat,
   options: Intl.DateTimeFormatOptions,
   at: Date
 ): string {
+  const withCycle = { ...options, hourCycle: timeFormat };
   try {
-    return new Intl.DateTimeFormat(locale, options).format(at);
+    return new Intl.DateTimeFormat(locale, withCycle).format(at);
   } catch {
-    return new Intl.DateTimeFormat(FALLBACK_LOCALE, options).format(at);
+    return new Intl.DateTimeFormat(FALLBACK_LOCALE, withCycle).format(at);
   }
 }
 

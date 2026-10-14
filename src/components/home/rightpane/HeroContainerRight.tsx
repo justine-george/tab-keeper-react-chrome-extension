@@ -97,6 +97,9 @@ export default function HeroContainerRight() {
   const sessionDateBasis = useSelector(
     (state: RootState) => state.settingsDataState.sessionDateBasis
   );
+  const timeFormat = useSelector(
+    (state: RootState) => state.settingsDataState.timeFormat
+  );
   // Redraws the date when the local day changes (KAN-347).
   const today = useToday();
 
@@ -440,13 +443,15 @@ export default function HeroContainerRight() {
             selectedTabGroup,
             sessionDateBasis,
             i18n.language,
+            timeFormat,
             t,
             today
           )}
           tooltipText={sessionDateTitle(
             selectedTabGroup,
             sessionDateBasis,
-            i18n.language
+            i18n.language,
+            timeFormat
           )}
           size={TYPE.META}
           color={COLORS.LABEL_L2_COLOR}

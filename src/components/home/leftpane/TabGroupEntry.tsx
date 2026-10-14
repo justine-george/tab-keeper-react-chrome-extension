@@ -104,6 +104,9 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   const sessionDateBasis = useSelector(
     (state: RootState) => state.settingsDataState.sessionDateBasis
   );
+  const timeFormat = useSelector(
+    (state: RootState) => state.settingsDataState.timeFormat
+  );
   // Redraws the date when the local day changes (KAN-347).
   const today = useToday();
 
@@ -479,7 +482,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           title={sessionDateTitle(
             tabGroupData,
             sessionDateBasis,
-            i18n.language
+            i18n.language,
+            timeFormat
           )}
           css={css`
             color: ${COLORS.LABEL_L2_COLOR};
@@ -500,6 +504,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             tabGroupData,
             sessionDateBasis,
             i18n.language,
+            timeFormat,
             t,
             today
           )}

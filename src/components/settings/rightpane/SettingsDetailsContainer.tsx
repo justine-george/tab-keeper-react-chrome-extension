@@ -25,6 +25,7 @@ import {
 import {
   setTheme,
   setPinTabKeeperInNewWindows,
+  setTimeFormat,
   setUserRatedAndReviewed,
   toggleAutoSync,
 } from '../../../redux/slices/settingsDataStateSlice';
@@ -249,6 +250,42 @@ const SettingsDetailsContainer: React.FC = () => {
                 onSelect={() => dispatch(setTheme(theme))}
               />
             ))}
+          </div>
+        </div>
+
+        {/* KAN-587. 12-hour unless picked; every time in the app follows it. */}
+        <div
+          data-settings-section
+          css={css`
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 32px;
+          `}
+        >
+          <NormalLabel
+            value={t('Time format')}
+            size={TYPE.BODY}
+            color={COLORS.LABEL_L1_COLOR}
+          />
+          <div
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            <SlidingPair
+              label={t('Time format')}
+              options={[
+                { value: 'h12', label: t('12-hour') },
+                { value: 'h23', label: t('24-hour') },
+              ]}
+              value={settingsData.timeFormat}
+              onChange={(next) => dispatch(setTimeFormat(next))}
+              metrics={SETTINGS_PAIR_METRICS}
+            />
           </div>
         </div>
       </div>

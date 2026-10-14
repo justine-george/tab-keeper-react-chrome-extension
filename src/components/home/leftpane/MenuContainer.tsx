@@ -80,6 +80,9 @@ export default function MenuContainer() {
     (state: RootState) => state.settingsDataState.lastSyncedTime
   );
   const today = useToday();
+  const timeFormat = useSelector(
+    (state: RootState) => state.settingsDataState.timeFormat
+  );
 
   const COLORS = useThemeColors();
   const isFullViewCalloutOpen = useSelector(
@@ -209,7 +212,7 @@ export default function MenuContainer() {
   const syncedTime =
     lastSyncedTime === ''
       ? ''
-      : sessionWhen(lastSyncedTime, i18n.language, today);
+      : sessionWhen(lastSyncedTime, i18n.language, timeFormat, today);
   const syncedWhen =
     syncIconType === 'cloud_done' && syncedTime !== ''
       ? t('Last synced {{time}}', { time: syncedTime })

@@ -4,6 +4,7 @@ import { isDragHeld, whenDragReleases } from './dragHold';
 import { hydrateFromOtherPage } from './slices/tabContainerDataStateSlice';
 import {
   asOpenNowWidth,
+  asTimeFormat,
   asShippedLanguage,
   guardOnboarding,
   hydrateSettingsFromOtherPage,
@@ -108,6 +109,11 @@ export const applyOtherPageSettings =
         'pinTabKeeperInNewWindows' in incoming
           ? incoming.pinTabKeeperInNewWindows === true
           : current.pinTabKeeperInNewWindows,
+      // KAN-587. Absent means an older page wrote this; keep ours.
+      timeFormat:
+        'timeFormat' in incoming
+          ? asTimeFormat(incoming.timeFormat)
+          : current.timeFormat,
       // KAN-7. Same rule for the onboarding answers.
       ...guardOnboarding(loaded, current),
     };

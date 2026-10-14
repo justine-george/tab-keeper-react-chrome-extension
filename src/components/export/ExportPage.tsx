@@ -217,6 +217,9 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   const sessionDateBasis = useSelector(
     (state: RootState) => state.settingsDataState.sessionDateBasis
   );
+  const timeFormat = useSelector(
+    (state: RootState) => state.settingsDataState.timeFormat
+  );
 
   // The page opens on the extension theme's polarity and follows it until
   // Light or Dark is pressed here.
@@ -273,7 +276,13 @@ export default function ExportPage({ source }: { source: ExportSource }) {
       // later, when "this year" may not be (KAN-347).
       dateLabel:
         source.kind === 'saved'
-          ? sessionDateStamp(session, sessionDateBasis, i18n.language, t)
+          ? sessionDateStamp(
+              session,
+              sessionDateBasis,
+              i18n.language,
+              timeFormat,
+              t
+            )
           : undefined,
       countsLabel: formatGroupCounts(
         edited.windowCount,
@@ -302,6 +311,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
     layout,
     scheme,
     sessionDateBasis,
+    timeFormat,
     source.kind,
     i18n.language,
     t,

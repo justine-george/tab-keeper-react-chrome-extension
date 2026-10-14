@@ -60,7 +60,7 @@ describe('HeroContainerRight', () => {
   });
   /** ICU may put U+202F before AM/PM; findByText collapses it to a space. */
   const shown = (instant: number) =>
-    sessionWhen(instant, 'en', NOW).replace(/\s/g, ' ');
+    sessionWhen(instant, 'en', 'h12', NOW).replace(/\s/g, ' ');
 
   // KAN-141. The header shows when the session last CHANGED, matching the left
   // pane row and the order the list is in. Both panes show the same session, so

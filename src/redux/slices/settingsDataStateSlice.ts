@@ -125,6 +125,8 @@ export interface SettingsData {
    * and cheaper than a container field with its own last-writer-wins rule.
    */
   sessionDateBasis: SessionDateBasis;
+  // KAN-587. Device-local like the rest of this slice (syncing settings is KAN-598).
+  timeFormat: TimeFormat;
   /**
    * Whether the tab view opens with the saved session folded away, so Open
    * now takes its column (KAN-280 O4/O5). True until the fold button is
@@ -245,6 +247,18 @@ export function guardOnboarding(
  */
 export type SessionDateBasis = 'edited' | 'created';
 
+/**
+ * KAN-587. How times read: Intl's own hourCycle values, passed straight
+ * through, so the stored word and what Intl draws cannot drift apart.
+ * 12-hour unless chosen; there is no "follow the language" value.
+ */
+export type TimeFormat = 'h12' | 'h23';
+
+// A stored time format, else 12-hour: an unknown hourCycle makes Intl throw.
+export function asTimeFormat(value: unknown): TimeFormat {
+  return value === 'h23' ? 'h23' : 'h12';
+}
+
 // Keys only unreleased builds wrote: dropped once, and settings written back without them.
 const RETIRED_KEYS: readonly string[] = [
   'sampleTour',
@@ -323,6 +337,7 @@ const defaultSettings: SettingsData = {
   isTabGroupsPromptAnsweredOnce: false,
   isNeverAskAgainForTabGroups: false,
   sessionDateBasis: 'edited',
+  timeFormat: 'h12',
   // KAN-280 O5. Also what a user whose saved settings predate the field
   // gets: initialState lays the stored object over these defaults.
   foldSavedSessionInTabView: true,
@@ -345,6 +360,8 @@ export const initialState: SettingsData = {
   openNowWidth: asOpenNowWidth(settingsDataLocal.openNowWidth),
   // KAN-459. Guarded: settingsDataLocal is unvalidated.
   pinTabKeeperInNewWindows: asFlag(settingsDataLocal.pinTabKeeperInNewWindows),
+  // KAN-587. Guarded: an unknown hourCycle would throw in every row's render.
+  timeFormat: asTimeFormat(settingsDataLocal.timeFormat),
   // KAN-7. Guarded like openNowWidth: settingsDataLocal is unvalidated.
   ...guardOnboarding(settingsDataLocal, ONBOARDING_DEFAULTS),
 };
@@ -488,6 +505,11 @@ export const settingsDataStateSlice = createSlice({
       state.sessionDateBasis = action.payload;
 
       // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+    },
+
+    setTimeFormat: (state, action: PayloadAction<TimeFormat>) => {
+      state.timeFormat = action.payload;
       saveToLocalStorage('settingsData', state);
     },
 
@@ -647,6 +669,7 @@ export const {
   setTabGroupsPromptAnsweredOnce,
   setNeverAskAgainForTabGroups,
   setSessionDateBasis,
+  setTimeFormat,
   setExportLayout,
   setFoldSavedSessionInTabView,
   setOpenNowWidth,

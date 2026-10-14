@@ -371,7 +371,7 @@ describe('the status line shows when it last synced (KAN-255)', () => {
     expect(line?.textContent).toMatch(/^Last synced \S/);
     // The full timestamp is the hover (KAN-584; the words are pinned in
     // lastSyncedDate.test.tsx).
-    expect(line?.getAttribute('title')).toBe(getPrettyDate(AT, 'en'));
+    expect(line?.getAttribute('title')).toBe(getPrettyDate(AT, 'en', 'h12'));
     expect(card().querySelector('[data-sync-line]')).toBeNull();
   });
 

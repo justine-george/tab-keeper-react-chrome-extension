@@ -42,7 +42,7 @@ type Store = ReturnType<typeof makeTestStore>['store'];
  */
 const SYNCED_AT = new Date(2026, 8, 29, 16, 28, 40).getTime();
 const NOW = new Date(2026, 8, 29, 18, 0);
-const WHEN = `Last synced ${sessionWhen(SYNCED_AT, 'en', new Date(2026, 8, 29))}`;
+const WHEN = `Last synced ${sessionWhen(SYNCED_AT, 'en', 'h12', new Date(2026, 8, 29))}`;
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });

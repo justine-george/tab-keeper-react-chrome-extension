@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
 import { css } from '@emotion/react';
@@ -10,7 +10,7 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useRecentlyDeleted } from '../../../hooks/useRecentlyDeleted';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToday } from '../../../hooks/useToday';
-import type { AppDispatch } from '../../../redux/store';
+import type { AppDispatch, RootState } from '../../../redux/store';
 import { restoreDeletedSession } from '../../../redux/slices/tabContainerDataStateSlice';
 import { TYPE } from '../../../styles/scale';
 import { daysLeft, sessionWhen } from '../../../utils/functions/sessionDate';
@@ -29,6 +29,9 @@ export function RecentlyDeleted() {
   const { t, i18n } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
   const today = useToday();
+  const timeFormat = useSelector(
+    (state: RootState) => state.settingsDataState.timeFormat
+  );
   const { shown, now, empty } = useRecentlyDeleted();
   const [confirming, setConfirming] = useState(false);
 
@@ -44,7 +47,9 @@ export function RecentlyDeleted() {
     const left = daysLeft(deletedAt, now);
     return [
       t('DeletedSessionTabs', { count: tabCount }),
-      t('DeletedOn', { when: sessionWhen(deletedAt, i18n.language, today) }),
+      t('DeletedOn', {
+        when: sessionWhen(deletedAt, i18n.language, timeFormat, today),
+      }),
       ...(left === null ? [] : [t('DaysLeft', { count: left })]),
     ].join(' · ');
   };

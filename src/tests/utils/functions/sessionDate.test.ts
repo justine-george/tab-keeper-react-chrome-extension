@@ -64,16 +64,16 @@ describe('sessionDateLabel', () => {
   test('shows the edited date, labelled, on the edited basis', () => {
     const group = build({ contentModified: EDITED });
 
-    expect(sessionDateLabel(group, 'edited', 'en', t, TODAY)).toBe(
-      `Edited ${sessionWhen(EDITED, 'en', TODAY)}`
+    expect(sessionDateLabel(group, 'edited', 'en', 'h12', t, TODAY)).toBe(
+      `Edited ${sessionWhen(EDITED, 'en', 'h12', TODAY)}`
     );
   });
 
   test('shows the created date, labelled, on the created basis', () => {
     const group = build({ contentModified: EDITED });
 
-    expect(sessionDateLabel(group, 'created', 'en', t, TODAY)).toBe(
-      `Created ${sessionWhen(CREATED, 'en', TODAY)}`
+    expect(sessionDateLabel(group, 'created', 'en', 'h12', t, TODAY)).toBe(
+      `Created ${sessionWhen(CREATED, 'en', 'h12', TODAY)}`
     );
   });
 
@@ -85,8 +85,8 @@ describe('sessionDateLabel', () => {
   test('a never-edited session says Created even on the edited basis', () => {
     const group = build();
 
-    expect(sessionDateLabel(group, 'edited', 'en', t, TODAY)).toBe(
-      `Created ${sessionWhen(CREATED, 'en', TODAY)}`
+    expect(sessionDateLabel(group, 'edited', 'en', 'h12', t, TODAY)).toBe(
+      `Created ${sessionWhen(CREATED, 'en', 'h12', TODAY)}`
     );
   });
 
@@ -95,9 +95,9 @@ describe('sessionDateLabel', () => {
   test('formats in the locale it is given', () => {
     const group = build({ contentModified: EDITED });
 
-    const de = sessionDateLabel(group, 'edited', 'de', t, TODAY);
-    expect(de).toContain(sessionWhen(EDITED, 'de', TODAY));
-    expect(de).not.toContain(sessionWhen(EDITED, 'en', TODAY));
+    const de = sessionDateLabel(group, 'edited', 'de', 'h23', t, TODAY);
+    expect(de).toContain(sessionWhen(EDITED, 'de', 'h23', TODAY));
+    expect(de).not.toContain(sessionWhen(EDITED, 'en', 'h12', TODAY));
   });
 
   // KAN-286. The word used to be glued in front of the date in code, so no
@@ -106,8 +106,8 @@ describe('sessionDateLabel', () => {
     const group = build({ contentModified: EDITED });
     const ja = await tFor('ja');
 
-    expect(sessionDateLabel(group, 'edited', 'ja', ja, TODAY)).toBe(
-      `${sessionWhen(EDITED, 'ja', TODAY)}に編集`
+    expect(sessionDateLabel(group, 'edited', 'ja', 'h23', ja, TODAY)).toBe(
+      `${sessionWhen(EDITED, 'ja', 'h23', TODAY)}に編集`
     );
   });
 
@@ -115,44 +115,46 @@ describe('sessionDateLabel', () => {
     const group = build({ contentModified: EDITED });
     const zh = await tFor('zh');
 
-    expect(sessionDateLabel(group, 'edited', 'zh', zh, TODAY)).toBe(
-      `编辑于 ${sessionWhen(EDITED, 'zh', TODAY)}`
+    expect(sessionDateLabel(group, 'edited', 'zh', 'h23', zh, TODAY)).toBe(
+      `编辑于 ${sessionWhen(EDITED, 'zh', 'h23', TODAY)}`
     );
   });
 });
 
 describe('sessionWhen (KAN-347)', () => {
   test('earlier this year: date and time, no seconds, no year', () => {
-    expect(norm(sessionWhen(local(2026, 8, 24, 2, 51, 57), 'en', TODAY))).toBe(
-      'Sep 24, 2:51 AM'
-    );
+    expect(
+      norm(sessionWhen(local(2026, 8, 24, 2, 51, 57), 'en', 'h12', TODAY))
+    ).toBe('Sep 24, 2:51 AM');
   });
 
   test('another year: the date with its year, no time', () => {
-    expect(norm(sessionWhen(local(2025, 2, 14, 10, 30), 'en', TODAY))).toBe(
-      'Mar 14, 2025'
-    );
+    expect(
+      norm(sessionWhen(local(2025, 2, 14, 10, 30), 'en', 'h12', TODAY))
+    ).toBe('Mar 14, 2025');
   });
 
   // "This year" is today's year, not the instant's: on Jan 1 last week's
   // Dec 20 needs its year.
   test('the year boundary follows today', () => {
     const jan1 = new Date(2027, 0, 1, 9, 0);
-    expect(norm(sessionWhen(local(2026, 11, 20, 8, 0), 'en', jan1))).toBe(
-      'Dec 20, 2026'
-    );
+    expect(
+      norm(sessionWhen(local(2026, 11, 20, 8, 0), 'en', 'h12', jan1))
+    ).toBe('Dec 20, 2026');
   });
 
   test('formats in the locale it is given', () => {
-    expect(norm(sessionWhen(local(2026, 8, 24, 2, 51), 'de', TODAY))).toBe(
-      '24. Sept., 2:51'
-    );
+    expect(
+      norm(sessionWhen(local(2026, 8, 24, 2, 51), 'de', 'h23', TODAY))
+    ).toBe('24. Sept., 2:51');
   });
 
   // Review Focus 3: the locale comes from localStorage.
   test('a malformed locale falls back to en rather than throwing', () => {
     expect(
-      norm(sessionWhen(local(2026, 8, 24, 2, 51), 'not a locale!!', TODAY))
+      norm(
+        sessionWhen(local(2026, 8, 24, 2, 51), 'not a locale!!', 'h12', TODAY)
+      )
     ).toBe('Sep 24, 2:51 AM');
   });
 
@@ -161,10 +163,10 @@ describe('sessionWhen (KAN-347)', () => {
   // Instant 0 is Jan 1, 1970 in UTC but Dec 31, 1969 west of it, so the year
   // expected is the local one.
   test('a corrupt time: 0 is a dated year, NaN is empty, neither throws', () => {
-    expect(sessionWhen(0, 'en', TODAY)).toContain(
+    expect(sessionWhen(0, 'en', 'h12', TODAY)).toContain(
       String(new Date(0).getFullYear())
     );
-    expect(sessionWhen(Number.NaN, 'en', TODAY)).toBe('');
+    expect(sessionWhen(Number.NaN, 'en', 'h12', TODAY)).toBe('');
   });
 });
 
@@ -172,14 +174,14 @@ describe('sessionDateTitle (KAN-347)', () => {
   // The hover holds what the label trimmed away, for the same instant.
   test('the full timestamp of the same instant the label shows', () => {
     const group = build({ contentModified: EDITED });
-    expect(sessionDateTitle(group, 'edited', 'en')).toBe(
-      getPrettyDate(EDITED, 'en')
+    expect(sessionDateTitle(group, 'edited', 'en', 'h12')).toBe(
+      getPrettyDate(EDITED, 'en', 'h12')
     );
-    expect(sessionDateTitle(group, 'created', 'en')).toBe(
-      getPrettyDate(CREATED, 'en')
+    expect(sessionDateTitle(group, 'created', 'en', 'h12')).toBe(
+      getPrettyDate(CREATED, 'en', 'h12')
     );
-    expect(sessionDateTitle(build(), 'edited', 'en')).toBe(
-      getPrettyDate(CREATED, 'en')
+    expect(sessionDateTitle(build(), 'edited', 'en', 'h12')).toBe(
+      getPrettyDate(CREATED, 'en', 'h12')
     );
   });
 });
@@ -189,46 +191,46 @@ describe('sessionDateStamp (KAN-347)', () => {
   // timestamp; a trimmed or relative date there would go stale.
   test('the word and the full timestamp, for a file', () => {
     const group = build({ contentModified: EDITED });
-    expect(sessionDateStamp(group, 'edited', 'en', t)).toBe(
-      `Edited ${getPrettyDate(EDITED, 'en')}`
+    expect(sessionDateStamp(group, 'edited', 'en', 'h12', t)).toBe(
+      `Edited ${getPrettyDate(EDITED, 'en', 'h12')}`
     );
-    expect(sessionDateStamp(group, 'created', 'en', t)).toBe(
-      `Created ${getPrettyDate(CREATED, 'en')}`
+    expect(sessionDateStamp(group, 'created', 'en', 'h12', t)).toBe(
+      `Created ${getPrettyDate(CREATED, 'en', 'h12')}`
     );
-    expect(sessionDateStamp(build(), 'edited', 'en', t)).toBe(
-      `Created ${getPrettyDate(CREATED, 'en')}`
+    expect(sessionDateStamp(build(), 'edited', 'en', 'h12', t)).toBe(
+      `Created ${getPrettyDate(CREATED, 'en', 'h12')}`
     );
   });
 });
 
 describe('today and yesterday (KAN-347)', () => {
   test('today and yesterday are words, with the time', () => {
-    expect(norm(sessionWhen(local(2026, 8, 29, 16, 12), 'en', TODAY))).toBe(
-      'today, 4:12 PM'
-    );
-    expect(norm(sessionWhen(local(2026, 8, 28, 6, 16), 'en', TODAY))).toBe(
-      'yesterday, 6:16 AM'
-    );
+    expect(
+      norm(sessionWhen(local(2026, 8, 29, 16, 12), 'en', 'h12', TODAY))
+    ).toBe('today, 4:12 PM');
+    expect(
+      norm(sessionWhen(local(2026, 8, 28, 6, 16), 'en', 'h12', TODAY))
+    ).toBe('yesterday, 6:16 AM');
   });
 
   // The control: two days back is a date, so "yesterday" is not everything
   // before today.
   test('CONTROL: the day before yesterday is a date', () => {
-    expect(norm(sessionWhen(local(2026, 8, 27, 6, 16), 'en', TODAY))).toBe(
-      'Sep 27, 6:16 AM'
-    );
+    expect(
+      norm(sessionWhen(local(2026, 8, 27, 6, 16), 'en', 'h12', TODAY))
+    ).toBe('Sep 27, 6:16 AM');
   });
 
   // Review Focus 1. Another device whose clock runs ahead can stamp a time
   // after this device's now. Intl would call it "tomorrow"; in hi, कल is also
   // "yesterday".
   test('a time later than today reads as today, never tomorrow', () => {
-    expect(norm(sessionWhen(local(2026, 8, 30, 1, 0), 'en', TODAY))).toBe(
-      'today, 1:00 AM'
-    );
-    expect(sessionWhen(local(2026, 8, 30, 1, 0), 'hi', TODAY)).not.toContain(
-      'कल'
-    );
+    expect(
+      norm(sessionWhen(local(2026, 8, 30, 1, 0), 'en', 'h12', TODAY))
+    ).toBe('today, 1:00 AM');
+    expect(
+      sessionWhen(local(2026, 8, 30, 1, 0), 'hi', 'h12', TODAY)
+    ).not.toContain('कल');
   });
 
   // The clamp above is for a clock that runs a little fast: up to one
@@ -237,35 +239,35 @@ describe('today and yesterday (KAN-347)', () => {
   // as a plain date.
   test('two days or more ahead is a date, not today', () => {
     // The edge: the day after tomorrow, just after midnight.
-    expect(norm(sessionWhen(local(2026, 9, 1, 0, 1), 'en', TODAY))).toBe(
+    expect(norm(sessionWhen(local(2026, 9, 1, 0, 1), 'en', 'h12', TODAY))).toBe(
       'Oct 1, 12:01 AM'
     );
-    expect(norm(sessionWhen(local(2026, 9, 5, 1, 0), 'en', TODAY))).toBe(
+    expect(norm(sessionWhen(local(2026, 9, 5, 1, 0), 'en', 'h12', TODAY))).toBe(
       'Oct 5, 1:00 AM'
     );
-    expect(norm(sessionWhen(local(2099, 0, 1, 15, 0), 'en', TODAY))).toBe(
-      'Jan 1, 2099'
-    );
+    expect(
+      norm(sessionWhen(local(2099, 0, 1, 15, 0), 'en', 'h12', TODAY))
+    ).toBe('Jan 1, 2099');
   });
 
   // CONTROL: the edge the clamp keeps. Tomorrow a minute before midnight is
   // one calendar day ahead, so it still reads today.
   test('CONTROL: late tomorrow is still today', () => {
-    expect(norm(sessionWhen(local(2026, 8, 30, 23, 59), 'en', TODAY))).toBe(
-      'today, 11:59 PM'
-    );
+    expect(
+      norm(sessionWhen(local(2026, 8, 30, 23, 59), 'en', 'h12', TODAY))
+    ).toBe('today, 11:59 PM');
   });
 
   test('ja, zh and ko join the word and the time with a space', () => {
-    expect(norm(sessionWhen(local(2026, 8, 29, 16, 12), 'ja', TODAY))).toBe(
-      '今日 16:12'
-    );
-    expect(norm(sessionWhen(local(2026, 8, 29, 16, 12), 'zh', TODAY))).toBe(
-      '今天 16:12'
-    );
-    expect(norm(sessionWhen(local(2026, 8, 29, 16, 12), 'zh-TW', TODAY))).toBe(
-      '今天 下午4:12'
-    );
+    expect(
+      norm(sessionWhen(local(2026, 8, 29, 16, 12), 'ja', 'h23', TODAY))
+    ).toBe('今日 16:12');
+    expect(
+      norm(sessionWhen(local(2026, 8, 29, 16, 12), 'zh', 'h23', TODAY))
+    ).toBe('今天 16:12');
+    expect(
+      norm(sessionWhen(local(2026, 8, 29, 16, 12), 'zh-TW', 'h12', TODAY))
+    ).toBe('今天 下午4:12');
     // ko's time text is ICU's and differs by version ("오후 4:12" in ICU 78.3,
     // "PM 4:12" in 78.2, which CI's Node 22 ships), so only the word and the
     // joiner are ours to pin.
@@ -273,22 +275,57 @@ describe('today and yesterday (KAN-347)', () => {
       hour: 'numeric',
       minute: '2-digit',
     }).format(local(2026, 8, 29, 16, 12));
-    expect(norm(sessionWhen(local(2026, 8, 29, 16, 12), 'ko', TODAY))).toBe(
-      norm(`오늘 ${koTime}`)
-    );
+    expect(
+      norm(sessionWhen(local(2026, 8, 29, 16, 12), 'ko', 'h12', TODAY))
+    ).toBe(norm(`오늘 ${koTime}`));
   });
 
   test('the label keeps its template around the words (ja date first)', async () => {
     const ja = await tFor('ja');
     const group = build({ contentModified: local(2026, 8, 28, 6, 16) });
-    expect(norm(sessionDateLabel(group, 'edited', 'ja', ja, TODAY))).toBe(
-      '昨日 6:16に編集'
-    );
+    expect(
+      norm(sessionDateLabel(group, 'edited', 'ja', 'h23', ja, TODAY))
+    ).toBe('昨日 6:16に編集');
   });
 
   test('a malformed locale still gets the words, in en', () => {
     expect(
-      norm(sessionWhen(local(2026, 8, 29, 16, 12), 'not a locale!!', TODAY))
+      norm(
+        sessionWhen(local(2026, 8, 29, 16, 12), 'not a locale!!', 'h12', TODAY)
+      )
     ).toBe('today, 4:12 PM');
+  });
+});
+
+describe('time format (KAN-587)', () => {
+  test.each([
+    ['en', 'h12', 'today, 3:09 PM'],
+    ['en', 'h23', 'today, 15:09'],
+    ['de', 'h12', 'heute, 3:09 PM'],
+    ['de', 'h23', 'heute, 15:09'],
+    ['ja', 'h12', '今日 午後3:09'],
+  ] as const)('%s %s reads "%s"', (locale, format, reads) => {
+    expect(
+      norm(sessionWhen(local(2026, 8, 29, 15, 9), locale, format, TODAY))
+    ).toBe(reads);
+  });
+
+  test('midnight: 12:05 AM in 12-hour, 00:05 in en 24-hour', () => {
+    const at = local(2026, 8, 29, 0, 5);
+    expect(norm(sessionWhen(at, 'en', 'h12', TODAY))).toBe('today, 12:05 AM');
+    expect(norm(sessionWhen(at, 'en', 'h23', TODAY))).toBe('today, 00:05');
+  });
+
+  test('earlier this year follows it too', () => {
+    expect(sessionWhen(local(2026, 2, 3, 15, 9), 'en', 'h23', TODAY)).toBe(
+      'Mar 3, 15:09'
+    );
+  });
+
+  test('another year shows no time, so both formats agree and neither throws', () => {
+    const old = local(2024, 2, 3, 15, 9);
+    expect(sessionWhen(old, 'de', 'h23', TODAY)).toBe(
+      sessionWhen(old, 'de', 'h12', TODAY)
+    );
   });
 });
