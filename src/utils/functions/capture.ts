@@ -1,6 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
 
-import { getStringDate, isLazyPlaceholder, resolveTabUrl } from './local';
+import {
+  getStringDate,
+  isEmbeddedFavicon,
+  isLazyPlaceholder,
+  resolveTabUrl,
+} from './local';
 import { readRecentTabs } from './recentTabs';
 import { SPLIT_VIEW_ID_NONE } from './splitView';
 import { dropNotificationCount } from './sessionExportHtml';
@@ -194,8 +199,10 @@ const pinnedField = (pinned: boolean): Pick<tabData, 'pinned'> =>
  * is what that costs: the same shape written twice, one copy missing a
  * clean-up, and the two quietly disagreeing.
  *
- * Both fields are NORMALISED rather than stored as Chrome reports them:
+ * Three fields are NORMALISED rather than stored as Chrome reports them:
  *
+ * - an embedded (data:) favicon is dropped: Chrome's cache draws it from the
+ *   page address (KAN-594).
  * - the address is unwrapped, so a tab a suspender put to sleep is saved as
  *   the page it stands for. Without it, uninstalling that suspender turns
  *   every such saved tab into a dead chrome-extension:// address.
@@ -210,7 +217,7 @@ export function toStoredTab(
 ): tabData {
   return {
     tabId: uuidv4(),
-    favicon: tab.favIconUrl || '',
+    favicon: isEmbeddedFavicon(tab.favIconUrl) ? '' : tab.favIconUrl || '',
     title: dropNotificationCount(tab.title || ''),
     url: resolveTabUrl(tab.url || ''),
     ...pinnedField(tab.pinned),

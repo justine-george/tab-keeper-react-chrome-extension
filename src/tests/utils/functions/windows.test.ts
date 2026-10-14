@@ -9,7 +9,10 @@ import {
   RESTORE_SESSION_MESSAGE,
   WindowSpec,
 } from '../../../utils/functions/windows';
-import { generatePlaceholderURL } from '../../../utils/functions/local';
+import {
+  decodeDataUrl,
+  generatePlaceholderURL,
+} from '../../../utils/functions/local';
 import type { tabData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { setupChromeFake } from '../../setup/chrome.fake';
 
@@ -497,8 +500,7 @@ describe('restore opens on the saved active tab, pinned tabs pinned (KAN-458)', 
   });
 
   const live = (id: string) => `https://${id}.test/`;
-  const lazy = (id: string) =>
-    generatePlaceholderURL(id, '/images/favicon.ico', live(id), 'Go');
+  const lazy = (id: string) => generatePlaceholderURL(id, '', live(id), 'Go');
   const page = (id: string, extra: Partial<tabData> = {}): tabData => ({
     tabId: id,
     favicon: '',
@@ -963,5 +965,86 @@ describe('the saved state waits until the window is old enough to keep it', () =
       expect.any(Error)
     );
     expect((await chrome.windows.get(windowId)).state).toBe('normal');
+  });
+});
+
+describe('a lazy tab with no stored favicon shows the icon Chrome has cached (KAN-594)', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+    vi.unstubAllGlobals();
+  });
+
+  const ICON_BYTES = [0x89, 0x50, 0x4e, 0x47];
+  const ICON = 'data:image/png;base64,iVBORw==';
+  const REMOTE = 'https://remote.test/favicon.ico';
+  const page = (id: string, favicon = ''): tabData => ({
+    tabId: id,
+    favicon,
+    title: id,
+    url: `https://${id}.test/`,
+  });
+
+  // The href of the placeholder's <link rel="icon">.
+  const iconOf = (url: string | undefined) =>
+    atob((url ?? '').slice(PLACEHOLDER_URL_PREFIX.length)).match(
+      /<link rel="icon" type="image\/x-icon" href="([^"]*)"/
+    )?.[1];
+
+  const pageUrlOf = (input: string) =>
+    new URL(input).searchParams.get('pageUrl') ?? '';
+
+  async function restoreUrls(tabs: tabData[]) {
+    const win = await createWindowWithRetries(spec({ tabs }), 'Go', 2);
+    if (win?.id === undefined) throw new Error('no window was created');
+    return (await chrome.tabs.query({ windowId: win.id }))
+      .sort((a, b) => a.index - b.index)
+      .map((t) => t.url);
+  }
+
+  test('an empty favicon is fetched from _favicon and inlined; a stored one is kept, not fetched', async () => {
+    handle = setupChromeFake();
+    const fetched: string[] = [];
+    vi.stubGlobal('fetch', async (input: string) => {
+      fetched.push(input);
+      return new Response(new Uint8Array(ICON_BYTES), { status: 200 });
+    });
+    const urls = await restoreUrls([page('a'), page('b'), page('c', REMOTE)]);
+    expect(urls.map(iconOf)).toEqual([undefined, ICON, REMOTE]);
+    expect(fetched.map(pageUrlOf)).toEqual(['https://b.test/']);
+    expect(fetched[0]).toContain('_favicon/');
+  });
+
+  test('a refused or failed fetch leaves no icon, and the restore goes on', async () => {
+    handle = setupChromeFake();
+    vi.stubGlobal('fetch', async (input: string) => {
+      if (pageUrlOf(input) === 'https://b.test/') throw new TypeError('boom');
+      return new Response('', { status: 404 });
+    });
+    const urls = await restoreUrls([page('a'), page('b'), page('c')]);
+    expect(urls.map(iconOf)).toEqual([undefined, '', '']);
+  });
+
+  test('icons resolving out of order keep the saved tab order', async () => {
+    handle = setupChromeFake();
+    vi.stubGlobal('fetch', async (input: string) => {
+      const delay = pageUrlOf(input) === 'https://b.test/' ? 30 : 0;
+      await new Promise((done) => setTimeout(done, delay));
+      return new Response(new Uint8Array(ICON_BYTES), { status: 200 });
+    });
+    const urls = await restoreUrls([
+      page('a'),
+      page('b'),
+      page('c'),
+      page('d'),
+    ]);
+    expect(urls.map((url) => decodeDataUrl(url ?? ''))).toEqual([
+      'https://a.test/',
+      'https://b.test/',
+      'https://c.test/',
+      'https://d.test/',
+    ]);
   });
 });

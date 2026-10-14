@@ -568,6 +568,12 @@ export const FIRESTORE_MAX_DOCUMENT_BYTES = 1048576;
 // session pushes the document past the Firestore ceiling and the write is
 // rejected outright. Dropping the embedded ones keeps remote URLs intact, so
 // most favicons still render.
+//
+// KAN-594. Local storage drops them too: Chrome's favicon cache draws a
+// visited page's icon, the embedded kind included (resolveFaviconUrl).
+export const isEmbeddedFavicon = (favicon: string | undefined): boolean =>
+  favicon?.startsWith('data:') === true;
+
 export function stripEmbeddedFavicons(
   data: TabMasterContainer
 ): TabMasterContainer {
@@ -578,7 +584,7 @@ export function stripEmbeddedFavicons(
       windows: tabGroup.windows.map((window) => ({
         ...window,
         tabs: window.tabs.map((tab) =>
-          tab.favicon?.startsWith('data:') ? { ...tab, favicon: '' } : tab
+          isEmbeddedFavicon(tab.favicon) ? { ...tab, favicon: '' } : tab
         ),
       })),
     })),

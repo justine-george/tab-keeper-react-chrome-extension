@@ -238,12 +238,7 @@ describe('Switch (closeOtherWindows true)', () => {
       ...(pinned ? { pinned: true as const } : {}),
     });
     const lazy = (name: string) =>
-      generatePlaceholderURL(
-        name,
-        '/images/favicon.ico',
-        web(name),
-        'Visit Site'
-      );
+      generatePlaceholderURL(name, '', web(name), 'Visit Site');
     await restoreSession({
       ...request([], true, false),
       specs: [
@@ -285,12 +280,7 @@ describe('a session with pinned tabs (KAN-458)', () => {
     closeOtherWindows,
     pinTabKeeper,
   });
-  const lazyP = generatePlaceholderURL(
-    'p',
-    '/images/favicon.ico',
-    web('p'),
-    'Visit Site'
-  );
+  const lazyP = generatePlaceholderURL('p', '', web('p'), 'Visit Site');
 
   test('On: the stub first, then the session pinned tab, the first unpinned tab active', async () => {
     handle = setupChromeFake(seed());

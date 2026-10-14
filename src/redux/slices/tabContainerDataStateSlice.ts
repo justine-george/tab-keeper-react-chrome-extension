@@ -23,6 +23,7 @@ import {
   isBlankTitle,
   normalizeTitle,
   saveToLocalStorage,
+  stripEmbeddedFavicons,
 } from '../../utils/functions/local';
 import { newSessionTitleOf } from '../../utils/functions/newSessionTitle';
 import {
@@ -2697,8 +2698,9 @@ export const tabContainerDataStateSlice = createSlice({
       }),
     },
 
+    // KAN-594. Stripped, and written back: the first load after an update rewrites what is stored.
     replaceState: (_state, action: PayloadAction<TabMasterContainer>) => {
-      const next = withASelection(action.payload);
+      const next = withASelection(stripEmbeddedFavicons(action.payload));
       saveToLocalStorage('tabContainerData', next);
       return next;
     },
@@ -2736,7 +2738,11 @@ export const tabContainerDataStateSlice = createSlice({
     // one is buried, strictly after its live copy for the same tie reason
     // the restore direction stamps strictly after the grave it withdraws.
     restoreContainer: (state, action: PayloadAction<typeof state>) => {
-      const restored = reconcileAssertedContainer(state, action.payload);
+      // KAN-594. Stripped before the reconcile, or a backup's embedded icon reads as a change.
+      const restored = reconcileAssertedContainer(
+        state,
+        stripEmbeddedFavicons(action.payload)
+      );
 
       const surviving = new Set(
         restored.tabGroups.map((tabGroup) => tabGroup.tabGroupId)
@@ -2780,8 +2786,8 @@ export const tabContainerDataStateSlice = createSlice({
       action: PayloadAction<TabMasterContainer>
     ) => {
       const here = new Set(state.tabGroups.map((g) => g.tabGroupId));
-      const added = action.payload.tabGroups
-        .filter((g) => !here.has(g.tabGroupId))
+      const added = stripEmbeddedFavicons(action.payload)
+        .tabGroups.filter((g) => !here.has(g.tabGroupId))
         .map((g) => ({ ...g, isSelected: false }));
       if (added.length === 0) return;
 
