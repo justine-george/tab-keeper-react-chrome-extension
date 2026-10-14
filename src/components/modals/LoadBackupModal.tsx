@@ -95,7 +95,7 @@ export const LoadBackupModal: React.FC = () => {
     }
 
     &::backdrop {
-      background: rgba(0, 0, 0, 0.8);
+      background: ${COLORS.MODAL_BACKDROP};
     }
   `;
 

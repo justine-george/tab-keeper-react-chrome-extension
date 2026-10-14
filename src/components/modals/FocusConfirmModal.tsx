@@ -106,7 +106,7 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
     }
 
     &::backdrop {
-      background: rgba(0, 0, 0, 0.8);
+      background: ${COLORS.MODAL_BACKDROP};
     }
 
     ${style && style}

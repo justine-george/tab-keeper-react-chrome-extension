@@ -38,6 +38,8 @@ export const LIGHT_THEME = {
     '0 1px 2px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.18)',
   // KAN-421. The tour's dim outside the step's bright box; heavier on the dark grounds, as FLOATING_SHADOW is.
   TOUR_SCRIM: 'rgba(0, 0, 0, 0.2)',
+  // KAN-588. Behind every dialog: heavier than the tour's dim, light enough to see the page.
+  MODAL_BACKDROP: 'rgba(0, 0, 0, 0.4)',
 };
 
 export const WARM_LIGHT_THEME = {
@@ -68,6 +70,7 @@ export const WARM_LIGHT_THEME = {
   FLOATING_SHADOW:
     '0 1px 2px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.18)',
   TOUR_SCRIM: 'rgba(0, 0, 0, 0.2)',
+  MODAL_BACKDROP: 'rgba(0, 0, 0, 0.4)',
 };
 
 export const BB_PINK_THEME = {
@@ -98,6 +101,7 @@ export const BB_PINK_THEME = {
   FLOATING_SHADOW:
     '0 1px 2px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.18)',
   TOUR_SCRIM: 'rgba(0, 0, 0, 0.2)',
+  MODAL_BACKDROP: 'rgba(0, 0, 0, 0.4)',
 };
 
 export const DARKENHEIMER_THEME = {
@@ -128,6 +132,7 @@ export const DARKENHEIMER_THEME = {
   FLOATING_SHADOW:
     '0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.55)',
   TOUR_SCRIM: 'rgba(0, 0, 0, 0.4)',
+  MODAL_BACKDROP: 'rgba(0, 0, 0, 0.55)',
 };
 
 export const BLUE_THEME = {
@@ -158,6 +163,7 @@ export const BLUE_THEME = {
   FLOATING_SHADOW:
     '0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.55)',
   TOUR_SCRIM: 'rgba(0, 0, 0, 0.4)',
+  MODAL_BACKDROP: 'rgba(0, 0, 0, 0.55)',
 };
 
 /** The colour tokens every theme defines. */

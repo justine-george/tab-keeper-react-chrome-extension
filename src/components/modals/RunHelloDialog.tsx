@@ -96,7 +96,7 @@ export const RunHelloDialog: React.FC<{
       outline: none;
     }
     &::backdrop {
-      background: rgba(0, 0, 0, 0.8);
+      background: ${COLORS.MODAL_BACKDROP};
     }
   `;
   const titleStyle = css`

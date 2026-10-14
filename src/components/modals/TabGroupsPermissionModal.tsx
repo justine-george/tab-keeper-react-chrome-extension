@@ -202,7 +202,7 @@ export const TabGroupsPermissionModal: React.FC<
         }
 
         &::backdrop {
-          background: rgba(0, 0, 0, 0.8);
+          background: ${COLORS.MODAL_BACKDROP};
         }
 
         /* The container carries initial focus (KAN-243) and is never reached
