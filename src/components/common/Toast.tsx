@@ -11,6 +11,7 @@ import {
 import { holdToasts, releaseToasts } from '../../redux/toastTimers';
 import { reopenFromOffer } from '../../redux/reopenOffer';
 import { showSession } from '../../redux/showSession';
+import { undo } from '../../redux/slices/undoRedoSlice';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
@@ -151,10 +152,12 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   // Past that the message ellipses rather than pushing the button out. The
   // cap is in rem because Chrome's Font size setting scales the text, so a
   // px cap cut the count at "Large" (KAN-312).
-  const offerStyle = css`
+  const chipRowStyle = css`
     justify-content: space-between;
     gap: 8px;
     padding: 6px 6px 6px 12px;
+  `;
+  const growStyle = css`
     width: max-content;
     min-width: 300px;
     max-width: min(30rem, calc(100vw - ${2 * EDGE_PX}px));
@@ -196,7 +199,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
       live = false;
     };
   }, []);
-  const reopenKeyHint = isMac
+  const undoKeyHint = isMac
     ? { text: '⌘Z', ariaKeyShortcuts: 'Meta+Z' }
     : { text: `${t('Ctrl')}+Z`, ariaKeyShortcuts: 'Control+Z' };
 
@@ -236,7 +239,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
         const message = t(toast.text, toast.params);
         const offer = toast.reopenOffer;
         const show = toast.show;
-        if (offer === null && show === null) {
+        if (offer === null && show === null && !toast.offersUndo) {
           return (
             <div
               key={toast.id}
@@ -249,16 +252,25 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
             </div>
           );
         }
-        // An offer or a Show: the message, and one chip at the right end.
+        // An offer, a Show or an Undo: the message, and one chip at the right end.
+        // KAN-583 W2. Undo keeps the plain toast's width and wraps its message:
+        // grown, Replace's crossed the popup's divider and was cut off in French.
         return (
           <div
             key={toast.id}
             ref={refFor(toast.id)}
             data-toast
-            css={[toastStyle, offerStyle, leaving && leavingStyle]}
+            css={[
+              toastStyle,
+              chipRowStyle,
+              !toast.offersUndo && growStyle,
+              leaving && leavingStyle,
+            ]}
             aria-hidden={leaving || undefined}
           >
-            <span css={messageStyle}>{message}</span>
+            <span css={toast.offersUndo ? undefined : messageStyle}>
+              {message}
+            </span>
             {offer !== null && (
               <Button
                 variant="chip"
@@ -269,9 +281,25 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 keyHint={
                   isSettingsPage || keyOfferId !== offer.id
                     ? undefined
-                    : reopenKeyHint
+                    : undoKeyHint
                 }
                 onClick={() => void dispatch(reopenFromOffer(offer.id))}
+                style={chipStyle}
+              />
+            )}
+            {toast.offersUndo && (
+              <Button
+                variant="chip"
+                iconType="undo"
+                text={t('Undo')}
+                // ⌘Z takes a Reopen offer shown since, and does nothing on Settings.
+                keyHint={
+                  isSettingsPage || keyOfferId !== null
+                    ? undefined
+                    : undoKeyHint
+                }
+                // The undo reducer closes this toast (globalStateSlice).
+                onClick={() => dispatch(undo())}
                 style={chipStyle}
               />
             )}

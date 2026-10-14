@@ -824,6 +824,19 @@ export const addCurrWindowToTabGroup = createAsyncThunk(
   }
 );
 
+// KAN-583. Makes a change and says whether customMiddleware recorded it as an
+// undo step, so a toast offers Undo only when one undo takes back this change.
+// A step pushes the old `present` onto `past`; a selection moves `present` only.
+export function recordsUndoStep(
+  getState: () => RootState,
+  change: () => void
+): boolean {
+  const before = getState().undoRedo.present;
+  change();
+  const { past } = getState().undoRedo;
+  return past[past.length - 1] === before;
+}
+
 // KAN-468. Every open window, captured as Save does, replaces the session's; the session keeps its name.
 export const replaceSessionWithOpenWindows = createAsyncThunk<
   boolean,
@@ -839,17 +852,20 @@ export const replaceSessionWithOpenWindows = createAsyncThunk<
   const captured = await captureOpenWindows(group.title, 'all-windows');
   // Gone while capturing (deleted, or synced away): nothing to replace.
   if (!captured || !sessionOf()) return false;
-  thunkAPI.dispatch(
-    replaceSessionContentInternal({
-      tabGroupId,
-      windows: captured.windows,
-      now: Date.now(),
-    })
+  const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+    thunkAPI.dispatch(
+      replaceSessionContentInternal({
+        tabGroupId,
+        windows: captured.windows,
+        now: Date.now(),
+      })
+    )
   );
   thunkAPI.dispatch(
     showToast({
       toastText: TOAST_MESSAGES.SESSION_REPLACED,
       announcesSavedChange: true,
+      offersUndo,
     })
   );
   return true;
@@ -871,19 +887,23 @@ export const addCurrTabToWindow = createAsyncThunk(
 );
 
 // delete tab group by tabGroupId
-export const deleteTabContainer = createAsyncThunk(
-  'global/deleteTabContainer',
-  async (toBeDeletedTabGroupId: string, thunkAPI) => {
-    thunkAPI.dispatch(deleteTabContainerInternal(toBeDeletedTabGroupId));
+export const deleteTabContainer = createAsyncThunk<
+  void,
+  string,
+  { state: RootState }
+>('global/deleteTabContainer', async (toBeDeletedTabGroupId, thunkAPI) => {
+  const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+    thunkAPI.dispatch(deleteTabContainerInternal(toBeDeletedTabGroupId))
+  );
 
-    thunkAPI.dispatch(
-      showToast({
-        toastText: TOAST_MESSAGES.DELETE_TAB_CONTAINER_SUCCESS,
-        announcesSavedChange: true,
-      })
-    );
-  }
-);
+  thunkAPI.dispatch(
+    showToast({
+      toastText: TOAST_MESSAGES.DELETE_TAB_CONTAINER_SUCCESS,
+      announcesSavedChange: true,
+      offersUndo,
+    })
+  );
+});
 
 // delete window by (tabGroupId, windowId)
 export const deleteWindow = createAsyncThunk(
