@@ -72,10 +72,14 @@ describe('Recently deleted page (KAN-595)', () => {
       expect.stringContaining('Firebase console'),
       expect.stringContaining('Lisbon trip'),
     ]);
-    expect(within(rows[0]).getByText('12 tabs · Deleted today')).toBeTruthy();
-    expect(
-      within(rows[1]).getByText(/^1 tab · Deleted Sep 16 · 3 days left$/)
-    ).toBeTruthy();
+    // The day and the time, as a session row dates itself (sessionWhen).
+    // Intl puts a narrow no-break space before AM/PM.
+    const text = (r: HTMLElement) =>
+      r.textContent?.replace(/[\u202f\u00a0]/g, ' ') ?? '';
+    expect(text(rows[0])).toContain('12 tabs · Deleted today, 11:59 AM');
+    expect(text(rows[1])).toMatch(
+      /1 tab · Deleted Sep 16, 12:00 PM · 3 days left/
+    );
   });
 
   test('every row offers Restore, named for its session, without a hover', async () => {

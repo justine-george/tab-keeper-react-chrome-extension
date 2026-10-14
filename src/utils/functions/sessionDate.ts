@@ -129,30 +129,6 @@ export function sessionWhen(
   );
 }
 
-/**
- * When a session was deleted (KAN-595): "today" or "yesterday", else the day,
- * with the year only when it is not this year. No time: the row says which day.
- */
-export function deletedWhen(
-  instant: number,
-  locale: string,
-  today: Date
-): string {
-  const at = new Date(instant);
-  if (Number.isNaN(at.getTime())) return '';
-
-  const days = calendarDaysBefore(instant, today);
-  if (days >= -1 && days <= 1) return relativeDay(locale, days <= 0 ? 0 : 1);
-
-  return formatIn(
-    locale,
-    at.getFullYear() === today.getFullYear()
-      ? { month: 'short', day: 'numeric' }
-      : { dateStyle: 'medium' },
-    at
-  );
-}
-
 const DAY_MS = 86_400_000;
 
 // Days until a deleted session goes for good, only in its last week (KAN-595).

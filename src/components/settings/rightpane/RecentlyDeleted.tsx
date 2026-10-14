@@ -13,7 +13,7 @@ import { useToday } from '../../../hooks/useToday';
 import type { AppDispatch } from '../../../redux/store';
 import { restoreDeletedSession } from '../../../redux/slices/tabContainerDataStateSlice';
 import { TYPE } from '../../../styles/scale';
-import { daysLeft, deletedWhen } from '../../../utils/functions/sessionDate';
+import { daysLeft, sessionWhen } from '../../../utils/functions/sessionDate';
 
 // One width for Restore and Empty, so the column of buttons lines up.
 const SAME_WIDTH = 'width: 8rem; justify-content: center;';
@@ -44,7 +44,7 @@ export function RecentlyDeleted() {
     const left = daysLeft(deletedAt, now);
     return [
       t('DeletedSessionTabs', { count: tabCount }),
-      t('DeletedOn', { when: deletedWhen(deletedAt, i18n.language, today) }),
+      t('DeletedOn', { when: sessionWhen(deletedAt, i18n.language, today) }),
       ...(left === null ? [] : [t('DaysLeft', { count: left })]),
     ].join(' · ');
   };
