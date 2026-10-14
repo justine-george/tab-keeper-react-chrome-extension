@@ -320,7 +320,7 @@
   "Here are your saved sessions. The selected one shows its windows and tabs on the right.": "Here are your saved sessions. The selected one shows its windows and tabs on the right.",
   "Open brings back all of this session's windows and tabs, beside the ones you have open.": "Open brings back all of this session's windows and tabs, beside the ones you have open.",
   "Replace overwrites this saved session with what you have open now. Nothing closes.": "Replace overwrites this saved session with what you have open now. Nothing closes.",
-  "Delete, in this menu, removes the saved session. Your open windows stay as they are.": "Delete, in this menu, removes the saved session. Your open windows stay as they are.",
+  "Copy all links, export, or delete this session from this menu. Deleting doesn't close your open windows.": "Copy all links, export, or delete this session from this menu. Deleting doesn't close your open windows.",
   "Each window can be opened on its own. Click a window's title to rename it.": "Each window can be opened on its own. Click a window's title to rename it.",
   "Keep Tab Keeper open in a pinned tab.": "Keep Tab Keeper open in a pinned tab.",
   "It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Sessions.": "It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Sessions.",

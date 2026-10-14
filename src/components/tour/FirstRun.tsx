@@ -285,7 +285,7 @@ export default function FirstRun() {
       case 'delete':
         return {
           text: t(
-            'Delete, in this menu, removes the saved session. Your open windows stay as they are.'
+            "Copy all links, export, or delete this session from this menu. Deleting doesn't close your open windows."
           ),
           primary: next,
         };
