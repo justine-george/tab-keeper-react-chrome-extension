@@ -17,6 +17,7 @@ import type {
   deletedTabGroup,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { withASelection } from './withOwnSelection';
+import { isSampleSession, withoutSamples } from './sampleSession';
 
 export interface MergeResult {
   merged: TabMasterContainer;
@@ -192,6 +193,10 @@ function signature(events: Map<string, Event>): string {
     .join('|');
 }
 
+function withoutSampleEvents(events: Map<string, Event>): Map<string, Event> {
+  return new Map([...events].filter(([id]) => !isSampleSession(id)));
+}
+
 function sideEvents(side: TabMasterContainer): Map<string, Event> {
   const events = new Map<string, Event>();
   collect(events, side);
@@ -205,12 +210,14 @@ export function mergeTabContainers(
   // is deterministic under test.
   now: number
 ): MergeResult {
+  // KAN-600. The cloud's copy of the run's example, or of its grave, is not taken in.
+  const cloudSide = withoutSamples(cloud);
   // Local first, then cloud, with `>=` in collect(): cloud takes exact ties.
   // That is the only convergent choice - if local won ties, each device would
   // write its own version and they would ping-pong indefinitely.
   const events = new Map<string, Event>();
   collect(events, local);
-  collect(events, cloud);
+  collect(events, cloudSide);
 
   // Before anything is derived from `events`, so the output and both flags all
   // describe the same document.
@@ -248,7 +255,7 @@ export function mergeTabContainers(
     {
       // max, not `now` - otherwise every popup open would look newer to the
       // other device forever.
-      lastModified: Math.max(local.lastModified, cloud.lastModified),
+      lastModified: Math.max(local.lastModified, cloudSide.lastModified),
       selectedTabGroupId: null,
       tabGroups: survivors,
       deletedTabGroups,
@@ -267,7 +274,10 @@ export function mergeTabContainers(
   return {
     merged,
     changedFromLocal: mergedSig !== signature(localEvents),
-    changedFromCloud: mergedSig !== signature(sideEvents(cloud)),
+    // KAN-600. The example here is never written, so it is no change to the cloud.
+    changedFromCloud:
+      signature(withoutSampleEvents(events)) !==
+      signature(sideEvents(cloudSide)),
   };
 }
 

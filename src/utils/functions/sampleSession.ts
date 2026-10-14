@@ -1,4 +1,5 @@
 import type {
+  TabMasterContainer,
   tabContainerData,
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
@@ -69,6 +70,21 @@ export const SAMPLE_ID_PREFIX = 'sample:';
 // A sample is no value moment (KAN-149): the rate prompt must not fire on it.
 export function isSampleSession(tabGroupId: string): boolean {
   return tabGroupId.startsWith(SAMPLE_ID_PREFIX);
+}
+
+// KAN-600. The example is this device's alone: the container as the cloud may hold it, with no sample and no sample's grave.
+export function withoutSamples(
+  container: TabMasterContainer
+): TabMasterContainer {
+  const isOurs = (g: { tabGroupId: string }) => !isSampleSession(g.tabGroupId);
+  return {
+    ...container,
+    tabGroups: container.tabGroups.filter(isOurs),
+    // Absent stays absent: Firestore rejects an explicit undefined (KAN-48).
+    ...(container.deletedTabGroups === undefined
+      ? {}
+      : { deletedTabGroups: container.deletedTabGroups.filter(isOurs) }),
+  };
 }
 
 // One `now` for both dates: createdTime is a merge contract (getStringDate).
