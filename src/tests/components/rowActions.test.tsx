@@ -96,6 +96,8 @@ describe('a strip that appears under the pointer (KAN-582)', () => {
     onOpenAllClick: vi.fn(),
     onFocusClick: vi.fn(),
     onReplaceClick: vi.fn(),
+    onDeleteKey: vi.fn(),
+    deleteKeyShortcuts: 'Delete Backspace',
   });
   const row = (isSelected: boolean, h: ReturnType<typeof handlers>) => (
     <TabGroupEntry tabGroupData={{ ...OTHER, isSelected }} {...h} />

@@ -41,8 +41,7 @@ const renderList = (platformOs: Os = 'mac', runStep?: RunStep) =>
 type Store = Awaited<ReturnType<typeof renderList>>['store'];
 const ids = (store: Store) =>
   store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
-const row = (title: string) =>
-  screen.getByRole('button', { name: title, exact: true });
+const row = (title: string) => screen.getByRole('button', { name: title });
 
 describe('the Delete key on a focused session row (KAN-592)', () => {
   test.each([

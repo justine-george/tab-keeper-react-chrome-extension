@@ -215,6 +215,7 @@
   "MovedToSession": "「{{title}}」に移動しました",
   "SessionEmptiedRemoved": "セッション「{{title}}」は空になったため削除されました。",
   "Ctrl": "Ctrl",
+  "Del": "Del",
   "Tab closed": "タブを閉じました",
   "Couldn't reopen.": "再度開けませんでした。",
   "WindowClosed_other": "ウィンドウを閉じました（{{count}} 個のタブ）",

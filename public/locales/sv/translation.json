@@ -217,6 +217,7 @@
   "MovedToSession": "Flyttat till ”{{title}}”",
   "SessionEmptiedRemoved": "Sessionen ”{{title}}” var tom och har tagits bort.",
   "Ctrl": "Ctrl",
+  "Del": "Del",
   "Tab closed": "Fliken stängdes",
   "Couldn't reopen.": "Det gick inte att öppna igen.",
   "WindowClosed_one": "Fönstret stängdes ({{count}} flik)",

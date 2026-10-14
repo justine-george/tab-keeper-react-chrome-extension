@@ -219,6 +219,7 @@
   "MovedToSession": "Item movido para “{{title}}”",
   "SessionEmptiedRemoved": "A sessão “{{title}}” estava vazia e foi removida.",
   "Ctrl": "Ctrl",
+  "Del": "Del",
   "Tab closed": "Aba fechada",
   "Couldn't reopen.": "Não foi possível reabrir.",
   "WindowClosed_one": "Janela fechada ({{count}} aba)",

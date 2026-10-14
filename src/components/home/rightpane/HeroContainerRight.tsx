@@ -32,6 +32,7 @@ import {
 } from '../../../utils/functions/local';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
+import { useMacKeys } from '../../../hooks/useIsMac';
 import {
   addCurrWindowToTabGroup,
   deleteTabContainer,
@@ -130,6 +131,8 @@ export default function HeroContainerRight() {
   // KAN-413. Open and Switch on the tour's own sample wait for it, dimmed as Undo is.
   const isOpenBlocked = useIsOpenBlockedByTour(selectedTabGroup?.tabGroupId);
   // KAN-582. The tour's Delete step points at this ⋮, which then explains only (hard rule 2).
+  // KAN-592. The ⋮ names the key that deletes the focused row; the PC form until Chrome says.
+  const deleteKeyHint = useMacKeys() ? '⌫' : t('Del');
   const holdsDelete = useSelector(
     (state: RootState) =>
       selectedTabGroup !== undefined &&
@@ -635,6 +638,7 @@ export default function HeroContainerRight() {
                     label: t('Delete session'),
                     icon: 'delete',
                     danger: true,
+                    keyHint: deleteKeyHint,
                     onSelect: () =>
                       void dispatch(deleteTabContainer(tabGroupId)),
                   },

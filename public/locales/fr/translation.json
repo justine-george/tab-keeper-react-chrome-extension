@@ -219,6 +219,7 @@
   "MovedToSession": "Élément déplacé vers « {{title}} »",
   "SessionEmptiedRemoved": "La session « {{title}} » était vide et a été supprimée.",
   "Ctrl": "Ctrl",
+  "Del": "Suppr",
   "Tab closed": "Onglet fermé",
   "Couldn't reopen.": "Impossible de rouvrir.",
   "WindowClosed_one": "Fenêtre fermée ({{count}} onglet)",

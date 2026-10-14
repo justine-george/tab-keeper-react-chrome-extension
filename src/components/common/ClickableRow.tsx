@@ -30,6 +30,9 @@ interface ClickableRowProps {
   style?: string;
   // KAN-389. For a caller that hands focus back to the row.
   buttonRef?: React.Ref<HTMLButtonElement>;
+  // KAN-592. A key the row takes beyond Enter and Space, and its aria-keyshortcuts.
+  onKeyDown?: React.KeyboardEventHandler<HTMLButtonElement>;
+  ariaKeyShortcuts?: string;
   children: React.ReactNode;
 }
 
@@ -56,6 +59,8 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
   disable,
   style,
   buttonRef,
+  onKeyDown,
+  ariaKeyShortcuts,
   children,
 }) => {
   // The UA stylesheet for <button> is what makes this swap risky, so the
@@ -90,9 +95,11 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
       aria-current={ariaCurrent ? 'true' : undefined}
       aria-describedby={ariaDescribedBy}
       aria-disabled={disable ? true : undefined}
+      aria-keyshortcuts={ariaKeyShortcuts}
       data-tour-anchor={tourAnchor}
       css={rowStyle}
       onClick={disable ? undefined : onClick}
+      onKeyDown={onKeyDown}
     >
       {children}
     </button>

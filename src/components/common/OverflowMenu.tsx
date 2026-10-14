@@ -30,6 +30,11 @@ export interface OverflowMenuItem {
    * KAN-56 fixed.
    */
   checked?: boolean;
+  /**
+   * KAN-592. A key that does this elsewhere, shown at the item's end. Decorative:
+   * the key works on the row it names, not in this menu, so it is not the item's aria-keyshortcuts.
+   */
+  keyHint?: string;
 }
 
 // A ligature written as JSX text would bypass IconName, and a name missing from
@@ -274,6 +279,12 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
         danger ? COLORS.DELETE_ICON_HOVER_COLOR : COLORS.HOVER_COLOR
       };
     }
+    /* The key hint is LABEL_L1 on the menu (4.5:1 in every theme, syncStatus.test.tsx)
+       but not on the danger fill, so on a fill it takes the label's TEXT, as Button's does. */
+    &:hover [data-key-hint],
+    &:active [data-key-hint] {
+      color: ${COLORS.TEXT_COLOR};
+    }
     /* KAN-205. A menu item is the one place a press most needs confirming --
        the menu closes on release, so without this the only feedback a click
        gets is the menu disappearing. A danger item keeps its red; see Icon. */
@@ -367,6 +378,19 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
                 {item.icon}
               </span>
               {item.label}
+              {item.keyHint !== undefined && (
+                <span
+                  data-key-hint
+                  aria-hidden="true"
+                  css={css`
+                    margin-left: auto;
+                    padding-left: 16px;
+                    color: ${COLORS.LABEL_L1_COLOR};
+                  `}
+                >
+                  {item.keyHint}
+                </span>
+              )}
               {isRadioGroup && (
                 /* Decorative. The state is on aria-checked above; this only
                    makes it visible. Reserved width even when unticked, so the

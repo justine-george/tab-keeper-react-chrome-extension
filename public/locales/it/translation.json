@@ -219,6 +219,7 @@
   "MovedToSession": "Elemento spostato in «{{title}}»",
   "SessionEmptiedRemoved": "La sessione «{{title}}» era vuota ed è stata rimossa.",
   "Ctrl": "Ctrl",
+  "Del": "Canc",
   "Tab closed": "Scheda chiusa",
   "Couldn't reopen.": "Impossibile riaprire.",
   "WindowClosed_one": "Finestra chiusa ({{count}} scheda)",
