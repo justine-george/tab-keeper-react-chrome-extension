@@ -37,6 +37,7 @@ import {
   WindowSpec,
 } from '../../utils/functions/windows';
 import {
+  bySessionRank,
   createdInstant,
   contentInstant,
 } from '../../utils/functions/mergeTabData';
@@ -902,6 +903,21 @@ export const deleteTabContainer = createAsyncThunk<
       toastText: TOAST_MESSAGES.DELETE_TAB_CONTAINER_SUCCESS,
       announcesSavedChange: true,
       offersUndo,
+    })
+  );
+});
+
+// KAN-595. Back from Recently deleted.
+export const restoreDeletedSession = createAsyncThunk<
+  void,
+  tabContainerData,
+  { state: RootState }
+>('global/restoreDeletedSession', async (session, thunkAPI) => {
+  thunkAPI.dispatch(restoreDeletedSessionInternal(session));
+  thunkAPI.dispatch(
+    showToast({
+      toastText: TOAST_MESSAGES.SESSION_RESTORED,
+      announcesSavedChange: true,
     })
   );
 });
@@ -2801,6 +2817,52 @@ export const tabContainerDataStateSlice = createSlice({
       return merged;
     },
 
+    // KAN-595. Back from Recently deleted. Stamped strictly after its grave, which is
+    // dropped, so the next merge keeps it on every device: the cloud wins exact ties.
+    // On top (his pick, P2): its date reads today; in custom order it takes a rank
+    // above the top, as a drop there does, and in default order a stale rank goes.
+    restoreDeletedSessionInternal: (
+      state,
+      action: PayloadAction<tabContainerData>
+    ) => {
+      const session = action.payload;
+      if (state.tabGroups.some((g) => g.tabGroupId === session.tabGroupId)) {
+        return;
+      }
+      const grave = state.deletedTabGroups?.find(
+        (g) => g.tabGroupId === session.tabGroupId
+      );
+      const now = Date.now();
+      const top = state.tabGroups[0];
+      const custom = state.tabGroups.some((g) => g.rank !== undefined);
+      const restored: tabContainerData = {
+        ...session,
+        contentModified: now,
+        isSelected: true,
+        lastModified: Math.max(now, (grave?.deletedAt ?? 0) + 1),
+      };
+      // Deleted, not set to undefined: Firestore rejects an undefined field (KAN-48).
+      if (custom && top !== undefined) restored.rank = rankOf(top) + END_GAP;
+      else delete restored.rank;
+      state.deletedTabGroups = (state.deletedTabGroups ?? []).filter(
+        (g) => g.tabGroupId !== session.tabGroupId
+      );
+      const at = state.tabGroups.findIndex(
+        (g) => bySessionRank(restored, g) < 0
+      );
+      state.tabGroups.splice(
+        at === -1 ? state.tabGroups.length : at,
+        0,
+        restored
+      );
+      state.selectedTabGroupId = restored.tabGroupId;
+      for (const g of state.tabGroups) {
+        g.isSelected = g.tabGroupId === restored.tabGroupId;
+      }
+      state.lastModified = now;
+      saveToLocalStorage('tabContainerData', state);
+    },
+
     // Undo and redo. Reconciles exactly as restoreContainer does, then
     // withdraws the sessions the step being undone had created (KAN-80).
     //
@@ -3063,6 +3125,7 @@ export const {
   restoreContainer,
   mergeSessionsFromBackupInternal,
   applyUndoSnapshot,
+  restoreDeletedSessionInternal,
 } = tabContainerDataStateSlice.actions;
 
 export default tabContainerDataStateSlice.reducer;

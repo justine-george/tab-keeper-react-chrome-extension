@@ -14,6 +14,7 @@ const CATEGORIES = [
   'Language',
   'Sync & Backup',
   'Sessions',
+  'Recently deleted',
   'About',
   'Help',
 ];

@@ -4,6 +4,7 @@ export enum SettingsCategory {
   DISPLAY = 'Display',
   SYNC = 'Sync & Backup',
   SESSIONS = 'Sessions',
+  RECENTLY_DELETED = 'Recently deleted',
   LANGUAGE = 'Language',
   ABOUT = 'About',
   HELP = 'Help',
@@ -33,6 +34,11 @@ export const initialState: SettingsCategoryContainer[] = [
   },
   {
     name: SettingsCategory.SESSIONS,
+    isSelected: false,
+  },
+  // KAN-595. After Sessions: both are about what you have saved.
+  {
+    name: SettingsCategory.RECENTLY_DELETED,
     isSelected: false,
   },
   {

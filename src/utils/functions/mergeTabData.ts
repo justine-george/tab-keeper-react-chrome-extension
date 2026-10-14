@@ -97,6 +97,14 @@ export function sessionRank(group: tabContainerData): number {
   return group.rank ?? contentInstant(group);
 }
 
+// The list's order, highest first; tabGroupId breaks exact ties. Shared with
+// restore (KAN-595), so a restored session sits where the next merge puts it.
+export const bySessionRank = (
+  a: tabContainerData,
+  b: tabContainerData
+): number =>
+  sessionRank(b) - sessionRank(a) || compareAsc(a.tabGroupId, b.tabGroupId);
+
 type Event =
   | { kind: 'present'; at: number; group: tabContainerData }
   | { kind: 'deleted'; at: number };
@@ -233,10 +241,7 @@ export function mergeTabContainers(
   // already session-granular last-writer-wins, so a field on the session is
   // resolved correctly with no new rule -- including two devices reordering
   // different sessions at once.
-  survivors.sort(
-    (a, b) =>
-      sessionRank(b) - sessionRank(a) || compareAsc(a.tabGroupId, b.tabGroupId)
-  );
+  survivors.sort(bySessionRank);
 
   // Selection is per-device view state: keep this device's, else the first session.
   const merged = withASelection(

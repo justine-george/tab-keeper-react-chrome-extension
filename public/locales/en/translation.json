@@ -346,5 +346,21 @@
   "Sync space used": "Sync space used",
   "SyncSpaceUsed": "{{used}} of {{limit}} sync space used",
   "SyncSpaceUsedNear": "{{used}} of {{limit}} sync space used. Sync stops at {{limit}}: delete sessions you no longer need.",
-  "SyncSpaceUsedFull": "{{used}} of {{limit}} sync space used. Too large to sync: delete sessions you no longer need."
+  "SyncSpaceUsedFull": "{{used}} of {{limit}} sync space used. Too large to sync: delete sessions you no longer need.",
+  "Recently deleted": "Recently deleted",
+  "Kept for 30 days, then permanently deleted.": "Kept for 30 days, then permanently deleted.",
+  "RestoreDeletedSession": "Restore",
+  "RestoreDeletedSessionNamed": "Restore {{title}}",
+  "EmptyRecentlyDeleted": "Empty",
+  "DeletedSessionTabs_one": "{{count}} tab",
+  "DeletedSessionTabs_other": "{{count}} tabs",
+  "DeletedOn": "Deleted {{when}}",
+  "DaysLeft_one": "{{count}} day left",
+  "DaysLeft_other": "{{count}} days left",
+  "Session restored.": "Session restored.",
+  "EmptyRecentlyDeletedTitle_one": "Permanently delete {{count}} session?",
+  "EmptyRecentlyDeletedTitle_other": "Permanently delete {{count}} sessions?",
+  "EmptyRecentlyDeletedBody_one": "You can’t restore it after this.",
+  "EmptyRecentlyDeletedBody_other": "You can’t restore them after this.",
+  "Nothing deleted in the last 30 days.": "Nothing deleted in the last 30 days."
 }

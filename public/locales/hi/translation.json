@@ -346,5 +346,21 @@
   "Sync space used": "उपयोग किया गया सिंक स्थान",
   "SyncSpaceUsed": "{{limit}} सिंक स्थान में से {{used}} उपयोग किया गया",
   "SyncSpaceUsedNear": "{{limit}} सिंक स्थान में से {{used}} उपयोग किया गया। {{limit}} पर सिंक रुक जाता है: जिन सत्रों की अब ज़रूरत नहीं है, उन्हें हटाएँ।",
-  "SyncSpaceUsedFull": "{{limit}} सिंक स्थान में से {{used}} उपयोग किया गया। सिंक करने के लिए बहुत बड़ा: जिन सत्रों की अब ज़रूरत नहीं है, उन्हें हटाएँ।"
+  "SyncSpaceUsedFull": "{{limit}} सिंक स्थान में से {{used}} उपयोग किया गया। सिंक करने के लिए बहुत बड़ा: जिन सत्रों की अब ज़रूरत नहीं है, उन्हें हटाएँ।",
+  "Recently deleted": "हाल ही में हटाए गए",
+  "Kept for 30 days, then permanently deleted.": "30 दिन तक रखे जाते हैं, फिर हमेशा के लिए हटा दिए जाते हैं।",
+  "RestoreDeletedSession": "वापस लाएँ",
+  "RestoreDeletedSessionNamed": "{{title}} वापस लाएँ",
+  "EmptyRecentlyDeleted": "खाली करें",
+  "DeletedSessionTabs_one": "{{count}} टैब",
+  "DeletedSessionTabs_other": "{{count}} टैब्स",
+  "DeletedOn": "हटाया गया: {{when}}",
+  "DaysLeft_one": "{{count}} दिन बाकी",
+  "DaysLeft_other": "{{count}} दिन बाकी",
+  "Session restored.": "सत्र वापस लाया गया।",
+  "EmptyRecentlyDeletedTitle_one": "{{count}} सेशन हमेशा के लिए हटाएँ?",
+  "EmptyRecentlyDeletedTitle_other": "{{count}} सेशन हमेशा के लिए हटाएँ?",
+  "EmptyRecentlyDeletedBody_one": "इसके बाद इसे वापस नहीं लाया जा सकेगा।",
+  "EmptyRecentlyDeletedBody_other": "इसके बाद इन्हें वापस नहीं लाया जा सकेगा।",
+  "Nothing deleted in the last 30 days.": "पिछले 30 दिनों में कुछ नहीं हटाया गया।"
 }

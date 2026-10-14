@@ -341,5 +341,17 @@
   "Sync space used": "使用中の同期容量",
   "SyncSpaceUsed": "同期容量 {{limit}} のうち {{used}} を使用中",
   "SyncSpaceUsedNear": "同期容量 {{limit}} のうち {{used}} を使用中。{{limit}} で同期が止まります。不要なセッションを削除してください。",
-  "SyncSpaceUsedFull": "同期容量 {{limit}} のうち {{used}} を使用中。大きすぎて同期できません。不要なセッションを削除してください。"
+  "SyncSpaceUsedFull": "同期容量 {{limit}} のうち {{used}} を使用中。大きすぎて同期できません。不要なセッションを削除してください。",
+  "Recently deleted": "最近削除した項目",
+  "Kept for 30 days, then permanently deleted.": "30 日間保持され、その後完全に削除されます。",
+  "RestoreDeletedSession": "復元",
+  "RestoreDeletedSessionNamed": "{{title}} を復元",
+  "EmptyRecentlyDeleted": "空にする",
+  "DeletedSessionTabs_other": "{{count}} 個のタブ",
+  "DeletedOn": "削除: {{when}}",
+  "DaysLeft_other": "残り {{count}} 日",
+  "Session restored.": "セッションを復元しました。",
+  "EmptyRecentlyDeletedTitle_other": "{{count}} 件のセッションを完全に削除しますか？",
+  "EmptyRecentlyDeletedBody_other": "この操作の後は復元できません。",
+  "Nothing deleted in the last 30 days.": "過去 30 日間に削除した項目はありません。"
 }

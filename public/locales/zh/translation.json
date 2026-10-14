@@ -341,5 +341,17 @@
   "Sync space used": "已用同步空间",
   "SyncSpaceUsed": "已用 {{used}}，共 {{limit}} 同步空间",
   "SyncSpaceUsedNear": "已用 {{used}}，共 {{limit}} 同步空间。达到 {{limit}} 时同步将停止：请删除不再需要的会话。",
-  "SyncSpaceUsedFull": "已用 {{used}}，共 {{limit}} 同步空间。过大，无法同步：请删除不再需要的会话。"
+  "SyncSpaceUsedFull": "已用 {{used}}，共 {{limit}} 同步空间。过大，无法同步：请删除不再需要的会话。",
+  "Recently deleted": "最近删除",
+  "Kept for 30 days, then permanently deleted.": "保留 30 天，之后永久删除。",
+  "RestoreDeletedSession": "恢复",
+  "RestoreDeletedSessionNamed": "恢复“{{title}}”",
+  "EmptyRecentlyDeleted": "清空",
+  "DeletedSessionTabs_other": "{{count}} 个标签页",
+  "DeletedOn": "删除于 {{when}}",
+  "DaysLeft_other": "还剩 {{count}} 天",
+  "Session restored.": "会话已恢复。",
+  "EmptyRecentlyDeletedTitle_other": "永久删除 {{count}} 个会话？",
+  "EmptyRecentlyDeletedBody_other": "此后将无法恢复。",
+  "Nothing deleted in the last 30 days.": "过去 30 天内没有删除任何内容。"
 }
