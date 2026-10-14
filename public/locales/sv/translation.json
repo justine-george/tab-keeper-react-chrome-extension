@@ -362,5 +362,8 @@
   "EmptyRecentlyDeletedTitle_other": "Radera {{count}} sessioner permanent?",
   "EmptyRecentlyDeletedBody_one": "Den går inte att återställa efteråt.",
   "EmptyRecentlyDeletedBody_other": "De går inte att återställa efteråt.",
-  "Nothing deleted in the last 30 days.": "Inget har raderats de senaste 30 dagarna."
+  "Nothing deleted in the last 30 days.": "Inget har raderats de senaste 30 dagarna.",
+  "Time format": "Tidsformat",
+  "12-hour": "12-timmars",
+  "24-hour": "24-timmars"
 }

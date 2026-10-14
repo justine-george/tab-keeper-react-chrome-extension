@@ -362,5 +362,8 @@
   "EmptyRecentlyDeletedTitle_other": "Permanently delete {{count}} sessions?",
   "EmptyRecentlyDeletedBody_one": "You can’t restore it after this.",
   "EmptyRecentlyDeletedBody_other": "You can’t restore them after this.",
-  "Nothing deleted in the last 30 days.": "Nothing deleted in the last 30 days."
+  "Nothing deleted in the last 30 days.": "Nothing deleted in the last 30 days.",
+  "Time format": "Time format",
+  "12-hour": "12-hour",
+  "24-hour": "24-hour"
 }

@@ -353,5 +353,8 @@
   "Session restored.": "セッションを復元しました。",
   "EmptyRecentlyDeletedTitle_other": "{{count}} 件のセッションを完全に削除しますか？",
   "EmptyRecentlyDeletedBody_other": "この操作の後は復元できません。",
-  "Nothing deleted in the last 30 days.": "過去 30 日間に削除した項目はありません。"
+  "Nothing deleted in the last 30 days.": "過去 30 日間に削除した項目はありません。",
+  "Time format": "時刻の形式",
+  "12-hour": "12時間制",
+  "24-hour": "24時間制"
 }

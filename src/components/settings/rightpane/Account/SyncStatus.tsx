@@ -42,11 +42,14 @@ const SyncStatus: React.FC = () => {
     (s: RootState) => s.settingsDataState.lastSyncedTime
   );
   const today = useToday();
+  const timeFormat = useSelector(
+    (s: RootState) => s.settingsDataState.timeFormat
+  );
   // Dated like a session (KAN-584); a time that isn't a date reads as none.
   const syncedTime =
     lastSyncedTime === ''
       ? ''
-      : sessionWhen(lastSyncedTime, i18n.language, today);
+      : sessionWhen(lastSyncedTime, i18n.language, timeFormat, today);
   // shallowEqual: describeSyncState builds a fresh object every call, so
   // without it any store change re-rendered this component and react-redux's
   // dev check warned that the selector is unstable (seen from the KAN-252
@@ -126,7 +129,7 @@ const SyncStatus: React.FC = () => {
           <p
             css={syncedStyle}
             data-sync-synced
-            title={getPrettyDate(lastSyncedTime, i18n.language)}
+            title={getPrettyDate(lastSyncedTime, i18n.language, timeFormat)}
           >
             {t('Last synced {{time}}', { time: syncedTime })}
           </p>

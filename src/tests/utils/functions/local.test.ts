@@ -783,7 +783,7 @@ describe('getPrettyDate: default (English) formatting', () => {
     ['2023-10-17 12:00:00', 'Oct 17, 2023, 12:00:00 PM'],
     ['2023-10-17 00:00:00', 'Oct 17, 2023, 12:00:00 AM'],
   ])('formats %s as %s, from a date string', (input, expected) => {
-    expect(getPrettyDate(input)).toBe(expected);
+    expect(getPrettyDate(input, 'en', 'h12')).toBe(expected);
   });
 
   test.each([
@@ -792,7 +792,9 @@ describe('getPrettyDate: default (English) formatting', () => {
     ['2023-10-17 12:00:00', 'Oct 17, 2023, 12:00:00 PM'],
     ['2023-10-17 00:00:00', 'Oct 17, 2023, 12:00:00 AM'],
   ])('formats %s as %s, from a timestamp', (input, expected) => {
-    expect(getPrettyDate(new Date(input).getTime())).toBe(expected);
+    expect(getPrettyDate(new Date(input).getTime(), 'en', 'h12')).toBe(
+      expected
+    );
   });
 
   // September is the one month whose English abbreviation actually CHANGED
@@ -802,7 +804,7 @@ describe('getPrettyDate: default (English) formatting', () => {
   // merely a re-punctuation of the old one, and it is silently correct-looking
   // either way.
   test('uses the standard "Sep", not the old table’s "Sept"', () => {
-    const out = getPrettyDate('2026-09-04 20:21:13');
+    const out = getPrettyDate('2026-09-04 20:21:13', 'en', 'h12');
     expect(out).toBe('Sep 4, 2026, 8:21:13 PM');
     expect(out).not.toContain('Sept');
   });
@@ -823,22 +825,22 @@ describe('getPrettyDate: formats in the caller’s locale', () => {
     ['ja', '2023/10/17 22:01:23'],
     ['it', '17 ott 2023, 22:01:23'],
   ])('formats for %s as %s', (locale, expected) => {
-    expect(getPrettyDate(AT, locale)).toBe(expected);
+    expect(getPrettyDate(AT, locale, 'h23')).toBe(expected);
   });
 
   // The control for the whole describe: English must NOT pick up any of the
   // above. Without this, a fix that hardcoded German would satisfy every case
   // that matters to a German user and still be wrong.
   test('leaves English on its own conventions', () => {
-    expect(getPrettyDate(AT, 'en')).toBe('Oct 17, 2023, 10:01:23 PM');
+    expect(getPrettyDate(AT, 'en', 'h12')).toBe('Oct 17, 2023, 10:01:23 PM');
   });
 
-  // German and Japanese use a 24-hour clock, so the AM/PM markers that the old
-  // implementation appended unconditionally must be absent.
+  // The AM/PM markers the old implementation appended unconditionally must be
+  // absent in 24-hour (KAN-587: the setting decides the clock, not the language).
   test.each(['de', 'ja', 'fr', 'ru'])(
-    'uses a 24-hour clock for %s',
+    'draws no AM/PM in 24-hour for %s',
     (locale) => {
-      const out = getPrettyDate(AT, locale);
+      const out = getPrettyDate(AT, locale, 'h23');
       expect(out).toContain('22:01:23');
       expect(out).not.toMatch(/\b(AM|PM)\b/);
     }
@@ -852,20 +854,20 @@ describe('getPrettyDate: bad input', () => {
   test.each([['not a date'], [NaN], ['']])(
     'returns an empty string for %p rather than throwing',
     (input) => {
-      expect(getPrettyDate(input as string | number)).toBe('');
+      expect(getPrettyDate(input as string | number, 'en', 'h12')).toBe('');
     }
   );
 
   // `locale` comes from settingsData in localStorage, so it is not guaranteed
   // to be a well-formed BCP-47 tag.
   test('falls back to English on a structurally invalid locale', () => {
-    expect(getPrettyDate('2023-10-17 22:01:23', 'not!a!locale')).toBe(
+    expect(getPrettyDate('2023-10-17 22:01:23', 'not!a!locale', 'h12')).toBe(
       'Oct 17, 2023, 10:01:23 PM'
     );
   });
 
   test('falls back to English on an empty locale', () => {
-    expect(getPrettyDate('2023-10-17 22:01:23', '')).toBe(
+    expect(getPrettyDate('2023-10-17 22:01:23', '', 'h12')).toBe(
       'Oct 17, 2023, 10:01:23 PM'
     );
   });
@@ -1557,5 +1559,80 @@ describe('restoreRoute', () => {
     '',
   ])('keeps %s a placeholder', (url) => {
     expect(restoreRoute(url, OWN_ID)).toBe('keep');
+  });
+});
+
+describe('getPrettyDate: time format (KAN-587)', () => {
+  const t = new Date(2026, 9, 14, 15, 9, 42).getTime();
+  test.each([
+    ['en', 'h12', /^Oct 14, 2026, 3:09:42\sPM$/],
+    ['en', 'h23', /^Oct 14, 2026, 15:09:42$/],
+    // F1: Chromium pads the hour here ("03:09:42 PM"); the row says 3:09 PM.
+    ['de', 'h12', /^14\.10\.2026, 3:09:42\sPM$/],
+    ['fr', 'h12', /^14 oct\. 2026, 3:09:42\sPM$/],
+    // The date keeps the language's own shape: Chromium alone would draw
+    // 2026/10/14 here once the clock is not zh's own.
+    ['zh', 'h12', /^2026年10月14日 下午3:09:42$/],
+    ['zh-TW', 'h23', /^2026年10月14日 15:09:42$/],
+    ['de', 'h23', /^14\.10\.2026, 15:09:42$/],
+  ] as const)('%s %s', (locale, format, expected) => {
+    expect(getPrettyDate(t, locale, format)).toMatch(expected);
+  });
+
+  test('F1 keeps a two-digit hour whole', () => {
+    expect(
+      getPrettyDate(new Date(2026, 9, 14, 23, 9, 42).getTime(), 'de', 'h12')
+    ).toMatch(/, 11:09:42\sPM$/);
+    expect(
+      getPrettyDate(new Date(2026, 9, 14, 0, 5, 0).getTime(), 'de', 'h12')
+    ).toMatch(/, 12:05:00\sAM$/);
+  });
+
+  // Only the clock changes: in every shipped language, under either format,
+  // the date reads as the language draws it with its own clock.
+  test.each(
+    [
+      'en',
+      'de',
+      'es',
+      'fr',
+      'hi',
+      'it',
+      'ja',
+      'ko',
+      'pt',
+      'ru',
+      'sv',
+      'zh',
+      'zh-TW',
+    ].flatMap(
+      (locale) =>
+        [
+          [locale, 'h12'],
+          [locale, 'h23'],
+        ] as const
+    )
+  )('%s %s keeps the date part', (locale, format) => {
+    const own = new Intl.DateTimeFormat(locale, {
+      dateStyle: 'medium',
+      timeStyle: 'medium',
+    }).formatToParts(t);
+    const clock = new Set(['hour', 'minute', 'second', 'dayPeriod']);
+    const date = own
+      .slice(
+        0,
+        own.findIndex((part) => clock.has(part.type))
+      )
+      .map((part) => part.value)
+      .join('')
+      // As format() draws it: some V8s keep U+202F only in formatToParts.
+      .replace(/\u202f/g, ' ');
+    expect(getPrettyDate(t, locale, format).startsWith(date)).toBe(true);
+  });
+
+  test('24-hour keeps its padding zero', () => {
+    expect(
+      getPrettyDate(new Date(2026, 9, 14, 9, 5, 0).getTime(), 'de', 'h23')
+    ).toMatch(/, 09:05:00$/);
   });
 });

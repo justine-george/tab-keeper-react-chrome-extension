@@ -353,5 +353,8 @@
   "Session restored.": "会话已恢复。",
   "EmptyRecentlyDeletedTitle_other": "永久删除 {{count}} 个会话？",
   "EmptyRecentlyDeletedBody_other": "此后将无法恢复。",
-  "Nothing deleted in the last 30 days.": "过去 30 天内没有删除任何内容。"
+  "Nothing deleted in the last 30 days.": "过去 30 天内没有删除任何内容。",
+  "Time format": "时间格式",
+  "12-hour": "12小时制",
+  "24-hour": "24小时制"
 }

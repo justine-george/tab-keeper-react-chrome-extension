@@ -106,7 +106,7 @@ describe('"Last synced" reads like a session date (KAN-584)', () => {
     async ({ at }) => {
       await renderSettings(at);
       expect(settingsLine()?.getAttribute('title')).toBe(
-        getPrettyDate(at, 'en')
+        getPrettyDate(at, 'en', 'h12')
       );
     }
   );

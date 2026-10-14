@@ -7,7 +7,11 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { getPrettyDate } from '../../utils/functions/local';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
-import { setTheme, Theme } from '../../redux/slices/settingsDataStateSlice';
+import {
+  setTheme,
+  setTimeFormat,
+  Theme,
+} from '../../redux/slices/settingsDataStateSlice';
 
 // KAN-190. Wiring only: the page previews the generator's output and saves that
 // same string. File contents: sessionExportHtml.test.ts; real file:
@@ -653,7 +657,9 @@ describe('the exported date line (KAN-347)', () => {
     );
 
     await waitFor(() =>
-      expect(frame().srcdoc).toContain(`Edited ${getPrettyDate(EDITED, 'en')}`)
+      expect(frame().srcdoc).toContain(
+        `Edited ${getPrettyDate(EDITED, 'en', 'h12')}`
+      )
     );
   });
 
@@ -677,9 +683,32 @@ describe('the exported date line (KAN-347)', () => {
 
     await waitFor(() =>
       expect(frame().srcdoc).toContain(
-        `Edited ${getPrettyDate(TODAY_EDIT, 'en')}`
+        `Edited ${getPrettyDate(TODAY_EDIT, 'en', 'h12')}`
       )
     );
     expect(frame().srcdoc).not.toMatch(/\btoday\b/i);
+  });
+
+  test('the file follows the time format (KAN-587)', async () => {
+    const TODAY_EDIT = new Date(2026, 8, 29, 16, 12, 5).getTime();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 8, 29, 17, 7, 0));
+    await renderWithProviders(
+      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      {
+        seedStore: (store) => {
+          store.dispatch(setTimeFormat('h23'));
+          store.dispatch(
+            replaceState(
+              buildContainer([{ ...SESSION, contentModified: TODAY_EDIT }])
+            )
+          );
+        },
+      }
+    );
+
+    await waitFor(() =>
+      expect(frame().srcdoc).toContain('Edited Sep 29, 2026, 16:12:05')
+    );
   });
 });

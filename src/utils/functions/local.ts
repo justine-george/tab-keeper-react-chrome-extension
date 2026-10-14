@@ -8,6 +8,8 @@ import type {
   tabData,
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+// Type only: src/background.ts imports this module (see FALLBACK_LOCALE).
+import type { TimeFormat } from '../../redux/slices/settingsDataStateSlice';
 import { searchTermOf } from './openNowSearch';
 
 // check validity of the timestamp
@@ -858,7 +860,8 @@ export const FALLBACK_LOCALE = 'en';
 
 export const getPrettyDate = (
   dateOrTimeStamp: string | number,
-  locale: string = FALLBACK_LOCALE
+  locale: string,
+  timeFormat: TimeFormat
 ): string => {
   const date = new Date(dateOrTimeStamp);
 
@@ -868,16 +871,45 @@ export const getPrettyDate = (
   if (Number.isNaN(date.getTime())) return '';
 
   try {
-    return new Intl.DateTimeFormat(locale, {
-      dateStyle: 'medium',
-      timeStyle: 'medium',
-    }).format(date);
+    return fullStamp(locale, timeFormat, date);
   } catch {
     // `locale` originates in localStorage, so it is not guaranteed to be a
     // well-formed BCP-47 tag; a structurally invalid one is a RangeError.
-    return new Intl.DateTimeFormat(FALLBACK_LOCALE, {
-      dateStyle: 'medium',
-      timeStyle: 'medium',
-    }).format(date);
+    return fullStamp(FALLBACK_LOCALE, timeFormat, date);
   }
 };
+
+const CLOCK_PARTS = new Set(['hour', 'minute', 'second', 'dayPeriod']);
+
+// KAN-587. The date as the language draws it, the time in the chosen format.
+// Overriding hourCycle can also switch the date's pattern (zh 12-hour and
+// zh-TW 24-hour turn 2026年10月14日 into 2026/10/14), so the date half comes
+// from the language's own clock and only the time half from the chosen one.
+// F1: under 12-hour Chromium pads the hour in de fr it pt ru sv zh
+// ("03:09:42 PM") where the row says "3:09 PM"; that zero is trimmed.
+function fullStamp(locale: string, timeFormat: TimeFormat, date: Date): string {
+  const options: Intl.DateTimeFormatOptions = {
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+  };
+  const own = new Intl.DateTimeFormat(locale, options).formatToParts(date);
+  const chosen = new Intl.DateTimeFormat(locale, {
+    ...options,
+    hourCycle: timeFormat,
+  }).formatToParts(date);
+  const clockAt = (parts: Intl.DateTimeFormatPart[]) =>
+    parts.findIndex((part) => CLOCK_PARTS.has(part.type));
+  const text = (parts: Intl.DateTimeFormatPart[]) =>
+    parts
+      .map((part) =>
+        timeFormat === 'h12' && part.type === 'hour'
+          ? part.value.replace(/^0(?=\d)/, '')
+          : part.value
+      )
+      .join('');
+  // V8's format() swaps U+202F for a plain space; some V8s (Node 22's) keep
+  // it in formatToParts, so this matches format() on every engine.
+  return (
+    text(own.slice(0, clockAt(own))) + text(chosen.slice(clockAt(chosen)))
+  ).replace(/\u202f/g, ' ');
+}
