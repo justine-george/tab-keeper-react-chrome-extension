@@ -337,5 +337,9 @@
   "Saved sessions appear here.": "已儲存的工作階段會顯示在這裡。",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "在這裡搜尋，快速找到開啟的分頁。按 {{icon}} 可在旁邊顯示已儲存的工作階段。",
   "Show me here": "在這裡看看",
-  "In a split view with {{title}}": "與「{{title}}」分割畫面顯示"
+  "In a split view with {{title}}": "與「{{title}}」分割畫面顯示",
+  "Sync space used": "已用同步空間",
+  "SyncSpaceUsed": "已使用 {{used}}，共 {{limit}} 同步空間",
+  "SyncSpaceUsedNear": "已使用 {{used}}，共 {{limit}} 同步空間。達到 {{limit}} 時將停止同步：請移除不再需要的工作階段。",
+  "SyncSpaceUsedFull": "已使用 {{used}}，共 {{limit}} 同步空間。過大，無法同步：請移除不再需要的工作階段。"
 }

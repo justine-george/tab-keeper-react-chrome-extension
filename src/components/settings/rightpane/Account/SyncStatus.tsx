@@ -7,6 +7,7 @@ import { useToday } from '../../../../hooks/useToday';
 
 import Icon from '../../../common/Icon';
 import { describeSyncState } from './describeSyncState';
+import SyncSpaceBar from './SyncSpaceBar';
 import { useFontFamily } from '../../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../../hooks/useThemeColors';
 import { RootState } from '../../../../redux/store';
@@ -135,6 +136,8 @@ const SyncStatus: React.FC = () => {
           {t(state.line)}
         </p>
       )}
+      {/* KAN-596. Only where this device syncs: off and unavailable write nothing. */}
+      {state.kind !== 'off' && state.kind !== 'unavailable' && <SyncSpaceBar />}
     </div>
   );
 };

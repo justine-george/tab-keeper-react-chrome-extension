@@ -342,5 +342,9 @@
   "Saved sessions appear here.": "सहेजे गए सेशन यहाँ दिखते हैं।",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "किसी खुले टैब को जल्दी ढूँढने के लिए यहाँ खोजें। सहेजा गया सेशन इसके बगल में दिखाने के लिए {{icon}} दबाएँ।",
   "Show me here": "यहीं दिखाएँ",
-  "In a split view with {{title}}": "“{{title}}” के साथ स्प्लिट व्यू में"
+  "In a split view with {{title}}": "“{{title}}” के साथ स्प्लिट व्यू में",
+  "Sync space used": "उपयोग किया गया सिंक स्थान",
+  "SyncSpaceUsed": "{{limit}} सिंक स्थान में से {{used}} उपयोग किया गया",
+  "SyncSpaceUsedNear": "{{limit}} सिंक स्थान में से {{used}} उपयोग किया गया। {{limit}} पर सिंक रुक जाता है: जिन सत्रों की अब ज़रूरत नहीं है, उन्हें हटाएँ।",
+  "SyncSpaceUsedFull": "{{limit}} सिंक स्थान में से {{used}} उपयोग किया गया। सिंक करने के लिए बहुत बड़ा: जिन सत्रों की अब ज़रूरत नहीं है, उन्हें हटाएँ।"
 }

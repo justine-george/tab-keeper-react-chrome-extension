@@ -337,5 +337,9 @@
   "Saved sessions appear here.": "保存したセッションはここに表示されます。",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "ここで検索すると、開いているタブをすばやく見つけられます。{{icon}} を押すと、保存済みのセッションが横に表示されます。",
   "Show me here": "ここで見る",
-  "In a split view with {{title}}": "「{{title}}」と分割表示"
+  "In a split view with {{title}}": "「{{title}}」と分割表示",
+  "Sync space used": "使用中の同期容量",
+  "SyncSpaceUsed": "同期容量 {{limit}} のうち {{used}} を使用中",
+  "SyncSpaceUsedNear": "同期容量 {{limit}} のうち {{used}} を使用中。{{limit}} で同期が止まります。不要なセッションを削除してください。",
+  "SyncSpaceUsedFull": "同期容量 {{limit}} のうち {{used}} を使用中。大きすぎて同期できません。不要なセッションを削除してください。"
 }
