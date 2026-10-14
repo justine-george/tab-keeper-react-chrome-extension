@@ -233,10 +233,10 @@ describe('moving', () => {
     await store.dispatch(startRun(newRun('popup', 1)));
     store.dispatch(stepRunBack());
     expect(runOf(store)?.step).toBe(1);
-    for (let i = 0; i < 9; i += 1) store.dispatch(advanceRun());
-    expect(runOf(store)?.step).toBe(7);
+    for (let i = 0; i < 10; i += 1) store.dispatch(advanceRun());
+    expect(runOf(store)?.step).toBe(8);
     store.dispatch(stepRunBack());
-    expect(runOf(store)?.step).toBe(6);
+    expect(runOf(store)?.step).toBe(7);
   });
 
   test('a page that does not show the run moves nothing', () => {
@@ -612,7 +612,7 @@ describe('the last steps', () => {
     store.dispatch(replaceState(buildContainer([OWN, OLDER])));
     await store.dispatch(startRun(newRun('full', 3)));
     await store.dispatch(beginSaveStep());
-    await store.dispatch(goToRunStep(8));
+    await store.dispatch(goToRunStep(9));
     await store.dispatch(end());
     expect(runOf(store)?.ended).toBe('finished');
     expect(ids(store)).toEqual(['own', 'older']);
@@ -624,7 +624,7 @@ describe('the last steps', () => {
     store.dispatch(replaceState(buildContainer([OWN, OLDER])));
     await store.dispatch(startRun(newRun('popup', 1)));
     store.dispatch(takeRunSave('own'));
-    store.dispatch(goToRunStep(7));
+    store.dispatch(goToRunStep(8));
     store.dispatch(endRunAtFullViewButton());
     expect(runOf(store)?.ended).toBe('finished');
     expect(ids(store)).toEqual(['own', 'older']);

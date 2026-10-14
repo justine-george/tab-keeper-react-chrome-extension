@@ -50,8 +50,8 @@ describe('asFirstRun', () => {
     ['null', null],
     ['an array', [FULL_AT_3]],
     ['another view', { ...FULL_AT_3, view: 'tab' }],
-    ['full step 9', { ...FULL_AT_3, step: 9 }],
-    ['popup step 8', { ...newRun('popup', 1), step: 8 }],
+    ['full step 10', { ...FULL_AT_3, step: 10 }],
+    ['popup step 9', { ...newRun('popup', 1), step: 9 }],
     ['a step as text', { ...FULL_AT_3, step: '3' }],
     ['a numeric session id', { ...FULL_AT_3, sessionId: 7 }],
     ['another hello', { ...FULL_AT_3, hello: 'hi' }],
@@ -70,9 +70,10 @@ describe('asFirstRun', () => {
 });
 
 describe('the steps', () => {
-  test('full: Hello, then 8 cards, Open then Delete (no Switch)', () => {
+  // KAN-586: Replace after Open (full) or Switch (popup), before Delete.
+  test('full: Hello, then 9 cards, Open, Replace, then Delete (no Switch)', () => {
     expect(
-      [0, 1, 2, 3, 4, 5, 6, 7, 8].map((s) =>
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((s) =>
         runStepKind('full', asRunStep('full', s) ?? 0)
       )
     ).toEqual([
@@ -82,15 +83,16 @@ describe('the steps', () => {
       'save',
       'row',
       'open',
+      'replace',
       'delete',
       'windows',
       'twoViews',
     ]);
   });
 
-  test('popup: the welcome, then 7 cards, with Switch', () => {
+  test('popup: the welcome, then 8 cards, with Switch', () => {
     expect(
-      [0, 1, 2, 3, 4, 5, 6, 7].map((s) =>
+      [0, 1, 2, 3, 4, 5, 6, 7, 8].map((s) =>
         runStepKind('popup', asRunStep('popup', s) ?? 0)
       )
     ).toEqual([
@@ -99,17 +101,20 @@ describe('the steps', () => {
       'row',
       'open',
       'switch',
+      'replace',
       'delete',
       'windows',
       'fullView',
     ]);
-    expect(asRunStep('popup', 8)).toBeNull();
+    expect(asRunStep('popup', 9)).toBeNull();
+    expect(asRunStep('full', 10)).toBeNull();
   });
 
   test('Next stops at the last step; Back exists from step 2', () => {
-    expect(nextRunStep('full', 7)).toBe(8);
-    expect(nextRunStep('full', 8)).toBeNull();
-    expect(nextRunStep('popup', 7)).toBeNull();
+    expect(nextRunStep('full', 8)).toBe(9);
+    expect(nextRunStep('full', 9)).toBeNull();
+    expect(nextRunStep('popup', 7)).toBe(8);
+    expect(nextRunStep('popup', 8)).toBeNull();
     expect(previousRunStep('full', 2)).toBe(1);
     expect(previousRunStep('full', 1)).toBeNull();
     expect(previousRunStep('popup', 1)).toBeNull();
@@ -125,13 +130,14 @@ describe('the steps', () => {
           'row',
           'open',
           'switch',
+          'replace',
           'delete',
           'windows',
           'twoViews',
           'fullView',
         ] as const
       ).filter(needsSession)
-    ).toEqual(['row', 'open', 'switch', 'delete', 'windows']);
+    ).toEqual(['row', 'open', 'switch', 'replace', 'delete', 'windows']);
   });
 
   test('a new popup welcome counts its first show; nothing else counts', () => {

@@ -35,7 +35,7 @@ const RIGHT_OF: readonly CoachSide[] = ['right', 'below', 'left'];
 const row = (id: string): string =>
   `[data-pane="sessions"] [data-drag-row-id="${CSS.escape(id)}"]`;
 // Every row draws these buttons; only the run's engaged row shows them.
-const rowButton = (id: string, kind: 'open' | 'switch'): string =>
+const rowButton = (id: string, kind: 'open' | 'switch' | 'replace'): string =>
   `${row(id)} [data-run-engaged] [data-tour-anchor="row-${kind}"]`;
 
 export function runStepPlan(
@@ -68,6 +68,7 @@ export function runStepPlan(
         : { anchors: [row(sessionId)], sides: BELOW, isLive: false };
     case 'open':
     case 'switch':
+    case 'replace':
       return sessionId === null
         ? null
         : {

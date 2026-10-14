@@ -3,11 +3,12 @@ import { act, fireEvent, screen } from '@testing-library/react';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
 import TabGroupEntry from '../../components/home/leftpane/TabGroupEntry';
+import HeroContainerRight from '../../components/home/rightpane/HeroContainerRight';
 import {
   renderWithProviders,
   type RenderWithProvidersResult,
 } from '../setup/renderWithProviders';
-import { buildSession } from '../fixtures/sessionFixture';
+import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { classRulesFor } from '../setup/hoverRules';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import {
@@ -17,7 +18,11 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import { recordFirstRun } from '../../redux/slices/settingsDataStateSlice';
 import { newRun } from '../../utils/functions/firstRun';
-import type { chromeTabGroupData } from '../../redux/slices/tabContainerDataStateSlice';
+import {
+  replaceState,
+  selectTabContainer,
+  type chromeTabGroupData,
+} from '../../redux/slices/tabContainerDataStateSlice';
 import { useIsOpenBlockedByTour } from '../../hooks/useIsOpenBlockedByTour';
 
 // KAN-413. The opens on the tour's sample wait for the tour; each CONTROL ends it and presses again.
@@ -131,44 +136,91 @@ describe('opens on the tour’s sample', () => {
     expect(r.chrome.createdTabs.map((t) => t.url)).toEqual(['https://a.co']);
   });
 
-  test('the saved list row’s Open and Switch keep their names, say why as the description, are dimmed and open nothing; after the tour they open', async () => {
+  // KAN-586: Replace waits too, and each button names itself in its reason.
+  const ROW_WAITS = [
+    ['Open', 'Open works after the tour'],
+    ['Switch', 'Switch works after the tour'],
+    ['Replace', 'Replace works after the tour'],
+  ] as const;
+
+  test('the saved list row’s Open, Switch and Replace keep their names, each says why as the description, are dimmed and do nothing; after the tour they act', async () => {
     const onOpenAllClick = vi.fn();
     const onFocusClick = vi.fn();
+    const onReplaceClick = vi.fn();
     const r = await renderWithProviders(
       <TabGroupEntry
         tabGroupData={buildSession({ tabGroupId: SAMPLE, isSelected: true })}
         onTabGroupClick={() => undefined}
         onOpenAllClick={onOpenAllClick}
         onFocusClick={onFocusClick}
-        onReplaceClick={() => undefined}
+        onReplaceClick={onReplaceClick}
       />,
       { seedStore: tourHere }
     );
-    const blocked = ['Open', 'Switch'].map((name) =>
-      screen.getByRole('button', { name })
-    );
-    expect(screen.queryAllByRole('button', { name: OPEN_BLOCKED })).toEqual([]);
-    for (const button of blocked) {
+    for (const [name, why] of ROW_WAITS) {
+      const button = screen.getByRole('button', { name });
+      expect(screen.queryAllByRole('button', { name: why })).toEqual([]);
       expect(button).toHaveAttribute('aria-disabled', 'true');
-      expect(button).toHaveAccessibleDescription(OPEN_BLOCKED);
-      expect(button).toHaveAttribute('title', OPEN_BLOCKED);
+      expect(button).toHaveAccessibleDescription(why);
+      expect(button).toHaveAttribute('title', why);
       // A filter, not opacity: the row's own reveal sets these icons' opacity.
       expect(classRulesFor(button)).toMatch(/filter:\s*opacity\(0\.3\)/);
       fireEvent.click(button);
     }
     expect(onOpenAllClick).not.toHaveBeenCalled();
     expect(onFocusClick).not.toHaveBeenCalled();
+    expect(onReplaceClick).not.toHaveBeenCalled();
 
     endTour(r);
-    for (const name of ['Open', 'Switch']) {
+    for (const [name, why] of ROW_WAITS) {
       const button = screen.getByRole('button', { name });
       expect(button).not.toHaveAttribute('aria-disabled');
-      expect(button).not.toHaveAttribute('title', OPEN_BLOCKED);
+      expect(button).not.toHaveAttribute('title', why);
       expect(classRulesFor(button)).not.toMatch(/filter:\s*opacity/);
       fireEvent.click(button);
     }
     expect(onOpenAllClick).toHaveBeenCalledTimes(1);
     expect(onFocusClick).toHaveBeenCalledTimes(1);
+    expect(onReplaceClick).toHaveBeenCalledTimes(1);
+  });
+
+  // KAN-586 H1. The session header's Open, Switch and Replace wait with the row's.
+  test('the session header’s Open, Switch and Replace on the sample say why, are dimmed and do nothing; after the tour Replace acts', async () => {
+    const r = await renderWithProviders(<HeroContainerRight />, {
+      seed: SEED,
+      seedStore: (store) => {
+        store.dispatch(
+          replaceState(
+            buildContainer([
+              buildSession({ tabGroupId: SAMPLE, title: 'Sample' }),
+            ])
+          )
+        );
+        store.dispatch(selectTabContainer(SAMPLE));
+        tourHere(store);
+      },
+    });
+    const before = r.store.getState().tabContainerDataState.tabGroups;
+    for (const [, why] of ROW_WAITS) {
+      const button = screen.getByRole('button', { name: why });
+      expect(button).toHaveAttribute('aria-disabled', 'true');
+      expect(button).toHaveAttribute('title', why);
+      expect(classRulesFor(button)).toMatch(/opacity:\s*0\.3/);
+      fireEvent.click(button);
+    }
+    await settle();
+    // Nothing replaced the sample's windows.
+    expect(r.store.getState().tabContainerDataState.tabGroups).toBe(before);
+
+    endTour(r);
+    const replace = screen.getByRole('button', {
+      name: 'Replace with open windows',
+    });
+    expect(replace).not.toHaveAttribute('aria-disabled');
+    fireEvent.click(replace);
+    await settle();
+    // CONTROL: the same press, after the tour, does replace it.
+    expect(r.store.getState().tabContainerDataState.tabGroups).not.toBe(before);
   });
 
   test('no tour and no session is not blocked', async () => {

@@ -102,8 +102,13 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
 
   // KAN-413. Open and Switch on the tour's sample wait for it; a filter dims them, since the row's reveal owns their opacity.
   const isOpenBlocked = useIsOpenBlockedByTour(tabGroupData.tabGroupId);
-  const openBlockedBecause = isOpenBlocked
-    ? t('Open works after the tour')
+  // Each button says which one waits (KAN-586).
+  const afterTheTour = isOpenBlocked
+    ? {
+        open: t('Open works after the tour'),
+        switch: t('Switch works after the tour'),
+        replace: t('Replace works after the tour'),
+      }
     : null;
   const isRunEngaged = useSelector(
     (state: RootState) =>
@@ -477,7 +482,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       {!isSearching && shown && (
         <div data-row-actions ref={strip} css={rightStyle}>
           <Icon
-            tooltipText={openBlockedBecause ?? t('Open session')}
+            tooltipText={afterTheTour?.open ?? t('Open session')}
             text={t('Open')}
             ariaLabel={t('Open')}
             type="reopen_window"
@@ -490,7 +495,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
               itself when this page IS the tab view, so hidden there. */}
           {!isTabView() && (
             <Icon
-              tooltipText={openBlockedBecause ?? t('Switch to session')}
+              tooltipText={afterTheTour?.switch ?? t('Switch to session')}
               text={t('Switch')}
               ariaLabel={t('Switch')}
               type="filter_center_focus"
@@ -501,12 +506,16 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             />
           )}
           <Icon
-            tooltipText={t('Replace with open windows')}
+            tooltipText={
+              afterTheTour?.replace ?? t('Replace with open windows')
+            }
             text={t('Replace')}
             ariaLabel={t('Replace')}
             type="browser_updated"
+            tourAnchor="row-replace"
+            disable={isOpenBlocked}
             onClick={press(onReplaceClick)}
-            style="padding: 14px 10px; width: 57px;"
+            style={blockedStyle(litButton === 'replace')}
           />
         </div>
       )}

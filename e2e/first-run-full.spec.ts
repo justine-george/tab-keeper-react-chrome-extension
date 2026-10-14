@@ -60,7 +60,7 @@ const ring = (page: Page) =>
     return { left, top, width, height, bottom };
   });
 
-test('Help starts at card 1 with no Hello; the eight cards in their places, Back and Next, and Not now', async ({
+test('Help starts at card 1 with no Hello; the nine cards in their places, Back and Next, and Not now', async ({
   context,
   extensionId,
 }) => {
@@ -71,7 +71,7 @@ test('Help starts at card 1 with no Hello; the eight cards in their places, Back
   await expect.poll(() => cardSide(page)).toBe('left');
   await expect(card(page).getByRole('progressbar')).toHaveAttribute(
     'aria-valuetext',
-    'Step 1 of 8'
+    'Step 1 of 9'
   );
   // KAN-562: led by the name, so it can't read as "this is open at the moment".
   await expect(card(page)).toContainText(
@@ -122,6 +122,16 @@ test('Help starts at card 1 with no Hello; the eight cards in their places, Back
   await nextTo(page, 6);
   await twoFrames(page);
   expect(await opened()).toBe(0);
+  // KAN-586. Replace, explained under the row's Replace, which is look-only.
+  await expect(card(page)).toContainText(
+    'Replace overwrites this saved session with what you have open now. Nothing closes.'
+  );
+  await expect.poll(() => cardSide(page)).toBe('below');
+  const replace = page.locator(
+    '[data-pane="sessions"] [data-tour-anchor="row-replace"]'
+  );
+  expect(await hitAt(page, ...(await centreOf(replace)))).toBe('still');
+  await nextTo(page, 7);
   // KAN-582. Delete is in the session header's ⋮, held while this step shows.
   const del = page
     .locator('[data-pane="detail"] [data-tour-anchor="session-menu"]')
@@ -133,9 +143,9 @@ test('Help starts at card 1 with no Hello; the eight cards in their places, Back
   await twoFrames(page);
   await expect(page.getByRole('menu')).toHaveCount(0);
   expect(await storedTitles(page)).toEqual(['Sample: Weekend trip']);
-  await nextTo(page, 7);
-  await expect.poll(() => cardSide(page)).toBe('left');
   await nextTo(page, 8);
+  await expect.poll(() => cardSide(page)).toBe('left');
+  await nextTo(page, 9);
   await expect.poll(() => cardSide(page)).toBe('free');
   await expect(page.locator('[data-coach-ring]')).toHaveCount(0);
   await expect(cardButton(page, 'Skip tutorial')).toHaveCount(0);
@@ -240,7 +250,7 @@ test('step 2 in the default folded view names the fold button it shows, and pres
   expect(await storedRun(page)).toMatchObject({ step: 2, ended: null });
 });
 
-test('step 7: a window renamed from its title is stored, and a window folds and unfolds; the card stays at step 7', async ({
+test('step 8: a window renamed from its title is stored, and a window folds and unfolds; the card stays at step 8', async ({
   context,
   extensionId,
 }) => {
@@ -249,8 +259,8 @@ test('step 7: a window renamed from its title is stored, and a window folds and 
   await nextTo(page, 3);
   await cardButton(page, 'Use an example').click();
   await expect(cardAt(page, 4)).toBeVisible();
-  for (let step = 5; step <= 7; step++) await nextTo(page, step);
-  await landedAt(page, 7);
+  for (let step = 5; step <= 8; step++) await nextTo(page, step);
+  await landedAt(page, 8);
   const detail = page.locator('[data-pane="detail"]');
   const title = detail.getByRole('button', {
     name: 'Rename window: Getting there',
@@ -306,7 +316,7 @@ test('step 7: a window renamed from its title is stored, and a window folds and 
       }, id);
     })
     .toEqual(['Lisbon flights', 'Things to do']);
-  await expect(cardAt(page, 7)).toBeVisible();
+  await expect(cardAt(page, 8)).toBeVisible();
   const collapse = detail.getByRole('button', {
     name: 'Collapse: Things to do',
     exact: true,
@@ -319,15 +329,15 @@ test('step 7: a window renamed from its title is stored, and a window folds and 
     exact: true,
   });
   await expect(expand).toHaveAttribute('aria-expanded', 'false');
-  await expect(cardAt(page, 7)).toBeVisible();
+  await expect(cardAt(page, 8)).toBeVisible();
   expect(await landsOn(page, cx, cy, 'Expand: Things to do')).toBe(true);
   await page.mouse.click(cx, cy);
   await expect(collapse).toHaveAttribute('aria-expanded', 'true');
-  await expect(cardAt(page, 7)).toBeVisible();
-  expect(await storedRun(page)).toMatchObject({ step: 7, ended: null });
+  await expect(cardAt(page, 8)).toBeVisible();
+  expect(await storedRun(page)).toMatchObject({ step: 8, ended: null });
 });
 
-test('while the card glides from step 6 to step 7 it takes no pointer, and takes it again when it lands (KAN-453)', async ({
+test('while the card glides from step 7 to step 8 it takes no pointer, and takes it again when it lands (KAN-453)', async ({
   context,
   extensionId,
 }) => {
@@ -336,15 +346,15 @@ test('while the card glides from step 6 to step 7 it takes no pointer, and takes
   await nextTo(page, 3);
   await cardButton(page, 'Use an example').click();
   await expect(cardAt(page, 4)).toBeVisible();
-  for (let step = 5; step <= 6; step++) await nextTo(page, step);
-  await landedAt(page, 6);
+  for (let step = 5; step <= 7; step++) await nextTo(page, step);
+  await landedAt(page, 7);
   // Slowed 100x from before Next, so the glide cannot end under the probes.
   // Not rate 0: on Chromium 156 that also stalls the card's change of step (KAN-559).
   const cdp = await context.newCDPSession(page);
   await cdp.send('Animation.enable');
   await cdp.send('Animation.setPlaybackRate', { playbackRate: 0.01 });
   await cardButton(page, 'Next').click();
-  await expect(cardAt(page, 7)).toBeVisible();
+  await expect(cardAt(page, 8)).toBeVisible();
   // Held in turn at points along the glide: paused, not finished or cancelled, so the card is still mid-glide.
   const hold = (ms: number) =>
     page.evaluate((ms) => {
@@ -501,7 +511,7 @@ test('Pin this tab pins this tab and ends the run', async ({
   expect(await pinned()).toBe(false);
   for (let step = 2; step <= 3; step++) await nextTo(page, step);
   await cardButton(page, 'Use an example').click();
-  for (let step = 5; step <= 8; step++) await nextTo(page, step);
+  for (let step = 5; step <= 9; step++) await nextTo(page, step);
   // KAN-562: about the tab, so it isn't read as the toolbar pin that follows.
   await expect(card(page)).toContainText(
     'Keep Tab Keeper open in a pinned tab.'
@@ -526,7 +536,7 @@ test('Esc on a middle card is Skip tutorial; on the last it is Not now (R5); on 
   await expect(cardAt(page, 1)).toBeVisible();
   for (let step = 2; step <= 3; step++) await nextTo(page, step);
   await cardButton(page, 'Use an example').click();
-  for (let step = 5; step <= 8; step++) await nextTo(page, step);
+  for (let step = 5; step <= 9; step++) await nextTo(page, step);
   await page.keyboard.press('Escape');
   await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'finished' });
   await expect(replayNote(page)).toBeVisible();
@@ -654,7 +664,7 @@ test.describe('with saved sessions', () => {
     ).toHaveCount(1);
   });
 
-  test('step 5 lights the run’s row’s own Open, not another row’s, and step 6 its header’s ⋮', async ({
+  test('step 5 lights the run’s row’s own Open and step 6 its Replace, not another row’s, and step 7 its header’s ⋮', async ({
     context,
     extensionId,
   }) => {
@@ -662,13 +672,14 @@ test.describe('with saved sessions', () => {
     for (let step = 2; step <= 5; step++) await nextTo(page, step);
     for (const [step, anchor] of [
       [5, 'row-open'],
-      [6, 'session-menu'],
+      [6, 'row-replace'],
+      [7, 'session-menu'],
     ] as const) {
-      if (step === 6) await nextTo(page, 6);
-      // KAN-582. Step 6, Delete, points at the session header's ⋮.
+      if (step > 5) await nextTo(page, step);
+      // KAN-582. Step 7, Delete, points at the session header's ⋮.
       const own = await page
         .locator(
-          step === 6
+          step === 7
             ? `[data-pane="detail"] [data-tour-anchor="${anchor}"]`
             : `[data-pane="sessions"] [data-drag-row-id="new"] [data-tour-anchor="${anchor}"]`
         )
@@ -739,7 +750,7 @@ test.describe('with saved sessions', () => {
       ]);
     // CONTROL: while the run points at it, its Open is dimmed and blocked.
     expect(await look()).toEqual(['opacity(0.3)', 'true']);
-    for (let step = 5; step <= 8; step++) await nextTo(page, step);
+    for (let step = 5; step <= 9; step++) await nextTo(page, step);
     await cardButton(page, 'Not now').click();
     await expect
       .poll(() => storedRun(page))

@@ -37,14 +37,14 @@ export const POPUP_RUN: RunViewCase = {
   path: 'index.html',
   viewport: POPUP,
   view: 'popup',
-  total: 7,
+  total: 8,
 };
 export const FULL_RUN: RunViewCase = {
   name: 'full view',
   path: FULL_VIEW_PATH,
   viewport: FULL,
   view: 'full',
-  total: 8,
+  total: 9,
 };
 export const RUN_VIEWS: readonly RunViewCase[] = [POPUP_RUN, FULL_RUN];
 
@@ -135,7 +135,7 @@ export async function landedAt(page: Page, step: number): Promise<void> {
 export async function walkFullRunToLastStep(page: Page): Promise<void> {
   for (let step = 2; step <= 3; step++) await nextTo(page, step);
   await cardButton(page, 'Use an example').click();
-  for (let step = 5; step <= 8; step++) await nextTo(page, step);
+  for (let step = 5; step <= 9; step++) await nextTo(page, step);
 }
 
 // KAN-499. The note after the run: a card with no step, at Settings.

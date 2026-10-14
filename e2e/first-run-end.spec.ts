@@ -87,7 +87,7 @@ test.beforeEach(async ({ context }) => {
   await seedSettings(context, { isPinGuideDismissed: false });
 });
 
-test('Not now at step 8: setup, then on Skip setup the pin guide', async ({
+test('Not now at step 9: setup, then on Skip setup the pin guide', async ({
   context,
   extensionId,
 }) => {
@@ -140,12 +140,12 @@ test('Skip tutorial: the note, and nothing opens after it (R8, KAN-499)', async 
   expect((await storedSettings(page)).setupState).toBe('none');
 });
 
-// KAN-563: a run resumed at step 8 draws its card before Chrome has said the platform; no drawn frame points anywhere but the aim.
+// KAN-563: a run resumed at step 9 draws its card before Chrome has said the platform; no drawn frame points anywhere but the aim.
 for (const [os, aim] of [
   ['mac', 140],
   ['win', 88],
 ] as const) {
-  test(`step 8 resumed (${os}): every drawn frame's notch points at ${aim}px`, async ({
+  test(`step 9 resumed (${os}): every drawn frame's notch points at ${aim}px`, async ({
     context,
     extensionId,
   }) => {
@@ -175,8 +175,8 @@ for (const [os, aim] of [
       };
       requestAnimationFrame(read);
     });
-    const page = await openRunningFullView(context, extensionId, false, 8);
-    await landedAt(page, 8);
+    const page = await openRunningFullView(context, extensionId, false, 9);
+    await landedAt(page, 9);
     const tips = await page.evaluate((): unknown =>
       Reflect.get(window, '__notchTips')
     );
@@ -221,23 +221,23 @@ for (const how of ['Skip setup', 'Done'] as const) {
   });
 }
 
-// KAN-457: step 8 is one row at the default size, and its notch points up at the tab strip.
+// KAN-457: step 9 is one row at the default size, and its notch points up at the tab strip.
 // KAN-563: at the first tab on a Mac (140), elsewhere where it always was (88).
 for (const [os, aim] of [
   ['mac', 140],
   ['win', 88],
 ] as const) {
-  test(`step 8 (${os}): Not now left, Back and Pin this tab right, one row; the notch up at ${aim}px`, async ({
+  test(`step 9 (${os}): Not now left, Back and Pin this tab right, one row; the notch up at ${aim}px`, async ({
     context,
     extensionId,
   }) => {
     await platformSays(context, os);
     const page = await openRunningFullView(context, extensionId, false);
     await walkFullRunToLastStep(page);
-    const card = cardAt(page, 8);
+    const card = cardAt(page, 9);
     // KAN-569: the step changes a frame before the card moves; measure once it sits free and has glided there.
     await expect(card).toHaveAttribute('data-coach-side', 'free');
-    await landedAt(page, 8);
+    await landedAt(page, 9);
     const geometry = await card.evaluate((el) => {
       const box = (e: Element | null) => {
         if (e === null) throw new Error('missing');

@@ -22,7 +22,7 @@ export function nextWelcomeShows(shows: WelcomeShows): WelcomeShows | null {
   return asWelcomeShows(shows + 1);
 }
 
-export type RunStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+export type RunStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 export interface FirstRun {
   view: RunView;
@@ -36,7 +36,7 @@ export interface FirstRun {
 }
 
 // The last card; step 0 is Hello in the full view and the welcome in the popup.
-export const RUN_STEPS: Record<RunView, RunStep> = { full: 8, popup: 7 };
+export const RUN_STEPS: Record<RunView, RunStep> = { full: 9, popup: 8 };
 
 export type RunStepKind =
   | 'hello'
@@ -47,6 +47,7 @@ export type RunStepKind =
   | 'row'
   | 'open'
   | 'switch'
+  | 'replace'
   | 'delete'
   | 'windows'
   | 'twoViews'
@@ -61,6 +62,7 @@ const KINDS: Record<RunView, readonly RunStepKind[]> = {
     'save',
     'row',
     'open',
+    'replace',
     'delete',
     'windows',
     'twoViews',
@@ -71,6 +73,7 @@ const KINDS: Record<RunView, readonly RunStepKind[]> = {
     'row',
     'open',
     'switch',
+    'replace',
     'delete',
     'windows',
     'fullView',
@@ -79,7 +82,7 @@ const KINDS: Record<RunView, readonly RunStepKind[]> = {
 
 export type RunSaveCard = 'save' | 'nothingToSave' | 'sessions';
 
-const STEPS: readonly RunStep[] = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+const STEPS: readonly RunStep[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 const ENDINGS: readonly RunEnding[] = [
   'finished',
   'skipped',
@@ -101,6 +104,7 @@ export function needsSession(kind: RunStepKind): boolean {
     kind === 'row' ||
     kind === 'open' ||
     kind === 'switch' ||
+    kind === 'replace' ||
     kind === 'delete' ||
     kind === 'windows'
   );

@@ -288,7 +288,7 @@ describe('the run record', () => {
         .firstRun?.step
     ).toBe(4);
     expect(
-      reduce([recordFirstRun(newRun('popup', 1)), setFirstRunStep(8)]).firstRun
+      reduce([recordFirstRun(newRun('popup', 1)), setFirstRunStep(9)]).firstRun
         ?.step
     ).toBe(1);
     expect(

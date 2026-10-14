@@ -173,8 +173,13 @@ export default function HeroContainerRight() {
   };
 
   const { tabGroupId, title, windowCount, tabCount } = selectedTabGroup;
-  const openBlockedBecause = isOpenBlocked
-    ? t('Open works after the tour')
+  // Each button says which one waits (KAN-586).
+  const afterTheTour = isOpenBlocked
+    ? {
+        open: t('Open works after the tour'),
+        switch: t('Switch works after the tour'),
+        replace: t('Replace works after the tour'),
+      }
     : null;
 
   // KAN-206. What the collapse control offers, asked of the windows themselves
@@ -500,8 +505,8 @@ export default function HeroContainerRight() {
               `}
             >
               <Icon
-                tooltipText={openBlockedBecause ?? t('Open session')}
-                ariaLabel={openBlockedBecause ?? t('Open session')}
+                tooltipText={afterTheTour?.open ?? t('Open session')}
+                ariaLabel={afterTheTour?.open ?? t('Open session')}
                 type="reopen_window"
                 disable={isOpenBlocked}
                 style={isOpenBlocked ? 'opacity: 0.3;' : undefined}
@@ -516,8 +521,8 @@ export default function HeroContainerRight() {
               itself when this page IS the tab view, so hidden there. */}
           {!isSearching && !isTabView() && (
             <Icon
-              tooltipText={openBlockedBecause ?? t('Switch to session')}
-              ariaLabel={openBlockedBecause ?? t('Switch to session')}
+              tooltipText={afterTheTour?.switch ?? t('Switch to session')}
+              ariaLabel={afterTheTour?.switch ?? t('Switch to session')}
               type="filter_center_focus"
               disable={isOpenBlocked}
               style={isOpenBlocked ? 'opacity: 0.3;' : undefined}
@@ -535,9 +540,15 @@ export default function HeroContainerRight() {
           {/* KAN-468, KAN-581. Every open window replaces this session's; one ⌘Z undoes it. */}
           {!isSearching && (
             <Icon
-              tooltipText={t('Replace with open windows')}
-              ariaLabel={t('Replace with open windows')}
+              tooltipText={
+                afterTheTour?.replace ?? t('Replace with open windows')
+              }
+              ariaLabel={
+                afterTheTour?.replace ?? t('Replace with open windows')
+              }
               type="browser_updated"
+              disable={isOpenBlocked}
+              style={isOpenBlocked ? 'opacity: 0.3;' : undefined}
               onClick={() =>
                 void dispatch(replaceSessionWithOpenWindows(tabGroupId))
               }

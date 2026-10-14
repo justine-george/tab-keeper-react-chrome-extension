@@ -275,10 +275,17 @@ export default function FirstRun() {
           ),
           primary: next,
         };
+      case 'replace':
+        return {
+          text: t(
+            'Replace overwrites this saved session with what you have open now. Nothing closes.'
+          ),
+          primary: next,
+        };
       case 'delete':
         return {
           text: t(
-            'Delete, in this menu, removes the saved session. Your open windows stay as they are.'
+            "Copy all links, export, or delete this session from this menu. Deleting doesn't close your open windows."
           ),
           primary: next,
         };
