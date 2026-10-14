@@ -19,11 +19,8 @@ export async function loadFromFirestore(
   try {
     const tabDataFromCloud: CloudCandidate =
       await fetchDataFromFirestore(userId);
-    // Deliberately not stripped on read. Documents written before the write-side
-    // strip still carry embedded favicons, and those render fine locally - a
-    // document is capped at 1 MiB while localStorage holds far more, so there is
-    // nothing to gain by discarding them, and doing so would blank icons that
-    // still work.
+    // Not stripped here: replaceState strips whatever the sync loads (KAN-594),
+    // and Chrome's favicon cache draws the dropped icons.
     return tabDataFromCloud;
   } catch (error: any) {
     // "No document for this user yet" -- the one failure that means the cloud
