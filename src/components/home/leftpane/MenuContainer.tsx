@@ -70,6 +70,9 @@ export default function MenuContainer() {
   const isSignedIn = useSelector(
     (state: RootState) => state.globalState.isSignedIn
   );
+  const awaitsDeviceId = useSelector(
+    (state: RootState) => state.globalState.awaitsDeviceId
+  );
   const isCloudConfigured = useSelector(
     (state: RootState) => state.globalState.isCloudConfigured
   );
@@ -178,7 +181,8 @@ export default function MenuContainer() {
   // button "Manual sync", which says nothing about why it is dimmed.
   let syncIconType: IconName;
   let dimmedBecause: string | null = null;
-  if (!isSignedIn) {
+  // KAN-599. No id yet is no reason to dim: the press asks the question, and the yes mints one.
+  if (!isSignedIn && !awaitsDeviceId) {
     syncIconType = 'cloud_off';
     dimmedBecause = t('Sync unavailable');
   } else if (syncStatus === 'loading') {
@@ -197,6 +201,7 @@ export default function MenuContainer() {
   const syncState = syncStateWords(
     describeSyncState({
       isSignedIn,
+      awaitsDeviceId,
       isAutoSync,
       isCloudConfigured,
       cloudConsent,

@@ -1,11 +1,10 @@
 import { useEffect } from 'react';
 
-import { v4 as uuidv4 } from 'uuid';
 import { useDispatch, useSelector, useStore } from 'react-redux';
 
 import { css } from '@emotion/react';
 
-import { APP_WIDTH, TOAST_MESSAGES } from './utils/constants/common';
+import { APP_WIDTH } from './utils/constants/common';
 import { ensureCloudSession, isCloudConfigured } from './config/firebase';
 import MainContainer from './components/MainContainer';
 import { AppDispatch, RootState } from './redux/store';
@@ -24,14 +23,14 @@ import { fullViewShowEntry } from './redux/fullViewShow';
 import { openFirstDialog } from './utils/functions/dialogQueue';
 import { storedSessionCount } from './utils/functions/storedSessions';
 import {
-  removeUserId,
+  followDeviceId,
+  mintDeviceIdIfNone,
+  readDeviceId,
+} from './redux/deviceId';
+import {
   setCloudConfigured,
   setHasTabGroupsPermission,
   setHasSessionsPermission,
-  setLoggedOut,
-  setSignedIn,
-  setUserId,
-  showToast,
   loadStoredSessionsIntoPage,
   storedLoadMustWaitForRelease,
   syncStateWithFirestore,
@@ -54,8 +53,6 @@ import {
 } from './redux/slices/settingsDataStateSlice';
 import {
   asPartialSettings,
-  classifyStoredToken,
-  isUsableToken,
   isValidDate,
   isValidTabMasterContainer,
   loadFromLocalStorage,
@@ -96,70 +93,17 @@ function App() {
     (state: RootState) => state.settingsDataState
   );
   const syncAllowed = cloudSyncAllowed(settingsData);
+  const consentGranted = settingsData.cloudConsent === 'granted';
+  const awaitsDeviceId = useSelector(
+    (state: RootState) => state.globalState.awaitsDeviceId
+  );
   const hasSyncedBefore = useSelector(
     (state: RootState) => state.globalState.hasSyncedBefore
   );
 
-  // handle userToken issue from chrome storage sync
-  function getUserTokenFromChromeStorageSync() {
-    // check tokenValue in chrome storage sync
-    // this token is the documentId
-    chrome.storage.sync.get(['tokenValue']).then((result) => {
-      const token = result.tokenValue;
-
-      if (classifyStoredToken(token) === 'mint') {
-        // No token found in chrome storage sync (new user)
-        chrome.storage.sync
-          .set({ tokenValue: uuidv4() })
-          .then(() => {
-            chrome.storage.sync
-              .get(['tokenValue'])
-              .then((result) => {
-                // New token issued
-                const newToken = result.tokenValue;
-
-                if (!isUsableToken(newToken)) {
-                  // read-back did not return what was just written
-                  dispatch(setLoggedOut());
-                  dispatch(removeUserId());
-                  return;
-                }
-
-                dispatch(setSignedIn());
-                dispatch(setUserId(newToken));
-              })
-              .catch(() => {
-                // unable to load token from chrome storage sync
-                dispatch(setLoggedOut());
-                dispatch(removeUserId());
-              });
-          })
-          .catch(() => {
-            // unable to save new token in chrome storage sync
-            dispatch(setLoggedOut());
-            dispatch(removeUserId());
-          });
-      } else if (isUsableToken(token)) {
-        // Token found in chrome storage sync (existing user)
-        dispatch(setSignedIn());
-        dispatch(setUserId(token));
-      } else {
-        // Token is present but is not a usable documentId. Do not mint a
-        // replacement: that would point the user at a fresh, empty Firestore
-        // document and strand whatever is stored under the existing one.
-        dispatch(setLoggedOut());
-        dispatch(removeUserId());
-        dispatch(
-          showToast({
-            toastText: TOAST_MESSAGES.UNREADABLE_ACCOUNT_TOKEN,
-          })
-        );
-      }
-    });
-  }
-
   useEffect(() => {
-    getUserTokenFromChromeStorageSync();
+    void dispatch(readDeviceId());
+    const stopFollowingDeviceId = followDeviceId(dispatch, reduxStore.getState);
     dispatch(setCloudConfigured(isCloudConfigured));
     // KAN-7 §8. Decided from the disk as it was before this open wrote to it.
     const storedAtOpen = asPartialSettings<SettingsData>(
@@ -214,8 +158,14 @@ function App() {
     return () => {
       isUnmounted = true;
       stopOfferOnReturn();
+      stopFollowingDeviceId();
     };
   }, []);
+
+  // KAN-599. The id is minted at the yes, whichever control gave it.
+  useEffect(() => {
+    if (consentGranted && awaitsDeviceId) void dispatch(mintDeviceIdIfNone());
+  }, [consentGranted, awaitsDeviceId, dispatch]);
 
   useEffect(() => {
     // isFirebaseAuthed is what makes this wait for the sign-in round trip.

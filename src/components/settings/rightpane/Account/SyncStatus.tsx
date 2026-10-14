@@ -58,6 +58,7 @@ const SyncStatus: React.FC = () => {
     (s: RootState) =>
       describeSyncState({
         isSignedIn: s.globalState.isSignedIn,
+        awaitsDeviceId: s.globalState.awaitsDeviceId,
         isAutoSync: s.settingsDataState.isAutoSync,
         isCloudConfigured: s.globalState.isCloudConfigured,
         cloudConsent: s.settingsDataState.cloudConsent,

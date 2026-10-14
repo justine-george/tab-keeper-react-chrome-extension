@@ -47,18 +47,21 @@ export interface SyncPresentation {
 
 export function describeSyncState({
   isSignedIn,
+  awaitsDeviceId,
   isAutoSync,
   isCloudConfigured,
   cloudConsent,
   syncStatus,
 }: {
   isSignedIn: boolean;
+  // KAN-599. No id yet, minted at the yes: not unavailable.
+  awaitsDeviceId: boolean;
   isAutoSync: boolean;
   isCloudConfigured: boolean;
   cloudConsent: CloudConsent;
   syncStatus: 'idle' | 'loading' | 'success' | 'error';
 }): SyncPresentation {
-  if (!isSignedIn) {
+  if (!isSignedIn && !awaitsDeviceId) {
     return {
       kind: 'unavailable',
       icon: 'cloud_off',

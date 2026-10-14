@@ -336,6 +336,15 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     if (Object.keys(changes).length === 0) return;
     void Promise.resolve().then(() => sessionOnChanged.fire(changes));
   };
+  // KAN-599. The same, for chrome.storage.sync: Chrome Sync bringing another machine's write lands here too.
+  const syncOnChanged =
+    registry<(changes: Record<string, chrome.storage.StorageChange>) => void>();
+  const reportSyncChanges = (
+    changes: Record<string, chrome.storage.StorageChange>
+  ) => {
+    if (Object.keys(changes).length === 0) return;
+    void Promise.resolve().then(() => syncOnChanged.fire(changes));
+  };
   // KAN-595. The same, for chrome.storage.local.
   const localOnChanged =
     registry<(changes: Record<string, chrome.storage.StorageChange>) => void>();
@@ -1778,21 +1787,37 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           cb?: (items: Record<string, unknown>) => void
         ) => settle(readStorage(keys), cb),
         set: (items: Record<string, unknown>, cb?: () => void) => {
+          const changes: Record<string, chrome.storage.StorageChange> = {};
           for (const [key, value] of Object.entries(items)) {
+            const had = storage.has(key);
+            const old = storage.get(key);
             storage.set(key, value);
+            if (had && JSON.stringify(old) === JSON.stringify(value)) continue;
+            changes[key] = had
+              ? { oldValue: old, newValue: value }
+              : { newValue: value };
           }
+          reportSyncChanges(changes);
           return settle(undefined as void, cb);
         },
         remove: (keys: string | string[], cb?: () => void) => {
+          const changes: Record<string, chrome.storage.StorageChange> = {};
           for (const key of Array.isArray(keys) ? keys : [keys]) {
+            if (storage.has(key)) changes[key] = { oldValue: storage.get(key) };
             storage.delete(key);
           }
+          reportSyncChanges(changes);
           return settle(undefined as void, cb);
         },
         clear: (cb?: () => void) => {
+          const changes = Object.fromEntries(
+            [...storage].map(([key, oldValue]) => [key, { oldValue }])
+          );
           storage.clear();
+          reportSyncChanges(changes);
           return settle(undefined as void, cb);
         },
+        onChanged: syncOnChanged,
       },
       // KAN-7. Its own area, like Chrome's: sync's keys never show here.
       local: {

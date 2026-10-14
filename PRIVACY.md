@@ -2,7 +2,7 @@
 
 **Tab Keeper — Chrome extension**
 
-Last updated: 27 September 2026
+Last updated: 14 October 2026
 
 Tab Keeper saves your open windows and tabs as sessions so you can reopen them later. This policy explains what information Tab Keeper handles, how it is used, where it is stored, and how you can remove it.
 
@@ -26,7 +26,7 @@ Tab Keeper stores settings including your theme, language, sync preference, disp
 
 ### Anonymous sync identifier
 
-On first run, Tab Keeper creates a random identifier and stores it in Chrome sync storage. Chrome may copy this identifier to other devices using the same Chrome profile. Tab Keeper uses it to locate the Firestore document shared by those devices.
+When you turn on sync, Tab Keeper uses the random identifier that Chrome sync storage already holds from another of your devices, or creates one and stores it there. Chrome may copy this identifier to other devices using the same Chrome profile. Tab Keeper uses it to locate the Firestore document shared by those devices.
 
 Tab Keeper does not receive or store your name, email address, or Google account identity.
 

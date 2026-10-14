@@ -5,6 +5,7 @@ import Icon from '../../components/common/Icon';
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { describeSyncState } from '../../components/settings/rightpane/Account/describeSyncState';
 import {
+  setAwaitsDeviceId,
   setCloudConfigured,
   setSignedIn,
   setSyncStatus,
@@ -82,6 +83,19 @@ const CASES: Case[] = [
     state: 'off',
     seed: (s) => {
       s.dispatch(setSignedIn());
+      s.dispatch(setCloudConfigured(true));
+      s.dispatch(declineCloudConsent());
+    },
+    name: 'Sync now',
+    description: 'Sync is off',
+    tooltip: 'Sync is off\nSync now',
+    dimmed: false,
+  },
+  {
+    // KAN-599. A fresh install with no id yet: the press asks, and the yes mints one.
+    state: 'off, no id yet',
+    seed: (s) => {
+      s.dispatch(setAwaitsDeviceId(true));
       s.dispatch(setCloudConfigured(true));
       s.dispatch(declineCloudConsent());
     },
@@ -257,6 +271,7 @@ function cardTitle(store: Store): string {
   const { globalState, settingsDataState } = store.getState();
   return describeSyncState({
     isSignedIn: globalState.isSignedIn,
+    awaitsDeviceId: globalState.awaitsDeviceId,
     isAutoSync: settingsDataState.isAutoSync,
     isCloudConfigured: globalState.isCloudConfigured,
     cloudConsent: settingsDataState.cloudConsent,
