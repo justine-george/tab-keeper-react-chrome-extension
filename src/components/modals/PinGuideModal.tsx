@@ -119,7 +119,7 @@ export const PinGuideModal: React.FC = () => {
       outline: none;
     }
     &::backdrop {
-      background: rgba(0, 0, 0, 0.8);
+      background: ${COLORS.MODAL_BACKDROP};
     }
   `;
   // In the gap above the guide (top 96px), so it never covers it.
