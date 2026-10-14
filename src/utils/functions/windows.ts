@@ -229,6 +229,12 @@ export function createWindowWithRetries(
     return Promise.resolve(null);
   }
   const targetIndex = restoreTargetIndex(spec.tabs, spec.activeTabId);
+  // KAN-594. Fetched while the window opens, so the lazy tabs follow the first as soon as before.
+  const icons = Promise.all(
+    spec.tabs.map((tabInfo, i) =>
+      i === targetIndex ? '' : placeholderIcon(tabInfo)
+    )
+  );
 
   return new Promise((resolve) => {
     chrome.windows.create(
@@ -250,6 +256,7 @@ export function createWindowWithRetries(
           newWindow,
           spec,
           targetIndex,
+          icons,
           goToURLText
         ).finally(() => resolve(newWindow));
       }
@@ -285,6 +292,7 @@ async function fillRestoredWindow(
   newWindow: chrome.windows.Window,
   spec: WindowSpec,
   targetIndex: number,
+  placeholderIcons: Promise<string[]>,
   goToURLText: string
 ): Promise<void> {
   const windowId = newWindow.id;
@@ -310,12 +318,8 @@ async function fillRestoredWindow(
     await pinRestoredTab(targetId);
   }
 
-  // Fetched before any create: a create issued as its fetch settles would land out of order.
-  const icons = await Promise.all(
-    spec.tabs.map((tabInfo, i) =>
-      i === targetIndex || loadsPage.has(i) ? '' : placeholderIcon(tabInfo)
-    )
-  );
+  // Awaited before any create: a create issued as its fetch settles would land out of order.
+  const icons = await placeholderIcons;
 
   // All at once: Chrome runs one extension's calls in order, so index i lands each earlier tab before the target.
   const ids = await Promise.all(
