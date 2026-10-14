@@ -347,5 +347,9 @@
   "Saved sessions appear here.": "Les sessions enregistrées apparaissent ici.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Cherchez ici pour trouver vite un onglet ouvert. Appuyez sur {{icon}} pour afficher la session enregistrée à côté.",
   "Show me here": "Montrez-moi ici",
-  "In a split view with {{title}}": "En vue partagée avec « {{title}} »"
+  "In a split view with {{title}}": "En vue partagée avec « {{title}} »",
+  "Sync space used": "Espace de sync utilisé",
+  "SyncSpaceUsed": "{{used}} sur {{limit}} d’espace de sync utilisés",
+  "SyncSpaceUsedNear": "{{used}} sur {{limit}} d’espace de sync utilisés. La synchronisation s’arrête à {{limit}} : supprimez les sessions dont vous n’avez plus besoin.",
+  "SyncSpaceUsedFull": "{{used}} sur {{limit}} d’espace de sync utilisés. Trop volumineux pour être synchronisé : supprimez les sessions dont vous n’avez plus besoin."
 }

@@ -342,5 +342,9 @@
   "Saved sessions appear here.": "Saved sessions appear here.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.",
   "Show me here": "Show me here",
-  "In a split view with {{title}}": "In a split view with “{{title}}”"
+  "In a split view with {{title}}": "In a split view with “{{title}}”",
+  "Sync space used": "Sync space used",
+  "SyncSpaceUsed": "{{used}} of {{limit}} sync space used",
+  "SyncSpaceUsedNear": "{{used}} of {{limit}} sync space used. Sync stops at {{limit}}: delete sessions you no longer need.",
+  "SyncSpaceUsedFull": "{{used}} of {{limit}} sync space used. Too large to sync: delete sessions you no longer need."
 }

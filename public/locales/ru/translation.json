@@ -352,5 +352,9 @@
   "Saved sessions appear here.": "Здесь появятся сохранённые сессии.",
   "Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.": "Ищите здесь, чтобы быстро найти открытую вкладку. Нажмите {{icon}}, чтобы показать сохранённую сессию рядом.",
   "Show me here": "Показать здесь",
-  "In a split view with {{title}}": "В разделённом окне с «{{title}}»"
+  "In a split view with {{title}}": "В разделённом окне с «{{title}}»",
+  "Sync space used": "Использовано места для синхронизации",
+  "SyncSpaceUsed": "Использовано {{used}} из {{limit}} места для синхронизации",
+  "SyncSpaceUsedNear": "Использовано {{used}} из {{limit}} места для синхронизации. При {{limit}} синхронизация остановится: удалите ненужные сессии.",
+  "SyncSpaceUsedFull": "Использовано {{used}} из {{limit}} места для синхронизации. Слишком много для синхронизации: удалите ненужные сессии."
 }
