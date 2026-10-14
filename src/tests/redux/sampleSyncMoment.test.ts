@@ -41,6 +41,8 @@ import { SAMPLE_ID_PREFIX } from '../../utils/functions/sampleSession';
 
 // KAN-7, from KAN-149: a session arriving by sync is a value
 // moment, but the sample arriving from another device is not "a session".
+// KAN-600: a sample in the cloud copy (one an older version wrote) is not
+// taken in at all, so it neither arrives nor records anything.
 
 const T0 = Date.UTC(2026, 9, 4, 12, 0, 0);
 
@@ -78,13 +80,13 @@ describe('a synced session is a value moment, a synced sample is not', () => {
     vi.useRealTimers();
   });
 
-  it('a sample arriving by a sync records nothing', async () => {
+  it('a sample in the cloud copy is not taken in by a sync, and records nothing', async () => {
     const store = readyStore();
     cloudWith(`${SAMPLE_ID_PREFIX}1`);
     await store.dispatch(syncStateWithFirestore());
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
-    ).toContain(`${SAMPLE_ID_PREFIX}1`);
+    ).toEqual(['local']);
     expect(momentOf(store)).toBe('');
   });
 
@@ -95,7 +97,7 @@ describe('a synced session is a value moment, a synced sample is not', () => {
     expect(typeof momentOf(store)).toBe('number');
   });
 
-  it('a sample arriving while a drag is held records nothing', async () => {
+  it('a sample in the cloud copy is not taken in while a drag is held, and records nothing', async () => {
     const store = readyStore();
     cloudWith(`${SAMPLE_ID_PREFIX}2`);
     beginDragHold();
@@ -103,7 +105,7 @@ describe('a synced session is a value moment, a synced sample is not', () => {
     endDragHold();
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
-    ).toContain(`${SAMPLE_ID_PREFIX}2`);
+    ).toEqual(['local']);
     expect(momentOf(store)).toBe('');
   });
 

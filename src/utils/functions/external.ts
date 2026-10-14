@@ -10,6 +10,7 @@ import {
 } from '../../config/firebase';
 import { TabMasterContainer } from '../../redux/slices/tabContainerDataStateSlice';
 import { stripEmbeddedFavicons } from './local';
+import { withoutSamples } from './sampleSession';
 import { isMissingDocumentError } from './firestoreErrors';
 
 // load data from Firestore
@@ -75,7 +76,8 @@ export async function saveToFirestore(
 
   try {
     await setDoc(doc(db, 'tabGroupData', userId), {
-      ...stripEmbeddedFavicons(data),
+      // KAN-600. The run's example and its grave stay on this device.
+      ...stripEmbeddedFavicons(withoutSamples(data)),
       writerVersion: CURRENT_WRITER_VERSION,
     });
   } catch (error: any) {
