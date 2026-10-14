@@ -1,8 +1,15 @@
+import { Base64 } from 'js-base64';
+
 import type {
   SavedWindowState,
   tabData,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import { generatePlaceholderURL, resolveTabUrl, restoreRoute } from './local';
+import {
+  generatePlaceholderURL,
+  resolveFaviconUrl,
+  resolveTabUrl,
+  restoreRoute,
+} from './local';
 import { createSplitApi, type CreateSplit } from './splitView';
 import { sanitizeTabGroupColor } from './tabGroups';
 
@@ -303,6 +310,13 @@ async function fillRestoredWindow(
     await pinRestoredTab(targetId);
   }
 
+  // Fetched before any create: a create issued as its fetch settles would land out of order.
+  const icons = await Promise.all(
+    spec.tabs.map((tabInfo, i) =>
+      i === targetIndex || loadsPage.has(i) ? '' : placeholderIcon(tabInfo)
+    )
+  );
+
   // All at once: Chrome runs one extension's calls in order, so index i lands each earlier tab before the target.
   const ids = await Promise.all(
     spec.tabs.map((tabInfo, i) =>
@@ -313,7 +327,7 @@ async function fillRestoredWindow(
             tabInfo,
             loadsPage.has(i)
               ? resolveTabUrl(tabInfo.url)
-              : placeholderUrl(tabInfo, goToURLText),
+              : placeholderUrl(tabInfo, icons[i], goToURLText),
             i < targetIndex ? i : undefined
           )
     )
@@ -378,13 +392,32 @@ async function confirmSavedWindowState(
   }
 }
 
-const placeholderUrl = (tabInfo: tabData, goToURLText: string): string =>
+const placeholderUrl = (
+  tabInfo: tabData,
+  icon: string,
+  goToURLText: string
+): string =>
   generatePlaceholderURL(
     tabInfo.title,
-    tabInfo.favicon || '/images/favicon.ico',
+    icon,
     resolveTabUrl(tabInfo.url),
     goToURLText
   );
+
+// KAN-594. The stored favicon, else Chrome's cached icon for the page, inlined: a data: page cannot load _favicon (measured). '' when neither.
+async function placeholderIcon(tabInfo: tabData): Promise<string> {
+  if (tabInfo.favicon) return tabInfo.favicon;
+  const address = resolveFaviconUrl('', resolveTabUrl(tabInfo.url));
+  if (!address) return '';
+  try {
+    const response = await fetch(address);
+    if (!response.ok) return '';
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return `data:image/png;base64,${Base64.fromUint8Array(bytes)}`;
+  } catch {
+    return '';
+  }
+}
 
 // Resolves to the new tab's id, or undefined when Chrome refused it: that tab is skipped, never the restore.
 function createRestoredTab(
