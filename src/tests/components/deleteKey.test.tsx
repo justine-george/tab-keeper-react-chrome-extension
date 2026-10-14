@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import HeroContainerRight from '../../components/home/rightpane/HeroContainerRight';
@@ -123,10 +129,12 @@ describe('the Delete key on a focused session row (KAN-592)', () => {
     ['win', 'Delete Backspace'],
   ] as const)('the row names its keys on %s', async (os, keys) => {
     await renderList(os);
+    // Once Chrome has answered, so the PC form is not read before a Mac answer replaces it.
+    await act(async () => {
+      await chrome.runtime.getPlatformInfo();
+    });
 
-    await waitFor(() =>
-      expect(row('Kyoto')).toHaveAttribute('aria-keyshortcuts', keys)
-    );
+    expect(row('Kyoto')).toHaveAttribute('aria-keyshortcuts', keys);
   });
 });
 
