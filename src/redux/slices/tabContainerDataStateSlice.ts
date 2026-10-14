@@ -826,13 +826,15 @@ export const addCurrWindowToTabGroup = createAsyncThunk(
 
 // KAN-583. Makes a change and says whether customMiddleware recorded it as an
 // undo step, so a toast offers Undo only when one undo takes back this change.
-function recordsUndoStep(
+// A step pushes the old `present` onto `past`; a selection moves `present` only.
+export function recordsUndoStep(
   getState: () => RootState,
   change: () => void
 ): boolean {
   const before = getState().undoRedo.present;
   change();
-  return getState().undoRedo.present !== before;
+  const { past } = getState().undoRedo;
+  return past[past.length - 1] === before;
 }
 
 // KAN-468. Every open window, captured as Save does, replaces the session's; the session keeps its name.

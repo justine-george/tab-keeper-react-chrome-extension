@@ -10,6 +10,7 @@ import { buildChromeTab } from '../fixtures/chromeTab';
 import { showToast } from '../../redux/slices/globalStateSlice';
 import {
   deleteTabContainer,
+  recordsUndoStep,
   replaceSessionWithOpenWindows,
   replaceState,
   selectTabContainer,
@@ -217,5 +218,28 @@ describe('Undo in the Delete and Replace toasts (KAN-583)', () => {
     expect(undoButtons()[0]).not.toHaveAttribute('aria-keyshortcuts');
     await user.click(undoButtons()[0]);
     expect(sessionIds(store)).toContain('kyoto');
+  });
+});
+
+describe('recordsUndoStep (KAN-583)', () => {
+  test('true for a change customMiddleware records, false for one it does not', async () => {
+    const { store } = await renderToasts();
+
+    expect(
+      recordsUndoStep(store.getState, () =>
+        store.dispatch(
+          updateTabGroupTitle({ tabGroupId: 'osaka', editableTitle: 'Nara' })
+        )
+      )
+    ).toBe(true);
+    // Selecting moves `present` without a step: Undo would take back the rename.
+    const presentBefore = store.getState().undoRedo.present;
+    expect(
+      recordsUndoStep(store.getState, () =>
+        store.dispatch(selectTabContainer('osaka'))
+      )
+    ).toBe(false);
+    // PREMISE: the selection did move `present`.
+    expect(store.getState().undoRedo.present).not.toBe(presentBefore);
   });
 });
