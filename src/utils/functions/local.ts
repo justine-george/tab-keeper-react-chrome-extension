@@ -907,5 +907,9 @@ function fullStamp(locale: string, timeFormat: TimeFormat, date: Date): string {
           : part.value
       )
       .join('');
-  return text(own.slice(0, clockAt(own))) + text(chosen.slice(clockAt(chosen)));
+  // V8's format() swaps U+202F for a plain space; some V8s (Node 22's) keep
+  // it in formatToParts, so this matches format() on every engine.
+  return (
+    text(own.slice(0, clockAt(own))) + text(chosen.slice(clockAt(chosen)))
+  ).replace(/\u202f/g, ' ');
 }

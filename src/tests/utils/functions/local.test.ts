@@ -1624,7 +1624,9 @@ describe('getPrettyDate: time format (KAN-587)', () => {
         own.findIndex((part) => clock.has(part.type))
       )
       .map((part) => part.value)
-      .join('');
+      .join('')
+      // As format() draws it: some V8s keep U+202F only in formatToParts.
+      .replace(/\u202f/g, ' ');
     expect(getPrettyDate(t, locale, format).startsWith(date)).toBe(true);
   });
 
