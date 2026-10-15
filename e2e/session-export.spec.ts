@@ -597,6 +597,98 @@ for (const mode of ['light', 'dark'] as const) {
   });
 }
 
+// KAN-557. Under load the compositor can skip frames while the page still
+// answers reads. A knob measured in the fallback font then keeps that clip
+// over Libre Franklin's wider "Comfortable" until a frame delivers the
+// ResizeObserver: 6.58px, the flake's exact reading. This holds rAF and
+// ResizeObserver callbacks for `ms`, as a starved compositor would.
+const stallFrames = (page: Page, ms: number) =>
+  page.evaluate((ms) => (window as unknown as StallWindow).__stallFrames(ms), ms);
+
+type StallWindow = Window & { __stallFrames: (ms: number) => void };
+
+const installFrameStall = (context: Parameters<typeof seedSessions>[0]) =>
+  context.addInitScript(() => {
+    let held: (() => void)[] | null = null;
+    const hold = (run: () => void) => (held ? held.push(run) : run());
+    const realRaf = window.requestAnimationFrame.bind(window);
+    // Real ids, so cancelAnimationFrame still works on a held callback.
+    const cancelled = new Set<number>();
+    const realCancel = window.cancelAnimationFrame.bind(window);
+    window.cancelAnimationFrame = (id) => {
+      cancelled.add(id);
+      realCancel(id);
+    };
+    window.requestAnimationFrame = (callback) => {
+      const id = realRaf((time) =>
+        hold(() => {
+          if (!cancelled.has(id)) callback(time);
+        })
+      );
+      return id;
+    };
+    const RealObserver = window.ResizeObserver;
+    window.ResizeObserver = class extends RealObserver {
+      constructor(callback: ResizeObserverCallback) {
+        super((entries, observer) =>
+          hold(() => callback(entries, observer))
+        );
+      }
+    };
+    (window as unknown as StallWindow).__stallFrames = (ms) => {
+      held = [];
+      setTimeout(() => {
+        const queued = held ?? [];
+        held = null;
+        queued.forEach((run) => run());
+      }, ms);
+    };
+  });
+
+test('a knob read while frames stall after a font swap waits for the frame', async ({
+  context,
+  extensionId,
+}) => {
+  await installFrameStall(context);
+  const exportPage = await openExportUnder(context, extensionId, {
+    theme: 'Light',
+  });
+  const cells = '[role="group"] button, [data-sliding-knob] > span';
+  // The fallback font, as before Libre Franklin loads.
+  await exportPage.evaluate((cells) => {
+    document
+      .querySelectorAll<HTMLElement>(cells)
+      .forEach((el) => (el.style.fontFamily = 'Helvetica'));
+  }, cells);
+  const fallback = await settledKnob(exportPage, 'Layout');
+  // CONTROL: the fallback is narrower, so the swap moves the knob's edge.
+  const comfortable = exportPage.getByRole('button', { name: 'Comfortable' });
+  const narrow = await comfortable.evaluate(
+    (el) => el.getBoundingClientRect().width
+  );
+
+  await stallFrames(exportPage, 400);
+  await exportPage.evaluate((cells) => {
+    document
+      .querySelectorAll<HTMLElement>(cells)
+      .forEach((el) => (el.style.fontFamily = ''));
+  }, cells);
+  const knob = await settledKnob(exportPage, 'Layout');
+
+  expect(
+    (await comfortable.evaluate((el) => el.getBoundingClientRect().width)) -
+      narrow,
+    'PREMISE: Libre Franklin widens Comfortable'
+  ).toBeGreaterThan(1);
+  const report = `fallback ${JSON.stringify(fallback.drawn)}, swapped ${JSON.stringify(knob)}`;
+  for (const side of ['left', 'right'] as const) {
+    expect(
+      Math.abs(knob.drawn[side] - knob.pressed[side]),
+      `${side} edge. ${report}`
+    ).toBeLessThanOrEqual(0.5);
+  }
+});
+
 // Every shipped language, before and after a flip: options differ in width.
 const LANGUAGES = ['en', 'de', 'es', 'fr', 'hi', 'it', 'ja', 'pt', 'ru', 'zh'];
 
