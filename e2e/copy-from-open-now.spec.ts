@@ -479,8 +479,12 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     const at = await pickUpLive(page, live.idOf('Live A'));
     await carryOutOfOpenNow(page, at.y);
     await page.mouse.move(at.x, at.y + 30, { steps: 6 });
-    // Justine's pick A: over Open now the card dims and its + goes.
-    await expect(page.locator(CARD)).toHaveCSS('opacity', '0.5');
+    // Justine's pick A: over Open now the card's contents fade and its + goes; the card itself stays opaque.
+    await expect(page.locator(CARD)).toHaveCSS('opacity', '1');
+    await expect(page.locator(`${CARD} [data-carry-card-name]`)).toHaveCSS(
+      'opacity',
+      '0.45'
+    );
     await expect(page.locator(`${CARD} [data-carry-card-badge]`)).toBeHidden();
     await page.mouse.up();
 

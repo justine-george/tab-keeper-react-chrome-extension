@@ -293,9 +293,10 @@ export function CarryLayer() {
         box-shadow: ${COLORS.FLOATING_SHADOW};
         font-size: ${TYPE.BODY};
         pointer-events: none;
-        /* Over Open now a release copies nothing (N4 A): the card says so (Justine's pick A). */
-        html[data-carry-over-open-now] & {
-          opacity: 0.5;
+        /* Over Open now a release copies nothing (N4 A): its contents fade (Justine's pick A). The card stays
+           opaque: see-through, the rows behind it showed through like a glitch. */
+        html[data-carry-over-open-now] & > :not([data-carry-card-badge]) {
+          opacity: 0.45;
         }
       `}
       style={{

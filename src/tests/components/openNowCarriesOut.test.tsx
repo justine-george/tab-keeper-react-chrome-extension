@@ -375,6 +375,7 @@ describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
   });
 
   // Justine's pick A (2026-10-15): back over Open now the card dims and loses its +; a release there cancels (N4 A).
+  // The card itself stays opaque: see-through, the rows behind showed through it like a glitch (his 02:09 capture).
   test('back over Open now the card dims and loses its +, and gets both back outside it', async () => {
     const { top } = await renderPane(groupSeed());
     const region = document.querySelector<HTMLElement>('[role="region"]');
@@ -386,15 +387,18 @@ describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
     moveTo(ON_LIST, y + 8);
     const card = find('[data-carry-card]');
     const badge = find('[data-carry-card-badge]');
+    const name = find('[data-carry-card] [data-carry-card-name]');
     expect(getComputedStyle(card).opacity).toBe('1');
+    expect(getComputedStyle(name).opacity).toBe('1');
     expect(getComputedStyle(badge).display).not.toBe('none');
 
     moveTo(10, y + 8);
-    expect(getComputedStyle(card).opacity).toBe('0.5');
+    expect(getComputedStyle(card).opacity).toBe('1');
+    expect(getComputedStyle(name).opacity).toBe('0.45');
     expect(getComputedStyle(badge).display).toBe('none');
 
     moveTo(ON_LIST, y + 8);
-    expect(getComputedStyle(card).opacity).toBe('1');
+    expect(getComputedStyle(name).opacity).toBe('1');
     expect(getComputedStyle(badge).display).not.toBe('none');
 
     moveTo(10, y + 8);
