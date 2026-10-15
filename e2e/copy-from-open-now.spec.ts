@@ -200,6 +200,47 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     expect(await chromeNow(serviceWorker)).toBe(chromeBefore);
   });
 
+  // KAN-611 (Justine, 02:16): one edge for out and back. In Open now's margin outside its list the drag is still
+  // Open now's (no + card); just past Open now's edge it is a copy (+); back inside the margin, faded with no +.
+  test("1c. the same edge out and back: Open now's margin is Open now, just outside it is a copy", async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openTabView(context, extensionId, false);
+    const live = await openLiveWindow(serviceWorker, ['Live A']);
+    await expect(liveRow(page, live.idOf('Live A'))).toBeVisible();
+    const region = await boxOf(
+      page.locator('[data-pane="open-now"] [role="region"]')
+    );
+    const list = await boxOf(page.locator('[data-open-now-scroller]'));
+    // PREMISE: a margin between Open now's edge and its list.
+    expect(list.x - region.x).toBeGreaterThan(2);
+    const inMargin = region.x + (list.x - region.x) / 2;
+
+    const at = await pickUpLive(page, live.idOf('Live A'));
+    await page.mouse.move(inMargin, at.y, { steps: 6 });
+    await expect(page.locator(CARD)).toHaveCount(0);
+    await expect(page.locator('[data-drag-card]')).toHaveCount(1);
+
+    await page.mouse.move(region.x - 6, at.y, { steps: 3 });
+    await expect(page.locator(CARD)).toHaveCount(1);
+    await expect(page.locator(`${CARD} [data-carry-card-badge]`)).toBeVisible();
+    await expect(page.locator(`${CARD} [data-carry-card-name]`)).toHaveCSS(
+      'opacity',
+      '1'
+    );
+
+    await page.mouse.move(inMargin, at.y, { steps: 3 });
+    await expect(page.locator(`${CARD} [data-carry-card-badge]`)).toBeHidden();
+    await expect(page.locator(`${CARD} [data-carry-card-name]`)).toHaveCSS(
+      'opacity',
+      '0.45'
+    );
+    await page.mouse.up();
+    await expect(page.locator(CARD)).toHaveCount(0);
+  });
+
   test('1b. Show selects the target; one undo takes the copy back', async ({
     context,
     extensionId,
