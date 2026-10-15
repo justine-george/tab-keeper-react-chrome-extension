@@ -30,7 +30,9 @@ import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
 } from '../../utils/functions/local';
-import { EXPORT_STORE_URL } from '../../utils/constants/common';
+import { EXPORT_STORE_URL, TOAST_MESSAGES } from '../../utils/constants/common';
+import { showToast } from '../../redux/slices/globalStateSlice';
+import { Toast } from '../common/Toast';
 import { formatGroupCounts, formatTabCount } from '../../utils/functions/local';
 import { sessionDateStamp } from '../../utils/functions/sessionDate';
 import {
@@ -91,9 +93,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   const { t, i18n } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
   const FONT_FAMILY = useFontFamily();
-  // KAN-401. How many links the last Copy put on the clipboard; null once its
-  // confirmation has gone.
-  const [linksCopied, setLinksCopied] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout>>();
   // KAN-221. Set by Edit and Done, never on arrival: the row fades in when it
   // replaces the other row, not when the page opens.
@@ -187,7 +187,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
     () => (tidied ? applyExportEdits(tidied, edits) : undefined),
     [tidied, edits]
   );
-  // KAN-401. Every row hidden leaves nothing to copy, save or print.
+  // KAN-401. Every row hidden leaves nothing to export, so Done waits for one.
   const nothingKept =
     edited !== undefined &&
     edited.windows.every((window) => window.tabs.length === 0);
@@ -445,10 +445,18 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // screen. That is the ONLY difference between the two call sites; the menu
   // passes the session as stored because it has no preview to respect.
   const handleCopy = async () => {
-    setLinksCopied(await copySessionLinks(edited, t, i18n.language));
+    const count = await copySessionLinks(edited, t, i18n.language);
+    // KAN-401. The popup's toast, with the count; the button says Copied.
+    dispatch(
+      showToast({
+        toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
+        toastParams: { count },
+      })
+    );
+    setCopied(true);
     // A second copy restarts the two seconds rather than ending the first early.
     clearTimeout(copiedTimer.current);
-    copiedTimer.current = setTimeout(() => setLinksCopied(null), 2000);
+    copiedTimer.current = setTimeout(() => setCopied(false), 2000);
   };
 
   // Reaching into the frame needs same-origin, which is why the preview is
@@ -726,6 +734,10 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                   <Button
                     text={t('Done')}
                     ariaLabel={t('Done')}
+                    ariaDisabled={nothingKept}
+                    tooltipText={
+                      nothingKept ? t('ExportNothingKept') : undefined
+                    }
                     iconType="check"
                     onClick={() => {
                       setEditing(false);
@@ -781,18 +793,14 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                   <Button
                     text={t('Copy all links')}
                     ariaLabel={t('Copy all links')}
-                    ariaDisabled={nothingKept}
-                    tooltipText={
-                      nothingKept ? t('ExportNothingKept') : undefined
-                    }
                     iconType="link"
                     onClick={handleCopy}
                     // KAN-221. "Copied" appears in the button, where the click
-                    // was, rather than in a toast across the page.
+                    // was; the toast (KAN-401) says how many.
                     secondFace={{
                       iconType: 'check',
                       text: t('Copied'),
-                      shown: linksCopied !== null,
+                      shown: copied,
                     }}
                     iconSize="1.2rem"
                     iconStyle={actionIconStyle}
@@ -801,10 +809,6 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                   <Button
                     text={t('Save as HTML')}
                     ariaLabel={t('Save as HTML')}
-                    ariaDisabled={nothingKept}
-                    tooltipText={
-                      nothingKept ? t('ExportNothingKept') : undefined
-                    }
                     iconType="download"
                     onClick={handleSave}
                     iconSize="1.2rem"
@@ -822,10 +826,6 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                     // no reason to start making it.
                     text={t('Print')}
                     ariaLabel={t('Print')}
-                    ariaDisabled={nothingKept}
-                    tooltipText={
-                      nothingKept ? t('ExportNothingKept') : undefined
-                    }
                     iconType="print"
                     onClick={handlePrint}
                     iconSize="1.2rem"
@@ -840,23 +840,6 @@ export default function ExportPage({ source }: { source: ExportSource }) {
               </>
             )}
           </div>
-        </div>
-
-        {/* KAN-221. The button shows "Copied"; this says it to a screen
-          reader, which cannot see the swap. Visually hidden, not a toast. */}
-        <div
-          role="status"
-          css={css`
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            margin: -1px;
-            overflow: hidden;
-            clip-path: inset(50%);
-            white-space: nowrap;
-          `}
-        >
-          {linksCopied === null ? '' : t('LinksCopied', { count: linksCopied })}
         </div>
 
         {editing ? (
@@ -889,6 +872,8 @@ export default function ExportPage({ source }: { source: ExportSource }) {
             />
           </>
         )}
+        {/* KAN-401. Inside the override, so it takes the page's scheme. */}
+        <Toast />
       </div>
     </ThemeColorsOverride.Provider>
   );

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 import ExportPage from '../../components/export/ExportPage';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { newestToast } from '../setup/toasts';
 import { getPrettyDate } from '../../utils/functions/local';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
@@ -206,7 +207,7 @@ describe('the export preview page (KAN-190)', () => {
       write,
       writeText,
     } as unknown as Clipboard);
-    await renderPage();
+    const { store } = await renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Copy all links' }));
 
@@ -218,6 +219,11 @@ describe('the export preview page (KAN-190)', () => {
       'WINDOW 1 · Trip planning (2 Tabs)\n- Fushimi Inari\n  https://inari.jp/en/'
     );
     expect(await screen.findByText('2 links copied')).toBeTruthy();
+    // KAN-401. The popup's toast, with the same key and count.
+    expect(newestToast(store.getState())).toMatchObject({
+      text: 'LinksCopied',
+      params: { count: 2 },
+    });
   });
 
   test('when the rich copy is refused, the plain list is copied instead', async () => {

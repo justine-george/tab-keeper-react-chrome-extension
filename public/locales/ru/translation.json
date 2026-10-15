@@ -147,7 +147,7 @@
   "Export session": "Экспорт…",
   "Save as HTML": "Сохранить как HTML",
   "Copy all links": "Скопировать все ссылки",
-  "ExportNothingKept": "Все строки скрыты. Покажите хотя бы одну, чтобы скопировать или сохранить.",
+  "ExportNothingKept": "Все строки скрыты. Покажите хотя бы одну, чтобы завершить.",
   "LinksCopied_one": "{{count}} ссылка скопирована",
   "LinksCopied_few": "{{count}} ссылки скопированы",
   "LinksCopied_many": "{{count}} ссылок скопировано",

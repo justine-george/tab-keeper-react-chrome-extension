@@ -141,7 +141,7 @@
   "Export session": "导出…",
   "Save as HTML": "保存为 HTML",
   "Copy all links": "复制所有链接",
-  "ExportNothingKept": "所有行都已隐藏。至少显示一行才能复制或保存。",
+  "ExportNothingKept": "所有行都已隐藏。至少显示一行才能完成。",
   "LinksCopied_other": "已复制 {{count}} 个链接",
   "Copied": "已复制",
   "Comfortable": "宽松",
