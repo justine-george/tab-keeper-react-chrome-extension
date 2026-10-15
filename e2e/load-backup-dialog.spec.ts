@@ -1,7 +1,12 @@
 import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import {
+  buildContainer,
+  buildSession,
+  seedSessions,
+  seedSettings,
+} from './fixtures/seed';
 import { FULL_VIEW_PATH } from './fixtures/onboarding';
 
 // KAN-252 / KAN-261. "Load sessions from a backup" reads the file, then asks:
@@ -133,6 +138,23 @@ test.describe('Load sessions from a backup asks first (KAN-252, KAN-261)', () =>
       '[data-drag-row-id^="h"], [data-drag-row-id="f1"]'
     );
     await expect(sessionRows.first()).toHaveAttribute('data-drag-row-id', 'f1');
+  });
+
+  // KAN-618. Auto Sync off, so no cloud write can turn it into the sync-failed toast.
+  test('a merge says "Tabs restored." with a full stop', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, { isAutoSync: false });
+    const page = await openSyncAndBackup(context, extensionId);
+    await pickBackup(page, 'monday.json');
+    await dialogOf(page)
+      .getByRole('button', { name: 'Merge sessions' })
+      .click();
+
+    await expect(page.locator('[role="status"] [data-toast]')).toHaveText(
+      'Tabs restored.'
+    );
   });
 
   test('Replace puts the file in place of what is here', async ({
