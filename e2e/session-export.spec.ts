@@ -548,9 +548,9 @@ const within = (inner: Box, outer: Box) =>
 
 /**
  * Waits for the knob to rest: two reads that agree, each after a frame has
- * delivered SlidingPair's ResizeObserver and React has committed what it
- * measured, with no transition on the knob. Not 50ms apart: with no frame
- * between them, two reads agree on a stale clip (KAN-557).
+ * delivered SlidingPair's ResizeObserver, with no transition on the knob.
+ * Not 50ms apart: with no frame between them, two reads agree on a stale
+ * clip (KAN-557).
  */
 async function settledKnob(page: Page, group: string | Locator) {
   let previous = '';
@@ -558,20 +558,13 @@ async function settledKnob(page: Page, group: string | Locator) {
     const moving = await pairIn(page, group).evaluate(async (el) => {
       const knob = el.querySelector('[data-sliding-knob]');
       if (!knob) return 0;
-      // A new observer first fires in the next frame, after SlidingPair's
-      // older one, so its setClip has queued React's commit task...
+      // A new observer first fires in the next frame, after SlidingPair's.
       await new Promise<void>((resolve) => {
         const observer = new ResizeObserver(() => {
           observer.disconnect();
           resolve();
         });
         observer.observe(knob);
-      });
-      // ...and a message posted now runs after that task.
-      await new Promise((resolve) => {
-        const channel = new MessageChannel();
-        channel.port1.onmessage = resolve;
-        channel.port2.postMessage(null);
       });
       return knob.getAnimations({ subtree: true }).length;
     });
