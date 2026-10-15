@@ -19,6 +19,27 @@ describe('the copy toast (KAN-280 Part F, KAN-608)', () => {
     }
   });
 
+  // A window or group: "Copied N tabs to …", in every plural form the locale's LinksCopied_* has.
+  it('the tab-count copy toast exists in every plural form, count before the title', () => {
+    for (const [file, json] of Object.entries(files)) {
+      const forms = Object.keys(json)
+        .filter((k) => k.startsWith('LinksCopied_'))
+        .map((k) => k.slice('LinksCopied'.length));
+      expect(forms.length, file).toBeGreaterThan(0);
+      for (const form of forms) {
+        const text = json[`CopiedTabsToSession${form}`];
+        expect(text, `${file} ${form}`).toMatch(/\{\{count\}\}.*\{\{title\}\}/);
+        expect(text, `${file} ${form}`).toMatch(FULL_STOP);
+      }
+      const extra = Object.keys(json).filter(
+        (k) =>
+          k.startsWith('CopiedTabsToSession') &&
+          !forms.includes(k.slice('CopiedTabsToSession'.length))
+      );
+      expect(extra, file).toEqual([]);
+    }
+  });
+
   it('no locale keeps the retired skip toasts', () => {
     for (const [file, json] of Object.entries(files)) {
       const retired = Object.keys(json).filter(

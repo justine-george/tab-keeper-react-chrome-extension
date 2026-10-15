@@ -121,7 +121,7 @@ describe('copyOnSessionRow: a row drop is a new first window, and says so (D4 A,
   });
 
   // KAN-608: no duplicate check. A window holding tabs the target already has lands whole.
-  it('a window lands whole, duplicates included: "Copied to"', () => {
+  it('a window lands whole, duplicates included, and says how many tabs it copied', () => {
     const { store } = ready(container(undefined, 'S1'));
     store.dispatch(copyOnSessionRow(LIVE(LW), 'S2'));
     expect(tabIds(sessionIn(data(store), 'S2').windows[0])).toEqual([
@@ -134,8 +134,26 @@ describe('copyOnSessionRow: a row drop is a new first window, and says so (D4 A,
     ]);
     expect(toasts(store)).toEqual([
       {
-        text: TOAST_MESSAGES.COPIED_TO_SESSION,
-        params: { title: 'Target' },
+        text: TOAST_MESSAGES.COPIED_TABS_TO_SESSION,
+        params: { title: 'Target', count: 6 },
+        show: { tabGroupId: 'S2' },
+      },
+    ]);
+  });
+
+  // Justine, 01:31: a window or group says how many tabs; a single tab keeps "Copied to".
+  it('a group says how many tabs it copied', () => {
+    const { store } = ready(container(undefined, 'S1'));
+    store.dispatch(
+      copyOnSessionRow(
+        LIVE({ kind: 'group', windowId: 'live-w', groupId: 'lg' }),
+        'S2'
+      )
+    );
+    expect(toasts(store)).toEqual([
+      {
+        text: TOAST_MESSAGES.COPIED_TABS_TO_SESSION,
+        params: { title: 'Target', count: 2 },
         show: { tabGroupId: 'S2' },
       },
     ]);
@@ -279,6 +297,14 @@ describe('copyToSpot and copyWindowTo: drops in the session on screen say "Copie
     expect(sessionIn(data(store), 'S2').windows.map((w) => w.windowId)).toEqual(
       ['d1', 'd2', 'live-w']
     );
+    // Between windows of the session on screen: the count, no Show.
+    expect(toasts(store)).toEqual([
+      {
+        text: TOAST_MESSAGES.COPIED_TABS_TO_SESSION,
+        params: { title: 'Target', count: 6 },
+        show: null,
+      },
+    ]);
   });
 });
 

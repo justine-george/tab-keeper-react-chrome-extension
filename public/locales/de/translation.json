@@ -219,6 +219,8 @@
   "MovedToSession": "Nach „{{title}}“ verschoben",
   "SessionEmptiedRemoved": "„{{title}}“ war leer und wurde entfernt.",
   "CopiedToSession": "Nach „{{title}}“ kopiert.",
+  "CopiedTabsToSession_one": "{{count}} Tab nach „{{title}}“ kopiert.",
+  "CopiedTabsToSession_other": "{{count}} Tabs nach „{{title}}“ kopiert.",
   "Ctrl": "Strg",
   "Del": "Entf",
   "Tab closed": "Tab geschlossen",

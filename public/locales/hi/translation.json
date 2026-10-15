@@ -219,6 +219,8 @@
   "MovedToSession": "“{{title}}” में ले जाया गया",
   "SessionEmptiedRemoved": "सत्र “{{title}}” खाली था, इसलिए उसे हटा दिया गया।",
   "CopiedToSession": "“{{title}}” में कॉपी किया गया।",
+  "CopiedTabsToSession_one": "{{count}} टैब “{{title}}” में कॉपी किया गया।",
+  "CopiedTabsToSession_other": "{{count}} टैब “{{title}}” में कॉपी किए गए।",
   "Ctrl": "Ctrl",
   "Del": "Del",
   "Tab closed": "टैब बंद किया गया",

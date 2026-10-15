@@ -219,6 +219,8 @@
   "MovedToSession": "Moved to “{{title}}”",
   "SessionEmptiedRemoved": "“{{title}}” was empty and was removed.",
   "CopiedToSession": "Copied to “{{title}}”.",
+  "CopiedTabsToSession_one": "Copied {{count}} tab to “{{title}}”.",
+  "CopiedTabsToSession_other": "Copied {{count}} tabs to “{{title}}”.",
   "Ctrl": "Ctrl",
   "Del": "Del",
   "Tab closed": "Tab closed",

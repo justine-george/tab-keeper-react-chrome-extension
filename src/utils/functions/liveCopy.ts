@@ -47,6 +47,15 @@ export function windowToCopy(
   };
 }
 
+// How many tabs a copy of `pick` lands: what a window's or group's toast counts.
+export function copiedTabCount(
+  snapshot: windowGroupData,
+  pick: CarriedPick
+): number {
+  if (pick.kind === 'window') return windowToCopy(snapshot)?.tabs.length ?? 0;
+  return tabsToCopy(snapshot, pick)?.tabs.length ?? 0;
+}
+
 // Whether a copy of `pick` lands anything at all.
 export const copiesAnything = (
   snapshot: windowGroupData,

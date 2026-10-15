@@ -20,6 +20,7 @@ import {
 import { showSession } from './showSession';
 import type { RootState } from './store';
 import { TOAST_MESSAGES } from '../utils/constants/common';
+import { copiedTabCount } from '../utils/functions/liveCopy';
 import { newWindowPlacement } from '../components/home/rightpane/newWindowTarget';
 import { revealSavedWindow } from '../components/home/rightpane/revealSavedWindow';
 
@@ -50,10 +51,19 @@ const copyToSession =
       (g) => g.tabGroupId === copy.to.tabGroupId
     );
     if (target !== undefined) {
+      // A window or group says how many tabs it copied (Justine, 2026-10-15); a tab, where it went.
+      const several = copy.pick.kind !== 'tab';
       dispatch(
         showToast({
-          toastText: TOAST_MESSAGES.COPIED_TO_SESSION,
-          toastParams: { title: target.title },
+          toastText: several
+            ? TOAST_MESSAGES.COPIED_TABS_TO_SESSION
+            : TOAST_MESSAGES.COPIED_TO_SESSION,
+          toastParams: several
+            ? {
+                title: target.title,
+                count: copiedTabCount(snapshot, copy.pick),
+              }
+            : { title: target.title },
           announcesSavedChange: true,
           show: isSessionOnScreen(getState(), target.tabGroupId)
             ? undefined
