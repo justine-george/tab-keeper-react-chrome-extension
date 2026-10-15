@@ -135,6 +135,8 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     padding: 10px;
     border: 1px solid ${COLORS.BORDER_COLOR};
     border-radius: ${RADIUS.SQUARE};
+    /* KAN-401. The popup sets this for every element; the export page does not. */
+    box-sizing: border-box;
     width: ${isSettingsPage ? `min(300px, ${settingsCap})` : '300px'};
     min-height: ${CONTROL.DEFAULT};
     display: flex;
