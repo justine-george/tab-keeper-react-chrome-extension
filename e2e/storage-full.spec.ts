@@ -100,10 +100,15 @@ async function renameAlphaRefused(page: Page): Promise<void> {
   await expect(page.getByRole('status')).toContainText(STORAGE_FULL);
 }
 
+// Window rows only: a tab row's id (w0-t) shares the prefix.
 const windowOrder = (page: Page) =>
   page
     .locator('[data-drag-row-id^="w"]')
-    .evaluateAll((els) => els.map((el) => el.getAttribute('data-drag-row-id')));
+    .evaluateAll((els) =>
+      els
+        .map((el) => el.getAttribute('data-drag-row-id'))
+        .filter((id) => id === 'w0' || id === 'w1')
+    );
 
 test.beforeEach(async ({ context }) => {
   await seedOnce(context, WITH_WINDOWS);
@@ -120,8 +125,10 @@ test('a drop after a refused save keeps the change', async ({
   await renameAlphaRefused(page);
   expect(await windowOrder(page)).toEqual(['w0', 'w1']);
 
-  const from = await page.locator('[data-drag-row-id="w1"]').boundingBox();
-  const to = await page.locator('[data-drag-row-id="w0"]').boundingBox();
+  const handle = (id: string) =>
+    page.locator(`[data-drag-row-id="${id}"] [data-window-drag-handle]`);
+  const from = await handle('w1').boundingBox();
+  const to = await handle('w0').boundingBox();
   if (from === null || to === null) throw new Error('window rows not drawn');
   const x = from.x + 60;
   await page.mouse.move(x, from.y + from.height / 2);
