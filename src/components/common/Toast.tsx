@@ -183,6 +183,11 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   // KAN-280 Part F (Justine's pick A). What these say after the session's name would be cut with a long name: they wrap.
   const wrapsMessage = (text: string) =>
     text === TOAST_MESSAGES.COPIED_TO_SESSION_SKIPPED;
+  // Wrapped, a name with no spaces (an address) still breaks inside the toast's width.
+  const wrappingMessageStyle = css`
+    min-width: 0;
+    overflow-wrap: anywhere;
+  `;
   const messageStyle = css`
     min-width: 0;
     overflow: hidden;
@@ -279,9 +284,11 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
           >
             <span
               css={
-                toast.offersUndo || wrapsMessage(toast.text)
+                toast.offersUndo
                   ? undefined
-                  : messageStyle
+                  : wrapsMessage(toast.text)
+                    ? wrappingMessageStyle
+                    : messageStyle
               }
             >
               {message}

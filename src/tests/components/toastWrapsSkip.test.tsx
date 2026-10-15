@@ -43,6 +43,8 @@ describe('the skip toast wraps (KAN-280 Part F)', () => {
     });
     expect(style.whiteSpace).not.toBe('nowrap');
     expect(style.textOverflow).not.toBe('ellipsis');
+    // A name with no spaces (an address) still breaks inside the toast's width.
+    expect(style.overflowWrap).toBe('anywhere');
   });
 
   test('CONTROL: "Copied to …" with the same Show chip stays one cut line', async () => {
