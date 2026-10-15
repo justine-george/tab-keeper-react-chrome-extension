@@ -90,11 +90,9 @@ export const TOAST_MESSAGES = {
   NOTHING_TO_SAVE_IN_WINDOW:
     'No tabs to save in this window. Only Tab Keeper is open here.',
   NOTHING_TO_EXPORT: 'No tabs to export. Only Tab Keeper is open.',
-  // KAN-209. Reuses the key the export page's inline note already uses, rather
-  // than adding a second string for the same event -- it is already translated
-  // in all ten locales, and two wordings for one outcome is how "Links copied"
-  // and "Links copied." end up side by side.
-  COPY_LINKS_SUCCESS: 'Links copied',
+  // KAN-209. The export page's inline note uses this key too: one wording for
+  // one outcome. KAN-401: plural, with the count of links copied.
+  COPY_LINKS_SUCCESS: 'LinksCopied',
   // "added", not "saved". These two report putting something into a session
   // that already exists, which is a different operation from the two above --
   // and the right pane's button now says "Add to this session", so a toast

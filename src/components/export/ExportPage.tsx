@@ -91,7 +91,9 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   const { t, i18n } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
   const FONT_FAMILY = useFontFamily();
-  const [copied, setCopied] = useState(false);
+  // KAN-401. How many links the last Copy put on the clipboard; null once its
+  // confirmation has gone.
+  const [linksCopied, setLinksCopied] = useState<number | null>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout>>();
   // KAN-221. Set by Edit and Done, never on arrival: the row fades in when it
   // replaces the other row, not when the page opens.
@@ -439,11 +441,10 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // screen. That is the ONLY difference between the two call sites; the menu
   // passes the session as stored because it has no preview to respect.
   const handleCopy = async () => {
-    await copySessionLinks(edited, t, i18n.language);
-    setCopied(true);
+    setLinksCopied(await copySessionLinks(edited, t, i18n.language));
     // A second copy restarts the two seconds rather than ending the first early.
     clearTimeout(copiedTimer.current);
-    copiedTimer.current = setTimeout(() => setCopied(false), 2000);
+    copiedTimer.current = setTimeout(() => setLinksCopied(null), 2000);
   };
 
   // Reaching into the frame needs same-origin, which is why the preview is
@@ -783,7 +784,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                     secondFace={{
                       iconType: 'check',
                       text: t('Copied'),
-                      shown: copied,
+                      shown: linksCopied !== null,
                     }}
                     iconSize="1.2rem"
                     iconStyle={actionIconStyle}
@@ -839,7 +840,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
             white-space: nowrap;
           `}
         >
-          {copied ? t('Links copied') : ''}
+          {linksCopied === null ? '' : t('LinksCopied', { count: linksCopied })}
         </div>
 
         {editing ? (

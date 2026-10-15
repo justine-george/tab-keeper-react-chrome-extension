@@ -313,6 +313,33 @@ describe('Edit mode on the export page (KAN-194)', () => {
     }
   });
 
+  // KAN-401. The note counts the links copied, so hidden rows are not in it.
+  test('the copy note counts only the links the copy holds', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+    vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({
+      write: vi.fn().mockResolvedValue(undefined),
+      writeText: vi.fn(),
+    } as unknown as Clipboard);
+    await renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: 'Hide: Flights' }));
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await user.click(screen.getByRole('button', { name: 'Copy all links' }));
+    // 4 tabs, the Flights group's 1 hidden.
+    expect(await screen.findByText('3 links copied')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: 'Hide: Food' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Hide: Fushimi Inari' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await user.click(screen.getByRole('button', { name: 'Copy all links' }));
+    expect(await screen.findByText('1 link copied')).toBeTruthy();
+  });
+
   // The popup owns renaming, with undo and sync; a second writer would have
   // neither.
   test('the saved session is never changed', async () => {

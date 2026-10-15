@@ -51,6 +51,17 @@ describe('counts are whole phrases, plural-correct in every locale (KAN-286)', (
     expect(formatGroupCounts(3, 5, false, t)).toBe('3 个窗口 · 5 个标签页');
   });
 
+  // KAN-401. The copy note names how many links went to the clipboard.
+  test('the links-copied note counts: en singular and plural, ru three forms', async () => {
+    const en = await tFor('en');
+    expect(en('LinksCopied', { count: 1 })).toBe('1 link copied');
+    expect(en('LinksCopied', { count: 12 })).toBe('12 links copied');
+    const ru = await tFor('ru');
+    expect(ru('LinksCopied', { count: 21 })).toBe('21 ссылка скопирована');
+    expect(ru('LinksCopied', { count: 2 })).toBe('2 ссылки скопированы');
+    expect(ru('LinksCopied', { count: 5 })).toBe('5 ссылок скопировано');
+  });
+
   // A locale file missing one of its language's categories does not fail
   // loudly: i18next falls back to English, so ru without _many printed
   // "5 Tabs". Measured, not assumed. Hence exactly the categories

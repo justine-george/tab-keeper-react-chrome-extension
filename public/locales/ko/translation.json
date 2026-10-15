@@ -141,7 +141,7 @@
   "Export session": "내보내기…",
   "Save as HTML": "HTML로 저장",
   "Copy all links": "모든 링크 복사",
-  "Links copied": "링크를 복사했습니다",
+  "LinksCopied_other": "링크 {{count}}개를 복사했습니다",
   "Copied": "복사됨",
   "Comfortable": "넓게",
   "Compact": "좁게",

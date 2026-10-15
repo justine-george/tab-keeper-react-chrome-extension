@@ -397,7 +397,58 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
       await waitFor(() => expect(isToastShowing(store.getState())).toBe(true));
       // The key, not the sentence: Toast renders t(toastText), and English
       // would pass with a key that resolves to nothing in other locales.
-      expect(newestToast(store.getState())?.text).toBe('Links copied');
+      expect(newestToast(store.getState())).toMatchObject({
+        text: 'LinksCopied',
+        params: { count: 1 },
+      });
+    });
+
+    // KAN-401. The count is the tabs copied, read from the session copied.
+    test('says how many links it copied', async () => {
+      const user = userEvent.setup();
+      fakeClipboard();
+      const tab = (n: number) => ({
+        tabId: `t-${n}`,
+        favicon: '',
+        title: `Tab ${n}`,
+        url: `https://example.com/${n}`,
+      });
+      const window = (id: string, tabs: ReturnType<typeof tab>[]) => ({
+        windowId: id,
+        windowHeight: 1080,
+        windowWidth: 1920,
+        windowOffsetTop: 0,
+        windowOffsetLeft: 0,
+        tabCount: tabs.length,
+        title: '',
+        tabs,
+      });
+      // Stored counts deliberately wrong: the toast must count what it copied.
+      const session = buildSession({
+        tabGroupId: 'session-three',
+        title: 'Three links',
+        windowCount: 1,
+        tabCount: 9,
+        windows: [window('w-1', [tab(1), tab(2)]), window('w-2', [tab(3)])],
+      });
+      const { store } = await renderWithProviders(<HeroContainerRight />, {
+        seed: { windows: [{ id: 1 }] },
+        seedStore: (s) => {
+          s.dispatch(replaceState(buildContainer([session])));
+          s.dispatch(selectTabContainer('session-three'));
+        },
+      });
+
+      await openMenu(user);
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Copy all links' })
+      );
+
+      await waitFor(() => expect(isToastShowing(store.getState())).toBe(true));
+      expect(newestToast(store.getState())).toMatchObject({
+        text: 'LinksCopied',
+        params: { count: 3 },
+      });
     });
 
     // CONTROL: the selected session, not the first.

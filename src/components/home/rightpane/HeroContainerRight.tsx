@@ -606,7 +606,7 @@ export default function HeroContainerRight() {
                     label: t('Copy all links'),
                     icon: 'link',
                     onSelect: async () => {
-                      await copySessionLinks(
+                      const count = await copySessionLinks(
                         tidySessionForExport(selectedTabGroup),
                         t,
                         i18n.language
@@ -616,6 +616,7 @@ export default function HeroContainerRight() {
                       dispatch(
                         showToast({
                           toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
+                          toastParams: { count },
                         })
                       );
                     },

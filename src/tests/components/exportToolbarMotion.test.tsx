@@ -68,7 +68,7 @@ describe('Copy all links confirms in the button itself (KAN-221)', () => {
 
     await user.click(screen.getByRole('button', { name: 'Copy all links' }));
 
-    const status = await screen.findByText('Links copied');
+    const status = await screen.findByText('1 link copied');
     expect(status.closest('[role="status"]')).toBeTruthy();
     expect(
       getComputedStyle(status.closest('[role="status"]')!).position
