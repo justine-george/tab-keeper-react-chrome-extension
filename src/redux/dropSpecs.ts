@@ -20,13 +20,18 @@ import {
   isWindowMove,
   moveToSessionInternal,
   moveWindowInternal,
+  copyToSessionInternal,
+  isTabCopy,
+  isWindowCopy,
   type CarriedRef,
+  type SessionCopy,
+  type windowGroupData,
   type NewWindowPlace,
   type SessionMove,
   type TabMasterContainer,
 } from './slices/tabContainerDataStateSlice';
-import { landedRowId } from '../utils/functions/carriedView';
-import { savedItem } from './carriedItem';
+import { landedRowId, landedRowIdOfPick } from '../utils/functions/carriedView';
+import { savedItem, type CarriedPick } from './carriedItem';
 import {
   groupItemIdOf,
   isCarriedStillThere,
@@ -203,28 +208,36 @@ export function intoNewWindow(
 // at that edge (reaimIndex), and the move ignores the re-aimed index and
 // places the window by its `at`. rowExists is the carried item in its
 // SOURCE, which is another session or, for a new window, maybe this one.
+// The ids of the list a move or copy of `kind` applies its toIndex to, read from a state; null when that list is gone.
+function landingListIds(
+  s: TabMasterContainer,
+  kind: CarriedPick['kind'],
+  to: SessionMove['to']
+): string[] | null {
+  const target = sessionIn(s, to.tabGroupId);
+  if (!target) return null;
+  if (!('windowId' in to)) return target.windows.map((w) => w.windowId);
+  const w = target.windows.find((x) => x.windowId === to.windowId);
+  if (!w) return null;
+  if (kind === 'group') {
+    return partitionTabsIntoItems(w.tabs, w.chromeTabGroups).map(itemIdOf);
+  }
+  const toChromeGroupId =
+    'toChromeGroupId' in to ? to.toChromeGroupId : undefined;
+  if (
+    toChromeGroupId !== undefined &&
+    !(w.chromeTabGroups ?? []).some((g) => g.groupId === toChromeGroupId)
+  ) {
+    return null;
+  }
+  return w.tabs.map((t) => t.tabId);
+}
+
 export function sessionMoveDrop(move: SessionMove): DropOnTop {
   const { carried, to } = move;
 
-  const targetIds = (s: TabMasterContainer): string[] | null => {
-    const target = sessionIn(s, to.tabGroupId);
-    if (!target) return null;
-    if (!('windowId' in to)) return target.windows.map((w) => w.windowId);
-    const w = target.windows.find((x) => x.windowId === to.windowId);
-    if (!w) return null;
-    if (carried.kind === 'group') {
-      return partitionTabsIntoItems(w.tabs, w.chromeTabGroups).map(itemIdOf);
-    }
-    const toChromeGroupId =
-      'toChromeGroupId' in to ? to.toChromeGroupId : undefined;
-    if (
-      toChromeGroupId !== undefined &&
-      !(w.chromeTabGroups ?? []).some((g) => g.groupId === toChromeGroupId)
-    ) {
-      return null;
-    }
-    return w.tabs.map((t) => t.tabId);
-  };
+  const targetIds = (s: TabMasterContainer) =>
+    landingListIds(s, carried.kind, to);
 
   const rowId = landedRowId(savedItem(carried));
 
@@ -259,6 +272,55 @@ function withToIndex(move: SessionMove, toIndex: number): SessionMove {
   return 'newWindowId' in move.to
     ? move
     : { carried: move.carried, to: { ...move.to, toIndex } };
+}
+
+// KAN-280 Part F. A copy's drop: re-aimed like a move's, and its item can never be taken away (Q1 A).
+export function sessionCopyDrop(
+  copy: SessionCopy,
+  snapshot: windowGroupData
+): DropOnTop {
+  const { to } = copy;
+  return {
+    rowId: landedRowIdOfPick(copy.pick),
+    toIndex:
+      'toIndex' in to
+        ? to.toIndex
+        : to.at === 'first'
+          ? 0
+          : Number.MAX_SAFE_INTEGER,
+    targetIds: (s) => landingListIds(s, copy.pick.kind, to),
+    rowExists: () => true,
+    move: (i) => copyToSessionInternal(withCopyIndex(copy, i), snapshot),
+  };
+}
+
+// The same copy, aimed at another index of the same list; a new window places itself by its `at`.
+function withCopyIndex(copy: SessionCopy, toIndex: number): SessionCopy {
+  if (isWindowCopy(copy)) {
+    return { pick: copy.pick, to: { ...copy.to, toIndex } };
+  }
+  if (isTabCopy(copy)) {
+    return 'newWindowId' in copy.to
+      ? copy
+      : { pick: copy.pick, to: { ...copy.to, toIndex } };
+  }
+  return 'newWindowId' in copy.to
+    ? copy
+    : { pick: copy.pick, to: { ...copy.to, toIndex } };
+}
+
+// KAN-280 Part F (N1 A). As newSessionDrop: no list to re-aim in, and the action is built once by the caller.
+export function newSessionCopyDrop(
+  pick: CarriedPick,
+  copyAction: UnknownAction
+): DropOnTop {
+  return {
+    rowId: landedRowIdOfPick(pick),
+    toIndex: 0,
+    targetIds: () => [],
+    rowExists: () => true,
+    move: () => copyAction,
+  };
 }
 
 // KAN-394. A carried item dropped on the save row. A new session has no list
