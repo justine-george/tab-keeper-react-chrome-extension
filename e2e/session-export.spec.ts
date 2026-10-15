@@ -376,6 +376,66 @@ test('pressing Light or Dark changes the page and never the saved settings', asy
     .toMatchObject({ exportLayout: 'comfortable' });
 });
 
+// KAN-305. Layout saves every setting, so a page holding stale ones would put
+// back a theme the popup changed while the export page was open.
+test('a theme picked in the popup survives a Layout change on the open export page', async ({
+  context,
+  extensionId,
+}) => {
+  // Not seedSettings: its init script would re-seed every page opened after.
+  const popup = await openPopup(context, extensionId);
+  await popup.evaluate(
+    (answered) =>
+      localStorage.setItem(
+        'settingsData',
+        JSON.stringify({
+          cloudConsent: 'granted',
+          ...answered,
+          theme: 'Light',
+          exportLayout: 'compact',
+          isNeverAskAgainToRate: true,
+          isNeverAskAgainForTabGroups: true,
+        })
+      ),
+    ONBOARDING_ANSWERED
+  );
+  await popup.reload();
+  const [exportPage] = await Promise.all([
+    context.waitForEvent('page'),
+    chooseExport(popup),
+  ]);
+  await expect(exportPage.getByRole('button', { name: 'Edit' })).toBeVisible();
+  expect(await headerFill(exportPage)).toBe(LIGHT_HEADER);
+  // Added after the page's own listener, so it runs after it: once it has
+  // counted the popup's write, the page has had its chance to take it in.
+  await exportPage.evaluate(() => {
+    (window as unknown as { settingsWrites: number }).settingsWrites = 0;
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'settingsData') {
+        (window as unknown as { settingsWrites: number }).settingsWrites++;
+      }
+    });
+  });
+
+  await popup.getByRole('button', { name: 'Settings', exact: true }).click();
+  await popup.getByRole('button', { name: 'Graphite', exact: true }).click();
+  await exportPage.waitForFunction(
+    () => (window as unknown as { settingsWrites: number }).settingsWrites > 0
+  );
+  await exportPage.getByRole('button', { name: 'Comfortable' }).click();
+
+  const saved = await exportPage.evaluate(() =>
+    JSON.parse(localStorage.getItem('settingsData') ?? 'null')
+  );
+  // CONTROL: the click saved, so this is the export page's write.
+  expect(saved).toMatchObject({
+    exportLayout: 'comfortable',
+    theme: 'Darkenheimer',
+  });
+  // And the open page follows the new theme.
+  expect(await headerFill(exportPage)).toBe(DARK_HEADER);
+});
+
 test('a tinted light theme opens a light page, not a pink one', async ({
   context,
   extensionId,

@@ -19,6 +19,7 @@ import {
   ThemeColorsOverride,
 } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
+import { useOtherPageSettings } from '../../hooks/useOtherPageSettings';
 import { AppDispatch, RootState } from '../../redux/store';
 import { setExportLayout } from '../../redux/slices/settingsDataStateSlice';
 import {
@@ -92,6 +93,8 @@ export type ExportSource =
 export default function ExportPage({ source }: { source: ExportSource }) {
   const { t, i18n } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
+  // KAN-305. Layout saves every setting; without this it saves stale ones.
+  useOtherPageSettings();
   const FONT_FAMILY = useFontFamily();
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout>>();
