@@ -441,6 +441,37 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     expect(await toasts(page)).toEqual([]);
   });
 
+  test('7b. adopted by the shown session, then let go over Open now level with its new-last-window block: cancelled (N4 A)', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openTabView(context, extensionId, false);
+    const live = await openLiveWindow(serviceWorker, ['Live A']);
+    await expect(liveRow(page, live.idOf('Live A'))).toBeVisible();
+    const before = await stored(page);
+
+    const at = await pickUpLive(page, live.idOf('Live A'));
+    await carryOutOfOpenNow(page, at.y);
+    // Into the shown session, onto its trailing block, where a release makes a new last window.
+    const trailing = await boxOf(
+      page.locator('[data-pane="detail"] [data-new-window-target="last"]')
+    );
+    const y = trailing.y + trailing.height / 2;
+    await page.mouse.move(trailing.x + 60, y, { steps: 8 });
+    await expect(page.locator('[data-carry-phantom]')).toHaveCount(1);
+    // Then right, over Open now, at the same height.
+    const openNow = await boxOf(page.locator('[data-pane="open-now"]'));
+    // PREMISE: that height is inside Open now's pane.
+    expect(y).toBeGreaterThan(openNow.y);
+    expect(y).toBeLessThan(openNow.y + openNow.height);
+    await page.mouse.move(openNow.x + openNow.width / 2, y, { steps: 8 });
+    await page.mouse.up();
+
+    await expect(page.locator(CARD)).toHaveCount(0);
+    expect(await stored(page)).toEqual(before);
+  });
+
   test("8. under Open now's search a tab row is carried out at once and copies; a group or window row does not pick up", async ({
     context,
     extensionId,
