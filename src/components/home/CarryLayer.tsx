@@ -16,7 +16,7 @@ import { css } from '@emotion/react';
 import Icon from '../common/Icon';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useSavedSearch } from '../../hooks/useSavedSearch';
-import { RADIUS, TYPE } from '../../styles/scale';
+import { ICON, RADIUS, TYPE } from '../../styles/scale';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
 import { windowLabel } from '../../utils/functions/windowLabel';
 import { isItemStillThere, sourceSessionIdOf } from '../../redux/carriedItem';
@@ -315,8 +315,7 @@ export function CarryLayer() {
             border-radius: ${RADIUS.CIRCLE};
             display: grid;
             place-items: center;
-            font-size: 16px;
-            font-weight: 600;
+            font-size: ${ICON.MARK};
             background-color: ${COLORS.LABEL_L1_COLOR};
             color: ${COLORS.PRIMARY_LIGHT};
           `}
