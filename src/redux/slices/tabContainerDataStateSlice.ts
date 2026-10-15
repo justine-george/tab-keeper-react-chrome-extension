@@ -26,10 +26,16 @@ import {
   stripEmbeddedFavicons,
 } from '../../utils/functions/local';
 import { newSessionTitleOf } from '../../utils/functions/newSessionTitle';
-import { savedItem } from '../carriedItem';
+import { savedItem, type CarriedPick } from '../carriedItem';
+import {
+  addressesIn,
+  tabsToCopy,
+  windowToCopy,
+} from '../../utils/functions/liveCopy';
 import {
   captureOpenWindows,
   isAlreadySaved,
+  savedIncognito,
   type CaptureScope,
 } from '../../utils/functions/capture';
 import {
@@ -404,6 +410,31 @@ export function isTabMove(move: SessionMove): move is TabMove {
 
 export function isWindowMove(move: SessionMove): move is WindowMove {
   return move.carried.kind === 'window';
+}
+
+// KAN-280 Part F. Where a copy of a live item lands: the places a move goes (SessionMove's `to`), from a pick in a snapshot.
+export type SessionCopy =
+  | { pick: Extract<CarriedPick, { kind: 'tab' }>; to: TabMove['to'] }
+  | { pick: Extract<CarriedPick, { kind: 'group' }>; to: GroupMove['to'] }
+  | { pick: Extract<CarriedPick, { kind: 'window' }>; to: WindowMove['to'] };
+
+export type TabCopy = Extract<SessionCopy, { pick: { kind: 'tab' } }>;
+export type WindowCopy = Extract<SessionCopy, { pick: { kind: 'window' } }>;
+
+export function isTabCopy(copy: SessionCopy): copy is TabCopy {
+  return copy.pick.kind === 'tab';
+}
+
+export function isWindowCopy(copy: SessionCopy): copy is WindowCopy {
+  return copy.pick.kind === 'window';
+}
+
+export interface copyToSessionParams {
+  copy: SessionCopy;
+  // The live window as converted at pick-up (Q1 A), its place as read at carry start (P6).
+  snapshot: windowGroupData;
+  remintNamespace: string;
+  now: number;
 }
 
 export interface moveToSessionParams {
@@ -2649,6 +2680,59 @@ export const tabContainerDataStateSlice = createSlice({
         payload: { move, remintNamespace, now },
       }),
     },
+    // KAN-280 Part F (spec O12c). A copy of a live item into a saved session: the move's landing, nothing removed, one ⌘Z.
+    // Declines, stamping nothing, when the target is gone, everything was already there (D6 A), or the kinds clash (Q2 A).
+    copyToSessionInternal: {
+      reducer: (state, action: PayloadAction<copyToSessionParams>) => {
+        const { copy, snapshot, remintNamespace, now } = action.payload;
+        const target = state.tabGroups.find(
+          (g) => g.tabGroupId === copy.to.tabGroupId
+        );
+        if (!target) return;
+        const taken = addressesIn(target);
+        const remint = (id: string) => uuidv5(id, remintNamespace);
+
+        if (isWindowCopy(copy)) {
+          const planned = windowToCopy(snapshot, taken);
+          if (planned.content === null) return;
+          landWindowIn(target, planned.content, copy.to.toIndex, remint);
+        } else {
+          const landing = tabsLandingIn(target, copy.to);
+          if (!landing) return;
+          // Q2 A. Only into a window of its own kind; a new window takes its mark.
+          if (
+            landing.kind === 'in-window' &&
+            (landing.window.incognito === true) !==
+              (snapshot.incognito === true)
+          ) {
+            return;
+          }
+          const planned = tabsToCopy(snapshot, copy.pick, taken);
+          if (planned.content === null) return;
+          landTabsIn(
+            target,
+            landing,
+            planned.content.tabs,
+            planned.content.group,
+            {
+              ...boundsOf(snapshot),
+              ...savedIncognito(snapshot.incognito === true),
+            },
+            remint
+          );
+        }
+
+        touchContent(state, target, now);
+        state.lastModified = now;
+        saveToLocalStorage('tabContainerData', state);
+      },
+      prepare: (
+        copy: SessionCopy,
+        snapshot: windowGroupData,
+        remintNamespace: string = uuidv4(),
+        now: number = Date.now()
+      ) => ({ payload: { copy, snapshot, remintNamespace, now } }),
+    },
 
     moveToNewSessionInternal: {
       reducer: (state, action: PayloadAction<moveToNewSessionParams>) => {
@@ -3128,6 +3212,7 @@ export const {
   moveChromeGroupAcrossWindowsInternal,
   moveSessionInternal,
   moveToSessionInternal,
+  copyToSessionInternal,
   moveToNewSessionInternal,
   sortSessionsInternal,
   clearSessionOrder,
