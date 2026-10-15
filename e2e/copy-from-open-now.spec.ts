@@ -224,8 +224,8 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     await expect(target).toBeHidden();
 
     await press(page, openNowWindowHandle(page, live.windowId));
-    // PREMISE: the window is held, and the save row's target shows.
-    await expect(page.locator('[data-drag-held]')).toHaveCount(1);
+    // PREMISE: the window is carried from the first move (D3 A), and the save row's target shows.
+    await expect(page.locator(CARD)).toHaveCount(1);
     await expect(saveTarget).toBeVisible();
     await expect(target).toBeHidden();
     await page.keyboard.press('Escape');
