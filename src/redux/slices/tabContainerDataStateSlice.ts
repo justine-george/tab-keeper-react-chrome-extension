@@ -1382,6 +1382,98 @@ function isAllOfWindow(
   );
 }
 
+// The bounds a new window takes, and a copy's incognito mark (a move's new window stays unmarked, as before).
+type NewWindowLook = Pick<
+  windowGroupData,
+  | 'windowHeight'
+  | 'windowWidth'
+  | 'windowOffsetTop'
+  | 'windowOffsetLeft'
+  | 'incognito'
+>;
+
+const boundsOf = (w: windowGroupData): NewWindowLook => ({
+  windowHeight: w.windowHeight,
+  windowWidth: w.windowWidth,
+  windowOffsetTop: w.windowOffsetTop,
+  windowOffsetLeft: w.windowOffsetLeft,
+});
+
+// KAN-350, KAN-280 Part F. Lands tabs (one, or a group's run with its entry) where `landing` says, ids re-minted against `target` as it now is.
+function landTabsIn(
+  target: tabContainerData,
+  landing: TabsLanding,
+  tabs: tabData[],
+  group: chromeTabGroupData | undefined,
+  look: NewWindowLook,
+  remint: (id: string) => string
+): void {
+  const taken = idsIn(target);
+  remintTabsAndGroups(tabs, group === undefined ? [] : [group], taken, remint);
+
+  if (landing.kind === 'new-window') {
+    // Unnamed as a captured window is (KAN-394 L4). First or last, as the drop
+    // target said (S2 A, S3 A; KAN-361, KAN-366).
+    const newWindow: windowGroupData = {
+      windowId: taken.windows.has(landing.newWindowId)
+        ? remint(landing.newWindowId)
+        : landing.newWindowId,
+      ...look,
+      tabCount: tabs.length,
+      title: '',
+      tabs,
+      ...(group === undefined ? {} : { chromeTabGroups: [group] }),
+    };
+    if (landing.at === 'first') target.windows.unshift(newWindow);
+    else target.windows.push(newWindow);
+    target.windowCount += 1;
+  } else if (group === undefined) {
+    const [tab] = tabs;
+    const slot = clampIndex(landing.toIndex, landing.window.tabs.length);
+    // KAN-458. Its group, and its pin by where it landed.
+    landTab(tab, landing.window.tabs, slot, landing.toChromeGroupId);
+    landing.window.tabs.splice(slot, 0, tab);
+    landing.window.tabCount += 1;
+  } else {
+    const items = partitionTabsIntoItems(
+      landing.window.tabs,
+      landing.window.chromeTabGroups
+    );
+    // KAN-458. Never inside the pinned run (groupLandingRange offers no such slot).
+    const slot = Math.max(
+      clampIndex(landing.toIndex, items.length),
+      pinnedRunLength(landing.window.tabs)
+    );
+    items.splice(slot, 0, { kind: 'group', group, tabs });
+    landing.window.tabs = items.flatMap((item) =>
+      item.kind === 'tab' ? [item.tab] : item.tabs
+    );
+    landing.window.chromeTabGroups = [
+      ...(landing.window.chromeTabGroups ?? []),
+      group,
+    ];
+    landing.window.tabCount += tabs.length;
+  }
+  target.tabCount += tabs.length;
+}
+
+// KAN-350, KAN-280 Part F. Lands a whole window at `toIndex`, ids re-minted against `target`; its active tab follows by position (KAN-458 R3).
+function landWindowIn(
+  target: tabContainerData,
+  w: windowGroupData,
+  toIndex: number,
+  remint: (id: string) => string
+): void {
+  const taken = idsIn(target);
+  if (taken.windows.has(w.windowId)) w.windowId = remint(w.windowId);
+  const activeIndex = w.tabs.findIndex((t) => t.tabId === w.activeTabId);
+  remintTabsAndGroups(w.tabs, w.chromeTabGroups ?? [], taken, remint);
+  if (activeIndex !== -1) w.activeTabId = w.tabs[activeIndex].tabId;
+  target.windows.splice(clampIndex(toIndex, target.windows.length), 0, w);
+  target.windowCount += 1;
+  target.tabCount += w.tabCount;
+}
+
 // Buries the session at `index`; if selected, the one now at that index (or the new last) is.
 function removeSession(state: TabMasterContainer, index: number): void {
   const removed = state.tabGroups[index];
@@ -2464,31 +2556,7 @@ export const tabContainerDataStateSlice = createSlice({
           source.windowCount -= 1;
           source.tabCount -= from.tabCount;
 
-          const taken = idsIn(target);
-          if (taken.windows.has(from.windowId)) {
-            from.windowId = remint(from.windowId);
-          }
-          // KAN-458 R3. The active tab is followed by position through a re-mint.
-          const activeIndex = from.tabs.findIndex(
-            (t) => t.tabId === from.activeTabId
-          );
-          remintTabsAndGroups(
-            from.tabs,
-            from.chromeTabGroups ?? [],
-            taken,
-            remint
-          );
-          if (activeIndex !== -1) {
-            from.activeTabId = from.tabs[activeIndex].tabId;
-          }
-
-          target.windows.splice(
-            clampIndex(move.to.toIndex, target.windows.length),
-            0,
-            from
-          );
-          target.windowCount += 1;
-          target.tabCount += from.tabCount;
+          landWindowIn(target, from, move.to.toIndex, remint);
         } else {
           const landing = tabsLandingIn(target, move.to);
           if (!landing) return;
@@ -2542,65 +2610,7 @@ export const tabContainerDataStateSlice = createSlice({
           source.tabCount -= tabs.length;
           forgetMissingActiveTab(from);
 
-          const taken = idsIn(target);
-          remintTabsAndGroups(
-            tabs,
-            group === undefined ? [] : [group],
-            taken,
-            remint
-          );
-
-          if (landing.kind === 'new-window') {
-            // Its source window's bounds, unnamed as a captured window is
-            // (KAN-394 L4). First or last, as the drop target said (S2 A,
-            // S3 A; KAN-361, KAN-366).
-            const newWindow: windowGroupData = {
-              windowId: taken.windows.has(landing.newWindowId)
-                ? remint(landing.newWindowId)
-                : landing.newWindowId,
-              windowHeight: from.windowHeight,
-              windowWidth: from.windowWidth,
-              windowOffsetTop: from.windowOffsetTop,
-              windowOffsetLeft: from.windowOffsetLeft,
-              tabCount: tabs.length,
-              title: '',
-              tabs,
-              ...(group === undefined ? {} : { chromeTabGroups: [group] }),
-            };
-            if (landing.at === 'first') target.windows.unshift(newWindow);
-            else target.windows.push(newWindow);
-            target.windowCount += 1;
-          } else if (group === undefined) {
-            const [tab] = tabs;
-            const slot = clampIndex(
-              landing.toIndex,
-              landing.window.tabs.length
-            );
-            // KAN-458. Its group, and its pin by where it landed.
-            landTab(tab, landing.window.tabs, slot, landing.toChromeGroupId);
-            landing.window.tabs.splice(slot, 0, tab);
-            landing.window.tabCount += 1;
-          } else {
-            const items = partitionTabsIntoItems(
-              landing.window.tabs,
-              landing.window.chromeTabGroups
-            );
-            // KAN-458. Never inside the pinned run (groupLandingRange offers no such slot).
-            const slot = Math.max(
-              clampIndex(landing.toIndex, items.length),
-              pinnedRunLength(landing.window.tabs)
-            );
-            items.splice(slot, 0, { kind: 'group', group, tabs });
-            landing.window.tabs = items.flatMap((item) =>
-              item.kind === 'tab' ? [item.tab] : item.tabs
-            );
-            landing.window.chromeTabGroups = [
-              ...(landing.window.chromeTabGroups ?? []),
-              group,
-            ];
-            landing.window.tabCount += tabs.length;
-          }
-          target.tabCount += tabs.length;
+          landTabsIn(target, landing, tabs, group, boundsOf(from), remint);
 
           // "An empty window is not a thing" -- the deleteTabInternal cascade.
           if (from.tabs.length === 0) {

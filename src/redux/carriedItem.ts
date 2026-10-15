@@ -20,6 +20,14 @@ export type CarriedPick =
   | { kind: 'group'; windowId: string; groupId: string }
   | { kind: 'window'; windowId: string };
 
+// KAN-280 Part F (Q1 A). A live item as it was picked up: its pick inside its Chrome window, converted to storage shape then.
+export interface LiveSnapshot {
+  pick: CarriedPick;
+  window: windowGroupData;
+  // The Chrome window it was read from, for the place read when the carry starts (P6).
+  chromeWindowId: number;
+}
+
 export function pickOf(item: CarriedItem): CarriedPick {
   const { ref } = item;
   switch (ref.kind) {
