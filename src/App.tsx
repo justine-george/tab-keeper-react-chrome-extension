@@ -57,6 +57,7 @@ import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
 } from './utils/functions/local';
+import { readLocalSessions } from './utils/functions/localSessions';
 
 function App() {
   // KAN-279 D9. Another open page's write to the saved sessions or settings
@@ -184,7 +185,9 @@ function App() {
       // load from local storage
       // Session data, so it gets validated rather than asserted: this is the
       // same object the signed-in path replicates to Firestore.
-      const candidate = loadFromLocalStorage('tabContainerData');
+      const candidate = readLocalSessions(
+        reduxStore.getState().tabContainerDataState
+      );
       const tabDataFromLocalStorage = isValidTabMasterContainer(candidate)
         ? candidate
         : undefined;

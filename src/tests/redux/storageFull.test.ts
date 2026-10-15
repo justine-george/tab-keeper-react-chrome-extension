@@ -21,6 +21,7 @@ import {
   replaceState,
   updateTabGroupTitle,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { hydrateSessionsFromStorage } from '../../redux/otherPageChanges';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 
@@ -111,5 +112,72 @@ describe('a save past the localStorage limit (KAN-593)', () => {
 
     expect(toastTexts(store.getState())).toEqual([]);
     expect(storedTitle()).toBe('Reading list');
+  });
+});
+
+// The re-reads that assume localStorage equals the page: a drop's, and another
+// page's storage event. While a save is refused, the page is newer.
+describe('a re-read of localStorage after a refused save (KAN-593)', () => {
+  const OTHER = buildSession({ tabGroupId: 's-2', title: 'Other' });
+
+  function seededTwo() {
+    const { store } = makeTestStore();
+    store.dispatch(replaceState(buildContainer([SESSION, OTHER])));
+    return store;
+  }
+
+  const titles = (store: ReturnType<typeof seeded>) =>
+    store.getState().tabContainerDataState.tabGroups.map((g) => g.title);
+
+  // Another page's save, which lands: it writes localStorage directly.
+  function otherPageRenames(id: string, title: string) {
+    refusal?.mockRestore();
+    refusal = null;
+    const stored = JSON.parse(localStorage.getItem('tabContainerData')!);
+    for (const g of stored.tabGroups) {
+      if (g.tabGroupId === id) {
+        g.title = title;
+        g.lastModified = Date.now() + 60_000;
+      }
+    }
+    localStorage.setItem('tabContainerData', JSON.stringify(stored));
+  }
+
+  test("a drop's re-read keeps the change, and its undo", () => {
+    const store = seededTwo();
+    refuseWrites('QuotaExceededError');
+    store.dispatch(rename('Reading list'));
+    const past = store.getState().undoRedo.past.length;
+
+    store.dispatch(hydrateSessionsFromStorage());
+
+    expect(titles(store)).toEqual(['Reading list', 'Other']);
+    expect(store.getState().undoRedo.past.length).toBe(past);
+  });
+
+  test("another page's save comes in beside the change", () => {
+    const store = seededTwo();
+    refuseWrites('QuotaExceededError');
+    store.dispatch(rename('Reading list'));
+    otherPageRenames('s-2', 'Other, renamed');
+
+    store.dispatch(hydrateSessionsFromStorage());
+
+    expect(titles(store)).toEqual(['Reading list', 'Other, renamed']);
+  });
+
+  // Control: once a save lands, localStorage is the page again and is taken as it is.
+  test('after a save lands, a re-read takes localStorage as it is', () => {
+    const store = seededTwo();
+    const refused = refuseWrites('QuotaExceededError');
+    store.dispatch(rename('Reading list'));
+    refused.mockRestore();
+    refusal = null;
+    store.dispatch(rename('Reading list 2'));
+    otherPageRenames('s-1', 'Renamed elsewhere');
+
+    store.dispatch(hydrateSessionsFromStorage());
+
+    expect(titles(store)).toEqual(['Renamed elsewhere', 'Other']);
   });
 });

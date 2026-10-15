@@ -306,11 +306,18 @@ export const takeStorageFull = (): boolean => {
   return noted;
 };
 
+// Keys whose last save failed: localStorage holds an older copy than this page.
+const behindPage = new Set<string>();
+
+export const isStoredBehindPage = (key: string): boolean => behindPage.has(key);
+
 // save data to local storage
 export const saveToLocalStorage = (key: string, data: any): void => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
+    behindPage.delete(key);
   } catch (error) {
+    behindPage.add(key);
     console.error('Failed to save to localStorage: ', error);
     if (error instanceof DOMException && error.name === 'QuotaExceededError') {
       storageFullNoted = true;
