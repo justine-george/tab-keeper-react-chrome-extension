@@ -995,6 +995,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                       ? ''
                       : undefined
                   }
+                  data-before-group={
+                    items[index + 1]?.kind === 'group' ? '' : undefined
+                  }
                   role="group"
                   aria-label={item.group.title || t('Unnamed group')}
                   css={css`
