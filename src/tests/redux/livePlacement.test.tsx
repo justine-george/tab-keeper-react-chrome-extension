@@ -4,6 +4,10 @@ import { setupChromeFake } from '../setup/chrome.fake';
 import type { LiveSnapshot } from '../../redux/carriedItem';
 import { placedWindowOf, readLivePlacement } from '../../redux/livePlacement';
 import { live } from '../fixtures/liveSnapshotFixture';
+import { makeTestStore } from '../setup/makeStore';
+import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
+import { copyOnSessionRow } from '../../redux/copyToSession';
+import { container, sessionIn } from '../fixtures/sessionMoveFixture';
 
 // KAN-280 Part F (P6, KAN-476's rule). A live window's place and state are read from Chrome when its carry starts.
 describe('livePlacement', () => {
@@ -64,5 +68,41 @@ describe('livePlacement', () => {
     };
     await readLivePlacement(snap);
     expect(placedWindowOf(snap).state).toBe('maximized');
+  });
+
+  it("a window copied after the read lands at the place read, not the list's", async () => {
+    localStorage.clear();
+    setupChromeFake({
+      windows: [
+        {
+          id: 9,
+          left: 11,
+          top: 12,
+          width: 13,
+          height: 14,
+          state: 'normal',
+          tabs: [{ url: 'https://z.test/' }],
+        },
+      ],
+    });
+    const snap: LiveSnapshot = {
+      pick: { kind: 'window', windowId: 'live-w' },
+      window: live(),
+      chromeWindowId: 9,
+    };
+    await readLivePlacement(snap);
+    const { store } = makeTestStore();
+    store.dispatch(replaceState(container(undefined, 'S1')));
+    expect(store.dispatch(copyOnSessionRow(snap, 'S2'))).toBe(true);
+    const landed = sessionIn(store.getState().tabContainerDataState, 'S2')
+      .windows[0];
+    expect(landed).toMatchObject({
+      windowId: 'live-w',
+      windowOffsetLeft: 11,
+      windowOffsetTop: 12,
+      windowWidth: 13,
+      windowHeight: 14,
+    });
+    expect(landed.state).toBeUndefined();
   });
 });
