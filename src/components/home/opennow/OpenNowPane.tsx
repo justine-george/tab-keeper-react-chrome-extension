@@ -238,13 +238,20 @@ export default function OpenNowPane({
         y >= b.top &&
         y < b.bottom;
     };
-    return registerCarryReceiver({
+    // Justine's pick A: over Open now the copy card dims and loses its + (CarryLayer keys on this mark).
+    const mark = (on: boolean) =>
+      document.documentElement.toggleAttribute('data-carry-over-open-now', on);
+    const unregister = registerCarryReceiver({
       hit: (x, y) => measureHit()(x, y),
       measureHit,
-      hover: () => {},
-      leave: () => {},
+      hover: () => mark(true),
+      leave: () => mark(false),
       take: () => false,
     });
+    return () => {
+      unregister();
+      mark(false);
+    };
   }, []);
 
   // P6. A carry from here reads its window's place as Chrome has it now.

@@ -293,6 +293,10 @@ export function CarryLayer() {
         box-shadow: ${COLORS.FLOATING_SHADOW};
         font-size: ${TYPE.BODY};
         pointer-events: none;
+        /* Over Open now a release copies nothing (N4 A): the card says so (Justine's pick A). */
+        html[data-carry-over-open-now] & {
+          opacity: 0.5;
+        }
       `}
       style={{
         transform: `translate(${shown.x + CARD_OFFSET_X}px, ${
@@ -318,6 +322,9 @@ export function CarryLayer() {
             font-size: ${ICON.MARK};
             background-color: ${COLORS.LABEL_L1_COLOR};
             color: ${COLORS.PRIMARY_LIGHT};
+            html[data-carry-over-open-now] & {
+              display: none;
+            }
           `}
         >
           add

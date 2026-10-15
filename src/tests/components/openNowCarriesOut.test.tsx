@@ -373,4 +373,35 @@ describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
     fireEvent.pointerUp(document, { clientX: 10, clientY: wy + 8 });
     expect(store.getState().tabContainerDataState).toBe(saved);
   });
+
+  // Justine's pick A (2026-10-15): back over Open now the card dims and loses its +; a release there cancels (N4 A).
+  test('back over Open now the card dims and loses its +, and gets both back outside it', async () => {
+    const { top } = await renderPane(groupSeed());
+    const region = document.querySelector<HTMLElement>('[role="region"]');
+    if (region === null) throw new Error('no Open now region');
+    region.getBoundingClientRect = () => box(0, 2000);
+    const y = (top.get('22') ?? 0) + ROW / 2;
+    press(tabRow(22), y);
+    moveTo(10, y + 8);
+    moveTo(ON_LIST, y + 8);
+    const card = find('[data-carry-card]');
+    const badge = find('[data-carry-card-badge]');
+    expect(getComputedStyle(card).opacity).toBe('1');
+    expect(getComputedStyle(badge).display).not.toBe('none');
+
+    moveTo(10, y + 8);
+    expect(getComputedStyle(card).opacity).toBe('0.5');
+    expect(getComputedStyle(badge).display).toBe('none');
+
+    moveTo(ON_LIST, y + 8);
+    expect(getComputedStyle(card).opacity).toBe('1');
+    expect(getComputedStyle(badge).display).not.toBe('none');
+
+    moveTo(10, y + 8);
+    fireEvent.pointerUp(document, { clientX: 10, clientY: y + 8 });
+    expect(currentCarry()).toBeNull();
+    expect(
+      document.documentElement.hasAttribute('data-carry-over-open-now')
+    ).toBe(false);
+  });
 });
