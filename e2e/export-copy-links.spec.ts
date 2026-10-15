@@ -77,7 +77,7 @@ async function copyFromExportPage(
     `chrome-extension://${extensionId}/export.html?session=session-copy`
   );
   await page.getByRole('button', { name: 'Copy all links' }).click();
-  await expect(page.getByText('Links copied')).toBeVisible();
+  await expect(page.getByText('4 links copied')).toBeVisible();
 
   // The paste targets live on an ordinary page, as another site's would.
   const target = await context.newPage();
@@ -86,6 +86,31 @@ async function copyFromExportPage(
   );
   return target;
 }
+
+// KAN-401. The export page loads none of the popup's CSS, so the toast must
+// size itself: 300 x 48 as in the popup, not padded and bordered past that.
+test('the copy toast is as big as the popup toast: 300 wide, 48 tall', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSessions(context, {
+    ...buildContainer([SESSION]),
+    selectedTabGroupId: 'session-copy',
+  });
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const page = await context.newPage();
+  await page.goto(
+    `chrome-extension://${extensionId}/export.html?session=session-copy`
+  );
+  await page.getByRole('button', { name: 'Copy all links' }).click();
+
+  const toast = page.locator('[data-toast]', { hasText: '4 links copied' });
+  await expect(toast).toBeVisible();
+  const box = await toast.boundingBox();
+  if (box === null) throw new Error('the toast has no box');
+  expect(box.width).toBe(300);
+  expect(box.height).toBe(48);
+});
 
 // KAN-202. The clean-ups must reach the saved file, not just the clipboard.
 test('the saved file carries neither a notification count nor a suspended wrapper', async ({

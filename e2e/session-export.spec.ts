@@ -1142,7 +1142,7 @@ test('the Links copied status does not move the page', async ({
   const before = await frame.boundingBox();
 
   await exportPage.getByRole('button', { name: 'Copy all links' }).click();
-  await expect(exportPage.getByText('Links copied')).toBeVisible();
+  await expect(exportPage.getByText('4 links copied')).toBeVisible();
 
   const during = await frame.boundingBox();
   if (!before || !during) throw new Error('the preview has no box');

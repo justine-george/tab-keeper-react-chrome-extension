@@ -41,7 +41,8 @@ import {
  * `t` and `language` are passed in because nothing outside the component tree
  * has a `t` to call -- the same division of labour the toast messages keep.
  *
- * Resolves once something is on the clipboard. It does not resolve false or
+ * Resolves with the number of links copied (KAN-401) once something is on
+ * the clipboard. It does not resolve false or
  * throw on the rich path failing, because that is not a failure the user needs
  * to hear about: the plain list is a complete answer, and it is what most
  * targets would have taken anyway.
@@ -50,7 +51,11 @@ export async function copySessionLinks(
   session: tabContainerData,
   t: TFunction,
   language: string
-): Promise<void> {
+): Promise<number> {
+  const linkCount = session.windows.reduce(
+    (sum, window) => sum + window.tabs.length,
+    0
+  );
   const strings: LinkListStrings = {
     window: t('Window'),
     tabCountLabel: (count: number) => formatTabCount(count, t),
@@ -64,18 +69,15 @@ export async function copySessionLinks(
     // carried whatever was stored. They matched only while the stored numbers
     // were accurate, and a session whose counts had drifted would have printed
     // an honest line from one button and a false one from the other.
-    countsLabel: formatGroupCounts(
-      session.windows.length,
-      session.windows.reduce((sum, window) => sum + window.tabs.length, 0),
-      false,
-      t
-    ),
+    countsLabel: formatGroupCounts(session.windows.length, linkCount, false, t),
     locale: language,
   };
 
   const plain = sessionToLinkList(session, strings);
-  if (await writeRich(sessionToLinkHtml(session, strings), plain)) return;
-  await navigator.clipboard.writeText(plain);
+  if (!(await writeRich(sessionToLinkHtml(session, strings), plain))) {
+    await navigator.clipboard.writeText(plain);
+  }
+  return linkCount;
 }
 
 /**

@@ -541,7 +541,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
       .click();
     await page.getByRole('menuitem', { name: 'Copy all links' }).click();
     // The toast's own box, not its text's.
-    const toast = page.locator('[data-toast]', { hasText: 'Links copied' });
+    const toast = page.locator('[data-toast]', { hasText: '1 link copied' });
     await expect(toast).toBeVisible();
 
     await page.getByRole('button', { name: /^Open now/ }).click();
@@ -571,7 +571,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
           const el = document.elementFromPoint(x, y);
           if (el === null) return 'nothing';
           if (el.closest('[role="dialog"]') !== null) return 'drawer';
-          if (el.textContent === 'Links copied') return 'toast';
+          if (el.textContent === '1 link copied') return 'toast';
           return el.tagName;
         };
         return { onToast: at(toastY), aboveToast: at(drawerY) };

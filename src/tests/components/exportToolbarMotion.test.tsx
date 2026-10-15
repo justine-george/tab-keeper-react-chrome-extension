@@ -60,19 +60,25 @@ describe('Copy all links confirms in the button itself (KAN-221)', () => {
     );
   });
 
-  // A screen reader cannot see the swap, so a status region announces it.
-  test('the confirmation is announced, and no toast floats over the page', async () => {
+  // KAN-401. The button says Copied where the click was; the toast says how
+  // many, as the popup's does, and its live region announces it.
+  test('a toast says how many links were copied, and the button says Copied', async () => {
     const user = userEvent.setup();
     stubClipboard();
     await renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Copy all links' }));
 
-    const status = await screen.findByText('Links copied');
-    expect(status.closest('[role="status"]')).toBeTruthy();
+    const message = await screen.findByText('1 link copied');
+    expect(message.closest('[data-toast]')).toBeTruthy();
+    expect(message.closest('[role="status"]')).toBeTruthy();
     expect(
-      getComputedStyle(status.closest('[role="status"]')!).position
-    ).not.toBe('fixed');
+      screen
+        .getByRole('button', { name: 'Copy all links' })
+        .getAttribute('data-second-face-shown')
+    ).toBe('true');
+    // One announcement: no second status region repeats the count.
+    expect(screen.getAllByText('1 link copied')).toHaveLength(1);
   });
 });
 

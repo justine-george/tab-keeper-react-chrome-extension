@@ -35,6 +35,7 @@ import {
   takeReopenOffer,
 } from '../../redux/reopenOffer';
 import { NEEDS_YOU_TOAST_MS } from '../../redux/toastDuration';
+import { MAX_TOASTS } from '../../redux/toastStack';
 import {
   clearReopenFocus,
   expectReopenedRow,
@@ -262,8 +263,12 @@ describe('reopenFromOffer (KAN-311)', () => {
     await store.dispatch(offerReopen(item));
     const id = offerId(store);
     // Dropped the one way a stack drops an offer from under other toasts:
-    // three newer ones push it out (KAN-349 T2).
-    for (const toastText of ['One', 'Two', TOAST_MESSAGES.SYNC_MERGED]) {
+    // MAX_TOASTS newer ones push it out (KAN-349 T2).
+    const newer = [
+      ...Array.from({ length: MAX_TOASTS - 1 }, (_, i) => `Toast ${i + 1}`),
+      TOAST_MESSAGES.SYNC_MERGED,
+    ];
+    for (const toastText of newer) {
       await store.dispatch(showToast({ toastText }));
     }
 
@@ -271,11 +276,7 @@ describe('reopenFromOffer (KAN-311)', () => {
 
     expect(handle?.createdTabs).toEqual([]);
     expect(openState(store)).toBe(true);
-    expect(toastTexts(store.getState())).toEqual([
-      'One',
-      'Two',
-      TOAST_MESSAGES.SYNC_MERGED,
-    ]);
+    expect(toastTexts(store.getState())).toEqual(newer);
     expect(pendingReopenFocus()).toBeNull();
   });
 });

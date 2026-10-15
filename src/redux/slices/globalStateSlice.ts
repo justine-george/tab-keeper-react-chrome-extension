@@ -915,6 +915,8 @@ interface ShowToastPayload {
   // KAN-349 Q1 C′. The toast announces a saved-session change the user just
   // made, so it takes ⌘Z from a Reopen offer showing above it, for good.
   announcesSavedChange?: boolean;
+  // KAN-401. Its twin stays: each one is its own event (Copy all links).
+  stacksOnTwin?: boolean;
   // KAN-350. A Show chip that puts this session on screen. Twins replace
   // (T5) and the cap applies; T4 is for offers only.
   show?: { tabGroupId: string };
@@ -937,6 +939,7 @@ export const showToast = createAsyncThunk(
       toastParams,
       reopenOfferId,
       announcesSavedChange = false,
+      stacksOnTwin = false,
       show,
       offersUndo = false,
     }: ShowToastPayload,
@@ -959,6 +962,7 @@ export const showToast = createAsyncThunk(
           offersUndo,
         },
         announcesSavedChange,
+        stacksOnTwin,
       })
     );
     // A button (Reopen, Show, Undo) or an error needs the user; anything else is a plain notice.
@@ -1101,12 +1105,17 @@ export const globalStateSlice = createSlice({
 
     toastAdded: (
       state,
-      action: PayloadAction<{ toast: ToastItem; announcesSavedChange: boolean }>
+      action: PayloadAction<{
+        toast: ToastItem;
+        announcesSavedChange: boolean;
+        stacksOnTwin: boolean;
+      }>
     ) => {
       state.toasts = addToast(
         state.toasts,
         action.payload.toast,
-        action.payload.announcesSavedChange
+        action.payload.announcesSavedChange,
+        action.payload.stacksOnTwin
       );
     },
 

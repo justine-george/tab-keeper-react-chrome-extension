@@ -67,7 +67,9 @@ describe('toast translation coverage', () => {
         missing.push(`${name}  (no such TOAST_MESSAGES entry)`);
         continue;
       }
-      if (!(text in en)) missing.push(`${name}  ->  "${text}"`);
+      // A plural key (KAN-401's LinksCopied) exists as its _other form.
+      if (!(text in en) && !(`${text}_other` in en))
+        missing.push(`${name}  ->  "${text}"`);
     }
 
     expect(missing).toEqual([]);

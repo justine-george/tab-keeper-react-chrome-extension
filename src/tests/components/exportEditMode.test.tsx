@@ -313,6 +313,69 @@ describe('Edit mode on the export page (KAN-194)', () => {
     }
   });
 
+  // KAN-401. The note counts the links copied, so hidden rows are not in it.
+  test('the copy note counts only the links the copy holds', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+    vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({
+      write: vi.fn().mockResolvedValue(undefined),
+      writeText: vi.fn(),
+    } as unknown as Clipboard);
+    await renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: 'Hide: Flights' }));
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await user.click(screen.getByRole('button', { name: 'Copy all links' }));
+    // 4 tabs, the Flights group's 1 hidden.
+    expect(await screen.findByText('3 links copied')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: 'Hide: Food' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Hide: Fushimi Inari' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await user.click(screen.getByRole('button', { name: 'Copy all links' }));
+    expect(await screen.findByText('1 link copied')).toBeTruthy();
+  });
+
+  // KAN-401 C. With every row hidden there is nothing to export, so Edit
+  // cannot be finished until one row is shown again.
+  test('with every row hidden, Done is unavailable and says why', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Hide: Trip planning' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Hide: Food' }));
+
+    const done = screen.getByRole('button', { name: 'Done' });
+    expect(done).toHaveAttribute('aria-disabled', 'true');
+    expect(done).toHaveAttribute(
+      'title',
+      'Every row is hidden. Show one to finish.'
+    );
+    await user.click(done);
+    // Still editing: the outputs never appear with nothing to export.
+    expect(
+      screen.queryByRole('button', { name: 'Copy all links' })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
+
+    // CONTROL: one row back, and Done finishes.
+    await user.click(screen.getByRole('button', { name: 'Hide: Food' }));
+    expect(screen.getByRole('button', { name: 'Done' })).not.toHaveAttribute(
+      'aria-disabled'
+    );
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    expect(
+      screen.getByRole('button', { name: 'Copy all links' })
+    ).toBeInTheDocument();
+  });
+
   // The popup owns renaming, with undo and sync; a second writer would have
   // neither.
   test('the saved session is never changed', async () => {

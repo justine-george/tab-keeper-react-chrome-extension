@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 import ExportPage from '../../components/export/ExportPage';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { newestToast } from '../setup/toasts';
 import { getPrettyDate } from '../../utils/functions/local';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
@@ -206,7 +207,7 @@ describe('the export preview page (KAN-190)', () => {
       write,
       writeText,
     } as unknown as Clipboard);
-    await renderPage();
+    const { store } = await renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Copy all links' }));
 
@@ -217,7 +218,34 @@ describe('the export preview page (KAN-190)', () => {
     expect(plain).toContain(
       'WINDOW 1 · Trip planning (2 Tabs)\n- Fushimi Inari\n  https://inari.jp/en/'
     );
-    expect(await screen.findByText('Links copied')).toBeTruthy();
+    expect(await screen.findByText('2 links copied')).toBeTruthy();
+    // KAN-401. The popup's toast, with the same key and count.
+    expect(newestToast(store.getState())).toMatchObject({
+      text: 'LinksCopied',
+      params: { count: 2 },
+    });
+  });
+
+  // KAN-401. Each copy is its own event: two copies are two toasts.
+  test('copying twice shows two toasts', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+    vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({
+      write: vi.fn().mockResolvedValue(undefined),
+      writeText: vi.fn(),
+    } as unknown as Clipboard);
+    const { store } = await renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Copy all links' }));
+    await user.click(screen.getByRole('button', { name: 'Copy all links' }));
+
+    // The store, not the DOM: a replaced toast lingers on screen as it leaves.
+    await waitFor(() =>
+      expect(store.getState().globalState.toasts.map((t) => t.text)).toEqual([
+        'LinksCopied',
+        'LinksCopied',
+      ])
+    );
   });
 
   test('when the rich copy is refused, the plain list is copied instead', async () => {
@@ -233,7 +261,7 @@ describe('the export preview page (KAN-190)', () => {
 
     await user.click(screen.getByRole('button', { name: 'Copy all links' }));
 
-    expect(await screen.findByText('Links copied')).toBeTruthy();
+    expect(await screen.findByText('2 links copied')).toBeTruthy();
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText.mock.calls[0][0]).toContain(
       '- Fushimi Inari\n  https://inari.jp/en/'
@@ -253,7 +281,7 @@ describe('the export preview page (KAN-190)', () => {
 
     await user.click(screen.getByRole('button', { name: 'Copy all links' }));
 
-    expect(await screen.findByText('Links copied')).toBeTruthy();
+    expect(await screen.findByText('2 links copied')).toBeTruthy();
     expect(write).not.toHaveBeenCalled();
     expect(writeText.mock.calls[0][0]).toContain('- Kyoto bus map');
   });
