@@ -26,6 +26,7 @@ import {
   type TabMasterContainer,
 } from './slices/tabContainerDataStateSlice';
 import { landedRowId } from '../utils/functions/carriedView';
+import { savedItem } from './carriedItem';
 import {
   groupItemIdOf,
   isCarriedStillThere,
@@ -225,7 +226,7 @@ export function sessionMoveDrop(move: SessionMove): DropOnTop {
     return w.tabs.map((t) => t.tabId);
   };
 
-  const rowId = landedRowId(carried);
+  const rowId = landedRowId(savedItem(carried));
 
   const rowExists = (s: TabMasterContainer): boolean =>
     isCarriedStillThere(s.tabGroups, carried);
@@ -269,7 +270,7 @@ export function newSessionDrop(
   moveAction: UnknownAction
 ): DropOnTop {
   return {
-    rowId: landedRowId(carried),
+    rowId: landedRowId(savedItem(carried)),
     toIndex: 0,
     targetIds: () => [],
     rowExists: (s) => isCarriedStillThere(s.tabGroups, carried),
