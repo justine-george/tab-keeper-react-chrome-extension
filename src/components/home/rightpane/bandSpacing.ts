@@ -22,3 +22,18 @@ export const BAND_MARGIN_PX = 2;
 // margin would move every preview in the pane. A top margin moves nothing but
 // the band it sits on.
 export const ADJACENT_GROUP_GAP_PX = 8;
+
+// KAN-612. The margin a band takes on one side while `padding` of growth sits
+// on that side, so its gap to the neighbour stays where it rested. Adjoining
+// margins COLLAPSE: two positive ones leave the larger, a negative one is
+// added. So between two bands, which share one 8px gap, borrowing only the
+// band's own 2px left the pair 10px apart, and every row below rode 2px low.
+// `neighbour` is the adjoining margin, never negative.
+export function marginHoldingGap(
+  own: number,
+  neighbour: number,
+  padding: number
+): number {
+  const gap = Math.max(own, neighbour) - padding;
+  return gap >= neighbour ? gap : gap - neighbour;
+}

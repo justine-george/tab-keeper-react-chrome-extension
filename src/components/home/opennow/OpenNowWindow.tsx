@@ -665,6 +665,9 @@ export default function OpenNowWindow({
                         ? ''
                         : undefined
                     }
+                    data-before-group={
+                      items[itemIndex + 1]?.kind === 'group' ? '' : undefined
+                    }
                     css={css`
                       display: flex;
                       align-items: stretch;

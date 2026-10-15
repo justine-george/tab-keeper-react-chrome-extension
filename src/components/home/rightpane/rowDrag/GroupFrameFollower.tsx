@@ -5,7 +5,11 @@
 // list whose drag it follows, which is `tabs` for a saved window.
 import React, { useLayoutEffect, useRef } from 'react';
 
-import { ADJACENT_GROUP_GAP_PX, BAND_MARGIN_PX } from '../bandSpacing';
+import {
+  ADJACENT_GROUP_GAP_PX,
+  BAND_MARGIN_PX,
+  marginHoldingGap,
+} from '../bandSpacing';
 import { useDragState } from './dragContext';
 
 // KAN-165. Carries a group's frame along with its tabs.
@@ -132,9 +136,19 @@ export const GroupFrameFollower: React.FC<{
 
     band.style.paddingTop = growTop ? `${growTop}px` : '';
     band.style.paddingBottom = growBottom ? `${growBottom}px` : '';
-    band.style.marginTop = growTop ? `${restingTop - growTop}px` : '';
+    // What each margin collapses with (KAN-612): a band beside this one
+    // shares the 8px gap, a loose row adds no margin of its own.
+    const marginAbove = band.hasAttribute('data-after-group')
+      ? BAND_MARGIN_PX
+      : 0;
+    const marginBelow = band.hasAttribute('data-before-group')
+      ? ADJACENT_GROUP_GAP_PX
+      : 0;
+    band.style.marginTop = growTop
+      ? `${marginHoldingGap(restingTop, marginAbove, growTop)}px`
+      : '';
     band.style.marginBottom = growBottom
-      ? `${BAND_MARGIN_PX - growBottom}px`
+      ? `${marginHoldingGap(BAND_MARGIN_PX, marginBelow, growBottom)}px`
       : '';
 
     // How far the growth moved the box, for bandAt to take back. Absent while
