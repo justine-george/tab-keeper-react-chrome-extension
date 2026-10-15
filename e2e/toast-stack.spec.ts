@@ -233,7 +233,7 @@ test.describe('toasts stack (KAN-349)', () => {
     ).toEqual({ inStack: true, text: ALL_SAVED });
   });
 
-  test('2. a fourth toast pushes the oldest out, and its Reopen offer with it', async ({
+  test('2. a fifth toast pushes the oldest out, and its Reopen offer with it', async ({
     context,
     extensionId,
     serviceWorker,
@@ -245,15 +245,21 @@ test.describe('toasts stack (KAN-349)', () => {
     await liveToasts(page).first().hover();
     await clickInPlace(saveWindowIn(block));
     await clickInPlace(saveAll(page));
-    await expect(liveToasts(page)).toHaveCount(3);
+    await copyLinksInPlace(page);
+    // KAN-401. The cap is four: the offer is still there.
+    await expect(liveToasts(page)).toHaveCount(4);
+    await expect(reopenButton(page)).toHaveCount(1);
 
+    // A copy stacks on its twin, so a second one is the fifth toast.
     await copyLinksInPlace(page);
 
     const toasts = liveToasts(page);
-    await expect(toasts).toHaveCount(3);
+    await expect(toasts).toHaveCount(4);
     await expect(toasts.nth(0)).toHaveText(WINDOW_SAVED);
     await expect(toasts.nth(1)).toHaveText(ALL_SAVED);
-    await expect(toasts.nth(2)).toHaveText(await linksCopied(page));
+    for (const i of [2, 3]) {
+      await expect(toasts.nth(i)).toHaveText(await linksCopied(page));
+    }
     await expect(reopenButton(page)).toHaveCount(0);
 
     // Dropped, not only hidden: Ctrl+Z no longer reopens the closed tab. It
@@ -685,9 +691,11 @@ test('9. two saves in a row are two toasts, and so are two copies', async ({
   // KAN-401. Each copy is its own event too: the second stacks on the first.
   await copyLinksInPlace(page);
   await copyLinksInPlace(page);
-  await expect(liveToasts(page)).toHaveCount(3);
-  await expect(liveToasts(page).nth(0)).toHaveText(ALL_SAVED);
-  for (const i of [1, 2]) {
+  await expect(liveToasts(page)).toHaveCount(4);
+  for (const i of [0, 1]) {
+    await expect(liveToasts(page).nth(i)).toHaveText(ALL_SAVED);
+  }
+  for (const i of [2, 3]) {
     await expect(liveToasts(page).nth(i)).toHaveText(await linksCopied(page));
   }
 });

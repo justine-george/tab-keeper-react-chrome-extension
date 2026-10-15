@@ -37,13 +37,14 @@ describe('addToast (KAN-349)', () => {
     expect(ids(list)).toEqual([1, 2]);
   });
 
-  test('T2: a fourth toast pushes the OLDEST out', () => {
+  // KAN-401. Four, up from three, so quick copies keep more of their counts.
+  test('T2: a fifth toast pushes the OLDEST out', () => {
     let list: ToastItem[] = [];
-    for (const id of [1, 2, 3, 4]) {
+    for (const id of [1, 2, 3, 4, 5]) {
       list = addToast(list, plain(id, `T${id}`), false);
     }
-    expect(MAX_TOASTS).toBe(3);
-    expect(ids(list)).toEqual([2, 3, 4]);
+    expect(MAX_TOASTS).toBe(4);
+    expect(ids(list)).toEqual([2, 3, 4, 5]);
   });
 
   test('T5: the same toast again replaces the old one, at the bottom', () => {
@@ -151,9 +152,9 @@ describe('a toast with a Show action (KAN-350)', () => {
 
   test('T2: the cap applies to Show toasts', () => {
     let list: ToastItem[] = [];
-    for (const id of [1, 2, 3, 4]) {
+    for (const id of [1, 2, 3, 4, 5]) {
       list = addToast(list, withShow(id, `M${id}`, 's'), false);
     }
-    expect(ids(list)).toEqual([2, 3, 4]);
+    expect(ids(list)).toEqual([2, 3, 4, 5]);
   });
 });

@@ -1,7 +1,7 @@
 // KAN-349. The toasts on screen, newest last. Pure, so the rules can be
 // tested without the timers that the slice runs beside them.
 
-export const MAX_TOASTS = 3;
+export const MAX_TOASTS = 4;
 
 // The Reopen offer a toast carries (KAN-280 O8a). keepsUndoKey is whether ⌘Z
 // still takes it: a saved-session change announced after it takes the key
