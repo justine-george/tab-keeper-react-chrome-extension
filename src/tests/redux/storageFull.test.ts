@@ -28,10 +28,13 @@ import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 
 const SESSION = buildSession({ tabGroupId: 's-1', title: 'Reading' });
 
+// Restored by hand: restoreAllMocks left this spy refusing into the next test.
+let refusal: { mockRestore(): void } | null = null;
 function refuseWrites(name: string) {
-  return vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+  refusal = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
     throw new DOMException('refused', name);
   });
+  return refusal;
 }
 
 function seeded() {
@@ -46,8 +49,13 @@ const rename = (title: string) =>
 const titleOf = (store: ReturnType<typeof seeded>) =>
   store.getState().tabContainerDataState.tabGroups[0].title;
 
+const storedTitle = () =>
+  JSON.parse(localStorage.getItem('tabContainerData') ?? 'null')?.tabGroups[0]
+    .title;
+
 afterEach(() => {
-  vi.restoreAllMocks();
+  refusal?.mockRestore();
+  refusal = null;
   localStorage.clear();
 });
 
@@ -83,9 +91,7 @@ describe('a save past the localStorage limit (KAN-593)', () => {
     store.dispatch(rename('Reading list 2'));
 
     expect(toastTexts(store.getState())).toEqual([]);
-    expect(JSON.parse(localStorage.getItem('tabContainerData')!)).toMatchObject(
-      { tabGroups: [{ title: 'Reading list 2' }] }
-    );
+    expect(storedTitle()).toBe('Reading list 2');
   });
 
   // Only the quota is "storage is full"; any other refusal would make the toast lie.
@@ -104,5 +110,6 @@ describe('a save past the localStorage limit (KAN-593)', () => {
     store.dispatch(rename('Reading list'));
 
     expect(toastTexts(store.getState())).toEqual([]);
+    expect(storedTitle()).toBe('Reading list');
   });
 });

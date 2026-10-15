@@ -21,6 +21,8 @@ export const storageFullMiddleware: Middleware<
   ThunkDispatch<State, unknown, UnknownAction>
 > = (api) => (next) => (action) => {
   const result = next(action);
+  // Taken before the toast is dispatched: it passes through here too, and a
+  // note still set would toast again, without end.
   if (takeStorageFull()) {
     void api.dispatch(showToast({ toastText: TOAST_MESSAGES.STORAGE_FULL }));
   }
