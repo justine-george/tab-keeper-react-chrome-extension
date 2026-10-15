@@ -218,7 +218,7 @@ describe('the export preview page (KAN-190)', () => {
     expect(plain).toContain(
       'WINDOW 1 · Trip planning (2 Tabs)\n- Fushimi Inari\n  https://inari.jp/en/'
     );
-    expect(await screen.findByText('2 links copied')).toBeTruthy();
+    expect(await screen.findByText('2 links copied.')).toBeTruthy();
     // KAN-401. The popup's toast, with the same key and count.
     expect(newestToast(store.getState())).toMatchObject({
       text: 'LinksCopied',
@@ -261,7 +261,7 @@ describe('the export preview page (KAN-190)', () => {
 
     await user.click(screen.getByRole('button', { name: 'Copy all links' }));
 
-    expect(await screen.findByText('2 links copied')).toBeTruthy();
+    expect(await screen.findByText('2 links copied.')).toBeTruthy();
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText.mock.calls[0][0]).toContain(
       '- Fushimi Inari\n  https://inari.jp/en/'
@@ -281,7 +281,7 @@ describe('the export preview page (KAN-190)', () => {
 
     await user.click(screen.getByRole('button', { name: 'Copy all links' }));
 
-    expect(await screen.findByText('2 links copied')).toBeTruthy();
+    expect(await screen.findByText('2 links copied.')).toBeTruthy();
     expect(write).not.toHaveBeenCalled();
     expect(writeText.mock.calls[0][0]).toContain('- Kyoto bus map');
   });

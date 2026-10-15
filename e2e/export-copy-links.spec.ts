@@ -77,7 +77,7 @@ async function copyFromExportPage(
     `chrome-extension://${extensionId}/export.html?session=session-copy`
   );
   await page.getByRole('button', { name: 'Copy all links' }).click();
-  await expect(page.getByText('4 links copied')).toBeVisible();
+  await expect(page.getByText('4 links copied.')).toBeVisible();
 
   // The paste targets live on an ordinary page, as another site's would.
   const target = await context.newPage();
@@ -104,7 +104,7 @@ test('the copy toast is as big as the popup toast: 300 wide, 48 tall', async ({
   );
   await page.getByRole('button', { name: 'Copy all links' }).click();
 
-  const toast = page.locator('[data-toast]', { hasText: '4 links copied' });
+  const toast = page.locator('[data-toast]', { hasText: '4 links copied.' });
   await expect(toast).toBeVisible();
   const box = await toast.boundingBox();
   if (box === null) throw new Error('the toast has no box');

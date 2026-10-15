@@ -209,7 +209,7 @@ test.describe('a quick drop on a session row (S2 A)', () => {
     expect(await selected(page)).toBe('S1');
     await expect
       .poll(() => toasts(page))
-      .toEqual([{ text: 'Moved to “Target”', show: true }]);
+      .toEqual([{ text: 'Moved to “Target”.', show: true }]);
     await expect(page.locator(CARD)).toHaveCount(0);
     expect(await chromeNow(serviceWorker)).toBe(chromeBefore);
   });
@@ -236,7 +236,7 @@ test.describe('a quick drop on a session row (S2 A)', () => {
     expect(await selected(page)).toBe('S1');
     await expect
       .poll(() => toasts(page))
-      .toEqual([{ text: 'Moved to “Target”', show: true }]);
+      .toEqual([{ text: 'Moved to “Target”.', show: true }]);
     expect(await chromeNow(serviceWorker)).toBe(chromeBefore);
   });
 
@@ -261,7 +261,7 @@ test.describe('a quick drop on a session row (S2 A)', () => {
     expect(await selected(page)).toBe('S1');
     await expect
       .poll(() => toasts(page))
-      .toEqual([{ text: 'Moved to “Target”', show: true }]);
+      .toEqual([{ text: 'Moved to “Target”.', show: true }]);
     expect(await chromeNow(serviceWorker)).toBe(chromeBefore);
   });
 
@@ -317,7 +317,7 @@ test.describe('the source emptied (S4 B, Q4 A)', () => {
     await expect
       .poll(() => toasts(page))
       .toEqual([
-        { text: 'Moved to “Target”', show: false },
+        { text: 'Moved to “Target”.', show: false },
         { text: '“Lonely” was empty and was removed.', show: false },
       ]);
 
@@ -1282,7 +1282,7 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
       };
     });
     // PREMISE: the title really is too long, so the line is cut.
-    expect(m.text).toBe(`Moved to “${long}”`);
+    expect(m.text).toBe(`Moved to “${long}”.`);
     expect(m.cut).toBe(true);
     // Show is whole, inside the toast, and the message stops before it.
     expect(m.chipWhole).toBe(true);
@@ -1356,7 +1356,7 @@ test.describe('Review Focus 3: a long list, a long session', () => {
     expect(await layout(page, 'S1')).toEqual(['a0 a2 al0* al1*', 'b0 b1']);
     await expect
       .poll(() => toasts(page))
-      .toEqual([{ text: 'Moved to “List 29”', show: true }]);
+      .toEqual([{ text: 'Moved to “List 29”.', show: true }]);
   });
 
   test('a long session: a window carried out of it and cancelled comes back to the scroll it had (KAN-157)', async ({

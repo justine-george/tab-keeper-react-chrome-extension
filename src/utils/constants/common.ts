@@ -146,7 +146,7 @@ export const TOAST_MESSAGES = {
   IMPORT_SYNC_FAILED: 'Restored on this device, but syncing failed.',
   // KAN-280 O8a. The toast after Close tab in the Open now pane, with Reopen
   // beside it; a closed window says WINDOW_CLOSED_FRAME below instead.
-  TAB_CLOSED: 'Tab closed',
+  TAB_CLOSED: 'Tab closed.',
   // KAN-280 rule 10: Chrome refused every tab Reopen tried to bring back.
   REOPEN_FAILED: "Couldn't reopen.",
   // KAN-350. After a drag moves a tab, group or window into another saved

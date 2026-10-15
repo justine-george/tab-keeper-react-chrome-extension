@@ -330,7 +330,7 @@ async function closeAndReopenKyoto(
     .poll(async () => (await allWindowIds(worker)).includes(made.windowId))
     .toBe(false);
   await expect(page.getByRole('status')).toContainText(
-    'Window closed (4 tabs)'
+    'Window closed (4 tabs).'
   );
 
   const before = await allWindowIds(worker);
@@ -489,7 +489,7 @@ grantedTest.describe('Close and Reopen a window (KAN-280 O8)', () => {
           (await allWindowIds(serviceWorker)).includes(made.windowId)
         )
         .toBe(false);
-      await expect(page.getByRole('status')).toContainText('Tab closed');
+      await expect(page.getByRole('status')).toContainText('Tab closed.');
 
       const before = await allWindowIds(serviceWorker);
       await reopenButton(page).click();
@@ -604,7 +604,7 @@ grantedTest.describe(
 
         await closeTabIn(block, 'X').click();
         await expect.poll(layout).toEqual(['A:-', 'B:-']);
-        await expect(page.getByRole('status')).toContainText('Tab closed');
+        await expect(page.getByRole('status')).toContainText('Tab closed.');
         // A and B grouped after the close: X's old index is now inside the
         // group's run, where Chrome puts a created tab into the group.
         const here = await serviceWorker.evaluate(
@@ -678,7 +678,7 @@ grantedTest.describe(
         );
 
         await closeTabIn(block, 'X').click();
-        await expect(page.getByRole('status')).toContainText('Tab closed');
+        await expect(page.getByRole('status')).toContainText('Tab closed.');
         // Z to the front, then A and B grouped as H and collapsed: X's old
         // index is now inside a collapsed run.
         const here = await serviceWorker.evaluate(
@@ -752,7 +752,7 @@ test.describe('Open now close controls in a real browser (KAN-280)', () => {
       { title: 'Gamma', active: false },
     ]);
     await expect(liveRowIn(block, 'Beta')).toHaveCount(0);
-    await expect(page.getByRole('status')).toContainText('Tab closed');
+    await expect(page.getByRole('status')).toContainText('Tab closed.');
 
     await reopenButton(page).click();
     // Back at index 1, in the same window, and Alpha is still active.
@@ -825,7 +825,7 @@ test.describe('Open now close controls in a real browser (KAN-280)', () => {
 
     await closeTabIn(block, 'Drop').click();
     const status = page.getByRole('status');
-    await expect(status).toContainText('Tab closed');
+    await expect(status).toContainText('Tab closed.');
     // The toast was up by now, so at least this much of its 8s has gone by
     // the time the pointer arrives.
     const seenAt = Date.now();
@@ -834,10 +834,10 @@ test.describe('Open now close controls in a real browser (KAN-280)', () => {
     // full 8s on leaving would show as twice the time left.
     await page.waitForTimeout(4000);
     const spent = Date.now() - seenAt;
-    await status.getByText('Tab closed').hover();
+    await status.getByText('Tab closed.').hover();
     // The duration under test: past the toast's 8s.
     await page.waitForTimeout(9000);
-    await expect(status).toContainText('Tab closed');
+    await expect(status).toContainText('Tab closed.');
     await expect(reopenButton(page)).toBeVisible();
 
     // Away, it resumes with the time it had left: at most 8s less what was

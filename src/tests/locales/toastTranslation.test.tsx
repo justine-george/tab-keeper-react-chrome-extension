@@ -153,7 +153,7 @@ describe('the move toasts are translated (KAN-350)', () => {
       );
     });
 
-    expect(container.textContent).toBe('Nach „Reiseplanung“ verschoben');
+    expect(container.textContent).toBe('Nach „Reiseplanung“ verschoben.');
     expect(container.textContent).toBe(
       interpolate(de.MovedToSession, { title: 'Reiseplanung' })
     );

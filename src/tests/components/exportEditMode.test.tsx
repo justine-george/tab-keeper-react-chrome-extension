@@ -328,7 +328,7 @@ describe('Edit mode on the export page (KAN-194)', () => {
     await user.click(screen.getByRole('button', { name: 'Done' }));
     await user.click(screen.getByRole('button', { name: 'Copy all links' }));
     // 4 tabs, the Flights group's 1 hidden.
-    expect(await screen.findByText('3 links copied')).toBeTruthy();
+    expect(await screen.findByText('3 links copied.')).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Edit' }));
     await user.click(screen.getByRole('button', { name: 'Hide: Food' }));
@@ -337,7 +337,7 @@ describe('Edit mode on the export page (KAN-194)', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Done' }));
     await user.click(screen.getByRole('button', { name: 'Copy all links' }));
-    expect(await screen.findByText('1 link copied')).toBeTruthy();
+    expect(await screen.findByText('1 link copied.')).toBeTruthy();
   });
 
   // KAN-401 C. With every row hidden there is nothing to export, so Edit
