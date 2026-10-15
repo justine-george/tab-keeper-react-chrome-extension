@@ -228,7 +228,7 @@
   "CopiedToSessionSkipped_one": "Скопировано в «{{title}}». {{count}} вкладка уже была там.",
   "CopiedToSessionSkipped_few": "Скопировано в «{{title}}». {{count}} вкладки уже были там.",
   "CopiedToSessionSkipped_many": "Скопировано в «{{title}}». {{count}} вкладок уже было там.",
-  "CopiedToSessionSkipped_other": "Скопировано в «{{title}}». {{count}} вкладки уже были там.",
+  "CopiedToSessionSkipped_other": "Скопировано в «{{title}}». {{count}} вкладки уже было там.",
   "AlreadyInSession": "Уже есть в «{{title}}».",
   "Ctrl": "Ctrl",
   "Del": "Del",

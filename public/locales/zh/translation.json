@@ -216,7 +216,7 @@
   "MovedToSession": "已移至“{{title}}”",
   "SessionEmptiedRemoved": "会话“{{title}}”已为空，已将其移除。",
   "CopiedToSession": "已复制到“{{title}}”。",
-  "CopiedToSessionSkipped_other": "已复制到“{{title}}”。{{count}} 个标签页已在其中。",
+  "CopiedToSessionSkipped_other": "已复制到“{{title}}”。{{count}} 个标签页已存在。",
   "AlreadyInSession": "已在“{{title}}”中。",
   "Ctrl": "Ctrl",
   "Del": "Del",
