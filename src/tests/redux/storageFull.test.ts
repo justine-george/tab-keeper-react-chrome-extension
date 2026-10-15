@@ -21,7 +21,11 @@ import {
   replaceState,
   updateTabGroupTitle,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import { hydrateSessionsFromStorage } from '../../redux/otherPageChanges';
+import {
+  applyOtherPageSettings,
+  hydrateSessionsFromStorage,
+} from '../../redux/otherPageChanges';
+import { setTheme, Theme } from '../../redux/slices/settingsDataStateSlice';
 import { applyHeldCloudMerge } from '../../redux/slices/globalStateSlice';
 import { TOMBSTONE_TTL_MS } from '../../utils/functions/mergeTabData';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
@@ -228,5 +232,86 @@ describe('a re-read of localStorage after a refused save (KAN-593)', () => {
     store.dispatch(hydrateSessionsFromStorage());
 
     expect(titles(store)).toEqual(['Renamed elsewhere', 'Other']);
+  });
+});
+
+// KAN-615. The same for settings: another page writes its whole settings
+// object, which still holds the value this page's refused save changed.
+describe("another page's settings save after a refused one (KAN-615)", () => {
+  // Another page's save, which lands: its whole settings object.
+  function otherPageWrites(change: object) {
+    refusal?.mockRestore();
+    refusal = null;
+    const stored = JSON.parse(localStorage.getItem('settingsData') ?? 'null');
+    if (stored === null) throw new Error('nothing stored');
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({ ...stored, ...change })
+    );
+  }
+  // Its sync stamps the time.
+  const otherPageStampsSync = (time: number) =>
+    otherPageWrites({ lastSyncedTime: time });
+
+  const settingsOf = (store: ReturnType<typeof seeded>) =>
+    store.getState().settingsDataState;
+
+  test("keeps the refused change and takes the other page's", () => {
+    const { store } = makeTestStore();
+    store.dispatch(setTheme(Theme.WARM_LIGHT));
+    refuseWrites('QuotaExceededError');
+    store.dispatch(setTheme(Theme.DARKENHEIMER));
+    otherPageStampsSync(1_000);
+
+    store.dispatch(applyOtherPageSettings());
+
+    expect(settingsOf(store).theme).toBe(Theme.DARKENHEIMER);
+    expect(settingsOf(store).lastSyncedTime).toBe(1_000);
+  });
+
+  // The value taken in is the other page's: its next write replaces it.
+  test("a value taken from another page gives way to that page's next", () => {
+    const { store } = makeTestStore();
+    store.dispatch(setTheme(Theme.WARM_LIGHT));
+    refuseWrites('QuotaExceededError');
+    store.dispatch(setTheme(Theme.DARKENHEIMER));
+    otherPageStampsSync(1_000);
+    store.dispatch(applyOtherPageSettings());
+    otherPageStampsSync(2_000);
+
+    store.dispatch(applyOtherPageSettings());
+
+    expect(settingsOf(store).theme).toBe(Theme.DARKENHEIMER);
+    expect(settingsOf(store).lastSyncedTime).toBe(2_000);
+  });
+
+  // Both changed it: this page's is the one on screen, so it stays.
+  test("a field both pages changed keeps this page's value", () => {
+    const { store } = makeTestStore();
+    store.dispatch(setTheme(Theme.WARM_LIGHT));
+    refuseWrites('QuotaExceededError');
+    store.dispatch(setTheme(Theme.DARKENHEIMER));
+    otherPageWrites({ theme: Theme.BB_PINK });
+
+    store.dispatch(applyOtherPageSettings());
+
+    expect(settingsOf(store).theme).toBe(Theme.DARKENHEIMER);
+  });
+
+  // Control: once a save lands, storage holds the page, and another page's
+  // write is taken as it is.
+  test("after a save lands, another page's write is taken", () => {
+    const { store } = makeTestStore();
+    store.dispatch(setTheme(Theme.WARM_LIGHT));
+    const refused = refuseWrites('QuotaExceededError');
+    store.dispatch(setTheme(Theme.DARKENHEIMER));
+    refused.mockRestore();
+    refusal = null;
+    store.dispatch(setTheme(Theme.LIGHT));
+    otherPageWrites({ theme: Theme.BB_PINK });
+
+    store.dispatch(applyOtherPageSettings());
+
+    expect(settingsOf(store).theme).toBe(Theme.BB_PINK);
   });
 });

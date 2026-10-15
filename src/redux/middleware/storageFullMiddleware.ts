@@ -8,7 +8,12 @@ import type {
 import { rootReducer } from '../storeConfig';
 import { showToast } from '../slices/globalStateSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
-import { takeStorageFull } from '../../utils/functions/local';
+import { hydrateSettingsFromOtherPage } from '../slices/settingsDataStateSlice';
+import { clearUnsavedSettings, noteUnsavedSettings } from '../unsavedSettings';
+import {
+  isStoredBehindPage,
+  takeStorageFull,
+} from '../../utils/functions/local';
 
 // Typed from the reducer map, not RootState, as toastMiddleware is.
 type State = StateFromReducersMapObject<typeof rootReducer>;
@@ -20,7 +25,16 @@ export const storageFullMiddleware: Middleware<
   State,
   ThunkDispatch<State, unknown, UnknownAction>
 > = (api) => (next) => (action) => {
+  const before = api.getState().settingsDataState;
   const result = next(action);
+  // KAN-615. What this page changed while its settings saves are refused; a
+  // value taken from another page is that page's, not this one's.
+  const after = api.getState().settingsDataState;
+  if (!isStoredBehindPage('settingsData')) {
+    clearUnsavedSettings();
+  } else if (after !== before && !hydrateSettingsFromOtherPage.match(action)) {
+    noteUnsavedSettings(before, after);
+  }
   // Taken before the toast is dispatched: it passes through here too, and a
   // note still set would toast again, without end.
   if (takeStorageFull()) {
