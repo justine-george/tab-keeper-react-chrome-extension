@@ -655,7 +655,7 @@ export default function HeroContainerRight() {
                           }),
                           icon: 'stack_off' as const,
                           onSelect: () =>
-                            void dispatch(removeDuplicateTabs(tabGroupId)),
+                            void dispatch(removeDuplicateTabs({ tabGroupId })),
                         },
                       ]
                     : []),

@@ -1,7 +1,12 @@
 import type {
-  tabContainerData,
   tabData,
+  windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+
+// A session, or just the windows a row knows about: all the count needs.
+interface WithWindows {
+  windows: readonly Pick<windowGroupData, 'windowId' | 'tabs'>[];
+}
 
 // KAN-609. Passes the first tab at each address and fails every later one, in
 // the order it is called: one per pass. The address is compared exactly, and a
@@ -16,13 +21,31 @@ export function firstCopyFilter(): (tab: tabData) => boolean {
   };
 }
 
+// KAN-616. One window of a session, or one tab group in that window. Only the tabs inside compete.
+export interface DuplicateScope {
+  windowId: string;
+  groupId?: string;
+}
+
 // The tabs Remove duplicate tabs would take out, in reading order: windows top to bottom, tabs top to bottom.
-export function countDuplicateTabs(
-  session: Pick<tabContainerData, 'windows'>
-): number {
+// No scope means the whole session.
+export function duplicateTabsIn(
+  session: WithWindows,
+  scope?: DuplicateScope
+): tabData[] {
   const isFirst = firstCopyFilter();
-  return session.windows.reduce(
-    (n, w) => n + w.tabs.filter((t) => !isFirst(t)).length,
-    0
-  );
+  return session.windows
+    .filter((w) => !scope || w.windowId === scope.windowId)
+    .flatMap((w) => w.tabs)
+    .filter(
+      (t) => scope?.groupId === undefined || t.chromeGroupId === scope.groupId
+    )
+    .filter((t) => !isFirst(t));
+}
+
+export function countDuplicateTabs(
+  session: WithWindows,
+  scope?: DuplicateScope
+): number {
+  return duplicateTabsIn(session, scope).length;
 }

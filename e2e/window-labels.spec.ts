@@ -169,8 +169,9 @@ for (const view of VIEWS) {
       const page = await open(context, extensionId, view);
       await header(page, 'w1').hover();
       await header(page, 'w1')
-        .getByRole('button', { name: 'Delete window group', exact: true })
+        .getByRole('button', { name: 'More actions', exact: true })
         .click();
+      await page.getByRole('menuitem', { name: 'Delete window' }).click();
 
       await expect
         .poll(() => storedWindowIds(page, 'S1'))

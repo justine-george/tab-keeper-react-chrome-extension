@@ -528,7 +528,8 @@ test.describe('a row reveals its actions and fills as one state', () => {
     await expect(windowRow).toBeVisible();
     await page.mouse.move(0, 0);
 
-    await startSeamSampler(page, 'Delete window group', 'window');
+    // Any icon in the strip will do; Delete moved into the ⋮ (KAN-616).
+    await startSeamSampler(page, 'Add current tab', 'window');
 
     await windowRow.hover({ position: { x: 20, y: 20 } });
     await page.waitForTimeout(500);

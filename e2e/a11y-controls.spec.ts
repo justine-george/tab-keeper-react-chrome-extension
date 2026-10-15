@@ -7,6 +7,7 @@ import {
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
+import { header } from './fixtures/savedWindows';
 
 // These specs assert on ROLE plus accessible name, never on the raw
 // `[aria-label=...]` attribute. That distinction is the whole point of
@@ -427,7 +428,7 @@ test.describe('controls are reachable by keyboard', () => {
     expect(names).toContain('Replace');
   });
 
-  // Delete tab and Delete window group are the two that matter most: unlike
+  // Delete tab and Delete window are the two that matter most: unlike
   // the session actions, they have no alternate path anywhere in the UI, so
   // before this change they could not be performed without a mouse at all.
   test('window and tab actions are reachable by Tab (KAN-68)', async ({
@@ -445,8 +446,24 @@ test.describe('controls are reachable by keyboard', () => {
 
     const names = await tabOrderNames(page);
 
-    expect(names).toContain('Delete window group');
     expect(names).toContain('Delete tab');
+
+    // KAN-616: Delete window is in the window's ⋮. Tab reaches it, Enter opens it.
+    const windowMenu = header(page, 'window-1').getByRole('button', {
+      name: 'More actions',
+      exact: true,
+    });
+    await page.locator('body').press('Tab');
+    for (let i = 0; i < TAB_WALK_LIMIT; i++) {
+      if (await windowMenu.evaluate((el) => el === document.activeElement))
+        break;
+      await page.keyboard.press('Tab');
+    }
+    await expect(windowMenu).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(
+      page.getByRole('menuitem', { name: 'Delete window' })
+    ).toBeVisible();
   });
 
   // The other half of KAN-68: being in the tab order is useless if focus

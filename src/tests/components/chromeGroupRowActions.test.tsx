@@ -100,6 +100,12 @@ async function renderRow({
 }
 
 type S = Awaited<ReturnType<typeof renderRow>>['store'];
+// The group band's ⋮; the window row has one of its own (KAN-616).
+const groupMenu = (name: string) =>
+  within(screen.getByRole('group', { name })).getByRole('button', {
+    name: 'More actions',
+  });
+
 const win = (store: S) =>
   store.getState().tabContainerDataState.tabGroups[0].windows[0];
 
@@ -108,7 +114,7 @@ describe('the group row action set', () => {
     const user = userEvent.setup();
     const { store } = await renderRow();
 
-    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(groupMenu('Research'));
     await user.click(screen.getByRole('menuitem', { name: 'Ungroup' }));
 
     expect(win(store).tabs).toHaveLength(3);
@@ -119,8 +125,10 @@ describe('the group row action set', () => {
     const user = userEvent.setup();
     const { store } = await renderRow();
 
-    await user.click(screen.getByRole('button', { name: 'More actions' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Delete group' }));
+    await user.click(groupMenu('Research'));
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Delete tab group' })
+    );
 
     expect(win(store).tabs.map((t) => t.tabId)).toEqual(['loose']);
   });
@@ -284,9 +292,7 @@ describe('two group rows in one window', () => {
 
     const before = getComputedStyle(stripFor('Learn')).zIndex;
 
-    await user.click(
-      screen.getAllByRole('button', { name: 'More actions' })[0]
-    );
+    await user.click(groupMenu('Learn'));
 
     const openStrip = Number(getComputedStyle(stripFor('Learn')).zIndex);
     const siblingStrip = Number(getComputedStyle(stripFor('Create')).zIndex);

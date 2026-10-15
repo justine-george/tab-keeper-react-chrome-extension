@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -213,7 +213,10 @@ describe('finishing a group rename', () => {
       screen.getByRole('button', { name: 'Rename group: Research' })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'More actions' })
+      within(screen.getByRole('group', { name: 'Research' })).getByRole(
+        'button',
+        { name: 'More actions' }
+      )
     ).toBeInTheDocument();
   });
 });

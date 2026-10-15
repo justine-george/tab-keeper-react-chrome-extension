@@ -37,7 +37,9 @@ import {
   ungroupChromeTabGroup,
   deleteChromeTabGroupInternal,
   updateChromeTabGroupColor,
+  removeDuplicateTabs,
 } from '../../../redux/slices/tabContainerDataStateSlice';
+import { countDuplicateTabs } from '../../../utils/functions/duplicateTabs';
 import {
   collapsedWindowIdsOf,
   toggleWindowCollapse,
@@ -97,7 +99,7 @@ interface WindowEntryContainerProps {
   onOpenWindow: () => void;
   onUpdateWindowGroupTitle: (newTitle: string) => void;
   onAddCurrTabToWindowClick: MouseEventHandler;
-  onDeleteClick: MouseEventHandler;
+  onDeleteClick: () => void;
 }
 
 const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
@@ -178,6 +180,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // equal z-indexes leave DOM order deciding -- and a LOWER group's strip then
   // painted over an open menu belonging to the group above it.
   const [openMenuGroupId, setOpenMenuGroupId] = useState<string | null>(null);
+  // The same, for the window's own menu (KAN-616).
+  const [isWindowMenuOpen, setIsWindowMenuOpen] = useState(false);
+  // KAN-616. Counted as the reducer counts, so the label promises what Remove does.
+  const here = { windows: [{ windowId, tabs }] };
+  const windowDuplicates = countDuplicateTabs(here, { windowId });
   const [hoveredTabId, setHoveredTabId] = useState<string | null>(null);
 
   // KAN-131. `tabs` here is whatever the pane handed down, and under a live
@@ -259,6 +266,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     top: 50%;
     right: 0;
     transform: translateY(-50%);
+    /* An open menu paints over the tab rows below, later siblings; see openMenuGroupId. */
+    z-index: ${isWindowMenuOpen ? 3 : 'auto'};
     /* The mask lands in one frame with the row's fill; only the icons ease
        (KAN-100). They are glyphs over a background that is already uniform, so
        fading them cannot produce an edge -- which is what separates them from
@@ -500,6 +509,26 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   // WCAG 2.5.3, same shape as the tab rows: the accessible name contains the
   // visible title, and says what the control actually does now.
+  const groupDuplicateItem = (groupId: string) => {
+    const count = countDuplicateTabs(here, { windowId, groupId });
+    return count > 0
+      ? [
+          {
+            key: 'duplicates',
+            label: t('RemoveDuplicateTabs', { count }),
+            icon: 'stack_off' as const,
+            onSelect: () =>
+              void dispatch(
+                removeDuplicateTabs({
+                  tabGroupId,
+                  within: { windowId, groupId },
+                })
+              ),
+          },
+        ]
+      : [];
+  };
+
   const openGroupLabel = (group: chromeTabGroupData) =>
     t('Open group') + ': ' + groupDisplayName(group);
 
@@ -927,15 +956,40 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 }}
               />
             )}
+            {/* KAN-616 (1A). Delete moved in here so Remove duplicate tabs
+                adds no fourth icon over a long title, as on a group band. */}
             {!isEditing && !isSearching && (
-              <Icon
-                tooltipText={t('Delete window group')}
-                ariaLabel={t('Delete window group')}
-                type="delete"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteClick(e);
-                }}
+              <OverflowMenu
+                ariaLabel={t('More actions')}
+                onOpenChange={setIsWindowMenuOpen}
+                items={[
+                  // Only while there is one to remove, as in the session menu.
+                  ...(windowDuplicates > 0
+                    ? [
+                        {
+                          key: 'duplicates',
+                          label: t('RemoveDuplicateTabs', {
+                            count: windowDuplicates,
+                          }),
+                          icon: 'stack_off' as const,
+                          onSelect: () =>
+                            void dispatch(
+                              removeDuplicateTabs({
+                                tabGroupId,
+                                within: { windowId },
+                              })
+                            ),
+                        },
+                      ]
+                    : []),
+                  {
+                    key: 'delete',
+                    label: t('Delete window'),
+                    icon: 'delete',
+                    danger: true,
+                    onSelect: onDeleteClick,
+                  },
+                ]}
               />
             )}
           </div>
@@ -1400,9 +1454,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                                       })
                                     ),
                                 },
+                                // KAN-616 (2A). Lighter than Delete group, heavier than Ungroup.
+                                ...groupDuplicateItem(item.group.groupId),
                                 {
                                   key: 'delete',
-                                  label: t('Delete group'),
+                                  label: t('Delete tab group'),
                                   icon: 'delete',
                                   danger: true,
                                   onSelect: () =>

@@ -90,18 +90,18 @@ const stored = (store: RenderWithProvidersResult['store']) =>
 const byName = (name: string | RegExp) =>
   screen.queryAllByRole('button', { name });
 
-// The home header has a More actions menu of its own; these two are the
-// session header's and each Chrome group's.
+// The home header has a More actions menu of its own; these are the session
+// header's, and each window's and Chrome group's (KAN-616).
 const itemMenus = () => [
   ...within(
     document.querySelector<HTMLElement>('[data-session-toolbar]') ??
       document.body
   ).queryAllByRole('button', { name: 'More actions' }),
-  ...screen
-    .queryAllByRole('group')
-    .flatMap((g) =>
-      within(g).queryAllByRole('button', { name: 'More actions' })
-    ),
+  ...[
+    ...document.querySelectorAll<HTMLElement>('[data-drop-window-id]'),
+  ].flatMap((w) =>
+    within(w).queryAllByRole('button', { name: 'More actions' })
+  ),
 ];
 
 // Whole-item actions: absent while searching. The strings are the accessible
@@ -111,7 +111,6 @@ const H1_NAMES = [
   'Close current windows and open this session',
   'Add current window',
   'Add current tab',
-  'Delete window group',
   'Add current tab to group',
 ];
 
@@ -127,7 +126,7 @@ describe('H1: what hides while searching', () => {
     expect(byName(name)).toEqual([]);
   });
 
-  test('the session and group More actions menus are absent', async () => {
+  test('the session, window and group More actions menus are absent', async () => {
     await render(QUERY);
     await screen.findByRole('button', { name: 'Collapse all windows' });
 
@@ -155,7 +154,8 @@ describe('H1: what hides while searching', () => {
     await screen.findByRole('button', { name: 'Collapse all windows' });
 
     for (const name of H1_NAMES) expect(byName(name).length).toBeGreaterThan(0);
-    expect(itemMenus().length).toBeGreaterThan(1);
+    // The session's, each window's (KAN-616) and the group's.
+    expect(itemMenus()).toHaveLength(4);
   });
 });
 

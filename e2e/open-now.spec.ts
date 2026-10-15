@@ -537,7 +537,9 @@ test.describe('Open now in the tab view (KAN-280)', () => {
       height: 768,
     });
     await page
-      .locator(`${DETAIL} [aria-label="More actions"][aria-haspopup="menu"]`)
+      .locator(
+        `${DETAIL} [data-tour-anchor="session-menu"] [aria-label="More actions"][aria-haspopup="menu"]`
+      )
       .click();
     await page.getByRole('menuitem', { name: 'Copy all links' }).click();
     // The toast's own box, not its text's.
