@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
@@ -10,6 +16,10 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import { holdToasts, releaseToasts } from '../../redux/toastTimers';
 import { reopenFromOffer } from '../../redux/reopenOffer';
+import {
+  openNowDropHoldsUndoKey,
+  subscribeToOpenNowDrop,
+} from '../../redux/openNowMoveUndo';
 import { showSession } from '../../redux/showSession';
 import { undo } from '../../redux/slices/undoRedoSlice';
 import { useFontFamily } from '../../hooks/useFontFamily';
@@ -57,6 +67,11 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   const settingsCap = `calc(${settingsColumn} - ${2 * EDGE_PX}px)`;
   // KAN-349 Q1 C′. The hint names the key only while the key takes the offer.
   const keyOfferId = useSelector(selectReopenOfferForKey);
+  // KAN-590. While an Open now drop holds the key (O11f), it undoes the drop, so no chip names it.
+  const dropHoldsKey = useSyncExternalStore(
+    subscribeToOpenNowDrop,
+    openNowDropHoldsUndoKey
+  );
 
   // KAN-349 T3 (from KAN-280 O8a). The pointer over any toast, or focus in
   // one, holds them all: held while either is true, released only when both
@@ -281,7 +296,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 // The key does nothing on the settings page (MainContainer
                 // stands down there), so the hint would name a dead key.
                 keyHint={
-                  isSettingsPage || keyOfferId !== offer.id
+                  isSettingsPage || dropHoldsKey || keyOfferId !== offer.id
                     ? undefined
                     : undoKeyHint
                 }
@@ -296,7 +311,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 text={t('Undo')}
                 // ⌘Z takes a Reopen offer shown since, and does nothing on Settings.
                 keyHint={
-                  isSettingsPage || keyOfferId !== null
+                  isSettingsPage || dropHoldsKey || keyOfferId !== null
                     ? undefined
                     : undoKeyHint
                 }
