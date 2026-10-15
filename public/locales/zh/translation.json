@@ -143,6 +143,8 @@
   "Copy all links": "复制所有链接",
   "ExportNothingKept": "所有行都已隐藏。至少显示一行才能完成。",
   "LinksCopied_other": "已复制 {{count}} 个链接。",
+  "RemoveDuplicateTabs_other": "删除 {{count}} 个重复的标签页",
+  "DuplicateTabsRemoved_other": "已删除 {{count}} 个重复的标签页。",
   "Copied": "已复制",
   "Comfortable": "宽松",
   "Compact": "紧凑",

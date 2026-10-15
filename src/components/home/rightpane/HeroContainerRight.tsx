@@ -36,6 +36,7 @@ import { useMacKeys } from '../../../hooks/useIsMac';
 import {
   addCurrWindowToTabGroup,
   deleteTabContainer,
+  removeDuplicateTabs,
   replaceSessionWithOpenWindows,
   openAllTabContainer,
   requestFocusTabContainer,
@@ -49,6 +50,7 @@ import {
 import { copySessionLinks } from '../../../utils/functions/copySessionLinks';
 import { readRecentTabs } from '../../../utils/functions/recentTabs';
 import { tidySessionForExport } from '../../../utils/functions/sessionExportHtml';
+import { countDuplicateTabs } from '../../../utils/functions/duplicateTabs';
 import { openBesideActiveTab } from '../../../utils/functions/openBesideActiveTab';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import { isTabView } from '../../../utils/functions/viewMode';
@@ -150,6 +152,7 @@ export default function HeroContainerRight() {
   // between the nothing-selected and selected renders, and React throws
   // "Rendered more hooks than during the previous render" on that transition.
   if (!selectedTabGroup) return null;
+  const duplicateCount = countDuplicateTabs(selectedTabGroup);
 
   // `editableTitle` is a DRAFT: nothing reads it unless `isEditing` is true, so
   // it is seeded at the moment editing starts rather than kept in step with the
@@ -640,6 +643,22 @@ export default function HeroContainerRight() {
                       );
                     },
                   },
+                  // KAN-609. Only while there is one to remove: the menu has no
+                  // dimmed item, and "Remove 0" would say what it isn't doing.
+                  // Before Delete, which stays last as the heaviest.
+                  ...(duplicateCount > 0
+                    ? [
+                        {
+                          key: 'duplicates',
+                          label: t('RemoveDuplicateTabs', {
+                            count: duplicateCount,
+                          }),
+                          icon: 'stack_off' as const,
+                          onSelect: () =>
+                            void dispatch(removeDuplicateTabs(tabGroupId)),
+                        },
+                      ]
+                    : []),
                   {
                     key: 'delete',
                     label: t('Delete session'),

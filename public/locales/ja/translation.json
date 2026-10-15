@@ -143,6 +143,8 @@
   "Copy all links": "すべてのリンクをコピー",
   "ExportNothingKept": "すべての行が非表示です。完了するには、1 行以上を表示してください。",
   "LinksCopied_other": "{{count}} 件のリンクをコピーしました。",
+  "RemoveDuplicateTabs_other": "重複したタブを {{count}} 個削除",
+  "DuplicateTabsRemoved_other": "重複したタブを {{count}} 個削除しました。",
   "Copied": "コピーしました",
   "Comfortable": "ゆったり",
   "Compact": "コンパクト",
