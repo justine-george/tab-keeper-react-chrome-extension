@@ -1,7 +1,12 @@
 import type {
-  tabContainerData,
   tabData,
+  windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+
+// A session, or just the windows a row knows about: all the count needs.
+interface WithWindows {
+  windows: readonly Pick<windowGroupData, 'windowId' | 'tabs'>[];
+}
 
 // KAN-609. Passes the first tab at each address and fails every later one, in
 // the order it is called: one per pass. The address is compared exactly, and a
@@ -25,7 +30,7 @@ export interface DuplicateScope {
 // The tabs Remove duplicate tabs would take out, in reading order: windows top to bottom, tabs top to bottom.
 // No scope means the whole session.
 export function duplicateTabsIn(
-  session: Pick<tabContainerData, 'windows'>,
+  session: WithWindows,
   scope?: DuplicateScope
 ): tabData[] {
   const isFirst = firstCopyFilter();
@@ -39,7 +44,7 @@ export function duplicateTabsIn(
 }
 
 export function countDuplicateTabs(
-  session: Pick<tabContainerData, 'windows'>,
+  session: WithWindows,
   scope?: DuplicateScope
 ): number {
   return duplicateTabsIn(session, scope).length;
