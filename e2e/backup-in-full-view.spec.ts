@@ -16,7 +16,8 @@ const FROM_FILE = buildContainer([
 ]);
 
 // Each page's file steps, by kind, recorded from the moment the page exists.
-function recordFileSteps(context: BrowserContext) {
+// `lateBy` attaches to new pages that much later, as a loaded run can.
+function recordFileSteps(context: BrowserContext, { lateBy = 0 } = {}) {
   const steps: { page: Page; kind: 'download' | 'chooser'; name?: string }[] =
     [];
   const watch = (page: Page) => {
@@ -33,7 +34,9 @@ function recordFileSteps(context: BrowserContext) {
     });
   };
   context.pages().forEach(watch);
-  context.on('page', watch);
+  context.on('page', (page) =>
+    lateBy ? setTimeout(() => watch(page), lateBy) : watch(page)
+  );
   return steps;
 }
 
@@ -130,6 +133,43 @@ test.describe('the popup hands the backup file step to the full view (KAN-579)',
     ).toBeVisible();
     await expect(
       full.getByRole('button', { name: 'Load sessions from a backup' })
+    ).toBeVisible();
+  });
+});
+
+// KAN-619. A new page reaches the test ~50ms before the full view starts its
+// file step, and a step Playwright has no listener for is never reported.
+test.describe('a recorder that attaches late still sees the file step (KAN-619)', () => {
+  test('Save', async ({ context, extensionId }) => {
+    await seedSessions(context, HERE);
+    const steps = recordFileSteps(context, { lateBy: 1500 });
+    const popup = await popupOnSyncAndBackup(context, extensionId);
+
+    await popup
+      .getByRole('button', { name: 'Save sessions to a file' })
+      .click();
+
+    await fullViewOnSyncAndBackup(context);
+    await expect
+      .poll(() => steps.map((s) => [isFullView(s.page), s.kind]))
+      .toEqual([[true, 'download']]);
+  });
+
+  test('Load', async ({ context, extensionId }) => {
+    await seedSessions(context, HERE);
+    const steps = recordFileSteps(context, { lateBy: 1500 });
+    const popup = await popupOnSyncAndBackup(context, extensionId);
+
+    await popup
+      .getByRole('button', { name: 'Load sessions from a backup' })
+      .click();
+
+    const full = await fullViewOnSyncAndBackup(context);
+    await expect
+      .poll(() => steps.map((s) => [isFullView(s.page), s.kind]))
+      .toEqual([[true, 'chooser']]);
+    await expect(
+      full.getByRole('dialog', { name: 'Load 1 session from this backup?' })
     ).toBeVisible();
   });
 });
