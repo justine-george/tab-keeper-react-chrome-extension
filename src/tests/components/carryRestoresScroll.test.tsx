@@ -115,7 +115,7 @@ describe('a cancelled carry puts the press’s scroll back (KAN-157)', () => {
       handleOf('[data-drag-row-id="w2"]', '[data-window-drag-handle]')
     );
     // The premise: carried, and clamped.
-    expect(currentCarry()?.carried).toMatchObject({ kind: 'window' });
+    expect(currentCarry()?.item.ref).toMatchObject({ kind: 'window' });
     expect(pane.scrollTop).toBe(0);
 
     act(() => {
@@ -133,7 +133,7 @@ describe('a cancelled carry puts the press’s scroll back (KAN-157)', () => {
       pane,
       handleOf('[data-drag-row-id="group:g1"]', '[data-group-drag-handle]')
     );
-    expect(currentCarry()?.carried).toMatchObject({ kind: 'group' });
+    expect(currentCarry()?.item.ref).toMatchObject({ kind: 'group' });
 
     // Off the list, below it: over nothing.
     act(() => {
@@ -154,7 +154,7 @@ describe('a cancelled carry puts the press’s scroll back (KAN-157)', () => {
     if (!(tab instanceof HTMLElement)) throw new Error('no tab row');
     carryOutLeft(pane, tab);
     // The premise: carried, so the Esc below ends a carry, not a drag.
-    expect(currentCarry()?.carried).toMatchObject({ kind: 'tab' });
+    expect(currentCarry()?.item.ref).toMatchObject({ kind: 'tab' });
     pane.scrollTop = 120;
 
     act(() => {
@@ -173,7 +173,7 @@ describe('only a cancelled carry, and only onto its own view', () => {
       pane,
       handleOf('[data-drag-row-id="w2"]', '[data-window-drag-handle]')
     );
-    expect(currentCarry()?.carried).toMatchObject({ kind: 'window' });
+    expect(currentCarry()?.item.ref).toMatchObject({ kind: 'window' });
 
     act(() => endCarry('committed'));
     runFrames();
@@ -214,7 +214,7 @@ describe('a cancel after a spring-open returns to the source', () => {
       store.dispatch(selectTabContainer('S2'));
     });
     // The premise: still carrying, and S2 is what the pane draws.
-    expect(currentCarry()?.carried).toMatchObject({ kind });
+    expect(currentCarry()?.item.ref).toMatchObject({ kind });
     expect(document.querySelector('[data-drag-row-id="d1"]')).not.toBeNull();
 
     act(() => {

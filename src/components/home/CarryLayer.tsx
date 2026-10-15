@@ -19,7 +19,7 @@ import { useSavedSearch } from '../../hooks/useSavedSearch';
 import { RADIUS, TYPE } from '../../styles/scale';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
 import { windowLabel } from '../../utils/functions/windowLabel';
-import { isCarriedStillThere } from '../../utils/functions/tabGroups';
+import { isItemStillThere, sourceSessionIdOf } from '../../redux/carriedItem';
 import { createClickSuppressor } from './rightpane/rowDrag/clickSuppressor';
 import type { AppDispatch, RootState } from '../../redux/store';
 import { showSession } from '../../redux/showSession';
@@ -229,14 +229,14 @@ export function CarryLayer() {
   // spring-open. In the notify, before the frame its scroll is put back on.
   const dispatch: AppDispatch = useDispatch();
   useEffect(() => {
-    let last = currentCarry()?.carried ?? null;
+    let last = currentCarry()?.item ?? null;
     return subscribeCarry(() => {
-      const now = currentCarry()?.carried ?? null;
+      const now = currentCarry()?.item ?? null;
       if (now === last) return;
       const ended = last;
       last = now;
       if (ended !== null && carryEndedAs(ended) === 'cancelled') {
-        dispatch(showSession(ended.tabGroupId));
+        dispatch(showSession(sourceSessionIdOf(ended)));
       }
     });
   }, [dispatch]);
@@ -245,9 +245,9 @@ export function CarryLayer() {
   // ends the carry: there is nothing left to move. Other pages' changes wait
   // for the release, held by the drag hold the carry keeps on. The press is
   // still down, so its click is eaten when it is released, as after Esc.
-  const carried = carry?.carried ?? null;
+  const carried = carry?.item ?? null;
   useEffect(() => {
-    if (carried !== null && !isCarriedStillThere(tabGroups, carried)) {
+    if (carried !== null && !isItemStillThere(tabGroups, carried)) {
       clicks.armUntilRelease();
       endCarry('cancelled');
     }

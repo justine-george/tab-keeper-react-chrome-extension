@@ -1453,7 +1453,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // The other way round, any render that fell between the two would
       // unmount it.
       startCarry(
-        out.carried,
+        out.item,
         out.card,
         x,
         y,
@@ -2062,7 +2062,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           // both branches.
           // What an adopted drag carries, read before the list's onMove ends
           // the carry (KAN-350).
-          const carried = l.adopted ? currentCarry()?.carried : undefined;
+          const carried = l.adopted ? currentCarry()?.item : undefined;
           // In this task, so the fold-back and the keep render in one commit.
           // Before onMove: the list reads the stored fold to know the window drew its rows (KAN-458 R1).
           if (keep !== undefined) keepWindowOpen?.(keep);

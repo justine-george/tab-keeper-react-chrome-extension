@@ -36,7 +36,8 @@ import { GroupDragArea } from './GroupDragArea';
 import { dropOnTop } from '../../../redux/dropOnTop';
 import { windowDrop } from '../../../redux/dropSpecs';
 import { currentCarry, endCarry, useCarried } from '../../../redux/carry';
-import { dropCarriedWindow } from '../../../redux/dropCarried';
+import { pickOf } from '../../../redux/carriedItem';
+import { carryWindowTo } from '../../../redux/commitCarry';
 import {
   carriedRowId,
   carriedView,
@@ -122,9 +123,13 @@ export default function TabGroupDetailsContainer() {
   // Only the list that drags the carried kind adopts it, and follows the row
   // the item lands as once a drop there commits (KAN-155).
   const adoptRowIdFor = (kind: 'tab' | 'group' | 'window') =>
-    carried?.kind === kind ? phantomRowId : undefined;
+    carried !== null && pickOf(carried).kind === kind
+      ? phantomRowId
+      : undefined;
   const landsAsFor = (kind: 'tab' | 'group' | 'window') =>
-    carried?.kind === kind && phantomRowId !== undefined
+    carried !== null &&
+    pickOf(carried).kind === kind &&
+    phantomRowId !== undefined
       ? landedRowId(carried)
       : undefined;
 
@@ -160,10 +165,10 @@ export default function TabGroupDetailsContainer() {
   const handleMoveWindow = useCallback(
     (windowId: string, toIndex: number) => {
       if (!movedTabGroupId) return;
-      const carriedNow = currentCarry()?.carried;
-      if (carriedNow?.kind === 'window') {
+      const carriedNow = currentCarry()?.item;
+      if (carriedNow !== undefined && pickOf(carriedNow).kind === 'window') {
         const moved = dispatch(
-          dropCarriedWindow(carriedNow, {
+          carryWindowTo(carriedNow, {
             tabGroupId: movedTabGroupId,
             toIndex,
           })
@@ -210,7 +215,8 @@ export default function TabGroupDetailsContainer() {
   // commit that draws the session, before it is painted or the pointer can
   // come in to be adopted.
   const shownId = selectedTabGroup?.tabGroupId;
-  const isTabOrGroupCarried = carried !== null && carried.kind !== 'window';
+  const isTabOrGroupCarried =
+    carried !== null && pickOf(carried).kind !== 'window';
   useLayoutEffect(() => {
     if (!isTabOrGroupCarried || scrollerRef.current === null) return;
     decideNewWindowRoom(scrollerRef.current);

@@ -471,7 +471,7 @@ describe('the hand-off to the carry', () => {
     // The carry started BEFORE the drag card was hidden: CarryLayer draws
     // `carry ?? dragCard`, so at no moment was there neither.
     expect(carryOnWhenHidden).toEqual([true]);
-    expect(currentCarry()?.carried).toMatchObject({ tabId: 't2' });
+    expect(currentCarry()?.item.ref).toMatchObject({ tabId: 't2' });
     expect(carryCard()).toBe(el);
     expect(el?.style.transform).toBe('translate(-32px, 188px)');
     expect(dragCard()).toBeNull();
@@ -688,7 +688,7 @@ describe('the pick-up arrives in one commit (KAN-359)', () => {
     stop();
 
     // The premise: the drag was handed off.
-    expect(currentCarry()?.carried).toMatchObject({ tabId: 't2' });
+    expect(currentCarry()?.item.ref).toMatchObject({ tabId: 't2' });
     expect(carryCard()).not.toBeNull();
     // The claim: the drag card never went up, and is not up now.
     expect(published).toEqual([]);

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { savedItem } from '../../redux/carriedItem';
 import { act, fireEvent, screen } from '@testing-library/react';
 
 import UserInputContainer from '../../components/home/leftpane/UserInputContainer';
@@ -75,7 +76,12 @@ function receiverOnRow(): CarryReceiver {
 
 function carry(carried: CarriedRef): void {
   act(() =>
-    startCarry(carried, { kind: 'tab', title: 't1', faviconUrl: '' }, 10, 120)
+    startCarry(
+      savedItem(carried),
+      { kind: 'tab', title: 't1', faviconUrl: '' },
+      10,
+      120
+    )
   );
 }
 

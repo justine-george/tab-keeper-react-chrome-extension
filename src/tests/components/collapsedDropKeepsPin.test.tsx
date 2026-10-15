@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest';
+import { savedItem } from '../../redux/carriedItem';
 import { act, renderHook } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import type { ReactNode } from 'react';
@@ -191,7 +192,7 @@ describe('a drop on a collapsed window keeps the pin (KAN-458)', () => {
       tabId: 'pB',
     };
     // The phantom row the pane draws for the carried tab, in wA.
-    const phantom = carriedRowId(carried);
+    const phantom = carriedRowId(savedItem(carried));
     const paneWindows = {
       tabGroupId: 'tg',
       windows: [
@@ -203,7 +204,12 @@ describe('a drop on a collapsed window keeps the pin (KAN-458)', () => {
       wrapper,
     });
     act(() =>
-      startCarry(carried, { kind: 'tab', title: 'pB', faviconUrl: '' }, 0, 0)
+      startCarry(
+        savedItem(carried),
+        { kind: 'tab', title: 'pB', faviconUrl: '' },
+        0,
+        0
+      )
     );
     act(() => result.current.onMove(phantom, 0, undefined, 'wB'));
     const landed = wB();
@@ -216,6 +222,50 @@ describe('a drop on a collapsed window keeps the pin (KAN-458)', () => {
     expect(landed?.[0][0]).toBe('pB');
     // PREMISE: the carried tab landed, re-minted.
     expect(landed?.[1][0]).not.toBe('b1');
+  });
+
+  // KAN-280 Part F: the pin of a CARRIED tab is read from its source window.
+  test('a carried pinned tab lands first in a folded window, still pinned', () => {
+    const { store, wrapper, wB } = setup(true);
+    store.dispatch(
+      saveToTabContainerInternal({
+        tabGroupId: 'src',
+        title: 'Source',
+        createdTime: '2026-10-07 08:00:00',
+        windowCount: 1,
+        tabCount: 2,
+        isAutoSave: false,
+        isSelected: false,
+        windows: [win('ws', [tab('pX', { pinned: true }), tab('s2')])],
+      })
+    );
+    const carried = savedItem({
+      kind: 'tab',
+      tabGroupId: 'src',
+      windowId: 'ws',
+      tabId: 'pX',
+    });
+    const phantom = carriedRowId(carried);
+    const paneWindows = {
+      tabGroupId: 'tg',
+      windows: [
+        { ...WINDOWS[0], tabs: [...WINDOWS[0].tabs, tab(phantom)] },
+        WINDOWS[1],
+      ],
+    };
+    const { result } = renderHook(() => useTabDrop(paneWindows, true), {
+      wrapper,
+    });
+    act(() =>
+      startCarry(carried, { kind: 'tab', title: 'pX', faviconUrl: '' }, 0, 0)
+    );
+    act(() => result.current.onMove(phantom, 3, undefined, 'wB'));
+    expect(wB()).toEqual([
+      ['pX', true],
+      ['pB', true],
+      ['b1', false],
+      ['b2', false],
+    ]);
   });
 
   test('a group lands right after the pinned run, not refused', () => {

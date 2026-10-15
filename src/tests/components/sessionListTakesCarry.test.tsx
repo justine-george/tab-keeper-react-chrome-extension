@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { savedItem } from '../../redux/carriedItem';
 import { act, fireEvent } from '@testing-library/react';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
@@ -192,7 +193,7 @@ function handOff(
 ) {
   setDragging(true, carried.kind);
   beginDragHold();
-  act(() => startCarry(carried, card, 600, 200, onCancel));
+  act(() => startCarry(savedItem(carried), card, 600, 200, onCancel));
 }
 
 const moveTo = (y: number, x = X) =>
@@ -759,7 +760,7 @@ describe('from a real drag out of the detail', () => {
   test('let go on a row: the tab is that session’s new first window', async () => {
     const { store } = await renderBoth();
     dragTabOutToList(rowY(1));
-    expect(currentCarry()?.carried).toMatchObject({ tabId: 't2' });
+    expect(currentCarry()?.item.ref).toMatchObject({ tabId: 't2' });
     expect(targetId()).toEqual(['S2']);
 
     releaseAt(rowY(1));
@@ -779,7 +780,7 @@ describe('from a real drag out of the detail', () => {
       'S2'
     );
     expect(document.querySelector('[data-drag-row-id="u1"]')).not.toBeNull();
-    expect(currentCarry()?.carried).toMatchObject({ tabId: 't2' });
+    expect(currentCarry()?.item.ref).toMatchObject({ tabId: 't2' });
   });
 });
 

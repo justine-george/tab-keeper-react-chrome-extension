@@ -26,6 +26,7 @@ import {
   stripEmbeddedFavicons,
 } from '../../utils/functions/local';
 import { newSessionTitleOf } from '../../utils/functions/newSessionTitle';
+import { savedItem } from '../carriedItem';
 import {
   captureOpenWindows,
   isAlreadySaved,
@@ -2658,7 +2659,7 @@ export const tabContainerDataStateSlice = createSlice({
           tabGroupId,
           title:
             normalizeTitle(typedTitle) ||
-            newSessionTitleOf(state.tabGroups, carried) ||
+            newSessionTitleOf(state.tabGroups, savedItem(carried)) ||
             fallbackTitle,
           createdTime: getStringDate(new Date(now)),
           createdAt: now,

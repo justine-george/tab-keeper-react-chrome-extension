@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { savedItem } from '../../redux/carriedItem';
 import { act, fireEvent } from '@testing-library/react';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
@@ -173,7 +174,7 @@ const targetIds = () =>
 function handOff(carried: CarriedRef, card: CarryCard, onCancel?: () => void) {
   setDragging(true, carried.kind);
   beginDragHold();
-  act(() => startCarry(carried, card, 600, 200, onCancel));
+  act(() => startCarry(savedItem(carried), card, 600, 200, onCancel));
 }
 
 const TAB_CARD: CarryCard = { kind: 'tab', title: 't', faviconUrl: '' };

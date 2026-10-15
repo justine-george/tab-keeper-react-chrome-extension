@@ -24,7 +24,8 @@ import {
 } from '../../../utils/functions/pinnedRun';
 import { dropOnTop } from '../../../redux/dropOnTop';
 import { intoNewWindow, tabDrop } from '../../../redux/dropSpecs';
-import { dropCarriedTab } from '../../../redux/dropCarried';
+import { isCarriedTabPinned, pickOf } from '../../../redux/carriedItem';
+import { carryToSpot } from '../../../redux/commitCarry';
 import { moveToSession } from '../../../redux/moveToSession';
 import { currentCarry, endCarry } from '../../../redux/carry';
 import { newWindowPlacement } from './newWindowTarget';
@@ -704,15 +705,11 @@ export function useTabDrop(
         toWindowId
       );
       if (described === undefined) return;
-      const carried = currentCarry()?.carried;
-      const held =
-        carried?.kind === 'tab'
+      const carried = currentCarry()?.item;
+      const carriedTab =
+        carried !== undefined && pickOf(carried).kind === 'tab'
           ? carried
-          : {
-              tabGroupId,
-              windowId: described.fromWindowId,
-              tabId: described.tabId,
-            };
+          : undefined;
       // Read at the drop: the engine keeps a window it opened open before calling this (KAN-379).
       const { globalState, tabContainerDataState } = store.getState();
       // KAN-458. A window drawn with no rows gives position no meaning: the tab keeps its pin, at the start of its own run.
@@ -726,13 +723,22 @@ export function useTabDrop(
             toIndex: noRowsTabIndex(
               windows.find((w) => w.windowId === described.toWindowId)?.tabs ??
                 [],
-              isTabPinnedIn(tabContainerDataState.tabGroups, held)
+              carriedTab !== undefined
+                ? isCarriedTabPinned(
+                    tabContainerDataState.tabGroups,
+                    carriedTab
+                  )
+                : isTabPinnedIn(tabContainerDataState.tabGroups, {
+                    tabGroupId,
+                    windowId: described.fromWindowId,
+                    tabId: described.tabId,
+                  })
             ),
           }
         : described;
-      if (carried?.kind === 'tab') {
+      if (carriedTab !== undefined) {
         const moved = dispatch(
-          dropCarriedTab(carried, {
+          carryToSpot(carriedTab, {
             tabGroupId,
             toWindowId: move.toWindowId,
             toIndex: move.toIndex,

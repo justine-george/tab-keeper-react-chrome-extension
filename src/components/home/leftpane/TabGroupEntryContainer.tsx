@@ -42,7 +42,7 @@ import { edgeScrollStep } from '../rightpane/rowDrag/edgeScroll';
 import { dropOnTop } from '../../../redux/dropOnTop';
 import { sessionDrop } from '../../../redux/dropSpecs';
 import { showSession } from '../../../redux/showSession';
-import { dropOnSessionRow } from '../../../redux/dropOnSessionRow';
+import { carryToSessionRow } from '../../../redux/commitCarry';
 import {
   carryEndedAs,
   currentCarry,
@@ -296,7 +296,7 @@ export default function TabGroupEntryContainer() {
         const id = carryTargetRef.current;
         const carry = currentCarry();
         if (id === null || carry === null) return false;
-        return dispatch(dropOnSessionRow(carry.carried, id));
+        return dispatch(carryToSessionRow(carry.item, id));
       },
     };
 
@@ -310,10 +310,10 @@ export default function TabGroupEntryContainer() {
   // KAN-406. A cancelled carry puts the list back at its scroll when the
   // carry started, on the frame after, past KAN-143's follow above.
   useEffect(() => {
-    let last = currentCarry()?.carried ?? null;
+    let last = currentCarry()?.item ?? null;
     let scrollAtStart = listRef.current?.scrollTop ?? 0;
     return subscribeCarry(() => {
-      const now = currentCarry()?.carried ?? null;
+      const now = currentCarry()?.item ?? null;
       if (now === last) return;
       const ended = last;
       last = now;

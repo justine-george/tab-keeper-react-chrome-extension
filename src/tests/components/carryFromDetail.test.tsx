@@ -1,5 +1,6 @@
 import { createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { savedItem } from '../../redux/carriedItem';
 import { act, fireEvent, screen } from '@testing-library/react';
 
 import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
@@ -103,7 +104,12 @@ describe('each saved detail list hands a drag that reaches the session list to t
     dragOutLeft(find('[data-drag-row-id="t2"]'));
 
     expect(currentCarry()).toEqual({
-      carried: { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 't2' },
+      item: savedItem({
+        kind: 'tab',
+        tabGroupId: 'S1',
+        windowId: 'w1',
+        tabId: 't2',
+      }),
       card: { kind: 'tab', title: 't2', faviconUrl: expect.any(String) },
       x: -40,
       y: 30,
@@ -124,7 +130,7 @@ describe('each saved detail list hands a drag that reaches the session list to t
 
     dragOutLeft(handle);
 
-    expect(currentCarry()?.carried).toEqual({
+    expect(currentCarry()?.item.ref).toEqual({
       kind: 'group',
       tabGroupId: 'S1',
       windowId: 'w1',
@@ -154,7 +160,7 @@ describe('each saved detail list hands a drag that reaches the session list to t
 
     dragOutLeft(handle);
 
-    expect(currentCarry()?.carried).toEqual({
+    expect(currentCarry()?.item.ref).toEqual({
       kind: 'window',
       tabGroupId: 'S1',
       windowId: 'w2',
@@ -179,7 +185,7 @@ describe('each saved detail list hands a drag that reaches the session list to t
 
     dragOutLeft(find('[data-drag-row-id="t3"]'));
 
-    expect(currentCarry()?.carried).toMatchObject({ tabId: 't3' });
+    expect(currentCarry()?.item.ref).toMatchObject({ tabId: 't3' });
     expect(rowIds()).not.toContain('t3');
     expect(
       document.querySelector(

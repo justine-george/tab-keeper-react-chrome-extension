@@ -1,9 +1,15 @@
 // KAN-350. What the saved detail draws while something is carried.
 import type {
-  CarriedRef,
   tabContainerData,
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import {
+  pickOf,
+  sourceSessionIdOf,
+  sourceWindowOf,
+  type CarriedItem,
+  type CarriedPick,
+} from '../../redux/carriedItem';
 import { groupItemIdOf, partitionTabsIntoRuns } from './tabGroups';
 import { NEW_LAST_WINDOW } from '../../components/home/rightpane/newWindowTarget';
 
@@ -18,12 +24,12 @@ export type ShownSession = Pick<tabContainerData, 'tabGroupId' | 'windows'>;
 // however empty: its header shows until the drop (plan Decision).
 function windowWithout(
   w: windowGroupData,
-  carried: Exclude<CarriedRef, { kind: 'window' }>
+  pick: Exclude<CarriedPick, { kind: 'window' }>
 ): windowGroupData {
   const tabs =
-    carried.kind === 'tab'
-      ? w.tabs.filter((t) => t.tabId !== carried.tabId)
-      : w.tabs.filter((t) => t.chromeGroupId !== carried.groupId);
+    pick.kind === 'tab'
+      ? w.tabs.filter((t) => t.tabId !== pick.tabId)
+      : w.tabs.filter((t) => t.chromeGroupId !== pick.groupId);
   if (tabs.length === w.tabs.length) return w;
   const chromeTabGroups = w.chromeTabGroups?.filter((g) =>
     tabs.some((t) => t.chromeGroupId === g.groupId)
@@ -36,7 +42,7 @@ function windowWithout(
 }
 
 /**
- * The session `shownId` names, as the detail draws it while `carried` is
+ * The session `shownId` names, as the detail draws it while `item` is
  * carried: the carried item left out when this session is its source, so the
  * list closes up behind it (mock step 1).
  *
@@ -48,22 +54,23 @@ function windowWithout(
 export function carriedView(
   tabGroups: readonly tabContainerData[],
   shownId: string | undefined,
-  carried: CarriedRef | null
+  item: CarriedItem | null
 ): ShownSession | null {
   const shown = tabGroups.find((g) => g.tabGroupId === shownId);
   if (shown === undefined) return null;
-  if (carried === null || carried.tabGroupId !== shown.tabGroupId) {
+  if (item === null || sourceSessionIdOf(item) !== shown.tabGroupId) {
     return shown;
   }
+  const pick = pickOf(item);
 
   let changed = false;
   const windows = shown.windows.flatMap((w) => {
-    if (w.windowId !== carried.windowId) return [w];
-    if (carried.kind === 'window') {
+    if (w.windowId !== pick.windowId) return [w];
+    if (pick.kind === 'window') {
       changed = true;
       return [];
     }
-    const without = windowWithout(w, carried);
+    const without = windowWithout(w, pick);
     if (without !== w) changed = true;
     return [without];
   });
@@ -84,14 +91,15 @@ const phantomIdOf = (id: string) => `${PHANTOM_ID_PREFIX}${id}`;
  * drags its kind: a tab's in the `tabs` list, a group's item id in the
  * `items` list, a window's in the windows list. It is what the engine adopts.
  */
-export function carriedRowId(carried: CarriedRef): string {
-  switch (carried.kind) {
+export function carriedRowId(item: CarriedItem): string {
+  const pick = pickOf(item);
+  switch (pick.kind) {
     case 'tab':
-      return phantomIdOf(carried.tabId);
+      return phantomIdOf(pick.tabId);
     case 'group':
-      return groupItemIdOf(phantomIdOf(carried.groupId));
+      return groupItemIdOf(phantomIdOf(pick.groupId));
     case 'window':
-      return phantomIdOf(carried.windowId);
+      return phantomIdOf(pick.windowId);
   }
 }
 
@@ -100,14 +108,15 @@ export function carriedRowId(carried: CarriedRef): string {
  * -- the row the move puts it in, once it has landed. Not the phantom's
  * (carriedRowId): the phantom is gone once the carry ends.
  */
-export function landedRowId(carried: CarriedRef): string {
-  switch (carried.kind) {
+export function landedRowId(item: CarriedItem): string {
+  const pick = pickOf(item);
+  switch (pick.kind) {
     case 'tab':
-      return carried.tabId;
+      return pick.tabId;
     case 'group':
-      return groupItemIdOf(carried.groupId);
+      return groupItemIdOf(pick.groupId);
     case 'window':
-      return carried.windowId;
+      return pick.windowId;
   }
 }
 
@@ -140,13 +149,12 @@ function asPhantom(
 // item.
 function phantomWindowOf(
   tabGroups: readonly tabContainerData[],
-  carried: CarriedRef
+  item: CarriedItem
 ): windowGroupData | null {
-  const from = tabGroups
-    .find((g) => g.tabGroupId === carried.tabGroupId)
-    ?.windows.find((w) => w.windowId === carried.windowId);
-  if (from === undefined) return null;
-  if (carried.kind === 'window') {
+  const from = sourceWindowOf(tabGroups, item);
+  if (from === null) return null;
+  const pick = pickOf(item);
+  if (pick.kind === 'window') {
     return {
       ...from,
       windowId: phantomIdOf(from.windowId),
@@ -165,8 +173,8 @@ function phantomWindowOf(
     ...asPhantom(tabs, groups),
   });
 
-  if (carried.kind === 'tab') {
-    const tab = from.tabs.find((t) => t.tabId === carried.tabId);
+  if (pick.kind === 'tab') {
+    const tab = from.tabs.find((t) => t.tabId === pick.tabId);
     if (tab === undefined) return null;
     const loose = { ...tab };
     delete loose.chromeGroupId;
@@ -174,7 +182,7 @@ function phantomWindowOf(
   }
   // The SAME partition the screen draws and the move lifts (KAN-131).
   const run = partitionTabsIntoRuns(from.tabs, from.chromeTabGroups).find(
-    (r) => r.kind === 'group' && r.group.groupId === carried.groupId
+    (r) => r.kind === 'group' && r.group.groupId === pick.groupId
   );
   if (run === undefined || run.kind !== 'group') return null;
   return asNewWindow(run.tabs, [run.group]);
@@ -194,22 +202,21 @@ function idsOf(windows: readonly windowGroupData[]): Set<string> {
 // The carried item's own ids, as the store holds them.
 function carriedIdsIn(
   tabGroups: readonly tabContainerData[],
-  carried: CarriedRef
+  item: CarriedItem
 ): Set<string> {
-  const from = tabGroups
-    .find((g) => g.tabGroupId === carried.tabGroupId)
-    ?.windows.find((w) => w.windowId === carried.windowId);
-  if (from === undefined) return new Set();
-  switch (carried.kind) {
+  const from = sourceWindowOf(tabGroups, item);
+  if (from === null) return new Set();
+  const pick = pickOf(item);
+  switch (pick.kind) {
     case 'window':
       return idsOf([from]);
     case 'tab':
-      return new Set([carried.tabId]);
+      return new Set([pick.tabId]);
     case 'group':
       return new Set([
-        carried.groupId,
+        pick.groupId,
         ...from.tabs
-          .filter((t) => t.chromeGroupId === carried.groupId)
+          .filter((t) => t.chromeGroupId === pick.groupId)
           .map((t) => t.tabId),
       ]);
   }
@@ -221,24 +228,25 @@ function carriedIdsIn(
 function soleTabAtHome(
   tabGroups: readonly tabContainerData[],
   shownId: string | undefined,
-  carried: CarriedRef,
+  item: CarriedItem,
   bandsShown: boolean
 ): ShownSession | null {
   if (!bandsShown) return null;
-  if (carried.kind !== 'tab' || carried.tabGroupId !== shownId) return null;
+  const pick = pickOf(item);
+  if (pick.kind !== 'tab' || sourceSessionIdOf(item) !== shownId) return null;
   const shown = tabGroups.find((g) => g.tabGroupId === shownId);
-  const from = shown?.windows.find((w) => w.windowId === carried.windowId);
-  const tab = from?.tabs.find((t) => t.tabId === carried.tabId);
+  const from = shown?.windows.find((w) => w.windowId === pick.windowId);
+  const tab = from?.tabs.find((t) => t.tabId === pick.tabId);
   const groupId = tab?.chromeGroupId;
   if (shown === undefined || from === undefined || groupId === undefined) {
     return null;
   }
   const isOnly = !from.tabs.some(
-    (t) => t.tabId !== carried.tabId && t.chromeGroupId === groupId
+    (t) => t.tabId !== pick.tabId && t.chromeGroupId === groupId
   );
   const copies = shown.windows
     .flatMap((w) => w.tabs)
-    .filter((t) => t.tabId === carried.tabId).length;
+    .filter((t) => t.tabId === pick.tabId).length;
   if (
     !isOnly ||
     copies !== 1 ||
@@ -252,9 +260,7 @@ function soleTabAtHome(
       : {
           ...w,
           tabs: w.tabs.map((t) =>
-            t.tabId === carried.tabId
-              ? { ...t, tabId: phantomIdOf(t.tabId) }
-              : t
+            t.tabId === pick.tabId ? { ...t, tabId: phantomIdOf(t.tabId) } : t
           ),
         }
   );
@@ -262,7 +268,7 @@ function soleTabAtHome(
 }
 
 /**
- * The session `shownId` names, as the detail draws it while `carried` is
+ * The session `shownId` names, as the detail draws it while `item` is
  * carried AND can land in it at an exact spot: carriedView's session, with
  * the carried item drawn as a PHANTOM the drag engine adopts -- a tab or
  * group inside a synthetic LAST window (NEW_LAST_WINDOW: the list's trailing
@@ -282,26 +288,26 @@ function soleTabAtHome(
 export function landingView(
   tabGroups: readonly tabContainerData[],
   shownId: string | undefined,
-  carried: CarriedRef,
+  item: CarriedItem,
   // Whether the detail draws group bands (the tabGroups grant).
   bandsShown: boolean
 ): ShownSession | null {
-  const home = soleTabAtHome(tabGroups, shownId, carried, bandsShown);
+  const home = soleTabAtHome(tabGroups, shownId, item, bandsShown);
   if (home !== null) return home;
-  const shown = carriedView(tabGroups, shownId, carried);
+  const shown = carriedView(tabGroups, shownId, item);
   if (shown === null) return null;
-  const phantom = phantomWindowOf(tabGroups, carried);
+  const phantom = phantomWindowOf(tabGroups, item);
   if (phantom === null) return null;
 
   const held = idsOf(shown.windows);
-  for (const id of carriedIdsIn(tabGroups, carried)) {
+  for (const id of carriedIdsIn(tabGroups, item)) {
     if (held.has(id)) return null;
   }
   // A window's phantom is a window row, first. A tab's or group's rests in
   // the trailing block, after every window, so drawing it moves no row of
   // the session (KAN-361 N1 B: the New window target is in the header now).
   const windows =
-    carried.kind === 'window'
+    pickOf(item).kind === 'window'
       ? [phantom, ...shown.windows]
       : [...shown.windows, phantom];
   return { tabGroupId: shown.tabGroupId, windows };

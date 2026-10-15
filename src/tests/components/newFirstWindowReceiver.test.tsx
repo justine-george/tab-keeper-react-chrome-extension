@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { savedItem } from '../../redux/carriedItem';
 import { act } from '@testing-library/react';
 import { useRef } from 'react';
 
@@ -63,7 +64,12 @@ describe('the header’s New window target as a carry receiver', () => {
       },
     });
     act(() =>
-      startCarry(T1, { kind: 'tab', title: 't1', faviconUrl: '' }, -40, 0)
+      startCarry(
+        savedItem(T1),
+        { kind: 'tab', title: 't1', faviconUrl: '' },
+        -40,
+        0
+      )
     );
 
     const own = document.querySelector('[data-own]');

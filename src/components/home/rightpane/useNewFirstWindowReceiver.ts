@@ -22,7 +22,8 @@ import {
   useCarried,
   type CarryReceiver,
 } from '../../../redux/carry';
-import { dropCarriedGroup, dropCarriedTab } from '../../../redux/dropCarried';
+import { pickOf } from '../../../redux/carriedItem';
+import { carryToSpot } from '../../../redux/commitCarry';
 import { landingView } from '../../../utils/functions/carriedView';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { NEW_FIRST_WINDOW, newWindowTargetHit } from './newWindowTarget';
@@ -47,7 +48,7 @@ export function useNewFirstWindowReceiver(
     () =>
       !isSearching &&
       carried !== null &&
-      carried.kind !== 'window' &&
+      pickOf(carried).kind !== 'window' &&
       tabGroupId !== undefined &&
       landingView(tabGroups, tabGroupId, carried, hasTabGroupsPermission) !==
         null,
@@ -83,11 +84,10 @@ export function useNewFirstWindowReceiver(
       // Commits synchronously and says whether anything moved; the layer
       // ends the carry after this either way.
       take() {
-        const now = currentCarry()?.carried;
+        const now = currentCarry()?.item;
+        if (now === undefined) return false;
         const spot = { tabGroupId, toWindowId: NEW_FIRST_WINDOW, toIndex: 0 };
-        if (now?.kind === 'tab') return dispatch(dropCarriedTab(now, spot));
-        if (now?.kind === 'group') return dispatch(dropCarriedGroup(now, spot));
-        return false;
+        return dispatch(carryToSpot(now, spot));
       },
     };
 

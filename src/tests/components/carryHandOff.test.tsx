@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { savedItem } from '../../redux/carriedItem';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import {
@@ -34,7 +35,12 @@ const box = (top: number, height: number): DOMRect =>
   DOMRect.fromRect({ x: 0, y: top, width: 200, height });
 
 const OUT: CarryOut = {
-  carried: { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 'a' },
+  item: savedItem({
+    kind: 'tab',
+    tabGroupId: 'S1',
+    windowId: 'w1',
+    tabId: 'a',
+  }),
   card: { kind: 'tab', title: 'Row A', faviconUrl: '' },
 };
 
@@ -218,7 +224,7 @@ describe('reaching the session list hands the drag to the carry', () => {
   test('an adopted drag hands its carry back on the list, with no carryOut', () => {
     render(<Harness onMove={() => {}} adoptRowId="a" />);
     layout();
-    startCarry(OUT.carried, OUT.card, ON_LIST, 40);
+    startCarry(OUT.item, OUT.card, ON_LIST, 40);
 
     fireEvent.pointerMove(document, { clientX: 10, clientY: 40 });
     // The premise: adopted.
@@ -228,7 +234,7 @@ describe('reaching the session list hands the drag to the carry', () => {
     fireEvent.pointerMove(document, { clientX: ON_LIST, clientY: 40 });
 
     expect(currentCarry()?.owner).toBe('layer');
-    expect(currentCarry()?.carried).toBe(OUT.carried);
+    expect(currentCarry()?.item).toBe(OUT.item);
     expect(heldMarker()).toBeNull();
   });
 
@@ -236,7 +242,7 @@ describe('reaching the session list hands the drag to the carry', () => {
     const onMove = vi.fn();
     render(<Harness onMove={onMove} carryOut={() => OUT} />);
     layout();
-    startCarry(OUT.carried, OUT.card, 300, 40);
+    startCarry(OUT.item, OUT.card, 300, 40);
 
     fireEvent.pointerDown(nodeFor('Row B'), {
       clientX: 10,

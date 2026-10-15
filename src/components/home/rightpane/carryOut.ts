@@ -1,7 +1,8 @@
 // KAN-350. What each saved detail list hands over when its drag reaches the
-// session list (KAN-352): the carried item by id, and the card's snapshot of it. One
+// session list (KAN-352): the carried item as a saved item, and the card's snapshot of it. One
 // function per list, each taking the row id that list's engine knows.
 import type { CarryOut } from '../../../redux/carry';
+import { savedItem } from '../../../redux/carriedItem';
 import type { PaneWindows } from './rowDrag/dropRules';
 import type { ShownSession } from '../../../utils/functions/carriedView';
 import {
@@ -19,12 +20,12 @@ export function tabCarryOut(pane: PaneWindows, tabId: string): CarryOut | null {
     const tab = w.tabs.find((t) => t.tabId === tabId);
     if (tab === undefined) continue;
     return {
-      carried: {
+      item: savedItem({
         kind: 'tab',
         tabGroupId: pane.tabGroupId,
         windowId: w.windowId,
         tabId,
-      },
+      }),
       card: {
         kind: 'tab',
         title: tab.title,
@@ -48,12 +49,12 @@ export function groupCarryOut(
     const tabCount = w.tabs.filter((t) => t.chromeGroupId === groupId).length;
     if (group === undefined || tabCount === 0) continue;
     return {
-      carried: {
+      item: savedItem({
         kind: 'group',
         tabGroupId: pane.tabGroupId,
         windowId: w.windowId,
         groupId,
-      },
+      }),
       card: {
         kind: 'group',
         title: group.title,
@@ -79,7 +80,7 @@ export function windowCarryOut(
   );
   if (w === undefined || number === undefined) return null;
   return {
-    carried: { kind: 'window', tabGroupId: pane.tabGroupId, windowId },
+    item: savedItem({ kind: 'window', tabGroupId: pane.tabGroupId, windowId }),
     card: { kind: 'window', title: w.title, number, tabCount: w.tabs.length },
   };
 }

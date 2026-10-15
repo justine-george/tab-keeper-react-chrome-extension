@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { savedItem } from '../../../redux/carriedItem';
 
 import {
   carriedView,
@@ -39,7 +40,7 @@ const shape = (view: ShownSession | null) =>
 
 describe('carriedView leaves the carried item out of its source', () => {
   test('a tab: gone from its window, the rest in order', () => {
-    const view = carriedView([s1(), s2()], 'S1', tabRef('t2'));
+    const view = carriedView([s1(), s2()], 'S1', savedItem(tabRef('t2')));
     expect(shape(view)).toEqual([
       {
         windowId: 'w1',
@@ -51,7 +52,7 @@ describe('carriedView leaves the carried item out of its source', () => {
   });
 
   test('the only tab of a group: the group entry goes with it', () => {
-    const view = carriedView([s1()], 'S1', tabRef('t4'));
+    const view = carriedView([s1()], 'S1', savedItem(tabRef('t4')));
     expect(shape(view)?.[0]).toEqual({
       windowId: 'w1',
       tabs: ['t1', 'g1a', 'g1b', 't2'],
@@ -60,7 +61,7 @@ describe('carriedView leaves the carried item out of its source', () => {
   });
 
   test('a group: its tabs and its entry are gone', () => {
-    const view = carriedView([s1()], 'S1', groupRef('g1'));
+    const view = carriedView([s1()], 'S1', savedItem(groupRef('g1')));
     expect(shape(view)?.[0]).toEqual({
       windowId: 'w1',
       tabs: ['t1', 't2', 't4'],
@@ -69,20 +70,20 @@ describe('carriedView leaves the carried item out of its source', () => {
   });
 
   test('a window: gone from the session', () => {
-    const view = carriedView([s1()], 'S1', windowRef('w1'));
+    const view = carriedView([s1()], 'S1', savedItem(windowRef('w1')));
     expect(shape(view)).toEqual([{ windowId: 'w2', tabs: ['t3'], groups: [] }]);
   });
 
   // Plan Decision: a window left with no rows shows its header until the drop.
   test('a window emptied by hiding its only tab is still drawn', () => {
-    const view = carriedView([s1()], 'S1', tabRef('t3', 'w2'));
+    const view = carriedView([s1()], 'S1', savedItem(tabRef('t3', 'w2')));
     expect(shape(view)?.[1]).toEqual({ windowId: 'w2', tabs: [], groups: [] });
   });
 
   test('the stored session is not changed', () => {
     const source = s1();
     const before = JSON.stringify(source);
-    carriedView([source], 'S1', groupRef('g1'));
+    carriedView([source], 'S1', savedItem(groupRef('g1')));
     expect(JSON.stringify(source)).toBe(before);
   });
 });
@@ -97,15 +98,17 @@ describe('carriedView hands back the stored session when nothing is left out', (
 
   test('the carried item is another session’s', () => {
     const target = s2();
-    expect(carriedView([s1(), target], 'S2', tabRef('t1'))).toBe(target);
+    expect(carriedView([s1(), target], 'S2', savedItem(tabRef('t1')))).toBe(
+      target
+    );
   });
 
   test('the carried item is no longer there', () => {
     const source = s1();
-    expect(carriedView([source], 'S1', tabRef('gone'))).toBe(source);
+    expect(carriedView([source], 'S1', savedItem(tabRef('gone')))).toBe(source);
   });
 
   test('no session has the shown id', () => {
-    expect(carriedView([s1()], 'nope', tabRef('t1'))).toBeNull();
+    expect(carriedView([s1()], 'nope', savedItem(tabRef('t1')))).toBeNull();
   });
 });

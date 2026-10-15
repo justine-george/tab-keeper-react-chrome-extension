@@ -123,7 +123,7 @@ describe('a carried window keeps its fold (finding 9)', () => {
 
     carryW2Out(pane);
     // PREMISE: carried, and lifted out of the detail.
-    expect(currentCarry()?.carried).toMatchObject({ windowId: 'w2' });
+    expect(currentCarry()?.item.ref).toMatchObject({ windowId: 'w2' });
     expect(pane.querySelector('[data-drag-row-id="w2"]')).toBeNull();
 
     act(() => {

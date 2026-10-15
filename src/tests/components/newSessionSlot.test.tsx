@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { savedItem } from '../../redux/carriedItem';
 import { act, fireEvent } from '@testing-library/react';
 
 import UserInputContainer from '../../components/home/leftpane/UserInputContainer';
@@ -99,7 +100,12 @@ function carry(carried: CarriedRef = T1) {
   setDragging(true, carried.kind);
   beginDragHold();
   act(() =>
-    startCarry(carried, { kind: 'tab', title: 't1', faviconUrl: '' }, 600, 200)
+    startCarry(
+      savedItem(carried),
+      { kind: 'tab', title: 't1', faviconUrl: '' },
+      600,
+      200
+    )
   );
 }
 

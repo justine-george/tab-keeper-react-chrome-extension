@@ -9,7 +9,7 @@ import {
   registerCarryReceiver,
   type CarryReceiver,
 } from '../../../redux/carry';
-import { moveToNewSession } from '../../../redux/moveToNewSession';
+import { carryToNewSession } from '../../../redux/commitCarry';
 import { selectRunHere } from '../../../redux/firstRun';
 import {
   closeNewSessionSlot,
@@ -72,11 +72,11 @@ export function useNewSessionReceiver(
       },
       // Commits synchronously; the layer ends the carry either way.
       take() {
-        const carried = currentCarry()?.carried;
+        const carried = currentCarry()?.item;
         if (carried === undefined) return false;
         const name = typedRef.current;
         const moved = dispatch(
-          moveToNewSession(carried, t('New Tab Group'), name)
+          carryToNewSession(carried, t('New Tab Group'), name)
         );
         if (moved) {
           consumeName(name);
