@@ -24,7 +24,11 @@ import {
   TOAST_MOVE,
   useToastStack,
 } from './useToastStack';
-import { APP_WIDTH, SETTINGS_COLUMN } from '../../utils/constants/common';
+import {
+  APP_WIDTH,
+  SETTINGS_COLUMN,
+  TOAST_MESSAGES,
+} from '../../utils/constants/common';
 import { isTabView } from '../../utils/functions/viewMode';
 
 // The stack's distance from the window's left and bottom edges.
@@ -176,6 +180,9 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
       transition-duration: ${TOAST_LEAVE_MS}ms;
     }
   `;
+  // KAN-280 Part F (Justine's pick A). What these say after the session's name would be cut with a long name: they wrap.
+  const wrapsMessage = (text: string) =>
+    text === TOAST_MESSAGES.COPIED_TO_SESSION_SKIPPED;
   const messageStyle = css`
     min-width: 0;
     overflow: hidden;
@@ -270,7 +277,13 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
             ]}
             aria-hidden={leaving || undefined}
           >
-            <span css={toast.offersUndo ? undefined : messageStyle}>
+            <span
+              css={
+                toast.offersUndo || wrapsMessage(toast.text)
+                  ? undefined
+                  : messageStyle
+              }
+            >
               {message}
             </span>
             {offer !== null && (
