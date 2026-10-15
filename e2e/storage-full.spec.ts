@@ -60,7 +60,12 @@ test('a refused save shows the toast, and a delete makes room for it', async ({
   await page.goto(`chrome-extension://${extensionId}/index.html`);
   // Barrier: goto resolves before React mounts. Locale-free.
   await page.locator('[data-tour-anchor="save"]').waitFor();
-  await row(page, 'Alpha').click();
+  // Focus + Enter, not a click: the selected row's drawn actions keep a click from finishing.
+  await row(page, 'Alpha').focus();
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('button', { name: 'Rename session: Alpha', exact: true })
+  ).toBeVisible();
 
   expect(await fillStorage(page)).toBeGreaterThan(1_000_000);
   await expect(page.getByText(STORAGE_FULL)).toHaveCount(0);
