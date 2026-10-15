@@ -16,7 +16,15 @@ vi.mock('../../utils/functions/openNowMoves', async (importOriginal) => {
 import OpenNowPane from '../../components/home/opennow/OpenNowPane';
 import { CarryLayer } from '../../components/home/CarryLayer';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
-import { carryEndedAs, currentCarry, endCarry } from '../../redux/carry';
+import {
+  carryEndedAs,
+  carryReceiverAt,
+  currentCarry,
+  endCarry,
+  startCarry,
+} from '../../redux/carry';
+import { liveItem, savedItem } from '../../redux/carriedItem';
+import { live } from '../fixtures/liveSnapshotFixture';
 import { endDragHold } from '../../redux/dragHold';
 import { placedWindowOf } from '../../redux/livePlacement';
 import type { OpenWindow } from '../../utils/functions/openNow';
@@ -248,5 +256,48 @@ describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
       windowWidth: 555,
       windowHeight: 466,
     });
+  });
+
+  // N4 A on the real page: a saved detail that adopted the carry hands it back here (receiverAt), and a release cancels.
+  test('Open now is a receiver for a live carry only, and takes nothing (N4 A)', async () => {
+    const { container } = await renderPane(groupSeed());
+    const root = container.querySelector<HTMLElement>('[role="region"]');
+    if (root === null) throw new Error('no Open now region');
+    root.getBoundingClientRect = () => box(0, 2000);
+    // No carry: an in-pane drag is never handed off here.
+    expect(carryReceiverAt(10, 50)).toBeNull();
+    act(() =>
+      startCarry(
+        savedItem({
+          kind: 'tab',
+          tabGroupId: 'S1',
+          windowId: 'w1',
+          tabId: 't1',
+        }),
+        { kind: 'tab', title: 't1', faviconUrl: '' },
+        10,
+        50
+      )
+    );
+    // A saved carry over Open now is as KAN-350 left it.
+    expect(carryReceiverAt(10, 50)).toBeNull();
+    act(() => endCarry('cancelled'));
+    act(() =>
+      startCarry(
+        liveItem({
+          pick: { kind: 'tab', windowId: 'live-w', tabId: 'l1' },
+          window: live(),
+          chromeWindowId: 7,
+        }),
+        { kind: 'tab', title: 'l1', faviconUrl: '' },
+        10,
+        50
+      )
+    );
+    const here = carryReceiverAt(10, 50);
+    expect(here).not.toBeNull();
+    expect(here?.take()).toBe(false);
+    // Outside its box, nothing.
+    expect(carryReceiverAt(400, 50)).toBeNull();
   });
 });

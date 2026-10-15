@@ -76,7 +76,11 @@ import {
   liveTabCarryOut,
   liveWindowCarryOut,
 } from './liveCarryOut';
-import { currentCarry, subscribeCarry } from '../../../redux/carry';
+import {
+  currentCarry,
+  registerCarryReceiver,
+  subscribeCarry,
+} from '../../../redux/carry';
 import { readLivePlacement } from '../../../redux/livePlacement';
 
 export type OpenNowHeaderAction = {
@@ -216,6 +220,26 @@ export default function OpenNowPane({
     [listed, inChromeOrder, recentTabsOf]
   );
   const windowRowIds = useMemo(() => listed.map((w) => String(w.id)), [listed]);
+
+  // N4 A. Open now takes nothing: over it, a live carry is the layer's (a saved detail that adopted it hands it
+  // back here), and a release cancels. A saved carry, and a drag inside Open now, are never answered (KAN-352).
+  useEffect(() => {
+    const measureHit = (): ((x: number, y: number) => boolean) => {
+      const el = paneRef.current;
+      if (el === null || currentCarry()?.item.source !== 'live') {
+        return () => false;
+      }
+      const b = el.getBoundingClientRect();
+      return (x, y) => x >= b.left && x < b.right && y >= b.top && y < b.bottom;
+    };
+    return registerCarryReceiver({
+      hit: (x, y) => measureHit()(x, y),
+      measureHit,
+      hover: () => {},
+      leave: () => {},
+      take: () => false,
+    });
+  }, []);
 
   // P6. A carry from here reads its window's place as Chrome has it now.
   useEffect(() => {
