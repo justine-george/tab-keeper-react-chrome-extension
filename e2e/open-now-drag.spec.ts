@@ -1451,6 +1451,55 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
     await expect.poll(() => savedCount(page)).toBe(saved - 1);
     expect(await chromeOrder(worker, a.windowId)).toEqual(start);
   });
+
+  // KAN-590 (picked A): while a drop holds the key, the Reopen chip does not
+  // name it; once ⌘Z has taken the drop, the chip names it again, and it reopens.
+  test('7f. a drop after a close: the Reopen hint hides until ⌘Z undoes the drop, then ⌘Z reopens', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const page = await openTabView(context, extensionId);
+    const a = await openWindow(worker, ['a0', 'a1', 'a2', 'a3']);
+    await expect(tabRow(page, a.tab('a3'))).toBeVisible();
+    const reopen = page
+      .getByRole('status')
+      .getByRole('button', { name: 'Reopen', exact: true });
+    const hint = reopen.locator('[data-key-hint]');
+
+    await page
+      .getByRole('button', { name: 'Close tab: a3', exact: true })
+      .click();
+    await expect
+      .poll(() => chromeOrder(worker, a.windowId))
+      .toEqual([a.tab('a0'), a.tab('a1'), a.tab('a2')]);
+    // PREMISE: the offer names the key.
+    await expect(hint).toHaveCount(1);
+    await expect(reopen).toHaveAttribute('aria-keyshortcuts', /\+Z$/);
+
+    await dragTab(page, a.tab('a2'), () => justInside(page, a.tab('a1')));
+    await expect
+      .poll(() => chromeOrder(worker, a.windowId))
+      .toEqual([a.tab('a0'), a.tab('a2'), a.tab('a1')]);
+    // Held open from here (KAN-488), so the offer cannot time out under the test.
+    await page.getByRole('status').locator('[data-toast]').hover();
+
+    await expect(hint).toHaveCount(0);
+    await expect(reopen).not.toHaveAttribute('aria-keyshortcuts');
+
+    await undoKey(page);
+    await expect
+      .poll(() => chromeOrder(worker, a.windowId))
+      .toEqual([a.tab('a0'), a.tab('a1'), a.tab('a2')]);
+    await expect(hint).toHaveCount(1);
+    await expect(reopen).toHaveAttribute('aria-keyshortcuts', /\+Z$/);
+
+    await undoKey(page);
+    await expect
+      .poll(async () => (await chromeOrder(worker, a.windowId)).length)
+      .toBe(4);
+    await expect(reopen).toHaveCount(0);
+  });
 });
 
 // ---- 8: the page you're using (T1, R26) -----------------------------------------
