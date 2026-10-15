@@ -224,6 +224,50 @@ describe('a drop on a collapsed window keeps the pin (KAN-458)', () => {
     expect(landed?.[1][0]).not.toBe('b1');
   });
 
+  // KAN-280 Part F: the pin of a CARRIED tab is read from its source window.
+  test('a carried pinned tab lands first in a folded window, still pinned', () => {
+    const { store, wrapper, wB } = setup(true);
+    store.dispatch(
+      saveToTabContainerInternal({
+        tabGroupId: 'src',
+        title: 'Source',
+        createdTime: '2026-10-07 08:00:00',
+        windowCount: 1,
+        tabCount: 2,
+        isAutoSave: false,
+        isSelected: false,
+        windows: [win('ws', [tab('pX', { pinned: true }), tab('s2')])],
+      })
+    );
+    const carried = savedItem({
+      kind: 'tab',
+      tabGroupId: 'src',
+      windowId: 'ws',
+      tabId: 'pX',
+    });
+    const phantom = carriedRowId(carried);
+    const paneWindows = {
+      tabGroupId: 'tg',
+      windows: [
+        { ...WINDOWS[0], tabs: [...WINDOWS[0].tabs, tab(phantom)] },
+        WINDOWS[1],
+      ],
+    };
+    const { result } = renderHook(() => useTabDrop(paneWindows, true), {
+      wrapper,
+    });
+    act(() =>
+      startCarry(carried, { kind: 'tab', title: 'pX', faviconUrl: '' }, 0, 0)
+    );
+    act(() => result.current.onMove(phantom, 3, undefined, 'wB'));
+    expect(wB()).toEqual([
+      ['pX', true],
+      ['pB', true],
+      ['b1', false],
+      ['b2', false],
+    ]);
+  });
+
   test('a group lands right after the pinned run, not refused', () => {
     const { wrapper, wB, paneWindows } = setup(true);
     const { result } = renderHook(() => useGroupDrop(paneWindows, true), {
