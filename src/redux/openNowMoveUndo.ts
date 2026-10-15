@@ -13,11 +13,30 @@ import type { OpenNowDrop } from '../utils/functions/openNowMoves';
 // comparison: nothing has taken a number since it did.
 let lastAction = 0;
 let latestDrop: { action: number; drop: OpenNowDrop } | null = null;
+const listeners = new Set<() => void>();
+
+function notify(): void {
+  listeners.forEach((listener) => listener());
+}
+
+// KAN-590. For useSyncExternalStore: the Toast hides its ⌘Z hint while the key takes a drop.
+export function subscribeToOpenNowDrop(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+// True exactly when takeOpenNowDrop would return a drop.
+export function openNowDropHoldsUndoKey(): boolean {
+  return latestDrop !== null && latestDrop.action === lastAction;
+}
 
 // A Reopen offer shown, or a new saved-session undoable change. Any drop
 // before it can no longer be undone.
 export function noteTabKeeperAction(): void {
   lastAction += 1;
+  notify();
 }
 
 // A drop that changed something: the most recent action now, replacing any
@@ -25,6 +44,7 @@ export function noteTabKeeperAction(): void {
 export function storeOpenNowDrop(drop: OpenNowDrop): void {
   lastAction += 1;
   latestDrop = { action: lastAction, drop };
+  notify();
 }
 
 // The drop ⌘Z undoes: the latest one, while no other action has come since.
@@ -33,6 +53,7 @@ export function storeOpenNowDrop(drop: OpenNowDrop): void {
 export function takeOpenNowDrop(): OpenNowDrop | null {
   const latest = latestDrop;
   latestDrop = null;
+  notify();
   if (latest === null || latest.action !== lastAction) return null;
   return latest.drop;
 }

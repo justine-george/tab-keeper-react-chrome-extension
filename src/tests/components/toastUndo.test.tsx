@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -23,6 +23,12 @@ import {
   undo,
 } from '../../redux/slices/undoRedoSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
+import {
+  noteTabKeeperAction,
+  storeOpenNowDrop,
+  takeOpenNowDrop,
+} from '../../redux/openNowMoveUndo';
+import type { OpenNowDrop } from '../../utils/functions/openNowMoves';
 
 // KAN-583. "Session deleted." and "Session replaced…" offer Undo, which steps back as ⌘Z does.
 // Only while that change is still the latest undo step (L1): a later one takes the button off.
@@ -217,6 +223,94 @@ describe('Undo in the Delete and Replace toasts (KAN-583)', () => {
 
     expect(undoButtons()[0]).not.toHaveAttribute('aria-keyshortcuts');
     await user.click(undoButtons()[0]);
+    expect(sessionIds(store)).toContain('kyoto');
+  });
+});
+
+// KAN-590 (picked A). While an Open now drop holds ⌘Z, neither chip names the key; once ⌘Z takes the drop, it does again.
+describe('the key hint while an Open now drop holds the key (KAN-590)', () => {
+  const DROP: OpenNowDrop = {
+    kind: 'tab',
+    moved: [
+      {
+        tabId: 11,
+        before: { windowId: 1, index: 0, groupId: -1, group: null },
+        after: { windowId: 1, index: 1, groupId: -1, group: null },
+      },
+    ],
+  };
+  const reopenButton = () =>
+    within(screen.getByRole('status')).getByRole('button', { name: 'Reopen' });
+
+  afterEach(() => {
+    // A kept drop is module state: a later action retires it.
+    noteTabKeeperAction();
+  });
+
+  test('Undo: hidden under the drop, back once the key takes it', async () => {
+    const { store } = await renderToasts();
+    await deleteKyoto(store);
+    // PREMISE: the hint shows.
+    await waitFor(() =>
+      expect(undoButtons()[0]).toHaveAttribute('aria-keyshortcuts', 'Control+Z')
+    );
+
+    act(() => storeOpenNowDrop(DROP));
+
+    expect(undoButtons()[0]).not.toHaveAttribute('aria-keyshortcuts');
+    expect(undoButtons()[0].querySelector('[data-key-hint]')).toBeNull();
+
+    act(() => {
+      takeOpenNowDrop();
+    });
+
+    expect(undoButtons()[0]).toHaveAttribute('aria-keyshortcuts', 'Control+Z');
+  });
+
+  test('Reopen: hidden under the drop, back once the key takes it', async () => {
+    const { store } = await renderToasts();
+    await act(async () => {
+      await store.dispatch(
+        showToast({ toastText: TOAST_MESSAGES.TAB_CLOSED, reopenOfferId: 7 })
+      );
+    });
+    // PREMISE: the hint shows.
+    await waitFor(() =>
+      expect(reopenButton()).toHaveAttribute('aria-keyshortcuts', 'Control+Z')
+    );
+
+    act(() => storeOpenNowDrop(DROP));
+
+    expect(reopenButton()).not.toHaveAttribute('aria-keyshortcuts');
+    expect(reopenButton().querySelector('[data-key-hint]')).toBeNull();
+
+    act(() => {
+      takeOpenNowDrop();
+    });
+
+    expect(reopenButton()).toHaveAttribute('aria-keyshortcuts', 'Control+Z');
+  });
+
+  test('an action after the drop retires it, and the hint comes back', async () => {
+    const { store } = await renderToasts();
+    await deleteKyoto(store);
+    act(() => storeOpenNowDrop(DROP));
+    // PREMISE: hidden.
+    expect(undoButtons()[0]).not.toHaveAttribute('aria-keyshortcuts');
+
+    act(() => noteTabKeeperAction());
+
+    expect(undoButtons()[0]).toHaveAttribute('aria-keyshortcuts', 'Control+Z');
+  });
+
+  test('the chip still works by click under the drop', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderToasts();
+    await deleteKyoto(store);
+    act(() => storeOpenNowDrop(DROP));
+
+    await user.click(undoButtons()[0]);
+
     expect(sessionIds(store)).toContain('kyoto');
   });
 });

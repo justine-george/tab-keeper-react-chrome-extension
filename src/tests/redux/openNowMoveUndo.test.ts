@@ -1,8 +1,10 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   noteTabKeeperAction,
+  openNowDropHoldsUndoKey,
   storeOpenNowDrop,
+  subscribeToOpenNowDrop,
   takeOpenNowDrop,
 } from '../../redux/openNowMoveUndo';
 import type { OpenNowDrop } from '../../utils/functions/openNowMoves';
@@ -62,5 +64,61 @@ describe("⌘Z's Open now drop", () => {
 
     expect(takeOpenNowDrop()).toBe(newer);
     expect(takeOpenNowDrop()).toBeNull();
+  });
+});
+
+// KAN-590. The Toast hides its ⌘Z hint exactly while the key would take a drop.
+describe('a drop holds the undo key', () => {
+  test('nothing stored: it does not', () => {
+    expect(openNowDropHoldsUndoKey()).toBe(false);
+  });
+
+  test('from its store until it is taken', () => {
+    storeOpenNowDrop(drop(1));
+    expect(openNowDropHoldsUndoKey()).toBe(true);
+
+    takeOpenNowDrop();
+
+    expect(openNowDropHoldsUndoKey()).toBe(false);
+  });
+
+  test('until an action after it', () => {
+    storeOpenNowDrop(drop(1));
+
+    noteTabKeeperAction();
+
+    expect(openNowDropHoldsUndoKey()).toBe(false);
+  });
+
+  test('CONTROL: an action before it leaves the key with the drop', () => {
+    noteTabKeeperAction();
+    storeOpenNowDrop(drop(1));
+
+    expect(openNowDropHoldsUndoKey()).toBe(true);
+  });
+});
+
+describe('subscribeToOpenNowDrop', () => {
+  test('a store, a take and an action each tell the listener', () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeToOpenNowDrop(listener);
+
+    storeOpenNowDrop(drop(1));
+    expect(listener).toHaveBeenCalledTimes(1);
+    takeOpenNowDrop();
+    expect(listener).toHaveBeenCalledTimes(2);
+    noteTabKeeperAction();
+    expect(listener).toHaveBeenCalledTimes(3);
+
+    unsubscribe();
+  });
+
+  test('unsubscribed, it hears nothing', () => {
+    const listener = vi.fn();
+    subscribeToOpenNowDrop(listener)();
+
+    storeOpenNowDrop(drop(1));
+
+    expect(listener).not.toHaveBeenCalled();
   });
 });
