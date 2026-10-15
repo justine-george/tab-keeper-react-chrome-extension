@@ -12,6 +12,7 @@ import {
   type SettingsData,
 } from './slices/settingsDataStateSlice';
 import { resetHistory } from './slices/undoRedoSlice';
+import { withUnsavedSettings } from './unsavedSettings';
 import {
   asPartialSettings,
   isValidTabMasterContainer,
@@ -95,7 +96,7 @@ export const applyOtherPageSettings =
       return { languageChanged: null };
     }
     const incoming = asPartialSettings<SettingsData>(loaded);
-    const next: SettingsData = {
+    const laid: SettingsData = {
       ...current,
       ...incoming,
       language: asShippedLanguage(incoming.language) ?? current.language,
@@ -118,6 +119,8 @@ export const applyOtherPageSettings =
       // KAN-7. Same rule for the onboarding answers.
       ...guardOnboarding(loaded, current),
     };
+    // KAN-615. A field this page changed while its saves were refused stays.
+    const next = withUnsavedSettings(laid, current);
     if (sameIgnoringKeyOrder(next, current)) return { languageChanged: null };
 
     dispatch(hydrateSettingsFromOtherPage(next));

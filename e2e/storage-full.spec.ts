@@ -3,7 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { buildSession } from './fixtures/seed';
 import { seedOnce } from './fixtures/cloud';
-import { POPUP, stored } from './fixtures/savedWindows';
+import { POPUP, TAB_VIEW, stored } from './fixtures/savedWindows';
 
 // KAN-593 on the real artifact, against Chromium's real localStorage quota: a
 // save the quota refuses says so, and deleting a session makes room for it.
@@ -171,4 +171,59 @@ test('a refused save shows the toast, and a delete makes room for it', async ({
   await page.locator('[data-tour-anchor="save"]').waitFor();
   await expect(row(page, 'Alpha, renamed longer')).toHaveCount(1);
   await expect(row(page, 'Bravo')).toHaveCount(0);
+});
+
+// KAN-615. Another page writes its whole settings object, which still holds
+// the value this page's refused save changed; taking it in flipped it back.
+test("another page's settings save keeps a refused setting", async ({
+  context,
+  extensionId,
+}) => {
+  const popup = await context.newPage();
+  await popup.setViewportSize(POPUP);
+  await popup.goto(`chrome-extension://${extensionId}/index.html`);
+  await popup.locator('[data-tour-anchor="save"]').waitFor();
+  const tab = await context.newPage();
+  await tab.setViewportSize(TAB_VIEW);
+  await tab.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+  await tab.locator('[data-tour-anchor="save"]').waitFor();
+
+  const pressed = (page: Page, name: string) =>
+    page.getByRole('button', { name, exact: true });
+  const storedSettings = (page: Page) =>
+    page.evaluate(() =>
+      JSON.parse(localStorage.getItem('settingsData') ?? '{}')
+    );
+
+  await popup.getByRole('button', { name: 'Settings', exact: true }).click();
+  expect(await fillStorage(popup)).toBeGreaterThan(1_000_000);
+  await pressed(popup, 'Graphite').click();
+  await expect(popup.getByRole('status')).toContainText(STORAGE_FULL);
+  // The premise: on screen, not on disk.
+  await expect(pressed(popup, 'Graphite')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  expect((await storedSettings(popup)).theme).toBe('Light');
+
+  // h23 is h12's length, so the tab's save fits where the theme's did not.
+  await tab.getByRole('button', { name: 'Settings', exact: true }).click();
+  await tab.getByRole('button', { name: 'Display', exact: true }).click();
+  await pressed(tab, '24-hour').click();
+  await expect
+    .poll(async () => (await storedSettings(tab)).timeFormat)
+    .toBe('h23');
+
+  // The popup takes the tab's change and keeps its own.
+  await popup.getByRole('button', { name: 'Display', exact: true }).click();
+  await expect(pressed(popup, '24-hour')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  await popup.getByText('Back', { exact: true }).click();
+  await popup.getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(pressed(popup, 'Graphite')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
 });
