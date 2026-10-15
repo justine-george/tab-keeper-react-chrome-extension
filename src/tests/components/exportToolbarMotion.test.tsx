@@ -69,7 +69,7 @@ describe('Copy all links confirms in the button itself (KAN-221)', () => {
 
     await user.click(screen.getByRole('button', { name: 'Copy all links' }));
 
-    const message = await screen.findByText('1 link copied');
+    const message = await screen.findByText('1 link copied.');
     expect(message.closest('[data-toast]')).toBeTruthy();
     expect(message.closest('[role="status"]')).toBeTruthy();
     expect(
@@ -78,7 +78,7 @@ describe('Copy all links confirms in the button itself (KAN-221)', () => {
         .getAttribute('data-second-face-shown')
     ).toBe('true');
     // One announcement: no second status region repeats the count.
-    expect(screen.getAllByText('1 link copied')).toHaveLength(1);
+    expect(screen.getAllByText('1 link copied.')).toHaveLength(1);
   });
 });
 

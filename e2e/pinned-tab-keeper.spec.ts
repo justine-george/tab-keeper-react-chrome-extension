@@ -187,7 +187,7 @@ async function closeAndReopen(
     .poll(async () => (await allWindowIds(worker)).includes(windowId))
     .toBe(false);
   await expect(page.getByRole('status')).toContainText(
-    `Window closed (${tabCount} tabs)`
+    `Window closed (${tabCount} tabs).`
   );
   const before = await allWindowIds(worker);
   await reopenButton(page).click();

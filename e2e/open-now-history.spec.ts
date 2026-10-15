@@ -384,7 +384,7 @@ async function closeHistoryTab(
   await expect
     .poll(async () => (await tabsAt(worker, made.url)).length)
     .toBe(0);
-  await expect(page.getByRole('status')).toContainText('Tab closed');
+  await expect(page.getByRole('status')).toContainText('Tab closed.');
 }
 
 // Reopen pressed on the toast. The key's own wiring is open-now-close 14.
@@ -728,7 +728,7 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
         )
         .toBe(false);
       await expect(page.getByRole('status')).toContainText(
-        'Window closed (3 tabs)'
+        'Window closed (3 tabs).'
       );
 
       const before = await allWindowIds(serviceWorker);

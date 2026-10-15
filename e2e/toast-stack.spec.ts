@@ -32,7 +32,7 @@ const EDGE = 20;
 const GAP = 8;
 const RISE = 12;
 
-const TAB_CLOSED = 'Tab closed';
+const TAB_CLOSED = 'Tab closed.';
 const WINDOW_SAVED = 'Window saved as a session.';
 const ALL_SAVED = 'All open windows saved as a session.';
 
@@ -125,7 +125,7 @@ const linksCopied = async (page: Page): Promise<string> => {
   );
   if (selected === undefined) throw new Error('no session is selected');
   const n = selected.windows.reduce((sum, w) => sum + w.tabs.length, 0);
-  return n === 1 ? '1 link copied' : `${n} links copied`;
+  return n === 1 ? '1 link copied.' : `${n} links copied.`;
 };
 
 // A saved session, so its menu can offer Copy all links.
