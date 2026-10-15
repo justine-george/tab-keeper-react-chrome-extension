@@ -300,6 +300,38 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     await expectUndoRestores(page, before);
   });
 
+  // Justine, 02:25: in and out of Open now quickly, the slot drew rows away from the pointer. Re-adopted while
+  // the rows still slid home, the engine measured them mid-slide. The slot must sit where the pointer is.
+  test('2b. in and out of Open now quickly, then into the session: the slot is at the row under the pointer', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openTabView(context, extensionId, false);
+    const live = await openLiveWindow(serviceWorker, ['Live A']);
+    await expect(liveRow(page, live.idOf('Live A'))).toBeVisible();
+    const a1 = await boxOf(page.locator('[data-drag-row-id="a1"]'));
+    const openNow = await boxOf(
+      page.locator('[data-pane="open-now"] [role="region"]')
+    );
+    const aim = { x: a1.x + 60, y: a1.y + a1.height * 0.25 };
+
+    await pickUpLive(page, live.idOf('Live A'));
+    for (let i = 0; i < 4; i++) {
+      await page.mouse.move(aim.x, aim.y, { steps: 6 });
+      await page.mouse.move(openNow.x + 60, aim.y, { steps: 4 });
+    }
+    await page.mouse.move(aim.x, aim.y, { steps: 6 });
+    await settled(page);
+    const slot = await boxOf(page.locator('[data-drag-landing-slot]'));
+    // Above a1's middle: the slot takes a1's place, where a1 was at rest.
+    expect(Math.abs(slot.y - a1.y)).toBeLessThan(2);
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await urlsOf(page, 'S1'))[0]?.[1])
+      .toBe(dataUrl('Live A'));
+  });
+
   test('3. a group: rest on a row to open it, then a slot between items; its name, colour and fold kept', async ({
     context,
     extensionId,

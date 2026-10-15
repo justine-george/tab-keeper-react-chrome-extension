@@ -82,6 +82,7 @@ import {
   type UnfoldedRow,
 } from './unfold';
 import { DURATION } from '../../../../styles/scale';
+import { settleSlides } from './settleSlides';
 import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
 import {
   carryEndedAs,
@@ -1490,6 +1491,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // so an adopted drag is measured by exactly the rules a pressed one is,
     // in its own layout, afresh every time.
     const activate = (l: LiveDrag) => {
+      // At rest before anything is measured: rows still easing home from the last drag would be read mid-slide.
+      settleSlides(containerRef.current);
       // BEFORE the measurement, not after (KAN-153). A window drag collapses
       // every tab list via CSS, which changes every row's height -- and this
       // writes the attribute straight to the DOM, so the
