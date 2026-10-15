@@ -62,9 +62,9 @@ export const loadBackupFile =
           );
         } catch (error: unknown) {
           console.warn('Error restoring tabs', error);
-          // KAN-86. Our own refusals carry a key and translate; a platform
-          // error (JSON.parse's SyntaxError) has none, so its English detail
-          // goes inside the translated frame.
+          // KAN-86. Our own refusals carry a key and translate (a non-JSON
+          // file too, KAN-618); an unforeseen error has none, so its English
+          // detail goes inside the translated frame.
           dispatch(
             showToast({
               toastText: IMPORT_ERROR_FRAME,

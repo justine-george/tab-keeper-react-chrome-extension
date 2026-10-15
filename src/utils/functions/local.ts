@@ -700,18 +700,20 @@ export const bytesToMB = (bytes: number, locale: string): string =>
     maximumFractionDigits: 1,
   }).format(bytes / 1048576);
 
-// The i18n keys for the two ways an import can be refused, and for the sync
-// guard's matching refusal (KAN-86).
+// The i18n keys for the three ways an import can be refused, and for the sync
+// guard's matching refusal (KAN-86, KAN-618).
 //
 // The two size refusals are opaque keys rather than English sentences, which
 // is the convention this repo already uses for anything carrying interpolation
 // (FocusConfirmBodyOne, TabGroupsPromptBodyOther). A plain fixed sentence such
-// as INVALID_STRUCTURE stays its own key, like every entry in TOAST_MESSAGES.
+// as INVALID_STRUCTURE or NOT_JSON stays its own key, like every entry in
+// TOAST_MESSAGES.
 //
 // They live here rather than in constants/common.ts for the same reason
 // getPrettyDate's fallback locale does: src/background.ts imports this module,
 // and constants/common.ts pulls in manifest.json and a redux slice.
 export const IMPORT_INVALID_STRUCTURE = 'Invalid JSON structure.';
+export const IMPORT_NOT_JSON = 'The file is not valid JSON.';
 export const IMPORT_SIZE_REFUSAL = 'ImportSizeRefusal';
 export const SYNC_SIZE_REFUSAL = 'SyncSizeRefusal';
 
@@ -719,10 +721,10 @@ export const SYNC_SIZE_REFUSAL = 'SyncSizeRefusal';
 // the values that key interpolates.
 //
 // The distinction matters at the catch site: our own refusals can be
-// translated, while a platform error -- JSON.parse's SyntaxError, say -- is an
-// unbounded English string that has to be shown as raw technical detail. The
-// type is what lets the handler tell those apart, instead of pattern-matching
-// on the message text.
+// translated, while a platform error -- anything readImportedContainer did not
+// foresee -- is an unbounded English string that has to be shown as raw
+// technical detail. The type is what lets the handler tell those apart,
+// instead of pattern-matching on the message text.
 //
 // The `message` carries the key AND its values, because the two size refusals
 // are opaque keys: `saveToFirestoreIfDirty`'s catch logs `error.message` to the
@@ -746,10 +748,9 @@ export class TranslatableError extends Error {
 //
 // Every rejection throws, because the import handler already turns a throw
 // into a toast -- a caller that returned a result object would need new UI for
-// a path that already has one. JSON.parse's own SyntaxError is deliberately
-// left to propagate: it names the offending token, which is more useful than
-// anything this could say about a corrupt file. That one is NOT a
-// TranslatableError, and the handler shows it as raw detail.
+// a path that already has one. Every rejection is a TranslatableError:
+// JSON.parse's own SyntaxError is English with no full stop, so it goes to the
+// console and the user reads IMPORT_NOT_JSON (KAN-618).
 //
 // The size check is the KAN-27 guard, and it refuses rather than importing and
 // warning. An oversized container is persisted to localStorage by
@@ -760,7 +761,13 @@ export function readImportedContainer(
   content: string,
   locale: string
 ): TabMasterContainer {
-  const parsed: unknown = JSON.parse(content);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch (error: unknown) {
+    console.warn('Backup file is not JSON:', error);
+    throw new TranslatableError(IMPORT_NOT_JSON);
+  }
 
   if (!isValidTabMasterContainer(parsed)) {
     throw new TranslatableError(IMPORT_INVALID_STRUCTURE);

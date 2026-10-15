@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { Base64 } from 'js-base64';
 import {
   classifyStoredToken,
@@ -12,6 +12,7 @@ import {
   generatePlaceholderURL,
   getPrettyDate,
   IMPORT_INVALID_STRUCTURE,
+  IMPORT_NOT_JSON,
   IMPORT_SIZE_REFUSAL,
   TranslatableError,
   getStringDate,
@@ -1467,15 +1468,23 @@ describe('readImportedContainer', () => {
     }
   });
 
-  // The CONTROL for the two above. A platform error must NOT be marked
-  // translatable -- there is no key for "Unexpected token n in JSON at
-  // position 1", and treating it as one would send the raw string through t()
-  // and then show it anyway, only having claimed it was translated.
-  test('CONTROL: a JSON syntax error is not a TranslatableError', () => {
-    expect(() => readImportedContainer('{not json', 'en')).toThrow(SyntaxError);
-    expect(() => readImportedContainer('{not json', 'en')).not.toThrow(
-      TranslatableError
+  // KAN-618. A file that is not JSON gets a translated sentence; the parser's
+  // own message (English, no full stop) goes only to the console.
+  test('should reject a file that is not JSON with a translatable key, logging the parser error', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      readImportedContainer('{not json', 'en');
+      throw new Error('expected readImportedContainer to throw');
+    } catch (error) {
+      expect(error).toBeInstanceOf(TranslatableError);
+      expect((error as TranslatableError).i18nKey).toBe(IMPORT_NOT_JSON);
+      expect((error as TranslatableError).i18nParams).toBeUndefined();
+    }
+    expect(warn).toHaveBeenCalledWith(
+      'Backup file is not JSON:',
+      expect.any(SyntaxError)
     );
+    warn.mockRestore();
   });
 
   // The counterpart to the rejection test, and the reason the guard measures

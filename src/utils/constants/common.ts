@@ -145,7 +145,8 @@ export const TOAST_MESSAGES = {
   // next save that fits writes every change the full storage refused.
   STORAGE_FULL:
     'Not saved: storage is full. Delete some sessions to make room.',
-  IMPORT_SUCCESS: 'Restored tabs successfully!',
+  // KAN-618. Shaped like TAB_CLOSED, ending in a stop rather than "!".
+  IMPORT_SUCCESS: 'Tabs restored.',
   // Deliberately not "Error restoring tabs": by the time the cloud write is
   // attempted the restore has already succeeded on this device, so telling the
   // user it failed would be as wrong as the success toast this replaces
