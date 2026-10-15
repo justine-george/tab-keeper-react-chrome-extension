@@ -2,6 +2,7 @@ import type { BrowserContext, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { standIn } from './fixtures/standInPages';
+import { stubsStayHidden } from './fixtures/pinnedStub';
 import { grantedTest } from './fixtures/grantedExtension';
 import {
   buildContainer,
@@ -619,6 +620,8 @@ test.describe('Save with a Tab Keeper page active keeps the tab in use before it
     extensionId,
     serviceWorker,
   }) => {
+    // KAN-621. Else the stub, visible to Playwright, is a full view before it is activated.
+    await stubsStayHidden(context);
     const { popup, tabs, windowId } = await openOnTarget(
       context,
       extensionId,
@@ -626,9 +629,7 @@ test.describe('Save with a Tab Keeper page active keeps the tab in use before it
       true
     );
     // PREMISE: the stub leads the window, pinned.
-    expect(tabs[0].url).toMatch(
-      new RegExp(`^chrome-extension://${extensionId}/`)
-    );
+    expect(tabs[0].url).toBe(`chrome-extension://${extensionId}/pinned.html`);
     expect(tabs[0]).toMatchObject({ pinned: true, active: false });
     await openInBackground(serviceWorker, windowId);
 
