@@ -11,6 +11,8 @@ import type { OpenWindow } from '../../../utils/functions/openNow';
 import OpenNowPane from './OpenNowPane';
 import type { OpenNowHeaderAction } from './OpenNowPane';
 import { silenceRepeatedTitle } from '../../common/silenceRepeatedTitle';
+import { currentCarry, subscribeCarry } from '../../../redux/carry';
+import { DURATION } from '../../../styles/scale';
 
 interface OpenNowRailProps {
   windows: OpenWindow[] | null;
@@ -71,6 +73,31 @@ export default function OpenNowRail({
     }
   }, [isOpen, searchInputRef]);
 
+  // KAN-280 Part F (N2 A). Once a carry's pointer leaves the drawer, the drawer slides away so every drop works as
+  // wide; it comes back when the carry ends, mounted all along, so its scroll, folds and search are as they were.
+  const [away, setAway] = useState(false);
+  const drawerRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    // Read once per carry, at its first move, before the drawer has moved.
+    let box: DOMRect | null = null;
+    return subscribeCarry(() => {
+      const carry = currentCarry();
+      if (carry === null) {
+        box = null;
+        setAway(false);
+        return;
+      }
+      box ??= drawerRef.current?.getBoundingClientRect() ?? null;
+      if (box === null) return;
+      const outside =
+        carry.x < box.left ||
+        carry.x >= box.right ||
+        carry.y < box.top ||
+        carry.y >= box.bottom;
+      if (outside) setAway(true);
+    });
+  }, []);
+
   // Back to the button that opened it, so the user's place is kept.
   const close = () => {
     setIsOpen(false);
@@ -129,6 +156,20 @@ export default function OpenNowRail({
     background-color: ${COLORS.PRIMARY_COLOR};
     border-left: 1px solid ${COLORS.BORDER_COLOR};
     box-shadow: ${COLORS.FLOATING_SHADOW};
+    /* N2 A. Away during a carry: slid off, then hidden; back without the delay. */
+    transition:
+      transform ${DURATION.MOVE} ease,
+      visibility 0s linear ${DURATION.MOVE};
+    &[data-carry-away] {
+      transform: translateX(100%);
+      visibility: hidden;
+    }
+    &:not([data-carry-away]) {
+      transition: transform ${DURATION.MOVE} ease;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
   `;
 
   return (
@@ -154,8 +195,15 @@ export default function OpenNowRail({
           // Named by the pane's own heading, not a second copy of its text.
           aria-labelledby={headingId}
           css={drawerStyle}
+          ref={(el) => {
+            drawerRef.current = el;
+            // Away, nothing in it takes focus or a click (as DraggableRow sets it).
+            if (el && el.inert !== away) el.inert = away;
+          }}
+          data-carry-away={away ? '' : undefined}
           onKeyDown={(e) => {
-            if (e.key !== 'Escape') return;
+            // P8. During a carry, Esc is the carry's (CarryLayer), and the drawer stays.
+            if (e.key !== 'Escape' || currentCarry() !== null) return;
             e.preventDefault();
             close();
           }}

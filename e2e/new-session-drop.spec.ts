@@ -552,7 +552,8 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     expect(await saveRowSeen(page)).toEqual({ carrying: '0', target: '0' });
   });
 
-  test('N6: an Open now tab let go on the save row draws nothing and changes nothing', async ({
+  // KAN-280 Part F (N1 A) changed this rule: an Open now tab let go on the save row is a new session holding a copy.
+  test('N6, since KAN-280 Part F (N1 A): an Open now tab let go on the save row is a new session holding a copy; Chrome is untouched', async ({
     context,
     extensionId,
     serviceWorker,
@@ -579,8 +580,15 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
     await page.mouse.move(aim.x, aim.y, { steps: 8 });
     await page.mouse.up();
     await expect(page.locator('[data-drag-held]')).toHaveCount(0);
-    expect(await saveRowSeen(page)).toEqual({ carrying: '0', target: '0' });
-    expect(await stored(page)).toEqual(before);
+    expect(await saveRowSeen(page)).toEqual({ carrying: '1', target: '1' });
+    await expect
+      .poll(async () => (await stored(page)).tabGroups.length)
+      .toBe(before.tabGroups.length + 1);
+    const made = (await stored(page)).tabGroups[0];
+    expect(made?.title).toBe('x0');
+    expect(made?.windows.map((w) => w.tabs.map((t) => t.url))).toEqual([
+      [url('x0')],
+    ]);
     expect(await chromeNow(serviceWorker)).toBe(chromeBefore);
   });
 

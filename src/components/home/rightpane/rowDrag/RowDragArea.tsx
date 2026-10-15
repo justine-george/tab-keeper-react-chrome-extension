@@ -85,6 +85,7 @@ import { DURATION } from '../../../../styles/scale';
 import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
 import {
   carryEndedAs,
+  carryReceiverAt,
   currentCarry,
   endCarry,
   measureCarryReceivers,
@@ -372,6 +373,8 @@ interface LiveDrag {
   // point on it lands as a new first window (landingOf), and is never a
   // hand-off (onMoveEvent, Q3 i).
   isOnNewFirstWindow: ((x: number, y: number) => boolean) | null;
+  // KAN-280 Part F (P1). Whether a point is beside the list's pane, from its box read at activation; null unless handsOffBesidePane.
+  besidePane: ((x: number) => boolean) | null;
   // KAN-366. In a list that fits, the space free below its last window
   // (newWindowFree) when the drag started, read by the under-half-a-row
   // refusal in landingBlock; null in a list given room, or one with no
@@ -486,6 +489,7 @@ function pressRecord(
     heldWindow: null,
     receiverAt: null,
     isOnNewFirstWindow: null,
+    besidePane: null,
     freeForNewWindow: null,
     dropTarget: undefined,
     slots: [],
@@ -532,6 +536,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   offersNewWindow = false,
   keepWindowOpen,
   disabled = false,
+  cardOnPickUp = true,
+  handsOffBesidePane = false,
+  carryOnly = false,
   children,
 }) => {
   const parent = useContext(DragContext);
@@ -1552,6 +1559,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       l.isOnNewFirstWindow = offersNewWindow
         ? measureNewFirstWindowTarget(document)
         : null;
+      // P1. The pane's sides, read once like the receivers.
+      const paneBox = handsOffBesidePane
+        ? paneOf(l.heldEl)?.getBoundingClientRect()
+        : undefined;
+      l.besidePane =
+        paneBox === undefined
+          ? null
+          : (x) => x < paneBox.left || x >= paneBox.right;
 
       // RE-READ AFTER THE COLLAPSE, and this is load-bearing (KAN-154).
       // Folding the windows shut can make the list shorter than its viewport,
@@ -1724,7 +1739,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // the next setDrag draw the row as hidden (heldShownAsCard), and the
       // card goes up in the commit that does -- see the layout effect below
       // the listeners.
-      if (out !== null) l.card = out.card;
+      if (out !== null && cardOnPickUp) l.card = out.card;
     };
 
     // KAN-379. Patched, not re-measured: a row the preview moved reads displaced.
@@ -1871,6 +1886,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       ) {
         return null;
       }
+      // KAN-280 Part F. A receiver drawn over the pane (Open now's drawer, narrow) has the carry there: adopting it
+      // would hand it straight back on the same move, and again on the next.
+      if (carryReceiverAt(x, y) !== null) return null;
       const l = pressRecord(
         adoptRowId,
         rowIds.indexOf(adoptRowId),
@@ -1901,15 +1919,22 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // onClick must be allowed to fire untouched.
         if (travelled < ACTIVATION_DISTANCE_PX) return;
         activate(l);
+        // P2. Nothing lands here: the drag is a carry from its first move, or nothing.
+        if (carryOnly) {
+          if (!handOff(l, e.clientX, e.clientY)) finish(false, true);
+          return;
+        }
       }
 
       // Onto a carry receiver -- the session list -- the drag goes to the
-      // carry (KAN-350). ONLY there (KAN-352): the list is the only place a
-      // carried item can go, and anywhere else -- beside the pane, past it,
-      // over Open now or the resize grip on the line between them (x 972-984
-      // against a pane ending at 969, measured), above or below it in the
-      // auto-scroll overshoot (KAN-152) -- the drag is exactly what it always
-      // was: its preview, its landing, its refusal, its auto-scroll.
+      // carry (KAN-350). For the saved lists ONLY there (KAN-352): anywhere
+      // else -- beside the pane, past it, over Open now or the resize grip on
+      // the line between them (x 972-984 against a pane ending at 969,
+      // measured), above or below it in the auto-scroll overshoot (KAN-152) --
+      // the drag is exactly what it always was: its preview, its landing, its
+      // refusal, its auto-scroll. A list with handsOffBesidePane (Open now,
+      // KAN-280 Part F P1) also hands off once the pointer is left or right of
+      // its pane; above or below stays its drag.
       //
       // No box read per move: the receivers were measured when the drag
       // started, and only for a list that can hand off at all.
@@ -1919,9 +1944,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // first, it keeps the drag here, so the list goes on scrolling under a
       // pointer held above it and the landing is the new window.
       if (
-        l.receiverAt !== null &&
-        l.isOnNewFirstWindow?.(e.clientX, e.clientY) !== true &&
-        l.receiverAt(e.clientX, e.clientY) !== null &&
+        (l.besidePane?.(e.clientX) === true ||
+          (l.receiverAt !== null &&
+            l.isOnNewFirstWindow?.(e.clientX, e.clientY) !== true &&
+            l.receiverAt(e.clientX, e.clientY) !== null)) &&
         handOff(l, e.clientX, e.clientY)
       ) {
         return;
@@ -2195,6 +2221,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // still under the threshold is dropped the same way, so it cannot go on
     // to start a drag the list has turned off.
     if (disabled && live.current) finish(false, true);
+    // P2. A list turned carry-only (Open now's search starting) ends an in-list drag; a carry-only drag has already handed off.
+    if (carryOnly && live.current?.started === true) finish(false, true);
 
     return () => {
       unsubscribeCarry();
@@ -2232,6 +2260,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     clicks,
     cardOwner,
     disabled,
+    cardOnPickUp,
+    handsOffBesidePane,
+    carryOnly,
   ]);
 
   // The list's latest onLandingWindowChange, for the unmount below, which

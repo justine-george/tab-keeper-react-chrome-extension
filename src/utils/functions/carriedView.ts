@@ -103,13 +103,8 @@ export function carriedRowId(item: CarriedItem): string {
   }
 }
 
-/**
- * The id the carried item's OWN row goes by in the list that drags its kind
- * -- the row the move puts it in, once it has landed. Not the phantom's
- * (carriedRowId): the phantom is gone once the carry ends.
- */
-export function landedRowId(item: CarriedItem): string {
-  const pick = pickOf(item);
+// The row a pick's item goes by once it has landed. A live copy lands under its snapshot's ids (P9).
+export function landedRowIdOfPick(pick: CarriedPick): string {
   switch (pick.kind) {
     case 'tab':
       return pick.tabId;
@@ -119,6 +114,16 @@ export function landedRowId(item: CarriedItem): string {
       return pick.windowId;
   }
 }
+
+/**
+ * The id the carried item's OWN row goes by in the list that drags its kind
+ * -- the row the move puts it in, once it has landed. Not the phantom's
+ * (carriedRowId): the phantom is gone once the carry ends. For a live item,
+ * the snapshot's id: the copy lands under it, unless the target already held
+ * it (foreign data), and then the follow finds nothing.
+ */
+export const landedRowId = (item: CarriedItem): string =>
+  landedRowIdOfPick(pickOf(item));
 
 // A window's tabs and groups under their phantom ids. A tab keeps its group,
 // renamed with it.

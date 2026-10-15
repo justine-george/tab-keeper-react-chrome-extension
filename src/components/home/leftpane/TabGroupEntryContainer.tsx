@@ -24,6 +24,7 @@ import NoMatchState from '../../common/NoMatchState';
 import { useNoMatchPlace } from '../../../hooks/useNoMatchPlace';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
+import { isSessionOnScreen } from '../../../redux/sessionOnScreen';
 import { filterTabGroups } from '../../../utils/functions/local';
 import { setSearchInputText } from '../../../redux/slices/globalStateSlice';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
@@ -195,10 +196,9 @@ export default function TabGroupEntryContainer() {
   const [carryTargetId, setCarryTargetId] = useState<string | null>(null);
   const carryTargetRef = useRef<string | null>(null);
 
-  // Not a receiver while searching (KAN-385); a search started mid-carry ends it (CarryLayer).
+  // A receiver under the search too (KAN-280 Part F, D5 A): a live carry's row drop works there. A saved carry
+  // never reaches it then: none starts under the search (KAN-385), and one started before is ended (CarryLayer).
   useEffect(() => {
-    if (isSearching) return;
-
     const aim = (id: string | null) => {
       if (carryTargetRef.current === id) return;
       carryTargetRef.current = id;
@@ -334,8 +334,18 @@ export default function TabGroupEntryContainer() {
   // together, and a new target restarts both. The session on screen already
   // has no timer (Q3 A); after a spring-open the row the pointer rests on is
   // that session, so its timer stops there.
+  //
+  // KAN-280 Part F. P5: on screen is selected and not folded away, so folded the selected row opens as a peek (N3 A).
+  // P4: no spring-open under the saved search, where exact spots are off (D5 A).
+  const selectedOnScreen = useSelector(
+    (state: RootState) =>
+      selectedTabGroupId !== null &&
+      isSessionOnScreen(state, selectedTabGroupId)
+  );
   const dwellId =
-    carryTargetId !== null && carryTargetId !== selectedTabGroupId
+    !isSearching &&
+    carryTargetId !== null &&
+    !(carryTargetId === selectedTabGroupId && selectedOnScreen)
       ? carryTargetId
       : null;
   useEffect(() => {

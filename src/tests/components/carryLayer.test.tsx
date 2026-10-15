@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { savedItem } from '../../redux/carriedItem';
+import { liveItem, savedItem } from '../../redux/carriedItem';
+import { setSearchInputText } from '../../redux/slices/globalStateSlice';
+import { live } from '../fixtures/liveSnapshotFixture';
 import { act, fireEvent, screen } from '@testing-library/react';
 
 import { CarryLayer } from '../../components/home/CarryLayer';
@@ -29,6 +31,7 @@ import { setDragging } from '../../components/home/rightpane/rowDrag/dropRules';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { makeTestStore } from '../setup/makeStore';
 import { s1, s2, tab } from '../fixtures/sessionMoveFixture';
+import { carriedRef } from '../setup/carriedRef';
 
 // KAN-350: CarryLayer drives a carry outside every area that can take it: draws the D1 card, asks the receivers, and ends it on Esc, pointercancel or a refused release.
 
@@ -552,6 +555,56 @@ describe('a change on this page that removes the carried item ends the carry', (
       );
     });
 
-    expect(currentCarry()?.item.ref).toEqual(TAB);
+    expect(carriedRef()).toEqual(TAB);
+  });
+});
+
+describe('a live carry (KAN-280 Part F)', () => {
+  const LIVE_ITEM = () =>
+    liveItem({
+      pick: { kind: 'tab', windowId: 'live-w', tabId: 'l1' },
+      window: live(),
+      chromeWindowId: 7,
+    });
+  const LIVE_CARD: CarryCard = {
+    kind: 'tab',
+    title: 'Live l1',
+    faviconUrl: '',
+  };
+  const badge = () =>
+    document.querySelector('[data-carry-card] [data-carry-card-badge]');
+
+  test("its card wears the + badge; a saved carry's does not (D1 A)", async () => {
+    await renderLayer();
+    act(() => startCarry(LIVE_ITEM(), LIVE_CARD, 10, 10));
+    expect(badge()?.textContent).toBe('add');
+    act(() => endCarry('cancelled'));
+    act(() => startCarry(savedItem(TAB), LIVE_CARD, 10, 10));
+    expect(card()).not.toBeNull();
+    expect(badge()).toBeNull();
+  });
+
+  test('cancelled, it re-selects nothing (P3)', async () => {
+    const { store } = await renderLayer();
+    showOther(store);
+    act(() => startCarry(LIVE_ITEM(), LIVE_CARD, 10, 10));
+    act(() => endCarry('cancelled'));
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'S2'
+    );
+  });
+
+  // Review Focus 2.
+  test('started under the saved search, it is not cancelled (D5 A); a saved one still is', async () => {
+    const { store } = await renderLayer();
+    act(() => {
+      store.dispatch(setSearchInputText('t'));
+    });
+    const item = LIVE_ITEM();
+    act(() => startCarry(item, LIVE_CARD, 10, 10));
+    expect(currentCarry()?.item).toBe(item);
+    act(() => endCarry('cancelled'));
+    act(() => startCarry(savedItem(TAB), LIVE_CARD, 10, 10));
+    expect(currentCarry()).toBeNull();
   });
 });

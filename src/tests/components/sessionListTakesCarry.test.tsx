@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { savedItem } from '../../redux/carriedItem';
+import { liveItem, savedItem } from '../../redux/carriedItem';
+import { live } from '../fixtures/liveSnapshotFixture';
 import { act, fireEvent } from '@testing-library/react';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
@@ -25,6 +26,7 @@ import {
   setSearchInputText,
   setIsNotDirty,
 } from '../../redux/slices/globalStateSlice';
+import { setFoldSavedSessionInTabView } from '../../redux/slices/settingsDataStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import type { RootState } from '../../redux/store';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
@@ -44,6 +46,7 @@ import {
   win,
   windowIds,
 } from '../fixtures/sessionMoveFixture';
+import { carriedRef } from '../setup/carriedRef';
 
 // KAN-350 Task 4: the session list takes a carry. The row under the pointer is the target (D2 A), 600ms on it opens it (S1 A), a release moves the item in as a new first window (S2 A).
 // jsdom has no layout: a 300px scroller at y 100..400, 60px rows, six sessions (the sixth below the fold), laid out against scrollTop so a hit read in the wrong space names the wrong row.
@@ -194,6 +197,24 @@ function handOff(
   setDragging(true, carried.kind);
   beginDragHold();
   act(() => startCarry(savedItem(carried), card, 600, 200, onCancel));
+}
+
+// KAN-280 Part F. A live tab from Open now, as the engine leaves a hand-off.
+function handOffLive() {
+  setDragging(true, 'tab');
+  beginDragHold();
+  act(() =>
+    startCarry(
+      liveItem({
+        pick: { kind: 'tab', windowId: 'live-w', tabId: 'l1' },
+        window: live(),
+        chromeWindowId: 7,
+      }),
+      TAB_CARD,
+      600,
+      200
+    )
+  );
 }
 
 const moveTo = (y: number, x = X) =>
@@ -632,16 +653,17 @@ describe('auto-scroll', () => {
 
 // Every window is titled 'Window <id>', so 'window' searches and keeps every row.
 describe('the saved search', () => {
-  test('while searching the list is no receiver', async () => {
+  // KAN-280 Part F (D5 A). Still a receiver under the search: a live carry's row drop works there.
+  // A saved carry never reaches it then: none starts under the search (KAN-385), and one started before ends (below).
+  test('while searching the list is still a receiver', async () => {
     const { store } = await renderList();
-    // CONTROL: not searching, the list is what a point on a row hits.
     expect(carryReceiverAt(X, rowY(1))).not.toBeNull();
 
     act(() => {
       store.dispatch(setSearchInputText('window'));
     });
 
-    expect(carryReceiverAt(X, rowY(1))).toBeNull();
+    expect(carryReceiverAt(X, rowY(1))).not.toBeNull();
   });
 
   test('started mid-carry, it ends the carry and the target look', async () => {
@@ -760,7 +782,7 @@ describe('from a real drag out of the detail', () => {
   test('let go on a row: the tab is that session’s new first window', async () => {
     const { store } = await renderBoth();
     dragTabOutToList(rowY(1));
-    expect(currentCarry()?.item.ref).toMatchObject({ tabId: 't2' });
+    expect(carriedRef()).toMatchObject({ tabId: 't2' });
     expect(targetId()).toEqual(['S2']);
 
     releaseAt(rowY(1));
@@ -780,7 +802,7 @@ describe('from a real drag out of the detail', () => {
       'S2'
     );
     expect(document.querySelector('[data-drag-row-id="u1"]')).not.toBeNull();
-    expect(currentCarry()?.item.ref).toMatchObject({ tabId: 't2' });
+    expect(carriedRef()).toMatchObject({ tabId: 't2' });
   });
 });
 
@@ -801,3 +823,53 @@ function hexToRgb(hex: string): string {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   return `rgb(${r}, ${g}, ${b})`;
 }
+
+describe('a live carry (KAN-280 Part F)', () => {
+  test('under the saved search a row drop works, and resting opens nothing (D5 A, P4)', async () => {
+    const { store, scroller } = await renderList();
+    act(() => {
+      store.dispatch(setSearchInputText('window'));
+    });
+    layOut(scroller);
+    // PREMISE: the search keeps every row, so row 1 is still S2.
+    expect(rowIds()).toEqual(['S1', 'S2', 'S3', 'S4', 'S5', 'S6']);
+    handOffLive();
+    moveTo(rowY(1));
+    expect(targetId()).toEqual(['S2']);
+    wait(SPRING_OPEN_MS + 50);
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'S1'
+    );
+    releaseAt(rowY(1));
+    const s2 = sessionIn(store.getState().tabContainerDataState, 'S2');
+    expect(tabIds(s2.windows[0])).toEqual(['l1']);
+    expect(currentCarry()).toBeNull();
+  });
+
+  test("folded in the tab view, resting on the selected session's row opens it as a peek (N3 A, P5)", async () => {
+    history.replaceState(null, '', '?view=tab');
+    try {
+      const { store } = await renderList();
+      act(() => {
+        store.dispatch(setFoldSavedSessionInTabView(true));
+      });
+      handOffLive();
+      moveTo(rowY(0));
+      expect(targetId()).toEqual(['S1']);
+      expect(store.getState().globalState.isPeekingSavedSession).toBe(false);
+      wait(SPRING_OPEN_MS);
+      expect(store.getState().globalState.isPeekingSavedSession).toBe(true);
+    } finally {
+      history.replaceState(null, '', '/');
+    }
+  });
+
+  test('CONTROL: unfolded, the selected session has no timer (Q3 A)', async () => {
+    const { store } = await renderList();
+    handOffLive();
+    moveTo(rowY(0));
+    expect(vi.getTimerCount()).toBe(0);
+    wait(SPRING_OPEN_MS);
+    expect(store.getState().globalState.isPeekingSavedSession).toBe(false);
+  });
+});

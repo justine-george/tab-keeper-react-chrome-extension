@@ -13,6 +13,8 @@ import { collapsedWindowIdsOf } from '../../../redux/slices/globalStateSlice';
 import { isDrawnFolded } from '../../../redux/springOpenWindows';
 import { groupLandingRange } from '../../../utils/functions/pinnedRun';
 import { RowDragArea } from './rowDrag/RowDragArea';
+import { acceptsCarriedIn } from '../../../redux/carriedItem';
+import { currentCarry } from '../../../redux/carry';
 import { useKeepWindowOpen } from './useKeepWindowOpen';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useGroupDrop } from './useGroupDrop';
@@ -41,6 +43,15 @@ export const GroupDragArea: React.FC<{
   const keepWindowOpen = useKeepWindowOpen(itemList.tabGroupId);
   const carryOut = useCallback(
     (rowId: string) => groupCarryOut(itemList, rowId),
+    [itemList]
+  );
+  // Q2 A. A live item lands at a spot only in a window of its own kind; the phantom's new window shares its mark.
+  const acceptsWindow = useCallback(
+    (_rowId: string, windowId: string) =>
+      acceptsCarriedIn(
+        currentCarry()?.item ?? null,
+        itemList.windows.find((w) => w.windowId === windowId)
+      ),
     [itemList]
   );
   const store = useStore<RootState>();
@@ -77,6 +88,7 @@ export const GroupDragArea: React.FC<{
       // applied to the group's own window -- a silent wrong move that dirties
       // the session for a cloud write (measured, Task 11 fix round 1).
       dropsAcrossWindows
+      acceptsWindow={acceptsWindow}
       // KAN-458. A group never lands inside a window's pinned run; clamped in the decision the preview shares.
       landingRange={landingRange}
       // Only a group's title row is a handle, so a press on a tab reaches this

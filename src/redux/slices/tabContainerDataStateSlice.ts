@@ -25,11 +25,21 @@ import {
   saveToLocalStorage,
   stripEmbeddedFavicons,
 } from '../../utils/functions/local';
-import { newSessionTitleOf } from '../../utils/functions/newSessionTitle';
-import { savedItem } from '../carriedItem';
+import {
+  newSessionTitleOf,
+  titleOfPick,
+} from '../../utils/functions/newSessionTitle';
+import { savedItem, type CarriedPick } from '../carriedItem';
+import {
+  addressesIn,
+  copyOutcome,
+  tabsToCopy,
+  windowToCopy,
+} from '../../utils/functions/liveCopy';
 import {
   captureOpenWindows,
   isAlreadySaved,
+  savedIncognito,
   type CaptureScope,
 } from '../../utils/functions/capture';
 import {
@@ -406,6 +416,31 @@ export function isWindowMove(move: SessionMove): move is WindowMove {
   return move.carried.kind === 'window';
 }
 
+// KAN-280 Part F. Where a copy of a live item lands: the places a move goes (SessionMove's `to`), from a pick in a snapshot.
+export type SessionCopy =
+  | { pick: Extract<CarriedPick, { kind: 'tab' }>; to: TabMove['to'] }
+  | { pick: Extract<CarriedPick, { kind: 'group' }>; to: GroupMove['to'] }
+  | { pick: Extract<CarriedPick, { kind: 'window' }>; to: WindowMove['to'] };
+
+export type TabCopy = Extract<SessionCopy, { pick: { kind: 'tab' } }>;
+export type WindowCopy = Extract<SessionCopy, { pick: { kind: 'window' } }>;
+
+export function isTabCopy(copy: SessionCopy): copy is TabCopy {
+  return copy.pick.kind === 'tab';
+}
+
+export function isWindowCopy(copy: SessionCopy): copy is WindowCopy {
+  return copy.pick.kind === 'window';
+}
+
+export interface copyToSessionParams {
+  copy: SessionCopy;
+  // The live window as converted at pick-up (Q1 A), its place as read at carry start (P6).
+  snapshot: windowGroupData;
+  remintNamespace: string;
+  now: number;
+}
+
 export interface moveToSessionParams {
   move: SessionMove;
   // The UUID namespace a carried id that collides in the destination is
@@ -430,6 +465,19 @@ export interface moveToNewSessionParams {
   // A name typed in the session name field; blank when none was.
   typedTitle: string;
   remintNamespace: string;
+}
+
+// KAN-280 Part F (N1 A). A live item copied into a session made for it.
+export interface copyToNewSessionParams {
+  pick: CarriedPick;
+  // The live window as converted at pick-up (Q1 A).
+  snapshot: windowGroupData;
+  tabGroupId: string;
+  newWindowId: string;
+  remintNamespace: string;
+  now: number;
+  fallbackTitle: string;
+  typedTitle: string;
 }
 
 // Bounds are resolved here rather than inside createWindowWithRetries because
@@ -1380,6 +1428,98 @@ function isAllOfWindow(
     only?.kind === 'group' &&
     only.group.groupId === carried.groupId
   );
+}
+
+// The bounds a new window takes, and a copy's incognito mark (a move's new window stays unmarked, as before).
+type NewWindowLook = Pick<
+  windowGroupData,
+  | 'windowHeight'
+  | 'windowWidth'
+  | 'windowOffsetTop'
+  | 'windowOffsetLeft'
+  | 'incognito'
+>;
+
+const boundsOf = (w: windowGroupData): NewWindowLook => ({
+  windowHeight: w.windowHeight,
+  windowWidth: w.windowWidth,
+  windowOffsetTop: w.windowOffsetTop,
+  windowOffsetLeft: w.windowOffsetLeft,
+});
+
+// KAN-350, KAN-280 Part F. Lands tabs (one, or a group's run with its entry) where `landing` says, ids re-minted against `target` as it now is.
+function landTabsIn(
+  target: tabContainerData,
+  landing: TabsLanding,
+  tabs: tabData[],
+  group: chromeTabGroupData | undefined,
+  look: NewWindowLook,
+  remint: (id: string) => string
+): void {
+  const taken = idsIn(target);
+  remintTabsAndGroups(tabs, group === undefined ? [] : [group], taken, remint);
+
+  if (landing.kind === 'new-window') {
+    // Unnamed as a captured window is (KAN-394 L4). First or last, as the drop
+    // target said (S2 A, S3 A; KAN-361, KAN-366).
+    const newWindow: windowGroupData = {
+      windowId: taken.windows.has(landing.newWindowId)
+        ? remint(landing.newWindowId)
+        : landing.newWindowId,
+      ...look,
+      tabCount: tabs.length,
+      title: '',
+      tabs,
+      ...(group === undefined ? {} : { chromeTabGroups: [group] }),
+    };
+    if (landing.at === 'first') target.windows.unshift(newWindow);
+    else target.windows.push(newWindow);
+    target.windowCount += 1;
+  } else if (group === undefined) {
+    const [tab] = tabs;
+    const slot = clampIndex(landing.toIndex, landing.window.tabs.length);
+    // KAN-458. Its group, and its pin by where it landed.
+    landTab(tab, landing.window.tabs, slot, landing.toChromeGroupId);
+    landing.window.tabs.splice(slot, 0, tab);
+    landing.window.tabCount += 1;
+  } else {
+    const items = partitionTabsIntoItems(
+      landing.window.tabs,
+      landing.window.chromeTabGroups
+    );
+    // KAN-458. Never inside the pinned run (groupLandingRange offers no such slot).
+    const slot = Math.max(
+      clampIndex(landing.toIndex, items.length),
+      pinnedRunLength(landing.window.tabs)
+    );
+    items.splice(slot, 0, { kind: 'group', group, tabs });
+    landing.window.tabs = items.flatMap((item) =>
+      item.kind === 'tab' ? [item.tab] : item.tabs
+    );
+    landing.window.chromeTabGroups = [
+      ...(landing.window.chromeTabGroups ?? []),
+      group,
+    ];
+    landing.window.tabCount += tabs.length;
+  }
+  target.tabCount += tabs.length;
+}
+
+// KAN-350, KAN-280 Part F. Lands a whole window at `toIndex`, ids re-minted against `target`; its active tab follows by position (KAN-458 R3).
+function landWindowIn(
+  target: tabContainerData,
+  w: windowGroupData,
+  toIndex: number,
+  remint: (id: string) => string
+): void {
+  const taken = idsIn(target);
+  if (taken.windows.has(w.windowId)) w.windowId = remint(w.windowId);
+  const activeIndex = w.tabs.findIndex((t) => t.tabId === w.activeTabId);
+  remintTabsAndGroups(w.tabs, w.chromeTabGroups ?? [], taken, remint);
+  if (activeIndex !== -1) w.activeTabId = w.tabs[activeIndex].tabId;
+  target.windows.splice(clampIndex(toIndex, target.windows.length), 0, w);
+  target.windowCount += 1;
+  target.tabCount += w.tabCount;
 }
 
 // Buries the session at `index`; if selected, the one now at that index (or the new last) is.
@@ -2464,31 +2604,7 @@ export const tabContainerDataStateSlice = createSlice({
           source.windowCount -= 1;
           source.tabCount -= from.tabCount;
 
-          const taken = idsIn(target);
-          if (taken.windows.has(from.windowId)) {
-            from.windowId = remint(from.windowId);
-          }
-          // KAN-458 R3. The active tab is followed by position through a re-mint.
-          const activeIndex = from.tabs.findIndex(
-            (t) => t.tabId === from.activeTabId
-          );
-          remintTabsAndGroups(
-            from.tabs,
-            from.chromeTabGroups ?? [],
-            taken,
-            remint
-          );
-          if (activeIndex !== -1) {
-            from.activeTabId = from.tabs[activeIndex].tabId;
-          }
-
-          target.windows.splice(
-            clampIndex(move.to.toIndex, target.windows.length),
-            0,
-            from
-          );
-          target.windowCount += 1;
-          target.tabCount += from.tabCount;
+          landWindowIn(target, from, move.to.toIndex, remint);
         } else {
           const landing = tabsLandingIn(target, move.to);
           if (!landing) return;
@@ -2542,65 +2658,7 @@ export const tabContainerDataStateSlice = createSlice({
           source.tabCount -= tabs.length;
           forgetMissingActiveTab(from);
 
-          const taken = idsIn(target);
-          remintTabsAndGroups(
-            tabs,
-            group === undefined ? [] : [group],
-            taken,
-            remint
-          );
-
-          if (landing.kind === 'new-window') {
-            // Its source window's bounds, unnamed as a captured window is
-            // (KAN-394 L4). First or last, as the drop target said (S2 A,
-            // S3 A; KAN-361, KAN-366).
-            const newWindow: windowGroupData = {
-              windowId: taken.windows.has(landing.newWindowId)
-                ? remint(landing.newWindowId)
-                : landing.newWindowId,
-              windowHeight: from.windowHeight,
-              windowWidth: from.windowWidth,
-              windowOffsetTop: from.windowOffsetTop,
-              windowOffsetLeft: from.windowOffsetLeft,
-              tabCount: tabs.length,
-              title: '',
-              tabs,
-              ...(group === undefined ? {} : { chromeTabGroups: [group] }),
-            };
-            if (landing.at === 'first') target.windows.unshift(newWindow);
-            else target.windows.push(newWindow);
-            target.windowCount += 1;
-          } else if (group === undefined) {
-            const [tab] = tabs;
-            const slot = clampIndex(
-              landing.toIndex,
-              landing.window.tabs.length
-            );
-            // KAN-458. Its group, and its pin by where it landed.
-            landTab(tab, landing.window.tabs, slot, landing.toChromeGroupId);
-            landing.window.tabs.splice(slot, 0, tab);
-            landing.window.tabCount += 1;
-          } else {
-            const items = partitionTabsIntoItems(
-              landing.window.tabs,
-              landing.window.chromeTabGroups
-            );
-            // KAN-458. Never inside the pinned run (groupLandingRange offers no such slot).
-            const slot = Math.max(
-              clampIndex(landing.toIndex, items.length),
-              pinnedRunLength(landing.window.tabs)
-            );
-            items.splice(slot, 0, { kind: 'group', group, tabs });
-            landing.window.tabs = items.flatMap((item) =>
-              item.kind === 'tab' ? [item.tab] : item.tabs
-            );
-            landing.window.chromeTabGroups = [
-              ...(landing.window.chromeTabGroups ?? []),
-              group,
-            ];
-            landing.window.tabCount += tabs.length;
-          }
-          target.tabCount += tabs.length;
+          landTabsIn(target, landing, tabs, group, boundsOf(from), remint);
 
           // "An empty window is not a thing" -- the deleteTabInternal cascade.
           if (from.tabs.length === 0) {
@@ -2638,6 +2696,59 @@ export const tabContainerDataStateSlice = createSlice({
       ) => ({
         payload: { move, remintNamespace, now },
       }),
+    },
+    // KAN-280 Part F (spec O12c). A copy of a live item into a saved session: the move's landing, nothing removed, one ⌘Z.
+    // Declines, stamping nothing, when the target is gone, everything was already there (D6 A), or the kinds clash (Q2 A).
+    copyToSessionInternal: {
+      reducer: (state, action: PayloadAction<copyToSessionParams>) => {
+        const { copy, snapshot, remintNamespace, now } = action.payload;
+        const target = state.tabGroups.find(
+          (g) => g.tabGroupId === copy.to.tabGroupId
+        );
+        if (!target) return;
+        const taken = addressesIn(target);
+        const remint = (id: string) => uuidv5(id, remintNamespace);
+
+        if (isWindowCopy(copy)) {
+          const planned = windowToCopy(snapshot, taken);
+          if (planned.content === null) return;
+          landWindowIn(target, planned.content, copy.to.toIndex, remint);
+        } else {
+          const landing = tabsLandingIn(target, copy.to);
+          if (!landing) return;
+          // Q2 A. Only into a window of its own kind; a new window takes its mark.
+          if (
+            landing.kind === 'in-window' &&
+            (landing.window.incognito === true) !==
+              (snapshot.incognito === true)
+          ) {
+            return;
+          }
+          const planned = tabsToCopy(snapshot, copy.pick, taken);
+          if (planned.content === null) return;
+          landTabsIn(
+            target,
+            landing,
+            planned.content.tabs,
+            planned.content.group,
+            {
+              ...boundsOf(snapshot),
+              ...savedIncognito(snapshot.incognito === true),
+            },
+            remint
+          );
+        }
+
+        touchContent(state, target, now);
+        state.lastModified = now;
+        saveToLocalStorage('tabContainerData', state);
+      },
+      prepare: (
+        copy: SessionCopy,
+        snapshot: windowGroupData,
+        remintNamespace: string = uuidv4(),
+        now: number = Date.now()
+      ) => ({ payload: { copy, snapshot, remintNamespace, now } }),
     },
 
     moveToNewSessionInternal: {
@@ -2705,6 +2816,78 @@ export const tabContainerDataStateSlice = createSlice({
       ) => ({
         payload: {
           carried,
+          fallbackTitle,
+          typedTitle,
+          tabGroupId: minted.tabGroupId ?? uuidv4(),
+          newWindowId: minted.newWindowId ?? uuidv4(),
+          remintNamespace: minted.remintNamespace ?? uuidv4(),
+          now: minted.now ?? Date.now(),
+        },
+      }),
+    },
+
+    // KAN-280 Part F (N1 A). A live item let go on the save row: KAN-394's new session, holding a copy. D6 has nothing to skip in it.
+    copyToNewSessionInternal: {
+      reducer: (state, action: PayloadAction<copyToNewSessionParams>) => {
+        const {
+          pick,
+          snapshot,
+          tabGroupId,
+          newWindowId,
+          remintNamespace,
+          now,
+          fallbackTitle,
+          typedTitle,
+        } = action.payload;
+        // Nothing to copy: no empty session (D20).
+        if (!copyOutcome(snapshot, pick, new Set()).copiesAny) return;
+
+        state.tabGroups.unshift({
+          tabGroupId,
+          title:
+            normalizeTitle(typedTitle) ||
+            titleOfPick(snapshot, pick) ||
+            fallbackTitle,
+          createdTime: getStringDate(new Date(now)),
+          createdAt: now,
+          windowCount: 0,
+          tabCount: 0,
+          isAutoSave: false,
+          isSelected: false,
+          windows: [],
+        });
+
+        // The tab and group branches repeat `to` so each narrows its own pick.
+        const copy: SessionCopy =
+          pick.kind === 'window'
+            ? { pick, to: { tabGroupId, toIndex: 0 } }
+            : pick.kind === 'tab'
+              ? { pick, to: { tabGroupId, newWindowId, at: 'first' } }
+              : { pick, to: { tabGroupId, newWindowId, at: 'first' } };
+        tabContainerDataStateSlice.caseReducers.copyToSessionInternal(state, {
+          type: copyToSessionInternal.type,
+          payload: { copy, snapshot, remintNamespace, now },
+        });
+        tabContainerDataStateSlice.caseReducers.selectTabContainer(state, {
+          type: selectTabContainer.type,
+          payload: tabGroupId,
+        });
+      },
+      prepare: (
+        pick: CarriedPick,
+        snapshot: windowGroupData,
+        fallbackTitle: string,
+        typedTitle: string = '',
+        minted: Partial<
+          Pick<
+            copyToNewSessionParams,
+            'tabGroupId' | 'newWindowId' | 'remintNamespace' | 'now'
+          >
+        > = {}
+      ) => ({
+        payload: {
+          pick,
+          snapshot,
           fallbackTitle,
           typedTitle,
           tabGroupId: minted.tabGroupId ?? uuidv4(),
@@ -3118,6 +3301,8 @@ export const {
   moveChromeGroupAcrossWindowsInternal,
   moveSessionInternal,
   moveToSessionInternal,
+  copyToSessionInternal,
+  copyToNewSessionInternal,
   moveToNewSessionInternal,
   sortSessionsInternal,
   clearSessionOrder,

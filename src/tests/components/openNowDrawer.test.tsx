@@ -12,6 +12,16 @@ import {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { setFoldSavedSessionInTabView } from '../../redux/slices/settingsDataStateSlice';
 import { buildSession } from '../fixtures/sessionFixture';
+import {
+  currentCarry,
+  endCarry,
+  moveCarry,
+  startCarry,
+  type CarryOut,
+} from '../../redux/carry';
+import { liveItem } from '../../redux/carriedItem';
+import { endDragHold } from '../../redux/dragHold';
+import { live } from '../fixtures/liveSnapshotFixture';
 
 // KAN-280 O2. Below 1100px, side by side, Open now's column is a 44px rail
 // with one button, and the button opens Open now as a drawer over the right
@@ -359,5 +369,103 @@ describe('focus after a fold or unfold (O2)', () => {
     expect(document.activeElement).toBe(
       within(openNowSlot()).getByRole('button', { name: FOLD })
     );
+  });
+});
+
+// KAN-280 Part F (N2 A). A carry out of the drawer sends it away once the pointer leaves it, so every drop works
+// as wide; it comes back when the carry ends, mounted all along, its scroll kept.
+describe('a carry from the drawer (N2 A)', () => {
+  const LIVE = (): CarryOut => ({
+    item: liveItem({
+      pick: { kind: 'tab', windowId: 'live-w', tabId: 'l1' },
+      window: live(),
+      chromeWindowId: 7,
+    }),
+    card: { kind: 'tab', title: 'Live l1', faviconUrl: '' },
+  });
+  const DRAWER_BOX = DOMRect.fromRect({
+    x: 644,
+    y: 0,
+    width: 380,
+    height: 768,
+  });
+  const scrollerOf = (drawer: HTMLElement) => {
+    const el = drawer.querySelector<HTMLElement>('[data-open-now-scroller]');
+    if (el === null) throw new Error('no scroller');
+    return el;
+  };
+
+  afterEach(() => {
+    act(() => endCarry('cancelled'));
+    endDragHold();
+  });
+
+  test('leaving the drawer sends it away; after the drop it is back, mounted all along, its scroll kept', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { drawer, button } = await openDrawer();
+    drawer.getBoundingClientRect = () => DRAWER_BOX;
+    const scroller = scrollerOf(drawer);
+    scroller.scrollTop = 120;
+    const out = LIVE();
+    act(() => startCarry(out.item, out.card, 700, 100));
+    expect(drawer.hasAttribute('data-carry-away')).toBe(false);
+    act(() => moveCarry(300, 100));
+    expect(drawer.hasAttribute('data-carry-away')).toBe(true);
+    expect(drawer.inert).toBe(true);
+    // Back over where it was: it stays away until the carry ends.
+    act(() => moveCarry(700, 100));
+    expect(drawer.hasAttribute('data-carry-away')).toBe(true);
+    act(() => endCarry('committed'));
+    expect(drawer.hasAttribute('data-carry-away')).toBe(false);
+    expect(drawer.inert).toBe(false);
+    expect(drawer.isConnected).toBe(true);
+    expect(scrollerOf(drawer)).toBe(scroller);
+    expect(scroller.scrollTop).toBe(120);
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  test('a carry that stays inside the drawer leaves it in place', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { drawer } = await openDrawer();
+    drawer.getBoundingClientRect = () => DRAWER_BOX;
+    const out = LIVE();
+    act(() => startCarry(out.item, out.card, 700, 100));
+    act(() => moveCarry(800, 300));
+    expect(drawer.hasAttribute('data-carry-away')).toBe(false);
+  });
+
+  test('a cancel brings it back too', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { drawer } = await openDrawer();
+    drawer.getBoundingClientRect = () => DRAWER_BOX;
+    const out = LIVE();
+    act(() => startCarry(out.item, out.card, 700, 100));
+    act(() => moveCarry(300, 100));
+    expect(drawer.hasAttribute('data-carry-away')).toBe(true);
+    act(() => endCarry('cancelled'));
+    expect(drawer.hasAttribute('data-carry-away')).toBe(false);
+  });
+
+  // P8.
+  test("Esc during a carry is the carry's: the carry ends and the drawer stays open", async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { drawer, button } = await openDrawer();
+    const out = LIVE();
+    act(() => startCarry(out.item, out.card, 700, 100));
+    fireEvent.keyDown(drawer, { key: 'Escape' });
+    expect(currentCarry()).toBeNull();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  test('CONTROL: Esc with no carry still closes the drawer', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { drawer, button } = await openDrawer();
+    fireEvent.keyDown(drawer, { key: 'Escape' });
+    expect(button.getAttribute('aria-expanded')).toBe('false');
   });
 });

@@ -6,8 +6,9 @@ import type {
 } from './slices/tabContainerDataStateSlice';
 import { isCarriedStillThere } from '../utils/functions/tabGroups';
 
-// Only saved items today; Part F's PR 2 adds Open now's live items.
-export type CarriedItem = { source: 'saved'; ref: CarriedRef };
+// A saved item is its ref; a live one (KAN-280 Part F) its snapshot.
+export type CarriedItem =
+  { source: 'saved'; ref: CarriedRef } | { source: 'live'; live: LiveSnapshot };
 
 export const savedItem = (ref: CarriedRef): CarriedItem => ({
   source: 'saved',
@@ -20,7 +21,21 @@ export type CarriedPick =
   | { kind: 'group'; windowId: string; groupId: string }
   | { kind: 'window'; windowId: string };
 
+// KAN-280 Part F (Q1 A). A live item as it was picked up: its pick inside its Chrome window, converted to storage shape then.
+export interface LiveSnapshot {
+  pick: CarriedPick;
+  window: windowGroupData;
+  // The Chrome window it was read from, for the place read when the carry starts (P6).
+  chromeWindowId: number;
+}
+
+export const liveItem = (live: LiveSnapshot): CarriedItem => ({
+  source: 'live',
+  live,
+});
+
 export function pickOf(item: CarriedItem): CarriedPick {
+  if (item.source === 'live') return item.live.pick;
   const { ref } = item;
   switch (ref.kind) {
     case 'tab':
@@ -32,14 +47,16 @@ export function pickOf(item: CarriedItem): CarriedPick {
   }
 }
 
-export const sourceSessionIdOf = (item: CarriedItem): string =>
-  item.ref.tabGroupId;
+// Null for a live item: it came from no saved session (P3).
+export const sourceSessionIdOf = (item: CarriedItem): string | null =>
+  item.source === 'saved' ? item.ref.tabGroupId : null;
 
-// The window the item is in, as the store holds it now; null once it is gone.
+// The window the item is in: a saved one as the store holds it now (null once it is gone), a live one's snapshot.
 export function sourceWindowOf(
   tabGroups: readonly tabContainerData[],
   item: CarriedItem
 ): windowGroupData | null {
+  if (item.source === 'live') return item.live.window;
   return (
     tabGroups
       .find((g) => g.tabGroupId === item.ref.tabGroupId)
@@ -47,10 +64,22 @@ export function sourceWindowOf(
   );
 }
 
+// Q1 A. A live item is its snapshot, so nothing can take it away.
 export const isItemStillThere = (
   tabGroups: readonly tabContainerData[],
   item: CarriedItem
-): boolean => isCarriedStillThere(tabGroups, item.ref);
+): boolean =>
+  item.source === 'live' || isCarriedStillThere(tabGroups, item.ref);
+
+// Q2 A. A live tab or group lands only in a saved window of its own kind, or a new one (`undefined`); a saved item, or none, anywhere.
+export const acceptsCarriedIn = (
+  item: CarriedItem | null,
+  window: Pick<windowGroupData, 'incognito'> | undefined
+): boolean =>
+  item === null ||
+  item.source === 'saved' ||
+  window === undefined ||
+  (window.incognito === true) === (item.live.window.incognito === true);
 
 export function isCarriedTabPinned(
   tabGroups: readonly tabContainerData[],

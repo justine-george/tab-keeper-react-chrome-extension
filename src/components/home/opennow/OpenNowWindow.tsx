@@ -39,7 +39,11 @@ import { markRowContainer } from '../rightpane/rowDrag/dropRules';
 import { GroupFrameFollower } from '../rightpane/rowDrag/GroupFrameFollower';
 import { DURATION, RADIUS, TYPE, WEIGHT } from '../../../styles/scale';
 import { windowLabel } from '../../../utils/functions/windowLabel';
-import { OPEN_ITEMS_SCOPE, OPEN_TABS_SCOPE } from './useOpenNowDrop';
+import {
+  OPEN_ITEMS_SCOPE,
+  OPEN_TABS_SCOPE,
+  OPEN_WINDOWS_SCOPE,
+} from './useOpenNowDrop';
 
 // WindowEntryContainer's GROUP_TITLE_SIZE, the one documented off-scale size
 // (scaleConformance.test.ts). Copied rather than exported from there, for the
@@ -336,8 +340,9 @@ export default function OpenNowWindow({
 
   const title = windowLabel('', number, t('Window')).text;
 
+  // KAN-280 Part F (D3 A). The row's glyph and title pick the window up; the chevron and the actions sit outside it.
   const windowHeader = (
-    <>
+    <div data-open-window-drag-handle="" css={css(windowHeaderStyle)}>
       <Icon type="web_asset" style={NON_INTERACTIVE_ICON_STYLE} />
       <div css={windowTitleStyle}>
         <NormalLabel
@@ -353,7 +358,7 @@ export default function OpenNowWindow({
           />
         )}
       </div>
-    </>
+    </div>
   );
 
   // The adapters partitionTabsIntoItems takes, keyed back to the OpenTab by id
@@ -361,8 +366,9 @@ export default function OpenNowWindow({
   // the saved one would -- and the one the drag geometry counts rows with
   // (useOpenNowDrop), so a drop's index names the row drawn there (KAN-131).
   // That geometry reads the whole window, not only what a search draws: safe
-  // only because drag is off while a search is held (O14c) and a search that
-  // starts mid-drag cancels the drag (KAN-335).
+  // because under a search a tab drag only carries out (O14c amended), which
+  // lands nowhere here, and a search that starts mid-drag ends an in-pane
+  // drag (KAN-335).
   // KAN-330 O14a. What this window draws: every tab, or a search's matches.
   // Only drawing narrows; the handlers below still get the whole window.
   const drawnTabs =
@@ -533,309 +539,312 @@ export default function OpenNowWindow({
   };
 
   return (
-    // data-drop-window-id: the whole block is what the drag engine hit-tests
-    // for "this window" (KAN-132), header and a folded window included. Its
-    // shift is published back so that hit test can subtract it, and is not
-    // eased, as in WindowEntryContainer (KAN-184).
-    <div
-      css={containerStyle}
-      data-open-window-id={openWindow.id}
-      data-drop-window-id={windowKey}
-      data-window-shift={windowShift || undefined}
-      style={{
-        transform: windowShift ? `translateY(${windowShift}px)` : undefined,
-      }}
-    >
+    // KAN-280 Part F (D3 A). The whole block is the windows list's row, picked up by its header's handle.
+    <DraggableRow scope={OPEN_WINDOWS_SCOPE} rowId={String(openWindow.id)}>
+      {/* data-drop-window-id: the whole block is what the drag engine
+      hit-tests for "this window" (KAN-132), header and a folded window
+      included. Its shift is published back so that hit test can subtract it,
+      and is not eased, as in WindowEntryContainer (KAN-184). */}
       <div
-        css={parentStyle}
-        // The e2e specs find a window's row by this.
-        data-window-row
-        onMouseEnter={() => setIsParentHovered(true)}
-        onMouseLeave={() => setIsParentHovered(false)}
+        css={containerStyle}
+        data-open-window-id={openWindow.id}
+        data-drop-window-id={windowKey}
+        data-window-shift={windowShift || undefined}
+        style={{
+          transform: windowShift ? `translateY(${windowShift}px)` : undefined,
+        }}
       >
-        <div css={parentLeftStyle}>
-          <Icon
-            tooltipText={isOpen ? t('Collapse') : t('Expand')}
-            // Names its window, as the tab rows name their tab, so N windows
-            // are not N identical "Collapse" buttons (KAN-280).
-            ariaLabel={(isOpen ? t('Collapse') : t('Expand')) + ': ' + title}
-            ariaExpanded={isOpen}
-            type={isOpen ? 'expand_less' : 'expand_more'}
-            onClick={onToggle}
-          />
-          {goesToWindow ? (
-            <ClickableRow
-              ariaLabel={t('Go to window') + ': ' + title}
-              tooltipText={t('Go to window')}
-              // Chrome rejects when the window closed after this row was
-              // drawn. There is nothing to go to, and the next read drops
-              // the row. Nothing runs after the focus (O15).
-              onClick={() =>
-                void focusOpenWindow(openWindow.id).catch(() => undefined)
-              }
-              style={windowHeaderStyle}
-            >
-              {windowHeader}
-            </ClickableRow>
-          ) : (
-            <div css={css(windowHeaderStyle)}>{windowHeader}</div>
-          )}
-        </div>
-        {offersWindowActions && (
-          <div data-row-actions css={parentRightStyle}>
-            {!isSavedSearching && (
-              <Icon
-                tooltipText={t('Save window as a session')}
-                ariaLabel={t('Save window as a session') + ': ' + title}
-                type="add_box"
-                onClick={onSaveWindow}
-              />
-            )}
-            {onCloseWindow && (
-              <Icon
-                tooltipText={t('Close window')}
-                ariaLabel={t('Close window') + ': ' + title}
-                type="close"
-                onClick={onFirstClickOnly(onCloseWindow)}
-              />
+        <div
+          css={parentStyle}
+          // The e2e specs find a window's row by this.
+          data-window-row
+          onMouseEnter={() => setIsParentHovered(true)}
+          onMouseLeave={() => setIsParentHovered(false)}
+        >
+          <div css={parentLeftStyle}>
+            <Icon
+              tooltipText={isOpen ? t('Collapse') : t('Expand')}
+              // Names its window, as the tab rows name their tab, so N windows
+              // are not N identical "Collapse" buttons (KAN-280).
+              ariaLabel={(isOpen ? t('Collapse') : t('Expand')) + ': ' + title}
+              ariaExpanded={isOpen}
+              type={isOpen ? 'expand_less' : 'expand_more'}
+              onClick={onToggle}
+            />
+            {goesToWindow ? (
+              <ClickableRow
+                ariaLabel={t('Go to window') + ': ' + title}
+                tooltipText={t('Go to window')}
+                // Chrome rejects when the window closed after this row was
+                // drawn. There is nothing to go to, and the next read drops
+                // the row. Nothing runs after the focus (O15).
+                onClick={() =>
+                  void focusOpenWindow(openWindow.id).catch(() => undefined)
+                }
+                style={windowHeaderStyle}
+              >
+                {windowHeader}
+              </ClickableRow>
+            ) : (
+              <div css={css(windowHeaderStyle)}>{windowHeader}</div>
             )}
           </div>
-        )}
-      </div>
-      {isOpen && (
-        // markRowContainer: this box holds one window's worth of the
-        // pane-wide lists, so no row's footprint is measured on it (KAN-132).
-        <div css={childrenContainerStyle} ref={markRowContainer}>
-          {items.map((item, itemIndex) => {
-            // A loose tab is one row of each list: the `items` list, where a
-            // group is one row too, and the `tabs` list inside it.
-            if (item.kind === 'tab') {
+          {offersWindowActions && (
+            <div data-row-actions css={parentRightStyle}>
+              {!isSavedSearching && (
+                <Icon
+                  tooltipText={t('Save window as a session')}
+                  ariaLabel={t('Save window as a session') + ': ' + title}
+                  type="add_box"
+                  onClick={onSaveWindow}
+                />
+              )}
+              {onCloseWindow && (
+                <Icon
+                  tooltipText={t('Close window')}
+                  ariaLabel={t('Close window') + ': ' + title}
+                  type="close"
+                  onClick={onFirstClickOnly(onCloseWindow)}
+                />
+              )}
+            </div>
+          )}
+        </div>
+        {isOpen && (
+          // markRowContainer: this box holds one window's worth of the
+          // pane-wide lists, so no row's footprint is measured on it (KAN-132).
+          <div css={childrenContainerStyle} ref={markRowContainer}>
+            {items.map((item, itemIndex) => {
+              // A loose tab is one row of each list: the `items` list, where a
+              // group is one row too, and the `tabs` list inside it.
+              if (item.kind === 'tab') {
+                return (
+                  <DraggableRow
+                    key={itemIdOf(item)}
+                    scope={OPEN_ITEMS_SCOPE}
+                    rowId={itemIdOf(item)}
+                  >
+                    {renderTabRow(item.tab.tabId)}
+                  </DraggableRow>
+                );
+              }
+              // Already a TabGroupColor on the way in; the partition hands it
+              // back as the saved shape's string, so it is narrowed again.
+              const color = sanitizeTabGroupColor(item.group.color);
+              const groupTitle = titleOf(item.group);
+              const groupName = groupTitle || t('Unnamed group');
               return (
+                // The saved band, at rest (KAN-280: a live grouped tab sits
+                // exactly where a saved one does). Copied, not shared, for the
+                // reason the styles above are:
+                // (line numbers as of the copy; the names are what to search)
+                //   band        the role="group" band's css in
+                //               WindowEntryContainer.tsx (945-966)
+                //   strip       bandStyle in GroupColorPicker.tsx (101-125)
+                //   column      the band's flex: 1 column in
+                //               WindowEntryContainer.tsx (1073-1077)
+                //   title row   the data-group-drag-handle row and its
+                //               ClickableRow style (1098-1120, 1218)
+                //   title label groupTitleLabel in
+                //               WindowEntryContainer.tsx (516-522)
+                // With the drag rules too (KAN-280 Part E): the band is the
+                // `items` list's row for its group, and its frame follows a tab
+                // drag through GroupFrameFollower, as a saved band's does. The
+                // strip and title are the saved band's controls (KAN-568).
                 <DraggableRow
                   key={itemIdOf(item)}
                   scope={OPEN_ITEMS_SCOPE}
                   rowId={itemIdOf(item)}
                 >
-                  {renderTabRow(item.tab.tabId)}
-                </DraggableRow>
-              );
-            }
-            // Already a TabGroupColor on the way in; the partition hands it
-            // back as the saved shape's string, so it is narrowed again.
-            const color = sanitizeTabGroupColor(item.group.color);
-            const groupTitle = titleOf(item.group);
-            const groupName = groupTitle || t('Unnamed group');
-            return (
-              // The saved band, at rest (KAN-280: a live grouped tab sits
-              // exactly where a saved one does). Copied, not shared, for the
-              // reason the styles above are:
-              // (line numbers as of the copy; the names are what to search)
-              //   band        the role="group" band's css in
-              //               WindowEntryContainer.tsx (945-966)
-              //   strip       bandStyle in GroupColorPicker.tsx (101-125)
-              //   column      the band's flex: 1 column in
-              //               WindowEntryContainer.tsx (1073-1077)
-              //   title row   the data-group-drag-handle row and its
-              //               ClickableRow style (1098-1120, 1218)
-              //   title label groupTitleLabel in
-              //               WindowEntryContainer.tsx (516-522)
-              // With the drag rules too (KAN-280 Part E): the band is the
-              // `items` list's row for its group, and its frame follows a tab
-              // drag through GroupFrameFollower, as a saved band's does. The
-              // strip and title are the saved band's controls (KAN-568).
-              <DraggableRow
-                key={itemIdOf(item)}
-                scope={OPEN_ITEMS_SCOPE}
-                rowId={itemIdOf(item)}
-              >
-                <div
-                  data-band-id={item.group.groupId}
-                  role="group"
-                  aria-label={groupName}
-                  data-after-group={
-                    itemIndex > 0 && items[itemIndex - 1].kind === 'group'
-                      ? ''
-                      : undefined
-                  }
-                  css={css`
-                    display: flex;
-                    align-items: stretch;
-                    margin: ${BAND_MARGIN_PX}px 0;
-                    &[data-after-group] {
-                      margin-top: ${ADJACENT_GROUP_GAP_PX}px;
+                  <div
+                    data-band-id={item.group.groupId}
+                    role="group"
+                    aria-label={groupName}
+                    data-after-group={
+                      itemIndex > 0 && items[itemIndex - 1].kind === 'group'
+                        ? ''
+                        : undefined
                     }
-                    /* KAN-186: the held group paints its row's hover fill,
+                    css={css`
+                      display: flex;
+                      align-items: stretch;
+                      margin: ${BAND_MARGIN_PX}px 0;
+                      &[data-after-group] {
+                        margin-top: ${ADJACENT_GROUP_GAP_PX}px;
+                      }
+                      /* KAN-186: the held group paints its row's hover fill,
                        so its strip's margin is no window onto the rows it
                        passes over. */
-                    [data-drag-held] & {
-                      background-color: ${COLORS.HOVER_COLOR};
-                    }
-                    /* KAN-169: a drop that empties this group fades its
+                      [data-drag-held] & {
+                        background-color: ${COLORS.HOVER_COLOR};
+                      }
+                      /* KAN-169: a drop that empties this group fades its
                        title row and strip as the rows below close up. */
-                    &[data-drag-removed] [data-group-drag-handle],
-                    &[data-drag-removed] [data-group-color-strip] {
-                      opacity: 0;
-                      transition: opacity ${DURATION.MOVE} ease;
-                    }
-                    /* KAN-164: a tab released here joins this group, which
+                      &[data-drag-removed] [data-group-drag-handle],
+                      &[data-drag-removed] [data-group-color-strip] {
+                        opacity: 0;
+                        transition: opacity ${DURATION.MOVE} ease;
+                      }
+                      /* KAN-164: a tab released here joins this group, which
                        answers in its own colour. */
-                    &[data-drop-target] {
-                      background-color: color-mix(
-                        in srgb,
-                        var(--band-color, transparent) 18%,
-                        transparent
-                      );
-                      border-radius: ${RADIUS.SQUARE};
-                    }
-                  `}
-                >
-                  <GroupFrameFollower
-                    groupId={item.group.groupId}
-                    scope={OPEN_TABS_SCOPE}
-                  />
-                  {/* KAN-568. The saved band's picker: Chrome's group, so the next read shows the colour. */}
-                  <GroupColorPicker
-                    color={color}
-                    ariaLabel={t('Change group color') + ': ' + groupName}
-                    onSelect={(picked) =>
-                      void updateLiveGroup(Number(item.group.groupId), {
-                        color: picked,
-                      })
-                    }
-                  />
-                  <div
-                    css={css`
-                      flex: 1;
-                      min-width: 0;
+                      &[data-drop-target] {
+                        background-color: color-mix(
+                          in srgb,
+                          var(--band-color, transparent) 18%,
+                          transparent
+                        );
+                        border-radius: ${RADIUS.SQUARE};
+                      }
                     `}
                   >
-                    {/* data-group-drag-handle: a group is held by this row
+                    <GroupFrameFollower
+                      groupId={item.group.groupId}
+                      scope={OPEN_TABS_SCOPE}
+                    />
+                    {/* KAN-568. The saved band's picker: Chrome's group, so the next read shows the colour. */}
+                    <GroupColorPicker
+                      color={color}
+                      ariaLabel={t('Change group color') + ': ' + groupName}
+                      onSelect={(picked) =>
+                        void updateLiveGroup(Number(item.group.groupId), {
+                          color: picked,
+                        })
+                      }
+                    />
+                    <div
+                      css={css`
+                        flex: 1;
+                        min-width: 0;
+                      `}
+                    >
+                      {/* data-group-drag-handle: a group is held by this row
                       (KAN-160). data-fixed-row-id: drawn in the tab list
                       but not one of its rows (KAN-166); it glides with the
                       rows (KAN-165). Fills on hover as the saved row does. */}
-                    <div
-                      data-group-drag-handle
-                      data-fixed-row-id={item.group.groupId}
-                      css={css`
-                        position: relative;
-                        display: flex;
-                        align-items: center;
-                        min-height: 32px;
-                        transition: transform ${DURATION.MOVE} ease;
-                        &:hover,
-                        &:focus-within {
-                          background-color: ${COLORS.HOVER_COLOR};
-                        }
-                      `}
-                    >
-                      {editingGroupId === item.group.groupId ? (
-                        <>
-                          <input
-                            value={groupDraft}
-                            aria-label={t('Rename group') + ': ' + groupName}
-                            onBlur={() => commitGroupRename(item.group)}
-                            onChange={(e) => setGroupDraft(e.target.value)}
-                            placeholder={t('Name this group')}
-                            onKeyDown={(e) =>
-                              renameKeyDown(
-                                e,
-                                () => {
+                      <div
+                        data-group-drag-handle
+                        data-fixed-row-id={item.group.groupId}
+                        css={css`
+                          position: relative;
+                          display: flex;
+                          align-items: center;
+                          min-height: 32px;
+                          transition: transform ${DURATION.MOVE} ease;
+                          &:hover,
+                          &:focus-within {
+                            background-color: ${COLORS.HOVER_COLOR};
+                          }
+                        `}
+                      >
+                        {editingGroupId === item.group.groupId ? (
+                          <>
+                            <input
+                              value={groupDraft}
+                              aria-label={t('Rename group') + ': ' + groupName}
+                              onBlur={() => commitGroupRename(item.group)}
+                              onChange={(e) => setGroupDraft(e.target.value)}
+                              placeholder={t('Name this group')}
+                              onKeyDown={(e) =>
+                                renameKeyDown(
+                                  e,
+                                  () => {
+                                    titleFocus.ask(item.group.groupId);
+                                    commitGroupRename(item.group);
+                                  },
+                                  () => {
+                                    titleFocus.ask(item.group.groupId);
+                                    cancelGroupRename();
+                                  }
+                                )
+                              }
+                              autoFocus
+                              css={css`
+                                color: ${COLORS.TEXT_COLOR};
+                                background-color: ${COLORS.PRIMARY_COLOR};
+                                border: 1px solid ${COLORS.BORDER_COLOR};
+                                display: flex;
+                                align-items: center;
+                                font-family: ${FONT_FAMILY};
+                                font-size: ${GROUP_TITLE_SIZE};
+                                padding-left: 8px;
+                                align-self: stretch;
+                                width: 100%;
+                                min-width: 0;
+                                &:focus {
+                                  outline: none;
+                                }
+                                ${placeholderStyle(COLORS.PLACEHOLDER_COLOR)}
+                              `}
+                            />
+                            {/* preventDefault keeps focus in the input, so onClick is the one commit path. */}
+                            <span
+                              css={css`
+                                position: absolute;
+                                top: 50%;
+                                right: 0;
+                                transform: translateY(-50%);
+                                display: flex;
+                                align-items: center;
+                                z-index: 1;
+                              `}
+                              onMouseDown={(e) => e.preventDefault()}
+                            >
+                              <Icon
+                                tooltipText={t('Save changes')}
+                                ariaLabel={t('Save changes')}
+                                type="done"
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   titleFocus.ask(item.group.groupId);
                                   commitGroupRename(item.group);
-                                },
-                                () => {
-                                  titleFocus.ask(item.group.groupId);
-                                  cancelGroupRename();
-                                }
-                              )
-                            }
-                            autoFocus
-                            css={css`
-                              color: ${COLORS.TEXT_COLOR};
-                              background-color: ${COLORS.PRIMARY_COLOR};
-                              border: 1px solid ${COLORS.BORDER_COLOR};
-                              display: flex;
-                              align-items: center;
-                              font-family: ${FONT_FAMILY};
-                              font-size: ${GROUP_TITLE_SIZE};
-                              padding-left: 8px;
-                              align-self: stretch;
-                              width: 100%;
-                              min-width: 0;
-                              &:focus {
-                                outline: none;
-                              }
-                              ${placeholderStyle(COLORS.PLACEHOLDER_COLOR)}
-                            `}
-                          />
-                          {/* preventDefault keeps focus in the input, so onClick is the one commit path. */}
-                          <span
-                            css={css`
-                              position: absolute;
-                              top: 50%;
-                              right: 0;
-                              transform: translateY(-50%);
-                              display: flex;
-                              align-items: center;
-                              z-index: 1;
-                            `}
-                            onMouseDown={(e) => e.preventDefault()}
+                                }}
+                              />
+                            </span>
+                          </>
+                        ) : (
+                          // Shrunk to its text, as the saved title is, so the rest of the row is only a drag handle.
+                          <ClickableRow
+                            ariaLabel={t('Rename group') + ': ' + groupName}
+                            onClick={() => startEditingGroup(item.group)}
+                            buttonRef={titleFocus.refFor(item.group.groupId)}
+                            style="display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box; flex: 0 1 auto; max-width: 100%; cursor: text;"
                           >
-                            <Icon
-                              tooltipText={t('Save changes')}
-                              ariaLabel={t('Save changes')}
-                              type="done"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                titleFocus.ask(item.group.groupId);
-                                commitGroupRename(item.group);
-                              }}
+                            <NormalLabel
+                              value={groupName}
+                              color={
+                                groupTitle
+                                  ? COLORS.LABEL_L2_COLOR
+                                  : COLORS.LABEL_L3_COLOR
+                              }
+                              size={GROUP_TITLE_SIZE}
+                              style={`padding-left: 4px;${
+                                groupTitle ? '' : ' font-style: italic;'
+                              }`}
                             />
-                          </span>
-                        </>
-                      ) : (
-                        // Shrunk to its text, as the saved title is, so the rest of the row is only a drag handle.
-                        <ClickableRow
-                          ariaLabel={t('Rename group') + ': ' + groupName}
-                          onClick={() => startEditingGroup(item.group)}
-                          buttonRef={titleFocus.refFor(item.group.groupId)}
-                          style="display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box; flex: 0 1 auto; max-width: 100%; cursor: text;"
-                        >
-                          <NormalLabel
-                            value={groupName}
-                            color={
-                              groupTitle
-                                ? COLORS.LABEL_L2_COLOR
-                                : COLORS.LABEL_L3_COLOR
-                            }
-                            size={GROUP_TITLE_SIZE}
-                            style={`padding-left: 4px;${
-                              groupTitle ? '' : ' font-style: italic;'
-                            }`}
-                          />
-                        </ClickableRow>
-                      )}
-                    </div>
-                    {/* data-group-tabs: the held group folds to its title
+                          </ClickableRow>
+                        )}
+                      </div>
+                      {/* data-group-tabs: the held group folds to its title
                       row (App.css, KAN-160). The zero-height marker is the
                       group's tail in the drawn list (KAN-175). */}
-                    <div data-group-tabs>
-                      {item.tabs.map((tab) => renderTabRow(tab.tabId))}
-                      <div
-                        aria-hidden="true"
-                        data-fixed-row-id={`${item.group.groupId}:tail`}
-                        css={css`
-                          height: 0;
-                        `}
-                      />
+                      <div data-group-tabs>
+                        {item.tabs.map((tab) => renderTabRow(tab.tabId))}
+                        <div
+                          aria-hidden="true"
+                          data-fixed-row-id={`${item.group.groupId}:tail`}
+                          css={css`
+                            height: 0;
+                          `}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              </DraggableRow>
-            );
-          })}
-        </div>
-      )}
-    </div>
+                </DraggableRow>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </DraggableRow>
   );
 }

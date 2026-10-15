@@ -1,7 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import { savedItem } from '../../../redux/carriedItem';
 
-import { newSessionTitleOf } from '../../../utils/functions/newSessionTitle';
+import {
+  newSessionTitleOf,
+  titleOfPick,
+} from '../../../utils/functions/newSessionTitle';
+import { live } from '../../fixtures/liveSnapshotFixture';
 import type {
   CarriedRef,
   tabContainerData,
@@ -108,4 +112,18 @@ describe('newSessionTitleOf', () => {
     expect(newSessionTitleOf(tabs, savedItem(tabRef('gone')))).toBe('');
     expect(newSessionTitleOf([], savedItem(windowRef))).toBe('');
   });
+});
+
+// KAN-280 Part F (P12). The same rule for a pick inside a live snapshot.
+test('titleOfPick names a pick inside a window, as newSessionTitleOf does', () => {
+  const w = live();
+  expect(
+    titleOfPick(w, { kind: 'group', windowId: 'live-w', groupId: 'lg' })
+  ).toBe('Live group');
+  expect(titleOfPick(w, { kind: 'window', windowId: 'live-w' })).toBe(
+    'Live lp'
+  );
+  expect(
+    titleOfPick(w, { kind: 'tab', windowId: 'live-w', tabId: 'nope' })
+  ).toBe('');
 });

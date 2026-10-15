@@ -26,6 +26,7 @@ import {
   setDragNewWindow,
 } from '../../components/home/rightpane/rowDrag/dropRules';
 import { foldBackSpringOpened } from '../../redux/springOpenWindows';
+import { carriedRef } from '../setup/carriedRef';
 
 // Real unless a test makes it throw.
 vi.mock('../../redux/springOpenWindows', async (importOriginal) => {
@@ -93,7 +94,7 @@ describe('the carry channel', () => {
 
     expect(currentCarry()?.x).toBe(60);
     expect(currentCarry()?.y).toBe(70);
-    expect(currentCarry()?.item.ref).toBe(CARRIED);
+    expect(carriedRef()).toBe(CARRIED);
     expect(heard).toHaveBeenCalledTimes(1);
     unsubscribe();
   });
