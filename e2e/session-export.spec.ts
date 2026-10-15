@@ -546,15 +546,33 @@ const within = (inner: Box, outer: Box) =>
   inner.top >= outer.top - 0.01 &&
   inner.bottom <= outer.bottom + 0.01;
 
-/** Waits for the knob to stop moving: two reads 50ms apart that agree. */
+/**
+ * Waits for the knob to rest: two reads that agree, each after a frame has
+ * delivered SlidingPair's ResizeObserver, with no transition on the knob.
+ * Not 50ms apart: with no frame between them, two reads agree on a stale
+ * clip (KAN-557).
+ */
 async function settledKnob(page: Page, group: string | Locator) {
   let previous = '';
   for (let i = 0; i < 40; i++) {
+    const moving = await pairIn(page, group).evaluate(async (el) => {
+      const knob = el.querySelector('[data-sliding-knob]');
+      if (!knob) return 0;
+      // A new observer first fires in the next frame, after SlidingPair's.
+      await new Promise<void>((resolve) => {
+        const observer = new ResizeObserver(() => {
+          observer.disconnect();
+          resolve();
+        });
+        observer.observe(knob);
+      });
+      return knob.getAnimations({ subtree: true }).length;
+    });
     const geometry = await knobGeometry(page, group);
     if (!geometry) throw new Error(`the ${String(group)} pair has no knob`);
-    const now = JSON.stringify(geometry?.drawn);
-    if (geometry && now === previous) return geometry;
-    previous = now;
+    const now = JSON.stringify(geometry.drawn);
+    if (!moving && now === previous) return geometry;
+    previous = moving ? '' : now;
     await page.waitForTimeout(50);
   }
   throw new Error(`the ${String(group)} knob never settled`);
@@ -596,6 +614,118 @@ for (const mode of ['light', 'dark'] as const) {
     }
   });
 }
+
+// KAN-557. Under load the compositor can skip frames while the page still
+// answers reads. A knob measured in the fallback font then keeps that clip
+// over Libre Franklin's wider "Comfortable" until a frame delivers its
+// ResizeObserver: 6.58px, the flake's exact reading. This holds every
+// ResizeObserver callback for `ms`, as a run of skipped frames would.
+const holdResizeObservers = (page: Page, ms: number) =>
+  page.evaluate(
+    (ms) => (window as unknown as ObserverHoldWindow).__holdResizeObservers(ms),
+    ms
+  );
+
+type ObserverHoldWindow = Window & {
+  __holdResizeObservers: (ms: number) => void;
+};
+
+const installObserverHold = (context: Parameters<typeof seedSessions>[0]) =>
+  context.addInitScript(() => {
+    let held: (() => void)[] | null = null;
+    const RealObserver = window.ResizeObserver;
+    window.ResizeObserver = class extends RealObserver {
+      constructor(callback: ResizeObserverCallback) {
+        super((entries, observer) => {
+          const run = () => callback(entries, observer);
+          if (held) held.push(run);
+          else run();
+        });
+      }
+    };
+    (window as unknown as ObserverHoldWindow).__holdResizeObservers = (ms) => {
+      held = [];
+      setTimeout(() => {
+        const queued = held ?? [];
+        held = null;
+        queued.forEach((run) => run());
+      }, ms);
+    };
+  });
+
+test('a knob read while frames stall after a font swap waits for the frame', async ({
+  context,
+  extensionId,
+}) => {
+  await installObserverHold(context);
+  const exportPage = await openExportUnder(context, extensionId, {
+    theme: 'Light',
+  });
+  const cells = '[role="group"] button, [data-sliding-knob] > span';
+  // The fallback font, as before Libre Franklin loads.
+  await exportPage.evaluate((cells) => {
+    document
+      .querySelectorAll<HTMLElement>(cells)
+      .forEach((el) => (el.style.fontFamily = 'Helvetica'));
+  }, cells);
+  const fallback = await settledKnob(exportPage, 'Layout');
+  // CONTROL: the fallback is narrower, so the swap moves the knob's edge.
+  const comfortable = exportPage.getByRole('button', { name: 'Comfortable' });
+  const narrow = await comfortable.evaluate(
+    (el) => el.getBoundingClientRect().width
+  );
+
+  await holdResizeObservers(exportPage, 400);
+  await exportPage.evaluate((cells) => {
+    document
+      .querySelectorAll<HTMLElement>(cells)
+      .forEach((el) => (el.style.fontFamily = ''));
+  }, cells);
+  const knob = await settledKnob(exportPage, 'Layout');
+
+  expect(
+    (await comfortable.evaluate((el) => el.getBoundingClientRect().width)) -
+      narrow,
+    'PREMISE: Libre Franklin widens Comfortable'
+  ).toBeGreaterThan(1);
+  const report = `fallback ${JSON.stringify(fallback.drawn)}, swapped ${JSON.stringify(knob)}`;
+  for (const side of ['left', 'right'] as const) {
+    expect(
+      Math.abs(knob.drawn[side] - knob.pressed[side]),
+      `${side} edge. ${report}`
+    ).toBeLessThanOrEqual(0.5);
+  }
+});
+
+// At the spring's peak the knob barely moves, so two frames can agree there.
+// Paused mid-slide it agrees in every frame, and is still not at rest.
+test('a knob held mid-slide never counts as settled', async ({
+  context,
+  extensionId,
+}) => {
+  const exportPage = await openExportUnder(context, extensionId, {
+    theme: 'Light',
+  });
+  await settledKnob(exportPage, 'Layout');
+  await exportPage.getByRole('button', { name: 'Comfortable' }).click();
+  const paused = await exportPage
+    .getByRole('group', { name: 'Layout' })
+    .evaluate((el) => {
+      const animations = el
+        .querySelector('[data-sliding-knob]')!
+        .getAnimations();
+      animations.forEach((a) => {
+        a.pause();
+        a.currentTime = 140;
+      });
+      return animations.length;
+    });
+  expect(paused, 'PREMISE: a transition carries the knob').toBeGreaterThan(0);
+
+  await expect(settledKnob(exportPage, 'Layout')).rejects.toThrow(
+    'the Layout knob never settled'
+  );
+});
 
 // Every shipped language, before and after a flip: options differ in width.
 const LANGUAGES = ['en', 'de', 'es', 'fr', 'hi', 'it', 'ja', 'pt', 'ru', 'zh'];
