@@ -200,6 +200,38 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     expect(await chromeNow(serviceWorker)).toBe(chromeBefore);
   });
 
+  // KAN-614 (Justine, 04:50): held in Open now, the New session target showed and the New window target did not.
+  // Both show from the pick-up, as for a saved tab; a window shows no New window target (S3 A).
+  test('1d. picked up in Open now: the New window target shows with New session, for a tab, not a window', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openTabView(context, extensionId, false);
+    const live = await openLiveWindow(serviceWorker, ['Live A']);
+    await expect(liveRow(page, live.idOf('Live A'))).toBeVisible();
+    const target = page.locator('[data-new-window-target="first"]');
+    const saveTarget = page.locator('[data-new-session-target]');
+    // PREMISE: at rest neither is drawn.
+    await expect(target).toBeHidden();
+    await expect(saveTarget).toBeHidden();
+
+    await pickUpLive(page, live.idOf('Live A'));
+    await expect(saveTarget).toBeVisible();
+    await expect(target).toBeVisible();
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(target).toBeHidden();
+
+    await press(page, openNowWindowHandle(page, live.windowId));
+    // PREMISE: the window is held, and the save row's target shows.
+    await expect(page.locator('[data-drag-held]')).toHaveCount(1);
+    await expect(saveTarget).toBeVisible();
+    await expect(target).toBeHidden();
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
   // KAN-611 (Justine, 02:16): one edge for out and back. In Open now's margin outside its list the drag is still
   // Open now's (no + card); just past Open now's edge it is a copy (+); back inside the margin, faded with no +.
   test("1c. the same edge out and back: Open now's margin is Open now, just outside it is a copy", async ({

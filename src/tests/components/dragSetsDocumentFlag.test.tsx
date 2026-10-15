@@ -235,6 +235,59 @@ describe('the New session marker', () => {
   });
 });
 
+// KAN-614. Open now's lists offer no new window of their own, yet a drag that can become a carry shows the session
+// header's target from its pick-up, as it shows New session -- for a tab or group, as the carry would (startCarry).
+describe('the New window marker of a drag that can become a carry', () => {
+  const carryOf =
+    (kind: 'tab' | 'window') =>
+    (rowId: string): CarryOut => ({
+      item: savedItem(
+        kind === 'tab'
+          ? { kind, tabGroupId: 'S1', windowId: 'w1', tabId: rowId }
+          : { kind, tabGroupId: 'S1', windowId: rowId }
+      ),
+      card: { kind, title: rowId, faviconUrl: '' },
+    });
+
+  test('a tab: on from the pick-up, with no carry yet, and off at the drop', () => {
+    render(<Harness carryOut={carryOf('tab')} />);
+    layout();
+    press('a', 15);
+    moveTo(50);
+    expect(currentCarry()).toBeNull();
+    expect(offersNewWindow()).toBe(true);
+
+    release(50);
+    expect(offersNewWindow()).toBe(false);
+  });
+
+  test('a tab: Escape clears it', () => {
+    render(<Harness carryOut={carryOf('tab')} />);
+    layout();
+    press('a', 15);
+    moveTo(50);
+    expect(offersNewWindow()).toBe(true);
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(offersNewWindow()).toBe(false);
+  });
+
+  // A carried window lands between windows (S3 A), so its carry shows no New window target either.
+  test('a window: never on', () => {
+    render(<Harness carryOut={carryOf('window')} />);
+    layout();
+    press('a', 15);
+    moveTo(50);
+    // PREMISE: a drag that can become a carry started.
+    expect(isDragging()).toBe(true);
+    expect(
+      document.documentElement.hasAttribute('data-drag-new-session')
+    ).toBe(true);
+    expect(offersNewWindow()).toBe(false);
+    release(50);
+  });
+});
+
 // The worst path at a release: the drop's judge throws. No marker may outlive the drag.
 describe('a release whose judge throws', () => {
   test('clears the kind, the New window and the New session markers', () => {
