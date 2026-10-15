@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const settingsReads = () => {
   const getItem = vi.spyOn(localStorage, 'getItem');
   return {
-    count: () => getItem.mock.calls.filter(([k]) => k === 'settingsData').length,
+    count: () =>
+      getItem.mock.calls.filter(([k]) => k === 'settingsData').length,
     restore: () => getItem.mockRestore(),
   };
 };
