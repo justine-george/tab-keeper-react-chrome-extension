@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { savedItem } from '../../redux/carriedItem';
+import { liveItem, savedItem } from '../../redux/carriedItem';
+import { live } from '../fixtures/liveSnapshotFixture';
 import { act, fireEvent } from '@testing-library/react';
 
 import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
@@ -23,6 +24,7 @@ import {
   saveToTabContainerInternal,
   selectTabContainer,
   type CarriedRef,
+  type windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import {
   setSearchInputText,
@@ -1481,5 +1483,81 @@ describe('window labels while a window is carried', () => {
       null
     );
     expect(labels()).toEqual(['Window 1', 'Window 2']);
+  });
+});
+
+// KAN-280 Part F. A live tab from Open now, as the engine leaves a hand-off.
+function carryLive(window: windowGroupData, tabId = 'l1') {
+  setDragging(true, 'tab');
+  beginDragHold();
+  act(() =>
+    startCarry(
+      liveItem({
+        pick: { kind: 'tab', windowId: window.windowId, tabId },
+        window,
+        chromeWindowId: 7,
+      }),
+      { kind: 'tab', title: tabId, faviconUrl: '' },
+      -40,
+      100
+    )
+  );
+}
+
+describe('a live tab (KAN-280 Part F)', () => {
+  test('lands at the exact spot as a copy, its source untouched, and the follow names its own row', async () => {
+    const { store } = await renderDetail('S2');
+    const s1Before = sessionIn(store.getState().tabContainerDataState, 'S1');
+    carryLive(live());
+    table = S2_TAB_LAYOUT('l1');
+    moveTo(52);
+    release(52);
+    const data = store.getState().tabContainerDataState;
+    expect(tabIds(windowIn(data, 'S2', 'd1'))).toEqual([
+      'u1',
+      'l1',
+      'u2',
+      'u3',
+    ]);
+    expect(sessionIn(data, 'S1')).toBe(s1Before);
+    expect(currentCarry()).toBeNull();
+    runFrames(2);
+    expect(row('l1')).toBeTruthy();
+    // On screen at the drop: no toast (S5 A).
+    expect(store.getState().globalState.toasts).toEqual([]);
+  });
+
+  test('an incognito one is refused by a normal window: no row steps aside, and a release there copies nothing (Q2 A)', async () => {
+    const { store } = await renderDetail('S2');
+    const before = store.getState().tabContainerDataState;
+    carryLive(live({ incognito: true }));
+    table = S2_TAB_LAYOUT('l1');
+    moveTo(52);
+    // Refused: no row in d1 steps aside for it (dragLandingLimits' rule).
+    expect(shiftOf(row('u2'))).toBe(0);
+    release(52);
+    expect(store.getState().tabContainerDataState).toBe(before);
+    expect(currentCarry()).toBeNull();
+  });
+
+  test('CONTROL: a normal one makes room in that same window', async () => {
+    await renderDetail('S2');
+    carryLive(live());
+    table = S2_TAB_LAYOUT('l1');
+    moveTo(52);
+    expect(shiftOf(row('u2'))).toBeGreaterThan(0);
+  });
+
+  test('an incognito one let go in the trailing block is a new last window, marked (Q2 A)', async () => {
+    const { store } = await renderDetail('S2');
+    carryLive(live({ incognito: true }));
+    table = S2_TAB_LAYOUT('l1');
+    moveTo(PHANTOM_Y);
+    release(PHANTOM_Y);
+    const s2 = sessionIn(store.getState().tabContainerDataState, 'S2');
+    expect(s2.windows[s2.windows.length - 1]).toMatchObject({
+      incognito: true,
+      tabs: [expect.objectContaining({ tabId: 'l1' })],
+    });
   });
 });

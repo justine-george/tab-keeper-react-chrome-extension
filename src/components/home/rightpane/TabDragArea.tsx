@@ -9,6 +9,8 @@ import { useSelector } from 'react-redux';
 
 import type { RootState } from '../../../redux/store';
 import { RowDragArea } from './rowDrag/RowDragArea';
+import { acceptsCarriedIn } from '../../../redux/carriedItem';
+import { currentCarry } from '../../../redux/carry';
 import { useKeepWindowOpen } from './useKeepWindowOpen';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useTabDrop } from './useTabDrop';
@@ -39,6 +41,15 @@ export const TabDragArea: React.FC<{
     (rowId: string) => tabCarryOut(tabList, rowId),
     [tabList]
   );
+  // Q2 A. A live item lands at a spot only in a window of its own kind; the phantom's new window shares its mark.
+  const acceptsWindow = useCallback(
+    (_rowId: string, windowId: string) =>
+      acceptsCarriedIn(
+        currentCarry()?.item ?? null,
+        tabList.windows.find((w) => w.windowId === windowId)
+      ),
+    [tabList]
+  );
 
   return (
     <RowDragArea
@@ -49,6 +60,7 @@ export const TabDragArea: React.FC<{
       // A tab may be dropped into another saved window. Paired with onMove's
       // routing on the window it is handed -- see dropsAcrossWindows.
       dropsAcrossWindows
+      acceptsWindow={acceptsWindow}
       resolveDrop={tabDrop.resolveDrop}
       onDropTargetChange={tabDrop.onDropTargetChange}
       landsBesideFixedRow={tabDrop.landsBesideFixedRow}

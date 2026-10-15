@@ -127,9 +127,10 @@ export type DragKind = 'tab' | 'window' | 'session' | 'group';
 // any more than the other, so it lives here rather than in either hook.
 export interface PaneWindows {
   tabGroupId: string;
+  // `incognito`: a live carry lands only in a window of its own kind (KAN-280 Part F, Q2 A).
   windows: readonly Pick<
     windowGroupData,
-    'windowId' | 'tabs' | 'chromeTabGroups'
+    'windowId' | 'tabs' | 'chromeTabGroups' | 'incognito'
   >[];
 }
 
