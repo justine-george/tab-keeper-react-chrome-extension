@@ -295,12 +295,26 @@ export const formatOpenNowCounts = (
         shown: matchedTabCount,
       })}`;
 
+// KAN-593. Reducers save, and a reducer cannot dispatch, so a save the quota
+// refused is noted here and storageFullMiddleware reports it after the action.
+let storageFullNoted = false;
+
+// Whether a save hit the quota since the last call; clears the note.
+export const takeStorageFull = (): boolean => {
+  const noted = storageFullNoted;
+  storageFullNoted = false;
+  return noted;
+};
+
 // save data to local storage
 export const saveToLocalStorage = (key: string, data: any): void => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
   } catch (error) {
     console.error('Failed to save to localStorage: ', error);
+    if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+      storageFullNoted = true;
+    }
   }
 };
 

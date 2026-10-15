@@ -180,6 +180,7 @@
   "Replace sessions": "Ersätt sessioner",
   "Cloud data deleted. Auto Sync is off on this device.": "Molndata har raderats. Autosynk är avstängd på den här enheten.",
   "Couldn't delete cloud data. Check your connection and try again.": "Det gick inte att radera molndata. Kontrollera anslutningen och försök igen.",
+  "Not saved: storage is full. Delete some sessions to make room.": "Inte sparat: lagringsutrymmet är fullt. Radera några sessioner för att frigöra utrymme.",
   "Last synced {{time}}": "Senast synkad {{time}}",
   "Keyboard shortcut": "Kortkommando",
   "Press {{keys}} to open Tab Keeper.": "Tryck på {{keys}} för att öppna Tab Keeper.",
