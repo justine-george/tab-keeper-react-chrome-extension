@@ -287,9 +287,9 @@ describe('the New window marker of a drag that can become a carry', () => {
     moveTo(50);
     // PREMISE: a drag that can become a carry started.
     expect(isDragging()).toBe(true);
-    expect(
-      document.documentElement.hasAttribute('data-drag-new-session')
-    ).toBe(true);
+    expect(document.documentElement.hasAttribute('data-drag-new-session')).toBe(
+      true
+    );
     expect(offersNewWindow()).toBe(false);
     release(50);
   });
