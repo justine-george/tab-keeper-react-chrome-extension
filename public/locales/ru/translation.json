@@ -151,7 +151,7 @@
   "LinksCopied_one": "{{count}} ссылка скопирована",
   "LinksCopied_few": "{{count}} ссылки скопированы",
   "LinksCopied_many": "{{count}} ссылок скопировано",
-  "LinksCopied_other": "{{count}} ссылки скопировано",
+  "LinksCopied_other": "Скопировано {{count}} ссылки",
   "Copied": "Скопировано",
   "Comfortable": "Просторный",
   "Compact": "Компактный",
