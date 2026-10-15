@@ -58,7 +58,7 @@ async function openLiveWindow(worker: Worker, titles: string[]) {
 const liveRow = (page: Page, tabId: number) =>
   page.locator(`[data-open-tab-id="${tabId}"]`);
 
-// Presses a live row and moves past the activation distance; the row is held in Open now (D1 A: no card yet).
+// Presses a live row and moves past the activation distance: held in Open now, shown by its card (KAN-611), no carry yet.
 async function pickUpLive(page: Page, tabId: number) {
   const b = await boxOf(liveRow(page, tabId));
   const x = b.x + Math.min(60, b.width / 2);
@@ -67,6 +67,7 @@ async function pickUpLive(page: Page, tabId: number) {
   await page.mouse.down();
   await page.mouse.move(x, y + 10, { steps: 3 });
   await expect(page.locator('[data-drag-held]')).toHaveCount(1);
+  await expect(page.locator('[data-drag-card]')).toHaveCount(1);
   await expect(page.locator(CARD)).toHaveCount(0);
   return { x, y: y + 10 };
 }
