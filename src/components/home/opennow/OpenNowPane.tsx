@@ -2,6 +2,7 @@ import {
   KeyboardEvent,
   Ref,
   RefObject,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -67,8 +68,16 @@ import OpenNowWindow from './OpenNowWindow';
 import {
   OPEN_ITEMS_SCOPE,
   OPEN_TABS_SCOPE,
+  OPEN_WINDOWS_SCOPE,
   useOpenNowDrop,
 } from './useOpenNowDrop';
+import {
+  liveGroupCarryOut,
+  liveTabCarryOut,
+  liveWindowCarryOut,
+} from './liveCarryOut';
+import { currentCarry, subscribeCarry } from '../../../redux/carry';
+import { readLivePlacement } from '../../../redux/livePlacement';
 
 export type OpenNowHeaderAction = {
   icon: IconName;
@@ -103,6 +112,8 @@ interface OpenNowPaneProps {
 // Stands in for `windows` while the first read is in flight, the same array
 // every time, so the drag tables built from it are not rebuilt per render.
 const NO_WINDOWS: OpenWindow[] = [];
+// KAN-280 Part F (D3 A). The windows area only carries out: a window never lands in Open now.
+const NOTHING_LANDS = () => {};
 
 // The first control inside a window's block: its collapse chevron (an Icon,
 // so role="button" on a div).
@@ -180,6 +191,43 @@ export default function OpenNowPane({
     ? lastUsedTabId(thisWindow, thisWindowRecent)
     : null;
 
+  // KAN-280 Part F. What a row hands the carry (spec O12c): converted as Save window converts it, This window's active tab by its record.
+  const recentTabsOf = useCallback(
+    (id: number | undefined) =>
+      id !== undefined && id === thisWindow?.id ? thisWindowRecent : [],
+    [thisWindow, thisWindowRecent]
+  );
+  const carryTabOut = useCallback(
+    (rowId: string) => liveTabCarryOut(listed, rowId, recentTabsOf),
+    [listed, recentTabsOf]
+  );
+  const carryGroupOut = useCallback(
+    (rowId: string) => liveGroupCarryOut(listed, rowId, recentTabsOf),
+    [listed, recentTabsOf]
+  );
+  const carryWindowOut = useCallback(
+    (rowId: string) =>
+      liveWindowCarryOut(
+        listed,
+        rowId,
+        (w) => inChromeOrder.indexOf(w) + 1,
+        recentTabsOf
+      ),
+    [listed, inChromeOrder, recentTabsOf]
+  );
+  const windowRowIds = useMemo(() => listed.map((w) => String(w.id)), [listed]);
+
+  // P6. A carry from here reads its window's place as Chrome has it now.
+  useEffect(() => {
+    let last = currentCarry()?.item ?? null;
+    return subscribeCarry(() => {
+      const now = currentCarry()?.item ?? null;
+      if (now === last) return;
+      last = now;
+      if (now?.source === 'live') void readLivePlacement(now.live);
+    });
+  }, []);
+
   const searchTerm = searchTermOf(searchText);
   // A save lands in the saved list, so it waits for that list's search.
   const { isSearching: isSavedSearching } = useSavedSearch();
@@ -222,9 +270,9 @@ export default function OpenNowPane({
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
-  // The whole list, not only what a search draws: safe only because drag is
-  // off while a search is held (O14c) and a search that starts mid-drag
-  // cancels the drag (KAN-335).
+  // The whole list, not only what a search draws: safe because under a search
+  // a tab drag only carries out (O14c amended), which lands nowhere here, and
+  // a search that starts mid-drag ends an in-pane drag (KAN-335).
   const drop = useOpenNowDrop({
     windows: listed,
     hasTabGroups: hasTabGroupsPermission,
@@ -651,7 +699,11 @@ export default function OpenNowPane({
           onArrowDown={focusFirstDrawnTab}
           onEnter={switchToFirstDrawnTab}
         />
-        <div css={scrollerStyle} onKeyDown={handleListKeyDown}>
+        <div
+          css={scrollerStyle}
+          onKeyDown={handleListKeyDown}
+          data-open-now-scroller=""
+        >
           {windows !== null && windows.length === 0 ? (
             <EmptyListLine
               list="open-now"
@@ -664,70 +716,91 @@ export default function OpenNowPane({
             // GroupDragArea), under Open now's own scopes: a tab at a time,
             // and a whole group by its title row. No clampDropToEnds: a
             // window's tab list is nested, and a release outside every window
-            // must be refused (isInsideList, KAN-132).
+            // must be refused (isInsideList, KAN-132). Around them, a windows
+            // list that only carries out (KAN-280 Part F, D3 A).
             <RowDragArea
-              scope={OPEN_TABS_SCOPE}
-              rowIds={drop.tabs.rowIds}
-              onMove={drop.tabs.onMove}
-              dragKind="tab"
-              dropsAcrossWindows
-              resolveDrop={drop.tabs.resolveDrop}
-              onDropTargetChange={drop.tabs.onDropTargetChange}
-              landsBesideFixedRow={drop.tabs.landsBesideFixedRow}
-              fixedRowsRemovedBy={drop.tabs.fixedRowsRemovedBy}
-              gapChangesBy={drop.tabs.gapChangesBy}
-              fixedRowSelector="[data-fixed-row-id]"
-              landingRange={drop.tabs.landingRange}
-              acceptsWindow={drop.tabs.acceptsWindow}
-              // KAN-330 O14c: no row can be picked up while a search is held,
-              // the same rule as the saved pane's search.
+              scope={OPEN_WINDOWS_SCOPE}
+              rowIds={windowRowIds}
+              onMove={NOTHING_LANDS}
+              dragKind="window"
+              handleSelector="[data-open-window-drag-handle]"
+              carryOut={carryWindowOut}
+              carryOnly
+              // Q3 A: under a search only tab rows pick up.
               disabled={searchTerm !== null}
             >
               <RowDragArea
-                scope={OPEN_ITEMS_SCOPE}
-                rowIds={drop.items.rowIds}
-                onMove={drop.items.onMove}
-                dragKind="group"
+                scope={OPEN_TABS_SCOPE}
+                rowIds={drop.tabs.rowIds}
+                onMove={drop.tabs.onMove}
+                dragKind="tab"
                 dropsAcrossWindows
-                handleSelector="[data-group-drag-handle]"
-                restoreScrollIfNoDrop
-                landingRange={drop.items.landingRange}
-                acceptsWindow={drop.items.acceptsWindow}
-                disabled={searchTerm !== null}
+                resolveDrop={drop.tabs.resolveDrop}
+                onDropTargetChange={drop.tabs.onDropTargetChange}
+                landsBesideFixedRow={drop.tabs.landsBesideFixedRow}
+                fixedRowsRemovedBy={drop.tabs.fixedRowsRemovedBy}
+                gapChangesBy={drop.tabs.gapChangesBy}
+                fixedRowSelector="[data-fixed-row-id]"
+                landingRange={drop.tabs.landingRange}
+                acceptsWindow={drop.tabs.acceptsWindow}
+                // KAN-280 Part F. Copied out to the saved side, beside the pane (P1), drawn until then (D1 A).
+                carryOut={carryTabOut}
+                cardOnPickUp={false}
+                handsOffBesidePane
+                // O14c amended (B): under a search a tab row is carried out only.
+                carryOnly={searchTerm !== null}
               >
-                {listed.map((openWindow) => {
-                  // Hidden by the search. Numbered by its place in Chrome's
-                  // WHOLE list, so "Window 3" stays Window 3 under a search
-                  // (O14a) and drawn first (KAN-472).
-                  const matchedTabIds =
-                    matches === null
-                      ? null
-                      : (matches.get(openWindow.id) ?? null);
-                  if (matches !== null && matchedTabIds === null) return null;
-                  return (
-                    <OpenNowWindow
-                      key={openWindow.id}
-                      openWindow={openWindow}
-                      number={inChromeOrder.indexOf(openWindow) + 1}
-                      lastUsedTabId={
-                        openWindow.isThisWindow ? thisWindowLastUsed : null
-                      }
-                      matchedTabIds={matchedTabIds}
-                      isOpen={!foldedIds.has(openWindow.id)}
-                      onToggle={() => toggleWindow(openWindow.id)}
-                      onCloseTab={(tab) => void handleCloseTab(openWindow, tab)}
-                      // Whole-window handlers. The row offers them only while
-                      // no search is held (O14e), so they never act on tabs
-                      // the search hides.
-                      onSaveWindow={() => void handleSaveWindow(openWindow)}
-                      onCloseWindow={
-                        openWindow.isThisWindow
-                          ? undefined
-                          : () => void handleCloseWindow(openWindow)
-                      }
-                    />
-                  );
-                })}
+                <RowDragArea
+                  scope={OPEN_ITEMS_SCOPE}
+                  rowIds={drop.items.rowIds}
+                  onMove={drop.items.onMove}
+                  dragKind="group"
+                  dropsAcrossWindows
+                  handleSelector="[data-group-drag-handle]"
+                  restoreScrollIfNoDrop
+                  landingRange={drop.items.landingRange}
+                  acceptsWindow={drop.items.acceptsWindow}
+                  carryOut={carryGroupOut}
+                  cardOnPickUp={false}
+                  handsOffBesidePane
+                  disabled={searchTerm !== null}
+                >
+                  {listed.map((openWindow) => {
+                    // Hidden by the search. Numbered by its place in Chrome's
+                    // WHOLE list, so "Window 3" stays Window 3 under a search
+                    // (O14a) and drawn first (KAN-472).
+                    const matchedTabIds =
+                      matches === null
+                        ? null
+                        : (matches.get(openWindow.id) ?? null);
+                    if (matches !== null && matchedTabIds === null) return null;
+                    return (
+                      <OpenNowWindow
+                        key={openWindow.id}
+                        openWindow={openWindow}
+                        number={inChromeOrder.indexOf(openWindow) + 1}
+                        lastUsedTabId={
+                          openWindow.isThisWindow ? thisWindowLastUsed : null
+                        }
+                        matchedTabIds={matchedTabIds}
+                        isOpen={!foldedIds.has(openWindow.id)}
+                        onToggle={() => toggleWindow(openWindow.id)}
+                        onCloseTab={(tab) =>
+                          void handleCloseTab(openWindow, tab)
+                        }
+                        // Whole-window handlers. The row offers them only while
+                        // no search is held (O14e), so they never act on tabs
+                        // the search hides.
+                        onSaveWindow={() => void handleSaveWindow(openWindow)}
+                        onCloseWindow={
+                          openWindow.isThisWindow
+                            ? undefined
+                            : () => void handleCloseWindow(openWindow)
+                        }
+                      />
+                    );
+                  })}
+                </RowDragArea>
               </RowDragArea>
             </RowDragArea>
           )}

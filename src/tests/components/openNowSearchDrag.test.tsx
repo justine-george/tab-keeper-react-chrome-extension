@@ -16,6 +16,9 @@ vi.mock('../../utils/functions/openNowMoves', async (importOriginal) => {
 });
 
 import OpenNowPane from '../../components/home/opennow/OpenNowPane';
+import { currentCarry, endCarry } from '../../redux/carry';
+import { endDragHold } from '../../redux/dragHold';
+import { standInSessionList } from '../setup/standInSessionList';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import { moveOpenGroup, moveOpenTab } from '../../utils/functions/openNowMoves';
@@ -23,6 +26,7 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import {
   ROW,
+  box,
   drag,
   expectMoveCarriedOut,
   find,
@@ -178,5 +182,58 @@ describe('a search that starts while a row is held (KAN-330 O14c)', () => {
     fireEvent.pointerUp(document, { clientX: 10, clientY: to });
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(moveOpenTab).not.toHaveBeenCalled();
+  });
+});
+
+// KAN-280 Part F (O14c amended B, Q3 A). Under a search a tab row can be carried OUT, as a copy; nothing moves inside
+// Open now, and a group or window row still does not pick up.
+describe('while searching, a tab row is carried out only (O14c amended B, Q3 A)', () => {
+  afterEach(() => {
+    endCarry('cancelled');
+    endDragHold();
+  });
+
+  test('a tab row hands off at once and moves nothing in Open now; a group or window row does not pick up', async () => {
+    const { unregister } = standInSessionList({
+      left: -400,
+      right: 0,
+      top: 0,
+      bottom: 2000,
+    });
+    const { top } = await renderSearchable(groupSeed(), true);
+    find('[data-open-now-scroller]').getBoundingClientRect = () => box(0, 2000);
+    await userEvent.setup().type(searchBox(), 'test');
+    const y = (top.get('22') ?? 0) + ROW / 2;
+    fireEvent.pointerDown(tabRow(22), { clientX: 10, clientY: y, button: 0 });
+    fireEvent.pointerMove(document, { clientX: 10, clientY: y + 8 });
+    expect(currentCarry()?.item.source).toBe('live');
+    fireEvent.pointerUp(document, {
+      clientX: 10,
+      clientY: (top.get('11') ?? 0) + 2,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(moveOpenTab).not.toHaveBeenCalled();
+    endCarry('cancelled');
+    endDragHold();
+
+    const groupY = (top.get('group:50') ?? 0) + ROW / 2;
+    fireEvent.pointerDown(find('[data-fixed-row-id="50"]'), {
+      clientX: 10,
+      clientY: groupY,
+      button: 0,
+    });
+    fireEvent.pointerMove(document, { clientX: -50, clientY: groupY + 8 });
+    expect(currentCarry()).toBeNull();
+    fireEvent.pointerUp(document, { clientX: -50, clientY: groupY + 8 });
+
+    const windowY = (top.get('window:2') ?? 0) + ROW / 2;
+    fireEvent.pointerDown(
+      find('[data-open-window-id="2"] [data-open-window-drag-handle]'),
+      { clientX: 10, clientY: windowY, button: 0 }
+    );
+    fireEvent.pointerMove(document, { clientX: 10, clientY: windowY + 8 });
+    expect(currentCarry()).toBeNull();
+    fireEvent.pointerUp(document, { clientX: 10, clientY: windowY + 8 });
+    unregister();
   });
 });

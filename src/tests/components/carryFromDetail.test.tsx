@@ -217,9 +217,10 @@ describe('each saved detail list hands a drag that reaches the session list to t
   });
 });
 
-// The controls: the lists that must not hand off, dragged the same way --
-// onto the stood-in list, where a saved detail list would hand off.
-describe('the session list and Open now keep today’s drag on a carry receiver', () => {
+// The controls: the session list must not hand off, dragged the same way --
+// onto the stood-in list, where a saved detail list would hand off. Open now
+// does since KAN-280 Part F (spec O12c): its item is copied, never moved.
+describe('the session list keeps today’s drag on a carry receiver; Open now hands off a copy', () => {
   test('the session list', async () => {
     const { container } = await renderWithProviders(
       <TabGroupEntryContainer />,
@@ -287,8 +288,8 @@ describe('the session list and Open now keep today’s drag on a carry receiver'
     fireEvent.pointerMove(document, { clientX: 10, clientY: from + 8 });
     fireEvent.pointerMove(document, { clientX: -400, clientY: from + 8 });
 
-    expect(currentCarry()).toBeNull();
-    expect(document.querySelector('[data-drag-held]')).not.toBeNull();
+    expect(currentCarry()?.item.source).toBe('live');
+    expect(document.querySelector('[data-drag-held]')).toBeNull();
     fireEvent.pointerUp(document, { clientX: -400, clientY: from + 8 });
   });
 });

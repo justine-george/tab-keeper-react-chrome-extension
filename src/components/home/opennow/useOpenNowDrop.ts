@@ -42,6 +42,8 @@ import {
 // so a row can never join a list of the other pane.
 export const OPEN_TABS_SCOPE = 'openTabs';
 export const OPEN_ITEMS_SCOPE = 'openItems';
+// KAN-280 Part F (D3 A). Windows, picked up only to be carried out.
+export const OPEN_WINDOWS_SCOPE = 'openWindows';
 
 // chrome.tabGroups.TAB_GROUP_ID_NONE, spelled out: chrome.tabGroups is absent
 // without the grant, and tab.groupId still reports -1 then.
