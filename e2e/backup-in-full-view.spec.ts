@@ -15,8 +15,31 @@ const FROM_FILE = buildContainer([
   buildSession({ tabGroupId: 'f1', title: 'From the file' }),
 ]);
 
+type HoldWindow = Window & { __releaseFileSteps?: () => void };
+
 // Each page's file steps, by kind, recorded from the moment the page exists.
-function recordFileSteps(context: BrowserContext) {
+// `lateBy` attaches to new pages that much later, as a loaded run can.
+//
+// KAN-619. Playwright hands over a new page only ~50ms before the full view
+// clicks its file input or download link, and a step with no listener yet is
+// never reported. So a new page holds those clicks until its listeners are on.
+async function recordFileSteps(context: BrowserContext, { lateBy = 0 } = {}) {
+  await context.addInitScript(() => {
+    const click = HTMLElement.prototype.click;
+    let held: HTMLElement[] | null = [];
+    HTMLElement.prototype.click = function (this: HTMLElement) {
+      const fileStep =
+        (this instanceof HTMLInputElement && this.type === 'file') ||
+        (this instanceof HTMLAnchorElement && this.hasAttribute('download'));
+      if (fileStep && held) held.push(this);
+      else click.call(this);
+    };
+    (window as HoldWindow).__releaseFileSteps = () => {
+      const queued = held ?? [];
+      held = null;
+      queued.forEach((el) => click.call(el));
+    };
+  });
   const steps: { page: Page; kind: 'download' | 'chooser'; name?: string }[] =
     [];
   const watch = (page: Page) => {
@@ -31,9 +54,12 @@ function recordFileSteps(context: BrowserContext) {
         buffer: Buffer.from(JSON.stringify(FROM_FILE)),
       });
     });
+    void page.evaluate(() => (window as HoldWindow).__releaseFileSteps?.());
   };
   context.pages().forEach(watch);
-  context.on('page', watch);
+  context.on('page', (page) =>
+    lateBy ? setTimeout(() => watch(page), lateBy) : watch(page)
+  );
   return steps;
 }
 
@@ -71,7 +97,7 @@ test.describe('the popup hands the backup file step to the full view (KAN-579)',
     extensionId,
   }) => {
     await seedSessions(context, HERE);
-    const steps = recordFileSteps(context);
+    const steps = await recordFileSteps(context);
     const popup = await popupOnSyncAndBackup(context, extensionId);
 
     await popup
@@ -93,7 +119,7 @@ test.describe('the popup hands the backup file step to the full view (KAN-579)',
     extensionId,
   }) => {
     await seedSessions(context, HERE);
-    const steps = recordFileSteps(context);
+    const steps = await recordFileSteps(context);
     const popup = await popupOnSyncAndBackup(context, extensionId);
 
     await popup
@@ -115,7 +141,7 @@ test.describe('the popup hands the backup file step to the full view (KAN-579)',
   }) => {
     await seedSessions(context, HERE);
     const full = await openFullView(context, extensionId);
-    const steps = recordFileSteps(context);
+    const steps = await recordFileSteps(context);
     const popup = await popupOnSyncAndBackup(context, extensionId);
 
     await popup
@@ -130,6 +156,43 @@ test.describe('the popup hands the backup file step to the full view (KAN-579)',
     ).toBeVisible();
     await expect(
       full.getByRole('button', { name: 'Load sessions from a backup' })
+    ).toBeVisible();
+  });
+});
+
+// KAN-619. A new page reaches the test ~50ms before the full view starts its
+// file step, and a step Playwright has no listener for is never reported.
+test.describe('a recorder that attaches late still sees the file step (KAN-619)', () => {
+  test('Save', async ({ context, extensionId }) => {
+    await seedSessions(context, HERE);
+    const steps = await recordFileSteps(context, { lateBy: 1500 });
+    const popup = await popupOnSyncAndBackup(context, extensionId);
+
+    await popup
+      .getByRole('button', { name: 'Save sessions to a file' })
+      .click();
+
+    await fullViewOnSyncAndBackup(context);
+    await expect
+      .poll(() => steps.map((s) => [isFullView(s.page), s.kind]))
+      .toEqual([[true, 'download']]);
+  });
+
+  test('Load', async ({ context, extensionId }) => {
+    await seedSessions(context, HERE);
+    const steps = await recordFileSteps(context, { lateBy: 1500 });
+    const popup = await popupOnSyncAndBackup(context, extensionId);
+
+    await popup
+      .getByRole('button', { name: 'Load sessions from a backup' })
+      .click();
+
+    const full = await fullViewOnSyncAndBackup(context);
+    await expect
+      .poll(() => steps.map((s) => [isFullView(s.page), s.kind]))
+      .toEqual([[true, 'chooser']]);
+    await expect(
+      full.getByRole('dialog', { name: 'Load 1 session from this backup?' })
     ).toBeVisible();
   });
 });
