@@ -162,11 +162,11 @@ describe('copyOnSessionRow: a row drop is a new first window, and says so (D4 A,
     ]);
   });
 
-  it('the session on screen: no toast (the Show rule), and the landed window is revealed', () => {
+  it('the session on screen, nothing skipped: no toast (the Show rule), and the landed window is revealed', () => {
     const reveal = vi.fn();
     const off = onRevealSavedWindow(reveal);
     const { store } = ready(container(undefined, 'S2'));
-    store.dispatch(copyOnSessionRow(LIVE(LG), 'S2'));
+    store.dispatch(copyOnSessionRow(LIVE(L1), 'S2'));
     expect(toasts(store)).toEqual([]);
     expect(reveal).toHaveBeenCalledWith(
       sessionIn(data(store), 'S2').windows[0].windowId
@@ -317,5 +317,70 @@ describe('isSessionOnScreen (P5)', () => {
     store.dispatch(setFoldSavedSessionInTabView(true));
     store.dispatch(copyOnSessionRow(LIVE(L1), 'S2'));
     expect(toasts(store).map((t) => t.show)).toEqual([{ tabGroupId: 'S2' }]);
+  });
+});
+
+// KAN-607 (Justine's pick, 2026-10-15). A skip always says so, on screen too: there it changes less than was asked,
+// or nothing, and nothing in view shows it. No Show chip when the session is already on screen.
+describe('skips always say so (KAN-607)', () => {
+  it('on screen, a copy that skips some: the count, no Show', () => {
+    const { store } = ready(container(undefined, 'S2'));
+    store.dispatch(copyOnSessionRow(LIVE(LG), 'S2'));
+    expect(toasts(store)).toEqual([
+      {
+        text: TOAST_MESSAGES.COPIED_TO_SESSION_SKIPPED,
+        params: { title: 'Target', count: 1 },
+        show: null,
+      },
+    ]);
+  });
+
+  it('on screen, a copy that skips all: "Already in", no Show, nothing saved', () => {
+    const { store } = ready(container(undefined, 'S2'));
+    const before = data(store);
+    expect(store.dispatch(copyOnSessionRow(LIVE(LDUP), 'S2'))).toBe(false);
+    expect(data(store)).toBe(before);
+    expect(toasts(store)).toEqual([
+      {
+        text: TOAST_MESSAGES.ALREADY_IN_SESSION,
+        params: { title: 'Target' },
+        show: null,
+      },
+    ]);
+  });
+
+  it('at an exact spot, a skip says so (P11 reversed); a clean copy there stays quiet', () => {
+    const { store } = ready(container(undefined, 'S2'));
+    store.dispatch(
+      copyToSpot(LIVE(LG), { tabGroupId: 'S2', toWindowId: 'd1', toIndex: 0 })
+    );
+    expect(toasts(store).map((t) => [t.text, t.show])).toEqual([
+      [TOAST_MESSAGES.COPIED_TO_SESSION_SKIPPED, null],
+    ]);
+    store.dispatch(
+      copyToSpot(LIVE(L1), { tabGroupId: 'S2', toWindowId: 'd2', toIndex: 0 })
+    );
+    expect(toasts(store)).toHaveLength(1);
+  });
+
+  it('a window between windows that skips all: "Already in"', () => {
+    const { store } = ready(container(undefined, 'S2'));
+    const allThere = {
+      pick: LW,
+      window: {
+        ...live(),
+        tabs: live().tabs.filter(
+          (t) => t.url === 'https://u1.test/' || t.url === 'https://u4.test/'
+        ),
+        tabCount: 2,
+      },
+      chromeWindowId: 7,
+    };
+    expect(
+      store.dispatch(copyWindowTo(allThere, { tabGroupId: 'S2', toIndex: 1 }))
+    ).toBe(false);
+    expect(toasts(store).map((t) => t.text)).toEqual([
+      TOAST_MESSAGES.ALREADY_IN_SESSION,
+    ]);
   });
 });

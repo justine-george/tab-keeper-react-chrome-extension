@@ -26,7 +26,8 @@ import { revealSavedWindow } from '../components/home/rightpane/revealSavedWindo
 
 type Took = ThunkAction<boolean, RootState, unknown, UnknownAction>;
 
-// Returns whether anything was saved. `announce`: the target was not on screen at the drop (the Show rule).
+// Returns whether anything was saved. `announce`: the target was not on screen at the drop (the Show rule): only
+// then does a clean copy toast. A skip always does (KAN-607): on screen nothing shows what was left out.
 const copyToSession =
   (copy: SessionCopy, live: LiveSnapshot, announce: boolean): Took =>
   (dispatch, getState) => {
@@ -49,13 +50,14 @@ const copyToSession =
     const target = before.tabGroups.find(
       (g) => g.tabGroupId === copy.to.tabGroupId
     );
-    if (!announce || target === undefined) return copied;
+    if (target === undefined) return copied;
 
     const { skipped, copiesAny } = copyOutcome(
       snapshot,
       copy.pick,
       addressesIn(target)
     );
+    if (skipped === 0 && !announce) return copied;
     const show = isSessionOnScreen(getState(), target.tabGroupId)
       ? undefined
       : { tabGroupId: target.tabGroupId };
