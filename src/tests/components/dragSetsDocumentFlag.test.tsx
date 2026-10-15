@@ -240,14 +240,21 @@ describe('the New session marker', () => {
 describe('the New window marker of a drag that can become a carry', () => {
   const carryOf =
     (kind: 'tab' | 'window') =>
-    (rowId: string): CarryOut => ({
-      item: savedItem(
-        kind === 'tab'
-          ? { kind, tabGroupId: 'S1', windowId: 'w1', tabId: rowId }
-          : { kind, tabGroupId: 'S1', windowId: rowId }
-      ),
-      card: { kind, title: rowId, faviconUrl: '' },
-    });
+    (rowId: string): CarryOut =>
+      kind === 'tab'
+        ? {
+            item: savedItem({
+              kind,
+              tabGroupId: 'S1',
+              windowId: 'w1',
+              tabId: rowId,
+            }),
+            card: { kind, title: rowId, faviconUrl: '' },
+          }
+        : {
+            item: savedItem({ kind, tabGroupId: 'S1', windowId: rowId }),
+            card: { kind, title: rowId, number: 1, tabCount: 1 },
+          };
 
   test('a tab: on from the pick-up, with no carry yet, and off at the drop', () => {
     render(<Harness carryOut={carryOf('tab')} />);
