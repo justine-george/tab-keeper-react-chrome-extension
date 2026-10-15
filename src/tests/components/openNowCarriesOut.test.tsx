@@ -408,4 +408,31 @@ describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
       document.documentElement.hasAttribute('data-carry-over-open-now')
     ).toBe(false);
   });
+
+  // Justine, 02:16: one boundary for out and back. The hand-off is at Open now's own edge, the same box its receiver
+  // dims the card in; its list's margin inside Open now is still Open now's drag.
+  test("in Open now's margin, outside its list, the drag is still Open now's; past Open now's edge it is a copy", async () => {
+    const { top } = await renderPane(groupSeed());
+    const region = document.querySelector<HTMLElement>('[role="region"]');
+    if (region === null) throw new Error('no Open now region');
+    // Open now x 0..300; its list inset to x 20..280.
+    region.getBoundingClientRect = () => box(0, 2000);
+    // As measured on the real build: Open now x 836, its list x 845. Inline, so the engine finds the list as jsdom
+    // would not from emotion's class alone.
+    const scroller = find('[data-open-now-scroller]');
+    scroller.style.overflowY = 'auto';
+    scroller.getBoundingClientRect = () =>
+      DOMRect.fromRect({ x: 20, y: 0, width: 260, height: 2000 });
+    const y = (top.get('22') ?? 0) + ROW / 2;
+    press(tabRow(22), y, 40);
+    moveTo(40, y + 8);
+    moveTo(10, y + 8);
+    expect(currentCarry()).toBeNull();
+    expect(tabRow(22).hasAttribute('data-drag-held')).toBe(true);
+    expect(
+      document.documentElement.hasAttribute('data-carry-over-open-now')
+    ).toBe(false);
+    moveTo(ON_LIST, y + 8);
+    expect(currentCarry()?.item.source).toBe('live');
+  });
 });

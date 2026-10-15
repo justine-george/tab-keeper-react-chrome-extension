@@ -373,7 +373,7 @@ interface LiveDrag {
   // point on it lands as a new first window (landingOf), and is never a
   // hand-off (onMoveEvent, Q3 i).
   isOnNewFirstWindow: ((x: number, y: number) => boolean) | null;
-  // KAN-280 Part F (P1). Whether a point is beside the list's pane, from its box read at activation; null unless handsOffBesidePane.
+  // KAN-280 Part F (P1). Whether a point is left or right of handsOffOutside's box, read at activation; null without it.
   besidePane: ((x: number) => boolean) | null;
   // KAN-366. In a list that fits, the space free below its last window
   // (newWindowFree) when the drag started, read by the under-half-a-row
@@ -536,7 +536,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   offersNewWindow = false,
   keepWindowOpen,
   disabled = false,
-  handsOffBesidePane = false,
+  handsOffOutside,
   carryOnly = false,
   children,
 }) => {
@@ -1558,12 +1558,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       l.isOnNewFirstWindow = offersNewWindow
         ? measureNewFirstWindowTarget(document)
         : null;
-      // P1. The pane's sides, read once like the receivers.
-      const paneBox = handsOffBesidePane
-        ? paneOf(l.heldEl)?.getBoundingClientRect()
-        : undefined;
+      // P1. The sides of the box the list hands off outside, read once like the receivers.
+      // A box with no width is not laid out: it has no sides to cross.
+      const paneBox = handsOffOutside?.()?.getBoundingClientRect();
       l.besidePane =
-        paneBox === undefined
+        paneBox === undefined || paneBox.width === 0
           ? null
           : (x) => x < paneBox.left || x >= paneBox.right;
 
@@ -1931,9 +1930,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // the line between them (x 972-984 against a pane ending at 969,
       // measured), above or below it in the auto-scroll overshoot (KAN-152) --
       // the drag is exactly what it always was: its preview, its landing, its
-      // refusal, its auto-scroll. A list with handsOffBesidePane (Open now,
+      // refusal, its auto-scroll. A list with handsOffOutside (Open now,
       // KAN-280 Part F P1) also hands off once the pointer is left or right of
-      // its pane; above or below stays its drag.
+      // the box it names; above or below stays its drag.
       //
       // No box read per move: the receivers were measured when the drag
       // started, and only for a list that can hand off at all.
@@ -2259,7 +2258,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     clicks,
     cardOwner,
     disabled,
-    handsOffBesidePane,
+    handsOffOutside,
     carryOnly,
   ]);
 

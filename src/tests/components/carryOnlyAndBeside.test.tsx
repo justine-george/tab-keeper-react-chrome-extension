@@ -59,13 +59,13 @@ const Harness = ({
   onMove,
   carryOut,
   onRowClick = () => {},
-  handsOffBesidePane,
+  handsOffOutside,
   carryOnly,
 }: {
   onMove: (rowId: string, toIndex: number) => void;
   carryOut?: (rowId: string) => CarryOut | null;
   onRowClick?: (rowId: string) => void;
-  handsOffBesidePane?: boolean;
+  handsOffOutside?: () => Element | null;
   carryOnly?: boolean;
 }) => (
   <div data-testid="pane" style={{ overflowY: 'auto' }}>
@@ -74,7 +74,7 @@ const Harness = ({
       onMove={onMove}
       dragKind="tab"
       carryOut={carryOut}
-      handsOffBesidePane={handsOffBesidePane}
+      handsOffOutside={handsOffOutside}
       carryOnly={carryOnly}
     >
       {['a', 'b', 'c', 'd'].map((id) => (
@@ -121,13 +121,37 @@ const pickUpA = () => {
   fireEvent.pointerMove(document, { clientX: 10, clientY: 25 });
 };
 
+// The harness's pane, the box a hand-off is measured against.
+const thePane = () => document.querySelector('[data-testid="pane"]');
 const heldMarker = () => document.querySelector('[data-drag-held]');
 const kind = () => document.documentElement.getAttribute('data-dragging');
 
-describe('handsOffBesidePane (P1)', () => {
+describe('handsOffOutside (P1)', () => {
+  test('a box with no width is not laid out: no line to cross, the drag stays', () => {
+    const empty = document.createElement('div');
+    empty.getBoundingClientRect = () =>
+      DOMRect.fromRect({ x: 0, y: 0, width: 0, height: 0 });
+    render(
+      <Harness
+        onMove={() => {}}
+        carryOut={() => OUT}
+        handsOffOutside={() => empty}
+      />
+    );
+    layout();
+    pickUpA();
+    fireEvent.pointerMove(document, { clientX: BESIDE, clientY: 25 });
+    expect(currentCarry()).toBeNull();
+    expect(heldMarker()).not.toBeNull();
+  });
+
   test('leaving the pane to the side hands off, with no receiver there', () => {
     render(
-      <Harness onMove={() => {}} carryOut={() => OUT} handsOffBesidePane />
+      <Harness
+        onMove={() => {}}
+        carryOut={() => OUT}
+        handsOffOutside={thePane}
+      />
     );
     layout();
     pickUpA();
@@ -138,7 +162,11 @@ describe('handsOffBesidePane (P1)', () => {
 
   test('above or below the pane is still the drag (KAN-152)', () => {
     render(
-      <Harness onMove={() => {}} carryOut={() => OUT} handsOffBesidePane />
+      <Harness
+        onMove={() => {}}
+        carryOut={() => OUT}
+        handsOffOutside={thePane}
+      />
     );
     layout();
     pickUpA();

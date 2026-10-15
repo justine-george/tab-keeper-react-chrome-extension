@@ -254,6 +254,9 @@ export default function OpenNowPane({
     };
   }, []);
 
+  // P1. Open now's own box: the line a drag crosses to become a copy, and the one its receiver fades the card inside.
+  const openNowRegion = useCallback(() => paneRef.current, []);
+
   // P6. A carry from here reads its window's place as Chrome has it now.
   useEffect(() => {
     let last = currentCarry()?.item ?? null;
@@ -783,7 +786,7 @@ export default function OpenNowPane({
                 // KAN-280 Part F. Copied out to the saved side, beside the pane (P1); a card from pick-up (KAN-611).
                 // KAN-610: under the saved search nothing goes to the saved side; the drag stays in Open now.
                 carryOut={isSavedSearching ? undefined : carryTabOut}
-                handsOffBesidePane
+                handsOffOutside={openNowRegion}
                 // O14c amended (B): under a search a tab row is carried out only.
                 carryOnly={searchTerm !== null}
                 // Both searches: nothing to carry out, and no in-pane drop under Open now's own search (O14c).
@@ -800,7 +803,7 @@ export default function OpenNowPane({
                   landingRange={drop.items.landingRange}
                   acceptsWindow={drop.items.acceptsWindow}
                   carryOut={isSavedSearching ? undefined : carryGroupOut}
-                  handsOffBesidePane
+                  handsOffOutside={openNowRegion}
                   disabled={searchTerm !== null}
                 >
                   {listed.map((openWindow) => {
