@@ -96,6 +96,7 @@ import {
   type CarryCard,
   type CarryReceiver,
 } from '../../../../redux/carry';
+import { pickOf } from '../../../../redux/carriedItem';
 import {
   hideDragCard,
   moveDragCard,
@@ -1523,6 +1524,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // KAN-394 N1 (revised). Only a drag that can hand off to a carry; an adopted one's carry wrote it.
       const out = l.adopted ? null : (carryOut?.(l.rowId) ?? null);
       if (out !== null) setDragNewSession(true);
+      // KAN-614. And New window, for what its carry would show it for (startCarry): Open now offers none of its own.
+      if (out !== null && pickOf(out.item).kind !== 'window') {
+        setDragNewWindow(true);
+      }
       // KAN-279 D12. From here until the drag ends, a change this page did
       // not make waits (dragHold): applying it would move the list under
       // rects measured once, below.
