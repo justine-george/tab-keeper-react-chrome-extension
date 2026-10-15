@@ -25,10 +25,14 @@ import {
   saveToLocalStorage,
   stripEmbeddedFavicons,
 } from '../../utils/functions/local';
-import { newSessionTitleOf } from '../../utils/functions/newSessionTitle';
+import {
+  newSessionTitleOf,
+  titleOfPick,
+} from '../../utils/functions/newSessionTitle';
 import { savedItem, type CarriedPick } from '../carriedItem';
 import {
   addressesIn,
+  copyOutcome,
   tabsToCopy,
   windowToCopy,
 } from '../../utils/functions/liveCopy';
@@ -461,6 +465,19 @@ export interface moveToNewSessionParams {
   // A name typed in the session name field; blank when none was.
   typedTitle: string;
   remintNamespace: string;
+}
+
+// KAN-280 Part F (N1 A). A live item copied into a session made for it.
+export interface copyToNewSessionParams {
+  pick: CarriedPick;
+  // The live window as converted at pick-up (Q1 A).
+  snapshot: windowGroupData;
+  tabGroupId: string;
+  newWindowId: string;
+  remintNamespace: string;
+  now: number;
+  fallbackTitle: string;
+  typedTitle: string;
 }
 
 // Bounds are resolved here rather than inside createWindowWithRetries because
@@ -2809,6 +2826,78 @@ export const tabContainerDataStateSlice = createSlice({
       }),
     },
 
+    // KAN-280 Part F (N1 A). A live item let go on the save row: KAN-394's new session, holding a copy. D6 has nothing to skip in it.
+    copyToNewSessionInternal: {
+      reducer: (state, action: PayloadAction<copyToNewSessionParams>) => {
+        const {
+          pick,
+          snapshot,
+          tabGroupId,
+          newWindowId,
+          remintNamespace,
+          now,
+          fallbackTitle,
+          typedTitle,
+        } = action.payload;
+        // Nothing to copy: no empty session (D20).
+        if (!copyOutcome(snapshot, pick, new Set()).copiesAny) return;
+
+        state.tabGroups.unshift({
+          tabGroupId,
+          title:
+            normalizeTitle(typedTitle) ||
+            titleOfPick(snapshot, pick) ||
+            fallbackTitle,
+          createdTime: getStringDate(new Date(now)),
+          createdAt: now,
+          windowCount: 0,
+          tabCount: 0,
+          isAutoSave: false,
+          isSelected: false,
+          windows: [],
+        });
+
+        // The tab and group branches repeat `to` so each narrows its own pick.
+        const copy: SessionCopy =
+          pick.kind === 'window'
+            ? { pick, to: { tabGroupId, toIndex: 0 } }
+            : pick.kind === 'tab'
+              ? { pick, to: { tabGroupId, newWindowId, at: 'first' } }
+              : { pick, to: { tabGroupId, newWindowId, at: 'first' } };
+        tabContainerDataStateSlice.caseReducers.copyToSessionInternal(state, {
+          type: copyToSessionInternal.type,
+          payload: { copy, snapshot, remintNamespace, now },
+        });
+        tabContainerDataStateSlice.caseReducers.selectTabContainer(state, {
+          type: selectTabContainer.type,
+          payload: tabGroupId,
+        });
+      },
+      prepare: (
+        pick: CarriedPick,
+        snapshot: windowGroupData,
+        fallbackTitle: string,
+        typedTitle: string = '',
+        minted: Partial<
+          Pick<
+            copyToNewSessionParams,
+            'tabGroupId' | 'newWindowId' | 'remintNamespace' | 'now'
+          >
+        > = {}
+      ) => ({
+        payload: {
+          pick,
+          snapshot,
+          fallbackTitle,
+          typedTitle,
+          tabGroupId: minted.tabGroupId ?? uuidv4(),
+          newWindowId: minted.newWindowId ?? uuidv4(),
+          remintNamespace: minted.remintNamespace ?? uuidv4(),
+          now: minted.now ?? Date.now(),
+        },
+      }),
+    },
+
     // KAN-594. Stripped, and written back: the first load after an update rewrites what is stored.
     replaceState: (_state, action: PayloadAction<TabMasterContainer>) => {
       const next = withASelection(stripEmbeddedFavicons(action.payload));
@@ -3213,6 +3302,7 @@ export const {
   moveSessionInternal,
   moveToSessionInternal,
   copyToSessionInternal,
+  copyToNewSessionInternal,
   moveToNewSessionInternal,
   sortSessionsInternal,
   clearSessionOrder,

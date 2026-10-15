@@ -41,6 +41,8 @@ import {
   MOVE_SESSION_ACTION,
   MOVE_TO_SESSION_ACTION,
   MOVE_TO_NEW_SESSION_ACTION,
+  COPY_TO_SESSION_ACTION,
+  COPY_TO_NEW_SESSION_ACTION,
   REPLACE_SESSION_CONTENT_ACTION,
   SORT_SESSIONS_ACTION,
   CLEAR_SESSION_ORDER_ACTION,
@@ -87,6 +89,9 @@ const actionsToCapture = [
   MOVE_TO_SESSION_ACTION,
   // KAN-394. One action for the new session and the move into it.
   MOVE_TO_NEW_SESSION_ACTION,
+  // KAN-280 Part F. One action per copy, so one ⌘Z takes it back.
+  COPY_TO_SESSION_ACTION,
+  COPY_TO_NEW_SESSION_ACTION,
   // KAN-468. One action, so one ⌘Z restores the session.
   REPLACE_SESSION_CONTENT_ACTION,
   SORT_SESSIONS_ACTION,

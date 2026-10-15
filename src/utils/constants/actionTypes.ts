@@ -68,6 +68,8 @@ export const MOVE_TO_NEW_SESSION_ACTION =
   'tabContainerDataState/moveToNewSessionInternal';
 export const COPY_TO_SESSION_ACTION =
   'tabContainerDataState/copyToSessionInternal';
+export const COPY_TO_NEW_SESSION_ACTION =
+  'tabContainerDataState/copyToNewSessionInternal';
 export const REPLACE_SESSION_CONTENT_ACTION =
   'tabContainerDataState/replaceSessionContentInternal';
 export const SORT_SESSIONS_ACTION =
