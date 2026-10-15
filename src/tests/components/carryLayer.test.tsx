@@ -594,17 +594,15 @@ describe('a live carry (KAN-280 Part F)', () => {
     );
   });
 
-  // Review Focus 2.
-  test('started under the saved search, it is not cancelled (D5 A); a saved one still is', async () => {
+  // KAN-610 (reverses D5 A): under the saved search nothing is carried into the saved side, a live carry included.
+  test('a live carry is cancelled when the saved search starts, as a saved one is', async () => {
     const { store } = await renderLayer();
-    act(() => {
-      store.dispatch(setSearchInputText('t'));
-    });
     const item = LIVE_ITEM();
     act(() => startCarry(item, LIVE_CARD, 10, 10));
     expect(currentCarry()?.item).toBe(item);
-    act(() => endCarry('cancelled'));
-    act(() => startCarry(savedItem(TAB), LIVE_CARD, 10, 10));
+    act(() => {
+      store.dispatch(setSearchInputText('t'));
+    });
     expect(currentCarry()).toBeNull();
   });
 });

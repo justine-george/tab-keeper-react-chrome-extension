@@ -196,9 +196,10 @@ export default function TabGroupEntryContainer() {
   const [carryTargetId, setCarryTargetId] = useState<string | null>(null);
   const carryTargetRef = useRef<string | null>(null);
 
-  // A receiver under the search too (KAN-280 Part F, D5 A): a live carry's row drop works there. A saved carry
-  // never reaches it then: none starts under the search (KAN-385), and one started before is ended (CarryLayer).
+  // Not a receiver while searching (KAN-385, and KAN-610 for a live carry); a search started mid-carry ends it (CarryLayer).
   useEffect(() => {
+    if (isSearching) return;
+
     const aim = (id: string | null) => {
       if (carryTargetRef.current === id) return;
       carryTargetRef.current = id;

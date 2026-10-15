@@ -255,10 +255,10 @@ export function CarryLayer() {
     }
   }, [tabGroups, carried, clicks]);
 
-  // A search started mid-carry cancels a saved one; a live one's row drop still works under it (D5 A).
+  // A search started mid-carry cancels it: nothing is carried into the saved side then, a live carry included (KAN-610).
   const { isSearching } = useSavedSearch();
   useEffect(() => {
-    if (carried !== null && carried.source === 'saved' && isSearching) {
+    if (carried !== null && isSearching) {
       clicks.armUntilRelease();
       endCarry('cancelled');
     }

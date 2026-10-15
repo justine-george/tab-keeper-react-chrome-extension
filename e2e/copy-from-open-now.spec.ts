@@ -740,7 +740,8 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
       });
   });
 
-  test('12. the saved search open: a row drop works, resting opens nothing (D5 A)', async ({
+  // KAN-610 (reverses D5 A): while the saved search is active, nothing from Open now reaches the saved side.
+  test('12. the saved search open: an Open now tab is never carried out, no row lights, nothing is saved', async ({
     context,
     extensionId,
     serviceWorker,
@@ -752,15 +753,18 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
       .getByRole('textbox', { name: 'Search saved tabs', exact: true })
       .fill('test');
     await expect(sessionRow(page, 'S2')).toBeVisible();
+    const before = await stored(page);
 
     const at = await pickUpLive(page, live.idOf('Live A'));
-    await carryOutOfOpenNow(page, at.y);
-    await onto(page, 'S2');
-    await page.waitForTimeout(SPRING_OPEN_MS + 200);
-    expect(await selected(page)).toBe('S1');
+    const pane = await boxOf(page.locator('[data-pane="open-now"]'));
+    await page.mouse.move(pane.x - 40, at.y, { steps: 6 });
+    const row = await boxOf(sessionRow(page, 'S2'));
+    await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2, {
+      steps: 6,
+    });
+    await expect(page.locator(CARD)).toHaveCount(0);
+    expect(await carryTargets(page)).toEqual([]);
     await page.mouse.up();
-    await expect
-      .poll(async () => (await urlsOf(page, 'S2'))[0])
-      .toEqual([dataUrl('Live A')]);
+    expect(await stored(page)).toEqual(before);
   });
 });

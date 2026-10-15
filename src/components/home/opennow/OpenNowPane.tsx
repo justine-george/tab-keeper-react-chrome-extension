@@ -756,8 +756,8 @@ export default function OpenNowPane({
               handleSelector="[data-open-window-drag-handle]"
               carryOut={carryWindowOut}
               carryOnly
-              // Q3 A: under a search only tab rows pick up.
-              disabled={searchTerm !== null}
+              // Q3 A: under a search only tab rows pick up; under the saved search nothing goes to the saved side (KAN-610).
+              disabled={searchTerm !== null || isSavedSearching}
             >
               <RowDragArea
                 scope={OPEN_TABS_SCOPE}
@@ -774,11 +774,14 @@ export default function OpenNowPane({
                 landingRange={drop.tabs.landingRange}
                 acceptsWindow={drop.tabs.acceptsWindow}
                 // KAN-280 Part F. Copied out to the saved side, beside the pane (P1), drawn until then (D1 A).
-                carryOut={carryTabOut}
+                // KAN-610: under the saved search nothing goes to the saved side; the drag stays in Open now.
+                carryOut={isSavedSearching ? undefined : carryTabOut}
                 cardOnPickUp={false}
                 handsOffBesidePane
                 // O14c amended (B): under a search a tab row is carried out only.
                 carryOnly={searchTerm !== null}
+                // Both searches: nothing to carry out, and no in-pane drop under Open now's own search (O14c).
+                disabled={searchTerm !== null && isSavedSearching}
               >
                 <RowDragArea
                   scope={OPEN_ITEMS_SCOPE}
@@ -790,7 +793,7 @@ export default function OpenNowPane({
                   restoreScrollIfNoDrop
                   landingRange={drop.items.landingRange}
                   acceptsWindow={drop.items.acceptsWindow}
-                  carryOut={carryGroupOut}
+                  carryOut={isSavedSearching ? undefined : carryGroupOut}
                   cardOnPickUp={false}
                   handsOffBesidePane
                   disabled={searchTerm !== null}

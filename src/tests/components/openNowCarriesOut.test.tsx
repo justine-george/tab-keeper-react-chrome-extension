@@ -15,7 +15,10 @@ vi.mock('../../utils/functions/openNowMoves', async (importOriginal) => {
 
 import OpenNowPane from '../../components/home/opennow/OpenNowPane';
 import { CarryLayer } from '../../components/home/CarryLayer';
-import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
+import {
+  setHasTabGroupsPermission,
+  setSearchInputText,
+} from '../../redux/slices/globalStateSlice';
 import {
   carryEndedAs,
   carryReceiverAt,
@@ -342,5 +345,30 @@ describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
     root.parentElement.setAttribute('data-carry-away', '');
     expect(measured?.(10, 50)).toBe(false);
     expect(carryReceiverAt(10, 50)).toBeNull();
+  });
+
+  // KAN-610: while the saved search is active, Open now hands nothing to the saved side.
+  test('under the saved search a tab is not carried out beside the pane, and a window does not pick up', async () => {
+    const { top, store } = await renderPane(groupSeed());
+    act(() => {
+      store.dispatch(setSearchInputText('test'));
+    });
+    const saved = store.getState().tabContainerDataState;
+    const y = (top.get('22') ?? 0) + ROW / 2;
+    press(tabRow(22), y);
+    moveTo(10, y + 8);
+    moveTo(ON_LIST, y + 8);
+    expect(currentCarry()).toBeNull();
+    // Still Open now's own drag, as before Part F.
+    expect(tabRow(22).hasAttribute('data-drag-held')).toBe(true);
+    fireEvent.pointerUp(document, { clientX: 10, clientY: y });
+
+    const wy = (top.get('window:2') ?? 0) + ROW / 2;
+    press(handle(2), wy);
+    moveTo(10, wy + 8);
+    expect(currentCarry()).toBeNull();
+    expect(document.querySelector('[data-drag-held]')).toBeNull();
+    fireEvent.pointerUp(document, { clientX: 10, clientY: wy + 8 });
+    expect(store.getState().tabContainerDataState).toBe(saved);
   });
 });

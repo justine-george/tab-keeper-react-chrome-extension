@@ -653,17 +653,17 @@ describe('auto-scroll', () => {
 
 // Every window is titled 'Window <id>', so 'window' searches and keeps every row.
 describe('the saved search', () => {
-  // KAN-280 Part F (D5 A). Still a receiver under the search: a live carry's row drop works there.
-  // A saved carry never reaches it then: none starts under the search (KAN-385), and one started before ends (below).
-  test('while searching the list is still a receiver', async () => {
+  // KAN-385, and KAN-610 for a live carry: no receiver while searching.
+  test('while searching the list is no receiver', async () => {
     const { store } = await renderList();
+    // CONTROL: not searching, the list is what a point on a row hits.
     expect(carryReceiverAt(X, rowY(1))).not.toBeNull();
 
     act(() => {
       store.dispatch(setSearchInputText('window'));
     });
 
-    expect(carryReceiverAt(X, rowY(1))).not.toBeNull();
+    expect(carryReceiverAt(X, rowY(1))).toBeNull();
   });
 
   test('started mid-carry, it ends the carry and the target look', async () => {
@@ -825,25 +825,23 @@ function hexToRgb(hex: string): string {
 }
 
 describe('a live carry (KAN-280 Part F)', () => {
-  test('under the saved search a row drop works, and resting opens nothing (D5 A, P4)', async () => {
+  // KAN-610 (reverses D5 A): a live carry started under the saved search draws no target there and saves nothing.
+  test('under the saved search it is cancelled: no target, no dwell, nothing saved', async () => {
     const { store, scroller } = await renderList();
     act(() => {
       store.dispatch(setSearchInputText('window'));
     });
     layOut(scroller);
-    // PREMISE: the search keeps every row, so row 1 is still S2.
-    expect(rowIds()).toEqual(['S1', 'S2', 'S3', 'S4', 'S5', 'S6']);
+    const before = store.getState().tabContainerDataState;
     handOffLive();
     moveTo(rowY(1));
-    expect(targetId()).toEqual(['S2']);
-    wait(SPRING_OPEN_MS + 50);
-    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
-      'S1'
-    );
+    expect(targetId()).toBeNull();
+    expect(sweeps()).toEqual([]);
     releaseAt(rowY(1));
-    const s2 = sessionIn(store.getState().tabContainerDataState, 'S2');
-    expect(tabIds(s2.windows[0])).toEqual(['l1']);
     expect(currentCarry()).toBeNull();
+    expect(store.getState().tabContainerDataState.tabGroups).toBe(
+      before.tabGroups
+    );
   });
 
   test("folded in the tab view, resting on the selected session's row opens it as a peek (N3 A, P5)", async () => {
