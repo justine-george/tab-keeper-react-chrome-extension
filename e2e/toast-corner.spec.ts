@@ -72,7 +72,10 @@ for (const [view, path, size] of [
       mimeType: 'application/json',
       buffer: Buffer.from('not json'),
     });
-    await expect(toast(page)).toBeVisible();
+    // KAN-618. Our own sentence, with its full stop, not the parser's message.
+    await expect(toast(page)).toHaveText(
+      'Error restoring tabs: The file is not valid JSON.'
+    );
     const settings = await corner(page);
     expect(settings.left).toBe(20);
     expect(settings.bottom).toBe(20);
