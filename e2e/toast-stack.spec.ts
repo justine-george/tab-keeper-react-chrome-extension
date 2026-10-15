@@ -666,7 +666,7 @@ test('8b. a taller front toast still shows the two peeks, 8px or less apiece abo
 
 // KAN-489. Each saved change is its own event: two saves in a row are two
 // toasts, where a twin used to replace the first.
-test('9. two saves in a row are two toasts; a twin that saves nothing still replaces', async ({
+test('9. two saves in a row are two toasts, and so are two copies', async ({
   context,
   extensionId,
   serviceWorker,
@@ -682,10 +682,12 @@ test('9. two saves in a row are two toasts; a twin that saves nothing still repl
     await expect(liveToasts(page).nth(i)).toHaveText(ALL_SAVED);
   }
 
-  // CONTROL: Links copied announces no saved change, so its twin replaces it.
+  // KAN-401. Each copy is its own event too: the second stacks on the first.
   await copyLinksInPlace(page);
   await copyLinksInPlace(page);
   await expect(liveToasts(page)).toHaveCount(3);
-  await expect(liveToasts(page).nth(2)).toHaveText(await linksCopied(page));
-  await expect(liveToasts(page).nth(1)).toHaveText(ALL_SAVED);
+  await expect(liveToasts(page).nth(0)).toHaveText(ALL_SAVED);
+  for (const i of [1, 2]) {
+    await expect(liveToasts(page).nth(i)).toHaveText(await linksCopied(page));
+  }
 });

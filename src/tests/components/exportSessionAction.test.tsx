@@ -403,6 +403,27 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
       });
     });
 
+    // KAN-401. Each copy is its own event: two copies are two toasts.
+    test('copying twice shows two toasts', async () => {
+      const user = userEvent.setup();
+      fakeClipboard();
+      const { store } = await renderHeader();
+
+      for (let copy = 0; copy < 2; copy += 1) {
+        await openMenu(user);
+        await user.click(
+          screen.getByRole('menuitem', { name: 'Copy all links' })
+        );
+      }
+
+      await waitFor(() =>
+        expect(store.getState().globalState.toasts.map((t) => t.text)).toEqual([
+          'LinksCopied',
+          'LinksCopied',
+        ])
+      );
+    });
+
     // KAN-401. The count is the tabs copied, read from the session copied.
     test('says how many links it copied', async () => {
       const user = userEvent.setup();

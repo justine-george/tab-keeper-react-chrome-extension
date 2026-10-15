@@ -226,6 +226,28 @@ describe('the export preview page (KAN-190)', () => {
     });
   });
 
+  // KAN-401. Each copy is its own event: two copies are two toasts.
+  test('copying twice shows two toasts', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+    vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({
+      write: vi.fn().mockResolvedValue(undefined),
+      writeText: vi.fn(),
+    } as unknown as Clipboard);
+    const { store } = await renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Copy all links' }));
+    await user.click(screen.getByRole('button', { name: 'Copy all links' }));
+
+    // The store, not the DOM: a replaced toast lingers on screen as it leaves.
+    await waitFor(() =>
+      expect(store.getState().globalState.toasts.map((t) => t.text)).toEqual([
+        'LinksCopied',
+        'LinksCopied',
+      ])
+    );
+  });
+
   test('when the rich copy is refused, the plain list is copied instead', async () => {
     const user = userEvent.setup();
     vi.stubGlobal('ClipboardItem', FakeClipboardItem);

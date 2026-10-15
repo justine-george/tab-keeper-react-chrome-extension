@@ -451,6 +451,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
       showToast({
         toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
         toastParams: { count },
+        stacksOnTwin: true,
       })
     );
     setCopied(true);

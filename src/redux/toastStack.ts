@@ -43,12 +43,15 @@ function sameParams(a: ToastItem['params'], b: ToastItem['params']): boolean {
 // - T5: a plain toast replaces its twin (same key, same params), and goes to
 //   the bottom -- unless it announces a saved-session change: each of those
 //   is its own event, so two saves in a row are two toasts (KAN-489).
+//   `stacksOnTwin` stacks the same way without taking ⌘Z: each copy is its
+//   own event but changes nothing saved (KAN-401).
 // - Q1 C′: a toast announcing a saved-session change takes ⌘Z from the offer.
 // - T2: past MAX_TOASTS, the oldest go.
 export function addToast(
   list: readonly ToastItem[],
   toast: ToastItem,
-  announcesSavedChange: boolean
+  announcesSavedChange: boolean,
+  stacksOnTwin = false
 ): ToastItem[] {
   let next: ToastItem[];
   if (toast.reopenOffer !== null) {
@@ -56,14 +59,15 @@ export function addToast(
     next =
       at === -1 ? [...list, toast] : list.map((t, i) => (i === at ? toast : t));
   } else {
-    next = announcesSavedChange
-      ? [...list]
-      : list.filter(
-          (t) =>
-            t.reopenOffer !== null ||
-            t.text !== toast.text ||
-            !sameParams(t.params, toast.params)
-        );
+    next =
+      announcesSavedChange || stacksOnTwin
+        ? [...list]
+        : list.filter(
+            (t) =>
+              t.reopenOffer !== null ||
+              t.text !== toast.text ||
+              !sameParams(t.params, toast.params)
+          );
     if (announcesSavedChange) {
       next = next.map((t) =>
         t.reopenOffer === null

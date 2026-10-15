@@ -60,6 +60,20 @@ describe('addToast (KAN-349)', () => {
     expect(ids(list)).toEqual([1, 2]);
   });
 
+  // KAN-401. Each copy is its own event too, but changes nothing saved, so it
+  // leaves ⌘Z with the offer.
+  test('T5: a toast that stacks on its twin keeps both, and leaves ⌘Z with the offer', () => {
+    let list = addToast(
+      [offer(1, 7)],
+      plain(2, 'LinksCopied', { count: 3 }),
+      false,
+      true
+    );
+    list = addToast(list, plain(3, 'LinksCopied', { count: 3 }), false, true);
+    expect(ids(list)).toEqual([1, 2, 3]);
+    expect(list[0].reopenOffer?.keepsUndoKey).toBe(true);
+  });
+
   test('T5: the same key with different params is a different toast', () => {
     let list = addToast([], plain(1, 'Window closed', { count: 3 }), false);
     list = addToast(list, plain(2, 'Window closed', { count: 2 }), false);

@@ -617,6 +617,7 @@ export default function HeroContainerRight() {
                         showToast({
                           toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
                           toastParams: { count },
+                          stacksOnTwin: true,
                         })
                       );
                     },
