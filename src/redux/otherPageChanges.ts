@@ -17,6 +17,7 @@ import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
 } from '../utils/functions/local';
+import { readLocalSessions } from '../utils/functions/localSessions';
 import {
   sameContainerData,
   sameIgnoringKeyOrder,
@@ -35,7 +36,7 @@ type Thunk<R> = ThunkAction<R, RootState, unknown, UnknownAction>;
 // RUNS, so a held apply takes the latest write, not the one that queued it.
 export const hydrateSessionsFromStorage =
   (): Thunk<void> => (dispatch, getState) => {
-    const incoming = loadFromLocalStorage('tabContainerData');
+    const incoming = readLocalSessions(getState().tabContainerDataState);
     // Absent is no value to take in, not an invalid one: nothing to warn of.
     if (incoming === undefined) return;
     if (!isValidTabMasterContainer(incoming)) {

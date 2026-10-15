@@ -8,6 +8,7 @@ import {
 import { rootReducer } from '../../redux/storeConfig';
 import { customMiddleware } from '../../redux/middleware/customMiddleware';
 import { toastMiddleware } from '../../redux/middleware/toastMiddleware';
+import { storageFullMiddleware } from '../../redux/middleware/storageFullMiddleware';
 
 // Mirrors src/redux/store.tsx via the shared rootReducer, plus a recorder so
 // tests can assert on the action sequence the middleware produces. Thunks
@@ -33,7 +34,7 @@ export function makeTestStore() {
     middleware: (g) =>
       g({ serializableCheck: false })
         .prepend(recorder)
-        .concat(customMiddleware, toastMiddleware),
+        .concat(customMiddleware, toastMiddleware, storageFullMiddleware),
   });
 
   return { store, seen, actions };

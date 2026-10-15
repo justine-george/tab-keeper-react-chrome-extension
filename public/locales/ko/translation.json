@@ -177,6 +177,7 @@
   "Replace sessions": "세션 대체",
   "Cloud data deleted. Auto Sync is off on this device.": "클라우드 데이터를 삭제했습니다. 이 기기의 자동 동기화가 꺼졌습니다.",
   "Couldn't delete cloud data. Check your connection and try again.": "클라우드 데이터를 삭제하지 못했습니다. 인터넷 연결을 확인한 후 다시 시도하세요.",
+  "Not saved: storage is full. Delete some sessions to make room.": "저장하지 못함: 저장 공간이 가득 찼습니다. 세션을 일부 삭제해 공간을 확보하세요.",
   "Last synced {{time}}": "마지막 동기화: {{time}}",
   "Keyboard shortcut": "키보드 단축키",
   "Press {{keys}} to open Tab Keeper.": "{{keys}} 키를 누르면 Tab Keeper가 열립니다.",

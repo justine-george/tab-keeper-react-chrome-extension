@@ -41,11 +41,11 @@ import {
   estimateFirestoreBytes,
   FIRESTORE_MAX_DOCUMENT_BYTES,
   isValidTabMasterContainer,
-  loadFromLocalStorage,
   saveToLocalStorage,
   SYNC_SIZE_REFUSAL,
   TranslatableError,
 } from '../../utils/functions/local';
+import { readLocalSessions } from '../../utils/functions/localSessions';
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
 import {
   withASelection,
@@ -498,7 +498,11 @@ export const syncStateWithFirestore = createAsyncThunk<
     // comes back here is genuinely unknown. Validate before the sync can act on
     // it: an invalid container is treated as absent, which falls through to the
     // cloud-only branch below and leaves the intact cloud copy alone.
-    const localCandidate = loadFromLocalStorage('tabContainerData');
+    // KAN-593. The page as it is NOW, past the cloud read: a save it made
+    // meanwhile that failed is only on the page.
+    const localCandidate = readLocalSessions(
+      thunkAPI.getState().tabContainerDataState
+    );
     const tabDataFromLocalStorage: TabMasterContainer | undefined =
       isValidTabMasterContainer(localCandidate) ? localCandidate : undefined;
     if (localCandidate !== undefined && tabDataFromLocalStorage === undefined) {
@@ -676,8 +680,8 @@ export const applyHeldCloudMerge =
   (
     merged: TabMasterContainer
   ): ThunkAction<void, RootState, unknown, UnknownAction> =>
-  (dispatch) => {
-    const local = loadFromLocalStorage('tabContainerData');
+  (dispatch, getState) => {
+    const local = readLocalSessions(getState().tabContainerDataState);
     const combined = isValidTabMasterContainer(local)
       ? mergeTabContainers(local, merged, Date.now()).merged
       : merged;
@@ -903,6 +907,7 @@ export const ERROR_TOASTS: ReadonlySet<string> = new Set([
   TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED,
   TOAST_MESSAGES.IMPORT_SYNC_FAILED,
   TOAST_MESSAGES.REOPEN_FAILED,
+  TOAST_MESSAGES.STORAGE_FULL,
   IMPORT_ERROR_FRAME,
   SYNC_SIZE_REFUSAL,
 ]);

@@ -180,6 +180,7 @@
   "Replace sessions": "सेशन बदलें",
   "Cloud data deleted. Auto Sync is off on this device.": "क्लाउड डेटा हटा दिया गया। इस डिवाइस पर ऑटो सिंक बंद है।",
   "Couldn't delete cloud data. Check your connection and try again.": "क्लाउड डेटा नहीं हटाया जा सका। अपना कनेक्शन जाँचें और फिर से कोशिश करें।",
+  "Not saved: storage is full. Delete some sessions to make room.": "सहेजा नहीं गया: स्टोरेज भर गया है। जगह बनाने के लिए कुछ सत्र हटाएँ।",
   "Last synced {{time}}": "पिछला सिंक: {{time}}",
   "Keyboard shortcut": "कीबोर्ड शॉर्टकट",
   "Press {{keys}} to open Tab Keeper.": "Tab Keeper खोलने के लिए {{keys}} दबाएँ।",

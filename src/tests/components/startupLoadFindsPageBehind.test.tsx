@@ -183,6 +183,35 @@ describe("App's re-run of its local load (KAN-295)", () => {
   });
 });
 
+// KAN-593. The same re-run when this page's last save failed (storage full):
+// localStorage is behind the page, and loading it put the older copy back.
+describe("App's re-run of its local load after a failed save (KAN-593)", () => {
+  test("keeps this page's change", async () => {
+    const { store, seen } = await openApp();
+    const refusal = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new DOMException('refused', 'QuotaExceededError');
+    });
+    act(() => {
+      store.dispatch(
+        updateTabGroupTitle({ tabGroupId: 'bravo', editableTitle: 'Mine' })
+      );
+    });
+    expect(readStored().tabGroups.map((g) => g.title)).toEqual([
+      'Alpha',
+      'Bravo',
+    ]);
+    // The other page's settings write lands.
+    refusal.mockRestore();
+
+    seen.length = 0;
+    otherPageTurnsAutoSyncOn(store);
+    await act(async () => {});
+
+    expect(seen).toContain(TAB_CONTAINER_REPLACE_STATE_ACTION);
+    expect(titleOf(store, 'bravo')).toBe('Mine');
+  });
+});
+
 // KAN-298. The same re-run while a row is held: loading the other page's
 // write would move the list under the pointer (KAN-279 D12). It waits for the
 // release. R3, the unheld re-run, is the KAN-295 test above.

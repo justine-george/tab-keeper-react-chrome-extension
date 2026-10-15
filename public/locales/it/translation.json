@@ -183,6 +183,7 @@
   "Replace sessions": "Sostituisci sessioni",
   "Cloud data deleted. Auto Sync is off on this device.": "Dati cloud eliminati. La sincronizzazione automatica è disattivata su questo dispositivo.",
   "Couldn't delete cloud data. Check your connection and try again.": "Impossibile eliminare i dati cloud. Controlla la connessione e riprova.",
+  "Not saved: storage is full. Delete some sessions to make room.": "Non salvato: lo spazio di archiviazione è pieno. Elimina alcune sessioni per liberare spazio.",
   "Last synced {{time}}": "Ultima sincronizzazione: {{time}}",
   "Keyboard shortcut": "Scorciatoia da tastiera",
   "Press {{keys}} to open Tab Keeper.": "Premi {{keys}} per aprire Tab Keeper.",

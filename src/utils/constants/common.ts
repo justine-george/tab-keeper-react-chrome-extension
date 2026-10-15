@@ -138,6 +138,11 @@ export const TOAST_MESSAGES = {
   CLOUD_DATA_DELETED: 'Cloud data deleted. Auto Sync is off on this device.',
   CLOUD_DATA_DELETE_FAILED:
     "Couldn't delete cloud data. Check your connection and try again.",
+  // KAN-593. The remedy is true: a deleted session leaves only a tombstone in
+  // localStorage (Recently deleted keeps it in chrome.storage.local), and the
+  // next save that fits writes every change the full storage refused.
+  STORAGE_FULL:
+    'Not saved: storage is full. Delete some sessions to make room.',
   IMPORT_SUCCESS: 'Restored tabs successfully!',
   // Deliberately not "Error restoring tabs": by the time the cloud write is
   // attempted the restore has already succeeded on this device, so telling the
