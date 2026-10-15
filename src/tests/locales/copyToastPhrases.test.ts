@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 // KAN-280 Part F (P B). The three copy toasts: in every locale, every plural form, ending with a full stop.
-const files = import.meta.glob('/public/locales/*/translation.json', {
-  import: 'default',
-  eager: true,
-}) as Record<string, Record<string, string>>;
+const files = import.meta.glob<Record<string, string>>(
+  '/public/locales/*/translation.json',
+  { import: 'default', eager: true }
+);
 
 const FULL_STOP = /[.。।]$/;
 const formsOf = (json: Record<string, string>) =>
