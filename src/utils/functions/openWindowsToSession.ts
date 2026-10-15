@@ -20,8 +20,10 @@ import type {
 
 // One listed window in storage shape, as toWindowGroupData writes a captured
 // one: fresh ids, unnamed (KAN-394 L4), and chromeTabGroups only when there
-// is a group, so a window without one matches a capture's shape.
-function toSavedWindow(
+// is a group, so a window without one matches a capture's shape. Keeps the
+// list's order: the i-th listed tab is the i-th stored one, the i-th group
+// the i-th entry (KAN-280 Part F relies on it).
+export function toSavedWindow(
   openWindow: OpenWindow,
   recentTabIds: readonly number[]
 ): windowGroupData {
