@@ -421,6 +421,39 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
       .toContain('Copied to “Target”. 2 tabs were already there.');
   });
 
+  // KAN-607. Resting past the spring-open puts the session on screen: a clean copy there stays quiet, a skip says so.
+  test('6b. rest on the row, then drop: the copy is quiet, the same tab again says "Already in", with no Show', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openTabView(context, extensionId, false);
+    const live = await openLiveWindow(serviceWorker, ['Rested']);
+    await expect(liveRow(page, live.idOf('Rested'))).toBeVisible();
+
+    for (const round of [1, 2]) {
+      const at = await pickUpLive(page, live.idOf('Rested'));
+      await carryOutOfOpenNow(page, at.y);
+      await onto(page, 'S2');
+      await expect.poll(() => selected(page)).toBe('S2');
+      await page.mouse.up();
+      await expect(page.locator(CARD)).toHaveCount(0);
+      if (round === 1) {
+        await expect
+          .poll(async () => (await urlsOf(page, 'S2'))[0])
+          .toEqual([dataUrl('Rested')]);
+        await page.waitForTimeout(300);
+        expect(await toasts(page)).toEqual([]);
+      }
+    }
+    await expect
+      .poll(() => toasts(page))
+      .toEqual([{ text: 'Already in “Target”.', show: false }]);
+    expect((await urlsOf(page, 'S2')).flat()).toHaveLength(
+      1 + S2().windows.reduce((n, w) => n + w.tabs.length, 0)
+    );
+  });
+
   test('7. carried back over Open now and let go: cancelled, nothing saved (N4 A)', async ({
     context,
     extensionId,
