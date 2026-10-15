@@ -546,15 +546,32 @@ const within = (inner: Box, outer: Box) =>
   inner.top >= outer.top - 0.01 &&
   inner.bottom <= outer.bottom + 0.01;
 
-/** Waits for the knob to stop moving: two reads 50ms apart that agree. */
+/**
+ * Waits for the knob to rest: two reads that agree, each after a rendered
+ * frame and React's commit, with no transition on the knob. Not time apart:
+ * with no frame between them, two reads agree on a stale clip (KAN-557).
+ */
 async function settledKnob(page: Page, group: string | Locator) {
   let previous = '';
   for (let i = 0; i < 40; i++) {
+    const moving = await pairIn(page, group).evaluate(async (el) => {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await new Promise((resolve) => {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = resolve;
+        channel.port2.postMessage(null);
+      });
+      return (
+        el
+          .querySelector('[data-sliding-knob]')
+          ?.getAnimations({ subtree: true }).length ?? 0
+      );
+    });
     const geometry = await knobGeometry(page, group);
     if (!geometry) throw new Error(`the ${String(group)} pair has no knob`);
-    const now = JSON.stringify(geometry?.drawn);
-    if (geometry && now === previous) return geometry;
-    previous = now;
+    const now = JSON.stringify(geometry.drawn);
+    if (!moving && now === previous) return geometry;
+    previous = moving ? '' : now;
     await page.waitForTimeout(50);
   }
   throw new Error(`the ${String(group)} knob never settled`);
@@ -603,7 +620,10 @@ for (const mode of ['light', 'dark'] as const) {
 // ResizeObserver: 6.58px, the flake's exact reading. This holds rAF and
 // ResizeObserver callbacks for `ms`, as a starved compositor would.
 const stallFrames = (page: Page, ms: number) =>
-  page.evaluate((ms) => (window as unknown as StallWindow).__stallFrames(ms), ms);
+  page.evaluate(
+    (ms) => (window as unknown as StallWindow).__stallFrames(ms),
+    ms
+  );
 
 type StallWindow = Window & { __stallFrames: (ms: number) => void };
 
@@ -630,9 +650,7 @@ const installFrameStall = (context: Parameters<typeof seedSessions>[0]) =>
     const RealObserver = window.ResizeObserver;
     window.ResizeObserver = class extends RealObserver {
       constructor(callback: ResizeObserverCallback) {
-        super((entries, observer) =>
-          hold(() => callback(entries, observer))
-        );
+        super((entries, observer) => hold(() => callback(entries, observer)));
       }
     };
     (window as unknown as StallWindow).__stallFrames = (ms) => {
