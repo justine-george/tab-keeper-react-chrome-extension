@@ -126,7 +126,9 @@ describe('the group row action set', () => {
     const { store } = await renderRow();
 
     await user.click(groupMenu('Research'));
-    await user.click(screen.getByRole('menuitem', { name: 'Delete group' }));
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Delete tab group' })
+    );
 
     expect(win(store).tabs.map((t) => t.tabId)).toEqual(['loose']);
   });

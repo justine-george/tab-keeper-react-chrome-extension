@@ -984,7 +984,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     : []),
                   {
                     key: 'delete',
-                    label: t('Delete window group'),
+                    label: t('Delete window'),
                     icon: 'delete',
                     danger: true,
                     onSelect: onDeleteClick,
@@ -1458,7 +1458,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                                 ...groupDuplicateItem(item.group.groupId),
                                 {
                                   key: 'delete',
-                                  label: t('Delete group'),
+                                  label: t('Delete tab group'),
                                   icon: 'delete',
                                   danger: true,
                                   onSelect: () =>

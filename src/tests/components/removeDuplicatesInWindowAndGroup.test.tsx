@@ -126,7 +126,7 @@ describe('the window ⋮ (KAN-616, 1A)', () => {
   test('replaces the Delete icon on the row', async () => {
     await render();
     expect(
-      within(block('w1')).queryByRole('button', { name: 'Delete window group' })
+      within(block('w1')).queryByRole('button', { name: 'Delete window' })
     ).toBeNull();
     windowMenuButton('w1');
   });
@@ -135,17 +135,14 @@ describe('the window ⋮ (KAN-616, 1A)', () => {
     const user = userEvent.setup();
     await render();
     const menu = await openWindowMenu(user, 'w1');
-    expect(items(menu)).toEqual([
-      'Remove 2 duplicate tabs',
-      'Delete window group',
-    ]);
+    expect(items(menu)).toEqual(['Remove 2 duplicate tabs', 'Delete window']);
   });
 
   test('a window whose copies all live elsewhere offers only Delete', async () => {
     const user = userEvent.setup();
     await render();
     const menu = await openWindowMenu(user, 'w2');
-    expect(items(menu)).toEqual(['Delete window group']);
+    expect(items(menu)).toEqual(['Delete window']);
   });
 
   test('Remove takes out the window’s repeats only, with Undo', async () => {
@@ -164,12 +161,12 @@ describe('the window ⋮ (KAN-616, 1A)', () => {
     });
   });
 
-  test('Delete window group deletes the window', async () => {
+  test('Delete window deletes the window', async () => {
     const user = userEvent.setup();
     const { store } = await render();
     const menu = await openWindowMenu(user, 'w2');
     await user.click(
-      within(menu).getByRole('menuitem', { name: 'Delete window group' })
+      within(menu).getByRole('menuitem', { name: 'Delete window' })
     );
     expect(
       store
@@ -180,14 +177,14 @@ describe('the window ⋮ (KAN-616, 1A)', () => {
 });
 
 describe('the group ⋮ (KAN-616, 2A)', () => {
-  test('offers Remove between Ungroup and Delete group', async () => {
+  test('offers Remove between Ungroup and Delete tab group', async () => {
     const user = userEvent.setup();
     await render();
     const menu = await openGroupMenu(user);
     expect(items(menu)).toEqual([
       'Ungroup',
       'Remove 1 duplicate tab',
-      'Delete group',
+      'Delete tab group',
     ]);
   });
 
