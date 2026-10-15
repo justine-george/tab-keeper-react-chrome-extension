@@ -103,23 +103,32 @@ export async function seedCloudConsentIfSettingsAbsent(
   await seedSettingsIfAbsent(context, {});
 }
 
+// How many seeds each context has registered: a seed's number orders it among them.
+const seedCounts = new WeakMap<BrowserContext, number>();
+
 // addInitScript, not page.evaluate: the popup reads localStorage during its
 // first render, so anything written after navigation is already too late. This
 // must therefore be called BEFORE context.newPage().
+// KAN-474. An init script re-runs in every document, so each seed writes once, in the first document after it, and a later seed wins.
 async function seedLocalStorage(
   context: BrowserContext,
   key: string,
   value: unknown
 ): Promise<void> {
+  const seedNumber = (seedCounts.get(context) ?? 0) + 1;
+  seedCounts.set(context, seedNumber);
   await context.addInitScript(
-    ([k, v]: [string, string]) => {
+    ([k, v, n]: [string, string, number]) => {
       try {
+        const applied = `e2e-seed:${k}`;
+        if (Number(window.localStorage.getItem(applied) ?? 0) >= n) return;
         window.localStorage.setItem(k, v);
+        window.localStorage.setItem(applied, String(n));
       } catch {
         // A profile with storage blocked would throw here. The assertions that
         // follow fail with a clearer message than this could produce.
       }
     },
-    [key, JSON.stringify(value)] as [string, string]
+    [key, JSON.stringify(value), seedNumber] as [string, string, number]
   );
 }
