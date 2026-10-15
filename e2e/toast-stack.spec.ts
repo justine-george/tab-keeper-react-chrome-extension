@@ -35,7 +35,6 @@ const RISE = 12;
 const TAB_CLOSED = 'Tab closed';
 const WINDOW_SAVED = 'Window saved as a session.';
 const ALL_SAVED = 'All open windows saved as a session.';
-const LINKS_COPIED = 'Links copied';
 
 async function openPage(
   context: BrowserContext,
@@ -111,6 +110,22 @@ const storedSessionCount = async (page: Page): Promise<number> => {
   );
   const parsed: unknown = JSON.parse(raw ?? 'null');
   return isValidTabMasterContainer(parsed) ? parsed.tabGroups.length : 0;
+};
+
+// KAN-401. The toast counts the selected session's tabs. After Save all that
+// is the new session, not the seeded one-tab session.
+const linksCopied = async (page: Page): Promise<string> => {
+  const raw = await page.evaluate(() =>
+    localStorage.getItem('tabContainerData')
+  );
+  const parsed: unknown = JSON.parse(raw ?? 'null');
+  if (!isValidTabMasterContainer(parsed)) throw new Error('no stored sessions');
+  const selected = parsed.tabGroups.find(
+    (session) => session.tabGroupId === parsed.selectedTabGroupId
+  );
+  if (selected === undefined) throw new Error('no session is selected');
+  const n = selected.windows.reduce((sum, w) => sum + w.tabs.length, 0);
+  return n === 1 ? '1 link copied' : `${n} links copied`;
 };
 
 // A saved session, so its menu can offer Copy all links.
@@ -238,7 +253,7 @@ test.describe('toasts stack (KAN-349)', () => {
     await expect(toasts).toHaveCount(3);
     await expect(toasts.nth(0)).toHaveText(WINDOW_SAVED);
     await expect(toasts.nth(1)).toHaveText(ALL_SAVED);
-    await expect(toasts.nth(2)).toHaveText(LINKS_COPIED);
+    await expect(toasts.nth(2)).toHaveText(await linksCopied(page));
     await expect(reopenButton(page)).toHaveCount(0);
 
     // Dropped, not only hidden: Ctrl+Z no longer reopens the closed tab. It
@@ -508,7 +523,7 @@ test.describe('toasts stack (KAN-349)', () => {
     const { block } = await offerFromClose(page, serviceWorker);
     await liveToasts(page).first().hover();
     await copyLinksInPlace(page);
-    await expect(liveToasts(page).nth(1)).toHaveText(LINKS_COPIED);
+    await expect(liveToasts(page).nth(1)).toHaveText(await linksCopied(page));
     const before = await storedSessionCount(page);
 
     await page.keyboard.press('Control+z');
@@ -671,6 +686,6 @@ test('9. two saves in a row are two toasts; a twin that saves nothing still repl
   await copyLinksInPlace(page);
   await copyLinksInPlace(page);
   await expect(liveToasts(page)).toHaveCount(3);
-  await expect(liveToasts(page).nth(2)).toHaveText(LINKS_COPIED);
+  await expect(liveToasts(page).nth(2)).toHaveText(await linksCopied(page));
   await expect(liveToasts(page).nth(1)).toHaveText(ALL_SAVED);
 });

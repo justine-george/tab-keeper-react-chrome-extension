@@ -77,7 +77,7 @@ async function copyFromExportPage(
     `chrome-extension://${extensionId}/export.html?session=session-copy`
   );
   await page.getByRole('button', { name: 'Copy all links' }).click();
-  await expect(page.getByText('Links copied')).toBeVisible();
+  await expect(page.getByText('4 links copied')).toBeVisible();
 
   // The paste targets live on an ordinary page, as another site's would.
   const target = await context.newPage();

@@ -60,7 +60,7 @@ test('copying from the session menu reaches the real clipboard, rich and plain',
   await popup.getByRole('menuitem', { name: 'Copy all links' }).click();
 
   // Barrier: the toast appears after the write resolves.
-  await expect(popup.getByText('Links copied')).toBeVisible();
+  await expect(popup.getByText('2 links copied')).toBeVisible();
 
   const target = await context.newPage();
   await target.goto(
