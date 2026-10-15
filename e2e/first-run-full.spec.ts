@@ -132,6 +132,8 @@ test('Help starts at card 1 with no Hello; the nine cards in their places, Back 
   );
   expect(await hitAt(page, ...(await centreOf(replace)))).toBe('still');
   await nextTo(page, 7);
+  // KAN-613. For a frame the hold is still on step 6's Replace; same side, so no side poll catches it.
+  await landedAt(page, 7);
   // KAN-582. Delete is in the session header's ⋮, held while this step shows.
   const del = page
     .locator('[data-pane="detail"] [data-tour-anchor="session-menu"]')
