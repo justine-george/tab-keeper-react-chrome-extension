@@ -32,14 +32,9 @@ import {
 // cycle. RootState is used solely as a parameter type below, so the erased
 // import leaves no runtime edge.
 import type { RootState } from '../store';
+import { Theme } from '../../utils/constants/theme';
 
-export enum Theme {
-  LIGHT = 'Light',
-  WARM_LIGHT = 'WarmLight',
-  BB_PINK = 'BBPink',
-  DARKENHEIMER = 'Darkenheimer',
-  BLUE = 'Blue',
-}
+export { Theme };
 
 export type CloudConsent = 'granted' | 'declined' | '';
 
