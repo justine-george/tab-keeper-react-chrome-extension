@@ -22,6 +22,7 @@ import {
   updateTabGroupTitle,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { hydrateSessionsFromStorage } from '../../redux/otherPageChanges';
+import { TOMBSTONE_TTL_MS } from '../../utils/functions/mergeTabData';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 
@@ -120,9 +121,13 @@ describe('a save past the localStorage limit (KAN-593)', () => {
 describe('a re-read of localStorage after a refused save (KAN-593)', () => {
   const OTHER = buildSession({ tabGroupId: 's-2', title: 'Other' });
 
-  function seededTwo() {
+  function seededTwo(
+    deletedTabGroups: { tabGroupId: string; deletedAt: number }[] = []
+  ) {
     const { store } = makeTestStore();
-    store.dispatch(replaceState(buildContainer([SESSION, OTHER])));
+    store.dispatch(
+      replaceState({ ...buildContainer([SESSION, OTHER]), deletedTabGroups })
+    );
     return store;
   }
 
@@ -130,14 +135,18 @@ describe('a re-read of localStorage after a refused save (KAN-593)', () => {
     store.getState().tabContainerDataState.tabGroups.map((g) => g.title);
 
   // Another page's save, which lands: it writes localStorage directly.
-  function otherPageRenames(id: string, title: string) {
+  function otherPageRenames(
+    id: string,
+    title: string,
+    lastModified = Date.now() + 60_000
+  ) {
     refusal?.mockRestore();
     refusal = null;
     const stored = JSON.parse(localStorage.getItem('tabContainerData')!);
     for (const g of stored.tabGroups) {
       if (g.tabGroupId === id) {
         g.title = title;
-        g.lastModified = Date.now() + 60_000;
+        g.lastModified = lastModified;
       }
     }
     localStorage.setItem('tabContainerData', JSON.stringify(stored));
@@ -155,6 +164,26 @@ describe('a re-read of localStorage after a refused save (KAN-593)', () => {
     expect(store.getState().undoRedo.past.length).toBe(past);
   });
 
+  // The merge prunes a grave past its time; the page still holds it. Storage
+  // adds nothing, so the re-read is a no-op, not a reload that ends the undo.
+  test("a drop's re-read keeps the undo when the page holds an expired grave", () => {
+    const store = seededTwo([
+      {
+        tabGroupId: 's-old',
+        deletedAt: Date.now() - TOMBSTONE_TTL_MS - 86_400_000,
+      },
+    ]);
+    refuseWrites('QuotaExceededError');
+    store.dispatch(rename('Reading list'));
+    const before = store.getState().tabContainerDataState;
+    const past = store.getState().undoRedo.past.length;
+
+    store.dispatch(hydrateSessionsFromStorage());
+
+    expect(store.getState().tabContainerDataState).toBe(before);
+    expect(store.getState().undoRedo.past.length).toBe(past);
+  });
+
   test("another page's save comes in beside the change", () => {
     const store = seededTwo();
     refuseWrites('QuotaExceededError');
@@ -166,7 +195,9 @@ describe('a re-read of localStorage after a refused save (KAN-593)', () => {
     expect(titles(store)).toEqual(['Reading list', 'Other, renamed']);
   });
 
-  // Control: once a save lands, localStorage is the page again and is taken as it is.
+  // Control: once a save lands, localStorage is the page again and is taken as
+  // it is -- even a write stamped older than the page's (another page's undo),
+  // which a merge would refuse.
   test('after a save lands, a re-read takes localStorage as it is', () => {
     const store = seededTwo();
     const refused = refuseWrites('QuotaExceededError');
@@ -174,7 +205,7 @@ describe('a re-read of localStorage after a refused save (KAN-593)', () => {
     refused.mockRestore();
     refusal = null;
     store.dispatch(rename('Reading list 2'));
-    otherPageRenames('s-1', 'Renamed elsewhere');
+    otherPageRenames('s-1', 'Renamed elsewhere', 1);
 
     store.dispatch(hydrateSessionsFromStorage());
 
