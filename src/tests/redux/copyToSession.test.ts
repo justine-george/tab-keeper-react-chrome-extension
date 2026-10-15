@@ -162,12 +162,19 @@ describe('copyOnSessionRow: a row drop is a new first window, and says so (D4 A,
     ]);
   });
 
-  it('the session on screen, nothing skipped: no toast (the Show rule), and the landed window is revealed', () => {
+  // KAN-607 (Justine, 01:21): every copy toasts; on screen without Show.
+  it('the session on screen, nothing skipped: "Copied to" with no Show, and the landed window is revealed', () => {
     const reveal = vi.fn();
     const off = onRevealSavedWindow(reveal);
     const { store } = ready(container(undefined, 'S2'));
     store.dispatch(copyOnSessionRow(LIVE(L1), 'S2'));
-    expect(toasts(store)).toEqual([]);
+    expect(toasts(store)).toEqual([
+      {
+        text: TOAST_MESSAGES.COPIED_TO_SESSION,
+        params: { title: 'Target' },
+        show: null,
+      },
+    ]);
     expect(reveal).toHaveBeenCalledWith(
       sessionIn(data(store), 'S2').windows[0].windowId
     );
@@ -233,7 +240,7 @@ describe('the copy toasts and a Reopen offer (C′, P10)', () => {
   });
 });
 
-describe('copyToSpot and copyWindowTo: drops in the session on screen send no toast (S5 A)', () => {
+describe('copyToSpot and copyWindowTo: drops in the session on screen say "Copied to", with no Show (KAN-607)', () => {
   it('a tab at an exact spot, a band joined', () => {
     const { store } = ready(container(undefined, 'S2'));
     expect(
@@ -250,7 +257,13 @@ describe('copyToSpot and copyWindowTo: drops in the session on screen send no to
       tabId: 'l1',
       chromeGroupId: 'h1',
     });
-    expect(toasts(store)).toEqual([]);
+    expect(toasts(store)).toEqual([
+      {
+        text: TOAST_MESSAGES.COPIED_TO_SESSION,
+        params: { title: 'Target' },
+        show: null,
+      },
+    ]);
   });
 
   it('a tab on a New window target is a new window there', () => {
@@ -349,7 +362,7 @@ describe('skips always say so (KAN-607)', () => {
     ]);
   });
 
-  it('at an exact spot, a skip says so (P11 reversed); a clean copy there stays quiet', () => {
+  it('at an exact spot, a skip says so (P11 reversed); a clean copy there says "Copied to"', () => {
     const { store } = ready(container(undefined, 'S2'));
     store.dispatch(
       copyToSpot(LIVE(LG), { tabGroupId: 'S2', toWindowId: 'd1', toIndex: 0 })
@@ -360,7 +373,10 @@ describe('skips always say so (KAN-607)', () => {
     store.dispatch(
       copyToSpot(LIVE(L1), { tabGroupId: 'S2', toWindowId: 'd2', toIndex: 0 })
     );
-    expect(toasts(store)).toHaveLength(1);
+    expect(toasts(store).map((t) => [t.text, t.show])).toEqual([
+      [TOAST_MESSAGES.COPIED_TO_SESSION_SKIPPED, null],
+      [TOAST_MESSAGES.COPIED_TO_SESSION, null],
+    ]);
   });
 
   it('a window between windows that skips all: "Already in"', () => {

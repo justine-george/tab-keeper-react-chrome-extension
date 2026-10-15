@@ -26,10 +26,10 @@ import { revealSavedWindow } from '../components/home/rightpane/revealSavedWindo
 
 type Took = ThunkAction<boolean, RootState, unknown, UnknownAction>;
 
-// Returns whether anything was saved. `announce`: the target was not on screen at the drop (the Show rule): only
-// then does a clean copy toast. A skip always does (KAN-607): on screen nothing shows what was left out.
+// Returns whether anything was saved. Every copy says what it saved or skipped, wherever it lands (KAN-607); Show
+// only when the target is not on screen after the drop.
 const copyToSession =
-  (copy: SessionCopy, live: LiveSnapshot, announce: boolean): Took =>
+  (copy: SessionCopy, live: LiveSnapshot): Took =>
   (dispatch, getState) => {
     const snapshot = placedWindowOf(live);
     const drop = sessionCopyDrop(copy, snapshot);
@@ -57,7 +57,6 @@ const copyToSession =
       copy.pick,
       addressesIn(target)
     );
-    if (skipped === 0 && !announce) return copied;
     const show = isSessionOnScreen(getState(), target.tabGroupId)
       ? undefined
       : { tabGroupId: target.tabGroupId };
@@ -93,7 +92,7 @@ const copyToSession =
 export const copyOnSessionRow =
   (live: LiveSnapshot, tabGroupId: string): Took =>
   (dispatch, getState) => {
-    const announce = !isSessionOnScreen(getState(), tabGroupId);
+    const onScreen = isSessionOnScreen(getState(), tabGroupId);
     const { pick } = live;
     // The tab and group branches repeat `to` so each narrows its own pick.
     const copy: SessionCopy =
@@ -102,11 +101,12 @@ export const copyOnSessionRow =
         : pick.kind === 'tab'
           ? { pick, to: intoNewWindow(tabGroupId, 'first') }
           : { pick, to: intoNewWindow(tabGroupId, 'first') };
-    const copied = dispatch(copyToSession(copy, live, announce));
+    const copied = dispatch(copyToSession(copy, live));
     const landed = getState().tabContainerDataState.tabGroups.find(
       (g) => g.tabGroupId === tabGroupId
     )?.windows[0]?.windowId;
-    if (copied && !announce && landed !== undefined) revealSavedWindow(landed);
+    // On screen, the detail may be scrolled away from where the copy lands first.
+    if (copied && onScreen && landed !== undefined) revealSavedWindow(landed);
     return copied;
   };
 
@@ -144,7 +144,7 @@ export const copyToSpot =
                 ? { tabGroupId, windowId: toWindowId, toIndex }
                 : intoNewWindow(tabGroupId, at),
           };
-    return dispatch(copyToSession(copy, live, false));
+    return dispatch(copyToSession(copy, live));
   };
 
 // A window let go between the windows of the session on screen.
@@ -153,7 +153,7 @@ export const copyWindowTo =
   (dispatch) => {
     const { pick } = live;
     if (pick.kind !== 'window') return false;
-    return dispatch(copyToSession({ pick, to: spot }, live, false));
+    return dispatch(copyToSession({ pick, to: spot }, live));
   };
 
 // N1 A. The save row: a new session holding the copy, shown, no toast (KAN-394).
