@@ -2986,7 +2986,9 @@ test.describe('the New window target is in the toolbar row from pick-up (KAN-361
     await page.mouse.up();
   });
 
-  test('an Open now tab drag never shows it', async ({
+  // KAN-614 (Justine, 2026-10-15, reverses this test's KAN-361 rule): an Open now tab drag can become a carry
+  // (Part F), so it shows the target from its pick-up, as it shows New session, while still held in Open now.
+  test('an Open now tab drag shows it from pick-up, held in Open now', async ({
     context,
     extensionId,
   }) => {
@@ -2997,17 +2999,25 @@ test.describe('the New window target is in the toolbar row from pick-up (KAN-361
     await expect(live.first()).toBeVisible();
     await logToolbar(page, null);
     await pickUp(page, live.first());
-    // PREMISE: an Open now row is held.
+    // PREMISE: an Open now row is held, not carried.
     await expect(
       page.locator('[data-pane="open-now"] [data-drag-held]')
     ).toHaveCount(1);
+    await expect(page.locator(CARD)).toHaveCount(0);
     await loggedDragFrames(page, 10);
     const frames = await toolbarLog(page);
-    expect(frames.filter((f) => f.dragging).length).toBeGreaterThanOrEqual(10);
-    expect(frames.filter((f) => toolbarShows(f) !== 'controls')).toEqual([]);
-    expect(frames.filter((f) => f.marker)).toEqual([]);
+    // PREMISE: the log spans the activation.
+    const first = frames.findIndex((f) => f.dragging);
+    expect(first).toBeGreaterThan(0);
+    expect(frames.slice(first).every((f) => f.dragging)).toBe(true);
+    expect(frames.map(toolbarShows)).toEqual(
+      frames.map((f) => (f.dragging ? 'target' : 'controls'))
+    );
+    // Never lit: Open now takes no new-window landing (N4 A).
+    expect(frames.filter((f) => f.lit)).toEqual([]);
     await page.keyboard.press('Escape');
     await page.mouse.up();
+    expect(await toolbarNow(page)).toMatchObject(AT_REST);
   });
 
   test('a press that never passes the activation distance never shows it', async ({
