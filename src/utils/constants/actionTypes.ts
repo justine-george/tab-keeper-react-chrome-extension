@@ -72,6 +72,8 @@ export const COPY_TO_NEW_SESSION_ACTION =
   'tabContainerDataState/copyToNewSessionInternal';
 export const REPLACE_SESSION_CONTENT_ACTION =
   'tabContainerDataState/replaceSessionContentInternal';
+export const REMOVE_DUPLICATE_TABS_ACTION =
+  'tabContainerDataState/removeDuplicateTabsInternal';
 export const SORT_SESSIONS_ACTION =
   'tabContainerDataState/sortSessionsInternal';
 export const CLEAR_SESSION_ORDER_ACTION =

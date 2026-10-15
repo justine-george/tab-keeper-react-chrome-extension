@@ -16,6 +16,10 @@ import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 // `import type` is emitted as nothing and the cycle disappears. Same technique,
 // same reason, as the header comment in mergeTabData.ts.
 import type { RootState } from '../store';
+import {
+  countDuplicateTabs,
+  firstCopyFilter,
+} from '../../utils/functions/duplicateTabs';
 import { closeFocusModal, openFocusModal, showToast } from './globalStateSlice';
 import { initialState } from './tabContainerInitialState';
 import {
@@ -191,6 +195,11 @@ export interface addCurrWindowToTabGroupParams {
 export interface replaceSessionContentParams {
   tabGroupId: string;
   windows: windowGroupData[];
+  now: number;
+}
+
+export interface removeDuplicateTabsParams {
+  tabGroupId: string;
   now: number;
 }
 
@@ -921,6 +930,32 @@ export const replaceSessionWithOpenWindows = createAsyncThunk<
   return true;
 });
 
+// KAN-609. The session menu's action. Says how many went, with Undo; says nothing when there were none.
+export const removeDuplicateTabs = createAsyncThunk<
+  void,
+  string,
+  { state: RootState }
+>('global/removeDuplicateTabs', async (tabGroupId, thunkAPI) => {
+  const session = thunkAPI
+    .getState()
+    .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === tabGroupId);
+  const count = session ? countDuplicateTabs(session) : 0;
+  if (count === 0) return;
+  const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+    thunkAPI.dispatch(
+      removeDuplicateTabsInternal({ tabGroupId, now: Date.now() })
+    )
+  );
+  thunkAPI.dispatch(
+    showToast({
+      toastText: TOAST_MESSAGES.DUPLICATE_TABS_REMOVED,
+      toastParams: { count },
+      announcesSavedChange: true,
+      offersUndo,
+    })
+  );
+});
+
 // add current tab to the specified window container and display a toast message
 export const addCurrTabToWindow = createAsyncThunk(
   'global/addCurrTabToWindow',
@@ -1633,6 +1668,35 @@ export const tabContainerDataStateSlice = createSlice({
       group.windows = windows;
       group.windowCount = windows.length;
       group.tabCount = windows.reduce((n, w) => n + w.tabs.length, 0);
+      touchContent(state, group, now);
+      state.lastModified = now;
+      saveToLocalStorage('tabContainerData', state);
+    },
+
+    // KAN-609. Every later copy of an address goes; the first, in reading
+    // order, stays with its own group and pin. A group or window it empties
+    // goes too. No duplicates: no change, so nothing is stamped.
+    removeDuplicateTabsInternal: (
+      state,
+      action: PayloadAction<removeDuplicateTabsParams>
+    ) => {
+      const { tabGroupId, now } = action.payload;
+      const group = state.tabGroups.find((g) => g.tabGroupId === tabGroupId);
+      if (!group || countDuplicateTabs(group) === 0) return;
+      const isFirst = firstCopyFilter();
+      for (const window of group.windows) {
+        const kept = window.tabs.filter(isFirst);
+        if (kept.length === window.tabs.length) continue;
+        window.tabs = kept;
+        window.tabCount = kept.length;
+        window.chromeTabGroups = window.chromeTabGroups?.filter((g) =>
+          kept.some((t) => t.chromeGroupId === g.groupId)
+        );
+        forgetMissingActiveTab(window);
+      }
+      group.windows = group.windows.filter((w) => w.tabs.length > 0);
+      group.windowCount = group.windows.length;
+      group.tabCount = group.windows.reduce((n, w) => n + w.tabs.length, 0);
       touchContent(state, group, now);
       state.lastModified = now;
       saveToLocalStorage('tabContainerData', state);
@@ -3281,6 +3345,7 @@ export const {
   selectTabContainer,
   addCurrWindowToTabGroupInternal,
   replaceSessionContentInternal,
+  removeDuplicateTabsInternal,
   addCurrTabToWindowInternal,
   updateTabGroupTitle,
   updateWindowGroupTitle,
