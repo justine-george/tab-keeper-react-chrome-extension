@@ -541,10 +541,10 @@ export default function OpenNowWindow({
   return (
     // KAN-280 Part F (D3 A). The whole block is the windows list's row, picked up by its header's handle.
     <DraggableRow scope={OPEN_WINDOWS_SCOPE} rowId={String(openWindow.id)}>
-      // data-drop-window-id: the whole block is what the drag engine hit-tests
-      // for "this window" (KAN-132), header and a folded window included. Its
-      // shift is published back so that hit test can subtract it, and is not //
-      eased, as in WindowEntryContainer (KAN-184).
+      {/* data-drop-window-id: the whole block is what the drag engine
+      hit-tests for "this window" (KAN-132), header and a folded window
+      included. Its shift is published back so that hit test can subtract it,
+      and is not eased, as in WindowEntryContainer (KAN-184). */}
       <div
         css={containerStyle}
         data-open-window-id={openWindow.id}

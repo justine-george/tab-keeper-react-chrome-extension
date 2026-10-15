@@ -300,4 +300,19 @@ describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
     // Outside its box, nothing.
     expect(carryReceiverAt(400, 50)).toBeNull();
   });
+
+  // A source comment once landed inside the windows list's row as JSX text, drawn above every window.
+  test('the window row wrapper holds the window block and nothing else', async () => {
+    await renderPane(groupSeed());
+    const wrapper = find('[data-drag-row-id="1"]');
+    const text = [...wrapper.childNodes]
+      .filter((n) => n.nodeType === Node.TEXT_NODE)
+      .map((n) => n.textContent ?? '')
+      .join('')
+      .trim();
+    expect(text).toBe('');
+    expect(wrapper.firstElementChild?.hasAttribute('data-open-window-id')).toBe(
+      true
+    );
+  });
 });
