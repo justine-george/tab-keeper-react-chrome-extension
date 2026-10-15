@@ -17,6 +17,7 @@ import {
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { s1, s2 } from '../fixtures/sessionMoveFixture';
 import { standInSessionList } from '../setup/standInSessionList';
+import { carriedRef } from '../setup/carriedRef';
 
 // KAN-350 + KAN-157: a window or group drag's fold can clamp the scroll. A refused drag or a cancelled carry puts the press's scroll back; a committed carry does not.
 // jsdom: inline overflow, a box and scroll metrics; the clamp is played by hand, and frames are run by hand (the restore runs the frame after the carry ends).
@@ -115,7 +116,7 @@ describe('a cancelled carry puts the press’s scroll back (KAN-157)', () => {
       handleOf('[data-drag-row-id="w2"]', '[data-window-drag-handle]')
     );
     // The premise: carried, and clamped.
-    expect(currentCarry()?.item.ref).toMatchObject({ kind: 'window' });
+    expect(carriedRef()).toMatchObject({ kind: 'window' });
     expect(pane.scrollTop).toBe(0);
 
     act(() => {
@@ -133,7 +134,7 @@ describe('a cancelled carry puts the press’s scroll back (KAN-157)', () => {
       pane,
       handleOf('[data-drag-row-id="group:g1"]', '[data-group-drag-handle]')
     );
-    expect(currentCarry()?.item.ref).toMatchObject({ kind: 'group' });
+    expect(carriedRef()).toMatchObject({ kind: 'group' });
 
     // Off the list, below it: over nothing.
     act(() => {
@@ -154,7 +155,7 @@ describe('a cancelled carry puts the press’s scroll back (KAN-157)', () => {
     if (!(tab instanceof HTMLElement)) throw new Error('no tab row');
     carryOutLeft(pane, tab);
     // The premise: carried, so the Esc below ends a carry, not a drag.
-    expect(currentCarry()?.item.ref).toMatchObject({ kind: 'tab' });
+    expect(carriedRef()).toMatchObject({ kind: 'tab' });
     pane.scrollTop = 120;
 
     act(() => {
@@ -173,7 +174,7 @@ describe('only a cancelled carry, and only onto its own view', () => {
       pane,
       handleOf('[data-drag-row-id="w2"]', '[data-window-drag-handle]')
     );
-    expect(currentCarry()?.item.ref).toMatchObject({ kind: 'window' });
+    expect(carriedRef()).toMatchObject({ kind: 'window' });
 
     act(() => endCarry('committed'));
     runFrames();
@@ -214,7 +215,7 @@ describe('a cancel after a spring-open returns to the source', () => {
       store.dispatch(selectTabContainer('S2'));
     });
     // The premise: still carrying, and S2 is what the pane draws.
-    expect(currentCarry()?.item.ref).toMatchObject({ kind });
+    expect(carriedRef()).toMatchObject({ kind });
     expect(document.querySelector('[data-drag-row-id="d1"]')).not.toBeNull();
 
     act(() => {

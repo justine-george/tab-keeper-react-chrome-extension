@@ -26,6 +26,7 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { standInSessionList } from '../setup/standInSessionList';
 import { s1, s2, s3, tabIds, windowIn } from '../fixtures/sessionMoveFixture';
 import { snapshot, layOut, tabRow } from '../setup/openNowDragHarness';
+import { carriedRef } from '../setup/carriedRef';
 
 // KAN-354 C1 A, C2 A: a drag in a saved tab, group or window list hides the held row (it keeps its box) and shows the carry's card instead,
 // only where carryOut has a card. The session list and Open now keep their lifted row. App.css's held-tab shadow (KAN-355) is e2e's (in-session-card).
@@ -471,7 +472,7 @@ describe('the hand-off to the carry', () => {
     // The carry started BEFORE the drag card was hidden: CarryLayer draws
     // `carry ?? dragCard`, so at no moment was there neither.
     expect(carryOnWhenHidden).toEqual([true]);
-    expect(currentCarry()?.item.ref).toMatchObject({ tabId: 't2' });
+    expect(carriedRef()).toMatchObject({ tabId: 't2' });
     expect(carryCard()).toBe(el);
     expect(el?.style.transform).toBe('translate(-32px, 188px)');
     expect(dragCard()).toBeNull();
@@ -688,7 +689,7 @@ describe('the pick-up arrives in one commit (KAN-359)', () => {
     stop();
 
     // The premise: the drag was handed off.
-    expect(currentCarry()?.item.ref).toMatchObject({ tabId: 't2' });
+    expect(carriedRef()).toMatchObject({ tabId: 't2' });
     expect(carryCard()).not.toBeNull();
     // The claim: the drag card never went up, and is not up now.
     expect(published).toEqual([]);

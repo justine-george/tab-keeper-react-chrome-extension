@@ -9,6 +9,7 @@ import {
   newSessionCopyDrop,
   sessionCopyDrop,
 } from './dropSpecs';
+import { placedWindowOf } from './livePlacement';
 import { isSessionOnScreen } from './sessionOnScreen';
 import { showToast } from './slices/globalStateSlice';
 import {
@@ -29,7 +30,7 @@ type Took = ThunkAction<boolean, RootState, unknown, UnknownAction>;
 const copyToSession =
   (copy: SessionCopy, live: LiveSnapshot, announce: boolean): Took =>
   (dispatch, getState) => {
-    const snapshot = live.window;
+    const snapshot = placedWindowOf(live);
     const drop = sessionCopyDrop(copy, snapshot);
     // The state the copy action is dispatched against: after dropOnTop applied what arrived while carried.
     const at: { state: TabMasterContainer | null } = { state: null };
@@ -159,7 +160,7 @@ export const copyToNewSession =
   (dispatch) => {
     const action = copyToNewSessionInternal(
       live.pick,
-      live.window,
+      placedWindowOf(live),
       fallbackTitle,
       typedTitle
     );

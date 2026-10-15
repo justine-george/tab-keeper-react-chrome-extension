@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  acceptsCarriedIn,
   isCarriedTabPinned,
   isItemStillThere,
+  liveItem,
   pickOf,
   savedItem,
   sourceSessionIdOf,
   sourceWindowOf,
+  type CarriedPick,
 } from '../../redux/carriedItem';
+import { live } from '../fixtures/liveSnapshotFixture';
 import {
   container,
   session,
@@ -116,5 +120,65 @@ describe('carriedItem: a saved item', () => {
         savedItem({ kind: 'window', tabGroupId: 'S1', windowId: 'w1' })
       )
     ).toBe(false);
+  });
+});
+
+describe('carriedItem: a live item (Q1 A)', () => {
+  const snapshot = live();
+  const L1_PICK: CarriedPick = { kind: 'tab', windowId: 'live-w', tabId: 'l1' };
+  const L1 = liveItem({ pick: L1_PICK, window: snapshot, chromeWindowId: 7 });
+
+  it('is its pick, inside its snapshot, from no saved session', () => {
+    expect(pickOf(L1)).toEqual({
+      kind: 'tab',
+      windowId: 'live-w',
+      tabId: 'l1',
+    });
+    expect(sourceWindowOf([], L1)).toBe(snapshot);
+    expect(sourceSessionIdOf(L1)).toBeNull();
+  });
+
+  it('is always still there, whatever the store holds', () => {
+    expect(isItemStillThere([], L1)).toBe(true);
+  });
+
+  it('reads its pin from the snapshot', () => {
+    expect(
+      isCarriedTabPinned(
+        [],
+        liveItem({
+          pick: { kind: 'tab', windowId: 'live-w', tabId: 'lp' },
+          window: snapshot,
+          chromeWindowId: 7,
+        })
+      )
+    ).toBe(true);
+    expect(isCarriedTabPinned([], L1)).toBe(false);
+  });
+
+  it('lands only in a window of its own kind, or a new one; a saved item anywhere (Q2 A)', () => {
+    const incognito = liveItem({
+      pick: L1_PICK,
+      window: { ...snapshot, incognito: true },
+      chromeWindowId: 7,
+    });
+    expect(acceptsCarriedIn(L1, {})).toBe(true);
+    expect(acceptsCarriedIn(L1, { incognito: true })).toBe(false);
+    expect(acceptsCarriedIn(incognito, { incognito: true })).toBe(true);
+    expect(acceptsCarriedIn(incognito, {})).toBe(false);
+    // A window the session doesn't hold is a new one (the header's New window target): always allowed.
+    expect(acceptsCarriedIn(incognito, undefined)).toBe(true);
+    expect(
+      acceptsCarriedIn(
+        savedItem({
+          kind: 'tab',
+          tabGroupId: 'S1',
+          windowId: 'w1',
+          tabId: 't1',
+        }),
+        { incognito: true }
+      )
+    ).toBe(true);
+    expect(acceptsCarriedIn(null, { incognito: true })).toBe(true);
   });
 });

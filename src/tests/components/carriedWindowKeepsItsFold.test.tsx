@@ -22,6 +22,7 @@ import {
   sessionIn,
   windowIds,
 } from '../fixtures/sessionMoveFixture';
+import { carriedRef } from '../setup/carriedRef';
 
 // KAN-350 finding 9: a carried window unmounts from its source, so its fold must not be component state. It lives in globalState (KAN-206), keyed by ids
 // neither a cancel nor windowDrop changes. jsdom: the list at x 0..300, y 100..400, 60px rows; the detail at x 400..800.
@@ -123,7 +124,7 @@ describe('a carried window keeps its fold (finding 9)', () => {
 
     carryW2Out(pane);
     // PREMISE: carried, and lifted out of the detail.
-    expect(currentCarry()?.item.ref).toMatchObject({ windowId: 'w2' });
+    expect(carriedRef()).toMatchObject({ windowId: 'w2' });
     expect(pane.querySelector('[data-drag-row-id="w2"]')).toBeNull();
 
     act(() => {

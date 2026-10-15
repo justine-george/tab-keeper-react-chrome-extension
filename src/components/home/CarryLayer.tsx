@@ -236,7 +236,9 @@ export function CarryLayer() {
       const ended = last;
       last = now;
       if (ended !== null && carryEndedAs(ended) === 'cancelled') {
-        dispatch(showSession(sourceSessionIdOf(ended)));
+        // P3. A live carry came from no saved session, so nothing is re-selected.
+        const back = sourceSessionIdOf(ended);
+        if (back !== null) dispatch(showSession(back));
       }
     });
   }, [dispatch]);
@@ -253,10 +255,10 @@ export function CarryLayer() {
     }
   }, [tabGroups, carried, clicks]);
 
-  // A search started mid-carry cancels it: nothing saved takes a carry then.
+  // A search started mid-carry cancels a saved one; a live one's row drop still works under it (D5 A).
   const { isSearching } = useSavedSearch();
   useEffect(() => {
-    if (carried !== null && isSearching) {
+    if (carried !== null && carried.source === 'saved' && isSearching) {
       clicks.armUntilRelease();
       endCarry('cancelled');
     }
@@ -299,6 +301,29 @@ export function CarryLayer() {
       }}
     >
       <CardBody card={shown.card} />
+      {carry !== null && carry.item.source === 'live' && (
+        // D1 A. The + that says a copy is being made.
+        <span
+          data-carry-card-badge=""
+          className="material-symbols-outlined"
+          css={css`
+            position: absolute;
+            top: -7px;
+            right: -7px;
+            width: 20px;
+            height: 20px;
+            border-radius: ${RADIUS.CIRCLE};
+            display: grid;
+            place-items: center;
+            font-size: 16px;
+            font-weight: 600;
+            background-color: ${COLORS.LABEL_L1_COLOR};
+            color: ${COLORS.PRIMARY_LIGHT};
+          `}
+        >
+          add
+        </span>
+      )}
     </div>,
     document.body
   );

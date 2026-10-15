@@ -44,6 +44,7 @@ import {
   win,
   windowIds,
 } from '../fixtures/sessionMoveFixture';
+import { carriedRef } from '../setup/carriedRef';
 
 // KAN-350 Task 4: the session list takes a carry. The row under the pointer is the target (D2 A), 600ms on it opens it (S1 A), a release moves the item in as a new first window (S2 A).
 // jsdom has no layout: a 300px scroller at y 100..400, 60px rows, six sessions (the sixth below the fold), laid out against scrollTop so a hit read in the wrong space names the wrong row.
@@ -760,7 +761,7 @@ describe('from a real drag out of the detail', () => {
   test('let go on a row: the tab is that session’s new first window', async () => {
     const { store } = await renderBoth();
     dragTabOutToList(rowY(1));
-    expect(currentCarry()?.item.ref).toMatchObject({ tabId: 't2' });
+    expect(carriedRef()).toMatchObject({ tabId: 't2' });
     expect(targetId()).toEqual(['S2']);
 
     releaseAt(rowY(1));
@@ -780,7 +781,7 @@ describe('from a real drag out of the detail', () => {
       'S2'
     );
     expect(document.querySelector('[data-drag-row-id="u1"]')).not.toBeNull();
-    expect(currentCarry()?.item.ref).toMatchObject({ tabId: 't2' });
+    expect(carriedRef()).toMatchObject({ tabId: 't2' });
   });
 });
 

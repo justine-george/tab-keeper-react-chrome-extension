@@ -22,6 +22,7 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { s1, s2, s3 } from '../fixtures/sessionMoveFixture';
 import { snapshot, layOut, tabRow } from '../setup/openNowDragHarness';
 import { standInSessionList } from '../setup/standInSessionList';
+import { carriedRef } from '../setup/carriedRef';
 
 // KAN-350: the three detail lists hand a drag reaching the session list (only there, KAN-352) to the carry, and the source is drawn without the item.
 // The session list and Open now do not. S1 (shown): w1 [t1, g1a*g1, g1b*g1, t2, t4*g2], w2 [t3]. Overflow inline and a pane box; zero row boxes suffice to start a drag.
@@ -130,7 +131,7 @@ describe('each saved detail list hands a drag that reaches the session list to t
 
     dragOutLeft(handle);
 
-    expect(currentCarry()?.item.ref).toEqual({
+    expect(carriedRef()).toEqual({
       kind: 'group',
       tabGroupId: 'S1',
       windowId: 'w1',
@@ -160,7 +161,7 @@ describe('each saved detail list hands a drag that reaches the session list to t
 
     dragOutLeft(handle);
 
-    expect(currentCarry()?.item.ref).toEqual({
+    expect(carriedRef()).toEqual({
       kind: 'window',
       tabGroupId: 'S1',
       windowId: 'w2',
@@ -185,7 +186,7 @@ describe('each saved detail list hands a drag that reaches the session list to t
 
     dragOutLeft(find('[data-drag-row-id="t3"]'));
 
-    expect(currentCarry()?.item.ref).toMatchObject({ tabId: 't3' });
+    expect(carriedRef()).toMatchObject({ tabId: 't3' });
     expect(rowIds()).not.toContain('t3');
     expect(
       document.querySelector(

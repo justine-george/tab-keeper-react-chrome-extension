@@ -51,6 +51,7 @@ import {
   windowIds,
   windowIn,
 } from '../fixtures/sessionMoveFixture';
+import { carriedRef } from '../setup/carriedRef';
 
 // KAN-350 Task 5: the session on screen takes a carry at an exact spot. The carried item is drawn as a phantom (a tab or group in the trailing block,
 // KAN-361/366; a window first), and on entry the drag area adopts it as an ordinary drag, so every rule is the engine's own.
@@ -1009,7 +1010,7 @@ describe('out of the pane and back in', () => {
     fireEvent.pointerMove(document, { clientX: 20, clientY: 70 });
     moveTo(70, -40);
     // The premise: carried out of S1, and the fold clamped the scroll.
-    expect(currentCarry()?.item.ref).toEqual(WINDOW_W2);
+    expect(carriedRef()).toEqual(WINDOW_W2);
     p.scrollTop = 0;
 
     table = {

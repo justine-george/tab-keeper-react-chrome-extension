@@ -27,7 +27,8 @@ import {
 import { setIsNotDirty } from '../../redux/slices/globalStateSlice';
 import { resetHistory } from '../../redux/slices/undoRedoSlice';
 import { endDragHold } from '../../redux/dragHold';
-import { savedItem } from '../../redux/carriedItem';
+import { liveItem, savedItem } from '../../redux/carriedItem';
+import { live } from '../fixtures/liveSnapshotFixture';
 import {
   carryToNewSession,
   carryToSessionRow,
@@ -41,7 +42,13 @@ import {
   dropCarriedTab,
   dropCarriedWindow,
 } from '../../redux/dropCarried';
-import { T0, container } from '../fixtures/sessionMoveFixture';
+import {
+  T0,
+  container,
+  sessionIn,
+  tabIds,
+  windowIn,
+} from '../fixtures/sessionMoveFixture';
 
 // KAN-280 Part F (spec O12c): each router call leaves the store exactly as the KAN-350 move it stands for, from the same start.
 
@@ -195,5 +202,71 @@ describe('commitCarry: a saved item goes to the KAN-350 move', () => {
       )
     ).toBe(false);
     expect(after(store)).toEqual(before);
+  });
+});
+
+// KAN-280 Part F. A live item is copied, never moved: the router sends it to its copy.
+describe('commitCarry: a live item', () => {
+  const LIVE_TAB = liveItem({
+    pick: { kind: 'tab', windowId: 'live-w', tabId: 'l1' },
+    window: live(),
+    chromeWindowId: 7,
+  });
+  const LIVE_WINDOW = liveItem({
+    pick: { kind: 'window', windowId: 'live-w' },
+    window: live(),
+    chromeWindowId: 7,
+  });
+  const data = (store: Store) => store.getState().tabContainerDataState;
+
+  it('on a session row is a copy: the source session is untouched', () => {
+    const store = ready();
+    const s1Before = sessionIn(data(store), 'S1');
+    expect(store.dispatch(carryToSessionRow(LIVE_TAB, 'S2'))).toBe(true);
+    expect(tabIds(sessionIn(data(store), 'S2').windows[0])).toEqual(['l1']);
+    expect(sessionIn(data(store), 'S1')).toEqual(s1Before);
+  });
+
+  it('on the save row is a new session holding the copy', () => {
+    const store = ready();
+    expect(store.dispatch(carryToNewSession(LIVE_TAB, 'New Tab Group'))).toBe(
+      true
+    );
+    const made = data(store).tabGroups[0];
+    expect(data(store).tabGroups).toHaveLength(4);
+    expect(tabIds(made.windows[0])).toEqual(['l1']);
+  });
+
+  it('a tab at a spot is a copy there', () => {
+    const store = ready();
+    expect(
+      store.dispatch(
+        carryToSpot(LIVE_TAB, {
+          tabGroupId: 'S2',
+          toWindowId: 'd2',
+          toIndex: 0,
+        })
+      )
+    ).toBe(true);
+    expect(tabIds(windowIn(data(store), 'S2', 'd2'))).toEqual(['l1', 'u4']);
+  });
+
+  it('a window between windows is a copy there, and never at a spot', () => {
+    const store = ready();
+    expect(
+      store.dispatch(
+        carryToSpot(LIVE_WINDOW, {
+          tabGroupId: 'S2',
+          toWindowId: 'd1',
+          toIndex: 0,
+        })
+      )
+    ).toBe(false);
+    expect(
+      store.dispatch(
+        carryWindowTo(LIVE_WINDOW, { tabGroupId: 'S2', toIndex: 0 })
+      )
+    ).toBe(true);
+    expect(sessionIn(data(store), 'S2').windows[0].windowId).toBe('live-w');
   });
 });
