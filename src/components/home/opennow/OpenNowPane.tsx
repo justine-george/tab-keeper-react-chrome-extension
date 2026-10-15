@@ -773,10 +773,9 @@ export default function OpenNowPane({
                 fixedRowSelector="[data-fixed-row-id]"
                 landingRange={drop.tabs.landingRange}
                 acceptsWindow={drop.tabs.acceptsWindow}
-                // KAN-280 Part F. Copied out to the saved side, beside the pane (P1), drawn until then (D1 A).
+                // KAN-280 Part F. Copied out to the saved side, beside the pane (P1); a card from pick-up (KAN-611).
                 // KAN-610: under the saved search nothing goes to the saved side; the drag stays in Open now.
                 carryOut={isSavedSearching ? undefined : carryTabOut}
-                cardOnPickUp={false}
                 handsOffBesidePane
                 // O14c amended (B): under a search a tab row is carried out only.
                 carryOnly={searchTerm !== null}
@@ -794,7 +793,6 @@ export default function OpenNowPane({
                   landingRange={drop.items.landingRange}
                   acceptsWindow={drop.items.acceptsWindow}
                   carryOut={isSavedSearching ? undefined : carryGroupOut}
-                  cardOnPickUp={false}
                   handsOffBesidePane
                   disabled={searchTerm !== null}
                 >

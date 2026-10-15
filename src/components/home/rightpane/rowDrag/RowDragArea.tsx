@@ -536,7 +536,6 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   offersNewWindow = false,
   keepWindowOpen,
   disabled = false,
-  cardOnPickUp = true,
   handsOffBesidePane = false,
   carryOnly = false,
   children,
@@ -1739,7 +1738,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // the next setDrag draw the row as hidden (heldShownAsCard), and the
       // card goes up in the commit that does -- see the layout effect below
       // the listeners.
-      if (out !== null && cardOnPickUp) l.card = out.card;
+      if (out !== null) l.card = out.card;
     };
 
     // KAN-379. Patched, not re-measured: a row the preview moved reads displaced.
@@ -2260,7 +2259,6 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     clicks,
     cardOwner,
     disabled,
-    cardOnPickUp,
     handsOffBesidePane,
     carryOnly,
   ]);

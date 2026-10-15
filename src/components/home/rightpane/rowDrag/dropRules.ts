@@ -452,11 +452,6 @@ export interface RowDragAreaProps {
    */
   carryOut?: (rowId: string) => CarryOut | null;
   /**
-   * KAN-280 Part F (D1 A). Whether a drag with a card shows it from pick-up (KAN-354), the row drawn invisible in its own room.
-   * Off for Open now: its row is drawn as today until the hand-off, and a copy leaves it in place after.
-   */
-  cardOnPickUp?: boolean;
-  /**
    * KAN-280 Part F (P1). Also hand off once the pointer is beside this list's pane (left or right of its box,
    * read at activation): for a source whose items go to the saved side from anywhere. Above or below stays the drag (KAN-152).
    */

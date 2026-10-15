@@ -127,13 +127,14 @@ const handle = (windowId: number) =>
   find(`[data-open-window-id="${windowId}"] [data-open-window-drag-handle]`);
 
 describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
-  test('a tab is drawn held in the pane, then carried as a live copy from beside it, its row back in place', async () => {
+  // KAN-611: shown by its card from pick-up, as a saved list's drag is (KAN-354); the row waits invisible in its room.
+  test('a tab is shown by its card from pick-up, then carried as a live copy from beside it, its row back in place', async () => {
     const { top } = await renderPane(groupSeed());
     const y = (top.get('22') ?? 0) + ROW / 2;
     press(tabRow(22), y);
     moveTo(10, y + 8);
     expect(tabRow(22).hasAttribute('data-drag-held')).toBe(true);
-    expect(tabRow(22).hasAttribute('data-held-as-card')).toBe(false);
+    expect(tabRow(22).hasAttribute('data-held-as-card')).toBe(true);
     expect(currentCarry()).toBeNull();
     moveTo(ON_LIST, y + 8);
     const carry = currentCarry();
@@ -143,6 +144,7 @@ describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
     expect(carry.item.live.chromeWindowId).toBe(2);
     expect(carry.card).toMatchObject({ kind: 'tab', title: 'D' });
     expect(tabRow(22).hasAttribute('data-drag-held')).toBe(false);
+    expect(tabRow(22).hasAttribute('data-held-as-card')).toBe(false);
     expect(moveOpenTab).not.toHaveBeenCalled();
   });
 

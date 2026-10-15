@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { liveItem } from '../../redux/carriedItem';
-import { currentDragCard } from '../../redux/dragCard';
 import { live } from '../fixtures/liveSnapshotFixture';
 import { fireEvent, render, screen } from '@testing-library/react';
 
@@ -12,8 +11,8 @@ import { currentCarry, endCarry, type CarryOut } from '../../redux/carry';
 import { endDragHold, isDragHeld } from '../../redux/dragHold';
 import { standInSessionList } from '../setup/standInSessionList';
 
-// KAN-280 Part F. The engine's three options for a source that is copied, not moved (Open now): a row drawn
-// until its hand-off (D1 A), a hand-off beside the pane (P1), and a list that only carries (P2). Harness as carryHandOff.test.tsx.
+// KAN-280 Part F. The engine's two options for a source that is copied, not moved (Open now): a hand-off beside
+// the pane (P1), and a list that only carries (P2). Harness as carryHandOff.test.tsx.
 
 const ROW_H = 30;
 // The pane: x 0..200, y 0..90, showing three of four 30px rows.
@@ -21,7 +20,6 @@ const PANE = { left: 0, right: 200, top: 0, bottom: 90 };
 // The session list, stood in to the LEFT of the pane, as in the app. Right
 // of the pane is no receiver: where Open now's resize grip is (KAN-352).
 const LIST = { left: -300, right: PANE.left, top: 0, bottom: 500 };
-const ON_LIST = PANE.left - 30;
 const BESIDE = PANE.right + 30;
 
 const box = (top: number, height: number): DOMRect =>
@@ -57,26 +55,16 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const runFrames = (n: number) => {
-  for (let i = 0; i < n; i++) {
-    const due = frames;
-    frames = [];
-    due.forEach((cb) => cb(0));
-  }
-};
-
 const Harness = ({
   onMove,
   carryOut,
   onRowClick = () => {},
-  cardOnPickUp,
   handsOffBesidePane,
   carryOnly,
 }: {
   onMove: (rowId: string, toIndex: number) => void;
   carryOut?: (rowId: string) => CarryOut | null;
   onRowClick?: (rowId: string) => void;
-  cardOnPickUp?: boolean;
   handsOffBesidePane?: boolean;
   carryOnly?: boolean;
 }) => (
@@ -86,7 +74,6 @@ const Harness = ({
       onMove={onMove}
       dragKind="tab"
       carryOut={carryOut}
-      cardOnPickUp={cardOnPickUp}
       handsOffBesidePane={handsOffBesidePane}
       carryOnly={carryOnly}
     >
@@ -136,31 +123,6 @@ const pickUpA = () => {
 
 const heldMarker = () => document.querySelector('[data-drag-held]');
 const kind = () => document.documentElement.getAttribute('data-dragging');
-
-const heldAsCard = () => document.querySelector('[data-held-as-card]');
-
-describe('cardOnPickUp={false} (D1 A: Open now)', () => {
-  test('the held row is drawn, lifted, and no card shows until the hand-off', () => {
-    render(
-      <Harness onMove={() => {}} carryOut={() => OUT} cardOnPickUp={false} />
-    );
-    layout();
-    pickUpA();
-    expect(heldMarker()).not.toBeNull();
-    expect(heldAsCard()).toBeNull();
-    runFrames(1);
-    expect(currentDragCard()).toBeNull();
-    fireEvent.pointerMove(document, { clientX: ON_LIST, clientY: 25 });
-    expect(currentCarry()?.item).toBe(OUT.item);
-  });
-
-  test('by default the row is shown by its card from the pick-up (KAN-354)', () => {
-    render(<Harness onMove={() => {}} carryOut={() => OUT} />);
-    layout();
-    pickUpA();
-    expect(heldAsCard()).not.toBeNull();
-  });
-});
 
 describe('handsOffBesidePane (P1)', () => {
   test('leaving the pane to the side hands off, with no receiver there', () => {
@@ -220,19 +182,12 @@ describe('carryOnly (P2)', () => {
 
   test('turning it on mid-drag ends the in-list drag (KAN-335), as disabled does', () => {
     const { rerender } = render(
-      <Harness onMove={() => {}} carryOut={() => OUT} cardOnPickUp={false} />
+      <Harness onMove={() => {}} carryOut={() => OUT} />
     );
     layout();
     pickUpA();
     expect(heldMarker()).not.toBeNull();
-    rerender(
-      <Harness
-        onMove={() => {}}
-        carryOut={() => OUT}
-        cardOnPickUp={false}
-        carryOnly
-      />
-    );
+    rerender(<Harness onMove={() => {}} carryOut={() => OUT} carryOnly />);
     expect(heldMarker()).toBeNull();
     expect(kind()).toBeNull();
     expect(isDragHeld()).toBe(false);
