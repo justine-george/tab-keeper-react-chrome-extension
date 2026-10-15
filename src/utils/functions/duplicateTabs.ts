@@ -16,13 +16,31 @@ export function firstCopyFilter(): (tab: tabData) => boolean {
   };
 }
 
+// KAN-616. One window of a session, or one tab group in that window. Only the tabs inside compete.
+export interface DuplicateScope {
+  windowId: string;
+  groupId?: string;
+}
+
 // The tabs Remove duplicate tabs would take out, in reading order: windows top to bottom, tabs top to bottom.
-export function countDuplicateTabs(
-  session: Pick<tabContainerData, 'windows'>
-): number {
+// No scope means the whole session.
+export function duplicateTabsIn(
+  session: Pick<tabContainerData, 'windows'>,
+  scope?: DuplicateScope
+): tabData[] {
   const isFirst = firstCopyFilter();
-  return session.windows.reduce(
-    (n, w) => n + w.tabs.filter((t) => !isFirst(t)).length,
-    0
-  );
+  return session.windows
+    .filter((w) => !scope || w.windowId === scope.windowId)
+    .flatMap((w) => w.tabs)
+    .filter(
+      (t) => scope?.groupId === undefined || t.chromeGroupId === scope.groupId
+    )
+    .filter((t) => !isFirst(t));
+}
+
+export function countDuplicateTabs(
+  session: Pick<tabContainerData, 'windows'>,
+  scope?: DuplicateScope
+): number {
+  return duplicateTabsIn(session, scope).length;
 }

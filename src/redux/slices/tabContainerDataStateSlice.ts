@@ -18,7 +18,8 @@ import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import type { RootState } from '../store';
 import {
   countDuplicateTabs,
-  firstCopyFilter,
+  duplicateTabsIn,
+  type DuplicateScope,
 } from '../../utils/functions/duplicateTabs';
 import { closeFocusModal, openFocusModal, showToast } from './globalStateSlice';
 import { initialState } from './tabContainerInitialState';
@@ -200,6 +201,8 @@ export interface replaceSessionContentParams {
 
 export interface removeDuplicateTabsParams {
   tabGroupId: string;
+  // KAN-616. One window or one group in it; absent, the whole session.
+  within?: DuplicateScope;
   now: number;
 }
 
@@ -930,20 +933,20 @@ export const replaceSessionWithOpenWindows = createAsyncThunk<
   return true;
 });
 
-// KAN-609. The session menu's action. Says how many went, with Undo; says nothing when there were none.
+// KAN-609, KAN-616. The session, window and group menus' action. Says how many went, with Undo; says nothing when there were none.
 export const removeDuplicateTabs = createAsyncThunk<
   void,
-  string,
+  Omit<removeDuplicateTabsParams, 'now'>,
   { state: RootState }
->('global/removeDuplicateTabs', async (tabGroupId, thunkAPI) => {
+>('global/removeDuplicateTabs', async ({ tabGroupId, within }, thunkAPI) => {
   const session = thunkAPI
     .getState()
     .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === tabGroupId);
-  const count = session ? countDuplicateTabs(session) : 0;
+  const count = session ? countDuplicateTabs(session, within) : 0;
   if (count === 0) return;
   const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
     thunkAPI.dispatch(
-      removeDuplicateTabsInternal({ tabGroupId, now: Date.now() })
+      removeDuplicateTabsInternal({ tabGroupId, within, now: Date.now() })
     )
   );
   thunkAPI.dispatch(
@@ -1680,12 +1683,13 @@ export const tabContainerDataStateSlice = createSlice({
       state,
       action: PayloadAction<removeDuplicateTabsParams>
     ) => {
-      const { tabGroupId, now } = action.payload;
+      const { tabGroupId, within, now } = action.payload;
       const group = state.tabGroups.find((g) => g.tabGroupId === tabGroupId);
-      if (!group || countDuplicateTabs(group) === 0) return;
-      const isFirst = firstCopyFilter();
+      if (!group) return;
+      const doomed = new Set(duplicateTabsIn(group, within));
+      if (doomed.size === 0) return;
       for (const window of group.windows) {
-        const kept = window.tabs.filter(isFirst);
+        const kept = window.tabs.filter((t) => !doomed.has(t));
         if (kept.length === window.tabs.length) continue;
         window.tabs = kept;
         window.tabCount = kept.length;
