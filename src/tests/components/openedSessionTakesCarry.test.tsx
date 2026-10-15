@@ -1561,3 +1561,50 @@ describe('a live tab (KAN-280 Part F)', () => {
     });
   });
 });
+
+describe('a live group (KAN-280 Part F, Q2 A)', () => {
+  const LIVE_GROUP_LAYOUT: Table = {
+    'win:d1': [0, 176],
+    'row:tab:u1': [32, 32],
+    'row:group:h1': [64, 96],
+    'win:d2': [184, 64],
+    'row:tab:u4': [216, 32],
+    [`win:${NEW_LAST_WINDOW}`]: [256, 40],
+    'row:group:carried:lg': [260, 32],
+  };
+  function carryLiveGroup(window: windowGroupData) {
+    setDragging(true, 'group');
+    beginDragHold();
+    act(() =>
+      startCarry(
+        liveItem({
+          pick: { kind: 'group', windowId: window.windowId, groupId: 'lg' },
+          window,
+          chromeWindowId: 7,
+        }),
+        { kind: 'group', title: 'Live group', color: '#000', tabCount: 2 },
+        -40,
+        100
+      )
+    );
+  }
+
+  test("CONTROL: a normal one makes room between d1's items", async () => {
+    await renderDetail('S2');
+    carryLiveGroup(live());
+    table = LIVE_GROUP_LAYOUT;
+    moveTo(60);
+    expect(shiftOf(row('group:h1'))).toBeGreaterThan(0);
+  });
+
+  test('an incognito one is refused there: nothing steps aside, and nothing is copied', async () => {
+    const { store } = await renderDetail('S2');
+    const before = store.getState().tabContainerDataState;
+    carryLiveGroup(live({ incognito: true }));
+    table = LIVE_GROUP_LAYOUT;
+    moveTo(60);
+    expect(shiftOf(row('group:h1'))).toBe(0);
+    release(60);
+    expect(store.getState().tabContainerDataState).toBe(before);
+  });
+});
