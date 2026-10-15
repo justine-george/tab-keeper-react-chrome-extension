@@ -299,7 +299,7 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     expect(d2?.chromeTabGroups?.[0]?.collapsed).toBeUndefined();
     await expect
       .poll(() => toasts(page))
-      .toEqual([{ text: 'Copied to “Target”.', show: false }]);
+      .toEqual([{ text: 'Copied 2 tabs to “Target”.', show: false }]);
     await expectUndoRestores(page, before);
   });
 
@@ -347,6 +347,9 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
       width: copied?.windowWidth,
       height: copied?.windowHeight,
     }).toEqual(placed);
+    await expect
+      .poll(() => toasts(page))
+      .toEqual([{ text: 'Copied 2 tabs to “Source”.', show: false }]);
     await expectUndoRestores(page, before);
   });
 
@@ -423,6 +426,9 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
       .poll(async () => (await urlsOf(page, 'S2'))[0])
       .toEqual([dataUrl('Dup'), dataUrl('Dup two'), dataUrl('Fresh')]);
     expect(await urlsOf(page, 'S2')).toHaveLength(3);
+    await expect
+      .poll(async () => (await toasts(page)).map((t) => t.text))
+      .toContain('Copied 3 tabs to “Target”.');
   });
 
   // KAN-607. Resting past the spring-open puts the session on screen: the copy still says so, with no Show.
