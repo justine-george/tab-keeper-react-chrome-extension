@@ -58,8 +58,9 @@ async function openLiveWindow(worker: Worker, titles: string[]) {
 const liveRow = (page: Page, tabId: number) =>
   page.locator(`[data-open-tab-id="${tabId}"]`);
 
-// Presses a live row and moves past the activation distance: held in Open now, shown by its card (KAN-611), no carry yet.
-async function pickUpLive(page: Page, tabId: number) {
+// Presses a live row and moves past the activation distance: held in Open now, shown by its card (KAN-611), no carry
+// yet. Under the saved search there is no card: the drag can't leave Open now (KAN-610).
+async function pickUpLive(page: Page, tabId: number, card = true) {
   const b = await boxOf(liveRow(page, tabId));
   const x = b.x + Math.min(60, b.width / 2);
   const y = b.y + b.height / 2;
@@ -67,7 +68,7 @@ async function pickUpLive(page: Page, tabId: number) {
   await page.mouse.down();
   await page.mouse.move(x, y + 10, { steps: 3 });
   await expect(page.locator('[data-drag-held]')).toHaveCount(1);
-  await expect(page.locator('[data-drag-card]')).toHaveCount(1);
+  await expect(page.locator('[data-drag-card]')).toHaveCount(card ? 1 : 0);
   await expect(page.locator(CARD)).toHaveCount(0);
   return { x, y: y + 10 };
 }
@@ -756,7 +757,7 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     await expect(sessionRow(page, 'S2')).toBeVisible();
     const before = await stored(page);
 
-    const at = await pickUpLive(page, live.idOf('Live A'));
+    const at = await pickUpLive(page, live.idOf('Live A'), false);
     const pane = await boxOf(page.locator('[data-pane="open-now"]'));
     await page.mouse.move(pane.x - 40, at.y, { steps: 6 });
     const row = await boxOf(sessionRow(page, 'S2'));
