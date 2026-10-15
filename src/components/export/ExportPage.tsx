@@ -565,6 +565,12 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                   border-color: ${COLORS.TEXT_COLOR};
                 }
               }
+              /* KAN-401. Unavailable keeps this fill, not Button's light one. */
+              &&[aria-disabled='true']:hover,
+              &&[aria-disabled='true']:active {
+                background-color: ${COLORS.TEXT_COLOR};
+                border-color: ${COLORS.TEXT_COLOR};
+              }
             `;
 
   return (

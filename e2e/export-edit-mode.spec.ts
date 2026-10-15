@@ -242,6 +242,37 @@ test('a hidden row stays in the editor, faded, until it is shown again', async (
   await expect.poll(opacity).toBe(1);
 });
 
+// KAN-401. With every row hidden Done is unavailable, and an unavailable
+// button keeps its resting fill under the pointer. Done's fill is the page's
+// own, so the pointer once swapped it for the light one and hid the tick.
+test('with every row hidden, Done is unavailable and keeps its fill under the pointer', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openExportPage(context, extensionId);
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await page
+    .getByRole('button', { name: 'Hide: Installs & Uninstalls' })
+    .click();
+  await page
+    .getByRole('button', { name: 'Hide: justine-george (Justine George)' })
+    .click();
+
+  const done = page.getByRole('button', { name: 'Done' });
+  await expect(done).toHaveAttribute('aria-disabled', 'true');
+  const fill = () =>
+    done.evaluate((el) => getComputedStyle(el).backgroundColor);
+  await page.mouse.move(5, 5);
+  const rest = await fill();
+
+  await done.hover();
+  // Polled past the 120ms colour transition.
+  await page.waitForTimeout(300);
+  expect(await fill()).toBe(rest);
+  await done.click({ force: true });
+  await expect(page.getByRole('button', { name: 'Reset' })).toBeVisible();
+});
+
 // Playwright's scripted close shows the leave dialog whenever a beforeunload
 // listener cancels (measured), so the control is the page without edits.
 for (const edited of [true, false]) {
