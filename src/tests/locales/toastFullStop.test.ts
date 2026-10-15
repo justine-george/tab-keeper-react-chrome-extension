@@ -57,7 +57,11 @@ describe('toast full stops (KAN-604, KAN-618)', () => {
 
   it('every import refusal, which ends the error frame, ends with a full stop', () => {
     expect(
-      unstopped([IMPORT_INVALID_STRUCTURE, IMPORT_SIZE_REFUSAL, IMPORT_NOT_JSON])
+      unstopped([
+        IMPORT_INVALID_STRUCTURE,
+        IMPORT_SIZE_REFUSAL,
+        IMPORT_NOT_JSON,
+      ])
     ).toEqual([]);
   });
 });
