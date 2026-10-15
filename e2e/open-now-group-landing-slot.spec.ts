@@ -200,10 +200,10 @@ test.describe('in Open now, a dragged group is shown landing where it lands', ()
       await page.mouse.move(x, y);
       await page.mouse.down();
       await page.mouse.move(x, y + 8, { steps: 2 });
-      // PREMISE: this group is held, drawn (Open now shows no card), folded.
+      // PREMISE: this group is held, shown by its card (KAN-611), folded.
       const heldEl = page.locator('[data-drag-held]');
       await expect(heldEl).toHaveAttribute('data-drag-row-id', `group:${held}`);
-      await expect(heldEl).not.toHaveAttribute('data-held-as-card');
+      await expect(heldEl).toHaveAttribute('data-held-as-card');
       await settled(page);
 
       const target = await spanOf(page, band(staged, c.aimInto(staged)));

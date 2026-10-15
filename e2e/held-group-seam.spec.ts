@@ -16,12 +16,12 @@ import { grantedTest as test, expect } from './fixtures/grantedExtension';
 // move to Open now below; not re-measured there), resting and dragging alike:
 // strip 435.5..438.5, the row's own fill starting at 444.5.
 //
-// Driven in OPEN NOW (KAN-354). This ran on a saved session's group until a
-// saved list's held row was hidden and drawn by the card at the pointer: the
-// fill is still painted there, inside a row at opacity 0, so it tested
-// nothing anyone sees. Open now keeps its lifted, visible row (KAN-354 C2 A)
-// and the same rule (OpenNowWindow.tsx, `[data-drag-held] &`), so the claim
-// is held where it can still be seen.
+// Driven in OPEN NOW under the SAVED SEARCH. A held row drawn by the card at
+// the pointer is at opacity 0, fill and all, so the claim is only seen where a
+// held group keeps its lifted row: a saved list's never does (KAN-354), Open
+// now's does only while the saved search is open and nothing can be carried
+// out (KAN-610; KAN-611 gave it a card otherwise). Same rule there
+// (OpenNowWindow.tsx, `[data-drag-held] &`).
 
 const TRANSPARENT = 'rgba(0, 0, 0, 0)';
 
@@ -79,6 +79,10 @@ async function open(
   // goto resolves before React mounts (KAN-105).
   await expect(bandOf(page, staged, staged.beta)).toBeVisible();
   await expect(bandOf(page, staged, staged.gamma)).toBeVisible();
+  // The saved search: Open now's drag then has no card (KAN-610).
+  await page
+    .getByRole('textbox', { name: 'Search saved tabs', exact: true })
+    .fill('a');
 }
 
 const bandOf = (page: Page, staged: Staged, groupId: number) =>
@@ -115,10 +119,11 @@ async function grabGroup(page: Page, staged: Staged, groupId: number) {
   await page.mouse.move(x, y - 8, { steps: 2 });
   await page.mouse.move(x, y - 60, { steps: 8 });
   await page.waitForTimeout(280);
-  // PREMISE: this group is held, and drawn -- Open now shows no card.
+  // PREMISE: this group is held, and drawn -- no card under the saved search.
   const held = page.locator('[data-drag-held]');
   await expect(held).toHaveAttribute('data-drag-row-id', `group:${groupId}`);
   await expect(held).not.toHaveAttribute('data-held-as-card');
+  await expect(page.locator('[data-drag-card]')).toHaveCount(0);
   return x;
 }
 
