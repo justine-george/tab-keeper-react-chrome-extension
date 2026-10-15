@@ -160,10 +160,8 @@ export const TOAST_MESSAGES = {
   // KAN-350 S4 B. The same move emptied its source session, which is then
   // removed, with the source's title as {{title}}.
   SESSION_EMPTIED_REMOVED: 'SessionEmptiedRemoved',
-  // KAN-280 Part F (D4 A, D6 A). A copy from Open now saved into {{title}}; with {{count}} tabs skipped as already there (plural); or nothing saved.
+  // KAN-280 Part F (D4 A), KAN-608. A copy from Open now saved into {{title}}.
   COPIED_TO_SESSION: 'CopiedToSession',
-  COPIED_TO_SESSION_SKIPPED: 'CopiedToSessionSkipped',
-  ALREADY_IN_SESSION: 'AlreadyInSession',
 };
 
 // The frame an import failure is reported in, with the reason as {{detail}}

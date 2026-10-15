@@ -20,14 +20,13 @@ import {
 import { showSession } from './showSession';
 import type { RootState } from './store';
 import { TOAST_MESSAGES } from '../utils/constants/common';
-import { addressesIn, copyOutcome } from '../utils/functions/liveCopy';
 import { newWindowPlacement } from '../components/home/rightpane/newWindowTarget';
 import { revealSavedWindow } from '../components/home/rightpane/revealSavedWindow';
 
 type Took = ThunkAction<boolean, RootState, unknown, UnknownAction>;
 
-// Returns whether anything was saved. Every copy says what it saved or skipped, wherever it lands (KAN-607); Show
-// only when the target is not on screen after the drop.
+// Returns whether anything was saved. Every copy says so, wherever it lands (KAN-607), and copies everything,
+// duplicates included (KAN-608); Show only when the target is not on screen after the drop.
 const copyToSession =
   (copy: SessionCopy, live: LiveSnapshot): Took =>
   (dispatch, getState) => {
@@ -46,46 +45,23 @@ const copyToSession =
     );
     const before = at.state;
     if (before === null) return false;
-    const copied = getState().tabContainerDataState !== before;
+    if (getState().tabContainerDataState === before) return false;
     const target = before.tabGroups.find(
       (g) => g.tabGroupId === copy.to.tabGroupId
     );
-    if (target === undefined) return copied;
-
-    const { skipped, copiesAny } = copyOutcome(
-      snapshot,
-      copy.pick,
-      addressesIn(target)
-    );
-    const show = isSessionOnScreen(getState(), target.tabGroupId)
-      ? undefined
-      : { tabGroupId: target.tabGroupId };
-    if (copied) {
+    if (target !== undefined) {
       dispatch(
         showToast({
-          toastText:
-            skipped === 0
-              ? TOAST_MESSAGES.COPIED_TO_SESSION
-              : TOAST_MESSAGES.COPIED_TO_SESSION_SKIPPED,
-          toastParams:
-            skipped === 0
-              ? { title: target.title }
-              : { title: target.title, count: skipped },
-          announcesSavedChange: true,
-          show,
-        })
-      );
-    } else if (!copiesAny && skipped > 0) {
-      // P10. Nothing was saved, so this takes nothing from a Reopen offer.
-      dispatch(
-        showToast({
-          toastText: TOAST_MESSAGES.ALREADY_IN_SESSION,
+          toastText: TOAST_MESSAGES.COPIED_TO_SESSION,
           toastParams: { title: target.title },
-          show,
+          announcesSavedChange: true,
+          show: isSessionOnScreen(getState(), target.tabGroupId)
+            ? undefined
+            : { tabGroupId: target.tabGroupId },
         })
       );
     }
-    return copied;
+    return true;
   };
 
 // S2 A on a session row: a tab or group becomes the session's first window, a window its first window.

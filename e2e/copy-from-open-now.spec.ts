@@ -250,7 +250,9 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
         'https://al0.test/',
         'https://al1.test/',
       ]);
-    expect(await toasts(page)).toEqual([]);
+    await expect
+      .poll(() => toasts(page))
+      .toEqual([{ text: 'Copied to “Source”.', show: false }]);
     expect(await chromeNow(serviceWorker)).toBe(chromeBefore);
     await expectUndoRestores(page, before);
   });
@@ -295,7 +297,9 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
       expect.objectContaining({ title: 'Reading', color: 'purple' }),
     ]);
     expect(d2?.chromeTabGroups?.[0]?.collapsed).toBeUndefined();
-    expect(await toasts(page)).toEqual([]);
+    await expect
+      .poll(() => toasts(page))
+      .toEqual([{ text: 'Copied to “Target”.', show: false }]);
     await expectUndoRestores(page, before);
   });
 
@@ -375,7 +379,8 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     await expectUndoRestores(page, before);
   });
 
-  test('6. D6: a tab already there is "Already in", nothing saved; a window copies the rest and counts the skips', async ({
+  // KAN-608: no duplicate check. A tab or window the session already holds is copied whole, and says so.
+  test('6. duplicates land: a tab already there is copied again, a window lands whole', async ({
     context,
     extensionId,
     serviceWorker,
@@ -397,16 +402,17 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
       'Fresh',
     ]);
     await expect(liveRow(page, live.idOf('Dup'))).toBeVisible();
-    const before = await stored(page);
 
     let at = await pickUpLive(page, live.idOf('Dup'));
     await carryOutOfOpenNow(page, at.y);
     await onto(page, 'S2');
     await page.mouse.up();
     await expect
+      .poll(async () => (await urlsOf(page, 'S2'))[0])
+      .toEqual([dataUrl('Dup')]);
+    await expect
       .poll(() => toasts(page))
-      .toEqual([{ text: 'Already in “Target”.', show: true }]);
-    expect(await stored(page)).toEqual(before);
+      .toEqual([{ text: 'Copied to “Target”.', show: true }]);
 
     at = await press(page, openNowWindowHandle(page, live.windowId));
     await expect(page.locator(CARD)).toHaveCount(1);
@@ -415,14 +421,12 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     await page.mouse.up();
     await expect
       .poll(async () => (await urlsOf(page, 'S2'))[0])
-      .toEqual([dataUrl('Fresh')]);
-    await expect
-      .poll(async () => (await toasts(page)).map((t) => t.text))
-      .toContain('Copied to “Target”. 2 tabs were already there.');
+      .toEqual([dataUrl('Dup'), dataUrl('Dup two'), dataUrl('Fresh')]);
+    expect(await urlsOf(page, 'S2')).toHaveLength(3);
   });
 
-  // KAN-607. Resting past the spring-open puts the session on screen: a clean copy there stays quiet, a skip says so.
-  test('6b. rest on the row, then drop: the copy is quiet, the same tab again says "Already in", with no Show', async ({
+  // KAN-607. Resting past the spring-open puts the session on screen: the copy still says so, with no Show.
+  test('6b. rest on the row, then drop, twice: each copy lands and says "Copied to", with no Show', async ({
     context,
     extensionId,
     serviceWorker,
@@ -438,20 +442,20 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
       await expect.poll(() => selected(page)).toBe('S2');
       await page.mouse.up();
       await expect(page.locator(CARD)).toHaveCount(0);
-      if (round === 1) {
-        await expect
-          .poll(async () => (await urlsOf(page, 'S2'))[0])
-          .toEqual([dataUrl('Rested')]);
-        await page.waitForTimeout(300);
-        expect(await toasts(page)).toEqual([]);
-      }
+      await expect
+        .poll(async () =>
+          (await urlsOf(page, 'S2'))
+            .flat()
+            .filter((u) => u === dataUrl('Rested'))
+        )
+        .toHaveLength(round);
     }
     await expect
       .poll(() => toasts(page))
-      .toEqual([{ text: 'Already in “Target”.', show: false }]);
-    expect((await urlsOf(page, 'S2')).flat()).toHaveLength(
-      1 + S2().windows.reduce((n, w) => n + w.tabs.length, 0)
-    );
+      .toEqual([
+        { text: 'Copied to “Target”.', show: false },
+        { text: 'Copied to “Target”.', show: false },
+      ]);
   });
 
   test('7. carried back over Open now and let go: cancelled, nothing saved (N4 A)', async ({
@@ -573,7 +577,9 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     await expect
       .poll(async () => (await urlsOf(page, 'S1'))[0]?.[1])
       .toBe(dataUrl('Live A'));
-    expect(await toasts(page)).toEqual([]);
+    await expect
+      .poll(() => toasts(page))
+      .toEqual([{ text: 'Copied to “Source”.', show: false }]);
     const fold = await page.evaluate(() => {
       const raw = localStorage.getItem('settingsData');
       return raw === null ? null : JSON.parse(raw).foldSavedSessionInTabView;

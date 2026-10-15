@@ -95,7 +95,6 @@ const LIVE = (
 ): LiveSnapshot => ({ pick, window: live(extra), chromeWindowId: 7 });
 const L1: CarriedPick = { kind: 'tab', windowId: 'live-w', tabId: 'l1' };
 const LDUP: CarriedPick = { kind: 'tab', windowId: 'live-w', tabId: 'ldup' };
-const LG: CarriedPick = { kind: 'group', windowId: 'live-w', groupId: 'lg' };
 const LW: CarriedPick = { kind: 'window', windowId: 'live-w' };
 
 beforeEach(() => {
@@ -121,44 +120,45 @@ describe('copyOnSessionRow: a row drop is a new first window, and says so (D4 A,
     ]);
   });
 
-  it('some skipped: the count, plural', () => {
+  // KAN-608: no duplicate check. A window holding tabs the target already has lands whole.
+  it('a window lands whole, duplicates included: "Copied to"', () => {
     const { store } = ready(container(undefined, 'S1'));
     store.dispatch(copyOnSessionRow(LIVE(LW), 'S2'));
-    expect(toasts(store)).toEqual([
-      {
-        text: TOAST_MESSAGES.COPIED_TO_SESSION_SKIPPED,
-        params: { title: 'Target', count: 2 },
-        show: { tabGroupId: 'S2' },
-      },
+    expect(tabIds(sessionIn(data(store), 'S2').windows[0])).toEqual([
+      'lp',
+      'l1',
+      'l1b',
+      'lg1',
+      'lg2',
+      'ldup',
     ]);
-  });
-
-  it('all skipped: "Already in", nothing saved, no undo step, the stamp unchanged', () => {
-    const { store } = ready(container(undefined, 'S1'));
-    const before = data(store);
-    const past = store.getState().undoRedo.past.length;
-    expect(store.dispatch(copyOnSessionRow(LIVE(LDUP), 'S2'))).toBe(false);
-    expect(data(store)).toBe(before);
-    expect(store.getState().undoRedo.past.length).toBe(past);
     expect(toasts(store)).toEqual([
       {
-        text: TOAST_MESSAGES.ALREADY_IN_SESSION,
+        text: TOAST_MESSAGES.COPIED_TO_SESSION,
         params: { title: 'Target' },
         show: { tabGroupId: 'S2' },
       },
     ]);
   });
 
-  // Review Focus 1.
-  it('a second copy of the same tab is already there', () => {
+  // Review Focus 1, reversed by KAN-608.
+  it('a tab whose address the target holds is copied anyway, and so is the same tab a second time', () => {
     const { store } = ready(container(undefined, 'S1'));
-    store.dispatch(copyOnSessionRow(LIVE(L1), 'S2'));
-    const after = data(store);
-    expect(store.dispatch(copyOnSessionRow(LIVE(L1), 'S2'))).toBe(false);
-    expect(data(store)).toBe(after);
+    expect(store.dispatch(copyOnSessionRow(LIVE(LDUP), 'S2'))).toBe(true);
+    expect(store.dispatch(copyOnSessionRow(LIVE(L1), 'S2'))).toBe(true);
+    expect(store.dispatch(copyOnSessionRow(LIVE(L1), 'S2'))).toBe(true);
+    const firsts = sessionIn(data(store), 'S2')
+      .windows.slice(0, 3)
+      .map((w) => w.tabs.map((t) => t.url));
+    expect(firsts).toEqual([
+      ['https://l1.test/'],
+      ['https://l1.test/'],
+      ['https://u1.test/'],
+    ]);
     expect(toasts(store).map((t) => t.text)).toEqual([
       TOAST_MESSAGES.COPIED_TO_SESSION,
-      TOAST_MESSAGES.ALREADY_IN_SESSION,
+      TOAST_MESSAGES.COPIED_TO_SESSION,
+      TOAST_MESSAGES.COPIED_TO_SESSION,
     ]);
   });
 
@@ -207,8 +207,8 @@ describe('copyOnSessionRow: a row drop is a new first window, and says so (D4 A,
   });
 });
 
-// KAN-349 Q1 C′, P10. A copy that saved takes ⌘Z from a Reopen offer; "Already in" saved nothing, so it does not.
-describe('the copy toasts and a Reopen offer (C′, P10)', () => {
+// KAN-349 Q1 C′. A copy is a saved change, so its toast takes ⌘Z from a Reopen offer.
+describe('the copy toast and a Reopen offer (C′)', () => {
   const withOffer = async (c: TabMasterContainer) => {
     const made = ready(c);
     await made.store.dispatch(
@@ -222,21 +222,6 @@ describe('the copy toasts and a Reopen offer (C′, P10)', () => {
     const store = await withOffer(container(undefined, 'S1'));
     store.dispatch(copyOnSessionRow(LIVE(L1), 'S2'));
     expect(selectReopenOfferForKey(store.getState())).toBeNull();
-  });
-
-  it('"Copied to … already there" takes the key', async () => {
-    const store = await withOffer(container(undefined, 'S1'));
-    store.dispatch(copyOnSessionRow(LIVE(LW), 'S2'));
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
-  });
-
-  it('"Already in" leaves it', async () => {
-    const store = await withOffer(container(undefined, 'S1'));
-    store.dispatch(copyOnSessionRow(LIVE(LDUP), 'S2'));
-    expect(toasts(store).map((t) => t.text)).toContain(
-      TOAST_MESSAGES.ALREADY_IN_SESSION
-    );
-    expect(selectReopenOfferForKey(store.getState())).toBe(7);
   });
 });
 
@@ -330,73 +315,5 @@ describe('isSessionOnScreen (P5)', () => {
     store.dispatch(setFoldSavedSessionInTabView(true));
     store.dispatch(copyOnSessionRow(LIVE(L1), 'S2'));
     expect(toasts(store).map((t) => t.show)).toEqual([{ tabGroupId: 'S2' }]);
-  });
-});
-
-// KAN-607 (Justine's pick, 2026-10-15). A skip always says so, on screen too: there it changes less than was asked,
-// or nothing, and nothing in view shows it. No Show chip when the session is already on screen.
-describe('skips always say so (KAN-607)', () => {
-  it('on screen, a copy that skips some: the count, no Show', () => {
-    const { store } = ready(container(undefined, 'S2'));
-    store.dispatch(copyOnSessionRow(LIVE(LG), 'S2'));
-    expect(toasts(store)).toEqual([
-      {
-        text: TOAST_MESSAGES.COPIED_TO_SESSION_SKIPPED,
-        params: { title: 'Target', count: 1 },
-        show: null,
-      },
-    ]);
-  });
-
-  it('on screen, a copy that skips all: "Already in", no Show, nothing saved', () => {
-    const { store } = ready(container(undefined, 'S2'));
-    const before = data(store);
-    expect(store.dispatch(copyOnSessionRow(LIVE(LDUP), 'S2'))).toBe(false);
-    expect(data(store)).toBe(before);
-    expect(toasts(store)).toEqual([
-      {
-        text: TOAST_MESSAGES.ALREADY_IN_SESSION,
-        params: { title: 'Target' },
-        show: null,
-      },
-    ]);
-  });
-
-  it('at an exact spot, a skip says so (P11 reversed); a clean copy there says "Copied to"', () => {
-    const { store } = ready(container(undefined, 'S2'));
-    store.dispatch(
-      copyToSpot(LIVE(LG), { tabGroupId: 'S2', toWindowId: 'd1', toIndex: 0 })
-    );
-    expect(toasts(store).map((t) => [t.text, t.show])).toEqual([
-      [TOAST_MESSAGES.COPIED_TO_SESSION_SKIPPED, null],
-    ]);
-    store.dispatch(
-      copyToSpot(LIVE(L1), { tabGroupId: 'S2', toWindowId: 'd2', toIndex: 0 })
-    );
-    expect(toasts(store).map((t) => [t.text, t.show])).toEqual([
-      [TOAST_MESSAGES.COPIED_TO_SESSION_SKIPPED, null],
-      [TOAST_MESSAGES.COPIED_TO_SESSION, null],
-    ]);
-  });
-
-  it('a window between windows that skips all: "Already in"', () => {
-    const { store } = ready(container(undefined, 'S2'));
-    const allThere = {
-      pick: LW,
-      window: {
-        ...live(),
-        tabs: live().tabs.filter(
-          (t) => t.url === 'https://u1.test/' || t.url === 'https://u4.test/'
-        ),
-        tabCount: 2,
-      },
-      chromeWindowId: 7,
-    };
-    expect(
-      store.dispatch(copyWindowTo(allThere, { tabGroupId: 'S2', toIndex: 1 }))
-    ).toBe(false);
-    expect(toasts(store).map((t) => t.text)).toEqual([
-      TOAST_MESSAGES.ALREADY_IN_SESSION,
-    ]);
   });
 });

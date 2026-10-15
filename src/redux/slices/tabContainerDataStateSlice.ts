@@ -31,8 +31,7 @@ import {
 } from '../../utils/functions/newSessionTitle';
 import { savedItem, type CarriedPick } from '../carriedItem';
 import {
-  addressesIn,
-  copyOutcome,
+  copiesAnything,
   tabsToCopy,
   windowToCopy,
 } from '../../utils/functions/liveCopy';
@@ -2698,7 +2697,7 @@ export const tabContainerDataStateSlice = createSlice({
       }),
     },
     // KAN-280 Part F (spec O12c). A copy of a live item into a saved session: the move's landing, nothing removed, one ⌘Z.
-    // Declines, stamping nothing, when the target is gone, everything was already there (D6 A), or the kinds clash (Q2 A).
+    // Declines, stamping nothing, when the target is gone or the kinds clash (Q2 A). Duplicates land (KAN-608).
     copyToSessionInternal: {
       reducer: (state, action: PayloadAction<copyToSessionParams>) => {
         const { copy, snapshot, remintNamespace, now } = action.payload;
@@ -2706,13 +2705,12 @@ export const tabContainerDataStateSlice = createSlice({
           (g) => g.tabGroupId === copy.to.tabGroupId
         );
         if (!target) return;
-        const taken = addressesIn(target);
         const remint = (id: string) => uuidv5(id, remintNamespace);
 
         if (isWindowCopy(copy)) {
-          const planned = windowToCopy(snapshot, taken);
-          if (planned.content === null) return;
-          landWindowIn(target, planned.content, copy.to.toIndex, remint);
+          const w = windowToCopy(snapshot);
+          if (w === null) return;
+          landWindowIn(target, w, copy.to.toIndex, remint);
         } else {
           const landing = tabsLandingIn(target, copy.to);
           if (!landing) return;
@@ -2724,13 +2722,13 @@ export const tabContainerDataStateSlice = createSlice({
           ) {
             return;
           }
-          const planned = tabsToCopy(snapshot, copy.pick, taken);
-          if (planned.content === null) return;
+          const planned = tabsToCopy(snapshot, copy.pick);
+          if (planned === null) return;
           landTabsIn(
             target,
             landing,
-            planned.content.tabs,
-            planned.content.group,
+            planned.tabs,
+            planned.group,
             {
               ...boundsOf(snapshot),
               ...savedIncognito(snapshot.incognito === true),
@@ -2826,7 +2824,7 @@ export const tabContainerDataStateSlice = createSlice({
       }),
     },
 
-    // KAN-280 Part F (N1 A). A live item let go on the save row: KAN-394's new session, holding a copy. D6 has nothing to skip in it.
+    // KAN-280 Part F (N1 A). A live item let go on the save row: KAN-394's new session, holding a copy.
     copyToNewSessionInternal: {
       reducer: (state, action: PayloadAction<copyToNewSessionParams>) => {
         const {
@@ -2840,7 +2838,7 @@ export const tabContainerDataStateSlice = createSlice({
           typedTitle,
         } = action.payload;
         // Nothing to copy: no empty session (D20).
-        if (!copyOutcome(snapshot, pick, new Set()).copiesAny) return;
+        if (!copiesAnything(snapshot, pick)) return;
 
         state.tabGroups.unshift({
           tabGroupId,

@@ -175,7 +175,8 @@ describe('copyToSessionInternal: every landing (spec O12c, O13)', () => {
     expect(sessionIn(after, 'S2').windowCount).toBe(3);
   });
 
-  it('a group lands between items with its entry and fold, minus what was already there', () => {
+  // KAN-608: whole, lg1's address (u4's) included.
+  it('a group lands between items with its entry, fold and every tab', () => {
     const after = reducer(
       base(),
       copyToSessionInternal(
@@ -187,6 +188,7 @@ describe('copyToSessionInternal: every landing (spec O12c, O13)', () => {
     );
     expect(tabIds(windowIn(after, 'S2', 'd1'))).toEqual([
       'u1',
+      'lg1',
       'lg2',
       'u2',
       'u3',
@@ -213,11 +215,11 @@ describe('copyToSessionInternal: every landing (spec O12c, O13)', () => {
     const ids = sessionIn(after, 'S2').windows.map((w) => w.windowId);
     expect(ids).toEqual(['d1', 'live-w', 'd2']);
     const w = windowIn(after, 'S2', 'live-w');
-    expect(tabIds(w)).toEqual(['lp', 'l1', 'l1b', 'lg2']);
+    expect(tabIds(w)).toEqual(['lp', 'l1', 'l1b', 'lg1', 'lg2', 'ldup']);
     expect(w.state).toBe('maximized');
     expect(w.activeTabId).toBe('l1');
     expect(sessionIn(after, 'S2').windowCount).toBe(3);
-    expect(sessionIn(after, 'S2').tabCount).toBe(8);
+    expect(sessionIn(after, 'S2').tabCount).toBe(10);
   });
 
   // P9: the snapshot's ids are minted at pick-up, so the copy lands under them.
@@ -252,11 +254,11 @@ describe('copyToSessionInternal: every landing (spec O12c, O13)', () => {
   });
 });
 
-describe('copyToSessionInternal: what it refuses', () => {
-  it('everything already there: the same state, nothing stamped (D6 A)', () => {
-    const before = base();
+// KAN-608: no duplicate check.
+describe('copyToSessionInternal: duplicates land', () => {
+  it('a tab whose address the target holds is copied anyway, and stamped', () => {
     const after = reducer(
-      before,
+      base(),
       copyToSessionInternal(
         {
           pick: { kind: 'tab', windowId: 'live-w', tabId: 'ldup' },
@@ -267,9 +269,17 @@ describe('copyToSessionInternal: what it refuses', () => {
         NOW
       )
     );
-    expect(after).toBe(before);
+    expect(windowIn(after, 'S2', 'd1').tabs.map((t) => t.url)).toEqual([
+      'https://u1.test/',
+      'https://u1.test/',
+      'https://u2.test/',
+      'https://u3.test/',
+    ]);
+    expect(sessionIn(after, 'S2').contentModified).toBe(NOW);
   });
+});
 
+describe('copyToSessionInternal: what it refuses', () => {
   it('a target that is gone: the same state', () => {
     const before = base(container([s3(), s1()]));
     expect(

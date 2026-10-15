@@ -216,8 +216,6 @@
   "MovedToSession": "「{{title}}」に移動しました",
   "SessionEmptiedRemoved": "セッション「{{title}}」は空になったため削除されました。",
   "CopiedToSession": "「{{title}}」にコピーしました。",
-  "CopiedToSessionSkipped_other": "「{{title}}」にコピーしました。{{count}} 個のタブはすでにありました。",
-  "AlreadyInSession": "すでに「{{title}}」にあります。",
   "Ctrl": "Ctrl",
   "Del": "Del",
   "Tab closed": "タブを閉じました",
