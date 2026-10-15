@@ -315,4 +315,32 @@ describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
       true
     );
   });
+
+  // Review Important 1. A drawer sent away answers nothing, even to a hit measured before it went.
+  test('its receiver answers nothing once its drawer is away, read when asked', async () => {
+    const { container } = await renderPane(groupSeed());
+    const root = container.querySelector<HTMLElement>('[role="region"]');
+    if (root === null || root.parentElement === null) {
+      throw new Error('no Open now region');
+    }
+    root.getBoundingClientRect = () => box(0, 2000);
+    act(() =>
+      startCarry(
+        liveItem({
+          pick: { kind: 'tab', windowId: 'live-w', tabId: 'l1' },
+          window: live(),
+          chromeWindowId: 7,
+        }),
+        { kind: 'tab', title: 'l1', faviconUrl: '' },
+        10,
+        50
+      )
+    );
+    const here = carryReceiverAt(10, 50);
+    const measured = here?.measureHit?.();
+    expect(measured?.(10, 50)).toBe(true);
+    root.parentElement.setAttribute('data-carry-away', '');
+    expect(measured?.(10, 50)).toBe(false);
+    expect(carryReceiverAt(10, 50)).toBeNull();
+  });
 });

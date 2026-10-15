@@ -230,7 +230,13 @@ export default function OpenNowPane({
         return () => false;
       }
       const b = el.getBoundingClientRect();
-      return (x, y) => x >= b.left && x < b.right && y >= b.top && y < b.bottom;
+      // A drawer sent away (N2 A) answers nothing; read when asked, as it goes away mid-carry.
+      return (x, y) =>
+        el.closest('[data-carry-away]') === null &&
+        x >= b.left &&
+        x < b.right &&
+        y >= b.top &&
+        y < b.bottom;
     };
     return registerCarryReceiver({
       hit: (x, y) => measureHit()(x, y),

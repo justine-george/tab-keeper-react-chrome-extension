@@ -1608,3 +1608,49 @@ describe('a live group (KAN-280 Part F, Q2 A)', () => {
     expect(store.getState().tabContainerDataState).toBe(before);
   });
 });
+
+// Review Important 1. Where a receiver is drawn over the pane (Open now's drawer, narrow), the pane does not adopt
+// the carry: the receiver has it, and adopting would hand it straight back on the next move.
+describe('a receiver drawn over the pane', () => {
+  test('the pane does not adopt the carry under it, and does beside it', async () => {
+    await renderDetail('S2');
+    const overlay = standInSessionList({
+      left: 200,
+      right: PANE_W,
+      top: 0,
+      bottom: 1000,
+    });
+    try {
+      carryLive(live());
+      table = S2_TAB_LAYOUT('l1');
+      // Every row made held, counted: an adoption marks the phantom held, even if handed back in the same move.
+      let holds = 0;
+      const watch = new MutationObserver((records) => {
+        for (const r of records) {
+          // Set where it was absent: counted even if removed again before this runs.
+          if (r.oldValue === null) {
+            holds += 1;
+          }
+        }
+      });
+      watch.observe(document.body, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['data-drag-held'],
+        attributeOldValue: true,
+      });
+      moveTo(52, 300);
+      moveTo(60, 300);
+      await Promise.resolve();
+      expect(holds).toBe(0);
+      expect(currentCarry()?.owner).toBe('layer');
+      moveTo(52, 100);
+      await Promise.resolve();
+      watch.disconnect();
+      expect(holds).toBe(1);
+      expect(held()).toBe('carried:l1');
+    } finally {
+      overlay.unregister();
+    }
+  });
+});

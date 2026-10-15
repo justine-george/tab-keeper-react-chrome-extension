@@ -85,6 +85,7 @@ import { DURATION } from '../../../../styles/scale';
 import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
 import {
   carryEndedAs,
+  carryReceiverAt,
   currentCarry,
   endCarry,
   measureCarryReceivers,
@@ -1885,6 +1886,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       ) {
         return null;
       }
+      // KAN-280 Part F. A receiver drawn over the pane (Open now's drawer, narrow) has the carry there: adopting it
+      // would hand it straight back on the same move, and again on the next.
+      if (carryReceiverAt(x, y) !== null) return null;
       const l = pressRecord(
         adoptRowId,
         rowIds.indexOf(adoptRowId),
@@ -1923,12 +1927,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       }
 
       // Onto a carry receiver -- the session list -- the drag goes to the
-      // carry (KAN-350). ONLY there (KAN-352): the list is the only place a
-      // carried item can go, and anywhere else -- beside the pane, past it,
-      // over Open now or the resize grip on the line between them (x 972-984
-      // against a pane ending at 969, measured), above or below it in the
-      // auto-scroll overshoot (KAN-152) -- the drag is exactly what it always
-      // was: its preview, its landing, its refusal, its auto-scroll.
+      // carry (KAN-350). For the saved lists ONLY there (KAN-352): anywhere
+      // else -- beside the pane, past it, over Open now or the resize grip on
+      // the line between them (x 972-984 against a pane ending at 969,
+      // measured), above or below it in the auto-scroll overshoot (KAN-152) --
+      // the drag is exactly what it always was: its preview, its landing, its
+      // refusal, its auto-scroll. A list with handsOffBesidePane (Open now,
+      // KAN-280 Part F P1) also hands off once the pointer is left or right of
+      // its pane; above or below stays its drag.
       //
       // No box read per move: the receivers were measured when the drag
       // started, and only for a list that can hand off at all.
