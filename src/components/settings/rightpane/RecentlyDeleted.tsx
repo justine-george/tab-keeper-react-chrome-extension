@@ -86,8 +86,20 @@ export function RecentlyDeleted() {
             min-height: 48px;
           `}
         >
-          <div>
-            <span css={text(TYPE.BODY, COLORS.LABEL_L1_COLOR)}>
+          {/* Top, not centred, and line-height normal: the title sits 20px down like every panel's (KAN-606). */}
+          <div
+            css={css`
+              align-self: flex-start;
+            `}
+          >
+            <span
+              css={[
+                text(TYPE.BODY, COLORS.LABEL_L1_COLOR),
+                css`
+                  line-height: normal;
+                `,
+              ]}
+            >
               {t('Recently deleted')}
             </span>
             <p
