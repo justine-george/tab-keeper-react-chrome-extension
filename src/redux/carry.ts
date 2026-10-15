@@ -8,8 +8,8 @@
 //
 // Module state, like dragHold.ts and for the same reasons: the drag engine is
 // generic and renders in tests without a store, and "a pointer is carrying
-// something" is not application data. What is carried is a CarriedItem: its
-// source and ids (the store stays the truth about it), plus a display snapshot for the card.
+// something" is not application data. What is carried is a CarriedItem, its
+// source and ids (the store stays the truth about it), plus a card snapshot.
 //
 // THE HOLD AND THE KIND ARE INHERITED, NOT TAKEN. The engine starts a carry
 // with its drag hold on and its drag kind published, and leaves both on
@@ -118,8 +118,8 @@ export function setCarryOwner(owner: CarryOwner): void {
   notify();
 }
 
-// A new object for the new position, keeping `carried` and `card` as they
-// were: a reader of `carried` alone (useCarried) is not re-rendered by a move.
+// A new object for the new position, keeping `item` and `card` as they
+// were: a reader of `item` alone (useCarried) is not re-rendered by a move.
 export function moveCarry(x: number, y: number): void {
   if (carry === null) return;
   carry = { ...carry, x, y };
@@ -179,7 +179,7 @@ export function endCarry(outcome: CarryOutcome): void {
 // over is not kept.
 const outcomes = new WeakMap<CarriedItem, CarryOutcome>();
 
-// How the carry of `carried` ended: undefined while it is still on, or if it
+// How the carry of `item` ended: undefined while it is still on, or if it
 // never was. For a caller that let something else end it -- an adopted drag
 // whose list committed the move -- and has to know which way it went.
 export function carryEndedAs(item: CarriedItem): CarryOutcome | undefined {

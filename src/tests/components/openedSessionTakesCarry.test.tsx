@@ -926,7 +926,7 @@ describe('out of the pane and back in', () => {
 
     expect(held()).toBeUndefined();
     expect(currentCarry()?.owner).toBe('layer');
-    expect(currentCarry()?.item.ref).toBe(before?.item.ref);
+    expect(currentCarry()?.item).toBe(before?.item);
     expect(currentCarry()?.card).toBe(before?.card);
     expect(isDragHeld()).toBe(true);
     expect(document.documentElement.getAttribute('data-dragging')).toBe('tab');
