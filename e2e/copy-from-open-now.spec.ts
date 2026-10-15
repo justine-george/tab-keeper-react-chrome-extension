@@ -590,6 +590,65 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     expect((await urlsOf(page, 'S2'))[0]).toEqual([dataUrl('Live A')]);
   });
 
+  test('10b. narrow: dropped in the saved detail where the drawer was, the copy lands; the shown session takes it once', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openTabView(
+      context,
+      extensionId,
+      false,
+      [S1(), S2(), S3(), S4()],
+      { width: 1024, height: 768 }
+    );
+    const live = await openLiveWindow(serviceWorker, ['Live A']);
+    await page.getByRole('button', { name: /^Open now/ }).click();
+    const drawer = page.getByRole('dialog');
+    await expect(liveRow(page, live.idOf('Live A'))).toBeVisible();
+    const box = await boxOf(drawer);
+    // Every time a row becomes held, counted: an adoption marks the phantom held, a hand-back clears it.
+    await page.evaluate(() => {
+      const w = window as unknown as { __holds: number };
+      w.__holds = 0;
+      new MutationObserver((records) => {
+        for (const r of records) {
+          // Set where it was absent: counted even if removed again before this runs.
+          if (r.oldValue === null) {
+            w.__holds += 1;
+          }
+        }
+      }).observe(document.body, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['data-drag-held'],
+        attributeOldValue: true,
+      });
+    });
+
+    const at = await pickUpLive(page, live.idOf('Live A'));
+    // Out of the drawer to the left, then back right over where it was, onto S1's a1.
+    await page.mouse.move(box.x - 30, at.y, { steps: 6 });
+    await expect(drawer).toHaveAttribute('data-carry-away', '');
+    const a1 = await boxOf(page.locator('[data-drag-row-id="a1"]'));
+    expect(a1.x + a1.width - 40).toBeGreaterThan(box.x);
+    await page.mouse.move(a1.x + a1.width - 40, a1.y + a1.height * 0.25, {
+      steps: 12,
+    });
+    await settled(page);
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => (await urlsOf(page, 'S1'))[0]?.[1])
+      .toBe(dataUrl('Live A'));
+    // The held Open now row, then the phantom adopted once: never handed back and forth.
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { __holds: number }).__holds
+      )
+    ).toBeLessThanOrEqual(2);
+  });
+
   test('11. incognito: refused by a normal window, and a row drop makes a new window marked incognito (Q2 A)', async ({
     context,
     extensionId,
