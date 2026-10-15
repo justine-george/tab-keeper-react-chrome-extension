@@ -187,6 +187,10 @@ export default function ExportPage({ source }: { source: ExportSource }) {
     () => (tidied ? applyExportEdits(tidied, edits) : undefined),
     [tidied, edits]
   );
+  // KAN-401. Every row hidden leaves nothing to copy, save or print.
+  const nothingKept =
+    edited !== undefined &&
+    edited.windows.every((window) => window.tabs.length === 0);
   const tally = useMemo(
     () =>
       tidied ? countExportEdits(tidied, edits) : { renamed: 0, hiddenTabs: 0 },
@@ -777,6 +781,10 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                   <Button
                     text={t('Copy all links')}
                     ariaLabel={t('Copy all links')}
+                    ariaDisabled={nothingKept}
+                    tooltipText={
+                      nothingKept ? t('ExportNothingKept') : undefined
+                    }
                     iconType="link"
                     onClick={handleCopy}
                     // KAN-221. "Copied" appears in the button, where the click
@@ -793,6 +801,10 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                   <Button
                     text={t('Save as HTML')}
                     ariaLabel={t('Save as HTML')}
+                    ariaDisabled={nothingKept}
+                    tooltipText={
+                      nothingKept ? t('ExportNothingKept') : undefined
+                    }
                     iconType="download"
                     onClick={handleSave}
                     iconSize="1.2rem"
@@ -810,6 +822,10 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                     // no reason to start making it.
                     text={t('Print')}
                     ariaLabel={t('Print')}
+                    ariaDisabled={nothingKept}
+                    tooltipText={
+                      nothingKept ? t('ExportNothingKept') : undefined
+                    }
                     iconType="print"
                     onClick={handlePrint}
                     iconSize="1.2rem"

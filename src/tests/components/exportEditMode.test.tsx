@@ -340,6 +340,55 @@ describe('Edit mode on the export page (KAN-194)', () => {
     expect(await screen.findByText('1 link copied')).toBeTruthy();
   });
 
+  // KAN-401 B. With every row hidden there is nothing to copy, save or print,
+  // so all three outputs are unavailable and say why.
+  test('with every row hidden, Copy, Save and Print are unavailable', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+    const write = vi.fn().mockResolvedValue(undefined);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({
+      write,
+      writeText,
+    } as unknown as Clipboard);
+    const createObjectURL = vi.fn(() => 'blob:x');
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL }));
+    await renderPage();
+    const outputs = ['Copy all links', 'Save as HTML', 'PDF / Print'];
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Hide: Trip planning' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Hide: Food' }));
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+
+    for (const name of outputs) {
+      const button = screen.getByRole('button', { name });
+      expect(button, name).toHaveAttribute('aria-disabled', 'true');
+      expect(button, name).toHaveAttribute(
+        'title',
+        'Every row is hidden. Show one to copy or save.'
+      );
+      await user.click(button);
+    }
+    expect(write).not.toHaveBeenCalled();
+    expect(writeText).not.toHaveBeenCalled();
+    expect(createObjectURL).not.toHaveBeenCalled();
+
+    // CONTROL: one row back, and all three work again.
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: 'Hide: Food' }));
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    for (const name of outputs) {
+      expect(screen.getByRole('button', { name }), name).not.toHaveAttribute(
+        'aria-disabled'
+      );
+    }
+    await user.click(screen.getByRole('button', { name: 'Copy all links' }));
+    expect(await screen.findByText('1 link copied')).toBeTruthy();
+  });
+
   // The popup owns renaming, with undo and sync; a second writer would have
   // neither.
   test('the saved session is never changed', async () => {

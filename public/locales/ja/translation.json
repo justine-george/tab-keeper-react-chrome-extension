@@ -141,6 +141,7 @@
   "Export session": "エクスポート…",
   "Save as HTML": "HTMLとして保存",
   "Copy all links": "すべてのリンクをコピー",
+  "ExportNothingKept": "すべての行が非表示です。コピーまたは保存するには、1 行以上を表示してください。",
   "LinksCopied_other": "{{count}} 件のリンクをコピーしました",
   "Copied": "コピーしました",
   "Comfortable": "ゆったり",

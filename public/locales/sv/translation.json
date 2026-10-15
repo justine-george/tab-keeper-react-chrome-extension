@@ -143,6 +143,7 @@
   "Export session": "Exportera…",
   "Save as HTML": "Spara som HTML",
   "Copy all links": "Kopiera alla länkar",
+  "ExportNothingKept": "Alla rader är dolda. Visa en för att kopiera eller spara.",
   "LinksCopied_one": "{{count}} länk kopierad",
   "LinksCopied_other": "{{count}} länkar kopierade",
   "Copied": "Kopierat",

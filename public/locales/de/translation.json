@@ -143,6 +143,7 @@
   "Export session": "Exportieren…",
   "Save as HTML": "Als HTML speichern",
   "Copy all links": "Alle Links kopieren",
+  "ExportNothingKept": "Alle Zeilen sind ausgeblendet. Blenden Sie eine ein, um zu kopieren oder zu speichern.",
   "LinksCopied_one": "{{count}} Link kopiert",
   "LinksCopied_other": "{{count}} Links kopiert",
   "Copied": "Kopiert",

@@ -145,6 +145,7 @@
   "Export session": "Exportar…",
   "Save as HTML": "Guardar como HTML",
   "Copy all links": "Copiar todos los enlaces",
+  "ExportNothingKept": "Todas las filas están ocultas. Muestra una para copiar o guardar.",
   "LinksCopied_one": "{{count}} enlace copiado",
   "LinksCopied_many": "{{count}} enlaces copiados",
   "LinksCopied_other": "{{count}} enlaces copiados",
