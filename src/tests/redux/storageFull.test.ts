@@ -24,6 +24,7 @@ import {
 import { hydrateSessionsFromStorage } from '../../redux/otherPageChanges';
 import { TOMBSTONE_TTL_MS } from '../../utils/functions/mergeTabData';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
+import { isValidTabMasterContainer } from '../../utils/functions/local';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 
 // KAN-593. A save the localStorage quota refuses says so; the change stays on screen.
@@ -142,7 +143,10 @@ describe('a re-read of localStorage after a refused save (KAN-593)', () => {
   ) {
     refusal?.mockRestore();
     refusal = null;
-    const stored = JSON.parse(localStorage.getItem('tabContainerData')!);
+    const stored: unknown = JSON.parse(
+      localStorage.getItem('tabContainerData') ?? 'null'
+    );
+    if (!isValidTabMasterContainer(stored)) throw new Error('nothing stored');
     for (const g of stored.tabGroups) {
       if (g.tabGroupId === id) {
         g.title = title;
