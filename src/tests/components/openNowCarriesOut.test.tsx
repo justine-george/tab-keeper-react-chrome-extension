@@ -18,6 +18,7 @@ import { CarryLayer } from '../../components/home/CarryLayer';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import { carryEndedAs, currentCarry, endCarry } from '../../redux/carry';
 import { endDragHold } from '../../redux/dragHold';
+import { placedWindowOf } from '../../redux/livePlacement';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import { moveOpenGroup, moveOpenTab } from '../../utils/functions/openNowMoves';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -218,5 +219,34 @@ describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
     expect(currentCarry()?.item).toBe(item);
     expect(item.live.window.tabs.map((t) => t.url)).toEqual(urls);
     expect(urls).toContain(url('d'));
+  });
+
+  // P6. Open now's list is not re-read on a bounds change, so the carry reads the window's place itself.
+  test("a window carry reads its window's place from Chrome when it starts", async () => {
+    const { top, windows } = await renderPane(groupSeed());
+    const listed = windows.find((w) => w.id === 2)?.bounds;
+    await chrome.windows.update(2, {
+      left: 333,
+      top: 44,
+      width: 555,
+      height: 466,
+    });
+    const y = (top.get('window:2') ?? 0) + ROW / 2;
+    press(handle(2), y);
+    moveTo(10, y + 6);
+    const item = currentCarry()?.item;
+    if (item === undefined || item.source !== 'live') {
+      throw new Error('no live carry');
+    }
+    expect(item.live.window.windowOffsetLeft).toBe(listed?.left ?? 0);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(placedWindowOf(item.live)).toMatchObject({
+      windowOffsetLeft: 333,
+      windowOffsetTop: 44,
+      windowWidth: 555,
+      windowHeight: 466,
+    });
   });
 });
