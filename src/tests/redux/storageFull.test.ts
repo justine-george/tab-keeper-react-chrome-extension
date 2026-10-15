@@ -22,6 +22,7 @@ import {
   updateTabGroupTitle,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { hydrateSessionsFromStorage } from '../../redux/otherPageChanges';
+import { applyHeldCloudMerge } from '../../redux/slices/globalStateSlice';
 import { TOMBSTONE_TTL_MS } from '../../utils/functions/mergeTabData';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { isValidTabMasterContainer } from '../../utils/functions/local';
@@ -197,6 +198,19 @@ describe('a re-read of localStorage after a refused save (KAN-593)', () => {
     store.dispatch(hydrateSessionsFromStorage());
 
     expect(titles(store)).toEqual(['Reading list', 'Other, renamed']);
+  });
+
+  // A sync that ran while a row was held is applied at the release, merged
+  // with this device's copy as it is then.
+  test("a held sync's merge, applied at the release, keeps the change", () => {
+    const store = seededTwo();
+    const fromCloud = structuredClone(store.getState().tabContainerDataState);
+    refuseWrites('QuotaExceededError');
+    store.dispatch(rename('Reading list'));
+
+    store.dispatch(applyHeldCloudMerge(fromCloud));
+
+    expect(titles(store)).toEqual(['Reading list', 'Other']);
   });
 
   // Control: once a save lands, localStorage is the page again and is taken as
