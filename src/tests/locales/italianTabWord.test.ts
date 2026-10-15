@@ -6,7 +6,7 @@ import it from '../../../public/locales/it/translation.json';
 // included ("1 scheda", "# schede"), and so did most of this file. Thirteen
 // strings said "Tab" instead. The product name keeps its English word.
 const dict: Record<string, string> = it;
-const withoutName = (text: string) => text.replaceAll('Tab Keeper', '');
+const withoutName = (text: string) => text.replace(/Tab Keeper/g, '');
 
 describe('Italian calls a tab "scheda" (KAN-620)', () => {
   test('no string says "tab" outside the product name', () => {
