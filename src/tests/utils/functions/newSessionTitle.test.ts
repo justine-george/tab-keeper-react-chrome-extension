@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { savedItem } from '../../../redux/carriedItem';
 
 import { newSessionTitleOf } from '../../../utils/functions/newSessionTitle';
 import type {
@@ -46,19 +47,19 @@ const one = (w: ReturnType<typeof win>): readonly tabContainerData[] => [
 describe('newSessionTitleOf', () => {
   test('a tab gives its title, trimmed', () => {
     const tabs = one(win('w1', [titled('  Docs  ', 't1')]));
-    expect(newSessionTitleOf(tabs, tabRef('t1'))).toBe('Docs');
+    expect(newSessionTitleOf(tabs, savedItem(tabRef('t1')))).toBe('Docs');
   });
 
   test('a blank tab title gives nothing', () => {
     const tabs = one(win('w1', [titled('   ', 't1')]));
-    expect(newSessionTitleOf(tabs, tabRef('t1'))).toBe('');
+    expect(newSessionTitleOf(tabs, savedItem(tabRef('t1')))).toBe('');
   });
 
   test('a group gives its name', () => {
     const tabs = one(
       win('w1', [titled('First', 'a', 'g')], [named('g', ' Research ')])
     );
-    expect(newSessionTitleOf(tabs, groupRef('g'))).toBe('Research');
+    expect(newSessionTitleOf(tabs, savedItem(groupRef('g')))).toBe('Research');
   });
 
   test('an unnamed group gives its first tab', () => {
@@ -73,12 +74,12 @@ describe('newSessionTitleOf', () => {
         [named('g', '  ')]
       )
     );
-    expect(newSessionTitleOf(tabs, groupRef('g'))).toBe('First');
+    expect(newSessionTitleOf(tabs, savedItem(groupRef('g')))).toBe('First');
   });
 
   test('a window gives its name', () => {
     const w = { ...win('w1', [titled('First', 'a')]), title: ' Work ' };
-    expect(newSessionTitleOf(one(w), windowRef)).toBe('Work');
+    expect(newSessionTitleOf(one(w), savedItem(windowRef))).toBe('Work');
   });
 
   test('an unnamed window gives its first tab', () => {
@@ -86,7 +87,7 @@ describe('newSessionTitleOf', () => {
       ...win('w1', [titled('First', 'a'), titled('B', 'b')]),
       title: '',
     };
-    expect(newSessionTitleOf(one(w), windowRef)).toBe('First');
+    expect(newSessionTitleOf(one(w), savedItem(windowRef))).toBe('First');
   });
 
   test('an unnamed window whose first tab is blank gives nothing (N4 names the first tab only)', () => {
@@ -94,17 +95,17 @@ describe('newSessionTitleOf', () => {
       ...win('w1', [titled(' ', 'a'), titled('Second', 'b')]),
       title: '',
     };
-    expect(newSessionTitleOf(one(w), windowRef)).toBe('');
+    expect(newSessionTitleOf(one(w), savedItem(windowRef))).toBe('');
   });
 
   test('blank everything gives nothing', () => {
     const w = { ...win('w1', [titled('', 'a')]), title: ' ' };
-    expect(newSessionTitleOf(one(w), windowRef)).toBe('');
+    expect(newSessionTitleOf(one(w), savedItem(windowRef))).toBe('');
   });
 
   test('an item that is not there gives nothing', () => {
     const tabs = one(win('w1', [titled('A', 'a')]));
-    expect(newSessionTitleOf(tabs, tabRef('gone'))).toBe('');
-    expect(newSessionTitleOf([], windowRef)).toBe('');
+    expect(newSessionTitleOf(tabs, savedItem(tabRef('gone')))).toBe('');
+    expect(newSessionTitleOf([], savedItem(windowRef))).toBe('');
   });
 });

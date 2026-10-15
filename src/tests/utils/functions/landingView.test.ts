@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { savedItem } from '../../../redux/carriedItem';
 
 import {
   carriedRowId,
@@ -44,7 +45,7 @@ const shape = (view: ShownSession | null) =>
 
 describe('landingView: a tab', () => {
   test('in another session: a synthetic last window holding it, loose', () => {
-    const view = landingView([s1(), s2()], 'S2', tabRef('t4'), true);
+    const view = landingView([s1(), s2()], 'S2', savedItem(tabRef('t4')), true);
     expect(view?.tabGroupId).toBe('S2');
     expect(shape(view)).toEqual([
       { windowId: 'd1', tabs: ['u1', 'u2*', 'u3*'], groups: ['h1'] },
@@ -54,7 +55,7 @@ describe('landingView: a tab', () => {
   });
 
   test('in its own session: gone from its place, and in the synthetic window', () => {
-    const view = landingView([s1(), s2()], 'S1', tabRef('t2'), true);
+    const view = landingView([s1(), s2()], 'S1', savedItem(tabRef('t2')), true);
     expect(shape(view)).toEqual([
       {
         windowId: 'w1',
@@ -68,7 +69,7 @@ describe('landingView: a tab', () => {
 
   // KAN-371 A. Its band stays drawn, so a release into it keeps the group.
   test('in its own session, a group’s only tab: its phantom at its own place, in its group', () => {
-    const view = landingView([s1(), s2()], 'S1', tabRef('t4'), true);
+    const view = landingView([s1(), s2()], 'S1', savedItem(tabRef('t4')), true);
     expect(shape(view)).toEqual([
       {
         windowId: 'w1',
@@ -81,7 +82,12 @@ describe('landingView: a tab', () => {
   });
 
   test('a group’s only tab with no bands shown: the synthetic window, loose', () => {
-    const view = landingView([s1(), s2()], 'S1', tabRef('t4'), false);
+    const view = landingView(
+      [s1(), s2()],
+      'S1',
+      savedItem(tabRef('t4')),
+      false
+    );
     expect(lastOf(shape(view))).toEqual({
       windowId: NEW_LAST_WINDOW,
       tabs: ['carried:t4'],
@@ -92,7 +98,7 @@ describe('landingView: a tab', () => {
   test('a tab whose group has no entry: the synthetic window, loose', () => {
     const source = s1();
     source.windows[0].chromeTabGroups = [];
-    const view = landingView([source], 'S1', tabRef('t4'), true);
+    const view = landingView([source], 'S1', savedItem(tabRef('t4')), true);
     expect(lastOf(shape(view))).toEqual({
       windowId: NEW_LAST_WINDOW,
       tabs: ['carried:t4'],
@@ -101,7 +107,12 @@ describe('landingView: a tab', () => {
   });
 
   test('CONTROL: a tab of a group with others goes to the synthetic window, loose', () => {
-    const view = landingView([s1(), s2()], 'S1', tabRef('g1a'), true);
+    const view = landingView(
+      [s1(), s2()],
+      'S1',
+      savedItem(tabRef('g1a')),
+      true
+    );
     expect(shape(view)).toEqual([
       {
         windowId: 'w1',
@@ -115,7 +126,7 @@ describe('landingView: a tab', () => {
 
   test('the synthetic window takes its source window’s bounds and no title', () => {
     const phantom = lastOf(
-      landingView([s1(), s2()], 'S2', tabRef('t1'), true)?.windows
+      landingView([s1(), s2()], 'S2', savedItem(tabRef('t1')), true)?.windows
     );
     expect(phantom).toMatchObject({
       windowId: NEW_LAST_WINDOW,
@@ -130,14 +141,19 @@ describe('landingView: a tab', () => {
     const source = s1();
     const target = s2();
     const before = JSON.stringify([source, target]);
-    landingView([source, target], 'S2', tabRef('t4'), true);
+    landingView([source, target], 'S2', savedItem(tabRef('t4')), true);
     expect(JSON.stringify([source, target])).toBe(before);
   });
 });
 
 describe('landingView: a group', () => {
   test('in another session: its tabs and its entry in the synthetic window', () => {
-    const view = landingView([s1(), s2()], 'S2', groupRef('g1'), true);
+    const view = landingView(
+      [s1(), s2()],
+      'S2',
+      savedItem(groupRef('g1')),
+      true
+    );
     expect(lastOf(shape(view))).toEqual({
       windowId: NEW_LAST_WINDOW,
       tabs: ['carried:g1a*', 'carried:g1b*'],
@@ -156,7 +172,7 @@ describe('landingView: a group', () => {
   });
 
   test('in its own session: gone from its window, and in the synthetic one', () => {
-    const view = landingView([s1()], 'S1', groupRef('g1'), true);
+    const view = landingView([s1()], 'S1', savedItem(groupRef('g1')), true);
     expect(shape(view)).toEqual([
       { windowId: 'w1', tabs: ['t1', 't2', 't4*'], groups: ['g2'] },
       { windowId: 'w2', tabs: ['t3'], groups: [] },
@@ -172,7 +188,12 @@ describe('landingView: a group', () => {
 describe('landingView: a window', () => {
   test('in another session: the first window, its content as it is, and no synthetic one', () => {
     const source = s1();
-    const view = landingView([source, s2()], 'S2', windowRef('w2'), true);
+    const view = landingView(
+      [source, s2()],
+      'S2',
+      savedItem(windowRef('w2')),
+      true
+    );
     expect(shape(view)).toEqual([
       { windowId: 'carried:w2', tabs: ['carried:t3'], groups: [] },
       { windowId: 'd1', tabs: ['u1', 'u2*', 'u3*'], groups: ['h1'] },
@@ -186,7 +207,7 @@ describe('landingView: a window', () => {
   });
 
   test('in its own session: moved from its place to the first', () => {
-    const view = landingView([s1()], 'S1', windowRef('w2'), true);
+    const view = landingView([s1()], 'S1', savedItem(windowRef('w2')), true);
     expect(shape(view)?.map((w) => w.windowId)).toEqual(['carried:w2', 'w1']);
   });
 });
@@ -227,13 +248,17 @@ describe('landingView refuses (null)', () => {
       clash([win('d1', [tab('t3')])]),
     ],
   ])('%s', (_what, carried, target) => {
-    expect(landingView([s1(), target], 'S2', carried, true)).toBeNull();
+    expect(
+      landingView([s1(), target], 'S2', savedItem(carried), true)
+    ).toBeNull();
   });
 
   test('a group’s only tab whose id its own session holds twice', () => {
     const source = s1();
     source.windows[1].tabs.push(tab('t4'));
-    expect(landingView([source], 'S1', tabRef('t4'), true)).toBeNull();
+    expect(
+      landingView([source], 'S1', savedItem(tabRef('t4')), true)
+    ).toBeNull();
   });
 
   test('CONTROL: the same session with no clash takes it', () => {
@@ -241,20 +266,28 @@ describe('landingView refuses (null)', () => {
       landingView(
         [s1(), clash([win('d1', [tab('u9')])])],
         'S2',
-        tabRef('t2'),
+        savedItem(tabRef('t2')),
         true
       )
     ).not.toBeNull();
   });
 
   test('no session has the shown id', () => {
-    expect(landingView([s1()], 'nope', tabRef('t1'), true)).toBeNull();
+    expect(
+      landingView([s1()], 'nope', savedItem(tabRef('t1')), true)
+    ).toBeNull();
   });
 
   test('the carried item is no longer there', () => {
-    expect(landingView([s1(), s2()], 'S2', tabRef('gone'), true)).toBeNull();
-    expect(landingView([s1(), s2()], 'S2', groupRef('nope'), true)).toBeNull();
-    expect(landingView([s1(), s2()], 'S2', windowRef('w9'), true)).toBeNull();
+    expect(
+      landingView([s1(), s2()], 'S2', savedItem(tabRef('gone')), true)
+    ).toBeNull();
+    expect(
+      landingView([s1(), s2()], 'S2', savedItem(groupRef('nope')), true)
+    ).toBeNull();
+    expect(
+      landingView([s1(), s2()], 'S2', savedItem(windowRef('w9')), true)
+    ).toBeNull();
   });
 });
 
@@ -264,6 +297,6 @@ describe('carriedRowId: the id the phantom row goes by in its list', () => {
     [groupRef('g1'), 'group:carried:g1'],
     [windowRef('w2'), 'carried:w2'],
   ])('%j', (carried, rowId) => {
-    expect(carriedRowId(carried)).toBe(rowId);
+    expect(carriedRowId(savedItem(carried))).toBe(rowId);
   });
 });
