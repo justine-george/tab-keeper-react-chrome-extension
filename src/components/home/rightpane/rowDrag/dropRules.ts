@@ -452,15 +452,11 @@ export interface RowDragAreaProps {
    */
   carryOut?: (rowId: string) => CarryOut | null;
   /**
-   * KAN-280 Part F (D1 A). Whether a drag with a card shows it from pick-up (KAN-354), the row drawn invisible in its own room.
-   * Off for Open now: its row is drawn as today until the hand-off, and a copy leaves it in place after.
+   * KAN-280 Part F (P1). Also hand off once the pointer is left or right of this element's box (read at activation):
+   * for a source whose items go to the saved side from anywhere. Give the same box the source's own carry receiver
+   * uses, so the line out and the line back are one. Above or below stays the drag (KAN-152).
    */
-  cardOnPickUp?: boolean;
-  /**
-   * KAN-280 Part F (P1). Also hand off once the pointer is beside this list's pane (left or right of its box,
-   * read at activation): for a source whose items go to the saved side from anywhere. Above or below stays the drag (KAN-152).
-   */
-  handsOffBesidePane?: boolean;
+  handsOffOutside?: () => Element | null;
   /**
    * KAN-280 Part F (P2). The list takes no drop of its own: a drag is handed to the carry the moment it starts,
    * wherever the pointer is, or ends if `carryOut` has nothing. Turning it on ends an in-list drag, as `disabled` does.

@@ -1523,8 +1523,10 @@ describe('a live tab (KAN-280 Part F)', () => {
     expect(currentCarry()).toBeNull();
     runFrames(2);
     expect(row('l1')).toBeTruthy();
-    // On screen at the drop: no toast (S5 A).
-    expect(store.getState().globalState.toasts).toEqual([]);
+    // KAN-607: every copy toasts; on screen, with no Show.
+    expect(
+      store.getState().globalState.toasts.map((t) => [t.text, t.params, t.show])
+    ).toEqual([['CopiedToSession', { title: 'Target' }, null]]);
   });
 
   test('an incognito one is refused by a normal window: no row steps aside, and a release there copies nothing (Q2 A)', async () => {

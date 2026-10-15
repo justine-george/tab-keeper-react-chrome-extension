@@ -238,14 +238,24 @@ export default function OpenNowPane({
         y >= b.top &&
         y < b.bottom;
     };
-    return registerCarryReceiver({
+    // Justine's pick A: over Open now the copy card dims and loses its + (CarryLayer keys on this mark).
+    const mark = (on: boolean) =>
+      document.documentElement.toggleAttribute('data-carry-over-open-now', on);
+    const unregister = registerCarryReceiver({
       hit: (x, y) => measureHit()(x, y),
       measureHit,
-      hover: () => {},
-      leave: () => {},
+      hover: () => mark(true),
+      leave: () => mark(false),
       take: () => false,
     });
+    return () => {
+      unregister();
+      mark(false);
+    };
   }, []);
+
+  // P1. Open now's own box: the line a drag crosses to become a copy, and the one its receiver fades the card inside.
+  const openNowRegion = useCallback(() => paneRef.current, []);
 
   // P6. A carry from here reads its window's place as Chrome has it now.
   useEffect(() => {
@@ -756,8 +766,8 @@ export default function OpenNowPane({
               handleSelector="[data-open-window-drag-handle]"
               carryOut={carryWindowOut}
               carryOnly
-              // Q3 A: under a search only tab rows pick up.
-              disabled={searchTerm !== null}
+              // Q3 A: under a search only tab rows pick up; under the saved search nothing goes to the saved side (KAN-610).
+              disabled={searchTerm !== null || isSavedSearching}
             >
               <RowDragArea
                 scope={OPEN_TABS_SCOPE}
@@ -773,12 +783,14 @@ export default function OpenNowPane({
                 fixedRowSelector="[data-fixed-row-id]"
                 landingRange={drop.tabs.landingRange}
                 acceptsWindow={drop.tabs.acceptsWindow}
-                // KAN-280 Part F. Copied out to the saved side, beside the pane (P1), drawn until then (D1 A).
-                carryOut={carryTabOut}
-                cardOnPickUp={false}
-                handsOffBesidePane
+                // KAN-280 Part F. Copied out to the saved side, beside the pane (P1); a card from pick-up (KAN-611).
+                // KAN-610: under the saved search nothing goes to the saved side; the drag stays in Open now.
+                carryOut={isSavedSearching ? undefined : carryTabOut}
+                handsOffOutside={openNowRegion}
                 // O14c amended (B): under a search a tab row is carried out only.
                 carryOnly={searchTerm !== null}
+                // Both searches: nothing to carry out, and no in-pane drop under Open now's own search (O14c).
+                disabled={searchTerm !== null && isSavedSearching}
               >
                 <RowDragArea
                   scope={OPEN_ITEMS_SCOPE}
@@ -790,9 +802,8 @@ export default function OpenNowPane({
                   restoreScrollIfNoDrop
                   landingRange={drop.items.landingRange}
                   acceptsWindow={drop.items.acceptsWindow}
-                  carryOut={carryGroupOut}
-                  cardOnPickUp={false}
-                  handsOffBesidePane
+                  carryOut={isSavedSearching ? undefined : carryGroupOut}
+                  handsOffOutside={openNowRegion}
                   disabled={searchTerm !== null}
                 >
                   {listed.map((openWindow) => {

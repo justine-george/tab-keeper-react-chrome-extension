@@ -255,10 +255,10 @@ export function CarryLayer() {
     }
   }, [tabGroups, carried, clicks]);
 
-  // A search started mid-carry cancels a saved one; a live one's row drop still works under it (D5 A).
+  // A search started mid-carry cancels it: nothing is carried into the saved side then, a live carry included (KAN-610).
   const { isSearching } = useSavedSearch();
   useEffect(() => {
-    if (carried !== null && carried.source === 'saved' && isSearching) {
+    if (carried !== null && isSearching) {
       clicks.armUntilRelease();
       endCarry('cancelled');
     }
@@ -293,6 +293,11 @@ export function CarryLayer() {
         box-shadow: ${COLORS.FLOATING_SHADOW};
         font-size: ${TYPE.BODY};
         pointer-events: none;
+        /* Over Open now a release copies nothing (N4 A): its contents fade (Justine's pick A). The card stays
+           opaque: see-through, the rows behind it showed through like a glitch. */
+        html[data-carry-over-open-now] & > :not([data-carry-card-badge]) {
+          opacity: 0.45;
+        }
       `}
       style={{
         transform: `translate(${shown.x + CARD_OFFSET_X}px, ${
@@ -318,6 +323,9 @@ export function CarryLayer() {
             font-size: ${ICON.MARK};
             background-color: ${COLORS.LABEL_L1_COLOR};
             color: ${COLORS.PRIMARY_LIGHT};
+            html[data-carry-over-open-now] & {
+              display: none;
+            }
           `}
         >
           add

@@ -1,10 +1,10 @@
 // KAN-354/355 on the real artifact: a drag in a saved tab, group or window list is drawn by the card at the pointer; the held row hides but keeps its room.
 // For what jsdom cannot load: src/App.css, whose `!important` lift shadow on a held tab is KAN-355
 // (measured on main: `rgba(0,0,0,0.35) 0 2px 8px`, over Gamma also the KAN-164 stripe `rgb(129,201,149) 4px 0 0 inset`).
-// A describe per claim: KAN-355, C1 (card), C2 (no card in the session list and Open now), KAN-359 (pick-up frames), C3 (room outline),
+// A describe per claim: KAN-355, C1 (card), C2 (no card in the session list; Open now's card, none under the saved search), KAN-359 (pick-up frames), C3 (room outline),
 // hand-off, click, scrolled, contrast. Popup (790x550) unless the tab view is named, with the tabGroups grant.
 
-import type { BrowserContext, Locator, Page } from '@playwright/test';
+import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import {
@@ -1178,15 +1178,13 @@ test.describe('C3: the outline over the room a cross-window drag leaves', () => 
   });
 });
 
-test.describe('C2: Open now keeps its lifted row', () => {
-  // CONTROL, aimed where a saved list now shows a card: the same press and
-  // travel on an Open now tab row. Open now gets its card in KAN-280 Part F;
-  // until then its row stays drawn and lifted.
-  test('an Open now drag shows no card and keeps the lift shadow', async ({
-    context,
-    extensionId,
-    serviceWorker,
-  }) => {
+test.describe('C2: Open now is drawn by the card, but under the saved search', () => {
+  // A live window of three tabs, and the tab view open on it.
+  async function openOnLiveTab(
+    context: BrowserContext,
+    extensionId: string,
+    serviceWorker: Worker
+  ): Promise<{ page: Page; openRow: Locator }> {
     const urls = ['o0', 'o1', 'o2'].map(
       (t) => `data:text/html,${encodeURIComponent(`<title>${t}</title>`)}`
     );
@@ -1198,12 +1196,56 @@ test.describe('C2: Open now keeps its lifted row', () => {
     const page = await openPopup(context, extensionId, { tabView: true });
     const openRow = page.locator(`[data-open-tab-id="${opened[1]}"]`);
     await expect(openRow).toBeVisible();
+    return { page, openRow };
+  }
 
-    await pickUp(page, openRow);
+  async function pickUpOpenRow(page: Page, openRow: Locator) {
+    const at = await pickUp(page, openRow);
     const held = page.locator('[data-drag-held]');
     // PREMISE: an Open now row is the one held.
     await expect(held).toHaveCount(1);
     await expect(held.locator('[data-open-tab-id]')).toHaveCount(1);
+    return { at, held };
+  }
+
+  // KAN-611: from pick-up, as in a saved list (C1).
+  test('an Open now drag is drawn by the card from pick-up', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const { page, openRow } = await openOnLiveTab(
+      context,
+      extensionId,
+      serviceWorker
+    );
+    const { at, held } = await pickUpOpenRow(page, openRow);
+
+    await expect(page.locator(DRAG_CARD)).toHaveCount(1);
+    await expect(page.locator(CARRY_CARD)).toHaveCount(0);
+    await expect(held).toHaveAttribute('data-held-as-card', '');
+    await expectNothingOfHeldDrawn(held);
+    await expectCardAt(page, at);
+    await cancel(page);
+    await expect(page.locator(DRAG_CARD)).toHaveCount(0);
+  });
+
+  // KAN-610: under the saved search nothing is carried out, so there is no
+  // card, and the row stays drawn and lifted.
+  test('under the saved search: no card, and the lift shadow kept', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const { page, openRow } = await openOnLiveTab(
+      context,
+      extensionId,
+      serviceWorker
+    );
+    await page
+      .getByRole('textbox', { name: 'Search saved tabs', exact: true })
+      .fill('a');
+    const { held } = await pickUpOpenRow(page, openRow);
 
     await expect(page.locator(DRAG_CARD)).toHaveCount(0);
     await expect(page.locator(CARRY_CARD)).toHaveCount(0);

@@ -15,7 +15,10 @@ vi.mock('../../utils/functions/openNowMoves', async (importOriginal) => {
 
 import OpenNowPane from '../../components/home/opennow/OpenNowPane';
 import { CarryLayer } from '../../components/home/CarryLayer';
-import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
+import {
+  setHasTabGroupsPermission,
+  setSearchInputText,
+} from '../../redux/slices/globalStateSlice';
 import {
   carryEndedAs,
   carryReceiverAt,
@@ -124,13 +127,14 @@ const handle = (windowId: number) =>
   find(`[data-open-window-id="${windowId}"] [data-open-window-drag-handle]`);
 
 describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
-  test('a tab is drawn held in the pane, then carried as a live copy from beside it, its row back in place', async () => {
+  // KAN-611: shown by its card from pick-up, as a saved list's drag is (KAN-354); the row waits invisible in its room.
+  test('a tab is shown by its card from pick-up, then carried as a live copy from beside it, its row back in place', async () => {
     const { top } = await renderPane(groupSeed());
     const y = (top.get('22') ?? 0) + ROW / 2;
     press(tabRow(22), y);
     moveTo(10, y + 8);
     expect(tabRow(22).hasAttribute('data-drag-held')).toBe(true);
-    expect(tabRow(22).hasAttribute('data-held-as-card')).toBe(false);
+    expect(tabRow(22).hasAttribute('data-held-as-card')).toBe(true);
     expect(currentCarry()).toBeNull();
     moveTo(ON_LIST, y + 8);
     const carry = currentCarry();
@@ -140,6 +144,7 @@ describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
     expect(carry.item.live.chromeWindowId).toBe(2);
     expect(carry.card).toMatchObject({ kind: 'tab', title: 'D' });
     expect(tabRow(22).hasAttribute('data-drag-held')).toBe(false);
+    expect(tabRow(22).hasAttribute('data-held-as-card')).toBe(false);
     expect(moveOpenTab).not.toHaveBeenCalled();
   });
 
@@ -342,5 +347,92 @@ describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
     root.parentElement.setAttribute('data-carry-away', '');
     expect(measured?.(10, 50)).toBe(false);
     expect(carryReceiverAt(10, 50)).toBeNull();
+  });
+
+  // KAN-610: while the saved search is active, Open now hands nothing to the saved side.
+  test('under the saved search a tab is not carried out beside the pane, and a window does not pick up', async () => {
+    const { top, store } = await renderPane(groupSeed());
+    act(() => {
+      store.dispatch(setSearchInputText('test'));
+    });
+    const saved = store.getState().tabContainerDataState;
+    const y = (top.get('22') ?? 0) + ROW / 2;
+    press(tabRow(22), y);
+    moveTo(10, y + 8);
+    moveTo(ON_LIST, y + 8);
+    expect(currentCarry()).toBeNull();
+    // Still Open now's own drag, as before Part F.
+    expect(tabRow(22).hasAttribute('data-drag-held')).toBe(true);
+    fireEvent.pointerUp(document, { clientX: 10, clientY: y });
+
+    const wy = (top.get('window:2') ?? 0) + ROW / 2;
+    press(handle(2), wy);
+    moveTo(10, wy + 8);
+    expect(currentCarry()).toBeNull();
+    expect(document.querySelector('[data-drag-held]')).toBeNull();
+    fireEvent.pointerUp(document, { clientX: 10, clientY: wy + 8 });
+    expect(store.getState().tabContainerDataState).toBe(saved);
+  });
+
+  // Justine's pick A (2026-10-15): back over Open now the card dims and loses its +; a release there cancels (N4 A).
+  // The card itself stays opaque: see-through, the rows behind showed through it like a glitch (his 02:09 capture).
+  test('back over Open now the card dims and loses its +, and gets both back outside it', async () => {
+    const { top } = await renderPane(groupSeed());
+    const region = document.querySelector<HTMLElement>('[role="region"]');
+    if (region === null) throw new Error('no Open now region');
+    region.getBoundingClientRect = () => box(0, 2000);
+    const y = (top.get('22') ?? 0) + ROW / 2;
+    press(tabRow(22), y);
+    moveTo(10, y + 8);
+    moveTo(ON_LIST, y + 8);
+    const card = find('[data-carry-card]');
+    const badge = find('[data-carry-card-badge]');
+    const name = find('[data-carry-card] [data-carry-card-name]');
+    expect(getComputedStyle(card).opacity).toBe('1');
+    expect(getComputedStyle(name).opacity).toBe('1');
+    expect(getComputedStyle(badge).display).not.toBe('none');
+
+    moveTo(10, y + 8);
+    expect(getComputedStyle(card).opacity).toBe('1');
+    expect(getComputedStyle(name).opacity).toBe('0.45');
+    expect(getComputedStyle(badge).display).toBe('none');
+
+    moveTo(ON_LIST, y + 8);
+    expect(getComputedStyle(name).opacity).toBe('1');
+    expect(getComputedStyle(badge).display).not.toBe('none');
+
+    moveTo(10, y + 8);
+    fireEvent.pointerUp(document, { clientX: 10, clientY: y + 8 });
+    expect(currentCarry()).toBeNull();
+    expect(
+      document.documentElement.hasAttribute('data-carry-over-open-now')
+    ).toBe(false);
+  });
+
+  // Justine, 02:16: one boundary for out and back. The hand-off is at Open now's own edge, the same box its receiver
+  // dims the card in; its list's margin inside Open now is still Open now's drag.
+  test("in Open now's margin, outside its list, the drag is still Open now's; past Open now's edge it is a copy", async () => {
+    const { top } = await renderPane(groupSeed());
+    const region = document.querySelector<HTMLElement>('[role="region"]');
+    if (region === null) throw new Error('no Open now region');
+    // Open now x 0..300; its list inset to x 20..280.
+    region.getBoundingClientRect = () => box(0, 2000);
+    // As measured on the real build: Open now x 836, its list x 845. Inline, so the engine finds the list as jsdom
+    // would not from emotion's class alone.
+    const scroller = find('[data-open-now-scroller]');
+    scroller.style.overflowY = 'auto';
+    scroller.getBoundingClientRect = () =>
+      DOMRect.fromRect({ x: 20, y: 0, width: 260, height: 2000 });
+    const y = (top.get('22') ?? 0) + ROW / 2;
+    press(tabRow(22), y, 40);
+    moveTo(40, y + 8);
+    moveTo(10, y + 8);
+    expect(currentCarry()).toBeNull();
+    expect(tabRow(22).hasAttribute('data-drag-held')).toBe(true);
+    expect(
+      document.documentElement.hasAttribute('data-carry-over-open-now')
+    ).toBe(false);
+    moveTo(ON_LIST, y + 8);
+    expect(currentCarry()?.item.source).toBe('live');
   });
 });

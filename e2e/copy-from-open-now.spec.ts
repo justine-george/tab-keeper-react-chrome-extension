@@ -58,8 +58,9 @@ async function openLiveWindow(worker: Worker, titles: string[]) {
 const liveRow = (page: Page, tabId: number) =>
   page.locator(`[data-open-tab-id="${tabId}"]`);
 
-// Presses a live row and moves past the activation distance; the row is held in Open now (D1 A: no card yet).
-async function pickUpLive(page: Page, tabId: number) {
+// Presses a live row and moves past the activation distance: held in Open now, shown by its card (KAN-611), no carry
+// yet. Under the saved search there is no card: the drag can't leave Open now (KAN-610).
+async function pickUpLive(page: Page, tabId: number, card = true) {
   const b = await boxOf(liveRow(page, tabId));
   const x = b.x + Math.min(60, b.width / 2);
   const y = b.y + b.height / 2;
@@ -67,6 +68,7 @@ async function pickUpLive(page: Page, tabId: number) {
   await page.mouse.down();
   await page.mouse.move(x, y + 10, { steps: 3 });
   await expect(page.locator('[data-drag-held]')).toHaveCount(1);
+  await expect(page.locator('[data-drag-card]')).toHaveCount(card ? 1 : 0);
   await expect(page.locator(CARD)).toHaveCount(0);
   return { x, y: y + 10 };
 }
@@ -198,6 +200,47 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     expect(await chromeNow(serviceWorker)).toBe(chromeBefore);
   });
 
+  // KAN-611 (Justine, 02:16): one edge for out and back. In Open now's margin outside its list the drag is still
+  // Open now's (no + card); just past Open now's edge it is a copy (+); back inside the margin, faded with no +.
+  test("1c. the same edge out and back: Open now's margin is Open now, just outside it is a copy", async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openTabView(context, extensionId, false);
+    const live = await openLiveWindow(serviceWorker, ['Live A']);
+    await expect(liveRow(page, live.idOf('Live A'))).toBeVisible();
+    const region = await boxOf(
+      page.locator('[data-pane="open-now"] [role="region"]')
+    );
+    const list = await boxOf(page.locator('[data-open-now-scroller]'));
+    // PREMISE: a margin between Open now's edge and its list.
+    expect(list.x - region.x).toBeGreaterThan(2);
+    const inMargin = region.x + (list.x - region.x) / 2;
+
+    const at = await pickUpLive(page, live.idOf('Live A'));
+    await page.mouse.move(inMargin, at.y, { steps: 6 });
+    await expect(page.locator(CARD)).toHaveCount(0);
+    await expect(page.locator('[data-drag-card]')).toHaveCount(1);
+
+    await page.mouse.move(region.x - 6, at.y, { steps: 3 });
+    await expect(page.locator(CARD)).toHaveCount(1);
+    await expect(page.locator(`${CARD} [data-carry-card-badge]`)).toBeVisible();
+    await expect(page.locator(`${CARD} [data-carry-card-name]`)).toHaveCSS(
+      'opacity',
+      '1'
+    );
+
+    await page.mouse.move(inMargin, at.y, { steps: 3 });
+    await expect(page.locator(`${CARD} [data-carry-card-badge]`)).toBeHidden();
+    await expect(page.locator(`${CARD} [data-carry-card-name]`)).toHaveCSS(
+      'opacity',
+      '0.45'
+    );
+    await page.mouse.up();
+    await expect(page.locator(CARD)).toHaveCount(0);
+  });
+
   test('1b. Show selects the target; one undo takes the copy back', async ({
     context,
     extensionId,
@@ -250,9 +293,43 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
         'https://al0.test/',
         'https://al1.test/',
       ]);
-    expect(await toasts(page)).toEqual([]);
+    await expect
+      .poll(() => toasts(page))
+      .toEqual([{ text: 'Copied to “Source”.', show: false }]);
     expect(await chromeNow(serviceWorker)).toBe(chromeBefore);
     await expectUndoRestores(page, before);
+  });
+
+  // Justine, 02:25: in and out of Open now quickly, the slot drew rows away from the pointer. Re-adopted while
+  // the rows still slid home, the engine measured them mid-slide. The slot must sit where the pointer is.
+  test('2b. in and out of Open now quickly, then into the session: the slot is at the row under the pointer', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openTabView(context, extensionId, false);
+    const live = await openLiveWindow(serviceWorker, ['Live A']);
+    await expect(liveRow(page, live.idOf('Live A'))).toBeVisible();
+    const a1 = await boxOf(page.locator('[data-drag-row-id="a1"]'));
+    const openNow = await boxOf(
+      page.locator('[data-pane="open-now"] [role="region"]')
+    );
+    const aim = { x: a1.x + 60, y: a1.y + a1.height * 0.25 };
+
+    await pickUpLive(page, live.idOf('Live A'));
+    for (let i = 0; i < 4; i++) {
+      await page.mouse.move(aim.x, aim.y, { steps: 6 });
+      await page.mouse.move(openNow.x + 60, aim.y, { steps: 4 });
+    }
+    await page.mouse.move(aim.x, aim.y, { steps: 6 });
+    await settled(page);
+    const slot = await boxOf(page.locator('[data-drag-landing-slot]'));
+    // Above a1's middle: the slot takes a1's place, where a1 was at rest.
+    expect(Math.abs(slot.y - a1.y)).toBeLessThan(2);
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await urlsOf(page, 'S1'))[0]?.[1])
+      .toBe(dataUrl('Live A'));
   });
 
   test('3. a group: rest on a row to open it, then a slot between items; its name, colour and fold kept', async ({
@@ -295,7 +372,9 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
       expect.objectContaining({ title: 'Reading', color: 'purple' }),
     ]);
     expect(d2?.chromeTabGroups?.[0]?.collapsed).toBeUndefined();
-    expect(await toasts(page)).toEqual([]);
+    await expect
+      .poll(() => toasts(page))
+      .toEqual([{ text: 'Copied 2 tabs to “Target”.', show: false }]);
     await expectUndoRestores(page, before);
   });
 
@@ -343,6 +422,9 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
       width: copied?.windowWidth,
       height: copied?.windowHeight,
     }).toEqual(placed);
+    await expect
+      .poll(() => toasts(page))
+      .toEqual([{ text: 'Copied 2 tabs to “Source”.', show: false }]);
     await expectUndoRestores(page, before);
   });
 
@@ -375,7 +457,8 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     await expectUndoRestores(page, before);
   });
 
-  test('6. D6: a tab already there is "Already in", nothing saved; a window copies the rest and counts the skips', async ({
+  // KAN-608: no duplicate check. A tab or window the session already holds is copied whole, and says so.
+  test('6. duplicates land: a tab already there is copied again, a window lands whole', async ({
     context,
     extensionId,
     serviceWorker,
@@ -397,16 +480,17 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
       'Fresh',
     ]);
     await expect(liveRow(page, live.idOf('Dup'))).toBeVisible();
-    const before = await stored(page);
 
     let at = await pickUpLive(page, live.idOf('Dup'));
     await carryOutOfOpenNow(page, at.y);
     await onto(page, 'S2');
     await page.mouse.up();
     await expect
+      .poll(async () => (await urlsOf(page, 'S2'))[0])
+      .toEqual([dataUrl('Dup')]);
+    await expect
       .poll(() => toasts(page))
-      .toEqual([{ text: 'Already in “Target”.', show: true }]);
-    expect(await stored(page)).toEqual(before);
+      .toEqual([{ text: 'Copied to “Target”.', show: true }]);
 
     at = await press(page, openNowWindowHandle(page, live.windowId));
     await expect(page.locator(CARD)).toHaveCount(1);
@@ -415,10 +499,44 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     await page.mouse.up();
     await expect
       .poll(async () => (await urlsOf(page, 'S2'))[0])
-      .toEqual([dataUrl('Fresh')]);
+      .toEqual([dataUrl('Dup'), dataUrl('Dup two'), dataUrl('Fresh')]);
+    expect(await urlsOf(page, 'S2')).toHaveLength(3);
     await expect
       .poll(async () => (await toasts(page)).map((t) => t.text))
-      .toContain('Copied to “Target”. 2 tabs were already there.');
+      .toContain('Copied 3 tabs to “Target”.');
+  });
+
+  // KAN-607. Resting past the spring-open puts the session on screen: the copy still says so, with no Show.
+  test('6b. rest on the row, then drop, twice: each copy lands and says "Copied to", with no Show', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openTabView(context, extensionId, false);
+    const live = await openLiveWindow(serviceWorker, ['Rested']);
+    await expect(liveRow(page, live.idOf('Rested'))).toBeVisible();
+
+    for (const round of [1, 2]) {
+      const at = await pickUpLive(page, live.idOf('Rested'));
+      await carryOutOfOpenNow(page, at.y);
+      await onto(page, 'S2');
+      await expect.poll(() => selected(page)).toBe('S2');
+      await page.mouse.up();
+      await expect(page.locator(CARD)).toHaveCount(0);
+      await expect
+        .poll(async () =>
+          (await urlsOf(page, 'S2'))
+            .flat()
+            .filter((u) => u === dataUrl('Rested'))
+        )
+        .toHaveLength(round);
+    }
+    await expect
+      .poll(() => toasts(page))
+      .toEqual([
+        { text: 'Copied to “Target”.', show: false },
+        { text: 'Copied to “Target”.', show: false },
+      ]);
   });
 
   test('7. carried back over Open now and let go: cancelled, nothing saved (N4 A)', async ({
@@ -434,6 +552,13 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     const at = await pickUpLive(page, live.idOf('Live A'));
     await carryOutOfOpenNow(page, at.y);
     await page.mouse.move(at.x, at.y + 30, { steps: 6 });
+    // Justine's pick A: over Open now the card's contents fade and its + goes; the card itself stays opaque.
+    await expect(page.locator(CARD)).toHaveCSS('opacity', '1');
+    await expect(page.locator(`${CARD} [data-carry-card-name]`)).toHaveCSS(
+      'opacity',
+      '0.45'
+    );
+    await expect(page.locator(`${CARD} [data-carry-card-badge]`)).toBeHidden();
     await page.mouse.up();
 
     await expect(page.locator(CARD)).toHaveCount(0);
@@ -540,7 +665,9 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     await expect
       .poll(async () => (await urlsOf(page, 'S1'))[0]?.[1])
       .toBe(dataUrl('Live A'));
-    expect(await toasts(page)).toEqual([]);
+    await expect
+      .poll(() => toasts(page))
+      .toEqual([{ text: 'Copied to “Source”.', show: false }]);
     const fold = await page.evaluate(() => {
       const raw = localStorage.getItem('settingsData');
       return raw === null ? null : JSON.parse(raw).foldSavedSessionInTabView;
@@ -695,7 +822,8 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
       });
   });
 
-  test('12. the saved search open: a row drop works, resting opens nothing (D5 A)', async ({
+  // KAN-610 (reverses D5 A): while the saved search is active, nothing from Open now reaches the saved side.
+  test('12. the saved search open: an Open now tab is never carried out, no row lights, nothing is saved', async ({
     context,
     extensionId,
     serviceWorker,
@@ -707,15 +835,18 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
       .getByRole('textbox', { name: 'Search saved tabs', exact: true })
       .fill('test');
     await expect(sessionRow(page, 'S2')).toBeVisible();
+    const before = await stored(page);
 
-    const at = await pickUpLive(page, live.idOf('Live A'));
-    await carryOutOfOpenNow(page, at.y);
-    await onto(page, 'S2');
-    await page.waitForTimeout(SPRING_OPEN_MS + 200);
-    expect(await selected(page)).toBe('S1');
+    const at = await pickUpLive(page, live.idOf('Live A'), false);
+    const pane = await boxOf(page.locator('[data-pane="open-now"]'));
+    await page.mouse.move(pane.x - 40, at.y, { steps: 6 });
+    const row = await boxOf(sessionRow(page, 'S2'));
+    await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2, {
+      steps: 6,
+    });
+    await expect(page.locator(CARD)).toHaveCount(0);
+    expect(await carryTargets(page)).toEqual([]);
     await page.mouse.up();
-    await expect
-      .poll(async () => (await urlsOf(page, 'S2'))[0])
-      .toEqual([dataUrl('Live A')]);
+    expect(await stored(page)).toEqual(before);
   });
 });

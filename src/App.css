@@ -191,7 +191,7 @@ body {
    adopted phantom. That row is invisible, so this rule drew an empty box with
    a shadow -- and, over a group, a stripe -- where nothing else was drawn. The
    band lighting up says "joins this group" instead (KAN-354 C4 A). Open now's
-   held tab, still drawn, keeps both.
+   held tab under the saved search, still drawn (no card, KAN-610), keeps both.
 
    Nor for a carry's phantom (`data-carry-phantom`), held or not. At an
    adoption `activate` writes `data-drag-held` straight to the DOM, while

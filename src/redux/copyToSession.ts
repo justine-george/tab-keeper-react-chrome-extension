@@ -20,15 +20,16 @@ import {
 import { showSession } from './showSession';
 import type { RootState } from './store';
 import { TOAST_MESSAGES } from '../utils/constants/common';
-import { addressesIn, copyOutcome } from '../utils/functions/liveCopy';
+import { copiedTabCount } from '../utils/functions/liveCopy';
 import { newWindowPlacement } from '../components/home/rightpane/newWindowTarget';
 import { revealSavedWindow } from '../components/home/rightpane/revealSavedWindow';
 
 type Took = ThunkAction<boolean, RootState, unknown, UnknownAction>;
 
-// Returns whether anything was saved. `announce`: the target was not on screen at the drop (the Show rule).
+// Returns whether anything was saved. Every copy says so, wherever it lands (KAN-607), and copies everything,
+// duplicates included (KAN-608); Show only when the target is not on screen after the drop.
 const copyToSession =
-  (copy: SessionCopy, live: LiveSnapshot, announce: boolean): Took =>
+  (copy: SessionCopy, live: LiveSnapshot): Took =>
   (dispatch, getState) => {
     const snapshot = placedWindowOf(live);
     const drop = sessionCopyDrop(copy, snapshot);
@@ -45,53 +46,39 @@ const copyToSession =
     );
     const before = at.state;
     if (before === null) return false;
-    const copied = getState().tabContainerDataState !== before;
+    if (getState().tabContainerDataState === before) return false;
     const target = before.tabGroups.find(
       (g) => g.tabGroupId === copy.to.tabGroupId
     );
-    if (!announce || target === undefined) return copied;
-
-    const { skipped, copiesAny } = copyOutcome(
-      snapshot,
-      copy.pick,
-      addressesIn(target)
-    );
-    const show = isSessionOnScreen(getState(), target.tabGroupId)
-      ? undefined
-      : { tabGroupId: target.tabGroupId };
-    if (copied) {
+    if (target !== undefined) {
+      // A window or group says how many tabs it copied (Justine, 2026-10-15); a tab, where it went.
+      const several = copy.pick.kind !== 'tab';
       dispatch(
         showToast({
-          toastText:
-            skipped === 0
-              ? TOAST_MESSAGES.COPIED_TO_SESSION
-              : TOAST_MESSAGES.COPIED_TO_SESSION_SKIPPED,
-          toastParams:
-            skipped === 0
-              ? { title: target.title }
-              : { title: target.title, count: skipped },
+          toastText: several
+            ? TOAST_MESSAGES.COPIED_TABS_TO_SESSION
+            : TOAST_MESSAGES.COPIED_TO_SESSION,
+          toastParams: several
+            ? {
+                title: target.title,
+                count: copiedTabCount(snapshot, copy.pick),
+              }
+            : { title: target.title },
           announcesSavedChange: true,
-          show,
-        })
-      );
-    } else if (!copiesAny && skipped > 0) {
-      // P10. Nothing was saved, so this takes nothing from a Reopen offer.
-      dispatch(
-        showToast({
-          toastText: TOAST_MESSAGES.ALREADY_IN_SESSION,
-          toastParams: { title: target.title },
-          show,
+          show: isSessionOnScreen(getState(), target.tabGroupId)
+            ? undefined
+            : { tabGroupId: target.tabGroupId },
         })
       );
     }
-    return copied;
+    return true;
   };
 
 // S2 A on a session row: a tab or group becomes the session's first window, a window its first window.
 export const copyOnSessionRow =
   (live: LiveSnapshot, tabGroupId: string): Took =>
   (dispatch, getState) => {
-    const announce = !isSessionOnScreen(getState(), tabGroupId);
+    const onScreen = isSessionOnScreen(getState(), tabGroupId);
     const { pick } = live;
     // The tab and group branches repeat `to` so each narrows its own pick.
     const copy: SessionCopy =
@@ -100,11 +87,12 @@ export const copyOnSessionRow =
         : pick.kind === 'tab'
           ? { pick, to: intoNewWindow(tabGroupId, 'first') }
           : { pick, to: intoNewWindow(tabGroupId, 'first') };
-    const copied = dispatch(copyToSession(copy, live, announce));
+    const copied = dispatch(copyToSession(copy, live));
     const landed = getState().tabContainerDataState.tabGroups.find(
       (g) => g.tabGroupId === tabGroupId
     )?.windows[0]?.windowId;
-    if (copied && !announce && landed !== undefined) revealSavedWindow(landed);
+    // On screen, the detail may be scrolled away from where the copy lands first.
+    if (copied && onScreen && landed !== undefined) revealSavedWindow(landed);
     return copied;
   };
 
@@ -142,7 +130,7 @@ export const copyToSpot =
                 ? { tabGroupId, windowId: toWindowId, toIndex }
                 : intoNewWindow(tabGroupId, at),
           };
-    return dispatch(copyToSession(copy, live, false));
+    return dispatch(copyToSession(copy, live));
   };
 
 // A window let go between the windows of the session on screen.
@@ -151,7 +139,7 @@ export const copyWindowTo =
   (dispatch) => {
     const { pick } = live;
     if (pick.kind !== 'window') return false;
-    return dispatch(copyToSession({ pick, to: spot }, live, false));
+    return dispatch(copyToSession({ pick, to: spot }, live));
   };
 
 // N1 A. The save row: a new session holding the copy, shown, no toast (KAN-394).

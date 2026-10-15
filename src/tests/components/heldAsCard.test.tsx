@@ -802,7 +802,38 @@ describe('CONTROLS: no card, the old look', () => {
     release(at + 8);
   });
 
-  test('Open now', async () => {
+  // The rule is "this drag has a card", not "this list has carryOut". The groups list's carryOut is null for a loose tab, which it never picks up, so the engine is held to it directly.
+  test('a list whose carryOut has nothing for the held row', async () => {
+    await renderWithProviders(
+      <>
+        <RowDragArea
+          rowIds={['a', 'b']}
+          onMove={() => undefined}
+          carryOut={() => null}
+        >
+          <DraggableRow rowId="a">
+            <div>Row A</div>
+          </DraggableRow>
+          <DraggableRow rowId="b">
+            <div>Row B</div>
+          </DraggableRow>
+        </RowDragArea>
+        <CarryLayer />
+      </>
+    );
+    table = { 'row:a': [0, 32], 'row:b': [32, 32] };
+
+    fireEvent.pointerDown(row('a'), { clientX: X, clientY: 16, button: 0 });
+    moveTo(24);
+
+    expectLifted(row('a'), '0.25');
+    release(24);
+  });
+});
+
+// KAN-611. Open now's drag is shown by its card from pick-up, as a saved list's is (it was the old look before).
+describe('Open now shows its card from pick-up (KAN-611)', () => {
+  test('a tab row: the card at the pointer, the row invisible in its room', async () => {
     const seed = {
       windows: [
         {
@@ -842,35 +873,10 @@ describe('CONTROLS: no card, the old look', () => {
     fireEvent.pointerDown(tabRow(12), { clientX: X, clientY: at, button: 0 });
     moveTo(at + 8);
 
-    expectLifted(tabRow(12), '0.25');
+    expect(tabRow(12).hasAttribute('data-drag-held')).toBe(true);
+    expect(tabRow(12).hasAttribute('data-held-as-card')).toBe(true);
+    expect(dragCard()).not.toBeNull();
+    expect(currentDragCard()?.card).toMatchObject({ kind: 'tab', title: 'B' });
     release(at + 8);
-  });
-
-  // The rule is "this drag has a card", not "this list has carryOut". The groups list's carryOut is null for a loose tab, which it never picks up, so the engine is held to it directly.
-  test('a list whose carryOut has nothing for the held row', async () => {
-    await renderWithProviders(
-      <>
-        <RowDragArea
-          rowIds={['a', 'b']}
-          onMove={() => undefined}
-          carryOut={() => null}
-        >
-          <DraggableRow rowId="a">
-            <div>Row A</div>
-          </DraggableRow>
-          <DraggableRow rowId="b">
-            <div>Row B</div>
-          </DraggableRow>
-        </RowDragArea>
-        <CarryLayer />
-      </>
-    );
-    table = { 'row:a': [0, 32], 'row:b': [32, 32] };
-
-    fireEvent.pointerDown(row('a'), { clientX: X, clientY: 16, button: 0 });
-    moveTo(24);
-
-    expectLifted(row('a'), '0.25');
-    release(24);
   });
 });
