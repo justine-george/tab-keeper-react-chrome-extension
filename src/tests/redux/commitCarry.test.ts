@@ -16,7 +16,10 @@ vi.mock('../../utils/functions/external', () => ({
   saveToFirestore: vi.fn(async () => undefined),
 }));
 
+import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
+
 import { makeTestStore } from '../setup/makeStore';
+import type { RootState } from '../../redux/store';
 import {
   replaceState,
   type CarriedRef,
@@ -79,7 +82,7 @@ const after = (s: Store) => {
     toasts: s.getState().globalState.toasts.map((t) => [t.text, t.params]),
   };
 };
-type Thunk = Parameters<Store['dispatch']>[0];
+type Thunk = ThunkAction<boolean, RootState, unknown, UnknownAction>;
 // One drop from a fresh start: what it returned, and the store after it.
 const run = (thunk: () => Thunk) => {
   const store = ready();

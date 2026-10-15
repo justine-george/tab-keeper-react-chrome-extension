@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { savedItem } from '../../redux/carriedItem';
 import { act, fireEvent } from '@testing-library/react';
 
 import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
@@ -473,7 +474,12 @@ describe('no outline for an adopted carry', () => {
     setDragging(true, 'tab');
     beginDragHold();
     act(() =>
-      startCarry(T1, { kind: 'tab', title: 't1', faviconUrl: '' }, -40, 100)
+      startCarry(
+        savedItem(T1),
+        { kind: 'tab', title: 't1', faviconUrl: '' },
+        -40,
+        100
+      )
     );
     table = S2_TAB_LAYOUT;
 

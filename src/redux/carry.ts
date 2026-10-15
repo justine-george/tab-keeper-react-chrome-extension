@@ -8,8 +8,8 @@
 //
 // Module state, like dragHold.ts and for the same reasons: the drag engine is
 // generic and renders in tests without a store, and "a pointer is carrying
-// something" is not application data. What is carried is named by ids (the
-// store stays the truth about it) plus a display snapshot for the card.
+// something" is not application data. What is carried is a CarriedItem: its
+// source and ids (the store stays the truth about it), plus a display snapshot for the card.
 //
 // THE HOLD AND THE KIND ARE INHERITED, NOT TAKEN. The engine starts a carry
 // with its drag hold on and its drag kind published, and leaves both on
@@ -21,7 +21,7 @@
 // writes the marker from what is carried, and endCarry ends it.
 import { useSyncExternalStore } from 'react';
 
-import type { CarriedRef } from './slices/tabContainerDataStateSlice';
+import { pickOf, type CarriedItem } from './carriedItem';
 import { endDragHold } from './dragHold';
 import { foldBackSpringOpened } from './springOpenWindows';
 import {
@@ -43,7 +43,7 @@ export type CarryCard =
 
 // What a drag area hands over when its drag reaches a carry receiver.
 export interface CarryOut {
-  carried: CarriedRef;
+  item: CarriedItem;
   card: CarryCard;
 }
 
@@ -53,7 +53,7 @@ export interface CarryOut {
 export type CarryOwner = 'layer' | 'area';
 
 export interface Carry {
-  carried: CarriedRef;
+  item: CarriedItem;
   card: CarryCard;
   // The pointer, in viewport px.
   x: number;
@@ -81,15 +81,15 @@ function notify(): void {
 // `restoreOnCancel` runs once, on the frame after a CANCELLED carry ends --
 // see endCarry -- and never after a committed one.
 export function startCarry(
-  carried: CarriedRef,
+  item: CarriedItem,
   card: CarryCard,
   x: number,
   y: number,
   onCancel?: () => void
 ): void {
-  carry = { carried, card, x, y, owner: 'layer' };
+  carry = { item, card, x, y, owner: 'layer' };
   restoreOnCancel = onCancel ?? null;
-  setDragNewWindow(carried.kind !== 'window');
+  setDragNewWindow(pickOf(item).kind !== 'window');
   setDragNewSession(true);
   setCarrying(true);
   notify();
@@ -152,7 +152,7 @@ export type CarryOutcome = 'committed' | 'cancelled';
 // list never shows at the wrong scroll.
 export function endCarry(outcome: CarryOutcome): void {
   if (carry === null) return;
-  outcomes.set(carry.carried, outcome);
+  outcomes.set(carry.item, outcome);
   carry = null;
   const restore = restoreOnCancel;
   restoreOnCancel = null;
@@ -174,16 +174,16 @@ export function endCarry(outcome: CarryOutcome): void {
   }
 }
 
-// How each carry ended, by what it carried: the ref is one object for the
+// How each carry ended, by what it carried: the item is one object for the
 // whole carry (moveCarry and setCarryOwner keep it). Weak, so a carry long
 // over is not kept.
-const outcomes = new WeakMap<CarriedRef, CarryOutcome>();
+const outcomes = new WeakMap<CarriedItem, CarryOutcome>();
 
 // How the carry of `carried` ended: undefined while it is still on, or if it
 // never was. For a caller that let something else end it -- an adopted drag
 // whose list committed the move -- and has to know which way it went.
-export function carryEndedAs(carried: CarriedRef): CarryOutcome | undefined {
-  return outcomes.get(carried);
+export function carryEndedAs(item: CarriedItem): CarryOutcome | undefined {
+  return outcomes.get(item);
 }
 
 export function useCarry(): Carry | null {
@@ -193,8 +193,8 @@ export function useCarry(): Carry | null {
 // What is carried, and nothing that changes as the pointer moves: its
 // identity holds for the whole carry, so a component reading only this does
 // not re-render on every pointermove.
-const currentCarried = (): CarriedRef | null => carry?.carried ?? null;
-export function useCarried(): CarriedRef | null {
+const currentCarried = (): CarriedItem | null => carry?.item ?? null;
+export function useCarried(): CarriedItem | null {
   return useSyncExternalStore(subscribeCarry, currentCarried);
 }
 

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { savedItem } from '../../redux/carriedItem';
 import { act, fireEvent } from '@testing-library/react';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
@@ -124,7 +125,7 @@ const targetIds = () =>
 function handOff(carried: CarriedRef, card: CarryCard) {
   setDragging(true, carried.kind);
   beginDragHold();
-  act(() => startCarry(carried, card, 600, 200));
+  act(() => startCarry(savedItem(carried), card, 600, 200));
 }
 
 const TAB_CARD: CarryCard = { kind: 'tab', title: 't', faviconUrl: '' };
@@ -144,7 +145,7 @@ describe('finding 8: the move that hands over is routed to the list', () => {
     });
 
     // PREMISE: the drag was handed to the carry by that move.
-    expect(currentCarry()?.carried).toMatchObject({ tabId: 't2' });
+    expect(currentCarry()?.item.ref).toMatchObject({ tabId: 't2' });
     expect(targetIds()).toEqual(['S2']);
   });
 
@@ -209,7 +210,7 @@ describe('finding 7: a detail drag reads the list’s box once, when it starts',
     act(() => {
       moveTo(rowY(1));
     });
-    expect(currentCarry()?.carried).toMatchObject({ tabId: 't2' });
+    expect(currentCarry()?.item.ref).toMatchObject({ tabId: 't2' });
     expect(targetIds()).toEqual(['S2']);
   });
 
@@ -233,6 +234,6 @@ describe('finding 7: a detail drag reads the list’s box once, when it starts',
     act(() => {
       moveTo(rowY(1), 1100);
     });
-    expect(currentCarry()?.carried).toMatchObject({ tabId: 't2' });
+    expect(currentCarry()?.item.ref).toMatchObject({ tabId: 't2' });
   });
 });

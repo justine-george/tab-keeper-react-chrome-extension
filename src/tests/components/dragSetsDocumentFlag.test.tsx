@@ -1,4 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from 'vitest';
+import { savedItem } from '../../redux/carriedItem';
 import { render, fireEvent } from '@testing-library/react';
 
 import {
@@ -152,12 +153,12 @@ describe('the New session marker', () => {
     rowId === 'c'
       ? null
       : {
-          carried: {
+          item: savedItem({
             kind: 'tab',
             tabGroupId: 'S1',
             windowId: 'w1',
             tabId: rowId,
-          },
+          }),
           card: { kind: 'tab', title: rowId, faviconUrl: '' },
         };
 
@@ -253,12 +254,12 @@ describe('a release whose judge throws', () => {
         offersNewWindow
         resolveDrop={resolveDrop}
         carryOut={(rowId) => ({
-          carried: {
+          item: savedItem({
             kind: 'tab',
             tabGroupId: 'S1',
             windowId: 'w1',
             tabId: rowId,
-          },
+          }),
           card: { kind: 'tab', title: rowId, faviconUrl: '' },
         })}
       />

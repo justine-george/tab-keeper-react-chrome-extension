@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
+  carryEndedAs,
   carryReceiverAt,
   currentCarry,
   endCarry,
@@ -12,6 +13,7 @@ import {
   type CarryCard,
   type CarryReceiver,
 } from '../../redux/carry';
+import { savedItem } from '../../redux/carriedItem';
 import type { CarriedRef } from '../../redux/slices/tabContainerDataStateSlice';
 import {
   beginDragHold,
@@ -54,14 +56,25 @@ afterEach(() => {
 });
 
 describe('the carry channel', () => {
+  test('keeps the same item object through moves and owner changes, so carryEndedAs finds it', () => {
+    const item = savedItem(CARRIED);
+    startCarry(item, CARD, 1, 1);
+    moveCarry(5, 5);
+    setCarryOwner('area');
+    setCarryOwner('layer');
+    expect(currentCarry()?.item).toBe(item);
+    endCarry('committed');
+    expect(carryEndedAs(item)).toBe('committed');
+  });
+
   test('startCarry carries, driven by the layer, and tells subscribers', () => {
     const heard = vi.fn();
     const unsubscribe = subscribeCarry(heard);
 
-    startCarry(CARRIED, CARD, 40, 50);
+    startCarry(savedItem(CARRIED), CARD, 40, 50);
 
     expect(currentCarry()).toEqual({
-      carried: CARRIED,
+      item: savedItem(CARRIED),
       card: CARD,
       x: 40,
       y: 50,
@@ -72,7 +85,7 @@ describe('the carry channel', () => {
   });
 
   test('moveCarry moves the pointer and keeps what is carried, identity and all', () => {
-    startCarry(CARRIED, CARD, 40, 50);
+    startCarry(savedItem(CARRIED), CARD, 40, 50);
     const heard = vi.fn();
     const unsubscribe = subscribeCarry(heard);
 
@@ -80,7 +93,7 @@ describe('the carry channel', () => {
 
     expect(currentCarry()?.x).toBe(60);
     expect(currentCarry()?.y).toBe(70);
-    expect(currentCarry()?.carried).toBe(CARRIED);
+    expect(currentCarry()?.item.ref).toBe(CARRIED);
     expect(heard).toHaveBeenCalledTimes(1);
     unsubscribe();
   });
@@ -98,7 +111,7 @@ describe('the carry channel', () => {
   });
 
   test('setCarryOwner hands the carry to an area and back', () => {
-    startCarry(CARRIED, CARD, 40, 50);
+    startCarry(savedItem(CARRIED), CARD, 40, 50);
 
     setCarryOwner('area');
     expect(currentCarry()?.owner).toBe('area');
@@ -110,7 +123,7 @@ describe('the carry channel', () => {
     // As the engine leaves it at the hand-off: held, kind published.
     setDragging(true, 'tab');
     beginDragHold();
-    startCarry(CARRIED, CARD, 40, 50);
+    startCarry(savedItem(CARRIED), CARD, 40, 50);
     const order: string[] = [];
     whenDragReleases(() => order.push('held change'));
     const unsubscribe = subscribeCarry(() =>
@@ -194,7 +207,7 @@ describe('the New window marker', () => {
       // PREMISE: nothing had published it.
       expect(marked()).toBe(false);
 
-      startCarry(carried, card, 40, 50);
+      startCarry(savedItem(carried), card, 40, 50);
       expect(marked()).toBe(true);
       setCarryOwner('area');
       setCarryOwner('layer');
@@ -206,18 +219,18 @@ describe('the New window marker', () => {
   );
 
   test('a carried window never publishes it', () => {
-    startCarry(WINDOW, WINDOW_CARD, 40, 50);
+    startCarry(savedItem(WINDOW), WINDOW_CARD, 40, 50);
     expect(marked()).toBe(false);
   });
 
   // The worst path: a window carry replacing a tab carry still on, the
   // marker that carry published with it.
   test('a window carry replacing a tab carry clears it', () => {
-    startCarry(CARRIED, CARD, 40, 50);
+    startCarry(savedItem(CARRIED), CARD, 40, 50);
     // PREMISE: the tab carry published it.
     expect(marked()).toBe(true);
 
-    startCarry(WINDOW, WINDOW_CARD, 40, 50);
+    startCarry(savedItem(WINDOW), WINDOW_CARD, 40, 50);
     expect(marked()).toBe(false);
   });
 
@@ -229,7 +242,7 @@ describe('the New window marker', () => {
     // PREMISE: the drag published it with room.
     expect(value()).toBe('room');
 
-    startCarry(CARRIED, CARD, 40, 50);
+    startCarry(savedItem(CARRIED), CARD, 40, 50);
     expect(value()).toBe('room');
     // An adoption writes it again, asking for no room.
     setDragNewWindow(true);
@@ -238,7 +251,7 @@ describe('the New window marker', () => {
     endCarry('cancelled');
     expect(value()).toBeNull();
     // CONTROL: from a list that fits, a carry has none.
-    startCarry(CARRIED, CARD, 40, 50);
+    startCarry(savedItem(CARRIED), CARD, 40, 50);
     expect(value()).toBe('');
   });
 
@@ -273,7 +286,7 @@ describe('the carrying marker', () => {
       // PREMISE: nothing had marked it.
       expect(carrying()).toBe(false);
 
-      startCarry(carried, card, 40, 50);
+      startCarry(savedItem(carried), card, 40, 50);
       expect(carrying()).toBe(true);
       expect(offersNewSession()).toBe(true);
       setCarryOwner('area');
@@ -290,7 +303,7 @@ describe('the carrying marker', () => {
   // The worst path: something endCarry runs throws. The save row must not
   // stay hidden for the page's life.
   test('an end that throws still clears it', () => {
-    startCarry(CARRIED, CARD, 40, 50);
+    startCarry(savedItem(CARRIED), CARD, 40, 50);
     vi.mocked(foldBackSpringOpened).mockImplementationOnce(() => {
       throw new Error('fold back failed');
     });

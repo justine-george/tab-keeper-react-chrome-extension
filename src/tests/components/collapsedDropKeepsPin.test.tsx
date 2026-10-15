@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest';
+import { savedItem } from '../../redux/carriedItem';
 import { act, renderHook } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import type { ReactNode } from 'react';
@@ -191,7 +192,7 @@ describe('a drop on a collapsed window keeps the pin (KAN-458)', () => {
       tabId: 'pB',
     };
     // The phantom row the pane draws for the carried tab, in wA.
-    const phantom = carriedRowId(carried);
+    const phantom = carriedRowId(savedItem(carried));
     const paneWindows = {
       tabGroupId: 'tg',
       windows: [
@@ -203,7 +204,12 @@ describe('a drop on a collapsed window keeps the pin (KAN-458)', () => {
       wrapper,
     });
     act(() =>
-      startCarry(carried, { kind: 'tab', title: 'pB', faviconUrl: '' }, 0, 0)
+      startCarry(
+        savedItem(carried),
+        { kind: 'tab', title: 'pB', faviconUrl: '' },
+        0,
+        0
+      )
     );
     act(() => result.current.onMove(phantom, 0, undefined, 'wB'));
     const landed = wB();

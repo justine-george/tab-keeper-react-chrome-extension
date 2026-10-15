@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { savedItem } from '../../redux/carriedItem';
 import { act, fireEvent } from '@testing-library/react';
 
 import TabGroupDetailsContainer from '../../components/home/rightpane/TabGroupDetailsContainer';
@@ -211,7 +212,9 @@ const cardFor = (carried: CarriedRef): CarryCard =>
 function carry(carried: CarriedRef, onCancel?: () => void) {
   setDragging(true, carried.kind);
   beginDragHold();
-  act(() => startCarry(carried, cardFor(carried), -40, 100, onCancel));
+  act(() =>
+    startCarry(savedItem(carried), cardFor(carried), -40, 100, onCancel)
+  );
 }
 
 const moveTo = (y: number, x = X) =>
@@ -923,7 +926,7 @@ describe('out of the pane and back in', () => {
 
     expect(held()).toBeUndefined();
     expect(currentCarry()?.owner).toBe('layer');
-    expect(currentCarry()?.carried).toBe(before?.carried);
+    expect(currentCarry()?.item.ref).toBe(before?.item.ref);
     expect(currentCarry()?.card).toBe(before?.card);
     expect(isDragHeld()).toBe(true);
     expect(document.documentElement.getAttribute('data-dragging')).toBe('tab');
@@ -1006,7 +1009,7 @@ describe('out of the pane and back in', () => {
     fireEvent.pointerMove(document, { clientX: 20, clientY: 70 });
     moveTo(70, -40);
     // The premise: carried out of S1, and the fold clamped the scroll.
-    expect(currentCarry()?.carried).toEqual(WINDOW_W2);
+    expect(currentCarry()?.item.ref).toEqual(WINDOW_W2);
     p.scrollTop = 0;
 
     table = {

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { savedItem } from '../../redux/carriedItem';
 import { act, fireEvent, screen } from '@testing-library/react';
 
 import { CarryLayer } from '../../components/home/CarryLayer';
@@ -59,7 +60,7 @@ async function renderLayer() {
 function handOff(card: CarryCard, carried: CarriedRef = TAB, x = 300, y = 40) {
   setDragging(true, carried.kind);
   beginDragHold();
-  act(() => startCarry(carried, card, x, y));
+  act(() => startCarry(savedItem(carried), card, x, y));
 }
 
 type Store = ReturnType<typeof makeTestStore>['store'];
@@ -551,6 +552,6 @@ describe('a change on this page that removes the carried item ends the carry', (
       );
     });
 
-    expect(currentCarry()?.carried).toEqual(TAB);
+    expect(currentCarry()?.item.ref).toEqual(TAB);
   });
 });
