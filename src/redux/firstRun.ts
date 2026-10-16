@@ -219,6 +219,14 @@ export const welcomeGetStarted =
     await requestTabView();
   };
 
+// KAN-623. Start on the popup's What's new: as Get started, into the full view's upgrader run.
+export const whatsNewGetStarted =
+  (): Thunk<Promise<void>> => async (dispatch) => {
+    await dispatch(leaveRunHere());
+    dispatch(recordFirstRun(newRun('full', 1, 'whatsNew')));
+    await requestTabView();
+  };
+
 // Show me here: the popup run, from its save card.
 export const welcomeShowMeHere =
   (): Thunk<Promise<void>> => async (dispatch) => {
@@ -240,17 +248,20 @@ export function runOpener(
       return null;
     case 'resume':
       return () => void dispatch(resumeRunHere());
-    case 'reshowWelcome':
+    case 'reshowHello':
       return () => {
         dispatch(countWelcomeShow());
-        void dispatch(showWelcome(null));
+        // KAN-623. What's new is the run's own card, drawn by FirstRun; the welcome is the consent modal.
+        void dispatch(
+          decision.hello === 'welcome' ? showWelcome(null) : resumeRunHere()
+        );
       };
     case 'start':
       return () => {
         // Q8: setup begins; the consent answer they gave is never touched.
         if (decision.beginsSetup) dispatch(beginSetup());
         void dispatch(
-          decision.run.view === 'popup'
+          decision.run.view === 'popup' && decision.run.hello === 'welcome'
             ? showWelcome(decision.run)
             : startRun(decision.run)
         );

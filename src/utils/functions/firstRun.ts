@@ -8,7 +8,7 @@ import type { TourLockState } from './tourLock';
 export type RunView = 'popup' | 'full';
 export type RunHello = 'welcome' | 'whatsNew';
 export type RunEnding = 'finished' | 'skipped' | 'sessionGone' | 'unanswered';
-// Q7: the welcome reopens while unanswered, up to this many shows; the next open ends it.
+// Q7: the popup's step 0 (the welcome, or What's new) reopens while unanswered, up to this many shows; the next open ends it.
 const MAX_WELCOME_SHOWS = 5;
 export type WelcomeShows = 1 | 2 | 3 | 4 | 5;
 const WELCOME_SHOWS: readonly WelcomeShows[] = [1, 2, 3, 4, 5];
@@ -30,7 +30,7 @@ export interface FirstRun {
   // Null until the save step or the latest-session pick sets it.
   sessionId: string | null;
   hello: RunHello;
-  // How many times the welcome opened; a popup record at step 0 only.
+  // How many times the popup's step 0 opened (the welcome, or What's new); a popup record at step 0 only.
   welcomeShows: WelcomeShows | null;
   ended: RunEnding | null;
 }
@@ -224,7 +224,7 @@ export type RunAtOpen =
       check: 'none' | 'ended' | 'otherView' | 'elsewhere' | 'unknown';
     }
   | { action: 'resume'; check: 'resumed' }
-  | { action: 'reshowWelcome'; check: 'reshown' }
+  | { action: 'reshowHello'; check: 'reshown'; hello: RunHello }
   | { action: 'endUnanswered'; check: 'unanswered' }
   | { action: 'start'; check: 'started'; run: FirstRun; beginsSetup: boolean };
 
@@ -250,7 +250,7 @@ export async function runAtOpen(
     if (lock === 'unknown') return { action: 'nothing', check: 'unknown' };
     if (record.welcomeShows !== null) {
       return record.welcomeShows < MAX_WELCOME_SHOWS
-        ? { action: 'reshowWelcome', check: 'reshown' }
+        ? { action: 'reshowHello', check: 'reshown', hello: record.hello }
         : { action: 'endUnanswered', check: 'unanswered' };
     }
     return { action: 'resume', check: 'resumed' };
@@ -268,6 +268,9 @@ export async function runAtOpen(
       return start(newRun('full', 0, 'whatsNew'), false);
   } else if (isNeverSaved19User(stored, storedSessions)) {
     return start(newRun('popup', 0), true);
+  } else if (isUpgrader(stored, storedSessions)) {
+    // KAN-623. The toolbar opens the popup, so What's new greets them there; its Start runs the full view's.
+    return start(newRun('popup', 0, 'whatsNew'), false);
   }
   const check = isRunning ? 'otherView' : record === null ? 'none' : 'ended';
   return { action: 'nothing', check };

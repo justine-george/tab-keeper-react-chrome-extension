@@ -258,20 +258,37 @@ describe('runAtOpen', () => {
           0,
           free
         )
-      ).toEqual({ action: 'reshowWelcome', check: 'reshown' });
+      ).toEqual({ action: 'reshowHello', check: 'reshown', hello: 'welcome' });
     }
   );
 
-  test('Q7: the open after the fifth show ends it unanswered', async () => {
-    expect(
-      await runAtOpen(
-        'popup',
-        { firstRun: { ...newRun('popup', 0), welcomeShows: 5 } },
-        0,
-        free
-      )
-    ).toEqual({ action: 'endUnanswered', check: 'unanswered' });
-  });
+  test.each([1, 2, 3, 4])(
+    'KAN-623: the popup’s What’s new closed unanswered after %i shows shows again',
+    async (welcomeShows) => {
+      expect(
+        await runAtOpen(
+          'popup',
+          { firstRun: { ...newRun('popup', 0, 'whatsNew'), welcomeShows } },
+          2,
+          free
+        )
+      ).toEqual({ action: 'reshowHello', check: 'reshown', hello: 'whatsNew' });
+    }
+  );
+
+  test.each(['welcome', 'whatsNew'] as const)(
+    'Q7: the open after the fifth show of the popup’s %s ends it unanswered',
+    async (hello) => {
+      expect(
+        await runAtOpen(
+          'popup',
+          { firstRun: { ...newRun('popup', 0, hello), welcomeShows: 5 } },
+          2,
+          free
+        )
+      ).toEqual({ action: 'endUnanswered', check: 'unanswered' });
+    }
+  );
 
   test('R13: the full view replaces a running popup run on its first visit, at step 1 (the welcome was its hello)', async () => {
     expect(
@@ -317,7 +334,7 @@ describe('runAtOpen', () => {
     );
   });
 
-  test('an upgrader’s full view starts What’s new; their popup starts nothing', async () => {
+  test('KAN-623: an upgrader starts What’s new in either view; the popup’s is its step 0', async () => {
     expect(
       await runAtOpen('full', { cloudConsent: 'granted' }, 3, free)
     ).toEqual({
@@ -328,7 +345,12 @@ describe('runAtOpen', () => {
     });
     expect(
       await runAtOpen('popup', { cloudConsent: 'granted' }, 3, free)
-    ).toEqual({ action: 'nothing', check: 'none' });
+    ).toEqual({
+      action: 'start',
+      check: 'started',
+      run: newRun('popup', 0, 'whatsNew'),
+      beginsSetup: false,
+    });
   });
 
   test('Q8: a never-saved 1.9 user gets the new-install start in either view, and setup begins', async () => {

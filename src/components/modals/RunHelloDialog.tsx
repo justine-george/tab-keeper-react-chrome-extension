@@ -22,7 +22,7 @@ import {
 const TITLE_ID = 'run-hello-title';
 const BODY_ID = 'run-hello-body';
 
-// The full-view run's step 0: modal, its backdrop dims the page, and its cancel is Skip tutorial.
+// The full-view run's step 0, and an upgrader's popup step 0 (KAN-623): modal, its backdrop dims the page, and its cancel is Skip tutorial.
 export const RunHelloDialog: React.FC<{
   hello: RunHello;
   onStart: () => void;
@@ -61,10 +61,13 @@ export const RunHelloDialog: React.FC<{
     return cancel;
   }, [play, cancel]);
 
-  // Once an upgrader has seen What's new, no later open starts it again.
-  useEffect(() => {
+  // KAN-623. What's new counts as seen once answered: a popup closed on it shows it again (Q7).
+  const answered = (then: () => void) => () => {
     if (hello === 'whatsNew') dispatch(markWhatsNew2Seen());
-  }, [hello, dispatch]);
+    then();
+  };
+  const start = answered(onStart);
+  const skip = answered(onSkip);
 
   const replay = () => {
     const hero = dialogRef.current?.querySelector<HTMLElement>(
@@ -133,7 +136,7 @@ export const RunHelloDialog: React.FC<{
       aria-describedby={BODY_ID}
       onCancel={(e) => {
         e.preventDefault();
-        onSkip();
+        skip();
       }}
     >
       <h2 id={TITLE_ID} css={titleStyle}>
@@ -157,14 +160,10 @@ export const RunHelloDialog: React.FC<{
             )}
       </p>
       <div css={footStyle}>
-        <button type="button" css={buttons.link} onClick={onSkip}>
+        <button type="button" css={buttons.link} onClick={skip}>
           {t('Skip tutorial')}
         </button>
-        <button
-          type="button"
-          css={[buttons.filled, endStyle]}
-          onClick={onStart}
-        >
+        <button type="button" css={[buttons.filled, endStyle]} onClick={start}>
           {t('Start')}
         </button>
       </div>

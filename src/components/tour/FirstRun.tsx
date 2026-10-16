@@ -29,6 +29,7 @@ import {
   skipRun,
   stepRunBack,
   takeExampleForRun,
+  whatsNewGetStarted,
 } from '../../redux/firstRun';
 import { setRunSaveEcho } from '../../redux/slices/globalStateSlice';
 import { prefersReducedMotion } from '../modals/getStartedMotion';
@@ -120,6 +121,10 @@ export default function FirstRun() {
   }, [echo, dispatch]);
 
   const start = useCallback(() => dispatch(goToRunStep(1)), [dispatch]);
+  const startInFullView = useCallback(
+    () => void dispatch(whatsNewGetStarted()),
+    [dispatch]
+  );
   const goNext = useCallback(() => void dispatch(advanceRun()), [dispatch]);
   const goBack = useCallback(() => void dispatch(stepRunBack()), [dispatch]);
   const skip = useCallback(() => dispatch(skipRun()), [dispatch]);
@@ -133,6 +138,16 @@ export default function FirstRun() {
   if (run === null || kind === null) return null;
   if (kind === 'hello') {
     return <RunHelloDialog hello={run.hello} onStart={start} onSkip={skip} />;
+  }
+  // KAN-623. An upgrader's popup step 0 is What's new, not the welcome; Start goes on in the full view.
+  if (kind === 'welcome' && run.hello === 'whatsNew') {
+    return (
+      <RunHelloDialog
+        hello="whatsNew"
+        onStart={startInFullView}
+        onSkip={skip}
+      />
+    );
   }
   if (kind === 'welcome' || !isSettled || !isShown) return null;
   const plan = runStepPlan(run.view, kind, saveCard, run.sessionId);

@@ -14,9 +14,13 @@ import {
   setRunSaveEcho,
 } from '../../redux/slices/globalStateSlice';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
-import { recordFirstRun } from '../../redux/slices/settingsDataStateSlice';
+import {
+  recordFirstRun,
+  type SettingsData,
+} from '../../redux/slices/settingsDataStateSlice';
 import { firstOpenDialogs } from '../../redux/firstOpenDialogs';
 import { newRun, type FirstRun as Run } from '../../utils/functions/firstRun';
+import { OPEN_IN_TAB_MESSAGE } from '../../utils/functions/popOut';
 
 // The controller: Hello at full-view step 0, then the card each step names, with its buttons.
 
@@ -89,14 +93,93 @@ const runOf = (r: RenderWithProvidersResult) =>
   r.store.getState().settingsDataState.firstRun;
 const mark = () => document.querySelector('[data-coach-mark]');
 
+const WHATS_NEW = "What's new in Tab Keeper 2.0";
+
+// KAN-623. The popup's open-time queue for an upgrader, as App runs it.
+async function openPopupAs(storedAtOpen: Partial<SettingsData>) {
+  const r = await renderWithProviders(<FirstRun />, {
+    seed: SEED,
+    seedStore: (store) => store.dispatch(replaceState(buildContainer([OWN()]))),
+  });
+  if (storedAtOpen.firstRun) {
+    r.store.dispatch(recordFirstRun(storedAtOpen.firstRun));
+  }
+  const entry = firstOpenDialogs('popup', {
+    dispatch: r.store.dispatch,
+    storedAtOpen,
+    storedSessions: 1,
+    getState: r.store.getState,
+  }).find((e) => e.id === 'firstRun');
+  const open = await entry?.decide();
+  await act(async () => {
+    if (typeof open === 'function') open();
+    await Promise.resolve();
+  });
+  return r;
+}
+
 describe('the controller', () => {
-  test('the What’s new Hello marks itself seen', async () => {
+  test('KAN-623: the full view’s What’s new is seen on Start, not when it shows', async () => {
     history.replaceState(null, '', '?view=tab');
     const r = await renderAt(newRun('full', 0, 'whatsNew'));
-    expect(
-      screen.getByRole('dialog', { name: "What's new in Tab Keeper 2.0" })
-    ).toBeVisible();
+    expect(screen.getByRole('dialog', { name: WHATS_NEW })).toBeVisible();
+    expect(r.store.getState().settingsDataState.isWhatsNew2Seen).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
     expect(r.store.getState().settingsDataState.isWhatsNew2Seen).toBe(true);
+    expect(runOf(r)?.step).toBe(1);
+  });
+
+  test('KAN-623: an upgrader’s popup opens What’s new, not the welcome, unseen until answered', async () => {
+    const r = await openPopupAs({ cloudConsent: 'declined' });
+    expect(
+      await screen.findByRole('dialog', { name: WHATS_NEW })
+    ).toBeVisible();
+    expect(r.store.getState().globalState.isCloudConsentModalOpen).toBe(false);
+    expect(runOf(r)).toEqual(newRun('popup', 0, 'whatsNew'));
+    expect(r.store.getState().settingsDataState.isWhatsNew2Seen).toBe(false);
+  });
+
+  test('KAN-623: Start in the popup records the full view’s step 1 and asks for the tab', async () => {
+    const r = await openPopupAs({ cloudConsent: 'declined' });
+    fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
+    await waitFor(() =>
+      expect(runOf(r)).toEqual(newRun('full', 1, 'whatsNew'))
+    );
+    await waitFor(() =>
+      expect(r.chrome.sentMessages).toContainEqual(
+        expect.objectContaining({ type: OPEN_IN_TAB_MESSAGE })
+      )
+    );
+    expect(r.store.getState().settingsDataState.isWhatsNew2Seen).toBe(true);
+    expect(r.store.getState().globalState.isRunHere).toBe(false);
+  });
+
+  test('KAN-623: Skip tutorial in the popup ends the run skipped, with the replay note', async () => {
+    const r = await openPopupAs({ cloudConsent: 'declined' });
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Skip tutorial' })
+    );
+    expect(runOf(r)?.ended).toBe('skipped');
+    expect(r.store.getState().globalState.isReplayNoteOpen).toBe(true);
+    expect(r.store.getState().settingsDataState.isWhatsNew2Seen).toBe(true);
+    expect(r.store.getState().settingsDataState.isFullViewCalloutSeen).toBe(
+      true
+    );
+    expect(r.chrome.sentMessages).not.toContainEqual(
+      expect.objectContaining({ type: OPEN_IN_TAB_MESSAGE })
+    );
+  });
+
+  test('KAN-623: an unanswered What’s new comes back on the next popup open, counted, and not as the welcome', async () => {
+    const r = await openPopupAs({
+      cloudConsent: 'declined',
+      firstRun: { ...newRun('popup', 0, 'whatsNew'), welcomeShows: 2 },
+    });
+    expect(
+      await screen.findByRole('dialog', { name: WHATS_NEW })
+    ).toBeVisible();
+    expect(runOf(r)?.welcomeShows).toBe(3);
+    expect(r.store.getState().globalState.isCloudConsentModalOpen).toBe(false);
   });
 
   test('the welcome Hello leaves What’s new unseen', async () => {
