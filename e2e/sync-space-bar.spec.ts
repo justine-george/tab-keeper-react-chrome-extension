@@ -52,15 +52,18 @@ test('the bar reads what the sync would write, in the shipped build', async ({
   );
   const bytes = estimateFirestoreBytes(await stored(page));
   await expect(bar(page)).toHaveText(
-    `${formatSyncUsed(bytes, 'en')} of 1 MB sync space used`
+    `Your sessions use ${formatSyncUsed(bytes, 'en')} of the 1 MB sync limit.`
   );
-  await expect(
-    page.getByRole('meter', { name: 'Sync space used' })
-  ).toHaveAttribute(
+  const meter = page.getByRole('meter', { name: 'Sync limit used' });
+  await expect(meter).toHaveAttribute(
     'aria-valuenow',
     String(Math.round((bytes / FIRESTORE_MAX_DOCUMENT_BYTES) * 100))
   );
   await expect(bar(page)).toHaveAttribute('data-level', 'ok');
+  // KAN-625. About 1 kB, a tenth of a percent: drawn, as at least a 3px sliver.
+  expect(bytes / FIRESTORE_MAX_DOCUMENT_BYTES).toBeLessThan(0.005);
+  const fill = await meter.locator(':scope > div').boundingBox();
+  expect(fill?.width ?? 0).toBeGreaterThanOrEqual(3);
 });
 
 test('near the limit it turns red and says what to do', async ({

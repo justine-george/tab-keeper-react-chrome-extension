@@ -74,8 +74,9 @@ describe('clicking the header mark', () => {
     expect(runs[0].options).toEqual({ duration: 150, easing: 'ease-out' });
     expect(runs[1].keyframes).toEqual([
       { transform: 'translateX(0)' },
-      { transform: 'translateX(-36px)', offset: 0.45 },
-      { transform: 'translateX(-36px)', offset: 0.55 },
+      // KAN-627. The whole shutter slides, so 16: at 36 the plate would leave the disk.
+      { transform: 'translateX(-16px)', offset: 0.45 },
+      { transform: 'translateX(-16px)', offset: 0.55 },
       { transform: 'translateX(0)' },
     ]);
     expect(runs[1].options).toEqual({

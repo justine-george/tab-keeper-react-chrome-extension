@@ -10,7 +10,7 @@ import {
   twoFrames,
   waitForFullView,
 } from './fixtures/onboarding';
-import { seedSettings } from './fixtures/seed';
+import { buildContainer, buildSession, seedSettings } from './fixtures/seed';
 import { escapesPrevented, watchEscapes } from './fixtures/escapeProbe';
 import { expectReadable } from './fixtures/textContrast';
 import {
@@ -22,6 +22,7 @@ import {
   runCheck,
   runDrawn,
   seedRawSettingsIfAbsent,
+  seedSessionsIfAbsent,
   storedRun,
   watchRunDrawn,
 } from './fixtures/run';
@@ -457,6 +458,55 @@ test('the welcome opens with no sound; Get started plays the shutter click once'
   const full = await waitForFullView(context);
   await expect(compactViewCard(full)).toBeVisible();
   expectOneClick(await soundStarts(page));
+});
+
+// KAN-626. An upgrader: sessions kept, sync answered on 1.9, no 2.0 welcome yet.
+async function seedUpgrader(
+  context: import('@playwright/test').BrowserContext
+) {
+  await seedRawSettingsIfAbsent(context, {
+    cloudConsent: 'granted',
+    isAutoSync: false,
+    isPinGuideDismissed: true,
+    isFullViewCalloutSeen: true,
+  });
+  await seedSessionsIfAbsent(
+    context,
+    buildContainer([buildSession({ tabGroupId: 'kept', title: 'Kept' })])
+  );
+}
+
+test('KAN-626: the popup’s What’s new opens with no sound; Start plays the shutter click once', async ({
+  context,
+  extensionId,
+}) => {
+  await watchSounds(context);
+  await seedUpgrader(context);
+  const page = await openPopup(context, extensionId);
+  await expect(hello(page)).toHaveAccessibleName(
+    "What's new in Tab Keeper 2.0"
+  );
+  await queueDone(page);
+  expect(await soundStarts(page)).toEqual([]);
+  await hello(page).getByRole('button', { name: 'Start', exact: true }).click();
+  const full = await waitForFullView(context);
+  await expect(compactViewCard(full)).toBeVisible();
+  expectOneClick(await soundStarts(page));
+});
+
+test('KAN-626: the full view’s own What’s new Start opens no tab, and stays quiet', async ({
+  context,
+  extensionId,
+}) => {
+  await watchSounds(context);
+  await seedUpgrader(context);
+  const full = await openFullView(context, extensionId);
+  await expect(hello(full)).toHaveAccessibleName(
+    "What's new in Tab Keeper 2.0"
+  );
+  await hello(full).getByRole('button', { name: 'Start', exact: true }).click();
+  await expect(cardAt(full, 1)).toBeVisible();
+  expect(await soundStarts(full)).toEqual([]);
 });
 
 // KAN-513. The click as the shutter shuts, then a 400ms hold before the welcome leaves, in real time.

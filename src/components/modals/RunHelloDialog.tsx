@@ -16,9 +16,15 @@ import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
 import {
   canAnimate,
+  playGetStarted,
   playHelloEntrance,
   prefersReducedMotion,
+  type Motion,
 } from './getStartedMotion';
+import {
+  playShutterClick,
+  prepareShutterClick,
+} from '../../utils/functions/uiSound';
 
 const TITLE_ID = 'run-hello-title';
 const BODY_ID = 'run-hello-body';
@@ -36,6 +42,8 @@ export const RunHelloDialog: React.FC<{
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const startRef = useRef<HTMLButtonElement>(null);
+  const motion = useRef<Motion | null>(null);
   const loop = useHeroLoop();
   const { play, cancel } = loop;
   // Decided once, as the popup welcome's: a still hero shows its end frame.
@@ -69,8 +77,47 @@ export const RunHelloDialog: React.FC<{
     if (hello === 'whatsNew') dispatch(markWhatsNew2Seen());
     then();
   };
-  const start = answered(onStart);
-  const skip = answered(onSkip);
+  // KAN-626. A Start that opens the full view plays Get started's moment, then goes on; with no beat drawn, the click sounds at the press.
+  const startWithMoment = () => {
+    loop.finish();
+    const dialog = dialogRef.current;
+    const button = startRef.current;
+    if (
+      dialog === null ||
+      button === null ||
+      prefersReducedMotion() ||
+      !canAnimate(dialog)
+    ) {
+      playShutterClick();
+      onStart();
+      return;
+    }
+    motion.current = playGetStarted({
+      button,
+      shutter: dialog.querySelector('[data-hero-part="shutter"]'),
+      dialog,
+      onShutterStart: prepareShutterClick,
+      onShutterShut: playShutterClick,
+    });
+    // As Get started (R12): cut short or not, Start was chosen and goes on.
+    void motion.current.finished.then(() => {
+      motion.current = null;
+      onStart();
+    });
+  };
+  // The moment plays once; a press while it plays does nothing.
+  const start = () => {
+    if (motion.current !== null) return;
+    answered(startOpensFullView ? startWithMoment : onStart)();
+  };
+  // Skip tutorial or Esc during the moment cuts it short, and Start goes on.
+  const skip = () => {
+    if (motion.current !== null) {
+      motion.current.cancel();
+      return;
+    }
+    answered(onSkip)();
+  };
 
   const replay = () => {
     const hero = dialogRef.current?.querySelector<HTMLElement>(
@@ -173,6 +220,7 @@ export const RunHelloDialog: React.FC<{
           {t('Skip tutorial')}
         </button>
         <button
+          ref={startRef}
           type="button"
           css={[buttons.filled, endStyle, iconLabelStyle]}
           onClick={start}
