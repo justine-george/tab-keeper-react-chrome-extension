@@ -5,7 +5,8 @@ import type { ThemeColors } from '../../hooks/useThemeColors';
 import { DURATION } from '../../styles/scale';
 
 // A string, as ClickableRow's `style` takes. `ground` is what the title sits
-// on while hovered. The ghost reaches 6px past the text and never moves it.
+// on while hovered. The ghost is the button's own box, which is where the field
+// opens, so the caller's padding is the room around the text.
 export function renameOnClickStyle(
   COLORS: ThemeColors,
   ground: string
@@ -17,7 +18,7 @@ export function renameOnClickStyle(
     &::before {
       content: '';
       position: absolute;
-      inset: 2px -6px;
+      inset: 0;
       z-index: -1;
       border: 1px solid transparent;
       pointer-events: none;

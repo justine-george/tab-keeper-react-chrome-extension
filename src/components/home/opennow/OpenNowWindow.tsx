@@ -812,7 +812,7 @@ export default function OpenNowWindow({
                             onClick={() => startEditingGroup(item.group)}
                             buttonRef={titleFocus.refFor(item.group.groupId)}
                             style={
-                              'display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box; flex: 0 1 auto; max-width: 100%;' +
+                              'display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box; flex: 0 1 auto; max-width: 100%; padding-right: 4px;' +
                               renameOnClickStyle(COLORS, COLORS.HOVER_COLOR)
                             }
                           >
