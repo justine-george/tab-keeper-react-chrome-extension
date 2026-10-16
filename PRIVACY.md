@@ -32,7 +32,7 @@ Tab Keeper does not receive or store your name, email address, or Google account
 
 ### Uninstall feedback
 
-When you uninstall Tab Keeper, Chrome opens a short Google Form asking why. There are two copies of the form, with the same questions and different pictures; Tab Keeper picks one at random and remembers the pick on this device, so we can compare how many people answer each. The link that opens it includes your Tab Keeper version and the language Tab Keeper uses (or your browser's language, if Tab Keeper hasn't recorded one yet), and nothing else: no tabs, sessions, sync identifier, or account details. Opening the form sends that link to Google, like any web page request. Your answers are recorded only if you press Submit. The form is provided by Google and covered by the [Google Privacy Policy](https://policies.google.com/privacy).
+When you uninstall Tab Keeper, Chrome opens a short Google Form asking why. The link that opens it includes your Tab Keeper version and the language Tab Keeper uses (or your browser's language, if Tab Keeper hasn't recorded one yet), and nothing else: no tabs, sessions, sync identifier, or account details. Opening the form sends that link to Google, like any web page request. Your answers are recorded only if you press Submit. The form is provided by Google and covered by the [Google Privacy Policy](https://policies.google.com/privacy).
 
 ## How Tab Keeper uses information
 
