@@ -306,12 +306,14 @@ test.describe('Open', () => {
     const popup = await openPage(context, extensionId, 'index.html', POPUP);
     const before = await ids(serviceWorker);
     await pressOpen(popup);
-    // PREMISE: the lazy tabs loaded, the target not yet.
+    // PREMISE: the lazy tabs loaded, the target not yet. Sampled often: the state lasts under 2s.
     await expect
-      .poll(async () =>
-        (await windowsNow(serviceWorker))
-          .find((w) => !before.includes(w.id))
-          ?.tabs.map((t) => t.status)
+      .poll(
+        async () =>
+          (await windowsNow(serviceWorker))
+            .find((w) => !before.includes(w.id))
+            ?.tabs.map((t) => t.status),
+        { intervals: [100] }
       )
       .toEqual(['loading', 'complete', 'complete']);
     const tabs = await settledWindowWith(serviceWorker, 'Third', before, 3);
@@ -889,6 +891,26 @@ grantedTest.describe(
     });
     // Each restored tab as [title, pinned, grouped]: the saved order, a pin leading, a grouped tab unpinned.
     type Restored = [string, boolean, boolean][];
+    // KAN-630. Polled: groups land after the tabs have loaded, so a settled strip can still be ungrouped.
+    const expectRestoredAs = (
+      worker: Worker,
+      strip: TabFact[],
+      restored: Restored
+    ) =>
+      expect
+        .poll(async () => {
+          const grouped = await worker.evaluate(
+            async (ids) =>
+              Promise.all(
+                ids.map(
+                  async (id) => (await chrome.tabs.get(id)).groupId !== -1
+                )
+              ),
+            strip.map((t) => t.id)
+          );
+          return strip.map((t, i) => [t.title, t.pinned, grouped[i]]);
+        })
+        .toEqual(restored);
     const CASES: [
       string,
       tabData[],
@@ -958,17 +980,8 @@ grantedTest.describe(
           serviceWorker,
           oneWindow(tabs, active, groups)
         );
-        const grouped = await serviceWorker.evaluate(
-          async (ids) =>
-            Promise.all(
-              ids.map(async (id) => (await chrome.tabs.get(id)).groupId !== -1)
-            ),
-          strip.map((t) => t.id)
-        );
         // PREMISE: Chrome's own rules, measured on main: a group unpins its tabs, and pinned tabs lead.
-        expect(strip.map((t, i) => [t.title, t.pinned, grouped[i]])).toEqual(
-          restored
-        );
+        await expectRestoredAs(serviceWorker, strip, restored);
         await sessionsRow(popup)
           .getByRole('button', { name: 'Switch', exact: true })
           .click();
@@ -983,5 +996,41 @@ grantedTest.describe(
         expect(sessions.map((s) => s.tabGroupId)).toEqual(['s1']);
       });
     }
+
+    // KAN-630. The worker groups the tabs once they exist; held half a second, the strip has settled and is still ungrouped.
+    grantedTest(
+      'a group applied late: the pinned tab leading it ends grouped and unpinned',
+      async ({ context, extensionId, serviceWorker }) => {
+        await serviceWorker.evaluate(() => {
+          const real = chrome.tabs.group.bind(chrome.tabs);
+          // The restore awaits the promise form only (applyTabGroups).
+          Object.defineProperty(chrome.tabs, 'group', {
+            value: async (options: chrome.tabs.GroupOptions) => {
+              await new Promise((done) => setTimeout(done, 500));
+              return real(options);
+            },
+          });
+        });
+        const { tabs: strip } = await openOnly(
+          context,
+          extensionId,
+          serviceWorker,
+          oneWindow(
+            [
+              inGroup(savedTab('Pinned', true)),
+              inGroup(savedTab('Second')),
+              savedTab('Third'),
+            ],
+            'Third',
+            GROUP
+          )
+        );
+        await expectRestoredAs(serviceWorker, strip, [
+          ['Pinned', false, true],
+          ['Second', false, true],
+          ['Third', false, false],
+        ]);
+      }
+    );
   }
 );
