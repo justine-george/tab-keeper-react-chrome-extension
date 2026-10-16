@@ -152,7 +152,7 @@ describe('Recently deleted page (KAN-595)', () => {
     });
     await waitFor(() =>
       expect(
-        screen.getByText('Nothing deleted in the last 30 days.')
+        screen.getByText('No sessions deleted in the last 30 days.')
       ).toBeTruthy()
     );
     expect(RECENTLY_DELETED_KEY in chrome.localArea()).toBe(false);
@@ -170,7 +170,7 @@ describe('Recently deleted page (KAN-595)', () => {
   test('nothing deleted: the empty line, and no Empty', async () => {
     await renderPage();
     expect(
-      await screen.findByText('Nothing deleted in the last 30 days.')
+      await screen.findByText('No sessions deleted in the last 30 days.')
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Empty' })).toBeNull();
   });
@@ -187,7 +187,9 @@ describe('Recently deleted page (KAN-595)', () => {
     // A label, as every other Settings section titles itself.
     expect(screen.getByText('Recently deleted')).toBeTruthy();
     expect(
-      screen.getByText('Kept for 30 days, then permanently deleted.')
+      screen.getByText(
+        'Sessions deleted on this device are kept for 30 days, then permanently deleted.'
+      )
     ).toBeTruthy();
   });
 
