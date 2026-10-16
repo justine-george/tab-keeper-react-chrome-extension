@@ -147,11 +147,11 @@ describe('the controller', () => {
     expect(r.store.getState().settingsDataState.isWhatsNew2Seen).toBe(false);
   });
 
-  test('KAN-623: Start in the popup records the full view’s step 1 and asks for the tab', async () => {
+  test('KAN-623: Start in the popup records the full view’s compact-view card and asks for the tab', async () => {
     const r = await openPopupAs({ cloudConsent: 'declined' });
     fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
     await waitFor(() =>
-      expect(runOf(r)).toEqual(newRun('full', 1, 'whatsNew'))
+      expect(runOf(r)).toEqual(newRun('full', 0, 'whatsNew', 'popup'))
     );
     await waitFor(() =>
       expect(r.chrome.sentMessages).toContainEqual(
@@ -160,6 +160,17 @@ describe('the controller', () => {
     );
     expect(r.store.getState().settingsDataState.isWhatsNew2Seen).toBe(true);
     expect(r.store.getState().globalState.isRunHere).toBe(false);
+  });
+
+  test('KAN-623: with Full view as the default, Start records step 1: the toolbar opens the full view, so no card', async () => {
+    const r = await openPopupAs({ cloudConsent: 'declined' });
+    act(() => {
+      r.store.dispatch(setDefaultView('full'));
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
+    await waitFor(() =>
+      expect(runOf(r)).toEqual(newRun('full', 1, 'whatsNew', 'popup'))
+    );
   });
 
   test('KAN-623: Skip tutorial in the popup ends the run skipped, with the replay note', async () => {

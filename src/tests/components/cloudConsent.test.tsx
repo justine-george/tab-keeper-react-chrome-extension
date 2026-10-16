@@ -49,6 +49,7 @@ import {
   initialState as settingsInitial,
   settingsDataStateSlice,
   declineCloudConsent,
+  setDefaultView,
   toggleAutoSync,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
@@ -341,7 +342,23 @@ describe('the welcome (KAN-410)', () => {
     expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
   });
 
-  test('Get started lets the lock go, then records the full-view run at step 1 (no Hello), then asks for the full view (Review Focus 1)', async () => {
+  test('KAN-623: with Full view as the default, Get started records step 1: the toolbar opens the full view, so no card', async () => {
+    const user = userEvent.setup();
+    const { store, dialog } = await freshWelcome();
+    act(() => {
+      store.dispatch(setDefaultView('full'));
+    });
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Get started' })
+    );
+    await waitFor(() =>
+      expect(store.getState().settingsDataState.firstRun).toEqual(
+        newRun('full', 1, 'welcome', 'popup')
+      )
+    );
+  });
+
+  test('Get started lets the lock go, then records the full-view run on the compact-view card (no Hello), then asks for the full view (Review Focus 1, KAN-623)', async () => {
     const user = userEvent.setup();
     const { store, dialog, chrome } = await freshWelcome();
     await waitFor(() => expect(locks.held.has(RUN_LOCK)).toBe(true));
@@ -359,7 +376,7 @@ describe('the welcome (KAN-410)', () => {
     );
     await waitFor(() =>
       expect(store.getState().settingsDataState.firstRun).toEqual(
-        newRun('full', 1)
+        newRun('full', 0, 'welcome', 'popup')
       )
     );
     expect(heldAtRecord).toBe(false);

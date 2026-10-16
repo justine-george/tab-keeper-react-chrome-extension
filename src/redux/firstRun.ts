@@ -49,6 +49,7 @@ import {
   type FirstRun,
   type RunAtOpen,
   type RunEnding,
+  type RunHello,
   type RunStep,
   type RunView,
 } from '../utils/functions/firstRun';
@@ -61,6 +62,7 @@ import { storedSessionCount } from '../utils/functions/storedSessions';
 import { hasTabsToSave } from '../utils/functions/capture';
 import { isTabView } from '../utils/functions/viewMode';
 import { requestTabView } from '../utils/functions/popOut';
+import type { DefaultView } from '../utils/functions/defaultView';
 
 // The guided first run in this page: starting it, moving it, ending it.
 
@@ -209,20 +211,34 @@ export const showWelcome =
     dispatch(openCloudConsentModal({ variant: 'welcome' }));
   };
 
-// Get started: the welcome was the hello, so the run starts at step 1; the lock goes first so the new tab finds it free, and the record is written before the tab can end this popup.
+// KAN-623. From the popup's Hello: the full view opens on the compact-view card, unless the toolbar opens the full view too.
+const fullRunFromPopup = (
+  hello: RunHello,
+  defaultView: DefaultView
+): FirstRun => newRun('full', defaultView === 'full' ? 1 : 0, hello, 'popup');
+
+// Get started: the welcome was the hello; the lock goes first so the new tab finds it free, and the record is written before the tab can end this popup.
 export const welcomeGetStarted =
-  (): Thunk<Promise<void>> => async (dispatch) => {
+  (): Thunk<Promise<void>> => async (dispatch, getState) => {
     dispatch(closeCloudConsentModal());
     await dispatch(leaveRunHere());
-    dispatch(recordFirstRun(newRun('full', 1)));
+    dispatch(
+      recordFirstRun(
+        fullRunFromPopup('welcome', getState().settingsDataState.defaultView)
+      )
+    );
     await requestTabView();
   };
 
 // KAN-623. Start on the popup's What's new: as Get started, into the full view's upgrader run.
 export const whatsNewGetStarted =
-  (): Thunk<Promise<void>> => async (dispatch) => {
+  (): Thunk<Promise<void>> => async (dispatch, getState) => {
     await dispatch(leaveRunHere());
-    dispatch(recordFirstRun(newRun('full', 1, 'whatsNew')));
+    dispatch(
+      recordFirstRun(
+        fullRunFromPopup('whatsNew', getState().settingsDataState.defaultView)
+      )
+    );
     await requestTabView();
   };
 
