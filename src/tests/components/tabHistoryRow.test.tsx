@@ -11,8 +11,8 @@ import {
 } from '../../redux/slices/settingsCategoryStateSlice';
 import { setHasSessionsPermission } from '../../redux/slices/globalStateSlice';
 
-// KAN-280 Part D (spec O9b). "Bring back tab history when reopening" sits in
-// Settings > Sessions under Save Tab Groups. Like that row it is not a store
+// KAN-280 Part D (spec O9b). "Bring back tab history when reopening" sits
+// last in Settings > Sessions (KAN-645). Like Save Tab Groups it is not a store
 // toggle: the switch IS Chrome's optional `sessions` permission. On asks for
 // it, Off gives it back, and the pressed side shows what Chrome holds, read
 // from globalState.hasSessionsPermission (which App keeps current).
@@ -43,18 +43,18 @@ afterEach(async () => {
   await testI18n.changeLanguage('en');
 });
 
-describe('the tab-history row sits under Save Tab Groups', () => {
-  test('its own section, after Save Tab Groups and before Default view', async () => {
+describe('the tab-history row is the last in Sessions', () => {
+  test('its own section, after Keyboard shortcut', async () => {
     const { container } = await renderSessions(false);
 
     expect(pair()).toHaveAccessibleName(LABEL);
     expect(sectionLabels(container)).toEqual([
       'Default save',
       'Save Tab Groups',
-      LABEL,
       'Default view',
       'Pin Tab Keeper in new windows',
       'Keyboard shortcut',
+      LABEL,
     ]);
   });
 

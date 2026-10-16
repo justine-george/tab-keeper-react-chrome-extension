@@ -473,7 +473,7 @@ test.describe('the switch, in the popup and the tab view (KAN-280 Part D)', () =
       await expectPressed(row, 'Off');
       // Off is the truth, not a default drawn over a grant.
       expect(await holdsSessions(page)).toBe(false);
-      // Under Save Tab Groups, the pane's other switch.
+      // Below Save Tab Groups (last in the pane since KAN-645).
       const saveGroups = page.getByRole('group', { name: 'Save Tab Groups' });
       const above = await saveGroups.boundingBox();
       const below = await row.boundingBox();

@@ -42,10 +42,10 @@ describe('the Pin Tab Keeper in new windows row', () => {
     expect(sectionLabels(container)).toEqual([
       'Default save',
       'Save Tab Groups',
-      'Bring back tab history when reopening',
       'Default view',
       LABEL,
       'Keyboard shortcut',
+      'Bring back tab history when reopening',
     ]);
     expect(side('Off')).toHaveAttribute('aria-pressed', 'true');
     expect(side('On')).toHaveAttribute('aria-pressed', 'false');
