@@ -54,6 +54,7 @@ import {
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
 import { useMacKeys } from '../../../hooks/useIsMac';
+import { deleteKeyShortcutsFor } from '../../../utils/functions/deleteKey';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
 import { DURATION } from '../../../styles/scale';
 import {
@@ -67,10 +68,8 @@ export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
-  // KAN-592. A Mac's ⌫ is Backspace and its fn⌫ Delete; until Chrome says, the PC form.
-  const deleteKeyShortcuts = useMacKeys()
-    ? 'Backspace Meta+Backspace Delete'
-    : 'Delete Backspace';
+  // KAN-592. Until Chrome says Mac, the PC form.
+  const deleteKeyShortcuts = deleteKeyShortcutsFor(useMacKeys());
 
   // The scrolling element, so KAN-143's effect scopes its lookup to this list
   // rather than searching the whole document.

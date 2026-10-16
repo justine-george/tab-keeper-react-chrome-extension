@@ -31,10 +31,14 @@ export interface OverflowMenuItem {
    */
   checked?: boolean;
   /**
-   * KAN-592. A key that does this elsewhere, shown at the item's end. Decorative:
-   * the key works on the row it names, not in this menu, so it is not the item's aria-keyshortcuts.
+   * KAN-592, KAN-638. A key that runs this item while the menu is open, as a Mac menu's does.
+   * `hint` is shown at the item's end, hidden from its name; `ariaKeyShortcuts` names the keys.
    */
-  keyHint?: string;
+  shortcut?: {
+    hint: string;
+    ariaKeyShortcuts: string;
+    matches: (e: React.KeyboardEvent) => boolean;
+  };
 }
 
 // A ligature written as JSX text would bypass IconName, and a name missing from
@@ -332,7 +336,19 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
           role="menu"
           aria-label={ariaLabel}
           css={menuStyle}
-          onKeyDown={handleKeyDown}
+          onKeyDown={(e) => {
+            const item = items.find((i) => i.shortcut?.matches(e));
+            if (item === undefined) {
+              handleKeyDown(e);
+              return;
+            }
+            // Before the repeat check: a held key must not fall through to the browser either.
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.repeat) return;
+            close(false);
+            item.onSelect();
+          }}
         >
           {items.map((item, index) => (
             <button
@@ -340,6 +356,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
               type="button"
               role={isRadioGroup ? 'menuitemradio' : 'menuitem'}
               aria-checked={isRadioGroup ? !!item.checked : undefined}
+              aria-keyshortcuts={item.shortcut?.ariaKeyShortcuts}
               data-menu-item={item.key}
               ref={registerItem(index)}
               css={itemStyle(item.danger)}
@@ -378,7 +395,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
                 {item.icon}
               </span>
               {item.label}
-              {item.keyHint !== undefined && (
+              {item.shortcut !== undefined && (
                 <span
                   data-key-hint
                   aria-hidden="true"
@@ -388,7 +405,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
                     color: ${COLORS.LABEL_L1_COLOR};
                   `}
                 >
-                  {item.keyHint}
+                  {item.shortcut.hint}
                 </span>
               )}
               {isRadioGroup && (

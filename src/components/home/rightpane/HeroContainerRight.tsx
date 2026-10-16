@@ -59,6 +59,10 @@ import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
 import { useNewFirstWindowReceiver } from './useNewFirstWindowReceiver';
 import { selectRunHoldsDelete } from '../../../redux/firstRun';
+import {
+  deleteKeyShortcutsFor,
+  isDeleteKey,
+} from '../../../utils/functions/deleteKey';
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
@@ -136,9 +140,14 @@ export default function HeroContainerRight() {
 
   // KAN-413. Open and Switch on the tour's own sample wait for it, dimmed as Undo is.
   const isOpenBlocked = useIsOpenBlockedByTour(selectedTabGroup?.tabGroupId);
+  // KAN-592, KAN-638. The row's Delete key also deletes from the open ⋮; the PC form until Chrome says.
+  const isMac = useMacKeys();
+  const deleteKey = {
+    hint: isMac ? '⌫' : t('Del'),
+    ariaKeyShortcuts: deleteKeyShortcutsFor(isMac),
+    matches: isDeleteKey,
+  };
   // KAN-582. The tour's Delete step points at this ⋮, which then explains only (hard rule 2).
-  // KAN-592. The ⋮ names the key that deletes the focused row; the PC form until Chrome says.
-  const deleteKeyHint = useMacKeys() ? '⌫' : t('Del');
   const holdsDelete = useSelector(
     (state: RootState) =>
       selectedTabGroup !== undefined &&
@@ -668,7 +677,7 @@ export default function HeroContainerRight() {
                     label: t('Delete session'),
                     icon: 'delete',
                     danger: true,
-                    keyHint: deleteKeyHint,
+                    shortcut: deleteKey,
                     onSelect: () =>
                       void dispatch(deleteTabContainer(tabGroupId)),
                   },

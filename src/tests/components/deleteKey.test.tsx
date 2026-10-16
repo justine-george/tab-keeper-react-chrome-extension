@@ -23,6 +23,7 @@ import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 // KAN-592 (picks K1, F2). The Delete key deletes the session whose row has focus, as the
 // header ⋮'s Delete session does; the ⋮ shows the key beside that item.
+// KAN-638. With the ⋮ open, the same key runs that item, on every OS.
 
 const SHOWN = buildSession({ tabGroupId: 'shown', title: 'Roadmap' });
 const OTHER = buildSession({ tabGroupId: 'kyoto', title: 'Kyoto' });
@@ -174,4 +175,110 @@ describe('the ⋮ shows the key beside Delete session (K1)', () => {
       screen.getByRole('menuitem', { name: 'Copy all links' }).textContent
     ).toMatch(/Copy all links$/);
   });
+});
+
+describe('with the ⋮ open, the key runs Delete session (KAN-638)', () => {
+  const renderOpenMenu = async (platformOs: Os = 'mac') => {
+    const rendered = await renderWithProviders(<HeroContainerRight />, {
+      seed: { platformOs, windows: [{ id: 1 }] },
+      seedStore: (store) => {
+        store.dispatch(replaceState(buildContainer([SHOWN, OTHER])));
+        store.dispatch(selectTabContainer('shown'));
+      },
+    });
+    await act(async () => {
+      await chrome.runtime.getPlatformInfo();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    return rendered;
+  };
+  // Opening focuses the first item; the key lands there.
+  const focusedItem = () =>
+    screen.getByRole('menuitem', { name: 'Copy all links' });
+
+  describe.each(['mac', 'win', 'linux'] as const)('on %s', (os) => {
+    test.each([
+      ['⌫', { key: 'Backspace' }],
+      ['Delete', { key: 'Delete' }],
+      ['⌘⌫', { key: 'Backspace', metaKey: true }],
+    ])(
+      '%s deletes the shown session, says so and closes the menu',
+      async (_, init) => {
+        const { store } = await renderOpenMenu(os);
+
+        fireEvent.keyDown(focusedItem(), init);
+
+        await waitFor(() => expect(ids(store)).toEqual(['kyoto']));
+        expect(toastTexts(store.getState())).toEqual([
+          TOAST_MESSAGES.DELETE_TAB_CONTAINER_SUCCESS,
+        ]);
+        expect(screen.queryByRole('menu')).toBeNull();
+      }
+    );
+  });
+
+  test('a held key’s repeats delete nothing', async () => {
+    const { store } = await renderOpenMenu();
+
+    fireEvent.keyDown(focusedItem(), { key: 'Backspace', repeat: true });
+
+    expect(ids(store)).toEqual(['shown', 'kyoto']);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+  });
+
+  test.each([
+    ['Ctrl', { ctrlKey: true }],
+    ['Alt', { altKey: true }],
+    ['Shift', { shiftKey: true }],
+  ])(
+    '%s with the key deletes nothing and leaves the menu open',
+    async (_, mods) => {
+      const { store } = await renderOpenMenu();
+
+      fireEvent.keyDown(focusedItem(), { key: 'Backspace', ...mods });
+      fireEvent.keyDown(focusedItem(), { key: 'Delete', ...mods });
+
+      expect(ids(store)).toEqual(['shown', 'kyoto']);
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+    }
+  );
+
+  test('the arrows still walk the menu', async () => {
+    const { store } = await renderOpenMenu();
+
+    fireEvent.keyDown(focusedItem(), { key: 'ArrowDown' });
+
+    expect(
+      screen.getByRole('menuitem', { name: /^Export/ })
+    ).toHaveFocus();
+    expect(ids(store)).toEqual(['shown', 'kyoto']);
+  });
+
+  test('the key prevents the browser’s own handling', async () => {
+    await renderOpenMenu();
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'Backspace',
+      bubbles: true,
+      cancelable: true,
+    });
+    focusedItem().dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  test.each([
+    ['mac', 'Backspace Meta+Backspace Delete'],
+    ['win', 'Delete Backspace'],
+  ] as const)(
+    'Delete session names its keys on %s; other items name none',
+    async (os, keys) => {
+      await renderOpenMenu(os);
+
+      expect(
+        screen.getByRole('menuitem', { name: 'Delete session' })
+      ).toHaveAttribute('aria-keyshortcuts', keys);
+      expect(focusedItem()).not.toHaveAttribute('aria-keyshortcuts');
+    }
+  );
 });
