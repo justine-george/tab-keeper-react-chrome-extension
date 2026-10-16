@@ -1,5 +1,3 @@
-import { isDeepStrictEqual } from 'node:util';
-
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
@@ -79,53 +77,35 @@ const shape = ({ title, url, pinned, active }: TabFact) => ({
   active,
 });
 
-// The new window holding a tab titled `title`, once it holds `tabCount` tabs, every one loaded, and the strip reads the same for a second.
+// The new window holding a tab titled `title`, as first read with `tabCount` tabs, every one loaded.
 // KAN-630. The count, because a restore opens on its target alone and adds the rest after: a one-tab window is all loaded too.
+// Returned as read, not read again: a second read can catch a tab the first did not see.
 async function settledWindowWith(
   worker: Worker,
   title: string,
   before: number[],
   tabCount: number
 ): Promise<TabFact[]> {
-  const read = async () =>
-    (await windowsNow(worker)).find(
-      (w) => !before.includes(w.id) && w.tabs.some((t) => t.title === title)
-    )?.tabs;
-  // A Tab Keeper page retitles itself once its script runs: that is not the strip changing.
-  const steady = (tabs: TabFact[]) =>
-    tabs.map((t) =>
-      t.url.startsWith('chrome-extension://') ? { ...t, title: '' } : t
-    );
-  // The earliest read the latest one equals, and when it was taken; groups (which unpin) land after the tabs.
-  let since: { at: number; tabs: TabFact[] } | undefined;
   let settled: TabFact[] | undefined;
   await expect
-    .poll(
-      async () => {
-        const tabs = await read();
-        if (
-          tabs?.length !== tabCount ||
-          !tabs.every((t) => t.status === 'complete')
-        ) {
-          return false;
-        }
-        if (
-          since === undefined ||
-          !isDeepStrictEqual(steady(tabs), steady(since.tabs))
-        ) {
-          since = { at: Date.now(), tabs };
-          return false;
-        }
-        if (Date.now() - since.at < 1000) return false;
-        settled = tabs;
-        return true;
-      },
-      { intervals: [250], timeout: 15_000 }
-    )
+    .poll(async () => {
+      const tabs = (await windowsNow(worker)).find(
+        (w) => !before.includes(w.id) && w.tabs.some((t) => t.title === title)
+      )?.tabs;
+      if (
+        tabs?.length !== tabCount ||
+        !tabs.every((t) => t.status === 'complete')
+      ) {
+        return false;
+      }
+      settled = tabs;
+      return true;
+    })
     .toBe(true);
   // Set by the poll's passing read; the check keeps the type honest.
-  if (settled === undefined)
+  if (settled === undefined) {
     throw new Error(`no settled window holds ${title}`);
+  }
   return settled;
 }
 
@@ -275,7 +255,7 @@ test.describe('Open', () => {
     ]);
   });
 
-  // KAN-630. The worker fetches each lazy tab's favicon before it creates the tab; held well past the steady second, the window waits for them.
+  // KAN-630. The worker fetches each lazy tab's favicon before it creates the tab; held 3s, the target sits loaded and alone, and the window still waits for them.
   test('a restore that adds its lazy tabs late: the window settles with all of them', async ({
     context,
     extensionId,
