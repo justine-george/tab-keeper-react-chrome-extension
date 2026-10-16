@@ -15,7 +15,9 @@ import { escapesPrevented, watchEscapes } from './fixtures/escapeProbe';
 import { expectReadable } from './fixtures/textContrast';
 import {
   cardAt,
+  compactViewCard,
   hello,
+  pastCompactViewCard,
   replayNote,
   runCheck,
   runDrawn,
@@ -59,6 +61,7 @@ test('the welcome: hero, one line, the hint, Show me here and Get started (never
       step: 0,
       sessionId: null,
       hello: 'welcome',
+      helloIn: 'popup',
       welcomeShows: 1,
       ended: null,
     });
@@ -95,7 +98,7 @@ test('Esc is Show me here: the popup tour at its first step, never a skip, and t
 });
 
 // The race it once lost is cloudConsent.test's lock-then-record order; repeats belong to --repeat-each.
-test("Get started opens the full view on step 1's card, never Hello (Review Focus 1)", async ({
+test('Get started opens the full view on the compact-view card, then step 1, never Hello (Review Focus 1, KAN-623)', async ({
   context,
   extensionId,
 }) => {
@@ -106,10 +109,17 @@ test("Get started opens the full view on step 1's card, never Hello (Review Focu
     .click();
   const full = await waitForFullView(context);
   await runCheck(full, 'resumed');
-  await expect(cardAt(full, 1)).toBeVisible();
+  await expect(compactViewCard(full)).toBeVisible();
+  expect(await storedRun(full)).toMatchObject({
+    view: 'full',
+    step: 0,
+    helloIn: 'popup',
+    ended: null,
+  });
+  await pastCompactViewCard(full);
   await queueDone(full);
   // The CONTROL that Hello is drawn is first-run-open's 'a fresh profile whose first open is the full view gets Hello'.
-  expect(await runDrawn(full)).toEqual(['card']);
+  expect(await runDrawn(full)).toEqual(['card', 'compactView']);
   expect(await storedRun(full)).toMatchObject({
     view: 'full',
     step: 1,
@@ -289,7 +299,7 @@ test('the loop plays its beats once, all done by 2.4s', async ({
   expectHome(await chipsHome(welcome(page)));
 });
 
-test('Get started: the loop ends at once, the shutter beat and the exit play, and the full view opens on step 1', async ({
+test('Get started: the loop ends at once, the shutter beat and the exit play, and the full view opens on the compact-view card', async ({
   context,
   extensionId,
 }) => {
@@ -309,7 +319,8 @@ test('Get started: the loop ends at once, the shutter beat and the exit play, an
         .map((a) => a.playState);
     const before = hero();
     const button = [...document.querySelectorAll('dialog button')].find(
-      (b) => b.textContent === 'Get started'
+      // Its ⤢ is a hidden glyph, so the text ends with the label (KAN-623).
+      (b) => b.textContent?.endsWith('Get started') === true
     );
     if (!(button instanceof HTMLElement)) throw new Error('no Get started');
     button.click();
@@ -329,7 +340,7 @@ test('Get started: the loop ends at once, the shutter beat and the exit play, an
     })
     .toEqual([true, true]);
   const full = await waitForFullView(context);
-  await expect(cardAt(full, 1)).toBeVisible();
+  await expect(compactViewCard(full)).toBeVisible();
 });
 
 test('Esc during the beat completes Get started (R12)', async ({
@@ -342,7 +353,7 @@ test('Esc during the beat completes Get started (R12)', async ({
     .click();
   await page.keyboard.press('Escape');
   const full = await waitForFullView(context);
-  await expect(cardAt(full, 1)).toBeVisible();
+  await expect(compactViewCard(full)).toBeVisible();
 });
 
 test('reduced motion: a still hero at its end, nothing animates, and Get started goes straight on', async ({
@@ -371,7 +382,7 @@ test('reduced motion: a still hero at its end, nothing animates, and Get started
     .getByRole('button', { name: 'Get started', exact: true })
     .click();
   const full = await waitForFullView(context);
-  await expect(cardAt(full, 1)).toBeVisible();
+  await expect(compactViewCard(full)).toBeVisible();
   expect(await animationsIn(page)).toEqual([]);
 });
 
@@ -444,7 +455,7 @@ test('the welcome opens with no sound; Get started plays the shutter click once'
     .getByRole('button', { name: 'Get started', exact: true })
     .click();
   const full = await waitForFullView(context);
-  await expect(cardAt(full, 1)).toBeVisible();
+  await expect(compactViewCard(full)).toBeVisible();
   expectOneClick(await soundStarts(page));
 });
 

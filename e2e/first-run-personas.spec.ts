@@ -29,6 +29,7 @@ import {
   closeReplayNote,
   hello,
   nextTo,
+  pastCompactViewCard,
   replayNote,
   runCheck,
   runDrawn,
@@ -157,7 +158,7 @@ test('new install, Get started, each step done by hand; then setup, then the pin
     .click();
   const full = await waitForFullView(context);
   await expectNothingElseYet(full, serviceWorker, tests);
-  await expect(cardAt(full, 1)).toBeVisible();
+  await pastCompactViewCard(full);
   await nextTo(full, 2);
   const search = full.locator(
     '[data-pane="open-now"] [data-open-now-search] input'
@@ -201,7 +202,7 @@ test('new install, Get started, Next only (Use an example): the sample is gone a
     .click();
   const full = await waitForFullView(context);
   await expectNothingElseYet(full, serviceWorker, tests);
-  await expect(cardAt(full, 1)).toBeVisible();
+  await pastCompactViewCard(full);
   for (let step = 2; step <= 3; step++) await nextTo(full, step);
   await cardButton(full, 'Use an example').click();
   await expect(cardAt(full, 4)).toBeVisible();
@@ -338,10 +339,12 @@ test('Auto-Sync-off upgrader: no question, What’s new in the popup, then Start
     .click();
   const full = await waitForFullView(context);
   await tests.add(full);
+  await pastCompactViewCard(full);
   await upgraderRunFromStepOne(full);
   // The same observer, in the full view: the run's cards, and no second Hello.
   const drawn = await runDrawn(full);
   expect(drawn).toContain('card');
+  expect(drawn).toContain('compactView');
   expect(drawn).not.toContain('hello');
   await expectOnlyTheRunsOwn(full, serviceWorker, tests, NOTHING);
 });

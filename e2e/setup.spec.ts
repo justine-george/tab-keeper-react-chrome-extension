@@ -24,7 +24,7 @@ import { setPin, stubToolbarPin } from './fixtures/toolbarPin';
 import { expectReadable } from './fixtures/textContrast';
 import { contrast, rgbToHex } from './fixtures/pixels';
 import { localeStrings } from './fixtures/locales';
-import { finishFullRun } from './fixtures/run';
+import { finishFullRun, pastCompactViewCard } from './fixtures/run';
 import { pairFit } from './fixtures/pairFit';
 import { DARKENHEIMER_THEME } from '../src/hooks/useThemeColors';
 
@@ -114,6 +114,7 @@ test.describe('on a new install', () => {
     await stubToolbarPin(context, { pinned: false });
     await welcomeThen(context, extensionId, 'Get started');
     const full = await waitForFullView(context);
+    await pastCompactViewCard(full);
     await finishFullRun(full);
 
     await expect(stepHeading(full)).toHaveText('Pick a theme');

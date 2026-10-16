@@ -17,8 +17,10 @@ import {
   card,
   cardAt,
   cardButton,
+  compactViewCard,
   hello,
   nextTo,
+  pastCompactViewCard,
   replayNote,
   runCheck,
   runDrawn,
@@ -229,7 +231,7 @@ test('R13: a Show me here user’s first full-view visit starts the run at step 
 
 const WHATS_NEW = "What's new in Tab Keeper 2.0";
 
-test('KAN-623: an upgrader’s popup says What’s new; Start goes on in the full view at step 1, with no second Hello', async ({
+test('KAN-623: an upgrader’s popup says What’s new; Start opens the full view on the compact-view card under ⤡, then step 1, with no second Hello', async ({
   context,
   extensionId,
 }) => {
@@ -252,18 +254,72 @@ test('KAN-623: an upgrader’s popup says What’s new; Start goes on in the ful
     .click();
   const full = await waitForFullView(context);
   await runCheck(full, 'resumed');
-  await expect(cardAt(full, 1)).toBeVisible();
+  const compact = compactViewCard(full);
+  await expect(compact).toBeVisible();
+  await expect(compact).toContainText('Your compact view is still here.');
+  await expect(compact.getByRole('progressbar')).toHaveCount(0);
+  // Under ⤡: the ring is drawn around the Open compact view button.
+  const ring = await full.locator('[data-coach-ring]').boundingBox();
+  const button = await full
+    .getByRole('button', { name: 'Open compact view' })
+    .boundingBox();
+  if (ring === null || button === null) throw new Error('not drawn');
+  expect(ring.x).toBeLessThanOrEqual(button.x);
+  expect(ring.x + ring.width).toBeGreaterThanOrEqual(button.x + button.width);
+  expect(ring.y).toBeLessThanOrEqual(button.y);
+  expect(ring.y + ring.height).toBeGreaterThanOrEqual(button.y + button.height);
   expect(await storedRun(full)).toMatchObject({
     view: 'full',
-    step: 1,
+    step: 0,
     hello: 'whatsNew',
+    helloIn: 'popup',
     ended: null,
   });
   expect((await storedSettings(full)).isWhatsNew2Seen).toBe(true);
-  // CONTROL: the same observer, in the full view, saw the card and no Hello.
+  await pastCompactViewCard(full);
+  // CONTROL: the same observer, in the full view, saw the cards and no Hello.
   const drawn = await runDrawn(full);
   expect(drawn).toContain('card');
+  expect(drawn).toContain('compactView');
   expect(drawn).not.toContain('hello');
+});
+
+test('KAN-623: the full view reloaded on the compact-view card shows it again', async ({
+  context,
+  extensionId,
+}) => {
+  await seedRawSettingsIfAbsent(context, { ...ANSWERED });
+  await seedSessionsIfAbsent(context, KEPT);
+  const popup = await openPopup(context, extensionId);
+  await hello(popup)
+    .getByRole('button', { name: 'Start', exact: true })
+    .click();
+  const full = await waitForFullView(context);
+  await expect(compactViewCard(full)).toBeVisible();
+  await full.reload();
+  await runCheck(full, 'resumed');
+  await expect(compactViewCard(full)).toBeVisible();
+  await expect(hello(full)).toHaveCount(0);
+});
+
+test('KAN-623: at the narrowest full view the compact-view card stays on screen', async ({
+  context,
+  extensionId,
+}) => {
+  await seedRawSettingsIfAbsent(context, { ...ANSWERED });
+  await seedSessionsIfAbsent(context, KEPT);
+  const popup = await openPopup(context, extensionId);
+  await hello(popup)
+    .getByRole('button', { name: 'Start', exact: true })
+    .click();
+  const full = await waitForFullView(context);
+  await full.setViewportSize({ width: 480, height: 640 });
+  await expect(compactViewCard(full)).toBeVisible();
+  const box = await compactViewCard(full).boundingBox();
+  if (box === null) throw new Error('no card');
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(480);
+  expect(box.y + box.height).toBeLessThanOrEqual(640);
 });
 
 test('KAN-623: an upgrader who skips What’s new in the popup gets no Hello in the full view', async ({
@@ -322,7 +378,10 @@ test('an upgrader who opens the full view first gets What’s new there, once', 
     "What's new in Tab Keeper 2.0"
   );
   // CONTROL: the same observer saw the full view's Hello.
-  expect(await runDrawn(full)).toContain('hello');
+  const drawn = await runDrawn(full);
+  expect(drawn).toContain('hello');
+  // KAN-623. The card is only for a run that began in the popup.
+  expect(drawn).not.toContain('compactView');
   await hello(full)
     .getByRole('button', { name: 'Skip tutorial', exact: true })
     .click();

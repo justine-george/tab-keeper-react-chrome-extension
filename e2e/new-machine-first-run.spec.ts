@@ -17,6 +17,7 @@ import {
   cardButton,
   closeReplayNote,
   finishFullRun,
+  pastCompactViewCard,
 } from './fixtures/run';
 import { saveRowSaveAll } from './fixtures/sessionActions';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
@@ -323,6 +324,7 @@ test.describe("a new machine's first run picks up the other machine's sessions (
         .getByRole('button', { name: 'Get started', exact: true })
         .click();
       const full = await waitForFullView(b.profile.context);
+      await pastCompactViewCard(full);
       // The example is the run's session, and the run's end removes it.
       await finishFullRun(full);
       await expect(setup(full)).toBeVisible();
