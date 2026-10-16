@@ -188,7 +188,7 @@
   "ReplaceDeletesOther": "Substituir exclui as {{count}} sessões neste dispositivo e em todos os dispositivos sincronizados com ele, e depois carrega o backup. Isso não pode ser desfeito.",
   "Merge sessions": "Mesclar sessões",
   "Replace sessions": "Substituir sessões",
-  "Cloud data deleted. Auto Sync is off on this device.": "Dados da nuvem excluídos. A sincronização automática está desativada neste dispositivo.",
+  "Cloud data deleted. Sync is off on this device.": "Dados da nuvem excluídos. A sincronização está desativada neste dispositivo.",
   "Couldn't delete cloud data. Check your connection and try again.": "Não foi possível excluir os dados da nuvem. Verifique sua conexão e tente de novo.",
   "Not saved: storage is full. Delete some sessions to make room.": "Não salvo: o armazenamento está cheio. Exclua algumas sessões para liberar espaço.",
   "Last synced {{time}}": "Última sincronização: {{time}}",

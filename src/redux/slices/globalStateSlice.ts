@@ -61,10 +61,10 @@ import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
 import { mintDeviceIdIfNone } from '../deviceId';
 import {
   cloudSyncAllowed,
+  declineCloudConsent,
   forgetLastSync,
   recordSyncedNow,
   recordValueMoment,
-  setAutoSync,
 } from './settingsDataStateSlice';
 
 export interface Global {
@@ -789,7 +789,8 @@ export const deleteCloudData = createAsyncThunk(
       );
       return;
     }
-    thunkAPI.dispatch(setAutoSync(false));
+    // KAN-632. Not Auto Sync alone: with the yes kept, one cloud-button press re-uploaded everything unasked.
+    thunkAPI.dispatch(declineCloudConsent());
     thunkAPI.dispatch(forgetLastSync());
     thunkAPI.dispatch(setSyncStatus('idle'));
     thunkAPI.dispatch(

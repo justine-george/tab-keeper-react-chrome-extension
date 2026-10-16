@@ -178,7 +178,7 @@
   "ReplaceDeletesOther": "「取代」會刪除這部裝置和所有與它同步的裝置上的 {{count}} 個工作階段，然後載入備份。這項操作無法復原。",
   "Merge sessions": "合併工作階段",
   "Replace sessions": "取代工作階段",
-  "Cloud data deleted. Auto Sync is off on this device.": "已刪除雲端資料。這部裝置上的自動同步已關閉。",
+  "Cloud data deleted. Sync is off on this device.": "已刪除雲端資料。這部裝置上的同步已關閉。",
   "Couldn't delete cloud data. Check your connection and try again.": "無法刪除雲端資料。請檢查網路連線後再試一次。",
   "Not saved: storage is full. Delete some sessions to make room.": "未儲存：儲存空間已滿。請刪除部分工作階段以釋出空間。",
   "Last synced {{time}}": "上次同步：{{time}}",

@@ -183,7 +183,7 @@
   "ReplaceDeletesOther": "Ersetzen löscht die {{count}} Sitzungen auf diesem Gerät und auf jedem damit synchronisierten Gerät und lädt dann die Sicherung. Das kann nicht rückgängig gemacht werden.",
   "Merge sessions": "Sitzungen zusammenführen",
   "Replace sessions": "Sitzungen ersetzen",
-  "Cloud data deleted. Auto Sync is off on this device.": "Cloud-Daten gelöscht. Auto-Sync ist auf diesem Gerät aus.",
+  "Cloud data deleted. Sync is off on this device.": "Cloud-Daten gelöscht. Sync ist auf diesem Gerät aus.",
   "Couldn't delete cloud data. Check your connection and try again.": "Cloud-Daten konnten nicht gelöscht werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
   "Not saved: storage is full. Delete some sessions to make room.": "Nicht gespeichert: Der Speicher ist voll. Löschen Sie einige Sitzungen, um Platz zu schaffen.",
   "Last synced {{time}}": "Zuletzt synchronisiert {{time}}",
