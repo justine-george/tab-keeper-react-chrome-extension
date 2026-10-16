@@ -78,9 +78,11 @@ export default function DefaultSaveChoice({
     place-items: center;
     width: 58px;
   `;
+  // Flex, as home's trigger: the 32px ⋮ box overflows the strip evenly; grid's auto column grew right (KAN-647).
   const dotsStyle = css`
-    display: grid;
-    place-items: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     width: 28px;
     border-left: 1px solid ${COLORS.BORDER_COLOR};
   `;
