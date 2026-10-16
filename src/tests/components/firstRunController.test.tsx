@@ -429,6 +429,9 @@ describe('KAN-623: the compact-view card', () => {
     await renderCard();
     const card = await screen.findByRole('dialog', { name: COMPACT_TEXT });
     expect(card).toHaveAttribute('data-coach-kind', 'compactView');
+    await waitFor(() =>
+      expect(card).toHaveAttribute('data-coach-side', 'below')
+    );
     expect(screen.queryByRole('dialog', { name: WHATS_NEW })).toBeNull();
     expect(within(card).queryByRole('progressbar')).toBeNull();
     expect(within(card).queryByRole('button', { name: 'Back' })).toBeNull();
@@ -465,8 +468,14 @@ describe('KAN-623: the compact-view card', () => {
   });
 
   test('no ⤡ before Chrome 127: the short text', async () => {
+    // The header draws no ⤡ here.
+    document.querySelector('[data-tour-anchor="compact"]')?.remove();
     await renderCard({ hasOpenPopup: false });
     await waitFor(() => expect(mark()).toHaveTextContent(COMPACT_SHORT));
+    // Placed where step 9's card sits, not waiting on an anchor that never comes.
+    await waitFor(() =>
+      expect(mark()).toHaveAttribute('data-coach-side', 'free')
+    );
     expect(mark()).not.toHaveTextContent('switch back');
   });
 
@@ -476,7 +485,12 @@ describe('KAN-623: the compact-view card', () => {
     act(() => {
       r.store.dispatch(setDefaultView('full'));
     });
+    // The header takes ⤡ away with it.
+    document.querySelector('[data-tour-anchor="compact"]')?.remove();
     expect(mark()).toHaveTextContent(COMPACT_SHORT);
+    await waitFor(() =>
+      expect(mark()).toHaveAttribute('data-coach-side', 'free')
+    );
   });
 
   test('a run the full view started itself shows the Hello, not the card', async () => {
