@@ -348,6 +348,30 @@ describe('Undo in the window, tab and tab group delete toasts (KAN-640, KAN-641)
     expect(windowsOf(store)?.[0].tabIds).toEqual(['g1', 'g2']);
   });
 
+  test('a delete that empties the session: Undo brings the whole session back', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderTrip();
+    const before = windowsOf(store);
+    await act(async () => {
+      await store.dispatch(
+        deleteWindow({ tabGroupId: 'trip', windowId: 'w2' })
+      );
+    });
+    await act(async () => {
+      await store.dispatch(
+        deleteWindow({ tabGroupId: 'trip', windowId: 'w1' })
+      );
+    });
+    // PREMISE: the last window took the session with it.
+    expect(windowsOf(store)).toBeUndefined();
+    expect(offers(store)).toEqual([false, true]);
+
+    await user.click(undoButtons()[0]);
+
+    // One step: the session, holding the window the first delete left.
+    expect(windowsOf(store)).toEqual(before?.slice(0, 1));
+  });
+
   test('a delete that found nothing records no step, so it offers no Undo', async () => {
     const { store } = await renderTrip();
     await act(async () => {
