@@ -11,6 +11,8 @@ export const MARK_CLICK = {
   PRESS_MS: 150,
   SHUTTER_MS: 300,
   SHUTTER_DELAY_MS: 60,
+  // KAN-627. The whole shutter slides; further than 16 and it leaves the disk.
+  SHUTTER_PX: -16,
 } as const;
 
 // The shutter's two moments, as Get started has them (KAN-513): ready the click as it starts, play it as it shuts.
@@ -41,8 +43,14 @@ export function playMarkClick(
       : shutter.animate(
           [
             { transform: 'translateX(0)' },
-            { transform: 'translateX(-36px)', offset: 0.45 },
-            { transform: 'translateX(-36px)', offset: 0.55 },
+            {
+              transform: `translateX(${MARK_CLICK.SHUTTER_PX}px)`,
+              offset: 0.45,
+            },
+            {
+              transform: `translateX(${MARK_CLICK.SHUTTER_PX}px)`,
+              offset: 0.55,
+            },
             { transform: 'translateX(0)' },
           ],
           {
