@@ -424,6 +424,53 @@ describe('a request to show a dialog in the full view (KAN-7)', () => {
     expect(calls.announces).toEqual([]);
   });
 
+  test('KAN-624: the run, asked of an open full view, is announced to it', async () => {
+    const { api, calls } = makeTabApi({
+      matches: [fakeTab({ id: 7, windowId: 3 })],
+    });
+    await openOrFocusTabView(api, { ...request(5), show: 'run' });
+    expect(calls.updates).toEqual([{ tabId: 7, props: { active: true } }]);
+    expect(calls.announces).toEqual([
+      { type: SHOW_IN_FULL_VIEW_MESSAGE, tabId: 7, show: 'run' },
+    ]);
+  });
+
+  test('KAN-624: the run never rides on a new full view’s address; its open resumes it', async () => {
+    const { api, calls } = makeTabApi();
+    await openOrFocusTabView(api, { ...request(5), show: 'run' });
+    expect(calls.creates).toEqual([
+      {
+        url: 'chrome-extension://x/index.html?view=tab',
+        index: 0,
+        windowId: 5,
+        active: true,
+      },
+    ]);
+  });
+
+  test('KAN-624: a stub asked for the run is sent to the plain full view', async () => {
+    const { api, calls } = makeTabApi({
+      stubMatches: [
+        fakeTab({
+          id: 9,
+          windowId: 5,
+          url: 'chrome-extension://x/pinned.html',
+        }),
+      ],
+    });
+    await openOrFocusTabView(api, { ...request(5), show: 'run' });
+    expect(calls.updates).toEqual([
+      {
+        tabId: 9,
+        props: {
+          active: true,
+          url: 'chrome-extension://x/index.html?view=tab',
+        },
+      },
+    ]);
+    expect(calls.announces).toEqual([]);
+  });
+
   test('no page listening is logged, never thrown', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { api } = makeTabApi({

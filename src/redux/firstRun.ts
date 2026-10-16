@@ -227,7 +227,7 @@ export const welcomeGetStarted =
         fullRunFromPopup('welcome', getState().settingsDataState.defaultView)
       )
     );
-    await requestTabView();
+    await requestTabView('run');
   };
 
 // KAN-623. Start on the popup's What's new: as Get started, into the full view's upgrader run.
@@ -239,7 +239,7 @@ export const whatsNewGetStarted =
         fullRunFromPopup('whatsNew', getState().settingsDataState.defaultView)
       )
     );
-    await requestTabView();
+    await requestTabView('run');
   };
 
 // Show me here: the popup run, from its save card.

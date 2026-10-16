@@ -16,14 +16,16 @@ import { STUB_PATH, TAB_VIEW_PATH } from './pinnedTabKeeper';
 
 export const OPEN_IN_TAB_MESSAGE = 'openInTab';
 
-// What the full view is asked to show as it opens or is focused: a dialog, or (KAN-579) a backup file step.
-export type FullViewShow = 'setup' | 'pinGuide' | 'saveBackup' | 'loadBackup';
+// What the full view is asked to show as it opens or is focused: a dialog, (KAN-579) a backup file step, or (KAN-624) the run.
+export type FullViewShow =
+  'setup' | 'pinGuide' | 'saveBackup' | 'loadBackup' | 'run';
 
 const FULL_VIEW_SHOWS: readonly unknown[] = [
   'setup',
   'pinGuide',
   'saveBackup',
   'loadBackup',
+  'run',
 ] satisfies FullViewShow[];
 
 export const isFullViewShow = (value: unknown): value is FullViewShow =>
@@ -176,6 +178,8 @@ export async function openOrFocusTabView(
     };
     const url = api.getURL(TAB_VIEW_PATH);
     const stubUrl = api.getURL(STUB_PATH);
+    // KAN-624. Only a focused full view is told about the run; any page that opens resumes it itself.
+    const addressShow = request.show === 'run' ? undefined : request.show;
     // Tab views before stubs, so a loaded one wins within a window.
     // chrome.tabs.Tab's `id` is optional; a match with no id is nothing
     // update()/focusWindow() can act on, so it counts as no match.
@@ -197,7 +201,7 @@ export async function openOrFocusTabView(
         // A stub cannot hear the announcement; send it to the full view with the dialog.
         await api.update(existing.id, {
           active: true,
-          url: `${url}&show=${request.show}`,
+          url: addressShow === undefined ? url : `${url}&show=${addressShow}`,
         });
         await api.focusWindow(existing.windowId);
         await remember({ tabId: existing.id, windowId: existing.windowId });
@@ -217,7 +221,7 @@ export async function openOrFocusTabView(
     }
 
     const created = await api.create({
-      url: request.show === undefined ? url : `${url}&show=${request.show}`,
+      url: addressShow === undefined ? url : `${url}&show=${addressShow}`,
       index: 0,
       ...(request.windowId === undefined ? {} : { windowId: request.windowId }),
       active: true,
