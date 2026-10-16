@@ -2390,11 +2390,30 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   );
 
   return (
-    <div ref={containerRef}>
+    <div
+      ref={containerRef}
+      css={
+        handleSelector && !disabled
+          ? handleCursorStyle(handleSelector)
+          : undefined
+      }
+    >
       <DragContext.Provider value={scopes}>{children}</DragContext.Provider>
     </div>
   );
 };
+
+// KAN-639. A handle shows the drag it starts: the hand, closed while pressed.
+// Only while this area can start one, and not in a <button>, whose click is
+// the row's (Open now's Go to window). Children with their own cursor keep it.
+const handleCursorStyle = (handleSelector: string) => css`
+  & ${handleSelector}:not(button *) {
+    cursor: grab;
+  }
+  & ${handleSelector}:not(button *):active {
+    cursor: grabbing;
+  }
+`;
 
 // KAN-350. A phantom row's content is invisible and takes no pointer; its
 // box, and so its footprint, is untouched. Everything but the two slots: the
