@@ -997,7 +997,7 @@ grantedTest.describe(
       });
     }
 
-    // KAN-630. The worker groups the tabs once they exist; held half a second, the strip has settled and is still ungrouped.
+    // KAN-630. The worker groups the tabs once they exist; held 2s, the strip has settled and is still ungrouped.
     grantedTest(
       'a group applied late: the pinned tab leading it ends grouped and unpinned',
       async ({ context, extensionId, serviceWorker }) => {
@@ -1006,7 +1006,7 @@ grantedTest.describe(
           // The restore awaits the promise form only (applyTabGroups).
           Object.defineProperty(chrome.tabs, 'group', {
             value: async (options: chrome.tabs.GroupOptions) => {
-              await new Promise((done) => setTimeout(done, 500));
+              await new Promise((done) => setTimeout(done, 2000));
               return real(options);
             },
           });
