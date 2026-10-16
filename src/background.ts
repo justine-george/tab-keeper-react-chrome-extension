@@ -30,6 +30,7 @@ import { isReopenPreferringHistoryRequest } from './utils/functions/reopenReques
 import { restoreSession } from './utils/functions/restoreSession';
 import { readUiLanguage } from './utils/functions/uiLanguage';
 import {
+  UNINSTALL_SURVEY_FORM_KEY,
   UNINSTALL_SURVEY_LANGUAGE_KEY,
   uninstallSurveyInOrder,
 } from './utils/functions/uninstallSurvey';
@@ -99,12 +100,20 @@ const applyUninstallSurvey = uninstallSurveyInOrder(
     setUninstallURL: (url) => chrome.runtime.setUninstallURL(url),
     version: () => chrome.runtime.getManifest().version,
     uiLanguage: readUiLanguage,
+    // Called through, so a spec can stub the draw in the worker.
+    random: () => Math.random(),
   },
   {
-    read: () =>
+    readLanguage: () =>
       chrome.storage.local
         .get(UNINSTALL_SURVEY_LANGUAGE_KEY)
         .then((items) => items[UNINSTALL_SURVEY_LANGUAGE_KEY]),
+    readForm: () =>
+      chrome.storage.local
+        .get(UNINSTALL_SURVEY_FORM_KEY)
+        .then((items) => items[UNINSTALL_SURVEY_FORM_KEY]),
+    writeForm: (form) =>
+      chrome.storage.local.set({ [UNINSTALL_SURVEY_FORM_KEY]: form }),
   }
 );
 // The newest apply settles last (they queue), so this is the URL Chrome holds.
