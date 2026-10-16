@@ -69,6 +69,13 @@ describe('takeShowFromAddress', () => {
     expect(window.location.search).toBe('?view=tab');
   });
 
+  // KAN-624. The worker never puts the run on an address; one there would replace the whole open.
+  test('the run on the address is taken off and ignored', () => {
+    history.replaceState(null, '', '?view=tab&show=run');
+    expect(takeShowFromAddress()).toBeNull();
+    expect(window.location.search).toBe('?view=tab');
+  });
+
   test('no request leaves the address alone', () => {
     history.replaceState(null, '', '?view=tab');
     expect(takeShowFromAddress()).toBeNull();
@@ -236,8 +243,8 @@ describe('showInFullView: the run', () => {
 
   test('the record the popup wrote is taken in and shown here, before its storage event', async () => {
     const { store } = makeTestStore();
-    // PREMISE: this page has not seen the popup's record.
-    expect(selectRunHere(store.getState())).toBeNull();
+    // PREMISE: this page holds no record yet; the popup's is only on disk.
+    expect(store.getState().settingsDataState.firstRun).toBeNull();
     popupWrote(RUN);
     store.dispatch(showInFullView('run'));
     await waitFor(() =>
@@ -293,9 +300,11 @@ describe('showInFullView: the run', () => {
   test('a record that is not a running full-view run: nothing changes', async () => {
     const { store } = makeTestStore();
     await store.dispatch(openSettingsPage(SettingsCategory.HELP));
-    popupWrote({ ...RUN, view: 'popup' });
+    // A valid record of the popup's run (step 0 there would need welcomeShows).
+    popupWrote({ ...RUN, view: 'popup', step: 1 });
     store.dispatch(showInFullView('run'));
-    await act(async () => {});
+    // Past every microtask the lock query and the thunk's awaits would take.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
     expect(store.getState().globalState.isRunHere).toBe(false);
     expect(store.getState().globalState.isSettingsPage).toBe(true);
     expect(document.documentElement.dataset.runCheck).toBeUndefined();
