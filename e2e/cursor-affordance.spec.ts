@@ -431,7 +431,8 @@ test.describe('the session header title shows a text caret (KAN-394)', () => {
 });
 
 // KAN-407. A press on a drag-only area starts a drag and nothing else, so it
-// shows the arrow; everything clickable beside it keeps its own cursor.
+// shows no pointer; everything clickable beside it keeps its own cursor. The
+// window body shows the arrow; a header, the handle, shows the hand (KAN-639).
 
 /** The viewport point midway between a control's right edge and the next control (or the row's right edge). */
 async function emptyBesideTitle(
@@ -452,7 +453,7 @@ async function emptyBesideTitle(
 }
 
 for (const view of VIEWS) {
-  test.describe(`drag-only window areas show the arrow, ${view} (KAN-407)`, () => {
+  test.describe(`drag-only window areas show no pointer, ${view} (KAN-407)`, () => {
     const S1 = session('S1', 'Windows', [
       savedWindow('w1', 'Short', 2, { width: 800, height: 600 }),
     ]);
@@ -473,7 +474,7 @@ for (const view of VIEWS) {
       );
     });
 
-    test('the title row beside a short title shows the arrow', async ({
+    test('the title row beside a short title shows the hand (KAN-639)', async ({
       context,
       extensionId,
     }) => {
@@ -486,7 +487,7 @@ for (const view of VIEWS) {
         head.locator('button', { hasText: 'Short' })
       );
 
-      expect(await cursorAt(page, gap.x, gap.y)).toBe('default');
+      expect(await cursorAt(page, gap.x, gap.y)).toBe('grab');
     });
 
     test('CONTROLS: tab row, title text, Open', async ({
@@ -535,7 +536,7 @@ for (const view of VIEWS) {
 }
 
 grantedTest.describe(
-  'drag-only group band area shows the arrow (KAN-407)',
+  'drag-only group band area shows the hand (KAN-407, KAN-639)',
   () => {
     const GROUPED = session('S1', 'Grouped', [
       groupedWindow('gw', 'Grouped', [
@@ -553,7 +554,7 @@ grantedTest.describe(
           const band = bandHandle(page, 'gr');
           const title = band.locator('button', { hasText: 'Hi' });
           const gap = await emptyBesideTitle(band, title);
-          expect(await cursorAt(page, gap.x, gap.y)).toBe('default');
+          expect(await cursorAt(page, gap.x, gap.y)).toBe('grab');
 
           const text = title.getByText('Hi', { exact: true });
           await text.hover();
@@ -575,6 +576,100 @@ grantedTest.describe(
     }
   }
 );
+
+// KAN-639. A header only the drag uses shows the hand, closed while pressed,
+// and the arrow while its drag is off (a search, KAN-385).
+test.describe('a saved window header shows the hand (KAN-639)', () => {
+  const S1 = session('S1', 'Windows', [
+    savedWindow('w1', 'Short', 2, { width: 800, height: 600 }),
+  ]);
+  const titleOf = (page: Page) =>
+    header(page, 'w1').locator('button', { hasText: 'Short' });
+  const glyph = (page: Page) =>
+    header(page, 'w1').getByText('web_asset', { exact: true });
+
+  test('the window glyph shows the hand', async ({ context, extensionId }) => {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: [S1],
+    });
+    expect(await cursorAtCentreOf(page, glyph(page))).toBe('grab');
+  });
+
+  test('a press that has not moved shows the closed hand', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: [S1],
+    });
+    const gap = await emptyBesideTitle(header(page, 'w1'), titleOf(page));
+    await page.mouse.move(gap.x, gap.y);
+    await page.mouse.down();
+    // PREMISE: still a press, not a drag, so App.css's drag rule is not what shows.
+    await expect(page.locator('html[data-dragging]')).toHaveCount(0);
+    expect(await cursorAt(page, gap.x, gap.y)).toBe('grabbing');
+    await page.mouse.up();
+    expect(await cursorAt(page, gap.x, gap.y)).toBe('grab');
+  });
+
+  test('under a search, where the window drag is off, it shows the arrow', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: [S1],
+    });
+    // CONTROL: the same spot before the search.
+    let gap = await emptyBesideTitle(header(page, 'w1'), titleOf(page));
+    expect(await cursorAt(page, gap.x, gap.y)).toBe('grab');
+
+    await page.getByPlaceholder('Search saved tabs').fill('Page w1');
+    await expect(header(page, 'w1')).toBeVisible();
+    gap = await emptyBesideTitle(header(page, 'w1'), titleOf(page));
+    expect(await cursorAt(page, gap.x, gap.y)).toBe('default');
+    expect(await cursorAtCentreOf(page, glyph(page))).toBe('default');
+  });
+
+  test('the rename field keeps the text caret', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: [S1],
+    });
+    await titleOf(page).click();
+    const field = header(page, 'w1').getByRole('textbox');
+    await expect(field).toBeFocused();
+    expect(await cursorAtCentreOf(page, field)).toBe('text');
+  });
+});
+
+grantedTest.describe('a saved group header under a search (KAN-639)', () => {
+  const GROUPED = session('S1', 'Grouped', [
+    groupedWindow('gw', 'Grouped', [
+      { groupId: 'gr', title: 'Hi', color: 'blue' },
+    ]),
+  ]);
+
+  grantedTest(
+    'shows the arrow, where the group drag is off',
+    async ({ context, extensionId }) => {
+      const page = await openSaved(context, extensionId, 'popup', {
+        sessions: [GROUPED],
+      });
+      const band = bandHandle(page, 'gr');
+      const title = band.locator('button', { hasText: 'Hi' });
+      // CONTROL: the same spot before the search.
+      let gap = await emptyBesideTitle(band, title);
+      expect(await cursorAt(page, gap.x, gap.y)).toBe('grab');
+
+      await page.getByPlaceholder('Search saved tabs').fill('Page gr');
+      await expect(band).toBeVisible();
+      gap = await emptyBesideTitle(band, title);
+      expect(await cursorAt(page, gap.x, gap.y)).toBe('default');
+    }
+  );
+});
 
 // KAN-524. A click on the mark plays it, in the header and in About, so it shows a pointer there.
 test.describe('the clickable Tab Keeper mark shows a pointer (KAN-524)', () => {
