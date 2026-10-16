@@ -43,18 +43,18 @@ afterEach(async () => {
   await testI18n.changeLanguage('en');
 });
 
-describe('the tab-history row sits under Save Tab Groups', () => {
-  test('its own section, after Save Tab Groups and before Default view', async () => {
+describe('the tab-history row is the last in Sessions', () => {
+  test('its own section, after Keyboard shortcut', async () => {
     const { container } = await renderSessions(false);
 
     expect(pair()).toHaveAccessibleName(LABEL);
     expect(sectionLabels(container)).toEqual([
       'Default save',
       'Save Tab Groups',
-      LABEL,
       'Default view',
       'Pin Tab Keeper in new windows',
       'Keyboard shortcut',
+      LABEL,
     ]);
   });
 
