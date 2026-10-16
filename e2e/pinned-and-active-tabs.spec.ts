@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util';
+
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
@@ -77,29 +79,54 @@ const shape = ({ title, url, pinned, active }: TabFact) => ({
   active,
 });
 
-// The new window holding a tab titled `title`, once every tab loaded and the strip reads the same twice.
+// The new window holding a tab titled `title`, once it holds `tabCount` tabs, every one loaded, and the strip reads the same for a second.
+// KAN-630. The count, because a restore opens on its target alone and adds the rest after: a one-tab window is all loaded too.
 async function settledWindowWith(
   worker: Worker,
   title: string,
-  before: number[]
+  before: number[],
+  tabCount: number
 ): Promise<TabFact[]> {
   const read = async () =>
     (await windowsNow(worker)).find(
       (w) => !before.includes(w.id) && w.tabs.some((t) => t.title === title)
     )?.tabs;
-  await expect
-    .poll(async () => (await read())?.every((t) => t.status === 'complete'))
-    .toBe(true);
-  const first = await read();
-  await new Promise((done) => setTimeout(done, 1000));
   // A Tab Keeper page retitles itself once its script runs: that is not the strip changing.
-  const steady = (tabs?: TabFact[]) =>
-    tabs?.map((t) =>
+  const steady = (tabs: TabFact[]) =>
+    tabs.map((t) =>
       t.url.startsWith('chrome-extension://') ? { ...t, title: '' } : t
     );
-  expect(steady(await read())).toEqual(steady(first));
-  if (first === undefined) throw new Error(`no new window holds ${title}`);
-  return first;
+  // The earliest read the latest one equals, and when it was taken; groups (which unpin) land after the tabs.
+  let since: { at: number; tabs: TabFact[] } | undefined;
+  let settled: TabFact[] | undefined;
+  await expect
+    .poll(
+      async () => {
+        const tabs = await read();
+        if (
+          tabs?.length !== tabCount ||
+          !tabs.every((t) => t.status === 'complete')
+        ) {
+          return false;
+        }
+        if (
+          since === undefined ||
+          !isDeepStrictEqual(steady(tabs), steady(since.tabs))
+        ) {
+          since = { at: Date.now(), tabs };
+          return false;
+        }
+        if (Date.now() - since.at < 1000) return false;
+        settled = tabs;
+        return true;
+      },
+      { intervals: [250], timeout: 15_000 }
+    )
+    .toBe(true);
+  // Set by the poll's passing read; the check keeps the type honest.
+  if (settled === undefined)
+    throw new Error(`no settled window holds ${title}`);
+  return settled;
 }
 
 const savedTab = (name: string, pinned = false): tabData =>
@@ -217,7 +244,7 @@ test('Save keeps two pinned tabs and the active third; Switch brings them back t
   // Switch: pinned tabs first, the active tab loaded and active, the rest lazy.
   const before = await ids(serviceWorker);
   await pressSwitch(popup);
-  const tabs = await settledWindowWith(serviceWorker, 'LastFour', before);
+  const tabs = await settledWindowWith(serviceWorker, 'LastFour', before, 4);
   expect(tabs.map(shape)).toEqual([
     { title: 'PinnedOne', loaded: false, pinned: true, active: false },
     { title: 'PinnedTwo', loaded: false, pinned: true, active: false },
@@ -240,11 +267,48 @@ test.describe('Open', () => {
     const popup = await openPage(context, extensionId, 'index.html', POPUP);
     const before = await ids(serviceWorker);
     await pressOpen(popup);
-    const tabs = await settledWindowWith(serviceWorker, 'Third', before);
+    const tabs = await settledWindowWith(serviceWorker, 'Third', before, 3);
     expect(tabs.map(shape)).toEqual([
       { title: 'First', loaded: true, pinned: false, active: true },
       { title: 'Second', loaded: false, pinned: false, active: false },
       { title: 'Third', loaded: false, pinned: false, active: false },
+    ]);
+  });
+
+  // KAN-630. The worker fetches each lazy tab's favicon before it creates the tab; held past the steady second, the window waits for them.
+  test('a restore that adds its lazy tabs late: the window settles with all of them', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedOneWindow(
+      context,
+      [savedTab('First'), savedTab('Second'), savedTab('Third')],
+      'Third'
+    );
+    const popup = await openPage(context, extensionId, 'index.html', POPUP);
+    await serviceWorker.evaluate(() => {
+      const real = self.fetch.bind(self);
+      self.fetch = async (...args: Parameters<typeof fetch>) => {
+        await new Promise((done) => setTimeout(done, 1500));
+        return real(...args);
+      };
+    });
+    const before = await ids(serviceWorker);
+    await pressOpen(popup);
+    // PREMISE: the target alone, loaded, before the lazy tabs exist.
+    await expect
+      .poll(async () =>
+        (await windowsNow(serviceWorker))
+          .find((w) => !before.includes(w.id))
+          ?.tabs.map((t) => `${t.title} ${t.status}`)
+      )
+      .toEqual(['Third complete']);
+    const tabs = await settledWindowWith(serviceWorker, 'Third', before, 3);
+    expect(tabs.map(shape)).toEqual([
+      { title: 'First', loaded: false, pinned: false, active: false },
+      { title: 'Second', loaded: false, pinned: false, active: false },
+      { title: 'Third', loaded: true, pinned: false, active: true },
     ]);
   });
 
@@ -261,7 +325,7 @@ test.describe('Open', () => {
     const popup = await openPage(context, extensionId, 'index.html', POPUP);
     const before = await ids(serviceWorker);
     await pressOpen(popup);
-    const tabs = await settledWindowWith(serviceWorker, 'Third', before);
+    const tabs = await settledWindowWith(serviceWorker, 'Third', before, 3);
     expect(tabs.map(shape)).toEqual([
       { title: 'Pinned', loaded: false, pinned: true, active: false },
       { title: 'Second', loaded: true, pinned: false, active: true },
@@ -286,7 +350,7 @@ test.describe('Open', () => {
     const popup = await openPage(context, extensionId, 'index.html', POPUP);
     const before = await ids(serviceWorker);
     await pressOpen(popup);
-    const tabs = await settledWindowWith(serviceWorker, 'Second', before);
+    const tabs = await settledWindowWith(serviceWorker, 'Second', before, 3);
     expect(tabs.map(shape)).toEqual([
       { title: 'Pinned', loaded: false, pinned: true, active: false },
       { title: 'Second', loaded: true, pinned: false, active: true },
@@ -326,7 +390,8 @@ test.describe('Open puts every tab in saved order', () => {
       const strip = await settledWindowWith(
         serviceWorker,
         tabs[tabs.length - 1].title,
-        before
+        before,
+        tabs.length + (pinTabKeeperInNewWindows ? 1 : 0)
       );
       const own = `chrome-extension://${extensionId}/`;
       expect(
@@ -376,7 +441,12 @@ async function openOnly(
   );
   const before = await ids(worker);
   await pressOpen(popup);
-  const tabs = await settledWindowWith(worker, 'Third', before);
+  const tabs = await settledWindowWith(
+    worker,
+    'Third',
+    before,
+    container.tabGroups[0].windows[0].tabs.length
+  );
   // PREMISE: no other window holds a page outside Tab Keeper.
   const own = `chrome-extension://${extensionId}/`;
   expect(
@@ -392,13 +462,14 @@ async function sessionsAfterSwitch(
   context: BrowserContext,
   extensionId: string,
   worker: Worker,
-  popup: Page
+  popup: Page,
+  tabCount: number
 ) {
   const before = await ids(worker);
   await focusConfirm(popup)
     .getByRole('button', { name: 'Switch', exact: true })
     .click();
-  await settledWindowWith(worker, 'Third', before);
+  await settledWindowWith(worker, 'Third', before, tabCount);
   await expect.poll(async () => (await ids(worker)).length).toBe(1);
   const reader = await openPage(context, extensionId, 'index.html', POPUP);
   return (await stored(reader)).tabGroups;
@@ -434,7 +505,7 @@ test.describe('Open, then Switch to the same session', () => {
     extensionId,
     serviceWorker,
   }) => {
-    const { popup } = await openTrip(context, extensionId, serviceWorker);
+    const { popup, tabs } = await openTrip(context, extensionId, serviceWorker);
     await sessionsRow(popup)
       .getByRole('button', { name: 'Switch', exact: true })
       .click();
@@ -443,7 +514,8 @@ test.describe('Open, then Switch to the same session', () => {
       context,
       extensionId,
       serviceWorker,
-      popup
+      popup,
+      tabs.length
     );
     expect(sessions.map((s) => s.tabGroupId)).toEqual(['s1']);
   });
@@ -473,7 +545,8 @@ test.describe('Open, then Switch to the same session', () => {
       context,
       extensionId,
       serviceWorker,
-      popup
+      popup,
+      tabs.length
     );
     expect(sessions.map((s) => s.tabGroupId)).toEqual(['s1']);
   });
@@ -504,7 +577,8 @@ test.describe('Open, then Switch to the same session', () => {
       context,
       extensionId,
       serviceWorker,
-      popup
+      popup,
+      tabs.length
     );
     expect(sessions).toHaveLength(2);
     const copy = sessions.find((s) => s.tabGroupId !== 's1');
@@ -553,7 +627,12 @@ test.describe('Save with a Tab Keeper page active keeps the tab in use before it
     );
     const before = await ids(worker);
     await pressOpen(popup);
-    const tabs = await settledWindowWith(worker, 'Last', before);
+    const tabs = await settledWindowWith(
+      worker,
+      'Last',
+      before,
+      4 + (pinTabKeeperInNewWindows ? 1 : 0)
+    );
     const restored = tabs.slice(pinTabKeeperInNewWindows ? 1 : 0);
     // PREMISE: open on Target, the placeholders made after it.
     expect(restored.map(shape)).toEqual([
@@ -888,7 +967,8 @@ grantedTest.describe(
           context,
           extensionId,
           serviceWorker,
-          popup
+          popup,
+          strip.length
         );
         expect(sessions.map((s) => s.tabGroupId)).toEqual(['s1']);
       });
