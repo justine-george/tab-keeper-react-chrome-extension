@@ -17,6 +17,7 @@ import {
   loadFromLocalStorage,
   saveToLocalStorage,
 } from '../../utils/functions/local';
+import type { CaptureScope } from '../../utils/functions/capture';
 // `import type`, so nothing is emitted: the generator imports this slice's
 // tabContainerData type in the other direction, and a value edge either way
 // would complete a cycle. Same reason as the RootState note in the container
@@ -159,6 +160,8 @@ export interface SettingsData {
   isWhatsNew2Seen: boolean;
   // KAN-459. Windows Tab Keeper opens or switches start with a pinned Tab Keeper tab.
   pinTabKeeperInNewWindows: boolean;
+  // KAN-635. What the save button and Enter save; the other scope is in the ⋮ menu.
+  defaultSaveScope: CaptureScope;
   // KAN-578. Go back, or a Pin that worked, on the card warning a press closes the full view.
   isClosesThisTabCardAnswered: boolean;
 }
@@ -254,6 +257,11 @@ export function asTimeFormat(value: unknown): TimeFormat {
   return value === 'h23' ? 'h23' : 'h12';
 }
 
+// A stored default save, else all windows.
+export function asDefaultSaveScope(value: unknown): CaptureScope {
+  return value === 'current-window' ? 'current-window' : 'all-windows';
+}
+
 // Keys only unreleased builds wrote: dropped once, and settings written back without them.
 const RETIRED_KEYS: readonly string[] = [
   'sampleTour',
@@ -338,6 +346,7 @@ const defaultSettings: SettingsData = {
   foldSavedSessionInTabView: true,
   openNowWidth: null,
   pinTabKeeperInNewWindows: false,
+  defaultSaveScope: 'all-windows',
   ...ONBOARDING_DEFAULTS,
 };
 
@@ -357,6 +366,8 @@ export const initialState: SettingsData = {
   pinTabKeeperInNewWindows: asFlag(settingsDataLocal.pinTabKeeperInNewWindows),
   // KAN-587. Guarded: an unknown hourCycle would throw in every row's render.
   timeFormat: asTimeFormat(settingsDataLocal.timeFormat),
+  // KAN-635. Guarded: settingsDataLocal is unvalidated.
+  defaultSaveScope: asDefaultSaveScope(settingsDataLocal.defaultSaveScope),
   // KAN-7. Guarded like openNowWidth: settingsDataLocal is unvalidated.
   ...guardOnboarding(settingsDataLocal, ONBOARDING_DEFAULTS),
 };
@@ -520,6 +531,11 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
+    setDefaultSaveScope: (state, action: PayloadAction<CaptureScope>) => {
+      state.defaultSaveScope = action.payload;
+      saveToLocalStorage('settingsData', state);
+    },
+
     // KAN-321 O1a. The grip's release, an arrow key, or a double-click (null).
     setOpenNowWidth: (state, action: PayloadAction<number | null>) => {
       state.openNowWidth = action.payload;
@@ -668,6 +684,7 @@ export const {
   setFoldSavedSessionInTabView,
   setOpenNowWidth,
   setPinTabKeeperInNewWindows,
+  setDefaultSaveScope,
   beginSetup,
   finishSetup,
   restartSetup,
