@@ -1008,35 +1008,62 @@ export const restoreDeletedSession = createAsyncThunk<
   );
 });
 
-// delete window by (tabGroupId, windowId)
-export const deleteWindow = createAsyncThunk(
-  'global/deleteWindow',
-  async (params: deleteWindowParams, thunkAPI) => {
-    thunkAPI.dispatch(deleteWindowInternal(params));
+// delete window by (tabGroupId, windowId); its toast offers Undo (KAN-641)
+export const deleteWindow = createAsyncThunk<
+  void,
+  deleteWindowParams,
+  { state: RootState }
+>('global/deleteWindow', async (params, thunkAPI) => {
+  const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+    thunkAPI.dispatch(deleteWindowInternal(params))
+  );
 
-    thunkAPI.dispatch(
-      showToast({
-        toastText: TOAST_MESSAGES.DELETE_WINDOW_SUCCESS,
-        announcesSavedChange: true,
-      })
-    );
-  }
-);
+  thunkAPI.dispatch(
+    showToast({
+      toastText: TOAST_MESSAGES.DELETE_WINDOW_SUCCESS,
+      announcesSavedChange: true,
+      offersUndo,
+    })
+  );
+});
 
-// delete tab by (tabGroupId, windowId, tabId)
-export const deleteTab = createAsyncThunk(
-  'global/deleteTab',
-  async (params: deleteTabParams, thunkAPI) => {
-    thunkAPI.dispatch(deleteTabInternal(params));
+// delete tab by (tabGroupId, windowId, tabId); its toast offers Undo (KAN-641)
+export const deleteTab = createAsyncThunk<
+  void,
+  deleteTabParams,
+  { state: RootState }
+>('global/deleteTab', async (params, thunkAPI) => {
+  const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+    thunkAPI.dispatch(deleteTabInternal(params))
+  );
 
-    thunkAPI.dispatch(
-      showToast({
-        toastText: TOAST_MESSAGES.DELETE_TAB_SUCCESS,
-        announcesSavedChange: true,
-      })
-    );
-  }
-);
+  thunkAPI.dispatch(
+    showToast({
+      toastText: TOAST_MESSAGES.DELETE_TAB_SUCCESS,
+      announcesSavedChange: true,
+      offersUndo,
+    })
+  );
+});
+
+// KAN-640. A Chrome group and its tabs, said in a toast that offers Undo (KAN-641).
+export const deleteChromeTabGroup = createAsyncThunk<
+  void,
+  chromeTabGroupTargetParams,
+  { state: RootState }
+>('global/deleteChromeTabGroup', async (params, thunkAPI) => {
+  const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+    thunkAPI.dispatch(deleteChromeTabGroupInternal(params))
+  );
+
+  thunkAPI.dispatch(
+    showToast({
+      toastText: TOAST_MESSAGES.DELETE_CHROME_GROUP_SUCCESS,
+      announcesSavedChange: true,
+      offersUndo,
+    })
+  );
+});
 
 // Only content changes advance a session's timestamp, because a timestamp is
 // what the merge ranks copies by: letting browsing move one would make this

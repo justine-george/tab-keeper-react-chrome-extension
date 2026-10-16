@@ -36,7 +36,7 @@ import {
   updateChromeTabGroupTitle,
   addCurrTabToChromeGroupInternal,
   ungroupChromeTabGroup,
-  deleteChromeTabGroupInternal,
+  deleteChromeTabGroup,
   updateChromeTabGroupColor,
   removeDuplicateTabs,
 } from '../../../redux/slices/tabContainerDataStateSlice';
@@ -1480,7 +1480,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                                   danger: true,
                                   onSelect: () =>
                                     dispatch(
-                                      deleteChromeTabGroupInternal({
+                                      deleteChromeTabGroup({
                                         tabGroupId,
                                         windowId,
                                         groupId: item.group.groupId,

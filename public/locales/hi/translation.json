@@ -73,6 +73,7 @@
   "Session replaced with all open windows.": "सत्र को सभी खुली विंडो से बदल दिया गया।",
   "Session window deleted.": "सत्र विंडो हटाई गई।",
   "Session tab deleted.": "सत्र टैब हटाई गई।",
+  "Session tab group deleted.": "सत्र टैब समूह हटाया गया।",
   "Sync unavailable: your saved account token could not be read.": "सिंक अनुपलब्ध: आपका सहेजा गया खाता टोकन पढ़ा नहीं जा सका।",
   "Back": "वापस",
   "Display": "प्रदर्शन",

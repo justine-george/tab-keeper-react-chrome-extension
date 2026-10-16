@@ -9,7 +9,10 @@ import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { buildChromeTab } from '../fixtures/chromeTab';
 import { showToast } from '../../redux/slices/globalStateSlice';
 import {
+  deleteChromeTabGroup,
+  deleteTab,
   deleteTabContainer,
+  deleteWindow,
   recordsUndoStep,
   replaceSessionWithOpenWindows,
   replaceState,
@@ -224,6 +227,165 @@ describe('Undo in the Delete and Replace toasts (KAN-583)', () => {
     expect(undoButtons()[0]).not.toHaveAttribute('aria-keyshortcuts');
     await user.click(undoButtons()[0]);
     expect(sessionIds(store)).toContain('kyoto');
+  });
+});
+
+// KAN-640, KAN-641. Window, tab and tab group deletes say so in a toast that offers Undo, as a session's does.
+describe('Undo in the window, tab and tab group delete toasts (KAN-640, KAN-641)', () => {
+  const tab = (tabId: string, chromeGroupId?: string) => ({
+    tabId,
+    favicon: '',
+    title: tabId,
+    url: `https://${tabId}.test/`,
+    ...(chromeGroupId ? { chromeGroupId } : {}),
+  });
+  const win = (windowId: string, tabs: ReturnType<typeof tab>[]) => ({
+    windowId,
+    windowHeight: 800,
+    windowWidth: 1200,
+    windowOffsetTop: 0,
+    windowOffsetLeft: 0,
+    tabCount: tabs.length,
+    title: windowId,
+    tabs,
+  });
+  // Two windows, so no delete here empties the session.
+  const TRIP = buildSession({
+    tabGroupId: 'trip',
+    title: 'Trip',
+    windowCount: 2,
+    tabCount: 4,
+    windows: [
+      {
+        ...win('w1', [tab('loose'), tab('g1', 'grp'), tab('g2', 'grp')]),
+        chromeTabGroups: [{ groupId: 'grp', title: 'Booked', color: 'blue' }],
+      },
+      win('w2', [tab('other')]),
+    ],
+  });
+
+  const renderTrip = () =>
+    renderWithProviders(<Toast />, {
+      seedStore: (store) => {
+        store.dispatch(replaceState(buildContainer([TRIP])));
+        store.dispatch(
+          setPresentStartup({
+            tabContainerDataState: store.getState().tabContainerDataState,
+          })
+        );
+      },
+    });
+  type TripStore = Awaited<ReturnType<typeof renderTrip>>['store'];
+  const windowsOf = (store: TripStore) =>
+    store
+      .getState()
+      .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === 'trip')
+      ?.windows.map((w) => ({
+        windowId: w.windowId,
+        tabIds: w.tabs.map((t) => t.tabId),
+        groupIds: (w.chromeTabGroups ?? []).map((g) => g.groupId),
+      }));
+  const offers = (store: TripStore) =>
+    store.getState().globalState.toasts.map((t) => t.offersUndo);
+
+  test.each([
+    [
+      'window',
+      () => deleteWindow({ tabGroupId: 'trip', windowId: 'w2' }),
+      TOAST_MESSAGES.DELETE_WINDOW_SUCCESS,
+    ],
+    [
+      'tab',
+      () => deleteTab({ tabGroupId: 'trip', windowId: 'w1', tabId: 'loose' }),
+      TOAST_MESSAGES.DELETE_TAB_SUCCESS,
+    ],
+    [
+      'tab group',
+      () =>
+        deleteChromeTabGroup({
+          tabGroupId: 'trip',
+          windowId: 'w1',
+          groupId: 'grp',
+        }),
+      TOAST_MESSAGES.DELETE_CHROME_GROUP_SUCCESS,
+    ],
+  ] as const)(
+    'a %s delete says so and offers Undo, which puts it back',
+    async (_, thunk, text) => {
+      const user = userEvent.setup();
+      const { store } = await renderTrip();
+      const before = windowsOf(store);
+      await act(async () => {
+        await store.dispatch(thunk());
+      });
+      // PREMISE: deleted, and said so.
+      expect(windowsOf(store)).not.toEqual(before);
+      expect(toastTexts(store.getState())).toEqual([text]);
+
+      await user.click(undoButtons()[0]);
+
+      expect(windowsOf(store)).toEqual(before);
+      expect(toastTexts(store.getState())).toEqual([]);
+    }
+  );
+
+  test('two tab deletes: only the newer offers Undo, and it undoes that one', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderTrip();
+    await act(async () => {
+      await store.dispatch(
+        deleteTab({ tabGroupId: 'trip', windowId: 'w1', tabId: 'loose' })
+      );
+      await store.dispatch(
+        deleteTab({ tabGroupId: 'trip', windowId: 'w1', tabId: 'g1' })
+      );
+    });
+
+    expect(offers(store)).toEqual([false, true]);
+    await user.click(undoButtons()[0]);
+
+    // The first delete stands: one step back, not two.
+    expect(windowsOf(store)?.[0].tabIds).toEqual(['g1', 'g2']);
+  });
+
+  test('a delete that empties the session: Undo brings the whole session back', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderTrip();
+    const before = windowsOf(store);
+    await act(async () => {
+      await store.dispatch(
+        deleteWindow({ tabGroupId: 'trip', windowId: 'w2' })
+      );
+    });
+    await act(async () => {
+      await store.dispatch(
+        deleteWindow({ tabGroupId: 'trip', windowId: 'w1' })
+      );
+    });
+    // PREMISE: the last window took the session with it.
+    expect(windowsOf(store)).toBeUndefined();
+    expect(offers(store)).toEqual([false, true]);
+
+    await user.click(undoButtons()[0]);
+
+    // One step: the session, holding the window the first delete left.
+    expect(windowsOf(store)).toEqual(before?.slice(0, 1));
+  });
+
+  test('a delete that found nothing records no step, so it offers no Undo', async () => {
+    const { store } = await renderTrip();
+    await act(async () => {
+      await store.dispatch(
+        deleteChromeTabGroup({
+          tabGroupId: 'trip',
+          windowId: 'w1',
+          groupId: 'gone',
+        })
+      );
+    });
+
+    expect(offers(store)).toEqual([false]);
+    expect(undoButtons()).toHaveLength(0);
   });
 });
 
