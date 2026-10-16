@@ -169,3 +169,75 @@ describe('the sync space bar (KAN-596)', () => {
     expect(meter()).toBeNull();
   });
 });
+
+// KAN-633. With sync off the bar stayed hidden at any size, so 1.2 MB of sessions learned it
+// could not sync only after the yes. From 80% it now shows there too; below, the off pane is unchanged.
+describe('the sync space bar with sync off (KAN-633)', () => {
+  const renderOff = (bytes: number) =>
+    renderWithProviders(<SettingsDetailsContainer />, {
+      seedStore: (store) => {
+        store.dispatch(replaceState(containerOf(bytes)));
+        store.dispatch(selectCategory(SettingsCategory.SYNC));
+        store.dispatch(setSignedIn());
+        store.dispatch(setCloudConfigured(true));
+        store.dispatch(declineCloudConsent());
+      },
+    });
+  const state = () =>
+    screen.getByTestId('sync-status').getAttribute('data-sync-state');
+
+  test('under 80%: no bar', async () => {
+    await renderOff(Math.floor(FIRESTORE_MAX_DOCUMENT_BYTES * 0.75));
+    expect(state()).toBe('off');
+    expect(meter()).toBeNull();
+  });
+
+  test('from 80%: the bar warns, red, with what to do', async () => {
+    await renderOff(Math.ceil(FIRESTORE_MAX_DOCUMENT_BYTES * 0.85));
+    expect(state()).toBe('off');
+    expect(screen.getByTestId('sync-space').dataset.level).toBe('near');
+    expect(line()).toMatch(
+      / of the 1 MB sync limit\. Sync stops at 1 MB: delete sessions you no longer need\.$/
+    );
+  });
+
+  test('past the limit: full, and it says the sessions are too large to sync', async () => {
+    await renderOff(FIRESTORE_MAX_DOCUMENT_BYTES + 50_000);
+    expect(state()).toBe('off');
+    expect(screen.getByTestId('sync-space').dataset.level).toBe('full');
+    expect(meter()?.getAttribute('aria-valuenow')).toBe('100');
+    expect(line()).toMatch(
+      /Too large to sync: delete sessions you no longer need\.$/
+    );
+  });
+
+  test('appears as the sessions cross 80%, and goes when they drop back', async () => {
+    const { store } = await renderOff(
+      Math.floor(FIRESTORE_MAX_DOCUMENT_BYTES * 0.75)
+    );
+    expect(meter()).toBeNull();
+    act(() => {
+      store.dispatch(
+        replaceState(containerOf(Math.ceil(FIRESTORE_MAX_DOCUMENT_BYTES * 0.9)))
+      );
+    });
+    expect(screen.getByTestId('sync-space').dataset.level).toBe('near');
+    act(() => {
+      store.dispatch(
+        replaceState(
+          containerOf(Math.floor(FIRESTORE_MAX_DOCUMENT_BYTES * 0.5))
+        )
+      );
+    });
+    expect(meter()).toBeNull();
+  });
+
+  test('unavailable stays without a bar, even past the limit', async () => {
+    const { store } = await renderOff(FIRESTORE_MAX_DOCUMENT_BYTES + 50_000);
+    act(() => {
+      store.dispatch(setLoggedOut());
+    });
+    expect(state()).toBe('unavailable');
+    expect(meter()).toBeNull();
+  });
+});

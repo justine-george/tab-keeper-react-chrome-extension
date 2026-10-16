@@ -33,7 +33,9 @@ const SLIVER = '3px';
  * estimateFirestoreBytes, the same function saveToFirestoreIfDirty refuses
  * with, so the bar and the refusal cannot disagree.
  */
-const SyncSpaceBar: React.FC = () => {
+const SyncSpaceBar: React.FC<{ hideWhenOk?: boolean }> = ({
+  hideWhenOk = false,
+}) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t, i18n } = useTranslation();
@@ -41,6 +43,7 @@ const SyncSpaceBar: React.FC = () => {
   const bytes = useMemo(() => estimateFirestoreBytes(container), [container]);
 
   const level = syncSpaceLevel(bytes);
+  if (hideWhenOk && level === 'ok') return null;
   const share = Math.min(1, bytes / FIRESTORE_MAX_DOCUMENT_BYTES);
   const percent = Math.round(share * 100);
   const text = t(LINE_KEY[level], {

@@ -140,7 +140,9 @@ const SyncStatus: React.FC = () => {
           {t(state.line)}
         </p>
       )}
-      {/* KAN-596. Only where this device syncs: off and unavailable write nothing. */}
+      {/* KAN-596. Only where this device syncs: off and unavailable write nothing.
+          KAN-633. Off still warns from 80%, so the size is known before the yes. */}
+      {state.kind === 'off' && <SyncSpaceBar hideWhenOk />}
       {state.kind !== 'off' && state.kind !== 'unavailable' && <SyncSpaceBar />}
     </div>
   );
