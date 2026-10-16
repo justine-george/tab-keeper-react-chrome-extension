@@ -33,34 +33,39 @@ export default function TabKeeperMark({
       />
       <use href={`#${bodyId}`} x="1.7" y="3.6" fill="#253038" />
       <use href={`#${bodyId}`} fill="#445562" />
-      <rect
-        x="32.8"
-        y="12.9"
-        width="58.4"
-        height="36.6"
-        rx="1.5"
-        fill="#222636"
-      />
-      <rect
-        x="32.8"
-        y="12.9"
-        width="58.4"
-        height="34.7"
-        rx="1.5"
-        fill="#f4eae2"
-      />
-      <rect x="32.9" y="64.8" width="62.5" height="47" rx="2" fill="#f4eae2" />
-      <g fill="#20292e">
+      {/* KAN-627. The slot is cut into the shutter, so the two slide as one. */}
+      <g data-mark-part="shutter">
         <rect
-          data-mark-part="shutter"
+          x="32.8"
+          y="12.9"
+          width="58.4"
+          height="36.6"
+          rx="1.5"
+          fill="#222636"
+        />
+        <rect
+          x="32.8"
+          y="12.9"
+          width="58.4"
+          height="34.7"
+          rx="1.5"
+          fill="#f4eae2"
+        />
+        <rect
+          data-mark-part="slot"
           x="71.3"
           y="18.4"
           width="15.3"
           height="26.6"
           rx="1"
+          fill="#20292e"
         />
-        <path d="M42.9 73.8h42.8v7.3H42.9zM20 100.9h5.1v4H20zm81.8-4.6h8.5v10.2h-8.5z" />
       </g>
+      <rect x="32.9" y="64.8" width="62.5" height="47" rx="2" fill="#f4eae2" />
+      <path
+        fill="#20292e"
+        d="M42.9 73.8h42.8v7.3H42.9zM20 100.9h5.1v4H20zm81.8-4.6h8.5v10.2h-8.5z"
+      />
       <path fill="#d09263" d="M42.9 87.1h42.8v7.5H42.9zm0 12h42.8v7.3H42.9z" />
     </svg>
   );
