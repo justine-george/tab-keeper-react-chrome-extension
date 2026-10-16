@@ -147,6 +147,56 @@ test('Current window: the button and Enter save this window; the menu saves all;
   await expect(glyph(page, CURRENT)).toHaveText('add_box');
 });
 
+// Each glyph's horizontal offset from the middle of the cell it sits in,
+// measured inside the cell's border, in CSS px. Centred measures 0; the
+// tolerance is Chromium's 1/64px layout unit.
+const LAYOUT_UNIT = 1 / 64;
+const glyphOffsets = (cells: ReturnType<Page['locator']>) =>
+  cells.evaluateAll((els) =>
+    els.map((cell) => {
+      const glyph = cell.querySelector('.material-symbols-outlined');
+      if (!glyph) throw new Error('a cell without a glyph');
+      const c = cell.getBoundingClientRect();
+      const g = glyph.getBoundingClientRect();
+      return (
+        g.left + g.width / 2 - (c.left + cell.clientLeft + cell.clientWidth / 2)
+      );
+    })
+  );
+
+// 20px is Chrome's "Large" font size: the glyph is rem, the strip px.
+for (const root of [16, 20]) {
+  test(`KAN-647: the settings tiles centre their glyphs, as the save row does, at a ${root}px root`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openFullView(context, extensionId);
+    await page.evaluate((px) => {
+      document.documentElement.style.fontSize = `${px}px`;
+    }, root);
+    // CONTROL: the drawing copies this row, whose ⋮ is centred.
+    const row = await glyphOffsets(
+      saveRow(page)
+        .getByRole('button', { name: ALL, exact: true })
+        .or(saveRow(page).getByRole('button', { name: 'More actions' }))
+    );
+    expect(row).toHaveLength(2);
+    for (const offset of row)
+      expect(Math.abs(offset)).toBeLessThanOrEqual(LAYOUT_UNIT);
+
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('button', { name: 'Sessions', exact: true }).click();
+    const cells = page
+      .getByRole('radiogroup', { name: 'Default save' })
+      .locator('[data-tile] > span');
+    // Two tiles, a square and a strip each. Barrier: evaluateAll does not wait.
+    await expect(cells).toHaveCount(4);
+    const tiles = await glyphOffsets(cells);
+    for (const offset of tiles)
+      expect(Math.abs(offset)).toBeLessThanOrEqual(LAYOUT_UNIT);
+  });
+}
+
 test('another open page swaps its row without a reload', async ({
   context,
   extensionId,
