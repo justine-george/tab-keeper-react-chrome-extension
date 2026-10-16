@@ -16,6 +16,7 @@ import {
 } from './coachMarkPlacement';
 import { RunHelloDialog } from '../modals/RunHelloDialog';
 import { FOLD_ICON } from '../home/opennow/foldIcon';
+import { SAVE_OF } from '../home/leftpane/saveScopes';
 import type { AppDispatch, RootState } from '../../redux/store';
 import {
   advanceRun,
@@ -77,6 +78,10 @@ export default function FirstRun() {
   );
   const echo = useSelector((s: RootState) => s.globalState.runSaveEcho);
   const isFolded = useSelector(selectIsSavedSessionFolded);
+  // KAN-635. The save button the row shows, so the card names what is there.
+  const defaultSaveScope = useSelector(
+    (s: RootState) => s.settingsDataState.defaultSaveScope
+  );
   const defaultView = useSelector(
     (s: RootState) => s.settingsDataState.defaultView
   );
@@ -177,9 +182,9 @@ export default function FirstRun() {
     onPress: example,
   };
   const saveGlyph = {
-    icon: 'library_add',
-    label: t('Save every open window as a session'),
-  } as const;
+    icon: SAVE_OF[defaultSaveScope].icon,
+    label: t(SAVE_OF[defaultSaveScope].label),
+  };
 
   const cardFor = (): Card => {
     switch (kind) {
