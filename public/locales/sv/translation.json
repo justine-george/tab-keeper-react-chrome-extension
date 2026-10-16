@@ -324,6 +324,8 @@
   "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "Sök här för att snabbt hitta en öppen flik. Dra i kanten för att göra panelen bredare, eller tryck på {{icon}} för att ge Öppna flikar hela vyn.",
   "Search here to find an open tab fast. Press {{icon}} to give Open now the whole view.": "Sök här för att snabbt hitta en öppen flik. Tryck på {{icon}} för att ge Öppna flikar hela vyn.",
   "Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.": "Så länge fönstret är smalt ligger Öppna flikar här. Tryck på {{icon}} för att se och söka bland alla öppna flikar.",
+  "Your compact view is still here. Click Tab Keeper in the toolbar as always, or {{icon}} to switch back.": "Din kompakta vy finns kvar. Klicka på Tab Keeper i verktygsfältet som vanligt, eller tryck på {{icon}} för att byta tillbaka.",
+  "Your compact view is still here. Click Tab Keeper in the toolbar as always.": "Din kompakta vy finns kvar. Klicka på Tab Keeper i verktygsfältet som vanligt.",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "Spara de här fönstren som en session. Vi har redan gett den ett namn; ändra det om du vill och tryck sedan på {{icon}}.",
   "Saving keeps them safe even after you close them.": "Sparade är de kvar även efter att du stänger dem.",
   "Use an example": "Använd ett exempel",

@@ -333,6 +333,8 @@
   "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "Busca aquí para encontrar rápido una pestaña abierta. Arrastra el borde para ensanchar este panel, o pulsa {{icon}} para que Pestañas abiertas ocupe toda la vista.",
   "Search here to find an open tab fast. Press {{icon}} to give Open now the whole view.": "Busca aquí para encontrar rápido una pestaña abierta. Pulsa {{icon}} para que Pestañas abiertas ocupe toda la vista.",
   "Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.": "Mientras la ventana es estrecha, el panel Pestañas abiertas queda recogido aquí. Pulsa {{icon}} para ver y buscar todas las pestañas abiertas.",
+  "Your compact view is still here. Click Tab Keeper in the toolbar as always, or {{icon}} to switch back.": "Tu vista compacta sigue aquí. Haz clic en Tab Keeper en la barra de herramientas como siempre, o pulsa {{icon}} para volver.",
+  "Your compact view is still here. Click Tab Keeper in the toolbar as always.": "Tu vista compacta sigue aquí. Haz clic en Tab Keeper en la barra de herramientas como siempre.",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "Guarda estas ventanas como una sesión. Ya le hemos puesto nombre; cámbialo si quieres y luego pulsa {{icon}}.",
   "Saving keeps them safe even after you close them.": "Una vez guardadas, siguen a salvo aunque las cierres.",
   "Use an example": "Usar un ejemplo",

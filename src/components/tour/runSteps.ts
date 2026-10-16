@@ -26,6 +26,7 @@ const SAVE = '[data-pane="sessions"] [data-tour-anchor="save"]';
 const SESSIONS = '[data-pane="sessions"] [data-tour-anchor="sessions"]';
 const WINDOWS = '[data-pane="detail"] [data-tour-anchor="windows"]';
 const EXPAND = '[data-tour-anchor="expand"]';
+const COMPACT = '[data-tour-anchor="compact"]';
 // KAN-582. Delete is only in the shown session's header menu.
 const SESSION_MENU = '[data-pane="detail"] [data-tour-anchor="session-menu"]';
 const BELOW: readonly CoachSide[] = ['below', 'right', 'left'];
@@ -42,13 +43,21 @@ export function runStepPlan(
   view: RunView,
   kind: RunStepKind,
   saveCard: RunSaveCard | null,
-  sessionId: string | null
+  sessionId: string | null,
+  // KAN-623. Whether the full view draws ⤡ for the compact-view card to point at.
+  hasCompactButton: boolean
 ): RunStepPlan | null {
   switch (kind) {
     case 'hello':
-    case 'compactView':
     case 'welcome':
       return null;
+    // KAN-623. With no ⤡ drawn, the card sits where step 9's does.
+    case 'compactView':
+      return {
+        anchors: hasCompactButton ? [COMPACT] : [],
+        sides: BELOW,
+        isLive: false,
+      };
     case 'openNow':
       return { anchors: [OPEN_NOW], sides: LEFT_OF, isLive: false };
     case 'findAndFit':

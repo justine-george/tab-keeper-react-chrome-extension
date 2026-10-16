@@ -315,6 +315,8 @@
   "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "ここで検索すると、開いているタブをすばやく見つけられます。端をドラッグすると幅を広げられ、{{icon}} を押すと「現在開いているタブ」が画面全体に表示されます。",
   "Search here to find an open tab fast. Press {{icon}} to give Open now the whole view.": "ここで検索すると、開いているタブをすばやく見つけられます。{{icon}} を押すと「現在開いているタブ」が画面全体に表示されます。",
   "Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.": "ウィンドウの幅が狭いときは、「現在開いているタブ」はここに格納されます。{{icon}} を押すと、開いているすべてのタブを表示して検索できます。",
+  "Your compact view is still here. Click Tab Keeper in the toolbar as always, or {{icon}} to switch back.": "コンパクトビューはこれまでどおり使えます。いつもどおりツールバーの Tab Keeper をクリックするか、{{icon}} を押すと戻れます。",
+  "Your compact view is still here. Click Tab Keeper in the toolbar as always.": "コンパクトビューはこれまでどおり使えます。いつもどおりツールバーの Tab Keeper をクリックしてください。",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "これらのウィンドウをセッションとして保存しましょう。名前は付けておきました。必要なら変更して、{{icon}} を押してください。",
   "Saving keeps them safe even after you close them.": "保存しておけば、閉じたあとも失われません。",
   "Use an example": "サンプルを使う",

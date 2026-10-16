@@ -45,6 +45,7 @@ import {
   nextRunStep,
   previousRunStep,
   runStepKind,
+  stepKindOf,
   type FirstRun,
   type RunAtOpen,
   type RunEnding,
@@ -94,7 +95,7 @@ export const selectIsRunCardShown = (state: RootState): boolean => {
   const run = selectRunHere(state);
   if (run === null || state.globalState.isSettingsPage) return false;
   if (isSearchActive(state.globalState.searchInputText)) return false;
-  const kind = runStepKind(run.view, run.step);
+  const kind = stepKindOf(run);
   if (kind === null || !needsSession(kind)) return true;
   if (isTabView() && selectIsSavedSessionFolded(state)) return false;
   const shown = selectVisibleTabGroups(
@@ -112,7 +113,7 @@ const ROW_KINDS = ['row', 'open', 'switch', 'replace'] as const;
 export const selectRunEngagedRowId = (state: RootState): string | null => {
   const run = selectRunHere(state);
   if (run === null || !selectIsRunCardShown(state)) return null;
-  const kind = runStepKind(run.view, run.step);
+  const kind = stepKindOf(run);
   return ROW_KINDS.some((k) => k === kind) ? run.sessionId : null;
 };
 
@@ -123,9 +124,7 @@ export const selectRunHoldsDelete = (
 ): boolean => {
   const run = selectRunHere(state);
   return (
-    run !== null &&
-    run.sessionId === tabGroupId &&
-    runStepKind(run.view, run.step) === 'delete'
+    run !== null && run.sessionId === tabGroupId && stepKindOf(run) === 'delete'
   );
 };
 
@@ -134,7 +133,7 @@ export const selectRunLitRowButton = (
   state: RootState
 ): 'open' | 'switch' | 'replace' | null => {
   const run = selectRunHere(state);
-  const kind = run === null ? null : runStepKind(run.view, run.step);
+  const kind = run === null ? null : stepKindOf(run);
   return kind === 'open' || kind === 'switch' || kind === 'replace'
     ? kind
     : null;
@@ -351,7 +350,7 @@ export const selectRunAwaitsSave = (state: RootState): boolean => {
   return (
     run !== null &&
     run.sessionId === null &&
-    runStepKind(run.view, run.step) === 'save' &&
+    stepKindOf(run) === 'save' &&
     (card === 'save' || card === 'nothingToSave')
   );
 };
@@ -362,7 +361,7 @@ export const takeRunSave =
   (dispatch, getState) => {
     const run = selectRunHere(getState());
     if (run === null || run.sessionId !== null) return;
-    if (runStepKind(run.view, run.step) !== 'save') return;
+    if (stepKindOf(run) !== 'save') return;
     dispatch(setFirstRunSession(tabGroupId));
     dispatch(showSession(tabGroupId));
     dispatch(setRunSaveEcho(tabGroupId));
@@ -375,7 +374,7 @@ export const takeExampleForRun =
   (dispatch, getState) => {
     const state = getState();
     const run = selectRunHere(state);
-    if (run === null || runStepKind(run.view, run.step) !== 'save') return;
+    if (run === null || stepKindOf(run) !== 'save') return;
     if (run.sessionId !== null) {
       void dispatch(advanceRun());
       return;
@@ -462,7 +461,7 @@ export const pinThisTab = (): Thunk<Promise<void>> => async (dispatch) => {
 export const endRunAtFullViewButton =
   (): Thunk<void> => (dispatch, getState) => {
     const run = selectRunHere(getState());
-    if (run !== null && runStepKind(run.view, run.step) === 'fullView') {
+    if (run !== null && stepKindOf(run) === 'fullView') {
       dispatch(endRun('finished'));
     }
   };

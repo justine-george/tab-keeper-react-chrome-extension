@@ -333,6 +333,8 @@
   "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "Cherchez ici pour trouver vite un onglet ouvert. Faites glisser le bord pour élargir ce panneau, ou appuyez sur {{icon}} pour que « Onglets ouverts » occupe toute la vue.",
   "Search here to find an open tab fast. Press {{icon}} to give Open now the whole view.": "Cherchez ici pour trouver vite un onglet ouvert. Appuyez sur {{icon}} pour que « Onglets ouverts » occupe toute la vue.",
   "Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.": "Tant que la fenêtre est étroite, « Onglets ouverts » se range ici. Appuyez sur {{icon}} pour voir et rechercher tous les onglets ouverts.",
+  "Your compact view is still here. Click Tab Keeper in the toolbar as always, or {{icon}} to switch back.": "Votre vue compacte est toujours là. Cliquez sur Tab Keeper dans la barre d’outils comme d’habitude, ou appuyez sur {{icon}} pour y revenir.",
+  "Your compact view is still here. Click Tab Keeper in the toolbar as always.": "Votre vue compacte est toujours là. Cliquez sur Tab Keeper dans la barre d’outils comme d’habitude.",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "Enregistrez ces fenêtres comme une session. Nous lui avons déjà donné un nom ; modifiez-le si vous le souhaitez, puis appuyez sur {{icon}}.",
   "Saving keeps them safe even after you close them.": "Une fois enregistrées, elles restent en sécurité même après leur fermeture.",
   "Use an example": "Utiliser un exemple",

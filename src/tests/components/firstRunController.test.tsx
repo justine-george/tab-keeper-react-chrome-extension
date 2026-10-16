@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 
 import FirstRun from '../../components/tour/FirstRun';
 import {
@@ -16,6 +22,7 @@ import {
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import {
   recordFirstRun,
+  setDefaultView,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { firstOpenDialogs } from '../../redux/firstOpenDialogs';
@@ -52,6 +59,7 @@ beforeEach(() => {
     '<div data-pane="sessions"><div data-tour-anchor="save"></div>' +
     '<div data-tour-anchor="sessions"></div></div>' +
     '<span data-tour-anchor="expand"></span>' +
+    '<span data-tour-anchor="compact"></span>' +
     '<div data-pane="open-now"><div data-open-now-search></div></div>';
   for (const element of anchors.querySelectorAll('*')) {
     element.getBoundingClientRect = () => RECT;
@@ -393,5 +401,89 @@ describe('the first save’s echo (§10)', () => {
       detail.remove();
       Reflect.deleteProperty(Element.prototype, 'animate');
     }
+  });
+});
+
+const COMPACT_TEXT =
+  'Your compact view is still here. Click Tab Keeper in the toolbar as always, or Open compact view to switch back.';
+const COMPACT_SHORT =
+  'Your compact view is still here. Click Tab Keeper in the toolbar as always.';
+const FROM_POPUP = newRun('full', 0, 'whatsNew', 'popup');
+
+// The card at full step 0; action: {} is Chrome 127+, where the full view draws ⤡.
+async function renderCard(action: { hasOpenPopup?: boolean } = {}) {
+  const r = await renderWithProviders(<FirstRun />, {
+    seed: { ...SEED, action },
+    seedStore: (store) => store.dispatch(replaceState(buildContainer([OWN()]))),
+  });
+  await act(async () => {
+    await r.store.dispatch(startRun(FROM_POPUP));
+  });
+  return r;
+}
+
+describe('KAN-623: the compact-view card', () => {
+  beforeEach(() => history.replaceState(null, '', '?view=tab'));
+
+  test('a run from the popup opens on the card under ⤡: no Hello, no progress line', async () => {
+    await renderCard();
+    const card = await screen.findByRole('dialog', { name: COMPACT_TEXT });
+    expect(card).toHaveAttribute('data-coach-kind', 'compactView');
+    expect(screen.queryByRole('dialog', { name: WHATS_NEW })).toBeNull();
+    expect(within(card).queryByRole('progressbar')).toBeNull();
+    expect(within(card).queryByRole('button', { name: 'Back' })).toBeNull();
+    expect(
+      within(card).getByRole('img', { name: 'Open compact view' })
+    ).toHaveTextContent('close_fullscreen');
+  });
+
+  test('Next goes to step 1, which counts 1 of 9', async () => {
+    const r = await renderCard();
+    await screen.findByRole('dialog', { name: COMPACT_TEXT });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(runOf(r)?.step).toBe(1));
+    expect(await screen.findByRole('progressbar')).toHaveAttribute(
+      'aria-valuetext',
+      'Step 1 of 9'
+    );
+  });
+
+  test.each([
+    [
+      'Skip tutorial',
+      () =>
+        fireEvent.click(screen.getByRole('button', { name: 'Skip tutorial' })),
+    ],
+    ['Esc', () => fireEvent.keyDown(document, { key: 'Escape' })],
+  ])('%s ends the run skipped, with the replay note', async (_name, press) => {
+    const r = await renderCard();
+    await screen.findByRole('dialog', { name: COMPACT_TEXT });
+    await waitFor(() => expect(mark()).not.toHaveAttribute('aria-hidden'));
+    press();
+    expect(runOf(r)?.ended).toBe('skipped');
+    expect(r.store.getState().globalState.isReplayNoteOpen).toBe(true);
+  });
+
+  test('no ⤡ before Chrome 127: the short text', async () => {
+    await renderCard({ hasOpenPopup: false });
+    await waitFor(() => expect(mark()).toHaveTextContent(COMPACT_SHORT));
+    expect(mark()).not.toHaveTextContent('switch back');
+  });
+
+  test('default view changed to Full while it shows: the short text, never a lost anchor', async () => {
+    const r = await renderCard();
+    await screen.findByRole('dialog', { name: COMPACT_TEXT });
+    act(() => {
+      r.store.dispatch(setDefaultView('full'));
+    });
+    expect(mark()).toHaveTextContent(COMPACT_SHORT);
+  });
+
+  test('a run the full view started itself shows the Hello, not the card', async () => {
+    await renderAt(newRun('full', 0, 'whatsNew'));
+    expect(screen.getByRole('dialog', { name: WHATS_NEW })).toBeVisible();
+    expect(
+      document.querySelector('[data-coach-kind="compactView"]')
+    ).toBeNull();
   });
 });

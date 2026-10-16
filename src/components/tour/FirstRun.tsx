@@ -45,9 +45,10 @@ import { useSessionListSettled } from '../../hooks/useSessionListSettled';
 import {
   needsSession,
   RUN_STEPS,
-  runStepKind,
+  stepKindOf,
   type RunStepKind,
 } from '../../utils/functions/firstRun';
+import { hasCompactViewButton } from '../../utils/functions/openInPopup';
 
 interface Card {
   text: ReactNode;
@@ -57,7 +58,7 @@ interface Card {
   secondary?: CoachAction;
 }
 
-// The run in the page that shows it: Hello at full-view step 0, then one card per step.
+// The run in the page that shows it: Hello or the compact-view card at full-view step 0, then one card per step.
 export default function FirstRun() {
   const dispatch: AppDispatch = useDispatch();
   const { t } = useTranslation();
@@ -76,6 +77,10 @@ export default function FirstRun() {
   );
   const echo = useSelector((s: RootState) => s.globalState.runSaveEcho);
   const isFolded = useSelector(selectIsSavedSessionFolded);
+  const defaultView = useSelector(
+    (s: RootState) => s.settingsDataState.defaultView
+  );
+  const hasCompactButton = hasCompactViewButton(defaultView);
   const hasGrip = useIsOpenNowGripShown();
   // Open now as the narrow rail: one button, its search and « inside the drawer it opens.
   const isRail = useMediaQuery(OPEN_NOW_RAIL_QUERY) && !isFolded;
@@ -86,8 +91,7 @@ export default function FirstRun() {
     if (isHere) dispatch(reconcileRunHere());
   }, [isHere, record, sessions, dispatch]);
 
-  const kind: RunStepKind | null =
-    run === null ? null : runStepKind(run.view, run.step);
+  const kind: RunStepKind | null = run === null ? null : stepKindOf(run);
   // Again once the load lands: sessions written to disk after this page opened hold the step until then.
   useEffect(() => {
     if (kind === 'save' && isSettled) void dispatch(beginSaveStep());
@@ -149,9 +153,14 @@ export default function FirstRun() {
       />
     );
   }
-  if (kind === 'welcome' || kind === 'compactView' || !isSettled || !isShown)
-    return null;
-  const plan = runStepPlan(run.view, kind, saveCard, run.sessionId);
+  if (kind === 'welcome' || !isSettled || !isShown) return null;
+  const plan = runStepPlan(
+    run.view,
+    kind,
+    saveCard,
+    run.sessionId,
+    hasCompactButton
+  );
   if (plan === null || (kind === 'save' && saveCard === null)) return null;
 
   const next: CoachAction = { label: t('Next'), onPress: goNext };
@@ -166,6 +175,25 @@ export default function FirstRun() {
 
   const cardFor = (): Card => {
     switch (kind) {
+      // KAN-623. Arrived from the popup: the toolbar still opens it, and ⤡ goes back.
+      case 'compactView':
+        return {
+          text: hasCompactButton ? (
+            <GlyphSentence
+              sentence={t(
+                'Your compact view is still here. Click Tab Keeper in the toolbar as always, or {{icon}} to switch back.',
+                { icon: GLYPH_SLOT }
+              )}
+              icon="close_fullscreen"
+              label={t('Open compact view')}
+            />
+          ) : (
+            t(
+              'Your compact view is still here. Click Tab Keeper in the toolbar as always.'
+            )
+          ),
+          primary: next,
+        };
       case 'openNow':
         return {
           text: t(
@@ -348,7 +376,13 @@ export default function FirstRun() {
 
   return (
     <CoachMark
-      progress={{ step: run.step, total: RUN_STEPS[run.view] }}
+      // KAN-623. The card is outside the tour's count: step 1 still reads 1 of 9.
+      progress={
+        kind === 'compactView'
+          ? null
+          : { step: run.step, total: RUN_STEPS[run.view] }
+      }
+      kind={kind}
       text={card.text}
       fine={card.fine}
       anchors={plan.anchors}

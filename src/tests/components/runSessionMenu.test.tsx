@@ -47,7 +47,7 @@ describe('the run’s Delete step (KAN-582)', () => {
 
   test('it points at the session header’s ⋮, in both views', () => {
     for (const view of ['popup', 'full'] as const)
-      expect(runStepPlan(view, 'delete', null, 'run')?.anchors).toEqual([
+      expect(runStepPlan(view, 'delete', null, 'run', false)?.anchors).toEqual([
         '[data-pane="detail"] [data-tour-anchor="session-menu"]',
       ]);
   });

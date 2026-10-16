@@ -324,6 +324,8 @@
   "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "किसी खुले टैब को जल्दी ढूँढने के लिए यहाँ खोजें। इसे चौड़ा करने के लिए किनारा खींचें, या \"अभी खुले टैब\" को पूरी जगह में फैलाने के लिए {{icon}} दबाएँ।",
   "Search here to find an open tab fast. Press {{icon}} to give Open now the whole view.": "किसी खुले टैब को जल्दी ढूँढने के लिए यहाँ खोजें। \"अभी खुले टैब\" को पूरी जगह में फैलाने के लिए {{icon}} दबाएँ।",
   "Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.": "जब तक विंडो संकरी है, \"अभी खुले टैब\" यहाँ रखे हैं। सभी खुले टैब देखने और खोजने के लिए {{icon}} दबाएँ।",
+  "Your compact view is still here. Click Tab Keeper in the toolbar as always, or {{icon}} to switch back.": "आपका संक्षिप्त व्यू अब भी मौजूद है। हमेशा की तरह टूलबार में Tab Keeper पर क्लिक करें, या वापस जाने के लिए {{icon}} दबाएँ।",
+  "Your compact view is still here. Click Tab Keeper in the toolbar as always.": "आपका संक्षिप्त व्यू अब भी मौजूद है। हमेशा की तरह टूलबार में Tab Keeper पर क्लिक करें।",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "इन विंडो को एक सेशन के रूप में सहेजें। हमने इसका नाम रख दिया है; चाहें तो बदलें, फिर {{icon}} दबाएँ।",
   "Saving keeps them safe even after you close them.": "सहेजने के बाद वे बंद करने पर भी सुरक्षित रहती हैं।",
   "Use an example": "एक उदाहरण इस्तेमाल करें",
