@@ -257,7 +257,7 @@
   "Back to last tab": "返回上次使用的分頁",
   "Default view": "預設檢視",
   "Pin Tab Keeper in new windows": "在新視窗中固定 Tab Keeper",
-  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper 會固定在它開啟或切換到的每個視窗中。",
+  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper 會在它開啟或切換到的每個視窗中，固定為第一個分頁。",
   "Compact view": "精簡檢視",
   "Full view": "完整檢視",
   "A saved session shows its windows and tabs here.": "已儲存工作階段的視窗和分頁會顯示在這裡。",

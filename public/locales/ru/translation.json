@@ -284,7 +284,7 @@
   "Back to last tab": "Вернуться к последней использованной вкладке",
   "Default view": "Вид по умолчанию",
   "Pin Tab Keeper in new windows": "Закреплять Tab Keeper в новых окнах",
-  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper закреплён в каждом окне, которое он открывает или на которое переключается.",
+  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper закреплён первой вкладкой в каждом окне, которое он открывает или на которое переключается.",
   "Compact view": "Компактный вид",
   "Full view": "Полный вид",
   "A saved session shows its windows and tabs here.": "Здесь показаны окна и вкладки сохранённой сессии.",

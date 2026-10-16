@@ -266,7 +266,7 @@
   "Back to last tab": "पिछली बार इस्तेमाल किए गए टैब पर वापस जाएं",
   "Default view": "डिफ़ॉल्ट व्यू",
   "Pin Tab Keeper in new windows": "नई विंडो में Tab Keeper पिन करें",
-  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper जिस भी विंडो को खोलता है या जिस पर स्विच करता है, उसमें वह पिन रहता है।",
+  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper जिस भी विंडो को खोलता है या जिस पर स्विच करता है, उसमें वह पहले टैब के रूप में पिन रहता है।",
   "Compact view": "संक्षिप्त व्यू",
   "Full view": "पूरा व्यू",
   "A saved session shows its windows and tabs here.": "सहेजा गया सेशन अपनी विंडो और टैब यहाँ दिखाता है।",
