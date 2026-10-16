@@ -20,10 +20,16 @@ import { formatSyncUsed } from '../src/utils/functions/syncSpace';
 async function openSync(
   context: BrowserContext,
   extensionId: string,
-  container = buildContainer()
+  container = buildContainer(),
+  syncOff = false
 ): Promise<Page> {
   await seedSessions(context, container);
-  await seedSettings(context, { isAutoSync: false });
+  await seedSettings(
+    context,
+    syncOff
+      ? { isAutoSync: false, cloudConsent: 'declined' }
+      : { isAutoSync: false }
+  );
   const page = await context.newPage();
   await page.setViewportSize({ width: 790, height: 550 });
   await page.goto(`chrome-extension://${extensionId}/index.html`);
@@ -31,9 +37,26 @@ async function openSync(
   await page.locator('button[aria-label="Sync & Backup"]').click();
   await expect(page.getByTestId('sync-status')).toHaveAttribute(
     'data-sync-state',
-    'manual'
+    syncOff ? 'off' : 'manual'
   );
   return page;
+}
+
+// One session whose single tab's address carries `pad` extra characters.
+function padded(pad: number) {
+  const base = buildSession({ tabGroupId: 'big' });
+  const tab = base.windows[0].tabs[0];
+  return buildContainer([
+    {
+      ...base,
+      windows: [
+        {
+          ...base.windows[0],
+          tabs: [{ ...tab, url: `${tab.url}${'a'.repeat(pad)}` }],
+        },
+      ],
+    },
+  ]);
 }
 
 const bar = (page: Page) => page.getByTestId('sync-space');
@@ -70,22 +93,38 @@ test('near the limit it turns red and says what to do', async ({
   context,
   extensionId,
 }) => {
-  const base = buildSession({ tabGroupId: 'big' });
-  const tab = base.windows[0].tabs[0];
-  const big = buildContainer([
-    {
-      ...base,
-      windows: [
-        {
-          ...base.windows[0],
-          tabs: [{ ...tab, url: `${tab.url}${'a'.repeat(900_000)}` }],
-        },
-      ],
-    },
-  ]);
-  const page = await openSync(context, extensionId, big);
+  const page = await openSync(context, extensionId, padded(900_000));
   await expect(bar(page)).toHaveAttribute('data-level', 'near');
   await expect(bar(page)).toContainText(
     'Sync stops at 1 MB: delete sessions you no longer need.'
   );
+});
+
+// KAN-633. With sync off the bar was hidden at any size, so the size was learned only from the
+// refusal after the yes. From 80% it shows there too.
+test('with sync off, past the limit, the bar says it is too large before any yes', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openSync(context, extensionId, padded(1_150_000), true);
+  await expect(bar(page)).toHaveAttribute('data-level', 'full');
+  await expect(bar(page)).toContainText(
+    'Too large to sync: delete sessions you no longer need.'
+  );
+  const meter = page.getByRole('meter', { name: 'Sync limit used' });
+  await expect(meter).toHaveAttribute('aria-valuenow', '100');
+  // Red, as when sync is on: Paper's DELETE_ICON_HOVER_COLOR.
+  await expect(meter.locator(':scope > div')).toHaveCSS(
+    'background-color',
+    'rgb(224, 148, 148)'
+  );
+});
+
+test('CONTROL: with sync off and room to spare, still no bar', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openSync(context, extensionId, buildContainer(), true);
+  await expect(page.getByTestId('sync-status')).toContainText('Sync is off');
+  await expect(bar(page)).toHaveCount(0);
 });
