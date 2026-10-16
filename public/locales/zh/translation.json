@@ -71,6 +71,7 @@
   "Session replaced with all open windows.": "已将会话替换为所有打开的窗口。",
   "Session window deleted.": "会话窗口已删除。",
   "Session tab deleted.": "会话标签已删除。",
+  "Session tab group deleted.": "会话标签组已删除。",
   "Sync unavailable: your saved account token could not be read.": "无法同步：无法读取已保存的账户令牌。",
   "Back": "后退",
   "Display": "显示",

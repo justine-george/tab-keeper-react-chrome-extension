@@ -75,6 +75,7 @@
   "Session replaced with all open windows.": "Sessione sostituita con tutte le finestre aperte.",
   "Session window deleted.": "Finestra eliminata.",
   "Session tab deleted.": "Scheda eliminata.",
+  "Session tab group deleted.": "Gruppo di schede eliminato.",
   "Sync unavailable: your saved account token could not be read.": "Sincronizzazione non disponibile: impossibile leggere il token dell'account salvato.",
   "Back": "Indietro",
   "Display": "Mostra",

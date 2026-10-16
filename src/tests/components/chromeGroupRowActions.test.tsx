@@ -13,6 +13,8 @@ import {
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import type { chromeTabGroupData } from '../../redux/slices/tabContainerDataStateSlice';
 import { ADD_CURR_TAB_TO_CHROME_GROUP_ACTION } from '../../utils/constants/actionTypes';
+import { TOAST_MESSAGES } from '../../utils/constants/common';
+import { toastTexts } from '../setup/toasts';
 
 // The group row's full action set, wired through the UI rather than asserted
 // on the reducers (which chromeGroupActions.test.ts already covers). What is
@@ -131,6 +133,10 @@ describe('the group row action set', () => {
     );
 
     expect(win(store).tabs.map((t) => t.tabId)).toEqual(['loose']);
+    // KAN-640. The menu goes through the thunk, so the delete is said.
+    expect(toastTexts(store.getState())).toEqual([
+      TOAST_MESSAGES.DELETE_CHROME_GROUP_SUCCESS,
+    ]);
   });
 
   // A control that cannot act must not be focusable and inert (KAN-62).

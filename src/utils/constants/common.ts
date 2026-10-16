@@ -116,6 +116,7 @@ export const TOAST_MESSAGES = {
   DUPLICATE_TABS_REMOVED: 'DuplicateTabsRemoved',
   DELETE_WINDOW_SUCCESS: 'Session window deleted.',
   DELETE_TAB_SUCCESS: 'Session tab deleted.',
+  DELETE_CHROME_GROUP_SUCCESS: 'Session tab group deleted.',
   UNREADABLE_ACCOUNT_TOKEN:
     'Sync unavailable: your saved account token could not be read.',
   // The refusal it reports is deliberate: an unparseable cloud document may be
