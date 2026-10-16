@@ -148,7 +148,7 @@ describe('components take their sizes from the shared scales (KAN-205)', () => {
   // One exception, through the scale rather than a literal: Open now's active
   // tab title at WEIGHT.ACTIVE_ROW (KAN-567, his pick B). There weight marks a
   // state, "on screen", not emphasis, and replaced a bar that clashed with a
-  // group's colour strip.
+  // group's colour strip. Likewise WEIGHT.CHOSEN on a chosen Default save tile (KAN-635).
   test('the popup declares no font weight', () => {
     const offenders = FILES.filter(
       (f) => !f.name.includes('components/modals/')

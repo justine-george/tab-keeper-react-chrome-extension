@@ -49,6 +49,7 @@ describe('the tab-history row sits under Save Tab Groups', () => {
 
     expect(pair()).toHaveAccessibleName(LABEL);
     expect(sectionLabels(container)).toEqual([
+      'Default save',
       'Save Tab Groups',
       LABEL,
       'Default view',

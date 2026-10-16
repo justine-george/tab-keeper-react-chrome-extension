@@ -39,6 +39,7 @@ describe('the Pin Tab Keeper in new windows row', () => {
   test('sits after Default view, Off pressed, its caption describing the pair', async () => {
     const { container } = await renderSessions();
     expect(sectionLabels(container)).toEqual([
+      'Default save',
       'Save Tab Groups',
       'Bring back tab history when reopening',
       'Default view',

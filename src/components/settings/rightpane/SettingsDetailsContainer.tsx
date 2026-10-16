@@ -49,6 +49,7 @@ import {
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
 import SyncStatus from './Account/SyncStatus';
 import SlidingPair from '../../common/SlidingPair';
+import DefaultSaveChoice from './DefaultSaveChoice';
 import { SETTINGS_PAIR_METRICS } from '../../common/slidingPairMetrics';
 import { useTranslation } from 'react-i18next';
 import { CONTROL, ICON, TYPE } from '../../../styles/scale';
@@ -87,6 +88,7 @@ const SettingsDetailsContainer: React.FC = () => {
   // The tab-history help line's id, which its pair points at (KAN-280).
   const tabHistoryHelpId = useId();
   const pinTabKeeperHelpId = useId();
+  const defaultSaveHelpId = useId();
   const popupShortcut = usePopupShortcut();
   const { i18n } = useTranslation();
   const { t } = useTranslation();
@@ -522,7 +524,7 @@ const SettingsDetailsContainer: React.FC = () => {
           align-items: center;
         `}
       >
-        {/* Save Tab Groups */}
+        {/* KAN-635. What the save button and Enter save. */}
         <div
           data-settings-section
           css={css`
@@ -530,6 +532,43 @@ const SettingsDetailsContainer: React.FC = () => {
             padding-right: clamp(16px, 8%, 72px);
             width: 100%;
             margin-top: 20px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Default save')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+          <div
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            <DefaultSaveChoice describedBy={defaultSaveHelpId} />
+          </div>
+          <p id={defaultSaveHelpId} css={helpLineStyle}>
+            {t(
+              'Used by the save button and the Enter key. The other save is in the ⋮ menu.'
+            )}
+          </p>
+        </div>
+
+        {/* Save Tab Groups */}
+        <div
+          data-settings-section
+          css={css`
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 32px;
           `}
         >
           <div

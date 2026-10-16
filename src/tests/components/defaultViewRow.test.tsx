@@ -40,6 +40,7 @@ describe('the Default view row (KAN-7 §7)', () => {
   test('sits between tab history and Pin Tab Keeper in new windows, with Compact pressed', async () => {
     const { container } = await renderSessions();
     expect(sectionLabels(container)).toEqual([
+      'Default save',
       'Save Tab Groups',
       'Bring back tab history when reopening',
       'Default view',
