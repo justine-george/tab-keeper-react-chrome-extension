@@ -248,9 +248,7 @@ describe('with the ⋮ open, the key runs Delete session (KAN-638)', () => {
 
     fireEvent.keyDown(focusedItem(), { key: 'ArrowDown' });
 
-    expect(
-      screen.getByRole('menuitem', { name: /^Export/ })
-    ).toHaveFocus();
+    expect(screen.getByRole('menuitem', { name: /^Export/ })).toHaveFocus();
     expect(ids(store)).toEqual(['shown', 'kyoto']);
   });
 
