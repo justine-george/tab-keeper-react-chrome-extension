@@ -107,9 +107,19 @@ const applyUninstallSurvey = uninstallSurveyInOrder(
         .then((items) => items[UNINSTALL_SURVEY_LANGUAGE_KEY]),
   }
 );
-chrome.runtime.onInstalled.addListener(() => void applyUninstallSurvey());
+// The newest apply settles last (they queue), so this is the URL Chrome holds.
+let uninstallSurveyApplied: Promise<string | undefined> =
+  Promise.resolve(undefined);
+const reapplyUninstallSurvey = () => {
+  uninstallSurveyApplied = applyUninstallSurvey();
+};
+chrome.runtime.onInstalled.addListener(reapplyUninstallSurvey);
 chrome.storage.local.onChanged.addListener((changes) => {
-  if (UNINSTALL_SURVEY_LANGUAGE_KEY in changes) void applyUninstallSurvey();
+  if (UNINSTALL_SURVEY_LANGUAGE_KEY in changes) reapplyUninstallSurvey();
+});
+// A spec uninstalls only once the URL it expects is set; Chrome opens nothing before.
+Object.assign(globalThis, {
+  tabKeeperUninstallSurveyApplied: () => uninstallSurveyApplied,
 });
 
 // Fires only while the popup is '' (Default view = Full); the shortcut and the puzzle menu follow.

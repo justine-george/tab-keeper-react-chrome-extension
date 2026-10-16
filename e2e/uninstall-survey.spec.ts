@@ -20,11 +20,32 @@ const FORM = 'https://docs.google.com/forms/**';
 const VERSION_ENTRY = 'entry.289476948';
 const LANGUAGE_ENTRY = 'entry.19370289';
 
+// The URL the worker last set, once every queued apply has settled.
+const surveySet = (worker: Worker) =>
+  worker.evaluate(async () => {
+    const applied: unknown = Reflect.get(
+      globalThis,
+      'tabKeeperUninstallSurveyApplied'
+    );
+    if (typeof applied !== 'function')
+      throw new Error('no tabKeeperUninstallSurveyApplied');
+    const url: unknown = await applied();
+    return typeof url === 'string' ? url : undefined;
+  });
+
 // What Chrome opens once the extension is gone. The evaluate rejects: the worker dies with it.
 async function uninstallAndCatchSurvey(
   context: BrowserContext,
-  worker: Worker
+  worker: Worker,
+  language: string
 ): Promise<URL> {
+  // Chrome opens nothing before the worker's apply lands (3 of 25 under load, without this).
+  await expect
+    .poll(async () => {
+      const set = await surveySet(worker);
+      return set && new URL(set).searchParams.get(LANGUAGE_ENTRY);
+    })
+    .toBe(language);
   await context.route(FORM, (route) =>
     route.fulfill({ body: 'survey stub', contentType: 'text/html' })
   );
@@ -47,7 +68,7 @@ test("installed and never opened: the version, and the browser's language", asyn
   expect(
     await serviceWorker.evaluate(() => chrome.i18n.getUILanguage())
   ).toMatch(/^en\b/);
-  const url = await uninstallAndCatchSurvey(context, serviceWorker);
+  const url = await uninstallAndCatchSurvey(context, serviceWorker, 'en');
   expect(url.searchParams.get(VERSION_ENTRY)).toBe(VERSION);
   expect(url.searchParams.get(LANGUAGE_ENTRY)).toBe('en');
 });
@@ -73,7 +94,7 @@ test('a language picked in Settings reaches the survey', async ({
       )
     )
     .toBe('fr');
-  const url = await uninstallAndCatchSurvey(context, serviceWorker);
+  const url = await uninstallAndCatchSurvey(context, serviceWorker, 'fr');
   expect(url.searchParams.get(VERSION_ENTRY)).toBe(VERSION);
   expect(url.searchParams.get(LANGUAGE_ENTRY)).toBe('fr');
 });
