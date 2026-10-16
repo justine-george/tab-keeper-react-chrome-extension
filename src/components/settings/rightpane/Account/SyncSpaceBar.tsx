@@ -14,14 +14,19 @@ import {
 import {
   formatSyncLimit,
   formatSyncUsed,
+  isSyncUseShown,
   syncSpaceLevel,
 } from '../../../../utils/functions/syncSpace';
 
+// KAN-625. What it measures: the sessions here against the sync limit, not storage in the cloud.
 const LINE_KEY = {
-  ok: 'SyncSpaceUsed',
-  near: 'SyncSpaceUsedNear',
-  full: 'SyncSpaceUsedFull',
+  ok: 'SyncLimitUsed',
+  near: 'SyncLimitUsedNear',
+  full: 'SyncLimitUsedFull',
 } as const;
+
+// Under 1 kB the line rounds to 0 and the bar shows nothing; from there a sliver at least.
+const SLIVER = '3px';
 
 /**
  * KAN-596. How much of the 1 MB the sync may write. It measures with
@@ -36,10 +41,8 @@ const SyncSpaceBar: React.FC = () => {
   const bytes = useMemo(() => estimateFirestoreBytes(container), [container]);
 
   const level = syncSpaceLevel(bytes);
-  const percent = Math.min(
-    100,
-    Math.round((bytes / FIRESTORE_MAX_DOCUMENT_BYTES) * 100)
-  );
+  const share = Math.min(1, bytes / FIRESTORE_MAX_DOCUMENT_BYTES);
+  const percent = Math.round(share * 100);
   const text = t(LINE_KEY[level], {
     used: formatSyncUsed(bytes, i18n.language),
     limit: formatSyncLimit(i18n.language),
@@ -58,7 +61,7 @@ const SyncSpaceBar: React.FC = () => {
     >
       <div
         role="meter"
-        aria-label={t('Sync space used')}
+        aria-label={t('Sync limit used')}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
@@ -71,8 +74,12 @@ const SyncSpaceBar: React.FC = () => {
         `}
       >
         <div
+          // KAN-625. The exact share: whole percent drew nothing under 0.5%.
+          style={{
+            width: `${share * 100}%`,
+            minWidth: isSyncUseShown(bytes) ? SLIVER : undefined,
+          }}
           css={css`
-            width: ${percent}%;
             height: 100%;
             background: ${
               level === 'ok'

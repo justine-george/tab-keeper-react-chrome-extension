@@ -27,11 +27,18 @@ const unit = (
     maximumFractionDigits: fractionDigits,
   });
 
+const wholeKilobytes = (bytes: number): number => Math.round(bytes / 1024);
+
 // Whole kilobytes under 1 MiB; past it, megabytes to one decimal, as the refusal toast writes them.
 export function formatSyncUsed(bytes: number, locale: string): string {
   return bytes < FIRESTORE_MAX_DOCUMENT_BYTES
-    ? unit(locale, 'kilobyte', 0).format(Math.round(bytes / 1024))
+    ? unit(locale, 'kilobyte', 0).format(wholeKilobytes(bytes))
     : unit(locale, 'megabyte', 1).format(bytes / FIRESTORE_MAX_DOCUMENT_BYTES);
+}
+
+// KAN-625. The line reads more than 0 kB, so the bar shows at least a sliver; rounded the same way.
+export function isSyncUseShown(bytes: number): boolean {
+  return wholeKilobytes(bytes) > 0;
 }
 
 export const formatSyncLimit = (locale: string): string =>
