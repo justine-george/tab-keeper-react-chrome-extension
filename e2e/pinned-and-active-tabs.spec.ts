@@ -275,7 +275,7 @@ test.describe('Open', () => {
     ]);
   });
 
-  // KAN-630. The worker fetches each lazy tab's favicon before it creates the tab; held past the steady second, the window waits for them.
+  // KAN-630. The worker fetches each lazy tab's favicon before it creates the tab; held well past the steady second, the window waits for them.
   test('a restore that adds its lazy tabs late: the window settles with all of them', async ({
     context,
     extensionId,
@@ -290,7 +290,7 @@ test.describe('Open', () => {
     await serviceWorker.evaluate(() => {
       const real = self.fetch.bind(self);
       self.fetch = async (...args: Parameters<typeof fetch>) => {
-        await new Promise((done) => setTimeout(done, 1500));
+        await new Promise((done) => setTimeout(done, 3000));
         return real(...args);
       };
     });
