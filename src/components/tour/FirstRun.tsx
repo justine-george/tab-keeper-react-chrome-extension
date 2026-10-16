@@ -183,7 +183,7 @@ export default function FirstRun() {
   };
   const saveGlyph = {
     icon: SAVE_OF[defaultSaveScope].icon,
-    label: t(SAVE_OF[defaultSaveScope].label),
+    label: t(SAVE_OF[defaultSaveScope].labelKey),
   };
 
   const cardFor = (): Card => {

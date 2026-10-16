@@ -306,8 +306,8 @@ export default function UserInputContainer() {
       {!isSearching && (
         <div css={saveGroupStyle}>
           <Button
-            tooltipText={t(buttonSave.label)}
-            ariaLabel={t(buttonSave.label)}
+            tooltipText={t(buttonSave.labelKey)}
+            ariaLabel={t(buttonSave.labelKey)}
             iconType={buttonSave.icon}
             onClick={() => createTabGroup(buttonScope)}
             style="width: 58px; height: 100%; padding: 0; flex-shrink: 0; border: none;"
@@ -349,7 +349,7 @@ export default function UserInputContainer() {
             items={[
               {
                 key: `save-${menuScope}`,
-                label: t(SAVE_OF[menuScope].label),
+                label: t(SAVE_OF[menuScope].labelKey),
                 icon: SAVE_OF[menuScope].icon,
                 onSelect: () => createTabGroup(menuScope),
               },
