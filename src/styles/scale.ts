@@ -94,13 +94,16 @@ export const CONTROL = {
  * moved it, with Open compact view, to MEDIUM_SMALL.
  */
 /**
- * The one row weight besides the body's 400 (KAN-567, his pick B): Open now's
- * active tab, which shows "on screen" by its title alone, so it never
- * competes with a group's colour strip and hover stays the row's only fill.
- * Weight carries a state here, not emphasis; see scaleConformance.test.ts.
+ * The weights besides the body's 400, each carrying a state, not emphasis;
+ * see scaleConformance.test.ts.
  */
 export const WEIGHT = {
+  // KAN-567, his pick B: Open now's active tab shows "on screen" by its title
+  // alone, so it never competes with a group's colour strip and hover stays
+  // the row's only fill.
   ACTIVE_ROW: 600,
+  // KAN-635: the chosen Default save tile's word, beside its ring.
+  CHOSEN: 600,
 } as const;
 
 export const ICON = {

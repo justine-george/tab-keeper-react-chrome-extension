@@ -378,5 +378,9 @@
   "Nothing deleted in the last 30 days.": "In den letzten 30 Tagen wurde nichts gelöscht.",
   "Time format": "Zeitformat",
   "12-hour": "12-Stunden",
-  "24-hour": "24-Stunden"
+  "24-hour": "24-Stunden",
+  "Default save": "Standardspeicherung",
+  "All windows": "Alle Fenster",
+  "Current window": "Aktuelles Fenster",
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Gilt für die Speichern-Schaltfläche und die Eingabetaste. Die andere Speicheroption ist im ⋮-⁠Menü."
 }

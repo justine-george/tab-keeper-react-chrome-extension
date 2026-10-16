@@ -5,6 +5,7 @@ import { hydrateFromOtherPage } from './slices/tabContainerDataStateSlice';
 import {
   asOpenNowWidth,
   asTimeFormat,
+  asDefaultSaveScope,
   asShippedLanguage,
   guardOnboarding,
   hydrateSettingsFromOtherPage,
@@ -116,6 +117,11 @@ export const applyOtherPageSettings =
         'timeFormat' in incoming
           ? asTimeFormat(incoming.timeFormat)
           : current.timeFormat,
+      // KAN-635. Absent means an older page wrote this; keep ours.
+      defaultSaveScope:
+        'defaultSaveScope' in incoming
+          ? asDefaultSaveScope(incoming.defaultSaveScope)
+          : current.defaultSaveScope,
       // KAN-7. Same rule for the onboarding answers.
       ...guardOnboarding(loaded, current),
     };

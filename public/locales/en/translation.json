@@ -378,5 +378,9 @@
   "Nothing deleted in the last 30 days.": "Nothing deleted in the last 30 days.",
   "Time format": "Time format",
   "12-hour": "12-hour",
-  "24-hour": "24-hour"
+  "24-hour": "24-hour",
+  "Default save": "Default save",
+  "All windows": "All windows",
+  "Current window": "Current window",
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Used by the save button and the Enter key. The other save is in the ⋮ menu."
 }

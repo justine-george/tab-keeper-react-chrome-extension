@@ -22,6 +22,7 @@ import {
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import {
   recordFirstRun,
+  setDefaultSaveScope,
   setDefaultView,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
@@ -384,6 +385,23 @@ describe('Back to the save step after the run’s save (R6, A5, M4)', () => {
     expect(await screen.findByRole('button', { name: 'Next' })).toBeVisible();
     expect(mark()).toHaveTextContent(TEXT);
     expect(screen.queryByRole('button', { name: 'Use an example' })).toBeNull();
+  });
+});
+
+// KAN-635. The save card shows the button Default save puts on the row.
+describe('the save card’s glyph follows Default save', () => {
+  test.each([
+    ['all-windows', 'Save all open windows as a session', 'library_add'],
+    ['current-window', 'Save current window as a session', 'add_box'],
+  ] as const)('%s: %s', async (scope, name, glyph) => {
+    const r = await renderAt({ ...newRun('popup', 1), sessionId: 'own' });
+    act(() => {
+      r.store.dispatch(setDefaultSaveScope(scope));
+    });
+    const card = await screen.findByRole('button', { name: 'Next' });
+    const img = within(mark() as HTMLElement).getByRole('img', { name });
+    expect(card).toBeVisible();
+    expect(img).toHaveTextContent(glyph);
   });
 });
 

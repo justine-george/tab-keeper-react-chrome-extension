@@ -391,5 +391,9 @@
   "Nothing deleted in the last 30 days.": "Rien n’a été supprimé ces 30 derniers jours.",
   "Time format": "Format de l’heure",
   "12-hour": "12 heures",
-  "24-hour": "24 heures"
+  "24-hour": "24 heures",
+  "Default save": "Enregistrement par défaut",
+  "All windows": "Toutes les fenêtres",
+  "Current window": "Cette fenêtre",
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Utilisé par le bouton d’enregistrement et la touche Entrée. L’autre enregistrement se trouve dans le menu ⋮."
 }

@@ -365,5 +365,9 @@
   "Nothing deleted in the last 30 days.": "최근 30일 동안 삭제된 항목이 없습니다.",
   "Time format": "시간 형식",
   "12-hour": "12시간제",
-  "24-hour": "24시간제"
+  "24-hour": "24시간제",
+  "Default save": "기본 저장",
+  "All windows": "모든 창",
+  "Current window": "현재 창",
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "저장 버튼과 Enter 키에 적용됩니다. 다른 저장 방식은 ⋮ 메뉴에 있습니다."
 }

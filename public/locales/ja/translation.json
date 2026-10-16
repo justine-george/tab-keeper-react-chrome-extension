@@ -365,5 +365,9 @@
   "Nothing deleted in the last 30 days.": "過去 30 日間に削除した項目はありません。",
   "Time format": "時刻の形式",
   "12-hour": "12時間制",
-  "24-hour": "24時間制"
+  "24-hour": "24時間制",
+  "Default save": "既定の保存",
+  "All windows": "すべてのウィンドウ",
+  "Current window": "現在のウィンドウ",
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "保存ボタンと Enter キーで使われます。もう一方の保存は ⋮ メニューにあります。"
 }
