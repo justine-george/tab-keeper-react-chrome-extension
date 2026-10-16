@@ -1329,9 +1329,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                           // The tab rows get this from their parent's
                           // align-items: stretch; this strip has to ask.
                           style={
-                            // padding-right matches the label's 4px left, so the ghost (KAN-631) clears the text.
-                            'display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box; padding-right: 4px;' +
-                            titleButtonStyle
+                            // The ghost reaches 4px past the text, as the label's 4px left; no padding, so a long title still runs to the edge (D10).
+                            'display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box;' +
+                            titleButtonStyle +
+                            '&::before { right: -4px; }'
                           }
                         >
                           {groupTitleLabel(item.group)}

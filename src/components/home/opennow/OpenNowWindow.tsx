@@ -807,13 +807,15 @@ export default function OpenNowWindow({
                           </>
                         ) : (
                           // Shrunk to its text, as the saved title is, so the rest of the row is only a drag handle.
+                          // The ghost reaches 4px past the text without padding, as the saved band's (KAN-631, D10).
                           <ClickableRow
                             ariaLabel={t('Rename group') + ': ' + groupName}
                             onClick={() => startEditingGroup(item.group)}
                             buttonRef={titleFocus.refFor(item.group.groupId)}
                             style={
-                              'display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box; flex: 0 1 auto; max-width: 100%; padding-right: 4px;' +
-                              renameOnClickStyle(COLORS, COLORS.HOVER_COLOR)
+                              'display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box; flex: 0 1 auto; max-width: 100%;' +
+                              renameOnClickStyle(COLORS, COLORS.HOVER_COLOR) +
+                              '&::before { right: -4px; }'
                             }
                           >
                             <NormalLabel
