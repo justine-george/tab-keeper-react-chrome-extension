@@ -272,9 +272,7 @@ export default function UserInputContainer() {
         placeholder={t('Name the new session')}
         autoComplete="off"
         onChange={updateUserInput}
-        onKeyEnter={
-          isSearching ? undefined : () => createTabGroup(buttonScope)
-        }
+        onKeyEnter={isSearching ? undefined : () => createTabGroup(buttonScope)}
         style={`${isSearching ? '' : 'margin-right: 8px; '}height: auto;`}
       />
       {/* One wide save and a menu (KAN-208).

@@ -68,8 +68,10 @@ export default function DefaultSaveChoice({
     display: flex;
     height: 58px;
     border: 1px solid ${COLORS.BORDER_COLOR};
-    ${isChosen &&
-    `outline: 2px solid ${COLORS.TEXT_COLOR}; outline-offset: 3px;`}
+    ${
+      isChosen &&
+      `outline: 2px solid ${COLORS.TEXT_COLOR}; outline-offset: 3px;`
+    }
   `;
   const squareStyle = css`
     display: grid;

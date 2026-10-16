@@ -62,7 +62,15 @@ describe.each([
   ['current-window', CURRENT, 'add_box', ALL, 'library_add', 1, 2],
 ] as const)(
   'Default save %s',
-  (scope, buttonName, buttonGlyph, itemName, itemGlyph, buttonWindows, itemWindows) => {
+  (
+    scope,
+    buttonName,
+    buttonGlyph,
+    itemName,
+    itemGlyph,
+    buttonWindows,
+    itemWindows
+  ) => {
     test('the button is that save, by name, tooltip and glyph; the other is not a button', async () => {
       await renderRow(scope);
       const button = screen.getByRole('button', { name: buttonName });
