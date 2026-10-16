@@ -11,6 +11,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import ClickableRow from '../../common/ClickableRow';
+import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import { DropBoxLabel } from '../../common/dropBox';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
 import Icon from '../../common/Icon';
@@ -442,11 +443,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   `;
 
   // Shrunk to its text, so the rest of the row is only a drag handle (R4, D9).
-  const titleButtonStyle = `
+  // The window row and the group band both fill HOVER_COLOR under the pointer.
+  const titleButtonStyle =
+    `
     flex: 0 1 auto;
     max-width: 100%;
-    cursor: text;
-  `;
+  ` + renameOnClickStyle(COLORS, COLORS.HOVER_COLOR);
 
   const renameFieldPlaceholder = placeholderStyle(COLORS.PLACEHOLDER_COLOR);
 

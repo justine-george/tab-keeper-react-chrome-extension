@@ -12,6 +12,7 @@ import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
 import Button from '../../common/Button';
 import ClickableRow from '../../common/ClickableRow';
+import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -368,7 +369,10 @@ export default function HeroContainerRight() {
               // visible`, so its `min-width: auto` does NOT collapse to zero
               // the way the bare label's did, and without this the title stops
               // truncating and runs under the action block.
-              style="display: flex; align-items: center; min-width: 0; cursor: text;"
+              style={
+                'display: flex; align-items: center; min-width: 0;' +
+                renameOnClickStyle(COLORS, COLORS.SECONDARY_COLOR)
+              }
             >
               {titleLabel}
             </ClickableRow>
