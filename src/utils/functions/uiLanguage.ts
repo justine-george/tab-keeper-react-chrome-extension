@@ -2,8 +2,8 @@
 // language, if any.
 //
 // Generic over the supported list rather than importing the Language enum:
-// the settings slice owns that enum and calls into this module while it is
-// still being evaluated, so a value import back would close a cycle.
+// languages.ts owns that enum and calls into this module while it is still
+// being evaluated, so a value import back would close a cycle.
 //
 // Never returns a raw browser tag. In 2023 (#42) an i18next language detector
 // passed `en-US` straight through, i18next asked for

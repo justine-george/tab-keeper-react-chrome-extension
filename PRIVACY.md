@@ -2,7 +2,7 @@
 
 **Tab Keeper — Chrome extension**
 
-Last updated: 14 October 2026
+Last updated: 16 October 2026
 
 Tab Keeper saves your open windows and tabs as sessions so you can reopen them later. This policy explains what information Tab Keeper handles, how it is used, where it is stored, and how you can remove it.
 
@@ -29,6 +29,10 @@ Tab Keeper stores settings including your theme, language, sync preference, disp
 When you turn on sync, Tab Keeper uses the random identifier that Chrome sync storage already holds from another of your devices, or creates one and stores it there. Chrome may copy this identifier to other devices using the same Chrome profile. Tab Keeper uses it to locate the Firestore document shared by those devices.
 
 Tab Keeper does not receive or store your name, email address, or Google account identity.
+
+### Uninstall feedback
+
+When you uninstall Tab Keeper, Chrome opens a short Google Form asking why. The link that opens it includes your Tab Keeper version and the language Tab Keeper uses (or your browser's language, if Tab Keeper hasn't recorded one yet), and nothing else: no tabs, sessions, sync identifier, or account details. Opening the form sends that link to Google, like any web page request. Your answers are recorded only if you press Submit. The form is provided by Google and covered by the [Google Privacy Policy](https://policies.google.com/privacy).
 
 ## How Tab Keeper uses information
 
@@ -69,7 +73,7 @@ Tab Keeper may request an icon from the server hosting a saved tab's icon. That 
 
 Tab Keeper does not sell user data.
 
-It shares information with Google only as necessary to provide Chrome sync storage, anonymous Firebase authentication, and optional Firestore session synchronization. Tab Keeper does not use analytics, advertising, or behavioral tracking.
+It shares information with Google only as necessary to provide Chrome sync storage, anonymous Firebase authentication, optional Firestore session synchronization, and the uninstall feedback form. Tab Keeper does not use analytics, advertising, or behavioral tracking.
 
 Tab Keeper does not transmit your saved-session data to any other service. Requests for tab icons are limited to retrieving those icons as described above.
 

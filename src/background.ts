@@ -28,6 +28,11 @@ import { reopenPreferringHistory } from './utils/functions/reopen';
 import type { Reopened } from './utils/functions/reopen';
 import { isReopenPreferringHistoryRequest } from './utils/functions/reopenRequest';
 import { restoreSession } from './utils/functions/restoreSession';
+import { readUiLanguage } from './utils/functions/uiLanguage';
+import {
+  UNINSTALL_SURVEY_LANGUAGE_KEY,
+  uninstallSurveyInOrder,
+} from './utils/functions/uninstallSurvey';
 import { isRestoreSessionRequest } from './utils/functions/windows';
 
 // Lazy load restores every tab past the first as a placeholder document, and
@@ -86,6 +91,35 @@ chrome.runtime.onInstalled.addListener(reapplyDefaultViewNow);
 // KAN-518. A spec that stages Default view waits on this, or a reapply that read before it lands after it.
 Object.assign(globalThis, {
   tabKeeperDefaultViewApplied: () => defaultViewApplied,
+});
+
+// KAN-642. Chrome keeps the URL across restarts; it changes only on install/update or a language change.
+const applyUninstallSurvey = uninstallSurveyInOrder(
+  {
+    setUninstallURL: (url) => chrome.runtime.setUninstallURL(url),
+    version: () => chrome.runtime.getManifest().version,
+    uiLanguage: readUiLanguage,
+  },
+  {
+    read: () =>
+      chrome.storage.local
+        .get(UNINSTALL_SURVEY_LANGUAGE_KEY)
+        .then((items) => items[UNINSTALL_SURVEY_LANGUAGE_KEY]),
+  }
+);
+// The newest apply settles last (they queue), so this is the URL Chrome holds.
+let uninstallSurveyApplied: Promise<string | undefined> =
+  Promise.resolve(undefined);
+const reapplyUninstallSurvey = () => {
+  uninstallSurveyApplied = applyUninstallSurvey();
+};
+chrome.runtime.onInstalled.addListener(reapplyUninstallSurvey);
+chrome.storage.local.onChanged.addListener((changes) => {
+  if (UNINSTALL_SURVEY_LANGUAGE_KEY in changes) reapplyUninstallSurvey();
+});
+// A spec uninstalls only once the URL it expects is set; Chrome opens nothing before.
+Object.assign(globalThis, {
+  tabKeeperUninstallSurveyApplied: () => uninstallSurveyApplied,
 });
 
 // Fires only while the popup is '' (Default view = Full); the shortcut and the puzzle menu follow.
