@@ -50,8 +50,8 @@ import {
   requestReturn,
 } from '../../../utils/functions/backFromFullView';
 import {
-  canOpenPopup,
   compactViewWouldClose,
+  hasCompactViewButton,
   requestPopup,
 } from '../../../utils/functions/openInPopup';
 import { endRunAtFullViewButton } from '../../../redux/firstRun';
@@ -435,7 +435,7 @@ export default function MenuContainer() {
             )}
           </ClosesThisTab>
         )}
-        {isTabView() && defaultView !== 'full' && canOpenPopup() && (
+        {hasCompactViewButton(defaultView) && (
           <ClosesThisTab
             wouldClose={compactViewWouldClose}
             onGo={requestPopup}
@@ -452,6 +452,7 @@ export default function MenuContainer() {
                 ariaLabel={t('Open compact view')}
                 tooltipText={t('Open compact view')}
                 type="close_fullscreen"
+                tourAnchor="compact"
                 size={ICON.MEDIUM_SMALL}
                 boxSizedFor={ICON.DEFAULT}
                 // KAN-437. It shrinks: ⤢'s stretch mirrored inward (mock pick A).

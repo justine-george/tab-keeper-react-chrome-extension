@@ -3,8 +3,11 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import type { ChromeSeed } from '../setup/chrome.fake';
-import { OPEN_IN_POPUP_MESSAGE } from '../../utils/functions/openInPopup';
+import { setupChromeFake, type ChromeSeed } from '../setup/chrome.fake';
+import {
+  hasCompactViewButton,
+  OPEN_IN_POPUP_MESSAGE,
+} from '../../utils/functions/openInPopup';
 import { markClosesThisTabCardAnswered } from '../../redux/slices/settingsDataStateSlice';
 
 // KAN-437. The button only sends; openInPopup.test.ts covers what the worker does with it.
@@ -36,6 +39,14 @@ describe("the full view's Open compact view button (KAN-437)", () => {
     expect(
       screen.getByRole('button', { name: 'Open compact view' })
     ).toHaveTextContent('close_fullscreen');
+  });
+
+  test('KAN-623: carries the tour anchor the compact-view card points at', async () => {
+    await renderFullView();
+
+    expect(
+      screen.getByRole('button', { name: 'Open compact view' })
+    ).toHaveAttribute('data-tour-anchor', 'compact');
   });
 
   test('its tooltip says what it does', async () => {
@@ -89,5 +100,30 @@ describe("the full view's Open compact view button (KAN-437)", () => {
     expect(
       screen.getByRole('button', { name: 'Open full view' })
     ).toBeInTheDocument();
+  });
+});
+
+// KAN-623. The rule the header draws ⤡ by, which the compact-view card also reads.
+describe('hasCompactViewButton (KAN-623)', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+  afterEach(() => {
+    handle?.restore();
+    handle = undefined;
+  });
+
+  test('drawn in a full view, default compact, on a Chrome with openPopup', () => {
+    handle = setupChromeFake({ action: {} });
+    history.replaceState(null, '', '?view=tab');
+    expect(hasCompactViewButton('compact')).toBe(true);
+  });
+
+  test.each([
+    ['in the popup', '?', 'compact', true],
+    ['when the default view is Full', '?view=tab', 'full', true],
+    ['before Chrome 127', '?view=tab', 'compact', false],
+  ] as const)('not drawn %s', (_name, query, defaultView, hasOpenPopup) => {
+    handle = setupChromeFake({ action: { hasOpenPopup } });
+    history.replaceState(null, '', query);
+    expect(hasCompactViewButton(defaultView)).toBe(false);
   });
 });
