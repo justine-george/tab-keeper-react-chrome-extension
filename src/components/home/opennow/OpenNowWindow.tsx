@@ -4,6 +4,7 @@ import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
 import ClickableRow from '../../common/ClickableRow';
+import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import GroupColorPicker from '../../common/GroupColorPicker';
 import Icon from '../../common/Icon';
 import { RowMarkIcon, RowMarkSlot } from '../../common/RowMarks';
@@ -806,11 +807,16 @@ export default function OpenNowWindow({
                           </>
                         ) : (
                           // Shrunk to its text, as the saved title is, so the rest of the row is only a drag handle.
+                          // The ghost reaches 4px past the text without padding, as the saved band's (KAN-631, D10).
                           <ClickableRow
                             ariaLabel={t('Rename group') + ': ' + groupName}
                             onClick={() => startEditingGroup(item.group)}
                             buttonRef={titleFocus.refFor(item.group.groupId)}
-                            style="display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box; flex: 0 1 auto; max-width: 100%; cursor: text;"
+                            style={
+                              'display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box; flex: 0 1 auto; max-width: 100%;' +
+                              renameOnClickStyle(COLORS, COLORS.HOVER_COLOR) +
+                              '&::before { right: -4px; }'
+                            }
                           >
                             <NormalLabel
                               value={groupName}
