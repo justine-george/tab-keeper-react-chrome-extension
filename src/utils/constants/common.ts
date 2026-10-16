@@ -136,8 +136,8 @@ export const TOAST_MESSAGES = {
   SYNC_MERGED: 'Synced changes from another device.',
   // KAN-254. Both halves matter: the document is gone, and this device will
   // not write it back -- the user is told the second so they do not wonder
-  // why a setting changed under them.
-  CLOUD_DATA_DELETED: 'Cloud data deleted. Auto Sync is off on this device.',
+  // why a setting changed under them. KAN-632: sync, not Auto Sync -- the yes goes too.
+  CLOUD_DATA_DELETED: 'Cloud data deleted. Sync is off on this device.',
   CLOUD_DATA_DELETE_FAILED:
     "Couldn't delete cloud data. Check your connection and try again.",
   // KAN-593. The remedy is true: a deleted session leaves only a tombstone in

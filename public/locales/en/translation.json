@@ -183,7 +183,7 @@
   "ReplaceDeletesOther": "Replace deletes the {{count}} sessions on this device and on every device that syncs with it, then loads the backup. This can’t be undone.",
   "Merge sessions": "Merge sessions",
   "Replace sessions": "Replace sessions",
-  "Cloud data deleted. Auto Sync is off on this device.": "Cloud data deleted. Auto Sync is off on this device.",
+  "Cloud data deleted. Sync is off on this device.": "Cloud data deleted. Sync is off on this device.",
   "Couldn't delete cloud data. Check your connection and try again.": "Couldn't delete cloud data. Check your connection and try again.",
   "Not saved: storage is full. Delete some sessions to make room.": "Not saved: storage is full. Delete some sessions to make room.",
   "Last synced {{time}}": "Last synced {{time}}",

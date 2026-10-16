@@ -183,7 +183,7 @@
   "ReplaceDeletesOther": "Ersätt raderar de {{count}} sessionerna på den här enheten och på alla enheter som synkar med den, och läser sedan in säkerhetskopian. Det går inte att ångra.",
   "Merge sessions": "Sammanfoga sessioner",
   "Replace sessions": "Ersätt sessioner",
-  "Cloud data deleted. Auto Sync is off on this device.": "Molndata har raderats. Autosynk är avstängd på den här enheten.",
+  "Cloud data deleted. Sync is off on this device.": "Molndata har raderats. Synk är avstängd på den här enheten.",
   "Couldn't delete cloud data. Check your connection and try again.": "Det gick inte att radera molndata. Kontrollera anslutningen och försök igen.",
   "Not saved: storage is full. Delete some sessions to make room.": "Inte sparat: lagringsutrymmet är fullt. Radera några sessioner för att frigöra utrymme.",
   "Last synced {{time}}": "Senast synkad {{time}}",

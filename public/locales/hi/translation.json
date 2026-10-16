@@ -183,7 +183,7 @@
   "ReplaceDeletesOther": "बदलें इस डिवाइस और इससे सिंक होने वाले हर डिवाइस के {{count}} सेशन हटाता है, फिर बैकअप लोड करता है। इसे पूर्ववत नहीं किया जा सकता।",
   "Merge sessions": "सेशन मर्ज करें",
   "Replace sessions": "सेशन बदलें",
-  "Cloud data deleted. Auto Sync is off on this device.": "क्लाउड डेटा हटा दिया गया। इस डिवाइस पर ऑटो सिंक बंद है।",
+  "Cloud data deleted. Sync is off on this device.": "क्लाउड डेटा हटा दिया गया। इस डिवाइस पर सिंक बंद है।",
   "Couldn't delete cloud data. Check your connection and try again.": "क्लाउड डेटा नहीं हटाया जा सका। अपना कनेक्शन जाँचें और फिर से कोशिश करें।",
   "Not saved: storage is full. Delete some sessions to make room.": "सहेजा नहीं गया: स्टोरेज भर गया है। जगह बनाने के लिए कुछ सत्र हटाएँ।",
   "Last synced {{time}}": "पिछला सिंक: {{time}}",
