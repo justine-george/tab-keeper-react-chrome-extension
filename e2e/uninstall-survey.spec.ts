@@ -47,7 +47,7 @@ const storedForm = (worker: Worker) =>
 
 const formBase = (url: URL) => `${url.origin}${url.pathname}`;
 
-// Re-applies through the worker's language listener, with the next draw pinned.
+// Re-applies through the worker's language listener; every draw after this returns `draw`.
 const reapplyWithDraw = (worker: Worker, draw: number, language: string) =>
   worker.evaluate(
     ([d, l]) => {

@@ -8,7 +8,7 @@ export const UNINSTALL_SURVEY_FORMS = {
   b: 'https://docs.google.com/forms/d/e/1FAIpQLSfoquF4VOaq-HITFlVMgNLdoq_V1w3UQcrrNuFIB4bzx5mEmg/viewform',
 } as const;
 export type UninstallSurveyForm = keyof typeof UNINSTALL_SURVEY_FORMS;
-// Version and Language questions; B is a copy of A, so the ids match. Recreating either in Forms changes its id.
+// Version and Language questions; B is a copy of A, so the ids match. Recreating a question in either form changes its id.
 const VERSION_ENTRY = 'entry.289476948';
 const LANGUAGE_ENTRY = 'entry.19370289';
 
