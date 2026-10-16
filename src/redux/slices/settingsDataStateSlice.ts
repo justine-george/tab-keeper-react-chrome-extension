@@ -391,8 +391,7 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
-    // KAN-254. Deleting cloud data turns auto sync off; a toggle would flip
-    // whatever it was, and it must land on off.
+    // A set, not a toggle: callers name the state it must land on.
     setAutoSync: (state, action: PayloadAction<boolean>) => {
       state.isAutoSync = action.payload;
 

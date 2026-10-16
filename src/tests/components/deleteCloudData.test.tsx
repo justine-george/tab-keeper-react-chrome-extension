@@ -115,9 +115,10 @@ describe('the Delete cloud data dialog (KAN-254)', () => {
 });
 
 // KAN-573. With nothing left in the cloud, the card must not still say when it last synced.
-describe('after Delete cloud data, Sync Status (KAN-573)', () => {
+// KAN-632. Nor read as manual sync with a sync bar: the yes is gone, so it reads like a device that never said it.
+describe('after Delete cloud data, Sync Status (KAN-573, KAN-632)', () => {
   for (const isAutoSync of [true, false]) {
-    test(`Auto Sync ${isAutoSync ? 'on' : 'off'}: no "Last synced" time, and the card says sync is manual`, async () => {
+    test(`Auto Sync ${isAutoSync ? 'on' : 'off'}: no "Last synced" time, no sync bar, and the card says sync is off`, async () => {
       const user = userEvent.setup();
       await renderWithProviders(
         <>
@@ -136,9 +137,11 @@ describe('after Delete cloud data, Sync Status (KAN-573)', () => {
         }
       );
       const card = screen.getByTestId('sync-status');
-      // PREMISE: the time shows before the delete (manual shows it; on needs a cloud this build lacks).
-      if (!isAutoSync)
+      // PREMISE: the time and the bar show before the delete (manual shows them; on needs a cloud this build lacks).
+      if (!isAutoSync) {
         expect(card.querySelector('[data-sync-synced]')).not.toBeNull();
+        expect(screen.getByTestId('sync-space')).toBeInTheDocument();
+      }
 
       await user.click(
         screen.getByRole('button', { name: 'Delete cloud data' })
@@ -150,10 +153,11 @@ describe('after Delete cloud data, Sync Status (KAN-573)', () => {
       );
 
       await waitFor(() =>
-        expect(card).toHaveAttribute('data-sync-state', 'manual')
+        expect(card).toHaveAttribute('data-sync-state', 'off')
       );
       expect(card.querySelector('[data-sync-synced]')).toBeNull();
       expect(card.textContent).not.toMatch(/Last synced/);
+      expect(screen.queryByTestId('sync-space')).toBeNull();
     });
   }
 });
