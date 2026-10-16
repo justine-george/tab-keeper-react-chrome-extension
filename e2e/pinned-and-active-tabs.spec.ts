@@ -1,7 +1,7 @@
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { standIn } from './fixtures/standInPages';
+import { heldStandIn, standIn } from './fixtures/standInPages';
 import { stubsStayHidden } from './fixtures/pinnedStub';
 import { grantedTest } from './fixtures/grantedExtension';
 import {
@@ -289,6 +289,36 @@ test.describe('Open', () => {
       { title: 'First', loaded: false, pinned: false, active: false },
       { title: 'Second', loaded: false, pinned: false, active: false },
       { title: 'Third', loaded: true, pinned: false, active: true },
+    ]);
+  });
+
+  // KAN-630. The lazy tabs do not wait for the target's page: held 2s, every tab is there and one still loading.
+  test('a target page slow to load: the window settles once it has', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedOneWindow(context, [
+      { ...savedTab('First'), url: heldStandIn('First', 2000) },
+      savedTab('Second'),
+      savedTab('Third'),
+    ]);
+    const popup = await openPage(context, extensionId, 'index.html', POPUP);
+    const before = await ids(serviceWorker);
+    await pressOpen(popup);
+    // PREMISE: the lazy tabs loaded, the target not yet.
+    await expect
+      .poll(async () =>
+        (await windowsNow(serviceWorker))
+          .find((w) => !before.includes(w.id))
+          ?.tabs.map((t) => t.status)
+      )
+      .toEqual(['loading', 'complete', 'complete']);
+    const tabs = await settledWindowWith(serviceWorker, 'Third', before, 3);
+    expect(tabs.map(shape)).toEqual([
+      { title: 'First', loaded: true, pinned: false, active: true },
+      { title: 'Second', loaded: false, pinned: false, active: false },
+      { title: 'Third', loaded: false, pinned: false, active: false },
     ]);
   });
 
