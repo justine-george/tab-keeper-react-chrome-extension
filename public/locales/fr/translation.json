@@ -275,7 +275,7 @@
   "Back to last tab": "Revenir au dernier onglet utilisé",
   "Default view": "Vue par défaut",
   "Pin Tab Keeper in new windows": "Épingler Tab Keeper dans les nouvelles fenêtres",
-  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper est épinglé dans chaque fenêtre qu’il ouvre ou vers laquelle il bascule.",
+  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper est épinglé en premier onglet dans chaque fenêtre qu’il ouvre ou vers laquelle il bascule.",
   "Compact view": "Vue compacte",
   "Full view": "Vue complète",
   "A saved session shows its windows and tabs here.": "Une session enregistrée affiche ici ses fenêtres et ses onglets.",

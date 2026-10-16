@@ -257,7 +257,7 @@
   "Back to last tab": "返回上次使用的标签页",
   "Default view": "默认视图",
   "Pin Tab Keeper in new windows": "在新窗口中固定 Tab Keeper",
-  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "在 Tab Keeper 打开或切换到的每个窗口中，都会固定 Tab Keeper。",
+  "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "在 Tab Keeper 打开或切换到的每个窗口中，都会将 Tab Keeper 固定为第一个标签页。",
   "Compact view": "紧凑视图",
   "Full view": "完整视图",
   "A saved session shows its windows and tabs here.": "已保存会话的窗口和标签页会显示在这里。",
