@@ -45,7 +45,9 @@ async function openRecentlyDeleted(page: Page): Promise<void> {
     .getByRole('button', { name: 'Recently deleted', exact: true })
     .click();
   await expect(
-    page.getByText('Kept for 30 days, then permanently deleted.')
+    page.getByText(
+      'Sessions deleted on this device are kept for 30 days, then permanently deleted.'
+    )
   ).toBeVisible();
 }
 
@@ -76,7 +78,7 @@ test('a deleted session is listed, and Restore puts it back on top, selected', a
   await page.getByRole('button', { name: 'Restore Charlie' }).click();
   await expect(page.getByRole('status')).toContainText('Session restored.');
   await expect(
-    page.getByText('Nothing deleted in the last 30 days.')
+    page.getByText('No sessions deleted in the last 30 days.')
   ).toBeVisible();
 
   const after = await stored(page);
@@ -99,7 +101,7 @@ test('an undone delete is not listed', async ({ context, extensionId }) => {
 
   await openRecentlyDeleted(page);
   await expect(
-    page.getByText('Nothing deleted in the last 30 days.')
+    page.getByText('No sessions deleted in the last 30 days.')
   ).toBeVisible();
 });
 
@@ -110,7 +112,7 @@ test('a delete in the popup appears on the full view already open on the page', 
   const full = await openPage(context, extensionId, '?view=tab');
   await openRecentlyDeleted(full);
   await expect(
-    full.getByText('Nothing deleted in the last 30 days.')
+    full.getByText('No sessions deleted in the last 30 days.')
   ).toBeVisible();
 
   const popup = await openPage(context, extensionId);
@@ -144,7 +146,7 @@ test('Empty asks first, then deletes them all for good', async ({
     .getByRole('button', { name: 'Delete', exact: true })
     .click();
   await expect(
-    page.getByText('Nothing deleted in the last 30 days.')
+    page.getByText('No sessions deleted in the last 30 days.')
   ).toBeVisible();
   expect(
     await page.evaluate(
