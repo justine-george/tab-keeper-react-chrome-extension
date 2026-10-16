@@ -2,7 +2,7 @@ import React from 'react';
 import { useSelector } from 'react-redux';
 
 import { RootState } from '../redux/store';
-import { Theme } from '../redux/slices/settingsDataStateSlice';
+import { Theme } from '../utils/constants/theme';
 
 // KAN-267. What a floating surface (the overflow menu) casts on this ground:
 // a tight contact edge plus a soft lift. Black at 18% can only take 18% off a
