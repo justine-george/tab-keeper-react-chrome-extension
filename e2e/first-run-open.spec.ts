@@ -11,6 +11,7 @@ import {
   openPopup,
   POPUP,
   storedSettings,
+  waitForFullView,
 } from './fixtures/onboarding';
 import {
   card,
@@ -18,6 +19,7 @@ import {
   cardButton,
   hello,
   nextTo,
+  replayNote,
   runCheck,
   runDrawn,
   seedRawSettingsIfAbsent,
@@ -225,7 +227,9 @@ test('R13: a Show me here user’s first full-view visit starts the run at step 
   expect(await runDrawn(full)).not.toContain('card');
 });
 
-test('an upgrader: the popup starts nothing; the full view says What’s new, once', async ({
+const WHATS_NEW = "What's new in Tab Keeper 2.0";
+
+test('KAN-623: an upgrader’s popup says What’s new; Start goes on in the full view at step 1, with no second Hello', async ({
   context,
   extensionId,
 }) => {
@@ -233,9 +237,85 @@ test('an upgrader: the popup starts nothing; the full view says What’s new, on
   await seedSessionsIfAbsent(context, KEPT);
   await watchRunDrawn(context);
   const popup = await openPopup(context, extensionId);
-  await runCheck(popup, 'none');
-  await queueDone(popup);
-  expect(await runDrawn(popup)).toEqual([]);
+  await runCheck(popup, 'started');
+  await expect(hello(popup)).toHaveAccessibleName(WHATS_NEW);
+  expect(await storedRun(popup)).toMatchObject({
+    view: 'popup',
+    step: 0,
+    hello: 'whatsNew',
+    welcomeShows: 1,
+  });
+  expect((await storedSettings(popup)).isWhatsNew2Seen).not.toBe(true);
+  expect(await runDrawn(popup)).toEqual(['hello']);
+  await hello(popup)
+    .getByRole('button', { name: 'Start', exact: true })
+    .click();
+  const full = await waitForFullView(context);
+  await runCheck(full, 'resumed');
+  await expect(cardAt(full, 1)).toBeVisible();
+  expect(await storedRun(full)).toMatchObject({
+    view: 'full',
+    step: 1,
+    hello: 'whatsNew',
+    ended: null,
+  });
+  expect((await storedSettings(full)).isWhatsNew2Seen).toBe(true);
+  // CONTROL: the same observer, in the full view, saw the card and no Hello.
+  const drawn = await runDrawn(full);
+  expect(drawn).toContain('card');
+  expect(drawn).not.toContain('hello');
+});
+
+test('KAN-623: an upgrader who skips What’s new in the popup gets no Hello in the full view', async ({
+  context,
+  extensionId,
+}) => {
+  await seedRawSettingsIfAbsent(context, { ...ANSWERED });
+  await seedSessionsIfAbsent(context, KEPT);
+  await watchRunDrawn(context);
+  const popup = await openPopup(context, extensionId);
+  await expect(hello(popup)).toHaveAccessibleName(WHATS_NEW);
+  await hello(popup)
+    .getByRole('button', { name: 'Skip tutorial', exact: true })
+    .click();
+  await expect.poll(() => storedRun(popup)).toMatchObject({ ended: 'skipped' });
+  await expect(replayNote(popup)).toBeVisible();
+  const full = await openFullView(context, extensionId);
+  await runCheck(full, 'ended');
+  await queueDone(full);
+  expect(await runDrawn(full)).toEqual([]);
+  // CONTROL: the popup, watched the same way, drew its Hello.
+  expect(await runDrawn(popup)).toContain('hello');
+});
+
+test('KAN-623: What’s new closed unanswered in the popup shows again on the next open, counted', async ({
+  context,
+  extensionId,
+}) => {
+  await seedRawSettingsIfAbsent(context, { ...ANSWERED });
+  await seedSessionsIfAbsent(context, KEPT);
+  const first = await openPopup(context, extensionId);
+  await expect(hello(first)).toHaveAccessibleName(WHATS_NEW);
+  await first.close();
+  const second = await openPopup(context, extensionId);
+  await runCheck(second, 'reshown');
+  await expect(hello(second)).toHaveAccessibleName(WHATS_NEW);
+  expect(await storedRun(second)).toMatchObject({
+    view: 'popup',
+    step: 0,
+    hello: 'whatsNew',
+    welcomeShows: 2,
+    ended: null,
+  });
+});
+
+test('an upgrader who opens the full view first gets What’s new there, once', async ({
+  context,
+  extensionId,
+}) => {
+  await seedRawSettingsIfAbsent(context, { ...ANSWERED });
+  await seedSessionsIfAbsent(context, KEPT);
+  await watchRunDrawn(context);
   const full = await openFullView(context, extensionId);
   await runCheck(full, 'started');
   await expect(hello(full)).toHaveAccessibleName(
