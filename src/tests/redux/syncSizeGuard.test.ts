@@ -88,7 +88,8 @@ describe('the sync write refuses a document Firestore would reject', () => {
     // translates, and still renders "(  MB of a   MB limit)".
     expect(toast?.params).toEqual({
       used: expect.stringMatching(/^\d+\.\d$/),
-      limit: '1.0',
+      // KAN-634. Whole, as the Sync Status bar under the toast writes it.
+      limit: '1',
     });
     expect(Number(toast?.params?.used)).toBeGreaterThan(1.0);
   });
@@ -105,7 +106,7 @@ describe('the sync write refuses a document Firestore would reject', () => {
 
     expect(newestToast(store.getState())?.params).toEqual({
       used: expect.stringMatching(/^\d+,\d$/),
-      limit: '1,0',
+      limit: '1',
     });
   });
 

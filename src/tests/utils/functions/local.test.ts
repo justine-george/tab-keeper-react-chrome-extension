@@ -1361,8 +1361,7 @@ describe('bytesToMB', () => {
     expect(bytesToMB(BYTES, 'ru')).toBe('1,4');
   });
 
-  // The limit is exactly 1 MB. One decimal always, so "1.4 of 1.0" reads as
-  // two comparable numbers rather than "1.4 of 1".
+  // A size just past the limit still shows its decimal: "1.0", not "1".
   test('keeps one decimal on a whole number', () => {
     expect(bytesToMB(1048576, 'de')).toBe('1,0');
   });
@@ -1405,7 +1404,7 @@ describe('readImportedContainer', () => {
     } catch (error) {
       expect((error as TranslatableError).i18nParams).toEqual({
         used: expect.stringMatching(/^\d+,\d$/),
-        limit: '1,0',
+        limit: '1',
       });
     }
   });
@@ -1444,7 +1443,7 @@ describe('readImportedContainer', () => {
       expect(refusal.i18nKey).toBe(IMPORT_SIZE_REFUSAL);
       expect(refusal.i18nParams).toEqual({
         used: expect.stringMatching(/^\d+\.\d$/),
-        limit: expect.stringMatching(/^\d+\.\d$/),
+        limit: '1',
       });
       // The whole point of the guard: it reports what was used against what
       // is allowed, and the first must exceed the second.
