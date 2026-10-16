@@ -126,7 +126,8 @@ describe('toast time by kind (KAN-508)', () => {
     );
   });
 
-  test('deleting a tab (3s before KAN-508) shows its toast for 5s', async () => {
+  // KAN-641. Its toast offers Undo now, a button to reach, so it lasts as Session deleted does.
+  test('deleting a tab shows its Undo toast for 8s', async () => {
     const { store } = makeTestStore();
     store.dispatch(replaceState(buildContainer([buildSession()])));
     vi.useFakeTimers();
@@ -146,7 +147,12 @@ describe('toast time by kind (KAN-508)', () => {
         .flatMap((w) => w.tabs)
         .map((t) => t.tabId)
     ).not.toContain('tab-1');
+    expect(store.getState().globalState.toasts[0]?.offersUndo).toBe(true);
 
-    expectLastsExactly(store, TOAST_MESSAGES.DELETE_TAB_SUCCESS, TOAST_MS);
+    expectLastsExactly(
+      store,
+      TOAST_MESSAGES.DELETE_TAB_SUCCESS,
+      NEEDS_YOU_TOAST_MS
+    );
   });
 });
