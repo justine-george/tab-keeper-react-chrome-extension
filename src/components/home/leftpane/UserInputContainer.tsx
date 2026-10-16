@@ -13,7 +13,7 @@ import TextBox from '../../common/TextBox';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { TYPE } from '../../../styles/scale';
-import { AppDispatch } from '../../../redux/store';
+import { AppDispatch, type RootState } from '../../../redux/store';
 import {
   captureOpenWindows,
   hasTabsToSave,
@@ -35,6 +35,7 @@ import {
 } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { useNewSessionReceiver } from './useNewSessionReceiver';
+import { otherScope, SAVE_OF } from './saveScopes';
 
 export default function UserInputContainer() {
   const { t } = useTranslation();
@@ -45,6 +46,12 @@ export default function UserInputContainer() {
   const [newTitle, setNewTitle] = useState<string>('');
   const [currentTabName, setCurrentTabName] = useState<string>('');
   const awaitsRunSave = useSelector(selectRunAwaitsSave);
+  // KAN-635. The button and Enter save this; the menu saves the other.
+  const buttonScope = useSelector(
+    (state: RootState) => state.settingsDataState.defaultSaveScope
+  );
+  const buttonSave = SAVE_OF[buttonScope];
+  const menuScope = otherScope(buttonScope);
   // Once touched, the field is the user's for the rest of the page's run.
   const [isPrefillDropped, setPrefillDropped] = useState(false);
   // §8: an untouched field shows the name an empty save would use right now.
@@ -157,8 +164,8 @@ export default function UserInputContainer() {
     if (awaitsRunSave) setPrefillDropped(true);
   }
 
-  // The scope is the button's word, not a stored preference (KAN-5). Focus
-  // mode saves through this same captureOpenWindows before closing every
+  // The scope is this row's word (KAN-5), read from Default save here (KAN-635).
+  // Focus mode saves through this same captureOpenWindows before closing every
   // window, so nothing it does not pass itself may reach that path.
   async function createTabGroup(scope: CaptureScope) {
     const typed = newTitle;
@@ -266,7 +273,7 @@ export default function UserInputContainer() {
         autoComplete="off"
         onChange={updateUserInput}
         onKeyEnter={
-          isSearching ? undefined : () => createTabGroup('all-windows')
+          isSearching ? undefined : () => createTabGroup(buttonScope)
         }
         style={`${isSearching ? '' : 'margin-right: 8px; '}height: auto;`}
       />
@@ -294,14 +301,17 @@ export default function UserInputContainer() {
           Labels instead of a glyph would beat icons outright and do not fit:
           the row is 339px and the German pair alone needed 318px of it. A menu
           item, though, carries words for free -- which is the whole reason the
-          secondary save reads better there than it did as a glyph. */}
+          secondary save reads better there than it did as a glyph.
+
+          KAN-635. Which save holds the wide segment is the Default save
+          setting; the menu holds the other. Still one plus-bearing glyph. */}
       {!isSearching && (
         <div css={saveGroupStyle}>
           <Button
-            tooltipText={t('Save every open window as a session')}
-            ariaLabel={t('Save every open window as a session')}
-            iconType="library_add"
-            onClick={() => createTabGroup('all-windows')}
+            tooltipText={t(buttonSave.label)}
+            ariaLabel={t(buttonSave.label)}
+            iconType={buttonSave.icon}
+            onClick={() => createTabGroup(buttonScope)}
             style="width: 58px; height: 100%; padding: 0; flex-shrink: 0; border: none;"
           />
           <OverflowMenu
@@ -340,10 +350,10 @@ export default function UserInputContainer() {
                          border-left: 1px solid ${COLORS.BORDER_COLOR};`}
             items={[
               {
-                key: 'save-current-window',
-                label: t('Save current window as a session'),
-                icon: 'add_box',
-                onSelect: () => createTabGroup('current-window'),
+                key: `save-${menuScope}`,
+                label: t(SAVE_OF[menuScope].label),
+                icon: SAVE_OF[menuScope].icon,
+                onSelect: () => createTabGroup(menuScope),
               },
               {
                 key: 'export-open-windows',
