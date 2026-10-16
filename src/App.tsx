@@ -15,6 +15,7 @@ import { useOtherPageChanges } from './hooks/useOtherPageChanges';
 import { useFullViewShowRequests } from './hooks/useFullViewShowRequests';
 import { useTabCloudReads } from './hooks/useTabCloudReads';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
+import { useUninstallSurveyLanguage } from './hooks/useUninstallSurveyLanguage';
 import { isTabView } from './utils/functions/viewMode';
 import { firstOpenDialogs } from './redux/firstOpenDialogs';
 import { offerTabGroupsOnReturn } from './redux/tabGroupsOfferOnReturn';
@@ -72,6 +73,8 @@ function App() {
   // KAN-301. document.title, in the tab view only; a no-op in the popup
   // (isTabView() gates the whole effect inside the hook).
   useDocumentTitle();
+  // KAN-642. The worker's copy of the language, for the uninstall survey.
+  useUninstallSurveyLanguage();
 
   const COLORS = useThemeColors();
 
