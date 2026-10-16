@@ -241,7 +241,7 @@ for (const view of VIEWS) {
       await title(page, 'w1', NAMED).focus();
       await page.keyboard.press('Tab');
       await expect(open1).toBeFocused();
-      // Revealed by :focus-within; the pointer is at (0, 0), off the row.
+      // Revealed by keyboard focus; the pointer is at (0, 0), off the row.
       await expect(open1).toHaveCSS('opacity', '1');
 
       await page.keyboard.press('Enter');
