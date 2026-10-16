@@ -13,8 +13,9 @@ import type { CaptureScope } from '../../utils/functions/capture';
 
 // KAN-635. Settings → Sessions → Default save: two tiles drawn as the home save box, first in Sessions.
 const LABEL = 'Default save';
+// The en text, ⋮ held to its neighbours by no-break spaces.
 const HELP =
-  'Used by the save button and the Enter key. The other save is in the ⋮ menu.';
+  'Used by the save button and the Enter key. The other save is in the\u00a0⋮\u00a0menu.';
 
 const renderSessions = (scope?: CaptureScope) =>
   renderWithProviders(<SettingsDetailsContainer />, {
