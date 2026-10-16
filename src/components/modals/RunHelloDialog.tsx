@@ -3,6 +3,7 @@ import { useDispatch } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
+import Icon from '../common/Icon';
 import TabKeeperMark from '../common/TabKeeperMark';
 import WelcomeHero from './WelcomeHero';
 import { useHeroLoop } from './useHeroLoop';
@@ -25,9 +26,11 @@ const BODY_ID = 'run-hello-body';
 // The full-view run's step 0, and an upgrader's popup step 0 (KAN-623): modal, its backdrop dims the page, and its cancel is Skip tutorial.
 export const RunHelloDialog: React.FC<{
   hello: RunHello;
+  // KAN-623. Start opens the full view in its own tab: the popup's What's new.
+  startOpensFullView: boolean;
   onStart: () => void;
   onSkip: () => void;
-}> = ({ hello, onStart, onSkip }) => {
+}> = ({ hello, startOpensFullView, onStart, onSkip }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
@@ -125,6 +128,12 @@ export const RunHelloDialog: React.FC<{
   const endStyle = css`
     margin-left: auto;
   `;
+  // As ★ Rate this app: the glyph first, in the filled button's text colour.
+  const iconLabelStyle = css`
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  `;
 
   return (
     <dialog
@@ -163,8 +172,21 @@ export const RunHelloDialog: React.FC<{
         <button type="button" css={buttons.link} onClick={skip}>
           {t('Skip tutorial')}
         </button>
-        <button type="button" css={[buttons.filled, endStyle]} onClick={start}>
-          {t('Start')}
+        <button
+          type="button"
+          css={[buttons.filled, endStyle, iconLabelStyle]}
+          onClick={start}
+        >
+          {startOpensFullView && (
+            <Icon
+              type="open_in_full"
+              size={ICON.SMALL}
+              color={COLORS.PRIMARY_COLOR}
+              disable={true}
+              style="padding: 0;"
+            />
+          )}
+          <span>{t('Start')}</span>
         </button>
       </div>
     </dialog>

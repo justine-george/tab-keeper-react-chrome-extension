@@ -141,13 +141,21 @@ export default function FirstRun() {
 
   if (run === null || kind === null) return null;
   if (kind === 'hello') {
-    return <RunHelloDialog hello={run.hello} onStart={start} onSkip={skip} />;
+    return (
+      <RunHelloDialog
+        hello={run.hello}
+        startOpensFullView={false}
+        onStart={start}
+        onSkip={skip}
+      />
+    );
   }
   // KAN-623. An upgrader's popup step 0 is What's new, not the welcome; Start goes on in the full view.
   if (kind === 'welcome' && run.hello === 'whatsNew') {
     return (
       <RunHelloDialog
         hello="whatsNew"
+        startOpensFullView={true}
         onStart={startInFullView}
         onSkip={skip}
       />

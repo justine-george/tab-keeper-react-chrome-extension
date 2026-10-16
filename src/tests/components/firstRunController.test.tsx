@@ -173,6 +173,21 @@ describe('the controller', () => {
     );
   });
 
+  test('KAN-623: the popup’s Start shows ⤢ first; its name stays Start', async () => {
+    await openPopupAs({ cloudConsent: 'declined' });
+    const start = await screen.findByRole('button', { name: 'Start' });
+    expect(start.firstElementChild).toHaveTextContent('open_in_full');
+    expect(start).toHaveAccessibleName('Start');
+  });
+
+  test('KAN-623: the full view’s own Start opens no tab, so it has no ⤢', async () => {
+    history.replaceState(null, '', '?view=tab');
+    await renderAt(newRun('full', 0, 'whatsNew'));
+    expect(screen.getByRole('button', { name: 'Start' })).not.toHaveTextContent(
+      'open_in_full'
+    );
+  });
+
   test('KAN-623: Skip tutorial in the popup ends the run skipped, with the replay note', async () => {
     const r = await openPopupAs({ cloudConsent: 'declined' });
     fireEvent.click(

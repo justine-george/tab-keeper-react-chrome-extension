@@ -267,11 +267,11 @@ describe('the welcome (KAN-410)', () => {
     expect(dialog).toHaveTextContent(
       'Get started opens Tab Keeper in its own tab. Show me here keeps the tour in this popup.'
     );
-    expect(
-      within(dialog)
-        .getAllByRole('button')
-        .map((b) => b.textContent)
-    ).toEqual(['Show me here', 'Get started']);
+    // By name: Get started's ⤢ is a hidden glyph (KAN-623).
+    const actions = within(dialog).getAllByRole('button');
+    expect(actions).toHaveLength(2);
+    expect(actions[0]).toHaveAccessibleName('Show me here');
+    expect(actions[1]).toHaveAccessibleName('Get started');
     expect(within(dialog).queryByRole('link')).toBeNull();
     expect(dialog.textContent).not.toMatch(/sync|privacy|device|cloud/i);
     // Opens unlit (KAN-243).
@@ -340,6 +340,13 @@ describe('the welcome (KAN-410)', () => {
     expect(store.getState().globalState.isRunHere).toBe(true);
     expect(store.getState().globalState.isReplayNoteOpen).toBe(false);
     expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
+  });
+
+  test('KAN-623: Get started shows ⤢ first; its name stays Get started', async () => {
+    const { dialog } = await freshWelcome();
+    const button = within(dialog).getByRole('button', { name: 'Get started' });
+    expect(button.firstElementChild).toHaveTextContent('open_in_full');
+    expect(button).toHaveAccessibleName('Get started');
   });
 
   test('KAN-623: with Full view as the default, Get started records step 1: the toolbar opens the full view, so no card', async () => {
