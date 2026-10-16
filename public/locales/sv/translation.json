@@ -378,5 +378,9 @@
   "Nothing deleted in the last 30 days.": "Inget har raderats de senaste 30 dagarna.",
   "Time format": "Tidsformat",
   "12-hour": "12-timmars",
-  "24-hour": "24-timmars"
+  "24-hour": "24-timmars",
+  "Default save": "Standardsparning",
+  "All windows": "Alla fönster",
+  "Current window": "Aktuellt fönster",
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Används av spara-knappen och Enter-tangenten. Det andra sparalternativet finns i ⋮-menyn."
 }

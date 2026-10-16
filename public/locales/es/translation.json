@@ -391,5 +391,9 @@
   "Nothing deleted in the last 30 days.": "No se ha eliminado nada en los últimos 30 días.",
   "Time format": "Formato de hora",
   "12-hour": "12 horas",
-  "24-hour": "24 horas"
+  "24-hour": "24 horas",
+  "Default save": "Guardado predeterminado",
+  "All windows": "Todas las ventanas",
+  "Current window": "Ventana actual",
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Lo usan el botón de guardar y la tecla Intro. La otra opción de guardado está en el menú ⋮."
 }

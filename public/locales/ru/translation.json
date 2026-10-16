@@ -404,5 +404,9 @@
   "Nothing deleted in the last 30 days.": "За последние 30 дней ничего не удалено.",
   "Time format": "Формат времени",
   "12-hour": "12-часовой",
-  "24-hour": "24-часовой"
+  "24-hour": "24-часовой",
+  "Default save": "Сохранение по умолчанию",
+  "All windows": "Все окна",
+  "Current window": "Текущее окно",
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Используется кнопкой сохранения и клавишей Enter. Другой вариант сохранения — в меню ⋮."
 }

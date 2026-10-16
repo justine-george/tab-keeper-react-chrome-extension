@@ -378,5 +378,9 @@
   "Nothing deleted in the last 30 days.": "पिछले 30 दिनों में कुछ नहीं हटाया गया।",
   "Time format": "समय प्रारूप",
   "12-hour": "12 घंटे",
-  "24-hour": "24 घंटे"
+  "24-hour": "24 घंटे",
+  "Default save": "डिफ़ॉल्ट सहेजना",
+  "All windows": "सभी विंडो",
+  "Current window": "वर्तमान विंडो",
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "सहेजें बटन और Enter कुंजी इसका उपयोग करते हैं। सहेजने का दूसरा विकल्प ⋮ मेनू में है।"
 }

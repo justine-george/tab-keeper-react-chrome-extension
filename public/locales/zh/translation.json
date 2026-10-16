@@ -365,5 +365,9 @@
   "Nothing deleted in the last 30 days.": "过去 30 天内没有删除任何内容。",
   "Time format": "时间格式",
   "12-hour": "12小时制",
-  "24-hour": "24小时制"
+  "24-hour": "24小时制",
+  "Default save": "默认保存",
+  "All windows": "所有窗口",
+  "Current window": "当前窗口",
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "保存按钮和 Enter 键使用此设置。另一种保存方式在 ⋮ 菜单中。"
 }
