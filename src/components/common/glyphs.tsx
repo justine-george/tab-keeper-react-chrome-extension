@@ -99,7 +99,8 @@ export function PointUpDoodleGlyph({
     <svg
       viewBox={`0 0 ${POINT_UP_DOODLE.viewWidth} ${POINT_UP_DOODLE.viewHeight}`}
       {...stroked}
-      strokeWidth="2.6"
+      // KAN-629. A marker line, about 4px at the guide's 50x84: 2.6 read as a hairline over the dim.
+      strokeWidth="5"
       aria-hidden="true"
       focusable="false"
       css={css`
