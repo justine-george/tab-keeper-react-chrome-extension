@@ -130,7 +130,7 @@ export default function WelcomeHero({
     width: ${HERO.FLOPPY}px;
     height: ${HERO.FLOPPY}px;
     margin: -${HERO.FLOPPY / 2}px 0 0 -${HERO.FLOPPY / 2}px;
-    background-color: ${COLORS.TEXT_COLOR};
+    background-color: ${COLORS.FLOPPY_BODY_COLOR};
   `;
   const floppyPart = (rules: string, color: string) => css`
     position: absolute;
@@ -201,23 +201,26 @@ export default function WelcomeHero({
           </span>
         ))}
         <div data-hero-part="floppy" css={floppyStyle}>
-          <span
-            css={floppyPart(
-              'left: 16px; right: 16px; top: 4px; height: 22px;',
-              COLORS.PRIMARY_COLOR
-            )}
-          />
+          {/* KAN-627. The slot is cut into the shutter, so the two slide as one. */}
           <span
             data-hero-part="shutter"
             css={floppyPart(
-              'left: 38px; top: 6px; width: 12px; height: 18px;',
-              COLORS.LABEL_L3_COLOR
+              'left: 16px; top: 4px; width: 40px; height: 22px;',
+              COLORS.FLOPPY_PART_COLOR
             )}
-          />
+          >
+            <span
+              data-hero-part="slot"
+              css={floppyPart(
+                'left: 22px; top: 2px; width: 12px; height: 18px;',
+                COLORS.LABEL_L3_COLOR
+              )}
+            />
+          </span>
           <span
             css={floppyPart(
               'left: 12px; right: 12px; bottom: 6px; height: 26px;',
-              COLORS.PRIMARY_COLOR
+              COLORS.FLOPPY_PART_COLOR
             )}
           />
         </div>
