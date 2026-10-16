@@ -30,6 +30,8 @@ export interface FirstRun {
   // Null until the save step or the latest-session pick sets it.
   sessionId: string | null;
   hello: RunHello;
+  // KAN-623. The view whose Hello started the run: the popup's, for Start and Get started.
+  helloIn: RunView;
   // How many times the popup's step 0 opened (the welcome, or What's new); a popup record at step 0 only.
   welcomeShows: WelcomeShows | null;
   ended: RunEnding | null;
@@ -40,6 +42,7 @@ export const RUN_STEPS: Record<RunView, RunStep> = { full: 9, popup: 8 };
 
 export type RunStepKind =
   | 'hello'
+  | 'compactView'
   | 'welcome'
   | 'openNow'
   | 'findAndFit'
@@ -99,6 +102,13 @@ export function runStepKind(view: RunView, step: RunStep): RunStepKind | null {
   return step <= RUN_STEPS[view] ? KINDS[view][step] : null;
 }
 
+// KAN-623. A full-view run the popup's Hello started opens on the compact-view card, not a second Hello.
+export function stepKindOf(run: FirstRun): RunStepKind | null {
+  return run.view === 'full' && run.step === 0 && run.helloIn === 'popup'
+    ? 'compactView'
+    : runStepKind(run.view, run.step);
+}
+
 export function needsSession(kind: RunStepKind): boolean {
   return (
     kind === 'row' ||
@@ -122,13 +132,15 @@ export function previousRunStep(view: RunView, step: RunStep): RunStep | null {
 export function newRun(
   view: RunView,
   step: RunStep,
-  hello: RunHello = 'welcome'
+  hello: RunHello = 'welcome',
+  helloIn: RunView = view
 ): FirstRun {
   return {
     view,
     step,
     sessionId: null,
     hello,
+    helloIn,
     welcomeShows: view === 'popup' && step === 0 ? 1 : null,
     ended: null,
   };
@@ -145,15 +157,19 @@ export function asFirstRun(value: unknown): FirstRun | null {
   const rawId: unknown = Reflect.get(value, 'sessionId');
   const sessionId = typeof rawId === 'string' ? rawId : null;
   const hello: unknown = Reflect.get(value, 'hello');
+  // Stored before KAN-623: the run started in its own view.
+  const rawHelloIn: unknown = Reflect.get(value, 'helloIn');
+  const helloIn = rawHelloIn === undefined ? view : rawHelloIn;
   const welcomeShows = asWelcomeShows(Reflect.get(value, 'welcomeShows'));
   const rawEnded: unknown = Reflect.get(value, 'ended');
   const ended = ENDINGS.find((e) => e === rawEnded) ?? null;
   if (step === null) return null;
   if (rawId !== null && sessionId === null) return null;
   if (hello !== 'welcome' && hello !== 'whatsNew') return null;
+  if (helloIn !== 'popup' && helloIn !== 'full') return null;
   if (rawEnded !== null && ended === null) return null;
   if ((view === 'popup' && step === 0) !== (welcomeShows !== null)) return null;
-  return { view, step, sessionId, hello, welcomeShows, ended };
+  return { view, step, sessionId, hello, helloIn, welcomeShows, ended };
 }
 
 // settingsData as stored before this open wrote anything: unvalidated.

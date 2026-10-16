@@ -46,6 +46,7 @@ export function runStepPlan(
 ): RunStepPlan | null {
   switch (kind) {
     case 'hello':
+    case 'compactView':
     case 'welcome':
       return null;
     case 'openNow':

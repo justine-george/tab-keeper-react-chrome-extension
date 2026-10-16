@@ -149,7 +149,8 @@ export default function FirstRun() {
       />
     );
   }
-  if (kind === 'welcome' || !isSettled || !isShown) return null;
+  if (kind === 'welcome' || kind === 'compactView' || !isSettled || !isShown)
+    return null;
   const plan = runStepPlan(run.view, kind, saveCard, run.sessionId);
   if (plan === null || (kind === 'save' && saveCard === null)) return null;
 

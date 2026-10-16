@@ -67,6 +67,7 @@ const ALL_SET = {
     step: 3,
     sessionId: 'abc',
     hello: 'whatsNew',
+    helloIn: 'full',
     welcomeShows: null,
     ended: null,
   },
