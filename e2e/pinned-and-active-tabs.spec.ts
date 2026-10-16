@@ -973,5 +973,41 @@ grantedTest.describe(
         expect(sessions.map((s) => s.tabGroupId)).toEqual(['s1']);
       });
     }
+
+    // KAN-630. Groups land after the tabs, and a group unpins: held half a second, inside the steady second, the window waits for them.
+    grantedTest(
+      'a group applied late: the window settles grouped, the pin dropped',
+      async ({ context, extensionId, serviceWorker }) => {
+        await serviceWorker.evaluate(() => {
+          const real = chrome.tabs.group.bind(chrome.tabs);
+          // The restore awaits the promise form only (applyTabGroups).
+          Object.defineProperty(chrome.tabs, 'group', {
+            value: async (options: chrome.tabs.GroupOptions) => {
+              await new Promise((done) => setTimeout(done, 500));
+              return real(options);
+            },
+          });
+        });
+        const { tabs: strip } = await openOnly(
+          context,
+          extensionId,
+          serviceWorker,
+          oneWindow(
+            [
+              inGroup(savedTab('Pinned', true)),
+              inGroup(savedTab('Second')),
+              savedTab('Third'),
+            ],
+            'Third',
+            GROUP
+          )
+        );
+        expect(strip.map((t) => [t.title, t.pinned])).toEqual([
+          ['Pinned', false],
+          ['Second', false],
+          ['Third', false],
+        ]);
+      }
+    );
   }
 );
