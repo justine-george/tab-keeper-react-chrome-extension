@@ -30,7 +30,7 @@ import { shouldOfferTabGroups } from '../utils/functions/tabGroupsOffer';
 export type Surface = 'popup' | 'full';
 
 // <html data-run-check>: what this open did about the run, the e2e barrier.
-const reportRunCheck = (check: RunCheck): void => {
+export const reportRunCheck = (check: RunCheck): void => {
   document.documentElement.dataset.runCheck = check;
 };
 

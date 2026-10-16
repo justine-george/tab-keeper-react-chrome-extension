@@ -251,6 +251,26 @@ const start = (run: FirstRun, beginsSetup: boolean): RunAtOpen => ({
   beginsSetup,
 });
 
+// A running record of this view, decided by the lock; null for any other record (KAN-624 asks this alone).
+export async function runningRunAtOpen(
+  view: RunView,
+  record: FirstRun | null,
+  lockState: () => Promise<TourLockState>
+): Promise<RunAtOpen | null> {
+  if (record === null || record.ended !== null || record.view !== view) {
+    return null;
+  }
+  const lock = await lockState();
+  if (lock === 'held') return { action: 'nothing', check: 'elsewhere' };
+  if (lock === 'unknown') return { action: 'nothing', check: 'unknown' };
+  if (record.welcomeShows !== null) {
+    return record.welcomeShows < MAX_WELCOME_SHOWS
+      ? { action: 'reshowHello', check: 'reshown', hello: record.hello }
+      : { action: 'endUnanswered', check: 'unanswered' };
+  }
+  return { action: 'resume', check: 'resumed' };
+}
+
 // The lock is asked only about a running record of this view.
 export async function runAtOpen(
   view: RunView,
@@ -260,17 +280,8 @@ export async function runAtOpen(
 ): Promise<RunAtOpen> {
   const record = asFirstRun(stored.firstRun);
   const isRunning = record !== null && record.ended === null;
-  if (isRunning && record.view === view) {
-    const lock = await lockState();
-    if (lock === 'held') return { action: 'nothing', check: 'elsewhere' };
-    if (lock === 'unknown') return { action: 'nothing', check: 'unknown' };
-    if (record.welcomeShows !== null) {
-      return record.welcomeShows < MAX_WELCOME_SHOWS
-        ? { action: 'reshowHello', check: 'reshown', hello: record.hello }
-        : { action: 'endUnanswered', check: 'unanswered' };
-    }
-    return { action: 'resume', check: 'resumed' };
-  }
+  const running = await runningRunAtOpen(view, record, lockState);
+  if (running !== null) return running;
   if (view === 'full') {
     if (isNeverSaved19User(stored, storedSessions))
       return start(newRun('full', 0, 'welcome'), true);

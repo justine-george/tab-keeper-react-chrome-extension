@@ -19,8 +19,14 @@ import { showInFullView } from '../../redux/fullViewShow';
 import { SHOW_IN_FULL_VIEW_MESSAGE } from '../../utils/functions/popOut';
 import {
   closePinGuide,
+  openPinGuide,
   openSettingsPage,
+  openSetup,
+  setSearchInputText,
 } from '../../redux/slices/globalStateSlice';
+import { selectRunHere } from '../../redux/firstRun';
+import { RUN_LOCK, holdTourLock } from '../../utils/functions/tourLock';
+import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
 import {
   finishSetup,
   initialState as settingsInitial,
@@ -59,6 +65,13 @@ afterEach(() => {
 describe('takeShowFromAddress', () => {
   test('an unknown request is taken off and ignored', () => {
     history.replaceState(null, '', '?view=tab&show=theme');
+    expect(takeShowFromAddress()).toBeNull();
+    expect(window.location.search).toBe('?view=tab');
+  });
+
+  // KAN-624. The worker never puts the run on an address; one there would replace the whole open.
+  test('the run on the address is taken off and ignored', () => {
+    history.replaceState(null, '', '?view=tab&show=run');
     expect(takeShowFromAddress()).toBeNull();
     expect(window.location.search).toBe('?view=tab');
   });
@@ -196,5 +209,104 @@ describe('the full view, asked', () => {
     expect(store.getState().globalState.isSetupOpen).toBe(false);
     send(5, 'setup');
     expect(store.getState().globalState.isSetupOpen).toBe(true);
+  });
+});
+
+// KAN-624. Start or Get started in the popup, with a full view the worker only focused.
+describe('showInFullView: the run', () => {
+  const RUN = {
+    view: 'full',
+    step: 0,
+    sessionId: null,
+    hello: 'whatsNew',
+    helloIn: 'popup',
+    welcomeShows: null,
+    ended: null,
+  };
+  let locks: FakeLocks;
+  beforeEach(() => {
+    locks = installFakeLocks();
+    // A run of the full view shows only in a full view.
+    history.replaceState(null, '', '?view=tab');
+  });
+  afterEach(() => {
+    locks.uninstall();
+    delete document.documentElement.dataset.runCheck;
+  });
+
+  // The popup's write, as this page finds it before its storage event lands.
+  const popupWrote = (firstRun: object) =>
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({ ...RUN_FINISHED_SETTINGS, firstRun })
+    );
+
+  test('the record the popup wrote is taken in and shown here, before its storage event', async () => {
+    const { store } = makeTestStore();
+    // PREMISE: this page holds no record yet; the popup's is only on disk.
+    expect(store.getState().settingsDataState.firstRun).toBeNull();
+    popupWrote(RUN);
+    store.dispatch(showInFullView('run'));
+    await waitFor(() =>
+      expect(store.getState().globalState.isRunHere).toBe(true)
+    );
+    expect(selectRunHere(store.getState())).toMatchObject({
+      view: 'full',
+      step: 0,
+      helloIn: 'popup',
+    });
+    expect(document.documentElement.dataset.runCheck).toBe('resumed');
+  });
+
+  test('Settings and a search give way, as a start’s do', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(openSettingsPage(SettingsCategory.HELP));
+    store.dispatch(setSearchInputText('kyoto'));
+    popupWrote(RUN);
+    store.dispatch(showInFullView('run'));
+    await waitFor(() =>
+      expect(store.getState().globalState.isRunHere).toBe(true)
+    );
+    expect(store.getState().globalState.isSettingsPage).toBe(false);
+    expect(store.getState().globalState.searchInputText).toBe('');
+  });
+
+  test('the pin guide and setup give way too; the run outranks both at an open', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(openPinGuide());
+    store.dispatch(openSetup());
+    popupWrote(RUN);
+    store.dispatch(showInFullView('run'));
+    await waitFor(() =>
+      expect(store.getState().globalState.isRunHere).toBe(true)
+    );
+    expect(store.getState().globalState.isPinGuideOpen).toBe(false);
+    expect(store.getState().globalState.isSetupOpen).toBe(false);
+  });
+
+  test('another page showing the run: this one stands down, its Settings left open', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(openSettingsPage(SettingsCategory.HELP));
+    await holdTourLock(RUN_LOCK);
+    popupWrote(RUN);
+    store.dispatch(showInFullView('run'));
+    await waitFor(() =>
+      expect(document.documentElement.dataset.runCheck).toBe('elsewhere')
+    );
+    expect(store.getState().globalState.isRunHere).toBe(false);
+    expect(store.getState().globalState.isSettingsPage).toBe(true);
+  });
+
+  test('a record that is not a running full-view run: nothing changes', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(openSettingsPage(SettingsCategory.HELP));
+    // A valid record of the popup's run (step 0 there would need welcomeShows).
+    popupWrote({ ...RUN, view: 'popup', step: 1 });
+    store.dispatch(showInFullView('run'));
+    // Past every microtask the lock query and the thunk's awaits would take.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(store.getState().globalState.isRunHere).toBe(false);
+    expect(store.getState().globalState.isSettingsPage).toBe(true);
+    expect(document.documentElement.dataset.runCheck).toBeUndefined();
   });
 });
