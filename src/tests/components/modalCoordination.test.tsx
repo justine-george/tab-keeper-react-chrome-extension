@@ -371,15 +371,33 @@ describe('setup in the order (KAN-7 §5)', () => {
 });
 
 describe('the full-view callout in the order (KAN-7 §6)', () => {
+  // A 2.0 session holder: What's new seen, so the popup starts no run (KAN-623).
   const holder =
     (settings: Partial<SettingsData>) =>
     (store: { dispatch: (action: unknown) => void }) => {
-      seedSettings({ cloudConsent: 'granted', ...settings })(store);
+      seedSettings({
+        cloudConsent: 'granted',
+        isWhatsNew2Seen: true,
+        ...settings,
+      })(store);
       localStorage.setItem(
         'tabContainerData',
         JSON.stringify(buildContainer([buildSession()]))
       );
     };
+
+  test('KAN-623: an upgrader’s popup opens What’s new instead, and the queue says so', async () => {
+    const { store } = await renderWithProviders(<App />, {
+      seedStore: holder({ isWhatsNew2Seen: false }),
+    });
+    expect(
+      await screen.findByRole('dialog', {
+        name: "What's new in Tab Keeper 2.0",
+      })
+    ).toBeVisible();
+    expect(document.documentElement.dataset.firstOpen).toBe('firstRun');
+    expect(store.getState().globalState.isFullViewCalloutOpen).toBe(false);
+  });
 
   test('a session holder who never opened the full view gets it, and the queue says so', async () => {
     const { store } = await renderWithProviders(<App />, {
