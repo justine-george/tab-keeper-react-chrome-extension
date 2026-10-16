@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 
 import FirstRun from '../../components/tour/FirstRun';
 import {
@@ -14,9 +20,14 @@ import {
   setRunSaveEcho,
 } from '../../redux/slices/globalStateSlice';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
-import { recordFirstRun } from '../../redux/slices/settingsDataStateSlice';
+import {
+  recordFirstRun,
+  setDefaultView,
+  type SettingsData,
+} from '../../redux/slices/settingsDataStateSlice';
 import { firstOpenDialogs } from '../../redux/firstOpenDialogs';
 import { newRun, type FirstRun as Run } from '../../utils/functions/firstRun';
+import { OPEN_IN_TAB_MESSAGE } from '../../utils/functions/popOut';
 
 // The controller: Hello at full-view step 0, then the card each step names, with its buttons.
 
@@ -48,6 +59,7 @@ beforeEach(() => {
     '<div data-pane="sessions"><div data-tour-anchor="save"></div>' +
     '<div data-tour-anchor="sessions"></div></div>' +
     '<span data-tour-anchor="expand"></span>' +
+    '<span data-tour-anchor="compact"></span>' +
     '<div data-pane="open-now"><div data-open-now-search></div></div>';
   for (const element of anchors.querySelectorAll('*')) {
     element.getBoundingClientRect = () => RECT;
@@ -89,14 +101,119 @@ const runOf = (r: RenderWithProvidersResult) =>
   r.store.getState().settingsDataState.firstRun;
 const mark = () => document.querySelector('[data-coach-mark]');
 
+const WHATS_NEW = "What's new in Tab Keeper 2.0";
+
+// KAN-623. The popup's open-time queue for an upgrader, as App runs it.
+async function openPopupAs(storedAtOpen: Partial<SettingsData>) {
+  const r = await renderWithProviders(<FirstRun />, {
+    seed: SEED,
+    seedStore: (store) => store.dispatch(replaceState(buildContainer([OWN()]))),
+  });
+  if (storedAtOpen.firstRun) {
+    r.store.dispatch(recordFirstRun(storedAtOpen.firstRun));
+  }
+  const entry = firstOpenDialogs('popup', {
+    dispatch: r.store.dispatch,
+    storedAtOpen,
+    storedSessions: 1,
+    getState: r.store.getState,
+  }).find((e) => e.id === 'firstRun');
+  const open = await entry?.decide();
+  await act(async () => {
+    if (typeof open === 'function') open();
+    await Promise.resolve();
+  });
+  return r;
+}
+
 describe('the controller', () => {
-  test('the What’s new Hello marks itself seen', async () => {
+  test('KAN-623: the full view’s What’s new is seen on Start, not when it shows', async () => {
     history.replaceState(null, '', '?view=tab');
     const r = await renderAt(newRun('full', 0, 'whatsNew'));
-    expect(
-      screen.getByRole('dialog', { name: "What's new in Tab Keeper 2.0" })
-    ).toBeVisible();
+    expect(screen.getByRole('dialog', { name: WHATS_NEW })).toBeVisible();
+    expect(r.store.getState().settingsDataState.isWhatsNew2Seen).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
     expect(r.store.getState().settingsDataState.isWhatsNew2Seen).toBe(true);
+    expect(runOf(r)?.step).toBe(1);
+  });
+
+  test('KAN-623: an upgrader’s popup opens What’s new, not the welcome, unseen until answered', async () => {
+    const r = await openPopupAs({ cloudConsent: 'declined' });
+    expect(
+      await screen.findByRole('dialog', { name: WHATS_NEW })
+    ).toBeVisible();
+    expect(r.store.getState().globalState.isCloudConsentModalOpen).toBe(false);
+    expect(runOf(r)).toEqual(newRun('popup', 0, 'whatsNew'));
+    expect(r.store.getState().settingsDataState.isWhatsNew2Seen).toBe(false);
+  });
+
+  test('KAN-623: Start in the popup records the full view’s compact-view card and asks for the tab', async () => {
+    const r = await openPopupAs({ cloudConsent: 'declined' });
+    fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
+    await waitFor(() =>
+      expect(runOf(r)).toEqual(newRun('full', 0, 'whatsNew', 'popup'))
+    );
+    await waitFor(() =>
+      expect(r.chrome.sentMessages).toContainEqual(
+        expect.objectContaining({ type: OPEN_IN_TAB_MESSAGE })
+      )
+    );
+    expect(r.store.getState().settingsDataState.isWhatsNew2Seen).toBe(true);
+    expect(r.store.getState().globalState.isRunHere).toBe(false);
+  });
+
+  test('KAN-623: with Full view as the default, Start records step 1: the toolbar opens the full view, so no card', async () => {
+    const r = await openPopupAs({ cloudConsent: 'declined' });
+    act(() => {
+      r.store.dispatch(setDefaultView('full'));
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
+    await waitFor(() =>
+      expect(runOf(r)).toEqual(newRun('full', 1, 'whatsNew', 'popup'))
+    );
+  });
+
+  test('KAN-623: the popup’s Start shows ⤢ first; its name stays Start', async () => {
+    await openPopupAs({ cloudConsent: 'declined' });
+    const start = await screen.findByRole('button', { name: 'Start' });
+    expect(start.firstElementChild).toHaveTextContent('open_in_full');
+    expect(start).toHaveAccessibleName('Start');
+  });
+
+  test('KAN-623: the full view’s own Start opens no tab, so it has no ⤢', async () => {
+    history.replaceState(null, '', '?view=tab');
+    await renderAt(newRun('full', 0, 'whatsNew'));
+    expect(screen.getByRole('button', { name: 'Start' })).not.toHaveTextContent(
+      'open_in_full'
+    );
+  });
+
+  test('KAN-623: Skip tutorial in the popup ends the run skipped, with the replay note', async () => {
+    const r = await openPopupAs({ cloudConsent: 'declined' });
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Skip tutorial' })
+    );
+    expect(runOf(r)?.ended).toBe('skipped');
+    expect(r.store.getState().globalState.isReplayNoteOpen).toBe(true);
+    expect(r.store.getState().settingsDataState.isWhatsNew2Seen).toBe(true);
+    expect(r.store.getState().settingsDataState.isFullViewCalloutSeen).toBe(
+      true
+    );
+    expect(r.chrome.sentMessages).not.toContainEqual(
+      expect.objectContaining({ type: OPEN_IN_TAB_MESSAGE })
+    );
+  });
+
+  test('KAN-623: an unanswered What’s new comes back on the next popup open, counted, and not as the welcome', async () => {
+    const r = await openPopupAs({
+      cloudConsent: 'declined',
+      firstRun: { ...newRun('popup', 0, 'whatsNew'), welcomeShows: 2 },
+    });
+    expect(
+      await screen.findByRole('dialog', { name: WHATS_NEW })
+    ).toBeVisible();
+    expect(runOf(r)?.welcomeShows).toBe(3);
+    expect(r.store.getState().globalState.isCloudConsentModalOpen).toBe(false);
   });
 
   test('the welcome Hello leaves What’s new unseen', async () => {
@@ -310,5 +427,103 @@ describe('the first save’s echo (§10)', () => {
       detail.remove();
       Reflect.deleteProperty(Element.prototype, 'animate');
     }
+  });
+});
+
+const COMPACT_TEXT =
+  'Your compact view is still here. Click Tab Keeper in the toolbar as always, or Open compact view to switch back.';
+const COMPACT_SHORT =
+  'Your compact view is still here. Click Tab Keeper in the toolbar as always.';
+const FROM_POPUP = newRun('full', 0, 'whatsNew', 'popup');
+
+// The card at full step 0; action: {} is Chrome 127+, where the full view draws ⤡.
+async function renderCard(action: { hasOpenPopup?: boolean } = {}) {
+  const r = await renderWithProviders(<FirstRun />, {
+    seed: { ...SEED, action },
+    seedStore: (store) => store.dispatch(replaceState(buildContainer([OWN()]))),
+  });
+  await act(async () => {
+    await r.store.dispatch(startRun(FROM_POPUP));
+  });
+  return r;
+}
+
+describe('KAN-623: the compact-view card', () => {
+  beforeEach(() => history.replaceState(null, '', '?view=tab'));
+
+  test('a run from the popup opens on the card under ⤡: no Hello, no progress line', async () => {
+    await renderCard();
+    const card = await screen.findByRole('dialog', { name: COMPACT_TEXT });
+    expect(card).toHaveAttribute('data-coach-kind', 'compactView');
+    await waitFor(() =>
+      expect(card).toHaveAttribute('data-coach-side', 'below')
+    );
+    expect(screen.queryByRole('dialog', { name: WHATS_NEW })).toBeNull();
+    expect(within(card).queryByRole('progressbar')).toBeNull();
+    expect(within(card).queryByRole('button', { name: 'Back' })).toBeNull();
+    expect(
+      within(card).getByRole('img', { name: 'Open compact view' })
+    ).toHaveTextContent('close_fullscreen');
+  });
+
+  test('Next goes to step 1, which counts 1 of 9', async () => {
+    const r = await renderCard();
+    await screen.findByRole('dialog', { name: COMPACT_TEXT });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(runOf(r)?.step).toBe(1));
+    expect(await screen.findByRole('progressbar')).toHaveAttribute(
+      'aria-valuetext',
+      'Step 1 of 9'
+    );
+  });
+
+  test.each([
+    [
+      'Skip tutorial',
+      () =>
+        fireEvent.click(screen.getByRole('button', { name: 'Skip tutorial' })),
+    ],
+    ['Esc', () => fireEvent.keyDown(document, { key: 'Escape' })],
+  ])('%s ends the run skipped, with the replay note', async (_name, press) => {
+    const r = await renderCard();
+    await screen.findByRole('dialog', { name: COMPACT_TEXT });
+    await waitFor(() => expect(mark()).not.toHaveAttribute('aria-hidden'));
+    press();
+    expect(runOf(r)?.ended).toBe('skipped');
+    expect(r.store.getState().globalState.isReplayNoteOpen).toBe(true);
+  });
+
+  test('no ⤡ before Chrome 127: the short text', async () => {
+    // The header draws no ⤡ here.
+    document.querySelector('[data-tour-anchor="compact"]')?.remove();
+    await renderCard({ hasOpenPopup: false });
+    await waitFor(() => expect(mark()).toHaveTextContent(COMPACT_SHORT));
+    // Placed where step 9's card sits, not waiting on an anchor that never comes.
+    await waitFor(() =>
+      expect(mark()).toHaveAttribute('data-coach-side', 'free')
+    );
+    expect(mark()).not.toHaveTextContent('switch back');
+  });
+
+  test('default view changed to Full while it shows: the short text, never a lost anchor', async () => {
+    const r = await renderCard();
+    await screen.findByRole('dialog', { name: COMPACT_TEXT });
+    act(() => {
+      r.store.dispatch(setDefaultView('full'));
+    });
+    // The header takes ⤡ away with it.
+    document.querySelector('[data-tour-anchor="compact"]')?.remove();
+    expect(mark()).toHaveTextContent(COMPACT_SHORT);
+    await waitFor(() =>
+      expect(mark()).toHaveAttribute('data-coach-side', 'free')
+    );
+  });
+
+  test('a run the full view started itself shows the Hello, not the card', async () => {
+    await renderAt(newRun('full', 0, 'whatsNew'));
+    expect(screen.getByRole('dialog', { name: WHATS_NEW })).toBeVisible();
+    expect(
+      document.querySelector('[data-coach-kind="compactView"]')
+    ).toBeNull();
   });
 });

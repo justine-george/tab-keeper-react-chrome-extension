@@ -1,7 +1,7 @@
 // KAN-437. The full view's "Open compact view": the page only asks; the worker closes the full view, then opens the popup.
 // Measured headed (KAN-437, 2026-10-06): a popup opened before its tab closes dies with that tab.
 // Worker-safe, like popOut.ts: no window, no redux, chrome types only.
-import { popupFor } from './defaultView';
+import { popupFor, type DefaultView } from './defaultView';
 import {
   chromeFullViewOrigins,
   tabToReturnTo,
@@ -9,6 +9,7 @@ import {
 } from './fullViewOrigin';
 import { readRecentTabs } from './recentTabs';
 import { TAB_VIEW_PATH } from './pinnedTabKeeper';
+import { isTabView } from './viewMode';
 
 export const OPEN_IN_POPUP_MESSAGE = 'openInPopup';
 
@@ -32,6 +33,11 @@ export function canOpenPopup(): boolean {
   const action: Partial<typeof chrome.action> | undefined =
     typeof chrome === 'undefined' ? undefined : chrome.action;
   return typeof action?.openPopup === 'function';
+}
+
+// KAN-623. The full view's ⤡, as its header draws it: in a tab, with a compact view to go back to, on a Chrome that can open it.
+export function hasCompactViewButton(defaultView: DefaultView): boolean {
+  return isTabView() && defaultView !== 'full' && canOpenPopup();
 }
 
 // The page's half: its tab is about to close, so it waits for nothing.

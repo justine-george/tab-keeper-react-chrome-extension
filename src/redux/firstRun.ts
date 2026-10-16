@@ -45,9 +45,11 @@ import {
   nextRunStep,
   previousRunStep,
   runStepKind,
+  stepKindOf,
   type FirstRun,
   type RunAtOpen,
   type RunEnding,
+  type RunHello,
   type RunStep,
   type RunView,
 } from '../utils/functions/firstRun';
@@ -60,6 +62,7 @@ import { storedSessionCount } from '../utils/functions/storedSessions';
 import { hasTabsToSave } from '../utils/functions/capture';
 import { isTabView } from '../utils/functions/viewMode';
 import { requestTabView } from '../utils/functions/popOut';
+import type { DefaultView } from '../utils/functions/defaultView';
 
 // The guided first run in this page: starting it, moving it, ending it.
 
@@ -94,7 +97,7 @@ export const selectIsRunCardShown = (state: RootState): boolean => {
   const run = selectRunHere(state);
   if (run === null || state.globalState.isSettingsPage) return false;
   if (isSearchActive(state.globalState.searchInputText)) return false;
-  const kind = runStepKind(run.view, run.step);
+  const kind = stepKindOf(run);
   if (kind === null || !needsSession(kind)) return true;
   if (isTabView() && selectIsSavedSessionFolded(state)) return false;
   const shown = selectVisibleTabGroups(
@@ -112,7 +115,7 @@ const ROW_KINDS = ['row', 'open', 'switch', 'replace'] as const;
 export const selectRunEngagedRowId = (state: RootState): string | null => {
   const run = selectRunHere(state);
   if (run === null || !selectIsRunCardShown(state)) return null;
-  const kind = runStepKind(run.view, run.step);
+  const kind = stepKindOf(run);
   return ROW_KINDS.some((k) => k === kind) ? run.sessionId : null;
 };
 
@@ -123,9 +126,7 @@ export const selectRunHoldsDelete = (
 ): boolean => {
   const run = selectRunHere(state);
   return (
-    run !== null &&
-    run.sessionId === tabGroupId &&
-    runStepKind(run.view, run.step) === 'delete'
+    run !== null && run.sessionId === tabGroupId && stepKindOf(run) === 'delete'
   );
 };
 
@@ -134,7 +135,7 @@ export const selectRunLitRowButton = (
   state: RootState
 ): 'open' | 'switch' | 'replace' | null => {
   const run = selectRunHere(state);
-  const kind = run === null ? null : runStepKind(run.view, run.step);
+  const kind = run === null ? null : stepKindOf(run);
   return kind === 'open' || kind === 'switch' || kind === 'replace'
     ? kind
     : null;
@@ -210,12 +211,34 @@ export const showWelcome =
     dispatch(openCloudConsentModal({ variant: 'welcome' }));
   };
 
-// Get started: the welcome was the hello, so the run starts at step 1; the lock goes first so the new tab finds it free, and the record is written before the tab can end this popup.
+// KAN-623. From the popup's Hello: the full view opens on the compact-view card, unless the toolbar opens the full view too.
+const fullRunFromPopup = (
+  hello: RunHello,
+  defaultView: DefaultView
+): FirstRun => newRun('full', defaultView === 'full' ? 1 : 0, hello, 'popup');
+
+// Get started: the welcome was the hello; the lock goes first so the new tab finds it free, and the record is written before the tab can end this popup.
 export const welcomeGetStarted =
-  (): Thunk<Promise<void>> => async (dispatch) => {
+  (): Thunk<Promise<void>> => async (dispatch, getState) => {
     dispatch(closeCloudConsentModal());
     await dispatch(leaveRunHere());
-    dispatch(recordFirstRun(newRun('full', 1)));
+    dispatch(
+      recordFirstRun(
+        fullRunFromPopup('welcome', getState().settingsDataState.defaultView)
+      )
+    );
+    await requestTabView();
+  };
+
+// KAN-623. Start on the popup's What's new: as Get started, into the full view's upgrader run.
+export const whatsNewGetStarted =
+  (): Thunk<Promise<void>> => async (dispatch, getState) => {
+    await dispatch(leaveRunHere());
+    dispatch(
+      recordFirstRun(
+        fullRunFromPopup('whatsNew', getState().settingsDataState.defaultView)
+      )
+    );
     await requestTabView();
   };
 
@@ -240,17 +263,20 @@ export function runOpener(
       return null;
     case 'resume':
       return () => void dispatch(resumeRunHere());
-    case 'reshowWelcome':
+    case 'reshowHello':
       return () => {
         dispatch(countWelcomeShow());
-        void dispatch(showWelcome(null));
+        // KAN-623. What's new is the run's own card, drawn by FirstRun; the welcome is the consent modal.
+        void dispatch(
+          decision.hello === 'welcome' ? showWelcome(null) : resumeRunHere()
+        );
       };
     case 'start':
       return () => {
         // Q8: setup begins; the consent answer they gave is never touched.
         if (decision.beginsSetup) dispatch(beginSetup());
         void dispatch(
-          decision.run.view === 'popup'
+          decision.run.view === 'popup' && decision.run.hello === 'welcome'
             ? showWelcome(decision.run)
             : startRun(decision.run)
         );
@@ -340,7 +366,7 @@ export const selectRunAwaitsSave = (state: RootState): boolean => {
   return (
     run !== null &&
     run.sessionId === null &&
-    runStepKind(run.view, run.step) === 'save' &&
+    stepKindOf(run) === 'save' &&
     (card === 'save' || card === 'nothingToSave')
   );
 };
@@ -351,7 +377,7 @@ export const takeRunSave =
   (dispatch, getState) => {
     const run = selectRunHere(getState());
     if (run === null || run.sessionId !== null) return;
-    if (runStepKind(run.view, run.step) !== 'save') return;
+    if (stepKindOf(run) !== 'save') return;
     dispatch(setFirstRunSession(tabGroupId));
     dispatch(showSession(tabGroupId));
     dispatch(setRunSaveEcho(tabGroupId));
@@ -364,7 +390,7 @@ export const takeExampleForRun =
   (dispatch, getState) => {
     const state = getState();
     const run = selectRunHere(state);
-    if (run === null || runStepKind(run.view, run.step) !== 'save') return;
+    if (run === null || stepKindOf(run) !== 'save') return;
     if (run.sessionId !== null) {
       void dispatch(advanceRun());
       return;
@@ -451,7 +477,7 @@ export const pinThisTab = (): Thunk<Promise<void>> => async (dispatch) => {
 export const endRunAtFullViewButton =
   (): Thunk<void> => (dispatch, getState) => {
     const run = selectRunHere(getState());
-    if (run !== null && runStepKind(run.view, run.step) === 'fullView') {
+    if (run !== null && stepKindOf(run) === 'fullView') {
       dispatch(endRun('finished'));
     }
   };

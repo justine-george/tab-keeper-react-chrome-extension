@@ -39,6 +39,8 @@ export interface CoachProgress {
 
 interface CoachMarkProps {
   progress: CoachProgress | null;
+  // The run step this card is; none on the note after the run.
+  kind?: string;
   text: ReactNode;
   fine?: string;
   anchors: readonly string[];
@@ -122,6 +124,7 @@ const swallow = (event: SyntheticEvent) => {
 // KAN-413's card on the run's steps: not modal, takes no focus; the dim blocks the pointer, never the keyboard.
 export default function CoachMark({
   progress,
+  kind,
   text,
   fine,
   anchors,
@@ -278,6 +281,7 @@ export default function CoachMark({
         aria-hidden={isPlaced ? undefined : true}
         data-coach-mark
         data-coach-step={progress?.step}
+        data-coach-kind={kind}
         data-coach-side={frame?.placement.side}
         css={markStyle}
         style={

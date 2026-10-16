@@ -8,7 +8,7 @@ import type { TourLockState } from './tourLock';
 export type RunView = 'popup' | 'full';
 export type RunHello = 'welcome' | 'whatsNew';
 export type RunEnding = 'finished' | 'skipped' | 'sessionGone' | 'unanswered';
-// Q7: the welcome reopens while unanswered, up to this many shows; the next open ends it.
+// Q7: the popup's step 0 (the welcome, or What's new) reopens while unanswered, up to this many shows; the next open ends it.
 const MAX_WELCOME_SHOWS = 5;
 export type WelcomeShows = 1 | 2 | 3 | 4 | 5;
 const WELCOME_SHOWS: readonly WelcomeShows[] = [1, 2, 3, 4, 5];
@@ -30,7 +30,9 @@ export interface FirstRun {
   // Null until the save step or the latest-session pick sets it.
   sessionId: string | null;
   hello: RunHello;
-  // How many times the welcome opened; a popup record at step 0 only.
+  // KAN-623. The view whose Hello started the run: the popup's, for Start and Get started.
+  helloIn: RunView;
+  // How many times the popup's step 0 opened (the welcome, or What's new); a popup record at step 0 only.
   welcomeShows: WelcomeShows | null;
   ended: RunEnding | null;
 }
@@ -40,6 +42,7 @@ export const RUN_STEPS: Record<RunView, RunStep> = { full: 9, popup: 8 };
 
 export type RunStepKind =
   | 'hello'
+  | 'compactView'
   | 'welcome'
   | 'openNow'
   | 'findAndFit'
@@ -99,6 +102,13 @@ export function runStepKind(view: RunView, step: RunStep): RunStepKind | null {
   return step <= RUN_STEPS[view] ? KINDS[view][step] : null;
 }
 
+// KAN-623. A full-view run the popup's Hello started opens on the compact-view card, not a second Hello.
+export function stepKindOf(run: FirstRun): RunStepKind | null {
+  return run.view === 'full' && run.step === 0 && run.helloIn === 'popup'
+    ? 'compactView'
+    : runStepKind(run.view, run.step);
+}
+
 export function needsSession(kind: RunStepKind): boolean {
   return (
     kind === 'row' ||
@@ -122,13 +132,15 @@ export function previousRunStep(view: RunView, step: RunStep): RunStep | null {
 export function newRun(
   view: RunView,
   step: RunStep,
-  hello: RunHello = 'welcome'
+  hello: RunHello = 'welcome',
+  helloIn: RunView = view
 ): FirstRun {
   return {
     view,
     step,
     sessionId: null,
     hello,
+    helloIn,
     welcomeShows: view === 'popup' && step === 0 ? 1 : null,
     ended: null,
   };
@@ -145,15 +157,19 @@ export function asFirstRun(value: unknown): FirstRun | null {
   const rawId: unknown = Reflect.get(value, 'sessionId');
   const sessionId = typeof rawId === 'string' ? rawId : null;
   const hello: unknown = Reflect.get(value, 'hello');
+  // Stored before KAN-623: the run started in its own view.
+  const rawHelloIn: unknown = Reflect.get(value, 'helloIn');
+  const helloIn = rawHelloIn === undefined ? view : rawHelloIn;
   const welcomeShows = asWelcomeShows(Reflect.get(value, 'welcomeShows'));
   const rawEnded: unknown = Reflect.get(value, 'ended');
   const ended = ENDINGS.find((e) => e === rawEnded) ?? null;
   if (step === null) return null;
   if (rawId !== null && sessionId === null) return null;
   if (hello !== 'welcome' && hello !== 'whatsNew') return null;
+  if (helloIn !== 'popup' && helloIn !== 'full') return null;
   if (rawEnded !== null && ended === null) return null;
   if ((view === 'popup' && step === 0) !== (welcomeShows !== null)) return null;
-  return { view, step, sessionId, hello, welcomeShows, ended };
+  return { view, step, sessionId, hello, helloIn, welcomeShows, ended };
 }
 
 // settingsData as stored before this open wrote anything: unvalidated.
@@ -224,7 +240,7 @@ export type RunAtOpen =
       check: 'none' | 'ended' | 'otherView' | 'elsewhere' | 'unknown';
     }
   | { action: 'resume'; check: 'resumed' }
-  | { action: 'reshowWelcome'; check: 'reshown' }
+  | { action: 'reshowHello'; check: 'reshown'; hello: RunHello }
   | { action: 'endUnanswered'; check: 'unanswered' }
   | { action: 'start'; check: 'started'; run: FirstRun; beginsSetup: boolean };
 
@@ -250,7 +266,7 @@ export async function runAtOpen(
     if (lock === 'unknown') return { action: 'nothing', check: 'unknown' };
     if (record.welcomeShows !== null) {
       return record.welcomeShows < MAX_WELCOME_SHOWS
-        ? { action: 'reshowWelcome', check: 'reshown' }
+        ? { action: 'reshowHello', check: 'reshown', hello: record.hello }
         : { action: 'endUnanswered', check: 'unanswered' };
     }
     return { action: 'resume', check: 'resumed' };
@@ -268,6 +284,9 @@ export async function runAtOpen(
       return start(newRun('full', 0, 'whatsNew'), false);
   } else if (isNeverSaved19User(stored, storedSessions)) {
     return start(newRun('popup', 0), true);
+  } else if (isUpgrader(stored, storedSessions)) {
+    // KAN-623. The toolbar opens the popup, so What's new greets them there; its Start runs the full view's.
+    return start(newRun('popup', 0, 'whatsNew'), false);
   }
   const check = isRunning ? 'otherView' : record === null ? 'none' : 'ended';
   return { action: 'nothing', check };

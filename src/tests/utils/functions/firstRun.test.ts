@@ -14,6 +14,7 @@ import {
   previousRunStep,
   runAtOpen,
   runStepKind,
+  stepKindOf,
   type FirstRun,
   type StoredAtOpen,
 } from '../../../utils/functions/firstRun';
@@ -148,6 +149,7 @@ describe('the steps', () => {
       step: 0,
       sessionId: null,
       hello: 'whatsNew',
+      helloIn: 'full',
       welcomeShows: null,
       ended: null,
     });
@@ -258,20 +260,37 @@ describe('runAtOpen', () => {
           0,
           free
         )
-      ).toEqual({ action: 'reshowWelcome', check: 'reshown' });
+      ).toEqual({ action: 'reshowHello', check: 'reshown', hello: 'welcome' });
     }
   );
 
-  test('Q7: the open after the fifth show ends it unanswered', async () => {
-    expect(
-      await runAtOpen(
-        'popup',
-        { firstRun: { ...newRun('popup', 0), welcomeShows: 5 } },
-        0,
-        free
-      )
-    ).toEqual({ action: 'endUnanswered', check: 'unanswered' });
-  });
+  test.each([1, 2, 3, 4])(
+    'KAN-623: the popup’s What’s new closed unanswered after %i shows shows again',
+    async (welcomeShows) => {
+      expect(
+        await runAtOpen(
+          'popup',
+          { firstRun: { ...newRun('popup', 0, 'whatsNew'), welcomeShows } },
+          2,
+          free
+        )
+      ).toEqual({ action: 'reshowHello', check: 'reshown', hello: 'whatsNew' });
+    }
+  );
+
+  test.each(['welcome', 'whatsNew'] as const)(
+    'Q7: the open after the fifth show of the popup’s %s ends it unanswered',
+    async (hello) => {
+      expect(
+        await runAtOpen(
+          'popup',
+          { firstRun: { ...newRun('popup', 0, hello), welcomeShows: 5 } },
+          2,
+          free
+        )
+      ).toEqual({ action: 'endUnanswered', check: 'unanswered' });
+    }
+  );
 
   test('R13: the full view replaces a running popup run on its first visit, at step 1 (the welcome was its hello)', async () => {
     expect(
@@ -317,7 +336,7 @@ describe('runAtOpen', () => {
     );
   });
 
-  test('an upgrader’s full view starts What’s new; their popup starts nothing', async () => {
+  test('KAN-623: an upgrader starts What’s new in either view; the popup’s is its step 0', async () => {
     expect(
       await runAtOpen('full', { cloudConsent: 'granted' }, 3, free)
     ).toEqual({
@@ -328,7 +347,12 @@ describe('runAtOpen', () => {
     });
     expect(
       await runAtOpen('popup', { cloudConsent: 'granted' }, 3, free)
-    ).toEqual({ action: 'nothing', check: 'none' });
+    ).toEqual({
+      action: 'start',
+      check: 'started',
+      run: newRun('popup', 0, 'whatsNew'),
+      beginsSetup: false,
+    });
   });
 
   test('Q8: a never-saved 1.9 user gets the new-install start in either view, and setup begins', async () => {
@@ -385,5 +409,49 @@ describe('latestSession and the settled list', () => {
     expect(isSessionListSettled(false, 3)).toBe(true);
     expect(isSessionListSettled(true, 0)).toBe(true);
     expect(isSessionListSettled(true, 3)).toBe(false);
+  });
+});
+
+// The record as an older build stored it, with no helloIn.
+const withoutHelloIn = (run: FirstRun): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(run).filter(([key]) => key !== 'helloIn'));
+
+describe('KAN-623: where the run’s Hello was', () => {
+  test('a record stored without helloIn started in its own view', () => {
+    expect(asFirstRun(withoutHelloIn(FULL_AT_3))).toEqual(FULL_AT_3);
+    expect(asFirstRun(withoutHelloIn(newRun('popup', 0)))?.helloIn).toBe(
+      'popup'
+    );
+  });
+
+  test('keeps a full-view record whose Hello was the popup’s', () => {
+    const run = newRun('full', 0, 'whatsNew', 'popup');
+    expect(run.helloIn).toBe('popup');
+    expect(asFirstRun(run)).toEqual(run);
+  });
+
+  test.each([
+    ['null', null],
+    ['another view', 'tab'],
+    ['a number', 1],
+  ])('reads a helloIn of %s as no record', (_name, helloIn) => {
+    expect(asFirstRun({ ...newRun('full', 0), helloIn })).toBeNull();
+  });
+
+  test('full step 0 is the compact-view card after the popup’s Hello, else the Hello', () => {
+    expect(stepKindOf(newRun('full', 0, 'whatsNew', 'popup'))).toBe(
+      'compactView'
+    );
+    expect(stepKindOf(newRun('full', 0, 'welcome', 'popup'))).toBe(
+      'compactView'
+    );
+    expect(stepKindOf(newRun('full', 0, 'whatsNew'))).toBe('hello');
+    expect(stepKindOf(newRun('full', 1, 'whatsNew', 'popup'))).toBe('openNow');
+    expect(stepKindOf(newRun('popup', 0, 'whatsNew'))).toBe('welcome');
+  });
+
+  test('the card waits for no session, and Back never reaches it', () => {
+    expect(needsSession('compactView')).toBe(false);
+    expect(previousRunStep('full', 1)).toBeNull();
   });
 });

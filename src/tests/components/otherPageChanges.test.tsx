@@ -82,11 +82,12 @@ const seedSettings =
   };
 
 // A user who has answered every first-open question, so no modal takes the
-// screen: installed a month ago, cloud question answered, callout seen.
+// screen: installed a month ago, cloud question answered, What's new and the callout seen.
 const ANSWERED: Partial<SettingsData> = {
   extensionInstalledTime: Date.now() - 30 * DAY,
   cloudConsent: 'declined',
   isAutoSync: false,
+  isWhatsNew2Seen: true,
   isFullViewCalloutSeen: true,
 };
 

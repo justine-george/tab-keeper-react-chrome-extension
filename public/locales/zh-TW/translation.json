@@ -315,6 +315,8 @@
   "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "在這裡搜尋，快速找到開啟的分頁。拖曳邊緣可以讓它變寬，或按 {{icon}} 讓「目前開啟的分頁」佔滿整個檢視。",
   "Search here to find an open tab fast. Press {{icon}} to give Open now the whole view.": "在這裡搜尋，快速找到開啟的分頁。按 {{icon}} 讓「目前開啟的分頁」佔滿整個檢視。",
   "Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.": "視窗較窄時，「目前開啟的分頁」收在這裡。按 {{icon}} 可查看並搜尋所有開啟的分頁。",
+  "Your compact view is still here. Click Tab Keeper in the toolbar as always, or {{icon}} to switch back.": "精簡檢視仍然可用。你可以像平常一樣點擊工具列中的 Tab Keeper，或按 {{icon}} 切換回去。",
+  "Your compact view is still here. Click Tab Keeper in the toolbar as always.": "精簡檢視仍然可用。你可以像平常一樣點擊工具列中的 Tab Keeper。",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "把這些視窗儲存為一個工作階段。我們已經幫它取好名字；需要的話可以修改，然後按 {{icon}}。",
   "Saving keeps them safe even after you close them.": "儲存後，即使關閉也不會遺失。",
   "Use an example": "使用範例",

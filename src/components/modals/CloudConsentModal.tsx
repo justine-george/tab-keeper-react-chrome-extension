@@ -232,6 +232,12 @@ export const CloudConsentModal: React.FC = () => {
   const endStyle = css`
     margin-left: auto;
   `;
+  // KAN-623. As ★ Rate this app: the glyph first, in the filled button's text colour.
+  const iconLabelStyle = css`
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  `;
   const questionStyle = css`
     margin: 0 0 12px 0;
     font-weight: 500;
@@ -311,10 +317,18 @@ export const CloudConsentModal: React.FC = () => {
             <button
               ref={getStartedRef}
               type="button"
-              css={[buttons.filled, endStyle]}
+              css={[buttons.filled, endStyle, iconLabelStyle]}
               onClick={getStarted}
             >
-              {t('Get started')}
+              {/* KAN-623. Get started opens the full view in its own tab. */}
+              <Icon
+                type="open_in_full"
+                size={ICON.SMALL}
+                color={COLORS.PRIMARY_COLOR}
+                disable={true}
+                style="padding: 0;"
+              />
+              <span>{t('Get started')}</span>
             </button>
           </div>
         </>

@@ -58,6 +58,18 @@ export const cardButton = (page: Page, name: string) =>
   card(page).getByRole('button', { name, exact: true });
 export const cardSide = (page: Page) =>
   card(page).getAttribute('data-coach-side');
+
+// KAN-623. The card a run from the popup opens the full view on, before step 1.
+export const compactViewCard = (page: Page) =>
+  page.locator(
+    '[data-coach-mark][data-coach-kind="compactView"]:not([aria-hidden])'
+  );
+
+export async function pastCompactViewCard(page: Page): Promise<void> {
+  await expect(compactViewCard(page)).toBeVisible();
+  await cardButton(page, 'Next').click();
+  await expect(cardAt(page, 1)).toBeVisible();
+}
 export const hello = (page: Page) => page.locator('dialog[data-run-hello]');
 // A full-view run recorded at Hello, as a fresh profile's first full-view open leaves it.
 export const FULL_AT_HELLO = {
@@ -138,9 +150,11 @@ export async function walkFullRunToLastStep(page: Page): Promise<void> {
   for (let step = 5; step <= 9; step++) await nextTo(page, step);
 }
 
-// KAN-499. The note after the run: a card with no step, at Settings.
+// KAN-499. The note after the run: a card with no step and no run kind, at Settings.
 export const replayNote = (page: Page) =>
-  page.locator('[data-coach-mark]:not([data-coach-step]):not([aria-hidden])');
+  page.locator(
+    '[data-coach-mark]:not([data-coach-step]):not([data-coach-kind]):not([aria-hidden])'
+  );
 
 // The note after a skip or the last card; Got it closes it, and setup follows a finished full-view run.
 export async function closeReplayNote(
@@ -236,6 +250,7 @@ export async function seedRawSettingsIfAbsent(
 // What the observer names: the run's card, its Hello, and the cloud dialog (a new install's welcome), setup and pin guide it must win over.
 const RUN_PARTS = {
   card: '[data-coach-mark]:not([aria-hidden])',
+  compactView: '[data-coach-kind="compactView"]:not([aria-hidden])',
   hello: 'dialog[data-run-hello]',
   cloudConsent: 'dialog[open][aria-labelledby="cloud-consent-title"]',
   setup: 'dialog[open][aria-labelledby="setup-title"]',

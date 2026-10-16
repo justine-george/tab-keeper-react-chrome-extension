@@ -324,6 +324,8 @@
   "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.",
   "Search here to find an open tab fast. Press {{icon}} to give Open now the whole view.": "Search here to find an open tab fast. Press {{icon}} to give Open now the whole view.",
   "Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.": "Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.",
+  "Your compact view is still here. Click Tab Keeper in the toolbar as always, or {{icon}} to switch back.": "Your compact view is still here. Click Tab Keeper in the toolbar as always, or {{icon}} to switch back.",
+  "Your compact view is still here. Click Tab Keeper in the toolbar as always.": "Your compact view is still here. Click Tab Keeper in the toolbar as always.",
   "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.": "Save these windows as a session. We've named it for you; change it if you like, then press {{icon}}.",
   "Saving keeps them safe even after you close them.": "Saving keeps them safe even after you close them.",
   "Use an example": "Use an example",
