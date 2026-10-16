@@ -6,7 +6,8 @@ import { POPUP, stored } from './fixtures/savedWindows';
 
 // KAN-592 on the real artifact (picks K1, F2): ⌫, fn⌫ (Delete) and ⌘⌫ delete the session whose
 // row has focus, with the Undo toast; no row takes focus after, and Tab carries on from where the
-// row was. The header ⋮ names the key beside Delete session.
+// row was. The header ⋮ names the key beside Delete session; with it open, the key runs that
+// item (KAN-638).
 
 const SESSIONS = ['Alpha', 'Bravo', 'Charlie', 'Delta'].map((t) =>
   buildSession({ tabGroupId: `s-${t.toLowerCase()}`, title: t })
@@ -60,6 +61,45 @@ for (const key of ['Backspace', 'Delete', 'Meta+Backspace']) {
       .click();
     await expect.poll(() => ids(page)).toEqual(ALL);
   });
+}
+
+const sessionMenu = (page: Page): Locator =>
+  page
+    .locator('[data-pane="detail"] [data-tour-anchor="session-menu"]')
+    .locator('[aria-haspopup="menu"]');
+
+for (const opened of ['click', 'keyboard'] as const) {
+  for (const key of ['Backspace', 'Delete', 'Meta+Backspace']) {
+    test(`KAN-638: ${key} in the ⋮ opened by ${opened} deletes the shown session, with Undo`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      if (opened === 'click') {
+        await sessionMenu(page).click();
+      } else {
+        await sessionMenu(page).focus();
+        await page.keyboard.press('Enter');
+      }
+      // PREMISE: the key lands in the menu, on its first item, not on a row.
+      await expect(
+        page.getByRole('menuitem', { name: 'Copy all links' })
+      ).toBeFocused();
+
+      await page.keyboard.press(key);
+
+      await expect
+        .poll(() => ids(page))
+        .toEqual(['s-bravo', 's-charlie', 's-delta']);
+      await expect(page.getByRole('menu')).toHaveCount(0);
+      await expect(toasts(page)).toContainText('Session deleted.');
+      await page
+        .getByRole('status')
+        .getByRole('button', { name: 'Undo', exact: true })
+        .click();
+      await expect.poll(() => ids(page)).toEqual(ALL);
+    });
+  }
 }
 
 test('a row reached by Tab deletes its own session, not the one shown', async ({
@@ -151,10 +191,7 @@ test('K1: the ⋮ shows ⌫ beside Delete session, readable on its red hover', a
   extensionId,
 }) => {
   const page = await openPopup(context, extensionId);
-  await page
-    .locator('[data-pane="detail"] [data-tour-anchor="session-menu"]')
-    .locator('[aria-haspopup="menu"]')
-    .click();
+  await sessionMenu(page).click();
   const item = page.getByRole('menuitem', { name: 'Delete session' });
   const hint = item.locator('[data-key-hint]');
 
@@ -170,9 +207,8 @@ test('K1: the ⋮ shows ⌫ beside Delete session, readable on its red hover', a
   await item.hover();
   // On the danger fill the hint takes the label's colour, which KAN-204 holds readable there.
   await expect.poll(() => color(hint)).toBe(await color(item));
-  // The key's name is the row's; the item's is its label alone.
-  await expect(row(page, 'Alpha')).toHaveAttribute(
-    'aria-keyshortcuts',
-    isMac ? 'Backspace Meta+Backspace Delete' : 'Delete Backspace'
-  );
+  // The keys are named on the row and the item; the item's name is its label alone.
+  const keys = isMac ? 'Backspace Meta+Backspace Delete' : 'Delete Backspace';
+  await expect(row(page, 'Alpha')).toHaveAttribute('aria-keyshortcuts', keys);
+  await expect(item).toHaveAttribute('aria-keyshortcuts', keys);
 });

@@ -11,6 +11,7 @@ import { RootState } from '../../../redux/store';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { formatGroupCounts } from '../../../utils/functions/local';
+import { isDeleteKey } from '../../../utils/functions/deleteKey';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { tabContainerData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { useToday } from '../../../hooks/useToday';
@@ -76,13 +77,6 @@ interface TabGroupEntryProps {
   deleteKeyShortcuts: string;
   carryTarget?: CarryTargetLook;
 }
-
-// KAN-592. ⌫, Delete (fn⌫ on a Mac) and ⌘⌫; Ctrl, Alt or Shift with it is another command.
-const isDeleteKey = (e: React.KeyboardEvent): boolean =>
-  (e.key === 'Backspace' || e.key === 'Delete') &&
-  !e.ctrlKey &&
-  !e.altKey &&
-  !e.shiftKey;
 
 const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   tabGroupData,
