@@ -25,10 +25,11 @@ const fullViews = (context: BrowserContext) =>
 // An Auto-Sync-off upgrader whose full view opened while the popup's What's new was unanswered.
 async function fullViewWaitingOnPopupRun(
   context: BrowserContext,
-  extensionId: string
+  extensionId: string,
+  pinned = true
 ): Promise<Page> {
-  // Pinned, so the full view's open shows no pin guide over the run.
-  await stubToolbarPin(context, { pinned: true });
+  // Unpinned, the full view's open shows the pin guide.
+  await stubToolbarPin(context, { pinned });
   await seedRawSettingsIfAbsent(context, {
     cloudConsent: '',
     isAutoSync: false,
@@ -85,4 +86,21 @@ test('…and with Settings open there, it leaves Settings for the run', async ({
   ).toBeVisible();
   await startFromPopup(context, extensionId);
   await expect(compactViewCard(full)).toBeVisible();
+});
+
+test('…and with the pin guide open there, the guide gives way to the run', async ({
+  context,
+  extensionId,
+}) => {
+  const full = await fullViewWaitingOnPopupRun(context, extensionId, false);
+  const guide = full.getByRole('dialog', {
+    name: 'Pin Tab Keeper to your toolbar',
+    exact: true,
+  });
+  // CONTROL: the guide is up before Start.
+  await expect(guide).toBeVisible();
+  await startFromPopup(context, extensionId);
+  await expect(compactViewCard(full)).toBeVisible();
+  await expect(guide).toBeHidden();
+  await pastCompactViewCard(full);
 });

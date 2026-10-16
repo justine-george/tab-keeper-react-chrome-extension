@@ -3,7 +3,9 @@ import i18next from 'i18next';
 
 import type { AppDispatch, RootState } from './store';
 import {
+  closePinGuide,
   closeSettingsPage,
+  closeSetup,
   openPinGuide,
   openSettingsPage,
   openSetup,
@@ -39,6 +41,9 @@ const resumeRunOnRequest =
     // As a start does: a fresh open has neither, and either would hide the card.
     dispatch(closeSettingsPage());
     dispatch(setSearchInputText(''));
+    // The run outranks both at an open. Closed, not dismissed: a finished run leads to them, a later open shows them.
+    dispatch(closeSetup());
+    dispatch(closePinGuide());
     runOpener(decision, dispatch)?.();
   };
 

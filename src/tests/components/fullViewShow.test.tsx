@@ -19,7 +19,9 @@ import { showInFullView } from '../../redux/fullViewShow';
 import { SHOW_IN_FULL_VIEW_MESSAGE } from '../../utils/functions/popOut';
 import {
   closePinGuide,
+  openPinGuide,
   openSettingsPage,
+  openSetup,
   setSearchInputText,
 } from '../../redux/slices/globalStateSlice';
 import { selectRunHere } from '../../redux/firstRun';
@@ -260,6 +262,19 @@ describe('showInFullView: the run', () => {
     );
     expect(store.getState().globalState.isSettingsPage).toBe(false);
     expect(store.getState().globalState.searchInputText).toBe('');
+  });
+
+  test('the pin guide and setup give way too; the run outranks both at an open', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(openPinGuide());
+    store.dispatch(openSetup());
+    popupWrote(RUN);
+    store.dispatch(showInFullView('run'));
+    await waitFor(() =>
+      expect(store.getState().globalState.isRunHere).toBe(true)
+    );
+    expect(store.getState().globalState.isPinGuideOpen).toBe(false);
+    expect(store.getState().globalState.isSetupOpen).toBe(false);
   });
 
   test('another page showing the run: this one stands down, its Settings left open', async () => {
