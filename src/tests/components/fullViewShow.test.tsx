@@ -262,8 +262,9 @@ describe('showInFullView: the run', () => {
     expect(store.getState().globalState.searchInputText).toBe('');
   });
 
-  test('another page showing the run: this one stands down', async () => {
+  test('another page showing the run: this one stands down, its Settings left open', async () => {
     const { store } = makeTestStore();
+    await store.dispatch(openSettingsPage(SettingsCategory.HELP));
     await holdTourLock(RUN_LOCK);
     popupWrote(RUN);
     store.dispatch(showInFullView('run'));
@@ -271,6 +272,7 @@ describe('showInFullView: the run', () => {
       expect(document.documentElement.dataset.runCheck).toBe('elsewhere')
     );
     expect(store.getState().globalState.isRunHere).toBe(false);
+    expect(store.getState().globalState.isSettingsPage).toBe(true);
   });
 
   test('a record that is not a running full-view run: nothing changes', async () => {
