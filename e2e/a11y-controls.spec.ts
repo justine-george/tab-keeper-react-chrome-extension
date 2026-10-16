@@ -468,7 +468,7 @@ test.describe('controls are reachable by keyboard', () => {
 
   // The other half of KAN-68: being in the tab order is useless if focus
   // lands on something painted at opacity 0. Hover is a pointer-only signal,
-  // so :focus-within is what reveals these to a keyboard user.
+  // so keyboard focus, :has(:focus-visible), is what reveals these (KAN-636).
   //
   // Asserted on the CONTROL, not on the block around it (KAN-100). The block
   // carries the opaque mask and has to land in one frame with the row's fill,

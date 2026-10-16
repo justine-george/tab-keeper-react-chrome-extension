@@ -734,8 +734,11 @@ export default function OpenNowWindow({
                           align-items: center;
                           min-height: 32px;
                           transition: transform ${DURATION.MOVE} ease;
-                          &:hover,
-                          &:focus-within {
+                          /* Keyboard focus only (KAN-636), in its own rule beside :hover (KAN-94). */
+                          &:hover {
+                            background-color: ${COLORS.HOVER_COLOR};
+                          }
+                          &:has(:focus-visible) {
                             background-color: ${COLORS.HOVER_COLOR};
                           }
                         `}

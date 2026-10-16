@@ -282,14 +282,16 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       /* isEditing, because the confirm tick is not a hover affordance -- it is
          the editor's own control and has to be there whether or not the
          pointer is. Focus is in the INPUT while editing, which is outside this
-         block, so neither isParentHovered nor :focus-within below ever fires
+         block, so neither isParentHovered nor the focus rule below ever fires
          and the tick was invisible unless the pointer happened to be over the
          row. */
       opacity: ${isParentHovered || isEditing ? 1 : 0};
       transition: opacity ${DURATION.COLOR} ease-out;
     }
-    /* The keyboard's equivalent of the hover reveal (KAN-68). */
-    &:focus-within {
+    /* The keyboard's equivalent of the hover reveal (KAN-68). Keyboard focus
+       only (KAN-636, as KAN-94): :focus-within also matched the focus a click
+       on ⋮ leaves, so the row stayed engaged after the pointer left. */
+    &:has(:focus-visible) {
       background-color: ${COLORS.HOVER_COLOR};
       & > * {
         opacity: 1;
@@ -403,6 +405,15 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     min-width: 0;
   `;
 
+  // A saved group row engaged, by hover or keyboard focus: its fill, and its actions shown over a matching mask.
+  const groupRowEngaged = `background-color: ${COLORS.HOVER_COLOR};`;
+  const groupActionsShown = `
+    background-color: ${COLORS.HOVER_COLOR};
+    & > * {
+      opacity: 1;
+    }
+  `;
+
   const childRightStyle = (tabId: string) => css`
     position: absolute;
     top: 50%;
@@ -418,8 +429,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     }
     /* The keyboard's equivalent of the hover reveal (KAN-68). Delete tab has
        no alternate path anywhere in the UI, so this row is the only way to
-       reach it. */
-    &:focus-within {
+       reach it. Keyboard focus only, as the window row's (KAN-636). */
+    &:has(:focus-visible) {
       background-color: ${COLORS.HOVER_COLOR};
       & > * {
         opacity: 1;
@@ -1235,22 +1246,24 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                          Both triggers, because the actions appear on both:
                          reveal and fill are one visual state with one trigger
                          (KAN-100), and filling on only one is how they came
-                         apart last time.
+                         apart last time. Keyboard focus only (KAN-636, as
+                         KAN-94), each in its own rule beside :hover.
 
                          No transition on the fill, also KAN-100 -- easing it
                          lets the row reach the colour in two halves with a
                          visible edge between them. */
-                        &:hover,
-                        &:focus-within {
-                          background-color: ${COLORS.HOVER_COLOR};
+                        &:hover {
+                          ${groupRowEngaged}
+                        }
+                        &:has(:focus-visible) {
+                          ${groupRowEngaged}
                         }
                         /* The mask lands with the fill; only the controls ease (D10, KAN-100). */
-                        &:hover .group-actions,
-                        &:focus-within .group-actions {
-                          background-color: ${COLORS.HOVER_COLOR};
-                          & > * {
-                            opacity: 1;
-                          }
+                        &:hover .group-actions {
+                          ${groupActionsShown}
+                        }
+                        &:has(:focus-visible) .group-actions {
+                          ${groupActionsShown}
                         }
                       `}
                     >

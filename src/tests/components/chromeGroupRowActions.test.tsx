@@ -336,8 +336,8 @@ describe('two group rows in one window', () => {
 // revealed its actions on a row that gave no sign of being hovered.
 //
 // Both triggers, not just hover: this strip reveals its actions on :hover AND
-// :focus-within, and KAN-100's rule is that reveal and fill are ONE visual
-// state with one trigger. Filling on only one of them is exactly how they
+// keyboard focus, :has(:focus-visible) since KAN-636, and KAN-100's rule is
+// that reveal and fill are ONE visual state with one trigger. Filling on only one of them is exactly how they
 // drifted apart before.
 //
 // No transition on the fill, for KAN-100's reason: the fill has to land in the
@@ -391,14 +391,17 @@ describe('the group row fills like the rows around it', () => {
     await renderRow();
     const rules = stripRules('Research');
 
+    // Keyboard focus only (KAN-636): :focus-within also matched a click's focus.
     const focusBlock = rules
       .split('}')
       .find(
-        (b) => b.includes(':focus-within') && !b.includes('.group-actions')
+        (b) =>
+          b.includes(':has(:focus-visible)') && !b.includes('.group-actions')
       );
 
     expect(focusBlock).toBeDefined();
     expect(focusBlock).toMatch(HOVER);
+    expect(rules).not.toMatch(/:focus-within/);
   });
 
   // KAN-100: easing the fill lets the row arrive at the colour in two halves.

@@ -385,8 +385,8 @@ export default function HeroContainerRight() {
               transform: translateY(-50%);
               opacity: ${isContainerHovered ? 1 : 0};
               transition: opacity ${DURATION.COLOR} ease-out;
-              /* The keyboard's equivalent of the hover reveal (KAN-68). */
-              &:focus-within {
+              /* The keyboard's equivalent of the hover reveal (KAN-68); keyboard focus only (KAN-636). */
+              &:has(:focus-visible) {
                 opacity: 1;
               }
             `}
