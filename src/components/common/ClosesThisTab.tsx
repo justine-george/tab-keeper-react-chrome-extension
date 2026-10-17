@@ -207,7 +207,7 @@ function ClosesThisTabCard({
           max-width: 360px;
           padding: 10px 6px 12px 14px;
           background-color: ${COLORS.PRIMARY_COLOR};
-          border: 1px solid ${COLORS.BORDER_COLOR};
+          border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
           color: ${COLORS.LABEL_L1_COLOR};
           font-family: ${FONT_FAMILY};
           font-size: ${TYPE.BODY};
@@ -219,7 +219,10 @@ function ClosesThisTabCard({
         cardFadeIn,
       ]}
     >
-      <span aria-hidden="true" css={notch(8, COLORS.BORDER_COLOR, -9, 0)} />
+      <span
+        aria-hidden="true"
+        css={notch(8, COLORS.PANEL_BORDER_COLOR, -9, 0)}
+      />
       <span aria-hidden="true" css={notch(7, COLORS.PRIMARY_COLOR, -7, 1)} />
       <div
         css={css`

@@ -77,7 +77,7 @@ function ToolbarStrip({ children }: { children: ReactNode }) {
         gap: 10px;
         height: 40px;
         padding: 0 10px;
-        border-bottom: 1px solid ${COLORS.BORDER_COLOR};
+        border-bottom: 1px solid ${COLORS.PANEL_BORDER_COLOR};
         background-color: ${COLORS.SELECTION_COLOR};
         color: ${COLORS.TEXT_COLOR};
       `}
@@ -146,7 +146,7 @@ export function PinStepArt() {
           flex-direction: column;
           gap: 10px;
           padding: 8px 6px 8px 10px;
-          border: 1px solid ${COLORS.BORDER_COLOR};
+          border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
           background-color: ${COLORS.PRIMARY_COLOR};
           color: ${COLORS.TEXT_COLOR};
         `}

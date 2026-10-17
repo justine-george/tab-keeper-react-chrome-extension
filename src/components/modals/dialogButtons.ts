@@ -23,7 +23,7 @@ const BORDER = 1;
 export function dialogButtonStyles(COLORS: ThemeColors) {
   const base = css`
     padding: ${PAD.BLOCK}px ${PAD.INLINE}px;
-    border: ${BORDER}px solid ${COLORS.BORDER_COLOR};
+    border: ${BORDER}px solid ${COLORS.CONTROL_BORDER_COLOR};
     color: ${COLORS.TEXT_COLOR};
     font-family: inherit;
     font-size: inherit;

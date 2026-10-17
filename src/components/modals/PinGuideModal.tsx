@@ -109,7 +109,7 @@ export const PinGuideModal: React.FC = () => {
     max-height: none;
     background-color: ${COLORS.PRIMARY_COLOR};
     color: ${COLORS.LABEL_L1_COLOR};
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};
     &[open] {
@@ -165,7 +165,7 @@ export const PinGuideModal: React.FC = () => {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     background-color: ${COLORS.PRIMARY_COLOR};
   `;
   const betweenStyle = css`

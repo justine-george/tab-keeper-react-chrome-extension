@@ -768,7 +768,7 @@ export default function OpenNowWindow({
                               css={css`
                                 color: ${COLORS.TEXT_COLOR};
                                 background-color: ${COLORS.PRIMARY_COLOR};
-                                border: 1px solid ${COLORS.BORDER_COLOR};
+                                border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
                                 display: flex;
                                 align-items: center;
                                 font-family: ${FONT_FAMILY};

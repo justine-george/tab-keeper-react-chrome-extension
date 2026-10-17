@@ -113,7 +113,7 @@ const SettingsDetailsContainer: React.FC = () => {
     padding: 8px;
     flex-grow: 1;
     margin-top: 8px;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     /* Contain this pane's content. Several settings rows are still laid out at
        fixed pixel widths, so without this they push the whole popup wide
        instead of scrolling within the pane. */

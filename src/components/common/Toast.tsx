@@ -148,7 +148,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     box-shadow: ${COLORS.FLOATING_SHADOW};
     color: ${COLORS.TEXT_COLOR};
     padding: 10px;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     border-radius: ${RADIUS.SQUARE};
     /* KAN-401. The popup sets this for every element; the export page does not. */
     box-sizing: border-box;

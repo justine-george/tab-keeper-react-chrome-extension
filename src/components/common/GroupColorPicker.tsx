@@ -262,7 +262,7 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
             gap: 6px;
             padding: 8px;
             background-color: ${COLORS.PRIMARY_COLOR};
-            border: 1px solid ${COLORS.BORDER_COLOR};
+            border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
             /* Square and flat, like Toast and OverflowMenu. */
             border-radius: ${RADIUS.SQUARE};
           `}

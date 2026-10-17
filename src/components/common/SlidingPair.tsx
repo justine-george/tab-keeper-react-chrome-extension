@@ -147,7 +147,7 @@ export default function SlidingPair<T extends string>({
     display: inline-flex;
     align-items: stretch;
     padding: ${TRACK_PADDING}px;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
     border-radius: ${metrics.radius};
     background-color: ${colors.track};
     transition: transform ${metrics.press};

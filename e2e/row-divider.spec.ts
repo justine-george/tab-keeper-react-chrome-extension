@@ -11,7 +11,7 @@ import {
 // against the pane, and visibly cut off where it stops at the scrollbar
 // gutter. It is now its own quieter token. dividerContrast.test.ts holds the
 // palette to that; this holds the PAINT to it, which is the only thing that
-// catches <Divider/> still drawing BORDER_COLOR while the token sits unused.
+// catches <Divider/> drawing a frame colour while the token sits unused.
 //
 // Measured against the scrollbar thumb painted beside it, not against a
 // literal: "clearly quieter than the control next to it" is the design rule,

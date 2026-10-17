@@ -310,7 +310,7 @@ export default function TabGroupDetailsContainer() {
     flex-direction: column;
     flex-grow: 1;
     margin-top: 8px;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     overflow: auto;
     user-select: none;
   `;

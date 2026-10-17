@@ -410,7 +410,7 @@ export default function TabGroupEntryContainer() {
     flex-direction: column;
     height: 100%;
     min-height: 0;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     margin: 8px 0;
     user-select: none;
   `;

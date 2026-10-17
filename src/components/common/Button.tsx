@@ -108,7 +108,7 @@ const Button: React.FC<ButtonProps> = ({
   // Each kind is a resting fill and the two rungs above it, plus its edge and
   // its ink, so a variant can never be half-defined: adding one means
   // answering all five.
-  const bordered = `1px solid ${COLORS.BORDER_COLOR}`;
+  const bordered = `1px solid ${COLORS.CONTROL_BORDER_COLOR}`;
   const PALETTE = {
     quiet: {
       rest: COLORS.PRIMARY_COLOR,

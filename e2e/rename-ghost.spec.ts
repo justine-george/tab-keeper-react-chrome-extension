@@ -154,7 +154,7 @@ test.describe('a click-to-rename title shows a ghost of its field (KAN-631)', ()
       .toBe(true);
   });
 
-  // CONTROL. The rename field itself is unchanged: PRIMARY fill, BORDER edge.
+  // CONTROL. The rename field itself is unchanged: PRIMARY fill, control edge.
   test('CONTROL: the click opens the same field as before', async ({
     context,
     extensionId,
@@ -174,7 +174,7 @@ test.describe('a click-to-rename title shows a ghost of its field (KAN-631)', ()
     );
     await expect(field).toHaveCSS(
       'border-top-color',
-      rgb(LIGHT_THEME.BORDER_COLOR)
+      rgb(LIGHT_THEME.CONTROL_BORDER_COLOR)
     );
   });
 });

@@ -10,13 +10,13 @@ import {
 import { contrast } from '../setup/contrast';
 
 // The line between rows in the session list and the Settings category list
-// is <Divider/>. It was drawn in BORDER_COLOR, which on Light is near-black:
+// is <Divider/>. It was drawn in BORDER_COLOR, which on Light was near-black:
 // 7.54:1 against the pane, where every other theme sat at 1.38-1.73:1. It read
 // as a hard rule, and its stop at the scrollbar gutter read as a cut.
 //
 // The fix chosen is a quieter line with the same geometry, in its own token.
-// Not a lighter BORDER_COLOR: that token also draws pane borders, inputs,
-// buttons and modals, and softening it would soften all of them.
+// Not a lighter BORDER_COLOR: that token also drew pane borders, inputs,
+// buttons and modals (split into PANEL_ and CONTROL_BORDER_COLOR by KAN-668).
 //
 // Stated as two relations rather than hex values, so a restyle that keeps the
 // line quiet and visible passes and one that loses either does not.

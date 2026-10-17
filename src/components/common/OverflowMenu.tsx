@@ -235,7 +235,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     z-index: 1000;
     min-width: 180px;
     background-color: ${COLORS.PRIMARY_COLOR};
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     border-radius: ${RADIUS.SQUARE};
     /* KAN-267. Same ground as the page, so the border alone read as a panel
        cut INTO it. A shadow says "above it"; a scrim would say "modal",

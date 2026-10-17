@@ -893,7 +893,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   css={css`
                     color: ${COLORS.TEXT_COLOR};
                     background-color: ${COLORS.PRIMARY_COLOR};
-                    border: 1px solid ${COLORS.BORDER_COLOR};
+                    border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
                     display: flex;
                     align-items: center;
                     font-family: ${FONT_FAMILY};
@@ -1291,7 +1291,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                           css={css`
                             color: ${COLORS.TEXT_COLOR};
                             background-color: ${COLORS.PRIMARY_COLOR};
-                            border: 1px solid ${COLORS.BORDER_COLOR};
+                            border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
                             /* Same four declarations the window title editor
                              carries. Without height and padding the field
                              collapsed to the intrinsic height of its text and

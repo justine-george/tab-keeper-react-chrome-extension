@@ -21,7 +21,7 @@ import { TYPE } from '../../../../styles/scale';
  * header's cloud icon does, so the two cannot disagree. This file only draws.
  *
  * A line, not a card: it was a centred, framed box with the same 1px
- * BORDER_COLOR frame and square corners as the Buttons under it, and read
+ * frame and square corners as the Buttons under it, and read
  * as the pane's biggest button. Status is information; nothing about it is
  * a target. It now sits in the pane's own grammar -- label, then content,
  * left-aligned -- with the title at BODY, not SECTION, so it does not

@@ -23,8 +23,8 @@ import { DURATION, TYPE } from '../../../styles/scale';
  * thickened to 2px in the PAGE's LABEL_L3. Growing a border is safe because
  * App.css sets `* { box-sizing: border-box }` globally, so the tile keeps its
  * size and the row never reflows; e2e/theme-swatch-marker.spec pins that.
- * LABEL_L3 rather than BORDER_COLOR because BORDER measures 1.38-1.75:1
- * against the page on four of the five themes and would be invisible;
+ * LABEL_L3 rather than PANEL_BORDER_COLOR because the panel frame measures
+ * 1.38-1.75:1 against the page on every theme and would be invisible;
  * LABEL_L3 is the one existing token in a sane band (2.56-4.03:1). TEXT_COLOR
  * was tried and rejected as focus-ring weight on a passive marker.
  *
@@ -86,7 +86,7 @@ export default function ThemeSwatch({
     height: ${TILE_HEIGHT_PX}px;
     overflow: hidden;
     background-color: ${palette.PRIMARY_COLOR};
-    border: 1px solid ${PAGE.BORDER_COLOR};
+    border: 1px solid ${PAGE.PANEL_BORDER_COLOR};
     transition: border-color ${DURATION.COLOR};
     ${
       isActive ? `border-color: ${PAGE.LABEL_L3_COLOR}; border-width: 2px;` : ''

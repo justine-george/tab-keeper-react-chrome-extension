@@ -252,7 +252,7 @@ export default function HeroContainerRight() {
     flex-direction: column;
     align-items: flex-start;
     justify-content: space-between;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     font-family: ${FONT_FAMILY};
     user-select: none;
     background-color: ${COLORS.SECONDARY_COLOR};
@@ -348,7 +348,7 @@ export default function HeroContainerRight() {
               css={css`
                 color: ${COLORS.TEXT_COLOR};
                 background-color: ${COLORS.PRIMARY_COLOR};
-                border: 1px solid ${COLORS.BORDER_COLOR};
+                border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
                 display: flex;
                 align-items: center;
                 font-family: ${FONT_FAMILY};

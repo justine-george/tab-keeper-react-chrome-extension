@@ -43,7 +43,7 @@ const TextBox: React.FC<TextBoxProps> = ({
 
   const textInputStyle = css`
     background-color: ${COLORS.PRIMARY_COLOR};
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
     padding: 10px;
     height: ${CONTROL.DEFAULT};
     flex-grow: 1;

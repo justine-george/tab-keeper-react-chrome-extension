@@ -533,7 +533,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
     width: 1px;
     align-self: stretch;
     margin: 2px 0;
-    background-color: ${COLORS.BORDER_COLOR};
+    background-color: ${COLORS.PANEL_BORDER_COLOR};
   `;
 
   // The end of the toolbar row. When the row is too narrow it wraps whole
@@ -636,7 +636,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
             gap: 10px;
             padding: 12px 16px;
             background-color: ${COLORS.SECONDARY_COLOR};
-            border-bottom: 1px solid ${COLORS.BORDER_COLOR};
+            border-bottom: 1px solid ${COLORS.PANEL_BORDER_COLOR};
           `}
         >
           <div
@@ -719,7 +719,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                   css={css`
                     font-size: 0.78rem;
                     color: ${COLORS.LABEL_L1_COLOR};
-                    border: 1px solid ${COLORS.BORDER_COLOR};
+                    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
                     border-radius: 999px;
                     padding: 2px 9px;
                     white-space: nowrap;

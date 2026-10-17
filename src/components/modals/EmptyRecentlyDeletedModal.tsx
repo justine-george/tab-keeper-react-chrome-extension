@@ -54,7 +54,7 @@ export function EmptyRecentlyDeletedModal({
         max-height: none;
         background-color: ${COLORS.PRIMARY_COLOR};
         color: ${COLORS.LABEL_L1_COLOR};
-        border: 1px solid ${COLORS.BORDER_COLOR};
+        border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
         font-family: ${FONT_FAMILY};
         font-size: ${TYPE.BODY};
 
