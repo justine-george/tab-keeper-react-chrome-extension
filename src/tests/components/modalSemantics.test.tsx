@@ -1,13 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { screen } from '@testing-library/react';
 
-import { RateAndReviewModal } from '../../components/modals/RateAndReviewModal';
 import { TabGroupsPermissionModal } from '../../components/modals/TabGroupsPermissionModal';
 import { FocusConfirmModal } from '../../components/modals/FocusConfirmModal';
 import { DeleteCloudDataModal } from '../../components/modals/DeleteCloudDataModal';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
-  openRateAndReviewModal,
   openTabGroupsPrompt,
   openFocusModal,
   openDeleteCloudDataModal,
@@ -60,15 +58,6 @@ const session = (): tabContainerData => ({
 type Store = { dispatch: (a: unknown) => void };
 
 const MODALS = [
-  {
-    name: 'RateAndReviewModal',
-    render: () =>
-      renderWithProviders(<RateAndReviewModal />, {
-        seed: { tabs: [{ active: true, index: 0 }] },
-        seedStore: (store: Store) => store.dispatch(openRateAndReviewModal()),
-      }),
-    expectedName: 'Enjoying Tab Keeper?',
-  },
   {
     name: 'TabGroupsPermissionModal',
     render: () =>

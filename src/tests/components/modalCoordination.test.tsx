@@ -1,9 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-
-// These tests pin which dialog an open picks, not when.
-vi.mock('../../utils/constants/cardDelay', () => ({ CARD_DELAY_MS: 0 }));
 
 // Firebase is the only reason App cannot just be mounted: observeAuthState
 // opens a real onAuthStateChanged subscription against a live auth object.
@@ -19,18 +16,20 @@ vi.mock('../../config/firebase', () => ({
   isCloudConfigured: false,
 }));
 
-// One test makes the rate check throw before it returns; the rest run the real one.
-const reviewAsk = vi.hoisted(() => ({ throws: false }));
-vi.mock('../../utils/functions/reviewAsk', async (importOriginal) => {
+// One test makes the tab-groups check throw before it returns; the rest run the real one.
+const tabGroupsOffer = vi.hoisted(() => ({ throws: false }));
+vi.mock('../../utils/functions/tabGroupsOffer', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('../../utils/functions/reviewAsk')>();
+    await importOriginal<
+      typeof import('../../utils/functions/tabGroupsOffer')
+    >();
   return {
     ...actual,
-    shouldAskForReview: (
-      ...args: Parameters<typeof actual.shouldAskForReview>
+    shouldOfferTabGroups: (
+      ...args: Parameters<typeof actual.shouldOfferTabGroups>
     ) => {
-      if (reviewAsk.throws) throw new Error('rate check broke');
-      return actual.shouldAskForReview(...args);
+      if (tabGroupsOffer.throws) throw new Error('tab groups check broke');
+      return actual.shouldOfferTabGroups(...args);
     },
   };
 });
@@ -50,38 +49,35 @@ import {
 
 beforeEach(() => localStorage.clear());
 afterEach(() => {
-  reviewAsk.throws = false;
+  tabGroupsOffer.throws = false;
+  vi.restoreAllMocks();
   localStorage.clear();
   delete document.documentElement.dataset.firstOpen;
-  delete document.documentElement.dataset.firstOpenCard;
 });
 
 const DAY = 24 * 60 * 60 * 1000;
 
 // Two tab groups open, permission ungranted -- everything the tab-groups offer
-// needs. Held constant across both tests below so the ONLY difference is
-// whether the rate modal also wants the screen.
+// needs. It is the last entry in both lists, so it stands for "the next
+// dialog" wherever a test needs one to take the open.
 const twoGroupsUngranted = {
   tabs: [{ groupId: 11 }, { groupId: 12 }, { groupId: -1 }],
 };
 
-// KAN-74. Both modals are top-layer dialogs, so they must never
-// open together; openFirstDialog opens only the first yes in its ordered list.
-// The decisions are covered elsewhere; this pins the order App's list gives.
+// KAN-74. Top-layer dialogs must never open together; openFirstDialog opens
+// only the first yes in its ordered list. The decisions are covered
+// elsewhere; this pins the order App's list gives.
 describe('modal coordination on popup open', () => {
-  test('the rate request wins, and the tab-groups offer stands down', async () => {
-    // A session restored an hour ago, never rated, never asked -> the rate
-    // modal fires. KAN-149: the install date used to be what opened it, and no
-    // longer is -- a value moment is. The install age stays in the fixture
-    // because it is part of a realistic settings blob, not because it decides
-    // anything.
+  // KAN-653. The review card left the list: it is no dialog, and shows once
+  // nothing covers the page (useReviewAskRelease). An open where an ask is
+  // due -- installed two days ago, never asked -- still offers tab groups.
+  test('an ask that is due takes no turn: the tab-groups offer opens', async () => {
     localStorage.setItem(
       'settingsData',
       JSON.stringify({
         extensionInstalledTime: Date.now() - 2 * DAY,
-        lastValueMomentTime: Date.now() - 60 * 60 * 1000,
         // KAN-259: a user who has answered the cloud question, or it would
-        // take the screen first and both of these would stand down.
+        // take the screen first.
         cloudConsent: 'granted',
         ...RUN_FINISHED_SETTINGS,
       })
@@ -91,67 +87,42 @@ describe('modal coordination on popup open', () => {
       seed: twoGroupsUngranted,
     });
 
-    await waitFor(() =>
-      expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
-    );
-
-    // The offer's own conditions are all met; only the rate modal suppresses it.
-    expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
-  });
-
-  // The control. Same seed, same value moment -- only the rate modal is taken
-  // out of the running. Without this, the test above passes just as well
-  // against an App that never opens the tab-groups offer at all.
-  test('with the rate request silenced, the tab-groups offer opens', async () => {
-    localStorage.setItem(
-      'settingsData',
-      JSON.stringify({
-        extensionInstalledTime: Date.now() - 2 * DAY,
-        lastValueMomentTime: Date.now() - 60 * 60 * 1000,
-        isNeverAskAgainToRate: true,
-        cloudConsent: 'granted',
-        ...RUN_FINISHED_SETTINGS,
-      })
-    );
-
-    const { store } = await renderWithProviders(<App />, {
-      seed: twoGroupsUngranted,
-    });
-
-    await waitFor(() =>
-      expect(store.getState().globalState.tabGroupsPromptCount).toBe(2)
-    );
-
-    expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
-  });
-
-  test('a check that throws before it returns stands down; the next opens, and the queue says so', async () => {
-    reviewAsk.throws = true;
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    // The rate prompt is due, so only the throw keeps it from winning.
-    localStorage.setItem('settingsData', JSON.stringify(RATE_DUE));
-    const { store } = await renderWithProviders(<App />, {
-      seed: twoGroupsUngranted,
-    });
     await waitFor(() =>
       expect(store.getState().globalState.tabGroupsPromptCount).toBe(2)
     );
     await waitFor(() =>
       expect(document.documentElement.dataset.firstOpen).toBe('tabGroups')
     );
-    expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
-    expect(warn).toHaveBeenCalledWith(
-      'Could not decide the rate dialog:',
-      expect.any(Error)
-    );
-    warn.mockRestore();
   });
 
-  // A brand-new user gets the cloud question (KAN-259), and BOTH of the
-  // others stand down -- the tab-groups offer included, which used to be free
-  // to fire on the very first open. It gets its turn on the next open, once
-  // the question is answered; that path is the second test above.
-  test('a first-run user gets the cloud question, and both others stand down', async () => {
+  // KAN-653. The open's own ask, made once its dialogs have settled, and
+  // shown by the release once nothing covers the page.
+  test('a day after install, the open asks with the time card', async () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({
+        extensionInstalledTime: Date.now() - 2 * DAY,
+        cloudConsent: 'granted',
+        ...RUN_FINISHED_SETTINGS,
+      })
+    );
+
+    const { store } = await renderWithProviders(<App />);
+
+    await waitFor(() =>
+      expect(store.getState().globalState.reviewCard?.moment).toEqual({
+        kind: 'time',
+      })
+    );
+    expect(store.getState().settingsDataState.isTimeAskDone).toBe(true);
+  });
+
+  // A brand-new user gets the cloud question (KAN-259), and the tab-groups
+  // offer stands down -- it used to be free to fire on the very first open.
+  // It gets its turn on the next open, once the question is answered; that
+  // path is the test above.
+  test('a first-run user gets the cloud question, and the offer stands down', async () => {
     const { store } = await renderWithProviders(<App />, {
       seed: twoGroupsUngranted,
     });
@@ -161,7 +132,6 @@ describe('modal coordination on popup open', () => {
     );
 
     expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
-    expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
   });
 
   // KAN-7 §8. The cloud question reads the disk as it was before this open
@@ -193,11 +163,11 @@ const seedSettings =
     localStorage.setItem('settingsData', JSON.stringify(partial));
   };
 
-const RATE_DUE = {
+// Nothing ahead of the entry under test: the cloud question answered, the run over.
+const ANSWERED = {
   cloudConsent: 'granted' as const,
   ...RUN_FINISHED_SETTINGS,
   extensionInstalledTime: Date.now() - 2 * DAY,
-  lastValueMomentTime: Date.now() - 60 * 60 * 1000,
 };
 
 describe('after the cloud question (KAN-7 §3)', () => {
@@ -249,18 +219,18 @@ describe('the pin guide in the order (KAN-7 §4)', () => {
   ) => {
     history.replaceState(null, '', '?view=tab');
     return renderWithProviders(<App />, {
-      seed: { action },
-      seedStore: seedSettings({ ...RATE_DUE, ...settings }),
+      seed: { action, ...twoGroupsUngranted },
+      seedStore: seedSettings({ ...ANSWERED, ...settings }),
     });
   };
   afterEach(() => history.replaceState(null, '', '?'));
 
-  test('the full view of an unpinned machine shows it, ahead of the rate prompt', async () => {
+  test('the full view of an unpinned machine shows it, ahead of the tab-groups offer', async () => {
     const { store } = await asFullView({ isOnToolbar: false }, {});
     await waitFor(() =>
       expect(store.getState().globalState.isPinGuideOpen).toBe(true)
     );
-    expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
+    expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
   });
 
   test.each([
@@ -274,11 +244,11 @@ describe('the pin guide in the order (KAN-7 §4)', () => {
     ],
     ['dismissed here', { isOnToolbar: false }, { isPinGuideDismissed: true }],
   ] as const)(
-    '%s: no guide, and the rate prompt gets the open',
+    '%s: no guide, and the tab-groups offer gets the open',
     async (_name, action, settings) => {
       const { store } = await asFullView(action, settings);
       await waitFor(() =>
-        expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
+        expect(store.getState().globalState.tabGroupsPromptCount).toBe(2)
       );
       expect(store.getState().globalState.isPinGuideOpen).toBe(false);
     }
@@ -287,11 +257,11 @@ describe('the pin guide in the order (KAN-7 §4)', () => {
   test('never in the popup', async () => {
     history.replaceState(null, '', '?');
     const { store } = await renderWithProviders(<App />, {
-      seed: { action: { isOnToolbar: false } },
-      seedStore: seedSettings(RATE_DUE),
+      seed: { action: { isOnToolbar: false }, ...twoGroupsUngranted },
+      seedStore: seedSettings(ANSWERED),
     });
     await waitFor(() =>
-      expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
+      expect(store.getState().globalState.tabGroupsPromptCount).toBe(2)
     );
     expect(store.getState().globalState.isPinGuideOpen).toBe(false);
   });
@@ -306,12 +276,12 @@ describe('setup in the order (KAN-7 §5)', () => {
   ) => {
     history.replaceState(null, '', '?view=tab');
     return renderWithProviders(<App />, {
-      seed: { action },
-      seedStore: seedSettings({ ...RATE_DUE, ...settings }),
+      seed: { action, ...twoGroupsUngranted },
+      seedStore: seedSettings({ ...ANSWERED, ...settings }),
     });
   };
 
-  test('pending on a pinned machine: setup opens, ahead of the rate prompt', async () => {
+  test('pending on a pinned machine: setup opens, ahead of the tab-groups offer', async () => {
     const { store } = await full(
       { isOnToolbar: true },
       { setupState: 'pending' }
@@ -319,7 +289,7 @@ describe('setup in the order (KAN-7 §5)', () => {
     await waitFor(() =>
       expect(store.getState().globalState.isSetupOpen).toBe(true)
     );
-    expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
+    expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
   });
 
   test('pending and unpinned: setup first, and the guide when setup closes', async () => {
@@ -350,21 +320,21 @@ describe('setup in the order (KAN-7 §5)', () => {
   test('an existing user (setup never started) never gets it', async () => {
     const { store } = await full({ isOnToolbar: true }, {});
     await waitFor(() =>
-      expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
+      expect(store.getState().globalState.tabGroupsPromptCount).toBe(2)
     );
     expect(store.getState().globalState.isSetupOpen).toBe(false);
   });
 
   test('never in the popup', async () => {
     const { store } = await renderWithProviders(<App />, {
-      seed: { action: { isOnToolbar: true } },
+      seed: { action: { isOnToolbar: true }, ...twoGroupsUngranted },
       seedStore: seedSettings({
-        ...RATE_DUE,
+        ...ANSWERED,
         setupState: 'pending',
       }),
     });
     await waitFor(() =>
-      expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
+      expect(store.getState().globalState.tabGroupsPromptCount).toBe(2)
     );
     expect(store.getState().globalState.isSetupOpen).toBe(false);
   });
@@ -411,19 +381,51 @@ describe('the full-view callout in the order (KAN-7 §6)', () => {
     );
   });
 
+  // KAN-653. No quiet wait: the callout is not a dialog, so a key pressed
+  // as the popup opens is no reason to hold it back.
+  test('a key pressed as the popup opens does not stop it', async () => {
+    const { store } = await renderWithProviders(<App />, {
+      seedStore: holder({}),
+    });
+    fireEvent.keyDown(document.body, { key: 'Shift' });
+    await waitFor(() =>
+      expect(store.getState().globalState.isFullViewCalloutOpen).toBe(true)
+    );
+  });
+
   test('never on an open that showed a dialog', async () => {
     const { store } = await renderWithProviders(<App />, {
-      seedStore: holder({
-        extensionInstalledTime: Date.now() - 2 * DAY,
-        lastValueMomentTime: Date.now() - 60 * 60 * 1000,
-      }),
+      seed: twoGroupsUngranted,
+      seedStore: holder({}),
     });
     await waitFor(() =>
-      expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(true)
+      expect(store.getState().globalState.tabGroupsPromptCount).toBe(2)
     );
     expect(store.getState().globalState.isFullViewCalloutOpen).toBe(false);
     await waitFor(() =>
-      expect(document.documentElement.dataset.firstOpen).toBe('rate')
+      expect(document.documentElement.dataset.firstOpen).toBe('tabGroups')
     );
+  });
+
+  test('a check that throws before it returns stands down; the next opens, and the queue says so', async () => {
+    tabGroupsOffer.throws = true;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    // The offer is due, so only the throw keeps it from winning.
+    const { store } = await renderWithProviders(<App />, {
+      seed: twoGroupsUngranted,
+      seedStore: holder({}),
+    });
+    await waitFor(() =>
+      expect(store.getState().globalState.isFullViewCalloutOpen).toBe(true)
+    );
+    await waitFor(() =>
+      expect(document.documentElement.dataset.firstOpen).toBe('fullViewCallout')
+    );
+    expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
+    expect(warn).toHaveBeenCalledWith(
+      'Could not decide the tabGroups dialog:',
+      expect.any(Error)
+    );
+    warn.mockRestore();
   });
 });

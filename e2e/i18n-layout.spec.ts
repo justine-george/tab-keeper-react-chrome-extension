@@ -41,6 +41,21 @@ import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 // that a Latin-script measurement cannot see. `en` is the CONTROL: if it fails
 // too, the harness is broken rather than the translations.
 const LOCALES = ['en', 'es', 'hi'] as const;
+const ALL_LOCALES = [
+  'de',
+  'en',
+  'es',
+  'fr',
+  'hi',
+  'it',
+  'ja',
+  'ko',
+  'pt',
+  'ru',
+  'sv',
+  'zh',
+  'zh-TW',
+] as const;
 
 function localeStrings(lang: string): Record<string, string> {
   return JSON.parse(
@@ -95,24 +110,20 @@ async function openPopupIn(
 }
 
 /**
- * Opens the rate-and-review prompt, which is gated entirely on localStorage:
- * never rated, never opted out, and -- since KAN-149 -- something of VALUE has
- * happened. The install date used to be what opened it and no longer is.
- *
- * `lastValueMomentTime` is a NUMBER of milliseconds, like the install date
- * beside it: a plausible ISO string reads as "no such moment" and the modal
- * silently never opens.
+ * Opens the review card (KAN-653): the day-after-install ask, offering "Never
+ * ask again" so the card is at its tallest. The install date is a NUMBER of
+ * milliseconds: a plausible ISO string reads as "never installed" and the
+ * card silently never shows.
  */
-async function openRatePromptIn(
+async function openReviewCardIn(
   context: BrowserContext,
   extensionId: string,
   lang: string
 ): Promise<Page> {
   await seedSettings(context, {
     language: lang,
+    isNeverAskAgainToRate: false,
     extensionInstalledTime: Date.now() - 2 * 24 * 60 * 60 * 1000,
-    lastValueMomentTime: Date.now() - 60 * 60 * 1000,
-    // Reveals the second dismissal, so the card is at its tallest.
     isSkippedUserReviewOnce: true,
   });
   await seedSessions(context, buildContainer());
@@ -127,7 +138,7 @@ async function openRatePromptIn(
  *
  * Takes a Locator rather than an accessible name because the two CTAs are not
  * addressable the same way -- the tab-groups button is a bare <button> with
- * no icon, the rate button wraps its label in a span.
+ * no icon, the review card's Rate wraps its label in a span.
  */
 async function ctaFit(cta: Locator) {
   return cta.evaluate((button: HTMLElement) => {
@@ -204,28 +215,62 @@ test.describe('translated UI still fits its layout', () => {
     });
   }
 
-  // KAN-78. The same check on the other "offer" modal, which had the defect
-  // this file exists to catch: its CTA was pinned to `width: 217px`, sized to
-  // the English label, and wrapped to two lines in 7 of the 10 locales.
-  //
-  // Note the rendered label is NOT the key -- en maps "Rate this app" to
-  // "Rate this extension" -- so the name is read from the locale file rather
-  // than written out here.
+  // KAN-78, carried to the review card (KAN-653): Rate is full width, so the
+  // check is that its label stays on one line in the card.
   for (const lang of LOCALES) {
-    test(`the rate prompt fits the card in ${lang}`, async ({
+    test(`the review card's Rate fits the card in ${lang}`, async ({
       context,
       extensionId,
     }) => {
       const t = localeStrings(lang);
-      const page = await openRatePromptIn(context, extensionId, lang);
+      const page = await openReviewCardIn(context, extensionId, lang);
 
       const cta = page.getByRole('button', {
-        name: t['Rate this app'],
+        name: t['Rate Tab Keeper'],
         exact: true,
       });
       await expect(cta).toBeVisible();
 
       expectFits(await ctaFit(cta), lang);
+    });
+  }
+
+  // KAN-653 Review Focus 4. The popup's 360px card in every locale: the
+  // title wraps rather than running under the ✕, and the card stays on screen.
+  for (const lang of ALL_LOCALES) {
+    test(`the review card's title keeps clear of its ✕ in ${lang}`, async ({
+      context,
+      extensionId,
+    }) => {
+      const t = localeStrings(lang);
+      const page = await openReviewCardIn(context, extensionId, lang);
+      const card = page.getByRole('complementary', {
+        name: t['Thanks for using Tab Keeper'],
+        exact: true,
+      });
+      await expect(card).toBeVisible();
+
+      const fit = await card.evaluate((el) => {
+        const title = el.querySelector('h2 > span:last-child')!;
+        const range = document.createRange();
+        range.selectNodeContents(title);
+        const inkRight = Math.max(
+          ...Array.from(range.getClientRects(), (r) => r.right)
+        );
+        const close = el
+          .querySelector('[role="button"][aria-label]')!
+          .getBoundingClientRect();
+        const box = el.getBoundingClientRect();
+        return {
+          clearOfClose: inkRight <= close.left,
+          onScreen:
+            box.left >= 0 &&
+            box.top >= 0 &&
+            box.right <= window.innerWidth &&
+            box.bottom <= window.innerHeight,
+        };
+      });
+      expect(fit, lang).toEqual({ clearOfClose: true, onScreen: true });
     });
   }
 });

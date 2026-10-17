@@ -112,7 +112,6 @@ describe('who is asked, and which screen (KAN-259)', () => {
       screen.getByRole('dialog', { name: 'Welcome to Tab Keeper' })
     ).toBeTruthy();
     // The other first-open modals stood down.
-    expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
     expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
     // Lazy sign-in: no answer yet, so no Firebase.
     expect(mocks.ensureCloudSession).not.toHaveBeenCalled();

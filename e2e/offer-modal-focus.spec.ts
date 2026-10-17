@@ -1,10 +1,11 @@
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
+import { buildContainer, seedSessions } from './fixtures/seed';
 
-// KAN-243. The two offer modals open with focus on the DIALOG, not on their
-// CTA.
+// KAN-243. The offer modal opens with focus on the DIALOG, not on its CTA.
+// (The rate prompt it was written with is now the review card, KAN-653,
+// which takes no focus at all: review-card.spec.ts.)
 //
 // showModal() lands focus on the first control, and on a page with no pointer
 // interaction yet Chrome paints its :focus-visible ring on it -- so both
@@ -36,21 +37,6 @@ const state = (page: Page) =>
     };
   });
 
-async function openRatePrompt(
-  context: BrowserContext,
-  extensionId: string
-): Promise<Page> {
-  await seedSettings(context, {
-    extensionInstalledTime: Date.now() - 2 * 24 * 60 * 60 * 1000,
-    lastValueMomentTime: Date.now() - 60 * 60 * 1000,
-  });
-  await seedSessions(context, buildContainer());
-  const page = await context.newPage();
-  await page.goto(`chrome-extension://${extensionId}/index.html`);
-  await expect(page.getByRole('dialog')).toBeVisible();
-  return page;
-}
-
 // The offer is gated on real tab groups existing (see i18n-layout.spec.ts).
 async function openTabGroupsPrompt(
   context: BrowserContext,
@@ -78,12 +64,6 @@ async function openTabGroupsPrompt(
 }
 
 for (const [which, firstButton, open] of [
-  [
-    'the rate-and-review prompt',
-    // Maybe later leads the footer too (KAN-501), so the first Tab lands on it.
-    'Maybe later',
-    (c: BrowserContext, _w: Worker, id: string) => openRatePrompt(c, id),
-  ],
   [
     'the tab groups offer',
     // Not now leads the footer, so the first Tab lands on it.

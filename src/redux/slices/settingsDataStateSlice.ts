@@ -23,6 +23,10 @@ import type { CaptureScope } from '../../utils/functions/capture';
 // would complete a cycle. Same reason as the RootState note in the container
 // slice.
 import type { ExportLayout } from '../../utils/functions/sessionExportHtml';
+import {
+  readPendingAsk,
+  type PendingReviewAsk,
+} from '../../utils/functions/reviewAsk';
 import { readUiLanguage } from '../../utils/functions/uiLanguage';
 import {
   Language,
@@ -66,16 +70,13 @@ export interface SettingsData {
   isNeverAskAgainToRate: boolean;
   lastReviewRequestTime: number | '';
   /**
-   * When the extension last visibly paid off for this user -- a session
-   * restored, a substantial save, sessions arriving from another device
-   * (KAN-149). It is what the review prompt waits for, in place of the install
-   * date it used to wait on.
-   *
-   * DEVICE-LOCAL, like everything else here: saveToFirestore sends
-   * tabContainerData and nothing else, so this needs no merge rule and cannot
-   * make one device's payoff into another device's prompt.
+   * An ask for a review that is due but not yet on screen (KAN-653). Saves,
+   * restores and arriving sessions write it; the page shows it once nothing
+   * covers it. Read it through readPendingAsk: an older build never wrote it.
    */
-  lastValueMomentTime: number | '';
+  pendingReviewAsk: PendingReviewAsk | null;
+  // KAN-653. The day-after-install ask is asked once; this says it has been.
+  isTimeAskDone: boolean;
   // KAN-255. When this device last completed a sync, ms since epoch; '' until
   // the first. Per device, like the rest of this slice: the other device's
   // last sync is its own fact.
@@ -248,11 +249,14 @@ export function asDefaultSaveScope(value: unknown): CaptureScope {
   return value === 'current-window' ? 'current-window' : 'all-windows';
 }
 
-// Keys only unreleased builds wrote: dropped once, and settings written back without them.
+// Keys no build reads any more: dropped once, and settings written back
+// without them. All but lastValueMomentTime (1.8.0's review gate, replaced by
+// pendingReviewAsk in KAN-653) were only ever written by unreleased builds.
 const RETIRED_KEYS: readonly string[] = [
   'sampleTour',
   'isFullViewOfferAnswered',
   'isUiSoundOn',
+  'lastValueMomentTime',
 ];
 
 const withoutRetiredKeys = (stored: unknown): unknown =>
@@ -287,7 +291,8 @@ const defaultSettings: SettingsData = {
   isUserRatedAndReviewed: false,
   isNeverAskAgainToRate: false,
   lastReviewRequestTime: '',
-  lastValueMomentTime: '',
+  pendingReviewAsk: null,
+  isTimeAskDone: false,
   lastSyncedTime: '',
   isTabGroupsPromptAnsweredOnce: false,
   isNeverAskAgainForTabGroups: false,
@@ -320,6 +325,9 @@ export const initialState: SettingsData = {
   timeFormat: asTimeFormat(settingsDataLocal.timeFormat),
   // KAN-635. Guarded: settingsDataLocal is unvalidated.
   defaultSaveScope: asDefaultSaveScope(settingsDataLocal.defaultSaveScope),
+  // KAN-653. Guarded: an older build never wrote these.
+  pendingReviewAsk: readPendingAsk(settingsDataLocal.pendingReviewAsk),
+  isTimeAskDone: asFlag(settingsDataLocal.isTimeAskDone),
   // KAN-7. Guarded like openNowWidth: settingsDataLocal is unvalidated.
   ...guardOnboarding(settingsDataLocal, ONBOARDING_DEFAULTS),
 };
@@ -423,10 +431,17 @@ export const settingsDataStateSlice = createSlice({
       saveToLocalStorage('settingsData', state);
     },
 
-    recordValueMoment: (state) => {
-      state.lastValueMomentTime = Date.now();
+    // KAN-653. Written by a moment, cleared when the card shows.
+    setPendingReviewAsk: (
+      state,
+      action: PayloadAction<PendingReviewAsk | null>
+    ) => {
+      state.pendingReviewAsk = action.payload;
+      saveToLocalStorage('settingsData', state);
+    },
 
-      // Save updated state to localStorage
+    markTimeAskDone: (state) => {
+      state.isTimeAskDone = true;
       saveToLocalStorage('settingsData', state);
     },
 
@@ -624,7 +639,8 @@ export const {
   setSkippedUserReviewOnce,
   setExtensionInstalledTime,
   updateLastReviewRequestTime,
-  recordValueMoment,
+  setPendingReviewAsk,
+  markTimeAskDone,
   recordSyncedNow,
   setLastSyncedTime,
   forgetLastSync,

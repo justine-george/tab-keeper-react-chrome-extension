@@ -4,7 +4,6 @@ import {
   openCloudConsentModal,
   openFullViewCallout,
   openPinGuide,
-  openRateAndReviewModal,
   openSetup,
   openTabGroupsPrompt,
 } from './slices/globalStateSlice';
@@ -19,11 +18,9 @@ import {
   shouldShowPinGuide,
   shouldShowSetup,
 } from '../utils/functions/onboarding';
-import { showWhenQuiet } from './quietCards';
 import { runOpener, showWelcome, startRun } from './firstRun';
 import { newRun, runAtOpen, type RunCheck } from '../utils/functions/firstRun';
 import { RUN_LOCK, tourLockState } from '../utils/functions/tourLock';
-import { shouldAskForReview } from '../utils/functions/reviewAsk';
 import { readToolbarPin } from '../utils/functions/toolbarPin';
 import { shouldOfferTabGroups } from '../utils/functions/tabGroupsOffer';
 
@@ -129,19 +126,6 @@ export function firstOpenDialogs(
         : null,
   };
 
-  // KAN-149. A value moment, not the install age, opens it.
-  const rate: DialogEntry = {
-    id: 'rate',
-    decide: () =>
-      shouldAskForReview(storedAtOpen, Date.now())
-        ? () =>
-            void showWhenQuiet(
-              () => dispatch(openRateAndReviewModal()),
-              open.getState
-            )
-        : null,
-  };
-
   // KAN-74. Every open that finds live groups and no grant.
   const tabGroups: DialogEntry = {
     id: 'tabGroups',
@@ -159,17 +143,13 @@ export function firstOpenDialogs(
         open.getState().settingsDataState,
         open.storedSessions
       )
-        ? () =>
-            void showWhenQuiet(
-              () => dispatch(openFullViewCallout()),
-              open.getState
-            )
+        ? () => dispatch(openFullViewCallout())
         : null,
   };
 
   const lists: Record<Surface, DialogEntry[]> = {
-    popup: [cloudConsent, firstRun, rate, tabGroups, fullViewCallout],
-    full: [cloudConsent, firstRun, setup, pinGuide, rate, tabGroups],
+    popup: [cloudConsent, firstRun, tabGroups, fullViewCallout],
+    full: [cloudConsent, firstRun, setup, pinGuide, tabGroups],
   };
   return lists[surface];
 }

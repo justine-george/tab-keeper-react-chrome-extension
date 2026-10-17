@@ -38,14 +38,22 @@ export const ONBOARDING_ANSWERED = {
 };
 
 /**
- * Seeds `settingsData`, which is what gates the rate-and-review prompt.
+ * KAN-653. The review card can come up on any page after a first save, a big
+ * save or a restore, and sits over the bottom-right corner. A seeded profile
+ * starts as a user who said never, the way it starts as one who answered the
+ * cloud question; a spec about the card passes `false`, which wins.
+ */
+export const REVIEW_CARD_DECLINED = { isNeverAskAgainToRate: true };
+
+/**
+ * Seeds `settingsData`, which is what gates the review card.
  *
  * Note `extensionInstalledTime` must be a NUMBER of milliseconds, not a date
  * string: `isValidDate` (`local.ts:12`) only accepts `typeof param ===
  * 'number'`, so a plausible-looking ISO string is treated as "never
- * installed", and App silently stamps a fresh install time and declines to
- * prompt. A spec seeded that way never opens the modal and reads as a missing
- * control rather than a bad fixture.
+ * installed", and App silently stamps a fresh install time, so the day-after
+ * ask never comes. A spec seeded that way never shows the card and reads as a
+ * missing control rather than a bad fixture.
  */
 export async function seedSettings(
   context: BrowserContext,
@@ -58,6 +66,7 @@ export async function seedSettings(
   await seedLocalStorage(context, 'settingsData', {
     cloudConsent: 'granted',
     ...ONBOARDING_ANSWERED,
+    ...REVIEW_CARD_DECLINED,
     ...settings,
   });
 }
@@ -80,6 +89,7 @@ export async function seedSettingsIfAbsent(
     JSON.stringify({
       cloudConsent: 'granted',
       ...ONBOARDING_ANSWERED,
+      ...REVIEW_CARD_DECLINED,
       ...settings,
     })
   );
