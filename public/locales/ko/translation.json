@@ -329,7 +329,7 @@
   "Your saved sessions are all here, just as you left them.": "저장된 세션은 모두 여기에 그대로 있습니다.",
   "Here are your saved sessions. The selected one shows its windows and tabs on the right.": "저장된 세션 목록입니다. 선택한 세션의 창과 탭이 오른쪽에 표시됩니다.",
   "Open brings back all of this session's windows and tabs, beside the ones you have open.": "열기를 누르면 지금 열려 있는 창은 그대로 두고 이 세션의 창과 탭을 모두 다시 엽니다.",
-  "Replace overwrites this saved session with what you have open now. Nothing closes.": "바꾸기를 누르면 저장된 이 세션을 지금 열려 있는 것으로 덮어씁니다. 아무것도 닫히지 않습니다.",
+  "Replace keeps this saved session up to date by overwriting it with what you have open now. Nothing closes.": "바꾸기를 누르면 저장된 이 세션을 지금 열려 있는 것으로 덮어써서 최신 상태로 유지합니다. 아무것도 닫히지 않습니다.",
   "Copy all links, export, or delete this session from this menu. Deleting doesn't close your open windows.": "이 메뉴에서 모든 링크를 복사하거나 이 세션을 내보내거나 삭제할 수 있습니다. 삭제해도 열려 있는 창은 닫히지 않습니다.",
   "Each window can be opened on its own. Click a window's title to rename it.": "창은 하나씩 따로 열 수도 있습니다. 창 이름을 바꾸려면 제목을 클릭하세요.",
   "Keep Tab Keeper open in a pinned tab.": "Tab Keeper를 고정 탭으로 열어 두세요.",

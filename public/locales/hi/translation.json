@@ -338,7 +338,7 @@
   "Your saved sessions are all here, just as you left them.": "आपके सभी सहेजे गए सेशन यहाँ हैं, ठीक वैसे ही जैसे आपने छोड़े थे।",
   "Here are your saved sessions. The selected one shows its windows and tabs on the right.": "ये रहे आपके सहेजे गए सेशन। चुना हुआ सेशन अपनी विंडो और टैब दाईं ओर दिखाता है।",
   "Open brings back all of this session's windows and tabs, beside the ones you have open.": "\"खोलें\" इस सेशन की सारी विंडो और टैब वापस लाता है, आपकी पहले से खुली विंडो के साथ।",
-  "Replace overwrites this saved session with what you have open now. Nothing closes.": "\"रिप्लेस\" इस सहेजे गए सेशन को उससे बदल देता है जो अभी आपके पास खुला है। कुछ भी बंद नहीं होता।",
+  "Replace keeps this saved session up to date by overwriting it with what you have open now. Nothing closes.": "\"रिप्लेस\" इस सहेजे गए सेशन को अभी खुली चीज़ों से बदलकर अप-टू-डेट रखता है। कुछ भी बंद नहीं होता।",
   "Copy all links, export, or delete this session from this menu. Deleting doesn't close your open windows.": "इस मेन्यू से सभी लिंक कॉपी करें, इस सेशन को निर्यात करें या हटाएँ। हटाने से आपकी खुली विंडो बंद नहीं होतीं।",
   "Each window can be opened on its own. Click a window's title to rename it.": "हर विंडो को अलग से खोला जा सकता है। किसी विंडो का नाम बदलने के लिए उसके शीर्षक पर क्लिक करें।",
   "Keep Tab Keeper open in a pinned tab.": "Tab Keeper को एक पिन किए गए टैब में खुला रखें।",

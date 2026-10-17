@@ -21,7 +21,7 @@ import { isValidTabMasterContainer } from '../src/utils/functions/local';
 // session, as Open and Switch do (KAN-413).
 
 const TEXT =
-  'Replace overwrites this saved session with what you have open now. Nothing closes.';
+  'Replace keeps this saved session up to date by overwriting it with what you have open now. Nothing closes.';
 
 // Two stand-in pages: Gmail is saved as the run's session, Docs opens after.
 async function stub(context: BrowserContext, url: string, title: string) {
