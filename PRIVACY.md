@@ -2,7 +2,7 @@
 
 **Tab Keeper — Chrome extension**
 
-Last updated: 16 October 2026
+Last updated: 17 October 2026
 
 Tab Keeper saves your open windows and tabs as sessions so you can reopen them later. This policy explains what information Tab Keeper handles, how it is used, where it is stored, and how you can remove it.
 
@@ -19,6 +19,10 @@ When you save a session, Tab Keeper records:
 - Timestamps, ordering information, internal identifiers, and deletion records needed to keep sessions consistent across devices
 
 Tab Keeper reads this information from Chrome. It does not inspect page bodies, forms, messages, or other webpage contents.
+
+### Recently closed tabs
+
+When you close a tab or window from Open now, Tab Keeper asks Chrome for access to its list of recently closed tabs and windows, then reads that list to find the entry for what you closed. If you press Reopen, Tab Keeper asks Chrome to restore that entry, so it comes back with its Back and Forward history. Tab Keeper does not save, sync, or export this list. Chrome describes this access on its extensions page as "Read your browsing history on all your signed-in devices".
 
 ### Settings
 
