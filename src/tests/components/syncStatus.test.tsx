@@ -292,8 +292,8 @@ describe('the sync status line follows the store (KAN-248)', () => {
     act(() => {
       store.dispatch(declineCloudConsent());
     });
-    const line = card().querySelector<HTMLElement>('[data-sync-line]')!;
-    expect(line).not.toBeNull();
+    const line = card().querySelector<HTMLElement>('[data-sync-line]');
+    if (line === null) throw new Error('no sync sentence');
     // 36rem; jsdom resolves it against its 16px root.
     expect(getComputedStyle(line).maxWidth).toBe('576px');
   });

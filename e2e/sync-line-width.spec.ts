@@ -37,7 +37,7 @@ test('in a wide full view the sync sentence stops at the help lines’ reading w
   const page = await context.newPage();
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
-  await page.locator('[aria-label="Settings"]').first().click();
+  await page.locator('[aria-label="Settings"]').click();
 
   await page.locator('button[aria-label="Sessions"]').click();
   const helpLine = page.getByText('Reopening a closed tab or window', {
