@@ -40,7 +40,8 @@ test('in a wide full view the sync sentence stops at the help lines’ reading w
   await page.locator('[aria-label="Settings"]').click();
 
   await page.locator('button[aria-label="Sessions"]').click();
-  const helpLine = page.getByText('Reopening a closed tab or window', {
+  // The Default save help line (the tab-history one left with KAN-663).
+  const helpLine = page.getByText('Used by the save button and the Enter key', {
     exact: false,
   });
   const readingWidth = await helpLine.evaluate(

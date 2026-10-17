@@ -36,6 +36,7 @@ export const grantedTest = base.extend<{
   extensionId: string;
   keepWindowBounds: boolean;
   showScrollbars: boolean;
+  refuseSessions: boolean;
 }>({
   // Off by default. Two things in the harness move a window away from the
   // bounds windows.create gave it, measured 2026-09-24 (KAN-280): headless
@@ -50,10 +51,19 @@ export const grantedTest = base.extend<{
   // spec opts in with `grantedTest.use({ showScrollbars: true })`.
   showScrollbars: [false, { option: true }],
 
+  // KAN-663. A close in Open now asks for `sessions` itself. With this on,
+  // the copy's manifest no longer offers it, so Chrome refuses the ask and
+  // Reopen recreates: the profile a refusal or a policy leaves. Opt in with
+  // `grantedTest.use({ refuseSessions: true })`.
+  refuseSessions: [false, { option: true }],
+
   // `headless` is Playwright's own option, true unless the run passes
   // --headed: a spec that needs a real window manager can then be run headed
   // on purpose (open-now-close.spec.ts test 2).
-  context: async ({ keepWindowBounds, showScrollbars, headless }, use) => {
+  context: async (
+    { keepWindowBounds, showScrollbars, refuseSessions, headless },
+    use
+  ) => {
     const copy = mkdtempSync(join(tmpdir(), 'tabkeeper-granted-'));
     cpSync(DIST, copy, { recursive: true });
     const manifestPath = join(copy, 'manifest.json');
@@ -61,7 +71,7 @@ export const grantedTest = base.extend<{
     manifest.permissions = [...(manifest.permissions ?? []), 'tabGroups'];
     manifest.optional_permissions = (
       manifest.optional_permissions ?? []
-    ).filter((p) => p !== 'tabGroups');
+    ).filter((p) => p !== 'tabGroups' && !(refuseSessions && p === 'sessions'));
     writeFileSync(manifestPath, JSON.stringify(manifest));
 
     const userDataDir = mkdtempSync(join(tmpdir(), 'tabkeeper-e2e-'));

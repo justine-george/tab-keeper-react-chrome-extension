@@ -46,22 +46,24 @@ const openQuickAccess = (
 ) => openPane(context, extensionId, 'Quick access', 'Default view');
 
 test.describe('the Sessions pane (KAN-249, KAN-250, KAN-253)', () => {
-  test('two pairs, Save Tab Groups and tab history (KAN-280, last since KAN-645), Save Tab Groups Off pressed, on the popup scale; no memory setting, no backup', async ({
+  test('one pair, Save Tab Groups, Off pressed, on the popup scale; no memory setting, no history setting, no backup', async ({
     context,
     extensionId,
   }) => {
     const page = await openSessions(context, extensionId);
 
-    // KAN-280 Part D added "Bring back tab history when reopening"; KAN-645
-    // moved it last. Its own spec is open-now-history.spec.ts. Default view
-    // and Pin Tab Keeper moved to Quick access (KAN-652).
+    // Default view and Pin Tab Keeper moved to Quick access (KAN-652); tab
+    // history is always on, with no setting (KAN-663).
     const groups = page.getByRole('group');
-    await expect(groups).toHaveCount(2);
+    await expect(groups).toHaveCount(1);
     expect(
       await groups.evaluateAll((pairs) =>
         pairs.map((pair) => pair.getAttribute('aria-label'))
       )
-    ).toEqual(['Save tab groups', 'Bring back tab history when reopening']);
+    ).toEqual(['Save tab groups']);
+    await expect(
+      page.getByText('Bring back tab history when reopening')
+    ).toHaveCount(0);
     const pair = page.getByRole('group', { name: 'Save tab groups' });
     await expect(pair.getByRole('button', { name: 'Off' })).toHaveAttribute(
       'aria-pressed',

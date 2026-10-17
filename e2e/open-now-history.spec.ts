@@ -11,19 +11,20 @@ import { createServer } from 'node:http';
 import { test, expect } from './fixtures/extension';
 import { grantedTest } from './fixtures/grantedExtension';
 
-// KAN-280 Part D on the real artifact: "Bring back tab history when
-// reopening". The switch is Chrome's optional `sessions` permission; with it
-// held, Open now's Reopen brings a closed tab or window back through Chrome's
-// recently closed list (in the service worker), so its Back and Forward pages
-// come back, and then undoes everything else the restore changed, so the end
-// state is today's recreate's. Without it, or when Chrome no longer has the
-// entry, Reopen recreates, as before.
+// KAN-280 Part D on the real artifact: tab history on Reopen. Chrome's
+// optional `sessions` permission, which a close in Open now asks for itself
+// (KAN-663: no setting); with it held, Open now's Reopen brings a closed tab
+// or window back through Chrome's recently closed list (in the service
+// worker), so its Back and Forward pages come back, and then undoes
+// everything else the restore changed, so the end state is today's
+// recreate's. Without it (refused), or when Chrome no longer has the entry,
+// Reopen recreates, as before.
 //
 // What the unit tests cannot show, because they run against a fake: that
-// Chrome really grants and revokes `sessions` from the switch, that the help
-// line is the switch's description in Chrome's own accessibility tree, that a
-// restored tab really has its history, and the rules the fake only MODELS
-// (tests 7b and 9 to 15 measure them and print the numbers).
+// Chrome really grants `sessions` to a close with no prompt, inside the
+// click's gesture, that a restored tab really has its history, and the rules
+// the fake only MODELS (tests 7b and 9 to 15 measure them and print the
+// numbers).
 //
 // Pages come from a local http server, one per test (servePages). Not a
 // data: URL, which cannot hold a history: Chrome takes a tabs.update from one
@@ -40,9 +41,6 @@ const VIEW_TAB = 'index.html?view=tab';
 const POPUP = 'index.html';
 const OPEN_NOW = '[data-pane="open-now"]';
 
-const HISTORY_ROW = 'Bring back tab history when reopening';
-const HISTORY_HELP =
-  'Reopening a closed tab or window from Open now also brings back its Back and Forward pages, except for grouped tabs in a reopened window. It uses Chrome’s list of recently closed tabs.';
 const REOPEN_FAILED = "Couldn't reopen.";
 
 // The address of page n of a test's pages under `key`: /pN?k=KEY on the
@@ -94,42 +92,25 @@ async function openPage(
 }
 
 // Settings › Sessions, and the history switch in it.
-async function openHistoryRow(page: Page): Promise<Locator> {
-  await page.locator('[aria-label="Settings"]').click();
-  await page.locator('button[aria-label="Sessions"]').click();
-  const row = page.getByRole('group', { name: HISTORY_ROW, exact: true });
-  await expect(row).toBeVisible();
-  return row;
-}
-
-// Which side of the switch is pressed, by its buttons' aria-pressed.
-async function expectPressed(row: Locator, side: 'On' | 'Off') {
-  const other = side === 'On' ? 'Off' : 'On';
-  await expect(
-    row.getByRole('button', { name: side, exact: true })
-  ).toHaveAttribute('aria-pressed', 'true');
-  await expect(
-    row.getByRole('button', { name: other, exact: true })
-  ).toHaveAttribute('aria-pressed', 'false');
-}
-
 const holdsSessions = (page: Page): Promise<boolean> =>
   page.evaluate(() =>
     chrome.permissions.contains({ permissions: ['sessions'] })
   );
 
-// Turns the switch On from a page of its own, then closes that page, so the
-// tab view opened after it is the front tab of its window again. Returns
-// once Chrome holds the grant.
-async function turnHistoryOn(
+// Grants `sessions` from a page of its own, then closes that page, so the tab
+// view opened after it is the front tab of its window again. A close in Open
+// now asks for it itself (KAN-663); this is for a test that needs the grant
+// before its first close. Returns once Chrome holds it.
+async function grantSessions(
   context: BrowserContext,
   extensionId: string
 ): Promise<void> {
   const page = await openPage(context, extensionId, POPUP, POPUP_VIEWPORT);
-  const row = await openHistoryRow(page);
-  await row.getByRole('button', { name: 'On', exact: true }).click();
-  await expectPressed(row, 'On');
-  await expect.poll(() => holdsSessions(page)).toBe(true);
+  expect(
+    await page.evaluate(() =>
+      chrome.permissions.request({ permissions: ['sessions'] })
+    )
+  ).toBe(true);
   await page.close();
 }
 
@@ -459,96 +440,41 @@ const focusRequests = async (worker: Worker): Promise<number[]> => {
     : [];
 };
 
-test.describe('the switch, in the popup and the tab view (KAN-280 Part D)', () => {
-  for (const { name, path, viewport } of [
-    { name: 'the popup', path: POPUP, viewport: POPUP_VIEWPORT },
-    { name: 'the tab view', path: VIEW_TAB, viewport: TAB_VIEWPORT },
-  ]) {
-    test(`1. ${name}: Settings › Sessions has the switch, Off in a fresh profile`, async ({
-      context,
-      extensionId,
-    }) => {
-      const page = await openPage(context, extensionId, path, viewport);
-      const row = await openHistoryRow(page);
-      await expectPressed(row, 'Off');
-      // Off is the truth, not a default drawn over a grant.
-      expect(await holdsSessions(page)).toBe(false);
-      // Below Save Tab Groups (last in the pane since KAN-645).
-      const saveGroups = page.getByRole('group', { name: 'Save tab groups' });
-      const above = await saveGroups.boundingBox();
-      const below = await row.boundingBox();
-      if (above === null || below === null) {
-        throw new Error('a switch has no box');
-      }
-      expect(below.y).toBeGreaterThan(above.y);
-    });
-  }
-
-  test('2. On grants sessions with no prompt, and Off gives it back', async ({
+// KAN-663. No setting: the first close in Open now asks Chrome for
+// `sessions` itself, and Chrome grants it with no prompt (had it prompted,
+// nothing here would answer and the grant would never land).
+test.describe('no setting: a close asks for sessions itself (KAN-663)', () => {
+  // Open now is in the tab view only.
+  test('1. a fresh profile holds nothing; the first Close in Open now gets the grant, and the toast offers Reopen', async ({
     context,
     extensionId,
   }) => {
+    const site = await servePages(context);
     const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
-    const row = await openHistoryRow(page);
     // PREMISE: nothing is held yet.
     expect(await holdsSessions(page)).toBe(false);
+    const windowId = await page.evaluate(
+      async (url: string) => {
+        const made = await chrome.windows.create({ url, focused: false });
+        return made?.id ?? null;
+      },
+      site('first', 1)
+    );
+    if (windowId === null) throw new Error('no window id');
+    const title = pageTitle('first', 1);
+    const block = windowBlock(page, windowId);
+    await expect(liveRowIn(block, title)).toBeVisible();
 
-    await row.getByRole('button', { name: 'On', exact: true }).click();
-    // Nothing answered a prompt: had Chrome shown one, the request would
-    // wait on it and the grant would never land (the control below).
+    await closeTabIn(block, title).click();
+
     await expect.poll(() => holdsSessions(page)).toBe(true);
-    await expectPressed(row, 'On');
+    await expect(reopenButton(page)).toBeVisible();
     // Usable at once, in this page, with no reload (Task 1, Q4).
     expect(
       await page.evaluate(async () =>
         Array.isArray(await chrome.sessions.getRecentlyClosed())
       )
     ).toBe(true);
-
-    await row.getByRole('button', { name: 'Off', exact: true }).click();
-    await expect.poll(() => holdsSessions(page)).toBe(false);
-    await expectPressed(row, 'Off');
-
-    // CONTROL: Save Tab Groups asks for tabGroups, which Chrome DOES prompt
-    // for. Here nothing answers it, and the grant never lands -- so the
-    // sessions grant above landing is what "no prompt" looks like.
-    await page
-      .getByRole('group', { name: 'Save tab groups' })
-      .getByRole('button', { name: 'On', exact: true })
-      .click();
-    await settle(2000);
-    expect(
-      await page.evaluate(() =>
-        chrome.permissions.contains({ permissions: ['tabGroups'] })
-      )
-    ).toBe(false);
-  });
-
-  test('3. the help line is the switch’s description in the accessibility tree', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
-    const row = await openHistoryRow(page);
-    await expect(row).toHaveAccessibleDescription(HISTORY_HELP);
-
-    // And in Chrome's own tree, not only Playwright's computation.
-    const cdp = await context.newCDPSession(page);
-    const { nodes } = await cdp.send('Accessibility.getFullAXTree');
-    const describedBy = (name: string) =>
-      nodes
-        .filter(
-          (node) =>
-            !node.ignored &&
-            node.role?.value === 'group' &&
-            node.name?.value === name
-        )
-        .map((node) => String(node.description?.value ?? ''));
-    expect(describedBy(HISTORY_ROW)).toEqual([HISTORY_HELP]);
-    // CONTROL: the same read of the other switch, which has no help line,
-    // finds it with no description, so the read above can tell the two
-    // apart.
-    expect(describedBy('Save tab groups')).toEqual(['']);
   });
 });
 
@@ -558,107 +484,120 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
   // from Open now.
   const runs: { name: string; history: boolean }[] = [
     {
-      name: '4. On: a tab closed from Open now and reopened with the toast’s Reopen comes back with its history, in its place, in its group, behind, and the undo gives the focus back',
+      name: '4. a tab closed from Open now in a fresh profile, and reopened with the toast’s Reopen, comes back with its history, in its place, in its group, behind, and the undo gives the focus back',
       history: true,
     },
     {
-      name: '5. CONTROL, Off: the same steps recreate it, with no history',
+      name: '5. CONTROL, sessions refused: the same steps recreate it, with no history',
       history: false,
     },
   ];
+  // KAN-663. No grant up front: the close asks for it. The control's profile
+  // cannot be granted it, as a refusal or a policy leaves.
   for (const { name, history } of runs) {
-    grantedTest(name, async ({ context, extensionId, serviceWorker }) => {
-      const site = await servePages(context);
-      if (history) await turnHistoryOn(context, extensionId);
-      const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
-      const tabView = await tabViewIds(page);
-      const warnings = recordWorkerWarnings(serviceWorker);
-      const made = await openHistoryWindow(
-        context,
-        serviceWorker,
-        site,
-        'four',
-        'titled'
-      );
-      // PREMISE: History is at index 1, in Trip, behind Front; the tab view
-      // is in front.
-      expect(await tabsAt(serviceWorker, made.url)).toEqual([
-        {
-          id: made.historyId,
-          windowId: made.windowId,
-          index: 1,
-          active: false,
-          groupId: made.groupId,
-        },
-      ]);
-      expect(await inFront(serviceWorker)).toEqual({
-        windowId: tabView.windowId,
-        activeTabId: tabView.tabId,
-      });
-
-      await recordFocusRequests(serviceWorker);
-      await closeHistoryTab(page, serviceWorker, made, 'Trip');
-      await pressReopen(page);
-
-      // One copy, where it was: index 1 of its window, in Trip, behind.
-      const [back] = await expectCopies(serviceWorker, made.url, 1);
-      expect(back).toMatchObject({
-        windowId: made.windowId,
-        index: 1,
-        active: false,
-        groupId: made.groupId,
-      });
-      expect(await activeTabOf(serviceWorker, made.windowId)).toBe(
-        made.frontId
-      );
-      // Trip is still Trip, and open.
-      expect(
-        await serviceWorker.evaluate(async (id: number) => {
-          const g = await chrome.tabGroups.get(id);
-          return { title: g.title, collapsed: g.collapsed };
-        }, made.groupId)
-      ).toEqual({ title: 'Trip', collapsed: false });
-      // The tab view is still its window's front tab.
-      expect(await activeTabOf(serviceWorker, tabView.windowId)).toBe(
-        tabView.tabId
-      );
-      if (history) {
-        // The restore focused History's window; the undo then asked for the
-        // tab view's back, last (see recordFocusRequests: headless cannot
-        // show the focus returning).
-        expect(await lastFocusRequest(serviceWorker)).toBe(tabView.windowId);
-        console.log(
-          `getLastFocused after: ${JSON.stringify(
-            await inFront(serviceWorker)
-          )}, History's window ${made.windowId}`
+    grantedTest.describe(() => {
+      grantedTest.use({ refuseSessions: !history });
+      grantedTest(name, async ({ context, extensionId, serviceWorker }) => {
+        const site = await servePages(context);
+        const page = await openPage(
+          context,
+          extensionId,
+          VIEW_TAB,
+          TAB_VIEWPORT
         );
-      } else {
-        // CONTROL: recreate never moves the focus at all, so here headless
-        // can show it stayed.
-        expect(await focusRequests(serviceWorker)).toEqual([]);
+        const tabView = await tabViewIds(page);
+        const warnings = recordWorkerWarnings(serviceWorker);
+        const made = await openHistoryWindow(
+          context,
+          serviceWorker,
+          site,
+          'four',
+          'titled'
+        );
+        // PREMISE: History is at index 1, in Trip, behind Front; the tab view
+        // is in front.
+        expect(await tabsAt(serviceWorker, made.url)).toEqual([
+          {
+            id: made.historyId,
+            windowId: made.windowId,
+            index: 1,
+            active: false,
+            groupId: made.groupId,
+          },
+        ]);
         expect(await inFront(serviceWorker)).toEqual({
           windowId: tabView.windowId,
           activeTabId: tabView.tabId,
         });
-      }
 
-      // The history: three pages with the switch On, one without.
-      await expect
-        .poll(() => historyLengthsAt(context, made.url))
-        .toEqual([history ? 3 : 1]);
-      const [reopened] = await pagesAt(context, made.url);
-      const backTo = await reopened.goBack();
-      if (history) {
-        expect(backTo).not.toBeNull();
-        expect(reopened.url()).toBe(site('four', 2));
-      } else {
-        // Nowhere to go back to.
-        expect(backTo).toBeNull();
-        expect(reopened.url()).toBe(made.url);
-      }
+        await recordFocusRequests(serviceWorker);
+        // PREMISE: nothing is held before the close.
+        expect(await holdsSessions(page)).toBe(false);
+        await closeHistoryTab(page, serviceWorker, made, 'Trip');
+        // The close asked, and Chrome granted it unless the profile refuses.
+        expect(await holdsSessions(page)).toBe(history);
+        await pressReopen(page);
 
-      await expect(page.getByRole('status')).not.toContainText(REOPEN_FAILED);
-      expect(warnings).toEqual([]);
+        // One copy, where it was: index 1 of its window, in Trip, behind.
+        const [back] = await expectCopies(serviceWorker, made.url, 1);
+        expect(back).toMatchObject({
+          windowId: made.windowId,
+          index: 1,
+          active: false,
+          groupId: made.groupId,
+        });
+        expect(await activeTabOf(serviceWorker, made.windowId)).toBe(
+          made.frontId
+        );
+        // Trip is still Trip, and open.
+        expect(
+          await serviceWorker.evaluate(async (id: number) => {
+            const g = await chrome.tabGroups.get(id);
+            return { title: g.title, collapsed: g.collapsed };
+          }, made.groupId)
+        ).toEqual({ title: 'Trip', collapsed: false });
+        // The tab view is still its window's front tab.
+        expect(await activeTabOf(serviceWorker, tabView.windowId)).toBe(
+          tabView.tabId
+        );
+        if (history) {
+          // The restore focused History's window; the undo then asked for the
+          // tab view's back, last (see recordFocusRequests: headless cannot
+          // show the focus returning).
+          expect(await lastFocusRequest(serviceWorker)).toBe(tabView.windowId);
+          console.log(
+            `getLastFocused after: ${JSON.stringify(
+              await inFront(serviceWorker)
+            )}, History's window ${made.windowId}`
+          );
+        } else {
+          // CONTROL: recreate never moves the focus at all, so here headless
+          // can show it stayed.
+          expect(await focusRequests(serviceWorker)).toEqual([]);
+          expect(await inFront(serviceWorker)).toEqual({
+            windowId: tabView.windowId,
+            activeTabId: tabView.tabId,
+          });
+        }
+
+        // The history: three pages with the grant, one without.
+        await expect
+          .poll(() => historyLengthsAt(context, made.url))
+          .toEqual([history ? 3 : 1]);
+        const [reopened] = await pagesAt(context, made.url);
+        const backTo = await reopened.goBack();
+        if (history) {
+          expect(backTo).not.toBeNull();
+          expect(reopened.url()).toBe(site('four', 2));
+        } else {
+          // Nowhere to go back to.
+          expect(backTo).toBeNull();
+          expect(reopened.url()).toBe(made.url);
+        }
+
+        await expect(page.getByRole('status')).not.toContainText(REOPEN_FAILED);
+        expect(warnings).toEqual([]);
+      });
     });
   }
 
@@ -666,7 +605,7 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
     '6. worst path: Chrome’s own restore (Ctrl+Shift+T) takes the entry first, and Reopen recreates exactly one copy, with no history and no error',
     async ({ context, extensionId, serviceWorker }) => {
       const site = await servePages(context);
-      await turnHistoryOn(context, extensionId);
+      await grantSessions(context, extensionId);
       const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
       const made = await openHistoryWindow(
         context,
@@ -700,7 +639,7 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
     '7. On: a window closed from Open now comes back with its tabs and their history, and the undo gives the focus back',
     async ({ context, extensionId, serviceWorker }) => {
       const site = await servePages(context);
-      await turnHistoryOn(context, extensionId);
+      await grantSessions(context, extensionId);
       const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
       const tabView = await tabViewIds(page);
       // History ungrouped: a window restore brings a GROUPED tab back without
@@ -778,7 +717,7 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
     '7b. measured, raw: a window restore brings an ungrouped tab back with its history, and a grouped one without',
     async ({ context, extensionId, serviceWorker }) => {
       const site = await servePages(context);
-      await turnHistoryOn(context, extensionId);
+      await grantSessions(context, extensionId);
       await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
       const made = await serviceWorker.evaluate(
         async ({ urls }) => {
@@ -861,19 +800,10 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
   );
 
   grantedTest(
-    '8. revoked from another page while On: the switch shows Off, and Reopen recreates',
+    '8. revoked from another page between the close and Reopen: Reopen recreates',
     async ({ context, extensionId, serviceWorker }) => {
       const site = await servePages(context);
-      // The switch's page, and a page that revokes from outside it.
-      const settings = await openPage(
-        context,
-        extensionId,
-        POPUP,
-        POPUP_VIEWPORT
-      );
-      const row = await openHistoryRow(settings);
-      await row.getByRole('button', { name: 'On', exact: true }).click();
-      await expectPressed(row, 'On');
+      // A page that revokes from outside the tab view.
       const outside = await openPage(
         context,
         extensionId,
@@ -888,14 +818,14 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
         'eight',
         'none'
       );
-      // The close records Chrome's entry, since the grant is held now.
+      // The close asks for the grant and records Chrome's entry.
       await closeHistoryTab(page, serviceWorker, made);
+      expect(await holdsSessions(page)).toBe(true);
 
       await outside.evaluate(() =>
         chrome.permissions.remove({ permissions: ['sessions'] })
       );
       await expect.poll(() => holdsSessions(page)).toBe(false);
-      await expectPressed(row, 'Off');
 
       await pressReopen(page);
       await expectCopies(serviceWorker, made.url, 1);
@@ -916,7 +846,7 @@ test.describe('measured: a minimized window (KAN-280 Part D)', () => {
     extensionId,
     serviceWorker,
   }) => {
-    await turnHistoryOn(context, extensionId);
+    await grantSessions(context, extensionId);
     await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
 
     // Raw, no Tab Keeper code: windows.update({focused}) on a minimized
@@ -996,7 +926,7 @@ test.describe('measured: a minimized window (KAN-280 Part D)', () => {
     serviceWorker,
   }) => {
     const site = await servePages(context);
-    await turnHistoryOn(context, extensionId);
+    await grantSessions(context, extensionId);
     const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
     const tabView = await tabViewIds(page);
 
@@ -1159,7 +1089,7 @@ grantedTest.describe('an ungrouped tab and a collapsed group (KAN-316)', () => {
     '10. raw: Chrome restores an ungrouped tab just after a collapsed group, in front, and leaves the group collapsed',
     async ({ context, extensionId, serviceWorker }) => {
       const site = await servePages(context);
-      await turnHistoryOn(context, extensionId);
+      await grantSessions(context, extensionId);
       await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
       const made = await openFourTabs(context, serviceWorker, site, 'tenraw');
       const x = (await tabsAt(serviceWorker, made.url))[0]?.id ?? -1;
@@ -1200,59 +1130,62 @@ grantedTest.describe('an ungrouped tab and a collapsed group (KAN-316)', () => {
   // ungrouped just after it, Z still in front -- and H never opens on the
   // way. Only the history differs.
   for (const history of [true, false]) {
-    grantedTest(
-      `10b. ${
-        history ? 'On' : 'CONTROL, Off'
-      }: Reopen of that tab leaves the group collapsed, as recreate does (KAN-316)`,
-      async ({ context, extensionId, serviceWorker }) => {
-        const site = await servePages(context);
-        if (history) await turnHistoryOn(context, extensionId);
-        const page = await openPage(
-          context,
-          extensionId,
-          VIEW_TAB,
-          TAB_VIEWPORT
-        );
-        const made = await openFourTabs(
-          context,
-          serviceWorker,
-          site,
-          history ? 'tenon' : 'tenoff'
-        );
-        const block = windowBlock(page, made.windowId);
-        const title = pageTitle(history ? 'tenon' : 'tenoff', 3);
-        await expect(liveRowIn(block, title)).toBeVisible();
-        await closeTabIn(block, title).click();
-        await expect
-          .poll(async () => (await tabsAt(serviceWorker, made.url)).length)
-          .toBe(0);
-        await collapseAroundTheGap(serviceWorker, made.windowId, [
-          made.a,
-          made.b,
-        ]);
-        await expect
-          .poll(() => layoutOf(serviceWorker, made.windowId))
-          .toEqual(['A[H,collapsed]', 'B[H,collapsed]', 'Z*']);
-        await recordGroupChanges(serviceWorker);
+    grantedTest.describe(() => {
+      grantedTest.use({ refuseSessions: !history });
+      grantedTest(
+        `10b. ${
+          history ? 'With history' : 'CONTROL, sessions refused'
+        }: Reopen of that tab leaves the group collapsed, as recreate does (KAN-316)`,
+        async ({ context, extensionId, serviceWorker }) => {
+          const site = await servePages(context);
+          if (history) await grantSessions(context, extensionId);
+          const page = await openPage(
+            context,
+            extensionId,
+            VIEW_TAB,
+            TAB_VIEWPORT
+          );
+          const made = await openFourTabs(
+            context,
+            serviceWorker,
+            site,
+            history ? 'tenon' : 'tenoff'
+          );
+          const block = windowBlock(page, made.windowId);
+          const title = pageTitle(history ? 'tenon' : 'tenoff', 3);
+          await expect(liveRowIn(block, title)).toBeVisible();
+          await closeTabIn(block, title).click();
+          await expect
+            .poll(async () => (await tabsAt(serviceWorker, made.url)).length)
+            .toBe(0);
+          await collapseAroundTheGap(serviceWorker, made.windowId, [
+            made.a,
+            made.b,
+          ]);
+          await expect
+            .poll(() => layoutOf(serviceWorker, made.windowId))
+            .toEqual(['A[H,collapsed]', 'B[H,collapsed]', 'Z*']);
+          await recordGroupChanges(serviceWorker);
 
-        await pressReopen(page);
-        await expectCopies(serviceWorker, made.url, 1);
-        await page.waitForTimeout(1000);
+          await pressReopen(page);
+          await expectCopies(serviceWorker, made.url, 1);
+          await page.waitForTimeout(1000);
 
-        expect(await layoutOf(serviceWorker, made.windowId)).toEqual([
-          'A[H,collapsed]',
-          'B[H,collapsed]',
-          'X',
-          'Z*',
-        ]);
-        expect(await groupChanges(serviceWorker)).not.toContain('H:open');
-        // PREMISE: On came back through Chrome's restore, Off through a
-        // recreate.
-        expect(await historyLengthsAt(context, made.url)).toEqual([
-          history ? 3 : 1,
-        ]);
-      }
-    );
+          expect(await layoutOf(serviceWorker, made.windowId)).toEqual([
+            'A[H,collapsed]',
+            'B[H,collapsed]',
+            'X',
+            'Z*',
+          ]);
+          expect(await groupChanges(serviceWorker)).not.toContain('H:open');
+          // PREMISE: with history it came back through Chrome's restore,
+          // refused through a recreate.
+          expect(await historyLengthsAt(context, made.url)).toEqual([
+            history ? 3 : 1,
+          ]);
+        }
+      );
+    });
   }
 });
 
@@ -1341,7 +1274,7 @@ test.describe('measured: what sendMessage says (KAN-280 Part D)', () => {
 });
 
 test.describe('measured: close latency (KAN-280 Part D)', () => {
-  test('12. the time from the Close click to the tab being gone, Off and On', async ({
+  test('12. the time from the Close click to the tab being gone: the first close, which asks for the grant, and the rest', async ({
     context,
     extensionId,
     serviceWorker,
@@ -1432,26 +1365,19 @@ test.describe('measured: close latency (KAN-280 Part D)', () => {
       });
     };
 
-    const offPage = await openPage(
-      context,
-      extensionId,
-      VIEW_TAB,
-      TAB_VIEWPORT
-    );
-    const off = await closeTwelve(offPage);
-    await offPage.close();
-
-    await turnHistoryOn(context, extensionId);
-    const onPage = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
-    // PREMISE: the page closing below holds the grant.
-    expect(await holdsSessions(onPage)).toBe(true);
-    const on = await closeTwelve(onPage);
-    // What On adds before and after each remove, timed on its own in the
-    // same page: two permission checks and two list reads.
-    const addedWork = await onPage.evaluate(async () => {
+    // KAN-663. A fresh profile: the first close asks for `sessions`, every
+    // close after it asks again and is answered at once.
+    const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
+    expect(await holdsSessions(page)).toBe(false);
+    const [first, ...rest] = await closeTwelve(page);
+    expect(await holdsSessions(page)).toBe(true);
+    // What each close adds before and after its remove, timed on its own in
+    // the same page: the ask, two permission checks and two list reads.
+    const addedWork = await page.evaluate(async () => {
       const times: number[] = [];
       for (let i = 0; i < 12; i += 1) {
         const start = performance.now();
+        await chrome.permissions.request({ permissions: ['sessions'] });
         for (let read = 0; read < 2; read += 1) {
           await chrome.permissions.contains({ permissions: ['sessions'] });
           await chrome.sessions.getRecentlyClosed();
@@ -1463,10 +1389,9 @@ test.describe('measured: close latency (KAN-280 Part D)', () => {
 
     console.log(
       `[12] ${JSON.stringify({
-        offMs: off,
-        onMs: on,
-        offMedian: median(off),
-        onMedian: median(on),
+        firstMs: first,
+        restMs: rest,
+        restMedian: median(rest),
         addedWorkMs: addedWork,
         addedWorkMedian: median(addedWork),
       })}`
@@ -1481,7 +1406,7 @@ test.describe('measured: no tabGroups grant (KAN-280 Part D)', () => {
     serviceWorker,
   }) => {
     const site = await servePages(context);
-    await turnHistoryOn(context, extensionId);
+    await grantSessions(context, extensionId);
     const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
     // PREMISE: this profile has no tabGroups grant.
     expect(
