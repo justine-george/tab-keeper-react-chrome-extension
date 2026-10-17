@@ -12,6 +12,7 @@ import { showWhenQuiet } from '../../redux/quietCards';
 import { CARD_DELAY_MS } from '../../utils/constants/cardDelay';
 import { makeTestStore } from '../setup/makeStore';
 import {
+  closeReviewCard,
   closeFullViewCallout,
   openFullViewCallout,
   closePinGuide,
@@ -32,7 +33,10 @@ import {
 // the pin guide opening after its toolbar read -- is not taken for a clear
 // page.
 
-const T0 = Date.UTC(2026, 9, 16, 12, 0, 0);
+// Each test starts on its own clock: a page remembers the asks it noted and
+// released by their time, for the module's life, which here is the file's.
+const START = Date.UTC(2026, 9, 16, 12, 0, 0);
+let T0 = START;
 const MINUTE = 60_000;
 
 let hasFocus = true;
@@ -40,6 +44,7 @@ let hasFocus = true;
 beforeEach(() => {
   localStorage.clear();
   vi.useFakeTimers();
+  T0 += 7 * 24 * 60 * MINUTE;
   vi.setSystemTime(T0);
   hasFocus = true;
   vi.spyOn(document, 'hasFocus').mockImplementation(() => hasFocus);
@@ -47,6 +52,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  history.replaceState(null, '', '?');
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
@@ -186,6 +192,7 @@ describe('releasing a pending ask', () => {
   // C3: a full-view restore opens focused windows over the page; it asks
   // when the person comes back to it.
   test('waits while the page has no focus, and shows when focus returns', () => {
+    history.replaceState(null, '', '?view=tab');
     hasFocus = false;
     const store = mount((s) =>
       s.dispatch(noteReviewMoment({ kind: 'restored' }))
@@ -202,6 +209,7 @@ describe('releasing a pending ask', () => {
   });
 
   test('a page coming back to visible checks too', () => {
+    history.replaceState(null, '', '?view=tab');
     hasFocus = false;
     const store = mount((s) =>
       s.dispatch(noteReviewMoment({ kind: 'restored' }))
@@ -231,6 +239,7 @@ describe('releasing a pending ask', () => {
   });
 
   test('this page’s own ask is shown however old it is', () => {
+    history.replaceState(null, '', '?view=tab');
     hasFocus = false;
     const store = mount((s) =>
       s.dispatch(noteReviewMoment({ kind: 'restored' }))
@@ -243,6 +252,50 @@ describe('releasing a pending ask', () => {
     });
     advance(REVIEW_CARD_SETTLE_MS);
     expect(cardOf(store)).not.toBeNull();
+  });
+
+  // Review I3. The popup that noted a restore is about to close as the
+  // restored windows take focus; if that is slow, it must not spend the ask
+  // on a card nobody will see. "Your tabs are back" is the next open's.
+  test('a popup never shows a restore it noted itself', () => {
+    const store = mount((s) =>
+      s.dispatch(noteReviewMoment({ kind: 'restored' }))
+    );
+    advance(5_000);
+    expect(cardOf(store)).toBeNull();
+    expect(store.getState().settingsDataState.pendingReviewAsk?.moment).toEqual(
+      { kind: 'restored' }
+    );
+  });
+
+  test('CONTROL: the popup shows any other ask it noted', () => {
+    const store = mount((s) =>
+      s.dispatch(noteReviewMoment({ kind: 'firstSave' }))
+    );
+    advance(REVIEW_CARD_SETTLE_MS);
+    expect(cardOf(store)).not.toBeNull();
+  });
+
+  // Review I1. Settings that stop saving leave the old gate and the pending
+  // ask in storage, where the release reads them. A card closed here must
+  // not come straight back.
+  test('an ask shown on this page is never shown here again', () => {
+    const store = mount((s) =>
+      s.dispatch(noteReviewMoment({ kind: 'bigSave' }))
+    );
+    const noted = localStorage.getItem('settingsData')!;
+    let shows = 0;
+    for (let i = 0; i < 5; i++) {
+      advance(REVIEW_CARD_SETTLE_MS);
+      if (cardOf(store) !== null) {
+        shows++;
+        act(() => {
+          store.dispatch(closeReviewCard());
+        });
+      }
+      localStorage.setItem('settingsData', noted);
+    }
+    expect(shows).toBe(1);
   });
 
   test('shows once: the card on screen covers the page', () => {

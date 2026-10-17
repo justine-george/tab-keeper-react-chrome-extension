@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useDispatch, useStore } from 'react-redux';
 
 import type { AppDispatch, RootState } from '../redux/store';
-import { freshPendingAsk, showReviewCard } from '../redux/reviewAsk';
+import { freshPendingAsk, releasePendingAsk } from '../redux/reviewAsk';
 import { whenQuietCardSettles } from '../redux/quietCards';
 
 // KAN-653. How long the page must stay clear before the card shows. It bridges
@@ -49,7 +49,7 @@ export function useReviewAskRelease(): void {
         return;
       }
       if (!isClearForReviewCard(store.getState(), document)) return;
-      dispatch(showReviewCard(pending.moment));
+      dispatch(releasePendingAsk(pending));
     };
     const check = () => {
       if (!isMounted) return;

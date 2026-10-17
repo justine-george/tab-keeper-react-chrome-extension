@@ -6,6 +6,7 @@ import {
   type SettingsData,
 } from './slices/settingsDataStateSlice';
 import { openReviewCard } from './slices/globalStateSlice';
+import { isTabView } from '../utils/functions/viewMode';
 import {
   asPartialSettings,
   loadFromLocalStorage,
@@ -36,14 +37,30 @@ const storedSettings = (): Partial<SettingsData> =>
 // page is next clear, however long that takes (isPendingAskFresh).
 const notedHere = new Set<number>();
 
+// The `at` of every ask this page has released. Never again here: if the
+// writes that clear it were refused (storage full), storage still holds it,
+// and a closed card would come straight back.
+const releasedHere = new Set<number>();
+
 // The stored pending ask, when it may still be shown here.
 export const freshPendingAsk = (now: number): PendingReviewAsk | null => {
   const pending = readPendingAsk(storedSettings().pendingReviewAsk);
-  if (pending === null) return null;
-  return isPendingAskFresh(pending, now, notedHere.has(pending.at))
-    ? pending
-    : null;
+  if (pending === null || releasedHere.has(pending.at)) return null;
+  const isOwn = notedHere.has(pending.at);
+  // A popup restore closes the popup as the restored windows take focus.
+  // Its "Your tabs are back" is for the next open, never a card here that a
+  // slow restore would let show and spend unseen.
+  if (isOwn && pending.moment.kind === 'restored' && !isTabView()) return null;
+  return isPendingAskFresh(pending, now, isOwn) ? pending : null;
 };
+
+// Shows a pending ask, once per page.
+export const releasePendingAsk =
+  (pending: PendingReviewAsk): Thunk<void> =>
+  (dispatch) => {
+    releasedHere.add(pending.at);
+    dispatch(showReviewCard(pending.moment));
+  };
 
 export const noteReviewMoment =
   (moment: ReviewMoment): Thunk<void> =>
