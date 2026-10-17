@@ -130,7 +130,7 @@ test('F1: focus follows the selection, so the key deletes back to back; the last
   ).toBeVisible();
 });
 
-test('a row reached by Tab hands focus to the row now in its place; the one shown stays shown', async ({
+test('a focused row that is not the one shown hands focus to the row now in its place; the one shown stays shown', async ({
   context,
   extensionId,
 }) => {
@@ -183,11 +183,48 @@ test('under a search, focus goes to the next match on screen, not the next store
 
   await page.keyboard.press('Backspace');
 
-  // Charlie was 2nd on screen and 3rd stored: the 2nd on screen is now Shasta, the 3rd stored Thatcher.
+  // Charlie was 2nd on screen and 3rd stored: the 2nd on screen is now Shasta, and the 3rd on
+  // screen (where a stored index would land) Thatcher.
   await expect
     .poll(() => ids(page))
     .toEqual(['s-alpha', 's-bravo', 's-delta', 's-shasta', 's-thatcher']);
   await expect(row(page, 'Shasta')).toBeFocused();
+  // The shown session follows: the search's own rule would show its first match, Alpha.
+  await expect(
+    page.getByRole('button', { name: 'Rename session: Shasta', exact: true })
+  ).toBeVisible();
+});
+
+test('under a search with a long list, the row the key acts on next stays on screen', async ({
+  context,
+  extensionId,
+}) => {
+  // Stored Alpha, Match 1, Other 1, Match 2, Other 2, …: the session stored after each match is
+  // not one, so the store's own next pick (removeSession) falls outside the search.
+  const sessions = [
+    buildSession({ tabGroupId: 's-alpha', title: 'Alpha' }),
+    ...Array.from({ length: 12 }, (_, i) => [
+      buildSession({ tabGroupId: `s-m${i + 1}`, title: `Match ${i + 1}` }),
+      buildSession({ tabGroupId: `s-o${i + 1}`, title: `Other ${i + 1}` }),
+    ]).flat(),
+  ];
+  const page = await openPopup(context, extensionId, sessions);
+  await page
+    .getByRole('textbox', { name: 'Search saved tabs', exact: true })
+    .fill('match');
+  // PREMISE: the list is longer than its pane, so the first match scrolls away.
+  await row(page, 'Match 10').scrollIntoViewIfNeeded();
+  await expect(row(page, 'Match 1')).not.toBeInViewport();
+  await row(page, 'Match 10').click();
+
+  await page.keyboard.press('Backspace');
+
+  await expect(row(page, 'Match 10')).toHaveCount(0);
+  await expect(row(page, 'Match 11')).toBeFocused();
+  await expect(row(page, 'Match 11')).toBeInViewport();
+  await expect(
+    page.getByRole('button', { name: 'Rename session: Match 11', exact: true })
+  ).toBeVisible();
 });
 
 test('with no row focused, the key deletes nothing: never page-wide', async ({
