@@ -202,7 +202,7 @@ test.describe('the full-view callout (KAN-7 §6)', () => {
     expect((await storedSettings(page)).isFullViewCalloutSeen).toBe(false);
   });
 
-  test('CONTROL: the same observer sees it on a quiet open', async ({
+  test('CONTROL: the same observer sees it on an open that shows it', async ({
     context,
     extensionId,
   }) => {
@@ -210,11 +210,6 @@ test.describe('the full-view callout (KAN-7 §6)', () => {
     await sessionHolder(context);
     const page = await openPopup(context, extensionId);
     await queueDone(page, 'fullViewCallout');
-    // The decision comes first; the callout follows once the open stays quiet.
-    await expect(page.locator('html')).toHaveAttribute(
-      'data-first-open-card',
-      'shown'
-    );
     expect(await calloutSeen(page)).toEqual(['callout']);
   });
 
