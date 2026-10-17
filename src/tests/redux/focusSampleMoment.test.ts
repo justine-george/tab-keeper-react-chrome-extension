@@ -20,8 +20,9 @@ import { setupChromeFake } from '../setup/chrome.fake';
 import { makeTestStore } from '../setup/makeStore';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 
-// KAN-7: switching to a session (focus mode) restores it, which is a value
-// moment (KAN-149) for an ordinary session and none for the sample.
+// KAN-7: switching to a session (focus mode) restores it, which asks "Your
+// tabs are back" (KAN-149, KAN-653) for an ordinary session and nothing for
+// the sample.
 
 const paramsFor = (tabGroupId: string) => ({
   tabGroupId,
@@ -29,7 +30,7 @@ const paramsFor = (tabGroupId: string) => ({
   saveTitle: 'Auto-saved before switching',
 });
 
-describe('focus mode and the value moment', () => {
+describe('focus mode and the review ask', () => {
   let handle: ReturnType<typeof setupChromeFake> | undefined;
 
   beforeEach(() => {
@@ -53,14 +54,16 @@ describe('focus mode and the value moment', () => {
       restoreContainer(buildContainer([buildSession({ tabGroupId })]))
     );
     await store.dispatch(focusTabContainer(paramsFor(tabGroupId)));
-    return store.getState().settingsDataState.lastValueMomentTime;
+    return (
+      store.getState().settingsDataState.pendingReviewAsk?.moment.kind ?? null
+    );
   };
 
-  it('switching to the sample records nothing', async () => {
-    expect(await switchTo(`${SAMPLE_ID_PREFIX}1`)).toBe('');
+  it('switching to the sample notes nothing', async () => {
+    expect(await switchTo(`${SAMPLE_ID_PREFIX}1`)).toBeNull();
   });
 
-  it('CONTROL: switching to an ordinary session records one', async () => {
-    expect(typeof (await switchTo('ordinary'))).toBe('number');
+  it('CONTROL: switching to an ordinary session notes a restore', async () => {
+    expect(await switchTo('ordinary')).toBe('restored');
   });
 });

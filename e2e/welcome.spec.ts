@@ -26,6 +26,7 @@ import {
   storedRun,
   watchRunDrawn,
 } from './fixtures/run';
+import { WELCOME_LOOP, heroPx } from '../src/components/modals/welcomeMotion';
 
 // §5 on the real build: a new install's welcome, with Try the full view folded in.
 
@@ -260,11 +261,11 @@ const chipsHome = (dialog: import('@playwright/test').Locator) =>
       return [r.left - right.left, r.top - right.top];
     });
   });
-const HOME = [
-  [6, 5],
-  [56, 5],
-  [106, 5],
-];
+// Each chip's place in the right window, at the drawing's scale (KAN-654).
+const HOME = [0, 1, 2].map((i) => [
+  heroPx(6) + i * WELCOME_LOOP.CHIP_STEP_PX,
+  heroPx(5),
+]);
 
 const expectHome = (home: number[][]) =>
   home.forEach(([x, y], i) => {

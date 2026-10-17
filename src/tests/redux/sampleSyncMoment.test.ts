@@ -39,8 +39,9 @@ import { makeTestStore } from '../setup/makeStore';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { SAMPLE_ID_PREFIX } from '../../utils/functions/sampleSession';
 
-// KAN-7, from KAN-149: a session arriving by sync is a value
-// moment, but the sample arriving from another device is not "a session".
+// KAN-7, from KAN-149: a session arriving by sync asks "Your sessions are
+// here" (KAN-653), but the sample arriving from another device is not "a
+// session".
 // KAN-600: a sample in the cloud copy (one an older version wrote) is not
 // taken in at all, so it neither arrives nor records anything.
 
@@ -68,9 +69,9 @@ const cloudWith = (id: string) => {
 };
 
 const momentOf = (store: ReturnType<typeof readyStore>) =>
-  store.getState().settingsDataState.lastValueMomentTime;
+  store.getState().settingsDataState.pendingReviewAsk?.moment.kind ?? null;
 
-describe('a synced session is a value moment, a synced sample is not', () => {
+describe('a synced session notes an ask, a synced sample does not', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     localStorage.clear();
@@ -80,24 +81,24 @@ describe('a synced session is a value moment, a synced sample is not', () => {
     vi.useRealTimers();
   });
 
-  it('a sample in the cloud copy is not taken in by a sync, and records nothing', async () => {
+  it('a sample in the cloud copy is not taken in by a sync, and notes nothing', async () => {
     const store = readyStore();
     cloudWith(`${SAMPLE_ID_PREFIX}1`);
     await store.dispatch(syncStateWithFirestore());
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
     ).toEqual(['local']);
-    expect(momentOf(store)).toBe('');
+    expect(momentOf(store)).toBeNull();
   });
 
-  it('CONTROL: an ordinary session arriving by the same sync records one', async () => {
+  it('CONTROL: an ordinary session arriving by the same sync notes one', async () => {
     const store = readyStore();
     cloudWith('remote');
     await store.dispatch(syncStateWithFirestore());
-    expect(typeof momentOf(store)).toBe('number');
+    expect(momentOf(store)).toBe('sessionsArrived');
   });
 
-  it('a sample in the cloud copy is not taken in while a drag is held, and records nothing', async () => {
+  it('a sample in the cloud copy is not taken in while a drag is held, and notes nothing', async () => {
     const store = readyStore();
     cloudWith(`${SAMPLE_ID_PREFIX}2`);
     beginDragHold();
@@ -106,15 +107,56 @@ describe('a synced session is a value moment, a synced sample is not', () => {
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
     ).toEqual(['local']);
-    expect(momentOf(store)).toBe('');
+    expect(momentOf(store)).toBeNull();
   });
 
-  it('CONTROL: an ordinary session arriving while held records one', async () => {
+  it('CONTROL: an ordinary session arriving while held notes one', async () => {
     const store = readyStore();
     cloudWith('remote');
     beginDragHold();
     await store.dispatch(syncStateWithFirestore());
     endDragHold();
-    expect(typeof momentOf(store)).toBe('number');
+    expect(momentOf(store)).toBe('sessionsArrived');
+  });
+});
+
+// KAN-653. A new install signing in to sessions it has never held: the
+// cloud-only branch. "Your sessions are here" is exactly this.
+describe('sessions arriving on a device that holds none', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    localStorage.clear();
+    mocks.cloud.doc = undefined;
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const emptyStore = () => {
+    vi.setSystemTime(T0);
+    const { store } = makeTestStore();
+    store.dispatch(setUserId('u1'));
+    store.dispatch(setSignedIn());
+    store.dispatch(setFirebaseAuthed());
+    store.dispatch(grantCloudConsent());
+    localStorage.removeItem('tabContainerData');
+    return store;
+  };
+
+  it('a session from the cloud notes one', async () => {
+    const store = emptyStore();
+    mocks.cloud.doc = buildContainer([buildSession({ tabGroupId: 'remote' })]);
+    await store.dispatch(syncStateWithFirestore());
+    expect(
+      store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
+    ).toEqual(['remote']);
+    expect(momentOf(store)).toBe('sessionsArrived');
+  });
+
+  it('a cloud holding no session notes nothing', async () => {
+    const store = emptyStore();
+    mocks.cloud.doc = buildContainer([]);
+    await store.dispatch(syncStateWithFirestore());
+    expect(momentOf(store)).toBeNull();
   });
 });

@@ -44,7 +44,15 @@ import { shouldAskTabGroupsInSetup } from '../../utils/functions/tabGroupsOffer'
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { ICON, TYPE } from '../../styles/scale';
 import { focusRingCss } from '../common/focusRing';
-import { dialogButtonStyles } from './dialogButtons';
+import {
+  dialogButtonStyles,
+  flushLinkCss,
+  pairCss,
+  tallButtonCss,
+} from './dialogButtons';
+import { dialogTitleSize } from './dialogTitleSize';
+import { dialogRiseCss } from './dialogRise';
+import { useHasRisen } from '../../hooks/useHasRisen';
 
 const TITLE_ID = 'setup-title';
 type Step =
@@ -135,6 +143,8 @@ export const SetupModal: React.FC = () => {
   const pickLanguage = (next: Language) => dispatch(chooseLanguage(next, i18n));
 
   const buttons = dialogButtonStyles(COLORS);
+  const titleSize = dialogTitleSize();
+  const hasRisen = useHasRisen(dialogRef);
   const pressed = slidingPairColors(COLORS);
 
   const dialogStyle = css`
@@ -175,14 +185,15 @@ export const SetupModal: React.FC = () => {
     align-items: center;
     gap: 10px;
     margin: 0;
-    font-size: ${TYPE.SECTION};
-    font-weight: 500;
+    font-size: ${titleSize};
+    /* KAN-654: the popup's one weight, not the heading's bold. */
+    font-weight: inherit;
     color: ${COLORS.TEXT_COLOR};
   `;
   const stepHeadingStyle = css`
     margin: 0 0 12px 0;
     font-size: ${TYPE.BODY};
-    font-weight: 500;
+    font-weight: inherit;
     color: ${COLORS.TEXT_COLOR};
     &:focus {
       outline: none;
@@ -313,13 +324,7 @@ export const SetupModal: React.FC = () => {
     gap: 12px;
     margin-top: 12px;
   `;
-  // Equal columns: both buttons take the wider one's width in any language.
-  const footerEndStyle = css`
-    display: inline-grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 1fr;
-    gap: 8px;
-  `;
+  const tall = tallButtonCss(24);
 
   const viewCard = (
     view: DefaultView,
@@ -578,7 +583,7 @@ export const SetupModal: React.FC = () => {
       ref={dialogRef}
       // Focusable only by script, never by Tab; see the effect above.
       tabIndex={-1}
-      css={dialogStyle}
+      css={[dialogStyle, dialogRiseCss(hasRisen)]}
       aria-labelledby={TITLE_ID}
       // Justine 2026-10-04: a prompt the user dismissed must not come back.
       onCancel={(e) => {
@@ -614,27 +619,32 @@ export const SetupModal: React.FC = () => {
       </h3>
       {content[step].body}
       <div css={footerStyle}>
-        <button type="button" css={buttons.link} onClick={finish}>
+        <button
+          type="button"
+          css={[buttons.link, flushLinkCss]}
+          onClick={finish}
+        >
           {t('Skip setup')}
         </button>
-        <span css={footerEndStyle}>
+        {/* KAN-654: Next half as wide again as Back, once Back shows. */}
+        <span css={stepIndex > 0 ? pairCss : undefined}>
           {stepIndex > 0 && (
             <button
               type="button"
-              css={buttons.quiet}
+              css={[buttons.quiet, tall]}
               onClick={() => goTo(stepIndex - 1)}
             >
               {t('Back')}
             </button>
           )}
           {isLast ? (
-            <button type="button" css={buttons.filled} onClick={finish}>
+            <button type="button" css={[buttons.filled, tall]} onClick={finish}>
               {t('Done')}
             </button>
           ) : (
             <button
               type="button"
-              css={buttons.filled}
+              css={[buttons.filled, tall]}
               onClick={(e) => {
                 // A double-click's second press would answer the next step unseen.
                 if (e.detail > 1) return;

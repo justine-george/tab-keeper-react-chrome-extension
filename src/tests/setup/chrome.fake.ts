@@ -398,7 +398,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   const tabs: chrome.tabs.Tab[] = [];
   // Tabs whose seed literal named its own `index`, tracked by reference --
   // the seed-time reindex below (KAN-280 O8) must not clobber a value the
-  // test asked for on purpose (e.g. RateAndReviewModal's `index: 3`).
+  // test asked for on purpose (e.g. ReviewCard.test's `index: 3`).
   const explicitIndexTabs = new WeakSet<chrome.tabs.Tab>();
 
   const makeTab = (

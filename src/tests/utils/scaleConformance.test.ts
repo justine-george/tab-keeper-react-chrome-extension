@@ -162,6 +162,17 @@ describe('components take their sizes from the shared scales (KAN-205)', () => {
     ).toEqual([]);
   });
 
+  // KAN-654: setup and the cloud question take the review card's one weight
+  // too; their titles are told apart by size, as the card's is.
+  test.each(['modals/SetupModal.tsx', 'modals/CloudConsentModal.tsx'])(
+    '%s declares no font-weight value',
+    (name) => {
+      const file = FILES.find((f) => f.name.endsWith(name));
+      expect(file).toBeDefined();
+      expect(literals(file!.code, 'font-weight')).toEqual([]);
+    }
+  );
+
   // The controls people actually click are on the 32px row unit. Asserted by
   // naming them rather than by scanning every height: an 18px colour swatch and
   // a 30px image inside a button are content dimensions, not control heights,

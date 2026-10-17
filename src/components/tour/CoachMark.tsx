@@ -9,7 +9,11 @@ import {
 import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
-import { dialogButtonStyles } from '../modals/dialogButtons';
+import {
+  dialogButtonStyles,
+  pairCss,
+  tallButtonCss,
+} from '../modals/dialogButtons';
 import { isUnclaimedEscape } from '../common/unclaimedEscape';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
@@ -221,19 +225,21 @@ export default function CoachMark({
     line-height: 1.45;
     color: ${COLORS.LABEL_L1_COLOR};
   `;
+  // KAN-654: the way on first, at the right; the way out under it, centred.
   const footStyle = css`
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
   `;
   const endStyle = css`
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 8px;
-    margin-left: auto;
+    align-self: flex-end;
   `;
+  const tall = tallButtonCss(20);
 
   const bright = frame?.kind === 'anchored' ? frame.bright : null;
   return (
@@ -313,6 +319,24 @@ export default function CoachMark({
         </p>
         {fine !== undefined && <p css={fineStyle}>{fine}</p>}
         <div css={footStyle}>
+          <span css={[endStyle, onBack && pairCss]}>
+            {onBack && (
+              <button
+                type="button"
+                css={[buttons.quiet, tall]}
+                onClick={onBack}
+              >
+                {t('Back')}
+              </button>
+            )}
+            <button
+              type="button"
+              css={[buttons.filled, tall]}
+              onClick={primary.onPress}
+            >
+              {primary.label}
+            </button>
+          </span>
           {secondary ? (
             <button
               type="button"
@@ -328,20 +352,6 @@ export default function CoachMark({
               </button>
             )
           )}
-          <span css={endStyle}>
-            {onBack && (
-              <button type="button" css={buttons.quiet} onClick={onBack}>
-                {t('Back')}
-              </button>
-            )}
-            <button
-              type="button"
-              css={buttons.filled}
-              onClick={primary.onPress}
-            >
-              {primary.label}
-            </button>
-          </span>
         </div>
       </div>
     </>

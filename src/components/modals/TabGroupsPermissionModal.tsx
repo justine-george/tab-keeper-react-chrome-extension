@@ -75,9 +75,9 @@ export const TabGroupsPermissionModal: React.FC<
   if (tabGroupsPromptCount === null) return null;
 
   // Read straight from localStorage rather than from the settings slice, the
-  // same way RateAndReviewModal does. Both modals can render before the
-  // settings state has been rehydrated, and the stored value is the one that
-  // decides whether the permanent opt-out has been earned.
+  // same way showReviewCard reads the review card's. The modal can render
+  // before the settings state has been rehydrated, and the stored value is
+  // the one that decides whether the permanent opt-out has been earned.
   const { isTabGroupsPromptAnsweredOnce = false } =
     asPartialSettings<SettingsData>(loadFromLocalStorage('settingsData'));
 
@@ -246,8 +246,8 @@ export const TabGroupsPermissionModal: React.FC<
         </button>
       </div>
       {/* Earned, not offered: the permanent opt-out appears only after the
-            user has already said "not now" once. Same escalation as
-            RateAndReviewModal's "Never Remind Again". */}
+            user has already said "not now" once. Same escalation as the
+            review card's "Never ask again". */}
       {isTabGroupsPromptAnsweredOnce && (
         <button type="button" css={neverStyle} onClick={handleNeverAskAgain}>
           {t('TabGroupsPromptNever')}

@@ -53,6 +53,7 @@ import {
   toggleAutoSync,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
+import { endRises } from '../setup/endRises';
 
 // replaceState is a reducer the slice does not export by name.
 const replaceSettings = settingsDataStateSlice.actions.replaceState;
@@ -112,7 +113,6 @@ describe('who is asked, and which screen (KAN-259)', () => {
       screen.getByRole('dialog', { name: 'Welcome to Tab Keeper' })
     ).toBeTruthy();
     // The other first-open modals stood down.
-    expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
     expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
     // Lazy sign-in: no answer yet, so no Firebase.
     expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
@@ -192,6 +192,7 @@ describe('the answers (KAN-259)', () => {
     // Opens unlit: no button pre-chosen -- in particular not Turn off sync,
     // a settings change one accidental Enter away.
     expect(document.activeElement).toBe(dialog);
+    endRises();
     await user.click(
       within(dialog).getByRole('button', { name: 'Turn off sync' })
     );
@@ -200,6 +201,7 @@ describe('the answers (KAN-259)', () => {
     a.unmount();
 
     const b = await renderExisting();
+    endRises();
     await user.click(screen.getByRole('button', { name: 'Keep sync on' }));
     expect(b.store.getState().settingsDataState.cloudConsent).toBe('granted');
     expect(b.store.getState().settingsDataState.isAutoSync).toBe(true);
@@ -309,6 +311,7 @@ describe('the welcome (KAN-410)', () => {
   test('Show me here closes it and the popup run starts at its save card', async () => {
     const user = userEvent.setup();
     const { store, dialog } = await freshWelcome();
+    endRises();
     await user.click(
       within(dialog).getByRole('button', { name: 'Show me here' })
     );
@@ -355,6 +358,7 @@ describe('the welcome (KAN-410)', () => {
     act(() => {
       store.dispatch(setDefaultView('full'));
     });
+    endRises();
     await user.click(
       within(dialog).getByRole('button', { name: 'Get started' })
     );
@@ -378,6 +382,7 @@ describe('the welcome (KAN-410)', () => {
         heldAtRecord = locks.held.has(RUN_LOCK);
       }
     });
+    endRises();
     await user.click(
       within(dialog).getByRole('button', { name: 'Get started' })
     );
@@ -401,6 +406,7 @@ describe('the welcome (KAN-410)', () => {
       s.dispatch(setSignedIn());
       s.dispatch(setUserId('uuid-1'));
     });
+    endRises();
     await user.click(
       within(dialog).getByRole('button', { name: 'Show me here' })
     );
@@ -415,6 +421,7 @@ describe('the welcome (KAN-410)', () => {
       name: 'Sync your sessions across devices?',
     });
     expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
+    endRises();
     await user.click(within(ask).getByRole('button', { name: 'Sync' }));
     expect(store.getState().settingsDataState.cloudConsent).toBe('granted');
     await waitFor(() => expect(mocks.ensureCloudSession).toHaveBeenCalled());
@@ -466,6 +473,7 @@ describe('it is never a surprise (KAN-259)', () => {
     expect(document.activeElement).toBe(dialog);
     expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
 
+    endRises();
     await user.click(within(dialog).getByRole('button', { name: 'Not now' }));
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
     expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
@@ -489,6 +497,7 @@ describe('it is never a surprise (KAN-259)', () => {
       },
     });
     await user.click(screen.getByRole('button', { name: 'Sync now' }));
+    endRises();
     await user.click(screen.getByRole('button', { name: 'Sync' }));
     expect(store.getState().settingsDataState.cloudConsent).toBe('granted');
     // One sync, not a setting: Auto Sync stays off (Justine's case).
@@ -544,6 +553,7 @@ describe('Turn off sync means no sync, before and after (KAN-259)', () => {
     expect(mocks.ensureCloudSession).not.toHaveBeenCalled();
     expect(seen).not.toContain('global/syncStateWithFirestore/pending');
 
+    endRises();
     await user.click(
       within(dialog).getByRole('button', { name: 'Turn off sync' })
     );
@@ -591,6 +601,7 @@ describe('the plain question does what it was opened for (KAN-259)', () => {
     // The fine print says so.
     expect(dialog.textContent).toMatch(/Auto Sync stays off/);
     seen.length = 0;
+    endRises();
     await user.click(within(dialog).getByRole('button', { name: 'Sync' }));
 
     expect(store.getState().settingsDataState.cloudConsent).toBe('granted');
@@ -613,6 +624,7 @@ describe('the plain question does what it was opened for (KAN-259)', () => {
       name: 'Sync your sessions across devices?',
     });
     expect(dialog.textContent).not.toMatch(/Auto Sync stays off/);
+    endRises();
     await user.click(within(dialog).getByRole('button', { name: 'Sync' }));
     expect(store.getState().settingsDataState.cloudConsent).toBe('granted');
     expect(store.getState().settingsDataState.isAutoSync).toBe(true);

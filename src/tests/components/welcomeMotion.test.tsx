@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import WelcomeHero from '../../components/modals/WelcomeHero';
-import { playWelcomeLoop } from '../../components/modals/welcomeMotion';
+import { playWelcomeLoop, heroPx } from '../../components/modals/welcomeMotion';
 import { renderWithProviders } from '../setup/renderWithProviders';
 
 // §5 and §10: the loop's chips shrink, ease and land home at any size.
@@ -69,10 +69,16 @@ describe('the loop', () => {
       );
     vi.spyOn(hero, 'offsetWidth', 'get').mockReturnValue(44);
     playWelcomeLoop(hero);
-    expect(firstLanding()).toMatch(/^translate\(0px, 10px\)/);
+    // Into the slot, its own depth below the slot's top; twice that at half size.
+    const into = heroPx(10);
+    expect(firstLanding()).toMatch(
+      new RegExp(`^translate\\(0px, ${into}px\\)`)
+    );
     played = [];
     vi.spyOn(hero, 'offsetWidth', 'get').mockReturnValue(88);
     playWelcomeLoop(hero);
-    expect(firstLanding()).toMatch(/^translate\(0px, 20px\)/);
+    expect(firstLanding()).toMatch(
+      new RegExp(`^translate\\(0px, ${2 * into}px\\)`)
+    );
   });
 });

@@ -35,6 +35,7 @@ import {
   declineCloudConsent,
   grantCloudConsent,
 } from '../../redux/slices/settingsDataStateSlice';
+import { endRises } from '../setup/endRises';
 
 // KAN-266. The boot sync waits for isFirebaseAuthed; the two manual starters
 // -- the header's Sync now and the consent dialog's "sync once" -- called
@@ -93,6 +94,7 @@ describe('a manual sync waits for sign-in before it reads (KAN-266)', () => {
     const dialog = screen.getByRole('dialog');
     seen.length = 0;
 
+    endRises();
     await user.click(within(dialog).getByRole('button', { name: 'Sync' }));
 
     // The promise was released by the first test, so here the wait resolves
