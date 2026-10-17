@@ -367,13 +367,14 @@ test('setup’s Skip setup starts at the content edge', async ({
   expect(Math.abs(words - edge)).toBeLessThanOrEqual(0.5);
 });
 
+// Round 6: the full view's title and tour card are larger; padding stays as it was.
 test.describe('the full view is a size up; the popup is as it was', () => {
-  test('full view: setup has 24px padding and a title-size title', async ({
+  test('full view: setup has a title-size title and 20px padding', async ({
     context,
     extensionId,
   }) => {
     const page = await openSetupStep2(context, extensionId);
-    await expect(setup(page)).toHaveCSS('padding', '24px');
+    await expect(setup(page)).toHaveCSS('padding', '20px');
     await expect(setup(page).getByRole('heading', { level: 2 })).toHaveCSS(
       'font-size',
       `${px(TYPE.TITLE)}px`
@@ -382,9 +383,9 @@ test.describe('the full view is a size up; the popup is as it was', () => {
 
   for (const [view, pad, size] of [
     ['popup', '20px', TYPE.SECTION],
-    ['full', '24px', TYPE.TITLE],
+    ['full', '20px', TYPE.TITLE],
   ] as const) {
-    test(`${view}: the cloud question has ${pad} padding`, async ({
+    test(`${view}: the cloud question has ${pad} padding and its title size`, async ({
       context,
       extensionId,
     }) => {

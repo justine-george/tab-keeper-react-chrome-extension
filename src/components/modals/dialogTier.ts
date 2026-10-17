@@ -1,9 +1,9 @@
 import { TYPE } from '../../styles/scale';
 import { isTabView } from '../../utils/functions/viewMode';
 
-// KAN-654. Setup and the cloud question a size up in the full view, as the review card is; the popup's as they were.
+// KAN-654. Setup and the cloud question take a title-size title in the full view; padding stays 20px in both (round 6).
 export function dialogTier(): { pad: number; title: string } {
   return isTabView()
-    ? { pad: 24, title: TYPE.TITLE }
+    ? { pad: 20, title: TYPE.TITLE }
     : { pad: 20, title: TYPE.SECTION };
 }
