@@ -176,7 +176,13 @@ describe('reviewCardCopy', () => {
     expect(reviewCardCopy({ kind: 'time' }).bodyKey).toBe('ReviewCardBodyTime');
   });
 
-  test.each(kinds.filter(([kind]) => kind !== 'time'))(
+  test('the first save says "If you like it so far" (KAN-659)', () => {
+    expect(reviewCardCopy({ kind: 'firstSave' }).bodyKey).toBe(
+      'ReviewCardBodyFirstSave'
+    );
+  });
+
+  test.each(kinds.filter(([kind]) => kind !== 'time' && kind !== 'firstSave'))(
     '%s says "If Tab Keeper is useful to you"',
     (kind) => {
       expect(reviewCardCopy({ kind }).bodyKey).toBe('ReviewCardBody');

@@ -131,6 +131,10 @@ test('full view, the first save: "Your first session is saved", 440px wide', asy
 
   const first = card(page, 'Your first session is saved');
   await expect(first).toBeVisible();
+  // KAN-659. Its own body: a minute in, liking it, not whether it's useful.
+  await expect(first).toContainText(
+    'If you like it so far, a rating on the Chrome Web Store helps other people find Tab Keeper.'
+  );
   expect((await first.boundingBox())?.width).toBe(440);
 });
 

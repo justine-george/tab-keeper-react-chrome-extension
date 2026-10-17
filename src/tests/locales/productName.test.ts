@@ -31,6 +31,7 @@ const KEYS_THAT_NAME_THE_PRODUCT = [
   'Tab Keeper',
   'Thanks for using Tab Keeper',
   'ReviewCardBody',
+  'ReviewCardBodyFirstSave',
   'Rate Tab Keeper',
   'TabGroupsPromptTitle',
 ];
