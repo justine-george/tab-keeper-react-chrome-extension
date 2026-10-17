@@ -615,7 +615,7 @@ test.describe('Open now: Reopen a window', () => {
     const site = await servePages(context);
     await stubsStayHidden(context);
     await seedSettings(context, { pinTabKeeperInNewWindows: true });
-    await turnHistoryOn(context, extensionId);
+    await grantSessions(context, extensionId);
     const page = await openPage(context, extensionId, FULL_VIEW_PATH, FULL);
     const windowId = await openWindow(serviceWorker, [
       dataUrl('Front'),
@@ -670,7 +670,7 @@ grantedTest(
     const site = await servePages(context);
     await stubsStayHidden(context);
     await seedSettings(context, { pinTabKeeperInNewWindows: true });
-    await turnHistoryOn(context, extensionId);
+    await grantSessions(context, extensionId);
     const page = await openPage(context, extensionId, FULL_VIEW_PATH, FULL);
     const windowId = await openWindow(serviceWorker, [
       dataUrl('Front'),
@@ -896,7 +896,7 @@ test('the stub paints its theme’s ground while hidden, and becomes the full vi
   await stub.locator('[aria-label="Sort sessions"]').first().waitFor();
 });
 
-// From open-now-history.spec.ts: a local page server (a data: URL holds no history) and the sessions switch.
+// From open-now-history.spec.ts: a local page server (a data: URL holds no history) and the sessions grant.
 type Site = (n: number) => string;
 
 async function servePages(context: BrowserContext): Promise<Site> {
@@ -920,22 +920,15 @@ async function servePages(context: BrowserContext): Promise<Site> {
   return (n) => `http://127.0.0.1:${address.port}/p${n}`;
 }
 
-async function turnHistoryOn(context: BrowserContext, extensionId: string) {
+// A close in Open now asks for `sessions` itself (KAN-663); this grants it
+// before the first close, from a page of its own.
+async function grantSessions(context: BrowserContext, extensionId: string) {
   const page = await openPage(context, extensionId, 'index.html', POPUP);
-  await page.locator('[aria-label="Settings"]').click();
-  await page.locator('button[aria-label="Sessions"]').click();
-  const row = page.getByRole('group', {
-    name: 'Bring back tab history when reopening',
-    exact: true,
-  });
-  await row.getByRole('button', { name: 'On', exact: true }).click();
-  await expect
-    .poll(() =>
-      page.evaluate(() =>
-        chrome.permissions.contains({ permissions: ['sessions'] })
-      )
+  expect(
+    await page.evaluate(() =>
+      chrome.permissions.request({ permissions: ['sessions'] })
     )
-    .toBe(true);
+  ).toBe(true);
   await page.close();
 }
 

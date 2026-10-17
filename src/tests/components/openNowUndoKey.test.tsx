@@ -30,7 +30,10 @@ const REDO = 'undoRedo/redo';
 const url = (name: string) => `https://${name}.test/`;
 
 // W1 holds the page; W2 [21 a, 22 b, 23 c].
+// Refused, so Reopen recreates: these tests are about recreate, and with no
+// refusal a close now gets `sessions` (KAN-663) and Reopen goes to the worker.
 const seed: ChromeSeed = {
+  refusedPermissions: ['sessions'],
   windows: [
     {
       id: 1,

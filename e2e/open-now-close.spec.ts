@@ -342,6 +342,10 @@ async function closeAndReopenKyoto(
 
 grantedTest.describe('Close and Reopen a window (KAN-280 O8)', () => {
   grantedTest.use({ keepWindowBounds: true });
+  // Recreate's placement, so a profile that refuses `sessions`: a close now
+  // asks for it (KAN-663), and with it Reopen goes through Chrome's restore,
+  // which open-now-history.spec.ts covers (tests 7 and 10b).
+  grantedTest.use({ refuseSessions: true });
 
   grantedTest(
     '1. a closed window comes back exactly, and Tab Keeper stays in front',
@@ -582,6 +586,10 @@ async function groupStepsOf(
 grantedTest.describe(
   'Reopen and a group formed since the close (KAN-309)',
   () => {
+    // Recreate's placement, so a profile that refuses `sessions`: a close now
+    // asks for it (KAN-663), and with it Reopen goes through Chrome's restore,
+    // which open-now-history.spec.ts covers (tests 7 and 10b).
+    grantedTest.use({ refuseSessions: true });
     grantedTest(
       '10. an ungrouped tab reopened inside a group that formed over its spot comes back ungrouped',
       async ({ context, extensionId, serviceWorker }) => {
@@ -641,6 +649,10 @@ grantedTest.describe(
 grantedTest.describe(
   'Reopen and a collapsed group over the front tab spot (KAN-310)',
   () => {
+    // Recreate's placement, so a profile that refuses `sessions`: a close now
+    // asks for it (KAN-663), and with it Reopen goes through Chrome's restore,
+    // which open-now-history.spec.ts covers (tests 7 and 10b).
+    grantedTest.use({ refuseSessions: true });
     grantedTest(
       "9. a front tab reopened inside a collapsed group's run comes back in front, and the group stays collapsed",
       async ({ context, extensionId, serviceWorker }) => {

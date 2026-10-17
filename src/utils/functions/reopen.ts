@@ -6,7 +6,7 @@ import type {
   OpenWindow,
   OpenWindowBounds,
 } from './openNow';
-import { hasSessionsPermission } from './permissions';
+import { askForSessionsPermission, hasSessionsPermission } from './permissions';
 import { ensurePinnedStub } from './pinnedTabKeeper';
 import { isReopened, REOPEN_PREFERRING_HISTORY_MESSAGE } from './reopenRequest';
 import type { ReopenPreferringHistoryRequest } from './reopenRequest';
@@ -178,13 +178,19 @@ function windowEntryIdIfMatching(
 // Resolves to the ClosedItem when Chrome closed it, or null when it could not
 // (the tab or window was already gone). Never rejects: the close stands even
 // when its recently closed entry cannot be read.
+//
+// KAN-663. Each close first asks Chrome for `sessions` (first, so inside the
+// click's or key's gesture; see askForSessionsPermission), and waits for the
+// answer before reading the list, so even the first close records its entry.
 export async function closeOpenTab(
   openWindow: OpenWindow,
   tab: OpenTab
 ): Promise<ClosedItem | null> {
+  const asked = askForSessionsPermission();
   const current = await withCurrentGroupVisuals(
     await withCurrentPlacement(openWindow)
   );
+  await asked;
   const listedBefore = await listedEntryIds();
   try {
     await chrome.tabs.remove(tab.id);
@@ -206,9 +212,11 @@ export async function closeOpenTab(
 export async function closeOpenWindow(
   openWindow: OpenWindow
 ): Promise<ClosedItem | null> {
+  const asked = askForSessionsPermission();
   const current = await withCurrentGroupVisuals(
     await withCurrentPlacement(openWindow)
   );
+  await asked;
   const listedBefore = await listedEntryIds();
   try {
     await chrome.windows.remove(openWindow.id);

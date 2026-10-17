@@ -72,10 +72,10 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
   // itself opens, which nobody looks for under "Sessions".
   test('Sessions holds what a save does; Quick access holds how Tab Keeper opens', async () => {
     const { container, unmount } = await renderOn(SettingsCategory.SESSIONS);
+    // KAN-663: tab history is always on, so it has no row.
     expect(sectionLabels(container)).toEqual([
       'Default save',
       'Save tab groups',
-      'Bring back tab history when reopening',
     ]);
     unmount();
 
@@ -107,7 +107,7 @@ describe('sections within a pane sit 32px apart, as About blocks do', () => {
     const margins = [
       ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
     ].map((el) => getComputedStyle(el).marginTop);
-    expect(margins).toEqual(['20px', '32px', '32px']);
+    expect(margins).toEqual(['20px', '32px']);
   });
 
   test('Quick access: first at 20px, every later row at 32px', async () => {

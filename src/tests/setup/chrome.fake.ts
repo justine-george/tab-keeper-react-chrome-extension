@@ -89,6 +89,12 @@ export type ChromeSeed = {
   // Model the measured production behaviour where the popup is destroyed
   // before permissions.request() settles. See the KAN-11 spike.
   requestNeverSettles?: boolean;
+  // Permissions whose request Chrome answers `false`, granting nothing: a
+  // user's refusal, or a policy that blocks it (KAN-663).
+  refusedPermissions?: chrome.runtime.ManifestPermission[];
+  // How long Chrome takes to answer permissions.request(). Measured: under
+  // 0.3s for `sessions`, often longer than a close's own reads (KAN-663).
+  requestAnswerMs?: number;
   // Chrome leaves chrome.tabGroups undefined while the tabGroups permission
   // is ungranted, and the Open now pane (KAN-280) must survive that. True
   // omits the member entirely from the installed fake, so a caller sees
@@ -2719,15 +2725,37 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         // settles, so a caller must never depend on the result. Seeding
         // requestNeverSettles lets a test reproduce that shape exactly.
         if (seed.requestNeverSettles) return new Promise<boolean>(() => {});
-        for (const name of permissions.permissions ?? []) granted.add(name);
-        // Task 1, Q4: a grant makes chrome.sessions usable in the SAME page
-        // with no reload. Added before onAdded fires, so a listener can use
-        // it (that ordering is this fake's choice; Task 1 did not measure it).
-        if (granted.has('sessions')) {
-          Object.assign(chromeFake, { sessions: sessionsApi });
+        const asked = permissions.permissions ?? [];
+        if (asked.some((name) => seed.refusedPermissions?.includes(name))) {
+          return settle(false, cb);
         }
-        permissionListeners.added.forEach((listener) => listener(permissions));
-        return settle(true, cb);
+        const grant = (): boolean => {
+          const newlySessions =
+            asked.includes('sessions') && !granted.has('sessions');
+          for (const name of asked) granted.add(name);
+          // Task 1, Q4: a grant makes chrome.sessions usable in the SAME page
+          // with no reload. Added before onAdded fires, so a listener can use
+          // it (that ordering is this fake's choice; Task 1 did not measure
+          // it). Only a NEW grant adds it: asking again for one already held
+          // changes nothing (KAN-663 asks on every close).
+          if (newlySessions) {
+            Object.assign(chromeFake, { sessions: sessionsApi });
+          }
+          permissionListeners.added.forEach((listener) =>
+            listener(permissions)
+          );
+          return true;
+        };
+        if (seed.requestAnswerMs !== undefined) {
+          const answerMs = seed.requestAnswerMs;
+          return new Promise<boolean>((resolve) =>
+            setTimeout(() => resolve(grant()), answerMs)
+          ).then((answer) => {
+            cb?.(answer);
+            return answer;
+          });
+        }
+        return settle(grant(), cb);
       },
       remove: (
         permissions: chrome.permissions.Permissions,

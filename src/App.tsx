@@ -33,7 +33,6 @@ import {
 import {
   setCloudConfigured,
   setHasTabGroupsPermission,
-  setHasSessionsPermission,
   loadStoredSessionsIntoPage,
   storedLoadMustWaitForRelease,
   syncStateWithFirestore,
@@ -43,8 +42,6 @@ import { hydrateSessionsFromStorage } from './redux/otherPageChanges';
 import {
   hasTabGroupsPermission,
   observeTabGroupsPermission,
-  hasSessionsPermission,
-  observeSessionsPermission,
 } from './utils/functions/permissions';
 
 import './App.css';
@@ -162,13 +159,6 @@ function App() {
     );
     observeTabGroupsPermission((granted) =>
       dispatch(setHasTabGroupsPermission(granted))
-    );
-
-    void hasSessionsPermission().then((granted) =>
-      dispatch(setHasSessionsPermission(granted))
-    );
-    observeSessionsPermission((granted) =>
-      dispatch(setHasSessionsPermission(granted))
     );
     return () => {
       isUnmounted = true;

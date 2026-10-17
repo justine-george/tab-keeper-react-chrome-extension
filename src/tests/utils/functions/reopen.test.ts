@@ -9,6 +9,7 @@ import {
   recreateClosed,
   reopenClosed,
 } from '../../../utils/functions/reopen';
+import { SESSIONS_ANSWER_WAIT_MS } from '../../../utils/functions/permissions';
 import { setupChromeFake } from '../../setup/chrome.fake';
 import type { ChromeFakeHandle } from '../../setup/chrome.fake';
 
@@ -103,9 +104,13 @@ async function tabNamed(windowId: number, name: string) {
   return found;
 }
 
+// The reopenClosed tests below are about recreate. A close now asks for
+// `sessions` and gets it (KAN-663), which would send Reopen to the worker, so
+// their profiles refuse it.
 describe('reopenClosed: a closed window (KAN-280 O8)', () => {
   test('comes back exactly: bounds, state, pins, groups, active tab, real addresses, unfocused', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       grantedPermissions: ['tabGroups'],
       windows: [
         tabKeeperWindow,
@@ -193,6 +198,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
   // on, so the snapshot a close is handed can hold the window's old place.
   test('a window moved and maximized after the pane read comes back where it was when it closed', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [
         tabKeeperWindow,
         {
@@ -236,6 +242,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 
   test('when the fresh read fails, the window still closes and comes back in the snapshot place', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [
         tabKeeperWindow,
         {
@@ -274,6 +281,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 
   test('a tab Chrome refuses is skipped with a warning, and the rest come back in order', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       refusedUrls: ['file:///x'],
       windows: [
         tabKeeperWindow,
@@ -300,6 +308,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 
   test('when nothing can be recreated it resolves null and leaves no window behind', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       refusedUrls: ['file:///x', 'file:///y'],
       windows: [
         tabKeeperWindow,
@@ -326,6 +335,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 
   test('with tabGroups revoked before Reopen, the tabs come back ungrouped and nothing throws', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       tabGroupsApiAbsent: true,
       windows: [
         tabKeeperWindow,
@@ -375,6 +385,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 
   test('a window Chrome will not create resolves null, and no tab is created', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [tabKeeperWindow, { id: 2, tabs: [{ url: url('a') }] }],
     });
     vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -390,6 +401,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 
   test('never rejects, even with the chrome namespace gone', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [tabKeeperWindow, { id: 2, tabs: [{ url: url('a') }] }],
     });
     vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -404,6 +416,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
   test('a tab whose group is now in another window gets a new group like the old one', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       grantedPermissions: ['tabGroups'],
       windows: [
         tabKeeperWindow,
@@ -452,6 +465,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     // Chrome removes a group with its last tab, so tabGroups.get(50)
     // rejects by the time Reopen runs.
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       grantedPermissions: ['tabGroups'],
       windows: [
         tabKeeperWindow,
@@ -488,6 +502,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
   // window, so its place must be read before the remove, not at Reopen.
   test("the window's last tab, after the window moved and maximized: it comes back where the window was when it closed", async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [
         tabKeeperWindow,
         {
@@ -533,6 +548,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     // are grouped together, so x's old index is inside that group's run.
     const seedAXB = (xGroupId?: number) =>
       setupChromeFake({
+        refusedPermissions: ['sessions'],
         grantedPermissions: ['tabGroups'],
         windows: [
           tabKeeperWindow,
@@ -603,6 +619,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
       // x really is in group 5, but without the permission the snapshot
       // reports it ungrouped. Ungrouping it on Reopen would be a guess.
       handle = setupChromeFake({
+        refusedPermissions: ['sessions'],
         tabGroupsApiAbsent: true,
         windows: [
           tabKeeperWindow,
@@ -637,6 +654,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     // front, then a and b are grouped over x's old spot and collapsed.
     async function closeFrontXUnderCollapsedGroup() {
       const fake = setupChromeFake({
+        refusedPermissions: ['sessions'],
         grantedPermissions: ['tabGroups'],
         windows: [
           tabKeeperWindow,
@@ -679,6 +697,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
 
     test('a front tab rejoining its surviving group is brought to the front after it joins', async () => {
       handle = setupChromeFake({
+        refusedPermissions: ['sessions'],
         grantedPermissions: ['tabGroups'],
         windows: [
           tabKeeperWindow,
@@ -736,6 +755,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
 
   test('an index past the end of a window that shrank lands at the end', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [
         tabKeeperWindow,
         {
@@ -762,6 +782,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
 
   test('a pinned tab comes back pinned, in the pinned run', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [
         tabKeeperWindow,
         {
@@ -785,6 +806,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
 
   test('an active tab comes back active in its window, and the window stays unfocused', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [
         tabKeeperWindow,
         { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
@@ -802,6 +824,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
 
   test('a tab Chrome refuses to recreate in its surviving window resolves null', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       refusedUrls: ['file:///x'],
       windows: [
         tabKeeperWindow,
@@ -829,6 +852,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
 describe('reopenClosed resolves to what it reopened (KAN-311)', () => {
   test("a window's last tab: the tab in the window made around it", async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [tabKeeperWindow, { id: 2, tabs: [{ url: url('solo') }] }],
     });
     const w2 = await openWindow(2);
@@ -1118,32 +1142,83 @@ describe('closeOpenTab / closeOpenWindow record Chrome’s recently closed entry
     expect(windowItem?.restorableSessionId).toBe(await windowEntryId(url('x')));
   });
 
-  test('without the sessions grant, chrome.sessions is absent: null, and the close goes ahead quietly', async () => {
+  // KAN-663. There is no setting: a close asks Chrome for `sessions` itself,
+  // first, and waits for the answer before reading the list, so even the
+  // first close records its entry.
+  test('without the sessions grant, a close asks for it first, so even the first close records its entry (KAN-663)', async () => {
     handle = setupChromeFake({
+      windows: [
+        tabKeeperWindow,
+        { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
+        { id: 3, tabs: [{ url: url('c'), active: true }] },
+      ],
+    });
+    const w2 = await openWindow(2);
+    const b = tabIn(w2, 'b');
+    // PREMISE: a fresh profile holds nothing, so chrome.sessions is absent.
+    expect(chrome.sessions).toBeUndefined();
+
+    const tabItem = await closeOpenTab(w2, b);
+
+    expect(
+      await chrome.permissions.contains({ permissions: ['sessions'] })
+    ).toBe(true);
+    expect(tabItem).toMatchObject({
+      kind: 'tab',
+      restorableSessionId: await tabEntryId(url('b')),
+    });
+    expect(tabItem?.restorableSessionId).toEqual(expect.any(String));
+
+    // A window close asks too (here it is already held: asking again is
+    // answered at once).
+    const windowItem = await closeOpenWindow(await openWindow(3));
+    expect(windowItem).toMatchObject({
+      kind: 'window',
+      restorableSessionId: await windowEntryId(url('c')),
+    });
+    expect(windowItem?.restorableSessionId).toEqual(expect.any(String));
+  });
+
+  // Chrome answers in up to 0.3s (measured), later than the close's own
+  // reads: the close must wait for the answer, or the first close records
+  // nothing.
+  test('an answer that comes after the close’s own reads still gives the first close its entry', async () => {
+    handle = setupChromeFake({
+      requestAnswerMs: 200,
       windows: [
         tabKeeperWindow,
         { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
       ],
     });
-    const warn = vi.spyOn(console, 'warn');
     const w2 = await openWindow(2);
-    const b = tabIn(w2, 'b');
-    expect(chrome.sessions).toBeUndefined();
 
-    const tabItem = await closeOpenTab(w2, b);
-    const windowItem = await closeOpenWindow(await openWindow(2));
+    const item = await closeOpenTab(w2, tabIn(w2, 'b'));
 
-    expect(tabItem).toMatchObject({ kind: 'tab', restorableSessionId: null });
-    expect(windowItem).toMatchObject({
-      kind: 'window',
-      restorableSessionId: null,
+    expect(item).toMatchObject({
+      kind: 'tab',
+      restorableSessionId: await tabEntryId(url('b')),
     });
-    expect(handle.removedTabIds).toEqual([b.id]);
-    expect(await windowIds()).toEqual([1]);
-    expect(warn).not.toHaveBeenCalled();
+    expect(item?.restorableSessionId).toEqual(expect.any(String));
   });
 
-  test('revoked after a grant, chrome.sessions is still there but never asked: null, and the close goes ahead quietly', async () => {
+  test('a window close asks for the grant on its own, too (KAN-663)', async () => {
+    handle = setupChromeFake({
+      windows: [
+        tabKeeperWindow,
+        { id: 2, tabs: [{ url: url('a'), active: true }] },
+      ],
+    });
+
+    const item = await closeOpenWindow(await openWindow(2));
+
+    expect(item).toMatchObject({
+      kind: 'window',
+      restorableSessionId: await windowEntryId(url('a')),
+    });
+    expect(item?.restorableSessionId).toEqual(expect.any(String));
+  });
+
+  test('revoked after a grant, a close asks again and records its entry (KAN-663)', async () => {
     handle = setupChromeFake({
       grantedPermissions: ['sessions'],
       windows: [
@@ -1152,11 +1227,25 @@ describe('closeOpenTab / closeOpenWindow record Chrome’s recently closed entry
       ],
     });
     await chrome.permissions.remove({ permissions: ['sessions'] });
-    // Task 1, Q4: it stays, and calling it now throws.
-    expect(() => chrome.sessions.getRecentlyClosed()).toThrow(
-      "'sessions.getRecentlyClosed' is not available in this context."
-    );
-    const read = vi.spyOn(chrome.sessions, 'getRecentlyClosed');
+    const w2 = await openWindow(2);
+
+    const item = await closeOpenTab(w2, tabIn(w2, 'b'));
+
+    expect(item).toMatchObject({
+      kind: 'tab',
+      restorableSessionId: await tabEntryId(url('b')),
+    });
+    expect(item?.restorableSessionId).toEqual(expect.any(String));
+  });
+
+  test('refused (by the user or a policy): null, never read, and the close goes ahead quietly', async () => {
+    handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
+      windows: [
+        tabKeeperWindow,
+        { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
+      ],
+    });
     const warn = vi.spyOn(console, 'warn');
     const w2 = await openWindow(2);
     const b = tabIn(w2, 'b');
@@ -1169,10 +1258,36 @@ describe('closeOpenTab / closeOpenWindow record Chrome’s recently closed entry
       kind: 'window',
       restorableSessionId: null,
     });
+    expect(chrome.sessions).toBeUndefined();
     expect(handle.removedTabIds).toEqual([b.id]);
     expect(await windowIds()).toEqual([1]);
-    expect(read).not.toHaveBeenCalled();
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  test('an ask Chrome never answers does not hold the close: it goes ahead after the wait, with null', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      handle = setupChromeFake({
+        requestNeverSettles: true,
+        windows: [
+          tabKeeperWindow,
+          { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
+        ],
+      });
+      const w2 = await openWindow(2);
+      const b = tabIn(w2, 'b');
+
+      const closing = closeOpenTab(w2, b);
+      await vi.advanceTimersByTimeAsync(SESSIONS_ANSWER_WAIT_MS);
+
+      expect(await closing).toMatchObject({
+        kind: 'tab',
+        restorableSessionId: null,
+      });
+      expect(handle.removedTabIds).toEqual([b.id]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test('held, but the read throws at once: null with a warning, and the close still goes ahead', async () => {

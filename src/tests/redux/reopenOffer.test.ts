@@ -216,6 +216,8 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
 
 // KAN-311 (O8c). The Reopen button and the ⌘Z / Ctrl+Z key both dispatch
 // this one thunk, so the two cannot drift apart.
+// Profiles that refuse `sessions` here: these reopen by recreate, and a close
+// now gets `sessions` otherwise (KAN-663).
 describe('reopenFromOffer (KAN-311)', () => {
   const offerId = (store: ReturnType<typeof makeTestStore>['store']) => {
     const id = shownOfferId(store.getState());
@@ -225,6 +227,7 @@ describe('reopenFromOffer (KAN-311)', () => {
   // Window 2 keeps a, so b reopens into it.
   const closedB = async (): Promise<ClosedItem> => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [
         { id: 1, focused: true, tabs: [{ url: url('home'), active: true }] },
         { id: 2, tabs: [{ url: url('a') }, { url: url('b') }] },
@@ -351,6 +354,7 @@ describe('reopenFromOffer reads the Pin Tab Keeper setting (KAN-459)', () => {
 
   async function reopenedWindowHasStub(on: boolean): Promise<boolean> {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [
         { id: 1, focused: true, tabs: [{ url: url('home'), active: true }] },
         { id: 2, tabs: [{ url: url('a') }, { url: url('b') }] },

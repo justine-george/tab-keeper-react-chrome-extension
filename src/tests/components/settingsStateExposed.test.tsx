@@ -101,9 +101,9 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
   // setting that sat above it is gone (KAN-250): restores always open later
   // tabs as placeholders, so there is nothing to choose.
   // KAN-280 added the second pair, "Bring back tab history when reopening";
-  // tabHistoryRow.test.tsx covers it. Default view and Pin Tab Keeper moved
-  // to Quick access (KAN-652).
-  test('Sessions has two pairs, Save Tab Groups and tab history, and no memory setting', async () => {
+  // Default view and Pin Tab Keeper moved to Quick access (KAN-652), and tab
+  // history is always on, with no pair (KAN-663).
+  test('Sessions has one pair, Save Tab Groups, and no memory or history setting', async () => {
     await renderOn(SettingsCategory.SESSIONS);
 
     const groups = screen.getByRole('group', { name: 'Save tab groups' });
@@ -114,7 +114,10 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
     ).toBe('true');
     expect(
       screen.getAllByRole('group').map((g) => g.getAttribute('aria-label'))
-    ).toEqual(['Save tab groups', 'Bring back tab history when reopening']);
+    ).toEqual(['Save tab groups']);
+    expect(
+      screen.queryByText('Bring back tab history when reopening')
+    ).toBeNull();
     expect(
       screen.queryByText('Optimize Memory Usage On Session Restore')
     ).toBeNull();

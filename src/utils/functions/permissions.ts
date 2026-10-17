@@ -7,11 +7,13 @@
 // user clicked through a prompt, which for a sync tool means sync silently
 // stopping for people who never asked for tab groups.
 //
-// sessions is optional for a different reason: it carries NO warning (spec
-// O9), so there is no install-time cost to weigh -- it is simply off by
-// default like every optional permission. Measured 2026-09-27: requesting it
-// shows no Chrome prompt at all, and a real popup survives the request every
-// time (unlike tabGroups.request, below).
+// sessions is optional for a related reason: declared as required it changes
+// the install warning to "Read your browsing history on all your signed-in
+// devices" (measured, spec O9), which would disable the extension on update
+// until each user accepted. Optional, it is asked for by the first close in
+// Open now instead, with no setting (KAN-663). Measured 2026-09-27: requesting
+// it shows no Chrome prompt at all, and a real popup survives the request
+// every time (unlike tabGroups.request, below).
 
 const TAB_GROUPS: chrome.permissions.Permissions = {
   permissions: ['tabGroups'],
@@ -88,29 +90,35 @@ export async function hasSessionsPermission(): Promise<boolean> {
   }
 }
 
-// Ask for the grant. Returns NOTHING, on purpose, matching
-// requestTabGroupsPermission -- Chrome shows no prompt for `sessions`, but the
-// outcome still arrives through hasSessionsPermission() or
-// observeSessionsPermission() rather than this call, so callers never await a
-// promise that might not settle.
-export function requestSessionsPermission(): void {
-  if (typeof chrome === 'undefined' || !chrome.permissions) return;
-  void Promise.resolve(chrome.permissions.request(SESSIONS)).catch(() => {});
-}
+// How long a close waits for Chrome's answer. Measured: under 0.3s with no
+// prompt. The cap is for an answer that never comes, which must not hold the
+// close.
+export const SESSIONS_ANSWER_WAIT_MS = 1000;
 
-export function removeSessionsPermission(): void {
-  if (typeof chrome === 'undefined' || !chrome.permissions) return;
-  void Promise.resolve(chrome.permissions.remove(SESSIONS)).catch(() => {});
-}
-
-export function observeSessionsPermission(
-  onChange: (granted: boolean) => void
-): void {
-  if (typeof chrome === 'undefined' || !chrome.permissions) return;
-  chrome.permissions.onAdded.addListener((permissions) => {
-    if (permissions.permissions?.includes('sessions')) onChange(true);
+// KAN-663. Asks Chrome for the grant and resolves whether it is held: true
+// once granted (at once when it already was), false when refused, failed, or
+// unanswered after SESSIONS_ANSWER_WAIT_MS. Never rejects.
+//
+// The request is made synchronously, so a caller that calls this first in
+// its handler makes it inside the click's gesture, as Chrome's docs ask.
+// Measured 2026-10-17 (Chromium 156): Chrome granted `sessions` with no
+// gesture at all, and a close that asked after its own reads still got it,
+// so the order is a margin no test here can show.
+export function askForSessionsPermission(): Promise<boolean> {
+  if (typeof chrome === 'undefined' || !chrome.permissions) {
+    return Promise.resolve(false);
+  }
+  let answer: Promise<boolean>;
+  try {
+    answer = Promise.resolve(chrome.permissions.request(SESSIONS)).catch(
+      () => false
+    );
+  } catch {
+    return Promise.resolve(false);
+  }
+  let wait: ReturnType<typeof setTimeout> | undefined;
+  const unanswered = new Promise<boolean>((resolve) => {
+    wait = setTimeout(() => resolve(false), SESSIONS_ANSWER_WAIT_MS);
   });
-  chrome.permissions.onRemoved.addListener((permissions) => {
-    if (permissions.permissions?.includes('sessions')) onChange(false);
-  });
+  return Promise.race([answer, unanswered]).finally(() => clearTimeout(wait));
 }
