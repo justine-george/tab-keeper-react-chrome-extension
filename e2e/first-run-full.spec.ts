@@ -124,7 +124,7 @@ test('Help starts at card 1 with no Hello; the nine cards in their places, Back 
   expect(await opened()).toBe(0);
   // KAN-586. Replace, explained under the row's Replace, which is look-only.
   await expect(card(page)).toContainText(
-    'Replace overwrites this saved session with what you have open now. Nothing closes.'
+    'Replace keeps this saved session up to date by overwriting it with what you have open now. Nothing closes.'
   );
   await expect.poll(() => cardSide(page)).toBe('below');
   const replace = page.locator(

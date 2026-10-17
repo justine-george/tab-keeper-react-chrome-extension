@@ -356,7 +356,7 @@
   "Your saved sessions are all here, just as you left them.": "Все ваши сохранённые сессии здесь — в том виде, в каком вы их оставили.",
   "Here are your saved sessions. The selected one shows its windows and tabs on the right.": "Это ваши сохранённые сессии. Окна и вкладки выбранной сессии показаны справа.",
   "Open brings back all of this session's windows and tabs, beside the ones you have open.": "«Открыть» возвращает все окна и вкладки этой сессии рядом с теми, что у вас уже открыты.",
-  "Replace overwrites this saved session with what you have open now. Nothing closes.": "«Заменить» перезаписывает эту сохранённую сессию тем, что у вас открыто сейчас. Ничего не закрывается.",
+  "Replace keeps this saved session up to date by overwriting it with what you have open now. Nothing closes.": "«Заменить» поддерживает эту сохранённую сессию в актуальном состоянии, перезаписывая её тем, что у вас открыто сейчас. Ничего не закрывается.",
   "Copy all links, export, or delete this session from this menu. Deleting doesn't close your open windows.": "В этом меню можно скопировать все ссылки, экспортировать или удалить эту сессию. Удаление не закрывает открытые окна.",
   "Each window can be opened on its own. Click a window's title to rename it.": "Каждое окно можно открыть отдельно. Чтобы переименовать окно, щёлкните его заголовок.",
   "Keep Tab Keeper open in a pinned tab.": "Держите Tab Keeper открытым в закреплённой вкладке.",

@@ -347,7 +347,7 @@
   "Your saved sessions are all here, just as you left them.": "Aquí están todas tus sesiones guardadas, tal como las dejaste.",
   "Here are your saved sessions. The selected one shows its windows and tabs on the right.": "Aquí están tus sesiones guardadas. La seleccionada muestra sus ventanas y pestañas a la derecha.",
   "Open brings back all of this session's windows and tabs, beside the ones you have open.": "Abrir recupera todas las ventanas y pestañas de esta sesión, junto a las que ya tienes abiertas.",
-  "Replace overwrites this saved session with what you have open now. Nothing closes.": "Sustituir sobrescribe esta sesión guardada con lo que tienes abierto ahora. No se cierra nada.",
+  "Replace keeps this saved session up to date by overwriting it with what you have open now. Nothing closes.": "Sustituir mantiene al día esta sesión guardada sobrescribiéndola con lo que tienes abierto ahora. No se cierra nada.",
   "Copy all links, export, or delete this session from this menu. Deleting doesn't close your open windows.": "Desde este menú puedes copiar todos los enlaces, exportar o eliminar esta sesión. Eliminarla no cierra tus ventanas abiertas.",
   "Each window can be opened on its own. Click a window's title to rename it.": "Cada ventana se puede abrir por separado. Haz clic en el título de una ventana para cambiarle el nombre.",
   "Keep Tab Keeper open in a pinned tab.": "Mantén Tab Keeper abierto en una pestaña fijada.",
