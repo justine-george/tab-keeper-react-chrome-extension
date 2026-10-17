@@ -187,24 +187,29 @@ export default function TabGroupEntryContainer() {
   }, [selectedIndex, selectedTabGroupId]);
 
   // KAN-657 (F1). After a session is deleted by key on its row, focus goes to
-  // the row now in its place, or the new last: the selection's own rule
-  // (removeSession), so the key deletes back to back. The row's index is
-  // recorded at the press, in render order; the delete is synchronous, so the
-  // next list is the one without it.
-  const focusAfterDeleteAt = useRef<number | null>(null);
+  // the row now in its place on screen, or the new last, so the key deletes
+  // back to back. If that row was the one shown, the shown session follows:
+  // the store picks the next STORED session, which under a search can be no
+  // match, and the search would then show its first match while focus sat on
+  // a row scrolled away. Recorded at the press, in render order; the delete is
+  // synchronous, so the next list is the one without it.
+  const deletedByKey = useRef<{ at: number; wasShown: boolean } | null>(null);
   useEffect(() => {
-    const at = focusAfterDeleteAt.current;
-    if (at === null) return;
-    focusAfterDeleteAt.current = null;
-    const next = sessionIds[Math.min(at, sessionIds.length - 1)];
+    const deleted = deletedByKey.current;
+    if (deleted === null) return;
+    deletedByKey.current = null;
+    const next = sessionIds[Math.min(deleted.at, sessionIds.length - 1)];
     if (next === undefined) return;
+    if (deleted.wasShown && next !== selectedTabGroupId) {
+      dispatch(selectTabContainer(next));
+    }
     // The row's own button: the one element there that takes the Delete key.
     listRef.current
       ?.querySelector<HTMLElement>(
         `[data-drag-row-id="${CSS.escape(next)}"] [aria-keyshortcuts]`
       )
       ?.focus();
-  }, [sessionIds]);
+  }, [sessionIds, selectedTabGroupId, dispatch]);
 
   // KAN-350. The list takes a carry: the row under the pointer is the target
   // (D2 A); resting on it opens that session (S1 A); letting go on it moves
@@ -533,7 +538,11 @@ export default function TabGroupEntryContainer() {
                         )
                       }
                       onDeleteKey={() => {
-                        focusAfterDeleteAt.current = index;
+                        deletedByKey.current = {
+                          at: index,
+                          wasShown:
+                            tabGroupData.tabGroupId === selectedTabGroupId,
+                        };
                         void dispatch(
                           deleteTabContainer(tabGroupData.tabGroupId)
                         );
