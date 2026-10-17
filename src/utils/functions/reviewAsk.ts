@@ -133,7 +133,8 @@ export function reviewCardCopy(moment: ReviewMoment): {
     case 'firstSave':
       return {
         titleKey: 'Your first session is saved',
-        bodyKey: 'ReviewCardBody',
+        // KAN-659. A minute in, liking it, not whether it's useful.
+        bodyKey: 'ReviewCardBodyFirstSave',
       };
     case 'bigSave':
       return { titleKey: 'Your tabs are saved', bodyKey: 'ReviewCardBody' };

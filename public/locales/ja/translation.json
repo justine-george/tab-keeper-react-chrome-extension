@@ -116,6 +116,7 @@
   "Your tabs are back": "タブが戻りました",
   "ReviewCardBodyTime": "お役に立てていたら、Chrome Web Store で評価していただけると、ほかの方が見つけやすくなります。",
   "ReviewCardBody": "Tab Keeper がお役に立てていたら、Chrome Web Store で評価していただけると、ほかの方が見つけやすくなります。",
+  "ReviewCardBodyFirstSave": "ここまでで Tab Keeper を気に入っていただけたら、Chrome Web Store で評価していただけると、ほかの方が見つけやすくなります。",
   "Rate Tab Keeper": "Tab Keeper を評価する",
   "Never ask again": "今後表示しない",
   "Restored on this device, but syncing failed.": "このデバイスに復元しましたが、同期に失敗しました。",
