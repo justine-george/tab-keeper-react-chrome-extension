@@ -165,6 +165,9 @@ function OpenReviewCard({
     margin: 0 0 ${size.gap}px 0;
     padding-right: ${CLOSE_BOX};
     font-size: ${size.title};
+    /* The popup's one weight, not the heading's bold: hierarchy is size and
+       colour tier (scaleConformance.test). */
+    font-weight: inherit;
     color: ${COLORS.TEXT_COLOR};
     overflow-wrap: anywhere;
   `;

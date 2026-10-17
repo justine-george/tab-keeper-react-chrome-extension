@@ -239,6 +239,15 @@ describe('size', () => {
   });
 });
 
+// The popup keeps one font weight: hierarchy is size and colour tier
+// (scaleConformance.test). An <h2> is bold by default, so the title says so.
+test('the title takes the card’s weight, not the heading’s bold', async () => {
+  await renderCard();
+  expect(getComputedStyle(screen.getByRole('heading')).fontWeight).toBe(
+    getComputedStyle(card()).fontWeight
+  );
+});
+
 // Review Focus 2. A press already on its way to the row under the card's
 // corner must land on the row, not on a card that appeared under it.
 describe('the rise', () => {
