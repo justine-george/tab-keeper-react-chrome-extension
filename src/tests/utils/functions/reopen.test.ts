@@ -1179,6 +1179,28 @@ describe('closeOpenTab / closeOpenWindow record Chrome’s recently closed entry
     expect(windowItem?.restorableSessionId).toEqual(expect.any(String));
   });
 
+  // Chrome answers in up to 0.3s (measured), later than the close's own
+  // reads: the close must wait for the answer, or the first close records
+  // nothing.
+  test('an answer that comes after the close’s own reads still gives the first close its entry', async () => {
+    handle = setupChromeFake({
+      requestAnswerMs: 200,
+      windows: [
+        tabKeeperWindow,
+        { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
+      ],
+    });
+    const w2 = await openWindow(2);
+
+    const item = await closeOpenTab(w2, tabIn(w2, 'b'));
+
+    expect(item).toMatchObject({
+      kind: 'tab',
+      restorableSessionId: await tabEntryId(url('b')),
+    });
+    expect(item?.restorableSessionId).toEqual(expect.any(String));
+  });
+
   test('a window close asks for the grant on its own, too (KAN-663)', async () => {
     handle = setupChromeFake({
       windows: [
