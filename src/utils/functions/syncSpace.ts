@@ -41,5 +41,6 @@ export function isSyncUseShown(bytes: number): boolean {
   return wholeKilobytes(bytes) > 0;
 }
 
+// Whole megabytes; the refusal toasts write the same number with syncLimitInMB (KAN-634).
 export const formatSyncLimit = (locale: string): string =>
   unit(locale, 'megabyte', 0).format(1);

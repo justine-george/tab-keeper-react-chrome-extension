@@ -688,17 +688,26 @@ export const isValidTabMasterContainer = (
   );
 };
 
-// Exported so the sync guard in globalStateSlice phrases its refusal exactly
-// like the import guard below. Two different roundings for the same limit
-// would read as two different limits.
-// In the UI language, one decimal always: German reads "1,4 MB von maximal
-// 1,0 MB" (KAN-288). toFixed wrote a point everywhere. Intl only, no i18n or
-// document, because the service worker imports this module.
+// The size a refusal reports. Exported so the sync guard in globalStateSlice
+// writes it exactly like the import guard below.
+// In the UI language, one decimal always: German reads "1,4 MB" (KAN-288).
+// toFixed wrote a point everywhere. Intl only, no i18n or document, because
+// the service worker imports this module.
 export const bytesToMB = (bytes: number, locale: string): string =>
   new Intl.NumberFormat(locale, {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   }).format(bytes / 1048576);
+
+// The limit a refusal reports, in whole megabytes, the number only: each
+// refusal key writes its unit after it. Not bytesToMB: two roundings of the
+// same limit read as two limits. Whole, as the Sync Status bar's
+// formatSyncLimit writes it, so the toast and the bar under it name one limit
+// (KAN-634): German reads "1,4 MB von maximal 1 MB".
+export const syncLimitInMB = (locale: string): string =>
+  new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(
+    FIRESTORE_MAX_DOCUMENT_BYTES / 1048576
+  );
 
 // The i18n keys for the three ways an import can be refused, and for the sync
 // guard's matching refusal (KAN-86, KAN-618).
@@ -777,7 +786,7 @@ export function readImportedContainer(
   if (bytes > FIRESTORE_MAX_DOCUMENT_BYTES) {
     throw new TranslatableError(IMPORT_SIZE_REFUSAL, {
       used: bytesToMB(bytes, locale),
-      limit: bytesToMB(FIRESTORE_MAX_DOCUMENT_BYTES, locale),
+      limit: syncLimitInMB(locale),
     });
   }
 

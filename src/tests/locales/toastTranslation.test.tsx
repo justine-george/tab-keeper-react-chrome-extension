@@ -95,18 +95,17 @@ describe('error toasts are translated (KAN-86)', () => {
       await store.dispatch(
         showToast({
           toastText: SYNC_SIZE_REFUSAL,
-          toastParams: { used: '1.4', limit: '1.0' },
+          toastParams: { used: '1,4', limit: '1' },
         })
       );
     });
 
     expect(container.textContent).toBe(
-      interpolate(de.SyncSizeRefusal, { used: '1.4', limit: '1.0' })
+      interpolate(de.SyncSizeRefusal, { used: '1,4', limit: '1' })
     );
     // The numbers are the entire point of the message: a key that translated
     // but dropped its params would still read as a fluent German sentence.
-    expect(container.textContent).toContain('1.4');
-    expect(container.textContent).toContain('1.0');
+    expect(container.textContent).toContain('1,4 MB von maximal 1 MB');
     expect(container.textContent).not.toContain('{{');
     expect(container.textContent).not.toContain('too large to sync');
   });

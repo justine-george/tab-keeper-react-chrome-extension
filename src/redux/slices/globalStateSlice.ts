@@ -43,6 +43,7 @@ import {
   isValidTabMasterContainer,
   saveToLocalStorage,
   SYNC_SIZE_REFUSAL,
+  syncLimitInMB,
   TranslatableError,
 } from '../../utils/functions/local';
 import { readLocalSessions } from '../../utils/functions/localSessions';
@@ -346,10 +347,7 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
           // interpolates them.
           const params = {
             used: bytesToMB(bytes, state.settingsDataState.language),
-            limit: bytesToMB(
-              FIRESTORE_MAX_DOCUMENT_BYTES,
-              state.settingsDataState.language
-            ),
+            limit: syncLimitInMB(state.settingsDataState.language),
           };
           thunkAPI.dispatch(
             showToast({
