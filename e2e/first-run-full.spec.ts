@@ -146,7 +146,8 @@ test('Help starts at card 1 with no Hello; the nine cards in their places, Back 
   await expect(page.getByRole('menu')).toHaveCount(0);
   expect(await storedTitles(page)).toEqual(['Sample: Weekend trip']);
   await nextTo(page, 8);
-  await expect.poll(() => cardSide(page)).toBe('left');
+  // KAN-654: the 360px card no longer fits left of the windows; it sits under them (Justine, 2026-10-16).
+  await expect.poll(() => cardSide(page)).toBe('below');
   await nextTo(page, 9);
   await expect.poll(() => cardSide(page)).toBe('free');
   await expect(page.locator('[data-coach-ring]')).toHaveCount(0);
@@ -393,28 +394,27 @@ test('while the card glides from step 7 to step 8 it takes no pointer, and takes
         );
       });
     }, targets);
-  const covered = new Set<string>();
+  // Each lit control the card passes over, and when it first does.
+  const covered = new Map<string, number>();
   for (const ms of [0, 40, 80, 120, 160]) {
     await expect.poll(() => hold(ms)).toBe(1);
     for (const label of await coveredNow()) {
-      covered.add(label);
+      if (!covered.has(label)) covered.set(label, ms);
       const [x, y] = await centreOf(detail.getByLabel(label, { exact: true }));
       expect(await landsOn(page, x, y, label)).toBe(true);
     }
   }
-  // CONTROL: the card does pass over a title and a fold arrow, so those hits are tests.
-  expect([...covered].some((label) => label.startsWith('Rename'))).toBe(true);
-  expect([...covered].some((label) => label.startsWith('Collapse'))).toBe(true);
-  await hold(100);
-  const fold = detail.getByRole('button', {
-    name: 'Collapse: Things to do',
-    exact: true,
-  });
-  const [fx, fy] = await centreOf(fold);
-  await page.mouse.click(fx, fy);
+  // CONTROL: the card does pass over a window title, so those hits are tests.
+  // KAN-654: the 360px full-view card's path covers the titles, not the fold arrows beside them.
+  const title = [...covered.keys()].find((label) => label.startsWith('Rename'));
+  expect(title).toBeDefined();
+  // A press on that title while the card is over it reaches the title: its rename field opens.
+  await hold(covered.get(title!)!);
+  const [tx, ty] = await centreOf(detail.getByLabel(title!, { exact: true }));
+  await page.mouse.click(tx, ty);
   await expect(
-    detail.getByRole('button', { name: 'Expand: Things to do', exact: true })
-  ).toHaveAttribute('aria-expanded', 'false');
+    detail.getByPlaceholder('Name this window', { exact: true })
+  ).toBeVisible();
   // Landed: the glide runs out at normal speed, and the card takes the pointer again.
   await cdp.send('Animation.setPlaybackRate', { playbackRate: 1 });
   await page.evaluate(() =>
