@@ -163,24 +163,31 @@ test('the only session: after it goes, no row is left to take focus', async ({
   ).toBe(true);
 });
 
-test('under a search, focus goes to the next match', async ({
+test('under a search, focus goes to the next match on screen, not the next stored session', async ({
   context,
   extensionId,
 }) => {
-  const page = await openPopup(context, extensionId);
-  // "ha" matches Alpha and Charlie only: no default tab, window or URL holds it.
+  const sessions = [
+    ...SESSIONS,
+    ...['Shasta', 'Thatcher'].map((t) =>
+      buildSession({ tabGroupId: `s-${t.toLowerCase()}`, title: t })
+    ),
+  ];
+  const page = await openPopup(context, extensionId, sessions);
+  // "ha" matches Alpha, Charlie, Shasta and Thatcher: no default tab, window or URL holds it.
   await page
     .getByRole('textbox', { name: 'Search saved tabs', exact: true })
     .fill('ha');
   await expect(row(page, 'Bravo')).toHaveCount(0);
-  await row(page, 'Alpha').click();
+  await row(page, 'Charlie').click();
 
   await page.keyboard.press('Backspace');
 
+  // Charlie was 2nd on screen and 3rd stored: the 2nd on screen is now Shasta, the 3rd stored Thatcher.
   await expect
     .poll(() => ids(page))
-    .toEqual(['s-bravo', 's-charlie', 's-delta']);
-  await expect(row(page, 'Charlie')).toBeFocused();
+    .toEqual(['s-alpha', 's-bravo', 's-delta', 's-shasta', 's-thatcher']);
+  await expect(row(page, 'Shasta')).toBeFocused();
 });
 
 test('with no row focused, the key deletes nothing: never page-wide', async ({

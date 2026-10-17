@@ -188,14 +188,15 @@ export default function TabGroupEntryContainer() {
 
   // KAN-657 (F1). After a session is deleted by key on its row, focus goes to
   // the row now in its place, or the new last: the selection's own rule
-  // (removeSession), so the key deletes back to back. Recorded at the press, in
-  // render order; acted on only once that session has left the list.
-  const focusAfterDelete = useRef<{ id: string; at: number } | null>(null);
+  // (removeSession), so the key deletes back to back. The row's index is
+  // recorded at the press, in render order; the delete is synchronous, so the
+  // next list is the one without it.
+  const focusAfterDeleteAt = useRef<number | null>(null);
   useEffect(() => {
-    const pending = focusAfterDelete.current;
-    if (pending === null || sessionIds.includes(pending.id)) return;
-    focusAfterDelete.current = null;
-    const next = sessionIds[Math.min(pending.at, sessionIds.length - 1)];
+    const at = focusAfterDeleteAt.current;
+    if (at === null) return;
+    focusAfterDeleteAt.current = null;
+    const next = sessionIds[Math.min(at, sessionIds.length - 1)];
     if (next === undefined) return;
     // The row's own button: the one element there that takes the Delete key.
     listRef.current
@@ -532,10 +533,7 @@ export default function TabGroupEntryContainer() {
                         )
                       }
                       onDeleteKey={() => {
-                        focusAfterDelete.current = {
-                          id: tabGroupData.tabGroupId,
-                          at: index,
-                        };
+                        focusAfterDeleteAt.current = index;
                         void dispatch(
                           deleteTabContainer(tabGroupData.tabGroupId)
                         );
