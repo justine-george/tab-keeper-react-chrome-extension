@@ -50,6 +50,7 @@ import {
   pairCss,
   tallButtonCss,
 } from './dialogButtons';
+import { dialogTier } from './dialogTier';
 
 const TITLE_ID = 'setup-title';
 type Step =
@@ -140,6 +141,7 @@ export const SetupModal: React.FC = () => {
   const pickLanguage = (next: Language) => dispatch(chooseLanguage(next, i18n));
 
   const buttons = dialogButtonStyles(COLORS);
+  const tier = dialogTier();
   const pressed = slidingPairColors(COLORS);
 
   const dialogStyle = css`
@@ -148,7 +150,7 @@ export const SetupModal: React.FC = () => {
     left: 50%;
     transform: translate(-50%, -50%);
     margin: 0;
-    padding: 20px;
+    padding: ${tier.pad}px;
     width: min(calc(100% - 32px), 600px);
     max-width: none;
     max-height: calc(100% - 32px);
@@ -180,7 +182,7 @@ export const SetupModal: React.FC = () => {
     align-items: center;
     gap: 10px;
     margin: 0;
-    font-size: ${TYPE.SECTION};
+    font-size: ${tier.title};
     /* KAN-654: the popup's one weight, not the heading's bold. */
     font-weight: inherit;
     color: ${COLORS.TEXT_COLOR};

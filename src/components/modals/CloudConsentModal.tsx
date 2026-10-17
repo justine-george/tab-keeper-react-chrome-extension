@@ -27,6 +27,7 @@ import {
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles, pairCss, tallButtonCss } from './dialogButtons';
+import { dialogTier } from './dialogTier';
 import {
   canAnimate,
   playGetStarted,
@@ -174,6 +175,7 @@ export const CloudConsentModal: React.FC = () => {
         : close;
 
   const buttons = dialogButtonStyles(COLORS);
+  const tier = dialogTier();
 
   const dialogStyle = css`
     position: fixed;
@@ -181,7 +183,7 @@ export const CloudConsentModal: React.FC = () => {
     left: 50%;
     transform: translate(-50%, -50%);
     margin: 0;
-    padding: 20px;
+    padding: ${tier.pad}px;
     width: ${DIALOG.WIDTH};
     max-width: none;
     max-height: none;
@@ -207,7 +209,7 @@ export const CloudConsentModal: React.FC = () => {
     align-items: center;
     gap: 10px;
     margin: 0 0 12px 0;
-    font-size: ${TYPE.SECTION};
+    font-size: ${tier.title};
     /* KAN-654: the popup's one weight, not the heading's bold. */
     font-weight: inherit;
     color: ${COLORS.TEXT_COLOR};
