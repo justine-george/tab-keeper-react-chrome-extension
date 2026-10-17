@@ -23,7 +23,10 @@ import type { CaptureScope } from '../../utils/functions/capture';
 // would complete a cycle. Same reason as the RootState note in the container
 // slice.
 import type { ExportLayout } from '../../utils/functions/sessionExportHtml';
-import type { PendingReviewAsk } from '../../utils/functions/reviewAsk';
+import {
+  readPendingAsk,
+  type PendingReviewAsk,
+} from '../../utils/functions/reviewAsk';
 import { readUiLanguage } from '../../utils/functions/uiLanguage';
 import {
   Language,
@@ -331,6 +334,9 @@ export const initialState: SettingsData = {
   timeFormat: asTimeFormat(settingsDataLocal.timeFormat),
   // KAN-635. Guarded: settingsDataLocal is unvalidated.
   defaultSaveScope: asDefaultSaveScope(settingsDataLocal.defaultSaveScope),
+  // KAN-653. Guarded: an older build never wrote these.
+  pendingReviewAsk: readPendingAsk(settingsDataLocal.pendingReviewAsk),
+  isTimeAskDone: asFlag(settingsDataLocal.isTimeAskDone),
   // KAN-7. Guarded like openNowWidth: settingsDataLocal is unvalidated.
   ...guardOnboarding(settingsDataLocal, ONBOARDING_DEFAULTS),
 };
@@ -438,6 +444,20 @@ export const settingsDataStateSlice = createSlice({
       state.lastValueMomentTime = Date.now();
 
       // Save updated state to localStorage
+      saveToLocalStorage('settingsData', state);
+    },
+
+    // KAN-653. Written by a moment, cleared when the card shows.
+    setPendingReviewAsk: (
+      state,
+      action: PayloadAction<PendingReviewAsk | null>
+    ) => {
+      state.pendingReviewAsk = action.payload;
+      saveToLocalStorage('settingsData', state);
+    },
+
+    markTimeAskDone: (state) => {
+      state.isTimeAskDone = true;
       saveToLocalStorage('settingsData', state);
     },
 
@@ -636,6 +656,8 @@ export const {
   setExtensionInstalledTime,
   updateLastReviewRequestTime,
   recordValueMoment,
+  setPendingReviewAsk,
+  markTimeAskDone,
   recordSyncedNow,
   setLastSyncedTime,
   forgetLastSync,

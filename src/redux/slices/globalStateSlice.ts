@@ -23,6 +23,7 @@ import { startToastTimer } from '../toastTimers';
 import { NEEDS_YOU_TOAST_MS, TOAST_MS } from '../toastDuration';
 import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
 import type { RunSaveCard } from '../../utils/functions/firstRun';
+import type { ReviewMoment } from '../../utils/functions/reviewAsk';
 import {
   mergeSessionsFromBackupInternal,
   replaceState,
@@ -122,6 +123,9 @@ export interface Global {
   // live data and stays out of the store (reopenOfferStore.ts, KAN-280 O8a).
   toasts: ToastItem[];
   isRateAndReviewModalOpen: boolean;
+  // KAN-653. The review card on screen, or null. offersNever is fixed when it
+  // opens: "Never ask again" shows only to someone who has closed one before.
+  reviewCard: { moment: ReviewMoment; offersNever: boolean } | null;
   // KAN-74. How many live tab groups the "turn on tab group support?" offer is
   // about, or null when the offer is not showing. One field rather than an
   // open flag beside a count, so an open prompt without a count is
@@ -300,6 +304,7 @@ export const initialState: Global = {
   syncStatus: 'idle',
   toasts: [],
   isRateAndReviewModalOpen: false,
+  reviewCard: null,
   tabGroupsPromptCount: null,
   focusRequest: null,
   isDeleteCloudDataModalOpen: false,
@@ -1015,6 +1020,17 @@ export const globalStateSlice = createSlice({
       state.isRateAndReviewModalOpen = false;
     },
 
+    openReviewCard: (
+      state,
+      action: PayloadAction<{ moment: ReviewMoment; offersNever: boolean }>
+    ) => {
+      state.reviewCard = action.payload;
+    },
+
+    closeReviewCard: (state) => {
+      state.reviewCard = null;
+    },
+
     openTabGroupsPrompt: (state, action: PayloadAction<number>) => {
       state.tabGroupsPromptCount = action.payload;
     },
@@ -1426,6 +1442,8 @@ export const globalStateSlice = createSlice({
 export const {
   openRateAndReviewModal,
   closeRateAndReviewModal,
+  openReviewCard,
+  closeReviewCard,
   openTabGroupsPrompt,
   closeTabGroupsPrompt,
   openFocusModal,
