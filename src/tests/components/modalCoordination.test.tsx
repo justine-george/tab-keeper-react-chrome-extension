@@ -46,6 +46,7 @@ import {
   settingsDataStateSlice,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
+import { endRises } from '../setup/endRises';
 
 beforeEach(() => localStorage.clear());
 afterEach(() => {
@@ -192,6 +193,7 @@ describe('after the cloud question (KAN-7 §3)', () => {
       expect(store.getState().globalState.cloudConsentVariant).toBe('existing')
     );
 
+    endRises();
     await userEvent.click(screen.getByRole('button', { name: 'Keep sync on' }));
     await settled();
 
@@ -201,9 +203,11 @@ describe('after the cloud question (KAN-7 §3)', () => {
 
   test('CONTROL: the same check sees the run the welcome’s Show me here starts', async () => {
     const { store } = await renderWithProviders(<App />);
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Show me here' })
-    );
+    const showMeHere = await screen.findByRole('button', {
+      name: 'Show me here',
+    });
+    endRises();
+    await userEvent.click(showMeHere);
     await settled();
 
     expect(store.getState().settingsDataState.firstRun).toEqual(

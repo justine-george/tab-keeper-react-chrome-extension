@@ -28,6 +28,8 @@ import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
 import { dialogButtonStyles, pairCss, tallButtonCss } from './dialogButtons';
 import { dialogTier } from './dialogTier';
+import { dialogRiseCss } from './dialogRise';
+import { useHasRisen } from '../../hooks/useHasRisen';
 import {
   canAnimate,
   playGetStarted,
@@ -102,6 +104,9 @@ export const CloudConsentModal: React.FC = () => {
     if (hero) play(hero);
     return cancel;
   }, [isOpen, play, cancel]);
+
+  // Above the open guard, as every hook here is.
+  const hasRisen = useHasRisen(dialogRef, isOpen);
 
   if (!isOpen) return null;
 
@@ -279,7 +284,7 @@ export const CloudConsentModal: React.FC = () => {
       ref={dialogRef}
       // Focusable only by script, never by Tab; see the effect above.
       tabIndex={-1}
-      css={dialogStyle}
+      css={[dialogStyle, dialogRiseCss(hasRisen)]}
       aria-labelledby={TITLE_ID}
       aria-describedby={BODY_ID}
       onCancel={(e) => {

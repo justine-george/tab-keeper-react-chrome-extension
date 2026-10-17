@@ -25,6 +25,7 @@ import {
   declineCloudConsent,
   grantCloudConsent,
 } from '../../redux/slices/settingsDataStateSlice';
+import { endRises } from '../setup/endRises';
 
 // KAN-289. When the anonymous sign-in fails, ensureCloudSessionReady now
 // rejects instead of never settling. Both manual starters must turn that into
@@ -77,6 +78,7 @@ describe('a failed sign-in shows as a failed sync (KAN-289)', () => {
     const dialog = screen.getByRole('dialog');
     seen.length = 0;
 
+    endRises();
     await user.click(within(dialog).getByRole('button', { name: 'Sync' }));
     await act(async () => {});
 

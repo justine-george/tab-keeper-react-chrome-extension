@@ -8,12 +8,7 @@ import {
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
-import {
-  FULL,
-  FULL_VIEW_PATH,
-  POPUP,
-  openPage,
-} from './fixtures/onboarding';
+import { FULL, FULL_VIEW_PATH, POPUP, openPage } from './fixtures/onboarding';
 import {
   FULL_AT_HELLO,
   card,
@@ -185,9 +180,10 @@ test.describe('setup and the cloud question take the one weight', () => {
   }) => {
     const page = await openSetupStep2(context, extensionId);
     for (const level of [2, 3]) {
-      await expect(
-        setup(page).getByRole('heading', { level })
-      ).toHaveCSS('font-weight', '400');
+      await expect(setup(page).getByRole('heading', { level })).toHaveCSS(
+        'font-weight',
+        '400'
+      );
     }
   });
 
@@ -424,10 +420,12 @@ test.describe('arrival', () => {
     await watchArrival(context, 'dialog[aria-labelledby="setup-title"][open]');
     await seedSettings(context, { setupState: 'pending' });
     await openPage(context, extensionId, FULL_VIEW_PATH, FULL).then((page) =>
-      expect.poll(() => arrivalHits(page)).toEqual({
-        arriving: false,
-        landed: true,
-      })
+      expect
+        .poll(() => arrivalHits(page))
+        .toEqual({
+          arriving: false,
+          landed: true,
+        })
     );
   });
 

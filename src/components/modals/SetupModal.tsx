@@ -51,6 +51,8 @@ import {
   tallButtonCss,
 } from './dialogButtons';
 import { dialogTier } from './dialogTier';
+import { dialogRiseCss } from './dialogRise';
+import { useHasRisen } from '../../hooks/useHasRisen';
 
 const TITLE_ID = 'setup-title';
 type Step =
@@ -142,6 +144,7 @@ export const SetupModal: React.FC = () => {
 
   const buttons = dialogButtonStyles(COLORS);
   const tier = dialogTier();
+  const hasRisen = useHasRisen(dialogRef);
   const pressed = slidingPairColors(COLORS);
 
   const dialogStyle = css`
@@ -580,7 +583,7 @@ export const SetupModal: React.FC = () => {
       ref={dialogRef}
       // Focusable only by script, never by Tab; see the effect above.
       tabIndex={-1}
-      css={dialogStyle}
+      css={[dialogStyle, dialogRiseCss(hasRisen)]}
       aria-labelledby={TITLE_ID}
       // Justine 2026-10-04: a prompt the user dismissed must not come back.
       onCancel={(e) => {
