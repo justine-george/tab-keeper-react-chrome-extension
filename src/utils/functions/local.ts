@@ -317,13 +317,29 @@ export const saveToLocalStorage = (key: string, data: any): void => {
     localStorage.setItem(key, JSON.stringify(data));
     behindPage.delete(key);
   } catch (error) {
-    behindPage.add(key);
-    console.error('Failed to save to localStorage: ', error);
-    if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-      storageFullNoted = true;
-    }
+    noteRefusedSave(key, error);
   }
 };
+
+// KAN-666. The same save, of a value already serialised; true when it landed.
+export const saveJsonToLocalStorage = (key: string, json: string): boolean => {
+  try {
+    localStorage.setItem(key, json);
+    behindPage.delete(key);
+    return true;
+  } catch (error) {
+    noteRefusedSave(key, error);
+    return false;
+  }
+};
+
+function noteRefusedSave(key: string, error: unknown): void {
+  behindPage.add(key);
+  console.error('Failed to save to localStorage: ', error);
+  if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+    storageFullNoted = true;
+  }
+}
 
 // load data from local storage
 //

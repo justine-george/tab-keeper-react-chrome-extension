@@ -650,6 +650,51 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
     expect(cloudRequests, 'a page reached the cloud').toEqual([]);
   });
 
+  // KAN-666. Chrome sometimes never fires the storage event (3 in 4,000 runs
+  // of the test above). Swallowed here, so it misses every time.
+  test("a save in the tab view keeps the popup's save it never heard", async ({
+    context,
+    extensionId,
+  }) => {
+    // Added before the app's own listener, so it runs first: listeners on
+    // window run in the order they were added, capturing or not.
+    await context.addInitScript(() => {
+      if (!location.search.includes('view=tab')) return;
+      const swallowed: string[] = [];
+      window.addEventListener('storage', (e) => {
+        if (e.key !== 'tabContainerData') return;
+        e.stopImmediatePropagation();
+        swallowed.push(e.newValue ?? '');
+        document.documentElement.dataset.swallowed = JSON.stringify(swallowed);
+      });
+    });
+    const { popup, tab, cloudRequests } = await openBoth(context, extensionId);
+
+    await saveAs(popup, 'Saved in the popup');
+    // PREMISE: the tab view's storage holds it, and its event was swallowed.
+    await expect
+      .poll(() =>
+        tab.evaluate(() => ({
+          stored: (localStorage.getItem('tabContainerData') ?? '').includes(
+            'Saved in the popup'
+          ),
+          swallowed: (
+            document.documentElement.dataset.swallowed ?? ''
+          ).includes('Saved in the popup'),
+        }))
+      )
+      .toEqual({ stored: true, swallowed: true });
+    await expect(row(tab, 'Saved in the popup')).toHaveCount(0);
+
+    await saveAs(tab, 'Saved in the tab view');
+
+    for (const page of [popup, tab]) {
+      await expect(row(page, 'Saved in the popup')).toBeVisible();
+      await expect(row(page, 'Saved in the tab view')).toBeVisible();
+    }
+    expect(cloudRequests, 'a page reached the cloud').toEqual([]);
+  });
+
   test('a save in the popup while a row is held in the tab view lands after the drop, and the row sits by its aimed neighbour', async ({
     context,
     extensionId,

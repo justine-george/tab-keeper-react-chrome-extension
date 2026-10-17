@@ -3,6 +3,7 @@ import {
   isStoredBehindPage,
   isValidTabMasterContainer,
   loadFromLocalStorage,
+  saveJsonToLocalStorage,
 } from './local';
 import { mergeTabContainers } from './mergeTabData';
 
@@ -28,4 +29,58 @@ export function readLocalSessions(page: TabMasterContainer): unknown {
     Date.now()
   );
   return changedFromLocal ? merged : page;
+}
+
+// KAN-666. This page's sessions exactly as it last stored them, or null when
+// storage may hold more than the page does. Storage holding anything else
+// means another page wrote since -- and Chrome does not always fire the
+// storage event that would have told this page (measured: 3 in 4,000 runs).
+let pageAsStored: string | null = null;
+let otherPageWriteMerged = false;
+
+// Whether a save since the last call merged in another page's write; clears the note.
+export const takeOtherPageWriteMerged = (): boolean => {
+  const noted = otherPageWriteMerged;
+  otherPageWriteMerged = false;
+  return noted;
+};
+
+/**
+ * KAN-666. Every save of this page's sessions. A write another page made since
+ * this page's last one is merged in, the page first as in readLocalSessions,
+ * rather than written over; the note has the middleware take it in on screen.
+ * Unreadable storage is written over, as before.
+ */
+export function saveLocalSessions(page: TabMasterContainer): void {
+  const toStore = withOtherPageWrite(page);
+  const json = JSON.stringify(toStore);
+  if (!saveJsonToLocalStorage('tabContainerData', json)) return;
+  // A merged write holds what the page has not taken in yet: until it has,
+  // every save merges again.
+  pageAsStored = toStore === page ? json : null;
+}
+
+function withOtherPageWrite(page: TabMasterContainer): TabMasterContainer {
+  let stored: string | null;
+  try {
+    stored = localStorage.getItem('tabContainerData');
+  } catch {
+    return page;
+  }
+  if (stored === null || stored === pageAsStored) return page;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stored);
+  } catch {
+    return page;
+  }
+  if (!isValidTabMasterContainer(parsed)) return page;
+  const { merged, changedFromLocal } = mergeTabContainers(
+    page,
+    parsed,
+    Date.now()
+  );
+  if (!changedFromLocal) return page;
+  otherPageWriteMerged = true;
+  return merged;
 }

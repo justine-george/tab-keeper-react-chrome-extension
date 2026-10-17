@@ -42,12 +42,14 @@ import {
   estimateFirestoreBytes,
   FIRESTORE_MAX_DOCUMENT_BYTES,
   isValidTabMasterContainer,
-  saveToLocalStorage,
   SYNC_SIZE_REFUSAL,
   syncLimitInMB,
   TranslatableError,
 } from '../../utils/functions/local';
-import { readLocalSessions } from '../../utils/functions/localSessions';
+import {
+  readLocalSessions,
+  saveLocalSessions,
+} from '../../utils/functions/localSessions';
 import { mergeTabContainers } from '../../utils/functions/mergeTabData';
 import {
   withASelection,
@@ -366,8 +368,7 @@ export const saveToFirestoreIfDirty = createAsyncThunk(
         // state, not `state` from before the await (KAN-291): an edit made
         // while the write was in flight has already persisted itself, and
         // writing the old copy put it back over that edit.
-        saveToLocalStorage(
-          'tabContainerData',
+        saveLocalSessions(
           (thunkAPI.getState() as RootState).tabContainerDataState
         );
         thunkAPI.dispatch(setIsNotDirty());
