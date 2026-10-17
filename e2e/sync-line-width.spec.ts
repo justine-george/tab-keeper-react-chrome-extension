@@ -49,7 +49,7 @@ test('in a wide full view the sync sentence stops at the help lines’ reading w
   // Premise: the help line has a cap in px, not 'none' or a percentage.
   expect(readingWidth).toMatch(/^\d+(\.\d+)?px$/);
 
-  await page.locator('button[aria-label="Sync & Backup"]').click();
+  await page.locator('button[aria-label="Sync & backup"]').click();
   const status = page.getByTestId('sync-status');
   await expect(status).toHaveAttribute('data-sync-state', 'off');
   const line = status.locator('[data-sync-line]');
