@@ -134,9 +134,10 @@ jobs:
       fail-fast: false
       matrix:
         # Shards hold equal measured time, not equal test counts (KAN-444).
-        # 15 hold ~3 min of tests each (KAN-465); with checks, unit and the gate
-        # that is 19 jobs, under a public repo's 20 concurrent, so one PR never
-        # queues (two at once do). The `--shard` total follows this length.
+        # 15 hold ~3 min of tests each (KAN-465); with checks and unit, 18 jobs
+        # run at once (`changes` ends before them, the gate starts after), under
+        # a public repo's 20 concurrent, so one PR never queues (two at once
+        # do). The `--shard` total follows this length.
         shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
     steps:
