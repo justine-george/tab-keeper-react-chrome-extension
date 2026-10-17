@@ -16,6 +16,8 @@ import { useFullViewShowRequests } from './hooks/useFullViewShowRequests';
 import { useTabCloudReads } from './hooks/useTabCloudReads';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { useUninstallSurveyLanguage } from './hooks/useUninstallSurveyLanguage';
+import { useReviewAskRelease } from './hooks/useReviewAskRelease';
+import { askAtOpen } from './redux/reviewAsk';
 import { isTabView } from './utils/functions/viewMode';
 import { firstOpenDialogs } from './redux/firstOpenDialogs';
 import { offerTabGroupsOnReturn } from './redux/tabGroupsOfferOnReturn';
@@ -75,6 +77,8 @@ function App() {
   useDocumentTitle();
   // KAN-642. The worker's copy of the language, for the uninstall survey.
   useUninstallSurveyLanguage();
+  // KAN-653. The review card, once nothing covers the page.
+  useReviewAskRelease();
 
   const COLORS = useThemeColors();
 
@@ -121,7 +125,7 @@ function App() {
     });
     // KAN-7 §6. The full view mounting is what "opened the full view" means.
     if (isTabView()) dispatch(markFullViewOpened());
-    // KAN-149. Stamped on every open that lacks one; the rate prompt needs it.
+    // KAN-149. Stamped on every open that lacks one; the time ask needs it.
     if (!isValidDate(storedAtOpen.extensionInstalledTime ?? '')) {
       dispatch(setExtensionInstalledTime());
     }
@@ -138,6 +142,8 @@ function App() {
       () => reduxStore.getState().globalState.hasRunShownHere
     ).then((opened) => {
       document.documentElement.dataset.firstOpen = opened ?? 'none';
+      // KAN-653. After the dialogs, so a first open's setup is not raced.
+      if (!isUnmounted) dispatch(askAtOpen());
       if (!isTabView() || isUnmounted) return;
       stopOfferOnReturn = offerTabGroupsOnReturn(
         dispatch,

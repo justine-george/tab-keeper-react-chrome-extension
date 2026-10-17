@@ -12,6 +12,10 @@ import {
 } from '../utils/functions/local';
 import {
   canAskForReview,
+  isPendingAskFresh,
+  isTimeAskDue,
+  readPendingAsk,
+  type PendingReviewAsk,
   type ReviewMoment,
 } from '../utils/functions/reviewAsk';
 
@@ -32,7 +36,14 @@ const storedSettings = (): Partial<SettingsData> =>
 // page is next clear, however long that takes (isPendingAskFresh).
 const notedHere = new Set<number>();
 
-export const wasNotedHere = (at: number): boolean => notedHere.has(at);
+// The stored pending ask, when it may still be shown here.
+export const freshPendingAsk = (now: number): PendingReviewAsk | null => {
+  const pending = readPendingAsk(storedSettings().pendingReviewAsk);
+  if (pending === null) return null;
+  return isPendingAskFresh(pending, now, notedHere.has(pending.at))
+    ? pending
+    : null;
+};
 
 export const noteReviewMoment =
   (moment: ReviewMoment): Thunk<void> =>
@@ -62,3 +73,14 @@ export const showReviewCard =
       })
     );
   };
+
+// Once per open, after its dialogs: the day-after-install ask, unless a fresh
+// one is waiting. A popup restore's "Your tabs are back" is the one this open
+// exists to show; the thanks for a day's use waits for the gap.
+export const askAtOpen = (): Thunk<void> => (dispatch) => {
+  const now = Date.now();
+  if (freshPendingAsk(now) !== null) return;
+  if (isTimeAskDue(storedSettings(), now)) {
+    dispatch(noteReviewMoment({ kind: 'time' }));
+  }
+};

@@ -53,6 +53,7 @@ import {
 beforeEach(() => localStorage.clear());
 afterEach(() => {
   tabGroupsOffer.throws = false;
+  vi.restoreAllMocks();
   localStorage.clear();
   delete document.documentElement.dataset.firstOpen;
   delete document.documentElement.dataset.firstOpenCard;
@@ -96,6 +97,29 @@ describe('modal coordination on popup open', () => {
     await waitFor(() =>
       expect(document.documentElement.dataset.firstOpen).toBe('tabGroups')
     );
+  });
+
+  // KAN-653. The open's own ask, made once its dialogs have settled, and
+  // shown by the release once nothing covers the page.
+  test('a day after install, the open asks with the time card', async () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({
+        extensionInstalledTime: Date.now() - 2 * DAY,
+        cloudConsent: 'granted',
+        ...RUN_FINISHED_SETTINGS,
+      })
+    );
+
+    const { store } = await renderWithProviders(<App />);
+
+    await waitFor(() =>
+      expect(store.getState().globalState.reviewCard?.moment).toEqual({
+        kind: 'time',
+      })
+    );
+    expect(store.getState().settingsDataState.isTimeAskDone).toBe(true);
   });
 
   // A brand-new user gets the cloud question (KAN-259), and the tab-groups
