@@ -5,21 +5,22 @@ import Icon from '../common/Icon';
 import { focusRingCss } from '../common/focusRing';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { DURATION, ICON, RADIUS } from '../../styles/scale';
+import { WELCOME_LOOP, heroPx } from './welcomeMotion';
 
-// Geometry from the approved mock, in px: the hero is a drawing, not text.
+// Geometry from the approved mock, in px, at heroPx's scale: the hero is a drawing, not text.
 const HERO = {
-  HEIGHT: 210,
-  WIN_W: 170,
-  WIN_H: 140,
-  WIN_TOP: 34,
-  WIN_INSET: 28,
-  BAR: 22,
-  CHIP_W: 44,
-  CHIP_H: 16,
-  CHIP_STEP: 50,
-  FLOPPY: 72,
+  HEIGHT: heroPx(210),
+  WIN_W: heroPx(170),
+  WIN_H: heroPx(140),
+  WIN_TOP: heroPx(34),
+  WIN_INSET: heroPx(28),
+  BAR: heroPx(22),
+  CHIP_W: heroPx(44),
+  CHIP_H: heroPx(16),
+  CHIP_STEP: WELCOME_LOOP.CHIP_STEP_PX,
+  FLOPPY: heroPx(72),
 } as const;
-const LINE_WIDTHS = [120, 96, 130, 80] as const;
+const LINE_WIDTHS = [120, 96, 130, 80].map(heroPx);
 
 // §5's wordless loop: tabs saved into the floppy and back out. Still, it shows its end frame.
 // An animated hero offers Play again once its loop rests (KAN-464).
@@ -94,32 +95,32 @@ export default function WelcomeHero({
   `;
   const chipStyle = css`
     position: absolute;
-    top: ${HERO.WIN_TOP + 5}px;
+    top: ${HERO.WIN_TOP + heroPx(5)}px;
     width: ${HERO.CHIP_W}px;
     height: ${HERO.CHIP_H}px;
     box-sizing: border-box;
     display: flex;
     align-items: center;
-    gap: 3px;
-    padding: 0 4px;
+    gap: ${heroPx(3)}px;
+    padding: 0 ${heroPx(4)}px;
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.BORDER_COLOR};
   `;
   const chipDotStyle = css`
     flex: none;
-    width: 7px;
-    height: 7px;
+    width: ${heroPx(7)}px;
+    height: ${heroPx(7)}px;
     border-radius: ${RADIUS.CIRCLE};
     background-color: ${COLORS.LABEL_L3_COLOR};
   `;
   const chipLineStyle = css`
     flex: 1;
-    height: 2px;
+    height: ${heroPx(2)}px;
     background-color: ${COLORS.LABEL_L2_COLOR};
   `;
   const lineStyle = css`
     position: absolute;
-    height: 4px;
+    height: ${heroPx(4)}px;
     background-color: ${COLORS.LABEL_L2_COLOR};
     transform-origin: left center;
   `;
@@ -140,7 +141,7 @@ export default function WelcomeHero({
   const checkStyle = css`
     position: absolute;
     left: 50%;
-    top: calc(50% + 44px);
+    top: calc(50% + ${heroPx(44)}px);
     transform: translateX(-50%);
     opacity: 0;
   `;
@@ -149,10 +150,14 @@ export default function WelcomeHero({
     isEnd
       ? {
           right:
-            HERO.WIN_INSET + HERO.WIN_W - 6 - i * HERO.CHIP_STEP - HERO.CHIP_W,
+            HERO.WIN_INSET +
+            HERO.WIN_W -
+            heroPx(6) -
+            i * HERO.CHIP_STEP -
+            HERO.CHIP_W,
         }
-      : { left: HERO.WIN_INSET + 6 + i * HERO.CHIP_STEP };
-  const lineTop = (i: number) => HERO.WIN_TOP + 40 + i * 20;
+      : { left: HERO.WIN_INSET + heroPx(6) + i * HERO.CHIP_STEP };
+  const lineTop = (i: number) => HERO.WIN_TOP + heroPx(40) + i * heroPx(20);
 
   return (
     <div data-hero-frame={frame} css={heroStyle}>
@@ -169,7 +174,7 @@ export default function WelcomeHero({
             data-hero-part="line-left"
             css={lineStyle}
             style={{
-              left: HERO.WIN_INSET + 14,
+              left: HERO.WIN_INSET + heroPx(14),
               top: lineTop(i),
               width,
               opacity: isEnd ? 0.15 : 1,
@@ -182,7 +187,7 @@ export default function WelcomeHero({
             data-hero-part="line-right"
             css={lineStyle}
             style={{
-              right: HERO.WIN_INSET + HERO.WIN_W - 14 - width,
+              right: HERO.WIN_INSET + HERO.WIN_W - heroPx(14) - width,
               top: lineTop(i),
               width,
               opacity: isEnd ? 1 : 0,
@@ -205,21 +210,21 @@ export default function WelcomeHero({
           <span
             data-hero-part="shutter"
             css={floppyPart(
-              'left: 16px; top: 4px; width: 40px; height: 22px;',
+              `left: ${heroPx(16)}px; top: ${heroPx(4)}px; width: ${heroPx(40)}px; height: ${heroPx(22)}px;`,
               COLORS.FLOPPY_PART_COLOR
             )}
           >
             <span
               data-hero-part="slot"
               css={floppyPart(
-                'left: 22px; top: 2px; width: 12px; height: 18px;',
+                `left: ${heroPx(22)}px; top: ${heroPx(2)}px; width: ${heroPx(12)}px; height: ${heroPx(18)}px;`,
                 COLORS.LABEL_L3_COLOR
               )}
             />
           </span>
           <span
             css={floppyPart(
-              'left: 12px; right: 12px; bottom: 6px; height: 26px;',
+              `left: ${heroPx(12)}px; right: ${heroPx(12)}px; bottom: ${heroPx(6)}px; height: ${heroPx(26)}px;`,
               COLORS.FLOPPY_PART_COLOR
             )}
           />
