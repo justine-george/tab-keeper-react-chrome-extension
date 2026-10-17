@@ -146,8 +146,10 @@ test('Help starts at card 1 with no Hello; the nine cards in their places, Back 
   await expect(page.getByRole('menu')).toHaveCount(0);
   expect(await storedTitles(page)).toEqual(['Sample: Weekend trip']);
   await nextTo(page, 8);
-  // KAN-654: the 360px card no longer fits left of the windows; it sits under them (Justine, 2026-10-16).
-  await expect.poll(() => cardSide(page)).toBe('below');
+  // KAN-654: the full view's larger card (360px, 24px padding) no longer fits left of the
+  // windows; it sits under them (Justine, 2026-10-16). Read once landed: mid-move it can pass through below.
+  await landedAt(page, 8);
+  expect(await cardSide(page)).toBe('below');
   await nextTo(page, 9);
   await expect.poll(() => cardSide(page)).toBe('free');
   await expect(page.locator('[data-coach-ring]')).toHaveCount(0);
