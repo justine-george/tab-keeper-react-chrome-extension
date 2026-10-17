@@ -31,10 +31,11 @@ export function readLocalSessions(page: TabMasterContainer): unknown {
   return changedFromLocal ? merged : page;
 }
 
-// KAN-666. Exactly what this page last wrote. Storage holding anything else
+// KAN-666. This page's sessions exactly as it last stored them, or null when
+// storage may hold more than the page does. Storage holding anything else
 // means another page wrote since -- and Chrome does not always fire the
 // storage event that would have told this page (measured: 3 in 4,000 runs).
-let lastWritten: string | null = null;
+let pageAsStored: string | null = null;
 let otherPageWriteMerged = false;
 
 // Whether a save since the last call merged in another page's write; clears the note.
@@ -51,8 +52,12 @@ export const takeOtherPageWriteMerged = (): boolean => {
  * Unreadable storage is written over, as before.
  */
 export function saveLocalSessions(page: TabMasterContainer): void {
-  const json = JSON.stringify(withOtherPageWrite(page));
-  if (saveJsonToLocalStorage('tabContainerData', json)) lastWritten = json;
+  const toStore = withOtherPageWrite(page);
+  const json = JSON.stringify(toStore);
+  if (!saveJsonToLocalStorage('tabContainerData', json)) return;
+  // A merged write holds what the page has not taken in yet: until it has,
+  // every save merges again.
+  pageAsStored = toStore === page ? json : null;
 }
 
 function withOtherPageWrite(page: TabMasterContainer): TabMasterContainer {
@@ -62,7 +67,7 @@ function withOtherPageWrite(page: TabMasterContainer): TabMasterContainer {
   } catch {
     return page;
   }
-  if (stored === null || stored === lastWritten) return page;
+  if (stored === null || stored === pageAsStored) return page;
   let parsed: unknown;
   try {
     parsed = JSON.parse(stored);

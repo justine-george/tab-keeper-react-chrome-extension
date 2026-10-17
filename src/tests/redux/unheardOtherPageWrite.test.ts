@@ -161,6 +161,23 @@ describe('a write from another page this page never heard (KAN-666)', () => {
     expect(shownIds(store)).toEqual(['a', 'b', 'p']);
   });
 
+  // The page has not taken it in yet, so a second save must merge it again.
+  test('a second save before the take-in still keeps it', () => {
+    const store = pageWithAB();
+    otherPageWritesUnheard(
+      container([session('p', T0 + MIN), session('a', T0), session('b', T0)])
+    );
+    vi.setSystemTime(T0 + 2 * MIN);
+    beginDragHold();
+
+    store.dispatch(rename('b', 'b (edited here)'));
+    store.dispatch(rename('a', 'a (edited here)'));
+
+    expect(storedIds()).toEqual(['a', 'b', 'p']);
+    endDragHold();
+    expect(shownIds(store)).toEqual(['a', 'b', 'p']);
+  });
+
   test('unreadable storage is written over, as before', () => {
     const store = pageWithAB();
     localStorage.setItem('tabContainerData', '{not json');
