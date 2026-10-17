@@ -28,14 +28,16 @@ async function watchArrival(context: BrowserContext): Promise<void> {
     const times: { decided?: number; drawn?: number } = {};
     Object.defineProperty(globalThis, '__calloutTimes', { value: times });
     new MutationObserver(() => {
+      // KAN-658. One read per batch: two reads can differ by a clock tick, so a draw in the decision's batch read as later.
+      const now = performance.now();
       if (
         times.decided === undefined &&
         document.documentElement?.dataset.firstOpen !== undefined
       ) {
-        times.decided = performance.now();
+        times.decided = now;
       }
       if (times.drawn === undefined && document.querySelector(selector)) {
-        times.drawn = performance.now();
+        times.drawn = now;
       }
     }).observe(document, { subtree: true, childList: true, attributes: true });
   }, CALLOUT);
