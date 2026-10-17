@@ -2845,6 +2845,28 @@ const loggedFrames = (page: Page, n: number, of = '"dragging":') =>
     .toBeGreaterThanOrEqual(n);
 const loggedDragFrames = (page: Page, n: number) =>
   loggedFrames(page, n, '"dragging":true');
+// Until the toolbar log holds `n` frames of a drag with a row held.
+const loggedHeldDragFrames = (page: Page, n: number) =>
+  expect
+    .poll(() =>
+      page.evaluate(() => {
+        const log: unknown = JSON.parse(
+          document.body.dataset.toolbarFrames ?? '[]'
+        );
+        return Array.isArray(log)
+          ? log.filter(
+              (f: unknown) =>
+                typeof f === 'object' &&
+                f !== null &&
+                'dragging' in f &&
+                f.dragging === true &&
+                'held' in f &&
+                f.held === true
+            ).length
+          : 0;
+      })
+    )
+    .toBeGreaterThanOrEqual(n);
 
 // Until the pane log holds `n` frames with a row held: under load a settle
 // can come back in fewer frames (KAN-525).
@@ -3512,6 +3534,7 @@ test.describe('the toolbar target makes a new first window (KAN-361)', () => {
     await pickUp(page, windowHandle(page, 'w2'));
     await ontoHeaderTarget(page, aim);
     await settled(page);
+    await loggedHeldDragFrames(page, 11);
     const frames = await toolbarLog(page);
     // PREMISE: the window drag was logged, held, over the toolbar row.
     expect(frames.filter((f) => f.dragging && f.held).length).toBeGreaterThan(
@@ -3791,6 +3814,7 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     await logPane(page, ['sw0']);
     await pickUp(page, windowHandle(page, 'sw0'));
     await settled(page);
+    await loggedHeldFrames(page, 6);
     const frames = await paneLog(page);
     // PREMISE: the window drag was logged, held.
     expect(frames.filter((f) => f.held).length).toBeGreaterThan(5);
