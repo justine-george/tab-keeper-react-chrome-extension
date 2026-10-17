@@ -399,7 +399,8 @@ test.describe('the full view is a size up; the popup is as it was', () => {
 
   for (const [view, width, padding] of [
     ['popup', 290, '18px 16px 12px'],
-    ['full', 360, '24px 24px 20px'],
+    // Round 6: the full view's card is wider, not roomier; one padding in both views.
+    ['full', 360, '18px 16px 12px'],
   ] as const) {
     test(`${view}: the tour card is ${width}px wide`, async ({
       context,

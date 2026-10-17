@@ -34,7 +34,6 @@ import {
 } from './coachMarkPlacement';
 import type { AnchorBox, Spotlight } from './anchorBox';
 import { TYPE } from '../../styles/scale';
-import { isTabView } from '../../utils/functions/viewMode';
 
 // The run's step and its last; null for the note after the run, which has no progress line.
 export interface CoachProgress {
@@ -185,7 +184,7 @@ export default function CoachMark({
     width: ${width};
     max-width: calc(100vw - ${2 * COACH.GUTTER}px);
     margin: 0;
-    padding: ${isTabView() ? '24px 24px 20px' : '18px 16px 12px'};
+    padding: 18px 16px 12px;
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.BORDER_COLOR};
     color: ${COLORS.TEXT_COLOR};
