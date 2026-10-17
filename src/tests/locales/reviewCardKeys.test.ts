@@ -22,6 +22,9 @@ const EN: Record<string, string> = {
     "If it's useful to you, a rating on the Chrome Web Store helps other people find it.",
   ReviewCardBody:
     'If Tab Keeper is useful to you, a rating on the Chrome Web Store helps other people find it.',
+  // KAN-659. A minute in, nobody knows yet whether it's useful; liking it is easy to say yes to.
+  ReviewCardBodyFirstSave:
+    'If you like it so far, a rating on the Chrome Web Store helps other people find Tab Keeper.',
   'Rate Tab Keeper': 'Rate Tab Keeper',
   'Never ask again': 'Never ask again',
 };
@@ -89,7 +92,11 @@ describe.each(locales)('%s', (_name, dict) => {
   });
 
   test('the bodies ask for a rating, not a good one', () => {
-    for (const key of ['ReviewCardBody', 'ReviewCardBodyTime']) {
+    for (const key of [
+      'ReviewCardBody',
+      'ReviewCardBodyTime',
+      'ReviewCardBodyFirstSave',
+    ]) {
       for (const steer of STEERING) {
         expect(dict[key].toLowerCase(), key).not.toContain(steer.toLowerCase());
       }
