@@ -2726,11 +2726,15 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         if (asked.some((name) => seed.refusedPermissions?.includes(name))) {
           return settle(false, cb);
         }
+        const newlySessions =
+          asked.includes('sessions') && !granted.has('sessions');
         for (const name of asked) granted.add(name);
         // Task 1, Q4: a grant makes chrome.sessions usable in the SAME page
         // with no reload. Added before onAdded fires, so a listener can use
         // it (that ordering is this fake's choice; Task 1 did not measure it).
-        if (granted.has('sessions')) {
+        // Only a NEW grant adds it: asking again for one already held changes
+        // nothing (KAN-663 asks on every close).
+        if (newlySessions) {
           Object.assign(chromeFake, { sessions: sessionsApi });
         }
         permissionListeners.added.forEach((listener) => listener(permissions));

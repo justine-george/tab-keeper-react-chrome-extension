@@ -104,9 +104,13 @@ async function tabNamed(windowId: number, name: string) {
   return found;
 }
 
+// The reopenClosed tests below are about recreate. A close now asks for
+// `sessions` and gets it (KAN-663), which would send Reopen to the worker, so
+// their profiles refuse it.
 describe('reopenClosed: a closed window (KAN-280 O8)', () => {
   test('comes back exactly: bounds, state, pins, groups, active tab, real addresses, unfocused', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       grantedPermissions: ['tabGroups'],
       windows: [
         tabKeeperWindow,
@@ -194,6 +198,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
   // on, so the snapshot a close is handed can hold the window's old place.
   test('a window moved and maximized after the pane read comes back where it was when it closed', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [
         tabKeeperWindow,
         {
@@ -237,6 +242,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 
   test('when the fresh read fails, the window still closes and comes back in the snapshot place', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [
         tabKeeperWindow,
         {
@@ -275,6 +281,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 
   test('a tab Chrome refuses is skipped with a warning, and the rest come back in order', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       refusedUrls: ['file:///x'],
       windows: [
         tabKeeperWindow,
@@ -301,6 +308,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 
   test('when nothing can be recreated it resolves null and leaves no window behind', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       refusedUrls: ['file:///x', 'file:///y'],
       windows: [
         tabKeeperWindow,
@@ -327,6 +335,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 
   test('with tabGroups revoked before Reopen, the tabs come back ungrouped and nothing throws', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       tabGroupsApiAbsent: true,
       windows: [
         tabKeeperWindow,
@@ -376,6 +385,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 
   test('a window Chrome will not create resolves null, and no tab is created', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [tabKeeperWindow, { id: 2, tabs: [{ url: url('a') }] }],
     });
     vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -391,6 +401,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 
   test('never rejects, even with the chrome namespace gone', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [tabKeeperWindow, { id: 2, tabs: [{ url: url('a') }] }],
     });
     vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -405,6 +416,7 @@ describe('reopenClosed: a closed window (KAN-280 O8)', () => {
 describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
   test('a tab whose group is now in another window gets a new group like the old one', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       grantedPermissions: ['tabGroups'],
       windows: [
         tabKeeperWindow,
@@ -453,6 +465,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     // Chrome removes a group with its last tab, so tabGroups.get(50)
     // rejects by the time Reopen runs.
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       grantedPermissions: ['tabGroups'],
       windows: [
         tabKeeperWindow,
@@ -489,6 +502,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
   // window, so its place must be read before the remove, not at Reopen.
   test("the window's last tab, after the window moved and maximized: it comes back where the window was when it closed", async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [
         tabKeeperWindow,
         {
@@ -534,6 +548,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     // are grouped together, so x's old index is inside that group's run.
     const seedAXB = (xGroupId?: number) =>
       setupChromeFake({
+        refusedPermissions: ['sessions'],
         grantedPermissions: ['tabGroups'],
         windows: [
           tabKeeperWindow,
@@ -604,6 +619,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
       // x really is in group 5, but without the permission the snapshot
       // reports it ungrouped. Ungrouping it on Reopen would be a guess.
       handle = setupChromeFake({
+        refusedPermissions: ['sessions'],
         tabGroupsApiAbsent: true,
         windows: [
           tabKeeperWindow,
@@ -638,6 +654,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
     // front, then a and b are grouped over x's old spot and collapsed.
     async function closeFrontXUnderCollapsedGroup() {
       const fake = setupChromeFake({
+        refusedPermissions: ['sessions'],
         grantedPermissions: ['tabGroups'],
         windows: [
           tabKeeperWindow,
@@ -680,6 +697,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
 
     test('a front tab rejoining its surviving group is brought to the front after it joins', async () => {
       handle = setupChromeFake({
+        refusedPermissions: ['sessions'],
         grantedPermissions: ['tabGroups'],
         windows: [
           tabKeeperWindow,
@@ -737,6 +755,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
 
   test('an index past the end of a window that shrank lands at the end', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [
         tabKeeperWindow,
         {
@@ -763,6 +782,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
 
   test('a pinned tab comes back pinned, in the pinned run', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [
         tabKeeperWindow,
         {
@@ -786,6 +806,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
 
   test('an active tab comes back active in its window, and the window stays unfocused', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [
         tabKeeperWindow,
         { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
@@ -803,6 +824,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
 
   test('a tab Chrome refuses to recreate in its surviving window resolves null', async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       refusedUrls: ['file:///x'],
       windows: [
         tabKeeperWindow,
@@ -830,6 +852,7 @@ describe('reopenClosed: a closed tab (KAN-280 O8, rule 6)', () => {
 describe('reopenClosed resolves to what it reopened (KAN-311)', () => {
   test("a window's last tab: the tab in the window made around it", async () => {
     handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
       windows: [tabKeeperWindow, { id: 2, tabs: [{ url: url('solo') }] }],
     });
     const w2 = await openWindow(2);

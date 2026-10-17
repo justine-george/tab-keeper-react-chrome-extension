@@ -1045,7 +1045,11 @@ describe('reopenClosed, the page side (KAN-280 Part D)', () => {
     (await chrome.tabs.query({})).filter((t) => t.url === address);
 
   test('with no id, no message is sent and it recreates as today', async () => {
-    handle = setupChromeFake(seed(['tabGroups']));
+    // Refused: with no refusal a close now gets `sessions` (KAN-663).
+    handle = setupChromeFake({
+      ...seed(['tabGroups']),
+      refusedPermissions: ['sessions'],
+    });
     await startWorker();
     const item = await closeTab(2, 'b');
     if (!item) throw new Error('close failed');

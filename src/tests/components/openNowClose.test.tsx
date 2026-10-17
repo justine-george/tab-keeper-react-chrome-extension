@@ -75,8 +75,11 @@ const tab = (id: number, title: string) => ({
 
 // Window 1 is "This window": it holds the tab view (left out of the list)
 // and A, B, C. Window 2 holds D and E, window 3 holds F alone.
+// Refused, so Reopen recreates: these tests are about recreate, and with no
+// refusal a close now gets `sessions` (KAN-663) and Reopen goes to the worker.
 function threeWindows(): ChromeSeed {
   return {
+    refusedPermissions: ['sessions'],
     currentTabId: TAB_VIEW_ID,
     windows: [
       {

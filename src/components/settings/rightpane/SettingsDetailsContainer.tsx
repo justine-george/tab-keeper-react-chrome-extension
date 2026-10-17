@@ -41,9 +41,7 @@ import { loadBackupFile, saveBackupFile } from '../../../redux/backupFile';
 import { requestTabView } from '../../../utils/functions/popOut';
 import { isTabView } from '../../../utils/functions/viewMode';
 import {
-  removeSessionsPermission,
   removeTabGroupsPermission,
-  requestSessionsPermission,
   requestTabGroupsPermission,
 } from '../../../utils/functions/permissions';
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
@@ -85,8 +83,6 @@ const SettingsDetailsContainer: React.FC = () => {
     line-height: 1.45;
     color: ${COLORS.LABEL_L1_COLOR};
   `;
-  // The tab-history help line's id, which its pair points at (KAN-280).
-  const tabHistoryHelpId = useId();
   const pinTabKeeperHelpId = useId();
   const defaultSaveHelpId = useId();
   const popupShortcut = usePopupShortcut();
@@ -109,10 +105,6 @@ const SettingsDetailsContainer: React.FC = () => {
 
   const hasTabGroups = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
-  );
-
-  const hasSessions = useSelector(
-    (state: RootState) => state.globalState.hasSessionsPermission
   );
 
   const containerStyle = css`
@@ -157,19 +149,6 @@ const SettingsDetailsContainer: React.FC = () => {
       removeTabGroupsPermission();
     } else {
       requestTabGroupsPermission();
-    }
-  };
-
-  // KAN-280 (spec O9b). Takes the side chosen rather than toggling: On asks
-  // Chrome for `sessions`, Off gives it back. No "already pressed" guard:
-  // SlidingPair only ever calls onChange with the side that is NOT pressed
-  // (a pointer on the pressed side flips to the other; a keyboard press on it
-  // does nothing), so choosing the pressed side never reaches here.
-  const handleChooseTabHistory = (next: 'on' | 'off') => {
-    if (next === 'on') {
-      requestSessionsPermission();
-    } else {
-      removeSessionsPermission();
     }
   };
 
@@ -610,67 +589,6 @@ const SettingsDetailsContainer: React.FC = () => {
               metrics={SETTINGS_PAIR_METRICS}
             />
           </div>
-        </div>
-
-        {/* Bring back tab history when reopening (KAN-280, spec O9b). */}
-        <div
-          data-settings-section
-          css={css`
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
-            width: 100%;
-            margin-top: 32px;
-          `}
-        >
-          <div
-            css={css`
-              display: flex;
-              align-items: flex-start;
-              width: 100%;
-            `}
-          >
-            <NormalLabel
-              value={t('Bring back tab history when reopening')}
-              size={TYPE.BODY}
-              color={COLORS.LABEL_L1_COLOR}
-            />
-          </div>
-
-          <div
-            css={css`
-              margin-top: 8px;
-            `}
-          >
-            {/* Not a store toggle either: the switch IS Chrome's optional
-                `sessions` permission. On asks for it, Off gives it back, and
-                the pressed side follows the grant: hasSessionsPermission,
-                which App reads on open and its change listener keeps current.
-                There is no stored copy. Unlike tabGroups, `sessions` raises
-                no Chrome prompt and a real popup survives the request
-                (measured 2026-09-27), so here the knob can move in place. */}
-            <SlidingPair
-              label={t('Bring back tab history when reopening')}
-              options={[
-                { value: 'on', label: t('On') },
-                { value: 'off', label: t('Off') },
-              ]}
-              value={hasSessions ? 'on' : 'off'}
-              onChange={handleChooseTabHistory}
-              metrics={SETTINGS_PAIR_METRICS}
-              describedBy={tabHistoryHelpId}
-            />
-          </div>
-
-          {/* The help line in the settings secondary style: TYPE.SECONDARY
-              in LABEL_L1, as SyncStatus's lines and About's version line
-              are, 8px under the control like every row here. Capped at a
-              reading width, since the tab view's pane is far wider than a
-              sentence should run. */}
-          <p id={tabHistoryHelpId} css={helpLineStyle}>
-            {t(
-              'Reopening a closed tab or window from Open now also brings back its Back and Forward pages, except for grouped tabs in a reopened window. It uses Chrome’s list of recently closed tabs.'
-            )}
-          </p>
         </div>
       </div>
     );

@@ -53,7 +53,10 @@ const tabKeeperWindow = {
 };
 
 // Window 2 holds a and b; closing b leaves the window open.
+// Refused, so Reopen recreates: these tests are about recreate, and with no
+// refusal a close now gets `sessions` (KAN-663) and Reopen goes to the worker.
 const twoTabSeed: ChromeSeed = {
+  refusedPermissions: ['sessions'],
   windows: [
     tabKeeperWindow,
     { id: 2, tabs: [{ url: url('a') }, { url: url('b') }] },
