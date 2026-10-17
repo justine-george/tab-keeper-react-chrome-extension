@@ -439,9 +439,10 @@ const B = buildSession({ tabGroupId: 'b', title: 'Session B', ...at(3) });
 const C = buildSession({ tabGroupId: 'c', title: 'Session C', ...at(2) });
 const D = buildSession({ tabGroupId: 'd', title: 'Session D', ...at(1) });
 
-// How long a negative is watched for. The save-round-trip test asserts a
-// save crosses between the pages inside this same window, so an absence
-// across it while a row is held is the hold, not a slow event.
+// How long a negative is watched for, from the moment the page heard the
+// save. A page not held draws a save by the time it hears it (the
+// save-round-trip test), so an absence across this window is the hold, not
+// a slow event, however slow the run is.
 const WATCH_MS = 2_000;
 
 const CLOUD = /firestore\.googleapis\.com|identitytoolkit\.googleapis\.com/;
@@ -542,6 +543,71 @@ const shownTitles = (page: Page) =>
       )
     );
 
+// KAN-637. What a page did with each storage event for the sessions: the
+// titles the event carried, and the session rows the page drew as it fired.
+// Installed after the app's own listener (at mount), so it runs second: the
+// app has drawn the change by then, or queued it behind a held row. A wait on
+// this is a wait on the page; a timed locator wait under load measures
+// Playwright's round trips too (3 s seen with the row drawn at 71 ms).
+async function hearSaves(page: Page): Promise<void> {
+  await page.evaluate((rows) => {
+    const heard: { carried: string[]; drawn: string[] }[] = [];
+    window.addEventListener('storage', (e) => {
+      if (e.key !== 'tabContainerData' || e.newValue === null) return;
+      const data: unknown = JSON.parse(e.newValue);
+      const sessions =
+        typeof data === 'object' &&
+        data !== null &&
+        'tabGroups' in data &&
+        Array.isArray(data.tabGroups)
+          ? data.tabGroups
+          : [];
+      heard.push({
+        carried: sessions.map((s: unknown) =>
+          typeof s === 'object' && s !== null && 'title' in s
+            ? String(s.title)
+            : ''
+        ),
+        drawn: [...document.querySelectorAll(rows)].map(
+          (el) =>
+            el
+              .querySelector('button[aria-label]')
+              ?.getAttribute('aria-label') ?? ''
+        ),
+      });
+      document.body.dataset.heardSaves = JSON.stringify(heard);
+    });
+  }, SESSION_ROWS);
+}
+
+type Heard = 'unheard' | 'drawn' | 'not drawn';
+
+const isHeardLog = (
+  log: unknown
+): log is { carried: string[]; drawn: string[] }[] =>
+  Array.isArray(log) &&
+  log.every(
+    (h: unknown) =>
+      typeof h === 'object' &&
+      h !== null &&
+      'carried' in h &&
+      Array.isArray(h.carried) &&
+      'drawn' in h &&
+      Array.isArray(h.drawn)
+  );
+
+// Whether `page` has heard a save of `title`, and if so whether it drew it.
+async function heardSave(page: Page, title: string): Promise<Heard> {
+  const raw = await page.evaluate(
+    () => document.body.dataset.heardSaves ?? '[]'
+  );
+  const log: unknown = JSON.parse(raw);
+  if (!isHeardLog(log)) throw new Error(`not a heard log: ${raw}`);
+  const carrying = log.filter((h) => h.carried.includes(title));
+  if (carrying.length === 0) return 'unheard';
+  return carrying.some((h) => h.drawn.includes(title)) ? 'drawn' : 'not drawn';
+}
+
 const draggingKind = (page: Page) =>
   page.evaluate(() => document.documentElement.getAttribute('data-dragging'));
 
@@ -557,20 +623,28 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
     extensionId,
   }, testInfo) => {
     const { popup, tab, cloudRequests } = await openBoth(context, extensionId);
+    await hearSaves(popup);
+    await hearSaves(tab);
 
-    // Soft, so a page that hears nothing reports both directions.
+    // Soft, so a page that hears nothing reports both directions. Each page
+    // has drawn the other's save by the time it hears it: 'unheard' is an
+    // event that never came, 'not drawn' one the page did not take in.
     const softly = expect.configure({ soft: true });
     await saveAs(popup, 'Saved in the popup');
-    await softly(
-      row(tab, 'Saved in the popup'),
-      "the tab view never showed the popup's save"
-    ).toBeVisible({ timeout: WATCH_MS });
+    await softly
+      .poll(() => heardSave(tab, 'Saved in the popup'), {
+        message: "the tab view did not draw the popup's save",
+      })
+      .toBe('drawn');
+    await softly(row(tab, 'Saved in the popup')).toBeVisible();
 
     await saveAs(tab, 'Saved in the tab view');
-    await softly(
-      row(popup, 'Saved in the tab view'),
-      "the popup never showed the tab view's save"
-    ).toBeVisible({ timeout: WATCH_MS });
+    await softly
+      .poll(() => heardSave(popup, 'Saved in the tab view'), {
+        message: "the popup did not draw the tab view's save",
+      })
+      .toBe('drawn');
+    await softly(row(popup, 'Saved in the tab view')).toBeVisible();
 
     await tab.screenshot({ path: testInfo.outputPath('tab-view.png') });
     expect(cloudRequests, 'a page reached the cloud').toEqual([]);
@@ -581,6 +655,7 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
     extensionId,
   }, testInfo) => {
     const { popup, tab, cloudRequests } = await openBoth(context, extensionId);
+    await hearSaves(tab);
     const unmoved = [A.title, B.title, C.title, D.title];
     expect(await shownTitles(tab)).toEqual(unmoved);
 
@@ -613,9 +688,10 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
         )
       )
       .toBe(true);
+    // PREMISE: the tab view heard it, with the row held, and did not draw it.
+    await expect.poll(() => heardSave(tab, 'Session N')).toBe('not drawn');
 
-    // Watched for as long as the round-trip test gives a save to cross: the
-    // held row keeps the list still.
+    // Watched from there for WATCH_MS: the held row keeps the list still.
     const softly = expect.configure({ soft: true });
     let nShown = 0;
     let reordered = 0;
