@@ -3,7 +3,7 @@ import { useEffect, useState, type RefObject } from 'react';
 import { prefersReducedMotion } from '../components/modals/getStartedMotion';
 
 /**
- * Whether `ref`'s own rise has ended (KAN-653, KAN-654). Until it has, the
+ * Whether `ref`'s own rise is over, ended or cancelled (KAN-653, KAN-654). Until it has, the
  * element takes no pointer input: a press already on its way to what was
  * under it lands there. Reduced motion has no rise.
  *
@@ -32,8 +32,13 @@ export function useHasRisen(
     const onEnd = (event: Event) => {
       if (event.target === element) setHasRisen(true);
     };
+    // Cancelled counts as over: reduced motion switched on mid-rise sets `animation: none`.
     element.addEventListener('animationend', onEnd);
-    return () => element.removeEventListener('animationend', onEnd);
+    element.addEventListener('animationcancel', onEnd);
+    return () => {
+      element.removeEventListener('animationend', onEnd);
+      element.removeEventListener('animationcancel', onEnd);
+    };
   }, [ref, isShown]);
   return hasRisen;
 }

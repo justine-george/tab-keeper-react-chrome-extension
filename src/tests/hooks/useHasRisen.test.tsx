@@ -28,6 +28,29 @@ describe('useHasRisen', () => {
     expect(risen()).toBe('true');
   });
 
+  test('a rise cancelled midway still lets pointer input back on', () => {
+    render(<Riser isShown={true} />);
+    act(
+      () =>
+        void fireEvent(
+          screen.getByTestId('riser'),
+          new Event('animationcancel')
+        )
+    );
+    expect(risen()).toBe('true');
+  });
+
+  test('shown again under reduced motion: risen at once', () => {
+    const { rerender } = render(<Riser isShown={true} />);
+    act(() => void fireEvent.animationEnd(screen.getByTestId('riser')));
+    rerender(<Riser isShown={false} />);
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) => new FakeMediaQueryList(query, query.includes('reduce'))
+    );
+    rerender(<Riser isShown={true} />);
+    expect(risen()).toBe('true');
+  });
+
   test('a child’s animation ending is not its rise', () => {
     render(<Riser isShown={true} />);
     act(() => void fireEvent.animationEnd(screen.getByTestId('child')));

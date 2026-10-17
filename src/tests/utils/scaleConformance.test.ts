@@ -165,7 +165,7 @@ describe('components take their sizes from the shared scales (KAN-205)', () => {
   // KAN-654: setup and the cloud question take the review card's one weight
   // too; their titles are told apart by size, as the card's is.
   test.each(['modals/SetupModal.tsx', 'modals/CloudConsentModal.tsx'])(
-    '%s declares no font weight',
+    '%s declares no font-weight value',
     (name) => {
       const file = FILES.find((f) => f.name.endsWith(name));
       expect(file).toBeDefined();

@@ -77,7 +77,7 @@ export function useCardMotion(
       cancelRunning();
       const appear = playAppear(mark, originFacing(frame.placement.side));
       running.current = [appear];
-      // KAN-654: no press while it appears either; one meant for what was there lands there.
+      // KAN-654: no press on the card while it appears either; the dim around it takes none.
       passClicksThrough([appear], [mark]);
       return;
     }

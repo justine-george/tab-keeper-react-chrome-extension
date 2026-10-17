@@ -5,6 +5,10 @@ import { CONTROL, DURATION } from '../../styles/scale';
 import { focusRingCss } from '../common/focusRing';
 import { mixHex } from '../../styles/mixHex';
 
+// A dialog button's padding and border, which a flush link hangs outside.
+const PAD = { BLOCK: 8, INLINE: 16 } as const;
+const BORDER = 1;
+
 /**
  * The buttons a confirm dialog offers (KAN-259), shared by the three dialogs
  * that draw bordered buttons: FocusConfirm, DeleteCloudData, CloudConsent.
@@ -16,10 +20,6 @@ import { mixHex } from '../../styles/mixHex';
  * pointer the way every other button in the popup does. `danger` holds its
  * red on hover and press, as every destructive control does (KAN-204).
  */
-// A dialog button's padding and border, which a flush link hangs outside.
-const PAD = { BLOCK: 8, INLINE: 16 } as const;
-const BORDER = 1;
-
 export function dialogButtonStyles(COLORS: ThemeColors) {
   const base = css`
     padding: ${PAD.BLOCK}px ${PAD.INLINE}px;

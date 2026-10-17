@@ -19,7 +19,7 @@ export interface RunStepPlan {
 // CSS lengths.
 // KAN-654: the full view's a size up, as the review card's is.
 export const CARD_WIDTH = { popup: '290px', full: '360px' } as const;
-// Step 8's three actions on one row, in rem so it grows with the text (KAN-457).
+// Step 9's Back and Pin this tab on one row, Not now under them, in rem so it grows with the text (KAN-457, KAN-654).
 export const PIN_CARD_WIDTH = '25rem';
 
 const OPEN_NOW = '[data-pane="open-now"]';

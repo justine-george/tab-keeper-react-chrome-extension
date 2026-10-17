@@ -408,11 +408,12 @@ test('while the card glides from step 7 to step 8 it takes no pointer, and takes
   }
   // CONTROL: the card does pass over a window title, so those hits are tests.
   // KAN-654: the 360px full-view card's path covers the titles, not the fold arrows beside them.
-  const title = [...covered.keys()].find((label) => label.startsWith('Rename'));
-  expect(title).toBeDefined();
+  const title = [...covered].find(([label]) => label.startsWith('Rename'));
+  if (title === undefined) throw new Error('the card passed over no title');
+  const [label, at] = title;
   // A press on that title while the card is over it reaches the title: its rename field opens.
-  await hold(covered.get(title!)!);
-  const [tx, ty] = await centreOf(detail.getByLabel(title!, { exact: true }));
+  await hold(at);
+  const [tx, ty] = await centreOf(detail.getByLabel(label, { exact: true }));
   await page.mouse.click(tx, ty);
   await expect(
     detail.getByPlaceholder('Name this window', { exact: true })
