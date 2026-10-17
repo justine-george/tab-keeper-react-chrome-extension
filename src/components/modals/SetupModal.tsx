@@ -50,7 +50,7 @@ import {
   pairCss,
   tallButtonCss,
 } from './dialogButtons';
-import { dialogTier } from './dialogTier';
+import { dialogTitleSize } from './dialogTitleSize';
 import { dialogRiseCss } from './dialogRise';
 import { useHasRisen } from '../../hooks/useHasRisen';
 
@@ -143,7 +143,7 @@ export const SetupModal: React.FC = () => {
   const pickLanguage = (next: Language) => dispatch(chooseLanguage(next, i18n));
 
   const buttons = dialogButtonStyles(COLORS);
-  const tier = dialogTier();
+  const titleSize = dialogTitleSize();
   const hasRisen = useHasRisen(dialogRef);
   const pressed = slidingPairColors(COLORS);
 
@@ -153,7 +153,7 @@ export const SetupModal: React.FC = () => {
     left: 50%;
     transform: translate(-50%, -50%);
     margin: 0;
-    padding: ${tier.pad}px;
+    padding: 20px;
     width: min(calc(100% - 32px), 600px);
     max-width: none;
     max-height: calc(100% - 32px);
@@ -185,7 +185,7 @@ export const SetupModal: React.FC = () => {
     align-items: center;
     gap: 10px;
     margin: 0;
-    font-size: ${tier.title};
+    font-size: ${titleSize};
     /* KAN-654: the popup's one weight, not the heading's bold. */
     font-weight: inherit;
     color: ${COLORS.TEXT_COLOR};
