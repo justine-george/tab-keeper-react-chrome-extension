@@ -3,7 +3,6 @@ import { useDispatch, useStore } from 'react-redux';
 
 import type { AppDispatch, RootState } from '../redux/store';
 import { freshPendingAsk, releasePendingAsk } from '../redux/reviewAsk';
-import { whenQuietCardSettles } from '../redux/quietCards';
 
 // KAN-653. How long the page must stay clear before the card shows. It bridges
 // the gap between one cover closing and the next opening: setup closes, and
@@ -28,26 +27,23 @@ export function isClearForReviewCard(state: RootState, doc: Document): boolean {
   );
 }
 
-// Shows the stored pending ask once nothing covers the page. Checked on mount,
-// on every store change, and when the page gets focus or becomes visible
-// again; each check replaces the last and runs REVIEW_CARD_SETTLE_MS later.
-export function useReviewAskRelease(): void {
+// Shows the stored pending ask once nothing covers the page. Nothing is
+// checked until the open has decided its dialogs: a modal or the callout the
+// queue is about to open would land on the card. From then on, checked at
+// once, on every store change, and when the page gets focus or becomes
+// visible again; each check replaces the last and runs REVIEW_CARD_SETTLE_MS
+// later.
+export function useReviewAskRelease(areOpenDialogsDecided: boolean): void {
   const store = useStore<RootState>();
   const dispatch = useDispatch<AppDispatch>();
 
   useEffect(() => {
+    if (!areOpenDialogsDecided) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let isMounted = true;
     const release = () => {
       const pending = freshPendingAsk(Date.now());
       if (pending === null) return;
-      // A quiet card (the full-view callout) still deciding: check again once
-      // it has shown, and so covers the page, or been skipped.
-      const quietCard = whenQuietCardSettles();
-      if (quietCard !== null) {
-        void quietCard.then(check);
-        return;
-      }
       if (!isClearForReviewCard(store.getState(), document)) return;
       dispatch(releasePendingAsk(pending));
     };
@@ -71,5 +67,5 @@ export function useReviewAskRelease(): void {
       window.removeEventListener('focus', check);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [store, dispatch]);
+  }, [areOpenDialogsDecided, store, dispatch]);
 }

@@ -8,8 +8,6 @@ import {
   useReviewAskRelease,
 } from '../../hooks/useReviewAskRelease';
 import { askAtOpen, noteReviewMoment } from '../../redux/reviewAsk';
-import { showWhenQuiet } from '../../redux/quietCards';
-import { CARD_DELAY_MS } from '../../utils/constants/cardDelay';
 import { makeTestStore } from '../setup/makeStore';
 import {
   closeReviewCard,
@@ -57,17 +55,26 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const mount = (
-  seed?: (store: ReturnType<typeof makeTestStore>['store']) => void
+// Mounted as on a page whose open has decided its dialogs, unless a test
+// says otherwise and decides them later through `rerender`.
+const mountWith = (
+  seed?: (store: ReturnType<typeof makeTestStore>['store']) => void,
+  areOpenDialogsDecided = true
 ) => {
   const { store } = makeTestStore();
   seed?.(store);
   const wrapper = ({ children }: { children: ReactNode }) => (
     <Provider store={store}>{children}</Provider>
   );
-  renderHook(() => useReviewAskRelease(), { wrapper });
-  return store;
+  const { rerender } = renderHook(
+    ({ decided }) => useReviewAskRelease(decided),
+    { wrapper, initialProps: { decided: areOpenDialogsDecided } }
+  );
+  return { store, decide: () => rerender({ decided: true }) };
 };
+const mount = (
+  seed?: (store: ReturnType<typeof makeTestStore>['store']) => void
+) => mountWith(seed).store;
 
 const cardOf = (store: ReturnType<typeof makeTestStore>['store']) =>
   store.getState().globalState.reviewCard;
@@ -172,20 +179,20 @@ describe('releasing a pending ask', () => {
     expect(cardOf(store)).not.toBeNull();
   });
 
-  // The callout waits CARD_DELAY_MS for a quiet moment before it opens. The
-  // card must not take the page in that wait and then share it.
-  test('a quiet card still waiting to show covers the page', async () => {
-    const store = mount((s) => s.dispatch(noteReviewMoment({ kind: 'time' })));
-    const shown = showWhenQuiet(() => undefined, store.getState);
-
-    advance(CARD_DELAY_MS - 1);
+  // The open's dialog queue may still put a modal or the callout up. A
+  // pending ask waits for it, so the two never share the page.
+  test('waits until the open has decided its dialogs', () => {
+    const { store, decide } = mountWith(
+      (s) => s.dispatch(noteReviewMoment({ kind: 'time' })),
+      false
+    );
+    advance(5_000);
     expect(cardOf(store)).toBeNull();
 
+    act(() => decide());
+    advance(REVIEW_CARD_SETTLE_MS - 1);
+    expect(cardOf(store)).toBeNull();
     advance(1);
-    await act(async () => {
-      await shown;
-    });
-    advance(REVIEW_CARD_SETTLE_MS);
     expect(cardOf(store)).not.toBeNull();
   });
 

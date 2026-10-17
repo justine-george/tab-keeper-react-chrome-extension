@@ -1,9 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-
-// These tests pin which dialog an open picks, not when.
-vi.mock('../../utils/constants/cardDelay', () => ({ CARD_DELAY_MS: 0 }));
 
 // Firebase is the only reason App cannot just be mounted: observeAuthState
 // opens a real onAuthStateChanged subscription against a live auth object.
@@ -56,7 +53,6 @@ afterEach(() => {
   vi.restoreAllMocks();
   localStorage.clear();
   delete document.documentElement.dataset.firstOpen;
-  delete document.documentElement.dataset.firstOpenCard;
 });
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -382,6 +378,18 @@ describe('the full-view callout in the order (KAN-7 §6)', () => {
     );
     await waitFor(() =>
       expect(document.documentElement.dataset.firstOpen).toBe('fullViewCallout')
+    );
+  });
+
+  // KAN-653. No quiet wait: the callout is not a dialog, so a key pressed
+  // as the popup opens is no reason to hold it back.
+  test('a key pressed as the popup opens does not stop it', async () => {
+    const { store } = await renderWithProviders(<App />, {
+      seedStore: holder({}),
+    });
+    fireEvent.keyDown(document.body, { key: 'Shift' });
+    await waitFor(() =>
+      expect(store.getState().globalState.isFullViewCalloutOpen).toBe(true)
     );
   });
 

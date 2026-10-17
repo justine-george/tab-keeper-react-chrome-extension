@@ -18,7 +18,6 @@ import {
   shouldShowPinGuide,
   shouldShowSetup,
 } from '../utils/functions/onboarding';
-import { showWhenQuiet } from './quietCards';
 import { runOpener, showWelcome, startRun } from './firstRun';
 import { newRun, runAtOpen, type RunCheck } from '../utils/functions/firstRun';
 import { RUN_LOCK, tourLockState } from '../utils/functions/tourLock';
@@ -144,11 +143,7 @@ export function firstOpenDialogs(
         open.getState().settingsDataState,
         open.storedSessions
       )
-        ? () =>
-            void showWhenQuiet(
-              () => dispatch(openFullViewCallout()),
-              open.getState
-            )
+        ? () => dispatch(openFullViewCallout())
         : null,
   };
 

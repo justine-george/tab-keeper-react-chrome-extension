@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useDispatch, useSelector, useStore } from 'react-redux';
 
@@ -77,8 +77,10 @@ function App() {
   useDocumentTitle();
   // KAN-642. The worker's copy of the language, for the uninstall survey.
   useUninstallSurveyLanguage();
-  // KAN-653. The review card, once nothing covers the page.
-  useReviewAskRelease();
+  // KAN-653. The review card, once the open's dialogs are decided and
+  // nothing covers the page.
+  const [areOpenDialogsDecided, setAreOpenDialogsDecided] = useState(false);
+  useReviewAskRelease(areOpenDialogsDecided);
 
   const COLORS = useThemeColors();
 
@@ -143,7 +145,10 @@ function App() {
     ).then((opened) => {
       document.documentElement.dataset.firstOpen = opened ?? 'none';
       // KAN-653. After the dialogs, so a first open's setup is not raced.
-      if (!isUnmounted) dispatch(askAtOpen());
+      if (!isUnmounted) {
+        dispatch(askAtOpen());
+        setAreOpenDialogsDecided(true);
+      }
       if (!isTabView() || isUnmounted) return;
       stopOfferOnReturn = offerTabGroupsOnReturn(
         dispatch,

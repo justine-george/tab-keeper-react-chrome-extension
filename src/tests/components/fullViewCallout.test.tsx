@@ -1,17 +1,10 @@
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import {
-  act,
-  fireEvent,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { openFullViewCallout } from '../../redux/slices/globalStateSlice';
-import { showWhenQuiet } from '../../redux/quietCards';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
 
 // KAN-7 §6. Under ⤢ in the popup, once; Try it, ✕, Esc or ⤢ mark it seen.
@@ -29,7 +22,6 @@ const openCallout = () => screen.getByRole('dialog', { name: TEXT });
 
 afterEach(() => {
   endDragHold();
-  delete document.documentElement.dataset.firstOpenCard;
   localStorage.clear();
 });
 
@@ -122,26 +114,6 @@ describe('the full-view callout', () => {
     modal.remove();
     expect(callout()).toBeInTheDocument();
     expect(event.defaultPrevented).toBe(false);
-  });
-
-  // CONTROL: 'pressing ⤢ itself marks it seen', with the callout on screen.
-  test('⤢ pressed during the wait leaves the callout unseen', async () => {
-    const { store } = await render(false);
-    void showWhenQuiet(
-      () => store.dispatch(openFullViewCallout()),
-      store.getState
-    );
-    fireEvent.pointerDown(
-      screen.getByRole('button', { name: 'Open full view' })
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Open full view' }));
-    await waitFor(() =>
-      expect(document.documentElement.dataset.firstOpenCard).toBe('skipped')
-    );
-    expect(store.getState().settingsDataState.isFullViewCalloutSeen).toBe(
-      false
-    );
-    expect(callout()).toBeNull();
   });
 });
 
