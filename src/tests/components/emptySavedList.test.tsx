@@ -40,8 +40,11 @@ describe('the empty list’s line', () => {
     );
     const { store } = await renderWithProviders(<TabGroupEntryContainer />);
     expect(line()).toBeNull();
+    // A load takes what is on disk (KAN-666: a save never drops what it did not see).
+    const nothing = buildContainer([]);
+    localStorage.setItem('tabContainerData', JSON.stringify(nothing));
     act(() => {
-      store.dispatch(replaceState(buildContainer([])));
+      store.dispatch(replaceState(nothing));
     });
     expect(line()).toBeInTheDocument();
   });

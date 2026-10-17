@@ -27,9 +27,9 @@ import {
   getStringDate,
   isBlankTitle,
   normalizeTitle,
-  saveToLocalStorage,
   stripEmbeddedFavicons,
 } from '../../utils/functions/local';
+import { saveLocalSessions } from '../../utils/functions/localSessions';
 import {
   newSessionTitleOf,
   titleOfPick,
@@ -1618,7 +1618,7 @@ function deleteSessionById(
   const index = state.tabGroups.findIndex((g) => g.tabGroupId === tabGroupId);
   if (index !== -1) removeSession(state, index);
   state.lastModified = Date.now();
-  saveToLocalStorage('tabContainerData', state);
+  saveLocalSessions(state);
 }
 
 const clampIndex = (index: number, length: number): number =>
@@ -1645,7 +1645,7 @@ export const tabContainerDataStateSlice = createSlice({
       state.lastModified = Date.now();
 
       // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
 
       // select this tabGroup
       tabContainerDataStateSlice.caseReducers.selectTabContainer(state, {
@@ -1673,7 +1673,7 @@ export const tabContainerDataStateSlice = createSlice({
       });
 
       // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     addCurrWindowToTabGroupInternal: (
@@ -1695,7 +1695,7 @@ export const tabContainerDataStateSlice = createSlice({
       state.lastModified = Date.now();
 
       // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // KAN-468. A content edit: the windows are what is open now; id, name, created date and rank stay.
@@ -1711,7 +1711,7 @@ export const tabContainerDataStateSlice = createSlice({
       group.tabCount = windows.reduce((n, w) => n + w.tabs.length, 0);
       touchContent(state, group, now);
       state.lastModified = now;
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // KAN-609. Every later copy of an address goes; the first, in reading
@@ -1741,7 +1741,7 @@ export const tabContainerDataStateSlice = createSlice({
       group.tabCount = group.windows.reduce((n, w) => n + w.tabs.length, 0);
       touchContent(state, group, now);
       state.lastModified = now;
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     addCurrTabToWindowInternal: (
@@ -1772,7 +1772,7 @@ export const tabContainerDataStateSlice = createSlice({
       state.lastModified = Date.now();
 
       // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // update tabGroup title
@@ -1807,7 +1807,7 @@ export const tabContainerDataStateSlice = createSlice({
       }
       state.lastModified = Date.now();
       // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // update window group title
@@ -1831,7 +1831,7 @@ export const tabContainerDataStateSlice = createSlice({
       touchContent(state, tabGroup);
       state.lastModified = Date.now();
       // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // update the title of a Chrome tab group inside a saved window
@@ -1871,7 +1871,7 @@ export const tabContainerDataStateSlice = createSlice({
       touchContent(state, state.tabGroups[tabGroupIndex]);
       state.lastModified = Date.now();
       // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // add the current tab to a Chrome tab group inside a saved window
@@ -1919,7 +1919,7 @@ export const tabContainerDataStateSlice = createSlice({
       window.tabCount += 1;
       touchContent(state, container);
       state.lastModified = Date.now();
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // recolour a Chrome tab group
@@ -1956,7 +1956,7 @@ export const tabContainerDataStateSlice = createSlice({
       group.color = color;
       touchContent(state, container);
       state.lastModified = Date.now();
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // remove the grouping, keep the tabs
@@ -1987,7 +1987,7 @@ export const tabContainerDataStateSlice = createSlice({
 
       touchContent(state, container);
       state.lastModified = Date.now();
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // delete a Chrome tab group and the tabs in it
@@ -2035,7 +2035,7 @@ export const tabContainerDataStateSlice = createSlice({
       }
 
       state.lastModified = Date.now();
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // delete tab group by tabGroupId
@@ -2076,7 +2076,7 @@ export const tabContainerDataStateSlice = createSlice({
       state.lastModified = Date.now();
 
       // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // delete tab by (tabGroupId, windowId, tabId)
@@ -2130,7 +2130,7 @@ export const tabContainerDataStateSlice = createSlice({
       state.lastModified = Date.now();
 
       // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // move a tab within its window, and into whatever Chrome group owns the
@@ -2212,7 +2212,7 @@ export const tabContainerDataStateSlice = createSlice({
       state.lastModified = Date.now();
 
       // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // Move a tab from one saved window into another (KAN-132).
@@ -2296,7 +2296,7 @@ export const tabContainerDataStateSlice = createSlice({
       state.lastModified = Date.now();
 
       // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // move a session within the left pane (KAN-130)
@@ -2353,7 +2353,7 @@ export const tabContainerDataStateSlice = createSlice({
       state.lastModified = Date.now();
 
       // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // Rearrange the whole list by a key (KAN-136).
@@ -2416,7 +2416,7 @@ export const tabContainerDataStateSlice = createSlice({
       state.lastModified = Date.now();
 
       // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // Drop every manual rank and return the list to newest-first (KAN-130).
@@ -2452,7 +2452,7 @@ export const tabContainerDataStateSlice = createSlice({
       state.lastModified = Date.now();
 
       // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // move a window within its session
@@ -2506,7 +2506,7 @@ export const tabContainerDataStateSlice = createSlice({
       state.lastModified = Date.now();
 
       // update localstorage
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // KAN-160. A group moves as one item among its window's top-level rows,
@@ -2560,7 +2560,7 @@ export const tabContainerDataStateSlice = createSlice({
       touchContent(state, container);
       state.lastModified = Date.now();
 
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // Move a whole Chrome tab group from one saved window into another,
@@ -2641,7 +2641,7 @@ export const tabContainerDataStateSlice = createSlice({
       touchContent(state, container);
       state.lastModified = Date.now();
 
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // KAN-350. Move a tab, a whole Chrome group or a whole window out of one
@@ -2792,7 +2792,7 @@ export const tabContainerDataStateSlice = createSlice({
         touchContent(state, target, targetAt);
         state.lastModified = targetAt;
 
-        saveToLocalStorage('tabContainerData', state);
+        saveLocalSessions(state);
       },
       prepare: (
         move: SessionMove,
@@ -2845,7 +2845,7 @@ export const tabContainerDataStateSlice = createSlice({
 
         touchContent(state, target, now);
         state.lastModified = now;
-        saveToLocalStorage('tabContainerData', state);
+        saveLocalSessions(state);
       },
       prepare: (
         copy: SessionCopy,
@@ -3005,7 +3005,7 @@ export const tabContainerDataStateSlice = createSlice({
     // KAN-594. Stripped, and written back: the first load after an update rewrites what is stored.
     replaceState: (_state, action: PayloadAction<TabMasterContainer>) => {
       const next = withASelection(stripEmbeddedFavicons(action.payload));
-      saveToLocalStorage('tabContainerData', next);
+      saveLocalSessions(next);
       return next;
     },
 
@@ -3063,7 +3063,7 @@ export const tabContainerDataStateSlice = createSlice({
       restored.deletedTabGroups = graves;
 
       // update localstorage
-      saveToLocalStorage('tabContainerData', restored);
+      saveLocalSessions(restored);
       return restored;
     },
 
@@ -3101,7 +3101,7 @@ export const tabContainerDataStateSlice = createSlice({
         tabGroups: [...added, ...current(state).tabGroups],
       });
 
-      saveToLocalStorage('tabContainerData', merged);
+      saveLocalSessions(merged);
       return merged;
     },
 
@@ -3148,7 +3148,7 @@ export const tabContainerDataStateSlice = createSlice({
         g.isSelected = g.tabGroupId === restored.tabGroupId;
       }
       state.lastModified = now;
-      saveToLocalStorage('tabContainerData', state);
+      saveLocalSessions(state);
     },
 
     // Undo and redo. Reconciles exactly as restoreContainer does, then
@@ -3199,7 +3199,7 @@ export const tabContainerDataStateSlice = createSlice({
       restored.deletedTabGroups = graves;
 
       // update localstorage
-      saveToLocalStorage('tabContainerData', restored);
+      saveLocalSessions(restored);
       return restored;
     },
   },

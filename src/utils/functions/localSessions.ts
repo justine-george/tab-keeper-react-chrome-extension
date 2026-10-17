@@ -3,6 +3,7 @@ import {
   isStoredBehindPage,
   isValidTabMasterContainer,
   loadFromLocalStorage,
+  saveJsonToLocalStorage,
 } from './local';
 import { mergeTabContainers } from './mergeTabData';
 
@@ -28,4 +29,53 @@ export function readLocalSessions(page: TabMasterContainer): unknown {
     Date.now()
   );
   return changedFromLocal ? merged : page;
+}
+
+// KAN-666. Exactly what this page last wrote. Storage holding anything else
+// means another page wrote since -- and Chrome does not always fire the
+// storage event that would have told this page (measured: 3 in 4,000 runs).
+let lastWritten: string | null = null;
+let otherPageWriteMerged = false;
+
+// Whether a save since the last call merged in another page's write; clears the note.
+export const takeOtherPageWriteMerged = (): boolean => {
+  const noted = otherPageWriteMerged;
+  otherPageWriteMerged = false;
+  return noted;
+};
+
+/**
+ * KAN-666. Every save of this page's sessions. A write another page made since
+ * this page's last one is merged in, the page first as in readLocalSessions,
+ * rather than written over; the note has the middleware take it in on screen.
+ * Unreadable storage is written over, as before.
+ */
+export function saveLocalSessions(page: TabMasterContainer): void {
+  const json = JSON.stringify(withOtherPageWrite(page));
+  if (saveJsonToLocalStorage('tabContainerData', json)) lastWritten = json;
+}
+
+function withOtherPageWrite(page: TabMasterContainer): TabMasterContainer {
+  let stored: string | null;
+  try {
+    stored = localStorage.getItem('tabContainerData');
+  } catch {
+    return page;
+  }
+  if (stored === null || stored === lastWritten) return page;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stored);
+  } catch {
+    return page;
+  }
+  if (!isValidTabMasterContainer(parsed)) return page;
+  const { merged, changedFromLocal } = mergeTabContainers(
+    page,
+    parsed,
+    Date.now()
+  );
+  if (!changedFromLocal) return page;
+  otherPageWriteMerged = true;
+  return merged;
 }
