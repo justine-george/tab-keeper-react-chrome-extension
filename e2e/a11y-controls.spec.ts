@@ -506,7 +506,8 @@ test.describe('controls are reachable by keyboard', () => {
     const names = await tabOrderNames(page);
 
     expect(names).toContain('Not now');
-    expect(names).toContain('Rate Tab Keeper');
+    // Read from textContent, so the star's ligature text comes first.
+    expect(names).toContainEqual(expect.stringMatching(/Rate Tab Keeper$/));
     expect(names).toContain('Never ask again');
   });
 
