@@ -44,3 +44,19 @@ describe('sentences that send the user to Sync & backup use its label (KAN-651)'
     for (const key of SENTENCES) expect(strings[key]).toContain(label);
   });
 });
+
+// The other languages paraphrase the switch ("la synchronisation
+// automatique"); English names it, so its sentences must spell it as the pair does.
+const AUTO_SYNC_SENTENCES = [
+  'DeleteCloudDataBody',
+  'EnableSyncOnceFine',
+  'Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.',
+];
+
+test('English sentences that name Auto sync use its label (KAN-651)', () => {
+  const label = en['Auto Sync'];
+  expect(label).toBe('Auto sync');
+  for (const key of AUTO_SYNC_SENTENCES) {
+    expect(LOCALES.en[key]).toContain(label);
+  }
+});

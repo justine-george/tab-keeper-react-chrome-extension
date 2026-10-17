@@ -89,15 +89,15 @@ The anonymous identifier remains in Chrome sync storage until the extension's sy
 
 ### Cloud session data
 
-Your Firestore session document remains until you delete it. Turning off Auto Sync or uninstalling Tab Keeper does not delete an existing cloud document.
+Your Firestore session document remains until you delete it. Turning off Auto sync or uninstalling Tab Keeper does not delete an existing cloud document.
 
 To remove it, open:
 
-**Settings → Sync & Backup → Delete cloud data**
+**Settings → Sync & backup → Delete cloud data**
 
-This deletes the Firestore session document and turns off Auto Sync on that device. It does not delete sessions stored locally on your devices.
+This deletes the Firestore session document and turns off Auto sync on that device. It does not delete sessions stored locally on your devices.
 
-Another device using the same Chrome profile may upload its local copy again the next time it syncs. To prevent that, turn off Auto Sync on your other devices before deleting the cloud document.
+Another device using the same Chrome profile may upload its local copy again the next time it syncs. To prevent that, turn off Auto sync on your other devices before deleting the cloud document.
 
 Deleting the Firestore document does not necessarily remove Firebase authentication records or operational logs retained by Google under its own policies. Those records do not contain your saved sessions, name, or email address.
 
@@ -123,7 +123,7 @@ You can:
 
 - Export a copy of your sessions with **Save sessions to a file**
 - Delete individual sessions from Tab Keeper
-- Turn off Auto Sync to stop automatic cloud updates from that device
+- Turn off Auto sync to stop automatic cloud updates from that device
 - Delete your Firestore session document through **Delete cloud data**
 - Uninstall Tab Keeper to remove its local extension data
 - Contact the developer with a privacy question or request
