@@ -101,8 +101,9 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
   // setting that sat above it is gone (KAN-250): restores always open later
   // tabs as placeholders, so there is nothing to choose.
   // KAN-280 added the second pair, "Bring back tab history when reopening";
-  // tabHistoryRow.test.tsx covers it.
-  test('Sessions has four pairs, Save Tab Groups, Default view, Pin Tab Keeper and tab history, and no memory setting', async () => {
+  // tabHistoryRow.test.tsx covers it. Default view and Pin Tab Keeper moved
+  // to Quick access (KAN-652).
+  test('Sessions has two pairs, Save Tab Groups and tab history, and no memory setting', async () => {
     await renderOn(SettingsCategory.SESSIONS);
 
     const groups = screen.getByRole('group', { name: 'Save tab groups' });
@@ -113,12 +114,7 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
     ).toBe('true');
     expect(
       screen.getAllByRole('group').map((g) => g.getAttribute('aria-label'))
-    ).toEqual([
-      'Save tab groups',
-      'Default view',
-      'Pin Tab Keeper in new windows',
-      'Bring back tab history when reopening',
-    ]);
+    ).toEqual(['Save tab groups', 'Bring back tab history when reopening']);
     expect(
       screen.queryByText('Optimize Memory Usage On Session Restore')
     ).toBeNull();
@@ -126,6 +122,13 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
     for (const b of screen.getAllByRole('button')) {
       expect(b.getAttribute('aria-label') ?? '').not.toMatch(/: (On|Off)$/);
     }
+  });
+
+  test('Quick access has two pairs, Default view and Pin Tab Keeper (KAN-652)', async () => {
+    await renderOn(SettingsCategory.QUICK_ACCESS);
+    expect(
+      screen.getAllByRole('group').map((g) => g.getAttribute('aria-label'))
+    ).toEqual(['Default view', 'Pin Tab Keeper in new windows']);
   });
 
   // Save Tab Groups is not a store toggle: On asks Chrome for the permission,

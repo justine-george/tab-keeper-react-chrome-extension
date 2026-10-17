@@ -44,16 +44,13 @@ afterEach(async () => {
 });
 
 describe('the tab-history row is the last in Sessions', () => {
-  test('its own section, after Keyboard shortcut', async () => {
+  test('its own section, after Save tab groups', async () => {
     const { container } = await renderSessions(false);
 
     expect(pair()).toHaveAccessibleName(LABEL);
     expect(sectionLabels(container)).toEqual([
       'Default save',
       'Save tab groups',
-      'Default view',
-      'Pin Tab Keeper in new windows',
-      'Keyboard shortcut',
       LABEL,
     ]);
   });

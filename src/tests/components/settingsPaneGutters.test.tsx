@@ -20,6 +20,7 @@ describe('the settings pane insets its content evenly', () => {
     ['Display', SettingsCategory.DISPLAY],
     ['Sync & Backup', SettingsCategory.SYNC],
     ['Sessions', SettingsCategory.SESSIONS],
+    ['Quick access', SettingsCategory.QUICK_ACCESS],
     ['Language', SettingsCategory.LANGUAGE],
     // About is deliberately absent: it centres its content with
     // `align-items: center` and carries no inset at all, so it has no gutters
