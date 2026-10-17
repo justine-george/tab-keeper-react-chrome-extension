@@ -247,20 +247,20 @@ describe('the sync holds its merge while a drag is held (D12, KAN-279)', () => {
     });
   });
 
-  // C. KAN-149: a session arriving while held is still a value moment, judged
-  // the same way the inline path judges it -- against what localStorage held
-  // right before the merge.
-  it('C: a session arriving while held still records a KAN-149 value moment', async () => {
+  // C. KAN-149, KAN-653: a session arriving while held still asks "Your
+  // sessions are here", judged the same way the inline path judges it --
+  // against what localStorage held right before the merge.
+  it('C: a session arriving while held still notes a review ask', async () => {
     const { store } = readyStore();
     mocks.cloud.doc = cloudWithRemote();
-    expect(store.getState().settingsDataState.lastValueMomentTime).toBe('');
+    expect(store.getState().settingsDataState.pendingReviewAsk).toBeNull();
     beginDragHold();
     await store.dispatch(syncStateWithFirestore());
 
     endDragHold();
 
-    expect(typeof store.getState().settingsDataState.lastValueMomentTime).toBe(
-      'number'
+    expect(store.getState().settingsDataState.pendingReviewAsk?.moment).toEqual(
+      { kind: 'sessionsArrived' }
     );
   });
 

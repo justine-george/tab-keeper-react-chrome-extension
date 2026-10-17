@@ -19,13 +19,19 @@ import {
   isSubstantialSave,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { SAMPLE_ID_PREFIX } from '../../utils/functions/sampleSession';
+import { noteReviewMoment, showReviewCard } from '../../redux/reviewAsk';
+import {
+  setSkippedUserReviewOnce,
+  setUserRatedAndReviewed,
+} from '../../redux/slices/settingsDataStateSlice';
+import { REVIEW_ASK_GAP_MS } from '../../utils/functions/reviewAsk';
 
-// KAN-149. What counts as the extension having visibly paid off.
+// KAN-149, KAN-653. What counts as the extension having visibly paid off, and
+// which card each payoff asks with.
 //
-// These are the writes the review prompt reads. Each is asserted at the store,
-// because the prompt's own decision (reviewAsk.test.ts) is pure and cannot see
-// whether anything ever calls it -- a trigger that never fires would leave that
-// suite entirely green.
+// These are the writes the review card reads. Each is asserted at the store,
+// because the gate (reviewAsk.test.ts) is pure and cannot see whether anything
+// ever calls it -- a trigger that never fires would leave that suite green.
 
 const HOUR = 3600_000;
 const T0 = Date.UTC(2026, 8, 10, 12, 0, 0);
@@ -59,7 +65,7 @@ const session = (id: string, tabCount: number) => ({
 });
 
 const momentOf = (store: ReturnType<typeof makeTestStore>['store']) =>
-  store.getState().settingsDataState.lastValueMomentTime;
+  store.getState().settingsDataState.pendingReviewAsk?.moment.kind ?? null;
 
 beforeEach(() => {
   localStorage.clear();
@@ -72,23 +78,23 @@ beforeEach(() => {
   } as unknown as typeof chrome;
 });
 
-describe('restoring a session is a value moment', () => {
-  test('opening every window records one', async () => {
+describe('restoring a session asks "Your tabs are back"', () => {
+  test('opening every window notes one', async () => {
     const { store } = makeTestStore();
     store.dispatch({
       type: 'tabContainerDataState/saveToTabContainerInternal',
       payload: session('a', 3),
     });
-    expect(momentOf(store)).toBe('');
+    expect(momentOf(store)).toBeNull();
 
     await store.dispatch(
       openAllTabContainer({ tabGroupId: 'a', goToURLText: 'Go to URL' })
     );
 
-    expect(typeof momentOf(store)).toBe('number');
+    expect(momentOf(store)).toBe('restored');
   });
 
-  test('opening a single window records one', async () => {
+  test('opening a single window notes one', async () => {
     const { store } = makeTestStore();
     store.dispatch({
       type: 'tabContainerDataState/saveToTabContainerInternal',
@@ -103,19 +109,19 @@ describe('restoring a session is a value moment', () => {
       })
     );
 
-    expect(typeof momentOf(store)).toBe('number');
+    expect(momentOf(store)).toBe('restored');
   });
 
   // The guard clause above the dispatch has to hold: a restore of something
   // that is not there did nothing for the user and must not be spent.
-  test('a restore of a session that does not exist records nothing', async () => {
+  test('a restore of a session that does not exist notes nothing', async () => {
     const { store } = makeTestStore();
 
     await store.dispatch(
       openAllTabContainer({ tabGroupId: 'missing', goToURLText: 'Go to URL' })
     );
 
-    expect(momentOf(store)).toBe('');
+    expect(momentOf(store)).toBeNull();
   });
 });
 
@@ -131,8 +137,8 @@ const seedSizes = (
     })
   );
 
-describe('a save is a value moment only when it is substantial for this user', () => {
-  test('a save larger than their median records one', async () => {
+describe('a save asks "Your tabs are saved" only when it is substantial for this user', () => {
+  test('a save larger than their median notes one', async () => {
     const { store } = makeTestStore();
     seedSizes(store, [2, 3, 4]); // median 3
     localStorage.clear();
@@ -141,7 +147,7 @@ describe('a save is a value moment only when it is substantial for this user', (
       saveToTabContainer({ container: session('big', 5), scope: 'all-windows' })
     );
 
-    expect(typeof momentOf(store)).toBe('number');
+    expect(momentOf(store)).toBe('bigSave');
   });
 
   // THE CONTROL. The same five-tab save, for someone who saves far more --
@@ -155,10 +161,10 @@ describe('a save is a value moment only when it is substantial for this user', (
       saveToTabContainer({ container: session('big', 5), scope: 'all-windows' })
     );
 
-    expect(momentOf(store)).toBe('');
+    expect(momentOf(store)).toBeNull();
   });
 
-  test('a save at exactly the median records nothing', async () => {
+  test('a save at exactly the median notes nothing', async () => {
     const { store } = makeTestStore();
     seedSizes(store, [4, 6, 8]); // median 6
 
@@ -169,7 +175,7 @@ describe('a save is a value moment only when it is substantial for this user', (
       })
     );
 
-    expect(momentOf(store)).toBe('');
+    expect(momentOf(store)).toBeNull();
   });
 
   // The library is read BEFORE the new session joins it, and this is the case
@@ -184,21 +190,34 @@ describe('a save is a value moment only when it is substantial for this user', (
       saveToTabContainer({ container: session('six', 6), scope: 'all-windows' })
     );
 
-    expect(typeof momentOf(store)).toBe('number');
+    expect(momentOf(store)).toBe('bigSave');
   });
 
-  // Nothing has been demonstrated yet on an install holding one session.
-  test('the very first save records nothing', async () => {
+  // KAN-653. Not "substantial" -- there is nothing to measure against -- but
+  // the first session kept is its own payoff, and asks with its own words.
+  test('the very first save asks "Your first session is saved"', async () => {
     const { store } = makeTestStore();
 
     await store.dispatch(
       saveToTabContainer({
-        container: session('first', 99),
+        container: session('first', 1),
         scope: 'all-windows',
       })
     );
 
-    expect(momentOf(store)).toBe('');
+    expect(momentOf(store)).toBe('firstSave');
+  });
+
+  test('the second save is not a first save', async () => {
+    const { store } = makeTestStore();
+    seedSizes(store, [3]);
+    localStorage.clear();
+
+    await store.dispatch(
+      saveToTabContainer({ container: session('two', 1), scope: 'all-windows' })
+    );
+
+    expect(momentOf(store)).toBeNull();
   });
 });
 
@@ -233,7 +252,7 @@ describe('isSubstantialSave', () => {
   });
 });
 
-describe('the recorded moment', () => {
+describe('the noted ask', () => {
   test('is written to localStorage, since the popup is about to close', async () => {
     const { store } = makeTestStore();
     store.dispatch({
@@ -246,8 +265,10 @@ describe('the recorded moment', () => {
     );
 
     const stored = JSON.parse(localStorage.getItem('settingsData') ?? '{}');
-    expect(typeof stored.lastValueMomentTime).toBe('number');
-    expect(stored.lastValueMomentTime).toBe(momentOf(store));
+    expect(stored.pendingReviewAsk).toEqual(
+      store.getState().settingsDataState.pendingReviewAsk
+    );
+    expect(stored.pendingReviewAsk.moment).toEqual({ kind: 'restored' });
   });
 
   test('moves forward when a newer moment happens', async () => {
@@ -263,23 +284,24 @@ describe('the recorded moment', () => {
       await store.dispatch(
         openAllTabContainer({ tabGroupId: 'a', goToURLText: 'Go to URL' })
       );
-      const first = momentOf(store);
+      const atOf = () =>
+        store.getState().settingsDataState.pendingReviewAsk?.at;
+      expect(atOf()).toBe(T0);
 
       vi.setSystemTime(T0 + HOUR);
       await store.dispatch(
         openAllTabContainer({ tabGroupId: 'a', goToURLText: 'Go to URL' })
       );
 
-      expect(momentOf(store)).toBe(T0 + HOUR);
-      expect(momentOf(store)).toBeGreaterThan(first as number);
+      expect(atOf()).toBe(T0 + HOUR);
     } finally {
       vi.useRealTimers();
     }
   });
 });
 
-// KAN-7. The run's example session is no save of the user's: restoring it must not spend the rate prompt (KAN-149).
-describe('the sample session is no value moment', () => {
+// KAN-7. The run's example session is no save of the user's: restoring it must not spend the ask (KAN-149).
+describe('the sample session is no moment', () => {
   const SAMPLE = `${SAMPLE_ID_PREFIX}abc`;
   const seed = (store: ReturnType<typeof makeTestStore>['store']) =>
     store.dispatch({
@@ -287,16 +309,16 @@ describe('the sample session is no value moment', () => {
       payload: session(SAMPLE, 3),
     });
 
-  test('opening every window of the sample records nothing', async () => {
+  test('opening every window of the sample notes nothing', async () => {
     const { store } = makeTestStore();
     seed(store);
     await store.dispatch(
       openAllTabContainer({ tabGroupId: SAMPLE, goToURLText: 'Go to URL' })
     );
-    expect(momentOf(store)).toBe('');
+    expect(momentOf(store)).toBeNull();
   });
 
-  test('opening one window of the sample records nothing', async () => {
+  test('opening one window of the sample notes nothing', async () => {
     const { store } = makeTestStore();
     seed(store);
     await store.dispatch(
@@ -306,10 +328,11 @@ describe('the sample session is no value moment', () => {
         goToURLText: 'Go to URL',
       })
     );
-    expect(momentOf(store)).toBe('');
+    expect(momentOf(store)).toBeNull();
   });
 
-  test('a first real save beside only the sample records nothing', async () => {
+  // The sample is not a session the user kept, so this is still their first.
+  test('a first real save beside only the sample is a first save', async () => {
     const { store } = makeTestStore();
     seed(store);
     localStorage.clear();
@@ -319,10 +342,23 @@ describe('the sample session is no value moment', () => {
         scope: 'all-windows',
       })
     );
-    expect(momentOf(store)).toBe('');
+    expect(momentOf(store)).toBe('firstSave');
   });
 
-  test('CONTROL: the same save beside an ordinary one-tab session records one', async () => {
+  // "Use an example" adds the sample without this thunk; this is the guard in
+  // case anything ever saves one through it.
+  test('saving the sample itself notes nothing', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(
+      saveToTabContainer({
+        container: session(`${SAMPLE_ID_PREFIX}new`, 8),
+        scope: 'all-windows',
+      })
+    );
+    expect(momentOf(store)).toBeNull();
+  });
+
+  test('CONTROL: the same save beside an ordinary one-tab session is a big save', async () => {
     const { store } = makeTestStore();
     store.dispatch({
       type: 'tabContainerDataState/saveToTabContainerInternal',
@@ -335,7 +371,7 @@ describe('the sample session is no value moment', () => {
         scope: 'all-windows',
       })
     );
-    expect(typeof momentOf(store)).toBe('number');
+    expect(momentOf(store)).toBe('bigSave');
   });
 
   test('the sample is left out of the median, not just the empty case', async () => {
@@ -353,7 +389,7 @@ describe('the sample session is no value moment', () => {
         scope: 'all-windows',
       })
     );
-    expect(momentOf(store)).toBe('');
+    expect(momentOf(store)).toBeNull();
   });
 });
 
@@ -362,5 +398,122 @@ describe('isSubstantialSave and the sample', () => {
     expect(isSubstantialSave(9, [session(`${SAMPLE_ID_PREFIX}x`, 1)])).toBe(
       false
     );
+  });
+});
+
+// KAN-653. A moment notes an ask only while one may be made: the card itself
+// re-checks, but a pending ask the gate would refuse is one nobody should see.
+describe('a moment while no ask is allowed', () => {
+  test('notes nothing once the user has rated', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(setUserRatedAndReviewed());
+    store.dispatch({
+      type: 'tabContainerDataState/saveToTabContainerInternal',
+      payload: session('a', 3),
+    });
+
+    await store.dispatch(
+      openAllTabContainer({ tabGroupId: 'a', goToURLText: 'Go to URL' })
+    );
+
+    expect(momentOf(store)).toBeNull();
+  });
+
+  // The gate is read from localStorage, not this page's store: another page
+  // may have just asked, and its write reaches this store only later.
+  test('notes nothing when another page asked inside the gap', () => {
+    const { store } = makeTestStore();
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({ lastReviewRequestTime: Date.now() - 1000 })
+    );
+
+    store.dispatch(noteReviewMoment({ kind: 'restored' }));
+
+    expect(momentOf(store)).toBeNull();
+  });
+});
+
+describe('showing the card', () => {
+  const cardOf = (store: ReturnType<typeof makeTestStore>['store']) =>
+    store.getState().globalState.reviewCard;
+
+  test('opens it, stamps the ask and clears the pending one', () => {
+    const { store } = makeTestStore();
+    store.dispatch(noteReviewMoment({ kind: 'bigSave' }));
+
+    store.dispatch(showReviewCard({ kind: 'bigSave' }));
+
+    expect(cardOf(store)).toEqual({
+      moment: { kind: 'bigSave' },
+      offersNever: false,
+    });
+    const settings = store.getState().settingsDataState;
+    expect(typeof settings.lastReviewRequestTime).toBe('number');
+    expect(settings.pendingReviewAsk).toBeNull();
+    expect(settings.isTimeAskDone).toBe(false);
+    const stored = JSON.parse(localStorage.getItem('settingsData') ?? '{}');
+    expect(stored.lastReviewRequestTime).toBe(settings.lastReviewRequestTime);
+    expect(stored.pendingReviewAsk).toBeNull();
+  });
+
+  test('the time ask marks itself done', () => {
+    const { store } = makeTestStore();
+
+    store.dispatch(showReviewCard({ kind: 'time' }));
+
+    expect(store.getState().settingsDataState.isTimeAskDone).toBe(true);
+  });
+
+  test('offers "never" only to someone who has closed one before', () => {
+    const { store } = makeTestStore();
+    store.dispatch(setSkippedUserReviewOnce());
+
+    store.dispatch(showReviewCard({ kind: 'restored' }));
+
+    expect(cardOf(store)?.offersNever).toBe(true);
+  });
+
+  test('does not open inside the gap', () => {
+    const { store } = makeTestStore();
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({
+        lastReviewRequestTime: Date.now() - REVIEW_ASK_GAP_MS + 60_000,
+      })
+    );
+
+    store.dispatch(showReviewCard({ kind: 'restored' }));
+
+    expect(cardOf(store)).toBeNull();
+  });
+
+  // Review Focus 1: the popup over a full view. Both pages saw the moment;
+  // only one may ask. B's own store still holds the settings it loaded with,
+  // so only re-reading localStorage can tell it A has asked.
+  test('a second page does not ask again once another page has asked', () => {
+    const a = makeTestStore().store;
+    const b = makeTestStore().store;
+    a.dispatch(noteReviewMoment({ kind: 'sessionsArrived' }));
+    b.dispatch(noteReviewMoment({ kind: 'sessionsArrived' }));
+
+    a.dispatch(showReviewCard({ kind: 'sessionsArrived' }));
+    b.dispatch(showReviewCard({ kind: 'sessionsArrived' }));
+
+    expect(cardOf(a)).not.toBeNull();
+    expect(cardOf(b)).toBeNull();
+  });
+
+  // B's store is stale. A write from it here would put back the empty
+  // lastReviewRequestTime it loaded with, over A's stamp, and reopen the gate.
+  test('a refused page writes nothing over the page that asked', () => {
+    const a = makeTestStore().store;
+    const b = makeTestStore().store;
+    a.dispatch(showReviewCard({ kind: 'time' }));
+    const afterA = localStorage.getItem('settingsData');
+
+    b.dispatch(showReviewCard({ kind: 'time' }));
+
+    expect(localStorage.getItem('settingsData')).toBe(afterA);
   });
 });

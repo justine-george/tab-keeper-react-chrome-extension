@@ -1,9 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, waitFor } from '@testing-library/react';
 
-// These tests pin which dialog an open picks, not when.
-vi.mock('../../utils/constants/cardDelay', () => ({ CARD_DELAY_MS: 0 }));
-
 vi.mock('../../config/firebase', () => ({
   observeAuthState: () => {},
   signInUserAnonymously: () => {},
@@ -58,7 +55,6 @@ afterEach(() => {
   history.replaceState(null, '', '?');
   localStorage.clear();
   delete document.documentElement.dataset.firstOpen;
-  delete document.documentElement.dataset.firstOpenCard;
   vi.restoreAllMocks();
 });
 

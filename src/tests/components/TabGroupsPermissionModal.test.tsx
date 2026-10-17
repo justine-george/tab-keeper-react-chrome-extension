@@ -14,7 +14,7 @@ import {
 } from '../../utils/functions/local';
 
 // The modal reads its escalation flag straight out of localStorage (as
-// RateAndReviewModal does), so these tests write it there rather than into the
+// showReviewCard does), so these tests write it there rather than into the
 // store. Cleared each time so one test's dismissal cannot reveal the permanent
 // opt-out in the next.
 beforeEach(() => localStorage.clear());

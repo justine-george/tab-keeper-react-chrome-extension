@@ -100,9 +100,10 @@ const SyncStatus: React.FC = () => {
     font-variant-numeric: tabular-nums;
   `;
 
+  // KAN-650. Capped at the reading width of the other Settings help lines.
   const lineStyle = css`
     margin: 4px 0 0;
-    max-width: 100%;
+    max-width: 36rem;
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.SECONDARY};
     line-height: 1.45;

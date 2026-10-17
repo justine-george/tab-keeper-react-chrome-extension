@@ -26,7 +26,10 @@ import {
 } from '../../utils/functions/uiSound';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
-import { dialogButtonStyles } from './dialogButtons';
+import { dialogButtonStyles, pairCss, tallButtonCss } from './dialogButtons';
+import { dialogTitleSize } from './dialogTitleSize';
+import { dialogRiseCss } from './dialogRise';
+import { useHasRisen } from '../../hooks/useHasRisen';
 import {
   canAnimate,
   playGetStarted,
@@ -102,6 +105,9 @@ export const CloudConsentModal: React.FC = () => {
     return cancel;
   }, [isOpen, play, cancel]);
 
+  // Above the open guard, as every hook here is.
+  const hasRisen = useHasRisen(dialogRef, isOpen);
+
   if (!isOpen) return null;
 
   // 'enable' Not now and Escape only close: a re-ask leaves the earlier answer as it is.
@@ -174,6 +180,7 @@ export const CloudConsentModal: React.FC = () => {
         : close;
 
   const buttons = dialogButtonStyles(COLORS);
+  const titleSize = dialogTitleSize();
 
   const dialogStyle = css`
     position: fixed;
@@ -207,8 +214,9 @@ export const CloudConsentModal: React.FC = () => {
     align-items: center;
     gap: 10px;
     margin: 0 0 12px 0;
-    font-size: ${TYPE.SECTION};
-    font-weight: 500;
+    font-size: ${titleSize};
+    /* KAN-654: the popup's one weight, not the heading's bold. */
+    font-weight: inherit;
     color: ${COLORS.TEXT_COLOR};
   `;
   const bodyStyle = css`
@@ -240,7 +248,6 @@ export const CloudConsentModal: React.FC = () => {
   `;
   const questionStyle = css`
     margin: 0 0 12px 0;
-    font-weight: 500;
     color: ${COLORS.TEXT_COLOR};
   `;
   const fineStyle = css`
@@ -252,11 +259,12 @@ export const CloudConsentModal: React.FC = () => {
       color: ${COLORS.TEXT_COLOR};
     }
   `;
+  // KAN-654: the way out, then the yes half as wide again, at the right.
   const actionsStyle = css`
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
+    ${pairCss}
+    margin-left: auto;
   `;
+  const tall = tallButtonCss(24);
   const policyLink = (
     <a
       href={PRIVACY_POLICY_LINK}
@@ -276,7 +284,7 @@ export const CloudConsentModal: React.FC = () => {
       ref={dialogRef}
       // Focusable only by script, never by Tab; see the effect above.
       tabIndex={-1}
-      css={dialogStyle}
+      css={[dialogStyle, dialogRiseCss(hasRisen)]}
       aria-labelledby={TITLE_ID}
       aria-describedby={BODY_ID}
       onCancel={(e) => {
@@ -317,7 +325,7 @@ export const CloudConsentModal: React.FC = () => {
             <button
               ref={getStartedRef}
               type="button"
-              css={[buttons.filled, endStyle, iconLabelStyle]}
+              css={[buttons.filled, endStyle, iconLabelStyle, tall]}
               onClick={getStarted}
             >
               {/* KAN-623. Get started opens the full view in its own tab. */}
@@ -346,10 +354,10 @@ export const CloudConsentModal: React.FC = () => {
             {policyLink}
           </p>
           <div css={actionsStyle}>
-            <button type="button" css={buttons.quiet} onClick={close}>
+            <button type="button" css={[buttons.quiet, tall]} onClick={close}>
               {t('Not now')}
             </button>
-            <button type="button" css={buttons.filled} onClick={grant}>
+            <button type="button" css={[buttons.filled, tall]} onClick={grant}>
               {t('Sync')}
             </button>
           </div>
@@ -370,10 +378,10 @@ export const CloudConsentModal: React.FC = () => {
             {t('ExistingSyncOff')} {policyLink}
           </p>
           <div css={actionsStyle}>
-            <button type="button" css={buttons.quiet} onClick={decline}>
+            <button type="button" css={[buttons.quiet, tall]} onClick={decline}>
               {t('Turn off sync')}
             </button>
-            <button type="button" css={buttons.filled} onClick={grant}>
+            <button type="button" css={[buttons.filled, tall]} onClick={grant}>
               {t('Keep sync on')}
             </button>
           </div>

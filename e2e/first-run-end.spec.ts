@@ -221,13 +221,14 @@ for (const how of ['Skip setup', 'Done'] as const) {
   });
 }
 
-// KAN-457: step 9 is one row at the default size, and its notch points up at the tab strip.
+// KAN-457: step 9's buttons are one row at the default size, and its notch points up at the tab strip.
+// KAN-654: Not now sits under them, centred, as Skip tutorial does on the other cards.
 // KAN-563: at the first tab on a Mac (140), elsewhere where it always was (88).
 for (const [os, aim] of [
   ['mac', 140],
   ['win', 88],
 ] as const) {
-  test(`step 9 (${os}): Not now left, Back and Pin this tab right, one row; the notch up at ${aim}px`, async ({
+  test(`step 9 (${os}): Back and Pin this tab one row, Not now centred under them; the notch up at ${aim}px`, async ({
     context,
     extensionId,
   }) => {
@@ -254,8 +255,9 @@ for (const [os, aim] of [
       return {
         width: card.width,
         tops: ['Not now', 'Back', 'Pin this tab'].map((n) => button(n).top),
-        notNowRight: button('Not now').right,
-        backLeft: button('Back').left,
+        pinBottom: button('Pin this tab').bottom,
+        notNowCentre: button('Not now').left + button('Not now').width / 2,
+        cardCentre: card.left + card.width / 2,
         notch: {
           tip: notch.left + notch.width / 2,
           bottom: notch.bottom - card.top,
@@ -265,9 +267,11 @@ for (const [os, aim] of [
     });
     expect(geometry.width).toBe(400);
     const [notNow, back, pin] = geometry.tops;
-    expect(Math.abs(notNow - back)).toBeLessThan(1);
     expect(Math.abs(back - pin)).toBeLessThan(1);
-    expect(geometry.notNowRight).toBeLessThan(geometry.backLeft);
+    expect(notNow).toBeGreaterThanOrEqual(geometry.pinBottom);
+    expect(Math.abs(geometry.notNowCentre - geometry.cardCentre)).toBeLessThan(
+      1
+    );
     // Above the card, its tip on the aim (drawn inside the card's 1px border), and still inside the page.
     expect(geometry.notch.bottom).toBeLessThanOrEqual(0);
     expect(Math.abs(geometry.notch.tip - aim)).toBeLessThanOrEqual(1);

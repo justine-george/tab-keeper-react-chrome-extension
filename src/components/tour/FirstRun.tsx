@@ -335,7 +335,7 @@ export default function FirstRun() {
       case 'replace':
         return {
           text: t(
-            'Replace overwrites this saved session with what you have open now. Nothing closes.'
+            'Replace keeps this saved session up to date by overwriting it with what you have open now. Nothing closes.'
           ),
           primary: next,
         };

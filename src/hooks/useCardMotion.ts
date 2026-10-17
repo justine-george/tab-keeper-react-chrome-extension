@@ -75,7 +75,10 @@ export function useCardMotion(
     // A re-placement with nothing new to play leaves what is running alone.
     if (appears) {
       cancelRunning();
-      running.current = [playAppear(mark, originFacing(frame.placement.side))];
+      const appear = playAppear(mark, originFacing(frame.placement.side));
+      running.current = [appear];
+      // KAN-654: no press on the card while it appears either; the dim around it takes none.
+      passClicksThrough([appear], [mark]);
       return;
     }
     if (from === null) return;

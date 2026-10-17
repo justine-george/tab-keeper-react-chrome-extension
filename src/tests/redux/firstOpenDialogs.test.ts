@@ -32,7 +32,6 @@ describe('the first-open lists', () => {
     expect(listFor('popup')).toEqual([
       'cloudConsent',
       'firstRun',
-      'rate',
       'tabGroups',
       'fullViewCallout',
     ]);
@@ -44,7 +43,6 @@ describe('the first-open lists', () => {
       'firstRun',
       'setup',
       'pinGuide',
-      'rate',
       'tabGroups',
     ]);
   });

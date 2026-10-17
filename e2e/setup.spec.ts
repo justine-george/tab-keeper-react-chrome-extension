@@ -323,10 +323,11 @@ for (const lang of ['en', 'de', 'ru']) {
   });
 }
 
-// KAN-428. Back and Next/Done share one width, in any language at any root size.
+// KAN-428, KAN-654. Next/Done is half as wide again as Back where the row has room; at the
+// largest root a long Skip setup takes some of it, and Next/Done stays the wider. Nothing is cut off.
 for (const lang of ['en', 'de', 'ru']) {
   for (const root of [16, 20, 24]) {
-    test(`${lang} at a ${root}px root: Back and Next/Done are one width, inside the dialog, on every step`, async ({
+    test(`${lang} at a ${root}px root: Next/Done is half as wide again as Back, inside the dialog, on every step`, async ({
       context,
       extensionId,
       serviceWorker,
@@ -351,7 +352,13 @@ for (const lang of ['en', 'de', 'ru']) {
           button(primary).evaluate((el) => el.getBoundingClientRect()),
           setupAnyLanguage(page).evaluate((el) => el.getBoundingClientRect()),
         ]);
+        const clipped = await setupAnyLanguage(page).evaluate((d) =>
+          [...d.querySelectorAll('button')]
+            .filter((b) => b.scrollWidth > b.clientWidth + 1)
+            .map((b) => b.textContent)
+        );
         return {
+          clipped,
           back: back.width,
           end: end.width,
           inside:
@@ -373,7 +380,12 @@ for (const lang of ['en', 'de', 'ru']) {
         const seen = await widths(primary);
         // CONTROL: both are drawn, so a width of zero would not pass for a match.
         expect(seen.back).toBeGreaterThan(20);
-        expect(Math.abs(seen.back - seen.end)).toBeLessThanOrEqual(1);
+        if (root < 24) {
+          expect(Math.abs(seen.end - 1.5 * seen.back)).toBeLessThanOrEqual(1);
+        } else {
+          expect(seen.end).toBeGreaterThan(seen.back);
+        }
+        expect(seen.clipped).toEqual([]);
         expect(seen.inside).toBe(true);
       }
     });
@@ -611,13 +623,17 @@ test('an existing user never sees setup', async ({ context, extensionId }) => {
   await stubToolbarPin(context, { pinned: true });
   await seedSessions(context, buildContainer());
   await seedSettings(context, {
+    isNeverAskAgainToRate: false,
     extensionInstalledTime: Date.now() - 2 * DAY,
-    lastValueMomentTime: Date.now() - 60 * 60 * 1000,
   });
   const page = await openFullView(context, extensionId);
-  // The rate prompt is decided after setup: its opening proves setup said no.
+  // The review card shows only once nothing covers the page (KAN-653): its
+  // showing proves setup said no.
   await expect(
-    page.getByRole('dialog', { name: 'Enjoying Tab Keeper?', exact: true })
+    page.getByRole('complementary', {
+      name: 'Thanks for using Tab Keeper',
+      exact: true,
+    })
   ).toBeVisible();
   await expect(setup(page)).toHaveCount(0);
 });

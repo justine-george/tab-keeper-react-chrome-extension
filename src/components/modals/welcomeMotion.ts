@@ -1,5 +1,9 @@
 import { EASE } from '../../styles/scale';
 
+// KAN-654: the drawing at 80% of the approved mock, so it sits lighter over its two lines. Borders stay 1px.
+const HERO_SCALE = 0.8;
+export const heroPx = (px: number): number => Math.round(px * HERO_SCALE);
+
 // Web Animations timings for §5's four beats, so not DURATION's (CSS transitions).
 export const WELCOME_LOOP = {
   INTO_AT_MS: 300,
@@ -18,9 +22,9 @@ export const WELCOME_LOOP = {
   LINE_STAGGER_MS: 90,
   LINE_MS: 280,
   SMALLEST: 0.35,
-  LIFT_PX: 70,
-  SHUTTER_PX: 14,
-  CHIP_STEP_PX: 50,
+  LIFT_PX: heroPx(70),
+  SHUTTER_PX: heroPx(14),
+  CHIP_STEP_PX: heroPx(50),
 } as const;
 
 export interface HeroLoop {
@@ -64,15 +68,16 @@ export function playWelcomeLoop(hero: HTMLElement): HeroLoop {
       : 1;
   const slot = floppy.getBoundingClientRect();
   const intoX = slot.left + slot.width / 2;
-  const intoY = slot.top + 10;
+  const intoY = slot.top + heroPx(10);
   const home = right.getBoundingClientRect();
 
   parts('chip').forEach((chip, i) => {
     const from = chip.getBoundingClientRect();
     const dx = (intoX - (from.left + from.width / 2)) / scale;
     const dy = (intoY - from.top) / scale;
-    const outX = (home.left - from.left) / scale + 6 + i * L.CHIP_STEP_PX;
-    const outY = (home.top - from.top) / scale + 5;
+    const outX =
+      (home.left - from.left) / scale + heroPx(6) + i * L.CHIP_STEP_PX;
+    const outY = (home.top - from.top) / scale + heroPx(5);
     const leaves = L.INTO_AT_MS + i * L.CHIP_STAGGER_MS;
     play(
       chip,
