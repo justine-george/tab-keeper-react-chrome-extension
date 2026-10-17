@@ -7,7 +7,13 @@ import {
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
-import { openFullView, openPopup, storedSettings } from './fixtures/onboarding';
+import {
+  FULL_VIEW_PATH,
+  openFullView,
+  openPage,
+  openPopup,
+  storedSettings,
+} from './fixtures/onboarding';
 import { pressOpen, saveRowSaveAll } from './fixtures/sessionActions';
 
 // KAN-653 on the real build: the review card's asks, its gap and its close.
@@ -255,4 +261,41 @@ test('✕ closes it as Not now, and the gap keeps it away on reload', async ({
   await page.locator('[aria-label="Sort sessions"]').first().waitFor();
   await settleLong(page);
   await expect(anyCard(page)).toHaveCount(0);
+});
+
+// Review I2. Below 1100px Open now is a drawer on the right, over the panes.
+// The card opens there too, and must not sit under it, its ✕ hidden.
+test('a narrow full view: the card stays over the Open now drawer', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSessions(context, buildContainer([TRIP]));
+  await seedSettings(context, {
+    ...ASKABLE,
+    extensionInstalledTime: Date.now() - 2 * DAY,
+  });
+  const page = await openPage(context, extensionId, FULL_VIEW_PATH, {
+    width: 1000,
+    height: 800,
+  });
+  const time = card(page, 'Thanks for using Tab Keeper');
+  await expect(time).toBeVisible();
+
+  // Narrow, the saved session and Open now share a pane; with the session
+  // shown, Open now is the drawer behind the rail's button.
+  await page
+    .getByRole('button', { name: 'Show the saved session', exact: true })
+    .click();
+  await page.getByRole('button', { name: /^Open now/ }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+
+  const close = time.getByRole('button', { name: 'Not now', exact: true });
+  const box = (await close.boundingBox())!;
+  const onTop = await page.evaluate(
+    ({ x, y }) =>
+      document.elementFromPoint(x, y)?.closest('[data-testid="review-card"]') !=
+      null,
+    { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  );
+  expect(onTop).toBe(true);
 });

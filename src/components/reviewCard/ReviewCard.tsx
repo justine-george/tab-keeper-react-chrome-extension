@@ -139,7 +139,9 @@ function OpenReviewCard({
     position: fixed;
     right: ${size.pad}px;
     bottom: ${size.pad}px;
-    z-index: 50;
+    /* Over the Open now drawer (900), which can open over a card already
+       up; under menus (1000), the tour's dim (1010) and toasts (1050). */
+    z-index: 950;
     box-sizing: border-box;
     width: ${size.width};
     max-width: calc(100vw - 32px);
