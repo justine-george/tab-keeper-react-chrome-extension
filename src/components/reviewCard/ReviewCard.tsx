@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useRef, type KeyboardEvent } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { css, keyframes } from '@emotion/react';
 
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useHasRisen } from '../../hooks/useHasRisen';
 import type { AppDispatch, RootState } from '../../redux/store';
 import { closeReviewCard } from '../../redux/slices/globalStateSlice';
 import {
@@ -15,7 +16,6 @@ import {
 import { APP_CHROME_WEBSTORE_LINK } from '../../utils/constants/common';
 import { reviewCardCopy } from '../../utils/functions/reviewAsk';
 import { isTabView } from '../../utils/functions/viewMode';
-import { prefersReducedMotion } from '../modals/getStartedMotion';
 import { dialogButtonStyles } from '../modals/dialogButtons';
 import ClickableTabKeeperMark from '../common/ClickableTabKeeperMark';
 import Icon from '../common/Icon';
@@ -84,22 +84,9 @@ function OpenReviewCard({
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
-  // Pointer input waits for the rise: a press already on its way to the row
-  // under this corner lands on the row. Reduced motion has no rise.
-  const [hasRisen, setHasRisen] = useState(prefersReducedMotion);
   const cardRef = useRef<HTMLElement>(null);
-
-  // Native, not onAnimationEnd: React's did not fire for a dispatched
-  // animationend in jsdom (measured). The card's own rise only, not a child's.
-  useEffect(() => {
-    const card = cardRef.current;
-    if (card === null) return;
-    const onEnd = (event: Event) => {
-      if (event.target === card) setHasRisen(true);
-    };
-    card.addEventListener('animationend', onEnd);
-    return () => card.removeEventListener('animationend', onEnd);
-  }, []);
+  // Pointer input waits for the rise. Reduced motion has no rise.
+  const hasRisen = useHasRisen(cardRef);
 
   const size = isTabView() ? SIZE.full : SIZE.popup;
   const { titleKey, bodyKey } = reviewCardCopy(moment);

@@ -213,7 +213,7 @@ async function expectFits(root: Locator, label: string) {
 const press = (root: Locator, name: string) =>
   root.getByRole('button', { name, exact: true }).click();
 
-// KAN-457: Back and Pin this tab share a row; Not now shares it or sits wholly above.
+// KAN-457: Back and Pin this tab share a row. KAN-654: Not now sits wholly under it.
 async function expectPinRow(
   page: Page,
   say: (key: string) => string,
@@ -229,8 +229,8 @@ async function expectPinRow(
   );
   expect(Math.abs(back.top - pin.top), `${lang} Back + Pin`).toBeLessThan(1);
   expect(
-    Math.abs(notNow.top - back.top) < 1 || notNow.bottom <= back.top,
-    `${lang} Not now beside or above`
+    notNow.top >= Math.max(back.bottom, pin.bottom),
+    `${lang} Not now under`
   ).toBe(true);
 }
 

@@ -418,7 +418,11 @@ describe('the first save’s echo (§10)', () => {
         if (this.matches('[data-tour-anchor="tab-dot"]')) {
           played.push({ keyframes, delay: Number(options.delay ?? 0) });
         }
-        return { cancel: () => undefined, finished: Promise.resolve() };
+        // An EventTarget, as an Animation is: the card listens for its end (KAN-654).
+        return Object.assign(new EventTarget(), {
+          cancel: () => undefined,
+          finished: Promise.resolve(),
+        });
       },
     });
     const dots = [0, 1, 2].map(() => {

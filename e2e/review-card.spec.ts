@@ -290,12 +290,18 @@ test('a narrow full view: the card stays over the Open now drawer', async ({
   await expect(page.getByRole('dialog')).toBeVisible();
 
   const close = time.getByRole('button', { name: 'Not now', exact: true });
-  const box = (await close.boundingBox())!;
-  const onTop = await page.evaluate(
-    ({ x, y }) =>
-      document.elementFromPoint(x, y)?.closest('[data-testid="review-card"]') !=
-      null,
-    { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-  );
-  expect(onTop).toBe(true);
+  // KAN-655: polled, as the card takes no pointer input until its rise ends, so a
+  // hit-test mid-rise sees through it. A card under the drawer never reads true.
+  const onTop = async () => {
+    const box = await close.boundingBox();
+    if (box === null) return false;
+    return page.evaluate(
+      ({ x, y }) =>
+        document
+          .elementFromPoint(x, y)
+          ?.closest('[data-testid="review-card"]') != null,
+      { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    );
+  };
+  await expect.poll(onTop).toBe(true);
 });
