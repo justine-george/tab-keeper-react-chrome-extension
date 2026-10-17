@@ -20,10 +20,6 @@ When you save a session, Tab Keeper records:
 
 Tab Keeper reads this information from Chrome. It does not inspect page bodies, forms, messages, or other webpage contents.
 
-### Recently closed tabs
-
-When you close a tab or window from Open now, Tab Keeper asks Chrome for access to its list of recently closed tabs and windows, then reads that list to find the entry for what you closed. If you press Reopen, Tab Keeper asks Chrome to restore that entry, so it comes back with its Back and Forward history. Tab Keeper does not save, sync, or export this list. Chrome describes this access on its extensions page as "Read your browsing history on all your signed-in devices".
-
 ### Settings
 
 Tab Keeper stores settings including your theme, language, sync preference, display choices, and whether you have dismissed optional prompts.
@@ -113,7 +109,7 @@ If you cannot use the deletion control, contact the developer at the address bel
 - **`storage`:** Stores the anonymous sync identifier in Chrome sync storage.
 - **`favicon`:** Retrieves tab icons from Chrome's favicon cache.
 - **`tabGroups` (optional):** Saves and restores Chrome tab groups. Tab Keeper requests this permission only after you choose to enable the feature.
-- **`sessions` (optional):** Reads Chrome's list of recently closed tabs and windows on this device, to find the tab or window you just closed from Open now and bring it back with its Back and Forward pages. Tab Keeper requests it only after you turn on "Bring back tab history when reopening" in Settings, and turning the setting off gives the permission back. Nothing from that list is stored or sent anywhere.
+- **`sessions` (optional):** Reads Chrome's list of recently closed tabs and windows on this device, to find the tab or window you just closed from Open now and bring it back with its Back and Forward pages. Tab Keeper requests it the first time you close a tab or window from Open now, and Chrome grants it without asking. Chrome's extensions page then describes this access as "Read your browsing history on all your signed-in devices". Nothing from that list is stored or sent anywhere.
 
 ## Security
 

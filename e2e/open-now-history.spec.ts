@@ -91,7 +91,7 @@ async function openPage(
   return page;
 }
 
-// Settings › Sessions, and the history switch in it.
+// Whether this profile holds `sessions` now.
 const holdsSessions = (page: Page): Promise<boolean> =>
   page.evaluate(() =>
     chrome.permissions.contains({ permissions: ['sessions'] })
