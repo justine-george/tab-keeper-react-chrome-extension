@@ -176,13 +176,14 @@ export const SetupModal: React.FC = () => {
     gap: 10px;
     margin: 0;
     font-size: ${TYPE.SECTION};
-    font-weight: 500;
+    /* KAN-654: the popup's one weight, not the heading's bold. */
+    font-weight: inherit;
     color: ${COLORS.TEXT_COLOR};
   `;
   const stepHeadingStyle = css`
     margin: 0 0 12px 0;
     font-size: ${TYPE.BODY};
-    font-weight: 500;
+    font-weight: inherit;
     color: ${COLORS.TEXT_COLOR};
     &:focus {
       outline: none;

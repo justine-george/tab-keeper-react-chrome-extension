@@ -208,7 +208,8 @@ export const CloudConsentModal: React.FC = () => {
     gap: 10px;
     margin: 0 0 12px 0;
     font-size: ${TYPE.SECTION};
-    font-weight: 500;
+    /* KAN-654: the popup's one weight, not the heading's bold. */
+    font-weight: inherit;
     color: ${COLORS.TEXT_COLOR};
   `;
   const bodyStyle = css`
@@ -240,7 +241,6 @@ export const CloudConsentModal: React.FC = () => {
   `;
   const questionStyle = css`
     margin: 0 0 12px 0;
-    font-weight: 500;
     color: ${COLORS.TEXT_COLOR};
   `;
   const fineStyle = css`
