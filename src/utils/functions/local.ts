@@ -688,9 +688,8 @@ export const isValidTabMasterContainer = (
   );
 };
 
-// Exported so the sync guard in globalStateSlice phrases its refusal exactly
-// like the import guard below. Two different roundings for the same limit
-// would read as two different limits.
+// The size a refusal reports. Exported so the sync guard in globalStateSlice
+// writes it exactly like the import guard below.
 // In the UI language, one decimal always: German reads "1,4 MB" (KAN-288).
 // toFixed wrote a point everywhere. Intl only, no i18n or document, because
 // the service worker imports this module.
@@ -700,10 +699,11 @@ export const bytesToMB = (bytes: number, locale: string): string =>
     maximumFractionDigits: 1,
   }).format(bytes / 1048576);
 
-// The limit in whole megabytes, the number only: each refusal key writes its
-// unit after it. Whole, as the Sync Status bar's formatSyncLimit writes it, so
-// the toast and the bar under it name one limit (KAN-634): German reads
-// "1,4 MB von maximal 1 MB".
+// The limit a refusal reports, in whole megabytes, the number only: each
+// refusal key writes its unit after it. Not bytesToMB: two roundings of the
+// same limit read as two limits. Whole, as the Sync Status bar's
+// formatSyncLimit writes it, so the toast and the bar under it name one limit
+// (KAN-634): German reads "1,4 MB von maximal 1 MB".
 export const syncLimitInMB = (locale: string): string =>
   new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(
     FIRESTORE_MAX_DOCUMENT_BYTES / 1048576

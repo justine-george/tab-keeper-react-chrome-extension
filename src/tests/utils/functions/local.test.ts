@@ -1361,9 +1361,10 @@ describe('bytesToMB', () => {
     expect(bytesToMB(BYTES, 'ru')).toBe('1,4');
   });
 
-  // A size just past the limit still shows its decimal: "1.0", not "1".
+  // A size just past the limit, which the guards refuse, still shows its
+  // decimal: "1,0", not "1".
   test('keeps one decimal on a whole number', () => {
-    expect(bytesToMB(1048576, 'de')).toBe('1,0');
+    expect(bytesToMB(1048577, 'de')).toBe('1,0');
   });
 });
 
