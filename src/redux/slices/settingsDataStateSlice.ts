@@ -23,6 +23,7 @@ import type { CaptureScope } from '../../utils/functions/capture';
 // would complete a cycle. Same reason as the RootState note in the container
 // slice.
 import type { ExportLayout } from '../../utils/functions/sessionExportHtml';
+import type { PendingReviewAsk } from '../../utils/functions/reviewAsk';
 import { readUiLanguage } from '../../utils/functions/uiLanguage';
 import {
   Language,
@@ -76,6 +77,14 @@ export interface SettingsData {
    * make one device's payoff into another device's prompt.
    */
   lastValueMomentTime: number | '';
+  /**
+   * An ask for a review that is due but not yet on screen (KAN-653). Saves,
+   * restores and arriving sessions write it; the page shows it once nothing
+   * covers it. Read it through readPendingAsk: an older build never wrote it.
+   */
+  pendingReviewAsk: PendingReviewAsk | null;
+  // KAN-653. The day-after-install ask is asked once; this says it has been.
+  isTimeAskDone: boolean;
   // KAN-255. When this device last completed a sync, ms since epoch; '' until
   // the first. Per device, like the rest of this slice: the other device's
   // last sync is its own fact.
@@ -288,6 +297,8 @@ const defaultSettings: SettingsData = {
   isNeverAskAgainToRate: false,
   lastReviewRequestTime: '',
   lastValueMomentTime: '',
+  pendingReviewAsk: null,
+  isTimeAskDone: false,
   lastSyncedTime: '',
   isTabGroupsPromptAnsweredOnce: false,
   isNeverAskAgainForTabGroups: false,
