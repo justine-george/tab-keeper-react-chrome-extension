@@ -43,26 +43,19 @@ async function openPopup(
   return page;
 }
 
-const RATE_PROMPT_BODY = "If it's been useful, a review would mean a lot.";
+const REVIEW_CARD_BODY =
+  "If it's useful to you, a rating on the Chrome Web Store helps other people find it.";
 
-// The rate-and-review prompt is gated entirely on localStorage: never rated,
-// never opted out, not asked in the last three days, and -- since KAN-149 --
-// something of VALUE has happened. Seeding those opens it on the first render.
-//
-// `lastValueMomentTime` is the one that does the work now. The install date
-// used to open this prompt and no longer does, so seeding only that gets a
-// modal that never appears.
-//
-// Both are NUMBERS of milliseconds, not date strings -- see seedSettings, where
-// getting that wrong fails the same silent way.
-async function openRatePrompt(
+// KAN-653. The review card the day after install, offering "Never ask again"
+// (earned by an earlier close). Numbers of milliseconds, not date strings --
+// see seedSettings, where getting that wrong fails silently.
+async function openReviewCard(
   context: BrowserContext,
   extensionId: string
 ): Promise<Page> {
   await seedSettings(context, {
+    isNeverAskAgainToRate: false,
     extensionInstalledTime: Date.now() - 2 * 24 * 60 * 60 * 1000,
-    lastValueMomentTime: Date.now() - 60 * 60 * 1000,
-    // Reveals the second dismissal, which is earned rather than offered.
     isSkippedUserReviewOnce: true,
   });
   return openPopup(context, extensionId);
@@ -495,73 +488,60 @@ test.describe('controls are reachable by keyboard', () => {
     await expect(rowAction).toHaveCSS('opacity', '1');
   });
 
-  // KAN-75. RateAndReviewModal rendered both dismissals as a NormalLabel with
-  // an onClick -- a bare `<div onClick>`, so neither took a tab stop nor
-  // reached the accessibility tree as a control. The modal has no Escape
-  // handler and no close affordance, so a keyboard-only user could reach the
-  // CTA and then had no way at all to decline it.
+  // KAN-75, carried to the review card (KAN-653). The old dialog's
+  // dismissals were bare `<div onClick>`s no keyboard user could reach. The
+  // card's three controls must each take a tab stop.
   //
-  // These run in a real browser rather than only in jsdom because the tab-order
-  // walk is the assertion that actually matters. A role query proves the markup
-  // is a button; only walking from <body> proves a keyboard user can arrive at
-  // it -- `locator.focus()` succeeds on a tabindex=-1 element, per tabOrderNames
-  // above.
-  test('the rate prompt dismissals are reachable by Tab (KAN-75)', async ({
+  // These run in a real browser because the tab-order walk is the assertion
+  // that matters: a role query proves the markup is a button; only walking
+  // from <body> proves a keyboard user can arrive at it -- `locator.focus()`
+  // succeeds on a tabindex=-1 element, per tabOrderNames above.
+  test('the review card controls are reachable by Tab (KAN-75)', async ({
     context,
     extensionId,
   }) => {
-    const page = await openRatePrompt(context, extensionId);
-    await expect(page.getByText(RATE_PROMPT_BODY)).toBeVisible();
+    const page = await openReviewCard(context, extensionId);
+    await expect(page.getByText(REVIEW_CARD_BODY)).toBeVisible();
 
     const names = await tabOrderNames(page);
 
-    expect(names).toContain('Maybe later');
-    expect(names).toContain('Never remind again');
+    expect(names).toContain('Not now');
+    expect(names).toContain('Rate Tab Keeper');
+    expect(names).toContain('Never ask again');
   });
 
-  test('the rate prompt dismissals are buttons with accessible names (KAN-75)', async ({
+  test('the review card controls are buttons with accessible names (KAN-75)', async ({
     context,
     extensionId,
   }) => {
-    const page = await openRatePrompt(context, extensionId);
-    await expect(page.getByText(RATE_PROMPT_BODY)).toBeVisible();
+    const page = await openReviewCard(context, extensionId);
+    const card = page.getByTestId('review-card');
+    await expect(card.getByText(REVIEW_CARD_BODY)).toBeVisible();
 
-    await expect(page.getByRole('button', { name: 'Maybe later' })).toHaveCount(
-      1
-    );
-    await expect(
-      page.getByRole('button', { name: 'Never remind again' })
-    ).toHaveCount(1);
+    for (const name of ['Not now', 'Rate Tab Keeper', 'Never ask again']) {
+      await expect(card.getByRole('button', { name, exact: true })).toHaveCount(
+        1
+      );
+    }
   });
 
-  // The body sentence used to carry its own onClick, opening the Web Store --
-  // an invisible click target, equally unreachable, duplicating the CTA right
-  // beneath it. It is body copy now.
-  //
-  // Asserted by CLICKING it, not by querying its role. A role query cannot see
-  // this defect at all: a `<div onClick>` is not a button and a `<p>` is not a
-  // button either, so `getByRole` returns zero against both the broken and the
-  // fixed markup. Written that way this test passed against the defect --
-  // confirmed by running it against the reverted component.
-  //
-  // The observable difference is that the old handler called cleanUp(), which
-  // closes the modal. So: click the sentence, and the modal must still be
-  // there.
-  test('the rate prompt body is not a click target (KAN-75)', async ({
+  // The old dialog's body sentence once carried its own onClick. Asserted by
+  // CLICKING the card's body: a role query cannot tell a `<div onClick>` from
+  // a `<p>`, so it passes against the defect.
+  test('the review card body is not a click target (KAN-75)', async ({
     context,
     extensionId,
   }) => {
-    const page = await openRatePrompt(context, extensionId);
-    await expect(page.getByText(RATE_PROMPT_BODY)).toBeVisible();
+    const page = await openReviewCard(context, extensionId);
+    await expect(page.getByText(REVIEW_CARD_BODY)).toBeVisible();
 
-    await page.getByText(RATE_PROMPT_BODY).click();
+    await page.getByText(REVIEW_CARD_BODY).click();
 
-    await expect(page.getByText(RATE_PROMPT_BODY)).toBeVisible();
-    // The positive control for that assertion: the CTA beside it DOES close
-    // the modal, so "still visible" above is a property of the body copy
-    // rather than of a modal that cannot be dismissed at all.
-    await page.getByRole('button', { name: 'Rate this extension' }).click();
-    await expect(page.getByText(RATE_PROMPT_BODY)).toBeHidden();
+    await expect(page.getByText(REVIEW_CARD_BODY)).toBeVisible();
+    // CONTROL: Rate beside it does close the card, so "still visible" above
+    // is a property of the body copy, not of a card nothing can close.
+    await page.getByRole('button', { name: 'Rate Tab Keeper' }).click();
+    await expect(page.getByText(REVIEW_CARD_BODY)).toBeHidden();
   });
 
   // KAN-77. The last NormalLabel-with-onClick in the codebase: the selected

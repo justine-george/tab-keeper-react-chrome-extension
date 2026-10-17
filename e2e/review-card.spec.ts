@@ -22,11 +22,8 @@ const card = (page: Page, title: string) =>
   page.getByRole('complementary', { name: title, exact: true });
 const anyCard = (page: Page) => page.getByTestId('review-card');
 
-// Nothing shows for this long: the open's own ask plus the 300ms settle, many times over.
-const staysAway = async (page: Page) => {
-  await page.waitForTimeout(2000);
-  await expect(anyCard(page)).toHaveCount(0);
-};
+// Long enough for the open's own ask and the 300ms settle, many times over.
+const settleLong = (page: Page) => page.waitForTimeout(2000);
 
 const TRIP = buildSession({ tabGroupId: 'trip', title: 'Trip planning' });
 
@@ -111,7 +108,8 @@ test('popup, not yet a day: no card', async ({ context, extensionId }) => {
     extensionInstalledTime: Date.now() - 23 * HOUR,
   });
   const page = await openPopup(context, extensionId);
-  await staysAway(page);
+  await settleLong(page);
+  await expect(anyCard(page)).toHaveCount(0);
 });
 
 test('full view, the first save: "Your first session is saved", 440px wide', async ({
@@ -152,7 +150,8 @@ test('the gap: a first save a day after the last ask shows nothing', async ({
         ).tabGroups?.length
     )
     .toBe(1);
-  await staysAway(page);
+  await settleLong(page);
+  await expect(anyCard(page)).toHaveCount(0);
 });
 
 test.describe('a popup restore asks on the next open', () => {
@@ -192,7 +191,8 @@ test.describe('a popup restore asks on the next open', () => {
       },
     });
     const page = await openPopup(context, extensionId);
-    await staysAway(page);
+    await settleLong(page);
+    await expect(anyCard(page)).toHaveCount(0);
   });
 });
 
@@ -219,7 +219,8 @@ test('a full-view restore asks when the full view gets focus back', async ({
   await expect
     .poll(async () => (await storedSettings(page)).pendingReviewAsk)
     .toMatchObject({ moment: { kind: 'restored' } });
-  await staysAway(page);
+  await settleLong(page);
+  await expect(anyCard(page)).toHaveCount(0);
 
   await page.bringToFront();
   await page.evaluate(() => {
@@ -252,5 +253,6 @@ test('✕ closes it as Not now, and the gap keeps it away on reload', async ({
   expect((await storedSettings(page)).isSkippedUserReviewOnce).toBe(true);
   await page.reload();
   await page.locator('[aria-label="Sort sessions"]').first().waitFor();
-  await staysAway(page);
+  await settleLong(page);
+  await expect(anyCard(page)).toHaveCount(0);
 });

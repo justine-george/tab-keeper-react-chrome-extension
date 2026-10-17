@@ -108,25 +108,53 @@ test('existing user: Esc on the synced question is consumed, and is Turn off syn
   expect(await escapesPrevented(page)).toEqual([true]);
 });
 
-test('rate prompt: Esc is consumed, and is Remind me later', async ({
+// KAN-653. The review card is no dialog: it takes Esc only from inside
+// itself, and an Esc anywhere else keeps today's meaning (the popup closes).
+const reviewCard = (page: Page) =>
+  page.getByRole('complementary', {
+    name: 'Thanks for using Tab Keeper',
+    exact: true,
+  });
+const timeCardDue = {
+  isNeverAskAgainToRate: false,
+  extensionInstalledTime: Date.now() - 2 * DAY,
+};
+
+test('review card: Esc from inside it is consumed, and is Not now', async ({
   context,
   extensionId,
 }) => {
   await watchEscapes(context);
   await seedSessions(context, buildContainer());
-  await seedSettings(context, {
-    extensionInstalledTime: Date.now() - 2 * DAY,
-    lastValueMomentTime: Date.now() - 60 * 60 * 1000,
-  });
+  await seedSettings(context, timeCardDue);
   const page = await openPopup(context, extensionId);
-  const rate = dialog(page, 'Enjoying Tab Keeper?');
-  await expect(rate).toBeVisible();
+  await expect(reviewCard(page)).toBeVisible();
+  await reviewCard(page)
+    .getByRole('button', { name: 'Rate Tab Keeper', exact: true })
+    .focus();
 
   await page.keyboard.press('Escape');
 
-  await expect(rate).toHaveCount(0);
+  await expect(reviewCard(page)).toHaveCount(0);
   expect((await storedSettings(page)).isSkippedUserReviewOnce).toBe(true);
   expect(await escapesPrevented(page)).toEqual([true]);
+});
+
+test('review card: Esc elsewhere is not consumed, and the card stays', async ({
+  context,
+  extensionId,
+}) => {
+  await watchEscapes(context);
+  await seedSessions(context, buildContainer());
+  await seedSettings(context, timeCardDue);
+  const page = await openPopup(context, extensionId);
+  await expect(reviewCard(page)).toBeVisible();
+
+  await page.keyboard.press('Escape');
+
+  await expect(reviewCard(page)).toBeVisible();
+  expect((await storedSettings(page)).isSkippedUserReviewOnce).not.toBe(true);
+  expect(await escapesPrevented(page)).toEqual([false]);
 });
 
 test('switch confirm: Esc is consumed, and switches nothing', async ({

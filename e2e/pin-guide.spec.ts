@@ -19,33 +19,36 @@ import { setPin, stubToolbarPin } from './fixtures/toolbarPin';
 import { expectReadable } from './fixtures/textContrast';
 import { finishFullRun, pastCompactViewCard } from './fixtures/run';
 
-// KAN-7 §4 on the real build. The rate prompt, due in most of these seeds, is
-// the barrier for a negative: it is decided after the guide, so its dialog
-// opening proves the guide already said no.
+// KAN-7 §4 on the real build. The review card, due in most of these seeds, is
+// the barrier for a negative: it shows only once nothing covers the page
+// (KAN-653), so its showing proves the guide already said no.
 
 const DAY = 24 * 60 * 60 * 1000;
-const RATE_DUE = {
+const REVIEW_DUE = {
+  isNeverAskAgainToRate: false,
   extensionInstalledTime: Date.now() - 2 * DAY,
-  lastValueMomentTime: Date.now() - 60 * 60 * 1000,
 };
 const guide = (page: Page) =>
   page.getByRole('dialog', {
     name: 'Pin Tab Keeper to your toolbar',
     exact: true,
   });
-const rate = (page: Page) =>
-  page.getByRole('dialog', { name: 'Enjoying Tab Keeper?', exact: true });
+const reviewCard = (page: Page) =>
+  page.getByRole('complementary', {
+    name: 'Thanks for using Tab Keeper',
+    exact: true,
+  });
 const captions = (page: Page) => guide(page).locator('[data-pin-step-caption]');
 
-test('unpinned and not dismissed: the full view shows it, unlit, waiting, ahead of the rate prompt', async ({
+test('unpinned and not dismissed: the full view shows it, unlit, waiting, ahead of the review card', async ({
   context,
   extensionId,
 }) => {
   await stubToolbarPin(context, { pinned: false });
-  await seedSettings(context, { isPinGuideDismissed: false, ...RATE_DUE });
+  await seedSettings(context, { isPinGuideDismissed: false, ...REVIEW_DUE });
   const page = await openFullView(context, extensionId);
   await expect(guide(page)).toBeVisible();
-  await expect(rate(page)).toHaveCount(0);
+  await expect(reviewCard(page)).toHaveCount(0);
   expect(
     await page.evaluate(
       () => document.activeElement === document.querySelector('dialog[open]')
@@ -65,14 +68,14 @@ for (const [name, pinned] of [
   ['pinned', true],
   ['no getUserSettings', 'absent'],
 ] as const) {
-  test(`${name}: no guide, and the rate prompt gets the open`, async ({
+  test(`${name}: no guide, and the review card shows`, async ({
     context,
     extensionId,
   }) => {
     await stubToolbarPin(context, { pinned });
-    await seedSettings(context, { isPinGuideDismissed: false, ...RATE_DUE });
+    await seedSettings(context, { isPinGuideDismissed: false, ...REVIEW_DUE });
     const page = await openFullView(context, extensionId);
-    await expect(rate(page)).toBeVisible();
+    await expect(reviewCard(page)).toBeVisible();
     await expect(guide(page)).toHaveCount(0);
   });
 }
@@ -119,9 +122,9 @@ test('without the event, coming back to the window re-reads the pin', async ({
 
 test('never in the popup', async ({ context, extensionId }) => {
   await stubToolbarPin(context, { pinned: false });
-  await seedSettings(context, { isPinGuideDismissed: false, ...RATE_DUE });
+  await seedSettings(context, { isPinGuideDismissed: false, ...REVIEW_DUE });
   const page = await openPopup(context, extensionId);
-  await expect(rate(page)).toBeVisible();
+  await expect(reviewCard(page)).toBeVisible();
   await expect(guide(page)).toHaveCount(0);
 });
 
@@ -171,7 +174,7 @@ test.describe('dismissals stick on this machine', () => {
       await stubToolbarPin(context, { pinned: false });
       await seedSettingsIfAbsent(context, {
         isPinGuideDismissed: false,
-        ...RATE_DUE,
+        ...REVIEW_DUE,
       });
       const page = await openFullView(context, extensionId);
       await expect(guide(page)).toBeVisible();
@@ -184,7 +187,7 @@ test.describe('dismissals stick on this machine', () => {
       expect((await storedSettings(page)).isPinGuideDismissed).toBe(true);
 
       await page.reload();
-      await expect(rate(page)).toBeVisible();
+      await expect(reviewCard(page)).toBeVisible();
       await expect(guide(page)).toHaveCount(0);
     });
   }

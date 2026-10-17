@@ -138,18 +138,47 @@ test.describe('the full-view callout (KAN-7 §6)', () => {
   test('never on an open that showed a dialog', async ({
     context,
     extensionId,
+    serviceWorker,
   }) => {
     await watchCallout(context);
+    // Two live tab groups and no grant: the tab-groups offer takes the open.
+    await serviceWorker.evaluate(async () => {
+      const newTab = () =>
+        chrome.tabs.create({ url: 'about:blank', active: false });
+      const [a, b] = [await newTab(), await newTab()];
+      await chrome.tabs.group({ tabIds: [a.id!, b.id!] });
+    });
+    await sessionHolder(context);
+    const page = await openPopup(context, extensionId);
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await queueDone(page, 'tabGroups');
+    expect(await calloutSeen(page)).toEqual([]);
+  });
+
+  // KAN-653. One card at a time: a review ask due on this open waits until
+  // the callout has been dealt with.
+  test('the review card waits for the callout', async ({
+    context,
+    extensionId,
+  }) => {
     await sessionHolder(context, {
+      isNeverAskAgainToRate: false,
       extensionInstalledTime: Date.now() - 2 * DAY,
-      lastValueMomentTime: Date.now() - 60 * 60 * 1000,
     });
     const page = await openPopup(context, extensionId);
+    await expect(callout(page)).toBeVisible();
+    await page.waitForTimeout(1000);
+    await expect(page.getByTestId('review-card')).toHaveCount(0);
+
+    await callout(page)
+      .getByRole('button', { name: 'Close', exact: true })
+      .click();
     await expect(
-      page.getByRole('dialog', { name: 'Enjoying Tab Keeper?', exact: true })
+      page.getByRole('complementary', {
+        name: 'Thanks for using Tab Keeper',
+        exact: true,
+      })
     ).toBeVisible();
-    await queueDone(page, 'rate');
-    expect(await calloutSeen(page)).toEqual([]);
   });
 
   test('an Esc that closes a modal dialog leaves the callout open and unseen', async ({

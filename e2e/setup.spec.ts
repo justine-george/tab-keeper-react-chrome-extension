@@ -611,13 +611,17 @@ test('an existing user never sees setup', async ({ context, extensionId }) => {
   await stubToolbarPin(context, { pinned: true });
   await seedSessions(context, buildContainer());
   await seedSettings(context, {
+    isNeverAskAgainToRate: false,
     extensionInstalledTime: Date.now() - 2 * DAY,
-    lastValueMomentTime: Date.now() - 60 * 60 * 1000,
   });
   const page = await openFullView(context, extensionId);
-  // The rate prompt is decided after setup: its opening proves setup said no.
+  // The review card shows only once nothing covers the page (KAN-653): its
+  // showing proves setup said no.
   await expect(
-    page.getByRole('dialog', { name: 'Enjoying Tab Keeper?', exact: true })
+    page.getByRole('complementary', {
+      name: 'Thanks for using Tab Keeper',
+      exact: true,
+    })
   ).toBeVisible();
   await expect(setup(page)).toHaveCount(0);
 });
