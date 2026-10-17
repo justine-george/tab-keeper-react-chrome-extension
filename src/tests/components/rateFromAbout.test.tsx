@@ -7,10 +7,10 @@ import {
   SettingsCategory,
   selectCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
-import { shouldAskForReview } from '../../utils/functions/reviewAsk';
+import { canAskForReview } from '../../utils/functions/reviewAsk';
 
 // KAN-149. Rating from the About screen has to stop the prompt, the same way
-// rating from the modal always has.
+// rating from the review card does.
 //
 // The modal's CTA has dispatched setUserRatedAndReviewed since it shipped; this
 // button only opened the store URL and recorded nothing, so a user who rated
@@ -81,20 +81,12 @@ describe('rating from the About screen', () => {
     const now = Date.now();
 
     // The control: before the click, this user WOULD be asked.
-    expect(
-      shouldAskForReview(
-        { ...store.getState().settingsDataState, lastValueMomentTime: now - 1 },
-        now
-      )
-    ).toBe(true);
+    expect(canAskForReview(store.getState().settingsDataState, now)).toBe(true);
 
     fireEvent.click(rateButton());
 
-    expect(
-      shouldAskForReview(
-        { ...store.getState().settingsDataState, lastValueMomentTime: now - 1 },
-        now
-      )
-    ).toBe(false);
+    expect(canAskForReview(store.getState().settingsDataState, now)).toBe(
+      false
+    );
   });
 });

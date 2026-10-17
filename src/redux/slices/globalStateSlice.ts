@@ -66,8 +66,8 @@ import {
   declineCloudConsent,
   forgetLastSync,
   recordSyncedNow,
-  recordValueMoment,
 } from './settingsDataStateSlice';
+import { noteReviewMoment } from '../reviewAsk';
 
 export interface Global {
   hasSyncedBefore: boolean;
@@ -580,7 +580,8 @@ export const syncStateWithFirestore = createAsyncThunk<
       if (changedFromLocal) {
         thunkAPI.dispatch(showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED }));
 
-        // KAN-149. A value moment, but only when a SESSION arrived.
+        // KAN-149, KAN-653. "Your sessions are here", but only when a SESSION
+        // arrived.
         //
         // `changedFromLocal` is deliberately not the test: it is also true for
         // a tombstone propagating, a rank settling, or a timestamp moving --
@@ -595,7 +596,9 @@ export const syncStateWithFirestore = createAsyncThunk<
             !localIds.has(group.tabGroupId) &&
             !isSampleSession(group.tabGroupId)
         );
-        if (arrived) thunkAPI.dispatch(recordValueMoment());
+        if (arrived) {
+          thunkAPI.dispatch(noteReviewMoment({ kind: 'sessionsArrived' }));
+        }
       }
 
       if (changedForThisPage) {
@@ -611,6 +614,12 @@ export const syncStateWithFirestore = createAsyncThunk<
     } else if (tabDataFromCloud) {
       // newly installed returning user - data present only on cloud
       const loaded = thunkAPI.dispatch(loadSessionsIntoPage(tabDataFromCloud));
+      // KAN-653. The plainest "Your sessions are here" of all: a device that
+      // held nothing now holds them. Judged on what was LOADED, which leaves
+      // out a sample an older version synced (KAN-600).
+      if (loaded.tabGroups.some((g) => !isSampleSession(g.tabGroupId))) {
+        thunkAPI.dispatch(noteReviewMoment({ kind: 'sessionsArrived' }));
+      }
       thunkAPI.dispatch(setIsNotDirty());
       thunkAPI.dispatch(setSyncStatus(`success`));
       thunkAPI.dispatch(recordSyncedNow());
@@ -692,8 +701,8 @@ export const applyHeldCloudMerge =
     dispatch(resetHistory({ tabContainerDataState: loaded }));
     dispatch(showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED }));
 
-    // KAN-149, mirrored from syncStateWithFirestore's both-sides branch: a
-    // value moment only when a SESSION arrived, judged against what
+    // KAN-149, KAN-653, mirrored from syncStateWithFirestore's both-sides
+    // branch: an ask only when a SESSION arrived, judged against what
     // localStorage held right before THIS merge -- not what the popup had
     // when the drag began, since another page may have written since.
     const localIds = new Set(
@@ -705,7 +714,7 @@ export const applyHeldCloudMerge =
       (group) =>
         !localIds.has(group.tabGroupId) && !isSampleSession(group.tabGroupId)
     );
-    if (arrived) dispatch(recordValueMoment());
+    if (arrived) dispatch(noteReviewMoment({ kind: 'sessionsArrived' }));
 
     dispatch(resyncAfterHold());
   };

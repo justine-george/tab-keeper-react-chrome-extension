@@ -66,7 +66,7 @@ import {
 import { withASelection } from '../../utils/functions/withOwnSelection';
 import { isSampleSession } from '../../utils/functions/sampleSession';
 import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
-import { recordValueMoment } from './settingsDataStateSlice';
+import { noteReviewMoment } from '../reviewAsk';
 import {
   TAB_GROUP_COLORS,
   isCarriedStillThere,
@@ -555,7 +555,7 @@ export const openTabsInAWindow = createAsyncThunk(
     // restore is therefore not a shortcut -- there is no later moment, and the
     // worker has no localStorage to write to.
     if (!isSampleSession(params.tabGroupId)) {
-      thunkAPI.dispatch(recordValueMoment());
+      thunkAPI.dispatch(noteReviewMoment({ kind: 'restored' }));
     }
     chrome.runtime.sendMessage(request);
   }
@@ -591,7 +591,7 @@ export const openAllTabContainer = createAsyncThunk(
     // KAN-149. Recorded here for the reason spelled out in openTabsInAWindow:
     // this is the last instant the popup exists. Not for the sample (KAN-7).
     if (!isSampleSession(params.tabGroupId)) {
-      thunkAPI.dispatch(recordValueMoment());
+      thunkAPI.dispatch(noteReviewMoment({ kind: 'restored' }));
     }
     chrome.runtime.sendMessage(request);
   }
@@ -717,7 +717,7 @@ export const focusTabContainer = createAsyncThunk(
     // KAN-149. Recorded here for the reason spelled out in openTabsInAWindow:
     // this is the last instant the popup exists. Not for the sample (KAN-7).
     if (!isSampleSession(params.tabGroupId)) {
-      thunkAPI.dispatch(recordValueMoment());
+      thunkAPI.dispatch(noteReviewMoment({ kind: 'restored' }));
     }
     chrome.runtime.sendMessage(request);
   }
@@ -842,9 +842,15 @@ export const saveToTabContainer = createAsyncThunk(
 
     thunkAPI.dispatch(saveToTabContainerInternal(params.container));
 
-    // KAN-149. A SUBSTANTIAL save only -- banking one stray tab is not a moment
-    // the extension has visibly earned anything, and counting it would put the
-    // prompt on ordinary housekeeping.
+    // KAN-653. The first session kept is a payoff of its own, whatever its
+    // size. The sample is no session of the user's (KAN-7), so it neither
+    // counts as one already kept nor, saved itself, as a first.
+    const isSample = isSampleSession(params.container.tabGroupId);
+    const isFirst = !existing.some((g) => !isSampleSession(g.tabGroupId));
+    //
+    // KAN-149. Otherwise a SUBSTANTIAL save only -- banking one stray tab is
+    // not a moment the extension has visibly earned anything, and counting it
+    // would put the ask on ordinary housekeeping.
     //
     // Measured against the sessions ALREADY saved, so read the state before
     // this save was added: comparing the new session against a list that
@@ -853,8 +859,13 @@ export const saveToTabContainer = createAsyncThunk(
     //
     // Counted on tabs rather than windows: one window of thirty tabs is the
     // case the product is for, and would score 1 on any window count.
-    if (isSubstantialSave(params.container.tabCount, existing)) {
-      thunkAPI.dispatch(recordValueMoment());
+    if (!isSample && isFirst) {
+      thunkAPI.dispatch(noteReviewMoment({ kind: 'firstSave' }));
+    } else if (
+      !isSample &&
+      isSubstantialSave(params.container.tabCount, existing)
+    ) {
+      thunkAPI.dispatch(noteReviewMoment({ kind: 'bigSave' }));
     }
 
     thunkAPI.dispatch(

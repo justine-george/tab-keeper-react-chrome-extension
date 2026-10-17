@@ -70,17 +70,6 @@ export interface SettingsData {
   isNeverAskAgainToRate: boolean;
   lastReviewRequestTime: number | '';
   /**
-   * When the extension last visibly paid off for this user -- a session
-   * restored, a substantial save, sessions arriving from another device
-   * (KAN-149). It is what the review prompt waits for, in place of the install
-   * date it used to wait on.
-   *
-   * DEVICE-LOCAL, like everything else here: saveToFirestore sends
-   * tabContainerData and nothing else, so this needs no merge rule and cannot
-   * make one device's payoff into another device's prompt.
-   */
-  lastValueMomentTime: number | '';
-  /**
    * An ask for a review that is due but not yet on screen (KAN-653). Saves,
    * restores and arriving sessions write it; the page shows it once nothing
    * covers it. Read it through readPendingAsk: an older build never wrote it.
@@ -260,11 +249,14 @@ export function asDefaultSaveScope(value: unknown): CaptureScope {
   return value === 'current-window' ? 'current-window' : 'all-windows';
 }
 
-// Keys only unreleased builds wrote: dropped once, and settings written back without them.
+// Keys no build reads any more: dropped once, and settings written back
+// without them. All but lastValueMomentTime (1.8.0's review gate, replaced by
+// pendingReviewAsk in KAN-653) were only ever written by unreleased builds.
 const RETIRED_KEYS: readonly string[] = [
   'sampleTour',
   'isFullViewOfferAnswered',
   'isUiSoundOn',
+  'lastValueMomentTime',
 ];
 
 const withoutRetiredKeys = (stored: unknown): unknown =>
@@ -299,7 +291,6 @@ const defaultSettings: SettingsData = {
   isUserRatedAndReviewed: false,
   isNeverAskAgainToRate: false,
   lastReviewRequestTime: '',
-  lastValueMomentTime: '',
   pendingReviewAsk: null,
   isTimeAskDone: false,
   lastSyncedTime: '',
@@ -437,13 +428,6 @@ export const settingsDataStateSlice = createSlice({
     // For tests and seeds; the app stamps through recordSyncedNow.
     setLastSyncedTime: (state, action: PayloadAction<number | ''>) => {
       state.lastSyncedTime = action.payload;
-      saveToLocalStorage('settingsData', state);
-    },
-
-    recordValueMoment: (state) => {
-      state.lastValueMomentTime = Date.now();
-
-      // Save updated state to localStorage
       saveToLocalStorage('settingsData', state);
     },
 
@@ -655,7 +639,6 @@ export const {
   setSkippedUserReviewOnce,
   setExtensionInstalledTime,
   updateLastReviewRequestTime,
-  recordValueMoment,
   setPendingReviewAsk,
   markTimeAskDone,
   recordSyncedNow,
