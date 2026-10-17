@@ -10,6 +10,8 @@ import {
 import { askAtOpen, noteReviewMoment } from '../../redux/reviewAsk';
 import { makeTestStore } from '../setup/makeStore';
 import {
+  closeFullViewCallout,
+  openFullViewCallout,
   closePinGuide,
   closeSetup,
   openPinGuide,
@@ -141,6 +143,22 @@ describe('releasing a pending ask', () => {
     dialog.remove();
     act(() => {
       window.dispatchEvent(new Event('focus'));
+    });
+    advance(REVIEW_CARD_SETTLE_MS);
+    expect(cardOf(store)).not.toBeNull();
+  });
+
+  // One prompt at a time: the full-view callout is a card too.
+  test('the full-view callout covers the page', () => {
+    const store = mount((s) => {
+      s.dispatch(openFullViewCallout());
+      s.dispatch(noteReviewMoment({ kind: 'bigSave' }));
+    });
+    advance(5_000);
+    expect(cardOf(store)).toBeNull();
+
+    act(() => {
+      store.dispatch(closeFullViewCallout());
     });
     advance(REVIEW_CARD_SETTLE_MS);
     expect(cardOf(store)).not.toBeNull();
