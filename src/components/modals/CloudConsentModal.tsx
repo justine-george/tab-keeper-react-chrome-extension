@@ -26,7 +26,7 @@ import {
 } from '../../utils/functions/uiSound';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
-import { dialogButtonStyles } from './dialogButtons';
+import { dialogButtonStyles, pairCss, tallButtonCss } from './dialogButtons';
 import {
   canAnimate,
   playGetStarted,
@@ -252,11 +252,12 @@ export const CloudConsentModal: React.FC = () => {
       color: ${COLORS.TEXT_COLOR};
     }
   `;
+  // KAN-654: the way out, then the yes half as wide again, at the right.
   const actionsStyle = css`
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
+    ${pairCss}
+    margin-left: auto;
   `;
+  const tall = tallButtonCss(24);
   const policyLink = (
     <a
       href={PRIVACY_POLICY_LINK}
@@ -317,7 +318,7 @@ export const CloudConsentModal: React.FC = () => {
             <button
               ref={getStartedRef}
               type="button"
-              css={[buttons.filled, endStyle, iconLabelStyle]}
+              css={[buttons.filled, endStyle, iconLabelStyle, tall]}
               onClick={getStarted}
             >
               {/* KAN-623. Get started opens the full view in its own tab. */}
@@ -346,10 +347,10 @@ export const CloudConsentModal: React.FC = () => {
             {policyLink}
           </p>
           <div css={actionsStyle}>
-            <button type="button" css={buttons.quiet} onClick={close}>
+            <button type="button" css={[buttons.quiet, tall]} onClick={close}>
               {t('Not now')}
             </button>
-            <button type="button" css={buttons.filled} onClick={grant}>
+            <button type="button" css={[buttons.filled, tall]} onClick={grant}>
               {t('Sync')}
             </button>
           </div>
@@ -370,10 +371,10 @@ export const CloudConsentModal: React.FC = () => {
             {t('ExistingSyncOff')} {policyLink}
           </p>
           <div css={actionsStyle}>
-            <button type="button" css={buttons.quiet} onClick={decline}>
+            <button type="button" css={[buttons.quiet, tall]} onClick={decline}>
               {t('Turn off sync')}
             </button>
-            <button type="button" css={buttons.filled} onClick={grant}>
+            <button type="button" css={[buttons.filled, tall]} onClick={grant}>
               {t('Keep sync on')}
             </button>
           </div>

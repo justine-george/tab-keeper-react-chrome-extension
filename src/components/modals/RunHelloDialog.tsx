@@ -13,7 +13,7 @@ import type { AppDispatch } from '../../redux/store';
 import { markWhatsNew2Seen } from '../../redux/slices/settingsDataStateSlice';
 import type { RunHello } from '../../utils/functions/firstRun';
 import { DIALOG, ICON, TYPE } from '../../styles/scale';
-import { dialogButtonStyles } from './dialogButtons';
+import { dialogButtonStyles, tallButtonCss } from './dialogButtons';
 import {
   canAnimate,
   playGetStarted,
@@ -222,7 +222,7 @@ export const RunHelloDialog: React.FC<{
         <button
           ref={startRef}
           type="button"
-          css={[buttons.filled, endStyle, iconLabelStyle]}
+          css={[buttons.filled, endStyle, iconLabelStyle, tallButtonCss(24)]}
           onClick={start}
         >
           {startOpensFullView && (

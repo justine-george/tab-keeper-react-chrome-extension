@@ -1,7 +1,7 @@
 import { css } from '@emotion/react';
 
 import type { ThemeColors } from '../../hooks/useThemeColors';
-import { DURATION } from '../../styles/scale';
+import { CONTROL, DURATION } from '../../styles/scale';
 import { focusRingCss } from '../common/focusRing';
 import { mixHex } from '../../styles/mixHex';
 
@@ -16,10 +16,14 @@ import { mixHex } from '../../styles/mixHex';
  * pointer the way every other button in the popup does. `danger` holds its
  * red on hover and press, as every destructive control does (KAN-204).
  */
+// A dialog button's padding and border, which a flush link hangs outside.
+const PAD = { BLOCK: 8, INLINE: 16 } as const;
+const BORDER = 1;
+
 export function dialogButtonStyles(COLORS: ThemeColors) {
   const base = css`
-    padding: 8px 16px;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    padding: ${PAD.BLOCK}px ${PAD.INLINE}px;
+    border: ${BORDER}px solid ${COLORS.BORDER_COLOR};
     color: ${COLORS.TEXT_COLOR};
     font-family: inherit;
     font-size: inherit;
@@ -90,3 +94,32 @@ export function dialogButtonStyles(COLORS: ThemeColors) {
     `,
   };
 }
+
+/**
+ * KAN-654. The first run's buttons at the control height, as the review
+ * card's Rate is. `inline` is the side padding: 24 on a dialog, 20 on the
+ * narrower tour card.
+ */
+export const tallButtonCss = (inline: number) => css`
+  height: ${CONTROL.DEFAULT};
+  padding-block: 0;
+  padding-inline: ${inline}px;
+`;
+
+/**
+ * KAN-654. A secondary then its primary, the primary half as wide again.
+ * The grid sizes from the longer label, so neither is cut off in any
+ * language.
+ */
+export const pairCss = css`
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 8px;
+  width: fit-content;
+`;
+
+// KAN-654. A link whose words start on the content edge: its padding and border hang outside it.
+export const flushLinkCss = css`
+  margin-inline-start: -${PAD.INLINE + BORDER}px;
+`;

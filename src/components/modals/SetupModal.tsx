@@ -44,7 +44,12 @@ import { shouldAskTabGroupsInSetup } from '../../utils/functions/tabGroupsOffer'
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { ICON, TYPE } from '../../styles/scale';
 import { focusRingCss } from '../common/focusRing';
-import { dialogButtonStyles } from './dialogButtons';
+import {
+  dialogButtonStyles,
+  flushLinkCss,
+  pairCss,
+  tallButtonCss,
+} from './dialogButtons';
 
 const TITLE_ID = 'setup-title';
 type Step =
@@ -314,13 +319,7 @@ export const SetupModal: React.FC = () => {
     gap: 12px;
     margin-top: 12px;
   `;
-  // Equal columns: both buttons take the wider one's width in any language.
-  const footerEndStyle = css`
-    display: inline-grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 1fr;
-    gap: 8px;
-  `;
+  const tall = tallButtonCss(24);
 
   const viewCard = (
     view: DefaultView,
@@ -615,27 +614,32 @@ export const SetupModal: React.FC = () => {
       </h3>
       {content[step].body}
       <div css={footerStyle}>
-        <button type="button" css={buttons.link} onClick={finish}>
+        <button
+          type="button"
+          css={[buttons.link, flushLinkCss]}
+          onClick={finish}
+        >
           {t('Skip setup')}
         </button>
-        <span css={footerEndStyle}>
+        {/* KAN-654: Next half as wide again as Back, once Back shows. */}
+        <span css={stepIndex > 0 ? pairCss : undefined}>
           {stepIndex > 0 && (
             <button
               type="button"
-              css={buttons.quiet}
+              css={[buttons.quiet, tall]}
               onClick={() => goTo(stepIndex - 1)}
             >
               {t('Back')}
             </button>
           )}
           {isLast ? (
-            <button type="button" css={buttons.filled} onClick={finish}>
+            <button type="button" css={[buttons.filled, tall]} onClick={finish}>
               {t('Done')}
             </button>
           ) : (
             <button
               type="button"
-              css={buttons.filled}
+              css={[buttons.filled, tall]}
               onClick={(e) => {
                 // A double-click's second press would answer the next step unseen.
                 if (e.detail > 1) return;
