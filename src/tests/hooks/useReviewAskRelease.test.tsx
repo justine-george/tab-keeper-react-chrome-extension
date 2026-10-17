@@ -8,6 +8,8 @@ import {
   useReviewAskRelease,
 } from '../../hooks/useReviewAskRelease';
 import { askAtOpen, noteReviewMoment } from '../../redux/reviewAsk';
+import { showWhenQuiet } from '../../redux/quietCards';
+import { CARD_DELAY_MS } from '../../utils/constants/cardDelay';
 import { makeTestStore } from '../setup/makeStore';
 import {
   closeFullViewCallout,
@@ -159,6 +161,23 @@ describe('releasing a pending ask', () => {
 
     act(() => {
       store.dispatch(closeFullViewCallout());
+    });
+    advance(REVIEW_CARD_SETTLE_MS);
+    expect(cardOf(store)).not.toBeNull();
+  });
+
+  // The callout waits CARD_DELAY_MS for a quiet moment before it opens. The
+  // card must not take the page in that wait and then share it.
+  test('a quiet card still waiting to show covers the page', async () => {
+    const store = mount((s) => s.dispatch(noteReviewMoment({ kind: 'time' })));
+    const shown = showWhenQuiet(() => undefined, store.getState);
+
+    advance(CARD_DELAY_MS - 1);
+    expect(cardOf(store)).toBeNull();
+
+    advance(1);
+    await act(async () => {
+      await shown;
     });
     advance(REVIEW_CARD_SETTLE_MS);
     expect(cardOf(store)).not.toBeNull();

@@ -4,8 +4,26 @@ import { waitForQuiet } from '../utils/functions/quietWait';
 
 export type CardState = 'waiting' | 'shown' | 'skipped';
 
+// KAN-653. The quiet card still waiting to show, so the review card can wait
+// for it rather than take the page first and then share it.
+let waiting: Promise<CardState> | null = null;
+
+export const whenQuietCardSettles = (): Promise<unknown> | null => waiting;
+
 // Opens the card after a quiet wait; <html data-first-open-card> is the e2e barrier.
-export async function showWhenQuiet(
+export function showWhenQuiet(
+  open: () => void,
+  getState: () => RootState
+): Promise<CardState> {
+  const shown = decideQuietCard(open, getState);
+  waiting = shown;
+  void shown.finally(() => {
+    if (waiting === shown) waiting = null;
+  });
+  return shown;
+}
+
+async function decideQuietCard(
   open: () => void,
   getState: () => RootState
 ): Promise<CardState> {

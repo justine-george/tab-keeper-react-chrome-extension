@@ -3,6 +3,7 @@ import { useDispatch, useStore } from 'react-redux';
 
 import type { AppDispatch, RootState } from '../redux/store';
 import { freshPendingAsk, showReviewCard } from '../redux/reviewAsk';
+import { whenQuietCardSettles } from '../redux/quietCards';
 
 // KAN-653. How long the page must stay clear before the card shows. It bridges
 // the gap between one cover closing and the next opening: setup closes, and
@@ -36,13 +37,22 @@ export function useReviewAskRelease(): void {
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let isMounted = true;
     const release = () => {
       const pending = freshPendingAsk(Date.now());
       if (pending === null) return;
+      // A quiet card (the full-view callout) still deciding: check again once
+      // it has shown, and so covers the page, or been skipped.
+      const quietCard = whenQuietCardSettles();
+      if (quietCard !== null) {
+        void quietCard.then(check);
+        return;
+      }
       if (!isClearForReviewCard(store.getState(), document)) return;
       dispatch(showReviewCard(pending.moment));
     };
     const check = () => {
+      if (!isMounted) return;
       clearTimeout(timer);
       timer = setTimeout(release, REVIEW_CARD_SETTLE_MS);
     };
@@ -55,6 +65,7 @@ export function useReviewAskRelease(): void {
     window.addEventListener('focus', check);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
+      isMounted = false;
       clearTimeout(timer);
       unsubscribe();
       window.removeEventListener('focus', check);
