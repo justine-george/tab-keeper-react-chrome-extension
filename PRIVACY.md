@@ -109,7 +109,7 @@ If you cannot use the deletion control, contact the developer at the address bel
 - **`storage`:** Stores the anonymous sync identifier in Chrome sync storage.
 - **`favicon`:** Retrieves tab icons from Chrome's favicon cache.
 - **`tabGroups` (optional):** Saves and restores Chrome tab groups. Tab Keeper requests this permission only after you choose to enable the feature.
-- **`sessions` (optional):** Reads Chrome's list of recently closed tabs and windows on this device, to find the tab or window you just closed from Open now and bring it back with its Back and Forward pages. Tab Keeper requests it the first time you close a tab or window from Open now, and Chrome grants it without asking. Chrome's extensions page then describes this access as "Read your browsing history on all your signed-in devices". Nothing from that list is stored or sent anywhere.
+- **`sessions` (optional):** Reads Chrome's list of recently closed tabs and windows on this device, to find the tab or window you just closed from Open now and bring it back with its Back and Forward pages. Tab Keeper asks for it the first time you close something from Open now. Chrome's extensions page lists this permission as "Read your browsing history on all your signed-in devices"; that is Chrome's name for the whole permission, and Tab Keeper reads only this device's list. Nothing from that list is stored or sent anywhere.
 
 ## Security
 
