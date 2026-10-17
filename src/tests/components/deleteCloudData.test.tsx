@@ -84,7 +84,7 @@ describe('the Delete cloud data dialog (KAN-254)', () => {
     const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveAccessibleName('Delete your cloud data?');
     const body = within(dialog).getByText(/other devices/i);
-    expect(body.textContent).toMatch(/Auto Sync/);
+    expect(body.textContent).toMatch(/Auto sync/);
     expect(body.textContent).toMatch(/stay on this device/);
   });
 

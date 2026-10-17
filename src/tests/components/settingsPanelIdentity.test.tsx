@@ -66,7 +66,7 @@ describe('settings panel identity (KAN-44)', () => {
     });
 
     expect(
-      await screen.findByRole('group', { name: 'Auto Sync' })
+      await screen.findByRole('group', { name: 'Auto sync' })
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'On' })).toBeTruthy();
   });

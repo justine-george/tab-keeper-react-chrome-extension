@@ -358,7 +358,7 @@ describe('step 5, Save tab groups too? (Q9)', () => {
     await render(GROUPED);
     await toStep('Save tab groups too?');
     const pair = within(dialog()).getByRole('group', {
-      name: 'Save Tab Groups',
+      name: 'Save tab groups',
     });
     expect(
       within(pair)
@@ -434,7 +434,7 @@ describe('step 5 with App: the switch follows the grant (Q9, §14)', () => {
     await toStep('Save tab groups too?');
     const side = (name: 'On' | 'Off') =>
       within(
-        within(dialog()).getByRole('group', { name: 'Save Tab Groups' })
+        within(dialog()).getByRole('group', { name: 'Save tab groups' })
       ).getByRole('button', { name });
     // Chrome's prompt, open and unanswered: the popup may die before it settles.
     const request = vi
@@ -460,7 +460,7 @@ describe('step 6, Sync across your devices? (Q9)', () => {
   test('Off first, pressed on a device that never said yes; the caption links the policy', async () => {
     const { chrome } = await render();
     await toStep('Sync across your devices?');
-    const pair = within(dialog()).getByRole('group', { name: 'Auto Sync' });
+    const pair = within(dialog()).getByRole('group', { name: 'Auto sync' });
     expect(
       within(pair)
         .getAllByRole('button')

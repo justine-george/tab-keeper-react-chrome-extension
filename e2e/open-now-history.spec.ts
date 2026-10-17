@@ -474,7 +474,7 @@ test.describe('the switch, in the popup and the tab view (KAN-280 Part D)', () =
       // Off is the truth, not a default drawn over a grant.
       expect(await holdsSessions(page)).toBe(false);
       // Below Save Tab Groups (last in the pane since KAN-645).
-      const saveGroups = page.getByRole('group', { name: 'Save Tab Groups' });
+      const saveGroups = page.getByRole('group', { name: 'Save tab groups' });
       const above = await saveGroups.boundingBox();
       const below = await row.boundingBox();
       if (above === null || below === null) {
@@ -513,7 +513,7 @@ test.describe('the switch, in the popup and the tab view (KAN-280 Part D)', () =
     // for. Here nothing answers it, and the grant never lands -- so the
     // sessions grant above landing is what "no prompt" looks like.
     await page
-      .getByRole('group', { name: 'Save Tab Groups' })
+      .getByRole('group', { name: 'Save tab groups' })
       .getByRole('button', { name: 'On', exact: true })
       .click();
     await settle(2000);
@@ -548,7 +548,7 @@ test.describe('the switch, in the popup and the tab view (KAN-280 Part D)', () =
     // CONTROL: the same read of the other switch, which has no help line,
     // finds it with no description, so the read above can tell the two
     // apart.
-    expect(describedBy('Save Tab Groups')).toEqual(['']);
+    expect(describedBy('Save tab groups')).toEqual(['']);
   });
 });
 

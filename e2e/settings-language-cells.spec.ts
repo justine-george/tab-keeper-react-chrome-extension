@@ -44,7 +44,7 @@ for (const [name, path, size] of VIEWS) {
       })
     );
     const label = await page
-      .getByText('Choose Language', { exact: true })
+      .getByText('Choose language', { exact: true })
       .boundingBox();
     // PREMISE: all 13 languages are drawn.
     expect(boxes).toHaveLength(13);

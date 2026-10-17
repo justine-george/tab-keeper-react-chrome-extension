@@ -90,7 +90,7 @@ const guide = (page: Page) =>
   });
 const autoSyncOn = (scope: ReturnType<Page['locator']> | Page) =>
   scope
-    .getByRole('group', { name: 'Auto Sync' })
+    .getByRole('group', { name: 'Auto sync' })
     .getByRole('button', { name: 'On', exact: true });
 
 interface Saved {
@@ -206,7 +206,7 @@ async function saveInRunThenSync(
   expect(await titles(popup)).toEqual([B_TITLE]);
   await beforeYes();
   await popup.locator('[aria-label="Settings"]').click();
-  await popup.locator('button[aria-label="Sync & Backup"]').click();
+  await popup.locator('button[aria-label="Sync & backup"]').click();
   await autoSyncOn(popup).click();
   await expect(ask(popup)).toBeVisible();
   const wrote = commitLanded(popup);

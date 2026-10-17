@@ -26,12 +26,12 @@ async function openSyncPane(
   await page.setViewportSize({ width: 790, height: 550 });
   await page.goto(`chrome-extension://${extensionId}/index.html`);
   await page.locator('[aria-label="Settings"]').click();
-  await page.locator('button[aria-label="Sync & Backup"]').click();
+  await page.locator('button[aria-label="Sync & backup"]').click();
   await expect(page.getByTestId('sync-status')).toBeVisible();
   return page;
 }
 
-const pair = (page: Page) => page.getByRole('group', { name: 'Auto Sync' });
+const pair = (page: Page) => page.getByRole('group', { name: 'Auto sync' });
 const side = (page: Page, word: 'On' | 'Off') =>
   pair(page).getByRole('button', { name: word });
 const card = (page: Page) => page.getByTestId('sync-status');
@@ -145,7 +145,7 @@ test.describe('the status line shows when it last synced (KAN-255)', () => {
     await page.setViewportSize({ width: 790, height: 550 });
     await page.goto(`chrome-extension://${extensionId}/index.html`);
     await page.locator('[aria-label="Settings"]').click();
-    await page.locator('button[aria-label="Sync & Backup"]').click();
+    await page.locator('button[aria-label="Sync & backup"]').click();
 
     const status = page.getByTestId('sync-status');
     await expect(status).toHaveAttribute('data-sync-state', 'manual');

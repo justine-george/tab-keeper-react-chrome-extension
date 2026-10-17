@@ -18,7 +18,7 @@ test.describe('Delete cloud data asks before it acts (KAN-254)', () => {
     await page.setViewportSize({ width: 790, height: 550 });
     await page.goto(`chrome-extension://${extensionId}/index.html`);
     await page.locator('[aria-label="Settings"]').click();
-    await page.locator('button[aria-label="Sync & Backup"]').click();
+    await page.locator('button[aria-label="Sync & backup"]').click();
 
     const button = page.getByRole('button', { name: 'Delete cloud data' });
     await expect(button).toBeVisible();
@@ -44,7 +44,7 @@ test.describe('Delete cloud data asks before it acts (KAN-254)', () => {
     await expect(dialog).toHaveCount(0);
 
     const on = page
-      .getByRole('group', { name: 'Auto Sync' })
+      .getByRole('group', { name: 'Auto sync' })
       .getByRole('button', { name: 'On' });
     await expect(on).toHaveAttribute('aria-pressed', 'true');
   });
@@ -55,7 +55,7 @@ const COMMIT = /firestore\.googleapis\.com\/.*documents:commit/;
 async function openSyncPane(page: Page, extensionId: string): Promise<void> {
   await page.goto(`chrome-extension://${extensionId}/index.html`);
   await page.locator('[aria-label="Settings"]').click();
-  await page.locator('button[aria-label="Sync & Backup"]').click();
+  await page.locator('button[aria-label="Sync & backup"]').click();
 }
 
 // KAN-632. The delete took Auto Sync off but kept the cloud yes, so the pane

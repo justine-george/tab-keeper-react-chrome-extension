@@ -86,10 +86,10 @@ test.describe('the cloud question (KAN-259)', () => {
       await closeReplayNote(page);
 
       await page.locator('[aria-label="Settings"]').click();
-      await page.locator('button[aria-label="Sync & Backup"]').click();
+      await page.locator('button[aria-label="Sync & backup"]').click();
       await expect(
         page
-          .getByRole('group', { name: 'Auto Sync' })
+          .getByRole('group', { name: 'Auto sync' })
           .getByRole('button', { name: 'Off' })
       ).toHaveAttribute('aria-pressed', 'true');
       // Declined is "off", not "manual": the cloud button would ask first.
@@ -135,9 +135,9 @@ test.describe('the cloud question (KAN-259)', () => {
       await cardButton(page, 'Skip tutorial').click();
       await closeReplayNote(page);
       await page.locator('[aria-label="Settings"]').click();
-      await page.locator('button[aria-label="Sync & Backup"]').click();
+      await page.locator('button[aria-label="Sync & backup"]').click();
       await page
-        .getByRole('group', { name: 'Auto Sync' })
+        .getByRole('group', { name: 'Auto sync' })
         .getByRole('button', { name: 'On', exact: true })
         .click();
 
@@ -151,7 +151,7 @@ test.describe('the cloud question (KAN-259)', () => {
       await expect(ask).toHaveCount(0);
       await expect(
         page
-          .getByRole('group', { name: 'Auto Sync' })
+          .getByRole('group', { name: 'Auto sync' })
           .getByRole('button', { name: 'Off', exact: true })
       ).toHaveAttribute('aria-pressed', 'true');
       expect((await storedSettings(page)).cloudConsent).toBe('declined');
@@ -188,10 +188,10 @@ test.describe('the cloud question (KAN-259)', () => {
     await expect(dialog).toHaveCount(0);
 
     await page.locator('[aria-label="Settings"]').click();
-    await page.locator('button[aria-label="Sync & Backup"]').click();
+    await page.locator('button[aria-label="Sync & backup"]').click();
     await expect(
       page
-        .getByRole('group', { name: 'Auto Sync' })
+        .getByRole('group', { name: 'Auto sync' })
         .getByRole('button', { name: 'Off', exact: true })
     ).toHaveAttribute('aria-pressed', 'true');
     expect((await storedSettings(page)).cloudConsent).toBe('declined');
@@ -330,7 +330,7 @@ test.describe('loading a backup asks consent before uploading (KAN-415)', () => 
       // KAN-579. The file step is the full view's.
       const page = await openFullView(context, extensionId);
       await page.locator('[aria-label="Settings"]').click();
-      await page.locator('button[aria-label="Sync & Backup"]').click();
+      await page.locator('button[aria-label="Sync & backup"]').click();
       const firestore = () =>
         cloudHits.filter((url) => url.includes('firestore.googleapis.com'))
           .length;
@@ -391,9 +391,9 @@ for (const [theme, colors] of [
     });
     const page = await openPopup(context, extensionId);
     await page.locator('[aria-label="Settings"]').click();
-    await page.locator('button[aria-label="Sync & Backup"]').click();
+    await page.locator('button[aria-label="Sync & backup"]').click();
     await page
-      .getByRole('group', { name: 'Auto Sync' })
+      .getByRole('group', { name: 'Auto sync' })
       .getByRole('button', { name: 'On', exact: true })
       .click();
     const sync = page

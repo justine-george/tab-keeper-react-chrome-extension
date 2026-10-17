@@ -59,7 +59,7 @@ const seedSettings =
 const openSyncPane = async () => {
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Settings' }));
-  await user.click(screen.getByRole('button', { name: 'Sync & Backup' }));
+  await user.click(screen.getByRole('button', { name: 'Sync & backup' }));
   return user;
 };
 
@@ -87,7 +87,7 @@ describe('turning Auto Sync on waits for sign-in (KAN-290)', () => {
     seen.length = 0;
 
     await user.click(
-      within(screen.getByRole('group', { name: 'Auto Sync' })).getByRole(
+      within(screen.getByRole('group', { name: 'Auto sync' })).getByRole(
         'button',
         { name: 'On' }
       )

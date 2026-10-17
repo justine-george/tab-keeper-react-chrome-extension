@@ -60,7 +60,7 @@ for (const [view, path, size] of [
 
     // Settings: a file that is not a backup raises the import error toast.
     await page.locator('[aria-label="Settings"]').click();
-    await page.locator('button[aria-label="Sync & Backup"]').click();
+    await page.locator('button[aria-label="Sync & backup"]').click();
     const chooser = page.waitForEvent('filechooser');
     await page
       .getByRole('button', { name: 'Load sessions from a backup' })

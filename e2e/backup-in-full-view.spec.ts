@@ -69,7 +69,7 @@ async function popupOnSyncAndBackup(
 ) {
   const popup = await openPopup(context, extensionId);
   await popup.locator('[aria-label="Settings"]').click();
-  await popup.locator('button[aria-label="Sync & Backup"]').click();
+  await popup.locator('button[aria-label="Sync & backup"]').click();
   return popup;
 }
 

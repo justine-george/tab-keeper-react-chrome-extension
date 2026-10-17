@@ -12,7 +12,7 @@ import { POPUP } from './fixtures/savedWindows';
 
 const PANELS = [
   'Display',
-  'Sync & Backup',
+  'Sync & backup',
   'Sessions',
   'Recently deleted',
   'Language',
