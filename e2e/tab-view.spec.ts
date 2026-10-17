@@ -650,6 +650,50 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
     expect(cloudRequests, 'a page reached the cloud').toEqual([]);
   });
 
+  // KAN-666. Chrome sometimes never fires the storage event (3 in 4,000 runs
+  // of the test above). Swallowed here, so it misses every time.
+  test("a save in the tab view keeps the popup's save it never heard", async ({
+    context,
+    extensionId,
+  }) => {
+    const { popup, tab, cloudRequests } = await openBoth(context, extensionId);
+    // A capturing listener at the target runs before the app's own.
+    await tab.evaluate(() => {
+      window.addEventListener(
+        'storage',
+        (e) => {
+          e.stopImmediatePropagation();
+          document.body.dataset.swallowed = String(
+            Number(document.body.dataset.swallowed ?? 0) + 1
+          );
+        },
+        { capture: true }
+      );
+    });
+
+    await saveAs(popup, 'Saved in the popup');
+    // PREMISE: the tab view's storage holds it, and its event was swallowed.
+    await expect
+      .poll(() =>
+        tab.evaluate(() => ({
+          stored: (localStorage.getItem('tabContainerData') ?? '').includes(
+            'Saved in the popup'
+          ),
+          swallowed: document.body.dataset.swallowed ?? '0',
+        }))
+      )
+      .toEqual({ stored: true, swallowed: '1' });
+    await expect(row(tab, 'Saved in the popup')).toHaveCount(0);
+
+    await saveAs(tab, 'Saved in the tab view');
+
+    for (const page of [popup, tab]) {
+      await expect(row(page, 'Saved in the popup')).toBeVisible();
+      await expect(row(page, 'Saved in the tab view')).toBeVisible();
+    }
+    expect(cloudRequests, 'a page reached the cloud').toEqual([]);
+  });
+
   test('a save in the popup while a row is held in the tab view lands after the drop, and the row sits by its aimed neighbour', async ({
     context,
     extensionId,
