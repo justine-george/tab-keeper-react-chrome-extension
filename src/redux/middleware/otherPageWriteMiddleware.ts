@@ -14,7 +14,7 @@ type State = StateFromReducersMapObject<typeof rootReducer>;
 
 // KAN-666. A save that merged in another page's unheard write takes it in on
 // screen, as the storage event would have: a held row waits, undo resets.
-// Outside customMiddleware, so the reset lands after it records the save.
+// Outside customMiddleware, so the reset also clears the step it records.
 export const otherPageWriteMiddleware: Middleware<
   object,
   State,

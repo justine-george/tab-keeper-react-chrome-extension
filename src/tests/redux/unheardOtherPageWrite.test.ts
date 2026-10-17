@@ -136,6 +136,7 @@ describe('a write from another page this page never heard (KAN-666)', () => {
     );
     vi.setSystemTime(T0 + 2 * MIN);
     store.dispatch(rename('b', 'b (edited here)'));
+    expect(store.getState().undoRedo.past).toEqual([]);
 
     store.dispatch(undo());
 
