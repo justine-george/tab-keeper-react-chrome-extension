@@ -9,6 +9,7 @@ import {
   recreateClosed,
   reopenClosed,
 } from '../../../utils/functions/reopen';
+import { SESSIONS_ANSWER_WAIT_MS } from '../../../utils/functions/permissions';
 import { setupChromeFake } from '../../setup/chrome.fake';
 import type { ChromeFakeHandle } from '../../setup/chrome.fake';
 
@@ -1118,32 +1119,61 @@ describe('closeOpenTab / closeOpenWindow record Chrome’s recently closed entry
     expect(windowItem?.restorableSessionId).toBe(await windowEntryId(url('x')));
   });
 
-  test('without the sessions grant, chrome.sessions is absent: null, and the close goes ahead quietly', async () => {
+  // KAN-663. There is no setting: a close asks Chrome for `sessions` itself,
+  // first, and waits for the answer before reading the list, so even the
+  // first close records its entry.
+  test('without the sessions grant, a close asks for it first, so even the first close records its entry (KAN-663)', async () => {
     handle = setupChromeFake({
       windows: [
         tabKeeperWindow,
         { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
+        { id: 3, tabs: [{ url: url('c'), active: true }] },
       ],
     });
-    const warn = vi.spyOn(console, 'warn');
     const w2 = await openWindow(2);
     const b = tabIn(w2, 'b');
+    // PREMISE: a fresh profile holds nothing, so chrome.sessions is absent.
     expect(chrome.sessions).toBeUndefined();
 
     const tabItem = await closeOpenTab(w2, b);
-    const windowItem = await closeOpenWindow(await openWindow(2));
 
-    expect(tabItem).toMatchObject({ kind: 'tab', restorableSessionId: null });
+    expect(
+      await chrome.permissions.contains({ permissions: ['sessions'] })
+    ).toBe(true);
+    expect(tabItem).toMatchObject({
+      kind: 'tab',
+      restorableSessionId: await tabEntryId(url('b')),
+    });
+    expect(tabItem?.restorableSessionId).toEqual(expect.any(String));
+
+    // A window close asks too (here it is already held: asking again is
+    // answered at once).
+    const windowItem = await closeOpenWindow(await openWindow(3));
     expect(windowItem).toMatchObject({
       kind: 'window',
-      restorableSessionId: null,
+      restorableSessionId: await windowEntryId(url('c')),
     });
-    expect(handle.removedTabIds).toEqual([b.id]);
-    expect(await windowIds()).toEqual([1]);
-    expect(warn).not.toHaveBeenCalled();
+    expect(windowItem?.restorableSessionId).toEqual(expect.any(String));
   });
 
-  test('revoked after a grant, chrome.sessions is still there but never asked: null, and the close goes ahead quietly', async () => {
+  test('a window close asks for the grant on its own, too (KAN-663)', async () => {
+    handle = setupChromeFake({
+      windows: [
+        tabKeeperWindow,
+        { id: 2, tabs: [{ url: url('a'), active: true }] },
+      ],
+    });
+
+    const item = await closeOpenWindow(await openWindow(2));
+
+    expect(item).toMatchObject({
+      kind: 'window',
+      restorableSessionId: await windowEntryId(url('a')),
+    });
+    expect(item?.restorableSessionId).toEqual(expect.any(String));
+  });
+
+  test('revoked after a grant, a close asks again and records its entry (KAN-663)', async () => {
     handle = setupChromeFake({
       grantedPermissions: ['sessions'],
       windows: [
@@ -1152,11 +1182,25 @@ describe('closeOpenTab / closeOpenWindow record Chrome’s recently closed entry
       ],
     });
     await chrome.permissions.remove({ permissions: ['sessions'] });
-    // Task 1, Q4: it stays, and calling it now throws.
-    expect(() => chrome.sessions.getRecentlyClosed()).toThrow(
-      "'sessions.getRecentlyClosed' is not available in this context."
-    );
-    const read = vi.spyOn(chrome.sessions, 'getRecentlyClosed');
+    const w2 = await openWindow(2);
+
+    const item = await closeOpenTab(w2, tabIn(w2, 'b'));
+
+    expect(item).toMatchObject({
+      kind: 'tab',
+      restorableSessionId: await tabEntryId(url('b')),
+    });
+    expect(item?.restorableSessionId).toEqual(expect.any(String));
+  });
+
+  test('refused (by the user or a policy): null, never read, and the close goes ahead quietly', async () => {
+    handle = setupChromeFake({
+      refusedPermissions: ['sessions'],
+      windows: [
+        tabKeeperWindow,
+        { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
+      ],
+    });
     const warn = vi.spyOn(console, 'warn');
     const w2 = await openWindow(2);
     const b = tabIn(w2, 'b');
@@ -1169,10 +1213,36 @@ describe('closeOpenTab / closeOpenWindow record Chrome’s recently closed entry
       kind: 'window',
       restorableSessionId: null,
     });
+    expect(chrome.sessions).toBeUndefined();
     expect(handle.removedTabIds).toEqual([b.id]);
     expect(await windowIds()).toEqual([1]);
-    expect(read).not.toHaveBeenCalled();
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  test('an ask Chrome never answers does not hold the close: it goes ahead after the wait, with null', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      handle = setupChromeFake({
+        requestNeverSettles: true,
+        windows: [
+          tabKeeperWindow,
+          { id: 2, tabs: [{ url: url('a'), active: true }, { url: url('b') }] },
+        ],
+      });
+      const w2 = await openWindow(2);
+      const b = tabIn(w2, 'b');
+
+      const closing = closeOpenTab(w2, b);
+      await vi.advanceTimersByTimeAsync(SESSIONS_ANSWER_WAIT_MS);
+
+      expect(await closing).toMatchObject({
+        kind: 'tab',
+        restorableSessionId: null,
+      });
+      expect(handle.removedTabIds).toEqual([b.id]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test('held, but the read throws at once: null with a warning, and the close still goes ahead', async () => {

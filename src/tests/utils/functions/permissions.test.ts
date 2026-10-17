@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   setupChromeFake,
@@ -10,9 +10,8 @@ import {
   removeTabGroupsPermission,
   requestTabGroupsPermission,
   hasSessionsPermission,
-  observeSessionsPermission,
-  removeSessionsPermission,
-  requestSessionsPermission,
+  askForSessionsPermission,
+  SESSIONS_ANSWER_WAIT_MS,
 } from '../../../utils/functions/permissions';
 
 let handle: ChromeFakeHandle;
@@ -123,10 +122,8 @@ describe('observeTabGroupsPermission', () => {
     const seen: boolean[] = [];
     observeTabGroupsPermission((granted) => seen.push(granted));
 
-    requestSessionsPermission();
-    await Promise.resolve();
-    removeSessionsPermission();
-    await Promise.resolve();
+    await askForSessionsPermission();
+    await chrome.permissions.remove({ permissions: ['sessions'] });
 
     expect(seen).toEqual([]);
   });
@@ -156,74 +153,81 @@ describe('hasSessionsPermission', () => {
   });
 });
 
-describe('requestSessionsPermission', () => {
-  test('returns undefined rather than a promise', () => {
+// KAN-663. No setting: a close in Open now asks, inside its gesture, and
+// waits for the answer -- but never longer than SESSIONS_ANSWER_WAIT_MS.
+describe('askForSessionsPermission', () => {
+  test('asks at once, before anything awaits, and resolves true once granted', async () => {
     handle = setupChromeFake();
-    expect(requestSessionsPermission()).toBeUndefined();
-  });
+    const request = vi.spyOn(chrome.permissions, 'request');
 
-  test('grants in the fake, observable through contains()', async () => {
-    handle = setupChromeFake();
-    requestSessionsPermission();
-    await Promise.resolve();
+    const answer = askForSessionsPermission();
+    // Called synchronously: an await before it would leave the gesture.
+    expect(request).toHaveBeenCalledWith({ permissions: ['sessions'] });
+
+    expect(await answer).toBe(true);
     expect(await hasSessionsPermission()).toBe(true);
   });
 
-  // Mirrors requestTabGroupsPermission's rejection test above: a rejecting
-  // request must not throw, synchronously or as an unhandled rejection.
-  test('swallows a rejection from chrome.permissions.request', async () => {
+  test('already held: asks anyway and resolves true', async () => {
+    handle = setupChromeFake({ grantedPermissions: ['sessions'] });
+    expect(await askForSessionsPermission()).toBe(true);
+  });
+
+  test('refused: false, and nothing is granted', async () => {
+    handle = setupChromeFake({ refusedPermissions: ['sessions'] });
+    expect(await askForSessionsPermission()).toBe(false);
+    expect(await hasSessionsPermission()).toBe(false);
+  });
+
+  test('a rejection is false, never a throw or an unhandled rejection', async () => {
     handle = setupChromeFake();
     Reflect.set(chrome.permissions, 'request', () =>
       Promise.reject(new Error('user gesture required'))
     );
-
     let sawUnhandledRejection = false;
     const onUnhandledRejection = () => {
       sawUnhandledRejection = true;
     };
     process.once('unhandledRejection', onUnhandledRejection);
 
-    expect(() => requestSessionsPermission()).not.toThrow();
+    expect(await askForSessionsPermission()).toBe(false);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     process.removeListener('unhandledRejection', onUnhandledRejection);
     expect(sawUnhandledRejection).toBe(false);
   });
-});
 
-describe('removeSessionsPermission', () => {
-  test('revokes a granted permission', async () => {
-    handle = setupChromeFake({ grantedPermissions: ['sessions'] });
-    removeSessionsPermission();
-    await Promise.resolve();
-    expect(await hasSessionsPermission()).toBe(false);
-  });
-});
-
-describe('observeSessionsPermission', () => {
-  test('reports both a grant and a revocation', async () => {
+  test('a synchronous throw is false', async () => {
     handle = setupChromeFake();
-    const seen: boolean[] = [];
-    observeSessionsPermission((granted) => seen.push(granted));
-
-    requestSessionsPermission();
-    await Promise.resolve();
-    removeSessionsPermission();
-    await Promise.resolve();
-
-    expect(seen).toEqual([true, false]);
+    Reflect.set(chrome.permissions, 'request', () => {
+      throw new Error(
+        'Only permissions specified in the manifest may be requested.'
+      );
+    });
+    expect(await askForSessionsPermission()).toBe(false);
   });
 
-  test('a change to tabGroups does not report a sessions change', async () => {
+  test('false, not a throw, when the API is missing entirely', async () => {
     handle = setupChromeFake();
-    const seen: boolean[] = [];
-    observeSessionsPermission((granted) => seen.push(granted));
+    Reflect.deleteProperty(chrome, 'permissions');
+    expect(await askForSessionsPermission()).toBe(false);
+  });
 
-    requestTabGroupsPermission();
-    await Promise.resolve();
-    removeTabGroupsPermission();
-    await Promise.resolve();
+  test('an answer that never comes is false after the wait, not before', async () => {
+    vi.useFakeTimers();
+    try {
+      handle = setupChromeFake({ requestNeverSettles: true });
+      let settled: boolean | undefined;
+      void askForSessionsPermission().then((value) => {
+        settled = value;
+      });
 
-    expect(seen).toEqual([]);
+      await vi.advanceTimersByTimeAsync(SESSIONS_ANSWER_WAIT_MS - 1);
+      expect(settled).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(settled).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
