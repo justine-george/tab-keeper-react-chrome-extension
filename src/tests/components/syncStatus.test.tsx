@@ -285,6 +285,19 @@ describe('the sync status line follows the store (KAN-248)', () => {
     expect(card().textContent).not.toContain('Manual sync');
   });
 
+  // KAN-650. A wide full view ran the sentence the whole pane; it stops at
+  // the reading width of the other Settings help lines.
+  test('the sentence stops at the settings reading width', async () => {
+    const { store } = await renderSync();
+    act(() => {
+      store.dispatch(declineCloudConsent());
+    });
+    const line = card().querySelector<HTMLElement>('[data-sync-line]');
+    if (line === null) throw new Error('no sync sentence');
+    // 36rem; jsdom resolves it against its 16px root.
+    expect(getComputedStyle(line).maxWidth).toBe('576px');
+  });
+
   test('no token: unavailable', async () => {
     const { store } = await renderSync();
     act(() => {
