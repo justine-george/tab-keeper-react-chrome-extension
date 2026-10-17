@@ -179,9 +179,9 @@ function windowEntryIdIfMatching(
 // (the tab or window was already gone). Never rejects: the close stands even
 // when its recently closed entry cannot be read.
 //
-// KAN-663. Each close first asks Chrome for `sessions`, while the click or
-// key that closed is still a user gesture, and waits for the answer before
-// reading the list, so even the first close records its entry.
+// KAN-663. Each close first asks Chrome for `sessions` (first, so inside the
+// click's or key's gesture; see askForSessionsPermission), and waits for the
+// answer before reading the list, so even the first close records its entry.
 export async function closeOpenTab(
   openWindow: OpenWindow,
   tab: OpenTab

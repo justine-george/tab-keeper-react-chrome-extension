@@ -99,9 +99,11 @@ export const SESSIONS_ANSWER_WAIT_MS = 1000;
 // once granted (at once when it already was), false when refused, failed, or
 // unanswered after SESSIONS_ANSWER_WAIT_MS. Never rejects.
 //
-// The request is made synchronously, before anything awaits: Chrome only
-// takes it during a user gesture, so a caller calls this first in its
-// handler.
+// The request is made synchronously, so a caller that calls this first in
+// its handler makes it inside the click's gesture, as Chrome's docs ask.
+// Measured 2026-10-17 (Chromium 156): Chrome granted `sessions` with no
+// gesture at all, and a close that asked after its own reads still got it,
+// so the order is a margin no test here can show.
 export function askForSessionsPermission(): Promise<boolean> {
   if (typeof chrome === 'undefined' || !chrome.permissions) {
     return Promise.resolve(false);

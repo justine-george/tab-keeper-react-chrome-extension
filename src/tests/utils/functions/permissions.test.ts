@@ -161,7 +161,7 @@ describe('askForSessionsPermission', () => {
     const request = vi.spyOn(chrome.permissions, 'request');
 
     const answer = askForSessionsPermission();
-    // Called synchronously: an await before it would leave the gesture.
+    // Called synchronously, so a caller's first line asks inside its gesture.
     expect(request).toHaveBeenCalledWith({ permissions: ['sessions'] });
 
     expect(await answer).toBe(true);
