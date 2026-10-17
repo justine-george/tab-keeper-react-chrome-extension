@@ -24,13 +24,13 @@ import { CONTROL, DURATION, EASE, ICON, TYPE } from '../../styles/scale';
 const TITLE_ID = 'review-card-title';
 
 // Look D (KAN-653, mock rounds 3-4): the full view's card is the bigger one,
-// M; the popup keeps the small one.
+// M; the popup keeps the small one. Body and Rate are TYPE.BODY in both: the
+// mock's 1rem is not on the type scale (scaleConformance.test).
 const SIZE = {
   full: {
     width: '440px',
     pad: 24,
     title: TYPE.TITLE,
-    body: '1rem',
     mark: '28px',
     gap: 10,
   },
@@ -38,7 +38,6 @@ const SIZE = {
     width: '360px',
     pad: 16,
     title: TYPE.SECTION,
-    body: TYPE.BODY,
     mark: '24px',
     gap: 8,
   },
@@ -150,7 +149,7 @@ function OpenReviewCard({
     border: 1px solid ${COLORS.BORDER_COLOR};
     box-shadow: ${COLORS.FLOATING_SHADOW};
     font-family: ${FONT_FAMILY};
-    font-size: ${size.body};
+    font-size: ${TYPE.BODY};
     pointer-events: ${hasRisen ? 'auto' : 'none'};
     animation: ${RISE} ${DURATION.MOVE} ${EASE.OUT};
     @media (prefers-reduced-motion: reduce) {
@@ -164,7 +163,6 @@ function OpenReviewCard({
     margin: 0 0 ${size.gap}px 0;
     padding-right: ${CLOSE_BOX};
     font-size: ${size.title};
-    font-weight: 500;
     color: ${COLORS.TEXT_COLOR};
     overflow-wrap: anywhere;
   `;
@@ -188,7 +186,6 @@ function OpenReviewCard({
     gap: 8px;
     width: 100%;
     height: ${CONTROL.DEFAULT};
-    font-size: 1rem;
   `;
   const neverStyle = css`
     display: block;
@@ -231,7 +228,7 @@ function OpenReviewCard({
       <button type="button" css={[buttons.filled, rateStyle]} onClick={rate}>
         <Icon
           type="star"
-          size="1.4rem"
+          size={ICON.MEDIUM}
           color={COLORS.PRIMARY_COLOR}
           disable={true}
           style="padding: 0;"
