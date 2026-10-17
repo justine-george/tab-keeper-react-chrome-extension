@@ -273,7 +273,7 @@ export default function MainContainer() {
     width: 45%;
     height: ${APP_HEIGHT};
     min-width: 0;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     border-right: none;
   `;
 
@@ -281,14 +281,14 @@ export default function MainContainer() {
     width: 55%;
     height: ${APP_HEIGHT};
     min-width: 0;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
   `;
 
   const leftPaneSettingsStyle = css`
     width: ${SETTINGS_COLUMN.POPUP_PERCENT}%;
     height: ${APP_HEIGHT};
     min-width: 0;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     border-right: none;
   `;
 
@@ -296,7 +296,7 @@ export default function MainContainer() {
     width: ${100 - SETTINGS_COLUMN.POPUP_PERCENT}%;
     height: ${APP_HEIGHT};
     min-width: 0;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
   `;
 
   // KAN-279 D1/D2. The tab view fills the window instead of sitting in the
@@ -339,7 +339,7 @@ export default function MainContainer() {
     width: auto;
     height: 100vh;
     min-width: 0;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     border-right: none;
   `;
 
@@ -348,7 +348,7 @@ export default function MainContainer() {
     width: auto;
     height: 100vh;
     min-width: 0;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
   `;
 
   const tabOpenNowPaneStyle = css`
@@ -357,7 +357,7 @@ export default function MainContainer() {
     height: 100vh;
     min-width: 0;
     overflow: hidden;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     /* Side by side, the detail pane's right border is already this edge. */
     ${!folded && 'border-left: none;'}
   `;

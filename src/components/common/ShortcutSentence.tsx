@@ -36,7 +36,7 @@ export function ShortcutSentence({
     padding: 0 6px;
     margin: 0 2px;
     vertical-align: middle;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     border-bottom-width: 2px;
     background: ${COLORS.PRIMARY_COLOR};
     font-family: inherit;

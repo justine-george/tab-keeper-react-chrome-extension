@@ -135,7 +135,7 @@ function OpenReviewCard({
     padding: ${size.pad}px;
     background-color: ${COLORS.PRIMARY_COLOR};
     color: ${COLORS.LABEL_L1_COLOR};
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     box-shadow: ${COLORS.FLOATING_SHADOW};
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};

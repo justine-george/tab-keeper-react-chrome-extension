@@ -154,7 +154,7 @@ export default function OpenNowRail({
     z-index: 900;
     overflow: hidden;
     background-color: ${COLORS.PRIMARY_COLOR};
-    border-left: 1px solid ${COLORS.BORDER_COLOR};
+    border-left: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     box-shadow: ${COLORS.FLOATING_SHADOW};
     /* N2 A. Away during a carry: slid off, then hidden; back without the delay. */
     transition:

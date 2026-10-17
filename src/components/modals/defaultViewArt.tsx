@@ -26,7 +26,7 @@ export function CompactViewArt() {
         width="219"
         height="26"
         fill={C.SELECTION_COLOR}
-        stroke={C.BORDER_COLOR}
+        stroke={C.PANEL_BORDER_COLOR}
       />
       <rect
         x="8"
@@ -34,7 +34,7 @@ export function CompactViewArt() {
         width="130"
         height="14"
         fill={C.PRIMARY_COLOR}
-        stroke={C.BORDER_COLOR}
+        stroke={C.PANEL_BORDER_COLOR}
       />
       <rect
         x="176"
@@ -102,7 +102,7 @@ export function FullViewArt() {
         width="219"
         height="26"
         fill={C.SELECTION_COLOR}
-        stroke={C.BORDER_COLOR}
+        stroke={C.PANEL_BORDER_COLOR}
       />
       <g data-art-part="tab">
         <path
@@ -143,7 +143,7 @@ export function FullViewArt() {
         width="219"
         height="93"
         fill={C.PRIMARY_COLOR}
-        stroke={C.BORDER_COLOR}
+        stroke={C.PANEL_BORDER_COLOR}
       />
       <g data-art-part="sessions">
         <rect
@@ -168,7 +168,7 @@ export function FullViewArt() {
           width="64"
           height="8"
           fill="none"
-          stroke={C.BORDER_COLOR}
+          stroke={C.PANEL_BORDER_COLOR}
         />
         <rect x="13" y="61" width="65" height="14" fill={C.SELECTION_COLOR} />
         {[

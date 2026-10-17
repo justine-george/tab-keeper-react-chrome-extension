@@ -66,7 +66,7 @@ interface CoachMarkProps {
   onEscape: () => void;
 }
 
-// The callout's notch, turned toward the anchor: a BORDER triangle under a PRIMARY one.
+// The callout's notch, turned toward the anchor: a PANEL_BORDER triangle under a PRIMARY one.
 function Notch({
   side,
   notch,
@@ -186,7 +186,7 @@ export default function CoachMark({
     margin: 0;
     padding: 18px 16px 12px;
     background-color: ${COLORS.PRIMARY_COLOR};
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     color: ${COLORS.TEXT_COLOR};
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};
@@ -310,7 +310,7 @@ export default function CoachMark({
           <Notch
             side={frame.kind === 'anchored' ? frame.placement.side : 'below'}
             notch={frame.placement.notch}
-            border={COLORS.BORDER_COLOR}
+            border={COLORS.PANEL_BORDER_COLOR}
             fill={COLORS.PRIMARY_COLOR}
           />
         )}

@@ -86,7 +86,7 @@ export default function WelcomeHero({
     width: ${HERO.WIN_W}px;
     height: ${HERO.WIN_H}px;
     background-color: ${COLORS.PRIMARY_COLOR};
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     box-sizing: border-box;
   `;
   const barStyle = css`
@@ -104,7 +104,7 @@ export default function WelcomeHero({
     gap: ${heroPx(3)}px;
     padding: 0 ${heroPx(4)}px;
     background-color: ${COLORS.PRIMARY_COLOR};
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
   `;
   const chipDotStyle = css`
     flex: none;

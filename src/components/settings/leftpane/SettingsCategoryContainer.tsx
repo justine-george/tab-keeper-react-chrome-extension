@@ -40,7 +40,7 @@ const SettingsCategoryContainer: React.FC = () => {
     display: flex;
     flex-direction: column;
     height: 100%;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     /* 10px, not the 8px every other gap uses, so this box's top edge meets
        the details box across the divider (KAN-239). The right pane reaches
        its box by 8px pane padding + a 50px framed card + 8px; this pane by

@@ -467,7 +467,7 @@ export default function OpenNowPane({
     flex-direction: column;
     align-items: flex-start;
     justify-content: space-between;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     font-family: ${FONT_FAMILY};
     user-select: none;
     width: 100%;
@@ -523,7 +523,7 @@ export default function OpenNowPane({
     flex-grow: 1;
     min-height: 0;
     margin-top: 8px;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     user-select: none;
   `;
 

@@ -255,7 +255,7 @@ export default function UserInputContainer() {
   const saveGroupStyle = css`
     display: flex;
     flex-shrink: 0;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
   `;
 
   return (
@@ -345,7 +345,7 @@ export default function UserInputContainer() {
             // gets through `height: 100%`.
             fillsHeight
             triggerStyle={`width: 28px; padding: 0;
-                         border-left: 1px solid ${COLORS.BORDER_COLOR};`}
+                         border-left: 1px solid ${COLORS.CONTROL_BORDER_COLOR};`}
             items={[
               {
                 key: `save-${menuScope}`,

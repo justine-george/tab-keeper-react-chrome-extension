@@ -67,7 +67,7 @@ export default function DefaultSaveChoice({
     position: relative;
     display: flex;
     height: 58px;
-    border: 1px solid ${COLORS.BORDER_COLOR};
+    border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
     ${
       isChosen &&
       `outline: 2px solid ${COLORS.TEXT_COLOR}; outline-offset: 3px;`
@@ -84,7 +84,7 @@ export default function DefaultSaveChoice({
     justify-content: center;
     align-items: center;
     width: 28px;
-    border-left: 1px solid ${COLORS.BORDER_COLOR};
+    border-left: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
   `;
   // The app's focus ring, 2px and 4px inside, drawn on the tile the radio stands for.
   const focusStyle = css`
