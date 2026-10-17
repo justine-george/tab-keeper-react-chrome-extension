@@ -10,23 +10,24 @@ import {
 } from '../../redux/slices/settingsCategoryStateSlice';
 
 // KAN-256. The popup gained a keyboard shortcut (manifest `_execute_action`)
-// and the Sessions pane a row that shows the binding Chrome actually
-// assigned -- never the manifest's suggestion, which Chrome honours only if
-// the key is free -- with a button to the one place a user can change it.
+// and Settings a row (in Quick access since KAN-652) that shows the binding
+// Chrome actually assigned -- never the manifest's suggestion, which Chrome
+// honours only if the key is free -- with a button to the one place a user
+// can change it.
 
 // windows: the "Change" button's chrome.tabs.create() rejects a windowId no
 // window carries, as Chrome does.
-const renderSessions = (commands?: chrome.commands.Command[]) =>
+const renderQuickAccess = (commands?: chrome.commands.Command[]) =>
   renderWithProviders(<SettingsDetailsContainer />, {
     seed: { commands, windows: [{ id: 1 }] },
     seedStore: (store) => {
-      store.dispatch(selectCategory(SettingsCategory.SESSIONS));
+      store.dispatch(selectCategory(SettingsCategory.QUICK_ACCESS));
     },
   });
 
-describe('the Sessions pane shows the popup shortcut (KAN-256)', () => {
+describe('the Quick access pane shows the popup shortcut (KAN-256, KAN-652)', () => {
   test('a sentence that says what the key does, with one keycap per key', async () => {
-    await renderSessions([
+    await renderQuickAccess([
       { name: '_execute_action', shortcut: 'Alt+Shift+K' },
     ]);
     expect(screen.getByText('Keyboard shortcut')).toBeTruthy();
@@ -40,7 +41,7 @@ describe('the Sessions pane shows the popup shortcut (KAN-256)', () => {
   });
 
   test('the Mac form gets one cap per glyph', async () => {
-    await renderSessions([{ name: '_execute_action', shortcut: '⌥⇧K' }]);
+    await renderQuickAccess([{ name: '_execute_action', shortcut: '⌥⇧K' }]);
     const sentence = await screen.findByTestId('popup-shortcut');
     const caps = [...sentence.querySelectorAll('kbd')].map(
       (k) => k.textContent
@@ -49,7 +50,7 @@ describe('the Sessions pane shows the popup shortcut (KAN-256)', () => {
   });
 
   test('says so when Chrome assigned nothing, with no empty caps', async () => {
-    await renderSessions([{ name: '_execute_action', shortcut: '' }]);
+    await renderQuickAccess([{ name: '_execute_action', shortcut: '' }]);
     const sentence = await screen.findByTestId('popup-shortcut');
     expect(sentence.textContent).toBe('No shortcut is set to open Tab Keeper.');
     expect(sentence.querySelectorAll('kbd')).toHaveLength(0);
@@ -57,7 +58,7 @@ describe('the Sessions pane shows the popup shortcut (KAN-256)', () => {
 
   test('Change opens the Chrome shortcuts page in a tab', async () => {
     const user = userEvent.setup();
-    const { chrome } = await renderSessions([
+    const { chrome } = await renderQuickAccess([
       { name: '_execute_action', shortcut: 'Alt+Shift+K' },
     ]);
     await user.click(
@@ -77,7 +78,7 @@ describe('the Sessions pane shows the popup shortcut (KAN-256)', () => {
         currentTabId: 10,
       },
       seedStore: (store) => {
-        store.dispatch(selectCategory(SettingsCategory.SESSIONS));
+        store.dispatch(selectCategory(SettingsCategory.QUICK_ACCESS));
       },
     });
     await user.click(

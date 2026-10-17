@@ -10,16 +10,16 @@ import {
 } from '../../redux/slices/settingsCategoryStateSlice';
 import { setPinTabKeeperInNewWindows } from '../../redux/slices/settingsDataStateSlice';
 
-// KAN-459. Settings → Sessions → Pin Tab Keeper in new windows, after Default view.
+// KAN-459. Settings → Quick access → Pin Tab Keeper in new windows, after Default view.
 const LABEL = 'Pin Tab Keeper in new windows';
 const CAPTION =
   'Tab Keeper is pinned as the first tab in every window it opens or switches to.';
 
-const renderSessions = (on = false) =>
+const renderQuickAccess = (on = false) =>
   renderWithProviders(<SettingsDetailsContainer />, {
     seed: { action: {} },
     seedStore: (store) => {
-      store.dispatch(selectCategory(SettingsCategory.SESSIONS));
+      store.dispatch(selectCategory(SettingsCategory.QUICK_ACCESS));
       if (on) store.dispatch(setPinTabKeeperInNewWindows(true));
     },
   });
@@ -38,14 +38,11 @@ afterEach(() => localStorage.clear());
 
 describe('the Pin Tab Keeper in new windows row', () => {
   test('sits after Default view, Off pressed, its caption describing the pair', async () => {
-    const { container } = await renderSessions();
+    const { container } = await renderQuickAccess();
     expect(sectionLabels(container)).toEqual([
-      'Default save',
-      'Save tab groups',
       'Default view',
       LABEL,
       'Keyboard shortcut',
-      'Bring back tab history when reopening',
     ]);
     expect(side('Off')).toHaveAttribute('aria-pressed', 'true');
     expect(side('On')).toHaveAttribute('aria-pressed', 'false');
@@ -53,7 +50,7 @@ describe('the Pin Tab Keeper in new windows row', () => {
   });
 
   test('On turns it on and saves it; Off turns it off', async () => {
-    const { store } = await renderSessions();
+    const { store } = await renderQuickAccess();
     await userEvent.click(side('On'));
     expect(store.getState().settingsDataState.pinTabKeeperInNewWindows).toBe(
       true
@@ -67,7 +64,7 @@ describe('the Pin Tab Keeper in new windows row', () => {
   });
 
   test('a saved On shows On pressed', async () => {
-    await renderSessions(true);
+    await renderQuickAccess(true);
     expect(side('On')).toHaveAttribute('aria-pressed', 'true');
   });
 });

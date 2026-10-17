@@ -10,14 +10,14 @@ import {
   selectCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
 
-// KAN-7 §7. Settings → Sessions → Default view: a pair whose choice is saved
+// KAN-7 §7. Settings → Quick access → Default view: a pair whose choice is saved
 // first, then mirrored for the worker, then applied with setPopup.
 
-const renderSessions = (seed: ChromeSeed = { action: {} }) =>
+const renderQuickAccess = (seed: ChromeSeed = { action: {} }) =>
   renderWithProviders(<SettingsDetailsContainer />, {
     seed,
     seedStore: (store) => {
-      store.dispatch(selectCategory(SettingsCategory.SESSIONS));
+      store.dispatch(selectCategory(SettingsCategory.QUICK_ACCESS));
     },
   });
 
@@ -37,15 +37,12 @@ afterEach(() => {
 });
 
 describe('the Default view row (KAN-7 §7)', () => {
-  test('sits between Save Tab Groups and Pin Tab Keeper in new windows, with Compact pressed', async () => {
-    const { container } = await renderSessions();
+  test('is the first row in Quick access (KAN-652), with Compact pressed', async () => {
+    const { container } = await renderQuickAccess();
     expect(sectionLabels(container)).toEqual([
-      'Default save',
-      'Save tab groups',
       'Default view',
       'Pin Tab Keeper in new windows',
       'Keyboard shortcut',
-      'Bring back tab history when reopening',
     ]);
     expect(side('Compact view')).toHaveAttribute('aria-pressed', 'true');
     expect(side('Full view')).toHaveAttribute('aria-pressed', 'false');
@@ -53,7 +50,7 @@ describe('the Default view row (KAN-7 §7)', () => {
 
   test('a refused setPopup still saves the choice, and says so in the console', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const { store } = await renderSessions({
+    const { store } = await renderQuickAccess({
       action: { setPopupRejects: true },
     });
     await userEvent.click(side('Full view'));

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-// KAN-459. Settings → Sessions → Pin Tab Keeper in new windows: Off unless turned on, device-local.
+// KAN-459. Settings → Quick access → Pin Tab Keeper in new windows: Off unless turned on, device-local.
 const freshSlice = async () => {
   vi.resetModules();
   return import('../../redux/slices/settingsDataStateSlice');

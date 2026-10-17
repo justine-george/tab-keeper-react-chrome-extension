@@ -71,7 +71,7 @@ export interface RestoreSessionRequest {
   specs: WindowSpec[];
   goToURLText: string;
   closeOtherWindows: boolean;
-  // KAN-459. Settings → Sessions → Pin Tab Keeper in new windows, as the page read it.
+  // KAN-459. Settings → Quick access → Pin Tab Keeper in new windows, as the page read it.
   pinTabKeeper: boolean;
 }
 

@@ -16,6 +16,12 @@ import en from '../../../public/locales/en/translation.json';
 // captures (Save Tab Groups), and "Sync & Backup" holds where the data lives
 // and how to get it back (Auto Sync, status, Backup).
 
+// Each settings section's label -- the first text a section draws.
+const sectionLabels = (container: HTMLElement) =>
+  [...container.querySelectorAll<HTMLElement>('[data-settings-section]')].map(
+    (section) => section.querySelector('span')?.textContent
+  );
+
 const renderOn = (category: SettingsCategory) =>
   renderWithProviders(<SettingsDetailsContainer />, {
     seedStore: (store) => {
@@ -24,14 +30,16 @@ const renderOn = (category: SettingsCategory) =>
   });
 
 describe('the settings rail names what each pane holds (KAN-253)', () => {
-  test('the seven categories, in order, and none of the old names', () => {
+  test('the eight categories, in order, and none of the old names', () => {
     // Two pairs, then About and Help: how it looks (Display, Language), then
     // what it does with your data (Sync & Backup, then Sessions -- the
     // consequential one first). Display stays the landing pane. Recently
-    // deleted follows Sessions (KAN-595).
+    // deleted follows Sessions (KAN-595). Quick access follows Language
+    // (KAN-652): how Tab Keeper itself opens, before anything about data.
     expect(initialState.map((c) => c.name)).toEqual([
       'Display',
       'Language',
+      'Quick access',
       'Sync & Backup',
       'Sessions',
       'Recently deleted',
@@ -59,6 +67,25 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
     // And not the capture setting.
     expect(screen.queryByRole('group', { name: 'Save tab groups' })).toBeNull();
   });
+
+  // KAN-652. Sessions held six settings, three of them about how Tab Keeper
+  // itself opens, which nobody looks for under "Sessions".
+  test('Sessions holds what a save does; Quick access holds how Tab Keeper opens', async () => {
+    const { container, unmount } = await renderOn(SettingsCategory.SESSIONS);
+    expect(sectionLabels(container)).toEqual([
+      'Default save',
+      'Save tab groups',
+      'Bring back tab history when reopening',
+    ]);
+    unmount();
+
+    const quick = await renderOn(SettingsCategory.QUICK_ACCESS);
+    expect(sectionLabels(quick.container)).toEqual([
+      'Default view',
+      'Pin Tab Keeper in new windows',
+      'Keyboard shortcut',
+    ]);
+  });
 });
 
 // KAN-253. The About pane puts 32px between its blocks (KAN-241); the other
@@ -80,6 +107,14 @@ describe('sections within a pane sit 32px apart, as About blocks do', () => {
     const margins = [
       ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
     ].map((el) => getComputedStyle(el).marginTop);
-    expect(margins).toEqual(['20px', '32px', '32px', '32px', '32px', '32px']);
+    expect(margins).toEqual(['20px', '32px', '32px']);
+  });
+
+  test('Quick access: first at 20px, every later row at 32px', async () => {
+    const { container } = await renderOn(SettingsCategory.QUICK_ACCESS);
+    const margins = [
+      ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
+    ].map((el) => getComputedStyle(el).marginTop);
+    expect(margins).toEqual(['20px', '32px', '32px']);
   });
 });

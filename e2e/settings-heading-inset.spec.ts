@@ -14,6 +14,7 @@ const PANELS = [
   'Display',
   'Sync & backup',
   'Sessions',
+  'Quick access',
   'Recently deleted',
   'Language',
   'Help',
