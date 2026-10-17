@@ -656,20 +656,19 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
     context,
     extensionId,
   }) => {
-    const { popup, tab, cloudRequests } = await openBoth(context, extensionId);
-    // A capturing listener at the target runs before the app's own.
-    await tab.evaluate(() => {
-      window.addEventListener(
-        'storage',
-        (e) => {
-          e.stopImmediatePropagation();
-          document.body.dataset.swallowed = String(
-            Number(document.body.dataset.swallowed ?? 0) + 1
-          );
-        },
-        { capture: true }
-      );
+    // Added before the app's own listener, so it runs first: listeners on
+    // window run in the order they were added, capturing or not.
+    await context.addInitScript(() => {
+      if (!location.search.includes('view=tab')) return;
+      const swallowed: string[] = [];
+      window.addEventListener('storage', (e) => {
+        if (e.key !== 'tabContainerData') return;
+        e.stopImmediatePropagation();
+        swallowed.push(e.newValue ?? '');
+        document.documentElement.dataset.swallowed = JSON.stringify(swallowed);
+      });
     });
+    const { popup, tab, cloudRequests } = await openBoth(context, extensionId);
 
     await saveAs(popup, 'Saved in the popup');
     // PREMISE: the tab view's storage holds it, and its event was swallowed.
@@ -679,10 +678,12 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
           stored: (localStorage.getItem('tabContainerData') ?? '').includes(
             'Saved in the popup'
           ),
-          swallowed: document.body.dataset.swallowed ?? '0',
+          swallowed: (
+            document.documentElement.dataset.swallowed ?? ''
+          ).includes('Saved in the popup'),
         }))
       )
-      .toEqual({ stored: true, swallowed: '1' });
+      .toEqual({ stored: true, swallowed: true });
     await expect(row(tab, 'Saved in the popup')).toHaveCount(0);
 
     await saveAs(tab, 'Saved in the tab view');
