@@ -186,6 +186,25 @@ export default function TabGroupEntryContainer() {
     row?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex, selectedTabGroupId]);
 
+  // KAN-657 (F1). After a session is deleted by key on its row, focus goes to
+  // the row now in its place, or the new last: the selection's own rule
+  // (removeSession), so the key deletes back to back. Recorded at the press, in
+  // render order; acted on only once that session has left the list.
+  const focusAfterDelete = useRef<{ id: string; at: number } | null>(null);
+  useEffect(() => {
+    const pending = focusAfterDelete.current;
+    if (pending === null || sessionIds.includes(pending.id)) return;
+    focusAfterDelete.current = null;
+    const next = sessionIds[Math.min(pending.at, sessionIds.length - 1)];
+    if (next === undefined) return;
+    // The row's own button: the one element there that takes the Delete key.
+    listRef.current
+      ?.querySelector<HTMLElement>(
+        `[data-drag-row-id="${CSS.escape(next)}"] [aria-keyshortcuts]`
+      )
+      ?.focus();
+  }, [sessionIds]);
+
   // KAN-350. The list takes a carry: the row under the pointer is the target
   // (D2 A); resting on it opens that session (S1 A); letting go on it moves
   // the carried item into that session as a new first window (S2 A).
@@ -512,11 +531,15 @@ export default function TabGroupEntryContainer() {
                           replaceSessionWithOpenWindows(tabGroupData.tabGroupId)
                         )
                       }
-                      onDeleteKey={() =>
+                      onDeleteKey={() => {
+                        focusAfterDelete.current = {
+                          id: tabGroupData.tabGroupId,
+                          at: index,
+                        };
                         void dispatch(
                           deleteTabContainer(tabGroupData.tabGroupId)
-                        )
-                      }
+                        );
+                      }}
                       deleteKeyShortcuts={deleteKeyShortcuts}
                       carryTarget={
                         tabGroupData.tabGroupId === carryTargetId
