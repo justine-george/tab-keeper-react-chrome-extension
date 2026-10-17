@@ -32,7 +32,7 @@ import {
 import { reopenFromOffer } from '../redux/reopenOffer';
 import { takeOpenNowDrop } from '../redux/openNowMoveUndo';
 import { undoOpenNowDrop } from '../utils/functions/openNowMoves';
-import { RateAndReviewModal } from './modals/RateAndReviewModal';
+import { ReviewCard } from './reviewCard/ReviewCard';
 import { FocusConfirmModal } from './modals/FocusConfirmModal';
 import { DeleteCloudDataModal } from './modals/DeleteCloudDataModal';
 import { LoadBackupModal } from './modals/LoadBackupModal';
@@ -72,10 +72,6 @@ export default function MainContainer() {
 
   const isSettingsPage = useSelector(
     (state: RootState) => state.globalState.isSettingsPage
-  );
-
-  const isRateAndReviewModalOpen = useSelector(
-    (state: RootState) => state.globalState.isRateAndReviewModalOpen
   );
 
   const focusRequest = useSelector(
@@ -435,7 +431,7 @@ export default function MainContainer() {
       {/* Draws nothing unless this page shows the run; R3 hides its card while Settings is open. */}
       <FirstRun />
       <ReplayNote />
-      {isRateAndReviewModalOpen && <RateAndReviewModal />}
+      <ReviewCard />
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}
       {isDeleteCloudDataModalOpen && <DeleteCloudDataModal />}

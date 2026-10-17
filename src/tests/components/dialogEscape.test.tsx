@@ -14,7 +14,6 @@ import {
   openDeleteCloudDataModal,
   openFocusModal,
   openPinGuide,
-  openRateAndReviewModal,
   openSetup,
   openTabGroupsPrompt,
   runShownHere,
@@ -85,18 +84,6 @@ const CASES: Case[] = [
           newRun('popup', 1)
         )
       );
-    },
-  },
-  {
-    name: 'rate prompt: Remind me later',
-    dialog: 'Enjoying Tab Keeper?',
-    seed: { tabs: [{ active: true, index: 0 }] },
-    open: (s) => s.dispatch(openRateAndReviewModal()),
-    outcome: ({ store }) => {
-      expect(store.getState().settingsDataState.isSkippedUserReviewOnce).toBe(
-        true
-      );
-      expect(store.getState().globalState.isRateAndReviewModalOpen).toBe(false);
     },
   },
   {

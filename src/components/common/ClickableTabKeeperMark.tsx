@@ -15,14 +15,38 @@ import {
 export default function ClickableTabKeeperMark({
   markSize = ICON.SMALL,
   boxSize = markSize,
+  shutterOnMountAfterMs,
 }: {
   markSize?: string;
   // The clickable square the mark is centred in.
   boxSize?: string;
+  // KAN-653. Plays the shutter once, silently, this long after mounting: the
+  // review card's mark, as the card finishes rising.
+  shutterOnMountAfterMs?: number;
 }) {
   const playing = useRef<Motion | null>(null);
+  const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => () => playing.current?.cancel(), []);
+
+  useEffect(() => {
+    if (shutterOnMountAfterMs === undefined) return;
+    const timer = setTimeout(() => {
+      const mark = box.current?.querySelector('svg');
+      if (!mark || playing.current !== null) return;
+      // No beat: a sound nobody pressed for would startle.
+      const motion = playMarkClick(
+        mark,
+        mark.querySelector('[data-mark-part="shutter"]')
+      );
+      if (motion === null) return;
+      playing.current = motion;
+      void motion.finished.then(() => {
+        playing.current = null;
+      });
+    }, shutterOnMountAfterMs);
+    return () => clearTimeout(timer);
+  }, [shutterOnMountAfterMs]);
 
   const play = (event: MouseEvent<HTMLDivElement>) => {
     if (playing.current !== null) return;
@@ -46,6 +70,7 @@ export default function ClickableTabKeeperMark({
 
   return (
     <div
+      ref={box}
       onClick={play}
       css={css`
         width: ${boxSize};

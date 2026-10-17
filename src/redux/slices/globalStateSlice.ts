@@ -122,7 +122,6 @@ export interface Global {
   // Reopen carries only the offer's id; the closed tab or window it names is
   // live data and stays out of the store (reopenOfferStore.ts, KAN-280 O8a).
   toasts: ToastItem[];
-  isRateAndReviewModalOpen: boolean;
   // KAN-653. The review card on screen, or null. offersNever is fixed when it
   // opens: "Never ask again" shows only to someone who has closed one before.
   reviewCard: { moment: ReviewMoment; offersNever: boolean } | null;
@@ -303,7 +302,6 @@ export const initialState: Global = {
   searchInputText: '',
   syncStatus: 'idle',
   toasts: [],
-  isRateAndReviewModalOpen: false,
   reviewCard: null,
   tabGroupsPromptCount: null,
   focusRequest: null,
@@ -1021,14 +1019,6 @@ export const globalStateSlice = createSlice({
   name: 'globalState',
   initialState,
   reducers: {
-    openRateAndReviewModal: (state) => {
-      state.isRateAndReviewModalOpen = true;
-    },
-
-    closeRateAndReviewModal: (state) => {
-      state.isRateAndReviewModalOpen = false;
-    },
-
     openReviewCard: (
       state,
       action: PayloadAction<{ moment: ReviewMoment; offersNever: boolean }>
@@ -1449,8 +1439,6 @@ export const globalStateSlice = createSlice({
 });
 
 export const {
-  openRateAndReviewModal,
-  closeRateAndReviewModal,
   openReviewCard,
   closeReviewCard,
   openTabGroupsPrompt,
