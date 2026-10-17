@@ -41,7 +41,7 @@ describe('the Default view row (KAN-7 §7)', () => {
     const { container } = await renderSessions();
     expect(sectionLabels(container)).toEqual([
       'Default save',
-      'Save Tab Groups',
+      'Save tab groups',
       'Default view',
       'Pin Tab Keeper in new windows',
       'Keyboard shortcut',

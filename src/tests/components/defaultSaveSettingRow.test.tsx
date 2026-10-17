@@ -48,7 +48,7 @@ describe('the Default save row', () => {
   test('is the first section in Sessions, all windows chosen, its help line describing it', async () => {
     const { container } = await renderSessions();
     expect(sectionLabels(container)[0]).toBe(LABEL);
-    expect(sectionLabels(container)[1]).toBe('Save Tab Groups');
+    expect(sectionLabels(container)[1]).toBe('Save tab groups');
     expect(choice('All windows')).toBeChecked();
     expect(choice('Current window')).not.toBeChecked();
     expect(group()).toHaveAccessibleDescription(HELP);

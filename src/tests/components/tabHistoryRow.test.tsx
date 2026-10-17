@@ -50,7 +50,7 @@ describe('the tab-history row is the last in Sessions', () => {
     expect(pair()).toHaveAccessibleName(LABEL);
     expect(sectionLabels(container)).toEqual([
       'Default save',
-      'Save Tab Groups',
+      'Save tab groups',
       'Default view',
       'Pin Tab Keeper in new windows',
       'Keyboard shortcut',

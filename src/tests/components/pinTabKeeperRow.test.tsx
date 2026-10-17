@@ -41,7 +41,7 @@ describe('the Pin Tab Keeper in new windows row', () => {
     const { container } = await renderSessions();
     expect(sectionLabels(container)).toEqual([
       'Default save',
-      'Save Tab Groups',
+      'Save tab groups',
       'Default view',
       LABEL,
       'Keyboard shortcut',

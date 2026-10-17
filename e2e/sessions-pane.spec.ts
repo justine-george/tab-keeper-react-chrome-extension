@@ -29,7 +29,7 @@ async function openSessions(
   await page.locator('[aria-label="Settings"]').click();
   await page.locator('button[aria-label="Sessions"]').click();
   await expect(
-    page.getByRole('group', { name: 'Save Tab Groups' })
+    page.getByRole('group', { name: 'Save tab groups' })
   ).toBeVisible();
   return page;
 }
@@ -50,12 +50,12 @@ test.describe('the Sessions pane (KAN-249, KAN-250, KAN-253)', () => {
         pairs.map((pair) => pair.getAttribute('aria-label'))
       )
     ).toEqual([
-      'Save Tab Groups',
+      'Save tab groups',
       'Default view',
       'Pin Tab Keeper in new windows',
       'Bring back tab history when reopening',
     ]);
-    const pair = page.getByRole('group', { name: 'Save Tab Groups' });
+    const pair = page.getByRole('group', { name: 'Save tab groups' });
     await expect(pair.getByRole('button', { name: 'Off' })).toHaveAttribute(
       'aria-pressed',
       'true'

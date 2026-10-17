@@ -47,7 +47,7 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
 
   test('Sync & Backup holds Auto Sync, the status card, and the backup buttons', async () => {
     await renderOn(SettingsCategory.SYNC);
-    expect(screen.getByRole('group', { name: 'Auto Sync' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Auto sync' })).toBeTruthy();
     expect(screen.getByTestId('sync-status')).toBeTruthy();
     expect(screen.getByText('Backup')).toBeTruthy();
     expect(
@@ -57,7 +57,7 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
       screen.getByRole('button', { name: 'Load sessions from a backup' })
     ).toBeTruthy();
     // And not the capture setting.
-    expect(screen.queryByRole('group', { name: 'Save Tab Groups' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Save tab groups' })).toBeNull();
   });
 });
 

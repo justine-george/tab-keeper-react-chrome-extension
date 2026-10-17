@@ -34,7 +34,7 @@ async function openSync(
   await page.setViewportSize({ width: 790, height: 550 });
   await page.goto(`chrome-extension://${extensionId}/index.html`);
   await page.locator('[aria-label="Settings"]').click();
-  await page.locator('button[aria-label="Sync & Backup"]').click();
+  await page.locator('button[aria-label="Sync & backup"]').click();
   await expect(page.getByTestId('sync-status')).toHaveAttribute(
     'data-sync-state',
     syncOff ? 'off' : 'manual'

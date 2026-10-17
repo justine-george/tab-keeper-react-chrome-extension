@@ -31,13 +31,13 @@ async function openSyncAndBackup(
 ): Promise<Page> {
   const page = await open(context, extensionId);
   await page.locator('[aria-label="Settings"]').click();
-  await page.locator('button[aria-label="Sync & Backup"]').click();
+  await page.locator('button[aria-label="Sync & backup"]').click();
   return page;
 }
 
 const autoSync = (page: Page, state: 'On' | 'Off') =>
   page
-    .getByRole('group', { name: 'Auto Sync' })
+    .getByRole('group', { name: 'Auto sync' })
     .getByRole('button', { name: state, exact: true });
 
 test.describe('a new install', () => {
@@ -72,7 +72,7 @@ test.describe('a new install', () => {
     await cardButton(page, 'Skip tutorial').click();
     await closeReplayNote(page);
     await page.locator('[aria-label="Settings"]').click();
-    await page.locator('button[aria-label="Sync & Backup"]').click();
+    await page.locator('button[aria-label="Sync & backup"]').click();
     await autoSync(page, 'On').click();
     const ask = dialog(page, 'Sync your sessions across devices?');
     await expect(ask).toBeVisible();

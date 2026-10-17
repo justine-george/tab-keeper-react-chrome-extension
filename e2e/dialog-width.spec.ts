@@ -38,9 +38,9 @@ async function enableQuestionInTab(
     viewport
   );
   await tab.locator('[aria-label="Settings"]').click();
-  await tab.locator('button[aria-label="Sync & Backup"]').click();
+  await tab.locator('button[aria-label="Sync & backup"]').click();
   await tab
-    .getByRole('group', { name: 'Auto Sync', exact: true })
+    .getByRole('group', { name: 'Auto sync', exact: true })
     .getByRole('button', { name: 'On', exact: true })
     .click();
   return tab;
@@ -192,7 +192,7 @@ test.describe('Delete cloud data dialog stays capped in the tab view (KAN-301)',
       TAB_1920
     );
     await tab.locator('[aria-label="Settings"]').click();
-    await tab.locator('button[aria-label="Sync & Backup"]').click();
+    await tab.locator('button[aria-label="Sync & backup"]').click();
     await tab.getByRole('button', { name: 'Delete cloud data' }).click();
 
     const geo = await dialogGeometry(

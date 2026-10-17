@@ -50,7 +50,7 @@ test('the import refusal names the limit as the bar beside it does', async ({
   await page.setViewportSize({ width: 790, height: 550 });
   await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
   await page.locator('[aria-label="Settings"]').click();
-  await page.locator('button[aria-label="Sync & Backup"]').click();
+  await page.locator('button[aria-label="Sync & backup"]').click();
 
   const bar = page.getByTestId('sync-space');
   await expect(bar).toHaveAttribute('data-level', 'full');

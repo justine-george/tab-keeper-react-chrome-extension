@@ -42,7 +42,7 @@ Tab Keeper is a free session manager for Chrome. Save your open windows and tabs
 
 Tab Keeper does not require an email address or a user-created account. It generates an anonymous identifier that Chrome syncs with your browser profile.
 
-Your sessions are stored locally on your device. Tab Keeper asks before it syncs for the first time on each device. When device sync is enabled, saved session data—including tab URLs and titles—is sent to cloud storage so you can access it from other desktop Chrome browsers connected to the same profile. You can delete the cloud copy at any time from Settings → Sync & Backup.
+Your sessions are stored locally on your device. Tab Keeper asks before it syncs for the first time on each device. When device sync is enabled, saved session data—including tab URLs and titles—is sent to cloud storage so you can access it from other desktop Chrome browsers connected to the same profile. You can delete the cloud copy at any time from Settings → Sync & backup.
 
 Read the full [privacy policy](PRIVACY.md).
 
@@ -56,7 +56,7 @@ Read the full [privacy policy](PRIVACY.md).
 - Copy a session's links from its menu: they paste as links into documents and email, and as plain addresses anywhere else
 - Export the windows you have open right now, without saving them first
 - Load a backup by merging its sessions into yours, or by replacing yours after a confirmation, and a replace now holds on every device that syncs
-- Delete your cloud data from Settings → Sync & Backup
+- Delete your cloud data from Settings → Sync & backup
 - Open the popup with a keyboard shortcut, shown in Settings
 - Fold every window in a session from one control in its header
 - The extension asks before it first uploads anything to the cloud, on each device, and Settings shows when this device last synced

@@ -599,7 +599,7 @@ describe('the plain question does what it was opened for (KAN-259)', () => {
       name: 'Sync your sessions across devices?',
     });
     // The fine print says so.
-    expect(dialog.textContent).toMatch(/Auto Sync stays off/);
+    expect(dialog.textContent).toMatch(/Auto sync stays off/);
     seen.length = 0;
     endRises();
     await user.click(within(dialog).getByRole('button', { name: 'Sync' }));
@@ -623,7 +623,7 @@ describe('the plain question does what it was opened for (KAN-259)', () => {
     const dialog = screen.getByRole('dialog', {
       name: 'Sync your sessions across devices?',
     });
-    expect(dialog.textContent).not.toMatch(/Auto Sync stays off/);
+    expect(dialog.textContent).not.toMatch(/Auto sync stays off/);
     endRises();
     await user.click(within(dialog).getByRole('button', { name: 'Sync' }));
     expect(store.getState().settingsDataState.cloudConsent).toBe('granted');

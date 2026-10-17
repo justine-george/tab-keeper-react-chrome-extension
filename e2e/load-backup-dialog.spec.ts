@@ -37,7 +37,7 @@ async function openSyncAndBackup(
   await page.setViewportSize({ width: 790, height: 550 });
   await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
   await page.locator('[aria-label="Settings"]').click();
-  await page.locator('button[aria-label="Sync & Backup"]').click();
+  await page.locator('button[aria-label="Sync & backup"]').click();
   await expect(
     page.getByRole('button', { name: 'Load sessions from a backup' })
   ).toBeVisible();

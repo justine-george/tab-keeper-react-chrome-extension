@@ -805,7 +805,7 @@ test.describe('step 5, Save tab groups too? (Q9)', () => {
       await press(full, 'Next');
     }
     await expect(stepHeading(full)).toHaveText('Save tab groups too?');
-    await expect(pairSide(full, 'Save Tab Groups', 'Off')).toHaveAttribute(
+    await expect(pairSide(full, 'Save tab groups', 'Off')).toHaveAttribute(
       'aria-pressed',
       'true'
     );
@@ -865,7 +865,7 @@ async function expectStep6NotNow(
   const full = await openFullView(context, extensionId);
   for (let n = 0; n < 4; n++) await press(full, 'Next');
   await expect(stepHeading(full)).toHaveText('Sync across your devices?');
-  await pairSide(full, 'Auto Sync', 'On').click();
+  await pairSide(full, 'Auto sync', 'On').click();
   const ask = full.getByRole('dialog', {
     name: 'Sync your sessions across devices?',
     exact: true,
@@ -875,7 +875,7 @@ async function expectStep6NotNow(
   await expect(setup(full)).toHaveAttribute('open', '');
   await ask.getByRole('button', { name: 'Not now', exact: true }).click();
   await expect(ask).toHaveCount(0);
-  await expect(pairSide(full, 'Auto Sync', 'Off')).toHaveAttribute(
+  await expect(pairSide(full, 'Auto sync', 'Off')).toHaveAttribute(
     'aria-pressed',
     'true'
   );
@@ -886,7 +886,7 @@ async function expectStep6NotNow(
 
 // Sync, then the sign-up the CONTROL waits for.
 async function expectStep6Sync(page: Page, requests: string[]): Promise<void> {
-  await pairSide(page, 'Auto Sync', 'On').click();
+  await pairSide(page, 'Auto sync', 'On').click();
   await page
     .getByRole('dialog', {
       name: 'Sync your sessions across devices?',
@@ -894,7 +894,7 @@ async function expectStep6Sync(page: Page, requests: string[]): Promise<void> {
     })
     .getByRole('button', { name: 'Sync', exact: true })
     .click();
-  await expect(pairSide(page, 'Auto Sync', 'On')).toHaveAttribute(
+  await expect(pairSide(page, 'Auto sync', 'On')).toHaveAttribute(
     'aria-pressed',
     'true'
   );

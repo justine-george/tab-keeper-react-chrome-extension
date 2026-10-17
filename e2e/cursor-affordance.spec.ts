@@ -207,7 +207,7 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    await openSettingsCategory(page, 'Sync & Backup');
+    await openSettingsCategory(page, 'Sync & backup');
 
     const button = page.getByRole('button', {
       name: 'Save sessions to a file',
@@ -232,7 +232,7 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
     extensionId,
   }) => {
     const page = await openPopup(context, extensionId);
-    await openSettingsCategory(page, 'Sync & Backup');
+    await openSettingsCategory(page, 'Sync & backup');
 
     // Which glyph the card draws depends on the build (KAN-248): the fixture
     // context is signed in with auto sync on, so with a cloud this is

@@ -83,9 +83,9 @@ async function openSyncQuestion(
     VIEWS[view].viewport
   );
   await page.locator('[aria-label="Settings"]').click();
-  await page.locator('button[aria-label="Sync & Backup"]').click();
+  await page.locator('button[aria-label="Sync & backup"]').click();
   await page
-    .getByRole('group', { name: 'Auto Sync' })
+    .getByRole('group', { name: 'Auto sync' })
     .getByRole('button', { name: 'On', exact: true })
     .click();
   const dialog = page.getByRole('dialog', {

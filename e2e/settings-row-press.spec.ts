@@ -54,7 +54,7 @@ test.describe('a settings category row answers a press (KAN-236)', () => {
     extensionId,
   }) => {
     const page = await openSettings(context, extensionId);
-    const row = page.getByRole('button', { name: 'Sync & Backup' });
+    const row = page.getByRole('button', { name: 'Sync & backup' });
 
     await row.hover();
     await expectFill(row, HOVER);

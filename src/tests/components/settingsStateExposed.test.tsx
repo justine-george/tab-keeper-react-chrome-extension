@@ -36,7 +36,7 @@ const renderOn = (category: SettingsCategory) =>
 // concern -- the name must say WHICH setting -- is now met by the group's
 // name, and Label in Name (WCAG 2.5.3) by each side being named its own
 // visible word. Found by role, because the structure is what is under test.
-const autoSyncPair = () => screen.getByRole('group', { name: 'Auto Sync' });
+const autoSyncPair = () => screen.getByRole('group', { name: 'Auto sync' });
 
 // What Chrome holds, asked the way hasTabGroupsPermission() asks: through the
 // installed fake's own API, not a recorder beside it.
@@ -53,7 +53,7 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
 
     // The setting's name is on the group, not on a sibling label the
     // buttons are unassociated with.
-    expect(autoSyncPair()).toHaveAccessibleName('Auto Sync');
+    expect(autoSyncPair()).toHaveAccessibleName('Auto sync');
     // Each side's name IS its visible text, so "click On" hits it.
     expect(side('On')).toHaveAccessibleName('On');
     expect(side('Off')).toHaveAccessibleName('Off');
@@ -105,7 +105,7 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
   test('Sessions has four pairs, Save Tab Groups, Default view, Pin Tab Keeper and tab history, and no memory setting', async () => {
     await renderOn(SettingsCategory.SESSIONS);
 
-    const groups = screen.getByRole('group', { name: 'Save Tab Groups' });
+    const groups = screen.getByRole('group', { name: 'Save tab groups' });
     expect(
       within(groups)
         .getByRole('button', { name: 'Off' })
@@ -114,7 +114,7 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
     expect(
       screen.getAllByRole('group').map((g) => g.getAttribute('aria-label'))
     ).toEqual([
-      'Save Tab Groups',
+      'Save tab groups',
       'Default view',
       'Pin Tab Keeper in new windows',
       'Bring back tab history when reopening',
@@ -141,7 +141,7 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
     expect(await has()).toBe(false);
 
     await user.click(
-      within(screen.getByRole('group', { name: 'Save Tab Groups' })).getByRole(
+      within(screen.getByRole('group', { name: 'Save tab groups' })).getByRole(
         'button',
         { name: 'On' }
       )
@@ -159,7 +159,7 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
       },
     });
     expect(await has()).toBe(true);
-    const groups = screen.getByRole('group', { name: 'Save Tab Groups' });
+    const groups = screen.getByRole('group', { name: 'Save tab groups' });
     expect(
       within(groups)
         .getByRole('button', { name: 'On' })
