@@ -29,7 +29,9 @@ const BRAND = 'Tab Keeper';
 // locale stopped using the name at all, which is the bug.
 const KEYS_THAT_NAME_THE_PRODUCT = [
   'Tab Keeper',
-  'RequestUserReviewHeader',
+  'Thanks for using Tab Keeper',
+  'ReviewCardBody',
+  'Rate Tab Keeper',
   'TabGroupsPromptTitle',
 ];
 
