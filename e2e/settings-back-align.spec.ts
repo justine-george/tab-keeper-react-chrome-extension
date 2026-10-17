@@ -12,6 +12,7 @@ import { localeStrings } from './fixtures/locales';
 const CATEGORIES = [
   'Display',
   'Language',
+  'Quick access',
   'Sync & backup',
   'Sessions',
   'Recently deleted',

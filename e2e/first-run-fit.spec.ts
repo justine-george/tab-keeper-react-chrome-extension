@@ -641,7 +641,7 @@ for (const [theme, palette] of THEMES) {
           `${theme} full step ${step}`,
           step === 9
             ? [
-                'It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Sessions.',
+                'It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.',
               ]
             : []
         );

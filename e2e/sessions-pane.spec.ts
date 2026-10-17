@@ -18,43 +18,50 @@ import { buildContainer, seedSessions } from './fixtures/seed';
 // its setting, Off pressed in a fresh profile, on the popup scale, and no
 // memory row above it.
 
-async function openSessions(
+async function openPane(
   context: Parameters<typeof seedSessions>[0],
-  extensionId: string
+  extensionId: string,
+  pane: 'Sessions' | 'Quick access',
+  firstPair: string
 ): Promise<Page> {
   await seedSessions(context, buildContainer());
   const page = await context.newPage();
   await page.setViewportSize({ width: 790, height: 550 });
   await page.goto(`chrome-extension://${extensionId}/index.html`);
   await page.locator('[aria-label="Settings"]').click();
-  await page.locator('button[aria-label="Sessions"]').click();
-  await expect(
-    page.getByRole('group', { name: 'Save tab groups' })
-  ).toBeVisible();
+  await page.locator(`button[aria-label="${pane}"]`).click();
+  await expect(page.getByRole('group', { name: firstPair })).toBeVisible();
   return page;
 }
 
+const openSessions = (
+  context: Parameters<typeof seedSessions>[0],
+  extensionId: string
+) => openPane(context, extensionId, 'Sessions', 'Save tab groups');
+
+// KAN-652. Default view, the pin and the shortcut moved here from Sessions.
+const openQuickAccess = (
+  context: Parameters<typeof seedSessions>[0],
+  extensionId: string
+) => openPane(context, extensionId, 'Quick access', 'Default view');
+
 test.describe('the Sessions pane (KAN-249, KAN-250, KAN-253)', () => {
-  test('four pairs, Save Tab Groups, Default view (KAN-7), Pin Tab Keeper (KAN-459) and tab history (KAN-280, last since KAN-645), Save Tab Groups Off pressed, on the popup scale; no memory setting, no backup', async ({
+  test('two pairs, Save Tab Groups and tab history (KAN-280, last since KAN-645), Save Tab Groups Off pressed, on the popup scale; no memory setting, no backup', async ({
     context,
     extensionId,
   }) => {
     const page = await openSessions(context, extensionId);
 
     // KAN-280 Part D added "Bring back tab history when reopening"; KAN-645
-    // moved it last. Its own spec is open-now-history.spec.ts.
+    // moved it last. Its own spec is open-now-history.spec.ts. Default view
+    // and Pin Tab Keeper moved to Quick access (KAN-652).
     const groups = page.getByRole('group');
-    await expect(groups).toHaveCount(4);
+    await expect(groups).toHaveCount(2);
     expect(
       await groups.evaluateAll((pairs) =>
         pairs.map((pair) => pair.getAttribute('aria-label'))
       )
-    ).toEqual([
-      'Save tab groups',
-      'Default view',
-      'Pin Tab Keeper in new windows',
-      'Bring back tab history when reopening',
-    ]);
+    ).toEqual(['Save tab groups', 'Bring back tab history when reopening']);
     const pair = page.getByRole('group', { name: 'Save tab groups' });
     await expect(pair.getByRole('button', { name: 'Off' })).toHaveAttribute(
       'aria-pressed',
@@ -77,6 +84,28 @@ test.describe('the Sessions pane (KAN-249, KAN-250, KAN-253)', () => {
   });
 });
 
+test.describe('the Quick access pane (KAN-652)', () => {
+  test('Default view, Pin Tab Keeper and the shortcut; none of Sessions', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openQuickAccess(context, extensionId);
+    const groups = page.getByRole('group');
+    await expect(groups).toHaveCount(2);
+    expect(
+      await groups.evaluateAll((pairs) =>
+        pairs.map((pair) => pair.getAttribute('aria-label'))
+      )
+    ).toEqual(['Default view', 'Pin Tab Keeper in new windows']);
+    await expect(
+      page.getByRole('button', { name: 'Change or remove shortcut' })
+    ).toBeVisible();
+    await expect(page.getByText('Default save', { exact: true })).toHaveCount(
+      0
+    );
+  });
+});
+
 // KAN-256. The row shows whatever Chrome bound to _execute_action in THIS
 // profile -- the manifest suggests Alt+Shift+K, and Chrome takes it only if
 // free -- so the assertion is agreement with chrome.commands.getAll(), not a
@@ -86,7 +115,7 @@ test.describe('the popup shortcut row (KAN-256)', () => {
     context,
     extensionId,
   }) => {
-    const page = await openSessions(context, extensionId);
+    const page = await openQuickAccess(context, extensionId);
     const shown = page.getByTestId('popup-shortcut');
     await expect(shown).toBeVisible();
 

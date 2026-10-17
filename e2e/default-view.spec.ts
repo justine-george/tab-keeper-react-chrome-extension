@@ -24,7 +24,7 @@ async function openSessionsSettings(
 ): Promise<Page> {
   const page = await openPage(context, extensionId, path, viewport);
   await page.locator('[aria-label="Settings"]').click();
-  await page.locator('button[aria-label="Sessions"]').click();
+  await page.locator('button[aria-label="Quick access"]').click();
   await expect(
     page.getByRole('group', { name: 'Default view', exact: true })
   ).toBeVisible();

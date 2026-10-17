@@ -4,6 +4,7 @@ export enum SettingsCategory {
   DISPLAY = 'Display',
   SYNC = 'Sync & Backup',
   SESSIONS = 'Sessions',
+  QUICK_ACCESS = 'Quick access',
   RECENTLY_DELETED = 'Recently deleted',
   LANGUAGE = 'Language',
   ABOUT = 'About',
@@ -26,6 +27,13 @@ export const initialState: SettingsCategoryContainer[] = [
   },
   {
     name: SettingsCategory.LANGUAGE,
+    isSelected: false,
+  },
+  // KAN-652. How Tab Keeper itself opens (Default view, the pin, the
+  // shortcut), split from Sessions, which is about what a save keeps. After
+  // Language: like the first pair, it is about Tab Keeper, not your data.
+  {
+    name: SettingsCategory.QUICK_ACCESS,
     isSelected: false,
   },
   {
