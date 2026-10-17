@@ -29,7 +29,8 @@ export const LIGHT_THEME = {
   TAG_BORDER_COLOR: '#DCDEE1',
   // KAN-668. Two edges: a pane, dialog or card's frame stays quiet; anything
   // pressed or typed in gets an edge at 3:1 on PRIMARY and SECONDARY (WCAG
-  // 1.4.11). borderContrast.test.ts holds every theme to both.
+  // 1.4.11) here, and 2.77:1 in the dark themes, where 3:1 read too strong.
+  // borderContrast.test.ts holds every theme to its floor.
   PANEL_BORDER_COLOR: '#BEC0C3',
   CONTROL_BORDER_COLOR: '#85878A',
   DIVIDER_COLOR: '#D8DADD',
@@ -136,7 +137,7 @@ export const DARKENHEIMER_THEME = {
   TAG_BG_COLOR: '#3E3E3E',
   TAG_BORDER_COLOR: '#2A2A2A',
   PANEL_BORDER_COLOR: '#444444',
-  CONTROL_BORDER_COLOR: '#7C7C7C',
+  CONTROL_BORDER_COLOR: '#6D6D6D',
   DIVIDER_COLOR: '#3C3C3C',
   TEXT_COLOR: '#D0D0D0',
   FLOPPY_BODY_COLOR: '#131313',
@@ -170,7 +171,7 @@ export const BLUE_THEME = {
   TAG_BG_COLOR: '#3E3E48',
   TAG_BORDER_COLOR: '#2A2A3A',
   PANEL_BORDER_COLOR: '#444454',
-  CONTROL_BORDER_COLOR: '#7C7C8D',
+  CONTROL_BORDER_COLOR: '#6D6D7E',
   DIVIDER_COLOR: '#3C3C4B',
   TEXT_COLOR: '#D0D0DF',
   FLOPPY_BODY_COLOR: '#13131A',
