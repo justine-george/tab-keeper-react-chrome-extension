@@ -5,12 +5,14 @@ on:
     branches:
       - main
 
-# KAN-227, KAN-444. Four kinds of job, so the slow parts run side by side:
+# KAN-227, KAN-444. Five kinds of job, so the slow parts run side by side:
 #
+#   changes whether the PR changes only Markdown docs   one runner
 #   checks  lint, E2E typecheck                         one runner
 #   unit    the vitest suite, in 2 shards               one runner per shard
 #   e2e     the E2E suite, in 15 shards                 one runner per shard
-#   gate    "Build before merge": passes only if every job above did
+#   gate    "Build before merge": passes only if every job above did, or,
+#           for a docs-only PR, once `changes` did (KAN-664)
 #
 # This was one job of ~10 minutes, 7m17s of it the E2E suite running serially
 # (workers: 1) -- 61% of playwright.config.ts's 12-minute globalTimeout and
@@ -22,8 +24,37 @@ on:
 # browser setup for ~70 min and the gate sat pending instead of failing.
 
 jobs:
+  # KAN-664. A PR that changes only Markdown docs (scripts/docs_only.mjs) skips
+  # checks, unit and e2e. Not `paths-ignore`: that would leave the required
+  # gate unreported, and the PR waiting on it forever.
+  changes:
+    name: Docs only?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.files.outputs.docs_only }}
+
+    steps:
+      # Depth 2: the merge commit's first parent is main, so HEAD^1..HEAD is
+      # what this PR changes (the e2e job's version check reads it the same way).
+      - name: Checkout repo
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      # The runner's own Node is enough: the script uses only node:fs and
+      # node:url. A failed diff gives the script no files, which reads as not
+      # docs-only, so everything runs.
+      - name: List what the PR changes
+        id: files
+        run: |
+          git diff --name-only HEAD^1 HEAD
+          echo "docs_only=$(git diff --name-only HEAD^1 HEAD | node scripts/docs_only.mjs)" >> "$GITHUB_OUTPUT"
+
   checks:
     name: Lint, E2E typecheck
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -57,6 +88,8 @@ jobs:
   # ~4 min of vitest on one 4-vCPU runner was the floor once e2e got faster.
   unit:
     name: Unit tests shard ${{ matrix.shard }} of ${{ strategy.job-total }}
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -81,6 +114,8 @@ jobs:
 
   e2e:
     name: E2E shard ${{ matrix.shard }} of ${{ strategy.job-total }}
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     # Above the suite's 12-minute globalTimeout plus ~2 min of setup.
     timeout-minutes: 15
@@ -202,24 +237,33 @@ jobs:
   # `if: always()` is load-bearing. Without it, a failed shard makes this job
   # SKIPPED -- and GitHub treats a skipped required check as passing, so a red
   # suite would merge. It runs whatever happened above, and fails unless every
-  # job it depends on succeeded.
+  # job it depends on succeeded -- or, for a docs-only PR (KAN-664), unless
+  # `changes` did: then the other three were skipped on purpose.
   gate:
     name: Build before merge
     runs-on: ubuntu-latest
-    needs: [checks, unit, e2e]
+    needs: [changes, checks, unit, e2e]
     if: always()
     timeout-minutes: 5
 
     steps:
       - name: Every job succeeded
         env:
+          CHANGES: ${{ needs.changes.result }}
+          DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
           CHECKS: ${{ needs.checks.result }}
           UNIT: ${{ needs.unit.result }}
           E2E: ${{ needs.e2e.result }}
         run: |
+          echo "changes: $CHANGES (docs only: $DOCS_ONLY)"
           echo "checks: $CHECKS"
           echo "unit (all shards): $UNIT"
           echo "e2e (all shards): $E2E"
+          test "$CHANGES" = success
+          if [ "$DOCS_ONLY" = true ]; then
+            echo "Docs only: lint, unit and e2e were skipped."
+            exit 0
+          fi
           test "$CHECKS" = success
           test "$UNIT" = success
           test "$E2E" = success
