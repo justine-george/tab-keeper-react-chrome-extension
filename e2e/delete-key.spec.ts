@@ -4,10 +4,10 @@ import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { POPUP, stored } from './fixtures/savedWindows';
 
-// KAN-592 on the real artifact (picks K1, F2): ⌫, fn⌫ (Delete) and ⌘⌫ delete the session whose
-// row has focus, with the Undo toast; no row takes focus after, and Tab carries on from where the
-// row was. The header ⋮ names the key beside Delete session; with it open, the key runs that
-// item (KAN-638).
+// KAN-592 on the real artifact (pick K1): ⌫, fn⌫ (Delete) and ⌘⌫ delete the session whose row
+// has focus, with the Undo toast. After the delete, focus moves to the row now in its place, or
+// the new last (KAN-657, pick F1), so the key deletes back to back. The header ⋮ names the key
+// beside Delete session; with it open, the key runs that item (KAN-638).
 
 const SESSIONS = ['Alpha', 'Bravo', 'Charlie', 'Delta'].map((t) =>
   buildSession({ tabGroupId: `s-${t.toLowerCase()}`, title: t })
@@ -16,10 +16,11 @@ const ALL = SESSIONS.map((s) => s.tabGroupId);
 
 async function openPopup(
   context: Parameters<typeof seedSessions>[0],
-  extensionId: string
+  extensionId: string,
+  sessions = SESSIONS
 ): Promise<Page> {
   await seedSessions(context, {
-    ...buildContainer(SESSIONS),
+    ...buildContainer(sessions),
     selectedTabGroupId: 's-alpha',
   });
   const page = await context.newPage();
@@ -38,8 +39,6 @@ const ids = async (page: Page) =>
   (await stored(page)).tabGroups.map((g) => g.tabGroupId);
 const toasts = (page: Page): Locator =>
   page.locator('[role="status"] > [data-toast]:not([aria-hidden="true"])');
-const focusedName = (page: Page) =>
-  page.evaluate(() => document.activeElement?.getAttribute('aria-label'));
 
 for (const key of ['Backspace', 'Delete', 'Meta+Backspace']) {
   test(`${key} on a clicked row deletes its session, with Undo`, async ({
@@ -102,7 +101,36 @@ for (const opened of ['click', 'keyboard'] as const) {
   }
 }
 
-test('a row reached by Tab deletes its own session, not the one shown', async ({
+test('F1: focus follows the selection, so the key deletes back to back; the last row hands it up', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openPopup(context, extensionId);
+  await row(page, 'Bravo').click();
+
+  await page.keyboard.press('Backspace');
+  await expect
+    .poll(() => ids(page))
+    .toEqual(['s-alpha', 's-charlie', 's-delta']);
+  await expect(row(page, 'Charlie')).toBeFocused();
+  await expect(
+    page.getByRole('button', { name: 'Rename session: Charlie', exact: true })
+  ).toBeVisible();
+
+  await page.keyboard.press('Delete');
+  await expect.poll(() => ids(page)).toEqual(['s-alpha', 's-delta']);
+  await expect(row(page, 'Delta')).toBeFocused();
+
+  // Delta is the last row: the selection and focus go to the new last.
+  await page.keyboard.press('Backspace');
+  await expect.poll(() => ids(page)).toEqual(['s-alpha']);
+  await expect(row(page, 'Alpha')).toBeFocused();
+  await expect(
+    page.getByRole('button', { name: 'Rename session: Alpha', exact: true })
+  ).toBeVisible();
+});
+
+test('a row reached by Tab hands focus to the row now in its place; the one shown stays shown', async ({
   context,
   extensionId,
 }) => {
@@ -112,30 +140,65 @@ test('a row reached by Tab deletes its own session, not the one shown', async ({
   await page.keyboard.press('Delete');
 
   await expect.poll(() => ids(page)).toEqual(['s-alpha', 's-bravo', 's-delta']);
+  await expect(row(page, 'Delta')).toBeFocused();
   await expect(
     page.getByRole('button', { name: 'Rename session: Alpha', exact: true })
   ).toBeVisible();
 });
 
-test('F2: no row keeps focus, so a second press deletes nothing; Tab goes to the next row', async ({
+test('the only session: after it goes, no row is left to take focus', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openPopup(context, extensionId, SESSIONS.slice(0, 1));
+  // On its title: the shown row keeps Open, Switch and Replace drawn over its middle (KAN-582).
+  await row(page, 'Alpha').click({ position: { x: 24, y: 16 } });
+
+  await page.keyboard.press('Backspace');
+
+  await expect.poll(() => ids(page)).toEqual([]);
+  await expect(toasts(page)).toContainText('Session deleted.');
+  expect(
+    await page.evaluate(() => document.activeElement === document.body)
+  ).toBe(true);
+});
+
+test('under a search, focus goes to the next match', async ({
   context,
   extensionId,
 }) => {
   const page = await openPopup(context, extensionId);
-  await row(page, 'Bravo').click();
+  // "ha" matches Alpha and Charlie only: no default tab, window or URL holds it.
+  await page
+    .getByRole('textbox', { name: 'Search saved tabs', exact: true })
+    .fill('ha');
+  await expect(row(page, 'Bravo')).toHaveCount(0);
+  await row(page, 'Alpha').click();
+
   await page.keyboard.press('Backspace');
+
   await expect
     .poll(() => ids(page))
-    .toEqual(['s-alpha', 's-charlie', 's-delta']);
+    .toEqual(['s-bravo', 's-charlie', 's-delta']);
+  await expect(row(page, 'Charlie')).toBeFocused();
+});
+
+test('with no row focused, the key deletes nothing: never page-wide', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openPopup(context, extensionId);
+  // PREMISE: the shown session's row is drawn selected, but has no focus.
+  await expect(
+    page.getByRole('button', { name: 'Rename session: Alpha', exact: true })
+  ).toBeVisible();
+  await expect(row(page, 'Alpha')).not.toBeFocused();
 
   await page.keyboard.press('Backspace');
   await page.keyboard.press('Delete');
-  // A stored write is synchronous with the delete; a toast count of one rules out a late second.
-  await expect(toasts(page)).toHaveCount(1);
-  expect(await ids(page)).toEqual(['s-alpha', 's-charlie', 's-delta']);
 
-  await page.keyboard.press('Tab');
-  expect(await focusedName(page)).toBe('Charlie');
+  await expect(toasts(page)).toHaveCount(0);
+  expect(await ids(page)).toEqual(ALL);
 });
 
 test('a held key deletes one session', async ({ context, extensionId }) => {
