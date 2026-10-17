@@ -16,10 +16,10 @@ export interface SettingsCategoryContainer {
   isSelected: boolean;
 }
 
-// Two pairs, then About and Help (KAN-253): how it looks (Display,
-// Language), then what it does with your data (Sync & Backup, then Sessions
-// -- the consequential one first). Display stays first: it is the pane the
-// gear opens, and Sessions is one toggle on an otherwise empty pane.
+// About Tab Keeper itself first: how it looks (Display, Language) and how it
+// opens (Quick access, KAN-652). Then what it does with your data (Sync &
+// Backup, then Sessions -- the consequential one first), then About and Help
+// (KAN-253). Display stays first: it is the pane the gear opens.
 export const initialState: SettingsCategoryContainer[] = [
   {
     name: SettingsCategory.DISPLAY,
@@ -29,9 +29,8 @@ export const initialState: SettingsCategoryContainer[] = [
     name: SettingsCategory.LANGUAGE,
     isSelected: false,
   },
-  // KAN-652. How Tab Keeper itself opens (Default view, the pin, the
-  // shortcut), split from Sessions, which is about what a save keeps. After
-  // Language: like the first pair, it is about Tab Keeper, not your data.
+  // KAN-652. Default view, the pin and the shortcut, split from Sessions,
+  // which is about what a save keeps.
   {
     name: SettingsCategory.QUICK_ACCESS,
     isSelected: false,
