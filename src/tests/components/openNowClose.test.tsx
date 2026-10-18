@@ -53,7 +53,12 @@ function rulesFor(element: HTMLElement): string[] {
   return [...document.styleSheets]
     .flatMap((sheet) => [...sheet.cssRules])
     .map((rule) => rule.cssText)
-    .filter((text) => classes.some((name) => text.startsWith(name)));
+    .filter((text) =>
+      classes.some(
+        (name) =>
+          text.startsWith(name) || text.startsWith(`html[data-key-nav] ${name}`)
+      )
+    );
 }
 
 // LIGHT_THEME.HOVER_COLOR as the stylesheet spells it.
@@ -464,19 +469,21 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
   // the reveal itself is tested in the real browser
   // (e2e/open-now-close.spec.ts, test 17). Here: focus is in the strip, and
   // the strip's own rules reveal on :has(:focus-visible), never on any focus
-  // at all.
+  // at all, and only while navigating by keyboard (KAN-689).
   function expectRevealedByKeyboardFocus(control: HTMLElement): void {
     expect(document.activeElement).toBe(control);
     const strip = control.closest('[data-row-actions]');
     if (!(strip instanceof HTMLElement)) throw new Error('no action strip');
     const rules = rulesFor(strip);
     expect(rules).toContainEqual(
-      expect.stringMatching(/:has\(:focus-visible\)>\* \{ opacity: 1; \}/)
+      expect.stringMatching(
+        /^html\[data-key-nav\] .*:has\(:focus-visible\)>\* \{ opacity: 1; \}/
+      )
     );
     expect(rules).toContainEqual(
       expect.stringMatching(
         new RegExp(
-          `:has\\(:focus-visible\\) \\{ background-color: ${HOVER_RGB}; \\}`
+          `^html\\[data-key-nav\\] .*:has\\(:focus-visible\\) \\{ background-color: ${HOVER_RGB}; \\}`
         )
       )
     );

@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import Icon from '../../common/Icon';
+import { whileKeyNav } from '../../common/focusRing';
 import { SAVE_OF } from '../../home/leftpane/saveScopes';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useFontFamily } from '../../../hooks/useFontFamily';
@@ -91,7 +92,7 @@ export default function DefaultSaveChoice({
   `;
   // The app's focus ring, 2px and 4px inside, drawn on the tile the radio stands for.
   const focusStyle = css`
-    &:has(input:focus-visible) [data-tile]::after {
+    ${whileKeyNav('&:has(input:focus-visible) [data-tile]::after')} {
       content: '';
       position: absolute;
       inset: 3px;

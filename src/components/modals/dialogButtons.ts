@@ -2,7 +2,7 @@ import { css } from '@emotion/react';
 
 import type { ThemeColors } from '../../hooks/useThemeColors';
 import { CONTROL, DURATION } from '../../styles/scale';
-import { focusRingCss } from '../common/focusRing';
+import { focusRingCss, whileKeyNav } from '../common/focusRing';
 import { mixHex } from '../../styles/mixHex';
 
 // A dialog button's padding and border, which a flush link hangs outside.
@@ -77,7 +77,7 @@ export function dialogButtonStyles(COLORS: ThemeColors) {
         border-color: ${filledPress};
         background-color: ${filledPress};
       }
-      &:focus-visible {
+      ${whileKeyNav('&:focus-visible')} {
         outline: 2px solid ${COLORS.TEXT_COLOR};
         outline-offset: 2px;
       }

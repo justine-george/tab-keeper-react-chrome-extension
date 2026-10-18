@@ -1,4 +1,11 @@
 import type { ThemeColors } from '../../hooks/useThemeColors';
+import { KEY_NAV_ATTRIBUTE } from '../../utils/functions/keyNav';
+
+// KAN-689. `on`, a nested selector, only while the user navigates by keyboard
+// (keyNav.ts). Every :focus-visible rule in the app is written under it.
+// html, not :root: Emotion reads a leading colon as the parent's own pseudo.
+export const whileKeyNav = (on: string): string =>
+  `html[${KEY_NAV_ATTRIBUTE}] ${on}`;
 
 // The app's keyboard focus ring (KAN-405 1A): 2px of TEXT_COLOR, 4px inside
 // the control. ≥4.86:1 on the page, hover and pressed fills in every theme.
@@ -7,7 +14,7 @@ export const focusRingCss = (
   COLORS: ThemeColors,
   on = '&:focus-visible'
 ): string => `
-  ${on} {
+  ${whileKeyNav(on)} {
     outline: 2px solid ${COLORS.TEXT_COLOR};
     outline-offset: -4px;
   }
@@ -19,7 +26,7 @@ export const focusRingOnTextGroundCss = (
   COLORS: ThemeColors,
   on: string
 ): string => `
-  ${on} {
+  ${whileKeyNav(on)} {
     outline: 2px solid ${COLORS.PRIMARY_COLOR};
     outline-offset: -4px;
   }
@@ -28,7 +35,7 @@ export const focusRingOnTextGroundCss = (
 // KAN-671. The same ring 2px outside, for a control with no box to draw it
 // in: a link in running text, a theme tile.
 export const focusRingOutsideCss = (COLORS: ThemeColors): string => `
-  &:focus-visible {
+  ${whileKeyNav('&:focus-visible')} {
     outline: 2px solid ${COLORS.TEXT_COLOR};
     outline-offset: 2px;
   }
@@ -38,7 +45,7 @@ export const focusRingOutsideCss = (COLORS: ThemeColors): string => `
 // the box's positioned children: a saved session's actions strip is opaque
 // and would cover an outline's right edge.
 export const focusRingAboveCss = (COLORS: ThemeColors, on: string): string => `
-  ${on}::after {
+  ${whileKeyNav(on)}::after {
     content: '';
     position: absolute;
     inset: 2px;
@@ -56,7 +63,7 @@ export const focusRingOverTickCss = (
   on: string
 ): string => `
   position: relative;
-  ${on}::after {
+  ${whileKeyNav(on)}::after {
     content: '';
     position: absolute;
     inset: 2px;

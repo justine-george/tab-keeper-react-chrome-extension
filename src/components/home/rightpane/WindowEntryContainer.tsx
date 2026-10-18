@@ -11,7 +11,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import ClickableRow from '../../common/ClickableRow';
-import { focusRingOverTickCss } from '../../common/focusRing';
+import { focusRingOverTickCss, whileKeyNav } from '../../common/focusRing';
 import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import { DropBoxLabel } from '../../common/dropBox';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
@@ -293,7 +293,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     /* The keyboard's equivalent of the hover reveal (KAN-68). Keyboard focus
        only (KAN-636, as KAN-94): :focus-within also matched the focus a click
        on ⋮ leaves, so the row stayed engaged after the pointer left. */
-    &:has(:focus-visible) {
+    ${whileKeyNav('&:has(:focus-visible)')} {
       background-color: ${COLORS.HOVER_COLOR};
       & > * {
         opacity: 1;
@@ -432,7 +432,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     /* The keyboard's equivalent of the hover reveal (KAN-68). Delete tab has
        no alternate path anywhere in the UI, so this row is the only way to
        reach it. Keyboard focus only, as the window row's (KAN-636). */
-    &:has(:focus-visible) {
+    ${whileKeyNav('&:has(:focus-visible)')} {
       background-color: ${COLORS.HOVER_COLOR};
       & > * {
         opacity: 1;
@@ -1265,14 +1265,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         &:hover {
                           ${groupRowEngaged}
                         }
-                        &:has(:focus-visible) {
+                        ${whileKeyNav('&:has(:focus-visible)')} {
                           ${groupRowEngaged}
                         }
                         /* The mask lands with the fill; only the controls ease (D10, KAN-100). */
                         &:hover .group-actions {
                           ${groupActionsShown}
                         }
-                        &:has(:focus-visible) .group-actions {
+                        ${whileKeyNav('&:has(:focus-visible) .group-actions')} {
                           ${groupActionsShown}
                         }
                       `}

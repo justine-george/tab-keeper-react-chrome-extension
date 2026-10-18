@@ -12,6 +12,10 @@ import i18n from './config/i18n.tsx';
 import App from './App.tsx';
 import { store } from './redux/store.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
+import { trackKeyNav } from './utils/functions/keyNav.ts';
+
+// Before the first key or press: rings follow it (KAN-689).
+trackKeyNav(window);
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

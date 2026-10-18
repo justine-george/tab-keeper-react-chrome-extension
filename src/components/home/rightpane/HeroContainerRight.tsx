@@ -12,7 +12,7 @@ import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
 import Button from '../../common/Button';
 import ClickableRow from '../../common/ClickableRow';
-import { focusRingOverTickCss } from '../../common/focusRing';
+import { focusRingOverTickCss, whileKeyNav } from '../../common/focusRing';
 import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
@@ -397,7 +397,7 @@ export default function HeroContainerRight() {
               opacity: ${isEditing || isContainerHovered ? 1 : 0};
               transition: opacity ${DURATION.COLOR} ease-out;
               /* The keyboard's equivalent of the hover reveal (KAN-68); keyboard focus only (KAN-636). */
-              &:has(:focus-visible) {
+              ${whileKeyNav('&:has(:focus-visible)')} {
                 opacity: 1;
               }
             `}

@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { RADIUS } from '../../../styles/scale';
 import { useViewportWidth } from '../../../hooks/useViewportWidth';
+import { whileKeyNav } from '../../common/focusRing';
 import { setOpenNowWidth } from '../../../redux/slices/settingsDataStateSlice';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
@@ -197,8 +198,7 @@ export default function OpenNowResizeGrip({
     }
 
     &:hover,
-    &:focus-visible,
-    &[data-active] {
+    ${whileKeyNav('&:focus-visible')}, &[data-active] {
       & > span {
         background-color: ${COLORS.HOVER_COLOR};
       }
@@ -207,7 +207,7 @@ export default function OpenNowResizeGrip({
       }
     }
     /* The app's ring (dialogButtons.ts): 2px of TEXT_COLOR. */
-    &:focus-visible > span {
+    ${whileKeyNav('&:focus-visible > span')} {
       outline: 2px solid ${COLORS.TEXT_COLOR};
       outline-offset: 1px;
     }
