@@ -459,14 +459,14 @@ export default function OpenNowPane({
     height: 100%;
   `;
 
-  // Copied from HeroContainerRight's containerStyle and topStyle, less the
-  // fill: O1b steps this header down to the list's plain header on the
-  // left, so the saved session's own name is what leads. The border stays.
+  // Copied from HeroContainerRight's containerStyle and topStyle, fill
+  // included (KAN-686, undoing O1b's step-down).
   const headerStyle = css`
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     justify-content: space-between;
+    background-color: ${COLORS.SECONDARY_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     font-family: ${FONT_FAMILY};
     user-select: none;
