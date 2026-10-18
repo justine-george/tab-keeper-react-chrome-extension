@@ -21,3 +21,16 @@ export const focusRingOutsideCss = (COLORS: ThemeColors): string => `
     outline-offset: 2px;
   }
 `;
+
+// KAN-671. The same ring as a ::after of a positioned box, so it paints over
+// the box's positioned children: a saved session's actions strip is opaque
+// and would cover an outline's right edge.
+export const focusRingAboveCss = (COLORS: ThemeColors, on: string): string => `
+  ${on}::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    border: 2px solid ${COLORS.TEXT_COLOR};
+    pointer-events: none;
+  }
+`;

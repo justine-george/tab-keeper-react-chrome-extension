@@ -52,7 +52,8 @@ interface Stop {
 }
 
 // The focused element's outline, or its parent's: a search field's ring is
-// drawn round its whole row, glass and keycap included. A visually hidden
+// drawn round its whole row, glass and keycap included. A saved session's is
+// its row's ::after, above the actions strip that covers the row's right. A visually hidden
 // radio's ring is a ::after border inside its label, on the tile it stands
 // for (DefaultSaveChoice). 'lap' at a stop already in `seen`; null outside
 // the page.
@@ -76,14 +77,10 @@ const readStop = (page: Page, seen: JSHandle<WeakSet<Element>>) =>
     };
     const parent = el.parentElement;
     const hidden = el.getBoundingClientRect().width <= 1;
-    const ring =
-      hidden && parent
-        ? ([...parent.querySelectorAll('*')]
-            .map(after)
-            .find((r) => r !== 'none') ?? 'none')
-        : outline(el) === 'none' && parent
-          ? outline(parent)
-          : outline(el);
+    const candidates = hidden
+      ? [...(parent?.querySelectorAll('*') ?? [])].map(after)
+      : [outline(el), ...(parent ? [outline(parent), after(parent)] : [])];
+    const ring = candidates.find((r) => r !== 'none') ?? 'none';
     const name =
       el.getAttribute('aria-label') ||
       (el.id ? `#${el.id}` : el.textContent?.trim().slice(0, 40) || el.tagName);
