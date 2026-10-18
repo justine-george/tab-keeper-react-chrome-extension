@@ -329,11 +329,11 @@ async function expectFieldRing(
   if (box === null) throw new Error('no field box');
   const midY = box.y + box.height / 2;
   const [ground, left, right] = await pixelsAt(page, [
-    [box.x + 2.5, midY],
     [box.x + 5, midY],
-    [box.x + box.width - 5, midY],
+    [box.x + 3, midY],
+    [box.x + box.width - 3, midY],
   ]);
-  // Control: the decode reads the field's own fill between border and ring.
+  // Control: the decode reads the field's own fill inside the ring.
   expect(ground).toBe(colors.PRIMARY_COLOR.toUpperCase());
   expect([left, right]).toEqual(
     [colors.TEXT_COLOR, colors.TEXT_COLOR].map((c) => c.toUpperCase())

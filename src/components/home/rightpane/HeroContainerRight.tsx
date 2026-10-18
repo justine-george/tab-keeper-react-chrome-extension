@@ -12,6 +12,7 @@ import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
 import Button from '../../common/Button';
 import ClickableRow from '../../common/ClickableRow';
+import { focusRingCss } from '../../common/focusRing';
 import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
@@ -357,9 +358,7 @@ export default function HeroContainerRight() {
                 padding-left: 8px;
                 padding-right: 8px;
                 flex-grow: 1;
-                &:focus {
-                  outline: none;
-                }
+                ${focusRingCss(COLORS)}
               `}
             />
           ) : (

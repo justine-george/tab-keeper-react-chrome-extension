@@ -4,6 +4,7 @@ import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
 import ClickableRow from '../../common/ClickableRow';
+import { focusRingCss } from '../../common/focusRing';
 import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import GroupColorPicker from '../../common/GroupColorPicker';
 import Icon from '../../common/Icon';
@@ -777,9 +778,7 @@ export default function OpenNowWindow({
                                 align-self: stretch;
                                 width: 100%;
                                 min-width: 0;
-                                &:focus {
-                                  outline: none;
-                                }
+                                ${focusRingCss(COLORS)}
                                 ${placeholderStyle(COLORS.PLACEHOLDER_COLOR)}
                               `}
                             />
