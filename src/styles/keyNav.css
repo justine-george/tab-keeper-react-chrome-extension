@@ -1,0 +1,6 @@
+/* KAN-689. Focus draws the app's ring only while the user navigates by
+   keyboard (keyNav.ts); this keeps Chrome's own off the rest of the time. No
+   specificity, so any component's own rule still wins. */
+:where(html:not([data-key-nav]) :focus-visible) {
+  outline: none;
+}
