@@ -1,7 +1,7 @@
 import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { buildSession } from './fixtures/seed';
+import { buildSession, seedSettings } from './fixtures/seed';
 import { seedOnce } from './fixtures/cloud';
 import { POPUP, stored } from './fixtures/savedWindows';
 
@@ -182,3 +182,54 @@ test('the last week counts down, and past 30 days a session is gone', async ({
   await expect(deletedRows(page)).toContainText('Lisbon trip');
   await expect(deletedRows(page)).toContainText('· 3 days left');
 });
+
+// KAN-683. Empty shared its row with the description, and flex shrank it below
+// the 8rem the Restore buttons under it keep: its left edge sat right of theirs.
+// In German the description is longest; it must still sit beside Empty, whole.
+for (const [language, settings, recent, empty, restore, about] of [
+  [
+    'en',
+    'Settings',
+    'Recently deleted',
+    'Empty',
+    'Restore Charlie',
+    'Sessions deleted on this device are kept for 30 days, then permanently deleted.',
+  ],
+  [
+    'de',
+    'Einstellungen',
+    'Zuletzt gelöscht',
+    'Leeren',
+    'Charlie wiederherstellen',
+    'Auf diesem Gerät gelöschte Sitzungen werden 30 Tage aufbewahrt und dann endgültig gelöscht.',
+  ],
+] as const) {
+  test(`${language}: Empty is as wide as Restore and lines up with it`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, { language });
+    const page = await openPage(context, extensionId);
+    await deleteByKey(page, 'Charlie');
+    await page.getByRole('button', { name: settings }).click();
+    await page.getByRole('button', { name: recent, exact: true }).click();
+    const emptyBox = await page
+      .getByRole('button', { name: empty, exact: true })
+      .boundingBox();
+    const restoreBox = await page
+      .getByRole('button', { name: restore, exact: true })
+      .boundingBox();
+    const text = page.getByText(about, { exact: true });
+    const textBox = await text.boundingBox();
+    if (emptyBox === null || restoreBox === null || textBox === null)
+      throw new Error('a box is missing');
+
+    expect(Math.abs(emptyBox.width - restoreBox.width)).toBeLessThan(0.5);
+    expect(Math.abs(emptyBox.x - restoreBox.x)).toBeLessThan(0.5);
+    // The description wraps beside Empty instead: left of it, and not cut off.
+    expect(textBox.x + textBox.width).toBeLessThanOrEqual(emptyBox.x);
+    expect(await text.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
+      true
+    );
+  });
+}
