@@ -1,4 +1,11 @@
-import { RefObject, useEffect, useId, useRef, useState } from 'react';
+import {
+  RefObject,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +20,7 @@ import type { OpenNowHeaderAction } from './OpenNowPane';
 import { silenceRepeatedTitle } from '../../common/silenceRepeatedTitle';
 import { currentCarry, subscribeCarry } from '../../../redux/carry';
 import { DURATION } from '../../../styles/scale';
+import { isUnclaimedEscape } from '../../common/unclaimedEscape';
 
 interface OpenNowRailProps {
   windows: OpenWindow[] | null;
@@ -99,10 +107,46 @@ export default function OpenNowRail({
   }, []);
 
   // Back to the button that opened it, so the user's place is kept.
-  const close = () => {
+  const close = useCallback(() => {
     setIsOpen(false);
     buttonRef.current?.focus();
-  };
+  }, [buttonRef]);
+
+  // KAN-681. Not modal: Esc closes it wherever focus is, a click on blank space
+  // having moved focus to the body, unless something else used the key.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      // P8. During a carry, Esc is the carry's (CarryLayer), and the drawer stays.
+      if (!isUnclaimedEscape(e) || currentCarry() !== null) return;
+      e.preventDefault();
+      close();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, close]);
+
+  // KAN-682. A press outside closes it and still does what it presses. Capture,
+  // so a row's own press handling cannot hide it. The toast and a modal dialog
+  // sit over the drawer and are not outside it; the rail is under it.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target instanceof Element ? e.target : null;
+      if (target === null || currentCarry() !== null) return;
+      if (drawerRef.current?.contains(target)) return;
+      if (target.closest('[data-toast], dialog') !== null) return;
+      setIsOpen(false);
+      // After the press's own focus change: the rail, unless it focused something.
+      setTimeout(() => {
+        if (document.activeElement === document.body)
+          buttonRef.current?.focus();
+      });
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () =>
+      document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [isOpen, buttonRef]);
 
   // No count while the first read is in flight: "0 Tabs" would be false.
   const railLabel =
@@ -201,12 +245,6 @@ export default function OpenNowRail({
             if (el && el.inert !== away) el.inert = away;
           }}
           data-carry-away={away ? '' : undefined}
-          onKeyDown={(e) => {
-            // P8. During a carry, Esc is the carry's (CarryLayer), and the drawer stays.
-            if (e.key !== 'Escape' || currentCarry() !== null) return;
-            e.preventDefault();
-            close();
-          }}
         >
           <OpenNowPane
             windows={windows}
