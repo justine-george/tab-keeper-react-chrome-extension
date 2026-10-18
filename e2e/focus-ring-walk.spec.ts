@@ -304,7 +304,10 @@ for (const [theme, colors] of THEMES) {
 }
 
 // KAN-676. A rename field exists only while renaming, so no walk reaches it:
-// open each with Tab and Enter, then require the ring, read and painted.
+// open each with Tab and Enter, then require the ring at both of its sides.
+// KAN-677. The tick is laid over the field's right end and fills under the
+// pointer, and the session's was opaque, so read with the pointer away,
+// resting on the field (where a click rename leaves it), and on the tick.
 async function expectFieldRing(
   page: Page,
   opener: Locator,
@@ -319,25 +322,41 @@ async function expectFieldRing(
   const field = page.locator('input:focus');
   // PREMISE: Enter opened the field and focus is in it.
   await expect(field).toHaveCount(1);
-  expect(
-    await field.evaluate((el) => {
-      const s = getComputedStyle(el);
-      return `${s.outlineStyle} ${s.outlineWidth} ${s.outlineColor}`;
-    })
-  ).toBe(`solid 2px ${rgb(colors.TEXT_COLOR)}`);
   const box = await field.boundingBox();
-  if (box === null) throw new Error('no field box');
+  const tick = await page
+    .getByRole('button', { name: 'Save changes' })
+    .boundingBox();
+  if (box === null || tick === null) throw new Error('no field or tick box');
   const midY = box.y + box.height / 2;
-  const [ground, left, right] = await pixelsAt(page, [
-    [box.x + 5, midY],
-    [box.x + 3, midY],
-    [box.x + box.width - 3, midY],
-  ]);
-  // Control: the decode reads the field's own fill inside the ring.
-  expect(ground).toBe(colors.PRIMARY_COLOR.toUpperCase());
-  expect([left, right]).toEqual(
-    [colors.TEXT_COLOR, colors.TEXT_COLOR].map((c) => c.toUpperCase())
-  );
+  const fill = colors.PRIMARY_COLOR.toUpperCase();
+  const ring = colors.TEXT_COLOR.toUpperCase();
+  const states = [
+    ['away', () => page.mouse.move(2, 2)],
+    ['on the field', () => page.mouse.move(box.x + box.width / 3, midY)],
+    ['on the tick', () => page.mouse.move(tick.x + 16, tick.y + 16)],
+  ] as const;
+  for (const [where, move] of states) {
+    await move();
+    // The tick's fill and reveal ease in: read once they have landed.
+    await page.evaluate(() =>
+      Promise.all(document.getAnimations().map((a) => a.finished))
+    );
+    const [ground, left, right, tickFill] = await pixelsAt(page, [
+      [box.x + 5, midY],
+      [box.x + 3, midY],
+      [box.x + box.width - 3, midY],
+      [tick.x + 6, tick.y + 6],
+    ]);
+    // PREMISE: pointing at the tick fills it, over the field's right end.
+    if (where === 'on the tick') expect(tickFill).not.toBe(fill);
+    // Control: the decode reads the field's own fill inside the ring.
+    expect({ where, ground, left, right }).toEqual({
+      where,
+      ground: fill,
+      left: ring,
+      right: ring,
+    });
+  }
   await page.keyboard.press('Escape');
   await expect(field).toHaveCount(0);
 }
