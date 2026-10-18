@@ -323,9 +323,8 @@ async function expectFieldRing(
   // PREMISE: Enter opened the field and focus is in it.
   await expect(field).toHaveCount(1);
   const box = await field.boundingBox();
-  const tick = await page
-    .getByRole('button', { name: 'Save changes' })
-    .boundingBox();
+  const tickButton = page.getByRole('button', { name: 'Save changes' });
+  const tick = await tickButton.boundingBox();
   if (box === null || tick === null) throw new Error('no field or tick box');
   const midY = box.y + box.height / 2;
   const fill = colors.PRIMARY_COLOR.toUpperCase();
@@ -359,6 +358,15 @@ async function expectFieldRing(
     });
     if (where !== 'on the tick')
       expect({ where, tickFill }).toEqual({ where, tickFill: fill });
+    // The tick is the edit's save control: shown for the whole edit, wherever
+    // the pointer is. Playwright's toBeVisible passes at opacity 0.
+    const shown = await tickButton.evaluate((el) => {
+      let opacity = 1;
+      for (let e: Element | null = el; e; e = e.parentElement)
+        opacity *= Number(getComputedStyle(e).opacity);
+      return opacity;
+    });
+    expect({ where, shown }).toEqual({ where, shown: 1 });
   }
   await page.keyboard.press('Escape');
   await expect(field).toHaveCount(0);
