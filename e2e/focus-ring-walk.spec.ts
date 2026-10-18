@@ -1,4 +1,4 @@
-import type { JSHandle, Page } from '@playwright/test';
+import type { JSHandle, Locator, Page } from '@playwright/test';
 
 import { hasCloudConfig } from './fixtures/cloud';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
@@ -13,6 +13,7 @@ import {
   sessionRow,
 } from './fixtures/betweenSessions';
 import { openFullView, openPopup as openWelcome } from './fixtures/onboarding';
+import { pixelsAt, rgbToHex } from './fixtures/pixels';
 import { ON_TITLE } from './fixtures/savedRow';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import { stubToolbarPin } from './fixtures/toolbarPin';
@@ -217,5 +218,86 @@ for (const [theme, colors] of THEMES) {
     expectRingEverywhere(await walk(page, 12), colors.TEXT_COLOR, [
       'Read the privacy policy',
     ]);
+  });
+}
+
+// A sliding pair's pressed half sits under the knob, painted in TEXT_COLOR,
+// so its ring is drawn on the knob's copy of that half, in PRIMARY_COLOR.
+for (const [theme, colors] of THEMES) {
+  test(`a sliding pair's ring shows on either half (${theme})`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, { theme });
+    const page = await openPopup(context, extensionId);
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const pair = page.getByRole('group', { name: 'Time format' });
+    const halves = [
+      pair.getByRole('button', { name: '12-hour' }),
+      pair.getByRole('button', { name: '24-hour' }),
+    ];
+    const knobCopy = pair.locator('[data-sliding-knob] > span').first();
+    const outline = (loc: Locator) =>
+      loc.evaluate((el) => {
+        const s = getComputedStyle(el);
+        return s.outlineStyle === 'none'
+          ? 'none'
+          : `${s.outlineStyle} ${s.outlineWidth} ${s.outlineColor}`;
+      });
+    // PREMISE: 12-hour is the pressed half, under the knob.
+    await expect(halves[0]).toHaveAttribute('aria-pressed', 'true');
+
+    await halves[0].focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(halves[0]).toBeFocused();
+    expect(await outline(knobCopy)).toBe(
+      `solid 2px ${rgb(colors.PRIMARY_COLOR)}`
+    );
+
+    await page.keyboard.press('Tab');
+    await expect(halves[1]).toBeFocused();
+    expect(await outline(halves[1])).toBe(
+      `solid 2px ${rgb(colors.TEXT_COLOR)}`
+    );
+    expect(await outline(knobCopy)).toBe('none');
+  });
+}
+
+// The selected session draws its actions strip at rest (KAN-582), an opaque
+// mask over the row's right. The ring must paint over it, or it is open there.
+for (const [theme, colors] of THEMES) {
+  test(`the selected session's ring closes over its actions (${theme})`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, { theme });
+    const page = await openPopup(context, extensionId);
+    await page.mouse.move(2, 540);
+    const button = page.getByRole('button', { name: 'Source', exact: true });
+    await button.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(button).toBeFocused();
+    const row = await button.locator('..').boundingBox();
+    if (row === null) throw new Error('no row box');
+    const midY = row.y + row.height / 2;
+    // PREMISE: the strip is drawn, under where the ring's right edge goes.
+    const strip = await button
+      .locator('..')
+      .locator('[data-row-actions]')
+      .boundingBox();
+    if (strip === null) throw new Error('no actions strip');
+    expect(strip.x + strip.width).toBeGreaterThanOrEqual(row.x + row.width - 1);
+    const [inside, left, right] = await pixelsAt(page, [
+      [row.x + 6, row.y + 6],
+      [row.x + 3, midY],
+      [row.x + row.width - 3, midY],
+    ]);
+    // Control: the decode reads the selection fill where nothing else paints.
+    expect(inside).toBe(rgbToHex(rgb(colors.SELECTION_COLOR)));
+    expect([left, right]).toEqual(
+      [colors.TEXT_COLOR, colors.TEXT_COLOR].map((c) => c.toUpperCase())
+    );
   });
 }

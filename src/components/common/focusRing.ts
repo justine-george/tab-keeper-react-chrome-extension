@@ -13,6 +13,18 @@ export const focusRingCss = (
   }
 `;
 
+// KAN-671. The same ring on a ground of TEXT_COLOR, in PRIMARY_COLOR: a
+// sliding pair's pressed half, under its knob.
+export const focusRingOnTextGroundCss = (
+  COLORS: ThemeColors,
+  on: string
+): string => `
+  ${on} {
+    outline: 2px solid ${COLORS.PRIMARY_COLOR};
+    outline-offset: -4px;
+  }
+`;
+
 // KAN-671. The same ring 2px outside, for a control with no box to draw it
 // in: a link in running text, a theme tile.
 export const focusRingOutsideCss = (COLORS: ThemeColors): string => `
