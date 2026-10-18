@@ -112,7 +112,7 @@ describe('a settings write from another page this page never heard (KAN-661)', (
   test('a language taken in reaches i18next', () => {
     const change = vi
       .spyOn(i18next, 'changeLanguage')
-      .mockResolvedValue((key: string) => key);
+      .mockResolvedValue(i18next.t);
     const store = loadedPage();
     otherPageWritesUnheard({ language: Language.DE });
 
