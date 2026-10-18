@@ -15,8 +15,9 @@ import { restoreDeletedSession } from '../../../redux/slices/tabContainerDataSta
 import { TYPE } from '../../../styles/scale';
 import { daysLeft, sessionWhen } from '../../../utils/functions/sessionDate';
 
-// One width for Restore and Empty, so the column of buttons lines up.
-const SAME_WIDTH = 'width: 8rem; justify-content: center;';
+// One width for Restore and Empty, kept when text beside them is long, so the
+// column of buttons lines up.
+const SAME_WIDTH = 'width: 8rem; flex-shrink: 0; justify-content: center;';
 
 /**
  * Settings → Recently deleted (KAN-595). Sessions deleted on this device in the
