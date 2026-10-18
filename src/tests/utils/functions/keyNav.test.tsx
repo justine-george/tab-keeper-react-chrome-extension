@@ -211,6 +211,20 @@ describe('caret keys in a text field (KAN-685)', () => {
     expect(navigating()).toBe(false);
   });
 
+  // An arrow still held when a click focuses something: the click wins.
+  test('a press during a held caret key, and the focus it moves, do not start it', () => {
+    undo = trackKeyNav(window);
+    const field = mount(input('text'));
+    const other = document.createElement('button');
+    document.body.append(other);
+    keyOn(field, 'ArrowLeft');
+
+    press();
+    other.focus();
+
+    expect(navigating()).toBe(false);
+  });
+
   test('a caret key in a field does not end it', () => {
     undo = trackKeyNav(window);
     const field = mount(input('text'));
