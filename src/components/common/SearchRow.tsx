@@ -35,6 +35,10 @@ interface SearchRowProps {
   // Without a handler the key keeps its default.
   onArrowDown?: () => void;
   onEnter?: () => void;
+  // Esc in the empty field: 'leave-field' takes it and lets go of focus, as
+  // nothing else does and Chrome closes the popup on it (KAN-684); 'pass-on'
+  // leaves it to the pane, where it closes the Open now drawer (O2).
+  emptyEscape: 'leave-field' | 'pass-on';
 }
 
 // A search field laid out as a list's first row, over the list's own columns.
@@ -49,6 +53,7 @@ export default function SearchRow({
   rowAttribute,
   onArrowDown,
   onEnter,
+  emptyEscape,
 }: SearchRowProps) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -72,10 +77,12 @@ export default function SearchRow({
       onEnter();
     } else if (event.key === 'Escape' && text !== '') {
       // With text, Esc is the field's: it clears and the drawer stays open.
-      // Empty, it passes on, and the drawer closes as it always has (O2).
       event.preventDefault();
       event.stopPropagation();
       onTextChange('');
+    } else if (event.key === 'Escape' && emptyEscape === 'leave-field') {
+      event.preventDefault();
+      event.currentTarget.blur();
     }
   };
 

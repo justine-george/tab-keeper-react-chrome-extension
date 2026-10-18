@@ -39,6 +39,13 @@ const TextBox: React.FC<TextBoxProps> = ({
   function handleKeyPress(e: React.KeyboardEvent<HTMLInputElement>) {
     if (onKeyEnter && e.key === 'Enter') {
       onKeyEnter();
+      // As a click on the save button leaves the field (KAN-679).
+      e.currentTarget.blur();
+    } else if (e.key === 'Escape' && !e.nativeEvent.isComposing) {
+      // Chrome closes the popup on an Esc left alone (KAN-678). The name stays;
+      // an IME's Esc cancels its word and stays the IME's.
+      e.preventDefault();
+      e.currentTarget.blur();
     }
   }
 

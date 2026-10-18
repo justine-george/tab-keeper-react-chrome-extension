@@ -28,6 +28,7 @@ export default function OpenNowSearchRow(props: OpenNowSearchRowProps) {
       glassBox="column"
       textInset="8px"
       rowAttribute="data-open-now-search"
+      emptyEscape="pass-on"
     />
   );
 }

@@ -20,6 +20,7 @@ function Held(props: Props) {
       glassBox="column"
       textInset="8px"
       rowAttribute="data-saved-search"
+      emptyEscape="leave-field"
       {...props}
     />
   );

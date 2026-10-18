@@ -179,10 +179,36 @@ describe('clearing the row (S5)', () => {
     expect(listedIds()).toEqual(['r', 'h']);
   });
 
-  test('Esc in an empty field is left alone', async () => {
+  // KAN-684. Empty, nothing else takes Esc here, and Chrome closes the popup
+  // on any Esc the page leaves alone: the field takes it and lets go of focus.
+  test('Esc in an empty field is consumed, and leaves the field', async () => {
     await renderList();
+    act(() => field().focus());
 
-    expect(fireEvent.keyDown(field(), { key: 'Escape' })).toBe(true);
+    let notPrevented = true;
+    act(() => {
+      notPrevented = fireEvent.keyDown(field(), { key: 'Escape' });
+    });
+
+    expect(notPrevented).toBe(false);
+    expect(field()).not.toHaveFocus();
+  });
+
+  // An IME's Esc cancels the word being composed: it stays the IME's.
+  test('Esc while composing stays in the field', async () => {
+    await renderList();
+    act(() => field().focus());
+
+    let notPrevented = true;
+    act(() => {
+      notPrevented = fireEvent.keyDown(field(), {
+        key: 'Escape',
+        isComposing: true,
+      });
+    });
+
+    expect(notPrevented).toBe(true);
+    expect(field()).toHaveFocus();
   });
 });
 

@@ -64,4 +64,18 @@ describe('the Open now search row (KAN-330 O14, O14d C1)', () => {
     expect(onEnter).toHaveBeenCalledTimes(1);
     expect(down).toBe(false); // preventDefault was called
   });
+
+  // KAN-684. Empty, Esc is not the field's: in the drawer it closes the
+  // drawer (KAN-280 O2), so it keeps its default and reaches the pane.
+  test('Esc in the empty field passes on, and the field keeps focus', async () => {
+    const onOuterKey = vi.fn();
+    await renderWithProviders(<Held onOuterKey={onOuterKey} />);
+    field().focus();
+
+    const notPrevented = fireEvent.keyDown(field(), { key: 'Escape' });
+
+    expect(notPrevented).toBe(true);
+    expect(onOuterKey).toHaveBeenCalledWith('Escape');
+    expect(document.activeElement).toBe(field());
+  });
 });
