@@ -695,6 +695,55 @@ test.describe('the popup page and the tab view together (KAN-279 D8, D9, D12)', 
     expect(cloudRequests, 'a page reached the cloud').toEqual([]);
   });
 
+  // KAN-661. The same for settings: each save writes the whole object, so an
+  // unheard change was put back by the other page's next settings save.
+  test("a settings change in the tab view keeps the popup's change it never heard", async ({
+    context,
+    extensionId,
+  }) => {
+    await context.addInitScript(() => {
+      if (!location.search.includes('view=tab')) return;
+      window.addEventListener('storage', (e) => {
+        if (e.key !== 'settingsData') return;
+        e.stopImmediatePropagation();
+        document.documentElement.dataset.swallowed = e.newValue ?? '';
+      });
+    });
+    const { popup, tab, cloudRequests } = await openBoth(context, extensionId);
+    const stored = (page: Page) =>
+      page.evaluate(() =>
+        JSON.parse(localStorage.getItem('settingsData') ?? 'null')
+      );
+
+    await popup.getByRole('button', { name: 'Settings', exact: true }).click();
+    await popup.locator('button[aria-label="Language"]').click();
+    await popup.getByRole('button', { name: 'Deutsch', exact: true }).click();
+    await expect(popup.locator('html')).toHaveAttribute('lang', 'de');
+    // PREMISE: the tab view's storage holds it, and its event was swallowed.
+    await expect
+      .poll(() =>
+        tab.evaluate(() => ({
+          stored: localStorage.getItem('settingsData')?.includes('"de"'),
+          swallowed:
+            document.documentElement.dataset.swallowed?.includes('"de"'),
+        }))
+      )
+      .toEqual({ stored: true, swallowed: true });
+    await expect(tab.locator('html')).toHaveAttribute('lang', 'en');
+
+    await tab.getByRole('button', { name: 'Settings', exact: true }).click();
+    await tab.getByRole('button', { name: 'Graphite', exact: true }).click();
+
+    expect(await stored(tab)).toMatchObject({
+      language: 'de',
+      theme: 'Darkenheimer',
+    });
+    // The tab view takes in the language it never heard; the popup keeps it.
+    await expect(tab.locator('html')).toHaveAttribute('lang', 'de');
+    await expect(popup.locator('html')).toHaveAttribute('lang', 'de');
+    expect(cloudRequests, 'a page reached the cloud').toEqual([]);
+  });
+
   test('a save in the popup while a row is held in the tab view lands after the drop, and the row sits by its aimed neighbour', async ({
     context,
     extensionId,
