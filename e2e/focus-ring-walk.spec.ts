@@ -349,13 +349,16 @@ async function expectFieldRing(
     ]);
     // PREMISE: pointing at the tick fills it, over the field's right end.
     if (where === 'on the tick') expect(tickFill).not.toBe(fill);
-    // Control: the decode reads the field's own fill inside the ring.
+    // Control: the decode reads the field's own fill inside the ring. Away
+    // from the tick, the tick has no box of its own (KAN-677 pick Y).
     expect({ where, ground, left, right }).toEqual({
       where,
       ground: fill,
       left: ring,
       right: ring,
     });
+    if (where !== 'on the tick')
+      expect({ where, tickFill }).toEqual({ where, tickFill: fill });
   }
   await page.keyboard.press('Escape');
   await expect(field).toHaveCount(0);
