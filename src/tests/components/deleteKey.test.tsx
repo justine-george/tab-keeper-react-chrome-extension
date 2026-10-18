@@ -13,7 +13,10 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { toastTexts } from '../setup/toasts';
 import { recordFirstRun } from '../../redux/slices/settingsDataStateSlice';
-import { runShownHere } from '../../redux/slices/globalStateSlice';
+import {
+  runShownHere,
+  setSearchInputText,
+} from '../../redux/slices/globalStateSlice';
 import {
   replaceState,
   selectTabContainer,
@@ -238,6 +241,20 @@ describe('the Delete key with nothing focused (KAN-688)', () => {
     } finally {
       field.remove();
     }
+
+    expect(ids(store)).toEqual(['shown', 'kyoto']);
+  });
+
+  // A search that matches nothing leaves no session on screen to delete.
+  test('under a search with no match, Delete deletes nothing', async () => {
+    const { store } = await renderList();
+    act(() => {
+      store.dispatch(setSearchInputText('zzz no such session'));
+    });
+    // PREMISE: no row is drawn.
+    expect(screen.queryByRole('button', { name: 'Roadmap' })).toBeNull();
+
+    press({ key: 'Delete' });
 
     expect(ids(store)).toEqual(['shown', 'kyoto']);
   });
