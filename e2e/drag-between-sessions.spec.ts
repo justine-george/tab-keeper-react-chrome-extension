@@ -1660,13 +1660,13 @@ test.describe('the target visuals (V1-V4)', () => {
     // CONTROL: unlit, it is dashed and unfilled.
     const unlit = await newWindowBox(page, 'first');
     expect(unlit?.border).toBe('dashed');
-    expect(rgbToHex(unlit?.fill ?? '')).not.toBe(LIGHT_THEME.HOVER_COLOR);
+    expect(rgbToHex(unlit?.fill ?? '')).not.toBe(LIGHT_THEME.ACTIVE_COLOR);
 
     await adoptPhantom(page, 'carried:a1');
     await ontoHeaderTarget(page, aim);
     const lit = await newWindowBox(page, 'first');
     expect(lit?.landing).toBe(true);
-    expect(rgbToHex(lit?.fill ?? '')).toBe(LIGHT_THEME.HOVER_COLOR);
+    expect(rgbToHex(lit?.fill ?? '')).toBe(LIGHT_THEME.ACTIVE_COLOR);
     expect(lit?.border).toBe('solid');
     expect(lit?.named).toBe(true);
     // The drag is live, and no landing slot is drawn: the lit box is what
@@ -3781,7 +3781,7 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     expect(blank?.borderWidth).toBeGreaterThan(0);
     expect(blank?.borderColour).toBe('rgba(0, 0, 0, 0)');
     expect(blank?.named).toBe(false);
-    expect(rgbToHex(blank?.fill ?? '')).not.toBe(LIGHT_THEME.HOVER_COLOR);
+    expect(rgbToHex(blank?.fill ?? '')).not.toBe(LIGHT_THEME.ACTIVE_COLOR);
     // Lit, as a landing in it would light it: the header target's look.
     const header = await newWindowBox(page, 'first');
     await page.evaluate(() =>
@@ -3790,7 +3790,7 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
         ?.setAttribute('data-landing', '')
     );
     const lit = await newWindowBox(page, 'last');
-    expect(rgbToHex(lit?.fill ?? '')).toBe(LIGHT_THEME.HOVER_COLOR);
+    expect(rgbToHex(lit?.fill ?? '')).toBe(LIGHT_THEME.ACTIVE_COLOR);
     expect(lit?.border).toBe('solid');
     expect(lit?.borderColour).toBe(header?.borderColour);
     expect(lit?.named).toBe(true);
@@ -4081,7 +4081,7 @@ function expectLitBox(
   expect(m).not.toBeNull();
   if (m === null) return;
   expect(m.look?.landing).toBe(true);
-  expect(rgbToHex(m.look?.fill ?? '')).toBe(LIGHT_THEME.HOVER_COLOR);
+  expect(rgbToHex(m.look?.fill ?? '')).toBe(LIGHT_THEME.ACTIVE_COLOR);
   expect(m.look?.border).toBe('solid');
   expect(m.look?.borderColour).toBe(m.headerBorderColour);
   expect(m.look?.named).toBe(true);

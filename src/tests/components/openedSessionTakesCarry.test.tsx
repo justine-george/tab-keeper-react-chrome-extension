@@ -1201,7 +1201,7 @@ describe('the trailing block (KAN-361/366)', () => {
 
   // Lit here as markNewWindowTarget lights it for a landing in it (KAN-366
   // B), in a session given no room: lit, it draws its borders anyway.
-  test('lit: the header target’s look -- the hover fill, a solid border, its name', async () => {
+  test('lit: the header target’s look -- the press fill, a solid border, its name', async () => {
     await renderDetail('S2');
     carry(TAB_T1);
 
@@ -1218,7 +1218,7 @@ describe('the trailing block (KAN-361/366)', () => {
     expect(style.borderTopWidth).toBe('1.5px');
     expect(style.borderTopStyle).toBe('solid');
     expect(style.borderTopColor).not.toMatch(NO_COLOUR);
-    expect(style.backgroundColor).toMatch(asWritten(LIGHT_THEME.HOVER_COLOR));
+    expect(style.backgroundColor).toMatch(asWritten(LIGHT_THEME.ACTIVE_COLOR));
     const name = el.querySelector('[data-drop-label-unlit-hidden]');
     if (name === null) throw new Error('no name');
     expect(seen(name)).toBe(true);

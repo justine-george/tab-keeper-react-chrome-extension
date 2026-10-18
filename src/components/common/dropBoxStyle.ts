@@ -5,8 +5,10 @@ import { css, type SerializedStyles } from '@emotion/react';
 import type { ThemeColors } from '../../hooks/useThemeColors';
 import { RADIUS } from '../../styles/scale';
 
-// Dashed, then the hover fill and a solid border once [data-landing] is on.
-// Where the box sits and how tall it is are the caller's.
+// Dashed, then the press fill and a solid border once [data-landing] is on:
+// the fill a session row under a drag takes (KAN-669), which stands off the
+// pane in every theme where hover did not. Where the box sits and how tall it
+// is are the caller's.
 export function dropBoxStyle(COLORS: ThemeColors): SerializedStyles {
   return css`
     border-width: 1.5px;
@@ -14,7 +16,7 @@ export function dropBoxStyle(COLORS: ThemeColors): SerializedStyles {
     border-color: ${COLORS.LABEL_L2_COLOR};
     border-radius: ${RADIUS.SQUARE};
     &[data-landing] {
-      background-color: ${COLORS.HOVER_COLOR};
+      background-color: ${COLORS.ACTIVE_COLOR};
       border-style: solid;
     }
   `;
