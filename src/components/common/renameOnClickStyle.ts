@@ -3,6 +3,7 @@
 // 65% over the ground, and a soft edge that the field then draws dark).
 import type { ThemeColors } from '../../hooks/useThemeColors';
 import { DURATION } from '../../styles/scale';
+import { whileKeyNav } from './focusRing';
 
 // A string, as ClickableRow's `style` takes. `ground` is what the title sits
 // on while hovered. The ghost is the button's own box, which is where the field
@@ -27,7 +28,7 @@ export function renameOnClickStyle(
         border-color ${DURATION.COLOR} ease-out;
     }
     &:hover::before,
-    &:focus-visible::before {
+    ${whileKeyNav('&:focus-visible::before')} {
       background-color: color-mix(in srgb, ${COLORS.PRIMARY_COLOR} 65%, ${ground});
       border-color: ${COLORS.ICON_HOVER_COLOR};
     }

@@ -139,7 +139,10 @@ test.describe('a click-to-rename title shows a ghost of its field (KAN-631)', ()
     });
     await expect(button).toBeVisible();
     await page.mouse.move(0, 0);
+    // By Tab: a scripted focus is not keyboard navigation (KAN-689).
     await button.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
     await expect(button).toBeFocused();
     expect(await button.evaluate((el) => el.matches(':focus-visible'))).toBe(
       true

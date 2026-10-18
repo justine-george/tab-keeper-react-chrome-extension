@@ -14,6 +14,11 @@ import ExportPage, {
 } from './components/export/ExportPage.tsx';
 import { store } from './redux/store.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
+import { trackKeyNav } from './utils/functions/keyNav.ts';
+import './styles/keyNav.css';
+
+// Before the first key or press: rings follow it (KAN-689).
+trackKeyNav(window);
 
 // The export preview, as its own page (KAN-190).
 //

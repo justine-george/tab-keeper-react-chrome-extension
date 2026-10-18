@@ -522,11 +522,12 @@ describe('the grip lights on hover and during its drag (O1a G A)', () => {
   });
 
   // O1a: "on hover, keyboard focus and during the drag, TEXT_COLOR on a
-  // HOVER_COLOR chip, plus the app's focus ring on keyboard focus".
+  // HOVER_COLOR chip, plus the app's focus ring on keyboard focus". Only
+  // while navigating by keyboard (KAN-689).
   test("keyboard-focused, it has the hover colours and the app's focus ring", async () => {
     await renderHome();
     await mounted();
-    const cls = gripClass(grip());
+    const cls = `html[data-key-nav] ${gripClass(grip())}`;
 
     expect(declarationsFor(grip(), `${cls}:focus-visible>span`)).toContain(
       `background-color: ${rgb(LIGHT_THEME.HOVER_COLOR)}`

@@ -24,7 +24,7 @@ import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, TYPE } from '../../../styles/scale';
 import { springSweepStyle } from '../../common/springOpen';
-import { focusRingAboveCss } from '../../common/focusRing';
+import { focusRingAboveCss, whileKeyNav } from '../../common/focusRing';
 import { SAVED_TEXT_INSET } from './savedListInset';
 import { useRowActionGuard } from './useRowActionGuard';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
@@ -162,7 +162,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     align-items: flex-start;
     width: 100%;
     min-width: 0;
-    &:focus-visible {
+    ${whileKeyNav('&:focus-visible')} {
       outline: none;
     }
   `;
@@ -374,7 +374,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     &:hover {
       ${engagedStyle}
     }
-    &:has(:focus-visible) {
+    ${whileKeyNav('&:has(:focus-visible)')} {
       ${engagedStyle}
     }
     /* The run points at this row: one more condition for the same engaged look. */

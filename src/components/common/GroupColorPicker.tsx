@@ -13,6 +13,7 @@ import {
   type TabGroupColor,
 } from '../../utils/functions/tabGroups';
 import { silenceRepeatedTitle } from './silenceRepeatedTitle';
+import { whileKeyNav } from './focusRing';
 
 /**
  * Chrome's own picker order, taken from the browser rather than from our
@@ -200,14 +201,13 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
                triggers, applied to this one: the control that owns an open
                menu holds its active state until the menu closes. */
             &:hover,
-            &:focus-visible,
-            &[aria-expanded='true'] {
+            ${whileKeyNav('&:focus-visible')}, &[aria-expanded='true'] {
               flex-basis: 11px;
               width: 11px;
               margin-right: 5px;
             }
             /* KAN-405 round 2 B: too narrow for the ring inside, so 2px outside. */
-            &:focus-visible {
+            ${whileKeyNav('&:focus-visible')} {
               outline: 2px solid ${COLORS.TEXT_COLOR};
               outline-offset: 2px;
             }

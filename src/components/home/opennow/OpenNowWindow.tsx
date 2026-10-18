@@ -4,7 +4,7 @@ import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
 import ClickableRow from '../../common/ClickableRow';
-import { focusRingOverTickCss } from '../../common/focusRing';
+import { focusRingOverTickCss, whileKeyNav } from '../../common/focusRing';
 import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import GroupColorPicker from '../../common/GroupColorPicker';
 import Icon from '../../common/Icon';
@@ -257,7 +257,7 @@ export default function OpenNowWindow({
       opacity: ${isParentHovered ? 1 : 0};
       transition: opacity ${DURATION.COLOR} ease-out;
     }
-    &:has(:focus-visible) {
+    ${whileKeyNav('&:has(:focus-visible)')} {
       background-color: ${COLORS.HOVER_COLOR};
       & > * {
         opacity: 1;
@@ -277,7 +277,7 @@ export default function OpenNowWindow({
       opacity: ${hoveredTabId === tabId ? 1 : 0};
       transition: opacity ${DURATION.COLOR} ease-out;
     }
-    &:has(:focus-visible) {
+    ${whileKeyNav('&:has(:focus-visible)')} {
       background-color: ${COLORS.HOVER_COLOR};
       & > * {
         opacity: 1;
@@ -743,7 +743,7 @@ export default function OpenNowWindow({
                           &:hover {
                             background-color: ${COLORS.HOVER_COLOR};
                           }
-                          &:has(:focus-visible) {
+                          ${whileKeyNav('&:has(:focus-visible)')} {
                             background-color: ${COLORS.HOVER_COLOR};
                           }
                         `}
