@@ -185,7 +185,7 @@ test('the last week counts down, and past 30 days a session is gone', async ({
 
 // KAN-683. Empty shared its row with the description, and flex shrank it below
 // the 8rem the Restore buttons under it keep: its left edge sat right of theirs.
-// In German the description is longest; it must still sit beside Empty, whole.
+// Italian's description is the longest; it must still sit beside Empty, whole.
 for (const [language, settings, recent, empty, restore, about] of [
   [
     'en',
@@ -202,6 +202,14 @@ for (const [language, settings, recent, empty, restore, about] of [
     'Leeren',
     'Charlie wiederherstellen',
     'Auf diesem Gerät gelöschte Sitzungen werden 30 Tage aufbewahrt und dann endgültig gelöscht.',
+  ],
+  [
+    'it',
+    'Impostazioni',
+    'Eliminati di recente',
+    'Svuota',
+    'Ripristina Charlie',
+    'Le sessioni eliminate su questo dispositivo vengono conservate per 30 giorni, poi eliminate definitivamente.',
   ],
 ] as const) {
   test(`${language}: Empty is as wide as Restore and lines up with it`, async ({
