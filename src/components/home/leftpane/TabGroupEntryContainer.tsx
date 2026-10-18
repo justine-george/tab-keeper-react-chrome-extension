@@ -462,6 +462,7 @@ export default function TabGroupEntryContainer() {
         glassBox="tight"
         textInset={SAVED_SEARCH_TEXT_PADDING}
         rowAttribute="data-saved-search"
+        emptyEscape="leave-field"
       />
       <div css={scrollerStyle} ref={listRef}>
         {filteredTabGroups.length === 0 ? (
