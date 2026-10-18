@@ -59,9 +59,9 @@ async function leftEdge(page: Page, box: Locator): Promise<string> {
   return edge;
 }
 
-// The pixels around `box` that focus changes: a shot focused, then one after
-// blur, as a count of differing pixels. Any indicator counts, Chrome's own ring and a reveal included. Ends
-// with focus gone.
+// How many pixels around `box` focus changes: a shot focused, then one after
+// blur. Any indicator counts, Chrome's own ring and a reveal included; a
+// glyph's anti-aliasing moving 1 does not. Ends with focus gone.
 async function focusPaint(page: Page, box: Locator) {
   await settle(page);
   const b = await box.boundingBox();
@@ -75,8 +75,8 @@ async function focusPaint(page: Page, box: Locator) {
   const focused = await page.screenshot({ clip });
   await page.evaluate(() => (document.activeElement as HTMLElement).blur());
   await settle(page);
-  return (await differingPixels(page, focused, await page.screenshot({ clip })))
-    .length;
+  const blurred = await page.screenshot({ clip });
+  return (await differingPixels(page, focused, blurred, 2)).length;
 }
 
 // Tab onto `control` the way a keyboard user arrives: from its neighbour.

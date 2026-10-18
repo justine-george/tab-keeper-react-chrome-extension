@@ -109,14 +109,18 @@ export async function placeholderPaint(field: Locator): Promise<{
   };
 }
 
-/** The pixels where two same-size PNGs differ, as [x, y] from their top-left. */
+/**
+ * The pixels where two same-size PNGs differ, as [x, y] from their top-left:
+ * by more than `tolerance` in some channel (glyph anti-aliasing can move 1).
+ */
 export function differingPixels(
   page: Page,
   a: Buffer,
-  b: Buffer
+  b: Buffer,
+  tolerance = 0
 ): Promise<Array<[number, number]>> {
   return page.evaluate(
-    async ({ a, b }) => {
+    async ({ a, b, tolerance }) => {
       const read = async (png: string) => {
         const img = new Image();
         img.src = `data:image/png;base64,${png}`;
@@ -135,7 +139,7 @@ export function differingPixels(
       const found: Array<[number, number]> = [];
       for (let i = 0; i < first.data.length; i += 4) {
         const differs = [0, 1, 2].some(
-          (c) => first.data[i + c] !== second.data[i + c]
+          (c) => Math.abs(first.data[i + c] - second.data[i + c]) > tolerance
         );
         if (differs) {
           const px = i / 4;
@@ -144,6 +148,6 @@ export function differingPixels(
       }
       return found;
     },
-    { a: a.toString('base64'), b: b.toString('base64') }
+    { a: a.toString('base64'), b: b.toString('base64'), tolerance }
   );
 }
