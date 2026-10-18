@@ -13,7 +13,10 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { toastTexts } from '../setup/toasts';
 import { recordFirstRun } from '../../redux/slices/settingsDataStateSlice';
-import { runShownHere } from '../../redux/slices/globalStateSlice';
+import {
+  runShownHere,
+  setSearchInputText,
+} from '../../redux/slices/globalStateSlice';
 import {
   replaceState,
   selectTabContainer,
@@ -136,6 +139,140 @@ describe('the Delete key on a focused session row (KAN-592)', () => {
     });
 
     expect(row('Kyoto')).toHaveAttribute('aria-keyshortcuts', keys);
+  });
+});
+
+// KAN-688 (pick A). With nothing focused, Delete (fn⌫ on a Mac, Del on a PC) deletes the
+// session shown; ⌫ does not, as it is the key a typo reaches for. Each press deletes the one
+// shown then, and focus stays where it was, so a later ⌫ still deletes nothing.
+describe('the Delete key with nothing focused (KAN-688)', () => {
+  const press = (init: KeyboardEventInit) => {
+    const event = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      ...init,
+    });
+    act(() => {
+      document.body.dispatchEvent(event);
+    });
+    return event;
+  };
+
+  test('Delete deletes the session shown and says so', async () => {
+    const { store } = await renderList();
+    // PREMISE: nothing has focus.
+    expect(document.activeElement).toBe(document.body);
+
+    const event = press({ key: 'Delete' });
+
+    await waitFor(() => expect(ids(store)).toEqual(['kyoto']));
+    expect(event.defaultPrevented).toBe(true);
+    expect(toastTexts(store.getState())).toEqual([
+      TOAST_MESSAGES.DELETE_TAB_CONTAINER_SUCCESS,
+    ]);
+  });
+
+  test('a second press deletes the session shown next, and focus stays put', async () => {
+    const { store } = await renderList();
+
+    press({ key: 'Delete' });
+    await waitFor(() => expect(ids(store)).toEqual(['kyoto']));
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'kyoto'
+    );
+    expect(document.activeElement).toBe(document.body);
+
+    press({ key: 'Delete' });
+    await waitFor(() => expect(ids(store)).toEqual([]));
+  });
+
+  test.each([
+    ['⌫', { key: 'Backspace' }],
+    ['⌘⌫', { key: 'Backspace', metaKey: true }],
+    ['⌘ Delete', { key: 'Delete', metaKey: true }],
+    ['Ctrl Delete', { key: 'Delete', ctrlKey: true }],
+    ['Alt Delete', { key: 'Delete', altKey: true }],
+    ['Shift Delete', { key: 'Delete', shiftKey: true }],
+    ['a held key’s repeat', { key: 'Delete', repeat: true }],
+  ])('%s deletes nothing', async (_, init) => {
+    const { store } = await renderList();
+
+    const event = press(init);
+
+    expect(ids(store)).toEqual(['shown', 'kyoto']);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  test('a Delete another handler took deletes nothing', async () => {
+    const { store } = await renderList();
+    const take = (e: Event) => e.preventDefault();
+    document.body.addEventListener('keydown', take);
+    try {
+      press({ key: 'Delete' });
+    } finally {
+      document.body.removeEventListener('keydown', take);
+    }
+
+    expect(ids(store)).toEqual(['shown', 'kyoto']);
+  });
+
+  test.each(['data-dragging', 'data-carrying'])(
+    'during a drag or carry (%s) Delete deletes nothing',
+    async (attribute) => {
+      const { store } = await renderList();
+      document.documentElement.setAttribute(attribute, '');
+      try {
+        press({ key: 'Delete' });
+      } finally {
+        document.documentElement.removeAttribute(attribute);
+      }
+
+      expect(ids(store)).toEqual(['shown', 'kyoto']);
+    }
+  );
+
+  test('with focus on something that is not a row, Delete deletes nothing', async () => {
+    const { store } = await renderList();
+    const field = document.createElement('input');
+    document.body.append(field);
+    try {
+      act(() => field.focus());
+      fireEvent.keyDown(field, { key: 'Delete' });
+    } finally {
+      field.remove();
+    }
+
+    expect(ids(store)).toEqual(['shown', 'kyoto']);
+  });
+
+  // A search that matches nothing leaves no session on screen to delete.
+  test('under a search with no match, Delete deletes nothing', async () => {
+    const { store } = await renderList();
+    act(() => {
+      store.dispatch(setSearchInputText('zzz no such session'));
+    });
+    // PREMISE: no row is drawn.
+    expect(screen.queryByRole('button', { name: 'Roadmap' })).toBeNull();
+
+    press({ key: 'Delete' });
+
+    expect(ids(store)).toEqual(['shown', 'kyoto']);
+  });
+
+  test('while the tour holds Delete on the session shown, Delete deletes nothing', async () => {
+    const { store } = await renderList('mac', 6);
+
+    press({ key: 'Delete' });
+
+    expect(ids(store)).toEqual(['shown', 'kyoto']);
+  });
+
+  test('CONTROL: at another tour step Delete deletes the session shown', async () => {
+    const { store } = await renderList('mac', 4);
+
+    press({ key: 'Delete' });
+
+    await waitFor(() => expect(ids(store)).toEqual(['kyoto']));
   });
 });
 

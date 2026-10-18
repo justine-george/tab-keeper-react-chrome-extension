@@ -7,7 +7,8 @@ import { POPUP, stored } from './fixtures/savedWindows';
 // KAN-592 on the real artifact (pick K1): ⌫, fn⌫ (Delete) and ⌘⌫ delete the session whose row
 // has focus, with the Undo toast. After the delete, focus moves to the row now in its place, or
 // the new last (KAN-657, pick F1), so the key deletes back to back. The header ⋮ names the key
-// beside Delete session; with it open, the key runs that item (KAN-638).
+// beside Delete session; with it open, the key runs that item (KAN-638). With nothing focused,
+// Delete alone deletes the session shown (KAN-688).
 
 const SESSIONS = ['Alpha', 'Bravo', 'Charlie', 'Delta'].map((t) =>
   buildSession({ tabGroupId: `s-${t.toLowerCase()}`, title: t })
@@ -227,18 +228,85 @@ test('under a search with a long list, the row the key acts on next stays on scr
   ).toBeVisible();
 });
 
-test('with no row focused, the key deletes nothing: never page-wide', async ({
+const nothingFocused = (page: Page) =>
+  page.evaluate(() => document.activeElement === document.body);
+const shown = (page: Page, title: string): Locator =>
+  page.getByRole('button', { name: `Rename session: ${title}`, exact: true });
+
+// KAN-688 (pick A). With nothing focused, Delete (fn⌫ on a Mac, Del on a PC) deletes the
+// session shown; ⌫ does not, as it is the key a typo reaches for. Focus stays where it was, so
+// each press deletes the one shown then.
+test('with nothing focused, Delete deletes the session shown, with Undo; the next press the next one', async ({
   context,
   extensionId,
 }) => {
   const page = await openPopup(context, extensionId);
-  // PREMISE: the shown session's row is drawn selected, but has no focus.
-  await expect(
-    page.getByRole('button', { name: 'Rename session: Alpha', exact: true })
-  ).toBeVisible();
-  await expect(row(page, 'Alpha')).not.toBeFocused();
+  // PREMISE: Alpha is shown and nothing has focus, as the popup opens.
+  await expect(shown(page, 'Alpha')).toBeVisible();
+  expect(await nothingFocused(page)).toBe(true);
 
-  await page.keyboard.press('Backspace');
+  await page.keyboard.press('Delete');
+
+  await expect
+    .poll(() => ids(page))
+    .toEqual(['s-bravo', 's-charlie', 's-delta']);
+  await expect(toasts(page)).toContainText('Session deleted.');
+  await expect(shown(page, 'Bravo')).toBeVisible();
+  expect(await nothingFocused(page)).toBe(true);
+
+  await page.keyboard.press('Delete');
+  await expect.poll(() => ids(page)).toEqual(['s-charlie', 's-delta']);
+
+  await page
+    .getByRole('status')
+    .getByRole('button', { name: 'Undo', exact: true })
+    .first()
+    .click();
+  await expect.poll(() => ids(page)).toContain('s-bravo');
+});
+
+for (const key of ['Backspace', 'Meta+Backspace']) {
+  test(`with nothing focused, ${key} deletes nothing`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    expect(await nothingFocused(page)).toBe(true);
+
+    await page.keyboard.press(key);
+
+    await expect(toasts(page)).toHaveCount(0);
+    expect(await ids(page)).toEqual(ALL);
+  });
+}
+
+test('with nothing focused, a held Delete deletes one session', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openPopup(context, extensionId);
+  expect(await nothingFocused(page)).toBe(true);
+
+  await page.keyboard.down('Delete');
+  await page.keyboard.down('Delete');
+  await page.keyboard.down('Delete');
+  await page.keyboard.up('Delete');
+
+  await expect(toasts(page)).toHaveCount(1);
+  expect(await ids(page)).toEqual(['s-bravo', 's-charlie', 's-delta']);
+});
+
+test('in Settings, Delete deletes nothing', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openPopup(context, extensionId);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Go back', exact: true })
+  ).toBeVisible();
+  await page.evaluate(() => (document.activeElement as HTMLElement).blur());
+
   await page.keyboard.press('Delete');
 
   await expect(toasts(page)).toHaveCount(0);
