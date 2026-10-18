@@ -238,6 +238,10 @@ test.describe('the group colour strip is a legal target (KAN-231)', () => {
     await page.keyboard.press('Escape');
     // Off the strip, so :hover plays no part below.
     await page.mouse.move(0, 0);
+    // Onto it by Tab: Enter and Esc alone are not keyboard navigation (KAN-689).
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(page.locator(STRIP)).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('menu')).toBeVisible();
 

@@ -8,7 +8,8 @@ import { standIn } from './fixtures/standInPages';
 // focus only. :focus-within also matched the focus a click leaves, so a ⋮
 // closed by clicking it kept its row filled after the pointer left. Each test
 // leaves mouse focus in the block (premise: focused, not :focus-visible), then
-// presses Shift, which makes that focus visible, as the keyboard control.
+// Tabs back onto it as the keyboard control. Only navigation keys reveal
+// (KAN-689): a bare Shift made Chrome's focus visible, and no longer counts.
 
 const TRANSPARENT = 'rgba(0, 0, 0, 0)';
 
@@ -78,6 +79,13 @@ async function leaveMouseFocus(
   await page.mouse.move(away.x, away.y);
 }
 
+// Out and back by keyboard: the same control, now under keyboard navigation.
+async function tabBackOnto(page: Page, control: Locator): Promise<void> {
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(control).toBeFocused();
+}
+
 const POPUP_AWAY = { x: 780, y: 540 };
 
 // Opened and closed by clicks on the trigger itself, as reported.
@@ -120,7 +128,7 @@ test('a window row ⋮ closed by clicking it lets the row rest once the pointer 
     .poll(() => look(block), { message: 'the row stayed engaged' })
     .toEqual({ fill: TRANSPARENT, shown: ['0', '0', '0'] });
 
-  await page.keyboard.press('Shift');
+  await tabBackOnto(page, trigger);
   await expect
     .poll(() => look(block))
     .toMatchObject({ shown: ['1', '1', '1'] });
@@ -144,7 +152,7 @@ test('a group row ⋮ closed by clicking it lets the row rest; keyboard focus re
     .poll(() => look(actions))
     .toMatchObject({ shown: ['0', '0', '0'] });
 
-  await page.keyboard.press('Shift');
+  await tabBackOnto(page, trigger);
   await expect.poll(() => look(row)).not.toMatchObject({ fill: TRANSPARENT });
   await expect
     .poll(() => look(actions))
@@ -165,7 +173,7 @@ test('a tab row holding mouse focus rests; keyboard focus reveals it', async ({
   await expectFocusWithoutRing(control);
   await expect.poll(() => look(block)).toMatchObject({ fill: TRANSPARENT });
 
-  await page.keyboard.press('Shift');
+  await tabBackOnto(page, control);
   await expect.poll(() => look(block)).not.toMatchObject({ fill: TRANSPARENT });
 });
 
@@ -191,7 +199,7 @@ test('the session header rename holding mouse focus rests; keyboard focus reveal
   await expectFocusWithoutRing(pencil);
   await expect.poll(blockOpacity).toBe('0');
 
-  await page.keyboard.press('Shift');
+  await tabBackOnto(page, pencil);
   await expect.poll(blockOpacity).toBe('1');
 });
 
@@ -224,6 +232,6 @@ test('an Open now group row holding mouse focus rests; keyboard focus reveals it
   await expectFocusWithoutRing(control);
   await expect.poll(() => look(row)).toMatchObject({ fill: TRANSPARENT });
 
-  await page.keyboard.press('Shift');
+  await tabBackOnto(page, control);
   await expect.poll(() => look(row)).not.toMatchObject({ fill: TRANSPARENT });
 });
