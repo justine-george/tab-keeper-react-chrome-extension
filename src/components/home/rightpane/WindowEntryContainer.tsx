@@ -11,7 +11,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import ClickableRow from '../../common/ClickableRow';
-import { focusRingOverTickCss, whileKeyNav } from '../../common/focusRing';
+import {
+  focusRingOutsideCss,
+  focusRingOverTickCss,
+  whileKeyNav,
+} from '../../common/focusRing';
 import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import { DropBoxLabel } from '../../common/dropBox';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
@@ -1355,7 +1359,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                             // The ghost reaches 4px past the text, as the label's 4px left; no padding, so a long title still runs to the edge (D10).
                             'display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box;' +
                             titleButtonStyle +
-                            '&::before { right: -4px; }'
+                            '&::before { right: -4px; }' +
+                            // KAN-685: the box is only as wide as the text, so the ring goes outside it.
+                            focusRingOutsideCss(COLORS)
                           }
                         >
                           {groupTitleLabel(item.group)}

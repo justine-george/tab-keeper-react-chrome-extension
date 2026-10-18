@@ -33,7 +33,7 @@ export const focusRingOnTextGroundCss = (
 `;
 
 // KAN-671. The same ring 2px outside, for a control with no box to draw it
-// in: a link in running text, a theme tile.
+// in: a link in running text, a theme tile, a group title (KAN-685).
 export const focusRingOutsideCss = (COLORS: ThemeColors): string => `
   ${whileKeyNav('&:focus-visible')} {
     outline: 2px solid ${COLORS.TEXT_COLOR};
