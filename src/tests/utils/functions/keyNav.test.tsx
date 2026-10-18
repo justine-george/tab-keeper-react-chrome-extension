@@ -178,16 +178,36 @@ describe('caret keys in a text field (KAN-685)', () => {
     expect(navigating()).toBe(true);
   });
 
-  test('a focus move after the caret key has ended does not start it', async () => {
+  test('a focus move after the caret key is released does not start it', () => {
     undo = trackKeyNav(window);
     const field = mount(input('text'));
     const other = document.createElement('button');
     document.body.append(other);
     keyOn(field, 'ArrowLeft');
-    await new Promise((r) => setTimeout(r, 0));
+    field.dispatchEvent(
+      new KeyboardEvent('keyup', { key: 'ArrowLeft', bubbles: true })
+    );
 
     other.focus();
 
+    expect(navigating()).toBe(false);
+  });
+
+  // A rename: ArrowLeft, then at once Enter, which hands focus to the title.
+  // Chrome runs the next key before a timer, so the caret key's turn ends at it.
+  test('a caret key, then another key that moves focus, does not start it', () => {
+    undo = trackKeyNav(window);
+    const field = mount(input('text'));
+    const title = document.createElement('button');
+    document.body.append(title);
+    field.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') title.focus();
+    });
+
+    keyOn(field, 'ArrowLeft');
+    keyOn(field, 'Enter');
+
+    expect(document.activeElement).toBe(title);
     expect(navigating()).toBe(false);
   });
 

@@ -40,26 +40,30 @@ export function trackKeyNav(win: Window): () => void {
   const root = win.document.documentElement;
   const start = () => root.setAttribute(KEY_NAV_ATTRIBUTE, '');
   // A caret key's handlers run after this listener: a focus they move (the
-  // search field's ArrowDown to a result) arrives as a focusin before paint.
-  let caretKeyInFlight = false;
+  // search field's ArrowDown to a result) arrives as a focusin. Its turn ends
+  // at its release or the next key, not a timer: Chrome runs input first.
+  let caretKeyDown = false;
   const onKeyDown = (event: KeyboardEvent) => {
+    caretKeyDown = false;
     if (!NAVIGATION_KEYS.has(event.key)) return;
-    if (event.key === 'Tab' || !holdsCaret(event.target)) {
-      start();
-      return;
-    }
-    caretKeyInFlight = true;
-    win.setTimeout(() => (caretKeyInFlight = false));
+    if (event.key === 'Tab' || !holdsCaret(event.target)) start();
+    else caretKeyDown = true;
   };
+  const onKeyUp = () => (caretKeyDown = false);
   const onFocusIn = () => {
-    if (caretKeyInFlight) start();
+    if (caretKeyDown) start();
   };
-  const onPointerDown = () => root.removeAttribute(KEY_NAV_ATTRIBUTE);
+  const onPointerDown = () => {
+    caretKeyDown = false;
+    root.removeAttribute(KEY_NAV_ATTRIBUTE);
+  };
   win.addEventListener('keydown', onKeyDown, true);
+  win.addEventListener('keyup', onKeyUp, true);
   win.addEventListener('focusin', onFocusIn, true);
   win.addEventListener('pointerdown', onPointerDown, true);
   return () => {
     win.removeEventListener('keydown', onKeyDown, true);
+    win.removeEventListener('keyup', onKeyUp, true);
     win.removeEventListener('focusin', onFocusIn, true);
     win.removeEventListener('pointerdown', onPointerDown, true);
   };
