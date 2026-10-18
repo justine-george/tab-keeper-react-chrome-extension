@@ -3,7 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { POPUP, stored } from './fixtures/savedWindows';
-import { pixelsAt } from './fixtures/pixels';
+import { differingPixels, pixelsAt } from './fixtures/pixels';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-689. Rings show after keyboard navigation only. Chrome's heuristic
@@ -41,18 +41,42 @@ const search = (page: Page): Locator =>
 const ids = async (page: Page) =>
   (await stored(page)).tabGroups.map((g) => g.tabGroupId);
 
-// The pixel 3px inside `box`'s left edge, mid height: inside every ring's
-// 2px band (outline offset -4, or a ::after inset 2 with a 2px border). The
-// pointer rests away, and fills and reveals have landed.
-async function leftEdge(page: Page, box: Locator): Promise<string> {
+// Pointer away, and fills and reveals landed.
+async function settle(page: Page) {
   await page.mouse.move(2, 540);
   await page.evaluate(() =>
     Promise.all(document.getAnimations().map((a) => a.finished))
   );
+}
+
+// The pixel 3px inside `box`'s left edge, mid height: inside every ring's
+// 2px band (outline offset -4, or a ::after inset 2 with a 2px border).
+async function leftEdge(page: Page, box: Locator): Promise<string> {
+  await settle(page);
   const b = await box.boundingBox();
   if (b === null) throw new Error('no box');
   const [edge] = await pixelsAt(page, [[b.x + 3, b.y + b.height / 2]]);
   return edge;
+}
+
+// The pixels around `box` that focus changes: a shot focused, then one after
+// blur, as a count of differing pixels. Any indicator counts, Chrome's own ring and a reveal included. Ends
+// with focus gone.
+async function focusPaint(page: Page, box: Locator) {
+  await settle(page);
+  const b = await box.boundingBox();
+  if (b === null) throw new Error('no box');
+  const clip = {
+    x: b.x - 4,
+    y: b.y - 4,
+    width: b.width + 8,
+    height: b.height + 8,
+  };
+  const focused = await page.screenshot({ clip });
+  await page.evaluate(() => (document.activeElement as HTMLElement).blur());
+  await settle(page);
+  return (await differingPixels(page, focused, await page.screenshot({ clip })))
+    .length;
 }
 
 // Tab onto `control` the way a keyboard user arrives: from its neighbour.
@@ -77,9 +101,7 @@ test('click a row, then Delete: the next row takes focus without a ring', async 
     .toEqual(['s-alpha', 's-charlie', 's-delta']);
   // PREMISE: focus moved to the next row (KAN-657 F1), as a scripted focus.
   await expect(row(page, 'Charlie')).toBeFocused();
-  expect(await leftEdge(page, row(page, 'Charlie').locator('..'))).not.toBe(
-    RING
-  );
+  expect(await focusPaint(page, row(page, 'Charlie').locator('..'))).toBe(0);
 });
 
 test('Tab to a row, then Delete: the next row takes focus with the ring', async ({
@@ -105,11 +127,14 @@ test('a click into a text field draws no ring; Tab into it does', async ({
   const page = await openPopup(context, extensionId);
   const field = search(page);
 
+  // The caret blinks, and is not what this reads.
+  await page.addStyleTag({ content: 'input { caret-color: transparent; }' });
+
   await field.click();
   await expect(field).toBeFocused();
   // Typing is not navigation.
   await page.keyboard.type('a');
-  expect(await leftEdge(page, field.locator('..'))).not.toBe(RING);
+  expect(await focusPaint(page, field.locator('..'))).toBe(0);
 
   await tabOnto(page, field);
   expect(await leftEdge(page, field.locator('..'))).toBe(RING);
@@ -127,5 +152,5 @@ test('a click after keyboard navigation takes the ring away', async ({
   await row(page, 'Bravo').click();
 
   await expect(row(page, 'Bravo')).toBeFocused();
-  expect(await leftEdge(page, row(page, 'Bravo').locator('..'))).not.toBe(RING);
+  expect(await focusPaint(page, row(page, 'Bravo').locator('..'))).toBe(0);
 });
