@@ -154,11 +154,12 @@ for (const [kind, opener, renamed] of RENAMES) {
       // PREMISE: the app's 2px ring is drawn, and there is text to clear.
       expect(ring.style).toBe('solid 2px');
       expect(ring.ink.right).toBeGreaterThan(ring.ink.left);
-      // The ring's inner edge lies `offset` outside the box (inside, when negative); the text sits within it.
+      // The ring's inner edge lies `offset` outside the box (inside, when negative). The text's sides sit 2px
+      // clear of it; its line box, taller than the letters, only inside it.
       const inner = {
-        left: ring.box.left - ring.offset,
+        left: ring.box.left - ring.offset + 2,
         top: ring.box.top - ring.offset,
-        right: ring.box.right + ring.offset,
+        right: ring.box.right + ring.offset - 2,
         bottom: ring.box.bottom + ring.offset,
       };
       expect(ring.ink.left).toBeGreaterThanOrEqual(inner.left);
