@@ -243,12 +243,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
     }
-    /* KAN-379. A drag resting here: the sweep, whose end opens the window. */
+    /* KAN-379. A drag resting here: the sweep, whose end opens the window.
+       The press fill, as a session row's (KAN-669). */
     [data-spring-dwell] > & {
-      ${springSweepStyle(COLORS.HOVER_COLOR)}
+      ${springSweepStyle(COLORS.ACTIVE_COLOR)}
       @media (prefers-reduced-motion: reduce) {
         /* Lit at once; the animation stays, because it times the open (D7). */
-        background-color: ${COLORS.HOVER_COLOR};
+        background-color: ${COLORS.ACTIVE_COLOR};
         background-image: none;
       }
     }

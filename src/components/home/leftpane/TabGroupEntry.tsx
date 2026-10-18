@@ -390,9 +390,13 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
            [data-row-actions] > * { opacity: 1; }`
         : ''
     }
-    /* KAN-350 D2 A. The row a carry rests on: the hover fill, a selected row
-       included (the outline is 4.02:1 on Petal's hover fill, 3.06 on its
-       selection), and a 2px LABEL_L2 outline inside the edge.
+    /* KAN-350 D2 A. The row a carry rests on: the press fill, a selected row
+       included, and a 2px LABEL_L2 outline inside the edge. KAN-669: the
+       press fill, not hover, which sat 1.06:1 off the list in Parchment and
+       1.07 in Graphite and Ink, so the sweep could hardly be seen; the press
+       fill is ~1.45:1 in every theme. The outline on it is 3.2:1 in the light
+       themes and 2.98 in the dark ones, under 3:1 on purpose as KAN-668's
+       dark control edges are.
 
        ONE CONDITION, the data-carry-target attribute, draws all of it, so the
        parts cannot disagree about which row is the target; the dwell sweep
@@ -400,15 +404,15 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
        rules, so it wins over both.
 
        The outline is on the outline property, which nothing else writes: the
-       fill is the box-shadow (hover's channel, which the target takes over
-       here in full), the selection is background-color.
+       fill is the box-shadow (hover's and press's channel, which the target
+       takes over here in full), the selection is background-color.
        Inset by a negative offset, so the next row cannot paint over it.
 
        The actions are hidden while the row is a target: there is nothing to
        click mid-carry, and the mask behind them is painted for hover or
        selection, which the target look is neither of. */
     &[data-carry-target] {
-      ${fill(COLORS.HOVER_COLOR)}
+      ${fill(COLORS.ACTIVE_COLOR)}
       outline-width: 2px;
       outline-style: solid;
       outline-color: ${COLORS.LABEL_L2_COLOR};
@@ -423,7 +427,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     /* The sweep is the dwell's fill; the shadow would paint over it. */
     &[data-carry-dwell] {
       ${fill('transparent')}
-      ${springSweepStyle(COLORS.HOVER_COLOR)}
+      ${springSweepStyle(COLORS.ACTIVE_COLOR)}
     }
   `;
 
