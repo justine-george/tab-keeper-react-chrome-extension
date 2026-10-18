@@ -20,6 +20,7 @@ import {
   loadFromLocalStorage,
 } from '../utils/functions/local';
 import { readLocalSessions } from '../utils/functions/localSessions';
+import { noteStoredSettingsSeen } from '../utils/functions/localSettings';
 import {
   sameContainerData,
   sameIgnoringKeyOrder,
@@ -125,6 +126,8 @@ export const applyOtherPageSettings =
       // KAN-7. Same rule for the onboarding answers.
       ...guardOnboarding(loaded, current),
     };
+    // KAN-661. Storage as laid here is what this page's saves now merge against.
+    noteStoredSettingsSeen(laid);
     // KAN-615. A field this page changed while its saves were refused stays.
     const next = withUnsavedSettings(laid, current);
     if (sameIgnoringKeyOrder(next, current)) return { languageChanged: null };

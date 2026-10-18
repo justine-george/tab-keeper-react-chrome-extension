@@ -10,6 +10,7 @@ import { customMiddleware } from '../../redux/middleware/customMiddleware';
 import { toastMiddleware } from '../../redux/middleware/toastMiddleware';
 import { storageFullMiddleware } from '../../redux/middleware/storageFullMiddleware';
 import { otherPageWriteMiddleware } from '../../redux/middleware/otherPageWriteMiddleware';
+import { noteStoredSettingsSeen } from '../../utils/functions/localSettings';
 
 // Mirrors src/redux/store.tsx via the shared rootReducer, plus a recorder so
 // tests can assert on the action sequence the middleware produces. Thunks
@@ -42,6 +43,8 @@ export function makeTestStore() {
           storageFullMiddleware
         ),
   });
+  // KAN-661. As a page's load does: its saves merge against what it loaded.
+  noteStoredSettingsSeen(store.getState().settingsDataState);
 
   return { store, seen, actions };
 }

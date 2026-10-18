@@ -54,6 +54,7 @@ import {
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { endRises } from '../setup/endRises';
+import { noteStoredSettingsSeen } from '../../utils/functions/localSettings';
 
 // replaceState is a reducer the slice does not export by name.
 const replaceSettings = settingsDataStateSlice.actions.replaceState;
@@ -70,6 +71,8 @@ const seedSettings =
   (s: { dispatch: (a: unknown) => void }) => {
     s.dispatch(replaceSettings({ ...settingsInitial, ...partial }));
     localStorage.setItem('settingsData', JSON.stringify(partial));
+    // KAN-661. As a page that loaded these: its saves merge against them.
+    noteStoredSettingsSeen({ ...settingsInitial, ...partial });
   };
 
 // KAN-259. Auto Sync defaulted on, so a new user's first save uploaded URLs
