@@ -11,6 +11,7 @@ import {
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { setFoldSavedSessionInTabView } from '../../redux/slices/settingsDataStateSlice';
+import { showToast } from '../../redux/slices/globalStateSlice';
 import { buildSession } from '../fixtures/sessionFixture';
 import {
   currentCarry,
@@ -467,5 +468,207 @@ describe('a carry from the drawer (N2 A)', () => {
     const { drawer, button } = await openDrawer();
     fireEvent.keyDown(drawer, { key: 'Escape' });
     expect(button.getAttribute('aria-expanded')).toBe('false');
+  });
+});
+
+// KAN-681, KAN-682. The drawer is not modal: Esc closes it wherever focus is,
+// and a press outside it closes it and still does what it presses.
+describe('closing from outside (KAN-681, KAN-682)', () => {
+  // A click on blank space moves focus to the body (the KAN-681 report).
+  const focusBody = () => {
+    act(() => (document.activeElement as HTMLElement | null)?.blur());
+    // PREMISE: focus is outside the drawer.
+    expect(document.activeElement).toBe(document.body);
+  };
+  const sessionsPane = () => {
+    const pane = document.querySelector<HTMLElement>('[data-pane="sessions"]');
+    if (pane === null) throw new Error('no sessions pane');
+    return pane;
+  };
+  // Chrome's own focus change for the press runs before the drawer's check.
+  const settle = () => act(() => new Promise((r) => setTimeout(r, 0)));
+
+  afterEach(() => {
+    act(() => endCarry('cancelled'));
+    endDragHold();
+  });
+
+  test('Esc with focus on the body closes the drawer and returns focus to the rail button', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { button, drawer } = await openDrawer();
+    focusBody();
+
+    const esc = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => document.body.dispatchEvent(esc));
+
+    expect(drawer).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(button);
+    // Consumed, or Chrome closes the popup (KAN-403).
+    expect(esc.defaultPrevented).toBe(true);
+  });
+
+  test('an Esc something else used leaves the drawer open', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { button } = await openDrawer();
+    focusBody();
+    const claim = (e: KeyboardEvent) => e.preventDefault();
+    document.body.addEventListener('keydown', claim);
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    document.body.removeEventListener('keydown', claim);
+
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('an Esc that ends IME composition leaves the drawer open', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { button } = await openDrawer();
+    focusBody();
+
+    fireEvent.keyDown(document.body, { key: 'Escape', isComposing: true });
+
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test("an Esc with a modal dialog open is the dialog's: the drawer stays", async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { button } = await openDrawer();
+    const modal = document.createElement('dialog');
+    document.body.append(modal);
+    modal.showModal();
+
+    fireEvent.keyDown(modal, { key: 'Escape' });
+    modal.remove();
+
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('Esc with focus on the body during a carry leaves the drawer open', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { button } = await openDrawer();
+    focusBody();
+    const card = { kind: 'tab', title: 'Live l1', faviconUrl: '' } as const;
+    act(() =>
+      startCarry(
+        liveItem({
+          pick: { kind: 'tab', windowId: 'live-w', tabId: 'l1' },
+          window: live(),
+          chromeWindowId: 7,
+        }),
+        card,
+        700,
+        100
+      )
+    );
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('a press outside closes the drawer, and focus goes to the rail button', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { button, drawer } = await openDrawer();
+
+    fireEvent.pointerDown(sessionsPane());
+    // The drawer unmounted with focus in it.
+    await settle();
+
+    expect(drawer).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(button);
+  });
+
+  test('a press outside still does what it presses, and keeps the focus it took', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { drawer } = await openDrawer();
+    const sort = screen.getByRole('button', { name: 'Sort sessions' });
+
+    fireEvent.pointerDown(sort);
+    // Chrome's mousedown focuses the button after the drawer's pointerdown.
+    act(() => sort.focus());
+    fireEvent.click(sort);
+    await settle();
+
+    expect(drawer).not.toBeInTheDocument();
+    expect(sort).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('menu', { name: 'Sort sessions' })).toBeVisible();
+    expect(document.activeElement?.closest('[role="menu"]')).not.toBeNull();
+  });
+
+  test('a press inside the drawer leaves it open', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { button, drawer } = await openDrawer();
+
+    fireEvent.pointerDown(
+      within(drawer).getByRole('heading', { name: 'Open now' })
+    );
+    await settle();
+
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('a press on a toast leaves the drawer open', async () => {
+    installMatchMedia(true);
+    const { store } = await renderHome(false);
+    const { button } = await openDrawer();
+    await act(() => store.dispatch(showToast({ toastText: 'Session saved.' })));
+    const toast = document.querySelector<HTMLElement>('[data-toast]');
+    if (toast === null) throw new Error('no toast');
+
+    fireEvent.pointerDown(toast);
+    await settle();
+
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('a press in a modal dialog leaves the drawer open', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { button } = await openDrawer();
+    const modal = document.createElement('dialog');
+    document.body.append(modal);
+    modal.showModal();
+
+    fireEvent.pointerDown(modal);
+    await settle();
+    modal.remove();
+
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('a press outside during a carry leaves the drawer open', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { button } = await openDrawer();
+    const card = { kind: 'tab', title: 'Live l1', faviconUrl: '' } as const;
+    act(() =>
+      startCarry(
+        liveItem({
+          pick: { kind: 'tab', windowId: 'live-w', tabId: 'l1' },
+          window: live(),
+          chromeWindowId: 7,
+        }),
+        card,
+        700,
+        100
+      )
+    );
+
+    fireEvent.pointerDown(sessionsPane());
+    await settle();
+
+    expect(button).toHaveAttribute('aria-expanded', 'true');
   });
 });
