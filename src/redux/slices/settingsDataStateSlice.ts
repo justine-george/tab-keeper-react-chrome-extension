@@ -17,6 +17,10 @@ import {
   loadFromLocalStorage,
   saveToLocalStorage,
 } from '../../utils/functions/local';
+import {
+  noteStoredSettingsSeen,
+  saveLocalSettings,
+} from '../../utils/functions/localSettings';
 import type { CaptureScope } from '../../utils/functions/capture';
 // `import type`, so nothing is emitted: the generator imports this slice's
 // tabContainerData type in the other direction, and a value edge either way
@@ -331,6 +335,8 @@ export const initialState: SettingsData = {
   // KAN-7. Guarded like openNowWidth: settingsDataLocal is unvalidated.
   ...guardOnboarding(settingsDataLocal, ONBOARDING_DEFAULTS),
 };
+// KAN-661. What this page loaded is what its saves merge against.
+noteStoredSettingsSeen(initialState);
 
 export const settingsDataStateSlice = createSlice({
   name: 'settingsDataState',
@@ -340,26 +346,26 @@ export const settingsDataStateSlice = createSlice({
       state.theme = action.payload;
 
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     setLanguage: (state, action: PayloadAction<Language>) => {
       state.language = action.payload;
 
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     // KAN-259. Only the existing and enable dialogs grant; each caller sets Auto Sync, as one sync asked is not a setting.
     grantCloudConsent: (state) => {
       state.cloudConsent = 'granted';
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     declineCloudConsent: (state) => {
       state.cloudConsent = 'declined';
       state.isAutoSync = false;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     // A set, not a toggle: callers name the state it must land on.
@@ -367,42 +373,42 @@ export const settingsDataStateSlice = createSlice({
       state.isAutoSync = action.payload;
 
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     toggleAutoSync: (state) => {
       state.isAutoSync = !state.isAutoSync;
 
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     setExtensionInstalledTime: (state) => {
       state.extensionInstalledTime = Date.now();
 
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     setSkippedUserReviewOnce: (state) => {
       state.isSkippedUserReviewOnce = true;
 
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     setUserRatedAndReviewed: (state) => {
       state.isUserRatedAndReviewed = true;
 
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     setNeverAskAgainToRate: (state) => {
       state.isNeverAskAgainToRate = true;
 
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     /**
@@ -416,19 +422,19 @@ export const settingsDataStateSlice = createSlice({
     // or refused sync leaves the last true time standing.
     recordSyncedNow: (state) => {
       state.lastSyncedTime = Date.now();
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     // KAN-573. After Delete cloud data: nothing is in the cloud, so no time to show.
     forgetLastSync: (state) => {
       state.lastSyncedTime = '';
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     // For tests and seeds; the app stamps through recordSyncedNow.
     setLastSyncedTime: (state, action: PayloadAction<number | ''>) => {
       state.lastSyncedTime = action.payload;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     // KAN-653. Written by a moment, cleared when the card shows.
@@ -437,52 +443,52 @@ export const settingsDataStateSlice = createSlice({
       action: PayloadAction<PendingReviewAsk | null>
     ) => {
       state.pendingReviewAsk = action.payload;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     markTimeAskDone: (state) => {
       state.isTimeAskDone = true;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     updateLastReviewRequestTime: (state) => {
       state.lastReviewRequestTime = Date.now();
 
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     setTabGroupsPromptAnsweredOnce: (state) => {
       state.isTabGroupsPromptAnsweredOnce = true;
 
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     setNeverAskAgainForTabGroups: (state) => {
       state.isNeverAskAgainForTabGroups = true;
 
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     setExportLayout: (state, action: PayloadAction<ExportLayout>) => {
       state.exportLayout = action.payload;
 
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     setSessionDateBasis: (state, action: PayloadAction<SessionDateBasis>) => {
       state.sessionDateBasis = action.payload;
 
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     setTimeFormat: (state, action: PayloadAction<TimeFormat>) => {
       state.timeFormat = action.payload;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     // KAN-280 O5. The fold button's choice, and nothing else's.
@@ -490,17 +496,17 @@ export const settingsDataStateSlice = createSlice({
       state.foldSavedSessionInTabView = action.payload;
 
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     setPinTabKeeperInNewWindows: (state, action: PayloadAction<boolean>) => {
       state.pinTabKeeperInNewWindows = action.payload;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     setDefaultSaveScope: (state, action: PayloadAction<CaptureScope>) => {
       state.defaultSaveScope = action.payload;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     // KAN-321 O1a. The grip's release, an arrow key, or a double-click (null).
@@ -508,62 +514,62 @@ export const settingsDataStateSlice = createSlice({
       state.openNowWidth = action.payload;
 
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     // KAN-7. Only from 'none': a finished setup never restarts.
     beginSetup: (state) => {
       if (state.setupState !== 'none') return;
       state.setupState = 'pending';
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     finishSetup: (state) => {
       state.setupState = 'done';
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     // Run setup again: pending from any state, where beginSetup only starts it.
     restartSetup: (state) => {
       state.setupState = 'pending';
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     dismissPinGuide: (state) => {
       state.isPinGuideDismissed = true;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     // Every full-view open dispatches this; only the first writes.
     markFullViewOpened: (state) => {
       if (state.hasOpenedFullView) return;
       state.hasOpenedFullView = true;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     // ⤢ dispatches this on every press; only the first writes.
     markFullViewCalloutSeen: (state) => {
       if (state.isFullViewCalloutSeen) return;
       state.isFullViewCalloutSeen = true;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     // Every answer dispatches this; only the first writes.
     markClosesThisTabCardAnswered: (state) => {
       if (state.isClosesThisTabCardAnswered) return;
       state.isClosesThisTabCardAnswered = true;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     setDefaultView: (state, action: PayloadAction<DefaultView>) => {
       state.defaultView = action.payload;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     // Every start writes a new record, replacing any other.
     recordFirstRun: (state, action: PayloadAction<FirstRun>) => {
       state.firstRun = action.payload;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     // Both ways: Next, Back and actions move it; only a start writes step 0.
@@ -574,14 +580,14 @@ export const settingsDataStateSlice = createSlice({
       if (step === null || step === run.step) return;
       run.step = step;
       run.welcomeShows = null;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     setFirstRunSession: (state, action: PayloadAction<string>) => {
       const run = state.firstRun;
       if (run === null || run.ended !== null) return;
       run.sessionId = action.payload;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     // Q7. One more opening of the welcome, up to the most it shows.
@@ -593,25 +599,25 @@ export const settingsDataStateSlice = createSlice({
       const next = nextWelcomeShows(run.welcomeShows);
       if (next === null) return;
       run.welcomeShows = next;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     endFirstRun: (state, action: PayloadAction<RunEnding>) => {
       const run = state.firstRun;
       if (run === null || run.ended !== null) return;
       run.ended = action.payload;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     markWhatsNew2Seen: (state) => {
       if (state.isWhatsNew2Seen) return;
       state.isWhatsNew2Seen = true;
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
     },
 
     replaceState: (state, action: PayloadAction<typeof state>) => {
       // Save updated state to localStorage
-      saveToLocalStorage('settingsData', state);
+      saveLocalSettings(state);
 
       return action.payload;
     },
