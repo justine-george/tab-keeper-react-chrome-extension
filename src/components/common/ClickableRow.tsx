@@ -1,6 +1,8 @@
 import React from 'react';
 
 import { css } from '@emotion/react';
+import { useThemeColors } from '../../hooks/useThemeColors';
+import { focusRingCss } from './focusRing';
 import { silenceRepeatedTitle } from './silenceRepeatedTitle';
 
 interface ClickableRowProps {
@@ -48,6 +50,7 @@ interface ClickableRowProps {
  * Rendering a real <button> rather than <div role="button"> is the point: the
  * role, the tab order, Enter, Space and the focus ring all come from the
  * platform instead of from four props that a fourth call site could forget.
+ * The ring's colour is the app's, not Chrome's blue (KAN-671).
  */
 const ClickableRow: React.FC<ClickableRowProps> = ({
   ariaLabel,
@@ -63,6 +66,7 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
   ariaKeyShortcuts,
   children,
 }) => {
+  const COLORS = useThemeColors();
   // The UA stylesheet for <button> is what makes this swap risky, so the
   // reset is explicit rather than `all: unset` -- `all` would also drop the
   // inherited font and colour these rows rely on, and would reset the
@@ -81,6 +85,7 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
     text-align: inherit;
     align-items: stretch;
     cursor: pointer;
+    ${focusRingCss(COLORS)}
     ${style && style}
     ${disable ? 'cursor: default;' : ''}
   `;
