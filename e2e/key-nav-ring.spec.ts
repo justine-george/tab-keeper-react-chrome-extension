@@ -1,3 +1,5 @@
+import { writeFileSync } from 'node:fs';
+
 import type { Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
@@ -61,7 +63,8 @@ async function leftEdge(page: Page, box: Locator): Promise<string> {
 
 // How many pixels around `box` focus changes: a shot focused, then one after
 // blur. Any indicator counts, Chrome's own ring and a reveal included; a
-// glyph's anti-aliasing moving 1 does not. Ends with focus gone.
+// glyph's anti-aliasing moving 1 does not. Ends with focus gone. When they
+// differ, both shots go in the test's output, with where and by how much.
 async function focusPaint(page: Page, box: Locator) {
   await settle(page);
   const b = await box.boundingBox();
@@ -76,7 +79,17 @@ async function focusPaint(page: Page, box: Locator) {
   await page.evaluate(() => (document.activeElement as HTMLElement).blur());
   await settle(page);
   const blurred = await page.screenshot({ clip });
-  return (await differingPixels(page, focused, blurred, 2)).length;
+  const differ = await differingPixels(page, focused, blurred, 2);
+  if (differ.length > 0) {
+    writeFileSync(test.info().outputPath('focused.png'), focused);
+    writeFileSync(test.info().outputPath('blurred.png'), blurred);
+    const xs = differ.map(([x]) => x);
+    const ys = differ.map(([, y]) => y);
+    console.log(
+      `focus paint: ${differ.length} px, x ${Math.min(...xs)}..${Math.max(...xs)}, y ${Math.min(...ys)}..${Math.max(...ys)} of ${clip.width}x${clip.height}`
+    );
+  }
+  return differ.length;
 }
 
 // Tab onto `control` the way a keyboard user arrives: from its neighbour.
