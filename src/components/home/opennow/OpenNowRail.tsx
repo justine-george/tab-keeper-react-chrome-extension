@@ -126,9 +126,9 @@ export default function OpenNowRail({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [isOpen, close]);
 
-  // KAN-682. A press outside closes it and still does what it presses. Capture,
-  // so a row's own press handling cannot hide it. The toast and a modal dialog
-  // sit over the drawer and are not outside it; the rail is under it.
+  // KAN-682. A press outside closes it and still does what it presses. The toast
+  // and a modal dialog sit over the drawer and are not outside it; the rail is
+  // under it.
   useEffect(() => {
     if (!isOpen) return;
     const onPointerDown = (e: PointerEvent) => {
@@ -143,9 +143,8 @@ export default function OpenNowRail({
           buttonRef.current?.focus();
       });
     };
-    document.addEventListener('pointerdown', onPointerDown, true);
-    return () =>
-      document.removeEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [isOpen, buttonRef]);
 
   // No count while the first read is in flight: "0 Tabs" would be false.
