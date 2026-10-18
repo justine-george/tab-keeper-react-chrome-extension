@@ -46,3 +46,22 @@ export const focusRingAboveCss = (COLORS: ThemeColors, on: string): string => `
     pointer-events: none;
   }
 `;
+
+// KAN-677. The same ring over a rename field, drawn by the box the field
+// fills, which this makes positioned: its tick is laid on the field's right end, positioned, and fills
+// under the pointer, which covers an outline. Above the tick strips
+// (z-index 1), under a row with an open menu (3).
+export const focusRingOverTickCss = (
+  COLORS: ThemeColors,
+  on: string
+): string => `
+  position: relative;
+  ${on}::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    border: 2px solid ${COLORS.TEXT_COLOR};
+    pointer-events: none;
+    z-index: 2;
+  }
+`;
