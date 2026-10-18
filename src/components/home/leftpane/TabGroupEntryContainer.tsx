@@ -55,6 +55,7 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
 import { useMacKeys } from '../../../hooks/useIsMac';
 import { deleteKeyShortcutsFor } from '../../../utils/functions/deleteKey';
+import { selectRunHoldsDelete } from '../../../redux/firstRun';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
 import { DURATION } from '../../../styles/scale';
 import {
@@ -192,8 +193,13 @@ export default function TabGroupEntryContainer() {
   // the store picks the next STORED session, which under a search can be no
   // match, and the search would then show its first match while focus sat on
   // a row scrolled away. Recorded at the press, in render order; the delete is
-  // synchronous, so the next list is the one without it.
-  const deletedByKey = useRef<{ at: number; wasShown: boolean } | null>(null);
+  // synchronous, so the next list is the one without it. A delete with nothing
+  // focused (KAN-688) moves the shown session the same way and leaves focus be.
+  const deletedByKey = useRef<{
+    at: number;
+    wasShown: boolean;
+    focusNext: boolean;
+  } | null>(null);
   useEffect(() => {
     const deleted = deletedByKey.current;
     if (deleted === null) return;
@@ -203,6 +209,7 @@ export default function TabGroupEntryContainer() {
     if (deleted.wasShown && next !== selectedTabGroupId) {
       dispatch(selectTabContainer(next));
     }
+    if (!deleted.focusNext) return;
     // The row's own button: the one element there that takes the Delete key.
     listRef.current
       ?.querySelector<HTMLElement>(
@@ -210,6 +217,35 @@ export default function TabGroupEntryContainer() {
       )
       ?.focus();
   }, [sessionIds, selectedTabGroupId, dispatch]);
+
+  // KAN-688 (pick A). With nothing focused, Delete (fn⌫ on a Mac, Del on a
+  // PC) deletes the session shown, on screen. Not ⌫, the key a typo reaches
+  // for, and not mid-drag or mid-carry. On the document after every handler,
+  // so a key something else took stays theirs.
+  const holdsShownDelete = useSelector(
+    (state: RootState) =>
+      selectedTabGroupId !== null &&
+      selectRunHoldsDelete(state, selectedTabGroupId)
+  );
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.shiftKey || e.repeat || e.defaultPrevented) return;
+      const focused = document.activeElement;
+      if (focused !== null && focused !== document.body) return;
+      const root = document.documentElement;
+      if (root.hasAttribute('data-dragging')) return;
+      if (root.hasAttribute('data-carrying')) return;
+      if (selectedTabGroupId === null || holdsShownDelete) return;
+      const at = sessionIds.indexOf(selectedTabGroupId);
+      if (at === -1) return;
+      e.preventDefault();
+      deletedByKey.current = { at, wasShown: true, focusNext: false };
+      void dispatch(deleteTabContainer(selectedTabGroupId));
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [sessionIds, selectedTabGroupId, holdsShownDelete, dispatch]);
 
   // KAN-350. The list takes a carry: the row under the pointer is the target
   // (D2 A); resting on it opens that session (S1 A); letting go on it moves
@@ -543,6 +579,7 @@ export default function TabGroupEntryContainer() {
                           at: index,
                           wasShown:
                             tabGroupData.tabGroupId === selectedTabGroupId,
+                          focusNext: true,
                         };
                         void dispatch(
                           deleteTabContainer(tabGroupData.tabGroupId)
