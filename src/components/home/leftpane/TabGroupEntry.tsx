@@ -490,7 +490,9 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             timeFormat
           )}
           css={css`
-            color: ${COLORS.LABEL_L2_COLOR};
+            color: ${
+              drawsSelection ? COLORS.LABEL_L1_COLOR : COLORS.LABEL_L2_COLOR
+            };
             font-size: ${TYPE.META};
             margin-top: 5px;
           `}
