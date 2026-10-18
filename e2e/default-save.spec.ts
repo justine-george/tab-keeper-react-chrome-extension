@@ -2,7 +2,14 @@ import type { BrowserContext, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { saveRowMenu } from './fixtures/menus';
-import { buildSession } from './fixtures/seed';
+import { buildSession, seedSettings } from './fixtures/seed';
+import {
+  BB_PINK_THEME,
+  BLUE_THEME,
+  DARKENHEIMER_THEME,
+  LIGHT_THEME,
+  WARM_LIGHT_THEME,
+} from '../src/hooks/useThemeColors';
 import { seedOnce } from './fixtures/cloud';
 
 // KAN-635 on the real artifact: Settings › Sessions › Default save decides
@@ -214,3 +221,85 @@ test('another open page swaps its row without a reload', async ({
 
   await expect(glyph(other, CURRENT)).toHaveText('add_box');
 });
+
+// KAN-675. The chosen tile's mark is its own frame at 2px of LABEL_L2, not the
+// focus ring: a 2px TEXT_COLOR outline read as "focus is here", and with focus
+// the tile drew two rings of the same weight. Choosing must not resize a tile.
+const rgb = (hex: string) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return `rgb(${r}, ${g}, ${b})`;
+};
+for (const [theme, colors] of [
+  ['Light', LIGHT_THEME],
+  ['WarmLight', WARM_LIGHT_THEME],
+  ['BBPink', BB_PINK_THEME],
+  ['Darkenheimer', DARKENHEIMER_THEME],
+  ['Blue', BLUE_THEME],
+] as const) {
+  test(`KAN-675: the chosen tile has a 2px LABEL_L2 frame and no ring, focused or not, and no tile resizes (${theme})`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, { theme });
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 790, height: 550 });
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Sessions', exact: true }).click();
+    const group = page.getByRole('radiogroup', { name: 'Default save' });
+    const tile = (name: string) =>
+      group.locator('label', { hasText: name }).locator('[data-tile]');
+    // The frame: a 1px border and a 1px inset shadow of the same colour.
+    const mark = (name: string) =>
+      tile(name).evaluate((el) => {
+        const s = getComputedStyle(el);
+        return {
+          outline: s.outlineStyle,
+          border: `${s.borderTopWidth} ${s.borderTopStyle} ${s.borderTopColor}`,
+          shadow: s.boxShadow,
+        };
+      });
+    const chosen = {
+      outline: 'none',
+      border: `1px solid ${rgb(colors.LABEL_L2_COLOR)}`,
+      shadow: `${rgb(colors.LABEL_L2_COLOR)} 0px 0px 0px 1px inset`,
+    };
+    const other = {
+      outline: 'none',
+      border: `1px solid ${rgb(colors.CONTROL_BORDER_COLOR)}`,
+      shadow: 'none',
+    };
+    const widths = () =>
+      group
+        .locator('[data-tile]')
+        .evaluateAll((els) =>
+          els.map((el) => el.getBoundingClientRect().width)
+        );
+    await expect(
+      group.getByRole('radio', { name: 'All windows' })
+    ).toBeChecked();
+    expect(await mark('All windows')).toEqual(chosen);
+    expect(await mark('Current window')).toEqual(other);
+
+    // Focused, the only TEXT_COLOR ring is the focus ring inside the tile.
+    const radio = group.getByRole('radio', { name: 'All windows' });
+    await radio.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(radio).toBeFocused();
+    expect(await mark('All windows')).toEqual(chosen);
+    expect(
+      await tile('All windows').evaluate((el) => {
+        const s = getComputedStyle(el, '::after');
+        return `${s.borderTopWidth} ${s.borderTopStyle} ${s.borderTopColor}`;
+      })
+    ).toBe(`2px solid ${rgb(colors.TEXT_COLOR)}`);
+
+    // The mark moves with the choice, and no tile changes width with it.
+    const before = await widths();
+    await group.locator('label', { hasText: 'Current window' }).click();
+    expect(await mark('Current window')).toEqual(chosen);
+    expect(await mark('All windows')).toEqual(other);
+    expect(await widths()).toEqual(before);
+  });
+}

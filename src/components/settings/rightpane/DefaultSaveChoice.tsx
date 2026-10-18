@@ -68,9 +68,12 @@ export default function DefaultSaveChoice({
     display: flex;
     height: 58px;
     border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
+    /* KAN-675. Chosen: its own frame, 2px of LABEL_L2. Not TEXT_COLOR, which
+       is the focus ring's (ThemeSwatch's rule); the second pixel is an inset
+       shadow, so the tile keeps its width and its neighbour never moves. */
     ${
       isChosen &&
-      `outline: 2px solid ${COLORS.TEXT_COLOR}; outline-offset: 3px;`
+      `border-color: ${COLORS.LABEL_L2_COLOR}; box-shadow: inset 0 0 0 1px ${COLORS.LABEL_L2_COLOR};`
     }
   `;
   const squareStyle = css`
