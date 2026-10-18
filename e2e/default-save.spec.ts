@@ -224,7 +224,7 @@ test('another open page swaps its row without a reload', async ({
 
 // KAN-675. The chosen tile's mark is its own frame at 2px of LABEL_L2, not the
 // focus ring: a 2px TEXT_COLOR outline read as "focus is here", and with focus
-// the tile drew two rings of the same weight.
+// the tile drew two rings of the same weight. Choosing must not resize a tile.
 const rgb = (hex: string) => {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   return `rgb(${r}, ${g}, ${b})`;
@@ -236,7 +236,7 @@ for (const [theme, colors] of [
   ['Darkenheimer', DARKENHEIMER_THEME],
   ['Blue', BLUE_THEME],
 ] as const) {
-  test(`KAN-675: the chosen tile has a 2px LABEL_L2 frame and no ring, focused or not (${theme})`, async ({
+  test(`KAN-675: the chosen tile has a 2px LABEL_L2 frame and no ring, focused or not, and no tile resizes (${theme})`, async ({
     context,
     extensionId,
   }) => {
@@ -249,22 +249,32 @@ for (const [theme, colors] of [
     const group = page.getByRole('radiogroup', { name: 'Default save' });
     const tile = (name: string) =>
       group.locator('label', { hasText: name }).locator('[data-tile]');
+    // The frame: a 1px border and a 1px inset shadow of the same colour.
     const mark = (name: string) =>
       tile(name).evaluate((el) => {
         const s = getComputedStyle(el);
         return {
           outline: s.outlineStyle,
           border: `${s.borderTopWidth} ${s.borderTopStyle} ${s.borderTopColor}`,
+          shadow: s.boxShadow,
         };
       });
     const chosen = {
       outline: 'none',
-      border: `2px solid ${rgb(colors.LABEL_L2_COLOR)}`,
+      border: `1px solid ${rgb(colors.LABEL_L2_COLOR)}`,
+      shadow: `${rgb(colors.LABEL_L2_COLOR)} 0px 0px 0px 1px inset`,
     };
     const other = {
       outline: 'none',
       border: `1px solid ${rgb(colors.CONTROL_BORDER_COLOR)}`,
+      shadow: 'none',
     };
+    const widths = () =>
+      group
+        .locator('[data-tile]')
+        .evaluateAll((els) =>
+          els.map((el) => el.getBoundingClientRect().width)
+        );
     await expect(
       group.getByRole('radio', { name: 'All windows' })
     ).toBeChecked();
@@ -285,9 +295,11 @@ for (const [theme, colors] of [
       })
     ).toBe(`2px solid ${rgb(colors.TEXT_COLOR)}`);
 
-    // The mark moves with the choice.
+    // The mark moves with the choice, and no tile changes width with it.
+    const before = await widths();
     await group.locator('label', { hasText: 'Current window' }).click();
     expect(await mark('Current window')).toEqual(chosen);
     expect(await mark('All windows')).toEqual(other);
+    expect(await widths()).toEqual(before);
   });
 }
