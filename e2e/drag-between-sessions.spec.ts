@@ -51,7 +51,7 @@ import {
 import { expect, grantedTest as test } from './fixtures/grantedExtension';
 import { seedSettings } from './fixtures/seed';
 import { pixelsAt, rgbToHex, contrast } from './fixtures/pixels';
-import { holdSweepAt } from './fixtures/dwell';
+import { holdSweepAt, holdTimers } from './fixtures/dwell';
 import { SPRING_OPEN_MS } from '../src/components/common/springOpen';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 import {
@@ -979,6 +979,7 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
       ]);
       const at = await pickUp(page, tabHandle(page, 'a1'));
       await carryOutLeft(page, at);
+      await holdTimers(page);
       await onto(page, 'S2');
       await holdSweepAt(page, '[data-carry-dwell]', SPRING_OPEN_MS);
       const measure = (rowId: string) =>
@@ -1080,6 +1081,7 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
       const [ground] = await pixelsAt(page, [[xAt(0.75), y]]);
       const at = await pickUp(page, tabHandle(page, 'a1'));
       await carryOutLeft(page, at);
+      await holdTimers(page);
       await onto(page, 'S2');
       // PREMISE: the probes are clear of the card and its shadow.
       expect((await boxOf(page.locator(CARD))).y - 8).toBeGreaterThan(y);
