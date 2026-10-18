@@ -69,6 +69,29 @@ for (const [kind, opener, renamed] of RENAMES) {
       );
     });
 
+    // KAN-685. The arrows moved the caret, not focus: no ring on the title.
+    test('an arrow key in the field, then Enter: focus on the title with no ring', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openSaved(context, extensionId, 'popup', {
+        sessions: [session('S1', 'Research', [w1])],
+      });
+      await page.getByRole('button', { name: opener, exact: true }).click();
+      await page.locator('input:focus').fill('Renamed');
+      await page.keyboard.press('ArrowLeft');
+      await page.keyboard.press('Enter');
+
+      const title = page.getByRole('button', {
+        name: renamed + 'Renamed',
+        exact: true,
+      });
+      await expect(title).toBeFocused();
+      expect(
+        await title.evaluate((el) => getComputedStyle(el).outlineStyle)
+      ).toBe('none');
+    });
+
     test('Esc cancels and leaves focus on the title', async ({
       context,
       extensionId,

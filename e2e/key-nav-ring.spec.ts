@@ -167,6 +167,59 @@ test('a click into a text field draws no ring; Tab into it does', async ({
   expect(await leftEdge(page, field.locator('..'))).toBe(RING);
 });
 
+// KAN-685. In a text field the arrows, Home and End move the caret.
+test('a click into a text field, then the caret keys: still no ring', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openPopup(context, extensionId);
+  const field = search(page);
+  await page.addStyleTag({ content: 'input { caret-color: transparent; }' });
+  await field.click();
+  await page.keyboard.type('ab');
+
+  for (const k of ['ArrowLeft', 'ArrowRight', 'Home', 'End', 'ArrowUp'])
+    await page.keyboard.press(k);
+
+  await expect(field).toBeFocused();
+  const clear = page.getByRole('button', { name: 'Clear search' });
+  expect(await focusPaint(page, field.locator('..'), clear)).toBe(0);
+});
+
+// KAN-685. A caret key a handler moves focus out on is navigation: Open now's
+// search field hands ArrowDown to its first result (KAN-330 K1).
+test('ArrowDown from a clicked search field to a result draws its ring', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  await serviceWorker.evaluate(() =>
+    chrome.tabs.create({
+      url: 'data:text/html,<title>Kiwi</title>',
+      active: false,
+    })
+  );
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 800 });
+  await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+  const openNow = page.locator('[data-pane="open-now"]');
+  const result = openNow.getByRole('button', {
+    name: 'Switch to tab: Kiwi',
+    exact: true,
+  });
+  await expect(result).toBeVisible();
+  await openNow
+    .getByRole('textbox', { name: 'Search open tabs', exact: true })
+    .click();
+  // Typing is not navigation; it leaves Kiwi the first result.
+  await page.keyboard.type('Kiwi');
+
+  await page.keyboard.press('ArrowDown');
+
+  await expect(result).toBeFocused();
+  expect(await focusPaint(page, result)).toBeGreaterThan(0);
+});
+
 test('a click after keyboard navigation takes the ring away', async ({
   context,
   extensionId,
