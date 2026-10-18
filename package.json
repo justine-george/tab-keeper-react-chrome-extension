@@ -1,7 +1,7 @@
 {
   "name": "tab-keeper-react-chrome-extension",
   "author": "Justine George",
-  "description": "Save your Chrome windows, tabs and tab groups as sessions, then sync them across desktops. No account or email needed.",
+  "description": "See open windows and saved sessions side by side. Save tabs and tab groups in one click, switch sessions, and sync with no sign-up.",
   "private": true,
   "version": "1.9.0",
   "type": "module",
