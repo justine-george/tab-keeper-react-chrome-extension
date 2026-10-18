@@ -43,7 +43,7 @@ import {
 import { shouldAskTabGroupsInSetup } from '../../utils/functions/tabGroupsOffer';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { ICON, TYPE } from '../../styles/scale';
-import { focusRingCss } from '../common/focusRing';
+import { focusRingCss, focusRingOutsideCss } from '../common/focusRing';
 import {
   dialogButtonStyles,
   flushLinkCss,
@@ -283,6 +283,7 @@ export const SetupModal: React.FC = () => {
     color: ${COLORS.LABEL_L1_COLOR};
     a {
       color: ${COLORS.TEXT_COLOR};
+      ${focusRingOutsideCss(COLORS)}
     }
     /* Korean wraps mid-word otherwise; ja and zh have no spaces to break at. */
     &:lang(ko) {

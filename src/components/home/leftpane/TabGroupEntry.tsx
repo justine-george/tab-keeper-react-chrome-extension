@@ -24,6 +24,7 @@ import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, TYPE } from '../../../styles/scale';
 import { springSweepStyle } from '../../common/springOpen';
+import { focusRingAboveCss } from '../../common/focusRing';
 import { SAVED_TEXT_INSET } from './savedListInset';
 import { useRowActionGuard } from './useRowActionGuard';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
@@ -161,6 +162,9 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     align-items: flex-start;
     width: 100%;
     min-width: 0;
+    &:focus-visible {
+      outline: none;
+    }
   `;
 
   const rightStyle = css`
@@ -272,6 +276,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
 
   const containerStyle = css`
     position: relative;
+    /* KAN-671. The row's ring, over the actions strip; the button's own is off. */
+    ${focusRingAboveCss(COLORS, '&:has(> button:focus-visible)')}
     display: flex;
     justify-content: space-between;
     align-items: center;

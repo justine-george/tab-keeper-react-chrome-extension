@@ -7,6 +7,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { ICON, TYPE } from '../../styles/scale';
 import { slidingPairColors } from './slidingPairColors';
+import { focusRingCss, focusRingOnTextGroundCss } from './focusRing';
 import { silenceRepeatedTitle } from './silenceRepeatedTitle';
 
 /** One side of a SlidingPair. */
@@ -160,6 +161,16 @@ export default function SlidingPair<T extends string>({
         transform: none;
       }
     }
+    /* KAN-671 A. The pressed half is under the knob, which is the ring's
+       colour, so its ring is drawn on the knob's copy of that half. */
+    ${options
+      .map((_, i) =>
+        focusRingOnTextGroundCss(
+          COLORS,
+          `&:has(> button:nth-of-type(${i + 1})[aria-pressed='true']:focus-visible) > [data-sliding-knob] > span:nth-of-type(${i + 1})`
+        )
+      )
+      .join('')}
   `;
 
   // Shared by the buttons and the knob's copies, so the two lie exactly over
@@ -183,6 +194,7 @@ export default function SlidingPair<T extends string>({
     ${cellStyle(option)}
     color: ${option.icon ? colors.glyph : colors.word};
     cursor: pointer;
+    ${focusRingCss(COLORS)}
     @media (hover: hover) and (pointer: fine) {
       &:not([aria-pressed='true']):hover {
         background-color: ${COLORS.ICON_HOVER_COLOR};

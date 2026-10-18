@@ -1,6 +1,7 @@
 import { css } from '@emotion/react';
 
 import { ThemeColors, useThemeColors } from '../../../hooks/useThemeColors';
+import { focusRingOutsideCss } from '../../common/focusRing';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { DURATION, TYPE } from '../../../styles/scale';
 
@@ -67,6 +68,7 @@ export default function ThemeSwatch({
     cursor: pointer;
     font-family: ${FONT_FAMILY};
     color: ${PAGE.LABEL_L1_COLOR};
+    ${focusRingOutsideCss(PAGE)}
   `;
 
   // A stroke: a line of "text" at thumbnail scale. 3px, so it survives the
