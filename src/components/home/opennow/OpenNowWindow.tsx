@@ -4,7 +4,7 @@ import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
 import ClickableRow from '../../common/ClickableRow';
-import { focusRingCss } from '../../common/focusRing';
+import { focusRingOverTickCss } from '../../common/focusRing';
 import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import GroupColorPicker from '../../common/GroupColorPicker';
 import Icon from '../../common/Icon';
@@ -735,6 +735,10 @@ export default function OpenNowWindow({
                           align-items: center;
                           min-height: 32px;
                           transition: transform ${DURATION.MOVE} ease;
+                          ${focusRingOverTickCss(
+                            COLORS,
+                            '&:has(> input:focus-visible)'
+                          )}
                           /* Keyboard focus only (KAN-636), in its own rule beside :hover (KAN-94). */
                           &:hover {
                             background-color: ${COLORS.HOVER_COLOR};
@@ -778,7 +782,9 @@ export default function OpenNowWindow({
                                 align-self: stretch;
                                 width: 100%;
                                 min-width: 0;
-                                ${focusRingCss(COLORS)}
+                                &:focus {
+                                  outline: none;
+                                }
                                 ${placeholderStyle(COLORS.PLACEHOLDER_COLOR)}
                               `}
                             />

@@ -11,7 +11,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import ClickableRow from '../../common/ClickableRow';
-import { focusRingCss } from '../../common/focusRing';
+import { focusRingOverTickCss } from '../../common/focusRing';
 import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import { DropBoxLabel } from '../../common/dropBox';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
@@ -871,7 +871,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               // editing there is no title to keep clear, and the reserved gap
               // left the field stopping 9px short of the row's edge.
               <div
-                css={css(parentLinkStyle + 'flex-grow: 1; padding-right: 0;')}
+                css={css(
+                  parentLinkStyle +
+                    'flex-grow: 1; padding-right: 0;' +
+                    focusRingOverTickCss(COLORS, '&:has(> input:focus-visible)')
+                )}
               >
                 <input
                   value={newTitle}
@@ -904,7 +908,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     height: 100%;
                     width: 100%;
                     min-width: 0;
-                    ${focusRingCss(COLORS)}
+                    &:focus {
+                      outline: none;
+                    }
                     ${renameFieldPlaceholder}
                   `}
                 />
@@ -1238,6 +1244,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                          height, so they now fit the row rather than
                          overflowing a shorter one. */
                         min-height: 32px;
+                        ${focusRingOverTickCss(
+                          COLORS,
+                          '&:has(> input:focus-visible)'
+                        )}
                         /* Fills like the window row above and the tab rows
                          below, which both paint HOVER_COLOR under the pointer.
                          Without it this row revealed its actions while giving
@@ -1321,7 +1331,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                             align-self: stretch;
                             width: 100%;
                             min-width: 0;
-                            ${focusRingCss(COLORS)}
+                            &:focus {
+                              outline: none;
+                            }
                             ${renameFieldPlaceholder}
                           `}
                         />

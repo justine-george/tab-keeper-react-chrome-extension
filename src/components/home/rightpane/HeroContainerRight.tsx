@@ -12,7 +12,7 @@ import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
 import Button from '../../common/Button';
 import ClickableRow from '../../common/ClickableRow';
-import { focusRingCss } from '../../common/focusRing';
+import { focusRingOverTickCss } from '../../common/focusRing';
 import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
@@ -318,12 +318,12 @@ export default function HeroContainerRight() {
       <div css={topStyle}>
         <div
           css={css`
-            position: relative;
             display: flex;
             flex-direction: row;
             justify-content: space-between;
             align-items: center;
             width: 100%;
+            ${focusRingOverTickCss(COLORS, '&:has(> input:focus-visible)')}
           `}
         >
           {isEditing ? (
@@ -358,7 +358,9 @@ export default function HeroContainerRight() {
                 padding-left: 8px;
                 padding-right: 8px;
                 flex-grow: 1;
-                ${focusRingCss(COLORS)}
+                &:focus {
+                  outline: none;
+                }
               `}
             />
           ) : (
@@ -420,7 +422,6 @@ export default function HeroContainerRight() {
                   tooltipText={t('Save changes')}
                   ariaLabel={t('Save changes')}
                   type="done"
-                  backgroundColor={COLORS.SECONDARY_COLOR}
                   onClick={(e) => {
                     e.stopPropagation();
                     titleFocus.ask('title');
