@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
 import Icon from '../common/Icon';
+import { focusRingOutsideCss } from '../common/focusRing';
 import TabKeeperMark from '../common/TabKeeperMark';
 import WelcomeHero from './WelcomeHero';
 import { useFontFamily } from '../../hooks/useFontFamily';
@@ -257,6 +258,7 @@ export const CloudConsentModal: React.FC = () => {
     color: ${COLORS.LABEL_L1_COLOR};
     a {
       color: ${COLORS.TEXT_COLOR};
+      ${focusRingOutsideCss(COLORS)}
     }
   `;
   // KAN-654: the way out, then the yes half as wide again, at the right.

@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import Button from '../../common/Button';
+import { focusRingOutsideCss } from '../../common/focusRing';
 import { RecentlyDeleted } from './RecentlyDeleted';
 import ClickableTabKeeperMark from '../../common/ClickableTabKeeperMark';
 import { HeartGlyph } from '../../common/glyphs';
@@ -922,6 +923,7 @@ const SettingsDetailsContainer: React.FC = () => {
               margin-top: 6px;
               font-size: ${TYPE.SECONDARY};
               color: ${COLORS.TEXT_COLOR};
+              ${focusRingOutsideCss(COLORS)}
             `}
           >
             {t('Privacy policy')}

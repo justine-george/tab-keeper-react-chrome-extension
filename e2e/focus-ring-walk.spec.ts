@@ -2,10 +2,20 @@ import type { JSHandle, Page } from '@playwright/test';
 
 import { hasCloudConfig } from './fixtures/cloud';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
-import { openPopup, seed, S1, S2, S3, S4, TAB_VIEW, sessionRow } from './fixtures/betweenSessions';
-import { openPopup as openWelcome } from './fixtures/onboarding';
+import {
+  openPopup,
+  seed,
+  S1,
+  S2,
+  S3,
+  S4,
+  TAB_VIEW,
+  sessionRow,
+} from './fixtures/betweenSessions';
+import { openFullView, openPopup as openWelcome } from './fixtures/onboarding';
 import { ON_TITLE } from './fixtures/savedRow';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
+import { stubToolbarPin } from './fixtures/toolbarPin';
 import { DARKENHEIMER_THEME, LIGHT_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-671. Tab through each page and require the app's ring (KAN-405: 2px
@@ -25,14 +35,27 @@ const rgb = (hex: string) => {
 
 const DAY = 24 * 60 * 60 * 1000;
 
+const SETTINGS_CATEGORIES = [
+  'Display',
+  'Language',
+  'Quick access',
+  'Sync & backup',
+  'Sessions',
+  'Recently deleted',
+  'About',
+  'Help',
+];
+
 interface Stop {
   name: string;
   ring: string;
 }
 
 // The focused element's outline, or its parent's: a search field's ring is
-// drawn round its whole row, glass and keycap included. Null at a stop
-// already in `seen`, and outside the page.
+// drawn round its whole row, glass and keycap included. A visually hidden
+// radio's ring is a ::after border inside its label, on the tile it stands
+// for (DefaultSaveChoice). 'lap' at a stop already in `seen`; null outside
+// the page.
 const readStop = (page: Page, seen: JSHandle<WeakSet<Element>>) =>
   page.evaluate((seen): Stop | 'lap' | null => {
     const el = document.activeElement;
@@ -45,9 +68,22 @@ const readStop = (page: Page, seen: JSHandle<WeakSet<Element>>) =>
         ? 'none'
         : `${s.outlineStyle} ${s.outlineWidth} ${s.outlineColor}`;
     };
-    const own = outline(el);
+    const after = (e: Element) => {
+      const s = getComputedStyle(e, '::after');
+      return s.content === 'none' || s.borderStyle === 'none'
+        ? 'none'
+        : `${s.borderStyle} ${s.borderWidth} ${s.borderColor}`;
+    };
+    const parent = el.parentElement;
+    const hidden = el.getBoundingClientRect().width <= 1;
     const ring =
-      own === 'none' && el.parentElement ? outline(el.parentElement) : own;
+      hidden && parent
+        ? ([...parent.querySelectorAll('*')]
+            .map(after)
+            .find((r) => r !== 'none') ?? 'none')
+        : outline(el) === 'none' && parent
+          ? outline(parent)
+          : outline(el);
     const name =
       el.getAttribute('aria-label') ||
       (el.id ? `#${el.id}` : el.textContent?.trim().slice(0, 40) || el.tagName);
@@ -65,7 +101,9 @@ async function walk(page: Page, max: number): Promise<Stop[]> {
     if (stop === 'lap') return stops;
     if (stop !== null) stops.push(stop);
   }
-  throw new Error(`no lap in ${max} Tabs; last ${stops[stops.length - 1]?.name}`);
+  throw new Error(
+    `no lap in ${max} Tabs; last ${stops[stops.length - 1]?.name}`
+  );
 }
 
 function expectRingEverywhere(stops: Stop[], text: string, reached: string[]) {
@@ -115,22 +153,53 @@ for (const [theme, colors] of THEMES) {
     expect(stops.some((s) => s.name.startsWith('Switch to tab: '))).toBe(true);
   });
 
-  test(`every stop in Settings › Display draws the ring (${theme})`, async ({
+  test(`every stop in every Settings category draws the ring (${theme})`, async ({
     context,
     extensionId,
   }) => {
     await seedSettings(context, { theme });
     const page = await openPopup(context, extensionId);
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Go back' })).toBeVisible();
-    expectRingEverywhere(await walk(page, 50), colors.TEXT_COLOR, [
+    const stops: Stop[] = [];
+    for (const category of SETTINGS_CATEGORIES) {
+      await page
+        .locator('[data-pane="sessions"]')
+        .getByRole('button', { name: category, exact: true })
+        .click();
+      stops.push(...(await walk(page, 80)));
+    }
+    expectRingEverywhere(stops, colors.TEXT_COLOR, [
       'Go back',
-      'Display',
-      'About',
+      ...SETTINGS_CATEGORIES,
       'Paper',
       'Ink',
       '12-hour',
       '24-hour',
+      'Privacy policy',
+    ]);
+  });
+
+  test(`every stop in every setup step draws the ring (${theme})`, async ({
+    context,
+    extensionId,
+  }) => {
+    await stubToolbarPin(context, { pinned: true });
+    await seedSessions(context, buildContainer());
+    await seedSettings(context, { setupState: 'pending', theme });
+    const page = await openFullView(context, extensionId);
+    const dialog = page.locator('dialog[open]');
+    await expect(dialog).toBeVisible();
+    const stops: Stop[] = [];
+    for (;;) {
+      stops.push(...(await walk(page, 30)));
+      const next = dialog.getByRole('button', { name: 'Next', exact: true });
+      if ((await next.count()) === 0) break;
+      await next.click();
+    }
+    expectRingEverywhere(stops, colors.TEXT_COLOR, [
+      'Paper',
+      'Ink',
+      'privacy policy',
     ]);
   });
 

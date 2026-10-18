@@ -11,6 +11,7 @@ import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
 import { ICON, TYPE } from '../../styles/scale';
 import { placeholderStyle } from '../../styles/placeholder';
 import { SEARCH_SHORTCUT_KEY } from './searchShortcut';
+import { focusRingCss } from './focusRing';
 
 // The header's action row height (8px + CONTROL.ROW), then a 4px gap.
 const ROW_HEIGHT = '40px';
@@ -91,6 +92,8 @@ export default function SearchRow({
     margin-bottom: ${ROW_GAP};
     border-bottom: 1px solid ${COLORS.DIVIDER_COLOR};
     font-family: ${FONT_FAMILY};
+    /* KAN-671. The field has no box; the ring goes round its row. */
+    ${focusRingCss(COLORS, '&:has(> input:focus-visible)')}
   `;
 
   const glassStyle = css`
