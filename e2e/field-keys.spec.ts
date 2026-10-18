@@ -25,13 +25,18 @@ async function openPopup(
   await page.goto(`chrome-extension://${extensionId}/index.html`);
   // Barrier: goto resolves before React mounts. Locale-free.
   await page.locator('[data-tour-anchor="save"]').waitFor();
-  // The window hears a key after every handler in the page has had it.
+  // Every Esc, kept from the window's capture phase, so a handler that stops
+  // it still lets it be read; its defaultPrevented is read once dispatch ends.
   await page.evaluate(() => {
-    const w = window as unknown as { escPrevented: boolean[] };
-    w.escPrevented = [];
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') w.escPrevented.push(e.defaultPrevented);
-    });
+    const w = window as unknown as { escapes: KeyboardEvent[] };
+    w.escapes = [];
+    window.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key === 'Escape') w.escapes.push(e);
+      },
+      true
+    );
   });
   return page;
 }
@@ -40,8 +45,10 @@ const nameField = (page: Page): Locator => page.locator('input#name');
 const search = (page: Page): Locator =>
   page.getByRole('textbox', { name: 'Search saved tabs', exact: true });
 const escPrevented = (page: Page) =>
-  page.evaluate(
-    () => (window as unknown as { escPrevented: boolean[] }).escPrevented
+  page.evaluate(() =>
+    (window as unknown as { escapes: KeyboardEvent[] }).escapes.map(
+      (e) => e.defaultPrevented
+    )
   );
 
 test('Esc in the name field leaves it, keeps the name, and keeps the popup', async ({
