@@ -251,12 +251,13 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     });
   }
 
-  const HOVER_BY_THEME = new Map([
-    ['Light', LIGHT_THEME.HOVER_COLOR],
-    ['WarmLight', WARM_LIGHT_THEME.HOVER_COLOR],
-    ['BBPink', BB_PINK_THEME.HOVER_COLOR],
-    ['Darkenheimer', DARKENHEIMER_THEME.HOVER_COLOR],
-    ['Blue', BLUE_THEME.HOVER_COLOR],
+  // KAN-669: the press fill, which stands off the list in every theme.
+  const PRESS_BY_THEME = new Map([
+    ['Light', LIGHT_THEME.ACTIVE_COLOR],
+    ['WarmLight', WARM_LIGHT_THEME.ACTIVE_COLOR],
+    ['BBPink', BB_PINK_THEME.ACTIVE_COLOR],
+    ['Darkenheimer', DARKENHEIMER_THEME.ACTIVE_COLOR],
+    ['Blue', BLUE_THEME.ACTIVE_COLOR],
   ]);
   for (const theme of THEMES) {
     test(`held at half, the title row is swept from the left (${theme})`, async ({
@@ -279,17 +280,17 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
       expect(
         (await boxOf(page.locator('[data-drag-card]'))).y - 2
       ).toBeGreaterThan(y);
-      const hover = HOVER_BY_THEME.get(theme)?.toUpperCase();
-      if (hover === undefined) throw new Error(`no hover token for ${theme}`);
-      // The fill is the theme's hover token, as declared and as painted.
-      expect(rgbToHex(half.color)).toBe(hover);
+      const press = PRESS_BY_THEME.get(theme)?.toUpperCase();
+      if (press === undefined) throw new Error(`no press token for ${theme}`);
+      // The fill is the theme's press token, as declared and as painted.
+      expect(rgbToHex(half.color)).toBe(press);
       // PREMISE: the two can be told apart.
-      expect(hover).not.toBe(ground);
+      expect(press).not.toBe(ground);
       const [left, right] = await pixelsAt(page, [
         [xAt(0.25), y],
         [xAt(0.75), y],
       ]);
-      expect([left, right]).toEqual([hover, ground]);
+      expect([left, right]).toEqual([press, ground]);
       expect(half.size).toBe('50% 100%');
       // PREMISE: read before the open.
       expect(await isFolded(page, 'w2')).toBe(true);
@@ -483,7 +484,7 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     const [right] = await pixelsAt(page, [[t.x + t.width * 0.97, t.y + 3]]);
     // PREMISE: read before the open.
     expect(await isFolded(page, 'w2')).toBe(true);
-    expect(right).toBe(LIGHT_THEME.HOVER_COLOR.toUpperCase());
+    expect(right).toBe(LIGHT_THEME.ACTIVE_COLOR.toUpperCase());
     await playSweep(page, 'w2');
     await expect(tabHandle(page, 'b0')).toBeVisible();
     const { started, startedOnTimeline, opened } = dwellToOpen(

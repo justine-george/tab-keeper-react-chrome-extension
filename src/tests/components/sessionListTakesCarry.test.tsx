@@ -344,7 +344,7 @@ describe('reduced motion', () => {
     expect(targetId()).toEqual(['S3']);
     expect(sweeps()).toEqual([]);
     expect(getComputedStyle(entryOf('S3')).boxShadow).toMatch(
-      asWritten(LIGHT_THEME.HOVER_COLOR)
+      asWritten(LIGHT_THEME.ACTIVE_COLOR)
     );
     wait(599);
     expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
@@ -426,7 +426,7 @@ describe('the target look (D2 A)', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  test('a selected row shows the hover fill, not the selection fill, with a LABEL_L2 outline', async () => {
+  test('a selected row shows the press fill, not the selection fill, with a LABEL_L2 outline', async () => {
     await renderList();
     const selected = entryOf('S1');
     // The premise: the selected row at rest is its selection fill, no shadow
@@ -441,24 +441,24 @@ describe('the target look (D2 A)', () => {
     moveTo(rowY(0));
 
     const style = getComputedStyle(entryOf('S1'));
-    // The shadow paints over the background, so the row reads as hover.
+    // The shadow paints over the background, so the row reads as pressed (KAN-669).
     expect(style.boxShadow).toContain('100vw');
-    expect(style.boxShadow).toMatch(asWritten(LIGHT_THEME.HOVER_COLOR));
+    expect(style.boxShadow).toMatch(asWritten(LIGHT_THEME.ACTIVE_COLOR));
     expect(style.outlineStyle).toBe('solid');
     expect(style.outlineWidth).toBe('2px');
     expect(style.outlineColor).toMatch(asWritten(LIGHT_THEME.LABEL_L2_COLOR));
     expect(style.outlineOffset).toBe('-2px');
   });
 
-  test('an unselected target row sweeps the hover fill in over the dwell, inside the same outline', async () => {
+  test('an unselected target row sweeps the press fill in over the dwell, inside the same outline', async () => {
     await renderList();
     handOff();
     moveTo(rowY(2));
 
     const style = getComputedStyle(entryOf('S3'));
     // The sweep is the only fill: the shadow fill would cover it.
-    expect(style.boxShadow).not.toMatch(asWritten(LIGHT_THEME.HOVER_COLOR));
-    expect(style.backgroundImage).toMatch(asWritten(LIGHT_THEME.HOVER_COLOR));
+    expect(style.boxShadow).not.toMatch(asWritten(LIGHT_THEME.ACTIVE_COLOR));
+    expect(style.backgroundImage).toMatch(asWritten(LIGHT_THEME.ACTIVE_COLOR));
     expect(style.backgroundRepeat).toBe('no-repeat');
     // jsdom keeps the shorthand as written; e2e reads the painted sweep.
     expect(style.animation).toMatch(
@@ -468,7 +468,7 @@ describe('the target look (D2 A)', () => {
     // And the row next to it wears none of it.
     expect(getComputedStyle(entryOf('S2')).outlineStyle).not.toBe('solid');
     expect(getComputedStyle(entryOf('S2')).backgroundImage).not.toMatch(
-      asWritten(LIGHT_THEME.HOVER_COLOR)
+      asWritten(LIGHT_THEME.ACTIVE_COLOR)
     );
   });
 });

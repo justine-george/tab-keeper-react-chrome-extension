@@ -228,7 +228,7 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
         label: 'New session',
       });
       expect(rgbToHex((await targetLook(page)).fill)).toBe(
-        LIGHT_THEME.HOVER_COLOR
+        LIGHT_THEME.ACTIVE_COLOR
       );
       await page.mouse.up();
 
