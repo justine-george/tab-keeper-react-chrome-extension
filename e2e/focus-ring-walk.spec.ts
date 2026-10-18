@@ -16,6 +16,7 @@ import { openFullView, openPopup as openWelcome } from './fixtures/onboarding';
 import { pixelsAt, rgbToHex } from './fixtures/pixels';
 import { ON_TITLE } from './fixtures/savedRow';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
+import { standIn } from './fixtures/standInPages';
 import { stubToolbarPin } from './fixtures/toolbarPin';
 import { DARKENHEIMER_THEME, LIGHT_THEME } from '../src/hooks/useThemeColors';
 
@@ -298,6 +299,94 @@ for (const [theme, colors] of THEMES) {
     expect(inside).toBe(rgbToHex(rgb(colors.SELECTION_COLOR)));
     expect([left, right]).toEqual(
       [colors.TEXT_COLOR, colors.TEXT_COLOR].map((c) => c.toUpperCase())
+    );
+  });
+}
+
+// KAN-676. A rename field exists only while renaming, so no walk reaches it:
+// open each with Tab and Enter, then require the ring, read and painted.
+async function expectFieldRing(
+  page: Page,
+  opener: Locator,
+  colors: typeof LIGHT_THEME
+) {
+  await page.mouse.move(2, 2);
+  await opener.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(opener).toBeFocused();
+  await page.keyboard.press('Enter');
+  const field = page.locator('input:focus');
+  // PREMISE: Enter opened the field and focus is in it.
+  await expect(field).toHaveCount(1);
+  expect(
+    await field.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return `${s.outlineStyle} ${s.outlineWidth} ${s.outlineColor}`;
+    })
+  ).toBe(`solid 2px ${rgb(colors.TEXT_COLOR)}`);
+  const box = await field.boundingBox();
+  if (box === null) throw new Error('no field box');
+  const midY = box.y + box.height / 2;
+  const [ground, left, right] = await pixelsAt(page, [
+    [box.x + 5, midY],
+    [box.x + 3, midY],
+    [box.x + box.width - 3, midY],
+  ]);
+  // Control: the decode reads the field's own fill inside the ring.
+  expect(ground).toBe(colors.PRIMARY_COLOR.toUpperCase());
+  expect([left, right]).toEqual(
+    [colors.TEXT_COLOR, colors.TEXT_COLOR].map((c) => c.toUpperCase())
+  );
+  await page.keyboard.press('Escape');
+  await expect(field).toHaveCount(0);
+}
+
+for (const [theme, colors] of THEMES) {
+  test(`every saved rename field draws the ring (${theme})`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, { theme });
+    const page = await openPopup(context, extensionId);
+    for (const name of [
+      'Rename session: Source',
+      'Rename window: w1',
+      'Rename group: Alpha',
+    ]) {
+      await expectFieldRing(
+        page,
+        page.getByRole('button', { name, exact: true }),
+        colors
+      );
+    }
+  });
+
+  test(`the Open now group rename field draws the ring (${theme})`, async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedSettings(context, { theme });
+    const page = await context.newPage();
+    await page.setViewportSize(TAB_VIEW);
+    await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+    const windowId = await serviceWorker.evaluate(async (urls) => {
+      const win = await chrome.windows.create({ url: urls, focused: false });
+      const [first, second] = (win?.tabs ?? []).map((tab) => tab.id ?? -1);
+      const groupId = await chrome.tabs.group({
+        tabIds: [first, second],
+        createProperties: { windowId: win?.id },
+      });
+      await chrome.tabGroups.update(groupId, { title: 'Kyoto' });
+      return win?.id ?? -1;
+    }, ['Temples', 'Gardens'].map(standIn));
+    await expectFieldRing(
+      page,
+      page
+        .locator(`[data-open-window-id="${windowId}"]`)
+        .getByRole('button', { name: 'Rename group: Kyoto' }),
+      colors
     );
   });
 }

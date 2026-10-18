@@ -11,6 +11,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import ClickableRow from '../../common/ClickableRow';
+import { focusRingCss } from '../../common/focusRing';
 import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import { DropBoxLabel } from '../../common/dropBox';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
@@ -903,9 +904,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     height: 100%;
                     width: 100%;
                     min-width: 0;
-                    &:focus {
-                      outline: none;
-                    }
+                    ${focusRingCss(COLORS)}
                     ${renameFieldPlaceholder}
                   `}
                 />
@@ -1322,9 +1321,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                             align-self: stretch;
                             width: 100%;
                             min-width: 0;
-                            &:focus {
-                              outline: none;
-                            }
+                            ${focusRingCss(COLORS)}
                             ${renameFieldPlaceholder}
                           `}
                         />
