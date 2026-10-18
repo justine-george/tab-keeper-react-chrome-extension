@@ -393,7 +393,8 @@ export default function HeroContainerRight() {
               top: 50%;
               right: 0;
               transform: translateY(-50%);
-              opacity: ${isContainerHovered ? 1 : 0};
+              /* The tick is the edit's save control, shown for the whole edit as the window's is (KAN-677). */
+              opacity: ${isEditing || isContainerHovered ? 1 : 0};
               transition: opacity ${DURATION.COLOR} ease-out;
               /* The keyboard's equivalent of the hover reveal (KAN-68); keyboard focus only (KAN-636). */
               &:has(:focus-visible) {
