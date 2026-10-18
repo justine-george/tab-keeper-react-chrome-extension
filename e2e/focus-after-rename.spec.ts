@@ -6,6 +6,8 @@ import {
   savedWindow,
   session,
 } from './fixtures/savedWindows';
+import { pixelsAt } from './fixtures/pixels';
+import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 import type { windowGroupData } from '../src/redux/slices/tabContainerDataStateSlice';
 
 // KAN-389, KAN-400. Enter and Esc end a rename on the title it replaced, in the real popup with real keys.
@@ -90,6 +92,91 @@ for (const [kind, opener, renamed] of RENAMES) {
       expect(
         await title.evaluate((el) => getComputedStyle(el).outlineStyle)
       ).toBe('none');
+    });
+
+    // KAN-685 (pick B). Opened from the keyboard, Enter hands back a ringed title; the ring must not cross its text.
+    test('a keyboard rename, then Enter: the ring on the title clears its text', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openSaved(context, extensionId, 'popup', {
+        sessions: [session('S1', 'Research', [w1])],
+      });
+      const opened = page.getByRole('button', { name: opener, exact: true });
+      // Click, Esc, then Shift+Tab and Tab back: the title holds focus under keyboard navigation.
+      await opened.click();
+      await page.keyboard.press('Escape');
+      await expect(opened).toBeFocused();
+      await page.keyboard.press('Shift+Tab');
+      await page.keyboard.press('Tab');
+      await expect(opened).toBeFocused();
+      await page.keyboard.press('Enter');
+      await page.locator('input:focus').fill('Renamed');
+      await page.keyboard.press('Enter');
+
+      const title = page.getByRole('button', {
+        name: renamed + 'Renamed',
+        exact: true,
+      });
+      await expect(title).toBeFocused();
+      const ring = await title.evaluate((el) => {
+        const s = getComputedStyle(el);
+        const box = el.getBoundingClientRect();
+        const ink = {
+          left: Infinity,
+          top: Infinity,
+          right: -Infinity,
+          bottom: -Infinity,
+        };
+        const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+          const range = document.createRange();
+          range.selectNodeContents(n);
+          const r = range.getBoundingClientRect();
+          if (r.width === 0) continue;
+          ink.left = Math.min(ink.left, r.left);
+          ink.top = Math.min(ink.top, r.top);
+          ink.right = Math.max(ink.right, r.right);
+          ink.bottom = Math.max(ink.bottom, r.bottom);
+        }
+        return {
+          style: `${s.outlineStyle} ${s.outlineWidth}`,
+          offset: parseFloat(s.outlineOffset),
+          box: {
+            left: box.left,
+            top: box.top,
+            right: box.right,
+            bottom: box.bottom,
+          },
+          ink,
+        };
+      });
+      // PREMISE: the app's 2px ring is drawn, and there is text to clear.
+      expect(ring.style).toBe('solid 2px');
+      expect(ring.ink.right).toBeGreaterThan(ring.ink.left);
+      // The ring's inner edge lies `offset` outside the box (inside, when negative); the text sits within it.
+      const inner = {
+        left: ring.box.left - ring.offset,
+        top: ring.box.top - ring.offset,
+        right: ring.box.right + ring.offset,
+        bottom: ring.box.bottom + ring.offset,
+      };
+      expect(ring.ink.left).toBeGreaterThanOrEqual(inner.left);
+      expect(ring.ink.right).toBeLessThanOrEqual(inner.right);
+      expect(ring.ink.top).toBeGreaterThanOrEqual(inner.top);
+      expect(ring.ink.bottom).toBeLessThanOrEqual(inner.bottom);
+      // And it paints there, unclipped: the ring colour mid-band on all four sides.
+      const mid = ring.offset + 1;
+      const cx = (ring.box.left + ring.box.right) / 2;
+      const cy = (ring.box.top + ring.box.bottom) / 2;
+      expect(
+        await pixelsAt(page, [
+          [cx, ring.box.top - mid],
+          [cx, ring.box.bottom + mid - 1],
+          [ring.box.left - mid, cy],
+          [ring.box.right + mid - 1, cy],
+        ])
+      ).toEqual(Array(4).fill(LIGHT_THEME.TEXT_COLOR));
     });
 
     test('Esc cancels and leaves focus on the title', async ({
