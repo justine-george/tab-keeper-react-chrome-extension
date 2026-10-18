@@ -154,3 +154,33 @@ test('a click after keyboard navigation takes the ring away', async ({
   await expect(row(page, 'Bravo')).toBeFocused();
   expect(await focusPaint(page, row(page, 'Bravo').locator('..'))).toBe(0);
 });
+
+// The export page is its own document: it tracks keyboard navigation too.
+test('Tab on the export page draws the themed ring', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSessions(context, {
+    ...buildContainer(SESSIONS),
+    selectedTabGroupId: 's-alpha',
+  });
+  const page = await context.newPage();
+  await page.goto(
+    `chrome-extension://${extensionId}/export.html?session=s-alpha`
+  );
+  const edit = page.getByRole('button', { name: 'Edit', exact: true });
+  await edit.waitFor();
+
+  await page.keyboard.press('Tab');
+
+  await expect(edit).toBeFocused();
+  const r = parseInt(RING.slice(1, 3), 16);
+  const g = parseInt(RING.slice(3, 5), 16);
+  const b = parseInt(RING.slice(5, 7), 16);
+  expect(
+    await edit.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return `${s.outlineStyle} ${s.outlineWidth} ${s.outlineColor}`;
+    })
+  ).toBe(`solid 2px rgb(${r}, ${g}, ${b})`);
+});
