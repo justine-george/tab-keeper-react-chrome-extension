@@ -165,6 +165,7 @@ describe('reaching the session list hands the drag to the carry', () => {
       x,
       y: 40,
       owner: 'layer',
+      pressOffRowX: 0,
     });
     // Still held, the kind still published: the carry took them over.
     expect(isDragHeld()).toBe(true);

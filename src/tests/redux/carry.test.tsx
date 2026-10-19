@@ -80,6 +80,7 @@ describe('the carry channel', () => {
       x: 40,
       y: 50,
       owner: 'layer',
+      pressOffRowX: 0,
     });
     expect(heard).toHaveBeenCalledTimes(1);
     unsubscribe();

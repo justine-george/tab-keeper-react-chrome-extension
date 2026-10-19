@@ -475,7 +475,7 @@ function pressRecord(
   const scroller = scrollableAncestor(el);
   return {
     rowId,
-    // Read at activation, for a press; an adoption has none.
+    // Read at activation: from the press, or for an adoption from its carry.
     pressOffRowX: 0,
     startX: x,
     startY: y,
@@ -1480,7 +1480,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               // a cancel shows the source again (KAN-406), unless it is gone.
               if (rows.current.has(rowId))
                 scroller.scrollTop = scrollTopAtPress;
-            }
+            },
+        l.pressOffRowX
       );
       letGo(l);
       return true;
@@ -1557,9 +1558,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       l.heldWindow = windowOf(l.heldEl);
       // KAN-704. A press left of the held row's box, on its drag dots. Read
       // here with the rest, after the kind is published; across, nothing the
-      // collapse changes. An adoption was never pressed: its start is where
-      // the carry's pointer came in.
-      if (!l.adopted && l.heldEl) {
+      // collapse changes. An adoption's start is only where the carry's
+      // pointer came in, so it takes the press's from the carry (KAN-706).
+      if (l.adopted) {
+        l.pressOffRowX = currentCarry()?.pressOffRowX ?? 0;
+      } else if (l.heldEl) {
         const rowLeft = l.heldEl.getBoundingClientRect().left;
         if (l.startX < rowLeft) l.pressOffRowX = rowLeft - l.startX;
       }

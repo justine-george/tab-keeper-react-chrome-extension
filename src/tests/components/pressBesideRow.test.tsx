@@ -11,8 +11,8 @@ import { endDragHold } from '../../redux/dragHold';
 import type { ResolveDrop } from '../../components/home/rightpane/rowDrag/dropRules';
 
 // KAN-704. A press left of a row's box (its drag dots, KAN-703) asks which
-// band the pointer is in as if pressed at the row's left edge; an adopted
-// carry, never pressed, asks at the pointer.
+// band the pointer is in as if pressed at the row's left edge. KAN-706: an
+// adopted carry asks as its press did, in the list it was pressed in.
 const ROW_H = 30;
 // Rows from x 40 to 200; the pane from 0. A press at x 10 is 30px left of a row.
 const ROW_LEFT = 40;
@@ -121,7 +121,7 @@ describe('which x the band question gets (KAN-704)', () => {
     expect(asked[asked.length - 1]).toBe(62);
   });
 
-  test('an adopted carry left of its row asks at the pointer: it was never pressed', () => {
+  test('an adopted carry pressed on its row asks at the pointer', () => {
     const asked: number[] = [];
     render(
       <Harness
@@ -142,5 +142,31 @@ describe('which x the band question gets (KAN-704)', () => {
     expect(document.querySelector('[data-drag-held]')).not.toBeNull();
     expect(asked.length).toBeGreaterThan(0);
     expect(asked[asked.length - 1]).toBe(BESIDE + 2);
+  });
+
+  test('an adopted carry pressed left of its row asks as that press did: the pointer plus its gap (KAN-706)', () => {
+    const asked: number[] = [];
+    render(
+      <Harness
+        resolveDrop={(_, x) => (asked.push(x), { bandId: undefined })}
+        adoptRowId="a"
+      />
+    );
+    layout();
+    const gap = ROW_LEFT - BESIDE;
+    startCarry(
+      savedItem({ kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 'x' }),
+      { kind: 'tab', title: 'Carried', faviconUrl: '' },
+      300,
+      40,
+      undefined,
+      gap
+    );
+    fireEvent.pointerMove(document, { clientX: BESIDE, clientY: 40 });
+    fireEvent.pointerMove(document, { clientX: BESIDE + 2, clientY: 50 });
+    // PREMISE: adopted, and asked.
+    expect(document.querySelector('[data-drag-held]')).not.toBeNull();
+    expect(asked.length).toBeGreaterThan(0);
+    expect(asked[asked.length - 1]).toBe(BESIDE + 2 + gap);
   });
 });
