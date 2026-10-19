@@ -2,6 +2,8 @@ import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { seedSettings } from './fixtures/seed';
+import { contrast, pixelsAt } from './fixtures/pixels';
+import { THEMES as PALETTES } from './fixtures/savedWindows';
 
 // KAN-95. The active theme swatch was marked with `outline: 2px solid
 // TEXT_COLOR; outline-offset: 2px`, which is wrong in two separable ways.
@@ -117,6 +119,69 @@ test.describe('the active theme swatch is marked by its own border', () => {
     ).toBe(inactive);
   });
 });
+
+// KAN-398. The current theme's cue is a 2px LABEL_L1 frame and a check on a knob square,
+// each at least 3:1 on the page (WCAG 1.4.11); the frame under the pointer stays put.
+const SHOWN: Record<string, string> = {
+  Light: 'Paper',
+  WarmLight: 'Parchment',
+  BBPink: 'Petal',
+  Darkenheimer: 'Graphite',
+  Blue: 'Ink',
+};
+
+for (const [theme, colours] of PALETTES) {
+  test(`${theme}: the current theme reads at 3:1, and only it carries the check`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, { theme });
+    const page = await openThemes(context, extensionId);
+    const current = swatch(page, SHOWN[theme]);
+    await expect(current).toHaveAttribute('aria-pressed', 'true');
+    await page.mouse.move(0, 0);
+
+    const tile = await current.locator('[data-theme-tile]').boundingBox();
+    const check = current.locator('[data-theme-check]');
+    await expect(check).toBeVisible();
+    const box = await check.boundingBox();
+    if (!tile || !box) throw new Error('no tile or check box');
+    const read = async () =>
+      pixelsAt(page, [
+        [tile.x + tile.width / 2, tile.y + 0.5],
+        [box.x + 1, box.y + 1],
+        [tile.x + tile.width / 2, tile.y - 6],
+        // The ring, where the check overlaps the tile's header band.
+        [box.x - 1, box.y + box.height - 4],
+      ]);
+
+    const [frame, knob, page_, ring] = await read();
+    console.log(
+      `[${theme}] frame ${frame} ${contrast(frame, page_).toFixed(2)}, knob ${knob} ${contrast(
+        knob,
+        page_
+      ).toFixed(2)} on ${page_}`
+    );
+    // CONTROL: the ground read is the page itself.
+    expect(page_).toBe(colours.PRIMARY_COLOR);
+    expect(frame).toBe(colours.LABEL_L1_COLOR);
+    expect(contrast(frame, page_)).toBeGreaterThanOrEqual(3);
+    expect(knob).toBe(colours.TEXT_COLOR);
+    expect(contrast(knob, page_)).toBeGreaterThanOrEqual(3);
+    expect(ring).toBe(colours.PRIMARY_COLOR);
+
+    for (const name of Object.values(SHOWN).filter((n) => n !== SHOWN[theme])) {
+      await expect(
+        swatch(page, name).locator('[data-theme-check]')
+      ).toHaveCount(0);
+    }
+
+    // The pointer on the current tile leaves its frame as it was (the KAN-96 rule).
+    await current.locator('[data-theme-tile]').hover();
+    await page.waitForTimeout(400);
+    expect((await read())[0]).toBe(frame);
+  });
+}
 
 // KAN-96. Hovering the SELECTED settings category erased its background
 // instead of leaving it alone.

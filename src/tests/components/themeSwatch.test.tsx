@@ -3,7 +3,11 @@ import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
-import { BLUE_THEME, DARKENHEIMER_THEME } from '../../hooks/useThemeColors';
+import {
+  BB_PINK_THEME,
+  BLUE_THEME,
+  DARKENHEIMER_THEME,
+} from '../../hooks/useThemeColors';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
   selectCategory,
@@ -79,7 +83,7 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
     expect(BLUE_THEME.PRIMARY_COLOR).not.toBe(DARKENHEIMER_THEME.PRIMARY_COLOR);
   });
 
-  test('exactly one is pressed, and its tile alone wears the 2px LABEL_L3 marker', async () => {
+  test('exactly one is pressed, and its tile alone wears the 2px LABEL_L1 marker and the check', async () => {
     const { store } = await renderDisplay();
     act(() => {
       store.dispatch(setTheme(Theme.BB_PINK));
@@ -94,12 +98,25 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
       expect(swatch(n).getAttribute('aria-pressed')).toBe('false');
     }
 
-    // The marker is the tile's own border, thickened (KAN-95), in the PAGE's
-    // LABEL_L3 -- the active page is Petal here, so its token.
+    // The tile's own border, thickened (KAN-95), in the PAGE's LABEL_L1 (KAN-398).
     const active = getComputedStyle(tileOf('Petal'));
     expect(active.borderTopWidth).toBe('2px');
+    expect(active.borderTopColor).toMatch(
+      asWritten(BB_PINK_THEME.LABEL_L1_COLOR)
+    );
     // Every other tile keeps the 1px frame.
     expect(getComputedStyle(tileOf('Paper')).borderTopWidth).toBe('1px');
+
+    // The check: on the current tile only, hidden from the name it sits beside.
+    const checks = NAMES.filter(
+      (n) => swatch(n).querySelector('[data-theme-check]') !== null
+    );
+    expect(checks).toEqual(['Petal']);
+    expect(
+      swatch('Petal')
+        .querySelector('[data-theme-check]')
+        ?.closest('[aria-hidden="true"]')
+    ).not.toBeNull();
   });
 
   test('activating a swatch selects its theme', async () => {
@@ -124,7 +141,7 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
     // The tile comes first, the name second: the picture is what is looked
     // at, the word confirms it.
     const children = Array.from(button.children);
-    expect(children[0].hasAttribute('data-theme-tile')).toBe(true);
+    expect(children[0].querySelector('[data-theme-tile]')).not.toBeNull();
     expect(children[1].textContent).toBe('Parchment');
   });
 });
