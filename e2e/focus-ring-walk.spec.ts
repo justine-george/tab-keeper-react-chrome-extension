@@ -105,12 +105,21 @@ async function walk(page: Page, max: number): Promise<Stop[]> {
   );
 }
 
-function expectRingEverywhere(stops: Stop[], text: string, reached: string[]) {
+// KAN-680 A2. A text field's edge becomes its ring, in LABEL_L2_COLOR, so it
+// is one box rather than the app's ring drawn inside the field's own edge.
+const FIELDS = ['#name'];
+
+function expectRingEverywhere(
+  stops: Stop[],
+  colors: typeof LIGHT_THEME,
+  reached: string[]
+) {
   // PREMISE: the walk got to the stops that had no ring or Chrome's.
   const names = stops.map((s) => s.name);
   for (const name of reached) expect(names).toContain(name);
-  const ring = `solid 2px ${rgb(text)}`;
-  expect(stops.filter((s) => s.ring !== ring)).toEqual([]);
+  const ringOf = (name: string) =>
+    `solid 2px ${rgb(FIELDS.includes(name) ? colors.LABEL_L2_COLOR : colors.TEXT_COLOR)}`;
+  expect(stops.filter((s) => s.ring !== ringOf(s.name))).toEqual([]);
 }
 
 for (const [theme, colors] of THEMES) {
@@ -120,7 +129,7 @@ for (const [theme, colors] of THEMES) {
   }) => {
     await seedSettings(context, { theme });
     const page = await openPopup(context, extensionId);
-    expectRingEverywhere(await walk(page, 80), colors.TEXT_COLOR, [
+    expectRingEverywhere(await walk(page, 80), colors, [
       '#name',
       'Search saved tabs',
       'Source',
@@ -144,7 +153,7 @@ for (const [theme, colors] of THEMES) {
     await sessionRow(page, 'S1').click(ON_TITLE);
     await expect(page.locator('[data-drag-row-id="w1"]')).toBeVisible();
     const stops = await walk(page, 140);
-    expectRingEverywhere(stops, colors.TEXT_COLOR, [
+    expectRingEverywhere(stops, colors, [
       'Search open tabs',
       'Search saved tabs',
       'Open in new tab: Tab a0',
@@ -167,7 +176,7 @@ for (const [theme, colors] of THEMES) {
         .click();
       stops.push(...(await walk(page, 80)));
     }
-    expectRingEverywhere(stops, colors.TEXT_COLOR, [
+    expectRingEverywhere(stops, colors, [
       'Go back',
       ...SETTINGS_CATEGORIES,
       'Paper',
@@ -195,11 +204,7 @@ for (const [theme, colors] of THEMES) {
       if ((await next.count()) === 0) break;
       await next.click();
     }
-    expectRingEverywhere(stops, colors.TEXT_COLOR, [
-      'Paper',
-      'Ink',
-      'privacy policy',
-    ]);
+    expectRingEverywhere(stops, colors, ['Paper', 'Ink', 'privacy policy']);
   });
 
   test(`every stop in the welcome draws the ring (${theme})`, async ({
@@ -216,7 +221,7 @@ for (const [theme, colors] of THEMES) {
     });
     const page = await openWelcome(context, extensionId);
     await expect(page.locator('dialog[open]')).toBeVisible();
-    expectRingEverywhere(await walk(page, 12), colors.TEXT_COLOR, [
+    expectRingEverywhere(await walk(page, 12), colors, [
       'Read the privacy policy',
     ]);
   });
@@ -303,6 +308,39 @@ for (const [theme, colors] of THEMES) {
   });
 }
 
+// KAN-680 A2. The name field had its 1px edge and the app's ring 2px inside it:
+// two boxes. The ring is now the edge: 2px of LABEL_L2_COLOR over the edge and
+// 1px out, and the field's own fill inside it.
+for (const [theme, colors] of THEMES) {
+  test(`the name field's edge is its ring (${theme})`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, { theme });
+    const page = await openPopup(context, extensionId);
+    await page.mouse.move(2, 2);
+    const field = page.locator('input#name');
+    await field.focus();
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Shift+Tab');
+    await expect(field).toBeFocused();
+    const box = await field.boundingBox();
+    if (box === null) throw new Error('no field box');
+    const midY = box.y + box.height / 2;
+    const [outside, edge, inside] = await pixelsAt(page, [
+      [box.x - 1, midY],
+      [box.x, midY],
+      [box.x + 2, midY],
+    ]);
+    const ring = colors.LABEL_L2_COLOR.toUpperCase();
+    expect({ outside, edge, inside }).toEqual({
+      outside: ring,
+      edge: ring,
+      inside: colors.PRIMARY_COLOR.toUpperCase(),
+    });
+  });
+}
+
 // KAN-676. A rename field exists only while renaming, so no walk reaches it:
 // open each with Tab and Enter, then require the ring at both of its sides.
 // KAN-677. The tick is laid over the field's right end and fills under the
@@ -328,7 +366,9 @@ async function expectFieldRing(
   if (box === null || tick === null) throw new Error('no field or tick box');
   const midY = box.y + box.height / 2;
   const fill = colors.PRIMARY_COLOR.toUpperCase();
-  const ring = colors.TEXT_COLOR.toUpperCase();
+  // KAN-680 A2: the field's edge is the ring, 2px of LABEL_L2_COLOR at the
+  // box's very edge, with nothing drawn inside it.
+  const ring = colors.LABEL_L2_COLOR.toUpperCase();
   const states = [
     ['away', () => page.mouse.move(2, 2)],
     ['on the field', () => page.mouse.move(box.x + box.width / 3, midY)],
@@ -340,19 +380,21 @@ async function expectFieldRing(
     await page.evaluate(() =>
       Promise.all(document.getAnimations().map((a) => a.finished))
     );
-    const [ground, left, right, tickFill] = await pixelsAt(page, [
+    const [ground, inner, left, right, tickFill] = await pixelsAt(page, [
       [box.x + 5, midY],
       [box.x + 3, midY],
-      [box.x + box.width - 3, midY],
+      [box.x + 1, midY],
+      [box.x + box.width - 2, midY],
       [tick.x + 6, tick.y + 6],
     ]);
     // PREMISE: pointing at the tick fills it, over the field's right end.
     if (where === 'on the tick') expect(tickFill).not.toBe(fill);
     // Control: the decode reads the field's own fill inside the ring. Away
     // from the tick, the tick has no box of its own (KAN-677 pick Y).
-    expect({ where, ground, left, right }).toEqual({
+    expect({ where, ground, inner, left, right }).toEqual({
       where,
       ground: fill,
+      inner: fill,
       left: ring,
       right: ring,
     });
