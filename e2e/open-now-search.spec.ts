@@ -7,6 +7,7 @@ import type {
 
 import { test, expect } from './fixtures/extension';
 import { localeStrings } from './fixtures/locales';
+import { openNowWindowMenu } from './fixtures/menus';
 import {
   buildContainer,
   buildSession,
@@ -488,7 +489,7 @@ test.describe('Open now search (KAN-330)', () => {
       .toBeLessThan(before);
   });
 
-  test('a window row offers no Save window or Close window while a search is held; Esc brings both back (O14e)', async ({
+  test('a window row offers no Save or ⋮ while a search is held; Esc brings both back (O14e)', async ({
     context,
     extensionId,
     serviceWorker,
@@ -510,9 +511,8 @@ test.describe('Open now search (KAN-330)', () => {
     const saveWindow = block.getByRole('button', {
       name: /^Save window as a session: /,
     });
-    const closeWindow = block.getByRole('button', {
-      name: /^Close window: /,
-    });
+    // Close window is in the ⋮ (KAN-696).
+    const moreActions = openNowWindowMenu(page, block);
     const closeTab = block.getByRole('button', {
       name: 'Close tab: Kyoto maps',
       exact: true,
@@ -524,16 +524,16 @@ test.describe('Open now search (KAN-330)', () => {
     await liveRow(page, 'Osaka flights').waitFor();
     await hoverWindowRow();
     await expect(saveWindow).toHaveCount(1);
-    await expect(closeWindow).toHaveCount(1);
+    await expect(moreActions).toHaveCount(1);
     await expect(saveWindow).toBeVisible();
-    await expect(closeWindow).toBeVisible();
+    await expect(moreActions).toBeVisible();
 
     await field(page).fill('kyoto');
     await expect(liveRow(page, 'Kyoto maps')).toBeVisible();
     await expect(liveRow(page, 'Osaka flights')).toHaveCount(0);
     await hoverWindowRow();
     await expect(saveWindow).toHaveCount(0);
-    await expect(closeWindow).toHaveCount(0);
+    await expect(moreActions).toHaveCount(0);
     // The tab row keeps its x.
     await liveRow(page, 'Kyoto maps').hover();
     await expect(closeTab).toBeVisible();
@@ -543,7 +543,7 @@ test.describe('Open now search (KAN-330)', () => {
     await expect(field(page)).toHaveValue('');
     await hoverWindowRow();
     await expect(saveWindow).toBeVisible();
-    await expect(closeWindow).toBeVisible();
+    await expect(moreActions).toBeVisible();
   });
 
   test('Esc in the drawer clears the field, then closes the drawer', async ({

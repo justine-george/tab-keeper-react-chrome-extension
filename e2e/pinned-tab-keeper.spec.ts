@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 
 import { test, expect } from './fixtures/extension';
 import { grantedTest } from './fixtures/grantedExtension';
+import { closeOpenNowWindowFromMenu } from './fixtures/menus';
 import {
   buildContainer,
   buildSession,
@@ -180,9 +181,7 @@ async function closeAndReopen(
 ): Promise<number> {
   const block = windowBlock(page, windowId);
   await expect(rowsIn(block)).toHaveCount(tabCount);
-  await block
-    .getByRole('button', { name: /^Close window: Window \d+$/ })
-    .click();
+  await closeOpenNowWindowFromMenu(page, block);
   await expect
     .poll(async () => (await allWindowIds(worker)).includes(windowId))
     .toBe(false);

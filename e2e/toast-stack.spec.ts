@@ -7,7 +7,10 @@ import type {
 } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { sessionHeaderMenu } from './fixtures/menus';
+import {
+  closeOpenNowWindowFromMenu,
+  sessionHeaderMenu,
+} from './fixtures/menus';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
 import { NEEDS_YOU_TOAST_MS, TOAST_MS } from '../src/redux/toastDuration';
@@ -327,9 +330,7 @@ test.describe('toasts stack (KAN-349)', () => {
     );
     await expect(rowsIn(block)).toHaveCount(2);
     await expect(rowsIn(gone)).toHaveCount(3);
-    await gone
-      .getByRole('button', { name: /^Close window: Window \d+$/ })
-      .click();
+    await closeOpenNowWindowFromMenu(page, gone);
     await expect(reopenButton(page)).toBeVisible();
     await liveToasts(page).first().hover();
     await clickInPlace(saveWindowIn(block));

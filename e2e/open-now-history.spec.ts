@@ -10,6 +10,7 @@ import { createServer } from 'node:http';
 
 import { test, expect } from './fixtures/extension';
 import { grantedTest } from './fixtures/grantedExtension';
+import { closeOpenNowWindowFromMenu } from './fixtures/menus';
 
 // KAN-280 Part D on the real artifact: tab history on Reopen. Chrome's
 // optional `sessions` permission, which a close in Open now asks for itself
@@ -658,9 +659,7 @@ grantedTest.describe('Reopen with history (KAN-280 Part D)', () => {
       ).toHaveCount(3);
       await recordFocusRequests(serviceWorker);
 
-      await block
-        .getByRole('button', { name: /^Close window: Window \d+$/ })
-        .click();
+      await closeOpenNowWindowFromMenu(page, block);
       await expect
         .poll(async () =>
           (await allWindowIds(serviceWorker)).includes(made.windowId)
