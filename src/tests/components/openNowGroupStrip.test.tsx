@@ -246,6 +246,57 @@ describe('a live group row: Save and a ⋮ (KAN-696)', () => {
     expect(second.defaultPrevented).toBe(true);
   });
 
+  const chevronOf = (windowId: number) =>
+    within(
+      document.querySelector(
+        `[data-open-window-id="${windowId}"]`
+      ) as HTMLElement
+    ).getAllByRole('button')[0];
+
+  test('Close group focuses its own window chevron when the window survives', async () => {
+    const user = userEvent.setup();
+    await renderOpenNow();
+    await openGroupMenu(user, 'Docs');
+    await user.click(
+      within(screen.getByRole('menu')).getByRole('menuitem', {
+        name: 'Close group',
+      })
+    );
+    await screen.findByText('Group closed (2 tabs).');
+    expect(document.activeElement).toBe(chevronOf(2));
+  });
+
+  test('Close group on a window made only of that group focuses the next window, not the body', async () => {
+    const user = userEvent.setup();
+    await renderOpenNow(
+      seed({
+        windows: [
+          { id: 1, focused: true, tabs: [tab(11, { active: true })] },
+          {
+            id: 2,
+            tabs: [
+              tab(22, { groupId: 50, active: true }),
+              tab(23, { groupId: 50 }),
+            ],
+          },
+          { id: 3, tabs: [tab(31, { active: true })] },
+        ],
+        tabGroups: [{ id: 50, windowId: 2, title: 'Docs', color: 'blue' }],
+      })
+    );
+    await openGroupMenu(user, 'Docs');
+    await user.click(
+      within(screen.getByRole('menu')).getByRole('menuitem', {
+        name: 'Close group',
+      })
+    );
+    await screen.findByText('Group closed (2 tabs).');
+    await waitFor(() =>
+      expect(document.querySelector('[data-open-window-id="2"]')).toBeNull()
+    );
+    expect(document.activeElement).toBe(chevronOf(3));
+  });
+
   test('a held Open now search renders no group strip', async () => {
     const user = userEvent.setup();
     await renderOpenNow();

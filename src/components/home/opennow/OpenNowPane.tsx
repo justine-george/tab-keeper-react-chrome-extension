@@ -406,11 +406,18 @@ export default function OpenNowPane({
     if (item) void dispatch(offerReopen(item));
   };
 
-  // KAN-696. Moves focus first, as a window's close does, to the window's chevron.
+  // KAN-696. Moves focus first, as a window's close does: to the window's chevron,
+  // or, when the group is every listed tab, the window goes with it, so to where a window close sends it.
   const handleCloseGroup = async (openWindow: OpenWindow, groupId: number) => {
-    firstControlIn(
-      paneRef.current?.querySelector(`[data-open-window-id="${openWindow.id}"]`)
-    )?.focus();
+    if (openWindow.tabs.every((tab) => tab.groupId === groupId)) {
+      focusAfterWindowCloses(openWindow.id);
+    } else {
+      firstControlIn(
+        paneRef.current?.querySelector(
+          `[data-open-window-id="${openWindow.id}"]`
+        )
+      )?.focus();
+    }
     const item = await closeOpenGroup(openWindow, groupId);
     if (item) void dispatch(offerReopen(item));
   };
