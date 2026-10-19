@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
@@ -17,9 +11,12 @@ import {
 import { holdToasts, releaseToasts } from '../../redux/toastTimers';
 import { reopenFromOffer } from '../../redux/reopenOffer';
 import {
-  openNowDropHoldsUndoKey,
+  kindOfDropHoldingUndoKey,
   subscribeToOpenNowDrop,
+  takeOpenNowDrop,
 } from '../../redux/openNowMoveUndo';
+import { undoOpenNowDrop } from '../../utils/functions/openNowMoves';
+import type { OpenNowDrop } from '../../utils/functions/openNowMoves';
 import { showSession } from '../../redux/showSession';
 import { undo } from '../../redux/slices/undoRedoSlice';
 import { useFontFamily } from '../../hooks/useFontFamily';
@@ -39,6 +36,19 @@ import { isTabView } from '../../utils/functions/viewMode';
 
 // The stack's distance from the window's left and bottom edges.
 const EDGE_PX = 20;
+
+// The kind of Open now drop ⌘Z would take, in state: React 18.2's useSyncExternalStore lost a change made in the render that added a toast (useToastStack sets state while rendering).
+function useKindOfDropOnUndoKey(): OpenNowDrop['kind'] | null {
+  const [kind, setKind] = useState(kindOfDropHoldingUndoKey);
+  useEffect(() => {
+    const read = () => setKind(kindOfDropHoldingUndoKey());
+    const unsubscribe = subscribeToOpenNowDrop(read);
+    // A change between the first render and this subscription.
+    read();
+    return unsubscribe;
+  }, []);
+  return kind;
+}
 
 interface ToastProps {
   style?: string;
@@ -68,9 +78,12 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   // KAN-349 Q1 C′. The hint names the key only while the key takes the offer.
   const keyOfferId = useSelector(selectReopenOfferForKey);
   // KAN-590. While an Open now drop holds the key (O11f), it undoes the drop, so no chip names it.
-  const dropHoldsKey = useSyncExternalStore(
-    subscribeToOpenNowDrop,
-    openNowDropHoldsUndoKey
+  // KAN-694. A live sort's toast offers Undo only while that sort is the drop the key takes.
+  const dropOnKey = useKindOfDropOnUndoKey();
+  const dropHoldsKey = dropOnKey !== null;
+  const sortHoldsKey = dropOnKey === 'sort';
+  const hasTabGroupsPermission = useSelector(
+    (state: RootState) => state.globalState.hasTabGroupsPermission
   );
 
   // KAN-349 T3 (from KAN-280 O8a). The pointer over any toast, or focus in
@@ -256,7 +269,9 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
         const message = t(toast.text, toast.params);
         const offer = toast.reopenOffer;
         const show = toast.show;
-        if (offer === null && show === null && !toast.offersUndo) {
+        const offersOpenNowUndo = toast.offersOpenNowUndo && sortHoldsKey;
+        const offersAnyUndo = toast.offersUndo || offersOpenNowUndo;
+        if (offer === null && show === null && !offersAnyUndo) {
           return (
             <div
               key={toast.id}
@@ -280,12 +295,12 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
             css={[
               toastStyle,
               chipRowStyle,
-              !toast.offersUndo && growStyle,
+              !offersAnyUndo && growStyle,
               leaving && leavingStyle,
             ]}
             aria-hidden={leaving || undefined}
           >
-            <span css={toast.offersUndo ? undefined : messageStyle}>
+            <span css={offersAnyUndo ? undefined : messageStyle}>
               {message}
             </span>
             {offer !== null && (
@@ -317,6 +332,24 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 }
                 // The undo reducer closes this toast (globalStateSlice).
                 onClick={() => dispatch(undo())}
+                style={chipStyle}
+              />
+            )}
+            {offersOpenNowUndo && (
+              <Button
+                variant="chip"
+                iconType="undo"
+                text={t('Undo')}
+                // Shown only while this sort holds the key; the key does nothing on Settings.
+                keyHint={isSettingsPage ? undefined : undoKeyHint}
+                // Takes the drop as ⌘Z does, so neither can undo it twice.
+                onClick={() => {
+                  const drop = takeOpenNowDrop();
+                  if (drop !== null) {
+                    void undoOpenNowDrop(drop, hasTabGroupsPermission);
+                  }
+                  dispatch(toastsRemoved([toast.id]));
+                }}
                 style={chipStyle}
               />
             )}

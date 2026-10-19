@@ -44,7 +44,9 @@ import {
   deleteChromeTabGroup,
   updateChromeTabGroupColor,
   removeDuplicateTabs,
+  sortTabsBySite,
 } from '../../../redux/slices/tabContainerDataStateSlice';
+import { isSavedWindowSortedBySite } from '../../../utils/functions/sortBySite';
 import { countDuplicateTabs } from '../../../utils/functions/duplicateTabs';
 import {
   collapsedWindowIdsOf,
@@ -986,6 +988,20 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 ariaLabel={t('More actions')}
                 onOpenChange={setIsWindowMenuOpen}
                 items={[
+                  // Only while sorting would change the order.
+                  ...(isSavedWindowSortedBySite({ tabs })
+                    ? []
+                    : [
+                        {
+                          key: 'sortBySite',
+                          label: t('Sort tabs by site'),
+                          icon: 'sort' as const,
+                          onSelect: () =>
+                            void dispatch(
+                              sortTabsBySite({ tabGroupId, windowId })
+                            ),
+                        },
+                      ]),
                   // Only while there is one to remove, as in the session menu.
                   ...(windowDuplicates > 0
                     ? [

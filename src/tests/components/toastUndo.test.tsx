@@ -7,7 +7,11 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { toastTexts } from '../setup/toasts';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { buildChromeTab } from '../fixtures/chromeTab';
-import { showToast } from '../../redux/slices/globalStateSlice';
+import {
+  setHasTabGroupsPermission,
+  showToast,
+} from '../../redux/slices/globalStateSlice';
+import { sortOpenWindowBySite } from '../../redux/sortOpenWindow';
 import {
   deleteChromeTabGroup,
   deleteTab,
@@ -497,5 +501,103 @@ describe('recordsUndoStep (KAN-583)', () => {
     ).toBe(false);
     // PREMISE: the selection did move `present`.
     expect(store.getState().undoRedo.present).not.toBe(presentBefore);
+  });
+});
+
+// KAN-694. "Sorted the tabs by site." after Open now sorts a live window: its Undo puts the tabs back.
+describe('Undo in the live sort toast (KAN-694)', () => {
+  const renderSorted = async () => {
+    const rendered = await renderWithProviders(<Toast />, {
+      seed: {
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              { id: 1, url: 'https://b.test/', active: true },
+              { id: 2, url: 'https://a.test/' },
+              { id: 3, url: 'https://b.test/2' },
+            ],
+          },
+        ],
+      },
+      seedStore: (store) => store.dispatch(setHasTabGroupsPermission(true)),
+    });
+    await act(async () => {
+      await rendered.store.dispatch(sortOpenWindowBySite(1));
+    });
+    return rendered;
+  };
+  const strip = async () =>
+    (await chrome.tabs.query({ windowId: 1 }))
+      .sort((a, b) => a.index - b.index)
+      .map((tab) => tab.id);
+
+  afterEach(() => {
+    // A kept drop is module state: a later action retires it.
+    noteTabKeeperAction();
+  });
+
+  test('offers Undo, naming the key; it puts the tabs back, takes the drop and closes the toast', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderSorted();
+    // PREMISE: sorted, and said so.
+    expect(await strip()).toEqual([1, 3, 2]);
+    expect(toastTexts(store.getState())).toEqual([
+      TOAST_MESSAGES.TABS_SORTED_BY_SITE,
+    ]);
+    await waitFor(() =>
+      expect(undoButtons()[0]).toHaveAttribute('aria-keyshortcuts', 'Control+Z')
+    );
+
+    await user.click(undoButtons()[0]);
+
+    await waitFor(async () => expect(await strip()).toEqual([1, 2, 3]));
+    expect(takeOpenNowDrop()).toBeNull();
+    expect(toastTexts(store.getState())).toEqual([]);
+  });
+
+  // The drop is kept in the same render that adds the toast: React 18.2's useSyncExternalStore lost that change under the stack's render-phase update, and the chip outlived its drop.
+  test('a later Tab Keeper action takes Undo off; the toast stays', async () => {
+    const { store } = await renderSorted();
+    // PREMISE: Undo is offered first.
+    expect(undoButtons()).toHaveLength(1);
+
+    act(() => noteTabKeeperAction());
+
+    expect(undoButtons()).toHaveLength(0);
+    expect(toastTexts(store.getState())).toEqual([
+      TOAST_MESSAGES.TABS_SORTED_BY_SITE,
+    ]);
+  });
+
+  test('a drag kept after the sort holds the key: the sort toast offers no Undo, which would undo the drag', async () => {
+    await renderSorted();
+    expect(undoButtons()).toHaveLength(1);
+
+    act(() =>
+      storeOpenNowDrop({
+        kind: 'tab',
+        moved: [
+          {
+            tabId: 2,
+            before: { windowId: 1, index: 2, groupId: -1, group: null },
+            after: { windowId: 1, index: 0, groupId: -1, group: null },
+          },
+        ],
+      })
+    );
+
+    expect(undoButtons()).toHaveLength(0);
+  });
+
+  test('⌘Z taking the drop takes Undo off', async () => {
+    await renderSorted();
+    expect(undoButtons()).toHaveLength(1);
+
+    act(() => {
+      takeOpenNowDrop();
+    });
+
+    expect(undoButtons()).toHaveLength(0);
   });
 });

@@ -8,6 +8,7 @@ import {
   storeOpenNowDrop,
 } from '../../redux/openNowMoveUndo';
 import { clearReopenFocus } from '../../redux/reopenFocus';
+import { sortOpenWindowBySite } from '../../redux/sortOpenWindow';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import { setPresentStartup } from '../../redux/slices/undoRedoSlice';
@@ -361,5 +362,45 @@ describe('a Reopen offer and a drag: the later one wins', () => {
       expect(await urlsIn(2)).toEqual([url('a'), url('b'), url('c')]);
     });
     expect(undoRedoIn(seen.slice(before))).toEqual([]);
+  });
+});
+
+describe('⌘Z after an Open now sort (KAN-694)', () => {
+  test('puts the tabs back and closes the "Sorted the tabs by site." toast', async () => {
+    const { store } = await renderWithProviders(<MainContainer />, {
+      seed: {
+        grantedPermissions: ['tabGroups'],
+        windows: [
+          { id: 1, tabs: [{ id: 11, url: url('home'), active: true }] },
+          {
+            id: 2,
+            tabs: [
+              { id: 21, url: url('a'), active: true },
+              { id: 22, url: url('b') },
+              { id: 23, url: url('a') },
+            ],
+          },
+        ],
+      },
+      seedStore: (s) => s.dispatch(setHasTabGroupsPermission(true)),
+    });
+    await act(async () => {
+      await store.dispatch(sortOpenWindowBySite(2));
+    });
+    const ids = async () =>
+      (await chrome.tabs.query({ windowId: 2 }))
+        .sort((x, y) => x.index - y.index)
+        .map((tab) => tab.id);
+    // PREMISE: the sort moved b to the end, and its toast is up.
+    expect(await ids()).toEqual([21, 23, 22]);
+    expect(await screen.findByText('Sorted the tabs by site.')).toBeVisible();
+
+    press({ key: 'z', metaKey: true });
+
+    await waitFor(async () => expect(await ids()).toEqual([21, 22, 23]));
+    // The toast leaves with a short fade.
+    await waitFor(() =>
+      expect(screen.queryByText('Sorted the tabs by site.')).toBeNull()
+    );
   });
 });

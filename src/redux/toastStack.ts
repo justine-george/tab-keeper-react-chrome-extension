@@ -25,6 +25,8 @@ export interface ToastItem {
   show: ToastShow | null;
   // KAN-583. An Undo button: true only while the change this toast announces is the latest undo step.
   offersUndo: boolean;
+  // KAN-694. An Undo button for the Open now drop a live sort kept: shown only while a sort is the drop ⌘Z takes.
+  offersOpenNowUndo: boolean;
 }
 
 function sameParams(a: ToastItem['params'], b: ToastItem['params']): boolean {

@@ -232,6 +232,8 @@ export default function MainContainer() {
         const drop = takeOpenNowDrop();
         if (drop !== null) {
           void undoOpenNowDrop(drop, hasTabGroupsPermission);
+          // KAN-694. The sort's toast would stay up as text after its tabs went back.
+          if (drop.kind === 'sort') dispatch(closePlainToasts());
           heldAfterOneTimeUndo.current = true;
           event.preventDefault();
           return;

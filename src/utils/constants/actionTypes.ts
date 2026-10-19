@@ -74,6 +74,8 @@ export const REPLACE_SESSION_CONTENT_ACTION =
   'tabContainerDataState/replaceSessionContentInternal';
 export const REMOVE_DUPLICATE_TABS_ACTION =
   'tabContainerDataState/removeDuplicateTabsInternal';
+export const SORT_TABS_BY_SITE_ACTION =
+  'tabContainerDataState/sortTabsBySiteInternal';
 export const SORT_SESSIONS_ACTION =
   'tabContainerDataState/sortSessionsInternal';
 export const CLEAR_SESSION_ORDER_ACTION =

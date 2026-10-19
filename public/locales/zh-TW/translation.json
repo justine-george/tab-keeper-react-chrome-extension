@@ -137,6 +137,8 @@
   "TabGroupsPromptDismiss": "暫時不要",
   "TabGroupsPromptNever": "不要再詢問",
   "Sort sessions": "排序工作階段",
+  "Sort tabs by site": "依網站排序分頁",
+  "TabsSortedBySite": "已依網站排序分頁。",
   "Date saved": "儲存日期",
   "Name": "名稱",
   "Tab count": "分頁數量",

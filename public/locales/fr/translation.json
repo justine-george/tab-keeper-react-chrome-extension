@@ -141,6 +141,8 @@
   "TabGroupsPromptDismiss": "Pas maintenant",
   "TabGroupsPromptNever": "Ne plus demander",
   "Sort sessions": "Trier les sessions",
+  "Sort tabs by site": "Trier les onglets par site",
+  "TabsSortedBySite": "Onglets triés par site.",
   "Date saved": "Date d’enregistrement",
   "Name": "Nom",
   "Tab count": "Nombre d’onglets",
