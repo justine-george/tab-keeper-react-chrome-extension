@@ -410,13 +410,12 @@ describe('This window is drawn first (KAN-472)', () => {
   });
 });
 
-// KAN-321 O1b. "Open now" names a panel; the saved session's own name is the
-// pane's content, so once the two panes can be the same width the heading
-// steps down and lets that name lead. Same heading everywhere Open now
-// appears (side by side, folded, the O2 drawer) -- one style, so this pane's
-// own render is the only place to pin it.
-describe('the Open now heading steps down so the saved name leads (KAN-321 O1b)', () => {
-  test('the header box drops its fill but keeps its border (O1b)', async () => {
+// KAN-686 (pick A), undoing KAN-321 O1b's step-down of the fill: the header
+// wears the saved session header's SECONDARY_COLOR. Same header everywhere
+// Open now appears (side by side, folded, the O2 drawer) -- one style, so this
+// pane's own render is the only place to pin it.
+describe("the Open now header has the session header's fill (KAN-686)", () => {
+  test("the header box takes the session header's fill and keeps its border", async () => {
     await renderPane(twoWindows());
 
     const header = document.querySelector('[data-open-now-header]');
@@ -424,10 +423,7 @@ describe('the Open now heading steps down so the saved name leads (KAN-321 O1b)'
       throw new Error('no [data-open-now-header] box');
     }
 
-    // Transparent, like the saved list's plain header -- not the
-    // SECONDARY_COLOR fill HeroContainerRight's header keeps.
-    expect(getComputedStyle(header).backgroundColor).toBe('rgba(0, 0, 0, 0)');
-    expect(getComputedStyle(header).backgroundColor).not.toBe(
+    expect(getComputedStyle(header).backgroundColor).toBe(
       hex(LIGHT_THEME.SECONDARY_COLOR)
     );
     expect(getComputedStyle(header).borderTopStyle).toBe('solid');

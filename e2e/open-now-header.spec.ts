@@ -6,6 +6,7 @@ import { FULL, FULL_VIEW_PATH, openPage } from './fixtures/onboarding';
 import { savedWindow, session } from './fixtures/savedWindows';
 import { standIn } from './fixtures/standInPages';
 import { ON_TITLE } from './fixtures/savedRow';
+import { contrast, pixelsAt, rgbToHex } from './fixtures/pixels';
 
 // KAN-576 and KAN-577 (pick A, icon arrow_back). Open now's header beside a selected session's, on the built artifact.
 // KAN-578. Seeded answered (ONBOARDING_ANSWERED), so a press acts at once; the card's own tests seed it unanswered.
@@ -114,6 +115,60 @@ test("the title is the session title's size and colour, and Back sits in Add win
   console.log('[KAN-577 corner]', JSON.stringify({ want, got }));
   expect(got).toEqual(want);
 });
+
+// KAN-686 (pick A). Open now's header wears the saved session header's fill, read off the paint.
+for (const theme of ['Light', 'Darkenheimer'] as const) {
+  test(`${theme}: Open now's header has the session header's fill, and its faintest text stays legible`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, { theme });
+    await seedSessions(
+      context,
+      buildContainer([
+        session('S1', 'Q4 product roadmap', [savedWindow('w1', '', 2)]),
+      ])
+    );
+    const page = await openPage(context, extensionId, FULL_VIEW_PATH, FULL);
+    await page
+      .getByRole('button', { name: 'Q4 product roadmap' })
+      .first()
+      .click(ON_TITLE);
+    const updates = openNowHeader(page).getByText('Updates as you browse', {
+      exact: true,
+    });
+    await expect(updates).toBeVisible();
+    const sessionHeader = page
+      .locator('[data-tour-anchor="title"]')
+      .locator(
+        'xpath=ancestor::*[.//button[@aria-label="Add current window"]][1]'
+      );
+    await page.mouse.move(0, 0);
+    // Just inside each header's top-right corner, where neither draws text or a control.
+    const corner = async (box: Locator): Promise<[number, number]> => {
+      const b = await box.boundingBox();
+      if (b === null) throw new Error('no box');
+      return [b.x + b.width - 6, b.y + 6];
+    };
+    const [openNow, saved] = await pixelsAt(page, [
+      await corner(openNowHeader(page)),
+      await corner(sessionHeader),
+    ]);
+    // CONTROL: the decode is faithful, the session header painting its computed fill.
+    expect(saved).toBe(
+      rgbToHex(
+        await sessionHeader.evaluate(
+          (el) => getComputedStyle(el).backgroundColor
+        )
+      )
+    );
+    expect(openNow).toBe(saved);
+    const text = rgbToHex(
+      await updates.evaluate((el) => getComputedStyle(el).color)
+    );
+    expect(contrast(text, openNow)).toBeGreaterThanOrEqual(4.5);
+  });
+}
 
 for (const view of ['compact', 'full'] as const) {
   test(`Default view ${view}: Open now's Back goes to the tab the full view was opened from`, async ({
