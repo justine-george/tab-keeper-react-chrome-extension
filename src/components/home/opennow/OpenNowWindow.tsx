@@ -277,17 +277,19 @@ export default function OpenNowWindow({
   const offersWindowActions = matchedTabIds === null;
   const { isSearching: isSavedSearching } = useSavedSearch();
   // KAN-331 O15. The row takes you to its window: not "This window" (W2 A,
-  // you are in it), and not while a search is held (S2). Only a row that
-  // does this shades on hover (T2): "This window"'s strip still appears, on
-  // its own patch, without the row looking clickable.
+  // you are in it), and not while a search is held (S2).
   const goesToWindow = !openWindow.isThisWindow && matchedTabIds === null;
 
+  // KAN-700. Every row with a strip shades on hover, "This window" too, as
+  // the saved list's do; under a search there is no strip and no button.
   const parentStyle = css`
     position: relative;
     display: flex;
     justify-content: space-between;
     ${
-      goesToWindow ? `&:hover { background-color: ${COLORS.HOVER_COLOR}; }` : ''
+      offersWindowActions
+        ? `&:hover { background-color: ${COLORS.HOVER_COLOR}; }`
+        : ''
     }
   `;
 
