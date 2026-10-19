@@ -504,7 +504,7 @@ for (const [theme, colours] of THEMES) {
 // ---- the Open button's look (Task 7's checks, on the built artifact) ---------
 
 for (const [theme, colours] of THEMES) {
-  test(`popup, ${theme}: the Open button is 32px, a 1px DIVIDER edge, SECONDARY type, LABEL_L1 at rest and TEXT on hover and press`, async ({
+  test(`popup, ${theme}: the Open button is 32px, a 1px PANEL_BORDER edge, SECONDARY type, LABEL_L1 at rest and TEXT on hover and press`, async ({
     context,
     extensionId,
   }) => {
@@ -543,7 +543,7 @@ for (const [theme, colours] of THEMES) {
     expect((await boxOf(button)).height).toBe(32);
     expect(rest.borders).toEqual(['1px', '1px', '1px', '1px']);
     expect(rest.borderColours.map(rgbToHex)).toEqual(
-      Array(4).fill(colours.DIVIDER_COLOR)
+      Array(4).fill(colours.PANEL_BORDER_COLOR)
     );
     expect(parseFloat(rest.fontSize)).toBeCloseTo(
       parseFloat(rest.rootFontSize) * parseFloat(TYPE.SECONDARY),
@@ -575,6 +575,17 @@ for (const [theme, colours] of THEMES) {
     expect(contrast(colours.LABEL_L1_COLOR, groundPainted)).toBeGreaterThan(
       4.5
     );
+
+    // KAN-674. See-through, the edge is the button's only outline: dividerContrast's 1.20 floor.
+    const [edgePainted] = await pixelsAt(page, [[b.x + b.width / 2, b.y]]);
+    console.log(
+      `[${theme}] edge painted ${edgePainted} on ${groundPainted}: ${contrast(
+        edgePainted,
+        groundPainted
+      ).toFixed(2)}:1`
+    );
+    expect(edgePainted).toBe(colours.PANEL_BORDER_COLOR);
+    expect(contrast(edgePainted, groundPainted)).toBeGreaterThanOrEqual(1.2);
 
     // Hover: the computed colour, after its transition.
     await button.hover();

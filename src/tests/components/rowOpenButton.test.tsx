@@ -51,11 +51,11 @@ describe('RowOpenButton', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
-  test('is transparent at rest, with a 1px divider border, 32px high', async () => {
+  test('is transparent at rest, with a 1px panel border, 32px high', async () => {
     await render();
     const rules = classRulesFor(screen.getByRole('button', { name: NAME }));
     expect(rules).toMatch(/background-color:\s*transparent/);
-    expect(rules).toContain(`1px solid ${rgb(LIGHT_THEME.DIVIDER_COLOR)}`);
+    expect(rules).toContain(`1px solid ${rgb(LIGHT_THEME.PANEL_BORDER_COLOR)}`);
     expect(rules).toMatch(/height:\s*32px/);
   });
 

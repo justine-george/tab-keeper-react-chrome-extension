@@ -22,6 +22,8 @@ const THEMES = {
 };
 
 const FLOOR = 4.5;
+// dividerContrast.test's floor for a line that can still be seen.
+const VISIBLE_FLOOR = 1.2;
 
 describe('the row Open button label is legible in every state', () => {
   test.each(Object.entries(THEMES))(
@@ -47,6 +49,22 @@ describe('the row Open button label is legible in every state', () => {
       expect(ratio, ratio.toFixed(2)).toBeGreaterThanOrEqual(FLOOR);
     }
   );
+
+  // KAN-674. Revealed, the button is see-through on the strip mask; its edge is its outline.
+  test.each(Object.entries(THEMES))(
+    '%s: the PANEL_BORDER edge on the strip mask is visible',
+    (_name, t) => {
+      const ratio = contrast(t.PANEL_BORDER_COLOR, t.HOVER_COLOR);
+      expect(ratio, ratio.toFixed(2)).toBeGreaterThanOrEqual(VISIBLE_FLOOR);
+    }
+  );
+
+  test('CONTROL: the old DIVIDER edge falls under the floor in some theme', () => {
+    const failing = Object.values(THEMES).filter(
+      (t) => contrast(t.DIVIDER_COLOR, t.HOVER_COLOR) < VISIBLE_FLOOR
+    );
+    expect(failing.length).toBeGreaterThan(0);
+  });
 
   // CONTROL: the reason for the step-up. LABEL_L1 alone fails somewhere on
   // hover or press, so the test above is not vacuous.

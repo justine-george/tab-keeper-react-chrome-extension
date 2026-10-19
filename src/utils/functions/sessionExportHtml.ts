@@ -43,7 +43,8 @@ export const EXPORT_PALETTE: Record<ExportScheme, ExportPalette> = {
     bg: '#ffffff',
     text: '#1d2025',
     muted: '#5f6670',
-    rule: '#e3e6ea',
+    // KAN-674. The dark file's weight: 1.28:1 in a group's band, 1.38:1 on the page.
+    rule: '#d8dce1',
     link: '#1a56c4',
     visited: '#6b3fb0',
     // KAN-358. A non-web tab's name is text people read: 4.5:1 on the page
