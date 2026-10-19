@@ -18,7 +18,7 @@ import { useRowDragHandle } from './dragContext';
 // start and the render that marks it held. Never on keyboard focus: there is
 // no keyboard drag.
 const shownWhen = (rule: string) => `
-  html:not([data-dragging]):not([data-carrying]) [data-drag-handle-row]:hover & ${rule}
+  html:not([data-dragging]) [data-drag-handle-row]:hover & ${rule}
   [data-drag-held] [data-drag-handle-row]:hover & ${rule}
   &[data-held] ${rule}
 `;

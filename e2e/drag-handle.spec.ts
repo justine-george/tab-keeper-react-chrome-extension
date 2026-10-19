@@ -289,9 +289,22 @@ test('the held row keeps its handle off the pointer, and no other row shows one'
   await expect.poll(() => inkOf(handleIn(row))).toBe(1);
   expect(await shownHandles(page)).toBe(1);
 
+  // Over a saved tab row, hovered mid-drag: it shows none.
+  const other = savedTab(page, 'w1-loose');
+  const o = await boxOf(other);
+  await page.mouse.move(o.x + o.width / 2, o.y + o.height / 2, { steps: 10 });
+  await expect(page.locator('html[data-dragging]')).toHaveCount(1);
+  expect(await other.evaluate((el) => el.matches(':hover'))).toBe(true);
+  await page.waitForTimeout(300);
+  expect(await shownHandles(page)).toBe(1);
+  await expect.poll(() => inkOf(handleIn(row))).toBe(1);
+
+  // Released: the held row's goes, and the row now under the pointer shows its.
   await page.mouse.up();
   await expect(page.locator('html[data-dragging]')).toHaveCount(0);
-  await expect.poll(() => shownHandles(page)).toBe(0);
+  await expect.poll(() => inkOf(handleIn(row))).toBe(0);
+  await expect.poll(() => inkOf(handleIn(other))).toBe(1);
+  expect(await shownHandles(page)).toBe(1);
 });
 
 test('the handle fades in as the strips do, and at once under reduced motion', async ({
