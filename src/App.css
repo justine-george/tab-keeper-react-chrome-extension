@@ -163,20 +163,30 @@ body {
   background: var(--scrollbar-track, #f0f2f5);
 }
 
+/* KAN-691. A pill inside the 10px gutter: the transparent border is the gap,
+   so the gutter, and every row beside it, keeps its width. 6px at rest, 8px
+   under the pointer and while held. The states below set background-color,
+   never the `background` shorthand, which would reset the clip and paint the
+   border too. */
 ::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb, #888);
+  border: 2px solid transparent;
+  border-radius: 5px;
+  background-clip: padding-box;
+  background-color: var(--scrollbar-thumb, #888);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover, #555);
+  border-width: 1px;
+  background-color: var(--scrollbar-thumb-hover, #555);
 }
 
 /* KAN-188. A held thumb matches :hover as well, and both selectors carry the
    same specificity, so this rule wins only because it comes AFTER :hover.
    Reordering them makes holding look like hovering again, silently -- which
-   is exactly what shipped before this rule existed. */
+   is exactly what shipped before this rule existed. Its width comes from
+   :hover, which Chrome keeps on a held thumb even after the pointer leaves. */
 ::-webkit-scrollbar-thumb:active {
-  background: var(--scrollbar-thumb-active, #555);
+  background-color: var(--scrollbar-thumb-active, #555);
 }
 
 /* KAN-164. The tab being dragged wears the colour of the group it would join,

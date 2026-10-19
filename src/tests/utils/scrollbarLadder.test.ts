@@ -40,11 +40,10 @@ const THEMES = {
   BLUE: BLUE_THEME,
 };
 
-// The floor for a thumb at rest. Above Chrome's own 1.59:1, so it is at least
-// as findable as the browser default; below the 3:1 of option B, which was
-// judged too loud on BB Pink. 1.9 rather than 2.0 so a one-step rounding of a
-// hex channel does not fail a thumb nobody could tell apart.
-const REST_FLOOR = 1.9;
+// The floor for a thumb at rest. KAN-188 held it at 1.9 because 3:1 was too
+// loud on BB Pink as a 10px slab; KAN-691 made the thumb a 6px pill and took
+// 3:1, the bar for a non-text control that is the only scroll cue.
+const REST_FLOOR = 3.0;
 
 // A state change has to be visible as a change. 1.2x further from the pane is
 // roughly one clearly distinguishable step on this ladder; the old hover sat

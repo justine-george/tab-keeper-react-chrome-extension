@@ -36,9 +36,29 @@ test.use({ showScrollbars: true });
 const THEMES = ['Light', 'WarmLight', 'BBPink', 'Darkenheimer', 'Blue'];
 
 // The same rules, and the same reasons, as scrollbarLadder.test.ts.
-const REST_FLOOR = 1.9;
+const REST_FLOOR = 3.0;
 const STEP = 1.2;
 const FROM_SELECTION = 1.3;
+
+// KAN-691. The thumb is a pill inside the 10px gutter, so no row moves: 6px at
+// rest, 8px under the pointer and while held, with round ends.
+const REST_WIDTH = 6;
+const ACTIVE_WIDTH = 8;
+
+// Columns of the gutter at height y that paint anything but the pane.
+async function paintedColumns(
+  page: Page,
+  g: ListGeometry,
+  y: number,
+  pane: string
+): Promise<number> {
+  const left = g.barX - g.barWidth / 2;
+  const row = await pixelsAt(
+    page,
+    Array.from({ length: g.barWidth }, (_, i) => [left + i, y])
+  );
+  return row.filter((px) => px !== pane).length;
+}
 
 interface ListGeometry {
   /** Horizontal centre of the vertical scrollbar. */
@@ -219,6 +239,23 @@ for (const theme of THEMES) {
         `the thumb ${thumb} merges into the selected row ${g.selected.fill}`
       ).toBeGreaterThanOrEqual(FROM_SELECTION);
 
+      // Below the round top end, where the pill is at full width.
+      const bodyY = thumbY + 8;
+      expect(
+        await paintedColumns(page, g, bodyY, pane),
+        'the resting thumb is a pill narrower than its gutter'
+      ).toBe(REST_WIDTH);
+
+      // The top-left pixel of a square thumb would be the thumb colour.
+      const inset = (g.barWidth - REST_WIDTH) / 2;
+      const [corner] = await pixelsAt(page, [
+        [g.barX - REST_WIDTH / 2, g.trackTop + inset],
+      ]);
+      expect(
+        contrast(corner, pane),
+        `the thumb's top corner ${corner} is square`
+      ).toBeLessThan(contrast(corner, thumb));
+
       await page.mouse.move(g.barX, thumbY);
       const [hovered] = await pixelsAt(page, [[g.barX, thumbY]]);
       const hover = contrast(hovered, pane);
@@ -227,10 +264,18 @@ for (const theme of THEMES) {
         `hovered thumb ${hovered} is ${hover.toFixed(2)}:1 from the pane, ` +
           `rest was ${rest.toFixed(2)}:1`
       ).toBeGreaterThanOrEqual(rest * STEP);
+      expect(
+        await paintedColumns(page, g, bodyY, pane),
+        'the hovered thumb widens'
+      ).toBe(ACTIVE_WIDTH);
 
       await page.mouse.down();
       const [heldPixel] = await pixelsAt(page, [[g.barX, thumbY]]);
+      const heldWidth = await paintedColumns(page, g, bodyY, pane);
       await page.mouse.up();
+      expect(heldWidth, 'the held thumb keeps the hovered width').toBe(
+        ACTIVE_WIDTH
+      );
       const held = contrast(heldPixel, pane);
       expect(
         held,
