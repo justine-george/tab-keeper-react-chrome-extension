@@ -85,6 +85,8 @@ export const TOAST_MESSAGES = {
   // window, most often not the one the tab view is in, so "Current window…"
   // would name the wrong one.
   SAVE_WINDOW_SUCCESS: 'Window saved as a session.',
+  // KAN-696. Save group on a group strip in the Open now pane.
+  SAVE_GROUP_SUCCESS: 'Group saved as a session.',
   // KAN-522. Nothing open but Tab Keeper: the save row says why it did nothing.
   NOTHING_TO_SAVE: 'No tabs to save. Only Tab Keeper is open.',
   NOTHING_TO_SAVE_IN_WINDOW:

@@ -242,6 +242,7 @@
   "Close window": "ウィンドウを閉じる",
   "Save window as a session": "ウィンドウをセッションとして保存",
   "Save": "保存",
+  "Group saved as a session.": "グループをセッションとして保存しました。",
   "Window saved as a session.": "ウィンドウをセッションとして保存しました。",
   "No tabs to save. Only Tab Keeper is open.": "保存するタブがありません。開いているのは Tab Keeper だけです。",
   "No tabs to save in this window. Only Tab Keeper is open here.": "このウィンドウには保存するタブがありません。ここで開いているのは Tab Keeper だけです。",

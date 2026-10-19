@@ -62,7 +62,7 @@ export async function withCurrentPlacement(
 // come before the read that carries a rename, and Reopen would write the old
 // look back. Read before the remove, which takes the groups with it. A group
 // Chrome no longer has, or a failed read, keeps the snapshot's.
-async function withCurrentGroupVisuals(
+export async function withCurrentGroupVisuals(
   openWindow: OpenWindow
 ): Promise<OpenWindow> {
   if (openWindow.groups.length === 0 || !chrome.tabGroups) return openWindow;

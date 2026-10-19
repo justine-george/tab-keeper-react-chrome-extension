@@ -12,6 +12,7 @@ import { getStringDate, normalizeTitle } from './local';
 import type { OpenWindow } from './openNow';
 import type { RecentTabsOf } from './recentTabs';
 import { dropNotificationCount } from './sessionExportHtml';
+import { titleOfPick } from './newSessionTitle';
 import { pickNameSourceTab } from './viewMode';
 import type {
   tabContainerData,
@@ -103,6 +104,33 @@ export function openWindowsToSession(
     isSelected: true,
     windows: saved,
   };
+}
+
+// KAN-696. One live group as a session of its own: its tabs in their order, in
+// the window's place, titled as a group moved to a new session is (KAN-394 N4),
+// else `fallbackTitle`. null when the window has no such group or it has no tabs.
+export function openGroupToSession(
+  openWindow: OpenWindow,
+  groupId: number,
+  now: Date,
+  recentTabsOf: RecentTabsOf,
+  fallbackTitle: string
+): tabContainerData | null {
+  const group = openWindow.groups.find((g) => g.id === groupId);
+  const tabs = openWindow.tabs.filter((tab) => tab.groupId === groupId);
+  if (group === undefined || tabs.length === 0) return null;
+
+  const narrowed: OpenWindow = { ...openWindow, tabs, groups: [group] };
+  // The title is read off the saved copy, whose group has the id of ours.
+  const savedWindow = toSavedWindow(narrowed, recentTabsOf(openWindow.id));
+  const savedGroupId = savedWindow.chromeTabGroups?.[0]?.groupId ?? '';
+  const title =
+    titleOfPick(savedWindow, {
+      kind: 'group',
+      windowId: savedWindow.windowId,
+      groupId: savedGroupId,
+    }) || fallbackTitle;
+  return openWindowsToSession([narrowed], title, now, recentTabsOf);
 }
 
 // The session name the tab view would suggest for this window (rule 1): the

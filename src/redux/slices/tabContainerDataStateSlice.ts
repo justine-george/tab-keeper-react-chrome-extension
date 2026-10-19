@@ -735,8 +735,9 @@ export const focusTabContainer = createAsyncThunk(
 );
 
 // What a save covered, for its toast: a capture's scope, or one window the
-// Open now pane saved (KAN-280 O13), which is not the current window.
-export type SavedScope = CaptureScope | 'one-window';
+// Open now pane saved (KAN-280 O13), which is not the current window, or one
+// group from it (KAN-696).
+export type SavedScope = CaptureScope | 'one-window' | 'one-group';
 
 export interface saveToTabContainerParams {
   container: tabContainerData;
@@ -839,6 +840,7 @@ const SAVED_TOAST: Record<SavedScope, string> = {
   'all-windows': TOAST_MESSAGES.SAVE_ALL_WINDOWS_SUCCESS,
   'current-window': TOAST_MESSAGES.SAVE_CURRENT_WINDOW_SUCCESS,
   'one-window': TOAST_MESSAGES.SAVE_WINDOW_SUCCESS,
+  'one-group': TOAST_MESSAGES.SAVE_GROUP_SUCCESS,
 };
 
 // The scope is carried here only to name the action in the toast. It is not

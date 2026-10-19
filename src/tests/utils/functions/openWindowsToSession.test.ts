@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from 'vitest';
 
 import {
+  openGroupToSession,
   openWindowsToSession,
   suggestTitleForWindow,
 } from '../../../utils/functions/openWindowsToSession';
@@ -412,5 +413,86 @@ describe('openWindowsToSession keeps pins and the active tab (KAN-458)', () => {
     ).windows;
 
     expect('activeTabId' in w).toBe(false);
+  });
+});
+
+describe('openGroupToSession saves one live group (KAN-696)', () => {
+  // [P(pinned), A, G "Docs" (x1, x2+x3 split), B, H (y1)]
+  const bounds = { width: 900, height: 700, top: 30, left: 40 };
+  const win = (groupTitle = 'Docs', x1Title = 'X1') =>
+    openWindow(
+      1,
+      [
+        openTab(10, 'P', { pinned: true }),
+        openTab(11, 'A'),
+        openTab(12, x1Title, { groupId: 5 }),
+        openTab(13, 'X2', { groupId: 5, splitViewId: 9 }),
+        openTab(14, 'X3', { groupId: 5, splitViewId: 9 }),
+        openTab(15, 'B'),
+        openTab(16, 'Y1', { groupId: 6 }),
+      ],
+      {
+        bounds,
+        state: 'maximized',
+        groups: [
+          { id: 5, title: groupTitle, color: 'blue', collapsed: true },
+          { id: 6, title: 'H', color: 'red', collapsed: false },
+        ],
+      }
+    );
+
+  test('saves only the group: its tabs in order, its look, the window bounds and state, titled by the group', () => {
+    const session = openGroupToSession(win(), 5, NOW, NO_RECORD, 'Fallback');
+
+    expect(session).not.toBeNull();
+    expect(session?.title).toBe('Docs');
+    expect(session?.windowCount).toBe(1);
+    expect(session?.tabCount).toBe(3);
+    const saved = session!.windows[0];
+    expect(saved.tabs.map((t) => t.title)).toEqual(['X1', 'X2', 'X3']);
+    const ids = saved.chromeTabGroups!.map((g) => g.groupId);
+    expect(ids).toHaveLength(1);
+    expect(saved.tabs.every((t) => t.chromeGroupId === ids[0])).toBe(true);
+    expect(saved.chromeTabGroups).toEqual([
+      {
+        groupId: expect.stringMatching(UUID),
+        title: 'Docs',
+        color: 'blue',
+        collapsed: true,
+      },
+    ]);
+    expect(saved.tabs[1].splitId).toBeDefined();
+    expect(saved.tabs[2].splitId).toBe(saved.tabs[1].splitId);
+    expect('splitId' in saved.tabs[0]).toBe(false);
+    expect([saved.windowWidth, saved.windowHeight]).toEqual([900, 700]);
+    expect([saved.windowOffsetTop, saved.windowOffsetLeft]).toEqual([30, 40]);
+    expect(saved.state).toBe('maximized');
+  });
+
+  test('an unnamed group is titled after its first tab', () => {
+    const session = openGroupToSession(win(''), 5, NOW, NO_RECORD, 'Fallback');
+    expect(session?.title).toBe('X1');
+  });
+
+  test('an unnamed group whose first tab is blank-titled gets the fallback title', () => {
+    const session = openGroupToSession(
+      win('', '   '),
+      5,
+      NOW,
+      NO_RECORD,
+      'Fallback'
+    );
+    expect(session?.title).toBe('Fallback');
+  });
+
+  test('a group id the window does not have saves nothing', () => {
+    expect(openGroupToSession(win(), 99, NOW, NO_RECORD, 'F')).toBeNull();
+  });
+
+  test('a group with no tabs saves nothing', () => {
+    const empty = openWindow(1, [openTab(11, 'A')], {
+      groups: [{ id: 5, title: 'Docs', color: 'blue', collapsed: false }],
+    });
+    expect(openGroupToSession(empty, 5, NOW, NO_RECORD, 'F')).toBeNull();
   });
 });
