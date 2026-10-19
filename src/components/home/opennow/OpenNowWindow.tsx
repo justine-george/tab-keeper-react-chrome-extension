@@ -521,6 +521,7 @@ export default function OpenNowWindow({
           scope={OPEN_TABS_SCOPE}
           rowId={String(tab.id)}
           left={grouped ? '-40px' : '-24px'}
+          outsideRow
         />
         <ClickableRow
           ariaLabel={t('Switch to tab') + ': ' + tab.title}
@@ -845,6 +846,7 @@ export default function OpenNowWindow({
                           scope={OPEN_ITEMS_SCOPE}
                           rowId={itemIdOf(item)}
                           left="-40px"
+                          outsideRow
                         />
                         {editingGroupId === item.group.groupId ? (
                           <>

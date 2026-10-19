@@ -6,8 +6,8 @@ import { DURATION, ICON } from '../../../../styles/scale';
 import { useRowDragHandle } from './dragContext';
 
 // KAN-701, his pick A. Six dots on the row under the pointer, where its drag
-// can start, so a row says it drags. A picture only: it takes no pointer,
-// and the row's own hit areas, cursor and drag are unchanged.
+// can start, so a row says it drags. Inside the row they are a picture and
+// take no pointer; outside its box they take it for the row (KAN-703).
 //
 // The row that owns the hover carries `data-drag-handle-row`. Shown while
 // that row is hovered and nothing is dragged, and on the held row until its
@@ -55,11 +55,16 @@ interface DragHandleProps {
 }
 
 /** The handle in the column left of a row: `left` from the row's own edge. */
-export const DragHandle: React.FC<DragHandleProps & { left: string }> = ({
-  rowId,
-  scope,
-  left,
-}) => {
+export const DragHandle: React.FC<
+  DragHandleProps & {
+    left: string;
+    // Placed outside the row's box (a tab or group row's indent column).
+    // The dots then take the pointer: pointed at, the row stays hovered;
+    // pressed, the press reaches the row's DraggableRow as any press in the
+    // row does. A click there is no row's, so it does nothing (KAN-703).
+    outsideRow?: boolean;
+  }
+> = ({ rowId, scope, left, outsideRow = false }) => {
   const { canDrag, held } = useRowDragHandle(rowId, scope);
   if (!canDrag) return null;
   return (
@@ -73,7 +78,11 @@ export const DragHandle: React.FC<DragHandleProps & { left: string }> = ({
         left: ${left};
         translate: 0 -50%;
         display: flex;
-        pointer-events: none;
+        ${
+          outsideRow
+            ? `cursor: grab; &:active { cursor: grabbing; }`
+            : 'pointer-events: none;'
+        }
         opacity: 0;
         ${FADE}
         ${shownWhen('{ opacity: 1; }')}
