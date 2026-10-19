@@ -183,9 +183,9 @@ body {
 /* KAN-188. A held thumb matches :hover as well, and both selectors carry the
    same specificity, so this rule wins only because it comes AFTER :hover.
    Reordering them makes holding look like hovering again, silently -- which
-   is exactly what shipped before this rule existed. */
+   is exactly what shipped before this rule existed. Its width comes from
+   :hover, which Chrome keeps on a held thumb even after the pointer leaves. */
 ::-webkit-scrollbar-thumb:active {
-  border-width: 1px;
   background-color: var(--scrollbar-thumb-active, #555);
 }
 
