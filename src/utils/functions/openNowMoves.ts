@@ -14,6 +14,7 @@ import type {
   TabMove,
 } from '../../components/home/rightpane/rowDrag/dropRules';
 import type { OpenTab, OpenWindow } from './openNow';
+import { applyLiveOrder, orderBeforeSort } from './openNowSort';
 import { partitionTabsIntoItems, sanitizeTabGroupColor } from './tabGroups';
 import type { TabGroupColor } from './tabGroups';
 
@@ -569,10 +570,12 @@ export async function moveOpenGroup(
 // Undo (spec O11f, U1): ⌘Z / Ctrl+Z puts an Open now drop's tabs back.
 
 // One drop as ⌘Z undoes it: moveOpenTab's record (`kind: 'tab'`, one tab,
-// put back on its own) or moveOpenGroup's (`kind: 'group'`, every tab of the
-// group, put back as one group).
+// put back on its own), moveOpenGroup's (`kind: 'group'`, every tab of the
+// group, put back as one group), or a sort by site's (`kind: 'sort'`, every
+// tab of the window but Tab Keeper pages, put back in their old order;
+// KAN-694).
 export interface OpenNowDrop {
-  kind: 'tab' | 'group';
+  kind: 'tab' | 'group' | 'sort';
   moved: MovedTabs;
 }
 
@@ -764,6 +767,22 @@ export async function undoOpenNowDrop(
 
   if (drop.kind === 'group') {
     if (withLook) await putGroupBack(drop.moved, states);
+    return;
+  }
+  // A sort moves no tab into or out of a group, so the old order is the whole undo.
+  if (drop.kind === 'sort') {
+    if (!withLook) return;
+    const records = [];
+    for (const [i, tab] of drop.moved.entries()) {
+      const now = states[i];
+      if (now === undefined) return;
+      records.push({
+        tabId: tab.tabId,
+        before: tab.before,
+        pinned: now.pinned,
+      });
+    }
+    await applyLiveOrder(orderBeforeSort(records));
     return;
   }
   for (const [i, tab] of drop.moved.entries()) {

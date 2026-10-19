@@ -19,7 +19,7 @@ function notify(): void {
   listeners.forEach((listener) => listener());
 }
 
-// KAN-590. For useSyncExternalStore: the Toast hides its ⌘Z hint while the key takes a drop.
+// KAN-590. The Toast hides its ⌘Z hint while the key takes a drop, and shows a sort's Undo only while it does (KAN-694).
 export function subscribeToOpenNowDrop(listener: () => void): () => void {
   listeners.add(listener);
   return () => {
@@ -30,6 +30,13 @@ export function subscribeToOpenNowDrop(listener: () => void): () => void {
 // True exactly when takeOpenNowDrop would return a drop.
 export function openNowDropHoldsUndoKey(): boolean {
   return latestDrop !== null && latestDrop.action === lastAction;
+}
+
+// KAN-694. The kind of drop takeOpenNowDrop would return, or null: a sort toast offers Undo only while a sort holds the key, so a drag kept since cannot borrow it.
+export function kindOfDropHoldingUndoKey(): OpenNowDrop['kind'] | null {
+  return latestDrop !== null && openNowDropHoldsUndoKey()
+    ? latestDrop.drop.kind
+    : null;
 }
 
 // A Reopen offer shown, or a new saved-session undoable change. Any drop

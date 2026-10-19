@@ -934,6 +934,8 @@ interface ShowToastPayload {
   show?: { tabGroupId: string };
   // KAN-583. An Undo button. Set only when the change announced was just recorded as the latest undo step.
   offersUndo?: boolean;
+  // KAN-694. An Undo button for the Open now drop just kept (a live sort), shown while that drop holds ⌘Z.
+  offersOpenNowUndo?: boolean;
 }
 
 let lastToastId = 0;
@@ -954,6 +956,7 @@ export const showToast = createAsyncThunk(
       stacksOnTwin = false,
       show,
       offersUndo = false,
+      offersOpenNowUndo = false,
     }: ShowToastPayload,
     thunkAPI
   ) => {
@@ -972,6 +975,7 @@ export const showToast = createAsyncThunk(
               : { id: reopenOfferId, keepsUndoKey: true },
           show: show ?? null,
           offersUndo,
+          offersOpenNowUndo,
         },
         announcesSavedChange,
         stacksOnTwin,
@@ -982,7 +986,8 @@ export const showToast = createAsyncThunk(
       ERROR_TOASTS.has(toastText) ||
       reopenOfferId !== undefined ||
       show !== undefined ||
-      offersUndo;
+      offersUndo ||
+      offersOpenNowUndo;
     startToastTimer(id, needsYou ? NEEDS_YOU_TOAST_MS : TOAST_MS, () =>
       thunkAPI.dispatch(toastsRemoved([id]))
     );
