@@ -507,6 +507,23 @@ test.describe('Open now window menu (KAN-694)', () => {
           groupId: was?.groupId,
         });
       }
+
+      // ⌘Z puts every other tab back where it was, with its pin and group.
+      await sortedToastShows(page);
+      await page.keyboard.press('ControlOrMeta+z');
+      await expect
+        .poll(async () =>
+          withoutTabKeeper(await labelsOf(serviceWorker, windowId))
+        )
+        .toEqual(LIVE_BEFORE);
+      const undone = await liveStrip(serviceWorker, windowId);
+      for (const row of undone) {
+        const was = before.find((b) => b.label === row.label);
+        expect({ pinned: row.pinned, groupId: row.groupId }).toEqual({
+          pinned: was?.pinned,
+          groupId: was?.groupId,
+        });
+      }
     });
   }
 
