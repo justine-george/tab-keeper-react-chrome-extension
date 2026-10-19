@@ -950,8 +950,9 @@ async function recreateTab(
 }
 
 // Rule 6 for a whole group (KAN-696): its members go back to their window
-// at their old indices, contiguous, as ONE new group with the old title,
-// colour and fold -- never into a group the window has now. If the window
+// at their old indices, contiguous, as ONE group with the old title, colour
+// and fold: the old group if it is still in the window, else a new one, and
+// never a neighbour. If the window
 // has gone, it is recreated around them. Resolves to the first member that
 // came back, or null when none did.
 async function recreateGroup(
@@ -998,10 +999,16 @@ async function recreateGroup(
   let groupId: number | null = null;
   if (chrome.tabGroups) {
     try {
-      groupId = await chrome.tabs.group({
-        createProperties: { windowId },
-        tabIds: [firstId, ...otherIds],
-      });
+      // A Tab Keeper page left in the old group keeps it alive: rejoin it
+      // rather than make a twin beside it (regroup's rule). Only that group,
+      // never a neighbour, and only in this window; any failed read makes a
+      // new one.
+      const old = await chrome.tabGroups.get(item.group.id).catch(() => null);
+      groupId = await chrome.tabs.group(
+        old && old.windowId === windowId
+          ? { groupId: old.id, tabIds: [firstId, ...otherIds] }
+          : { createProperties: { windowId }, tabIds: [firstId, ...otherIds] }
+      );
     } catch (error) {
       console.warn('Could not reopen a tab group: ', error);
     }
