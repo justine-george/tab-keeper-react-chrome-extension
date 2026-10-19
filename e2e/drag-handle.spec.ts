@@ -307,6 +307,46 @@ test('the held row keeps its handle off the pointer, and no other row shows one'
   expect(await shownHandles(page)).toBe(1);
 });
 
+// Between the drag's start and the render that marks the row held, the held
+// row's hover is all that shows its handle. Under reduced motion nothing
+// fades, so a gap there is a blink.
+test("the held row's handle does not blink at the pick-up", async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const { page } = await openBoth(context, extensionId, serviceWorker);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const row = sessionRow(page, 'S2');
+  const r = await boxOf(row);
+  const x = r.x + r.width / 2;
+  const y = r.y + r.height / 2;
+  for (let run = 0; run < 3; run++) {
+    await page.mouse.move(x, y);
+    await expect.poll(() => inkOf(handleIn(row))).toBe(1);
+    await row.evaluate((el) => {
+      const log: string[] = [];
+      const handle = el.querySelector('[data-drag-handle]')!;
+      const tick = () => {
+        const dragging = document.documentElement.hasAttribute('data-dragging');
+        log.push(`${dragging}:${getComputedStyle(handle).opacity}`);
+        if (log.length < 30) requestAnimationFrame(tick);
+        else el.setAttribute('data-probe', log.join(' '));
+      };
+      requestAnimationFrame(tick);
+    });
+    await page.mouse.down();
+    await page.mouse.move(x, y + 12, { steps: 4 });
+    await expect(row).toHaveAttribute('data-probe', /./);
+    const frames = (await row.getAttribute('data-probe'))!.split(' ');
+    await page.mouse.up();
+    await row.evaluate((el) => el.removeAttribute('data-probe'));
+    // PREMISE: the drag started inside the log.
+    expect(frames).toContain('true:1');
+    expect(frames.filter((f) => f === 'true:0')).toEqual([]);
+  }
+});
+
 test('the handle fades in as the strips do, and at once under reduced motion', async ({
   context,
   extensionId,
