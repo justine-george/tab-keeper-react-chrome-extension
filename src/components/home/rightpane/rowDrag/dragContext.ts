@@ -120,9 +120,8 @@ export interface Ctx {
   // drag when the pointer comes in (KAN-350). Drawn invisible, keeping its
   // footprint; undefined while this list offers no carried item a place.
   adoptRowId: string | undefined;
-  // Whether a press on this row can start a drag here now: one of the list's
-  // rows, while the list is on. What a row's drag handle shows by (KAN-701).
-  canDrag: (rowId: string) => boolean;
+  // No press starts a drag here now (a search). Rows show no handle (KAN-701).
+  disabled: boolean;
 }
 
 // The lists a row can join. `nearest` is what every unscoped row joins, as
@@ -160,7 +159,7 @@ export function useRowDragHandle(
   const ctx =
     (scope === undefined ? scopes?.nearest : scopes?.byScope[scope]) ?? null;
   return {
-    canDrag: ctx?.canDrag(rowId) ?? false,
+    canDrag: ctx !== null && !ctx.disabled,
     held: ctx?.drag?.rowId === rowId,
   };
 }

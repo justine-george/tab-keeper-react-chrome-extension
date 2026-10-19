@@ -2373,15 +2373,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     markRowContainer(containerRef.current);
   }, []);
 
-  // A row this list orders, while it is on (KAN-701).
-  const canDrag = useCallback(
-    (rowId: string) => !disabled && rowIds.includes(rowId),
-    [disabled, rowIds]
-  );
-
   const ctx = useMemo<Ctx>(
-    () => ({ register, begin, drag, adoptRowId, canDrag }),
-    [register, begin, drag, adoptRowId, canDrag]
+    () => ({ register, begin, drag, adoptRowId, disabled }),
+    [register, begin, drag, adoptRowId, disabled]
   );
 
   const scopes = useMemo<DragScopes>(
