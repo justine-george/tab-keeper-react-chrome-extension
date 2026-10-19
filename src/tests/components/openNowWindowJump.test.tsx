@@ -188,12 +188,12 @@ describe('a window row goes to its window (KAN-331 O15)', () => {
     ).toEqual([]);
   });
 
-  test('T2 and S2: only a button row shades on hover', async () => {
+  test('KAN-700 and S2: every row shades on hover, This window too, but none under a search', async () => {
     await renderOpenNow(threeWindows());
     // hoverRulesFor: jsdom cannot hover, so the injected :hover rule is what a
     // component test can hold (real hover: the e2e spec).
     expect(hoverRulesFor(rowOf(2))).toMatch(new RegExp(HOVER_RGB));
-    expect(hoverRulesFor(rowOf(1))).not.toMatch(new RegExp(HOVER_RGB));
+    expect(hoverRulesFor(rowOf(1))).toMatch(new RegExp(HOVER_RGB));
     await userEvent.type(
       screen.getByRole('textbox', { name: 'Search open tabs' }),
       'd'

@@ -333,7 +333,7 @@ test.describe('a window row goes to its window (KAN-331)', () => {
     expect(await windowState(serviceWorker, made.windowId)).toBe('maximized');
   });
 
-  test('5. T2: hovering This window shows its strip without shading the row; another row shades', async ({
+  test('5. T2 (KAN-700): hovering This window shades it, as another row shades', async ({
     context,
     extensionId,
     serviceWorker,
@@ -353,20 +353,48 @@ test.describe('a window row goes to its window (KAN-331)', () => {
     // PREMISE: at rest the strip is hidden, so its showing below means the
     // pointer really reached the row.
     await expect.poll(stripOpacity).toBe('0');
-    const resting = await backgroundOf(homeRow);
-    // PREMISE: at rest the row is not the hover colour, so "stays resting"
-    // below can tell the two apart.
-    expect(resting).not.toBe(hover);
-    await expect.poll(() => backgroundOf(windowRow(block))).toBe(resting);
+    // PREMISE: at rest the row is not the hover colour, so "shades" below
+    // can tell the two apart.
+    expect(await backgroundOf(homeRow)).not.toBe(hover);
 
     await windowTitle(homeBlock).hover();
-    // The pointer really is over the row: its Save window strip shows.
     await expect.poll(stripOpacity).toBe('1');
-    expect(await backgroundOf(homeRow)).toBe(resting);
+    await expect.poll(() => backgroundOf(homeRow)).toBe(hover);
 
     // CONTROL: the same hover on a row that goes to its window shades it.
     await windowTitle(block).hover();
     await expect.poll(() => backgroundOf(windowRow(block))).toBe(hover);
+  });
+
+  test('5b. KAN-700: while a search is held a hovered row does not shade', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const { page, block } = await setUp(context, extensionId, serviceWorker, [
+      'Kyoto maps',
+      'Osaka flights',
+    ]);
+    const row = windowRow(block);
+    await pointerAway(page);
+    const resting = await backgroundOf(row);
+    await field(page).fill('kyoto');
+    await expect(liveRowIn(block, 'Osaka flights')).toHaveCount(0);
+
+    await windowTitle(block).hover();
+    // The row has no strip to show under a search (O14e), so the wait is
+    // fixed; the control below shows the same probe see a shade.
+    await page.waitForTimeout(QUIET_MS);
+    expect(await backgroundOf(row)).toBe(resting);
+
+    // CONTROL: the search cleared, the same hover shades it.
+    await field(page).press('Escape');
+    await expect(field(page)).toHaveValue('');
+    await pointerAway(page);
+    await windowTitle(block).hover();
+    await expect
+      .poll(() => backgroundOf(row))
+      .toBe(rgb(LIGHT_THEME.HOVER_COLOR));
   });
 
   test("6. a button row's title shows the pointer cursor; This window's does not", async ({
