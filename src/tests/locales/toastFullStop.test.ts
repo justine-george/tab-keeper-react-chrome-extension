@@ -9,6 +9,7 @@ vi.hoisted(() => {
 
 import {
   TOAST_MESSAGES,
+  GROUP_CLOSED_FRAME,
   WINDOW_CLOSED_FRAME,
 } from '../../utils/constants/common';
 import {
@@ -51,7 +52,11 @@ describe('toast full stops (KAN-604, KAN-618)', () => {
 
   it('every toast, in every locale and plural form, ends with a full stop', () => {
     expect(
-      unstopped([...Object.values(TOAST_MESSAGES), WINDOW_CLOSED_FRAME])
+      unstopped([
+        ...Object.values(TOAST_MESSAGES),
+        WINDOW_CLOSED_FRAME,
+        GROUP_CLOSED_FRAME,
+      ])
     ).toEqual([]);
   });
 

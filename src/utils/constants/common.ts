@@ -196,3 +196,11 @@ export const IMPORT_ERROR_FRAME = 'ImportErrorFrame';
 // it is incomplete without its parameter, and putting it in that object would
 // invite it being dispatched bare.
 export const WINDOW_CLOSED_FRAME = 'WindowClosed';
+
+// The toast after Close group in the Open now pane, with the group's tab
+// count as {{count}} (KAN-696) -- a plural key, GroupClosed_one/_other and
+// each locale's own forms.
+//
+// It is not part of TOAST_MESSAGES for the reason WINDOW_CLOSED_FRAME is not:
+// it is incomplete without its parameter.
+export const GROUP_CLOSED_FRAME = 'GroupClosed';

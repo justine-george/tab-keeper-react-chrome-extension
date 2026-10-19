@@ -19,7 +19,11 @@ import {
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
-import { closeOpenTab, closeOpenWindow } from '../../utils/functions/reopen';
+import {
+  closeOpenGroup,
+  closeOpenTab,
+  closeOpenWindow,
+} from '../../utils/functions/reopen';
 import { clearReopenFocus } from '../../redux/reopenFocus';
 import type { ClosedItem } from '../../utils/functions/reopen';
 import type { ChromeSeed } from '../setup/chrome.fake';
@@ -795,6 +799,56 @@ describe('the Reopen button shows its key (KAN-311)', () => {
       expect(button, answer).toHaveAttribute('aria-keyshortcuts', 'Control+Z');
       unmount();
       vi.restoreAllMocks();
+    }
+  });
+
+  // KAN-696. A closed group says how many tabs it took with it, and offers Reopen.
+  test('a closed group says "Group closed (3 tabs)." with Reopen, and one tab reads singular', async () => {
+    const seed: ChromeSeed = {
+      refusedPermissions: ['sessions'],
+      grantedPermissions: ['tabGroups'],
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), active: true },
+            { url: url('x1'), groupId: 50 },
+            { url: url('x2'), groupId: 50 },
+            { url: url('x3'), groupId: 50 },
+            { url: url('y1'), groupId: 51 },
+          ],
+        },
+      ],
+      tabGroups: [
+        { id: 50, windowId: 2, title: 'Docs', color: 'blue' },
+        { id: 51, windowId: 2, title: 'One', color: 'red' },
+      ],
+    };
+    const { store } = await renderWithProviders(<Toast />, { seed });
+    const listed = async () => {
+      const all = await chrome.windows.getAll({
+        populate: true,
+        windowTypes: ['normal'],
+      });
+      const groups = await chrome.tabGroups.query({});
+      const found = toOpenWindows(all, groups, null).find((w) => w.id === 2);
+      if (!found) throw new Error('no window 2');
+      return found;
+    };
+
+    for (const [groupId, text] of [
+      [50, 'Group closed (3 tabs).'],
+      [51, 'Group closed (1 tab).'],
+    ] as const) {
+      const item = await closeOpenGroup(await listed(), groupId);
+      if (!item) throw new Error('close failed');
+      await act(async () => {
+        await store.dispatch(offerReopen(item));
+      });
+      const shown = visibleToast().textContent ?? '';
+      expect(shown).toContain(text);
+      expect(shown).toContain('Reopen');
     }
   });
 });

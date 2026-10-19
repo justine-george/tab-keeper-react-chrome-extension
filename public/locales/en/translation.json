@@ -241,6 +241,8 @@
   "Couldn't reopen.": "Couldn't reopen.",
   "WindowClosed_one": "Window closed ({{count}} tab).",
   "WindowClosed_other": "Window closed ({{count}} tabs).",
+  "GroupClosed_one": "Group closed ({{count}} tab).",
+  "GroupClosed_other": "Group closed ({{count}} tabs).",
   "Close tab": "Close tab",
   "Audio playing": "Audio playing",
   "Audio muted": "Audio muted",

@@ -234,6 +234,7 @@
   "Tab closed.": "分頁已關閉。",
   "Couldn't reopen.": "無法重新開啟。",
   "WindowClosed_other": "視窗已關閉（{{count}} 個分頁）。",
+  "GroupClosed_other": "群組已關閉（{{count}} 個分頁）。",
   "Close tab": "關閉分頁",
   "Audio playing": "正在播放音訊",
   "Audio muted": "音訊已靜音",

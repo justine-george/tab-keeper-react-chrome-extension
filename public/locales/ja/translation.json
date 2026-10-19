@@ -234,6 +234,7 @@
   "Tab closed.": "タブを閉じました。",
   "Couldn't reopen.": "再度開けませんでした。",
   "WindowClosed_other": "ウィンドウを閉じました（{{count}} 個のタブ）。",
+  "GroupClosed_other": "グループを閉じました（{{count}} 個のタブ）。",
   "Close tab": "タブを閉じる",
   "Audio playing": "音声を再生中",
   "Audio muted": "ミュート中",

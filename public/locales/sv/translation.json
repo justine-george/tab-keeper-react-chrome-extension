@@ -241,6 +241,8 @@
   "Couldn't reopen.": "Det gick inte att öppna igen.",
   "WindowClosed_one": "Fönstret stängdes ({{count}} flik).",
   "WindowClosed_other": "Fönstret stängdes ({{count}} flikar).",
+  "GroupClosed_one": "Gruppen stängdes ({{count}} flik).",
+  "GroupClosed_other": "Gruppen stängdes ({{count}} flikar).",
   "Close tab": "Stäng flik",
   "Audio playing": "Spelar upp ljud",
   "Audio muted": "Ljudet är avstängt",

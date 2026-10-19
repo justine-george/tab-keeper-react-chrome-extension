@@ -241,6 +241,8 @@
   "Couldn't reopen.": "फिर से नहीं खोला जा सका।",
   "WindowClosed_one": "विंडो बंद की गई ({{count}} टैब)।",
   "WindowClosed_other": "विंडो बंद की गई ({{count}} टैब्स)।",
+  "GroupClosed_one": "समूह बंद किया गया ({{count}} टैब)।",
+  "GroupClosed_other": "समूह बंद किया गया ({{count}} टैब्स)।",
   "Close tab": "टैब बंद करें",
   "Audio playing": "ऑडियो चल रहा है",
   "Audio muted": "ऑडियो म्यूट है",

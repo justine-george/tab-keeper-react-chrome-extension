@@ -58,6 +58,13 @@ function isClosedItem(value: unknown): value is ClosedItem {
   }
   if (!isOpenWindow(value.window)) return false;
   if (value.kind === 'window') return true;
+  if (value.kind === 'group') {
+    return (
+      isOpenGroup(value.group) &&
+      Array.isArray(value.tabs) &&
+      value.tabs.every(isOpenTab)
+    );
+  }
   return (
     value.kind === 'tab' &&
     isOpenTab(value.tab) &&

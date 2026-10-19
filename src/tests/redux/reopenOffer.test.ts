@@ -20,7 +20,11 @@ import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeFakeHandle } from '../setup/chrome.fake';
 import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
-import { closeOpenTab, closeOpenWindow } from '../../utils/functions/reopen';
+import {
+  closeOpenGroup,
+  closeOpenTab,
+  closeOpenWindow,
+} from '../../utils/functions/reopen';
 import { setPinTabKeeperInNewWindows } from '../../redux/slices/settingsDataStateSlice';
 import type { ClosedItem } from '../../utils/functions/reopen';
 import {
@@ -43,7 +47,10 @@ import {
   REOPEN_FOCUS_MS,
   subscribeReopenFocus,
 } from '../../redux/reopenFocus';
-import { TOAST_MESSAGES } from '../../utils/constants/common';
+import {
+  GROUP_CLOSED_FRAME,
+  TOAST_MESSAGES,
+} from '../../utils/constants/common';
 
 // KAN-280 O8a. The toast after a close offers Reopen for the latest close
 // only, once, for 8 seconds, and the timer holds while the user is on it.
@@ -195,6 +202,46 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
     expect(openState(store)).toBe(true);
     vi.advanceTimersByTime(1);
     expect(openState(store)).toBe(false);
+  });
+
+  // KAN-696. A closed group's toast carries the group's tab count, not the
+  // window's.
+  test('a closed group offers "Group closed" with its own tab count', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [
+        { id: 1, focused: true, tabs: [{ url: url('home'), active: true }] },
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), active: true },
+            { url: url('x1'), groupId: 50 },
+            { url: url('x2'), groupId: 50 },
+            { url: url('x3'), groupId: 50 },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 50, windowId: 2, title: 'Docs', color: 'blue' }],
+    });
+    const all = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    const groups = await chrome.tabGroups.query({});
+    const w2 = toOpenWindows(all, groups, null).find((w) => w.id === 2);
+    if (!w2) throw new Error('no window 2');
+    const item = await closeOpenGroup(w2, 50);
+    if (!item) throw new Error('close failed');
+    const { store } = makeTestStore();
+
+    await store.dispatch(offerReopen(item));
+
+    expect(store.getState().globalState.toasts).toMatchObject([
+      { text: GROUP_CLOSED_FRAME, params: { count: 3 } },
+    ]);
+    const id = shownOfferId(store.getState());
+    if (id === null) throw new Error('no offer id');
+    expect(takeReopenOffer(id)).toBe(item);
   });
 
   // A closed toast offers nothing, so the closed tab or window it named is

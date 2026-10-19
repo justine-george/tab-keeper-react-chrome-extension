@@ -234,6 +234,7 @@
   "Tab closed.": "标签页已关闭。",
   "Couldn't reopen.": "无法重新打开。",
   "WindowClosed_other": "窗口已关闭（{{count}} 个标签页）。",
+  "GroupClosed_other": "群组已关闭（{{count}} 个标签页）。",
   "Close tab": "关闭标签页",
   "Audio playing": "正在播放音频",
   "Audio muted": "音频已静音",

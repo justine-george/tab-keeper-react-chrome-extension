@@ -241,6 +241,8 @@
   "Couldn't reopen.": "Konnte nicht wieder geöffnet werden.",
   "WindowClosed_one": "Fenster geschlossen ({{count}} Tab).",
   "WindowClosed_other": "Fenster geschlossen ({{count}} Tabs).",
+  "GroupClosed_one": "Gruppe geschlossen ({{count}} Tab).",
+  "GroupClosed_other": "Gruppe geschlossen ({{count}} Tabs).",
   "Close tab": "Tab schließen",
   "Audio playing": "Audio wird wiedergegeben",
   "Audio muted": "Audio stummgeschaltet",
