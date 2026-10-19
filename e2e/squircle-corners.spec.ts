@@ -4,6 +4,13 @@ import { join } from 'node:path';
 
 import type { Locator, Page } from '@playwright/test';
 
+import {
+  aimAt,
+  carryOutLeft,
+  onto,
+  openPopup,
+  selected,
+} from './fixtures/betweenSessions';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { differingPixels } from './fixtures/pixels';
 import {
@@ -12,6 +19,7 @@ import {
   savedWindow,
   session,
 } from './fixtures/savedWindows';
+import { pickUp, windowHandle } from './fixtures/sessionDrag';
 import { generatePlaceholderURL } from '../src/utils/functions/local';
 
 // KAN-693. Tab Keeper is square (RADIUS.SQUARE); the few corners it does round
@@ -123,6 +131,10 @@ test('the export page and the file it saves draw squircles', async ({
     layout.locator('[data-sliding-knob]'),
     "the switch's knob"
   );
+  const unpressed = layout.getByRole('button', { name: 'Comfortable' });
+  await unpressed.hover();
+  await expectSquircle(page, unpressed, "the switch's hover fill");
+  await page.mouse.move(2, 2);
 
   await page.getByRole('button', { name: 'Comfortable' }).click();
   const [download] = await Promise.all([
@@ -178,4 +190,41 @@ test("a restored tab's placeholder page draws a squircle Go to URL", async ({
     )
   );
   await expectSquircle(page, page.locator('#copyButton'), 'Go to URL');
+});
+
+test('the dotted room a dragged tab leaves is a squircle', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openPopup(context, extensionId);
+  await pickUp(page, page.locator('[data-drag-row-id="a0"]'));
+  await aimAt(page, 'b1', 0.1);
+  await expectSquircle(
+    page,
+    page.locator('[data-drag-source-room]'),
+    'the source room'
+  );
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+});
+
+test("a carried window's resting slot in another session is a squircle", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openPopup(context, extensionId);
+  const at = await pickUp(page, windowHandle(page, 'w2'));
+  await carryOutLeft(page, at);
+  await onto(page, 'S2');
+  await expect.poll(() => selected(page), { timeout: 3000 }).toBe('S2');
+  const phantom = page.locator('[data-drag-row-id="carried:w2"]');
+  // PREMISE: the phantom rests in the list, not held, so its own slot shows.
+  await expect(phantom).not.toHaveAttribute('data-drag-held', '');
+  await expectSquircle(
+    page,
+    phantom.locator(':scope > [data-phantom-resting-slot]'),
+    'the resting slot'
+  );
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
 });
