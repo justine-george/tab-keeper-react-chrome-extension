@@ -302,9 +302,39 @@ test('(c) a double-click on Close window closes exactly one window', async ({
 
   await firstBlock.locator('[data-window-row]').hover();
   await openNowWindowMenu(page, firstBlock).click();
+  // Records every click the page is sent, from the window's capture phase so
+  // it runs before the guard's own listener (added on the first click).
+  await page.evaluate(() => {
+    const seen: { detail: number; target: string }[] = [];
+    (window as unknown as { clicksSeen: typeof seen }).clicksSeen = seen;
+    window.addEventListener(
+      'click',
+      (e) => {
+        const el = e.target instanceof Element ? e.target : null;
+        const labelled = el?.closest('[aria-label]');
+        seen.push({
+          detail: e.detail,
+          target: labelled?.getAttribute('aria-label') ?? el?.tagName ?? '',
+        });
+      },
+      true
+    );
+  });
   await page
     .getByRole('menuitem', { name: 'Close window', exact: true })
     .dblclick();
+
+  // PREMISE: both halves reached the page (detail 1, then detail 2), so the
+  // second click was really sent after the first had closed the window and the
+  // menu; only the guard can stop it acting.
+  const clicks = () =>
+    page.evaluate(
+      () =>
+        (window as unknown as { clicksSeen: { detail: number }[] }).clicksSeen
+    );
+  await expect
+    .poll(async () => (await clicks()).map((c) => c.detail))
+    .toEqual([1, 2]);
 
   // PREMISE: the first half of the double-click closed the window.
   await expect
@@ -590,15 +620,25 @@ test('(h) the group strip shows for keyboard focus on its Save, and not for a mo
   await expect(kyotoSave).toBeFocused();
   await expect.poll(() => opacityOf(kyotoSave)).toBe('1');
   expect(await opacityOf(foodSave)).toBe('0');
-  // A mouse elsewhere neither hides Kyoto's (keyboard focus holds it) nor
-  // shows Food's.
-  await block.getByRole('group', { name: 'Food', exact: true }).hover({
-    position: { x: 2, y: 2 },
-  });
-  await page.mouse.move(2, 2);
-  expect(await opacityOf(foodSave)).toBe('0');
+  // The mouse over the centre of a loose tab row, clear of both groups.
+  const looseRow = liveRowIn(block, 'Loose-h');
+  await looseRow.hover();
+  // Proves the hover is really on that row: its own Close tab shows.
+  await expect
+    .poll(() =>
+      opacityOf(block.getByRole('button', { name: 'Close tab: Loose-h' }))
+    )
+    .toBe('1');
+  // Proves a mouse elsewhere does not show Food's strip: it stays hidden for
+  // half a second after the hover took effect. Proves keyboard focus still
+  // holds Kyoto's strip and its Save focused while the mouse is elsewhere.
+  const until = Date.now() + 500;
+  while (Date.now() < until) {
+    expect(await opacityOf(foodSave)).toBe('0');
+    expect(await opacityOf(kyotoSave)).toBe('1');
+    await page.waitForTimeout(50);
+  }
   await expect(kyotoSave).toBeFocused();
-  expect(await opacityOf(kyotoSave)).toBe('1');
 });
 
 test('(i) Reopen into a window where another group now spans the old index: the members return together, in order, in their own group, and the other group is unchanged', async ({
@@ -655,6 +695,12 @@ test('(i) Reopen into a window where another group now spans the old index: the 
   const hotelsBefore = (await tabsOf(serviceWorker, made.windowId))
     .filter((t) => t.groupId === hId)
     .map((t) => [t.id, t.name]);
+  // PREMISE: Hotels spans indices 0-2, so the old index 1 is strictly inside.
+  expect(
+    (await tabsOf(serviceWorker, made.windowId))
+      .filter((t) => t.groupId === hId)
+      .map((t) => t.index)
+  ).toEqual([0, 1, 2]);
   expect(hotelsBefore.map(([, name]) => name)).toEqual([
     'Anchor-i',
     'Inn-i',
