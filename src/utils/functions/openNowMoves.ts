@@ -788,7 +788,7 @@ export async function undoOpenNowDrop(
   // A sort moves no tab into or out of a group, so the old order is the whole undo.
   if (drop.kind === 'sort') {
     if (!withLook || !(await sortStillUndoable(drop.moved))) return;
-    const records = [];
+    const records: Parameters<typeof orderBeforeSort>[0][number][] = [];
     for (const [i, tab] of drop.moved.entries()) {
       const now = states[i];
       if (now === undefined) return;

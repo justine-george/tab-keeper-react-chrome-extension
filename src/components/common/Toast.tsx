@@ -38,7 +38,7 @@ import { isTabView } from '../../utils/functions/viewMode';
 const EDGE_PX = 20;
 
 // The kind of Open now drop ⌘Z would take, in state: React 18.2's useSyncExternalStore lost a change made in the render that added a toast (useToastStack sets state while rendering).
-function useDropOnUndoKey(): OpenNowDrop['kind'] | null {
+function useKindOfDropOnUndoKey(): OpenNowDrop['kind'] | null {
   const [kind, setKind] = useState(kindOfDropHoldingUndoKey);
   useEffect(() => {
     const read = () => setKind(kindOfDropHoldingUndoKey());
@@ -79,7 +79,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   const keyOfferId = useSelector(selectReopenOfferForKey);
   // KAN-590. While an Open now drop holds the key (O11f), it undoes the drop, so no chip names it.
   // KAN-694. A live sort's toast offers Undo only while that sort is the drop the key takes.
-  const dropOnKey = useDropOnUndoKey();
+  const dropOnKey = useKindOfDropOnUndoKey();
   const dropHoldsKey = dropOnKey !== null;
   const sortHoldsKey = dropOnKey === 'sort';
   const hasTabGroupsPermission = useSelector(

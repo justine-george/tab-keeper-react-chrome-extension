@@ -11,6 +11,7 @@ import {
   selectTabContainer,
   type tabData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import type { RootState } from '../../redux/store';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { buildSession } from '../fixtures/sessionFixture';
 
@@ -65,7 +66,8 @@ const render = (tabs: tabData[]) =>
 const windowMenuButton = () => {
   const block = document.querySelector<HTMLElement>(
     '[data-drop-window-id="w1"]'
-  )!;
+  );
+  if (!block) throw new Error('no window block');
   const own = within(block)
     .queryAllByRole('button', { name: 'More actions' })
     .filter((b) => !b.closest('[role="group"]'));
@@ -90,14 +92,8 @@ const MIXED = () => [
   tab('b2', 'b.test'),
 ];
 
-const storedIds = (store: { getState: () => never }) =>
-  (
-    store.getState() as {
-      tabContainerDataState: {
-        tabGroups: { windows: { tabs: tabData[] }[] }[];
-      };
-    }
-  ).tabContainerDataState.tabGroups[0].windows[0].tabs.map((t) => t.tabId);
+const storedIds = (state: RootState) =>
+  state.tabContainerDataState.tabGroups[0].windows[0].tabs.map((t) => t.tabId);
 
 describe('Sort tabs by site in a saved window menu (KAN-694)', () => {
   test('is the first item, above Remove duplicate tabs and Delete window', async () => {
@@ -122,10 +118,10 @@ describe('Sort tabs by site in a saved window menu (KAN-694)', () => {
     await user.click(
       within(menu).getByRole('menuitem', { name: 'Sort tabs by site' })
     );
-    expect(storedIds(store as never)).toEqual(['a1', 'a2', 'b1', 'b2']);
-    expect(newestToast(store.getState())?.text).toBe(
-      TOAST_MESSAGES.TABS_SORTED_BY_SITE
-    );
+    expect(storedIds(store.getState())).toEqual(['a1', 'a2', 'b1', 'b2']);
+    const toast = newestToast(store.getState());
+    expect(toast?.text).toBe(TOAST_MESSAGES.TABS_SORTED_BY_SITE);
+    expect(toast?.offersUndo).toBe(true);
   });
 
   test('is absent when the window is already sorted', async () => {
