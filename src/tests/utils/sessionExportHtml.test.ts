@@ -548,16 +548,20 @@ describe('every line the file draws can be seen (KAN-674)', () => {
     const palette = EXPORT_PALETTE[scheme];
     const ratio = contrast(palette.rule, palette[ground]);
 
-    expect(ratio, `${palette.rule} on ${palette[ground]}: ${ratio.toFixed(3)}:1`).toBeGreaterThanOrEqual(
-      VISIBLE_FLOOR
-    );
+    expect(
+      ratio,
+      `${palette.rule} on ${palette[ground]}: ${ratio.toFixed(3)}:1`
+    ).toBeGreaterThanOrEqual(VISIBLE_FLOOR);
   });
 
   // The editor's eye fills with the rule when pressed; its muted glyph keeps 3:1 there.
-  test.each(['light', 'dark'] as const)('%s: the pressed eye glyph on the rule', (scheme) => {
-    const palette = EXPORT_PALETTE[scheme];
-    expect(contrast(palette.muted, palette.rule)).toBeGreaterThanOrEqual(3);
-  });
+  test.each(['light', 'dark'] as const)(
+    '%s: the pressed eye glyph on the rule',
+    (scheme) => {
+      const palette = EXPORT_PALETTE[scheme];
+      expect(contrast(palette.muted, palette.rule)).toBeGreaterThanOrEqual(3);
+    }
+  );
 });
 
 // KAN-208. A capture of open windows has no date; a leading " · " would imply a
