@@ -1,7 +1,8 @@
 // KAN-696. A menu item closes its menu on the first click of a double-click, so
 // the second click lands on whatever slid under the pointer, and a menu item's
 // handler gets no event to read the count from (onFirstClickOnly can't be used).
-// Holds back the rest of that double-click until the next fresh press or key.
+// Holds back the rest of that double-click until the next fresh press, click or key
+// (a pointerdown that preventDefaults sends a click but no mousedown).
 // Never a timer: a timer cannot say when the user's turn is over.
 
 const TAIL_EVENTS = ['mousedown', 'mouseup', 'click', 'dblclick'] as const;
@@ -19,6 +20,7 @@ function release(event: Event) {
     document.removeEventListener(type, holdBack, true);
   }
   document.removeEventListener('mousedown', release, true);
+  document.removeEventListener('click', release, true);
   document.removeEventListener('keydown', release, true);
 }
 
@@ -28,5 +30,7 @@ export function holdBackDoubleClickTail(): void {
     document.addEventListener(type, holdBack, true);
   }
   document.addEventListener('mousedown', release, true);
+  // Added during the triggering click's dispatch, so it does not hear that click.
+  document.addEventListener('click', release, true);
   document.addEventListener('keydown', release, true);
 }

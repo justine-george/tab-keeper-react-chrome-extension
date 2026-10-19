@@ -57,6 +57,19 @@ describe('holdBackDoubleClickTail', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
+  // A pointerdown that preventDefaults sends no mousedown, but still a click
+  // (the pane resize grip, whose double-click resets the width).
+  test('a first click with no mousedown removes the hold, so the dblclick after it reaches its target', () => {
+    holdBackDoubleClickTail();
+    const onDblClick = vi.fn<(event: Event) => void>();
+    button.addEventListener('dblclick', onDblClick);
+    fireEvent.click(button, { detail: 1 });
+    fireEvent.click(button, { detail: 2 });
+    fireEvent.doubleClick(button, { detail: 2 });
+    expect(onClick).toHaveBeenCalledTimes(2);
+    expect(onDblClick).toHaveBeenCalledTimes(1);
+  });
+
   test('a key removes the hold', () => {
     holdBackDoubleClickTail();
     fireEvent.keyDown(document.body, { key: 'Enter' });
