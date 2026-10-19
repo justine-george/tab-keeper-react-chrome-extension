@@ -199,8 +199,12 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
                a swatch -- took the pointer off the strip and shrank it back
                while its own menu was still up. The KAN-217 rule for menu
                triggers, applied to this one: the control that owns an open
-               menu holds its active state until the menu closes. */
-            &:hover,
+               menu holds its active state until the menu closes.
+
+               KAN-706: not during a drag, where the strip is no control to
+               click and this rule, weighing the same as the drop target's
+               and coming later, shrank it from 16px to 11. */
+            html:not([data-dragging]) &:hover,
             ${whileKeyNav('&:focus-visible')}, &[aria-expanded='true'] {
               flex-basis: 11px;
               width: 11px;
