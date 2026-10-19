@@ -26,9 +26,10 @@ import { buildSession } from '../fixtures/sessionFixture';
 
 // KAN-321 O1a. The grip on the line between the saved session and Open now:
 // a focusable role="separator" that a pointer drag and the arrow keys resize,
-// and a double-click resets. At 1600px wide the default is 622px and the
-// limits are 480..764; at 1440, 542 and 480..604; at 1316px and narrower the
-// range is empty and there is no grip (openNowWidth.ts).
+// and a double-click resets. At 1600px wide the default is 600px and the
+// limits are 480..720 beside the list's default 400; at 1440, 540 and
+// 480..600; at 1316px and narrower the range is empty and there is no grip
+// (paneWidths.ts).
 //
 // jsdom has no layout and no pointer capture. The drag is driven the way the
 // grip reads it: a press on the grip, then moves and the release on `window`.
@@ -133,9 +134,9 @@ describe('the grip is a separator (O1a)', () => {
 
     const separator = grip();
     expect(separator).toHaveAttribute('aria-orientation', 'vertical');
-    expect(separator).toHaveAttribute('aria-valuenow', '622');
+    expect(separator).toHaveAttribute('aria-valuenow', '600');
     expect(separator).toHaveAttribute('aria-valuemin', '480');
-    expect(separator).toHaveAttribute('aria-valuemax', '764');
+    expect(separator).toHaveAttribute('aria-valuemax', '720');
     expect(separator).toHaveAttribute('tabindex', '0');
     expect(separator).toHaveAttribute('data-resize-grip');
     // A grid child of its own, beside the panes: inside none of them, so no
@@ -249,25 +250,26 @@ describe('the arrow keys (O1a)', () => {
 
     // fireEvent returns false when the handler called preventDefault().
     expect(fireEvent.keyDown(grip(), { key: 'ArrowLeft' })).toBe(false);
-    expect(storedWidth()).toBe(638);
-    expect(grip()).toHaveAttribute('aria-valuenow', '638');
-    expect(openNowTrack()).toBe('638px');
+    expect(storedWidth()).toBe(616);
+    expect(grip()).toHaveAttribute('aria-valuenow', '616');
+    expect(openNowTrack()).toBe('616px');
 
     expect(fireEvent.keyDown(grip(), { key: 'ArrowRight' })).toBe(false);
-    expect(storedWidth()).toBe(622);
-    expect(grip()).toHaveAttribute('aria-valuenow', '622');
+    expect(storedWidth()).toBe(600);
+    expect(grip()).toHaveAttribute('aria-valuenow', '600');
   });
 
-  test('ArrowLeft stops at the max, 764', async () => {
-    await renderHome({ width: 760 });
+  // Beside the list's 400 the max is 720 (KAN-687: it reads the list).
+  test('ArrowLeft stops at the max, 720', async () => {
+    await renderHome({ width: 710 });
     await mounted();
 
     fireEvent.keyDown(grip(), { key: 'ArrowLeft' });
-    expect(storedWidth()).toBe(764);
+    expect(storedWidth()).toBe(720);
     fireEvent.keyDown(grip(), { key: 'ArrowLeft' });
 
-    expect(storedWidth()).toBe(764);
-    expect(grip()).toHaveAttribute('aria-valuenow', '764');
+    expect(storedWidth()).toBe(720);
+    expect(grip()).toHaveAttribute('aria-valuenow', '720');
   });
 
   // O1a: "the stored width is kept". At 1440 a stored 764 shows as the max,
@@ -292,7 +294,7 @@ describe('the arrow keys (O1a)', () => {
 
   // The mirror at the min. Wherever there is a grip (above 1316px) the min
   // is 480, so the only stored width it can hide is one under 480: one saved
-  // while the min was 300, or a hand-edited value (asOpenNowWidth keeps any
+  // while the min was 300, or a hand-edited value (asPaneWidth keeps any
   // positive number).
   test('ArrowRight at a clamped min saves nothing', async () => {
     const { seen } = await renderHome({ width: 300 });
@@ -318,7 +320,7 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
     press(1000);
     moveTo(900);
     // PREMISE: the drag shows a width above 1440's max, 604.
-    expect(openNowTrack()).toBe('722px');
+    expect(openNowTrack()).toBe('700px');
 
     setViewportWidth(1440);
 
@@ -337,7 +339,7 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
 
     press(1000);
     moveTo(900);
-    expect(openNowTrack()).toBe('722px');
+    expect(openNowTrack()).toBe('700px');
     expect(isResizing()).toBe(true);
 
     setViewportWidth(1280);
@@ -352,10 +354,10 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
     expect(widthWrites(seen)).toBe(writesBefore);
     expect(storedWidth()).toBeNull();
 
-    // Widened again, no live width was left behind: the default, not 722.
+    // Widened again, no live width was left behind: the default, not 700.
     setViewportWidth(1600);
-    expect(openNowTrack()).toBe('622px');
-    expect(grip()).toHaveAttribute('aria-valuenow', '622');
+    expect(openNowTrack()).toBe('600px');
+    expect(grip()).toHaveAttribute('aria-valuenow', '600');
     expect(grip()).not.toHaveAttribute('data-active');
   });
 
@@ -391,18 +393,18 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
     press(1000);
     moveTo(900);
     // PREMISE: the drag is showing.
-    expect(openNowTrack()).toBe('722px');
+    expect(openNowTrack()).toBe('700px');
 
     fireEvent.keyDown(window, { key: 'Escape' });
 
-    expect(openNowTrack()).toBe('622px');
+    expect(openNowTrack()).toBe('600px');
     expect(storedWidth()).toBeNull();
     expect(widthWrites(seen)).toBe(writesBefore);
     expect(isResizing()).toBe(false);
     // The drag is over: a later move and release do nothing.
     moveTo(800);
     release(800);
-    expect(openNowTrack()).toBe('622px');
+    expect(openNowTrack()).toBe('600px');
     expect(storedWidth()).toBeNull();
   });
 
@@ -420,7 +422,7 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
     expect(storedWidth()).toBeNull();
     expect(widthWrites(seen)).toBe(writesBefore);
     expect(isResizing()).toBe(false);
-    expect(openNowTrack()).toBe('622px');
+    expect(openNowTrack()).toBe('600px');
   });
 
   test('the window losing focus mid-drag ends it and saves nothing', async () => {
@@ -436,7 +438,7 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
 
     expect(widthWrites(seen)).toBe(writesBefore);
     expect(isResizing()).toBe(false);
-    expect(openNowTrack()).toBe('622px');
+    expect(openNowTrack()).toBe('600px');
   });
 
   test('only the main button starts a drag', async () => {
@@ -447,7 +449,7 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
     moveTo(900);
 
     expect(isResizing()).toBe(false);
-    expect(openNowTrack()).toBe('622px');
+    expect(openNowTrack()).toBe('600px');
   });
 });
 
@@ -471,8 +473,8 @@ describe('the double-click (O1a, Review Focus 5)', () => {
 
     expect(widthWrites(seen)).toBe(writesBefore + 1);
     expect(storedWidth()).toBeNull();
-    expect(openNowTrack()).toBe('622px');
-    expect(grip()).toHaveAttribute('aria-valuenow', '622');
+    expect(openNowTrack()).toBe('600px');
+    expect(grip()).toHaveAttribute('aria-valuenow', '600');
   });
 });
 

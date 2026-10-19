@@ -123,8 +123,8 @@ test('a pointermove in a grip drag re-renders none of the three panes, and keeps
   fireEvent.pointerMove(window, { clientX: 900, clientY: 300 });
 
   // PREMISE: the moves took effect.
-  expect(openNowTrack()).toBe('722px');
-  expect(grip).toHaveAttribute('aria-valuenow', '722');
+  expect(openNowTrack()).toBe('700px');
+  expect(grip).toHaveAttribute('aria-valuenow', '700');
   expect({ ...renders }).toEqual(before);
   expect(grid.className).toBe(gridClass);
 
