@@ -54,10 +54,21 @@ export const focusRingAboveCss = (COLORS: ThemeColors, on: string): string => `
   }
 `;
 
-// KAN-677. The same ring over a rename field, drawn by the box the field
-// fills, which this makes positioned: its tick is laid on the field's right end, positioned, and fills
-// under the pointer, which covers an outline. Above the tick strips
-// (z-index 1), under a row with an open menu (3).
+// KAN-680 A2. A text field's ring is its edge: 2px of LABEL_L2_COLOR over the
+// field's 1px border and 1px out, not the app's ring inside it (two boxes).
+// ≥5.04:1 on the field's fill, ≥3.44:1 on any row fill around it.
+export const fieldRingCss = (COLORS: ThemeColors): string => `
+  ${whileKeyNav('&:focus-visible')} {
+    outline: 2px solid ${COLORS.LABEL_L2_COLOR};
+    outline-offset: -1px;
+  }
+`;
+
+// KAN-677. A rename field's ring, drawn by the box the field fills, which
+// this makes positioned: its tick is laid on the field's right end,
+// positioned, and fills under the pointer, which covers an outline. Above the
+// tick strips (z-index 1), under a row with an open menu (3). KAN-680 A2: at
+// the box's edge, in the field ring's colour.
 export const focusRingOverTickCss = (
   COLORS: ThemeColors,
   on: string
@@ -66,8 +77,8 @@ export const focusRingOverTickCss = (
   ${whileKeyNav(on)}::after {
     content: '';
     position: absolute;
-    inset: 2px;
-    border: 2px solid ${COLORS.TEXT_COLOR};
+    inset: 0;
+    border: 2px solid ${COLORS.LABEL_L2_COLOR};
     pointer-events: none;
     z-index: 2;
   }
