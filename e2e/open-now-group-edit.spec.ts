@@ -40,7 +40,9 @@ async function startRecording(page: Page, windowId: number) {
       const row = document.querySelector(`${block} [data-group-drag-handle]`);
       const field = row?.querySelector('input');
       const strip = document.querySelector(`${block} [data-group-color-strip]`);
-      const picture = `${field ? 'field:' + field.value : (row?.textContent ?? '')}|${
+      // The name button's text, not the row's: the row ends in the group's strip (KAN-696).
+      const name = row?.querySelector('[aria-label^="Rename group"]');
+      const picture = `${field ? 'field:' + field.value : (name?.textContent ?? '')}|${
         strip ? getComputedStyle(strip).backgroundColor : ''
       }`;
       if (seen[seen.length - 1] !== picture) seen.push(picture);

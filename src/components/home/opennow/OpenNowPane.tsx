@@ -38,9 +38,11 @@ import {
 } from '../../../utils/functions/openNow';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 import {
+  openGroupToSession,
   openWindowsToSession,
   suggestTitleForWindow,
 } from '../../../utils/functions/openWindowsToSession';
+import { ungroupLiveGroup } from '../../../utils/functions/liveTabGroups';
 import { readRecentTabs } from '../../../utils/functions/recentTabs';
 import {
   countMatchedTabs,
@@ -48,8 +50,10 @@ import {
   searchTermOf,
 } from '../../../utils/functions/openNowSearch';
 import {
+  closeOpenGroup,
   closeOpenTab,
   closeOpenWindow,
+  withCurrentGroupVisuals,
   withCurrentPlacement,
 } from '../../../utils/functions/reopen';
 import { offerReopen } from '../../../redux/reopenOffer';
@@ -401,6 +405,38 @@ export default function OpenNowPane({
     const item = await closeOpenWindow(openWindow);
     if (item) void dispatch(offerReopen(item));
   };
+
+  // KAN-696. Moves focus first, as a window's close does, to the window's chevron.
+  const handleCloseGroup = async (openWindow: OpenWindow, groupId: number) => {
+    firstControlIn(
+      paneRef.current?.querySelector(`[data-open-window-id="${openWindow.id}"]`)
+    )?.focus();
+    const item = await closeOpenGroup(openWindow, groupId);
+    if (item) void dispatch(offerReopen(item));
+  };
+
+  // KAN-696. The group's tabs as listed, in the group's title as Chrome has it now. Nothing closes.
+  const handleSaveGroup = async (openWindow: OpenWindow, groupId: number) => {
+    const current = await withCurrentGroupVisuals(
+      await withCurrentPlacement(openWindow)
+    );
+    const container = openGroupToSession(
+      current,
+      groupId,
+      new Date(),
+      await readRecentTabs([openWindow.id]),
+      t('New Tab Group')
+    );
+    if (container !== null) {
+      void dispatch(saveToTabContainer({ container, scope: 'one-group' }));
+    }
+  };
+
+  // KAN-696. The tabs stay where they are; a group Chrome no longer has changes nothing.
+  const handleUngroup = (openWindow: OpenWindow, groupId: number) =>
+    void ungroupLiveGroup(
+      openWindow.tabs.filter((tab) => tab.groupId === groupId).map((t) => t.id)
+    );
 
   // KAN-280 O13. The window's tabs as listed are saved, named by rule 1 and
   // announced by rule 2.
@@ -833,6 +869,15 @@ export default function OpenNowPane({
                         // no search is held (O14e), so they never act on tabs
                         // the search hides.
                         onSaveWindow={() => void handleSaveWindow(openWindow)}
+                        onSaveGroup={(groupId) =>
+                          void handleSaveGroup(openWindow, groupId)
+                        }
+                        onUngroup={(groupId) =>
+                          handleUngroup(openWindow, groupId)
+                        }
+                        onCloseGroup={(groupId) =>
+                          void handleCloseGroup(openWindow, groupId)
+                        }
                         onCloseWindow={
                           openWindow.isThisWindow
                             ? undefined
