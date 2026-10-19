@@ -337,10 +337,10 @@ interface LiveDrag {
   footprint: number;
   lastX: number;
   lastY: number;
-  // How far a press made beside the held row's box was from it, across:
-  // positive left of the row (its drag dots, KAN-703). Added back before
-  // asking which band the pointer is in, so a grouped tab picked up by its
-  // dots reads as in its band, as a press on the row does (KAN-704).
+  // How far left of the held row's box its press was: its drag dots
+  // (KAN-703), else 0. Added back before asking which band the pointer is in,
+  // so a grouped tab picked up by its dots reads as in its band, as a press
+  // on the row does (KAN-704).
   pressOffRowX: number;
   // Auto-scroll (KAN-152). The scrolling ancestor, and where it stood when
   // the rects were measured -- every index comparison is done in the list's
@@ -473,17 +473,10 @@ function pressRecord(
   adopted: boolean
 ): LiveDrag {
   const scroller = scrollableAncestor(el);
-  // An adoption has no press on the row: the carry's pointer came in.
-  const box = adopted ? undefined : el?.getBoundingClientRect();
   return {
     rowId,
-    pressOffRowX: !box
-      ? 0
-      : x < box.left
-        ? box.left - x
-        : x > box.right
-          ? box.right - x
-          : 0,
+    // Set by `begin` for a press; an adoption has none.
+    pressOffRowX: 0,
     startX: x,
     startY: y,
     started: false,
@@ -638,15 +631,21 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // as it approached it. jsdom cannot show this at all -- scrollHeight there
       // is whatever a test stubs -- so it is pinned by a test that makes the
       // stub grow.
+      const el = rows.current.get(rowId) ?? null;
       live.current = pressRecord(
         rowId,
         rowIds.indexOf(rowId),
         clientX,
         clientY,
-        rows.current.get(rowId) ?? null,
+        el,
         clampDropToEnds,
         false
       );
+      // A press beside the row's box: its drag dots (KAN-704).
+      const box = el?.getBoundingClientRect();
+      if (box && clientX < box.left) {
+        live.current.pressOffRowX = box.left - clientX;
+      }
     },
     [rowIds, handleSelector, disabled, clampDropToEnds]
   );
