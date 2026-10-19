@@ -135,6 +135,12 @@ export interface SettingsData {
    * tabContainerData and nothing else. Screens differ between devices.
    */
   openNowWidth: number | null;
+  /**
+   * The width the user dragged the saved list to (KAN-687), in CSS px, or
+   * null for its default. Stored and clamped like openNowWidth
+   * (paneWidths.ts). DEVICE-LOCAL like it too.
+   */
+  listWidth: number | null;
   // KAN-7. 'pending' as the welcome opens, so a popup closed on it still gets setup.
   setupState: SetupState;
   // KAN-7 §4. Skip or ✕ on the pin guide; a pin does not set it.
@@ -158,13 +164,14 @@ export interface SettingsData {
 }
 
 /**
- * A stored Open now width, if it is one: a finite number above zero, rounded
- * to whole px. Anything else reads as null (the default). asPartialSettings
+ * A stored pane width (Open now's or the list's), if it is one: a finite
+ * number above zero, rounded to whole px. Anything else reads as null (the
+ * default). asPartialSettings
  * checks only that settingsData is an object, so without this a hand-edited or
  * corrupted value would reach the grid as `NaNpx`. Range is not checked here:
  * the limits depend on the window, which storage cannot know.
  */
-export function asOpenNowWidth(value: unknown): number | null {
+export function asPaneWidth(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
     ? Math.round(value)
     : null;
@@ -306,6 +313,7 @@ const defaultSettings: SettingsData = {
   // gets: initialState lays the stored object over these defaults.
   foldSavedSessionInTabView: true,
   openNowWidth: null,
+  listWidth: null,
   pinTabKeeperInNewWindows: false,
   defaultSaveScope: 'all-windows',
   ...ONBOARDING_DEFAULTS,
@@ -322,7 +330,9 @@ export const initialState: SettingsData = {
   // KAN-321 O1a. Guarded rather than spread straight through: settingsDataLocal
   // is unvalidated (asPartialSettings checks only "is an object"), so a
   // hand-edited or corrupted value must not survive into the grid.
-  openNowWidth: asOpenNowWidth(settingsDataLocal.openNowWidth),
+  openNowWidth: asPaneWidth(settingsDataLocal.openNowWidth),
+  // KAN-687. Guarded the same way.
+  listWidth: asPaneWidth(settingsDataLocal.listWidth),
   // KAN-459. Guarded: settingsDataLocal is unvalidated.
   pinTabKeeperInNewWindows: asFlag(settingsDataLocal.pinTabKeeperInNewWindows),
   // KAN-587. Guarded: an unknown hourCycle would throw in every row's render.
@@ -517,6 +527,12 @@ export const settingsDataStateSlice = createSlice({
       saveLocalSettings(state);
     },
 
+    // KAN-687. The list grip's release, an arrow key, or a double-click (null).
+    setListWidth: (state, action: PayloadAction<number | null>) => {
+      state.listWidth = action.payload;
+      saveLocalSettings(state);
+    },
+
     // KAN-7. Only from 'none': a finished setup never restarts.
     beginSetup: (state) => {
       if (state.setupState !== 'none') return;
@@ -657,6 +673,7 @@ export const {
   setExportLayout,
   setFoldSavedSessionInTabView,
   setOpenNowWidth,
+  setListWidth,
   setPinTabKeeperInNewWindows,
   setDefaultSaveScope,
   beginSetup,

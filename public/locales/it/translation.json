@@ -230,6 +230,7 @@
   "Show the saved session": "Mostra la sessione salvata",
   "Close Open now": "Chiudi il pannello \"Schede aperte\"",
   "Resize Open now": "Ridimensiona il pannello \"Schede aperte\"",
+  "Resize the saved sessions list": "Ridimensiona l’elenco delle sessioni salvate",
   "Reopen": "Riapri",
   "Show": "Mostra",
   "MovedToSession": "Elemento spostato in «{{title}}».",

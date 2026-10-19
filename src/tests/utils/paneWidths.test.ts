@@ -82,25 +82,34 @@ describe('paneWidths with nothing chosen (the table in KAN-687 comment 11082)', 
 
   // Below 1100px the full view is the rail (side by side) or the drawer:
   // the list is today's 356 and does not resize, folded or not.
-  it.each([false, true])('below 1100px the list is 356, folded %s', (folded) => {
-    const widths = paneWidths(1099, folded, { list: 500, openNow: null });
-    expect(widths.list).toBe(356);
-    expect(widths.listRange).toEqual({ min: 356, max: 356 });
-  });
+  it.each([false, true])(
+    'below 1100px the list is 356, folded %s',
+    (folded) => {
+      const widths = paneWidths(1099, folded, { list: 500, openNow: null });
+      expect(widths.list).toBe(356);
+      expect(widths.listRange).toEqual({ min: 356, max: 356 });
+    }
+  );
 });
 
 describe('paneWidths with chosen widths', () => {
   it('a chosen list width inside its range shows unchanged', () => {
-    expect(paneWidths(1920, false, { list: 555, openNow: null }).list).toBe(555);
+    expect(paneWidths(1920, false, { list: 555, openNow: null }).list).toBe(
+      555
+    );
   });
 
   it('the list never goes past the 600px cap', () => {
-    expect(paneWidths(2560, false, { list: 900, openNow: null }).list).toBe(600);
+    expect(paneWidths(2560, false, { list: 900, openNow: null }).list).toBe(
+      600
+    );
     expect(paneWidths(1440, true, { list: 900, openNow: null }).list).toBe(600);
   });
 
   it('the list never goes under 356', () => {
-    expect(paneWidths(1920, false, { list: 200, openNow: null }).list).toBe(356);
+    expect(paneWidths(1920, false, { list: 200, openNow: null }).list).toBe(
+      356
+    );
   });
 
   // Each grip's max reads the other's width (KAN-687 comment 11077).
@@ -186,7 +195,10 @@ describe('every window, every choice', () => {
     for (const [w, folded, list, openNow] of cases) {
       if (folded || w <= 1316) continue;
       const r = paneWidths(w, false, { list, openNow });
-      expect(w - r.list - r.openNow, `${w} ${list} ${openNow}`).toBeGreaterThanOrEqual(480);
+      expect(
+        w - r.list - r.openNow,
+        `${w} ${list} ${openNow}`
+      ).toBeGreaterThanOrEqual(480);
     }
   });
 

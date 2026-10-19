@@ -3,7 +3,7 @@ import type { RootState } from './store';
 import { isDragHeld, whenDragReleases } from './dragHold';
 import { hydrateFromOtherPage } from './slices/tabContainerDataStateSlice';
 import {
-  asOpenNowWidth,
+  asPaneWidth,
   asTimeFormat,
   asDefaultSaveScope,
   asShippedLanguage,
@@ -106,8 +106,13 @@ export const applyOtherPageSettings =
       // Absent means an older page wrote this; keep ours.
       openNowWidth:
         'openNowWidth' in incoming
-          ? asOpenNowWidth(incoming.openNowWidth)
+          ? asPaneWidth(incoming.openNowWidth)
           : current.openNowWidth,
+      // KAN-687. Guarded the same way.
+      listWidth:
+        'listWidth' in incoming
+          ? asPaneWidth(incoming.listWidth)
+          : current.listWidth,
       // KAN-459. A flag another page wrote; absent means an older page, keep ours.
       pinTabKeeperInNewWindows:
         'pinTabKeeperInNewWindows' in incoming

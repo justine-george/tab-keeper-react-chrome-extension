@@ -172,9 +172,11 @@ describe('where it shows', () => {
   test('not in Settings, and back from Settings the width is back', async () => {
     const { store } = await renderHome({ list: 450 });
     await mounted();
-    act(() => {
-      store.dispatch(openSettingsPage());
+    await act(async () => {
+      await store.dispatch(openSettingsPage(undefined));
     });
+    // PREMISE: Settings replaced Open now.
+    expect(document.querySelector('[data-pane="open-now"]')).toBeNull();
     expect(noGrip()).toBeNull();
     act(() => {
       store.dispatch(closeSettingsPage());
@@ -268,6 +270,22 @@ describe('the pointer drag', () => {
     expect(listTrack()).toBe('356px');
     release(0);
     expect(storedWidth()).toBe(356);
+  });
+
+  // A release saves the width it shows: after the window narrows mid-drag,
+  // the next move clamps to the narrower window's range, not the old one.
+  test('a window narrowed mid-drag: the release saves the width shown', async () => {
+    await renderHome();
+    await mounted();
+    press(400);
+    moveTo(600);
+    // PREMISE: the drag reached 1600's max.
+    expect(listTrack()).toBe('520px');
+    setViewportWidth(1440);
+    moveTo(601);
+    expect(listTrack()).toBe('420px');
+    release(601);
+    expect(storedWidth()).toBe(420);
   });
 
   test('Escape mid-drag puts the width back and saves nothing', async () => {

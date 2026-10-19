@@ -167,7 +167,9 @@ describe('the grip comes and goes in place (O1a)', () => {
 
     act(() => railQuery.setMatches(true));
     // PREMISE: the grip went.
-    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('separator', { name: NAME })
+    ).not.toBeInTheDocument();
     expect(pane('open-now')).toBe(openNow);
     act(() => railQuery.setMatches(false));
     expect(grip()).toBeInTheDocument();
@@ -176,7 +178,9 @@ describe('the grip comes and goes in place (O1a)', () => {
     act(() => {
       store.dispatch(setFoldSavedSessionInTabView(true));
     });
-    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('separator', { name: NAME })
+    ).not.toBeInTheDocument();
     expect(pane('open-now')).toBe(openNow);
     act(() => {
       store.dispatch(setFoldSavedSessionInTabView(false));
@@ -186,7 +190,9 @@ describe('the grip comes and goes in place (O1a)', () => {
 
     // A window too narrow for both panes' 480px (O1a).
     setViewportWidth(1280);
-    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('separator', { name: NAME })
+    ).not.toBeInTheDocument();
     expect(pane('open-now')).toBe(openNow);
     setViewportWidth(1600);
     expect(grip()).toBeInTheDocument();
@@ -209,7 +215,9 @@ describe('only side by side (O1a)', () => {
       await screen.findByRole('button', { name: /^Open now, / })
     ).toBeInTheDocument();
 
-    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('separator', { name: NAME })
+    ).not.toBeInTheDocument();
     expect(document.querySelector('[data-resize-grip]')).toBeNull();
   });
 
@@ -238,7 +246,9 @@ describe('only side by side (O1a)', () => {
     await renderHome();
     await mounted();
 
-    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('separator', { name: NAME })
+    ).not.toBeInTheDocument();
     expect(document.querySelector('[data-resize-grip]')).toBeNull();
   });
 });
@@ -345,7 +355,9 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
     setViewportWidth(1280);
 
     // PREMISE: the grip is gone mid-drag.
-    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('separator', { name: NAME })
+    ).not.toBeInTheDocument();
     expect(isResizing()).toBe(false);
     expect(openNowTrack()).toBe('444px');
     // The drag is over: a later move and release do nothing.

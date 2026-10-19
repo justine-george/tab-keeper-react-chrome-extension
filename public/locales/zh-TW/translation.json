@@ -220,6 +220,7 @@
   "Show the saved session": "顯示已儲存的工作階段",
   "Close Open now": "關閉「目前開啟的分頁」面板",
   "Resize Open now": "調整「目前開啟的分頁」面板寬度",
+  "Resize the saved sessions list": "調整儲存的工作階段清單寬度",
   "Reopen": "重新開啟",
   "Show": "顯示",
   "MovedToSession": "已移至「{{title}}」。",

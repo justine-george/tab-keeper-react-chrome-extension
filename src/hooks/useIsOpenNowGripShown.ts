@@ -5,7 +5,7 @@ import { useViewportWidth } from './useViewportWidth';
 import { isTabView } from '../utils/functions/viewMode';
 import { selectIsSavedSessionFolded } from '../redux/savedSessionFold';
 import { OPEN_NOW_RAIL_QUERY } from '../components/home/opennow/railQuery';
-import { isOpenNowResizable } from '../components/home/opennow/openNowWidth';
+import { isOpenNowResizable } from '../components/home/paneWidths';
 
 // KAN-321 O1a. Only side by side is there a line between the saved session
 // and Open now to drag, and only where the window leaves both panes their

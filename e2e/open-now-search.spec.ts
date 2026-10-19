@@ -613,15 +613,18 @@ test.describe('Open now search (KAN-330)', () => {
       const column = row?.firstElementChild;
       const glyph = column?.querySelector('.material-symbols-outlined');
       const input = row?.querySelector('input');
-      if (!column || !glyph || !input) return null;
+      const pane = document.querySelector(root);
+      if (!column || !glyph || !input || !pane) return null;
       const c = column.getBoundingClientRect();
       const g = glyph.getBoundingClientRect();
       return {
         column: { left: c.left, top: c.top, width: c.width, height: c.height },
         glyph: { left: g.left, top: g.top, width: g.width, height: g.height },
-        textLeft:
+        // From Open now's own edge: the list's width (KAN-687) moves the pane.
+        textInset:
           input.getBoundingClientRect().left +
-          parseFloat(getComputedStyle(input).paddingLeft),
+          parseFloat(getComputedStyle(input).paddingLeft) -
+          pane.getBoundingClientRect().left,
         rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
       };
     }, OPEN_NOW);
@@ -640,8 +643,9 @@ test.describe('Open now search (KAN-330)', () => {
         m.glyph.top + m.glyph.height / 2 - (m.column.top + m.column.height / 2)
       )
     ).toBeLessThanOrEqual(LAYOUT_UNIT);
-    // 438 is the text's left as measured on main (fd9c212) at 1600x800.
-    expect(m.textLeft).toBe(438);
+    // 82: the text's left as measured on main (fd9c212) at 1600x800, 438,
+    // less the list's 356 there.
+    expect(m.textInset).toBe(82);
   });
 
   test('the row keeps its height with a long search', async ({

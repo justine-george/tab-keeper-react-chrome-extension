@@ -1,34 +1,39 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
 } from 'react';
 
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
-import { useThemeColors } from '../../../hooks/useThemeColors';
-import { RADIUS } from '../../../styles/scale';
-import { useViewportWidth } from '../../../hooks/useViewportWidth';
-import { whileKeyNav } from '../../common/focusRing';
-import { setOpenNowWidth } from '../../../redux/slices/settingsDataStateSlice';
-import { AppDispatch, RootState } from '../../../redux/store';
+import { useThemeColors } from '../../hooks/useThemeColors';
+import { RADIUS } from '../../styles/scale';
+import { whileKeyNav } from '../common/focusRing';
 import {
-  OPEN_NOW_KEY_STEP,
-  clampOpenNowWidth,
-  openNowWidthLimits,
-  shownOpenNowWidth,
-} from './openNowWidth';
+  setListWidth,
+  setOpenNowWidth,
+} from '../../redux/slices/settingsDataStateSlice';
+import { AppDispatch } from '../../redux/store';
+import { RESIZE_KEY_STEP, clampToRange, type WidthRange } from './paneWidths';
 
-interface OpenNowResizeGripProps {
+// Which pane the grip resizes, and so which line it sits on.
+export type ResizablePane = 'list' | 'openNow';
+
+interface PaneResizeGripProps {
+  pane: ResizablePane;
   // What to draw and report as aria-valuenow: the drag's live width, or the
-  // resting width when none is running, clamped to this window
-  // (openNowWidth.ts). MainContainer computes this once -- it is the same
-  // number it writes to the grid's --open-now-width -- so the grip and the
-  // grid can never disagree.
+  // resting width when none is running. MainContainer computes it once
+  // (paneWidths.ts) -- the same number it writes to the grid -- so the grip
+  // and the grid can never disagree.
   drawnWidth: number;
+  // The width from the stored choices alone: a press starts from here, and
+  // so does an arrow key.
+  restingWidth: number;
+  // This window's range for the pane, beside the other pane as drawn.
+  range: WidthRange;
   // Reports each width the drag shows, and null when the drag ends. Keep it
   // stable (a state setter): a new function re-binds the drag's listeners.
   onLiveWidth: (width: number | null) => void;
@@ -41,31 +46,38 @@ interface Drag {
   width: number;
 }
 
-// KAN-321 O1a. The grip on the line between the saved session and Open now.
-// A pointer drag resizes Open now live and saves once, on release; the arrow
-// keys save after each press; a double-click resets to the default (null).
-// MainContainer renders it only side by side (tab view, not Settings, not
-// folded, not the rail) and only where the window leaves a range to drag
-// through (isOpenNowResizable, above 1316px), as a grid item of its own
-// beside the panes -- so a press here is inside no RowDragArea list and can
-// never start a row drag. A window narrowed past 1316px mid-drag unmounts
-// it, which ends the drag like a cancel (the effect's cleanup below).
-export default function OpenNowResizeGrip({
+// The list's grip is on its right edge, so dragging right widens it; Open
+// now's is on its left edge, so dragging left does (KAN-321 O1a, KAN-687).
+const WIDENS = { list: 1, openNow: -1 } as const;
+const WIDEN_KEY = { list: 'ArrowRight', openNow: 'ArrowLeft' } as const;
+const NARROW_KEY = { list: 'ArrowLeft', openNow: 'ArrowRight' } as const;
+const SAVE = { list: setListWidth, openNow: setOpenNowWidth } as const;
+
+// KAN-321 O1a and KAN-687. A grip on the line beside a pane: the list's
+// right edge, or Open now's left edge. A pointer drag resizes the pane live
+// and saves once, on release; the arrow keys save after each press; a
+// double-click resets to the default (null). MainContainer renders it only
+// in the tab view, outside Settings, where the window leaves a range
+// (paneWidths.ts), as a grid item of its own beside the panes -- so a press
+// here is inside no RowDragArea list and can never start a row drag. A
+// window narrowed past that mid-drag unmounts it, which ends the drag like a
+// cancel (the effect's cleanup below).
+export default function PaneResizeGrip({
+  pane,
   drawnWidth,
+  restingWidth,
+  range,
   onLiveWidth,
-}: OpenNowResizeGripProps) {
+}: PaneResizeGripProps) {
   const { t } = useTranslation();
   const COLORS = useThemeColors();
   const dispatch: AppDispatch = useDispatch();
 
-  const storedWidth = useSelector(
-    (state: RootState) => state.settingsDataState.openNowWidth
-  );
-  const viewportWidth = useViewportWidth();
-  // The width drawn when no drag is running: a press starts from here, and
-  // so does an arrow key (neither runs mid-drag).
-  const restingWidth = shownOpenNowWidth(storedWidth, viewportWidth);
-  const { min, max } = openNowWidthLimits(viewportWidth);
+  // Read at each move: a window resized mid-drag re-renders with its range.
+  const rangeNow = useRef(range);
+  useLayoutEffect(() => {
+    rangeNow.current = range;
+  }, [range]);
 
   const drag = useRef<Drag | null>(null);
   const [isResizing, setIsResizing] = useState(false);
@@ -76,7 +88,7 @@ export default function OpenNowResizeGrip({
   // unmounting mid-drag -- runs the same cleanup: listeners off, the root
   // flag off, the live width handed back. Only the release saves (O1a:
   // "saved on release"). pointercancel, the window losing focus and Escape
-  // end the drag WITHOUT saving, and Open now goes back to its width from
+  // end the drag WITHOUT saving, and the pane goes back to its width from
   // before the press.
   useEffect(() => {
     if (!isResizing) return;
@@ -91,18 +103,16 @@ export default function OpenNowResizeGrip({
       // A press and release that did not move saves nothing, so the two
       // presses of a double-click leave no width behind its reset.
       if (save && ended !== null && ended.width !== ended.startWidth) {
-        dispatch(setOpenNowWidth(ended.width));
+        dispatch(SAVE[pane](ended.width));
       }
     };
 
     const onMove = (event: PointerEvent) => {
       const current = drag.current;
       if (current === null) return;
-      // Dragging LEFT widens Open now: its left edge is the line. The limits
-      // are read at the move, from the width useViewportWidth reports too.
-      current.width = clampOpenNowWidth(
-        current.startWidth + (current.startX - event.clientX),
-        window.innerWidth
+      current.width = clampToRange(
+        current.startWidth + WIDENS[pane] * (event.clientX - current.startX),
+        rangeNow.current
       );
       onLiveWidth(current.width);
     };
@@ -131,7 +141,7 @@ export default function OpenNowResizeGrip({
       // not keep a width nobody is dragging.
       onLiveWidth(null);
     };
-  }, [isResizing, dispatch, onLiveWidth]);
+  }, [isResizing, dispatch, onLiveWidth, pane]);
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
@@ -145,31 +155,42 @@ export default function OpenNowResizeGrip({
     setIsResizing(true);
   };
 
-  // ← widens Open now, → narrows it. A press at a limit changes nothing, so
-  // it saves nothing: at a window's clamped max, saving the shown width would
-  // overwrite the stored one, and widening the window would no longer bring
-  // it back (O1a, "the stored width is kept"). The key is taken either way.
+  // The key toward the pane's far edge widens it. A press at a limit
+  // changes nothing, so it saves nothing: at a window's clamped max, saving
+  // the shown width would overwrite the stored one, and widening the window
+  // would no longer bring it back (O1a, "the stored width is kept"). The key
+  // is taken either way.
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     let step: number;
-    if (event.key === 'ArrowLeft') step = OPEN_NOW_KEY_STEP;
-    else if (event.key === 'ArrowRight') step = -OPEN_NOW_KEY_STEP;
+    if (event.key === WIDEN_KEY[pane]) step = RESIZE_KEY_STEP;
+    else if (event.key === NARROW_KEY[pane]) step = -RESIZE_KEY_STEP;
     else return;
     event.preventDefault();
-    const next = clampOpenNowWidth(restingWidth + step, viewportWidth);
-    if (next !== restingWidth) dispatch(setOpenNowWidth(next));
+    const next = clampToRange(restingWidth + step, range);
+    if (next !== restingWidth) dispatch(SAVE[pane](next));
   };
 
   const onDoubleClick = () => {
-    dispatch(setOpenNowWidth(null));
+    dispatch(SAVE[pane](null));
   };
 
-  // Straddles the line at Open now's left edge: 6px into each pane's 8px
-  // padding, so it never reaches the boxes inside them.
+  // Straddles the line: 6px into each pane's 8px padding, so it never
+  // reaches the boxes inside them.
+  const placement =
+    pane === 'list'
+      ? css`
+          grid-area: sessions;
+          justify-self: end;
+          margin-right: -6px;
+        `
+      : css`
+          grid-area: active-session;
+          justify-self: start;
+          margin-left: -6px;
+        `;
+
   const gripStyle = css`
-    grid-area: active-session;
-    justify-self: start;
     width: 12px;
-    margin-left: -6px;
     height: 100vh;
     position: relative;
     z-index: 1;
@@ -228,15 +249,22 @@ export default function OpenNowResizeGrip({
 
   return (
     <div
-      css={gripStyle}
-      data-resize-grip=""
+      css={[placement, gripStyle]}
+      // Open now's marker predates the list's grip: the tour and its specs
+      // find Open now's grip by it.
+      data-resize-grip={pane === 'openNow' ? '' : undefined}
+      data-list-resize-grip={pane === 'list' ? '' : undefined}
       data-active={isResizing ? '' : undefined}
       role="separator"
       aria-orientation="vertical"
-      aria-label={t('Resize Open now')}
+      aria-label={
+        pane === 'list'
+          ? t('Resize the saved sessions list')
+          : t('Resize Open now')
+      }
       aria-valuenow={drawnWidth}
-      aria-valuemin={min}
-      aria-valuemax={max}
+      aria-valuemin={range.min}
+      aria-valuemax={range.max}
       tabIndex={0}
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}

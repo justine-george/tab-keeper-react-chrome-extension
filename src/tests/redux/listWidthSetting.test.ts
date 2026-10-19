@@ -39,10 +39,7 @@ describe('setListWidth', () => {
   });
 
   it('sets a width and writes it to localStorage', () => {
-    const state = settingsDataStateSlice.reducer(
-      undefined,
-      setListWidth(500)
-    );
+    const state = settingsDataStateSlice.reducer(undefined, setListWidth(500));
     expect(state.listWidth).toBe(500);
     const saved: unknown = JSON.parse(
       localStorage.getItem('settingsData') ?? '{}'
@@ -71,10 +68,7 @@ describe('the slice starts with a guarded listWidth (KAN-687)', () => {
   // Garbage in storage -- a hand-edited or corrupted value -- must not reach
   // the grid as `NaNpx`. It reads as null, same as no field at all.
   it('a non-numeric stored value starts as null', async () => {
-    localStorage.setItem(
-      'settingsData',
-      JSON.stringify({ listWidth: 'wide' })
-    );
+    localStorage.setItem('settingsData', JSON.stringify({ listWidth: 'wide' }));
     const { initialState } = await freshSlice();
     expect(initialState.listWidth).toBeNull();
   });
@@ -131,8 +125,7 @@ describe('applyOtherPageSettings carries listWidth (KAN-687, KAN-279 D9)', () =>
   it('the field absent from the incoming write keeps the current width', () => {
     const { store, seen } = makeTestStore();
     store.dispatch(setListWidth(555));
-    const { listWidth, ...withoutWidth } =
-      store.getState().settingsDataState;
+    const { listWidth, ...withoutWidth } = store.getState().settingsDataState;
     void listWidth;
     seen.length = 0;
 

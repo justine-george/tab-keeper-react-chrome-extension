@@ -220,6 +220,7 @@
   "Show the saved session": "显示已保存的会话",
   "Close Open now": "关闭“当前打开的标签页”面板",
   "Resize Open now": "调整“当前打开的标签页”面板宽度",
+  "Resize the saved sessions list": "调整保存的会话列表宽度",
   "Reopen": "重新打开",
   "Show": "显示",
   "MovedToSession": "已移至“{{title}}”。",

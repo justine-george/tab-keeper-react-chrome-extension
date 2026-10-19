@@ -225,6 +225,7 @@
   "Show the saved session": "Show the saved session",
   "Close Open now": "Close Open now",
   "Resize Open now": "Resize Open now",
+  "Resize the saved sessions list": "Resize the saved sessions list",
   "Reopen": "Reopen",
   "Show": "Show",
   "MovedToSession": "Moved to “{{title}}”.",

@@ -230,6 +230,7 @@
   "Show the saved session": "Mostrar la sesión guardada",
   "Close Open now": "Cerrar el panel \"Pestañas abiertas\"",
   "Resize Open now": "Cambiar el ancho del panel \"Pestañas abiertas\"",
+  "Resize the saved sessions list": "Cambiar el ancho de la lista de sesiones guardadas",
   "Reopen": "Reabrir",
   "Show": "Mostrar",
   "MovedToSession": "Se movió a «{{title}}».",
