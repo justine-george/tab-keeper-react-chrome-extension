@@ -337,6 +337,11 @@ interface LiveDrag {
   footprint: number;
   lastX: number;
   lastY: number;
+  // How far left of the held row's box its press was: its drag dots
+  // (KAN-703), else 0. Added back before asking which band the pointer is in,
+  // so a grouped tab picked up by its dots reads as in its band, as a press
+  // on the row does (KAN-704).
+  pressOffRowX: number;
   // Auto-scroll (KAN-152). The scrolling ancestor, and where it stood when
   // the rects were measured -- every index comparison is done in the list's
   // own content space so that scrolling cannot invalidate it.
@@ -470,6 +475,8 @@ function pressRecord(
   const scroller = scrollableAncestor(el);
   return {
     rowId,
+    // Read at activation, for a press; an adoption has none.
+    pressOffRowX: 0,
     startX: x,
     startY: y,
     started: false,
@@ -963,7 +970,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       landing?.clamped === true ||
       newWindowPlacement(landing?.windowId) !== undefined
         ? undefined
-        : resolveDrop?.(dropRoot(l, block), l.lastX, l.lastY)?.bandId;
+        : resolveDrop?.(dropRoot(l, block), l.lastX + l.pressOffRowX, l.lastY)
+            ?.bandId;
 
     // KAN-379 D3. The collapsed window landed in, with the pointer on its title row.
     const dwellTarget = (
@@ -1547,6 +1555,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       l.heldEl = rows.current.get(l.rowId) ?? null;
       l.heldEl?.setAttribute('data-drag-held', '');
       l.heldWindow = windowOf(l.heldEl);
+      // KAN-704. A press left of the held row's box, on its drag dots. Read
+      // here with the rest, after the kind is published; across, nothing the
+      // collapse changes. An adoption was never pressed: its start is where
+      // the carry's pointer came in.
+      if (!l.adopted && l.heldEl) {
+        const rowLeft = l.heldEl.getBoundingClientRect().left;
+        if (l.startX < rowLeft) l.pressOffRowX = rowLeft - l.startX;
+      }
       // KAN-366 Q4. In a list given no room, the space free below its last
       // window, which the rule that under half a row is no new window reads
       // (publishNewWindowFree).
