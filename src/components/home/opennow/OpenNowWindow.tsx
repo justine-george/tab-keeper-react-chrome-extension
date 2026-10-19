@@ -47,6 +47,7 @@ import {
   BAND_MARGIN_PX,
 } from '../rightpane/bandSpacing';
 import { DraggableRow } from '../rightpane/rowDrag/RowDragArea';
+import { DragHandle, DragHandleSwap } from '../rightpane/rowDrag/DragHandle';
 import { useDragState } from '../rightpane/rowDrag/dragContext';
 import { markRowContainer } from '../rightpane/rowDrag/dropRules';
 import { GroupFrameFollower } from '../rightpane/rowDrag/GroupFrameFollower';
@@ -420,7 +421,9 @@ export default function OpenNowWindow({
   // KAN-280 Part F (D3 A). The row's glyph and title pick the window up; the chevron and the actions sit outside it.
   const windowHeader = (
     <div data-open-window-drag-handle="" css={css(windowHeaderStyle)}>
-      <Icon type="web_asset" style={NON_INTERACTIVE_ICON_STYLE} />
+      <DragHandleSwap scope={OPEN_WINDOWS_SCOPE} rowId={String(openWindow.id)}>
+        <Icon type="web_asset" style={NON_INTERACTIVE_ICON_STYLE} />
+      </DragHandleSwap>
       <div css={windowTitleStyle}>
         <NormalLabel
           value={title}
@@ -470,7 +473,7 @@ export default function OpenNowWindow({
     }))
   );
 
-  function renderTab(tab: OpenTab) {
+  function renderTab(tab: OpenTab, grouped: boolean) {
     // KAN-280 O10b: the speaker shows Chrome's sound and changes nothing.
     // Tab Keeper never mutes, because Chrome's own controls cannot undo an
     // extension's mute (KAN-315, measured). Muted wins over playing.
@@ -510,9 +513,15 @@ export default function OpenNowWindow({
         key={tab.id}
         css={childrenStyle}
         data-open-tab-id={tab.id}
+        data-drag-handle-row=""
         onMouseEnter={() => setHoveredTabId(tab.id)}
         onMouseLeave={() => setHoveredTabId(null)}
       >
+        <DragHandle
+          scope={OPEN_TABS_SCOPE}
+          rowId={String(tab.id)}
+          left={grouped ? '-40px' : '-24px'}
+        />
         <ClickableRow
           ariaLabel={t('Switch to tab') + ': ' + tab.title}
           ariaCurrent={tab.active}
@@ -606,11 +615,11 @@ export default function OpenNowWindow({
   }
 
   // A tab row, as a row of the `tabs` list (KAN-280 Part E).
-  const renderTabRow = (tabId: string) => {
+  const renderTabRow = (tabId: string, grouped: boolean) => {
     const tab = tabsById.get(tabId);
     return tab ? (
       <DraggableRow key={tabId} scope={OPEN_TABS_SCOPE} rowId={tabId}>
-        {renderTab(tab)}
+        {renderTab(tab, grouped)}
       </DraggableRow>
     ) : null;
   };
@@ -635,6 +644,7 @@ export default function OpenNowWindow({
           css={parentStyle}
           // The e2e specs find a window's row by this.
           data-window-row
+          data-drag-handle-row=""
           onMouseEnter={() => setIsParentHovered(true)}
           onMouseLeave={() => setIsParentHovered(false)}
         >
@@ -701,7 +711,7 @@ export default function OpenNowWindow({
                     scope={OPEN_ITEMS_SCOPE}
                     rowId={itemIdOf(item)}
                   >
-                    {renderTabRow(item.tab.tabId)}
+                    {renderTabRow(item.tab.tabId, false)}
                   </DraggableRow>
                 );
               }
@@ -803,6 +813,7 @@ export default function OpenNowWindow({
                       rows (KAN-165). Fills on hover as the saved row does. */}
                       <div
                         data-group-drag-handle
+                        data-drag-handle-row=""
                         data-fixed-row-id={item.group.groupId}
                         css={css`
                           position: relative;
@@ -830,6 +841,11 @@ export default function OpenNowWindow({
                           }
                         `}
                       >
+                        <DragHandle
+                          scope={OPEN_ITEMS_SCOPE}
+                          rowId={itemIdOf(item)}
+                          left="-40px"
+                        />
                         {editingGroupId === item.group.groupId ? (
                           <>
                             <input
@@ -1009,7 +1025,7 @@ export default function OpenNowWindow({
                       row (App.css, KAN-160). The zero-height marker is the
                       group's tail in the drawn list (KAN-175). */}
                       <div data-group-tabs>
-                        {item.tabs.map((tab) => renderTabRow(tab.tabId))}
+                        {item.tabs.map((tab) => renderTabRow(tab.tabId, true))}
                         <div
                           aria-hidden="true"
                           data-fixed-row-id={`${item.group.groupId}:tail`}

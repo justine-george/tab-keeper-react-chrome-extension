@@ -31,6 +31,7 @@ export const LIGATURE_ICON_NAMES = [
   'delete',
   'done',
   'download',
+  'drag_indicator',
   'edit',
   'expand_less',
   'expand_more',
