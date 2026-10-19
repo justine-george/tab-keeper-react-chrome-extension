@@ -253,6 +253,21 @@ describe('a live group row: Save and a ⋮ (KAN-696)', () => {
       ) as HTMLElement
     ).getAllByRole('button')[0];
 
+  test('Ungroup keeps focus in its window, on the chevron, as the ⋮ goes', async () => {
+    const user = userEvent.setup();
+    await renderOpenNow();
+    await openGroupMenu(user, 'Docs');
+    await user.click(
+      within(screen.getByRole('menu')).getByRole('menuitem', {
+        name: 'Ungroup',
+      })
+    );
+    await waitFor(async () =>
+      expect((await groupIdsOfWindow2())[1]).toEqual([22, -1])
+    );
+    expect(document.activeElement).toBe(chevronOf(2));
+  });
+
   test('Close group focuses its own window chevron when the window survives', async () => {
     const user = userEvent.setup();
     await renderOpenNow();

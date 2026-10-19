@@ -257,7 +257,7 @@ test('(b) Close window from the menu closes it, and the toast Reopen brings it b
   await expect(liveRowIn(block, 'Gardens-b')).toBeVisible();
 
   await block.locator('[data-window-row]').hover();
-  await openNowWindowMenu(page, block).click();
+  await openNowWindowMenu(block).click();
   await page
     .getByRole('menuitem', { name: 'Close window', exact: true })
     .click();
@@ -301,20 +301,26 @@ test('(c) a double-click on Close window closes exactly one window', async ({
   );
 
   await firstBlock.locator('[data-window-row]').hover();
-  await openNowWindowMenu(page, firstBlock).click();
+  await openNowWindowMenu(firstBlock).click();
   // Records every click the page is sent, from the window's capture phase so
   // it runs before the guard's own listener (added on the first click).
   await page.evaluate(() => {
-    const seen: { detail: number; target: string }[] = [];
+    const seen: { detail: number; control: string }[] = [];
     (window as unknown as { clicksSeen: typeof seen }).clicksSeen = seen;
     window.addEventListener(
       'click',
       (e) => {
         const el = e.target instanceof Element ? e.target : null;
-        const labelled = el?.closest('[aria-label]');
+        const control = el?.closest(
+          'button, [role="button"], [role="menuitem"]'
+        );
         seen.push({
           detail: e.detail,
-          target: labelled?.getAttribute('aria-label') ?? el?.tagName ?? '',
+          control:
+            control?.getAttribute('aria-label') ??
+            control?.getAttribute('title') ??
+            control?.tagName ??
+            '',
         });
       },
       true
@@ -330,11 +336,20 @@ test('(c) a double-click on Close window closes exactly one window', async ({
   const clicks = () =>
     page.evaluate(
       () =>
-        (window as unknown as { clicksSeen: { detail: number }[] }).clicksSeen
+        (
+          window as unknown as {
+            clicksSeen: { detail: number; control: string }[];
+          }
+        ).clicksSeen
     );
   await expect
     .poll(async () => (await clicks()).map((c) => c.detail))
     .toEqual([1, 2]);
+  // PREMISE: click 2 landed on a tab row's Switch button (measured: the row
+  // under the menu item, in the window just closed), which would act if the
+  // guard were missing -- not on empty space.
+  const [, secondClick] = await clicks();
+  expect(secondClick.control).toMatch(/^Switch to tab: /);
 
   // PREMISE: the first half of the double-click closed the window.
   await expect
@@ -439,22 +454,22 @@ test('(f) Close group then Reopen: the members return to their indices in the gr
   const page = await tabViewPage(context, extensionId);
   const made = await makeWindow(
     serviceWorker,
-    ['Loose-f', 'Temples-f', 'Gardens-f', 'Pad-f'],
+    ['Loose-f', 'Temples-f', 'Pad-f', 'Gardens-f'],
     []
   );
   // Pad-f becomes a Tab Keeper page, which Close group leaves open; the group
-  // is Temples, Gardens, it, so the members sit at indices 1 and 2.
+  // is Temples, it, Gardens, so the page sits between the members, at index 2.
   const keeperTabId = await serviceWorker.evaluate(
     async ({ tabId, url }) => {
       const tab = await chrome.tabs.update(tabId, { url });
       return tab?.id ?? -1;
     },
     {
-      tabId: made.tabIds[3],
+      tabId: made.tabIds[2],
       url: `chrome-extension://${extensionId}/${VIEW_TAB}`,
     }
   );
-  expect(keeperTabId).toBe(made.tabIds[3]);
+  expect(keeperTabId).toBe(made.tabIds[2]);
   const groupId = await serviceWorker.evaluate(
     async ({ first, rest, windowId }) => {
       const id = await chrome.tabs.group({
@@ -514,12 +529,13 @@ test('(f) Close group then Reopen: the members return to their indices in the gr
     .toEqual([
       [0, -1, false],
       [1, groupId, false],
-      [2, groupId, false],
-      [3, groupId, true],
+      [2, groupId, true],
+      [3, groupId, false],
     ]);
+  // The page between them, the members in their old order around it.
   const back = await tabsOf(serviceWorker, made.windowId);
   expect(back[1].name).toBe('Temples-f');
-  expect(back[2].name).toBe('Gardens-f');
+  expect(back[3].name).toBe('Gardens-f');
   expect(await groupFacts(serviceWorker, groupId)).toEqual({
     title: 'Kyoto',
     color: 'blue',

@@ -44,7 +44,7 @@ export type ClosedItem =
       group: OpenGroup;
       tabs: OpenTab[];
       window: OpenWindow;
-      restorableSessionId: string | null;
+      restorableSessionId: null;
     };
 
 // The snapshot with the window's bounds and state as Chrome reports them
@@ -374,15 +374,12 @@ export async function reopenPreferringHistory(
   pinTabKeeper: boolean
 ): Promise<Reopened | null> {
   try {
-    const sessionId = item.restorableSessionId;
-    // A group has no entry of its own to restore (see ClosedItem).
-    if (
-      sessionId === null ||
-      item.kind === 'group' ||
-      !(await sessionsHeld())
-    ) {
+    // A group has no entry of its own to restore (see ClosedItem): its id is
+    // null, so it recreates here, and only a tab or a window goes on.
+    if (item.restorableSessionId === null || !(await sessionsHeld())) {
       return await recreateClosed(item, pinTabKeeper);
     }
+    const sessionId = item.restorableSessionId;
     // Read before the restore, which changes all of it.
     const focusedWindowId = await lastFocusedWindowId();
     if (item.kind === 'tab') {
@@ -949,12 +946,12 @@ async function recreateTab(
   return { kind: 'tab', tabId: reopened.id };
 }
 
-// Rule 6 for a whole group (KAN-696): its members go back to their window
-// at their old indices, contiguous, as ONE group with the old title, colour
-// and fold: the old group if it is still in the window, else a new one, and
-// never a neighbour. If the window
-// has gone, it is recreated around them. Resolves to the first member that
-// came back, or null when none did.
+// Rule 6 for a whole group (KAN-696): every member goes back to its window at
+// its own old index, in its old order, and is regrouped with the old title,
+// colour and fold: the old group if it is still in the window (a Tab Keeper
+// page left between the members keeps it alive), else a new one, and never a
+// neighbour. If the window has gone, it is recreated around them. Resolves to
+// the first member that came back, or null when none did.
 async function recreateGroup(
   item: Extract<ClosedItem, { kind: 'group' }>
 ): Promise<Reopened | null> {
@@ -971,17 +968,17 @@ async function recreateGroup(
     return firstId === undefined ? null : { kind: 'tab', tabId: firstId };
   }
 
-  const firstIndex = item.tabs[0]?.index ?? 0;
   const createdByOldId = new Map<number, number>();
+  let skipped = 0;
   for (const tab of item.tabs) {
     try {
       // Background, as recreateTab: a tab created active into a collapsed
-      // group would expand it. Counted from the members that came back, so a
-      // refused one leaves no gap.
+      // group would expand it. The old index less the members Chrome refused
+      // before this one, so a refusal leaves no gap and pushes no neighbour.
       const reopened = await chrome.tabs.create({
         windowId,
         url: tab.url,
-        index: firstIndex + createdByOldId.size,
+        index: tab.index - skipped,
         pinned: false,
         active: false,
       });
@@ -989,6 +986,7 @@ async function recreateGroup(
     } catch (error) {
       // Rule 10: a member Chrome refuses is skipped; the rest still come back.
       console.warn('Could not reopen a tab: ', error);
+      skipped += 1;
     }
   }
   const [firstId, ...otherIds] = createdByOldId.values();

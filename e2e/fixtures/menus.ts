@@ -45,7 +45,6 @@ export const sessionHeaderMenu = (page: Page, name = 'More actions'): Locator =>
  * non-English run.
  */
 export const openNowWindowMenu = (
-  _page: Page,
   windowBlock: Locator,
   moreActions = 'More actions'
 ): Locator =>
@@ -63,7 +62,7 @@ export async function closeOpenNowWindowFromMenu(
   names: { moreActions?: string; closeWindow?: string } = {}
 ): Promise<void> {
   await windowBlock.locator('[data-window-row]').hover();
-  await openNowWindowMenu(page, windowBlock, names.moreActions).click();
+  await openNowWindowMenu(windowBlock, names.moreActions).click();
   await page
     .getByRole('menuitem', {
       name: names.closeWindow ?? 'Close window',

@@ -59,7 +59,9 @@ function isClosedItem(value: unknown): value is ClosedItem {
   if (!isOpenWindow(value.window)) return false;
   if (value.kind === 'window') return true;
   if (value.kind === 'group') {
+    // A group has no entry of Chrome's to restore (see ClosedItem).
     return (
+      value.restorableSessionId === null &&
       isOpenGroup(value.group) &&
       Array.isArray(value.tabs) &&
       value.tabs.every(isOpenTab)

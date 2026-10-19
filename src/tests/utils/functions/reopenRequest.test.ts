@@ -171,5 +171,6 @@ describe('the request the page sends the worker (KAN-280 Part D)', () => {
     expect(check({ ...item, tabs: 'x' })).toBe(false);
     expect(check({ ...item, tabs: [{ url: 'x' }] })).toBe(false);
     expect(check({ ...item, group: null })).toBe(false);
+    expect(check({ ...item, restorableSessionId: 'forged' })).toBe(false);
   });
 });

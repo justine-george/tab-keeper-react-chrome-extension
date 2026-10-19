@@ -1820,6 +1820,114 @@ describe('closeOpenGroup / reopenClosed: a closed group (KAN-696)', () => {
     ).toHaveLength(2);
   });
 
+  const tkPage = 'chrome-extension://faketestid/index.html';
+
+  test('a Tab Keeper page left between the members stays between them', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      refusedPermissions: ['sessions'],
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), active: true },
+            { url: url('g1'), groupId: 50 },
+            { url: tkPage, groupId: 50 },
+            { url: url('g2'), groupId: 50 },
+            { url: url('b') },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 50, windowId: 2, title: 'Docs', color: 'blue' }],
+    });
+    const item = await closeOpenGroup(await openWindow(2), 50);
+    if (item === null) throw new Error('close failed');
+    // PREMISE: the page stayed, and with it the group.
+    expect(await shape(2)).toEqual(['a*', tkPage, 'b']);
+
+    await recreateClosed(item, false);
+
+    expect(await shape(2)).toEqual(['a*', 'g1', tkPage, 'g2', 'b']);
+    const tabs = await chrome.tabs.query({ windowId: 2 });
+    const grouped = tabs.filter((t) => t.groupId === 50);
+    expect(grouped.map((t) => t.url).sort()).toEqual(
+      [url('g1'), tkPage, url('g2')].sort()
+    );
+  });
+
+  test('a refused member leaves no gap: the next goes back at its own place', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      refusedPermissions: ['sessions'],
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), active: true },
+            { url: url('g1'), groupId: 50 },
+            { url: url('g2'), groupId: 50 },
+            { url: url('b') },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 50, windowId: 2, title: 'Docs', color: 'blue' }],
+    });
+    const item = await closeOpenGroup(await openWindow(2), 50);
+    if (item === null) throw new Error('close failed');
+    const create = chrome.tabs.create.bind(chrome.tabs);
+    vi.spyOn(chrome.tabs, 'create').mockImplementation(((
+      props: chrome.tabs.CreateProperties
+    ) =>
+      props.url === url('g1')
+        ? Promise.reject(new Error('refused'))
+        : create(props)) as typeof chrome.tabs.create);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await recreateClosed(item, false);
+
+    expect(await shape(2)).toEqual(['a*', 'g2', 'b']);
+  });
+
+  test('with the tabGroups API gone at Reopen, the members come back ungrouped at their places', async () => {
+    handle = setupChromeFake({
+      ...docsSeed,
+      tabGroupsApiAbsent: true,
+    });
+    // Closed while the API was there, so the item knows its group.
+    const groupsAtClose: chrome.tabGroups.TabGroup[] = [
+      {
+        id: 50,
+        windowId: 2,
+        title: 'Docs',
+        color: 'blue',
+        collapsed: false,
+        shared: false,
+      },
+    ];
+    const all = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    const w2 = toOpenWindows(all, groupsAtClose, null).find((w) => w.id === 2);
+    if (w2 === undefined) throw new Error('no window 2');
+    const item = await closeOpenGroup(w2, 50);
+    if (item === null) throw new Error('close failed');
+    expect(chrome.tabGroups).toBeUndefined();
+
+    const reopened = await recreateClosed(item, false);
+
+    expect(await shape(2)).toEqual(['a', 'x1', 'x2*', 'x3', 'b']);
+    expect(
+      (await chrome.tabs.query({ windowId: 2 })).map((t) => t.groupId)
+    ).toEqual([-1, -1, -1, -1, -1]);
+    expect(reopened).toEqual({
+      kind: 'tab',
+      tabId: (await tabNamed(2, 'x1')).id,
+    });
+  });
+
   test('every member refused: nothing reopens, resolves null', async () => {
     handle = setupChromeFake(docsSeed);
     const item = await closeOpenGroup(await openWindow(2), 50);
@@ -1831,7 +1939,7 @@ describe('closeOpenGroup / reopenClosed: a closed group (KAN-696)', () => {
     expect(await shape(2)).toEqual(['a', 'b']);
   });
 
-  test('a group item never goes to the history path, even with an id', async () => {
+  test('a group item never goes to the history path, with `sessions` held', async () => {
     handle = setupChromeFake({
       ...docsSeed,
       refusedPermissions: [],
@@ -1842,10 +1950,7 @@ describe('closeOpenGroup / reopenClosed: a closed group (KAN-696)', () => {
     expect(item.restorableSessionId).toBeNull();
     const restore = vi.spyOn(chrome.sessions, 'restore');
 
-    const reopened = await reopenPreferringHistory(
-      { ...item, restorableSessionId: 'forged' },
-      false
-    );
+    const reopened = await reopenPreferringHistory(item, false);
 
     expect(restore).not.toHaveBeenCalled();
     expect(await shape(2)).toEqual(['a', 'x1', 'x2*', 'x3', 'b']);

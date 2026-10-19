@@ -512,7 +512,7 @@ test.describe('Open now search (KAN-330)', () => {
       name: /^Save window as a session: /,
     });
     // Close window is in the ⋮ (KAN-696).
-    const moreActions = openNowWindowMenu(page, block);
+    const moreActions = openNowWindowMenu(block);
     const closeTab = block.getByRole('button', {
       name: 'Close tab: Kyoto maps',
       exact: true,

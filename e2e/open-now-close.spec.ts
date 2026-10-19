@@ -821,11 +821,11 @@ test.describe('Open now close controls in a real browser (KAN-280)', () => {
     // its ⋮ would be empty: it has none (a granted This window's ⋮ holds Sort
     // only: openNowWindowMenu.test.tsx).
     expect(buttons).not.toContain(`More actions: ${thisName}`);
-    await expect(openNowWindowMenu(page, thisBlock)).toHaveCount(0);
+    await expect(openNowWindowMenu(thisBlock)).toHaveCount(0);
 
     // The other window's Close window is the last item of its ⋮.
     await otherBlock.locator('[data-window-row]').hover();
-    await openNowWindowMenu(page, otherBlock).click();
+    await openNowWindowMenu(otherBlock).click();
     const items = page.getByRole('menu').getByRole('menuitem');
     await expect(items.last()).toHaveAttribute('data-menu-item', 'closeWindow');
     await expect(

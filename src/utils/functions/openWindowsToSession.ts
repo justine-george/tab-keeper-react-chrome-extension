@@ -121,7 +121,7 @@ export function openGroupToSession(
   if (group === undefined || tabs.length === 0) return null;
 
   const narrowed: OpenWindow = { ...openWindow, tabs, groups: [group] };
-  // The title is read off the saved copy, whose group has the id of ours.
+  // The title is read off a throwaway saved copy; only its group's title is used.
   const savedWindow = toSavedWindow(narrowed, recentTabsOf(openWindow.id));
   const savedGroupId = savedWindow.chromeTabGroups?.[0]?.groupId ?? '';
   const title =

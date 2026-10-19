@@ -440,10 +440,17 @@ export default function OpenNowPane({
   };
 
   // KAN-696. The tabs stay where they are; a group Chrome no longer has changes nothing.
-  const handleUngroup = (openWindow: OpenWindow, groupId: number) =>
+  // Focus moves to the window's chevron first: the ⋮ goes with the strip on the re-read.
+  const handleUngroup = (openWindow: OpenWindow, groupId: number) => {
+    firstControlIn(
+      paneRef.current?.querySelector(`[data-open-window-id="${openWindow.id}"]`)
+    )?.focus();
     void ungroupLiveGroup(
-      openWindow.tabs.filter((tab) => tab.groupId === groupId).map((t) => t.id)
+      openWindow.tabs
+        .filter((tab) => tab.groupId === groupId)
+        .map((tab) => tab.id)
     );
+  };
 
   // KAN-280 O13. The window's tabs as listed are saved, named by rule 1 and
   // announced by rule 2.

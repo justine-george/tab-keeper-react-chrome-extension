@@ -55,7 +55,9 @@ describe("saveToTabContainer with scope 'one-group'", () => {
     await store.dispatch(
       showToast({ toastText: TOAST_MESSAGES.TAB_CLOSED, reopenOfferId: 1 })
     );
-    const container = openGroupToSession(open, 5, new Date(), () => [], 'F')!;
+    const container = openGroupToSession(open, 5, new Date(), () => [], 'F');
+    expect(container).not.toBeNull();
+    if (container === null) return;
 
     await store.dispatch(saveToTabContainer({ container, scope: 'one-group' }));
 
