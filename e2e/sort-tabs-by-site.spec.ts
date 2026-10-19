@@ -445,7 +445,12 @@ test.describe('Open now window menu (KAN-694)', () => {
 
     // The key reached the sort's undo: it took the drop and closed the toast.
     await expect(toast(page)).toHaveCount(0);
-    expect(await liveStrip(serviceWorker, windowId)).toEqual(byHand);
+    // The undo is not awaited by the key, so a late move would land after the toast
+    // closes: every sample over 1.5 s must still be the hand-moved strip.
+    for (let sample = 0; sample < 15; sample++) {
+      expect(await liveStrip(serviceWorker, windowId)).toEqual(byHand);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
   });
 
   for (const where of ['in the group', 'loose'] as const) {
