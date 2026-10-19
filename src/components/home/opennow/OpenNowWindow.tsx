@@ -10,6 +10,9 @@ import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import GroupColorPicker from '../../common/GroupColorPicker';
 import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
+import type { OverflowMenuItem } from '../../common/OverflowMenu';
+import { holdBackDoubleClickTail } from '../../common/doubleClickTail';
+import RowTextButton from '../../common/RowTextButton';
 import { RowMarkIcon, RowMarkSlot } from '../../common/RowMarks';
 import { NormalLabel } from '../../common/Label';
 import { Tag } from '../../common/Tag';
@@ -208,8 +211,37 @@ export default function OpenNowWindow({
   const offersSort =
     canSortOpenWindowLive(openWindow, hasTabGroups) &&
     !isOpenWindowSortedBySite(openWindow);
-  // The menu can unmount while open (the window got sorted), and then it never reports closing.
-  const menuOpen = offersSort && isWindowMenuOpen;
+  // KAN-696. Close window is last, as Delete window is on a saved row. This window has none.
+  const windowMenuItems: OverflowMenuItem[] = [
+    ...(offersSort
+      ? [
+          {
+            key: 'sortBySite',
+            label: t('Sort tabs by site'),
+            icon: 'sort' as const,
+            onSelect: () => void dispatch(sortOpenWindowBySite(openWindow.id)),
+          },
+        ]
+      : []),
+    ...(onCloseWindow
+      ? [
+          {
+            key: 'closeWindow',
+            label: t('Close window'),
+            icon: 'close' as const,
+            danger: true,
+            onSelect: () => {
+              // The menu is gone on the first click; the second would hit what slid under it.
+              holdBackDoubleClickTail();
+              onCloseWindow();
+            },
+          },
+        ]
+      : []),
+  ];
+  const hasWindowMenu = windowMenuItems.length > 0;
+  // The menu can unmount while open (This window got sorted), and then it never reports closing.
+  const menuOpen = hasWindowMenu && isWindowMenuOpen;
   // By Chrome tab id, not by position, for KAN-127's reason: a re-read (and,
   // later, a drag) moves rows, and a position-keyed flag would then reveal
   // whichever tab moved into the hovered slot.
@@ -618,34 +650,19 @@ export default function OpenNowWindow({
           {offersWindowActions && (
             <div data-row-actions css={parentRightStyle}>
               {!isSavedSearching && (
-                <Icon
+                <RowTextButton
+                  iconType="add_box"
+                  text={t('Save')}
                   tooltipText={t('Save window as a session')}
                   ariaLabel={t('Save window as a session') + ': ' + title}
-                  type="add_box"
                   onClick={onSaveWindow}
                 />
               )}
-              {onCloseWindow && (
-                <Icon
-                  tooltipText={t('Close window')}
-                  ariaLabel={t('Close window') + ': ' + title}
-                  type="close"
-                  onClick={onFirstClickOnly(onCloseWindow)}
-                />
-              )}
-              {offersSort && (
+              {hasWindowMenu && (
                 <OverflowMenu
-                  ariaLabel={t('More actions')}
+                  ariaLabel={t('More actions') + ': ' + title}
                   onOpenChange={setIsWindowMenuOpen}
-                  items={[
-                    {
-                      key: 'sortBySite',
-                      label: t('Sort tabs by site'),
-                      icon: 'sort',
-                      onSelect: () =>
-                        void dispatch(sortOpenWindowBySite(openWindow.id)),
-                    },
-                  ]}
+                  items={windowMenuItems}
                 />
               )}
             </div>
