@@ -137,6 +137,41 @@ test('at rest no row shows a handle', async ({
   expect(await shownHandles(page)).toBe(0);
 });
 
+// The dots are generated content: a ligature name in the DOM is the row's
+// text too, which find in page matches and specs read (KAN-364's tabRowOf).
+test("a handle adds nothing to its row's text, and draws one glyph", async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const { page } = await openBoth(context, extensionId, serviceWorker);
+  const texts = await page.evaluate(() =>
+    [...document.querySelectorAll('[data-drag-handle-row]')].map(
+      (row) => row.textContent ?? ''
+    )
+  );
+  expect(texts.length).toBeGreaterThan(8);
+  expect(texts.filter((t) => t.includes('drag_indicator'))).toEqual([]);
+
+  const widest = () =>
+    page.evaluate(() =>
+      Math.max(
+        ...[...document.querySelectorAll('[data-drag-handle] > span')].map(
+          (dots) => dots.getBoundingClientRect().width
+        )
+      )
+    );
+  expect(await widest()).toBeLessThanOrEqual(20);
+  // CONTROL: a name the font has no ligature for lays out as a word.
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent =
+      "[data-drag-handle] > span::before { content: 'drag-indicator' !important; }";
+    document.head.append(style);
+  });
+  expect(await widest()).toBeGreaterThan(40);
+});
+
 test('a saved tab, grouped tab and group row show theirs in the column to their left', async ({
   context,
   extensionId,

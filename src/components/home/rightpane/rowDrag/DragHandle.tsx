@@ -1,10 +1,8 @@
 import React from 'react';
 import { css } from '@emotion/react';
 
-import Icon from '../../../common/Icon';
 import { useThemeColors } from '../../../../hooks/useThemeColors';
 import { DURATION, ICON } from '../../../../styles/scale';
-import { NON_INTERACTIVE_ICON_STYLE } from '../../../../utils/constants/common';
 import { useRowDragHandle } from './dragContext';
 
 // KAN-701, his pick A. Six dots on the row under the pointer, where its drag
@@ -31,7 +29,24 @@ const FADE = `
   }
 `;
 
-const GLYPH_STYLE = `${NON_INTERACTIVE_ICON_STYLE} padding: 0;`;
+// The glyph as generated content, so the row's text stays its own: a
+// ligature's name in the DOM is text, read by find in page and by anything
+// that reads the row's text.
+const Dots: React.FC = () => {
+  const COLORS = useThemeColors();
+  return (
+    <span
+      className="material-symbols-outlined"
+      css={css`
+        font-size: ${ICON.SMALL};
+        color: ${COLORS.TEXT_COLOR};
+        &::before {
+          content: 'drag_indicator';
+        }
+      `}
+    />
+  );
+};
 
 interface DragHandleProps {
   rowId: string;
@@ -45,7 +60,6 @@ export const DragHandle: React.FC<DragHandleProps & { left: string }> = ({
   scope,
   left,
 }) => {
-  const COLORS = useThemeColors();
   const { canDrag, held } = useRowDragHandle(rowId, scope);
   if (!canDrag) return null;
   return (
@@ -65,12 +79,7 @@ export const DragHandle: React.FC<DragHandleProps & { left: string }> = ({
         ${shownWhen('{ opacity: 1; }')}
       `}
     >
-      <Icon
-        type="drag_indicator"
-        size={ICON.SMALL}
-        color={COLORS.TEXT_COLOR}
-        style={GLYPH_STYLE}
-      />
+      <Dots />
     </span>
   );
 };
@@ -82,7 +91,6 @@ export const DragHandle: React.FC<DragHandleProps & { left: string }> = ({
 export const DragHandleSwap: React.FC<
   DragHandleProps & { children: React.ReactNode }
 > = ({ rowId, scope, children }) => {
-  const COLORS = useThemeColors();
   const { canDrag, held } = useRowDragHandle(rowId, scope);
   if (!canDrag) return <>{children}</>;
   return (
@@ -109,12 +117,7 @@ export const DragHandleSwap: React.FC<
     >
       {children}
       <span aria-hidden="true" data-drag-handle="">
-        <Icon
-          type="drag_indicator"
-          size={ICON.SMALL}
-          color={COLORS.TEXT_COLOR}
-          style={GLYPH_STYLE}
-        />
+        <Dots />
       </span>
     </span>
   );
