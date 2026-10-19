@@ -9,6 +9,7 @@ import {
   openSaved,
   savedWindow,
   session,
+  stored,
 } from './fixtures/savedWindows';
 import { standIn } from './fixtures/standInPages';
 
@@ -527,4 +528,89 @@ test("a click on a tab row's dots opens nothing and switches to nothing", async 
   // CONTROL: a click on the row itself does switch.
   await live.getByRole('button', { name: /^Switch to tab: Station/ }).click();
   await expect.poll(activeOf).toBe(true);
+});
+
+// KAN-704. A grouped tab's dots sit left of its group's band, so a press on
+// them starts outside the band. Its group must still read as its own: the
+// band lit as the drop target, and a release in place keeps the tab in it.
+for (const pane of ['saved', 'Open now'] as const) {
+  for (const on of ['dots', 'row'] as const) {
+    test(`${pane}: a grouped tab picked up by its ${on} stays in its group${
+      on === 'row' ? ' (control)' : ''
+    }`, async ({ context, extensionId, serviceWorker }) => {
+      const { page, block } = await openBoth(
+        context,
+        extensionId,
+        serviceWorker
+      );
+      const row = outsideRow(
+        page,
+        block,
+        pane === 'saved' ? 'saved grouped tab' : 'Open now grouped tab'
+      );
+      const band = row.locator('xpath=ancestor::*[@data-band-id][1]');
+      await row.hover();
+      const r = await boxOf(row);
+      const at =
+        on === 'dots'
+          ? await centreOf(handleIn(row))
+          : { x: r.x + 30, y: r.y + r.height / 2 };
+      // PREMISE: the dots really are outside the band, the row inside it.
+      const b = await boxOf(band);
+      expect(at.x < b.x, 'press left of the band').toBe(on === 'dots');
+      await page.mouse.move(at.x, at.y, { steps: 3 });
+      await page.mouse.down();
+      await page.mouse.move(at.x + 2, at.y + 10, { steps: 6 });
+      await expect(page.locator('html[data-dragging="tab"]')).toHaveCount(1);
+      await expect(band).toHaveAttribute('data-drop-target', '');
+      await page.mouse.move(at.x, at.y, { steps: 6 });
+      await page.mouse.up();
+      await expect(page.locator('html[data-dragging]')).toHaveCount(0);
+      if (pane === 'saved') {
+        await page.waitForTimeout(300);
+        const tab = (await stored(page)).tabGroups
+          .flatMap((g) => g.windows)
+          .flatMap((w) => w.tabs)
+          .find((t) => t.tabId === 'gr-t0');
+        expect(tab?.chromeGroupId).toBe('gr');
+      } else {
+        await page.waitForTimeout(500);
+        const groupId = await serviceWorker.evaluate(async () => {
+          const [tab] = await chrome.tabs.query({ title: 'Kiyomizu' });
+          return tab?.groupId ?? null;
+        });
+        expect(groupId).not.toBe(-1);
+        expect(groupId).not.toBeNull();
+      }
+    });
+  }
+}
+
+// KAN-704, the other side: picked up by its dots, a grouped tab still leaves
+// its group when the pointer travels left out of the band, as from the row.
+test('a grouped tab picked up by its dots and moved left out of its band leaves the group', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const { page, block } = await openBoth(context, extensionId, serviceWorker);
+  const row = outsideRow(page, block, 'saved grouped tab');
+  const band = row.locator('xpath=ancestor::*[@data-band-id][1]');
+  await row.hover();
+  const at = await centreOf(handleIn(row));
+  await page.mouse.move(at.x, at.y, { steps: 3 });
+  await page.mouse.down();
+  await page.mouse.move(at.x + 2, at.y + 10, { steps: 6 });
+  // CONTROL: in place it is the band's.
+  await expect(band).toHaveAttribute('data-drop-target', '');
+  // PREMISE: the row starts less than 30px right of the band's edge, so 30px
+  // of travel left takes the row's edge out of the band.
+  const bandLeft = (await boxOf(band)).x;
+  const rowLeft = (await boxOf(row)).x;
+  expect(rowLeft - bandLeft).toBeGreaterThan(0);
+  expect(rowLeft - bandLeft).toBeLessThan(30);
+  await page.mouse.move(at.x - 30, at.y + 10, { steps: 6 });
+  await expect(band).not.toHaveAttribute('data-drop-target');
+  await page.mouse.move(at.x, at.y, { steps: 6 });
+  await page.mouse.up();
 });
