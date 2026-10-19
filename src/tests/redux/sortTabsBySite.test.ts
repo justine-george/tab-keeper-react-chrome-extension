@@ -136,6 +136,29 @@ describe('sortTabsBySiteInternal', () => {
     expect(store.getState().globalState.isDirty).toBe(true);
   });
 
+  it('keeps every tab when two share an id', () => {
+    const { store } = ready(
+      container([
+        session('D1', 'Dups', T0, [
+          win('w1', [
+            at('dup', 'a', { title: 'first' }),
+            at('x', 'b'),
+            at('dup', 'a', { title: 'second' }),
+          ]),
+        ]),
+      ])
+    );
+    store.dispatch(
+      sortTabsBySiteInternal({ tabGroupId: 'D1', windowId: 'w1', now: T0 })
+    );
+    const w = windowIn(data(store), 'D1', 'w1');
+    expect(w.tabs.map((t) => [t.tabId, t.title])).toEqual([
+      ['dup', 'first'],
+      ['dup', 'second'],
+      ['x', 'x'],
+    ]);
+  });
+
   it('changes nothing for an already sorted window', () => {
     const { store } = ready();
     const before = data(store);

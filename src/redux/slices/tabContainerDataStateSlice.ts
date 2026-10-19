@@ -1791,10 +1791,12 @@ export const tabContainerDataStateSlice = createSlice({
       );
       const window = container?.windows.find((w) => w.windowId === windowId);
       if (!container || !window || isSavedWindowSortedBySite(window)) return;
-      const byId = new Map(window.tabs.map((t) => [t.tabId, t]));
-      window.tabs = sortBySite(window.tabs.map(savedSortable)).flatMap((t) => {
-        const own = byId.get(t.key);
-        return own ? [own] : [];
+      const views = window.tabs.map(savedSortable);
+      // Map back by object, not tabId: two saved tabs can share an id.
+      const own = new Map(views.map((v, i) => [v, window.tabs[i]]));
+      window.tabs = sortBySite(views).flatMap((v) => {
+        const tab = own.get(v);
+        return tab ? [tab] : [];
       });
       touchContent(state, container, now);
       state.lastModified = now;
