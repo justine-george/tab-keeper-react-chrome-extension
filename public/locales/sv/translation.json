@@ -225,6 +225,7 @@
   "Show the saved session": "Visa den sparade sessionen",
   "Close Open now": "Stäng panelen ”Öppna flikar”",
   "Resize Open now": "Ändra bredden på panelen ”Öppna flikar”",
+  "Resize the saved sessions list": "Ändra bredden på listan med sparade sessioner",
   "Reopen": "Öppna igen",
   "Show": "Visa",
   "MovedToSession": "Flyttat till ”{{title}}”.",

@@ -418,7 +418,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     expect(page.isClosed()).toBe(false);
   });
 
-  test('4. side by side it is an even split (D1): 444px at 1280, 782px at 1920; the fold persists across a reload', async ({
+  test('4. side by side it is an even split (D1): 444px at 1280, 720px at 1920; the fold persists across a reload', async ({
     context,
     extensionId,
   }, testInfo) => {
@@ -431,7 +431,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     await expectSideBySide(page, 444);
 
     await page.setViewportSize(WIDE_VIEWPORT);
-    await expectSideBySide(page, 782);
+    await expectSideBySide(page, 720);
     await page.screenshot({ path: testInfo.outputPath('side-by-side.png') });
 
     await foldButton(page).click();
@@ -447,7 +447,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     await reload(page);
     await expect(foldButton(page)).toBeVisible();
     await expect(page.locator(DETAIL)).toBeVisible();
-    await expectSideBySide(page, 782);
+    await expectSideBySide(page, 720);
   });
 
   test('5. folded, clicking a saved session shows it for now; a reload is folded again', async ({
@@ -1043,7 +1043,7 @@ test.describe('Open now heading and empty-list layout (KAN-280)', () => {
     });
     await showButton(page).click();
     await expect(page.locator(DETAIL)).toBeVisible();
-    await expectSideBySide(page, 622);
+    await expectSideBySide(page, 600);
 
     const sessionsList = await need(page, `${SESSIONS} > div > div:last-child`);
     const detailList = await need(page, `${DETAIL} > div > div:last-child`);

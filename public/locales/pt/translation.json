@@ -230,6 +230,7 @@
   "Show the saved session": "Mostrar a sessão salva",
   "Close Open now": "Fechar o painel \"Abas abertas\"",
   "Resize Open now": "Redimensionar o painel \"Abas abertas\"",
+  "Resize the saved sessions list": "Redimensionar a lista de sessões salvas",
   "Reopen": "Reabrir",
   "Show": "Mostrar",
   "MovedToSession": "Item movido para “{{title}}”.",

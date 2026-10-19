@@ -225,6 +225,7 @@
   "Show the saved session": "सहेजा गया सेशन दिखाएं",
   "Close Open now": "\"अभी खुले टैब\" पैनल बंद करें",
   "Resize Open now": "\"अभी खुले टैब\" पैनल की चौड़ाई बदलें",
+  "Resize the saved sessions list": "सहेजे गए सेशन की सूची की चौड़ाई बदलें",
   "Reopen": "फिर से खोलें",
   "Show": "दिखाएं",
   "MovedToSession": "“{{title}}” में ले जाया गया।",

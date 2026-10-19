@@ -225,6 +225,7 @@
   "Show the saved session": "Gespeicherte Sitzung anzeigen",
   "Close Open now": "Bereich „Offene Tabs“ schließen",
   "Resize Open now": "Breite des Bereichs „Offene Tabs“ ändern",
+  "Resize the saved sessions list": "Breite der Liste der gespeicherten Sitzungen ändern",
   "Reopen": "Wieder öffnen",
   "Show": "Anzeigen",
   "MovedToSession": "Nach „{{title}}“ verschoben.",

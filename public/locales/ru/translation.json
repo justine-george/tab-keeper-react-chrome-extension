@@ -235,6 +235,7 @@
   "Show the saved session": "Показать сохранённую сессию",
   "Close Open now": "Закрыть панель «Открытые вкладки»",
   "Resize Open now": "Изменить ширину панели «Открытые вкладки»",
+  "Resize the saved sessions list": "Изменить ширину списка сохранённых сессий",
   "Reopen": "Открыть снова",
   "Show": "Показать",
   "MovedToSession": "Перемещено в «{{title}}».",

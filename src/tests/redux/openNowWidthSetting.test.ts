@@ -15,7 +15,7 @@ vi.hoisted(() => {
 
 import { applyOtherPageSettings } from '../../redux/otherPageChanges';
 import {
-  asOpenNowWidth,
+  asPaneWidth,
   hydrateSettingsFromOtherPage,
   setOpenNowWidth,
   settingsDataStateSlice,
@@ -35,25 +35,25 @@ const freshSlice = async () => {
 
 const actionTypes = (seen: string[]) => seen.filter((t) => t !== 'THUNK');
 
-describe('asOpenNowWidth', () => {
+describe('asPaneWidth', () => {
   it('rounds a finite positive number to whole px', () => {
-    expect(asOpenNowWidth(412)).toBe(412);
-    expect(asOpenNowWidth(412.6)).toBe(413);
+    expect(asPaneWidth(412)).toBe(412);
+    expect(asPaneWidth(412.6)).toBe(413);
   });
 
   // Range (min..max) is the shown-width rule's job (openNowWidth.ts, Task 2):
   // storage cannot know the window's current limits, so a value here is
   // accepted as long as it is a sane stored number.
   it('accepts a value far outside any window range: range-checking is not storage’s job', () => {
-    expect(asOpenNowWidth(1e9)).toBe(1e9);
+    expect(asPaneWidth(1e9)).toBe(1e9);
   });
 
   it.each([0, -5, NaN, Infinity, -Infinity])('rejects %p as null', (value) => {
-    expect(asOpenNowWidth(value)).toBeNull();
+    expect(asPaneWidth(value)).toBeNull();
   });
 
   it.each(['412', null, undefined, {}, []])('rejects %p as null', (value) => {
-    expect(asOpenNowWidth(value)).toBeNull();
+    expect(asPaneWidth(value)).toBeNull();
   });
 });
 

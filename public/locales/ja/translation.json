@@ -220,6 +220,7 @@
   "Show the saved session": "保存済みのセッションを表示",
   "Close Open now": "「現在開いているタブ」パネルを閉じる",
   "Resize Open now": "「現在開いているタブ」パネルの幅を変更",
+  "Resize the saved sessions list": "保存したセッションの一覧の幅を変更",
   "Reopen": "再度開く",
   "Show": "表示",
   "MovedToSession": "「{{title}}」に移動しました。",

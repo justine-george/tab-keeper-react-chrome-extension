@@ -11,9 +11,10 @@ import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 // paint, and the two drag systems staying out of each other's way are only
 // provable here.
 //
-// Widths (openNowWidth.ts): the default is 622 at 1600, 542 at 1440, 444 at
-// 1280 and 340 at 1100. Both panes right of the 356px list keep at least
-// 480px: at 1600 the range is 480..764, at 1440 480..604. At 1316px and
+// Widths (paneWidths.ts): the default is 600 at 1600, 540 at 1440, 444 at
+// 1280 and 340 at 1100: an even split of what the list's default leaves (400
+// at 1600, 360 at 1440, 356 at 1280 and narrower). Both panes right of the
+// list keep at least 480px: at 1600 the range is 480..720. At 1316px and
 // narrower both cannot, so the range is empty (min = max = the default) and
 // there is no grip. The saved session keeps the rest after the list.
 
@@ -623,14 +624,14 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
 
     // PREMISES. The default at 1600, nothing stored, and the grip centred on
     // the line (Open now's left edge).
-    await expectOpenNow(page, 622);
+    await expectOpenNow(page, 600);
     expect(await storedWidth(page)).toBeNull();
     const firstWidths = await page.evaluate(
       () => window.__openNowFirstWidths ?? []
     );
     expect(firstWidths.length).toBeGreaterThan(0);
     expect(firstWidths.map((w) => Math.round(w.width))).toEqual(
-      firstWidths.map(() => 622)
+      firstWidths.map(() => 600)
     );
     const line = await need(page, OPEN_NOW);
     const grip = await gripCentre(page);
@@ -641,7 +642,7 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     expect(await cursorAt(page, row.x, row.y)).toBe('pointer');
 
     const end = await dragGrip(page, -100, { release: false });
-    await expectOpenNow(page, 722);
+    await expectOpenNow(page, 700);
     // Mid-drag: nothing saved yet (O1a: saved on release), the root flag is
     // set, and a row under a straying pointer shows the resize cursor.
     expect(await storedWidth(page)).toBeNull();
@@ -649,8 +650,8 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     expect(await cursorAt(page, row.x, row.y)).toBe('col-resize');
     await page.mouse.up();
 
-    await expect.poll(() => storedWidth(page)).toBe(722);
-    await expectOpenNow(page, 722);
+    await expect.poll(() => storedWidth(page)).toBe(700);
+    await expectOpenNow(page, 700);
     expect(await rootHas(page, 'data-resizing')).toBe(false);
     const detail = await need(page, DETAIL);
     const openNow = await need(page, OPEN_NOW);
@@ -668,22 +669,22 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
   }) => {
     await seedOnce(context, {});
     const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
-    await expectOpenNow(page, 622);
+    await expectOpenNow(page, 600);
     const separator = page.getByRole('separator', { name: 'Resize Open now' });
     await expect(separator).toHaveAttribute('aria-valuemin', '480');
-    await expect(separator).toHaveAttribute('aria-valuemax', '764');
+    await expect(separator).toHaveAttribute('aria-valuemax', '720');
 
-    // 400px left at 1600: the max, 764, leaves the saved session its 480.
+    // 400px left at 1600: the max, 720, leaves the saved session its 480.
     await dragGrip(page, -400);
-    await expectOpenNow(page, 764);
+    await expectOpenNow(page, 720);
     expect(await widthOf(page, DETAIL)).toBe(480);
-    await expect.poll(() => storedWidth(page)).toBe(764);
+    await expect.poll(() => storedWidth(page)).toBe(720);
 
-    // Far right (500px from 764 would be 264): stops at the min, 480, the
+    // Far right (500px from 720 would be 220): stops at the min, 480, the
     // saved session's own floor.
     await dragGrip(page, 500);
     await expectOpenNow(page, 480);
-    expect(await widthOf(page, DETAIL)).toBe(764);
+    expect(await widthOf(page, DETAIL)).toBe(720);
     await expect.poll(() => storedWidth(page)).toBe(480);
 
     // Dragged far left, past the window's own left edge, and released out
@@ -704,17 +705,17 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     await page.mouse.move(from.x, from.y);
     await page.mouse.down();
     await page.mouse.move(-40, from.y, { steps: 30 });
-    await expectOpenNow(page, 764);
+    await expectOpenNow(page, 720);
     expect(await rootHas(page, 'data-resizing')).toBe(true);
     await page.mouse.up();
 
     // PREMISE: the release really happened outside the window.
     expect(await page.evaluate(() => window.__releaseX ?? null)).toBe(-40);
-    await expect.poll(() => storedWidth(page)).toBe(764);
+    await expect.poll(() => storedWidth(page)).toBe(720);
     expect(await widthOf(page, DETAIL)).toBe(480);
     expect(await rootHas(page, 'data-resizing')).toBe(false);
     // Saved once, and the flag came and went once.
-    expect(await settingsWrites(page)).toEqual([764]);
+    expect(await settingsWrites(page)).toEqual([720]);
     expect(await rootFlagLog(page)).toEqual([
       'data-resizing=',
       'data-resizing=null',
@@ -727,17 +728,17 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
   }) => {
     await seedOnce(context, {});
     const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
-    await expectOpenNow(page, 622);
+    await expectOpenNow(page, 600);
     const sessionsBefore = await storedSessions(page);
     // PREMISE: the session is the one seeded, so "unchanged" means something.
     expect(sessionsBefore).toBe(JSON.stringify(SEEDED_CONTAINER));
 
     await dragGrip(page, -100);
-    await expect.poll(() => storedWidth(page)).toBe(722);
+    await expect.poll(() => storedWidth(page)).toBe(700);
 
     await reload(page);
-    await expectOpenNow(page, 722);
-    expect(await storedWidth(page)).toBe(722);
+    await expectOpenNow(page, 700);
+    expect(await storedWidth(page)).toBe(700);
     // Device-local: never in the synced sessions, which are byte for byte
     // what they were.
     const sessionsAfter = await storedSessions(page);
@@ -751,7 +752,7 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
   }) => {
     await seedOnce(context, {});
     const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
-    await expectOpenNow(page, 622);
+    await expectOpenNow(page, 600);
 
     // A real Tab walk between the panes: the grip comes right after the
     // saved detail's last control and right before Open now's first (WCAG
@@ -801,7 +802,7 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     expect(await grip.evaluate((el) => el.matches(':focus-visible'))).toBe(
       true
     );
-    await expect(grip).toHaveAttribute('aria-valuenow', '622');
+    await expect(grip).toHaveAttribute('aria-valuenow', '600');
     // The next Tab goes into Open now, then back to the grip for the keys.
     await page.keyboard.press('Tab');
     expect(await focusedPlace()).toBe('open-now');
@@ -823,17 +824,17 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     await expect(grip).toBeFocused();
 
     await page.keyboard.press('ArrowLeft');
-    await expectOpenNow(page, 638);
-    await expect.poll(() => storedWidth(page)).toBe(638);
-    await expect(grip).toHaveAttribute('aria-valuenow', '638');
+    await expectOpenNow(page, 616);
+    await expect.poll(() => storedWidth(page)).toBe(616);
+    await expect(grip).toHaveAttribute('aria-valuenow', '616');
 
     // The double-click's own presses start and end a drag that moves
     // nothing, so they save nothing; the dblclick itself resets.
     const centre = await gripCentre(page);
     await page.mouse.dblclick(centre.x, centre.y);
-    await expectOpenNow(page, 622);
+    await expectOpenNow(page, 600);
     await expect.poll(() => storedWidth(page)).toBeNull();
-    // The key is written as null, not left at 638 and read around.
+    // The key is written as null, not left at 616 and read around.
     expect(
       await page.evaluate(() => {
         const raw = window.localStorage.getItem('settingsData') ?? '{}';
@@ -853,7 +854,7 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     // CONTROL: side by side, the same selector finds the grip. Without this
     // every absence below passes on a build with no grip anywhere.
     await expect(grip).toHaveCount(1);
-    await expectOpenNow(page, 622);
+    await expectOpenNow(page, 600);
 
     // The rail, below 1100px: Open now is its 44px column and has no line.
     await page.setViewportSize(RAIL);
@@ -890,7 +891,7 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
   }) => {
     await seedOnce(context, {});
     const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
-    await expectOpenNow(page, 622);
+    await expectOpenNow(page, 600);
     await expect(savedRow(page, 'saved-7')).toBeVisible();
     const sessionsBefore = await storedSessions(page);
     await watchRootFlags(page);
@@ -931,7 +932,7 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
   }) => {
     await seedOnce(context, {});
     const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
-    await expectOpenNow(page, 622);
+    await expectOpenNow(page, 600);
     await expect(page.locator(GRIP)).toHaveCount(1);
     await expect(savedRow(page, 'saved-7')).toBeVisible();
     // PREMISE: the saved list does not scroll, so rects measured at pick-up
@@ -954,8 +955,8 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     expect(log.filter((entry) => entry.startsWith('data-resizing'))).toEqual(
       []
     );
-    expect(seen.openNowWidth).toBe(622);
-    await expectOpenNow(page, 622);
+    expect(seen.openNowWidth).toBe(600);
+    await expectOpenNow(page, 600);
     expect(await storedWidth(page)).toBeNull();
 
     // The drop lands where the preview showed at release: a real move.
@@ -981,7 +982,7 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
   }) => {
     await seedOnce(context, {});
     const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
-    await expectOpenNow(page, 622);
+    await expectOpenNow(page, 600);
     const a = await openWindow(worker, ['a0', 'a1', 'a2', 'a3']);
     const [a0, a1, a2, a3] = a.tabIds;
     if (a3 === undefined) throw new Error('Chrome opened too few tabs');
@@ -991,8 +992,8 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     await expect(openRow(a3)).toBeVisible();
 
     await dragGrip(page, -100);
-    await expectOpenNow(page, 722);
-    await expect.poll(() => storedWidth(page)).toBe(722);
+    await expectOpenNow(page, 700);
+    await expect.poll(() => storedWidth(page)).toBe(700);
 
     // PREMISE: the list does not scroll, so the pick-up's rects hold.
     const scroll = await openNowScroll(page);
@@ -1028,7 +1029,7 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
         )
       )
       .toEqual([a0, a3, a1, a2]);
-    await expectOpenNow(page, 722);
+    await expectOpenNow(page, 700);
   });
 
   test('10. a row drag over the grip does not light it', async ({
@@ -1037,7 +1038,7 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
   }) => {
     await seedOnce(context, {});
     const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
-    await expectOpenNow(page, 622);
+    await expectOpenNow(page, 600);
     await expect(savedRow(page, 'saved-7')).toBeVisible();
 
     // CONTROL: plain hover lights it, so the rest colour below is not just
@@ -1070,18 +1071,18 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
   }) => {
     await seedOnce(context, {});
     const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
-    await expectOpenNow(page, 622);
+    await expectOpenNow(page, 600);
 
     await page.getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByText('Themes')).toBeVisible();
     await page.setViewportSize(MEDIUM);
     await page.getByRole('button', { name: 'Go back' }).click();
 
-    await expectOpenNow(page, 542);
-    expect(await widthOf(page, DETAIL)).toBe(542);
+    await expectOpenNow(page, 540);
+    expect(await widthOf(page, DETAIL)).toBe(540);
     await expect(
       page.getByRole('separator', { name: 'Resize Open now' })
-    ).toHaveAttribute('aria-valuenow', '542');
+    ).toHaveAttribute('aria-valuenow', '540');
   });
 
   // O1a: both panes keep 480px. At 1316px and narrower they cannot both, so
