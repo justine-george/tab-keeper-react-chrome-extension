@@ -83,9 +83,16 @@ const readStop = (page: Page, seen: JSHandle<WeakSet<Element>>) =>
       ? [...(parent?.querySelectorAll('*') ?? [])].map(after)
       : [outline(el), ...(parent ? [outline(parent), after(parent)] : [])];
     const ring = candidates.find((r) => r !== 'none') ?? 'none';
+    // Text a screen reader hears: an aria-hidden glyph's ligature is not part of the name.
+    const heard = (n: Node): string =>
+      n.nodeType === Node.TEXT_NODE
+        ? (n.textContent ?? '')
+        : n instanceof Element && n.getAttribute('aria-hidden') === 'true'
+          ? ''
+          : [...n.childNodes].map(heard).join('');
     const name =
       el.getAttribute('aria-label') ||
-      (el.id ? `#${el.id}` : el.textContent?.trim().slice(0, 40) || el.tagName);
+      (el.id ? `#${el.id}` : heard(el).trim().slice(0, 40) || el.tagName);
     return { name, ring };
   }, seen);
 
