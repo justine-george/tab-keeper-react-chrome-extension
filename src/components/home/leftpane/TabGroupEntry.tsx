@@ -26,6 +26,7 @@ import { DURATION, TYPE } from '../../../styles/scale';
 import { springSweepStyle } from '../../common/springOpen';
 import { focusRingAboveCss, whileKeyNav } from '../../common/focusRing';
 import { SAVED_TEXT_INSET } from './savedListInset';
+import { DragHandle } from '../rightpane/rowDrag/DragHandle';
 import { useRowActionGuard } from './useRowActionGuard';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import {
@@ -454,8 +455,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       data-run-engaged={isRunEngaged ? '' : undefined}
       data-carry-target={carryTarget === undefined ? undefined : ''}
       data-carry-dwell={carryTarget?.dwellSweep ? '' : undefined}
+      data-drag-handle-row=""
       {...rowEvents}
     >
+      <DragHandle rowId={tabGroupData.tabGroupId} left="9px" />
       <ClickableRow
         ariaLabel={title}
         onClick={onTabGroupClick}

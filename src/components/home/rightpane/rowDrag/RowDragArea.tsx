@@ -2374,8 +2374,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   }, []);
 
   const ctx = useMemo<Ctx>(
-    () => ({ register, begin, drag, adoptRowId }),
-    [register, begin, drag, adoptRowId]
+    () => ({ register, begin, drag, adoptRowId, disabled }),
+    [register, begin, drag, adoptRowId, disabled]
   );
 
   const scopes = useMemo<DragScopes>(

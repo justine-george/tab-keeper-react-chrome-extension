@@ -120,6 +120,8 @@ export interface Ctx {
   // drag when the pointer comes in (KAN-350). Drawn invisible, keeping its
   // footprint; undefined while this list offers no carried item a place.
   adoptRowId: string | undefined;
+  // No press starts a drag here now (a search). Rows show no handle (KAN-701).
+  disabled: boolean;
 }
 
 // The lists a row can join. `nearest` is what every unscoped row joins, as
@@ -143,4 +145,21 @@ export function useDragState(scope?: string): DragState | null {
   const ctx =
     (scope === undefined ? scopes?.nearest : scopes?.byScope[scope]) ?? null;
   return ctx?.drag ?? null;
+}
+
+/**
+ * Whether a row can be dragged in its list now, and whether it is the held
+ * one (KAN-701). Same resolution as DraggableRow; false outside any list.
+ */
+export function useRowDragHandle(
+  rowId: string,
+  scope?: string
+): { canDrag: boolean; held: boolean } {
+  const scopes = useContext(DragContext);
+  const ctx =
+    (scope === undefined ? scopes?.nearest : scopes?.byScope[scope]) ?? null;
+  return {
+    canDrag: ctx !== null && !ctx.disabled,
+    held: ctx?.drag?.rowId === rowId,
+  };
 }

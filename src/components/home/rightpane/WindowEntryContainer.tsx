@@ -67,6 +67,7 @@ import { isTabKeeperPage, toStoredTab } from '../../../utils/functions/capture';
 import { isTabView } from '../../../utils/functions/viewMode';
 
 import { DraggableRow } from './rowDrag/RowDragArea';
+import { DragHandle, DragHandleSwap } from './rowDrag/DragHandle';
 import { markRowContainer } from './rowDrag/dropRules';
 import { useDragState } from './rowDrag/dragContext';
 import { GroupFrameFollower } from './rowDrag/GroupFrameFollower';
@@ -698,7 +699,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // drag -- reveals the wrong row's actions. It also removes the cross-run
   // index arithmetic this used to need, since a run's local index and the
   // window-wide one no longer have to be reconciled.
-  function renderTab({ tabId, favicon, title, url, pinned }: tabData) {
+  function renderTab(
+    { tabId, favicon, title, url, pinned }: tabData,
+    grouped: boolean
+  ) {
     const pinnedId = `${descriptionIdPrefix}-pinned-${tabId}`;
     // KAN-564 A. The other half of the split this tab restores into.
     const partner = splitPartners.get(tabId);
@@ -715,9 +719,15 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       <div
         key={tabId}
         css={childrenStyle}
+        data-drag-handle-row=""
         onMouseEnter={() => setHoveredTabId(tabId)}
         onMouseLeave={() => setHoveredTabId(null)}
       >
+        <DragHandle
+          scope="tabs"
+          rowId={tabId}
+          left={grouped ? '-40px' : '-24px'}
+        />
         {/* The name reuses the string the tooltip already carried, so no new
             hardcoded English enters the app -- the 25 untranslated
             aria-labels of KAN-65 stay one clean sweep. The favicon Icon
@@ -851,6 +861,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             cannot be satisfied by anything outside the window it belongs to. */
         <div
           data-window-drag-handle
+          data-drag-handle-row=""
           css={parentStyle}
           onMouseEnter={() => setIsParentHovered(true)}
           onMouseLeave={() => setIsParentHovered(false)}
@@ -866,7 +877,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               type={isWindowOpen ? 'expand_less' : 'expand_more'}
               onClick={handleAccordionClick}
             />
-            <Icon type="web_asset" style={NON_INTERACTIVE_ICON_STYLE} />
+            <DragHandleSwap rowId={windowId}>
+              <Icon type="web_asset" style={NON_INTERACTIVE_ICON_STYLE} />
+            </DragHandleSwap>
             {/* Two shapes, because an <input> may not live inside a <button>:
                 clicking it would activate the button and it could not hold
                 focus. Otherwise the title is the rename button, searching or
@@ -1072,7 +1085,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 rowId={itemIdOf(item)}
               >
                 <DraggableRow scope="tabs" rowId={item.tab.tabId}>
-                  {renderTab(item.tab)}
+                  {renderTab(item.tab, false)}
                 </DraggableRow>
               </DraggableRow>
             ) : (
@@ -1243,6 +1256,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         press. */}
                     <div
                       data-group-drag-handle
+                      data-drag-handle-row=""
                       // KAN-166. This row is DRAWN in the tab list but is
                       // not one of its rows, and the preview has to count
                       // it: a tab dropped on it joins the group without
@@ -1297,6 +1311,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         }
                       `}
                     >
+                      <DragHandle
+                        scope="items"
+                        rowId={itemIdOf(item)}
+                        left="-40px"
+                      />
                       {editingGroupId === item.group.groupId ? (
                         <input
                           value={groupDraft}
@@ -1532,7 +1551,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                           scope="tabs"
                           rowId={tabItem.tabId}
                         >
-                          {renderTab(tabItem)}
+                          {renderTab(tabItem, true)}
                         </DraggableRow>
                       ))}
                       {/* KAN-175. The group's TAIL, declared the same way
