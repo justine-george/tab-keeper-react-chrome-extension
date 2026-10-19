@@ -5,7 +5,7 @@ import Icon from './Icon';
 import type { IconName } from './iconNames';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
-import { ICON, TYPE } from '../../styles/scale';
+import { CORNER_SHAPE, ICON, TYPE } from '../../styles/scale';
 import { slidingPairColors } from './slidingPairColors';
 import { focusRingCss, focusRingOnTextGroundCss } from './focusRing';
 import { silenceRepeatedTitle } from './silenceRepeatedTitle';
@@ -150,6 +150,7 @@ export default function SlidingPair<T extends string>({
     padding: ${TRACK_PADDING}px;
     border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
     border-radius: ${metrics.radius};
+    corner-shape: ${CORNER_SHAPE};
     background-color: ${colors.track};
     transition: transform ${metrics.press};
     &:active {
@@ -183,6 +184,7 @@ export default function SlidingPair<T extends string>({
     padding: ${option.icon ? '0 2px' : '0 12px'};
     border: 0;
     border-radius: ${metrics.knobRadius};
+    corner-shape: ${CORNER_SHAPE};
     background: transparent;
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};
@@ -208,6 +210,7 @@ export default function SlidingPair<T extends string>({
     display: flex;
     align-items: stretch;
     border-radius: ${metrics.knobRadius};
+    corner-shape: ${CORNER_SHAPE};
     background-color: ${colors.knob};
     color: ${colors.labelOnKnob};
     pointer-events: none;

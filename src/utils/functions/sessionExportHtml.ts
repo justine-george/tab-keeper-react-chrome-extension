@@ -9,6 +9,7 @@ import {
   TAB_GROUP_COLOR_HEX,
 } from './tabGroups';
 import { windowLabel } from './windowLabel';
+import { CORNER_SHAPE } from '../../styles/scale';
 
 export type ExportLayout = 'comfortable' | 'compact';
 
@@ -237,18 +238,18 @@ function styles(scheme: ExportScheme): string {
     `a{color:var(--link);text-decoration:none}a:visited{color:var(--visited)}a:hover{text-decoration:underline}` +
     `.url{color:var(--muted);font-size:12px;overflow-wrap:anywhere}` +
     `.plain{color:var(--plain)}` +
-    `.note{font-size:11px;color:var(--muted);border:1px solid var(--rule);border-radius:3px;padding:0 5px;margin-left:6px;white-space:nowrap}` +
+    `.note{font-size:11px;color:var(--muted);border:1px solid var(--rule);border-radius:3px;corner-shape:${CORNER_SHAPE};padding:0 5px;margin-left:6px;white-space:nowrap}` +
     `.group{border-left:4px solid;background:var(--group-bg)}` +
     `.group-name{font-weight:600;margin:0 0 2px}` +
     `.sig{margin-top:34px;padding-top:14px;border-top:1px solid var(--rule);color:var(--muted);font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}` +
-    `.sig img{border-radius:4px}` +
+    `.sig img{border-radius:4px;corner-shape:${CORNER_SHAPE}}` +
     `.sig strong{color:var(--text);font-weight:600}` +
     `.sig a{margin-left:auto;color:var(--link)}` +
     // Comfortable: a reading layout, the whole URL under each link.
     `.comfortable h2{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--rule);font-weight:600}` +
     `.comfortable h2 span{text-transform:none;letter-spacing:0;font-weight:400}` +
     `.comfortable li.tab{padding:7px 0}` +
-    `.comfortable .group{margin:8px 0;padding:6px 0 6px 14px;border-radius:0 4px 4px 0}` +
+    `.comfortable .group{margin:8px 0;padding:6px 0 6px 14px;border-radius:0 4px 4px 0;corner-shape:${CORNER_SHAPE}}` +
     `.comfortable .group-name{font-size:13px}` +
     `.comfortable .group li.tab{padding:5px 12px 5px 0}` +
     // Compact: one line per tab, the site pushed to the right.

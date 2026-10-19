@@ -81,7 +81,7 @@ import {
   type Slot,
   type UnfoldedRow,
 } from './unfold';
-import { DURATION } from '../../../../styles/scale';
+import { CORNER_SHAPE, DURATION } from '../../../../styles/scale';
 import { settleSlides } from './settleSlides';
 import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
 import {
@@ -2474,6 +2474,7 @@ export const PhantomRestingSlot: React.FC = () => (
       border-style: dashed;
       border-color: var(--drag-landing-slot, currentColor);
       border-radius: ${SLOT_RADIUS};
+      corner-shape: ${CORNER_SHAPE};
       opacity: ${SLOT_OPACITY};
       /* Held, the row's own landing slot is drawn instead. */
       [data-drag-held] > & {
@@ -2623,6 +2624,7 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
             pointerEvents: 'none',
             border: '1.5px dashed var(--drag-landing-slot, currentColor)',
             borderRadius: SLOT_RADIUS,
+            cornerShape: CORNER_SHAPE,
             // As visible as it is DISTINGUISHABLE from the row being dragged.
             //
             // The held row tracks the pointer continuously while the slot jumps
@@ -2686,6 +2688,7 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
             borderStyle: 'dotted',
             borderColor: 'var(--drag-landing-slot, currentColor)',
             borderRadius: SLOT_RADIUS,
+            cornerShape: CORNER_SHAPE,
             opacity: SOURCE_ROOM_OPACITY,
           }}
         />

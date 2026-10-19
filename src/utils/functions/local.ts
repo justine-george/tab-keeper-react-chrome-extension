@@ -11,6 +11,7 @@ import type {
 // Type only: src/background.ts imports this module (see FALLBACK_LOCALE).
 import type { TimeFormat } from '../../redux/slices/settingsDataStateSlice';
 import { searchTermOf } from './openNowSearch';
+import { CORNER_SHAPE } from '../../styles/scale';
 
 // check validity of the timestamp
 export function isValidDate(param: any) {
@@ -421,7 +422,7 @@ export function generatePlaceholderURL(
   const safeUrl = escapeHtml(url);
   const safeGoToURLText = escapeHtml(goToURLText);
 
-  const html = `<html> <head> <meta charset="UTF-8" /> <link rel="icon" type="image/x-icon" href="${safeFaviconURL}" /> <meta name="viewport" content="width=device-width, initial-scale=1.0" /> <title>${safeTitle}</title> <style> body { background-color: #181818; color: #ffffff; font-family: "Libre Franklin", sans-serif; display: flex; margin: 20px; flex-direction: column; justify-content: flex-start; align-items: flex-start; height: 100vh; } #copyButton { cursor: pointer; background-color: #2c2c2c; padding: 10px 20px; border: none; border-radius: 10px; color: #ffffff; font-family: "Libre Franklin", sans-serif; font-size: 14px; transition: background-color 0.125s ease, color 0.125s ease; } #copyButton:hover { background-color: #77dd77; color: black; } h1,h2,p { margin: 10px 3px; } a { text-decoration: none; color: inherit; } p { font-size: 0.9rem; margin-bottom: 15px; } </style> </head> <body> <h2>${safeTitle}</h2> <a href="${safeUrl}"><p>${safeUrl}</p></a> <a href="${safeUrl}"><button id="copyButton">${safeGoToURLText}</button></a> </body></html>`;
+  const html = `<html> <head> <meta charset="UTF-8" /> <link rel="icon" type="image/x-icon" href="${safeFaviconURL}" /> <meta name="viewport" content="width=device-width, initial-scale=1.0" /> <title>${safeTitle}</title> <style> body { background-color: #181818; color: #ffffff; font-family: "Libre Franklin", sans-serif; display: flex; margin: 20px; flex-direction: column; justify-content: flex-start; align-items: flex-start; height: 100vh; } #copyButton { cursor: pointer; background-color: #2c2c2c; padding: 10px 20px; border: none; border-radius: 10px; corner-shape: ${CORNER_SHAPE}; color: #ffffff; font-family: "Libre Franklin", sans-serif; font-size: 14px; transition: background-color 0.125s ease, color 0.125s ease; } #copyButton:hover { background-color: #77dd77; color: black; } h1,h2,p { margin: 10px 3px; } a { text-decoration: none; color: inherit; } p { font-size: 0.9rem; margin-bottom: 15px; } </style> </head> <body> <h2>${safeTitle}</h2> <a href="${safeUrl}"><p>${safeUrl}</p></a> <a href="${safeUrl}"><button id="copyButton">${safeGoToURLText}</button></a> </body></html>`;
   const base64Html = Base64.encode(html);
   return `${PLACEHOLDER_URL_PREFIX}${base64Html}`;
 }
