@@ -2,6 +2,8 @@ import { css } from '@emotion/react';
 
 import { ThemeColors, useThemeColors } from '../../../hooks/useThemeColors';
 import { focusRingOutsideCss } from '../../common/focusRing';
+import Icon from '../../common/Icon';
+import { slidingPairColors } from '../../common/slidingPairColors';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { DURATION, TYPE } from '../../../styles/scale';
 
@@ -20,19 +22,15 @@ import { DURATION, TYPE } from '../../../styles/scale';
  * title and nothing else -- and the whole thing is the hit target. The tile is
  * aria-hidden: it is a picture of the name.
  *
- * SELECTION MARKER, unchanged from KAN-88/KAN-95: the tile's own 1px frame,
- * thickened to 2px in the PAGE's LABEL_L3. Growing a border is safe because
- * App.css sets `* { box-sizing: border-box }` globally, so the tile keeps its
- * size and the row never reflows; e2e/theme-swatch-marker.spec pins that.
- * LABEL_L3 rather than PANEL_BORDER_COLOR because the panel frame measures
- * 1.38-1.75:1 against the page on every theme and would be invisible;
- * LABEL_L3 is the one existing token in a sane band (2.56-4.03:1). TEXT_COLOR
- * was tried and rejected as focus-ring weight on a passive marker.
+ * SELECTION MARKER (KAN-398): the tile's own 1px frame, thickened to 2px in the
+ * PAGE's LABEL_L1 (6.58-8.03:1), plus the language list's check on a knob
+ * square at the tile's corner. The frame alone reads like the hover frame
+ * (LABEL_L2); the check separates them. border-box keeps the tile's size and
+ * the check is absolutely placed, so the row never reflows.
  *
- * HOVER AND PRESS move the frame's colour a rung, not the tile's fill: the
- * tile's colours are the information, and a hover fill would repaint them.
- * The old swatches pinned `&:hover { background: <own colour> }` for exactly
- * this reason and so had no hover at all.
+ * HOVER AND PRESS move an unselected frame's colour a rung, not the tile's
+ * fill: the tile's colours are the information. The current tile's frame
+ * stays put under the pointer.
  */
 const TILE_WIDTH_PX = 72;
 const TILE_HEIGHT_PX = 52;
@@ -91,16 +89,33 @@ export default function ThemeSwatch({
     border: 1px solid ${PAGE.PANEL_BORDER_COLOR};
     transition: border-color ${DURATION.COLOR};
     ${
-      isActive ? `border-color: ${PAGE.LABEL_L3_COLOR}; border-width: 2px;` : ''
+      isActive
+        ? `border-color: ${PAGE.LABEL_L1_COLOR}; border-width: 2px;`
+        : /* Named properties, never the all keyword; only the colour moves. */
+          `button:hover & { border-color: ${PAGE.LABEL_L2_COLOR}; }
+           button:active & { border-color: ${PAGE.LABEL_L1_COLOR}; }`
     }
-    /* The frame answers the pointer. Named properties, never the all
-       keyword; and only the colour moves, so the box never does. */
-    button:hover > & {
-      border-color: ${PAGE.LABEL_L2_COLOR};
-    }
-    button:active > & {
-      border-color: ${PAGE.LABEL_L1_COLOR};
-    }
+  `;
+
+  // The tile's box, so the check can hang off its corner: the tile clips.
+  const holderStyle = css`
+    position: relative;
+    display: block;
+  `;
+
+  const { knob, labelOnKnob } = slidingPairColors(PAGE);
+  // A page-coloured ring keeps the knob readable over a tile of any theme.
+  const checkStyle = css`
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    background-color: ${knob};
+    box-shadow: 0 0 0 2px ${PAGE.PRIMARY_COLOR};
   `;
 
   const headerStyle = css`
@@ -144,17 +159,29 @@ export default function ThemeSwatch({
       onClick={onSelect}
       css={buttonStyle}
     >
-      <span aria-hidden="true" data-theme-tile css={tileStyle}>
-        <span data-theme-band="header" css={headerStyle}>
-          <i css={stroke(22, palette.TEXT_COLOR)} />
-        </span>
-        <span data-theme-band="body" css={bodyStyle}>
-          <span data-theme-band="selection" css={selectionStyle}>
-            <i css={stroke(30, palette.TEXT_COLOR)} />
+      <span aria-hidden="true" css={holderStyle}>
+        <span aria-hidden="true" data-theme-tile css={tileStyle}>
+          <span data-theme-band="header" css={headerStyle}>
+            <i css={stroke(22, palette.TEXT_COLOR)} />
           </span>
-          <i css={stroke(24, palette.LABEL_L2_COLOR)} />
-          <i css={stroke(34, palette.LABEL_L2_COLOR)} />
+          <span data-theme-band="body" css={bodyStyle}>
+            <span data-theme-band="selection" css={selectionStyle}>
+              <i css={stroke(30, palette.TEXT_COLOR)} />
+            </span>
+            <i css={stroke(24, palette.LABEL_L2_COLOR)} />
+            <i css={stroke(34, palette.LABEL_L2_COLOR)} />
+          </span>
         </span>
+        {isActive && (
+          <span data-theme-check css={checkStyle}>
+            <Icon
+              type="check"
+              size="12px"
+              color={labelOnKnob}
+              style="padding: 0;"
+            />
+          </span>
+        )}
       </span>
       <span css={nameStyle}>{name}</span>
     </button>

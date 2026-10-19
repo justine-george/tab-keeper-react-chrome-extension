@@ -141,7 +141,7 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
     // The tile comes first, the name second: the picture is what is looked
     // at, the word confirms it.
     const children = Array.from(button.children);
-    expect(children[0].hasAttribute('data-theme-tile')).toBe(true);
+    expect(children[0].querySelector('[data-theme-tile]')).not.toBeNull();
     expect(children[1].textContent).toBe('Parchment');
   });
 });
