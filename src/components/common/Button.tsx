@@ -146,11 +146,12 @@ const Button: React.FC<ButtonProps> = ({
       border: 'none',
       ink: COLORS.TEXT_COLOR,
     },
+    // KAN-674. The panel edge: over a hovered row DIVIDER fell to 1.13:1.
     outline: {
       rest: 'transparent',
       hover: COLORS.ICON_HOVER_COLOR,
       press: COLORS.ICON_ACTIVE_COLOR,
-      border: `1px solid ${COLORS.DIVIDER_COLOR}`,
+      border: `1px solid ${COLORS.PANEL_BORDER_COLOR}`,
       ink: COLORS.TEXT_COLOR,
     },
   }[variant];
