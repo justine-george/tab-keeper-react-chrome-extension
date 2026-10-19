@@ -13,10 +13,11 @@ import { useRowDragHandle } from './dragContext';
 //
 // The row that owns the hover carries `data-drag-handle-row`. Shown while
 // that row is hovered and nothing is dragged, and on the held row until its
-// release, hovered or not: a list clamps its held row at its ends while the
-// pointer goes on. The held row's hover bridges the frame between the drag's
-// start and the render that marks it held. Never on keyboard focus: there is
-// no keyboard drag.
+// release, hovered or not: it follows the pointer only up and down, so a
+// pointer that leaves its pane sideways leaves it. The held row's hover
+// bridges the frames between the drag's start and the render that marks it
+// held, measured as one to three. Never on keyboard focus: there is no
+// keyboard drag.
 const shownWhen = (rule: string) => `
   html:not([data-dragging]) [data-drag-handle-row]:hover & ${rule}
   [data-drag-held] [data-drag-handle-row]:hover & ${rule}
