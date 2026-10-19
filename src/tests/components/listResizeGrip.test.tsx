@@ -6,6 +6,8 @@ import MainContainer from '../../components/MainContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { testI18n } from '../setup/i18nForTests';
 import { openNowTrack } from '../setup/openNowTrack';
+import { FakeMediaQueryList } from '../setup/mediaQueryFake';
+import { OPEN_NOW_RAIL_QUERY } from '../../components/home/opennow/railQuery';
 import {
   saveToTabContainerInternal,
   selectTabContainer,
@@ -152,6 +154,23 @@ describe('where it shows', () => {
     setViewportWidth(1099);
     expect(noGrip()).toBeNull();
     expect(listTrack()).toBe('356px');
+  });
+
+  // The rail's rule draws the list at 356 whatever --list-width says, so the
+  // grip follows that query, not only the window's width.
+  test("not while the rail's query matches", async () => {
+    const railQuery = new FakeMediaQueryList(OPEN_NOW_RAIL_QUERY, false);
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
+      query === OPEN_NOW_RAIL_QUERY
+        ? railQuery
+        : new FakeMediaQueryList(query, false)
+    );
+    await renderHome();
+    await mounted();
+    // CONTROL: the same window shows the grip while the query does not match.
+    expect(grip()).toBeInTheDocument();
+    act(() => railQuery.setMatches(true));
+    expect(noGrip()).toBeNull();
   });
 
   test('not side by side at 1280, where the saved session has no room to give', async () => {
