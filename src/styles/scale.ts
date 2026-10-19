@@ -52,6 +52,12 @@ export const RADIUS = {
 } as const;
 
 /**
+ * KAN-693. The few corners that do round are squircles, not arcs: set beside
+ * their border-radius. A circle is a shape, not a corner, and keeps round.
+ */
+export const CORNER_SHAPE = 'squircle';
+
+/**
  * Control heights, built on the 32px row the lists already use.
  *
  * Multiples of that row, so controls line up with the rows beside them instead

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import Button from '../common/Button';
 import { windowLabel } from '../../utils/functions/windowLabel';
+import { CORNER_SHAPE } from '../../styles/scale';
 import type {
   tabContainerData,
   tabData,
@@ -148,6 +149,7 @@ export default function ExportEditor({
         justify-content: center;
         border: 1px solid transparent;
         border-radius: 3px;
+        corner-shape: ${CORNER_SHAPE};
         background-color: transparent;
         transition:
           background-color 120ms ease,

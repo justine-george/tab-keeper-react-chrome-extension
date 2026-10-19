@@ -45,6 +45,7 @@ import {
   type ExportScheme,
 } from '../../utils/functions/sessionExportHtml';
 import { copySessionLinks } from '../../utils/functions/copySessionLinks';
+import { CORNER_SHAPE } from '../../styles/scale';
 import {
   applyExportEdits,
   countExportEdits,
@@ -721,6 +722,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                     color: ${COLORS.LABEL_L1_COLOR};
                     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
                     border-radius: 999px;
+                    corner-shape: ${CORNER_SHAPE};
                     padding: 2px 9px;
                     white-space: nowrap;
                     font-variant-numeric: tabular-nums;

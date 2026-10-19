@@ -1,3 +1,5 @@
+import { Fragment, createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, test } from 'vitest';
 
 import { ErrorBoundary } from '../../components/ErrorBoundary';
@@ -43,5 +45,23 @@ describe('ErrorBoundary.getDerivedStateFromError', () => {
     });
 
     expect(typeof state.message).toBe('string');
+  });
+});
+
+// KAN-693. Its Reload button is one of the few rounded corners, so it is a
+// squircle like the rest. No test can make a page fail to reach it in Chrome;
+// this reads the markup React writes for it.
+describe('the fallback', () => {
+  test('draws Reload with a squircle corner', () => {
+    const boundary = new ErrorBoundary({ children: null });
+    boundary.state = { hasError: true, message: 'boom' };
+    const html = renderToStaticMarkup(
+      createElement(Fragment, null, boundary.render())
+    );
+    const reload = html.match(/<button[^>]*style="([^"]*)"[^>]*>Reload</);
+    const style = reload?.[1] ?? '';
+    // PREMISE: this is the Reload button's style, rounded today.
+    expect(style).toContain('border-radius:4px');
+    expect(style).toContain('corner-shape:squircle');
   });
 });
