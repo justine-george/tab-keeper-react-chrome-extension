@@ -137,6 +137,8 @@
   "TabGroupsPromptDismiss": "나중에",
   "TabGroupsPromptNever": "다시 묻지 않기",
   "Sort sessions": "세션 정렬",
+  "Sort tabs by site": "사이트별 탭 정렬",
+  "TabsSortedBySite": "탭을 사이트별로 정렬했습니다.",
   "Date saved": "저장한 날짜",
   "Name": "이름",
   "Tab count": "탭 수",

@@ -66,6 +66,11 @@ import {
 import { withASelection } from '../../utils/functions/withOwnSelection';
 import { isSampleSession } from '../../utils/functions/sampleSession';
 import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
+import {
+  isSavedWindowSortedBySite,
+  savedSortable,
+  sortBySite,
+} from '../../utils/functions/sortBySite';
 import { noteReviewMoment } from '../reviewAsk';
 import {
   TAB_GROUP_COLORS,
@@ -203,6 +208,12 @@ export interface removeDuplicateTabsParams {
   tabGroupId: string;
   // KAN-616. One window or one group in it; absent, the whole session.
   within?: DuplicateScope;
+  now: number;
+}
+
+export interface sortTabsBySiteParams {
+  tabGroupId: string;
+  windowId: string;
   now: number;
 }
 
@@ -964,6 +975,31 @@ export const removeDuplicateTabs = createAsyncThunk<
     showToast({
       toastText: TOAST_MESSAGES.DUPLICATE_TABS_REMOVED,
       toastParams: { count },
+      announcesSavedChange: true,
+      offersUndo,
+    })
+  );
+});
+
+// KAN-694. The saved window menu's action. Says so, with Undo; says nothing when the window is already in order.
+export const sortTabsBySite = createAsyncThunk<
+  void,
+  Omit<sortTabsBySiteParams, 'now'>,
+  { state: RootState }
+>('global/sortTabsBySite', async ({ tabGroupId, windowId }, thunkAPI) => {
+  const window = thunkAPI
+    .getState()
+    .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === tabGroupId)
+    ?.windows.find((w) => w.windowId === windowId);
+  if (!window || isSavedWindowSortedBySite(window)) return;
+  const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+    thunkAPI.dispatch(
+      sortTabsBySiteInternal({ tabGroupId, windowId, now: Date.now() })
+    )
+  );
+  thunkAPI.dispatch(
+    showToast({
+      toastText: TOAST_MESSAGES.TABS_SORTED_BY_SITE,
       announcesSavedChange: true,
       offersUndo,
     })
@@ -1740,6 +1776,27 @@ export const tabContainerDataStateSlice = createSlice({
       group.windowCount = group.windows.length;
       group.tabCount = group.windows.reduce((n, w) => n + w.tabs.length, 0);
       touchContent(state, group, now);
+      state.lastModified = now;
+      saveLocalSessions(state);
+    },
+
+    // KAN-694. Only the order changes: the saved tabs themselves are moved, not copies. Already in order: no change, nothing stamped.
+    sortTabsBySiteInternal: (
+      state,
+      action: PayloadAction<sortTabsBySiteParams>
+    ) => {
+      const { tabGroupId, windowId, now } = action.payload;
+      const container = state.tabGroups.find(
+        (g) => g.tabGroupId === tabGroupId
+      );
+      const window = container?.windows.find((w) => w.windowId === windowId);
+      if (!container || !window || isSavedWindowSortedBySite(window)) return;
+      const byId = new Map(window.tabs.map((t) => [t.tabId, t]));
+      window.tabs = sortBySite(window.tabs.map(savedSortable)).flatMap((t) => {
+        const own = byId.get(t.key);
+        return own ? [own] : [];
+      });
+      touchContent(state, container, now);
       state.lastModified = now;
       saveLocalSessions(state);
     },
@@ -3388,6 +3445,7 @@ export const {
   addCurrWindowToTabGroupInternal,
   replaceSessionContentInternal,
   removeDuplicateTabsInternal,
+  sortTabsBySiteInternal,
   addCurrTabToWindowInternal,
   updateTabGroupTitle,
   updateWindowGroupTitle,

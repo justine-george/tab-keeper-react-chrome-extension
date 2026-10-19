@@ -114,6 +114,8 @@ export const TOAST_MESSAGES = {
   SESSION_REPLACED: 'Session replaced with all open windows.',
   // KAN-609. Plural, with the count removed.
   DUPLICATE_TABS_REMOVED: 'DuplicateTabsRemoved',
+  // KAN-694.
+  TABS_SORTED_BY_SITE: 'TabsSortedBySite',
   DELETE_WINDOW_SUCCESS: 'Session window deleted.',
   DELETE_TAB_SUCCESS: 'Session tab deleted.',
   DELETE_CHROME_GROUP_SUCCESS: 'Session tab group deleted.',

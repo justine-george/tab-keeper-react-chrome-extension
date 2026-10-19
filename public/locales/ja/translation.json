@@ -137,6 +137,8 @@
   "TabGroupsPromptDismiss": "後で",
   "TabGroupsPromptNever": "今後表示しない",
   "Sort sessions": "セッションを並べ替え",
+  "Sort tabs by site": "タブをサイト別に並べ替え",
+  "TabsSortedBySite": "タブをサイト別に並べ替えました。",
   "Date saved": "保存日",
   "Name": "名前",
   "Tab count": "タブ数",
