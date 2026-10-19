@@ -151,9 +151,11 @@ for (const [theme, colours] of PALETTES) {
         [tile.x + tile.width / 2, tile.y + 0.5],
         [box.x + 1, box.y + 1],
         [tile.x + tile.width / 2, tile.y - 6],
+        // The ring, where the check overlaps the tile's header band.
+        [box.x - 1, box.y + box.height - 4],
       ]);
 
-    const [frame, knob, page_] = await read();
+    const [frame, knob, page_, ring] = await read();
     console.log(
       `[${theme}] frame ${frame} ${contrast(frame, page_).toFixed(2)}, knob ${knob} ${contrast(
         knob,
@@ -166,6 +168,7 @@ for (const [theme, colours] of PALETTES) {
     expect(contrast(frame, page_)).toBeGreaterThanOrEqual(3);
     expect(knob).toBe(colours.TEXT_COLOR);
     expect(contrast(knob, page_)).toBeGreaterThanOrEqual(3);
+    expect(ring).toBe(colours.PRIMARY_COLOR);
 
     for (const name of Object.values(SHOWN).filter((n) => n !== SHOWN[theme])) {
       await expect(
