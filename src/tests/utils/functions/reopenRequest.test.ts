@@ -2,7 +2,11 @@ import { afterEach, describe, expect, test } from 'vitest';
 
 import { toOpenWindows } from '../../../utils/functions/openNow';
 import type { OpenWindow } from '../../../utils/functions/openNow';
-import { closeOpenTab, closeOpenWindow } from '../../../utils/functions/reopen';
+import {
+  closeOpenGroup,
+  closeOpenTab,
+  closeOpenWindow,
+} from '../../../utils/functions/reopen';
 import {
   isReopenPreferringHistoryRequest,
   REOPEN_PREFERRING_HISTORY_MESSAGE,
@@ -136,5 +140,37 @@ describe('the request the page sends the worker (KAN-280 Part D)', () => {
     ]) {
       expect(isReopenPreferringHistoryRequest(asReceived(message))).toBe(false);
     }
+  });
+
+  test('accepts a real group item and rejects a malformed one (KAN-696)', async () => {
+    handle = setupChromeFake({
+      ...seed,
+      windows: [
+        tabViewWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), active: true, groupId: 50 },
+            { url: url('b'), groupId: 50 },
+          ],
+        },
+      ],
+    });
+    const item = await closeOpenGroup(await openWindow(2), 50);
+    if (item?.kind !== 'group') throw new Error('close failed');
+    const type = REOPEN_PREFERRING_HISTORY_MESSAGE;
+    const check = (candidate: unknown) =>
+      isReopenPreferringHistoryRequest(
+        structuredClone({ type, item: candidate, pinTabKeeper: false })
+      );
+
+    expect(check(item)).toBe(true);
+    expect(check({ ...item, group: { ...item.group, color: 'mauve' } })).toBe(
+      false
+    );
+    expect(check({ ...item, tabs: 'x' })).toBe(false);
+    expect(check({ ...item, tabs: [{ url: 'x' }] })).toBe(false);
+    expect(check({ ...item, group: null })).toBe(false);
+    expect(check({ ...item, restorableSessionId: 'forged' })).toBe(false);
   });
 });

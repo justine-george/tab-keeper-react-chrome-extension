@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   setupChromeFake,
@@ -6,6 +6,7 @@ import {
 } from '../../setup/chrome.fake';
 import {
   countOpenTabGroups,
+  ungroupLiveGroup,
   updateLiveGroup,
 } from '../../../utils/functions/liveTabGroups';
 
@@ -115,5 +116,33 @@ describe('updateLiveGroup', () => {
   test('resolves false, never throws, when chrome.tabGroups is absent', async () => {
     handle = setupChromeFake({ ...seed, tabGroupsApiAbsent: true });
     expect(await updateLiveGroup(50, { title: 'Reading' })).toBe(false);
+  });
+});
+
+// KAN-696. Open now's Ungroup: the tabs stay, only the group goes.
+describe('ungroupLiveGroup', () => {
+  test('takes every listed tab out of its group', async () => {
+    handle = setupChromeFake({
+      tabs: [{ groupId: 7 }, { groupId: 7 }, { groupId: -1 }],
+    });
+    const ids = (await chrome.tabs.query({})).map((tab) => tab.id as number);
+    expect(await ungroupLiveGroup(ids.slice(0, 2))).toBe(true);
+    expect((await chrome.tabs.query({})).map((tab) => tab.groupId)).toEqual([
+      -1, -1, -1,
+    ]);
+  });
+
+  test('an empty list resolves false and calls nothing', async () => {
+    handle = setupChromeFake();
+    const spy = vi.spyOn(chrome.tabs, 'ungroup');
+    expect(await ungroupLiveGroup([])).toBe(false);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  test('a rejecting ungroup resolves false and never rejects', async () => {
+    handle = setupChromeFake({ tabs: [{ groupId: 7 }] });
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(chrome.tabs, 'ungroup').mockRejectedValue(new Error('gone'));
+    expect(await ungroupLiveGroup([1])).toBe(false);
   });
 });

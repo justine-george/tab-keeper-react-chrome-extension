@@ -1,6 +1,10 @@
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import {
+  closeOpenNowWindowFromMenu,
+  openNowWindowMenu,
+} from './fixtures/menus';
 import { grantedTest } from './fixtures/grantedExtension';
 import { localeStrings } from './fixtures/locales';
 import {
@@ -323,9 +327,7 @@ async function closeAndReopenKyoto(
   const block = windowBlock(page, made.windowId);
   await expectPaneListsKyoto(page, made);
 
-  await block
-    .getByRole('button', { name: /^Close window: Window \d+$/ })
-    .click();
+  await closeOpenNowWindowFromMenu(page, block);
   await expect
     .poll(async () => (await allWindowIds(worker)).includes(made.windowId))
     .toBe(false);
@@ -772,7 +774,7 @@ test.describe('Open now close controls in a real browser (KAN-280)', () => {
     await expect(liveRowIn(block, 'Beta')).toBeVisible();
   });
 
-  test('5. This window has no Close window, in the real accessibility tree', async ({
+  test('5. This window has no Close window, in the real accessibility tree, and the other window has it in its menu', async ({
     context,
     extensionId,
     serviceWorker,
@@ -807,19 +809,28 @@ test.describe('Open now close controls in a real browser (KAN-280)', () => {
     const buttons = nodes
       .filter((node) => !node.ignored && node.role?.value === 'button')
       .map((node) => String(node.name?.value ?? ''));
-    // CONTROL: the same query finds the other window's Close window, and
-    // This window's Save window, so an absence below is not a blind query.
-    expect(buttons).toContain(`Close window: ${otherName}`);
+    // CONTROL: the same query finds the other window's ⋮ and This window's
+    // Save, so an absence below is not a blind query.
+    expect(buttons).toContain(`More actions: ${otherName}`);
     expect(buttons).toContain(`Save window as a session: ${thisName}`);
-    expect(buttons).not.toContain(`Close window: ${thisName}`);
+    // No window has an inline Close window any more (KAN-696).
+    expect(buttons.filter((name) => name.startsWith('Close window'))).toEqual(
+      []
+    );
+    // This window is not granted tab groups here, so Sort is not offered and
+    // its ⋮ would be empty: it has none (a granted This window's ⋮ holds Sort
+    // only: openNowWindowMenu.test.tsx).
+    expect(buttons).not.toContain(`More actions: ${thisName}`);
+    await expect(openNowWindowMenu(thisBlock)).toHaveCount(0);
 
-    // And by the locator shape a user's tool would use.
+    // The other window's Close window is the last item of its ⋮.
+    await otherBlock.locator('[data-window-row]').hover();
+    await openNowWindowMenu(otherBlock).click();
+    const items = page.getByRole('menu').getByRole('menuitem');
+    await expect(items.last()).toHaveAttribute('data-menu-item', 'closeWindow');
     await expect(
-      otherBlock.getByRole('button', { name: /^Close window: / })
+      page.getByRole('menuitem', { name: 'Close window', exact: true })
     ).toHaveCount(1);
-    await expect(
-      thisBlock.getByRole('button', { name: /^Close window: / })
-    ).toHaveCount(0);
   });
 
   test('6. the toast is a status region, and waits while hovered', async ({
@@ -1183,9 +1194,10 @@ test.describe('The Reopen toast is as wide as its line (KAN-280 O8b)', () => {
       await expect(
         block.getByRole('button', { name: `${strings['Switch to tab']}: ` })
       ).toHaveCount(5);
-      await block
-        .getByRole('button', { name: `${strings['Close window']}: ` })
-        .click();
+      await closeOpenNowWindowFromMenu(page, block, {
+        moreActions: strings['More actions'],
+        closeWindow: strings['Close window'],
+      });
 
       const plural = new Intl.PluralRules(lang).select(5);
       const message = strings[`WindowClosed_${plural}`].replace(
@@ -1305,9 +1317,10 @@ test.describe('The Reopen toast is as wide as its line (KAN-280 O8b)', () => {
     await expect(
       block.getByRole('button', { name: `${strings['Switch to tab']}: ` })
     ).toHaveCount(5);
-    await block
-      .getByRole('button', { name: `${strings['Close window']}: ` })
-      .click();
+    await closeOpenNowWindowFromMenu(page, block, {
+      moreActions: strings['More actions'],
+      closeWindow: strings['Close window'],
+    });
 
     const toast = toastIn(page);
     const reopen = toast.getByRole('button', {

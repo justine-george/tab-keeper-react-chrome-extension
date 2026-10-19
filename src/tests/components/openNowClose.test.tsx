@@ -11,6 +11,7 @@ import userEvent from '@testing-library/user-event';
 import OpenNowColumn from '../../components/home/opennow/OpenNowColumn';
 import { Toast } from '../../components/common/Toast';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
+import { closeWindowFromMenu } from '../setup/closeWindowFromMenu';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeSeed } from '../setup/chrome.fake';
@@ -184,6 +185,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // A Close window left its double-click hold up; a key ends it.
+  fireEvent.keyDown(document.body, { key: 'Escape' });
   clearReopenFocus();
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -262,34 +265,32 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
 
   // KAN-280 O7c. A double-click's first click closes its row, the row below
   // moves up under the pointer, and the second click lands on that row's ×.
-  // The same for Close window: window 3 moves up into Window 2's place.
+  // The same for Close window (KAN-696), now a menu item: the menu is gone on
+  // the first click, and window 3 moves up into Window 2's place, its ⋮ under
+  // the pointer. The second click of a double-click opens nothing.
   test.each([
-    [2, [2]],
-    [1, [2, 3]],
+    [2, false, [2]],
+    [1, true, [2]],
   ])(
-    'after Close window closes window 2, a click with detail %i on the next one leaves %j closed',
-    async (detail, closed) => {
+    'after Close window closes window 2, a click with detail %i on the next one opens its menu: %s',
+    async (detail, opens, closed) => {
       const { chrome: fake } = await renderOpenNow(threeWindows());
 
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Close window: Window 2' }),
-        { detail: 1 }
-      );
+      await closeWindowFromMenu('Window 2');
       await waitFor(() =>
         expect(document.querySelector('[data-open-window-id="2"]')).toBeNull()
       );
       // PREMISE: window 3 is now the one named Window 2.
-      expect(
-        within(blockOf(3)).getByRole('button', {
-          name: 'Close window: Window 2',
-        })
-      ).toBeInTheDocument();
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Close window: Window 2' }),
-        { detail }
-      );
+      const next = within(blockOf(3)).getByRole('button', {
+        name: 'More actions: Window 2',
+      });
+      // A whole click: press, release, click, all with the same count.
+      fireEvent.mouseDown(next, { detail });
+      fireEvent.mouseUp(next, { detail });
+      fireEvent.click(next, { detail });
       await act(() => new Promise((resolve) => setTimeout(resolve, 150)));
 
+      expect(screen.queryByRole('menu') !== null).toBe(opens);
       expect(fake.removedWindowIds).toEqual(closed);
     }
   );
@@ -358,24 +359,18 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
 
     // Next. Chrome's answer is held until the re-read has dropped the row.
     const release = holdWindowRemoval();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Close window: Window 1' })
-    );
+    await closeWindowFromMenu('Window 1');
     await gone(2);
     await act(async () => release());
     expect(document.activeElement).toBe(chevronOf(3));
 
     // Previous: window 4 is last.
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Close window: Window 2' })
-    );
+    await closeWindowFromMenu('Window 2');
     await gone(4);
     expect(document.activeElement).toBe(chevronOf(3));
 
     // Neither: the heading.
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Close window: Window 1' })
-    );
+    await closeWindowFromMenu('Window 1');
     await gone(3);
     expect(document.activeElement).toBe(
       screen.getByRole('heading', { name: 'Open now' })
@@ -398,9 +393,7 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
       ],
     });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Close window: Window 2' })
-    );
+    await closeWindowFromMenu('Window 2');
     await waitFor(() =>
       expect(document.querySelector('[data-open-window-id="3"]')).toBeNull()
     );
@@ -491,9 +484,9 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
   }
 
   // A window row's Tab order is the chevron, the Go to window button (KAN-331
-  // O15), Save window (O13), then Close window, so Close window is the third
-  // Tab stop after the chevron.
-  test('Close window is revealed by keyboard focus', async () => {
+  // O15), Save (O13), then the ⋮ (KAN-696), so the ⋮ is the third Tab stop
+  // after the chevron.
+  test('the window strip is revealed by keyboard focus', async () => {
     await renderOpenNow(threeWindows());
     const user = userEvent.setup();
     act(() => chevronOf(2).focus());
@@ -503,7 +496,7 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     await user.tab();
 
     expectRevealedByKeyboardFocus(
-      screen.getByRole('button', { name: 'Close window: Window 2' })
+      screen.getByRole('button', { name: 'More actions: Window 2' })
     );
   });
 
@@ -541,23 +534,26 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     expect(rulesFor(strip).join('\n')).not.toMatch(/transition[^;]*background/);
   });
 
-  test('hovering a window row reveals Close window', async () => {
+  test('hovering a window row reveals its Save and ⋮', async () => {
     await renderOpenNow(threeWindows());
-    const close = screen.getByRole('button', {
-      name: 'Close window: Window 2',
-    });
-    const row = close.closest('[data-row-actions]')?.parentElement;
+    const more = screen.getByRole('button', { name: 'More actions: Window 2' });
+    const row = more.closest('[data-row-actions]')?.parentElement;
     if (!(row instanceof HTMLElement)) throw new Error('no window row');
-    // CONTROL: hidden at rest.
-    expect(getComputedStyle(close).opacity).toBe('0');
+    // The strip's children are what fade, so the controls are read by them.
+    const shown = () =>
+      [...row.querySelectorAll('[data-row-actions] > *')].map(
+        (child) => getComputedStyle(child).opacity
+      );
+    // CONTROL: hidden at rest, and there are two of them.
+    expect(shown()).toEqual(['0', '0']);
 
     fireEvent.mouseEnter(row);
 
-    expect(getComputedStyle(close).opacity).toBe('1');
+    expect(shown()).toEqual(['1', '1']);
 
     fireEvent.mouseLeave(row);
 
-    expect(getComputedStyle(close).opacity).toBe('0');
+    expect(shown()).toEqual(['0', '0']);
   });
 
   // KAN-311 (O8c). After Reopen, focus goes to what came back -- a tab's ×,
@@ -570,9 +566,7 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
 
     test("a reopened window's chevron has focus once the pane lists it", async () => {
       await renderOpenNow(threeWindows());
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Close window: Window 2' })
-      );
+      await closeWindowFromMenu('Window 2');
       await waitFor(() =>
         expect(document.querySelector('[data-open-window-id="2"]')).toBeNull()
       );

@@ -7,11 +7,34 @@ import { noteTabKeeperAction } from './openNowMoveUndo';
 import type { RootState } from './store';
 import { reopenClosed } from '../utils/functions/reopen';
 import type { ClosedItem } from '../utils/functions/reopen';
-import { TOAST_MESSAGES, WINDOW_CLOSED_FRAME } from '../utils/constants/common';
+import {
+  GROUP_CLOSED_FRAME,
+  TOAST_MESSAGES,
+  WINDOW_CLOSED_FRAME,
+} from '../utils/constants/common';
 
 export { takeReopenOffer } from './reopenOfferStore';
 
-// Shows "Tab closed" / "Window closed (N tabs)" with Reopen, for
+function closedToast(item: ClosedItem, reopenOfferId: number) {
+  switch (item.kind) {
+    case 'tab':
+      return showToast({ toastText: TOAST_MESSAGES.TAB_CLOSED, reopenOfferId });
+    case 'group':
+      return showToast({
+        toastText: GROUP_CLOSED_FRAME,
+        toastParams: { count: item.tabs.length },
+        reopenOfferId,
+      });
+    case 'window':
+      return showToast({
+        toastText: WINDOW_CLOSED_FRAME,
+        toastParams: { count: item.window.tabs.length },
+        reopenOfferId,
+      });
+  }
+}
+
+// Shows "Tab closed" / "Group closed (N tabs)" / "Window closed (N tabs)" with Reopen, for
 // NEEDS_YOU_TOAST_MS (KAN-508: it asks for a decision). It replaces the offer
 // showing, in its place in the stack (KAN-349 T4); other toasts stay.
 export const offerReopen = createAsyncThunk(
@@ -21,18 +44,7 @@ export const offerReopen = createAsyncThunk(
     // The most recent Tab Keeper action now: an Open now drop before it is
     // no longer ⌘Z's (KAN-280 O11f, ledger R23).
     noteTabKeeperAction();
-    await thunkAPI.dispatch(
-      item.kind === 'tab'
-        ? showToast({
-            toastText: TOAST_MESSAGES.TAB_CLOSED,
-            reopenOfferId,
-          })
-        : showToast({
-            toastText: WINDOW_CLOSED_FRAME,
-            toastParams: { count: item.window.tabs.length },
-            reopenOfferId,
-          })
-    );
+    await thunkAPI.dispatch(closedToast(item, reopenOfferId));
   }
 );
 

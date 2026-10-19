@@ -332,7 +332,27 @@ const liveBlock = (page: Page, windowId: number): Locator =>
 const moreActions = (page: Page, windowId: number): Locator =>
   liveBlock(page, windowId)
     .locator('[data-window-row] [data-row-actions]')
-    .getByRole('button', { name: 'More actions', exact: true });
+    .getByRole('button', { name: /^More actions: Window \d+$/ });
+
+const closeWindowItem = (page: Page): Locator =>
+  page.getByRole('menuitem', { name: 'Close window', exact: true });
+
+// Opens a window's ⋮ and returns what it offers, then closes it again.
+async function menuOffers(
+  page: Page,
+  windowId: number
+): Promise<{ sort: number; close: number }> {
+  await liveBlock(page, windowId).locator('[data-window-row]').hover();
+  await moreActions(page, windowId).click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  const offers = {
+    sort: await sortItem(page).count(),
+    close: await closeWindowItem(page).count(),
+  };
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  return offers;
+}
 
 async function chooseSortInOpenNow(
   page: Page,
@@ -372,8 +392,8 @@ test.describe('Open now window menu (KAN-694)', () => {
       });
     }
     await sortedToastShows(page);
-    // Sorted now, so the menu has nothing to offer and goes.
-    await expect(moreActions(page, windowId)).toHaveCount(0);
+    // Sorted now, so the menu offers no Sort, and keeps Close window (KAN-696).
+    expect(await menuOffers(page, windowId)).toEqual({ sort: 0, close: 1 });
 
     await page.keyboard.press('ControlOrMeta+z');
 
@@ -382,7 +402,7 @@ test.describe('Open now window menu (KAN-694)', () => {
       .toEqual(LIVE_BEFORE);
     expect(await liveStrip(serviceWorker, windowId)).toEqual(before);
     await expect(toast(page)).toHaveCount(0);
-    await expect(moreActions(page, windowId)).toHaveCount(1);
+    expect(await menuOffers(page, windowId)).toEqual({ sort: 1, close: 1 });
   });
 
   test("the toast's Undo restores the order", async ({
@@ -527,7 +547,7 @@ test.describe('Open now window menu (KAN-694)', () => {
     });
   }
 
-  test('a window with a split view has no More actions', async ({
+  test('a window with a split view is not offered the sort', async ({
     context,
     extensionId,
     serviceWorker,
@@ -569,7 +589,7 @@ test.describe('Open now window menu (KAN-694)', () => {
       'splitBeta',
       'splitBeta2',
     ]);
-    await expect(moreActions(page, windowId)).toHaveCount(0);
+    expect(await menuOffers(page, windowId)).toEqual({ sort: 0, close: 1 });
 
     // Control: the same tabs with no split are offered the sort.
     const control = await makeLiveWindow(serviceWorker, extensionId, tabs);
@@ -578,12 +598,12 @@ test.describe('Open now window menu (KAN-694)', () => {
       control,
       tabs.map((t) => t.n)
     );
-    await expect(moreActions(page, control)).toHaveCount(1);
+    expect(await menuOffers(page, control)).toEqual({ sort: 1, close: 1 });
   });
 });
 
 plainTest(
-  'without the tab group grant the window has no More actions',
+  'without the tab group grant the window is not offered the sort',
   async ({ context, extensionId, serviceWorker }) => {
     const windowId = await makeLiveWindow(
       serviceWorker,
@@ -602,6 +622,6 @@ plainTest(
         name: /^Save window as a session/,
       })
     ).toBeVisible();
-    await expect(moreActions(page, windowId)).toHaveCount(0);
+    expect(await menuOffers(page, windowId)).toEqual({ sort: 0, close: 1 });
   }
 );

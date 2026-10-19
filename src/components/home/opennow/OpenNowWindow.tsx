@@ -10,6 +10,9 @@ import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import GroupColorPicker from '../../common/GroupColorPicker';
 import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
+import type { OverflowMenuItem } from '../../common/OverflowMenu';
+import { holdBackDoubleClickTail } from '../../common/doubleClickTail';
+import RowTextButton from '../../common/RowTextButton';
 import { RowMarkIcon, RowMarkSlot } from '../../common/RowMarks';
 import { NormalLabel } from '../../common/Label';
 import { Tag } from '../../common/Tag';
@@ -116,6 +119,10 @@ interface OpenNowWindowProps {
   onToggle: () => void;
   onCloseTab: (tab: OpenTab) => void;
   onSaveWindow: () => void;
+  // KAN-696. A live group's Save, Ungroup and Close group, by Chrome's group id.
+  onSaveGroup: (groupId: number) => void;
+  onUngroup: (groupId: number) => void;
+  onCloseGroup: (groupId: number) => void;
   // Absent for "This window": closing it would close the tab view itself.
   onCloseWindow?: () => void;
 }
@@ -132,6 +139,9 @@ export default function OpenNowWindow({
   onToggle,
   onCloseTab,
   onSaveWindow,
+  onSaveGroup,
+  onUngroup,
+  onCloseGroup,
   onCloseWindow,
 }: OpenNowWindowProps) {
   const COLORS = useThemeColors();
@@ -200,6 +210,8 @@ export default function OpenNowWindow({
   const [isParentHovered, setIsParentHovered] = useState(false);
   // The ⋮ menu is open: the strip stays shown and sits above the rows below, as a saved window's does.
   const [isWindowMenuOpen, setIsWindowMenuOpen] = useState(false);
+  // Which group's ⋮ is open, guarded on identity as the saved band's is: opening a second closes the first, and that close can land after the open.
+  const [openMenuGroupId, setOpenMenuGroupId] = useState<string | null>(null);
   const dispatch = useDispatch<AppDispatch>();
   const hasTabGroups = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
@@ -208,8 +220,37 @@ export default function OpenNowWindow({
   const offersSort =
     canSortOpenWindowLive(openWindow, hasTabGroups) &&
     !isOpenWindowSortedBySite(openWindow);
-  // The menu can unmount while open (the window got sorted), and then it never reports closing.
-  const menuOpen = offersSort && isWindowMenuOpen;
+  // KAN-696. Close window is last, as Delete window is on a saved row. This window has none.
+  const windowMenuItems: OverflowMenuItem[] = [
+    ...(offersSort
+      ? [
+          {
+            key: 'sortBySite',
+            label: t('Sort tabs by site'),
+            icon: 'sort' as const,
+            onSelect: () => void dispatch(sortOpenWindowBySite(openWindow.id)),
+          },
+        ]
+      : []),
+    ...(onCloseWindow
+      ? [
+          {
+            key: 'closeWindow',
+            label: t('Close window'),
+            icon: 'close' as const,
+            danger: true,
+            onSelect: () => {
+              // The menu is gone on the first click; the second would hit what slid under it.
+              holdBackDoubleClickTail();
+              onCloseWindow();
+            },
+          },
+        ]
+      : []),
+  ];
+  const hasWindowMenu = windowMenuItems.length > 0;
+  // The menu can unmount while open (This window got sorted), and then it never reports closing.
+  const menuOpen = hasWindowMenu && isWindowMenuOpen;
   // By Chrome tab id, not by position, for KAN-127's reason: a re-read (and,
   // later, a drag) moves rows, and a position-keyed flag would then reveal
   // whichever tab moved into the hovered slot.
@@ -286,6 +327,14 @@ export default function OpenNowWindow({
       & > * {
         opacity: 1;
       }
+    }
+  `;
+
+  // A group row engaged: its actions shown over a matching mask.
+  const groupActionsShown = `
+    background-color: ${COLORS.HOVER_COLOR};
+    & > * {
+      opacity: 1;
     }
   `;
 
@@ -618,34 +667,19 @@ export default function OpenNowWindow({
           {offersWindowActions && (
             <div data-row-actions css={parentRightStyle}>
               {!isSavedSearching && (
-                <Icon
+                <RowTextButton
+                  iconType="add_box"
+                  text={t('Save')}
                   tooltipText={t('Save window as a session')}
                   ariaLabel={t('Save window as a session') + ': ' + title}
-                  type="add_box"
                   onClick={onSaveWindow}
                 />
               )}
-              {onCloseWindow && (
-                <Icon
-                  tooltipText={t('Close window')}
-                  ariaLabel={t('Close window') + ': ' + title}
-                  type="close"
-                  onClick={onFirstClickOnly(onCloseWindow)}
-                />
-              )}
-              {offersSort && (
+              {hasWindowMenu && (
                 <OverflowMenu
-                  ariaLabel={t('More actions')}
+                  ariaLabel={t('More actions') + ': ' + title}
                   onOpenChange={setIsWindowMenuOpen}
-                  items={[
-                    {
-                      key: 'sortBySite',
-                      label: t('Sort tabs by site'),
-                      icon: 'sort',
-                      onSelect: () =>
-                        void dispatch(sortOpenWindowBySite(openWindow.id)),
-                    },
-                  ]}
+                  items={windowMenuItems}
                 />
               )}
             </div>
@@ -785,6 +819,13 @@ export default function OpenNowWindow({
                           ${whileKeyNav('&:has(:focus-visible)')} {
                             background-color: ${COLORS.HOVER_COLOR};
                           }
+                          /* The mask lands with the fill; only the controls ease (KAN-100), as the saved band's. */
+                          &:hover .group-actions {
+                            ${groupActionsShown}
+                          }
+                          ${whileKeyNav('&:has(:focus-visible) .group-actions')} {
+                            ${groupActionsShown}
+                          }
                         `}
                       >
                         {editingGroupId === item.group.groupId ? (
@@ -879,6 +920,88 @@ export default function OpenNowWindow({
                             />
                           </ClickableRow>
                         )}
+                        {editingGroupId !== item.group.groupId &&
+                          offersWindowActions && (
+                            // data-row-actions: hidden while any drag is in flight (KAN-135); it covers the end of a long name.
+                            <div
+                              data-row-actions
+                              className="group-actions"
+                              css={css`
+                                position: absolute;
+                                top: 50%;
+                                right: 0;
+                                transform: translateY(-50%);
+                                display: flex;
+                                align-items: center;
+                                /* A stacking context (transform): lifted, so its open menu paints over the rows below. */
+                                z-index: ${
+                                  openMenuGroupId === item.group.groupId ? 3 : 1
+                                };
+                                background-color: ${
+                                  openMenuGroupId === item.group.groupId
+                                    ? COLORS.HOVER_COLOR
+                                    : 'transparent'
+                                };
+                                & > * {
+                                  opacity: ${
+                                    openMenuGroupId === item.group.groupId
+                                      ? 1
+                                      : 0
+                                  };
+                                  transition: opacity ${DURATION.COLOR} ease-out;
+                                }
+                              `}
+                            >
+                              {!isSavedSearching && (
+                                <RowTextButton
+                                  iconType="add_box"
+                                  text={t('Save')}
+                                  tooltipText={t('Save group as a session')}
+                                  ariaLabel={
+                                    t('Save group as a session') +
+                                    ': ' +
+                                    groupName
+                                  }
+                                  onClick={() =>
+                                    onSaveGroup(Number(item.group.groupId))
+                                  }
+                                />
+                              )}
+                              <OverflowMenu
+                                ariaLabel={t('More actions') + ': ' + groupName}
+                                onOpenChange={(open) =>
+                                  setOpenMenuGroupId((prev) =>
+                                    open
+                                      ? item.group.groupId
+                                      : prev === item.group.groupId
+                                        ? null
+                                        : prev
+                                  )
+                                }
+                                items={[
+                                  {
+                                    key: 'ungroup',
+                                    label: t('Ungroup'),
+                                    icon: 'label_off',
+                                    onSelect: () =>
+                                      onUngroup(Number(item.group.groupId)),
+                                  },
+                                  // Last, as Close window is.
+                                  {
+                                    key: 'closeGroup',
+                                    label: t('Close group'),
+                                    icon: 'close',
+                                    danger: true,
+                                    onSelect: () => {
+                                      // As Close window: the second click of a double-click would hit what slid under the menu.
+                                      holdBackDoubleClickTail();
+                                      onCloseGroup(Number(item.group.groupId));
+                                    },
+                                  },
+                                ]}
+                              />
+                            </div>
+                          )}
                       </div>
                       {/* data-group-tabs: the held group folds to its title
                       row (App.css, KAN-160). The zero-height marker is the

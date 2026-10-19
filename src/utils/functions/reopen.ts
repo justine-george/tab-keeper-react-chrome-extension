@@ -34,6 +34,17 @@ export type ClosedItem =
       group: OpenGroup | null;
       window: OpenWindow;
       restorableSessionId: string | null;
+    }
+  // A live group closed alone (KAN-696): its members in their old order with
+  // their old indices, and the window as it was. Chrome's recently closed
+  // list names no group (one tab entry per member, with the group scrubbed),
+  // so `restorableSessionId` is always null and Reopen always recreates.
+  | {
+      kind: 'group';
+      group: OpenGroup;
+      tabs: OpenTab[];
+      window: OpenWindow;
+      restorableSessionId: null;
     };
 
 // The snapshot with the window's bounds and state as Chrome reports them
@@ -62,7 +73,7 @@ export async function withCurrentPlacement(
 // come before the read that carries a rename, and Reopen would write the old
 // look back. Read before the remove, which takes the groups with it. A group
 // Chrome no longer has, or a failed read, keeps the snapshot's.
-async function withCurrentGroupVisuals(
+export async function withCurrentGroupVisuals(
   openWindow: OpenWindow
 ): Promise<OpenWindow> {
   if (openWindow.groups.length === 0 || !chrome.tabGroups) return openWindow;
@@ -233,6 +244,39 @@ export async function closeOpenWindow(
   };
 }
 
+// Closes the tabs of one live group, and nothing else in its window (KAN-696).
+// Open now's snapshot never lists Tab Keeper's own pages, so they stay open.
+// Resolves to the ClosedItem when Chrome closed them, or null when the group
+// has no listed tab or the remove failed. Never rejects.
+//
+// Asks for `sessions` first, as closeOpenWindow does (KAN-663), but reads no
+// recently closed entry: none names a group, so the id is always null.
+export async function closeOpenGroup(
+  openWindow: OpenWindow,
+  groupId: number
+): Promise<ClosedItem | null> {
+  const tabs = openWindow.tabs.filter((tab) => tab.groupId === groupId);
+  const listedGroup = openWindow.groups.find((group) => group.id === groupId);
+  if (tabs.length === 0 || listedGroup === undefined) return null;
+  const asked = askForSessionsPermission();
+  const current = await withCurrentGroupVisuals(
+    await withCurrentPlacement(openWindow)
+  );
+  await asked;
+  try {
+    await chrome.tabs.remove(tabs.map((tab) => tab.id));
+  } catch {
+    return null;
+  }
+  return {
+    kind: 'group',
+    group: current.groups.find((group) => group.id === groupId) ?? listedGroup,
+    tabs,
+    window: current,
+    restorableSessionId: null,
+  };
+}
+
 // What Reopen brought back, by the new id Chrome gave it: focus goes to its
 // row once Open now lists it (KAN-311, O8c). A tab whose window had gone is
 // still a tab, in the window made around it.
@@ -301,6 +345,7 @@ export async function recreateClosed(
 ): Promise<Reopened | null> {
   try {
     if (item.kind === 'tab') return await recreateTab(item);
+    if (item.kind === 'group') return await recreateGroup(item);
     const rebuilt = await recreateWindow(item.window);
     if (rebuilt === null) return null;
     if (pinTabKeeper) await ensurePinnedStub(rebuilt.windowId);
@@ -329,10 +374,12 @@ export async function reopenPreferringHistory(
   pinTabKeeper: boolean
 ): Promise<Reopened | null> {
   try {
-    const sessionId = item.restorableSessionId;
-    if (sessionId === null || !(await sessionsHeld())) {
+    // A group has no entry of its own to restore (see ClosedItem): its id is
+    // null, so it recreates here, and only a tab or a window goes on.
+    if (item.restorableSessionId === null || !(await sessionsHeld())) {
       return await recreateClosed(item, pinTabKeeper);
     }
+    const sessionId = item.restorableSessionId;
     // Read before the restore, which changes all of it.
     const focusedWindowId = await lastFocusedWindowId();
     if (item.kind === 'tab') {
@@ -897,6 +944,97 @@ async function recreateTab(
     }
   }
   return { kind: 'tab', tabId: reopened.id };
+}
+
+// Rule 6 for a whole group (KAN-696): every member goes back to its window at
+// its own old index, in its old order, and is regrouped with the old title,
+// colour and fold: the old group if it is still in the window (a Tab Keeper
+// page left between the members keeps it alive), else a new one, and never a
+// neighbour. If the window has gone, it is recreated around them. Resolves to
+// the first member that came back, or null when none did.
+async function recreateGroup(
+  item: Extract<ClosedItem, { kind: 'group' }>
+): Promise<Reopened | null> {
+  const windowId = item.window.id;
+  try {
+    await chrome.windows.get(windowId);
+  } catch {
+    const rebuilt = await recreateWindow({
+      ...item.window,
+      tabs: item.tabs,
+      groups: [item.group],
+    });
+    const [firstId] = rebuilt?.createdByOldId.values() ?? [];
+    return firstId === undefined ? null : { kind: 'tab', tabId: firstId };
+  }
+
+  const createdByOldId = new Map<number, number>();
+  let skipped = 0;
+  for (const tab of item.tabs) {
+    try {
+      // Background, as recreateTab: a tab created active into a collapsed
+      // group would expand it. The old index less the members Chrome refused
+      // before this one, so a refusal leaves no gap and pushes no neighbour.
+      const reopened = await chrome.tabs.create({
+        windowId,
+        url: tab.url,
+        index: tab.index - skipped,
+        pinned: false,
+        active: false,
+      });
+      if (reopened.id !== undefined) createdByOldId.set(tab.id, reopened.id);
+    } catch (error) {
+      // Rule 10: a member Chrome refuses is skipped; the rest still come back.
+      console.warn('Could not reopen a tab: ', error);
+      skipped += 1;
+    }
+  }
+  const [firstId, ...otherIds] = createdByOldId.values();
+  if (firstId === undefined) return null;
+
+  // Undefined while the tabGroups permission is ungranted: the members then
+  // come back ungrouped, as recreateWindow's do.
+  let groupId: number | null = null;
+  if (chrome.tabGroups) {
+    try {
+      // A Tab Keeper page left in the old group keeps it alive: rejoin it
+      // rather than make a twin beside it (regroup's rule). Only that group,
+      // never a neighbour, and only in this window; any failed read makes a
+      // new one.
+      const old = await chrome.tabGroups.get(item.group.id).catch(() => null);
+      groupId = await chrome.tabs.group(
+        old && old.windowId === windowId
+          ? { groupId: old.id, tabIds: [firstId, ...otherIds] }
+          : { createProperties: { windowId }, tabIds: [firstId, ...otherIds] }
+      );
+    } catch (error) {
+      console.warn('Could not reopen a tab group: ', error);
+    }
+  }
+
+  const activeTab = item.tabs.find((tab) => tab.active);
+  const activeId = activeTab && createdByOldId.get(activeTab.id);
+  if (activeId !== undefined) {
+    try {
+      await chrome.tabs.update(activeId, { active: true });
+    } catch (error) {
+      console.warn('Could not bring a reopened tab to the front: ', error);
+    }
+  }
+
+  // Last, so the fold never hides the tab in front.
+  if (groupId !== null) {
+    try {
+      await chrome.tabGroups.update(groupId, {
+        title: item.group.title,
+        color: item.group.color,
+        collapsed: item.group.collapsed,
+      });
+    } catch (error) {
+      console.warn('Could not restore a reopened tab group: ', error);
+    }
+  }
+  return { kind: 'tab', tabId: firstId };
 }
 
 // Chrome puts a tab created strictly between two tabs of one group into that

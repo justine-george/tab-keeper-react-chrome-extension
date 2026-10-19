@@ -75,3 +75,19 @@ export async function updateLiveGroup(
     return false;
   }
 }
+
+// KAN-696. Open now's Ungroup: the tabs stay where they are, only the group goes.
+// False on an empty list or a refusal (a tab closed since the read); never throws.
+export async function ungroupLiveGroup(
+  tabIds: readonly number[]
+): Promise<boolean> {
+  const [first, ...rest] = tabIds;
+  if (first === undefined) return false;
+  try {
+    await chrome.tabs.ungroup([first, ...rest]);
+    return true;
+  } catch (error) {
+    console.warn('Could not ungroup the tabs:', error);
+    return false;
+  }
+}

@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import OpenNowColumn from '../../components/home/opennow/OpenNowColumn';
 import { Toast } from '../../components/common/Toast';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
+import { closeWindowFromMenu } from '../setup/closeWindowFromMenu';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeSeed } from '../setup/chrome.fake';
@@ -176,9 +177,7 @@ describe('a window row goes to its window (KAN-331 O15)', () => {
   test('Close window never focuses a window', async () => {
     await renderOpenNow(threeWindows());
     const update = vi.spyOn(chrome.windows, 'update');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Close window: Window 2' })
-    );
+    await closeWindowFromMenu('Window 2');
     await waitFor(() =>
       expect(document.querySelector('[data-open-window-id="2"]')).toBeNull()
     );
@@ -243,9 +242,7 @@ describe('a window row goes to its window (KAN-331 O15)', () => {
   test('O7b: after Close window, focus lands on the next chevron, not its new button', async () => {
     await renderOpenNow(threeWindows());
     const release = holdWindowRemoval();
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Close window: Window 2' })
-    );
+    await closeWindowFromMenu('Window 2');
     await waitFor(() =>
       expect(document.querySelector('[data-open-window-id="2"]')).toBeNull()
     );

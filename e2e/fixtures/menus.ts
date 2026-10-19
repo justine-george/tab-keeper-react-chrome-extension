@@ -38,3 +38,35 @@ export const sessionHeaderMenu = (page: Page, name = 'More actions'): Locator =>
   page.locator(
     `[data-tour-anchor="session-menu"] [aria-label="${name}"][aria-haspopup="menu"]`
   );
+
+/**
+ * An Open now window's ⋮ trigger (KAN-696), "More actions: Window N", inside
+ * that block's own header strip. Pass the translated "More actions" for a
+ * non-English run.
+ */
+export const openNowWindowMenu = (
+  windowBlock: Locator,
+  moreActions = 'More actions'
+): Locator =>
+  windowBlock
+    .locator('[data-window-row] [data-row-actions]')
+    .getByRole('button', { name: new RegExp(`^${moreActions}: `) });
+
+/**
+ * Closes an Open now window from its ⋮ (KAN-696; it was an inline ×): opens
+ * the menu and presses Close window, exactly named.
+ */
+export async function closeOpenNowWindowFromMenu(
+  page: Page,
+  windowBlock: Locator,
+  names: { moreActions?: string; closeWindow?: string } = {}
+): Promise<void> {
+  await windowBlock.locator('[data-window-row]').hover();
+  await openNowWindowMenu(windowBlock, names.moreActions).click();
+  await page
+    .getByRole('menuitem', {
+      name: names.closeWindow ?? 'Close window',
+      exact: true,
+    })
+    .click();
+}

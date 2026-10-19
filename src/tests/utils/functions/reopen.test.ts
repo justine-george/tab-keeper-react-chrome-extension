@@ -4,10 +4,12 @@ import { placeholderTarget } from '../../../utils/functions/local';
 import { toOpenWindows } from '../../../utils/functions/openNow';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 import {
+  closeOpenGroup,
   closeOpenTab,
   closeOpenWindow,
   recreateClosed,
   reopenClosed,
+  reopenPreferringHistory,
 } from '../../../utils/functions/reopen';
 import { SESSIONS_ANSWER_WAIT_MS } from '../../../utils/functions/permissions';
 import { setupChromeFake } from '../../setup/chrome.fake';
@@ -1562,5 +1564,478 @@ describe('a group changed since Open now read it is recreated as it was at the c
       'Could not read the tab groups before a close: ',
       expect.any(Error)
     );
+  });
+});
+
+// KAN-696. Close group closes one live group's tabs, and Reopen brings the
+// group back whole. A group has no recently closed entry of its own (Chrome
+// lists one scrubbed tab entry per member), so it is always recreated.
+describe('closeOpenGroup / reopenClosed: a closed group (KAN-696)', () => {
+  const docsSeed = {
+    refusedPermissions: ['sessions' as const],
+    grantedPermissions: ['tabGroups' as const],
+    windows: [
+      tabKeeperWindow,
+      {
+        id: 2,
+        tabs: [
+          { url: url('a') },
+          { url: url('x1'), groupId: 50 },
+          { url: url('x2'), groupId: 50, active: true },
+          { url: url('x3'), groupId: 50 },
+          { url: url('b') },
+        ],
+      },
+    ],
+    tabGroups: [
+      {
+        id: 50,
+        windowId: 2,
+        title: 'Docs',
+        color: 'blue' as const,
+        collapsed: false,
+      },
+    ],
+  };
+
+  test('closes only the group’s listed tabs, leaving Tab Keeper’s own page', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: 'chrome-extension://faketestid/index.html', groupId: 50 },
+            { url: url('x1'), groupId: 50 },
+            { url: url('x2'), groupId: 50, active: true },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 50, windowId: 2, title: 'Docs', color: 'blue' }],
+    });
+    const w2 = await openWindow(2);
+
+    const item = await closeOpenGroup(w2, 50);
+
+    expect(item).toMatchObject({
+      kind: 'group',
+      group: { id: 50, title: 'Docs' },
+      restorableSessionId: null,
+    });
+    expect(item?.kind === 'group' && item.tabs.map((t) => t.url)).toEqual([
+      url('x1'),
+      url('x2'),
+    ]);
+    expect(await shape(2)).toEqual([
+      'chrome-extension://faketestid/index.html',
+    ]);
+  });
+
+  test('reopens the group in place, with its title, colour and fold, and the active member active', async () => {
+    handle = setupChromeFake(docsSeed);
+    const w2 = await openWindow(2);
+    const item = await closeOpenGroup(w2, 50);
+    if (item === null) throw new Error('close failed');
+    // PREMISE: the group went with its tabs.
+    expect(await shape(2)).toEqual(['a', 'b']);
+    expect(await chrome.tabGroups.query({ windowId: 2 })).toEqual([]);
+
+    const reopened = await recreateClosed(item, false);
+
+    expect(await shape(2)).toEqual(['a', 'x1', 'x2*', 'x3', 'b']);
+    const groups = await chrome.tabGroups.query({ windowId: 2 });
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({
+      title: 'Docs',
+      color: 'blue',
+      collapsed: false,
+    });
+    const members = (await chrome.tabs.query({ windowId: 2 }))
+      .filter((t) => t.groupId === groups[0].id)
+      .sort((p, q) => p.index - q.index);
+    expect(members.map((t) => t.url)).toEqual([
+      url('x1'),
+      url('x2'),
+      url('x3'),
+    ]);
+    expect(reopened).toEqual({
+      kind: 'tab',
+      tabId: (await tabNamed(2, 'x1')).id,
+    });
+  });
+
+  test('a collapsed group comes back collapsed', async () => {
+    handle = setupChromeFake({
+      ...docsSeed,
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), active: true },
+            { url: url('x1'), groupId: 50 },
+            { url: url('x2'), groupId: 50 },
+          ],
+        },
+      ],
+      tabGroups: [
+        { id: 50, windowId: 2, title: 'Docs', color: 'blue', collapsed: true },
+      ],
+    });
+    const item = await closeOpenGroup(await openWindow(2), 50);
+    if (item === null) throw new Error('close failed');
+
+    await recreateClosed(item, false);
+
+    expect(await chrome.tabGroups.query({ windowId: 2 })).toMatchObject([
+      { title: 'Docs', collapsed: true },
+    ]);
+  });
+
+  test('reopens contiguous and as its own group after the window changed', async () => {
+    handle = setupChromeFake({
+      ...docsSeed,
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a') },
+            { url: url('x1'), groupId: 50 },
+            { url: url('x2'), groupId: 50, active: true },
+            { url: url('x3'), groupId: 50 },
+            { url: url('b') },
+          ],
+        },
+      ],
+    });
+    const item = await closeOpenGroup(await openWindow(2), 50);
+    if (item === null) throw new Error('close failed');
+    await chrome.tabs.remove((await tabNamed(2, 'a')).id as number);
+    const c = await chrome.tabs.create({
+      windowId: 2,
+      url: url('c'),
+      index: 0,
+    });
+    const h = await chrome.tabs.group({
+      createProperties: { windowId: 2 },
+      tabIds: [c.id as number],
+    });
+    await chrome.tabGroups.update(h, { title: 'Other' });
+
+    await recreateClosed(item, false);
+
+    const names = (await chrome.tabs.query({ windowId: 2 }))
+      .sort((p, q) => p.index - q.index)
+      .map((t) => ({
+        url: (t.url ?? '').replace('https://', '').replace('.test/', ''),
+        groupId: t.groupId,
+      }));
+    const members = names.filter((n) => n.url.startsWith('x'));
+    expect(members.map((m) => m.url)).toEqual(['x1', 'x2', 'x3']);
+    const firstAt = names.findIndex((n) => n.url === 'x1');
+    expect(names.slice(firstAt, firstAt + 3).map((n) => n.url)).toEqual([
+      'x1',
+      'x2',
+      'x3',
+    ]);
+    expect(new Set(members.map((m) => m.groupId)).size).toBe(1);
+    expect(members[0].groupId).not.toBe(h);
+    expect((await chrome.tabGroups.get(members[0].groupId)).title).toBe('Docs');
+    expect(names.find((n) => n.url === 'c')?.groupId).toBe(h);
+  });
+
+  test('reopens a group whose window closed with it into a new window, at the old bounds', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      refusedPermissions: ['sessions'],
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          left: 140,
+          top: 90,
+          width: 900,
+          height: 640,
+          tabs: [
+            { url: url('x1'), groupId: 50 },
+            { url: url('x2'), groupId: 50, active: true },
+          ],
+        },
+      ],
+      tabGroups: [
+        { id: 50, windowId: 2, title: 'Docs', color: 'blue', collapsed: false },
+      ],
+    });
+    const before = await windowIds();
+    const item = await closeOpenGroup(await openWindow(2), 50);
+    if (item === null) throw new Error('close failed');
+    // PREMISE: the window went with its last tabs.
+    expect(await windowIds()).toEqual([1]);
+
+    const reopened = await recreateClosed(item, false);
+
+    const fresh = await newWindow(before.filter((id) => id === 1));
+    const id = idOf(fresh);
+    expect(await shape(id)).toEqual(['x1', 'x2*']);
+    expect(fresh).toMatchObject({
+      left: 140,
+      top: 90,
+      width: 900,
+      height: 640,
+    });
+    expect(await chrome.tabGroups.query({ windowId: id })).toMatchObject([
+      { title: 'Docs', color: 'blue', collapsed: false },
+    ]);
+    expect(reopened).toEqual({
+      kind: 'tab',
+      tabId: (await tabNamed(id, 'x1')).id,
+    });
+    expect(await focusedWindowIds()).toEqual([1]);
+  });
+
+  test('a member Chrome refuses is skipped, the rest come back grouped', async () => {
+    handle = setupChromeFake(docsSeed);
+    const item = await closeOpenGroup(await openWindow(2), 50);
+    if (item === null) throw new Error('close failed');
+    const create = chrome.tabs.create.bind(chrome.tabs);
+    vi.spyOn(chrome.tabs, 'create').mockImplementation(((
+      props: chrome.tabs.CreateProperties
+    ) =>
+      props.url === url('x2')
+        ? Promise.reject(new Error('refused'))
+        : create(props)) as typeof chrome.tabs.create);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await recreateClosed(item, false);
+
+    expect(await shape(2)).toEqual(['a', 'x1', 'x3', 'b']);
+    const groups = await chrome.tabGroups.query({ windowId: 2 });
+    expect(groups).toHaveLength(1);
+    expect(
+      (await chrome.tabs.query({ windowId: 2 })).filter(
+        (t) => t.groupId === groups[0].id
+      )
+    ).toHaveLength(2);
+  });
+
+  const tkPage = 'chrome-extension://faketestid/index.html';
+
+  test('a Tab Keeper page left between the members stays between them', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      refusedPermissions: ['sessions'],
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), active: true },
+            { url: url('g1'), groupId: 50 },
+            { url: tkPage, groupId: 50 },
+            { url: url('g2'), groupId: 50 },
+            { url: url('b') },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 50, windowId: 2, title: 'Docs', color: 'blue' }],
+    });
+    const item = await closeOpenGroup(await openWindow(2), 50);
+    if (item === null) throw new Error('close failed');
+    // PREMISE: the page stayed, and with it the group.
+    expect(await shape(2)).toEqual(['a*', tkPage, 'b']);
+
+    await recreateClosed(item, false);
+
+    expect(await shape(2)).toEqual(['a*', 'g1', tkPage, 'g2', 'b']);
+    const tabs = await chrome.tabs.query({ windowId: 2 });
+    const grouped = tabs.filter((t) => t.groupId === 50);
+    expect(grouped.map((t) => t.url).sort()).toEqual(
+      [url('g1'), tkPage, url('g2')].sort()
+    );
+  });
+
+  test('a refused member leaves no gap: the next goes back at its own place', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      refusedPermissions: ['sessions'],
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: url('a'), active: true },
+            { url: url('g1'), groupId: 50 },
+            { url: url('g2'), groupId: 50 },
+            { url: url('b') },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 50, windowId: 2, title: 'Docs', color: 'blue' }],
+    });
+    const item = await closeOpenGroup(await openWindow(2), 50);
+    if (item === null) throw new Error('close failed');
+    const create = chrome.tabs.create.bind(chrome.tabs);
+    vi.spyOn(chrome.tabs, 'create').mockImplementation(((
+      props: chrome.tabs.CreateProperties
+    ) =>
+      props.url === url('g1')
+        ? Promise.reject(new Error('refused'))
+        : create(props)) as typeof chrome.tabs.create);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await recreateClosed(item, false);
+
+    expect(await shape(2)).toEqual(['a*', 'g2', 'b']);
+  });
+
+  test('with the tabGroups API gone at Reopen, the members come back ungrouped at their places', async () => {
+    handle = setupChromeFake({
+      ...docsSeed,
+      tabGroupsApiAbsent: true,
+    });
+    // Closed while the API was there, so the item knows its group.
+    const groupsAtClose: chrome.tabGroups.TabGroup[] = [
+      {
+        id: 50,
+        windowId: 2,
+        title: 'Docs',
+        color: 'blue',
+        collapsed: false,
+        shared: false,
+      },
+    ];
+    const all = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    const w2 = toOpenWindows(all, groupsAtClose, null).find((w) => w.id === 2);
+    if (w2 === undefined) throw new Error('no window 2');
+    const item = await closeOpenGroup(w2, 50);
+    if (item === null) throw new Error('close failed');
+    expect(chrome.tabGroups).toBeUndefined();
+
+    const reopened = await recreateClosed(item, false);
+
+    expect(await shape(2)).toEqual(['a', 'x1', 'x2*', 'x3', 'b']);
+    expect(
+      (await chrome.tabs.query({ windowId: 2 })).map((t) => t.groupId)
+    ).toEqual([-1, -1, -1, -1, -1]);
+    expect(reopened).toEqual({
+      kind: 'tab',
+      tabId: (await tabNamed(2, 'x1')).id,
+    });
+  });
+
+  test('every member refused: nothing reopens, resolves null', async () => {
+    handle = setupChromeFake(docsSeed);
+    const item = await closeOpenGroup(await openWindow(2), 50);
+    if (item === null) throw new Error('close failed');
+    vi.spyOn(chrome.tabs, 'create').mockRejectedValue(new Error('refused'));
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(await recreateClosed(item, false)).toBeNull();
+    expect(await shape(2)).toEqual(['a', 'b']);
+  });
+
+  test('a group item never goes to the history path, with `sessions` held', async () => {
+    handle = setupChromeFake({
+      ...docsSeed,
+      refusedPermissions: [],
+      grantedPermissions: ['sessions', 'tabGroups'],
+    });
+    const item = await closeOpenGroup(await openWindow(2), 50);
+    if (item === null) throw new Error('close failed');
+    expect(item.restorableSessionId).toBeNull();
+    const restore = vi.spyOn(chrome.sessions, 'restore');
+
+    const reopened = await reopenPreferringHistory(item, false);
+
+    expect(restore).not.toHaveBeenCalled();
+    expect(await shape(2)).toEqual(['a', 'x1', 'x2*', 'x3', 'b']);
+    expect(reopened).toMatchObject({ kind: 'tab' });
+  });
+
+  // KAN-663: the ask comes first, inside the click's gesture.
+  test('asks for `sessions` before it removes the tabs, and not when nothing is closed', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: docsSeed.windows,
+      tabGroups: docsSeed.tabGroups,
+    });
+    const w2 = await openWindow(2);
+    const request = vi.spyOn(chrome.permissions, 'request');
+    const remove = vi.spyOn(chrome.tabs, 'remove');
+
+    expect(await closeOpenGroup(w2, 999)).toBeNull();
+    expect(request).not.toHaveBeenCalled();
+
+    expect(await closeOpenGroup(w2, 50)).not.toBeNull();
+    expect(request).toHaveBeenCalledWith({ permissions: ['sessions'] });
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(request.mock.invocationCallOrder[0]).toBeLessThan(
+      remove.mock.invocationCallOrder[0]
+    );
+  });
+
+  // The group survives a Tab Keeper page in it, holding only that page.
+  test('rejoins the old group when it is still in the window, instead of making a twin', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      refusedPermissions: ['sessions'],
+      windows: [
+        tabKeeperWindow,
+        {
+          id: 2,
+          tabs: [
+            { url: 'chrome-extension://faketestid/index.html', groupId: 50 },
+            { url: url('x1'), groupId: 50 },
+            { url: url('x2'), groupId: 50, active: true },
+          ],
+        },
+      ],
+      tabGroups: [
+        { id: 50, windowId: 2, title: 'Docs', color: 'blue', collapsed: false },
+      ],
+    });
+    const item = await closeOpenGroup(await openWindow(2), 50);
+    if (item === null) throw new Error('close failed');
+    // PREMISE: the group lives on, holding only the Tab Keeper page.
+    expect(await shape(2)).toEqual([
+      'chrome-extension://faketestid/index.html',
+    ]);
+    expect(await chrome.tabGroups.query({ windowId: 2 })).toHaveLength(1);
+
+    await recreateClosed(item, false);
+
+    const groups = await chrome.tabGroups.query({ windowId: 2 });
+    expect(groups).toMatchObject([{ id: 50, title: 'Docs', color: 'blue' }]);
+    const tabs = (await chrome.tabs.query({ windowId: 2 })).sort(
+      (p, q) => p.index - q.index
+    );
+    expect(tabs.map((t) => t.groupId)).toEqual([50, 50, 50]);
+    expect(tabs.map((t) => t.url)).toEqual([
+      'chrome-extension://faketestid/index.html',
+      url('x1'),
+      url('x2'),
+    ]);
+  });
+
+  test('resolves null for a group with no listed tab', async () => {
+    handle = setupChromeFake(docsSeed);
+    const w2 = await openWindow(2);
+
+    expect(await closeOpenGroup(w2, 999)).toBeNull();
+    expect(await shape(2)).toEqual(['a', 'x1', 'x2*', 'x3', 'b']);
+  });
+
+  test('resolves null when the remove rejects, and leaves the tabs', async () => {
+    handle = setupChromeFake(docsSeed);
+    const w2 = await openWindow(2);
+    vi.spyOn(chrome.tabs, 'remove').mockRejectedValue(new Error('gone'));
+
+    expect(await closeOpenGroup(w2, 50)).toBeNull();
+    expect(await shape(2)).toEqual(['a', 'x1', 'x2*', 'x3', 'b']);
   });
 });
