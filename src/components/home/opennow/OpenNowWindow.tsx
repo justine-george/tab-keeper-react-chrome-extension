@@ -2,12 +2,14 @@ import { useRef, useState } from 'react';
 
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
+import { useDispatch, useSelector } from 'react-redux';
 
 import ClickableRow from '../../common/ClickableRow';
 import { focusRingOverTickCss, whileKeyNav } from '../../common/focusRing';
 import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import GroupColorPicker from '../../common/GroupColorPicker';
 import Icon from '../../common/Icon';
+import OverflowMenu from '../../common/OverflowMenu';
 import { RowMarkIcon, RowMarkSlot } from '../../common/RowMarks';
 import { NormalLabel } from '../../common/Label';
 import { Tag } from '../../common/Tag';
@@ -16,6 +18,12 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
+import type { AppDispatch, RootState } from '../../../redux/store';
+import { sortOpenWindowBySite } from '../../../redux/sortOpenWindow';
+import {
+  canSortOpenWindowLive,
+  isOpenWindowSortedBySite,
+} from '../../../utils/functions/openNowSort';
 import { updateLiveGroup } from '../../../utils/functions/liveTabGroups';
 import { resolveFaviconUrl } from '../../../utils/functions/local';
 import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
@@ -190,6 +198,16 @@ export default function OpenNowWindow({
     (itemDrag?.windowShifts[windowKey] ?? 0);
 
   const [isParentHovered, setIsParentHovered] = useState(false);
+  // The ⋮ menu is open: the strip stays shown and sits above the rows below, as a saved window's does.
+  const [isWindowMenuOpen, setIsWindowMenuOpen] = useState(false);
+  const dispatch = useDispatch<AppDispatch>();
+  const hasTabGroups = useSelector(
+    (state: RootState) => state.globalState.hasTabGroupsPermission
+  );
+  // Only where the live sort would run and change something.
+  const offersSort =
+    canSortOpenWindowLive(openWindow, hasTabGroups) &&
+    !isOpenWindowSortedBySite(openWindow);
   // By Chrome tab id, not by position, for KAN-127's reason: a re-read (and,
   // later, a drag) moves rows, and a position-keyed flag would then reveal
   // whichever tab moved into the hovered slot.
@@ -252,9 +270,13 @@ export default function OpenNowWindow({
     top: 50%;
     right: 0;
     transform: translateY(-50%);
-    background-color: ${isParentHovered ? COLORS.HOVER_COLOR : 'transparent'};
+    /* An open menu paints over the tab rows below, later siblings. */
+    z-index: ${isWindowMenuOpen ? 3 : 'auto'};
+    background-color: ${
+      isParentHovered || isWindowMenuOpen ? COLORS.HOVER_COLOR : 'transparent'
+    };
     & > * {
-      opacity: ${isParentHovered ? 1 : 0};
+      opacity: ${isParentHovered || isWindowMenuOpen ? 1 : 0};
       transition: opacity ${DURATION.COLOR} ease-out;
     }
     ${whileKeyNav('&:has(:focus-visible)')} {
@@ -607,6 +629,21 @@ export default function OpenNowWindow({
                   ariaLabel={t('Close window') + ': ' + title}
                   type="close"
                   onClick={onFirstClickOnly(onCloseWindow)}
+                />
+              )}
+              {offersSort && (
+                <OverflowMenu
+                  ariaLabel={t('More actions')}
+                  onOpenChange={setIsWindowMenuOpen}
+                  items={[
+                    {
+                      key: 'sortBySite',
+                      label: t('Sort tabs by site'),
+                      icon: 'sort',
+                      onSelect: () =>
+                        void dispatch(sortOpenWindowBySite(openWindow.id)),
+                    },
+                  ]}
                 />
               )}
             </div>

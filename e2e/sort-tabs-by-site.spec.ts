@@ -1,6 +1,8 @@
-import type { Locator, Page } from '@playwright/test';
+import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
+import { test as plainTest } from './fixtures/extension';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
+import { standIn } from './fixtures/standInPages';
 import {
   VIEWS,
   header,
@@ -170,3 +172,414 @@ for (const view of VIEWS) {
     });
   });
 }
+
+// KAN-694, live half, on a real Chrome window. Open now's ⋮ sorts the window's
+// tabs (pinned, then groups, then loose), ⌘Z and the toast's Undo put them
+// back, and Chrome's pin state and group of every tab stay as they were.
+
+interface LiveTab {
+  n: string;
+  site: string;
+  pinned?: true;
+  group?: true;
+  // The Tab Keeper page itself, in the window being sorted.
+  tabKeeper?: true;
+}
+interface Row {
+  label: string;
+  pinned: boolean;
+  groupId: number;
+}
+
+const VIEW_TAB = 'index.html?view=tab';
+const OPEN_NOW = '[data-pane="open-now"]';
+
+const LIVE: LiveTab[] = [
+  { n: 'pinBeta1', site: 'beta', pinned: true },
+  { n: 'pinAlpha', site: 'alpha', pinned: true },
+  { n: 'pinBeta2', site: 'beta', pinned: true },
+  { n: 'looseBeta1', site: 'beta' },
+  { n: 'looseAlpha1', site: 'alpha' },
+  { n: 'groupGamma', site: 'gamma', group: true },
+  { n: 'groupAlpha', site: 'alpha', group: true },
+  { n: 'looseBeta2', site: 'beta' },
+  { n: 'looseAlpha2', site: 'alpha' },
+];
+// Pinned by first-seen site, then the group as it is, then loose by first-seen site.
+const LIVE_AFTER = [
+  'pinBeta1',
+  'pinBeta2',
+  'pinAlpha',
+  'groupGamma',
+  'groupAlpha',
+  'looseBeta1',
+  'looseBeta2',
+  'looseAlpha1',
+  'looseAlpha2',
+];
+const LIVE_BEFORE = LIVE.map((t) => t.n);
+
+// A page of this test's own server, on a host of its own: *.localhost is loopback.
+function pageOn(tab: LiveTab): string {
+  const url = new URL(standIn(tab.n));
+  url.hostname = `${tab.site}.localhost`;
+  return url.href;
+}
+
+// A real window of these tabs, unfocused so the tab view stays in front: the
+// pinned first, then the group made where its members already sit.
+async function makeLiveWindow(
+  worker: Worker,
+  extensionId: string,
+  tabs: LiveTab[]
+): Promise<number> {
+  const urls = tabs.map((t) =>
+    t.tabKeeper ? `chrome-extension://${extensionId}/${VIEW_TAB}` : pageOn(t)
+  );
+  const pinned = tabs.flatMap((t, i) => (t.pinned ? [i] : []));
+  const grouped = tabs.flatMap((t, i) => (t.group ? [i] : []));
+  const made = await worker.evaluate(
+    async ({ urls, pinned, grouped }) => {
+      const win = await chrome.windows.create({ focused: false, url: urls });
+      const windowId = win?.id;
+      const ids = (win?.tabs ?? []).flatMap((t) =>
+        t.id === undefined ? [] : [t.id]
+      );
+      if (windowId === undefined || ids.length !== urls.length) return null;
+      for (const i of pinned)
+        await chrome.tabs.update(ids[i], { pinned: true });
+      const [head, ...tail] = grouped.map((i) => ids[i]);
+      if (head !== undefined) {
+        const groupId = await chrome.tabs.group({
+          tabIds: [head, ...tail],
+          createProperties: { windowId },
+        });
+        await chrome.tabGroups.update(groupId, {
+          title: 'Trip',
+          color: 'blue',
+        });
+      }
+      return windowId;
+    },
+    { urls, pinned, grouped }
+  );
+  if (made === null) throw new Error('Chrome gave no window or tab ids');
+  return made;
+}
+
+// The window's strip as Chrome has it, by index. 'TK' is the Tab Keeper page.
+const liveStrip = (worker: Worker, windowId: number): Promise<Row[]> =>
+  worker.evaluate(async (id) => {
+    const tabs = await chrome.tabs.query({ windowId: id });
+    return tabs
+      .sort((a, b) => a.index - b.index)
+      .map((t) => {
+        const url = t.url ?? '';
+        const label = url.startsWith('chrome-extension://')
+          ? 'TK'
+          : url === ''
+            ? ''
+            : decodeURIComponent(new URL(url).pathname.slice(1));
+        return { label, pinned: t.pinned, groupId: t.groupId };
+      });
+  }, windowId);
+
+const labelsOf = async (worker: Worker, windowId: number) =>
+  (await liveStrip(worker, windowId)).map((r) => r.label);
+
+// Tab Keeper's own page is never moved by the sort, so orders compare without it.
+const withoutTabKeeper = (labels: string[]) => labels.filter((l) => l !== 'TK');
+
+// Resolves once every tab has committed its address, which the sort reads.
+const loaded = (worker: Worker, windowId: number, names: string[]) =>
+  expect
+    .poll(async () => withoutTabKeeper(await labelsOf(worker, windowId)))
+    .toEqual(names.filter((n) => n !== 'TK'));
+
+async function openTabView(
+  context: BrowserContext,
+  extensionId: string
+): Promise<Page> {
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`chrome-extension://${extensionId}/${VIEW_TAB}`);
+  // Barrier: goto resolves before React mounts.
+  await page
+    .getByRole('button', { name: 'Sort sessions', exact: true })
+    .waitFor();
+  return page;
+}
+
+// The tab view that opened inside the window being sorted ("This window").
+async function tabViewInNewWindow(
+  context: BrowserContext,
+  extensionId: string
+): Promise<Page> {
+  const prefix = `chrome-extension://${extensionId}/index.html`;
+  const found = () => context.pages().filter((p) => p.url().startsWith(prefix));
+  await expect.poll(() => found().length).toBe(1);
+  const page = found()[0];
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page
+    .getByRole('button', { name: 'Sort sessions', exact: true })
+    .waitFor();
+  return page;
+}
+
+const liveBlock = (page: Page, windowId: number): Locator =>
+  page.locator(`${OPEN_NOW} [data-open-window-id="${windowId}"]`);
+
+const moreActions = (page: Page, windowId: number): Locator =>
+  liveBlock(page, windowId)
+    .locator('[data-window-row] [data-row-actions]')
+    .getByRole('button', { name: 'More actions', exact: true });
+
+async function chooseSortInOpenNow(
+  page: Page,
+  windowId: number
+): Promise<void> {
+  await liveBlock(page, windowId).locator('[data-window-row]').hover();
+  await moreActions(page, windowId).click();
+  await sortItem(page).click();
+}
+
+const sortedToastShows = (page: Page) =>
+  expect(toast(page)).toContainText('Sorted the tabs by site.');
+
+test.describe('Open now window menu (KAN-694)', () => {
+  test('the item sorts the real window, keeps every pin and group, and is then gone; ⌘Z restores it and closes the toast', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const windowId = await makeLiveWindow(serviceWorker, extensionId, LIVE);
+    await loaded(serviceWorker, windowId, LIVE_BEFORE);
+    const before = await liveStrip(serviceWorker, windowId);
+    const page = await openTabView(context, extensionId);
+
+    await chooseSortInOpenNow(page, windowId);
+
+    await expect
+      .poll(() => labelsOf(serviceWorker, windowId))
+      .toEqual(LIVE_AFTER);
+    const after = await liveStrip(serviceWorker, windowId);
+    // Chrome's own state of every tab: pinned, and which group.
+    for (const row of after) {
+      const was = before.find((b) => b.label === row.label);
+      expect({ pinned: row.pinned, groupId: row.groupId }).toEqual({
+        pinned: was?.pinned,
+        groupId: was?.groupId,
+      });
+    }
+    await sortedToastShows(page);
+    // Sorted now, so the menu has nothing to offer and goes.
+    await expect(moreActions(page, windowId)).toHaveCount(0);
+
+    await page.keyboard.press('ControlOrMeta+z');
+
+    await expect
+      .poll(() => labelsOf(serviceWorker, windowId))
+      .toEqual(LIVE_BEFORE);
+    expect(await liveStrip(serviceWorker, windowId)).toEqual(before);
+    await expect(toast(page)).toHaveCount(0);
+    await expect(moreActions(page, windowId)).toHaveCount(1);
+  });
+
+  test("the toast's Undo restores the order", async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const windowId = await makeLiveWindow(serviceWorker, extensionId, LIVE);
+    await loaded(serviceWorker, windowId, LIVE_BEFORE);
+    const before = await liveStrip(serviceWorker, windowId);
+    const page = await openTabView(context, extensionId);
+    await chooseSortInOpenNow(page, windowId);
+    await expect
+      .poll(() => labelsOf(serviceWorker, windowId))
+      .toEqual(LIVE_AFTER);
+
+    await page
+      .getByRole('status')
+      .getByRole('button', { name: 'Undo', exact: true })
+      .click();
+
+    await expect
+      .poll(() => labelsOf(serviceWorker, windowId))
+      .toEqual(LIVE_BEFORE);
+    expect(await liveStrip(serviceWorker, windowId)).toEqual(before);
+  });
+
+  test('⌘Z after a tab was moved by hand does nothing', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const windowId = await makeLiveWindow(serviceWorker, extensionId, LIVE);
+    await loaded(serviceWorker, windowId, LIVE_BEFORE);
+    const page = await openTabView(context, extensionId);
+    await chooseSortInOpenNow(page, windowId);
+    await expect
+      .poll(() => labelsOf(serviceWorker, windowId))
+      .toEqual(LIVE_AFTER);
+    await sortedToastShows(page);
+
+    // looseAlpha2 to the front of the loose tabs.
+    const target = (await labelsOf(serviceWorker, windowId)).indexOf(
+      'looseBeta1'
+    );
+    await serviceWorker.evaluate(
+      async ({ id, index }) => {
+        const tabs = await chrome.tabs.query({ windowId: id });
+        const moving = tabs.find((t) => t.url?.endsWith('/looseAlpha2'));
+        if (moving?.id === undefined) throw new Error('no looseAlpha2');
+        await chrome.tabs.move(moving.id, { index });
+      },
+      { id: windowId, index: target }
+    );
+    const byHand = await liveStrip(serviceWorker, windowId);
+    // PREMISE: the hand move changed the sorted order.
+    expect(byHand.map((r) => r.label)).not.toEqual(LIVE_AFTER);
+
+    await page.keyboard.press('ControlOrMeta+z');
+
+    // The key reached the sort's undo: it took the drop and closed the toast.
+    await expect(toast(page)).toHaveCount(0);
+    expect(await liveStrip(serviceWorker, windowId)).toEqual(byHand);
+  });
+
+  for (const where of ['in the group', 'loose'] as const) {
+    test(`the Tab Keeper tab ${where} stays ${where} through a sort of This window`, async ({
+      context,
+      extensionId,
+      serviceWorker,
+    }) => {
+      const tabs: LiveTab[] =
+        where === 'in the group'
+          ? [
+              ...LIVE.slice(0, 6),
+              { n: 'TK', site: 'tk', group: true, tabKeeper: true },
+              ...LIVE.slice(6),
+            ]
+          : [
+              ...LIVE.slice(0, 8),
+              { n: 'TK', site: 'tk', tabKeeper: true },
+              ...LIVE.slice(8),
+            ];
+      const windowId = await makeLiveWindow(serviceWorker, extensionId, tabs);
+      await loaded(
+        serviceWorker,
+        windowId,
+        tabs.map((t) => t.n)
+      );
+      const page = await tabViewInNewWindow(context, extensionId);
+      const before = await liveStrip(serviceWorker, windowId);
+      const tkBefore = before.find((r) => r.label === 'TK');
+      const groupOf = (rows: Row[], label: string) =>
+        rows.find((r) => r.label === label)?.groupId;
+      // PREMISE: Tab Keeper starts in the group, or loose.
+      expect(tkBefore?.pinned).toBe(false);
+      expect(tkBefore?.groupId).toBe(
+        where === 'in the group' ? groupOf(before, 'groupGamma') : -1
+      );
+
+      await chooseSortInOpenNow(page, windowId);
+
+      await expect
+        .poll(async () =>
+          withoutTabKeeper(await labelsOf(serviceWorker, windowId))
+        )
+        .toEqual(LIVE_AFTER);
+      const after = await liveStrip(serviceWorker, windowId);
+      const tkAfter = after.find((r) => r.label === 'TK');
+      expect(tkAfter?.pinned).toBe(false);
+      expect(tkAfter?.groupId).toBe(tkBefore?.groupId);
+      // The others kept their pin state and group too.
+      for (const row of after) {
+        const was = before.find((b) => b.label === row.label);
+        expect({ pinned: row.pinned, groupId: row.groupId }).toEqual({
+          pinned: was?.pinned,
+          groupId: was?.groupId,
+        });
+      }
+    });
+  }
+
+  test('a window with a split view has no More actions', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const tabs: LiveTab[] = [
+      { n: 'splitBeta', site: 'beta' },
+      { n: 'splitAlpha1', site: 'alpha' },
+      { n: 'splitAlpha2', site: 'alpha' },
+      { n: 'splitBeta2', site: 'beta' },
+    ];
+    const windowId = await makeLiveWindow(serviceWorker, extensionId, tabs);
+    await loaded(
+      serviceWorker,
+      windowId,
+      tabs.map((t) => t.n)
+    );
+    const split = await serviceWorker.evaluate(async (id) => {
+      const createSplit: unknown = Reflect.get(chrome.tabs, 'createSplit');
+      if (typeof createSplit !== 'function') return 'no tabs.createSplit';
+      const ids = (await chrome.tabs.query({ windowId: id }))
+        .sort((a, b) => a.index - b.index)
+        .flatMap((t) => (t.id === undefined ? [] : [t.id]));
+      await Reflect.apply(createSplit, chrome.tabs, [[ids[1], ids[2]]]);
+      return 'split';
+    }, windowId);
+    // PREMISE: this browser can make a split (Chrome 155+).
+    expect(split).toBe('split');
+    const page = await openTabView(context, extensionId);
+
+    // PREMISE: the window's strip is drawn, and unsorted, so only the split withholds the item.
+    await expect(
+      liveBlock(page, windowId).getByRole('button', {
+        name: /^Save window as a session/,
+      })
+    ).toBeVisible();
+    expect(await labelsOf(serviceWorker, windowId)).not.toEqual([
+      'splitAlpha1',
+      'splitAlpha2',
+      'splitBeta',
+      'splitBeta2',
+    ]);
+    await expect(moreActions(page, windowId)).toHaveCount(0);
+
+    // Control: the same tabs with no split are offered the sort.
+    const control = await makeLiveWindow(serviceWorker, extensionId, tabs);
+    await loaded(
+      serviceWorker,
+      control,
+      tabs.map((t) => t.n)
+    );
+    await expect(moreActions(page, control)).toHaveCount(1);
+  });
+});
+
+plainTest(
+  'without the tab group grant the window has no More actions',
+  async ({ context, extensionId, serviceWorker }) => {
+    const windowId = await makeLiveWindow(
+      serviceWorker,
+      extensionId,
+      LIVE.filter((t) => !t.group)
+    );
+    await loaded(
+      serviceWorker,
+      windowId,
+      LIVE.filter((t) => !t.group).map((t) => t.n)
+    );
+    const page = await openTabView(context, extensionId);
+    // PREMISE: the window is drawn with its strip, and is unsorted.
+    await expect(
+      liveBlock(page, windowId).getByRole('button', {
+        name: /^Save window as a session/,
+      })
+    ).toBeVisible();
+    await expect(moreActions(page, windowId)).toHaveCount(0);
+  }
+);
