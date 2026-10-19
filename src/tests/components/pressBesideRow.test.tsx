@@ -8,6 +8,7 @@ import {
 import { endCarry, startCarry } from '../../redux/carry';
 import { savedItem } from '../../redux/carriedItem';
 import { endDragHold } from '../../redux/dragHold';
+import type { ResolveDrop } from '../../components/home/rightpane/rowDrag/dropRules';
 
 // KAN-704. A press left of a row's box (its drag dots, KAN-703) asks which
 // band the pointer is in as if pressed at the row's left edge; an adopted
@@ -36,7 +37,7 @@ const Harness = ({
   resolveDrop,
   adoptRowId,
 }: {
-  resolveDrop: (el: HTMLElement | null, x: number, y: number) => object;
+  resolveDrop: ResolveDrop;
   adoptRowId?: string;
 }) => (
   <div data-testid="pane" style={{ overflowY: 'auto' }}>
@@ -102,7 +103,7 @@ describe('which x the band question gets (KAN-704)', () => {
     // PREMISE: the drag started and asked.
     expect(document.documentElement.getAttribute('data-dragging')).toBe('tab');
     expect(asked.length).toBeGreaterThan(0);
-    expect(asked.at(-1)).toBe(BESIDE + 2 + (ROW_LEFT - BESIDE));
+    expect(asked[asked.length - 1]).toBe(BESIDE + 2 + (ROW_LEFT - BESIDE));
   });
 
   test('CONTROL: a press on the row asks at the pointer', () => {
@@ -117,7 +118,7 @@ describe('which x the band question gets (KAN-704)', () => {
       button: 0,
     });
     fireEvent.pointerMove(document, { clientX: 62, clientY: 55 });
-    expect(asked.at(-1)).toBe(62);
+    expect(asked[asked.length - 1]).toBe(62);
   });
 
   test('an adopted carry left of its row asks at the pointer: it was never pressed', () => {
@@ -140,6 +141,6 @@ describe('which x the band question gets (KAN-704)', () => {
     // PREMISE: adopted, and asked.
     expect(document.querySelector('[data-drag-held]')).not.toBeNull();
     expect(asked.length).toBeGreaterThan(0);
-    expect(asked.at(-1)).toBe(BESIDE + 2);
+    expect(asked[asked.length - 1]).toBe(BESIDE + 2);
   });
 });
