@@ -537,6 +537,29 @@ describe('every colour the file writes words in reads at 4.5:1 (KAN-358)', () =>
   });
 });
 
+// KAN-674. The lines between tabs reach dividerContrast's 1.20 floor on the page and inside a group.
+describe('every line the file draws can be seen (KAN-674)', () => {
+  const VISIBLE_FLOOR = 1.2;
+  const cases = (['light', 'dark'] as const).flatMap((scheme) =>
+    (['bg', 'groupBg'] as const).map((ground) => [scheme, ground] as const)
+  );
+
+  test.each(cases)('%s: rule on %s', (scheme, ground) => {
+    const palette = EXPORT_PALETTE[scheme];
+    const ratio = contrast(palette.rule, palette[ground]);
+
+    expect(ratio, `${palette.rule} on ${palette[ground]}: ${ratio.toFixed(3)}:1`).toBeGreaterThanOrEqual(
+      VISIBLE_FLOOR
+    );
+  });
+
+  // The editor's eye fills with the rule when pressed; its muted glyph keeps 3:1 there.
+  test.each(['light', 'dark'] as const)('%s: the pressed eye glyph on the rule', (scheme) => {
+    const palette = EXPORT_PALETTE[scheme];
+    expect(contrast(palette.muted, palette.rule)).toBeGreaterThanOrEqual(3);
+  });
+});
+
 // KAN-208. A capture of open windows has no date; a leading " · " would imply a
 // missing one.
 describe('the meta line (KAN-208)', () => {
