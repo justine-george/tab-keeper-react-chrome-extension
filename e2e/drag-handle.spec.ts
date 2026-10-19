@@ -393,3 +393,138 @@ test('the handle fades in as the strips do, and at once under reduced motion', a
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(handle).toHaveCSS('transition-duration', '0s');
 });
+
+// KAN-703. Dots outside their row's box (tab and group rows) take the
+// pointer for it: pointed at they stay, pressed and moved they drag the row,
+// clicked they do nothing. A session row's are inside it and stay a picture.
+const OUTSIDE = [
+  ['saved tab', 'tab'],
+  ['saved grouped tab', 'tab'],
+  ['saved group', 'group'],
+  ['Open now tab', 'tab'],
+  ['Open now grouped tab', 'tab'],
+  ['Open now group', 'group'],
+] as const;
+const outsideRow = (
+  page: Page,
+  block: Locator,
+  kind: (typeof OUTSIDE)[number][0]
+) => {
+  const tab = (title: string) =>
+    block.locator('[data-open-tab-id]', { hasText: title });
+  switch (kind) {
+    case 'saved tab':
+      return savedTab(page, 'w1-loose');
+    case 'saved grouped tab':
+      return savedTab(page, 'gr-t0');
+    case 'saved group':
+      return bandHandle(page, 'gr');
+    case 'Open now tab':
+      return tab('Station');
+    case 'Open now grouped tab':
+      return tab('Kiyomizu');
+    case 'Open now group':
+      return block.locator('[data-group-drag-handle]');
+  }
+};
+const centreOf = async (loc: Locator) => {
+  const b = await boxOf(loc);
+  return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+};
+const hitIsIn = (at: { x: number; y: number }, loc: Locator) =>
+  loc.evaluate(
+    (el, at) => el.contains(document.elementFromPoint(at.x, at.y)),
+    at
+  );
+
+test("pointed at, a tab or group row's dots stay, and are what the pointer hits", async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const { page, block } = await openBoth(context, extensionId, serviceWorker);
+  for (const [kind] of OUTSIDE) {
+    const row = outsideRow(page, block, kind);
+    await row.hover();
+    await expect.poll(() => inkOf(handleIn(row))).toBe(1);
+    const at = await centreOf(handleIn(row));
+    await page.mouse.move(at.x, at.y, { steps: 5 });
+    await page.waitForTimeout(300);
+    expect(await hitIsIn(at, handleIn(row)), kind).toBe(true);
+    expect(await row.evaluate((el) => el.matches(':hover')), kind).toBe(true);
+    expect(await inkOf(handleIn(row)), kind).toBe(1);
+    expect(
+      await page.evaluate(
+        (at) => getComputedStyle(document.elementFromPoint(at.x, at.y)!).cursor,
+        at
+      ),
+      kind
+    ).toBe('grab');
+    await park(page);
+  }
+  // CONTROL: a session row's dots sit inside it, and a press there is the row's.
+  const sessionDots = handleIn(sessionRow(page, 'S2'));
+  await sessionRow(page, 'S2').hover();
+  const at = await centreOf(sessionDots);
+  await page.mouse.move(at.x, at.y);
+  expect(await hitIsIn(at, sessionDots)).toBe(false);
+});
+
+test("pressed and moved, a tab or group row's dots drag that row", async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const { page, block } = await openBoth(context, extensionId, serviceWorker);
+  for (const [kind, dragKind] of OUTSIDE) {
+    const row = outsideRow(page, block, kind);
+    await row.hover();
+    const at = await centreOf(handleIn(row));
+    await page.mouse.move(at.x, at.y, { steps: 3 });
+    await page.mouse.down();
+    await page.mouse.move(at.x + 2, at.y + 14, { steps: 6 });
+    await expect(
+      page.locator(`html[data-dragging="${dragKind}"]`),
+      kind
+    ).toHaveCount(1);
+    expect(
+      await row.evaluate((el) => el.closest('[data-drag-held]') !== null),
+      kind
+    ).toBe(true);
+    // Back to the start and release: nothing moves.
+    await page.mouse.move(at.x, at.y, { steps: 6 });
+    await page.mouse.up();
+    await expect(page.locator('html[data-dragging]')).toHaveCount(0);
+    await park(page);
+  }
+});
+
+test("a click on a tab row's dots opens nothing and switches to nothing", async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const { page, block } = await openBoth(context, extensionId, serviceWorker);
+  const pagesBefore = context.pages().length;
+  const saved = savedTab(page, 'w1-loose');
+  await saved.hover();
+  await handleIn(saved).click();
+
+  const live = outsideRow(page, block, 'Open now tab');
+  const activeOf = () =>
+    serviceWorker.evaluate(async (title) => {
+      const [tab] = await chrome.tabs.query({ title });
+      return tab?.active ?? null;
+    }, 'Station');
+  // PREMISE: the live tab is not the active one, so a switch would show.
+  expect(await activeOf()).toBe(false);
+  await live.hover();
+  await handleIn(live).click();
+  await page.waitForTimeout(600);
+  expect(await activeOf()).toBe(false);
+  expect(context.pages().length).toBe(pagesBefore);
+
+  // CONTROL: a click on the row itself does switch.
+  await live.getByRole('button', { name: /^Switch to tab: Station/ }).click();
+  await expect.poll(activeOf).toBe(true);
+});

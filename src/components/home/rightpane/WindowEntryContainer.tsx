@@ -727,6 +727,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           scope="tabs"
           rowId={tabId}
           left={grouped ? '-40px' : '-24px'}
+          outsideRow
         />
         {/* The name reuses the string the tooltip already carried, so no new
             hardcoded English enters the app -- the 25 untranslated
@@ -1315,6 +1316,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         scope="items"
                         rowId={itemIdOf(item)}
                         left="-40px"
+                        outsideRow
                       />
                       {editingGroupId === item.group.groupId ? (
                         <input
