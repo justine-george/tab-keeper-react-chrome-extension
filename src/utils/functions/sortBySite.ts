@@ -109,6 +109,8 @@ export function savedSortable(
   };
 }
 
-export function isSavedWindowSortedBySite(window: windowGroupData): boolean {
+export function isSavedWindowSortedBySite(
+  window: Pick<windowGroupData, 'tabs'>
+): boolean {
   return isSortedBySite(window.tabs.map(savedSortable));
 }

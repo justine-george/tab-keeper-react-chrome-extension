@@ -135,7 +135,12 @@ describe('the window ⋮ (KAN-616, 1A)', () => {
     const user = userEvent.setup();
     await render();
     const menu = await openWindowMenu(user, 'w1');
-    expect(items(menu)).toEqual(['Remove 2 duplicate tabs', 'Delete window']);
+    // Planning is out of order, so Sort tabs by site (KAN-694) leads.
+    expect(items(menu)).toEqual([
+      'Sort tabs by site',
+      'Remove 2 duplicate tabs',
+      'Delete window',
+    ]);
   });
 
   test('a window whose copies all live elsewhere offers only Delete', async () => {
