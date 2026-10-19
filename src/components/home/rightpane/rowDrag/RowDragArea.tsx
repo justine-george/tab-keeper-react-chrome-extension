@@ -475,7 +475,7 @@ function pressRecord(
   const scroller = scrollableAncestor(el);
   return {
     rowId,
-    // Set by `begin` for a press; an adoption has none.
+    // Read at activation, for a press; an adoption has none.
     pressOffRowX: 0,
     startX: x,
     startY: y,
@@ -631,21 +631,15 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // as it approached it. jsdom cannot show this at all -- scrollHeight there
       // is whatever a test stubs -- so it is pinned by a test that makes the
       // stub grow.
-      const el = rows.current.get(rowId) ?? null;
       live.current = pressRecord(
         rowId,
         rowIds.indexOf(rowId),
         clientX,
         clientY,
-        el,
+        rows.current.get(rowId) ?? null,
         clampDropToEnds,
         false
       );
-      // A press beside the row's box: its drag dots (KAN-704).
-      const box = el?.getBoundingClientRect();
-      if (box && clientX < box.left) {
-        live.current.pressOffRowX = box.left - clientX;
-      }
     },
     [rowIds, handleSelector, disabled, clampDropToEnds]
   );
@@ -1561,6 +1555,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       l.heldEl = rows.current.get(l.rowId) ?? null;
       l.heldEl?.setAttribute('data-drag-held', '');
       l.heldWindow = windowOf(l.heldEl);
+      // KAN-704. A press left of the held row's box, on its drag dots. Read
+      // here with the rest, after the kind is published; across, nothing the
+      // collapse changes. An adoption was never pressed: its start is where
+      // the carry's pointer came in.
+      if (!l.adopted && l.heldEl) {
+        const rowLeft = l.heldEl.getBoundingClientRect().left;
+        if (l.startX < rowLeft) l.pressOffRowX = rowLeft - l.startX;
+      }
       // KAN-366 Q4. In a list given no room, the space free below its last
       // window, which the rule that under half a row is no new window reads
       // (publishNewWindowFree).
