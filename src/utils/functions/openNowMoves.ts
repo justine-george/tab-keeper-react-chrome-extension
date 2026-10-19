@@ -14,7 +14,8 @@ import type {
   TabMove,
 } from '../../components/home/rightpane/rowDrag/dropRules';
 import type { OpenTab, OpenWindow } from './openNow';
-import { applyLiveOrder, orderBeforeSort } from './openNowSort';
+import { isTabKeeperPage } from './capture';
+import { applyLiveOrder, holdsSplitView, orderBeforeSort } from './openNowSort';
 import { partitionTabsIntoItems, sanitizeTabGroupColor } from './tabGroups';
 import type { TabGroupColor } from './tabGroups';
 
@@ -617,6 +618,21 @@ async function whereTheDropLeftThem(
   return states;
 }
 
+// Whether a sort's window holds only what the sort recorded, and no split view: the
+// index check cannot see a split made since (it moves nothing) or a tab opened at the
+// end, and appending every unit would end the one and strand the other (KAN-694).
+async function sortStillUndoable(moved: MovedTabs): Promise<boolean> {
+  const windowId = moved[0]?.after.windowId;
+  if (windowId === undefined) return false;
+  const strip = await attempt(() => chrome.tabs.query({ windowId }));
+  if (strip === REFUSED || holdsSplitView(strip)) return false;
+  const recorded = new Set(moved.map((tab) => tab.tabId));
+  return strip.every(
+    (tab) =>
+      isTabKeeperPage(tab) || (tab.id !== undefined && recorded.has(tab.id))
+  );
+}
+
 // Whether Chrome still has a group with this id: it removes a group when its
 // last tab leaves (Task 6a), so a group exists while some tab is in it.
 // tabs.query answers without the tabGroups grant (Task 6a Q3), where
@@ -771,7 +787,7 @@ export async function undoOpenNowDrop(
   }
   // A sort moves no tab into or out of a group, so the old order is the whole undo.
   if (drop.kind === 'sort') {
-    if (!withLook) return;
+    if (!withLook || !(await sortStillUndoable(drop.moved))) return;
     const records = [];
     for (const [i, tab] of drop.moved.entries()) {
       const now = states[i];

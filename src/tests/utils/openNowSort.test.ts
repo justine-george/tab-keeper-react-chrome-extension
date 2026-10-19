@@ -466,6 +466,58 @@ describe('sortOpenWindow', () => {
     expect(await strip()).toEqual(MOCK_STRIP);
   });
 
+  test('undo leaves a split made after the sort alone: no move, the split kept', async () => {
+    handle = setupChromeFake({ ...mockSeed(), splitView: true });
+    await sortOpenWindow(1, true);
+    const drop = keptDrop();
+    const createSplit = createSplitApi();
+    if (createSplit === null) throw new Error('PREMISE: no createSplit');
+    // Adjacent loose tabs after the sort (13, 4): a split changes no index.
+    const splitId = await createSplit([13, 4]);
+    expect(await strip()).toEqual(MOCK_SORTED_STRIP);
+    const move = vi.spyOn(chrome.tabs, 'move');
+    const groupMove = vi.spyOn(chrome.tabGroups, 'move');
+
+    await undoOpenNowDrop(drop, true);
+
+    expect(move).not.toHaveBeenCalled();
+    expect(groupMove).not.toHaveBeenCalled();
+    expect((await chrome.tabs.get(13)).splitViewId).toBe(splitId);
+    expect((await chrome.tabs.get(4)).splitViewId).toBe(splitId);
+  });
+
+  test('undo leaves a window alone that holds a tab the sort never recorded', async () => {
+    handle = setupChromeFake(mockSeed());
+    await sortOpenWindow(1, true);
+    const drop = keptDrop();
+    // Opened at the end: no recorded index shifts.
+    await chrome.tabs.create({ windowId: 1, url: 'https://new.test/' });
+    const after = await strip();
+    // PREMISE: the new tab is last and every recorded tab is where the sort left it.
+    expect(after.slice(0, -1)).toEqual(MOCK_SORTED_STRIP);
+    const move = vi.spyOn(chrome.tabs, 'move');
+    const groupMove = vi.spyOn(chrome.tabGroups, 'move');
+
+    await undoOpenNowDrop(drop, true);
+
+    expect(move).not.toHaveBeenCalled();
+    expect(groupMove).not.toHaveBeenCalled();
+    expect(await strip()).toEqual(after);
+  });
+
+  test('a Tab Keeper page opened since does not stop the undo', async () => {
+    handle = setupChromeFake(mockSeed());
+    await sortOpenWindow(1, true);
+    const drop = keptDrop();
+    const page = await chrome.tabs.create({ windowId: 1, url: TAB_KEEPER });
+
+    await undoOpenNowDrop(drop, true);
+
+    expect((await strip()).filter((id) => id !== String(page.id))).toEqual(
+      MOCK_STRIP
+    );
+  });
+
   test('undo does nothing when a recorded tab has moved since', async () => {
     handle = setupChromeFake(mockSeed());
     await sortOpenWindow(1, true);
