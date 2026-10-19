@@ -208,6 +208,8 @@ export default function OpenNowWindow({
   const offersSort =
     canSortOpenWindowLive(openWindow, hasTabGroups) &&
     !isOpenWindowSortedBySite(openWindow);
+  // The menu can unmount while open (the window got sorted), and then it never reports closing.
+  const menuOpen = offersSort && isWindowMenuOpen;
   // By Chrome tab id, not by position, for KAN-127's reason: a re-read (and,
   // later, a drag) moves rows, and a position-keyed flag would then reveal
   // whichever tab moved into the hovered slot.
@@ -271,12 +273,12 @@ export default function OpenNowWindow({
     right: 0;
     transform: translateY(-50%);
     /* An open menu paints over the tab rows below, later siblings. */
-    z-index: ${isWindowMenuOpen ? 3 : 'auto'};
+    z-index: ${menuOpen ? 3 : 'auto'};
     background-color: ${
-      isParentHovered || isWindowMenuOpen ? COLORS.HOVER_COLOR : 'transparent'
+      isParentHovered || menuOpen ? COLORS.HOVER_COLOR : 'transparent'
     };
     & > * {
-      opacity: ${isParentHovered || isWindowMenuOpen ? 1 : 0};
+      opacity: ${isParentHovered || menuOpen ? 1 : 0};
       transition: opacity ${DURATION.COLOR} ease-out;
     }
     ${whileKeyNav('&:has(:focus-visible)')} {

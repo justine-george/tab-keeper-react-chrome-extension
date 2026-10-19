@@ -70,6 +70,20 @@ function blockOf(windowId: number): HTMLElement {
   return block;
 }
 
+function stripOf(windowId: number): HTMLElement {
+  const strip =
+    blockOf(windowId).querySelector<HTMLElement>('[data-row-actions]');
+  if (!strip) throw new Error('no action strip');
+  return strip;
+}
+
+// The strip's first control: its opacity is what shows or hides the strip.
+const stripOpacity = (windowId: number) => {
+  const first = stripOf(windowId).firstElementChild;
+  if (!first) throw new Error('empty action strip');
+  return getComputedStyle(first).opacity;
+};
+
 const moreActionsIn = (windowId: number) =>
   within(blockOf(windowId)).queryAllByRole('button', { name: 'More actions' });
 
@@ -81,8 +95,7 @@ const idsIn = async (windowId: number) =>
 describe('Open now window menu: Sort tabs by site (KAN-694)', () => {
   test('More actions is the last control of the strip, after Save and Close', async () => {
     await renderOpenNow(seed(UNSORTED()));
-    const strip = blockOf(2).querySelector('[data-row-actions]');
-    const labels = within(strip as HTMLElement)
+    const labels = within(stripOf(2))
       .getAllByRole('button')
       .map((b) => b.getAttribute('aria-label'));
     expect(labels).toEqual([
@@ -155,13 +168,32 @@ describe('Open now window menu: Sort tabs by site (KAN-694)', () => {
   test('an open menu keeps the strip shown and lifts the window', async () => {
     const user = userEvent.setup();
     await renderOpenNow(seed(UNSORTED()));
-    const strip = blockOf(2).querySelector('[data-row-actions]');
+    expect(stripOpacity(2)).toBe('0');
     await user.click(moreActionsIn(2)[0]);
-    const shown = getComputedStyle(strip as HTMLElement).zIndex;
-    expect(shown).not.toBe('');
+    await user.unhover(moreActionsIn(2)[0]);
+    const lifted = getComputedStyle(stripOf(2)).zIndex;
+    expect(lifted).not.toBe('');
+    expect(stripOpacity(2)).toBe('1');
     await act(async () => {
       await user.keyboard('{Escape}');
     });
-    expect(getComputedStyle(strip as HTMLElement).zIndex).not.toBe(shown);
+    expect(getComputedStyle(stripOf(2)).zIndex).not.toBe(lifted);
+    expect(stripOpacity(2)).toBe('0');
+  });
+
+  test('a menu that disappears while open leaves the strip hidden and not lifted', async () => {
+    const user = userEvent.setup();
+    await renderOpenNow(seed(UNSORTED()));
+    const resting = getComputedStyle(stripOf(2)).zIndex;
+    await user.click(moreActionsIn(2)[0]);
+    await user.unhover(moreActionsIn(2)[0]);
+    expect(stripOpacity(2)).toBe('1');
+    // Sorted from outside: the window no longer offers the sort, so the menu unmounts.
+    await act(async () => {
+      await chrome.tabs.move(22, { index: 2 });
+    });
+    await waitFor(() => expect(moreActionsIn(2)).toHaveLength(0));
+    expect(stripOpacity(2)).toBe('0');
+    expect(getComputedStyle(stripOf(2)).zIndex).toBe(resting);
   });
 });
