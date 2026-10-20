@@ -600,6 +600,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     flex-shrink: 0;
     padding-right: 9px;
   `;
+  // KAN-720. Pulls back the window title's 6px padding, so the gap from its text stays 8px.
+  const windowTagSlotStyle = css`
+    ${rowTagSlotStyle};
+    margin-left: -6px;
+  `;
 
   // Shrunk to its text, so the rest of the row is only a drag handle (R4, D9).
   // The window row and the group band both fill HOVER_COLOR under the pointer.
@@ -1088,13 +1093,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   ariaLabel={t('Rename window') + ': ' + label.text}
                   onClick={startEditing}
                   buttonRef={titleFocus.refFor('window')}
-                  // KAN-720. No right padding: the tag's margin is the gap, its slot the clearance. The box ends at the text, so the ghost and ring go outside it (KAN-685).
+                  // KAN-720. 6px keeps the text 2px clear of the inset ring (KAN-685); the tag's slot takes it back.
                   style={
-                    parentLinkStyle +
-                    'padding-right: 0;' +
-                    titleButtonStyle +
-                    '&::before { right: -4px; }' +
-                    focusRingOutsideCss(COLORS)
+                    parentLinkStyle + 'padding-right: 6px;' + titleButtonStyle
                   }
                 >
                   <NormalLabel
@@ -1104,7 +1105,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     style="padding-left: 8px; height: 100%; max-width: 100%;"
                   />
                 </ClickableRow>
-                <span css={rowTagSlotStyle}>
+                <span css={windowTagSlotStyle}>
                   <RowTag value={formatTabCount(tabs.length, t)} />
                 </span>
               </>

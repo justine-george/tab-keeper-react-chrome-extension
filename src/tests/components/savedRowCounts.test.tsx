@@ -121,7 +121,7 @@ describe('saved window and group rows tag their tab count', () => {
     expect(tagsIn(container)).toEqual(['3 Tabs', '2 Tabs']);
   });
 
-  test('each tag keeps 9px clear of the row edge, and the title gives it only the 8px gap', async () => {
+  test('each tag keeps 9px clear of the row edge, 8px after its title', async () => {
     const { container } = await renderWindow(GROUPED);
     const tags = container.querySelectorAll('[data-row-tag]');
     expect(tags).toHaveLength(2);
@@ -129,21 +129,21 @@ describe('saved window and group rows tag their tab count', () => {
       expect(getComputedStyle(tag.parentElement!).paddingRight).toBe('9px');
       expect(getComputedStyle(tag).marginLeft).toBe('8px');
     });
+  });
+
+  test("the window title keeps 6px clear of its inset ring, and its tag's slot pulls back the same 6px", async () => {
+    await renderWindow(GROUPED);
     const windowTitle = screen.getByRole('button', {
       name: 'Rename window: Window 1',
     });
-    expect(getComputedStyle(windowTitle).paddingRight).toBe('0px');
-  });
-
-  test('the window title, only as wide as its text, draws its ring outside and its ghost past the text', async () => {
-    await renderWindow(GROUPED);
-    const rules = classRulesFor(
-      screen.getByRole('button', { name: 'Rename window: Window 1' })
-    );
-    // The default inset ring is in the sheet too; the last rule is the one that wins.
-    const offsets = [...rules.matchAll(/outline-offset:\s*(-?\d+px)/g)];
-    expect(offsets[offsets.length - 1]?.[1]).toBe('2px');
-    expect(rules).toMatch(/::before[^}]*right:\s*-4px/);
+    expect(getComputedStyle(windowTitle).paddingRight).toBe('6px');
+    // Only the default inset ring: an outside one is clipped above the 32px row.
+    const offsets = [
+      ...classRulesFor(windowTitle).matchAll(/outline-offset:\s*(-?\d+px)/g),
+    ].map((m) => m[1]);
+    expect(offsets).toEqual(['-4px']);
+    const slot = screen.getByText('3 Tabs').parentElement!;
+    expect(getComputedStyle(slot).marginLeft).toBe('-6px');
   });
 
   test('a one-tab window says "1 Tab"', async () => {
