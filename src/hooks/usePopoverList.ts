@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useMenuList } from './useMenuList';
+import {
+  closeRowMenu,
+  getRowMenu,
+  subscribeRowMenu,
+} from '../components/common/rowMenu/rowMenuStore';
 
 /**
  * The behaviour every popover in this app has to get right, in one place.
@@ -53,6 +58,8 @@ export function usePopoverList({
   // step with the state it reports.
   const setOpen = useCallback(
     (next: boolean) => {
+      // KAN-708. One menu open at a time: opening this one closes a row's right-click menu.
+      if (next) closeRowMenu();
       setIsOpen((current) => {
         if (current !== next) onOpenChange?.(next);
         return next;
@@ -76,6 +83,14 @@ export function usePopoverList({
     },
     [setOpen]
   );
+
+  // KAN-708. One menu open at a time: a row's right-click menu opening closes this one.
+  useEffect(() => {
+    if (!isOpen) return;
+    return subscribeRowMenu(() => {
+      if (getRowMenu() !== null) close(false);
+    });
+  }, [isOpen, close]);
 
   const { registerItem, handleKeyDown } = useMenuList({
     count,
