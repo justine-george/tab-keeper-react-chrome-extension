@@ -8,6 +8,7 @@ import { isTabView } from '../utils/functions/viewMode';
 import LeftPane from './home/leftpane/LeftPane';
 import { Toast } from './common/Toast';
 import { CarryLayer } from './home/CarryLayer';
+import { TooltipLayer } from './common/TooltipLayer';
 import FirstRun from './tour/FirstRun';
 import ReplayNote from './tour/ReplayNote';
 import RightPane from './home/rightpane/RightPane';
@@ -457,6 +458,8 @@ export default function MainContainer() {
           drag started in. Draws nothing unless something is carried, or a
           saved list's drag shows its card at the pointer (KAN-354). */}
       <CarryLayer />
+      {/* KAN-695. The one tooltip chip for this page, outside every pane. */}
+      <TooltipLayer />
       {/* Draws nothing unless this page shows the run; R3 hides its card while Settings is open. */}
       <FirstRun />
       <ReplayNote />
