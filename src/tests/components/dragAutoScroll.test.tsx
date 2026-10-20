@@ -1,3 +1,4 @@
+import { setupChromeFake } from '../setup/chrome.fake';
 import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
@@ -94,6 +95,16 @@ const startDragAt = (label: string, y: number) => {
   // Past ACTIVATION_DISTANCE_PX: a drag, and the rects are measured here.
   fireEvent.pointerMove(document, { clientX: 10, clientY: y + 10 });
 };
+
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
+});
 
 describe('holding a drag near an edge travels the list', () => {
   test('near the bottom edge it scrolls down', () => {

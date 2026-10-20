@@ -1,3 +1,4 @@
+import { setupChromeFake } from '../setup/chrome.fake';
 import { describe, expect, test, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
@@ -59,6 +60,16 @@ const startDrag = (label: string) => {
   press(label);
   fireEvent.pointerMove(document, { clientX: 10, clientY: 30 });
 };
+
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
+});
 
 describe('a started drag holds, and every way it ends releases (KAN-279 D12)', () => {
   test('a completed drop releases, after onMove, and the held change runs once', () => {

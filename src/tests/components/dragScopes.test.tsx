@@ -1,3 +1,4 @@
+import { setupChromeFake } from '../setup/chrome.fake';
 import { describe, expect, test, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
@@ -75,6 +76,16 @@ const drag = (label: string, from: number, to: number) => {
 };
 
 afterEach(() => document.documentElement.removeAttribute('data-dragging'));
+
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
+});
 
 describe('which list a row joins', () => {
   test('a scoped row joins its named list through an intervening one', () => {

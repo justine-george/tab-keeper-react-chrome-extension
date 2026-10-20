@@ -1,3 +1,4 @@
+import { setupChromeFake } from '../setup/chrome.fake';
 import { describe, expect, test, beforeEach, afterEach } from 'vitest';
 import { savedItem } from '../../redux/carriedItem';
 import { render, fireEvent } from '@testing-library/react';
@@ -87,6 +88,16 @@ afterEach(() => {
   document.documentElement.removeAttribute('data-dragging');
   document.documentElement.removeAttribute('data-drag-new-window');
   document.documentElement.removeAttribute('data-drag-new-session');
+});
+
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
 });
 
 describe('a drag publishes a flag on the document', () => {
