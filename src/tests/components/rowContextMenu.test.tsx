@@ -431,6 +431,28 @@ describe('right-click on a row', () => {
     }
   );
 
+  test.each([
+    ['Shift+F10', { key: 'F10', shiftKey: true }],
+    ['the Menu key', { key: 'ContextMenu' }],
+  ])(
+    'Shift+Tab out of a keyboard-opened menu back to its row, then %s again: it opens again, focused on its first item',
+    async (_name, keys) => {
+      await renderRows();
+      title('a').getBoundingClientRect = () => new DOMRect(10, 20, 100, 24);
+      act(() => title('a').focus());
+      fireEvent.keyDown(title('a'), keys);
+      act(() => itemsOf(rowMenu())[1].focus());
+      // Tab moves focus out without a press, so nothing closes the menu.
+      act(() => title('a').focus());
+
+      expect(fireEvent.keyDown(title('a'), keys)).toBe(false);
+      const menu = screen.getByRole('menu', { name: 'Actions for a' });
+      expect(rowMenus()).toEqual([menu]);
+      expect(menu).toHaveStyle({ left: '10px', top: '44px' });
+      expect(itemsOf(menu)[0]).toHaveFocus();
+    }
+  );
+
   test('Tab out of an open menu, then Shift+F10 on another row: that row’s menu, focused and anchored there', async () => {
     await renderRows();
     title('b').getBoundingClientRect = () => new DOMRect(30, 100, 100, 24);

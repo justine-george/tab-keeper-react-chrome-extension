@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 
 import type { OverflowMenuItem } from '../MenuPanel';
@@ -80,14 +80,19 @@ export function useRowContextMenu({
   const answerFor = (
     e: React.SyntheticEvent,
     id: string,
-    touch: boolean
+    via: 'pointer' | 'touch' | 'key'
   ): Answer => {
     if (isWithin(e.target, MENU)) return 'chrome';
-    if (isWithin(e.target, TEXT_FIELD) || touch) return 'chrome';
+    if (isWithin(e.target, TEXT_FIELD) || via === 'touch') return 'chrome';
     if (tourRuns || isMovingRows()) return 'suppress';
     const open = getRowMenu();
-    // KAN-708. The keyboard opened it already; this is the contextmenu that may follow the same key press.
-    if (open?.owner === owner && open.ids[0] === id && !open.byPointer) {
+    // KAN-708. The keyboard opened it already; this is the contextmenu that may follow the same key press. A key is never one.
+    if (
+      via === 'pointer' &&
+      open?.owner === owner &&
+      open.ids[0] === id &&
+      !open.byPointer
+    ) {
       return 'suppress';
     }
     // KAN-708. Stopped here, or an enclosing row would open its own menu for this one.
@@ -95,18 +100,22 @@ export function useRowContextMenu({
     return 'open';
   };
 
+  // KAN-708. Counts opens, so each one is a new menu even on the same row and point.
+  const [opens, setOpens] = useState(0);
+
   const openAt = (
     id: string,
     at: { x: number; y: number },
     byPointer: boolean
   ) => {
+    setOpens((n) => n + 1);
     focusReturn.current = document.activeElement;
     openRowMenu({ owner, kind, ids: [id], at, byPointer });
   };
 
   const rowProps = (id: string): RowMenuProps => ({
     onContextMenu: (e) => {
-      const answer = answerFor(e, id, isTouch(e));
+      const answer = answerFor(e, id, isTouch(e) ? 'touch' : 'pointer');
       if (answer === 'chrome') return;
       e.stopPropagation();
       if (answer === 'chromeHere') return;
@@ -119,7 +128,7 @@ export function useRowContextMenu({
         macCtrlPress.current = false;
         return;
       }
-      const answer = answerFor(e, id, false);
+      const answer = answerFor(e, id, 'key');
       if (answer === 'chrome') return;
       e.stopPropagation();
       if (answer === 'chromeHere') return;
@@ -177,7 +186,7 @@ export function useRowContextMenu({
     ownTarget === null || items === null ? null : (
       <RowContextMenu
         // KAN-708. A new open is a new menu: focus goes to its first item again.
-        key={`${ownTarget.ids.join(' ')}@${ownTarget.at.x},${ownTarget.at.y}`}
+        key={opens}
         target={ownTarget}
         ariaLabel={ariaLabel(ownTarget.ids[0])}
         items={items}
