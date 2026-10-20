@@ -88,7 +88,7 @@ const CASES: Case[] = [
     },
     name: 'Sync now',
     description: 'Sync is off',
-    tooltip: 'Sync is off\nSync now',
+    tooltip: 'Sync is off · Sync now',
     dimmed: false,
   },
   {
@@ -101,7 +101,7 @@ const CASES: Case[] = [
     },
     name: 'Sync now',
     description: 'Sync is off',
-    tooltip: 'Sync is off\nSync now',
+    tooltip: 'Sync is off · Sync now',
     dimmed: false,
   },
   {
@@ -112,7 +112,7 @@ const CASES: Case[] = [
     },
     name: 'Sync now',
     description: 'Manual sync',
-    tooltip: 'Manual sync\nSync now',
+    tooltip: 'Manual sync · Sync now',
     dimmed: false,
   },
   {
@@ -125,7 +125,7 @@ const CASES: Case[] = [
     },
     name: 'Sync now',
     description: 'Last sync failed',
-    tooltip: 'Last sync failed\nSync now',
+    tooltip: 'Last sync failed · Sync now',
     dimmed: false,
   },
   {
@@ -138,7 +138,7 @@ const CASES: Case[] = [
     },
     name: 'Sync now',
     description: 'Last sync failed',
-    tooltip: 'Last sync failed\nSync now',
+    tooltip: 'Last sync failed · Sync now',
     dimmed: false,
   },
   {
@@ -164,7 +164,7 @@ const CASES: Case[] = [
     },
     name: 'Sync now',
     description: `Cloud sync on\n${WHEN}`,
-    tooltip: `Cloud sync on\n${WHEN}`,
+    tooltip: `Cloud sync on · ${WHEN}`,
     dimmed: false,
   },
   {
@@ -177,7 +177,7 @@ const CASES: Case[] = [
     },
     name: 'Sync now',
     description: `Manual sync\n${WHEN}`,
-    tooltip: `Manual sync\n${WHEN}`,
+    tooltip: `Manual sync · ${WHEN}`,
     dimmed: false,
   },
   {
@@ -190,7 +190,7 @@ const CASES: Case[] = [
     },
     name: 'Sync now',
     description: 'Cloud sync on',
-    tooltip: 'Cloud sync on\nSync now',
+    tooltip: 'Cloud sync on · Sync now',
     dimmed: false,
   },
   {
@@ -204,7 +204,7 @@ const CASES: Case[] = [
     },
     name: 'Sync now',
     description: 'Cloud sync on',
-    tooltip: 'Cloud sync on\nSync now',
+    tooltip: 'Cloud sync on · Sync now',
     dimmed: false,
   },
   {
@@ -232,7 +232,7 @@ const CASES: Case[] = [
     },
     name: 'Sync now',
     description: 'Sync unavailable',
-    tooltip: 'Sync unavailable\nSync now',
+    tooltip: 'Sync unavailable · Sync now',
     dimmed: false,
   },
 ];

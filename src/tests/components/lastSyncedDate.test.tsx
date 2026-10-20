@@ -124,7 +124,7 @@ describe('"Last synced" reads like a session date (KAN-584)', () => {
 
   test.each(CASES)('header tooltip, $when: "$reads"', async ({ at, reads }) => {
     await renderWithProviders(<MenuContainer />, { seedStore: synced(at) });
-    expect(plain(headerTooltip())).toBe(`Cloud sync on\n${reads}`);
+    expect(plain(headerTooltip())).toBe(`Cloud sync on · ${reads}`);
   });
 
   // Left open across midnight, both say "yesterday", not "today".
@@ -152,7 +152,7 @@ describe('"Last synced" reads like a session date (KAN-584)', () => {
 
     const reads = 'Last synced yesterday, 3:09 PM';
     expect(plain(settingsLine()?.textContent)).toBe(reads);
-    expect(plain(headerTooltip())).toBe(`Cloud sync on\n${reads}`);
+    expect(plain(headerTooltip())).toBe(`Cloud sync on · ${reads}`);
   });
 
   // Worst path: a stored time that is not a date. It reads as never synced:
@@ -175,6 +175,6 @@ describe('"Last synced" reads like a session date (KAN-584)', () => {
     expect(
       screen.getByTestId('sync-status').querySelector('[data-sync-line]')
     ).not.toBeNull();
-    expect(headerTooltip()).toBe('Cloud sync on\nSync now');
+    expect(headerTooltip()).toBe('Cloud sync on · Sync now');
   });
 });

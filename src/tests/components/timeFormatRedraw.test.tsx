@@ -139,10 +139,10 @@ describe('time format redraws every time (KAN-587)', () => {
         .getAllByRole('button')
         .find((b) => b.textContent === 'cloud_done')
         ?.getAttribute('data-tooltip');
-    expect(plain(tooltip())).toBe('Cloud sync on\nLast synced today, 3:09 PM');
+    expect(plain(tooltip())).toBe('Cloud sync on · Last synced today, 3:09 PM');
 
     toH23(store);
-    expect(tooltip()).toBe('Cloud sync on\nLast synced today, 15:09');
+    expect(tooltip()).toBe('Cloud sync on · Last synced today, 15:09');
   });
 
   test('a Recently deleted row', async () => {

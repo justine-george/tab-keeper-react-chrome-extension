@@ -199,6 +199,7 @@
   "Couldn't delete cloud data. Check your connection and try again.": "No se pudieron eliminar los datos de la nube. Comprueba tu conexión e inténtalo de nuevo.",
   "Not saved: storage is full. Delete some sessions to make room.": "No se guardó: el almacenamiento está lleno. Elimina algunas sesiones para liberar espacio.",
   "Last synced {{time}}": "Última sincronización: {{time}}",
+  "SyncTooltip": "{{state}} · {{detail}}",
   "Keyboard shortcut": "Atajo de teclado",
   "Press {{keys}} to open Tab Keeper.": "Pulsa {{keys}} para abrir Tab Keeper.",
   "No shortcut is set to open Tab Keeper.": "No hay ningún atajo asignado para abrir Tab Keeper.",

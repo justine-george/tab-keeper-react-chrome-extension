@@ -209,7 +209,7 @@ export default function MenuContainer() {
     }).kind
   );
 
-  // Once synced there is nothing known to send, so the second line says when
+  // Once synced there is nothing known to send, so the tooltip says when
   // instead of "Sync now", as the card does (KAN-255). A click still reads
   // the cloud for other devices' changes -- firestore/lite has no listener --
   // so the name stays the action. Keyed on the glyph that says synced.
@@ -492,9 +492,10 @@ export default function MenuContainer() {
           ariaDescription={dimmedBecause === null ? syncDetail : undefined}
           tooltipText={
             dimmedBecause ??
-            (syncedWhen === null
-              ? `${syncState}\n${t('Sync now')}`
-              : syncDetail)
+            t('SyncTooltip', {
+              state: syncState,
+              detail: syncedWhen ?? t('Sync now'),
+            })
           }
           type={syncIconType}
           onClick={handleClickSync}
