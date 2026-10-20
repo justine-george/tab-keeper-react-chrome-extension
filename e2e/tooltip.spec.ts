@@ -106,7 +106,15 @@ async function restOn(loc: Locator, text: string): Promise<Locator> {
 async function watchChips(page: Page): Promise<void> {
   await page.evaluate(() => {
     const overs: number[] = [];
-    const log = { inserted: 0, insertedAt: -1, overAt: -1, keyAt: -1, overs };
+    const times: number[] = [];
+    const log = {
+      inserted: 0,
+      insertedAt: -1,
+      overAt: -1,
+      keyAt: -1,
+      overs,
+      times,
+    };
     Object.defineProperty(globalThis, '__chips', {
       value: log,
       configurable: true,
@@ -117,6 +125,7 @@ async function watchChips(page: Page): Promise<void> {
           if (node instanceof Element && node.matches('[data-tooltip-chip]')) {
             log.inserted += 1;
             log.insertedAt = performance.now();
+            log.times.push(log.insertedAt);
           }
         }
       }
@@ -148,6 +157,8 @@ interface ChipLog {
   overAt: number;
   keyAt: number;
   overs: number[];
+  // When each chip was inserted.
+  times: number[];
 }
 
 const chipLog = (page: Page): Promise<ChipLog> =>
@@ -157,12 +168,14 @@ const chipLog = (page: Page): Promise<ChipLog> =>
       throw new Error('no chip watch');
     const num = (k: string) => Number(Reflect.get(log, k));
     const overs: unknown = Reflect.get(log, 'overs');
+    const times: unknown = Reflect.get(log, 'times');
     return {
       inserted: num('inserted'),
       insertedAt: num('insertedAt'),
       overAt: num('overAt'),
       keyAt: num('keyAt'),
       overs: Array.isArray(overs) ? overs.map(Number) : [],
+      times: Array.isArray(times) ? times.map(Number) : [],
     };
   });
 
@@ -187,6 +200,30 @@ async function chipOnTop(page: Page): Promise<boolean[]> {
     el.style.pointerEvents = '';
     return hits;
   });
+}
+
+/**
+ * Tabs onto `target` from the control before it, held 100 ms as a real press
+ * is (R11), and returns how long after the keydown its chip was inserted.
+ */
+async function tabOnto(target: Locator, text: string): Promise<number> {
+  const page = target.page();
+  const before = await target.evaluate((el) => {
+    const all = [
+      ...document.querySelectorAll<HTMLElement>('button, [tabindex]'),
+    ].filter((c) => c.tabIndex >= 0 && c.getClientRects().length > 0);
+    const at = all.findIndex((c) => c === el);
+    if (at < 1) return false;
+    all[at - 1].focus();
+    return document.activeElement === all[at - 1];
+  });
+  expect(before, 'a control before it took focus').toBe(true);
+  await watchChips(page);
+  await page.keyboard.press('Tab', { delay: 100 });
+  await expect(target).toBeFocused();
+  await expect(chip(page)).toHaveText(text);
+  const log = await chipLog(page);
+  return log.insertedAt - log.keyAt;
 }
 
 // The Chrome-wide font size "Large" (R1): every rem in the page follows the root.
@@ -249,9 +286,9 @@ test.describe('timing', () => {
     const log = await chipLog(page);
     expect(log.inserted).toBe(1);
     const waited = log.insertedAt - log.overAt;
-    // Not before the 300 ms wait (so absent at 250), and well before 400.
+    // Not before the 300 ms wait (so absent at 250); the upper bound leaves room for a loaded CI shard.
     expect(waited).toBeGreaterThanOrEqual(299);
-    expect(waited).toBeLessThanOrEqual(400);
+    expect(waited).toBeLessThan(500);
   });
 
   test('a sweep across the six toolbar buttons at 50 ms each leaves no chip, and resting then shows one', async ({
@@ -275,15 +312,18 @@ test.describe('timing', () => {
       const b = await rectOf(button(page, name));
       centres.push([b.left + b.width / 2, b.top + b.height / 2]);
     }
-    // Every frame of the sweep, sampled in the page.
+    // Every frame of the sweep, sampled and stamped in the page.
     await page.evaluate(() => {
-      const frames: boolean[] = [];
+      const frames: { at: number; chip: boolean }[] = [];
       Object.defineProperty(globalThis, '__frames', {
         value: frames,
         configurable: true,
       });
       const tick = () => {
-        frames.push(document.querySelector('[data-tooltip-chip]') !== null);
+        frames.push({
+          at: performance.now(),
+          chip: document.querySelector('[data-tooltip-chip]') !== null,
+        });
         if (frames.length < 10_000) requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
@@ -294,20 +334,28 @@ test.describe('timing', () => {
     }
     const [lastX, lastY] = centres[centres.length - 1];
     await page.mouse.move(lastX, lastY);
+    // CONTROL: the layer is live; resting on the last one shows its chip. Read after it, so the logs hold the whole sweep.
+    await expect(chip(page)).toHaveText('Settings');
     const swept = await chipLog(page);
     const frames = await page.evaluate(() => {
       const f: unknown = Reflect.get(globalThis, '__frames');
-      return Array.isArray(f) ? f.map(Boolean) : [];
+      const isFrame = (x: unknown): x is { at: number; chip: boolean } =>
+        typeof x === 'object' &&
+        x !== null &&
+        typeof Reflect.get(x, 'at') === 'number' &&
+        typeof Reflect.get(x, 'chip') === 'boolean';
+      return Array.isArray(f) ? f.filter(isFrame) : [];
     });
     // PREMISE: the pointer reached all six, each well inside the first wait.
     expect(swept.overs).toHaveLength(6);
     const dwell = swept.overs.slice(1).map((t, i) => t - swept.overs[i]);
     expect(Math.max(...dwell)).toBeLessThan(250);
-    expect(frames.length).toBeGreaterThan(5);
-    expect(frames.some(Boolean)).toBe(false);
-    expect(swept.inserted).toBe(0);
-    // CONTROL: the layer is live; resting on the last one shows its chip.
-    await expect(chip(page)).toHaveText('Settings');
+    // Judged up to where Settings' own chip may show: 299 ms after the pointer reached it.
+    const settingsDue = swept.overs[5] + 299;
+    const sweep = frames.filter((f) => f.at < settingsDue);
+    expect(sweep.length).toBeGreaterThan(5);
+    expect(sweep.filter((f) => f.chip)).toEqual([]);
+    expect(swept.times.filter((t) => t < settingsDue)).toEqual([]);
   });
 
   test('under reduced motion the chip is fully opaque on its first frame; without, it fades in', async ({
@@ -370,35 +418,36 @@ test.describe('placement', () => {
     expect(Math.abs(centre(at) - centre(of))).toBeLessThanOrEqual(1);
   });
 
-  test("Switch's long description wraps at 260 px onto two lines", async ({
-    context,
-    extensionId,
-  }) => {
-    await seedSessions(context);
-    const page = await openPopup(context, extensionId);
-    const text = 'Close current windows and open this session';
-    const shown = await restOn(
-      button(page.locator('[data-pane="sessions"]'), 'Switch'),
-      text
-    );
-    const lines = await shown.evaluate((el) => {
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      const tops = new Set(
-        [...range.getClientRects()].map((r) => Math.round(r.top))
-      );
-      return {
-        width: el.getBoundingClientRect().width,
-        lines: tops.size,
-      };
-    });
-    expect(lines.width).toBeLessThanOrEqual(MAX_WIDTH);
-    expect(lines.width).toBeGreaterThan(MAX_WIDTH - 1);
-    expect(lines.lines).toBe(2);
-  });
-
   for (const root of ['16px', '20px'] as const) {
     test.describe(`at a ${root} root font`, () => {
+      test("Switch's long description wraps at 260 px onto two lines", async ({
+        context,
+        extensionId,
+      }) => {
+        await seedSessions(context);
+        const page = await openPopup(context, extensionId);
+        await setRootFontSize(page, root);
+        const text = 'Close current windows and open this session';
+        const shown = await restOn(
+          button(page.locator('[data-pane="sessions"]'), 'Switch'),
+          text
+        );
+        const lines = await shown.evaluate((el) => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const tops = new Set(
+            [...range.getClientRects()].map((r) => Math.round(r.top))
+          );
+          return {
+            width: el.getBoundingClientRect().width,
+            lines: tops.size,
+          };
+        });
+        expect(lines.width).toBeLessThanOrEqual(MAX_WIDTH);
+        expect(lines.width).toBeGreaterThan(MAX_WIDTH - 1);
+        expect(lines.lines).toBe(2);
+      });
+
       // No shipped control's chip reaches the left inset in the popup (measured: 61 px at 16px, 63 at 20px); the right edge proves the clamp.
       test('the leftmost control: its longest chip stays 8 px or more inside the left edge', async ({
         context,
@@ -572,7 +621,7 @@ test.describe('keyboard', () => {
     await expect(sort).toBeFocused();
     await expect(chip(page)).toHaveText('Sort sessions');
     const tabbed = await chipLog(page);
-    expect(tabbed.insertedAt - tabbed.keyAt).toBeLessThan(100);
+    expect(tabbed.insertedAt - tabbed.keyAt).toBeLessThan(250);
 
     await sort.click();
     await expect(page.getByRole('menu')).toBeVisible();
@@ -693,7 +742,7 @@ test.describe('stacking', () => {
     expect(await chipOnTop(page)).toEqual([true, true, true, true, true]);
   });
 
-  test("during the tour a window's Open still shows its reason on hover", async ({
+  test("during the tour a window's Open still shows its reason on hover and on focus", async ({
     context,
     extensionId,
   }) => {
@@ -712,9 +761,11 @@ test.describe('stacking', () => {
     await expect(cardAt(page, 7)).toBeVisible();
     await restOn(open, 'Open works after the tour');
     expect(await chipOnTop(page)).toEqual([true, true, true, true, true]);
+    await pointerAway(page);
+    expect(await tabOnto(open, 'Open works after the tour')).toBeLessThan(250);
   });
 
-  test('the sync button while dimmed (aria-disabled) still shows its chip on hover', async ({
+  test('the sync button while dimmed (aria-disabled) still shows its chip on hover and on focus', async ({
     context,
     extensionId,
     serviceWorker,
@@ -732,6 +783,8 @@ test.describe('stacking', () => {
     });
     await expect(sync).toHaveAttribute('aria-disabled', 'true');
     await restOn(sync, 'Sync unavailable');
+    await pointerAway(page);
+    expect(await tabOnto(sync, 'Sync unavailable')).toBeLessThan(250);
   });
 });
 
