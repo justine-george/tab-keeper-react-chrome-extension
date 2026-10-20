@@ -234,9 +234,18 @@ test('a right press on another row while a menu is open swaps menus; a press out
 
   // Pick 3 holds for an open ⋮ too: the right press closes it and opens the row's.
   await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
   await sessionHeaderMenu(page).click();
+  // The header ⋮'s own menu, drawn inside its anchor, not portalled.
+  const headerMenu = page.locator(
+    '[data-tour-anchor="session-menu"] [role="menu"]'
+  );
+  await expect(headerMenu).toBeVisible();
+  await expect(menu).toHaveCount(0);
   await expect(page.getByRole('menu')).toHaveCount(1);
   await rightClickAt(page, await onTitle(sessionRow(page, 'S4')));
+  await expect(headerMenu).toHaveCount(0);
+  await expect(menu).toHaveCount(1);
   await expect(page.getByRole('menu')).toHaveCount(1);
   await expect(menu).toHaveAccessibleName('More actions: Session 4');
 
@@ -262,14 +271,13 @@ test('a right press on another row while a menu is open swaps menus; a press out
   await expect(menu).toHaveCount(0);
   expect((await stored(page)).selectedTabGroupId).toBe('S1');
 
-  // Esc: closes the menu, and is prevented so the real popup stays open.
+  // Esc: closes the menu, and is prevented so the real popup stays open (a tab here never closes on Esc).
   await rightClickAt(page, await onTitle(sessionRow(page, 'S2')));
   await expect(menu).toBeVisible();
   const escapesBefore = (await escapesPrevented(page)).length;
   await page.keyboard.press('Escape');
   await expect(menu).toHaveCount(0);
   expect((await escapesPrevented(page)).slice(escapesBefore)).toEqual([true]);
-  expect(page.isClosed()).toBe(false);
 
   // A scroll of the session list.
   const list = page.locator('[data-pane="sessions"] [data-session-column]');
