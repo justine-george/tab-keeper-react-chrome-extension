@@ -126,6 +126,7 @@ export function useRowContextMenu({
       const rect = anchor.getBoundingClientRect();
       openAt(id, { x: rect.left, y: rect.bottom }, false);
     },
+    // A press in a menu is never marked, so its item's click always lands (R1).
     onMouseDownCapture: (e) => {
       macCtrlPress.current =
         isMac && e.button === 0 && e.ctrlKey && !isWithin(e.target, MENU);
@@ -133,7 +134,6 @@ export function useRowContextMenu({
     onClickCapture: (e) => {
       if (!macCtrlPress.current) return;
       macCtrlPress.current = false;
-      if (isWithin(e.target, MENU)) return;
       e.preventDefault();
       e.stopPropagation();
     },
