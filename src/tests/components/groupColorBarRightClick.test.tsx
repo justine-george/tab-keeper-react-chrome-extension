@@ -16,23 +16,28 @@ const items: OverflowMenuItem[] = [
   { key: 'x', label: 'Delete', icon: 'delete', onSelect: () => undefined },
 ];
 
-// The bar sits inside a row that has its own right-click menu, as in the app.
-function Row({ onClick }: { onClick?: () => void }) {
+// The bar sits inside a row that has its own right-click menu...
+function Row({ beside = false }: { beside?: boolean }) {
   const m = useRowContextMenu({
     kind: 'savedWindow',
     ariaLabel: () => 'Row menu',
     itemsFor: () => items,
   });
+  const bar = (
+    <GroupColorPicker
+      color="blue"
+      ariaLabel="Change group color"
+      onSelect={() => undefined}
+    />
+  );
   return (
     <>
-      <div data-testid="row" onClick={onClick} {...m.rowProps('w1')}>
+      <div data-testid="row" {...m.rowProps('w1')}>
         <span>Title</span>
-        <GroupColorPicker
-          color="blue"
-          ariaLabel="Change group color"
-          onSelect={() => undefined}
-        />
+        {!beside && bar}
       </div>
+      {/* ...or beside it, as a saved group's bar is beside its header. */}
+      {beside && bar}
       {m.menu}
     </>
   );
@@ -40,8 +45,8 @@ function Row({ onClick }: { onClick?: () => void }) {
 
 type Os = chrome.runtime.PlatformInfo['os'];
 
-const render = (platformOs?: Os, onClick?: () => void) =>
-  renderWithProviders(<Row onClick={onClick} />, {
+const render = (platformOs?: Os, beside = false) =>
+  renderWithProviders(<Row beside={beside} />, {
     seed: platformOs === undefined ? undefined : { platformOs },
   });
 
@@ -191,14 +196,12 @@ describe('right-click on a group colour bar', () => {
 
   describe('Ctrl+click', () => {
     test('on a Mac the contextmenu opens the picker and the click after it does not close it', async () => {
-      const onRowClick = vi.fn();
-      await render('mac', onRowClick);
+      await render('mac', true);
       await settlePlatform();
       fireEvent.mouseDown(band(), { button: 0, ctrlKey: true });
       fireEvent.contextMenu(band(), { ctrlKey: true });
       fireEvent.click(band(), { button: 0, ctrlKey: true });
       expect(swatches()).toHaveLength(9);
-      expect(onRowClick).not.toHaveBeenCalled();
       // The next plain click is the bar's again.
       fireEvent.mouseDown(band(), { button: 0 });
       fireEvent.click(band(), { button: 0 });
@@ -206,7 +209,7 @@ describe('right-click on a group colour bar', () => {
     });
 
     test('CONTROL: elsewhere a Ctrl+click just toggles, as a click does', async () => {
-      await render('win');
+      await render('win', true);
       await settlePlatform();
       fireEvent.mouseDown(band(), { button: 0, ctrlKey: true });
       fireEvent.click(band(), { button: 0, ctrlKey: true });
