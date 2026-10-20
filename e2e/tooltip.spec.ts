@@ -776,7 +776,7 @@ test.describe('drag', () => {
     await restOn(deletes.nth(5), 'Delete tab');
   });
 
-  test('a chip showing when a drag starts hides at once, the pointer still on its control', async ({
+  test('a press that slides onto another control shows no chip while held, and one after it is let go', async ({
     context,
     extensionId,
   }) => {
@@ -790,19 +790,48 @@ test.describe('drag', () => {
     const y = b.top + b.height / 2;
     // Pressed on the row just left of its Delete tab, then onto it: 4 px, short of the 5 px a drag needs.
     await pointerAway(page);
+    await watchChips(page);
     await page.mouse.move(b.left - 3, y);
     await page.mouse.down();
     await page.mouse.move(b.left + 1, y);
-    await expect(chip(page)).toHaveText('Delete tab');
+    await page.waitForTimeout(450);
+    // PREMISE: still a press, not a drag, and the pointer reached the control.
     await expect(page.locator('html')).not.toHaveAttribute(
       'data-dragging',
       /.*/
     );
+    expect(
+      await control.evaluate(
+        (el, [x, py]) => {
+          const top = document.elementFromPoint(x, py);
+          return top !== null && el.contains(top);
+        },
+        [b.left + 1, y]
+      )
+    ).toBe(true);
+    expect((await chipLog(page)).inserted).toBe(0);
 
-    await page.mouse.move(b.left + 6, y, { steps: 3 });
-    await expect(page.locator('html')).toHaveAttribute('data-dragging', /.*/);
-    await expect(chip(page)).toHaveCount(0);
     await page.mouse.up();
+    // CONTROL: let go, a rest on it shows its chip.
+    await restOn(control, 'Delete tab');
+  });
+
+  // R12. Every real drag or carry starts with a press, which already hides the chip; this pins the marker's own hide.
+  test('a chip showing when the page marks a drag hides at once', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: [session('S1', 'Rows', [savedWindow('w1', 'Window 1', 6)])],
+    });
+    const control = page
+      .locator('[data-pane="detail"] [aria-label="Delete tab"]')
+      .nth(2);
+    await restOn(control, 'Delete tab');
+    await page.evaluate(() =>
+      document.documentElement.setAttribute('data-dragging', 'tab')
+    );
+    await expect(chip(page)).toHaveCount(0);
   });
 });
 

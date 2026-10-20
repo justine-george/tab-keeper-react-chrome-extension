@@ -101,6 +101,8 @@ function createTooltips() {
     let lastHiddenAt: number | null = null;
     // A Tab or arrow key is down: the focus it moves shows a chip (memory a-timer-cannot-end-a-keys-turn).
     let navKeyDown = false;
+    // A pointer button is held: nothing shows until it is let go, as with Chrome's own tooltip.
+    let pressed = false;
 
     const cancel = () => {
       if (pending === null) return;
@@ -170,7 +172,7 @@ function createTooltips() {
       if (anchor === hovered) return;
       leaveHover();
       hovered = anchor;
-      if (anchor !== null) schedule(anchor);
+      if (anchor !== null && !pressed) schedule(anchor);
     };
     const onPointerOut = (e: PointerEvent) => {
       if (e.pointerType === 'touch') return;
@@ -186,7 +188,11 @@ function createTooltips() {
     };
     const onPointerDown = () => {
       navKeyDown = false;
+      pressed = true;
       hide();
+    };
+    const onPointerUp = () => {
+      pressed = false;
     };
     const onFocusIn = (e: FocusEvent) => {
       if (!navKeyDown) return;
@@ -208,6 +214,8 @@ function createTooltips() {
     };
     const onBlur = () => {
       navKeyDown = false;
+      // Its pointerup may land in another window.
+      pressed = false;
       hide();
     };
     // Within a key's turn a scroll is that key's focus move bringing its control into view (R9).
@@ -220,6 +228,8 @@ function createTooltips() {
     document.addEventListener('pointerout', onPointerOut);
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('pointerup', onPointerUp, true);
+    document.addEventListener('pointercancel', onPointerUp, true);
     document.addEventListener('focusin', onFocusIn);
     document.addEventListener('focusout', onFocusOut);
     document.addEventListener('keydown', onKeyDown, true);
@@ -231,6 +241,8 @@ function createTooltips() {
       document.removeEventListener('pointerout', onPointerOut);
       document.removeEventListener('pointermove', onPointerMove);
       document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('pointerup', onPointerUp, true);
+      document.removeEventListener('pointercancel', onPointerUp, true);
       document.removeEventListener('focusin', onFocusIn);
       document.removeEventListener('focusout', onFocusOut);
       document.removeEventListener('keydown', onKeyDown, true);

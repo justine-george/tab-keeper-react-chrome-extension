@@ -62,6 +62,12 @@ const press = (el: Element) =>
       new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })
     );
   });
+const release = (el: Element) =>
+  act(() => {
+    el.dispatchEvent(
+      new PointerEvent('pointerup', { bubbles: true, pointerType: 'mouse' })
+    );
+  });
 const key = (
   type: 'keydown' | 'keyup',
   k: string,
@@ -339,6 +345,32 @@ describe('it hides', () => {
     pointerTo(screen.getByTestId('outer-text'));
     wait(1000);
     expect(chip()).toBeNull();
+  });
+
+  test('a press that slides onto another control shows nothing until let go; a rest after shows at the usual wait', async () => {
+    await setup();
+    pointerTo(byTip('Save session'));
+    press(byTip('Save session'));
+    pointerTo(byTip('Delete'));
+    wait(1000);
+    expect(chip()).toBeNull();
+    release(byTip('Delete'));
+    pointerTo(byTip('Save session'));
+    wait(299);
+    expect(chip()).toBeNull();
+    wait(1);
+    expect(chip()).toHaveTextContent('Save session');
+  });
+
+  test('a press whose release is lost to another window ends with the blur', async () => {
+    await setup();
+    press(byTip('Save session'));
+    act(() => {
+      window.dispatchEvent(new FocusEvent('blur'));
+    });
+    pointerTo(byTip('Delete'));
+    wait(300);
+    expect(chip()).toHaveTextContent('Delete');
   });
 
   test('when any element scrolls', async () => {
