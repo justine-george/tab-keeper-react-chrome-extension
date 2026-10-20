@@ -14,6 +14,7 @@ import {
   type tabData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { buildSession } from '../fixtures/sessionFixture';
+import { classRulesFor } from '../setup/hoverRules';
 
 // KAN-720. The saved pane's window and group rows say how many tabs they draw.
 afterEach(() => localStorage.clear());
@@ -131,6 +132,17 @@ describe('saved window and group rows tag their tab count', () => {
       name: 'Rename window: Window 1',
     });
     expect(getComputedStyle(windowTitle).paddingRight).toBe('0px');
+  });
+
+  test('the window title, only as wide as its text, draws its ring outside and its ghost past the text', async () => {
+    await renderWindow(GROUPED);
+    const rules = classRulesFor(
+      screen.getByRole('button', { name: 'Rename window: Window 1' })
+    );
+    // The default inset ring is in the sheet too; the last rule is the one that wins.
+    const offsets = [...rules.matchAll(/outline-offset:\s*(-?\d+px)/g)];
+    expect(offsets.at(-1)?.[1]).toBe('2px');
+    expect(rules).toMatch(/::before[^}]*right:\s*-4px/);
   });
 
   test('a one-tab window says "1 Tab"', async () => {

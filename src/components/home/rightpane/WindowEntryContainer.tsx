@@ -1088,9 +1088,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                   ariaLabel={t('Rename window') + ': ' + label.text}
                   onClick={startEditing}
                   buttonRef={titleFocus.refFor('window')}
-                  // KAN-720. No right padding: the tag's margin is the gap, its slot the clearance.
+                  // KAN-720. No right padding: the tag's margin is the gap, its slot the clearance. The box ends at the text, so the ghost and ring go outside it (KAN-685).
                   style={
-                    parentLinkStyle + 'padding-right: 0;' + titleButtonStyle
+                    parentLinkStyle +
+                    'padding-right: 0;' +
+                    titleButtonStyle +
+                    '&::before { right: -4px; }' +
+                    focusRingOutsideCss(COLORS)
                   }
                 >
                   <NormalLabel
