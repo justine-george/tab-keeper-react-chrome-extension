@@ -204,8 +204,22 @@ describe('timing', () => {
     wait(300);
     expect(chip()).toHaveTextContent('Outer');
     pointerTo(screen.getByTestId('outer'));
+    expect(chip()).toHaveTextContent('Outer');
     wait(1000);
     expect(chip()).toHaveTextContent('Outer');
+  });
+
+  test('a move keeps the delay set on arrival, even past the warm window', async () => {
+    await setup();
+    showA();
+    pointerTo(screen.getByTestId('plain'));
+    wait(450);
+    const b = byTip('Delete');
+    pointerTo(b);
+    wait(50);
+    moveOn(b);
+    wait(100);
+    expect(chip()).toHaveTextContent('Delete');
   });
 });
 
@@ -313,6 +327,16 @@ describe('it hides', () => {
     press(byTip('Save session'));
     expect(chip()).toBeNull();
     moveOn(byTip('Save session'));
+    wait(1000);
+    expect(chip()).toBeNull();
+  });
+
+  test('a pressed anchor stays hidden while the pointer moves onto its child', async () => {
+    await setup();
+    pointerTo(screen.getByTestId('outer'));
+    wait(300);
+    press(screen.getByTestId('outer'));
+    pointerTo(screen.getByTestId('outer-text'));
     wait(1000);
     expect(chip()).toBeNull();
   });
@@ -435,17 +459,22 @@ describe('the repeat rule', () => {
 describe('what it draws, and where', () => {
   test('the chip is hidden from screen readers and the anchor keeps every attribute', async () => {
     await setup();
+    const attrs = (el: Element) =>
+      el.getAttributeNames().map((n) => [n, el.getAttribute(n)]);
     const replace = screen.getByRole('button', { name: 'Replace' });
-    const before = replace
-      .getAttributeNames()
-      .map((n) => [n, replace.getAttribute(n)]);
+    const before = attrs(replace);
     pointerTo(replace);
     wait(300);
     expect(chip()).toHaveAttribute('aria-hidden', 'true');
     expect(replace).toHaveAccessibleDescription('Replace with open windows');
-    expect(
-      replace.getAttributeNames().map((n) => [n, replace.getAttribute(n)])
-    ).toEqual(before);
+    expect(attrs(replace)).toEqual(before);
+
+    const a = byTip('Save session');
+    const plainBefore = attrs(a);
+    pointerTo(a);
+    wait(100);
+    expect(chip()).toHaveTextContent('Save session');
+    expect(attrs(a)).toEqual(plainBefore);
   });
 
   test('outside a dialog the chip is drawn in body', async () => {
