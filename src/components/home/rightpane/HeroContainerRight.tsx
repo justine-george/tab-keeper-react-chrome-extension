@@ -35,10 +35,9 @@ import {
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import { useMacKeys } from '../../../hooks/useIsMac';
+import { sessionMenuItems } from '../sessionMenuItems';
 import {
   addCurrWindowToTabGroup,
-  deleteTabContainer,
-  removeDuplicateTabs,
   replaceSessionWithOpenWindows,
   openAllTabContainer,
   requestFocusTabContainer,
@@ -47,14 +46,8 @@ import {
 import {
   collapsedWindowIdsOf,
   setAllWindowsCollapsed,
-  showToast,
 } from '../../../redux/slices/globalStateSlice';
-import { copySessionLinks } from '../../../utils/functions/copySessionLinks';
 import { readRecentTabs } from '../../../utils/functions/recentTabs';
-import { tidySessionForExport } from '../../../utils/functions/sessionExportHtml';
-import { countDuplicateTabs } from '../../../utils/functions/duplicateTabs';
-import { openBesideActiveTab } from '../../../utils/functions/openBesideActiveTab';
-import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
@@ -163,7 +156,6 @@ export default function HeroContainerRight() {
   // between the nothing-selected and selected renders, and React throws
   // "Rendered more hooks than during the previous render" on that transition.
   if (!selectedTabGroup) return null;
-  const duplicateCount = countDuplicateTabs(selectedTabGroup);
 
   // `editableTitle` is a DRAFT: nothing reads it unless `isEditing` is true, so
   // it is seeded at the moment editing starts rather than kept in step with the
@@ -599,90 +591,12 @@ export default function HeroContainerRight() {
                 // rightward, inside this pane. End-aligned, it crossed the pane
                 // divider and covered the session list.
                 align="start"
-                items={[
-                  {
-                    // KAN-209. The one output that needs no preview: Copy ignores
-                    // the layout and colour choices the export page exists to
-                    // offer, so reaching it through a new tab was a detour.
-                    //
-                    // FIRST, because it is the only item here that finishes where
-                    // it started -- Export opens a tab, Delete changes the session
-                    // -- so the menu reads cheap, heavier, destructive.
-                    //
-                    // TIDIED, exactly as the export page's Copy is (KAN-210).
-                    // KAN-202's clean-ups -- dropping a site's notification count
-                    // from a title, and unwrapping a suspended tab's real address
-                    // -- are not a preview concern: they are wrong in anything
-                    // anyone shares, whichever button produced it. This shipped
-                    // passing the raw session, so the shortcut gave the worse of
-                    // two answers for the same command.
-                    //
-                    // No edits applied: there is no preview here to respect, which
-                    // is the only difference left between the two call sites.
-                    key: 'copy',
-                    label: t('Copy all links'),
-                    icon: 'link',
-                    onSelect: async () => {
-                      const count = await copySessionLinks(
-                        tidySessionForExport(selectedTabGroup),
-                        t,
-                        i18n.language
-                      );
-                      // The clipboard says nothing of its own, and unlike the
-                      // export page there is no room here for an inline note.
-                      dispatch(
-                        showToast({
-                          toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
-                          toastParams: { count },
-                          stacksOnTwin: true,
-                        })
-                      );
-                    },
-                  },
-                  {
-                    key: 'export',
-                    label: t('Export session'),
-                    icon: 'ios_share',
-                    onSelect: () => {
-                      // Opening a tab takes focus, which destroys the popup.
-                      // Nothing may be sequenced after this call -- the whole
-                      // address is built first, so there is nothing left to do
-                      // when the context dies.
-                      void openBesideActiveTab(
-                        chrome.runtime.getURL(
-                          `export.html?session=${encodeURIComponent(
-                            tabGroupId
-                          )}`
-                        )
-                      );
-                    },
-                  },
-                  // KAN-609. Only while there is one to remove: the menu has no
-                  // dimmed item, and "Remove 0" would say what it isn't doing.
-                  // Before Delete, which stays last as the heaviest.
-                  ...(duplicateCount > 0
-                    ? [
-                        {
-                          key: 'duplicates',
-                          label: t('RemoveDuplicateTabs', {
-                            count: duplicateCount,
-                          }),
-                          icon: 'stack_off' as const,
-                          onSelect: () =>
-                            void dispatch(removeDuplicateTabs({ tabGroupId })),
-                        },
-                      ]
-                    : []),
-                  {
-                    key: 'delete',
-                    label: t('Delete session'),
-                    icon: 'delete',
-                    danger: true,
-                    shortcut: deleteKey,
-                    onSelect: () =>
-                      void dispatch(deleteTabContainer(tabGroupId)),
-                  },
-                ]}
+                items={sessionMenuItems(selectedTabGroup, {
+                  t,
+                  language: i18n.language,
+                  dispatch,
+                  deleteKey,
+                })}
               />
             </div>
           )}

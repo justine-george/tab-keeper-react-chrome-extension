@@ -54,7 +54,12 @@ import {
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
 import { useMacKeys } from '../../../hooks/useIsMac';
-import { deleteKeyShortcutsFor } from '../../../utils/functions/deleteKey';
+import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
+import { sessionMenuItems } from '../sessionMenuItems';
+import {
+  deleteKeyShortcutsFor,
+  isDeleteKey,
+} from '../../../utils/functions/deleteKey';
 import { selectRunHoldsDelete } from '../../../redux/firstRun';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
 import { DURATION } from '../../../styles/scale';
@@ -67,10 +72,11 @@ import {
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
   // KAN-592. Until Chrome says Mac, the PC form.
-  const deleteKeyShortcuts = deleteKeyShortcutsFor(useMacKeys());
+  const isMac = useMacKeys();
+  const deleteKeyShortcuts = deleteKeyShortcutsFor(isMac);
 
   // The scrolling element, so KAN-143's effect scopes its lookup to this list
   // rather than searching the whole document.
@@ -93,6 +99,28 @@ export default function TabGroupEntryContainer() {
   const { text: searchText, term: searchTerm, isSearching } = useSavedSearch();
   const { query: noMatchQuery, place: noMatchPlace } = useNoMatchPlace();
   const isEmpty = useIsSavedListEmpty();
+
+  // KAN-708. A row's right-click menu: the header ⋮'s items, for the row that was clicked.
+  const sessionById = (id: string) =>
+    tabContainerDataList.tabGroups.find((g) => g.tabGroupId === id);
+  const sessionMenu = useRowContextMenu({
+    kind: 'session',
+    ariaLabel: (id) => `${t('More actions')}: ${sessionById(id)?.title ?? ''}`,
+    itemsFor: (id) => {
+      const session = sessionById(id);
+      if (isSearching || session === undefined) return null;
+      return sessionMenuItems(session, {
+        t,
+        language: i18n.language,
+        dispatch,
+        deleteKey: {
+          hint: isMac ? '⌫' : t('Del'),
+          ariaKeyShortcuts: deleteKeyShortcuts,
+          matches: isDeleteKey,
+        },
+      });
+    },
+  });
 
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
@@ -586,6 +614,9 @@ export default function TabGroupEntryContainer() {
                         );
                       }}
                       deleteKeyShortcuts={deleteKeyShortcuts}
+                      rowMenuProps={sessionMenu.rowProps(
+                        tabGroupData.tabGroupId
+                      )}
                       carryTarget={
                         tabGroupData.tabGroupId === carryTargetId
                           ? {
@@ -605,6 +636,8 @@ export default function TabGroupEntryContainer() {
           </div>
         )}
       </div>
+      {/* KAN-708. Beside the rows, not inside one: a portal's events bubble through the React tree (R1). */}
+      {sessionMenu.menu}
     </div>
   );
 }
