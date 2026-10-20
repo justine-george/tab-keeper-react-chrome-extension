@@ -34,6 +34,7 @@ import {
 } from '../../../utils/functions/local';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
+import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
 import { sessionMenuItems, useSessionDeleteKey } from '../sessionMenuItems';
 import {
   addCurrWindowToTabGroup,
@@ -131,6 +132,22 @@ export default function HeroContainerRight() {
   const isOpenBlocked = useIsOpenBlockedByTour(selectedTabGroup?.tabGroupId);
   // KAN-592, KAN-638. The row's Delete key also deletes from the open ⋮.
   const deleteKey = useSessionDeleteKey();
+  // KAN-708. One ctx for the header ⋮ and the header's right-click menu.
+  const menuCtx = { t, language: i18n.language, dispatch, deleteKey };
+  // KAN-708. Right-clicking the header opens the ⋮ items; none while searching, when the ⋮ is hidden.
+  const headerMenu = useRowContextMenu({
+    kind: 'session',
+    ariaLabel: (id) =>
+      `${t('More actions')}: ${
+        id === selectedTabGroup?.tabGroupId ? selectedTabGroup.title : ''
+      }`,
+    itemsFor: (id) =>
+      isSearching ||
+      selectedTabGroup === undefined ||
+      id !== selectedTabGroup.tabGroupId
+        ? null
+        : sessionMenuItems(selectedTabGroup, menuCtx),
+  });
   // KAN-582. The tour's Delete step points at this ⋮, which then explains only (hard rule 2).
   const holdsDelete = useSelector(
     (state: RootState) =>
@@ -292,179 +309,181 @@ export default function HeroContainerRight() {
   );
 
   return (
-    <div
-      css={containerStyle}
-      onMouseEnter={() => setIsContainerHovered(true)}
-      onMouseLeave={() => setIsContainerHovered(false)}
-    >
-      <div css={topStyle}>
-        <div
-          css={css`
-            display: flex;
-            flex-direction: row;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-            ${focusRingOverTickCss(COLORS, '&:has(> input:focus-visible)')}
-          `}
-        >
-          {isEditing ? (
-            <input
-              value={editableTitle}
-              onBlur={handleBlur}
-              onChange={handleChange}
-              onKeyDown={(e) =>
-                renameKeyDown(
-                  e,
-                  () => {
-                    titleFocus.ask('title');
-                    handleBlur();
-                  },
-                  () => {
-                    titleFocus.ask('title');
-                    cancelRename();
-                  }
-                )
-              }
-              autoFocus
-              data-tour-anchor="title"
-              css={css`
-                color: ${COLORS.TEXT_COLOR};
-                background-color: ${COLORS.PRIMARY_COLOR};
-                border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
-                display: flex;
-                align-items: center;
-                font-family: ${FONT_FAMILY};
-                font-size: ${TYPE.SECTION};
-                height: 32px;
-                padding-left: 8px;
-                padding-right: 8px;
-                flex-grow: 1;
-                &:focus {
-                  outline: none;
-                }
-              `}
-            />
-          ) : (
-            // KAN-77. Click-to-rename used to be an onClick on the NormalLabel,
-            // which renders a bare `<div onClick>` -- no role, no tab stop. The
-            // accessible name has to CONTAIN the visible title rather than
-            // replace it (WCAG 2.5.3): a bare "Rename session" would leave a
-            // voice-control user saying "click Research" with nothing to hit.
-            // Same `action + ': ' + target` shape as WindowEntryContainer:269.
-            <ClickableRow
-              ariaLabel={t('Rename session') + ': ' + title}
-              onClick={startEditing}
-              buttonRef={titleFocus.refFor('title')}
-              tourAnchor="title"
-              // min-width: 0 is load-bearing. A <button> has `overflow:
-              // visible`, so its `min-width: auto` does NOT collapse to zero
-              // the way the bare label's did, and without this the title stops
-              // truncating and runs under the action block.
-              style={
-                'display: flex; align-items: center; min-width: 0;' +
-                renameOnClickStyle(COLORS, COLORS.SECONDARY_COLOR)
-              }
-            >
-              {titleLabel}
-            </ClickableRow>
-          )}
+    <>
+      <div
+        css={containerStyle}
+        {...headerMenu.rowProps(tabGroupId)}
+        onMouseEnter={() => setIsContainerHovered(true)}
+        onMouseLeave={() => setIsContainerHovered(false)}
+      >
+        <div css={topStyle}>
           <div
             css={css`
-              position: absolute;
-              top: 50%;
-              right: 0;
-              transform: translateY(-50%);
-              /* The tick is the edit's save control, shown for the whole edit as the window's is (KAN-677). */
-              opacity: ${isEditing || isContainerHovered ? 1 : 0};
-              transition: opacity ${DURATION.COLOR} ease-out;
-              /* The keyboard's equivalent of the hover reveal (KAN-68); keyboard focus only (KAN-636). */
-              ${whileKeyNav('&:has(:focus-visible)')} {
-                opacity: 1;
-              }
+              display: flex;
+              flex-direction: row;
+              justify-content: space-between;
+              align-items: center;
+              width: 100%;
+              ${focusRingOverTickCss(COLORS, '&:has(> input:focus-visible)')}
             `}
           >
-            {/* Editing swaps the pencil for a tick rather than leaving the
+            {isEditing ? (
+              <input
+                value={editableTitle}
+                onBlur={handleBlur}
+                onChange={handleChange}
+                onKeyDown={(e) =>
+                  renameKeyDown(
+                    e,
+                    () => {
+                      titleFocus.ask('title');
+                      handleBlur();
+                    },
+                    () => {
+                      titleFocus.ask('title');
+                      cancelRename();
+                    }
+                  )
+                }
+                autoFocus
+                data-tour-anchor="title"
+                css={css`
+                  color: ${COLORS.TEXT_COLOR};
+                  background-color: ${COLORS.PRIMARY_COLOR};
+                  border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
+                  display: flex;
+                  align-items: center;
+                  font-family: ${FONT_FAMILY};
+                  font-size: ${TYPE.SECTION};
+                  height: 32px;
+                  padding-left: 8px;
+                  padding-right: 8px;
+                  flex-grow: 1;
+                  &:focus {
+                    outline: none;
+                  }
+                `}
+              />
+            ) : (
+              // KAN-77. Click-to-rename used to be an onClick on the NormalLabel,
+              // which renders a bare `<div onClick>` -- no role, no tab stop. The
+              // accessible name has to CONTAIN the visible title rather than
+              // replace it (WCAG 2.5.3): a bare "Rename session" would leave a
+              // voice-control user saying "click Research" with nothing to hit.
+              // Same `action + ': ' + target` shape as WindowEntryContainer:269.
+              <ClickableRow
+                ariaLabel={t('Rename session') + ': ' + title}
+                onClick={startEditing}
+                buttonRef={titleFocus.refFor('title')}
+                tourAnchor="title"
+                // min-width: 0 is load-bearing. A <button> has `overflow:
+                // visible`, so its `min-width: auto` does NOT collapse to zero
+                // the way the bare label's did, and without this the title stops
+                // truncating and runs under the action block.
+                style={
+                  'display: flex; align-items: center; min-width: 0;' +
+                  renameOnClickStyle(COLORS, COLORS.SECONDARY_COLOR)
+                }
+              >
+                {titleLabel}
+              </ClickableRow>
+            )}
+            <div
+              css={css`
+                position: absolute;
+                top: 50%;
+                right: 0;
+                transform: translateY(-50%);
+                /* The tick is the edit's save control, shown for the whole edit as the window's is (KAN-677). */
+                opacity: ${isEditing || isContainerHovered ? 1 : 0};
+                transition: opacity ${DURATION.COLOR} ease-out;
+                /* The keyboard's equivalent of the hover reveal (KAN-68); keyboard focus only (KAN-636). */
+                ${whileKeyNav('&:has(:focus-visible)')} {
+                  opacity: 1;
+                }
+              `}
+            >
+              {/* Editing swaps the pencil for a tick rather than leaving the
                 block empty, matching the window rename below. Enter and
                 clicking away both already committed, but neither is an
                 affordance a pointer user can see -- "click somewhere else to
                 save" is not something an interface can ask of anyone. */}
-            {isEditing ? (
-              // The wrapper exists to carry onMouseDown, which Icon does not
-              // expose. preventDefault keeps focus in the input so the tick
-              // does not blur it, which makes onClick below the SINGLE commit
-              // path rather than one of two racing ones (blur, then click).
-              //
-              // Measured: the wrapper alone is what stops the editor
-              // reopening -- without any wrapper, the tick unmounts on commit
-              // and the click retargets onto the pencil that replaced it. The
-              // preventDefault is pinned separately, by asserting the
-              // mousedown is defaultPrevented.
-              <span onMouseDown={(e) => e.preventDefault()}>
+              {isEditing ? (
+                // The wrapper exists to carry onMouseDown, which Icon does not
+                // expose. preventDefault keeps focus in the input so the tick
+                // does not blur it, which makes onClick below the SINGLE commit
+                // path rather than one of two racing ones (blur, then click).
+                //
+                // Measured: the wrapper alone is what stops the editor
+                // reopening -- without any wrapper, the tick unmounts on commit
+                // and the click retargets onto the pencil that replaced it. The
+                // preventDefault is pinned separately, by asserting the
+                // mousedown is defaultPrevented.
+                <span onMouseDown={(e) => e.preventDefault()}>
+                  <Icon
+                    tooltipText={t('Save changes')}
+                    ariaLabel={t('Save changes')}
+                    type="done"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      titleFocus.ask('title');
+                      handleBlur();
+                    }}
+                  />
+                </span>
+              ) : (
                 <Icon
-                  tooltipText={t('Save changes')}
-                  ariaLabel={t('Save changes')}
-                  type="done"
+                  tooltipText={t('Rename session')}
+                  ariaLabel={t('Rename session')}
+                  type="edit"
+                  backgroundColor={COLORS.SECONDARY_COLOR}
                   onClick={(e) => {
                     e.stopPropagation();
-                    titleFocus.ask('title');
-                    handleBlur();
+                    startEditing();
                   }}
                 />
-              </span>
-            ) : (
-              <Icon
-                tooltipText={t('Rename session')}
-                ariaLabel={t('Rename session')}
-                type="edit"
-                backgroundColor={COLORS.SECONDARY_COLOR}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  startEditing();
-                }}
-              />
-            )}
+              )}
+            </div>
           </div>
+          <NormalLabel
+            value={formatGroupCounts(windowCount, tabCount, isSearching, t)}
+            size={TYPE.META}
+            color={COLORS.LABEL_L1_COLOR}
+            style={`padding-top: 2px; padding-left: 8px;`}
+          />
+          <NormalLabel
+            // Same helper as the left pane row, so the two panes cannot show
+            // the same session two different dates (KAN-141).
+            // i18n.language, not a constant: the date is formatted in the user's
+            // own locale (KAN-85). Trimmed, with the full timestamp on hover
+            // (KAN-347).
+            value={sessionDateLabel(
+              selectedTabGroup,
+              sessionDateBasis,
+              i18n.language,
+              timeFormat,
+              t,
+              today
+            )}
+            tooltipText={sessionDateTitle(
+              selectedTabGroup,
+              sessionDateBasis,
+              i18n.language,
+              timeFormat
+            )}
+            size={TYPE.META}
+            color={COLORS.LABEL_L2_COLOR}
+            style="padding-top: 2px; padding-left: 8px;"
+          />
         </div>
-        <NormalLabel
-          value={formatGroupCounts(windowCount, tabCount, isSearching, t)}
-          size={TYPE.META}
-          color={COLORS.LABEL_L1_COLOR}
-          style={`padding-top: 2px; padding-left: 8px;`}
-        />
-        <NormalLabel
-          // Same helper as the left pane row, so the two panes cannot show
-          // the same session two different dates (KAN-141).
-          // i18n.language, not a constant: the date is formatted in the user's
-          // own locale (KAN-85). Trimmed, with the full timestamp on hover
-          // (KAN-347).
-          value={sessionDateLabel(
-            selectedTabGroup,
-            sessionDateBasis,
-            i18n.language,
-            timeFormat,
-            t,
-            today
-          )}
-          tooltipText={sessionDateTitle(
-            selectedTabGroup,
-            sessionDateBasis,
-            i18n.language,
-            timeFormat
-          )}
-          size={TYPE.META}
-          color={COLORS.LABEL_L2_COLOR}
-          style="padding-top: 2px; padding-left: 8px;"
-        />
-      </div>
-      <div css={bottomStyle} data-session-toolbar>
-        <div
-          css={css`
-            display: flex;
-            padding-top: 8px;
-          `}
-        >
-          {/* KAN-206. Folds every window in this session, or unfolds them all.
+        <div css={bottomStyle} data-session-toolbar>
+          <div
+            css={css`
+              display: flex;
+              padding-top: 8px;
+            `}
+          >
+            {/* KAN-206. Folds every window in this session, or unfolds them all.
               First, as in Open now (KAN-377); the overflow stays last.
 
               unfold_less/unfold_more rather than a doubled expand_less: every
@@ -478,182 +497,180 @@ export default function HeroContainerRight() {
               control offering the opposite of what the pane needs. A boolean
               alternating on each press disagrees in exactly that case, which is
               what collapseAllWindows.test.tsx pins. */}
-          <Icon
-            tooltipText={
-              anyWindowOpen
-                ? t('Collapse all windows')
-                : t('Expand all windows')
-            }
-            ariaLabel={
-              anyWindowOpen
-                ? t('Collapse all windows')
-                : t('Expand all windows')
-            }
-            type={anyWindowOpen ? 'unfold_less' : 'unfold_more'}
-            onClick={() =>
-              dispatch(
-                setAllWindowsCollapsed({
-                  tabGroupId,
-                  // The ids to fold, or none at all. Read off the session's own
-                  // windows rather than accumulated from presses, so a window
-                  // added or removed since the last press is accounted for.
-                  windowIds: anyWindowOpen
-                    ? selectedTabGroup.windows.map((w) => w.windowId)
-                    : [],
-                })
-              )
-            }
-          />
-          {!isSearching && (
-            <span
-              data-tour-anchor="open"
-              css={css`
-                display: flex;
-              `}
-            >
+            <Icon
+              tooltipText={
+                anyWindowOpen
+                  ? t('Collapse all windows')
+                  : t('Expand all windows')
+              }
+              ariaLabel={
+                anyWindowOpen
+                  ? t('Collapse all windows')
+                  : t('Expand all windows')
+              }
+              type={anyWindowOpen ? 'unfold_less' : 'unfold_more'}
+              onClick={() =>
+                dispatch(
+                  setAllWindowsCollapsed({
+                    tabGroupId,
+                    // The ids to fold, or none at all. Read off the session's own
+                    // windows rather than accumulated from presses, so a window
+                    // added or removed since the last press is accounted for.
+                    windowIds: anyWindowOpen
+                      ? selectedTabGroup.windows.map((w) => w.windowId)
+                      : [],
+                  })
+                )
+              }
+            />
+            {!isSearching && (
+              <span
+                data-tour-anchor="open"
+                css={css`
+                  display: flex;
+                `}
+              >
+                <Icon
+                  tooltipText={afterTheTour?.open ?? t('Open session')}
+                  ariaLabel={afterTheTour?.open ?? t('Open session')}
+                  type="reopen_window"
+                  disable={isOpenBlocked}
+                  style={isOpenBlocked ? 'opacity: 0.3;' : undefined}
+                  onClick={() => {
+                    const goToURLText: string = t('Go to URL');
+                    dispatch(openAllTabContainer({ tabGroupId, goToURLText }));
+                  }}
+                />
+              </span>
+            )}
+            {/* KAN-279 D7. Switching closes the windows hosting Tab Keeper
+              itself when this page IS the tab view, so hidden there. */}
+            {!isSearching && !isTabView() && (
               <Icon
-                tooltipText={afterTheTour?.open ?? t('Open session')}
-                ariaLabel={afterTheTour?.open ?? t('Open session')}
-                type="reopen_window"
+                tooltipText={afterTheTour?.switch ?? t('Switch to session')}
+                ariaLabel={afterTheTour?.switch ?? t('Switch to session')}
+                type="filter_center_focus"
                 disable={isOpenBlocked}
                 style={isOpenBlocked ? 'opacity: 0.3;' : undefined}
                 onClick={() => {
-                  const goToURLText: string = t('Go to URL');
-                  dispatch(openAllTabContainer({ tabGroupId, goToURLText }));
+                  dispatch(
+                    requestFocusTabContainer({
+                      tabGroupId,
+                      goToURLText: t('Go to URL'),
+                      saveTitle: t('FocusAutoSaveTitle'),
+                    })
+                  );
                 }}
               />
-            </span>
-          )}
-          {/* KAN-279 D7. Switching closes the windows hosting Tab Keeper
-              itself when this page IS the tab view, so hidden there. */}
-          {!isSearching && !isTabView() && (
-            <Icon
-              tooltipText={afterTheTour?.switch ?? t('Switch to session')}
-              ariaLabel={afterTheTour?.switch ?? t('Switch to session')}
-              type="filter_center_focus"
-              disable={isOpenBlocked}
-              style={isOpenBlocked ? 'opacity: 0.3;' : undefined}
-              onClick={() => {
-                dispatch(
-                  requestFocusTabContainer({
-                    tabGroupId,
-                    goToURLText: t('Go to URL'),
-                    saveTitle: t('FocusAutoSaveTitle'),
-                  })
-                );
-              }}
-            />
-          )}
-          {/* KAN-468, KAN-581. Every open window replaces this session's; one ⌘Z undoes it. */}
-          {!isSearching && (
-            <Icon
-              tooltipText={
-                afterTheTour?.replace ?? t('Replace with open windows')
-              }
-              ariaLabel={
-                afterTheTour?.replace ?? t('Replace with open windows')
-              }
-              type="browser_updated"
-              disable={isOpenBlocked}
-              style={isOpenBlocked ? 'opacity: 0.3;' : undefined}
-              onClick={() =>
-                void dispatch(replaceSessionWithOpenWindows(tabGroupId))
-              }
-            />
-          )}
-          {/* KAN-193. Export and Delete live behind one trigger rather than as
+            )}
+            {/* KAN-468, KAN-581. Every open window replaces this session's; one ⌘Z undoes it. */}
+            {!isSearching && (
+              <Icon
+                tooltipText={
+                  afterTheTour?.replace ?? t('Replace with open windows')
+                }
+                ariaLabel={
+                  afterTheTour?.replace ?? t('Replace with open windows')
+                }
+                type="browser_updated"
+                disable={isOpenBlocked}
+                style={isOpenBlocked ? 'opacity: 0.3;' : undefined}
+                onClick={() =>
+                  void dispatch(replaceSessionWithOpenWindows(tabGroupId))
+                }
+              />
+            )}
+            {/* KAN-193. Export and Delete live behind one trigger rather than as
               two more icons. A menu item carries words, so export cannot be
               misread the way its download glyph was once the flow began with
               a preview; and Delete stops sitting one mis-click from the two
               everyday actions. Deleting stays one menu away from recoverable:
               it is a captured action, so Undo restores it. */}
-          {!isSearching && (
-            <div
-              data-tour-anchor="session-menu"
-              css={css`
-                display: flex;
-              `}
-            >
-              <OverflowMenu
-                ariaLabel={t('More actions')}
-                disabled={holdsDelete}
-                // The trigger sits near the START of the row, so the menu opens
-                // rightward, inside this pane. End-aligned, it crossed the pane
-                // divider and covered the session list.
-                align="start"
-                items={sessionMenuItems(selectedTabGroup, {
-                  t,
-                  language: i18n.language,
-                  dispatch,
-                  deleteKey,
-                })}
-              />
-            </div>
-          )}
-        </div>
-        <div
-          css={css`
-            display: flex;
-          `}
-        >
-          {!isSearching && (
-            <Button
-              text={t('Add window')}
-              iconSize={ICON.SMALL}
-              tooltipText={t('Add current window')}
-              ariaLabel={t('Add window')}
-              // Not a bare plus. The left pane carries two plus-bearing controls
-              // -- `add_box` and `library_add` -- and both CREATE a session; this
-              // one appends to the session already on screen. Both of theirs are
-              // a plus inside a container, which is what makes them read as a
-              // pair; `playlist_add` has none, and says "add this to the list you
-              // are looking at", which is what a session is.
-              //
-              // Measured 79.7% / 81.1% distinct from those two (KAN-5's ink
-              // comparison), against the 54.1% they already measure from each
-              // other. A bare `add` scored 76.6% and was still the confusable one:
-              // the collision was in the meaning, which an ink metric cannot see.
-              iconType="playlist_add"
-              onClick={handleAddCurrWindowClick}
-              iconStyle={`
+            {!isSearching && (
+              <div
+                data-tour-anchor="session-menu"
+                css={css`
+                  display: flex;
+                `}
+              >
+                <OverflowMenu
+                  ariaLabel={t('More actions')}
+                  disabled={holdsDelete}
+                  // The trigger sits near the START of the row, so the menu opens
+                  // rightward, inside this pane. End-aligned, it crossed the pane
+                  // divider and covered the session list.
+                  align="start"
+                  items={sessionMenuItems(selectedTabGroup, menuCtx)}
+                />
+              </div>
+            )}
+          </div>
+          <div
+            css={css`
+              display: flex;
+            `}
+          >
+            {!isSearching && (
+              <Button
+                text={t('Add window')}
+                iconSize={ICON.SMALL}
+                tooltipText={t('Add current window')}
+                ariaLabel={t('Add window')}
+                // Not a bare plus. The left pane carries two plus-bearing controls
+                // -- `add_box` and `library_add` -- and both CREATE a session; this
+                // one appends to the session already on screen. Both of theirs are
+                // a plus inside a container, which is what makes them read as a
+                // pair; `playlist_add` has none, and says "add this to the list you
+                // are looking at", which is what a session is.
+                //
+                // Measured 79.7% / 81.1% distinct from those two (KAN-5's ink
+                // comparison), against the 54.1% they already measure from each
+                // other. A bare `add` scored 76.6% and was still the confusable one:
+                // the collision was in the meaning, which an ink metric cannot see.
+                iconType="playlist_add"
+                onClick={handleAddCurrWindowClick}
+                iconStyle={`
               padding: 4px 4px 2px 4px;
             `}
-              // KAN-214. A tinted chip: no border, and a resting fill of its own,
-              // flush in the card's bottom-right corner so the fill runs to the
-              // card's border there. The chip variant carries the whole ladder --
-              // CHIP_COLOR at rest, the icon tokens for hover and press.
-              //
-              // History, because each step was a defect the next one fixed
-              // (KAN-213). It was a borderless HOVER_COLOR fill, 1.047:1 against
-              // this card and so invisible. Then an outlined box with no fill --
-              // `quiet`'s PRIMARY_COLOR had read as a raised bevel here, because
-              // this sits on a SECONDARY_COLOR card, not the page's ground. Now a
-              // chip at 1.20:1, not the 1.35:1 first picked: at 1.35 there was no
-              // room left above it for a visible hover and a readable press.
-              //
-              // Padding is the outlined version's plus the 1px top and left border
-              // it no longer draws, so the glyph, the label and the width all stay
-              // where they were: add-window-button.spec.ts pins 156.4 / 210 /
-              // 185.2 in en/de/ru. Height is pinned at 32px so the header -- and
-              // the 1 + 56 + 58 = 115 cross-pane line -- does not move.
-              variant="chip"
-              style={`
+                // KAN-214. A tinted chip: no border, and a resting fill of its own,
+                // flush in the card's bottom-right corner so the fill runs to the
+                // card's border there. The chip variant carries the whole ladder --
+                // CHIP_COLOR at rest, the icon tokens for hover and press.
+                //
+                // History, because each step was a defect the next one fixed
+                // (KAN-213). It was a borderless HOVER_COLOR fill, 1.047:1 against
+                // this card and so invisible. Then an outlined box with no fill --
+                // `quiet`'s PRIMARY_COLOR had read as a raised bevel here, because
+                // this sits on a SECONDARY_COLOR card, not the page's ground. Now a
+                // chip at 1.20:1, not the 1.35:1 first picked: at 1.35 there was no
+                // room left above it for a visible hover and a readable press.
+                //
+                // Padding is the outlined version's plus the 1px top and left border
+                // it no longer draws, so the glyph, the label and the width all stay
+                // where they were: add-window-button.spec.ts pins 156.4 / 210 /
+                // 185.2 in en/de/ru. Height is pinned at 32px so the header -- and
+                // the 1 + 56 + 58 = 115 cross-pane line -- does not move.
+                variant="chip"
+                style={`
               height: 32px;
               font-size: ${TYPE.SECONDARY};
               padding: 5px 6px 3px 3px;
             `}
-            />
-          )}
-        </div>
-        <div
-          ref={newWindowTargetRef}
-          data-new-window-target="first"
-          aria-hidden="true"
-          css={[dropBoxStyle(COLORS), newWindowTargetStyle]}
-        >
-          <DropBoxLabel text={t('CarryNewWindowTarget')} />
+              />
+            )}
+          </div>
+          <div
+            ref={newWindowTargetRef}
+            data-new-window-target="first"
+            aria-hidden="true"
+            css={[dropBoxStyle(COLORS), newWindowTargetStyle]}
+          >
+            <DropBoxLabel text={t('CarryNewWindowTarget')} />
+          </div>
         </div>
       </div>
-    </div>
+      {/* KAN-708. Beside the header, not inside it: a portal's events bubble through the React tree (R1). */}
+      {headerMenu.menu}
+    </>
   );
 }
