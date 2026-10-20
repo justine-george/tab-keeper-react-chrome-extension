@@ -1,5 +1,5 @@
 import { setupChromeFake } from '../setup/chrome.fake';
-import { describe, expect, test, afterEach } from 'vitest';
+import { describe, expect, test, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 
 import {

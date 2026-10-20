@@ -1,3 +1,4 @@
+import { setupChromeFake } from '../setup/chrome.fake';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { liveItem } from '../../redux/carriedItem';
 import { live } from '../fixtures/liveSnapshotFixture';
@@ -125,6 +126,16 @@ const pickUpA = () => {
 const thePane = () => document.querySelector('[data-testid="pane"]');
 const heldMarker = () => document.querySelector('[data-drag-held]');
 const kind = () => document.documentElement.getAttribute('data-dragging');
+
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
+});
 
 describe('handsOffOutside (P1)', () => {
   test('a box with no width is not laid out: no line to cross, the drag stays', () => {

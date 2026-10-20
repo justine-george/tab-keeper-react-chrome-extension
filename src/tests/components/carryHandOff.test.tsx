@@ -1,3 +1,4 @@
+import { setupChromeFake } from '../setup/chrome.fake';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { savedItem } from '../../redux/carriedItem';
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -141,6 +142,16 @@ const pickUpA = () => {
 
 const heldMarker = () => document.querySelector('[data-drag-held]');
 const kind = () => document.documentElement.getAttribute('data-dragging');
+
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
+});
 
 describe('reaching the session list hands the drag to the carry', () => {
   test('onto the list, left of the pane', () => {
