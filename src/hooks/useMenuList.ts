@@ -7,10 +7,7 @@ const PRESS_INSIDE = '[data-coach-mark]';
 
 export type MenuDismissReason = 'outside' | 'escape';
 
-/**
- * KAN-708. A menu's list behaviour with no trigger in it: focus into the list on open,
- * roving arrows, Esc, and a press outside. Whoever opened the menu decides where focus goes.
- */
+// KAN-708. A trigger-less menu's list: focus in on open, roving arrows, Esc, press outside; the opener decides where focus goes.
 export function useMenuList({
   count,
   axis,

@@ -48,12 +48,8 @@ const isMenuKey = (e: React.KeyboardEvent): boolean =>
 // KAN-708. What a right-click or menu key on a row gets. 'chromeHere': Chrome's menu, and no enclosing row answers.
 type Answer = 'chrome' | 'chromeHere' | 'suppress' | 'open';
 
-/**
- * KAN-708. Right-click, Shift+F10 or the Menu key on a row opens that row's ⋮ items at the pointer.
- *
- * Spread `rowProps(id)` on each row. Render `menu` OUTSIDE every element carrying rowProps (R1):
- * React events bubble through portals along the React tree.
- */
+// KAN-708. Right-click, Shift+F10 or the Menu key opens a row's ⋮ items; spread rowProps(id) on rows, render menu outside them all (R1).
+// KAN-708. Portalled, its React events still reach the consumer's ancestors: an enclosing drag row ignores them only via its handleSelector.
 export function useRowContextMenu({
   kind,
   ariaLabel,

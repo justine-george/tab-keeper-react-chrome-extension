@@ -33,10 +33,7 @@ export function useSessionDeleteKey(): DeleteKey {
   };
 }
 
-/**
- * KAN-708. The session menu's items: the one source for the header ⋮ and the
- * row's right-click menu. Every item acts on `session`, never on the selection.
- */
+// KAN-708. The one item source for the header ⋮ and the row's right-click; every item acts on `session`, never the selection.
 export function sessionMenuItems(
   session: tabContainerData,
   ctx: {

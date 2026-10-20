@@ -7,10 +7,7 @@ import {
 } from '../../components/home/rightpane/rowDrag/RowDragArea';
 import { setupChromeFake } from '../setup/chrome.fake';
 
-// KAN-708. A right-button press is the context menu, not the start of a drag.
-// On a Mac, Ctrl+press is the right-click, so it is no drag either. Chrome
-// reports a Ctrl+press as button 0 with ctrlKey set, which is why the Mac half
-// needs the platform: elsewhere Ctrl+press is an ordinary left press.
+// KAN-708. A right press, or a Mac's Ctrl+press (button 0 with ctrlKey; an ordinary left press elsewhere), starts no drag.
 
 const box = (top: number) =>
   ({

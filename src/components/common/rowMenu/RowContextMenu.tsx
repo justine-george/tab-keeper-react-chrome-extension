@@ -16,10 +16,7 @@ const POSITION_CSS = `
   visibility: hidden;
 `;
 
-/**
- * KAN-708. A row's ⋮ items as a menu at a point, drawn over every pane through a portal.
- * The caller owns what closing means; a scroll, resize or window blur closes it as 'away'.
- */
+// KAN-708. A row's ⋮ items at a point, portalled over every pane; a scroll, resize or blur closes it as 'away'.
 export function RowContextMenu({
   target,
   ariaLabel,

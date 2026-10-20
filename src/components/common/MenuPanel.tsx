@@ -43,13 +43,7 @@ export interface OverflowMenuItem {
 // the bundled subset renders as the word itself (KAN-215).
 const RADIO_CHECK_ICON: IconName = 'check';
 
-/**
- * KAN-708. The ⋮ menu's surface, shared with the row context menu.
- *
- * Draws the `role="menu"` box and its items; the caller owns where it sits
- * (`positionCss`, positioning lines only), the list behaviour (`useMenuList`)
- * and what closing means.
- */
+// KAN-708. The ⋮ and row menus' role="menu" box and items; the caller owns placement (positionCss), list behaviour and closing.
 export function MenuPanel({
   ariaLabel,
   items,
