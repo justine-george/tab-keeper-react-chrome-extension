@@ -483,3 +483,16 @@ describe('a live group row right-click (KAN-708)', () => {
     expect(rowMenus()).toHaveLength(0);
   });
 });
+
+describe('right-clicking an Open now group’s colour bar (KAN-708)', () => {
+  test('opens the colour picker, not the group’s row menu', async () => {
+    await renderOpenNow();
+    const bar = screen.getByRole('button', {
+      name: 'Change group color: Docs',
+    });
+    expect(fireEvent.contextMenu(bar)).toBe(false);
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(9);
+    expect(screen.getAllByRole('menuitemradio')[0]).toHaveFocus();
+    expect(document.querySelectorAll('[data-row-menu]')).toHaveLength(0);
+  });
+});

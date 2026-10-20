@@ -30,20 +30,46 @@ const MENU = '[role="menu"]';
 const isWithin = (target: EventTarget, selector: string): boolean =>
   target instanceof Element && target.closest(selector) !== null;
 
-const isTouch = (e: React.MouseEvent): boolean =>
+export const isTouch = (e: React.MouseEvent): boolean =>
   typeof PointerEvent !== 'undefined' &&
   e.nativeEvent instanceof PointerEvent &&
   e.nativeEvent.pointerType === 'touch';
 
-const isMovingRows = (): boolean => {
+export const isMovingRows = (): boolean => {
   const root = document.documentElement;
   return (
     root.hasAttribute('data-dragging') || root.hasAttribute('data-carrying')
   );
 };
 
-const isMenuKey = (e: React.KeyboardEvent): boolean =>
+export const isMenuKey = (e: React.KeyboardEvent): boolean =>
   e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey);
+
+// KAN-708. A Ctrl+press on a Mac is a right-click there; its click must not act on the control. Spread both on it.
+export function useMacCtrlClickGuard(): {
+  onMouseDownCapture: React.MouseEventHandler;
+  onClickCapture: React.MouseEventHandler;
+  forget: () => void;
+} {
+  const isMac = useMacKeys();
+  const pressed = useRef(false);
+  return {
+    // KAN-708. A press in a menu is never marked, so its item's click always lands (R1).
+    onMouseDownCapture: (e) => {
+      pressed.current =
+        isMac && e.button === 0 && e.ctrlKey && !isWithin(e.target, MENU);
+    },
+    onClickCapture: (e) => {
+      if (!pressed.current) return;
+      pressed.current = false;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    forget: () => {
+      pressed.current = false;
+    },
+  };
+}
 
 // KAN-708. What a right-click or menu key on a row gets. 'chromeHere': Chrome's menu, and no enclosing row answers.
 type Answer = 'chrome' | 'chromeHere' | 'suppress' | 'open';
@@ -65,13 +91,11 @@ export function useRowContextMenu({
 } {
   const owner = useId();
   const tourRuns = useSelector(selectRunHere) !== null;
-  const isMac = useMacKeys();
+  const macGuard = useMacCtrlClickGuard();
   const ownTarget = useOwnRowMenu(owner);
 
   // KAN-708. Where Esc puts focus back: whatever had it when the menu opened.
   const focusReturn = useRef<Element | null>(null);
-  // KAN-708. A Ctrl+press on a Mac is a right-click there; its click must not act on the row.
-  const macCtrlPress = useRef(false);
 
   const answerFor = (
     e: React.SyntheticEvent,
@@ -121,7 +145,7 @@ export function useRowContextMenu({
     onKeyDown: (e) => {
       if (!isMenuKey(e)) {
         // KAN-708. A keyboard click follows no press, so a stale Ctrl+press must not swallow it.
-        macCtrlPress.current = false;
+        macGuard.forget();
         return;
       }
       const answer = answerFor(e, id, 'key');
@@ -134,17 +158,8 @@ export function useRowContextMenu({
       const rect = anchor.getBoundingClientRect();
       openAt(id, { x: rect.left, y: rect.bottom }, false);
     },
-    // KAN-708. A press in a menu is never marked, so its item's click always lands (R1).
-    onMouseDownCapture: (e) => {
-      macCtrlPress.current =
-        isMac && e.button === 0 && e.ctrlKey && !isWithin(e.target, MENU);
-    },
-    onClickCapture: (e) => {
-      if (!macCtrlPress.current) return;
-      macCtrlPress.current = false;
-      e.preventDefault();
-      e.stopPropagation();
-    },
+    onMouseDownCapture: macGuard.onMouseDownCapture,
+    onClickCapture: macGuard.onClickCapture,
     ...(ownTarget?.ids[0] === id ? { 'data-row-menu-held': '' } : {}),
   });
 

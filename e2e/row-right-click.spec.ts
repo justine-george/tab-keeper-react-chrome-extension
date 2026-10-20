@@ -1,6 +1,8 @@
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { grantedTest } from './fixtures/grantedExtension';
+import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { escapesPrevented, watchEscapes } from './fixtures/escapeProbe';
 import { localeStrings } from './fixtures/locales';
 import { sessionHeaderMenu } from './fixtures/menus';
@@ -506,3 +508,65 @@ test('Open now tab: Switch to tab / Copy link / Close tab; Close tab closes that
   await expect(menu).toHaveCount(0);
   await expect(page.getByRole('status')).toContainText('Tab closed.');
 });
+
+// KAN-708. The colour bar sits beside the group's header, so it answers for itself.
+grantedTest(
+  "right-clicking a saved group's colour bar opens its colour picker; Esc closes it",
+  async ({ context, extensionId }) => {
+    await watchContextMenus(context);
+    const tabs = ['a', 'b'].map((id) => ({
+      tabId: id,
+      favicon: '',
+      title: `Tab ${id}`,
+      url: `https://${id}.test/`,
+      chromeGroupId: 'g1',
+    }));
+    const session = buildSession({
+      tabGroupId: 's1',
+      title: 'Trip',
+      isSelected: true,
+      windowCount: 1,
+      tabCount: tabs.length,
+      windows: [
+        {
+          windowId: 'w1',
+          windowHeight: 1080,
+          windowWidth: 1920,
+          windowOffsetTop: 0,
+          windowOffsetLeft: 0,
+          tabCount: tabs.length,
+          title: 'w1',
+          tabs,
+          chromeTabGroups: [
+            { groupId: 'g1', title: 'Research', color: 'blue' },
+          ],
+        },
+      ],
+    });
+    await seedSessions(context, {
+      ...buildContainer([session]),
+      selectedTabGroupId: 's1',
+    });
+    const page = await context.newPage();
+    await page.setViewportSize(POPUP);
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    const bar = page.getByRole('button', {
+      name: 'Change group color: Research',
+      exact: true,
+    });
+    await expect(bar).toBeVisible();
+
+    await bar.click({ button: 'right' });
+
+    const picker = page.getByRole('menu').filter({
+      has: page.getByRole('menuitemradio', { name: 'Grey', exact: true }),
+    });
+    await expect(picker).toBeVisible();
+    await expect(picker.getByRole('menuitemradio')).toHaveCount(9);
+    await expect(page.locator('[data-row-menu]')).toHaveCount(0);
+    expect(await contextMenusPrevented(page)).toEqual([true]);
+
+    await page.keyboard.press('Escape');
+    await expect(picker).toHaveCount(0);
+  }
+);

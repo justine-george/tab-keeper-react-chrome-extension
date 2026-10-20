@@ -78,8 +78,10 @@ describe('one menu open at a time', () => {
     fireEvent.click(band());
     expect(openMenus()).toEqual([null]);
     expect(band()).toHaveAttribute('aria-expanded', 'true');
-    fireEvent.mouseDown(band(), { button: 2 });
-    fireEvent.contextMenu(band(), { clientX: 5, clientY: 5 });
+    fireEvent.contextMenu(screen.getByText('Title'), {
+      clientX: 5,
+      clientY: 5,
+    });
     expect(openMenus()).toEqual(['Row menu']);
     expect(band()).toHaveAttribute('aria-expanded', 'false');
 

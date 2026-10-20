@@ -68,6 +68,12 @@ export function usePopoverList({
     [onOpenChange]
   );
 
+  // KAN-708. A right-click opens it as a click does: by pointer, so Esc returns focus without the ring.
+  const openByPointer = useCallback(() => {
+    pointerOpened.current = true;
+    setOpen(true);
+  }, [setOpen]);
+
   const focusTrigger = (options?: FocusOptions) => {
     const trigger =
       triggerRef.current?.querySelector<HTMLElement>('[role="button"]');
@@ -113,6 +119,7 @@ export function usePopoverList({
   return {
     isOpen,
     setOpen,
+    openByPointer,
     close,
     wrapperRef,
     triggerRef,

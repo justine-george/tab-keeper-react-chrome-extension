@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { act, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -390,5 +390,22 @@ describe('widening the band', () => {
     // No ::before: tab-group-join-preview.spec reads the strip's ::before as
     // its paint layer and must keep finding none.
     expect(pseudoRulesFor(interactive, '::before')).toBe('');
+  });
+});
+
+// KAN-708. The bar sits beside the group header that carries the row menu, not inside it.
+describe('right-clicking a saved group’s colour bar', () => {
+  test('opens the picker, not the group’s row menu, and replaces one already open', async () => {
+    await renderGroup();
+    fireEvent.contextMenu(screen.getByText('Research'));
+    expect(document.querySelectorAll('[data-row-menu]')).toHaveLength(1);
+
+    expect(screen.getByRole('button', { name: BAND })).toBeInTheDocument();
+    expect(
+      fireEvent.contextMenu(screen.getByRole('button', { name: BAND }))
+    ).toBe(false);
+    expect(document.querySelectorAll('[data-row-menu]')).toHaveLength(0);
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(9);
+    expect(screen.getAllByRole('menuitemradio')[0]).toHaveFocus();
   });
 });
