@@ -11,6 +11,7 @@ import {
   unwrapSuspendedUrl,
   generatePlaceholderURL,
   getPrettyDate,
+  getTooltipDate,
   IMPORT_INVALID_STRUCTURE,
   IMPORT_NOT_JSON,
   IMPORT_SIZE_REFUSAL,
@@ -1643,5 +1644,40 @@ describe('getPrettyDate: time format (KAN-587)', () => {
     expect(
       getPrettyDate(new Date(2026, 9, 14, 9, 5, 0).getTime(), 'de', 'h23')
     ).toMatch(/, 09:05:00$/);
+  });
+});
+
+describe('getTooltipDate: no seconds (KAN-695)', () => {
+  const t = new Date(2026, 8, 1, 2, 0, 42).getTime();
+  const pm = new Date(2026, 9, 14, 15, 9, 42).getTime();
+  test.each([
+    [t, 'en', 'h12', /^Sep 1, 2026, 2:00\sAM$/],
+    [t, 'en', 'h23', /^Sep 1, 2026, 02:00$/],
+    [pm, 'de', 'h12', /^14\.10\.2026, 3:09\sPM$/],
+    [pm, 'de', 'h23', /^14\.10\.2026, 15:09$/],
+    [pm, 'zh', 'h12', /^2026年10月14日 下午3:09$/],
+    [pm, 'zh-TW', 'h23', /^2026年10月14日 15:09$/],
+  ] as const)('%s %s %s', (at, locale, format, expected) => {
+    expect(getTooltipDate(at, locale, format)).toMatch(expected);
+  });
+
+  test('takes the same string input as getPrettyDate', () => {
+    expect(getTooltipDate('2026-09-01T02:00:00', 'en', 'h12')).toMatch(
+      /^Sep 1, 2026, 2:00\sAM$/
+    );
+  });
+
+  test('an Invalid Date is an empty string', () => {
+    expect(getTooltipDate('not a date', 'en', 'h12')).toBe('');
+  });
+
+  test('a malformed locale falls back to English', () => {
+    expect(getTooltipDate(pm, 'not!a!locale', 'h12')).toMatch(
+      /^Oct 14, 2026, 3:09\sPM$/
+    );
+  });
+
+  test('getPrettyDate keeps its seconds', () => {
+    expect(getPrettyDate(pm, 'en', 'h12')).toMatch(/:09:42/);
   });
 });

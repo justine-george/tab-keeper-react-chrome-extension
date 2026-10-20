@@ -5,7 +5,7 @@ import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntry
 import HeroContainerRight from '../../components/home/rightpane/HeroContainerRight';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { restoreContainer } from '../../redux/slices/tabContainerDataStateSlice';
-import { getPrettyDate } from '../../utils/functions/local';
+import { getTooltipDate } from '../../utils/functions/local';
 import { buildSession } from '../fixtures/sessionFixture';
 
 // KAN-347. Both panes show a session's date without seconds, and without the
@@ -62,8 +62,10 @@ describe('session dates in both panes (KAN-347)', () => {
     expect(
       labels.map((el) => el.closest('[title]')?.getAttribute('title'))
     ).toEqual([
-      getPrettyDate(EDITED, 'en', 'h12'),
-      getPrettyDate(EDITED, 'en', 'h12'),
+      getTooltipDate(EDITED, 'en', 'h12'),
+      getTooltipDate(EDITED, 'en', 'h12'),
     ]);
+    // Literal: the hover has the year and no seconds (KAN-695).
+    expect(getTooltipDate(EDITED, 'en', 'h12')).toBe('Sep 24, 2026, 2:51 AM');
   });
 });

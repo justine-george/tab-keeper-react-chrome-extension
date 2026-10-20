@@ -16,7 +16,7 @@ import {
   grantCloudConsent,
   setLastSyncedTime,
 } from '../../redux/slices/settingsDataStateSlice';
-import { getPrettyDate } from '../../utils/functions/local';
+import { getTooltipDate } from '../../utils/functions/local';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { makeTestStore } from '../setup/makeStore';
 
@@ -106,7 +106,7 @@ describe('"Last synced" reads like a session date (KAN-584)', () => {
     async ({ at }) => {
       await renderSettings(at);
       expect(settingsLine()?.getAttribute('title')).toBe(
-        getPrettyDate(at, 'en', 'h12')
+        getTooltipDate(at, 'en', 'h12')
       );
     }
   );

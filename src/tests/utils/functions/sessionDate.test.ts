@@ -7,7 +7,7 @@ import {
   sessionDateTitle,
   sessionWhen,
 } from '../../../utils/functions/sessionDate';
-import { getPrettyDate } from '../../../utils/functions/local';
+import { getPrettyDate, getTooltipDate } from '../../../utils/functions/local';
 import { tFor } from '../../setup/localeT';
 import type { tabContainerData } from '../../../redux/slices/tabContainerDataStateSlice';
 
@@ -175,13 +175,13 @@ describe('sessionDateTitle (KAN-347)', () => {
   test('the full timestamp of the same instant the label shows', () => {
     const group = build({ contentModified: EDITED });
     expect(sessionDateTitle(group, 'edited', 'en', 'h12')).toBe(
-      getPrettyDate(EDITED, 'en', 'h12')
+      getTooltipDate(EDITED, 'en', 'h12')
     );
     expect(sessionDateTitle(group, 'created', 'en', 'h12')).toBe(
-      getPrettyDate(CREATED, 'en', 'h12')
+      getTooltipDate(CREATED, 'en', 'h12')
     );
     expect(sessionDateTitle(build(), 'edited', 'en', 'h12')).toBe(
-      getPrettyDate(CREATED, 'en', 'h12')
+      getTooltipDate(CREATED, 'en', 'h12')
     );
   });
 });

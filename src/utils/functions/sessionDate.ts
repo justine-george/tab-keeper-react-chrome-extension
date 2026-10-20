@@ -1,7 +1,7 @@
 import type { TFunction } from 'i18next';
 
 import { calendarDaysBefore } from './calendarDay';
-import { FALLBACK_LOCALE, getPrettyDate } from './local';
+import { FALLBACK_LOCALE, getPrettyDate, getTooltipDate } from './local';
 import {
   TOMBSTONE_TTL_MS,
   contentInstant,
@@ -49,8 +49,8 @@ export function sessionDateLabel(
 }
 
 /**
- * The full timestamp behind the label, for its hover (KAN-347): the seconds
- * and the year the label leaves out, of the same instant.
+ * The full timestamp behind the label, for its hover (KAN-347): the year the
+ * label leaves out, of the same instant.
  */
 export function sessionDateTitle(
   group: tabContainerData,
@@ -58,7 +58,7 @@ export function sessionDateTitle(
   locale: string,
   timeFormat: TimeFormat
 ): string {
-  return getPrettyDate(datedInstant(group, basis).instant, locale, timeFormat);
+  return getTooltipDate(datedInstant(group, basis).instant, locale, timeFormat);
 }
 
 /**

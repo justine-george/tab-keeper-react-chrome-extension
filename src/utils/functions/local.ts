@@ -912,10 +912,11 @@ const isValidTabData = (data: unknown): data is tabData => {
 // into the service worker bundle.
 export const FALLBACK_LOCALE = 'en';
 
-export const getPrettyDate = (
+const formatDate = (
   dateOrTimeStamp: string | number,
   locale: string,
-  timeFormat: TimeFormat
+  timeFormat: TimeFormat,
+  timeStyle: 'medium' | 'short'
 ): string => {
   const date = new Date(dateOrTimeStamp);
 
@@ -925,13 +926,27 @@ export const getPrettyDate = (
   if (Number.isNaN(date.getTime())) return '';
 
   try {
-    return fullStamp(locale, timeFormat, date);
+    return fullStamp(locale, timeFormat, date, timeStyle);
   } catch {
     // `locale` originates in localStorage, so it is not guaranteed to be a
     // well-formed BCP-47 tag; a structurally invalid one is a RangeError.
-    return fullStamp(FALLBACK_LOCALE, timeFormat, date);
+    return fullStamp(FALLBACK_LOCALE, timeFormat, date, timeStyle);
   }
 };
+
+/** The full date and time with seconds, for exported files. */
+export const getPrettyDate = (
+  dateOrTimeStamp: string | number,
+  locale: string,
+  timeFormat: TimeFormat
+): string => formatDate(dateOrTimeStamp, locale, timeFormat, 'medium');
+
+/** The same without seconds, for tooltips (KAN-695). */
+export const getTooltipDate = (
+  dateOrTimeStamp: string | number,
+  locale: string,
+  timeFormat: TimeFormat
+): string => formatDate(dateOrTimeStamp, locale, timeFormat, 'short');
 
 const CLOCK_PARTS = new Set(['hour', 'minute', 'second', 'dayPeriod']);
 
@@ -941,10 +956,15 @@ const CLOCK_PARTS = new Set(['hour', 'minute', 'second', 'dayPeriod']);
 // from the language's own clock and only the time half from the chosen one.
 // F1: under 12-hour Chromium pads the hour in de fr it pt ru sv zh
 // ("03:09:42 PM") where the row says "3:09 PM"; that zero is trimmed.
-function fullStamp(locale: string, timeFormat: TimeFormat, date: Date): string {
+function fullStamp(
+  locale: string,
+  timeFormat: TimeFormat,
+  date: Date,
+  timeStyle: 'medium' | 'short'
+): string {
   const options: Intl.DateTimeFormatOptions = {
     dateStyle: 'medium',
-    timeStyle: 'medium',
+    timeStyle,
   };
   const own = new Intl.DateTimeFormat(locale, options).formatToParts(date);
   const chosen = new Intl.DateTimeFormat(locale, {

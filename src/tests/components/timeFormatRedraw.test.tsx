@@ -98,14 +98,14 @@ describe('time format redraws every time (KAN-587)', () => {
       (content) => plain(content) === 'Edited today, 3:09 PM'
     );
     expect(dated('Edited today, 3:09 PM')).toEqual([
-      'Oct 14, 2026, 3:09:42 PM',
-      'Oct 14, 2026, 3:09:42 PM',
+      'Oct 14, 2026, 3:09 PM',
+      'Oct 14, 2026, 3:09 PM',
     ]);
 
     toH23(store);
     expect(dated('Edited today, 15:09')).toEqual([
-      'Oct 14, 2026, 15:09:42',
-      'Oct 14, 2026, 15:09:42',
+      'Oct 14, 2026, 15:09',
+      'Oct 14, 2026, 15:09',
     ]);
   });
 
@@ -119,13 +119,11 @@ describe('time format redraws every time (KAN-587)', () => {
     const line = () =>
       screen.getByTestId('sync-status').querySelector('[data-sync-synced]');
     expect(plain(line()?.textContent)).toBe('Last synced today, 3:09 PM');
-    expect(plain(line()?.getAttribute('title'))).toBe(
-      'Oct 14, 2026, 3:09:42 PM'
-    );
+    expect(plain(line()?.getAttribute('title'))).toBe('Oct 14, 2026, 3:09 PM');
 
     toH23(store);
     expect(line()?.textContent).toBe('Last synced today, 15:09');
-    expect(line()?.getAttribute('title')).toBe('Oct 14, 2026, 15:09:42');
+    expect(line()?.getAttribute('title')).toBe('Oct 14, 2026, 15:09');
   });
 
   test('the header sync button tooltip', async () => {

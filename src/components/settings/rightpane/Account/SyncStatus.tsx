@@ -1,7 +1,7 @@
 import { css } from '@emotion/react';
 import { shallowEqual, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { getPrettyDate } from '../../../../utils/functions/local';
+import { getTooltipDate } from '../../../../utils/functions/local';
 import { sessionWhen } from '../../../../utils/functions/sessionDate';
 import { useToday } from '../../../../hooks/useToday';
 
@@ -131,7 +131,7 @@ const SyncStatus: React.FC = () => {
           <p
             css={syncedStyle}
             data-sync-synced
-            title={getPrettyDate(lastSyncedTime, i18n.language, timeFormat)}
+            title={getTooltipDate(lastSyncedTime, i18n.language, timeFormat)}
           >
             {t('Last synced {{time}}', { time: syncedTime })}
           </p>
