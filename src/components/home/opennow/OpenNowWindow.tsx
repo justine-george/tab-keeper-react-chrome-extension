@@ -20,15 +20,11 @@ import { useFocusOnRemount } from '../../../hooks/useFocusOnRemount';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import {
-  NON_INTERACTIVE_ICON_STYLE,
-  TOAST_MESSAGES,
-} from '../../../utils/constants/common';
-import { copyTabLink } from '../../../utils/functions/copyTabLink';
+import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
+import { copyLinkItem } from '../../common/rowMenu/copyLinkItem';
 import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
 import type { AppDispatch, RootState } from '../../../redux/store';
 import { sortOpenWindowBySite } from '../../../redux/sortOpenWindow';
-import { showToast } from '../../../redux/slices/globalStateSlice';
 import {
   canSortOpenWindowLive,
   isOpenWindowSortedBySite,
@@ -500,22 +496,7 @@ export default function OpenNowWindow({
           // Chrome rejects when the tab closed after this row was drawn; the next read drops the row.
           onSelect: () => void switchToOpenTab(tab).catch(() => undefined),
         },
-        {
-          key: 'copy-link',
-          label: t('Copy link'),
-          icon: 'link' as const,
-          onSelect: async () => {
-            if (await copyTabLink(tab.url)) {
-              dispatch(
-                showToast({
-                  toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
-                  toastParams: { count: 1 },
-                  stacksOnTwin: true,
-                })
-              );
-            }
-          },
-        },
+        copyLinkItem(tab.url, { t, dispatch }),
         {
           key: 'close',
           label: t('Close tab'),

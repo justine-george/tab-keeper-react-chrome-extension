@@ -53,13 +53,8 @@ import {
 } from '../../../redux/carry';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
-import { useMacKeys } from '../../../hooks/useIsMac';
 import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
-import { sessionMenuItems } from '../sessionMenuItems';
-import {
-  deleteKeyShortcutsFor,
-  isDeleteKey,
-} from '../../../utils/functions/deleteKey';
+import { sessionMenuItems, useSessionDeleteKey } from '../sessionMenuItems';
 import { selectRunHoldsDelete } from '../../../redux/firstRun';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
 import { DURATION } from '../../../styles/scale';
@@ -74,9 +69,7 @@ export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
   const { t, i18n } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
-  // KAN-592. Until Chrome says Mac, the PC form.
-  const isMac = useMacKeys();
-  const deleteKeyShortcuts = deleteKeyShortcutsFor(isMac);
+  const deleteKey = useSessionDeleteKey();
 
   // The scrolling element, so KAN-143's effect scopes its lookup to this list
   // rather than searching the whole document.
@@ -113,11 +106,7 @@ export default function TabGroupEntryContainer() {
         t,
         language: i18n.language,
         dispatch,
-        deleteKey: {
-          hint: isMac ? '⌫' : t('Del'),
-          ariaKeyShortcuts: deleteKeyShortcuts,
-          matches: isDeleteKey,
-        },
+        deleteKey,
       });
     },
   });
@@ -613,7 +602,7 @@ export default function TabGroupEntryContainer() {
                           deleteTabContainer(tabGroupData.tabGroupId)
                         );
                       }}
-                      deleteKeyShortcuts={deleteKeyShortcuts}
+                      deleteKeyShortcuts={deleteKey.ariaKeyShortcuts}
                       rowMenuProps={sessionMenu.rowProps(
                         tabGroupData.tabGroupId
                       )}

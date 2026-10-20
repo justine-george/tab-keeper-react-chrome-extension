@@ -155,6 +155,43 @@ describe('right-clicking a session row (KAN-708)', () => {
     expect(selected(store)).toBe('shown');
   });
 
+  test.each([
+    ['mac', '⌫', 'Backspace Meta+Backspace Delete'],
+    ['win', 'Del', 'Delete Backspace'],
+  ] as const)(
+    'on %s, the row, its right-click Delete and the header ⋮’s Delete name the same keys',
+    async (platformOs, hint, keys) => {
+      const user = userEvent.setup();
+      await renderWithProviders(<Both />, {
+        seed: { platformOs, windows: [{ id: 1 }] },
+        seedStore: (store) => {
+          store.dispatch(replaceState(buildContainer([SHOWN, KYOTO])));
+          store.dispatch(selectTabContainer('shown'));
+        },
+      });
+      await act(async () => {
+        await chrome.runtime.getPlatformInfo();
+      });
+      const deleteOf = (menu: HTMLElement) =>
+        within(menu).getByRole('menuitem', { name: /^Delete session/ });
+
+      expect(rowButton('Roadmap')).toHaveAttribute('aria-keyshortcuts', keys);
+
+      fireEvent.contextMenu(rowButton('Roadmap'));
+      const fromRow = deleteOf(rowMenus()[0]);
+      expect(fromRow).toHaveAttribute('aria-keyshortcuts', keys);
+      expect(fromRow.querySelector('[data-key-hint]')).toHaveTextContent(hint);
+      fireEvent.keyDown(fromRow, { key: 'Escape' });
+
+      await user.click(screen.getByRole('button', { name: 'More actions' }));
+      const fromHeader = deleteOf(screen.getByRole('menu', { name: /./ }));
+      expect(fromHeader).toHaveAttribute('aria-keyshortcuts', keys);
+      expect(fromHeader.querySelector('[data-key-hint]')).toHaveTextContent(
+        hint
+      );
+    }
+  );
+
   test('Remove duplicates appears only for a session that has them', async () => {
     const { store } = await renderBoth();
 

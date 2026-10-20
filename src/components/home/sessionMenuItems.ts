@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 
 import type { OverflowMenuItem } from '../common/MenuPanel';
 import type { AppDispatch } from '../../redux/store';
@@ -13,6 +14,24 @@ import { tidySessionForExport } from '../../utils/functions/sessionExportHtml';
 import { countDuplicateTabs } from '../../utils/functions/duplicateTabs';
 import { openBesideActiveTab } from '../../utils/functions/openBesideActiveTab';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
+import {
+  deleteKeyShortcutsFor,
+  isDeleteKey,
+} from '../../utils/functions/deleteKey';
+import { useMacKeys } from '../../hooks/useIsMac';
+
+type DeleteKey = NonNullable<OverflowMenuItem['shortcut']>;
+
+// KAN-592, KAN-638, KAN-708. Delete session's key, for its row, its ⋮ and its right-click menu; the PC form until Chrome says.
+export function useSessionDeleteKey(): DeleteKey {
+  const { t } = useTranslation();
+  const isMac = useMacKeys();
+  return {
+    hint: isMac ? '⌫' : t('Del'),
+    ariaKeyShortcuts: deleteKeyShortcutsFor(isMac),
+    matches: isDeleteKey,
+  };
+}
 
 /**
  * KAN-708. The session menu's items: the one source for the header ⋮ and the
@@ -24,7 +43,7 @@ export function sessionMenuItems(
     t: TFunction;
     language: string;
     dispatch: AppDispatch;
-    deleteKey: NonNullable<OverflowMenuItem['shortcut']>;
+    deleteKey: DeleteKey;
   }
 ): OverflowMenuItem[] {
   const { t, language, dispatch, deleteKey } = ctx;

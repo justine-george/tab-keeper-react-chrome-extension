@@ -36,11 +36,8 @@ import {
   resolveFaviconUrl,
 } from '../../../utils/functions/local';
 import { visuallyHiddenStyle } from '../../../styles/visuallyHidden';
-import {
-  NON_INTERACTIVE_ICON_STYLE,
-  TOAST_MESSAGES,
-} from '../../../utils/constants/common';
-import { copyTabLink } from '../../../utils/functions/copyTabLink';
+import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
+import { copyLinkItem } from '../../common/rowMenu/copyLinkItem';
 import {
   deleteTab,
   tabData,
@@ -56,7 +53,6 @@ import { isSavedWindowSortedBySite } from '../../../utils/functions/sortBySite';
 import { countDuplicateTabs } from '../../../utils/functions/duplicateTabs';
 import {
   collapsedWindowIdsOf,
-  showToast,
   toggleWindowCollapse,
 } from '../../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
@@ -751,22 +747,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 onSelect: () => handleTabClick(tab.url),
               },
             ]),
-        {
-          key: 'copy-link',
-          label: t('Copy link'),
-          icon: 'link' as const,
-          onSelect: async () => {
-            if (await copyTabLink(tab.url)) {
-              dispatch(
-                showToast({
-                  toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
-                  toastParams: { count: 1 },
-                  stacksOnTwin: true,
-                })
-              );
-            }
-          },
-        },
+        copyLinkItem(tab.url, { t, dispatch }),
         {
           key: 'delete',
           label: t('Delete tab'),
