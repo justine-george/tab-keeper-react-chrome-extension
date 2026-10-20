@@ -7,7 +7,7 @@ import {
   closeRowMenu,
   getRowMenu,
   openRowMenu,
-  useRowMenuTarget,
+  useOwnRowMenu,
   type RowMenuKind,
 } from './rowMenuStore';
 import { selectRunHere } from '../../../redux/firstRun';
@@ -70,7 +70,7 @@ export function useRowContextMenu({
   const owner = useId();
   const tourRuns = useSelector(selectRunHere) !== null;
   const isMac = useMacKeys();
-  const target = useRowMenuTarget();
+  const ownTarget = useOwnRowMenu(owner);
 
   // KAN-708. Where Esc puts focus back: whatever had it when the menu opened.
   const focusReturn = useRef<Element | null>(null);
@@ -149,12 +149,9 @@ export function useRowContextMenu({
       e.preventDefault();
       e.stopPropagation();
     },
-    ...(target?.owner === owner && target.ids[0] === id
-      ? { 'data-row-menu-held': '' }
-      : {}),
+    ...(ownTarget?.ids[0] === id ? { 'data-row-menu-held': '' } : {}),
   });
 
-  const ownTarget = target?.owner === owner ? target : null;
   const heldId = ownTarget?.ids[0] ?? null;
   // KAN-708. Read from the live row each render, so the menu never acts on a stale copy.
   const items = heldId === null ? null : itemsFor(heldId);

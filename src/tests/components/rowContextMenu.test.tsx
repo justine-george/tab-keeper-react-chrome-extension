@@ -589,6 +589,43 @@ describe('right-click on a row', () => {
   });
 });
 
+describe('only the owning container re-renders', () => {
+  function Container({ name, renders }: { name: string; renders: string[] }) {
+    const { rowProps, menu } = useRowContextMenu({
+      kind: 'savedWindow',
+      ariaLabel: (id) => `Window ${id}`,
+      itemsFor: () => [
+        { key: 'copy', label: 'Copy', icon: 'link', onSelect: () => undefined },
+      ],
+    });
+    renders.push(name);
+    return (
+      <>
+        <div {...rowProps(name)}>{`Row ${name}`}</div>
+        {menu}
+      </>
+    );
+  }
+
+  test('opening and closing one container’s menu does not re-render the other', async () => {
+    const renders: string[] = [];
+    await renderWithProviders(
+      <>
+        <Container name="one" renders={renders} />
+        <Container name="two" renders={renders} />
+      </>
+    );
+    renders.length = 0;
+    fireEvent.contextMenu(screen.getByText('Row one'));
+    expect(screen.getByRole('menu', { name: 'Window one' })).toBeVisible();
+    fireEvent.mouseDown(document.body);
+    expect(rowMenus()).toHaveLength(0);
+    expect(renders).not.toContain('two');
+    // CONTROL: the owner did re-render, to open and to close.
+    expect(renders.filter((name) => name === 'one').length).toBeGreaterThan(1);
+  });
+});
+
 describe('nested rows', () => {
   // An inner row (a group mid-rename, say) inside an outer row (its window), each with its own hook.
   function Nested() {

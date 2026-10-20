@@ -48,6 +48,9 @@ export function subscribeRowMenu(fn: () => void): () => void {
   };
 }
 
-export function useRowMenuTarget(): RowMenuTarget | null {
-  return useSyncExternalStore(subscribeRowMenu, getRowMenu);
+// KAN-708. The open menu if this owner opened it, so an open or close elsewhere re-renders nothing here.
+export function useOwnRowMenu(owner: string): RowMenuTarget | null {
+  return useSyncExternalStore(subscribeRowMenu, () =>
+    target?.owner === owner ? target : null
+  );
 }
