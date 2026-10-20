@@ -151,6 +151,7 @@
   "Export session": "Export…",
   "Save as HTML": "Save as HTML",
   "Copy all links": "Copy all links",
+  "Copy link": "Copy link",
   "ExportNothingKept": "Every row is hidden. Show one to finish.",
   "LinksCopied_one": "{{count}} link copied.",
   "LinksCopied_other": "{{count}} links copied.",

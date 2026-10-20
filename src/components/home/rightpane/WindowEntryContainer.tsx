@@ -36,7 +36,11 @@ import {
   resolveFaviconUrl,
 } from '../../../utils/functions/local';
 import { visuallyHiddenStyle } from '../../../styles/visuallyHidden';
-import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
+import {
+  NON_INTERACTIVE_ICON_STYLE,
+  TOAST_MESSAGES,
+} from '../../../utils/constants/common';
+import { copyTabLink } from '../../../utils/functions/copyTabLink';
 import {
   deleteTab,
   tabData,
@@ -52,6 +56,7 @@ import { isSavedWindowSortedBySite } from '../../../utils/functions/sortBySite';
 import { countDuplicateTabs } from '../../../utils/functions/duplicateTabs';
 import {
   collapsedWindowIdsOf,
+  showToast,
   toggleWindowCollapse,
 } from '../../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
@@ -526,6 +531,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       background-color: ${COLORS.HOVER_COLOR};
     }
   `;
+  // KAN-708. Held while its right-click menu is open, as if hovered.
+  const heldTabStyle = css`
+    background-color: ${COLORS.HOVER_COLOR};
+  `;
 
   // A plain string, not css``: handed to ClickableRow's `style` prop.
   const childLeftStyle = `
@@ -544,6 +553,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     }
   `;
 
+  // KAN-708. A tab row's strip shows on hover, and while its right-click menu is open.
+  const isTabEngaged = (tabId: string) =>
+    hoveredTabId === tabId || tabMenu.heldId === tabId;
+
   const childRightStyle = (tabId: string) => css`
     position: absolute;
     top: 50%;
@@ -551,10 +564,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     transform: translateY(-50%);
     /* Mask in one frame, icons ease -- see parentRightStyle (KAN-100). */
     background-color: ${
-      hoveredTabId === tabId ? COLORS.HOVER_COLOR : 'transparent'
+      isTabEngaged(tabId) ? COLORS.HOVER_COLOR : 'transparent'
     };
     & > * {
-      opacity: ${hoveredTabId === tabId ? 1 : 0};
+      opacity: ${isTabEngaged(tabId) ? 1 : 0};
       transition: opacity ${DURATION.COLOR} ease-out;
     }
     /* The keyboard's equivalent of the hover reveal (KAN-68). Delete tab has
@@ -720,6 +733,51 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     });
   };
 
+  // KAN-708. A tab's items: Open in new tab (unless the tour blocks it), Copy link, Delete tab.
+  const tabMenu = useRowContextMenu({
+    kind: 'savedTab',
+    ariaLabel: (tabId) => tabs.find((tab) => tab.tabId === tabId)?.title ?? '',
+    itemsFor: (tabId) => {
+      const tab = tabs.find((candidate) => candidate.tabId === tabId);
+      if (!tab) return null;
+      return [
+        ...(isOpenBlocked
+          ? []
+          : [
+              {
+                key: 'open',
+                label: t('Open in new tab'),
+                icon: 'tab' as const,
+                onSelect: () => handleTabClick(tab.url),
+              },
+            ]),
+        {
+          key: 'copy-link',
+          label: t('Copy link'),
+          icon: 'link' as const,
+          onSelect: async () => {
+            if (await copyTabLink(tab.url)) {
+              dispatch(
+                showToast({
+                  toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
+                  toastParams: { count: 1 },
+                  stacksOnTwin: true,
+                })
+              );
+            }
+          },
+        },
+        {
+          key: 'delete',
+          label: t('Delete tab'),
+          icon: 'delete' as const,
+          danger: true,
+          onSelect: () => dispatch(deleteTab({ tabGroupId, windowId, tabId })),
+        },
+      ];
+    },
+  });
+
   // The group's Open (KAN-394): its tabs beside the active one, re-grouped.
   //
   // The index advances per tab. Creating them all at currentTabIndex + 1 would
@@ -811,10 +869,15 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     return (
       <div
         key={tabId}
-        css={childrenStyle}
+        css={
+          tabMenu.heldId === tabId
+            ? [childrenStyle, heldTabStyle]
+            : childrenStyle
+        }
         data-drag-handle-row=""
         onMouseEnter={() => setHoveredTabId(tabId)}
         onMouseLeave={() => setHoveredTabId(null)}
+        {...tabMenu.rowProps(tabId)}
       >
         <DragHandle
           scope="tabs"
@@ -1619,6 +1682,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       {/* KAN-708. Outside every row that carries a menu's handlers (R1). */}
       {windowMenu.menu}
       {groupMenu.menu}
+      {tabMenu.menu}
     </div>
   );
 };

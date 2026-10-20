@@ -149,6 +149,7 @@
   "Export session": "내보내기…",
   "Save as HTML": "HTML로 저장",
   "Copy all links": "모든 링크 복사",
+  "Copy link": "링크 복사",
   "ExportNothingKept": "모든 행이 숨겨져 있습니다. 완료하려면 하나 이상 표시하세요.",
   "LinksCopied_other": "링크 {{count}}개를 복사했습니다.",
   "RemoveDuplicateTabs_other": "중복된 탭 {{count}}개 삭제",

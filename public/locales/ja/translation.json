@@ -149,6 +149,7 @@
   "Export session": "エクスポート…",
   "Save as HTML": "HTMLとして保存",
   "Copy all links": "すべてのリンクをコピー",
+  "Copy link": "リンクをコピー",
   "ExportNothingKept": "すべての行が非表示です。完了するには、1 行以上を表示してください。",
   "LinksCopied_other": "{{count}} 件のリンクをコピーしました。",
   "RemoveDuplicateTabs_other": "重複したタブを {{count}} 個削除",

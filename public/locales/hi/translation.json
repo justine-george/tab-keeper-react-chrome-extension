@@ -151,6 +151,7 @@
   "Export session": "निर्यात करें…",
   "Save as HTML": "HTML के रूप में सहेजें",
   "Copy all links": "सभी लिंक कॉपी करें",
+  "Copy link": "लिंक कॉपी करें",
   "ExportNothingKept": "सभी पंक्तियाँ छिपी हैं। पूरा करने के लिए एक पंक्ति दिखाएँ।",
   "LinksCopied_one": "{{count}} लिंक कॉपी हो गया।",
   "LinksCopied_other": "{{count}} लिंक कॉपी हो गए।",

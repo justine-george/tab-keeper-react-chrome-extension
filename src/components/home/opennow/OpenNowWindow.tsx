@@ -20,9 +20,15 @@ import { useFocusOnRemount } from '../../../hooks/useFocusOnRemount';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
+import {
+  NON_INTERACTIVE_ICON_STYLE,
+  TOAST_MESSAGES,
+} from '../../../utils/constants/common';
+import { copyTabLink } from '../../../utils/functions/copyTabLink';
+import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
 import type { AppDispatch, RootState } from '../../../redux/store';
 import { sortOpenWindowBySite } from '../../../redux/sortOpenWindow';
+import { showToast } from '../../../redux/slices/globalStateSlice';
 import {
   canSortOpenWindowLive,
   isOpenWindowSortedBySite,
@@ -341,16 +347,20 @@ export default function OpenNowWindow({
     }
   `;
 
+  // KAN-708. A tab row's strip shows on hover, and while its right-click menu is open.
+  const isTabEngaged = (tabId: number) =>
+    hoveredTabId === tabId || tabMenu.heldId === String(tabId);
+
   const childRightStyle = (tabId: number) => css`
     position: absolute;
     top: 50%;
     right: 0;
     transform: translateY(-50%);
     background-color: ${
-      hoveredTabId === tabId ? COLORS.HOVER_COLOR : 'transparent'
+      isTabEngaged(tabId) ? COLORS.HOVER_COLOR : 'transparent'
     };
     & > * {
-      opacity: ${hoveredTabId === tabId ? 1 : 0};
+      opacity: ${isTabEngaged(tabId) ? 1 : 0};
       transition: opacity ${DURATION.COLOR} ease-out;
     }
     ${whileKeyNav('&:has(:focus-visible)')} {
@@ -373,6 +383,10 @@ export default function OpenNowWindow({
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
     }
+  `;
+  // KAN-708. Held while its right-click menu is open, as if hovered.
+  const heldTabStyle = css`
+    background-color: ${COLORS.HOVER_COLOR};
   `;
 
   // A plain string, not css``: handed to ClickableRow's `style` prop.
@@ -458,6 +472,50 @@ export default function OpenNowWindow({
   // KAN-564. Each drawn half of a live split, and its other half.
   const splitPartners = openSplitPartners(drawnTabs);
   const tabsById = new Map(openWindow.tabs.map((tab) => [String(tab.id), tab]));
+  // KAN-708. A live tab's items: Switch to tab, Copy link, Close tab. Only a drawn row has a menu.
+  const tabMenu = useRowContextMenu({
+    kind: 'openTab',
+    ariaLabel: (tabId) => tabsById.get(tabId)?.title ?? '',
+    itemsFor: (tabId) => {
+      const tab = drawnTabs.find((candidate) => String(candidate.id) === tabId);
+      if (!tab) return null;
+      return [
+        {
+          key: 'switch',
+          label: t('Switch to tab'),
+          icon: 'tab' as const,
+          // Chrome rejects when the tab closed after this row was drawn; the next read drops the row.
+          onSelect: () => void switchToOpenTab(tab).catch(() => undefined),
+        },
+        {
+          key: 'copy-link',
+          label: t('Copy link'),
+          icon: 'link' as const,
+          onSelect: async () => {
+            if (await copyTabLink(tab.url)) {
+              dispatch(
+                showToast({
+                  toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
+                  toastParams: { count: 1 },
+                  stacksOnTwin: true,
+                })
+              );
+            }
+          },
+        },
+        {
+          key: 'close',
+          label: t('Close tab'),
+          icon: 'close' as const,
+          danger: true,
+          onSelect: () => {
+            holdBackDoubleClickTail();
+            onCloseTab(tab);
+          },
+        },
+      ];
+    },
+  });
   const items = partitionTabsIntoItems(
     drawnTabs.map((tab) => ({
       tabId: String(tab.id),
@@ -511,11 +569,16 @@ export default function OpenNowWindow({
     return (
       <div
         key={tab.id}
-        css={childrenStyle}
+        css={
+          tabMenu.heldId === String(tab.id)
+            ? [childrenStyle, heldTabStyle]
+            : childrenStyle
+        }
         data-open-tab-id={tab.id}
         data-drag-handle-row=""
         onMouseEnter={() => setHoveredTabId(tab.id)}
         onMouseLeave={() => setHoveredTabId(null)}
+        {...tabMenu.rowProps(String(tab.id))}
       >
         <DragHandle
           scope={OPEN_TABS_SCOPE}
@@ -1043,6 +1106,8 @@ export default function OpenNowWindow({
             })}
           </div>
         )}
+        {/* KAN-708. Outside every row that carries a menu's handlers (R1). */}
+        {tabMenu.menu}
       </div>
     </DraggableRow>
   );

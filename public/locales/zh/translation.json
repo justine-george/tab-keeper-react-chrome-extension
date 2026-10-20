@@ -149,6 +149,7 @@
   "Export session": "导出…",
   "Save as HTML": "保存为 HTML",
   "Copy all links": "复制所有链接",
+  "Copy link": "复制链接",
   "ExportNothingKept": "所有行都已隐藏。至少显示一行才能完成。",
   "LinksCopied_other": "已复制 {{count}} 个链接。",
   "RemoveDuplicateTabs_other": "删除 {{count}} 个重复的标签页",

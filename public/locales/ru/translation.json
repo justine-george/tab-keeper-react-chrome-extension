@@ -155,6 +155,7 @@
   "Export session": "Экспорт…",
   "Save as HTML": "Сохранить как HTML",
   "Copy all links": "Скопировать все ссылки",
+  "Copy link": "Скопировать ссылку",
   "ExportNothingKept": "Все строки скрыты. Покажите хотя бы одну, чтобы завершить.",
   "LinksCopied_one": "{{count}} ссылка скопирована.",
   "LinksCopied_few": "{{count}} ссылки скопированы.",
