@@ -411,6 +411,16 @@ describe('the anchor changes while shown', () => {
     expect(chip()).toBeNull();
   });
 
+  test('an anchor removed during the wait shows no chip when the wait ends', async () => {
+    const { rerender } = await setup();
+    pointerTo(byTip('Delete'));
+    wait(200);
+    rerender(<Fixture withB={false} />);
+    await settle();
+    wait(300);
+    expect(chip()).toBeNull();
+  });
+
   test('Review Focus 3: nested anchors show the innermost text', async () => {
     await setup();
     pointerTo(byTip('Inner'));

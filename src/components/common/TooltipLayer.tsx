@@ -114,6 +114,11 @@ function createTooltips() {
     };
     const show = (anchor: Element) => {
       cancel();
+      // Re-rendered away during the wait: it has no box to sit under (review F1).
+      if (!anchor.isConnected) {
+        if (hovered === anchor) hovered = null;
+        return;
+      }
       const text = anchor.getAttribute('data-tooltip');
       if (!text || isDragging() || shown?.anchor === anchor) return;
       if (repeatsVisibleText(anchor, text)) return;
