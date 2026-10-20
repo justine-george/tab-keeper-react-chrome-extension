@@ -570,3 +570,77 @@ grantedTest(
     await expect(picker).toHaveCount(0);
   }
 );
+
+// KAN-708. Anything with a ⋮ answers a right-click with that ⋮'s items; the pane around the header keeps Chrome's menu.
+test('right-clicking the session header opens its ⋮ items at the pointer', async ({
+  context,
+  extensionId,
+}) => {
+  await watchContextMenus(context);
+  const page = await openSaved(context, extensionId, 'popup', {
+    sessions: SESSIONS,
+  });
+  const title = shownSession(page, 'Trip');
+  await expect(title).toBeVisible();
+
+  // The header ⋮'s own items, read from its menu.
+  await sessionHeaderMenu(page).click();
+  const overflow = page
+    .locator('[data-tour-anchor="session-menu"] [role="menu"]')
+    .getByRole('menuitem');
+  await expect(overflow.first()).toBeVisible();
+  // Each item's accessible name, as the ARIA tree gives it (icon glyph text excluded).
+  const expected: string[] = [];
+  for (let i = 0; i < (await overflow.count()); i++) {
+    expected.push(await overflow.nth(i).ariaSnapshot());
+  }
+  // PREMISE: the ⋮ has items to compare against.
+  expect(expected.length).toBeGreaterThan(1);
+  await page.keyboard.press('Escape');
+  await expect(overflow).toHaveCount(0);
+
+  const box = await boxOf(title);
+  const at = {
+    x: Math.round(box.x + box.width / 2),
+    y: Math.round(box.y + box.height / 2),
+  };
+  await rightClickAt(page, at);
+
+  const menu = rowMenu(page);
+  await expect(menu).toBeVisible();
+  await expect(menu).toHaveAccessibleName('More actions: Trip');
+  const opened = rowMenu(page).getByRole('menuitem');
+  await expect(opened).toHaveCount(expected.length);
+  for (const [i, snapshot] of expected.entries()) {
+    await expect(opened.nth(i)).toMatchAriaSnapshot(snapshot);
+  }
+  const placed = await boxOf(menu);
+  expect(Math.abs(placed.x - at.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(placed.y - at.y)).toBeLessThanOrEqual(1);
+  expect(await contextMenusPrevented(page)).toEqual([true]);
+  expect((await stored(page)).selectedTabGroupId).toBe('S1');
+
+  // Empty pane space below the header keeps Chrome's menu.
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  const pane = await boxOf(page.locator('[data-pane="detail"]'));
+  const outside = {
+    x: Math.round(pane.x + pane.width / 2),
+    y: Math.round(pane.y + pane.height - 20),
+  };
+  // PREMISE: that point is nothing a press would act on.
+  expect(
+    await page.evaluate(({ x, y }) => {
+      const el = document.elementFromPoint(x, y);
+      return (
+        el !== null &&
+        el.closest(
+          'button, [role="button"], [role="menu"], [data-drag-handle-row], input'
+        ) === null
+      );
+    }, outside)
+  ).toBe(true);
+  await rightClickAt(page, outside);
+  await expect(page.locator('[data-row-menu]')).toHaveCount(0);
+  expect(await contextMenusPrevented(page)).toEqual([true, false]);
+});
