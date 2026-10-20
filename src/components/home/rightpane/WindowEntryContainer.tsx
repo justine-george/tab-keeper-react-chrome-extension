@@ -1363,9 +1363,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         ${whileKeyNav('&:has(:focus-visible) .group-actions')} {
                           ${groupActionsShown}
                         }
-                        /* KAN-708. Held while its ⋮ or its right-click menu is open, as if hovered. */
+                        /* KAN-708. Held while its right-click menu is open, as if hovered. */
                         ${
-                          openMenuGroupId === item.group.groupId ||
                           groupMenu.heldId === item.group.groupId
                             ? `${groupRowEngaged} .group-actions { ${groupActionsShown} }`
                             : ''

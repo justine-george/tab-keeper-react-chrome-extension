@@ -978,6 +978,14 @@ describe('right-click (KAN-708)', () => {
       groupTitle(name).closest('[data-group-drag-handle]') as HTMLElement;
 
     expect(shownAtRest(header('Work'))).toBe(false);
+    // The group's own ⋮ open is not a hold: it only lifts the strip's z-index.
+    const workDots = within(header('Work')).getByRole('button', {
+      name: 'More actions',
+    });
+    fireEvent.click(workDots);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(shownAtRest(header('Work'))).toBe(false);
+    esc();
     fireEvent.contextMenu(groupTitle('Work'));
     expect(shownAtRest(header('Work'))).toBe(true);
     expect(shownAtRest(header('Play'))).toBe(false);
