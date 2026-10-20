@@ -97,6 +97,7 @@ import {
   type CarryReceiver,
 } from '../../../../redux/carry';
 import { pickOf } from '../../../../redux/carriedItem';
+import { useMacKeys } from '../../../../hooks/useIsMac';
 import {
   hideDragCard,
   moveDragCard,
@@ -2519,6 +2520,7 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
   const ctx =
     (scope === undefined ? scopes?.nearest : scopes?.byScope[scope]) ?? null;
   const drag = ctx?.drag ?? null;
+  const isMac = useMacKeys();
 
   const held = drag?.rowId === rowId;
   // The row a carried item is drawn as while it can land here (KAN-350):
@@ -2571,7 +2573,8 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
         // Left button only. Which PART of the row may start a drag is the
         // area's rule, not this component's, so the press is reported with its
         // target and the area decides.
-        if (e.button !== 0) return;
+        // KAN-708. A Mac Ctrl press is a right-click.
+        if (e.button !== 0 || (isMac && e.ctrlKey)) return;
         ctx?.begin(rowId, e.clientX, e.clientY, e.target);
       }}
       style={{

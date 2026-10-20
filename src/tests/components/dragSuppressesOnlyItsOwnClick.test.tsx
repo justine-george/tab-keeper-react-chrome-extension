@@ -1,3 +1,4 @@
+import { setupChromeFake } from '../setup/chrome.fake';
 import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
@@ -84,6 +85,16 @@ const dragBBelowC = () => {
   fireEvent.pointerMove(document, { clientX: 10, clientY: 88, button: 0 });
   fireEvent.pointerUp(document, { clientX: 10, clientY: 88, button: 0 });
 };
+
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
+});
 
 describe('a drag swallows its own click and nothing else (KAN-177)', () => {
   let onMove: ReturnType<

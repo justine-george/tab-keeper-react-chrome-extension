@@ -1,4 +1,5 @@
-import { describe, expect, test, afterEach, vi } from 'vitest';
+import { setupChromeFake } from '../setup/chrome.fake';
+import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 import {
@@ -77,6 +78,16 @@ const dragging = () => document.documentElement.hasAttribute('data-dragging');
 afterEach(() => {
   fireEvent.pointerUp(document, { clientX: 60, clientY: 140 });
   document.documentElement.removeAttribute('data-dragging');
+});
+
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
 });
 
 describe('a press inside an editable field starts no drag', () => {

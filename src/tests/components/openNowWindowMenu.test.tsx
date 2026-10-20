@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { act, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import OpenNowColumn from '../../components/home/opennow/OpenNowColumn';
@@ -316,5 +322,92 @@ describe('Open now window header: Save and a ⋮ (KAN-696)', () => {
     await waitFor(() => expect(moreActionsIn(1)).toHaveLength(0));
     expect(stripOpacity(1)).toBe('0');
     expect(getComputedStyle(stripOf(1)).zIndex).toBe(resting);
+  });
+});
+
+// KAN-708. The window row's right-click offers what its ⋮ offers.
+describe('an Open now window row right-click (KAN-708)', () => {
+  const windowRow = (windowId: number) => {
+    const row = blockOf(windowId).querySelector('[data-window-row]');
+    if (!(row instanceof HTMLElement)) throw new Error('no window row');
+    return row;
+  };
+  const rowMenus = () => [
+    ...document.querySelectorAll<HTMLElement>('[data-row-menu]'),
+  ];
+
+  test('right-click = its ⋮ items: Sort tabs by site when offered, Close window last', async () => {
+    await renderOpenNow(seed(UNSORTED()));
+
+    expect(fireEvent.contextMenu(windowRow(2))).toBe(false);
+
+    expect(rowMenus()).toHaveLength(1);
+    expect(menuKeys()).toEqual(['sortBySite', 'closeWindow']);
+  });
+
+  test('Sort tabs by site is left out where the ⋮ leaves it out', async () => {
+    await renderOpenNow(
+      seed([tab(21, 'a', { active: true }), tab(22, 'a'), tab(23, 'b')])
+    );
+
+    fireEvent.contextMenu(windowRow(2));
+
+    expect(menuKeys()).toEqual(['closeWindow']);
+  });
+
+  test('Close window from the right-click closes that window', async () => {
+    await renderOpenNow(seed(UNSORTED()));
+    fireEvent.contextMenu(windowRow(2));
+
+    fireEvent.click(
+      within(screen.getByRole('menu')).getByRole('menuitem', {
+        name: 'Close window',
+      })
+    );
+
+    await waitFor(async () =>
+      expect((await chrome.windows.getAll()).map((w) => w.id)).toEqual([1])
+    );
+  });
+
+  test('a right-click on a tab row opens only the tab menu', async () => {
+    await renderOpenNow(seed(UNSORTED()));
+
+    fireEvent.contextMenu(
+      within(blockOf(2)).getByRole('button', { name: 'Switch to tab: a21' })
+    );
+
+    expect(rowMenus()).toHaveLength(1);
+    expect(rowMenus()[0]).toHaveAccessibleName('a21');
+  });
+
+  test('held: the strip shows while the right-click menu is open, and hides when it closes', async () => {
+    await renderOpenNow(seed(UNSORTED()));
+    expect(stripOpacity(2)).toBe('0');
+
+    fireEvent.contextMenu(windowRow(2));
+    expect(stripOpacity(2)).toBe('1');
+
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(stripOpacity(2)).toBe('0');
+  });
+
+  test('under a search the row gives Chrome its menu', async () => {
+    const user = userEvent.setup();
+    await renderOpenNow(seed(UNSORTED()));
+    await user.type(
+      screen.getByRole('textbox', { name: 'Search open tabs' }),
+      'a2'
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Switch to tab: b22' })
+      ).toBeNull()
+    );
+
+    expect(fireEvent.contextMenu(windowRow(2))).toBe(true);
+
+    expect(rowMenus()).toHaveLength(0);
   });
 });

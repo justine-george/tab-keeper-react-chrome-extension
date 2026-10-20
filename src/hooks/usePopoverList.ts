@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useMenuList } from './useMenuList';
+import {
+  closeRowMenu,
+  getRowMenu,
+  subscribeRowMenu,
+} from '../components/common/rowMenu/rowMenuStore';
+
 /**
  * The behaviour every popover in this app has to get right, in one place.
  *
@@ -14,9 +21,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  */
 export type PopoverAxis = 'vertical' | 'horizontal';
 
-// A press on the run's card counts as inside: its buttons must not close a menu open under it.
-const PRESS_INSIDE = '[data-coach-mark]';
-
 export function usePopoverList({
   count,
   axis,
@@ -29,7 +33,6 @@ export function usePopoverList({
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
-  const itemRefs = useRef<(HTMLElement | null)[]>([]);
   // Opened by a pointer click and not walked with the keys since: Esc then
   // returns focus without the ring (KAN-405 2A). A key on the trigger, or a
   // key-activated click (detail 0), means the keyboard.
@@ -55,6 +58,8 @@ export function usePopoverList({
   // step with the state it reports.
   const setOpen = useCallback(
     (next: boolean) => {
+      // KAN-708. One menu open at a time: opening this one closes a row's right-click menu.
+      if (next) closeRowMenu();
       setIsOpen((current) => {
         if (current !== next) onOpenChange?.(next);
         return next;
@@ -62,6 +67,12 @@ export function usePopoverList({
     },
     [onOpenChange]
   );
+
+  // KAN-708. A right-click opens it as a click does: by pointer, so Esc returns focus without the ring.
+  const openByPointer = useCallback(() => {
+    pointerOpened.current = true;
+    setOpen(true);
+  }, [setOpen]);
 
   const focusTrigger = (options?: FocusOptions) => {
     const trigger =
@@ -79,67 +90,36 @@ export function usePopoverList({
     [setOpen]
   );
 
-  // Opening moves focus into the list, which is what makes it operable
-  // without a pointer at all.
-  useEffect(() => {
-    if (isOpen) itemRefs.current[0]?.focus();
-  }, [isOpen]);
-
+  // KAN-708. One menu open at a time: a row's right-click menu opening closes this one.
   useEffect(() => {
     if (!isOpen) return;
-    const onPointerDown = (e: MouseEvent) => {
-      const target = e.target instanceof Element ? e.target : null;
-      const isInside =
-        target !== null &&
-        (wrapperRef.current?.contains(target) === true ||
-          target.closest(PRESS_INSIDE) !== null);
-      if (!isInside) close(false);
-    };
-    document.addEventListener('mousedown', onPointerDown);
-    return () => document.removeEventListener('mousedown', onPointerDown);
+    return subscribeRowMenu(() => {
+      if (getRowMenu() !== null) close(false);
+    });
   }, [isOpen, close]);
 
-  const focusItem = (index: number) => {
-    if (count === 0) return;
-    // Wraps in both directions, so the list has no dead ends.
-    itemRefs.current[((index % count) + count) % count]?.focus();
-  };
-
-  const indexOfFocused = () =>
-    itemRefs.current.findIndex((el) => el === document.activeElement);
-
-  const prevKey = axis === 'vertical' ? 'ArrowUp' : 'ArrowLeft';
-  const nextKey = axis === 'vertical' ? 'ArrowDown' : 'ArrowRight';
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      // An unprevented Esc closes the extension popup too.
-      e.preventDefault();
+  const { registerItem, handleKeyDown } = useMenuList({
+    count,
+    axis,
+    isOpen,
+    wrapperRef,
+    onDismiss: (reason) => {
+      if (reason === 'outside') {
+        close(false);
+        return;
+      }
       setOpen(false);
       focusTrigger(pointerOpened.current ? { focusVisible: false } : undefined);
-      return;
-    }
-    if (e.key === nextKey) {
-      e.preventDefault();
+    },
+    onWalk: () => {
       pointerOpened.current = false;
-      focusItem(indexOfFocused() + 1);
-      return;
-    }
-    if (e.key === prevKey) {
-      e.preventDefault();
-      pointerOpened.current = false;
-      focusItem(indexOfFocused() - 1);
-    }
-  };
-
-  const registerItem = (index: number) => (el: HTMLElement | null) => {
-    itemRefs.current[index] = el;
-  };
+    },
+  });
 
   return {
     isOpen,
     setOpen,
+    openByPointer,
     close,
     wrapperRef,
     triggerRef,

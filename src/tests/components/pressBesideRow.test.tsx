@@ -1,3 +1,4 @@
+import { setupChromeFake } from '../setup/chrome.fake';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 
@@ -86,6 +87,16 @@ const layout = () => {
       });
   });
 };
+
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
+});
 
 describe('which x the band question gets (KAN-704)', () => {
   test('a press left of the row asks at the row: the pointer plus the gap', () => {

@@ -1,4 +1,5 @@
-import { describe, expect, test, afterEach, vi } from 'vitest';
+import { setupChromeFake } from '../setup/chrome.fake';
+import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 
 import {
@@ -75,6 +76,16 @@ const startDrag = (label: string) => {
   fireEvent.pointerDown(row, { clientX: 10, clientY: 15, button: 0 });
   fireEvent.pointerMove(document, { clientX: 10, clientY: 30 });
 };
+
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
+});
 
 describe('a re-render mid-drag keeps the drag alive', () => {
   // Same ids, NEW ARRAY: what a store update that rebuilds the container does to every memoised id list.

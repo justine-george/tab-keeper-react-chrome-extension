@@ -1,4 +1,5 @@
-import { describe, expect, test, afterEach, vi } from 'vitest';
+import { setupChromeFake } from '../setup/chrome.fake';
+import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 
 import {
@@ -203,6 +204,16 @@ const attributable = (held: string, y: number) => {
   }
   return out;
 };
+
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
+});
 
 describe('a drop that opens the gap between two bands', () => {
   // a0 held at 120: between the two bands, above the anchor.

@@ -1,4 +1,5 @@
-import { describe, expect, test, afterEach, vi } from 'vitest';
+import { setupChromeFake } from '../setup/chrome.fake';
+import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 import {
@@ -134,6 +135,16 @@ const setUp = (restore: boolean, onMove?: () => void) => {
   writes.length = 0;
   return { scroller, writes };
 };
+
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
+});
 
 describe('a window drag that commits nothing puts the view back', () => {
   test('after Escape, the scroll is where it was when the row was picked up', () => {

@@ -377,3 +377,122 @@ describe('a live group row: Save and a ⋮ (KAN-696)', () => {
     expect(screen.queryByRole('textbox', { name: /^Rename group/ })).toBeNull();
   });
 });
+
+// KAN-708. The group header's right-click offers what its ⋮ offers.
+describe('a live group row right-click (KAN-708)', () => {
+  const rowMenus = () => [
+    ...document.querySelectorAll<HTMLElement>('[data-row-menu]'),
+  ];
+  const firstControl = () =>
+    stripIn(titleRowOf('Docs'))?.firstElementChild as HTMLElement;
+
+  test('right-click = Ungroup, Close group, acting on that group', async () => {
+    await renderOpenNow();
+
+    expect(fireEvent.contextMenu(titleRowOf('Docs'))).toBe(false);
+    expect(menuKeys()).toEqual(['ungroup', 'closeGroup']);
+
+    fireEvent.click(
+      within(screen.getByRole('menu')).getByRole('menuitem', {
+        name: 'Ungroup',
+      })
+    );
+    await waitFor(async () =>
+      expect(await groupIdsOfWindow2()).toEqual([
+        [21, -1],
+        [22, -1],
+        [23, -1],
+        [24, 51],
+      ])
+    );
+  });
+
+  test('a right-click on a group header opens the group menu only, not the window menu', async () => {
+    await renderOpenNow();
+
+    fireEvent.contextMenu(titleRowOf('Docs'));
+
+    expect(rowMenus()).toHaveLength(1);
+    expect(rowMenus()[0]).toHaveAccessibleName('More actions: Docs');
+  });
+
+  test('a right-click on a tab inside the group opens only the tab menu', async () => {
+    await renderOpenNow();
+
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: 'Switch to tab: t22' })
+    );
+
+    expect(rowMenus()).toHaveLength(1);
+    expect(rowMenus()[0]).toHaveAccessibleName('t22');
+  });
+
+  test('held: the strip shows while the right-click menu is open', async () => {
+    await renderOpenNow();
+    expect(getComputedStyle(firstControl()).opacity).toBe('0');
+
+    fireEvent.contextMenu(titleRowOf('Docs'));
+    expect(getComputedStyle(firstControl()).opacity).toBe('1');
+
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(getComputedStyle(firstControl()).opacity).toBe('0');
+  });
+
+  test('the right-click hold fills the header; the ⋮ open lifts the strip and leaves the header unfilled', async () => {
+    await renderOpenNow();
+    // jsdom answers :hover for a focused control, so the header's own rule is read, not its computed fill.
+    const ownFills = () => {
+      const own = `.${titleRowOf('Docs').className.split(' ').join('.')}`;
+      return [...document.querySelectorAll('style')]
+        .flatMap((s) => [...(s.sheet?.cssRules ?? [])])
+        .filter(
+          (r) =>
+            r instanceof CSSStyleRule &&
+            r.selectorText === own &&
+            r.style.backgroundColor !== ''
+        ).length;
+    };
+    expect(ownFills()).toBe(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions: Docs' }));
+    expect(screen.getByRole('menu')).toBeVisible();
+    expect(getComputedStyle(firstControl()).opacity).toBe('1');
+    expect(ownFills()).toBe(0);
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+
+    fireEvent.contextMenu(titleRowOf('Docs'));
+    expect(ownFills()).toBe(1);
+  });
+
+  test('under an Open now search the header gives Chrome its menu', async () => {
+    const user = userEvent.setup();
+    await renderOpenNow();
+    await user.type(
+      screen.getByRole('textbox', { name: 'Search open tabs' }),
+      't22'
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Switch to tab: t21' })
+      ).toBeNull()
+    );
+
+    expect(fireEvent.contextMenu(titleRowOf('Docs'))).toBe(true);
+
+    expect(rowMenus()).toHaveLength(0);
+  });
+});
+
+describe('right-clicking an Open now group’s colour bar (KAN-708)', () => {
+  test('opens the colour picker, not the group’s row menu', async () => {
+    await renderOpenNow();
+    const bar = screen.getByRole('button', {
+      name: 'Change group color: Docs',
+    });
+    expect(fireEvent.contextMenu(bar)).toBe(false);
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(9);
+    expect(screen.getAllByRole('menuitemradio')[0]).toHaveFocus();
+    expect(document.querySelectorAll('[data-row-menu]')).toHaveLength(0);
+  });
+});

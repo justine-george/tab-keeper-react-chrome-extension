@@ -134,7 +134,9 @@ export default function OpenNowRail({
       const target = e.target instanceof Element ? e.target : null;
       if (target === null || currentCarry() !== null) return;
       if (drawerRef.current?.contains(target)) return;
-      if (target.closest('[data-toast], dialog') !== null) return;
+      // KAN-708. A row menu opened from the drawer is part of it.
+      if (target.closest('[data-toast], dialog, [data-row-menu]') !== null)
+        return;
       setIsOpen(false);
       // After the press's own focus change: the rail, unless it focused something.
       setTimeout(() => {

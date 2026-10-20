@@ -1,4 +1,5 @@
-import { describe, expect, test, afterEach, vi } from 'vitest';
+import { setupChromeFake } from '../setup/chrome.fake';
+import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 
 import {
@@ -106,6 +107,16 @@ const hold = (offset: number | undefined) => {
   // y = 60: above the band, in a1's lower half. Index 2, its own.
   fireEvent.pointerMove(document, { clientX: 10, clientY: 60 });
 };
+
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
+});
 
 describe('the landing slot honours the offset the list names', () => {
   test('a negative offset draws the slot that much higher than the title row', () => {

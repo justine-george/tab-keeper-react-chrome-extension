@@ -28,6 +28,7 @@ import { focusRingAboveCss, whileKeyNav } from '../../common/focusRing';
 import { SAVED_TEXT_INSET } from './savedListInset';
 import { DragHandle } from '../rightpane/rowDrag/DragHandle';
 import { useRowActionGuard } from './useRowActionGuard';
+import type { RowMenuProps } from '../../common/rowMenu/useRowContextMenu';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import {
   selectRunEngagedRowId,
@@ -78,6 +79,8 @@ interface TabGroupEntryProps {
   onDeleteKey: () => void;
   deleteKeyShortcuts: string;
   carryTarget?: CarryTargetLook;
+  // KAN-708. The right-click menu's handlers, and the held look while its menu is open.
+  rowMenuProps?: RowMenuProps;
 }
 
 const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
@@ -89,6 +92,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   onDeleteKey,
   deleteKeyShortcuts,
   carryTarget,
+  rowMenuProps,
 }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -385,6 +389,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     ${whileKeyNav('&:has(:focus-visible)')} {
       ${engagedStyle}
     }
+    /* KAN-708 (5B). The row whose right-click menu is open keeps the engaged look. */
+    &[data-row-menu-held] {
+      ${engagedStyle}
+    }
     /* The run points at this row: one more condition for the same engaged look. */
     &[data-run-engaged] {
       ${engagedStyle}
@@ -464,6 +472,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       data-carry-dwell={carryTarget?.dwellSweep ? '' : undefined}
       data-drag-handle-row=""
       {...rowEvents}
+      {...rowMenuProps}
     >
       <DragHandle rowId={tabGroupData.tabGroupId} left="9px" />
       <ClickableRow

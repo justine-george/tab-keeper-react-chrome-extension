@@ -1,4 +1,5 @@
-import { describe, expect, test, afterEach } from 'vitest';
+import { setupChromeFake } from '../setup/chrome.fake';
+import { describe, expect, test, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 
 import {
@@ -104,6 +105,16 @@ const shiftOfYWhenXPasses = (nested: boolean) => {
 
 afterEach(() => {
   document.documentElement.removeAttribute('data-dragging');
+});
+
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
 });
 
 describe('a footprint never climbs past a nested drag area', () => {

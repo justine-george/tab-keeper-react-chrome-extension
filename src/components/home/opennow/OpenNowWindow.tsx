@@ -21,6 +21,8 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
+import { copyLinkItem } from '../../common/rowMenu/copyLinkItem';
+import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
 import type { AppDispatch, RootState } from '../../../redux/store';
 import { sortOpenWindowBySite } from '../../../redux/sortOpenWindow';
 import {
@@ -251,7 +253,21 @@ export default function OpenNowWindow({
   ];
   const hasWindowMenu = windowMenuItems.length > 0;
   // The menu can unmount while open (This window got sorted), and then it never reports closing.
-  const menuOpen = hasWindowMenu && isWindowMenuOpen;
+  // O14e. While a search is held its Save window and Close window would act on
+  // tabs the search hides, with nothing on screen saying so, so the strip is
+  // not rendered at all (out of the tab order too). Clearing the search
+  // brings both back.
+  const offersWindowActions = matchedTabIds === null;
+  const title = windowLabel('', number, t('Window')).text;
+  // KAN-708. The window row's right-click shows the same items its ⋮ does, and holds the row as hovered.
+  const windowMenu = useRowContextMenu({
+    kind: 'openWindow',
+    ariaLabel: () => `${t('More actions')}: ${title}`,
+    itemsFor: () =>
+      offersWindowActions && hasWindowMenu ? windowMenuItems : null,
+  });
+  const menuOpen =
+    hasWindowMenu && (isWindowMenuOpen || windowMenu.heldId !== null);
   // By Chrome tab id, not by position, for KAN-127's reason: a re-read (and,
   // later, a drag) moves rows, and a position-keyed flag would then reveal
   // whichever tab moved into the hovered slot.
@@ -271,11 +287,6 @@ export default function OpenNowWindow({
     margin-bottom: 8px;
   `;
 
-  // O14e. While a search is held its Save window and Close window would act on
-  // tabs the search hides, with nothing on screen saying so, so the strip is
-  // not rendered at all (out of the tab order too). Clearing the search
-  // brings both back.
-  const offersWindowActions = matchedTabIds === null;
   const { isSearching: isSavedSearching } = useSavedSearch();
   // KAN-331 O15. The row takes you to its window: not "This window" (W2 A,
   // you are in it), and not while a search is held (S2).
@@ -290,6 +301,12 @@ export default function OpenNowWindow({
     ${
       offersWindowActions
         ? `&:hover { background-color: ${COLORS.HOVER_COLOR}; }`
+        : ''
+    }
+    /* KAN-708. Held while its right-click menu is open, as if hovered. */
+    ${
+      windowMenu.heldId !== null
+        ? `background-color: ${COLORS.HOVER_COLOR};`
         : ''
     }
   `;
@@ -341,16 +358,20 @@ export default function OpenNowWindow({
     }
   `;
 
+  // KAN-708. A tab row's strip shows on hover, and while its right-click menu is open.
+  const isTabEngaged = (tabId: number) =>
+    hoveredTabId === tabId || tabMenu.heldId === String(tabId);
+
   const childRightStyle = (tabId: number) => css`
     position: absolute;
     top: 50%;
     right: 0;
     transform: translateY(-50%);
     background-color: ${
-      hoveredTabId === tabId ? COLORS.HOVER_COLOR : 'transparent'
+      isTabEngaged(tabId) ? COLORS.HOVER_COLOR : 'transparent'
     };
     & > * {
-      opacity: ${hoveredTabId === tabId ? 1 : 0};
+      opacity: ${isTabEngaged(tabId) ? 1 : 0};
       transition: opacity ${DURATION.COLOR} ease-out;
     }
     ${whileKeyNav('&:has(:focus-visible)')} {
@@ -373,6 +394,10 @@ export default function OpenNowWindow({
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
     }
+  `;
+  // KAN-708. Held while its right-click menu is open, as if hovered.
+  const heldTabStyle = css`
+    background-color: ${COLORS.HOVER_COLOR};
   `;
 
   // A plain string, not css``: handed to ClickableRow's `style` prop.
@@ -416,8 +441,6 @@ export default function OpenNowWindow({
     padding-right: 9px;
   `;
 
-  const title = windowLabel('', number, t('Window')).text;
-
   // KAN-280 Part F (D3 A). The row's glyph and title pick the window up; the chevron and the actions sit outside it.
   const windowHeader = (
     <div data-open-window-drag-handle="" css={css(windowHeaderStyle)}>
@@ -458,6 +481,35 @@ export default function OpenNowWindow({
   // KAN-564. Each drawn half of a live split, and its other half.
   const splitPartners = openSplitPartners(drawnTabs);
   const tabsById = new Map(openWindow.tabs.map((tab) => [String(tab.id), tab]));
+  // KAN-708. A live tab's items: Switch to tab, Copy link, Close tab. Only a drawn row has a menu.
+  const tabMenu = useRowContextMenu({
+    kind: 'openTab',
+    ariaLabel: (tabId) => tabsById.get(tabId)?.title ?? '',
+    itemsFor: (tabId) => {
+      const tab = drawnTabs.find((candidate) => String(candidate.id) === tabId);
+      if (!tab) return null;
+      return [
+        {
+          key: 'switch',
+          label: t('Switch to tab'),
+          icon: 'tab' as const,
+          // Chrome rejects when the tab closed after this row was drawn; the next read drops the row.
+          onSelect: () => void switchToOpenTab(tab).catch(() => undefined),
+        },
+        copyLinkItem(tab.url, { t, dispatch }),
+        {
+          key: 'close',
+          label: t('Close tab'),
+          icon: 'close' as const,
+          danger: true,
+          onSelect: () => {
+            holdBackDoubleClickTail();
+            onCloseTab(tab);
+          },
+        },
+      ];
+    },
+  });
   const items = partitionTabsIntoItems(
     drawnTabs.map((tab) => ({
       tabId: String(tab.id),
@@ -472,6 +524,49 @@ export default function OpenNowWindow({
       color: group.color,
     }))
   );
+
+  // KAN-708. One item source for a live group: its ⋮ and its right-click read the same list.
+  const openGroupMenuItems = (groupId: string): OverflowMenuItem[] => [
+    {
+      key: 'ungroup',
+      label: t('Ungroup'),
+      icon: 'label_off',
+      onSelect: () => onUngroup(Number(groupId)),
+    },
+    // Last, as Close window is.
+    {
+      key: 'closeGroup',
+      label: t('Close group'),
+      icon: 'close',
+      danger: true,
+      onSelect: () => {
+        // As Close window: the second click of a double-click would hit what slid under the menu.
+        holdBackDoubleClickTail();
+        onCloseGroup(Number(groupId));
+      },
+    },
+  ];
+  const groupMenu = useRowContextMenu({
+    kind: 'openGroup',
+    ariaLabel: (groupId) => {
+      const group = items.find(
+        (item) => item.kind === 'group' && item.group.groupId === groupId
+      );
+      return `${t('More actions')}: ${
+        group?.kind === 'group'
+          ? titleOf(group.group) || t('Unnamed group')
+          : ''
+      }`;
+    },
+    itemsFor: (groupId) =>
+      editingGroupId !== groupId &&
+      offersWindowActions &&
+      items.some(
+        (item) => item.kind === 'group' && item.group.groupId === groupId
+      )
+        ? openGroupMenuItems(groupId)
+        : null,
+  });
 
   function renderTab(tab: OpenTab, grouped: boolean) {
     // KAN-280 O10b: the speaker shows Chrome's sound and changes nothing.
@@ -511,11 +606,16 @@ export default function OpenNowWindow({
     return (
       <div
         key={tab.id}
-        css={childrenStyle}
+        css={
+          tabMenu.heldId === String(tab.id)
+            ? [childrenStyle, heldTabStyle]
+            : childrenStyle
+        }
         data-open-tab-id={tab.id}
         data-drag-handle-row=""
         onMouseEnter={() => setHoveredTabId(tab.id)}
         onMouseLeave={() => setHoveredTabId(null)}
+        {...tabMenu.rowProps(String(tab.id))}
       >
         <DragHandle
           scope={OPEN_TABS_SCOPE}
@@ -646,6 +746,7 @@ export default function OpenNowWindow({
           // The e2e specs find a window's row by this.
           data-window-row
           data-drag-handle-row=""
+          {...windowMenu.rowProps(String(openWindow.id))}
           onMouseEnter={() => setIsParentHovered(true)}
           onMouseLeave={() => setIsParentHovered(false)}
         >
@@ -721,6 +822,10 @@ export default function OpenNowWindow({
               const color = sanitizeTabGroupColor(item.group.color);
               const groupTitle = titleOf(item.group);
               const groupName = groupTitle || t('Unnamed group');
+              // KAN-708. Held: the right-click menu is open, and the header fills. Engaged: that or the ⋮ open, and the strip shows.
+              const groupHeld = groupMenu.heldId === item.group.groupId;
+              const groupEngaged =
+                openMenuGroupId === item.group.groupId || groupHeld;
               return (
                 // The saved band, at rest (KAN-280: a live grouped tab sits
                 // exactly where a saved one does). Copied, not shared, for the
@@ -816,8 +921,14 @@ export default function OpenNowWindow({
                         data-group-drag-handle
                         data-drag-handle-row=""
                         data-fixed-row-id={item.group.groupId}
+                        {...groupMenu.rowProps(item.group.groupId)}
                         css={css`
                           position: relative;
+                          ${
+                            groupHeld
+                              ? `background-color: ${COLORS.HOVER_COLOR};`
+                              : ''
+                          }
                           display: flex;
                           align-items: center;
                           min-height: 32px;
@@ -954,20 +1065,14 @@ export default function OpenNowWindow({
                                 display: flex;
                                 align-items: center;
                                 /* A stacking context (transform): lifted, so its open menu paints over the rows below. */
-                                z-index: ${
-                                  openMenuGroupId === item.group.groupId ? 3 : 1
-                                };
+                                z-index: ${groupEngaged ? 3 : 1};
                                 background-color: ${
-                                  openMenuGroupId === item.group.groupId
+                                  groupEngaged
                                     ? COLORS.HOVER_COLOR
                                     : 'transparent'
                                 };
                                 & > * {
-                                  opacity: ${
-                                    openMenuGroupId === item.group.groupId
-                                      ? 1
-                                      : 0
-                                  };
+                                  opacity: ${groupEngaged ? 1 : 0};
                                   transition: opacity ${DURATION.COLOR} ease-out;
                                 }
                               `}
@@ -998,27 +1103,7 @@ export default function OpenNowWindow({
                                         : prev
                                   )
                                 }
-                                items={[
-                                  {
-                                    key: 'ungroup',
-                                    label: t('Ungroup'),
-                                    icon: 'label_off',
-                                    onSelect: () =>
-                                      onUngroup(Number(item.group.groupId)),
-                                  },
-                                  // Last, as Close window is.
-                                  {
-                                    key: 'closeGroup',
-                                    label: t('Close group'),
-                                    icon: 'close',
-                                    danger: true,
-                                    onSelect: () => {
-                                      // As Close window: the second click of a double-click would hit what slid under the menu.
-                                      holdBackDoubleClickTail();
-                                      onCloseGroup(Number(item.group.groupId));
-                                    },
-                                  },
-                                ]}
+                                items={openGroupMenuItems(item.group.groupId)}
                               />
                             </div>
                           )}
@@ -1043,6 +1128,10 @@ export default function OpenNowWindow({
             })}
           </div>
         )}
+        {/* KAN-708. Outside every row that carries a menu's handlers (R1). */}
+        {windowMenu.menu}
+        {groupMenu.menu}
+        {tabMenu.menu}
       </div>
     </DraggableRow>
   );

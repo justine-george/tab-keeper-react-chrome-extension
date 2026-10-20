@@ -22,6 +22,8 @@ import { dropBoxStyle } from '../../common/dropBoxStyle';
 import Icon from '../../common/Icon';
 import { RowMarkIcon, RowMarkSlot } from '../../common/RowMarks';
 import OverflowMenu from '../../common/OverflowMenu';
+import type { OverflowMenuItem } from '../../common/MenuPanel';
+import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
 import GroupColorPicker from '../../common/GroupColorPicker';
 import { NormalLabel } from '../../common/Label';
 import { useFontFamily } from '../../../hooks/useFontFamily';
@@ -35,6 +37,7 @@ import {
 } from '../../../utils/functions/local';
 import { visuallyHiddenStyle } from '../../../styles/visuallyHidden';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
+import { copyLinkItem } from '../../common/rowMenu/copyLinkItem';
 import {
   deleteTab,
   tabData,
@@ -231,6 +234,118 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       ),
     [tabs, chromeTabGroups, hasTabGroupsPermission]
   );
+  // KAN-361/366. The trailing block (NEW_LAST_WINDOW); described where it is styled.
+  const isTrailingBlock = windowId === NEW_LAST_WINDOW;
+
+  // What a group is called on screen. An untitled group has no name, so it
+  // borrows the string that already named it for assistive tech -- present
+  // and translated in all ten locales since KAN-11.
+  const groupDisplayName = (group: chromeTabGroupData) =>
+    group.title || t('Unnamed group');
+
+  // WCAG 2.5.3, same shape as the tab rows: the accessible name contains the
+  // visible title, and says what the control actually does now.
+  const groupDuplicateItem = (groupId: string): OverflowMenuItem[] => {
+    const count = countDuplicateTabs(here, { windowId, groupId });
+    return count > 0
+      ? [
+          {
+            key: 'duplicates',
+            label: t('RemoveDuplicateTabs', { count }),
+            icon: 'stack_off',
+            onSelect: () =>
+              void dispatch(
+                removeDuplicateTabs({
+                  tabGroupId,
+                  within: { windowId, groupId },
+                })
+              ),
+          },
+        ]
+      : [];
+  };
+
+  // KAN-708. The window's items: the one source for its ⋮ and its right-click menu.
+  const savedWindowMenuItems: OverflowMenuItem[] = [
+    // Only while sorting would change the order.
+    ...(isSavedWindowSortedBySite({ tabs })
+      ? []
+      : [
+          {
+            key: 'sortBySite',
+            label: t('Sort tabs by site'),
+            icon: 'sort' as const,
+            onSelect: () =>
+              void dispatch(sortTabsBySite({ tabGroupId, windowId })),
+          },
+        ]),
+    // Only while there is one to remove, as in the session menu.
+    ...(windowDuplicates > 0
+      ? [
+          {
+            key: 'duplicates',
+            label: t('RemoveDuplicateTabs', { count: windowDuplicates }),
+            icon: 'stack_off' as const,
+            onSelect: () =>
+              void dispatch(
+                removeDuplicateTabs({ tabGroupId, within: { windowId } })
+              ),
+          },
+        ]
+      : []),
+    {
+      key: 'delete',
+      label: t('Delete window'),
+      icon: 'delete',
+      danger: true,
+      onSelect: onDeleteClick,
+    },
+  ];
+
+  // KAN-708. A group's items: the one source for its ⋮ and its right-click menu.
+  const savedGroupMenuItems = (groupId: string): OverflowMenuItem[] => [
+    {
+      key: 'ungroup',
+      label: t('Ungroup'),
+      icon: 'label_off',
+      onSelect: () =>
+        dispatch(ungroupChromeTabGroup({ tabGroupId, windowId, groupId })),
+    },
+    // KAN-616 (2A). Lighter than Delete group, heavier than Ungroup.
+    ...groupDuplicateItem(groupId),
+    {
+      key: 'delete',
+      label: t('Delete tab group'),
+      icon: 'delete',
+      danger: true,
+      onSelect: () =>
+        dispatch(deleteChromeTabGroup({ tabGroupId, windowId, groupId })),
+    },
+  ];
+
+  // KAN-708. A row's menu exists exactly when its ⋮ shows.
+  const windowMenu = useRowContextMenu({
+    kind: 'savedWindow',
+    ariaLabel: () => `${t('More actions')}: ${label.text}`,
+    itemsFor: () =>
+      !isTrailingBlock && !isEditing && !isSearching
+        ? savedWindowMenuItems
+        : null,
+  });
+  const groupMenu = useRowContextMenu({
+    kind: 'savedGroup',
+    ariaLabel: (groupId) => {
+      const group = chromeTabGroups?.find((g) => g.groupId === groupId);
+      return `${t('More actions')}: ${group ? groupDisplayName(group) : ''}`;
+    },
+    itemsFor: (groupId) =>
+      !isSearching &&
+      editingGroupId !== groupId &&
+      items.some((i) => i.kind === 'group' && i.group.groupId === groupId)
+        ? savedGroupMenuItems(groupId)
+        : null,
+  });
+
   const containerStyle = css`
     display: flex;
     flex-direction: column;
@@ -251,6 +366,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     &:hover {
       background-color: ${COLORS.HOVER_COLOR};
     }
+    /* KAN-708. The row whose right-click menu is open, held as if hovered. */
+    ${
+      isEditing
+        ? ''
+        : `&[data-row-menu-held] { background-color: ${COLORS.HOVER_COLOR}; }`
+    }
     /* KAN-379. A drag resting here: the sweep, whose end opens the window.
        The press fill, as a session row's (KAN-669). */
     [data-spring-dwell] > & {
@@ -270,6 +391,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     min-width: 0;
   `;
 
+  // KAN-708. The strip shows for the hovered row and for the one whose right-click menu is open.
+  const isStripShown = isParentHovered || windowMenu.heldId !== null;
   const parentRightStyle = css`
     display: flex;
     position: absolute;
@@ -285,7 +408,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     /* No mask while editing: the field is beneath this block, so painting
        HOVER_COLOR here would drop a grey box onto a white input. */
     background-color: ${
-      isParentHovered && !isEditing ? COLORS.HOVER_COLOR : 'transparent'
+      isStripShown && !isEditing ? COLORS.HOVER_COLOR : 'transparent'
     };
     & > * {
       /* isEditing, because the confirm tick is not a hover affordance -- it is
@@ -294,7 +417,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
          block, so neither isParentHovered nor the focus rule below ever fires
          and the tick was invisible unless the pointer happened to be over the
          row. */
-      opacity: ${isParentHovered || isEditing ? 1 : 0};
+      opacity: ${isStripShown || isEditing ? 1 : 0};
       transition: opacity ${DURATION.COLOR} ease-out;
     }
     /* The keyboard's equivalent of the hover reveal (KAN-68). Keyboard focus
@@ -351,7 +474,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // instead (trailingRowsStyle): margins that meet collapse, and a band's
   // 2px against that box's -2px is 0, so the header is exactly a tab row's
   // height inside the border.
-  const isTrailingBlock = windowId === NEW_LAST_WINDOW;
   const trailingBlockStyle = css`
     position: relative;
     margin-bottom: 0;
@@ -405,6 +527,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       background-color: ${COLORS.HOVER_COLOR};
     }
   `;
+  // KAN-708. Held while its right-click menu is open, as if hovered.
+  const heldTabStyle = css`
+    background-color: ${COLORS.HOVER_COLOR};
+  `;
 
   // A plain string, not css``: handed to ClickableRow's `style` prop.
   const childLeftStyle = `
@@ -423,6 +549,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     }
   `;
 
+  // KAN-708. A tab row's strip shows on hover, and while its right-click menu is open.
+  const isTabEngaged = (tabId: string) =>
+    hoveredTabId === tabId || tabMenu.heldId === tabId;
+
   const childRightStyle = (tabId: string) => css`
     position: absolute;
     top: 50%;
@@ -430,10 +560,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     transform: translateY(-50%);
     /* Mask in one frame, icons ease -- see parentRightStyle (KAN-100). */
     background-color: ${
-      hoveredTabId === tabId ? COLORS.HOVER_COLOR : 'transparent'
+      isTabEngaged(tabId) ? COLORS.HOVER_COLOR : 'transparent'
     };
     & > * {
-      opacity: ${hoveredTabId === tabId ? 1 : 0};
+      opacity: ${isTabEngaged(tabId) ? 1 : 0};
       transition: opacity ${DURATION.COLOR} ease-out;
     }
     /* The keyboard's equivalent of the hover reveal (KAN-68). Delete tab has
@@ -520,36 +650,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     }
   };
 
-  // What a group is called on screen. An untitled group has no name, so it
-  // borrows the string that already named it for assistive tech -- present
-  // and translated in all ten locales since KAN-11.
-  const groupDisplayName = (group: chromeTabGroupData) =>
-    group.title || t('Unnamed group');
-
   const renameGroupLabel = (group: chromeTabGroupData) =>
     t('Rename group') + ': ' + groupDisplayName(group);
-
-  // WCAG 2.5.3, same shape as the tab rows: the accessible name contains the
-  // visible title, and says what the control actually does now.
-  const groupDuplicateItem = (groupId: string) => {
-    const count = countDuplicateTabs(here, { windowId, groupId });
-    return count > 0
-      ? [
-          {
-            key: 'duplicates',
-            label: t('RemoveDuplicateTabs', { count }),
-            icon: 'stack_off' as const,
-            onSelect: () =>
-              void dispatch(
-                removeDuplicateTabs({
-                  tabGroupId,
-                  within: { windowId, groupId },
-                })
-              ),
-          },
-        ]
-      : [];
-  };
 
   const openGroupLabel = (group: chromeTabGroupData) =>
     t('Open group') + ': ' + groupDisplayName(group);
@@ -626,6 +728,36 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       });
     });
   };
+
+  // KAN-708. A tab's items: Open in new tab (unless the tour blocks it), Copy link, Delete tab.
+  const tabMenu = useRowContextMenu({
+    kind: 'savedTab',
+    ariaLabel: (tabId) => tabs.find((tab) => tab.tabId === tabId)?.title ?? '',
+    itemsFor: (tabId) => {
+      const tab = tabs.find((candidate) => candidate.tabId === tabId);
+      if (!tab) return null;
+      return [
+        ...(isOpenBlocked
+          ? []
+          : [
+              {
+                key: 'open',
+                label: t('Open in new tab'),
+                icon: 'tab' as const,
+                onSelect: () => handleTabClick(tab.url),
+              },
+            ]),
+        copyLinkItem(tab.url, { t, dispatch }),
+        {
+          key: 'delete',
+          label: t('Delete tab'),
+          icon: 'delete' as const,
+          danger: true,
+          onSelect: () => dispatch(deleteTab({ tabGroupId, windowId, tabId })),
+        },
+      ];
+    },
+  });
 
   // The group's Open (KAN-394): its tabs beside the active one, re-grouped.
   //
@@ -718,10 +850,15 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     return (
       <div
         key={tabId}
-        css={childrenStyle}
+        css={
+          tabMenu.heldId === tabId
+            ? [childrenStyle, heldTabStyle]
+            : childrenStyle
+        }
         data-drag-handle-row=""
         onMouseEnter={() => setHoveredTabId(tabId)}
         onMouseLeave={() => setHoveredTabId(null)}
+        {...tabMenu.rowProps(tabId)}
       >
         <DragHandle
           scope="tabs"
@@ -864,6 +1001,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           data-window-drag-handle
           data-drag-handle-row=""
           css={parentStyle}
+          {...windowMenu.rowProps(windowId)}
           onMouseEnter={() => setIsParentHovered(true)}
           onMouseLeave={() => setIsParentHovered(false)}
         >
@@ -1001,48 +1139,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               <OverflowMenu
                 ariaLabel={t('More actions')}
                 onOpenChange={setIsWindowMenuOpen}
-                items={[
-                  // Only while sorting would change the order.
-                  ...(isSavedWindowSortedBySite({ tabs })
-                    ? []
-                    : [
-                        {
-                          key: 'sortBySite',
-                          label: t('Sort tabs by site'),
-                          icon: 'sort' as const,
-                          onSelect: () =>
-                            void dispatch(
-                              sortTabsBySite({ tabGroupId, windowId })
-                            ),
-                        },
-                      ]),
-                  // Only while there is one to remove, as in the session menu.
-                  ...(windowDuplicates > 0
-                    ? [
-                        {
-                          key: 'duplicates',
-                          label: t('RemoveDuplicateTabs', {
-                            count: windowDuplicates,
-                          }),
-                          icon: 'stack_off' as const,
-                          onSelect: () =>
-                            void dispatch(
-                              removeDuplicateTabs({
-                                tabGroupId,
-                                within: { windowId },
-                              })
-                            ),
-                        },
-                      ]
-                    : []),
-                  {
-                    key: 'delete',
-                    label: t('Delete window'),
-                    icon: 'delete',
-                    danger: true,
-                    onSelect: onDeleteClick,
-                  },
-                ]}
+                items={savedWindowMenuItems}
               />
             )}
           </div>
@@ -1310,7 +1407,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         ${whileKeyNav('&:has(:focus-visible) .group-actions')} {
                           ${groupActionsShown}
                         }
+                        /* KAN-708. Held while its right-click menu is open, as if hovered. */
+                        ${
+                          groupMenu.heldId === item.group.groupId
+                            ? `${groupRowEngaged} .group-actions { ${groupActionsShown} }`
+                            : ''
+                        }
                       `}
+                      {...groupMenu.rowProps(item.group.groupId)}
                     >
                       <DragHandle
                         scope="items"
@@ -1510,37 +1614,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                                       : prev
                                 )
                               }
-                              items={[
-                                {
-                                  key: 'ungroup',
-                                  label: t('Ungroup'),
-                                  icon: 'label_off',
-                                  onSelect: () =>
-                                    dispatch(
-                                      ungroupChromeTabGroup({
-                                        tabGroupId,
-                                        windowId,
-                                        groupId: item.group.groupId,
-                                      })
-                                    ),
-                                },
-                                // KAN-616 (2A). Lighter than Delete group, heavier than Ungroup.
-                                ...groupDuplicateItem(item.group.groupId),
-                                {
-                                  key: 'delete',
-                                  label: t('Delete tab group'),
-                                  icon: 'delete',
-                                  danger: true,
-                                  onSelect: () =>
-                                    dispatch(
-                                      deleteChromeTabGroup({
-                                        tabGroupId,
-                                        windowId,
-                                        groupId: item.group.groupId,
-                                      })
-                                    ),
-                                },
-                              ]}
+                              items={savedGroupMenuItems(item.group.groupId)}
                             />
                           )}
                         </div>
@@ -1586,6 +1660,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           )}
         </div>
       )}
+      {/* KAN-708. Outside every row that carries a menu's handlers (R1). */}
+      {windowMenu.menu}
+      {groupMenu.menu}
+      {tabMenu.menu}
     </div>
   );
 };

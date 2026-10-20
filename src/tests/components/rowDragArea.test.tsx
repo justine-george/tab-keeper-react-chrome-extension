@@ -1,3 +1,4 @@
+import { setupChromeFake } from '../setup/chrome.fake';
 import { describe, expect, test, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
@@ -101,6 +102,16 @@ const release = (y: number) =>
 
 // handleSelector names the part of a row that may start a drag, which is what lets one list nest in another (KAN-129).
 // The whole area sits inside an element that also matches the selector: the case the containment rule exists for.
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
+});
+
 describe('handleSelector decides which press starts a drag', () => {
   let onMove: ReturnType<typeof vi.fn<OnMove>>;
 

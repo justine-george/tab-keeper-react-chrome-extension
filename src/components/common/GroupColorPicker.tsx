@@ -2,6 +2,7 @@ import React from 'react';
 
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { usePopoverList } from '../../hooks/usePopoverList';
@@ -13,6 +14,13 @@ import {
   type TabGroupColor,
 } from '../../utils/functions/tabGroups';
 import { whileKeyNav } from './focusRing';
+import {
+  isMenuKey,
+  isMovingRows,
+  isTouch,
+  useMacCtrlClickGuard,
+} from './rowMenu/useRowContextMenu';
+import { selectRunHere } from '../../redux/firstRun';
 
 /**
  * Chrome's own picker order, taken from the browser rather than from our
@@ -137,6 +145,7 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
   const {
     isOpen,
     setOpen,
+    openByPointer,
     close,
     wrapperRef,
     triggerRef,
@@ -146,6 +155,8 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
     count: PICKER_ORDER.length,
     axis: 'horizontal',
   });
+  const tourRuns = useSelector(selectRunHere) !== null;
+  const macGuard = useMacCtrlClickGuard();
 
   return (
     <div
@@ -171,11 +182,27 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
           aria-haspopup="menu"
           aria-expanded={isOpen}
           data-tooltip={ariaLabel}
+          onMouseDownCapture={macGuard.onMouseDownCapture}
+          onClickCapture={macGuard.onClickCapture}
           onClick={(e) => {
             e.stopPropagation();
             setOpen(!isOpen);
           }}
+          // KAN-708. A right-click opens it as a click does and never toggles it shut; the tour and a drag or carry open nothing.
+          onContextMenu={(e) => {
+            if (isTouch(e)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (!tourRuns && !isMovingRows() && !isOpen) openByPointer();
+          }}
           onKeyDown={(e) => {
+            if (isMenuKey(e)) {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!tourRuns && !isMovingRows() && !isOpen) setOpen(true);
+              return;
+            }
+            macGuard.forget();
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               e.stopPropagation();

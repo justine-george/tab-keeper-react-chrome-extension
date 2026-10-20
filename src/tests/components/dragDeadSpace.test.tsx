@@ -1,4 +1,5 @@
-import { describe, expect, test, afterEach, vi } from 'vitest';
+import { setupChromeFake } from '../setup/chrome.fake';
+import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 import {
@@ -109,6 +110,16 @@ const drag = (label: string, fromY: number, to: { x?: number; y: number }) => {
   fireEvent.pointerMove(document, { clientX: to.x ?? 10, clientY: to.y });
   fireEvent.pointerUp(document, { clientX: to.x ?? 10, clientY: to.y });
 };
+
+// KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
+let chromeHandle: ReturnType<typeof setupChromeFake> | undefined;
+beforeEach(() => {
+  chromeHandle = setupChromeFake();
+});
+afterEach(() => {
+  chromeHandle?.restore();
+  chromeHandle = undefined;
+});
 
 describe('a release in the dead space of its own pane', () => {
   test('below the rows, it lands last', () => {
