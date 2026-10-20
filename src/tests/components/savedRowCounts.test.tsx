@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
 import RightPane from '../../components/home/rightpane/RightPane';
@@ -148,6 +149,19 @@ describe('saved window and group rows tag their tab count', () => {
   test('a one-tab window says "1 Tab"', async () => {
     const { container } = await renderWindow([tab('t1', 'Only')]);
     expect(tagsIn(container)).toEqual(['1 Tab']);
+  });
+
+  test('a group row hides its tag while the group is being renamed, and shows it again after', async () => {
+    const user = userEvent.setup();
+    const { container } = await renderWindow(GROUPED);
+    expect(tagsIn(container)).toEqual(['3 Tabs', '2 Tabs']);
+    await user.click(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
+    await screen.findByRole('textbox', { name: 'Rename group: Research' });
+    expect(tagsIn(container)).toEqual(['3 Tabs']);
+    await user.keyboard('{Escape}');
+    expect(tagsIn(container)).toEqual(['3 Tabs', '2 Tabs']);
   });
 
   test('without the tab-groups permission there is no group tag, and the window still counts every tab', async () => {
