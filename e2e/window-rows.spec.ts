@@ -1040,8 +1040,8 @@ for (const [theme, colours] of THEMES) {
   );
 }
 
-// D10: no room is reserved for the strip. At rest a long title runs to the
-// row's edge; revealed, the strip masks it with the row's fill.
+// D10: no room is reserved for the strip. At rest a long title runs to its
+// count tag (KAN-720); revealed, the strip masks both with the row's fill.
 const LONG_TITLES: [string, string][] = [
   [
     'de',
@@ -1055,7 +1055,7 @@ const LONG_TITLES: [string, string][] = [
 
 for (const [language, longTitle] of LONG_TITLES) {
   grantedTest(
-    `popup, ${language}: a long group title runs to the row's edge at rest, and the revealed strip masks it`,
+    `popup, ${language}: a long group title runs to its count tag at rest, and the revealed strip masks them`,
     async ({ context, extensionId }) => {
       const page = await openGrouped(
         context,
@@ -1067,28 +1067,37 @@ for (const [language, longTitle] of LONG_TITLES) {
       const handle = bandHandle(page, 'gr');
       const title = groupTitle(page, 'gr', longTitle);
       const text = title.getByText(longTitle, { exact: true });
+      const tag = handle.locator('[data-row-tag]');
       const strip = handle.locator(':scope > [data-row-actions]');
 
       // PREMISE: the title is longer than the row.
       expect(await text.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(
         true
       );
-      // The text itself, clipped where it ellipsizes, reaches the row's edge.
+      // KAN-720. The text, clipped where it ellipsizes, runs to 8px before the tag; the tag ends 9px inside the row.
       const row = await boxOf(handle);
       const clipped = await boxOf(text);
-      expect(clipped.x + clipped.width).toBeCloseTo(row.x + row.width, 0);
+      const tagBox = await boxOf(tag);
+      expect(
+        Math.abs(tagBox.x - (clipped.x + clipped.width) - 8)
+      ).toBeLessThanOrEqual(0.5);
+      expect(
+        Math.abs(row.x + row.width - (tagBox.x + tagBox.width) - 9)
+      ).toBeLessThanOrEqual(1);
 
-      // The strip's box, with the title drawn and with it hidden.
-      const stripShot = async (titleShown: boolean) => {
-        await text.evaluate(
-          (el, shown) => (el.style.visibility = shown ? '' : 'hidden'),
-          titleShown
-        );
+      // The strip's box, with the title and tag drawn and with them hidden.
+      const stripShot = async (visible: boolean) => {
+        for (const drawn of [text, tag]) {
+          await drawn.evaluate(
+            (el, shown) => (el.style.visibility = shown ? '' : 'hidden'),
+            visible
+          );
+        }
         return page.screenshot({ clip: await boxOf(strip) });
       };
 
-      // At rest the strip is clear: the title shows through it. Its glyph pixels
-      // are where the shot changes with the title hidden.
+      // At rest the strip is clear: the title and tag show through it. Their pixels
+      // are where the shot changes with both hidden.
       await expect(strip.locator(':scope > *').first()).toHaveCSS(
         'opacity',
         '0'
@@ -1114,7 +1123,7 @@ for (const [language, longTitle] of LONG_TITLES) {
         )
         .toEqual(['1', '1', '1']);
 
-      // Of those pixels, the ones no button draws on (title hidden) are the fill.
+      // Of those pixels, the ones no button draws on (both hidden) are the fill.
       await stripShot(false);
       const bare = (await pixelsAt(page, glyphs)).flatMap((colour, i) =>
         colour === LIGHT_THEME.HOVER_COLOR ? [glyphs[i]] : []
@@ -1124,13 +1133,13 @@ for (const [language, longTitle] of LONG_TITLES) {
       );
       expect(bare.length).toBeGreaterThan(0);
 
-      // With the title shown again, none of them shows a glyph.
+      // With both shown again, none of them shows a glyph.
       await stripShot(true);
       expect([...new Set(await pixelsAt(page, bare))]).toEqual([
         LIGHT_THEME.HOVER_COLOR,
       ]);
 
-      // No glyph of the title shows anywhere through the strip.
+      // Nothing of the title or tag shows anywhere through the strip.
       expect((await stripShot(true)).equals(await stripShot(false))).toBe(true);
     }
   );
