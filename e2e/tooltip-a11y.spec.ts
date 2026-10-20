@@ -133,6 +133,38 @@ function plainOrKept(reading: AxReading): AxReading {
     : reading;
 }
 
+/** The sync button's description when sync is on: the build decides which of the two (KAN-147). */
+const SYNC_ON = '<sync on: this build>';
+const SYNC_ON_TITLES = ['Cloud sync on', 'Sync unavailable'];
+
+/** The sync button's description in this page, which must be one of the two known "on" titles. */
+async function syncOnTitleOf(page: Page): Promise<string> {
+  const title = await page.evaluate(
+    () =>
+      document
+        .querySelector('[data-tooltip][aria-label="Sync now"]')
+        ?.getAttribute('aria-description') ?? null
+  );
+  expect(SYNC_ON_TITLES).toContain(title);
+  return String(title);
+}
+
+/** Compares readings with the expected rows, the sync button's row read as this build titles it. */
+async function expectAx(
+  page: Page,
+  actual: AxRecord[],
+  expected: AxRecord[]
+): Promise<void> {
+  const title = expected.some((row) => row.description === SYNC_ON)
+    ? await syncOnTitleOf(page)
+    : '';
+  expect(actual).toEqual(
+    expected.map((row) =>
+      row.description === SYNC_ON ? { ...row, description: title } : row
+    )
+  );
+}
+
 /** One row per element: surface, key, role, name, description. */
 type AxRow = [string, string, string, string, string];
 const asRecords = (rows: AxRow[]): AxRecord[] =>
@@ -151,7 +183,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['home', 'div[button] "Sort sessions" #1', 'button', 'Sort sessions', ''],
     ['home', 'div[button] "Undo" #1', 'button', 'Undo', ''],
     ['home', 'div[button] "Redo" #1', 'button', 'Redo', ''],
-    ['home', 'div[button] "Sync now" #1', 'button', 'Sync now', 'Cloud sync on'],
+    ['home', 'div[button] "Sync now" #1', 'button', 'Sync now', SYNC_ON],
     ['home', 'div[button] "Settings" #1', 'button', 'Settings', ''],
     ['home', 'button "Save all open windows as a session" #1', 'button', 'Save all open windows as a session', ''],
     ['home', 'div[button] "More actions" #1', 'button', 'More actions', ''],
@@ -286,7 +318,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['tour: step 3', 'div[button] "Sort sessions" #1', 'button', 'Sort sessions', ''],
     ['tour: step 3', 'div[button] "Undo" #1', 'button', 'Undo', ''],
     ['tour: step 3', 'div[button] "Redo" #1', 'button', 'Redo', ''],
-    ['tour: step 3', 'div[button] "Sync now" #1', 'button', 'Sync now', 'Cloud sync on'],
+    ['tour: step 3', 'div[button] "Sync now" #1', 'button', 'Sync now', SYNC_ON],
     ['tour: step 3', 'div[button] "Settings" #1', 'button', 'Settings', ''],
     ['tour: step 3', 'button "Save all open windows as a session" #1', 'button', 'Save all open windows as a session', ''],
     ['tour: step 3', 'div[button] "More actions" #1', 'button', 'More actions', ''],
@@ -318,7 +350,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['tour: step 4', 'div[button] "Sort sessions" #1', 'button', 'Sort sessions', ''],
     ['tour: step 4', 'div[button] "Undo" #1', 'button', 'Undo', ''],
     ['tour: step 4', 'div[button] "Redo" #1', 'button', 'Redo', ''],
-    ['tour: step 4', 'div[button] "Sync now" #1', 'button', 'Sync now', 'Cloud sync on'],
+    ['tour: step 4', 'div[button] "Sync now" #1', 'button', 'Sync now', SYNC_ON],
     ['tour: step 4', 'div[button] "Settings" #1', 'button', 'Settings', ''],
     ['tour: step 4', 'button "Save all open windows as a session" #1', 'button', 'Save all open windows as a session', ''],
     ['tour: step 4', 'div[button] "More actions" #1', 'button', 'More actions', ''],
@@ -350,7 +382,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['tour: step 5', 'div[button] "Sort sessions" #1', 'button', 'Sort sessions', ''],
     ['tour: step 5', 'div[button] "Undo" #1', 'button', 'Undo', ''],
     ['tour: step 5', 'div[button] "Redo" #1', 'button', 'Redo', ''],
-    ['tour: step 5', 'div[button] "Sync now" #1', 'button', 'Sync now', 'Cloud sync on'],
+    ['tour: step 5', 'div[button] "Sync now" #1', 'button', 'Sync now', SYNC_ON],
     ['tour: step 5', 'div[button] "Settings" #1', 'button', 'Settings', ''],
     ['tour: step 5', 'button "Save all open windows as a session" #1', 'button', 'Save all open windows as a session', ''],
     ['tour: step 5', 'div[button] "More actions" #1', 'button', 'More actions', ''],
@@ -384,7 +416,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['full view: Open now', 'div[button] "Sort sessions" #1', 'button', 'Sort sessions', ''],
     ['full view: Open now', 'div[button] "Undo" #1', 'button', 'Undo', ''],
     ['full view: Open now', 'div[button] "Redo" #1', 'button', 'Redo', ''],
-    ['full view: Open now', 'div[button] "Sync now" #1', 'button', 'Sync now', 'Cloud sync on'],
+    ['full view: Open now', 'div[button] "Sync now" #1', 'button', 'Sync now', SYNC_ON],
     ['full view: Open now', 'div[button] "Settings" #1', 'button', 'Settings', ''],
     ['full view: Open now', 'button "Save all open windows as a session" #1', 'button', 'Save all open windows as a session', ''],
     ['full view: Open now', 'div[button] "More actions" #1', 'button', 'More actions', ''],
@@ -425,7 +457,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['full view: group colour picker open', 'div[button] "Sort sessions" #1', 'button', 'Sort sessions', ''],
     ['full view: group colour picker open', 'div[button] "Undo" #1', 'button', 'Undo', ''],
     ['full view: group colour picker open', 'div[button] "Redo" #1', 'button', 'Redo', ''],
-    ['full view: group colour picker open', 'div[button] "Sync now" #1', 'button', 'Sync now', 'Cloud sync on'],
+    ['full view: group colour picker open', 'div[button] "Sync now" #1', 'button', 'Sync now', SYNC_ON],
     ['full view: group colour picker open', 'div[button] "Settings" #1', 'button', 'Settings', ''],
     ['full view: group colour picker open', 'button "Save all open windows as a session" #1', 'button', 'Save all open windows as a session', ''],
     ['full view: group colour picker open', 'div[button] "More actions" #1', 'button', 'More actions', ''],
@@ -475,7 +507,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['full view: folded rail', 'div[button] "Sort sessions" #1', 'button', 'Sort sessions', ''],
     ['full view: folded rail', 'div[button] "Undo" #1', 'button', 'Undo', ''],
     ['full view: folded rail', 'div[button] "Redo" #1', 'button', 'Redo', ''],
-    ['full view: folded rail', 'div[button] "Sync now" #1', 'button', 'Sync now', 'Cloud sync on'],
+    ['full view: folded rail', 'div[button] "Sync now" #1', 'button', 'Sync now', SYNC_ON],
     ['full view: folded rail', 'div[button] "Settings" #1', 'button', 'Settings', ''],
     ['full view: folded rail', 'button "Save all open windows as a session" #1', 'button', 'Save all open windows as a session', ''],
     ['full view: folded rail', 'div[button] "More actions" #1', 'button', 'More actions', ''],
@@ -500,7 +532,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['full view: Open now drawer', 'div[button] "Sort sessions" #1', 'button', 'Sort sessions', ''],
     ['full view: Open now drawer', 'div[button] "Undo" #1', 'button', 'Undo', ''],
     ['full view: Open now drawer', 'div[button] "Redo" #1', 'button', 'Redo', ''],
-    ['full view: Open now drawer', 'div[button] "Sync now" #1', 'button', 'Sync now', 'Cloud sync on'],
+    ['full view: Open now drawer', 'div[button] "Sync now" #1', 'button', 'Sync now', SYNC_ON],
     ['full view: Open now drawer', 'div[button] "Settings" #1', 'button', 'Settings', ''],
     ['full view: Open now drawer', 'button "Save all open windows as a session" #1', 'button', 'Save all open windows as a session', ''],
     ['full view: Open now drawer', 'div[button] "More actions" #1', 'button', 'More actions', ''],
@@ -545,7 +577,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['saved group', 'div[button] "Sort sessions" #1', 'button', 'Sort sessions', ''],
     ['saved group', 'div[button] "Undo" #1', 'button', 'Undo', ''],
     ['saved group', 'div[button] "Redo" #1', 'button', 'Redo', ''],
-    ['saved group', 'div[button] "Sync now" #1', 'button', 'Sync now', 'Cloud sync on'],
+    ['saved group', 'div[button] "Sync now" #1', 'button', 'Sync now', SYNC_ON],
     ['saved group', 'div[button] "Settings" #1', 'button', 'Settings', ''],
     ['saved group', 'button "Save all open windows as a session" #1', 'button', 'Save all open windows as a session', ''],
     ['saved group', 'div[button] "More actions" #1', 'button', 'More actions', ''],
@@ -594,7 +626,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['saved marks', 'div[button] "Sort sessions" #1', 'button', 'Sort sessions', ''],
     ['saved marks', 'div[button] "Undo" #1', 'button', 'Undo', ''],
     ['saved marks', 'div[button] "Redo" #1', 'button', 'Redo', ''],
-    ['saved marks', 'div[button] "Sync now" #1', 'button', 'Sync now', 'Cloud sync on'],
+    ['saved marks', 'div[button] "Sync now" #1', 'button', 'Sync now', SYNC_ON],
     ['saved marks', 'div[button] "Settings" #1', 'button', 'Settings', ''],
     ['saved marks', 'button "Save all open windows as a session" #1', 'button', 'Save all open windows as a session', ''],
     ['saved marks', 'div[button] "More actions" #1', 'button', 'More actions', ''],
@@ -627,7 +659,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['full tour: step 5', 'div[button] "Sort sessions" #1', 'button', 'Sort sessions', ''],
     ['full tour: step 5', 'div[button] "Undo" #1', 'button', 'Undo', ''],
     ['full tour: step 5', 'div[button] "Redo" #1', 'button', 'Redo', ''],
-    ['full tour: step 5', 'div[button] "Sync now" #1', 'button', 'Sync now', 'Cloud sync on'],
+    ['full tour: step 5', 'div[button] "Sync now" #1', 'button', 'Sync now', SYNC_ON],
     ['full tour: step 5', 'div[button] "Settings" #1', 'button', 'Settings', ''],
     ['full tour: step 5', 'button "Save all open windows as a session" #1', 'button', 'Save all open windows as a session', ''],
     ['full tour: step 5', 'div[button] "More actions" #1', 'button', 'More actions', ''],
@@ -670,7 +702,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['full tour: step 6', 'div[button] "Sort sessions" #1', 'button', 'Sort sessions', ''],
     ['full tour: step 6', 'div[button] "Undo" #1', 'button', 'Undo', ''],
     ['full tour: step 6', 'div[button] "Redo" #1', 'button', 'Redo', ''],
-    ['full tour: step 6', 'div[button] "Sync now" #1', 'button', 'Sync now', 'Cloud sync on'],
+    ['full tour: step 6', 'div[button] "Sync now" #1', 'button', 'Sync now', SYNC_ON],
     ['full tour: step 6', 'div[button] "Settings" #1', 'button', 'Settings', ''],
     ['full tour: step 6', 'button "Save all open windows as a session" #1', 'button', 'Save all open windows as a session', ''],
     ['full tour: step 6', 'div[button] "More actions" #1', 'button', 'More actions', ''],
@@ -747,7 +779,7 @@ test('popup home: session rows, header, toolbar and the sync button', async ({
   await seedAnswered(context);
   const page = await openPopup(context, extensionId);
   const ax = await recordAx(page, 'home');
-  expect(ax).toEqual(EXPECTED.home);
+  await expectAx(page, ax, EXPECTED.home);
 });
 
 const PANES = [
@@ -776,7 +808,7 @@ test('Settings: every pane (no swatch or icon pair carries a title today)', asyn
     ).toBeVisible();
     ax.push(...(await recordAx(page, `settings: ${pane}`)));
   }
-  expect(ax).toEqual(EXPECTED.settings);
+  await expectAx(page, ax, EXPECTED.settings);
 });
 
 test('the export page', async ({ context, extensionId }) => {
@@ -787,7 +819,7 @@ test('the export page', async ({ context, extensionId }) => {
   );
   await page.getByRole('button', { name: 'Edit' }).waitFor();
   const ax = await recordAx(page, 'export');
-  expect(ax).toEqual(EXPECTED.export);
+  await expectAx(page, ax, EXPECTED.export);
 });
 
 test('the Setup dialog, step by step', async ({ context, extensionId }) => {
@@ -807,7 +839,7 @@ test('the Setup dialog, step by step', async ({ context, extensionId }) => {
       await dialog.getByRole('button', { name: 'Next', exact: true }).click();
     }
   }
-  expect(ax).toEqual(EXPECTED.setup);
+  await expectAx(page, ax, EXPECTED.setup);
 });
 
 // The run's own session waits for the tour: its Open, Switch and Replace read the reason (KAN-413, KAN-586).
@@ -832,7 +864,7 @@ test('the tour: Open, Switch and Replace wait for the tour', async ({
     await landedAt(page, step);
     ax.push(...(await recordAx(page, `tour: step ${step}`)));
   }
-  expect(ax).toEqual(EXPECTED.tour);
+  await expectAx(page, ax, EXPECTED.tour);
 });
 
 grantedTest(
@@ -878,7 +910,7 @@ grantedTest(
     await rail.click();
     await page.getByRole('dialog', { name: 'Open now' }).waitFor();
     ax.push(...(await recordAx(page, 'full view: Open now drawer')));
-    expect(ax).toEqual(EXPECTED.fullView);
+    await expectAx(page, ax, EXPECTED.fullView);
   }
 );
 
@@ -899,7 +931,7 @@ grantedTest(
       .click();
     await page.getByRole('menuitemradio', { name: 'Green' }).waitFor();
     const ax = await recordAx(page, 'saved group');
-    expect(ax).toEqual(EXPECTED.savedGroup);
+    await expectAx(page, ax, EXPECTED.savedGroup);
   }
 );
 
@@ -926,7 +958,7 @@ test('Settings: Recently deleted with a deleted session in it', async ({
     .click();
   await page.getByRole('button', { name: 'Restore Alpha' }).waitFor();
   const ax = await recordAx(page, 'recently deleted');
-  expect(ax).toEqual(EXPECTED.recentlyDeleted);
+  await expectAx(page, ax, EXPECTED.recentlyDeleted);
 });
 
 test('a saved session with a pinned tab and a split-view pair', async ({
@@ -944,7 +976,7 @@ test('a saved session with a pinned tab and a split-view pair', async ({
   await page.locator('[data-pin]').waitFor();
   await page.locator('[data-split]').first().waitFor();
   const ax = await recordAx(page, 'saved marks');
-  expect(ax).toEqual(EXPECTED.marks);
+  await expectAx(page, ax, EXPECTED.marks);
 });
 
 test('the tour in the full view: the example session waits for the tour', async ({
@@ -963,5 +995,5 @@ test('the tour in the full view: the example session waits for the tour', async 
     await landedAt(page, step);
     ax.push(...(await recordAx(page, `full tour: step ${step}`)));
   }
-  expect(ax).toEqual(EXPECTED.fullTour);
+  await expectAx(page, ax, EXPECTED.fullTour);
 });
