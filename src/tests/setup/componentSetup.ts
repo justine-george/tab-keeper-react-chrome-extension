@@ -1,8 +1,12 @@
-import { vi } from 'vitest';
+import { afterEach, vi } from 'vitest';
 
 import '@testing-library/jest-dom/vitest';
 
 import { FakeMediaQueryList } from './mediaQueryFake';
+import { closeRowMenu } from '../../components/common/rowMenu/rowMenuStore';
+
+// KAN-708. The open row menu is module state; a test that leaves one open must not open it in the next.
+afterEach(() => closeRowMenu());
 
 // Every component test needs this stubbed: utils/functions/external reaches
 // out to Firestore and chrome.notifications, none of which exist in jsdom.

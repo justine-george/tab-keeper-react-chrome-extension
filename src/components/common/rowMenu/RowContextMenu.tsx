@@ -1,0 +1,92 @@
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+
+import { MenuPanel, type OverflowMenuItem } from '../MenuPanel';
+import { useMenuList } from '../../../hooks/useMenuList';
+import { placeMenu, VIEWPORT_GUTTER_PX } from './placeMenu';
+import type { RowMenuTarget } from './rowMenuStore';
+
+export type RowMenuCloseReason = 'chosen' | 'outside' | 'escape' | 'away';
+
+// Hidden until placed; the layout effect writes left/top before the first paint (KAN-708).
+const POSITION_CSS = `
+  position: fixed;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+`;
+
+/**
+ * KAN-708. A row's ⋮ items as a menu at a point, drawn over every pane through a portal.
+ * The caller owns what closing means; a scroll, resize or window blur closes it as 'away'.
+ */
+export function RowContextMenu({
+  target,
+  ariaLabel,
+  items,
+  onClose,
+}: {
+  target: RowMenuTarget;
+  ariaLabel: string;
+  items: OverflowMenuItem[];
+  onClose: (reason: RowMenuCloseReason) => void;
+}): React.ReactElement {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // The window listeners must not re-bind on every render for a fresh closure.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  const { x, y } = target.at;
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (el === null) return;
+    const rect = el.getBoundingClientRect();
+    const { left, top } = placeMenu(
+      { x, y },
+      { width: rect.width, height: rect.height },
+      { width: window.innerWidth, height: window.innerHeight },
+      VIEWPORT_GUTTER_PX
+    );
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+    el.style.visibility = 'visible';
+  }, [x, y]);
+
+  useEffect(() => {
+    const away = () => onCloseRef.current('away');
+    window.addEventListener('resize', away);
+    window.addEventListener('blur', away);
+    // Capture: scroll does not bubble, and a scroll of any pane counts.
+    document.addEventListener('scroll', away, true);
+    return () => {
+      window.removeEventListener('resize', away);
+      window.removeEventListener('blur', away);
+      document.removeEventListener('scroll', away, true);
+    };
+  }, []);
+
+  const { registerItem, handleKeyDown } = useMenuList({
+    count: items.length,
+    axis: 'vertical',
+    isOpen: true,
+    wrapperRef: menuRef,
+    onDismiss: onClose,
+  });
+
+  return createPortal(
+    <MenuPanel
+      menuRef={menuRef}
+      ariaLabel={ariaLabel}
+      items={items}
+      registerItem={registerItem}
+      handleKeyDown={handleKeyDown}
+      close={() => onClose('chosen')}
+      positionCss={POSITION_CSS}
+      dataRowMenu
+    />,
+    document.body
+  );
+}

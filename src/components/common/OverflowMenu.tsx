@@ -6,18 +6,11 @@ import Icon from './Icon';
 import type { IconName } from './iconNames';
 import { usePopoverList } from '../../hooks/usePopoverList';
 import { MenuPanel } from './MenuPanel';
+import { VIEWPORT_GUTTER_PX } from './rowMenu/placeMenu';
 import type { OverflowMenuItem } from './MenuPanel';
 
 // Moved to MenuPanel (KAN-708); kept importable from here.
 export type { OverflowMenuItem };
-
-/**
- * How close to the window's edge an open menu may come (KAN-230).
- *
- * Not zero: flush against the edge the menu's own border merges with the
- * window's, and there is nowhere for the eye to separate them.
- */
-const VIEWPORT_GUTTER_PX = 4;
 
 interface OverflowMenuProps {
   /** Names the trigger. Must be translated. */
