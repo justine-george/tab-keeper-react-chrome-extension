@@ -357,11 +357,10 @@ describe('the window title editor', () => {
       ],
     });
 
-    const title = screen.getByRole('button', {
-      name: 'Rename window: Window 1',
-    });
-
-    expect(getComputedStyle(title).paddingRight).toBe('9px');
+    // KAN-720. The count tag follows the title and now carries the 9px.
+    const tag = document.querySelector('[data-row-tag]');
+    expect(tag).not.toBeNull();
+    expect(getComputedStyle(tag!.parentElement!).paddingRight).toBe('9px');
   });
 });
 

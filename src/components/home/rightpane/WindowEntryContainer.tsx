@@ -34,7 +34,9 @@ import { AppDispatch, RootState } from '../../../redux/store';
 import {
   resolveTabUrl,
   resolveFaviconUrl,
+  formatTabCount,
 } from '../../../utils/functions/local';
+import { RowTag } from '../../common/RowTag';
 import { visuallyHiddenStyle } from '../../../styles/visuallyHidden';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import { copyLinkItem } from '../../common/rowMenu/copyLinkItem';
@@ -592,6 +594,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     padding-right: 9px;
   `;
 
+  // KAN-720. The tag's 9px clearance from the row's edge lives here, not in RowTag.
+  const rowTagSlotStyle = css`
+    display: flex;
+    flex-shrink: 0;
+    padding-right: 9px;
+  `;
+
   // Shrunk to its text, so the rest of the row is only a drag handle (R4, D9).
   // The window row and the group band both fill HOVER_COLOR under the pointer.
   const titleButtonStyle =
@@ -1074,19 +1083,27 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 />
               </div>
             ) : (
-              <ClickableRow
-                ariaLabel={t('Rename window') + ': ' + label.text}
-                onClick={startEditing}
-                buttonRef={titleFocus.refFor('window')}
-                style={parentLinkStyle + titleButtonStyle}
-              >
-                <NormalLabel
-                  value={label.text}
-                  color={labelColor}
-                  size={TYPE.BODY}
-                  style="padding-left: 8px; height: 100%; max-width: 100%;"
-                />
-              </ClickableRow>
+              <>
+                <ClickableRow
+                  ariaLabel={t('Rename window') + ': ' + label.text}
+                  onClick={startEditing}
+                  buttonRef={titleFocus.refFor('window')}
+                  // KAN-720. No right padding: the tag's margin is the gap, its slot the clearance.
+                  style={
+                    parentLinkStyle + 'padding-right: 0;' + titleButtonStyle
+                  }
+                >
+                  <NormalLabel
+                    value={label.text}
+                    color={labelColor}
+                    size={TYPE.BODY}
+                    style="padding-left: 8px; height: 100%; max-width: 100%;"
+                  />
+                </ClickableRow>
+                <span css={rowTagSlotStyle}>
+                  <RowTag value={formatTabCount(tabs.length, t)} />
+                </span>
+              </>
             )}
           </div>
           <div data-row-actions css={parentRightStyle}>
@@ -1507,6 +1524,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         >
                           {groupTitleLabel(item.group)}
                         </ClickableRow>
+                      )}
+                      {editingGroupId !== item.group.groupId && (
+                        <span css={rowTagSlotStyle}>
+                          <RowTag value={formatTabCount(item.tabs.length, t)} />
+                        </span>
                       )}
                       {editingGroupId === item.group.groupId && (
                         // preventDefault keeps focus in the input, so onClick is the one commit path.
