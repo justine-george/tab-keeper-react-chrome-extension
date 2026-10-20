@@ -8,7 +8,6 @@ import { useFontFamily } from '../../hooks/useFontFamily';
 import { CORNER_SHAPE, ICON, TYPE } from '../../styles/scale';
 import { slidingPairColors } from './slidingPairColors';
 import { focusRingCss, focusRingOnTextGroundCss } from './focusRing';
-import { silenceRepeatedTitle } from './silenceRepeatedTitle';
 
 /** One side of a SlidingPair. */
 export interface SlidingOption<T extends string> {
@@ -259,12 +258,7 @@ export default function SlidingPair<T extends string>({
           type="button"
           aria-label={option.label}
           aria-pressed={option.value === value}
-          title={option.icon ? option.label : undefined}
-          aria-description={
-            option.icon
-              ? silenceRepeatedTitle(option.label, option.label)
-              : undefined
-          }
+          data-tooltip={option.icon ? option.label : undefined}
           css={buttonStyle(option)}
           onClick={(e) => {
             if (option.value !== value) {

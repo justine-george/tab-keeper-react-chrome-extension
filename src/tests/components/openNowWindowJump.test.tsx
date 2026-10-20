@@ -148,7 +148,7 @@ describe('a window row goes to its window (KAN-331 O15)', () => {
 
   test('H2: the tooltip is the phrase alone', async () => {
     await renderOpenNow(threeWindows());
-    expect(goTo(2)).toHaveAttribute('title', 'Go to window');
+    expect(goTo(2)).toHaveAttribute('data-tooltip', 'Go to window');
   });
 
   test('W2 A: "This window" has no button, and its title is still drawn', async () => {

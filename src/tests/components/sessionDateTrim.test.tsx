@@ -52,7 +52,7 @@ const renderBothPanes = (contentModified = EDITED) =>
   );
 
 describe('session dates in both panes (KAN-347)', () => {
-  // The hover holds what the label trimmed away. closest('[title]') finds the
+  // The hover holds what the label trimmed away. closest('[data-tooltip]') finds the
   // nearest titled box, so a title on some other ancestor (the row's own, say)
   // answers wrongly rather than passing.
   test('hovering either shows the full timestamp', async () => {
@@ -60,7 +60,18 @@ describe('session dates in both panes (KAN-347)', () => {
 
     const labels = await screen.findAllByText('Edited Sep 24, 2:51 AM');
     expect(
-      labels.map((el) => el.closest('[title]')?.getAttribute('title'))
+      labels.map((el) =>
+        el.closest('[data-tooltip]')?.getAttribute('data-tooltip')
+      )
+    ).toEqual([
+      getTooltipDate(EDITED, 'en', 'h12'),
+      getTooltipDate(EDITED, 'en', 'h12'),
+    ]);
+    // The label is not focusable: the same timestamp is its description.
+    expect(
+      labels.map((el) =>
+        el.closest('[data-tooltip]')?.getAttribute('aria-description')
+      )
     ).toEqual([
       getTooltipDate(EDITED, 'en', 'h12'),
       getTooltipDate(EDITED, 'en', 'h12'),

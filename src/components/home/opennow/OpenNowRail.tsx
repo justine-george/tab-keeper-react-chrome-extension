@@ -17,7 +17,6 @@ import { formatTabCount } from '../../../utils/functions/local';
 import type { OpenWindow } from '../../../utils/functions/openNow';
 import OpenNowPane from './OpenNowPane';
 import type { OpenNowHeaderAction } from './OpenNowPane';
-import { silenceRepeatedTitle } from '../../common/silenceRepeatedTitle';
 import { currentCarry, subscribeCarry } from '../../../redux/carry';
 import { DURATION } from '../../../styles/scale';
 import { isUnclaimedEscape } from '../../common/unclaimedEscape';
@@ -222,8 +221,7 @@ export default function OpenNowRail({
         type="button"
         css={buttonStyle}
         aria-label={railLabel}
-        title={railLabel}
-        aria-description={silenceRepeatedTitle(railLabel, railLabel)}
+        data-tooltip={railLabel}
         aria-expanded={isOpen}
         // Only while the drawer exists: an IDREF to nothing names no element.
         aria-controls={isOpen ? drawerId : undefined}

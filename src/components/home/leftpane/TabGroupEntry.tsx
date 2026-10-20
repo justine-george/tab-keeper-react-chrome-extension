@@ -107,6 +107,13 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   const today = useToday();
 
   const { title, windowCount, tabCount } = tabGroupData;
+  // The full timestamp the row's trimmed date label stands for (KAN-347).
+  const sessionDate = sessionDateTitle(
+    tabGroupData,
+    sessionDateBasis,
+    i18n.language,
+    timeFormat
+  );
 
   // Folded, no session is shown: the selection is kept, not drawn.
   const folded = useSelector(selectIsSavedSessionFolded);
@@ -486,12 +493,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           style="margin-top: 2px;"
         />
         <div
-          title={sessionDateTitle(
-            tabGroupData,
-            sessionDateBasis,
-            i18n.language,
-            timeFormat
-          )}
+          data-tooltip={sessionDate}
+          aria-description={sessionDate}
           css={css`
             color: ${
               drawsSelection ? COLORS.LABEL_L1_COLOR : COLORS.LABEL_L2_COLOR

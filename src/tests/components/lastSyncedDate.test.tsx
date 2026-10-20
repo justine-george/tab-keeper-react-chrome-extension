@@ -93,7 +93,7 @@ const headerTooltip = () =>
   screen
     .getAllByRole('button')
     .find((b) => b.textContent === 'cloud_done')
-    ?.getAttribute('title');
+    ?.getAttribute('data-tooltip');
 
 describe('"Last synced" reads like a session date (KAN-584)', () => {
   test.each(CASES)('Settings, $when: "$reads"', async ({ at, reads }) => {
@@ -105,7 +105,18 @@ describe('"Last synced" reads like a session date (KAN-584)', () => {
     'Settings, $when: the hover is the full timestamp',
     async ({ at }) => {
       await renderSettings(at);
-      expect(settingsLine()?.getAttribute('title')).toBe(
+      expect(settingsLine()?.getAttribute('data-tooltip')).toBe(
+        getTooltipDate(at, 'en', 'h12')
+      );
+    }
+  );
+
+  // Not focusable, so a screen reader reaches the date only through this.
+  test.each(CASES)(
+    'Settings, $when: the full timestamp is also the description',
+    async ({ at }) => {
+      await renderSettings(at);
+      expect(settingsLine()?.getAttribute('aria-description')).toBe(
         getTooltipDate(at, 'en', 'h12')
       );
     }

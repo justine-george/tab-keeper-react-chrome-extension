@@ -4,6 +4,7 @@ import { css } from '@emotion/react';
 
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { tooltipDescription } from './tooltipRules';
 
 interface LabelProps {
   value?: string;
@@ -47,7 +48,12 @@ export const NormalLabel: React.FC<LabelProps> = ({
   `;
 
   return (
-    <div title={tooltipText} css={textStyle} onClick={onClick}>
+    <div
+      data-tooltip={tooltipText}
+      aria-description={tooltipDescription(tooltipText, value)}
+      css={textStyle}
+      onClick={onClick}
+    >
       <span css={truncateStyle}>{value}</span>
     </div>
   );

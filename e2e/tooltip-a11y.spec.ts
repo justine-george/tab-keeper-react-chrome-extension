@@ -36,7 +36,7 @@ import {
 // from `title`, so it survives the swap.
 
 /** Every element that carries a tooltip. The one line the swap changes. */
-const TITLED = '[title]:not(iframe)';
+const TITLED = '[data-tooltip]';
 
 interface AxReading {
   role: string;

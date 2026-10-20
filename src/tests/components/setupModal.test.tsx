@@ -277,7 +277,7 @@ describe('Make Tab Keeper yours', () => {
     const cross = named.filter((el) => el.textContent === 'close');
     expect(cross).toHaveLength(1);
     // The hover tip says what it does, not "Close".
-    expect(cross[0]).toHaveAttribute('title', 'Skip setup');
+    expect(cross[0]).toHaveAttribute('data-tooltip', 'Skip setup');
     press('Graphite');
     fireEvent.click(cross[0]);
     expect(store.getState().settingsDataState.setupState).toBe('done');

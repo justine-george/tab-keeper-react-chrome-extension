@@ -12,7 +12,6 @@ import {
   sanitizeTabGroupColor,
   type TabGroupColor,
 } from '../../utils/functions/tabGroups';
-import { silenceRepeatedTitle } from './silenceRepeatedTitle';
 import { whileKeyNav } from './focusRing';
 
 /**
@@ -171,8 +170,7 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
           aria-label={ariaLabel}
           aria-haspopup="menu"
           aria-expanded={isOpen}
-          title={ariaLabel}
-          aria-description={silenceRepeatedTitle(ariaLabel, ariaLabel)}
+          data-tooltip={ariaLabel}
           onClick={(e) => {
             e.stopPropagation();
             setOpen(!isOpen);
@@ -278,11 +276,7 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
               role="menuitemradio"
               aria-checked={swatch === current}
               aria-label={t(COLOR_LABEL_KEY[swatch])}
-              title={t(COLOR_LABEL_KEY[swatch])}
-              aria-description={silenceRepeatedTitle(
-                t(COLOR_LABEL_KEY[swatch]),
-                t(COLOR_LABEL_KEY[swatch])
-              )}
+              data-tooltip={t(COLOR_LABEL_KEY[swatch])}
               ref={registerItem(index)}
               onClick={(e) => {
                 e.stopPropagation();

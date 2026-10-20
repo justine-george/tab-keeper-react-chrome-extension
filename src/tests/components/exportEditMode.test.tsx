@@ -355,7 +355,7 @@ describe('Edit mode on the export page (KAN-194)', () => {
     const done = screen.getByRole('button', { name: 'Done' });
     expect(done).toHaveAttribute('aria-disabled', 'true');
     expect(done).toHaveAttribute(
-      'title',
+      'data-tooltip',
       'Every row is hidden. Show one to finish.'
     );
     await user.click(done);

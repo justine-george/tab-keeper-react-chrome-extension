@@ -64,7 +64,7 @@ interface Case {
   state: string;
   seed: (store: Store) => void;
   name: string;
-  description: string;
+  description: string | null;
   tooltip: string;
   dimmed: boolean;
 }
@@ -75,7 +75,7 @@ const CASES: Case[] = [
     // The default store: signed out, no cloud, Auto Sync on, no answer yet.
     seed: () => {},
     name: 'Sync unavailable',
-    description: '',
+    description: null,
     tooltip: 'Sync unavailable',
     dimmed: true,
   },
@@ -148,7 +148,7 @@ const CASES: Case[] = [
       s.dispatch(setSyncStatus('loading'));
     },
     name: 'Syncing…',
-    description: '',
+    description: null,
     tooltip: 'Syncing…',
     dimmed: true,
   },
@@ -217,7 +217,7 @@ const CASES: Case[] = [
       s.dispatch(setSyncStatus('loading'));
     },
     name: 'Syncing…',
-    description: '',
+    description: null,
     tooltip: 'Syncing…',
     dimmed: true,
   },
@@ -288,7 +288,7 @@ describe('the header sync button says what is true (KAN-342)', () => {
       const button = screen.getByRole('button', { name });
       expect({
         description: button.getAttribute('aria-description'),
-        tooltip: button.getAttribute('title'),
+        tooltip: button.getAttribute('data-tooltip'),
         dimmed: button.getAttribute('aria-disabled') === 'true',
       }).toEqual({ description, tooltip, dimmed });
     }

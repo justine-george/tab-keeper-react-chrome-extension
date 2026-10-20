@@ -74,7 +74,7 @@ describe.each([
     test('the button is that save, by name, tooltip and glyph; the other is not a button', async () => {
       await renderRow(scope);
       const button = screen.getByRole('button', { name: buttonName });
-      expect(button).toHaveAttribute('title', buttonName);
+      expect(button).toHaveAttribute('data-tooltip', buttonName);
       expect(glyphOf(button)).toBe(buttonGlyph);
       expect(screen.queryByRole('button', { name: itemName })).toBeNull();
     });

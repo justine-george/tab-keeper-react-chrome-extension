@@ -278,7 +278,7 @@ async function tabOrderNames(page: Page): Promise<string[]> {
           return (
             el.getAttribute('aria-label') ||
             el.textContent?.trim() ||
-            el.getAttribute('title') ||
+            el.getAttribute('data-tooltip') ||
             '<unnamed>'
           );
         })

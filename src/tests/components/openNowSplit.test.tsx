@@ -102,8 +102,8 @@ describe('Open now shows a split view (KAN-564)', () => {
       expect(switchRow(title)).toHaveAccessibleDescription(
         `In a split view with “${other}”`
       );
-      expect(splitMark(title)?.querySelector('[title]')).toHaveAttribute(
-        'title',
+      expect(splitMark(title)?.querySelector('[data-tooltip]')).toHaveAttribute(
+        'data-tooltip',
         `In a split view with “${other}”`
       );
     }

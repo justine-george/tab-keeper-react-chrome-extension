@@ -95,8 +95,8 @@ describe('opens on the tour’s sample', () => {
     ];
     for (const button of blocked) {
       expect(button).toHaveAttribute('aria-disabled', 'true');
-      expect(button).toHaveAttribute('title', OPEN_BLOCKED);
-      expect(button).not.toHaveAttribute('aria-description');
+      expect(button).toHaveAttribute('data-tooltip', OPEN_BLOCKED);
+      expect(button).toHaveAttribute('aria-description', OPEN_BLOCKED);
       fireEvent.click(button);
     }
     await settle();
@@ -119,9 +119,9 @@ describe('opens on the tour’s sample', () => {
     const r = await renderSampleWindow();
     const row = screen.getByRole('button', { name: 'Open in new tab: Loose' });
     expect(row).toHaveAttribute('aria-disabled', 'true');
-    expect(row).toHaveAttribute('title', OPEN_BLOCKED);
-    // Not silenced: Chrome reads the unused title as the row's description.
-    expect(row).not.toHaveAttribute('aria-description');
+    expect(row).toHaveAttribute('data-tooltip', OPEN_BLOCKED);
+    // The why is the row's description, stated outright (KAN-695).
+    expect(row).toHaveAttribute('aria-description', OPEN_BLOCKED);
     row.focus();
     expect(document.activeElement).toBe(row);
     fireEvent.click(row);
@@ -130,7 +130,7 @@ describe('opens on the tour’s sample', () => {
 
     endTour(r);
     expect(row).not.toHaveAttribute('aria-disabled');
-    expect(row).not.toHaveAttribute('title');
+    expect(row).not.toHaveAttribute('data-tooltip');
     fireEvent.click(row);
     await settle();
     expect(r.chrome.createdTabs.map((t) => t.url)).toEqual(['https://a.co']);
@@ -164,7 +164,7 @@ describe('opens on the tour’s sample', () => {
       expect(screen.queryAllByRole('button', { name: why })).toEqual([]);
       expect(button).toHaveAttribute('aria-disabled', 'true');
       expect(button).toHaveAccessibleDescription(why);
-      expect(button).toHaveAttribute('title', why);
+      expect(button).toHaveAttribute('data-tooltip', why);
       // A filter, not opacity: the row's own reveal sets these icons' opacity.
       expect(classRulesFor(button)).toMatch(/filter:\s*opacity\(0\.3\)/);
       fireEvent.click(button);
@@ -177,7 +177,7 @@ describe('opens on the tour’s sample', () => {
     for (const [name, why] of ROW_WAITS) {
       const button = screen.getByRole('button', { name });
       expect(button).not.toHaveAttribute('aria-disabled');
-      expect(button).not.toHaveAttribute('title', why);
+      expect(button).not.toHaveAttribute('data-tooltip', why);
       expect(classRulesFor(button)).not.toMatch(/filter:\s*opacity/);
       fireEvent.click(button);
     }
@@ -206,7 +206,7 @@ describe('opens on the tour’s sample', () => {
     for (const [, why] of ROW_WAITS) {
       const button = screen.getByRole('button', { name: why });
       expect(button).toHaveAttribute('aria-disabled', 'true');
-      expect(button).toHaveAttribute('title', why);
+      expect(button).toHaveAttribute('data-tooltip', why);
       expect(classRulesFor(button)).toMatch(/opacity:\s*0\.3/);
       fireEvent.click(button);
     }

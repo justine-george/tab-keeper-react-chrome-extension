@@ -107,7 +107,10 @@ describe('the row’s Replace (KAN-581)', () => {
         name: 'Replace',
       }
     );
-    expect(replace).toHaveAttribute('title', 'Replace with open windows');
+    expect(replace).toHaveAttribute(
+      'data-tooltip',
+      'Replace with open windows'
+    );
     expect(replace).toHaveTextContent('browser_updated');
   });
 
