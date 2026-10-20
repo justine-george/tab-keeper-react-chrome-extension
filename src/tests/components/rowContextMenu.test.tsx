@@ -21,7 +21,15 @@ type Calls = {
   onInnerItem: () => void;
 };
 
-function Harness({ hidden, calls }: { hidden: string[]; calls: Calls }) {
+function Harness({
+  hidden,
+  calls,
+  extra = false,
+}: {
+  hidden: string[];
+  calls: Calls;
+  extra?: boolean;
+}) {
   const { rowProps, heldId, menu } = useRowContextMenu({
     kind: 'session',
     ariaLabel: (id) => `Actions for ${id}`,
@@ -47,6 +55,17 @@ function Harness({ hidden, calls }: { hidden: string[]; calls: Calls }) {
               },
               onSelect: () => calls.onDelete(id),
             },
+            // An item that appears while the menu is open, as Remove duplicates can after a sync.
+            ...(extra
+              ? [
+                  {
+                    key: 'extra',
+                    label: 'Extra',
+                    icon: 'link' as const,
+                    onSelect: () => undefined,
+                  },
+                ]
+              : []),
           ],
   });
   return (
@@ -100,7 +119,9 @@ async function renderRows({
   );
   const rerenderHidden = (next: string[]) =>
     r.rerender(<Harness hidden={next} calls={calls} />);
-  return { ...r, calls, rerenderHidden };
+  const rerenderExtra = () =>
+    r.rerender(<Harness hidden={hidden} calls={calls} extra />);
+  return { ...r, calls, rerenderHidden, rerenderExtra };
 }
 
 const row = (id: string) => screen.getByTestId(`row-${id}`);
@@ -175,6 +196,34 @@ describe('right-click on a row', () => {
       // jsdom's window is 1024 x 768.
       fireEvent.contextMenu(row('a'), { clientX: 950, clientY: 700 });
       expect(rowMenu()).toHaveStyle({ left: '750px', top: '600px' });
+    } finally {
+      rect.mockRestore();
+    }
+  });
+
+  test('an item appearing while it is open near the bottom edge places it again, inside the gutter', async () => {
+    // 50px per item, so the stub follows the live item count.
+    const rect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.hasAttribute('data-row-menu')
+          ? new DOMRect(
+              0,
+              0,
+              200,
+              50 * this.querySelectorAll('[role="menuitem"]').length
+            )
+          : new DOMRect();
+      });
+    try {
+      const { rerenderExtra } = await renderRows();
+      // 640 + 100 fits in 768 - 4.
+      fireEvent.contextMenu(row('a'), { clientX: 50, clientY: 640 });
+      expect(rowMenu()).toHaveStyle({ left: '50px', top: '640px' });
+      // 640 + 150 does not: it flips to end at the point.
+      rerenderExtra();
+      expect(itemsOf(rowMenu())).toHaveLength(3);
+      expect(rowMenu()).toHaveStyle({ left: '50px', top: '490px' });
     } finally {
       rect.mockRestore();
     }
@@ -515,5 +564,48 @@ describe('right-click on a row', () => {
       expect(fireEvent.contextMenu(title('b'))).toBe(false);
       expect(rowMenus()).toHaveLength(1);
     });
+  });
+});
+
+describe('nested rows', () => {
+  // An inner row (a group mid-rename, say) inside an outer row (its window), each with its own hook.
+  function Nested() {
+    const outer = useRowContextMenu({
+      kind: 'savedWindow',
+      ariaLabel: (id) => `Window ${id}`,
+      itemsFor: () => [
+        { key: 'copy', label: 'Copy', icon: 'link', onSelect: () => undefined },
+      ],
+    });
+    const inner = useRowContextMenu({
+      kind: 'savedGroup',
+      ariaLabel: (id) => `Group ${id}`,
+      itemsFor: () => null,
+    });
+    return (
+      <>
+        <div data-testid="outer" {...outer.rowProps('w')}>
+          <span>Window w</span>
+          <div {...inner.rowProps('g')}>
+            <button type="button">Group g</button>
+          </div>
+        </div>
+        {outer.menu}
+        {inner.menu}
+      </>
+    );
+  }
+
+  test('an inner row with no items keeps Chrome’s menu and does not open the outer row’s', async () => {
+    await renderWithProviders(<Nested />);
+    const group = screen.getByRole('button', { name: 'Group g' });
+    expect(fireEvent.contextMenu(group)).toBe(true);
+    act(() => group.focus());
+    expect(fireEvent.keyDown(group, { key: 'F10', shiftKey: true })).toBe(true);
+    expect(fireEvent.keyDown(group, { key: 'ContextMenu' })).toBe(true);
+    expect(rowMenus()).toHaveLength(0);
+    // CONTROL: the outer row answers on its own part.
+    expect(fireEvent.contextMenu(screen.getByText('Window w'))).toBe(false);
+    expect(screen.getByRole('menu', { name: 'Window w' })).toBeInTheDocument();
   });
 });

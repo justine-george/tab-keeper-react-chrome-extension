@@ -8,7 +8,7 @@ import type { RowMenuTarget } from './rowMenuStore';
 
 export type RowMenuCloseReason = 'chosen' | 'outside' | 'escape' | 'away';
 
-// Hidden until placed; the layout effect writes left/top before the first paint (KAN-708).
+// KAN-708. Hidden until placed; the layout effect writes left/top before the first paint.
 const POSITION_CSS = `
   position: fixed;
   left: 0;
@@ -33,13 +33,15 @@ export function RowContextMenu({
 }): React.ReactElement {
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // The window listeners must not re-bind on every render for a fresh closure.
+  // KAN-708. The window listeners must not re-bind on every render for a fresh closure.
   const onCloseRef = useRef(onClose);
   useEffect(() => {
     onCloseRef.current = onClose;
   });
 
   const { x, y } = target.at;
+  // KAN-708. Items follow the live row, so one appearing or relabelled places the menu again.
+  const contents = items.map((item) => `${item.key}:${item.label}`).join('\n');
   useLayoutEffect(() => {
     const el = menuRef.current;
     if (el === null) return;
@@ -53,13 +55,13 @@ export function RowContextMenu({
     el.style.left = `${left}px`;
     el.style.top = `${top}px`;
     el.style.visibility = 'visible';
-  }, [x, y]);
+  }, [x, y, contents]);
 
   useEffect(() => {
     const away = () => onCloseRef.current('away');
     window.addEventListener('resize', away);
     window.addEventListener('blur', away);
-    // Capture: scroll does not bubble, and a scroll of any pane counts.
+    // KAN-708. Capture: scroll does not bubble, and a scroll of any pane counts.
     document.addEventListener('scroll', away, true);
     return () => {
       window.removeEventListener('resize', away);

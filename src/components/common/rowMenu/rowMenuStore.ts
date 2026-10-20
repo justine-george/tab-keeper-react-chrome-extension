@@ -11,10 +11,10 @@ export type RowMenuKind =
   | 'openTab';
 
 export interface RowMenuTarget {
-  // The useRowContextMenu instance that opened it.
+  // KAN-708. The useRowContextMenu instance that opened it.
   owner: string;
   kind: RowMenuKind;
-  // One id today; the multi-select seam.
+  // KAN-708. One id today; the multi-select seam.
   ids: string[];
   at: { x: number; y: number };
   byPointer: boolean;
