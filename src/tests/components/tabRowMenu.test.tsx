@@ -61,6 +61,8 @@ const clipboard = (writeText: (text: string) => Promise<void>) => {
 };
 
 afterEach(() => {
+  // Ends any double-click tail a Close tab choice left held.
+  fireEvent.keyDown(document.body, { key: 'a' });
   Reflect.deleteProperty(navigator, 'clipboard');
   vi.restoreAllMocks();
 });
@@ -333,6 +335,24 @@ describe('an Open now tab row right-click (KAN-708)', () => {
       within(menus()[0]).getByRole('menuitem', { name: /^Close tab/ })
     );
     expect(onCloseTab).toHaveBeenCalledExactlyOnceWith(OPEN_TABS[1]);
+  });
+
+  test('choosing Close tab holds back the double-click tail that would hit what slid up', async () => {
+    await renderOpenNow(() => undefined);
+    const tail = () =>
+      new MouseEvent('click', { bubbles: true, cancelable: true, detail: 2 });
+    // CONTROL: before the choice, a second click goes through.
+    const before = tail();
+    document.body.dispatchEvent(before);
+    expect(before.defaultPrevented).toBe(false);
+
+    fireEvent.contextMenu(liveRow('Live 2'));
+    fireEvent.click(
+      within(menus()[0]).getByRole('menuitem', { name: /^Close tab/ })
+    );
+    const second = tail();
+    document.body.dispatchEvent(second);
+    expect(second.defaultPrevented).toBe(true);
   });
 
   test('Switch to tab activates that tab', async () => {
