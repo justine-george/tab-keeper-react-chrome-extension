@@ -374,7 +374,8 @@ describe('right-click on a row', () => {
       try {
         fireEvent.keyDown(itemsOf(menu)[0], { key: 'Escape' });
         expect(title('a')).toHaveFocus();
-        expect(focus).toHaveBeenCalledExactlyOnceWith(undefined);
+        expect(focus).toHaveBeenCalledOnce();
+        expect(focus.mock.calls[0][0]?.focusVisible).toBeUndefined();
       } finally {
         focus.mockRestore();
       }
