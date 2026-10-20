@@ -15,7 +15,7 @@ import { holdBackDoubleClickTail } from '../../common/doubleClickTail';
 import RowTextButton from '../../common/RowTextButton';
 import { RowMarkIcon, RowMarkSlot } from '../../common/RowMarks';
 import { NormalLabel } from '../../common/Label';
-import { Tag } from '../../common/Tag';
+import { RowTag } from '../../common/RowTag';
 import { useFocusOnRemount } from '../../../hooks/useFocusOnRemount';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
@@ -454,12 +454,7 @@ export default function OpenNowWindow({
           size={TYPE.BODY}
           style="padding-left: 8px; height: 100%; max-width: 100%;"
         />
-        {openWindow.isThisWindow && (
-          <Tag
-            value={t('This window')}
-            style="margin-left: 8px; flex-shrink: 0; white-space: nowrap;"
-          />
-        )}
+        {openWindow.isThisWindow && <RowTag value={t('This window')} />}
       </div>
     </div>
   );

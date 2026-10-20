@@ -6,9 +6,15 @@ import { TYPE } from '../../styles/scale';
 interface TagProps {
   value: string;
   style?: string;
+  // KAN-720. data-* hooks (RowTag's) reach the div.
+  [dataAttribute: `data-${string}`]: string | undefined;
 }
 
-export const Tag: React.FC<TagProps> = ({ value, style }) => {
+export const Tag: React.FC<TagProps> = ({
+  value,
+  style,
+  ...dataAttributes
+}) => {
   const COLORS = useThemeColors();
 
   const tagStyle = css`
@@ -20,5 +26,9 @@ export const Tag: React.FC<TagProps> = ({ value, style }) => {
     ${style && style}
   `;
 
-  return <div css={tagStyle}>{value}</div>;
+  return (
+    <div css={tagStyle} {...dataAttributes}>
+      {value}
+    </div>
+  );
 };

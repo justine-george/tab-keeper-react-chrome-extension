@@ -39,23 +39,36 @@ export const TYPE = {
 } as const;
 
 /**
- * Corner radius. Square everywhere.
+ * Corner radius. Square, bar the row tag.
  *
  * What the codebase already believed about itself -- OverflowMenu documents
  * radius as "0px every time", which had quietly stopped being true. A circle is
- * not a radius decision, it is a shape, so avatars keep theirs.
+ * not a radius decision, it is a shape, so avatars keep theirs. The one round
+ * corner is the row tag's (KAN-720); KAN-721 settles the rest of the UI later.
  */
 export const RADIUS = {
   SQUARE: '0px',
+  /** The row tag's corner (KAN-720). */
+  TAG: '4px',
   /** Avatars only. Not a corner. */
   CIRCLE: '50%',
 } as const;
 
 /**
- * KAN-693. The few corners that do round are squircles, not arcs: set beside
- * their border-radius. A circle is a shape, not a corner, and keeps round.
+ * KAN-693. A corner that rounds is a squircle, not an arc: set beside its
+ * border-radius. The row tag is the one exception and keeps round, see
+ * ROW_TAG (KAN-720). A circle is a shape, not a corner, and keeps round too.
  */
 export const CORNER_SHAPE = 'squircle';
+
+/**
+ * The row tag: a window or group row's count, and "This window" (KAN-720).
+ * The one non-squircle round corner, so it is named here, not at the call site.
+ */
+export const ROW_TAG = {
+  CORNER_SHAPE: 'round',
+  PADDING: '2px 8px',
+} as const;
 
 /**
  * Control heights, built on the 32px row the lists already use.
