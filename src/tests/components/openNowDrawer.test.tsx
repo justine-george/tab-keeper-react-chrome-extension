@@ -619,6 +619,24 @@ describe('closing from outside (KAN-681, KAN-682)', () => {
     expect(button).toHaveAttribute('aria-expanded', 'true');
   });
 
+  test('a press on a row menu opened from the drawer leaves the drawer open', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { button, drawer } = await openDrawer();
+    const row = drawer.querySelector('[data-window-row]');
+    if (row === null) throw new Error('no window row');
+    fireEvent.contextMenu(row);
+    const menu = document.querySelector<HTMLElement>('[data-row-menu]');
+    if (menu === null) throw new Error('no row menu');
+    // KAN-708. The menu is drawn on the body, outside the drawer.
+    expect(drawer.contains(menu)).toBe(false);
+
+    fireEvent.pointerDown(menu);
+    await settle();
+
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+  });
+
   test('a press on a toast leaves the drawer open', async () => {
     installMatchMedia(true);
     const { store } = await renderHome(false);

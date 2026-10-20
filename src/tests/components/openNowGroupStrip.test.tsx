@@ -377,3 +377,82 @@ describe('a live group row: Save and a ⋮ (KAN-696)', () => {
     expect(screen.queryByRole('textbox', { name: /^Rename group/ })).toBeNull();
   });
 });
+
+// KAN-708. The group header's right-click offers what its ⋮ offers.
+describe('a live group row right-click (KAN-708)', () => {
+  const rowMenus = () => [
+    ...document.querySelectorAll<HTMLElement>('[data-row-menu]'),
+  ];
+  const firstControl = () =>
+    stripIn(titleRowOf('Docs'))?.firstElementChild as HTMLElement;
+
+  test('right-click = Ungroup, Close group, acting on that group', async () => {
+    await renderOpenNow();
+
+    expect(fireEvent.contextMenu(titleRowOf('Docs'))).toBe(false);
+    expect(menuKeys()).toEqual(['ungroup', 'closeGroup']);
+
+    fireEvent.click(
+      within(screen.getByRole('menu')).getByRole('menuitem', {
+        name: 'Ungroup',
+      })
+    );
+    await waitFor(async () =>
+      expect(await groupIdsOfWindow2()).toEqual([
+        [21, -1],
+        [22, -1],
+        [23, -1],
+        [24, 51],
+      ])
+    );
+  });
+
+  test('a right-click on a group header opens the group menu only, not the window menu', async () => {
+    await renderOpenNow();
+
+    fireEvent.contextMenu(titleRowOf('Docs'));
+
+    expect(rowMenus()).toHaveLength(1);
+    expect(rowMenus()[0]).toHaveAccessibleName('More actions: Docs');
+  });
+
+  test('a right-click on a tab inside the group opens only the tab menu', async () => {
+    await renderOpenNow();
+
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: 'Switch to tab: t22' })
+    );
+
+    expect(rowMenus()).toHaveLength(1);
+    expect(rowMenus()[0]).toHaveAccessibleName('t22');
+  });
+
+  test('held: the strip shows while the right-click menu is open', async () => {
+    await renderOpenNow();
+    expect(getComputedStyle(firstControl()).opacity).toBe('0');
+
+    fireEvent.contextMenu(titleRowOf('Docs'));
+    expect(getComputedStyle(firstControl()).opacity).toBe('1');
+
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(getComputedStyle(firstControl()).opacity).toBe('0');
+  });
+
+  test('under an Open now search the header gives Chrome its menu', async () => {
+    const user = userEvent.setup();
+    await renderOpenNow();
+    await user.type(
+      screen.getByRole('textbox', { name: 'Search open tabs' }),
+      't22'
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Switch to tab: t21' })
+      ).toBeNull()
+    );
+
+    expect(fireEvent.contextMenu(titleRowOf('Docs'))).toBe(true);
+
+    expect(rowMenus()).toHaveLength(0);
+  });
+});
