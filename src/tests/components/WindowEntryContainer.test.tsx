@@ -8,11 +8,14 @@ import {
   setHasTabGroupsPermission,
   setSearchInputText,
 } from '../../redux/slices/globalStateSlice';
+import { classRulesFor } from '../setup/hoverRules';
+import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { TAB_GROUP_COLOR_HEX } from '../../utils/functions/tabGroups';
-import type {
-  chromeTabGroupData,
-  tabData,
+import {
+  replaceState,
+  type chromeTabGroupData,
+  type tabData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
 // Defaults to the GRANTED permission so the three pre-existing rendering
@@ -730,5 +733,255 @@ describe('a saved split pair (KAN-564, pick A)', () => {
       expect(row(title).querySelector('[data-split]')).toBeNull();
       expect(row(title)).not.toHaveAttribute('aria-describedby');
     }
+  });
+});
+
+// KAN-708. Right-clicking a saved window or a saved group header opens that row's ⋮ items.
+describe('right-click (KAN-708)', () => {
+  const t = (tabId: string, url: string, chromeGroupId?: string): tabData => ({
+    tabId,
+    favicon: '',
+    title: tabId,
+    url,
+    ...(chromeGroupId === undefined ? {} : { chromeGroupId }),
+  });
+  // Unsorted by site, with a duplicate in the window and one inside group g1.
+  const TABS = [
+    t('b1', 'https://b.test/'),
+    t('a1', 'https://a.test/', 'g1'),
+    t('a2', 'https://a.test/', 'g1'),
+    t('c1', 'https://c.test/', 'g2'),
+  ];
+  const GROUPS: chromeTabGroupData[] = [
+    { groupId: 'g1', title: 'Work', color: 'blue' },
+    { groupId: 'g2', title: 'Play', color: 'red' },
+  ];
+
+  async function renderSeeded({
+    searching = false,
+    onDeleteClick = () => undefined,
+  }: { searching?: boolean; onDeleteClick?: () => void } = {}) {
+    return renderWithProviders(
+      <WindowEntryContainer
+        number={1}
+        title="Window 1"
+        tabGroupId="tg1"
+        windowId="w1"
+        tabs={TABS}
+        chromeTabGroups={GROUPS}
+        onOpenWindow={() => undefined}
+        onUpdateWindowGroupTitle={() => undefined}
+        onAddCurrTabToWindowClick={() => undefined}
+        onDeleteClick={onDeleteClick}
+      />,
+      {
+        seedStore: (store) => {
+          store.dispatch(setHasTabGroupsPermission(true));
+          store.dispatch(
+            replaceState(
+              buildContainer([
+                buildSession({
+                  tabGroupId: 'tg1',
+                  windows: [
+                    {
+                      windowId: 'w1',
+                      windowHeight: 1080,
+                      windowWidth: 1920,
+                      windowOffsetTop: 0,
+                      windowOffsetLeft: 0,
+                      tabCount: TABS.length,
+                      title: 'Window 1',
+                      tabs: TABS,
+                      chromeTabGroups: GROUPS,
+                    },
+                  ],
+                }),
+              ])
+            )
+          );
+          if (searching) store.dispatch(setSearchInputText('test'));
+        },
+      }
+    );
+  }
+
+  const menus = () => [
+    ...document.querySelectorAll<HTMLElement>('[data-row-menu]'),
+  ];
+  const labels = (menu: HTMLElement) =>
+    within(menu)
+      .getAllByRole('menuitem')
+      .map((item) => {
+        // The glyph's ligature text is aria-hidden; the label is what is left.
+        const copy = item.cloneNode(true) as HTMLElement;
+        copy.querySelectorAll('[aria-hidden]').forEach((n) => n.remove());
+        return copy.textContent;
+      });
+  const windowTitle = () =>
+    screen.getByRole('button', { name: 'Rename window: Window 1' });
+  const groupTitle = (name: string) =>
+    screen.getByRole('button', { name: `Rename group: ${name}` });
+  const esc = () =>
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key: 'Escape',
+    });
+  const groupsOf = (store: Awaited<ReturnType<typeof renderSeeded>>['store']) =>
+    store
+      .getState()
+      .tabContainerDataState.tabGroups[0].windows[0].chromeTabGroups?.map(
+        (g) => g.groupId
+      );
+
+  test("a window row's right-click offers its ⋮ items in order", async () => {
+    const user = userEvent.setup();
+    await renderSeeded();
+
+    expect(fireEvent.contextMenu(windowTitle())).toBe(false);
+    const rowItems = labels(menus()[0]);
+    esc();
+    expect(menus()).toHaveLength(0);
+
+    // The window's ⋮ is the first of the page's.
+    await user.click(
+      screen.getAllByRole('button', { name: 'More actions' })[0]
+    );
+    const dotsItems = labels(screen.getByRole('menu', { name: /./ }));
+
+    expect(rowItems).toEqual([
+      'Sort tabs by site',
+      'Remove 1 duplicate tab',
+      'Delete window',
+    ]);
+    expect(rowItems).toEqual(dotsItems);
+  });
+
+  test('Delete window calls onDeleteClick', async () => {
+    const onDeleteClick = vi.fn();
+    await renderSeeded({ onDeleteClick });
+
+    fireEvent.contextMenu(windowTitle());
+    fireEvent.click(
+      within(menus()[0]).getByRole('menuitem', { name: /^Delete window/ })
+    );
+
+    expect(onDeleteClick).toHaveBeenCalledTimes(1);
+  });
+
+  test("a group header's right-click offers Ungroup / Remove duplicates / Delete tab group, acting on that group", async () => {
+    const { store } = await renderSeeded();
+
+    fireEvent.contextMenu(groupTitle('Work'));
+    expect(menus()[0]).toHaveAccessibleName('More actions: Work');
+    expect(labels(menus()[0])).toEqual([
+      'Ungroup',
+      'Remove 1 duplicate tab',
+      'Delete tab group',
+    ]);
+    esc();
+
+    // Play has no duplicate; its menu is its own.
+    fireEvent.contextMenu(groupTitle('Play'));
+    expect(labels(menus()[0])).toEqual(['Ungroup', 'Delete tab group']);
+    fireEvent.click(
+      within(menus()[0]).getByRole('menuitem', { name: 'Delete tab group' })
+    );
+    expect(groupsOf(store)).toEqual(['g1']);
+  });
+
+  test("while renaming the window, the rename input keeps Chrome's menu, and the row gives Chrome's menu too", async () => {
+    const user = userEvent.setup();
+    await renderSeeded();
+    await user.click(windowTitle());
+    const input = screen.getByRole('textbox');
+    const tick = screen.getByRole('button', { name: 'Save changes' });
+
+    expect(fireEvent.contextMenu(input)).toBe(true);
+    expect(fireEvent.contextMenu(tick)).toBe(true);
+    expect(menus()).toHaveLength(0);
+  });
+
+  test('right-clicking another row while a group rename is open opens that row’s menu', async () => {
+    const user = userEvent.setup();
+    await renderSeeded();
+    await user.click(groupTitle('Work'));
+    const input = screen.getByRole('textbox', { name: 'Rename group: Work' });
+
+    expect(fireEvent.contextMenu(input)).toBe(true);
+    expect(menus()).toHaveLength(0);
+
+    // The other group and the window row answer while Work is renamed.
+    expect(fireEvent.contextMenu(groupTitle('Play'))).toBe(false);
+    expect(menus()[0]).toHaveAccessibleName('More actions: Play');
+    esc();
+    expect(fireEvent.contextMenu(windowTitle())).toBe(false);
+    expect(menus()[0]).toHaveAccessibleName('More actions: Window 1');
+  });
+
+  test("while searching, both give Chrome's menu", async () => {
+    await renderSeeded({ searching: true });
+
+    expect(fireEvent.contextMenu(windowTitle())).toBe(true);
+    expect(fireEvent.contextMenu(groupTitle('Work'))).toBe(true);
+    expect(menus()).toHaveLength(0);
+  });
+
+  test("right-clicking the row's own ⋮ or Open button opens the row's menu, not Chrome's", async () => {
+    await renderSeeded();
+    const openWindow = screen.getByRole('button', {
+      name: 'Open in new window: Window 1',
+    });
+    const windowDots = screen.getAllByRole('button', {
+      name: 'More actions',
+    })[0];
+
+    expect(fireEvent.contextMenu(openWindow)).toBe(false);
+    expect(menus()[0]).toHaveAccessibleName('More actions: Window 1');
+    esc();
+    expect(fireEvent.contextMenu(windowDots)).toBe(false);
+    expect(menus()[0]).toHaveAccessibleName('More actions: Window 1');
+    esc();
+
+    const openGroup = screen.getByRole('button', { name: 'Open group: Work' });
+    expect(fireEvent.contextMenu(openGroup)).toBe(false);
+    expect(menus()[0]).toHaveAccessibleName('More actions: Work');
+  });
+
+  // The strip's resting rule is the first `> *` rule emotion wrote for it.
+  const stripOpacity = (strip: Element) =>
+    />\*\s*\{[^}]*?opacity:\s*(\d)/.exec(classRulesFor(strip))?.[1];
+
+  test('held: the strip shows for the held row with the pointer elsewhere', async () => {
+    await renderSeeded();
+    const row = () =>
+      windowTitle().closest('[data-window-drag-handle]') as HTMLElement;
+    const strip = () =>
+      row().querySelector('[data-row-actions]') as HTMLElement;
+
+    expect(stripOpacity(strip())).toBe('0');
+    fireEvent.contextMenu(windowTitle());
+    expect(stripOpacity(strip())).toBe('1');
+    expect(row()).toHaveAttribute('data-row-menu-held');
+    esc();
+    expect(stripOpacity(strip())).toBe('0');
+    expect(row()).not.toHaveAttribute('data-row-menu-held');
+  });
+
+  test('held: a group header shows its strip for the held group only', async () => {
+    await renderSeeded();
+    // A rule that names the strip with no hover or focus condition on it.
+    const shownAtRest = (header: Element) =>
+      classRulesFor(header)
+        .split('{')
+        .map((chunk) => chunk.split('}').pop() ?? '')
+        .some((sel) => /\.group-actions\s*$/.test(sel) && !sel.includes(':'));
+    const header = (name: string) =>
+      groupTitle(name).closest('[data-group-drag-handle]') as HTMLElement;
+
+    expect(shownAtRest(header('Work'))).toBe(false);
+    fireEvent.contextMenu(groupTitle('Work'));
+    expect(shownAtRest(header('Work'))).toBe(true);
+    expect(shownAtRest(header('Play'))).toBe(false);
+    esc();
+    expect(shownAtRest(header('Work'))).toBe(false);
   });
 });
