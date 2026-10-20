@@ -142,7 +142,7 @@ describe('saved window and group rows tag their tab count', () => {
     );
     // The default inset ring is in the sheet too; the last rule is the one that wins.
     const offsets = [...rules.matchAll(/outline-offset:\s*(-?\d+px)/g)];
-    expect(offsets.at(-1)?.[1]).toBe('2px');
+    expect(offsets[offsets.length - 1]?.[1]).toBe('2px');
     expect(rules).toMatch(/::before[^}]*right:\s*-4px/);
   });
 
