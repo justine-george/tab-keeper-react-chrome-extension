@@ -4,8 +4,10 @@ import { screen } from '@testing-library/react';
 import MainContainer from '../../components/MainContainer';
 import ExportPage from '../../components/export/ExportPage';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
-import { openSettingsPage } from '../../redux/slices/globalStateSlice';
+import {
+  openSettingsPage,
+  setHasTabGroupsPermission,
+} from '../../redux/slices/globalStateSlice';
 import {
   replaceState,
   saveToTabContainerInternal,

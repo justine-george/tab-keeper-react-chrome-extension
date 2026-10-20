@@ -19,7 +19,12 @@ import {
 import { escapesPrevented, watchEscapes } from './fixtures/escapeProbe';
 import { rgbToHex } from './fixtures/pixels';
 import { standIn } from './fixtures/standInPages';
-import { openSaved, savedWindow, session } from './fixtures/savedWindows';
+import {
+  groupedWindow,
+  openSaved,
+  savedWindow,
+  session,
+} from './fixtures/savedWindows';
 import { pickUp, tabHandle } from './fixtures/sessionDrag';
 import {
   POPUP_RUN,
@@ -272,7 +277,7 @@ test.describe('look', () => {
 });
 
 test.describe('timing', () => {
-  test('a resting pointer shows the chip after 300 ms: absent at 250, present by 400', async ({
+  test('a resting pointer shows the chip after 300 ms: not before 299, within 500', async ({
     context,
     extensionId,
   }) => {
@@ -449,7 +454,7 @@ test.describe('placement', () => {
       });
 
       // No shipped control's chip reaches the left inset in the popup (measured: 61 px at 16px, 63 at 20px); the right edge proves the clamp.
-      test('the leftmost control: its longest chip stays 8 px or more inside the left edge', async ({
+      test("the leftmost control: its longest chip sits inside the popup's left edge", async ({
         context,
         extensionId,
       }) => {
@@ -615,8 +620,10 @@ test.describe('keyboard', () => {
     await pointerAway(page);
     const sort = button(page, 'Sort sessions');
     // Focus put there by script shows nothing; the Tab after it does.
-    await button(page, 'Open full view').focus();
     await watchChips(page);
+    await button(page, 'Open full view').focus();
+    await page.waitForTimeout(450);
+    expect((await chipLog(page)).inserted).toBe(0);
     await page.keyboard.press('Tab', { delay: 100 });
     await expect(sort).toBeFocused();
     await expect(chip(page)).toHaveText('Sort sessions');
@@ -636,6 +643,47 @@ test.describe('keyboard', () => {
     await expect(chip(page)).toHaveCount(0);
     expect((await chipLog(page)).inserted).toBe(1);
   });
+
+  // The picker's own handler moves focus on an arrow key; that focus shows a chip at once, as a Tab's does.
+  grantedTest(
+    'an arrow key through the group colour picker shows the next swatch its chip at once',
+    async ({ context, extensionId }) => {
+      const page = await openSaved(context, extensionId, 'popup', {
+        sessions: [
+          session('S1', 'Grouped', [
+            groupedWindow('gw', 'Grouped', [
+              { groupId: 'gr', title: 'Research', color: 'red' },
+            ]),
+          ]),
+        ],
+      });
+      await pointerAway(page);
+      await watchChips(page);
+      const strip = page.getByRole('button', {
+        name: 'Change group color: Research',
+        exact: true,
+      });
+      await strip.focus();
+      await page.keyboard.press('Enter');
+      const grey = page.getByRole('menuitemradio', {
+        name: 'Grey',
+        exact: true,
+      });
+      await expect(grey).toBeFocused();
+      await page.waitForTimeout(450);
+      // Focus the menu put on its first swatch shows nothing.
+      expect((await chipLog(page)).inserted).toBe(0);
+
+      await page.keyboard.press('ArrowRight', { delay: 100 });
+      await expect(
+        page.getByRole('menuitemradio', { name: 'Blue', exact: true })
+      ).toBeFocused();
+      await expect(chip(page)).toHaveText('Blue');
+      const log = await chipLog(page);
+      expect(log.inserted).toBe(1);
+      expect(log.insertedAt - log.keyAt).toBeLessThan(250);
+    }
+  );
 
   test('in the popup, one Esc hides a tabbed-to chip and is still left to Chrome, which closes the popup', async ({
     context,
@@ -949,9 +997,11 @@ test.describe('no native tooltip', () => {
         });
       }, ['Temples', 'Gardens', 'Loose'].map(standIn));
       await page
-        .getByRole('button', { name: 'Change group color: Kyoto' })
+        .getByRole('button', { name: 'Change group color: Kyoto', exact: true })
         .waitFor();
-      await page.getByRole('button', { name: 'Close tab: Loose' }).waitFor();
+      await page
+        .getByRole('button', { name: 'Close tab: Loose', exact: true })
+        .waitFor();
       await expectNoTitles(page, 'full view');
     }
   );
@@ -962,7 +1012,7 @@ test.describe('no native tooltip', () => {
     await page.goto(
       `chrome-extension://${extensionId}/export.html?session=session-1`
     );
-    await page.getByRole('button', { name: 'Edit' }).waitFor();
+    await page.getByRole('button', { name: 'Edit', exact: true }).waitFor();
     await expectNoTitles(page, 'export');
   });
 

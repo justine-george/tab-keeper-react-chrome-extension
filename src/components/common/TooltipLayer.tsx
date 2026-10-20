@@ -52,7 +52,7 @@ interface Shown {
 const anchorOf = (target: EventTarget | null): Element | null =>
   target instanceof Element ? target.closest('[data-tooltip]') : null;
 
-const isDragging = (): boolean => {
+const isMovingRows = (): boolean => {
   const root = document.documentElement;
   return (
     root.hasAttribute('data-dragging') || root.hasAttribute('data-carrying')
@@ -101,8 +101,6 @@ function createTooltips() {
     let lastHiddenAt: number | null = null;
     // A Tab or arrow key is down: the focus it moves shows a chip (memory a-timer-cannot-end-a-keys-turn).
     let navKeyDown = false;
-    // A pointer button is held: nothing shows until it is let go, as with Chrome's own tooltip.
-    let pressed = false;
 
     const cancel = () => {
       if (pending === null) return;
@@ -124,7 +122,7 @@ function createTooltips() {
         return;
       }
       const text = anchor.getAttribute('data-tooltip');
-      if (!text || isDragging() || shown?.anchor === anchor) return;
+      if (!text || isMovingRows() || shown?.anchor === anchor) return;
       if (repeatsVisibleText(anchor, text)) return;
       anchorWatch.disconnect();
       anchorWatch.observe(anchor.getRootNode(), {
@@ -157,10 +155,10 @@ function createTooltips() {
       if (!shown.anchor.isConnected || !text) hide();
       else if (text !== shown.text) set({ ...shown, text });
     });
-    const dragWatch = new MutationObserver(() => {
-      if (isDragging()) hide();
+    const movingWatch = new MutationObserver(() => {
+      if (isMovingRows()) hide();
     });
-    dragWatch.observe(document.documentElement, {
+    movingWatch.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ['data-dragging', 'data-carrying'],
     });
@@ -172,7 +170,8 @@ function createTooltips() {
       if (anchor === hovered) return;
       leaveHover();
       hovered = anchor;
-      if (anchor !== null && !pressed) schedule(anchor);
+      // A button held, read from the event: a release Chrome never delivers cannot leave it stuck.
+      if (anchor !== null && e.buttons === 0) schedule(anchor);
     };
     const onPointerOut = (e: PointerEvent) => {
       if (e.pointerType === 'touch') return;
@@ -188,11 +187,7 @@ function createTooltips() {
     };
     const onPointerDown = () => {
       navKeyDown = false;
-      pressed = true;
       hide();
-    };
-    const onPointerUp = () => {
-      pressed = false;
     };
     const onFocusIn = (e: FocusEvent) => {
       if (!navKeyDown) return;
@@ -214,8 +209,6 @@ function createTooltips() {
     };
     const onBlur = () => {
       navKeyDown = false;
-      // Its pointerup may land in another window.
-      pressed = false;
       hide();
     };
     // Within a key's turn a scroll is that key's focus move bringing its control into view (R9).
@@ -228,8 +221,6 @@ function createTooltips() {
     document.addEventListener('pointerout', onPointerOut);
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerdown', onPointerDown, true);
-    document.addEventListener('pointerup', onPointerUp, true);
-    document.addEventListener('pointercancel', onPointerUp, true);
     document.addEventListener('focusin', onFocusIn);
     document.addEventListener('focusout', onFocusOut);
     document.addEventListener('keydown', onKeyDown, true);
@@ -241,8 +232,6 @@ function createTooltips() {
       document.removeEventListener('pointerout', onPointerOut);
       document.removeEventListener('pointermove', onPointerMove);
       document.removeEventListener('pointerdown', onPointerDown, true);
-      document.removeEventListener('pointerup', onPointerUp, true);
-      document.removeEventListener('pointercancel', onPointerUp, true);
       document.removeEventListener('focusin', onFocusIn);
       document.removeEventListener('focusout', onFocusOut);
       document.removeEventListener('keydown', onKeyDown, true);
@@ -251,7 +240,7 @@ function createTooltips() {
       window.removeEventListener('blur', onBlur);
       cancel();
       anchorWatch.disconnect();
-      dragWatch.disconnect();
+      movingWatch.disconnect();
       shown = null;
     };
   };

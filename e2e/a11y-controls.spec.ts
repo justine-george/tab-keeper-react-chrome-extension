@@ -271,14 +271,12 @@ async function tabOrderNames(page: Page): Promise<string[]> {
         await page.evaluate(() => {
           const el = document.activeElement;
           if (!el || el === document.body) return '<body>';
-          // Accessible-name precedence, simplified to the three sources this
-          // app actually uses: aria-label, then content, then title. `title` is
-          // not decoration here -- the theme buttons carry no aria-label and no
-          // text, so it is the only name they have.
+          // Accessible-name precedence, simplified to the two sources this app
+          // uses: aria-label, then content. data-tooltip names nothing, so a
+          // control with only a tooltip reads as unnamed.
           return (
             el.getAttribute('aria-label') ||
             el.textContent?.trim() ||
-            el.getAttribute('data-tooltip') ||
             '<unnamed>'
           );
         })

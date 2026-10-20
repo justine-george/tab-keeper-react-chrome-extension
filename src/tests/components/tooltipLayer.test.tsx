@@ -31,12 +31,18 @@ const byTip = (text: string) => {
 
 // Each move is one pointer leaving where it was for the next element, as Chrome dispatches it.
 let under: Element | null = null;
-const pointerTo = (to: Element | null, pointerType = 'mouse') => {
+// The buttons held down, which every pointer event reports, as Chrome's do.
+let held = 0;
+const pointerTo = (
+  to: Element | null,
+  { pointerType = 'mouse', buttons = held } = {}
+) => {
   act(() => {
     under?.dispatchEvent(
       new PointerEvent('pointerout', {
         bubbles: true,
         pointerType,
+        buttons,
         relatedTarget: to,
       })
     );
@@ -44,6 +50,7 @@ const pointerTo = (to: Element | null, pointerType = 'mouse') => {
       new PointerEvent('pointerover', {
         bubbles: true,
         pointerType,
+        buttons,
         relatedTarget: under,
       })
     );
@@ -53,21 +60,37 @@ const pointerTo = (to: Element | null, pointerType = 'mouse') => {
 const moveOn = (el: Element) =>
   act(() => {
     el.dispatchEvent(
-      new PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse' })
+      new PointerEvent('pointermove', {
+        bubbles: true,
+        pointerType: 'mouse',
+        buttons: held,
+      })
     );
   });
-const press = (el: Element) =>
+const press = (el: Element) => {
+  held = 1;
   act(() => {
     el.dispatchEvent(
-      new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        pointerType: 'mouse',
+        buttons: held,
+      })
     );
   });
-const release = (el: Element) =>
+};
+const release = (el: Element) => {
+  held = 0;
   act(() => {
     el.dispatchEvent(
-      new PointerEvent('pointerup', { bubbles: true, pointerType: 'mouse' })
+      new PointerEvent('pointerup', {
+        bubbles: true,
+        pointerType: 'mouse',
+        buttons: held,
+      })
     );
   });
+};
 const key = (
   type: 'keydown' | 'keyup',
   k: string,
@@ -121,6 +144,7 @@ async function setup() {
 
 beforeEach(() => {
   under = null;
+  held = 0;
 });
 afterEach(() => {
   pointerTo(null);
@@ -199,7 +223,7 @@ describe('timing', () => {
 
   test('a touch pointer never shows a chip', async () => {
     await setup();
-    pointerTo(byTip('Save session'), 'touch');
+    pointerTo(byTip('Save session'), { pointerType: 'touch' });
     wait(1000);
     expect(chip()).toBeNull();
   });
@@ -249,6 +273,36 @@ describe('keyboard', () => {
     key('keydown', 'Tab');
     key('keyup', 'Tab');
     act(() => byTip('Save session').focus());
+    expect(chip()).toBeNull();
+  });
+
+  // An arrow key's own handler moves focus by script, as the colour picker's does.
+  const arrowMovesTo = (from: Element, to: HTMLElement) =>
+    from.addEventListener(
+      'keydown',
+      (e) => {
+        if (e instanceof KeyboardEvent && e.key === 'ArrowDown') to.focus();
+      },
+      { once: true }
+    );
+
+  test("an arrow key whose handler moves focus shows the next control's chip at once", async () => {
+    await setup();
+    const a = byTip('Save session');
+    act(() => a.focus());
+    arrowMovesTo(a, byTip('Delete'));
+    key('keydown', 'ArrowDown', a);
+    expect(chip()).toHaveTextContent('Delete');
+  });
+
+  test('after the arrow key is let go, a script focus shows nothing', async () => {
+    await setup();
+    const a = byTip('Save session');
+    act(() => a.focus());
+    arrowMovesTo(a, byTip('Delete'));
+    key('keydown', 'ArrowDown', a);
+    key('keyup', 'ArrowDown', byTip('Delete'));
+    act(() => a.focus());
     expect(chip()).toBeNull();
   });
 
@@ -362,14 +416,25 @@ describe('it hides', () => {
     expect(chip()).toHaveTextContent('Save session');
   });
 
-  test('a press whose release is lost to another window ends with the blur', async () => {
+  test('a press whose release is lost to another window ends by the time the pointer comes back', async () => {
     await setup();
     press(byTip('Save session'));
     act(() => {
       window.dispatchEvent(new FocusEvent('blur'));
     });
-    pointerTo(byTip('Delete'));
+    pointerTo(byTip('Delete'), { buttons: 0 });
     wait(300);
+    expect(chip()).toHaveTextContent('Delete');
+  });
+
+  // A mac context menu opens on the press and takes its release: no pointerup, no blur.
+  test('a press whose release never reaches the page ends at the next pointer with no button held', async () => {
+    await setup();
+    press(byTip('Save session'));
+    pointerTo(byTip('Delete'), { buttons: 0 });
+    wait(299);
+    expect(chip()).toBeNull();
+    wait(1);
     expect(chip()).toHaveTextContent('Delete');
   });
 
