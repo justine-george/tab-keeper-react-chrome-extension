@@ -328,3 +328,81 @@ test.describe('the group colour strip is a legal target (KAN-231)', () => {
       .toEqual(['l0', 'alpha0', 'alpha2', 'alpha1', 'l1']);
   });
 });
+
+// KAN-706. A tab dragged over its group's strip found it shrinking from the
+// drop target's 16px to the hover's 11: the two rules weigh the same and the
+// hover one came later. Mid-drag the strip is not a control to click, so
+// only the drop target's width may show.
+test.describe('a drag over the strip keeps the drop target width (KAN-706)', () => {
+  /** Picks up alpha1 by its row and holds it in its own group. */
+  async function pickUp(page: Page) {
+    const row = page.locator(
+      '[data-pane="detail"] [data-drag-row-id="alpha1"] [data-drag-handle-row]'
+    );
+    const r = await row.boundingBox();
+    const at = { x: r!.x + 30, y: r!.y + r!.height / 2 };
+    await page.mouse.move(at.x, at.y, { steps: 3 });
+    await page.mouse.down();
+    await page.mouse.move(at.x + 2, at.y + 10, { steps: 6 });
+    await expect(page.locator('html[data-dragging="tab"]')).toHaveCount(1);
+    await expect(page.locator('[data-band-id="alpha"]')).toHaveAttribute(
+      'data-drop-target',
+      ''
+    );
+    await page.waitForTimeout(300);
+    return at;
+  }
+
+  test('held on the strip, it stays 16px', async ({ context, extensionId }) => {
+    const page = await open(context, extensionId);
+    const at = await pickUp(page);
+    // PREMISE: the band is the drop target and the strip has widened.
+    expect((await geometry(page)).paint).toBe(16);
+    const g = await geometry(page);
+    await page.mouse.move(g.left + 4, at.y + 10, { steps: 8 });
+    // PREMISE: the pointer really is over the strip.
+    expect(
+      await page.locator(STRIP).evaluate((el) => el.matches(':hover'))
+    ).toBe(true);
+    await page.waitForTimeout(300);
+    expect((await geometry(page)).paint).toBe(16);
+    await page.mouse.up();
+  });
+
+  test('passed over, it never narrows', async ({ context, extensionId }) => {
+    const page = await open(context, extensionId);
+    const at = await pickUp(page);
+    const g = await geometry(page);
+    await page.evaluate((sel) => {
+      const w = window as unknown as { __min: number; __stop: boolean };
+      w.__min = Infinity;
+      w.__stop = false;
+      const strip = document.querySelector<HTMLElement>(sel)!;
+      const step = () => {
+        w.__min = Math.min(w.__min, strip.getBoundingClientRect().width);
+        if (!w.__stop) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }, STRIP);
+    await page.mouse.move(g.left + 4, at.y + 10, { steps: 6 });
+    await page.mouse.move(g.left + 60, at.y + 10, { steps: 6 });
+    await page.waitForTimeout(300);
+    const min = await page.evaluate(() => {
+      const w = window as unknown as { __min: number; __stop: boolean };
+      w.__stop = true;
+      return Math.round(w.__min);
+    });
+    expect(min).toBe(16);
+    await page.mouse.up();
+  });
+
+  test('CONTROL: with no drag, hovering the strip still widens it to 11px', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    await page.locator(STRIP).hover();
+    await page.waitForTimeout(300);
+    expect((await geometry(page)).paint).toBe(11);
+  });
+});

@@ -59,6 +59,9 @@ export interface Carry {
   x: number;
   y: number;
   owner: CarryOwner;
+  // How far left of its row the press was (KAN-704), 0 for a press on it:
+  // the list that adopts the carry reads bands as the pressed one did (KAN-706).
+  pressOffRowX: number;
 }
 
 let carry: Carry | null = null;
@@ -85,9 +88,10 @@ export function startCarry(
   card: CarryCard,
   x: number,
   y: number,
-  onCancel?: () => void
+  onCancel?: () => void,
+  pressOffRowX = 0
 ): void {
-  carry = { item, card, x, y, owner: 'layer' };
+  carry = { item, card, x, y, owner: 'layer', pressOffRowX };
   restoreOnCancel = onCancel ?? null;
   setDragNewWindow(pickOf(item).kind !== 'window');
   setDragNewSession(true);

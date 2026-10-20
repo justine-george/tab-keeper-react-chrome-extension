@@ -5284,3 +5284,62 @@ test.describe("a group's only tab carried out and back (KAN-371)", () => {
     expect(await groupEntries(page, 'S1', 0)).toEqual([]);
   });
 });
+
+// ---- KAN-706 ------------------------------------------------------------------
+
+// A grouped tab's dots sit left of its row (KAN-701). In its own list a press
+// there reads a band from the row's edge (KAN-704); carried into another
+// session it has to read the same way there, or a pointer on or left of a
+// band's strip takes the tab out of a group it is plainly over.
+test.describe('a tab carried into another session reads bands from its row, wherever it was pressed (KAN-706)', () => {
+  for (const by of ['dots', 'row'] as const) {
+    test(`pressed on its ${by}${by === 'row' ? ' (control)' : ''}: the band is the target, and the tab joins it`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openTabView(context, extensionId, false);
+      const row = page.locator(
+        '[data-pane="detail"] [data-drag-row-id="al0"] [data-drag-handle-row]'
+      );
+      await row.hover();
+      const r = await boxOf(row);
+      const dots = await boxOf(row.locator('[data-drag-handle]'));
+      const at =
+        by === 'dots'
+          ? { x: dots.x + dots.width / 2, y: dots.y + dots.height / 2 }
+          : { x: r.x + 30, y: r.y + r.height / 2 };
+      // How far left of its row the press was: positive on the dots.
+      const offRow = r.x - at.x;
+      // PREMISE: the dots really are left of the row.
+      expect(offRow > 0).toBe(by === 'dots');
+      await page.mouse.move(at.x, at.y, { steps: 3 });
+      await page.mouse.down();
+      await page.mouse.move(at.x + 2, at.y + 10, { steps: 6 });
+      await expect(page.locator('html[data-dragging="tab"]')).toHaveCount(1);
+      await carryOutLeft(page, at);
+      await springOpen(page, 'S2');
+      await adoptPhantom(page, 'carried:al0');
+
+      // Into gamma, between its two tabs: ga1's top quarter, read before
+      // the slot that opens there moves it.
+      const ga1 = await boxOf(page.locator(dragRow('ga1')));
+      const y = ga1.y + ga1.height / 4;
+      await page.mouse.move(ga1.x + 30, y, { steps: 8 });
+      await settled(page);
+      const band = page.locator('[data-band-id="gamma"]');
+      // CONTROL: on the row itself, the band is the target.
+      await expect(band).toHaveAttribute('data-drop-target', '');
+      // The pointer as far off the row as it was at the press.
+      await page.mouse.move(ga1.x - offRow, y, { steps: 6 });
+      await settled(page);
+      // PREMISE: on the dots, the pointer is left of the band itself.
+      expect(ga1.x - offRow < (await boxOf(band)).x).toBe(by === 'dots');
+      await expect(band).toHaveAttribute('data-drop-target', '');
+      await page.mouse.up();
+
+      await expect
+        .poll(async () => (await layout(page, 'S2'))[0])
+        .toContain('al0*');
+    });
+  }
+});

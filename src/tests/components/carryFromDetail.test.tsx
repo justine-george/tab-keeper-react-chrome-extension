@@ -115,6 +115,7 @@ describe('each saved detail list hands a drag that reaches the session list to t
       x: -40,
       y: 30,
       owner: 'layer',
+      pressOffRowX: 0,
     });
     expect(rowIds()).not.toContain('t2');
     expect(document.documentElement.getAttribute('data-dragging')).toBe('tab');
