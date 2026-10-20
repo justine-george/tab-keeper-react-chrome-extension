@@ -37,6 +37,10 @@ import {
   formatTabCount,
 } from '../../../utils/functions/local';
 import { RowTag } from '../../common/RowTag';
+import {
+  HIDE_TAGS_UNDER_STRIP,
+  markTagsUnderStrip,
+} from '../../common/tagsUnderStrip';
 import { visuallyHiddenStyle } from '../../../styles/visuallyHidden';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import { copyLinkItem } from '../../common/rowMenu/copyLinkItem';
@@ -355,6 +359,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     margin-bottom: 8px;
   `;
 
+  // KAN-708. The strip shows for the hovered row and for the one whose right-click menu is open.
+  const isStripShown = isParentHovered || windowMenu.heldId !== null;
   const parentStyle = css`
     position: relative;
     display: flex;
@@ -373,6 +379,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       isEditing
         ? ''
         : `&[data-row-menu-held] { background-color: ${COLORS.HOVER_COLOR}; }`
+    }
+    /* KAN-723. A covered tag hides under parentRightStyle's two reveals: its opacity, and the keyboard's. */
+    ${isStripShown || isEditing ? HIDE_TAGS_UNDER_STRIP : ''}
+    ${whileKeyNav('&:has([data-row-actions] :focus-visible)')} {
+      ${HIDE_TAGS_UNDER_STRIP}
     }
     /* KAN-379. A drag resting here: the sweep, whose end opens the window.
        The press fill, as a session row's (KAN-669). */
@@ -393,8 +404,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     min-width: 0;
   `;
 
-  // KAN-708. The strip shows for the hovered row and for the one whose right-click menu is open.
-  const isStripShown = isParentHovered || windowMenu.heldId !== null;
   const parentRightStyle = css`
     display: flex;
     position: absolute;
@@ -593,6 +602,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     min-width: 0;
     padding-right: 9px;
   `;
+
+  // KAN-723. Measured as pointer or focus enters the row; the row's CSS decides when a marked tag hides.
+  const measureTagsUnder =
+    (stripSelector: string) => (e: React.SyntheticEvent<HTMLElement>) =>
+      markTagsUnderStrip(
+        e.currentTarget,
+        e.currentTarget.querySelector<HTMLElement>(stripSelector)
+      );
 
   // KAN-720. The tag's 9px clearance from the row's edge lives here, not in RowTag.
   const rowTagSlotStyle = css`
@@ -1018,6 +1035,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           {...windowMenu.rowProps(windowId)}
           onMouseEnter={() => setIsParentHovered(true)}
           onMouseLeave={() => setIsParentHovered(false)}
+          onPointerEnter={measureTagsUnder('[data-row-actions]')}
+          onFocus={measureTagsUnder('[data-row-actions]')}
         >
           <div css={parentLeftStyle}>
             <Icon
@@ -1426,17 +1445,26 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         &:hover .group-actions {
                           ${groupActionsShown}
                         }
+                        /* KAN-723. Each reveal also hides the tags its strip would cover. */
+                        &:hover {
+                          ${HIDE_TAGS_UNDER_STRIP}
+                        }
                         ${whileKeyNav('&:has(:focus-visible) .group-actions')} {
                           ${groupActionsShown}
+                        }
+                        ${whileKeyNav('&:has(:focus-visible)')} {
+                          ${HIDE_TAGS_UNDER_STRIP}
                         }
                         /* KAN-708. Held while its right-click menu is open, as if hovered. */
                         ${
                           groupMenu.heldId === item.group.groupId
-                            ? `${groupRowEngaged} .group-actions { ${groupActionsShown} }`
+                            ? `${groupRowEngaged} .group-actions { ${groupActionsShown} } ${HIDE_TAGS_UNDER_STRIP}`
                             : ''
                         }
                       `}
                       {...groupMenu.rowProps(item.group.groupId)}
+                      onPointerEnter={measureTagsUnder('.group-actions')}
+                      onFocus={measureTagsUnder('.group-actions')}
                     >
                       <DragHandle
                         scope="items"

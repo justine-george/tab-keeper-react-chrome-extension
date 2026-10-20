@@ -28,6 +28,26 @@ describe('the drag stylesheet rules', () => {
   });
 });
 
+// KAN-723. A strip forced hidden covers nothing, so no tag hides under it; important, as the hide is an emotion class.
+// A carry keeps data-dragging until endCarry, so this one rule covers it too.
+describe('the tag-under-strip drag rule', () => {
+  const rule =
+    flat.match(
+      /\[data-dragging\] \[data-row-tag\]\[data-under-strip\] \{[^}]*\}/
+    )?.[0] ?? '';
+
+  test('a drag or a carry shows every tag the strip would cover', () => {
+    expect(rule).toContain('visibility: visible !important');
+  });
+
+  // CONTROL: unscoped, a covered tag would show through the strip at rest too.
+  test('and nothing outside them', () => {
+    expect(flat).not.toMatch(
+      /(^|[},]) ?\[data-row-tag\]\[data-under-strip\] \{[^}]*visibility: visible/
+    );
+  });
+});
+
 // KAN-153. A WINDOW drag folds every window, by stylesheet rule: no component state changes, so nothing can be left half-applied.
 describe('the window-drag collapse rule', () => {
   test('folds window tab lists away while a window is dragged', () => {
