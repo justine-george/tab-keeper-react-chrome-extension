@@ -841,10 +841,10 @@ export default function OpenNowWindow({
               const color = sanitizeTabGroupColor(item.group.color);
               const groupTitle = titleOf(item.group);
               const groupName = groupTitle || t('Unnamed group');
-              // KAN-708. The ⋮ open, or the right-click menu open: the strip shows and the header fills.
+              // KAN-708. Held: the right-click menu is open, and the header fills. Engaged: that or the ⋮ open, and the strip shows.
+              const groupHeld = groupMenu.heldId === item.group.groupId;
               const groupEngaged =
-                openMenuGroupId === item.group.groupId ||
-                groupMenu.heldId === item.group.groupId;
+                openMenuGroupId === item.group.groupId || groupHeld;
               return (
                 // The saved band, at rest (KAN-280: a live grouped tab sits
                 // exactly where a saved one does). Copied, not shared, for the
@@ -944,7 +944,7 @@ export default function OpenNowWindow({
                         css={css`
                           position: relative;
                           ${
-                            groupEngaged
+                            groupHeld
                               ? `background-color: ${COLORS.HOVER_COLOR};`
                               : ''
                           }

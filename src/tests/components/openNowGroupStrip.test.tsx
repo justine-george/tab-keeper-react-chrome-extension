@@ -438,6 +438,33 @@ describe('a live group row right-click (KAN-708)', () => {
     expect(getComputedStyle(firstControl()).opacity).toBe('0');
   });
 
+  test('the right-click hold fills the header; the ⋮ open lifts the strip and leaves the header unfilled', async () => {
+    await renderOpenNow();
+    // jsdom answers :hover for a focused control, so the header's own rule is read, not its computed fill.
+    const ownFills = () => {
+      const own = `.${titleRowOf('Docs').className.split(' ').join('.')}`;
+      return [...document.querySelectorAll('style')]
+        .flatMap((s) => [...(s.sheet?.cssRules ?? [])])
+        .filter(
+          (r) =>
+            r instanceof CSSStyleRule &&
+            r.selectorText === own &&
+            r.style.backgroundColor !== ''
+        ).length;
+    };
+    expect(ownFills()).toBe(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions: Docs' }));
+    expect(screen.getByRole('menu')).toBeVisible();
+    expect(getComputedStyle(firstControl()).opacity).toBe('1');
+    expect(ownFills()).toBe(0);
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+
+    fireEvent.contextMenu(titleRowOf('Docs'));
+    expect(ownFills()).toBe(1);
+  });
+
   test('under an Open now search the header gives Chrome its menu', async () => {
     const user = userEvent.setup();
     await renderOpenNow();
