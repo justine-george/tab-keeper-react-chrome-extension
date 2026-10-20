@@ -52,7 +52,7 @@ describe('the platform, read once per page', () => {
       seed: { platformOs: 'mac' },
     });
     await settle();
-    expect(first.at(-1)).toEqual({ isMac: true, macKeys: true });
+    expect(first[first.length - 1]).toEqual({ isMac: true, macKeys: true });
     const read = vi.spyOn(chrome.runtime, 'getPlatformInfo');
 
     r.rerender(
@@ -78,13 +78,13 @@ describe('the platform, read once per page', () => {
     ]);
   });
 
-  test('a PC: Mac keys never re-render, and the platform reads false', async () => {
+  test('a PC: the platform reads false and Mac keys stay false', async () => {
     const seen: Seen = [];
     await renderWithProviders(<Probe seen={seen} />, {
       seed: { platformOs: 'win' },
     });
     await settle();
-    expect(seen.at(-1)).toEqual({ isMac: false, macKeys: false });
+    expect(seen[seen.length - 1]).toEqual({ isMac: false, macKeys: false });
   });
 
   test('worst path: the read fails for twenty rows: one warning, and every row reads not a Mac', async () => {
