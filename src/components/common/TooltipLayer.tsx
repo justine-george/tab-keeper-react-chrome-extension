@@ -45,6 +45,8 @@ interface Shown {
   text: string;
   // A new number per show, so each show mounts its own chip and fades in.
   serial: number;
+  // Counts the scrolls that moved the anchor under a keyboard chip; each one places the chip again.
+  moves: number;
 }
 
 const anchorOf = (target: EventTarget | null): Element | null =>
@@ -131,7 +133,7 @@ function createTooltips() {
         attributes: true,
         attributeFilter: ['data-tooltip'],
       });
-      set({ anchor, text, serial: ++serial });
+      set({ anchor, text, serial: ++serial, moves: 0 });
     };
     // The delay is fixed when the pointer arrives; a move only restarts it.
     const schedule = (
@@ -208,6 +210,11 @@ function createTooltips() {
       navKeyDown = false;
       hide();
     };
+    // Within a key's turn a scroll is that key's focus move bringing its control into view (R9).
+    const onScroll = () => {
+      if (!navKeyDown) hide();
+      else if (shown !== null) set({ ...shown, moves: shown.moves + 1 });
+    };
 
     document.addEventListener('pointerover', onPointerOver);
     document.addEventListener('pointerout', onPointerOut);
@@ -217,7 +224,7 @@ function createTooltips() {
     document.addEventListener('focusout', onFocusOut);
     document.addEventListener('keydown', onKeyDown, true);
     document.addEventListener('keyup', onKeyUp);
-    document.addEventListener('scroll', hide, true);
+    document.addEventListener('scroll', onScroll, true);
     window.addEventListener('blur', onBlur);
     return () => {
       document.removeEventListener('pointerover', onPointerOver);
@@ -228,7 +235,7 @@ function createTooltips() {
       document.removeEventListener('focusout', onFocusOut);
       document.removeEventListener('keydown', onKeyDown, true);
       document.removeEventListener('keyup', onKeyUp);
-      document.removeEventListener('scroll', hide, true);
+      document.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('blur', onBlur);
       cancel();
       anchorWatch.disconnect();
@@ -271,10 +278,12 @@ function Chip({
   anchor,
   text,
   dialog,
+  moves,
 }: {
   anchor: Element;
   text: string;
   dialog: Element | null;
+  moves: number;
 }) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -302,7 +311,7 @@ function Chip({
     );
     chip.style.left = `${frame.left + at.left - origin.left}px`;
     chip.style.top = `${frame.top + at.top - origin.top}px`;
-  }, [anchor, text, dialog]);
+  }, [anchor, text, dialog, moves]);
 
   return (
     <div
@@ -350,6 +359,7 @@ export function TooltipLayer(): ReactPortal | null {
       anchor={shown.anchor}
       text={shown.text}
       dialog={dialog}
+      moves={shown.moves}
     />,
     dialog ?? document.body
   );

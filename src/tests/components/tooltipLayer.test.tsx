@@ -350,6 +350,52 @@ describe('it hides', () => {
     expect(chip()).toBeNull();
   });
 
+  // R9. A scroll inside a key's turn is the focus move scrolling its row into view.
+  const scrollPane = () =>
+    act(() => {
+      screen.getByTestId('pane').dispatchEvent(new Event('scroll'));
+    });
+  const tabToA = () => {
+    key('keydown', 'Tab');
+    act(() => byTip('Save session').focus());
+    expect(chip()).toHaveTextContent('Save session');
+  };
+
+  test('not when a Tab scrolls its control into view: the chip is placed again', async () => {
+    await setup();
+    tabToA();
+    const place = vi.mocked(placeTooltip);
+    const calls = place.mock.calls.length;
+    byTip('Save session').getBoundingClientRect = () =>
+      new DOMRect(100, 20, 40, 20);
+    scrollPane();
+    expect(chip()).toHaveTextContent('Save session');
+    expect(place.mock.calls.length).toBe(calls + 1);
+    expect(place).toHaveBeenLastCalledWith(
+      expect.objectContaining({ left: 100, top: 20 }),
+      expect.anything(),
+      expect.anything()
+    );
+  });
+
+  test('a scroll with no key down hides a keyboard-shown chip', async () => {
+    await setup();
+    tabToA();
+    key('keyup', 'Tab');
+    key('keydown', 'Shift');
+    key('keyup', 'Shift');
+    scrollPane();
+    expect(chip()).toBeNull();
+  });
+
+  test("a scroll after the Tab's keyup hides the chip", async () => {
+    await setup();
+    tabToA();
+    key('keyup', 'Tab');
+    scrollPane();
+    expect(chip()).toBeNull();
+  });
+
   test('when the window loses focus', async () => {
     await setup();
     showA();
