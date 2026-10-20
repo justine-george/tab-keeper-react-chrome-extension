@@ -20,7 +20,12 @@ import { css, keyframes } from '@emotion/react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { DURATION, RADIUS, TYPE } from '../../styles/scale';
-import { MAX_WIDTH_PX, placeTooltip, showDelay } from './tooltipRules';
+import {
+  MAX_WIDTH_PX,
+  placeTooltip,
+  showDelay,
+  type Box,
+} from './tooltipRules';
 
 // Above the carry card (1100) and the tour (1020): the spec draws it over everything.
 const CHIP_Z_INDEX = 2000;
@@ -236,7 +241,36 @@ const fadeIn = keyframes`
   }
 `;
 
-function Chip({ anchor, text }: { anchor: Element; text: string }) {
+// The box the chip stays inside, in viewport px: an open dialog's inside, since
+// it clips what it holds (Setup: overflow auto), else the window.
+function frameOf(dialog: Element | null): Box {
+  if (dialog === null) {
+    const root = document.documentElement;
+    return {
+      left: 0,
+      top: 0,
+      width: root.clientWidth,
+      height: root.clientHeight,
+    };
+  }
+  const box = dialog.getBoundingClientRect();
+  return {
+    left: box.left + dialog.clientLeft,
+    top: box.top + dialog.clientTop,
+    width: dialog.clientWidth,
+    height: dialog.clientHeight,
+  };
+}
+
+function Chip({
+  anchor,
+  text,
+  dialog,
+}: {
+  anchor: Element;
+  text: string;
+  dialog: Element | null;
+}) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const ref = useRef<HTMLDivElement>(null);
@@ -249,15 +283,21 @@ function Chip({ anchor, text }: { anchor: Element; text: string }) {
     chip.style.left = '0px';
     chip.style.top = '0px';
     const origin = chip.getBoundingClientRect();
-    const root = document.documentElement;
+    const frame = frameOf(dialog);
+    const box = anchor.getBoundingClientRect();
     const at = placeTooltip(
-      anchor.getBoundingClientRect(),
+      {
+        left: box.left - frame.left,
+        top: box.top - frame.top,
+        width: box.width,
+        height: box.height,
+      },
       { width: origin.width, height: origin.height },
-      { width: root.clientWidth, height: root.clientHeight }
+      { width: frame.width, height: frame.height }
     );
-    chip.style.left = `${at.left - origin.left}px`;
-    chip.style.top = `${at.top - origin.top}px`;
-  }, [anchor, text]);
+    chip.style.left = `${frame.left + at.left - origin.left}px`;
+    chip.style.top = `${frame.top + at.top - origin.top}px`;
+  }, [anchor, text, dialog]);
 
   return (
     <div
@@ -298,8 +338,14 @@ export function TooltipLayer(): ReactPortal | null {
 
   if (shown === null) return null;
   // A modal dialog is in the top layer, above every z-index: its chip is drawn inside it.
+  const dialog = shown.anchor.closest('dialog[open]');
   return createPortal(
-    <Chip key={shown.serial} anchor={shown.anchor} text={shown.text} />,
-    shown.anchor.closest('dialog[open]') ?? document.body
+    <Chip
+      key={shown.serial}
+      anchor={shown.anchor}
+      text={shown.text}
+      dialog={dialog}
+    />,
+    dialog ?? document.body
   );
 }

@@ -514,6 +514,37 @@ describe('what it draws, and where', () => {
     const at = last.value;
     expect(chip()).toHaveStyle({ left: `${at.left}px`, top: `${at.top}px` });
   });
+
+  // A dialog clips what it holds (overflow: auto) and its transform makes it the
+  // chip's containing block: placed in the viewport, a chip near its edge was cut
+  // off and gave the dialog a scrollbar (measured in the Setup dialog).
+  test('inside a dialog the chip is placed within the dialog, not the viewport', async () => {
+    await setup();
+    const anchor = byTip('In dialog');
+    const dialog = anchor.closest('dialog');
+    if (dialog === null) throw new Error('no dialog');
+    dialog.getBoundingClientRect = () => new DOMRect(300, 200, 402, 302);
+    Object.defineProperty(dialog, 'clientLeft', { value: 1 });
+    Object.defineProperty(dialog, 'clientTop', { value: 1 });
+    Object.defineProperty(dialog, 'clientWidth', { value: 400 });
+    Object.defineProperty(dialog, 'clientHeight', { value: 300 });
+    anchor.getBoundingClientRect = () => new DOMRect(650, 220, 32, 32);
+    pointerTo(anchor);
+    wait(300);
+    const place = vi.mocked(placeTooltip);
+    expect(place).toHaveBeenLastCalledWith(
+      expect.objectContaining({ left: 349, top: 19, width: 32, height: 32 }),
+      expect.anything(),
+      { width: 400, height: 300 }
+    );
+    const last = place.mock.results[place.mock.results.length - 1];
+    if (last?.type !== 'return') throw new Error('placeTooltip did not return');
+    const at = last.value;
+    expect(chip()).toHaveStyle({
+      left: `${301 + at.left}px`,
+      top: `${201 + at.top}px`,
+    });
+  });
 });
 
 describe('mounted on every page', () => {
