@@ -30,7 +30,10 @@ import {
   isOpenWindowSortedBySite,
 } from '../../../utils/functions/openNowSort';
 import { updateLiveGroup } from '../../../utils/functions/liveTabGroups';
-import { resolveFaviconUrl } from '../../../utils/functions/local';
+import {
+  formatTabCount,
+  resolveFaviconUrl,
+} from '../../../utils/functions/local';
 import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
 import { placeholderStyle } from '../../../styles/placeholder';
 import { openSplitPartners } from '../../../utils/functions/splitPartners';
@@ -441,6 +444,13 @@ export default function OpenNowWindow({
     padding-right: 9px;
   `;
 
+  // KAN-330 O14a. What this window draws: every tab, or a search's matches.
+  // Only drawing narrows; the handlers below still get the whole window.
+  const drawnTabs =
+    matchedTabIds === null
+      ? openWindow.tabs
+      : openWindow.tabs.filter((tab) => matchedTabIds.has(tab.id));
+
   // KAN-280 Part F (D3 A). The row's glyph and title pick the window up; the chevron and the actions sit outside it.
   const windowHeader = (
     <div data-open-window-drag-handle="" css={css(windowHeaderStyle)}>
@@ -454,6 +464,8 @@ export default function OpenNowWindow({
           size={TYPE.BODY}
           style="padding-left: 8px; height: 100%; max-width: 100%;"
         />
+        {/* KAN-720. The rows drawn, so a search counts its matches; the box's right padding is the tag's clearance. */}
+        <RowTag value={formatTabCount(drawnTabs.length, t)} />
         {openWindow.isThisWindow && <RowTag value={t('This window')} />}
       </div>
     </div>
@@ -467,12 +479,6 @@ export default function OpenNowWindow({
   // because under a search a tab drag only carries out (O14c amended), which
   // lands nowhere here, and a search that starts mid-drag ends an in-pane
   // drag (KAN-335).
-  // KAN-330 O14a. What this window draws: every tab, or a search's matches.
-  // Only drawing narrows; the handlers below still get the whole window.
-  const drawnTabs =
-    matchedTabIds === null
-      ? openWindow.tabs
-      : openWindow.tabs.filter((tab) => matchedTabIds.has(tab.id));
   // KAN-564. Each drawn half of a live split, and its other half.
   const splitPartners = openSplitPartners(drawnTabs);
   const tabsById = new Map(openWindow.tabs.map((tab) => [String(tab.id), tab]));
@@ -1045,6 +1051,20 @@ export default function OpenNowWindow({
                               }`}
                             />
                           </ClickableRow>
+                        )}
+                        {editingGroupId !== item.group.groupId && (
+                          // KAN-720. The rename input takes the title's place, so the count steps aside; 9px clears the row's edge.
+                          <span
+                            css={css`
+                              display: flex;
+                              flex-shrink: 0;
+                              padding-right: 9px;
+                            `}
+                          >
+                            <RowTag
+                              value={formatTabCount(item.tabs.length, t)}
+                            />
+                          </span>
                         )}
                         {editingGroupId !== item.group.groupId &&
                           offersWindowActions && (
