@@ -5,7 +5,7 @@ import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntry
 import HeroContainerRight from '../../components/home/rightpane/HeroContainerRight';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { restoreContainer } from '../../redux/slices/tabContainerDataStateSlice';
-import { getPrettyDate } from '../../utils/functions/local';
+import { getTooltipDate } from '../../utils/functions/local';
 import { buildSession } from '../fixtures/sessionFixture';
 
 // KAN-347. Both panes show a session's date without seconds, and without the
@@ -52,7 +52,7 @@ const renderBothPanes = (contentModified = EDITED) =>
   );
 
 describe('session dates in both panes (KAN-347)', () => {
-  // The hover holds what the label trimmed away. closest('[title]') finds the
+  // The hover holds what the label trimmed away. closest('[data-tooltip]') finds the
   // nearest titled box, so a title on some other ancestor (the row's own, say)
   // answers wrongly rather than passing.
   test('hovering either shows the full timestamp', async () => {
@@ -60,10 +60,23 @@ describe('session dates in both panes (KAN-347)', () => {
 
     const labels = await screen.findAllByText('Edited Sep 24, 2:51 AM');
     expect(
-      labels.map((el) => el.closest('[title]')?.getAttribute('title'))
+      labels.map((el) =>
+        el.closest('[data-tooltip]')?.getAttribute('data-tooltip')
+      )
     ).toEqual([
-      getPrettyDate(EDITED, 'en', 'h12'),
-      getPrettyDate(EDITED, 'en', 'h12'),
+      getTooltipDate(EDITED, 'en', 'h12'),
+      getTooltipDate(EDITED, 'en', 'h12'),
     ]);
+    // The label is not focusable: the same timestamp is its description.
+    expect(
+      labels.map((el) =>
+        el.closest('[data-tooltip]')?.getAttribute('aria-description')
+      )
+    ).toEqual([
+      getTooltipDate(EDITED, 'en', 'h12'),
+      getTooltipDate(EDITED, 'en', 'h12'),
+    ]);
+    // Literal: the hover has the year and no seconds (KAN-695).
+    expect(getTooltipDate(EDITED, 'en', 'h12')).toBe('Sep 24, 2026, 2:51 AM');
   });
 });

@@ -1,7 +1,7 @@
 import { css } from '@emotion/react';
 import { shallowEqual, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { getPrettyDate } from '../../../../utils/functions/local';
+import { getTooltipDate } from '../../../../utils/functions/local';
 import { sessionWhen } from '../../../../utils/functions/sessionDate';
 import { useToday } from '../../../../hooks/useToday';
 
@@ -50,6 +50,11 @@ const SyncStatus: React.FC = () => {
     lastSyncedTime === ''
       ? ''
       : sessionWhen(lastSyncedTime, i18n.language, timeFormat, today);
+  // The full date behind the shown time; the line that carries it draws only with a time.
+  const syncedDate =
+    syncedTime === ''
+      ? undefined
+      : getTooltipDate(lastSyncedTime, i18n.language, timeFormat);
   // shallowEqual: describeSyncState builds a fresh object every call, so
   // without it any store change re-rendered this component and react-redux's
   // dev check warned that the selector is unstable (seen from the KAN-252
@@ -131,7 +136,8 @@ const SyncStatus: React.FC = () => {
           <p
             css={syncedStyle}
             data-sync-synced
-            title={getPrettyDate(lastSyncedTime, i18n.language, timeFormat)}
+            data-tooltip={syncedDate}
+            aria-description={syncedDate}
           >
             {t('Last synced {{time}}', { time: syncedTime })}
           </p>

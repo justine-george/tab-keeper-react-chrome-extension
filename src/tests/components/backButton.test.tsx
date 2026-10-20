@@ -57,7 +57,7 @@ describe("the full view's Back button (KAN-509)", () => {
     const names = screen.getAllByRole('button').map((el) => el.ariaLabel);
     expect(names.slice(0, 2)).toEqual(['Back to last tab', 'Sort sessions']);
     expect(back()).toHaveTextContent('arrow_back');
-    expect(back()).toHaveAttribute('title', 'Back to last tab');
+    expect(back()).toHaveAttribute('data-tooltip', 'Back to last tab');
   });
 
   test('Default view Compact: Open compact view as before, no Back', async () => {

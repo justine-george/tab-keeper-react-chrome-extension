@@ -66,8 +66,8 @@ test('12-hour by default; 24-hour redraws the row and its hover, and survives a 
   await pick(page, '24-hour');
   await expect(sessions(page)).toContainText('Edited today, 15:09');
   await expect(
-    sessions(page).locator('[title]', { hasText: 'Edited today, 15:09' })
-  ).toHaveAttribute('title', /15:09:00/);
+    sessions(page).locator('[data-tooltip]', { hasText: 'Edited today, 15:09' })
+  ).toHaveAttribute('data-tooltip', /2026.*15:09$/);
 
   await page.reload();
   await page.locator('[data-tour-anchor="save"]').waitFor();
@@ -98,9 +98,9 @@ test('Chinese, 12-hour by default: the hover keeps the date as Chinese writes it
   const page = await openPage(context, extensionId);
   const d = new Date(EDITED);
   await expect(
-    sessions(page).locator('[title]', { hasText: '下午3:09' })
+    sessions(page).locator('[data-tooltip]', { hasText: '下午3:09' })
   ).toHaveAttribute(
-    'title',
-    `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 下午3:09:00`
+    'data-tooltip',
+    `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 下午3:09`
   );
 });

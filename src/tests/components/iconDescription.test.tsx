@@ -7,12 +7,12 @@ import ClickableRow from '../../components/common/ClickableRow';
 import GroupColorPicker from '../../components/common/GroupColorPicker';
 import Icon from '../../components/common/Icon';
 import SlidingPair from '../../components/common/SlidingPair';
-import { silenceRepeatedTitle } from '../../components/common/silenceRepeatedTitle';
 import OpenNowRail from '../../components/home/opennow/OpenNowRail';
 import { renderWithProviders } from '../setup/renderWithProviders';
 
-// KAN-345. Chrome reads a title it did not use for the name as the
-// description, so a tooltip equal to the name was announced twice.
+// KAN-345. A tooltip equal to the name is not announced twice. KAN-695: the
+// tooltip is data-tooltip, so the description is stated outright: the tooltip
+// when it adds something, no attribute at all when it repeats the name.
 describe('an Icon is not described by its own name', () => {
   const noop = () => {};
 
@@ -25,8 +25,9 @@ describe('an Icon is not described by its own name', () => {
         tooltipText="Open session"
       />
     );
-    expect(screen.getByRole('button', { name: 'Open' })).not.toHaveAttribute(
-      'aria-description'
+    expect(screen.getByRole('button', { name: 'Open' })).toHaveAttribute(
+      'aria-description',
+      'Open session'
     );
   });
 
@@ -55,19 +56,18 @@ describe('an Icon is not described by its own name', () => {
 describe('the other controls with a tooltip follow the same rule', () => {
   const noop = () => {};
 
-  test('a row whose tooltip is its name: an empty description', async () => {
+  test('a row whose tooltip is its name: no description', async () => {
     await renderWithProviders(
       <ClickableRow ariaLabel="Search" tooltipText="Search" onClick={noop}>
         Tab Keeper
       </ClickableRow>
     );
-    expect(screen.getByRole('button', { name: 'Search' })).toHaveAttribute(
-      'aria-description',
-      ''
-    );
+    const row = screen.getByRole('button', { name: 'Search' });
+    expect(row).toHaveAttribute('data-tooltip', 'Search');
+    expect(row).not.toHaveAttribute('aria-description');
   });
 
-  test('a row whose tooltip adds something: none', async () => {
+  test('a row whose tooltip adds something: it is the description', async () => {
     await renderWithProviders(
       <ClickableRow
         ariaLabel="Morning reading"
@@ -79,10 +79,10 @@ describe('the other controls with a tooltip follow the same rule', () => {
     );
     expect(
       screen.getByRole('button', { name: 'Morning reading' })
-    ).not.toHaveAttribute('aria-description');
+    ).toHaveAttribute('aria-description', 'Open in new window');
   });
 
-  test('a button whose tooltip is its name: an empty description', async () => {
+  test('a button whose tooltip is its name: no description', async () => {
     await renderWithProviders(
       <Button
         iconType="settings"
@@ -91,26 +91,25 @@ describe('the other controls with a tooltip follow the same rule', () => {
         onClick={noop}
       />
     );
-    expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute(
-      'aria-description',
-      ''
-    );
+    const button = screen.getByRole('button', { name: 'Settings' });
+    expect(button).toHaveAttribute('data-tooltip', 'Settings');
+    expect(button).not.toHaveAttribute('aria-description');
   });
 
-  test('a colour band and its swatches: an empty description', async () => {
+  test('a colour band and its swatches: no description', async () => {
     await renderWithProviders(
       <GroupColorPicker color="blue" ariaLabel="Colour: Work" onSelect={noop} />
     );
     const band = screen.getByRole('button', { name: 'Colour: Work' });
-    expect(band).toHaveAttribute('aria-description', '');
+    expect(band).toHaveAttribute('data-tooltip', 'Colour: Work');
+    expect(band).not.toHaveAttribute('aria-description');
     fireEvent.click(band);
-    expect(screen.getByRole('menuitemradio', { name: 'Blue' })).toHaveAttribute(
-      'aria-description',
-      ''
-    );
+    const blue = screen.getByRole('menuitemradio', { name: 'Blue' });
+    expect(blue).toHaveAttribute('data-tooltip', 'Blue');
+    expect(blue).not.toHaveAttribute('aria-description');
   });
 
-  test('an icon side of a sliding pair: an empty description', async () => {
+  test('an icon side of a sliding pair: no description', async () => {
     await renderWithProviders(
       <SlidingPair
         label="Pair"
@@ -129,16 +128,15 @@ describe('the other controls with a tooltip follow the same rule', () => {
         }}
       />
     );
-    expect(screen.getByRole('button', { name: 'Undo' })).toHaveAttribute(
-      'aria-description',
-      ''
-    );
+    const undo = screen.getByRole('button', { name: 'Undo' });
+    expect(undo).toHaveAttribute('data-tooltip', 'Undo');
+    expect(undo).not.toHaveAttribute('aria-description');
     expect(screen.getByRole('button', { name: 'Redo' })).not.toHaveAttribute(
-      'aria-description'
+      'data-tooltip'
     );
   });
 
-  test('the Open now rail button: an empty description', async () => {
+  test('the Open now rail button: no description', async () => {
     await renderWithProviders(
       <OpenNowRail
         windows={null}
@@ -149,18 +147,8 @@ describe('the other controls with a tooltip follow the same rule', () => {
         searchInputRef={createRef()}
       />
     );
-    expect(screen.getByRole('button', { name: 'Open now' })).toHaveAttribute(
-      'aria-description',
-      ''
-    );
-  });
-
-  test('the helper: empty only for a title the name starts with', () => {
-    expect(silenceRepeatedTitle('Undo', 'Undo')).toBe('');
-    expect(silenceRepeatedTitle('Collapse', 'Collapse: Morning reading')).toBe(
-      ''
-    );
-    expect(silenceRepeatedTitle('Open session', 'Open')).toBeUndefined();
-    expect(silenceRepeatedTitle(undefined, undefined)).toBeUndefined();
+    const rail = screen.getByRole('button', { name: 'Open now' });
+    expect(rail).toHaveAttribute('data-tooltip', 'Open now');
+    expect(rail).not.toHaveAttribute('aria-description');
   });
 });

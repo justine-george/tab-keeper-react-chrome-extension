@@ -194,6 +194,7 @@
   "Couldn't delete cloud data. Check your connection and try again.": "Det gick inte att radera molndata. Kontrollera anslutningen och försök igen.",
   "Not saved: storage is full. Delete some sessions to make room.": "Inte sparat: lagringsutrymmet är fullt. Radera några sessioner för att frigöra utrymme.",
   "Last synced {{time}}": "Senast synkad {{time}}",
+  "SyncTooltip": "{{state}} · {{detail}}",
   "Keyboard shortcut": "Kortkommando",
   "Press {{keys}} to open Tab Keeper.": "Tryck på {{keys}} för att öppna Tab Keeper.",
   "No shortcut is set to open Tab Keeper.": "Inget kortkommando är inställt för att öppna Tab Keeper.",

@@ -55,7 +55,7 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
 
     for (const name of NAMES) expect(swatch(name)).toBeTruthy();
     // The name is the button's accessible name -- visible text, not a title.
-    expect(swatch('Ink').getAttribute('title')).toBeNull();
+    expect(swatch('Ink').getAttribute('data-tooltip')).toBeNull();
     expect(swatch('Ink')).toHaveAccessibleName('Ink');
   });
 

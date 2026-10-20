@@ -3,7 +3,7 @@ import React from 'react';
 import { css } from '@emotion/react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { focusRingCss } from './focusRing';
-import { silenceRepeatedTitle } from './silenceRepeatedTitle';
+import { tooltipDescription } from './tooltipRules';
 
 interface ClickableRowProps {
   /**
@@ -94,9 +94,9 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
     <button
       ref={buttonRef}
       type="button"
-      title={tooltipText}
+      data-tooltip={tooltipText}
       aria-label={ariaLabel}
-      aria-description={silenceRepeatedTitle(tooltipText, ariaLabel)}
+      aria-description={tooltipDescription(tooltipText, ariaLabel)}
       aria-current={ariaCurrent ? 'true' : undefined}
       aria-describedby={ariaDescribedBy}
       aria-disabled={disable ? true : undefined}

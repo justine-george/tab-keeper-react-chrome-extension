@@ -471,7 +471,7 @@ describe('the title renames, Open opens', () => {
       name: 'Open in new window: Window 2',
     });
     expect(open).toHaveTextContent('Open');
-    expect(open).toHaveAttribute('title', 'Open in new window');
+    expect(open).toHaveAttribute('data-tooltip', 'Open in new window');
     await user.click(open);
 
     expect(onOpenWindow).toHaveBeenCalledTimes(1);
@@ -695,8 +695,8 @@ describe('a saved split pair (KAN-564, pick A)', () => {
         throw new Error(`no mark on ${title}`);
       const glyph = within(mark).getByText('view_column_2');
       expect(glyph.closest('[aria-hidden="true"]')).not.toBeNull();
-      expect(mark.querySelector('[title]')).toHaveAttribute(
-        'title',
+      expect(mark.querySelector('[data-tooltip]')).toHaveAttribute(
+        'data-tooltip',
         `In a split view with “${other}”`
       );
       expect(row(title)).toHaveAccessibleDescription(

@@ -31,7 +31,7 @@ import {
   WARM_LIGHT_THEME,
 } from '../../hooks/useThemeColors';
 import { contrast } from '../setup/contrast';
-import { getPrettyDate } from '../../utils/functions/local';
+import { getTooltipDate } from '../../utils/functions/local';
 
 // KAN-248. The sync status card said "Cloud Sync Active" whenever a token
 // existed -- under an Auto Sync button reading Off, and after a failed sync
@@ -397,7 +397,9 @@ describe('the status line shows when it last synced (KAN-255)', () => {
     expect(line?.textContent).toMatch(/^Last synced \S/);
     // The full timestamp is the hover (KAN-584; the words are pinned in
     // lastSyncedDate.test.tsx).
-    expect(line?.getAttribute('title')).toBe(getPrettyDate(AT, 'en', 'h12'));
+    expect(line?.getAttribute('data-tooltip')).toBe(
+      getTooltipDate(AT, 'en', 'h12')
+    );
     expect(card().querySelector('[data-sync-line]')).toBeNull();
   });
 

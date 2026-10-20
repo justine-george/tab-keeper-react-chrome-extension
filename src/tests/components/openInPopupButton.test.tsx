@@ -54,7 +54,7 @@ describe("the full view's Open compact view button (KAN-437)", () => {
 
     expect(
       screen.getByRole('button', { name: 'Open compact view' })
-    ).toHaveAttribute('title', 'Open compact view');
+    ).toHaveAttribute('data-tooltip', 'Open compact view');
   });
 
   test('a click sends one openInPopup message', async () => {

@@ -31,7 +31,7 @@ describe('RowOpenButton', () => {
   test('carries the tooltip as its title', async () => {
     await render();
     expect(screen.getByRole('button', { name: NAME })).toHaveAttribute(
-      'title',
+      'data-tooltip',
       TIP
     );
   });

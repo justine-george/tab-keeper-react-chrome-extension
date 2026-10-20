@@ -136,7 +136,7 @@ describe('the export preview page (KAN-190)', () => {
       for (const name of ['Light', 'Dark']) {
         const button = screen.getByRole('button', { name });
         expect(button.getAttribute('aria-label')).toBe(name);
-        expect(button.getAttribute('title')).toBe(name);
+        expect(button.getAttribute('data-tooltip')).toBe(name);
       }
     });
 

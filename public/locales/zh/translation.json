@@ -189,6 +189,7 @@
   "Couldn't delete cloud data. Check your connection and try again.": "无法删除云端数据。请检查网络连接后重试。",
   "Not saved: storage is full. Delete some sessions to make room.": "未保存：存储空间已满。请删除一些会话以释放空间。",
   "Last synced {{time}}": "上次同步：{{time}}",
+  "SyncTooltip": "{{state}} · {{detail}}",
   "Keyboard shortcut": "键盘快捷键",
   "Press {{keys}} to open Tab Keeper.": "按 {{keys}} 打开 Tab Keeper。",
   "No shortcut is set to open Tab Keeper.": "尚未设置打开 Tab Keeper 的快捷键。",

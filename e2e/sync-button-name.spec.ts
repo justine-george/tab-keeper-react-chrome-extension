@@ -83,9 +83,9 @@ test.describe('the header sync button says what is true (KAN-342)', () => {
 
     const sync = button(page, 'Sync unavailable');
     await expect(sync).toHaveAttribute('aria-disabled', 'true');
-    await expect(sync).toHaveAttribute('title', 'Sync unavailable');
-    // Empty, so Chrome does not read the tooltip as a second name (KAN-345).
-    await expect(sync).toHaveAttribute('aria-description', '');
+    await expect(sync).toHaveAttribute('data-tooltip', 'Sync unavailable');
+    // None: a tooltip that repeats the name is no description (KAN-345).
+    await expect(sync).not.toHaveAttribute('aria-description');
     expect(await chromeAx(page, 'Sync unavailable')).toEqual([
       {
         name: 'Sync unavailable',
@@ -108,7 +108,10 @@ test.describe('the header sync button says what is true (KAN-342)', () => {
 
     const sync = button(page, 'Sync now');
     await expect(sync).not.toHaveAttribute('aria-disabled');
-    await expect(sync).toHaveAttribute('title', 'Sync is off\nSync now');
+    await expect(sync).toHaveAttribute(
+      'data-tooltip',
+      'Sync is off · Sync now'
+    );
     await expect(sync).toHaveAttribute('aria-description', 'Sync is off');
     expect(await chromeAx(page, 'Sync now')).toEqual([
       { name: 'Sync now', description: 'Sync is off', disabled: false },
@@ -124,7 +127,10 @@ test.describe('the header sync button says what is true (KAN-342)', () => {
 
     const sync = button(page, 'Sync now');
     await expect(sync).not.toHaveAttribute('aria-disabled');
-    await expect(sync).toHaveAttribute('title', 'Manual sync\nSync now');
+    await expect(sync).toHaveAttribute(
+      'data-tooltip',
+      'Manual sync · Sync now'
+    );
     await expect(sync).toHaveAttribute('aria-description', 'Manual sync');
     expect(await chromeAx(page, 'Sync now')).toEqual([
       { name: 'Sync now', description: 'Manual sync', disabled: false },

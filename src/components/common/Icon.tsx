@@ -8,7 +8,7 @@ import { hoverMotionCss } from './hoverMotion';
 import { focusRingCss } from './focusRing';
 import type { HoverMotion } from './hoverMotion';
 import type { BrandIconName, IconName } from './iconNames';
-import { silenceRepeatedTitle } from './silenceRepeatedTitle';
+import { tooltipDescription } from './tooltipRules';
 
 /**
  * Logos, which Material Symbols does not carry and never will -- Google
@@ -250,12 +250,12 @@ const Icon: React.FC<IconProps> = ({
     // tab-focus only if the icon is clickable
     // set role as button for accessibility
     <div
-      title={tooltipText}
+      data-tooltip={tooltipText}
       data-tour-anchor={tourAnchor}
       aria-label={ariaLabel}
       aria-description={
         ariaDescription ??
-        (onClick ? silenceRepeatedTitle(tooltipText, ariaLabel) : undefined)
+        (onClick ? tooltipDescription(tooltipText, ariaLabel) : undefined)
       }
       // Presentational icons are hidden outright rather than merely unnamed.
       // The glyph renders as ligature text ("arrow_back", "add_box"), which

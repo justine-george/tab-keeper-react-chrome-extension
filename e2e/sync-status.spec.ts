@@ -152,16 +152,16 @@ test.describe('the status line shows when it last synced (KAN-255)', () => {
     const synced = status.locator('[data-sync-synced]');
     await expect(synced).toBeVisible();
     await expect(synced).toHaveText('Last synced Mar 3, 2025');
-    // The full timestamp is the hover, as on a session's date.
+    // The full date is the hover, as on a session's date.
     const full = await page.evaluate(
       (ms) =>
         new Intl.DateTimeFormat('en', {
           dateStyle: 'medium',
-          timeStyle: 'medium',
+          timeStyle: 'short',
         }).format(new Date(ms)),
       at
     );
-    await expect(synced).toHaveAttribute('title', full);
+    await expect(synced).toHaveAttribute('data-tooltip', full);
     // Manual keeps its instruction under the time.
     await expect(status.locator('[data-sync-line]')).toContainText(
       'cloud button'

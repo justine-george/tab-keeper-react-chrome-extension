@@ -229,7 +229,7 @@ describe('UserInputContainer save scope', () => {
   // words. testI18n loads the real en resources, so this asserts the string a
   // user actually sees rather than the key.
   const tooltip = (label: string) =>
-    screen.getByLabelText(label).getAttribute('title') ?? '';
+    screen.getByLabelText(label).getAttribute('data-tooltip') ?? '';
 
   test('the all-windows tooltip says it saves all windows', async () => {
     await renderWithProviders(<UserInputContainer />, { seed: twoWindows });

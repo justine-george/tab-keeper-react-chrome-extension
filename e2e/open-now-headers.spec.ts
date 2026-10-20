@@ -318,7 +318,7 @@ test('(c) a double-click on Close window closes exactly one window', async ({
           detail: e.detail,
           control:
             control?.getAttribute('aria-label') ??
-            control?.getAttribute('title') ??
+            control?.getAttribute('data-tooltip') ??
             control?.tagName ??
             '',
         });

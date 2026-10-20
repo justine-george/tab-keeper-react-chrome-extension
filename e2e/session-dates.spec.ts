@@ -55,8 +55,8 @@ test.describe('session dates across midnight (KAN-347)', () => {
     const { page, row } = await openList(context, extensionId);
     const date = row.getByText(/^Edited /);
     await expect(date).toHaveText(TODAY);
-    // The hover holds the full timestamp, seconds and year included.
-    await expect(date).toHaveAttribute('title', /2027.*11:00:00/);
+    // The hover holds the full date, year included.
+    await expect(date).toHaveAttribute('data-tooltip', /2027.*11:00\sPM/);
 
     // Two minutes of page time: past midnight and past one day check.
     await page.clock.runFor(2 * 60_000);

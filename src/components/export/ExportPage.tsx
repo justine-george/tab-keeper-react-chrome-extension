@@ -34,6 +34,7 @@ import {
 import { EXPORT_STORE_URL, TOAST_MESSAGES } from '../../utils/constants/common';
 import { showToast } from '../../redux/slices/globalStateSlice';
 import { Toast } from '../common/Toast';
+import { TooltipLayer } from '../common/TooltipLayer';
 import { formatGroupCounts, formatTabCount } from '../../utils/functions/local';
 import { sessionDateStamp } from '../../utils/functions/sessionDate';
 import {
@@ -884,8 +885,9 @@ export default function ExportPage({ source }: { source: ExportSource }) {
             />
           </>
         )}
-        {/* KAN-401. Inside the override, so it takes the page's scheme. */}
+        {/* KAN-401, KAN-695. Inside the override, so they take the page's scheme. */}
         <Toast />
+        <TooltipLayer />
       </div>
     </ThemeColorsOverride.Provider>
   );

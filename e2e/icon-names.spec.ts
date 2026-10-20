@@ -45,7 +45,7 @@ test('header and search icons are named once, not described by their own name (K
     // PREMISE: the tooltip is the name, which is what made Chrome repeat it.
     await expect(
       page.getByRole('button', { name, exact: true })
-    ).toHaveAttribute('title', name);
+    ).toHaveAttribute('data-tooltip', name);
     const [ax] = await chromeAx(page, name);
     expect({ name: ax.name, description: ax.description }).toEqual({
       name,

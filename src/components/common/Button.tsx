@@ -8,7 +8,7 @@ import { useFontFamily } from '../../hooks/useFontFamily';
 import { mixHex } from '../../styles/mixHex';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../styles/scale';
-import { silenceRepeatedTitle } from './silenceRepeatedTitle';
+import { tooltipDescription } from './tooltipRules';
 import { focusRingCss } from './focusRing';
 
 interface ButtonProps {
@@ -302,9 +302,9 @@ const Button: React.FC<ButtonProps> = ({
 
   return (
     <button
-      title={tooltipText}
+      data-tooltip={tooltipText}
       aria-label={ariaLabel}
-      aria-description={silenceRepeatedTitle(tooltipText, ariaLabel)}
+      aria-description={tooltipDescription(tooltipText, ariaLabel ?? text)}
       aria-pressed={ariaPressed}
       aria-disabled={ariaDisabled || undefined}
       aria-keyshortcuts={keyHint?.ariaKeyShortcuts}
