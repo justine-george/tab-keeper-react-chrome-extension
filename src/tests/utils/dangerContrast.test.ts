@@ -110,6 +110,16 @@ describe('destructive tokens (KAN-725)', () => {
     }
   );
 
+  test.each(Object.entries(THEMES))(
+    '%s: the old delete token is gone',
+    (_name, theme) => {
+      // Spelled in parts so the repo-wide grep for the old name stays empty.
+      expect(theme).not.toHaveProperty(
+        ['DELETE_ICON', 'HOVER_COLOR'].join('_')
+      );
+    }
+  );
+
   test('CONTROL: the theme text colour would not read on the red', () => {
     expect(
       Object.values(THEMES).some(

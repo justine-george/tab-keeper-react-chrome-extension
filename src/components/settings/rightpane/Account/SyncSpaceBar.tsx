@@ -85,9 +85,7 @@ const SyncSpaceBar: React.FC<{ hideWhenOk?: boolean }> = ({
           css={css`
             height: 100%;
             background: ${
-              level === 'ok'
-                ? COLORS.LABEL_L2_COLOR
-                : COLORS.DELETE_ICON_HOVER_COLOR
+              level === 'ok' ? COLORS.LABEL_L2_COLOR : COLORS.DANGER_MARK
             };
             transition: width ${DURATION.MOVE};
           `}

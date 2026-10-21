@@ -12,6 +12,7 @@ import {
   estimateFirestoreBytes,
   FIRESTORE_MAX_DOCUMENT_BYTES,
 } from '../src/utils/functions/local';
+import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 import { formatSyncUsed } from '../src/utils/functions/syncSpace';
 
 // KAN-596. Under Sync Status, how much of the 1 MB the sync may write.
@@ -113,10 +114,12 @@ test('with sync off, past the limit, the bar says it is too large before any yes
   );
   const meter = page.getByRole('meter', { name: 'Sync limit used' });
   await expect(meter).toHaveAttribute('aria-valuenow', '100');
-  // Red, as when sync is on: Paper's DELETE_ICON_HOVER_COLOR.
+  // KAN-725. Light's DANGER_MARK.
+  const rgb = (hex: string) =>
+    `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
   await expect(meter.locator(':scope > div')).toHaveCSS(
     'background-color',
-    'rgb(224, 148, 148)'
+    rgb(LIGHT_THEME.DANGER_MARK)
   );
 });
 

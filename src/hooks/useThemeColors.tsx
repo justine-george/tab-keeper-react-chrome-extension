@@ -20,7 +20,6 @@ export const LIGHT_THEME = {
   CHIP_COLOR: '#D5D8DC',
   ICON_HOVER_COLOR: '#C2C4C7',
   ICON_ACTIVE_COLOR: '#B3B6B9',
-  DELETE_ICON_HOVER_COLOR: '#E09494',
   // KAN-725. The destructive family: ink for a red label or icon on the page or a menu.
   DANGER_INK: '#A3211A',
   // KAN-725. Solid red: hover on a quiet destructive control, a dialog confirm at rest.
@@ -74,7 +73,6 @@ export const WARM_LIGHT_THEME = {
   CHIP_COLOR: '#D9D4BC',
   ICON_HOVER_COLOR: '#C6C1B7',
   ICON_ACTIVE_COLOR: '#B8B2A6',
-  DELETE_ICON_HOVER_COLOR: '#D56E6E',
   // KAN-725. The destructive family: ink for a red label or icon on the page or a menu.
   DANGER_INK: '#A3211A',
   // KAN-725. Solid red: hover on a quiet destructive control, a dialog confirm at rest.
@@ -121,7 +119,6 @@ export const BB_PINK_THEME = {
   CHIP_COLOR: '#E4C9D2',
   ICON_HOVER_COLOR: '#D8AABA',
   ICON_ACTIVE_COLOR: '#CB9CAC',
-  DELETE_ICON_HOVER_COLOR: '#DA9190',
   // KAN-725. The destructive family: ink for a red label or icon on the page or a menu.
   DANGER_INK: '#A3211A',
   // KAN-725. Solid red: hover on a quiet destructive control, a dialog confirm at rest.
@@ -167,7 +164,6 @@ export const DARKENHEIMER_THEME = {
   CHIP_COLOR: '#404040',
   ICON_HOVER_COLOR: '#4A4A4A',
   ICON_ACTIVE_COLOR: '#545454',
-  DELETE_ICON_HOVER_COLOR: '#8F4040',
   // KAN-725. The destructive family: ink for a red label or icon on the page or a menu.
   DANGER_INK: '#FF9C94',
   // KAN-725. Solid red: hover on a quiet destructive control, a dialog confirm at rest.
@@ -213,7 +209,6 @@ export const BLUE_THEME = {
   CHIP_COLOR: '#3F3F4C',
   ICON_HOVER_COLOR: '#4A4A58',
   ICON_ACTIVE_COLOR: '#545464',
-  DELETE_ICON_HOVER_COLOR: '#8D405A',
   // KAN-725. The destructive family: ink for a red label or icon on the page or a menu.
   DANGER_INK: '#FF9C94',
   // KAN-725. Solid red: hover on a quiet destructive control, a dialog confirm at rest.
