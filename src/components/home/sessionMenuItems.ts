@@ -75,6 +75,8 @@ export function sessionMenuItems(
           t,
           language
         );
+        // KAN-713. Nothing on the clipboard, so nothing to announce.
+        if (count === null) return;
         // The clipboard says nothing of its own, and unlike the
         // export page there is no room here for an inline note.
         dispatch(

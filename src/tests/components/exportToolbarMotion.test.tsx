@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import ExportPage from '../../components/export/ExportPage';
@@ -79,6 +79,27 @@ describe('Copy all links confirms in the button itself (KAN-221)', () => {
     ).toBe('true');
     // One announcement: no second status region repeats the count.
     expect(screen.getAllByText('1 link copied.')).toHaveLength(1);
+  });
+});
+
+describe('Copy all links when the clipboard refuses (KAN-713)', () => {
+  test('no toast, and the button does not say Copied', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('ClipboardItem', undefined);
+    const writeText = vi.fn().mockRejectedValue(new Error('NotAllowedError'));
+    vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({
+      write: vi.fn(),
+      writeText,
+    } as unknown as Clipboard);
+    const { store } = await renderPage();
+    const copy = screen.getByRole('button', { name: 'Copy all links' });
+
+    await user.click(copy);
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(store.getState().globalState.toasts).toEqual([]);
+    expect(copy.getAttribute('data-second-face-shown')).toBe('false');
   });
 });
 

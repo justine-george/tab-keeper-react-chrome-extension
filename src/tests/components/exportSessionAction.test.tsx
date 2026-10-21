@@ -230,6 +230,29 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
       expect(writeText.mock.calls[0][0]).toContain('https://example.com/');
     });
 
+    // KAN-713. Both writes refused: nothing is on the clipboard, so no toast
+    // claims it, and the rejection must not escape unhandled.
+    test('stays quiet when the clipboard refuses both writes', async () => {
+      const user = userEvent.setup();
+      vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+      const write = vi.fn().mockRejectedValue(new Error('NotAllowedError'));
+      const writeText = vi.fn().mockRejectedValue(new Error('NotAllowedError'));
+      vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({
+        write,
+        writeText,
+      } as unknown as Clipboard);
+      const { store } = await renderHeader();
+
+      await openMenu(user);
+      await user.click(
+        screen.getByRole('menuitem', { name: 'Copy all links' })
+      );
+
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      await act(async () => {});
+      expect(isToastShowing(store.getState())).toBe(false);
+    });
+
     // KAN-210. Both halves: sessionToLinkHtml and sessionToLinkList tidy
     // separately.
     test('copies the session tidied, exactly as the export page does', async () => {
