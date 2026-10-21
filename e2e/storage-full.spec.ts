@@ -204,7 +204,8 @@ test("another page's settings save keeps a refused setting", async ({
     'aria-pressed',
     'true'
   );
-  expect((await storedSettings(popup)).theme).toBe('Light');
+  // KAN-731. Still the default the popup saved at load: Chalk.
+  expect((await storedSettings(popup)).theme).toBe('Chalk');
 
   // h23 is h12's length, so the tab's save fits where the theme's did not.
   await tab.getByRole('button', { name: 'Settings', exact: true }).click();

@@ -11,7 +11,7 @@ import {
   session,
 } from './fixtures/savedWindows';
 import { standIn } from './fixtures/standInPages';
-import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { CHALK_THEME } from '../src/hooks/useThemeColors';
 import { channels } from './fixtures/pixels';
 
 // KAN-631. A title that renames on click shows, under the pointer or keyboard
@@ -22,7 +22,7 @@ type Ghost = { fill: number[]; edge: number[]; textBox: string };
 
 // The field's fill (PRIMARY) 65% over the ground the title sits on.
 const ghostFill = (ground: string) => {
-  const [f, g] = [channels(LIGHT_THEME.PRIMARY_COLOR), channels(ground)];
+  const [f, g] = [channels(CHALK_THEME.PRIMARY_COLOR), channels(ground)];
   return f.map((c, i) => 0.65 * c + 0.35 * g[i]).concat(255);
 };
 
@@ -68,7 +68,7 @@ async function expectGhostOnHover(
       const g = await ghostOf(button, text);
       return (
         near(g.fill, ghostFill(ground)) &&
-        near(g.edge, channels(LIGHT_THEME.ICON_HOVER_COLOR).concat(255))
+        near(g.edge, channels(CHALK_THEME.ICON_HOVER_COLOR).concat(255))
       );
     })
     .toBe(true);
@@ -97,7 +97,7 @@ test.describe('a click-to-rename title shows a ghost of its field (KAN-631)', ()
       page,
       button,
       button.getByText('Research', { exact: true }),
-      LIGHT_THEME.SECONDARY_COLOR
+      CHALK_THEME.SECONDARY_COLOR
     );
   });
 
@@ -122,7 +122,7 @@ test.describe('a click-to-rename title shows a ghost of its field (KAN-631)', ()
         page,
         button,
         button.getByText(label, { exact: true }),
-        LIGHT_THEME.HOVER_COLOR
+        CHALK_THEME.HOVER_COLOR
       );
     });
   }
@@ -149,7 +149,7 @@ test.describe('a click-to-rename title shows a ghost of its field (KAN-631)', ()
       .poll(async () =>
         near(
           (await ghostOf(button, button)).fill,
-          ghostFill(LIGHT_THEME.SECONDARY_COLOR)
+          ghostFill(CHALK_THEME.SECONDARY_COLOR)
         )
       )
       .toBe(true);
@@ -171,11 +171,11 @@ test.describe('a click-to-rename title shows a ghost of its field (KAN-631)', ()
     const rgb = (hex: string) => `rgb(${channels(hex).join(', ')})`;
     await expect(field).toHaveCSS(
       'background-color',
-      rgb(LIGHT_THEME.PRIMARY_COLOR)
+      rgb(CHALK_THEME.PRIMARY_COLOR)
     );
     await expect(field).toHaveCSS(
       'border-top-color',
-      rgb(LIGHT_THEME.CONTROL_BORDER_COLOR)
+      rgb(CHALK_THEME.CONTROL_BORDER_COLOR)
     );
   });
 });
@@ -204,7 +204,7 @@ grantedTest.describe(
           page,
           button,
           button.getByText('Research', { exact: true }),
-          LIGHT_THEME.HOVER_COLOR
+          CHALK_THEME.HOVER_COLOR
         );
       }
     );
@@ -243,7 +243,7 @@ grantedTest.describe(
           page,
           button,
           button.getByText('Kyoto', { exact: true }),
-          LIGHT_THEME.HOVER_COLOR
+          CHALK_THEME.HOVER_COLOR
         );
       }
     );

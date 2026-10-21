@@ -4,7 +4,7 @@ import { test, expect } from './fixtures/extension';
 import { localeStrings } from './fixtures/locales';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import { rgbToHex } from './fixtures/pixels';
-import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { CHALK_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-244. A language picker is the one screen that must be usable by someone
 // who cannot read the current UI language -- that is why they are on it. It
@@ -157,10 +157,10 @@ test.describe('the language picker names each language in its own language (KAN-
     // The fill eases in, so it is polled rather than read once.
     await expect
       .poll(async () => rgbToHex((await styleOf('Deutsch')).fill))
-      .toBe(LIGHT_THEME.TEXT_COLOR);
+      .toBe(CHALK_THEME.TEXT_COLOR);
     const pressed = await styleOf('Deutsch');
     const rest = await styleOf('English');
-    expect(rgbToHex(rest.fill)).toBe(LIGHT_THEME.PRIMARY_COLOR);
+    expect(rgbToHex(rest.fill)).toBe(CHALK_THEME.PRIMARY_COLOR);
     expect([pressed.frame, rest.frame]).toEqual(['1px', '1px']);
   });
 

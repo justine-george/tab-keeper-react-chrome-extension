@@ -2,7 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { buildContainer, seedSessions } from './fixtures/seed';
-import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { CHALK_THEME } from '../src/hooks/useThemeColors';
 import { rgb } from './fixtures/pixels';
 
 // KAN-236. A settings category row answers a press, as every other row has
@@ -15,9 +15,9 @@ import { rgb } from './fixtures/pixels';
 // transition and jsdom paints nothing: the jsdom case pins that the rule is
 // emitted, this pins that Chrome paints it.
 
-const ACTIVE = rgb(LIGHT_THEME.ACTIVE_COLOR);
-const HOVER = rgb(LIGHT_THEME.HOVER_COLOR);
-const SELECTION = rgb(LIGHT_THEME.SELECTION_COLOR);
+const ACTIVE = rgb(CHALK_THEME.ACTIVE_COLOR);
+const HOVER = rgb(CHALK_THEME.HOVER_COLOR);
+const SELECTION = rgb(CHALK_THEME.SELECTION_COLOR);
 
 const fillOf = (row: Locator) =>
   row.evaluate((el) => getComputedStyle(el).backgroundColor);

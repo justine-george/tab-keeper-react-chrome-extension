@@ -6,7 +6,7 @@ import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { POPUP, stored } from './fixtures/savedWindows';
 import { differingPixels, pixelsAt, rgb } from './fixtures/pixels';
-import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { CHALK_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-689. Rings show after keyboard navigation only. Chrome's heuristic
 // makes a scripted focus :focus-visible after ANY key, so a click then Delete
@@ -16,7 +16,8 @@ import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 const SESSIONS = ['Alpha', 'Bravo', 'Charlie', 'Delta'].map((t) =>
   buildSession({ tabGroupId: `s-${t.toLowerCase()}`, title: t })
 );
-const RING = LIGHT_THEME.TEXT_COLOR.toUpperCase();
+// KAN-731. Chalk, the default on a light OS.
+const RING = CHALK_THEME.TEXT_COLOR.toUpperCase();
 
 async function openPopup(
   context: Parameters<typeof seedSessions>[0],

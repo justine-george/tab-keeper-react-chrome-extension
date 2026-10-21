@@ -13,7 +13,10 @@ import {
   ONBOARDING_ANSWERED,
   seedSessions,
   seedSettings,
+  THEME_MOVE_APPLIED,
 } from './fixtures/seed';
+import { rgb } from './fixtures/pixels';
+import { CHALK_THEME, CHARCOAL_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-190. Popup menu to preview to saved file, in a real browser: the unit
 // tests hold the generated string, only this proves a browser wrote it.
@@ -266,8 +269,12 @@ test('the printed PDF keeps every link the file has, and no others', async ({
 
 // KAN-198. The page is light or dark as a whole, opening on the theme's
 // polarity; its Light/Dark switch never writes a setting.
-const LIGHT_HEADER = 'rgb(233, 236, 240)';
-const DARK_HEADER = 'rgb(51, 51, 51)';
+// KAN-731. Chalk's and Charcoal's colours, whichever theme opened the page.
+const LIGHT_HEADER = rgb(CHALK_THEME.SECONDARY_COLOR);
+const DARK_HEADER = rgb(CHARCOAL_THEME.SECONDARY_COLOR);
+// The file's --bg (EXPORT_PALETTE): white and #18191a.
+const LIGHT_FILE = 'rgb(255, 255, 255)';
+const DARK_FILE = 'rgb(24, 25, 26)';
 
 /** The strip holding the session title and the toolbar. */
 const headerFill = (page: Page) =>
@@ -321,7 +328,7 @@ test('a dark theme opens the whole page dark, even with an old saved Light choic
   expect(await headerFill(exportPage)).toBe(DARK_HEADER);
   await expect(exportPage.frameLocator('iframe').locator('body')).toHaveCSS(
     'background-color',
-    'rgb(23, 23, 23)'
+    DARK_FILE
   );
 });
 
@@ -344,7 +351,7 @@ test('pressing Light or Dark changes the page and never the saved settings', asy
           isNeverAskAgainForTabGroups: true,
         })
       ),
-    ONBOARDING_ANSWERED
+    { ...ONBOARDING_ANSWERED, ...THEME_MOVE_APPLIED }
   );
   await popup.reload();
   const [exportPage] = await Promise.all([
@@ -359,7 +366,7 @@ test('pressing Light or Dark changes the page and never the saved settings', asy
 
   await exportPage.getByRole('button', { name: 'Light' }).click();
   expect(await headerFill(exportPage)).toBe(LIGHT_HEADER);
-  await expect(body).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(body).toHaveCSS('background-color', LIGHT_FILE);
 
   await exportPage.getByRole('button', { name: 'Dark' }).click();
   expect(await headerFill(exportPage)).toBe(DARK_HEADER);
@@ -397,7 +404,7 @@ test('a theme picked in the popup survives a Layout change on the open export pa
           isNeverAskAgainForTabGroups: true,
         })
       ),
-    ONBOARDING_ANSWERED
+    { ...ONBOARDING_ANSWERED, ...THEME_MOVE_APPLIED }
   );
   await popup.reload();
   const [exportPage] = await Promise.all([
@@ -447,7 +454,7 @@ test('a tinted light theme opens a light page, not a pink one', async ({
   expect(await headerFill(exportPage)).toBe(LIGHT_HEADER);
   await expect(exportPage.frameLocator('iframe').locator('body')).toHaveCSS(
     'background-color',
-    'rgb(255, 255, 255)'
+    LIGHT_FILE
   );
 });
 
@@ -884,7 +891,7 @@ test('pressing Dark slides the knob while the colours switch at once', async ({
   // Same frame: the controls still repaint at once.
   expect(
     await copy.evaluate((el) => getComputedStyle(el).backgroundColor)
-  ).toBe('rgb(42, 42, 42)');
+  ).toBe(rgb(CHARCOAL_THEME.PRIMARY_COLOR));
   expect(slide, 'the knob is sliding').toContain('clip-path');
 });
 
@@ -922,13 +929,15 @@ test('pressing Dark repaints the controls at once, with no half-changed state', 
   const fill = () =>
     copy.evaluate((el) => getComputedStyle(el).backgroundColor);
 
-  expect(await fill(), 'the light page fill').toBe('rgb(245, 247, 250)');
+  expect(await fill(), 'the light page fill').toBe(
+    rgb(CHALK_THEME.PRIMARY_COLOR)
+  );
 
   await exportPage.getByRole('button', { name: 'Dark' }).click();
 
   // No wait: this frame is the one under test.
   expect(await fill(), 'the dark page fill, immediately').toBe(
-    'rgb(42, 42, 42)'
+    rgb(CHARCOAL_THEME.PRIMARY_COLOR)
   );
 });
 
@@ -943,7 +952,7 @@ test('the preview frame carries the file ground, not white', async ({
 
   await expect(exportPage.locator('iframe')).toHaveCSS(
     'background-color',
-    'rgb(23, 23, 23)'
+    DARK_FILE
   );
 });
 
@@ -1120,12 +1129,12 @@ test('the file can be switched light or dark, and printed', async ({
   ]);
   await exportPage.waitForLoadState();
 
-  // The default follows the Light theme these fixtures run under.
+  // The default follows the light theme these fixtures run under (Chalk).
   const body = exportPage.frameLocator('iframe').locator('body');
-  await expect(body).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(body).toHaveCSS('background-color', LIGHT_FILE);
 
   await exportPage.getByRole('button', { name: 'Dark' }).click();
-  await expect(body).toHaveCSS('background-color', 'rgb(23, 23, 23)');
+  await expect(body).toHaveCSS('background-color', DARK_FILE);
   // KAN-198: the header follows the page's polarity, not the Light theme.
   expect(await headerFill(exportPage)).toBe(DARK_HEADER);
   await expect(

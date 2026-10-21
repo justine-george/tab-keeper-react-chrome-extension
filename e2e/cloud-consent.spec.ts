@@ -12,7 +12,11 @@ import { openFullView, storedSettings } from './fixtures/onboarding';
 import { cardAt, cardButton, closeReplayNote } from './fixtures/run';
 import { rgbToHex } from './fixtures/pixels';
 import { mixHex } from '../src/styles/mixHex';
-import { DARKENHEIMER_THEME, LIGHT_THEME } from '../src/hooks/useThemeColors';
+import {
+  CHALK_THEME,
+  DARKENHEIMER_THEME,
+  LIGHT_THEME,
+} from '../src/hooks/useThemeColors';
 
 // KAN-259. Nothing leaves the device until the user says yes. A new install
 // is welcomed without a question and recorded local-only (KAN-410); sync is
@@ -272,7 +276,8 @@ test.describe('dialog buttons answer a press', () => {
     context,
     extensionId,
   }) => {
-    const { TEXT_COLOR, PRIMARY_COLOR } = LIGHT_THEME;
+    // KAN-731. A fresh profile on a light OS opens in Chalk.
+    const { TEXT_COLOR, PRIMARY_COLOR } = CHALK_THEME;
     const page = await openPopup(context, extensionId);
     const button = page
       .getByRole('dialog', { name: 'Welcome to Tab Keeper' })

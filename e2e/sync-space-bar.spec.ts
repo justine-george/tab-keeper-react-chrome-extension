@@ -12,7 +12,7 @@ import {
   estimateFirestoreBytes,
   FIRESTORE_MAX_DOCUMENT_BYTES,
 } from '../src/utils/functions/local';
-import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { CHALK_THEME } from '../src/hooks/useThemeColors';
 import { formatSyncUsed } from '../src/utils/functions/syncSpace';
 import { rgb } from './fixtures/pixels';
 
@@ -115,10 +115,10 @@ test('with sync off, past the limit, the bar says it is too large before any yes
   );
   const meter = page.getByRole('meter', { name: 'Sync limit used' });
   await expect(meter).toHaveAttribute('aria-valuenow', '100');
-  // KAN-725. Light's DANGER_MARK.
+  // KAN-725. Chalk's DANGER_MARK, the default's.
   await expect(meter.locator(':scope > div')).toHaveCSS(
     'background-color',
-    rgb(LIGHT_THEME.DANGER_MARK)
+    rgb(CHALK_THEME.DANGER_MARK)
   );
 });
 

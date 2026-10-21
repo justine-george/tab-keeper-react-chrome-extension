@@ -3,7 +3,7 @@ import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession } from './fixtures/seed';
 import { rgbToHex, rgb } from './fixtures/pixels';
-import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { CHALK_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-321 (spec O1, O1a, O1b) on the real artifact: resizing Open now in the
 // tab view (`index.html?view=tab`). jsdom has no layout, so the widths, the
@@ -1052,13 +1052,13 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
           return dot === null ? '' : getComputedStyle(dot).backgroundColor;
         }, GRIP)
       )
-      .toBe(rgb(LIGHT_THEME.TEXT_COLOR));
+      .toBe(rgb(CHALK_THEME.TEXT_COLOR));
     await page.mouse.move(grip.x - 300, grip.y);
 
     const seen = await dragSavedRowOverTheGrip(page);
     expect(seen.gripHovered).toBe(true);
-    expect(rgbToHex(seen.dotColour)).toBe(LIGHT_THEME.LABEL_L2_COLOR);
-    expect(rgbToHex(seen.chipColour)).toBe(LIGHT_THEME.PRIMARY_COLOR);
+    expect(rgbToHex(seen.dotColour)).toBe(CHALK_THEME.LABEL_L2_COLOR);
+    expect(rgbToHex(seen.chipColour)).toBe(CHALK_THEME.PRIMARY_COLOR);
     // And no resize cursor: the row drag's own grabbing hand.
     expect(seen.gripCursor).toBe('grabbing');
   });

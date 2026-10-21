@@ -28,7 +28,7 @@ import {
   FULL_RUN,
   type RunViewCase,
 } from './fixtures/run';
-import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { CHALK_THEME } from '../src/hooks/useThemeColors';
 import { ON_TITLE } from './fixtures/savedRow';
 
 // KAN-421 on the run: the page is dimmed outside the step's bright box, and a press there does nothing.
@@ -95,7 +95,7 @@ async function withAndWithoutDim(
 // `ground` under black at `alpha`, as the compositor blends it.
 const underScrim = (ground: string, alpha: number) =>
   channels(ground).map((c) => c * (1 - alpha));
-const SCRIM_ALPHA = Number(LIGHT_THEME.TOUR_SCRIM.match(/([\d.]+)\)$/)?.[1]);
+const SCRIM_ALPHA = Number(CHALK_THEME.TOUR_SCRIM.match(/([\d.]+)\)$/)?.[1]);
 
 for (const view of RUN_VIEWS) {
   test.describe(view.name, () => {
@@ -108,7 +108,7 @@ for (const view of RUN_VIEWS) {
         for (let step = 2; step <= 3; step++) await nextTo(page, step);
       }
       const ground = await pageGround(page);
-      expect(ground).toBe(LIGHT_THEME.PRIMARY_COLOR);
+      expect(ground).toBe(CHALK_THEME.PRIMARY_COLOR);
       const save = page.locator('[data-tour-anchor="save"]');
       const box = await save.boundingBox();
       if (box === null) throw new Error('no save row');
