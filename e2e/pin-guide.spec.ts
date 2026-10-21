@@ -17,6 +17,7 @@ import {
 } from './fixtures/onboarding';
 import { setPin, stubToolbarPin } from './fixtures/toolbarPin';
 import { expectReadable } from './fixtures/textContrast';
+import { contrast } from './fixtures/pixels';
 import { finishFullRun, pastCompactViewCard } from './fixtures/run';
 
 // KAN-7 §4 on the real build. The review card, due in most of these seeds, is
@@ -412,5 +413,85 @@ for (const [theme, palette] of THEMES) {
       guide(page).getByRole('status').locator('[data-pin-status-words]')
     ).toHaveText('Pinned. Closing…');
     await expectReadable(guide(page), `${theme} pin guide, pinned`);
+  });
+}
+
+// KAN-735. The backdrop is dark in every theme: the arrow is white on the four
+// light ones and the card's ink on the three dark ones.
+const DARK_THEMES = ['Charcoal', 'Darkenheimer', 'Blue'];
+for (const [theme, palette] of THEMES) {
+  const expected = DARK_THEMES.includes(theme) ? palette.TEXT_COLOR : '#FFFFFF';
+  test(`${theme}: the arrow is white on a light theme and the card's ink on a dark one, at 3:1 or more`, async ({
+    context,
+    extensionId,
+  }) => {
+    await stubToolbarPin(context, { pinned: false });
+    await seedSettings(context, { theme, isPinGuideDismissed: false });
+    const page = await openFullView(context, extensionId);
+    await expect(guide(page)).toBeVisible();
+    const boxes = await page.evaluate(() => {
+      const r = (s: string) => {
+        const b = document.querySelector(s)!.getBoundingClientRect();
+        return { left: b.left, top: b.top, width: b.width, height: b.height };
+      };
+      return { arrow: r('[data-pin-arrow] svg'), guide: r('dialog[open]') };
+    });
+    const { arrow, guide: g } = boxes;
+    const png = (await page.screenshot()).toString('base64');
+    const painted = await page.evaluate(
+      async ({ png, arrow, g }) => {
+        const img = new Image();
+        img.src = `data:image/png;base64,${png}`;
+        await img.decode();
+        const scale = img.width / innerWidth;
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+        ctx.drawImage(img, 0, 0);
+        const hex = (x: number, y: number) =>
+          '#' +
+          [
+            ...ctx
+              .getImageData(Math.round(x * scale), Math.round(y * scale), 1, 1)
+              .data.slice(0, 3),
+          ]
+            .map((v) => v.toString(16).padStart(2, '0'))
+            .join('')
+            .toUpperCase();
+        const counts: Record<string, number> = {};
+        const data = ctx.getImageData(
+          Math.floor(arrow.left * scale),
+          Math.floor(arrow.top * scale),
+          Math.ceil(arrow.width * scale),
+          Math.ceil(arrow.height * scale)
+        ).data;
+        for (let i = 0; i < data.length; i += 4) {
+          const c =
+            '#' +
+            [data[i], data[i + 1], data[i + 2]]
+              .map((v) => v.toString(16).padStart(2, '0'))
+              .join('')
+              .toUpperCase();
+          counts[c] = (counts[c] ?? 0) + 1;
+        }
+        return {
+          scale,
+          counts,
+          ground: hex(arrow.left - 6, arrow.top + arrow.height / 2),
+          guideFill: hex(g.left + 6, g.top + g.height - 6),
+        };
+      },
+      { png, arrow, g }
+    );
+    // CONTROL: the decode reads the guide's own fill as its token.
+    expect(painted.guideFill).toBe(palette.PRIMARY_COLOR);
+    const strokePx = (painted.counts[expected] ?? 0) / painted.scale ** 2;
+    const ratio = contrast(painted.ground, expected);
+    console.log(
+      `[pin arrow colour] ${theme} ${expected} ${strokePx}px on ${painted.ground} ${ratio.toFixed(2)}:1`
+    );
+    expect(strokePx).toBeGreaterThanOrEqual(200);
+    expect(ratio).toBeGreaterThanOrEqual(3);
   });
 }

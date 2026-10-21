@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
@@ -14,8 +14,8 @@ import {
 import { doodleTipFromLeft } from '../common/pointUpDoodle';
 import { PinStepArt, PinnedStepArt, PuzzleStepArt } from './pinGuideArt';
 import { useFontFamily } from '../../hooks/useFontFamily';
-import { useThemeColors } from '../../hooks/useThemeColors';
-import type { AppDispatch } from '../../redux/store';
+import { isDarkTheme, useThemeColors } from '../../hooks/useThemeColors';
+import type { AppDispatch, RootState } from '../../redux/store';
 import { dismissPinGuide } from '../../redux/slices/settingsDataStateSlice';
 import { closePinGuide } from '../../redux/slices/globalStateSlice';
 import { watchToolbarPin } from '../../utils/functions/toolbarPin';
@@ -44,6 +44,9 @@ interface PinStep {
 // KAN-7 §4. The full view only: Chrome's puzzle menu would close the popup.
 export const PinGuideModal: React.FC = () => {
   const COLORS = useThemeColors();
+  const isDark = useSelector((state: RootState) =>
+    isDarkTheme(state.settingsDataState.theme)
+  );
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
@@ -123,11 +126,12 @@ export const PinGuideModal: React.FC = () => {
     }
   `;
   // In the gap above the guide (top 96px), so it never covers it.
+  // KAN-735. The backdrop is dark in every theme; the card's ground vanished on the dark ones.
   const arrowStyle = css`
     position: fixed;
     top: 6px;
     right: ${ARROW_RIGHT}px;
-    color: ${COLORS.PRIMARY_COLOR};
+    color: ${isDark ? COLORS.TEXT_COLOR : '#FFFFFF'};
     pointer-events: none;
   `;
   const titleRowStyle = css`
