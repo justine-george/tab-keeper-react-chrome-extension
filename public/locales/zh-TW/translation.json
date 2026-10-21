@@ -27,7 +27,7 @@
   "Delete": "刪除",
   "Delete session": "刪除工作階段",
   "Replace": "取代",
-  "Replace with open windows": "以開啟的視窗取代",
+  "Replace this session with open windows": "以開啟的視窗取代此工作階段",
   "Delete window": "刪除視窗",
   "Delete tab": "刪除分頁",
   "Add window": "新增目前視窗",

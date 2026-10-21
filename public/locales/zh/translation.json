@@ -27,7 +27,7 @@
   "Delete": "删除",
   "Delete session": "删除会话",
   "Replace": "替换",
-  "Replace with open windows": "替换为打开的窗口",
+  "Replace this session with open windows": "用打开的窗口替换此会话",
   "Delete window": "删除窗口",
   "Delete tab": "删除标签",
   "Add window": "添加当前窗口",

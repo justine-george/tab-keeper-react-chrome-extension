@@ -27,7 +27,7 @@
   "Delete": "Löschen",
   "Delete session": "Sitzung löschen",
   "Replace": "Ersetzen",
-  "Replace with open windows": "Durch offene Fenster ersetzen",
+  "Replace this session with open windows": "Diese Sitzung durch offene Fenster ersetzen",
   "Delete window": "Fenster löschen",
   "Delete tab": "Tab löschen",
   "Add window": "Aktuelles Fenster hinzufügen",

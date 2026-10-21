@@ -36,7 +36,7 @@ describe('the session header order (KAN-377)', () => {
       'Collapse all windows',
       'Open session, keeping current windows',
       'Close current windows and open this session',
-      'Replace with open windows',
+      'Replace this session with open windows',
       'More actions',
     ]);
   });
@@ -46,7 +46,7 @@ describe('the session header order (KAN-377)', () => {
     expect(await headerNames()).toEqual([
       'Collapse all windows',
       'Open session, keeping current windows',
-      'Replace with open windows',
+      'Replace this session with open windows',
       'More actions',
     ]);
   });

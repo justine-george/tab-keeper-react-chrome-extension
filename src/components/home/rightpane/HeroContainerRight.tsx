@@ -567,10 +567,12 @@ export default function HeroContainerRight() {
             {!isSearching && (
               <Icon
                 tooltipText={
-                  afterTheTour?.replace ?? t('Replace with open windows')
+                  afterTheTour?.replace ??
+                  t('Replace this session with open windows')
                 }
                 ariaLabel={
-                  afterTheTour?.replace ?? t('Replace with open windows')
+                  afterTheTour?.replace ??
+                  t('Replace this session with open windows')
                 }
                 type="browser_updated"
                 disable={isOpenBlocked}
