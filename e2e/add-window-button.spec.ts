@@ -205,12 +205,14 @@ for (const lang of ['en', 'de', 'ru'] as const) {
 // fill reports `rgba(0, 0, 0, 0)`, which scores as BLACK -- a declaration is not
 // a pixel. So the page is photographed and sampled.
 //
-// All five themes. KAN-213's defect changed SIGN between light and dark, and
-// the chip is darker than its card in three themes and lighter in two.
+// Every theme. KAN-213's defect changed SIGN between light and dark, and
+// the chip is darker than its card in the light themes and lighter in the dark.
 const CHIP: Record<string, { card: string; chip: string }> = {
+  Chalk: { card: '#F3F5F7', chip: '#DEDFE2' },
   Light: { card: '#E9ECF0', chip: '#D5D8DC' },
   WarmLight: { card: '#EDE8D0', chip: '#D9D4BC' },
   BBPink: { card: '#FADEE7', chip: '#E4C9D2' },
+  Charcoal: { card: '#242528', chip: '#313336' },
   Darkenheimer: { card: '#333333', chip: '#404040' },
   Blue: { card: '#333340', chip: '#3F3F4C' },
 };

@@ -29,7 +29,15 @@ import {
 // dark line vanishes on dark and shouts on light), and the tightest backdrop
 // is not the one you would guess.
 
-const THEMES = ['Light', 'WarmLight', 'BBPink', 'Darkenheimer', 'Blue'];
+const THEMES = [
+  'Chalk',
+  'Light',
+  'WarmLight',
+  'BBPink',
+  'Charcoal',
+  'Darkenheimer',
+  'Blue',
+];
 
 const tab = (id: string) => ({
   tabId: id,

@@ -7,6 +7,8 @@ import { expectReadable } from './fixtures/textContrast';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -28,7 +30,14 @@ import { rgb } from './fixtures/pixels';
 // sits on the name line, and (KAN-728) that the note, its one row of actions
 // and the policy fit, or scroll without clipping, in every theme and locale.
 
-type Theme = 'Light' | 'WarmLight' | 'BBPink' | 'Darkenheimer' | 'Blue';
+type Theme =
+  | 'Chalk'
+  | 'Light'
+  | 'WarmLight'
+  | 'BBPink'
+  | 'Charcoal'
+  | 'Darkenheimer'
+  | 'Blue';
 type View = 'popup' | 'full';
 const VIEWPORT = {
   popup: { width: 790, height: 550 },
@@ -180,7 +189,9 @@ async function expectNothingCut(page: Page, language: string) {
 }
 
 for (const [theme, palette] of [
+  ['Chalk', CHALK_THEME],
   ['Light', LIGHT_THEME],
+  ['Charcoal', CHARCOAL_THEME],
   ['Darkenheimer', DARKENHEIMER_THEME],
 ] as const) {
   test.describe(`Settings -> About on ${theme}`, () => {
@@ -346,9 +357,11 @@ for (const [theme, palette] of [
 // KAN-728. The note speaks in one voice -- one size, weight and colour -- and
 // it and the policy read at 4.5:1 or better on every theme.
 for (const [theme, palette] of [
+  ['Chalk', CHALK_THEME],
   ['Light', LIGHT_THEME],
   ['WarmLight', WARM_LIGHT_THEME],
   ['BBPink', BB_PINK_THEME],
+  ['Charcoal', CHARCOAL_THEME],
   ['Darkenheimer', DARKENHEIMER_THEME],
   ['Blue', BLUE_THEME],
 ] as const) {

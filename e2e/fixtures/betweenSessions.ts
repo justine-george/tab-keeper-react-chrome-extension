@@ -580,7 +580,15 @@ export async function ontoTitle(page: Page, windowId: string, x: number) {
 export const isFolded = async (page: Page, windowId: string) =>
   (await page.locator(`${blockOf(windowId)} [data-window-tabs]`).count()) === 0;
 
-export const THEMES = ['Light', 'WarmLight', 'BBPink', 'Darkenheimer', 'Blue'];
+export const THEMES = [
+  'Chalk',
+  'Light',
+  'WarmLight',
+  'BBPink',
+  'Charcoal',
+  'Darkenheimer',
+  'Blue',
+];
 
 // A window's stored Chrome-group entries, by group id.
 export const groupEntries = async (

@@ -19,6 +19,8 @@ import { isValidTabMasterContainer } from '../src/utils/functions/local';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -1438,9 +1440,11 @@ test.describe('The Reopen key (KAN-311)', () => {
     stored: string;
     colors: ThemeColors;
   }> = [
+    { name: 'Chalk', stored: 'Chalk', colors: CHALK_THEME },
     { name: 'Paper', stored: 'Light', colors: LIGHT_THEME },
     { name: 'Parchment', stored: 'WarmLight', colors: WARM_LIGHT_THEME },
     { name: 'Petal', stored: 'BBPink', colors: BB_PINK_THEME },
+    { name: 'Charcoal', stored: 'Charcoal', colors: CHARCOAL_THEME },
     { name: 'Graphite', stored: 'Darkenheimer', colors: DARKENHEIMER_THEME },
     { name: 'Ink', stored: 'Blue', colors: BLUE_THEME },
   ];
@@ -1707,6 +1711,6 @@ test.describe('A double-click and a mouse close (KAN-280 O7c, O7d)', () => {
     await expect.poll(() => opacityOf(keysNext)).toBe('1');
     await expect
       .poll(() => maskOf(keysNext))
-      .toBe(rgb(LIGHT_THEME.HOVER_COLOR));
+      .toBe(rgb(CHALK_THEME.HOVER_COLOR));
   });
 });

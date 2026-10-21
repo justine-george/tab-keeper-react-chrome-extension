@@ -1686,9 +1686,11 @@ test.describe('a long, scrolled session', () => {
 const OUTLINE_CONTRAST_FLOOR = 1.75;
 const SLOT_CONTRAST_FLOOR = 3;
 const THEMES: [string, string][] = [
+  ['Chalk', 'Chalk'],
   ['Light', 'Paper'],
   ['WarmLight', 'Parchment'],
   ['BBPink', 'Petal'],
+  ['Charcoal', 'Charcoal'],
   ['Darkenheimer', 'Graphite'],
   ['Blue', 'Ink'],
 ];

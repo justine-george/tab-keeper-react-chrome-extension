@@ -5,6 +5,8 @@ import { rgbToHex } from './pixels';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -19,9 +21,11 @@ export const FULL_VIEW_PATH = 'index.html?view=tab';
 
 // Each theme as stored, with its palette for the CONTROL that it took effect.
 export const THEMES: readonly (readonly [string, ThemeColors])[] = [
+  ['Chalk', CHALK_THEME],
   ['Light', LIGHT_THEME],
   ['WarmLight', WARM_LIGHT_THEME],
   ['BBPink', BB_PINK_THEME],
+  ['Charcoal', CHARCOAL_THEME],
   ['Darkenheimer', DARKENHEIMER_THEME],
   ['Blue', BLUE_THEME],
 ];

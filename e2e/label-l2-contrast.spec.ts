@@ -6,7 +6,15 @@ import { seed, sessionRow, S1, S2, S3, S4 } from './fixtures/betweenSessions';
 import { sessionHeaderMenu } from './fixtures/menus';
 import { expectReadable } from './fixtures/textContrast';
 
-const THEMES = ['Light', 'WarmLight', 'BBPink', 'Darkenheimer', 'Blue'];
+const THEMES = [
+  'Chalk',
+  'Light',
+  'WarmLight',
+  'BBPink',
+  'Charcoal',
+  'Darkenheimer',
+  'Blue',
+];
 
 for (const theme of THEMES) {
   test(`${theme}: grey text reads at 4.5:1 on its fill`, async ({
