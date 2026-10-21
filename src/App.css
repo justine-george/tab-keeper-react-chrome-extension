@@ -62,7 +62,7 @@ body {
   background-color: transparent !important;
 }
 
-/* KAN-723. No tag hides under the strip the rule above hides; a carry keeps data-dragging until endCarry. */
+/* KAN-723. A drag forces the strip hidden, so no tag hides under it. */
 [data-dragging] [data-row-tag][data-under-strip] {
   visibility: visible !important;
 }
