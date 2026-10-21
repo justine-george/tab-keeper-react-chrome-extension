@@ -66,6 +66,48 @@ export async function pixelsAt(
 }
 
 /**
+ * How many pixels of each colour, as `#RRGGBB`, are painted inside a viewport
+ * box, from ONE fresh screenshot. Pair with a `pixelsAt` control, as above.
+ */
+export async function coloursIn(
+  page: Page,
+  box: { left: number; top: number; width: number; height: number }
+): Promise<Record<string, number>> {
+  const png = (await page.screenshot()).toString('base64');
+  return page.evaluate(
+    async ({ png, box }) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${png}`;
+      await img.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) throw new Error('no 2d context');
+      ctx.drawImage(img, 0, 0);
+      const { data } = ctx.getImageData(
+        Math.floor(box.left),
+        Math.floor(box.top),
+        Math.ceil(box.width),
+        Math.ceil(box.height)
+      );
+      const counts: Record<string, number> = {};
+      for (let i = 0; i < data.length; i += 4) {
+        const hex =
+          '#' +
+          [data[i], data[i + 1], data[i + 2]]
+            .map((v) => v.toString(16).padStart(2, '0'))
+            .join('')
+            .toUpperCase();
+        counts[hex] = (counts[hex] ?? 0) + 1;
+      }
+      return counts;
+    },
+    { png, box }
+  );
+}
+
+/**
  * A field's `::placeholder` colour and opacity, and the first opaque background
  * from the field outwards (what is painted behind it), colours as `#RRGGBB`.
  */

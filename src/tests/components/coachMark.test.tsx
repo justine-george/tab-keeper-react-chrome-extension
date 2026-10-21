@@ -10,6 +10,7 @@ import {
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
+import { rgb } from '../setup/hexColor';
 
 // KAN-413. Not modal, takes no focus; Esc is the card's own (§6).
 
@@ -271,6 +272,35 @@ describe('the coach mark', () => {
     expect(dim()?.tabIndex).toBe(-1);
   });
 
+  // KAN-736. A right-click on the dim or the still box opens no menu, Chrome's included.
+  for (const [name, isLive, target] of [
+    ['dim', true, () => dim()],
+    [
+      'still box',
+      false,
+      () => document.querySelector<HTMLElement>('[data-coach-still]'),
+    ],
+  ] as const) {
+    test(`a right-click on the ${name} is default-prevented and reaches no listener outside it`, async () => {
+      await render({ isLive });
+      await placed();
+      const outside = vi.fn();
+      document.addEventListener('contextmenu', outside);
+      const press = new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        button: 2,
+      });
+      act(() => {
+        target()?.dispatchEvent(press);
+      });
+      document.removeEventListener('contextmenu', outside);
+      expect(target()).not.toBeNull();
+      expect(press.defaultPrevented).toBe(true);
+      expect(outside).not.toHaveBeenCalled();
+    });
+  }
+
   test('a press on the dim is default-prevented and reaches no listener outside it', async () => {
     await render();
     await placed();
@@ -499,6 +529,60 @@ describe('the free step and the still box', () => {
     await render({ anchors: [] }, { platformAnswer: failed });
     await placed();
     expect(notchTip()).toBe(88);
+  });
+
+  // KAN-735. The pinned-tab card's notch: one triangle in the bar's colour, 18px wide, base over the 1px frame.
+  const solidTip = () =>
+    parseFloat(mark()?.style.left ?? 'NaN') +
+    parseFloat(notch()?.style.left ?? 'NaN') +
+    9;
+  const expectOneSolidTriangle = () => {
+    expect(document.querySelectorAll('[data-coach-notch]')).toHaveLength(1);
+    const drawn = notch();
+    expect(drawn?.style.top).toBe('-9px');
+    expect(drawn?.nextElementSibling?.matches('span[aria-hidden]')).toBe(false);
+    const style = drawn && getComputedStyle(drawn);
+    expect(style?.borderBottomColor).toBe(rgb(LIGHT_THEME.TEXT_COLOR));
+    expect(style?.borderBottomWidth).toBe('9px');
+    expect(style?.borderLeftWidth).toBe('9px');
+  };
+
+  test('solidNotch: one triangle in TEXT_COLOR, tip on the aim at 88px', async () => {
+    await render({ anchors: [], solidNotch: true });
+    await placed();
+    expectOneSolidTriangle();
+    expect(solidTip()).toBe(88);
+  });
+
+  test('solidNotch on a Mac: the tip on the aim at 140px', async () => {
+    await render({ anchors: [], solidNotch: true }, { platformOs: 'mac' });
+    await placed();
+    await waitFor(() => expect(solidTip()).toBe(140));
+    expectOneSolidTriangle();
+  });
+
+  // Worst path: a card narrower than its aim clamps the notch to NOTCH_MIN from the right edge.
+  test('solidNotch at a clamped aim keeps its base inside the card', async () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(40);
+    await render({ anchors: [], solidNotch: true });
+    await placed();
+    const left = parseFloat(notch()?.style.left ?? 'NaN');
+    // The tip at NOTCH_MIN from the right; the base ends inside the 38px padding box.
+    expect(left).toBe(40 - 14 - 9);
+    expect(left + 18).toBeLessThanOrEqual(40 - 2);
+  });
+
+  test('CONTROL: without solidNotch the notch is the border triangle over the fill one', async () => {
+    await render({ anchors: [] });
+    await placed();
+    const drawn = notch();
+    const style = drawn && getComputedStyle(drawn);
+    expect(style?.borderBottomColor).toBe(rgb(LIGHT_THEME.PANEL_BORDER_COLOR));
+    expect(style?.borderBottomWidth).toBe('8px');
+    const fill = drawn?.nextElementSibling as HTMLElement | null;
+    expect(fill && getComputedStyle(fill).borderBottomColor).toBe(
+      rgb(LIGHT_THEME.PRIMARY_COLOR)
+    );
   });
 
   test('a look-only step draws a still box exactly over the bright box', async () => {

@@ -38,6 +38,7 @@ import { classRulesFor } from '../setup/hoverRules';
 import { mirrorLanguageOnDocument } from '../../utils/functions/documentLanguage';
 import { asWritten } from '../setup/asWritten';
 import { rgb } from '../setup/hexColor';
+import { CONTROL } from '../../styles/scale';
 
 // KAN-7 §5 and Q9. Five or six steps; each pick applies at once; Done, Skip
 // setup, ✕ and Esc end it for good. Mounted behind its flag, as in MainContainer.
@@ -646,6 +647,30 @@ describe('setup’s buttons (KAN-501)', () => {
     }
     expect(restingFill(button('Done'))).toContain(FILLED);
   });
+});
+
+// KAN-735. The shortcut step's button stands as tall as Back and Next, in both its labels.
+describe('the shortcut step’s button (KAN-735)', () => {
+  const UNBOUND: ChromeSeed = {
+    ...BOUND,
+    commands: [{ name: '_execute_action', shortcut: '', description: '' }],
+  };
+  for (const [label, seed] of [
+    ['Change shortcut', BOUND],
+    ['Set a shortcut', UNBOUND],
+  ] as const) {
+    test(`${label} is the control height`, async () => {
+      await render(seed);
+      await toStep('Open Tab Keeper from the keyboard');
+      const button = await within(dialog()).findByRole('button', {
+        name: label,
+      });
+      expect(button).toHaveStyle({ height: CONTROL.DEFAULT });
+      expect(
+        within(dialog()).getByRole('button', { name: 'Next' })
+      ).toHaveStyle({ height: CONTROL.DEFAULT });
+    });
+  }
 });
 
 // KAN-731. 600px keeps the sync caption on one line in every locale (KAN-519); en needs 589.5px.

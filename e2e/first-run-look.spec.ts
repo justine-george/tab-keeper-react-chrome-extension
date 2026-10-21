@@ -209,6 +209,24 @@ test.describe('the first run’s buttons are the control height', () => {
     }
   });
 
+  // KAN-735. Was 36px, a row below Back and Next.
+  test('setup: the shortcut step’s Change shortcut', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSetupStep2(context, extensionId);
+    const heading = setup(page).getByRole('heading', { level: 3 });
+    for (let i = 0; i < 2; i++) {
+      const before = await heading.textContent();
+      await button(setup(page), 'Next').click();
+      await expect(heading).not.toHaveText(before ?? '');
+    }
+    await expect(heading).toHaveText('Open Tab Keeper from the keyboard');
+    expect((await box(button(setup(page), 'Change shortcut'))).height).toBe(
+      HEIGHT
+    );
+  });
+
   for (const view of ['popup', 'full'] as const) {
     test(`${view}: the cloud question's Not now and Sync`, async ({
       context,

@@ -17,6 +17,7 @@ import {
 } from './fixtures/onboarding';
 import { setPin, stubToolbarPin } from './fixtures/toolbarPin';
 import { expectReadable } from './fixtures/textContrast';
+import { coloursIn, contrast, pixelsAt } from './fixtures/pixels';
 import { finishFullRun, pastCompactViewCard } from './fixtures/run';
 
 // KAN-7 §4 on the real build. The review card, due in most of these seeds, is
@@ -412,5 +413,43 @@ for (const [theme, palette] of THEMES) {
       guide(page).getByRole('status').locator('[data-pin-status-words]')
     ).toHaveText('Pinned. Closing…');
     await expectReadable(guide(page), `${theme} pin guide, pinned`);
+  });
+}
+
+// KAN-735. The backdrop is dark in every theme: the arrow is white on the four
+// light ones and the card's ink on the three dark ones.
+const DARK_THEMES = ['Charcoal', 'Darkenheimer', 'Blue'];
+for (const [theme, palette] of THEMES) {
+  const expected = DARK_THEMES.includes(theme) ? palette.TEXT_COLOR : '#FFFFFF';
+  test(`${theme}: the arrow is white on a light theme and the card's ink on a dark one, at 3:1 or more`, async ({
+    context,
+    extensionId,
+  }) => {
+    await stubToolbarPin(context, { pinned: false });
+    await seedSettings(context, { theme, isPinGuideDismissed: false });
+    const page = await openFullView(context, extensionId);
+    await expect(guide(page)).toBeVisible();
+    const boxes = await page.evaluate(() => {
+      const r = (s: string) => {
+        const b = document.querySelector(s)!.getBoundingClientRect();
+        return { left: b.left, top: b.top, width: b.width, height: b.height };
+      };
+      return { arrow: r('[data-pin-arrow] svg'), guide: r('dialog[open]') };
+    });
+    const { arrow, guide: g } = boxes;
+    const counts = await coloursIn(page, arrow);
+    const [ground, guideFill] = await pixelsAt(page, [
+      [arrow.left - 6, arrow.top + arrow.height / 2],
+      [g.left + 6, g.top + g.height - 6],
+    ]);
+    // CONTROL: the decode reads the guide's own fill as its token.
+    expect(guideFill).toBe(palette.PRIMARY_COLOR);
+    const strokePx = counts[expected] ?? 0;
+    const ratio = contrast(ground, expected);
+    console.log(
+      `[pin arrow colour] ${theme} ${expected} ${strokePx}px on ${ground} ${ratio.toFixed(2)}:1`
+    );
+    expect(strokePx).toBeGreaterThanOrEqual(200);
+    expect(ratio).toBeGreaterThanOrEqual(3);
   });
 }

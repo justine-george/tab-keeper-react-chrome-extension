@@ -4,6 +4,7 @@ import { test, expect } from './fixtures/extension';
 import { showRowActions } from './fixtures/savedRow';
 import { buildContainer, buildSession, seedSettings } from './fixtures/seed';
 import { escapesPrevented, watchEscapes } from './fixtures/escapeProbe';
+import { pixelsAt, rgbToHex } from './fixtures/pixels';
 import {
   FULL,
   FULL_VIEW_PATH,
@@ -201,7 +202,7 @@ test('step 2 side by side: the edge only in a window wide enough for the grip', 
   await nextTo(page, 2);
   await expect(grip).toHaveCount(1);
   await expect(card(page)).toContainText(
-    'Drag the edge to make this wider, or press'
+    'Type in the search box to find an open tab. Drag the edge to make this wider, or press'
   );
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(grip).toHaveCount(0);
@@ -223,8 +224,9 @@ test('step 2 in the default folded view names the fold button it shows, and pres
     card(page).getByRole('img', { name, exact: true });
   await expect(fold).toHaveAccessibleName('Show the saved session');
   await expect(card(page)).toContainText(
-    'Search here to find an open tab fast. Press'
+    'Type in the search box to find an open tab. Press'
   );
+  await expect(card(page)).not.toContainText('Search here');
   await expect(card(page)).toContainText(
     'to show the saved session beside it.'
   );
@@ -245,8 +247,9 @@ test('step 2 in the default folded view names the fold button it shows, and pres
   await expect(page.locator('[data-resize-grip]')).toHaveCount(0);
   await expect(card(page)).not.toContainText('Drag the edge');
   await expect(card(page)).toContainText(
-    'Search here to find an open tab fast. Press'
+    'Type in the search box to find an open tab. Press'
   );
+  await expect(card(page)).not.toContainText('Search here');
   await expect(card(page)).toContainText('to give Open now the whole view.');
   await expect(glyph('Fold the saved session away')).toBeVisible();
   expect(await glyph('Fold the saved session away').textContent()).toBe(
@@ -648,6 +651,49 @@ test.describe('with saved sessions', () => {
     );
   });
 
+  // KAN-736. The ⋮ step is look-only: a right-click on the dimmed title or the lit ⋮ opens no menu, Chrome's included.
+  test('step 7: a right-click on the session title or the ⋮ opens no menu; after the tour the title opens its own', async ({
+    context,
+    extensionId,
+  }) => {
+    await context.addInitScript(() => {
+      const prevented: boolean[] = [];
+      Object.defineProperty(window, '__contextMenus', { value: prevented });
+      // Seen in the capture phase, read once every listener has run.
+      window.addEventListener(
+        'contextmenu',
+        (e) => setTimeout(() => prevented.push(e.defaultPrevented), 0),
+        true
+      );
+    });
+    const page = await openRunFromHelp(context, extensionId, FULL_RUN);
+    for (let step = 2; step <= 7; step++) await nextTo(page, step);
+    await landedAt(page, 7);
+    const title = page
+      .locator('[data-pane="detail"]')
+      .getByText('Latest', { exact: true })
+      .first();
+    const dots = page.locator(
+      '[data-pane="detail"] [data-tour-anchor="session-menu"]'
+    );
+    for (const target of [title, dots]) {
+      const [x, y] = await centreOf(target);
+      await page.mouse.click(x, y, { button: 'right' });
+    }
+    const contextMenus = () =>
+      page.evaluate((): unknown => Reflect.get(window, '__contextMenus'));
+    await expect.poll(contextMenus).toEqual([true, true]);
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(cardAt(page, 7)).toBeVisible();
+    // CONTROL: with the tour gone, the same right-click opens the title's own menu.
+    await cardButton(page, 'Skip tutorial').click();
+    await closeReplayNote(page);
+    await expect(card(page)).toHaveCount(0);
+    const [x, y] = await centreOf(title);
+    await page.mouse.click(x, y, { button: 'right' });
+    await expect(page.getByRole('menu')).toHaveCount(1);
+  });
+
   test('step 3 shows your sessions, and the run goes on with the latest (R10)', async ({
     context,
     extensionId,
@@ -659,6 +705,10 @@ test.describe('with saved sessions', () => {
     );
     await expect.poll(() => cardSide(page)).toBe('right');
     await nextTo(page, 4);
+    // KAN-735. Step 3 already named the list, so step 4 only says what the selection shows.
+    await expect(card(page).locator('p').first()).toHaveText(
+      'The selected session shows its windows and tabs on the right.'
+    );
     await expect
       .poll(() => storedRun(page))
       .toMatchObject({ sessionId: 'new' });
@@ -667,6 +717,29 @@ test.describe('with saved sessions', () => {
         '[data-pane="sessions"] [data-drag-row-id="new"] [data-run-engaged]'
       )
     ).toHaveCount(1);
+    // KAN-735 CONTROL: an anchored card keeps the framed notch: just above the frame, its middle is the card's fill.
+    await landedAt(page, 4);
+    const notch = card(page).locator('[data-coach-notch]');
+    await expect(notch).toHaveCount(1);
+    const at = await card(page).evaluate((el) => {
+      const n = el.querySelector('[data-coach-notch]')!.getBoundingClientRect();
+      const c = el.getBoundingClientRect();
+      return {
+        x: n.left + n.width / 2,
+        width: n.width,
+        frame: c.top,
+        fill: getComputedStyle(el).backgroundColor,
+      };
+    });
+    expect(at.width).toBe(16);
+    const [inside] = await pixelsAt(page, [[at.x, at.frame - 1]]);
+    expect(inside).toBe(rgbToHex(at.fill));
+    // A reload on step 4 forgets which card step 3 showed, so step 4 names the list again.
+    await page.reload();
+    await expect(cardAt(page, 4)).toBeVisible();
+    await expect(card(page).locator('p').first()).toHaveText(
+      'Here are your saved sessions. The selected one shows its windows and tabs on the right.'
+    );
   });
 
   test('step 5 lights the run’s row’s own Open and step 6 its Replace, not another row’s, and step 7 its header’s ⋮', async ({

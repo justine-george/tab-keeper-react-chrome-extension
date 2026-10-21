@@ -80,6 +80,23 @@ test('the eight cards in their places, then Done; the callout is marked seen; no
   await expect.poll(() => storedTitles(page)).toEqual([]);
 });
 
+// KAN-735. The popup has no saved-sessions card, so step 2 keeps the full sentence; step 6 names the header's right-click.
+test('step 2 names the list, and step 6 says right-clicking the title opens the same menu', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openRunFromHelp(context, extensionId, POPUP_RUN);
+  await toStepTwo(page);
+  await expect(card(page).locator('p').first()).toHaveText(
+    'Here are your saved sessions. The selected one shows its windows and tabs on the right.'
+  );
+  for (let step = 3; step <= 6; step++) await nextTo(page, step);
+  await expect(card(page)).toContainText('Copy all links, export, or delete');
+  await expect(card(page)).toContainText(
+    "Right-clicking the session's title opens this menu too."
+  );
+});
+
 test('⤢ at step 8 ends the run, then opens the full view', async ({
   context,
   extensionId,

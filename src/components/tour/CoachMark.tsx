@@ -64,19 +64,24 @@ interface CoachMarkProps {
   secondary?: CoachAction;
   primary: CoachAction;
   onEscape: () => void;
+  // KAN-735. One triangle in the bar's colour, for a card whose notch is the only thing pointing.
+  solidNotch?: boolean;
 }
 
-// The callout's notch, turned toward the anchor: a PANEL_BORDER triangle under a PRIMARY one.
+// The callout's notch, turned toward the anchor: a framed one (a border triangle
+// over a fill one), or one solid triangle whose base covers the 1px frame.
+type NotchLook =
+  | { kind: 'framed'; border: string; fill: string }
+  | { kind: 'solid'; color: string };
+
 function Notch({
   side,
   notch,
-  border,
-  fill,
+  look,
 }: {
   side: CoachSide;
   notch: number;
-  border: string;
-  fill: string;
+  look: NotchLook;
 }) {
   // Off the facing edge by `out`, centred `half` before the notch point.
   const at = (out: number, half: number): CSSProperties => {
@@ -104,22 +109,33 @@ function Notch({
       border-right: ${pointsUp ? clear : side === 'right' ? solid : 'none'};
     `;
   };
+  if (look.kind === 'solid') {
+    return (
+      <span
+        aria-hidden="true"
+        data-coach-notch
+        css={triangle(9, look.color)}
+        style={at(-9, 9)}
+      />
+    );
+  }
   return (
     <>
       <span
         aria-hidden="true"
         data-coach-notch
-        css={triangle(8, border)}
+        css={triangle(8, look.border)}
         style={at(-9, 8)}
       />
-      <span aria-hidden="true" css={triangle(7, fill)} style={at(-7, 7)} />
+      <span aria-hidden="true" css={triangle(7, look.fill)} style={at(-7, 7)} />
     </>
   );
 }
 
 const Z = { DIM: 1010, MARK: 1020 } as const;
 
-// A press on the dim does nothing: no focus moves, and no menu sees it as a press outside.
+// A press on the dim does nothing: no focus moves, no menu sees it as a press outside,
+// and a right-click opens no menu, Chrome's included (KAN-736).
 const swallow = (event: SyntheticEvent) => {
   event.preventDefault();
   event.stopPropagation();
@@ -142,6 +158,7 @@ export default function CoachMark({
   secondary,
   primary,
   onEscape,
+  solidNotch = false,
 }: CoachMarkProps) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -250,6 +267,7 @@ export default function CoachMark({
           data-coach-dim
           css={dimStyle}
           onMouseDown={swallow}
+          onContextMenu={swallow}
           style={
             bright === null ? undefined : { clipPath: clipPathWithHole(bright) }
           }
@@ -262,6 +280,7 @@ export default function CoachMark({
           css={stillStyle}
           onMouseDown={swallow}
           onClick={swallow}
+          onContextMenu={swallow}
           style={{
             left: bright.left,
             top: bright.top,
@@ -310,8 +329,15 @@ export default function CoachMark({
           <Notch
             side={frame.kind === 'anchored' ? frame.placement.side : 'below'}
             notch={frame.placement.notch}
-            border={COLORS.PANEL_BORDER_COLOR}
-            fill={COLORS.PRIMARY_COLOR}
+            look={
+              solidNotch
+                ? { kind: 'solid', color: COLORS.TEXT_COLOR }
+                : {
+                    kind: 'framed',
+                    border: COLORS.PANEL_BORDER_COLOR,
+                    fill: COLORS.PRIMARY_COLOR,
+                  }
+            }
           />
         )}
         <p id={textId} css={textStyle}>

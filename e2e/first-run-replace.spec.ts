@@ -141,6 +141,10 @@ test('full view: step 6 explains Replace under the row’s Replace, after Open, 
   for (let step = 2; step <= 3; step++) await nextTo(page, step);
   await cardButton(page, 'Use an example').click();
   await expect(cardAt(page, 4)).toBeVisible();
+  // KAN-735 CONTROL: with no saved sessions, step 4 is the first to name the list.
+  await expect(card(page).locator('p').first()).toHaveText(
+    'Here are your saved sessions. The selected one shows its windows and tabs on the right.'
+  );
   await nextTo(page, 5);
   await expect(card(page)).toContainText('Open brings back');
   await nextTo(page, 6);
@@ -150,4 +154,7 @@ test('full view: step 6 explains Replace under the row’s Replace, after Open, 
   await expect(cardAt(page, 6)).toBeVisible();
   await nextTo(page, 7);
   await expect(card(page)).toContainText('Copy all links, export, or delete');
+  await expect(card(page)).toContainText(
+    "Right-clicking the session's title opens this menu too."
+  );
 });
