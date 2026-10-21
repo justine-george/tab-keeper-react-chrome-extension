@@ -44,7 +44,12 @@ import {
 // cycle. RootState is used solely as a parameter type below, so the erased
 // import leaves no runtime edge.
 import type { RootState } from '../store';
-import { Theme, asTheme, defaultTheme } from '../../utils/constants/theme';
+import {
+  Theme,
+  afterChalkCharcoalMove,
+  asTheme,
+  defaultTheme,
+} from '../../utils/constants/theme';
 
 export { Theme };
 export { Language, SHIPPED_LANGUAGES, asShippedLanguage, startupLanguage };
@@ -161,6 +166,8 @@ export interface SettingsData {
   defaultSaveScope: CaptureScope;
   // KAN-578. Go back, or a Pin that worked, on the card warning a press closes the full view.
   isClosesThisTabCardAnswered: boolean;
+  // KAN-731. This device's stored theme has had the Paper/Graphite to Chalk/Charcoal move.
+  isChalkCharcoalMoveApplied: boolean;
 }
 
 /**
@@ -282,14 +289,25 @@ const hasRetiredKeys =
   typeof storedSettings === 'object' &&
   storedSettings !== null &&
   RETIRED_KEYS.some((key) => key in storedSettings);
-if (hasRetiredKeys) {
-  saveToLocalStorage('settingsData', withoutRetiredKeys(storedSettings));
-}
-
-// Retrieve settings from localStorage
-const settingsDataLocal = asPartialSettings<SettingsData>(
+const keptSettings = asPartialSettings<SettingsData>(
   withoutRetiredKeys(storedSettings)
 );
+
+// KAN-731. Absent from anything an older build saved, so it reads false there and the move runs.
+const storedTheme = asTheme(keptSettings.theme);
+const movedTheme = asFlag(keptSettings.isChalkCharcoalMoveApplied)
+  ? storedTheme
+  : afterChalkCharcoalMove(storedTheme);
+const isThemeMoveDue = movedTheme !== storedTheme;
+
+// Retrieve settings from localStorage
+const settingsDataLocal: Partial<SettingsData> = isThemeMoveDue
+  ? { ...keptSettings, theme: movedTheme, isChalkCharcoalMoveApplied: true }
+  : keptSettings;
+// Written now, like the retired keys, so a close before any save keeps the move.
+if (hasRetiredKeys || isThemeMoveDue) {
+  saveToLocalStorage('settingsData', settingsDataLocal);
+}
 
 const defaultSettings: SettingsData = {
   language: Language.EN, // overridden by startupLanguage in initialState
@@ -316,6 +334,7 @@ const defaultSettings: SettingsData = {
   listWidth: null,
   pinTabKeeperInNewWindows: false,
   defaultSaveScope: 'all-windows',
+  isChalkCharcoalMoveApplied: true, // KAN-731. A new install has nothing to move.
   ...ONBOARDING_DEFAULTS,
 };
 
@@ -346,6 +365,8 @@ export const initialState: SettingsData = {
   isTimeAskDone: asFlag(settingsDataLocal.isTimeAskDone),
   // KAN-7. Guarded like openNowWidth: settingsDataLocal is unvalidated.
   ...guardOnboarding(settingsDataLocal, ONBOARDING_DEFAULTS),
+  // KAN-731. Applied by here: moved above, already applied, or nothing to move.
+  isChalkCharcoalMoveApplied: true,
 };
 // KAN-661. What this page loaded is what its saves merge against.
 noteStoredSettingsSeen(initialState);

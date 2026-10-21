@@ -9,10 +9,18 @@
     Chalk: '#FFFFFF',
     Charcoal: '#18191A',
   };
+  var MOVES = { Light: 'Chalk', Darkenheimer: 'Charcoal' };
   var theme;
   try {
     var parsed = JSON.parse(localStorage.getItem('settingsData') || '{}');
     theme = parsed && parsed.theme;
+    // KAN-731. Twin of the slice's Chalk/Charcoal move (src/redux/slices/settingsDataStateSlice.ts).
+    if (
+      Object.prototype.hasOwnProperty.call(MOVES, theme) &&
+      parsed.isChalkCharcoalMoveApplied !== true
+    ) {
+      theme = MOVES[theme];
+    }
   } catch (e) {
     theme = undefined;
   }

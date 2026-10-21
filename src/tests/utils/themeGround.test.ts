@@ -53,9 +53,34 @@ describe('theme-ground.js', () => {
   });
 
   test.each(Object.values(Theme))('%s paints its PRIMARY_COLOR', (theme) => {
-    expect(groundFor(stored(JSON.stringify({ theme })))).toBe(
+    const settings = { theme, isChalkCharcoalMoveApplied: true };
+    expect(groundFor(stored(JSON.stringify(settings)))).toBe(
       PALETTES[theme].PRIMARY_COLOR
     );
+  });
+
+  // KAN-731. The Chalk/Charcoal move on the first frame, as the slice makes it at load.
+  test.each([
+    ['Paper without the flag', '{"theme":"Light"}', CHALK_THEME],
+    [
+      'Paper with the flag',
+      '{"theme":"Light","isChalkCharcoalMoveApplied":true}',
+      LIGHT_THEME,
+    ],
+    ['Graphite without the flag', '{"theme":"Darkenheimer"}', CHARCOAL_THEME],
+    [
+      'Graphite with the flag',
+      '{"theme":"Darkenheimer","isChalkCharcoalMoveApplied":true}',
+      DARKENHEIMER_THEME,
+    ],
+    [
+      'Paper with a flag that is not true',
+      '{"theme":"Light","isChalkCharcoalMoveApplied":"true"}',
+      CHALK_THEME,
+    ],
+    ['Parchment without the flag', '{"theme":"WarmLight"}', WARM_LIGHT_THEME],
+  ])('%s paints its ground', (_, value, palette) => {
+    expect(groundFor(stored(value))).toBe(palette.PRIMARY_COLOR);
   });
 
   // KAN-731. Absent or unknown follows the OS: Chalk, or Charcoal on a dark system.
@@ -92,9 +117,15 @@ describe('theme-ground.js', () => {
       expect(groundFor(throwing)).toBe(expected);
     });
 
-    test('a stored Paper stays Paper', () => {
+    test('a stored Paper with the move applied stays Paper', () => {
+      expect(
+        groundFor(stored('{"theme":"Light","isChalkCharcoalMoveApplied":true}'))
+      ).toBe(LIGHT_THEME.PRIMARY_COLOR);
+    });
+
+    test('a stored Paper without the flag moves to Chalk on either OS', () => {
       expect(groundFor(stored('{"theme":"Light"}'))).toBe(
-        LIGHT_THEME.PRIMARY_COLOR
+        CHALK_THEME.PRIMARY_COLOR
       );
     });
   });

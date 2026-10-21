@@ -80,10 +80,13 @@ describe('the settings slice', () => {
     expect(await fresh(dark)).toBe(want);
   });
 
+  // The move to Chalk without the flag is pinned in chalkCharcoalMove.test.ts.
   it.each([[false], [true]])(
-    'keeps a stored Paper (dark OS %s)',
+    'keeps a stored Paper once the Chalk move is applied (dark OS %s)',
     async (dark) => {
-      expect(await fresh(dark, '{"theme":"Light"}')).toBe(Theme.LIGHT);
+      expect(
+        await fresh(dark, '{"theme":"Light","isChalkCharcoalMoveApplied":true}')
+      ).toBe(Theme.LIGHT);
     }
   );
 

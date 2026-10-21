@@ -26,3 +26,10 @@ export function asTheme(value: unknown): Theme {
     ? (value as Theme)
     : defaultTheme();
 }
+
+// KAN-731. Where the one-time move takes a stored theme: Paper to Chalk, Graphite to Charcoal, the rest kept.
+export function afterChalkCharcoalMove(theme: Theme): Theme {
+  if (theme === Theme.LIGHT) return Theme.CHALK;
+  if (theme === Theme.DARKENHEIMER) return Theme.CHARCOAL;
+  return theme;
+}
