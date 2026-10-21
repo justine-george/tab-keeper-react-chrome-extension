@@ -513,6 +513,13 @@ describe.each(['light', 'dark'] as const)(
       );
     });
 
+    // A group's band stays visible on the page: light measures 1.093, dark 1.149.
+    test('the group band holds 1.09:1 on the page', () => {
+      expect(contrast(palette.groupBg, palette.bg)).toBeGreaterThanOrEqual(
+        1.09
+      );
+    });
+
     test('links keep their colours', () => {
       expect(palette.link).toBe(scheme === 'dark' ? '#8ab4f8' : '#1a56c4');
       expect(palette.visited).toBe(scheme === 'dark' ? '#c7a4f5' : '#6b3fb0');

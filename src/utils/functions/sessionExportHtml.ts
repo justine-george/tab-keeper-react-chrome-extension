@@ -10,6 +10,11 @@ import {
 } from './tabGroups';
 import { windowLabel } from './windowLabel';
 import { CORNER_SHAPE } from '../../styles/scale';
+import {
+  CHALK_THEME,
+  CHARCOAL_THEME,
+  type ThemeColors,
+} from '../constants/themePalettes';
 
 export type ExportLayout = 'comfortable' | 'compact';
 
@@ -38,30 +43,25 @@ export interface ExportPalette {
   groupBg: string;
 }
 
-// KAN-731. Chalk's and Charcoal's ramps (links keep their hues: blue and
-// violet mean "link"). Rules are the themes' frame colours, so they hold 1.2:1
-// in a group's band (KAN-674); `plain` holds 4.5:1 there (KAN-358).
+// KAN-731. Chalk's and Charcoal's own tokens; links keep their hues (blue and violet mean "link").
+const exportPaletteOf = (
+  theme: ThemeColors,
+  link: string,
+  visited: string
+): ExportPalette => ({
+  bg: theme.PRIMARY_COLOR.toLowerCase(),
+  text: theme.TEXT_COLOR.toLowerCase(),
+  muted: theme.LABEL_L2_COLOR.toLowerCase(),
+  rule: theme.PANEL_BORDER_COLOR.toLowerCase(),
+  link,
+  visited,
+  plain: theme.PLACEHOLDER_COLOR.toLowerCase(),
+  groupBg: theme.SECONDARY_COLOR.toLowerCase(),
+});
+
 export const EXPORT_PALETTE: Record<ExportScheme, ExportPalette> = {
-  light: {
-    bg: '#ffffff',
-    text: '#1e1f21',
-    muted: '#505258',
-    rule: '#d8dadd',
-    link: '#1a56c4',
-    visited: '#6b3fb0',
-    plain: '#6c6e75',
-    groupBg: '#f3f5f7',
-  },
-  dark: {
-    bg: '#18191a',
-    text: '#f0f1f2',
-    muted: '#a9abb0',
-    rule: '#313336',
-    link: '#8ab4f8',
-    visited: '#c7a4f5',
-    plain: '#97999e',
-    groupBg: '#242528',
-  },
+  light: exportPaletteOf(CHALK_THEME, '#1a56c4', '#6b3fb0'),
+  dark: exportPaletteOf(CHARCOAL_THEME, '#8ab4f8', '#c7a4f5'),
 };
 
 export interface SessionExportOptions {
