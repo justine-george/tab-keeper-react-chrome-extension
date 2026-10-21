@@ -47,7 +47,7 @@ import {
  * would have taken anyway.
  *
  * Resolves null when both the rich and the plain write were refused, and never
- * rejects (KAN-713), the same contract as copyTabLink.
+ * rejects (KAN-713), as copyTabLink does.
  */
 export async function copySessionLinks(
   session: tabContainerData,
