@@ -23,8 +23,8 @@ export const TAB_GROUP_COLORS = [
 
 export type TabGroupColor = (typeof TAB_GROUP_COLORS)[number];
 
-// Deliberately NOT theme-varying. There are five themes, so a per-theme map
-// would be 45 entries -- and the colour is not app chrome, it is the identity
+// Deliberately NOT theme-varying. There are seven themes, so a per-theme map
+// would be 63 entries -- and the colour is not app chrome, it is the identity
 // the user picked in Chrome. It should read the same here as in the browser.
 export const TAB_GROUP_COLOR_HEX: Record<TabGroupColor, string> = {
   blue: '#8ab4f8',

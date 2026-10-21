@@ -285,8 +285,7 @@ async function sample(
         // draft of this read the card colour against a correct chip.
         topEdge: [b.right - 3, b.top + 0.5],
         leftEdge: [b.left + 0.5, midY],
-        // KAN-731. The card's frame away from the chip: its right border
-        // above the chip, its bottom border left of it.
+        // KAN-731. The card's frame away from the chip: right border above it, bottom border left of it.
         frameRight: [c.right - 0.5, (c.top + b.top) / 2],
         frameBottom: [(c.left + b.left) / 2, c.bottom - 0.5],
       };

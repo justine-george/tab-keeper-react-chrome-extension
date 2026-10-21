@@ -28,7 +28,7 @@ import {
 // KAN-671. Tab through each page and require the app's ring (KAN-405: 2px
 // TEXT_COLOR) at every stop. Before it, the name and search fields drew
 // nothing, and rows, rename buttons, Settings and the welcome's link drew
-// Chrome's blue. A light and a dark theme: the blue failed 3:1 only in dark.
+// Chrome's blue. Two light themes and two dark: the blue failed 3:1 only in dark.
 
 const THEMES = [
   ['Chalk', CHALK_THEME],

@@ -8,8 +8,7 @@ import {
 } from '../../utils/constants/theme';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 
-// KAN-731. A new install: Chalk, or Charcoal on a dark OS; a known stored theme stays.
-// Node has no window: each test stands one up, as a browser or a worker has (or lacks) it.
+// KAN-731. A new install is Chalk, or Charcoal on a dark OS; a known stored theme stays; each test stands up its own window.
 const setOs = (dark: boolean) =>
   vi.stubGlobal('window', {
     matchMedia: (q: string) => new FakeMediaQueryList(q, dark),

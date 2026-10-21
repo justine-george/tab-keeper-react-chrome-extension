@@ -164,7 +164,7 @@ interface Opening {
   // The tab view (index.html?view=tab) at 1280x800, instead of the popup.
   tabView?: boolean;
   // The theme, by its stored name (Light, WarmLight, BBPink, Darkenheimer,
-  // Blue: Paper, Parchment, Petal, Graphite, Ink).
+  // Blue, Chalk, Charcoal: Paper, Parchment, Petal, Graphite, Ink, Chalk, Charcoal).
   theme?: string;
 }
 
@@ -1682,7 +1682,7 @@ test.describe('a long, scrolled session', () => {
 
 // The outline (0.45) and slot (1) as their border colour at effective opacity over what is painted behind, the held row excluded.
 // C5 A: the outline stays faint on purpose (the dashed slot, >= 3:1, says where the row goes), so its floor guards fading, not WCAG 1.4.11.
-// Floors sit just under the measured values (outline 1.81 Paper, 1.84 Parchment, 1.81 Petal, 1.97 Graphite, 1.97 Ink; slot 4.31 to 4.89).
+// Floors sit under the measured values (outline 1.88 Paper, 1.86 Parchment, 1.89 Petal, 2.14 Chalk, 2.17 Graphite, 2.18 Ink, 2.58 Charcoal; slot 5.04 to 7.81).
 const OUTLINE_CONTRAST_FLOOR = 1.75;
 const SLOT_CONTRAST_FLOOR = 3;
 const THEMES: [string, string][] = [

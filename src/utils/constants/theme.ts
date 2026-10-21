@@ -10,8 +10,7 @@ export enum Theme {
   CHARCOAL = 'Charcoal',
 }
 
-// KAN-731. A new install's theme: Charcoal on a dark OS, else Chalk. No DOM (Node, a worker): Chalk.
-// public/theme-ground.js repeats this rule in plain JS.
+// KAN-731. A new install's theme: Charcoal on a dark OS, else Chalk (and Chalk with no DOM); public/theme-ground.js repeats it.
 export function defaultTheme(): Theme {
   const dark =
     typeof window !== 'undefined' &&
