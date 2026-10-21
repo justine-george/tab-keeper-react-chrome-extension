@@ -193,6 +193,7 @@
   "Replace sessions": "Ersätt sessioner",
   "Cloud data deleted. Sync is off on this device.": "Molndata har raderats. Synk är avstängd på den här enheten.",
   "Couldn't delete cloud data. Check your connection and try again.": "Det gick inte att radera molndata. Kontrollera anslutningen och försök igen.",
+  "No cloud data to delete.": "Det finns ingen molndata att radera.",
   "Not saved: storage is full. Delete some sessions to make room.": "Inte sparat: lagringsutrymmet är fullt. Radera några sessioner för att frigöra utrymme.",
   "Last synced {{time}}": "Senast synkad {{time}}",
   "SyncTooltip": "{{state}} · {{detail}}",

@@ -188,6 +188,7 @@
   "Replace sessions": "替换会话",
   "Cloud data deleted. Sync is off on this device.": "云端数据已删除。此设备上的同步已关闭。",
   "Couldn't delete cloud data. Check your connection and try again.": "无法删除云端数据。请检查网络连接后重试。",
+  "No cloud data to delete.": "没有可删除的云端数据。",
   "Not saved: storage is full. Delete some sessions to make room.": "未保存：存储空间已满。请删除一些会话以释放空间。",
   "Last synced {{time}}": "上次同步：{{time}}",
   "SyncTooltip": "{{state}} · {{detail}}",

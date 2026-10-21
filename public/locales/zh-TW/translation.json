@@ -188,6 +188,7 @@
   "Replace sessions": "取代工作階段",
   "Cloud data deleted. Sync is off on this device.": "已刪除雲端資料。這部裝置上的同步已關閉。",
   "Couldn't delete cloud data. Check your connection and try again.": "無法刪除雲端資料。請檢查網路連線後再試一次。",
+  "No cloud data to delete.": "沒有可刪除的雲端資料。",
   "Not saved: storage is full. Delete some sessions to make room.": "未儲存：儲存空間已滿。請刪除部分工作階段以釋出空間。",
   "Last synced {{time}}": "上次同步：{{time}}",
   "SyncTooltip": "{{state}} · {{detail}}",

@@ -198,6 +198,7 @@
   "Replace sessions": "Remplacer les sessions",
   "Cloud data deleted. Sync is off on this device.": "Données cloud supprimées. La synchronisation est désactivée sur cet appareil.",
   "Couldn't delete cloud data. Check your connection and try again.": "Impossible de supprimer les données cloud. Vérifiez votre connexion et réessayez.",
+  "No cloud data to delete.": "Aucune donnée cloud à supprimer.",
   "Not saved: storage is full. Delete some sessions to make room.": "Non enregistré : le stockage est plein. Supprimez quelques sessions pour libérer de l’espace.",
   "Last synced {{time}}": "Dernière synchronisation : {{time}}",
   "SyncTooltip": "{{state}} · {{detail}}",

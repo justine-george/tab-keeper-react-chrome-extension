@@ -21,6 +21,8 @@ vi.mock('../../utils/functions/external', () => ({
   saveToFirestore: vi.fn(),
   deleteFromFirestore: mocks.deleteFromFirestore,
   ensureCloudSessionReady: vi.fn(async () => undefined),
+  // KAN-719. The confirm reads before it deletes.
+  cloudDocumentExists: vi.fn(async () => true),
 }));
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';

@@ -193,6 +193,7 @@
   "Replace sessions": "Replace sessions",
   "Cloud data deleted. Sync is off on this device.": "Cloud data deleted. Sync is off on this device.",
   "Couldn't delete cloud data. Check your connection and try again.": "Couldn't delete cloud data. Check your connection and try again.",
+  "No cloud data to delete.": "No cloud data to delete.",
   "Not saved: storage is full. Delete some sessions to make room.": "Not saved: storage is full. Delete some sessions to make room.",
   "Last synced {{time}}": "Last synced {{time}}",
   "SyncTooltip": "{{state}} · {{detail}}",

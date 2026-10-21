@@ -188,6 +188,7 @@
   "Replace sessions": "セッションを置き換え",
   "Cloud data deleted. Sync is off on this device.": "クラウドデータを削除しました。このデバイスの同期はオフです。",
   "Couldn't delete cloud data. Check your connection and try again.": "クラウドデータを削除できませんでした。接続を確認して、もう一度お試しください。",
+  "No cloud data to delete.": "削除するクラウドデータはありません。",
   "Not saved: storage is full. Delete some sessions to make room.": "保存されていません: ストレージがいっぱいです。セッションをいくつか削除して空き容量を確保してください。",
   "Last synced {{time}}": "最終同期: {{time}}",
   "SyncTooltip": "{{state}} · {{detail}}",

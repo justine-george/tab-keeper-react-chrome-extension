@@ -14,6 +14,9 @@ const mocks = vi.hoisted(() => ({
     async () => undefined
   ),
   ensureCloudSessionReady: vi.fn<() => Promise<void>>(async () => undefined),
+  cloudDocumentExists: vi.fn<(userId: string) => Promise<boolean>>(
+    async () => true
+  ),
 }));
 
 vi.mock('../../utils/functions/external', () => ({
@@ -21,9 +24,11 @@ vi.mock('../../utils/functions/external', () => ({
   saveToFirestore: vi.fn(),
   deleteFromFirestore: mocks.deleteFromFirestore,
   ensureCloudSessionReady: mocks.ensureCloudSessionReady,
+  cloudDocumentExists: mocks.cloudDocumentExists,
 }));
 
 import {
+  askToDeleteCloudData,
   deleteCloudData,
   openDeleteCloudDataModal,
   closeDeleteCloudDataModal,
@@ -31,10 +36,12 @@ import {
   setUserId,
 } from '../../redux/slices/globalStateSlice';
 import {
+  declineCloudConsent,
   grantCloudConsent,
   setLastSyncedTime,
 } from '../../redux/slices/settingsDataStateSlice';
 import { makeTestStore } from '../setup/makeStore';
+import { setupChromeFake } from '../setup/chrome.fake';
 import { newestToast } from '../setup/toasts';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 
@@ -43,11 +50,33 @@ import { TOAST_MESSAGES } from '../../utils/constants/common';
 // Auto Sync off on this device -- otherwise the next edit re-uploads
 // everything and the delete was theatre. Local sessions are untouched.
 
+function signedInWithId(consent: 'granted' | 'declined' | '', id = 'uuid-1') {
+  const made = makeTestStore();
+  made.store.dispatch(setSignedIn());
+  made.store.dispatch(setUserId(id));
+  if (consent === 'granted') made.store.dispatch(grantCloudConsent());
+  if (consent === 'declined') made.store.dispatch(declineCloudConsent());
+  made.store.dispatch(setLastSyncedTime(1_760_000_000_000));
+  return made;
+}
+
+type TestStore = ReturnType<typeof makeTestStore>['store'];
+
+// What a delete of nothing must leave alone.
+const syncFacts = (store: TestStore) => ({
+  cloudConsent: store.getState().settingsDataState.cloudConsent,
+  isAutoSync: store.getState().settingsDataState.isAutoSync,
+  lastSyncedTime: store.getState().settingsDataState.lastSyncedTime,
+  syncStatus: store.getState().globalState.syncStatus,
+});
+
 describe('deleteCloudData', () => {
   beforeEach(() => {
     localStorage.clear();
     mocks.deleteFromFirestore.mockReset().mockResolvedValue(undefined);
     mocks.ensureCloudSessionReady.mockReset().mockResolvedValue(undefined);
+    mocks.cloudDocumentExists.mockReset().mockResolvedValue(true);
+    setupChromeFake();
   });
 
   it('deletes the document, turns sync off, forgets the last sync, closes the dialog, and says so', async () => {
@@ -63,6 +92,11 @@ describe('deleteCloudData', () => {
 
     expect(mocks.deleteFromFirestore).toHaveBeenCalledWith('uuid-1');
     expect(mocks.deleteFromFirestore).toHaveBeenCalledTimes(1);
+    // KAN-719. It reads before it deletes.
+    expect(mocks.cloudDocumentExists).toHaveBeenCalledWith('uuid-1');
+    expect(mocks.cloudDocumentExists.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.deleteFromFirestore.mock.invocationCallOrder[0]
+    );
     expect(store.getState().settingsDataState.isAutoSync).toBe(false);
     // KAN-632: the yes goes too, so the cloud button asks before re-uploading.
     expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
@@ -127,7 +161,41 @@ describe('deleteCloudData', () => {
     await store.dispatch(deleteCloudData());
 
     expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
+    expect(mocks.ensureCloudSessionReady).not.toHaveBeenCalled();
     expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(false);
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE
+    );
+  });
+
+  it('no document: says so, deletes nothing, sync untouched', async () => {
+    mocks.cloudDocumentExists.mockResolvedValue(false);
+    const { store } = signedInWithId('declined');
+    const before = syncFacts(store);
+    store.dispatch(openDeleteCloudDataModal());
+
+    await store.dispatch(deleteCloudData());
+
+    expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
+    expect(syncFacts(store)).toEqual(before);
+    expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(false);
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE
+    );
+  });
+
+  it('the read fails: the failed toast, deletes nothing', async () => {
+    mocks.cloudDocumentExists.mockRejectedValue(new Error('denied'));
+    const { store } = signedInWithId('granted');
+    const before = syncFacts(store);
+
+    await store.dispatch(deleteCloudData());
+
+    expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
+    expect(syncFacts(store)).toEqual(before);
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
+    );
   });
 
   it('the dialog flag opens and closes', () => {
@@ -137,5 +205,151 @@ describe('deleteCloudData', () => {
     expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(true);
     store.dispatch(closeDeleteCloudDataModal());
     expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(false);
+  });
+});
+
+// KAN-719. The press never claims, or offers, a delete of nothing.
+describe('askToDeleteCloudData (KAN-719)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    mocks.deleteFromFirestore.mockReset().mockResolvedValue(undefined);
+    mocks.ensureCloudSessionReady.mockReset().mockResolvedValue(undefined);
+    mocks.cloudDocumentExists.mockReset().mockResolvedValue(true);
+    setupChromeFake();
+  });
+
+  const expectNoNetwork = () => {
+    expect(mocks.ensureCloudSessionReady).not.toHaveBeenCalled();
+    expect(mocks.cloudDocumentExists).not.toHaveBeenCalled();
+    expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
+  };
+  const modalOpen = (store: TestStore) =>
+    store.getState().globalState.isDeleteCloudDataModalOpen;
+
+  it.each(['granted', 'declined'] as const)(
+    'nothing stored, %s: says there is nothing, no dialog, no network',
+    async (consent) => {
+      const { store } = makeTestStore();
+      if (consent === 'granted') store.dispatch(grantCloudConsent());
+      else store.dispatch(declineCloudConsent());
+
+      await store.dispatch(askToDeleteCloudData());
+
+      expect(modalOpen(store)).toBe(false);
+      expect(newestToast(store.getState())?.text).toBe(
+        TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE
+      );
+      expectNoNetwork();
+    }
+  );
+
+  it('an unusable stored token: the token toast, no dialog, no network', async () => {
+    setupChromeFake({ storage: { tokenValue: 42 } });
+    const { store } = makeTestStore();
+    store.dispatch(grantCloudConsent());
+
+    await store.dispatch(askToDeleteCloudData());
+
+    expect(modalOpen(store)).toBe(false);
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.UNREADABLE_ACCOUNT_TOKEN
+    );
+    expectNoNetwork();
+  });
+
+  it('storage that throws: the failed toast, no dialog, no network', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(grantCloudConsent());
+    vi.spyOn(chrome.storage.sync, 'get').mockRejectedValue(new Error('boom'));
+
+    await store.dispatch(askToDeleteCloudData());
+
+    expect(modalOpen(store)).toBe(false);
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
+    );
+    expectNoNetwork();
+  });
+
+  it('granted, document exists: opens the dialog, deletes nothing', async () => {
+    const { store } = signedInWithId('granted');
+
+    await store.dispatch(askToDeleteCloudData());
+
+    expect(modalOpen(store)).toBe(true);
+    expect(newestToast(store.getState())).toBeUndefined();
+    expect(mocks.cloudDocumentExists).toHaveBeenCalledWith('uuid-1');
+    expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
+  });
+
+  it('granted, no document: says so, no dialog, sync untouched', async () => {
+    mocks.cloudDocumentExists.mockResolvedValue(false);
+    const { store } = signedInWithId('granted');
+    const before = syncFacts(store);
+
+    await store.dispatch(askToDeleteCloudData());
+
+    expect(modalOpen(store)).toBe(false);
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE
+    );
+    expect(syncFacts(store)).toEqual(before);
+    expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
+  });
+
+  it('granted, the read fails: the failed toast, never "no data"', async () => {
+    mocks.cloudDocumentExists.mockRejectedValue(new Error('denied'));
+    const { store } = signedInWithId('granted');
+
+    await store.dispatch(askToDeleteCloudData());
+
+    expect(modalOpen(store)).toBe(false);
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
+    );
+  });
+
+  it('granted, sign-in fails: the failed toast, no read', async () => {
+    mocks.ensureCloudSessionReady.mockRejectedValue(new Error('auth'));
+    const { store } = signedInWithId('granted');
+
+    await store.dispatch(askToDeleteCloudData());
+
+    expect(modalOpen(store)).toBe(false);
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
+    );
+    expect(mocks.cloudDocumentExists).not.toHaveBeenCalled();
+  });
+
+  it('declined, with an id: opens the dialog and contacts nothing', async () => {
+    const { store } = signedInWithId('declined');
+
+    await store.dispatch(askToDeleteCloudData());
+
+    expect(modalOpen(store)).toBe(true);
+    expectNoNetwork();
+  });
+
+  it('unanswered consent is not granted', async () => {
+    const { store } = signedInWithId('');
+    expect(store.getState().settingsDataState.cloudConsent).toBe('');
+
+    await store.dispatch(askToDeleteCloudData());
+
+    expect(modalOpen(store)).toBe(true);
+    expectNoNetwork();
+  });
+
+  it('adopts a token stored after boot, then checks with it', async () => {
+    setupChromeFake({ storage: { tokenValue: 'uuid-9' } });
+    const { store } = makeTestStore();
+    store.dispatch(grantCloudConsent());
+    expect(store.getState().globalState.userId).toBeNull();
+
+    await store.dispatch(askToDeleteCloudData());
+
+    expect(mocks.cloudDocumentExists).toHaveBeenCalledWith('uuid-9');
+    expect(modalOpen(store)).toBe(true);
   });
 });

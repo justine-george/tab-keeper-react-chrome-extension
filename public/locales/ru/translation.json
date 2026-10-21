@@ -203,6 +203,7 @@
   "Replace sessions": "Заменить сессии",
   "Cloud data deleted. Sync is off on this device.": "Облачные данные удалены. Синхронизация на этом устройстве выключена.",
   "Couldn't delete cloud data. Check your connection and try again.": "Не удалось удалить облачные данные. Проверьте подключение и попробуйте снова.",
+  "No cloud data to delete.": "Нет облачных данных для удаления.",
   "Not saved: storage is full. Delete some sessions to make room.": "Не сохранено: хранилище заполнено. Удалите несколько сессий, чтобы освободить место.",
   "Last synced {{time}}": "Последняя синхронизация: {{time}}",
   "SyncTooltip": "{{state}} · {{detail}}",

@@ -32,6 +32,7 @@ import {
   TabMasterContainer,
 } from './tabContainerDataStateSlice';
 import {
+  cloudDocumentExists,
   deleteFromFirestore,
   ensureCloudSessionReady,
   loadFromFirestore,
@@ -62,7 +63,7 @@ import {
   TOAST_MESSAGES,
 } from '../../utils/constants/common';
 import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
-import { mintDeviceIdIfNone } from '../deviceId';
+import { mintDeviceIdIfNone, readStoredDeviceId } from '../deviceId';
 import {
   cloudSyncAllowed,
   declineCloudConsent,
@@ -739,15 +740,6 @@ const resyncAfterHold =
     }
   };
 
-// KAN-254. Deletes the document under the token and turns Auto Sync off on
-// THIS device -- otherwise the next edit re-uploads everything and the delete
-// was theatre. Local sessions are untouched, and so is the token: minting a
-// fresh one would detach this device from the document but leave it standing.
-// Other devices on the same profile will upload their copy again on their
-// next sync unless auto sync is off there too; the dialog says so.
-//
-// On failure nothing changes but the toast: reporting "deleted" for a
-// document that is still there is the one outcome worse than an error.
 /**
  * A sync someone asked for: the header's Sync now and the consent dialog's
  * sync-once. It waits for the Firebase session first (KAN-266), because a
@@ -776,17 +768,91 @@ export const syncNowWhenSignedIn =
     await dispatch(syncStateWithFirestore());
   };
 
+// KAN-719. The id Delete cloud data acts on, read locally and never minted, or null after saying why there is none.
+const storedIdOrToast = async (
+  dispatch: AppDispatch
+): Promise<string | null> => {
+  const stored = await dispatch(readStoredDeviceId());
+  if (stored.kind === 'id') return stored.id;
+  const toastText = {
+    none: TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE,
+    unusable: TOAST_MESSAGES.UNREADABLE_ACCOUNT_TOKEN,
+    unreadable: TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED,
+  }[stored.kind];
+  dispatch(showToast({ toastText }));
+  return null;
+};
+
+// KAN-719. Reads the cloud for the document; signs in first because the rules need request.auth (KAN-259).
+const cloudDocumentExistsForSignedIn = async (
+  dispatch: AppDispatch,
+  userId: string
+): Promise<boolean> => {
+  await ensureCloudSessionReady(dispatch);
+  return cloudDocumentExists(userId);
+};
+
+/**
+ * The Delete cloud data press (KAN-719). Opens the confirm dialog only when
+ * there is something to delete, and says so when there is not. Resolves once
+ * the dialog is open or the toast is shown; never rejects.
+ *
+ * Consent granted: check the cloud first. Not granted: the dialog opens with
+ * no Firebase call, and the confirm does the check.
+ */
+export const askToDeleteCloudData =
+  () =>
+  async (dispatch: AppDispatch, getState: () => RootState): Promise<void> => {
+    const userId = await storedIdOrToast(dispatch);
+    if (userId === null) return;
+    if (getState().settingsDataState.cloudConsent !== 'granted') {
+      dispatch(openDeleteCloudDataModal());
+      return;
+    }
+    try {
+      if (await cloudDocumentExistsForSignedIn(dispatch, userId)) {
+        dispatch(openDeleteCloudDataModal());
+      } else {
+        dispatch(
+          showToast({ toastText: TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE })
+        );
+      }
+    } catch (error) {
+      console.warn('askToDeleteCloudData: cloud check failed:', error);
+      dispatch(
+        showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED })
+      );
+    }
+  };
+
+// KAN-254. Deletes the document under the token and turns Auto Sync off on
+// THIS device -- otherwise the next edit re-uploads everything and the delete
+// was theatre. Local sessions are untouched, and so is the token: minting a
+// fresh one would detach this device from the document but leave it standing.
+// Other devices on the same profile will upload their copy again on their
+// next sync unless auto sync is off there too; the dialog says so.
+//
+// On failure nothing changes but the toast: reporting "deleted" for a
+// document that is still there is the one outcome worse than an error.
+//
+// KAN-719. It reads before it deletes, whatever the consent: a document that
+// is not there is "No cloud data to delete.", not a deleted one.
 export const deleteCloudData = createAsyncThunk(
   'global/deleteCloudData',
   async (_: void, thunkAPI) => {
-    const { userId } = (thunkAPI.getState() as RootState).globalState;
-    thunkAPI.dispatch(closeDeleteCloudDataModal());
-    if (!userId) return;
+    const dispatch = thunkAPI.dispatch as AppDispatch;
+    dispatch(closeDeleteCloudDataModal());
+    const userId = await storedIdOrToast(dispatch);
+    if (userId === null) return;
     try {
-      // KAN-259. The rules need request.auth; with lazy sign-in a user who
-      // declined the cloud may never have signed in, so start the session
-      // here and wait for it before the delete.
-      await ensureCloudSessionReady(thunkAPI.dispatch as AppDispatch);
+      // KAN-259. With lazy sign-in a user who declined the cloud may never
+      // have signed in, so the read starts the session and waits for it.
+      if (!(await cloudDocumentExistsForSignedIn(dispatch, userId))) {
+        dispatch(
+          showToast({ toastText: TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE })
+        );
+        return;
+      }
       await deleteFromFirestore(userId);
     } catch (error) {
       console.warn('deleteCloudData: delete failed:', error);
