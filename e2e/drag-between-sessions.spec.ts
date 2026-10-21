@@ -959,11 +959,11 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
   // The outline as painted, against the row's painted fill (a sweep is held
   // at its end). CONTROL in each: the fill pixel is the press colour the row
   // declares, so the decode is faithful before a ratio is built on it.
-  // KAN-669: 3:1 in the light themes; the dark ones sit just under it on
-  // purpose (2.98 on the press fill), as KAN-668's control edges do.
+  // KAN-669: floors 3:1 light, 2.95 dark, as carryTargetContrast.test.ts holds them; all measure 3.48 or more.
   const OUTLINE_FLOOR = new Map([
     ['Darkenheimer', 2.95],
     ['Blue', 2.95],
+    ['Charcoal', 2.95],
   ]);
   for (const theme of THEMES) {
     test(`the target outline clears 3:1 against the row's fill (${theme})`, async ({

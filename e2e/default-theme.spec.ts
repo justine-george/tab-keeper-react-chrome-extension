@@ -23,8 +23,8 @@ const CHARCOAL = CHARCOAL_THEME.PRIMARY_COLOR;
 const PAPER = LIGHT_THEME.PRIMARY_COLOR;
 const GRAPHITE = DARKENHEIMER_THEME.PRIMARY_COLOR;
 
-// What an older build saved: onboarding answered, and no move flag.
-const OLDER_BUILD = {
+// Consent, onboarding and the review card answered; no theme and no move flag.
+const EVERY_ASK_ANSWERED = {
   cloudConsent: 'granted',
   ...ONBOARDING_ANSWERED,
   ...REVIEW_CARD_DECLINED,
@@ -80,7 +80,7 @@ const setupDialog = (page: Page) =>
 async function openSetup(context: BrowserContext, extensionId: string) {
   await stubToolbarPin(context, { pinned: true });
   await seedRawSettingsIfAbsent(context, {
-    ...OLDER_BUILD,
+    ...EVERY_ASK_ANSWERED,
     cloudConsent: 'declined',
     isAutoSync: false,
     setupState: 'pending',
@@ -123,7 +123,7 @@ for (const [os, theme, ground, other] of [
       extensionId,
     }) => {
       await seedRawSettingsIfAbsent(context, {
-        ...OLDER_BUILD,
+        ...EVERY_ASK_ANSWERED,
         theme: 'Sepia',
         isChalkCharcoalMoveApplied: true,
       });
@@ -151,7 +151,11 @@ for (const [stored, moved, ground] of [
     context,
     extensionId,
   }) => {
-    await seedRawSettingsIfAbsent(context, { ...OLDER_BUILD, theme: stored });
+    // No flag: as an older build saved it.
+    await seedRawSettingsIfAbsent(context, {
+      ...EVERY_ASK_ANSWERED,
+      theme: stored,
+    });
     const { page, first } = await openPopup(context, extensionId);
     expect(first).toBe(ground);
     expect(await pageGround(page)).toBe(ground);
@@ -175,7 +179,7 @@ for (const [stored, ground] of [
     extensionId,
   }) => {
     await seedRawSettingsIfAbsent(context, {
-      ...OLDER_BUILD,
+      ...EVERY_ASK_ANSWERED,
       theme: stored,
       isChalkCharcoalMoveApplied: true,
     });
@@ -190,7 +194,11 @@ test('moved to Chalk, a user who picks Paper again keeps it', async ({
   context,
   extensionId,
 }) => {
-  await seedRawSettingsIfAbsent(context, { ...OLDER_BUILD, theme: 'Light' });
+  // No flag: as an older build saved it.
+  await seedRawSettingsIfAbsent(context, {
+    ...EVERY_ASK_ANSWERED,
+    theme: 'Light',
+  });
   const { page } = await openPopup(context, extensionId);
   // PREMISE: the move ran.
   expect(await pageGround(page)).toBe(CHALK);

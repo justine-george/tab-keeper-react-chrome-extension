@@ -89,7 +89,8 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
 
   test('the picker lists the seven in order, light then dark', async () => {
     await renderDisplay();
-    const row = swatch('Paper').parentElement!;
+    const row = swatch('Paper').parentElement;
+    if (!row) throw new Error('Paper has no picker row');
     expect(
       Array.from(row.querySelectorAll('button')).map(
         (b) => b.children[1].textContent
@@ -97,7 +98,7 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
     ).toEqual(NAMES);
   });
 
-  test('a Chalk tile carries Chalk own tokens', async () => {
+  test("a Chalk tile carries Chalk's own tokens", async () => {
     await renderDisplay();
     expect(getComputedStyle(tileOf('Chalk')).backgroundColor).toMatch(
       asWritten(CHALK_THEME.PRIMARY_COLOR)
@@ -170,15 +171,12 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
   });
 });
 
-// KAN-247. 14px between tiles, up from 10. Not 16: in ja two katakana captions
-// are 76.8px, wider than their tiles, and the katakana come from the SYSTEM
-// font, so their width is not ours to pin. The row is now a 4-column grid, so
-// the old one-row ceiling is gone; the gap stays 14. theme-swatch-marker.spec
-// pins the layout in a browser.
+// KAN-247. 14px between tiles in a four-column grid (ja's katakana captions outgrow their tiles); theme-swatch-marker.spec pins it in a browser.
 describe('the theme picker spaces its tiles (KAN-247)', () => {
   test('the row gap is 14px', async () => {
     await renderDisplay();
-    const row = swatch('Paper').parentElement!;
+    const row = swatch('Paper').parentElement;
+    if (!row) throw new Error('Paper has no picker row');
     expect(getComputedStyle(row).gap).toBe('14px');
     // A grid of four columns: seven tiles fall as four over three.
     expect(getComputedStyle(row).gridTemplateColumns).toBe(

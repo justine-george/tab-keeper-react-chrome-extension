@@ -253,9 +253,7 @@ test.describe('hovering the selected settings category leaves it alone', () => {
   });
 });
 
-// KAN-247, KAN-731. The tiles sit in a four-column grid, 14px apart: the light
-// four on one row, the dark three under them, each column as wide as its widest
-// caption. ja has the widest captions (katakana wider than their 72px tiles).
+// KAN-247, KAN-731. A four-column grid 14px apart, light four over dark three; ja's katakana captions are the widest.
 type Cell = {
   name: string;
   top: number;
@@ -271,15 +269,17 @@ async function cellsOf(root: Locator | Page, names: string[]): Promise<Cell[]> {
     names.map((name) =>
       root.getByRole('button', { name, exact: true }).evaluate((el, name) => {
         const b = el.getBoundingClientRect();
-        const caption = el.lastElementChild!.getBoundingClientRect();
+        const caption = el.lastElementChild;
+        if (!caption) throw new Error(`${name} has no caption`);
+        const c = caption.getBoundingClientRect();
         return {
           name,
           top: b.top,
           bottom: b.bottom,
           left: b.left,
           right: b.right,
-          captionLeft: caption.left,
-          captionRight: caption.right,
+          captionLeft: c.left,
+          captionRight: c.right,
         };
       }, name)
     )
@@ -327,27 +327,35 @@ const localNames = (lang: string) => {
 };
 
 test.describe('the theme tiles: the light four, then the dark three', () => {
-  test('in Japanese at 790px, the light four share a top edge, the dark three the next, columns line up, 14px apart, no caption overflows its column', async ({
-    context,
-    extensionId,
-  }) => {
-    await seedSettings(context, { language: 'ja' });
-    const page = await context.newPage();
-    await page.setViewportSize({ width: 790, height: 550 });
-    await page.goto(`chrome-extension://${extensionId}/index.html`);
-    await page.locator('[aria-label="設定"]').click();
-    await page.locator('button[aria-label="表示"]').click();
-    const names = localNames('ja');
-    // CONTROL: the names are ja's, and on screen.
-    expect(names[0]).toBe('チョーク');
-    await expect(swatch(page, names[0])).toBeVisible();
+  for (const [lang, chalk] of [
+    ['en', 'Chalk'],
+    ['ja', 'チョーク'],
+  ] as const) {
+    test(`Settings in ${lang} at 790px: the light four share a top edge, the dark three the next, columns line up, 14px apart, no caption overflows its column`, async ({
+      context,
+      extensionId,
+    }) => {
+      const say = (key: string) => localeStrings(lang)[key] ?? key;
+      await seedSettings(context, { language: lang });
+      const page = await context.newPage();
+      await page.setViewportSize({ width: 790, height: 550 });
+      await page.goto(`chrome-extension://${extensionId}/index.html`);
+      await page.locator(`[aria-label="${say('Settings')}"]`).click();
+      await page.locator(`button[aria-label="${say('Display')}"]`).click();
+      const names = localNames(lang);
+      // CONTROL: the names are this locale's, and on screen.
+      expect(names[0]).toBe(chalk);
+      await expect(swatch(page, names[0])).toBeVisible();
 
-    expectPickerGrid(await cellsOf(page, names), 'ja Settings at 790');
-    const gap = await swatch(page, names[0]).evaluate(
-      (el) => getComputedStyle(el.parentElement!).gap
-    );
-    expect(gap).toBe('14px');
-  });
+      expectPickerGrid(await cellsOf(page, names), `${lang} Settings at 790`);
+      const gap = await swatch(page, names[0]).evaluate((el) => {
+        const grid = el.parentElement;
+        if (!grid) throw new Error('the swatch has no grid');
+        return getComputedStyle(grid).gap;
+      });
+      expect(gap).toBe('14px');
+    });
+  }
 
   for (const lang of ['ja', 'de']) {
     test(`setup in ${lang} at 1280px: the same grid, inside the dialog`, async ({
