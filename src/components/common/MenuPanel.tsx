@@ -2,6 +2,7 @@ import React from 'react';
 
 import { css } from '@emotion/react';
 
+import { focusRingCss, focusRingInInkCss } from './focusRing';
 import type { IconName } from './iconNames';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -118,6 +119,8 @@ export function MenuPanel({
     transition-property: ${danger ? 'background-color, color' : 'background-color'};
     transition-duration: ${DURATION.COLOR};
     transition-timing-function: ${ITEM_EASING};
+    /* KAN-726. The app's ring, not Chrome's blue; a danger item's is its ink, so white on its red fill. */
+    ${danger ? focusRingInInkCss() : focusRingCss(COLORS)}
     /* KAN-725. A danger item fills red under white ink; ON_DANGER_FILL, never TEXT_COLOR, which fails on the fill. */
     &:hover {
       background-color: ${danger ? COLORS.DANGER_FILL : COLORS.HOVER_COLOR};
