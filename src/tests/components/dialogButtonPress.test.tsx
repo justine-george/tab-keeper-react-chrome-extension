@@ -77,10 +77,8 @@ describe.each(DIALOGS)('$name buttons answer a press (KAN-259)', (dialog) => {
       const active = activeRulesFor(button);
       expect(bg(hover), 'no :hover background').toBeTruthy();
       expect(bg(active), 'no :active background').toBeTruthy();
-      // The rung is a background colour, and the two differ -- except on the
-      // danger button, which holds its red on both by design (KAN-204).
-      const isDanger = button.textContent?.trim() === 'Delete';
-      if (!isDanger) expect(bg(active)).not.toBe(bg(hover));
+      // The rung is a background colour, and the two differ (KAN-725: the danger confirm too).
+      expect(bg(active)).not.toBe(bg(hover));
     }
   });
 });
@@ -181,5 +179,64 @@ describe('the filled button', () => {
     const button = container.querySelector('button');
     if (button === null) throw new Error('no button');
     expect(classRulesFor(button)).toMatch(/outline-offset:\s*-4px/);
+  });
+});
+
+// KAN-725. A dialog's destructive confirm is solid red at rest, deeper on hover and press.
+describe('the danger confirm (KAN-725)', () => {
+  const COLORS = LIGHT_THEME;
+  const renderDanger = async () => {
+    const { container } = await renderWithProviders(
+      <button css={dialogButtonStyles(COLORS).danger}>Delete</button>
+    );
+    const button = container.querySelector('button');
+    if (button === null) throw new Error('no button');
+    return button;
+  };
+  const fills = (rules: string) =>
+    [...rules.matchAll(/(border-color|background-color):\s*([^;}]+)/g)].map(
+      (m) => [m[1], m[2].trim().toLowerCase()]
+    );
+  const asRgb = (value: string) =>
+    value.startsWith('#') ? hexToRgb(value.toUpperCase()) : value;
+
+  test('at rest: DANGER_FILL ground and border, ON_DANGER_FILL letters', async () => {
+    const style = getComputedStyle(await renderDanger());
+    expect(style.backgroundColor).toBe(hexToRgb(COLORS.DANGER_FILL));
+    expect(style.borderTopColor).toBe(hexToRgb(COLORS.DANGER_FILL));
+    expect(style.color).toBe(hexToRgb(COLORS.ON_DANGER_FILL));
+  });
+
+  test('hover deepens border and ground to DANGER_FILL_DEEP, press to DANGER_FILL_DEEPER', async () => {
+    const button = await renderDanger();
+    const seen = (rules: string) =>
+      fills(rules).map(([prop, value]) => [prop, asRgb(value)]);
+    expect(seen(hoverRulesFor(button))).toEqual([
+      ['border-color', hexToRgb(COLORS.DANGER_FILL_DEEP)],
+      ['background-color', hexToRgb(COLORS.DANGER_FILL_DEEP)],
+    ]);
+    expect(seen(activeRulesFor(button))).toEqual([
+      ['border-color', hexToRgb(COLORS.DANGER_FILL_DEEPER)],
+      ['background-color', hexToRgb(COLORS.DANGER_FILL_DEEPER)],
+    ]);
+  });
+
+  test('border and ground ease together', async () => {
+    const rules = classRulesFor(await renderDanger());
+    const transition = /transition:\s*([^;}]+)/.exec(rules)?.[1] ?? '';
+    expect(transition).toMatch(/background-color/);
+    expect(transition).toMatch(/border-color/);
+  });
+
+  test('the focus ring is the inset ring in currentColor, not TEXT_COLOR', async () => {
+    const rules = classRulesFor(await renderDanger());
+    // The last such rule wins the cascade.
+    const ring = rules
+      .split('\n')
+      .filter((rule) => rule.includes(':focus-visible'))
+      .pop();
+    expect(ring).toMatch(/outline:\s*2px solid currentcolor/i);
+    expect(ring).toMatch(/outline-offset:\s*-4px/);
+    expect(ring?.toLowerCase()).not.toContain(COLORS.TEXT_COLOR.toLowerCase());
   });
 });
