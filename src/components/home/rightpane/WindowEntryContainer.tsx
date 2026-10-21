@@ -381,7 +381,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         : `&[data-row-menu-held] { background-color: ${COLORS.HOVER_COLOR}; }`
     }
     /* KAN-723. A covered tag hides under parentRightStyle's two reveals: its opacity, and the keyboard's. A search empties the strip. */
-    ${!isSearching && (isStripShown || isEditing) ? HIDE_TAGS_UNDER_STRIP : ''}
+    ${!isSearching && isStripShown ? HIDE_TAGS_UNDER_STRIP : ''}
     ${whileKeyNav('&:has([data-row-actions] :focus-visible)')} {
       ${HIDE_TAGS_UNDER_STRIP}
     }
