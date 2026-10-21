@@ -194,7 +194,9 @@ const Button: React.FC<ButtonProps> = ({
   const variantRetints = PALETTE.hoverInk !== PALETTE.ink;
   // KAN-725. An unavailable danger button keeps its rest edge, label, glyph and hint when touched.
   const restsWhenTouched = Boolean(ariaDisabled) && variantRetints;
-  const touchedInk = restsWhenTouched ? PALETTE.ink : PALETTE.hoverInk;
+  // KAN-725. Unavailable dims all of it: the glyph and key hint take the label's L2 too.
+  const restInk = restsWhenTouched ? COLORS.LABEL_L2_COLOR : PALETTE.ink;
+  const touchedInk = restsWhenTouched ? restInk : PALETTE.hoverInk;
   const hoverEdge = restsWhenTouched ? null : PALETTE.hoverEdge;
   // KAN-725. A busy button ignores presses, so its press rung is its hover
   // rung: pressing again shows no deeper fill.
@@ -207,7 +209,7 @@ const Button: React.FC<ButtonProps> = ({
   // The glyph's colour is a class of its own on the Icon, so it is reached
   // from here; a caller's iconColor is its own call and is left alone.
   const glyphInk = (ink: string) =>
-    iconColor || ink === PALETTE.ink
+    iconColor || ink === restInk
       ? ''
       : `.material-symbols-outlined { color: ${ink}; }`;
 
@@ -221,7 +223,7 @@ const Button: React.FC<ButtonProps> = ({
     variantRetints && !iconColor
       ? `.material-symbols-outlined { transition: color ${DURATION.COLOR}; }`
       : '';
-  const hoverInkCss = touchedInk !== PALETTE.ink ? `color: ${touchedInk};` : '';
+  const hoverInkCss = touchedInk !== restInk ? `color: ${touchedInk};` : '';
 
   const buttonStyle = css`
     background-color: ${PALETTE.rest};
@@ -309,7 +311,7 @@ const Button: React.FC<ButtonProps> = ({
           type={faceIcon}
           disable={true}
           size={iconSize}
-          color={iconColor ?? PALETTE.ink}
+          color={iconColor ?? restInk}
           style={iconSpacing}
         />
       )}
@@ -346,7 +348,7 @@ const Button: React.FC<ButtonProps> = ({
   // KAN-725. On danger it rests in the label's DANGER_INK, as a danger menu item's hint does.
   const keyHintStyle = css`
     padding-left: 6px;
-    color: ${variantRetints ? PALETTE.ink : COLORS.LABEL_L1_COLOR};
+    color: ${variantRetints ? restInk : COLORS.LABEL_L1_COLOR};
     transition: color ${DURATION.COLOR};
   `;
 

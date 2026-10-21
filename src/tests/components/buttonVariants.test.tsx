@@ -297,6 +297,30 @@ describe('Button variants (KAN-205)', () => {
       expect(rules).not.toMatch(fill(LIGHT_THEME.ON_DANGER_FILL));
     }
   });
+
+  // KAN-725. Unavailable dims all of it: the glyph and key hint take the label's L2, touched or not.
+  test('unavailable danger dims its glyph and key hint with its label', async () => {
+    await render({
+      variant: 'danger',
+      ariaDisabled: true,
+      iconType: 'delete',
+      keyHint: KEY_HINT,
+    });
+
+    const glyph = button().querySelector('.material-symbols-outlined');
+    const hint = button().querySelector('[data-key-hint]');
+    if (glyph === null || hint === null) throw new Error('no glyph or hint');
+    const l2 = rgb(LIGHT_THEME.LABEL_L2_COLOR).text;
+    expect(getComputedStyle(glyph).color).toBe(l2);
+    expect(getComputedStyle(hint).color).toBe(l2);
+    for (const rules of [hoverRulesFor(button()), activeRulesFor(button())]) {
+      expect(rules).not.toMatch(fill(LIGHT_THEME.DANGER_INK));
+      const hintRule = rules
+        .split('\n')
+        .find((r) => r.includes('[data-key-hint]'));
+      expect(hintRule ?? '').toMatch(fill(LIGHT_THEME.LABEL_L2_COLOR));
+    }
+  });
 });
 
 describe('Button outline variant (KAN-394)', () => {
