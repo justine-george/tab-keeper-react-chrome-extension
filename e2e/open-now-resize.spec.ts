@@ -2,7 +2,7 @@ import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession } from './fixtures/seed';
-import { rgbToHex } from './fixtures/pixels';
+import { rgbToHex, rgb } from './fixtures/pixels';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-321 (spec O1, O1a, O1b) on the real artifact: resizing Open now in the
@@ -1052,7 +1052,7 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
           return dot === null ? '' : getComputedStyle(dot).backgroundColor;
         }, GRIP)
       )
-      .toBe(hexToRgb(LIGHT_THEME.TEXT_COLOR));
+      .toBe(rgb(LIGHT_THEME.TEXT_COLOR));
     await page.mouse.move(grip.x - 300, grip.y);
 
     const seen = await dragSavedRowOverTheGrip(page);
@@ -1137,9 +1137,3 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     expect(await storedWidth(page)).toBe(700);
   });
 });
-
-// '#RRGGBB' as the computed 'rgb(r, g, b)' form.
-function hexToRgb(hex: string): string {
-  const n = (i: number) => parseInt(hex.slice(i, i + 2), 16);
-  return `rgb(${n(1)}, ${n(3)}, ${n(5)})`;
-}

@@ -2,6 +2,7 @@ import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { rgb } from './fixtures/pixels';
 
 // KAN-331 O15 on the real artifact: a window row in Open now goes to its
 // Chrome window. What jsdom and the chrome fake cannot show: which window
@@ -163,12 +164,6 @@ const field = (page: Page): Locator =>
   page
     .locator(OPEN_NOW)
     .getByRole('textbox', { name: 'Search open tabs', exact: true });
-
-// A #RRGGBB token as getComputedStyle spells it.
-const rgb = (hex: string): string => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return `rgb(${r}, ${g}, ${b})`;
-};
 
 const backgroundOf = (locator: Locator): Promise<string> =>
   locator.evaluate((el) => getComputedStyle(el).backgroundColor);

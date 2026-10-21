@@ -11,6 +11,7 @@ import {
   LIGHT_THEME,
   WARM_LIGHT_THEME,
 } from '../src/hooks/useThemeColors';
+import { rgb } from './fixtures/pixels';
 
 // KAN-241. Settings -> About is laid out like the other four panes -- a
 // left-aligned section under the shared inset -- with a nameplate on top: the
@@ -26,11 +27,6 @@ import {
 // engine can say: that About's inset IS the Display pane's inset, that the mark
 // sits on the name line, and (KAN-728) that the note, its one row of actions
 // and the policy fit, or scroll without clipping, in every theme and locale.
-
-const rgb = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return `rgb(${r}, ${g}, ${b})`;
-};
 
 type Theme = 'Light' | 'WarmLight' | 'BBPink' | 'Darkenheimer' | 'Blue';
 type View = 'popup' | 'full';

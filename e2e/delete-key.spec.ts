@@ -4,6 +4,7 @@ import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { POPUP, stored } from './fixtures/savedWindows';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { rgb } from './fixtures/pixels';
 
 // KAN-592 on the real artifact (pick K1): ⌫, fn⌫ (Delete) and ⌘⌫ delete the session whose row
 // has focus, with the Undo toast. After the delete, focus moves to the row now in its place, or
@@ -379,8 +380,6 @@ test('K1: the ⋮ shows ⌫ beside Delete session, red at rest and white on its 
   await expect(hint).toHaveAttribute('aria-hidden', 'true');
   const color = (l: Locator) => l.evaluate((e) => getComputedStyle(e).color);
   // KAN-725. At rest the hint is red like the label; on the red fill both are white.
-  const rgb = (hex: string) =>
-    `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
   expect(await color(item)).toBe(rgb(LIGHT_THEME.DANGER_INK));
   expect(await color(hint)).toBe(await color(item));
 
