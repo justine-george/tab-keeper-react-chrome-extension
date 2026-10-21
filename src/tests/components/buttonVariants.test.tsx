@@ -189,6 +189,41 @@ describe('Button variants (KAN-205)', () => {
     expect(getComputedStyle(button()).cursor).toBe('pointer');
   });
 
+  // KAN-725. An unavailable button's label must not brighten under the pointer.
+  test('unavailable keeps its L2 label through hover and press, danger or not', async () => {
+    for (const variant of ['quiet', 'danger']) {
+      const { unmount } = await render({ variant, ariaDisabled: true });
+      expect(classRulesFor(button())).toMatch(
+        new RegExp(
+          `\\.(css-\\w+)\\.\\1:hover,\\s*\\.\\1\\.\\1:active\\s*\\{[^}]*[^-]color:\\s*${fill(LIGHT_THEME.LABEL_L2_COLOR).source}`,
+          'i'
+        )
+      );
+      unmount();
+    }
+  });
+
+  test.each(['quiet', 'primary', 'chip', 'outline'])(
+    '%s recolours nothing on hover or press',
+    async (variant) => {
+      await render({ variant });
+
+      for (const rules of [hoverRulesFor(button()), activeRulesFor(button())]) {
+        const own = rules
+          .split('\n')
+          .filter((r) => !/(material-symbols|data-key-hint)/.test(r));
+        expect(own.join('\n')).not.toMatch(/[^-]color:/);
+      }
+    }
+  );
+
+  test('only danger animates border-color and colour', async () => {
+    await render();
+    const quiet = classRulesFor(button());
+    expect(quiet).not.toMatch(/transition:[^;]*border-color/);
+    expect(quiet).not.toMatch(/transition:[^;]*[^-]color 120ms/);
+  });
+
   test('CONTROL: unavailable danger rests quiet and stays quiet', async () => {
     await render({ variant: 'danger', ariaDisabled: true });
 

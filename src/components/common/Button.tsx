@@ -186,6 +186,7 @@ const Button: React.FC<ButtonProps> = ({
     &&:hover,
     &&:active {
       background-color: ${PALETTE.rest};
+      color: ${COLORS.LABEL_L2_COLOR};
     }`
     : '';
 
@@ -200,6 +201,14 @@ const Button: React.FC<ButtonProps> = ({
       ? ''
       : `.material-symbols-outlined { color: ${ink}; }`;
 
+  // KAN-725. Only a variant whose edge or ink changes under the pointer
+  // animates them; the others keep the one transition they had.
+  const retints = PALETTE.hoverInk !== PALETTE.ink;
+  const transition = retints
+    ? `background-color ${DURATION.COLOR}, border-color ${DURATION.COLOR}, color ${DURATION.COLOR}`
+    : `background-color ${DURATION.COLOR}`;
+  const hoverInkCss = retints ? `color: ${PALETTE.hoverInk};` : '';
+
   const buttonStyle = css`
     background-color: ${PALETTE.rest};
     border: ${PALETTE.border};
@@ -212,17 +221,14 @@ const Button: React.FC<ButtonProps> = ({
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};
     cursor: ${busy ? 'progress' : 'pointer'};
-    transition:
-      background-color ${DURATION.COLOR},
-      border-color ${DURATION.COLOR},
-      color ${DURATION.COLOR};
+    transition: ${transition};
     color: ${PALETTE.ink};
     /* KAN-311. A key hint steps up to the ink on the same trigger as the
        fill, so it never sits on the darker fill in its resting colour. */
     &:hover {
       background-color: ${PALETTE.hover};
       ${PALETTE.hoverEdge && `border-color: ${PALETTE.hoverEdge};`}
-      color: ${PALETTE.hoverInk};
+      ${hoverInkCss}
       ${glyphInk(PALETTE.hoverInk)}
       [data-key-hint] {
         color: ${PALETTE.hoverInk};
@@ -232,7 +238,7 @@ const Button: React.FC<ButtonProps> = ({
     &:active {
       background-color: ${press};
       ${pressEdge && `border-color: ${pressEdge};`}
-      color: ${PALETTE.hoverInk};
+      ${hoverInkCss}
       ${glyphInk(PALETTE.hoverInk)}
       [data-key-hint] {
         color: ${PALETTE.hoverInk};
