@@ -201,7 +201,7 @@ test('step 2 side by side: the edge only in a window wide enough for the grip', 
   await nextTo(page, 2);
   await expect(grip).toHaveCount(1);
   await expect(card(page)).toContainText(
-    'Drag the edge to make this wider, or press'
+    'Type in the search box to find an open tab. Drag the edge to make this wider, or press'
   );
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(grip).toHaveCount(0);
@@ -223,8 +223,9 @@ test('step 2 in the default folded view names the fold button it shows, and pres
     card(page).getByRole('img', { name, exact: true });
   await expect(fold).toHaveAccessibleName('Show the saved session');
   await expect(card(page)).toContainText(
-    'Search here to find an open tab fast. Press'
+    'Type in the search box to find an open tab. Press'
   );
+  await expect(card(page)).not.toContainText('Search here');
   await expect(card(page)).toContainText(
     'to show the saved session beside it.'
   );
@@ -245,8 +246,9 @@ test('step 2 in the default folded view names the fold button it shows, and pres
   await expect(page.locator('[data-resize-grip]')).toHaveCount(0);
   await expect(card(page)).not.toContainText('Drag the edge');
   await expect(card(page)).toContainText(
-    'Search here to find an open tab fast. Press'
+    'Type in the search box to find an open tab. Press'
   );
+  await expect(card(page)).not.toContainText('Search here');
   await expect(card(page)).toContainText('to give Open now the whole view.');
   await expect(glyph('Fold the saved session away')).toBeVisible();
   expect(await glyph('Fold the saved session away').textContent()).toBe(
@@ -659,6 +661,10 @@ test.describe('with saved sessions', () => {
     );
     await expect.poll(() => cardSide(page)).toBe('right');
     await nextTo(page, 4);
+    // KAN-735. Step 3 already named the list, so step 4 only says what the selection shows.
+    await expect(card(page).locator('p').first()).toHaveText(
+      'The selected session shows its windows and tabs on the right.'
+    );
     await expect
       .poll(() => storedRun(page))
       .toMatchObject({ sessionId: 'new' });

@@ -236,7 +236,7 @@ export default function FirstRun() {
           text: isFolded ? (
             <GlyphSentence
               sentence={t(
-                'Search here to find an open tab fast. Press {{icon}} to show the saved session beside it.',
+                'Type in the search box to find an open tab. Press {{icon}} to show the saved session beside it.',
                 { icon: GLYPH_SLOT }
               )}
               icon={FOLD_ICON.folded}
@@ -248,11 +248,11 @@ export default function FirstRun() {
               sentence={
                 hasGrip
                   ? t(
-                      'Search here to find an open tab fast. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.',
+                      'Type in the search box to find an open tab. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.',
                       { icon: GLYPH_SLOT }
                     )
                   : t(
-                      'Search here to find an open tab fast. Press {{icon}} to give Open now the whole view.',
+                      'Type in the search box to find an open tab. Press {{icon}} to give Open now the whole view.',
                       { icon: GLYPH_SLOT }
                     )
               }
@@ -314,9 +314,15 @@ export default function FirstRun() {
         };
       case 'row':
         return {
-          text: t(
-            'Here are your saved sessions. The selected one shows its windows and tabs on the right.'
-          ),
+          // KAN-735. After the saved-sessions card, step 3 already named the list.
+          text:
+            saveCard === 'sessions'
+              ? t(
+                  'The selected session shows its windows and tabs on the right.'
+                )
+              : t(
+                  'Here are your saved sessions. The selected one shows its windows and tabs on the right.'
+                ),
           primary: next,
         };
       case 'open':
@@ -345,6 +351,7 @@ export default function FirstRun() {
           text: t(
             "Copy all links, export, or delete this session from this menu. Deleting doesn't close your open windows."
           ),
+          fine: t("Right-clicking the session's title opens this menu too."),
           primary: next,
         };
       case 'windows':
