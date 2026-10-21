@@ -31,13 +31,13 @@ import { asWritten } from '../setup/asWritten';
 // e2e measures that the marker reflows nothing.
 
 const NAMES = [
+  'Chalk',
   'Paper',
   'Parchment',
   'Petal',
-  'Chalk',
+  'Charcoal',
   'Graphite',
   'Ink',
-  'Charcoal',
 ];
 
 const renderDisplay = () =>
@@ -170,12 +170,11 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
   });
 });
 
-// KAN-247. 14px between tiles, up from 10. Not 16: measured at the real 790px
-// popup in ja -- two katakana captions are 76.8px, wider than their tiles --
-// the row has 434.3px for 369.6px of content, so 16px is the exact ceiling
-// before Ink wraps, and the katakana come from the SYSTEM font, so their width
-// is not ours to pin. 14 leaves ~9px for that. theme-swatch-marker.spec pins
-// the no-wrap in a browser.
+// KAN-247. 14px between tiles, up from 10. Not 16: in ja two katakana captions
+// are 76.8px, wider than their tiles, and the katakana come from the SYSTEM
+// font, so their width is not ours to pin. The row is now a 4-column grid, so
+// the old one-row ceiling is gone; the gap stays 14. theme-swatch-marker.spec
+// pins the layout in a browser.
 describe('the theme picker spaces its tiles (KAN-247)', () => {
   test('the row gap is 14px', async () => {
     await renderDisplay();
