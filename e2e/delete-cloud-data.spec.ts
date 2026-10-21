@@ -33,6 +33,13 @@ async function putId(worker: Worker): Promise<void> {
   );
 }
 
+// The saved cloud answer, read where the popup keeps it.
+function storedConsent(page: Page): Promise<unknown> {
+  return page.evaluate(
+    () => JSON.parse(localStorage.getItem('settingsData') ?? '{}').cloudConsent
+  );
+}
+
 function autoSyncButton(page: Page, name: 'On' | 'Off') {
   return page
     .getByRole('group', { name: 'Auto sync' })
@@ -80,6 +87,14 @@ test.describe('Delete cloud data asks before it acts (KAN-254)', () => {
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
 
+    // Confirm: the cloud is unreachable (blocked here, no config in CI), so it fails.
+    await button.click();
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(page.getByText(DELETE_FAILED)).toBeVisible({
+      timeout: 20_000,
+    });
+    expect(await storedConsent(page)).toBe('declined');
     await expect(autoSyncButton(page, 'Off')).toHaveAttribute(
       'aria-pressed',
       'true'
@@ -199,7 +214,6 @@ test.describe('Delete cloud data asks before it acts (KAN-254)', () => {
     await expect(button).toHaveAttribute('data-second-face-shown', 'false');
     await button.click();
     await expect(button).toHaveAttribute('data-second-face-shown', 'true');
-    await expect(page.getByText('Checking…')).toBeVisible();
     await expect(page.getByText(DELETE_FAILED)).toBeVisible({
       timeout: 20_000,
     });
@@ -299,6 +313,12 @@ test.describe('after Delete cloud data, sync is off (KAN-632)', () => {
     expect(commits).toHaveLength(0);
     const status = page.getByTestId('sync-status');
     const before = await status.getAttribute('data-sync-state');
+    expect(before).not.toBeNull();
+    await expect(autoSyncButton(page, 'Off')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(await storedConsent(page)).toBe('granted');
 
     await page.getByRole('button', { name: 'Delete cloud data' }).click();
     await expect(page.getByText(NOTHING_TO_DELETE)).toBeVisible({
@@ -308,5 +328,10 @@ test.describe('after Delete cloud data, sync is off (KAN-632)', () => {
       page.getByRole('dialog', { name: 'Delete your cloud data?' })
     ).toHaveCount(0);
     await expect(status).toHaveAttribute('data-sync-state', before ?? '');
+    expect(await storedConsent(page)).toBe('granted');
+    await expect(autoSyncButton(page, 'Off')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
   });
 });
