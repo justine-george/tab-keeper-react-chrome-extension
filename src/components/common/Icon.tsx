@@ -170,6 +170,12 @@ const Icon: React.FC<IconProps> = ({
   const pressColor = danger
     ? COLORS.DANGER_FILL_DEEP
     : COLORS.ICON_ACTIVE_COLOR;
+  // KAN-725. The glyph's ink eases with the fill, so it never shows white on the pale ground.
+  const dangerInkEaseCss = `
+    .material-symbols-outlined,
+    svg {
+      transition: color ${DURATION.MOVE};
+    }`;
   // KAN-725. The glyph sets its own colour, so the red state reaches it by
   // descendant; the ring is drawn on the container and recoloured here.
   const dangerInkCss = (state: string) => `
@@ -239,7 +245,7 @@ const Icon: React.FC<IconProps> = ({
     &:active {
       background-color: ${pressColor};
     }
-    ${danger ? dangerInkCss(':hover') + dangerInkCss(':active') : ''}
+    ${danger ? dangerInkEaseCss + dangerInkCss(':hover') + dangerInkCss(':active') : ''}
     /* KAN-217. A menu trigger holds the press while its menu is open. Opening
        the menu moves the pointer onto it and off the trigger, so :hover alone
        dropped the fill while the menu was still on screen -- and a menu opened

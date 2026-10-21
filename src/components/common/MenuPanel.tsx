@@ -43,6 +43,9 @@ export interface OverflowMenuItem {
 // the bundled subset renders as the word itself (KAN-215).
 const RADIO_CHECK_ICON: IconName = 'check';
 
+// The item fill's easing; a danger item's ink and key hint ease on it too (KAN-725).
+const ITEM_EASING = 'cubic-bezier(0.2, 0, 0, 1)';
+
 // KAN-708. The ⋮ and row menus' role="menu" box and items; the caller owns placement (positionCss), list behaviour and closing.
 export function MenuPanel({
   ariaLabel,
@@ -86,6 +89,12 @@ export function MenuPanel({
     font-family: ${FONT_FAMILY};
   `;
 
+  // KAN-725. A danger item's hint sets its own ink, so it eases on the item's timing itself.
+  const dangerHintEase = `
+    transition-property: color;
+    transition-duration: ${DURATION.COLOR};
+    transition-timing-function: ${ITEM_EASING};`;
+
   const itemStyle = (danger?: boolean) => css`
     display: flex;
     align-items: center;
@@ -105,10 +114,10 @@ export function MenuPanel({
     white-space: nowrap;
     /* KAN-725. A danger item is red ink at rest; the glyph and key hint follow it. */
     color: ${danger ? COLORS.DANGER_INK : COLORS.TEXT_COLOR};
-    /* Named properties, never the all keyword. */
-    transition-property: background-color;
+    /* Named properties, never the all keyword. KAN-725. A danger item's ink eases with its fill. */
+    transition-property: ${danger ? 'background-color, color' : 'background-color'};
     transition-duration: ${DURATION.COLOR};
-    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+    transition-timing-function: ${ITEM_EASING};
     /* KAN-725. A danger item fills red under white ink; ON_DANGER_FILL, never TEXT_COLOR, which fails on the fill. */
     &:hover {
       background-color: ${danger ? COLORS.DANGER_FILL : COLORS.HOVER_COLOR};
@@ -118,6 +127,7 @@ export function MenuPanel({
        red on a danger item, and takes the item's ink once the row is touched. */
     [data-key-hint] {
       color: ${danger ? COLORS.DANGER_INK : COLORS.LABEL_L1_COLOR};
+      ${danger ? dangerHintEase : ''}
     }
     &:hover [data-key-hint],
     &:active [data-key-hint] {

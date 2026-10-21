@@ -92,6 +92,27 @@ describe('a danger Icon', () => {
     expect(classRulesFor(button)).toMatch(asWritten(LIGHT_THEME.TEXT_COLOR));
   });
 
+  // KAN-725. The fill eases in, so a glyph that switched at once would show white on the pale ground.
+  test('eases its glyph ink with its fill; a plain icon does not', async () => {
+    await renderWithProviders(
+      <>
+        <Icon type="delete" danger ariaLabel="Delete tab" onClick={noop} />
+        <Icon type="close" ariaLabel="Dismiss" onClick={noop} />
+      </>
+    );
+    const danger = screen.getByRole('button', { name: 'Delete tab' });
+    const glyph = danger.querySelector('.material-symbols-outlined');
+    if (!glyph) throw new Error('no glyph');
+    expect(getComputedStyle(glyph).transition).toBe(
+      getComputedStyle(danger).transition.replace('background-color', 'color')
+    );
+
+    const plain = screen.getByRole('button', { name: 'Dismiss' });
+    const plainGlyph = plain.querySelector('.material-symbols-outlined');
+    if (!plainGlyph) throw new Error('no glyph');
+    expect(getComputedStyle(plainGlyph).transition).toBe('');
+  });
+
   test('stays inert when disabled', async () => {
     await renderWithProviders(
       <Icon

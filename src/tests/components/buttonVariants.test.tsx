@@ -10,6 +10,7 @@ import {
   hoverRulesFor,
 } from '../setup/hoverRules';
 import { mixHex } from '../../styles/mixHex';
+import { DURATION } from '../../styles/scale';
 
 // KAN-205. 22 components carry an onClick; 7 imported Button. The other 15 each
 // built their own clickable surface, which is where the inconsistency people
@@ -223,6 +224,27 @@ describe('Button variants (KAN-205)', () => {
     const quiet = classRulesFor(button());
     expect(quiet).not.toMatch(/transition:[^;]*border-color/);
     expect(quiet).not.toMatch(/transition:[^;]*[^-]color 120ms/);
+  });
+
+  // KAN-725. The fill eases in, so an ink that switched at once would show white on the pale ground.
+  test("a danger button's glyph and key hint ease their ink with the fill", async () => {
+    const { unmount } = await render({
+      variant: 'danger',
+      iconType: 'delete',
+      keyHint: KEY_HINT,
+    });
+    const glyph = button().querySelector('.material-symbols-outlined');
+    const hint = button().querySelector('[data-key-hint]');
+    if (glyph === null || hint === null) throw new Error('no glyph or hint');
+    expect(getComputedStyle(glyph).transition).toBe(`color ${DURATION.COLOR}`);
+    expect(getComputedStyle(hint).transition).toBe(`color ${DURATION.COLOR}`);
+    unmount();
+
+    // CONTROL. A quiet button's glyph keeps no transition of its own.
+    await render({ iconType: 'delete' });
+    const quietGlyph = button().querySelector('.material-symbols-outlined');
+    if (quietGlyph === null) throw new Error('no glyph');
+    expect(getComputedStyle(quietGlyph).transition).toBe('');
   });
 
   // KAN-725. Red as a danger menu item's hint is; any other variant keeps LABEL_L1.

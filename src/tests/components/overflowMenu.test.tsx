@@ -441,6 +441,46 @@ describe('OverflowMenu destructive styling', () => {
     expect(rules).not.toMatch(asWritten(LIGHT_THEME.DANGER_INK));
     expect(rules).toMatch(asWritten(LIGHT_THEME.HOVER_COLOR));
   });
+
+  // KAN-725. The fill eases in, so ink that switched at once would show white on the pale ground.
+  test("a danger item's ink and key hint ease with its fill; other items' do not", async () => {
+    const user = userEvent.setup();
+    const shortcut = {
+      hint: 'Del',
+      ariaKeyShortcuts: 'Delete',
+      matches: () => false,
+    };
+    await renderMenu({
+      items: [
+        { ...DANGER_ITEM, shortcut },
+        {
+          key: 'ungroup',
+          label: 'Ungroup',
+          icon: 'label_off',
+          onSelect: () => undefined,
+          shortcut: { ...shortcut, hint: 'U' },
+        },
+      ],
+    });
+    await user.click(trigger());
+
+    const danger = screen.getByRole('menuitem', { name: 'Delete group' });
+    const dangerHint = danger.querySelector('[data-key-hint]');
+    if (dangerHint === null) throw new Error('no hint');
+    const item = getComputedStyle(danger);
+    expect(item.transitionProperty).toMatch(/^background-color, ?color$/);
+    const hint = getComputedStyle(dangerHint);
+    expect(hint.transitionProperty).toBe('color');
+    expect(hint.transitionDuration).toBe(item.transitionDuration);
+    expect(hint.transitionTimingFunction).toBe(item.transitionTimingFunction);
+
+    // CONTROL. A plain item keeps its one transition, and its hint none.
+    const plain = screen.getByRole('menuitem', { name: 'Ungroup' });
+    const plainHint = plain.querySelector('[data-key-hint]');
+    if (plainHint === null) throw new Error('no hint');
+    expect(getComputedStyle(plain).transitionProperty).toBe('background-color');
+    expect(getComputedStyle(plainHint).transitionDuration).toBe('0s');
+  });
 });
 
 // KAN-193. The menu was always anchored to its trigger's RIGHT edge, which

@@ -216,6 +216,11 @@ const Button: React.FC<ButtonProps> = ({
   const transition = variantRetints
     ? `background-color ${DURATION.COLOR}, border-color ${DURATION.COLOR}, color ${DURATION.COLOR}`
     : `background-color ${DURATION.COLOR}`;
+  // KAN-725. The glyph's ink eases with the fill, so it never shows white on the pale ground.
+  const glyphTransition =
+    variantRetints && !iconColor
+      ? `.material-symbols-outlined { transition: color ${DURATION.COLOR}; }`
+      : '';
   const hoverInkCss = touchedInk !== PALETTE.ink ? `color: ${touchedInk};` : '';
 
   const buttonStyle = css`
@@ -232,6 +237,7 @@ const Button: React.FC<ButtonProps> = ({
     cursor: ${busy ? 'progress' : 'pointer'};
     transition: ${transition};
     color: ${PALETTE.ink};
+    ${glyphTransition}
     /* KAN-311. A key hint steps up to the ink on the same trigger as the
        fill, so it never sits on the darker fill in its resting colour. */
     &:hover {
