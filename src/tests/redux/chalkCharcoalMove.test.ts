@@ -3,17 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Theme } from '../../utils/constants/theme';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 
-// KAN-731. On this version's first open a stored Paper becomes Chalk and a
-// stored Graphite becomes Charcoal, once per device; a stored flag keeps a
-// later switch-back.
+// KAN-731. A first open moves a stored Paper to Chalk and Graphite to Charcoal, once per device; the flag keeps a switch-back.
 
 const setOs = (dark: boolean) =>
   vi.stubGlobal('window', {
     matchMedia: (q: string) => new FakeMediaQueryList(q, dark),
   });
 
-// One page's open: its own module graph over the shared localStorage, as
-// each extension page has, so its saves merge against what IT loaded.
+// One page's open: its own module graph over the shared localStorage, so its saves merge against what IT loaded.
 async function openPage() {
   vi.resetModules();
   return import('../../redux/slices/settingsDataStateSlice');
@@ -199,5 +196,54 @@ describe('with two pages open', () => {
     });
     const next = await openPage();
     expect(next.initialState.theme).toBe(Theme.LIGHT);
+  });
+});
+
+// KAN-731. Another page's write: the flag is guarded like the pin flag.
+describe('another page writing the flag', () => {
+  // The store's graph reads window.screen at load; the OS stub has none.
+  beforeEach(() =>
+    vi.stubGlobal('window', {
+      matchMedia: (q: string) => new FakeMediaQueryList(q, false),
+      screen: { height: 1080, width: 1920 },
+    })
+  );
+
+  async function hydrate(written: Record<string, unknown>) {
+    vi.resetModules();
+    const { makeTestStore } = await import('../setup/makeStore');
+    const { applyOtherPageSettings } =
+      await import('../../redux/otherPageChanges');
+    const { store: page } = makeTestStore();
+    const current = page.getState().settingsDataState;
+    // PREMISE: this page holds the flag set.
+    expect(current.isChalkCharcoalMoveApplied).toBe(true);
+    const older = Object.fromEntries(
+      Object.entries(current).filter(
+        ([key]) => key !== 'isChalkCharcoalMoveApplied'
+      )
+    );
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({ ...older, timeFormat: 'h23', ...written })
+    );
+    page.dispatch(applyOtherPageSettings());
+    return page.getState().settingsDataState;
+  }
+
+  it.each([['yes'], [1], [null]])(
+    'reads a malformed value (%s) as not applied',
+    async (raw) => {
+      const next = await hydrate({ isChalkCharcoalMoveApplied: raw });
+      expect(next.isChalkCharcoalMoveApplied).toBe(false);
+    }
+  );
+
+  it('keeps ours when the write lacks it', async () => {
+    const next = await hydrate({});
+    expect(next).toMatchObject({
+      timeFormat: 'h23',
+      isChalkCharcoalMoveApplied: true,
+    });
   });
 });

@@ -37,6 +37,17 @@ export function isDarkTheme(theme: Theme): boolean {
   );
 }
 
+// KAN-731. Every theme's table; a Record so a new theme without one fails to compile.
+const THEME_COLORS: Record<Theme, ThemeColors> = {
+  [Theme.LIGHT]: LIGHT_THEME,
+  [Theme.WARM_LIGHT]: WARM_LIGHT_THEME,
+  [Theme.BB_PINK]: BB_PINK_THEME,
+  [Theme.DARKENHEIMER]: DARKENHEIMER_THEME,
+  [Theme.BLUE]: BLUE_THEME,
+  [Theme.CHALK]: CHALK_THEME,
+  [Theme.CHARCOAL]: CHARCOAL_THEME,
+};
+
 export function useThemeColors() {
   const settingsData = useSelector(
     (state: RootState) => state.settingsDataState
@@ -45,22 +56,9 @@ export function useThemeColors() {
   const override = React.useContext(ThemeColorsOverride);
   if (override) return override;
 
-  if (settingsData.theme === Theme.LIGHT) {
-    return LIGHT_THEME;
-  } else if (settingsData.theme === Theme.BLUE) {
-    return BLUE_THEME;
-  } else if (settingsData.theme === Theme.BB_PINK) {
-    return BB_PINK_THEME;
-  } else if (settingsData.theme === Theme.DARKENHEIMER) {
-    return DARKENHEIMER_THEME;
-  } else if (settingsData.theme === Theme.WARM_LIGHT) {
-    return WARM_LIGHT_THEME;
-  } else if (settingsData.theme === Theme.CHALK) {
-    return CHALK_THEME;
-  } else if (settingsData.theme === Theme.CHARCOAL) {
-    return CHARCOAL_THEME;
-  }
+  const colors: ThemeColors | undefined = THEME_COLORS[settingsData.theme];
+  if (colors) return colors;
 
   // KAN-731. A theme this build does not know reads as the default.
-  return defaultTheme() === Theme.CHARCOAL ? CHARCOAL_THEME : CHALK_THEME;
+  return THEME_COLORS[defaultTheme()];
 }

@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import { renderHook, screen } from '@testing-library/react';
-import { configureStore } from '@reduxjs/toolkit';
 import { Provider } from 'react-redux';
 
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 
+import { makeTestStore } from '../setup/makeStore';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { applyOtherPageSettings } from '../../redux/otherPageChanges';
 import {
   CHALK_THEME,
   CHARCOAL_THEME,
@@ -75,23 +76,30 @@ describe('overriding the theme colours for one subtree (KAN-198)', () => {
     expect(screen.getByTestId('probe').textContent).toBe(table.SECONDARY_COLOR);
   });
 
-  // KAN-731. A stored theme this build never shipped reads as the default; raw JSON, so no cast.
+  // KAN-731. Another page writes a theme this build never shipped: this page reads the default.
   describe.each([
-    ['light OS', false, CHALK_THEME],
-    ['dark OS', true, CHARCOAL_THEME],
-  ])('an unknown stored theme on a %s', (_os, dark, table) => {
+    ['light OS', false, Theme.CHALK, CHALK_THEME],
+    ['dark OS', true, Theme.CHARCOAL, CHARCOAL_THEME],
+  ])('an unknown theme written on a %s', (_os, dark, fallback, table) => {
     const original = window.matchMedia;
     afterEach(() => {
       window.matchMedia = original;
+      localStorage.clear();
     });
 
     test('reads the default table', () => {
       window.matchMedia = (q: string) => new FakeMediaQueryList(q, dark);
-      const store = configureStore({
-        reducer: {
-          settingsDataState: () => JSON.parse('{"theme":"Nonsense"}'),
-        },
-      });
+      const { store } = makeTestStore();
+      localStorage.setItem(
+        'settingsData',
+        JSON.stringify({
+          ...store.getState().settingsDataState,
+          theme: 'Nonsense',
+        })
+      );
+      store.dispatch(applyOtherPageSettings());
+
+      expect(store.getState().settingsDataState.theme).toBe(fallback);
       const { result } = renderHook(() => useThemeColors(), {
         wrapper: ({ children }) => (
           <Provider store={store}>{children}</Provider>
