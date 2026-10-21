@@ -105,9 +105,9 @@ describe('tooltipDescription', () => {
   });
 
   test('keeps a tooltip that says more than the name', () => {
-    expect(tooltipDescription('Replace with open windows', 'Replace')).toBe(
-      'Replace with open windows'
-    );
+    expect(
+      tooltipDescription('Replace this session with open windows', 'Replace')
+    ).toBe('Replace this session with open windows');
   });
 
   test('is undefined without a tooltip, or an empty one', () => {

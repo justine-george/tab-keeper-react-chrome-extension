@@ -73,7 +73,7 @@ interface TabGroupEntryProps {
   onTabGroupClick: () => void;
   onOpenAllClick: MouseEventHandler;
   onFocusClick: MouseEventHandler;
-  // KAN-581. The ⋮ menu's Replace with open windows, on the row.
+  // KAN-581. The ⋮ menu's Replace this session with open windows, on the row.
   onReplaceClick: MouseEventHandler;
   // KAN-592. The ⋮ menu's Delete session, by key on the focused row.
   onDeleteKey: () => void;
@@ -559,7 +559,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           )}
           <Icon
             tooltipText={
-              afterTheTour?.replace ?? t('Replace with open windows')
+              afterTheTour?.replace ??
+              t('Replace this session with open windows')
             }
             text={t('Replace')}
             ariaLabel={t('Replace')}

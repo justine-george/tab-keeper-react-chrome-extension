@@ -66,7 +66,7 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
     for (const name of [
       'Open session, keeping current windows',
       'Close current windows and open this session',
-      'Replace with open windows',
+      'Replace this session with open windows',
       'More actions',
     ]) {
       expect(screen.queryByRole('button', { name }), name).not.toBeNull();

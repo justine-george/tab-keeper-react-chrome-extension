@@ -145,6 +145,8 @@ export const TOAST_MESSAGES = {
   CLOUD_DATA_DELETED: 'Cloud data deleted. Sync is off on this device.',
   CLOUD_DATA_DELETE_FAILED:
     "Couldn't delete cloud data. Check your connection and try again.",
+  // KAN-719. Said instead of a delete when the cloud holds nothing, or this device has no id to hold anything under.
+  NO_CLOUD_DATA_TO_DELETE: 'No cloud data to delete.',
   // KAN-593. The remedy is true: a deleted session leaves only a tombstone in
   // localStorage (Recently deleted keeps it in chrome.storage.local), and the
   // next save that fits writes every change the full storage refused.

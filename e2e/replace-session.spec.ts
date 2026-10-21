@@ -4,7 +4,7 @@ import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { stored } from './fixtures/savedWindows';
 
-// KAN-468. Replace with open windows on the real artifact: what is open goes in, the name stays, ⌘Z takes it back.
+// KAN-468. Replace this session with open windows on the real artifact: what is open goes in, the name stays, ⌘Z takes it back.
 
 const page = (title: string) => `data:text/html,<title>${title}</title>`;
 
@@ -73,7 +73,10 @@ const urlsOf = (s: Awaited<ReturnType<typeof trip>>) =>
 // KAN-581. In the session header's row, beside Open and Switch.
 async function replace(popup: Page): Promise<void> {
   await popup
-    .getByRole('button', { name: 'Replace with open windows', exact: true })
+    .getByRole('button', {
+      name: 'Replace this session with open windows',
+      exact: true,
+    })
     .click();
 }
 

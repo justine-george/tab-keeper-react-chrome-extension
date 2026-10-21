@@ -126,7 +126,10 @@ function Fixture({ withB = true }: { withB?: boolean }) {
       <button data-tooltip="Weekend in Kyoto">
         <span data-testid="repeat">Weekend in Kyoto</span>
       </button>
-      <Button text="Replace" tooltipText="Replace with open windows" />
+      <Button
+        text="Replace"
+        tooltipText="Replace this session with open windows"
+      />
       <div data-testid="pane" tabIndex={0} style={{ overflow: 'auto' }} />
       <dialog open>
         <button data-tooltip="In dialog">d</button>
@@ -214,7 +217,7 @@ describe('timing', () => {
     wait(250);
     pointerTo(byTip('Delete'));
     wait(250);
-    pointerTo(byTip('Replace with open windows'));
+    pointerTo(byTip('Replace this session with open windows'));
     wait(250);
     pointerTo(screen.getByTestId('plain'));
     wait(1000);
@@ -619,7 +622,9 @@ describe('what it draws, and where', () => {
     pointerTo(replace);
     wait(300);
     expect(chip()).toHaveAttribute('aria-hidden', 'true');
-    expect(replace).toHaveAccessibleDescription('Replace with open windows');
+    expect(replace).toHaveAccessibleDescription(
+      'Replace this session with open windows'
+    );
     expect(attrs(replace)).toEqual(before);
 
     const a = byTip('Save session');

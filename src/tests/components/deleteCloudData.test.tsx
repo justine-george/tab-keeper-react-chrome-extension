@@ -1,5 +1,11 @@
-import { describe, expect, test, vi } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Inlined rather than imported: a vi.hoisted block runs before the module
@@ -21,11 +27,18 @@ vi.mock('../../utils/functions/external', () => ({
   saveToFirestore: vi.fn(),
   deleteFromFirestore: mocks.deleteFromFirestore,
   ensureCloudSessionReady: vi.fn(async () => undefined),
+  // KAN-719. The confirm reads before it deletes.
+  cloudDocumentExists: vi.fn(async () => true),
 }));
 
+import { cloudDocumentExists } from '../../utils/functions/external';
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { DeleteCloudDataModal } from '../../components/modals/DeleteCloudDataModal';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { asWritten } from '../setup/asWritten';
+import { newestToast } from '../setup/toasts';
+import { LIGHT_THEME } from '../../hooks/useThemeColors';
+import { TOAST_MESSAGES } from '../../utils/constants/common';
 import {
   selectCategory,
   SettingsCategory,
@@ -36,6 +49,7 @@ import {
   setUserId,
 } from '../../redux/slices/globalStateSlice';
 import {
+  declineCloudConsent,
   grantCloudConsent,
   setAutoSync,
   setLastSyncedTime,
@@ -55,6 +69,7 @@ describe('the Sync & Backup pane offers Delete cloud data (KAN-254)', () => {
         s.dispatch(selectCategory(SettingsCategory.SYNC));
         s.dispatch(setSignedIn());
         s.dispatch(setUserId('uuid-1'));
+        s.dispatch(grantCloudConsent());
       },
     });
 
@@ -63,7 +78,9 @@ describe('the Sync & Backup pane offers Delete cloud data (KAN-254)', () => {
     expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(false);
 
     await user.click(button);
-    expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(true);
+    await waitFor(() =>
+      expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(true)
+    );
     // Opening asks; it does not delete.
     expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
   });
@@ -160,4 +177,145 @@ describe('after Delete cloud data, Sync Status (KAN-573, KAN-632)', () => {
       expect(screen.queryByTestId('sync-space')).toBeNull();
     });
   }
+});
+
+// KAN-719. A granted press reads the cloud first; the button says so once the
+// read has taken longer than 300ms, and ignores presses until it ends.
+describe('the Delete cloud data button while it checks (KAN-719)', () => {
+  let resolveCheck: (exists: boolean) => void;
+
+  beforeEach(() => {
+    // No shouldAdvanceTime: real time must not push "299ms" past 300.
+    vi.useFakeTimers();
+    vi.mocked(cloudDocumentExists)
+      .mockClear()
+      .mockImplementation(
+        () =>
+          new Promise<boolean>((resolve) => {
+            resolveCheck = resolve;
+          })
+      );
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.mocked(cloudDocumentExists).mockReset().mockResolvedValue(true);
+  });
+
+  const flush = (ms = 0) =>
+    act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+
+  const renderPane = (consent: 'granted' | 'declined') =>
+    renderWithProviders(<SettingsDetailsContainer />, {
+      seedStore: (s) => {
+        s.dispatch(selectCategory(SettingsCategory.SYNC));
+        s.dispatch(setSignedIn());
+        s.dispatch(setUserId('uuid-1'));
+        s.dispatch(
+          consent === 'granted' ? grantCloudConsent() : declineCloudConsent()
+        );
+      },
+    });
+
+  const deleteButton = () =>
+    screen.getByRole('button', { name: 'Delete cloud data' });
+  const press = async () => {
+    fireEvent.click(deleteButton());
+    await flush();
+  };
+  const faceShown = () => deleteButton().getAttribute('data-second-face-shown');
+  const dialogOpen = (store: Awaited<ReturnType<typeof renderPane>>['store']) =>
+    store.getState().globalState.isDeleteCloudDataModalOpen;
+
+  test('a check that ends before 300ms never shows Checking…', async () => {
+    const { store } = await renderPane('granted');
+    await press();
+    expect(faceShown()).toBe('false');
+    await flush(299);
+    expect(faceShown()).toBe('false');
+
+    resolveCheck(true);
+    await flush();
+    expect(faceShown()).toBe('false');
+    expect(dialogOpen(store)).toBe(true);
+    // The cleared timer must not fire late.
+    await flush(1000);
+    expect(faceShown()).toBe('false');
+  });
+
+  test('a check still running at 300ms shows Checking…, then clears', async () => {
+    const { store } = await renderPane('granted');
+    await press();
+    await flush(300);
+    expect(faceShown()).toBe('true');
+    expect(
+      deleteButton().querySelector('[data-second-face]')
+    ).toHaveTextContent('Checking…');
+    expect(deleteButton()).toHaveAttribute('aria-disabled', 'true');
+
+    resolveCheck(false);
+    await flush();
+    expect(faceShown()).toBe('false');
+    expect(deleteButton()).not.toHaveAttribute('aria-disabled');
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE
+    );
+    expect(dialogOpen(store)).toBe(false);
+  });
+
+  test('a check past 300ms that finds a document clears the face as the dialog opens', async () => {
+    const { store } = await renderPane('granted');
+    await press();
+    await flush(300);
+    expect(faceShown()).toBe('true');
+    expect(dialogOpen(store)).toBe(false);
+
+    resolveCheck(true);
+    await flush();
+    expect(faceShown()).toBe('false');
+    expect(dialogOpen(store)).toBe(true);
+    expect(deleteButton()).not.toHaveAttribute('aria-disabled');
+  });
+
+  test('presses during the check start no second check', async () => {
+    await renderPane('granted');
+    await press();
+    await press();
+    await press();
+    expect(cloudDocumentExists).toHaveBeenCalledTimes(1);
+    resolveCheck(true);
+    await flush();
+  });
+
+  test('the busy label keeps its ink', async () => {
+    await renderPane('granted');
+    await press();
+    expect(deleteButton()).toHaveAttribute('aria-disabled', 'true');
+    const ink = getComputedStyle(deleteButton()).color;
+    expect(ink).toMatch(asWritten(LIGHT_THEME.TEXT_COLOR));
+    expect(ink).not.toMatch(asWritten(LIGHT_THEME.LABEL_L2_COLOR));
+    resolveCheck(true);
+    await flush();
+  });
+
+  test('the accessible name stays Delete cloud data while busy', async () => {
+    await renderPane('granted');
+    await press();
+    await flush(300);
+    expect(faceShown()).toBe('true');
+    expect(
+      screen.getByRole('button', { name: 'Delete cloud data' })
+    ).toBeTruthy();
+    resolveCheck(true);
+    await flush();
+  });
+
+  test('declined: the dialog opens with no check and no face', async () => {
+    const { store } = await renderPane('declined');
+    await press();
+    expect(dialogOpen(store)).toBe(true);
+    expect(cloudDocumentExists).not.toHaveBeenCalled();
+    expect(faceShown()).toBe('false');
+  });
 });

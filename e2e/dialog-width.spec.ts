@@ -2,6 +2,7 @@ import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
+import { putDeviceId, storedDeviceId } from './fixtures/cloud';
 import { hello } from './fixtures/run';
 
 // KAN-301. The four confirm dialogs (CloudConsentModal, FocusConfirmModal,
@@ -183,8 +184,16 @@ test.describe('Delete cloud data dialog stays capped in the tab view (KAN-301)',
   test('is 616±1px wide at 1920 in the tab view', async ({
     context,
     extensionId,
+    serviceWorker,
   }) => {
+    // KAN-719. Declined with a stored id: the press opens the dialog without a cloud check.
+    await seedSettings(context, {
+      cloudConsent: 'declined',
+      isAutoSync: false,
+    });
     await seedSessions(context, buildContainer());
+    await putDeviceId(serviceWorker);
+    expect(await storedDeviceId(serviceWorker)).not.toBeNull();
     const tab = await openPage(
       context,
       extensionId,

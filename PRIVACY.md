@@ -55,7 +55,7 @@ The anonymous sync identifier is stored separately in Chrome sync storage. Chrom
 
 ### Google Firebase
 
-Tab Keeper asks for your permission before syncing for the first time on each device. It does not contact Firebase or upload sessions until you enable cloud sync or request a manual sync. If cloud data already exists, using **Delete cloud data** also contacts Firebase so that data can be removed.
+Tab Keeper asks for your permission before syncing for the first time on each device. It does not contact Firebase or upload sessions until you enable cloud sync or request a manual sync. Confirming **Delete cloud data** contacts Firebase to check for your cloud data and remove it.
 
 When cloud sync is enabled or you manually request a sync, Tab Keeper signs in to Firebase anonymously. Firebase creates an anonymous authentication record; no registration or email address is required.
 

@@ -216,7 +216,7 @@ describe('opens on the tour’s sample', () => {
 
     endTour(r);
     const replace = screen.getByRole('button', {
-      name: 'Replace with open windows',
+      name: 'Replace this session with open windows',
     });
     expect(replace).not.toHaveAttribute('aria-disabled');
     fireEvent.click(replace);

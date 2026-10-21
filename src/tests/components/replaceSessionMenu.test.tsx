@@ -46,13 +46,15 @@ const renderHeader = () =>
     },
   });
 
-describe('Replace with open windows', () => {
+describe('Replace this session with open windows', () => {
   test('replaces the shown session with what is open, keeps its name, and says so', async () => {
     const user = userEvent.setup();
     const { store } = await renderHeader();
 
     await user.click(
-      screen.getByRole('button', { name: 'Replace with open windows' })
+      screen.getByRole('button', {
+        name: 'Replace this session with open windows',
+      })
     );
 
     await waitFor(() => {
@@ -76,7 +78,7 @@ describe('Replace with open windows', () => {
     await renderHeader();
 
     const button = screen.getByRole('button', {
-      name: 'Replace with open windows',
+      name: 'Replace this session with open windows',
     });
 
     expect(
@@ -93,7 +95,9 @@ describe('Replace with open windows', () => {
     });
 
     expect(
-      screen.queryByRole('button', { name: 'Replace with open windows' })
+      screen.queryByRole('button', {
+        name: 'Replace this session with open windows',
+      })
     ).toBeNull();
   });
 });

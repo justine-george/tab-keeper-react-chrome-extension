@@ -50,6 +50,12 @@ interface ButtonProps {
    */
   ariaDisabled?: boolean;
   /**
+   * KAN-719. Presses do nothing and it says aria-disabled, but the label keeps
+   * its ink: the face says why ("Checking…"), so it has to stay legible.
+   * Independent of `ariaDisabled`, which dims the label.
+   */
+  busy?: boolean;
+  /**
    * A second face the button crossfades to while `shown` (KAN-221, KAN-222):
    * "Copied" for a moment after a copy, or an eye struck through while a row
    * is hidden. The two faces share one cell as wide as the wider, so the button
@@ -99,6 +105,7 @@ const Button: React.FC<ButtonProps> = ({
   style,
   variant = 'quiet',
   ariaDisabled,
+  busy,
   secondFace,
   keyHint,
 }) => {
@@ -306,11 +313,11 @@ const Button: React.FC<ButtonProps> = ({
       aria-label={ariaLabel}
       aria-description={tooltipDescription(tooltipText, ariaLabel ?? text)}
       aria-pressed={ariaPressed}
-      aria-disabled={ariaDisabled || undefined}
+      aria-disabled={ariaDisabled || busy || undefined}
       aria-keyshortcuts={keyHint?.ariaKeyShortcuts}
       data-second-face-shown={secondFace ? String(secondFace.shown) : undefined}
       css={buttonStyle}
-      onClick={ariaDisabled ? undefined : onClick}
+      onClick={ariaDisabled || busy ? undefined : onClick}
     >
       {secondFace ? (
         <span

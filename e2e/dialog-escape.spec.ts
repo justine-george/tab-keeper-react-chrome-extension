@@ -9,7 +9,7 @@ import {
 } from './fixtures/seed';
 import { openFullView, openPopup, storedSettings } from './fixtures/onboarding';
 import { escapesPrevented, watchEscapes } from './fixtures/escapeProbe';
-import { hasCloudConfig } from './fixtures/cloud';
+import { hasCloudConfig, putDeviceId, storedDeviceId } from './fixtures/cloud';
 import {
   cardAt,
   cardButton,
@@ -192,13 +192,19 @@ test('switch confirm: Esc is consumed, and switches nothing', async ({
   expect(await escapesPrevented(page)).toEqual([true]);
 });
 
+// KAN-719. Declined with a stored id: the press opens the dialog without a cloud check.
 test('delete cloud data: Esc is consumed, and is Cancel', async ({
   context,
   extensionId,
+  serviceWorker,
 }) => {
   await watchEscapes(context);
+  await seedSettings(context, { cloudConsent: 'declined', isAutoSync: false });
   await seedSessions(context, buildContainer());
+  await putDeviceId(serviceWorker);
+  expect(await storedDeviceId(serviceWorker)).not.toBeNull();
   const page = await openSyncAndBackup(context, extensionId);
+  await expect(autoSync(page, 'Off')).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Delete cloud data' }).click();
   const ask = dialog(page, 'Delete your cloud data?');
   await expect(ask).toBeVisible();
@@ -206,7 +212,7 @@ test('delete cloud data: Esc is consumed, and is Cancel', async ({
   await page.keyboard.press('Escape');
 
   await expect(ask).toHaveCount(0);
-  await expect(autoSync(page, 'On')).toHaveAttribute('aria-pressed', 'true');
+  await expect(autoSync(page, 'Off')).toHaveAttribute('aria-pressed', 'true');
   expect(await escapesPrevented(page)).toEqual([true]);
 });
 
