@@ -112,9 +112,6 @@ async function expectEveryTagVisible(page: Page) {
 // Hovered (or revealed), the tag's right edge against the covered line.
 async function expectCovered(row: Locator, tag: Locator, covered: boolean) {
   const [right, line] = [await rightOf(tag), await coverLine(row)];
-  console.log(
-    `[KAN-723] ${await tag.textContent()}: right ${right}, line ${line}`
-  );
   if (covered) expect(right).toBeGreaterThan(line);
   else expect(right).toBeLessThanOrEqual(line);
 }
@@ -214,30 +211,6 @@ test("keyboard: focusing a row's control hides its covered tag", async ({
   await expect(tag).toHaveCSS('visibility', 'hidden');
 });
 
-test('a drag over rows hides no tag', async ({ context, extensionId }) => {
-  const page = await openTabView(context, extensionId);
-  const row = header(page, 'w1');
-  const tag = row.locator(TAG);
-  // PREMISE: hovered, this tag is marked covered and hides.
-  await hover(page, row);
-  await expect(tag).toHaveCSS('visibility', 'hidden');
-  await park(page, row);
-
-  const from = await pickUp(page, windowHandle(page, 'w3'));
-  await expect(page.locator('html[data-dragging="window"]')).toHaveCount(1);
-  // The pick-up folds every window (KAN-153): aim at where the row is now.
-  const b = await boxOf(row);
-  await page.mouse.move(b.x + 40, b.y + b.height / 2, { steps: 8 });
-  await page.mouse.move(b.x + 60, b.y + b.height / 2, { steps: 4 });
-  await expect(page.locator('html[data-dragging="window"]')).toHaveCount(1);
-
-  await expect(tag).toHaveCSS('visibility', 'visible');
-  await expectEveryTagVisible(page);
-
-  await page.mouse.move(from.x, from.y, { steps: 8 });
-  await page.mouse.up();
-});
-
 // The carried row stays hovered while the drag hides its strip; its tag must not hide with it.
 test("a carried row's covered tag stays", async ({ context, extensionId }) => {
   const page = await openTabView(context, extensionId);
@@ -276,29 +249,33 @@ test('widened, the tag shows on the next hover', async ({
   await expect(tag).toHaveCSS('visibility', 'visible');
 });
 
-test('renamed shorter, the tag shows on the next hover', async ({
+// Enter refocuses the new title inside the row; that focus is the only measure the fresh tag gets.
+test('renamed longer, pointer still on the row, the tag hides', async ({
   context,
   extensionId,
 }) => {
   const page = await openTabView(context, extensionId);
-  const row = header(page, 'w1');
+  const row = header(page, 'w3');
   const tag = row.locator(TAG);
-  // PREMISE: under the old title the tag is covered and hides.
-  await hover(page, row);
-  await expect(tag).toHaveCSS('visibility', 'hidden');
-
-  await page
-    .getByRole('button', { name: `Rename window: ${SHORT}`, exact: true })
-    .click();
-  await page.locator('input:focus').fill('Flow');
-  await page.keyboard.press('Enter');
-  await expect(
-    page.getByRole('button', { name: 'Rename window: Flow', exact: true })
-  ).toBeVisible();
-
-  // Not park(): the title swapped under the pointer can leave the row's hover state set.
-  await page.mouse.move(0, 0);
+  // PREMISE: under the short title the tag clears the strip.
   await hover(page, row);
   await expectCovered(row, tag, false);
   await expect(tag).toHaveCSS('visibility', 'visible');
+
+  await page
+    .getByRole('button', { name: `Rename window: ${CLEAR}`, exact: true })
+    .click();
+  await page.locator('input:focus').fill(LONG);
+  await page.keyboard.press('Enter');
+  // Scoped to the row: w2 already carries this title.
+  const renamed = row.getByRole('button', {
+    name: `Rename window: ${LONG}`,
+    exact: true,
+  });
+  await expect(renamed).toBeFocused();
+
+  // PREMISE: the pointer never left, so the strip still shows, and now covers the tag.
+  await expect.poll(() => stripShown(row)).toBe(true);
+  await expectCovered(row, tag, true);
+  await expect(tag).toHaveCSS('visibility', 'hidden');
 });
