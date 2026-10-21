@@ -225,6 +225,22 @@ describe('Button variants (KAN-205)', () => {
     expect(quiet).not.toMatch(/transition:[^;]*[^-]color 120ms/);
   });
 
+  // KAN-725. Red as a danger menu item's hint is; any other variant keeps LABEL_L1.
+  test("a danger button's key hint rests in its red ink", async () => {
+    const { unmount } = await render({ variant: 'danger', keyHint: KEY_HINT });
+    const hint = button().querySelector('[data-key-hint]');
+    if (hint === null) throw new Error('no hint');
+    expect(getComputedStyle(hint).color).toBe(rgb(LIGHT_THEME.DANGER_INK).text);
+    unmount();
+
+    await render({ keyHint: KEY_HINT });
+    const quietHint = button().querySelector('[data-key-hint]');
+    if (quietHint === null) throw new Error('no hint');
+    expect(getComputedStyle(quietHint).color).toBe(
+      rgb(LIGHT_THEME.LABEL_L1_COLOR).text
+    );
+  });
+
   test('CONTROL: unavailable danger rests quiet and stays quiet', async () => {
     await render({
       variant: 'danger',

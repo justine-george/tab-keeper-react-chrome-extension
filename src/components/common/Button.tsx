@@ -337,9 +337,10 @@ const Button: React.FC<ButtonProps> = ({
   // clears 4.86:1 on the press fill at worst (Petal). It changes colour with the
   // fill's own transition. Measured on the chip's three fills, its one
   // caller's: on another variant it has to be measured again.
+  // KAN-725. On danger it rests in the label's DANGER_INK, as a danger menu item's hint does.
   const keyHintStyle = css`
     padding-left: 6px;
-    color: ${COLORS.LABEL_L1_COLOR};
+    color: ${variantRetints ? PALETTE.ink : COLORS.LABEL_L1_COLOR};
     transition: color ${DURATION.COLOR};
   `;
 
