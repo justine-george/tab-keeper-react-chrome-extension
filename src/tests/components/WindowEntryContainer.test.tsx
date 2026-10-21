@@ -17,6 +17,8 @@ import {
   type chromeTabGroupData,
   type tabData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { asWritten } from '../setup/asWritten';
+import { channels } from '../setup/hexColor';
 
 // Defaults to the GRANTED permission so the three pre-existing rendering
 // tests below stay exactly as they were before the permission gate (KAN-11
@@ -24,12 +26,6 @@ import {
 // permission is on" is the baseline every one of them was written against.
 // Callers that care about the ungranted path pass hasTabGroupsPermission
 // explicitly.
-// A colour as emotion wrote it, or as jsdom normalises it.
-const asWritten = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
-};
-
 async function renderWindow(
   props: {
     tabs: tabData[];
@@ -159,7 +155,7 @@ describe('WindowEntryContainer renders Chrome tab groups', () => {
     // resolves emotion's inserted class rules and reports colors as rgb(),
     // so the hex is asserted via its own known conversion rather than a
     // second hardcoded literal.
-    const [r, g, b] = hexToRgb(TAB_GROUP_COLOR_HEX.blue);
+    const [r, g, b] = channels(TAB_GROUP_COLOR_HEX.blue);
     expect(getComputedStyle(band as Element).backgroundColor).toBe(
       `rgb(${r}, ${g}, ${b})`
     );
@@ -189,21 +185,12 @@ describe('WindowEntryContainer renders Chrome tab groups', () => {
       name: 'Change group color: Work',
     });
     expect(band).not.toBeNull();
-    const [r, g, b] = hexToRgb(TAB_GROUP_COLOR_HEX.grey);
+    const [r, g, b] = channels(TAB_GROUP_COLOR_HEX.grey);
     expect(getComputedStyle(band as Element).backgroundColor).toBe(
       `rgb(${r}, ${g}, ${b})`
     );
   });
 });
-
-function hexToRgb(hex: string): [number, number, number] {
-  const value = hex.replace('#', '');
-  return [
-    parseInt(value.slice(0, 2), 16),
-    parseInt(value.slice(2, 4), 16),
-    parseInt(value.slice(4, 6), 16),
-  ];
-}
 
 describe('WindowEntryContainer gates tab groups on the live permission', () => {
   test('renders no groups when the permission is not granted, even with saved group data', async () => {

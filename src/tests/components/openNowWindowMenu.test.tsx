@@ -16,6 +16,7 @@ import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { hoverRulesFor } from '../setup/hoverRules';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
+import { asWritten } from '../setup/asWritten';
 
 // KAN-694, KAN-696. An Open now window's strip is a labeled Save, then a ⋮. The
 // ⋮ offers Sort tabs by site only where the live sort would run and change
@@ -150,10 +151,8 @@ describe('Open now window header: Save and a ⋮ (KAN-696)', () => {
     const items = within(screen.getByRole('menu')).getAllByRole('menuitem');
     expect(items[items.length - 1]).toHaveTextContent('Close window');
     // KAN-725. Danger is the red hover fill, derived from the token (jsdom writes rgb()).
-    const fill = LIGHT_THEME.DANGER_FILL;
-    const [r, g, b] = [1, 3, 5].map((i) => parseInt(fill.slice(i, i + 2), 16));
     const DELETE_FILL = new RegExp(
-      `background-color:\\s*(${fill}|rgb\\(${r}, ?${g}, ?${b}\\))`,
+      `background-color:\\s*${asWritten(LIGHT_THEME.DANGER_FILL).source}`,
       'i'
     );
     expect(hoverRulesFor(items[1])).toMatch(DELETE_FILL);

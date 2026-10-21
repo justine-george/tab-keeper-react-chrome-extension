@@ -47,6 +47,7 @@ import {
   windowIds,
 } from '../fixtures/sessionMoveFixture';
 import { carriedRef } from '../setup/carriedRef';
+import { rgb } from '../setup/hexColor';
 
 // KAN-350 Task 4: the session list takes a carry. The row under the pointer is the target (D2 A), 600ms on it opens it (S1 A), a release moves the item in as a new first window (S2 A).
 // jsdom has no layout: a 300px scroller at y 100..400, 60px rows, six sessions (the sixth below the fold), laid out against scrollTop so a hit read in the wrong space names the wrong row.
@@ -432,7 +433,7 @@ describe('the target look (D2 A)', () => {
     // The premise: the selected row at rest is its selection fill, no shadow
     // fill over it and no outline.
     expect(getComputedStyle(selected).backgroundColor).toBe(
-      hexToRgb(LIGHT_THEME.SELECTION_COLOR)
+      rgb(LIGHT_THEME.SELECTION_COLOR)
     );
     expect(getComputedStyle(selected).boxShadow).toContain('transparent');
     expect(getComputedStyle(selected).outlineStyle).not.toBe('solid');
@@ -818,11 +819,6 @@ describe('edgeScrollStep', () => {
     expect(edgeScrollStep(box, 300)).toBe(edgeScrollStep(box, 400));
   });
 });
-
-function hexToRgb(hex: string): string {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return `rgb(${r}, ${g}, ${b})`;
-}
 
 describe('a live carry (KAN-280 Part F)', () => {
   // KAN-610 (reverses D5 A): a live carry started under the saved search draws no target there and saves nothing.

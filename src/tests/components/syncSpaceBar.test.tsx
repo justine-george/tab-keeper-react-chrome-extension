@@ -33,6 +33,7 @@ import {
   LIGHT_THEME,
   ThemeColorsOverride,
 } from '../../hooks/useThemeColors';
+import { rgb } from '../setup/hexColor';
 
 // KAN-596. How much of the 1 MB the sync may write, under Sync Status.
 
@@ -77,8 +78,6 @@ const renderSync = (bytes?: number, theme = LIGHT_THEME) =>
 // KAN-625. Named for what it measures: the sessions here against the sync limit, not cloud storage.
 const meter = () => screen.queryByRole('meter', { name: 'Sync limit used' });
 const fill = () => meter()?.firstElementChild as HTMLElement | null;
-const rgb = (hex: string) =>
-  `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
 const fillColor = () => getComputedStyle(fill() as HTMLElement).backgroundColor;
 const line = () => screen.getByTestId('sync-space').textContent;
 

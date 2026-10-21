@@ -11,20 +11,11 @@ import {
   hoverRulesFor,
 } from '../setup/hoverRules';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { asWritten } from '../setup/asWritten';
+import { rgb } from '../setup/hexColor';
 
 // KAN-725. Which icons go red is an explicit `danger` opt-in, not the glyph's
 // type: "close" is shared with six dismissals that stay quiet.
-
-/** A colour as emotion writes it, or as jsdom normalises it. */
-const asWritten = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
-};
-
-const rgbText = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return `rgb(${r}, ${g}, ${b})`;
-};
 
 const FILL = asWritten(LIGHT_THEME.DANGER_FILL);
 const DEEP = asWritten(LIGHT_THEME.DANGER_FILL_DEEP);
@@ -87,7 +78,7 @@ describe('a danger Icon', () => {
     const button = screen.getByRole('button', { name: 'Delete tab' });
     const glyph = button.querySelector('.material-symbols-outlined');
     if (!glyph) throw new Error('no glyph');
-    expect(getComputedStyle(glyph).color).toBe(rgbText(LIGHT_THEME.TEXT_COLOR));
+    expect(getComputedStyle(glyph).color).toBe(rgb(LIGHT_THEME.TEXT_COLOR));
     expect(getComputedStyle(button).backgroundColor).toBe('rgba(0, 0, 0, 0)');
   });
 

@@ -15,6 +15,7 @@ import type { chromeTabGroupData } from '../../redux/slices/tabContainerDataStat
 import { ADD_CURR_TAB_TO_CHROME_GROUP_ACTION } from '../../utils/constants/actionTypes';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { toastTexts } from '../setup/toasts';
+import { asWritten } from '../setup/asWritten';
 
 // The group row's full action set, wired through the UI rather than asserted
 // on the reducers (which chromeGroupActions.test.ts already covers). What is
@@ -373,13 +374,7 @@ describe('the group row fills like the rows around it', () => {
 
   // Derived from the token, not pinned. Three separate test files had this
   // value written out as a literal, and KAN-205 moved it in every theme.
-  const [hr, hg, hb] = [1, 3, 5].map((i) =>
-    parseInt(LIGHT_THEME.HOVER_COLOR.slice(i, i + 2), 16)
-  );
-  const HOVER = new RegExp(
-    `${LIGHT_THEME.HOVER_COLOR}|rgb\\(${hr}, ?${hg}, ?${hb}\\)`,
-    'i'
-  );
+  const HOVER = asWritten(LIGHT_THEME.HOVER_COLOR);
 
   test('fills under the pointer', async () => {
     await renderRow();

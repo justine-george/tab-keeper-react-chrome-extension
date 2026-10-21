@@ -5,13 +5,9 @@ import RowOpenButton from '../../components/home/rightpane/RowOpenButton';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { classRulesFor } from '../setup/hoverRules';
+import { rgb } from '../setup/hexColor';
 
 // KAN-394 D11. The text button that opens a window or group from its row.
-// Emotion writes colours as rgb(); the tokens are hex.
-const rgb = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return `rgb(${r}, ${g}, ${b})`;
-};
 
 const NAME = 'Open window 2';
 const TIP = 'Open this window';

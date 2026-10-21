@@ -19,9 +19,7 @@ import {
 } from '../setup/hoverRules';
 import { dialogButtonStyles } from '../../components/modals/dialogButtons';
 import { mixHex } from '../../styles/mixHex';
-
-const hexToRgb = (hex: string) =>
-  `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
+import { rgb } from '../setup/hexColor';
 
 // KAN-259. The three bordered-button dialogs each carried a copy of one style
 // with a hover rung and no press rung, so pressing looked like hovering --
@@ -96,7 +94,7 @@ test.each([
   );
   if (button === undefined) throw new Error(`no ${label} button`);
   expect(getComputedStyle(button).backgroundColor).toBe(
-    hexToRgb(LIGHT_THEME.TEXT_COLOR)
+    rgb(LIGHT_THEME.TEXT_COLOR)
   );
 });
 
@@ -111,16 +109,11 @@ describe('the filled button', () => {
     if (button === null) throw new Error('no button');
     return button;
   };
-  // jsdom may hand a colour back as rgb(); compare in one spelling.
-  const rgb = (hex: string) =>
-    `rgb(${[1, 3, 5]
-      .map((i) => parseInt(hex.slice(i, i + 2), 16))
-      .join(', ')})`;
   const fills = (rules: string) =>
     [...rules.matchAll(/(border-color|background-color):\s*([^;}]+)/g)].map(
       (m) => [m[1], m[2].trim().toLowerCase()]
     );
-  const asHex = (value: string) =>
+  const asRgb = (value: string) =>
     value.startsWith('#') ? rgb(value.toUpperCase()) : value;
 
   test('at rest: TEXT_COLOR border and ground, PRIMARY_COLOR letters', async () => {
@@ -136,7 +129,7 @@ describe('the filled button', () => {
     const press = mixHex(COLORS.TEXT_COLOR, COLORS.PRIMARY_COLOR, 0.76);
     expect(hover).not.toBe(press);
     const seen = (rules: string) =>
-      fills(rules).map(([prop, value]) => [prop, asHex(value)]);
+      fills(rules).map(([prop, value]) => [prop, asRgb(value)]);
     expect(seen(hoverRulesFor(button))).toEqual([
       ['border-color', rgb(hover)],
       ['background-color', rgb(hover)],
@@ -198,13 +191,13 @@ describe('the danger confirm (KAN-725)', () => {
       (m) => [m[1], m[2].trim().toLowerCase()]
     );
   const asRgb = (value: string) =>
-    value.startsWith('#') ? hexToRgb(value.toUpperCase()) : value;
+    value.startsWith('#') ? rgb(value.toUpperCase()) : value;
 
   test('at rest: DANGER_FILL ground and border, ON_DANGER_FILL letters', async () => {
     const style = getComputedStyle(await renderDanger());
-    expect(style.backgroundColor).toBe(hexToRgb(COLORS.DANGER_FILL));
-    expect(style.borderTopColor).toBe(hexToRgb(COLORS.DANGER_FILL));
-    expect(style.color).toBe(hexToRgb(COLORS.ON_DANGER_FILL));
+    expect(style.backgroundColor).toBe(rgb(COLORS.DANGER_FILL));
+    expect(style.borderTopColor).toBe(rgb(COLORS.DANGER_FILL));
+    expect(style.color).toBe(rgb(COLORS.ON_DANGER_FILL));
   });
 
   test('hover deepens border and ground to DANGER_FILL_DEEP, press to DANGER_FILL_DEEPER', async () => {
@@ -212,12 +205,12 @@ describe('the danger confirm (KAN-725)', () => {
     const seen = (rules: string) =>
       fills(rules).map(([prop, value]) => [prop, asRgb(value)]);
     expect(seen(hoverRulesFor(button))).toEqual([
-      ['border-color', hexToRgb(COLORS.DANGER_FILL_DEEP)],
-      ['background-color', hexToRgb(COLORS.DANGER_FILL_DEEP)],
+      ['border-color', rgb(COLORS.DANGER_FILL_DEEP)],
+      ['background-color', rgb(COLORS.DANGER_FILL_DEEP)],
     ]);
     expect(seen(activeRulesFor(button))).toEqual([
-      ['border-color', hexToRgb(COLORS.DANGER_FILL_DEEPER)],
-      ['background-color', hexToRgb(COLORS.DANGER_FILL_DEEPER)],
+      ['border-color', rgb(COLORS.DANGER_FILL_DEEPER)],
+      ['background-color', rgb(COLORS.DANGER_FILL_DEEPER)],
     ]);
   });
 

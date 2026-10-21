@@ -20,6 +20,7 @@ import {
   expectReopenedRow,
   REOPEN_FOCUS_MS,
 } from '../../redux/reopenFocus';
+import { rgb } from '../setup/hexColor';
 
 // KAN-280 O7a. The Open now pane's close controls: × on each tab row, Close
 // window on every window row but "This window", the Reopen offer after each
@@ -63,12 +64,7 @@ function rulesFor(element: HTMLElement): string[] {
 }
 
 // LIGHT_THEME.HOVER_COLOR as the stylesheet spells it.
-const HOVER_RGB = (() => {
-  const [r, g, b] = [1, 3, 5].map((i) =>
-    parseInt(LIGHT_THEME.HOVER_COLOR.slice(i, i + 2), 16)
-  );
-  return `rgb\\(${r}, ${g}, ${b}\\)`;
-})();
+const HOVER_RGB = rgb(LIGHT_THEME.HOVER_COLOR).replace(/[()]/g, '\\$&');
 
 const url = (name: string) => `https://${name.toLowerCase()}.test/`;
 const tab = (id: number, title: string) => ({

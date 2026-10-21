@@ -14,6 +14,7 @@ import { fullViewOriginKey } from '../../utils/functions/fullViewOrigin';
 import type { DefaultView } from '../../utils/functions/defaultView';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { TYPE } from '../../styles/scale';
+import { rgb } from '../setup/hexColor';
 
 // KAN-576 and KAN-577 (pick A). Open now's header: a session-sized title, and Back to last tab in Add window's corner.
 
@@ -56,8 +57,6 @@ const renderPane = (view: DefaultView, seed: Partial<ChromeSeed> = {}) => {
   );
 };
 const back = () => screen.getByRole('button', { name: 'Back to last tab' });
-const hex = (value: string) =>
-  `rgb(${[1, 3, 5].map((i) => parseInt(value.slice(i, i + 2), 16)).join(', ')})`;
 
 afterEach(() => {
   history.replaceState(null, '', '?');
@@ -72,7 +71,7 @@ describe("Open now's title is a session title's size (KAN-576)", () => {
     expect(getComputedStyle(heading).fontSize).toBe(
       `${parseFloat(TYPE.SECTION) * 16}px`
     );
-    expect(getComputedStyle(heading).color).toBe(hex(LIGHT_THEME.TEXT_COLOR));
+    expect(getComputedStyle(heading).color).toBe(rgb(LIGHT_THEME.TEXT_COLOR));
     expect(getComputedStyle(heading).height).toBe('32px');
   });
 });

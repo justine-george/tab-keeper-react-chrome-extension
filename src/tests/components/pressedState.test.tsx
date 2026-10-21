@@ -12,6 +12,7 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { activeRulesFor, hoverRulesFor } from '../setup/hoverRules';
+import { asWritten } from '../setup/asWritten';
 
 // KAN-205. Nothing in this product confirmed a click.
 //
@@ -27,12 +28,6 @@ import { activeRulesFor, hoverRulesFor } from '../setup/hoverRules';
 // Asserted against the injected rules, not a rendered press: jsdom has no
 // pointer and cannot enter :active at all, so a computed style reports the
 // resting state and would pass against no press rule whatsoever.
-
-/** A colour as emotion writes it, or as jsdom normalises it. */
-const asWritten = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
-};
 
 const PRESSED = asWritten(LIGHT_THEME.ACTIVE_COLOR);
 const ICON_PRESSED = asWritten(LIGHT_THEME.ICON_ACTIVE_COLOR);

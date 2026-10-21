@@ -12,6 +12,7 @@ import {
   asPartialSettings,
   loadFromLocalStorage,
 } from '../../utils/functions/local';
+import { rgb } from '../setup/hexColor';
 
 // The modal reads its escalation flag straight out of localStorage (as
 // showReviewCard does), so these tests write it there rather than into the
@@ -32,9 +33,6 @@ const seedSettings = (settings: Partial<SettingsData>) =>
 const openWith =
   (count: number) => (store: { dispatch: (a: unknown) => void }) =>
     store.dispatch(openTabGroupsPrompt(count));
-
-const rgb = (hex: string) =>
-  `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
 
 describe('TabGroupsPermissionModal', () => {
   test('renders nothing when no prompt is open', async () => {

@@ -35,6 +35,8 @@ import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { RUN_FINISHED_SETTINGS } from '../fixtures/firstRunFixture';
 import { classRulesFor } from '../setup/hoverRules';
 import { mirrorLanguageOnDocument } from '../../utils/functions/documentLanguage';
+import { asWritten } from '../setup/asWritten';
+import { rgb } from '../setup/hexColor';
 
 // KAN-7 §5 and Q9. Five or six steps; each pick applies at once; Done, Skip
 // setup, ✕ and Esc end it for good. Mounted behind its flag, as in MainContainer.
@@ -157,10 +159,6 @@ describe('Make Tab Keeper yours', () => {
   test('the pressed language cell is filled TEXT with a PRIMARY label; the others stay unfilled', async () => {
     await render();
     press('Next');
-    const asWritten = (hex: string) => {
-      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-      return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
-    };
     const cell = (code: string) => {
       const el = dialog().querySelector(`button[lang="${code}"]`);
       if (!(el instanceof HTMLElement)) throw new Error(`no cell ${code}`);
@@ -605,10 +603,7 @@ describe('setup’s buttons (KAN-501)', () => {
       .split('\n')
       .filter((rule) => !/:(hover|active|focus)/.test(rule))
       .join('\n');
-  const hex = LIGHT_THEME.TEXT_COLOR;
-  const FILLED = `background-color: rgb(${[1, 3, 5]
-    .map((i) => parseInt(hex.slice(i, i + 2), 16))
-    .join(', ')})`;
+  const FILLED = `background-color: ${rgb(LIGHT_THEME.TEXT_COLOR)}`;
 
   test('Next and Done are filled, and the way back is Back', async () => {
     await render();

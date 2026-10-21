@@ -32,6 +32,7 @@ import {
 } from '../../hooks/useThemeColors';
 import { contrast } from '../setup/contrast';
 import { getTooltipDate } from '../../utils/functions/local';
+import { asWritten } from '../setup/asWritten';
 
 // KAN-248. The sync status card said "Cloud Sync Active" whenever a token
 // existed -- under an Auto Sync button reading Off, and after a failed sync
@@ -310,15 +311,8 @@ describe('the sync status line follows the store (KAN-248)', () => {
     await renderSync();
     const line = card().querySelector<HTMLElement>('[data-sync-line]')!;
     expect(line).not.toBeNull();
-    // Written by emotion as the hex; jsdom may normalise to rgb().
-    const [r, g, b] = [1, 3, 5].map((i) =>
-      parseInt(LIGHT_THEME.LABEL_L1_COLOR.slice(i, i + 2), 16)
-    );
     expect(getComputedStyle(line).color).toMatch(
-      new RegExp(
-        `(${LIGHT_THEME.LABEL_L1_COLOR}|rgb\\(${r}, ?${g}, ?${b}\\))`,
-        'i'
-      )
+      asWritten(LIGHT_THEME.LABEL_L1_COLOR)
     );
 
     // The token was LABEL_L3 -- the 2px-marker token, 2.56:1 on Paper. This

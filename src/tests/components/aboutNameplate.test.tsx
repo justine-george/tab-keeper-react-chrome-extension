@@ -14,6 +14,7 @@ import {
 import { APP_VERSION, PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { ICON, TYPE } from '../../styles/scale';
 import { testI18n } from '../setup/i18nForTests';
+import { asWritten } from '../setup/asWritten';
 
 // KAN-241. Settings -> About is a nameplate over the same section anatomy the
 // other four panes use.
@@ -26,12 +27,6 @@ import { testI18n } from '../setup/i18nForTests';
 // jsdom lays out nothing, so the inset and the stack are measured by the e2e
 // spec (about-nameplate.spec.ts). What is pinned here is the contract: which
 // glyph, which tokens, which strings.
-
-/** A colour as emotion wrote it, or as jsdom normalises it. */
-const asWritten = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
-};
 
 /** A TYPE step as jsdom reports it: rem resolved against the 16px root. */
 const px = (rem: string) => `${parseFloat(rem) * 16}px`;
