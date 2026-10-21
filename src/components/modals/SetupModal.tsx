@@ -200,8 +200,8 @@ export const SetupModal: React.FC = () => {
     }
   `;
   const swatchRowStyle = css`
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(4, max-content);
     gap: 14px;
   `;
   const languageGridStyle = css`

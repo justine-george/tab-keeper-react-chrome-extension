@@ -117,7 +117,15 @@ describe('Make Tab Keeper yours', () => {
     expect(document.activeElement).toBe(dialog());
     expect(stepHeading()).toHaveTextContent('Pick a theme');
     expect(within(dialog()).queryByRole('button', { name: 'Back' })).toBeNull();
-    for (const name of ['Paper', 'Parchment', 'Petal', 'Graphite', 'Ink']) {
+    for (const name of [
+      'Paper',
+      'Parchment',
+      'Petal',
+      'Chalk',
+      'Graphite',
+      'Ink',
+      'Charcoal',
+    ]) {
       expect(
         within(dialog()).getByRole('button', { name })
       ).toBeInTheDocument();

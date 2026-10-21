@@ -205,7 +205,7 @@ describe('the theme picker marks the active theme (KAN-88)', () => {
     const unpressed = swatches(container).filter(
       (b) => b.getAttribute('aria-pressed') === 'false'
     );
-    expect(unpressed).toHaveLength(4);
+    expect(unpressed).toHaveLength(6);
   });
 
   // The visual half. A screen reader gets aria-pressed; a sighted user needs

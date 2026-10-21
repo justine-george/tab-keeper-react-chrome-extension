@@ -205,13 +205,12 @@ const SettingsDetailsContainer: React.FC = () => {
 
           <div
             css={css`
-              display: flex;
+              display: grid;
+              grid-template-columns: repeat(4, max-content);
               justify-content: flex-start;
               align-items: center;
-              flex-wrap: wrap;
               /* KAN-247. 14, not 16: in ja two katakana captions are wider
-                 than their tiles and 16px is the exact ceiling before Ink
-                 wraps at 790px; the katakana come from the system font. */
+                 than their tiles; the grid replaced the one-row ceiling. */
               gap: 14px;
               max-width: 100%;
               margin-top: 8px;

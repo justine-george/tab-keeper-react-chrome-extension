@@ -4,14 +4,16 @@ import { Theme } from '../../../redux/slices/settingsDataStateSlice';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
   type ThemeColors,
 } from '../../../hooks/useThemeColors';
 
-// The five themes in picker order, Settings' and the setup's. t() takes a
-// literal on each row, so keyCoverage sees every key.
+// The seven themes in picker order, four light then three dark, Settings' and
+// the setup's. t() takes a literal on each row, so keyCoverage sees every key.
 export function themeChoices(
   t: TFunction
 ): ReadonlyArray<readonly [Theme, ThemeColors, string]> {
@@ -19,7 +21,9 @@ export function themeChoices(
     [Theme.LIGHT, LIGHT_THEME, t('Paper')],
     [Theme.WARM_LIGHT, WARM_LIGHT_THEME, t('Parchment')],
     [Theme.BB_PINK, BB_PINK_THEME, t('Petal')],
+    [Theme.CHALK, CHALK_THEME, t('Chalk')],
     [Theme.DARKENHEIMER, DARKENHEIMER_THEME, t('Graphite')],
     [Theme.BLUE, BLUE_THEME, t('Ink')],
+    [Theme.CHARCOAL, CHARCOAL_THEME, t('Charcoal')],
   ];
 }
