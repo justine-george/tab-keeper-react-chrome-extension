@@ -1,4 +1,6 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+
+import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 
 import {
   BB_PINK_THEME,
@@ -56,25 +58,50 @@ describe('theme-ground.js', () => {
     );
   });
 
-  test.each([
-    ['nothing stored', null],
-    ['no theme key', '{}'],
-    ['malformed JSON', '{theme:'],
-    ['an unknown theme', '{"theme":"Neon"}'],
-    ['a theme that was never shipped', '{"theme":"Nonsense"}'],
-    ['a prototype key', '{"theme":"__proto__"}'],
-    ['a number', '{"theme":3}'],
-    ['a JSON array', '[1]'],
-  ])('%s paints Light', (_, value) => {
-    expect(groundFor(stored(value))).toBe(LIGHT_THEME.PRIMARY_COLOR);
+  // KAN-731. Absent or unknown follows the OS: Chalk, or Charcoal on a dark system.
+  describe.each([
+    ['light OS', false, CHALK_THEME.PRIMARY_COLOR],
+    ['dark OS', true, CHARCOAL_THEME.PRIMARY_COLOR],
+  ])('on a %s', (_os, dark, expected) => {
+    beforeEach(() => {
+      vi.stubGlobal('window', {
+        matchMedia: (q: string) => new FakeMediaQueryList(q, dark),
+      });
+    });
+    afterEach(() => vi.unstubAllGlobals());
+
+    test.each([
+      ['nothing stored', null],
+      ['no theme key', '{}'],
+      ['malformed JSON', '{theme:'],
+      ['an unknown theme', '{"theme":"Neon"}'],
+      ['a theme that was never shipped', '{"theme":"Nonsense"}'],
+      ['a prototype key', '{"theme":"__proto__"}'],
+      ['a number', '{"theme":3}'],
+      ['a JSON array', '[1]'],
+    ])('%s paints the default', (_, value) => {
+      expect(groundFor(stored(value))).toBe(expected);
+    });
+
+    test('storage that throws paints the default', () => {
+      const throwing = {
+        getItem: () => {
+          throw new Error('blocked');
+        },
+      };
+      expect(groundFor(throwing)).toBe(expected);
+    });
+
+    test('a stored Paper stays Paper', () => {
+      expect(groundFor(stored('{"theme":"Light"}'))).toBe(
+        LIGHT_THEME.PRIMARY_COLOR
+      );
+    });
   });
 
-  test('storage that throws paints Light', () => {
-    const throwing = {
-      getItem: () => {
-        throw new Error('blocked');
-      },
-    };
-    expect(groundFor(throwing)).toBe(LIGHT_THEME.PRIMARY_COLOR);
+  test('nothing stored and no matchMedia paints Chalk', () => {
+    vi.stubGlobal('window', {});
+    expect(groundFor(stored(null))).toBe(CHALK_THEME.PRIMARY_COLOR);
+    vi.unstubAllGlobals();
   });
 });

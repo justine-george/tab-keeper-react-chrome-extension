@@ -1,5 +1,9 @@
-import { describe, expect, test } from 'vitest';
-import { screen } from '@testing-library/react';
+import { afterEach, describe, expect, test } from 'vitest';
+import { renderHook, screen } from '@testing-library/react';
+import { configureStore } from '@reduxjs/toolkit';
+import { Provider } from 'react-redux';
+
+import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
@@ -59,16 +63,41 @@ describe('overriding the theme colours for one subtree (KAN-198)', () => {
   });
 
   // KAN-731. The hook maps each stored theme to its own table; a stored theme
-  // it does not know (a build that never shipped it) falls back to Paper.
+  // it does not know falls back to the default (below).
   test.each([
     [Theme.CHALK, CHALK_THEME],
     [Theme.CHARCOAL, CHARCOAL_THEME],
-    ['Nonsense' as Theme, LIGHT_THEME],
   ])('a stored %s theme reads its own table', async (theme, table) => {
     await renderWithProviders(<Probe />, {
       seedStore: (store) => store.dispatch(setTheme(theme)),
     });
 
     expect(screen.getByTestId('probe').textContent).toBe(table.SECONDARY_COLOR);
+  });
+
+  // KAN-731. A stored theme this build never shipped reads as the default; raw JSON, so no cast.
+  describe.each([
+    ['light OS', false, CHALK_THEME],
+    ['dark OS', true, CHARCOAL_THEME],
+  ])('an unknown stored theme on a %s', (_os, dark, table) => {
+    const original = window.matchMedia;
+    afterEach(() => {
+      window.matchMedia = original;
+    });
+
+    test('reads the default table', () => {
+      window.matchMedia = (q: string) => new FakeMediaQueryList(q, dark);
+      const store = configureStore({
+        reducer: {
+          settingsDataState: () => JSON.parse('{"theme":"Nonsense"}'),
+        },
+      });
+      const { result } = renderHook(() => useThemeColors(), {
+        wrapper: ({ children }) => (
+          <Provider store={store}>{children}</Provider>
+        ),
+      });
+      expect(result.current).toBe(table);
+    });
   });
 });

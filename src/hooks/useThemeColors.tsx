@@ -2,7 +2,7 @@ import React from 'react';
 import { useSelector } from 'react-redux';
 
 import { RootState } from '../redux/store';
-import { Theme } from '../utils/constants/theme';
+import { Theme, defaultTheme } from '../utils/constants/theme';
 
 // KAN-267. What a floating surface (the overflow menu) casts on this ground:
 // a tight contact edge plus a soft lift. Black at 18% can only take 18% off a
@@ -376,5 +376,6 @@ export function useThemeColors() {
     return CHARCOAL_THEME;
   }
 
-  return LIGHT_THEME;
+  // KAN-731. A theme this build does not know reads as the default.
+  return defaultTheme() === Theme.CHARCOAL ? CHARCOAL_THEME : CHALK_THEME;
 }

@@ -10,6 +10,8 @@ import { customMiddleware } from '../../redux/middleware/customMiddleware';
 import { toastMiddleware } from '../../redux/middleware/toastMiddleware';
 import { storageFullMiddleware } from '../../redux/middleware/storageFullMiddleware';
 import { otherPageWriteMiddleware } from '../../redux/middleware/otherPageWriteMiddleware';
+import { initialState } from '../../redux/slices/settingsDataStateSlice';
+import { Theme } from '../../utils/constants/theme';
 import { noteStoredSettingsSeen } from '../../utils/functions/localSettings';
 
 // Mirrors src/redux/store.tsx via the shared rootReducer, plus a recorder so
@@ -33,6 +35,10 @@ export function makeTestStore() {
 
   const store = configureStore({
     reducer: rootReducer,
+    // KAN-731. The harness is a user on Paper; the default is pinned by its own tests.
+    preloadedState: {
+      settingsDataState: { ...initialState, theme: Theme.LIGHT },
+    },
     middleware: (g) =>
       g({ serializableCheck: false })
         .prepend(recorder)

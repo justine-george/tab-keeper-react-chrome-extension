@@ -44,7 +44,7 @@ import {
 // cycle. RootState is used solely as a parameter type below, so the erased
 // import leaves no runtime edge.
 import type { RootState } from '../store';
-import { Theme } from '../../utils/constants/theme';
+import { Theme, asTheme, defaultTheme } from '../../utils/constants/theme';
 
 export { Theme };
 export { Language, SHIPPED_LANGUAGES, asShippedLanguage, startupLanguage };
@@ -293,7 +293,7 @@ const settingsDataLocal = asPartialSettings<SettingsData>(
 
 const defaultSettings: SettingsData = {
   language: Language.EN, // overridden by startupLanguage in initialState
-  theme: Theme.LIGHT,
+  theme: defaultTheme(), // KAN-731
   exportLayout: 'compact',
   isAutoSync: true,
   cloudConsent: '',
@@ -322,6 +322,8 @@ const defaultSettings: SettingsData = {
 export const initialState: SettingsData = {
   ...defaultSettings,
   ...settingsDataLocal,
+  // KAN-731. Guarded: a theme this build does not know gets the default.
+  theme: asTheme(settingsDataLocal.theme),
   // KAN-282. Decided here, and read by i18n.tsx from here, so what renders
   // and what the first setting write saves are the same language. Detecting
   // only in i18n.tsx showed German once: this still held `en`, the first-run

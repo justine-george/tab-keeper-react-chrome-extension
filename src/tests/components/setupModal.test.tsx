@@ -29,6 +29,7 @@ import {
   initialState as settingsInitial,
   Language,
   settingsDataStateSlice,
+  Theme,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
@@ -73,6 +74,8 @@ const render = (
       store.dispatch(
         settingsDataStateSlice.actions.replaceState({
           ...settingsInitial,
+          // KAN-731. A user on Paper, like the harness; the new-install test below uses the default.
+          theme: Theme.LIGHT,
           setupState: 'pending',
           ...settings,
         })
@@ -130,6 +133,16 @@ describe('Make Tab Keeper yours', () => {
         within(dialog()).getByRole('button', { name })
       ).toBeInTheDocument();
     }
+  });
+
+  test('on a new install Chalk is the pressed theme (KAN-731)', async () => {
+    await render(BOUND, { theme: settingsInitial.theme });
+    expect(
+      within(dialog()).getByRole('button', { name: 'Chalk' })
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      within(dialog()).getByRole('button', { name: 'Paper' })
+    ).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('the theme step says the choice can be changed in Settings', async () => {
