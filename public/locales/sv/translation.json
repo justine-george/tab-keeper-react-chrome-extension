@@ -180,6 +180,7 @@
   "Preview": "Förhandsgranskning",
   "Cloud data": "Molndata",
   "Delete cloud data": "Radera molndata",
+  "Checking…": "Kontrollerar…",
   "Delete your cloud data?": "Radera dina molndata?",
   "DeleteCloudDataBody": "Det här tar bort dina sessioner från molnet och stänger av Autosynk på den här enheten. Dina sessioner finns kvar på den här enheten. Andra enheter med samma Chrome-profil laddar upp sin kopia igen nästa gång de synkar, om inte Autosynk är avstängd där också.",
   "Cancel": "Avbryt",

@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import Button from '../../common/Button';
+import DeleteCloudDataButton from './DeleteCloudDataButton';
 import { focusRingOutsideCss } from '../../common/focusRing';
 import { RecentlyDeleted } from './RecentlyDeleted';
 import ClickableTabKeeperMark from '../../common/ClickableTabKeeperMark';
@@ -19,10 +20,7 @@ import { NormalLabel } from '../../common/Label';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { chooseLanguage } from '../../../redux/languageChoice';
-import {
-  openDeleteCloudDataModal,
-  openCloudConsentModal,
-} from '../../../redux/slices/globalStateSlice';
+import { openCloudConsentModal } from '../../../redux/slices/globalStateSlice';
 import {
   setTheme,
   setPinTabKeeperInNewWindows,
@@ -470,12 +468,7 @@ const SettingsDetailsContainer: React.FC = () => {
               margin-top: 8px;
             `}
           >
-            <Button
-              text={t('Delete cloud data')}
-              iconType="delete"
-              variant="danger"
-              onClick={() => dispatch(openDeleteCloudDataModal())}
-            />
+            <DeleteCloudDataButton />
           </div>
         </div>
       </div>
