@@ -377,7 +377,7 @@ export const SetupModal: React.FC = () => {
     <div css={shortcutRowStyle}>
       <button
         type="button"
-        css={buttons.quiet}
+        css={[buttons.quiet, tall]}
         onClick={() => void openShortcutsBeside()}
       >
         {label}
