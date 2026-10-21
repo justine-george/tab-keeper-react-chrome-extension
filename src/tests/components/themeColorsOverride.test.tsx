@@ -1,8 +1,15 @@
-import { describe, expect, test } from 'vitest';
-import { screen } from '@testing-library/react';
+import { afterEach, describe, expect, test } from 'vitest';
+import { renderHook, screen } from '@testing-library/react';
+import { Provider } from 'react-redux';
 
+import { FakeMediaQueryList } from '../setup/mediaQueryFake';
+
+import { makeTestStore } from '../setup/makeStore';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { applyOtherPageSettings } from '../../redux/otherPageChanges';
 import {
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   ThemeColorsOverride,
@@ -48,11 +55,57 @@ describe('overriding the theme colours for one subtree (KAN-198)', () => {
     );
   });
 
-  test('Darkenheimer and Blue are the dark themes; the other three are light', () => {
+  test('Graphite, Ink and Charcoal are the dark themes; the other four are light', () => {
     expect(
       Object.values(Theme)
         .filter((theme) => isDarkTheme(theme))
         .sort()
-    ).toEqual([Theme.BLUE, Theme.DARKENHEIMER].sort());
+    ).toEqual([Theme.BLUE, Theme.CHARCOAL, Theme.DARKENHEIMER].sort());
+  });
+
+  // KAN-731. The hook maps each stored theme to its own table; a stored theme
+  // it does not know falls back to the default (below).
+  test.each([
+    [Theme.CHALK, CHALK_THEME],
+    [Theme.CHARCOAL, CHARCOAL_THEME],
+  ])('a stored %s theme reads its own table', async (theme, table) => {
+    await renderWithProviders(<Probe />, {
+      seedStore: (store) => store.dispatch(setTheme(theme)),
+    });
+
+    expect(screen.getByTestId('probe').textContent).toBe(table.SECONDARY_COLOR);
+  });
+
+  // KAN-731. Another page writes a theme this build never shipped: this page reads the default.
+  describe.each([
+    ['light OS', false, Theme.CHALK, CHALK_THEME],
+    ['dark OS', true, Theme.CHARCOAL, CHARCOAL_THEME],
+  ])('an unknown theme written on a %s', (_os, dark, fallback, table) => {
+    const original = window.matchMedia;
+    afterEach(() => {
+      window.matchMedia = original;
+      localStorage.clear();
+    });
+
+    test('reads the default table', () => {
+      window.matchMedia = (q: string) => new FakeMediaQueryList(q, dark);
+      const { store } = makeTestStore();
+      localStorage.setItem(
+        'settingsData',
+        JSON.stringify({
+          ...store.getState().settingsDataState,
+          theme: 'Nonsense',
+        })
+      );
+      store.dispatch(applyOtherPageSettings());
+
+      expect(store.getState().settingsDataState.theme).toBe(fallback);
+      const { result } = renderHook(() => useThemeColors(), {
+        wrapper: ({ children }) => (
+          <Provider store={store}>{children}</Provider>
+        ),
+      });
+      expect(result.current).toBe(table);
+    });
   });
 });

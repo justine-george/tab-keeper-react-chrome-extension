@@ -3,6 +3,8 @@ import { describe, expect, test } from 'vitest';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -26,10 +28,12 @@ import { contrast } from '../setup/contrast';
 
 const THEMES = {
   LIGHT: LIGHT_THEME,
+  CHALK: CHALK_THEME,
   WARM_LIGHT: WARM_LIGHT_THEME,
   BB_PINK: BB_PINK_THEME,
   DARKENHEIMER: DARKENHEIMER_THEME,
   BLUE: BLUE_THEME,
+  CHARCOAL: CHARCOAL_THEME,
 };
 
 // dividerContrast.test.ts's floor for a surface that can still be seen.

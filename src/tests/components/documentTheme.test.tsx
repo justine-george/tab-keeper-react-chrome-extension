@@ -108,6 +108,23 @@ describe('useDocumentTheme (KAN-22)', () => {
     ).toBe(DARKENHEIMER_THEME.PRIMARY_COLOR);
   });
 
+  // KAN-731. Chalk then Charcoal in one mount: the document follows each switch.
+  test('follows a switch to Chalk and then to Charcoal', async () => {
+    const { store } = await renderWithProviders(<Probe />);
+    const root = document.documentElement;
+
+    act(() => {
+      store.dispatch(setTheme(Theme.CHALK));
+    });
+    expect(root.style.getPropertyValue('--app-background')).toBe('#FFFFFF');
+
+    act(() => {
+      store.dispatch(setTheme(Theme.CHARCOAL));
+    });
+    expect(root.style.getPropertyValue('--app-background')).toBe('#18191A');
+    expect(root.style.getPropertyValue('--scrollbar-thumb')).toBe('#64666B');
+  });
+
   // KAN-234. The drag engine draws its landing slot in this, and has no theme
   // dependency of its own: it drew `currentColor` and believed that inherited
   // the theme's text colour, but nothing above a row sets `color`, so the slot

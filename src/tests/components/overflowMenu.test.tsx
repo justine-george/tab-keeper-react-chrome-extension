@@ -11,6 +11,8 @@ import userEvent from '@testing-library/user-event';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -104,8 +106,13 @@ describe('OverflowMenu elevation (KAN-267)', () => {
           Number(m[1])
         )
       );
-    for (const dark of [DARKENHEIMER_THEME, BLUE_THEME]) {
-      for (const light of [LIGHT_THEME, WARM_LIGHT_THEME, BB_PINK_THEME]) {
+    for (const dark of [DARKENHEIMER_THEME, BLUE_THEME, CHARCOAL_THEME]) {
+      for (const light of [
+        LIGHT_THEME,
+        WARM_LIGHT_THEME,
+        BB_PINK_THEME,
+        CHALK_THEME,
+      ]) {
         expect(heaviest(dark.FLOATING_SHADOW)).toBeGreaterThan(
           heaviest(light.FLOATING_SHADOW)
         );

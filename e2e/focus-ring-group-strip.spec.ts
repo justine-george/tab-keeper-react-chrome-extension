@@ -2,6 +2,8 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import { rgb } from './fixtures/pixels';
+import { CHALK_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-405 2A on the group colour strip: Esc after a click-opened picker
 // returns focus to the strip without a ring.
@@ -97,7 +99,8 @@ test('click the strip, then Esc: focus on the strip, no ring; the next keys brin
     focused: true,
     visible: true,
     outline: 'solid',
-    ring: '2px rgb(59, 61, 64) 2px',
+    // KAN-731. Chalk's TEXT_COLOR: the default theme.
+    ring: `2px ${rgb(CHALK_THEME.TEXT_COLOR)} 2px`,
   });
   const b = await page.locator(STRIP).boundingBox();
   if (b === null) throw new Error('no strip box');

@@ -6,11 +6,21 @@
     BBPink: '#FCEEF3',
     Darkenheimer: '#2A2A2A',
     Blue: '#2A2A3A',
+    Chalk: '#FFFFFF',
+    Charcoal: '#18191A',
   };
+  var MOVES = { Light: 'Chalk', Darkenheimer: 'Charcoal' };
   var theme;
   try {
     var parsed = JSON.parse(localStorage.getItem('settingsData') || '{}');
     theme = parsed && parsed.theme;
+    // KAN-731. Twin of the slice's Chalk/Charcoal move (src/redux/slices/settingsDataStateSlice.ts).
+    if (
+      Object.prototype.hasOwnProperty.call(MOVES, theme) &&
+      parsed.isChalkCharcoalMoveApplied !== true
+    ) {
+      theme = MOVES[theme];
+    }
   } catch (e) {
     theme = undefined;
   }
@@ -18,6 +28,10 @@
     typeof theme === 'string' &&
     Object.prototype.hasOwnProperty.call(GROUNDS, theme)
       ? GROUNDS[theme]
-      : GROUNDS.Light;
+      : // KAN-731. Twin of defaultTheme() in src/utils/constants/theme.ts.
+        window.matchMedia &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? GROUNDS.Charcoal
+        : GROUNDS.Chalk;
   document.documentElement.style.setProperty('--app-background', ground);
 })();

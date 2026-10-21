@@ -6,6 +6,8 @@ import { seedSettings } from './fixtures/seed';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -18,9 +20,11 @@ import { rgb } from './fixtures/pixels';
 const POPUP = { width: 790, height: 550 };
 
 const THEMES = [
+  ['Chalk', CHALK_THEME],
   ['Light', LIGHT_THEME],
   ['WarmLight', WARM_LIGHT_THEME],
   ['BBPink', BB_PINK_THEME],
+  ['Charcoal', CHARCOAL_THEME],
   ['Darkenheimer', DARKENHEIMER_THEME],
   ['Blue', BLUE_THEME],
 ] as const;

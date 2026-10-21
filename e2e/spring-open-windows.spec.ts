@@ -44,9 +44,11 @@ import {
 import { holdSweepAt } from './fixtures/dwell';
 import { SPRING_OPEN_MS } from '../src/components/common/springOpen';
 import {
+  CHALK_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
   BB_PINK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   BLUE_THEME,
 } from '../src/hooks/useThemeColors';
@@ -253,9 +255,11 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
 
   // KAN-669: the press fill, which stands off the list in every theme.
   const PRESS_BY_THEME = new Map([
+    ['Chalk', CHALK_THEME.ACTIVE_COLOR],
     ['Light', LIGHT_THEME.ACTIVE_COLOR],
     ['WarmLight', WARM_LIGHT_THEME.ACTIVE_COLOR],
     ['BBPink', BB_PINK_THEME.ACTIVE_COLOR],
+    ['Charcoal', CHARCOAL_THEME.ACTIVE_COLOR],
     ['Darkenheimer', DARKENHEIMER_THEME.ACTIVE_COLOR],
     ['Blue', BLUE_THEME.ACTIVE_COLOR],
   ]);
@@ -484,7 +488,7 @@ test.describe('a collapsed window opens under a resting tab or group (KAN-379)',
     const [right] = await pixelsAt(page, [[t.x + t.width * 0.97, t.y + 3]]);
     // PREMISE: read before the open.
     expect(await isFolded(page, 'w2')).toBe(true);
-    expect(right).toBe(LIGHT_THEME.ACTIVE_COLOR.toUpperCase());
+    expect(right).toBe(CHALK_THEME.ACTIVE_COLOR.toUpperCase());
     await playSweep(page, 'w2');
     await expect(tabHandle(page, 'b0')).toBeVisible();
     const { started, startedOnTimeline, opened } = dwellToOpen(

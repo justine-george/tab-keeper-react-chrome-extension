@@ -10,6 +10,11 @@ import {
 } from './tabGroups';
 import { windowLabel } from './windowLabel';
 import { CORNER_SHAPE } from '../../styles/scale';
+import {
+  CHALK_THEME,
+  CHARCOAL_THEME,
+  type ThemeColors,
+} from '../constants/themePalettes';
 
 export type ExportLayout = 'comfortable' | 'compact';
 
@@ -38,36 +43,25 @@ export interface ExportPalette {
   groupBg: string;
 }
 
+// KAN-731. Chalk's and Charcoal's own tokens; links keep their hues (blue and violet mean "link").
+const exportPaletteOf = (
+  theme: ThemeColors,
+  link: string,
+  visited: string
+): ExportPalette => ({
+  bg: theme.PRIMARY_COLOR.toLowerCase(),
+  text: theme.TEXT_COLOR.toLowerCase(),
+  muted: theme.LABEL_L2_COLOR.toLowerCase(),
+  rule: theme.PANEL_BORDER_COLOR.toLowerCase(),
+  link,
+  visited,
+  plain: theme.PLACEHOLDER_COLOR.toLowerCase(),
+  groupBg: theme.SECONDARY_COLOR.toLowerCase(),
+});
+
 export const EXPORT_PALETTE: Record<ExportScheme, ExportPalette> = {
-  light: {
-    bg: '#ffffff',
-    text: '#1d2025',
-    muted: '#5f6670',
-    // KAN-674. The dark file's weight: 1.28:1 in a group's band, 1.38:1 on the page.
-    rule: '#d8dce1',
-    link: '#1a56c4',
-    visited: '#6b3fb0',
-    // KAN-358. A non-web tab's name is text people read: 4.5:1 on the page
-    // and in a group's band, like every other colour that sets words. The
-    // "not a web link" chip, not a faint colour, marks the row.
-    plain: '#6e7279',
-    groupBg: '#f5f7fa',
-  },
-  // Neutral greys (KAN-197): the tinted #17191d family read as a second,
-  // bluish dark under Darkenheimer's neutral header. Each grey is the nearest
-  // neutral that keeps every contrast ratio at least what the tinted palette
-  // had; links keep their hues, because blue and violet mean "link". `plain`
-  // was raised past that, to 4.5:1 in a group's band (KAN-358).
-  dark: {
-    bg: '#171717',
-    text: '#e8e8e8',
-    muted: '#a0a0a0',
-    rule: '#303030',
-    link: '#8ab4f8',
-    visited: '#c7a4f5',
-    plain: '#888888',
-    groupBg: '#212121',
-  },
+  light: exportPaletteOf(CHALK_THEME, '#1a56c4', '#6b3fb0'),
+  dark: exportPaletteOf(CHARCOAL_THEME, '#8ab4f8', '#c7a4f5'),
 };
 
 export interface SessionExportOptions {

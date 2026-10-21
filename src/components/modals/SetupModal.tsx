@@ -154,6 +154,7 @@ export const SetupModal: React.FC = () => {
     transform: translate(-50%, -50%);
     margin: 0;
     padding: 20px;
+    /* KAN-731: 600 keeps the sync caption on one line in every locale (KAN-519). */
     width: min(calc(100% - 32px), 600px);
     max-width: none;
     max-height: calc(100% - 32px);
@@ -200,8 +201,8 @@ export const SetupModal: React.FC = () => {
     }
   `;
   const swatchRowStyle = css`
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(4, max-content);
     gap: 14px;
   `;
   const languageGridStyle = css`

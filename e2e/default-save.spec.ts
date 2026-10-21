@@ -6,6 +6,8 @@ import { buildSession, seedSettings } from './fixtures/seed';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -227,9 +229,11 @@ test('another open page swaps its row without a reload', async ({
 // focus ring: a 2px TEXT_COLOR outline read as "focus is here", and with focus
 // the tile drew two rings of the same weight. Choosing must not resize a tile.
 for (const [theme, colors] of [
+  ['Chalk', CHALK_THEME],
   ['Light', LIGHT_THEME],
   ['WarmLight', WARM_LIGHT_THEME],
   ['BBPink', BB_PINK_THEME],
+  ['Charcoal', CHARCOAL_THEME],
   ['Darkenheimer', DARKENHEIMER_THEME],
   ['Blue', BLUE_THEME],
 ] as const) {

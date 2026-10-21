@@ -112,7 +112,7 @@ function App() {
     void dispatch(readDeviceId());
     const stopFollowingDeviceId = followDeviceId(dispatch, reduxStore.getState);
     dispatch(setCloudConfigured(isCloudConfigured));
-    // KAN-7 §8. Decided from the disk as it was before this open wrote to it.
+    // KAN-7 §8. Decided from the disk as this open found it, past the slice's load-time writes (retired keys, KAN-731's move).
     const storedAtOpen = asPartialSettings<SettingsData>(
       loadFromLocalStorage('settingsData')
     );

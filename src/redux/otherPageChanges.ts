@@ -19,6 +19,7 @@ import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
 } from '../utils/functions/local';
+import { asTheme } from '../utils/constants/theme';
 import { readLocalSessions } from '../utils/functions/localSessions';
 import { noteStoredSettingsSeen } from '../utils/functions/localSettings';
 import {
@@ -128,6 +129,13 @@ export const applyOtherPageSettings =
         'defaultSaveScope' in incoming
           ? asDefaultSaveScope(incoming.defaultSaveScope)
           : current.defaultSaveScope,
+      // KAN-731. A theme this build does not know gets the default; absent, keep ours.
+      theme: 'theme' in incoming ? asTheme(incoming.theme) : current.theme,
+      // KAN-731. Guarded like the pin flag.
+      isChalkCharcoalMoveApplied:
+        'isChalkCharcoalMoveApplied' in incoming
+          ? incoming.isChalkCharcoalMoveApplied === true
+          : current.isChalkCharcoalMoveApplied,
       // KAN-7. Same rule for the onboarding answers.
       ...guardOnboarding(loaded, current),
     };

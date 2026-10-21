@@ -29,6 +29,7 @@ import {
   initialState as settingsInitial,
   Language,
   settingsDataStateSlice,
+  Theme,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
@@ -73,6 +74,8 @@ const render = (
       store.dispatch(
         settingsDataStateSlice.actions.replaceState({
           ...settingsInitial,
+          // KAN-731. A user on Paper, like the harness; the new-install test below uses the default.
+          theme: Theme.LIGHT,
           setupState: 'pending',
           ...settings,
         })
@@ -117,11 +120,29 @@ describe('Make Tab Keeper yours', () => {
     expect(document.activeElement).toBe(dialog());
     expect(stepHeading()).toHaveTextContent('Pick a theme');
     expect(within(dialog()).queryByRole('button', { name: 'Back' })).toBeNull();
-    for (const name of ['Paper', 'Parchment', 'Petal', 'Graphite', 'Ink']) {
+    for (const name of [
+      'Chalk',
+      'Paper',
+      'Parchment',
+      'Petal',
+      'Charcoal',
+      'Graphite',
+      'Ink',
+    ]) {
       expect(
         within(dialog()).getByRole('button', { name })
       ).toBeInTheDocument();
     }
+  });
+
+  test('on a new install Chalk is the pressed theme (KAN-731)', async () => {
+    await render(BOUND, { theme: settingsInitial.theme });
+    expect(
+      within(dialog()).getByRole('button', { name: 'Chalk' })
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      within(dialog()).getByRole('button', { name: 'Paper' })
+    ).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('the theme step says the choice can be changed in Settings', async () => {
@@ -624,5 +645,14 @@ describe('setup’s buttons (KAN-501)', () => {
       await act(async () => {});
     }
     expect(restingFill(button('Done'))).toContain(FILLED);
+  });
+});
+
+// KAN-731. 600px keeps the sync caption on one line in every locale (KAN-519); en needs 589.5px.
+describe('setup’s width (KAN-731)', () => {
+  test('is 600px', async () => {
+    await render();
+    // jsdom's stylesheet drops the calc() wrapper, so the rule reads min(100% - 32px, …).
+    expect(classRulesFor(dialog())).toContain('width: min(100% - 32px, 600px)');
   });
 });

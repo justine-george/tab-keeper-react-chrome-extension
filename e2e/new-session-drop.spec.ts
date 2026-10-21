@@ -20,7 +20,7 @@ import {
   saveRowSeen,
 } from './fixtures/sessionDrag';
 import { rgbToHex } from './fixtures/pixels';
-import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { CHALK_THEME } from '../src/hooks/useThemeColors';
 import {
   tab,
   win,
@@ -228,7 +228,7 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
         label: 'New session',
       });
       expect(rgbToHex((await targetLook(page)).fill)).toBe(
-        LIGHT_THEME.ACTIVE_COLOR
+        CHALK_THEME.ACTIVE_COLOR
       );
       await page.mouse.up();
 
@@ -744,7 +744,7 @@ test.describe('a carried tab, group or window dropped on the save row makes a ne
           .locator(PLACE)
           .evaluate((el) => getComputedStyle(el).borderTopColor)
       )
-    ).toBe(LIGHT_THEME.LABEL_L2_COLOR);
+    ).toBe(CHALK_THEME.LABEL_L2_COLOR);
     // Slid, not jumped: some frame drew S1 between its two places.
     const opening = await listLog(page);
     expect(

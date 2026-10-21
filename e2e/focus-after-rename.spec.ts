@@ -7,7 +7,7 @@ import {
   session,
 } from './fixtures/savedWindows';
 import { pixelsAt } from './fixtures/pixels';
-import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { CHALK_THEME } from '../src/hooks/useThemeColors';
 import type { windowGroupData } from '../src/redux/slices/tabContainerDataStateSlice';
 
 // KAN-389, KAN-400. Enter and Esc end a rename on the title it replaced, in the real popup with real keys.
@@ -177,7 +177,7 @@ for (const [kind, opener, renamed] of RENAMES) {
           [ring.box.left - mid, cy],
           [ring.box.right + mid - 1, cy],
         ])
-      ).toEqual(Array(4).fill(LIGHT_THEME.TEXT_COLOR));
+      ).toEqual(Array(4).fill(CHALK_THEME.TEXT_COLOR));
     });
 
     test('Esc cancels and leaves focus on the title', async ({

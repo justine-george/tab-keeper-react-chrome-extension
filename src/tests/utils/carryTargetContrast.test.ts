@@ -3,6 +3,8 @@ import { describe, expect, test } from 'vitest';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -20,10 +22,12 @@ import { contrast } from '../setup/contrast';
 // Each theme with the floor its outline is held to on the press fill.
 const THEMES = {
   LIGHT: { theme: LIGHT_THEME, outlineFloor: 3 },
+  CHALK: { theme: CHALK_THEME, outlineFloor: 3 },
   WARM_LIGHT: { theme: WARM_LIGHT_THEME, outlineFloor: 3 },
   BB_PINK: { theme: BB_PINK_THEME, outlineFloor: 3 },
   DARKENHEIMER: { theme: DARKENHEIMER_THEME, outlineFloor: 2.95 },
   BLUE: { theme: BLUE_THEME, outlineFloor: 2.95 },
+  CHARCOAL: { theme: CHARCOAL_THEME, outlineFloor: 2.95 },
 };
 
 const FILL_FLOOR = 1.4;

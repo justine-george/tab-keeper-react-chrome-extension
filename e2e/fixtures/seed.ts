@@ -46,6 +46,12 @@ export const ONBOARDING_ANSWERED = {
 export const REVIEW_CARD_DECLINED = { isNeverAskAgainToRate: true };
 
 /**
+ * KAN-731. A seeded profile has had the one-time move, so a seeded 'Light' or
+ * 'Darkenheimer' stays Paper or Graphite. A spec about the move passes `false`, which wins.
+ */
+export const THEME_MOVE_APPLIED = { isChalkCharcoalMoveApplied: true };
+
+/**
  * Seeds `settingsData`, which is what gates the review card.
  *
  * Note `extensionInstalledTime` must be a NUMBER of milliseconds, not a date
@@ -67,6 +73,7 @@ export async function seedSettings(
     cloudConsent: 'granted',
     ...ONBOARDING_ANSWERED,
     ...REVIEW_CARD_DECLINED,
+    ...THEME_MOVE_APPLIED,
     ...settings,
   });
 }
@@ -90,6 +97,7 @@ export async function seedSettingsIfAbsent(
       cloudConsent: 'granted',
       ...ONBOARDING_ANSWERED,
       ...REVIEW_CARD_DECLINED,
+      ...THEME_MOVE_APPLIED,
       ...settings,
     })
   );

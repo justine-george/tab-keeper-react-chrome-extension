@@ -53,7 +53,7 @@ import { seedSettings } from './fixtures/seed';
 import { pixelsAt, rgbToHex, contrast } from './fixtures/pixels';
 import { holdSweepAt, holdTimers } from './fixtures/dwell';
 import { SPRING_OPEN_MS } from '../src/components/common/springOpen';
-import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { CHALK_THEME } from '../src/hooks/useThemeColors';
 import {
   type TabMasterContainer,
   type tabContainerData,
@@ -959,11 +959,11 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
   // The outline as painted, against the row's painted fill (a sweep is held
   // at its end). CONTROL in each: the fill pixel is the press colour the row
   // declares, so the decode is faithful before a ratio is built on it.
-  // KAN-669: 3:1 in the light themes; the dark ones sit just under it on
-  // purpose (2.98 on the press fill), as KAN-668's control edges do.
+  // KAN-669: floors 3:1 light, 2.95 dark, as carryTargetContrast.test.ts holds them; all measure 3.48 or more.
   const OUTLINE_FLOOR = new Map([
     ['Darkenheimer', 2.95],
     ['Blue', 2.95],
+    ['Charcoal', 2.95],
   ]);
   for (const theme of THEMES) {
     test(`the target outline clears 3:1 against the row's fill (${theme})`, async ({
@@ -1185,7 +1185,7 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
     // The row's top strip, clear of the card.
     expect((await boxOf(page.locator(CARD))).y - 8).toBeGreaterThan(r.y + 6);
     const [right] = await pixelsAt(page, [[r.x + r.width * 0.97, r.y + 6]]);
-    expect(right).toBe(LIGHT_THEME.ACTIVE_COLOR.toUpperCase());
+    expect(right).toBe(CHALK_THEME.ACTIVE_COLOR.toUpperCase());
     // PREMISE: read before the spring-open.
     expect(await selected(page)).toBe('S1');
     await page.keyboard.press('Escape');
@@ -1662,13 +1662,13 @@ test.describe('the target visuals (V1-V4)', () => {
     // CONTROL: unlit, it is dashed and unfilled.
     const unlit = await newWindowBox(page, 'first');
     expect(unlit?.border).toBe('dashed');
-    expect(rgbToHex(unlit?.fill ?? '')).not.toBe(LIGHT_THEME.ACTIVE_COLOR);
+    expect(rgbToHex(unlit?.fill ?? '')).not.toBe(CHALK_THEME.ACTIVE_COLOR);
 
     await adoptPhantom(page, 'carried:a1');
     await ontoHeaderTarget(page, aim);
     const lit = await newWindowBox(page, 'first');
     expect(lit?.landing).toBe(true);
-    expect(rgbToHex(lit?.fill ?? '')).toBe(LIGHT_THEME.ACTIVE_COLOR);
+    expect(rgbToHex(lit?.fill ?? '')).toBe(CHALK_THEME.ACTIVE_COLOR);
     expect(lit?.border).toBe('solid');
     expect(lit?.named).toBe(true);
     // The drag is live, and no landing slot is drawn: the lit box is what
@@ -2130,7 +2130,7 @@ async function sweepRows(page: Page, x: number): Promise<number> {
   for (let y = pane.top + 8; y < pane.bottom - 8; y += 16) {
     await page.mouse.move(x, y, { steps: 2 });
     await settled(page);
-    for (const row of await paintedHover(page, LIGHT_THEME.HOVER_COLOR))
+    for (const row of await paintedHover(page, CHALK_THEME.HOVER_COLOR))
       filled.push(`${Math.round(y)}:${row}`);
     const rowHit = await rowHitAt(page, x, y);
     if (rowHit !== null) hit.push(`${Math.round(y)}:${rowHit}`);
@@ -2196,7 +2196,7 @@ test.describe('no row under a held carry shows its hover (KAN-363)', () => {
     const w2 = await boxOf(windowHandle(page, 'w2'));
     await page.mouse.move(w2.x + 200, w2.y + w2.height / 2, { steps: 3 });
     await expect
-      .poll(() => paintedHover(page, LIGHT_THEME.HOVER_COLOR))
+      .poll(() => paintedHover(page, CHALK_THEME.HOVER_COLOR))
       .toEqual(['w2']);
   });
 
@@ -2297,7 +2297,7 @@ test.describe('no row under a held carry shows its hover (KAN-363)', () => {
           requestAnimationFrame(frame);
       };
       requestAnimationFrame(frame);
-    }, LIGHT_THEME.HOVER_COLOR);
+    }, CHALK_THEME.HOVER_COLOR);
     // Straight in at w1's header height, then down over the rows.
     const w1 = await boxOf(windowHandle(page, 'w1'));
     await page.mouse.move(at.x, w1.y + w1.height / 2, { steps: 10 });
@@ -2382,7 +2382,7 @@ test.describe('no row under a held carry shows its hover (KAN-363)', () => {
       const w2 = await boxOf(windowHandle(page, 'w2'));
       await page.mouse.move(w2.x + 200, w2.y + w2.height / 2, { steps: 3 });
       await expect
-        .poll(() => paintedHover(page, LIGHT_THEME.HOVER_COLOR))
+        .poll(() => paintedHover(page, CHALK_THEME.HOVER_COLOR))
         .toEqual(['w2']);
     });
   }
@@ -3783,7 +3783,7 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     expect(blank?.borderWidth).toBeGreaterThan(0);
     expect(blank?.borderColour).toBe('rgba(0, 0, 0, 0)');
     expect(blank?.named).toBe(false);
-    expect(rgbToHex(blank?.fill ?? '')).not.toBe(LIGHT_THEME.ACTIVE_COLOR);
+    expect(rgbToHex(blank?.fill ?? '')).not.toBe(CHALK_THEME.ACTIVE_COLOR);
     // Lit, as a landing in it would light it: the header target's look.
     const header = await newWindowBox(page, 'first');
     await page.evaluate(() =>
@@ -3792,7 +3792,7 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
         ?.setAttribute('data-landing', '')
     );
     const lit = await newWindowBox(page, 'last');
-    expect(rgbToHex(lit?.fill ?? '')).toBe(LIGHT_THEME.ACTIVE_COLOR);
+    expect(rgbToHex(lit?.fill ?? '')).toBe(CHALK_THEME.ACTIVE_COLOR);
     expect(lit?.border).toBe('solid');
     expect(lit?.borderColour).toBe(header?.borderColour);
     expect(lit?.named).toBe(true);
@@ -4083,7 +4083,7 @@ function expectLitBox(
   expect(m).not.toBeNull();
   if (m === null) return;
   expect(m.look?.landing).toBe(true);
-  expect(rgbToHex(m.look?.fill ?? '')).toBe(LIGHT_THEME.ACTIVE_COLOR);
+  expect(rgbToHex(m.look?.fill ?? '')).toBe(CHALK_THEME.ACTIVE_COLOR);
   expect(m.look?.border).toBe('solid');
   expect(m.look?.borderColour).toBe(m.headerBorderColour);
   expect(m.look?.named).toBe(true);

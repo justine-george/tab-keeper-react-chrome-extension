@@ -13,9 +13,9 @@ import ExportEditor from './ExportEditor';
 import SlidingPair, { type SlidingOption } from '../common/SlidingPair';
 import { EXPORT_PAIR_METRICS, KNOB_TRANSITION } from './slidingPairStyle';
 import {
-  DARKENHEIMER_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   isDarkTheme,
-  LIGHT_THEME,
   ThemeColorsOverride,
 } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
@@ -239,7 +239,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // One page, light or dark: the header and the file share a polarity, rather
   // than the extension's tinted chrome framing a document. The shared
   // components below get the same colours through ThemeColorsOverride.
-  const COLORS = scheme === 'dark' ? DARKENHEIMER_THEME : LIGHT_THEME;
+  const COLORS = scheme === 'dark' ? CHARCOAL_THEME : CHALK_THEME;
 
   // KAN-201. Button and Icon fade their background over 200ms while their text
   // and icons switch instantly, so a palette change left every control wearing

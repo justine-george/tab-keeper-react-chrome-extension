@@ -5,7 +5,6 @@ import {
   EXPORT_PALETTE,
   exportFileName,
   sessionToHtml,
-  type ExportPalette,
   type SessionExportOptions,
 } from '../../utils/functions/sessionExportHtml';
 import { contrast } from '../setup/contrast';
@@ -336,6 +335,34 @@ describe('the file name (KAN-190)', () => {
 
 // KAN-190. Polarity comes from the export theme, never the reader's
 // prefers-color-scheme, so the recipient sees what the preview showed.
+// KAN-731. The file's two palettes are Chalk's and Charcoal's ramps.
+describe('the exported palettes (KAN-731)', () => {
+  test('light is Chalk and dark is Charcoal', () => {
+    expect(EXPORT_PALETTE).toEqual({
+      light: {
+        bg: '#ffffff',
+        text: '#1e1f21',
+        muted: '#505258',
+        rule: '#d8dadd',
+        link: '#1a56c4',
+        visited: '#6b3fb0',
+        plain: '#6c6e75',
+        groupBg: '#f3f5f7',
+      },
+      dark: {
+        bg: '#18191a',
+        text: '#f0f1f2',
+        muted: '#a9abb0',
+        rule: '#313336',
+        link: '#8ab4f8',
+        visited: '#c7a4f5',
+        plain: '#97999e',
+        groupBg: '#242528',
+      },
+    });
+  });
+});
+
 describe('the file looks the way it did when it was exported (KAN-190)', () => {
   const oneTab = () =>
     buildSession({
@@ -363,7 +390,7 @@ describe('the file looks the way it did when it was exported (KAN-190)', () => {
   test('a dark theme writes a dark file', () => {
     const html = sessionToHtml(oneTab(), options({ scheme: 'dark' }));
 
-    expect(html).toContain('--bg:#171717');
+    expect(html).toContain('--bg:#18191a');
     expect(html).toContain('color-scheme:dark');
   });
 
@@ -453,67 +480,52 @@ describe('the file prints as itself (KAN-190)', () => {
   });
 });
 
-// KAN-197. Bluish dark greys looked two-tone under the neutral #333333 header.
-describe('the dark file palette is neutral (KAN-197)', () => {
-  // The previous tinted palette, kept as the contrast floor.
-  const TINTED: ExportPalette = {
-    bg: '#17191d',
-    text: '#e6e8eb',
-    muted: '#9aa1ab',
-    rule: '#2c3037',
-    link: '#8ab4f8',
-    visited: '#c7a4f5',
-    plain: '#7b828c',
-    groupBg: '#1f2227',
-  };
-  const GREYS = ['bg', 'text', 'muted', 'rule', 'plain', 'groupBg'] as const;
+// KAN-731. Each file palette holds its floors on the page and in a group's band
+// (KAN-358 plain, KAN-674 rule); links keep the hues they had (KAN-197).
+describe.each(['light', 'dark'] as const)(
+  'the %s file palette floors',
+  (scheme) => {
+    const palette = EXPORT_PALETTE[scheme];
 
-  test('every grey in the dark palette has red, green and blue equal', () => {
-    const tinted = GREYS.filter((token) => {
-      const hex = EXPORT_PALETTE.dark[token].replace('#', '');
-      return !(
-        hex.slice(0, 2) === hex.slice(2, 4) &&
-        hex.slice(2, 4) === hex.slice(4, 6)
+    test.each([
+      ['text', 'bg'],
+      ['muted', 'bg'],
+      ['link', 'bg'],
+      ['visited', 'bg'],
+      ['plain', 'bg'],
+      ['text', 'groupBg'],
+      ['muted', 'groupBg'],
+      ['link', 'groupBg'],
+      ['visited', 'groupBg'],
+      ['plain', 'groupBg'],
+    ] as const)('%s on %s reads at 4.5:1', (fg, bg) => {
+      const ratio = contrast(palette[fg], palette[bg]);
+
+      expect(
+        ratio,
+        `${fg} on ${bg}: ${ratio.toFixed(2)}`
+      ).toBeGreaterThanOrEqual(4.5);
+    });
+
+    test('the rule holds 1.2:1 in a group band', () => {
+      expect(contrast(palette.rule, palette.groupBg)).toBeGreaterThanOrEqual(
+        1.2
       );
     });
 
-    expect(
-      tinted,
-      `tinted: ${tinted
-        .map((t) => `${t} ${EXPORT_PALETTE.dark[t]}`)
-        .join(', ')}`
-    ).toEqual([]);
-  });
+    // A group's band stays visible on the page: light measures 1.093, dark 1.149.
+    test('the group band holds 1.09:1 on the page', () => {
+      expect(contrast(palette.groupBg, palette.bg)).toBeGreaterThanOrEqual(
+        1.09
+      );
+    });
 
-  // Blue and violet carry meaning (link, visited), not tint.
-  test('links keep their colours', () => {
-    expect(EXPORT_PALETTE.dark.link).toBe(TINTED.link);
-    expect(EXPORT_PALETTE.dark.visited).toBe(TINTED.visited);
-  });
-
-  test.each([
-    ['text', 'bg'],
-    ['muted', 'bg'],
-    ['link', 'bg'],
-    ['visited', 'bg'],
-    ['plain', 'bg'],
-    ['rule', 'bg'],
-    ['groupBg', 'bg'],
-    ['text', 'groupBg'],
-    ['muted', 'groupBg'],
-    ['link', 'groupBg'],
-    ['visited', 'groupBg'],
-    ['plain', 'groupBg'],
-  ] as const)('%s on %s reads at least as clearly as it did', (fg, bg) => {
-    const was = contrast(TINTED[fg], TINTED[bg]);
-    const now = contrast(EXPORT_PALETTE.dark[fg], EXPORT_PALETTE.dark[bg]);
-
-    expect(
-      now,
-      `${fg} on ${bg}: ${was.toFixed(3)} before, ${now.toFixed(3)} now`
-    ).toBeGreaterThanOrEqual(was);
-  });
-});
+    test('links keep their colours', () => {
+      expect(palette.link).toBe(scheme === 'dark' ? '#8ab4f8' : '#1a56c4');
+      expect(palette.visited).toBe(scheme === 'dark' ? '#c7a4f5' : '#6b3fb0');
+    });
+  }
+);
 
 // KAN-358. WCAG AA on the page and a group band. Includes `plain`: the "not a
 // web link" chip, not a faint colour, marks such a row.

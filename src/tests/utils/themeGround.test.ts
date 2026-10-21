@@ -1,8 +1,12 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+
+import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -39,37 +43,96 @@ const PALETTES: Record<Theme, ThemeColors> = {
   [Theme.BB_PINK]: BB_PINK_THEME,
   [Theme.DARKENHEIMER]: DARKENHEIMER_THEME,
   [Theme.BLUE]: BLUE_THEME,
+  [Theme.CHALK]: CHALK_THEME,
+  [Theme.CHARCOAL]: CHARCOAL_THEME,
 };
 
 describe('theme-ground.js', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   test('exists', () => {
     expect(source).toContain('--app-background');
   });
 
   test.each(Object.values(Theme))('%s paints its PRIMARY_COLOR', (theme) => {
-    expect(groundFor(stored(JSON.stringify({ theme })))).toBe(
+    const settings = { theme, isChalkCharcoalMoveApplied: true };
+    expect(groundFor(stored(JSON.stringify(settings)))).toBe(
       PALETTES[theme].PRIMARY_COLOR
     );
   });
 
+  // KAN-731. The Chalk/Charcoal move on the first frame, as the slice makes it at load.
   test.each([
-    ['nothing stored', null],
-    ['no theme key', '{}'],
-    ['malformed JSON', '{theme:'],
-    ['an unknown theme', '{"theme":"Neon"}'],
-    ['a prototype key', '{"theme":"__proto__"}'],
-    ['a number', '{"theme":3}'],
-    ['a JSON array', '[1]'],
-  ])('%s paints Light', (_, value) => {
-    expect(groundFor(stored(value))).toBe(LIGHT_THEME.PRIMARY_COLOR);
+    ['Paper without the flag', '{"theme":"Light"}', CHALK_THEME],
+    [
+      'Paper with the flag',
+      '{"theme":"Light","isChalkCharcoalMoveApplied":true}',
+      LIGHT_THEME,
+    ],
+    ['Graphite without the flag', '{"theme":"Darkenheimer"}', CHARCOAL_THEME],
+    [
+      'Graphite with the flag',
+      '{"theme":"Darkenheimer","isChalkCharcoalMoveApplied":true}',
+      DARKENHEIMER_THEME,
+    ],
+    [
+      'Paper with a flag that is not true',
+      '{"theme":"Light","isChalkCharcoalMoveApplied":"true"}',
+      CHALK_THEME,
+    ],
+    ['Parchment without the flag', '{"theme":"WarmLight"}', WARM_LIGHT_THEME],
+  ])('%s paints its ground', (_, value, palette) => {
+    expect(groundFor(stored(value))).toBe(palette.PRIMARY_COLOR);
   });
 
-  test('storage that throws paints Light', () => {
-    const throwing = {
-      getItem: () => {
-        throw new Error('blocked');
-      },
-    };
-    expect(groundFor(throwing)).toBe(LIGHT_THEME.PRIMARY_COLOR);
+  // KAN-731. Absent or unknown follows the OS: Chalk, or Charcoal on a dark system.
+  describe.each([
+    ['light OS', false, CHALK_THEME.PRIMARY_COLOR],
+    ['dark OS', true, CHARCOAL_THEME.PRIMARY_COLOR],
+  ])('on a %s', (_os, dark, expected) => {
+    beforeEach(() => {
+      vi.stubGlobal('window', {
+        matchMedia: (q: string) => new FakeMediaQueryList(q, dark),
+      });
+    });
+
+    test.each([
+      ['nothing stored', null],
+      ['no theme key', '{}'],
+      ['malformed JSON', '{theme:'],
+      ['an unknown theme', '{"theme":"Neon"}'],
+      ['a theme that was never shipped', '{"theme":"Nonsense"}'],
+      ['a prototype key', '{"theme":"__proto__"}'],
+      ['a number', '{"theme":3}'],
+      ['a JSON array', '[1]'],
+    ])('%s paints the default', (_, value) => {
+      expect(groundFor(stored(value))).toBe(expected);
+    });
+
+    test('storage that throws paints the default', () => {
+      const throwing = {
+        getItem: () => {
+          throw new Error('blocked');
+        },
+      };
+      expect(groundFor(throwing)).toBe(expected);
+    });
+
+    test('a stored Paper with the move applied stays Paper', () => {
+      expect(
+        groundFor(stored('{"theme":"Light","isChalkCharcoalMoveApplied":true}'))
+      ).toBe(LIGHT_THEME.PRIMARY_COLOR);
+    });
+
+    test('a stored Paper without the flag moves to Chalk on either OS', () => {
+      expect(groundFor(stored('{"theme":"Light"}'))).toBe(
+        CHALK_THEME.PRIMARY_COLOR
+      );
+    });
+  });
+
+  test('nothing stored and no matchMedia paints Chalk', () => {
+    vi.stubGlobal('window', {});
+    expect(groundFor(stored(null))).toBe(CHALK_THEME.PRIMARY_COLOR);
   });
 });

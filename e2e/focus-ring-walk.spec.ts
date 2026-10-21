@@ -18,15 +18,22 @@ import { ON_TITLE } from './fixtures/savedRow';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import { standIn } from './fixtures/standInPages';
 import { stubToolbarPin } from './fixtures/toolbarPin';
-import { DARKENHEIMER_THEME, LIGHT_THEME } from '../src/hooks/useThemeColors';
+import {
+  CHALK_THEME,
+  CHARCOAL_THEME,
+  DARKENHEIMER_THEME,
+  LIGHT_THEME,
+} from '../src/hooks/useThemeColors';
 
 // KAN-671. Tab through each page and require the app's ring (KAN-405: 2px
 // TEXT_COLOR) at every stop. Before it, the name and search fields drew
 // nothing, and rows, rename buttons, Settings and the welcome's link drew
-// Chrome's blue. A light and a dark theme: the blue failed 3:1 only in dark.
+// Chrome's blue. Two light themes and two dark: the blue failed 3:1 only in dark.
 
 const THEMES = [
+  ['Chalk', CHALK_THEME],
   ['Light', LIGHT_THEME],
+  ['Charcoal', CHARCOAL_THEME],
   ['Darkenheimer', DARKENHEIMER_THEME],
 ] as const;
 
@@ -190,7 +197,9 @@ for (const [theme, colors] of THEMES) {
     expectRingEverywhere(stops, colors, [
       'Go back',
       ...SETTINGS_CATEGORIES,
+      'Chalk',
       'Paper',
+      'Charcoal',
       'Ink',
       '12-hour',
       '24-hour',
@@ -216,7 +225,13 @@ for (const [theme, colors] of THEMES) {
       if ((await next.count()) === 0) break;
       await next.click();
     }
-    expectRingEverywhere(stops, colors, ['Paper', 'Ink', 'privacy policy']);
+    expectRingEverywhere(stops, colors, [
+      'Chalk',
+      'Paper',
+      'Charcoal',
+      'Ink',
+      'privacy policy',
+    ]);
   });
 
   test(`every stop in the welcome draws the ring (${theme})`, async ({

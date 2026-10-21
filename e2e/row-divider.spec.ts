@@ -20,7 +20,15 @@ import {
 test.use({ showScrollbars: true });
 
 // Values in settingsData.theme, as stored.
-const THEMES = ['Light', 'WarmLight', 'BBPink', 'Darkenheimer', 'Blue'];
+const THEMES = [
+  'Chalk',
+  'Light',
+  'WarmLight',
+  'BBPink',
+  'Charcoal',
+  'Darkenheimer',
+  'Blue',
+];
 
 // The same rules, and the same reasons, as dividerContrast.test.ts.
 const VISIBLE_FLOOR = 1.2;

@@ -1,7 +1,12 @@
 import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { RUN_FINISHED, buildContainer, buildSession } from './fixtures/seed';
+import {
+  RUN_FINISHED,
+  THEME_MOVE_APPLIED,
+  buildContainer,
+  buildSession,
+} from './fixtures/seed';
 import {
   THEMES,
   openPopup,
@@ -585,7 +590,11 @@ for (const [theme, palette] of THEMES) {
       context,
       extensionId,
     }) => {
-      await seedRawSettingsIfAbsent(context, { ...SETTLED, theme });
+      await seedRawSettingsIfAbsent(context, {
+        ...SETTLED,
+        ...THEME_MOVE_APPLIED,
+        theme,
+      });
       const page = await openIn(context, extensionId, POPUP_RUN);
       expect(await pageGround(page)).toBe(palette.PRIMARY_COLOR);
       await startRunFromHelp(page);
@@ -618,6 +627,7 @@ for (const [theme, palette] of THEMES) {
     }) => {
       await seedRawSettingsIfAbsent(context, {
         ...SETTLED,
+        ...THEME_MOVE_APPLIED,
         theme,
         firstRun: FULL_AT_HELLO,
       });
@@ -660,7 +670,7 @@ for (const [theme, palette] of THEMES) {
       context,
       extensionId,
     }) => {
-      await seedRawSettingsIfAbsent(context, { theme });
+      await seedRawSettingsIfAbsent(context, { ...THEME_MOVE_APPLIED, theme });
       const page = await openPopup(context, extensionId);
       expect(await pageGround(page)).toBe(palette.PRIMARY_COLOR);
       await expect(welcome(page)).toBeVisible();

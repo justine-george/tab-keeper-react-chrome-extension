@@ -6,6 +6,7 @@ import SettingsDetailsContainer from '../../components/settings/rightpane/Settin
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
   DARKENHEIMER_THEME,
 } from '../../hooks/useThemeColors';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -29,7 +30,15 @@ import { asWritten } from '../setup/asWritten';
 // aria-pressed, and that the KAN-95 marker is on the active tile alone. The
 // e2e measures that the marker reflows nothing.
 
-const NAMES = ['Paper', 'Parchment', 'Petal', 'Graphite', 'Ink'];
+const NAMES = [
+  'Chalk',
+  'Paper',
+  'Parchment',
+  'Petal',
+  'Charcoal',
+  'Graphite',
+  'Ink',
+];
 
 const renderDisplay = () =>
   renderWithProviders(<SettingsDetailsContainer />, {
@@ -45,7 +54,7 @@ const bandOf = (name: string, band: string) =>
   tileOf(name).querySelector<HTMLElement>(`[data-theme-band="${band}"]`)!;
 
 describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
-  test('five buttons, each named after its theme, and nothing else in the picker', async () => {
+  test('seven buttons, each named after its theme, and nothing else in the picker', async () => {
     await renderDisplay();
 
     for (const name of NAMES) expect(swatch(name)).toBeTruthy();
@@ -76,6 +85,27 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
       asWritten(DARKENHEIMER_THEME.PRIMARY_COLOR)
     );
     expect(BLUE_THEME.PRIMARY_COLOR).not.toBe(DARKENHEIMER_THEME.PRIMARY_COLOR);
+  });
+
+  test('the picker lists the seven in order, light then dark', async () => {
+    await renderDisplay();
+    const row = swatch('Paper').parentElement;
+    if (!row) throw new Error('Paper has no picker row');
+    expect(
+      Array.from(row.querySelectorAll('button')).map(
+        (b) => b.children[1].textContent
+      )
+    ).toEqual(NAMES);
+  });
+
+  test("a Chalk tile carries Chalk's own tokens", async () => {
+    await renderDisplay();
+    expect(getComputedStyle(tileOf('Chalk')).backgroundColor).toMatch(
+      asWritten(CHALK_THEME.PRIMARY_COLOR)
+    );
+    expect(getComputedStyle(bandOf('Chalk', 'header')).backgroundColor).toMatch(
+      asWritten('#F3F5F7')
+    );
   });
 
   test('exactly one is pressed, and its tile alone wears the 2px LABEL_L1 marker and the check', async () => {
@@ -141,18 +171,18 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
   });
 });
 
-// KAN-247. 14px between tiles, up from 10. Not 16: measured at the real 790px
-// popup in ja -- two katakana captions are 76.8px, wider than their tiles --
-// the row has 434.3px for 369.6px of content, so 16px is the exact ceiling
-// before Ink wraps, and the katakana come from the SYSTEM font, so their width
-// is not ours to pin. 14 leaves ~9px for that. theme-swatch-marker.spec pins
-// the no-wrap in a browser.
+// KAN-247. 14px between tiles in a four-column grid (ja's katakana captions outgrow their tiles); theme-swatch-marker.spec pins it in a browser.
 describe('the theme picker spaces its tiles (KAN-247)', () => {
   test('the row gap is 14px', async () => {
     await renderDisplay();
-    const row = swatch('Paper').parentElement!;
+    const row = swatch('Paper').parentElement;
+    if (!row) throw new Error('Paper has no picker row');
     expect(getComputedStyle(row).gap).toBe('14px');
-    // CONTROL: the element read is the picker row, holding all five.
-    expect(row.querySelectorAll('[data-theme-tile]').length).toBe(5);
+    // A grid of four columns: seven tiles fall as four over three.
+    expect(getComputedStyle(row).gridTemplateColumns).toBe(
+      'repeat(4, max-content)'
+    );
+    // CONTROL: the element read is the picker row, holding all seven.
+    expect(row.querySelectorAll('[data-theme-tile]').length).toBe(7);
   });
 });

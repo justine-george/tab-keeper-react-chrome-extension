@@ -1,7 +1,7 @@
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { CHALK_THEME } from '../src/hooks/useThemeColors';
 import { rgb } from './fixtures/pixels';
 
 // KAN-331 O15 on the real artifact: a window row in Open now goes to its
@@ -339,7 +339,7 @@ test.describe('a window row goes to its window (KAN-331)', () => {
       serviceWorker,
       ['Alpha']
     );
-    const hover = rgb(LIGHT_THEME.HOVER_COLOR);
+    const hover = rgb(CHALK_THEME.HOVER_COLOR);
     const homeRow = windowRow(homeBlock);
     const homeStrip = homeRow.locator('[data-row-actions] > *').first();
     const stripOpacity = () =>
@@ -389,7 +389,7 @@ test.describe('a window row goes to its window (KAN-331)', () => {
     await windowTitle(block).hover();
     await expect
       .poll(() => backgroundOf(row))
-      .toBe(rgb(LIGHT_THEME.HOVER_COLOR));
+      .toBe(rgb(CHALK_THEME.HOVER_COLOR));
   });
 
   test("6. a button row's title shows the pointer cursor; This window's does not", async ({

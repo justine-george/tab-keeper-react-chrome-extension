@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { BrowserContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { placeholderPaint } from './fixtures/pixels';
+import { placeholderPaint, rgb } from './fixtures/pixels';
 import {
   buildContainer,
   buildSession,
@@ -321,7 +321,7 @@ test('editing a dark export happens on the dark file ground', async ({
       return 'none';
     });
 
-  expect(ground).toBe('rgb(23, 23, 23)');
+  expect(ground).toBe(rgb(EXPORT_PALETTE.dark.bg));
 });
 
 // KAN-402. An unnamed window's "Window N" placeholder is the file's muted

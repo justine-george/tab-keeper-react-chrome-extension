@@ -17,6 +17,8 @@ vi.mock('../../utils/functions/external', () => ({
 }));
 
 import { makeTestStore } from './makeStore';
+import { setTimeFormat } from '../../redux/slices/settingsDataStateSlice';
+import { Theme } from '../../utils/constants/theme';
 
 describe('test harness', () => {
   it('stubs window.screen so slices can be imported', () => {
@@ -30,5 +32,18 @@ describe('test harness', () => {
   it('builds a store with the real middleware', () => {
     const { store } = makeTestStore();
     expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
+  });
+
+  // KAN-731. Its seed is not a load, so the Chalk move must not touch it.
+  it('is a user on Paper who stays on Paper', async () => {
+    localStorage.clear();
+    const { store } = makeTestStore();
+    expect(store.getState().settingsDataState.theme).toBe(Theme.LIGHT);
+    store.dispatch(setTimeFormat('h23'));
+    vi.resetModules();
+    const { initialState } =
+      await import('../../redux/slices/settingsDataStateSlice');
+    expect(initialState.theme).toBe(Theme.LIGHT);
+    localStorage.clear();
   });
 });
