@@ -175,7 +175,7 @@ export const RunHelloDialog: React.FC<{
   const endStyle = css`
     margin-left: auto;
   `;
-  // As ★ Rate this app: the glyph first, in the filled button's text colour.
+  // As About's ★ Rate Tab Keeper: the glyph first, in the filled button's text colour.
   const iconLabelStyle = css`
     display: inline-flex;
     align-items: center;

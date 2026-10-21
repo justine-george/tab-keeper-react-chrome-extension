@@ -42,7 +42,7 @@ const renderAbout = () =>
   });
 
 const rateButton = () =>
-  screen.getByRole('button', { name: /Rate this extension/i });
+  screen.getByRole('button', { name: 'Rate Tab Keeper' });
 
 describe('rating from the About screen', () => {
   test('records that the user has rated', async () => {
