@@ -9,7 +9,7 @@ import { mixHex } from '../../styles/mixHex';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../styles/scale';
 import { tooltipDescription } from './tooltipRules';
-import { focusRingCss } from './focusRing';
+import { focusRingCss, focusRingInInkCss } from './focusRing';
 
 interface ButtonProps {
   text?: string;
@@ -52,6 +52,7 @@ interface ButtonProps {
   /**
    * KAN-719. Presses do nothing and it says aria-disabled, but the label keeps
    * its ink: the face says why ("Checking…"), so it has to stay legible.
+   * KAN-725. The cursor is `progress` and a press never deepens the fill.
    * Independent of `ariaDisabled`, which dims the label.
    */
   busy?: boolean;
@@ -83,7 +84,7 @@ interface ButtonProps {
  * `quiet`   the default. A bordered button on the page's own ground.
  * `primary` the one action a view is steering toward. At most one per view.
  *           Filled as the dialogs' main action is (KAN-501, KAN-511).
- * `danger`  destructive. Its fill is the same red the delete affordances use.
+ * `danger`  destructive. Red ink at rest; fills red under the pointer (KAN-725).
  * `chip`    a borderless tinted fill, for a control sitting on a card rather
  *           than on the page's ground (KAN-214).
  * `outline` transparent at rest with a hairline edge, for a control laid over
@@ -113,8 +114,8 @@ const Button: React.FC<ButtonProps> = ({
   const FONT_FAMILY = useFontFamily();
 
   // Each kind is a resting fill and the two rungs above it, plus its edge and
-  // its ink, so a variant can never be half-defined: adding one means
-  // answering all five.
+  // its ink (and the ink and edge it takes under the pointer), so a variant
+  // can never be half-defined.
   const bordered = `1px solid ${COLORS.CONTROL_BORDER_COLOR}`;
   const PALETTE = {
     quiet: {
@@ -123,6 +124,9 @@ const Button: React.FC<ButtonProps> = ({
       press: COLORS.ICON_ACTIVE_COLOR,
       border: bordered,
       ink: COLORS.TEXT_COLOR,
+      hoverInk: COLORS.TEXT_COLOR,
+      hoverEdge: null,
+      pressEdge: null,
     },
     // The dialogs' filled rungs (dialogButtons.ts), so the two never drift.
     primary: {
@@ -131,16 +135,20 @@ const Button: React.FC<ButtonProps> = ({
       press: mixHex(COLORS.TEXT_COLOR, COLORS.PRIMARY_COLOR, 0.76),
       border: `1px solid ${COLORS.TEXT_COLOR}`,
       ink: COLORS.PRIMARY_COLOR,
+      hoverInk: COLORS.PRIMARY_COLOR,
+      hoverEdge: null,
+      pressEdge: null,
     },
-    // Holds its red while pressed, as every other destructive control does:
-    // measured, there is no deeper red at this hue that keeps the label on it
-    // above 4.5:1 (KAN-204).
+    // KAN-725. Red ink on the quiet fill; the fill and its edge go red when touched.
     danger: {
-      rest: COLORS.DELETE_ICON_HOVER_COLOR,
-      hover: COLORS.DELETE_ICON_HOVER_COLOR,
-      press: COLORS.DELETE_ICON_HOVER_COLOR,
+      rest: COLORS.PRIMARY_COLOR,
+      hover: COLORS.DANGER_FILL,
+      press: COLORS.DANGER_FILL_DEEP,
       border: bordered,
-      ink: COLORS.TEXT_COLOR,
+      ink: COLORS.DANGER_INK,
+      hoverInk: COLORS.ON_DANGER_FILL,
+      hoverEdge: COLORS.DANGER_FILL,
+      pressEdge: COLORS.DANGER_FILL_DEEP,
     },
     // The fill is the whole affordance, so there is no border. CHIP_COLOR sits
     // 1.20:1 from the card, which leaves the icon tokens a visible step each
@@ -152,6 +160,9 @@ const Button: React.FC<ButtonProps> = ({
       press: COLORS.ICON_ACTIVE_COLOR,
       border: 'none',
       ink: COLORS.TEXT_COLOR,
+      hoverInk: COLORS.TEXT_COLOR,
+      hoverEdge: null,
+      pressEdge: null,
     },
     // KAN-674. The panel edge: over a hovered row DIVIDER fell to 1.13:1.
     outline: {
@@ -160,6 +171,9 @@ const Button: React.FC<ButtonProps> = ({
       press: COLORS.ICON_ACTIVE_COLOR,
       border: `1px solid ${COLORS.PANEL_BORDER_COLOR}`,
       ink: COLORS.TEXT_COLOR,
+      hoverInk: COLORS.TEXT_COLOR,
+      hoverEdge: null,
+      pressEdge: null,
     },
   }[variant];
 
@@ -175,6 +189,17 @@ const Button: React.FC<ButtonProps> = ({
     }`
     : '';
 
+  // KAN-725. A busy button ignores presses, so its press rung is its hover
+  // rung: pressing again shows no deeper fill.
+  const press = busy ? PALETTE.hover : PALETTE.press;
+  const pressEdge = busy ? PALETTE.hoverEdge : PALETTE.pressEdge;
+  // The glyph's colour is a class of its own on the Icon, so it is reached
+  // from here; a caller's iconColor is its own call and is left alone.
+  const glyphInk = (ink: string) =>
+    iconColor || ink === PALETTE.ink
+      ? ''
+      : `.material-symbols-outlined { color: ${ink}; }`;
+
   const buttonStyle = css`
     background-color: ${PALETTE.rest};
     border: ${PALETTE.border};
@@ -186,25 +211,34 @@ const Button: React.FC<ButtonProps> = ({
     justify-content: space-around;
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};
-    cursor: pointer;
-    transition: background-color ${DURATION.COLOR};
+    cursor: ${busy ? 'progress' : 'pointer'};
+    transition:
+      background-color ${DURATION.COLOR},
+      border-color ${DURATION.COLOR},
+      color ${DURATION.COLOR};
     color: ${PALETTE.ink};
     /* KAN-311. A key hint steps up to the ink on the same trigger as the
        fill, so it never sits on the darker fill in its resting colour. */
     &:hover {
       background-color: ${PALETTE.hover};
+      ${PALETTE.hoverEdge && `border-color: ${PALETTE.hoverEdge};`}
+      color: ${PALETTE.hoverInk};
+      ${glyphInk(PALETTE.hoverInk)}
       [data-key-hint] {
-        color: ${PALETTE.ink};
+        color: ${PALETTE.hoverInk};
       }
     }
     /* KAN-205. One rung past the hover, so a click confirms itself. */
     &:active {
-      background-color: ${PALETTE.press};
+      background-color: ${press};
+      ${pressEdge && `border-color: ${pressEdge};`}
+      color: ${PALETTE.hoverInk};
+      ${glyphInk(PALETTE.hoverInk)}
       [data-key-hint] {
-        color: ${PALETTE.ink};
+        color: ${PALETTE.hoverInk};
       }
     }
-    ${focusRingCss(COLORS)}
+    ${variant === 'danger' ? focusRingInInkCss() : focusRingCss(COLORS)}
     ${style && style}
     ${unavailableStyle}
   `;
