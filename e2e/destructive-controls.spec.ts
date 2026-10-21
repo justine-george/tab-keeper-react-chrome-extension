@@ -465,7 +465,7 @@ function expectKind(
     }
   }
 
-  // Focus: the app's inset ring, ≥ 3 against the fill inside it. Menu items are KAN-726's.
+  // Focus: the app's inset ring, ≥ 3 against the fill inside it. Menu items: menu-focus-ring.spec.ts (KAN-726).
   if (kind === 'menu') return;
   const focused: State[] =
     kind === 'trash' || kind === 'close' ? ['focus', 'focus+hover'] : ['focus'];
