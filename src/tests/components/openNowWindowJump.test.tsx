@@ -11,6 +11,7 @@ import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import { hoverRulesFor } from '../setup/hoverRules';
 import { clearReopenFocus } from '../../redux/reopenFocus';
+import { rgb } from '../setup/hexColor';
 
 // KAN-331 O15. A window row in the Open now pane goes to its window. Same
 // harness as openNowClose.test.tsx: OpenNowColumn is rendered, folded, so the
@@ -38,12 +39,7 @@ function tabViewUrl(): string {
 const TAB_VIEW_ID = 10;
 
 // LIGHT_THEME.HOVER_COLOR as the stylesheet spells it.
-const HOVER_RGB = (() => {
-  const [r, g, b] = [1, 3, 5].map((i) =>
-    parseInt(LIGHT_THEME.HOVER_COLOR.slice(i, i + 2), 16)
-  );
-  return `rgb\\(${r}, ${g}, ${b}\\)`;
-})();
+const HOVER_RGB = rgb(LIGHT_THEME.HOVER_COLOR).replace(/[()]/g, '\\$&');
 
 const url = (name: string) => `https://${name.toLowerCase()}.test/`;
 const tab = (id: number, title: string) => ({

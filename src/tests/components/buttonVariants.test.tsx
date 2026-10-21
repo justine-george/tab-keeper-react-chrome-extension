@@ -11,6 +11,8 @@ import {
 } from '../setup/hoverRules';
 import { mixHex } from '../../styles/mixHex';
 import { DURATION } from '../../styles/scale';
+import { asWritten } from '../setup/asWritten';
+import { rgb } from '../setup/hexColor';
 
 // KAN-205. 22 components carry an onClick; 7 imported Button. The other 15 each
 // built their own clickable surface, which is where the inconsistency people
@@ -19,16 +21,6 @@ import { DURATION } from '../../styles/scale';
 //
 // Three named kinds cover every one of them, and `quiet` is the default so no
 // existing caller changes.
-
-const rgb = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return {
-    text: `rgb(${r}, ${g}, ${b})`,
-    pattern: new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i'),
-  };
-};
-/** Matches a colour as emotion writes it or as jsdom normalises it. */
-const fill = (hex: string) => rgb(hex).pattern;
 
 const render = (props = {}) =>
   renderWithProviders(
@@ -42,11 +34,13 @@ describe('Button variants (KAN-205)', () => {
     await render();
 
     expect(getComputedStyle(button()).backgroundColor).toBe(
-      rgb(LIGHT_THEME.PRIMARY_COLOR).text
+      rgb(LIGHT_THEME.PRIMARY_COLOR)
     );
-    expect(hoverRulesFor(button())).toMatch(fill(LIGHT_THEME.ICON_HOVER_COLOR));
+    expect(hoverRulesFor(button())).toMatch(
+      asWritten(LIGHT_THEME.ICON_HOVER_COLOR)
+    );
     expect(activeRulesFor(button())).toMatch(
-      fill(LIGHT_THEME.ICON_ACTIVE_COLOR)
+      asWritten(LIGHT_THEME.ICON_ACTIVE_COLOR)
     );
   });
 
@@ -57,44 +51,42 @@ describe('Button variants (KAN-205)', () => {
     // Derived from the token: a literal here is the exact staleness this
     // ticket spent its time removing from three other test files.
     expect(getComputedStyle(button()).backgroundColor).toBe(
-      rgb(LIGHT_THEME.TEXT_COLOR).text
+      rgb(LIGHT_THEME.TEXT_COLOR)
     );
     expect(getComputedStyle(button()).color).toBe(
-      rgb(LIGHT_THEME.PRIMARY_COLOR).text
+      rgb(LIGHT_THEME.PRIMARY_COLOR)
     );
     expect(getComputedStyle(button()).border).toContain(
-      rgb(LIGHT_THEME.TEXT_COLOR).text
+      rgb(LIGHT_THEME.TEXT_COLOR)
     );
     const glyph = button().querySelector('.material-symbols-outlined');
     expect(glyph && getComputedStyle(glyph).color).toBe(
-      rgb(LIGHT_THEME.PRIMARY_COLOR).text
+      rgb(LIGHT_THEME.PRIMARY_COLOR)
     );
     expect(hoverRulesFor(button())).toMatch(
-      fill(mixHex(LIGHT_THEME.TEXT_COLOR, LIGHT_THEME.PRIMARY_COLOR, 0.88))
+      asWritten(mixHex(LIGHT_THEME.TEXT_COLOR, LIGHT_THEME.PRIMARY_COLOR, 0.88))
     );
     expect(activeRulesFor(button())).toMatch(
-      fill(mixHex(LIGHT_THEME.TEXT_COLOR, LIGHT_THEME.PRIMARY_COLOR, 0.76))
+      asWritten(mixHex(LIGHT_THEME.TEXT_COLOR, LIGHT_THEME.PRIMARY_COLOR, 0.76))
     );
   });
 
   test('quiet keeps the text colour for its label', async () => {
     await render();
 
-    expect(getComputedStyle(button()).color).toBe(
-      rgb(LIGHT_THEME.TEXT_COLOR).text
-    );
+    expect(getComputedStyle(button()).color).toBe(rgb(LIGHT_THEME.TEXT_COLOR));
   });
 
   test('danger rests as a quiet button with red ink', async () => {
     await render({ variant: 'danger', iconType: 'delete' });
 
     const style = getComputedStyle(button());
-    expect(style.backgroundColor).toBe(rgb(LIGHT_THEME.PRIMARY_COLOR).text);
-    expect(style.border).toContain(rgb(LIGHT_THEME.CONTROL_BORDER_COLOR).text);
-    expect(style.color).toBe(rgb(LIGHT_THEME.DANGER_INK).text);
+    expect(style.backgroundColor).toBe(rgb(LIGHT_THEME.PRIMARY_COLOR));
+    expect(style.border).toContain(rgb(LIGHT_THEME.CONTROL_BORDER_COLOR));
+    expect(style.color).toBe(rgb(LIGHT_THEME.DANGER_INK));
     const glyph = button().querySelector('.material-symbols-outlined');
     expect(glyph && getComputedStyle(glyph).color).toBe(
-      rgb(LIGHT_THEME.DANGER_INK).text
+      rgb(LIGHT_THEME.DANGER_INK)
     );
   });
 
@@ -105,27 +97,27 @@ describe('Button variants (KAN-205)', () => {
     const hover = hoverRulesFor(button());
     expect(hover).toMatch(
       new RegExp(
-        `background-color:\\s*${fill(LIGHT_THEME.DANGER_FILL).source}`,
+        `background-color:\\s*${asWritten(LIGHT_THEME.DANGER_FILL).source}`,
         'i'
       )
     );
     expect(hover).toMatch(
       new RegExp(
-        `[^-]color:\\s*${fill(LIGHT_THEME.ON_DANGER_FILL).source}`,
+        `[^-]color:\\s*${asWritten(LIGHT_THEME.ON_DANGER_FILL).source}`,
         'i'
       )
     );
     expect(hover).toMatch(
       new RegExp(
-        `border-color:\\s*${fill(LIGHT_THEME.DANGER_FILL).source}`,
+        `border-color:\\s*${asWritten(LIGHT_THEME.DANGER_FILL).source}`,
         'i'
       )
     );
     const active = activeRulesFor(button());
-    expect(active).toMatch(fill(LIGHT_THEME.DANGER_FILL_DEEP));
+    expect(active).toMatch(asWritten(LIGHT_THEME.DANGER_FILL_DEEP));
     expect(active).toMatch(
       new RegExp(
-        `border-color:\\s*${fill(LIGHT_THEME.DANGER_FILL_DEEP).source}`,
+        `border-color:\\s*${asWritten(LIGHT_THEME.DANGER_FILL_DEEP).source}`,
         'i'
       )
     );
@@ -133,7 +125,7 @@ describe('Button variants (KAN-205)', () => {
     // not land back on the hover fill.
     expect(active).not.toMatch(
       new RegExp(
-        `background-color:\\s*${fill(LIGHT_THEME.DANGER_FILL).source}`,
+        `background-color:\\s*${asWritten(LIGHT_THEME.DANGER_FILL).source}`,
         'i'
       )
     );
@@ -144,7 +136,7 @@ describe('Button variants (KAN-205)', () => {
 
     expect(hoverRulesFor(button())).toMatch(
       new RegExp(
-        `material-symbols-outlined[^}]*color:\\s*${fill(LIGHT_THEME.ON_DANGER_FILL).source}`,
+        `material-symbols-outlined[^}]*color:\\s*${asWritten(LIGHT_THEME.ON_DANGER_FILL).source}`,
         'i'
       )
     );
@@ -172,17 +164,17 @@ describe('Button variants (KAN-205)', () => {
     expect(getComputedStyle(button()).cursor).toBe('progress');
     expect(button()).toHaveAttribute('aria-disabled', 'true');
     const active = activeRulesFor(button());
-    expect(active).toMatch(fill(LIGHT_THEME.DANGER_FILL));
-    expect(active).not.toMatch(fill(LIGHT_THEME.DANGER_FILL_DEEP));
+    expect(active).toMatch(asWritten(LIGHT_THEME.DANGER_FILL));
+    expect(active).not.toMatch(asWritten(LIGHT_THEME.DANGER_FILL_DEEP));
   });
 
   test('busy leaves rest and hover alone', async () => {
     await render({ variant: 'danger', busy: true });
 
     const style = getComputedStyle(button());
-    expect(style.backgroundColor).toBe(rgb(LIGHT_THEME.PRIMARY_COLOR).text);
-    expect(style.color).toBe(rgb(LIGHT_THEME.DANGER_INK).text);
-    expect(hoverRulesFor(button())).toMatch(fill(LIGHT_THEME.DANGER_FILL));
+    expect(style.backgroundColor).toBe(rgb(LIGHT_THEME.PRIMARY_COLOR));
+    expect(style.color).toBe(rgb(LIGHT_THEME.DANGER_INK));
+    expect(hoverRulesFor(button())).toMatch(asWritten(LIGHT_THEME.DANGER_FILL));
   });
 
   test('a button that is not busy keeps the pointer cursor', async () => {
@@ -197,7 +189,7 @@ describe('Button variants (KAN-205)', () => {
       const { unmount } = await render({ variant, ariaDisabled: true });
       expect(classRulesFor(button())).toMatch(
         new RegExp(
-          `\\.(css-\\w+)\\.\\1:hover,\\s*\\.\\1\\.\\1:active\\s*\\{[^}]*[^-]color:\\s*${fill(LIGHT_THEME.LABEL_L2_COLOR).source}`,
+          `\\.(css-\\w+)\\.\\1:hover,\\s*\\.\\1\\.\\1:active\\s*\\{[^}]*[^-]color:\\s*${asWritten(LIGHT_THEME.LABEL_L2_COLOR).source}`,
           'i'
         )
       );
@@ -262,14 +254,14 @@ describe('Button variants (KAN-205)', () => {
     const { unmount } = await render({ variant: 'danger', keyHint: KEY_HINT });
     const hint = button().querySelector('[data-key-hint]');
     if (hint === null) throw new Error('no hint');
-    expect(getComputedStyle(hint).color).toBe(rgb(LIGHT_THEME.DANGER_INK).text);
+    expect(getComputedStyle(hint).color).toBe(rgb(LIGHT_THEME.DANGER_INK));
     unmount();
 
     await render({ keyHint: KEY_HINT });
     const quietHint = button().querySelector('[data-key-hint]');
     if (quietHint === null) throw new Error('no hint');
     expect(getComputedStyle(quietHint).color).toBe(
-      rgb(LIGHT_THEME.LABEL_L1_COLOR).text
+      rgb(LIGHT_THEME.LABEL_L1_COLOR)
     );
   });
 
@@ -282,11 +274,11 @@ describe('Button variants (KAN-205)', () => {
     });
 
     expect(getComputedStyle(button()).color).toBe(
-      rgb(LIGHT_THEME.LABEL_L2_COLOR).text
+      rgb(LIGHT_THEME.LABEL_L2_COLOR)
     );
     // The doubled-class rule outranks the base hover and press fills.
     const quiet = new RegExp(
-      `\\.(css-\\w+)\\.\\1:hover,\\s*\\.\\1\\.\\1:active\\s*\\{[^}]*background-color:\\s*${fill(LIGHT_THEME.PRIMARY_COLOR).source}`,
+      `\\.(css-\\w+)\\.\\1:hover,\\s*\\.\\1\\.\\1:active\\s*\\{[^}]*background-color:\\s*${asWritten(LIGHT_THEME.PRIMARY_COLOR).source}`,
       'i'
     );
     expect(classRulesFor(button())).toMatch(quiet);
@@ -294,7 +286,7 @@ describe('Button variants (KAN-205)', () => {
     for (const rules of [hoverRulesFor(button()), activeRulesFor(button())]) {
       expect(rules).not.toMatch(/border-color/);
       expect(rules).not.toMatch(/material-symbols-outlined/);
-      expect(rules).not.toMatch(fill(LIGHT_THEME.ON_DANGER_FILL));
+      expect(rules).not.toMatch(asWritten(LIGHT_THEME.ON_DANGER_FILL));
     }
   });
 
@@ -310,15 +302,15 @@ describe('Button variants (KAN-205)', () => {
     const glyph = button().querySelector('.material-symbols-outlined');
     const hint = button().querySelector('[data-key-hint]');
     if (glyph === null || hint === null) throw new Error('no glyph or hint');
-    const l2 = rgb(LIGHT_THEME.LABEL_L2_COLOR).text;
+    const l2 = rgb(LIGHT_THEME.LABEL_L2_COLOR);
     expect(getComputedStyle(glyph).color).toBe(l2);
     expect(getComputedStyle(hint).color).toBe(l2);
     for (const rules of [hoverRulesFor(button()), activeRulesFor(button())]) {
-      expect(rules).not.toMatch(fill(LIGHT_THEME.DANGER_INK));
+      expect(rules).not.toMatch(asWritten(LIGHT_THEME.DANGER_INK));
       const hintRule = rules
         .split('\n')
         .find((r) => r.includes('[data-key-hint]'));
-      expect(hintRule ?? '').toMatch(fill(LIGHT_THEME.LABEL_L2_COLOR));
+      expect(hintRule ?? '').toMatch(asWritten(LIGHT_THEME.LABEL_L2_COLOR));
     }
   });
 });
@@ -331,9 +323,11 @@ describe('Button outline variant (KAN-394)', () => {
     const el = screen.getByRole('button', { name: 'Act' });
     expect(getComputedStyle(el).backgroundColor).toBe('rgba(0, 0, 0, 0)');
     expect(getComputedStyle(el).border).toContain(
-      rgb(LIGHT_THEME.PANEL_BORDER_COLOR).text
+      rgb(LIGHT_THEME.PANEL_BORDER_COLOR)
     );
-    expect(hoverRulesFor(el)).toMatch(fill(LIGHT_THEME.ICON_HOVER_COLOR));
-    expect(activeRulesFor(el)).toMatch(fill(LIGHT_THEME.ICON_ACTIVE_COLOR));
+    expect(hoverRulesFor(el)).toMatch(asWritten(LIGHT_THEME.ICON_HOVER_COLOR));
+    expect(activeRulesFor(el)).toMatch(
+      asWritten(LIGHT_THEME.ICON_ACTIVE_COLOR)
+    );
   });
 });

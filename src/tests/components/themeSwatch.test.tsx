@@ -14,6 +14,7 @@ import {
   SettingsCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
 import { setTheme, Theme } from '../../redux/slices/settingsDataStateSlice';
+import { asWritten } from '../setup/asWritten';
 
 // KAN-237. Each theme is shown as a miniature of the popup, drawn from the
 // theme's own tokens, with its name underneath.
@@ -29,12 +30,6 @@ import { setTheme, Theme } from '../../redux/slices/settingsDataStateSlice';
 // e2e measures that the marker reflows nothing.
 
 const NAMES = ['Paper', 'Parchment', 'Petal', 'Graphite', 'Ink'];
-
-/** A colour as emotion wrote it, or as jsdom normalises it. */
-const asWritten = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
-};
 
 const renderDisplay = () =>
   renderWithProviders(<SettingsDetailsContainer />, {

@@ -2,11 +2,12 @@ import { describe, expect, test } from 'vitest';
 
 import { BB_PINK_THEME } from '../../hooks/useThemeColors';
 import { luminance } from '../setup/contrast';
+import { channels } from '../setup/hexColor';
 
 // OKLCH chroma of a `#RRGGBB` colour (Björn Ottosson's OKLab).
 function chroma(hex: string): number {
-  const [r, g, b] = [1, 3, 5]
-    .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+  const [r, g, b] = channels(hex)
+    .map((v) => v / 255)
     .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
   const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
   const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);

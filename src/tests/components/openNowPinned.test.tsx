@@ -6,6 +6,7 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
+import { asWritten } from '../setup/asWritten';
 
 // KAN-280 O11c (Part E, Justine's pick P1). A pinned tab's row shows a pin
 // mark, Material Symbols `keep`, in the icon slot left of ×: the O10b
@@ -113,13 +114,7 @@ describe('the Open now pin mark (KAN-280 O11c)', () => {
 describe("Open now's marks are the saved row's (KAN-566)", () => {
   test('the pin and the speaker are 16px glyphs in LABEL_L2', async () => {
     await renderOpenNow(pinnedWindows());
-    const [r, g, b] = [1, 3, 5].map((i) =>
-      parseInt(LIGHT_THEME.LABEL_L2_COLOR.slice(i, i + 2), 16)
-    );
-    const labelL2 = new RegExp(
-      `(${LIGHT_THEME.LABEL_L2_COLOR}|rgb\\(${r}, ?${g}, ?${b}\\))`,
-      'i'
-    );
+    const labelL2 = asWritten(LIGHT_THEME.LABEL_L2_COLOR);
     const speaker = rowOf(RADIO).querySelector<HTMLElement>('[data-speaker]');
     if (speaker === null) throw new Error('no speaker on Radio');
     for (const glyph of [

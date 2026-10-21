@@ -23,6 +23,7 @@ import {
   openSettingsPage,
 } from '../../redux/slices/globalStateSlice';
 import { buildSession } from '../fixtures/sessionFixture';
+import { rgb } from '../setup/hexColor';
 
 // KAN-321 O1a. The grip on the line between the saved session and Open now:
 // a focusable role="separator" that a pointer drag and the arrow keys resize,
@@ -493,10 +494,6 @@ describe('the double-click (O1a, Review Focus 5)', () => {
 // jsdom applies no :hover or :focus-visible, so what can be said here is the
 // rules Emotion injected (hoverRules.ts); the painted colours are Task 5's.
 // Light is the store's default theme.
-const rgb = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return `rgb(${r}, ${g}, ${b})`;
-};
 
 // The declarations of every injected rule whose selector list includes
 // exactly `selector`, joined, or null when no rule has it. Every rule: one

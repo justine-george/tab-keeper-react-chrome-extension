@@ -19,6 +19,7 @@ import {
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { setPresentStartup, undo } from '../../redux/slices/undoRedoSlice';
+import { asWritten } from '../setup/asWritten';
 
 // KAN-193. Export does nothing after `chrome.tabs.create`: a focused tab
 // destroys the popup (KAN-122), which neither jsdom nor the e2e harness shows.
@@ -591,10 +592,8 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
 
     await openMenu(user);
     // Derived from the token, not pinned. jsdom normalises hex to rgb().
-    const fill = LIGHT_THEME.DANGER_FILL;
-    const [r, g, b] = [1, 3, 5].map((i) => parseInt(fill.slice(i, i + 2), 16));
     const DELETE_FILL = new RegExp(
-      `background-color:\\s*(${fill}|rgb\\(${r}, ?${g}, ?${b}\\))`,
+      `background-color:\\s*${asWritten(LIGHT_THEME.DANGER_FILL).source}`,
       'i'
     );
 

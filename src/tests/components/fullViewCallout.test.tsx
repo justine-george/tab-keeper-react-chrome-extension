@@ -6,6 +6,7 @@ import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { openFullViewCallout } from '../../redux/slices/globalStateSlice';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
+import { rgb } from '../setup/hexColor';
 
 // KAN-7 §6. Under ⤢ in the popup, once; Try it, ✕, Esc or ⤢ mark it seen.
 
@@ -120,11 +121,9 @@ describe('the full-view callout', () => {
 // KAN-501. Try it is the filled button the tour and Hello use.
 test('Try it is the filled button', async () => {
   await render();
-  const hex = LIGHT_THEME.TEXT_COLOR;
-  const rgb = `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
   expect(
     getComputedStyle(
       within(openCallout()).getByRole('button', { name: 'Try it' })
     ).backgroundColor
-  ).toBe(rgb);
+  ).toBe(rgb(LIGHT_THEME.TEXT_COLOR));
 });

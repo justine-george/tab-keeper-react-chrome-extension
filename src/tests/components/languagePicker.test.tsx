@@ -15,6 +15,7 @@ import {
 } from '../../redux/slices/settingsDataStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import ru from '../../../public/locales/ru/translation.json';
+import { asWritten } from '../setup/asWritten';
 
 // KAN-244. A language picker is the one screen that must be usable by someone
 // who cannot read the current UI language -- that is why they are on it. It
@@ -57,12 +58,6 @@ const option = (name: string) => screen.getByRole('button', { name });
 const checkIn = (name: string) =>
   option(name).querySelector('.material-symbols-outlined')?.textContent ??
   undefined;
-
-/** A colour as emotion wrote it, or as jsdom normalises it. */
-const asWritten = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
-};
 
 afterEach(async () => {
   // The instance is shared, so a leaked locale would run every later test in

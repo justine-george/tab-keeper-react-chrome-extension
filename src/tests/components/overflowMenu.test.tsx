@@ -20,17 +20,8 @@ import OverflowMenu, {
 } from '../../components/common/OverflowMenu';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { classRulesFor, hoverRulesFor } from '../setup/hoverRules';
-
-/**
- * A colour as it may appear in an injected rule: the hex emotion was given, or
- * the `rgb(...)` jsdom normalises it to. Derived from the token rather than
- * pinned, because KAN-204 changed four of the five delete fills and a literal
- * here went stale without failing.
- */
-const asWritten = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return new RegExp(`(${hex}|rgb\\(${r}, ?${g}, ?${b}\\))`, 'i');
-};
+import { asWritten } from '../setup/asWritten';
+import { rgb } from '../setup/hexColor';
 
 // The app's first popover.
 //
@@ -309,10 +300,6 @@ describe('OverflowMenu destructive styling', () => {
     danger: true,
     onSelect: () => undefined,
   };
-  const rgbText = (hex: string) => {
-    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-    return `rgb(${r}, ${g}, ${b})`;
-  };
   const inkOf = (el: Element) => getComputedStyle(el).color;
 
   test('a danger item fills red on hover with white ink', async () => {
@@ -347,8 +334,8 @@ describe('OverflowMenu destructive styling', () => {
     const glyph = item.querySelector('.overflow-menu-glyph');
     if (glyph === null) throw new Error('no glyph');
 
-    expect(inkOf(item)).toBe(rgbText(LIGHT_THEME.DANGER_INK));
-    expect(inkOf(glyph)).toBe(rgbText(LIGHT_THEME.DANGER_INK));
+    expect(inkOf(item)).toBe(rgb(LIGHT_THEME.DANGER_INK));
+    expect(inkOf(glyph)).toBe(rgb(LIGHT_THEME.DANGER_INK));
   });
 
   test("a danger item's glyph turns white on the red fill", async () => {
@@ -385,7 +372,7 @@ describe('OverflowMenu destructive styling', () => {
     const hint = item.querySelector('[data-key-hint]');
     if (hint === null) throw new Error('no hint');
 
-    expect(inkOf(hint)).toBe(rgbText(LIGHT_THEME.DANGER_INK));
+    expect(inkOf(hint)).toBe(rgb(LIGHT_THEME.DANGER_INK));
     expect(hoverRulesFor(item)).toMatch(
       new RegExp(
         `\\[data-key-hint\\][^}]*color:\\s*${asWritten(LIGHT_THEME.ON_DANGER_FILL).source}`,
@@ -414,8 +401,8 @@ describe('OverflowMenu destructive styling', () => {
     const hint = item.querySelector('[data-key-hint]');
     if (hint === null) throw new Error('no hint');
 
-    expect(inkOf(hint)).toBe(rgbText(LIGHT_THEME.LABEL_L1_COLOR));
-    expect(inkOf(item)).toBe(rgbText(LIGHT_THEME.TEXT_COLOR));
+    expect(inkOf(hint)).toBe(rgb(LIGHT_THEME.LABEL_L1_COLOR));
+    expect(inkOf(item)).toBe(rgb(LIGHT_THEME.TEXT_COLOR));
   });
 
   // THE CONTROL. Asserting only that red appears would pass against a menu that painted everything red.

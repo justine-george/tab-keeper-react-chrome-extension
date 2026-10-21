@@ -7,6 +7,7 @@ import {
   LIGHT_THEME,
   WARM_LIGHT_THEME,
 } from '../../hooks/useThemeColors';
+import { contrast } from '../setup/contrast';
 
 // KAN-87. Hovering a row made it look selected. Measured before the fix,
 // SELECTION_COLOR against HOVER_COLOR was 1.21:1 on Light and 1.04:1 on Blue.
@@ -45,21 +46,6 @@ const THEMES = {
   DARKENHEIMER: DARKENHEIMER_THEME,
   BLUE: BLUE_THEME,
 };
-
-/** Relative luminance, per WCAG 2.x. */
-function luminance(hex: string): number {
-  const channels = [1, 3, 5]
-    .map((i) => parseInt(hex.substr(i, 2), 16) / 255)
-    .map((v) =>
-      v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
-    );
-  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
-}
-
-function contrast(a: string, b: string): number {
-  const [lighter, darker] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (lighter + 0.05) / (darker + 0.05);
-}
 
 describe('the row state ladder keeps hover nearer the page than selection', () => {
   // KAN-87, RESTORED after KAN-205 tried to replace it and was reverted.

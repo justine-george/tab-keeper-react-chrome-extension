@@ -16,6 +16,7 @@ import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntry
 // pane copies the declarations rather than sharing them (KAN-280).
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
+import { rgb } from '../setup/hexColor';
 
 // KAN-280 Part A, Task 4. The Open now pane's presentational half: it is
 // handed `windows` and draws them. The hook that reads Chrome is Task 3's and
@@ -166,12 +167,6 @@ const LINE_PROPS = [
   'color',
 ] as const;
 
-function hex(value: string): string {
-  const v = value.replace('#', '');
-  const n = parseInt(v, 16);
-  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
-}
-
 describe('the Open now pane (KAN-280)', () => {
   test('the header names the pane, counts windows and tabs, and says it is live', async () => {
     await renderPane(twoWindows());
@@ -234,7 +229,7 @@ describe('the Open now pane (KAN-280)', () => {
     expect(within(band).getByText('G2')).toBeInTheDocument();
     expect(within(band).queryByText('Loose')).toBeNull();
     expect(getComputedStyle(stripOf(band)).backgroundColor).toBe(
-      hex(TAB_GROUP_COLOR_HEX.blue)
+      rgb(TAB_GROUP_COLOR_HEX.blue)
     );
   });
 
@@ -290,7 +285,7 @@ describe('the Open now pane (KAN-280)', () => {
     expect(stylesOf(line, LINE_PROPS)).toEqual(want);
     // jsdom resolves rem against its 16px root.
     expect(want['font-size']).toBe(`${px(TYPE.BODY) * 16}px`);
-    expect(want.color).toBe(hex(LIGHT_THEME.LABEL_L1_COLOR));
+    expect(want.color).toBe(rgb(LIGHT_THEME.LABEL_L1_COLOR));
     expect(want.padding).toBe('24px 16px 16px');
     // The scroller's first child, not centred in a wrapper of its own.
     expect(line.parentElement?.firstElementChild).toBe(line);
@@ -424,7 +419,7 @@ describe("the Open now header has the session header's fill (KAN-686)", () => {
     }
 
     expect(getComputedStyle(header).backgroundColor).toBe(
-      hex(LIGHT_THEME.SECONDARY_COLOR)
+      rgb(LIGHT_THEME.SECONDARY_COLOR)
     );
     expect(getComputedStyle(header).borderTopStyle).toBe('solid');
   });

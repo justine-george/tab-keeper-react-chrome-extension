@@ -10,6 +10,7 @@ import {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { activeRulesFor, hoverRulesFor } from '../setup/hoverRules';
+import { asWritten } from '../setup/asWritten';
 
 // NOTE on what is deliberately NOT tested here. A first draft asserted the
 // source no longer contains '#e3e6e9'. That test was wrong twice over: it
@@ -99,15 +100,3 @@ describe('the add-window button reads as a button (KAN-213)', () => {
     );
   });
 });
-
-/** A colour as emotion writes it, or as jsdom normalises it. */
-function asWritten(value: string): RegExp {
-  return new RegExp(`(${value}|${hex(value).replace(/[()]/g, '\\$&')})`, 'i');
-}
-
-// jsdom reports colours as `rgb(r, g, b)`; the theme stores hex.
-function hex(value: string): string {
-  const v = value.replace('#', '');
-  const n = parseInt(v, 16);
-  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
-}
