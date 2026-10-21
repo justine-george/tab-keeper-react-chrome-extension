@@ -648,11 +648,11 @@ describe('setup’s buttons (KAN-501)', () => {
   });
 });
 
-// KAN-731. 580px keeps Next 1.5× Back and Skip setup on one line in every locale at Chrome's Large text (de/sv fall short at 560).
+// KAN-731. 600px keeps the sync caption on one line in every locale (KAN-519); en needs 589.5px.
 describe('setup’s width (KAN-731)', () => {
-  test('is 580px', async () => {
+  test('is 600px', async () => {
     await render();
     // jsdom's stylesheet drops the calc() wrapper, so the rule reads min(100% - 32px, …).
-    expect(classRulesFor(dialog())).toContain('width: min(100% - 32px, 580px)');
+    expect(classRulesFor(dialog())).toContain('width: min(100% - 32px, 600px)');
   });
 });

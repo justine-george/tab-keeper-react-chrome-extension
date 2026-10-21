@@ -9,7 +9,7 @@ import { localeStrings } from './fixtures/locales';
 import { openTabGroup } from './fixtures/onboarding';
 import { stubToolbarPin } from './fixtures/toolbarPin';
 
-// KAN-731. Setup is 580px at a 1280px window on every step, in every locale, at 16px and Chrome's Large (20px root).
+// KAN-731. Setup is 600px at a 1280px window on every step, in every locale, at 16px and Chrome's Large (20px root).
 
 // Every shipped locale, read from the folder the build copies.
 const LANGS = readdirSync(
@@ -64,7 +64,7 @@ test('PREMISE: all 13 locales are measured', () => {
 
 for (const root of [16, 20]) {
   for (const lang of LANGS) {
-    test(`${lang} at a ${root}px root: setup is 580px, Skip setup one line, Next 1.5× Back, on every step`, async ({
+    test(`${lang} at a ${root}px root: setup is 600px, Skip setup one line, Next 1.5× Back, on every step`, async ({
       context,
       extensionId,
       serviceWorker,
@@ -94,7 +94,7 @@ for (const root of [16, 20]) {
           String(step)
         );
         const label = `${lang} @${root}px step ${step}`;
-        expect(await layoutWidth(dialog), label).toBe(580);
+        expect(await layoutWidth(dialog), label).toBe(600);
         expect(await linesOf(skip), label).toBe(1);
         if (step > 1) {
           const back = await boxWidth(button('Back'));

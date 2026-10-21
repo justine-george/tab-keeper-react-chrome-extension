@@ -154,8 +154,8 @@ export const SetupModal: React.FC = () => {
     transform: translate(-50%, -50%);
     margin: 0;
     padding: 20px;
-    /* KAN-731: 580px keeps Next 1.5× Back and Skip setup on one line in every locale at Chrome's Large text (de/sv fall short at 560). */
-    width: min(calc(100% - 32px), 580px);
+    /* KAN-731: 600 keeps the sync caption on one line in every locale (KAN-519); en needs 589.5px. */
+    width: min(calc(100% - 32px), 600px);
     max-width: none;
     max-height: calc(100% - 32px);
     overflow: auto;
