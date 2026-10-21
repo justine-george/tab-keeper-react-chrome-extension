@@ -21,6 +21,18 @@ export const LIGHT_THEME = {
   ICON_HOVER_COLOR: '#C2C4C7',
   ICON_ACTIVE_COLOR: '#B3B6B9',
   DELETE_ICON_HOVER_COLOR: '#E09494',
+  // KAN-725. The destructive family: ink for a red label or icon on the page or a menu.
+  DANGER_INK: '#A3211A',
+  // KAN-725. Solid red: hover on a quiet destructive control, a dialog confirm at rest.
+  DANGER_FILL: '#C62828',
+  // KAN-725. One step deeper: press on a quiet destructive control, a confirm on hover.
+  DANGER_FILL_DEEP: '#B02020',
+  // KAN-725. Two steps deeper: a dialog confirm on press.
+  DANGER_FILL_DEEPER: '#951B1B',
+  // KAN-725. Ink, glyph and focus ring on any red fill; TEXT_COLOR fails on it.
+  ON_DANGER_FILL: '#FFFFFF',
+  // KAN-725. A non-text red mark on the page ground: the sync meter.
+  DANGER_MARK: '#C62828',
   LABEL_L3_COLOR: '#9A9C9F',
   LABEL_L1_COLOR: '#4A4C4F',
   // KAN-672. 4.5:1 on PRIMARY, SECONDARY and HOVER; on SELECTION use LABEL_L1.
@@ -63,6 +75,18 @@ export const WARM_LIGHT_THEME = {
   ICON_HOVER_COLOR: '#C6C1B7',
   ICON_ACTIVE_COLOR: '#B8B2A6',
   DELETE_ICON_HOVER_COLOR: '#D56E6E',
+  // KAN-725. The destructive family: ink for a red label or icon on the page or a menu.
+  DANGER_INK: '#A3211A',
+  // KAN-725. Solid red: hover on a quiet destructive control, a dialog confirm at rest.
+  DANGER_FILL: '#C62828',
+  // KAN-725. One step deeper: press on a quiet destructive control, a confirm on hover.
+  DANGER_FILL_DEEP: '#B02020',
+  // KAN-725. Two steps deeper: a dialog confirm on press.
+  DANGER_FILL_DEEPER: '#951B1B',
+  // KAN-725. Ink, glyph and focus ring on any red fill; TEXT_COLOR fails on it.
+  ON_DANGER_FILL: '#FFFFFF',
+  // KAN-725. A non-text red mark on the page ground: the sync meter.
+  DANGER_MARK: '#C62828',
   LABEL_L3_COLOR: '#7B776F',
   LABEL_L1_COLOR: '#504D41',
   LABEL_L2_COLOR: '#6B685E',
@@ -98,6 +122,18 @@ export const BB_PINK_THEME = {
   ICON_HOVER_COLOR: '#D8AABA',
   ICON_ACTIVE_COLOR: '#CB9CAC',
   DELETE_ICON_HOVER_COLOR: '#DA9190',
+  // KAN-725. The destructive family: ink for a red label or icon on the page or a menu.
+  DANGER_INK: '#A3211A',
+  // KAN-725. Solid red: hover on a quiet destructive control, a dialog confirm at rest.
+  DANGER_FILL: '#C62828',
+  // KAN-725. One step deeper: press on a quiet destructive control, a confirm on hover.
+  DANGER_FILL_DEEP: '#B02020',
+  // KAN-725. Two steps deeper: a dialog confirm on press.
+  DANGER_FILL_DEEPER: '#951B1B',
+  // KAN-725. Ink, glyph and focus ring on any red fill; TEXT_COLOR fails on it.
+  ON_DANGER_FILL: '#FFFFFF',
+  // KAN-725. A non-text red mark on the page ground: the sync meter.
+  DANGER_MARK: '#C62828',
   LABEL_L3_COLOR: '#AB919A',
   LABEL_L1_COLOR: '#56454A',
   LABEL_L2_COLOR: '#775E67',
@@ -132,6 +168,18 @@ export const DARKENHEIMER_THEME = {
   ICON_HOVER_COLOR: '#4A4A4A',
   ICON_ACTIVE_COLOR: '#545454',
   DELETE_ICON_HOVER_COLOR: '#8F4040',
+  // KAN-725. The destructive family: ink for a red label or icon on the page or a menu.
+  DANGER_INK: '#FF9C94',
+  // KAN-725. Solid red: hover on a quiet destructive control, a dialog confirm at rest.
+  DANGER_FILL: '#C62828',
+  // KAN-725. One step deeper: press on a quiet destructive control, a confirm on hover.
+  DANGER_FILL_DEEP: '#B02020',
+  // KAN-725. Two steps deeper: a dialog confirm on press.
+  DANGER_FILL_DEEPER: '#951B1B',
+  // KAN-725. Ink, glyph and focus ring on any red fill; TEXT_COLOR fails on it.
+  ON_DANGER_FILL: '#FFFFFF',
+  // KAN-725. A non-text red mark on the page ground: the sync meter.
+  DANGER_MARK: '#FF9C94',
   LABEL_L3_COLOR: '#6B6B6B',
   LABEL_L1_COLOR: '#B0B0B0',
   LABEL_L2_COLOR: '#9B9B9B',
@@ -166,6 +214,18 @@ export const BLUE_THEME = {
   ICON_HOVER_COLOR: '#4A4A58',
   ICON_ACTIVE_COLOR: '#545464',
   DELETE_ICON_HOVER_COLOR: '#8D405A',
+  // KAN-725. The destructive family: ink for a red label or icon on the page or a menu.
+  DANGER_INK: '#FF9C94',
+  // KAN-725. Solid red: hover on a quiet destructive control, a dialog confirm at rest.
+  DANGER_FILL: '#C62828',
+  // KAN-725. One step deeper: press on a quiet destructive control, a confirm on hover.
+  DANGER_FILL_DEEP: '#B02020',
+  // KAN-725. Two steps deeper: a dialog confirm on press.
+  DANGER_FILL_DEEPER: '#951B1B',
+  // KAN-725. Ink, glyph and focus ring on any red fill; TEXT_COLOR fails on it.
+  ON_DANGER_FILL: '#FFFFFF',
+  // KAN-725. A non-text red mark on the page ground: the sync meter.
+  DANGER_MARK: '#FF9C94',
   LABEL_L3_COLOR: '#6B6B7B',
   LABEL_L1_COLOR: '#B0B0BF',
   LABEL_L2_COLOR: '#9B9BAB',
