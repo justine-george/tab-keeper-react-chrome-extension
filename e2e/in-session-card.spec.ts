@@ -806,6 +806,8 @@ async function startFrameLog(page: Page, rowId: string): Promise<void> {
     };
     requestAnimationFrame(sample);
   }, rowId);
+  // Until a frame is logged, so the caller's next input lands after it (KAN-692).
+  await page.waitForFunction(() => (window.__kan354Frames?.length ?? 0) > 0);
 }
 
 async function stopFrameLog(page: Page): Promise<PickUpFrame[]> {
