@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { asTheme, defaultTheme, Theme } from '../../utils/constants/theme';
+import {
+  asTheme,
+  defaultTheme,
+  isTheme,
+  Theme,
+} from '../../utils/constants/theme';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 
 // KAN-731. A new install: Chalk, or Charcoal on a dark OS; a known stored theme stays.
@@ -45,6 +50,19 @@ describe('defaultTheme', () => {
   it('is Chalk where there is no window (Node)', () => {
     expect(defaultTheme()).toBe(Theme.CHALK);
   });
+});
+
+describe('isTheme', () => {
+  it.each(Object.values(Theme))('is true for %s', (theme) => {
+    expect(isTheme(theme)).toBe(true);
+  });
+
+  it.each([['Nonsense'], ['light'], [3], [null], [undefined], ['__proto__']])(
+    'is false for %s',
+    (value) => {
+      expect(isTheme(value)).toBe(false);
+    }
+  );
 });
 
 describe('asTheme', () => {

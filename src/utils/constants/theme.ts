@@ -20,11 +20,14 @@ export function defaultTheme(): Theme {
   return dark ? Theme.CHARCOAL : Theme.CHALK;
 }
 
+// Whether a value is one of this build's themes.
+export function isTheme(value: unknown): value is Theme {
+  return Object.values(Theme).some((theme) => theme === value);
+}
+
 // A stored theme this build knows, else the default.
 export function asTheme(value: unknown): Theme {
-  return Object.values(Theme).includes(value as Theme)
-    ? (value as Theme)
-    : defaultTheme();
+  return isTheme(value) ? value : defaultTheme();
 }
 
 // KAN-731. Where the one-time move takes a stored theme: Paper to Chalk, Graphite to Charcoal, the rest kept.

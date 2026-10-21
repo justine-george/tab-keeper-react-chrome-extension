@@ -48,6 +48,8 @@ const PALETTES: Record<Theme, ThemeColors> = {
 };
 
 describe('theme-ground.js', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   test('exists', () => {
     expect(source).toContain('--app-background');
   });
@@ -93,7 +95,6 @@ describe('theme-ground.js', () => {
         matchMedia: (q: string) => new FakeMediaQueryList(q, dark),
       });
     });
-    afterEach(() => vi.unstubAllGlobals());
 
     test.each([
       ['nothing stored', null],
@@ -133,6 +134,5 @@ describe('theme-ground.js', () => {
   test('nothing stored and no matchMedia paints Chalk', () => {
     vi.stubGlobal('window', {});
     expect(groundFor(stored(null))).toBe(CHALK_THEME.PRIMARY_COLOR);
-    vi.unstubAllGlobals();
   });
 });
