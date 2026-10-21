@@ -154,7 +154,8 @@ export const SetupModal: React.FC = () => {
     transform: translate(-50%, -50%);
     margin: 0;
     padding: 20px;
-    width: min(calc(100% - 32px), 600px);
+    // KAN-731: 520 is the narrowest width where Skip setup stays on one line in all 13 locales.
+    width: min(calc(100% - 32px), 520px);
     max-width: none;
     max-height: calc(100% - 32px);
     overflow: auto;
