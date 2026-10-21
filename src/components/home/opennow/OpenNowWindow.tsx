@@ -16,6 +16,10 @@ import RowTextButton from '../../common/RowTextButton';
 import { RowMarkIcon, RowMarkSlot } from '../../common/RowMarks';
 import { NormalLabel } from '../../common/Label';
 import { RowTag } from '../../common/RowTag';
+import {
+  HIDE_TAGS_UNDER_STRIP,
+  markTagsUnderStrip,
+} from '../../common/tagsUnderStrip';
 import { useFocusOnRemount } from '../../../hooks/useFocusOnRemount';
 import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
@@ -312,7 +316,20 @@ export default function OpenNowWindow({
         ? `background-color: ${COLORS.HOVER_COLOR};`
         : ''
     }
+    /* KAN-723. A covered tag hides under parentRightStyle's two reveals: its opacity, and the keyboard's. A search removes the strip. */
+    ${offersWindowActions && (isParentHovered || menuOpen) ? HIDE_TAGS_UNDER_STRIP : ''}
+    ${whileKeyNav('&:has([data-row-actions] :focus-visible)')} {
+      ${HIDE_TAGS_UNDER_STRIP}
+    }
   `;
+
+  // KAN-723. Measured as pointer or focus enters the row; the row's CSS decides when a marked tag hides.
+  const measureTagsUnder =
+    (stripSelector: string) => (e: React.SyntheticEvent<HTMLElement>) =>
+      markTagsUnderStrip(
+        e.currentTarget,
+        e.currentTarget.querySelector<HTMLElement>(stripSelector)
+      );
 
   const parentLeftStyle = css`
     display: flex;
@@ -750,6 +767,8 @@ export default function OpenNowWindow({
           {...windowMenu.rowProps(String(openWindow.id))}
           onMouseEnter={() => setIsParentHovered(true)}
           onMouseLeave={() => setIsParentHovered(false)}
+          onPointerEnter={measureTagsUnder('[data-row-actions]')}
+          onFocus={measureTagsUnder('[data-row-actions]')}
         >
           <div css={parentLeftStyle}>
             <Icon
@@ -952,7 +971,17 @@ export default function OpenNowWindow({
                           ${whileKeyNav('&:has(:focus-visible) .group-actions')} {
                             ${groupActionsShown}
                           }
+                          /* KAN-723. Each reveal also hides the tags its strip would cover. A search removes the strip. */
+                          ${
+                            offersWindowActions
+                              ? `&:hover { ${HIDE_TAGS_UNDER_STRIP} }
+                                 ${whileKeyNav('&:has(:focus-visible)')} { ${HIDE_TAGS_UNDER_STRIP} }`
+                              : ''
+                          }
+                          ${groupEngaged ? HIDE_TAGS_UNDER_STRIP : ''}
                         `}
+                        onPointerEnter={measureTagsUnder('.group-actions')}
+                        onFocus={measureTagsUnder('.group-actions')}
                       >
                         <DragHandle
                           scope={OPEN_ITEMS_SCOPE}
