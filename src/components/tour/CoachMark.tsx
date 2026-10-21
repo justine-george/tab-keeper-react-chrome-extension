@@ -68,20 +68,20 @@ interface CoachMarkProps {
   solidNotch?: boolean;
 }
 
-// The callout's notch, turned toward the anchor: a PANEL_BORDER triangle under a PRIMARY one,
-// or one `fill` triangle whose base covers the 1px frame.
+// The callout's notch, turned toward the anchor: a framed one (a border triangle
+// over a fill one), or one solid triangle whose base covers the 1px frame.
+type NotchLook =
+  | { kind: 'framed'; border: string; fill: string }
+  | { kind: 'solid'; color: string };
+
 function Notch({
   side,
   notch,
-  border,
-  fill,
-  isSolid,
+  look,
 }: {
   side: CoachSide;
   notch: number;
-  border: string;
-  fill: string;
-  isSolid: boolean;
+  look: NotchLook;
 }) {
   // Off the facing edge by `out`, centred `half` before the notch point.
   const at = (out: number, half: number): CSSProperties => {
@@ -109,12 +109,12 @@ function Notch({
       border-right: ${pointsUp ? clear : side === 'right' ? solid : 'none'};
     `;
   };
-  if (isSolid) {
+  if (look.kind === 'solid') {
     return (
       <span
         aria-hidden="true"
         data-coach-notch
-        css={triangle(9, fill)}
+        css={triangle(9, look.color)}
         style={at(-9, 9)}
       />
     );
@@ -124,10 +124,10 @@ function Notch({
       <span
         aria-hidden="true"
         data-coach-notch
-        css={triangle(8, border)}
+        css={triangle(8, look.border)}
         style={at(-9, 8)}
       />
-      <span aria-hidden="true" css={triangle(7, fill)} style={at(-7, 7)} />
+      <span aria-hidden="true" css={triangle(7, look.fill)} style={at(-7, 7)} />
     </>
   );
 }
@@ -326,9 +326,15 @@ export default function CoachMark({
           <Notch
             side={frame.kind === 'anchored' ? frame.placement.side : 'below'}
             notch={frame.placement.notch}
-            border={COLORS.PANEL_BORDER_COLOR}
-            fill={solidNotch ? COLORS.TEXT_COLOR : COLORS.PRIMARY_COLOR}
-            isSolid={solidNotch}
+            look={
+              solidNotch
+                ? { kind: 'solid', color: COLORS.TEXT_COLOR }
+                : {
+                    kind: 'framed',
+                    border: COLORS.PANEL_BORDER_COLOR,
+                    fill: COLORS.PRIMARY_COLOR,
+                  }
+            }
           />
         )}
         <p id={textId} css={textStyle}>

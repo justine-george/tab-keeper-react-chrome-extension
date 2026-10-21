@@ -4,6 +4,7 @@ import { test, expect } from './fixtures/extension';
 import { showRowActions } from './fixtures/savedRow';
 import { buildContainer, buildSession, seedSettings } from './fixtures/seed';
 import { escapesPrevented, watchEscapes } from './fixtures/escapeProbe';
+import { pixelsAt, rgbToHex } from './fixtures/pixels';
 import {
   FULL,
   FULL_VIEW_PATH,
@@ -673,6 +674,29 @@ test.describe('with saved sessions', () => {
         '[data-pane="sessions"] [data-drag-row-id="new"] [data-run-engaged]'
       )
     ).toHaveCount(1);
+    // KAN-735 CONTROL: an anchored card keeps the framed notch: just above the frame, its middle is the card's fill.
+    await landedAt(page, 4);
+    const notch = card(page).locator('[data-coach-notch]');
+    await expect(notch).toHaveCount(1);
+    const at = await card(page).evaluate((el) => {
+      const n = el.querySelector('[data-coach-notch]')!.getBoundingClientRect();
+      const c = el.getBoundingClientRect();
+      return {
+        x: n.left + n.width / 2,
+        width: n.width,
+        frame: c.top,
+        fill: getComputedStyle(el).backgroundColor,
+      };
+    });
+    expect(at.width).toBe(16);
+    const [inside] = await pixelsAt(page, [[at.x, at.frame - 1]]);
+    expect(inside).toBe(rgbToHex(at.fill));
+    // A reload on step 4 forgets which card step 3 showed, so step 4 names the list again.
+    await page.reload();
+    await expect(cardAt(page, 4)).toBeVisible();
+    await expect(card(page).locator('p').first()).toHaveText(
+      'Here are your saved sessions. The selected one shows its windows and tabs on the right.'
+    );
   });
 
   test('step 5 lights the run’s row’s own Open and step 6 its Replace, not another row’s, and step 7 its header’s ⋮', async ({

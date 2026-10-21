@@ -17,7 +17,7 @@ import {
 } from './fixtures/onboarding';
 import { setPin, stubToolbarPin } from './fixtures/toolbarPin';
 import { expectReadable } from './fixtures/textContrast';
-import { contrast } from './fixtures/pixels';
+import { coloursIn, contrast, pixelsAt } from './fixtures/pixels';
 import { finishFullRun, pastCompactViewCard } from './fixtures/run';
 
 // KAN-7 §4 on the real build. The review card, due in most of these seeds, is
@@ -437,59 +437,17 @@ for (const [theme, palette] of THEMES) {
       return { arrow: r('[data-pin-arrow] svg'), guide: r('dialog[open]') };
     });
     const { arrow, guide: g } = boxes;
-    const png = (await page.screenshot()).toString('base64');
-    const painted = await page.evaluate(
-      async ({ png, arrow, g }) => {
-        const img = new Image();
-        img.src = `data:image/png;base64,${png}`;
-        await img.decode();
-        const scale = img.width / innerWidth;
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-        ctx.drawImage(img, 0, 0);
-        const hex = (x: number, y: number) =>
-          '#' +
-          [
-            ...ctx
-              .getImageData(Math.round(x * scale), Math.round(y * scale), 1, 1)
-              .data.slice(0, 3),
-          ]
-            .map((v) => v.toString(16).padStart(2, '0'))
-            .join('')
-            .toUpperCase();
-        const counts: Record<string, number> = {};
-        const data = ctx.getImageData(
-          Math.floor(arrow.left * scale),
-          Math.floor(arrow.top * scale),
-          Math.ceil(arrow.width * scale),
-          Math.ceil(arrow.height * scale)
-        ).data;
-        for (let i = 0; i < data.length; i += 4) {
-          const c =
-            '#' +
-            [data[i], data[i + 1], data[i + 2]]
-              .map((v) => v.toString(16).padStart(2, '0'))
-              .join('')
-              .toUpperCase();
-          counts[c] = (counts[c] ?? 0) + 1;
-        }
-        return {
-          scale,
-          counts,
-          ground: hex(arrow.left - 6, arrow.top + arrow.height / 2),
-          guideFill: hex(g.left + 6, g.top + g.height - 6),
-        };
-      },
-      { png, arrow, g }
-    );
+    const counts = await coloursIn(page, arrow);
+    const [ground, guideFill] = await pixelsAt(page, [
+      [arrow.left - 6, arrow.top + arrow.height / 2],
+      [g.left + 6, g.top + g.height - 6],
+    ]);
     // CONTROL: the decode reads the guide's own fill as its token.
-    expect(painted.guideFill).toBe(palette.PRIMARY_COLOR);
-    const strokePx = (painted.counts[expected] ?? 0) / painted.scale ** 2;
-    const ratio = contrast(painted.ground, expected);
+    expect(guideFill).toBe(palette.PRIMARY_COLOR);
+    const strokePx = counts[expected] ?? 0;
+    const ratio = contrast(ground, expected);
     console.log(
-      `[pin arrow colour] ${theme} ${expected} ${strokePx}px on ${painted.ground} ${ratio.toFixed(2)}:1`
+      `[pin arrow colour] ${theme} ${expected} ${strokePx}px on ${ground} ${ratio.toFixed(2)}:1`
     );
     expect(strokePx).toBeGreaterThanOrEqual(200);
     expect(ratio).toBeGreaterThanOrEqual(3);

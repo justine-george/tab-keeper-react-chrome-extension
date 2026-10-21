@@ -538,9 +538,9 @@ describe('the free step and the still box', () => {
     await render({ anchors: [], solidNotch: true });
     await placed();
     const left = parseFloat(notch()?.style.left ?? 'NaN');
+    // The tip at NOTCH_MIN from the right; the base ends inside the 38px padding box.
     expect(left).toBe(40 - 14 - 9);
-    expect(left).toBeGreaterThanOrEqual(0);
-    expect(left + 18).toBeLessThanOrEqual(40);
+    expect(left + 18).toBeLessThanOrEqual(40 - 2);
   });
 
   test('CONTROL: without solidNotch the notch is the border triangle over the fill one', async () => {
