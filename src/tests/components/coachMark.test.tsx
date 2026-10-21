@@ -272,6 +272,35 @@ describe('the coach mark', () => {
     expect(dim()?.tabIndex).toBe(-1);
   });
 
+  // KAN-736. A right-click on the dim or the still box opens no menu, Chrome's included.
+  for (const [name, isLive, target] of [
+    ['dim', true, () => dim()],
+    [
+      'still box',
+      false,
+      () => document.querySelector<HTMLElement>('[data-coach-still]'),
+    ],
+  ] as const) {
+    test(`a right-click on the ${name} is default-prevented and reaches no listener outside it`, async () => {
+      await render({ isLive });
+      await placed();
+      const outside = vi.fn();
+      document.addEventListener('contextmenu', outside);
+      const press = new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        button: 2,
+      });
+      act(() => {
+        target()?.dispatchEvent(press);
+      });
+      document.removeEventListener('contextmenu', outside);
+      expect(target()).not.toBeNull();
+      expect(press.defaultPrevented).toBe(true);
+      expect(outside).not.toHaveBeenCalled();
+    });
+  }
+
   test('a press on the dim is default-prevented and reaches no listener outside it', async () => {
     await render();
     await placed();

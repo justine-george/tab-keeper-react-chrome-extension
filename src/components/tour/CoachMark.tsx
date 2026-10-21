@@ -134,7 +134,8 @@ function Notch({
 
 const Z = { DIM: 1010, MARK: 1020 } as const;
 
-// A press on the dim does nothing: no focus moves, and no menu sees it as a press outside.
+// A press on the dim does nothing: no focus moves, no menu sees it as a press outside,
+// and a right-click opens no menu, Chrome's included (KAN-736).
 const swallow = (event: SyntheticEvent) => {
   event.preventDefault();
   event.stopPropagation();
@@ -266,6 +267,7 @@ export default function CoachMark({
           data-coach-dim
           css={dimStyle}
           onMouseDown={swallow}
+          onContextMenu={swallow}
           style={
             bright === null ? undefined : { clipPath: clipPathWithHole(bright) }
           }
@@ -278,6 +280,7 @@ export default function CoachMark({
           css={stillStyle}
           onMouseDown={swallow}
           onClick={swallow}
+          onContextMenu={swallow}
           style={{
             left: bright.left,
             top: bright.top,

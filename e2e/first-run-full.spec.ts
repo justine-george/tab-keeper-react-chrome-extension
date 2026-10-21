@@ -651,6 +651,49 @@ test.describe('with saved sessions', () => {
     );
   });
 
+  // KAN-736. The ⋮ step is look-only: a right-click on the dimmed title or the lit ⋮ opens no menu, Chrome's included.
+  test('step 7: a right-click on the session title or the ⋮ opens no menu; after the tour the title opens its own', async ({
+    context,
+    extensionId,
+  }) => {
+    await context.addInitScript(() => {
+      const prevented: boolean[] = [];
+      Object.defineProperty(window, '__contextMenus', { value: prevented });
+      // Seen in the capture phase, read once every listener has run.
+      window.addEventListener(
+        'contextmenu',
+        (e) => setTimeout(() => prevented.push(e.defaultPrevented), 0),
+        true
+      );
+    });
+    const page = await openRunFromHelp(context, extensionId, FULL_RUN);
+    for (let step = 2; step <= 7; step++) await nextTo(page, step);
+    await landedAt(page, 7);
+    const title = page
+      .locator('[data-pane="detail"]')
+      .getByText('Latest', { exact: true })
+      .first();
+    const dots = page.locator(
+      '[data-pane="detail"] [data-tour-anchor="session-menu"]'
+    );
+    for (const target of [title, dots]) {
+      const [x, y] = await centreOf(target);
+      await page.mouse.click(x, y, { button: 'right' });
+    }
+    const contextMenus = () =>
+      page.evaluate((): unknown => Reflect.get(window, '__contextMenus'));
+    await expect.poll(contextMenus).toEqual([true, true]);
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(cardAt(page, 7)).toBeVisible();
+    // CONTROL: with the tour gone, the same right-click opens the title's own menu.
+    await cardButton(page, 'Skip tutorial').click();
+    await closeReplayNote(page);
+    await expect(card(page)).toHaveCount(0);
+    const [x, y] = await centreOf(title);
+    await page.mouse.click(x, y, { button: 'right' });
+    await expect(page.getByRole('menu')).toHaveCount(1);
+  });
+
   test('step 3 shows your sessions, and the run goes on with the latest (R10)', async ({
     context,
     extensionId,
