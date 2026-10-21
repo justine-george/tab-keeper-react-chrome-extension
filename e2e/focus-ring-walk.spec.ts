@@ -13,7 +13,7 @@ import {
   sessionRow,
 } from './fixtures/betweenSessions';
 import { openFullView, openPopup as openWelcome } from './fixtures/onboarding';
-import { pixelsAt, rgbToHex } from './fixtures/pixels';
+import { pixelsAt, rgbToHex, rgb } from './fixtures/pixels';
 import { ON_TITLE } from './fixtures/savedRow';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import { standIn } from './fixtures/standInPages';
@@ -29,11 +29,6 @@ const THEMES = [
   ['Light', LIGHT_THEME],
   ['Darkenheimer', DARKENHEIMER_THEME],
 ] as const;
-
-const rgb = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return `rgb(${r}, ${g}, ${b})`;
-};
 
 const DAY = 24 * 60 * 60 * 1000;
 

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { putDeviceId } from './fixtures/cloud';
 import { sessionHeaderMenu } from './fixtures/menus';
-import { contrast, pixelsAt, rgbToHex } from './fixtures/pixels';
+import { contrast, pixelsAt, rgbToHex, channels } from './fixtures/pixels';
 import {
   buildContainer,
   buildSession,
@@ -355,14 +355,10 @@ async function measureMeter(
 }
 
 // How far apart two #RRGGBB colours are, at worst over the three channels.
-const channelGap = (a: string, b: string): number =>
-  Math.max(
-    ...[1, 3, 5].map((i) =>
-      Math.abs(
-        parseInt(a.slice(i, i + 2), 16) - parseInt(b.slice(i, i + 2), 16)
-      )
-    )
-  );
+const channelGap = (a: string, b: string): number => {
+  const under = channels(b);
+  return Math.max(...channels(a).map((v, i) => Math.abs(v - under[i])));
+};
 
 // The token each kind's fill takes per state; null where it paints none of
 // its own (a menu item and a row icon at rest show what is behind them).

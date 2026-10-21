@@ -10,6 +10,7 @@ import {
   LIGHT_THEME,
   WARM_LIGHT_THEME,
 } from '../src/hooks/useThemeColors';
+import { rgb } from './fixtures/pixels';
 
 // KAN-405 on the real artifact: what jsdom cannot show -- Chrome's own
 // :focus-visible heuristic, and the ring it paints.
@@ -23,11 +24,6 @@ const THEMES = [
   ['Darkenheimer', DARKENHEIMER_THEME],
   ['Blue', BLUE_THEME],
 ] as const;
-
-const rgb = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return `rgb(${r}, ${g}, ${b})`;
-};
 
 async function openPopup(
   context: Parameters<typeof seedSettings>[0],

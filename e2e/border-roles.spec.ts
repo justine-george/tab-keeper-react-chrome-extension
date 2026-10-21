@@ -3,14 +3,13 @@ import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { THEMES, POPUP, openPage } from './fixtures/onboarding';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
+import { rgb } from './fixtures/pixels';
 
 // KAN-668. borderContrast.test.ts holds the two edge tokens apart; this holds
 // each surface to the one it should draw, which is the only thing that catches
 // a control still drawing the panel frame (or the reverse) while both tokens
 // pass. One panel and the controls next to it, on each screen it visits.
 
-const rgb = (hex: string) =>
-  `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
 const TOP = 'border-top-color';
 
 async function openSettings(page: Page, category: string): Promise<void> {

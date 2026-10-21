@@ -3,6 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, seedSessions } from './fixtures/seed';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { rgb } from './fixtures/pixels';
 
 // KAN-236. A settings category row answers a press, as every other row has
 // since KAN-205. It did not: the row had the KAN-96 hover fix and its selected
@@ -14,12 +15,9 @@ import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 // transition and jsdom paints nothing: the jsdom case pins that the rule is
 // emitted, this pins that Chrome paints it.
 
-const hex = (h: string) =>
-  `rgb(${[1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).join(', ')})`;
-
-const ACTIVE = hex(LIGHT_THEME.ACTIVE_COLOR);
-const HOVER = hex(LIGHT_THEME.HOVER_COLOR);
-const SELECTION = hex(LIGHT_THEME.SELECTION_COLOR);
+const ACTIVE = rgb(LIGHT_THEME.ACTIVE_COLOR);
+const HOVER = rgb(LIGHT_THEME.HOVER_COLOR);
+const SELECTION = rgb(LIGHT_THEME.SELECTION_COLOR);
 
 const fillOf = (row: Locator) =>
   row.evaluate((el) => getComputedStyle(el).backgroundColor);

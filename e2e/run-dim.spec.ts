@@ -3,7 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { openPage, pageGround, twoFrames } from './fixtures/onboarding';
-import { pixelsAt, rgbToHex } from './fixtures/pixels';
+import { pixelsAt, rgbToHex, channels } from './fixtures/pixels';
 import {
   boxOf,
   saveRowAim,
@@ -92,8 +92,6 @@ async function withAndWithoutDim(
   return { shown, hidden };
 }
 
-const channels = (hex: string) =>
-  [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 // `ground` under black at `alpha`, as the compositor blends it.
 const underScrim = (ground: string, alpha: number) =>
   channels(ground).map((c) => c * (1 - alpha));

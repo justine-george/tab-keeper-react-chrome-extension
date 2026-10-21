@@ -4,6 +4,7 @@ import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { openPage } from './fixtures/onboarding';
 import { standIn } from './fixtures/standInPages';
 import { TAB_GROUP_COLOR_HEX } from '../src/utils/functions/tabGroups';
+import { rgb } from './fixtures/pixels';
 
 // KAN-568 (picks 1-A, 2-U1). Open now renames and recolours Chrome's own group, as the saved band does its copy.
 const VIEW_TAB = 'index.html?view=tab';
@@ -54,9 +55,6 @@ async function startRecording(page: Page, windowId: number) {
 }
 const recorded = (page: Page) =>
   page.evaluate(() => (window as unknown as { kan568: string[] }).kan568);
-
-const rgb = (hex: string) =>
-  `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
 
 test('the name renames the Chrome group, Enter commits, and the band shows it', async ({
   context,

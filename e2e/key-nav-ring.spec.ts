@@ -5,7 +5,7 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { POPUP, stored } from './fixtures/savedWindows';
-import { differingPixels, pixelsAt } from './fixtures/pixels';
+import { differingPixels, pixelsAt, rgb } from './fixtures/pixels';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-689. Rings show after keyboard navigation only. Chrome's heuristic
@@ -254,13 +254,10 @@ test('Tab on the export page draws the themed ring', async ({
   await page.keyboard.press('Tab');
 
   await expect(edit).toBeFocused();
-  const r = parseInt(RING.slice(1, 3), 16);
-  const g = parseInt(RING.slice(3, 5), 16);
-  const b = parseInt(RING.slice(5, 7), 16);
   expect(
     await edit.evaluate((el) => {
       const s = getComputedStyle(el);
       return `${s.outlineStyle} ${s.outlineWidth} ${s.outlineColor}`;
     })
-  ).toBe(`solid 2px rgb(${r}, ${g}, ${b})`);
+  ).toBe(`solid 2px ${rgb(RING)}`);
 });

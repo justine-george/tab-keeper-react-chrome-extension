@@ -11,6 +11,7 @@ import {
   WARM_LIGHT_THEME,
 } from '../src/hooks/useThemeColors';
 import { seedOnce } from './fixtures/cloud';
+import { rgb } from './fixtures/pixels';
 
 // KAN-635 on the real artifact: Settings › Sessions › Default save decides
 // what the row's button and Enter save; the ⋮ menu's first item is the other.
@@ -225,10 +226,6 @@ test('another open page swaps its row without a reload', async ({
 // KAN-675. The chosen tile's mark is its own frame at 2px of LABEL_L2, not the
 // focus ring: a 2px TEXT_COLOR outline read as "focus is here", and with focus
 // the tile drew two rings of the same weight. Choosing must not resize a tile.
-const rgb = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return `rgb(${r}, ${g}, ${b})`;
-};
 for (const [theme, colors] of [
   ['Light', LIGHT_THEME],
   ['WarmLight', WARM_LIGHT_THEME],

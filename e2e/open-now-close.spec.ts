@@ -13,7 +13,7 @@ import {
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
-import { contrast, pixelsAt, rgbToHex } from './fixtures/pixels';
+import { contrast, pixelsAt, rgbToHex, rgb } from './fixtures/pixels';
 import { platformSays } from './fixtures/platform';
 import { isValidTabMasterContainer } from '../src/utils/functions/local';
 import {
@@ -64,12 +64,6 @@ async function openPage(
     .waitFor();
   return page;
 }
-
-// A #RRGGBB token as getComputedStyle spells it.
-const rgb = (hex: string): string => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return `rgb(${r}, ${g}, ${b})`;
-};
 
 const dataUrl = (title: string) => `data:text/html,<title>${title}</title>`;
 

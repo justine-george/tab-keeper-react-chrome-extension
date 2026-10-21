@@ -12,15 +12,13 @@ import {
 } from './fixtures/savedWindows';
 import { standIn } from './fixtures/standInPages';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
+import { channels } from './fixtures/pixels';
 
 // KAN-631. A title that renames on click shows, under the pointer or keyboard
 // focus, a ghost of the field the click opens: its fill 65% of the way from the
 // ground to the field's own, and a soft edge. Read from the real ::before.
 
 type Ghost = { fill: number[]; edge: number[]; textBox: string };
-
-const channels = (hex: string) =>
-  [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 
 // The field's fill (PRIMARY) 65% over the ground the title sits on.
 const ghostFill = (ground: string) => {

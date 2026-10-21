@@ -13,6 +13,7 @@ import {
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 import { TYPE } from '../src/styles/scale';
 import { ON_TITLE } from './fixtures/savedRow';
+import { rgb } from './fixtures/pixels';
 
 // KAN-280 Part A on the real artifact: the Open now pane in the tab view
 // (`index.html?view=tab`). What jsdom cannot show: the grid's real widths at
@@ -942,12 +943,6 @@ test.describe('the saved search row (KAN-280 O3a, KAN-385 S2)', () => {
 });
 
 // ---- the Open now heading, and the empty session list ----
-
-// A theme colour as getComputedStyle reports it.
-const rgb = (hex: string): string => {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
-};
 
 test.describe('Open now heading and empty-list layout (KAN-280)', () => {
   test('the Open now heading holds only phrasing content, and draws as the label it replaced', async ({

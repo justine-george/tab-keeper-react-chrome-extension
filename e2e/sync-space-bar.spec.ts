@@ -14,6 +14,7 @@ import {
 } from '../src/utils/functions/local';
 import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 import { formatSyncUsed } from '../src/utils/functions/syncSpace';
+import { rgb } from './fixtures/pixels';
 
 // KAN-596. Under Sync Status, how much of the 1 MB the sync may write.
 // Auto Sync off (manual): PR CI builds without a cloud, and manual is shown there.
@@ -115,8 +116,6 @@ test('with sync off, past the limit, the bar says it is too large before any yes
   const meter = page.getByRole('meter', { name: 'Sync limit used' });
   await expect(meter).toHaveAttribute('aria-valuenow', '100');
   // KAN-725. Light's DANGER_MARK.
-  const rgb = (hex: string) =>
-    `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
   await expect(meter.locator(':scope > div')).toHaveCSS(
     'background-color',
     rgb(LIGHT_THEME.DANGER_MARK)
