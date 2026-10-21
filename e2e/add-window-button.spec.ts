@@ -285,10 +285,10 @@ async function sample(
         // draft of this read the card colour against a correct chip.
         topEdge: [b.right - 3, b.top + 0.5],
         leftEdge: [b.left + 0.5, midY],
-        // The card's border one pixel outside the chip's right and bottom:
-        // flush means the chip's fill meets it directly.
-        cardRight: [c.right - 0.5, midY],
-        cardBottom: [b.right - 3, c.bottom - 0.5],
+        // KAN-731. The card's frame away from the chip: its right border
+        // above the chip, its bottom border left of it.
+        frameRight: [c.right - 0.5, (c.top + b.top) / 2],
+        frameBottom: [(c.left + b.left) / 2, c.bottom - 0.5],
       };
       return Object.fromEntries(
         pick.split(',').map((k) => [k, at(...points[k])])
@@ -341,12 +341,12 @@ for (const [theme, t] of Object.entries(CHIP)) {
     // The premise of "flush": the fill runs to the card's own border.
     expect(gaps).toEqual({ right: 0, bottom: 0 });
 
-    const px = await sample(page, 'topEdge,leftEdge,cardRight,cardBottom');
+    const px = await sample(page, 'topEdge,leftEdge,frameRight,frameBottom');
     expect(px.topEdge, 'top edge is fill, not a line').toBe(t.chip);
     expect(px.leftEdge, 'left edge is fill, not a line').toBe(t.chip);
-    // CONTROL: the card's border IS a line, so the sampler can see one when
-    // one is there, one pixel from the same chip.
-    expect(px.cardRight).not.toBe(t.chip);
-    expect(px.cardBottom).not.toBe(t.chip);
+    // CONTROL: the sampler sees the card's frame as a line against the card,
+    // read clear of the chip (in Charcoal the frame and chip share #313336).
+    expect(px.frameRight, 'right border').not.toBe(t.card);
+    expect(px.frameBottom, 'bottom border').not.toBe(t.card);
   });
 }
