@@ -292,8 +292,13 @@ describe('the Delete cloud data button while it checks (KAN-719)', () => {
     await renderPane('granted');
     await press();
     expect(deleteButton()).toHaveAttribute('aria-disabled', 'true');
+    // jsdom keeps the clicked button :hover; the pointer leaves, then the
+    // Checking… face appears (300ms), which also refreshes the computed style.
+    fireEvent.mouseOut(deleteButton());
+    await flush(300);
+    expect(faceShown()).toBe('true');
     const ink = getComputedStyle(deleteButton()).color;
-    expect(ink).toMatch(asWritten(LIGHT_THEME.TEXT_COLOR));
+    expect(ink).toMatch(asWritten(LIGHT_THEME.DANGER_INK));
     expect(ink).not.toMatch(asWritten(LIGHT_THEME.LABEL_L2_COLOR));
     resolveCheck(true);
     await flush();

@@ -2,7 +2,11 @@ import { css } from '@emotion/react';
 
 import type { ThemeColors } from '../../hooks/useThemeColors';
 import { CONTROL, DURATION } from '../../styles/scale';
-import { focusRingCss, whileKeyNav } from '../common/focusRing';
+import {
+  focusRingCss,
+  focusRingInInkCss,
+  whileKeyNav,
+} from '../common/focusRing';
 import { mixHex } from '../../styles/mixHex';
 
 // A dialog button's padding and border, which a flush link hangs outside.
@@ -17,8 +21,8 @@ const BORDER = 1;
  * a press looked exactly like a hover -- the defect KAN-236 fixed on the
  * settings rows and KAN-205 on Button. The rungs here are Button's own
  * (ICON_HOVER, then ICON_ACTIVE one past it), so a dialog button answers the
- * pointer the way every other button in the popup does. `danger` holds its
- * red on hover and press, as every destructive control does (KAN-204).
+ * pointer the way every other button in the popup does. `danger` is solid
+ * red with white ink, one step deeper on hover and two on press (KAN-725).
  */
 export function dialogButtonStyles(COLORS: ThemeColors) {
   const base = css`
@@ -82,15 +86,24 @@ export function dialogButtonStyles(COLORS: ThemeColors) {
         outline-offset: 2px;
       }
     `,
+    // KAN-725. Solid red at rest, deeper on hover and press; ink and ring stay ON_DANGER_FILL.
     danger: css`
       ${base}
-      background-color: ${COLORS.DELETE_ICON_HOVER_COLOR};
+      transition:
+        background-color ${DURATION.COLOR},
+        border-color ${DURATION.COLOR};
+      border-color: ${COLORS.DANGER_FILL};
+      background-color: ${COLORS.DANGER_FILL};
+      color: ${COLORS.ON_DANGER_FILL};
       &:hover {
-        background-color: ${COLORS.DELETE_ICON_HOVER_COLOR};
+        border-color: ${COLORS.DANGER_FILL_DEEP};
+        background-color: ${COLORS.DANGER_FILL_DEEP};
       }
       &:active {
-        background-color: ${COLORS.DELETE_ICON_HOVER_COLOR};
+        border-color: ${COLORS.DANGER_FILL_DEEPER};
+        background-color: ${COLORS.DANGER_FILL_DEEPER};
       }
+      ${focusRingInInkCss()}
     `,
   };
 }

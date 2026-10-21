@@ -28,6 +28,11 @@ import {
 } from '../../utils/functions/local';
 import { formatSyncUsed } from '../../utils/functions/syncSpace';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
+import {
+  BLUE_THEME,
+  LIGHT_THEME,
+  ThemeColorsOverride,
+} from '../../hooks/useThemeColors';
 
 // KAN-596. How much of the 1 MB the sync may write, under Sync Status.
 
@@ -52,20 +57,29 @@ const containerOf = (bytes: number) => {
   ]);
 };
 
-const renderSync = (bytes?: number) =>
-  renderWithProviders(<SettingsDetailsContainer />, {
-    seedStore: (store) => {
-      if (bytes !== undefined) store.dispatch(replaceState(containerOf(bytes)));
-      store.dispatch(selectCategory(SettingsCategory.SYNC));
-      store.dispatch(setSignedIn());
-      store.dispatch(setCloudConfigured(true));
-      store.dispatch(grantCloudConsent());
-    },
-  });
+const renderSync = (bytes?: number, theme = LIGHT_THEME) =>
+  renderWithProviders(
+    <ThemeColorsOverride.Provider value={theme}>
+      <SettingsDetailsContainer />
+    </ThemeColorsOverride.Provider>,
+    {
+      seedStore: (store) => {
+        if (bytes !== undefined)
+          store.dispatch(replaceState(containerOf(bytes)));
+        store.dispatch(selectCategory(SettingsCategory.SYNC));
+        store.dispatch(setSignedIn());
+        store.dispatch(setCloudConfigured(true));
+        store.dispatch(grantCloudConsent());
+      },
+    }
+  );
 
 // KAN-625. Named for what it measures: the sessions here against the sync limit, not cloud storage.
 const meter = () => screen.queryByRole('meter', { name: 'Sync limit used' });
 const fill = () => meter()?.firstElementChild as HTMLElement | null;
+const rgb = (hex: string) =>
+  `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
+const fillColor = () => getComputedStyle(fill() as HTMLElement).backgroundColor;
 const line = () => screen.getByTestId('sync-space').textContent;
 
 describe('the sync space bar (KAN-596)', () => {
@@ -113,6 +127,27 @@ describe('the sync space bar (KAN-596)', () => {
     );
     expect(meter()?.getAttribute('aria-valuenow')).toBe('100');
     expect(fill()?.style.width).toBe('100%');
+  });
+
+  // KAN-725. The warning fill is the destructive mark colour, per theme.
+  test('from 80% the fill is DANGER_MARK, in a light theme and a dark one', async () => {
+    const view = await renderSync(
+      Math.ceil(FIRESTORE_MAX_DOCUMENT_BYTES * 0.85)
+    );
+    expect(fillColor()).toBe(rgb(LIGHT_THEME.DANGER_MARK));
+    view.unmount();
+    await renderSync(
+      Math.ceil(FIRESTORE_MAX_DOCUMENT_BYTES * 0.85),
+      BLUE_THEME
+    );
+    expect(fillColor()).toBe(rgb(BLUE_THEME.DANGER_MARK));
+    expect(fillColor()).toBe('rgb(255, 156, 148)');
+  });
+
+  test('CONTROL: with room to spare the fill stays LABEL_L2_COLOR', async () => {
+    await renderSync(Math.floor(FIRESTORE_MAX_DOCUMENT_BYTES * 0.5));
+    expect(screen.getByTestId('sync-space').dataset.level).toBe('ok');
+    expect(fillColor()).toBe(rgb(LIGHT_THEME.LABEL_L2_COLOR));
   });
 
   // KAN-625. 1 kB is 0.1% of 1 MB: rounded to whole percent it drew nothing while the line said 1 kB.

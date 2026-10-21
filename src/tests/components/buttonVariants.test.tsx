@@ -4,8 +4,13 @@ import { screen } from '@testing-library/react';
 import Button from '../../components/common/Button';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import { activeRulesFor, hoverRulesFor } from '../setup/hoverRules';
+import {
+  activeRulesFor,
+  classRulesFor,
+  hoverRulesFor,
+} from '../setup/hoverRules';
 import { mixHex } from '../../styles/mixHex';
+import { DURATION } from '../../styles/scale';
 
 // KAN-205. 22 components carry an onClick; 7 imported Button. The other 15 each
 // built their own clickable surface, which is where the inconsistency people
@@ -30,6 +35,7 @@ const render = (props = {}) =>
     <Button text="Act" onClick={() => undefined} {...props} />
   );
 const button = () => screen.getByRole('button', { name: 'Act' });
+const KEY_HINT = { text: 'Del', ariaKeyShortcuts: 'Delete' };
 
 describe('Button variants (KAN-205)', () => {
   test('defaults to quiet, so every existing caller is unchanged', async () => {
@@ -79,23 +85,241 @@ describe('Button variants (KAN-205)', () => {
     );
   });
 
-  test('danger rests on the delete fill', async () => {
-    await render({ variant: 'danger' });
+  test('danger rests as a quiet button with red ink', async () => {
+    await render({ variant: 'danger', iconType: 'delete' });
 
-    expect(getComputedStyle(button()).backgroundColor).toBe(
-      rgb(LIGHT_THEME.DELETE_ICON_HOVER_COLOR).text
+    const style = getComputedStyle(button());
+    expect(style.backgroundColor).toBe(rgb(LIGHT_THEME.PRIMARY_COLOR).text);
+    expect(style.border).toContain(rgb(LIGHT_THEME.CONTROL_BORDER_COLOR).text);
+    expect(style.color).toBe(rgb(LIGHT_THEME.DANGER_INK).text);
+    const glyph = button().querySelector('.material-symbols-outlined');
+    expect(glyph && getComputedStyle(glyph).color).toBe(
+      rgb(LIGHT_THEME.DANGER_INK).text
     );
   });
 
-  // Measured in KAN-204: at the delete hue there is no lightness that deepens
-  // the fill and keeps its label above 4.5:1, so it holds its colour instead of
-  // getting harder to read as you commit to it.
-  test('danger holds its red through hover and press', async () => {
+  // KAN-725. Red ink at rest, a red fill under the pointer, deeper pressed.
+  test('danger fills red under the pointer and deeper when pressed', async () => {
     await render({ variant: 'danger' });
 
-    const red = fill(LIGHT_THEME.DELETE_ICON_HOVER_COLOR);
-    expect(hoverRulesFor(button())).toMatch(red);
-    expect(activeRulesFor(button())).toMatch(red);
+    const hover = hoverRulesFor(button());
+    expect(hover).toMatch(
+      new RegExp(
+        `background-color:\\s*${fill(LIGHT_THEME.DANGER_FILL).source}`,
+        'i'
+      )
+    );
+    expect(hover).toMatch(
+      new RegExp(
+        `[^-]color:\\s*${fill(LIGHT_THEME.ON_DANGER_FILL).source}`,
+        'i'
+      )
+    );
+    expect(hover).toMatch(
+      new RegExp(
+        `border-color:\\s*${fill(LIGHT_THEME.DANGER_FILL).source}`,
+        'i'
+      )
+    );
+    const active = activeRulesFor(button());
+    expect(active).toMatch(fill(LIGHT_THEME.DANGER_FILL_DEEP));
+    expect(active).toMatch(
+      new RegExp(
+        `border-color:\\s*${fill(LIGHT_THEME.DANGER_FILL_DEEP).source}`,
+        'i'
+      )
+    );
+    // KAN-725. The old rule held one red for hover and press; pressing must
+    // not land back on the hover fill.
+    expect(active).not.toMatch(
+      new RegExp(
+        `background-color:\\s*${fill(LIGHT_THEME.DANGER_FILL).source}`,
+        'i'
+      )
+    );
+  });
+
+  test('danger icon follows the hover ink', async () => {
+    await render({ variant: 'danger', iconType: 'delete' });
+
+    expect(hoverRulesFor(button())).toMatch(
+      new RegExp(
+        `material-symbols-outlined[^}]*color:\\s*${fill(LIGHT_THEME.ON_DANGER_FILL).source}`,
+        'i'
+      )
+    );
+  });
+
+  test('danger draws its ring in its own ink', async () => {
+    await render({ variant: 'danger' });
+
+    expect(classRulesFor(button())).toMatch(
+      /:focus-visible[^}]*outline:\s*2px solid currentcolor/i
+    );
+  });
+
+  test('other variants keep the text-coloured ring', async () => {
+    await render();
+
+    expect(classRulesFor(button())).not.toMatch(
+      /outline:\s*2px solid currentcolor/i
+    );
+  });
+
+  test('busy shows progress and never presses deeper', async () => {
+    await render({ variant: 'danger', busy: true });
+
+    expect(getComputedStyle(button()).cursor).toBe('progress');
+    expect(button()).toHaveAttribute('aria-disabled', 'true');
+    const active = activeRulesFor(button());
+    expect(active).toMatch(fill(LIGHT_THEME.DANGER_FILL));
+    expect(active).not.toMatch(fill(LIGHT_THEME.DANGER_FILL_DEEP));
+  });
+
+  test('busy leaves rest and hover alone', async () => {
+    await render({ variant: 'danger', busy: true });
+
+    const style = getComputedStyle(button());
+    expect(style.backgroundColor).toBe(rgb(LIGHT_THEME.PRIMARY_COLOR).text);
+    expect(style.color).toBe(rgb(LIGHT_THEME.DANGER_INK).text);
+    expect(hoverRulesFor(button())).toMatch(fill(LIGHT_THEME.DANGER_FILL));
+  });
+
+  test('a button that is not busy keeps the pointer cursor', async () => {
+    await render({ variant: 'danger' });
+
+    expect(getComputedStyle(button()).cursor).toBe('pointer');
+  });
+
+  // KAN-725. An unavailable button's label must not brighten under the pointer.
+  test('unavailable keeps its L2 label through hover and press, danger or not', async () => {
+    for (const variant of ['quiet', 'danger']) {
+      const { unmount } = await render({ variant, ariaDisabled: true });
+      expect(classRulesFor(button())).toMatch(
+        new RegExp(
+          `\\.(css-\\w+)\\.\\1:hover,\\s*\\.\\1\\.\\1:active\\s*\\{[^}]*[^-]color:\\s*${fill(LIGHT_THEME.LABEL_L2_COLOR).source}`,
+          'i'
+        )
+      );
+      unmount();
+    }
+  });
+
+  test.each(['quiet', 'primary', 'chip', 'outline'])(
+    '%s recolours nothing on hover or press',
+    async (variant) => {
+      await render({ variant });
+
+      for (const rules of [hoverRulesFor(button()), activeRulesFor(button())]) {
+        const own = rules
+          .split('\n')
+          .filter((r) => !/(material-symbols|data-key-hint)/.test(r));
+        expect(own.join('\n')).not.toMatch(/[^-]color:/);
+      }
+    }
+  );
+
+  test('only danger animates border-color and colour', async () => {
+    const { unmount } = await render({ variant: 'danger' });
+    const danger = classRulesFor(button());
+    expect(danger).toMatch(
+      new RegExp(`transition:[^;]*border-color ${DURATION.COLOR}`)
+    );
+    expect(danger).toMatch(
+      new RegExp(`transition:[^;]*[^-]color ${DURATION.COLOR}`)
+    );
+    unmount();
+
+    await render();
+    const quiet = classRulesFor(button());
+    expect(quiet).not.toMatch(/transition:[^;]*border-color/);
+    expect(quiet).not.toMatch(/transition:[^;]*[^-]color 120ms/);
+  });
+
+  // KAN-725. The fill eases in, so an ink that switched at once would show white on the pale ground.
+  test("a danger button's glyph and key hint ease their ink with the fill", async () => {
+    const { unmount } = await render({
+      variant: 'danger',
+      iconType: 'delete',
+      keyHint: KEY_HINT,
+    });
+    const glyph = button().querySelector('.material-symbols-outlined');
+    const hint = button().querySelector('[data-key-hint]');
+    if (glyph === null || hint === null) throw new Error('no glyph or hint');
+    expect(getComputedStyle(glyph).transition).toBe(`color ${DURATION.COLOR}`);
+    expect(getComputedStyle(hint).transition).toBe(`color ${DURATION.COLOR}`);
+    unmount();
+
+    // CONTROL. A quiet button's glyph keeps no transition of its own.
+    await render({ iconType: 'delete' });
+    const quietGlyph = button().querySelector('.material-symbols-outlined');
+    if (quietGlyph === null) throw new Error('no glyph');
+    expect(getComputedStyle(quietGlyph).transition).toBe('');
+  });
+
+  // KAN-725. Red as a danger menu item's hint is; any other variant keeps LABEL_L1.
+  test("a danger button's key hint rests in its red ink", async () => {
+    const { unmount } = await render({ variant: 'danger', keyHint: KEY_HINT });
+    const hint = button().querySelector('[data-key-hint]');
+    if (hint === null) throw new Error('no hint');
+    expect(getComputedStyle(hint).color).toBe(rgb(LIGHT_THEME.DANGER_INK).text);
+    unmount();
+
+    await render({ keyHint: KEY_HINT });
+    const quietHint = button().querySelector('[data-key-hint]');
+    if (quietHint === null) throw new Error('no hint');
+    expect(getComputedStyle(quietHint).color).toBe(
+      rgb(LIGHT_THEME.LABEL_L1_COLOR).text
+    );
+  });
+
+  test('CONTROL: unavailable danger rests quiet and stays quiet', async () => {
+    await render({
+      variant: 'danger',
+      ariaDisabled: true,
+      iconType: 'delete',
+      keyHint: KEY_HINT,
+    });
+
+    expect(getComputedStyle(button()).color).toBe(
+      rgb(LIGHT_THEME.LABEL_L2_COLOR).text
+    );
+    // The doubled-class rule outranks the base hover and press fills.
+    const quiet = new RegExp(
+      `\\.(css-\\w+)\\.\\1:hover,\\s*\\.\\1\\.\\1:active\\s*\\{[^}]*background-color:\\s*${fill(LIGHT_THEME.PRIMARY_COLOR).source}`,
+      'i'
+    );
+    expect(classRulesFor(button())).toMatch(quiet);
+    // KAN-725. Touched, no red edge and no white label, glyph or key hint.
+    for (const rules of [hoverRulesFor(button()), activeRulesFor(button())]) {
+      expect(rules).not.toMatch(/border-color/);
+      expect(rules).not.toMatch(/material-symbols-outlined/);
+      expect(rules).not.toMatch(fill(LIGHT_THEME.ON_DANGER_FILL));
+    }
+  });
+
+  // KAN-725. Unavailable dims all of it: the glyph and key hint take the label's L2, touched or not.
+  test('unavailable danger dims its glyph and key hint with its label', async () => {
+    await render({
+      variant: 'danger',
+      ariaDisabled: true,
+      iconType: 'delete',
+      keyHint: KEY_HINT,
+    });
+
+    const glyph = button().querySelector('.material-symbols-outlined');
+    const hint = button().querySelector('[data-key-hint]');
+    if (glyph === null || hint === null) throw new Error('no glyph or hint');
+    const l2 = rgb(LIGHT_THEME.LABEL_L2_COLOR).text;
+    expect(getComputedStyle(glyph).color).toBe(l2);
+    expect(getComputedStyle(hint).color).toBe(l2);
+    for (const rules of [hoverRulesFor(button()), activeRulesFor(button())]) {
+      expect(rules).not.toMatch(fill(LIGHT_THEME.DANGER_INK));
+      const hintRule = rules
+        .split('\n')
+        .find((r) => r.includes('[data-key-hint]'));
+      expect(hintRule ?? '').toMatch(fill(LIGHT_THEME.LABEL_L2_COLOR));
+    }
   });
 });
 

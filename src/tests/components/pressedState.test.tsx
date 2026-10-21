@@ -37,7 +37,8 @@ const asWritten = (hex: string) => {
 const PRESSED = asWritten(LIGHT_THEME.ACTIVE_COLOR);
 const ICON_PRESSED = asWritten(LIGHT_THEME.ICON_ACTIVE_COLOR);
 const ICON_HOVER = asWritten(LIGHT_THEME.ICON_HOVER_COLOR);
-const DELETE = asWritten(LIGHT_THEME.DELETE_ICON_HOVER_COLOR);
+const DANGER_FILL = asWritten(LIGHT_THEME.DANGER_FILL);
+const DANGER_PRESSED = asWritten(LIGHT_THEME.DANGER_FILL_DEEP);
 
 describe('a press is confirmed on every interactive surface (KAN-205)', () => {
   test('an actionable icon presses one rung past its hover', async () => {
@@ -72,11 +73,8 @@ describe('a press is confirmed on every interactive surface (KAN-205)', () => {
     ).toMatch(PRESSED);
   });
 
-  // Measured, not assumed: at the delete hue there is no lightness that both
-  // deepens the fill and keeps the dark glyph on it above 4.5:1. A destructive
-  // control that gets harder to read as you commit to it is the wrong trade, so
-  // it holds its colour instead.
-  test('a destructive control holds its red while pressed', async () => {
+  // KAN-725. White ink holds on the deeper red, so a danger item presses one rung past its fill.
+  test('a destructive menu item presses one rung deeper', async () => {
     const user = userEvent.setup();
     await renderWithProviders(
       <OverflowMenu
@@ -95,7 +93,8 @@ describe('a press is confirmed on every interactive surface (KAN-205)', () => {
     await user.click(screen.getByRole('button', { name: 'More actions' }));
 
     const item = screen.getByRole('menuitem', { name: 'Delete group' });
-    expect(activeRulesFor(item)).toMatch(DELETE);
+    expect(activeRulesFor(item)).toMatch(DANGER_PRESSED);
+    expect(activeRulesFor(item)).not.toMatch(DANGER_FILL);
     expect(activeRulesFor(item)).not.toMatch(PRESSED);
   });
 

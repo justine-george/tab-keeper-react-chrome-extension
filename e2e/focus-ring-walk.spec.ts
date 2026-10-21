@@ -116,6 +116,10 @@ async function walk(page: Page, max: number): Promise<Stop[]> {
 // is one box rather than the app's ring drawn inside the field's own edge.
 const FIELDS = ['#name'];
 
+// KAN-725. A destructive control rings in its own ink, DANGER_INK at rest. Empty
+// (Recently deleted) is one too, but only with something deleted; no walk here seeds that.
+const DANGER = ['Delete cloud data'];
+
 function expectRingEverywhere(
   stops: Stop[],
   colors: typeof LIGHT_THEME,
@@ -124,8 +128,13 @@ function expectRingEverywhere(
   // PREMISE: the walk got to the stops that had no ring or Chrome's.
   const names = stops.map((s) => s.name);
   for (const name of reached) expect(names).toContain(name);
-  const ringOf = (name: string) =>
-    `solid 2px ${rgb(FIELDS.includes(name) ? colors.LABEL_L2_COLOR : colors.TEXT_COLOR)}`;
+  const inkOf = (name: string) =>
+    FIELDS.includes(name)
+      ? colors.LABEL_L2_COLOR
+      : DANGER.includes(name)
+        ? colors.DANGER_INK
+        : colors.TEXT_COLOR;
+  const ringOf = (name: string) => `solid 2px ${rgb(inkOf(name))}`;
   expect(stops.filter((s) => s.ring !== ringOf(s.name))).toEqual([]);
 }
 
@@ -191,6 +200,7 @@ for (const [theme, colors] of THEMES) {
       '12-hour',
       '24-hour',
       'Privacy policy',
+      'Delete cloud data',
     ]);
   });
 

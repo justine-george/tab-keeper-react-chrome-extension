@@ -20,6 +20,15 @@ export const focusRingCss = (
   }
 `;
 
+// KAN-725. The same ring in currentColor, so it follows the control's ink in
+// each state: DANGER_INK at rest, ON_DANGER_FILL once the fill turns red.
+export const focusRingInInkCss = (on = '&:focus-visible'): string => `
+  ${whileKeyNav(on)} {
+    outline: 2px solid currentColor;
+    outline-offset: -4px;
+  }
+`;
+
 // KAN-671. The same ring on a ground of TEXT_COLOR, in PRIMARY_COLOR: a
 // sliding pair's pressed half, under its knob.
 export const focusRingOnTextGroundCss = (

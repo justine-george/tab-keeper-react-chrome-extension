@@ -726,6 +726,7 @@ export default function OpenNowWindow({
             tooltipText={t('Close tab')}
             ariaLabel={t('Close tab') + ': ' + tab.title}
             type="close"
+            danger
             onClick={onFirstClickOnly(() => onCloseTab(tab))}
           />
         </div>

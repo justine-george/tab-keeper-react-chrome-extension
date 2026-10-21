@@ -5,7 +5,7 @@ import { css } from '@emotion/react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { DURATION, ICON } from '../../styles/scale';
 import { hoverMotionCss } from './hoverMotion';
-import { focusRingCss } from './focusRing';
+import { focusRingCss, whileKeyNav } from './focusRing';
 import type { HoverMotion } from './hoverMotion';
 import type { BrandIconName, IconName } from './iconNames';
 import { tooltipDescription } from './tooltipRules';
@@ -63,6 +63,12 @@ interface IconBaseProps {
    * the icon disappears into its own button (KAN-190).
    */
   color?: string;
+  /**
+   * KAN-725. A destructive control: while actionable it fills red under the
+   * pointer, deeper pressed, with a white glyph and ring on the red. Opt-in,
+   * not read off `type` -- "close" is shared with six quiet dismissals.
+   */
+  danger?: boolean;
   tooltipText?: string;
   text?: string;
   size?: string;
@@ -122,6 +128,7 @@ const Icon: React.FC<IconProps> = ({
   onClick,
   disable,
   hoverMotion,
+  danger = false,
   // Transparent by default, so an Icon paints nothing of its own unless a
   // caller asks for it (KAN-98). It used to be undefined, which emotion
   // emitted as `background-color: undefined` for the browser to discard --
@@ -159,10 +166,26 @@ const Icon: React.FC<IconProps> = ({
     e.currentTarget.click();
   }
 
-  const hoverColor =
-    type === 'delete'
-      ? COLORS.DELETE_ICON_HOVER_COLOR
-      : COLORS.ICON_HOVER_COLOR;
+  const hoverColor = danger ? COLORS.DANGER_FILL : COLORS.ICON_HOVER_COLOR;
+  const pressColor = danger
+    ? COLORS.DANGER_FILL_DEEP
+    : COLORS.ICON_ACTIVE_COLOR;
+  // KAN-725. The glyph's ink eases with the fill, so it never shows white on the pale ground.
+  const dangerInkEaseCss = `
+    .material-symbols-outlined,
+    svg {
+      transition: color ${DURATION.MOVE};
+    }`;
+  // KAN-725. The glyph sets its own colour, so the red state reaches it by
+  // descendant; the ring is drawn on the container and recoloured here.
+  const dangerInkCss = (state: string) => `
+    &${state} .material-symbols-outlined,
+    &${state} svg {
+      color: ${COLORS.ON_DANGER_FILL};
+    }
+    ${whileKeyNav(`&:focus-visible${state}`)} {
+      outline-color: ${COLORS.ON_DANGER_FILL};
+    }`;
 
   const iconStyle = css`
     font-size: ${size};
@@ -217,18 +240,12 @@ const Icon: React.FC<IconProps> = ({
     }
     /* KAN-205. The press, one rung past the hover, so a click confirms itself.
        After the hover rule, because the pointer is necessarily hovering
-       whatever it presses.
-
-       A delete icon keeps its red while pressed rather than deepening it: on
-       the light themes a deeper red drops the dark glyph on it below 4.5:1, and
-       a destructive control that becomes harder to read as you commit to it is
-       the wrong trade. Measured, not assumed -- there is no lightness at that
-       hue which satisfies both. */
+       whatever it presses. KAN-725. A danger icon presses to DANGER_FILL_DEEP,
+       its white glyph holding on the deeper red. */
     &:active {
-      background-color: ${
-        type === 'delete' ? hoverColor : COLORS.ICON_ACTIVE_COLOR
-      };
+      background-color: ${pressColor};
     }
+    ${danger ? dangerInkEaseCss + dangerInkCss(':hover') + dangerInkCss(':active') : ''}
     /* KAN-217. A menu trigger holds the press while its menu is open. Opening
        the menu moves the pointer onto it and off the trigger, so :hover alone
        dropped the fill while the menu was still on screen -- and a menu opened

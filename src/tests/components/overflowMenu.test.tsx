@@ -19,7 +19,7 @@ import OverflowMenu, {
   type OverflowMenuItem,
 } from '../../components/common/OverflowMenu';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import { hoverRulesFor } from '../setup/hoverRules';
+import { classRulesFor, hoverRulesFor } from '../setup/hoverRules';
 
 /**
  * A colour as it may appear in an injected rule: the hex emotion was given, or
@@ -299,52 +299,127 @@ describe('OverflowMenu keyboard navigation', () => {
 });
 
 describe('OverflowMenu destructive styling', () => {
-  // The app expresses "this action destroys something" as a red FILL behind a
-  // dark glyph -- Icon.tsx:115 picks DELETE_ICON_HOVER_COLOR as the hover
-  // BACKGROUND, and the glyph stays TEXT_COLOR. The first version of this menu
-  // used the token the other way round, tinting the glyph on a grey row, which
-  // read as a different control entirely beside the row delete icons.
-  //
-  // Asserted against the generated CSS rather than a rendered hover, because
-  // jsdom applies no :hover pseudo-class -- getComputedStyle would report the
-  // resting state for both branches and pass against either. The real hover is
-  // verified in a browser.
+  // KAN-725. A danger item is red ink at rest and fills red, with white ink, when touched.
+  // Hover rules are read from the injected CSS because jsdom applies no :hover; rest is computed.
 
-  test('a danger item fills with the delete colour on hover', async () => {
+  const DANGER_ITEM: OverflowMenuItem = {
+    key: 'delete',
+    label: 'Delete group',
+    icon: 'delete',
+    danger: true,
+    onSelect: () => undefined,
+  };
+  const rgbText = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+  const inkOf = (el: Element) => getComputedStyle(el).color;
+
+  test('a danger item fills red on hover with white ink', async () => {
+    const user = userEvent.setup();
+    await renderMenu({ items: [DANGER_ITEM] });
+    await user.click(trigger());
+
+    const rules = hoverRulesFor(
+      screen.getByRole('menuitem', { name: 'Delete group' })
+    );
+
+    expect(rules).toMatch(
+      new RegExp(
+        `background-color:\\s*${asWritten(LIGHT_THEME.DANGER_FILL).source}`,
+        'i'
+      )
+    );
+    expect(rules).toMatch(
+      new RegExp(
+        `color:\\s*${asWritten(LIGHT_THEME.ON_DANGER_FILL).source}`,
+        'i'
+      )
+    );
+  });
+
+  test('a danger item is red at rest', async () => {
+    const user = userEvent.setup();
+    await renderMenu({ items: [DANGER_ITEM] });
+    await user.click(trigger());
+
+    const item = screen.getByRole('menuitem', { name: 'Delete group' });
+    const glyph = item.querySelector('.overflow-menu-glyph');
+    if (glyph === null) throw new Error('no glyph');
+
+    expect(inkOf(item)).toBe(rgbText(LIGHT_THEME.DANGER_INK));
+    expect(inkOf(glyph)).toBe(rgbText(LIGHT_THEME.DANGER_INK));
+  });
+
+  test("a danger item's glyph turns white on the red fill", async () => {
+    const user = userEvent.setup();
+    await renderMenu({ items: [DANGER_ITEM] });
+    await user.click(trigger());
+
+    const item = screen.getByRole('menuitem', { name: 'Delete group' });
+    const glyph = item.querySelector('.overflow-menu-glyph');
+    if (glyph === null) throw new Error('no glyph');
+
+    // The glyph sets no colour of its own, so it follows the item's per-state ink.
+    expect(classRulesFor(glyph)).not.toMatch(/color:\s*rgb\(|color:\s*#/i);
+    expect(hoverRulesFor(item)).toMatch(asWritten(LIGHT_THEME.ON_DANGER_FILL));
+  });
+
+  test("a danger item's key hint is red at rest and white on the fill", async () => {
     const user = userEvent.setup();
     await renderMenu({
       items: [
         {
-          key: 'delete',
-          label: 'Delete group',
-          icon: 'delete',
-          danger: true,
-          onSelect: () => undefined,
+          ...DANGER_ITEM,
+          shortcut: {
+            hint: 'Del',
+            ariaKeyShortcuts: 'Delete',
+            matches: () => false,
+          },
         },
       ],
     });
     await user.click(trigger());
 
     const item = screen.getByRole('menuitem', { name: 'Delete group' });
-    const rules = hoverRulesFor(item);
+    const hint = item.querySelector('[data-key-hint]');
+    if (hint === null) throw new Error('no hint');
 
-    // Read from the token, not pinned as a literal: KAN-204 changed this value
-    // in four of the five themes, and a hardcoded hex here went stale silently.
-    // What this test owns is that the token arrives as a BACKGROUND -- the
-    // CONTROL below is what makes that a real claim.
-    expect(rules).toMatch(
+    expect(inkOf(hint)).toBe(rgbText(LIGHT_THEME.DANGER_INK));
+    expect(hoverRulesFor(item)).toMatch(
       new RegExp(
-        `background-color:\\s*${
-          asWritten(LIGHT_THEME.DELETE_ICON_HOVER_COLOR).source
-        }`,
+        `\\[data-key-hint\\][^}]*color:\\s*${asWritten(LIGHT_THEME.ON_DANGER_FILL).source}`,
         'i'
       )
     );
   });
 
-  // THE CONTROL. Asserting only that the token appears would pass against the
-  // original bug, which used the very same token -- as a foreground colour.
-  test('CONTROL: a non-danger item does not use the delete colour', async () => {
+  // THE CONTROL. Only a danger item turns the hint red.
+  test("a non-danger item's hint keeps LABEL_L1", async () => {
+    const user = userEvent.setup();
+    await renderMenu({
+      items: [
+        {
+          key: 'ungroup',
+          label: 'Ungroup',
+          icon: 'label_off',
+          onSelect: () => undefined,
+          shortcut: { hint: 'U', ariaKeyShortcuts: 'U', matches: () => false },
+        },
+      ],
+    });
+    await user.click(trigger());
+
+    const item = screen.getByRole('menuitem', { name: 'Ungroup' });
+    const hint = item.querySelector('[data-key-hint]');
+    if (hint === null) throw new Error('no hint');
+
+    expect(inkOf(hint)).toBe(rgbText(LIGHT_THEME.LABEL_L1_COLOR));
+    expect(inkOf(item)).toBe(rgbText(LIGHT_THEME.TEXT_COLOR));
+  });
+
+  // THE CONTROL. Asserting only that red appears would pass against a menu that painted everything red.
+  test('CONTROL: a non-danger item uses no danger colour', async () => {
     const user = userEvent.setup();
     await renderMenu({
       items: [
@@ -362,8 +437,49 @@ describe('OverflowMenu destructive styling', () => {
       screen.getByRole('menuitem', { name: 'Ungroup' })
     );
 
-    expect(rules).not.toMatch(asWritten(LIGHT_THEME.DELETE_ICON_HOVER_COLOR));
-    expect(rules).toMatch(/background-color/);
+    expect(rules).not.toMatch(asWritten(LIGHT_THEME.DANGER_FILL));
+    expect(rules).not.toMatch(asWritten(LIGHT_THEME.DANGER_INK));
+    expect(rules).toMatch(asWritten(LIGHT_THEME.HOVER_COLOR));
+  });
+
+  // KAN-725. The fill eases in, so ink that switched at once would show white on the pale ground.
+  test("a danger item's ink and key hint ease with its fill; other items' do not", async () => {
+    const user = userEvent.setup();
+    const shortcut = {
+      hint: 'Del',
+      ariaKeyShortcuts: 'Delete',
+      matches: () => false,
+    };
+    await renderMenu({
+      items: [
+        { ...DANGER_ITEM, shortcut },
+        {
+          key: 'ungroup',
+          label: 'Ungroup',
+          icon: 'label_off',
+          onSelect: () => undefined,
+          shortcut: { ...shortcut, hint: 'U' },
+        },
+      ],
+    });
+    await user.click(trigger());
+
+    const danger = screen.getByRole('menuitem', { name: 'Delete group' });
+    const dangerHint = danger.querySelector('[data-key-hint]');
+    if (dangerHint === null) throw new Error('no hint');
+    const item = getComputedStyle(danger);
+    expect(item.transitionProperty).toMatch(/^background-color, ?color$/);
+    const hint = getComputedStyle(dangerHint);
+    expect(hint.transitionProperty).toBe('color');
+    expect(hint.transitionDuration).toBe(item.transitionDuration);
+    expect(hint.transitionTimingFunction).toBe(item.transitionTimingFunction);
+
+    // CONTROL. A plain item keeps its one transition, and its hint none.
+    const plain = screen.getByRole('menuitem', { name: 'Ungroup' });
+    const plainHint = plain.querySelector('[data-key-hint]');
+    if (plainHint === null) throw new Error('no hint');
+    expect(getComputedStyle(plain).transitionProperty).toBe('background-color');
+    expect(getComputedStyle(plainHint).transitionDuration).toBe('0s');
   });
 });
 

@@ -15,7 +15,7 @@ export interface OverflowMenuItem {
   /** A Material Symbols ligature, rendered decoratively. */
   icon: IconName;
   onSelect: () => void;
-  /** Paints the glyph with the delete hover colour, as row delete icons do. */
+  /** KAN-725. Red ink at rest; a red fill with white ink when touched. */
   danger?: boolean;
   /**
    * Marks this item as the state the list is currently in (KAN-136).
@@ -42,6 +42,9 @@ export interface OverflowMenuItem {
 // A ligature written as JSX text would bypass IconName, and a name missing from
 // the bundled subset renders as the word itself (KAN-215).
 const RADIO_CHECK_ICON: IconName = 'check';
+
+// The item fill's easing; a danger item's ink and key hint ease on it too (KAN-725).
+const ITEM_EASING = 'cubic-bezier(0.2, 0, 0, 1)';
 
 // KAN-708. The ⋮ and row menus' role="menu" box and items; the caller owns placement (positionCss), list behaviour and closing.
 export function MenuPanel({
@@ -86,6 +89,12 @@ export function MenuPanel({
     font-family: ${FONT_FAMILY};
   `;
 
+  // KAN-725. A danger item's hint sets its own ink, so it eases on the item's timing itself.
+  const dangerHintEase = `
+    transition-property: color;
+    transition-duration: ${DURATION.COLOR};
+    transition-timing-function: ${ITEM_EASING};`;
+
   const itemStyle = (danger?: boolean) => css`
     display: flex;
     align-items: center;
@@ -103,36 +112,33 @@ export function MenuPanel({
        and "Export as PDF / web page" wrapped at the menu's minimum width. The
        menu grows to fit instead. */
     white-space: nowrap;
-    color: ${COLORS.TEXT_COLOR};
-    /* Named properties, never the all keyword. */
-    transition-property: background-color;
+    /* KAN-725. A danger item is red ink at rest; the glyph and key hint follow it. */
+    color: ${danger ? COLORS.DANGER_INK : COLORS.TEXT_COLOR};
+    /* Named properties, never the all keyword. KAN-725. A danger item's ink eases with its fill. */
+    transition-property: ${danger ? 'background-color, color' : 'background-color'};
     transition-duration: ${DURATION.COLOR};
-    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
-    /* Destructive hover is a red FILL behind the row's ordinary ink, not a red
-       glyph. DELETE_ICON_HOVER_COLOR is a background token everywhere else in
-       the app -- Icon.tsx feeds it to background-color and leaves the glyph at
-       TEXT_COLOR -- so tinting the glyph instead made this item read as a
-       different kind of control from the row delete icons beside it.
-       The fill is readable in every theme because KAN-204 made it so; nothing
-       here repaints the text to compensate. */
+    transition-timing-function: ${ITEM_EASING};
+    /* KAN-725. A danger item fills red under white ink; ON_DANGER_FILL, never TEXT_COLOR, which fails on the fill. */
     &:hover {
-      background-color: ${
-        danger ? COLORS.DELETE_ICON_HOVER_COLOR : COLORS.HOVER_COLOR
-      };
+      background-color: ${danger ? COLORS.DANGER_FILL : COLORS.HOVER_COLOR};
+      ${danger ? `color: ${COLORS.ON_DANGER_FILL};` : ''}
     }
-    /* The key hint is LABEL_L1 on the menu (4.5:1 in every theme, syncStatus.test.tsx)
-       but not on the danger fill, so on a fill it takes the label's TEXT, as Button's does. */
+    /* The key hint is LABEL_L1 at rest (4.5:1 in every theme, syncStatus.test.tsx),
+       red on a danger item, and takes the item's ink once the row is touched. */
+    [data-key-hint] {
+      color: ${danger ? COLORS.DANGER_INK : COLORS.LABEL_L1_COLOR};
+      ${danger ? dangerHintEase : ''}
+    }
     &:hover [data-key-hint],
     &:active [data-key-hint] {
-      color: ${COLORS.TEXT_COLOR};
+      color: ${danger ? COLORS.ON_DANGER_FILL : COLORS.TEXT_COLOR};
     }
     /* KAN-205. A menu item is the one place a press most needs confirming --
        the menu closes on release, so without this the only feedback a click
-       gets is the menu disappearing. A danger item keeps its red; see Icon. */
+       gets is the menu disappearing. KAN-725. A danger item presses one rung deeper. */
     &:active {
-      background-color: ${
-        danger ? COLORS.DELETE_ICON_HOVER_COLOR : COLORS.ACTIVE_COLOR
-      };
+      background-color: ${danger ? COLORS.DANGER_FILL_DEEP : COLORS.ACTIVE_COLOR};
+      ${danger ? `color: ${COLORS.ON_DANGER_FILL};` : ''}
     }
   `;
 
@@ -187,21 +193,8 @@ export function MenuPanel({
             css={css`
               font-size: ${TYPE.SECTION};
               line-height: 1;
-              /* ONE colour, the same as the label beside it and the
-                 toolbar icons above it (KAN-203).
-
-                 It was LABEL_L2_COLOR at rest and TEXT_COLOR on hover,
-                 eased over 150ms. Two symptoms, one rule: crossing between
-                 two items faded one glyph down while the other faded up,
-                 and at rest the glyph read as washed out next to every
-                 other icon in the app. On BB Pink it was worse than quiet
-                 -- LABEL_L2_COLOR was #D81B60 there, so the glyphs rendered
-                 magenta beside a near-black label.
-
-                 Not merely un-animated: a colour that changes on hover
-                 still changes on hover. The state cue is the row's fill,
-                 which is what every other hover in the app uses. */
-              color: ${COLORS.TEXT_COLOR};
+              /* KAN-203, KAN-725. The item's own ink, per state: the label's colour, never one of its own. */
+              color: inherit;
             `}
           >
             {item.icon}
@@ -214,7 +207,6 @@ export function MenuPanel({
               css={css`
                 margin-left: auto;
                 padding-left: 16px;
-                color: ${COLORS.LABEL_L1_COLOR};
               `}
             >
               {item.shortcut.hint}

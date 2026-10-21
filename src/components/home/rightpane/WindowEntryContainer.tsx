@@ -959,6 +959,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             tooltipText={t('Delete tab')}
             ariaLabel={t('Delete tab')}
             type="delete"
+            danger
             onClick={(e) => {
               e.stopPropagation();
               dispatch(deleteTab({ tabGroupId, windowId, tabId }));
