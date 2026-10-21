@@ -61,6 +61,33 @@ export const readDeviceId =
     }
   };
 
+// KAN-719. What a read of the stored id found, for a caller that must not mint.
+export type StoredDeviceId =
+  | { kind: 'id'; id: string }
+  | { kind: 'none' }
+  | { kind: 'unusable' }
+  | { kind: 'unreadable' };
+
+// KAN-719. The id as stored, adopting a usable one. Never mints, writes, or toasts: the caller says what each miss means.
+export const readStoredDeviceId =
+  (): Thunk<Promise<StoredDeviceId>> => async (dispatch, getState) => {
+    const loaded = getState().globalState.userId;
+    if (loaded !== null) return { kind: 'id', id: loaded };
+    let token: unknown;
+    try {
+      token = await storedToken();
+    } catch {
+      return { kind: 'unreadable' };
+    }
+    if (isUsableToken(token)) {
+      dispatch(adopt(token));
+      return { kind: 'id', id: token };
+    }
+    return classifyStoredToken(token) === 'reject'
+      ? { kind: 'unusable' }
+      : { kind: 'none' };
+  };
+
 // One mint at a time per page: the yes and its sync-once both ask.
 const mints = new WeakMap<() => RootState, Promise<void>>();
 

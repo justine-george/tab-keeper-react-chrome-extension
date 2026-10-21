@@ -1,6 +1,6 @@
 // Lite build - see the note in src/config/firebase.ts. Must match the import
 // there, since db is created by that module's getFirestore.
-import { deleteDoc, doc, setDoc } from 'firebase/firestore/lite';
+import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore/lite';
 import {
   cloudUnavailable,
   db,
@@ -94,6 +94,13 @@ export async function saveToFirestore(
 export async function deleteFromFirestore(userId: string): Promise<void> {
   if (db === null) throw cloudUnavailable();
   await deleteDoc(doc(db, 'tabGroupData', userId));
+}
+
+// KAN-719. Whether the user's document exists. A failed read rejects: "could not look" is never "nothing there".
+export async function cloudDocumentExists(userId: string): Promise<boolean> {
+  if (db === null) throw cloudUnavailable();
+  const snapshot = await getDoc(doc(db, 'tabGroupData', userId));
+  return snapshot.exists();
 }
 
 // KAN-259. Re-exported so the slice reaches Firebase only through this
