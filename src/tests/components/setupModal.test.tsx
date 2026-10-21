@@ -648,11 +648,11 @@ describe('setup’s buttons (KAN-501)', () => {
   });
 });
 
-// KAN-731. 520 is the narrowest width where Skip setup stays on one line in all 13 locales; 480 wraps de/it/sv.
+// KAN-731. 560px, his pick; 520 is the narrowest that keeps Skip setup on one line in all 13 locales; 480 wraps de/it/sv.
 describe('setup’s width (KAN-731)', () => {
-  test('is 520px, with 16px of air each side on a phone', async () => {
+  test('is 560px', async () => {
     await render();
     // jsdom's stylesheet drops the calc() wrapper, so the rule reads min(100% - 32px, …).
-    expect(classRulesFor(dialog())).toContain('width: min(100% - 32px, 520px)');
+    expect(classRulesFor(dialog())).toContain('width: min(100% - 32px, 560px)');
   });
 });
