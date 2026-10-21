@@ -8,7 +8,7 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { setTheme, Theme } from '../../redux/slices/settingsDataStateSlice';
-import { DARKENHEIMER_THEME, LIGHT_THEME } from '../../hooks/useThemeColors';
+import { CHALK_THEME, CHARCOAL_THEME } from '../../hooks/useThemeColors';
 import { contrast } from '../setup/contrast';
 
 // The knob is the pressed-state cue (the fill alone is 1.47:1 light, 1.28:1
@@ -185,8 +185,8 @@ describe('each pair is a sliding knob (KAN-218)', () => {
 // render.
 describe('the knob reads on both page palettes (KAN-218)', () => {
   test.each([
-    ['light', LIGHT_THEME],
-    ['dark', DARKENHEIMER_THEME],
+    ['light', CHALK_THEME],
+    ['dark', CHARCOAL_THEME],
   ])('on a %s page', (_, palette) => {
     const c = slidingPairColors(palette);
     const ratios = {

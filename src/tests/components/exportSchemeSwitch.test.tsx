@@ -7,6 +7,9 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { setTheme, Theme } from '../../redux/slices/settingsDataStateSlice';
+import { CHARCOAL_THEME } from '../../hooks/useThemeColors';
+import { EXPORT_PALETTE } from '../../utils/functions/sessionExportHtml';
+import { rgb } from '../setup/hexColor';
 
 // Controls fade their background (0.2s) but switch text instantly, so a scheme
 // swap shows old fill under new text. The popup's fix is in App.css, which this
@@ -65,7 +68,9 @@ describe('switching the page light or dark does not flicker (KAN-201)', () => {
     observer.disconnect();
 
     // The marker goes on in the same commit that repaints the controls dark.
-    expect(fillWhenMarked, 'the marker was set').toBe('rgb(42, 42, 42)');
+    expect(fillWhenMarked, 'the marker was set').toBe(
+      rgb(CHARCOAL_THEME.PRIMARY_COLOR)
+    );
   });
 
   test('while marked, transitions are off', async () => {
@@ -95,8 +100,8 @@ describe('switching the page light or dark does not flicker (KAN-201)', () => {
 // An unpainted frame is white, a flash on a dark page.
 describe('the preview frame takes the file ground (KAN-201)', () => {
   test.each([
-    [Theme.LIGHT, 'rgb(255, 255, 255)'],
-    [Theme.DARKENHEIMER, 'rgb(23, 23, 23)'],
+    [Theme.LIGHT, rgb(EXPORT_PALETTE.light.bg)],
+    [Theme.DARKENHEIMER, rgb(EXPORT_PALETTE.dark.bg)],
   ])('on %s the frame is the file ground', async (theme, ground) => {
     await renderUnder(theme);
 

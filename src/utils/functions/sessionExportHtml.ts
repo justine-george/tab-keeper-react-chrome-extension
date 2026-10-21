@@ -38,35 +38,29 @@ export interface ExportPalette {
   groupBg: string;
 }
 
+// KAN-731. Chalk's and Charcoal's ramps (links keep their hues: blue and
+// violet mean "link"). Rules are the themes' frame colours, so they hold 1.2:1
+// in a group's band (KAN-674); `plain` holds 4.5:1 there (KAN-358).
 export const EXPORT_PALETTE: Record<ExportScheme, ExportPalette> = {
   light: {
     bg: '#ffffff',
-    text: '#1d2025',
-    muted: '#5f6670',
-    // KAN-674. The dark file's weight: 1.28:1 in a group's band, 1.38:1 on the page.
-    rule: '#d8dce1',
+    text: '#1e1f21',
+    muted: '#505258',
+    rule: '#d8dadd',
     link: '#1a56c4',
     visited: '#6b3fb0',
-    // KAN-358. A non-web tab's name is text people read: 4.5:1 on the page
-    // and in a group's band, like every other colour that sets words. The
-    // "not a web link" chip, not a faint colour, marks the row.
-    plain: '#6e7279',
-    groupBg: '#f5f7fa',
+    plain: '#6c6e75',
+    groupBg: '#f3f5f7',
   },
-  // Neutral greys (KAN-197): the tinted #17191d family read as a second,
-  // bluish dark under Darkenheimer's neutral header. Each grey is the nearest
-  // neutral that keeps every contrast ratio at least what the tinted palette
-  // had; links keep their hues, because blue and violet mean "link". `plain`
-  // was raised past that, to 4.5:1 in a group's band (KAN-358).
   dark: {
-    bg: '#171717',
-    text: '#e8e8e8',
-    muted: '#a0a0a0',
-    rule: '#303030',
+    bg: '#18191a',
+    text: '#f0f1f2',
+    muted: '#a9abb0',
+    rule: '#313336',
     link: '#8ab4f8',
     visited: '#c7a4f5',
-    plain: '#888888',
-    groupBg: '#212121',
+    plain: '#97999e',
+    groupBg: '#242528',
   },
 };
 

@@ -2,9 +2,11 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import { CHALK_THEME, CHARCOAL_THEME } from '../../hooks/useThemeColors';
 import ExportPage from '../../components/export/ExportPage';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { newestToast } from '../setup/toasts';
+import { rgb } from '../setup/hexColor';
 import { getPrettyDate } from '../../utils/functions/local';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
@@ -356,7 +358,7 @@ describe('the exported file matches the theme it was exported under', () => {
   test('a dark theme writes a dark file', async () => {
     await renderUnder(Theme.DARKENHEIMER);
 
-    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#171717'));
+    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#18191a'));
   });
 
   // CONTROL: a page that hardcoded dark would pass the test above.
@@ -386,7 +388,7 @@ describe('the preview follows a theme change while the page is open', () => {
       store.dispatch(setTheme(Theme.BLUE));
     });
 
-    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#171717'));
+    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#18191a'));
   });
 });
 
@@ -422,10 +424,31 @@ describe('choosing the file light or dark on the preview page', () => {
 
     await user.click(screen.getByRole('button', { name: 'Dark' }));
 
-    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#171717'));
+    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#18191a'));
     expect(
       screen.getByRole('button', { name: 'Dark' }).getAttribute('aria-pressed')
     ).toBe('true');
+  });
+
+  // KAN-731. The page's Dark switch is Charcoal whatever the theme it opened under.
+  test('Dark on Paper paints the page and the file in Charcoal', async () => {
+    const user = userEvent.setup();
+    await renderUnder(Theme.LIGHT);
+
+    await user.click(screen.getByRole('button', { name: 'Dark' }));
+
+    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#18191a'));
+    // The page's own ground: the outermost painted ancestor of the preview.
+    const painted: HTMLElement[] = [];
+    for (let el = frame().parentElement; el; el = el.parentElement) {
+      if (getComputedStyle(el).backgroundColor !== 'rgba(0, 0, 0, 0)') {
+        painted.push(el);
+      }
+    }
+    const ground = getComputedStyle(
+      painted[painted.length - 1]
+    ).backgroundColor;
+    expect(ground).toBe(rgb(CHARCOAL_THEME.PRIMARY_COLOR));
   });
 
   // KAN-198. The choice lives only as long as the page; it is never saved.
@@ -438,7 +461,7 @@ describe('choosing the file light or dark on the preview page', () => {
       store.dispatch(setTheme(Theme.WARM_LIGHT));
     });
 
-    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#171717'));
+    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#18191a'));
   });
 });
 
@@ -464,14 +487,14 @@ describe('the whole page is light or dark, and the switch changes only the page 
     }
     return getComputedStyle(el).backgroundColor;
   };
-  const LIGHT_HEADER = 'rgb(233, 236, 240)';
-  const DARK_HEADER = 'rgb(51, 51, 51)';
+  const LIGHT_HEADER = rgb(CHALK_THEME.SECONDARY_COLOR);
+  const DARK_HEADER = rgb(CHARCOAL_THEME.SECONDARY_COLOR);
 
   test('a dark theme opens with a dark header over a dark file', async () => {
     await renderUnder(Theme.BLUE);
 
     expect(headerFill()).toBe(DARK_HEADER);
-    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#171717'));
+    await waitFor(() => expect(frame().srcdoc).toContain('--bg:#18191a'));
   });
 
   test('a light theme, even a tinted one, opens with a light header over a light file', async () => {
@@ -495,8 +518,8 @@ describe('the whole page is light or dark, and the switch changes only the page 
     const copy = getComputedStyle(
       screen.getByRole('button', { name: 'Copy all links' })
     );
-    expect(copy.backgroundColor).toBe('rgb(42, 42, 42)');
-    expect(copy.color).toBe('rgb(208, 208, 208)');
+    expect(copy.backgroundColor).toBe(rgb(CHARCOAL_THEME.PRIMARY_COLOR));
+    expect(copy.color).toBe(rgb(CHARCOAL_THEME.TEXT_COLOR));
   });
 
   // The primary's fill follows the PAGE's light/dark, not the extension theme.
@@ -509,7 +532,7 @@ describe('the whole page is light or dark, and the switch changes only the page 
     expect(
       getComputedStyle(screen.getByRole('button', { name: 'PDF / Print' }))
         .backgroundColor
-    ).toBe('rgb(208, 208, 208)');
+    ).toBe(rgb(CHARCOAL_THEME.TEXT_COLOR));
   });
 
   test('pressing Light or Dark changes neither the extension theme nor saved settings', async () => {
