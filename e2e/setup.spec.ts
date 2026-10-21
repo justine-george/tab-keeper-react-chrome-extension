@@ -325,7 +325,8 @@ for (const lang of ['en', 'de', 'ru']) {
 
 // KAN-428, KAN-654. Next/Done is half as wide again as Back where the row has room; at the
 // largest root a long Skip setup takes some of it, and Next/Done stays the wider. Nothing is cut off.
-for (const lang of ['en', 'de', 'ru']) {
+// KAN-731: sv is the tightest at a 20px root (7.32px short at 560).
+for (const lang of ['en', 'de', 'ru', 'sv']) {
   for (const root of [16, 20, 24]) {
     test(`${lang} at a ${root}px root: Next/Done is half as wide again as Back, inside the dialog, on every step`, async ({
       context,

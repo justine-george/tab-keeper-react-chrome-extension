@@ -648,11 +648,11 @@ describe('setup’s buttons (KAN-501)', () => {
   });
 });
 
-// KAN-731. 560px, his pick; 520 is the narrowest that keeps Skip setup on one line in all 13 locales; 480 wraps de/it/sv.
+// KAN-731. 580px keeps Next 1.5× Back and Skip setup on one line in every locale at Chrome's Large text (de/sv fall short at 560).
 describe('setup’s width (KAN-731)', () => {
-  test('is 560px', async () => {
+  test('is 580px', async () => {
     await render();
     // jsdom's stylesheet drops the calc() wrapper, so the rule reads min(100% - 32px, …).
-    expect(classRulesFor(dialog())).toContain('width: min(100% - 32px, 560px)');
+    expect(classRulesFor(dialog())).toContain('width: min(100% - 32px, 580px)');
   });
 });

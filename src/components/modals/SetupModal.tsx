@@ -154,8 +154,8 @@ export const SetupModal: React.FC = () => {
     transform: translate(-50%, -50%);
     margin: 0;
     padding: 20px;
-    /* KAN-731: 560px, his pick; 520 is the narrowest that keeps Skip setup on one line in all 13 locales. */
-    width: min(calc(100% - 32px), 560px);
+    /* KAN-731: 580px keeps Next 1.5× Back and Skip setup on one line in every locale at Chrome's Large text (de/sv fall short at 560). */
+    width: min(calc(100% - 32px), 580px);
     max-width: none;
     max-height: calc(100% - 32px);
     overflow: auto;

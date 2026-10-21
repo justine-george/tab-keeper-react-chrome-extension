@@ -9,7 +9,7 @@ import { localeStrings } from './fixtures/locales';
 import { openTabGroup } from './fixtures/onboarding';
 import { stubToolbarPin } from './fixtures/toolbarPin';
 
-// KAN-731. Setup is 560px wide at a 1280px window on every step, and Skip
+// KAN-731. Setup is 580px wide at a 1280px window on every step, and Skip
 // setup stays on one line there in every locale the extension ships.
 
 // Every shipped locale, read from the folder the build copies.
@@ -31,7 +31,7 @@ test('PREMISE: all 13 locales are measured', () => {
 });
 
 for (const lang of LANGS) {
-  test(`${lang}: setup is 560px and Skip setup is one line on every step`, async ({
+  test(`${lang}: setup is 580px and Skip setup is one line on every step`, async ({
     context,
     extensionId,
     serviceWorker,
@@ -62,7 +62,7 @@ for (const lang of LANGS) {
       expect(
         await dialog.evaluate((el) => (el as HTMLElement).offsetWidth),
         label
-      ).toBe(560);
+      ).toBe(580);
       expect(await linesOf(skip), label).toBe(1);
       if (step < 6) {
         await dialog
