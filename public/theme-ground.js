@@ -6,6 +6,8 @@
     BBPink: '#FCEEF3',
     Darkenheimer: '#2A2A2A',
     Blue: '#2A2A3A',
+    Chalk: '#FFFFFF',
+    Charcoal: '#18191A',
   };
   var theme;
   try {

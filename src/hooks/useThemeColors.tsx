@@ -243,6 +243,90 @@ export const BLUE_THEME = {
   MODAL_BACKDROP: 'rgba(0, 0, 0, 0.55)',
 };
 
+export const CHALK_THEME = {
+  // KAN-731. Chalk: a white page on the Atlassian neutral ramp, higher contrast than Paper.
+  PRIMARY_COLOR: '#FFFFFF',
+  SECONDARY_COLOR: '#F3F5F7',
+  SELECTION_COLOR: '#D1D2D6',
+  PRIMARY_LIGHT: '#FFFFFF',
+  POSITIVE_COLOR: '#92E097',
+  HOVER_COLOR: '#EDEEF0',
+  ACTIVE_COLOR: '#D5D6DA',
+  CHIP_COLOR: '#DEDFE2',
+  ICON_HOVER_COLOR: '#C6C8CC',
+  ICON_ACTIVE_COLOR: '#B7B9BE',
+  DANGER_INK: '#A3211A',
+  DANGER_FILL: '#C62828',
+  DANGER_FILL_DEEP: '#B02020',
+  DANGER_FILL_DEEPER: '#951B1B',
+  ON_DANGER_FILL: '#FFFFFF',
+  DANGER_MARK: '#C62828',
+  LABEL_L3_COLOR: '#7E8189',
+  LABEL_L1_COLOR: '#292A2E',
+  LABEL_L2_COLOR: '#505258',
+  PLACEHOLDER_COLOR: '#6C6E75',
+  TAG_BG_COLOR: '#F0F1F2',
+  TAG_BORDER_COLOR: '#DDDEE1',
+  // KAN-731. Quiet frame at the divider's weight, 1.40:1 on a hovered row.
+  PANEL_BORDER_COLOR: '#D8DADD',
+  // KAN-731. Softer pick: 2.41:1 on the page, under 3:1. borderContrast.test.ts gives Chalk its own floor.
+  CONTROL_BORDER_COLOR: '#A5A7AD',
+  DIVIDER_COLOR: '#DDDEE1',
+  TEXT_COLOR: '#1E1F21',
+  FLOPPY_BODY_COLOR: '#1E1F21',
+  FLOPPY_PART_COLOR: '#FFFFFF',
+  SCROLLBAR_TRACK: '#FFFFFF',
+  SCROLLBAR_THUMB: '#8D8F96',
+  SCROLLBAR_THUMB_HOVER: '#6C6E75',
+  SCROLLBAR_THUMB_ACTIVE: '#505258',
+  FLOATING_SHADOW:
+    '0 1px 2px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.18)',
+  TOUR_SCRIM: 'rgba(0, 0, 0, 0.2)',
+  MODAL_BACKDROP: 'rgba(0, 0, 0, 0.4)',
+};
+
+export const CHARCOAL_THEME = {
+  // KAN-731. Charcoal: a near-black page on the Atlassian neutral ramp, higher contrast than Graphite.
+  PRIMARY_COLOR: '#18191A',
+  SECONDARY_COLOR: '#242528',
+  SELECTION_COLOR: '#2C2E30',
+  PRIMARY_LIGHT: '#3D3F43',
+  POSITIVE_COLOR: '#AF4C7E',
+  HOVER_COLOR: '#1F2022',
+  ACTIVE_COLOR: '#343639',
+  CHIP_COLOR: '#313336',
+  ICON_HOVER_COLOR: '#3C3D41',
+  ICON_ACTIVE_COLOR: '#46484C',
+  DANGER_INK: '#FF9C94',
+  DANGER_FILL: '#C62828',
+  DANGER_FILL_DEEP: '#B02020',
+  DANGER_FILL_DEEPER: '#951B1B',
+  ON_DANGER_FILL: '#FFFFFF',
+  DANGER_MARK: '#FF9C94',
+  LABEL_L3_COLOR: '#7F8187',
+  LABEL_L1_COLOR: '#CECFD2',
+  LABEL_L2_COLOR: '#A9ABB0',
+  PLACEHOLDER_COLOR: '#97999E',
+  TAG_BG_COLOR: '#303134',
+  TAG_BORDER_COLOR: '#18191A',
+  PANEL_BORDER_COLOR: '#313336',
+  // KAN-731. Softer pick: 2.32:1 on the page, under the dark themes' 2.75. borderContrast.test.ts gives Charcoal its own floor.
+  CONTROL_BORDER_COLOR: '#525458',
+  DIVIDER_COLOR: '#303134',
+  TEXT_COLOR: '#F0F1F2',
+  // KAN-731. Black, the darkest possible: 1.37:1 on the header band. floppyColors.test.ts gives Charcoal its own floor.
+  FLOPPY_BODY_COLOR: '#000000',
+  FLOPPY_PART_COLOR: '#F0F1F2',
+  SCROLLBAR_TRACK: '#18191A',
+  SCROLLBAR_THUMB: '#64666B',
+  SCROLLBAR_THUMB_HOVER: '#97999E',
+  SCROLLBAR_THUMB_ACTIVE: '#B0B2B7',
+  FLOATING_SHADOW:
+    '0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.55)',
+  TOUR_SCRIM: 'rgba(0, 0, 0, 0.4)',
+  MODAL_BACKDROP: 'rgba(0, 0, 0, 0.55)',
+};
+
 /** The colour tokens every theme defines. */
 export type ThemeColors = typeof LIGHT_THEME;
 
@@ -259,9 +343,13 @@ export const ThemeColorsOverride = React.createContext<ThemeColors | null>(
   null
 );
 
-/** Darkenheimer and Blue are the dark themes; the other three are light. */
+/** Graphite, Ink and Charcoal are the dark themes; the other four are light. */
 export function isDarkTheme(theme: Theme): boolean {
-  return theme === Theme.DARKENHEIMER || theme === Theme.BLUE;
+  return (
+    theme === Theme.DARKENHEIMER ||
+    theme === Theme.BLUE ||
+    theme === Theme.CHARCOAL
+  );
 }
 
 export function useThemeColors() {
@@ -282,6 +370,10 @@ export function useThemeColors() {
     return DARKENHEIMER_THEME;
   } else if (settingsData.theme === Theme.WARM_LIGHT) {
     return WARM_LIGHT_THEME;
+  } else if (settingsData.theme === Theme.CHALK) {
+    return CHALK_THEME;
+  } else if (settingsData.theme === Theme.CHARCOAL) {
+    return CHARCOAL_THEME;
   }
 
   return LIGHT_THEME;

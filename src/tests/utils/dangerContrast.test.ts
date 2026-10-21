@@ -3,6 +3,8 @@ import { describe, expect, test } from 'vitest';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -15,13 +17,15 @@ import { contrast, luminance } from '../setup/contrast';
 
 const THEMES = {
   LIGHT: LIGHT_THEME,
+  CHALK: CHALK_THEME,
   WARM_LIGHT: WARM_LIGHT_THEME,
   BB_PINK: BB_PINK_THEME,
   DARKENHEIMER: DARKENHEIMER_THEME,
   BLUE: BLUE_THEME,
+  CHARCOAL: CHARCOAL_THEME,
 };
 
-const LIGHT_GROUP = ['LIGHT', 'WARM_LIGHT', 'BB_PINK'];
+const LIGHT_GROUP = ['LIGHT', 'WARM_LIGHT', 'BB_PINK', 'CHALK'];
 
 /** WCAG 1.4.3 for normal-size text. */
 const TEXT_FLOOR = 4.5;

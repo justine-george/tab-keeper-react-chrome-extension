@@ -3,6 +3,8 @@ import { describe, expect, test } from 'vitest';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -24,10 +26,13 @@ import { contrast } from '../setup/contrast';
 // Each theme with the floor its control edge is held to, on PRIMARY and SECONDARY.
 const THEMES = {
   LIGHT: { theme: LIGHT_THEME, floor: [3, 3] },
+  // KAN-731. Chalk and Charcoal take Justine's softer pick (2.41 / 2.32 on the page), under their siblings' floors.
+  CHALK: { theme: CHALK_THEME, floor: [2.4, 2.2] },
   WARM_LIGHT: { theme: WARM_LIGHT_THEME, floor: [3, 3] },
   BB_PINK: { theme: BB_PINK_THEME, floor: [3, 3] },
   DARKENHEIMER: { theme: DARKENHEIMER_THEME, floor: [2.75, 2.4] },
   BLUE: { theme: BLUE_THEME, floor: [2.75, 2.4] },
+  CHARCOAL: { theme: CHARCOAL_THEME, floor: [2.3, 2.0] },
 };
 
 // dividerContrast.test.ts: below this a 1px line effectively disappears.

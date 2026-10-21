@@ -8,6 +8,8 @@ import OverflowMenu from '../../components/common/OverflowMenu';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -21,10 +23,12 @@ import { classRulesFor } from '../setup/hoverRules';
 
 const THEMES = [
   [Theme.LIGHT, LIGHT_THEME],
+  [Theme.CHALK, CHALK_THEME],
   [Theme.WARM_LIGHT, WARM_LIGHT_THEME],
   [Theme.BB_PINK, BB_PINK_THEME],
   [Theme.DARKENHEIMER, DARKENHEIMER_THEME],
   [Theme.BLUE, BLUE_THEME],
+  [Theme.CHARCOAL, CHARCOAL_THEME],
 ] as const;
 
 // The :focus-visible rules on `el`, lower-cased.

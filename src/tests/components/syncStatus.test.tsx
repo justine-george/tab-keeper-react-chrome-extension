@@ -26,6 +26,8 @@ import {
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -323,6 +325,8 @@ describe('the sync status line follows the store (KAN-248)', () => {
       BB_PINK_THEME,
       DARKENHEIMER_THEME,
       BLUE_THEME,
+      CHALK_THEME,
+      CHARCOAL_THEME,
     ]) {
       expect(
         contrast(theme.LABEL_L1_COLOR, theme.PRIMARY_COLOR)

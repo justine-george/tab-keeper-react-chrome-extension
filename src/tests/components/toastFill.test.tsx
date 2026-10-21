@@ -5,6 +5,8 @@ import { Toast } from '../../components/common/Toast';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -25,10 +27,12 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 
 const THEMES: [Theme, ThemeColors][] = [
   [Theme.LIGHT, LIGHT_THEME],
+  [Theme.CHALK, CHALK_THEME],
   [Theme.WARM_LIGHT, WARM_LIGHT_THEME],
   [Theme.BB_PINK, BB_PINK_THEME],
   [Theme.DARKENHEIMER, DARKENHEIMER_THEME],
   [Theme.BLUE, BLUE_THEME],
+  [Theme.CHARCOAL, CHARCOAL_THEME],
 ];
 
 // The weakest step any theme's card takes off its ground (Paper, 1.10:1).

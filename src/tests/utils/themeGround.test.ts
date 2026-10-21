@@ -3,6 +3,8 @@ import { describe, expect, test } from 'vitest';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -39,6 +41,8 @@ const PALETTES: Record<Theme, ThemeColors> = {
   [Theme.BB_PINK]: BB_PINK_THEME,
   [Theme.DARKENHEIMER]: DARKENHEIMER_THEME,
   [Theme.BLUE]: BLUE_THEME,
+  [Theme.CHALK]: CHALK_THEME,
+  [Theme.CHARCOAL]: CHARCOAL_THEME,
 };
 
 describe('theme-ground.js', () => {
@@ -57,6 +61,7 @@ describe('theme-ground.js', () => {
     ['no theme key', '{}'],
     ['malformed JSON', '{theme:'],
     ['an unknown theme', '{"theme":"Neon"}'],
+    ['a theme that was never shipped', '{"theme":"Nonsense"}'],
     ['a prototype key', '{"theme":"__proto__"}'],
     ['a number', '{"theme":3}'],
     ['a JSON array', '[1]'],

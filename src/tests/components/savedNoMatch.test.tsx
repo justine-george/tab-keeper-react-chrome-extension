@@ -143,6 +143,8 @@ describe('the drawing disc', () => {
     [Theme.BB_PINK, '0.12'],
     [Theme.DARKENHEIMER, '0.14'],
     [Theme.BLUE, '0.14'],
+    [Theme.CHALK, '0.12'],
+    [Theme.CHARCOAL, '0.14'],
   ])('%s draws it at %s', async (theme, opacity) => {
     await render('popup', (store) => store.dispatch(setTheme(theme)));
     await type('zzz');

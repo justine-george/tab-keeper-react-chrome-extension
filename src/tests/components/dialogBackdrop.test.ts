@@ -3,6 +3,8 @@ import { describe, expect, test } from 'vitest';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -17,10 +19,12 @@ import {
 
 const THEMES: [string, string, ThemeColors][] = [
   ['Paper', 'rgba(0, 0, 0, 0.4)', LIGHT_THEME],
+  ['Chalk', 'rgba(0, 0, 0, 0.4)', CHALK_THEME],
   ['Parchment', 'rgba(0, 0, 0, 0.4)', WARM_LIGHT_THEME],
   ['Petal', 'rgba(0, 0, 0, 0.4)', BB_PINK_THEME],
   ['Graphite', 'rgba(0, 0, 0, 0.55)', DARKENHEIMER_THEME],
   ['Ink', 'rgba(0, 0, 0, 0.55)', BLUE_THEME],
+  ['Charcoal', 'rgba(0, 0, 0, 0.55)', CHARCOAL_THEME],
 ];
 
 const alpha = (rgba: string): number => {

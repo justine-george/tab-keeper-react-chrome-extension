@@ -3,6 +3,8 @@ import { describe, expect, test } from 'vitest';
 import {
   BB_PINK_THEME,
   BLUE_THEME,
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   WARM_LIGHT_THEME,
@@ -14,10 +16,17 @@ import { contrast, luminance } from '../setup/contrast';
 
 const LIGHT = {
   Paper: LIGHT_THEME,
+  Chalk: CHALK_THEME,
   'Warm light': WARM_LIGHT_THEME,
   'BB pink': BB_PINK_THEME,
 };
-const DARK = { Graphite: DARKENHEIMER_THEME, Blue: BLUE_THEME };
+const DARK = {
+  Graphite: DARKENHEIMER_THEME,
+  Blue: BLUE_THEME,
+  Charcoal: CHARCOAL_THEME,
+};
+// KAN-731. Charcoal's disk is black, the darkest possible, on a header band that is 1.37:1 from it.
+const DISK_FLOOR: Record<string, number> = { Charcoal: 1.35 };
 const ALL = Object.entries({ ...LIGHT, ...DARK });
 
 describe('the hero floppy in every theme (KAN-627)', () => {
@@ -32,10 +41,10 @@ describe('the hero floppy in every theme (KAN-627)', () => {
 
   test.each(ALL)(
     '%s: the disk stands apart from the hero ground',
-    (_name, c) => {
+    (name, c) => {
       expect(
         contrast(c.FLOPPY_BODY_COLOR, c.SECONDARY_COLOR)
-      ).toBeGreaterThanOrEqual(1.4);
+      ).toBeGreaterThanOrEqual(DISK_FLOOR[name] ?? 1.4);
     }
   );
 

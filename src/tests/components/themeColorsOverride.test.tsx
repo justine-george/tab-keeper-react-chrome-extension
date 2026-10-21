@@ -3,6 +3,8 @@ import { screen } from '@testing-library/react';
 
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
+  CHALK_THEME,
+  CHARCOAL_THEME,
   DARKENHEIMER_THEME,
   LIGHT_THEME,
   ThemeColorsOverride,
@@ -48,11 +50,25 @@ describe('overriding the theme colours for one subtree (KAN-198)', () => {
     );
   });
 
-  test('Darkenheimer and Blue are the dark themes; the other three are light', () => {
+  test('Graphite, Ink and Charcoal are the dark themes; the other four are light', () => {
     expect(
       Object.values(Theme)
         .filter((theme) => isDarkTheme(theme))
         .sort()
-    ).toEqual([Theme.BLUE, Theme.DARKENHEIMER].sort());
+    ).toEqual([Theme.BLUE, Theme.CHARCOAL, Theme.DARKENHEIMER].sort());
+  });
+
+  // KAN-731. The hook maps each stored theme to its own table; a stored theme
+  // it does not know (a build that never shipped it) falls back to Paper.
+  test.each([
+    [Theme.CHALK, CHALK_THEME],
+    [Theme.CHARCOAL, CHARCOAL_THEME],
+    ['Nonsense' as Theme, LIGHT_THEME],
+  ])('a stored %s theme reads its own table', async (theme, table) => {
+    await renderWithProviders(<Probe />, {
+      seedStore: (store) => store.dispatch(setTheme(theme)),
+    });
+
+    expect(screen.getByTestId('probe').textContent).toBe(table.SECONDARY_COLOR);
   });
 });

@@ -6,4 +6,6 @@ export enum Theme {
   BB_PINK = 'BBPink',
   DARKENHEIMER = 'Darkenheimer',
   BLUE = 'Blue',
+  CHALK = 'Chalk',
+  CHARCOAL = 'Charcoal',
 }
