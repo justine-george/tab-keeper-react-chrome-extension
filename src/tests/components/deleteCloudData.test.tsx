@@ -264,6 +264,20 @@ describe('the Delete cloud data button while it checks (KAN-719)', () => {
     expect(dialogOpen(store)).toBe(false);
   });
 
+  test('a check past 300ms that finds a document clears the face as the dialog opens', async () => {
+    const { store } = await renderPane('granted');
+    await press();
+    await flush(300);
+    expect(faceShown()).toBe('true');
+    expect(dialogOpen(store)).toBe(false);
+
+    resolveCheck(true);
+    await flush();
+    expect(faceShown()).toBe('false');
+    expect(dialogOpen(store)).toBe(true);
+    expect(deleteButton()).not.toHaveAttribute('aria-disabled');
+  });
+
   test('presses during the check start no second check', async () => {
     await renderPane('granted');
     await press();

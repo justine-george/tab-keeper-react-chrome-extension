@@ -784,7 +784,7 @@ const storedIdOrToast = async (
 };
 
 // KAN-719. Reads the cloud for the document; signs in first because the rules need request.auth (KAN-259).
-const cloudDocumentExistsForSignedIn = async (
+const signInAndCheckCloudDocument = async (
   dispatch: AppDispatch,
   userId: string
 ): Promise<boolean> => {
@@ -792,14 +792,7 @@ const cloudDocumentExistsForSignedIn = async (
   return cloudDocumentExists(userId);
 };
 
-/**
- * The Delete cloud data press (KAN-719). Opens the confirm dialog only when
- * there is something to delete, and says so when there is not. Resolves once
- * the dialog is open or the toast is shown; never rejects.
- *
- * Consent granted: check the cloud first. Not granted: the dialog opens with
- * no Firebase call, and the confirm does the check.
- */
+// KAN-719. The Delete cloud data press: the dialog opens only if the cloud holds something; granted checks first, otherwise the confirm does.
 export const askToDeleteCloudData =
   () =>
   async (dispatch: AppDispatch, getState: () => RootState): Promise<void> => {
@@ -810,7 +803,7 @@ export const askToDeleteCloudData =
       return;
     }
     try {
-      if (await cloudDocumentExistsForSignedIn(dispatch, userId)) {
+      if (await signInAndCheckCloudDocument(dispatch, userId)) {
         dispatch(openDeleteCloudDataModal());
       } else {
         dispatch(
@@ -835,8 +828,7 @@ export const askToDeleteCloudData =
 // On failure nothing changes but the toast: reporting "deleted" for a
 // document that is still there is the one outcome worse than an error.
 //
-// KAN-719. It reads before it deletes, whatever the consent: a document that
-// is not there is "No cloud data to delete.", not a deleted one.
+// KAN-719. Reads before it deletes: no document is "No cloud data to delete."
 export const deleteCloudData = createAsyncThunk(
   'global/deleteCloudData',
   async (_: void, thunkAPI) => {
@@ -847,7 +839,7 @@ export const deleteCloudData = createAsyncThunk(
     try {
       // KAN-259. With lazy sign-in a user who declined the cloud may never
       // have signed in, so the read starts the session and waits for it.
-      if (!(await cloudDocumentExistsForSignedIn(dispatch, userId))) {
+      if (!(await signInAndCheckCloudDocument(dispatch, userId))) {
         dispatch(
           showToast({ toastText: TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE })
         );
@@ -855,19 +847,17 @@ export const deleteCloudData = createAsyncThunk(
       }
       await deleteFromFirestore(userId);
     } catch (error) {
-      console.warn('deleteCloudData: delete failed:', error);
-      thunkAPI.dispatch(
+      console.warn('deleteCloudData: sign-in, read or delete failed:', error);
+      dispatch(
         showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED })
       );
       return;
     }
     // KAN-632. Not Auto Sync alone: with the yes kept, one cloud-button press re-uploaded everything unasked.
-    thunkAPI.dispatch(declineCloudConsent());
-    thunkAPI.dispatch(forgetLastSync());
-    thunkAPI.dispatch(setSyncStatus('idle'));
-    thunkAPI.dispatch(
-      showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETED })
-    );
+    dispatch(declineCloudConsent());
+    dispatch(forgetLastSync());
+    dispatch(setSyncStatus('idle'));
+    dispatch(showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETED }));
   }
 );
 

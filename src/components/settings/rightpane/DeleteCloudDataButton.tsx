@@ -9,8 +9,7 @@ import type { AppDispatch } from '../../../redux/store';
 // KAN-719. A check that ends inside this shows no change at all.
 const CHECKING_FACE_DELAY_MS = 300;
 
-// The press asks whether the cloud holds anything. Busy for the whole check
-// (the guard against a second one); "Checking…" only if it runs past 300ms.
+// KAN-719. Busy for the whole check (guards a second press); "Checking…" shows only past 300ms.
 const DeleteCloudDataButton: React.FC = () => {
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();

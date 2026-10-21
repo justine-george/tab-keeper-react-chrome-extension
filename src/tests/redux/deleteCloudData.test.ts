@@ -156,12 +156,15 @@ describe('deleteCloudData', () => {
 
   it('with no token there is nothing to delete, and nothing is called', async () => {
     const { store } = makeTestStore();
+    const before = syncFacts(store);
     store.dispatch(openDeleteCloudDataModal());
 
     await store.dispatch(deleteCloudData());
 
     expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
     expect(mocks.ensureCloudSessionReady).not.toHaveBeenCalled();
+    expect(mocks.cloudDocumentExists).not.toHaveBeenCalled();
+    expect(syncFacts(store)).toEqual(before);
     expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(false);
     expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE
@@ -188,11 +191,69 @@ describe('deleteCloudData', () => {
     mocks.cloudDocumentExists.mockRejectedValue(new Error('denied'));
     const { store } = signedInWithId('granted');
     const before = syncFacts(store);
+    store.dispatch(openDeleteCloudDataModal());
 
     await store.dispatch(deleteCloudData());
 
+    expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(false);
+
     expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
     expect(syncFacts(store)).toEqual(before);
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
+    );
+  });
+
+  it('sign-in fails on a confirm with an id: the failed toast, no read, no delete, sync untouched', async () => {
+    mocks.ensureCloudSessionReady.mockRejectedValue(new Error('auth'));
+    const { store } = signedInWithId('declined');
+    const before = syncFacts(store);
+    store.dispatch(openDeleteCloudDataModal());
+
+    await store.dispatch(deleteCloudData());
+
+    expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(false);
+    expect(mocks.cloudDocumentExists).not.toHaveBeenCalled();
+    expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
+    expect(syncFacts(store)).toEqual(before);
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
+    );
+  });
+
+  it('an unusable stored token: the token toast, nothing changed, no sign-in, read or delete', async () => {
+    setupChromeFake({ storage: { tokenValue: 42 } });
+    const { store } = makeTestStore();
+    store.dispatch(grantCloudConsent());
+    const before = syncFacts(store);
+    store.dispatch(openDeleteCloudDataModal());
+
+    await store.dispatch(deleteCloudData());
+
+    expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(false);
+    expect(syncFacts(store)).toEqual(before);
+    expect(mocks.ensureCloudSessionReady).not.toHaveBeenCalled();
+    expect(mocks.cloudDocumentExists).not.toHaveBeenCalled();
+    expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.UNREADABLE_ACCOUNT_TOKEN
+    );
+  });
+
+  it('an unreadable stored token: the failed toast, nothing changed, no sign-in, read or delete', async () => {
+    const { store } = makeTestStore();
+    store.dispatch(grantCloudConsent());
+    const before = syncFacts(store);
+    vi.spyOn(chrome.storage.sync, 'get').mockRejectedValue(new Error('boom'));
+    store.dispatch(openDeleteCloudDataModal());
+
+    await store.dispatch(deleteCloudData());
+
+    expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(false);
+    expect(syncFacts(store)).toEqual(before);
+    expect(mocks.ensureCloudSessionReady).not.toHaveBeenCalled();
+    expect(mocks.cloudDocumentExists).not.toHaveBeenCalled();
+    expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
     expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
     );
@@ -232,9 +293,11 @@ describe('askToDeleteCloudData (KAN-719)', () => {
       const { store } = makeTestStore();
       if (consent === 'granted') store.dispatch(grantCloudConsent());
       else store.dispatch(declineCloudConsent());
+      const before = syncFacts(store);
 
       await store.dispatch(askToDeleteCloudData());
 
+      expect(syncFacts(store)).toEqual(before);
       expect(modalOpen(store)).toBe(false);
       expect(newestToast(store.getState())?.text).toBe(
         TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE
@@ -247,9 +310,11 @@ describe('askToDeleteCloudData (KAN-719)', () => {
     setupChromeFake({ storage: { tokenValue: 42 } });
     const { store } = makeTestStore();
     store.dispatch(grantCloudConsent());
+    const before = syncFacts(store);
 
     await store.dispatch(askToDeleteCloudData());
 
+    expect(syncFacts(store)).toEqual(before);
     expect(modalOpen(store)).toBe(false);
     expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.UNREADABLE_ACCOUNT_TOKEN
@@ -260,10 +325,12 @@ describe('askToDeleteCloudData (KAN-719)', () => {
   it('storage that throws: the failed toast, no dialog, no network', async () => {
     const { store } = makeTestStore();
     store.dispatch(grantCloudConsent());
+    const before = syncFacts(store);
     vi.spyOn(chrome.storage.sync, 'get').mockRejectedValue(new Error('boom'));
 
     await store.dispatch(askToDeleteCloudData());
 
+    expect(syncFacts(store)).toEqual(before);
     expect(modalOpen(store)).toBe(false);
     expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
@@ -300,9 +367,12 @@ describe('askToDeleteCloudData (KAN-719)', () => {
   it('granted, the read fails: the failed toast, never "no data"', async () => {
     mocks.cloudDocumentExists.mockRejectedValue(new Error('denied'));
     const { store } = signedInWithId('granted');
+    const before = syncFacts(store);
 
     await store.dispatch(askToDeleteCloudData());
 
+    expect(syncFacts(store)).toEqual(before);
+    expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
     expect(modalOpen(store)).toBe(false);
     expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
@@ -312,9 +382,12 @@ describe('askToDeleteCloudData (KAN-719)', () => {
   it('granted, sign-in fails: the failed toast, no read', async () => {
     mocks.ensureCloudSessionReady.mockRejectedValue(new Error('auth'));
     const { store } = signedInWithId('granted');
+    const before = syncFacts(store);
 
     await store.dispatch(askToDeleteCloudData());
 
+    expect(syncFacts(store)).toEqual(before);
+    expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
     expect(modalOpen(store)).toBe(false);
     expect(newestToast(store.getState())?.text).toBe(
       TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
@@ -324,9 +397,11 @@ describe('askToDeleteCloudData (KAN-719)', () => {
 
   it('declined, with an id: opens the dialog and contacts nothing', async () => {
     const { store } = signedInWithId('declined');
+    const before = syncFacts(store);
 
     await store.dispatch(askToDeleteCloudData());
 
+    expect(syncFacts(store)).toEqual(before);
     expect(modalOpen(store)).toBe(true);
     expectNoNetwork();
   });
@@ -349,6 +424,7 @@ describe('askToDeleteCloudData (KAN-719)', () => {
 
     await store.dispatch(askToDeleteCloudData());
 
+    expect(store.getState().globalState.userId).toBe('uuid-9');
     expect(mocks.cloudDocumentExists).toHaveBeenCalledWith('uuid-9');
     expect(modalOpen(store)).toBe(true);
   });
