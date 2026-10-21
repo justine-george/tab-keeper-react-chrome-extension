@@ -220,6 +220,16 @@ describe('Button variants (KAN-205)', () => {
   );
 
   test('only danger animates border-color and colour', async () => {
+    const { unmount } = await render({ variant: 'danger' });
+    const danger = classRulesFor(button());
+    expect(danger).toMatch(
+      new RegExp(`transition:[^;]*border-color ${DURATION.COLOR}`)
+    );
+    expect(danger).toMatch(
+      new RegExp(`transition:[^;]*[^-]color ${DURATION.COLOR}`)
+    );
+    unmount();
+
     await render();
     const quiet = classRulesFor(button());
     expect(quiet).not.toMatch(/transition:[^;]*border-color/);
