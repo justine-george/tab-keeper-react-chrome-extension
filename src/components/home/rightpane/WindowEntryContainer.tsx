@@ -380,8 +380,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         ? ''
         : `&[data-row-menu-held] { background-color: ${COLORS.HOVER_COLOR}; }`
     }
-    /* KAN-723. A covered tag hides under parentRightStyle's two reveals: its opacity, and the keyboard's. */
-    ${isStripShown || isEditing ? HIDE_TAGS_UNDER_STRIP : ''}
+    /* KAN-723. A covered tag hides under parentRightStyle's two reveals: its opacity, and the keyboard's. A search empties the strip. */
+    ${!isSearching && (isStripShown || isEditing) ? HIDE_TAGS_UNDER_STRIP : ''}
     ${whileKeyNav('&:has([data-row-actions] :focus-visible)')} {
       ${HIDE_TAGS_UNDER_STRIP}
     }
@@ -1445,15 +1445,15 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         &:hover .group-actions {
                           ${groupActionsShown}
                         }
-                        /* KAN-723. Each reveal also hides the tags its strip would cover. */
-                        &:hover {
-                          ${HIDE_TAGS_UNDER_STRIP}
-                        }
                         ${whileKeyNav('&:has(:focus-visible) .group-actions')} {
                           ${groupActionsShown}
                         }
-                        ${whileKeyNav('&:has(:focus-visible)')} {
-                          ${HIDE_TAGS_UNDER_STRIP}
+                        /* KAN-723. Each reveal also hides the tags its strip would cover. A search empties the strip. */
+                        ${
+                          isSearching
+                            ? ''
+                            : `&:hover { ${HIDE_TAGS_UNDER_STRIP} }
+                               ${whileKeyNav('&:has(:focus-visible)')} { ${HIDE_TAGS_UNDER_STRIP} }`
                         }
                         /* KAN-708. Held while its right-click menu is open, as if hovered. */
                         ${

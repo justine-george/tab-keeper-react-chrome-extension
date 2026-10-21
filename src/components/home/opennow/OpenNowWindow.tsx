@@ -316,8 +316,8 @@ export default function OpenNowWindow({
         ? `background-color: ${COLORS.HOVER_COLOR};`
         : ''
     }
-    /* KAN-723. A covered tag hides under parentRightStyle's two reveals: its opacity, and the keyboard's. */
-    ${isParentHovered || menuOpen ? HIDE_TAGS_UNDER_STRIP : ''}
+    /* KAN-723. A covered tag hides under parentRightStyle's two reveals: its opacity, and the keyboard's. A search removes the strip. */
+    ${offersWindowActions && (isParentHovered || menuOpen) ? HIDE_TAGS_UNDER_STRIP : ''}
     ${whileKeyNav('&:has([data-row-actions] :focus-visible)')} {
       ${HIDE_TAGS_UNDER_STRIP}
     }
@@ -971,12 +971,12 @@ export default function OpenNowWindow({
                           ${whileKeyNav('&:has(:focus-visible) .group-actions')} {
                             ${groupActionsShown}
                           }
-                          /* KAN-723. Each reveal also hides the tags its strip would cover. */
-                          &:hover {
-                            ${HIDE_TAGS_UNDER_STRIP}
-                          }
-                          ${whileKeyNav('&:has(:focus-visible)')} {
-                            ${HIDE_TAGS_UNDER_STRIP}
+                          /* KAN-723. Each reveal also hides the tags its strip would cover. A search removes the strip. */
+                          ${
+                            offersWindowActions
+                              ? `&:hover { ${HIDE_TAGS_UNDER_STRIP} }
+                                 ${whileKeyNav('&:has(:focus-visible)')} { ${HIDE_TAGS_UNDER_STRIP} }`
+                              : ''
                           }
                           ${groupEngaged ? HIDE_TAGS_UNDER_STRIP : ''}
                         `}

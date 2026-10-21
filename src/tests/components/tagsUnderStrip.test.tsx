@@ -8,7 +8,10 @@ import {
 } from '../../components/common/tagsUnderStrip';
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
+import {
+  setHasTabGroupsPermission,
+  setSearchInputText,
+} from '../../redux/slices/globalStateSlice';
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
 import { classRulesFor } from '../setup/hoverRules';
 import { KEY_NAV_ATTRIBUTE } from '../../utils/functions/keyNav';
@@ -254,6 +257,30 @@ describe('saved pane rows hide a covered tag while the strip shows', () => {
     fireEvent.contextMenu(band, { clientX: 40, clientY: 40 });
     expect(band.hasAttribute('data-row-menu-held')).toBe(true);
     expect(visibilityOf(tag)).toBe('hidden');
+  });
+
+  // A search empties both strips, so a tag marked before it started has nothing over it.
+  test('while searching a hovered saved row hides no marked tag', async () => {
+    const { store } = await renderWindow();
+    const row = windowRow();
+    const tag = tagOf(row);
+    tag.setAttribute(MARK, '');
+    fireEvent.mouseEnter(row);
+    expect(visibilityOf(tag)).toBe('hidden');
+
+    act(() => {
+      store.dispatch(setSearchInputText('Paper'));
+    });
+    // The premise: the same node, still marked, on a row the pointer never left.
+    expect(tagOf(row)).toBe(tag);
+    expect(tag.hasAttribute(MARK)).toBe(true);
+    expect(visibilityOf(tag)).not.toBe('hidden');
+
+    const band = groupBand();
+    expect(emits(band, (cls) => `${cls}:hover ${HIDE}`)).toBe(false);
+    expect(
+      emits(band, (cls) => `${KEY_NAV} ${cls}:has(:focus-visible) ${HIDE}`)
+    ).toBe(false);
   });
 
   test('entering a saved row measures its tags', async () => {

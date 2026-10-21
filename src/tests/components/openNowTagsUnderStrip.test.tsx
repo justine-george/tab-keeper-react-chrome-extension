@@ -49,8 +49,12 @@ async function renderPane() {
     await chrome.tabGroups.query({}),
     1
   );
-  result.rerender(<OpenNowPane windows={windows} searchText="" {...props} />);
-  return result;
+  const search = (searchText: string) =>
+    result.rerender(
+      <OpenNowPane windows={windows} searchText={searchText} {...props} />
+    );
+  search('');
+  return { ...result, search };
 }
 
 const stubRect = (el: Element, left: number, right: number) =>
@@ -157,6 +161,28 @@ describe('Open now rows hide a covered tag while the strip shows', () => {
     fireEvent.contextMenu(row, { clientX: 40, clientY: 40 });
     expect(row.hasAttribute('data-row-menu-held')).toBe(true);
     expect(visibilityOf(count)).toBe('hidden');
+  });
+
+  // A search removes both strips, so a tag marked before it started has nothing over it.
+  test('while searching a hovered Open now row hides no marked tag', async () => {
+    const { search } = await renderPane();
+    const row = windowRow();
+    const [, thisWindow] = tagsOf(row);
+    thisWindow.setAttribute(MARK, '');
+    fireEvent.mouseEnter(row);
+    expect(visibilityOf(thisWindow)).toBe('hidden');
+
+    await act(async () => search('G1'));
+    // The premise: the same node, still marked, on a row the pointer never left.
+    expect(tagsOf(windowRow())[1]).toBe(thisWindow);
+    expect(thisWindow.hasAttribute(MARK)).toBe(true);
+    expect(visibilityOf(thisWindow)).not.toBe('hidden');
+
+    const band = groupBand();
+    expect(emits(band, (cls) => `${cls}:hover ${HIDE}`)).toBe(false);
+    expect(
+      emits(band, (cls) => `${KEY_NAV} ${cls}:has(:focus-visible) ${HIDE}`)
+    ).toBe(false);
   });
 
   test('entering an Open now group band measures its tag', async () => {
