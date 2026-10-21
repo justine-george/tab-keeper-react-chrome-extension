@@ -102,3 +102,47 @@ describe('the settings slice', () => {
     expect(localStorage.getItem('settingsData')).toBeNull();
   });
 });
+
+describe('beginSetup and restartSetup (KAN-731)', () => {
+  const run = async (
+    dark: boolean,
+    theme: Theme,
+    setupState: 'none' | 'pending' | 'done',
+    action: 'beginSetup' | 'restartSetup'
+  ) => {
+    setOs(dark);
+    vi.resetModules();
+    const slice = await import('../../redux/slices/settingsDataStateSlice');
+    const next = slice.default(
+      { ...slice.initialState, theme, setupState },
+      slice[action]()
+    );
+    return next.theme;
+  };
+
+  it.each([
+    [false, Theme.CHALK],
+    [true, Theme.CHARCOAL],
+  ])('moves a stored Paper to the default (dark OS %s)', async (dark, want) => {
+    expect(await run(dark, Theme.LIGHT, 'none', 'beginSetup')).toBe(want);
+  });
+
+  it('leaves a picked theme alone', async () => {
+    expect(await run(false, Theme.BLUE, 'none', 'beginSetup')).toBe(Theme.BLUE);
+  });
+
+  it.each([['pending' as const], ['done' as const]])(
+    'does nothing when setup is already %s',
+    async (setupState) => {
+      expect(await run(true, Theme.LIGHT, setupState, 'beginSetup')).toBe(
+        Theme.LIGHT
+      );
+    }
+  );
+
+  it('does not touch the theme when setup is run again', async () => {
+    expect(await run(true, Theme.LIGHT, 'done', 'restartSetup')).toBe(
+      Theme.LIGHT
+    );
+  });
+});

@@ -539,6 +539,8 @@ export const settingsDataStateSlice = createSlice({
     beginSetup: (state) => {
       if (state.setupState !== 'none') return;
       state.setupState = 'pending';
+      // KAN-731. A never-saved 1.9 user holds Paper only from a whole-object save; setup starts them on the default.
+      if (state.theme === Theme.LIGHT) state.theme = defaultTheme();
       saveLocalSettings(state);
     },
 
