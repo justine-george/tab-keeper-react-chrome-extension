@@ -209,7 +209,7 @@ export const RunHelloDialog: React.FC<{
       <p id={BODY_ID} css={bodyStyle}>
         {hello === 'whatsNew'
           ? t(
-              "A full view for everything you have open, plus themes, languages and a keyboard shortcut. Here's a one-minute look."
+              "A full view for everything you have open, plus new themes, languages and a keyboard shortcut. Here's a one-minute look."
             )
           : t(
               "Save your open windows, close them, and bring them all back later. Here's how, in about a minute."
