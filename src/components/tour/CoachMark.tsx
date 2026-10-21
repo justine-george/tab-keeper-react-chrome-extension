@@ -64,19 +64,24 @@ interface CoachMarkProps {
   secondary?: CoachAction;
   primary: CoachAction;
   onEscape: () => void;
+  // KAN-735. One triangle in the bar's colour, for a card whose notch is the only thing pointing.
+  solidNotch?: boolean;
 }
 
-// The callout's notch, turned toward the anchor: a PANEL_BORDER triangle under a PRIMARY one.
+// The callout's notch, turned toward the anchor: a PANEL_BORDER triangle under a PRIMARY one,
+// or one `fill` triangle whose base covers the 1px frame.
 function Notch({
   side,
   notch,
   border,
   fill,
+  isSolid,
 }: {
   side: CoachSide;
   notch: number;
   border: string;
   fill: string;
+  isSolid: boolean;
 }) {
   // Off the facing edge by `out`, centred `half` before the notch point.
   const at = (out: number, half: number): CSSProperties => {
@@ -104,6 +109,16 @@ function Notch({
       border-right: ${pointsUp ? clear : side === 'right' ? solid : 'none'};
     `;
   };
+  if (isSolid) {
+    return (
+      <span
+        aria-hidden="true"
+        data-coach-notch
+        css={triangle(9, fill)}
+        style={at(-9, 9)}
+      />
+    );
+  }
   return (
     <>
       <span
@@ -142,6 +157,7 @@ export default function CoachMark({
   secondary,
   primary,
   onEscape,
+  solidNotch = false,
 }: CoachMarkProps) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -311,7 +327,8 @@ export default function CoachMark({
             side={frame.kind === 'anchored' ? frame.placement.side : 'below'}
             notch={frame.placement.notch}
             border={COLORS.PANEL_BORDER_COLOR}
-            fill={COLORS.PRIMARY_COLOR}
+            fill={solidNotch ? COLORS.TEXT_COLOR : COLORS.PRIMARY_COLOR}
+            isSolid={solidNotch}
           />
         )}
         <p id={textId} css={textStyle}>

@@ -6,10 +6,12 @@ import { platformSays } from './fixtures/platform';
 import { stubToolbarPin } from './fixtures/toolbarPin';
 import {
   FULL,
+  THEMES,
   openPage,
   storedSettings,
   twoFrames,
 } from './fixtures/onboarding';
+import { contrast, pixelsAt } from './fixtures/pixels';
 import {
   FULL_RUN,
   cardAt,
@@ -70,12 +72,14 @@ async function openRunningFullView(
   context: BrowserContext,
   extensionId: string,
   pinned: boolean,
-  step = 1
+  step = 1,
+  settings: Record<string, unknown> = {}
 ): Promise<Page> {
   await stubToolbarPin(context, { pinned });
   await seedSettings(context, {
     isPinGuideDismissed: false,
     firstRun: { ...RUN_FINISHED, step, ended: null },
+    ...settings,
   });
   const page = await openPage(context, extensionId, FULL_RUN.path, FULL);
   await runCheck(page, 'resumed');
@@ -272,9 +276,50 @@ for (const [os, aim] of [
     expect(Math.abs(geometry.notNowCentre - geometry.cardCentre)).toBeLessThan(
       1
     );
-    // Above the card, its tip on the aim (drawn inside the card's 1px border), and still inside the page.
-    expect(geometry.notch.bottom).toBeLessThanOrEqual(0);
+    // Above the card, its base over the card's 1px border (KAN-735), its tip on the aim, and still inside the page.
+    expect(geometry.notch.bottom).toBeLessThanOrEqual(1);
     expect(Math.abs(geometry.notch.tip - aim)).toBeLessThanOrEqual(1);
     expect(geometry.notch.top).toBeGreaterThanOrEqual(0);
+  });
+}
+
+// KAN-735. Nothing else points on step 9 (no ring), so its notch is one triangle in the bar's colour.
+for (const [theme, palette] of THEMES) {
+  test(`${theme}: step 9's notch is one triangle in the bar's colour, at 3:1 or more`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openRunningFullView(context, extensionId, false, 9, {
+      theme,
+    });
+    await landedAt(page, 9);
+    const card = cardAt(page, 9);
+    await expect(card).toHaveAttribute('data-coach-side', 'free');
+    const notches = card.locator('[data-coach-notch]');
+    await expect(notches).toHaveCount(1);
+    const n = await notches.evaluate((el) =>
+      el.getBoundingClientRect().toJSON()
+    );
+    const c = await card.evaluate((el) => el.getBoundingClientRect().toJSON());
+    expect(n.width).toBe(18);
+    const x = n.left + n.width / 2;
+    const [inside, ground, frameRow, bar, fill] = await pixelsAt(page, [
+      [x, n.bottom - 2],
+      [n.left - 12, n.bottom - 2],
+      [x, c.top],
+      [x, c.top + 2],
+      [c.left + 6, c.bottom - 6],
+    ]);
+    // CONTROL: the decode reads the card's own fill as its token.
+    expect(fill).toBe(palette.PRIMARY_COLOR);
+    const ratio = contrast(ground, palette.TEXT_COLOR);
+    console.log(
+      `[step 9 notch] ${theme} ${inside} on ${ground} ${ratio.toFixed(2)}:1, frame ${frameRow}, bar ${bar}`
+    );
+    expect(inside).toBe(palette.TEXT_COLOR);
+    expect(ratio).toBeGreaterThanOrEqual(3);
+    // The base covers the frame, so the notch meets the bar.
+    expect(frameRow).toBe(palette.TEXT_COLOR);
+    expect(bar).toBe(palette.TEXT_COLOR);
   });
 }
