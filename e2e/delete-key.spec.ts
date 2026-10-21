@@ -3,6 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { POPUP, stored } from './fixtures/savedWindows';
+import { LIGHT_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-592 on the real artifact (pick K1): ⌫, fn⌫ (Delete) and ⌘⌫ delete the session whose row
 // has focus, with the Undo toast. After the delete, focus moves to the row now in its place, or
@@ -361,7 +362,7 @@ test('Backspace in the search, rename and save fields edits text and deletes not
   await expect(toasts(page)).toHaveCount(0);
 });
 
-test('K1: the ⋮ shows ⌫ beside Delete session, readable on its red hover', async ({
+test('K1: the ⋮ shows ⌫ beside Delete session, red at rest and white on its red hover', async ({
   context,
   extensionId,
 }) => {
@@ -377,11 +378,15 @@ test('K1: the ⋮ shows ⌫ beside Delete session, readable on its red hover', a
   await expect(hint).toHaveText(isMac ? '⌫' : 'Del');
   await expect(hint).toHaveAttribute('aria-hidden', 'true');
   const color = (l: Locator) => l.evaluate((e) => getComputedStyle(e).color);
-  expect(await color(hint)).not.toBe(await color(item));
+  // KAN-725. At rest the hint is red like the label; on the red fill both are white.
+  const rgb = (hex: string) =>
+    `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
+  expect(await color(item)).toBe(rgb(LIGHT_THEME.DANGER_INK));
+  expect(await color(hint)).toBe(await color(item));
 
   await item.hover();
-  // On the danger fill the hint takes the label's colour, which KAN-204 holds readable there.
-  await expect.poll(() => color(hint)).toBe(await color(item));
+  await expect.poll(() => color(item)).toBe(rgb(LIGHT_THEME.ON_DANGER_FILL));
+  await expect.poll(() => color(hint)).toBe(rgb(LIGHT_THEME.ON_DANGER_FILL));
   // The keys are named on the row and the item; the item's name is its label alone.
   const keys = isMac ? 'Backspace Meta+Backspace Delete' : 'Delete Backspace';
   await expect(row(page, 'Alpha')).toHaveAttribute('aria-keyshortcuts', keys);

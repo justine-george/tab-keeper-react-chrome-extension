@@ -583,15 +583,15 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
     expect(ids()).toContain('session-kyoto');
   });
 
-  // Danger is a hover fill, not a resting colour. overflowMenu.test.tsx covers
-  // the fill; this covers which item is marked.
+  // KAN-725. Danger is red ink with a red hover fill. overflowMenu.test.tsx covers
+  // the styling; this covers which item is marked.
   test('Delete is marked as the dangerous item, and Export is not', async () => {
     const user = userEvent.setup();
     await renderHeader();
 
     await openMenu(user);
     // Derived from the token, not pinned. jsdom normalises hex to rgb().
-    const fill = LIGHT_THEME.DELETE_ICON_HOVER_COLOR;
+    const fill = LIGHT_THEME.DANGER_FILL;
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(fill.slice(i, i + 2), 16));
     const DELETE_FILL = new RegExp(
       `background-color:\\s*(${fill}|rgb\\(${r}, ?${g}, ?${b}\\))`,

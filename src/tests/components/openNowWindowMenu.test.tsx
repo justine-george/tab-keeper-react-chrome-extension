@@ -149,8 +149,8 @@ describe('Open now window header: Save and a ⋮ (KAN-696)', () => {
     expect(menuKeys()).toEqual(['sortBySite', 'closeWindow']);
     const items = within(screen.getByRole('menu')).getAllByRole('menuitem');
     expect(items[items.length - 1]).toHaveTextContent('Close window');
-    // Danger is the hover fill, derived from the token (jsdom writes rgb()).
-    const fill = LIGHT_THEME.DELETE_ICON_HOVER_COLOR;
+    // KAN-725. Danger is the red hover fill, derived from the token (jsdom writes rgb()).
+    const fill = LIGHT_THEME.DANGER_FILL;
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(fill.slice(i, i + 2), 16));
     const DELETE_FILL = new RegExp(
       `background-color:\\s*(${fill}|rgb\\(${r}, ?${g}, ?${b}\\))`,
