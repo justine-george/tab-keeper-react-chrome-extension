@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
+
+import en from '../../../public/locales/en/translation.json';
+import ru from '../../../public/locales/ru/translation.json';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
@@ -10,6 +13,7 @@ import {
 } from '../../redux/slices/settingsCategoryStateSlice';
 import { APP_VERSION, PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { ICON, TYPE } from '../../styles/scale';
+import { testI18n } from '../setup/i18nForTests';
 
 // KAN-241. Settings -> About is a nameplate over the same section anatomy the
 // other four panes use.
@@ -42,10 +46,15 @@ const renderAbout = () =>
     },
   });
 
-afterEach(() => {
+afterEach(async () => {
   Reflect.deleteProperty(Element.prototype, 'animate');
   vi.restoreAllMocks();
+  // The instance is shared, so a leaked locale would run later tests in Russian.
+  await testI18n.changeLanguage('en');
 });
+
+const collapse = (text: string | null | undefined) =>
+  (text ?? '').replace(/\s+/g, ' ').trim();
 
 describe('the About nameplate', () => {
   // KAN-521. The header's mark, not the old one-colour floppy glyph.
@@ -59,11 +68,11 @@ describe('the About nameplate', () => {
     const mark = marks[0];
     expect(mark.getAttribute('aria-hidden')).toBe('true');
     expect(getComputedStyle(mark).width).toBe(px(ICON.NAMEPLATE));
-    // The one-colour glyph is gone: outside the buttons, the only other svg is the credit's heart.
+    // KAN-728. Outside the buttons, the mark is the only svg left: no heart.
     const others = Array.from(container.querySelectorAll('svg')).filter(
       (s) => s !== mark && s.closest('button') === null
     );
-    expect(others.map((s) => s.getAttribute('role'))).toEqual(['img']);
+    expect(others).toEqual([]);
   });
 
   test('a click on the mark presses it and slides its shutter, as in the header', async () => {
@@ -111,28 +120,65 @@ describe('the About nameplate', () => {
     expect(getComputedStyle(version).fontSize).toBe(px(TYPE.SECONDARY));
   });
 
-  // KAN-521. A drawn heart in the credit's own grey, named for AT; the red emoji is gone.
-  test('sets the credit, "Made with ♥ by Justine George", in LABEL_L2 at SECONDARY size', async () => {
-    const { container } = await renderAbout();
+  // KAN-728. A short signed note replaced the credit and the Feedback heading.
+  describe('the note', () => {
+    const NOTE_LINES = [
+      en.AboutStory,
+      en.AboutPromise,
+      'Justine George',
+      en['Tab Keeper Creator'],
+    ];
 
-    const heart = screen.getByRole('img', { name: 'love' });
-    const credit = heart.parentElement!;
-    expect(credit.textContent?.replace(/\s+/g, ' ')).toBe(
-      'Made with by Justine George'
-    );
-    expect(getComputedStyle(credit).color).toMatch(
-      asWritten(LIGHT_THEME.LABEL_L2_COLOR)
-    );
-    expect(getComputedStyle(credit).fontSize).toBe(px(TYPE.SECONDARY));
-    expect(heart.getAttribute('fill')).toBe('currentColor');
-    expect(container.textContent).not.toMatch(/❤|Crafted/);
+    test('reads the story, the promise, then the signature', async () => {
+      const { container } = await renderAbout();
+
+      const text = collapse(container.textContent);
+      const at = NOTE_LINES.map((line) => text.indexOf(line));
+      expect(
+        at.every((i) => i >= 0),
+        `${at}`
+      ).toBe(true);
+      expect([...at].sort((a, b) => a - b)).toEqual(at);
+    });
+
+    test('every line is TEXT_COLOR at SECONDARY size, weight 400', async () => {
+      await renderAbout();
+
+      for (const line of NOTE_LINES) {
+        const el = screen.getByText(line);
+        const style = getComputedStyle(el);
+        expect(style.fontSize, line).toBe(px(TYPE.SECONDARY));
+        expect(['400', 'normal', ''], line).toContain(style.fontWeight);
+        expect(style.color, line).toMatch(asWritten(LIGHT_THEME.TEXT_COLOR));
+      }
+    });
+
+    test('has no image or heart left in it', async () => {
+      const { container } = await renderAbout();
+
+      expect(screen.queryByRole('img', { name: 'love' })).toBeNull();
+      expect(container.textContent).not.toMatch(/Made with|©|❤/);
+      expect(screen.queryByText('Feedback', { exact: true })).toBeNull();
+    });
+
+    test('the name stays Justine George in another language', async () => {
+      await renderAbout();
+      testI18n.addResourceBundle('ru', 'translation', ru, true, true);
+      await act(async () => {
+        await testI18n.changeLanguage('ru');
+      });
+      // CONTROL: the note itself did switch, so the name is not passing in English.
+      expect(screen.getByText(ru.AboutStory)).toBeTruthy();
+      expect(screen.getByText(ru['Tab Keeper Creator'])).toBeTruthy();
+      expect(screen.getByText('Justine George')).toBeTruthy();
+    });
   });
 
-  test('Rate carries the star and is the filled button; Share your feedback stays quiet', async () => {
+  test('Rate Tab Keeper carries the star and is the filled button; Share feedback stays quiet', async () => {
     await renderAbout();
 
-    const rate = screen.getByRole('button', { name: 'Rate this extension' });
-    const mail = screen.getByRole('button', { name: 'Share your feedback' });
+    const rate = screen.getByRole('button', { name: 'Rate Tab Keeper' });
+    const mail = screen.getByRole('button', { name: 'Share feedback' });
     expect(rate.querySelector('.material-symbols-outlined')?.textContent).toBe(
       'star'
     );
@@ -144,20 +190,35 @@ describe('the About nameplate', () => {
     );
   });
 
+  test('the two buttons follow the signature, and the policy follows them', async () => {
+    await renderAbout();
+
+    const order = [
+      screen.getByText(en['Tab Keeper Creator']),
+      screen.getByRole('button', { name: 'Rate Tab Keeper' }),
+      screen.getByRole('button', { name: 'Share feedback' }),
+      screen.getByRole('link', { name: 'Privacy policy' }),
+    ];
+    for (let i = 1; i < order.length; i++) {
+      expect(
+        order[i - 1].compareDocumentPosition(order[i]) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+    }
+  });
+
   // KAN-260. The policy is a file in the repository; the consent dialog links
   // to it, and so does the one place a user goes looking: About. A link, not a
   // button -- it leaves the extension, and the dialog already set the pattern.
   describe('the privacy policy link', () => {
-    test('is a link to the policy, under the version line', async () => {
+    // KAN-728. A quiet line under the buttons, as the r4 mock drew it.
+    test('is a link to the policy, set in LABEL_L2 at SECONDARY size', async () => {
       await renderAbout();
 
       const link = screen.getByRole('link', { name: 'Privacy policy' });
       expect(link.getAttribute('href')).toBe(PRIVACY_POLICY_LINK);
-      // In the nameplate section, not among the Feedback & Share actions.
-      expect(link.closest('[data-settings-section]')).toBe(
-        screen
-          .getByText(`Version ${APP_VERSION}`)
-          .closest('[data-settings-section]')
+      expect(getComputedStyle(link).color).toMatch(
+        asWritten(LIGHT_THEME.LABEL_L2_COLOR)
       );
       expect(getComputedStyle(link).fontSize).toBe(px(TYPE.SECONDARY));
     });

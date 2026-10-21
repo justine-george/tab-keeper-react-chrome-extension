@@ -204,7 +204,7 @@ for (const category of ['Help', 'About'] as const) {
     // The pane's own buttons drawn first: a probe right after the click can run before they render.
     await expect(
       page.locator('[data-pane="detail"]').getByRole('button', {
-        name: category === 'Help' ? 'Show me around' : 'Rate this extension',
+        name: category === 'Help' ? 'Show me around' : 'Rate Tab Keeper',
         exact: true,
       })
     ).toBeVisible();

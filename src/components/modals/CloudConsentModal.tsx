@@ -241,7 +241,7 @@ export const CloudConsentModal: React.FC = () => {
   const endStyle = css`
     margin-left: auto;
   `;
-  // KAN-623. As ★ Rate this app: the glyph first, in the filled button's text colour.
+  // KAN-623. As About's ★ Rate Tab Keeper: the glyph first, in the filled button's text colour.
   const iconLabelStyle = css`
     display: inline-flex;
     align-items: center;

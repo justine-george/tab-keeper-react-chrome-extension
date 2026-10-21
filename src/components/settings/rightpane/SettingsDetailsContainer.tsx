@@ -9,7 +9,6 @@ import DeleteCloudDataButton from './DeleteCloudDataButton';
 import { focusRingOutsideCss } from '../../common/focusRing';
 import { RecentlyDeleted } from './RecentlyDeleted';
 import ClickableTabKeeperMark from '../../common/ClickableTabKeeperMark';
-import { HeartGlyph } from '../../common/glyphs';
 import HelpSettings from './HelpSettings';
 import ThemeSwatch from './ThemeSwatch';
 import { chromeLanguageOrder } from './languageOptions';
@@ -62,12 +61,9 @@ import { chooseDefaultView } from '../../../redux/defaultViewChoice';
 // The theme picker's swatches live in ThemeSwatch (KAN-237), which also carries
 // the KAN-88/KAN-95 marker rule and its reasoning.
 
-// Sections after the first on a pane sit 32px apart, the spacing About's
-// blocks use (KAN-241); the first keeps 20px from the pane top. Written on
-// each section rather than as a constant so a section reads as a unit; the
-// settingsRail test holds them to it.
-
-const HEART_SLOT = '\u2063';
+// Sections after the first on a pane sit 32px apart (KAN-241, KAN-253); the
+// first keeps 20px from the pane top. Written on each section rather than as a
+// constant so a section reads as a unit; the settingsRail test holds them to it.
 
 const SettingsDetailsContainer: React.FC = () => {
   const COLORS = useThemeColors();
@@ -826,16 +822,14 @@ const SettingsDetailsContainer: React.FC = () => {
       </div>
     );
   } else if (selectedSettingsCategory.name === SettingsCategory.ABOUT) {
-    // An invisible separator marks where the heart goes, so each locale can put it anywhere.
-    const [creditBefore, creditAfter = ''] = t(
-      'Made with {{heart}} by Justine George',
-      { heart: HEART_SLOT }
-    ).split(HEART_SLOT);
-    // KAN-241. Built as sections under the same inset as the four panes
-    // above, where it used to be the one centred pane: a thank-you heading,
-    // three buttons, and the version pushed to the floor in LABEL_L3 -- the
-    // marker token, 2.56:1 on Paper -- so the one line a bug report needs was
-    // the hardest on the page to read.
+    // KAN-728. A nameplate, a short signed note in one voice, the two actions in one row, then the policy.
+    const noteLineStyle = css`
+      margin: 0;
+      font-size: ${TYPE.SECONDARY};
+      line-height: 1.5;
+      color: ${COLORS.TEXT_COLOR};
+      text-wrap: pretty;
+    `;
     settingsOptionsDiv = (
       <div
         css={css`
@@ -843,9 +837,9 @@ const SettingsDetailsContainer: React.FC = () => {
           flex-direction: column;
           justify-content: flex-start;
           align-items: center;
+          padding-bottom: 24px;
         `}
       >
-        {/* Nameplate (KAN-521): the header's mark beside the name and the version, then the credit. */}
         <div
           data-settings-section
           css={css`
@@ -858,6 +852,7 @@ const SettingsDetailsContainer: React.FC = () => {
             margin-top: 20px;
           `}
         >
+          {/* Nameplate (KAN-521): the header's mark beside the name and the version. */}
           <div
             css={css`
               display: flex;
@@ -887,89 +882,45 @@ const SettingsDetailsContainer: React.FC = () => {
               />
             </div>
           </div>
-          {/* The heart is drawn in the line's own grey, where the locale puts it. */}
-          <span
-            css={css`
-              margin-top: 14px;
-              font-size: ${TYPE.SECONDARY};
-              color: ${COLORS.LABEL_L2_COLOR};
-            `}
-          >
-            {creditBefore}
-            <HeartGlyph size="1em" label={t('love')} />
-            {creditAfter}
-          </span>
-          {/* KAN-260. The policy, on its own line under the version at the
-              same step and 6px rhythm: a third fact about the product, not a
-              fourth action. In the text colour, as the consent dialog sets its
-              link, so it reads as a link and not as another label. Opened in a
-              tab: a popup that follows a link navigates itself away. */}
-          <a
-            href={PRIVACY_POLICY_LINK}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => {
-              e.preventDefault();
-              chrome.tabs.create({ url: PRIVACY_POLICY_LINK });
-            }}
-            css={css`
-              margin-top: 6px;
-              font-size: ${TYPE.SECONDARY};
-              color: ${COLORS.TEXT_COLOR};
-              ${focusRingOutsideCss(COLORS)}
-            `}
-          >
-            {t('Privacy policy')}
-          </a>
-        </div>
-
-        {/* Feedback & Share */}
-        <div
-          css={css`
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
-            width: 100%;
-            /* One row (CONTROL.ROW) under the nameplate rather than the 20px
-               two settings get from each other: a header wants more under it
-               than a setting does, and at 20 the label sat as close to the
-               credit as the buttons sit to the label. The section itself keeps
-               the shared rhythm so it still matches the other panes. */
-            margin-top: ${CONTROL.ROW};
-          `}
-        >
+          {/* KAN-728. One size, weight and colour for every line, capped at a reading width. */}
           <div
-            css={css`
-              display: flex;
-              align-items: flex-start;
-              width: 100%;
-            `}
-          >
-            <NormalLabel
-              value={t('Feedback')}
-              size={TYPE.BODY}
-              color={COLORS.LABEL_L1_COLOR}
-            />
-          </div>
-
-          {/* The Backup & Restore stack. Not a row: a stack keeps one shape in
-              every locale. */}
-          <div
+            data-about-note
             css={css`
               display: flex;
               flex-direction: column;
-              /* A definite width, so the buttons' width: 100% resolves against
-                 the column rather than against their own text. */
-              width: 100%;
+              gap: 12px;
+              max-width: 36rem;
+              margin-top: 24px;
+              font-family: ${FONT_FAMILY};
+            `}
+          >
+            <p css={noteLineStyle}>{t('AboutStory')}</p>
+            <p css={noteLineStyle}>{t('AboutPromise')}</p>
+            <div
+              css={css`
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+              `}
+            >
+              {/* KAN-728. A name, not a string: the same in every locale. */}
+              <span css={noteLineStyle}>Justine George</span>
+              <span css={noteLineStyle}>{t('Tab Keeper Creator')}</span>
+            </div>
+          </div>
+          {/* KAN-728. One row, each button sized to its label; a long locale wraps instead of clipping. */}
+          <div
+            css={css`
+              display: flex;
+              flex-wrap: wrap;
+              gap: 12px;
               align-items: flex-start;
-              margin-top: 8px;
+              margin-top: calc(${CONTROL.ROW} - 8px);
             `}
           >
             {/* KAN-511. The one thing the page asks for, drawn as the dialogs draw their main action, with the rating dialog's star. */}
             <Button
-              text={t('Rate this app')}
+              text={t('Rate Tab Keeper')}
               iconType="star"
               variant="primary"
               onClick={() => {
@@ -987,19 +938,37 @@ const SettingsDetailsContainer: React.FC = () => {
                 // owed.
                 dispatch(setUserRatedAndReviewed());
               }}
-              style="width: 100%;
-              max-width: 250px; justify-content: center;"
+              style="justify-content: center;"
             />
             <Button
-              text={t('Share your feedback')}
+              text={t('Share feedback')}
               iconType="mail"
               onClick={() =>
                 (window.location.href = `mailto:${DEV_EMAIL}?subject=${FEEDBACK_MAIL_SUBJECT}`)
               }
-              style="width: 100%;
-              max-width: 250px; justify-content: center; margin-top: 12px;"
+              style="justify-content: center;"
             />
           </div>
+          {/* KAN-260, KAN-728. The policy, a quiet line under the actions.
+              Opened in a tab: a popup that follows a link navigates itself away. */}
+          <a
+            href={PRIVACY_POLICY_LINK}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              chrome.tabs.create({ url: PRIVACY_POLICY_LINK });
+            }}
+            css={css`
+              margin-top: 24px;
+              font-size: ${TYPE.SECONDARY};
+              color: ${COLORS.LABEL_L2_COLOR};
+              text-decoration: underline;
+              ${focusRingOutsideCss(COLORS)}
+            `}
+          >
+            {t('Privacy policy')}
+          </a>
         </div>
       </div>
     );
