@@ -20,6 +20,21 @@ import {
 export const CLOUD =
   /firestore\.googleapis\.com|identitytoolkit\.googleapis\.com|securetoken\.googleapis\.com/;
 
+// KAN-719. The device id, read where the popup reads it: chrome.storage.sync.
+export async function storedDeviceId(worker: Worker): Promise<string | null> {
+  return worker.evaluate(async () => {
+    const { tokenValue } = await chrome.storage.sync.get(['tokenValue']);
+    return typeof tokenValue === 'string' ? tokenValue : null;
+  });
+}
+
+// KAN-719. Gives the profile a device id, so Delete cloud data has something to act on.
+export async function putDeviceId(worker: Worker): Promise<void> {
+  await worker.evaluate(() =>
+    chrome.storage.sync.set({ tokenValue: crypto.randomUUID() })
+  );
+}
+
 // Each boot signs up an anonymous account; Firebase allows 100 an hour per IP (KAN-383).
 export async function blockCloud(context: BrowserContext): Promise<void> {
   await context.route(CLOUD, (route) => route.abort());

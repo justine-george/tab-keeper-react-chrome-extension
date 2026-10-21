@@ -1,10 +1,12 @@
-import type { Page, Worker } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 import {
   CLOUD,
   COMMIT,
   countCloudRequests,
   hasCloudConfig,
+  putDeviceId,
+  storedDeviceId,
 } from './fixtures/cloud';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
@@ -18,20 +20,6 @@ import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 const NOTHING_TO_DELETE = 'No cloud data to delete.';
 const DELETE_FAILED =
   "Couldn't delete cloud data. Check your connection and try again.";
-
-// The device id, read where the popup reads it: chrome.storage.sync.
-async function storedId(worker: Worker): Promise<string | null> {
-  return worker.evaluate(async () => {
-    const { tokenValue } = await chrome.storage.sync.get(['tokenValue']);
-    return typeof tokenValue === 'string' ? tokenValue : null;
-  });
-}
-
-async function putId(worker: Worker): Promise<void> {
-  await worker.evaluate(() =>
-    chrome.storage.sync.set({ tokenValue: crypto.randomUUID() })
-  );
-}
 
 // The saved cloud answer, read where the popup keeps it.
 function storedConsent(page: Page): Promise<unknown> {
@@ -58,8 +46,8 @@ test.describe('Delete cloud data asks before it acts (KAN-254)', () => {
       isAutoSync: false,
     });
     await seedSessions(context, buildContainer());
-    await putId(serviceWorker);
-    expect(await storedId(serviceWorker)).not.toBeNull();
+    await putDeviceId(serviceWorker);
+    expect(await storedDeviceId(serviceWorker)).not.toBeNull();
     const page = await context.newPage();
     await page.setViewportSize({ width: 790, height: 550 });
     await openSyncPane(page, extensionId);
@@ -118,7 +106,7 @@ test.describe('Delete cloud data asks before it acts (KAN-254)', () => {
     const button = page.getByRole('button', { name: 'Delete cloud data' });
     await expect(button).toBeVisible();
     // PREMISE: declined with nothing stored has no id.
-    expect(await storedId(serviceWorker)).toBeNull();
+    expect(await storedDeviceId(serviceWorker)).toBeNull();
 
     await button.click();
     await expect(page.getByText(NOTHING_TO_DELETE)).toBeVisible();
@@ -138,7 +126,7 @@ test.describe('Delete cloud data asks before it acts (KAN-254)', () => {
     await page.setViewportSize({ width: 790, height: 550 });
     await openSyncPane(page, extensionId);
     // PREMISE: granted consent minted an id at boot.
-    await expect.poll(() => storedId(serviceWorker)).not.toBeNull();
+    await expect.poll(() => storedDeviceId(serviceWorker)).not.toBeNull();
 
     await page.getByRole('button', { name: 'Delete cloud data' }).click();
     await expect(page.getByText(DELETE_FAILED)).toBeVisible({
@@ -164,8 +152,8 @@ test.describe('Delete cloud data asks before it acts (KAN-254)', () => {
       isAutoSync: false,
     });
     await seedSessions(context, buildContainer());
-    await putId(serviceWorker);
-    expect(await storedId(serviceWorker)).not.toBeNull();
+    await putDeviceId(serviceWorker);
+    expect(await storedDeviceId(serviceWorker)).not.toBeNull();
     const hits = await countCloudRequests(context);
     const page = await context.newPage();
     await page.setViewportSize({ width: 790, height: 550 });
@@ -206,7 +194,7 @@ test.describe('Delete cloud data asks before it acts (KAN-254)', () => {
     const page = await context.newPage();
     await page.setViewportSize({ width: 790, height: 550 });
     await openSyncPane(page, extensionId);
-    await expect.poll(() => storedId(serviceWorker)).not.toBeNull();
+    await expect.poll(() => storedDeviceId(serviceWorker)).not.toBeNull();
 
     // The second face is always in the DOM (faded out), so the shown state is
     // the button's own attribute, not the text's presence.
@@ -308,7 +296,7 @@ test.describe('after Delete cloud data, sync is off (KAN-632)', () => {
     await page.setViewportSize({ width: 790, height: 550 });
     await openSyncPane(page, extensionId);
     // PREMISE: an id exists and no write has reached the cloud.
-    await expect.poll(() => storedId(serviceWorker)).not.toBeNull();
+    await expect.poll(() => storedDeviceId(serviceWorker)).not.toBeNull();
     await page.waitForTimeout(2000);
     expect(commits).toHaveLength(0);
     const status = page.getByTestId('sync-status');
