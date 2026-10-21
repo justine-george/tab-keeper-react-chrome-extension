@@ -62,7 +62,7 @@ export const test = base.extend<{
   cloud: [false, { option: true }],
 
   context: async (
-    { showScrollbars, audibleTabs, freshProfile, cloud },
+    { showScrollbars, audibleTabs, freshProfile, cloud, colorScheme },
     use
   ) => {
     // A throwaway profile per test: extension state (localStorage,
@@ -76,6 +76,8 @@ export const test = base.extend<{
       // 2026-09-01 across all three modes.
       headless: true,
       channel: 'chromium',
+      // KAN-731. Playwright's own option, so `test.use({ colorScheme: 'dark' })` emulates a dark OS.
+      colorScheme,
       ignoreDefaultArgs: [
         ...(showScrollbars ? ['--hide-scrollbars'] : []),
         ...(audibleTabs ? ['--mute-audio'] : []),

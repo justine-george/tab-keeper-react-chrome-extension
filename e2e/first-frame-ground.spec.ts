@@ -3,14 +3,22 @@ import type { BrowserContext } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { seedSettings } from './fixtures/seed';
 import { rgbToHex } from './fixtures/pixels';
-import { DARKENHEIMER_THEME, LIGHT_THEME } from '../src/hooks/useThemeColors';
+import {
+  CHALK_THEME,
+  CHARCOAL_THEME,
+  DARKENHEIMER_THEME,
+  LIGHT_THEME,
+} from '../src/hooks/useThemeColors';
 
 // The first frame a page paints is its theme's ground, not App.css's grey fallback.
 const PAGES = [
   ['popup', 'index.html'],
   ['full view', 'index.html?view=tab'],
 ] as const;
+// Paper and Graphite are seeded with the move applied (seed.ts), so they stay themselves.
 const THEMES = [
+  ['Chalk', CHALK_THEME.PRIMARY_COLOR],
+  ['Charcoal', CHARCOAL_THEME.PRIMARY_COLOR],
   ['Light', LIGHT_THEME.PRIMARY_COLOR],
   ['Darkenheimer', DARKENHEIMER_THEME.PRIMARY_COLOR],
 ] as const;
@@ -62,7 +70,7 @@ const JUNK = [
 
 for (const [view, path] of PAGES) {
   for (const [name, raw] of JUNK) {
-    test(`${view}, ${name}: the first frame is Light's ground`, async ({
+    test(`${view}, ${name}: the first frame is the default's ground, Chalk's on a light OS`, async ({
       context,
       extensionId,
     }) => {
@@ -70,7 +78,7 @@ for (const [view, path] of PAGES) {
         localStorage.setItem('settingsData', value);
       }, raw);
       expect(await firstFrameGround(context, extensionId, path)).toBe(
-        LIGHT_THEME.PRIMARY_COLOR.toUpperCase()
+        CHALK_THEME.PRIMARY_COLOR.toUpperCase()
       );
     });
   }
