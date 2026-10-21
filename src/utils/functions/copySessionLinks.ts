@@ -42,16 +42,18 @@ import {
  * has a `t` to call -- the same division of labour the toast messages keep.
  *
  * Resolves with the number of links copied (KAN-401) once something is on
- * the clipboard. It does not resolve false or
- * throw on the rich path failing, because that is not a failure the user needs
- * to hear about: the plain list is a complete answer, and it is what most
- * targets would have taken anyway.
+ * the clipboard. A refused rich write is not a failure the user needs to hear
+ * about: the plain list is a complete answer, and it is what most targets
+ * would have taken anyway.
+ *
+ * Resolves null when both the rich and the plain write were refused, and never
+ * rejects (KAN-713), the same contract as copyTabLink.
  */
 export async function copySessionLinks(
   session: tabContainerData,
   t: TFunction,
   language: string
-): Promise<number> {
+): Promise<number | null> {
   const linkCount = session.windows.reduce(
     (sum, window) => sum + window.tabs.length,
     0
@@ -75,7 +77,12 @@ export async function copySessionLinks(
 
   const plain = sessionToLinkList(session, strings);
   if (!(await writeRich(sessionToLinkHtml(session, strings), plain))) {
-    await navigator.clipboard.writeText(plain);
+    // KAN-713. A refused plain write is the one failure left; report it, don't throw.
+    try {
+      await navigator.clipboard.writeText(plain);
+    } catch {
+      return null;
+    }
   }
   return linkCount;
 }

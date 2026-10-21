@@ -451,6 +451,8 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // passes the session as stored because it has no preview to respect.
   const handleCopy = async () => {
     const count = await copySessionLinks(edited, t, i18n.language);
+    // KAN-713. Nothing on the clipboard: no toast, no "Copied".
+    if (count === null) return;
     // KAN-401. The popup's toast, with the count; the button says Copied.
     dispatch(
       showToast({
