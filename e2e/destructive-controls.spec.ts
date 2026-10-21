@@ -69,28 +69,43 @@ const OPEN_NOW = '[data-pane="open-now"]';
 // A token spelled as rgbToHex reads a computed colour back: upper-case #RRGGBB.
 const tokenHex = (token: string): string => token.toUpperCase();
 
+// A reading, or the fade that stopped it: a translucent fill, or a control
+// part-way through an opacity fade (a row's strip), paints a blend only
+// pixels can measure.
+type Reading = { paint: RawPaint } | { fading: string };
+
 // The control's computed fill, edge, ring and inked descendants (label, glyph,
-// key hint), and the first opaque fill behind it. A translucent fill throws:
-// what is painted is then a blend only pixels can measure.
-function readPaint(control: Locator): Promise<RawPaint> {
-  return control.evaluate((el) => {
+// key hint), and the first opaque fill behind it.
+function readPaint(control: Locator): Promise<Reading> {
+  return control.evaluate((el): Reading => {
     const alphaOf = (fill: string): number => {
       const parts = fill.match(/[\d.]+/g) ?? [];
       return parts.length >= 4 ? Number(parts[3]) : 1;
     };
-    const groundOf = (start: Element | null): string => {
+    const groundOf = (
+      start: Element | null
+    ): { ground: string } | { fading: string } => {
       for (let node = start; node !== null; node = node.parentElement) {
         const fill = getComputedStyle(node).backgroundColor;
         const alpha = alphaOf(fill);
-        if (alpha === 1) return fill;
-        if (alpha > 0) throw new Error(`translucent fill ${fill} behind`);
+        if (alpha === 1) return { ground: fill };
+        if (alpha > 0) return { fading: `translucent fill ${fill} behind` };
       }
       throw new Error('no opaque ground behind the control');
     };
     const own = getComputedStyle(el);
     const ownAlpha = alphaOf(own.backgroundColor);
     if (ownAlpha > 0 && ownAlpha < 1)
-      throw new Error(`translucent fill ${own.backgroundColor} on the control`);
+      return {
+        fading: `translucent fill ${own.backgroundColor} on the control`,
+      };
+    for (let n: Element | null = el; n !== null; n = n.parentElement) {
+      const opacity = Number(getComputedStyle(n).opacity);
+      if (opacity > 0 && opacity < 1)
+        return { fading: `opacity ${opacity} on ${n.tagName.toLowerCase()}` };
+    }
+    const behind = groundOf(el.parentElement);
+    if ('fading' in behind) return behind;
     // Drawn: a box of its own, and no fully faded face (Button's hidden second face).
     const drawn = (node: Element): boolean => {
       const box = node.getBoundingClientRect();
@@ -128,33 +143,45 @@ function readPaint(control: Locator): Promise<RawPaint> {
       }
     }
     return {
-      fill: own.backgroundColor,
-      edge: { color: own.borderTopColor, width: own.borderTopWidth },
-      ground: groundOf(el.parentElement),
-      inks,
-      ring:
-        own.outlineStyle === 'none'
-          ? null
-          : {
-              color: own.outlineColor,
-              width: own.outlineWidth,
-              offset: own.outlineOffset,
-            },
-      keyNav: document.documentElement.hasAttribute('data-key-nav'),
+      paint: {
+        fill: own.backgroundColor,
+        edge: { color: own.borderTopColor, width: own.borderTopWidth },
+        ground: behind.ground,
+        inks,
+        ring:
+          own.outlineStyle === 'none'
+            ? null
+            : {
+                color: own.outlineColor,
+                width: own.outlineWidth,
+                offset: own.outlineOffset,
+              },
+        keyNav: document.documentElement.hasAttribute('data-key-nav'),
+      },
     };
   });
 }
 
 // Fills and inks ease (120-200ms): read only once two reads 250ms apart agree.
+// A fading read never agrees, so a control caught mid-fade is read again.
 async function settledPaint(page: Page, control: Locator): Promise<Paint> {
   let last = await readPaint(control);
   for (let i = 0; i < 12; i++) {
     await page.waitForTimeout(250);
     const next = await readPaint(control);
-    if (JSON.stringify(next) === JSON.stringify(last)) return resolve(next);
+    if (
+      'paint' in last &&
+      'paint' in next &&
+      JSON.stringify(next.paint) === JSON.stringify(last.paint)
+    )
+      return resolve(next.paint);
     last = next;
   }
-  throw new Error('the control never settled');
+  throw new Error(
+    'fading' in last
+      ? `the control never settled: ${last.fading}`
+      : 'the control never settled'
+  );
 }
 
 function resolve(raw: RawPaint): Paint {
