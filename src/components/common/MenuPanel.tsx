@@ -15,7 +15,7 @@ export interface OverflowMenuItem {
   /** A Material Symbols ligature, rendered decoratively. */
   icon: IconName;
   onSelect: () => void;
-  /** Paints the glyph with the delete hover colour, as row delete icons do. */
+  /** KAN-725. Red ink at rest; a red fill with white ink when touched. */
   danger?: boolean;
   /**
    * Marks this item as the state the list is currently in (KAN-136).
