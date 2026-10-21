@@ -190,10 +190,20 @@ const Button: React.FC<ButtonProps> = ({
     }`
     : '';
 
+  // KAN-725. Only danger changes its edge and ink under the pointer.
+  const variantRetints = PALETTE.hoverInk !== PALETTE.ink;
+  // KAN-725. An unavailable danger button keeps its rest edge, label, glyph and hint when touched.
+  const restsWhenTouched = Boolean(ariaDisabled) && variantRetints;
+  const touchedInk = restsWhenTouched ? PALETTE.ink : PALETTE.hoverInk;
+  const hoverEdge = restsWhenTouched ? null : PALETTE.hoverEdge;
   // KAN-725. A busy button ignores presses, so its press rung is its hover
   // rung: pressing again shows no deeper fill.
   const press = busy ? PALETTE.hover : PALETTE.press;
-  const pressEdge = busy ? PALETTE.hoverEdge : PALETTE.pressEdge;
+  const pressEdge = restsWhenTouched
+    ? null
+    : busy
+      ? PALETTE.hoverEdge
+      : PALETTE.pressEdge;
   // The glyph's colour is a class of its own on the Icon, so it is reached
   // from here; a caller's iconColor is its own call and is left alone.
   const glyphInk = (ink: string) =>
@@ -203,11 +213,10 @@ const Button: React.FC<ButtonProps> = ({
 
   // KAN-725. Only a variant whose edge or ink changes under the pointer
   // animates them; the others keep the one transition they had.
-  const retints = PALETTE.hoverInk !== PALETTE.ink;
-  const transition = retints
+  const transition = variantRetints
     ? `background-color ${DURATION.COLOR}, border-color ${DURATION.COLOR}, color ${DURATION.COLOR}`
     : `background-color ${DURATION.COLOR}`;
-  const hoverInkCss = retints ? `color: ${PALETTE.hoverInk};` : '';
+  const hoverInkCss = touchedInk !== PALETTE.ink ? `color: ${touchedInk};` : '';
 
   const buttonStyle = css`
     background-color: ${PALETTE.rest};
@@ -227,11 +236,11 @@ const Button: React.FC<ButtonProps> = ({
        fill, so it never sits on the darker fill in its resting colour. */
     &:hover {
       background-color: ${PALETTE.hover};
-      ${PALETTE.hoverEdge && `border-color: ${PALETTE.hoverEdge};`}
+      ${hoverEdge && `border-color: ${hoverEdge};`}
       ${hoverInkCss}
-      ${glyphInk(PALETTE.hoverInk)}
+      ${glyphInk(touchedInk)}
       [data-key-hint] {
-        color: ${PALETTE.hoverInk};
+        color: ${touchedInk};
       }
     }
     /* KAN-205. One rung past the hover, so a click confirms itself. */
@@ -239,9 +248,9 @@ const Button: React.FC<ButtonProps> = ({
       background-color: ${press};
       ${pressEdge && `border-color: ${pressEdge};`}
       ${hoverInkCss}
-      ${glyphInk(PALETTE.hoverInk)}
+      ${glyphInk(touchedInk)}
       [data-key-hint] {
-        color: ${PALETTE.hoverInk};
+        color: ${touchedInk};
       }
     }
     ${variant === 'danger' ? focusRingInInkCss() : focusRingCss(COLORS)}

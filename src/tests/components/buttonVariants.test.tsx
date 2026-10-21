@@ -34,6 +34,7 @@ const render = (props = {}) =>
     <Button text="Act" onClick={() => undefined} {...props} />
   );
 const button = () => screen.getByRole('button', { name: 'Act' });
+const KEY_HINT = { text: 'Del', ariaKeyShortcuts: 'Delete' };
 
 describe('Button variants (KAN-205)', () => {
   test('defaults to quiet, so every existing caller is unchanged', async () => {
@@ -225,7 +226,12 @@ describe('Button variants (KAN-205)', () => {
   });
 
   test('CONTROL: unavailable danger rests quiet and stays quiet', async () => {
-    await render({ variant: 'danger', ariaDisabled: true });
+    await render({
+      variant: 'danger',
+      ariaDisabled: true,
+      iconType: 'delete',
+      keyHint: KEY_HINT,
+    });
 
     expect(getComputedStyle(button()).color).toBe(
       rgb(LIGHT_THEME.LABEL_L2_COLOR).text
@@ -236,6 +242,12 @@ describe('Button variants (KAN-205)', () => {
       'i'
     );
     expect(classRulesFor(button())).toMatch(quiet);
+    // KAN-725. Touched, no red edge and no white label, glyph or key hint.
+    for (const rules of [hoverRulesFor(button()), activeRulesFor(button())]) {
+      expect(rules).not.toMatch(/border-color/);
+      expect(rules).not.toMatch(/material-symbols-outlined/);
+      expect(rules).not.toMatch(fill(LIGHT_THEME.ON_DANGER_FILL));
+    }
   });
 });
 
