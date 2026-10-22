@@ -95,7 +95,7 @@ async function openExportPage(
   return page;
 }
 
-test('an edited export saves the renamed, trimmed file to disk', async ({
+test("an edited export's file carries the renames and hidden rows", async ({
   context,
   extensionId,
 }) => {
@@ -392,8 +392,8 @@ const toolbarGeometry = (page: Page, title: string) =>
     );
     let header: Element = primary;
     while (!header.contains(heading)) header = header.parentElement!;
-    // The row, not the header's content box: KAN-235's 1100px band ends the
-    // row at 1350 against the header's 1584 at 1600px.
+    // The row, not the header's content box: the 870px band (KAN-734) ends
+    // the row at 1235 against the header's 1584 at 1600px.
     const row = header.querySelector('[data-toolbar-row]');
     if (!row) throw new Error('no toolbar row in the header');
     const box = row.getBoundingClientRect();
@@ -405,7 +405,8 @@ const toolbarGeometry = (page: Page, title: string) =>
       titleTop: heading.getBoundingClientRect().top,
       labelBottom: label ? label.getBoundingClientRect().bottom : null,
       primaryRight: primary.getBoundingClientRect().right,
-      // Not the primary control's top: at 800px the resting row wraps it to a
+      primaryTop: primary.getBoundingClientRect().top,
+      // Not the primary control's top: at 640px the resting row wraps it to a
       // second line.
       firstLineTop: Math.min(
         ...[...header.querySelectorAll('button, [role="status"]')].map(
@@ -419,8 +420,8 @@ const toolbarGeometry = (page: Page, title: string) =>
   }, title);
 
 // At 1200px this title wraps the resting toolbar under it but not the editing
-// one.
-for (const width of [1600, 1200, 800]) {
+// one. At 640px the resting row itself wraps (KAN-734: en fits one line at 800).
+for (const width of [1600, 1200, 800, 640]) {
   test(`at ${width}px the toolbar keeps its own row and does not move when editing starts`, async ({
     context,
     extensionId,
@@ -467,6 +468,10 @@ for (const width of [1600, 1200, 800]) {
       Math.abs(editing.contentRight - editing.primaryRight),
       `Done ends at ${editing.primaryRight}px, the row at ${editing.contentRight}px`
     ).toBeLessThanOrEqual(1);
+    // CONTROL: at 640px the end group really did wrap to its own line.
+    if (width === 640) {
+      expect(resting.primaryTop).toBeGreaterThan(resting.firstLineTop + 1);
+    }
     // CONTROL: the row still starts at the left edge, so it did not simply move
     // right.
     expect(

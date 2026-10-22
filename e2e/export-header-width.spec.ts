@@ -102,20 +102,28 @@ for (const lang of ['en', 'ru']) {
 
 // KAN-734. Editing swaps the row but not the band: Reset and Done end where
 // PDF / Print did.
-test(`at 2000px the editing row shares the ${HEADER_CONTENT_MAX_PX}px band (ru)`, async ({
+test(`at 2000px the editing row's tally and Done span the ${HEADER_CONTENT_MAX_PX}px band (ru)`, async ({
   context,
   extensionId,
 }) => {
   const page = await openExport(context, extensionId, WIDE, 'ru');
   await page.locator('[data-toolbar-row] button').first().click();
-  await expect(
-    page.locator('[data-toolbar-row] [role="status"]')
-  ).toBeVisible();
+  const tally = page.locator('[data-toolbar-row] [role="status"]');
+  await expect(tally).toBeVisible();
   const g = await geometry(page);
+  // The row is the band's width whatever it holds; its ends are what count.
+  const tallyBox = (await tally.boundingBox())!;
+  const done = (await page
+    .locator('[data-toolbar-row] button')
+    .last()
+    .boundingBox())!;
 
   const expectedLeft = (WIDE.width - HEADER_CONTENT_MAX_PX) / 2;
-  expect(g.toolbar.left).toBeCloseTo(expectedLeft, 0);
-  expect(g.toolbar.right).toBeCloseTo(expectedLeft + HEADER_CONTENT_MAX_PX, 0);
+  expect(tallyBox.x, 'the tally starts the band').toBeCloseTo(expectedLeft, 0);
+  expect(done.x + done.width, 'Done ends the band').toBeCloseTo(
+    expectedLeft + HEADER_CONTENT_MAX_PX,
+    0
+  );
   expect(g.toolbarLines).toBe(1);
 });
 

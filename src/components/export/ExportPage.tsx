@@ -811,8 +811,8 @@ export default function ExportPage({ source }: { source: ExportSource }) {
               behind IS_SAVE_AS_HTML_SHOWN. */}
                 <span css={endStyle}>
                   {/* Copy first: it ignores the choices, so it must not sit between
-              the two outputs that follow them. Swapping those two outputs in
-              KAN-207 left that rule untouched -- Copy still precedes both. */}
+              the outputs that follow them (Print, and Save when shown). KAN-207
+              swapped those two and left this rule untouched. */}
                   <Button
                     text={t('Copy all links')}
                     ariaLabel={t('Copy all links')}

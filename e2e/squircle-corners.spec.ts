@@ -100,7 +100,7 @@ test('the drag landing slot is a squircle; a colour swatch stays a circle', asyn
   await page.mouse.up();
 });
 
-test('the export page and the file it saves draw squircles', async ({
+test('the export page and its file draw squircles', async ({
   context,
   extensionId,
 }) => {

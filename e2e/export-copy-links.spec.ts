@@ -110,7 +110,7 @@ test('the copy toast is as big as the popup toast: 300 wide, 48 tall', async ({
 });
 
 // KAN-202. The clean-ups must reach the saved file, not just the clipboard.
-test('the saved file carries neither a notification count nor a suspended wrapper', async ({
+test('the exported file carries neither a notification count nor a suspended wrapper', async ({
   context,
   extensionId,
 }) => {
@@ -204,7 +204,7 @@ const UNNAMED = buildSession({
   windows: [{ ...SESSION.windows[0], title: '' }],
 });
 
-test('an unnamed window reads "Window 1" in the saved file and in both copies', async ({
+test('an unnamed window reads "Window 1" in the exported file and in both copies', async ({
   context,
   extensionId,
 }) => {

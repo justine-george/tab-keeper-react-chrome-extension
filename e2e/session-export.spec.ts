@@ -18,8 +18,9 @@ import {
 import { rgb } from './fixtures/pixels';
 import { CHALK_THEME, CHARCOAL_THEME } from '../src/hooks/useThemeColors';
 
-// KAN-190. Popup menu to preview to saved file, in a real browser: the unit
-// tests hold the generated string, only this proves a browser wrote it.
+// KAN-190. Popup menu to preview to file, in a real browser: the unit tests
+// hold the generated string, this opens and prints it. KAN-734: with Save
+// hidden, the file is the preview's srcdoc (fixtures/previewFile.ts).
 
 const KYOTO = buildSession({
   tabGroupId: 'session-kyoto',
