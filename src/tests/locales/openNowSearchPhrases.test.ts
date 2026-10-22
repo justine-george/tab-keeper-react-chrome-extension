@@ -10,7 +10,7 @@ const KEYS = [
   'Search open tabs',
   'Clear search',
   'NoOpenTabMatches',
-  'Search looks in tab titles and links.',
+  'Search looks in tab titles, links and group names.',
 ] as const;
 
 describe('Open now search phrases (KAN-330)', () => {
