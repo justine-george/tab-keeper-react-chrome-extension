@@ -16,8 +16,9 @@ import { SettingsData } from '../../redux/slices/settingsDataStateSlice';
 // out whether a modal would open.
 //
 // The offer fires on EVERY popup open that passes these checks. There is no
-// interval and no cap by design -- the escalating opt-out inside the modal is
-// what bounds it. Note that nothing here consults a stored "granted" flag:
+// interval and no cap by design (KAN-732): it stops when the permission is
+// held, or for anyone whose isNeverAskAgainForTabGroups is set (setup's step
+// left Off, or an older build's "Don't ask again"). Note that nothing here consults a stored "granted" flag:
 // hasTabGroupsPermission() is the only source of truth, so a user who granted
 // and later revoked cannot be re-armed by a stale boolean.
 export async function shouldOfferTabGroups(): Promise<number | null> {

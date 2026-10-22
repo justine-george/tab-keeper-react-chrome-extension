@@ -90,15 +90,14 @@ export interface SettingsData {
   // the first. Per device, like the rest of this slice: the other device's
   // last sync is its own fact.
   lastSyncedTime: number | '';
-  // KAN-74. The tab-groups permission offer. Two flags and no timestamp: the
-  // offer fires on every popup open that finds groups open, so there is
-  // nothing to schedule -- only an escalating opt-out to remember.
+  // KAN-74. The tab-groups permission offer fires on every popup open that
+  // finds groups open; this one flag keeps it quiet (setup's step left Off, or
+  // an older build's "Don't ask again").
   //
-  // Neither flag mirrors whether the permission is GRANTED. That stays
+  // It does not mirror whether the permission is GRANTED. That stays
   // hasTabGroupsPermission()'s job, so a user who grants and later revokes
   // from chrome://extensions -- the most explicit "no" available -- cannot be
   // re-armed into being asked again by a stale boolean.
-  isTabGroupsPromptAnsweredOnce: boolean;
   isNeverAskAgainForTabGroups: boolean;
   /**
    * Which date the session rows show, and therefore which word labels it
@@ -268,13 +267,16 @@ export function asDefaultSaveScope(value: unknown): CaptureScope {
 }
 
 // Keys no build reads any more: dropped once, and settings written back
-// without them. All but lastValueMomentTime (1.8.0's review gate, replaced by
-// pendingReviewAsk in KAN-653) were only ever written by unreleased builds.
+// without them. Two shipped: lastValueMomentTime (1.8.0's review gate,
+// replaced by pendingReviewAsk in KAN-653) and isTabGroupsPromptAnsweredOnce
+// (since 1.6.0; it unlocked the offer's "Don't ask again", gone in KAN-732).
+// The rest were only ever written by unreleased builds.
 const RETIRED_KEYS: readonly string[] = [
   'sampleTour',
   'isFullViewOfferAnswered',
   'isUiSoundOn',
   'lastValueMomentTime',
+  'isTabGroupsPromptAnsweredOnce',
 ];
 
 const withoutRetiredKeys = (stored: unknown): unknown =>
@@ -323,7 +325,6 @@ const defaultSettings: SettingsData = {
   pendingReviewAsk: null,
   isTimeAskDone: false,
   lastSyncedTime: '',
-  isTabGroupsPromptAnsweredOnce: false,
   isNeverAskAgainForTabGroups: false,
   sessionDateBasis: 'edited',
   timeFormat: 'h12',
@@ -486,13 +487,6 @@ export const settingsDataStateSlice = createSlice({
 
     updateLastReviewRequestTime: (state) => {
       state.lastReviewRequestTime = Date.now();
-
-      // Save updated state to localStorage
-      saveLocalSettings(state);
-    },
-
-    setTabGroupsPromptAnsweredOnce: (state) => {
-      state.isTabGroupsPromptAnsweredOnce = true;
 
       // Save updated state to localStorage
       saveLocalSettings(state);
@@ -689,7 +683,6 @@ export const {
   recordSyncedNow,
   setLastSyncedTime,
   forgetLastSync,
-  setTabGroupsPromptAnsweredOnce,
   setNeverAskAgainForTabGroups,
   setSessionDateBasis,
   setTimeFormat,

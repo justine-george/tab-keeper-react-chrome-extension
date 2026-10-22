@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { screen } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { TabGroupsPermissionModal } from '../../components/modals/TabGroupsPermissionModal';
@@ -7,25 +7,14 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { openTabGroupsPrompt } from '../../redux/slices/globalStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { DIALOG } from '../../styles/scale';
-import { SettingsData } from '../../redux/slices/settingsDataStateSlice';
-import {
-  asPartialSettings,
-  loadFromLocalStorage,
-} from '../../utils/functions/local';
 import { rgb } from '../setup/hexColor';
+import { testI18n } from '../setup/i18nForTests';
+import de from '../../../public/locales/de/translation.json';
+import ja from '../../../public/locales/ja/translation.json';
 
-// The modal reads its escalation flag straight out of localStorage (as
-// showReviewCard does), so these tests write it there rather than into the
-// store. Cleared each time so one test's dismissal cannot reveal the permanent
-// opt-out in the next.
+// Cleared each time so no test inherits another's stored settings.
 beforeEach(() => localStorage.clear());
 afterEach(() => localStorage.clear());
-
-const storedSettings = () =>
-  asPartialSettings<SettingsData>(loadFromLocalStorage('settingsData'));
-
-const seedSettings = (settings: Partial<SettingsData>) =>
-  localStorage.setItem('settingsData', JSON.stringify(settings));
 
 // The prompt is opened by App.tsx in production. Here it is opened directly,
 // synchronously, before first render -- see renderWithProviders' note on why
@@ -41,7 +30,7 @@ describe('TabGroupsPermissionModal', () => {
     expect(screen.queryByText('Tab Keeper can save tab groups')).toBeNull();
   });
 
-  test('the footer is Not now on the left and a filled Turn on on the right', async () => {
+  test("the footer is the sync dialog's pair: Not now then a filled Turn on", async () => {
     await renderWithProviders(<TabGroupsPermissionModal />, {
       seedStore: openWith(2),
     });
@@ -53,6 +42,11 @@ describe('TabGroupsPermissionModal', () => {
     expect(notNow.nextElementSibling).toBe(turnOn);
     expect(turnOn.parentElement?.lastElementChild).toBe(turnOn);
     expect(turnOn.querySelector('.material-symbols-outlined')).toBeNull();
+    // KAN-732. Not now is the quiet outlined button, not a link.
+    const quiet = getComputedStyle(notNow);
+    expect(quiet.textDecorationLine).not.toBe('underline');
+    expect(quiet.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(quiet.borderColor).toBe(rgb(LIGHT_THEME.CONTROL_BORDER_COLOR));
     // The `filled` dialog style: TEXT_COLOR ground, PRIMARY_COLOR letters.
     const fill = getComputedStyle(turnOn);
     expect(fill.backgroundColor).toBe(rgb(LIGHT_THEME.TEXT_COLOR));
@@ -89,62 +83,63 @@ describe('TabGroupsPermissionModal', () => {
   });
 });
 
-describe('TabGroupsPermissionModal escalation', () => {
-  // The escape hatch is EARNED, not offered. A user seeing this for the first
-  // time gets two choices; only one who has already declined once gets the
-  // permanent opt-out.
-  test('the permanent opt-out is absent on a first showing', async () => {
-    await renderWithProviders(<TabGroupsPermissionModal />, {
-      seedStore: openWith(2),
-    });
-
-    expect(screen.queryByText("Don't ask again")).toBeNull();
-  });
-
-  // Measured in a live popup before this was fixed: rendered as a NormalLabel
-  // (a bare `<div onClick>`), "Not now" reached the accessibility tree as
-  // StaticText -- a control a keyboard user cannot reach at all. getByRole is
-  // the assertion that says so; getByText passes either way, which is why the
-  // clicks below are deliberately left on getByText and this test carries the
-  // role check on its own.
-  test('both dismissals are real buttons, reachable by keyboard', async () => {
-    seedSettings({ isTabGroupsPromptAnsweredOnce: true });
-
-    await renderWithProviders(<TabGroupsPermissionModal />, {
-      seedStore: openWith(2),
-    });
-
-    expect(screen.getByRole('button', { name: 'Not now' })).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: "Don't ask again" })
-    ).toBeTruthy();
-  });
-
-  test('"Not now" records the dismissal and closes, without opting out for good', async () => {
-    await renderWithProviders(<TabGroupsPermissionModal />, {
-      seedStore: openWith(2),
-    });
-
-    await userEvent.click(screen.getByText('Not now'));
-
-    expect(storedSettings().isTabGroupsPromptAnsweredOnce).toBe(true);
-    // The whole point of "later means later": declining once must NOT set the
-    // flag that stops the offer permanently.
-    expect(storedSettings().isNeverAskAgainForTabGroups ?? false).toBe(false);
-  });
-
-  test('"Don\'t ask again" opts out for good', async () => {
-    seedSettings({ isTabGroupsPromptAnsweredOnce: true });
-
+describe('TabGroupsPermissionModal answers', () => {
+  // KAN-732. No opt-out: Not now only closes, and the offer returns on the next open.
+  test('Not now closes and writes nothing to settings', async () => {
     const { store } = await renderWithProviders(<TabGroupsPermissionModal />, {
       seedStore: openWith(2),
     });
+    const before = localStorage.getItem('settingsData');
+    const beforeState = store.getState().settingsDataState;
 
-    await userEvent.click(screen.getByText("Don't ask again"));
+    await userEvent.click(screen.getByRole('button', { name: 'Not now' }));
 
-    expect(storedSettings().isNeverAskAgainForTabGroups).toBe(true);
     expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
+    expect(localStorage.getItem('settingsData')).toBe(before);
+    expect(store.getState().settingsDataState).toEqual(beforeState);
   });
+
+  // An older build stored this flag to unlock "Don't ask again"; it unlocks nothing now.
+  test('a 1.9 user who answered once sees two buttons and no opt-out', async () => {
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({ isTabGroupsPromptAnsweredOnce: true })
+    );
+
+    await renderWithProviders(<TabGroupsPermissionModal />, {
+      seedStore: openWith(2),
+    });
+
+    expect(
+      within(screen.getByRole('dialog')).getAllByRole('button')
+    ).toHaveLength(2);
+    expect(screen.queryByText("Don't ask again")).toBeNull();
+  });
+
+  // The shared key, as the sync dialog says it; the offer's own read "Jetzt nicht" and "後で".
+  test.each([
+    ['de', de, 'Nicht jetzt'],
+    ['ja', ja, 'あとで'],
+  ] as const)(
+    "Not now reads as the sync dialog's in %s",
+    async (lang, bundle, label) => {
+      // After render: renderWithProviders re-inits i18n with en only.
+      await renderWithProviders(<TabGroupsPermissionModal />, {
+        seedStore: openWith(2),
+      });
+      testI18n.addResourceBundle(lang, 'translation', bundle);
+      try {
+        await act(async () => {
+          await testI18n.changeLanguage(lang);
+        });
+        expect(screen.getByRole('button', { name: label })).toBeTruthy();
+      } finally {
+        await act(async () => {
+          await testI18n.changeLanguage('en');
+        });
+      }
+    }
+  );
 });
 
 describe('TabGroupsPermissionModal permission request', () => {
@@ -180,48 +175,19 @@ describe('TabGroupsPermissionModal permission request', () => {
     expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
   });
 
-  // Nothing may write a "granted" boolean into settings. The grant lives in
-  // chrome.permissions and is re-read on the next mount; a persisted mirror
-  // would disagree with reality the moment the user revoked it. The answered
-  // flag is the one write allowed: it records that the offer was put to the
-  // user, which is true whatever they then told Chrome.
-  test('turning it on persists no grant flag of its own', async () => {
-    const { store } = await renderWithProviders(<TabGroupsPermissionModal />, {
-      seedStore: openWith(2),
-    });
-    const before = store.getState().settingsDataState;
-
-    await userEvent.click(screen.getByRole('button', { name: 'Turn on' }));
-
-    expect(storedSettings()).toEqual({
-      ...before,
-      isTabGroupsPromptAnsweredOnce: true,
-    });
-  });
-
-  // The deny dead end, found by pressing Deny on a real Chrome prompt.
-  //
-  // The CTA is the ONLY route to a native denial, and a denial is invisible to
-  // this popup (permissions.request() may never settle, and may destroy the
-  // popup outright). So if clicking the CTA recorded nothing, a user who
-  // answered Enable -> Deny every time would never unlock "Don't ask again":
-  // an unbounded prompt with no escape hatch. Taking the CTA has to count as
-  // having been asked.
-  test('the CTA unlocks the opt-out, so an Enable-then-Deny user is not trapped', async () => {
+  // Nothing may write a "granted" boolean into settings: the grant lives in
+  // chrome.permissions and is re-read on the next mount.
+  test('turning it on writes nothing to settings', async () => {
     await renderWithProviders(<TabGroupsPermissionModal />, {
       seedStore: openWith(2),
     });
-
-    expect(screen.queryByText("Don't ask again")).toBeNull();
+    const before = localStorage.getItem('settingsData');
 
     await userEvent.click(screen.getByRole('button', { name: 'Turn on' }));
 
-    // Chrome's answer never reaches us, so the flag is what the NEXT popup
-    // reads to decide whether the escape hatch has been earned.
-    expect(storedSettings().isTabGroupsPromptAnsweredOnce).toBe(true);
+    expect(localStorage.getItem('settingsData')).toBe(before);
   });
 });
-
 // KAN-501. Built like the confirm dialogs and the review prompt: their width
 // and an icon-and-title row with the tab-group glyph.
 describe('TabGroupsPermissionModal in the dialog family', () => {

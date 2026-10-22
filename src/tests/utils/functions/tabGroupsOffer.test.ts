@@ -55,11 +55,14 @@ describe('shouldOfferTabGroups', () => {
     expect(await shouldOfferTabGroups()).toBeNull();
   });
 
-  // "Not now" means later, and later means the very next open. A single
-  // dismissal must suppress nothing -- only the permanent opt-out does.
-  test('still offers after the user has dismissed it once', async () => {
+  // "Not now" means later, and later means the very next open. The flag an
+  // older build stored after one answer suppresses nothing.
+  test('a stored answered-once flag from an older build still offers', async () => {
     handle = setupChromeFake(twoGroupsUngranted);
-    seedSettings({ isTabGroupsPromptAnsweredOnce: true });
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({ isTabGroupsPromptAnsweredOnce: true })
+    );
 
     expect(await shouldOfferTabGroups()).toBe(2);
   });
