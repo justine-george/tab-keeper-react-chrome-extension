@@ -17,6 +17,7 @@ import {
   EXPORT_PALETTE,
   type ExportScheme,
 } from '../../utils/functions/sessionExportHtml';
+import { isPngDataUri } from '../../utils/functions/exportIcons';
 import {
   partitionTabsIntoRuns,
   sanitizeTabGroupColor,
@@ -29,6 +30,8 @@ interface ExportEditorProps {
   edits: ExportEdits;
   /** The file's scheme, so the rows being edited look like the file. */
   scheme: ExportScheme;
+  /** KAN-603. Each tab address's icon, the same map the file is built from. */
+  icons: ReadonlyMap<string, string>;
   onRename: (key: string, title: string) => void;
   onToggleHidden: (key: string) => void;
 }
@@ -57,6 +60,7 @@ export default function ExportEditor({
   session,
   edits,
   scheme,
+  icons,
   onRename,
   onToggleHidden,
 }: ExportEditorProps) {
@@ -183,6 +187,40 @@ export default function ExportEditor({
     />
   );
 
+  // KAN-603. The file's reserved 16px slot; in dark the icon sits at 14px on the plate.
+  const iconSlotStyle = css`
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: ${scheme === 'dark' ? '4px' : '0'};
+    background-color: ${palette.iconPlate};
+  `;
+
+  const iconSlot = (url: string) => {
+    const image = icons.get(url);
+    const size = scheme === 'dark' ? 14 : 16;
+    return (
+      <span data-icon-slot data-dims aria-hidden="true" css={iconSlotStyle}>
+        {image !== undefined && isPngDataUri(image) && (
+          <img
+            src={image}
+            alt=""
+            width={size}
+            height={size}
+            css={css`
+              display: block;
+              width: ${size}px;
+              height: ${size}px;
+            `}
+          />
+        )}
+      </span>
+    );
+  };
+
   const tabRow = (window: windowGroupData, tab: tabData, index: number) => {
     const key = exportRowKey.tab(window, tab.tabId);
     const name = tab.title || tab.url;
@@ -202,6 +240,7 @@ export default function ExportEditor({
         ]}
         data-hidden={edits.hidden.has(key) || undefined}
       >
+        {iconSlot(tab.url)}
         {field(
           key,
           tab.title,

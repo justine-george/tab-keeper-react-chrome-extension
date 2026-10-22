@@ -874,6 +874,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
             session={tidied}
             edits={edits}
             scheme={scheme}
+            icons={new Map()}
             onRename={renameRow}
             onToggleHidden={toggleHidden}
           />

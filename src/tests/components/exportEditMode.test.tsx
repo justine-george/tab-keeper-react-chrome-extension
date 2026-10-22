@@ -2,10 +2,20 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import ExportEditor from '../../components/export/ExportEditor';
 import ExportPage from '../../components/export/ExportPage';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
+import {
+  exportRowKey,
+  NO_EXPORT_EDITS,
+  type ExportEdits,
+} from '../../utils/functions/sessionExportEdits';
+import {
+  EXPORT_PALETTE,
+  type ExportScheme,
+} from '../../utils/functions/sessionExportHtml';
 
 // KAN-734. The build ships Save as HTML hidden; tests that need it turn it on.
 const saveSwitch = vi.hoisted(() => ({ shown: false }));
@@ -567,5 +577,98 @@ describe('a window with no name in the editor (KAN-394)', () => {
     expect(
       screen.getByRole('button', { name: 'Hide: Trip planning' })
     ).toBeInTheDocument();
+  });
+});
+
+// KAN-603. Each tab row in the editor shows the icon the file draws for it.
+describe('the icons in Edit mode (KAN-603)', () => {
+  const INARI = 'data:image/png;base64,SU5BUkk=';
+
+  const renderEditor = (
+    icons: ReadonlyMap<string, string>,
+    scheme: ExportScheme = 'light',
+    edits: ExportEdits = NO_EXPORT_EDITS
+  ) =>
+    renderWithProviders(
+      <ExportEditor
+        session={SESSION}
+        edits={edits}
+        scheme={scheme}
+        icons={icons}
+        onRename={() => {}}
+        onToggleHidden={() => {}}
+      />
+    );
+
+  const imageIn = (slot: HTMLElement): HTMLElement => {
+    const image = slot.querySelector('img');
+    if (!image) throw new Error('no icon image in the slot');
+    return image;
+  };
+
+  const slots = () => [
+    ...document.querySelectorAll<HTMLElement>('[data-icon-slot]'),
+  ];
+
+  test('every tab row has one slot, before its name field; group and window rows have none', async () => {
+    await renderEditor(new Map());
+    const tabFields = screen.getAllByRole('textbox', { name: /^Rename tab/ });
+
+    expect(slots()).toHaveLength(tabFields.length);
+    for (const field of tabFields) {
+      const row = field.closest('li');
+      expect(row?.querySelectorAll('[data-icon-slot]')).toHaveLength(1);
+      expect(field.previousElementSibling?.hasAttribute('data-icon-slot')).toBe(
+        true
+      );
+    }
+    for (const slot of slots()) {
+      expect(getComputedStyle(slot).width).toBe('16px');
+    }
+  });
+
+  test('a cached icon shows as an image; a missing or bad one leaves the slot empty', async () => {
+    await renderEditor(
+      new Map([
+        ['https://inari.jp/en/', INARI],
+        ['https://jr.example/nozomi', 'javascript:alert(1)'],
+      ])
+    );
+    const [inari, nozomi, apple] = slots();
+
+    expect(inari.querySelector('img')?.getAttribute('src')).toBe(INARI);
+    expect(inari.querySelector('img')?.getAttribute('alt')).toBe('');
+    expect(nozomi.querySelector('img')).toBeNull();
+    expect(apple.querySelector('img')).toBeNull();
+    expect(document.body.innerHTML).not.toContain('javascript:alert(1)');
+  });
+
+  test('a hidden row dims its icon with it', async () => {
+    const window = SESSION.windows[0];
+    await renderEditor(new Map([['https://inari.jp/en/', INARI]]), 'light', {
+      titles: {},
+      hidden: new Set([exportRowKey.tab(window, 't-1')]),
+    });
+    const [inari, nozomi] = slots();
+
+    expect(inari.hasAttribute('data-dims')).toBe(true);
+    expect(inari.closest('li')?.hasAttribute('data-hidden')).toBe(true);
+    expect(nozomi.closest('li')?.hasAttribute('data-hidden')).toBe(false);
+  });
+
+  test('dark puts the icon on the plate; light has none', async () => {
+    const icons = new Map([['https://inari.jp/en/', INARI]]);
+    const { unmount } = await renderEditor(icons, 'dark');
+    const dark = getComputedStyle(slots()[0]);
+    const darkImage = getComputedStyle(imageIn(slots()[0]));
+    expect(dark.backgroundColor).toBe('rgb(232, 234, 237)');
+    expect(darkImage.width).toBe('14px');
+    unmount();
+
+    await renderEditor(icons, 'light');
+    const light = getComputedStyle(slots()[0]);
+    expect(EXPORT_PALETTE.light.iconPlate).toBe('transparent');
+    expect(light.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(getComputedStyle(imageIn(slots()[0])).width).toBe('16px');
   });
 });
