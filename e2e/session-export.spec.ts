@@ -212,8 +212,24 @@ test.describe('exporting a session as a web page', () => {
     const reader = await context.newPage();
     const requested: string[] = [];
     reader.on('request', (request) => requested.push(request.url()));
+    const consoleLines: string[] = [];
+    reader.on('console', (message) => consoleLines.push(message.text()));
     await reader.goto(`file://${file}`);
     await reader.waitForLoadState('networkidle');
+
+    // KAN-603. The icons are inlined, so they draw under the file's own rule.
+    const drawn = await reader
+      .locator('.fav')
+      .evaluateAll(
+        (slots) =>
+          slots.filter(
+            (slot) => getComputedStyle(slot).backgroundImage !== 'none'
+          ).length
+      );
+    expect(drawn).toBeGreaterThan(0);
+    expect(
+      consoleLines.filter((line) => line.includes('Content Security Policy'))
+    ).toEqual([]);
 
     await expect(
       reader.getByRole('link', { name: 'Fushimi Inari' })
@@ -1298,11 +1314,13 @@ test('an icon button is evenly padded on both sides', async ({
       const glyph = button
         .querySelector('.material-symbols-outlined')!
         .getBoundingClientRect();
-      // The label is the last direct span; `span` alone finds the glyph.
-      const label = [...button.children]
-        .filter((child) => child.tagName === 'SPAN')
-        .pop()!
-        .getBoundingClientRect();
+      // The resting label itself: with a wider second face (Print's
+      // "Preparing…", KAN-603) the faces' shared cell is wider than it.
+      const labelSpan = [...button.querySelectorAll('span')].find(
+        (span) => span.children.length === 0 && span.textContent === name
+      );
+      if (!labelSpan) throw new Error(`no label on ${name}`);
+      const label = labelSpan.getBoundingClientRect();
       return {
         left: Math.round(glyph.left - box.left),
         right: Math.round(box.right - label.right),

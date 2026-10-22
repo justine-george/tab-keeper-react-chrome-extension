@@ -15,6 +15,8 @@ export async function previewFile(
   prefix: string
 ): Promise<{ path: string; html: string }> {
   const frame = page.locator('iframe');
+  // KAN-603. The file as written, with its icons in place.
+  await expect(frame).toHaveAttribute('srcdoc', /data-icons="ready"/);
   await expect(frame).toHaveAttribute('srcdoc', /<\/html>/);
   const html = await frame.getAttribute('srcdoc');
   if (html === null) throw new Error('the export page shows no preview');
