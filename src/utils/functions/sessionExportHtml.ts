@@ -9,6 +9,7 @@ import {
   TAB_GROUP_COLOR_HEX,
 } from './tabGroups';
 import { windowLabel } from './windowLabel';
+import { isPngDataUri } from './exportIcons';
 import { CORNER_SHAPE } from '../../styles/scale';
 import {
   CHALK_THEME,
@@ -41,13 +42,16 @@ export interface ExportPalette {
   visited: string;
   plain: string;
   groupBg: string;
+  // KAN-603. Behind each icon in dark, so a black one (GitHub's) stays visible.
+  iconPlate: string;
 }
 
 // KAN-731. Chalk's and Charcoal's own tokens; links keep their hues (blue and violet mean "link").
 const exportPaletteOf = (
   theme: ThemeColors,
   link: string,
-  visited: string
+  visited: string,
+  iconPlate: string
 ): ExportPalette => ({
   bg: theme.PRIMARY_COLOR.toLowerCase(),
   text: theme.TEXT_COLOR.toLowerCase(),
@@ -57,11 +61,12 @@ const exportPaletteOf = (
   visited,
   plain: theme.PLACEHOLDER_COLOR.toLowerCase(),
   groupBg: theme.SECONDARY_COLOR.toLowerCase(),
+  iconPlate,
 });
 
 export const EXPORT_PALETTE: Record<ExportScheme, ExportPalette> = {
-  light: exportPaletteOf(CHALK_THEME, '#1a56c4', '#6b3fb0'),
-  dark: exportPaletteOf(CHARCOAL_THEME, '#8ab4f8', '#c7a4f5'),
+  light: exportPaletteOf(CHALK_THEME, '#1a56c4', '#6b3fb0', 'transparent'),
+  dark: exportPaletteOf(CHARCOAL_THEME, '#8ab4f8', '#c7a4f5', '#e8eaed'),
 };
 
 export interface SessionExportOptions {
@@ -94,6 +99,10 @@ export interface SessionExportOptions {
   mark: string;
   storeUrl: string;
   savedOn: string;
+  /** KAN-603. Each tab address's icon, as a PNG data: URI; a missing one leaves the slot empty. */
+  icons: ReadonlyMap<string, string>;
+  /** KAN-603. Marks the body once icons have settled, for Print and the specs. */
+  iconsReady: boolean;
 }
 
 // This module is imported by the popup and by the export page, and it must
@@ -162,35 +171,70 @@ function shownUrl(url: string, layout: ExportLayout): string {
   }
 }
 
-function tabHtml(tab: tabData, options: SessionExportOptions): string {
+// KAN-603. Each distinct image's class, numbered in first-use order over the rows the file keeps.
+type IconClasses = ReadonlyMap<string, string>;
+
+function iconClassesOf(
+  session: tabContainerData,
+  icons: ReadonlyMap<string, string>
+): IconClasses {
+  const classOfImage = new Map<string, string>();
+  for (const window of session.windows) {
+    for (const tab of window.tabs) {
+      const image = icons.get(tab.url);
+      if (image === undefined || !isPngDataUri(image)) continue;
+      if (!classOfImage.has(image)) {
+        classOfImage.set(image, `i${classOfImage.size}`);
+      }
+    }
+  }
+  return classOfImage;
+}
+
+function tabHtml(
+  tab: tabData,
+  options: SessionExportOptions,
+  iconClasses: IconClasses
+): string {
   const label = escapeHtml(labelOf(tab));
   const url = escapeHtml(tab.url);
   const shown = escapeHtml(shownUrl(tab.url, options.layout));
+  const image = options.icons.get(tab.url);
+  const iconClass = image === undefined ? undefined : iconClasses.get(image);
+  const slot = `<span class="${iconClass ? `fav ${iconClass}` : 'fav'}" aria-hidden="true"></span>`;
+  // Comfortable hangs the slot beside one block, so the title and the address share a left edge.
+  const row = (inner: string) =>
+    options.layout === 'comfortable'
+      ? `<li class="tab">${slot}<div class="body">${inner}</div></li>`
+      : `<li class="tab">${slot}${inner}</li>`;
 
   if (!LINKABLE.test(tab.url)) {
-    return (
-      `<li class="tab"><span class="plain">${label}</span>` +
-      `<span class="note">${escapeHtml(options.strings.notAWebLink)}</span>` +
-      `<div class="url">${shown}</div></li>`
+    return row(
+      `<span class="plain">${label}</span>` +
+        `<span class="note">${escapeHtml(options.strings.notAWebLink)}</span>` +
+        `<div class="url">${shown}</div>`
     );
   }
 
-  return (
-    `<li class="tab"><a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>` +
-    `<div class="url">${shown}</div></li>`
+  return row(
+    `<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>` +
+      `<div class="url">${shown}</div>`
   );
 }
 
 function windowHtml(
   window: windowGroupData,
   index: number,
-  options: SessionExportOptions
+  options: SessionExportOptions,
+  iconClasses: IconClasses
 ): string {
   const runs = partitionTabsIntoRuns(window.tabs, window.chromeTabGroups);
 
   const body = runs
     .map((run) => {
-      const tabs = run.tabs.map((tab) => tabHtml(tab, options)).join('');
+      const tabs = run.tabs
+        .map((tab) => tabHtml(tab, options, iconClasses))
+        .join('');
       if (run.kind === 'ungrouped') return tabs;
 
       const color = TAB_GROUP_COLOR_HEX[sanitizeTabGroupColor(run.group.color)];
@@ -219,8 +263,11 @@ function windowHtml(
  * Both layouts ship in every file and one class on <body> chooses between
  * them, so the two can never drift into different documents.
  */
-function styles(scheme: ExportScheme): string {
+function styles(scheme: ExportScheme, iconClasses: IconClasses): string {
   const palette = EXPORT_PALETTE[scheme];
+  const iconRules = [...iconClasses]
+    .map(([image, name]) => `.${name}{background-image:url(${image})}`)
+    .join('');
   return (
     `:root{--bg:${palette.bg};--text:${palette.text};--muted:${palette.muted};--rule:${palette.rule};--link:${palette.link};--visited:${palette.visited};--plain:${palette.plain};--group-bg:${palette.groupBg};color-scheme:${scheme}}` +
     `*{box-sizing:border-box}` +
@@ -236,6 +283,11 @@ function styles(scheme: ExportScheme): string {
     `.note{font-size:11px;color:var(--muted);border:1px solid var(--rule);border-radius:3px;corner-shape:${CORNER_SHAPE};padding:0 5px;margin-left:6px;white-space:nowrap}` +
     `.group{border-left:4px solid;background:var(--group-bg)}` +
     `.group-name{font-weight:600;margin:0 0 2px}` +
+    // KAN-603. A reserved 16px slot per row; in dark the icon sits at 14px on a light plate.
+    (scheme === 'dark'
+      ? `.fav{flex:none;display:inline-block;width:16px;height:16px;background-color:${palette.iconPlate};background-size:14px;background-position:center;background-repeat:no-repeat;border-radius:4px}`
+      : `.fav{flex:none;display:inline-block;width:16px;height:16px;background-size:16px;background-position:center;background-repeat:no-repeat}`) +
+    iconRules +
     `.sig{margin-top:34px;padding-top:14px;border-top:1px solid var(--rule);color:var(--muted);font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}` +
     `.sig img{border-radius:4px;corner-shape:${CORNER_SHAPE}}` +
     `.sig strong{color:var(--text);font-weight:600}` +
@@ -243,7 +295,9 @@ function styles(scheme: ExportScheme): string {
     // Comfortable: a reading layout, the whole URL under each link.
     `.comfortable h2{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--rule);font-weight:600}` +
     `.comfortable h2 span{text-transform:none;letter-spacing:0;font-weight:400}` +
-    `.comfortable li.tab{padding:7px 0}` +
+    `.comfortable li.tab{padding:7px 0;display:flex;gap:10px;align-items:flex-start}` +
+    `.comfortable li.tab .fav{margin-top:3px}` +
+    `.comfortable li.tab .body{min-width:0}` +
     `.comfortable .group{margin:8px 0;padding:6px 0 6px 14px;border-radius:0 4px 4px 0;corner-shape:${CORNER_SHAPE}}` +
     `.comfortable .group-name{font-size:13px}` +
     `.comfortable .group li.tab{padding:5px 12px 5px 0}` +
@@ -255,6 +309,7 @@ function styles(scheme: ExportScheme): string {
     // Rules sit between rows: a list's last row draws none, so the file never
     // ends on a rule above the footer's (KAN-740).
     `.compact li.tab:last-child{border-bottom:0}` +
+    `.compact li.tab .fav{align-self:center}` +
     `.compact li.tab a,.compact li.tab .plain{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}` +
     `.compact li.tab .url{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}` +
     // Padding on BOTH sides: the site sits at the right end of a compact row,
@@ -315,8 +370,9 @@ export function sessionToHtml(
   options: SessionExportOptions
 ): string {
   const title = escapeHtml(session.title);
+  const iconClasses = iconClassesOf(session, options.icons);
   const windows = session.windows
-    .map((window, index) => windowHtml(window, index, options))
+    .map((window, index) => windowHtml(window, index, options, iconClasses))
     .join('');
 
   // Joined rather than concatenated, so a capture with no date line (KAN-208)
@@ -330,8 +386,8 @@ export function sessionToHtml(
     `<!doctype html><html><head><meta charset="utf-8">` +
     `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:">` +
     `<meta name="viewport" content="width=device-width, initial-scale=1">` +
-    `<title>${title}</title><style>${styles(options.scheme)}</style></head>` +
-    `<body class="${options.layout}"><main>` +
+    `<title>${title}</title><style>${styles(options.scheme, iconClasses)}</style></head>` +
+    `<body class="${options.layout}"${options.iconsReady ? ' data-icons="ready"' : ''}><main>` +
     `<h1>${title}</h1>` +
     `<p class="meta">${meta}</p>` +
     `${windows}${signature(options)}</main></body></html>`

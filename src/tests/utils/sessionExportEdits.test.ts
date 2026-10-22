@@ -92,6 +92,8 @@ const OPTIONS: SessionExportOptions = {
   mark: 'data:image/png;base64,',
   storeUrl: 'https://store.example/',
   savedOn: 'Sep 15, 2026',
+  icons: new Map(),
+  iconsReady: false,
 };
 
 describe('applying export edits (KAN-194)', () => {

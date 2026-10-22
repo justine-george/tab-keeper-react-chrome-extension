@@ -36,6 +36,8 @@ const options = (
   mark: MARK,
   storeUrl: STORE,
   savedOn: 'Sep 15, 2026',
+  icons: new Map(),
+  iconsReady: false,
   ...overrides,
 });
 
@@ -348,6 +350,7 @@ describe('the exported palettes (KAN-731)', () => {
         visited: '#6b3fb0',
         plain: '#6c6e75',
         groupBg: '#f3f5f7',
+        iconPlate: 'transparent',
       },
       dark: {
         bg: '#18191a',
@@ -358,6 +361,7 @@ describe('the exported palettes (KAN-731)', () => {
         visited: '#c7a4f5',
         plain: '#97999e',
         groupBg: '#242528',
+        iconPlate: '#e8eaed',
       },
     });
   });
@@ -622,4 +626,172 @@ describe('a window with no name (KAN-394)', () => {
     expect(html).toContain('<h2>Window 2 · Trip planning <span>(');
     expect(html).not.toContain('Window 1 ·');
   });
+});
+
+// KAN-603. Each tab row starts with its page's icon, inlined once per image.
+describe('the icons (KAN-603)', () => {
+  const A = 'data:image/png;base64,QUFB';
+  const B = 'data:image/png;base64,QkJC';
+
+  const session = (urls: string[]) =>
+    buildSession({
+      windows: [
+        {
+          windowId: 'w-1',
+          windowHeight: 1080,
+          windowWidth: 1920,
+          windowOffsetTop: 0,
+          windowOffsetLeft: 0,
+          tabCount: urls.length,
+          title: '',
+          tabs: urls.map((url, i) =>
+            tab({ tabId: `t-${i}`, title: `T${i}`, url })
+          ),
+        },
+      ],
+    });
+
+  const rows = (html: string) =>
+    [...html.matchAll(/<li class="tab">([\s\S]*?)<\/li>/g)].map((m) => m[1]);
+  const slotClass = (row: string) =>
+    /^<span class="(fav[^"]*)" aria-hidden="true"><\/span>/.exec(row)?.[1];
+
+  test.each(['compact', 'comfortable'] as const)(
+    '%s: every tab row starts with one slot',
+    (layout) => {
+      const html = sessionToHtml(
+        session(['https://a.test/', 'chrome://settings/', '']),
+        options({ layout, icons: new Map([['https://a.test/', A]]) })
+      );
+      const all = rows(html);
+      expect(all).toHaveLength(3);
+      for (const row of all) {
+        expect(slotClass(row)).toBeDefined();
+        expect(row.split('class="fav').length - 1).toBe(1);
+      }
+    }
+  );
+
+  test('two rows with the same image write it once and share a class', () => {
+    const html = sessionToHtml(
+      session(['https://a.test/x', 'https://a.test/y']),
+      options({
+        icons: new Map([
+          ['https://a.test/x', A],
+          ['https://a.test/y', A],
+        ]),
+      })
+    );
+    expect(html.split(A).length - 1).toBe(1);
+    const [first, second] = rows(html).map(slotClass);
+    expect(first).toMatch(/^fav i\d+$/);
+    expect(second).toBe(first);
+  });
+
+  test('a row whose address is not in the map carries a bare slot', () => {
+    const html = sessionToHtml(
+      session(['https://a.test/', 'https://none.test/']),
+      options({ icons: new Map([['https://a.test/', A]]) })
+    );
+    expect(rows(html).map(slotClass)).toEqual(['fav i0', 'fav']);
+  });
+
+  test('an icon no kept row uses is never written', () => {
+    const html = sessionToHtml(
+      session(['https://a.test/']),
+      options({
+        icons: new Map([
+          ['https://a.test/', A],
+          ['https://b.test/', B],
+        ]),
+      })
+    );
+    expect(html).toContain(A);
+    expect(html).not.toContain(B);
+    expect(html).not.toContain('.i1');
+  });
+
+  test('dark puts each icon on a plate; light has none', () => {
+    const icons = new Map([['https://a.test/', A]]);
+    const dark = sessionToHtml(
+      session(['https://a.test/']),
+      options({ scheme: 'dark', icons })
+    );
+    const light = sessionToHtml(
+      session(['https://a.test/']),
+      options({ scheme: 'light', icons })
+    );
+    expect(dark).toMatch(/\.fav\{[^}]*background-color:#e8eaed/);
+    expect(dark).toMatch(/\.fav\{[^}]*background-size:14px/);
+    expect(light).not.toMatch(/\.fav\{[^}]*background-color/);
+    expect(light).toMatch(/\.fav\{[^}]*background-size:16px/);
+  });
+
+  test('comfortable hangs the slot beside one block holding the title and the address', () => {
+    const html = sessionToHtml(
+      session(['https://a.test/', 'chrome://settings/']),
+      options({
+        layout: 'comfortable',
+        icons: new Map([['https://a.test/', A]]),
+      })
+    );
+    const [link, plain] = rows(html);
+    expect(link).toMatch(
+      /^<span class="fav i0" aria-hidden="true"><\/span><div class="body"><a [^>]*>T0<\/a><div class="url">https:\/\/a\.test\/<\/div><\/div>$/
+    );
+    expect(plain).toMatch(
+      /^<span class="fav" aria-hidden="true"><\/span><div class="body"><span class="plain">T1<\/span>.*<div class="url">chrome:\/\/settings\/<\/div><\/div>$/
+    );
+    expect(html).toMatch(/\.comfortable li\.tab\{[^}]*display:flex/);
+  });
+
+  test.each([
+    'data:image/png;base64,',
+    'https://x/i.png',
+    'javascript:alert(1)',
+    'data:image/png;base64,AQ"ID',
+    'data:image/png;base64,AQ)ID',
+    'data:image/png;base64,AQ}ID',
+    'data:image/svg+xml;base64,AQID',
+  ])('a value that is not a PNG data URI is never written: %s', (bad) => {
+    const html = sessionToHtml(
+      session(['https://a.test/']),
+      options({ icons: new Map([['https://a.test/', bad]]) })
+    );
+    expect(rows(html).map(slotClass)).toEqual(['fav']);
+    // Not toContain(bad): the bare prefix is also the footer mark's.
+    expect(html).not.toContain('background-image');
+  });
+
+  test('the body says the icons are ready only when told', () => {
+    const ready = sessionToHtml(
+      session(['https://a.test/']),
+      options({ iconsReady: true })
+    );
+    const loading = sessionToHtml(session(['https://a.test/']), options());
+    expect(ready).toContain('<body class="comfortable" data-icons="ready">');
+    expect(loading).toContain('<body class="comfortable">');
+    expect(loading).not.toContain('data-icons');
+  });
+
+  test('the security rule is unchanged with icons in the file', () => {
+    const html = sessionToHtml(
+      session(['https://a.test/']),
+      options({ icons: new Map([['https://a.test/', A]]), iconsReady: true })
+    );
+    expect(html).toContain(
+      `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:">`
+    );
+  });
+
+  // A UI component holds 3:1; the plate has to read against both grounds.
+  test.each(['bg', 'groupBg'] as const)(
+    'the dark plate holds 3:1 on %s',
+    (ground) => {
+      const palette = EXPORT_PALETTE.dark;
+      expect(
+        contrast(palette.iconPlate, palette[ground])
+      ).toBeGreaterThanOrEqual(3);
+    }
+  );
 });

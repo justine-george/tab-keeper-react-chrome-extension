@@ -322,6 +322,8 @@ export default function ExportPage({ source }: { source: ExportSource }) {
         month: 'short',
         day: 'numeric',
       }),
+      icons: new Map(),
+      iconsReady: false,
     });
   }, [
     session,
