@@ -1,11 +1,11 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import type { Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { sessionHeaderMenu } from './fixtures/menus';
+import { previewFile } from './fixtures/previewFile';
 import { waitForFontsLoaded } from './fixtures/fonts';
 import {
   buildContainer,
@@ -99,7 +99,7 @@ async function openPopup(
 }
 
 test.describe('exporting a session as a web page', () => {
-  test('Export… in the session menu opens a preview of the file, and Save writes it', async ({
+  test('Export… in the session menu opens a preview of the file, and the file holds the session', async ({
     context,
     extensionId,
   }) => {
@@ -127,21 +127,7 @@ test.describe('exporting a session as a web page', () => {
       0
     );
 
-    const [download] = await Promise.all([
-      exportPage.waitForEvent('download'),
-      exportPage.getByRole('button', { name: 'Save as HTML' }).click(),
-    ]);
-
-    expect(download.suggestedFilename()).toMatch(
-      /^Weekend in Kyoto - \d{4}-\d{2}-\d{2}\.html$/
-    );
-
-    const file = join(
-      mkdtempSync(join(tmpdir(), 'tabkeeper-export-')),
-      'saved.html'
-    );
-    await download.saveAs(file);
-    const html = readFileSync(file, 'utf8');
+    const { html } = await previewFile(exportPage, 'tabkeeper-export-');
 
     for (const url of WEB_URLS) expect(html).toContain(`href="${url}"`);
     expect(html).not.toContain('href="chrome://settings/downloads"');
@@ -149,6 +135,29 @@ test.describe('exporting a session as a web page', () => {
     expect(html).toContain('#8ab4f8');
     expect(html).toContain('data:image/png;base64,');
     expect(html).toContain('ref=export');
+  });
+
+  // KAN-734. The build ships with the HTML file hidden; Copy and PDF stay.
+  test('the shipped toolbar has no Save as HTML (KAN-734)', async ({
+    context,
+    extensionId,
+  }) => {
+    const popup = await openPopup(context, extensionId);
+    const [exportPage] = await Promise.all([
+      context.waitForEvent('page'),
+      chooseExport(popup),
+    ]);
+    await exportPage.waitForLoadState();
+
+    await expect(
+      exportPage.getByRole('button', { name: 'Copy all links' })
+    ).toBeVisible();
+    await expect(
+      exportPage.getByRole('button', { name: 'PDF / Print' })
+    ).toBeVisible();
+    await expect(
+      exportPage.getByRole('button', { name: 'Save as HTML' })
+    ).toHaveCount(0);
   });
 
   test('the layout switch changes the file, and is remembered', async ({
@@ -197,15 +206,7 @@ test.describe('exporting a session as a web page', () => {
       chooseExport(popup),
     ]);
     await exportPage.waitForLoadState();
-    const [download] = await Promise.all([
-      exportPage.waitForEvent('download'),
-      exportPage.getByRole('button', { name: 'Save as HTML' }).click(),
-    ]);
-    const file = join(
-      mkdtempSync(join(tmpdir(), 'tabkeeper-export-')),
-      'saved.html'
-    );
-    await download.saveAs(file);
+    const { path: file } = await previewFile(exportPage, 'tabkeeper-export-');
 
     const reader = await context.newPage();
     const requested: string[] = [];
@@ -242,13 +243,8 @@ test('the printed PDF keeps every link the file has, and no others', async ({
     chooseExport(popup),
   ]);
   await exportPage.waitForLoadState();
-  const [download] = await Promise.all([
-    exportPage.waitForEvent('download'),
-    exportPage.getByRole('button', { name: 'Save as HTML' }).click(),
-  ]);
-  const dir = mkdtempSync(join(tmpdir(), 'tabkeeper-export-'));
-  const file = join(dir, 'saved.html');
-  await download.saveAs(file);
+  const { path: file } = await previewFile(exportPage, 'tabkeeper-export-');
+  const dir = dirname(file);
 
   const reader = await context.newPage();
   await reader.goto(`file://${file}`);
@@ -1210,7 +1206,8 @@ for (const width of [1200, 800, 480]) {
       };
     });
 
-    expect(shape.buttons, 'Edit, two choices, and three actions').toBe(8);
+    // KAN-734: Save as HTML is hidden, so two actions.
+    expect(shape.buttons, 'Edit, two choices, and two actions').toBe(7);
     expect(shape.groups, 'layout and colour').toBe(2);
     expect(
       shape.splitGroups,
@@ -1253,7 +1250,7 @@ test('the toolbar survives German at the popup width', async ({
   await expect(exportPage.getByRole('group', { name: 'Layout' })).toBeVisible();
   await expect(exportPage.getByRole('group', { name: 'Farbe' })).toBeVisible();
   await expect(
-    exportPage.getByRole('button', { name: 'Als HTML speichern' })
+    exportPage.getByRole('button', { name: 'Alle Links kopieren' })
   ).toBeVisible();
 
   const shape = await exportPage.evaluate(() => {
@@ -1310,7 +1307,7 @@ test('an icon button is evenly padded on both sides', async ({
         right: Math.round(box.right - label.right),
       };
     };
-    return ['PDF / Print', 'Copy all links', 'Save as HTML'].map((name) => ({
+    return ['PDF / Print', 'Copy all links'].map((name) => ({
       name,
       ...measure(name),
     }));
@@ -1408,15 +1405,7 @@ for (const layout of ['Comfortable', 'Compact'] as const) {
       await choose(exportPage, layout);
       await choose(exportPage, scheme);
 
-      const [download] = await Promise.all([
-        exportPage.waitForEvent('download'),
-        exportPage.getByRole('button', { name: 'Save as HTML' }).click(),
-      ]);
-      const file = join(
-        mkdtempSync(join(tmpdir(), 'tabkeeper-print-')),
-        'saved.html'
-      );
-      await download.saveAs(file);
+      const { path: file } = await previewFile(exportPage, 'tabkeeper-print-');
 
       const reader = await context.newPage();
       await reader.setViewportSize({ width: 816, height: 1056 });

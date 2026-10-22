@@ -86,12 +86,7 @@ for (const theme of ['Light', 'Darkenheimer']) {
   }) => {
     const page = await openExport(context, extensionId, theme);
 
-    for (const name of [
-      'Edit',
-      'Copy all links',
-      'Save as HTML',
-      'PDF / Print',
-    ]) {
+    for (const name of ['Edit', 'Copy all links', 'PDF / Print']) {
       const { press } = await held(page, page.getByRole('button', { name }));
       expect(press.scale, `${name} held`).toBeCloseTo(0.97, 3);
     }

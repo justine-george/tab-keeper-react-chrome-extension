@@ -1,10 +1,7 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import type { BrowserContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { previewFile } from './fixtures/previewFile';
 import { placeholderPaint, rgb } from './fixtures/pixels';
 import {
   buildContainer,
@@ -119,19 +116,7 @@ test('an edited export saves the renamed, trimmed file to disk', async ({
 
   await expect(page.getByText('2 Windows · 3 Tabs')).toBeVisible();
 
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Save as HTML' }).click(),
-  ]);
-  expect(download.suggestedFilename()).toMatch(
-    /^Tab Keeper launch links - \d{4}-\d{2}-\d{2}\.html$/
-  );
-  const path = join(
-    mkdtempSync(join(tmpdir(), 'export-edit-')),
-    download.suggestedFilename()
-  );
-  await download.saveAs(path);
-  const file = readFileSync(path, 'utf8');
+  const { html: file } = await previewFile(page, 'export-edit-');
 
   expect(file).toContain('<h1>Tab Keeper launch links</h1>');
   expect(file).toContain('>Our board</a>');
@@ -581,7 +566,7 @@ for (const width of [1600, 1000]) {
     ).toBe(1);
     // CONTROL: the pairs were found, so a pass is not an empty comparison.
     expect(resting.controls.map((c) => c.name)).toEqual(
-      expect.arrayContaining(['Layout', 'Colour', 'Edit', 'Save as HTML'])
+      expect.arrayContaining(['Layout', 'Colour', 'Edit', 'Copy all links'])
     );
   });
 }

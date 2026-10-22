@@ -1,7 +1,3 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import type { Locator, Page } from '@playwright/test';
 
 import {
@@ -12,6 +8,7 @@ import {
   selected,
 } from './fixtures/betweenSessions';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
+import { previewFile } from './fixtures/previewFile';
 import { differingPixels } from './fixtures/pixels';
 import {
   groupedWindow,
@@ -137,12 +134,7 @@ test('the export page and the file it saves draw squircles', async ({
   await page.mouse.move(2, 2);
 
   await page.getByRole('button', { name: 'Comfortable' }).click();
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Save as HTML' }).click(),
-  ]);
-  const path = join(mkdtempSync(join(tmpdir(), 'squircle-')), 'export.html');
-  await download.saveAs(path);
+  const { html: saved } = await previewFile(page, 'squircle-');
 
   await page.getByRole('button', { name: 'Edit' }).click();
   await page
@@ -159,7 +151,7 @@ test('the export page and the file it saves draw squircles', async ({
   // The saved file, in a browser.
   const file = await context.newPage();
   await file.setViewportSize({ width: 900, height: 900 });
-  await file.setContent(readFileSync(path, 'utf8'));
+  await file.setContent(saved);
   await expectSquircle(
     file,
     file.locator('.note').first(),
