@@ -22,7 +22,7 @@ import { buildSession } from '../fixtures/sessionFixture';
 const NAME = 'Search saved tabs';
 const MESSAGE = 'No saved tab matches "zzz"';
 const HINT =
-  'Search looks in session names, window names, tab titles and links.';
+  'Search looks in session names, window names, group names, tab titles and links.';
 
 const seedOne = (store: RenderWithProvidersResult['store']) => {
   store.dispatch(setHasTabGroupsPermission(false));

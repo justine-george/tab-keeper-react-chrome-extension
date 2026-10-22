@@ -65,9 +65,9 @@ export default function NoMatchState({
       <p css={hintStyle}>
         {scope === 'saved'
           ? t(
-              'Search looks in session names, window names, tab titles and links.'
+              'Search looks in session names, window names, group names, tab titles and links.'
             )
-          : t('Search looks in tab titles and links.')}
+          : t('Search looks in tab titles, links and group names.')}
       </p>
     </div>
   );

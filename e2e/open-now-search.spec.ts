@@ -691,7 +691,9 @@ test.describe('Open now search (KAN-330)', () => {
       block.getByText('No open tab matches "zzz"', { exact: true })
     ).toBeVisible();
     await expect(
-      block.getByText('Search looks in tab titles and links.', { exact: true })
+      block.getByText('Search looks in tab titles, links and group names.', {
+        exact: true,
+      })
     ).toBeVisible();
     await expect(block.locator('svg[aria-hidden="true"]')).toHaveCount(1);
     await expect(page.locator(SESSIONS)).not.toContainText('Search looks in');
