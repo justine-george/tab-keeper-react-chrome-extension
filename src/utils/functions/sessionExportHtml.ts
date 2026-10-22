@@ -252,6 +252,9 @@ function styles(scheme: ExportScheme): string {
     `.compact h2{font-size:14px;margin:0 0 6px;font-weight:600}` +
     `.compact h2 span{color:var(--muted);font-weight:400}` +
     `.compact li.tab{display:flex;gap:10px;align-items:baseline;padding:3px 0;border-bottom:1px solid var(--rule);min-width:0}` +
+    // Rules sit between rows: a list's last row draws none, so the file never
+    // ends on a rule above the footer's (KAN-740).
+    `.compact li.tab:last-child{border-bottom:0}` +
     `.compact li.tab a,.compact li.tab .plain{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}` +
     `.compact li.tab .url{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}` +
     // Padding on BOTH sides: the site sits at the right end of a compact row,
