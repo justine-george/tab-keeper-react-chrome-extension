@@ -139,8 +139,6 @@
   "TabGroupsPromptTitle": "Tab Keeper puede guardar grupos de pestañas",
   "TabGroupsPromptBodyOne": "Actívalo y tu grupo de pestañas volverá tal como lo creaste.",
   "TabGroupsPromptBodyOther": "Actívalo y tus {{count}} grupos de pestañas volverán tal como los creaste.",
-  "TabGroupsPromptDismiss": "Ahora no",
-  "TabGroupsPromptNever": "No volver a preguntar",
   "Sort sessions": "Ordenar sesiones",
   "Sort tabs by site": "Ordenar pestañas por sitio",
   "TabsSortedBySite": "Pestañas ordenadas por sitio.",

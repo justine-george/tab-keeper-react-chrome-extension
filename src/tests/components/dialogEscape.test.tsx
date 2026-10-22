@@ -90,10 +90,11 @@ const CASES: Case[] = [
     name: 'tab groups permission: Not now',
     dialog: 'Tab Keeper can save tab groups',
     open: (s) => s.dispatch(openTabGroupsPrompt(2)),
+    // KAN-732. Escape is Not now: it closes, records nothing and opts out of nothing.
     outcome: ({ store }) => {
-      expect(
-        store.getState().settingsDataState.isTabGroupsPromptAnsweredOnce
-      ).toBe(true);
+      const settings = store.getState().settingsDataState;
+      expect(settings).not.toHaveProperty('isTabGroupsPromptAnsweredOnce');
+      expect(settings.isNeverAskAgainForTabGroups).toBe(false);
       expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
     },
   },

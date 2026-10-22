@@ -135,8 +135,6 @@
   "TabGroupsPromptTitle": "Tab Keeper 可以保存标签组",
   "TabGroupsPromptBodyOne": "开启后，标签组会完全按照您的设置恢复。",
   "TabGroupsPromptBodyOther": "开启后，这 {{count}} 个标签组会完全按照您的设置恢复。",
-  "TabGroupsPromptDismiss": "暂不",
-  "TabGroupsPromptNever": "不再询问",
   "Sort sessions": "排序会话",
   "Sort tabs by site": "按网站排序标签页",
   "TabsSortedBySite": "标签页已按网站排序。",

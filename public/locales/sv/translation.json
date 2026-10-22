@@ -137,8 +137,6 @@
   "TabGroupsPromptTitle": "Tab Keeper kan spara flikgrupper",
   "TabGroupsPromptBodyOne": "Aktivera det så kommer din flikgrupp tillbaka precis som du ordnade den.",
   "TabGroupsPromptBodyOther": "Aktivera det så kommer dina {{count}} flikgrupper tillbaka precis som du ordnade dem.",
-  "TabGroupsPromptDismiss": "Inte nu",
-  "TabGroupsPromptNever": "Fråga inte igen",
   "Sort sessions": "Sortera sessioner",
   "Sort tabs by site": "Sortera flikar efter webbplats",
   "TabsSortedBySite": "Flikarna har sorterats efter webbplats.",

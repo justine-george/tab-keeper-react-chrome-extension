@@ -9,19 +9,10 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
 import { closeTabGroupsPrompt } from '../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
-import {
-  setNeverAskAgainForTabGroups,
-  setTabGroupsPromptAnsweredOnce,
-  SettingsData,
-} from '../../redux/slices/settingsDataStateSlice';
 import { requestTabGroupsPermission } from '../../utils/functions/permissions';
 import { DIALOG, ICON, RADIUS, TYPE } from '../../styles/scale';
 import Icon from '../common/Icon';
-import { dialogButtonStyles } from './dialogButtons';
-import {
-  asPartialSettings,
-  loadFromLocalStorage,
-} from '../../utils/functions/local';
+import { dialogButtonStyles, pairCss, tallButtonCss } from './dialogButtons';
 
 interface TabGroupsPermissionModalProps {
   style?: string;
@@ -74,57 +65,18 @@ export const TabGroupsPermissionModal: React.FC<
   // closed and open renders, which is the one thing hook ordering forbids.
   if (tabGroupsPromptCount === null) return null;
 
-  // Read straight from localStorage rather than from the settings slice, the
-  // same way showReviewCard reads the review card's. The modal can render
-  // before the settings state has been rehydrated, and the stored value is
-  // the one that decides whether the permanent opt-out has been earned.
-  const { isTabGroupsPromptAnsweredOnce = false } =
-    asPartialSettings<SettingsData>(loadFromLocalStorage('settingsData'));
-
-  // Both paths below record that the offer has been ANSWERED once, which is
-  // what reveals the permanent opt-out on the next showing.
-  //
-  // Answered, not "dismissed": measured on a real popup, a user who clicked
-  // the CTA and then pressed Deny on Chrome's own prompt had given the
-  // strongest refusal available and still got no escape hatch, because only
-  // "Not now" used to set this. Enable-then-deny, repeated, was an unbounded
-  // loop with no opt-out ever appearing -- the exact dead end the escape hatch
-  // exists to prevent.
-  //
-  // Setting it on the CTA path costs nothing when the user ALLOWS: the offer
-  // is then gated off by hasTabGroupsPermission() and never renders again, so
-  // the revealed link is never seen.
-  const rememberAnswered = () => {
-    if (!isTabGroupsPromptAnsweredOnce) {
-      dispatch(setTabGroupsPromptAnsweredOnce());
-    }
-  };
-
   const handleEnable = () => {
     // Deliberately NOT awaited, and deliberately followed by an unconditional
     // close. chrome.permissions.request() destroys this popup on a coin flip
     // and its promise may never settle, so there is no "then" to close in and
     // nothing here may depend on the answer. The outcome is read from
     // contains() on the next popup mount -- see permissions.ts.
-    //
-    // rememberAnswered() runs FIRST for that reason: the request can tear this
-    // popup down synchronously, and a write queued after it may never happen.
-    rememberAnswered();
     requestTabGroupsPermission();
     dispatch(closeTabGroupsPrompt());
   };
 
-  const handleNotNow = () => {
-    // The offer still fires on every open until the permanent opt-out is
-    // taken. This only unlocks that opt-out.
-    rememberAnswered();
-    dispatch(closeTabGroupsPrompt());
-  };
-
-  const handleNeverAskAgain = () => {
-    dispatch(setNeverAskAgainForTabGroups());
-    dispatch(closeTabGroupsPrompt());
-  };
+  // KAN-732. No opt-out here: the offer comes back on every open until the permission is held.
+  const handleNotNow = () => dispatch(closeTabGroupsPrompt());
 
   // Paired keys picked by a ternary, not i18next's `_one`/`_other` suffixes:
   // that is how FocusConfirmModal does plurals and this repo has no plural
@@ -139,28 +91,12 @@ export const TabGroupsPermissionModal: React.FC<
   // no tab stop (KAN-66/67/68). The body is a <p> because NormalLabel is
   // nowrap and ran the sentence off the card.
   const buttons = dialogButtonStyles(COLORS);
-  const footerStyle = css`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    width: 100%;
+  // KAN-732. The sync dialog's pair: the way out, then the yes half as wide again, at the right.
+  const actionsStyle = css`
+    ${pairCss}
+    margin-left: auto;
   `;
-  // The earned opt-out stays a quiet line under the footer.
-  const neverStyle = css`
-    display: block;
-    margin: 12px auto 0;
-    background: none;
-    border: none;
-    padding: 0;
-    font-family: ${FONT_FAMILY};
-    font-size: ${TYPE.BODY};
-    color: ${COLORS.TEXT_COLOR};
-    cursor: pointer;
-    &:hover {
-      text-decoration: underline;
-    }
-  `;
+  const tall = tallButtonCss(24);
 
   return (
     // The overlay div is gone: ::backdrop is the browser's own, and it dims the
@@ -172,10 +108,7 @@ export const TabGroupsPermissionModal: React.FC<
       tabIndex={-1}
       aria-labelledby={TITLE_ID}
       aria-describedby={BODY_ID}
-      // Escape means what the visible dismissal means: not now. It routes
-      // through handleNotNow so it also records that the offer was answered,
-      // which is what unlocks the permanent opt-out -- otherwise a user who
-      // only ever pressed Escape would never earn an escape hatch.
+      // Escape is Not now.
       onCancel={handleNotNow}
       // KAN-501. Built like the confirm dialogs (CloudConsentModal) and the review prompt.
       css={css`
@@ -237,22 +170,22 @@ export const TabGroupsPermissionModal: React.FC<
       >
         {t(bodyKey, { count: tabGroupsPromptCount })}
       </p>
-      <div css={footerStyle}>
-        <button type="button" css={buttons.link} onClick={handleNotNow}>
-          {t('TabGroupsPromptDismiss')}
+      <div css={actionsStyle}>
+        <button
+          type="button"
+          css={[buttons.quiet, tall]}
+          onClick={handleNotNow}
+        >
+          {t('Not now')}
         </button>
-        <button type="button" css={buttons.filled} onClick={handleEnable}>
+        <button
+          type="button"
+          css={[buttons.filled, tall]}
+          onClick={handleEnable}
+        >
           {t('Turn on')}
         </button>
       </div>
-      {/* Earned, not offered: the permanent opt-out appears only after the
-            user has already said "not now" once. Same escalation as the
-            review card's "Never ask again". */}
-      {isTabGroupsPromptAnsweredOnce && (
-        <button type="button" css={neverStyle} onClick={handleNeverAskAgain}>
-          {t('TabGroupsPromptNever')}
-        </button>
-      )}
     </dialog>
   );
 };

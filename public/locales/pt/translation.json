@@ -139,8 +139,6 @@
   "TabGroupsPromptTitle": "O Tab Keeper pode salvar grupos de guias",
   "TabGroupsPromptBodyOne": "Ative e seu grupo de guias voltará exatamente como você o criou.",
   "TabGroupsPromptBodyOther": "Ative e seus {{count}} grupos de guias voltarão exatamente como você os criou.",
-  "TabGroupsPromptDismiss": "Agora não",
-  "TabGroupsPromptNever": "Não perguntar novamente",
   "Sort sessions": "Ordenar sessões",
   "Sort tabs by site": "Ordenar abas por site",
   "TabsSortedBySite": "Abas ordenadas por site.",

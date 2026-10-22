@@ -137,8 +137,6 @@
   "TabGroupsPromptTitle": "Tab Keeper can save tab groups",
   "TabGroupsPromptBodyOne": "Turn it on and your tab group comes back exactly as you set it up.",
   "TabGroupsPromptBodyOther": "Turn it on and your {{count}} tab groups come back exactly as you set them up.",
-  "TabGroupsPromptDismiss": "Not now",
-  "TabGroupsPromptNever": "Don't ask again",
   "Sort sessions": "Sort sessions",
   "Sort tabs by site": "Sort tabs by site",
   "TabsSortedBySite": "Sorted the tabs by site.",

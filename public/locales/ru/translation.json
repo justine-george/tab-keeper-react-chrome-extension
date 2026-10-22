@@ -141,8 +141,6 @@
   "TabGroupsPromptTitle": "Tab Keeper может сохранять группы вкладок",
   "TabGroupsPromptBodyOne": "Включите её, и ваша группа вкладок вернётся точно такой, какой вы её создали.",
   "TabGroupsPromptBodyOther": "Включите её, и ваши группы вкладок ({{count}}) вернутся точно такими, какими вы их создали.",
-  "TabGroupsPromptDismiss": "Не сейчас",
-  "TabGroupsPromptNever": "Больше не спрашивать",
   "Sort sessions": "Сортировать сессии",
   "Sort tabs by site": "Сортировать вкладки по сайту",
   "TabsSortedBySite": "Вкладки отсортированы по сайту.",

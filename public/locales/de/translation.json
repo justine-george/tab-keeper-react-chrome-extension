@@ -137,8 +137,6 @@
   "TabGroupsPromptTitle": "Tab Keeper kann Tab-Gruppen speichern",
   "TabGroupsPromptBodyOne": "Aktivieren Sie die Funktion, und Ihre Tab-Gruppe kehrt genau so zurück, wie Sie sie angelegt haben.",
   "TabGroupsPromptBodyOther": "Aktivieren Sie die Funktion, und Ihre {{count}} Tab-Gruppen kehren genau so zurück, wie Sie sie angelegt haben.",
-  "TabGroupsPromptDismiss": "Jetzt nicht",
-  "TabGroupsPromptNever": "Nicht mehr fragen",
   "Sort sessions": "Sitzungen sortieren",
   "Sort tabs by site": "Tabs nach Website sortieren",
   "TabsSortedBySite": "Tabs nach Website sortiert.",

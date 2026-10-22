@@ -137,8 +137,6 @@
   "TabGroupsPromptTitle": "Tab Keeper टैब समूह सहेज सकता है",
   "TabGroupsPromptBodyOne": "इसे चालू करें और आपका टैब समूह ठीक वैसा ही वापस आएगा जैसा आपने बनाया था।",
   "TabGroupsPromptBodyOther": "इसे चालू करें और आपके {{count}} टैब समूह ठीक वैसे ही वापस आएंगे जैसे आपने बनाए थे।",
-  "TabGroupsPromptDismiss": "अभी नहीं",
-  "TabGroupsPromptNever": "फिर से न पूछें",
   "Sort sessions": "सत्र क्रमबद्ध करें",
   "Sort tabs by site": "टैब साइट के अनुसार क्रमबद्ध करें",
   "TabsSortedBySite": "टैब साइट के अनुसार क्रमबद्ध किए गए।",
