@@ -31,7 +31,11 @@ import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
 } from '../../utils/functions/local';
-import { EXPORT_STORE_URL, TOAST_MESSAGES } from '../../utils/constants/common';
+import {
+  EXPORT_STORE_URL,
+  IS_SAVE_AS_HTML_SHOWN,
+  TOAST_MESSAGES,
+} from '../../utils/constants/common';
 import { showToast } from '../../redux/slices/globalStateSlice';
 import { Toast } from '../common/Toast';
 import { TooltipLayer } from '../common/TooltipLayer';
@@ -62,7 +66,8 @@ import {
  * second click, not the first.
  *
  * Everything below "a session to preview" is the same whichever source it came
- * from -- the preview, edit mode, Copy, Save as HTML and Print never ask.
+ * from -- the preview, edit mode, Copy, Save as HTML (when shown) and Print
+ * never ask.
  */
 
 /**
@@ -106,6 +111,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // KAN-194. Edits are for this export only: held here, applied to a copy,
   // and gone when the tab closes. `writtenEdits` is the set last saved to a
   // file, so closing after saving does not warn about changes already kept.
+  // While Save is hidden (KAN-734) nothing sets it, so edits always warn.
   const [editing, setEditing] = useState(false);
   const [edits, setEdits] = useState<ExportEdits>(NO_EXPORT_EDITS);
   const [writtenEdits, setWrittenEdits] =
@@ -800,7 +806,8 @@ export default function ExportPage({ source }: { source: ExportSource }) {
               end of the row -- the primary stands where Done stands while
               editing. KAN-207 made that the PDF output rather than the HTML
               file: a PDF is what people attach to a message, and an .html file
-              is the specialist's output of the two. */}
+              is the specialist's output of the two. KAN-734 hid that file
+              behind IS_SAVE_AS_HTML_SHOWN. */}
                 <span css={endStyle}>
                   {/* Copy first: it ignores the choices, so it must not sit between
               the two outputs that follow them. Swapping those two outputs in
@@ -821,15 +828,17 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                     iconStyle={actionIconStyle}
                     style={actionStyle}
                   />
-                  <Button
-                    text={t('Save as HTML')}
-                    ariaLabel={t('Save as HTML')}
-                    iconType="download"
-                    onClick={handleSave}
-                    iconSize="1.2rem"
-                    iconStyle={actionIconStyle}
-                    style={actionStyle}
-                  />
+                  {IS_SAVE_AS_HTML_SHOWN && (
+                    <Button
+                      text={t('Save as HTML')}
+                      ariaLabel={t('Save as HTML')}
+                      iconType="download"
+                      onClick={handleSave}
+                      iconSize="1.2rem"
+                      iconStyle={actionIconStyle}
+                      style={actionStyle}
+                    />
+                  )}
                   <Button
                     // KAN-207. Deliberately still "PDF / Print", not "Save as
                     // PDF". handlePrint opens the browser's print dialog and the

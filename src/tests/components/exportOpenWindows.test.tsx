@@ -126,6 +126,16 @@ describe('exporting the open windows (KAN-208)', () => {
     expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
   });
 
+  // KAN-734. This file does not mock the switch, so it reads what ships.
+  test('ships with Save as HTML hidden, Copy and Print offered', async () => {
+    await renderLive();
+
+    await waitFor(() => expect(frame().srcdoc).toContain('Kagi Search'));
+    expect(screen.getByRole('button', { name: 'Copy all links' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'PDF / Print' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Save as HTML' })).toBeNull();
+  });
+
   // Asserted separately so a failure names which one moved.
   test('saves nothing: storage untouched, no data action, no undo entry', async () => {
     const { store, seen } = await renderLive();
@@ -177,7 +187,8 @@ describe('exporting the open windows (KAN-208)', () => {
 
     expect(await screen.findByText('Session not found')).toBeTruthy();
     expect(document.querySelector('[data-capturing]')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Save as HTML' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Copy all links' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'PDF / Print' })).toBeNull();
     expect(document.querySelector('iframe')).toBeNull();
   });
 });
