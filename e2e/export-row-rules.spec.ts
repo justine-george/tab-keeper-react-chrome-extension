@@ -1,7 +1,6 @@
 import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { sessionHeaderMenu } from './fixtures/menus';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 
 // KAN-740 on the real export page: in Compact, a rule sits only BETWEEN rows.
@@ -82,18 +81,25 @@ async function openExport(
     ...buildContainer([SESSION]),
     selectedTabGroupId: 'session-rules',
   });
-  const popup = await context.newPage();
-  await popup.goto(`chrome-extension://${extensionId}/index.html`);
-  await expect(sessionHeaderMenu(popup)).toBeVisible();
-  const [exportPage] = await Promise.all([
-    context.waitForEvent('page'),
-    (async () => {
-      await sessionHeaderMenu(popup).click();
-      await popup.getByRole('menuitem', { name: 'Export…' }).click();
-    })(),
-  ]);
-  await exportPage.waitForLoadState();
-  return exportPage;
+  const page = await context.newPage();
+  await page.goto(
+    `chrome-extension://${extensionId}/export.html?session=session-rules`
+  );
+  await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
+  return page;
+}
+
+// The file's rows, by title, with each one's bottom rule.
+async function fileRules(page: Page): Promise<string[][]> {
+  return page
+    .frameLocator('iframe')
+    .locator('li.tab')
+    .evaluateAll((items) =>
+      items.map((li) => [
+        li.querySelector('a')?.textContent ?? '',
+        getComputedStyle(li).borderBottomWidth,
+      ])
+    );
 }
 
 test('Compact: a rule sits between rows, never under a list’s last row', async ({
@@ -107,14 +113,31 @@ test('Compact: a rule sits between rows, never under a list’s last row', async
     /compact/
   );
   await expect(rows).toHaveCount(EXPECTED.length);
+  expect(await fileRules(exportPage)).toEqual(EXPECTED);
+});
 
-  const seen = await rows.evaluateAll((items) =>
-    items.map((li) => [
-      li.querySelector('a')?.textContent ?? '',
-      getComputedStyle(li).borderBottomWidth,
-    ])
+test('hiding a list’s last row in Edit takes the rule off the row now last', async ({
+  context,
+  extensionId,
+}) => {
+  const exportPage = await openExport(context, extensionId);
+  await exportPage.getByRole('button', { name: 'Edit', exact: true }).click();
+  // Window 1's last row, and window 2's group's last tab.
+  for (const title of ['Gion', 'Ryokan']) {
+    await exportPage.getByRole('button', { name: `Hide: ${title}` }).click();
+  }
+  await exportPage.getByRole('button', { name: 'Done' }).click();
+
+  await expect(exportPage.frameLocator('iframe').locator('li.tab')).toHaveCount(
+    5
   );
-  expect(seen).toEqual(EXPECTED);
+  expect(await fileRules(exportPage)).toEqual([
+    ['Nozomi', '1px'],
+    ['Haruka', '0px'],
+    ['Inari', '0px'], // window 1's last row once Gion is hidden
+    ['Docs', '1px'],
+    ['Hotel', '0px'], // the group's last tab once Ryokan is hidden
+  ]);
 });
 
 test('Edit mode: the same rows draw the same rules', async ({
