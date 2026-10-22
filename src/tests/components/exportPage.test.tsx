@@ -16,6 +16,15 @@ import {
   Theme,
 } from '../../redux/slices/settingsDataStateSlice';
 
+// KAN-734. The build ships Save as HTML hidden; tests that need it turn it on.
+const saveSwitch = vi.hoisted(() => ({ shown: false }));
+vi.mock('../../utils/constants/common', async (original) => ({
+  ...(await original<typeof import('../../utils/constants/common')>()),
+  get IS_SAVE_AS_HTML_SHOWN() {
+    return saveSwitch.shown;
+  },
+}));
+
 // KAN-190. Wiring only: the page previews the generator's output and saves that
 // same string. File contents: sessionExportHtml.test.ts; real file:
 // e2e/session-export.spec.ts.
@@ -69,6 +78,7 @@ const frame = (): HTMLIFrameElement => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  saveSwitch.shown = false;
 });
 
 // jsdom has no ClipboardItem; the fake keeps what it was given so both versions
@@ -177,6 +187,7 @@ describe('the export preview page (KAN-190)', () => {
   });
 
   test('saving writes the previewed file under the session name', async () => {
+    saveSwitch.shown = true;
     const user = userEvent.setup();
     const blobs: Blob[] = [];
     vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
@@ -325,7 +336,8 @@ describe('the export preview page (KAN-190)', () => {
     await renderPage('session-that-was-deleted');
 
     expect(screen.getByText('Session not found')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Save as HTML' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Copy all links' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'PDF / Print' })).toBeNull();
     expect(document.querySelector('iframe')).toBeNull();
   });
 
@@ -599,6 +611,7 @@ describe('the icon on the filled button (KAN-190)', () => {
   });
 
   test('no outline action is painted in the fill it sits on either', async () => {
+    saveSwitch.shown = true;
     await renderPage();
 
     for (const name of ['Save as HTML', 'Copy all links']) {
@@ -610,6 +623,7 @@ describe('the icon on the filled button (KAN-190)', () => {
   });
 
   test('CONTROL: an outline button keeps the ordinary icon colour', async () => {
+    saveSwitch.shown = true;
     await renderPage();
 
     expect(glyphOf('Save as HTML')).toBe(glyphOf('Copy all links'));
@@ -639,6 +653,7 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
 
   // An action inside a segmented pair would read as a fourth choice.
   test('the actions are not inside either group', async () => {
+    saveSwitch.shown = true;
     await renderPage();
 
     const layout = screen.getByRole('group', { name: 'Layout' });
@@ -655,6 +670,7 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
   // use them. KAN-207: the primary closes the row, like Done in the editing
   // toolbar.
   test('the actions run Copy, then Save, then Print', async () => {
+    saveSwitch.shown = true;
     await renderPage();
 
     const names = ['Copy all links', 'Save as HTML', 'PDF / Print'];
@@ -665,10 +681,24 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
     expect(actions).toEqual(names);
   });
 
+  // KAN-734. What ships: Save as HTML is hidden, the other two keep their order.
+  test('the shipped toolbar offers Copy all links then PDF / Print, and no Save (KAN-734)', async () => {
+    await renderPage();
+
+    const names = ['Copy all links', 'Save as HTML', 'PDF / Print'];
+    const actions = screen
+      .getAllByRole('button')
+      .map((b) => b.getAttribute('aria-label'))
+      .filter((name): name is string => names.includes(name ?? ''));
+    expect(actions).toEqual(['Copy all links', 'PDF / Print']);
+    expect(screen.queryByRole('button', { name: 'Save as HTML' })).toBeNull();
+  });
+
   // Against neighbours, not a literal colour, so it survives a palette change.
   // Directional: Save matching Copy is what fails if the fill moves to the
   // wrong control.
   test('the PDF output is the one filled control', async () => {
+    saveSwitch.shown = true;
     await renderPage();
 
     const copy = screen.getByRole('button', { name: 'Copy all links' });

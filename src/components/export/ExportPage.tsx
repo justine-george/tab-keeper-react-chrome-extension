@@ -31,7 +31,11 @@ import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
 } from '../../utils/functions/local';
-import { EXPORT_STORE_URL, TOAST_MESSAGES } from '../../utils/constants/common';
+import {
+  EXPORT_STORE_URL,
+  IS_SAVE_AS_HTML_SHOWN,
+  TOAST_MESSAGES,
+} from '../../utils/constants/common';
 import { showToast } from '../../redux/slices/globalStateSlice';
 import { Toast } from '../common/Toast';
 import { TooltipLayer } from '../common/TooltipLayer';
@@ -62,7 +66,8 @@ import {
  * second click, not the first.
  *
  * Everything below "a session to preview" is the same whichever source it came
- * from -- the preview, edit mode, Copy, Save as HTML and Print never ask.
+ * from -- the preview, edit mode, Copy, Save as HTML (when shown) and Print
+ * never ask.
  */
 
 /**
@@ -71,12 +76,13 @@ import {
  * The document below sits in a 720px column; this is what keeps Edit and
  * PDF / Print from running to the monitor's edges above it. The number is the
  * toolbar's one-line floor: it wraps its right-hand group onto its own line
- * when it cannot fit, and the widest locale's one-line width is Russian at
- * 1061px (zh 736, en 834, hi 848, ja 877, it 906, pt 958, de 962, es 973,
- * fr 989). At 960 five locales would wrap on a screen with room to spare.
- * Rendered at 2000 and 1440 in en and ru before choosing.
+ * when it cannot fit. With Save as HTML hidden (KAN-734) the widest locale's
+ * one-line width is Russian at 849px (ko 561, zh 582, zh-TW 585, hi 663,
+ * en 673, sv 715, it 719, ja 723, pt 765, es 768, de 784, fr 784). 870 leaves
+ * room for Linux text layout on CI. With Save shown again Russian needs 1061,
+ * so this goes back to 1100.
  */
-const HEADER_CONTENT_MAX_PX = 1100;
+const HEADER_CONTENT_MAX_PX = 870;
 
 /**
  * Where the page's session comes from (KAN-208).
@@ -106,6 +112,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // KAN-194. Edits are for this export only: held here, applied to a copy,
   // and gone when the tab closes. `writtenEdits` is the set last saved to a
   // file, so closing after saving does not warn about changes already kept.
+  // While Save is hidden (KAN-734) nothing sets it, so edits always warn.
   const [editing, setEditing] = useState(false);
   const [edits, setEdits] = useState<ExportEdits>(NO_EXPORT_EDITS);
   const [writtenEdits, setWrittenEdits] =
@@ -800,11 +807,12 @@ export default function ExportPage({ source }: { source: ExportSource }) {
               end of the row -- the primary stands where Done stands while
               editing. KAN-207 made that the PDF output rather than the HTML
               file: a PDF is what people attach to a message, and an .html file
-              is the specialist's output of the two. */}
+              is the specialist's output of the two. KAN-734 hid that file
+              behind IS_SAVE_AS_HTML_SHOWN. */}
                 <span css={endStyle}>
                   {/* Copy first: it ignores the choices, so it must not sit between
-              the two outputs that follow them. Swapping those two outputs in
-              KAN-207 left that rule untouched -- Copy still precedes both. */}
+              the outputs that follow them (Print, and Save when shown). KAN-207
+              swapped those two and left this rule untouched. */}
                   <Button
                     text={t('Copy all links')}
                     ariaLabel={t('Copy all links')}
@@ -821,15 +829,17 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                     iconStyle={actionIconStyle}
                     style={actionStyle}
                   />
-                  <Button
-                    text={t('Save as HTML')}
-                    ariaLabel={t('Save as HTML')}
-                    iconType="download"
-                    onClick={handleSave}
-                    iconSize="1.2rem"
-                    iconStyle={actionIconStyle}
-                    style={actionStyle}
-                  />
+                  {IS_SAVE_AS_HTML_SHOWN && (
+                    <Button
+                      text={t('Save as HTML')}
+                      ariaLabel={t('Save as HTML')}
+                      iconType="download"
+                      onClick={handleSave}
+                      iconSize="1.2rem"
+                      iconStyle={actionIconStyle}
+                      style={actionStyle}
+                    />
+                  )}
                   <Button
                     // KAN-207. Deliberately still "PDF / Print", not "Save as
                     // PDF". handlePrint opens the browser's print dialog and the

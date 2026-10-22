@@ -1,11 +1,8 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import type { BrowserContext } from '@playwright/test';
 
 import type { tabContainerData } from '../src/redux/slices/tabContainerDataStateSlice';
 import { test, expect } from './fixtures/extension';
+import { previewFile } from './fixtures/previewFile';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 
 // KAN-195. The clipboard carries HTML and plain text and the target picks one;
@@ -113,7 +110,7 @@ test('the copy toast is as big as the popup toast: 300 wide, 48 tall', async ({
 });
 
 // KAN-202. The clean-ups must reach the saved file, not just the clipboard.
-test('the saved file carries neither a notification count nor a suspended wrapper', async ({
+test('the exported file carries neither a notification count nor a suspended wrapper', async ({
   context,
   extensionId,
 }) => {
@@ -127,16 +124,7 @@ test('the saved file carries neither a notification count nor a suspended wrappe
   );
   await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
 
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Save as HTML' }).click(),
-  ]);
-  const path = join(
-    mkdtempSync(join(tmpdir(), 'export-tidy-')),
-    download.suggestedFilename()
-  );
-  await download.saveAs(path);
-  const file = readFileSync(path, 'utf8');
+  const { html: file } = await previewFile(page, 'export-tidy-');
 
   expect(file).toContain('>Nozomi timetable</a>');
   expect(file).not.toContain('(3) Nozomi');
@@ -216,7 +204,7 @@ const UNNAMED = buildSession({
   windows: [{ ...SESSION.windows[0], title: '' }],
 });
 
-test('an unnamed window reads "Window 1" in the saved file and in both copies', async ({
+test('an unnamed window reads "Window 1" in the exported file and in both copies', async ({
   context,
   extensionId,
 }) => {
@@ -238,16 +226,7 @@ test('an unnamed window reads "Window 1" in the saved file and in both copies', 
 
   const page = context.pages().find((p) => p.url().includes('export.html'));
   if (!page) throw new Error('the export page is gone');
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Save as HTML' }).click(),
-  ]);
-  const path = join(
-    mkdtempSync(join(tmpdir(), 'export-unnamed-')),
-    download.suggestedFilename()
-  );
-  await download.saveAs(path);
-  const file = readFileSync(path, 'utf8');
+  const { html: file } = await previewFile(page, 'export-unnamed-');
 
   expect(file).toMatch(/<h2>Window 1 <span>\(4 Tabs\)<\/span><\/h2>/);
   expect(file).not.toContain('Window 1 ·');
