@@ -9,10 +9,10 @@ import {
 } from './fixtures/seed';
 
 // KAN-235. The header's content sits in a centred band near the 720px document.
-// 1100px is the one-line floor: ru, the widest locale, needs 1061px, so it is
-// the locale measured here.
+// KAN-734: with Save as HTML hidden, ru, the widest locale, needs 849px; 870
+// leaves room for Linux text layout on CI. ru is the locale measured here.
 
-const HEADER_CONTENT_MAX_PX = 1100;
+const HEADER_CONTENT_MAX_PX = 870;
 const WIDE = { width: 2000, height: 420 };
 const POPUP = { width: 790, height: 550 };
 
@@ -99,6 +99,25 @@ for (const lang of ['en', 'ru']) {
     expect(g.toolbarLines).toBe(1);
   });
 }
+
+// KAN-734. Editing swaps the row but not the band: Reset and Done end where
+// PDF / Print did.
+test(`at 2000px the editing row shares the ${HEADER_CONTENT_MAX_PX}px band (ru)`, async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openExport(context, extensionId, WIDE, 'ru');
+  await page.locator('[data-toolbar-row] button').first().click();
+  await expect(
+    page.locator('[data-toolbar-row] [role="status"]')
+  ).toBeVisible();
+  const g = await geometry(page);
+
+  const expectedLeft = (WIDE.width - HEADER_CONTENT_MAX_PX) / 2;
+  expect(g.toolbar.left).toBeCloseTo(expectedLeft, 0);
+  expect(g.toolbar.right).toBeCloseTo(expectedLeft + HEADER_CONTENT_MAX_PX, 0);
+  expect(g.toolbarLines).toBe(1);
+});
 
 // CONTROL: a band that also squeezed narrow screens would pass everything
 // above.

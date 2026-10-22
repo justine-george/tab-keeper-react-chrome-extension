@@ -76,12 +76,13 @@ import {
  * The document below sits in a 720px column; this is what keeps Edit and
  * PDF / Print from running to the monitor's edges above it. The number is the
  * toolbar's one-line floor: it wraps its right-hand group onto its own line
- * when it cannot fit, and the widest locale's one-line width is Russian at
- * 1061px (zh 736, en 834, hi 848, ja 877, it 906, pt 958, de 962, es 973,
- * fr 989). At 960 five locales would wrap on a screen with room to spare.
- * Rendered at 2000 and 1440 in en and ru before choosing.
+ * when it cannot fit. With Save as HTML hidden (KAN-734) the widest locale's
+ * one-line width is Russian at 849px (ko 561, zh 582, zh-TW 585, hi 663,
+ * en 673, sv 715, it 719, ja 723, pt 765, es 768, de 784, fr 784). 870 leaves
+ * room for Linux text layout on CI. With Save shown again Russian needs 1061,
+ * so this goes back to 1100.
  */
-const HEADER_CONTENT_MAX_PX = 1100;
+const HEADER_CONTENT_MAX_PX = 870;
 
 /**
  * Where the page's session comes from (KAN-208).
