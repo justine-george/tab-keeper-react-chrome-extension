@@ -20,8 +20,11 @@ export function openTabMatches(tab: OpenTab, term: string): boolean {
 }
 
 /**
- * What a search draws: window id -> the ids of its matching tabs. A window
- * with no match has no entry.
+ * What a search draws: window id -> the ids of its matching tabs. A tab
+ * matches by its own title or address, or by its group's title, which draws
+ * the whole group as saved search does (KAN-718). A window with no match has
+ * no entry. Without the tabGroups grant a window lists no groups, so no group
+ * title is searched.
  *
  * Ids, never narrowed windows. The pane still hands every handler the whole
  * OpenWindow (O14a), so Save all saves every window, hidden ones included,
@@ -38,9 +41,18 @@ export function matchOpenWindows(
 ): OpenNowMatches {
   const matches = new Map<number, ReadonlySet<number>>();
   for (const window of windows) {
+    const matchedGroupIds = new Set(
+      window.groups
+        .filter((group) => group.title.toLowerCase().includes(term))
+        .map((group) => group.id)
+    );
     const ids = new Set(
       window.tabs
-        .filter((tab) => openTabMatches(tab, term))
+        .filter(
+          (tab) =>
+            openTabMatches(tab, term) ||
+            (tab.groupId !== null && matchedGroupIds.has(tab.groupId))
+        )
         .map((tab) => tab.id)
     );
     if (ids.size > 0) matches.set(window.id, ids);
