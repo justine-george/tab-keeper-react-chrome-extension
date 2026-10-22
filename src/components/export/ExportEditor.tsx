@@ -194,6 +194,10 @@ export default function ExportEditor({
           css`
             padding: 2px 0;
             border-bottom: 1px solid ${palette.rule};
+            /* Between rows only, as the Compact file draws them (KAN-740). */
+            &:last-child {
+              border-bottom: 0;
+            }
           `,
         ]}
         data-hidden={edits.hidden.has(key) || undefined}
