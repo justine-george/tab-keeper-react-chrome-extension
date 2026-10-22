@@ -11,8 +11,8 @@ export function searchTermOf(fieldText: string): string | null {
   return term === '' ? null : term;
 }
 
-/** A live tab matches when its title or its address contains the term. */
-export function openTabMatches(tab: OpenTab, term: string): boolean {
+/** A live tab's own title or address contains the term. */
+export function openTabTextMatches(tab: OpenTab, term: string): boolean {
   return (
     tab.title.toLowerCase().includes(term) ||
     tab.url.toLowerCase().includes(term)
@@ -50,7 +50,7 @@ export function matchOpenWindows(
       window.tabs
         .filter(
           (tab) =>
-            openTabMatches(tab, term) ||
+            openTabTextMatches(tab, term) ||
             (tab.groupId !== null && matchedGroupIds.has(tab.groupId))
         )
         .map((tab) => tab.id)

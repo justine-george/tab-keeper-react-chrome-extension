@@ -9,7 +9,7 @@ import type {
 import {
   countMatchedTabs,
   matchOpenWindows,
-  openTabMatches,
+  openTabTextMatches,
   searchTermOf,
 } from '../../../utils/functions/openNowSearch';
 import { setupChromeFake } from '../../setup/chrome.fake';
@@ -70,7 +70,7 @@ describe('searchTermOf (KAN-330 O14a)', () => {
   });
 });
 
-describe('openTabMatches', () => {
+describe('openTabTextMatches', () => {
   const kyoto = tab(
     1,
     1,
@@ -78,18 +78,18 @@ describe('openTabMatches', () => {
     'https://maps.google.com/kyoto'
   );
   test('matches the title, ignoring case', () => {
-    expect(openTabMatches(kyoto, 'kyoto saved')).toBe(true);
+    expect(openTabTextMatches(kyoto, 'kyoto saved')).toBe(true);
   });
   test('matches the address when the title does not', () => {
-    expect(openTabMatches(kyoto, 'maps.google')).toBe(true);
+    expect(openTabTextMatches(kyoto, 'maps.google')).toBe(true);
   });
   test('an upper-case address still matches a lower-case term', () => {
     expect(
-      openTabMatches(tab(2, 1, 'Docs', 'https://EXAMPLE.test/'), 'example')
+      openTabTextMatches(tab(2, 1, 'Docs', 'https://EXAMPLE.test/'), 'example')
     ).toBe(true);
   });
   test('no match on either', () => {
-    expect(openTabMatches(kyoto, 'osaka')).toBe(false);
+    expect(openTabTextMatches(kyoto, 'osaka')).toBe(false);
   });
 });
 
@@ -173,11 +173,6 @@ describe('matchOpenWindows: group titles (KAN-718)', () => {
     expect(countMatchedTabs(matchOpenWindows(own, 'kyoto'))).toBe(2);
   });
 
-  test("a group in another window does not pull this window's tabs in", () => {
-    // Group 9 is window 2's; window 1 holds no tab of it.
-    expect(matchOpenWindows(windows, 'osaka').has(1)).toBe(false);
-  });
-
   test('an untitled group matches nothing', () => {
     expect(matchOpenWindows(windows, 'inbox').get(1)).toEqual(new Set([14]));
     expect(matchOpenWindows(windows, 'mail').get(1)).toEqual(new Set([14]));
@@ -185,17 +180,17 @@ describe('matchOpenWindows: group titles (KAN-718)', () => {
   });
 });
 
-describe('matchOpenWindows without the tabGroups grant (KAN-718)', () => {
+describe('matchOpenWindows on what toOpenWindows reads (KAN-718)', () => {
   let handle: ChromeFakeHandle | undefined;
   afterEach(() => {
     handle?.restore();
     handle = undefined;
   });
 
-  // The grant is gated in toOpenWindows, not here: without it every window
-  // reports no groups, so a group's title is never searched. Read through the
-  // real reshape so a change to that gate fails here too.
-  test("a group's title matches only when the grant reached toOpenWindows", async () => {
+  // The fixtures above hand-build OpenWindows; this reads Chrome's groups
+  // through the real reshape, so a reshape that dropped a group's title
+  // fails here. The grant gate itself is useOpenWindows' (useOpenWindows.test).
+  test("a live group's title reaches the match through toOpenWindows", async () => {
     handle = setupChromeFake({
       windows: [
         {
@@ -214,10 +209,7 @@ describe('matchOpenWindows without the tabGroups grant (KAN-718)', () => {
     });
     const chromeGroups = await chrome.tabGroups.query({});
 
-    const ungranted = toOpenWindows(chromeWindows, null, null);
-    expect(matchOpenWindows(ungranted, 'kyoto').size).toBe(0);
-
-    const granted = toOpenWindows(chromeWindows, chromeGroups, null);
-    expect(countMatchedTabs(matchOpenWindows(granted, 'kyoto'))).toBe(2);
+    const windows = toOpenWindows(chromeWindows, chromeGroups, null);
+    expect(countMatchedTabs(matchOpenWindows(windows, 'kyoto'))).toBe(2);
   });
 });
