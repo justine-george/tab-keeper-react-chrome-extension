@@ -135,8 +135,6 @@
   "TabGroupsPromptTitle": "Tab Keeper はタブグループを保存できます",
   "TabGroupsPromptBodyOne": "オンにすると、タブグループは設定したときのまま復元されます。",
   "TabGroupsPromptBodyOther": "オンにすると、{{count}} 個のタブグループは設定したときのまま復元されます。",
-  "TabGroupsPromptDismiss": "後で",
-  "TabGroupsPromptNever": "今後表示しない",
   "Sort sessions": "セッションを並べ替え",
   "Sort tabs by site": "タブをサイト別に並べ替え",
   "TabsSortedBySite": "タブをサイト別に並べ替えました。",

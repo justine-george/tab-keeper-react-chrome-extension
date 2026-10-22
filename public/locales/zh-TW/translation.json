@@ -135,8 +135,6 @@
   "TabGroupsPromptTitle": "Tab Keeper 可以儲存分頁群組",
   "TabGroupsPromptBodyOne": "開啟後，你的分頁群組會完全照你原本的設定還原。",
   "TabGroupsPromptBodyOther": "開啟後，你的 {{count}} 個分頁群組會完全照你原本的設定還原。",
-  "TabGroupsPromptDismiss": "暫時不要",
-  "TabGroupsPromptNever": "不要再詢問",
   "Sort sessions": "排序工作階段",
   "Sort tabs by site": "依網站排序分頁",
   "TabsSortedBySite": "已依網站排序分頁。",

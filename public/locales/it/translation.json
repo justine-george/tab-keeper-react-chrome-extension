@@ -139,8 +139,6 @@
   "TabGroupsPromptTitle": "Tab Keeper può salvare i gruppi di schede",
   "TabGroupsPromptBodyOne": "Attivala e il tuo gruppo di schede tornerà esattamente come l’hai creato.",
   "TabGroupsPromptBodyOther": "Attivala e i tuoi {{count}} gruppi di schede torneranno esattamente come li hai creati.",
-  "TabGroupsPromptDismiss": "Non ora",
-  "TabGroupsPromptNever": "Non chiedere più",
   "Sort sessions": "Ordina sessioni",
   "Sort tabs by site": "Ordina schede per sito",
   "TabsSortedBySite": "Schede ordinate per sito.",
