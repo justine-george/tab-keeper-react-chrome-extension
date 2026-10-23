@@ -73,6 +73,7 @@ import {
   sortBySite,
   sortWithinGroup,
 } from '../../utils/functions/sortBySite';
+import { nameCollator } from '../../utils/functions/nameCollator';
 import { noteReviewMoment } from '../reviewAsk';
 import {
   TAB_GROUP_COLORS,
@@ -2499,7 +2500,7 @@ export const tabContainerDataStateSlice = createSlice({
       // of every lowercase -- "Banana, Cherry, apple" -- and is wrong outright
       // in most of the ten locales we ship. KAN-85 was this same mistake for
       // dates.
-      const collator = new Intl.Collator(locale, { sensitivity: 'base' });
+      const collator = nameCollator(locale);
 
       const compare = (a: tabContainerData, b: tabContainerData): number => {
         if (by === 'name') return collator.compare(a.title, b.title);
