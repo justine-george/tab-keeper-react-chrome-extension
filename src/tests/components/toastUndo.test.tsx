@@ -104,6 +104,28 @@ describe('Undo in the Delete and Replace toasts (KAN-583)', () => {
     expect(toastTexts(store.getState())).toEqual([]);
   });
 
+  // As on main (KAN-583): the chip's own toast closes, other plain toasts stay up; only the key and the menu close them.
+  test('Undo on the chip leaves the other plain toasts up', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderToasts();
+    await act(async () => {
+      await store.dispatch(
+        showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED })
+      );
+    });
+    await deleteKyoto(store);
+    // PREMISE: both toasts are up.
+    expect(toastTexts(store.getState())).toEqual([
+      TOAST_MESSAGES.SYNC_MERGED,
+      TOAST_MESSAGES.DELETE_TAB_CONTAINER_SUCCESS,
+    ]);
+
+    await user.click(undoButtons()[0]);
+
+    expect(sessionIds(store)).toContain('kyoto');
+    expect(toastTexts(store.getState())).toEqual([TOAST_MESSAGES.SYNC_MERGED]);
+  });
+
   test('Replace offers Undo; it puts back what the session held', async () => {
     const user = userEvent.setup();
     const { store } = await renderToasts();
@@ -546,6 +568,26 @@ describe('Undo in the live sort toast (KAN-694)', () => {
   });
 
   // R16. The chip walks the one history: the sort goes to the redo list, as ⌘Z would send it.
+  // As on main (KAN-694): the sort's own toast closes, other plain toasts stay up.
+  test('the sort chip closes its own toast and leaves the other plain toasts up', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderSorted();
+    await act(async () => {
+      await store.dispatch(
+        showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED })
+      );
+    });
+    // PREMISE: the chip still shows beside the plain toast.
+    expect(undoButtons()).toHaveLength(1);
+
+    await user.click(undoButtons()[0]);
+
+    await waitFor(async () => expect(await strip()).toEqual([1, 2, 3]));
+    await waitFor(() =>
+      expect(toastTexts(store.getState())).toEqual([TOAST_MESSAGES.SYNC_MERGED])
+    );
+  });
+
   test('the sort chip undoes the sort', async () => {
     const user = userEvent.setup();
     const { store, seen } = await renderSorted();

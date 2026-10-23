@@ -42,8 +42,16 @@ const REFUSED_TOAST = {
 
 type Direction = 'undo' | 'redo';
 
+// How a press treats the plain toasts showing. The key and the menu close them
+// (KAN-311 O8c), before any refused toast appears (R11); a toast's own Undo
+// leaves them up (KAN-583, KAN-694). Omitted, the press closes them.
+export interface StepPress {
+  closesPlainToasts: boolean;
+}
+
 async function takeStep(
   direction: Direction,
+  { closesPlainToasts }: StepPress,
   dispatch: AppDispatch,
   getState: () => RootState
 ): Promise<StepRun> {
@@ -54,7 +62,7 @@ async function takeStep(
 
   if (next === 'saved') {
     dispatch(direction === 'undo' ? undo() : redo());
-    dispatch(closePlainToasts());
+    if (closesPlainToasts) dispatch(closePlainToasts());
     return 'saved';
   }
 
@@ -65,7 +73,7 @@ async function takeStep(
 
   running = true;
   try {
-    dispatch(closePlainToasts());
+    if (closesPlainToasts) dispatch(closePlainToasts());
     const run = await runLiveStep(
       step.drop,
       direction,
@@ -95,20 +103,22 @@ async function takeStep(
 }
 
 // The thunk prefix is 'history/', never 'undoRedo/': the toast reducers match 'undoRedo/undo' exactly.
+const CLOSES_PLAIN_TOASTS: StepPress = { closesPlainToasts: true };
+
 export const undoStep = createAsyncThunk<
   StepRun,
-  void,
+  StepPress | undefined,
   { state: RootState; dispatch: AppDispatch }
->('history/undoStep', (_, { dispatch, getState }) =>
-  takeStep('undo', dispatch, getState)
+>('history/undoStep', (press, { dispatch, getState }) =>
+  takeStep('undo', press ?? CLOSES_PLAIN_TOASTS, dispatch, getState)
 );
 
 export const redoStep = createAsyncThunk<
   StepRun,
-  void,
+  StepPress | undefined,
   { state: RootState; dispatch: AppDispatch }
->('history/redoStep', (_, { dispatch, getState }) =>
-  takeStep('redo', dispatch, getState)
+>('history/redoStep', (press, { dispatch, getState }) =>
+  takeStep('redo', press ?? CLOSES_PLAIN_TOASTS, dispatch, getState)
 );
 
 // KAN-744 R1. Keeps an Open now move as a step in the undo history, when it changed any place; returns its id.

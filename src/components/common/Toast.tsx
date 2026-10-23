@@ -13,6 +13,7 @@ import { reopenFromOffer } from '../../redux/reopenOffer';
 import { showSession } from '../../redux/showSession';
 import { selectNewestLiveStep } from '../../redux/slices/undoRedoSlice';
 import { undoStep } from '../../redux/undoHistory';
+import type { StepPress } from '../../redux/undoHistory';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
@@ -27,6 +28,9 @@ import {
 } from './useToastStack';
 import { APP_WIDTH, SETTINGS_COLUMN } from '../../utils/constants/common';
 import { isTabView } from '../../utils/functions/viewMode';
+
+// KAN-583, KAN-694. A toast's Undo closes its own toast only; the other plain toasts stay up.
+const LEAVES_PLAIN_TOASTS: StepPress = { closesPlainToasts: false };
 
 // The stack's distance from the window's left and bottom edges.
 const EDGE_PX = 20;
@@ -306,7 +310,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 // ⌘Z takes a Reopen offer shown since.
                 keyHint={keyTakesStep ? undoKeyHint : undefined}
                 // Shown only while its step is the newest; the undo reducer closes this toast (globalStateSlice).
-                onClick={() => void dispatch(undoStep())}
+                onClick={() => void dispatch(undoStep(LEAVES_PLAIN_TOASTS))}
                 style={chipStyle}
               />
             )}
@@ -317,8 +321,17 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 text={t('Undo')}
                 // ⌘Z takes a Reopen offer shown since.
                 keyHint={keyTakesStep ? undoKeyHint : undefined}
-                // Shown only while its sort is the newest step, so this undoes the sort; undoStep closes this toast with the other plain ones.
-                onClick={() => void dispatch(undoStep())}
+                // Shown only while its sort is the newest step, so this undoes the sort, then closes this toast; a press ignored while another step runs (R19) leaves it.
+                onClick={() =>
+                  void dispatch(undoStep(LEAVES_PLAIN_TOASTS)).then((run) => {
+                    if (
+                      undoStep.fulfilled.match(run) &&
+                      run.payload !== 'busy'
+                    ) {
+                      dispatch(toastsRemoved([toast.id]));
+                    }
+                  })
+                }
                 style={chipStyle}
               />
             )}
