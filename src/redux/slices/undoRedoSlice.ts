@@ -3,6 +3,23 @@ import type { TabMasterContainer } from './tabContainerDataStateSlice';
 import { initialState as tabContainerDataInitialState } from './tabContainerInitialState';
 import type { RootState } from '../store';
 import { STACK_LEVEL } from '../../utils/constants/common';
+import type { OpenNowDrop } from '../../utils/functions/openNowMoves';
+
+// An Open now move (sort or drag) that sits in the same history as saved edits
+// (KAN-744). `id` comes from nextActionNumber().
+export interface LiveStep {
+  id: number;
+  drop: OpenNowDrop;
+}
+
+// Immer drafts are mutable, and a drop's `moved` is readonly; copying the array
+// is how a step gets into the draft without a cast.
+function writable(step: LiveStep) {
+  return {
+    id: step.id,
+    drop: { kind: step.drop.kind, moved: [...step.drop.moved] },
+  };
+}
 
 export interface UndoableStates {
   tabContainerDataState: TabMasterContainer;
@@ -25,6 +42,10 @@ export interface UndoableStates {
   // with no room for a cloud arrival in between. What that step added is a
   // fact, so it is recorded as one instead of being reconstructed later.
   addedTabGroupIds?: string[];
+
+  // The Open now move that led into this state, same meaning as above. Live
+  // steps never change the saved container, so every such state shares it.
+  liveStep?: LiveStep;
 }
 
 export interface undoRedoState {
@@ -51,7 +72,11 @@ export const undoRedoSlice = createSlice({
       if (state.past.length > STACK_LEVEL) {
         state.past.shift();
       }
-      state.present = action.payload;
+      const { liveStep } = action.payload;
+      state.present = {
+        ...action.payload,
+        liveStep: liveStep && writable(liveStep),
+      };
       state.future = [];
     },
     undo: (state) => {
@@ -90,6 +115,7 @@ export const undoRedoSlice = createSlice({
       state.present = {
         ...action.payload,
         addedTabGroupIds: state.present.addedTabGroupIds,
+        liveStep: state.present.liveStep,
       };
     },
 
@@ -120,24 +146,93 @@ export const undoRedoSlice = createSlice({
       state.present = {
         ...action.payload,
         addedTabGroupIds: state.present.addedTabGroupIds,
+        liveStep: state.present.liveStep,
       };
     },
 
+    // A live step is recorded, replied to and dropped by id, so a late reply for
+    // a step that is no longer where it was cannot move the wrong one.
+    pushLiveStep: (state, action: PayloadAction<LiveStep>) => {
+      state.past.push(state.present);
+      if (state.past.length > STACK_LEVEL) {
+        state.past.shift();
+      }
+      state.present = {
+        tabContainerDataState: state.present.tabContainerDataState,
+        addedTabGroupIds: [],
+        liveStep: writable(action.payload),
+      };
+      state.future = [];
+    },
+    liveStepUndone: (state, action: PayloadAction<LiveStep>) => {
+      if (state.present.liveStep?.id !== action.payload.id) return;
+      const previous = state.past.pop();
+      if (!previous) return;
+      state.future.unshift({
+        ...state.present,
+        liveStep: writable(action.payload),
+      });
+      state.present = {
+        ...previous,
+        tabContainerDataState: state.present.tabContainerDataState,
+      };
+    },
+    liveStepRedone: (state, action: PayloadAction<LiveStep>) => {
+      if (state.future[0]?.liveStep?.id !== action.payload.id) return;
+      state.past.push(state.present);
+      if (state.past.length > STACK_LEVEL) {
+        state.past.shift();
+      }
+      state.present = {
+        tabContainerDataState: state.present.tabContainerDataState,
+        addedTabGroupIds: [],
+        liveStep: writable(action.payload),
+      };
+      state.future.shift();
+    },
+    liveStepDropped: (state, action: PayloadAction<{ id: number }>) => {
+      const { id } = action.payload;
+      if (state.present.liveStep?.id === id) {
+        const previous = state.past.pop();
+        if (!previous) return;
+        state.present = {
+          ...previous,
+          tabContainerDataState: state.present.tabContainerDataState,
+        };
+        return;
+      }
+      const at = state.future.findIndex((s) => s.liveStep?.id === id);
+      if (at !== -1) state.future.splice(at, 1);
+    },
+
     // D12 (KAN-279). A change this page did not make -- another page's write,
-    // or a cloud merge that changed local data -- leaves nothing here that an
-    // undo may reverse. The added ids go too: carrying them only makes sense
-    // while `past` survives, and they could name sessions the other side has
-    // already deleted.
+    // or a cloud merge that changed local data -- leaves nothing here that a
+    // saved undo may reverse. The added ids go too: carrying them only makes
+    // sense while `past` survives, and they could name sessions the other side
+    // has already deleted. Live steps stay (KAN-744): the tabs they moved are
+    // still moved, whatever the cloud said.
     resetHistory: (
       state,
       action: PayloadAction<{ tabContainerDataState: TabMasterContainer }>
     ) => {
-      state.past = [];
-      state.future = [];
-      state.present = {
-        tabContainerDataState: action.payload.tabContainerDataState,
+      const loaded = action.payload.tabContainerDataState;
+      const base = {
+        tabContainerDataState: loaded,
         addedTabGroupIds: [],
       };
+      const relive = ({ liveStep }: UndoableStates) => ({
+        tabContainerDataState: loaded,
+        addedTabGroupIds: [],
+        liveStep: liveStep && writable(liveStep),
+      });
+      // past[0] is the base; every later entry, and present, is a step.
+      const kept = [...state.past.slice(1), state.present]
+        .filter((s) => s.liveStep)
+        .map(relive);
+      const last = kept[kept.length - 1];
+      state.past = last ? [base, ...kept.slice(0, -1)] : [];
+      state.present = last ?? base;
+      state.future = state.future.filter((s) => s.liveStep).map(relive);
     },
   },
 });
@@ -148,6 +243,10 @@ export const {
   redo,
   setPresentStartup,
   setPresentWithoutHistory,
+  pushLiveStep,
+  liveStepUndone,
+  liveStepRedone,
+  liveStepDropped,
   resetHistory,
 } = undoRedoSlice.actions;
 
@@ -156,5 +255,20 @@ export const isUndoableSelector = (state: RootState) =>
   state.undoRedo.past.length > 0;
 export const isRedoableSelector = (state: RootState) =>
   state.undoRedo.future.length > 0;
+
+// Which kind of step the next undo or redo takes, whatever order they were made in.
+export const selectNextStep = (
+  state: RootState,
+  direction: 'undo' | 'redo'
+): 'saved' | 'live' | null => {
+  const { past, present, future } = state.undoRedo;
+  const entry = direction === 'undo' ? present : future[0];
+  if (direction === 'undo' ? past.length === 0 : !entry) return null;
+  return entry.liveStep ? 'live' : 'saved';
+};
+export const selectNewestLiveStep = (state: RootState): LiveStep | null =>
+  state.undoRedo.past.length > 0
+    ? (state.undoRedo.present.liveStep ?? null)
+    : null;
 
 export default undoRedoSlice.reducer;
