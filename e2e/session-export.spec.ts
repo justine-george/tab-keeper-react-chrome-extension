@@ -76,12 +76,12 @@ const WEB_URLS = [
   'https://inari.jp/en/',
 ];
 
-const EXPORT_ITEM = 'Export…';
+const SAVE_AS_PDF_ITEM = 'Save as PDF…';
 
 /** Resolves on the click, so it fits a Promise.all awaiting the new tab. */
 async function chooseExport(popup: Page) {
   await sessionHeaderMenu(popup).click();
-  await popup.getByRole('menuitem', { name: EXPORT_ITEM }).click();
+  await popup.getByRole('menuitem', { name: SAVE_AS_PDF_ITEM }).click();
 }
 
 /** The popup, with one session seeded and selected. */
@@ -100,7 +100,7 @@ async function openPopup(
 }
 
 test.describe('exporting a session as a web page', () => {
-  test('Export… in the session menu opens a preview of the file, and the file holds the session', async ({
+  test('Save as PDF… in the session menu opens a preview of the file, and the file holds the session', async ({
     context,
     extensionId,
   }) => {
@@ -154,7 +154,7 @@ test.describe('exporting a session as a web page', () => {
       exportPage.getByRole('button', { name: 'Copy all links' })
     ).toBeVisible();
     await expect(
-      exportPage.getByRole('button', { name: 'PDF / Print' })
+      exportPage.getByRole('button', { name: 'Save as PDF…' })
     ).toBeVisible();
     await expect(
       exportPage.getByRole('button', { name: 'Save as HTML' })
@@ -1180,7 +1180,7 @@ test('the file can be switched light or dark, and printed', async ({
     .locator('[data-print-probe]')
     .evaluate((probe) => probe.remove());
 
-  await exportPage.getByRole('button', { name: 'PDF / Print' }).click();
+  await exportPage.getByRole('button', { name: 'Save as PDF…' }).click();
   await exportPage.waitForTimeout(500);
 
   expect(
@@ -1259,7 +1259,7 @@ test('the toolbar survives German at the popup width', async ({
 
   const [exportPage] = await Promise.all([
     context.waitForEvent('page'),
-    popup.getByRole('menuitem', { name: 'Exportieren…' }).click(),
+    popup.getByRole('menuitem', { name: 'Als PDF speichern…' }).click(),
   ]);
   await exportPage.waitForLoadState();
   await exportPage.setViewportSize({ width: 800, height: 600 });
@@ -1324,7 +1324,7 @@ test('an icon button is evenly padded on both sides', async ({
         right: Math.round(box.right - label.right),
       };
     };
-    return ['PDF / Print', 'Copy all links'].map((name) => ({
+    return ['Save as PDF…', 'Copy all links'].map((name) => ({
       name,
       ...measure(name),
     }));

@@ -101,7 +101,7 @@ for (const lang of ['en', 'ru']) {
 }
 
 // KAN-734. Editing swaps the row but not the band: Reset and Done end where
-// PDF / Print did.
+// Save as PDF… did.
 test(`at 2000px the editing row's tally and Done span the ${HEADER_CONTENT_MAX_PX}px band (ru)`, async ({
   context,
   extensionId,

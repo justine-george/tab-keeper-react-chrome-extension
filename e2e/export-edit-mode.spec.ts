@@ -379,7 +379,7 @@ const toolbarGeometry = (page: Page, title: string) =>
   page.evaluate((title) => {
     const byLabel = (label: string) =>
       document.querySelector(`button[aria-label="${label}"]`);
-    const primary = byLabel('PDF / Print') ?? byLabel('Done');
+    const primary = byLabel('Save as PDF…') ?? byLabel('Done');
     if (!primary) throw new Error('no primary control on the toolbar');
     // A textarea's text is its value, never its textContent, so this finds the
     // header's title.
@@ -450,7 +450,7 @@ for (const width of [1600, 1200, 800, 640]) {
     ).toBeLessThanOrEqual(1);
   });
 
-  test(`at ${width}px PDF / Print, then Done, sit at the right end of the toolbar`, async ({
+  test(`at ${width}px Save as PDF…, then Done, sit at the right end of the toolbar`, async ({
     context,
     extensionId,
   }) => {
@@ -462,7 +462,7 @@ for (const width of [1600, 1200, 800, 640]) {
 
     expect(
       Math.abs(resting.contentRight - resting.primaryRight),
-      `PDF / Print ends at ${resting.primaryRight}px, the row at ${resting.contentRight}px`
+      `Save as PDF… ends at ${resting.primaryRight}px, the row at ${resting.contentRight}px`
     ).toBeLessThanOrEqual(1);
     expect(
       Math.abs(editing.contentRight - editing.primaryRight),
@@ -489,7 +489,7 @@ const headerAndRow = (page: Page) =>
     );
     if (!heading) throw new Error('no session title in the header');
     const primary =
-      document.querySelector('button[aria-label="PDF / Print"]') ??
+      document.querySelector('button[aria-label="Save as PDF…"]') ??
       document.querySelector('button[aria-label="Done"]');
     if (!primary) throw new Error('no primary control on the toolbar');
     let header: Element = primary;

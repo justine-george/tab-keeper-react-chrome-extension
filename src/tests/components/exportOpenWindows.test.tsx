@@ -132,7 +132,7 @@ describe('exporting the open windows (KAN-208)', () => {
 
     await waitFor(() => expect(frame().srcdoc).toContain('Kagi Search'));
     expect(screen.getByRole('button', { name: 'Copy all links' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'PDF / Print' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save as PDF…' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save as HTML' })).toBeNull();
   });
 
@@ -188,7 +188,7 @@ describe('exporting the open windows (KAN-208)', () => {
     expect(await screen.findByText('Session not found')).toBeTruthy();
     expect(document.querySelector('[data-capturing]')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Copy all links' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'PDF / Print' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save as PDF…' })).toBeNull();
     expect(document.querySelector('iframe')).toBeNull();
   });
 });

@@ -48,7 +48,7 @@ for (const theme of THEMES) {
       context.waitForEvent('page'),
       (async () => {
         await sessionHeaderMenu(page).click();
-        await page.getByRole('menuitem', { name: 'Export…' }).click();
+        await page.getByRole('menuitem', { name: 'Save as PDF…' }).click();
       })(),
     ]);
     const counts = exportPage.getByText(/^2 Windows/);

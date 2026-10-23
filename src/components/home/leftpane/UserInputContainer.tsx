@@ -287,7 +287,7 @@ export default function UserInputContainer() {
           button on the preview is pressed, and the preview's edit mode can
           hide a whole window -- so there is ONE export item, covering
           everything open, and the scope is chosen after seeing it rather than
-          blind. That also matches a saved session, whose menu has one Export…
+          blind. That also matches a saved session, whose menu has one Save as PDF…
           whatever it holds.
 
           A third plus-bearing glyph in this group was ruled out: the group
@@ -355,13 +355,13 @@ export default function UserInputContainer() {
               },
               {
                 key: 'export-open-windows',
-                label: t('Export open windows'),
+                label: t('Save open windows as PDF'),
                 icon: 'ios_share',
                 onSelect: async () => {
                   // KAN-522. Checked first: with only Tab Keeper open the page would have nothing to export.
                   if (!(await hasTabsToSave())) {
                     void dispatch(
-                      showToast({ toastText: TOAST_MESSAGES.NOTHING_TO_EXPORT })
+                      showToast({ toastText: TOAST_MESSAGES.NOTHING_TO_SAVE })
                     );
                     return;
                   }

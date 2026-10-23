@@ -86,7 +86,7 @@ for (const theme of ['Light', 'Darkenheimer']) {
   }) => {
     const page = await openExport(context, extensionId, theme);
 
-    for (const name of ['Edit', 'Copy all links', 'PDF / Print']) {
+    for (const name of ['Edit', 'Copy all links', 'Save as PDF…']) {
       const { press } = await held(page, page.getByRole('button', { name }));
       expect(press.scale, `${name} held`).toBeCloseTo(0.97, 3);
     }
@@ -101,12 +101,12 @@ for (const theme of ['Light', 'Darkenheimer']) {
 
   // KAN-220. A deeper press fill drops the label below 4.5:1 on the dark page,
   // so the primary keeps its hover fill and the dip is its press cue.
-  test(`${theme}: PDF / Print holds its hover fill and dips when pressed`, async ({
+  test(`${theme}: Save as PDF… holds its hover fill and dips when pressed`, async ({
     context,
     extensionId,
   }) => {
     const page = await openExport(context, extensionId, theme);
-    const print = page.getByRole('button', { name: 'PDF / Print' });
+    const print = page.getByRole('button', { name: 'Save as PDF…' });
     const rest = await settledStyle(page, print);
 
     const { hover, press } = await held(page, print);

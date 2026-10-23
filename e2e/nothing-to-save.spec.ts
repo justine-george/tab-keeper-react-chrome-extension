@@ -53,29 +53,29 @@ test.describe('with only Tab Keeper open', () => {
     );
   });
 
-  test('Export open windows says so and opens no tab', async ({
+  test('Save open windows as PDF says so and opens no tab', async ({
     context,
     extensionId,
   }) => {
     const page = await openFullView(context, extensionId);
     await closeOtherTabs(page);
     const before = context.pages().length;
-    await openMenuItem(page, 'Export open windows…');
+    await openMenuItem(page, 'Save open windows as PDF…');
     await expect(toast(page)).toHaveText(
-      'No tabs to export. Only Tab Keeper is open.'
+      'No tabs to save. Only Tab Keeper is open.'
     );
     expect(context.pages()).toHaveLength(before);
   });
 });
 
 // CONTROL: the same press with a real tab open still opens the export page.
-test('with another tab open, Export open windows opens the export page', async ({
+test('with another tab open, Save open windows as PDF opens the export page', async ({
   context,
   extensionId,
 }) => {
   const page = await openFullView(context, extensionId);
   const opened = context.waitForEvent('page');
-  await openMenuItem(page, 'Export open windows…');
+  await openMenuItem(page, 'Save open windows as PDF…');
   expect((await opened).url()).toContain('export.html?source=open-windows');
   await expect(toast(page)).toHaveCount(0);
 });

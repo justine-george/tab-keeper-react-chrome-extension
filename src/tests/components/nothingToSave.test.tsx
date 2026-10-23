@@ -14,7 +14,6 @@ const OWN_URL = 'chrome-extension://faketestid/index.html?view=tab';
 const NOTHING_TO_SAVE = 'No tabs to save. Only Tab Keeper is open.';
 const NOTHING_IN_WINDOW =
   'No tabs to save in this window. Only Tab Keeper is open here.';
-const NOTHING_TO_EXPORT = 'No tabs to export. Only Tab Keeper is open.';
 
 const own = (id: number, windowId = 1) =>
   tab({ id, windowId, url: OWN_URL, title: 'Tab Keeper', active: true });
@@ -76,17 +75,17 @@ describe('with only Tab Keeper open, each save-row action says why (KAN-522)', (
     expect(toastTexts(store.getState())).not.toContain(NOTHING_TO_SAVE);
   });
 
-  test('Export open windows: the toast, and no export tab opened', async () => {
+  test('Save open windows as PDF: the toast, and no export tab opened', async () => {
     const { store, chrome } = await render(onlyTabKeeper);
-    await userEvent.click(await menuItem('Export open windows…'));
+    await userEvent.click(await menuItem('Save open windows as PDF…'));
     await act(async () => {});
-    expect(toastTexts(store.getState())).toEqual([NOTHING_TO_EXPORT]);
+    expect(toastTexts(store.getState())).toEqual([NOTHING_TO_SAVE]);
     expect(chrome.createdTabs).toEqual([]);
   });
 
-  test('CONTROL: with a real tab open, Export open windows opens the export page', async () => {
+  test('CONTROL: with a real tab open, Save open windows as PDF opens the export page', async () => {
     const { store, chrome } = await render(otherWindowHasTabs);
-    await userEvent.click(await menuItem('Export open windows…'));
+    await userEvent.click(await menuItem('Save open windows as PDF…'));
     await act(async () => {});
     expect(chrome.createdTabs).toHaveLength(1);
     expect(chrome.createdTabs[0].url).toContain(

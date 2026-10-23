@@ -158,7 +158,7 @@ describe('Edit mode on the export page (KAN-194)', () => {
     expect(document.querySelector('iframe')).toBeNull();
     for (const name of [
       'Copy all links',
-      'PDF / Print',
+      'Save as PDF…',
       'Save as HTML',
       'Comfortable',
       'Light',
@@ -477,7 +477,7 @@ describe('closing the page with edits pending (KAN-194)', () => {
       value: { print: printed },
     });
 
-    await user.click(screen.getByRole('button', { name: 'PDF / Print' }));
+    await user.click(screen.getByRole('button', { name: 'Save as PDF…' }));
 
     expect(printed).toHaveBeenCalled();
     expect(closingAsks()).toBe(true);

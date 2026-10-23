@@ -360,7 +360,7 @@ describe('the export preview page (KAN-190)', () => {
 
     expect(screen.getByText('Session not found')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Copy all links' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'PDF / Print' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save as PDF…' })).toBeNull();
     expect(document.querySelector('iframe')).toBeNull();
   });
 
@@ -565,7 +565,7 @@ describe('the whole page is light or dark, and the switch changes only the page 
     await user.click(screen.getByRole('button', { name: 'Dark' }));
 
     expect(
-      getComputedStyle(screen.getByRole('button', { name: 'PDF / Print' }))
+      getComputedStyle(screen.getByRole('button', { name: 'Save as PDF…' }))
         .backgroundColor
     ).toBe(rgb(CHARCOAL_THEME.TEXT_COLOR));
   });
@@ -605,7 +605,7 @@ describe('printing the previewed file', () => {
     );
     fireEvent.load(frame());
 
-    await user.click(screen.getByRole('button', { name: 'PDF / Print' }));
+    await user.click(screen.getByRole('button', { name: 'Save as PDF…' }));
 
     await waitFor(() => expect(printed).toHaveBeenCalledTimes(1));
   });
@@ -633,8 +633,8 @@ describe('the icon on the filled button (KAN-190)', () => {
   test('the print icon is not painted in the fill it sits on', async () => {
     await renderPage();
 
-    const print = screen.getByRole('button', { name: 'PDF / Print' });
-    expect(glyphOf('PDF / Print')).not.toBe(
+    const print = screen.getByRole('button', { name: 'Save as PDF…' });
+    expect(glyphOf('Save as PDF…')).not.toBe(
       getComputedStyle(print).backgroundColor
     );
   });
@@ -688,7 +688,7 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
     const layout = screen.getByRole('group', { name: 'Layout' });
     const colour = screen.getByRole('group', { name: 'Colour' });
 
-    for (const name of ['PDF / Print', 'Copy all links', 'Save as HTML']) {
+    for (const name of ['Save as PDF…', 'Copy all links', 'Save as HTML']) {
       const button = screen.getByRole('button', { name });
       expect(layout.contains(button)).toBe(false);
       expect(colour.contains(button)).toBe(false);
@@ -702,7 +702,7 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
     saveSwitch.shown = true;
     await renderPage();
 
-    const names = ['Copy all links', 'Save as HTML', 'PDF / Print'];
+    const names = ['Copy all links', 'Save as HTML', 'Save as PDF…'];
     const actions = screen
       .getAllByRole('button')
       .map((b) => b.getAttribute('aria-label'))
@@ -711,15 +711,15 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
   });
 
   // KAN-734. What ships: Save as HTML is hidden, the other two keep their order.
-  test('the shipped toolbar offers Copy all links then PDF / Print, and no Save (KAN-734)', async () => {
+  test('the shipped toolbar offers Copy all links then Save as PDF…, and no Save as HTML (KAN-734)', async () => {
     await renderPage();
 
-    const names = ['Copy all links', 'Save as HTML', 'PDF / Print'];
+    const names = ['Copy all links', 'Save as HTML', 'Save as PDF…'];
     const actions = screen
       .getAllByRole('button')
       .map((b) => b.getAttribute('aria-label'))
       .filter((name): name is string => names.includes(name ?? ''));
-    expect(actions).toEqual(['Copy all links', 'PDF / Print']);
+    expect(actions).toEqual(['Copy all links', 'Save as PDF…']);
     expect(screen.queryByRole('button', { name: 'Save as HTML' })).toBeNull();
   });
 
@@ -732,7 +732,7 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
 
     const copy = screen.getByRole('button', { name: 'Copy all links' });
     const save = screen.getByRole('button', { name: 'Save as HTML' });
-    const print = screen.getByRole('button', { name: 'PDF / Print' });
+    const print = screen.getByRole('button', { name: 'Save as PDF…' });
 
     const fill = (el: HTMLElement) => getComputedStyle(el).backgroundColor;
     expect(fill(print)).not.toBe(fill(copy));
@@ -849,7 +849,8 @@ describe('the icons on the export page (KAN-603)', () => {
     return { seen, stop: () => observer.disconnect() };
   }
 
-  const printButton = () => screen.getByRole('button', { name: 'PDF / Print' });
+  const printButton = () =>
+    screen.getByRole('button', { name: 'Save as PDF…' });
 
   const spyPrint = () => {
     const printed = vi.fn();

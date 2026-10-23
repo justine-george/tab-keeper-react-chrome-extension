@@ -78,18 +78,18 @@ const ENTRY_POINTS: {
   page: string;
 }[] = [
   {
-    name: 'Export open windows…',
+    name: 'Save open windows as PDF…',
     choose: async (popup) => {
       await saveRowMenu(popup).click();
-      await item(popup, 'Export open windows…').click();
+      await item(popup, 'Save open windows as PDF…').click();
     },
     page: 'export.html?source=open-windows',
   },
   {
-    name: 'Export… (session menu)',
+    name: 'Save as PDF… (session menu)',
     choose: async (popup) => {
       await sessionHeaderMenu(popup).click();
-      await item(popup, 'Export…').click();
+      await item(popup, 'Save as PDF…').click();
     },
     page: 'export.html?session=session-kyoto',
   },

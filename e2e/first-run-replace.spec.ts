@@ -153,7 +153,9 @@ test('full view: step 6 explains Replace under the row’s Replace, after Open, 
   expect(await cardSide(page)).toBe('below');
   await expect(cardAt(page, 6)).toBeVisible();
   await nextTo(page, 7);
-  await expect(card(page)).toContainText('Copy all links, export, or delete');
+  await expect(card(page)).toContainText(
+    'Copy all links, save as PDF, or delete'
+  );
   await expect(card(page)).toContainText(
     "Right-clicking the session's title opens this menu too."
   );

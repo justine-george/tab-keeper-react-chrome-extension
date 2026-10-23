@@ -78,7 +78,7 @@ import {
  * How wide the header's content may grow, centred (KAN-235).
  *
  * The document below sits in a 720px column; this is what keeps Edit and
- * PDF / Print from running to the monitor's edges above it. The number is the
+ * Save as PDF… from running to the monitor's edges above it. The number is the
  * toolbar's one-line floor: it wraps its right-hand group onto its own line
  * when it cannot fit. With Save as HTML hidden (KAN-734) the widest locale's
  * one-line width is Russian at 849px (ko 561, zh 582, zh-TW 585, hi 663,
@@ -349,8 +349,8 @@ export default function ExportPage({ source }: { source: ExportSource }) {
       tabCountLabel: (count) => formatTabCount(count, t),
       strings: {
         window: t('Window'),
-        notAWebLink: t('ExportNotAWebLink'),
-        savedWith: t('ExportFooterCredit'),
+        notAWebLink: t('SavePdfNotAWebLink'),
+        savedWith: t('SavePdfFooterCredit'),
         getExtension: t('Get the extension'),
       },
       mark: markDataUri,
@@ -720,7 +720,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
           KAN-235. The header's CONTENT lives in a centred band; the header
           itself stays full bleed. The document below sits in a 720px column,
           and with the toolbar running edge to edge a wide monitor put Edit
-          and PDF / Print ~1970px apart with the thing they act on in the
+          and Save as PDF… ~1970px apart with the thing they act on in the
           middle. Done with align-items on this column and a max-width on
           each child rather than a wrapper, so nothing that walks from
           data-toolbar-row to its parent changes. Below the band's width this
@@ -824,7 +824,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                     font-variant-numeric: tabular-nums;
                   `}
                 >
-                  {t('ExportEditTally', {
+                  {t('SavePdfEditTally', {
                     renamed: tally.renamed,
                     hidden: tally.hiddenTabs,
                   })}
@@ -844,7 +844,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                     ariaLabel={t('Done')}
                     ariaDisabled={nothingKept}
                     tooltipText={
-                      nothingKept ? t('ExportNothingKept') : undefined
+                      nothingKept ? t('SavePdfNothingKept') : undefined
                     }
                     iconType="check"
                     onClick={() => {
@@ -930,16 +930,11 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                     />
                   )}
                   <Button
-                    // KAN-207. Deliberately still "PDF / Print", not "Save as
-                    // PDF". handlePrint opens the browser's print dialog and the
-                    // user picks the destination -- Save as PDF is only Chrome's
-                    // usual default, and it can go to a printer. Naming an
-                    // outcome this page does not control is the same
-                    // over-promise as the "web page" wording this ticket
-                    // removed from the menu item, and promoting the control is
-                    // no reason to start making it.
-                    text={t('Print')}
-                    ariaLabel={t('Print')}
+                    // KAN-742. A PDF is the only file this page makes; the "…" says
+                    // Chrome's print dialog follows, where a printer can still be picked
+                    // (KAN-207's objection, weighed and accepted).
+                    text={t('Save as PDF')}
+                    ariaLabel={t('Save as PDF')}
                     iconType="print"
                     onClick={handlePrint}
                     busy={pendingOutput !== null}
