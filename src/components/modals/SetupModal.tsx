@@ -5,6 +5,7 @@ import { css } from '@emotion/react';
 
 import Icon from '../common/Icon';
 import ProgressLine from '../common/ProgressLine';
+import DefaultViewCards from '../common/DefaultViewCards';
 import SlidingPair from '../common/SlidingPair';
 import { SETTINGS_PAIR_METRICS } from '../common/slidingPairMetrics';
 import TabKeeperMark from '../common/TabKeeperMark';
@@ -14,7 +15,6 @@ import { pressedCellStyle } from '../common/pressedCellStyle';
 import ThemeSwatch from '../settings/rightpane/ThemeSwatch';
 import { chromeLanguageOrder } from '../settings/rightpane/languageOptions';
 import { themeChoices } from '../settings/rightpane/themeChoices';
-import { CompactViewArt, FullViewArt } from './defaultViewArt';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import {
@@ -31,9 +31,7 @@ import {
   setTheme,
   type Language,
 } from '../../redux/slices/settingsDataStateSlice';
-import { chooseDefaultView } from '../../redux/defaultViewChoice';
 import { chooseLanguage } from '../../redux/languageChoice';
-import type { DefaultView } from '../../utils/functions/defaultView';
 import { isTabView } from '../../utils/functions/viewMode';
 import { shortcutKeys } from '../../utils/functions/shortcutKeys';
 import {
@@ -43,7 +41,7 @@ import {
 import { shouldAskTabGroupsInSetup } from '../../utils/functions/tabGroupsOffer';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
 import { ICON, TYPE } from '../../styles/scale';
-import { focusRingCss, focusRingOutsideCss } from '../common/focusRing';
+import { focusRingOutsideCss } from '../common/focusRing';
 import {
   dialogButtonStyles,
   flushLinkCss,
@@ -75,9 +73,6 @@ export const SetupModal: React.FC = () => {
   const dispatch: AppDispatch = useDispatch();
   const theme = useSelector((s: RootState) => s.settingsDataState.theme);
   const language = useSelector((s: RootState) => s.settingsDataState.language);
-  const defaultView = useSelector(
-    (s: RootState) => s.settingsDataState.defaultView
-  );
   const settings = useSelector((s: RootState) => s.settingsDataState);
   const hasTabGroups = useSelector(
     (s: RootState) => s.globalState.hasTabGroupsPermission
@@ -224,59 +219,6 @@ export const SetupModal: React.FC = () => {
   const pressedCell = css`
     ${pressedCellStyle(COLORS)}
   `;
-  const cardsStyle = css`
-    display: flex;
-    gap: 14px;
-  `;
-  const viewCardStyle = css`
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    padding: 0;
-    text-align: left;
-    cursor: pointer;
-    font: inherit;
-    color: ${COLORS.TEXT_COLOR};
-    background-color: ${COLORS.PRIMARY_COLOR};
-    border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
-    ${focusRingCss(COLORS)}
-  `;
-  // D2: the pressed card's outline is 1px TEXT; its label strip is filled below.
-  const viewCardPressedStyle = css`
-    border-color: ${COLORS.TEXT_COLOR};
-  `;
-  const viewArtStyle = css`
-    display: block;
-    padding: 12px;
-  `;
-  const viewLabelStyle = css`
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex: 1;
-    padding: 6px 12px;
-    /* Holds two lines, so the check's padded box never resizes the pressed strip. */
-    min-height: 3rem;
-  `;
-  const viewLabelTextStyle = css`
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  `;
-  const viewCaptionStyle = css`
-    font-size: ${TYPE.SECONDARY};
-    line-height: 1.35;
-    color: ${COLORS.LABEL_L1_COLOR};
-  `;
-  // D2: the language cell's pressed look, on the label strip.
-  const viewLabelPressedStyle = css`
-    background-color: ${pressed.knob};
-    color: ${pressed.labelOnKnob};
-  `;
-  const viewCaptionPressedStyle = css`
-    color: ${pressed.labelOnKnob};
-  `;
   const fineStyle = css`
     margin: 12px 0 0 0;
     font-size: ${TYPE.SECONDARY};
@@ -327,50 +269,6 @@ export const SetupModal: React.FC = () => {
     margin-top: 12px;
   `;
   const tall = tallButtonCss(24);
-
-  const viewCard = (
-    view: DefaultView,
-    label: string,
-    caption: string,
-    art: ReactNode
-  ) => {
-    const isActive = defaultView === view;
-    const labelId = `setup-view-${view}-label`;
-    const captionId = `setup-view-${view}-caption`;
-    return (
-      <button
-        key={view}
-        type="button"
-        aria-pressed={isActive}
-        aria-labelledby={labelId}
-        aria-describedby={captionId}
-        css={[viewCardStyle, isActive && viewCardPressedStyle]}
-        onClick={() => void dispatch(chooseDefaultView(view))}
-      >
-        <span aria-hidden="true" css={viewArtStyle}>
-          {art}
-        </span>
-        <span
-          data-view-label
-          css={[viewLabelStyle, isActive && viewLabelPressedStyle]}
-        >
-          {isActive && (
-            <Icon type="check" size={ICON.SMALL} color={pressed.labelOnKnob} />
-          )}
-          <span css={viewLabelTextStyle}>
-            <span id={labelId}>{label}</span>
-            <span
-              id={captionId}
-              data-view-caption
-              css={[viewCaptionStyle, isActive && viewCaptionPressedStyle]}
-            >
-              {caption}
-            </span>
-          </span>
-        </span>
-      </button>
-    );
-  };
 
   // The shortcuts page opens beside this tab only in the full view; the popup has nothing to come back to.
   const shortcutAction = (label: string) => (
@@ -471,20 +369,7 @@ export const SetupModal: React.FC = () => {
       heading: t('When you click Tab Keeper, open…'),
       body: (
         <>
-          <div css={cardsStyle}>
-            {viewCard(
-              'compact',
-              t('Compact view'),
-              t('Opens under the toolbar icon'),
-              <CompactViewArt />
-            )}
-            {viewCard(
-              'full',
-              t('Full view'),
-              t('Opens in its own tab'),
-              <FullViewArt />
-            )}
-          </div>
+          <DefaultViewCards />
           <p css={fineStyle}>
             {t('You can change this any time in Settings.')}
           </p>
