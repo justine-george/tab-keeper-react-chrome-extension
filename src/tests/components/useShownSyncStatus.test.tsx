@@ -1,0 +1,166 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+
+import { useShownSyncStatus } from '../../components/common/useShownSyncStatus';
+import type { SyncStatus } from '../../redux/slices/globalStateSlice';
+
+// KAN-750. When the glyph SHOWS syncing: unpressed syncs wait 150 ms, a shown
+// sync holds 400 ms, a press shows at once, the boot sync shows while sign-in
+// is pending but only for 8 s.
+type Props = { raw: SyncStatus; awaitsBootSync: boolean };
+const NEVER = -Infinity;
+
+function setup(initial: Partial<Props> = {}) {
+  const pressed = { current: NEVER };
+  let latest: Props = { raw: 'idle', awaitsBootSync: false, ...initial };
+  const view = renderHook(
+    (p: Props) => useShownSyncStatus(p.raw, { ...p, pressedAt: pressed }),
+    { initialProps: latest }
+  );
+  const update = (p: Partial<Props>) => {
+    latest = { ...latest, ...p };
+    act(() => view.rerender(latest));
+  };
+  const wait = (ms: number) => act(() => void vi.advanceTimersByTime(ms));
+  return { view, pressed, update, wait };
+}
+
+describe('useShownSyncStatus', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(100_000);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  test('a sync under 150 ms is never shown', () => {
+    const { view, update, wait } = setup();
+    update({ raw: 'loading' });
+    expect(view.result.current).not.toBe('loading');
+    wait(120);
+    expect(view.result.current).not.toBe('loading');
+    update({ raw: 'success' });
+    expect(view.result.current).toBe('success');
+    wait(1000);
+    expect(view.result.current).toBe('success');
+  });
+
+  test('a slower sync shows after 150 ms and holds 400 ms', () => {
+    const { view, update, wait } = setup();
+    update({ raw: 'loading' });
+    wait(149);
+    expect(view.result.current).not.toBe('loading');
+    wait(1);
+    expect(view.result.current).toBe('loading');
+    wait(50);
+    update({ raw: 'success' }); // t = 200
+    wait(349); // t = 549
+    expect(view.result.current).toBe('loading');
+    wait(1);
+    expect(view.result.current).toBe('success');
+  });
+
+  test('a press shows at once', () => {
+    const { view, pressed, update } = setup();
+    pressed.current = Date.now();
+    update({ raw: 'loading' });
+    expect(view.result.current).toBe('loading');
+  });
+
+  test('a press from long ago does not count', () => {
+    const { view, pressed, update, wait } = setup();
+    pressed.current = Date.now() - 5000;
+    update({ raw: 'loading' });
+    expect(view.result.current).not.toBe('loading');
+    wait(150);
+    expect(view.result.current).toBe('loading');
+  });
+
+  test('the boot sync shows while signing in', () => {
+    const { view, wait } = setup({ awaitsBootSync: true });
+    expect(view.result.current).toBe('idle');
+    wait(150);
+    expect(view.result.current).toBe('loading');
+  });
+
+  test('stops showing the boot sync after the limit', () => {
+    const { view, wait } = setup({ awaitsBootSync: true });
+    wait(7999);
+    expect(view.result.current).toBe('loading');
+    wait(1);
+    expect(view.result.current).toBe('idle');
+  });
+
+  test('a real loading still shows after the boot limit', () => {
+    const { view, update, wait } = setup({ awaitsBootSync: true });
+    wait(8000);
+    update({ raw: 'loading', awaitsBootSync: false });
+    wait(150);
+    expect(view.result.current).toBe('loading');
+    update({ raw: 'success' });
+    wait(400);
+    expect(view.result.current).toBe('success');
+  });
+
+  test('a failure after a shown sync waits out the hold', () => {
+    const { view, update, wait } = setup();
+    update({ raw: 'loading' });
+    wait(150);
+    wait(10);
+    update({ raw: 'error' }); // t = 160
+    expect(view.result.current).toBe('loading');
+    wait(389);
+    expect(view.result.current).toBe('loading');
+    wait(1);
+    expect(view.result.current).toBe('error');
+  });
+
+  test('nothing is shown when not busy', () => {
+    const { view } = setup({ raw: 'success' });
+    expect(view.result.current).toBe('success');
+  });
+
+  test('loading, success, loading inside the hold stays shown, then ends by the same hold', () => {
+    const { view, update, wait } = setup();
+    update({ raw: 'loading' });
+    wait(150);
+    wait(100);
+    update({ raw: 'success' }); // t = 250
+    wait(100);
+    update({ raw: 'loading' }); // t = 350, back inside the hold
+    expect(view.result.current).toBe('loading');
+    wait(300);
+    update({ raw: 'success' }); // t = 650, hold from 150 already over
+    expect(view.result.current).toBe('success');
+  });
+
+  test('a flip back to loading cancels the pending hide', () => {
+    const { view, update, wait } = setup();
+    update({ raw: 'loading' });
+    wait(150);
+    update({ raw: 'success' }); // t = 150, hide due at 550
+    wait(100);
+    update({ raw: 'loading' });
+    wait(1000);
+    expect(view.result.current).toBe('loading');
+  });
+
+  test('unmounting mid-hold leaves no timer and no warning', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { view, update, wait } = setup();
+    update({ raw: 'loading' });
+    wait(150);
+    update({ raw: 'success' });
+    view.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    wait(10_000);
+    expect(err).not.toHaveBeenCalled();
+    err.mockRestore();
+  });
+
+  test('unmounting before the delay clears the pending show', () => {
+    const { view, update } = setup();
+    update({ raw: 'loading' });
+    view.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});

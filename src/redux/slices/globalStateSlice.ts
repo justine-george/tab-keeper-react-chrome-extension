@@ -75,6 +75,8 @@ import {
 } from './settingsDataStateSlice';
 import { noteReviewMoment } from '../reviewAsk';
 
+export type SyncStatus = 'idle' | 'loading' | 'success' | 'error';
+
 export interface Global {
   hasSyncedBefore: boolean;
   // KAN-294. The sessions in this store are still the slice's placeholder:
@@ -120,7 +122,7 @@ export interface Global {
   isDirty: boolean;
   isSettingsPage: boolean;
   searchInputText: string;
-  syncStatus: 'idle' | 'loading' | 'success' | 'error';
+  syncStatus: SyncStatus;
   // KAN-349. The toasts on screen, newest last (toastStack.ts). A toast's
   // text is an i18n KEY, and its params the values for it (KAN-86): slices
   // dispatch a key plus its values and Toast does the interpolation, because
@@ -204,6 +206,9 @@ export interface Global {
   // lands. Session-only, like every flag here.
   syncsInFlight: number;
   isSyncQueued: boolean;
+  // KAN-750. Whether a cloud call has started this page load. Until one has,
+  // the sync glyph shows the boot sync while sign-in is still pending.
+  hasStartedSync: boolean;
   // KAN-280 O5. A saved session clicked while the tab view is folded shows
   // beside Open now until the fold button is next pressed. Session-only, so
   // a new page opens as the stored setting says.
@@ -322,6 +327,7 @@ export const initialState: Global = {
   collapsedWindows: null,
   syncsInFlight: 0,
   isSyncQueued: false,
+  hasStartedSync: false,
   isPeekingSavedSession: false,
   isRunHere: false,
   hasRunShownHere: false,
@@ -1483,6 +1489,7 @@ export const globalStateSlice = createSlice({
       // body sets every completion status itself; it cannot set the start.
       .addCase(syncStateWithFirestore.pending, (state) => {
         state.syncStatus = 'loading';
+        state.hasStartedSync = true;
         state.syncsInFlight += 1;
       })
       .addCase(syncStateWithFirestore.fulfilled, (state) => {
@@ -1501,6 +1508,7 @@ export const globalStateSlice = createSlice({
       })
       .addCase(saveToFirestoreIfDirty.pending, (state) => {
         state.syncStatus = 'loading';
+        state.hasStartedSync = true;
         state.syncsInFlight += 1;
       })
       .addCase(saveToFirestoreIfDirty.fulfilled, (state) => {
@@ -1590,5 +1598,14 @@ export const {
   setRunSaveCard,
   setRunSaveEcho,
 } = globalStateSlice.actions;
+
+// KAN-750. Signed in and set to sync, but no sync has begun: the slow
+// Firebase sign-in is pending. The glyph shows this wait as syncing.
+export const selectAwaitsBootSync = (state: RootState): boolean =>
+  state.globalState.isSignedIn &&
+  state.settingsDataState.cloudConsent === 'granted' &&
+  state.settingsDataState.isAutoSync &&
+  state.globalState.isCloudConfigured &&
+  !state.globalState.hasStartedSync;
 
 export default globalStateSlice.reducer;
