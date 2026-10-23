@@ -19,8 +19,9 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 // passes against the cancelling double-dispatch, and a state check cannot tell
 // "redo worked" from "undo and redo cancelled" -- they end in the same place.
 
-const UNDO = 'undoRedo/undo';
-const REDO = 'undoRedo/redo';
+// KAN-744. The key walks the history through these thunks, whatever step is next.
+const UNDO = 'history/undoStep/pending';
+const REDO = 'history/redoStep/pending';
 
 type Chord = {
   key: string;
@@ -43,7 +44,7 @@ async function chord(c: Chord) {
     document.body.dispatchEvent(event);
   });
   return {
-    actions: seen.slice(before).filter((a) => a.startsWith('undoRedo/')),
+    actions: seen.slice(before).filter((a) => a === UNDO || a === REDO),
     prevented: event.defaultPrevented,
   };
 }

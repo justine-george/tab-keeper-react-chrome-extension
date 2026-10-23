@@ -1,13 +1,14 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
 import { showToast } from './slices/globalStateSlice';
-import { storeOpenNowDrop } from './openNowMoveUndo';
-import type { RootState } from './store';
+import { keepLiveStep, whileMovingTabs } from './undoHistory';
+import type { AppDispatch, RootState } from './store';
 import { isTabKeeperPage } from '../utils/functions/capture';
 import { changedAnyPlace } from '../utils/functions/openNowMoves';
 import type {
   GroupLook,
   MovedTab,
+  OpenNowDrop,
   TabPlace,
 } from '../utils/functions/openNowMoves';
 import {
@@ -88,44 +89,47 @@ function sortRecord(
   });
 }
 
-// Sorts a live window by site, re-reading it from Chrome first (never Open now's snapshot), and keeps the sort as the drop ⌘Z undoes.
-// Does nothing without the tab group grant, in a window with a split view, or when already sorted. A move Chrome refuses part way stops the sort, and what moved is still kept for Undo.
-// True when some tab moved and the drop was kept.
+// Sorts a live window by site, re-reading it from Chrome first (never Open now's snapshot), and returns the sort's record for the undo history.
+// Does nothing without the tab group grant, in a window with a split view, or when already sorted. A move Chrome refuses part way stops the sort, and what moved is still recorded.
+// Null when no tab moved.
 export async function sortOpenWindow(
   windowId: number,
   hasTabGroups: boolean
-): Promise<boolean> {
-  if (!hasTabGroups || !chrome.tabGroups) return false;
+): Promise<OpenNowDrop | null> {
+  if (!hasTabGroups || !chrome.tabGroups) return null;
   const before = await readStrip(windowId);
-  if (before === null || holdsSplitView(before)) return false;
+  if (before === null || holdsSplitView(before)) return null;
   const order = liveSortOrder(before, isTabKeeperPage);
   const listed = before.filter((tab) => !isTabKeeperPage(tab));
-  if (sameLiveOrder(order, liveOrderOf(listed))) return false;
+  if (sameLiveOrder(order, liveOrderOf(listed))) return null;
   const looks = await readLooks(windowId);
-  if (looks === null) return false;
+  if (looks === null) return null;
 
   // Refused part way or not, what moved is recorded from a fresh read.
   await applyLiveOrder(windowId, order);
   const after = await readStrip(windowId);
-  if (after === null) return false;
+  if (after === null) return null;
   const moved = sortRecord(before, after, looks);
-  if (!changedAnyPlace(moved)) return false;
-  storeOpenNowDrop({ kind: 'sort', moved });
-  return true;
+  if (!changedAnyPlace(moved)) return null;
+  return { kind: 'sort', moved };
 }
 
-// The Open now menu's action: sorts, and says so with an Undo for this drop, only when something moved.
+// The Open now menu's action: sorts, keeps the sort as a step in the undo history (KAN-744 R1), and says so with an Undo for that step, only when something moved.
 export const sortOpenWindowBySite = createAsyncThunk<
   void,
   number,
-  { state: RootState }
+  { state: RootState; dispatch: AppDispatch }
 >('global/sortOpenWindowBySite', async (windowId, thunkAPI) => {
   const { hasTabGroupsPermission } = thunkAPI.getState().globalState;
-  if (!(await sortOpenWindow(windowId, hasTabGroupsPermission))) return;
+  const drop = await whileMovingTabs(() =>
+    sortOpenWindow(windowId, hasTabGroupsPermission)
+  );
+  if (drop === null) return;
+  const id = keepLiveStep(thunkAPI.dispatch, drop);
   await thunkAPI.dispatch(
     showToast({
       toastText: TOAST_MESSAGES.TABS_SORTED_BY_SITE,
-      offersOpenNowUndo: true,
+      liveStepId: id ?? undefined,
     })
   );
 });

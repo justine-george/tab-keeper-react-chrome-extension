@@ -568,13 +568,14 @@ export async function moveOpenGroup(
 }
 
 // ---------------------------------------------------------------------------
-// Undo (spec O11f, U1): ⌘Z / Ctrl+Z puts an Open now drop's tabs back.
+// Undo and redo (spec O11f, U1; KAN-744 R6-R7): an Open now drop's tabs go
+// back where they were, or again where the drop left them.
 
-// One drop as ⌘Z undoes it: moveOpenTab's record (`kind: 'tab'`, one tab,
-// put back on its own), moveOpenGroup's (`kind: 'group'`, every tab of the
-// group, put back as one group), or a sort by site's (`kind: 'sort'`, every
-// tab of the window but Tab Keeper pages, put back in their old order;
-// KAN-694).
+// One drop as undo and redo run it: moveOpenTab's record (`kind: 'tab'`, one
+// tab, moved on its own), moveOpenGroup's (`kind: 'group'`, every tab of the
+// group, moved as one group), or a sort by site's (`kind: 'sort'`, every tab
+// of the window but Tab Keeper pages, put in their old order or their sorted
+// one; KAN-694).
 export interface OpenNowDrop {
   kind: 'tab' | 'group' | 'sort';
   moved: MovedTabs;
@@ -593,13 +594,14 @@ export function changedAnyPlace(moved: MovedTabs): boolean {
 }
 
 // Each recorded tab as Chrome has it now, when every one is still where the
-// drop left it (its `after` window, index and group, ledger R14); null when
+// last run left it (its `after` window, index and group, ledger R14: the
+// drop's, or the last undo's in a reversed record, KAN-744 R9); null when
 // any has moved, been regrouped or closed since. A tab regrouped by hand in
-// place is not where the drop left it: putting it back would ungroup it and
+// place is not where the last run left it: moving it would ungroup it and
 // can remove the group the user made (KAN-323). tabs.get reports groupId
 // without the tabGroups grant (Task 6a Q3). Hidden Tab Keeper pages that
 // moved with a group are in the record, so they are checked too.
-async function whereTheDropLeftThem(
+async function whereTheLastRunLeftThem(
   moved: MovedTabs
 ): Promise<TabState[] | null> {
   const states: TabState[] = [];
@@ -621,7 +623,7 @@ async function whereTheDropLeftThem(
 // Whether a sort's window holds only what the sort recorded, and no split view: the
 // index check cannot see a split made since (it moves nothing) or a tab opened at the
 // end, and appending every unit would end the one and strand the other (KAN-694).
-async function sortStillUndoable(moved: MovedTabs): Promise<boolean> {
+async function holdsOnlyTheSortedTabs(moved: MovedTabs): Promise<boolean> {
   const windowId = moved[0]?.after.windowId;
   if (windowId === undefined) return false;
   const strip = await attempt(() => chrome.tabs.query({ windowId }));
@@ -766,32 +768,68 @@ async function putGroupBack(
   return restored !== REFUSED;
 }
 
-// ⌘Z for one drop. Never throws. Checks first that every recorded tab is
-// still where the drop left it, and does nothing when one is not (moved or
-// closed outside Tab Keeper, spec O11f). A step Chrome refuses part way ends
-// the undo there; the tabs stay wherever Chrome left them, and Open now's
-// live read shows it.
-export async function undoOpenNowDrop(
+// What one live undo or redo did (KAN-744 R9-R13): 'done' with the step's
+// record for the other list, 'changedSince' when Chrome's tabs are not where
+// the last run left them (nothing moved), 'windowClosed' when a tab or group
+// step's target window is gone (nothing moved), 'couldNotRun' without the
+// grant a group or sort needs (nothing moved) or when Chrome refused part way.
+export type LiveRun =
+  | { outcome: 'done'; drop: OpenNowDrop }
+  | { outcome: 'changedSince' }
+  | { outcome: 'windowClosed' }
+  | { outcome: 'couldNotRun' };
+
+// The step read backwards, `before` and `after` swapped per tab: putting its
+// tabs at `before` redoes the step (KAN-744 R7).
+function reversed(drop: OpenNowDrop): OpenNowDrop {
+  return {
+    kind: drop.kind,
+    moved: drop.moved.map(({ tabId, before, after }) => ({
+      tabId,
+      before: after,
+      after: before,
+    })),
+  };
+}
+
+// Whether every window the step puts its tabs in (the oriented `before`) is
+// still open; a window Chrome refuses to name counts as closed.
+async function targetWindowsOpen(moved: MovedTabs): Promise<boolean> {
+  for (const windowId of new Set(moved.map((tab) => tab.before.windowId))) {
+    if ((await attempt(() => chrome.windows.get(windowId))) === REFUSED) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Puts a step's tabs at `before`, from `after` (spec O11f, KAN-744 R9). Checks
+// first that every recorded tab is still at `after`; a sort also that its
+// window holds only what it recorded. A step Chrome refuses part way stops
+// there, the tabs wherever Chrome left them; Open now's live read shows it.
+async function moveToBefore(
   drop: OpenNowDrop,
-  hasTabGroups: boolean
-): Promise<void> {
-  const states = await whereTheDropLeftThem(drop.moved);
-  if (states === null) return;
-  // The look is only read or set with the grant, and chrome.tabGroups is
-  // absent without it.
-  const withLook = hasTabGroups && Boolean(chrome.tabGroups);
+  withLook: boolean
+): Promise<LiveRun['outcome']> {
+  const states = await whereTheLastRunLeftThem(drop.moved);
+  if (states === null) return 'changedSince';
+  // A sort never changes window, so only a tab or group step can lose its target.
+  if (drop.kind !== 'sort' && !(await targetWindowsOpen(drop.moved))) {
+    return 'windowClosed';
+  }
+  // KAN-744 R12: chrome.tabGroups is absent without the grant.
+  if (drop.kind !== 'tab' && !withLook) return 'couldNotRun';
 
   if (drop.kind === 'group') {
-    if (withLook) await putGroupBack(drop.moved, states);
-    return;
+    return (await putGroupBack(drop.moved, states)) ? 'done' : 'couldNotRun';
   }
-  // A sort moves no tab into or out of a group, so the old order is the whole undo.
+  // A sort moves no tab into or out of a group, so the order is the whole run.
   if (drop.kind === 'sort') {
-    if (!withLook || !(await sortStillUndoable(drop.moved))) return;
+    if (!(await holdsOnlyTheSortedTabs(drop.moved))) return 'changedSince';
     const records: Parameters<typeof orderBeforeSort>[0][number][] = [];
     for (const [i, tab] of drop.moved.entries()) {
       const now = states[i];
-      if (now === undefined) return;
+      if (now === undefined) return 'couldNotRun';
       records.push({
         tabId: tab.tabId,
         before: tab.before,
@@ -799,12 +837,44 @@ export async function undoOpenNowDrop(
       });
     }
     const windowId = drop.moved[0]?.before.windowId;
-    if (windowId === undefined) return;
-    await applyLiveOrder(windowId, orderBeforeSort(records));
-    return;
+    if (windowId === undefined) return 'couldNotRun';
+    const ordered = await applyLiveOrder(windowId, orderBeforeSort(records));
+    return ordered ? 'done' : 'couldNotRun';
   }
   for (const [i, tab] of drop.moved.entries()) {
     const now = states[i];
-    if (now === undefined || !(await putTabBack(tab, now, withLook))) return;
+    if (now === undefined || !(await putTabBack(tab, now, withLook))) {
+      return 'couldNotRun';
+    }
   }
+  return 'done';
+}
+
+// ⌘Z or ⌘⇧Z for one live step (KAN-744 R6, R7). Never throws. Undo puts the
+// tabs at `before`, redo at `after`. Once done, the side just reached is read
+// again from Chrome (R8: a rebuilt group has a new id); a read Chrome refuses
+// is 'couldNotRun'.
+export async function runLiveStep(
+  drop: OpenNowDrop,
+  direction: 'undo' | 'redo',
+  hasTabGroups: boolean
+): Promise<LiveRun> {
+  // The look is only read or set with the grant, and chrome.tabGroups is
+  // absent without it.
+  const withLook = hasTabGroups && Boolean(chrome.tabGroups);
+  const run = direction === 'undo' ? drop : reversed(drop);
+  const outcome = await moveToBefore(run, withLook);
+  if (outcome !== 'done') return { outcome };
+
+  const moved: MovedTab[] = [];
+  for (const tab of drop.moved) {
+    const place = await readPlace(tab.tabId, withLook);
+    if (place === null) return { outcome: 'couldNotRun' };
+    moved.push(
+      direction === 'undo'
+        ? { ...tab, before: place }
+        : { ...tab, after: place }
+    );
+  }
+  return { outcome: 'done', drop: { kind: drop.kind, moved } };
 }

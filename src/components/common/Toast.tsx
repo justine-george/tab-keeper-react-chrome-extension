@@ -1,24 +1,19 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
 import { AppDispatch, RootState } from '../../redux/store';
 import {
-  selectReopenOfferForKey,
+  selectUndoKeyTarget,
   toastsRemoved,
 } from '../../redux/slices/globalStateSlice';
 import { holdToasts, releaseToasts } from '../../redux/toastTimers';
 import { reopenFromOffer } from '../../redux/reopenOffer';
-import {
-  kindOfDropHoldingUndoKey,
-  subscribeToOpenNowDrop,
-  takeOpenNowDrop,
-} from '../../redux/openNowMoveUndo';
-import { undoOpenNowDrop } from '../../utils/functions/openNowMoves';
-import type { OpenNowDrop } from '../../utils/functions/openNowMoves';
 import { showSession } from '../../redux/showSession';
-import { undo } from '../../redux/slices/undoRedoSlice';
+import { selectLiveStepOnTop } from '../../redux/slices/undoRedoSlice';
+import { undoStep } from '../../redux/undoHistory';
+import type { StepPress } from '../../redux/undoHistory';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
@@ -34,21 +29,11 @@ import {
 import { APP_WIDTH, SETTINGS_COLUMN } from '../../utils/constants/common';
 import { isTabView } from '../../utils/functions/viewMode';
 
+// KAN-583, KAN-694. A toast's Undo closes its own toast only; the other plain toasts stay up.
+const LEAVES_PLAIN_TOASTS: StepPress = { closesPlainToasts: false };
+
 // The stack's distance from the window's left and bottom edges.
 const EDGE_PX = 20;
-
-// The kind of Open now drop ⌘Z would take, in state: React 18.2's useSyncExternalStore lost a change made in the render that added a toast (useToastStack sets state while rendering).
-function useKindOfDropOnUndoKey(): OpenNowDrop['kind'] | null {
-  const [kind, setKind] = useState(kindOfDropHoldingUndoKey);
-  useEffect(() => {
-    const read = () => setKind(kindOfDropHoldingUndoKey());
-    const unsubscribe = subscribeToOpenNowDrop(read);
-    // A change between the first render and this subscription.
-    read();
-    return unsubscribe;
-  }, []);
-  return kind;
-}
 
 interface ToastProps {
   style?: string;
@@ -75,15 +60,19 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     ? `${SETTINGS_COLUMN.TAB_PX}px`
     : `calc(${APP_WIDTH} * ${SETTINGS_COLUMN.POPUP_PERCENT} / 100)`;
   const settingsCap = `calc(${settingsColumn} - ${2 * EDGE_PX}px)`;
-  // KAN-349 Q1 C′. The hint names the key only while the key takes the offer.
-  const keyOfferId = useSelector(selectReopenOfferForKey);
-  // KAN-590. While an Open now drop holds the key (O11f), it undoes the drop, so no chip names it.
-  // KAN-694. A live sort's toast offers Undo only while that sort is the drop the key takes.
-  const dropOnKey = useKindOfDropOnUndoKey();
-  const dropHoldsKey = dropOnKey !== null;
-  const sortHoldsKey = dropOnKey === 'sort';
-  const hasTabGroupsPermission = useSelector(
-    (state: RootState) => state.globalState.hasTabGroupsPermission
+  // KAN-349 Q1 C′, KAN-744 R16-R17. A chip names the key only while the key
+  // would do what the chip does: not while ⌘Z would take a Reopen offer shown
+  // since, nor on Settings, where the key does nothing (MainContainer stands
+  // down there).
+  const keyTarget = useSelector(selectUndoKeyTarget, shallowEqual);
+  const keyTakesOffer = (offerId: number) =>
+    !isSettingsPage &&
+    keyTarget?.kind === 'offer' &&
+    keyTarget.offerId === offerId;
+  const keyTakesStep = !isSettingsPage && keyTarget?.kind === 'step';
+  // KAN-694, KAN-744 R16. A sort toast offers Undo only while its sort is the step on top.
+  const liveStepOnTopId = useSelector(
+    (state: RootState) => selectLiveStepOnTop(state)?.id ?? null
   );
 
   // KAN-349 T3 (from KAN-280 O8a). The pointer over any toast, or focus in
@@ -269,8 +258,9 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
         const message = t(toast.text, toast.params);
         const offer = toast.reopenOffer;
         const show = toast.show;
-        const offersOpenNowUndo = toast.offersOpenNowUndo && sortHoldsKey;
-        const offersAnyUndo = toast.offersUndo || offersOpenNowUndo;
+        const offersSortUndo =
+          toast.liveStepId !== null && toast.liveStepId === liveStepOnTopId;
+        const offersAnyUndo = toast.offersUndo || offersSortUndo;
         if (offer === null && show === null && !offersAnyUndo) {
           return (
             <div
@@ -308,13 +298,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 variant="chip"
                 iconType="undo"
                 text={t('Reopen')}
-                // The key does nothing on the settings page (MainContainer
-                // stands down there), so the hint would name a dead key.
-                keyHint={
-                  isSettingsPage || dropHoldsKey || keyOfferId !== offer.id
-                    ? undefined
-                    : undoKeyHint
-                }
+                keyHint={keyTakesOffer(offer.id) ? undoKeyHint : undefined}
                 onClick={() => void dispatch(reopenFromOffer(offer.id))}
                 style={chipStyle}
               />
@@ -324,32 +308,29 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 variant="chip"
                 iconType="undo"
                 text={t('Undo')}
-                // ⌘Z takes a Reopen offer shown since, and does nothing on Settings.
-                keyHint={
-                  isSettingsPage || dropHoldsKey || keyOfferId !== null
-                    ? undefined
-                    : undoKeyHint
-                }
-                // The undo reducer closes this toast (globalStateSlice).
-                onClick={() => dispatch(undo())}
+                keyHint={keyTakesStep ? undoKeyHint : undefined}
+                // Shown only while its step is the newest; the undo reducer closes this toast (globalStateSlice).
+                onClick={() => void dispatch(undoStep(LEAVES_PLAIN_TOASTS))}
                 style={chipStyle}
               />
             )}
-            {offersOpenNowUndo && (
+            {offersSortUndo && (
               <Button
                 variant="chip"
                 iconType="undo"
                 text={t('Undo')}
-                // Shown only while this sort holds the key; the key does nothing on Settings.
-                keyHint={isSettingsPage ? undefined : undoKeyHint}
-                // Takes the drop as ⌘Z does, so neither can undo it twice.
-                onClick={() => {
-                  const drop = takeOpenNowDrop();
-                  if (drop !== null) {
-                    void undoOpenNowDrop(drop, hasTabGroupsPermission);
-                  }
-                  dispatch(toastsRemoved([toast.id]));
-                }}
+                keyHint={keyTakesStep ? undoKeyHint : undefined}
+                // Shown only while its sort is the newest step, so this undoes the sort, then closes this toast; a press ignored while another step runs (R19) leaves it.
+                onClick={() =>
+                  void dispatch(undoStep(LEAVES_PLAIN_TOASTS)).then((run) => {
+                    if (
+                      undoStep.fulfilled.match(run) &&
+                      run.payload !== 'busy'
+                    ) {
+                      dispatch(toastsRemoved([toast.id]));
+                    }
+                  })
+                }
                 style={chipStyle}
               />
             )}

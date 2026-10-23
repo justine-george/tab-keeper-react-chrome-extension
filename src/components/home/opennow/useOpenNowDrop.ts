@@ -14,25 +14,25 @@
 // - Which windows take it at all (acceptsWindow): a pinned tab only its own
 //   (K1), a row only windows of its own profile (O11d), and a group holding
 //   the page this pane is on only its own (T1, O11h).
-// - A drop that changed something is the one ⌘Z undoes next (O11f); a drop
-//   in place is not an action at all (ledger R23).
+// - A drop that changed something is a step in the undo history (O11f,
+//   KAN-744 R1); a drop in place is not an action at all (ledger R23).
 //
 // Both limits are asked on every pointer move, so each is a few map reads
 // over tables built once per snapshot.
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useDispatch } from 'react-redux';
 
 import type { DragWindows } from '../rightpane/rowDrag/dropRules';
 import { useGroupDropGeometry } from '../rightpane/useGroupDrop';
 import { useTabDropGeometry } from '../rightpane/useTabDrop';
 import type { OpenWindow } from '../../../utils/functions/openNow';
 import {
-  changedAnyPlace,
   moveOpenGroup,
   moveOpenTab,
   type MovedTabs,
-  type OpenNowDrop,
 } from '../../../utils/functions/openNowMoves';
-import { storeOpenNowDrop } from '../../../redux/openNowMoveUndo';
+import type { AppDispatch } from '../../../redux/store';
+import { keepLiveStep, whileMovingTabs } from '../../../redux/undoHistory';
 import {
   itemIdOf,
   partitionTabsIntoItems,
@@ -75,11 +75,6 @@ export function openDragWindows(
         }))
       : [],
   }));
-}
-
-// Keeps a drop for ⌘Z when it changed some tab's window, index or group.
-function keepForUndo(drop: OpenNowDrop): void {
-  if (changedAnyPlace(drop.moved)) storeOpenNowDrop(drop);
 }
 
 // What a window shows, for landingRange: the engine counts only the rows a
@@ -141,6 +136,7 @@ export function useOpenNowDrop({
   hasTabGroups,
   collapsedIds,
 }: Options) {
+  const dispatch: AppDispatch = useDispatch();
   const dragWindows = useMemo(
     () => openDragWindows(windows, hasTabGroups),
     [windows, hasTabGroups]
@@ -285,13 +281,15 @@ export function useOpenNowDrop({
     ): Promise<MovedTabs | null> => {
       const move = describeTabMove(rowId, toIndex, dropTargetId, toWindowId);
       if (move === undefined) return null;
-      const moved = await moveOpenTab(move, windows, hasTabGroups);
+      const moved = await whileMovingTabs(() =>
+        moveOpenTab(move, windows, hasTabGroups)
+      );
       if (moved !== null) {
-        keepForUndo({ kind: 'tab', moved });
+        keepLiveStep(dispatch, { kind: 'tab', moved });
       }
       return moved;
     },
-    [describeTabMove, windows, hasTabGroups]
+    [describeTabMove, windows, hasTabGroups, dispatch]
   );
   const onItemMove = useCallback(
     async (
@@ -303,13 +301,13 @@ export function useOpenNowDrop({
     ): Promise<MovedTabs | null> => {
       const move = describeGroupMove(rowId, toIndex, toWindowId);
       if (move === undefined) return null;
-      const moved = await moveOpenGroup(move, windows);
+      const moved = await whileMovingTabs(() => moveOpenGroup(move, windows));
       if (moved !== null) {
-        keepForUndo({ kind: 'group', moved });
+        keepLiveStep(dispatch, { kind: 'group', moved });
       }
       return moved;
     },
-    [describeGroupMove, windows]
+    [describeGroupMove, windows, dispatch]
   );
 
   return {

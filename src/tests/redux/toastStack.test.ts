@@ -18,17 +18,17 @@ const plain = (
   reopenOffer: null,
   show: null,
   offersUndo: false,
-  offersOpenNowUndo: false,
+  liveStepId: null,
 });
 
 const offer = (id: number, offerId: number): ToastItem => ({
   id,
   text: 'Tab closed',
   params: undefined,
-  reopenOffer: { id: offerId, keepsUndoKey: true },
+  reopenOffer: { id: offerId, keepsUndoKey: true, shownAt: id },
   show: null,
   offersUndo: false,
-  offersOpenNowUndo: false,
+  liveStepId: null,
 });
 
 const ids = (list: readonly ToastItem[]) => list.map((t) => t.id);
@@ -100,7 +100,11 @@ describe('addToast (KAN-349)', () => {
     list = addToast(list, plain(2, 'Copied'), false);
     list = addToast(list, offer(3, 11), false);
     expect(ids(list)).toEqual([3, 2]);
-    expect(list[0].reopenOffer).toEqual({ id: 11, keepsUndoKey: true });
+    expect(list[0].reopenOffer).toEqual({
+      id: 11,
+      keepsUndoKey: true,
+      shownAt: 3,
+    });
   });
 
   test('T4: a first offer is appended like any toast', () => {
@@ -111,13 +115,21 @@ describe('addToast (KAN-349)', () => {
   test('Q1 C′: a saved-session change takes ⌘Z from the offer', () => {
     let list = addToast([], offer(1, 10), false);
     list = addToast(list, plain(2, 'Tab deleted'), true);
-    expect(list[0].reopenOffer).toEqual({ id: 10, keepsUndoKey: false });
+    expect(list[0].reopenOffer).toEqual({
+      id: 10,
+      keepsUndoKey: false,
+      shownAt: 1,
+    });
   });
 
   test('Q1 C′: any other toast leaves ⌘Z with the offer', () => {
     let list = addToast([], offer(1, 10), false);
     list = addToast(list, plain(2, 'Sync merged'), false);
-    expect(list[0].reopenOffer).toEqual({ id: 10, keepsUndoKey: true });
+    expect(list[0].reopenOffer).toEqual({
+      id: 10,
+      keepsUndoKey: true,
+      shownAt: 1,
+    });
   });
 
   test('the list passed in is not changed', () => {

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import {
   act,
   fireEvent,
@@ -10,7 +10,6 @@ import userEvent from '@testing-library/user-event';
 
 import OpenNowColumn from '../../components/home/opennow/OpenNowColumn';
 import { Toast } from '../../components/common/Toast';
-import { noteTabKeeperAction } from '../../redux/openNowMoveUndo';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { hoverRulesFor } from '../setup/hoverRules';
@@ -21,8 +20,6 @@ import { asWritten } from '../setup/asWritten';
 // KAN-694, KAN-696. An Open now window's strip is a labeled Save, then a ⋮. The
 // ⋮ offers Sort tabs by site only where the live sort would run and change
 // something, and ends with Close window, which This window does not have.
-
-afterEach(() => noteTabKeeperAction());
 
 const url = (host: string, path = '') => `https://${host}.test/${path}`;
 const tab = (

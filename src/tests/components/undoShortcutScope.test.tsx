@@ -21,8 +21,11 @@ import {
 // a state-value check cannot see this trigger fire in either direction.
 // Whether the action was dispatched at all is the thing under test.
 
-const UNDO = 'undoRedo/undo';
-const REDO = 'undoRedo/redo';
+// KAN-744. The key walks the history through these thunks, dispatched whatever
+// step is next -- so, like the old `undo` with an empty `past`, a press that
+// steps nothing is still seen.
+const UNDO = 'history/undoStep/pending';
+const REDO = 'history/redoStep/pending';
 
 type Chord = {
   key: string;

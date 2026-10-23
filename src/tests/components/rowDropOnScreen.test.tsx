@@ -15,7 +15,7 @@ import {
   type tabContainerData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import {
-  selectReopenOfferForKey,
+  selectUndoKeyTarget,
   setIsNotDirty,
   showToast,
 } from '../../redux/slices/globalStateSlice';
@@ -286,7 +286,10 @@ describe('finding 2: on its own row with another session on screen, every kind i
         })
       );
     });
-    expect(selectReopenOfferForKey(store.getState())).toBe(7);
+    expect(selectUndoKeyTarget(store.getState())).toEqual({
+      kind: 'offer',
+      offerId: 7,
+    });
     handOff(carried, card);
     moveTo(rowY(1));
     wait(600);
@@ -315,7 +318,7 @@ describe('finding 2: on its own row with another session on screen, every kind i
     ]);
     // The same toast moveToSession sends: a saved change, which takes ⌘Z
     // from the offer, and 8s long.
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toEqual({ kind: 'step' });
     wait(7_999);
     expect(moved()).toHaveLength(1);
     wait(1);

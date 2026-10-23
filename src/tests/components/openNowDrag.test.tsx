@@ -124,7 +124,7 @@ describe('a tab dragged in Open now moves the real tab', () => {
     ],
   });
 
-  test('B released between C and D lands there in Chrome, and nothing reaches the store', async () => {
+  test('B released between C and D lands there in Chrome, and only the undo history records it', async () => {
     const { top, store } = await renderPane(seed(), false);
     const before = store.getState();
     const d = top.get('22') ?? 0;
@@ -142,8 +142,18 @@ describe('a tab dragged in Open now moves the real tab', () => {
     );
     const b = await chrome.tabs.get(12);
     expect([b.windowId, b.index]).toEqual([2, 1]);
-    // O11b: nothing reached the store.
-    expect(store.getState()).toBe(before);
+    // O11b: no saved or page state changed. KAN-744 R1: the drop is a step in the undo history.
+    const { undoRedo, ...rest } = store.getState();
+    const { undoRedo: undoRedoBefore, ...restBefore } = before;
+    const then = new Map(Object.entries(restBefore));
+    expect(Object.keys(rest)).toHaveLength(then.size);
+    for (const [slice, state] of Object.entries(rest)) {
+      expect(state, slice).toBe(then.get(slice));
+    }
+    expect(undoRedo.present.tabContainerDataState).toBe(
+      undoRedoBefore.present.tabContainerDataState
+    );
+    expect(undoRedo.present.liveStep?.drop.kind).toBe('tab');
   });
 });
 

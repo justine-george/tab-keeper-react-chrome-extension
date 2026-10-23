@@ -10,7 +10,6 @@ import userEvent from '@testing-library/user-event';
 
 import OpenNowColumn from '../../components/home/opennow/OpenNowColumn';
 import { Toast } from '../../components/common/Toast';
-import { noteTabKeeperAction } from '../../redux/openNowMoveUndo';
 import {
   setHasTabGroupsPermission,
   setSearchInputText,
@@ -24,7 +23,6 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 afterEach(() => {
   // Close group left its double-click hold up; a key ends it.
   fireEvent.keyDown(document.body, { key: 'Escape' });
-  noteTabKeeperAction();
   vi.restoreAllMocks();
 });
 beforeEach(() => localStorage.clear());

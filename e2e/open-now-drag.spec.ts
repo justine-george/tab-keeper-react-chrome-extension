@@ -1368,15 +1368,15 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
     );
   });
 
-  // O11f: a drag whose tabs Chrome no longer has where it left them is not
-  // undone, and ⌘Z does not fall through to the saved change before it. The
-  // second ⌘Z is the control: that saved change WAS there to undo.
+  // O11f, KAN-744 R10-R11: a drag whose tabs Chrome no longer has where it
+  // left them is not undone; that press says so, and undoes nothing saved. The
+  // second ⌘Z reaches only the newer of the two saved changes before it.
   const staleCases: readonly ('moved by hand' | 'closed')[] = [
     'moved by hand',
     'closed',
   ];
   for (const stale of staleCases) {
-    test(`7d. stale (${stale}): ⌘Z does nothing, and does not fall through to the saved change before it`, async ({
+    test(`7d. stale (${stale}): ⌘Z says the move can't be undone and undoes nothing saved; a second ⌘Z undoes the saved change`, async ({
       context,
       extensionId,
       serviceWorker: worker,
@@ -1384,6 +1384,9 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
       const page = await openTabView(context, extensionId);
       const a = await openWindow(worker, ['a0', 'a1', 'a2', 'a3']);
       await expect(tabRow(page, a.tab('a3'))).toBeVisible();
+      // Two saved steps: a press that refused and also undid one would leave
+      // the second press on the older.
+      await saveAll(page);
       const saved = await saveAll(page);
 
       await dragTab(page, a.tab('a3'), () => justInside(page, a.tab('a1')));
@@ -1408,13 +1411,21 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
       await listMatchesChrome(page, worker, [a.windowId], extensionId);
 
       await undoKey(page);
-      await page.waitForTimeout(800);
+      // The refused toast is shown as the press ends, so the next press is not ignored (R19).
+      const shown = page.locator(
+        '[role="status"] > [data-toast]:not([aria-hidden="true"])'
+      );
+      await expect(shown).toHaveCount(1);
+      await expect(shown).toContainText(
+        "Couldn't undo the move. Those tabs moved or closed since."
+      );
       expect(await chromeOrder(worker, a.windowId)).toEqual(expected);
       expect(await savedCount(page)).toBe(saved);
 
-      // CONTROL: the saved change was undoable all along.
       await undoKey(page);
       await expect.poll(() => savedCount(page)).toBe(saved - 1);
+      // Read again after the press: a fall-through would have taken two.
+      expect(await savedCount(page)).toBe(saved - 1);
       expect(await chromeOrder(worker, a.windowId)).toEqual(expected);
     });
   }

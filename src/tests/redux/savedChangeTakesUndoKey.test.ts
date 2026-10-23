@@ -16,7 +16,7 @@ vi.mock('../../utils/functions/external', () => ({
 
 import { makeTestStore } from '../setup/makeStore';
 import {
-  selectReopenOfferForKey,
+  selectUndoKeyTarget,
   showToast,
 } from '../../redux/slices/globalStateSlice';
 import {
@@ -88,7 +88,10 @@ async function withOffer() {
       reopenOfferId: 7,
     })
   );
-  expect(selectReopenOfferForKey(store.getState())).toBe(7);
+  expect(selectUndoKeyTarget(store.getState())).toEqual({
+    kind: 'offer',
+    offerId: 7,
+  });
   return store;
 }
 
@@ -110,7 +113,7 @@ describe('a saved-session change takes ⌘Z from the offer (Q1 C′)', () => {
       })
     );
     expect(texts(store)).toContain(TOAST_MESSAGES.SAVE_CURRENT_WINDOW_SUCCESS);
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toEqual({ kind: 'step' });
   });
 
   test('adding the current window to a session', async () => {
@@ -121,7 +124,7 @@ describe('a saved-session change takes ⌘Z from the offer (Q1 C′)', () => {
     expect(texts(store)).toContain(
       TOAST_MESSAGES.ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS
     );
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toEqual({ kind: 'step' });
   });
 
   test('adding the current tab to a window', async () => {
@@ -136,21 +139,21 @@ describe('a saved-session change takes ⌘Z from the offer (Q1 C′)', () => {
     expect(texts(store)).toContain(
       TOAST_MESSAGES.ADD_CURR_TAB_TO_WINDOW_SUCCESS
     );
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toEqual({ kind: 'step' });
   });
 
   test('deleting a session', async () => {
     const store = await withOffer();
     await store.dispatch(deleteTabContainer('g0'));
     expect(texts(store)).toContain(TOAST_MESSAGES.DELETE_TAB_CONTAINER_SUCCESS);
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toEqual({ kind: 'step' });
   });
 
   test('deleting a window', async () => {
     const store = await withOffer();
     await store.dispatch(deleteWindow({ tabGroupId: 'g0', windowId: 'g0-w' }));
     expect(texts(store)).toContain(TOAST_MESSAGES.DELETE_WINDOW_SUCCESS);
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toEqual({ kind: 'step' });
   });
 
   test('deleting a tab', async () => {
@@ -159,14 +162,14 @@ describe('a saved-session change takes ⌘Z from the offer (Q1 C′)', () => {
       deleteTab({ tabGroupId: 'g0', windowId: 'g0-w', tabId: 'g0-t' })
     );
     expect(texts(store)).toContain(TOAST_MESSAGES.DELETE_TAB_SUCCESS);
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toEqual({ kind: 'step' });
   });
 
   test('sorting the sessions', async () => {
     const store = await withOffer();
     await store.dispatch(sortSessions({ by: 'name', locale: 'en' }));
     expect(texts(store)).toContain(TOAST_MESSAGES.SESSION_ORDER_CHANGED);
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toEqual({ kind: 'step' });
   });
 
   test('resetting the session order', async () => {
@@ -179,10 +182,13 @@ describe('a saved-session change takes ⌘Z from the offer (Q1 C′)', () => {
         reopenOfferId: 7,
       })
     );
-    expect(selectReopenOfferForKey(store.getState())).toBe(7);
+    expect(selectUndoKeyTarget(store.getState())).toEqual({
+      kind: 'offer',
+      offerId: 7,
+    });
 
     await store.dispatch(resetSessionOrder());
     expect(texts(store)).toContain(TOAST_MESSAGES.SESSION_ORDER_CHANGED);
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toEqual({ kind: 'step' });
   });
 });
