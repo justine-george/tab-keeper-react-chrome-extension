@@ -47,6 +47,7 @@ import {
   REMOVE_DUPLICATE_TABS_ACTION,
   SORT_TABS_BY_SITE_ACTION,
   SORT_GROUP_TABS_BY_SITE_ACTION,
+  SORT_WINDOW_GROUPS_BY_NAME_ACTION,
   SORT_SESSIONS_ACTION,
   CLEAR_SESSION_ORDER_ACTION,
   MERGE_SESSIONS_FROM_BACKUP_ACTION,
@@ -102,6 +103,8 @@ const actionsToCapture = [
   SORT_TABS_BY_SITE_ACTION,
   // KAN-746. One action, so one ⌘Z puts the group back.
   SORT_GROUP_TABS_BY_SITE_ACTION,
+  // KAN-746 Part 2. One action, so one ⌘Z puts the groups back.
+  SORT_WINDOW_GROUPS_BY_NAME_ACTION,
   SORT_SESSIONS_ACTION,
   CLEAR_SESSION_ORDER_ACTION,
   // KAN-261. Additive, so undoable: undo withdraws what the merge added.

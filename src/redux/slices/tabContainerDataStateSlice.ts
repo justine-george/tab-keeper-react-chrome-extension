@@ -74,6 +74,11 @@ import {
   sortWithinGroup,
 } from '../../utils/functions/sortBySite';
 import { nameCollator } from '../../utils/functions/nameCollator';
+import {
+  isSavedWindowGroupsSortedByName,
+  savedGroupTitles,
+  sortGroupsByName,
+} from '../../utils/functions/sortGroupsByName';
 import { noteReviewMoment } from '../reviewAsk';
 import {
   TAB_GROUP_COLORS,
@@ -223,6 +228,11 @@ export interface sortTabsBySiteParams {
 export interface sortGroupTabsBySiteParams extends sortTabsBySiteParams {
   // The saved group's uuid, as chromeTabGroupData.groupId.
   groupId: string;
+}
+
+// KAN-746 Part 2. `locale` is the UI language, as sortSessionsParams.
+export interface sortWindowGroupsByNameParams extends sortTabsBySiteParams {
+  locale: string;
 }
 
 export interface addCurrTabToWindowParams {
@@ -1049,6 +1059,39 @@ export const sortGroupTabsBySite = createAsyncThunk<
   }
 );
 
+// KAN-746 Part 2. The saved window menu's Sort groups by name, as sortTabsBySite.
+export const sortWindowGroupsByName = createAsyncThunk<
+  void,
+  Omit<sortWindowGroupsByNameParams, 'now'>,
+  { state: RootState }
+>(
+  'global/sortWindowGroupsByName',
+  async ({ tabGroupId, windowId, locale }, thunkAPI) => {
+    const window = thunkAPI
+      .getState()
+      .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === tabGroupId)
+      ?.windows.find((w) => w.windowId === windowId);
+    if (!window || isSavedWindowGroupsSortedByName(window, locale)) return;
+    const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+      thunkAPI.dispatch(
+        sortWindowGroupsByNameInternal({
+          tabGroupId,
+          windowId,
+          locale,
+          now: Date.now(),
+        })
+      )
+    );
+    thunkAPI.dispatch(
+      showToast({
+        toastText: TOAST_MESSAGES.GROUPS_SORTED_BY_NAME,
+        announcesSavedChange: true,
+        offersUndo,
+      })
+    );
+  }
+);
+
 // add current tab to the specified window container and display a toast message
 export const addCurrTabToWindow = createAsyncThunk(
   'global/addCurrTabToWindow',
@@ -1866,6 +1909,39 @@ export const tabContainerDataStateSlice = createSlice({
         const tab = own.get(v);
         return tab ? [tab] : [];
       });
+      touchContent(state, container, now);
+      state.lastModified = now;
+      saveLocalSessions(state);
+    },
+
+    // KAN-746 Part 2. Only the groups move, into the slots groups held; loose and pinned tabs stay.
+    sortWindowGroupsByNameInternal: (
+      state,
+      action: PayloadAction<sortWindowGroupsByNameParams>
+    ) => {
+      const { tabGroupId, windowId, locale, now } = action.payload;
+      const container = state.tabGroups.find(
+        (g) => g.tabGroupId === tabGroupId
+      );
+      const window = container?.windows.find((w) => w.windowId === windowId);
+      if (
+        !container ||
+        !window ||
+        isSavedWindowGroupsSortedByName(window, locale)
+      ) {
+        return;
+      }
+      // Map back by object, not tabId: two saved tabs can share an id.
+      const views = window.tabs.map((tab) => ({
+        key: tab.tabId,
+        groupKey: tab.chromeGroupId ?? null,
+        tab,
+      }));
+      window.tabs = sortGroupsByName(
+        views,
+        savedGroupTitles(window),
+        locale
+      ).map((v) => v.tab);
       touchContent(state, container, now);
       state.lastModified = now;
       saveLocalSessions(state);
@@ -3517,6 +3593,7 @@ export const {
   removeDuplicateTabsInternal,
   sortTabsBySiteInternal,
   sortGroupTabsBySiteInternal,
+  sortWindowGroupsByNameInternal,
   addCurrTabToWindowInternal,
   updateTabGroupTitle,
   updateWindowGroupTitle,
