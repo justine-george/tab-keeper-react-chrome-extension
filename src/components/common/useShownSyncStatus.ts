@@ -29,7 +29,8 @@ export function useShownSyncStatus(
   const shownAt = useRef(0);
   const isShownRef = useRef(false);
   const wasBusy = useRef(false);
-  const busyEndedAt = useRef(performance.now());
+  const [mountedAt] = useState(() => performance.now());
+  const busyEndedAt = useRef(mountedAt);
   // At most one pending: the delay before showing, or the hold before hiding.
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // What to draw while a loading is not yet shown.
