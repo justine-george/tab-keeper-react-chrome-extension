@@ -24,6 +24,7 @@ import { toOpenWindows } from '../../utils/functions/openNow';
 import { createSplitApi } from '../../utils/functions/splitView';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import {
+  applyLiveOrder,
   canSortOpenWindowLive,
   holdsSplitView,
   isOpenWindowSortedBySite,
@@ -726,7 +727,45 @@ describe('sortOpenWindow keeps tabs still (KAN-743)', () => {
 
     expect(move.mock.calls.map(([id]) => id)).toEqual([2]);
     move.mockRestore();
-    await expect(undoOpenNowDrop(keptDrop(), true)).resolves.toBeUndefined();
+    await undoOpenNowDrop(keptDrop(), true);
+
+    // b1 goes back between a1 and a2; c1 is gone.
+    expect(await strip()).toEqual(['1', '2', '4', '5', '6']);
+  });
+
+  test('a loose tab moving left to right after a group stays loose', async () => {
+    // [c1 c2]g50 x y u, put in the order group, u, x, y: only u moves, left, to just after c2.
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 1, url: 'https://c.test/1', groupId: 50, active: true },
+            { id: 2, url: 'https://c.test/2', groupId: 50 },
+            { id: 3, url: 'https://x.test/' },
+            { id: 4, url: 'https://y.test/' },
+            { id: 5, url: 'https://u.test/' },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 50, windowId: 1, title: 'C', color: 'red' }],
+    });
+    const move = vi.spyOn(chrome.tabs, 'move');
+
+    expect(
+      await applyLiveOrder(1, {
+        pinned: [],
+        rest: [
+          { kind: 'group', id: 50 },
+          { kind: 'tab', id: 5 },
+          { kind: 'tab', id: 3 },
+          { kind: 'tab', id: 4 },
+        ],
+      })
+    ).toBe(true);
+
+    expect(move.mock.calls).toEqual([[5, { index: 2 }]]);
+    expect(await strip()).toEqual(['1g50', '2g50', '5', '3', '4']);
   });
 });
 
