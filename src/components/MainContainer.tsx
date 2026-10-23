@@ -336,7 +336,7 @@ export default function MainContainer() {
   // KAN-279 D1/D2. The tab view fills the window instead of sitting in the
   // popup's fixed 790x550 box. KAN-687: the list's column is --list-width
   // (paneWidths.ts), never under 356px, the popup's own 45% of 790px;
-  // Settings' 238px is its 30%.
+  // Settings' 14.875rem is its 30% at 16px text, and grows with the text (KAN-754).
   //
   // KAN-280 O1/O4. The third column is Open now's, side by side: its width
   // is --open-now-width (openNowTrackWidth above). Below 1100px it is the
@@ -360,7 +360,7 @@ export default function MainContainer() {
 
   const tabContainerSettingsStyle = css`
     display: grid;
-    grid-template-columns: ${SETTINGS_COLUMN.TAB_PX}px minmax(0, 1fr) 0;
+    grid-template-columns: ${SETTINGS_COLUMN.TAB_REM}rem minmax(0, 1fr) 0;
     grid-template-areas: 'sessions detail active-session';
   `;
 

@@ -92,8 +92,9 @@ const SettingsCategoryContainer: React.FC = () => {
     background-color: ${
       isSelected ? COLORS.SELECTION_COLOR : COLORS.PRIMARY_COLOR
     };
-    /* KAN-517. The label starts where the header's "Back" does: its inset, less this box's 1px border. */
-    padding: 15px clamp(10px, 12%, 38px) 15px calc(${BACK_LABEL_INSET} - 1px);
+    /* KAN-517. The label starts where the header's "Back" does: its inset, less this box's 1px border.
+       KAN-754. The right padding only stops a long label; at 10px the longest word (sv "säkerhetskopia") fits the popup's rail at 24px text. */
+    padding: 15px 10px 15px calc(${BACK_LABEL_INSET} - 1px);
   `;
 
   return (
@@ -115,10 +116,12 @@ const SettingsCategoryContainer: React.FC = () => {
                 onClick={() => handleSelectCategoryClick(name)}
                 style={selectableStyle(isSelected)}
               >
+                {/* KAN-754. Wraps in the popup's fixed rail at Chrome's larger text; the full view's column grows instead. */}
                 <NormalLabel
                   value={t(name)}
                   size={TYPE.BODY}
                   color={COLORS.LABEL_L1_COLOR}
+                  wraps
                 />
               </ClickableRow>
               <Divider />

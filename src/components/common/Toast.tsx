@@ -57,7 +57,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   // KAN-574. On Settings a toast stays inside the category column, as far from its right edge as from the window's left.
   // Only plain toasts: opening Settings clears the stack, so no Reopen offer is ever drawn there.
   const settingsColumn = isTabView()
-    ? `${SETTINGS_COLUMN.TAB_PX}px`
+    ? `${SETTINGS_COLUMN.TAB_REM}rem`
     : `calc(${APP_WIDTH} * ${SETTINGS_COLUMN.POPUP_PERCENT} / 100)`;
   const settingsCap = `calc(${settingsColumn} - ${2 * EDGE_PX}px)`;
   // KAN-349 Q1 C′, KAN-744 R16-R17. A chip names the key only while the key

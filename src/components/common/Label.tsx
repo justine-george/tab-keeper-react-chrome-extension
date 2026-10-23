@@ -13,6 +13,8 @@ interface LabelProps {
   style?: string;
   tooltipText?: string;
   onClick?: MouseEventHandler;
+  // A long value goes onto more lines instead of ending in an ellipsis.
+  wraps?: boolean;
 }
 
 export const NormalLabel: React.FC<LabelProps> = ({
@@ -22,6 +24,7 @@ export const NormalLabel: React.FC<LabelProps> = ({
   style,
   tooltipText,
   onClick,
+  wraps = false,
 }) => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -33,7 +36,7 @@ export const NormalLabel: React.FC<LabelProps> = ({
     font-size: ${size ? size : '1rem'};
     color: ${color ? color : COLORS.LABEL_L3_COLOR};
     overflow: hidden;
-    white-space: nowrap;
+    white-space: ${wraps ? 'normal' : 'nowrap'};
     ${style && style}
   `;
 
@@ -46,6 +49,10 @@ export const NormalLabel: React.FC<LabelProps> = ({
     white-space: nowrap;
     text-overflow: ellipsis;
   `;
+  const wrapStyle = css`
+    min-width: 0;
+    overflow-wrap: break-word;
+  `;
 
   return (
     <div
@@ -54,7 +61,7 @@ export const NormalLabel: React.FC<LabelProps> = ({
       css={textStyle}
       onClick={onClick}
     >
-      <span css={truncateStyle}>{value}</span>
+      <span css={wraps ? wrapStyle : truncateStyle}>{value}</span>
     </div>
   );
 };
