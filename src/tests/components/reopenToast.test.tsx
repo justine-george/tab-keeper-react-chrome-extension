@@ -25,9 +25,6 @@ import {
   closeOpenWindow,
 } from '../../utils/functions/reopen';
 import { clearReopenFocus } from '../../redux/reopenFocus';
-import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
-import { setPresentStartup } from '../../redux/slices/undoRedoSlice';
-import { buildSession } from '../fixtures/sessionFixture';
 import type { ClosedItem } from '../../utils/functions/reopen';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import { isToastShowing } from '../setup/toasts';
@@ -546,19 +543,6 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
     const { store } = await renderWithProviders(<MainContainer />, {
       seed: twoTabSeed,
     });
-    // A saved step to undo and then redo: a press with nothing to step closes nothing (KAN-744).
-    act(() => {
-      store.dispatch(
-        setPresentStartup({
-          tabContainerDataState: store.getState().tabContainerDataState,
-        })
-      );
-      store.dispatch(
-        saveToTabContainerInternal(
-          buildSession({ tabGroupId: 'saved', title: 'Saved' })
-        )
-      );
-    });
     for (const chord of [
       { key: 'z', ctrlKey: true },
       { key: 'Z', ctrlKey: true, shiftKey: true },
@@ -577,6 +561,34 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
       expect(isToastShowing(store.getState())).toBe(false);
     }
   });
+
+  // KAN-349, KAN-744. A press with nothing to step still closes plain toasts.
+  test.each([
+    ['Ctrl+Z', { key: 'z', ctrlKey: true }],
+    ['Ctrl+Shift+Z', { key: 'Z', ctrlKey: true, shiftKey: true }],
+  ])(
+    '%s with an empty history still closes a plain toast',
+    async (_, chord) => {
+      const { store } = await renderWithProviders(<MainContainer />, {
+        seed: twoTabSeed,
+      });
+      await act(async () => {
+        await store.dispatch(
+          showToast({ toastText: TOAST_MESSAGES.SYNC_MERGED })
+        );
+      });
+      // PREMISE: nothing to undo or redo, and the toast is up.
+      expect(store.getState().undoRedo.past).toEqual([]);
+      expect(store.getState().undoRedo.future).toEqual([]);
+      expect(isToastShowing(store.getState())).toBe(true);
+
+      act(() => {
+        press(document.body, chord);
+      });
+
+      expect(isToastShowing(store.getState())).toBe(false);
+    }
+  );
 
   // KAN-52: inside a text field the key is the field's own undo.
   test('in a text field the key is left to the field', async () => {

@@ -28,7 +28,10 @@ import { redoStep, undoStep } from '../redux/undoHistory';
 import { selectIsSavedSessionFolded } from '../redux/savedSessionFold';
 import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
 import RightPaneSettings from './settings/rightpane/RightPaneSettings';
-import { selectUndoKeyTarget } from '../redux/slices/globalStateSlice';
+import {
+  closePlainToasts,
+  selectUndoKeyTarget,
+} from '../redux/slices/globalStateSlice';
 import { reopenFromOffer } from '../redux/reopenOffer';
 import { ReviewCard } from './reviewCard/ReviewCard';
 import { FocusConfirmModal } from './modals/FocusConfirmModal';
@@ -204,6 +207,10 @@ export default function MainContainer() {
       // never a Reopen offer. An undo or redo dismisses a plain toast, but not
       // an offer: it is still there to take (KAN-311, O8c).
       if (key === 'y' || (key === 'z' && event.shiftKey)) {
+        // KAN-349. A press with nothing to redo still closes plain toasts; redoStep closes them for a step.
+        if (selectNextStep(store.getState(), 'redo') === null) {
+          dispatch(closePlainToasts());
+        }
         void dispatch(redoStep());
         event.preventDefault();
         return;
@@ -222,9 +229,10 @@ export default function MainContainer() {
         heldAfterOneTimeUndo.current = true;
         return;
       }
-      if (selectNextStep(state, 'undo') === 'live') {
-        heldAfterOneTimeUndo.current = true;
-      }
+      const next = selectNextStep(state, 'undo');
+      if (next === 'live') heldAfterOneTimeUndo.current = true;
+      // KAN-349. A press with nothing to undo still closes plain toasts; undoStep closes them for a step.
+      if (next === null) dispatch(closePlainToasts());
       void dispatch(undoStep());
     }
     // The hold ends when Z is let go, or the modifier is: macOS Chrome sends
