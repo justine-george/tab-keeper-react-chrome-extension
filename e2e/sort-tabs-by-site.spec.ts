@@ -430,7 +430,7 @@ test.describe('Open now window menu (KAN-694)', () => {
     expect(await liveStrip(serviceWorker, windowId)).toEqual(before);
   });
 
-  test('⌘Z after a tab was moved by hand does nothing', async ({
+  test("⌘Z after a tab was moved by hand moves nothing, and says the sort can't be undone", async ({
     context,
     extensionId,
     serviceWorker,
@@ -463,8 +463,11 @@ test.describe('Open now window menu (KAN-694)', () => {
 
     await page.keyboard.press('ControlOrMeta+z');
 
-    // The key reached the sort's undo: it took the drop and closed the toast.
-    await expect(toast(page)).toHaveCount(0);
+    // KAN-744 R10-R11. The key reached the sort's undo: the sort's toast closed, and the refusal shows.
+    await expect(toast(page)).toHaveCount(1);
+    await expect(toast(page)).toContainText(
+      "Couldn't undo the sort. That window's tabs changed since."
+    );
     // The undo is not awaited by the key, so a late move would land after the toast
     // closes: every sample over 1.5 s must still be the hand-moved strip.
     for (let sample = 0; sample < 15; sample++) {
