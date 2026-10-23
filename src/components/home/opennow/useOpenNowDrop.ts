@@ -32,7 +32,7 @@ import {
   type MovedTabs,
 } from '../../../utils/functions/openNowMoves';
 import type { AppDispatch } from '../../../redux/store';
-import { keepLiveStep } from '../../../redux/undoHistory';
+import { keepLiveStep, whileMovingTabs } from '../../../redux/undoHistory';
 import {
   itemIdOf,
   partitionTabsIntoItems,
@@ -281,7 +281,9 @@ export function useOpenNowDrop({
     ): Promise<MovedTabs | null> => {
       const move = describeTabMove(rowId, toIndex, dropTargetId, toWindowId);
       if (move === undefined) return null;
-      const moved = await moveOpenTab(move, windows, hasTabGroups);
+      const moved = await whileMovingTabs(() =>
+        moveOpenTab(move, windows, hasTabGroups)
+      );
       if (moved !== null) {
         keepLiveStep(dispatch, { kind: 'tab', moved });
       }
@@ -299,7 +301,7 @@ export function useOpenNowDrop({
     ): Promise<MovedTabs | null> => {
       const move = describeGroupMove(rowId, toIndex, toWindowId);
       if (move === undefined) return null;
-      const moved = await moveOpenGroup(move, windows);
+      const moved = await whileMovingTabs(() => moveOpenGroup(move, windows));
       if (moved !== null) {
         keepLiveStep(dispatch, { kind: 'group', moved });
       }

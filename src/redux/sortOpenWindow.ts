@@ -1,7 +1,7 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
 import { showToast } from './slices/globalStateSlice';
-import { keepLiveStep } from './undoHistory';
+import { keepLiveStep, whileMovingTabs } from './undoHistory';
 import type { AppDispatch, RootState } from './store';
 import { isTabKeeperPage } from '../utils/functions/capture';
 import { changedAnyPlace } from '../utils/functions/openNowMoves';
@@ -121,7 +121,9 @@ export const sortOpenWindowBySite = createAsyncThunk<
   { state: RootState; dispatch: AppDispatch }
 >('global/sortOpenWindowBySite', async (windowId, thunkAPI) => {
   const { hasTabGroupsPermission } = thunkAPI.getState().globalState;
-  const drop = await sortOpenWindow(windowId, hasTabGroupsPermission);
+  const drop = await whileMovingTabs(() =>
+    sortOpenWindow(windowId, hasTabGroupsPermission)
+  );
   if (drop === null) return;
   const id = keepLiveStep(thunkAPI.dispatch, drop);
   await thunkAPI.dispatch(

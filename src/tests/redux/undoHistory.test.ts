@@ -13,7 +13,10 @@ vi.mock('../../utils/functions/external', () => ({
 }));
 
 import { keepLiveStep, redoStep, undoStep } from '../../redux/undoHistory';
-import { sortOpenWindow } from '../../redux/sortOpenWindow';
+import {
+  sortOpenWindow,
+  sortOpenWindowBySite,
+} from '../../redux/sortOpenWindow';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import {
   replaceState,
@@ -389,6 +392,54 @@ describe('undoStep and redoStep', () => {
     expect(await s.undoing()).toBe('live');
 
     expect(await s.redoing()).toBe('live');
+  });
+});
+
+// R19. A sort becomes its step only once its last move lands; a press before that is ignored, so it can neither undo the step below nor lose that step's redo.
+describe('a press while Open now is still moving tabs', () => {
+  test('⌘Z during a sort is busy and leaves the saved step below it', async () => {
+    handle = setupChromeFake(seed);
+    const s = setup();
+    s.rename();
+    const original: (
+      id: number,
+      props: chrome.tabs.MoveProperties
+    ) => Promise<chrome.tabs.Tab> = chrome.tabs.move;
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const move = vi
+      .spyOn(chrome.tabs, 'move')
+      .mockImplementation((id, props) =>
+        gate.then(() =>
+          typeof id === 'number'
+            ? original(id, props)
+            : Promise.reject(new Error('PREMISE: one tab moves at a time'))
+        )
+      );
+    const pastBefore = s.past();
+
+    const sorting = s.store.dispatch(sortOpenWindowBySite(1));
+    await vi.waitFor(() => expect(move).toHaveBeenCalled());
+
+    expect(await s.undoing()).toBe('busy');
+    expect(await s.redoing()).toBe('busy');
+    expect(s.title()).toBe(TITLE_AFTER);
+    expect(s.past()).toBe(pastBefore);
+
+    release();
+    await sorting;
+
+    // The sort is the newest step, the rename still below it.
+    expect(await strip(1)).toEqual(SORTED);
+    expect(s.past()).toBe(pastBefore + 1);
+    expect(selectNextStep(s.store.getState(), 'undo')).toBe('live');
+    expect(await s.undoing()).toBe('live');
+    expect(await s.undoing()).toBe('saved');
+    expect(s.title()).toBe(TITLE_BEFORE);
+    expect(await s.redoing()).toBe('saved');
+    expect(s.title()).toBe(TITLE_AFTER);
   });
 });
 

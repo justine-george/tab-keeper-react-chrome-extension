@@ -17,15 +17,31 @@ import { changedAnyPlace, runLiveStep } from '../utils/functions/openNowMoves';
 import type { OpenNowDrop } from '../utils/functions/openNowMoves';
 
 // KAN-744. What one press of undo or redo did: 'nothing' to step to, 'busy'
-// (a live step is still running), 'saved' or 'live' (a step was taken),
-// 'refused' (Chrome's tabs changed since; dropped, with a toast), 'failed'
-// (could not run; dropped, no toast).
+// (a live step, or an Open now sort or drag, is still moving tabs), 'saved' or
+// 'live' (a step was taken), 'refused' (Chrome's tabs changed since, or the
+// window is closed; dropped, with a toast), 'failed' (could not run; dropped,
+// no toast).
 export type StepRun =
   'nothing' | 'busy' | 'saved' | 'live' | 'refused' | 'failed';
 
 // KAN-744 R19. One flag for undo and redo: a press while a live step runs is
 // ignored, never queued.
 let running = false;
+
+// KAN-744 R19. Open now sorts and drags still moving tabs. Each becomes its
+// step only once its moves end, so a press meanwhile is ignored too: it would
+// undo the step below, and the new step would then clear that step's redo.
+let movesInFlight = 0;
+
+// Runs an Open now sort or drag's Chrome moves, counted as in flight until they end.
+export async function whileMovingTabs<T>(move: () => Promise<T>): Promise<T> {
+  movesInFlight += 1;
+  try {
+    return await move();
+  } finally {
+    movesInFlight -= 1;
+  }
+}
 
 const REFUSED_TOAST = {
   undo: {
@@ -55,7 +71,7 @@ async function takeStep(
   dispatch: AppDispatch,
   getState: () => RootState
 ): Promise<StepRun> {
-  if (running) return 'busy';
+  if (running || movesInFlight > 0) return 'busy';
   const state = getState();
   const next = selectNextStep(state, direction);
   if (next === null) return 'nothing';
@@ -102,9 +118,9 @@ async function takeStep(
   }
 }
 
-// The thunk prefix is 'history/', never 'undoRedo/': the toast reducers match 'undoRedo/undo' exactly.
 const CLOSES_PLAIN_TOASTS: StepPress = { closesPlainToasts: true };
 
+// The thunk prefix is 'history/', never 'undoRedo/': the toast reducers match 'undoRedo/undo' exactly.
 export const undoStep = createAsyncThunk<
   StepRun,
   StepPress | undefined,

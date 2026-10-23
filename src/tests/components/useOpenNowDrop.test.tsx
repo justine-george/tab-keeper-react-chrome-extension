@@ -23,7 +23,13 @@ import {
 import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import { moveOpenGroup, moveOpenTab } from '../../utils/functions/openNowMoves';
-import { selectNewestLiveStep } from '../../redux/slices/undoRedoSlice';
+import {
+  selectNewestLiveStep,
+  setPresentStartup,
+} from '../../redux/slices/undoRedoSlice';
+import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
+import { undoStep } from '../../redux/undoHistory';
+import { buildSession } from '../fixtures/sessionFixture';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeFakeHandle, ChromeSeed } from '../setup/chrome.fake';
 import { makeTestStore } from '../setup/makeStore';
@@ -408,6 +414,60 @@ describe('a drop becomes Chrome calls, or none', () => {
     ).toBe(null);
     expect(moveOpenTab).toHaveBeenCalled();
     expect(store.getState().undoRedo.past).toEqual([]);
+  });
+
+  // KAN-744 R19. A drag becomes its step only once Chrome's move lands; a press before that is ignored.
+  test('⌘Z while a drop is still moving is busy and leaves the saved step below it', async () => {
+    const { result, store } = renderDrop(await install(fourWindows()));
+    store.dispatch(
+      setPresentStartup({
+        tabContainerDataState: store.getState().tabContainerDataState,
+      })
+    );
+    store.dispatch(
+      saveToTabContainerInternal(buildSession({ tabGroupId: 's', title: 'S' }))
+    );
+    const original: (
+      id: number,
+      props: chrome.tabs.MoveProperties
+    ) => Promise<chrome.tabs.Tab> = chrome.tabs.move;
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const move = vi
+      .spyOn(chrome.tabs, 'move')
+      .mockImplementation((id, props) =>
+        gate.then(() =>
+          typeof id === 'number'
+            ? original(id, props)
+            : Promise.reject(new Error('PREMISE: one tab moves at a time'))
+        )
+      );
+    const saved = () =>
+      store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId);
+    // PREMISE: one saved step to undo.
+    expect(saved()).toEqual(['s']);
+    expect(store.getState().undoRedo.past).toHaveLength(1);
+
+    const dropping = result.current.tabs.onMove(
+      String(LOOSE_A),
+      0,
+      undefined,
+      '2'
+    );
+    await waitFor(() => expect(move).toHaveBeenCalled());
+
+    expect(await store.dispatch(undoStep()).unwrap()).toBe('busy');
+    expect(saved()).toEqual(['s']);
+    expect(store.getState().undoRedo.past).toHaveLength(1);
+
+    release();
+    expect(await dropping).not.toBe(null);
+    move.mockRestore();
+
+    expect(selectNewestLiveStep(store.getState())?.drop.kind).toBe('tab');
+    expect(store.getState().undoRedo.past).toHaveLength(2);
   });
 
   // KAN-744 R1. A drop that moved something is the newest step in the history.
