@@ -644,8 +644,9 @@ test.describe('Open now search (KAN-330)', () => {
       )
     ).toBeLessThanOrEqual(LAYOUT_UNIT);
     // 82: the text's left as measured on main (fd9c212) at 1600x800, 438,
-    // less the list's 356 there.
-    expect(m.textInset).toBe(82);
+    // less the list's 356 there. KAN-747 took 9px off: the line (1px) and
+    // Open now's own left padding (8px), now that the list's is the gap.
+    expect(m.textInset).toBe(82 - 9);
   });
 
   test('the row keeps its height with a long search', async ({

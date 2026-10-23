@@ -264,20 +264,18 @@ interface RowFacts {
 }
 
 // A tab row's height, and its favicon's box with `left` measured from the
-// pane's content box (inside its border and padding): the two panes' own
-// borders differ.
+// pane's content box: inside its root's padding, which KAN-747 zeroes on a
+// side that faces a gap, so the two panes' padding differs.
 async function measureRow(row: Locator, pane: string): Promise<RowFacts> {
   await expect(row).toBeVisible();
   const facts = await row.evaluate((button: Element, paneSelector: string) => {
-    const paneEl = document.querySelector(paneSelector);
+    const root = document.querySelector(paneSelector)?.firstElementChild;
     const icon = button.firstElementChild;
     const rowEl = button.parentElement;
-    if (paneEl === null || icon === null || rowEl === null) return null;
-    const style = getComputedStyle(paneEl);
+    if (!root || icon === null || rowEl === null) return null;
     const contentLeft =
-      paneEl.getBoundingClientRect().left +
-      parseFloat(style.borderLeftWidth) +
-      parseFloat(style.paddingLeft);
+      root.getBoundingClientRect().left +
+      parseFloat(getComputedStyle(root).paddingLeft);
     const boxOf = (el: Element) => {
       const r = el.getBoundingClientRect();
       return { left: r.left - contentLeft, width: r.width, height: r.height };
@@ -1198,16 +1196,12 @@ async function measureGroupedRow(
       ) {
         return null;
       }
-      const style = getComputedStyle(paneEl);
-      const paneBox = paneEl.getBoundingClientRect();
-      const contentLeft =
-        paneBox.left +
-        parseFloat(style.borderLeftWidth) +
-        parseFloat(style.paddingLeft);
-      const contentRight =
-        paneBox.right -
-        parseFloat(style.borderRightWidth) -
-        parseFloat(style.paddingRight);
+      // The pane's content box: inside its root's padding (KAN-747).
+      const root = paneEl.firstElementChild ?? paneEl;
+      const style = getComputedStyle(root);
+      const rootBox = root.getBoundingClientRect();
+      const contentLeft = rootBox.left + parseFloat(style.paddingLeft);
+      const contentRight = rootBox.right - parseFloat(style.paddingRight);
       const r = rowEl.getBoundingClientRect();
       const i = icon.getBoundingClientRect();
       const s = stripEl.getBoundingClientRect();

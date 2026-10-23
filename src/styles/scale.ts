@@ -52,6 +52,8 @@ export const RADIUS = {
   TAG: '4px',
   /** Avatars only. Not a corner. */
   CIRCLE: '50%',
+  /** A pane resize handle's ends (KAN-747): fully round. A shape, like CIRCLE, so no squircle. */
+  PILL: '999px',
 } as const;
 
 /**

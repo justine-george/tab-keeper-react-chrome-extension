@@ -61,11 +61,29 @@ test('the eight cards in their places, then Done; the callout is marked seen; no
   ] as const) {
     if (step > 2) await nextTo(page, step);
     await expect.poll(() => cardSide(page)).toBe(side);
-    // Step 7 sits in the left pane, 40px in, as the popup mock places it (A2).
+    // Step 7 sits in the left pane, 40px in as the popup mock places it (A2),
+    // or further left where that keeps its 28px from the anchor (KAN-747:
+    // the saved pane's content starts 9px nearer the list).
     if (step === 7) {
+      const expected = async () => {
+        const c = await card(page).boundingBox();
+        const ring = await page.locator('[data-coach-ring]').boundingBox();
+        if (c === null || ring === null) return null;
+        const anchorLeft = ring.x + COACH.RING_INSET;
+        return [
+          c.x,
+          Math.min(COACH.POPUP_LEFT, anchorLeft - COACH.GAP_SIDE - c.width),
+        ];
+      };
       await expect
-        .poll(async () => (await card(page).boundingBox())?.x)
-        .toBe(COACH.POPUP_LEFT);
+        .poll(async () => {
+          const e = await expected();
+          return e !== null && Math.abs(e[0] - e[1]) <= 0.5;
+        })
+        .toBe(true);
+      expect((await card(page).boundingBox())!.x).toBeLessThanOrEqual(
+        COACH.POPUP_LEFT
+      );
     }
   }
   await expect(cardButton(page, 'Skip tutorial')).toHaveCount(0);
