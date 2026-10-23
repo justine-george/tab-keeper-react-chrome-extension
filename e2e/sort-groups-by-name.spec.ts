@@ -351,6 +351,47 @@ test.describe('Open now window', () => {
     await expect(sortGroupsItem(page)).toHaveCount(1);
   });
 
+  test("⌘Z after a tab was moved by hand moves nothing, and says the sort can't be undone", async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const windowId = await makeLiveWindow(serviceWorker);
+    await expect
+      .poll(() => labelsOf(serviceWorker, windowId))
+      .toEqual(LIVE_BEFORE);
+    const page = await openTabView(context, extensionId);
+    await openLiveMenu(page, windowId);
+    await sortGroupsItem(page).click();
+    await expect
+      .poll(() => labelsOf(serviceWorker, windowId))
+      .toEqual(LIVE_AFTER);
+    await sortedToastShows(page);
+
+    // looseX to the end of the strip.
+    await serviceWorker.evaluate(async (id) => {
+      const tabs = await chrome.tabs.query({ windowId: id });
+      const moving = tabs.find((t) => t.url?.endsWith('/looseX'));
+      if (moving?.id === undefined) throw new Error('no looseX');
+      await chrome.tabs.move(moving.id, { index: -1 });
+    }, windowId);
+    const byHand = await liveStrip(serviceWorker, windowId);
+    // PREMISE: the hand move changed the sorted order.
+    expect(byHand.map((r) => r.label)).not.toEqual(LIVE_AFTER);
+
+    await page.keyboard.press('ControlOrMeta+z');
+
+    await expect(toast(page)).toHaveCount(1);
+    await expect(toast(page)).toContainText(
+      "Couldn't undo the sort. That window's tabs changed since."
+    );
+    // The undo is not awaited by the key: every sample over 1.5 s must still be the hand-moved strip.
+    for (let sample = 0; sample < 15; sample++) {
+      expect(await liveStrip(serviceWorker, windowId)).toEqual(byHand);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  });
+
   test("the toast's Undo restores the order", async ({
     context,
     extensionId,
