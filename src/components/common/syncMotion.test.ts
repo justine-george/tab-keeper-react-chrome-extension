@@ -25,6 +25,8 @@ describe('settlePose', () => {
     [-60, -180],
     [-200, -360],
     [-226, -360],
+    [-135, -180],
+    [-136, -360],
   ])('settles %d on %d', (angle, pose) => {
     expect(settlePose(angle)).toBe(pose);
   });
