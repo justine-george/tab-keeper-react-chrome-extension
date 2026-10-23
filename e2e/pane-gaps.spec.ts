@@ -1,0 +1,296 @@
+import type { BrowserContext, Page } from '@playwright/test';
+
+import { test, expect } from './fixtures/extension';
+import { S1, S2, S3, S4, seed } from './fixtures/betweenSessions';
+import { POPUP } from './fixtures/onboarding';
+import { seedSettings } from './fixtures/seed';
+import { contrast, rgbToHex } from './fixtures/pixels';
+import { CHALK_THEME, CHARCOAL_THEME } from '../src/hooks/useThemeColors';
+import { RADIUS } from '../src/styles/scale';
+
+// KAN-747. No line between the panes: each gap is 8px of space, the popup's
+// own outer margin, and the tab view's resize handles are a slim pill in it.
+
+const GAP = 8;
+
+async function open(
+  context: BrowserContext,
+  extensionId: string,
+  view: 'popup' | 'tab',
+  viewport: { width: number; height: number },
+  settings: Record<string, unknown> = {}
+): Promise<Page> {
+  await seed(context, [S1(), S2(), S3(), S4()], 'S1');
+  await seedSettings(context, {
+    theme: 'Chalk',
+    foldSavedSessionInTabView: false,
+    ...settings,
+  });
+  const page = await context.newPage();
+  await page.setViewportSize(viewport);
+  await page.goto(
+    `chrome-extension://${extensionId}/index.html${view === 'tab' ? '?view=tab' : ''}`
+  );
+  await page.locator('[data-tour-anchor="save"]').waitFor();
+  return page;
+}
+
+// Each pane's border box, its borders, and its content box: the pane's child minus that child's padding.
+function panes(page: Page) {
+  return page.evaluate(() =>
+    Object.fromEntries(
+      [...document.querySelectorAll<HTMLElement>('[data-pane]')].map((el) => {
+        const cs = getComputedStyle(el);
+        const inner = el.firstElementChild as HTMLElement;
+        const ics = getComputedStyle(inner);
+        const ir = inner.getBoundingClientRect();
+        const r = el.getBoundingClientRect();
+        return [
+          el.dataset.pane!,
+          {
+            left: r.left,
+            right: r.right,
+            borderLeft: cs.borderLeftWidth,
+            borderRight: cs.borderRightWidth,
+            borderTop: cs.borderTopWidth,
+            contentLeft: ir.left + parseFloat(ics.paddingLeft),
+            contentRight: ir.right - parseFloat(ics.paddingRight),
+          },
+        ];
+      })
+    )
+  );
+}
+
+test('popup: no line between the list and the session, an 8px gap, and the session 9px wider', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await open(context, extensionId, 'popup', POPUP);
+  const p = await panes(page);
+  expect(p.sessions.borderRight).toBe('0px');
+  expect(p.detail.borderLeft).toBe('0px');
+  expect(p.detail.contentLeft - p.sessions.contentRight).toBe(GAP);
+  // The outer frame stays.
+  expect(p.sessions.borderLeft).toBe('1px');
+  expect(p.detail.borderRight).toBe('1px');
+  expect(p.detail.borderTop).toBe('1px');
+  // Today's session content was 364.5..781; the 9px comes off its left.
+  expect(p.detail.contentRight).toBe(POPUP.width - 9);
+  expect(p.detail.contentRight - p.detail.contentLeft).toBe(781 - 364.5 + 9);
+});
+
+test('tab view: both lines go, each gap is 8px, and the session is 540px at 1440', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await open(context, extensionId, 'tab', {
+    width: 1440,
+    height: 900,
+  });
+  const p = await panes(page);
+  expect(p.detail.borderLeft).toBe('0px');
+  expect(p.detail.borderRight).toBe('0px');
+  expect(p['open-now'].borderLeft).toBe('0px');
+  expect(p.detail.contentLeft - p.sessions.contentRight).toBe(GAP);
+  expect(p['open-now'].contentLeft - p.detail.contentRight).toBe(GAP);
+  expect(p.detail.contentRight - p.detail.contentLeft).toBe(540);
+  // The window's frame stays.
+  expect(p.sessions.borderLeft).toBe('1px');
+  expect(p['open-now'].borderRight).toBe('1px');
+});
+
+test('folded: no line between the list and Open now, an 8px gap', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await open(
+    context,
+    extensionId,
+    'tab',
+    { width: 1440, height: 900 },
+    { foldSavedSessionInTabView: true }
+  );
+  const p = await panes(page);
+  expect(p.detail).toBeUndefined();
+  expect(p['open-now'].borderLeft).toBe('0px');
+  expect(p['open-now'].contentLeft - p.sessions.contentRight).toBe(GAP);
+  expect(p['open-now'].borderRight).toBe('1px');
+});
+
+test('under 1100px: no line before the rail, 8px to it, and the rail is not covered', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await open(context, extensionId, 'tab', {
+    width: 1000,
+    height: 800,
+  });
+  const p = await panes(page);
+  expect(p.detail.borderRight).toBe('0px');
+  expect(p.detail.contentLeft - p.sessions.contentRight).toBe(GAP);
+  // The rail has no padding of its own: the gap is to its edge.
+  expect(p['open-now'].left - p.detail.contentRight).toBe(GAP);
+  const rail = page.locator('[data-pane="open-now"] button').first();
+  const b = (await rail.boundingBox())!;
+  expect(
+    await page.evaluate(
+      ([x, y]) => document.elementFromPoint(x, y)?.closest('button') !== null,
+      [b.x + 2, b.y + b.height / 2]
+    )
+  ).toBe(true);
+});
+
+// His pick, 04:29: Settings matches. Its right edge is the window's, so that border stays.
+for (const [view, viewport] of [
+  ['popup', POPUP],
+  ['tab', { width: 1440, height: 900 }],
+] as const) {
+  test(`Settings (${view}): no line between its panes, an 8px gap`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId, view, viewport);
+    await page.locator('[aria-label="Settings"]').click();
+    await page.locator('button[aria-label="Display"]').waitFor();
+    const p = await panes(page);
+    expect(p.detail.borderLeft).toBe('0px');
+    expect(p.detail.contentLeft - p.sessions.contentRight).toBe(GAP);
+    expect(p.detail.borderRight).toBe('1px');
+    expect(p.detail.contentRight).toBe(viewport.width - 9);
+  });
+}
+
+// Each pane's box is its column: the gap is padding, not an overlap.
+test('every pane box is its own column, with nothing overlapping', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await open(context, extensionId, 'tab', {
+    width: 1440,
+    height: 900,
+  });
+  const p = await panes(page);
+  expect(p.detail.left).toBe(p.sessions.right);
+  expect(p['open-now'].left).toBe(p.detail.right);
+});
+
+// ---- the handles ------------------------------------------------------------
+
+const GRIPS = {
+  list: '[data-list-resize-grip]',
+  openNow: '[data-resize-grip]',
+} as const;
+
+function pill(page: Page, sel: string) {
+  return page.locator(sel).evaluate((g) => {
+    const p = g.firstElementChild as HTMLElement;
+    const r = p.getBoundingClientRect();
+    const gr = g.getBoundingClientRect();
+    const s = getComputedStyle(p);
+    return {
+      gripLeft: gr.left,
+      gripRight: gr.right,
+      width: r.width,
+      height: r.height,
+      centre: r.left + r.width / 2,
+      colour: s.backgroundColor,
+      radius: s.borderTopLeftRadius,
+      children: p.childElementCount,
+    };
+  });
+}
+
+for (const [theme, palette] of [
+  ['Chalk', CHALK_THEME],
+  ['Charcoal', CHARCOAL_THEME],
+] as const) {
+  test(`${theme}: each handle is a 4×40 pill centred in its gap, 48px in the text colour on hover`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(
+      context,
+      extensionId,
+      'tab',
+      { width: 1440, height: 900 },
+      { theme }
+    );
+    const p = await panes(page);
+    const gaps = {
+      list: [p.sessions.contentRight, p.detail.contentLeft],
+      openNow: [p.detail.contentRight, p['open-now'].contentLeft],
+    } as const;
+    for (const which of ['list', 'openNow'] as const) {
+      const [from, to] = gaps[which];
+      const rest = await pill(page, GRIPS[which]);
+      expect(rest, which).toMatchObject({
+        width: 4,
+        height: 40,
+        radius: RADIUS.PILL,
+        children: 0,
+      });
+      expect(rgbToHex(rest.colour), which).toBe(palette.LABEL_L3_COLOR);
+      // Findable before it is hovered: 3:1 on the pane, as a control needs (WCAG 1.4.11).
+      expect(
+        contrast(rgbToHex(rest.colour), palette.PRIMARY_COLOR),
+        which
+      ).toBeGreaterThanOrEqual(3);
+      expect(Math.abs(rest.centre - (from + to) / 2), which).toBeLessThan(0.5);
+      // The grab strip: 12px, 2px past each side of the gap.
+      expect(rest.gripLeft, which).toBe(from - 2);
+      expect(rest.gripRight, which).toBe(to + 2);
+
+      const g = (await page.locator(GRIPS[which]).boundingBox())!;
+      await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+      await expect
+        .poll(async () => {
+          const h = await pill(page, GRIPS[which]);
+          return [h.height, rgbToHex(h.colour)];
+        })
+        .toEqual([48, palette.TEXT_COLOR]);
+      await page.mouse.move(5, 5);
+      await expect
+        .poll(async () => (await pill(page, GRIPS[which])).height)
+        .toBe(40);
+    }
+  });
+}
+
+test('keyboard focus and a drag both draw the long pill', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await open(context, extensionId, 'tab', {
+    width: 1440,
+    height: 900,
+  });
+  const grip = page.locator(GRIPS.openNow);
+  await grip.focus();
+  // Focus by script is not key navigation: press Tab back and forth onto it.
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(grip).toBeFocused();
+  await expect
+    .poll(async () => (await pill(page, GRIPS.openNow)).height)
+    .toBe(48);
+  // The ring goes round the pill.
+  expect(
+    await grip.evaluate(
+      (g) => getComputedStyle(g.firstElementChild as HTMLElement).outlineStyle
+    )
+  ).toBe('solid');
+
+  await grip.blur();
+  await page.mouse.move(5, 5);
+  const g = (await grip.boundingBox())!;
+  await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+  await page.mouse.down();
+  // Off the grip, still dragging: the pill stays long.
+  await page.mouse.move(g.x - 60, g.y + g.height / 2, { steps: 4 });
+  await expect
+    .poll(async () => (await pill(page, GRIPS.openNow)).height)
+    .toBe(48);
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+});

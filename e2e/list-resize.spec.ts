@@ -4,7 +4,7 @@ import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession } from './fixtures/seed';
 
 // KAN-687 on the real artifact: the saved list's width in the tab view.
-// jsdom has no layout, so the pane widths, the grip on the line, a real
+// jsdom has no layout, so the pane widths, the grip in the gap, a real
 // drag, a reload and the 480px floor beside the list are only provable here.
 //
 // Widths (paneWidths.ts): the list starts at a quarter of the window, 356 to
@@ -148,11 +148,11 @@ test.describe('resizing the saved list (KAN-687)', () => {
     await expectList(page, 360);
     expect(await widthOf(page, OPEN_NOW)).toBe(540);
     expect(await widthOf(page, DETAIL)).toBe(540);
-    // The grip sits on the line: the list's right edge.
+    // KAN-747. The grip is centred in the gap: the list's own 8px padding, inside its right edge.
     const sessions = await page.locator(SESSIONS).boundingBox();
     const grip = await gripCentre(page);
     expect(
-      Math.abs(grip.x - ((sessions?.x ?? 0) + (sessions?.width ?? 0)))
+      Math.abs(grip.x - ((sessions?.x ?? 0) + (sessions?.width ?? 0) - 4))
     ).toBeLessThanOrEqual(1);
 
     await page.setViewportSize({ width: 1920, height: 800 });

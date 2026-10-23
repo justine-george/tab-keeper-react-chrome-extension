@@ -34,7 +34,7 @@ import { rgb } from '../setup/hexColor';
 //
 // jsdom has no layout and no pointer capture. The drag is driven the way the
 // grip reads it: a press on the grip, then moves and the release on `window`.
-// What the drag LOOKS like (the cursor, the chip, the 12px hit area on the
+// What the drag LOOKS like (the cursor, the pill, the 12px hit area on the
 // line) is Task 5's real-browser spec.
 
 const NAME = 'Resize Open now';
@@ -519,34 +519,33 @@ const gripClass = (el: Element) => {
 };
 
 describe('the grip lights on hover and during its drag (O1a G A)', () => {
-  test('hovered, the chip is HOVER_COLOR and the dots TEXT_COLOR', async () => {
+  // KAN-747. The pill grows to 48px (scaleY 1.2) in TEXT_COLOR.
+  test('hovered, the pill grows to 48px and is TEXT_COLOR', async () => {
     await renderHome();
     await mounted();
     const cls = gripClass(grip());
 
-    expect(declarationsFor(grip(), `${cls}:hover>span`)).toContain(
-      `background-color: ${rgb(LIGHT_THEME.HOVER_COLOR)}`
-    );
-    expect(declarationsFor(grip(), `${cls}:hover>span>span`)).toContain(
+    const hovered = declarationsFor(grip(), `${cls}:hover>span`);
+    expect(hovered).toContain('transform: scaleY(1.2)');
+    expect(hovered).toContain(
       `background-color: ${rgb(LIGHT_THEME.TEXT_COLOR)}`
     );
   });
 
-  // O1a: "on hover, keyboard focus and during the drag, TEXT_COLOR on a
-  // HOVER_COLOR chip, plus the app's focus ring on keyboard focus". Only
-  // while navigating by keyboard (KAN-689).
-  test("keyboard-focused, it has the hover colours and the app's focus ring", async () => {
+  // O1a: on hover, keyboard focus and during the drag it looks the same,
+  // plus the app's focus ring on keyboard focus. Only while navigating by
+  // keyboard (KAN-689).
+  test("keyboard-focused, it looks hovered and has the app's focus ring", async () => {
     await renderHome();
     await mounted();
     const cls = `html[data-key-nav] ${gripClass(grip())}`;
 
-    expect(declarationsFor(grip(), `${cls}:focus-visible>span`)).toContain(
-      `background-color: ${rgb(LIGHT_THEME.HOVER_COLOR)}`
-    );
-    expect(declarationsFor(grip(), `${cls}:focus-visible>span>span`)).toContain(
+    const focused = declarationsFor(grip(), `${cls}:focus-visible>span`);
+    expect(focused).toContain('transform: scaleY(1.2)');
+    expect(focused).toContain(
       `background-color: ${rgb(LIGHT_THEME.TEXT_COLOR)}`
     );
-    // The app's ring (dialogButtons.ts): 2px of TEXT_COLOR, on the chip.
+    // The app's ring (dialogButtons.ts): 2px of TEXT_COLOR, on the pill.
     // jsdom keeps an outline shorthand's colour as written (hex), unlike a
     // background-color, which it serialises as rgb().
     expect(
@@ -554,15 +553,14 @@ describe('the grip lights on hover and during its drag (O1a G A)', () => {
     ).toContain(`outline: 2px solid ${LIGHT_THEME.TEXT_COLOR.toLowerCase()}`);
   });
 
-  test('during its drag ([data-active]) it has the hover colours', async () => {
+  test('during its drag ([data-active]) it looks hovered', async () => {
     await renderHome();
     await mounted();
     const cls = gripClass(grip());
 
-    expect(declarationsFor(grip(), `${cls}[data-active]>span`)).toContain(
-      `background-color: ${rgb(LIGHT_THEME.HOVER_COLOR)}`
-    );
-    expect(declarationsFor(grip(), `${cls}[data-active]>span>span`)).toContain(
+    const active = declarationsFor(grip(), `${cls}[data-active]>span`);
+    expect(active).toContain('transform: scaleY(1.2)');
+    expect(active).toContain(
       `background-color: ${rgb(LIGHT_THEME.TEXT_COLOR)}`
     );
   });

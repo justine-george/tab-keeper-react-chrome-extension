@@ -7,7 +7,7 @@ import { CHALK_THEME } from '../src/hooks/useThemeColors';
 
 // KAN-321 (spec O1, O1a, O1b) on the real artifact: resizing Open now in the
 // tab view (`index.html?view=tab`). jsdom has no layout, so the widths, the
-// grip sitting on the line, a real pointer drag and its cursor, the first
+// grip sitting in the gap, a real pointer drag and its cursor, the first
 // paint, and the two drag systems staying out of each other's way are only
 // provable here.
 //
@@ -505,8 +505,8 @@ const detailScroll = (page: Page) =>
 // What a row drag passing over the grip observed there, and how it ended.
 interface OverTheGrip {
   gripHovered: boolean;
-  dotColour: string;
-  chipColour: string;
+  pillColour: string;
+  pillHeight: number;
   gripCursor: string;
   openNowWidth: number;
   resizingMidDrag: boolean;
@@ -521,16 +521,15 @@ async function dragSavedRowOverTheGrip(page: Page): Promise<OverTheGrip> {
   const start = await pickUp(page, savedRow(page, 'saved-5'));
   const grip = await gripCentre(page);
 
-  // Over the grip's chip: its centre, where the dots are.
+  // Over the grip's pill (KAN-747), at its centre.
   await moveHeld(page, grip.x, grip.y);
   const over = await page.evaluate((sel) => {
     const el = document.querySelector(sel);
-    const dot = el?.querySelector(':scope > span > span') ?? null;
-    const chip = el?.querySelector(':scope > span') ?? null;
+    const pill = el?.querySelector(':scope > span') ?? null;
     return {
       gripHovered: el?.matches(':hover') ?? false,
-      dotColour: dot === null ? '' : getComputedStyle(dot).backgroundColor,
-      chipColour: chip === null ? '' : getComputedStyle(chip).backgroundColor,
+      pillColour: pill === null ? '' : getComputedStyle(pill).backgroundColor,
+      pillHeight: pill === null ? 0 : pill.getBoundingClientRect().height,
       gripCursor: el === null ? '' : getComputedStyle(el).cursor,
       resizingMidDrag: document.documentElement.hasAttribute('data-resizing'),
     };
@@ -622,8 +621,8 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     });
     const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
 
-    // PREMISES. The default at 1600, nothing stored, and the grip centred on
-    // the line (Open now's left edge).
+    // PREMISES. The default at 1600, nothing stored, and the grip centred in
+    // the gap (KAN-747): Open now's own 8px padding, inside its left edge.
     await expectOpenNow(page, 600);
     expect(await storedWidth(page)).toBeNull();
     const firstWidths = await page.evaluate(
@@ -635,7 +634,7 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     );
     const line = await need(page, OPEN_NOW);
     const grip = await gripCentre(page);
-    expect(Math.abs(grip.x - line.left)).toBeLessThanOrEqual(1);
+    expect(Math.abs(grip.x - (line.left + 4))).toBeLessThanOrEqual(1);
 
     // At rest a saved row shows its own cursor; mid-drag it must not.
     const row = await centreOf(savedRow(page, 'saved-2'));
@@ -656,11 +655,12 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     const detail = await need(page, DETAIL);
     const openNow = await need(page, OPEN_NOW);
     expect(Math.abs(detail.right - openNow.left)).toBeLessThanOrEqual(1);
-    // The grip followed the line.
+    // The grip followed the gap, 4px inside Open now's edge (KAN-747), and
+    // the pointer with it.
     expect(
-      Math.abs((await gripCentre(page)).x - openNow.left)
+      Math.abs((await gripCentre(page)).x - (openNow.left + 4))
     ).toBeLessThanOrEqual(1);
-    expect(Math.abs(end.x - openNow.left)).toBeLessThanOrEqual(1);
+    expect(Math.abs(end.x - (openNow.left + 4))).toBeLessThanOrEqual(1);
   });
 
   test('2. the drag stops at its limits, both panes keep 480px, and a release outside the window still ends it', async ({
@@ -1048,8 +1048,8 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     await expect
       .poll(() =>
         page.evaluate((sel) => {
-          const dot = document.querySelector(`${sel} > span > span`);
-          return dot === null ? '' : getComputedStyle(dot).backgroundColor;
+          const pill = document.querySelector(`${sel} > span`);
+          return pill === null ? '' : getComputedStyle(pill).backgroundColor;
         }, GRIP)
       )
       .toBe(rgb(CHALK_THEME.TEXT_COLOR));
@@ -1057,8 +1057,8 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
 
     const seen = await dragSavedRowOverTheGrip(page);
     expect(seen.gripHovered).toBe(true);
-    expect(rgbToHex(seen.dotColour)).toBe(CHALK_THEME.LABEL_L2_COLOR);
-    expect(rgbToHex(seen.chipColour)).toBe(CHALK_THEME.PRIMARY_COLOR);
+    expect(rgbToHex(seen.pillColour)).toBe(CHALK_THEME.LABEL_L3_COLOR);
+    expect(seen.pillHeight).toBe(40);
     // And no resize cursor: the row drag's own grabbing hand.
     expect(seen.gripCursor).toBe('grabbing');
   });

@@ -10,7 +10,7 @@ import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { RADIUS } from '../../styles/scale';
+import { DURATION, RADIUS } from '../../styles/scale';
 import { whileKeyNav } from '../common/focusRing';
 import {
   setListWidth,
@@ -174,19 +174,19 @@ export default function PaneResizeGrip({
     dispatch(SAVE[pane](null));
   };
 
-  // Straddles the line: 6px into each pane's 8px padding, so it never
-  // reaches the boxes inside them.
+  // KAN-747. Fills the 8px gap between the panes and 2px past each side,
+  // so it never reaches the boxes inside them.
   const placement =
     pane === 'list'
       ? css`
           grid-area: sessions;
           justify-self: end;
-          margin-right: -6px;
+          margin-right: -2px;
         `
       : css`
           grid-area: active-session;
           justify-self: start;
-          margin-left: -6px;
+          margin-left: -2px;
         `;
 
   const gripStyle = css`
@@ -198,32 +198,31 @@ export default function PaneResizeGrip({
     align-items: center;
     justify-content: center;
     cursor: col-resize;
-    /* The ring goes round the chip below, not this full-height strip. */
+    /* The ring goes round the pill below, not this full-height strip. */
     outline: none;
     touch-action: none;
 
+    /* KAN-747. A slim pill in LABEL_L3, the lightest grey still 3:1 on the pane.
+       48px (1.2x) and in the text colour while it is in use. */
     & > span {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      padding: 6px 2px;
-      /* Square, as every corner here is (styles/scale.ts). */
-      border-radius: ${RADIUS.SQUARE};
-      background-color: ${COLORS.PRIMARY_COLOR};
-    }
-    & > span > span {
       width: 4px;
-      height: 4px;
-      border-radius: ${RADIUS.CIRCLE};
-      background-color: ${COLORS.LABEL_L2_COLOR};
+      height: 40px;
+      border-radius: ${RADIUS.PILL};
+      background-color: ${COLORS.LABEL_L3_COLOR};
+      /* Grown by transform, not height: a height that animates re-lays out
+         the page each frame, and the toast stack's hover flickered with it. */
+      transition:
+        transform ${DURATION.MOVE},
+        background-color ${DURATION.COLOR};
+      @media (prefers-reduced-motion: reduce) {
+        transition: none;
+      }
     }
 
     &:hover,
     ${whileKeyNav('&:focus-visible')}, &[data-active] {
       & > span {
-        background-color: ${COLORS.HOVER_COLOR};
-      }
-      & > span > span {
+        transform: scaleY(1.2);
         background-color: ${COLORS.TEXT_COLOR};
       }
     }
@@ -239,10 +238,8 @@ export default function PaneResizeGrip({
        which matches nothing. */
     html[data-dragging] &:hover {
       & > span {
-        background-color: ${COLORS.PRIMARY_COLOR};
-      }
-      & > span > span {
-        background-color: ${COLORS.LABEL_L2_COLOR};
+        transform: none;
+        background-color: ${COLORS.LABEL_L3_COLOR};
       }
     }
   `;
@@ -270,11 +267,7 @@ export default function PaneResizeGrip({
       onKeyDown={onKeyDown}
       onDoubleClick={onDoubleClick}
     >
-      <span>
-        <span />
-        <span />
-        <span />
-      </span>
+      <span />
     </div>
   );
 }

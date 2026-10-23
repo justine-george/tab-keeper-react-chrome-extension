@@ -802,9 +802,10 @@ test.describe('only the session list carries (hand-off, KAN-352)', () => {
     await expect(gripLoc).toHaveCount(1);
     const grip = await boxOf(gripLoc);
     const pane = await detailPane(page);
-    // PREMISE: the grip is right of the pane, outside its box -- a sideways
-    // exit, which the old rule handed off.
-    expect(grip.x).toBeGreaterThanOrEqual(pane.right);
+    // PREMISE: the grip's centre, where this lets go, is right of the pane,
+    // outside its box -- a sideways exit, which the old rule handed off. The
+    // grip itself reaches 2px into the pane (KAN-747).
+    expect(grip.x + grip.width / 2).toBeGreaterThan(pane.right);
     await watchForCarry(page);
 
     await pickUp(page, tabHandle(page, 'a1'));

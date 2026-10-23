@@ -5,6 +5,7 @@ import { useDispatch, useSelector, useStore } from 'react-redux';
 import { css } from '@emotion/react';
 
 import { isTabView } from '../utils/functions/viewMode';
+import { PANE_INSET } from '../styles/paneInset';
 import LeftPane from './home/leftpane/LeftPane';
 import { Toast } from './common/Toast';
 import { CarryLayer } from './home/CarryLayer';
@@ -305,11 +306,14 @@ export default function MainContainer() {
     border-right: none;
   `;
 
+  // KAN-747. No line between the panes: the list's own 8px padding is the gap.
   const rightPaneStyle = css`
     width: 55%;
     height: ${APP_HEIGHT};
     min-width: 0;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    border-left: none;
+    ${PANE_INSET.LEFT}: 0px;
   `;
 
   const leftPaneSettingsStyle = css`
@@ -325,6 +329,8 @@ export default function MainContainer() {
     height: ${APP_HEIGHT};
     min-width: 0;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    border-left: none;
+    ${PANE_INSET.LEFT}: 0px;
   `;
 
   // KAN-279 D1/D2. The tab view fills the window instead of sitting in the
@@ -371,12 +377,27 @@ export default function MainContainer() {
     border-right: none;
   `;
 
+  // KAN-747. No lines: each gap is the neighbour's 8px padding. Settings'
+  // right edge is the window's, so it keeps its border and padding there; so
+  // does the saved detail beside the rail, which has no padding of its own.
   const tabDetailPaneStyle = css`
     grid-area: detail;
     width: auto;
     height: 100vh;
     min-width: 0;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    border-left: none;
+    ${PANE_INSET.LEFT}: 0px;
+    ${
+      !isSettingsPage &&
+      css`
+        border-right: none;
+        ${PANE_INSET.RIGHT}: 0px;
+        @media ${OPEN_NOW_RAIL_QUERY} {
+          ${PANE_INSET.RIGHT}: 8px;
+        }
+      `
+    }
   `;
 
   const tabOpenNowPaneStyle = css`
@@ -386,8 +407,9 @@ export default function MainContainer() {
     min-width: 0;
     overflow: hidden;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
-    /* Side by side, the detail pane's right border is already this edge. */
-    ${!folded && 'border-left: none;'}
+    /* KAN-747. No line before it; folded, the list's padding is the gap. */
+    border-left: none;
+    ${folded && `${PANE_INSET.LEFT}: 0px;`}
   `;
 
   return (

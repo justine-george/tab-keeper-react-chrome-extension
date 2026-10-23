@@ -5,6 +5,7 @@ import { useSelector } from 'react-redux';
 import { css } from '@emotion/react';
 
 import { RootState } from '../../../redux/store';
+import { paneInsetCss } from '../../../styles/paneInset';
 import HeroContainerRight from './HeroContainerRight';
 import { selectVisibleTabGroups } from '../../../utils/functions/local';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
@@ -42,6 +43,7 @@ function RightPane() {
     display: flex;
     flex-direction: column;
     padding: 8px 8px;
+    ${paneInsetCss}
     height: 100%;
   `;
 

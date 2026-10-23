@@ -65,6 +65,7 @@ import {
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import type { AppDispatch, RootState } from '../../../redux/store';
 import { ICON, TYPE } from '../../../styles/scale';
+import { paneInsetCss } from '../../../styles/paneInset';
 
 import { RowDragArea } from '../rightpane/rowDrag/RowDragArea';
 import OpenNowSearchRow from './OpenNowSearchRow';
@@ -506,6 +507,7 @@ export default function OpenNowPane({
     display: flex;
     flex-direction: column;
     padding: 8px 8px;
+    ${paneInsetCss}
     height: 100%;
   `;
 
