@@ -127,7 +127,7 @@ describe('exporting the open windows (KAN-208)', () => {
   });
 
   // KAN-734. This file does not mock the switch, so it reads what ships.
-  test('ships with Save as HTML hidden, Copy and Print offered', async () => {
+  test('offers Copy all links and Save as PDF…, and no Save as HTML', async () => {
     await renderLive();
 
     await waitFor(() => expect(frame().srcdoc).toContain('Kagi Search'));

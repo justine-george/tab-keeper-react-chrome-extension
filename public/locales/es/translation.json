@@ -150,7 +150,6 @@
   "CreatedOn": "Creada {{date}}",
   "Sessions reordered. Undo to restore the previous order.": "Sesiones reordenadas. Usa \"Deshacer\" para restaurar el orden anterior.",
   "Save session as PDF": "Guardar como PDF…",
-  "Save as HTML": "Guardar como HTML",
   "Copy all links": "Copiar todos los enlaces",
   "Copy link": "Copiar enlace",
   "SavePdfNothingKept": "Todas las filas están ocultas. Muestra una para terminar.",

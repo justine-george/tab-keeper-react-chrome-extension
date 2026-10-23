@@ -152,7 +152,6 @@
   "CreatedOn": "Создана {{date}}",
   "Sessions reordered. Undo to restore the previous order.": "Сессии переупорядочены. Нажмите «Отменить», чтобы вернуть прежний порядок.",
   "Save session as PDF": "Сохранить как PDF…",
-  "Save as HTML": "Сохранить как HTML",
   "Copy all links": "Скопировать все ссылки",
   "Copy link": "Скопировать ссылку",
   "SavePdfNothingKept": "Все строки скрыты. Покажите хотя бы одну, чтобы завершить.",

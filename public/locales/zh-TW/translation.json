@@ -146,7 +146,6 @@
   "CreatedOn": "建立於 {{date}}",
   "Sessions reordered. Undo to restore the previous order.": "已重新排序工作階段。按「復原」即可恢復先前的順序。",
   "Save session as PDF": "儲存為 PDF…",
-  "Save as HTML": "儲存為 HTML",
   "Copy all links": "複製所有連結",
   "Copy link": "複製連結",
   "SavePdfNothingKept": "所有列都已隱藏。至少顯示一列才能完成。",

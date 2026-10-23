@@ -146,7 +146,6 @@
   "CreatedOn": "{{date}} 생성",
   "Sessions reordered. Undo to restore the previous order.": "세션 순서를 변경했습니다. 실행취소하면 이전 순서로 돌아갑니다.",
   "Save session as PDF": "PDF로 저장…",
-  "Save as HTML": "HTML로 저장",
   "Copy all links": "모든 링크 복사",
   "Copy link": "링크 복사",
   "SavePdfNothingKept": "모든 행이 숨겨져 있습니다. 완료하려면 하나 이상 표시하세요.",

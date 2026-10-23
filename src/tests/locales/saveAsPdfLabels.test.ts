@@ -49,6 +49,14 @@ describe('Save as PDF in every locale (KAN-742)', () => {
     expect(localeFiles['/public/locales/en/translation.json'][TOUR]).toBe(TOUR);
   });
 
+  // His word (2026-10-22): Save as HTML is gone for good.
+  test('no locale defines Save as HTML', () => {
+    const left = entries
+      .filter(([, strings]) => 'Save as HTML' in strings)
+      .map(([file]) => file);
+    expect(left).toEqual([]);
+  });
+
   test('no key in any locale says export', () => {
     const exportKeys = entries.flatMap(([file, strings]) =>
       Object.keys(strings)

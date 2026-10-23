@@ -138,8 +138,8 @@ test.describe('exporting a session as a web page', () => {
     expect(html).toContain('ref=export');
   });
 
-  // KAN-734. The build ships with the HTML file hidden; Copy and PDF stay.
-  test('the shipped toolbar has no Save as HTML (KAN-734)', async ({
+  // KAN-734 hid the HTML file; KAN-742 removed it. Copy and the PDF stay.
+  test('the toolbar has no Save as HTML (KAN-742)', async ({
     context,
     extensionId,
   }) => {
@@ -1223,7 +1223,7 @@ for (const width of [1200, 800, 480]) {
       };
     });
 
-    // KAN-734: Save as HTML is hidden, so two actions.
+    // KAN-742: Save as HTML is gone, so two actions.
     expect(shape.buttons, 'Edit, two choices, and two actions').toBe(7);
     expect(shape.groups, 'layout and colour').toBe(2);
     expect(

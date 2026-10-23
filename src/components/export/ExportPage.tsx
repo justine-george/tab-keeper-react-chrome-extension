@@ -31,11 +31,7 @@ import {
   isValidTabMasterContainer,
   loadFromLocalStorage,
 } from '../../utils/functions/local';
-import {
-  EXPORT_STORE_URL,
-  IS_SAVE_AS_HTML_SHOWN,
-  TOAST_MESSAGES,
-} from '../../utils/constants/common';
+import { EXPORT_STORE_URL, TOAST_MESSAGES } from '../../utils/constants/common';
 import { showToast } from '../../redux/slices/globalStateSlice';
 import { Toast } from '../common/Toast';
 import { TooltipLayer } from '../common/TooltipLayer';
@@ -43,7 +39,6 @@ import { formatGroupCounts, formatTabCount } from '../../utils/functions/local';
 import { sessionDateStamp } from '../../utils/functions/sessionDate';
 import {
   EXPORT_PALETTE,
-  exportFileName,
   sessionToHtml,
   tidySessionForExport,
   type ExportLayout,
@@ -70,8 +65,7 @@ import {
  * second click, not the first.
  *
  * Everything below "a session to preview" is the same whichever source it came
- * from -- the preview, edit mode, Copy, Save as HTML (when shown) and Print
- * never ask.
+ * from -- the preview, edit mode, Copy and Save as PDF never ask.
  */
 
 /**
@@ -90,8 +84,6 @@ const HEADER_CONTENT_MAX_PX = 870;
 
 // KAN-603. The longest Print waits for the icons; measured, they land 60-160ms after opening.
 const OUTPUT_WAIT_CAP_MS = 1000;
-
-type ExportOutput = 'print' | 'save';
 
 /**
  * Where the page's session comes from (KAN-208).
@@ -119,16 +111,12 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // replaces the other row, not when the page opens.
   const [rowSwapped, setRowSwapped] = useState(false);
   // KAN-194. Edits are for this export only: held here, applied to a copy,
-  // and gone when the tab closes. `writtenEdits` is the set last saved to a
-  // file, so closing after saving does not warn about changes already kept.
-  // While Save is hidden (KAN-734) nothing sets it, so edits always warn.
+  // and gone when the tab closes. Nothing keeps them, so they always warn.
   const [editing, setEditing] = useState(false);
   const [edits, setEdits] = useState<ExportEdits>(NO_EXPORT_EDITS);
-  const [writtenEdits, setWrittenEdits] =
-    useState<ExportEdits>(NO_EXPORT_EDITS);
   const frameRef = useRef<HTMLIFrameElement>(null);
-  // KAN-603. The press waiting for the icons.
-  const [pendingOutput, setPendingOutput] = useState<ExportOutput | null>(null);
+  // KAN-603. A Save as PDF press waiting for the icons.
+  const [printPending, setPrintPending] = useState(false);
   // KAN-603. The document the preview frame last finished loading.
   const [loadedHtml, setLoadedHtml] = useState<string | null>(null);
 
@@ -250,8 +238,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // Nothing is stored, so closing with unsaved edits loses them. Chrome asks
   // only when a beforeunload listener cancels the event, and draws its own
   // dialog; the page cannot choose the words.
-  const pending =
-    (tally.renamed > 0 || tally.hiddenTabs > 0) && edits !== writtenEdits;
+  const pending = tally.renamed > 0 || tally.hiddenTabs > 0;
   useEffect(() => {
     if (!pending) return;
     const ask = (event: BeforeUnloadEvent) => {
@@ -384,14 +371,9 @@ export default function ExportPage({ source }: { source: ExportSource }) {
     if (session) document.title = session.title;
   }, [session]);
 
-  // KAN-603. Print and Save wait until the frame has loaded the file carrying
-  // the icons, or OUTPUT_WAIT_CAP_MS, whichever comes first.
+  // KAN-603. Print waits until the frame has loaded the file carrying the
+  // icons, or OUTPUT_WAIT_CAP_MS, whichever comes first.
   const frameShowsIcons = iconsReady && loadedHtml === html;
-  // KAN-603. What Save writes once its wait ends: the file as it is then, not as it was when pressed.
-  const savedFileRef = useRef({ html, title: '', edits });
-  useEffect(() => {
-    savedFileRef.current = { html, title: edited?.title ?? '', edits };
-  }, [html, edited, edits]);
   const frameShowsIconsRef = useRef(false);
   const outputWaiters = useRef(new Set<() => void>());
   useEffect(() => {
@@ -504,36 +486,18 @@ export default function ExportPage({ source }: { source: ExportSource }) {
     });
 
   // KAN-603. Busy at once, so a second press is ignored.
-  const afterIcons = async (output: ExportOutput, run: () => void) => {
-    setPendingOutput(output);
+  const afterIcons = async (run: () => void) => {
+    setPrintPending(true);
     await untilFrameShowsIcons();
-    // A refused print or save must not leave both buttons busy until a reload.
+    // A refused print must not leave the button busy until a reload.
     try {
       run();
     } catch (error) {
-      console.error(`Could not ${output} the export:`, error);
+      console.error('Could not print the export:', error);
     } finally {
-      setPendingOutput(null);
+      setPrintPending(false);
     }
   };
-
-  const saveFile = () => {
-    const file = savedFileRef.current;
-    const blob = new Blob([file.html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = exportFileName(file.title, new Date());
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    // Revoked on a later turn, not immediately: the download is handed off
-    // asynchronously, and revoking in the same tick cancels it in Chrome.
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    setWrittenEdits(file.edits);
-  };
-
-  const handleSave = () => afterIcons('save', saveFile);
 
   // KAN-209. The copy itself now lives in copySessionLinks, which the session
   // menu in the popup also calls -- one definition of what "copy all links"
@@ -566,7 +530,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // so the file still cannot run anything, and the browser's print dialog is
   // where "Save as PDF" lives.
   const handlePrint = () =>
-    afterIcons('print', () => frameRef.current?.contentWindow?.print());
+    afterIcons(() => frameRef.current?.contentWindow?.print());
 
   // Icon carries 4px of its own padding all round, and Button adds 8px to
   // its right -- so the gap left of the icon was 4px wider than the gap right
@@ -893,14 +857,11 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                 />
                 {/* Deciding ends here; what follows leaves the page, from the
               end of the row -- the primary stands where Done stands while
-              editing. KAN-207 made that the PDF output rather than the HTML
-              file: a PDF is what people attach to a message, and an .html file
-              is the specialist's output of the two. KAN-734 hid that file
-              behind IS_SAVE_AS_HTML_SHOWN. */}
+              editing. A PDF is what people attach to a message; the .html file
+              KAN-734 hid is gone for good (KAN-742). */}
                 <span css={endStyle}>
-                  {/* Copy first: it ignores the choices, so it must not sit between
-              the outputs that follow them (Print, and Save when shown). KAN-207
-              swapped those two and left this rule untouched. */}
+                  {/* Copy first: it ignores the choices, so it sits apart from the
+              output that follows them. */}
                   <Button
                     text={t('Copy all links')}
                     ariaLabel={t('Copy all links')}
@@ -917,18 +878,6 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                     iconStyle={actionIconStyle}
                     style={actionStyle}
                   />
-                  {IS_SAVE_AS_HTML_SHOWN && (
-                    <Button
-                      text={t('Save as HTML')}
-                      ariaLabel={t('Save as HTML')}
-                      iconType="download"
-                      onClick={handleSave}
-                      busy={pendingOutput !== null}
-                      iconSize="1.2rem"
-                      iconStyle={actionIconStyle}
-                      style={actionStyle}
-                    />
-                  )}
                   <Button
                     // KAN-742. A PDF is the only file this page makes; the "…" says
                     // Chrome's print dialog follows, where a printer can still be picked
@@ -937,7 +886,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                     ariaLabel={t('Save as PDF')}
                     iconType="print"
                     onClick={handlePrint}
-                    busy={pendingOutput !== null}
+                    busy={printPending}
                     iconSize="1.2rem"
                     iconColor={COLORS.PRIMARY_COLOR}
                     iconStyle={actionIconStyle}

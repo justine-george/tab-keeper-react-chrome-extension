@@ -23,15 +23,6 @@ import {
   Theme,
 } from '../../redux/slices/settingsDataStateSlice';
 
-// KAN-734. The build ships Save as HTML hidden; tests that need it turn it on.
-const saveSwitch = vi.hoisted(() => ({ shown: false }));
-vi.mock('../../utils/constants/common', async (original) => ({
-  ...(await original<typeof import('../../utils/constants/common')>()),
-  get IS_SAVE_AS_HTML_SHOWN() {
-    return saveSwitch.shown;
-  },
-}));
-
 // KAN-603. Icons come from Chrome's cache in the real page; here each test says what the read answers.
 vi.mock('../../utils/functions/exportIcons', async (original) => ({
   ...(await original<typeof import('../../utils/functions/exportIcons')>()),
@@ -96,7 +87,6 @@ const frame = (): HTMLIFrameElement => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
-  saveSwitch.shown = false;
 });
 
 // jsdom has no ClipboardItem; the fake keeps what it was given so both versions
@@ -202,35 +192,6 @@ describe('the export preview page (KAN-190)', () => {
         .getAttribute('aria-pressed')
     ).toBe('false');
     expect(frame().srcdoc).toContain('https://inari.jp/en/');
-  });
-
-  test('saving writes the previewed file under the session name', async () => {
-    saveSwitch.shown = true;
-    const user = userEvent.setup();
-    const blobs: Blob[] = [];
-    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
-      if (blob instanceof Blob) blobs.push(blob);
-      return 'blob:saved';
-    });
-    const clicks = vi.spyOn(HTMLAnchorElement.prototype, 'click');
-    await renderPage();
-
-    // Off the default, so a save that rebuilt the file would differ.
-    await user.click(screen.getByRole('button', { name: 'Comfortable' }));
-    // KAN-603. Save waits for the frame to load the file with its icons.
-    await waitFor(() =>
-      expect(frame().getAttribute('srcdoc')).toContain('data-icons="ready"')
-    );
-    fireEvent.load(frame());
-    await user.click(screen.getByRole('button', { name: 'Save as HTML' }));
-
-    await waitFor(() => expect(blobs).toHaveLength(1));
-    expect(await blobs[0].text()).toBe(frame().srcdoc);
-    const anchor = clicks.mock.instances[0];
-    if (!(anchor instanceof HTMLAnchorElement)) throw new Error('no link');
-    expect(anchor.download).toMatch(
-      /^Weekend in Kyoto - \d{4}-\d{2}-\d{2}\.html$/
-    );
   });
 
   // KAN-195. Rich HTML for editors that read it, plain text for the rest.
@@ -640,10 +601,9 @@ describe('the icon on the filled button (KAN-190)', () => {
   });
 
   test('no outline action is painted in the fill it sits on either', async () => {
-    saveSwitch.shown = true;
     await renderPage();
 
-    for (const name of ['Save as HTML', 'Copy all links']) {
+    for (const name of ['Edit', 'Copy all links']) {
       const button = screen.getByRole('button', { name });
       expect(glyphOf(name), name).not.toBe(
         getComputedStyle(button).backgroundColor
@@ -652,10 +612,9 @@ describe('the icon on the filled button (KAN-190)', () => {
   });
 
   test('CONTROL: an outline button keeps the ordinary icon colour', async () => {
-    saveSwitch.shown = true;
     await renderPage();
 
-    expect(glyphOf('Save as HTML')).toBe(glyphOf('Copy all links'));
+    expect(glyphOf('Edit')).toBe(glyphOf('Copy all links'));
   });
 });
 
@@ -682,61 +641,52 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
 
   // An action inside a segmented pair would read as a fourth choice.
   test('the actions are not inside either group', async () => {
-    saveSwitch.shown = true;
     await renderPage();
 
     const layout = screen.getByRole('group', { name: 'Layout' });
     const colour = screen.getByRole('group', { name: 'Colour' });
 
-    for (const name of ['Save as PDF…', 'Copy all links', 'Save as HTML']) {
+    for (const name of ['Save as PDF…', 'Copy all links']) {
       const button = screen.getByRole('button', { name });
       expect(layout.contains(button)).toBe(false);
       expect(colour.contains(button)).toBe(false);
     }
   });
 
-  // Copy ignores Layout and Colour, so it must not split the two outputs that
-  // use them. KAN-207: the primary closes the row, like Done in the editing
-  // toolbar.
-  test('the actions run Copy, then Save, then Print', async () => {
-    saveSwitch.shown = true;
+  // KAN-742. Save as HTML is gone (KAN-734 hid it); Copy ignores the choices, so it sits after them, and the PDF closes the row.
+  test('the toolbar runs Edit, the choices, Copy all links, then Save as PDF…', async () => {
     await renderPage();
 
-    const names = ['Copy all links', 'Save as HTML', 'Save as PDF…'];
-    const actions = screen
-      .getAllByRole('button')
-      .map((b) => b.getAttribute('aria-label'))
-      .filter((name): name is string => names.includes(name ?? ''));
-    expect(actions).toEqual(names);
-  });
-
-  // KAN-734. What ships: Save as HTML is hidden, the other two keep their order.
-  test('the shipped toolbar offers Copy all links then Save as PDF…, and no Save as HTML (KAN-734)', async () => {
-    await renderPage();
-
-    const names = ['Copy all links', 'Save as HTML', 'Save as PDF…'];
-    const actions = screen
-      .getAllByRole('button')
-      .map((b) => b.getAttribute('aria-label'))
-      .filter((name): name is string => names.includes(name ?? ''));
-    expect(actions).toEqual(['Copy all links', 'Save as PDF…']);
-    expect(screen.queryByRole('button', { name: 'Save as HTML' })).toBeNull();
+    const toolbar = document.querySelector('[data-toolbar-row]');
+    if (!(toolbar instanceof HTMLElement)) throw new Error('no toolbar');
+    expect(
+      within(toolbar)
+        .getAllByRole('button')
+        .map((b) => b.getAttribute('aria-label'))
+    ).toEqual([
+      'Edit',
+      'Compact',
+      'Comfortable',
+      'Light',
+      'Dark',
+      'Copy all links',
+      'Save as PDF…',
+    ]);
   });
 
   // Against neighbours, not a literal colour, so it survives a palette change.
-  // Directional: Save matching Copy is what fails if the fill moves to the
+  // Directional: Edit matching Copy is what fails if the fill moves to the
   // wrong control.
   test('the PDF output is the one filled control', async () => {
-    saveSwitch.shown = true;
     await renderPage();
 
     const copy = screen.getByRole('button', { name: 'Copy all links' });
-    const save = screen.getByRole('button', { name: 'Save as HTML' });
+    const edit = screen.getByRole('button', { name: 'Edit' });
     const print = screen.getByRole('button', { name: 'Save as PDF…' });
 
     const fill = (el: HTMLElement) => getComputedStyle(el).backgroundColor;
     expect(fill(print)).not.toBe(fill(copy));
-    expect(fill(save)).toBe(fill(copy));
+    expect(fill(edit)).toBe(fill(copy));
   });
 });
 
@@ -1030,32 +980,5 @@ describe('the icons on the export page (KAN-603)', () => {
       );
       expect(error).toHaveBeenCalled();
     });
-  });
-
-  test('Save pressed before the icons land saves the file that carries them', async () => {
-    saveSwitch.shown = true;
-    const blobs: Blob[] = [];
-    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
-      if (blob instanceof Blob) blobs.push(blob);
-      return 'blob:saved';
-    });
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    const read = deferred<ReadonlyMap<string, string>>();
-    vi.mocked(readExportIcons).mockReturnValue(read.promise);
-    await renderPage();
-    fireEvent.load(frame());
-
-    fireEvent.click(screen.getByRole('button', { name: 'Save as HTML' }));
-    await act(async () =>
-      read.resolve(new Map([['https://inari.jp/en/', INARI]]))
-    );
-    await act(async () => {
-      fireEvent.load(frame());
-    });
-
-    await waitFor(() => expect(blobs).toHaveLength(1));
-    const saved = await blobs[0].text();
-    expect(saved).toContain('data-icons="ready"');
-    expect(saved).toContain(INARI);
   });
 });

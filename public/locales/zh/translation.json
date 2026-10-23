@@ -146,7 +146,6 @@
   "CreatedOn": "创建于 {{date}}",
   "Sessions reordered. Undo to restore the previous order.": "会话已重新排序。使用“撤销”可恢复之前的顺序。",
   "Save session as PDF": "保存为 PDF…",
-  "Save as HTML": "保存为 HTML",
   "Copy all links": "复制所有链接",
   "Copy link": "复制链接",
   "SavePdfNothingKept": "所有行都已隐藏。至少显示一行才能完成。",

@@ -42,10 +42,6 @@ export const APP_VERSION = manifest.version;
 export const EXPORT_STORE_URL =
   'https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=export';
 
-// KAN-734. The export page's Save as HTML confused more than it helped. To bring it
-// back, set this true AND HEADER_CONTENT_MAX_PX in ExportPage.tsx back to 1100.
-export const IS_SAVE_AS_HTML_SHOWN = false;
-
 // developer email
 export const DEV_EMAIL = 'justinegeo96@gmail.com';
 

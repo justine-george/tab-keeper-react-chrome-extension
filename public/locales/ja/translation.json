@@ -146,7 +146,6 @@
   "CreatedOn": "{{date}}に作成",
   "Sessions reordered. Undo to restore the previous order.": "セッションを並べ替えました。「元に戻す」で以前の順序に戻せます。",
   "Save session as PDF": "PDFとして保存…",
-  "Save as HTML": "HTMLとして保存",
   "Copy all links": "すべてのリンクをコピー",
   "Copy link": "リンクをコピー",
   "SavePdfNothingKept": "すべての行が非表示です。完了するには、1 行以上を表示してください。",
