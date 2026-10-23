@@ -128,6 +128,30 @@ describe('sortSessionsInternal by name', () => {
     expect(resorted.map((x) => x.title)).toEqual(g.map((x) => x.title));
   });
 
+  // KAN-752. Numbers read as numbers; case and accents still ignored.
+  test('reads numbers in names as numbers', () => {
+    const { store } = makeTestStore();
+    for (const [id, title] of [
+      ['a', 'Trip 10'],
+      ['b', 'Trip 2'],
+      ['c', 'trip 3'],
+      ['d', 'Écosse 1'],
+      ['e', 'ecosse 0'],
+    ] as const) {
+      store.dispatch(saveToTabContainerInternal(build(id, title, T0, 1)));
+    }
+
+    store.dispatch(sortSessionsInternal({ by: 'name', locale: 'en' }));
+
+    expect(titles(store)).toEqual([
+      'ecosse 0',
+      'Écosse 1',
+      'Trip 2',
+      'trip 3',
+      'Trip 10',
+    ]);
+  });
+
   test('does not restamp createdAt', () => {
     const store = seededList();
     const before = new Map(

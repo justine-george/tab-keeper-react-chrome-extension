@@ -55,11 +55,13 @@ import {
   removeDuplicateTabs,
   sortGroupTabsBySite,
   sortTabsBySite,
+  sortWindowGroupsByName,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import {
   isSavedGroupSortedBySite,
   isSavedWindowSortedBySite,
 } from '../../../utils/functions/sortBySite';
+import { isSavedWindowGroupsSortedByName } from '../../../utils/functions/sortGroupsByName';
 import { countDuplicateTabs } from '../../../utils/functions/duplicateTabs';
 import {
   collapsedWindowIdsOf,
@@ -148,7 +150,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const label = windowLabel(title, number, t('Window'));
   // A label the user did not choose is muted.
   const labelColor = label.named ? COLORS.TEXT_COLOR : COLORS.LABEL_L2_COLOR;
@@ -289,6 +291,25 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               void dispatch(sortTabsBySite({ tabGroupId, windowId })),
           },
         ]),
+    // KAN-746 Part 2. Only while groups are drawn and two or more are out of name order.
+    ...(hasTabGroupsPermission &&
+    !isSavedWindowGroupsSortedByName({ tabs, chromeTabGroups }, i18n.language)
+      ? [
+          {
+            key: 'sortGroupsByName',
+            label: t('Sort groups by name'),
+            icon: 'sort' as const,
+            onSelect: () =>
+              void dispatch(
+                sortWindowGroupsByName({
+                  tabGroupId,
+                  windowId,
+                  locale: i18n.language,
+                })
+              ),
+          },
+        ]
+      : []),
     // Only while there is one to remove, as in the session menu.
     ...(windowDuplicates > 0
       ? [

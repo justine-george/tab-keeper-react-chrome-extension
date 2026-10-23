@@ -13,7 +13,11 @@ import {
 } from './slices/undoRedoSlice';
 import type { AppDispatch, RootState } from './store';
 import { TOAST_MESSAGES } from '../utils/constants/common';
-import { changedAnyPlace, runLiveStep } from '../utils/functions/openNowMoves';
+import {
+  changedAnyPlace,
+  isSortKind,
+  runLiveStep,
+} from '../utils/functions/openNowMoves';
 import type { OpenNowDrop } from '../utils/functions/openNowMoves';
 
 // KAN-744. What one press of undo or redo did: 'nothing' to step to, 'busy'
@@ -108,7 +112,7 @@ async function takeStep(
     const kind =
       run.outcome === 'windowClosed'
         ? 'windowClosed'
-        : step.drop.kind === 'sort' || step.drop.kind === 'groupSort'
+        : isSortKind(step.drop.kind)
           ? 'sort'
           : 'move';
     await dispatch(showToast({ toastText: REFUSED_TOAST[direction][kind] }));

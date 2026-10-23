@@ -117,6 +117,7 @@ export const TOAST_MESSAGES = {
   DUPLICATE_TABS_REMOVED: 'DuplicateTabsRemoved',
   // KAN-694.
   TABS_SORTED_BY_SITE: 'TabsSortedBySite',
+  GROUPS_SORTED_BY_NAME: 'GroupsSortedByName',
   // KAN-744 R10. A live step ⌘Z or ⌘⇧Z can't run because the tabs changed since.
   UNDO_REFUSED_SORT: 'UndoRefusedSort',
   UNDO_REFUSED_MOVE: 'UndoRefusedMove',

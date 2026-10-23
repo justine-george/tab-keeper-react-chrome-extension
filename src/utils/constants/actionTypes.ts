@@ -78,6 +78,8 @@ export const SORT_TABS_BY_SITE_ACTION =
   'tabContainerDataState/sortTabsBySiteInternal';
 export const SORT_GROUP_TABS_BY_SITE_ACTION =
   'tabContainerDataState/sortGroupTabsBySiteInternal';
+export const SORT_WINDOW_GROUPS_BY_NAME_ACTION =
+  'tabContainerDataState/sortWindowGroupsByNameInternal';
 export const SORT_SESSIONS_ACTION =
   'tabContainerDataState/sortSessionsInternal';
 export const CLEAR_SESSION_ORDER_ACTION =

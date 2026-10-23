@@ -835,6 +835,7 @@ describe('right-click (KAN-708)', () => {
 
     expect(rowItems).toEqual([
       'Sort tabs by site',
+      'Sort groups by name',
       'Remove 1 duplicate tab',
       'Delete window',
     ]);

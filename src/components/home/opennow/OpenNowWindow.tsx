@@ -31,11 +31,13 @@ import type { AppDispatch, RootState } from '../../../redux/store';
 import {
   sortOpenGroupBySite,
   sortOpenWindowBySite,
+  sortOpenWindowGroupsByName,
 } from '../../../redux/sortOpenWindow';
 import {
   canSortOpenGroupLive,
   canSortOpenWindowLive,
   isOpenGroupSortedBySite,
+  isOpenWindowGroupsSortedByName,
   isOpenWindowSortedBySite,
 } from '../../../utils/functions/openNowSort';
 import { updateLiveGroup } from '../../../utils/functions/liveTabGroups';
@@ -161,7 +163,7 @@ export default function OpenNowWindow({
 }: OpenNowWindowProps) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // KAN-568. The saved band's rename (WindowEntryContainer), on Chrome's group: the draft is seeded at start (KAN-51).
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [groupDraft, setGroupDraft] = useState('');
@@ -244,6 +246,24 @@ export default function OpenNowWindow({
             label: t('Sort tabs by site'),
             icon: 'sort' as const,
             onSelect: () => void dispatch(sortOpenWindowBySite(openWindow.id)),
+          },
+        ]
+      : []),
+    // KAN-746 Part 2. Only while two or more groups are out of name order.
+    ...(hasTabGroups &&
+    !isOpenWindowGroupsSortedByName(openWindow, i18n.language)
+      ? [
+          {
+            key: 'sortGroupsByName',
+            label: t('Sort groups by name'),
+            icon: 'sort' as const,
+            onSelect: () =>
+              void dispatch(
+                sortOpenWindowGroupsByName({
+                  windowId: openWindow.id,
+                  locale: i18n.language,
+                })
+              ),
           },
         ]
       : []),
