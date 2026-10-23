@@ -153,6 +153,25 @@ function press(chord: {
   return event;
 }
 
+function release(key: string): void {
+  act(() => {
+    document.body.dispatchEvent(
+      new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key })
+    );
+  });
+}
+
+// A second saved-session change, one more step above the first.
+async function saveAnotherSession(store: Store): Promise<void> {
+  await act(async () => {
+    store.dispatch(
+      saveToTabContainerInternal(
+        buildSession({ tabGroupId: 'saved2', title: 'Saved 2' })
+      )
+    );
+  });
+}
+
 // The menu's Undo or Redo, not a toast's chip of the same name.
 function menuButton(name: 'Undo' | 'Redo'): HTMLElement {
   const button = screen
@@ -262,6 +281,112 @@ describe('⌘Z after an Open now drag', () => {
     await aIsInTheMiddle();
     expect(event.defaultPrevented).toBe(true);
     expect(undoRedoIn(seen.slice(before))).toEqual([]);
+  });
+});
+
+// KAN-744 R20. A held key walks saved steps, and never a live step or an offer.
+describe('a held undo key (KAN-744 R20)', () => {
+  test('a held ⌘Z walks saved steps and stops at a live one', async () => {
+    const { store, seen } = await renderWithProviders(<MainContainer />, {
+      seed,
+    });
+    await dragAToTheMiddle(store);
+    await saveASession(store);
+    await saveAnotherSession(store);
+    const before = seen.length;
+
+    press({ key: 'z', metaKey: true });
+    await settle();
+    press({ key: 'z', metaKey: true, repeat: true });
+    await settle();
+    expect(undoRedoIn(seen.slice(before))).toEqual([UNDO, UNDO]);
+
+    const dropped = press({ key: 'z', metaKey: true, repeat: true });
+    press({ key: 'z', metaKey: true, repeat: true });
+    await settle();
+
+    expect(dropped.defaultPrevented).toBe(true);
+    expect(undoRedoIn(seen.slice(before))).toEqual([UNDO, UNDO]);
+    expect(await urlsIn(2)).toEqual([url('b'), url('a'), url('c')]);
+  });
+
+  test.each([
+    ['⌘⇧Z', { key: 'Z', metaKey: true, shiftKey: true }, 'z'],
+    ['Ctrl+Y', { key: 'y', ctrlKey: true }, 'y'],
+  ])('a held %s stops at a live one', async (_n, chord, letter) => {
+    const { store, seen } = await renderWithProviders(<MainContainer />, {
+      seed,
+    });
+    await saveASession(store);
+    await dragAToTheMiddle(store);
+    press({ key: 'z', metaKey: true });
+    await aIsBack();
+    press({ key: 'z', metaKey: true });
+    await settle();
+    release('z');
+    const before = seen.length;
+
+    press(chord);
+    await settle();
+    expect(undoRedoIn(seen.slice(before))).toEqual([REDO]);
+    const dropped = press({ ...chord, repeat: true });
+    await settle();
+
+    expect(dropped.defaultPrevented).toBe(true);
+    expect(undoRedoIn(seen.slice(before))).toEqual([REDO]);
+    expect(await urlsIn(2)).toEqual([url('a'), url('b'), url('c')]);
+
+    // The hold ends on the letter's keyup, so a fresh press redoes the drag.
+    release(letter);
+    press(chord);
+    await aIsInTheMiddle();
+  });
+
+  test('repeats after a refused press undo nothing', async () => {
+    const { store, seen } = await renderWithProviders(<MainContainer />, {
+      seed,
+    });
+    await saveASession(store);
+    await dragAToTheMiddle(store);
+    // Chrome's tabs change under the drag, so undoing it is refused.
+    await chrome.tabs.move(21, { index: 0 });
+    const before = seen.length;
+
+    press({ key: 'z', metaKey: true });
+    await settle();
+    expect(undoRedoIn(seen.slice(before))).toEqual([]);
+    expect(store.getState().undoRedo.present.liveStep).toBeUndefined();
+
+    const repeat = press({ key: 'z', metaKey: true, repeat: true });
+    await settle();
+
+    expect(repeat.defaultPrevented).toBe(true);
+    expect(undoRedoIn(seen.slice(before))).toEqual([]);
+
+    // CONTROL: the saved change is there to undo once the key is let go.
+    release('z');
+    press({ key: 'z', metaKey: true });
+    await settle();
+    expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
+  });
+
+  test('a fresh press after keyup undoes the live step', async () => {
+    const { store, seen } = await renderWithProviders(<MainContainer />, {
+      seed,
+    });
+    await dragAToTheMiddle(store);
+    await saveASession(store);
+    press({ key: 'z', metaKey: true });
+    await settle();
+    press({ key: 'z', metaKey: true, repeat: true });
+    await settle();
+    expect(await urlsIn(2)).toEqual([url('b'), url('a'), url('c')]);
+
+    release('z');
+    press({ key: 'z', metaKey: true });
+
+    await aIsBack();
+    expect(seen.filter((type) => type === UNDO)).toHaveLength(1);
   });
 });
 

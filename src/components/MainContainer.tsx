@@ -157,18 +157,41 @@ export default function MainContainer() {
     [drawn.list, drawn.openNow]
   );
 
-  // Set when the key takes a Reopen offer (KAN-311, O8c) or undoes a live
-  // step (KAN-744 R20) while that press may still be held: its repeats would
-  // otherwise go on to undo saved-session edits.
-  const heldAfterOneTimeUndo = useRef(false);
+  // KAN-744 R20. While true, a held undo or redo key's repeats are dropped, so
+  // they cannot roll back tab moves, take a Reopen offer or go past a refusal.
+  // Set when a press takes an offer, runs a live step or is refused, or when a
+  // repeat reaches a live step or an offer; ends on keyup.
+  const repeatsDropped = useRef(false);
+  // Counts fresh presses, so a result that lands after a newer press cannot
+  // start a hold for the old one.
+  const freshPresses = useRef(0);
 
   // Keyboard shortcut listener for undo/redo
   useEffect(() => {
+    // The hold starts from the result, which lands after keydown returns. A
+    // repeat before that finds the step still live and is dropped itself.
+    function holdAfterRun(
+      press: number,
+      run: Promise<{ payload?: unknown; meta: { requestStatus: string } }>
+    ) {
+      void run.then((action) => {
+        if (press !== freshPresses.current) return;
+        if (action.meta.requestStatus !== 'fulfilled') return;
+        const result = action.payload;
+        if (result === 'live' || result === 'refused' || result === 'failed') {
+          repeatsDropped.current = true;
+        }
+      });
+    }
+
     function handleKeyDown(event: KeyboardEvent) {
-      // Any fresh press ends a hold after a one-time undo (KAN-311), wherever
-      // it lands, a text field included, so the hold cannot outlive the
-      // gesture if a keyup never arrives. Only clears; it prevents nothing.
-      if (!event.repeat) heldAfterOneTimeUndo.current = false;
+      // Any fresh press ends a hold (KAN-311, R20), wherever it lands, a text
+      // field included, so the hold cannot outlive the gesture if a keyup
+      // never arrives. Only clears; it prevents nothing.
+      if (!event.repeat) {
+        repeatsDropped.current = false;
+        freshPresses.current += 1;
+      }
 
       // Guard the whole handler, not just undo: redo is native inside a text
       // field too (cmd+shift+z on macOS, ctrl+y on Windows).
@@ -176,14 +199,14 @@ export default function MainContainer() {
 
       if (isSettingsPage) return;
 
-      // A held key's repeats after it took the offer or undid a live step are
-      // dropped, so they cannot go on to undo saved-session edits. Below the
-      // guards: a repeat landing in a text field is still the field's own
-      // undo.
+      // KAN-744 R20. A held key's repeats are dropped once the hold is on.
+      // Below the guards: a repeat landing in a text field is still the
+      // field's own undo.
+      const heldKey = event.key.toLowerCase();
       if (
-        heldAfterOneTimeUndo.current &&
+        repeatsDropped.current &&
         event.repeat &&
-        event.key.toLowerCase() === 'z'
+        (heldKey === 'z' || heldKey === 'y')
       ) {
         event.preventDefault();
         return;
@@ -197,7 +220,7 @@ export default function MainContainer() {
       // Shift+Z arrives as 'Z' -- and as 'z' when CapsLock inverts Shift for
       // letters. Comparing against a lowercase literal missed the first case
       // entirely, which is why macOS redo did nothing. Normalise instead.
-      const key = event.key.toLowerCase();
+      const key = heldKey;
 
       // Redo is tested first and returns. That ordering is what keeps the
       // chords mutually exclusive: shift+z has to stop here, or it goes on to
@@ -207,11 +230,16 @@ export default function MainContainer() {
       // never a Reopen offer. An undo or redo dismisses a plain toast, but not
       // an offer: it is still there to take (KAN-311, O8c).
       if (key === 'y' || (key === 'z' && event.shiftKey)) {
-        // KAN-349. A press with nothing to redo still closes plain toasts; redoStep closes them for a step.
-        if (selectNextStep(store.getState(), 'redo') === null) {
-          dispatch(closePlainToasts());
+        const nextRedo = selectNextStep(store.getState(), 'redo');
+        // KAN-744 R20. A repeat never runs a live step; it starts the hold.
+        if (event.repeat && nextRedo === 'live') {
+          repeatsDropped.current = true;
+          event.preventDefault();
+          return;
         }
-        void dispatch(redoStep());
+        // KAN-349. A press with nothing to redo still closes plain toasts; redoStep closes them for a step.
+        if (nextRedo === null) dispatch(closePlainToasts());
+        holdAfterRun(freshPresses.current, dispatch(redoStep()));
         event.preventDefault();
         return;
       }
@@ -224,26 +252,31 @@ export default function MainContainer() {
       // newest step in the history.
       const state = store.getState();
       const target = selectUndoKeyTarget(state);
-      if (target?.kind === 'offer') {
-        void dispatch(reopenFromOffer(target.offerId));
-        heldAfterOneTimeUndo.current = true;
+      const next = selectNextStep(state, 'undo');
+      // KAN-744 R20. A repeat never takes an offer or runs a live step; it starts the hold.
+      if (event.repeat && (target?.kind === 'offer' || next === 'live')) {
+        repeatsDropped.current = true;
         return;
       }
-      const next = selectNextStep(state, 'undo');
-      if (next === 'live') heldAfterOneTimeUndo.current = true;
+      if (target?.kind === 'offer') {
+        void dispatch(reopenFromOffer(target.offerId));
+        repeatsDropped.current = true;
+        return;
+      }
       // KAN-349. A press with nothing to undo still closes plain toasts; undoStep closes them for a step.
       if (next === null) dispatch(closePlainToasts());
-      void dispatch(undoStep());
+      holdAfterRun(freshPresses.current, dispatch(undoStep()));
     }
-    // The hold ends when Z is let go, or the modifier is: macOS Chrome sends
-    // no Z keyup while ⌘ is still down.
+    // The hold ends when Z or Y is let go, or the modifier is: macOS Chrome
+    // sends no Z keyup while ⌘ is still down.
     function handleKeyUp(event: KeyboardEvent) {
       if (
         event.key.toLowerCase() === 'z' ||
+        event.key.toLowerCase() === 'y' ||
         event.key === 'Meta' ||
         event.key === 'Control'
       ) {
-        heldAfterOneTimeUndo.current = false;
+        repeatsDropped.current = false;
       }
     }
     window.addEventListener('keydown', handleKeyDown);
