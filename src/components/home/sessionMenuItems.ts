@@ -90,7 +90,7 @@ export function sessionMenuItems(
     },
     {
       key: 'export',
-      label: t('Export session'),
+      label: t('Save session as PDF'),
       icon: 'ios_share',
       onSelect: () => {
         // Opening a tab takes focus, which destroys the popup.

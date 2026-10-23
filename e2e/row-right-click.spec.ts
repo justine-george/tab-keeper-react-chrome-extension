@@ -105,7 +105,11 @@ for (const view of VIEWS) {
     const box = await boxOf(menu);
     expect(Math.abs(box.x - at.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(box.y - at.y)).toBeLessThanOrEqual(1);
-    await expectItems(page, ['Copy all links', 'Export…', 'Delete session']);
+    await expectItems(page, [
+      'Copy all links',
+      'Save as PDF…',
+      'Delete session',
+    ]);
     // Chrome's menu did not open on top of ours.
     expect(await contextMenusPrevented(page)).toEqual([true]);
     await expect(sessionRow(page, 'S2')).toHaveAttribute(
@@ -323,7 +327,7 @@ test('the held row keeps its hover fill while the pointer is on the menu', async
   const hovered = await paintAt(s2);
 
   await rightClickAt(page, await onTitle(sessionRow(page, 'S2')));
-  const onMenu = item(page, 'Export…');
+  const onMenu = item(page, 'Save as PDF…');
   await onMenu.hover();
   // PREMISE: the pointer is on the menu, off the row.
   expect(await onMenu.evaluate((el) => el.matches(':hover'))).toBe(true);

@@ -9,11 +9,26 @@ import {
 } from './fixtures/seed';
 
 // KAN-235. The header's content sits in a centred band near the 720px document.
-// KAN-734: with Save as HTML hidden, ru, the widest locale, needs 849px; 870
-// leaves room for Linux text layout on CI. ru is the locale measured here.
+// KAN-742: every locale's toolbar must fit one line in it, so all 13 are measured.
 
-const HEADER_CONTENT_MAX_PX = 870;
+const HEADER_CONTENT_MAX_PX = 930;
 const WIDE = { width: 2000, height: 420 };
+const ALL_LANGS = [
+  'de',
+  'en',
+  'es',
+  'fr',
+  'hi',
+  'it',
+  'ja',
+  'ko',
+  'pt',
+  'ru',
+  'sv',
+  'zh',
+  'zh-TW',
+] as const;
+
 const POPUP = { width: 790, height: 550 };
 
 const SESSION = buildSession({
@@ -74,7 +89,7 @@ const geometry = (page: Page) =>
     };
   });
 
-for (const lang of ['en', 'ru']) {
+for (const lang of ALL_LANGS) {
   test(`at 2000px the header content sits in a centred ${HEADER_CONTENT_MAX_PX}px band, on one line (${lang})`, async ({
     context,
     extensionId,
@@ -96,12 +111,24 @@ for (const lang of ['en', 'ru']) {
     expect(g.title.left).toBeCloseTo(g.toolbar.left, 0);
     expect(g.title.right).toBeCloseTo(g.toolbar.right, 0);
 
+    // The row's own one-line width, for the slack each locale leaves.
+    const oneLine = await page.evaluate(() => {
+      const row = document.querySelector<HTMLElement>('[data-toolbar-row]');
+      if (!row) throw new Error('no toolbar');
+      const saved = row.style.cssText;
+      row.style.width = 'max-content';
+      row.style.maxWidth = 'none';
+      const width = Math.round(row.getBoundingClientRect().width);
+      row.style.cssText = saved;
+      return width;
+    });
+    console.log(`${lang}: one line ${oneLine}px of ${HEADER_CONTENT_MAX_PX}px`);
     expect(g.toolbarLines).toBe(1);
   });
 }
 
 // KAN-734. Editing swaps the row but not the band: Reset and Done end where
-// PDF / Print did.
+// Save as PDF… did.
 test(`at 2000px the editing row's tally and Done span the ${HEADER_CONTENT_MAX_PX}px band (ru)`, async ({
   context,
   extensionId,

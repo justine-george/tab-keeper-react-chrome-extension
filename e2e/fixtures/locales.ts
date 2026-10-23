@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
  * A locale's strings, read from the file the extension ships.
  *
  * Specs locate controls by their RENDERED names, and `en` re-maps some of its
- * own keys -- "Export open windows" renders as "Export open windows…" -- so a
+ * own keys -- "Save open windows as PDF" renders as "Save open windows as PDF…" -- so a
  * locator written from a key matches nothing and fails as "element not found",
  * which reads like a broken control rather than a broken locator.
  *

@@ -4,7 +4,8 @@ import { dirname, join } from 'node:path';
 import type { Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { sessionHeaderMenu } from './fixtures/menus';
+import { saveRowMenu, sessionHeaderMenu } from './fixtures/menus';
+import { localeStrings } from './fixtures/locales';
 import { previewFile } from './fixtures/previewFile';
 import { waitForFontsLoaded } from './fixtures/fonts';
 import {
@@ -76,12 +77,12 @@ const WEB_URLS = [
   'https://inari.jp/en/',
 ];
 
-const EXPORT_ITEM = 'Export…';
+const SAVE_AS_PDF_ITEM = 'Save as PDF…';
 
 /** Resolves on the click, so it fits a Promise.all awaiting the new tab. */
 async function chooseExport(popup: Page) {
   await sessionHeaderMenu(popup).click();
-  await popup.getByRole('menuitem', { name: EXPORT_ITEM }).click();
+  await popup.getByRole('menuitem', { name: SAVE_AS_PDF_ITEM }).click();
 }
 
 /** The popup, with one session seeded and selected. */
@@ -100,7 +101,7 @@ async function openPopup(
 }
 
 test.describe('exporting a session as a web page', () => {
-  test('Export… in the session menu opens a preview of the file, and the file holds the session', async ({
+  test('Save as PDF… in the session menu opens a preview of the file, and the file holds the session', async ({
     context,
     extensionId,
   }) => {
@@ -138,8 +139,8 @@ test.describe('exporting a session as a web page', () => {
     expect(html).toContain('ref=export');
   });
 
-  // KAN-734. The build ships with the HTML file hidden; Copy and PDF stay.
-  test('the shipped toolbar has no Save as HTML (KAN-734)', async ({
+  // KAN-734 hid the HTML file; KAN-742 removed it. Copy and the PDF stay.
+  test('the toolbar has no Save as HTML (KAN-742)', async ({
     context,
     extensionId,
   }) => {
@@ -154,7 +155,7 @@ test.describe('exporting a session as a web page', () => {
       exportPage.getByRole('button', { name: 'Copy all links' })
     ).toBeVisible();
     await expect(
-      exportPage.getByRole('button', { name: 'PDF / Print' })
+      exportPage.getByRole('button', { name: 'Save as PDF…' })
     ).toBeVisible();
     await expect(
       exportPage.getByRole('button', { name: 'Save as HTML' })
@@ -1180,7 +1181,7 @@ test('the file can be switched light or dark, and printed', async ({
     .locator('[data-print-probe]')
     .evaluate((probe) => probe.remove());
 
-  await exportPage.getByRole('button', { name: 'PDF / Print' }).click();
+  await exportPage.getByRole('button', { name: 'Save as PDF…' }).click();
   await exportPage.waitForTimeout(500);
 
   expect(
@@ -1223,7 +1224,7 @@ for (const width of [1200, 800, 480]) {
       };
     });
 
-    // KAN-734: Save as HTML is hidden, so two actions.
+    // KAN-742: Save as HTML is gone, so two actions.
     expect(shape.buttons, 'Edit, two choices, and two actions').toBe(7);
     expect(shape.groups, 'layout and colour').toBe(2);
     expect(
@@ -1259,7 +1260,7 @@ test('the toolbar survives German at the popup width', async ({
 
   const [exportPage] = await Promise.all([
     context.waitForEvent('page'),
-    popup.getByRole('menuitem', { name: 'Exportieren…' }).click(),
+    popup.getByRole('menuitem', { name: 'Als PDF speichern…' }).click(),
   ]);
   await exportPage.waitForLoadState();
   await exportPage.setViewportSize({ width: 800, height: 600 });
@@ -1324,7 +1325,7 @@ test('an icon button is evenly padded on both sides', async ({
         right: Math.round(box.right - label.right),
       };
     };
-    return ['PDF / Print', 'Copy all links'].map((name) => ({
+    return ['Save as PDF…', 'Copy all links'].map((name) => ({
       name,
       ...measure(name),
     }));
@@ -1519,8 +1520,23 @@ test('the session menu paints above the tab rows it opens over', async ({
 });
 
 // KAN-193. A menu crossing into the neighbouring pane reads as detached from
-// its trigger; this trigger sits near the row's start.
-for (const lang of ['en', 'de'] as const) {
+// its trigger; this trigger sits near the row's start. KAN-742: every locale.
+const ALL_LANGS = [
+  'de',
+  'en',
+  'es',
+  'fr',
+  'hi',
+  'it',
+  'ja',
+  'ko',
+  'pt',
+  'ru',
+  'sv',
+  'zh',
+  'zh-TW',
+] as const;
+for (const lang of ALL_LANGS) {
   test(`the session menu stays in its pane with each label on one line (${lang})`, async ({
     context,
     extensionId,
@@ -1540,7 +1556,7 @@ for (const lang of ['en', 'de'] as const) {
 
     const trigger = sessionHeaderMenu(
       popup,
-      lang === 'de' ? 'Weitere Aktionen' : 'More actions'
+      localeStrings(lang)['More actions']
     );
     await expect(trigger).toBeVisible();
     await trigger.click();
@@ -1590,6 +1606,53 @@ for (const lang of ['en', 'de'] as const) {
       new Set(shape.heights).size,
       `item heights ${shape.heights.join('/')}px: a label wrapped`
     ).toBe(1);
+  });
+
+  // KAN-742. The save row's menu holds the longest new label, "Save open windows as PDF…".
+  test(`the save row menu stays in its pane (${lang})`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, {
+      language: lang,
+      isNeverAskAgainForTabGroups: true,
+      isNeverAskAgainToRate: true,
+    });
+    const popup = await context.newPage();
+    await popup.setViewportSize({ width: 790, height: 550 });
+    await popup.goto(`chrome-extension://${extensionId}/index.html`);
+    await saveRowMenu(popup).click();
+    const menu = popup.getByRole('menu');
+    await expect(menu).toBeVisible();
+
+    // Items never wrap (nowrap) and the menu shifts back inside the window, so
+    // a long label shows as a menu crossing out of its pane, as KAN-193 checks.
+    const shape = await menu.evaluate((menuEl) => {
+      const pane = document.querySelector('[data-pane="sessions"]');
+      if (!pane) throw new Error('no sessions pane');
+      const box = menuEl.getBoundingClientRect();
+      const paneBox = pane.getBoundingClientRect();
+      return {
+        left: Math.round(box.left),
+        right: Math.round(box.right),
+        width: Math.round(box.width),
+        paneLeft: Math.round(paneBox.left),
+        paneRight: Math.round(paneBox.right),
+        items: menuEl.querySelectorAll('[role="menuitem"]').length,
+      };
+    });
+    console.log(
+      `${lang}: save row menu ${shape.width}px, pane ${shape.paneLeft}-${shape.paneRight}px`
+    );
+
+    // CONTROL: a pane, not the whole popup, so "inside" can fail; and both saves are there.
+    expect(shape.paneRight - shape.paneLeft).toBeLessThan(600);
+    expect(shape.items).toBe(2);
+    expect(shape.left).toBeGreaterThanOrEqual(shape.paneLeft);
+    expect(
+      shape.right,
+      `the menu ends at ${shape.right}px, past its pane at ${shape.paneRight}px`
+    ).toBeLessThanOrEqual(shape.paneRight);
   });
 }
 

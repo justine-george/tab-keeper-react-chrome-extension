@@ -91,7 +91,9 @@ test('step 2 names the list, and step 6 says right-clicking the title opens the 
     'Here are your saved sessions. The selected one shows its windows and tabs on the right.'
   );
   for (let step = 3; step <= 6; step++) await nextTo(page, step);
-  await expect(card(page)).toContainText('Copy all links, export, or delete');
+  await expect(card(page)).toContainText(
+    'Copy all links, save as PDF, or delete'
+  );
   await expect(card(page)).toContainText(
     "Right-clicking the session's title opens this menu too."
   );

@@ -317,10 +317,10 @@ describe('the save row menu (KAN-208)', () => {
     // holds the ligature text ("add_box"), which textContent would include.
     expect(items).toHaveLength(2);
     expect(items[0]).toHaveAccessibleName('Save current window as a session');
-    expect(items[1]).toHaveAccessibleName('Export open windows…');
+    expect(items[1]).toHaveAccessibleName('Save open windows as PDF…');
   });
 
-  test('Export open windows… opens the live export page and saves nothing', async () => {
+  test('Save open windows as PDF… opens the live export page and saves nothing', async () => {
     // Its active tab sits in a declared window, so tabs.create() can open
     // beside it (KAN-527); twoWindows' active tab is in no declared window.
     const { store, seen, chrome } = await renderWithProviders(
@@ -341,7 +341,7 @@ describe('the save row menu (KAN-208)', () => {
 
     const menu = await openSaveMenu();
     await userEvent.click(
-      within(menu).getByRole('menuitem', { name: 'Export open windows…' })
+      within(menu).getByRole('menuitem', { name: 'Save open windows as PDF…' })
     );
 
     expect(chrome.createdTabs).toHaveLength(1);
@@ -355,7 +355,7 @@ describe('the save row menu (KAN-208)', () => {
   });
 
   // KAN-527. Not at the end: closing it lands back on the tab it came from.
-  test('Export open windows… opens the page right after the active tab, as its child', async () => {
+  test('Save open windows as PDF… opens the page right after the active tab, as its child', async () => {
     const { chrome } = await renderWithProviders(<UserInputContainer />, {
       seed: {
         windows: [
@@ -374,7 +374,7 @@ describe('the save row menu (KAN-208)', () => {
 
     const menu = await openSaveMenu();
     await userEvent.click(
-      within(menu).getByRole('menuitem', { name: 'Export open windows…' })
+      within(menu).getByRole('menuitem', { name: 'Save open windows as PDF…' })
     );
 
     await waitFor(() => expect(chrome.createdTabs).toHaveLength(1));

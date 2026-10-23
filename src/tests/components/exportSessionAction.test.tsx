@@ -72,13 +72,13 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
     ]) {
       expect(screen.queryByRole('button', { name }), name).not.toBeNull();
     }
-    expect(screen.queryByRole('button', { name: 'Export…' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save as PDF…' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete session' })).toBeNull();
   });
 
   // KAN-209, KAN-581. Cheap, heavier, destructive: Copy finishes here, Export opens a
   // tab, Delete goes last. Replace left for the header row.
-  test('the menu holds Copy, then Export, then Delete', async () => {
+  test('the menu holds Copy, then Save as PDF, then Delete', async () => {
     const user = userEvent.setup();
     await renderHeader();
 
@@ -89,30 +89,30 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
     expect(items).toHaveLength(3);
     expect(items).toEqual([
       within(menu).getByRole('menuitem', { name: 'Copy all links' }),
-      within(menu).getByRole('menuitem', { name: 'Export…' }),
+      within(menu).getByRole('menuitem', { name: 'Save as PDF…' }),
       within(menu).getByRole('menuitem', { name: 'Delete session' }),
     ]);
   });
 
   // KAN-226. The ellipsis says a step follows: the click opens a preview.
-  test('Export is named with an ellipsis and drawn with ios_share', async () => {
+  test('Save as PDF is named with an ellipsis and drawn with ios_share', async () => {
     const user = userEvent.setup();
     await renderHeader();
 
     const menu = await openMenu(user);
-    const item = within(menu).getByRole('menuitem', { name: 'Export…' });
+    const item = within(menu).getByRole('menuitem', { name: 'Save as PDF…' });
 
     expect(item.querySelector('.material-symbols-outlined')?.textContent).toBe(
       'ios_share'
     );
   });
 
-  test('Export opens the export page for THAT session', async () => {
+  test('Save as PDF opens the export page for THAT session', async () => {
     const user = userEvent.setup();
     const { chrome } = await renderHeader();
 
     await openMenu(user);
-    await user.click(screen.getByRole('menuitem', { name: 'Export…' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Save as PDF…' }));
 
     expect(chrome.createdTabs).toHaveLength(1);
     expect(chrome.createdTabs[0].url).toContain('export.html');
@@ -120,7 +120,7 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
   });
 
   // KAN-527. Not at the end: closing it lands back on the tab it came from.
-  test('Export opens the page right after the active tab, as its child', async () => {
+  test('Save as PDF opens the page right after the active tab, as its child', async () => {
     const user = userEvent.setup();
     const { chrome } = await renderWithProviders(<HeroContainerRight />, {
       seed: {
@@ -140,7 +140,7 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
     });
 
     await openMenu(user);
-    await user.click(screen.getByRole('menuitem', { name: 'Export…' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Save as PDF…' }));
 
     await waitFor(() => expect(chrome.createdTabs).toHaveLength(1));
     expect(chrome.createdTabs[0]).toEqual({
@@ -152,7 +152,7 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
   });
 
   // CONTROL: with one session seeded, a hardcoded index would pass.
-  test('Export is for the selected session, not the first one', async () => {
+  test('Save as PDF is for the selected session, not the first one', async () => {
     const user = userEvent.setup();
     const { chrome } = await renderWithProviders(<HeroContainerRight />, {
       seed: { windows: [{ id: 1 }] },
@@ -170,7 +170,7 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
     });
 
     await openMenu(user);
-    await user.click(screen.getByRole('menuitem', { name: 'Export…' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Save as PDF…' }));
 
     expect(chrome.createdTabs[0].url).toContain('session=session-kyoto');
     expect(chrome.createdTabs[0].url).not.toContain('session-first');
@@ -586,7 +586,7 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
 
   // KAN-725. Danger is red ink with a red hover fill. overflowMenu.test.tsx covers
   // the styling; this covers which item is marked.
-  test('Delete is marked as the dangerous item, and Export is not', async () => {
+  test('Delete is marked as the dangerous item, and Save as PDF is not', async () => {
     const user = userEvent.setup();
     await renderHeader();
 
@@ -601,7 +601,7 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
       hoverRulesFor(screen.getByRole('menuitem', { name: 'Delete session' }))
     ).toMatch(DELETE_FILL);
     expect(
-      hoverRulesFor(screen.getByRole('menuitem', { name: 'Export…' }))
+      hoverRulesFor(screen.getByRole('menuitem', { name: 'Save as PDF…' }))
     ).not.toMatch(DELETE_FILL);
   });
 });

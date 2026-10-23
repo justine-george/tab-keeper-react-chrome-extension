@@ -17,15 +17,6 @@ import {
   type ExportScheme,
 } from '../../utils/functions/sessionExportHtml';
 
-// KAN-734. The build ships Save as HTML hidden; tests that need it turn it on.
-const saveSwitch = vi.hoisted(() => ({ shown: false }));
-vi.mock('../../utils/constants/common', async (original) => ({
-  ...(await original<typeof import('../../utils/constants/common')>()),
-  get IS_SAVE_AS_HTML_SHOWN() {
-    return saveSwitch.shown;
-  },
-}));
-
 // The wiring: edits reach every output and never the saved session.
 // What an edit does to the document is in sessionExportEdits.test.ts.
 
@@ -120,7 +111,6 @@ const closingAsks = (): boolean => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
-  saveSwitch.shown = false;
 });
 
 // jsdom has no ClipboardItem; the fake keeps both versions for the test to
@@ -139,7 +129,6 @@ const copiedVersions = async (write: ReturnType<typeof vi.fn>) => {
 
 describe('Edit mode on the export page (KAN-194)', () => {
   test('Edit swaps the preview for editable rows, and the toolbar for Reset and Done', async () => {
-    saveSwitch.shown = true;
     const user = userEvent.setup();
     await renderPage();
     expect(document.querySelector('iframe')).not.toBeNull();
@@ -158,8 +147,7 @@ describe('Edit mode on the export page (KAN-194)', () => {
     expect(document.querySelector('iframe')).toBeNull();
     for (const name of [
       'Copy all links',
-      'PDF / Print',
-      'Save as HTML',
+      'Save as PDF…',
       'Comfortable',
       'Light',
       'Edit',
@@ -281,32 +269,6 @@ describe('Edit mode on the export page (KAN-194)', () => {
     await user.click(screen.getByRole('button', { name: 'Done' }));
 
     expect(preview()).toContain('<h1>Weekend in Kyoto</h1>');
-  });
-
-  test('Save writes the edited file, under the edited name', async () => {
-    saveSwitch.shown = true;
-    const user = userEvent.setup();
-    const blobs: Blob[] = [];
-    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
-      blobs.push(blob as Blob);
-      return 'blob:edited';
-    });
-    const clicks = vi.spyOn(HTMLAnchorElement.prototype, 'click');
-    await renderPage();
-
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
-    await rename(user, 'Rename session: Weekend in Kyoto', 'Kyoto links');
-    await user.click(
-      screen.getByRole('button', { name: 'Hide: Order Details - Apple' })
-    );
-    await user.click(screen.getByRole('button', { name: 'Done' }));
-    await user.click(screen.getByRole('button', { name: 'Save as HTML' }));
-
-    const anchor = clicks.mock.instances[0] as HTMLAnchorElement;
-    expect(anchor.download).toMatch(/^Kyoto links - \d{4}-\d{2}-\d{2}\.html$/);
-    const file = await blobs[0].text();
-    expect(file).toContain('<h1>Kyoto links</h1>');
-    expect(file).not.toContain('secure.store.apple.example');
   });
 
   test('Copy all links puts the edited list on the clipboard, in both versions', async () => {
@@ -447,25 +409,8 @@ describe('closing the page with edits pending (KAN-194)', () => {
     expect(closingAsks()).toBe(false);
   });
 
-  test('after saving the edited file, closing does not ask until the next edit', async () => {
-    saveSwitch.shown = true;
-    const user = userEvent.setup();
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:edited');
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    await renderPage();
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
-    await user.click(screen.getByRole('button', { name: 'Hide: Food' }));
-    await user.click(screen.getByRole('button', { name: 'Done' }));
-
-    await user.click(screen.getByRole('button', { name: 'Save as HTML' }));
-    expect(closingAsks()).toBe(false);
-
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
-    await rename(user, 'Rename tab: Fushimi Inari', 'Inari shrine');
-    expect(closingAsks()).toBe(true);
-  });
   // KAN-734. The page cannot tell a saved PDF from a cancelled dialog.
-  test('with Save hidden, printing does not count as keeping the edits', async () => {
+  test('after printing, closing with an edit still asks', async () => {
     const user = userEvent.setup();
     await renderPage();
     await user.click(screen.getByRole('button', { name: 'Edit' }));
@@ -477,7 +422,7 @@ describe('closing the page with edits pending (KAN-194)', () => {
       value: { print: printed },
     });
 
-    await user.click(screen.getByRole('button', { name: 'PDF / Print' }));
+    await user.click(screen.getByRole('button', { name: 'Save as PDF…' }));
 
     expect(printed).toHaveBeenCalled();
     expect(closingAsks()).toBe(true);

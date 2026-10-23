@@ -349,7 +349,7 @@ export default function FirstRun() {
       case 'delete':
         return {
           text: t(
-            "Copy all links, export, or delete this session from this menu. Deleting doesn't close your open windows."
+            "Copy all links, save as PDF, or delete this session from this menu. Deleting doesn't close your open windows."
           ),
           fine: t("Right-clicking the session's title opens this menu too."),
           primary: next,

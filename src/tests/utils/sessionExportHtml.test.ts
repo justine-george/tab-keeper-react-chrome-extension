@@ -3,7 +3,6 @@ import { describe, expect, test } from 'vitest';
 import { buildSession } from '../fixtures/sessionFixture';
 import {
   EXPORT_PALETTE,
-  exportFileName,
   sessionToHtml,
   type SessionExportOptions,
 } from '../../utils/functions/sessionExportHtml';
@@ -315,23 +314,6 @@ describe('the two layouts (KAN-190)', () => {
       expect(html).toContain(TAB_GROUP_COLOR_HEX.blue);
     }
     expect(comfortable).not.toBe(compact);
-  });
-});
-
-describe('the file name (KAN-190)', () => {
-  test.each([
-    // A crafted page can put a control character in a title; escaped so it is
-    // visible here.
-    ['Weekend \u0000 in Kyoto', 'Weekend in Kyoto - 2026-09-15.html'],
-    ['Q3: research/notes', 'Q3 research notes - 2026-09-15.html'],
-    ['   ', 'Tab Keeper session - 2026-09-15.html'],
-    // A hyphen is not a path problem.
-    ['Notes on e-commerce', 'Notes on e-commerce - 2026-09-15.html'],
-    ['a'.repeat(120), `${'a'.repeat(60)} - 2026-09-15.html`],
-  ])('%s becomes %s', (title, expected) => {
-    expect(exportFileName(title, new Date('2026-09-15T08:30:00Z'))).toBe(
-      expected
-    );
   });
 });
 

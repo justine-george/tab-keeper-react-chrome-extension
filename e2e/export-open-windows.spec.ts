@@ -154,7 +154,7 @@ test.describe('export open windows (KAN-208)', () => {
     const [exportPage] = await Promise.all([
       context.waitForEvent('page'),
       popup
-        .getByRole('menuitem', { name: strings['Export open windows'] })
+        .getByRole('menuitem', { name: strings['Save open windows as PDF'] })
         .click(),
     ]);
     await exportPage.waitForLoadState();
@@ -302,7 +302,7 @@ test.describe('export open windows (KAN-208)', () => {
         strings['Save current window as a session']
       );
       await expect(menu.getByRole('menuitem').nth(1)).toHaveAccessibleName(
-        strings['Export open windows']
+        strings['Save open windows as PDF']
       );
 
       const box = await popup.evaluate(() => {

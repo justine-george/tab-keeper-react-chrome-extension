@@ -42,10 +42,6 @@ export const APP_VERSION = manifest.version;
 export const EXPORT_STORE_URL =
   'https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=export';
 
-// KAN-734. The export page's Save as HTML confused more than it helped. To bring it
-// back, set this true AND HEADER_CONTENT_MAX_PX in ExportPage.tsx back to 1100.
-export const IS_SAVE_AS_HTML_SHOWN = false;
-
 // developer email
 export const DEV_EMAIL = 'justinegeo96@gmail.com';
 
@@ -95,7 +91,6 @@ export const TOAST_MESSAGES = {
   NOTHING_TO_SAVE: 'No tabs to save. Only Tab Keeper is open.',
   NOTHING_TO_SAVE_IN_WINDOW:
     'No tabs to save in this window. Only Tab Keeper is open here.',
-  NOTHING_TO_EXPORT: 'No tabs to export. Only Tab Keeper is open.',
   // KAN-209. The export page's inline note uses this key too: one wording for
   // one outcome. KAN-401: plural, with the count of links copied.
   COPY_LINKS_SUCCESS: 'LinksCopied',

@@ -14,7 +14,7 @@ import { setPresentStartup } from '../../redux/slices/undoRedoSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 // KAN-609 (picks 1A, 5A). The ⋮ menu offers Remove duplicate tabs, between
-// Export and Delete, only while the session on screen has a duplicate.
+// Save as PDF and Delete, only while the session on screen has a duplicate.
 
 const tab = (tabId: string, url: string): tabData => ({
   tabId,
@@ -68,7 +68,7 @@ const itemNames = (menu: HTMLElement) =>
     .map((i) => i.getAttribute('aria-label') ?? i.textContent);
 
 describe('Remove duplicate tabs in the session menu (KAN-609)', () => {
-  test('sits between Export and Delete, with the count', async () => {
+  test('sits between Save as PDF and Delete, with the count', async () => {
     const user = userEvent.setup();
     await renderHeader([
       tab('t1', A),
@@ -80,7 +80,7 @@ describe('Remove duplicate tabs in the session menu (KAN-609)', () => {
     const items = within(menu).getAllByRole('menuitem');
     expect(items).toEqual([
       within(menu).getByRole('menuitem', { name: 'Copy all links' }),
-      within(menu).getByRole('menuitem', { name: 'Export…' }),
+      within(menu).getByRole('menuitem', { name: 'Save as PDF…' }),
       within(menu).getByRole('menuitem', { name: 'Remove 2 duplicate tabs' }),
       within(menu).getByRole('menuitem', { name: /^Delete session/ }),
     ]);

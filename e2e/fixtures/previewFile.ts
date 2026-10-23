@@ -6,9 +6,8 @@ import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
 /**
- * KAN-734. The export page's preview, written to a temp file. Save as HTML is
- * hidden in the build, and the file it writes is this same string (pinned by
- * exportPage.test.tsx), so specs read the file from here.
+ * KAN-734, KAN-742. The export page's preview, written to a temp file: the
+ * document Save as PDF prints, read from here as the file.
  */
 export async function previewFile(
   page: Page,
