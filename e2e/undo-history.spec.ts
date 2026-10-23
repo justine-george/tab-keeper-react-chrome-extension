@@ -31,6 +31,8 @@ const REDO_SORT = "Couldn't redo the sort. That window's tabs changed since.";
 const REDO_MOVE = "Couldn't redo the move. Those tabs moved or closed since.";
 const UNDO_WINDOW_CLOSED =
   "Couldn't undo the move. The window they came from is closed.";
+const REDO_WINDOW_CLOSED =
+  "Couldn't redo the move. The window they went to is closed.";
 
 // ---- Chrome ---------------------------------------------------------------------
 
@@ -808,6 +810,40 @@ test.describe('refused steps', () => {
     await expectTitle(page, RENAMED);
     await expectHistory(page, { undo: true, redo: true });
     await expectStrips(worker, [c], [TO_AFTER]);
+  });
+
+  // The renames come after the drag, so they wait behind it on the redo list.
+  test('refused: redo a drag after the window it went to closed', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const { page, b, c } = await exampleWindows(context, extensionId, worker);
+    await dragTab(page, b.tab('b1'), c.tab('c1'));
+    await expectStrips(worker, [b, c], [FROM_AFTER, TO_AFTER]);
+    await renameTwice(page);
+    await undoKey(page);
+    await expectTitle(page, RENAMED);
+    await undoKey(page);
+    await expectTitle(page, TITLE);
+    await undoKey(page);
+    await expectStrips(worker, [b, c], [FROM_BEFORE, TO_BEFORE]);
+    await expectHistory(page, { undo: false, redo: true });
+    await worker.evaluate(async (id) => {
+      await chrome.windows.remove(id);
+    }, c.windowId);
+    await expectStrips(worker, [b, c], [FROM_BEFORE, []]);
+
+    await redoKey(page);
+    await expectRefusedToast(page, REDO_WINDOW_CLOSED);
+    await expectStrips(worker, [b], [FROM_BEFORE]);
+    await expectTitle(page, TITLE);
+
+    // The next press reaches the older rename only.
+    await redoKey(page);
+    await expectTitle(page, RENAMED);
+    await expectHistory(page, { undo: true, redo: true });
+    await expectStrips(worker, [b], [FROM_BEFORE]);
   });
 });
 

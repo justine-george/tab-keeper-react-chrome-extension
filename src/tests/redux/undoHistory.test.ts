@@ -279,7 +279,7 @@ describe('undoStep and redoStep', () => {
     expect(s.title()).toBe(TITLE_BEFORE);
   });
 
-  test('a refused redo for a closed target window shows the Redo string (R10)', async () => {
+  test('a refused redo for a closed target window shows its own string, and the next press reaches the saved step after it (R10, R11)', async () => {
     handle = setupChromeFake({
       windows: [...(seed.windows ?? []), { id: 3, tabs: [{ id: 31 }] }],
     });
@@ -290,7 +290,11 @@ describe('undoStep and redoStep', () => {
       toWindowId: '3',
       toIndex: 1,
     });
+    s.rename();
+    expect(await s.undoing()).toBe('saved');
     expect(await s.undoing()).toBe('live');
+    // PREMISE: the drag, then the rename, wait to be redone.
+    expect(s.future()).toBe(2);
     handle.browser.closeWindow(3);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -299,6 +303,11 @@ describe('undoStep and redoStep', () => {
     expect(newestToast(s.store.getState())?.text).toBe(
       TOAST_MESSAGES.REDO_REFUSED_WINDOW_CLOSED
     );
+    expect(s.title()).toBe(TITLE_BEFORE);
+    expect(s.future()).toBe(1);
+    expect(selectNextStep(s.store.getState(), 'redo')).toBe('saved');
+    expect(await s.redoing()).toBe('saved');
+    expect(s.title()).toBe(TITLE_AFTER);
     expect(s.future()).toBe(0);
   });
 
