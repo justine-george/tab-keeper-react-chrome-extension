@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -7,7 +7,10 @@ import { offerReopen } from '../../redux/reopenOffer';
 import { clearReopenFocus } from '../../redux/reopenFocus';
 import { sortOpenWindowBySite } from '../../redux/sortOpenWindow';
 import { keepLiveStep } from '../../redux/undoHistory';
-import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
+import {
+  selectUndoKeyTarget,
+  setHasTabGroupsPermission,
+} from '../../redux/slices/globalStateSlice';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import { setPresentStartup } from '../../redux/slices/undoRedoSlice';
 import { toOpenWindows } from '../../utils/functions/openNow';
@@ -367,6 +370,74 @@ describe('a held undo key (KAN-744 R20)', () => {
     release('z');
     press({ key: 'z', metaKey: true });
     await settle();
+    expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
+  });
+
+  test('a repeat never takes an offer that appeared while the key was held', async () => {
+    const { store, seen } = await renderWithProviders(<MainContainer />, {
+      seed,
+    });
+    await saveASession(store);
+    await saveAnotherSession(store);
+    // PREMISE: the first press has a saved step to undo, and no offer to take.
+    expect(selectUndoKeyTarget(store.getState())).toEqual({ kind: 'step' });
+    press({ key: 'z', metaKey: true });
+    await settle();
+    // A tab closes while the key is held: its Reopen offer is now what a repeat would take.
+    await closeCWithOffer(store);
+    const target = selectUndoKeyTarget(store.getState());
+    expect(target?.kind).toBe('offer');
+    const before = seen.length;
+
+    const repeat = press({ key: 'z', metaKey: true, repeat: true });
+    press({ key: 'z', metaKey: true, repeat: true });
+    await settle();
+
+    expect(repeat.defaultPrevented).toBe(true);
+    expect(offerShows()).toBe(true);
+    expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
+    // The hold is on: the saved step left under it is not undone either.
+    expect(undoRedoIn(seen.slice(before))).toEqual([]);
+
+    // CONTROL: a fresh press takes the offer.
+    release('z');
+    press({ key: 'z', metaKey: true });
+    await waitFor(async () => {
+      expect(await urlsIn(2)).toEqual([url('a'), url('b'), url('c')]);
+    });
+  });
+
+  test('a result that lands after a fresh press does not hold that press', async () => {
+    const { store, seen } = await renderWithProviders(<MainContainer />, {
+      seed,
+    });
+    await saveASession(store);
+    await dragAToTheMiddle(store);
+    // Chrome answers the first undo only when told to.
+    const realMove = chrome.tabs.move.bind(chrome.tabs);
+    let answer: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    vi.spyOn(chrome.tabs, 'move').mockImplementationOnce(async (...args) => {
+      await gate;
+      return realMove(...args);
+    });
+    press({ key: 'z', metaKey: true });
+    // A fresh press while the first still runs: it is ignored as busy.
+    release('z');
+    press({ key: 'z', metaKey: true });
+    await act(async () => {
+      answer();
+    });
+    await aIsBack();
+    await settle();
+    const before = seen.length;
+
+    // The second press is the one held now; the first's result must not hold it.
+    press({ key: 'z', metaKey: true, repeat: true });
+    await settle();
+
     expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
   });
 
