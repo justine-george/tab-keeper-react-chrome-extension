@@ -2,10 +2,10 @@ import { describe, expect, test } from 'vitest';
 
 // KAN-742. Export is offered as Save as PDF; KAN-226/208: the ellipsis says a further step follows.
 // U+2026, not "...": some voices read three dots as "dot dot dot".
-const localeFiles = import.meta.glob('/public/locales/*/translation.json', {
-  import: 'default',
-  eager: true,
-}) as Record<string, Record<string, string>>;
+const localeFiles = import.meta.glob<Record<string, string>>(
+  '/public/locales/*/translation.json',
+  { import: 'default', eager: true }
+);
 
 const entries = Object.entries(localeFiles);
 const nonEnglish = entries.filter(([file]) => !file.includes('/en/'));

@@ -527,7 +527,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // Reaching into the frame needs same-origin, which is why the preview is
   // sandboxed with allow-same-origin and nothing else: scripts stay blocked,
   // so the file still cannot run anything, and the browser's print dialog is
-  // where "Save as PDF" lives.
+  // where the PDF, or a printer, is picked.
   const handlePrint = () =>
     afterIcons(() => frameRef.current?.contentWindow?.print());
 

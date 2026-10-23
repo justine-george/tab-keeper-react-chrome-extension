@@ -1609,7 +1609,7 @@ for (const lang of ALL_LANGS) {
   });
 
   // KAN-742. The save row's menu holds the longest new label, "Save open windows as PDF…".
-  test(`the save row menu stays in the popup with each label on one line (${lang})`, async ({
+  test(`the save row menu stays in its pane (${lang})`, async ({
     context,
     extensionId,
   }) => {
@@ -1625,27 +1625,34 @@ for (const lang of ALL_LANGS) {
     const menu = popup.getByRole('menu');
     await expect(menu).toBeVisible();
 
+    // Items never wrap (nowrap) and the menu shifts back inside the window, so
+    // a long label shows as a menu crossing out of its pane, as KAN-193 checks.
     const shape = await menu.evaluate((menuEl) => {
+      const pane = document.querySelector('[data-pane="sessions"]');
+      if (!pane) throw new Error('no sessions pane');
       const box = menuEl.getBoundingClientRect();
+      const paneBox = pane.getBoundingClientRect();
       return {
         left: Math.round(box.left),
         right: Math.round(box.right),
         width: Math.round(box.width),
-        heights: [...menuEl.querySelectorAll('[role="menuitem"]')].map((item) =>
-          Math.round(item.getBoundingClientRect().height)
-        ),
+        paneLeft: Math.round(paneBox.left),
+        paneRight: Math.round(paneBox.right),
+        items: menuEl.querySelectorAll('[role="menuitem"]').length,
       };
     });
-    console.log(`${lang}: save row menu ${shape.width}px`);
+    console.log(
+      `${lang}: save row menu ${shape.width}px, pane ${shape.paneLeft}-${shape.paneRight}px`
+    );
 
-    // CONTROL: the menu holds both saves, so "one line each" can fail.
-    expect(shape.heights).toHaveLength(2);
-    expect(shape.left).toBeGreaterThanOrEqual(0);
-    expect(shape.right).toBeLessThanOrEqual(790);
+    // CONTROL: a pane, not the whole popup, so "inside" can fail; and both saves are there.
+    expect(shape.paneRight - shape.paneLeft).toBeLessThan(600);
+    expect(shape.items).toBe(2);
+    expect(shape.left).toBeGreaterThanOrEqual(shape.paneLeft);
     expect(
-      new Set(shape.heights).size,
-      `item heights ${shape.heights.join('/')}px: a label wrapped`
-    ).toBe(1);
+      shape.right,
+      `the menu ends at ${shape.right}px, past its pane at ${shape.paneRight}px`
+    ).toBeLessThanOrEqual(shape.paneRight);
   });
 }
 
