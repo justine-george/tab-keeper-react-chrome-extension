@@ -798,7 +798,9 @@ export async function undoOpenNowDrop(
         pinned: now.pinned,
       });
     }
-    await applyLiveOrder(orderBeforeSort(records));
+    const windowId = drop.moved[0]?.before.windowId;
+    if (windowId === undefined) return;
+    await applyLiveOrder(windowId, orderBeforeSort(records));
     return;
   }
   for (const [i, tab] of drop.moved.entries()) {

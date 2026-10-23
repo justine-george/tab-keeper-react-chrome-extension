@@ -511,7 +511,8 @@ describe('sortOpenWindow', () => {
 
     expect(await sortOpenWindow(1, true)).toBe(true);
 
-    expect(await strip()).toEqual(['2P', '4P', '3P', '1P', '5']);
+    // The page stays first; only 3, out of place, moves (KAN-743).
+    expect(await strip()).toEqual(['1P', '2P', '4P', '3P', '5']);
   });
 
   test('already sorted: no move, no drop', async () => {
@@ -559,15 +560,15 @@ describe('sortOpenWindow', () => {
       .spyOn(chrome.tabs, 'move')
       .mockImplementation((...args: Parameters<typeof chrome.tabs.move>) => {
         calls += 1;
-        // The two pinned moves and the first loose append go; the next is refused.
-        if (calls === 4) return Promise.reject(new Error('No tab with id: 6.'));
+        // The first move goes; the next is refused.
+        if (calls === 2) return Promise.reject(new Error('No tab with id: 6.'));
         return real(...args);
       });
 
     expect(await sortOpenWindow(1, true)).toBe(true);
 
     // Stopped at the refusal: nothing after it was tried.
-    expect(move).toHaveBeenCalledTimes(4);
+    expect(move).toHaveBeenCalledTimes(2);
     const midway = await strip();
     expect(midway).not.toEqual(MOCK_STRIP);
     expect(midway).not.toEqual(MOCK_SORTED_STRIP);
@@ -641,6 +642,91 @@ describe('sortOpenWindow', () => {
     await undoOpenNowDrop(drop, true);
 
     expect(await strip()).toEqual(moved);
+  });
+});
+
+// KAN-743. A window of loose tabs, `site:n` each, ids from 1 in order.
+const looseSeed = (tabs: string[]): ChromeSeed => ({
+  windows: [
+    {
+      id: 1,
+      tabs: tabs.map((tab, i) => {
+        const [site, n] = tab.split(':');
+        return { id: i + 1, url: `https://${site}.test/${n}`, active: i === 0 };
+      }),
+    },
+  ],
+});
+
+describe('sortOpenWindow keeps tabs still (KAN-743)', () => {
+  test('a sort moves only the tab out of place, once, and so does its undo', async () => {
+    // a1 a2 b1 b2 c1 c2 a3: only a3 (7) is out of place.
+    handle = setupChromeFake(
+      looseSeed(['a:1', 'a:2', 'b:1', 'b:2', 'c:1', 'c:2', 'a:3'])
+    );
+    const move = vi.spyOn(chrome.tabs, 'move');
+
+    expect(await sortOpenWindow(1, true)).toBe(true);
+
+    expect(move.mock.calls.map(([id]) => id)).toEqual([7]);
+    expect(await strip()).toEqual(['1', '2', '7', '3', '4', '5', '6']);
+    move.mockClear();
+
+    await undoOpenNowDrop(keptDrop(), true);
+
+    expect(move.mock.calls.map(([id]) => id)).toEqual([7]);
+    expect(await strip()).toEqual(['1', '2', '3', '4', '5', '6', '7']);
+  });
+
+  test('a loose tab placed right after a group stays loose', async () => {
+    // b1 [c1 c2]g50 a1 b2: the target is the group, b1, b2, a1; the group and b2 stay.
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 1, url: 'https://b.test/1', active: true },
+            { id: 2, url: 'https://c.test/1', groupId: 50 },
+            { id: 3, url: 'https://c.test/2', groupId: 50 },
+            { id: 4, url: 'https://a.test/1' },
+            { id: 5, url: 'https://b.test/2' },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 50, windowId: 1, title: 'C', color: 'red' }],
+    });
+    const move = vi.spyOn(chrome.tabs, 'move');
+
+    expect(await sortOpenWindow(1, true)).toBe(true);
+
+    expect(move.mock.calls).toEqual([
+      [1, { index: 2 }],
+      [4, { index: 4 }],
+    ]);
+    expect(await strip()).toEqual(['2g50', '3g50', '1', '5', '4']);
+  });
+
+  test('a tab closed mid-sort stops the sort without throwing, and Undo still runs', async () => {
+    // a1 b1 c1 a2 b2 c2: b1 (2) then c1 (3) are to move; c1 closes after b1's move.
+    handle = setupChromeFake(
+      looseSeed(['a:1', 'b:1', 'c:1', 'a:2', 'b:2', 'c:2'])
+    );
+    const real = chrome.tabs.move.bind(chrome.tabs);
+    const move = vi
+      .spyOn(chrome.tabs, 'move')
+      .mockImplementation(
+        async (...args: Parameters<typeof chrome.tabs.move>) => {
+          const moved = await real(...args);
+          await chrome.tabs.remove(3);
+          return moved;
+        }
+      );
+
+    expect(await sortOpenWindow(1, true)).toBe(true);
+
+    expect(move.mock.calls.map(([id]) => id)).toEqual([2]);
+    move.mockRestore();
+    await expect(undoOpenNowDrop(keptDrop(), true)).resolves.toBeUndefined();
   });
 });
 

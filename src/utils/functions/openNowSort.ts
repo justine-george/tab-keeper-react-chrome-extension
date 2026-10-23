@@ -166,21 +166,52 @@ export function spotFor(
   return { from, to };
 }
 
-// Puts a window's tabs in `order` (KAN-694 Task 1): each pinned tab to its index within the pinned run, then each unit appended at the end, so a loose tab never lands inside a group.
-// Tabs left out of the order stay, and are pushed along. False at the first call Chrome refuses, with the tabs where Chrome left them; false before any call when a group is to move and chrome.tabGroups is absent.
-export async function applyLiveOrder(order: LiveOrder): Promise<boolean> {
+// The window's tabs in strip order, or null when Chrome refuses the read.
+async function readStrip(windowId: number): Promise<LiveTab[] | null> {
+  try {
+    return inStripOrder(await chrome.tabs.query({ windowId }));
+  } catch {
+    return null;
+  }
+}
+
+// Puts a window's tabs in `order` (KAN-743): per region, pinned then the rest, the units already in order stay still and each other moves once, right after the unit before it.
+// Tabs left out of the order stay, and are pushed along. False at the first call Chrome refuses or a unit gone from the strip, with the tabs where Chrome left them; false before any call when a group is to move and chrome.tabGroups is absent.
+export async function applyLiveOrder(
+  windowId: number,
+  order: LiveOrder
+): Promise<boolean> {
   const movesGroups = order.rest.some((unit) => unit.kind === 'group');
   if (movesGroups && !chrome.tabGroups) return false;
-  for (const [index, id] of order.pinned.entries()) {
-    if (!(await succeeds(() => chrome.tabs.move(id, { index })))) return false;
-  }
-  for (const unit of order.rest) {
-    const moved = await succeeds(() =>
-      unit.kind === 'tab'
-        ? chrome.tabs.move(unit.id, { index: -1 })
-        : chrome.tabGroups.move(unit.id, { index: -1 })
-    );
-    if (!moved) return false;
+  const regions: [LiveUnit[], boolean][] = [
+    [order.pinned.map((id) => ({ kind: 'tab', id })), true],
+    [order.rest, false],
+  ];
+  for (const [units, pinned] of regions) {
+    const strip = await readStrip(windowId);
+    if (strip === null) return false;
+    const ranks: number[] = [];
+    for (const tab of strip) {
+      const rank = units.findIndex((unit) => holds(unit, tab));
+      if (rank !== -1 && !ranks.includes(rank)) ranks.push(rank);
+    }
+    const kept = keptInPlace(ranks);
+    for (const [i, unit] of units.entries()) {
+      if (kept.has(i)) continue;
+      const now = await readStrip(windowId);
+      if (now === null) return false;
+      const regionStart = pinned ? 0 : now.filter((tab) => tab.pinned).length;
+      const spot = spotFor(now, units, i, regionStart);
+      if (spot === null) return false;
+      if (spot.from === spot.to) continue;
+      const index = spot.to;
+      const moved = await succeeds(() =>
+        unit.kind === 'tab'
+          ? chrome.tabs.move(unit.id, { index })
+          : chrome.tabGroups.move(unit.id, { index })
+      );
+      if (!moved) return false;
+    }
   }
   return true;
 }
