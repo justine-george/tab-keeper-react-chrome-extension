@@ -7,9 +7,11 @@ vi.hoisted(() => {
 });
 
 import {
+  saveToFirestoreIfDirty,
   selectAwaitsBootSync,
   setCloudConfigured,
   setSignedIn,
+  syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
 import {
   grantCloudConsent,
@@ -19,8 +21,8 @@ import { makeTestStore } from '../setup/makeStore';
 
 // KAN-750. The sync glyph shows the boot sync while sign-in is pending, i.e.
 // from "has a sync identity" until the first sync actually starts.
-const SYNC_PENDING = 'global/syncStateWithFirestore/pending';
-const SAVE_PENDING = 'global/saveToFirestoreIfDirty/pending';
+const SYNC_PENDING = syncStateWithFirestore.pending.type;
+const SAVE_PENDING = saveToFirestoreIfDirty.pending.type;
 
 function readyStore() {
   const { store } = makeTestStore();

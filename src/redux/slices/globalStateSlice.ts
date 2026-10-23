@@ -1603,8 +1603,7 @@ export const {
 // Firebase sign-in is pending. The glyph shows this wait as syncing.
 export const selectAwaitsBootSync = (state: RootState): boolean =>
   state.globalState.isSignedIn &&
-  state.settingsDataState.cloudConsent === 'granted' &&
-  state.settingsDataState.isAutoSync &&
+  cloudSyncAllowed(state.settingsDataState) &&
   state.globalState.isCloudConfigured &&
   !state.globalState.hasStartedSync;
 

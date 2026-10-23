@@ -60,19 +60,73 @@ describe('useShownSyncStatus', () => {
   });
 
   test('a press shows at once', () => {
-    const { view, pressed, update } = setup();
-    pressed.current = Date.now();
+    const { view, pressed, update, wait } = setup();
+    wait(1);
+    pressed.current = performance.now();
     update({ raw: 'loading' });
     expect(view.result.current).toBe('loading');
   });
 
-  test('a press from long ago does not count', () => {
+  test('a press before the last busy period ended does not count', () => {
     const { view, pressed, update, wait } = setup();
-    pressed.current = Date.now() - 5000;
+    pressed.current = performance.now(); // before the sync that ends below
+    wait(1);
     update({ raw: 'loading' });
+    wait(500);
+    update({ raw: 'success' });
+    wait(1000);
+    update({ raw: 'loading' }); // an unpressed sync, later
     expect(view.result.current).not.toBe('loading');
     wait(150);
     expect(view.result.current).toBe('loading');
+  });
+
+  test('a press after the last busy period ended counts', () => {
+    const { view, pressed, update, wait } = setup();
+    update({ raw: 'loading' });
+    wait(500);
+    update({ raw: 'success' });
+    wait(1000);
+    pressed.current = performance.now();
+    update({ raw: 'loading' });
+    expect(view.result.current).toBe('loading');
+  });
+
+  test('a press while a boot wait is already busy shows at once', () => {
+    const { view, pressed, update, wait } = setup({ awaitsBootSync: true });
+    wait(50);
+    expect(view.result.current).toBe('idle');
+    pressed.current = performance.now();
+    update({ raw: 'loading' }); // the press starts a real sync
+    expect(view.result.current).toBe('loading');
+  });
+
+  test('two instances on one press ref agree at every step', () => {
+    const shared = { current: -Infinity };
+    const mk = () =>
+      renderHook(
+        (raw: SyncStatus) =>
+          useShownSyncStatus(raw, { awaitsBootSync: false, pressedAt: shared }),
+        { initialProps: 'idle' as SyncStatus }
+      );
+    const a = mk();
+    const b = mk();
+    const step = (raw: SyncStatus) => {
+      act(() => {
+        a.rerender(raw);
+        b.rerender(raw);
+      });
+      expect(a.result.current).toBe(b.result.current);
+      return a.result.current;
+    };
+    vi.advanceTimersByTime(1);
+    shared.current = performance.now();
+    expect(step('loading')).toBe('loading');
+    act(() => void vi.advanceTimersByTime(100));
+    expect(step('success')).toBe('loading'); // held
+    act(() => void vi.advanceTimersByTime(400));
+    expect(a.result.current).toBe('success');
+    expect(b.result.current).toBe('success');
   });
 
   test('the boot sync shows while signing in', () => {
@@ -80,6 +134,24 @@ describe('useShownSyncStatus', () => {
     expect(view.result.current).toBe('idle');
     wait(150);
     expect(view.result.current).toBe('loading');
+  });
+
+  test('mounted after the limit, the boot sync never shows', () => {
+    vi.advanceTimersByTime(8000);
+    const { view, wait } = setup({ awaitsBootSync: true });
+    wait(1000);
+    expect(view.result.current).toBe('idle');
+  });
+
+  test('mounted at 5 s, the boot sync stops at 8 s of page time', () => {
+    vi.advanceTimersByTime(5000);
+    const { view, wait } = setup({ awaitsBootSync: true });
+    wait(150);
+    expect(view.result.current).toBe('loading');
+    wait(2849); // page time 7999
+    expect(view.result.current).toBe('loading');
+    wait(1);
+    expect(view.result.current).toBe('idle');
   });
 
   test('stops showing the boot sync after the limit', () => {
