@@ -46,7 +46,7 @@ import {
   sortOpenWindowBySite,
 } from '../../redux/sortOpenWindow';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
-import { selectNewestLiveStep } from '../../redux/slices/undoRedoSlice';
+import { selectLiveStepOnTop } from '../../redux/slices/undoRedoSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 // KAN-694 Task 5. Open now sorts a real window by site, as one ⌘Z step.
@@ -835,7 +835,7 @@ describe('sortOpenWindowBySite', () => {
     expect(toasts.map((t) => t.text)).toEqual([
       TOAST_MESSAGES.TABS_SORTED_BY_SITE,
     ]);
-    const step = selectNewestLiveStep(store.getState());
+    const step = selectLiveStepOnTop(store.getState());
     expect(step?.drop.kind).toBe('sort');
     expect(toasts[0]?.liveStepId).toBe(step?.id);
     expect(toasts[0]?.offersUndo).toBe(false);

@@ -278,7 +278,8 @@ export const selectLastLiveStepId = (state: RootState): number | null => {
   }
   return last;
 };
-export const selectNewestLiveStep = (state: RootState): LiveStep | null =>
+// The step on top of the history when it is a live one, else null (a saved step on top, or none).
+export const selectLiveStepOnTop = (state: RootState): LiveStep | null =>
   state.undoRedo.past.length > 0
     ? (state.undoRedo.present.liveStep ?? null)
     : null;

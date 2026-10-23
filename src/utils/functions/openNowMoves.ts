@@ -568,13 +568,14 @@ export async function moveOpenGroup(
 }
 
 // ---------------------------------------------------------------------------
-// Undo (spec O11f, U1): ⌘Z / Ctrl+Z puts an Open now drop's tabs back.
+// Undo and redo (spec O11f, U1; KAN-744 R6-R7): an Open now drop's tabs go
+// back where they were, or again where the drop left them.
 
-// One drop as ⌘Z undoes it: moveOpenTab's record (`kind: 'tab'`, one tab,
-// put back on its own), moveOpenGroup's (`kind: 'group'`, every tab of the
-// group, put back as one group), or a sort by site's (`kind: 'sort'`, every
-// tab of the window but Tab Keeper pages, put back in their old order;
-// KAN-694).
+// One drop as undo and redo run it: moveOpenTab's record (`kind: 'tab'`, one
+// tab, moved on its own), moveOpenGroup's (`kind: 'group'`, every tab of the
+// group, moved as one group), or a sort by site's (`kind: 'sort'`, every tab
+// of the window but Tab Keeper pages, put in their old order or their sorted
+// one; KAN-694).
 export interface OpenNowDrop {
   kind: 'tab' | 'group' | 'sort';
   moved: MovedTabs;
@@ -596,7 +597,7 @@ export function changedAnyPlace(moved: MovedTabs): boolean {
 // last run left it (its `after` window, index and group, ledger R14: the
 // drop's, or the last undo's in a reversed record, KAN-744 R9); null when
 // any has moved, been regrouped or closed since. A tab regrouped by hand in
-// place is not where the drop left it: putting it back would ungroup it and
+// place is not where the last run left it: moving it would ungroup it and
 // can remove the group the user made (KAN-323). tabs.get reports groupId
 // without the tabGroups grant (Task 6a Q3). Hidden Tab Keeper pages that
 // moved with a group are in the record, so they are checked too.

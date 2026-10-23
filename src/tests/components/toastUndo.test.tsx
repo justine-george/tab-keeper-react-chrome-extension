@@ -27,7 +27,7 @@ import {
 import {
   redo,
   resetHistory,
-  selectNewestLiveStep,
+  selectLiveStepOnTop,
   setPresentStartup,
   undo,
 } from '../../redux/slices/undoRedoSlice';
@@ -468,7 +468,7 @@ describe('a drag in the history and the toasts (KAN-744)', () => {
       await store.dispatch(undoStep());
     });
 
-    expect(selectNewestLiveStep(store.getState())).toBeNull();
+    expect(selectLiveStepOnTop(store.getState())).toBeNull();
     expect(reopenButton()).toHaveAttribute('aria-keyshortcuts', 'Control+Z');
   });
 
@@ -563,7 +563,7 @@ describe('Undo in the live sort toast (KAN-694)', () => {
     await user.click(undoButtons()[0]);
 
     await waitFor(async () => expect(await strip()).toEqual([1, 2, 3]));
-    expect(selectNewestLiveStep(store.getState())).toBeNull();
+    expect(selectLiveStepOnTop(store.getState())).toBeNull();
     expect(toastTexts(store.getState())).toEqual([]);
   });
 
@@ -591,7 +591,7 @@ describe('Undo in the live sort toast (KAN-694)', () => {
   test('the sort chip undoes the sort', async () => {
     const user = userEvent.setup();
     const { store, seen } = await renderSorted();
-    const step = selectNewestLiveStep(store.getState());
+    const step = selectLiveStepOnTop(store.getState());
     expect(step?.drop.kind).toBe('sort');
 
     await user.click(undoButtons()[0]);
@@ -640,7 +640,7 @@ describe('Undo in the live sort toast (KAN-694)', () => {
     });
 
     // PREMISE: the wipe left the sort as the newest step.
-    expect(selectNewestLiveStep(store.getState())?.drop.kind).toBe('sort');
+    expect(selectLiveStepOnTop(store.getState())?.drop.kind).toBe('sort');
     expect(undoButtons()).toHaveLength(0);
     expect(toastTexts(store.getState())).toEqual([
       TOAST_MESSAGES.TABS_SORTED_BY_SITE,

@@ -13,7 +13,7 @@ import {
   liveStepUndone,
   pushLiveStep,
   resetHistory,
-  selectNewestLiveStep,
+  selectLiveStepOnTop,
   selectNextStep,
   set,
   setPresentStartup,
@@ -82,15 +82,15 @@ describe('live steps in the undo history (KAN-744)', () => {
     const { store } = setup();
     expect(selectNextStep(store.getState(), 'undo')).toBeNull();
     expect(selectNextStep(store.getState(), 'redo')).toBeNull();
-    expect(selectNewestLiveStep(store.getState())).toBeNull();
+    expect(selectLiveStepOnTop(store.getState())).toBeNull();
   });
 
   it('the newest live step is the present one, and only with a past', () => {
     const { store } = setup();
     store.dispatch(pushLiveStep(liveStep(1)));
-    expect(selectNewestLiveStep(store.getState())).toEqual(liveStep(1));
+    expect(selectLiveStepOnTop(store.getState())).toEqual(liveStep(1));
     store.dispatch(set(saved(2)));
-    expect(selectNewestLiveStep(store.getState())).toBeNull();
+    expect(selectLiveStepOnTop(store.getState())).toBeNull();
   });
 
   it('the 16th step drops the oldest, whatever its kind', () => {

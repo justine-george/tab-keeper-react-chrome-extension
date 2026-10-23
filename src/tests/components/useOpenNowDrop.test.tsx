@@ -24,7 +24,7 @@ import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import { moveOpenGroup, moveOpenTab } from '../../utils/functions/openNowMoves';
 import {
-  selectNewestLiveStep,
+  selectLiveStepOnTop,
   setPresentStartup,
 } from '../../redux/slices/undoRedoSlice';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
@@ -466,7 +466,7 @@ describe('a drop becomes Chrome calls, or none', () => {
     expect(await dropping).not.toBe(null);
     move.mockRestore();
 
-    expect(selectNewestLiveStep(store.getState())?.drop.kind).toBe('tab');
+    expect(selectLiveStepOnTop(store.getState())?.drop.kind).toBe('tab');
     expect(store.getState().undoRedo.past).toHaveLength(2);
   });
 
@@ -483,7 +483,7 @@ describe('a drop becomes Chrome calls, or none', () => {
         await result.current[list].onMove(rowId, toIndex, undefined, toWindowId)
       ).not.toBe(null);
 
-      expect(selectNewestLiveStep(store.getState())?.drop.kind).toBe(kind);
+      expect(selectLiveStepOnTop(store.getState())?.drop.kind).toBe(kind);
       expect(store.getState().undoRedo.past).toHaveLength(1);
     }
   );

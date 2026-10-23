@@ -11,7 +11,7 @@ import {
 import { holdToasts, releaseToasts } from '../../redux/toastTimers';
 import { reopenFromOffer } from '../../redux/reopenOffer';
 import { showSession } from '../../redux/showSession';
-import { selectNewestLiveStep } from '../../redux/slices/undoRedoSlice';
+import { selectLiveStepOnTop } from '../../redux/slices/undoRedoSlice';
 import { undoStep } from '../../redux/undoHistory';
 import type { StepPress } from '../../redux/undoHistory';
 import { useFontFamily } from '../../hooks/useFontFamily';
@@ -61,17 +61,18 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     : `calc(${APP_WIDTH} * ${SETTINGS_COLUMN.POPUP_PERCENT} / 100)`;
   const settingsCap = `calc(${settingsColumn} - ${2 * EDGE_PX}px)`;
   // KAN-349 Q1 C′, KAN-744 R16-R17. A chip names the key only while the key
-  // would do what the chip does; the key does nothing on Settings
-  // (MainContainer stands down there).
+  // would do what the chip does: not while ⌘Z would take a Reopen offer shown
+  // since, nor on Settings, where the key does nothing (MainContainer stands
+  // down there).
   const keyTarget = useSelector(selectUndoKeyTarget, shallowEqual);
   const keyTakesOffer = (offerId: number) =>
     !isSettingsPage &&
     keyTarget?.kind === 'offer' &&
     keyTarget.offerId === offerId;
   const keyTakesStep = !isSettingsPage && keyTarget?.kind === 'step';
-  // KAN-694, KAN-744 R16. A sort toast offers Undo only while its sort is the newest step.
-  const newestLiveStepId = useSelector(
-    (state: RootState) => selectNewestLiveStep(state)?.id ?? null
+  // KAN-694, KAN-744 R16. A sort toast offers Undo only while its sort is the step on top.
+  const liveStepOnTopId = useSelector(
+    (state: RootState) => selectLiveStepOnTop(state)?.id ?? null
   );
 
   // KAN-349 T3 (from KAN-280 O8a). The pointer over any toast, or focus in
@@ -258,7 +259,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
         const offer = toast.reopenOffer;
         const show = toast.show;
         const offersSortUndo =
-          toast.liveStepId !== null && toast.liveStepId === newestLiveStepId;
+          toast.liveStepId !== null && toast.liveStepId === liveStepOnTopId;
         const offersAnyUndo = toast.offersUndo || offersSortUndo;
         if (offer === null && show === null && !offersAnyUndo) {
           return (
@@ -307,7 +308,6 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 variant="chip"
                 iconType="undo"
                 text={t('Undo')}
-                // ⌘Z takes a Reopen offer shown since.
                 keyHint={keyTakesStep ? undoKeyHint : undefined}
                 // Shown only while its step is the newest; the undo reducer closes this toast (globalStateSlice).
                 onClick={() => void dispatch(undoStep(LEAVES_PLAIN_TOASTS))}
@@ -319,7 +319,6 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 variant="chip"
                 iconType="undo"
                 text={t('Undo')}
-                // ⌘Z takes a Reopen offer shown since.
                 keyHint={keyTakesStep ? undoKeyHint : undefined}
                 // Shown only while its sort is the newest step, so this undoes the sort, then closes this toast; a press ignored while another step runs (R19) leaves it.
                 onClick={() =>

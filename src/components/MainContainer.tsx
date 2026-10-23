@@ -170,13 +170,16 @@ export default function MainContainer() {
   useEffect(() => {
     // The hold starts from the result, which lands after keydown returns. A
     // repeat before that finds the step still live and is dropped itself.
-    function holdAfterRun(
-      press: number,
-      run: Promise<{ payload?: unknown; meta: { requestStatus: string } }>
-    ) {
+    // A 'busy' press (a step or an Open now move still running) starts none.
+    function holdAfterRun(press: number, run: Promise<unknown>) {
       void run.then((action) => {
         if (press !== freshPresses.current) return;
-        if (action.meta.requestStatus !== 'fulfilled') return;
+        if (
+          !undoStep.fulfilled.match(action) &&
+          !redoStep.fulfilled.match(action)
+        ) {
+          return;
+        }
         const result = action.payload;
         if (result === 'live' || result === 'refused' || result === 'failed') {
           repeatsDropped.current = true;
@@ -199,14 +202,19 @@ export default function MainContainer() {
 
       if (isSettingsPage) return;
 
+      // KAN-54. `event.key` carries the SHIFTED character, so a real
+      // Shift+Z arrives as 'Z' -- and as 'z' when CapsLock inverts Shift for
+      // letters. Comparing against a lowercase literal missed the first case
+      // entirely, which is why macOS redo did nothing. Normalise instead.
+      const key = event.key.toLowerCase();
+
       // KAN-744 R20. A held key's repeats are dropped once the hold is on.
       // Below the guards: a repeat landing in a text field is still the
       // field's own undo.
-      const heldKey = event.key.toLowerCase();
       if (
         repeatsDropped.current &&
         event.repeat &&
-        (heldKey === 'z' || heldKey === 'y')
+        (key === 'z' || key === 'y')
       ) {
         event.preventDefault();
         return;
@@ -215,12 +223,6 @@ export default function MainContainer() {
       // Every chord needs a platform modifier. ctrl and meta are treated
       // interchangeably so one handler serves Windows/Linux and macOS.
       if (!event.ctrlKey && !event.metaKey) return;
-
-      // KAN-54. `event.key` carries the SHIFTED character, so a real
-      // Shift+Z arrives as 'Z' -- and as 'z' when CapsLock inverts Shift for
-      // letters. Comparing against a lowercase literal missed the first case
-      // entirely, which is why macOS redo did nothing. Normalise instead.
-      const key = heldKey;
 
       // Redo is tested first and returns. That ordering is what keeps the
       // chords mutually exclusive: shift+z has to stop here, or it goes on to
