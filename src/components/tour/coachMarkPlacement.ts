@@ -22,12 +22,11 @@ export interface AnchoredPlacement {
   notch: number;
 }
 
-// A card with no anchor: at the top of the page, its notch (from the left) pointing up at the tab strip.
+// KAN-755. A card with no anchor: at the top of the page, with no notch.
 export interface FreePlacement {
   side: 'free';
   left: number;
   top: number;
-  notch: number;
 }
 
 export type CoachPlacement = AnchoredPlacement | FreePlacement;
@@ -59,9 +58,6 @@ export const COACH = {
   RING_INSET: 4,
   FREE_LEFT: 40,
   FREE_TOP: 20,
-  // KAN-563: the page x the free notch aims at. On a Mac, the first tab's favicon (Chrome 155/156, windowed and full screen); elsewhere unmeasured.
-  FREE_AIM_MAC: 140,
-  FREE_AIM_DEFAULT: 88,
 } as const;
 
 const clamp = (value: number, low: number, high: number): number =>
@@ -156,18 +152,8 @@ export function placeInPopupPane(
   return settle('left', raw, anchor, mark, viewport);
 }
 
-// The free notch's aim for a platform; null while it is not known yet.
-export function freeAimFor(isMac: boolean | null): number | null {
-  if (isMac === null) return null;
-  return isMac ? COACH.FREE_AIM_MAC : COACH.FREE_AIM_DEFAULT;
-}
-
-// Step 8 has no anchor: the card sits at the top of the page, its notch up at `aim`.
-export function placeFree(
-  mark: Size,
-  viewport: Size,
-  aim: number
-): FreePlacement {
+// Step 9 has no anchor: the card sits at the top of the page.
+export function placeFree(mark: Size, viewport: Size): FreePlacement {
   const left = clamp(
     COACH.FREE_LEFT,
     COACH.GUTTER,
@@ -177,7 +163,6 @@ export function placeFree(
     side: 'free',
     left,
     top: COACH.FREE_TOP,
-    notch: clamp(aim - left, COACH.NOTCH_MIN, mark.width - COACH.NOTCH_MIN),
   };
 }
 
@@ -236,8 +221,7 @@ export function sameFrame(a: CoachFrame | null, b: CoachFrame | null): boolean {
     return (
       a.kind === b.kind &&
       a.placement.left === b.placement.left &&
-      a.placement.top === b.placement.top &&
-      a.placement.notch === b.placement.notch
+      a.placement.top === b.placement.top
     );
   }
   return (

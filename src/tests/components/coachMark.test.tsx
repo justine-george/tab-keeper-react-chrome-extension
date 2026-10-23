@@ -468,17 +468,13 @@ describe('IME and Esc (D1)', () => {
 });
 
 describe('the free step and the still box', () => {
-  const notch = () => document.querySelector<HTMLElement>('[data-coach-notch]');
-  // The page x of the notch's tip: the card's left, then the 16px border triangle's middle.
-  const notchTip = () =>
-    parseFloat(mark()?.style.left ?? 'NaN') +
-    parseFloat(notch()?.style.left ?? 'NaN') +
-    8;
+  const notches = () => document.querySelectorAll('[data-coach-notch]');
   beforeEach(() => {
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(400);
   });
 
-  test('no anchors: the card sits at the top left, the whole page dimmed, no ring, a notch up at 88px', async () => {
+  // KAN-755. No anchor, nothing to point at: Chrome's tab strip may be on top or down the side.
+  test('no anchors: the card sits at the top left, the whole page dimmed, no ring, no notch', async () => {
     await render({ anchors: [] });
     await placed();
     expect(mark()).toHaveAttribute('data-coach-side', 'free');
@@ -487,99 +483,46 @@ describe('the free step and the still box', () => {
     expect(dim()).not.toBeNull();
     expect(dim()?.style.clipPath).toBe('');
     expect(ring()).toBeNull();
-    expect(notch()?.style.left).toBe('40px');
-    expect(notchTip()).toBe(88);
-    expect(notch()?.style.top).toBe('-9px');
-    const drawn = notch();
-    expect(drawn && getComputedStyle(drawn).borderBottomStyle).toBe('solid');
+    expect(notches()).toHaveLength(0);
   });
 
-  // KAN-563: on a Mac the strip starts after the traffic lights and Tab search, so the notch aims at the first tab.
-  test('no anchors on a Mac: the card stays put, its notch up at 140px', async () => {
+  test('no anchors on a Mac: the same place, no notch', async () => {
     await render({ anchors: [] }, { platformOs: 'mac' });
     await placed();
-    await waitFor(() => expect(notchTip()).toBe(140));
     expect(mark()?.style.left).toBe('40px');
-    expect(notch()?.style.top).toBe('-9px');
+    expect(mark()?.style.top).toBe('20px');
+    expect(notches()).toHaveLength(0);
   });
 
-  // Worst path: the card must not be drawn at 88 and then jump once Chrome answers.
-  test('no anchors, platform not answered yet: the card waits unplaced, then appears with its notch at 140px', async () => {
-    let answer: (info: chrome.runtime.PlatformInfo) => void = () => {};
-    const held = new Promise<chrome.runtime.PlatformInfo>((resolve) => {
-      answer = resolve;
-    });
-    await render({ anchors: [] }, { platformAnswer: held });
-    await twoFrames();
-    await twoFrames();
-    expect(mark()).toHaveAttribute('aria-hidden', 'true');
-    expect(notch()).toBeNull();
-    await act(async () => {
-      answer({ os: 'mac', arch: 'arm' });
-      await held;
-    });
+  // Worst path: nothing on the card waits for Chrome's platform answer any more.
+  test('no anchors, platform never answers: the card still appears, no notch', async () => {
+    await render(
+      { anchors: [] },
+      { platformAnswer: new Promise<chrome.runtime.PlatformInfo>(() => {}) }
+    );
     await placed();
-    expect(notchTip()).toBe(140);
+    expect(mark()?.style.left).toBe('40px');
+    expect(notches()).toHaveLength(0);
   });
 
-  test('no anchors, platform read fails: the card still appears, its notch at 88px', async () => {
+  test('no anchors, platform read fails: the card still appears, no notch', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const failed = Promise.reject(new Error('no platform'));
     failed.catch(() => {});
     await render({ anchors: [] }, { platformAnswer: failed });
     await placed();
-    expect(notchTip()).toBe(88);
+    expect(notches()).toHaveLength(0);
   });
 
-  // KAN-735. The pinned-tab card's notch: one triangle in the bar's colour, 18px wide, base over the 1px frame.
-  const solidTip = () =>
-    parseFloat(mark()?.style.left ?? 'NaN') +
-    parseFloat(notch()?.style.left ?? 'NaN') +
-    9;
-  const expectOneSolidTriangle = () => {
-    expect(document.querySelectorAll('[data-coach-notch]')).toHaveLength(1);
-    const drawn = notch();
-    expect(drawn?.style.top).toBe('-9px');
-    expect(drawn?.nextElementSibling?.matches('span[aria-hidden]')).toBe(false);
-    const style = drawn && getComputedStyle(drawn);
-    expect(style?.borderBottomColor).toBe(rgb(LIGHT_THEME.TEXT_COLOR));
-    expect(style?.borderBottomWidth).toBe('9px');
-    expect(style?.borderLeftWidth).toBe('9px');
-  };
-
-  test('solidNotch: one triangle in TEXT_COLOR, tip on the aim at 88px', async () => {
-    await render({ anchors: [], solidNotch: true });
+  test('CONTROL: an anchored card has one notch, the border triangle over the fill one', async () => {
+    await render();
     await placed();
-    expectOneSolidTriangle();
-    expect(solidTip()).toBe(88);
-  });
-
-  test('solidNotch on a Mac: the tip on the aim at 140px', async () => {
-    await render({ anchors: [], solidNotch: true }, { platformOs: 'mac' });
-    await placed();
-    await waitFor(() => expect(solidTip()).toBe(140));
-    expectOneSolidTriangle();
-  });
-
-  // Worst path: a card narrower than its aim clamps the notch to NOTCH_MIN from the right edge.
-  test('solidNotch at a clamped aim keeps its base inside the card', async () => {
-    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(40);
-    await render({ anchors: [], solidNotch: true });
-    await placed();
-    const left = parseFloat(notch()?.style.left ?? 'NaN');
-    // The tip at NOTCH_MIN from the right; the base ends inside the 38px padding box.
-    expect(left).toBe(40 - 14 - 9);
-    expect(left + 18).toBeLessThanOrEqual(40 - 2);
-  });
-
-  test('CONTROL: without solidNotch the notch is the border triangle over the fill one', async () => {
-    await render({ anchors: [] });
-    await placed();
-    const drawn = notch();
-    const style = drawn && getComputedStyle(drawn);
-    expect(style?.borderBottomColor).toBe(rgb(LIGHT_THEME.PANEL_BORDER_COLOR));
-    expect(style?.borderBottomWidth).toBe('8px');
-    const fill = drawn?.nextElementSibling as HTMLElement | null;
+    expect(notches()).toHaveLength(1);
+    const drawn = notches()[0] as HTMLElement;
+    const style = getComputedStyle(drawn);
+    expect(style.borderBottomColor).toBe(rgb(LIGHT_THEME.PANEL_BORDER_COLOR));
+    expect(style.borderBottomWidth).toBe('8px');
+    const fill = drawn.nextElementSibling as HTMLElement | null;
     expect(fill && getComputedStyle(fill).borderBottomColor).toBe(
       rgb(LIGHT_THEME.PRIMARY_COLOR)
     );

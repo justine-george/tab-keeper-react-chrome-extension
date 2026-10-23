@@ -19,11 +19,9 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useCoachPlacement } from '../../hooks/useCoachPlacement';
 import { useCardMotion } from '../../hooks/useCardMotion';
-import { useIsMac } from '../../hooks/useIsMac';
 import ProgressLine from '../common/ProgressLine';
 import {
   COACH,
-  freeAimFor,
   clipPathWithHole,
   ringBox,
   type AnchoredPlacement,
@@ -64,24 +62,19 @@ interface CoachMarkProps {
   secondary?: CoachAction;
   primary: CoachAction;
   onEscape: () => void;
-  // KAN-735. One triangle in the bar's colour, for a card whose notch is the only thing pointing.
-  solidNotch?: boolean;
 }
 
-// The callout's notch, turned toward the anchor: a framed one (a border triangle
-// over a fill one), or one solid triangle whose base covers the 1px frame.
-type NotchLook =
-  | { kind: 'framed'; border: string; fill: string }
-  | { kind: 'solid'; color: string };
-
+// The callout's notch, turned toward the anchor: a border triangle over a fill one.
 function Notch({
   side,
   notch,
-  look,
+  border,
+  fill,
 }: {
   side: CoachSide;
   notch: number;
-  look: NotchLook;
+  border: string;
+  fill: string;
 }) {
   // Off the facing edge by `out`, centred `half` before the notch point.
   const at = (out: number, half: number): CSSProperties => {
@@ -109,25 +102,15 @@ function Notch({
       border-right: ${pointsUp ? clear : side === 'right' ? solid : 'none'};
     `;
   };
-  if (look.kind === 'solid') {
-    return (
-      <span
-        aria-hidden="true"
-        data-coach-notch
-        css={triangle(9, look.color)}
-        style={at(-9, 9)}
-      />
-    );
-  }
   return (
     <>
       <span
         aria-hidden="true"
         data-coach-notch
-        css={triangle(8, look.border)}
+        css={triangle(8, border)}
         style={at(-9, 8)}
       />
-      <span aria-hidden="true" css={triangle(7, look.fill)} style={at(-7, 7)} />
+      <span aria-hidden="true" css={triangle(7, fill)} style={at(-7, 7)} />
     </>
   );
 }
@@ -158,7 +141,6 @@ export default function CoachMark({
   secondary,
   primary,
   onEscape,
-  solidNotch = false,
 }: CoachMarkProps) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -166,15 +148,7 @@ export default function CoachMark({
   const textId = useId();
   const markRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
-  const isMac = useIsMac();
-  const frame = useCoachPlacement(
-    markRef,
-    anchors,
-    place,
-    freeAimFor(isMac),
-    boxOf,
-    spotlight
-  );
+  const frame = useCoachPlacement(markRef, anchors, place, boxOf, spotlight);
   useCardMotion(markRef, ringRef, progress?.step ?? null, frame);
   const buttons = dialogButtonStyles(COLORS);
   const isPlaced = frame !== null;
@@ -325,19 +299,13 @@ export default function CoachMark({
             })}
           />
         )}
-        {frame && (
+        {/* KAN-755. A free card points at nothing: the tab strip may be on top or down the side. */}
+        {frame?.kind === 'anchored' && (
           <Notch
-            side={frame.kind === 'anchored' ? frame.placement.side : 'below'}
+            side={frame.placement.side}
             notch={frame.placement.notch}
-            look={
-              solidNotch
-                ? { kind: 'solid', color: COLORS.TEXT_COLOR }
-                : {
-                    kind: 'framed',
-                    border: COLORS.PANEL_BORDER_COLOR,
-                    fill: COLORS.PRIMARY_COLOR,
-                  }
-            }
+            border={COLORS.PANEL_BORDER_COLOR}
+            fill={COLORS.PRIMARY_COLOR}
           />
         )}
         <p id={textId} css={textStyle}>
