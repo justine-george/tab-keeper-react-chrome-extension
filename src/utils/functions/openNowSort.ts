@@ -239,7 +239,7 @@ export async function applyGroupSlots(
   if (!chrome.tabGroups) return false;
   const strip = await readStrip(windowId);
   if (strip === null) return false;
-  const { rest } = orderOf(strip);
+  const { rest } = liveOrderOf(strip);
   const groupsNow = rest.filter((unit) => unit.kind === 'group');
   const given = new Set(groupIds);
   if (
