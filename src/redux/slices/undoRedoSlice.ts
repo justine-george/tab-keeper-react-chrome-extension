@@ -225,10 +225,11 @@ export const undoRedoSlice = createSlice({
         addedTabGroupIds: [],
         liveStep: liveStep && writable(liveStep),
       });
-      // past[0] is the base; every later entry, and present, is a step.
-      const kept = [...state.past.slice(1), state.present]
-        .filter((s) => s.liveStep)
-        .map(relive);
+      // past[0] is the base; every later entry, and present, is a step. With
+      // no past, present is the base itself, however it got there.
+      const steps =
+        state.past.length > 0 ? [...state.past.slice(1), state.present] : [];
+      const kept = steps.filter((s) => s.liveStep).map(relive);
       const last = kept[kept.length - 1];
       state.past = last ? [base, ...kept.slice(0, -1)] : [];
       state.present = last ?? base;

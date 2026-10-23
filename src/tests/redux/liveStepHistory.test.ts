@@ -241,6 +241,25 @@ describe('live steps in the undo history (KAN-744)', () => {
     ]);
   });
 
+  it('a wipe never revives a live step that aged out of the history', () => {
+    const { store, history } = setup();
+    const loaded = buildContainer();
+    store.dispatch(pushLiveStep(liveStep(1)));
+    for (let i = 1; i <= STACK_LEVEL; i++) store.dispatch(set(saved(i)));
+    for (let i = 0; i < STACK_LEVEL; i++) store.dispatch(undo());
+    // present is now L1's entry, but with no past it is the base, not a step.
+    expect(history().past).toEqual([]);
+    expect(history().present.liveStep?.id).toBe(1);
+
+    store.dispatch(resetHistory({ tabContainerDataState: loaded }));
+
+    expect(history().past).toEqual([]);
+    expect(history().present).toEqual({
+      tabContainerDataState: loaded,
+      addedTabGroupIds: [],
+    });
+  });
+
   it("CONTROL: a wipe with no live steps is today's wipe", () => {
     const { store, history } = setup();
     const loaded = buildContainer();
