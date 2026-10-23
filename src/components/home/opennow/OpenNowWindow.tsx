@@ -28,9 +28,14 @@ import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import { copyLinkItem } from '../../common/rowMenu/copyLinkItem';
 import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
 import type { AppDispatch, RootState } from '../../../redux/store';
-import { sortOpenWindowBySite } from '../../../redux/sortOpenWindow';
 import {
+  sortOpenGroupBySite,
+  sortOpenWindowBySite,
+} from '../../../redux/sortOpenWindow';
+import {
+  canSortOpenGroupLive,
   canSortOpenWindowLive,
+  isOpenGroupSortedBySite,
   isOpenWindowSortedBySite,
 } from '../../../utils/functions/openNowSort';
 import { updateLiveGroup } from '../../../utils/functions/liveTabGroups';
@@ -545,6 +550,24 @@ export default function OpenNowWindow({
 
   // KAN-708. One item source for a live group: its ⋮ and its right-click read the same list.
   const openGroupMenuItems = (groupId: string): OverflowMenuItem[] => [
+    // KAN-746. First, as on the window, and only where the live sort would run and change the group.
+    ...(canSortOpenGroupLive(openWindow, Number(groupId), hasTabGroups) &&
+    !isOpenGroupSortedBySite(openWindow, Number(groupId))
+      ? [
+          {
+            key: 'sortBySite',
+            label: t('Sort tabs by site'),
+            icon: 'sort' as const,
+            onSelect: () =>
+              void dispatch(
+                sortOpenGroupBySite({
+                  windowId: openWindow.id,
+                  groupId: Number(groupId),
+                })
+              ),
+          },
+        ]
+      : []),
     {
       key: 'ungroup',
       label: t('Ungroup'),

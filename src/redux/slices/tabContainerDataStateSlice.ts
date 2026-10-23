@@ -67,9 +67,11 @@ import { withASelection } from '../../utils/functions/withOwnSelection';
 import { isSampleSession } from '../../utils/functions/sampleSession';
 import { TAB_CONTAINER_SLICE_NAME } from '../../utils/constants/actionTypes';
 import {
+  isSavedGroupSortedBySite,
   isSavedWindowSortedBySite,
   savedSortable,
   sortBySite,
+  sortWithinGroup,
 } from '../../utils/functions/sortBySite';
 import { noteReviewMoment } from '../reviewAsk';
 import {
@@ -215,6 +217,11 @@ export interface sortTabsBySiteParams {
   tabGroupId: string;
   windowId: string;
   now: number;
+}
+
+export interface sortGroupTabsBySiteParams extends sortTabsBySiteParams {
+  // The saved group's uuid, as chromeTabGroupData.groupId.
+  groupId: string;
 }
 
 export interface addCurrTabToWindowParams {
@@ -1008,6 +1015,39 @@ export const sortTabsBySite = createAsyncThunk<
   );
 });
 
+// KAN-746. As sortTabsBySite, for one group's tabs.
+export const sortGroupTabsBySite = createAsyncThunk<
+  void,
+  Omit<sortGroupTabsBySiteParams, 'now'>,
+  { state: RootState }
+>(
+  'global/sortGroupTabsBySite',
+  async ({ tabGroupId, windowId, groupId }, thunkAPI) => {
+    const window = thunkAPI
+      .getState()
+      .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === tabGroupId)
+      ?.windows.find((w) => w.windowId === windowId);
+    if (!window || isSavedGroupSortedBySite(window, groupId)) return;
+    const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+      thunkAPI.dispatch(
+        sortGroupTabsBySiteInternal({
+          tabGroupId,
+          windowId,
+          groupId,
+          now: Date.now(),
+        })
+      )
+    );
+    thunkAPI.dispatch(
+      showToast({
+        toastText: TOAST_MESSAGES.TABS_SORTED_BY_SITE,
+        announcesSavedChange: true,
+        offersUndo,
+      })
+    );
+  }
+);
+
 // add current tab to the specified window container and display a toast message
 export const addCurrTabToWindow = createAsyncThunk(
   'global/addCurrTabToWindow',
@@ -1797,6 +1837,31 @@ export const tabContainerDataStateSlice = createSlice({
       // Map back by object, not tabId: two saved tabs can share an id.
       const own = new Map(views.map((v, i) => [v, window.tabs[i]]));
       window.tabs = sortBySite(views).flatMap((v) => {
+        const tab = own.get(v);
+        return tab ? [tab] : [];
+      });
+      touchContent(state, container, now);
+      state.lastModified = now;
+      saveLocalSessions(state);
+    },
+
+    // KAN-746. As sortTabsBySiteInternal, for one group's tabs; the rest of the window stays.
+    sortGroupTabsBySiteInternal: (
+      state,
+      action: PayloadAction<sortGroupTabsBySiteParams>
+    ) => {
+      const { tabGroupId, windowId, groupId, now } = action.payload;
+      const container = state.tabGroups.find(
+        (g) => g.tabGroupId === tabGroupId
+      );
+      const window = container?.windows.find((w) => w.windowId === windowId);
+      if (!container || !window || isSavedGroupSortedBySite(window, groupId)) {
+        return;
+      }
+      const views = window.tabs.map(savedSortable);
+      // Map back by object, not tabId: two saved tabs can share an id.
+      const own = new Map(views.map((v, i) => [v, window.tabs[i]]));
+      window.tabs = sortWithinGroup(views, groupId).flatMap((v) => {
         const tab = own.get(v);
         return tab ? [tab] : [];
       });
@@ -3450,6 +3515,7 @@ export const {
   replaceSessionContentInternal,
   removeDuplicateTabsInternal,
   sortTabsBySiteInternal,
+  sortGroupTabsBySiteInternal,
   addCurrTabToWindowInternal,
   updateTabGroupTitle,
   updateWindowGroupTitle,

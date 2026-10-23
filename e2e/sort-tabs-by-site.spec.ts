@@ -5,6 +5,7 @@ import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { standIn } from './fixtures/standInPages';
 import {
   VIEWS,
+  bandHandle,
   header,
   openSaved,
   session,
@@ -725,3 +726,221 @@ plainTest(
     expect(await menuOffers(page, windowId)).toEqual({ sort: 0, close: 1 });
   }
 );
+
+// KAN-746. A group's ⋮ sorts the tabs inside that group only, saved and live.
+
+const G_BEFORE: T[] = [
+  { id: 'xLoose', host: 'x.test' },
+  { id: 'tripB1', host: 'b.test', group: 'trip' },
+  { id: 'tripA1', host: 'a.test', group: 'trip' },
+  { id: 'tripB2', host: 'b.test', group: 'trip' },
+  { id: 'yLoose', host: 'y.test' },
+  { id: 'xLoose2', host: 'x.test' },
+];
+const G_AFTER = ['xLoose', 'tripB1', 'tripB2', 'tripA1', 'yLoose', 'xLoose2'];
+const G_BEFORE_IDS = G_BEFORE.map((t) => t.id);
+const G_WINDOW: windowGroupData = {
+  ...WINDOW,
+  tabCount: G_BEFORE.length,
+  tabs: G_BEFORE.map((t) => ({
+    tabId: t.id,
+    favicon: '',
+    title: t.id,
+    url: `https://${t.host}/${t.id}`,
+    ...(t.group ? { chromeGroupId: t.group } : {}),
+  })),
+};
+
+async function openGroupMenu(page: Page): Promise<void> {
+  await bandHandle(page, 'trip').hover();
+  await bandHandle(page, 'trip')
+    .getByRole('button', { name: 'More actions', exact: true })
+    .click();
+  await expect(page.getByRole('menu')).toBeVisible();
+}
+
+for (const view of VIEWS) {
+  test.describe(`${view}, a saved group (KAN-746)`, () => {
+    test("the group's ⋮ sorts its tabs only, first item; ⌘Z restores; then it is gone", async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openSaved(context, extensionId, view, {
+        sessions: [session('S1', 'Launch week', [G_WINDOW])],
+      });
+
+      await openGroupMenu(page);
+      await expect(page.getByRole('menuitem').first()).toHaveAccessibleName(
+        'Sort tabs by site'
+      );
+      await sortItem(page).click();
+
+      await expect.poll(() => storedOrder(page)).toEqual(G_AFTER);
+      await expect(toast(page)).toContainText('Sorted the tabs by site.');
+
+      await openGroupMenu(page);
+      // PREMISE: the menu is open and still holds Ungroup.
+      await expect(
+        page.getByRole('menuitem', { name: 'Ungroup' })
+      ).toBeVisible();
+      await expect(sortItem(page)).toHaveCount(0);
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('menu')).toHaveCount(0);
+
+      await page.keyboard.press('ControlOrMeta+z');
+      await expect.poll(() => storedOrder(page)).toEqual(G_BEFORE_IDS);
+    });
+  });
+}
+
+const LIVE_G: LiveTab[] = [
+  { n: 'looseBeta1', site: 'beta' },
+  { n: 'gBeta1', site: 'beta', group: true },
+  { n: 'gAlpha1', site: 'alpha', group: true },
+  { n: 'gBeta2', site: 'beta', group: true },
+  { n: 'gAlpha2', site: 'alpha', group: true },
+  { n: 'looseAlpha1', site: 'alpha' },
+];
+const LIVE_G_BEFORE = LIVE_G.map((t) => t.n);
+const LIVE_G_AFTER = [
+  'looseBeta1',
+  'gBeta1',
+  'gBeta2',
+  'gAlpha1',
+  'gAlpha2',
+  'looseAlpha1',
+];
+
+const groupMoreActions = (page: Page, windowId: number): Locator =>
+  liveBlock(page, windowId).getByRole('button', {
+    name: 'More actions: Trip',
+    exact: true,
+  });
+
+async function chooseGroupSortInOpenNow(
+  page: Page,
+  windowId: number
+): Promise<void> {
+  await liveBlock(page, windowId)
+    .getByRole('group', { name: /Trip/ })
+    .locator('[data-group-drag-handle]')
+    .hover();
+  await groupMoreActions(page, windowId).click();
+  await sortItem(page).click();
+}
+
+// Chrome's own record of every tab moved in the window, from now on, by label.
+const recordGroupMoves = (worker: Worker, windowId: number) =>
+  worker.evaluate((id) => {
+    const g = globalThis as unknown as { kan746Moved: number[] };
+    g.kan746Moved = [];
+    chrome.tabs.onMoved.addListener((tabId, info) => {
+      if (info.windowId === id) g.kan746Moved.push(tabId);
+    });
+  }, windowId);
+const groupMovesSoFar = (worker: Worker): Promise<string[]> =>
+  worker.evaluate(async () => {
+    const g = globalThis as unknown as { kan746Moved: number[] };
+    return Promise.all(
+      g.kan746Moved.map(async (id) => {
+        const url = (await chrome.tabs.get(id)).url ?? '';
+        return url.startsWith('chrome-extension://')
+          ? 'TK'
+          : decodeURIComponent(new URL(url).pathname.slice(1));
+      })
+    );
+  });
+
+const keptPinAndGroup = (before: Row[], after: Row[]) => {
+  for (const row of after) {
+    const was = before.find((b) => b.label === row.label);
+    expect({ pinned: row.pinned, groupId: row.groupId }).toEqual({
+      pinned: was?.pinned,
+      groupId: was?.groupId,
+    });
+  }
+};
+
+test.describe('Open now group menu (KAN-746)', () => {
+  test("Sort moves only the group's tab out of place, once; ⌘Z puts it back the same way", async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const windowId = await makeLiveWindow(serviceWorker, extensionId, LIVE_G);
+    await loaded(serviceWorker, windowId, LIVE_G_BEFORE);
+    const before = await liveStrip(serviceWorker, windowId);
+    const page = await openTabView(context, extensionId);
+    await recordGroupMoves(serviceWorker, windowId);
+
+    await chooseGroupSortInOpenNow(page, windowId);
+
+    await expect
+      .poll(() => labelsOf(serviceWorker, windowId))
+      .toEqual(LIVE_G_AFTER);
+    await sortedToastShows(page);
+    await expect
+      .poll(() => groupMovesSoFar(serviceWorker))
+      .toEqual(['gAlpha1']);
+    keptPinAndGroup(before, await liveStrip(serviceWorker, windowId));
+    // Sorted now: the group's ⋮ offers no Sort, and the window's still does (its loose tabs are not).
+    await groupMoreActions(page, windowId).click();
+    await expect(page.getByRole('menuitem', { name: 'Ungroup' })).toBeVisible();
+    await expect(sortItem(page)).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    expect((await menuOffers(page, windowId)).sort).toBe(1);
+
+    await page.keyboard.press('ControlOrMeta+z');
+
+    await expect
+      .poll(() => labelsOf(serviceWorker, windowId))
+      .toEqual(LIVE_G_BEFORE);
+    expect(await liveStrip(serviceWorker, windowId)).toEqual(before);
+    await expect
+      .poll(() => groupMovesSoFar(serviceWorker))
+      .toEqual(['gAlpha1', 'gBeta2']);
+  });
+
+  test('the Tab Keeper tab first in the group stays first in it through a group sort of This window', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const tabs: LiveTab[] = [
+      LIVE_G[0],
+      { n: 'TK', site: 'tk', group: true, tabKeeper: true },
+      ...LIVE_G.slice(1),
+    ];
+    const windowId = await makeLiveWindow(serviceWorker, extensionId, tabs);
+    await loaded(
+      serviceWorker,
+      windowId,
+      tabs.map((t) => t.n)
+    );
+    const page = await tabViewInNewWindow(context, extensionId);
+    const before = await liveStrip(serviceWorker, windowId);
+    // PREMISE: Tab Keeper starts first in the group.
+    expect(before[1]).toEqual({
+      label: 'TK',
+      pinned: false,
+      groupId: before[2].groupId,
+    });
+    await recordGroupMoves(serviceWorker, windowId);
+
+    await chooseGroupSortInOpenNow(page, windowId);
+
+    await expect
+      .poll(() => labelsOf(serviceWorker, windowId))
+      .toEqual([LIVE_G_AFTER[0], 'TK', ...LIVE_G_AFTER.slice(1)]);
+    keptPinAndGroup(before, await liveStrip(serviceWorker, windowId));
+    expect(await groupMovesSoFar(serviceWorker)).not.toContain('TK');
+
+    await sortedToastShows(page);
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect
+      .poll(() => labelsOf(serviceWorker, windowId))
+      .toEqual(tabs.map((t) => t.n));
+    expect(await liveStrip(serviceWorker, windowId)).toEqual(before);
+  });
+});

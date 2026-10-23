@@ -494,3 +494,66 @@ describe('right-clicking an Open now group’s colour bar (KAN-708)', () => {
     expect(document.querySelectorAll('[data-row-menu]')).toHaveLength(0);
   });
 });
+
+// KAN-746. A live group's ⋮ (and right-click) offers Sort tabs by site first,
+// only while sorting would change that group's order.
+describe('Sort tabs by site on a live group (KAN-746)', () => {
+  // Docs holds a, b, a: out of order. The window's loose tab stays put.
+  const unsorted = (): ChromeSeed =>
+    seed({
+      windows: [
+        { id: 1, focused: true, tabs: [tab(11, { active: true })] },
+        {
+          id: 2,
+          tabs: [
+            tab(21, { active: true }),
+            { id: 22, title: 'a1', url: 'https://a.test/1', groupId: 50 },
+            { id: 23, title: 'b1', url: 'https://b.test/1', groupId: 50 },
+            { id: 25, title: 'a2', url: 'https://a.test/2', groupId: 50 },
+            tab(24, { groupId: 51 }),
+          ],
+        },
+      ],
+    });
+
+  test('the menu lists Sort tabs by site first, then Ungroup, then Close group', async () => {
+    const user = userEvent.setup();
+    await renderOpenNow(unsorted());
+    await openGroupMenu(user, 'Docs');
+    expect(menuKeys()).toEqual(['sortBySite', 'ungroup', 'closeGroup']);
+  });
+
+  test("choosing it sorts the real group's tabs and says so", async () => {
+    const user = userEvent.setup();
+    await renderOpenNow(unsorted());
+    await openGroupMenu(user, 'Docs');
+    await user.click(
+      within(screen.getByRole('menu')).getByRole('menuitem', {
+        name: 'Sort tabs by site',
+      })
+    );
+    await waitFor(async () =>
+      expect(await groupIdsOfWindow2()).toEqual([
+        [21, -1],
+        [22, 50],
+        [25, 50],
+        [23, 50],
+        [24, 51],
+      ])
+    );
+    expect(await screen.findByText('Sorted the tabs by site.')).toBeVisible();
+  });
+
+  test('right-click offers it too', async () => {
+    await renderOpenNow(unsorted());
+    fireEvent.contextMenu(titleRowOf('Docs'));
+    expect(menuKeys()).toEqual(['sortBySite', 'ungroup', 'closeGroup']);
+  });
+
+  test('absent for a sorted group', async () => {
+    const user = userEvent.setup();
+    await renderOpenNow();
+    await openGroupMenu(user, 'Docs');
+    expect(menuKeys()).toEqual(['ungroup', 'closeGroup']);
+  });
+});

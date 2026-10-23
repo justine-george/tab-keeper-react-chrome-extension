@@ -6,11 +6,13 @@ import type {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { generatePlaceholderURL } from '../../utils/functions/local';
 import {
+  isGroupSortedBySite,
   isSavedWindowSortedBySite,
   isSortedBySite,
   savedSortable,
   siteOf,
   sortBySite,
+  sortWithinGroup,
   type SortableTab,
 } from '../../utils/functions/sortBySite';
 
@@ -340,5 +342,107 @@ describe('isSavedWindowSortedBySite', () => {
     const a2 = saved('a2', 'https://a.com/2');
     expect(isSavedWindowSortedBySite(savedWindow([a, b, a2]))).toBe(false);
     expect(isSavedWindowSortedBySite(savedWindow([a, a2, b]))).toBe(true);
+  });
+});
+
+// KAN-746. One group's tabs by site among themselves; nothing else moves.
+describe('sortWithinGroup', () => {
+  const trip = { groupKey: 'trip' };
+  const work = { groupKey: 'work' };
+  const window = [
+    t('pinned', 'https://z.example/', { pinned: true }),
+    t('looseB', 'https://b.example/1'),
+    t('tripB1', 'https://b.example/t1', trip),
+    t('tripA1', 'https://a.example/t1', trip),
+    t('tripNone', 'chrome://settings', trip),
+    t('tripB2', 'https://b.example/t2', trip),
+    t('tripA2', 'https://a.example/t2', trip),
+    t('workB', 'https://b.example/w', work),
+    t('workA', 'https://a.example/w', work),
+    t('looseA', 'https://a.example/1'),
+  ];
+
+  test("sorts the group's tabs by first-seen site, no-site last, in the slots they held", () => {
+    expect(keys(sortWithinGroup(window, 'trip'))).toEqual([
+      'pinned',
+      'looseB',
+      'tripB1',
+      'tripB2',
+      'tripA1',
+      'tripA2',
+      'tripNone',
+      'workB',
+      'workA',
+      'looseA',
+    ]);
+  });
+
+  test('leaves every other group and loose tab as it was', () => {
+    const sorted = sortWithinGroup(window, 'work');
+    expect(keys(sorted)).toEqual([
+      'pinned',
+      'looseB',
+      'tripB1',
+      'tripA1',
+      'tripNone',
+      'tripB2',
+      'tripA2',
+      'workB',
+      'workA',
+      'looseA',
+    ]);
+  });
+
+  test('keeps a split pair in the group together, at its first tab', () => {
+    const input = [
+      t('b1', 'https://b.example/1', trip),
+      t('a1', 'https://a.example/1', { ...trip, splitKey: 's' }),
+      t('b2', 'https://b.example/2', { ...trip, splitKey: 's' }),
+      t('a2', 'https://a.example/2', trip),
+    ];
+    expect(keys(sortWithinGroup(input, 'trip'))).toEqual([
+      'b1',
+      'a1',
+      'b2',
+      'a2',
+    ]);
+  });
+
+  test('a group of no tabs, or an unknown key, changes nothing', () => {
+    expect(keys(sortWithinGroup(window, 'gone'))).toEqual(keys(window));
+    expect(sortWithinGroup([], 'trip')).toEqual([]);
+  });
+
+  test('the window sort still leaves the inside of a group alone', () => {
+    expect(
+      keys(sortBySite(window)).filter((k) => k.startsWith('trip'))
+    ).toEqual(['tripB1', 'tripA1', 'tripNone', 'tripB2', 'tripA2']);
+  });
+});
+
+describe('isGroupSortedBySite', () => {
+  const trip = { groupKey: 'trip' };
+  test('false while the group is out of order, true once sorted', () => {
+    const input = [
+      t('looseZ', 'https://z.example/'),
+      t('b1', 'https://b.example/1', trip),
+      t('a1', 'https://a.example/1', trip),
+      t('b2', 'https://b.example/2', trip),
+    ];
+    expect(isGroupSortedBySite(input, 'trip')).toBe(false);
+    expect(isGroupSortedBySite(sortWithinGroup(input, 'trip'), 'trip')).toBe(
+      true
+    );
+  });
+
+  test('loose tabs out of order do not make a sorted group unsorted', () => {
+    const input = [
+      t('looseB', 'https://b.example/'),
+      t('a1', 'https://a.example/1', trip),
+      t('looseA', 'https://a.example/'),
+      t('looseB2', 'https://b.example/2'),
+    ];
+    expect(isSortedBySite(input)).toBe(false);
+    expect(isGroupSortedBySite(input, 'trip')).toBe(true);
   });
 });

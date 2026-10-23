@@ -205,7 +205,9 @@ test('a group removes its own repeat and leaves the copy outside it', async ({
   await bandHandle(page, 'g1')
     .getByRole('button', { name: 'More actions', exact: true })
     .click();
+  // KAN-746: guide, tram, guide is out of site order, so Sort comes first.
   await expect(page.getByRole('menuitem')).toHaveText([
+    /Sort tabs by site$/,
     /Ungroup$/,
     /Remove 1 duplicate tab$/,
     /Delete tab group$/,

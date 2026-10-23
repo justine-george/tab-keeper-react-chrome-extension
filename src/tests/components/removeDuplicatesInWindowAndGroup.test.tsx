@@ -186,7 +186,9 @@ describe('the group ⋮ (KAN-616, 2A)', () => {
     const user = userEvent.setup();
     await render();
     const menu = await openGroupMenu(user);
+    // KAN-746: guide, tram, guide is out of site order, so Sort comes first.
     expect(items(menu)).toEqual([
+      'Sort tabs by site',
       'Ungroup',
       'Remove 1 duplicate tab',
       'Delete tab group',

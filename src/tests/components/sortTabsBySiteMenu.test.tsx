@@ -135,3 +135,74 @@ describe('Sort tabs by site in a saved window menu (KAN-694)', () => {
     expect(names(menu)).toEqual([expect.stringMatching(/Delete window$/)]);
   });
 });
+
+// KAN-746. A saved group's ⋮ offers it first too, for that group's tabs only.
+describe('Sort tabs by site in a saved group menu (KAN-746)', () => {
+  const g1 = { chromeGroupId: 'g1' };
+  const openGroupMenu = async (user: ReturnType<typeof userEvent.setup>) => {
+    const band = screen.getByRole('group', { name: /Research/ });
+    await user.click(
+      within(band).getByRole('button', { name: 'More actions' })
+    );
+    return screen.getByRole('menu');
+  };
+
+  test('is the first item, above Ungroup and Delete tab group', async () => {
+    const user = userEvent.setup();
+    await render([
+      tab('b1', 'b.test', g1),
+      tab('a1', 'a.test', g1),
+      tab('b2', 'b.test', g1),
+    ]);
+    const menu = await openGroupMenu(user);
+    expect(names(menu)).toEqual([
+      expect.stringMatching(/Sort tabs by site$/),
+      expect.stringMatching(/Ungroup$/),
+      expect.stringMatching(/Delete tab group$/),
+    ]);
+  });
+
+  test("choosing it reorders the group's stored tabs only, with Undo", async () => {
+    const user = userEvent.setup();
+    const { store } = await render([
+      tab('z1', 'z.test'),
+      tab('b1', 'b.test', g1),
+      tab('a1', 'a.test', g1),
+      tab('b2', 'b.test', g1),
+      tab('y1', 'y.test'),
+      tab('z2', 'z.test'),
+    ]);
+    const menu = await openGroupMenu(user);
+    await user.click(
+      within(menu).getByRole('menuitem', { name: 'Sort tabs by site' })
+    );
+    expect(storedIds(store.getState())).toEqual([
+      'z1',
+      'b1',
+      'b2',
+      'a1',
+      'y1',
+      'z2',
+    ]);
+    const toast = newestToast(store.getState());
+    expect(toast?.text).toBe(TOAST_MESSAGES.TABS_SORTED_BY_SITE);
+    expect(toast?.offersUndo).toBe(true);
+  });
+
+  test('is absent when the group is sorted, though the window is not', async () => {
+    const user = userEvent.setup();
+    await render([
+      tab('z1', 'z.test'),
+      tab('b1', 'b.test', g1),
+      tab('b2', 'b.test', g1),
+      tab('a1', 'a.test', g1),
+      tab('y1', 'y.test'),
+      tab('z2', 'z.test'),
+    ]);
+    const menu = await openGroupMenu(user);
+    expect(names(menu)).toEqual([
+      expect.stringMatching(/Ungroup$/),
+      expect.stringMatching(/Delete tab group$/),
+    ]);
+  });
+});

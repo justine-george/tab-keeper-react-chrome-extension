@@ -15,7 +15,12 @@ import type {
 } from '../../components/home/rightpane/rowDrag/dropRules';
 import type { OpenTab, OpenWindow } from './openNow';
 import { isTabKeeperPage } from './capture';
-import { applyLiveOrder, holdsSplitView, orderBeforeSort } from './openNowSort';
+import {
+  applyGroupOrder,
+  applyLiveOrder,
+  holdsSplitView,
+  orderBeforeSort,
+} from './openNowSort';
 import { partitionTabsIntoItems, sanitizeTabGroupColor } from './tabGroups';
 import type { TabGroupColor } from './tabGroups';
 
@@ -575,9 +580,10 @@ export async function moveOpenGroup(
 // tab, moved on its own), moveOpenGroup's (`kind: 'group'`, every tab of the
 // group, moved as one group), or a sort by site's (`kind: 'sort'`, every tab
 // of the window but Tab Keeper pages, put in their old order or their sorted
-// one; KAN-694).
+// one; KAN-694), or a sort inside one group's (`kind: 'groupSort'`, every tab
+// of that group but Tab Keeper pages; KAN-746).
 export interface OpenNowDrop {
-  kind: 'tab' | 'group' | 'sort';
+  kind: 'tab' | 'group' | 'sort' | 'groupSort';
   moved: MovedTabs;
 }
 
@@ -630,6 +636,23 @@ async function holdsOnlyTheSortedTabs(moved: MovedTabs): Promise<boolean> {
   if (strip === REFUSED || holdsSplitView(strip)) return false;
   const recorded = new Set(moved.map((tab) => tab.tabId));
   return strip.every(
+    (tab) =>
+      isTabKeeperPage(tab) || (tab.id !== undefined && recorded.has(tab.id))
+  );
+}
+
+// KAN-746. As holdsOnlyTheSortedTabs, for a group sort: its group holds only what the sort recorded, and no split view.
+async function holdsOnlyTheSortedGroup(moved: MovedTabs): Promise<boolean> {
+  const place = moved[0]?.after;
+  if (place === undefined) return false;
+  const strip = await attempt(() =>
+    chrome.tabs.query({ windowId: place.windowId })
+  );
+  if (strip === REFUSED) return false;
+  const group = strip.filter((tab) => tab.groupId === place.groupId);
+  if (holdsSplitView(group)) return false;
+  const recorded = new Set(moved.map((tab) => tab.tabId));
+  return group.every(
     (tab) =>
       isTabKeeperPage(tab) || (tab.id !== undefined && recorded.has(tab.id))
   );
@@ -814,7 +837,8 @@ async function moveToBefore(
   const states = await whereTheLastRunLeftThem(drop.moved);
   if (states === null) return 'changedSince';
   // A sort never changes window, so only a tab or group step can lose its target.
-  if (drop.kind !== 'sort' && !(await targetWindowsOpen(drop.moved))) {
+  const isSort = drop.kind === 'sort' || drop.kind === 'groupSort';
+  if (!isSort && !(await targetWindowsOpen(drop.moved))) {
     return 'windowClosed';
   }
   // KAN-744 R12: chrome.tabGroups is absent without the grant.
@@ -839,6 +863,17 @@ async function moveToBefore(
     const windowId = drop.moved[0]?.before.windowId;
     if (windowId === undefined) return 'couldNotRun';
     const ordered = await applyLiveOrder(windowId, orderBeforeSort(records));
+    return ordered ? 'done' : 'couldNotRun';
+  }
+  // KAN-746. A group sort moves no tab out of its group, so the members' order is the whole run.
+  if (drop.kind === 'groupSort') {
+    if (!(await holdsOnlyTheSortedGroup(drop.moved))) return 'changedSince';
+    const place = drop.moved[0]?.before;
+    if (place === undefined) return 'couldNotRun';
+    const order = [...drop.moved]
+      .sort((a, b) => a.before.index - b.before.index)
+      .map((tab) => tab.tabId);
+    const ordered = await applyGroupOrder(place.windowId, place.groupId, order);
     return ordered ? 'done' : 'couldNotRun';
   }
   for (const [i, tab] of drop.moved.entries()) {

@@ -1,7 +1,13 @@
 // KAN-694. Sort tabs by site in a live window: the order, and the Chrome calls that put a window in it.
 import type { OpenTab, OpenWindow } from './openNow';
 import type { TabPlace } from './openNowMoves';
-import { isSortedBySite, sortBySite, type SortableTab } from './sortBySite';
+import {
+  isGroupSortedBySite,
+  isSortedBySite,
+  sortBySite,
+  sortWithinGroup,
+  type SortableTab,
+} from './sortBySite';
 
 // chrome.tabGroups.TAB_GROUP_ID_NONE, spelled out: chrome.tabGroups is absent without the grant.
 const NO_GROUP = -1;
@@ -216,6 +222,62 @@ export async function applyLiveOrder(
   return true;
 }
 
+// KAN-746. The ids of a group's tabs in their sorted order, the Tab Keeper page left out (never passed to a move).
+export function liveGroupSortOrder(
+  tabs: readonly chrome.tabs.Tab[],
+  groupId: number,
+  isTabKeeperPage: (tab: chrome.tabs.Tab) => boolean
+): number[] {
+  const members = inStripOrder(tabs)
+    .filter((tab) => tab.groupId === groupId && !isTabKeeperPage(tab))
+    .map((tab) => ({
+      key: String(tab.id),
+      url: tab.url || tab.pendingUrl || '',
+      pinned: tab.pinned,
+      groupKey: String(groupId),
+      // A group with a split is not sorted live (canSortOpenGroupLive), so no pair is kept.
+      splitKey: null,
+      id: tab.id,
+    }));
+  return sortWithinGroup(members, String(groupId)).map((tab) => tab.id);
+}
+
+// KAN-746. Puts a group's tabs in `ids` order with KAN-743's keep-still moves, the group's run as the region: a tab already in order stays, each other moves once, right after the tab before it.
+// Every spot is inside the run, where a tab stays in its group (probe 2026-10-23: its first and last slot too). Tabs left out of `ids` stay, and are pushed along. False at the first call Chrome refuses, or when a tab in `ids` is not in the group.
+export async function applyGroupOrder(
+  windowId: number,
+  groupId: number,
+  ids: readonly number[]
+): Promise<boolean> {
+  const units: LiveUnit[] = ids.map((id) => ({ kind: 'tab', id }));
+  const strip = await readStrip(windowId);
+  if (strip === null) return false;
+  const inGroup = (tab: LiveTab) => tab.groupId === groupId;
+  const ranks: number[] = [];
+  for (const tab of strip) {
+    if (!inGroup(tab) || tab.id === undefined) continue;
+    const rank = ids.indexOf(tab.id);
+    if (rank !== -1) ranks.push(rank);
+  }
+  if (ranks.length !== ids.length) return false;
+  const kept = keptInPlace(ranks);
+  for (const [i, unit] of units.entries()) {
+    if (kept.has(i)) continue;
+    const now = await readStrip(windowId);
+    if (now === null) return false;
+    const runStart = now.find(inGroup)?.index;
+    if (runStart === undefined) return false;
+    const spot = spotFor(now, units, i, runStart);
+    if (spot === null) return false;
+    if (spot.from === spot.to) continue;
+    const index = spot.to;
+    if (!(await succeeds(() => chrome.tabs.move(unit.id, { index })))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // Whether any tab is in a split view: tabs.move ends a split, and only a group move keeps one (KAN-694 Task 1, Q4).
 export function holdsSplitView(
   tabs: readonly { splitViewId?: number }[]
@@ -246,4 +308,24 @@ function openSortable(tab: OpenTab): SortableTab {
 // Whether the listed tabs (Tab Keeper pages are not listed) are already in the sorted order.
 export function isOpenWindowSortedBySite(window: OpenWindow): boolean {
   return isSortedBySite(window.tabs.map(openSortable));
+}
+
+// KAN-746. Whether Open now may sort this group live: with the tab group grant, and no tab of the group in a split view (tabs.move would end it; a split elsewhere is not touched).
+export function canSortOpenGroupLive(
+  window: OpenWindow,
+  groupId: number,
+  hasTabGroups: boolean
+): boolean {
+  return (
+    hasTabGroups &&
+    !holdsSplitView(window.tabs.filter((tab) => tab.groupId === groupId))
+  );
+}
+
+// KAN-746. Whether the group's listed tabs are already in the sorted order.
+export function isOpenGroupSortedBySite(
+  window: OpenWindow,
+  groupId: number
+): boolean {
+  return isGroupSortedBySite(window.tabs.map(openSortable), String(groupId));
 }

@@ -53,9 +53,13 @@ import {
   deleteChromeTabGroup,
   updateChromeTabGroupColor,
   removeDuplicateTabs,
+  sortGroupTabsBySite,
   sortTabsBySite,
 } from '../../../redux/slices/tabContainerDataStateSlice';
-import { isSavedWindowSortedBySite } from '../../../utils/functions/sortBySite';
+import {
+  isSavedGroupSortedBySite,
+  isSavedWindowSortedBySite,
+} from '../../../utils/functions/sortBySite';
 import { countDuplicateTabs } from '../../../utils/functions/duplicateTabs';
 import {
   collapsedWindowIdsOf,
@@ -310,6 +314,20 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   // KAN-708. A group's items: the one source for its ⋮ and its right-click menu.
   const savedGroupMenuItems = (groupId: string): OverflowMenuItem[] => [
+    // KAN-746. First, as on the window, and only while sorting would change the group's order.
+    ...(isSavedGroupSortedBySite({ tabs }, groupId)
+      ? []
+      : [
+          {
+            key: 'sortBySite',
+            label: t('Sort tabs by site'),
+            icon: 'sort' as const,
+            onSelect: () =>
+              void dispatch(
+                sortGroupTabsBySite({ tabGroupId, windowId, groupId })
+              ),
+          },
+        ]),
     {
       key: 'ungroup',
       label: t('Ungroup'),
