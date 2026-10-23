@@ -121,13 +121,27 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     expect(toastTexts(r.store.getState())).toEqual([]);
   });
 
+  // KAN-748. The order on screen: Merge, the safe answer, comes last as the primary.
+  test('reads Cancel, Replace, Merge, with the dialog itself holding focus', async () => {
+    const inputs = captureFileInput();
+    await render();
+    const dialog = await pickBackup(inputs);
+
+    expect(
+      within(dialog)
+        .getAllByRole('button')
+        .map((b) => b.textContent)
+    ).toEqual(['Cancel', 'Replace', 'Merge']);
+    expect(dialog).toHaveFocus();
+  });
+
   test('Replace applies the file in place of what was here and reports success', async () => {
     const inputs = captureFileInput();
     const r = await render();
     const dialog = await pickBackup(inputs);
 
     await userEvent.click(
-      within(dialog).getByRole('button', { name: 'Replace sessions' })
+      within(dialog).getByRole('button', { name: 'Replace' })
     );
 
     await waitFor(() => {
@@ -147,7 +161,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     const dialog = await pickBackup(inputs);
 
     await userEvent.click(
-      within(dialog).getByRole('button', { name: 'Merge sessions' })
+      within(dialog).getByRole('button', { name: 'Merge' })
     );
 
     await waitFor(() => {
@@ -164,7 +178,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
   // KAN-257 through both answers. importGuard.test.tsx pins the Auto Sync
   // gate on the no-dialog path; these pin the same gate on the two paths the
   // dialog takes, so the three cannot drift apart.
-  for (const answer of ['Replace sessions', 'Merge sessions'] as const) {
+  for (const answer of ['Replace', 'Merge'] as const) {
     test(`${answer} with Auto Sync off writes nothing and leaves the container dirty`, async () => {
       const inputs = captureFileInput();
       const r = await render(HERE, (s) => {
@@ -199,7 +213,7 @@ describe('the load-backup dialog (KAN-252, KAN-261)', () => {
     const dialog = await pickBackup(inputs, 'same.json', JSON.stringify(HERE));
 
     await userEvent.click(
-      within(dialog).getByRole('button', { name: 'Merge sessions' })
+      within(dialog).getByRole('button', { name: 'Merge' })
     );
 
     await waitFor(() => {

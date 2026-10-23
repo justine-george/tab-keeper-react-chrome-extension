@@ -101,8 +101,8 @@ test.describe('Load sessions from a backup asks first (KAN-252, KAN-261)', () =>
     );
     await expect(dialog.getByRole('button')).toHaveText([
       'Cancel',
-      'Merge sessions',
-      'Replace sessions',
+      'Replace',
+      'Merge',
     ]);
     // Unlit: the dialog holds the focus, no button is pre-chosen, so Enter on
     // open does nothing -- neither answer is a keypress away.
@@ -125,7 +125,7 @@ test.describe('Load sessions from a backup asks first (KAN-252, KAN-261)', () =>
     const dialog = dialogOf(page);
     await expect(dialog).toBeVisible();
 
-    await dialog.getByRole('button', { name: 'Merge sessions' }).click();
+    await dialog.getByRole('button', { name: 'Merge' }).click();
 
     await expect(dialog).toHaveCount(0);
     await expect
@@ -148,9 +148,7 @@ test.describe('Load sessions from a backup asks first (KAN-252, KAN-261)', () =>
     await seedSettings(context, { isAutoSync: false });
     const page = await openSyncAndBackup(context, extensionId);
     await pickBackup(page, 'monday.json');
-    await dialogOf(page)
-      .getByRole('button', { name: 'Merge sessions' })
-      .click();
+    await dialogOf(page).getByRole('button', { name: 'Merge' }).click();
 
     await expect(page.locator('[role="status"] [data-toast]')).toHaveText(
       'Tabs restored.'
@@ -166,7 +164,7 @@ test.describe('Load sessions from a backup asks first (KAN-252, KAN-261)', () =>
     const dialog = dialogOf(page);
     await expect(dialog).toBeVisible();
 
-    await dialog.getByRole('button', { name: 'Replace sessions' }).click();
+    await dialog.getByRole('button', { name: 'Replace' }).click();
 
     await expect(dialog).toHaveCount(0);
     await expect.poll(() => titlesHere(page)).toEqual(['From the file']);

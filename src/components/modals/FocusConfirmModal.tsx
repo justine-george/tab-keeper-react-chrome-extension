@@ -10,7 +10,7 @@ import { AppDispatch, RootState } from '../../redux/store';
 import { closeFocusModal } from '../../redux/slices/globalStateSlice';
 import { focusTabContainer } from '../../redux/slices/tabContainerDataStateSlice';
 import { DIALOG, TYPE } from '../../styles/scale';
-import { dialogButtonStyles } from './dialogButtons';
+import { dialogButtonStyles, pairCss, tallButtonCss } from './dialogButtons';
 
 const TITLE_ID = 'focus-confirm-title';
 const BODY_ID = 'focus-confirm-body';
@@ -126,11 +126,12 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
     color: ${COLORS.LABEL_L1_COLOR};
   `;
 
+  // KAN-748. The tab groups offer's pair: the way out, then the primary half as wide again, at the right.
   const actionsStyle = css`
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
+    ${pairCss}
+    margin-left: auto;
   `;
+  const tall = tallButtonCss(24);
 
   return (
     <dialog
@@ -151,10 +152,18 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
       <div css={actionsStyle}>
         {/* Cancel comes first so showModal() lands the initial focus on the
             action that changes nothing. */}
-        <button type="button" css={buttons.quiet} onClick={handleCancel}>
+        <button
+          type="button"
+          css={[buttons.quiet, tall]}
+          onClick={handleCancel}
+        >
           {t('FocusConfirmCancel')}
         </button>
-        <button type="button" css={buttons.filled} onClick={handleConfirm}>
+        <button
+          type="button"
+          css={[buttons.filled, tall]}
+          onClick={handleConfirm}
+        >
           {t('FocusConfirmConfirm')}
         </button>
       </div>

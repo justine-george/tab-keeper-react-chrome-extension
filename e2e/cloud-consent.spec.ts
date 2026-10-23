@@ -353,7 +353,7 @@ test.describe('loading a backup asks consent before uploading (KAN-415)', () => 
         mimeType: 'application/json',
         buffer: Buffer.from(JSON.stringify(FROM_FILE)),
       });
-      await page.getByRole('button', { name: 'Merge sessions' }).click();
+      await page.getByRole('button', { name: 'Merge', exact: true }).click();
       // Settings covers the list: the merge is read from storage.
       await expect
         .poll(() =>

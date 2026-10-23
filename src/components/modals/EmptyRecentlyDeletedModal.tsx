@@ -6,7 +6,7 @@ import { css } from '@emotion/react';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { DIALOG, TYPE } from '../../styles/scale';
-import { dialogButtonStyles } from './dialogButtons';
+import { dialogButtonStyles, pairCss, tallButtonCss } from './dialogButtons';
 
 /**
  * Confirms Empty on Recently deleted (KAN-595). The same <dialog> contract as
@@ -87,17 +87,25 @@ export function EmptyRecentlyDeletedModal({
       >
         {t('EmptyRecentlyDeletedBody', { count })}
       </p>
+      {/* KAN-748. The tab groups offer's pair: Cancel, then Delete half as wide again, at the right. */}
       <div
         css={css`
-          display: flex;
-          justify-content: flex-end;
-          gap: 8px;
+          ${pairCss}
+          margin-left: auto;
         `}
       >
-        <button type="button" css={buttons.quiet} onClick={onCancel}>
+        <button
+          type="button"
+          css={[buttons.quiet, tallButtonCss(24)]}
+          onClick={onCancel}
+        >
           {t('Cancel')}
         </button>
-        <button type="button" css={buttons.danger} onClick={onConfirm}>
+        <button
+          type="button"
+          css={[buttons.danger, tallButtonCss(24)]}
+          onClick={onConfirm}
+        >
           {t('Delete')}
         </button>
       </div>
