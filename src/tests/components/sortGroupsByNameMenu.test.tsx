@@ -106,10 +106,7 @@ describe('saved window', () => {
 
   test('sits right under Sort tabs by site, and the right-click offers the same', async () => {
     const user = userEvent.setup();
-    await render(
-      [tab('x'), tab('z1', 'gZ'), tab('a1', 'gA')],
-      [ZULU, ALPHA]
-    );
+    await render([tab('x'), tab('z1', 'gZ'), tab('a1', 'gA')], [ZULU, ALPHA]);
     const dots = labels(await openMenu(user));
     expect(dots).toEqual([
       'Sort tabs by site',
@@ -217,9 +214,7 @@ describe('Open now window', () => {
     return result;
   }
   const blockOf = (windowId: number) => {
-    const block = document.querySelector(
-      `[data-open-window-id="${windowId}"]`
-    );
+    const block = document.querySelector(`[data-open-window-id="${windowId}"]`);
     if (!(block instanceof HTMLElement)) throw new Error('no window block');
     return block;
   };

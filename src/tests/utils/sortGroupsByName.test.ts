@@ -85,10 +85,7 @@ describe('sortGroupsByName', () => {
   test('a window with no group or one group is left as it is', () => {
     const none = strip('b', 'a');
     const one = strip('b', 'G:g', 'a');
-    expect(keys(sortGroupsByName(none, titles({}), 'en'))).toEqual([
-      'b',
-      'a',
-    ]);
+    expect(keys(sortGroupsByName(none, titles({}), 'en'))).toEqual(['b', 'a']);
     expect(keys(sortGroupsByName(one, titles({ G: 'g' }), 'en'))).toEqual([
       'b',
       'g',
@@ -116,9 +113,7 @@ describe('isSortedGroupsByName', () => {
 
   test('true with unnamed groups after named ones, whatever their order', () => {
     const tabs = strip('A:a', 'U2:u2', 'U1:u1');
-    expect(isSortedGroupsByName(tabs, titles({ A: 'Alpha' }), 'en')).toBe(
-      true
-    );
+    expect(isSortedGroupsByName(tabs, titles({ A: 'Alpha' }), 'en')).toBe(true);
   });
 });
 
