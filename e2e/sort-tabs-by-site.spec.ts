@@ -473,6 +473,103 @@ test.describe('Open now window menu (KAN-694)', () => {
     }
   });
 
+  // KAN-743. Chrome's own record of every tab moved in the window, from now on.
+  const recordMoves = (worker: Worker, windowId: number) =>
+    worker.evaluate((id) => {
+      const g = globalThis as unknown as { kan743Moved: number[] };
+      g.kan743Moved = [];
+      chrome.tabs.onMoved.addListener((tabId, info) => {
+        if (info.windowId === id) g.kan743Moved.push(tabId);
+      });
+    }, windowId);
+  // Every tab moved since recording began, by label, in the order they moved.
+  const movedSoFar = (worker: Worker): Promise<string[]> =>
+    worker.evaluate(async () => {
+      const g = globalThis as unknown as { kan743Moved: number[] };
+      return Promise.all(
+        g.kan743Moved.map(async (id) => {
+          const url = (await chrome.tabs.get(id)).url ?? '';
+          return decodeURIComponent(new URL(url).pathname.slice(1));
+        })
+      );
+    });
+  const cycle = ['alpha', 'beta', 'gamma'];
+  const KEEP_STILL: {
+    name: string;
+    tabs: LiveTab[];
+    sortMoves: string[];
+    undoMoves: string[];
+  }[] = [
+    {
+      name: 'one tab out of place',
+      tabs: ['a1', 'a2', 'b1', 'b2', 'c1', 'c2', 'a3'].map((n) => ({
+        n,
+        site: cycle['abc'.indexOf(n[0])],
+      })),
+      sortMoves: ['a3'],
+      undoMoves: ['a3'],
+    },
+    {
+      name: 'three sites interleaved',
+      tabs: Array.from({ length: 10 }, (_, i) => ({
+        n: `t${i}${cycle[i % 3]}`,
+        site: cycle[i % 3],
+      })),
+      sortMoves: ['t9alpha', 't1beta', 't4beta', 't2gamma', 't5gamma'],
+      undoMoves: ['t3alpha', 't6alpha', 't9alpha', 't4beta', 't7beta'],
+    },
+    {
+      name: 'pinned, a group and loose',
+      tabs: LIVE,
+      sortMoves: ['pinAlpha', 'looseBeta1', 'looseAlpha1'],
+      undoMoves: ['pinBeta2', 'looseBeta2', 'groupGamma', 'groupAlpha'],
+    },
+  ];
+  for (const { name, tabs, sortMoves, undoMoves } of KEEP_STILL) {
+    test(`Sort and ⌘Z move only the tabs out of place, each once: ${name} (KAN-743)`, async ({
+      context,
+      extensionId,
+      serviceWorker,
+    }) => {
+      const names = tabs.map((t) => t.n);
+      const windowId = await makeLiveWindow(serviceWorker, extensionId, tabs);
+      await loaded(serviceWorker, windowId, names);
+      const before = await liveStrip(serviceWorker, windowId);
+      const page = await openTabView(context, extensionId);
+      await recordMoves(serviceWorker, windowId);
+
+      await chooseSortInOpenNow(page, windowId);
+      await sortedToastShows(page);
+
+      // onMoved reaches the worker on its own schedule: poll for the set, then check it held no repeat.
+      await expect
+        .poll(async () => [...(await movedSoFar(serviceWorker))].sort())
+        .toEqual([...sortMoves].sort());
+      const sorted = await movedSoFar(serviceWorker);
+      expect(sorted.length).toBe(new Set(sorted).size);
+      const after = await liveStrip(serviceWorker, windowId);
+      for (const row of after) {
+        const was = before.find((b) => b.label === row.label);
+        expect({ pinned: row.pinned, groupId: row.groupId }).toEqual({
+          pinned: was?.pinned,
+          groupId: was?.groupId,
+        });
+      }
+
+      await page.keyboard.press('ControlOrMeta+z');
+      await expect.poll(() => labelsOf(serviceWorker, windowId)).toEqual(names);
+
+      await expect
+        .poll(async () =>
+          (await movedSoFar(serviceWorker)).slice(sorted.length).sort()
+        )
+        .toEqual([...undoMoves].sort());
+      const undone = (await movedSoFar(serviceWorker)).slice(sorted.length);
+      expect(undone.length).toBe(new Set(undone).size);
+      expect(await liveStrip(serviceWorker, windowId)).toEqual(before);
+    });
+  }
+
   for (const where of ['in the group', 'loose'] as const) {
     test(`the Tab Keeper tab ${where} stays ${where} through a sort of This window`, async ({
       context,

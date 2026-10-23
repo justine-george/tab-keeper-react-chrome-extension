@@ -105,7 +105,7 @@ export async function sortOpenWindow(
   if (looks === null) return false;
 
   // Refused part way or not, what moved is recorded from a fresh read.
-  await applyLiveOrder(order);
+  await applyLiveOrder(windowId, order);
   const after = await readStrip(windowId);
   if (after === null) return false;
   const moved = sortRecord(before, after, looks);

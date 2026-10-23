@@ -24,14 +24,21 @@ import { toOpenWindows } from '../../utils/functions/openNow';
 import { createSplitApi } from '../../utils/functions/splitView';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import {
+  applyLiveOrder,
   canSortOpenWindowLive,
   holdsSplitView,
   isOpenWindowSortedBySite,
+  keptInPlace,
   liveOrderOf,
   liveSortOrder,
   orderBeforeSort,
+  spotFor,
 } from '../../utils/functions/openNowSort';
-import type { LiveOrder } from '../../utils/functions/openNowSort';
+import type {
+  LiveOrder,
+  LiveTab,
+  LiveUnit,
+} from '../../utils/functions/openNowSort';
 import { undoOpenNowDrop } from '../../utils/functions/openNowMoves';
 import type { OpenNowDrop } from '../../utils/functions/openNowMoves';
 import {
@@ -199,6 +206,113 @@ describe('orderBeforeSort', () => {
         { kind: 'tab', id: 25 },
       ],
     });
+  });
+});
+
+describe('keptInPlace (KAN-743)', () => {
+  test('nothing to keep in an empty window', () => {
+    expect(keptInPlace([])).toEqual(new Set());
+  });
+
+  test('a window already in order keeps every unit', () => {
+    expect(keptInPlace([0, 1, 2, 3])).toEqual(new Set([0, 1, 2, 3]));
+  });
+
+  test('a reversed window keeps one unit', () => {
+    expect(keptInPlace([3, 2, 1, 0]).size).toBe(1);
+  });
+
+  test('one tab out of place: only it is left to move', () => {
+    expect(keptInPlace([0, 1, 3, 4, 5, 6, 2])).toEqual(
+      new Set([0, 1, 3, 4, 5, 6])
+    );
+  });
+
+  test('between runs of equal length, the one ending last in the strip', () => {
+    expect(keptInPlace([1, 3, 0, 2])).toEqual(new Set([0, 2]));
+  });
+});
+
+describe('spotFor (KAN-743)', () => {
+  // A strip in index order: each tab's index is its place in the list.
+  const stripOf = (
+    tabs: { id: number; groupId?: number; pinned?: boolean }[]
+  ): LiveTab[] =>
+    tabs.map(({ id, groupId = -1, pinned = false }, index) => ({
+      id,
+      index,
+      groupId,
+      pinned,
+    }));
+  const tab = (id: number): LiveUnit => ({ kind: 'tab', id });
+  const group = (id: number): LiveUnit => ({ kind: 'group', id });
+
+  test('the first unit goes to the start of its region', () => {
+    const strip = stripOf([
+      { id: 1, pinned: true },
+      { id: 2, pinned: true },
+      { id: 3 },
+      { id: 4 },
+    ]);
+    expect(spotFor(strip, [tab(4), tab(3)], 0, 2)).toEqual({ from: 3, to: 2 });
+  });
+
+  test('moving left: right after the unit before it', () => {
+    const strip = stripOf([1, 2, 3, 4, 5, 6].map((id) => ({ id })));
+    expect(spotFor(strip, [tab(1), tab(2), tab(6)], 2, 0)).toEqual({
+      from: 5,
+      to: 2,
+    });
+  });
+
+  test('moving right past a group: the index it ends at, after the group', () => {
+    const strip = stripOf([
+      { id: 1 },
+      { id: 2 },
+      { id: 3, groupId: 9 },
+      { id: 4, groupId: 9 },
+      { id: 5, groupId: 9 },
+    ]);
+    expect(spotFor(strip, [group(9), tab(1)], 1, 0)).toEqual({
+      from: 0,
+      to: 4,
+    });
+  });
+
+  test("a group moving right: its first tab's index once it has moved", () => {
+    const strip = stripOf([
+      { id: 1, groupId: 9 },
+      { id: 2, groupId: 9 },
+      { id: 3 },
+      { id: 4 },
+      { id: 5 },
+    ]);
+    expect(spotFor(strip, [tab(5), group(9)], 1, 0)).toEqual({
+      from: 0,
+      to: 3,
+    });
+  });
+
+  test('a group moving left: right after the unit before it', () => {
+    const strip = stripOf([
+      { id: 1 },
+      { id: 2 },
+      { id: 3 },
+      { id: 4 },
+      { id: 5 },
+      { id: 6, groupId: 9 },
+      { id: 7, groupId: 9 },
+    ]);
+    expect(spotFor(strip, [tab(2), group(9)], 1, 0)).toEqual({
+      from: 5,
+      to: 2,
+    });
+  });
+
+  test('null when the unit or the one before it is gone from the strip', () => {
+    const strip = stripOf([{ id: 1 }, { id: 2 }]);
+    expect(spotFor(strip, [tab(1), tab(7)], 1, 0)).toBeNull();
+    expect(spotFor(strip, [tab(7), tab(2)], 1, 0)).toBeNull();
   });
 });
 
@@ -398,7 +512,8 @@ describe('sortOpenWindow', () => {
 
     expect(await sortOpenWindow(1, true)).toBe(true);
 
-    expect(await strip()).toEqual(['2P', '4P', '3P', '1P', '5']);
+    // The page stays first; only 3, out of place, moves (KAN-743).
+    expect(await strip()).toEqual(['1P', '2P', '4P', '3P', '5']);
   });
 
   test('already sorted: no move, no drop', async () => {
@@ -446,15 +561,15 @@ describe('sortOpenWindow', () => {
       .spyOn(chrome.tabs, 'move')
       .mockImplementation((...args: Parameters<typeof chrome.tabs.move>) => {
         calls += 1;
-        // The two pinned moves and the first loose append go; the next is refused.
-        if (calls === 4) return Promise.reject(new Error('No tab with id: 6.'));
+        // The first move goes; the next is refused.
+        if (calls === 2) return Promise.reject(new Error('No tab with id: 6.'));
         return real(...args);
       });
 
     expect(await sortOpenWindow(1, true)).toBe(true);
 
     // Stopped at the refusal: nothing after it was tried.
-    expect(move).toHaveBeenCalledTimes(4);
+    expect(move).toHaveBeenCalledTimes(2);
     const midway = await strip();
     expect(midway).not.toEqual(MOCK_STRIP);
     expect(midway).not.toEqual(MOCK_SORTED_STRIP);
@@ -528,6 +643,129 @@ describe('sortOpenWindow', () => {
     await undoOpenNowDrop(drop, true);
 
     expect(await strip()).toEqual(moved);
+  });
+});
+
+// KAN-743. A window of loose tabs, `site:n` each, ids from 1 in order.
+const looseSeed = (tabs: string[]): ChromeSeed => ({
+  windows: [
+    {
+      id: 1,
+      tabs: tabs.map((tab, i) => {
+        const [site, n] = tab.split(':');
+        return { id: i + 1, url: `https://${site}.test/${n}`, active: i === 0 };
+      }),
+    },
+  ],
+});
+
+describe('sortOpenWindow keeps tabs still (KAN-743)', () => {
+  test('a sort moves only the tab out of place, once, and so does its undo', async () => {
+    // a1 a2 b1 b2 c1 c2 a3: only a3 (7) is out of place.
+    handle = setupChromeFake(
+      looseSeed(['a:1', 'a:2', 'b:1', 'b:2', 'c:1', 'c:2', 'a:3'])
+    );
+    const move = vi.spyOn(chrome.tabs, 'move');
+
+    expect(await sortOpenWindow(1, true)).toBe(true);
+
+    expect(move.mock.calls.map(([id]) => id)).toEqual([7]);
+    expect(await strip()).toEqual(['1', '2', '7', '3', '4', '5', '6']);
+    move.mockClear();
+
+    await undoOpenNowDrop(keptDrop(), true);
+
+    expect(move.mock.calls.map(([id]) => id)).toEqual([7]);
+    expect(await strip()).toEqual(['1', '2', '3', '4', '5', '6', '7']);
+  });
+
+  test('a loose tab placed right after a group stays loose', async () => {
+    // b1 [c1 c2]g50 a1 b2: the target is the group, b1, b2, a1; the group and b2 stay.
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 1, url: 'https://b.test/1', active: true },
+            { id: 2, url: 'https://c.test/1', groupId: 50 },
+            { id: 3, url: 'https://c.test/2', groupId: 50 },
+            { id: 4, url: 'https://a.test/1' },
+            { id: 5, url: 'https://b.test/2' },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 50, windowId: 1, title: 'C', color: 'red' }],
+    });
+    const move = vi.spyOn(chrome.tabs, 'move');
+
+    expect(await sortOpenWindow(1, true)).toBe(true);
+
+    expect(move.mock.calls).toEqual([
+      [1, { index: 2 }],
+      [4, { index: 4 }],
+    ]);
+    expect(await strip()).toEqual(['2g50', '3g50', '1', '5', '4']);
+  });
+
+  test('a tab closed mid-sort stops the sort without throwing, and Undo still runs', async () => {
+    // a1 b1 c1 a2 b2 c2: b1 (2) then c1 (3) are to move; c1 closes after b1's move.
+    handle = setupChromeFake(
+      looseSeed(['a:1', 'b:1', 'c:1', 'a:2', 'b:2', 'c:2'])
+    );
+    const real = chrome.tabs.move.bind(chrome.tabs);
+    const move = vi
+      .spyOn(chrome.tabs, 'move')
+      .mockImplementation(
+        async (...args: Parameters<typeof chrome.tabs.move>) => {
+          const moved = await real(...args);
+          await chrome.tabs.remove(3);
+          return moved;
+        }
+      );
+
+    expect(await sortOpenWindow(1, true)).toBe(true);
+
+    expect(move.mock.calls.map(([id]) => id)).toEqual([2]);
+    move.mockRestore();
+    await undoOpenNowDrop(keptDrop(), true);
+
+    // b1 goes back between a1 and a2; c1 is gone.
+    expect(await strip()).toEqual(['1', '2', '4', '5', '6']);
+  });
+
+  test('a loose tab moving left to right after a group stays loose', async () => {
+    // [c1 c2]g50 x y u, put in the order group, u, x, y: only u moves, left, to just after c2.
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 1, url: 'https://c.test/1', groupId: 50, active: true },
+            { id: 2, url: 'https://c.test/2', groupId: 50 },
+            { id: 3, url: 'https://x.test/' },
+            { id: 4, url: 'https://y.test/' },
+            { id: 5, url: 'https://u.test/' },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 50, windowId: 1, title: 'C', color: 'red' }],
+    });
+    const move = vi.spyOn(chrome.tabs, 'move');
+
+    expect(
+      await applyLiveOrder(1, {
+        pinned: [],
+        rest: [
+          { kind: 'group', id: 50 },
+          { kind: 'tab', id: 5 },
+          { kind: 'tab', id: 3 },
+          { kind: 'tab', id: 4 },
+        ],
+      })
+    ).toBe(true);
+
+    expect(move.mock.calls).toEqual([[5, { index: 2 }]]);
+    expect(await strip()).toEqual(['1g50', '2g50', '5', '3', '4']);
   });
 });
 
