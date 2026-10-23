@@ -17,6 +17,7 @@ import type { OpenTab, OpenWindow } from './openNow';
 import { isTabKeeperPage } from './capture';
 import {
   applyGroupOrder,
+  applyGroupSlots,
   applyLiveOrder,
   holdsSplitView,
   orderBeforeSort,
@@ -581,10 +582,17 @@ export async function moveOpenGroup(
 // group, moved as one group), or a sort by site's (`kind: 'sort'`, every tab
 // of the window but Tab Keeper pages, put in their old order or their sorted
 // one; KAN-694), or a sort inside one group's (`kind: 'groupSort'`, every tab
-// of that group but Tab Keeper pages; KAN-746).
+// of that group but Tab Keeper pages; KAN-746), or a sort of the groups by name
+// (`kind: 'groupOrder'`, every tab of the window but Tab Keeper pages, only
+// the groups moved; KAN-746 Part 2).
 export interface OpenNowDrop {
-  kind: 'tab' | 'group' | 'sort' | 'groupSort';
+  kind: 'tab' | 'group' | 'sort' | 'groupSort' | 'groupOrder';
   moved: MovedTabs;
+}
+
+// The kinds that reorder one window: they never change window, and a refused one is told as a sort.
+export function isSortKind(kind: OpenNowDrop['kind']): boolean {
+  return kind === 'sort' || kind === 'groupSort' || kind === 'groupOrder';
 }
 
 // Whether a drop's record changed any tab's window, index or group (ledger
@@ -626,14 +634,18 @@ async function whereTheLastRunLeftThem(
   return states;
 }
 
-// Whether a sort's window holds only what the sort recorded, and no split view: the
+// Whether a sort's window holds only what the sort recorded, and no split view unless `splitsKept`: the
 // index check cannot see a split made since (it moves nothing) or a tab opened at the
 // end, and appending every unit would end the one and strand the other (KAN-694).
-async function holdsOnlyTheSortedTabs(moved: MovedTabs): Promise<boolean> {
+// A groups-by-name step moves groups only, which keeps a split (KAN-746 Part 2).
+async function holdsOnlyTheSortedTabs(
+  moved: MovedTabs,
+  splitsKept = false
+): Promise<boolean> {
   const windowId = moved[0]?.after.windowId;
   if (windowId === undefined) return false;
   const strip = await attempt(() => chrome.tabs.query({ windowId }));
-  if (strip === REFUSED || holdsSplitView(strip)) return false;
+  if (strip === REFUSED || (!splitsKept && holdsSplitView(strip))) return false;
   const recorded = new Set(moved.map((tab) => tab.tabId));
   return strip.every(
     (tab) =>
@@ -837,8 +849,7 @@ async function moveToBefore(
   const states = await whereTheLastRunLeftThem(drop.moved);
   if (states === null) return 'changedSince';
   // A sort never changes window, so only a tab or group step can lose its target.
-  const isSort = drop.kind === 'sort' || drop.kind === 'groupSort';
-  if (!isSort && !(await targetWindowsOpen(drop.moved))) {
+  if (!isSortKind(drop.kind) && !(await targetWindowsOpen(drop.moved))) {
     return 'windowClosed';
   }
   // KAN-744 R12: chrome.tabGroups is absent without the grant.
@@ -874,6 +885,23 @@ async function moveToBefore(
       .sort((a, b) => a.before.index - b.before.index)
       .map((tab) => tab.tabId);
     const ordered = await applyGroupOrder(place.windowId, place.groupId, order);
+    return ordered ? 'done' : 'couldNotRun';
+  }
+  // KAN-746 Part 2. Only groups moved, so the groups' old order is the whole run.
+  if (drop.kind === 'groupOrder') {
+    if (!(await holdsOnlyTheSortedTabs(drop.moved, true))) {
+      return 'changedSince';
+    }
+    const windowId = drop.moved[0]?.before.windowId;
+    if (windowId === undefined) return 'couldNotRun';
+    const groups = new Set(
+      [...drop.moved]
+        .sort((a, b) => a.before.index - b.before.index)
+        .flatMap((tab) =>
+          tab.before.groupId === -1 ? [] : [tab.before.groupId]
+        )
+    );
+    const ordered = await applyGroupSlots(windowId, [...groups]);
     return ordered ? 'done' : 'couldNotRun';
   }
   for (const [i, tab] of drop.moved.entries()) {

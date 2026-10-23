@@ -8,6 +8,7 @@ import {
   sortWithinGroup,
   type SortableTab,
 } from './sortBySite';
+import { byName } from './sortGroupsByName';
 
 // chrome.tabGroups.TAB_GROUP_ID_NONE, spelled out: chrome.tabGroups is absent without the grant.
 const NO_GROUP = -1;
@@ -222,6 +223,62 @@ export async function applyLiveOrder(
   return true;
 }
 
+// How many loose tabs sit before each unit.
+function anchorsBefore(units: readonly LiveUnit[]): number[] {
+  let tabs = 0;
+  return units.map((unit) => (unit.kind === 'tab' ? tabs++ : tabs));
+}
+
+// KAN-746 Part 2. Puts a window's groups in `groupIds` order, into the slots groups hold now, with group moves only: loose and pinned tabs never move (a group move keeps a split, probe 2026-10-23).
+// A group already between the same loose tabs and in order stays still (KAN-743), each other moves once, right after the unit before it.
+// False before any call when `groupIds` is not exactly the window's groups or chrome.tabGroups is absent; false at the first call Chrome refuses or a unit gone from the strip.
+export async function applyGroupSlots(
+  windowId: number,
+  groupIds: readonly number[]
+): Promise<boolean> {
+  if (!chrome.tabGroups) return false;
+  const strip = await readStrip(windowId);
+  if (strip === null) return false;
+  const { rest } = orderOf(strip);
+  const groupsNow = rest.filter((unit) => unit.kind === 'group');
+  const given = new Set(groupIds);
+  if (
+    given.size !== groupIds.length ||
+    groupsNow.length !== groupIds.length ||
+    !groupsNow.every((unit) => given.has(unit.id))
+  ) {
+    return false;
+  }
+  let next = 0;
+  const units: LiveUnit[] = rest.map((unit) =>
+    unit.kind === 'group' ? { kind: 'group', id: groupIds[next++] } : unit
+  );
+  const anchorsNow = anchorsBefore(rest);
+  const anchorsThen = anchorsBefore(units);
+  // Loose tabs keep their slots, so only a group between the same loose tabs can stay.
+  const ranks: number[] = [];
+  rest.forEach((unit, i) => {
+    if (unit.kind !== 'group') return;
+    const rank = units.findIndex((u) => u.kind === 'group' && u.id === unit.id);
+    if (anchorsNow[i] === anchorsThen[rank]) ranks.push(rank);
+  });
+  const kept = keptInPlace(ranks);
+  for (const [i, unit] of units.entries()) {
+    if (unit.kind === 'tab' || kept.has(i)) continue;
+    const now = await readStrip(windowId);
+    if (now === null) return false;
+    const regionStart = now.filter((tab) => tab.pinned).length;
+    const spot = spotFor(now, units, i, regionStart);
+    if (spot === null) return false;
+    if (spot.from === spot.to) continue;
+    const index = spot.to;
+    if (!(await succeeds(() => chrome.tabGroups.move(unit.id, { index })))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // KAN-746. The ids of a group's tabs in their sorted order, the Tab Keeper page left out (never passed to a move).
 export function liveGroupSortOrder(
   tabs: readonly chrome.tabs.Tab[],
@@ -328,4 +385,14 @@ export function isOpenGroupSortedBySite(
   groupId: number
 ): boolean {
   return isGroupSortedBySite(window.tabs.map(openSortable), String(groupId));
+}
+
+// KAN-746 Part 2. Whether the window's groups are already in name order.
+export function isOpenWindowGroupsSortedByName(
+  window: OpenWindow,
+  locale: string
+): boolean {
+  return byName(window.groups, (group) => group.title, locale).every(
+    (group, i) => group === window.groups[i]
+  );
 }

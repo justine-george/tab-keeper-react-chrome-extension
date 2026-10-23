@@ -13,6 +13,7 @@ import type {
 } from '../utils/functions/openNowMoves';
 import {
   applyGroupOrder,
+  applyGroupSlots,
   applyLiveOrder,
   holdsSplitView,
   liveGroupSortOrder,
@@ -20,6 +21,7 @@ import {
   liveSortOrder,
   sameLiveOrder,
 } from '../utils/functions/openNowSort';
+import { byName } from '../utils/functions/sortGroupsByName';
 import { sanitizeTabGroupColor } from '../utils/functions/tabGroups';
 import { TOAST_MESSAGES } from '../utils/constants/common';
 
@@ -184,3 +186,53 @@ export const sortOpenGroupBySite = createAsyncThunk<
     })
   );
 });
+
+// KAN-746 Part 2. Sorts a live window's groups by name, re-reading it from Chrome first, and records every tab but Tab Keeper pages, as sortOpenWindow does.
+// Does nothing without the grant, or when the groups are already in name order. Null when no tab moved.
+export async function sortOpenGroupsByName(
+  windowId: number,
+  locale: string,
+  hasTabGroups: boolean
+): Promise<OpenNowDrop | null> {
+  if (!hasTabGroups || !chrome.tabGroups) return null;
+  const before = await readStrip(windowId);
+  if (before === null) return null;
+  const looks = await readLooks(windowId);
+  if (looks === null) return null;
+  const groups = liveOrderOf(before).rest.flatMap((unit) =>
+    unit.kind === 'group' ? [unit.id] : []
+  );
+  const order = byName(groups, (id) => looks.get(id)?.title ?? '', locale);
+  if (order.every((id, i) => id === groups[i])) return null;
+
+  // Refused part way or not, what moved is recorded from a fresh read.
+  await applyGroupSlots(windowId, order);
+  const after = await readStrip(windowId);
+  if (after === null) return null;
+  const moved = sortRecord(before, after, looks);
+  if (!changedAnyPlace(moved)) return null;
+  return { kind: 'groupOrder', moved };
+}
+
+// The Open now window menu's Sort groups by name, as sortOpenWindowBySite.
+export const sortOpenWindowGroupsByName = createAsyncThunk<
+  void,
+  { windowId: number; locale: string },
+  { state: RootState; dispatch: AppDispatch }
+>(
+  'global/sortOpenWindowGroupsByName',
+  async ({ windowId, locale }, thunkAPI) => {
+    const { hasTabGroupsPermission } = thunkAPI.getState().globalState;
+    const drop = await whileMovingTabs(() =>
+      sortOpenGroupsByName(windowId, locale, hasTabGroupsPermission)
+    );
+    if (drop === null) return;
+    const id = keepLiveStep(thunkAPI.dispatch, drop);
+    await thunkAPI.dispatch(
+      showToast({
+        toastText: TOAST_MESSAGES.GROUPS_SORTED_BY_NAME,
+        liveStepId: id ?? undefined,
+      })
+    );
+  }
+);
