@@ -108,7 +108,7 @@ async function takeStep(
     const kind =
       run.outcome === 'windowClosed'
         ? 'windowClosed'
-        : step.drop.kind === 'sort'
+        : step.drop.kind === 'sort' || step.drop.kind === 'groupSort'
           ? 'sort'
           : 'move';
     await dispatch(showToast({ toastText: REFUSED_TOAST[direction][kind] }));

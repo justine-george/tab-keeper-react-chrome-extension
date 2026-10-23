@@ -44,19 +44,41 @@ function groupUnitsBySite<T>(units: Unit<T>[]): T[] {
   return [...bySite.values(), noSite].flat().flatMap((unit) => unit.tabs);
 }
 
+// How many tabs share each split key.
+function splitCounts(tabs: readonly SortableTab[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const tab of tabs) {
+    if (tab.splitKey !== null) {
+      counts.set(tab.splitKey, (counts.get(tab.splitKey) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+// The unit starting at tabs[i]: a split pair only while exactly two tabs share the key and sit side by side, in one group and pin state, as restore's splitPairs does.
+function unitAt<T extends SortableTab>(
+  tabs: readonly T[],
+  i: number,
+  splits: Map<string, number>
+): Unit<T> {
+  const tab = tabs[i];
+  const next = tabs[i + 1];
+  const pairs =
+    tab.splitKey !== null &&
+    splits.get(tab.splitKey) === 2 &&
+    next !== undefined &&
+    next.splitKey === tab.splitKey &&
+    next.groupKey === tab.groupKey &&
+    next.pinned === tab.pinned;
+  return { tabs: pairs ? [tab, next] : [tab], site: siteOf(tab.url) };
+}
+
 // Pinned, then group blocks in first-seen order, then loose tabs, each section grouped by site (KAN-694).
 export function sortBySite<T extends SortableTab>(tabs: readonly T[]): T[] {
   const blocks = new Map<string, T[]>();
   const pinned: Unit<T>[] = [];
   const loose: Unit<T>[] = [];
-
-  // A split pair only counts while exactly two tabs share the key and sit side by side, as restore's splitPairs does.
-  const splitCount = new Map<string, number>();
-  for (const tab of tabs) {
-    if (tab.splitKey !== null) {
-      splitCount.set(tab.splitKey, (splitCount.get(tab.splitKey) ?? 0) + 1);
-    }
-  }
+  const splits = splitCounts(tabs);
 
   for (let i = 0; i < tabs.length; i++) {
     const tab = tabs[i];
@@ -67,21 +89,9 @@ export function sortBySite<T extends SortableTab>(tabs: readonly T[]): T[] {
       else blocks.set(tab.groupKey, [tab]);
       continue;
     }
-
-    const next = tabs[i + 1];
-    const pairs =
-      tab.splitKey !== null &&
-      splitCount.get(tab.splitKey) === 2 &&
-      next !== undefined &&
-      next.splitKey === tab.splitKey &&
-      next.groupKey === null &&
-      next.pinned === tab.pinned;
-    const unit: Unit<T> = {
-      tabs: pairs ? [tab, next] : [tab],
-      site: siteOf(tab.url),
-    };
+    const unit = unitAt(tabs, i, splits);
     (tab.pinned ? pinned : loose).push(unit);
-    if (pairs) i++;
+    i += unit.tabs.length - 1;
   }
 
   return [
@@ -91,9 +101,40 @@ export function sortBySite<T extends SortableTab>(tabs: readonly T[]): T[] {
   ];
 }
 
+// KAN-746. One group's tabs grouped by site among themselves, in the slots the group's tabs held; every other tab stays.
+export function sortWithinGroup<T extends SortableTab>(
+  tabs: readonly T[],
+  groupKey: string
+): T[] {
+  const splits = splitCounts(tabs);
+  const units: Unit<T>[] = [];
+  for (let i = 0; i < tabs.length; i++) {
+    if (tabs[i].groupKey !== groupKey) continue;
+    const unit = unitAt(tabs, i, splits);
+    units.push(unit);
+    i += unit.tabs.length - 1;
+  }
+  const sorted = groupUnitsBySite(units);
+  let next = 0;
+  return tabs.map((tab) => (tab.groupKey === groupKey ? sorted[next++] : tab));
+}
+
+function sameOrder(
+  a: readonly SortableTab[],
+  b: readonly SortableTab[]
+): boolean {
+  return a.every((tab, i) => tab.key === b[i].key);
+}
+
 export function isSortedBySite(tabs: readonly SortableTab[]): boolean {
-  const sorted = sortBySite(tabs);
-  return sorted.every((tab, i) => tab.key === tabs[i].key);
+  return sameOrder(sortBySite(tabs), tabs);
+}
+
+export function isGroupSortedBySite(
+  tabs: readonly SortableTab[],
+  groupKey: string
+): boolean {
+  return sameOrder(sortWithinGroup(tabs, groupKey), tabs);
 }
 
 // A saved tab with the order's fields added; pinned is a plain boolean here, so map back by key to keep the saved tab's own shape.
@@ -113,4 +154,12 @@ export function isSavedWindowSortedBySite(
   window: Pick<windowGroupData, 'tabs'>
 ): boolean {
   return isSortedBySite(window.tabs.map(savedSortable));
+}
+
+// KAN-746. `groupId` is the saved group's uuid (chromeTabGroupData.groupId).
+export function isSavedGroupSortedBySite(
+  window: Pick<windowGroupData, 'tabs'>,
+  groupId: string
+): boolean {
+  return isGroupSortedBySite(window.tabs.map(savedSortable), groupId);
 }

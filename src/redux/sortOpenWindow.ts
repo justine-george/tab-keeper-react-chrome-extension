@@ -12,8 +12,10 @@ import type {
   TabPlace,
 } from '../utils/functions/openNowMoves';
 import {
+  applyGroupOrder,
   applyLiveOrder,
   holdsSplitView,
+  liveGroupSortOrder,
   liveOrderOf,
   liveSortOrder,
   sameLiveOrder,
@@ -123,6 +125,55 @@ export const sortOpenWindowBySite = createAsyncThunk<
   const { hasTabGroupsPermission } = thunkAPI.getState().globalState;
   const drop = await whileMovingTabs(() =>
     sortOpenWindow(windowId, hasTabGroupsPermission)
+  );
+  if (drop === null) return;
+  const id = keepLiveStep(thunkAPI.dispatch, drop);
+  await thunkAPI.dispatch(
+    showToast({
+      toastText: TOAST_MESSAGES.TABS_SORTED_BY_SITE,
+      liveStepId: id ?? undefined,
+    })
+  );
+});
+
+// KAN-746. As sortOpenWindow, for the tabs inside one group: the rest of the window is not moved or recorded.
+// Does nothing without the grant, for a group gone or holding a split view, or when already sorted. Null when no tab moved.
+export async function sortOpenGroup(
+  windowId: number,
+  groupId: number,
+  hasTabGroups: boolean
+): Promise<OpenNowDrop | null> {
+  if (!hasTabGroups || !chrome.tabGroups) return null;
+  const before = await readStrip(windowId);
+  if (before === null) return null;
+  const members = before.filter((tab) => tab.groupId === groupId);
+  if (members.length === 0 || holdsSplitView(members)) return null;
+  const order = liveGroupSortOrder(before, groupId, isTabKeeperPage);
+  const listed = members
+    .filter((tab) => !isTabKeeperPage(tab))
+    .sort((a, b) => a.index - b.index);
+  if (order.every((id, i) => id === listed[i]?.id)) return null;
+  const looks = await readLooks(windowId);
+  if (looks === null) return null;
+
+  // Refused part way or not, what moved is recorded from a fresh read.
+  await applyGroupOrder(windowId, groupId, order);
+  const after = await readStrip(windowId);
+  if (after === null) return null;
+  const moved = sortRecord(members, after, looks);
+  if (!changedAnyPlace(moved)) return null;
+  return { kind: 'groupSort', moved };
+}
+
+// The Open now group menu's action, as sortOpenWindowBySite.
+export const sortOpenGroupBySite = createAsyncThunk<
+  void,
+  { windowId: number; groupId: number },
+  { state: RootState; dispatch: AppDispatch }
+>('global/sortOpenGroupBySite', async ({ windowId, groupId }, thunkAPI) => {
+  const { hasTabGroupsPermission } = thunkAPI.getState().globalState;
+  const drop = await whileMovingTabs(() =>
+    sortOpenGroup(windowId, groupId, hasTabGroupsPermission)
   );
   if (drop === null) return;
   const id = keepLiveStep(thunkAPI.dispatch, drop);
