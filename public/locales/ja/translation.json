@@ -352,7 +352,7 @@
   "Right-clicking the session's title opens this menu too.": "セッションのタイトルを右クリックしても、このメニューが開きます。",
   "Each window can be opened on its own. Click a window's title to rename it.": "ウィンドウは1つずつ開くこともできます。名前を変えるには、ウィンドウのタイトルをクリックしてください。",
   "Keep Tab Keeper open in a pinned tab.": "Tab Keeper を固定タブで開いたままにしましょう。",
-  "It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.": "タブバーの先頭に小さなタブとして表示されます。このウィンドウでも、Tab Keeper が開くどのウィンドウでも同じです。設定 → クイックアクセス でオフにできます。",
+  "It moves to the start of your tab bar and stays there, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.": "タブバーの先頭に移動し、そのまま先頭に表示されます。このウィンドウでも、Tab Keeper が開くどのウィンドウでも同じです。設定 → クイックアクセス でオフにできます。",
   "Pin this tab": "このタブを固定",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "「切り替え」を押すと、開いているウィンドウを保存して閉じ、代わりにこのセッションを開きます。",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "開いているものをすべて見て検索したいときは、フルビューを使いましょう。⤢ を押すと今すぐ開けます。あとからでもいつでも開けます。",

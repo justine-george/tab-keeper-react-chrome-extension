@@ -372,7 +372,7 @@
   "Right-clicking the session's title opens this menu too.": "Un clic droit sur le titre de la session ouvre aussi ce menu.",
   "Each window can be opened on its own. Click a window's title to rename it.": "Chaque fenêtre peut s’ouvrir séparément. Cliquez sur le titre d’une fenêtre pour la renommer.",
   "Keep Tab Keeper open in a pinned tab.": "Gardez Tab Keeper ouvert dans un onglet épinglé.",
-  "It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.": "Il devient un petit onglet au début de votre barre d’onglets, ici et dans chaque fenêtre que Tab Keeper ouvre. Vous pouvez désactiver cette option dans Paramètres → Accès rapide.",
+  "It moves to the start of your tab bar and stays there, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.": "Il se place au début de votre barre d’onglets et y reste, ici et dans chaque fenêtre que Tab Keeper ouvre. Vous pouvez désactiver cette option dans Paramètres → Accès rapide.",
   "Pin this tab": "Épingler cet onglet",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Basculer enregistre vos fenêtres ouvertes, les ferme et ouvre cette session à leur place.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Vous voulez voir et rechercher tout ce que vous avez ouvert ? Tout est dans la vue complète. Appuyez sur ⤢ pour l’ouvrir maintenant, ou plus tard.",

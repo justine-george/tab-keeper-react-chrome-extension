@@ -352,7 +352,7 @@
   "Right-clicking the session's title opens this menu too.": "在工作階段標題上按一下滑鼠右鍵，也能開啟這個選單。",
   "Each window can be opened on its own. Click a window's title to rename it.": "每個視窗都可以單獨開啟。按一下視窗標題即可重新命名。",
   "Keep Tab Keeper open in a pinned tab.": "讓 Tab Keeper 在固定分頁中保持開啟。",
-  "It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.": "它會變成分頁列最前面的一個小分頁，在這裡以及 Tab Keeper 開啟的每個視窗中都是如此。你可以在「設定 → 快速存取」中關閉這項功能。",
+  "It moves to the start of your tab bar and stays there, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.": "它會移到分頁列的最前面並一直留在那裡，在這裡以及 Tab Keeper 開啟的每個視窗中都是如此。你可以在「設定 → 快速存取」中關閉這項功能。",
   "Pin this tab": "固定這個分頁",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "「切換」會儲存你開啟的視窗，將它們關閉，再開啟這個工作階段取代它們。",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "想查看和搜尋你開啟的一切？都在完整檢視裡。按 ⤢ 立即開啟，之後也隨時可以開啟。",
