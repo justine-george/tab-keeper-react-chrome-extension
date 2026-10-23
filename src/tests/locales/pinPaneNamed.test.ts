@@ -34,7 +34,7 @@ const LOCALES: Record<string, Record<string, string>> = {
 };
 
 const PIN_SENTENCE =
-  'It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.';
+  'It moves to the start of your tab bar and stays there, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.';
 
 describe('the pin card sends the user to Quick access (KAN-652)', () => {
   test.each(Object.keys(LOCALES))('%s', (locale) => {

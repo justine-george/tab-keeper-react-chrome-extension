@@ -362,7 +362,7 @@
   "Right-clicking the session's title opens this menu too.": "सेशन के शीर्षक पर राइट-क्लिक करने से भी यही मेन्यू खुलता है।",
   "Each window can be opened on its own. Click a window's title to rename it.": "हर विंडो को अलग से खोला जा सकता है। किसी विंडो का नाम बदलने के लिए उसके शीर्षक पर क्लिक करें।",
   "Keep Tab Keeper open in a pinned tab.": "Tab Keeper को एक पिन किए गए टैब में खुला रखें।",
-  "It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.": "यह आपकी टैब पट्टी की शुरुआत में एक छोटा टैब बन जाता है — यहाँ भी और Tab Keeper की खोली हर विंडो में भी। आप इसे सेटिंग्स → त्वरित पहुँच में बंद कर सकते हैं।",
+  "It moves to the start of your tab bar and stays there, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.": "यह आपकी टैब पट्टी की शुरुआत में चला जाता है और वहीं रहता है — यहाँ भी और Tab Keeper की खोली हर विंडो में भी। आप इसे सेटिंग्स → त्वरित पहुँच में बंद कर सकते हैं।",
   "Pin this tab": "यह टैब पिन करें",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "\"बदलें\" आपकी खुली विंडो सहेजता है, उन्हें बंद करता है, और उनकी जगह यह सेशन खोलता है।",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "अपनी हर खुली चीज़ देखना और खोजना चाहते हैं? सब कुछ पूरे व्यू में है। अभी खोलने के लिए ⤢ दबाएँ, या बाद में कभी भी।",

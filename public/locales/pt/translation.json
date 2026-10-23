@@ -372,7 +372,7 @@
   "Right-clicking the session's title opens this menu too.": "Clicar com o botão direito no título da sessão também abre este menu.",
   "Each window can be opened on its own. Click a window's title to rename it.": "Cada janela pode ser aberta separadamente. Clique no título de uma janela para renomeá-la.",
   "Keep Tab Keeper open in a pinned tab.": "Mantenha o Tab Keeper aberto em uma aba fixada.",
-  "It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.": "Ele vira uma aba pequena no início da sua barra de abas, aqui e em todas as janelas que o Tab Keeper abrir. Você pode desativar isso em Configurações → Acesso rápido.",
+  "It moves to the start of your tab bar and stays there, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.": "Ele vai para o início da sua barra de abas e fica lá, aqui e em todas as janelas que o Tab Keeper abrir. Você pode desativar isso em Configurações → Acesso rápido.",
   "Pin this tab": "Fixar esta aba",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "Mudar salva as janelas que você tem abertas, fecha-as e abre esta sessão no lugar delas.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Quer ver e pesquisar tudo o que tem aberto? Está tudo na visualização completa. Pressione ⤢ para abri-la agora, ou quando quiser.",

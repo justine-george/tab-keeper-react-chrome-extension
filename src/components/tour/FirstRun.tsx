@@ -57,7 +57,6 @@ interface Card {
   width?: string;
   primary: CoachAction;
   secondary?: CoachAction;
-  solidNotch?: boolean;
 }
 
 // The run in the page that shows it: Hello or the compact-view card at full-view step 0, then one card per step.
@@ -365,11 +364,9 @@ export default function FirstRun() {
         return {
           text: t('Keep Tab Keeper open in a pinned tab.'),
           fine: t(
-            'It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.'
+            'It moves to the start of your tab bar and stays there, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.'
           ),
           width: PIN_CARD_WIDTH,
-          // KAN-735. No ring on this card, so its notch alone points: drawn in the bar's colour.
-          solidNotch: true,
           secondary: { label: t('Not now'), onPress: finish },
           primary: { label: t('Pin this tab'), onPress: pin },
         };
@@ -418,7 +415,6 @@ export default function FirstRun() {
       secondary={card.secondary}
       primary={card.primary}
       onEscape={isLast ? finish : skip}
-      solidNotch={card.solidNotch}
     />
   );
 }

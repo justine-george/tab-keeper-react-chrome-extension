@@ -382,7 +382,7 @@
   "Right-clicking the session's title opens this menu too.": "Это меню также открывается, если щёлкнуть правой кнопкой мыши по заголовку сессии.",
   "Each window can be opened on its own. Click a window's title to rename it.": "Каждое окно можно открыть отдельно. Чтобы переименовать окно, щёлкните его заголовок.",
   "Keep Tab Keeper open in a pinned tab.": "Держите Tab Keeper открытым в закреплённой вкладке.",
-  "It becomes a small tab at the start of your tab bar, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.": "Он станет маленькой вкладкой в начале панели вкладок — здесь и в каждом окне, которое открывает Tab Keeper. Это можно отключить в разделе «Настройки → Быстрый доступ».",
+  "It moves to the start of your tab bar and stays there, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.": "Он переместится в начало панели вкладок и останется там — здесь и в каждом окне, которое открывает Tab Keeper. Это можно отключить в разделе «Настройки → Быстрый доступ».",
   "Pin this tab": "Закрепить эту вкладку",
   "Switch saves the windows you have open, closes them, and opens this session in their place.": "«Перейти» сохраняет открытые окна, закрывает их и открывает вместо них эту сессию.",
   "Want to see and search everything you have open? It's all in the full view. Press ⤢ to open it now, or any time later.": "Хотите видеть и искать всё, что у вас открыто? Всё это есть в полном виде. Нажмите ⤢, чтобы открыть его сейчас или в любой момент позже.",
