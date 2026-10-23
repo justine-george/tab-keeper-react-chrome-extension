@@ -10,15 +10,18 @@ import {
 
 import { AppDispatch, RootState } from '../store';
 import {
+  pushLiveStep,
   redo,
   resetHistory,
+  selectNewestLiveStep,
   set,
   setPresentStartup,
   undo,
 } from './undoRedoSlice';
+import { nextActionNumber } from '../actionOrder';
 import { isDragHeld, whenDragReleases } from '../dragHold';
 import { addToast } from '../toastStack';
-import type { ToastItem } from '../toastStack';
+import type { ToastItem, ToastOffer } from '../toastStack';
 import { startToastTimer } from '../toastTimers';
 import { NEEDS_YOU_TOAST_MS, TOAST_MS } from '../toastDuration';
 import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
@@ -990,14 +993,17 @@ interface ShowToastPayload {
   show?: { tabGroupId: string };
   // KAN-583. An Undo button. Set only when the change announced was just recorded as the latest undo step.
   offersUndo?: boolean;
-  // KAN-694. An Undo button for the Open now drop just kept (a live sort), shown while that drop holds ⌘Z.
-  offersOpenNowUndo?: boolean;
+  // KAN-694, KAN-744 R16. The live sort step just kept: an Undo button, shown while that step is the newest in the history.
+  liveStepId?: number;
 }
 
 let lastToastId = 0;
 
+// The same list when no toast offers Undo, so a step that strips nothing changes no state.
 const withoutUndo = (toasts: ToastItem[]): ToastItem[] =>
-  toasts.map((t) => (t.offersUndo ? { ...t, offersUndo: false } : t));
+  toasts.some((t) => t.offersUndo)
+    ? toasts.map((t) => (t.offersUndo ? { ...t, offersUndo: false } : t))
+    : toasts;
 
 // Timers and the Reopen registry are settled after every change to the list
 // by toastMiddleware, whichever action made it.
@@ -1012,7 +1018,7 @@ export const showToast = createAsyncThunk(
       stacksOnTwin = false,
       show,
       offersUndo = false,
-      offersOpenNowUndo = false,
+      liveStepId,
     }: ShowToastPayload,
     thunkAPI
   ) => {
@@ -1028,10 +1034,14 @@ export const showToast = createAsyncThunk(
           reopenOffer:
             reopenOfferId === undefined
               ? null
-              : { id: reopenOfferId, keepsUndoKey: true },
+              : {
+                  id: reopenOfferId,
+                  keepsUndoKey: true,
+                  shownAt: nextActionNumber(),
+                },
           show: show ?? null,
           offersUndo,
-          offersOpenNowUndo,
+          liveStepId: liveStepId ?? null,
         },
         announcesSavedChange,
         stacksOnTwin,
@@ -1043,22 +1053,41 @@ export const showToast = createAsyncThunk(
       reopenOfferId !== undefined ||
       show !== undefined ||
       offersUndo ||
-      offersOpenNowUndo;
+      liveStepId !== undefined;
     startToastTimer(id, needsYou ? NEEDS_YOU_TOAST_MS : TOAST_MS, () =>
       thunkAPI.dispatch(toastsRemoved([id]))
     );
   }
 );
 
-// KAN-349 Q1 C′. The Reopen offer ⌘Z / Ctrl+Z takes, or null: the offer on
-// screen, unless a saved-session change announced since has taken the key.
-export function selectReopenOfferForKey(state: RootState): number | null {
+// KAN-349 Q1 C′. The Reopen offer on screen, unless a saved-session change
+// announced since has taken the key.
+function offerKeepingUndoKey(state: RootState): ToastOffer | null {
   for (const toast of state.globalState.toasts) {
     if (toast.reopenOffer !== null && toast.reopenOffer.keepsUndoKey) {
-      return toast.reopenOffer.id;
+      return toast.reopenOffer;
     }
   }
   return null;
+}
+
+// The id of that offer, or null. A live step newer than it still takes ⌘Z first: selectUndoKeyTarget says what the key does.
+export function selectReopenOfferForKey(state: RootState): number | null {
+  return offerKeepingUndoKey(state)?.id ?? null;
+}
+
+export type UndoKeyTarget =
+  { kind: 'offer'; offerId: number } | { kind: 'step' } | null;
+
+// KAN-744 R17. What ⌘Z / Ctrl+Z takes: the most recent of the offer and the
+// newest live step, else the newest step in the history, else nothing.
+export function selectUndoKeyTarget(state: RootState): UndoKeyTarget {
+  const offer = offerKeepingUndoKey(state);
+  const live = selectNewestLiveStep(state);
+  if (offer !== null && (live === null || live.id < offer.shownAt)) {
+    return { kind: 'offer', offerId: offer.id };
+  }
+  return state.undoRedo.past.length > 0 ? { kind: 'step' } : null;
 }
 
 // Never below zero: a settle without a counted start would otherwise let the
@@ -1383,11 +1412,15 @@ export const globalStateSlice = createSlice({
 
   extraReducers: (builder) => {
     builder
-      // KAN-583. Undo steps back from the latest step only. A new step (L1) or
-      // a reset history leaves the older toast with no step of its own to undo,
-      // so it keeps its text and loses the button; an undo or redo has moved
-      // off the step, so its toast closes, as ⌘Z closes a plain one.
+      // KAN-583. Undo steps back from the latest step only. A new step (L1),
+      // saved or live (KAN-744 R16), or a reset history leaves the older toast
+      // with no step of its own to undo, so it keeps its text and loses the
+      // button; an undo or redo has moved off the step, so its toast closes,
+      // as ⌘Z closes a plain one.
       .addCase(set, (state) => {
+        state.toasts = withoutUndo(state.toasts);
+      })
+      .addCase(pushLiveStep, (state) => {
         state.toasts = withoutUndo(state.toasts);
       })
       .addCase(resetHistory, (state) => {

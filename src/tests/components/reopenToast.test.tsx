@@ -25,6 +25,9 @@ import {
   closeOpenWindow,
 } from '../../utils/functions/reopen';
 import { clearReopenFocus } from '../../redux/reopenFocus';
+import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
+import { setPresentStartup } from '../../redux/slices/undoRedoSlice';
+import { buildSession } from '../fixtures/sessionFixture';
 import type { ClosedItem } from '../../utils/functions/reopen';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import { isToastShowing } from '../setup/toasts';
@@ -373,8 +376,9 @@ describe('the Reopen toast (KAN-280 O8a)', () => {
 // undo a saved-session edit. The handler treats ctrl and meta alike, as it
 // always has for undo.
 describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => {
-  const UNDO = 'undoRedo/undo';
-  const REDO = 'undoRedo/redo';
+  // KAN-744. The key walks the history through these thunks, whatever step is next.
+  const UNDO = 'history/undoStep/pending';
+  const REDO = 'history/redoStep/pending';
 
   // Dispatched rather than typed: the listener is on `window`, and the event
   // carries its target, as a real keypress does.
@@ -542,6 +546,19 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
     const { store } = await renderWithProviders(<MainContainer />, {
       seed: twoTabSeed,
     });
+    // A saved step to undo and then redo: a press with nothing to step closes nothing (KAN-744).
+    act(() => {
+      store.dispatch(
+        setPresentStartup({
+          tabContainerDataState: store.getState().tabContainerDataState,
+        })
+      );
+      store.dispatch(
+        saveToTabContainerInternal(
+          buildSession({ tabGroupId: 'saved', title: 'Saved' })
+        )
+      );
+    });
     for (const chord of [
       { key: 'z', ctrlKey: true },
       { key: 'Z', ctrlKey: true, shiftKey: true },
@@ -581,10 +598,11 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
   });
 
   // Rule 4, by key: two presses before React re-renders -- a fast double
-  // tap -- take the offer once, and the second does not fall through to an
-  // undo either. A held key's repeats, which arrive after the re-render, are
-  // the next describe's.
-  test('two presses take the offer once and undo nothing', async () => {
+  // tap -- take the offer once. Each press reads the store, so the second
+  // finds the offer gone and goes on to the history, as any press after it
+  // would (KAN-744 R17). A held key's repeats, which arrive after the
+  // re-render, are the next describe's.
+  test('two presses take the offer once, and the second goes on to the history', async () => {
     const { seen, chrome: fake } = await withOffer();
     const before = seen.length;
 
@@ -597,7 +615,7 @@ describe('the ⌘Z / Ctrl+Z key reopens while the toast shows (KAN-311)', () => 
       expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
     });
     expect(fake.createdTabs).toHaveLength(1);
-    expect(undoRedoIn(seen.slice(before))).toEqual([]);
+    expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
   });
 
   // A held ⌘Z / Ctrl+Z: the first press takes the offer, and its repeats,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch, useSelector, useStore } from 'react-redux';
 
 import { css } from '@emotion/react';
 
@@ -23,17 +23,13 @@ import { useIsListGripShown } from '../hooks/useIsListGripShown';
 import { useDialogEscape } from '../hooks/useDialogEscape';
 import { APP_HEIGHT, SETTINGS_COLUMN } from '../utils/constants/common';
 import { AppDispatch, RootState } from '../redux/store';
-import { redo, undo } from '../redux/slices/undoRedoSlice';
+import { selectNextStep } from '../redux/slices/undoRedoSlice';
+import { redoStep, undoStep } from '../redux/undoHistory';
 import { selectIsSavedSessionFolded } from '../redux/savedSessionFold';
 import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
 import RightPaneSettings from './settings/rightpane/RightPaneSettings';
-import {
-  closePlainToasts,
-  selectReopenOfferForKey,
-} from '../redux/slices/globalStateSlice';
+import { selectUndoKeyTarget } from '../redux/slices/globalStateSlice';
 import { reopenFromOffer } from '../redux/reopenOffer';
-import { takeOpenNowDrop } from '../redux/openNowMoveUndo';
-import { undoOpenNowDrop } from '../utils/functions/openNowMoves';
 import { ReviewCard } from './reviewCard/ReviewCard';
 import { FocusConfirmModal } from './modals/FocusConfirmModal';
 import { DeleteCloudDataModal } from './modals/DeleteCloudDataModal';
@@ -70,6 +66,8 @@ function isNativelyUndoableTarget(target: EventTarget | null): boolean {
 export default function MainContainer() {
   const COLORS = useThemeColors();
   const dispatch: AppDispatch = useDispatch();
+  // The key handler reads the store at keydown, never a value from the last render (KAN-744).
+  const store = useStore<RootState>();
   useDialogEscape();
 
   const isSettingsPage = useSelector(
@@ -99,11 +97,6 @@ export default function MainContainer() {
   const tabGroupsPromptCount = useSelector(
     (state: RootState) => state.globalState.tabGroupsPromptCount
   );
-
-  // KAN-311 (O8c). The close ⌘Z / Ctrl+Z reopens: the Reopen offer on
-  // screen, unless a saved-session change announced since has taken the key
-  // (KAN-349 Q1 C′).
-  const shownReopenOfferId = useSelector(selectReopenOfferForKey);
 
   // KAN-280 O4/O5. Folded, Open now takes the saved session's column.
   const folded = useSelector(selectIsSavedSessionFolded);
@@ -161,15 +154,9 @@ export default function MainContainer() {
     [drawn.list, drawn.openNow]
   );
 
-  // KAN-280 O11f. An Open now drop's undo sets a group's look only with the
-  // grant.
-  const hasTabGroupsPermission = useSelector(
-    (state: RootState) => state.globalState.hasTabGroupsPermission
-  );
-
-  // Set when the key takes a Reopen offer (KAN-311, O8c) or undoes an Open
-  // now drop (KAN-280 O11f) -- each done once -- while that press may still
-  // be held: its repeats would otherwise go on to undo saved-session edits.
+  // Set when the key takes a Reopen offer (KAN-311, O8c) or undoes a live
+  // step (KAN-744 R20) while that press may still be held: its repeats would
+  // otherwise go on to undo saved-session edits.
   const heldAfterOneTimeUndo = useRef(false);
 
   // Keyboard shortcut listener for undo/redo
@@ -186,7 +173,7 @@ export default function MainContainer() {
 
       if (isSettingsPage) return;
 
-      // A held key's repeats after it took the offer or undid a drop are
+      // A held key's repeats after it took the offer or undid a live step are
       // dropped, so they cannot go on to undo saved-session edits. Below the
       // guards: a repeat landing in a text field is still the field's own
       // undo.
@@ -213,49 +200,32 @@ export default function MainContainer() {
       // chords mutually exclusive: shift+z has to stop here, or it goes on to
       // satisfy the plain-undo branch as well and the two cancel out.
       //
-      // KAN-311 (O8c). An undo or redo dismisses a plain toast, but not a
-      // Reopen offer: the offer is still there to take.
+      // KAN-744 R2. Redo takes the step undone last, saved or live, and
+      // never a Reopen offer. An undo or redo dismisses a plain toast, but not
+      // an offer: it is still there to take (KAN-311, O8c).
       if (key === 'y' || (key === 'z' && event.shiftKey)) {
-        dispatch(redo());
-        dispatch(closePlainToasts());
+        void dispatch(redoStep());
         event.preventDefault();
         return;
       }
 
-      // KAN-280 O11f. An Open now drop, when it is the most recent Tab Keeper
-      // action (a Reopen offer shown or a saved-session change since would
-      // have retired it), is what the key undoes -- and only that. A drop
-      // whose tabs have moved or closed since does nothing, and the key does
-      // not fall through to an older action. It is taken either way, and has
-      // no redo (ledger R5). Only the tab view has Open now, so the popup
-      // never keeps a drop and its key works as before.
-      if (key === 'z') {
-        const drop = takeOpenNowDrop();
-        if (drop !== null) {
-          void undoOpenNowDrop(drop, hasTabGroupsPermission);
-          // KAN-694. The sort's toast would stay up as text after its tabs went back.
-          if (drop.kind === 'sort') dispatch(closePlainToasts());
-          heldAfterOneTimeUndo.current = true;
-          event.preventDefault();
-          return;
-        }
-      }
-
-      // While a Reopen offer shows, the key takes it, as pressing Reopen does,
-      // and undoes nothing (O8c). A second press before this re-renders finds
-      // the offer taken and does nothing either.
-      if (key === 'z' && shownReopenOfferId !== null) {
-        void dispatch(reopenFromOffer(shownReopenOfferId));
+      if (key !== 'z') return;
+      event.preventDefault();
+      // KAN-744 R17. Read at keydown, so two presses before a re-render
+      // cannot both take one offer: the offer when it came after the newest
+      // live step (as pressing Reopen does, undoing nothing, O8c), else the
+      // newest step in the history.
+      const state = store.getState();
+      const target = selectUndoKeyTarget(state);
+      if (target?.kind === 'offer') {
+        void dispatch(reopenFromOffer(target.offerId));
         heldAfterOneTimeUndo.current = true;
-        event.preventDefault();
         return;
       }
-
-      if (key === 'z') {
-        dispatch(undo());
-        dispatch(closePlainToasts());
-        event.preventDefault();
+      if (selectNextStep(state, 'undo') === 'live') {
+        heldAfterOneTimeUndo.current = true;
       }
+      void dispatch(undoStep());
     }
     // The hold ends when Z is let go, or the modifier is: macOS Chrome sends
     // no Z keyup while ⌘ is still down.
@@ -276,7 +246,7 @@ export default function MainContainer() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isSettingsPage, shownReopenOfferId, hasTabGroupsPermission, dispatch]);
+  }, [isSettingsPage, store, dispatch]);
 
   const containerStyle = css`
     display: flex;

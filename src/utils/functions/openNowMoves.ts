@@ -877,11 +877,3 @@ export async function runLiveStep(
   }
   return { outcome: 'done', drop: { kind: drop.kind, moved } };
 }
-
-// Today's ⌘Z and sort toast callers; KAN-744 Task 4 moves them to runLiveStep.
-export async function undoOpenNowDrop(
-  drop: OpenNowDrop,
-  hasTabGroups: boolean
-): Promise<void> {
-  await runLiveStep(drop, 'undo', hasTabGroups);
-}

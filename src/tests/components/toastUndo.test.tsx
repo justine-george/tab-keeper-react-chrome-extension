@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -20,21 +20,19 @@ import {
   recordsUndoStep,
   replaceSessionWithOpenWindows,
   replaceState,
+  saveToTabContainerInternal,
   selectTabContainer,
   updateTabGroupTitle,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import {
   redo,
   resetHistory,
+  selectNewestLiveStep,
   setPresentStartup,
   undo,
 } from '../../redux/slices/undoRedoSlice';
+import { keepLiveStep, undoStep } from '../../redux/undoHistory';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
-import {
-  noteTabKeeperAction,
-  storeOpenNowDrop,
-  takeOpenNowDrop,
-} from '../../redux/openNowMoveUndo';
 import type { OpenNowDrop } from '../../utils/functions/openNowMoves';
 
 // KAN-583. "Session deleted." and "Session replaced…" offer Undo, which steps back as ⌘Z does.
@@ -393,8 +391,8 @@ describe('Undo in the window, tab and tab group delete toasts (KAN-640, KAN-641)
   });
 });
 
-// KAN-590 (picked A). While an Open now drop holds ⌘Z, neither chip names the key; once ⌘Z takes the drop, it does again.
-describe('the key hint while an Open now drop holds the key (KAN-590)', () => {
+// KAN-744 R16, R17. An Open now drag is a step in the same history: it strips an older saved toast's Undo, and ⌘Z takes it before an older offer, so the offer's hint goes while it is newest.
+describe('a drag in the history and the toasts (KAN-744)', () => {
   const DROP: OpenNowDrop = {
     kind: 'tab',
     moved: [
@@ -407,33 +405,26 @@ describe('the key hint while an Open now drop holds the key (KAN-590)', () => {
   };
   const reopenButton = () =>
     within(screen.getByRole('status')).getByRole('button', { name: 'Reopen' });
-
-  afterEach(() => {
-    // A kept drop is module state: a later action retires it.
-    noteTabKeeperAction();
-  });
-
-  test('Undo: hidden under the drop, back once the key takes it', async () => {
-    const { store } = await renderToasts();
-    await deleteKyoto(store);
-    // PREMISE: the hint shows.
-    await waitFor(() =>
-      expect(undoButtons()[0]).toHaveAttribute('aria-keyshortcuts', 'Control+Z')
-    );
-
-    act(() => storeOpenNowDrop(DROP));
-
-    expect(undoButtons()[0]).not.toHaveAttribute('aria-keyshortcuts');
-    expect(undoButtons()[0].querySelector('[data-key-hint]')).toBeNull();
-
+  const keepDrop = (store: Store) =>
     act(() => {
-      takeOpenNowDrop();
+      keepLiveStep(store.dispatch, DROP);
     });
 
-    expect(undoButtons()[0]).toHaveAttribute('aria-keyshortcuts', 'Control+Z');
+  test('a drag after a saved change strips the saved toast’s Undo', async () => {
+    const { store } = await renderToasts();
+    await deleteKyoto(store);
+    // PREMISE: Undo is offered first.
+    expect(undoButtons()).toHaveLength(1);
+
+    keepDrop(store);
+
+    expect(undoButtons()).toHaveLength(0);
+    expect(toastTexts(store.getState())).toEqual([
+      TOAST_MESSAGES.DELETE_TAB_CONTAINER_SUCCESS,
+    ]);
   });
 
-  test('Reopen: hidden under the drop, back once the key takes it', async () => {
+  test('Reopen: no hint while a drag after it is newest, back once the drag leaves the history', async () => {
     const { store } = await renderToasts();
     await act(async () => {
       await store.dispatch(
@@ -445,39 +436,28 @@ describe('the key hint while an Open now drop holds the key (KAN-590)', () => {
       expect(reopenButton()).toHaveAttribute('aria-keyshortcuts', 'Control+Z')
     );
 
-    act(() => storeOpenNowDrop(DROP));
+    keepDrop(store);
 
     expect(reopenButton()).not.toHaveAttribute('aria-keyshortcuts');
     expect(reopenButton().querySelector('[data-key-hint]')).toBeNull();
 
-    act(() => {
-      takeOpenNowDrop();
+    // Tab 11 is not where the drop left it, so the undo is refused and the step dropped.
+    await act(async () => {
+      await store.dispatch(undoStep());
     });
 
+    expect(selectNewestLiveStep(store.getState())).toBeNull();
     expect(reopenButton()).toHaveAttribute('aria-keyshortcuts', 'Control+Z');
   });
 
-  test('an action after the drop retires it, and the hint comes back', async () => {
+  test('a saved change after a drag: its Undo names the key', async () => {
     const { store } = await renderToasts();
+    keepDrop(store);
+
     await deleteKyoto(store);
-    act(() => storeOpenNowDrop(DROP));
-    // PREMISE: hidden.
-    expect(undoButtons()[0]).not.toHaveAttribute('aria-keyshortcuts');
 
-    act(() => noteTabKeeperAction());
-
+    expect(undoButtons()).toHaveLength(1);
     expect(undoButtons()[0]).toHaveAttribute('aria-keyshortcuts', 'Control+Z');
-  });
-
-  test('the chip still works by click under the drop', async () => {
-    const user = userEvent.setup();
-    const { store } = await renderToasts();
-    await deleteKyoto(store);
-    act(() => storeOpenNowDrop(DROP));
-
-    await user.click(undoButtons()[0]);
-
-    expect(sessionIds(store)).toContain('kyoto');
   });
 });
 
@@ -532,12 +512,21 @@ describe('Undo in the live sort toast (KAN-694)', () => {
       .sort((a, b) => a.index - b.index)
       .map((tab) => tab.id);
 
-  afterEach(() => {
-    // A kept drop is module state: a later action retires it.
-    noteTabKeeperAction();
-  });
+  const dragTab2ToTheFront = (store: Store) =>
+    act(() => {
+      keepLiveStep(store.dispatch, {
+        kind: 'tab',
+        moved: [
+          {
+            tabId: 2,
+            before: { windowId: 1, index: 2, groupId: -1, group: null },
+            after: { windowId: 1, index: 0, groupId: -1, group: null },
+          },
+        ],
+      });
+    });
 
-  test('offers Undo, naming the key; it puts the tabs back, takes the drop and closes the toast', async () => {
+  test('offers Undo, naming the key; it puts the tabs back and closes the toast', async () => {
     const user = userEvent.setup();
     const { store } = await renderSorted();
     // PREMISE: sorted, and said so.
@@ -552,17 +541,33 @@ describe('Undo in the live sort toast (KAN-694)', () => {
     await user.click(undoButtons()[0]);
 
     await waitFor(async () => expect(await strip()).toEqual([1, 2, 3]));
-    expect(takeOpenNowDrop()).toBeNull();
+    expect(selectNewestLiveStep(store.getState())).toBeNull();
     expect(toastTexts(store.getState())).toEqual([]);
   });
 
-  // The drop is kept in the same render that adds the toast: React 18.2's useSyncExternalStore lost that change under the stack's render-phase update, and the chip outlived its drop.
-  test('a later Tab Keeper action takes Undo off; the toast stays', async () => {
+  // R16. The chip walks the one history: the sort goes to the redo list, as ⌘Z would send it.
+  test('the sort chip undoes the sort', async () => {
+    const user = userEvent.setup();
+    const { store, seen } = await renderSorted();
+    const step = selectNewestLiveStep(store.getState());
+    expect(step?.drop.kind).toBe('sort');
+
+    await user.click(undoButtons()[0]);
+
+    await waitFor(async () => expect(await strip()).toEqual([1, 2, 3]));
+    expect(seen).toContain('history/undoStep/fulfilled');
+    expect(store.getState().undoRedo.future[0]?.liveStep?.id).toBe(step?.id);
+  });
+
+  // R16. A saved change is a newer step: the chip would undo it, not the sort.
+  test('a saved change after the sort takes Undo off; the toast stays', async () => {
     const { store } = await renderSorted();
     // PREMISE: Undo is offered first.
     expect(undoButtons()).toHaveLength(1);
 
-    act(() => noteTabKeeperAction());
+    act(() => {
+      store.dispatch(saveToTabContainerInternal(KYOTO));
+    });
 
     expect(undoButtons()).toHaveLength(0);
     expect(toastTexts(store.getState())).toEqual([
@@ -570,32 +575,35 @@ describe('Undo in the live sort toast (KAN-694)', () => {
     ]);
   });
 
-  test('a drag kept after the sort holds the key: the sort toast offers no Undo, which would undo the drag', async () => {
-    await renderSorted();
-    expect(undoButtons()).toHaveLength(1);
-
-    act(() =>
-      storeOpenNowDrop({
-        kind: 'tab',
-        moved: [
-          {
-            tabId: 2,
-            before: { windowId: 1, index: 2, groupId: -1, group: null },
-            after: { windowId: 1, index: 0, groupId: -1, group: null },
-          },
-        ],
-      })
-    );
-
-    expect(undoButtons()).toHaveLength(0);
-  });
-
-  test('⌘Z taking the drop takes Undo off', async () => {
-    await renderSorted();
+  // R14, R16. A wipe of the saved steps leaves the sort newest; a drag is newer.
+  test('the sort toast keeps its Undo while its sort is newest, and loses it after a drag', async () => {
+    const { store } = await renderSorted();
     expect(undoButtons()).toHaveLength(1);
 
     act(() => {
-      takeOpenNowDrop();
+      store.dispatch(
+        resetHistory({
+          tabContainerDataState: store.getState().tabContainerDataState,
+        })
+      );
+    });
+
+    expect(undoButtons()).toHaveLength(1);
+
+    dragTab2ToTheFront(store);
+
+    expect(undoButtons()).toHaveLength(0);
+    expect(toastTexts(store.getState())).toEqual([
+      TOAST_MESSAGES.TABS_SORTED_BY_SITE,
+    ]);
+  });
+
+  test('⌘Z taking the sort takes Undo off', async () => {
+    const { store } = await renderSorted();
+    expect(undoButtons()).toHaveLength(1);
+
+    await act(async () => {
+      await store.dispatch(undoStep());
     });
 
     expect(undoButtons()).toHaveLength(0);

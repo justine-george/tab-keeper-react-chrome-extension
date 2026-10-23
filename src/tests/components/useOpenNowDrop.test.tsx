@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, renderHook, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { Provider } from 'react-redux';
 
 // Spied, not replaced: the real moves still run against the fake, so a test
 // can prove both that a refused drop never reached them and that an accepted
@@ -21,12 +23,10 @@ import {
 import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import { moveOpenGroup, moveOpenTab } from '../../utils/functions/openNowMoves';
-import {
-  noteTabKeeperAction,
-  takeOpenNowDrop,
-} from '../../redux/openNowMoveUndo';
+import { selectNewestLiveStep } from '../../redux/slices/undoRedoSlice';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeFakeHandle, ChromeSeed } from '../setup/chrome.fake';
+import { makeTestStore } from '../setup/makeStore';
 
 // KAN-280 Part E, Task 6c. What an Open now drag MEANS, apart from how the
 // engine drives it: the windows as the drop geometry reads them, where a held
@@ -45,9 +45,16 @@ afterEach(() => {
   cleanup();
   handle?.restore();
   handle = undefined;
-  // A drop a test stored is module state: a later action retires it.
-  noteTabKeeperAction();
 });
+
+// The hook keeps a drop in this store's undo history (KAN-744 R1).
+function storeWrapper() {
+  const { store } = makeTestStore();
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <Provider store={store}>{children}</Provider>
+  );
+  return { store, wrapper };
+}
 
 // The tab view's own address, which Open now leaves out (the same trick as
 // openNowPinned.test.tsx).
@@ -85,13 +92,17 @@ function renderDrop(
     collapsedIds?: ReadonlySet<number>;
   } = {}
 ) {
-  return renderHook(() =>
-    useOpenNowDrop({
-      windows,
-      hasTabGroups: options.hasTabGroups ?? true,
-      collapsedIds: options.collapsedIds ?? new Set(),
-    })
+  const { store, wrapper } = storeWrapper();
+  const rendered = renderHook(
+    () =>
+      useOpenNowDrop({
+        windows,
+        hasTabGroups: options.hasTabGroups ?? true,
+        collapsedIds: options.collapsedIds ?? new Set(),
+      }),
+    { wrapper }
   );
+  return { ...rendered, store };
 }
 
 // W1: two pinned tabs, then two unpinned. W2: a loose tab and group 50 (two
@@ -320,6 +331,7 @@ describe('acceptsWindow: which windows take a held row at all', () => {
     const seed = fourWindows({ currentTabId: 20 });
     seed.windows?.[1]?.tabs?.push({ id: 20, url: tabViewUrl() });
     const first = await install(seed);
+    const { wrapper } = storeWrapper();
     const { result, rerender } = renderHook(
       ({ windows }: { windows: readonly OpenWindow[] }) =>
         useOpenNowDrop({
@@ -327,7 +339,7 @@ describe('acceptsWindow: which windows take a held row at all', () => {
           hasTabGroups: true,
           collapsedIds: new Set(),
         }),
-      { initialProps: { windows: first } }
+      { initialProps: { windows: first }, wrapper }
     );
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(result.current.items.acceptsWindow(groupItem, '1')).toBe(true);
@@ -389,12 +401,30 @@ describe('a drop becomes Chrome calls, or none', () => {
   // hook passes the refusal on as null and keeps nothing for ⌘Z.
   test('a move Chrome refuses leaves nothing to undo', async () => {
     const windows = await install(fourWindows());
-    const { result } = renderDrop(windows);
+    const { result, store } = renderDrop(windows);
     await chrome.tabs.remove(LOOSE_A);
     expect(
       await result.current.tabs.onMove(String(LOOSE_A), 0, undefined, '2')
     ).toBe(null);
     expect(moveOpenTab).toHaveBeenCalled();
-    expect(takeOpenNowDrop()).toBeNull();
+    expect(store.getState().undoRedo.past).toEqual([]);
   });
+
+  // KAN-744 R1. A drop that moved something is the newest step in the history.
+  test.each([
+    ['tab', 'tabs', String(LOOSE_A), 0, '2'],
+    ['group', 'items', groupItem, 0, '2'],
+  ] as const)(
+    'a %s drop that moved joins the undo history',
+    async (kind, list, rowId, toIndex, toWindowId) => {
+      const { result, store } = renderDrop(await install(fourWindows()));
+
+      expect(
+        await result.current[list].onMove(rowId, toIndex, undefined, toWindowId)
+      ).not.toBe(null);
+
+      expect(selectNewestLiveStep(store.getState())?.drop.kind).toBe(kind);
+      expect(store.getState().undoRedo.past).toHaveLength(1);
+    }
+  );
 });

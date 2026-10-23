@@ -13,10 +13,6 @@ vi.mock('../../utils/functions/external', () => ({
 }));
 
 import { keepLiveStep, redoStep, undoStep } from '../../redux/undoHistory';
-import {
-  noteTabKeeperAction,
-  takeOpenNowDrop,
-} from '../../redux/openNowMoveUndo';
 import { sortOpenWindow } from '../../redux/sortOpenWindow';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import {
@@ -45,8 +41,6 @@ import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 let handle: ChromeFakeHandle | undefined;
 
 afterEach(() => {
-  // A kept sort drop is module state: a later action retires it.
-  noteTabKeeperAction();
   handle?.restore();
   handle = undefined;
   vi.restoreAllMocks();
@@ -111,11 +105,8 @@ function setup() {
     );
   // Sorts a window and keeps the sort as a live step.
   const sortAndKeep = async (windowId: number): Promise<OpenNowDrop> => {
-    if (!(await sortOpenWindow(windowId, true))) {
-      throw new Error('PREMISE: the sort moved nothing');
-    }
-    const drop = takeOpenNowDrop();
-    if (drop === null) throw new Error('PREMISE: no sort was kept');
+    const drop = await sortOpenWindow(windowId, true);
+    if (drop === null) throw new Error('PREMISE: the sort moved nothing');
     if (keepLiveStep(store.dispatch, drop) === null) {
       throw new Error('PREMISE: the sort was not kept');
     }
@@ -345,6 +336,8 @@ describe('undoStep and redoStep', () => {
   test('a press while a live step runs is ignored, not queued (R19)', async () => {
     handle = setupChromeFake(seed);
     const s = setup();
+    // A saved step below the live one: a queued press would undo it next.
+    s.rename();
     await s.dragAndKeep(dragTo1);
     const original: (
       id: number,
@@ -374,8 +367,10 @@ describe('undoStep and redoStep', () => {
     expect(await first).toBe('live');
     expect(s.past()).toBe(pastBefore - 1);
     expect(s.future()).toBe(1);
-    // Nothing was queued behind it.
+    // Nothing was queued behind it: the rename below still stands, and is next.
     expect(await strip(2)).toEqual(['21*', '22']);
+    expect(s.title()).toBe(TITLE_AFTER);
+    expect(selectNextStep(s.store.getState(), 'undo')).toBe('saved');
   });
 
   test('a press after a run ends is not busy (R19)', async () => {

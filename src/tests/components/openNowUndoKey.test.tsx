@@ -1,14 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import MainContainer from '../../components/MainContainer';
 import { offerReopen } from '../../redux/reopenOffer';
-import {
-  noteTabKeeperAction,
-  storeOpenNowDrop,
-} from '../../redux/openNowMoveUndo';
 import { clearReopenFocus } from '../../redux/reopenFocus';
 import { sortOpenWindowBySite } from '../../redux/sortOpenWindow';
+import { keepLiveStep } from '../../redux/undoHistory';
 import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import { setPresentStartup } from '../../redux/slices/undoRedoSlice';
@@ -20,10 +18,10 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { RenderWithProvidersResult } from '../setup/renderWithProviders';
 
-// KAN-280 Part E Task 7 (spec O11f, U1; ledger R5, R23). ⌘Z / Ctrl+Z undoes
-// the most recent Tab Keeper action: an Open now drag, a close whose Reopen
-// offer shows (O8c), or a saved-session change. A drag's undo lasts until
-// the next such action; a stale one does nothing and does not fall through.
+// KAN-280 Part E Task 7 (spec O11f, U1), KAN-744. Open now drags and saved
+// changes are steps in one history: ⌘Z / Ctrl+Z undoes the newest, ⌘⇧Z /
+// Ctrl+Y redoes. A Reopen offer (O8c) is taken first while it came after the
+// newest drag (R17); the menu's buttons walk the history and never take it (R15).
 
 const UNDO = 'undoRedo/undo';
 const REDO = 'undoRedo/redo';
@@ -65,26 +63,38 @@ const urlsIn = async (windowId: number) =>
     .sort((x, y) => x.index - y.index)
     .map((tab) => tab.url ?? '');
 
-// A: 21 dropped right after 22 (between b and c, while c is open), kept as
-// the Open now hook keeps it.
-async function dragAToTheMiddle(): Promise<void> {
-  const cOpen = (await urlsIn(2)).includes(url('c'));
+type Store = RenderWithProvidersResult['store'];
+
+// A tab of W2 dropped at toIndex in W2, kept as the Open now hook keeps it.
+async function dragInW2(
+  store: Store,
+  tabId: string,
+  toIndex: number
+): Promise<void> {
   const moved = await moveOpenTab(
-    { tabId: '21', fromWindowId: '2', toWindowId: '2', toIndex: 1 },
+    { tabId, fromWindowId: '2', toWindowId: '2', toIndex },
     await snapshot(),
     false
   );
   if (moved === null) throw new Error('PREMISE: the drop was refused');
-  storeOpenNowDrop({ kind: 'tab', moved });
+  act(() => {
+    if (keepLiveStep(store.dispatch, { kind: 'tab', moved }) === null) {
+      throw new Error('PREMISE: the drop was not kept');
+    }
+  });
+}
+
+// A: 21 dropped right after 22 (between b and c, while c is open).
+async function dragAToTheMiddle(store: Store): Promise<void> {
+  const cOpen = (await urlsIn(2)).includes(url('c'));
+  await dragInW2(store, '21', 1);
   expect(await urlsIn(2)).toEqual(
     cOpen ? [url('b'), url('a'), url('c')] : [url('b'), url('a')]
   );
 }
 
 // c closed from Open now, and its Reopen toast up.
-async function closeCWithOffer(
-  store: RenderWithProvidersResult['store']
-): Promise<void> {
+async function closeCWithOffer(store: Store): Promise<void> {
   const w2 = (await snapshot()).find((window) => window.id === 2);
   const c = w2?.tabs.find((tab) => tab.url === url('c'));
   if (!w2 || !c) throw new Error('no tab c');
@@ -101,9 +111,7 @@ async function closeCWithOffer(
 // this): this file's import order leaves the slice's own initial `present`
 // without a container (the KAN-137 cycle, sliceImportCycle.test.tsx), and
 // undoing back to it would throw.
-async function saveASession(
-  store: RenderWithProvidersResult['store']
-): Promise<void> {
+async function saveASession(store: Store): Promise<void> {
   await act(async () => {
     store.dispatch(
       setPresentStartup({
@@ -145,12 +153,26 @@ function press(chord: {
   return event;
 }
 
+// The menu's Undo or Redo, not a toast's chip of the same name.
+function menuButton(name: 'Undo' | 'Redo'): HTMLElement {
+  const button = screen
+    .getAllByRole('button', { name })
+    .find((b) => b.closest('[role="status"]') === null);
+  if (button === undefined) throw new Error(`PREMISE: no menu ${name}`);
+  return button;
+}
+
 const undoRedoIn = (seen: string[]) =>
   seen.filter((type) => type === UNDO || type === REDO);
 
 const aIsBack = () =>
   waitFor(async () => {
     expect(await urlsIn(2)).toEqual([url('a'), url('b'), url('c')]);
+  });
+
+const aIsInTheMiddle = () =>
+  waitFor(async () => {
+    expect(await urlsIn(2)).toEqual([url('b'), url('a'), url('c')]);
   });
 
 // Lets any undo a press started settle, so "nothing moved" is not read
@@ -168,8 +190,6 @@ beforeEach(() => {
 afterEach(() => {
   history.replaceState(null, '', '/');
   clearReopenFocus();
-  // A kept drop is module state: a later action retires it.
-  noteTabKeeperAction();
 });
 
 describe('⌘Z after an Open now drag', () => {
@@ -181,7 +201,7 @@ describe('⌘Z after an Open now drag', () => {
       seed,
     });
     await saveASession(store);
-    await dragAToTheMiddle();
+    await dragAToTheMiddle(store);
     const before = seen.length;
 
     const event = press(chord);
@@ -196,7 +216,7 @@ describe('⌘Z after an Open now drag', () => {
       seed,
     });
     await saveASession(store);
-    await dragAToTheMiddle();
+    await dragAToTheMiddle(store);
     press({ key: 'z', metaKey: true });
     await aIsBack();
     const before = seen.length;
@@ -213,7 +233,7 @@ describe('⌘Z after an Open now drag', () => {
       seed,
     });
     await saveASession(store);
-    await dragAToTheMiddle();
+    await dragAToTheMiddle(store);
     press({ key: 'z', metaKey: true });
     await aIsBack();
     const before = seen.length;
@@ -223,10 +243,30 @@ describe('⌘Z after an Open now drag', () => {
     expect(undoRedoIn(seen.slice(before))).toEqual([]);
     expect(repeat.defaultPrevented).toBe(true);
   });
+
+  // KAN-744 R2, R7.
+  test.each([
+    ['⌘⇧Z', { key: 'Z', metaKey: true, shiftKey: true }],
+    ['Ctrl+Y', { key: 'y', ctrlKey: true }],
+  ])('%s redoes a drag', async (_n, chord) => {
+    const { store, seen } = await renderWithProviders(<MainContainer />, {
+      seed,
+    });
+    await dragAToTheMiddle(store);
+    press({ key: 'z', metaKey: true });
+    await aIsBack();
+    const before = seen.length;
+
+    const event = press(chord);
+
+    await aIsInTheMiddle();
+    expect(event.defaultPrevented).toBe(true);
+    expect(undoRedoIn(seen.slice(before))).toEqual([]);
+  });
 });
 
 test("with the tabGroups grant, ⌘Z gives a lone tab's removed group back its look (settled A)", async () => {
-  const { chrome: fake } = await renderWithProviders(<MainContainer />, {
+  const { chrome: fake, store } = await renderWithProviders(<MainContainer />, {
     seed: {
       grantedPermissions: ['tabGroups'],
       windows: [
@@ -253,7 +293,9 @@ test("with the tabGroups grant, ⌘Z gives a lone tab's removed group back its l
     true
   );
   if (moved === null) throw new Error('PREMISE: the drop was refused');
-  storeOpenNowDrop({ kind: 'tab', moved });
+  act(() => {
+    keepLiveStep(store.dispatch, { kind: 'tab', moved });
+  });
   // PREMISE: Chrome removed the group.
   expect(fake.groupState(7)).toBeUndefined();
 
@@ -269,12 +311,13 @@ test("with the tabGroups grant, ⌘Z gives a lone tab's removed group back its l
   });
 });
 
-describe('a saved-session change and a drag: the later one wins', () => {
-  test('a change after the drag: ⌘Z undoes the change, and the drag stays', async () => {
+describe('a saved-session change and a drag: one history (KAN-744)', () => {
+  // R2. Was "the drag stays": the drag is now a step under the change.
+  test('a change after the drag: ⌘Z undoes the change, and a second ⌘Z the drag', async () => {
     const { store, seen } = await renderWithProviders(<MainContainer />, {
       seed,
     });
-    await dragAToTheMiddle();
+    await dragAToTheMiddle(store);
     await saveASession(store);
     const before = seen.length;
 
@@ -283,20 +326,31 @@ describe('a saved-session change and a drag: the later one wins', () => {
 
     expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
     expect(await urlsIn(2)).toEqual([url('b'), url('a'), url('c')]);
+
+    press({ key: 'z', metaKey: true });
+
+    await aIsBack();
+    expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
   });
 
-  test('a redo step is no new change: a drag made after an undo is still undone after the redo (ledger R23)', async () => {
+  // R3. Was "a redo step is no new change": a drag is a new step, so it clears the redo.
+  test('a drag after an undo clears the redo: ⌘⇧Z redoes nothing, and ⌘Z undoes the drag', async () => {
     const { store, seen } = await renderWithProviders(<MainContainer />, {
       seed,
     });
     await saveASession(store);
     press({ key: 'z', metaKey: true });
-    await dragAToTheMiddle();
-    press({ key: 'Z', metaKey: true, shiftKey: true });
-    // PREMISE: the redo was a real step, the save back in history.
-    expect(store.getState().undoRedo.past.length).toBeGreaterThan(0);
+    // PREMISE: the save is undone, and could be redone.
+    expect(store.getState().undoRedo.future).toHaveLength(1);
+    await dragAToTheMiddle(store);
     expect(store.getState().undoRedo.future).toEqual([]);
     const before = seen.length;
+
+    press({ key: 'Z', metaKey: true, shiftKey: true });
+    await settle();
+
+    expect(undoRedoIn(seen.slice(before))).toEqual([]);
+    expect(await urlsIn(2)).toEqual([url('b'), url('a'), url('c')]);
 
     press({ key: 'z', metaKey: true });
 
@@ -304,21 +358,21 @@ describe('a saved-session change and a drag: the later one wins', () => {
     expect(undoRedoIn(seen.slice(before))).toEqual([]);
   });
 
-  test('a drag has no redo: ⌘⇧Z after its undo redoes Redux only (ledger R5)', async () => {
+  // R2. Was "a drag has no redo (ledger R5)": ⌘⇧Z redoes the step undone last, the drag.
+  test('⌘⇧Z after the drag’s undo redoes the drag, not the saved change', async () => {
     const { store, seen } = await renderWithProviders(<MainContainer />, {
       seed,
     });
     await saveASession(store);
-    await dragAToTheMiddle();
+    await dragAToTheMiddle(store);
     press({ key: 'z', metaKey: true });
     await aIsBack();
     const before = seen.length;
 
     press({ key: 'Z', metaKey: true, shiftKey: true });
-    await settle();
 
-    expect(undoRedoIn(seen.slice(before))).toEqual([REDO]);
-    expect(await urlsIn(2)).toEqual([url('a'), url('b'), url('c')]);
+    await aIsInTheMiddle();
+    expect(undoRedoIn(seen.slice(before))).toEqual([]);
   });
 });
 
@@ -327,7 +381,7 @@ describe('a Reopen offer and a drag: the later one wins', () => {
     const { store, seen } = await renderWithProviders(<MainContainer />, {
       seed,
     });
-    await dragAToTheMiddle();
+    await dragAToTheMiddle(store);
     await closeCWithOffer(store);
     const before = seen.length;
 
@@ -345,7 +399,7 @@ describe('a Reopen offer and a drag: the later one wins', () => {
       seed,
     });
     await closeCWithOffer(store);
-    await dragAToTheMiddle();
+    await dragAToTheMiddle(store);
     const before = seen.length;
 
     press({ key: 'z', metaKey: true });
@@ -362,6 +416,74 @@ describe('a Reopen offer and a drag: the later one wins', () => {
       expect(await urlsIn(2)).toEqual([url('a'), url('b'), url('c')]);
     });
     expect(undoRedoIn(seen.slice(before))).toEqual([]);
+  });
+});
+
+describe('a Reopen offer between two drags (KAN-744 R17)', () => {
+  test('an offer between two drags: ⌘Z takes the newer drag, then the offer, then the older drag', async () => {
+    const { store, seen } = await renderWithProviders(<MainContainer />, {
+      seed,
+    });
+    await dragAToTheMiddle(store);
+    await closeCWithOffer(store);
+    // The newer drag: a back to the front of [b, a].
+    await dragInW2(store, '21', 0);
+    expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
+    const before = seen.length;
+
+    press({ key: 'z', metaKey: true });
+
+    await waitFor(async () => {
+      expect(await urlsIn(2)).toEqual([url('b'), url('a')]);
+    });
+    expect(offerShows()).toBe(true);
+
+    press({ key: 'z', metaKey: true });
+
+    await aIsInTheMiddle();
+    expect(offerShows()).toBe(false);
+
+    press({ key: 'z', metaKey: true });
+
+    await aIsBack();
+    expect(undoRedoIn(seen.slice(before))).toEqual([]);
+  });
+});
+
+describe('the menu Undo and Redo (KAN-744 R15)', () => {
+  test('the menu Undo and Redo buttons walk a drag', async () => {
+    const user = userEvent.setup();
+    const { store, seen } = await renderWithProviders(<MainContainer />, {
+      seed,
+    });
+    await dragAToTheMiddle(store);
+    const before = seen.length;
+
+    await user.click(menuButton('Undo'));
+
+    await aIsBack();
+
+    await user.click(menuButton('Redo'));
+
+    await aIsInTheMiddle();
+    expect(undoRedoIn(seen.slice(before))).toEqual([]);
+  });
+
+  test('the menu Undo never takes an offer', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderWithProviders(<MainContainer />, {
+      seed,
+    });
+    await dragAToTheMiddle(store);
+    await closeCWithOffer(store);
+
+    await user.click(menuButton('Undo'));
+
+    // The drag is undone in [b, a]; c stays closed, its offer still up.
+    await waitFor(async () => {
+      expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
+    });
+    expect(offerShows()).toBe(true);
   });
 });
 

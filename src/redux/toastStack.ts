@@ -3,12 +3,14 @@
 
 export const MAX_TOASTS = 4;
 
-// The Reopen offer a toast carries (KAN-280 O8a). keepsUndoKey is whether ⌘Z
-// still takes it: a saved-session change announced after it takes the key
-// for good (KAN-349 Q1 C′).
+// The Reopen offer a toast carries (KAN-280 O8a). keepsUndoKey is false once
+// a saved-session change announced after it has taken ⌘Z for good (KAN-349
+// Q1 C′). shownAt is its nextActionNumber(): a live step with a higher id came
+// after it, and ⌘Z takes that step first (KAN-744 R17).
 export interface ToastOffer {
   id: number;
   keepsUndoKey: boolean;
+  shownAt: number;
 }
 
 // The session a toast's Show chip puts on screen (KAN-350).
@@ -25,8 +27,8 @@ export interface ToastItem {
   show: ToastShow | null;
   // KAN-583. An Undo button: true only while the change this toast announces is the latest undo step.
   offersUndo: boolean;
-  // KAN-694. An Undo button for the Open now drop a live sort kept: shown only while a sort is the drop ⌘Z takes.
-  offersOpenNowUndo: boolean;
+  // KAN-694, KAN-744 R16. The live sort step this toast announces, or null: its Undo shows while that step is the newest in the history.
+  liveStepId: number | null;
 }
 
 function sameParams(a: ToastItem['params'], b: ToastItem['params']): boolean {

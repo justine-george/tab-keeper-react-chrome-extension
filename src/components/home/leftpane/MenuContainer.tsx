@@ -17,7 +17,6 @@ import {
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   closeAllToasts,
-  closePlainToasts,
   openSettingsPage,
   syncNowWhenSignedIn,
   closeFullViewCallout,
@@ -26,9 +25,8 @@ import {
 import {
   isRedoableSelector,
   isUndoableSelector,
-  redo,
-  undo,
 } from '../../../redux/slices/undoRedoSlice';
+import { redoStep, undoStep } from '../../../redux/undoHistory';
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
 import {
   markFullViewCalloutSeen,
@@ -105,14 +103,13 @@ export default function MenuContainer() {
   const canGoBack = backPlan !== null && backPlan.kind !== 'none';
   const isRedoable = useSelector(isRedoableSelector);
 
+  // KAN-744 R15. The same history as ⌘Z / ⌘⇧Z, saved and live steps alike; never a Reopen offer.
   function handleClickUndo() {
-    dispatch(undo());
-    dispatch(closePlainToasts());
+    void dispatch(undoStep());
   }
 
   function handleClickRedo() {
-    dispatch(redo());
-    dispatch(closePlainToasts());
+    void dispatch(redoStep());
   }
 
   // KAN-259. Manual sync is a sync: without consent it asks the cloud
