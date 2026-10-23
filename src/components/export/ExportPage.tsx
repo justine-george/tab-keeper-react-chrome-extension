@@ -50,6 +50,10 @@ import {
   type ExportScheme,
 } from '../../utils/functions/sessionExportHtml';
 import { copySessionLinks } from '../../utils/functions/copySessionLinks';
+import {
+  exportIconKey,
+  readExportIcons,
+} from '../../utils/functions/exportIcons';
 import { CORNER_SHAPE } from '../../styles/scale';
 import {
   applyExportEdits,
@@ -83,6 +87,11 @@ import {
  * so this goes back to 1100.
  */
 const HEADER_CONTENT_MAX_PX = 870;
+
+// KAN-603. The longest Print waits for the icons; measured, they land 60-160ms after opening.
+const OUTPUT_WAIT_CAP_MS = 1000;
+
+type ExportOutput = 'print' | 'save';
 
 /**
  * Where the page's session comes from (KAN-208).
@@ -118,6 +127,10 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   const [writtenEdits, setWrittenEdits] =
     useState<ExportEdits>(NO_EXPORT_EDITS);
   const frameRef = useRef<HTMLIFrameElement>(null);
+  // KAN-603. The press waiting for the icons.
+  const [pendingOutput, setPendingOutput] = useState<ExportOutput | null>(null);
+  // KAN-603. The document the preview frame last finished loading.
+  const [loadedHtml, setLoadedHtml] = useState<string | null>(null);
 
   // This page is its own document with its own store, and nothing fills that
   // store for it: in the popup, App does this on mount. Read-only -- the
@@ -199,6 +212,31 @@ export default function ExportPage({ source }: { source: ExportSource }) {
     () => (tidied ? applyExportEdits(tidied, edits) : undefined),
     [tidied, edits]
   );
+
+  // KAN-603. Read once per set of addresses, so renames and hides never refetch;
+  // every icon lands in one update, so the frame reloads once. A newer set's
+  // read supersedes an older one, which `key` tells apart.
+  const iconKey = tidied ? exportIconKey(tidied) : undefined;
+  const [readIcons, setReadIcons] = useState<{
+    key: string;
+    icons: ReadonlyMap<string, string>;
+  } | null>(null);
+  useEffect(() => {
+    if (iconKey === undefined) return;
+    let cancelled = false;
+    // Addresses never hold a newline: Chrome's URL parser strips them.
+    void readExportIcons(iconKey.split('\n')).then((icons) => {
+      if (!cancelled) setReadIcons({ key: iconKey, icons });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [iconKey]);
+  const icons = useMemo<ReadonlyMap<string, string>>(
+    () => readIcons?.icons ?? new Map(),
+    [readIcons]
+  );
+  const iconsReady = readIcons !== null && readIcons.key === iconKey;
   // KAN-401. Every row hidden leaves nothing to export, so Done waits for one.
   const nothingKept =
     edited !== undefined &&
@@ -322,10 +360,14 @@ export default function ExportPage({ source }: { source: ExportSource }) {
         month: 'short',
         day: 'numeric',
       }),
+      icons,
+      iconsReady,
     });
   }, [
     session,
     edited,
+    icons,
+    iconsReady,
     layout,
     scheme,
     sessionDateBasis,
@@ -341,6 +383,22 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   useEffect(() => {
     if (session) document.title = session.title;
   }, [session]);
+
+  // KAN-603. Print and Save wait until the frame has loaded the file carrying
+  // the icons, or OUTPUT_WAIT_CAP_MS, whichever comes first.
+  const frameShowsIcons = iconsReady && loadedHtml === html;
+  // KAN-603. What Save writes once its wait ends: the file as it is then, not as it was when pressed.
+  const savedFileRef = useRef({ html, title: '', edits });
+  useEffect(() => {
+    savedFileRef.current = { html, title: edited?.title ?? '', edits };
+  }, [html, edited, edits]);
+  const frameShowsIconsRef = useRef(false);
+  const outputWaiters = useRef(new Set<() => void>());
+  useEffect(() => {
+    frameShowsIconsRef.current = frameShowsIcons;
+    if (!frameShowsIcons) return;
+    for (const done of outputWaiters.current) done();
+  }, [frameShowsIcons]);
 
   const pageStyle = css`
     min-height: 100vh;
@@ -433,20 +491,49 @@ export default function ExportPage({ source }: { source: ExportSource }) {
       return { ...prev, hidden };
     });
 
-  const handleSave = () => {
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const untilFrameShowsIcons = () =>
+    new Promise<void>((resolve) => {
+      if (frameShowsIconsRef.current) return resolve();
+      const done = () => {
+        clearTimeout(cap);
+        outputWaiters.current.delete(done);
+        resolve();
+      };
+      const cap = setTimeout(done, OUTPUT_WAIT_CAP_MS);
+      outputWaiters.current.add(done);
+    });
+
+  // KAN-603. Busy at once, so a second press is ignored.
+  const afterIcons = async (output: ExportOutput, run: () => void) => {
+    setPendingOutput(output);
+    await untilFrameShowsIcons();
+    // A refused print or save must not leave both buttons busy until a reload.
+    try {
+      run();
+    } catch (error) {
+      console.error(`Could not ${output} the export:`, error);
+    } finally {
+      setPendingOutput(null);
+    }
+  };
+
+  const saveFile = () => {
+    const file = savedFileRef.current;
+    const blob = new Blob([file.html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = exportFileName(edited.title, new Date());
+    anchor.download = exportFileName(file.title, new Date());
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     // Revoked on a later turn, not immediately: the download is handed off
     // asynchronously, and revoking in the same tick cancels it in Chrome.
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    setWrittenEdits(edits);
+    setWrittenEdits(file.edits);
   };
+
+  const handleSave = () => afterIcons('save', saveFile);
 
   // KAN-209. The copy itself now lives in copySessionLinks, which the session
   // menu in the popup also calls -- one definition of what "copy all links"
@@ -478,9 +565,8 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // sandboxed with allow-same-origin and nothing else: scripts stay blocked,
   // so the file still cannot run anything, and the browser's print dialog is
   // where "Save as PDF" lives.
-  const handlePrint = () => {
-    frameRef.current?.contentWindow?.print();
-  };
+  const handlePrint = () =>
+    afterIcons('print', () => frameRef.current?.contentWindow?.print());
 
   // Icon carries 4px of its own padding all round, and Button adds 8px to
   // its right -- so the gap left of the icon was 4px wider than the gap right
@@ -783,6 +869,8 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                   onClick={() => {
                     setEditing(true);
                     setRowSwapped(true);
+                    // KAN-603. The frame leaves; the one Done brings back has loaded nothing yet.
+                    setLoadedHtml(null);
                   }}
                   iconSize="1.2rem"
                   iconStyle={actionIconStyle}
@@ -835,6 +923,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                       ariaLabel={t('Save as HTML')}
                       iconType="download"
                       onClick={handleSave}
+                      busy={pendingOutput !== null}
                       iconSize="1.2rem"
                       iconStyle={actionIconStyle}
                       style={actionStyle}
@@ -853,6 +942,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                     ariaLabel={t('Print')}
                     iconType="print"
                     onClick={handlePrint}
+                    busy={pendingOutput !== null}
                     iconSize="1.2rem"
                     iconColor={COLORS.PRIMARY_COLOR}
                     iconStyle={actionIconStyle}
@@ -872,6 +962,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
             session={tidied}
             edits={edits}
             scheme={scheme}
+            icons={icons}
             onRename={renameRow}
             onToggleHidden={toggleHidden}
           />
@@ -884,6 +975,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
               ref={frameRef}
               title={edited.title}
               srcDoc={html}
+              onLoad={() => setLoadedHtml(html)}
               // allow-modals is what makes print() work: Chrome ignores print()
               // from a sandboxed frame without it, silently but for a console line.
               // allow-scripts is still absent, so the file cannot run anything.

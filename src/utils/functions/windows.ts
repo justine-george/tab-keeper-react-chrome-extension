@@ -1,5 +1,3 @@
-import { Base64 } from 'js-base64';
-
 import type {
   SavedWindowState,
   tabData,
@@ -10,6 +8,7 @@ import {
   resolveTabUrl,
   restoreRoute,
 } from './local';
+import { fetchPngDataUri } from './exportIcons';
 import { createSplitApi, type CreateSplit } from './splitView';
 import { sanitizeTabGroupColor } from './tabGroups';
 
@@ -413,14 +412,7 @@ async function placeholderIcon(tabInfo: tabData): Promise<string> {
   if (tabInfo.favicon) return tabInfo.favicon;
   const address = resolveFaviconUrl('', resolveTabUrl(tabInfo.url));
   if (!address) return '';
-  try {
-    const response = await fetch(address);
-    if (!response.ok) return '';
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    return `data:image/png;base64,${Base64.fromUint8Array(bytes)}`;
-  } catch {
-    return '';
-  }
+  return (await fetchPngDataUri(address)) ?? '';
 }
 
 // Resolves to the new tab's id, or undefined when Chrome refused it: that tab is skipped, never the restore.

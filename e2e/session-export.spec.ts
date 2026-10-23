@@ -212,8 +212,24 @@ test.describe('exporting a session as a web page', () => {
     const reader = await context.newPage();
     const requested: string[] = [];
     reader.on('request', (request) => requested.push(request.url()));
+    const consoleLines: string[] = [];
+    reader.on('console', (message) => consoleLines.push(message.text()));
     await reader.goto(`file://${file}`);
     await reader.waitForLoadState('networkidle');
+
+    // KAN-603. The icons are inlined, so they draw under the file's own rule.
+    const drawn = await reader
+      .locator('.fav')
+      .evaluateAll(
+        (slots) =>
+          slots.filter(
+            (slot) => getComputedStyle(slot).backgroundImage !== 'none'
+          ).length
+      );
+    expect(drawn).toBeGreaterThan(0);
+    expect(
+      consoleLines.filter((line) => line.includes('Content Security Policy'))
+    ).toEqual([]);
 
     await expect(
       reader.getByRole('link', { name: 'Fushimi Inari' })

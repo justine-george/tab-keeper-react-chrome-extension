@@ -1,5 +1,11 @@
-import { afterEach, describe, expect, test, vi } from 'vitest';
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { CHALK_THEME, CHARCOAL_THEME } from '../../hooks/useThemeColors';
@@ -10,6 +16,7 @@ import { rgb } from '../setup/hexColor';
 import { getPrettyDate } from '../../utils/functions/local';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
+import { readExportIcons } from '../../utils/functions/exportIcons';
 import {
   setTheme,
   setTimeFormat,
@@ -24,6 +31,17 @@ vi.mock('../../utils/constants/common', async (original) => ({
     return saveSwitch.shown;
   },
 }));
+
+// KAN-603. Icons come from Chrome's cache in the real page; here each test says what the read answers.
+vi.mock('../../utils/functions/exportIcons', async (original) => ({
+  ...(await original<typeof import('../../utils/functions/exportIcons')>()),
+  readExportIcons: vi.fn(),
+}));
+
+beforeEach(() => {
+  vi.mocked(readExportIcons).mockReset();
+  vi.mocked(readExportIcons).mockResolvedValue(new Map());
+});
 
 // KAN-190. Wiring only: the page previews the generator's output and saves that
 // same string. File contents: sessionExportHtml.test.ts; real file:
@@ -199,9 +217,14 @@ describe('the export preview page (KAN-190)', () => {
 
     // Off the default, so a save that rebuilt the file would differ.
     await user.click(screen.getByRole('button', { name: 'Comfortable' }));
+    // KAN-603. Save waits for the frame to load the file with its icons.
+    await waitFor(() =>
+      expect(frame().getAttribute('srcdoc')).toContain('data-icons="ready"')
+    );
+    fireEvent.load(frame());
     await user.click(screen.getByRole('button', { name: 'Save as HTML' }));
 
-    expect(blobs).toHaveLength(1);
+    await waitFor(() => expect(blobs).toHaveLength(1));
     expect(await blobs[0].text()).toBe(frame().srcdoc);
     const anchor = clicks.mock.instances[0];
     if (!(anchor instanceof HTMLAnchorElement)) throw new Error('no link');
@@ -576,9 +599,15 @@ describe('printing the previewed file', () => {
       value: { print: printed },
     });
 
+    // KAN-603. Icons have settled (none here) and the frame has loaded them.
+    await waitFor(() =>
+      expect(frame().getAttribute('srcdoc')).toContain('data-icons="ready"')
+    );
+    fireEvent.load(frame());
+
     await user.click(screen.getByRole('button', { name: 'PDF / Print' }));
 
-    expect(printed).toHaveBeenCalled();
+    await waitFor(() => expect(printed).toHaveBeenCalledTimes(1));
   });
 
   // Measured: under sandbox="", print() on the frame throws SecurityError.
@@ -791,5 +820,241 @@ describe('the exported date line (KAN-347)', () => {
     await waitFor(() =>
       expect(frame().srcdoc).toContain('Edited Sep 29, 2026, 16:12:05')
     );
+  });
+});
+
+// KAN-603. The page reads icons once per set of addresses, and Print waits for the file that carries them.
+describe('the icons on the export page (KAN-603)', () => {
+  const INARI = 'data:image/png;base64,SU5BUkk=';
+  const OTHER = 'data:image/png;base64,T1RIRVI=';
+
+  function deferred<T>() {
+    const box: { resolve: (value: T) => void } = { resolve: () => {} };
+    const promise = new Promise<T>((resolve) => {
+      box.resolve = resolve;
+    });
+    return { promise, resolve: (value: T) => box.resolve(value) };
+  }
+
+  const srcdoc = () => frame().getAttribute('srcdoc') ?? '';
+
+  // Every value the frame's document takes from here on.
+  function watchSrcdoc() {
+    const seen: string[] = [];
+    const observer = new MutationObserver(() => seen.push(srcdoc()));
+    observer.observe(frame(), {
+      attributes: true,
+      attributeFilter: ['srcdoc'],
+    });
+    return { seen, stop: () => observer.disconnect() };
+  }
+
+  const printButton = () => screen.getByRole('button', { name: 'PDF / Print' });
+
+  const spyPrint = () => {
+    const printed = vi.fn();
+    Object.defineProperty(frame(), 'contentWindow', {
+      configurable: true,
+      value: { print: printed },
+    });
+    return printed;
+  };
+
+  test('reads the tidied addresses once, and lands every icon in one change', async () => {
+    const read = deferred<ReadonlyMap<string, string>>();
+    vi.mocked(readExportIcons).mockReturnValue(read.promise);
+    await renderPage();
+
+    expect(readExportIcons).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(readExportIcons).mock.calls[0][0]).toEqual([
+      'https://inari.jp/en/',
+      'https://www2.city.kyoto.lg.jp/kotsu/',
+    ]);
+    expect(srcdoc()).not.toContain('data-icons');
+    expect(srcdoc()).toContain('class="fav"');
+
+    const watch = watchSrcdoc();
+    await act(async () =>
+      read.resolve(new Map([['https://inari.jp/en/', INARI]]))
+    );
+    await waitFor(() => expect(srcdoc()).toContain('data-icons="ready"'));
+    watch.stop();
+
+    expect(watch.seen).toHaveLength(1);
+    expect(watch.seen[0]).toContain(INARI);
+    expect(watch.seen[0]).toContain('data-icons="ready"');
+  });
+
+  test('a hide in Edit reads nothing again', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+    await waitFor(() => expect(srcdoc()).toContain('data-icons="ready"'));
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Hide: Fushimi Inari' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+
+    expect(srcdoc()).not.toContain('inari.jp');
+    expect(readExportIcons).toHaveBeenCalledTimes(1);
+  });
+
+  test('a read answered after the addresses changed is dropped', async () => {
+    const first = deferred<ReadonlyMap<string, string>>();
+    const second = deferred<ReadonlyMap<string, string>>();
+    vi.mocked(readExportIcons)
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const { store } = await renderPage();
+
+    const moved = buildSession({
+      ...SESSION,
+      windows: [
+        {
+          ...SESSION.windows[0],
+          tabs: [
+            ...SESSION.windows[0].tabs,
+            {
+              tabId: 't-3',
+              favicon: '',
+              title: 'Nishiki Market',
+              url: 'https://nishiki.example/',
+            },
+          ],
+        },
+      ],
+    });
+    act(() => {
+      store.dispatch(replaceState(buildContainer([moved])));
+    });
+    await waitFor(() => expect(readExportIcons).toHaveBeenCalledTimes(2));
+
+    await act(async () =>
+      first.resolve(new Map([['https://inari.jp/en/', INARI]]))
+    );
+    expect(srcdoc()).not.toContain(INARI);
+    expect(srcdoc()).not.toContain('data-icons');
+
+    await act(async () =>
+      second.resolve(new Map([['https://inari.jp/en/', OTHER]]))
+    );
+    await waitFor(() => expect(srcdoc()).toContain('data-icons="ready"'));
+    expect(srcdoc()).toContain(OTHER);
+    expect(srcdoc()).not.toContain(INARI);
+  });
+
+  test('when no icon can be read, every row keeps a bare slot, in the file and in Edit', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+    await waitFor(() => expect(srcdoc()).toContain('data-icons="ready"'));
+
+    expect(
+      srcdoc().split('<span class="fav" aria-hidden="true">').length - 1
+    ).toBe(2);
+    expect(srcdoc()).not.toContain('background-image');
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    const slots = document.querySelectorAll('[data-icon-slot]');
+    expect(slots).toHaveLength(2);
+    expect(document.querySelectorAll('[data-icon-slot] img')).toHaveLength(0);
+  });
+
+  describe('Print while the icons load', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    // KAN-603. No "Preparing…" face: icons land 60-160ms after opening, before anyone can press.
+    test('is busy at once with no second face, ignores a second press, and prints once the file with icons has loaded', async () => {
+      const read = deferred<ReadonlyMap<string, string>>();
+      vi.mocked(readExportIcons).mockReturnValue(read.promise);
+      await renderPage();
+      fireEvent.load(frame());
+      const printed = spyPrint();
+      vi.useFakeTimers();
+
+      fireEvent.click(printButton());
+      expect(printButton().getAttribute('aria-disabled')).toBe('true');
+      expect(printButton().hasAttribute('data-second-face-shown')).toBe(false);
+
+      fireEvent.click(printButton());
+      await act(async () =>
+        read.resolve(new Map([['https://inari.jp/en/', INARI]]))
+      );
+      expect(srcdoc()).toContain('data-icons="ready"');
+      // The file with icons has been handed to the frame but not yet loaded.
+      expect(printed).not.toHaveBeenCalled();
+
+      await act(async () => {
+        fireEvent.load(frame());
+      });
+      expect(printed).toHaveBeenCalledTimes(1);
+      expect(printButton().getAttribute('aria-disabled')).toBeNull();
+    });
+
+    test('prints at 1s when the icons never arrive', async () => {
+      vi.mocked(readExportIcons).mockReturnValue(new Promise(() => {}));
+      await renderPage();
+      fireEvent.load(frame());
+      const printed = spyPrint();
+      vi.useFakeTimers();
+
+      fireEvent.click(printButton());
+      await act(async () => vi.advanceTimersByTime(999));
+      expect(printed).not.toHaveBeenCalled();
+      await act(async () => vi.advanceTimersByTime(1));
+      expect(printed).toHaveBeenCalledTimes(1);
+      expect(printButton().getAttribute('aria-disabled')).toBeNull();
+    });
+
+    test('a print that throws still frees the button', async () => {
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+      await renderPage();
+      await waitFor(() => expect(srcdoc()).toContain('data-icons="ready"'));
+      fireEvent.load(frame());
+      Object.defineProperty(frame(), 'contentWindow', {
+        configurable: true,
+        value: {
+          print: () => {
+            throw new DOMException('blocked', 'SecurityError');
+          },
+        },
+      });
+
+      fireEvent.click(printButton());
+
+      await waitFor(() =>
+        expect(printButton().getAttribute('aria-disabled')).toBeNull()
+      );
+      expect(error).toHaveBeenCalled();
+    });
+  });
+
+  test('Save pressed before the icons land saves the file that carries them', async () => {
+    saveSwitch.shown = true;
+    const blobs: Blob[] = [];
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      if (blob instanceof Blob) blobs.push(blob);
+      return 'blob:saved';
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const read = deferred<ReadonlyMap<string, string>>();
+    vi.mocked(readExportIcons).mockReturnValue(read.promise);
+    await renderPage();
+    fireEvent.load(frame());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save as HTML' }));
+    await act(async () =>
+      read.resolve(new Map([['https://inari.jp/en/', INARI]]))
+    );
+    await act(async () => {
+      fireEvent.load(frame());
+    });
+
+    await waitFor(() => expect(blobs).toHaveLength(1));
+    const saved = await blobs[0].text();
+    expect(saved).toContain('data-icons="ready"');
+    expect(saved).toContain(INARI);
   });
 });
