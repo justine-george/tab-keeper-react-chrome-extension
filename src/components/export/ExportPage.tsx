@@ -9,7 +9,6 @@ import { css, Global, keyframes } from '@emotion/react';
 import markDataUri from '../../assets/exportMark.png?inline';
 import Button from '../common/Button';
 import Icon from '../common/Icon';
-import { SpinnerGlyph } from '../common/glyphs';
 import ExportEditor from './ExportEditor';
 import SlidingPair, { type SlidingOption } from '../common/SlidingPair';
 import { EXPORT_PAIR_METRICS, KNOB_TRANSITION } from './slidingPairStyle';
@@ -89,8 +88,7 @@ import {
  */
 const HEADER_CONTENT_MAX_PX = 870;
 
-// KAN-603. How long Print waits before saying "Preparing…", and at most for the icons.
-const OUTPUT_FACE_DELAY_MS = 300;
+// KAN-603. The longest Print waits for the icons; measured, they land 60-160ms after opening.
 const OUTPUT_WAIT_CAP_MS = 1000;
 
 type ExportOutput = 'print' | 'save';
@@ -129,9 +127,8 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   const [writtenEdits, setWrittenEdits] =
     useState<ExportEdits>(NO_EXPORT_EDITS);
   const frameRef = useRef<HTMLIFrameElement>(null);
-  // KAN-603. The press waiting for the icons, and whether its "Preparing…" face shows.
+  // KAN-603. The press waiting for the icons.
   const [pendingOutput, setPendingOutput] = useState<ExportOutput | null>(null);
-  const [outputFaceShown, setOutputFaceShown] = useState(false);
   // KAN-603. The document the preview frame last finished loading.
   const [loadedHtml, setLoadedHtml] = useState<string | null>(null);
 
@@ -506,15 +503,10 @@ export default function ExportPage({ source }: { source: ExportSource }) {
       outputWaiters.current.add(done);
     });
 
-  // KAN-603. Busy at once, so a second press is ignored; the face only if the wait is noticed.
+  // KAN-603. Busy at once, so a second press is ignored.
   const afterIcons = async (output: ExportOutput, run: () => void) => {
     setPendingOutput(output);
-    const face = setTimeout(
-      () => setOutputFaceShown(true),
-      OUTPUT_FACE_DELAY_MS
-    );
     await untilFrameShowsIcons();
-    clearTimeout(face);
     // A refused print or save must not leave both buttons busy until a reload.
     try {
       run();
@@ -522,7 +514,6 @@ export default function ExportPage({ source }: { source: ExportSource }) {
       console.error(`Could not ${output} the export:`, error);
     } finally {
       setPendingOutput(null);
-      setOutputFaceShown(false);
     }
   };
 
@@ -952,11 +943,6 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                     iconType="print"
                     onClick={handlePrint}
                     busy={pendingOutput !== null}
-                    secondFace={{
-                      glyph: <SpinnerGlyph size="1.2rem" />,
-                      text: t('Preparing…'),
-                      shown: pendingOutput === 'print' && outputFaceShown,
-                    }}
                     iconSize="1.2rem"
                     iconColor={COLORS.PRIMARY_COLOR}
                     iconStyle={actionIconStyle}

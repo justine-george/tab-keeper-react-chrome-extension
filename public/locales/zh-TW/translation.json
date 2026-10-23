@@ -175,7 +175,6 @@
   "Cloud data": "雲端資料",
   "Delete cloud data": "刪除雲端資料",
   "Checking…": "檢查中…",
-  "Preparing…": "準備中…",
   "Delete your cloud data?": "要刪除你的雲端資料嗎？",
   "DeleteCloudDataBody": "這會從雲端移除你的工作階段，並關閉這部裝置上的自動同步。你的工作階段仍會保留在這部裝置上。使用同一個 Chrome 設定檔的其他裝置，下次同步時會再次上傳它們的副本，除非那些裝置也關閉了自動同步。",
   "Cancel": "取消",

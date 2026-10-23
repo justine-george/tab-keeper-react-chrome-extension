@@ -180,7 +180,6 @@
   "Cloud data": "Cloud data",
   "Delete cloud data": "Delete cloud data",
   "Checking…": "Checking…",
-  "Preparing…": "Preparing…",
   "Delete your cloud data?": "Delete your cloud data?",
   "DeleteCloudDataBody": "This removes your sessions from the cloud and turns Auto sync off on this device. Your sessions stay on this device. Other devices on the same Chrome profile will upload their copy again the next time they sync, unless Auto sync is off there too.",
   "Cancel": "Cancel",

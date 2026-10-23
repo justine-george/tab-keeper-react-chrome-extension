@@ -965,7 +965,8 @@ describe('the icons on the export page (KAN-603)', () => {
       vi.useRealTimers();
     });
 
-    test('is busy at once, says Preparing… after 300ms, ignores a second press, and prints once the file with icons has loaded', async () => {
+    // KAN-603. No "Preparing…" face: icons land 60-160ms after opening, before anyone can press.
+    test('is busy at once with no second face, ignores a second press, and prints once the file with icons has loaded', async () => {
       const read = deferred<ReadonlyMap<string, string>>();
       vi.mocked(readExportIcons).mockReturnValue(read.promise);
       await renderPage();
@@ -975,17 +976,7 @@ describe('the icons on the export page (KAN-603)', () => {
 
       fireEvent.click(printButton());
       expect(printButton().getAttribute('aria-disabled')).toBe('true');
-      expect(printButton().getAttribute('data-second-face-shown')).toBe(
-        'false'
-      );
-
-      await act(async () => vi.advanceTimersByTime(299));
-      expect(printButton().getAttribute('data-second-face-shown')).toBe(
-        'false'
-      );
-      await act(async () => vi.advanceTimersByTime(1));
-      expect(printButton().getAttribute('data-second-face-shown')).toBe('true');
-      expect(within(printButton()).getByText('Preparing…')).toBeTruthy();
+      expect(printButton().hasAttribute('data-second-face-shown')).toBe(false);
 
       fireEvent.click(printButton());
       await act(async () =>
@@ -1000,9 +991,6 @@ describe('the icons on the export page (KAN-603)', () => {
       });
       expect(printed).toHaveBeenCalledTimes(1);
       expect(printButton().getAttribute('aria-disabled')).toBeNull();
-      expect(printButton().getAttribute('data-second-face-shown')).toBe(
-        'false'
-      );
     });
 
     test('prints at 1s when the icons never arrive', async () => {

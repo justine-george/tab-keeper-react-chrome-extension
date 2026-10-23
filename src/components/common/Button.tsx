@@ -1,4 +1,4 @@
-import React, { type ReactNode } from 'react';
+import React from 'react';
 
 import { css } from '@emotion/react';
 
@@ -64,11 +64,8 @@ interface ButtonProps {
    * beside its word. The accessible name does not change; say what happened
    * from a status region, or with `ariaPressed` for a toggle.
    */
-  secondFace?: (
-    | { iconType: IconName; glyph?: never }
-    // KAN-603. A drawn glyph in place of an icon, e.g. a spinner.
-    | { glyph: ReactNode; iconType?: never }
-  ) & {
+  secondFace?: {
+    iconType: IconName;
     text?: string;
     shown: boolean;
     /** The crossfade's length. 200ms; shorter for a control used in runs. */
@@ -306,29 +303,17 @@ const Button: React.FC<ButtonProps> = ({
   // is built exactly like the resting one and the two cannot drift apart.
   const face = (
     faceIcon: IconName | undefined,
-    faceText: string | undefined,
-    faceGlyph?: ReactNode
+    faceText: string | undefined
   ) => (
     <>
-      {faceGlyph ? (
-        <span
-          css={css`
-            display: inline-flex;
-            ${faceText ? 'padding-right: 8px;' : ''}
-          `}
-        >
-          {faceGlyph}
-        </span>
-      ) : (
-        faceIcon && (
-          <Icon
-            type={faceIcon}
-            disable={true}
-            size={iconSize}
-            color={iconColor ?? restInk}
-            style={iconSpacing}
-          />
-        )
+      {faceIcon && (
+        <Icon
+          type={faceIcon}
+          disable={true}
+          size={iconSize}
+          color={iconColor ?? restInk}
+          style={iconSpacing}
+        />
       )}
       {imageSrc && (
         <img
@@ -409,7 +394,7 @@ const Button: React.FC<ButtonProps> = ({
             css={faceStyle(secondFace.shown)}
             aria-hidden={!secondFace.shown || undefined}
           >
-            {face(secondFace.iconType, secondFace.text, secondFace.glyph)}
+            {face(secondFace.iconType, secondFace.text)}
           </span>
         </span>
       ) : (

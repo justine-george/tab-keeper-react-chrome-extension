@@ -180,7 +180,6 @@
   "Cloud data": "Cloud-Daten",
   "Delete cloud data": "Cloud-Daten löschen",
   "Checking…": "Wird geprüft…",
-  "Preparing…": "Wird vorbereitet…",
   "Delete your cloud data?": "Ihre Cloud-Daten löschen?",
   "DeleteCloudDataBody": "Dadurch werden Ihre Sitzungen aus der Cloud entfernt und Auto-Sync auf diesem Gerät ausgeschaltet. Ihre Sitzungen bleiben auf diesem Gerät. Andere Geräte mit demselben Chrome-Profil laden ihre Kopie bei der nächsten Synchronisierung erneut hoch, sofern Auto-Sync dort nicht ebenfalls aus ist.",
   "Cancel": "Abbrechen",
