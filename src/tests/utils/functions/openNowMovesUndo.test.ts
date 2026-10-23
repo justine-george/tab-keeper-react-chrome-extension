@@ -10,9 +10,10 @@ import {
   changedAnyPlace,
   moveOpenGroup,
   moveOpenTab,
-  undoOpenNowDrop,
+  runLiveStep,
 } from '../../../utils/functions/openNowMoves';
 import type {
+  LiveRun,
   MovedTabs,
   OpenNowDrop,
   TabPlace,
@@ -96,6 +97,16 @@ async function dropGroup(move: GroupMove): Promise<OpenNowDrop> {
   return { kind: 'group', moved };
 }
 
+// The record a run hands on for the next press. Throws unless it was done:
+// every redo here starts from an undo that happened.
+async function ran(run: Promise<LiveRun>): Promise<OpenNowDrop> {
+  const result = await run;
+  if (result.outcome !== 'done') {
+    throw new Error(`PREMISE: the run was ${result.outcome}`);
+  }
+  return result.drop;
+}
+
 // A tab's group id as Chrome has it now (-1: none).
 async function groupOf(tabId: number): Promise<number> {
   return (await chrome.tabs.get(tabId)).groupId;
@@ -130,26 +141,30 @@ const grouped = (tabGroupsApiAbsent = false): ChromeSeed => ({
   tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
 });
 
-describe('undoOpenNowDrop: a tab goes back', () => {
+describe('runLiveStep, undo: a tab goes back', () => {
   test('within its window', async () => {
     handle = setupChromeFake(plain);
     const drop = await dropTab(tabMove(11, 1, 1, 2), false);
     // PREMISE: the drop moved it.
     expect(await strip(1)).toEqual(['12', '13', '11*', '14']);
 
-    await undoOpenNowDrop(drop, false);
+    expect(await runLiveStep(drop, 'undo', false)).toMatchObject({
+      outcome: 'done',
+    });
 
     expect(await strip(1)).toEqual(['11*', '12', '13', '14']);
   });
 });
 
-describe('undoOpenNowDrop: the group a tab had', () => {
+describe('runLiveStep, undo: the group a tab had', () => {
   test('dragged out of a group within its window: back in it', async () => {
     handle = setupChromeFake(grouped());
     const drop = await dropTab(tabMove(12, 1, 1, 3), true);
     expect(await strip(1)).toEqual(['11*', '13g5', '14', '12']);
 
-    await undoOpenNowDrop(drop, true);
+    expect(await runLiveStep(drop, 'undo', true)).toMatchObject({
+      outcome: 'done',
+    });
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
   });
@@ -159,7 +174,7 @@ describe('undoOpenNowDrop: the group a tab had', () => {
     const drop = await dropTab(tabMove(12, 1, 2, 0), true);
     expect(await strip(1)).toEqual(['11*', '13g5', '14']);
 
-    await undoOpenNowDrop(drop, true);
+    await runLiveStep(drop, 'undo', true);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
     expect(await strip(2)).toEqual(['21*', '22']);
@@ -186,7 +201,7 @@ describe('undoOpenNowDrop: the group a tab had', () => {
     const drop = await dropTab(tabMove(13, 1, 2, 0), true);
     expect(await strip(1)).toEqual(['11*', '12g5', '14g5', '15']);
 
-    await undoOpenNowDrop(drop, true);
+    await runLiveStep(drop, 'undo', true);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14g5', '15']);
     expect(await strip(2)).toEqual(['21*']);
@@ -197,7 +212,7 @@ describe('undoOpenNowDrop: the group a tab had', () => {
     const drop = await dropTab(tabMove(14, 1, 1, 1, 5), true);
     expect(await strip(1)).toEqual(['11*', '14g5', '12g5', '13g5']);
 
-    await undoOpenNowDrop(drop, true);
+    await runLiveStep(drop, 'undo', true);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
   });
@@ -207,7 +222,7 @@ describe('undoOpenNowDrop: the group a tab had', () => {
     const drop = await dropTab(tabMove(22, 2, 1, 2, 5), true);
     expect(await strip(1)).toEqual(['11*', '12g5', '22g5', '13g5', '14']);
 
-    await undoOpenNowDrop(drop, true);
+    await runLiveStep(drop, 'undo', true);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
     expect(await strip(2)).toEqual(['21*', '22']);
@@ -219,7 +234,7 @@ describe('undoOpenNowDrop: the group a tab had', () => {
     // PREMISE: only its group changed.
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14g5']);
 
-    await undoOpenNowDrop(drop, true);
+    await runLiveStep(drop, 'undo', true);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
   });
@@ -247,14 +262,14 @@ describe('undoOpenNowDrop: the group a tab had', () => {
     // PREMISE: the group is expanded now.
     expect(handle.groupState(5)?.collapsed).toBe(false);
 
-    await undoOpenNowDrop(drop, true);
+    await runLiveStep(drop, 'undo', true);
 
     expect(await strip(1)).toEqual(['11', '12*g5', '13g5', '14']);
     expect(handle.groupState(5)?.collapsed).toBe(true);
   });
 });
 
-describe('undoOpenNowDrop: a lone tab whose group Chrome removed (settled A)', () => {
+describe('runLiveStep, undo: a lone tab whose group Chrome removed (settled A)', () => {
   // W3 [11*, 12g7, 13], group 7 "Solo" red collapsed; W4 [21*]. Not
   // windows 1 and 2: a group made with no window named lands in the CURRENT
   // window (Task 6a Q3), which the fake doesn't model -- it records window
@@ -284,7 +299,9 @@ describe('undoOpenNowDrop: a lone tab whose group Chrome removed (settled A)', (
       // PREMISE: Chrome removed the group.
       expect(handle.groupState(7)).toBeUndefined();
 
-      await undoOpenNowDrop(drop, true);
+      expect(await runLiveStep(drop, 'undo', true)).toMatchObject({
+        outcome: 'done',
+      });
 
       const rebuilt = await groupOf(12);
       expect(rebuilt).not.toBe(-1);
@@ -311,7 +328,7 @@ describe('undoOpenNowDrop: a lone tab whose group Chrome removed (settled A)', (
       group: null,
     });
 
-    await undoOpenNowDrop(drop, false);
+    await runLiveStep(drop, 'undo', false);
 
     expect(await strip(3)).toEqual(['11*', '12', '13']);
     expect(groupSpy).not.toHaveBeenCalled();
@@ -321,20 +338,22 @@ describe('undoOpenNowDrop: a lone tab whose group Chrome removed (settled A)', (
     handle = setupChromeFake(loneTab());
     const drop = await dropTab(tabMove(12, 3, 4, 0), false);
 
-    await undoOpenNowDrop(drop, true);
+    await runLiveStep(drop, 'undo', true);
 
     expect(await strip(3)).toEqual(['11*', '12', '13']);
   });
 });
 
-describe('undoOpenNowDrop: without the grant (spec O11e, E4)', () => {
+describe('runLiveStep, undo: without the grant (spec O11e, E4)', () => {
   test('a tab Chrome took out of an invisible group goes back into it', async () => {
     handle = setupChromeFake(grouped(true));
     const drop = await dropTab(tabMove(12, 1, 1, 3), false);
     // PREMISE: Chrome took it out (Task 1 Q3), and nothing put it back.
     expect(await strip(1)).toEqual(['11*', '13g5', '14', '12']);
 
-    await undoOpenNowDrop(drop, false);
+    expect(await runLiveStep(drop, 'undo', false)).toMatchObject({
+      outcome: 'done',
+    });
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
   });
@@ -345,7 +364,7 @@ describe('undoOpenNowDrop: without the grant (spec O11e, E4)', () => {
     // PREMISE: Chrome joined it (Part D M2).
     expect(await strip(1)).toEqual(['11*', '12g5', '14g5', '13g5']);
 
-    await undoOpenNowDrop(drop, false);
+    await runLiveStep(drop, 'undo', false);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
   });
@@ -357,14 +376,14 @@ describe('undoOpenNowDrop: without the grant (spec O11e, E4)', () => {
     expect(await strip(1)).toEqual(['11*', '12g5', '22g5', '13g5', '14']);
     expect(drop.moved.map(({ after }) => after.groupId)).toEqual([5]);
 
-    await undoOpenNowDrop(drop, false);
+    await runLiveStep(drop, 'undo', false);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
     expect(await strip(2)).toEqual(['21*', '22']);
   });
 });
 
-describe('undoOpenNowDrop: a group goes back', () => {
+describe('runLiveStep, undo: a group goes back', () => {
   // W1 [11*, 12g5, 13g5, 14, 15], group 5 "Work" blue; W2 [21*, 22].
   const withGroup = (collapsed = false): ChromeSeed => ({
     windows: [
@@ -390,7 +409,9 @@ describe('undoOpenNowDrop: a group goes back', () => {
     const drop = await dropGroup(groupMove(5, 1, 1, 3));
     expect(await strip(1)).toEqual(['11*', '14', '15', '12g5', '13g5']);
 
-    await undoOpenNowDrop(drop, true);
+    expect(await runLiveStep(drop, 'undo', true)).toMatchObject({
+      outcome: 'done',
+    });
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14', '15']);
   });
@@ -400,7 +421,7 @@ describe('undoOpenNowDrop: a group goes back', () => {
     const drop = await dropGroup(groupMove(5, 1, 2, 1));
     handle.browser.setGroup(5, { collapsed: false });
 
-    await undoOpenNowDrop(drop, true);
+    await runLiveStep(drop, 'undo', true);
 
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14', '15']);
     expect(handle.groupState(5)?.collapsed).toBe(true);
@@ -432,7 +453,7 @@ describe('undoOpenNowDrop: a group goes back', () => {
       const newId = drop.moved[0]?.after.groupId;
       if (newId === undefined) throw new Error('no record');
 
-      await undoOpenNowDrop(drop, true);
+      await runLiveStep(drop, 'undo', true);
 
       expect(await strip(1)).toEqual([
         '11',
@@ -474,7 +495,7 @@ describe('undoOpenNowDrop: a group goes back', () => {
       expect(await strip(2)).toEqual(['21', '12*g5', '13g5', '22']);
       const groupMoveSpy = vi.spyOn(chrome.tabGroups, 'move');
 
-      await undoOpenNowDrop(drop, true);
+      await runLiveStep(drop, 'undo', true);
 
       expect(groupMoveSpy).not.toHaveBeenCalled();
       const regrouped = await groupOf(12);
@@ -494,14 +515,16 @@ describe('undoOpenNowDrop: a group goes back', () => {
   });
 });
 
-describe('undoOpenNowDrop: stale (Review Focus 3)', () => {
+describe('runLiveStep, undo: stale (Review Focus 3)', () => {
   test('a tab closed since the drop: nothing moves, no throw', async () => {
     handle = setupChromeFake(plain);
     const drop = await dropTab(tabMove(12, 1, 2, 1), false);
     handle.browser.closeTab(12);
     const moveSpy = vi.spyOn(chrome.tabs, 'move');
 
-    await undoOpenNowDrop(drop, false);
+    expect(await runLiveStep(drop, 'undo', false)).toEqual({
+      outcome: 'changedSince',
+    });
 
     expect(moveSpy).not.toHaveBeenCalled();
     expect(await strip(1)).toEqual(['11*', '13', '14']);
@@ -516,7 +539,9 @@ describe('undoOpenNowDrop: stale (Review Focus 3)', () => {
     expect(await strip(1)).toEqual(['13', '11*', '14']);
     const moveSpy = vi.spyOn(chrome.tabs, 'move');
 
-    await undoOpenNowDrop(drop, false);
+    expect(await runLiveStep(drop, 'undo', false)).toEqual({
+      outcome: 'changedSince',
+    });
 
     expect(moveSpy).not.toHaveBeenCalled();
     expect(await strip(1)).toEqual(['13', '11*', '14']);
@@ -539,7 +564,9 @@ describe('undoOpenNowDrop: stale (Review Focus 3)', () => {
     const moveSpy = vi.spyOn(chrome.tabs, 'move');
     const ungroupSpy = vi.spyOn(chrome.tabs, 'ungroup');
 
-    await undoOpenNowDrop(drop, true);
+    expect(await runLiveStep(drop, 'undo', true)).toEqual({
+      outcome: 'changedSince',
+    });
 
     expect(moveSpy).not.toHaveBeenCalled();
     expect(ungroupSpy).not.toHaveBeenCalled();
@@ -558,7 +585,9 @@ describe('undoOpenNowDrop: stale (Review Focus 3)', () => {
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '22g5', '14']);
     const moveSpy = vi.spyOn(chrome.tabs, 'move');
 
-    await undoOpenNowDrop(drop, false);
+    expect(await runLiveStep(drop, 'undo', false)).toEqual({
+      outcome: 'changedSince',
+    });
 
     expect(moveSpy).not.toHaveBeenCalled();
     expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '22g5', '14']);
@@ -572,7 +601,9 @@ describe('undoOpenNowDrop: stale (Review Focus 3)', () => {
     const groupMoveSpy = vi.spyOn(chrome.tabGroups, 'move');
     const moveSpy = vi.spyOn(chrome.tabs, 'move');
 
-    await undoOpenNowDrop(drop, true);
+    expect(await runLiveStep(drop, 'undo', true)).toEqual({
+      outcome: 'changedSince',
+    });
 
     expect(groupMoveSpy).not.toHaveBeenCalled();
     expect(moveSpy).not.toHaveBeenCalled();
@@ -580,13 +611,15 @@ describe('undoOpenNowDrop: stale (Review Focus 3)', () => {
   });
 });
 
-describe('undoOpenNowDrop: Chrome refuses part way (no throw; the list re-reads)', () => {
+describe('runLiveStep, undo: Chrome refuses part way (no throw; the list re-reads)', () => {
   test('the rejoin refused: the tab is back at its index, ungrouped', async () => {
     handle = setupChromeFake(grouped());
     const drop = await dropTab(tabMove(12, 1, 1, 3), true);
     vi.spyOn(chrome.tabs, 'group').mockRejectedValue(new Error('refused'));
 
-    await undoOpenNowDrop(drop, true);
+    expect(await runLiveStep(drop, 'undo', true)).toEqual({
+      outcome: 'couldNotRun',
+    });
 
     expect(await strip(1)).toEqual(['11*', '12', '13g5', '14']);
   });
@@ -605,7 +638,9 @@ describe('undoOpenNowDrop: Chrome refuses part way (no throw; the list re-reads)
       (await chrome.windows.getAll({})).map((window) => window.id)
     ).toEqual([2]);
 
-    await undoOpenNowDrop(drop, false);
+    expect(await runLiveStep(drop, 'undo', false)).toEqual({
+      outcome: 'couldNotRun',
+    });
 
     expect(await strip(2)).toEqual(['21*', '11']);
   });
@@ -630,9 +665,187 @@ describe('undoOpenNowDrop: Chrome refuses part way (no throw; the list re-reads)
     handle.browser.activateTab(12);
     vi.spyOn(chrome.tabs, 'group').mockRejectedValue(new Error('refused'));
 
-    await undoOpenNowDrop(drop, true);
+    expect(await runLiveStep(drop, 'undo', true)).toEqual({
+      outcome: 'couldNotRun',
+    });
 
     expect(await strip(1)).toEqual(['11*', '12', '13', '14']);
+  });
+});
+
+// KAN-744 R7-R13: redo puts the tabs where the step left them, and both
+// directions refuse when Chrome changed since.
+describe('runLiveStep, redo', () => {
+  test('redo puts a tab back where the drag left it', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropTab(tabMove(11, 1, 1, 2), false);
+    const undone = await ran(runLiveStep(drop, 'undo', false));
+    // PREMISE: the undo put it back.
+    expect(await strip(1)).toEqual(['11*', '12', '13', '14']);
+
+    const redone = await runLiveStep(undone, 'redo', false);
+
+    expect(redone).toMatchObject({ outcome: 'done' });
+    expect((await chrome.tabs.get(11)).index).toBe(drop.moved[0]?.after.index);
+    expect(await strip(1)).toEqual(['12', '13', '11*', '14']);
+  });
+
+  test('redo of a tab dragged across windows rejoins its group there', async () => {
+    handle = setupChromeFake(grouped());
+    const drop = await dropTab(tabMove(22, 2, 1, 2, 5), true);
+    const undone = await ran(runLiveStep(drop, 'undo', true));
+    expect(await strip(2)).toEqual(['21*', '22']);
+
+    expect(await runLiveStep(undone, 'redo', true)).toMatchObject({
+      outcome: 'done',
+    });
+
+    expect(await strip(1)).toEqual(['11*', '12g5', '22g5', '13g5', '14']);
+    expect(await strip(2)).toEqual(['21*']);
+  });
+
+  test('undo then redo of a group whose group Chrome removed: redo uses the rebuilt group', async () => {
+    // W1 [11, 12g5*, 13g5, 14]; W2 [21, 22*, 23]: the drop goes by G1.
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11 },
+            { id: 12, groupId: 5, active: true },
+            { id: 13, groupId: 5 },
+            { id: 14 },
+          ],
+        },
+        { id: 2, tabs: [{ id: 21 }, { id: 22, active: true }, { id: 23 }] },
+      ],
+      tabGroups: [
+        { id: 5, windowId: 1, title: 'Gt', color: 'blue', collapsed: true },
+      ],
+    });
+    const drop = await dropGroup(groupMove(5, 1, 2, 1));
+    // The group holds W2's front tab, so the undo goes by G1 too: a new id.
+    handle.browser.activateTab(12);
+    const undone = await ran(runLiveStep(drop, 'undo', true));
+    const rebuilt = await groupOf(12);
+    // PREMISE: Chrome removed the drop's group, and the undo made another.
+    expect(rebuilt).not.toBe(drop.moved[0]?.after.groupId);
+    expect(rebuilt).not.toBe(5);
+
+    const redone = await runLiveStep(undone, 'redo', true);
+
+    // KAN-744 R8: the record the redo ran on was read after the undo.
+    expect(undone.moved.map(({ before }) => before.groupId)).toEqual([
+      rebuilt,
+      rebuilt,
+    ]);
+    expect(redone).toMatchObject({ outcome: 'done' });
+    const places = await Promise.all(
+      [12, 13].map(async (id) => {
+        const tab = await chrome.tabs.get(id);
+        return [tab.windowId, tab.index, tab.groupId];
+      })
+    );
+    expect(places).toEqual([
+      [2, 1, rebuilt],
+      [2, 2, rebuilt],
+    ]);
+    expect(handle.groupState(rebuilt)).toMatchObject({
+      windowId: 2,
+      title: 'Gt',
+      color: 'blue',
+      collapsed: true,
+    });
+  });
+
+  test('redo is refused when a tab moved since the undo', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropTab(tabMove(11, 1, 1, 2), false);
+    const undone = await ran(runLiveStep(drop, 'undo', false));
+    await chrome.tabs.move(11, { index: 3 });
+    const moved = await strip(1);
+    const moveSpy = vi.spyOn(chrome.tabs, 'move');
+
+    expect(await runLiveStep(undone, 'redo', false)).toEqual({
+      outcome: 'changedSince',
+    });
+
+    expect(moveSpy).not.toHaveBeenCalled();
+    expect(await strip(1)).toEqual(moved);
+  });
+
+  test('a tab whose window was closed since', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropTab(tabMove(12, 1, 2, 1), false);
+    handle.browser.closeWindow(2);
+    const moveSpy = vi.spyOn(chrome.tabs, 'move');
+
+    expect(await runLiveStep(drop, 'undo', false)).toEqual({
+      outcome: 'changedSince',
+    });
+
+    expect(moveSpy).not.toHaveBeenCalled();
+    expect(await strip(1)).toEqual(['11*', '13', '14']);
+  });
+
+  test('a tab whose window was closed since the undo refuses the redo', async () => {
+    handle = setupChromeFake(plain);
+    const drop = await dropTab(tabMove(21, 2, 1, 1), false);
+    const undone = await ran(runLiveStep(drop, 'undo', false));
+    handle.browser.closeWindow(2);
+    const moveSpy = vi.spyOn(chrome.tabs, 'move');
+
+    expect(await runLiveStep(undone, 'redo', false)).toEqual({
+      outcome: 'changedSince',
+    });
+
+    expect(moveSpy).not.toHaveBeenCalled();
+    expect(await strip(1)).toEqual(['11*', '12', '13', '14']);
+  });
+
+  test('without the grant, a group step cannot run (the sort: openNowSort.test.ts)', async () => {
+    // W1 [11*, 12g5, 13g5, 14]: group 5 to the end.
+    handle = setupChromeFake(grouped());
+    const drop = await dropGroup(groupMove(5, 1, 1, 2));
+    const dropped = await strip(1);
+    const undone = await ran(runLiveStep(drop, 'undo', true));
+    await ran(runLiveStep(undone, 'redo', true));
+    // PREMISE: with the grant it ran both ways.
+    expect(await strip(1)).toEqual(dropped);
+    const groupMoveSpy = vi.spyOn(chrome.tabGroups, 'move');
+    const moveSpy = vi.spyOn(chrome.tabs, 'move');
+
+    expect(await runLiveStep(drop, 'undo', false)).toEqual({
+      outcome: 'couldNotRun',
+    });
+
+    expect(groupMoveSpy).not.toHaveBeenCalled();
+    expect(moveSpy).not.toHaveBeenCalled();
+    expect(await strip(1)).toEqual(dropped);
+  });
+
+  test('CONTROL: without the grant, a tab step still runs', async () => {
+    handle = setupChromeFake(grouped(true));
+    const drop = await dropTab(tabMove(11, 1, 1, 3), false);
+
+    expect(await runLiveStep(drop, 'undo', false)).toMatchObject({
+      outcome: 'done',
+    });
+
+    expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
+  });
+
+  test('a re-read Chrome refuses after the run: couldNotRun, the tabs where Chrome left them', async () => {
+    handle = setupChromeFake(grouped());
+    const drop = await dropTab(tabMove(12, 1, 1, 3), true);
+    // Only the re-read reads the group's look; putting the tab back does not.
+    vi.spyOn(chrome.tabGroups, 'get').mockRejectedValue(new Error('refused'));
+
+    expect(await runLiveStep(drop, 'undo', true)).toEqual({
+      outcome: 'couldNotRun',
+    });
+
+    expect(await strip(1)).toEqual(['11*', '12g5', '13g5', '14']);
   });
 });
 

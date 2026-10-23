@@ -39,7 +39,7 @@ import type {
   LiveTab,
   LiveUnit,
 } from '../../utils/functions/openNowSort';
-import { undoOpenNowDrop } from '../../utils/functions/openNowMoves';
+import { runLiveStep } from '../../utils/functions/openNowMoves';
 import type { OpenNowDrop } from '../../utils/functions/openNowMoves';
 import {
   noteTabKeeperAction,
@@ -456,7 +456,9 @@ describe('sortOpenWindow', () => {
       MOCK.map((tab) => tab.id)
     );
 
-    await undoOpenNowDrop(drop, true);
+    expect(await runLiveStep(drop, 'undo', true)).toMatchObject({
+      outcome: 'done',
+    });
 
     expect(await strip()).toEqual(MOCK_STRIP);
   });
@@ -489,7 +491,7 @@ describe('sortOpenWindow', () => {
     const drop = keptDrop();
     expect(drop.moved.map((tab) => tab.tabId).sort()).toEqual([1, 3, 4, 6]);
 
-    await undoOpenNowDrop(drop, true);
+    await runLiveStep(drop, 'undo', true);
 
     expect(await strip()).toEqual(['2', '1', '3', '4g5', '5g5', '6']);
   });
@@ -576,7 +578,7 @@ describe('sortOpenWindow', () => {
     move.mockRestore();
     const drop = keptDrop();
 
-    await undoOpenNowDrop(drop, true);
+    await runLiveStep(drop, 'undo', true);
 
     expect(await strip()).toEqual(MOCK_STRIP);
   });
@@ -593,7 +595,9 @@ describe('sortOpenWindow', () => {
     const move = vi.spyOn(chrome.tabs, 'move');
     const groupMove = vi.spyOn(chrome.tabGroups, 'move');
 
-    await undoOpenNowDrop(drop, true);
+    expect(await runLiveStep(drop, 'undo', true)).toEqual({
+      outcome: 'changedSince',
+    });
 
     expect(move).not.toHaveBeenCalled();
     expect(groupMove).not.toHaveBeenCalled();
@@ -613,7 +617,9 @@ describe('sortOpenWindow', () => {
     const move = vi.spyOn(chrome.tabs, 'move');
     const groupMove = vi.spyOn(chrome.tabGroups, 'move');
 
-    await undoOpenNowDrop(drop, true);
+    expect(await runLiveStep(drop, 'undo', true)).toEqual({
+      outcome: 'changedSince',
+    });
 
     expect(move).not.toHaveBeenCalled();
     expect(groupMove).not.toHaveBeenCalled();
@@ -626,7 +632,7 @@ describe('sortOpenWindow', () => {
     const drop = keptDrop();
     const page = await chrome.tabs.create({ windowId: 1, url: TAB_KEEPER });
 
-    await undoOpenNowDrop(drop, true);
+    await runLiveStep(drop, 'undo', true);
 
     expect((await strip()).filter((id) => id !== String(page.id))).toEqual(
       MOCK_STRIP
@@ -640,9 +646,68 @@ describe('sortOpenWindow', () => {
     await chrome.tabs.move(16, { index: 3 });
     const moved = await strip();
 
-    await undoOpenNowDrop(drop, true);
+    expect(await runLiveStep(drop, 'undo', true)).toEqual({
+      outcome: 'changedSince',
+    });
 
     expect(await strip()).toEqual(moved);
+  });
+});
+
+// KAN-744 R7, R9, R12: a sort redone, and the redo refused.
+describe('runLiveStep on a sort, redo', () => {
+  // The record an undo hands on for the redo. Throws unless the undo was done.
+  async function undoneSort(): Promise<OpenNowDrop> {
+    await sortOpenWindow(1, true);
+    const run = await runLiveStep(keptDrop(), 'undo', true);
+    if (run.outcome !== 'done') throw new Error(`PREMISE: ${run.outcome}`);
+    return run.drop;
+  }
+
+  test('redo of a sort restores the sorted order', async () => {
+    handle = setupChromeFake(mockSeed());
+    const undone = await undoneSort();
+    expect(await strip()).toEqual(MOCK_STRIP);
+
+    expect(await runLiveStep(undone, 'redo', true)).toMatchObject({
+      outcome: 'done',
+    });
+
+    expect(await strip()).toEqual(MOCK_SORTED_STRIP);
+  });
+
+  test('a tab opened in the window refuses the redo', async () => {
+    handle = setupChromeFake(mockSeed());
+    const undone = await undoneSort();
+    // Opened at the end: no recorded index shifts.
+    await chrome.tabs.create({ windowId: 1, url: 'https://new.test/' });
+    const opened = await strip();
+    const move = vi.spyOn(chrome.tabs, 'move');
+    const groupMove = vi.spyOn(chrome.tabGroups, 'move');
+
+    expect(await runLiveStep(undone, 'redo', true)).toEqual({
+      outcome: 'changedSince',
+    });
+
+    expect(move).not.toHaveBeenCalled();
+    expect(groupMove).not.toHaveBeenCalled();
+    expect(await strip()).toEqual(opened);
+  });
+
+  test('without the grant, a sort step cannot run', async () => {
+    handle = setupChromeFake(mockSeed());
+    await sortOpenWindow(1, true);
+    const drop = keptDrop();
+    const move = vi.spyOn(chrome.tabs, 'move');
+    const groupMove = vi.spyOn(chrome.tabGroups, 'move');
+
+    expect(await runLiveStep(drop, 'undo', false)).toEqual({
+      outcome: 'couldNotRun',
+    });
+
+    expect(move).not.toHaveBeenCalled();
+    expect(groupMove).not.toHaveBeenCalled();
+    expect(await strip()).toEqual(MOCK_SORTED_STRIP);
   });
 });
 
@@ -673,7 +738,7 @@ describe('sortOpenWindow keeps tabs still (KAN-743)', () => {
     expect(await strip()).toEqual(['1', '2', '7', '3', '4', '5', '6']);
     move.mockClear();
 
-    await undoOpenNowDrop(keptDrop(), true);
+    await runLiveStep(keptDrop(), 'undo', true);
 
     expect(move.mock.calls.map(([id]) => id)).toEqual([7]);
     expect(await strip()).toEqual(['1', '2', '3', '4', '5', '6', '7']);
@@ -727,7 +792,7 @@ describe('sortOpenWindow keeps tabs still (KAN-743)', () => {
 
     expect(move.mock.calls.map(([id]) => id)).toEqual([2]);
     move.mockRestore();
-    await undoOpenNowDrop(keptDrop(), true);
+    await runLiveStep(keptDrop(), 'undo', true);
 
     // b1 goes back between a1 and a2; c1 is gone.
     expect(await strip()).toEqual(['1', '2', '4', '5', '6']);
