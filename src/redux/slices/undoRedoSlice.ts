@@ -267,6 +267,17 @@ export const selectNextStep = (
   if (direction === 'undo' ? past.length === 0 : !entry) return null;
   return entry.liveStep ? 'live' : 'saved';
 };
+// The id of the live step made last among those ⌘Z can still reach (past above the base, and present), even under newer saved steps.
+export const selectLastLiveStepId = (state: RootState): number | null => {
+  const { past, present } = state.undoRedo;
+  if (past.length === 0) return null;
+  let last: number | null = null;
+  for (const step of [...past.slice(1), present]) {
+    const id = step.liveStep?.id;
+    if (id !== undefined && (last === null || id > last)) last = id;
+  }
+  return last;
+};
 export const selectNewestLiveStep = (state: RootState): LiveStep | null =>
   state.undoRedo.past.length > 0
     ? (state.undoRedo.present.liveStep ?? null)

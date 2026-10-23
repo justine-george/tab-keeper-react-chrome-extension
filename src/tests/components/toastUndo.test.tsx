@@ -575,6 +575,36 @@ describe('Undo in the live sort toast (KAN-694)', () => {
     ]);
   });
 
+  // R16. A removed Undo stays removed: a wipe that drops the newer saved step does not bring it back.
+  test('a sort chip taken off by a saved change stays off after a wipe', async () => {
+    const { store } = await renderSorted();
+    expect(undoButtons()).toHaveLength(1);
+    act(() => {
+      store.dispatch(
+        saveToTabContainerInternal(
+          buildSession({ tabGroupId: 'nara', title: 'Nara' })
+        )
+      );
+    });
+    // PREMISE: the saved change took the chip off.
+    expect(undoButtons()).toHaveLength(0);
+
+    act(() => {
+      store.dispatch(
+        resetHistory({
+          tabContainerDataState: store.getState().tabContainerDataState,
+        })
+      );
+    });
+
+    // PREMISE: the wipe left the sort as the newest step.
+    expect(selectNewestLiveStep(store.getState())?.drop.kind).toBe('sort');
+    expect(undoButtons()).toHaveLength(0);
+    expect(toastTexts(store.getState())).toEqual([
+      TOAST_MESSAGES.TABS_SORTED_BY_SITE,
+    ]);
+  });
+
   // R14, R16. A wipe of the saved steps leaves the sort newest; a drag is newer.
   test('the sort toast keeps its Undo while its sort is newest, and loses it after a drag', async () => {
     const { store } = await renderSorted();

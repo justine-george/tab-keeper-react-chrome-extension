@@ -450,6 +450,61 @@ describe('a Reopen offer between two drags (KAN-744 R17)', () => {
   });
 });
 
+describe('a Reopen offer and a drag under a saved change (KAN-744 R17)', () => {
+  test('offer, drag, rename: ⌘Z undoes the rename, then the drag, then takes the offer', async () => {
+    const { store, seen } = await renderWithProviders(<MainContainer />, {
+      seed,
+    });
+    await closeCWithOffer(store);
+    await dragAToTheMiddle(store);
+    await saveASession(store);
+    // PREMISE: the save announced nothing, so the offer still keeps the key.
+    expect(
+      store.getState().globalState.toasts.find((t) => t.reopenOffer !== null)
+        ?.reopenOffer?.keepsUndoKey
+    ).toBe(true);
+    const before = seen.length;
+
+    press({ key: 'z', metaKey: true });
+    await settle();
+
+    expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
+    expect(await urlsIn(2)).toEqual([url('b'), url('a')]);
+    expect(offerShows()).toBe(true);
+
+    press({ key: 'z', metaKey: true });
+
+    await waitFor(async () => {
+      expect(await urlsIn(2)).toEqual([url('a'), url('b')]);
+    });
+    expect(offerShows()).toBe(true);
+
+    press({ key: 'z', metaKey: true });
+
+    await aIsBack();
+    expect(offerShows()).toBe(false);
+    expect(undoRedoIn(seen.slice(before))).toEqual([UNDO]);
+  });
+
+  // CONTROL: with no drag, an offer and an unannounced saved change after it keep today's order.
+  test('offer, then a saved change that announces nothing: ⌘Z takes the offer first', async () => {
+    const { store, seen } = await renderWithProviders(<MainContainer />, {
+      seed,
+    });
+    await closeCWithOffer(store);
+    await saveASession(store);
+    const before = seen.length;
+
+    press({ key: 'z', metaKey: true });
+
+    await waitFor(async () => {
+      expect(await urlsIn(2)).toEqual([url('a'), url('b'), url('c')]);
+    });
+    expect(offerShows()).toBe(false);
+    expect(undoRedoIn(seen.slice(before))).toEqual([]);
+  });
+});
+
 describe('the menu Undo and Redo (KAN-744 R15)', () => {
   test('the menu Undo and Redo buttons walk a drag', async () => {
     const user = userEvent.setup();

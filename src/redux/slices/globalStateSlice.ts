@@ -13,7 +13,7 @@ import {
   pushLiveStep,
   redo,
   resetHistory,
-  selectNewestLiveStep,
+  selectLastLiveStepId,
   set,
   setPresentStartup,
   undo,
@@ -1005,6 +1005,18 @@ const withoutUndo = (toasts: ToastItem[]): ToastItem[] =>
     ? toasts.map((t) => (t.offersUndo ? { ...t, offersUndo: false } : t))
     : toasts;
 
+// KAN-744 R16. Takes the sort Undo off every toast but step `keep`'s, so a chip a newer step removed stays removed.
+const withoutSortUndo = (
+  toasts: ToastItem[],
+  keep: number | null
+): ToastItem[] => {
+  const strips = (t: ToastItem) =>
+    t.liveStepId !== null && t.liveStepId !== keep;
+  return toasts.some(strips)
+    ? toasts.map((t) => (strips(t) ? { ...t, liveStepId: null } : t))
+    : toasts;
+};
+
 // Timers and the Reopen registry are settled after every change to the list
 // by toastMiddleware, whichever action made it.
 export const showToast = createAsyncThunk(
@@ -1079,12 +1091,13 @@ export function selectReopenOfferForKey(state: RootState): number | null {
 export type UndoKeyTarget =
   { kind: 'offer'; offerId: number } | { kind: 'step' } | null;
 
-// KAN-744 R17. What ⌘Z / Ctrl+Z takes: the most recent of the offer and the
-// newest live step, else the newest step in the history, else nothing.
+// KAN-744 R17. What ⌘Z / Ctrl+Z takes: the offer, unless a live step still in
+// the history came after it (then that step, or a newer one above it, is the
+// newest); else the newest step in the history; else nothing.
 export function selectUndoKeyTarget(state: RootState): UndoKeyTarget {
   const offer = offerKeepingUndoKey(state);
-  const live = selectNewestLiveStep(state);
-  if (offer !== null && (live === null || live.id < offer.shownAt)) {
+  const live = selectLastLiveStepId(state);
+  if (offer !== null && (live === null || live < offer.shownAt)) {
     return { kind: 'offer', offerId: offer.id };
   }
   return state.undoRedo.past.length > 0 ? { kind: 'step' } : null;
@@ -1416,12 +1429,16 @@ export const globalStateSlice = createSlice({
       // saved or live (KAN-744 R16), or a reset history leaves the older toast
       // with no step of its own to undo, so it keeps its text and loses the
       // button; an undo or redo has moved off the step, so its toast closes,
-      // as ⌘Z closes a plain one.
+      // as ⌘Z closes a plain one. A new step takes a sort toast's Undo off
+      // too, for good; a reset keeps it, since live steps outlive it (R14).
       .addCase(set, (state) => {
-        state.toasts = withoutUndo(state.toasts);
+        state.toasts = withoutSortUndo(withoutUndo(state.toasts), null);
       })
-      .addCase(pushLiveStep, (state) => {
-        state.toasts = withoutUndo(state.toasts);
+      .addCase(pushLiveStep, (state, action) => {
+        state.toasts = withoutSortUndo(
+          withoutUndo(state.toasts),
+          action.payload.id
+        );
       })
       .addCase(resetHistory, (state) => {
         state.toasts = withoutUndo(state.toasts);
