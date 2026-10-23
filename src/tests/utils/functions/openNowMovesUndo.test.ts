@@ -624,7 +624,7 @@ describe('runLiveStep, undo: Chrome refuses part way (no throw; the list re-read
     expect(await strip(1)).toEqual(['11*', '12', '13g5', '14']);
   });
 
-  test("its old window closed (it was that window's only tab): refused, the tab stays", async () => {
+  test("its old window closed (it was that window's only tab): windowClosed, nothing moves", async () => {
     handle = setupChromeFake({
       windows: [
         { id: 1, tabs: [{ id: 11, active: true }] },
@@ -637,12 +637,85 @@ describe('runLiveStep, undo: Chrome refuses part way (no throw; the list re-read
     expect(
       (await chrome.windows.getAll({})).map((window) => window.id)
     ).toEqual([2]);
+    const moveSpy = vi.spyOn(chrome.tabs, 'move');
 
+    // KAN-744: a closed target window is its own outcome.
     expect(await runLiveStep(drop, 'undo', false)).toEqual({
-      outcome: 'couldNotRun',
+      outcome: 'windowClosed',
     });
 
+    expect(moveSpy).not.toHaveBeenCalled();
     expect(await strip(2)).toEqual(['21*', '11']);
+  });
+
+  test('a group whose old window closed: windowClosed, nothing moves', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, active: true, groupId: 5 },
+            { id: 12, groupId: 5 },
+          ],
+        },
+        { id: 2, tabs: [{ id: 21, active: true }] },
+      ],
+      tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
+    });
+    const drop = await dropGroup(groupMove(5, 1, 2, 1));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const groupMoveSpy = vi.spyOn(chrome.tabGroups, 'move');
+    const moveSpy = vi.spyOn(chrome.tabs, 'move');
+
+    expect(await runLiveStep(drop, 'undo', true)).toEqual({
+      outcome: 'windowClosed',
+    });
+
+    expect(groupMoveSpy).not.toHaveBeenCalled();
+    expect(moveSpy).not.toHaveBeenCalled();
+  });
+
+  test('redo: the window the tab went to closed since the undo: windowClosed, nothing moves', async () => {
+    // W1 [11*, 12], W2 [21*, 22]; 12 goes to W2, is undone, then W2 closes.
+    handle = setupChromeFake({
+      windows: [
+        { id: 1, tabs: [{ id: 11, active: true }, { id: 12 }] },
+        { id: 2, tabs: [{ id: 21, active: true }, { id: 22 }] },
+      ],
+    });
+    const drop = await dropTab(tabMove(12, 1, 2, 1), false);
+    const undone = await ran(runLiveStep(drop, 'undo', false));
+    handle.browser.closeWindow(2);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // PREMISE: window 2 is gone.
+    expect(
+      (await chrome.windows.getAll({})).map((window) => window.id)
+    ).toEqual([1]);
+    const moveSpy = vi.spyOn(chrome.tabs, 'move');
+
+    expect(await runLiveStep(undone, 'redo', false)).toEqual({
+      outcome: 'windowClosed',
+    });
+
+    expect(moveSpy).not.toHaveBeenCalled();
+    expect(await strip(1)).toEqual(['11*', '12']);
+  });
+
+  // CONTROL: the same undo with the old window still there runs.
+  test('the old window still open: the undo runs and is done', async () => {
+    handle = setupChromeFake({
+      windows: [
+        { id: 1, tabs: [{ id: 11, active: true }, { id: 12 }] },
+        { id: 2, tabs: [{ id: 21, active: true }] },
+      ],
+    });
+    const drop = await dropTab(tabMove(12, 1, 2, 1), false);
+
+    expect(await runLiveStep(drop, 'undo', false)).toMatchObject({
+      outcome: 'done',
+    });
+
+    expect(await strip(1)).toEqual(['11*', '12']);
   });
 
   test('G1 undo, the regroup refused: the tabs are back in their window, ungrouped', async () => {

@@ -769,11 +769,13 @@ async function putGroupBack(
 
 // What one live undo or redo did (KAN-744 R9-R13): 'done' with the step's
 // record for the other list, 'changedSince' when Chrome's tabs are not where
-// the last run left them (nothing moved), 'couldNotRun' without the grant a
-// group or sort needs (nothing moved) or when Chrome refused part way.
+// the last run left them (nothing moved), 'windowClosed' when a tab or group
+// step's target window is gone (nothing moved), 'couldNotRun' without the
+// grant a group or sort needs (nothing moved) or when Chrome refused part way.
 export type LiveRun =
   | { outcome: 'done'; drop: OpenNowDrop }
   | { outcome: 'changedSince' }
+  | { outcome: 'windowClosed' }
   | { outcome: 'couldNotRun' };
 
 // The step read backwards, `before` and `after` swapped per tab: putting its
@@ -789,6 +791,17 @@ function reversed(drop: OpenNowDrop): OpenNowDrop {
   };
 }
 
+// Whether every window the step puts its tabs in (the oriented `before`) is
+// still open; a window Chrome refuses to name counts as closed.
+async function targetWindowsOpen(moved: MovedTabs): Promise<boolean> {
+  for (const windowId of new Set(moved.map((tab) => tab.before.windowId))) {
+    if ((await attempt(() => chrome.windows.get(windowId))) === REFUSED) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // Puts a step's tabs at `before`, from `after` (spec O11f, KAN-744 R9). Checks
 // first that every recorded tab is still at `after`; a sort also that its
 // window holds only what it recorded. A step Chrome refuses part way stops
@@ -799,6 +812,10 @@ async function moveToBefore(
 ): Promise<LiveRun['outcome']> {
   const states = await whereTheLastRunLeftThem(drop.moved);
   if (states === null) return 'changedSince';
+  // A sort never changes window, so only a tab or group step can lose its target.
+  if (drop.kind !== 'sort' && !(await targetWindowsOpen(drop.moved))) {
+    return 'windowClosed';
+  }
   // KAN-744 R12: chrome.tabGroups is absent without the grant.
   if (drop.kind !== 'tab' && !withLook) return 'couldNotRun';
 

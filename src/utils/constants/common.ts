@@ -117,6 +117,13 @@ export const TOAST_MESSAGES = {
   DUPLICATE_TABS_REMOVED: 'DuplicateTabsRemoved',
   // KAN-694.
   TABS_SORTED_BY_SITE: 'TabsSortedBySite',
+  // KAN-744 R10. A live step ⌘Z or ⌘⇧Z can't run because the tabs changed since.
+  UNDO_REFUSED_SORT: 'UndoRefusedSort',
+  UNDO_REFUSED_MOVE: 'UndoRefusedMove',
+  REDO_REFUSED_SORT: 'RedoRefusedSort',
+  REDO_REFUSED_MOVE: 'RedoRefusedMove',
+  UNDO_REFUSED_WINDOW_CLOSED: 'UndoRefusedWindowClosed',
+  REDO_REFUSED_WINDOW_CLOSED: 'RedoRefusedWindowClosed',
   DELETE_WINDOW_SUCCESS: 'Session window deleted.',
   DELETE_TAB_SUCCESS: 'Session tab deleted.',
   DELETE_CHROME_GROUP_SUCCESS: 'Session tab group deleted.',
