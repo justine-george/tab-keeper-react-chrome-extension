@@ -17,7 +17,10 @@ export interface LiveOrder {
 }
 
 // What the order reads of a live tab. Chrome gives every tab in a strip an id; a tab without one is skipped.
-type LiveTab = Pick<chrome.tabs.Tab, 'id' | 'index' | 'groupId' | 'pinned'>;
+export type LiveTab = Pick<
+  chrome.tabs.Tab,
+  'id' | 'index' | 'groupId' | 'pinned'
+>;
 
 interface PlacedTab {
   id: number;
@@ -111,6 +114,56 @@ async function succeeds(call: () => Promise<unknown>): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// KAN-743. The units that stay still: one longest run already in the target's order. `ranks` gives each unit's place in the target, in the order the units sit now.
+export function keptInPlace(ranks: readonly number[]): Set<number> {
+  // tails[k]: the smallest rank ending a run of length k + 1; tailAt[k]: where it sits.
+  const tails: number[] = [];
+  const tailAt: number[] = [];
+  const previous: number[] = [];
+  ranks.forEach((rank, i) => {
+    let low = 0;
+    let high = tails.length;
+    while (low < high) {
+      const mid = (low + high) >> 1;
+      if (tails[mid] < rank) low = mid + 1;
+      else high = mid;
+    }
+    tails[low] = rank;
+    tailAt[low] = i;
+    previous[i] = low > 0 ? tailAt[low - 1] : -1;
+  });
+  const kept = new Set<number>();
+  for (let i = tailAt[tails.length - 1] ?? -1; i !== -1; i = previous[i]) {
+    kept.add(ranks[i]);
+  }
+  return kept;
+}
+
+function holds(unit: LiveUnit, tab: LiveTab): boolean {
+  return unit.kind === 'group' ? tab.groupId === unit.id : tab.id === unit.id;
+}
+
+// KAN-743. Where unit `i` of `units` goes: right after the last tab of the unit before it, or the region's start. `to` is the index Chrome's move takes, its first tab's index once moved. Null when the unit or the one before it has no tab in `strip`.
+export function spotFor(
+  strip: readonly LiveTab[],
+  units: readonly LiveUnit[],
+  i: number,
+  regionStart: number
+): { from: number; to: number } | null {
+  const unit = units[i];
+  const span = unit ? strip.filter((tab) => holds(unit, tab)) : [];
+  if (span.length === 0) return null;
+  const from = span[0].index;
+  if (i === 0) return { from, to: regionStart };
+  const before = units[i - 1];
+  const beforeSpan = strip.filter((tab) => holds(before, tab));
+  const last = beforeSpan[beforeSpan.length - 1];
+  if (last === undefined) return null;
+  // From the left, the unit's own tabs leave the strip ahead of the spot.
+  const to = from > last.index ? last.index + 1 : last.index + 1 - span.length;
+  return { from, to };
 }
 
 // Puts a window's tabs in `order` (KAN-694 Task 1): each pinned tab to its index within the pinned run, then each unit appended at the end, so a loose tab never lands inside a group.

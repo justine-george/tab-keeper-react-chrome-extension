@@ -27,11 +27,17 @@ import {
   canSortOpenWindowLive,
   holdsSplitView,
   isOpenWindowSortedBySite,
+  keptInPlace,
   liveOrderOf,
   liveSortOrder,
   orderBeforeSort,
+  spotFor,
 } from '../../utils/functions/openNowSort';
-import type { LiveOrder } from '../../utils/functions/openNowSort';
+import type {
+  LiveOrder,
+  LiveTab,
+  LiveUnit,
+} from '../../utils/functions/openNowSort';
 import { undoOpenNowDrop } from '../../utils/functions/openNowMoves';
 import type { OpenNowDrop } from '../../utils/functions/openNowMoves';
 import {
@@ -199,6 +205,113 @@ describe('orderBeforeSort', () => {
         { kind: 'tab', id: 25 },
       ],
     });
+  });
+});
+
+describe('keptInPlace (KAN-743)', () => {
+  test('nothing to keep in an empty window', () => {
+    expect(keptInPlace([])).toEqual(new Set());
+  });
+
+  test('a window already in order keeps every unit', () => {
+    expect(keptInPlace([0, 1, 2, 3])).toEqual(new Set([0, 1, 2, 3]));
+  });
+
+  test('a reversed window keeps one unit', () => {
+    expect(keptInPlace([3, 2, 1, 0]).size).toBe(1);
+  });
+
+  test('one tab out of place: only it is left to move', () => {
+    expect(keptInPlace([0, 1, 3, 4, 5, 6, 2])).toEqual(
+      new Set([0, 1, 3, 4, 5, 6])
+    );
+  });
+
+  test('between runs of equal length, the one ending last in the strip', () => {
+    expect(keptInPlace([1, 3, 0, 2])).toEqual(new Set([0, 2]));
+  });
+});
+
+describe('spotFor (KAN-743)', () => {
+  // A strip in index order: each tab's index is its place in the list.
+  const stripOf = (
+    tabs: { id: number; groupId?: number; pinned?: boolean }[]
+  ): LiveTab[] =>
+    tabs.map(({ id, groupId = -1, pinned = false }, index) => ({
+      id,
+      index,
+      groupId,
+      pinned,
+    }));
+  const tab = (id: number): LiveUnit => ({ kind: 'tab', id });
+  const group = (id: number): LiveUnit => ({ kind: 'group', id });
+
+  test('the first unit goes to the start of its region', () => {
+    const strip = stripOf([
+      { id: 1, pinned: true },
+      { id: 2, pinned: true },
+      { id: 3 },
+      { id: 4 },
+    ]);
+    expect(spotFor(strip, [tab(4), tab(3)], 0, 2)).toEqual({ from: 3, to: 2 });
+  });
+
+  test('moving left: right after the unit before it', () => {
+    const strip = stripOf([1, 2, 3, 4, 5, 6].map((id) => ({ id })));
+    expect(spotFor(strip, [tab(1), tab(2), tab(6)], 2, 0)).toEqual({
+      from: 5,
+      to: 2,
+    });
+  });
+
+  test('moving right past a group: the index it ends at, after the group', () => {
+    const strip = stripOf([
+      { id: 1 },
+      { id: 2 },
+      { id: 3, groupId: 9 },
+      { id: 4, groupId: 9 },
+      { id: 5, groupId: 9 },
+    ]);
+    expect(spotFor(strip, [group(9), tab(1)], 1, 0)).toEqual({
+      from: 0,
+      to: 4,
+    });
+  });
+
+  test("a group moving right: its first tab's index once it has moved", () => {
+    const strip = stripOf([
+      { id: 1, groupId: 9 },
+      { id: 2, groupId: 9 },
+      { id: 3 },
+      { id: 4 },
+      { id: 5 },
+    ]);
+    expect(spotFor(strip, [tab(5), group(9)], 1, 0)).toEqual({
+      from: 0,
+      to: 3,
+    });
+  });
+
+  test('a group moving left: right after the unit before it', () => {
+    const strip = stripOf([
+      { id: 1 },
+      { id: 2 },
+      { id: 3 },
+      { id: 4 },
+      { id: 5 },
+      { id: 6, groupId: 9 },
+      { id: 7, groupId: 9 },
+    ]);
+    expect(spotFor(strip, [tab(2), group(9)], 1, 0)).toEqual({
+      from: 5,
+      to: 2,
+    });
+  });
+
+  test('null when the unit or the one before it is gone from the strip', () => {
+    const strip = stripOf([{ id: 1 }, { id: 2 }]);
+    expect(spotFor(strip, [tab(1), tab(7)], 1, 0)).toBeNull();
+    expect(spotFor(strip, [tab(7), tab(2)], 1, 0)).toBeNull();
   });
 });
 
