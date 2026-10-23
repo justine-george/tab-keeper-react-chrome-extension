@@ -48,6 +48,29 @@ describe('the Default view row (KAN-7 §7)', () => {
     expect(side('Full view')).toHaveAttribute('aria-pressed', 'false');
   });
 
+  // KAN-749. Setup's picture cards, in place of the Compact | Full pair.
+  test("shows setup's cards: each has its drawing and says where it opens, the pressed one carries a ✓", async () => {
+    await renderQuickAccess();
+    expect(side('Compact view')).toHaveAccessibleDescription(
+      'Opens under the toolbar icon'
+    );
+    expect(side('Full view')).toHaveAccessibleDescription(
+      'Opens in its own tab'
+    );
+    for (const name of ['Compact view', 'Full view'] as const) {
+      expect(side(name).querySelector('svg')).not.toBeNull();
+    }
+    const tick = (name: 'Compact view' | 'Full view') =>
+      side(name).querySelector('[data-view-label] .material-symbols-outlined');
+    expect(tick('Compact view')?.textContent).toBe('check');
+    expect(tick('Full view')).toBeNull();
+
+    await userEvent.click(side('Full view'));
+    expect(side('Full view')).toHaveAttribute('aria-pressed', 'true');
+    expect(tick('Full view')?.textContent).toBe('check');
+    expect(tick('Compact view')).toBeNull();
+  });
+
   test('a refused setPopup still saves the choice, and says so in the console', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { store } = await renderQuickAccess({

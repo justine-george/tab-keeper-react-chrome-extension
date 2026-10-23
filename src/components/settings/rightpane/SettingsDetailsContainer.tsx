@@ -46,6 +46,7 @@ import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSli
 import SyncStatus from './Account/SyncStatus';
 import SlidingPair from '../../common/SlidingPair';
 import DefaultSaveChoice from './DefaultSaveChoice';
+import DefaultViewCards from '../../common/DefaultViewCards';
 import { SETTINGS_PAIR_METRICS } from '../../common/slidingPairMetrics';
 import { useTranslation } from 'react-i18next';
 import { CONTROL, ICON, TYPE } from '../../../styles/scale';
@@ -56,7 +57,6 @@ import {
 import { shortcutKeys } from '../../../utils/functions/shortcutKeys';
 import { KEYS_SLOT, ShortcutSentence } from '../../common/ShortcutSentence';
 import { useFontFamily } from '../../../hooks/useFontFamily';
-import { chooseDefaultView } from '../../../redux/defaultViewChoice';
 
 // The theme picker's swatches live in ThemeSwatch (KAN-237), which also carries
 // the KAN-88/KAN-95 marker rule and its reasoning.
@@ -615,21 +615,15 @@ const SettingsDetailsContainer: React.FC = () => {
               color={COLORS.LABEL_L1_COLOR}
             />
           </div>
+          {/* KAN-749. Setup's picture cards, named as the pair was. */}
           <div
+            role="group"
+            aria-label={t('Default view')}
             css={css`
               margin-top: 8px;
             `}
           >
-            <SlidingPair
-              label={t('Default view')}
-              options={[
-                { value: 'compact', label: t('Compact view') },
-                { value: 'full', label: t('Full view') },
-              ]}
-              value={settingsData.defaultView}
-              onChange={(next) => void dispatch(chooseDefaultView(next))}
-              metrics={SETTINGS_PAIR_METRICS}
-            />
+            <DefaultViewCards />
           </div>
         </div>
 
