@@ -6,12 +6,10 @@ import { platformSays } from './fixtures/platform';
 import { stubToolbarPin } from './fixtures/toolbarPin';
 import {
   FULL,
-  THEMES,
   openPage,
   storedSettings,
   twoFrames,
 } from './fixtures/onboarding';
-import { contrast, pixelsAt } from './fixtures/pixels';
 import {
   FULL_RUN,
   cardAt,
@@ -144,50 +142,57 @@ test('Skip tutorial: the note, and nothing opens after it (R8, KAN-499)', async 
   expect((await storedSettings(page)).setupState).toBe('none');
 });
 
-// KAN-563: a run resumed at step 9 draws its card before Chrome has said the platform; no drawn frame points anywhere but the aim.
-for (const [os, aim] of [
-  ['mac', 140],
-  ['win', 88],
-] as const) {
-  test(`step 9 resumed (${os}): every drawn frame's notch points at ${aim}px`, async ({
+// KAN-755: step 9 points at nothing, as the tab strip may be on top or down the side; it waits for no platform answer.
+// CONTROL: the same recorder on step 1, which is anchored, sees its one notch.
+const PLATFORMS = ['mac', 'win', 'never answers'] as const;
+for (const [os, step, notches] of [
+  ...PLATFORMS.map((os) => [os, 9, 0] as const),
+  ['win', 1, 1] as const,
+]) {
+  test(`step ${step} resumed (${os}): every drawn frame has ${notches} notch${notches === 1 ? '' : 'es'}`, async ({
     context,
     extensionId,
   }) => {
-    await platformSays(context, os);
-    // Each frame the card is drawn free, its notch tip from layout (the glide's transform moves card and notch together).
+    if (os === 'never answers') {
+      await context.addInitScript(() => {
+        const runtime = globalThis.chrome?.runtime;
+        if (runtime) {
+          Object.defineProperty(runtime, 'getPlatformInfo', {
+            value: () => new Promise(() => {}),
+            configurable: true,
+          });
+        }
+      });
+    } else await platformSays(context, os);
+    // Each frame the card is drawn, how many notches it has and where it sits.
     await context.addInitScript(() => {
-      const tips: number[] = [];
-      Object.defineProperty(window, '__notchTips', { value: tips });
+      const frames: string[] = [];
+      Object.defineProperty(window, '__coachFrames', { value: frames });
       const read = () => {
         const mark = document.querySelector<HTMLElement>('[data-coach-mark]');
-        const notch = mark?.querySelector<HTMLElement>('[data-coach-notch]');
-        if (
-          mark &&
-          notch &&
-          !mark.hasAttribute('aria-hidden') &&
-          mark.getAttribute('data-coach-side') === 'free'
-        ) {
-          const border = parseFloat(getComputedStyle(mark).borderLeftWidth);
-          tips.push(
-            parseFloat(mark.style.left) +
-              border +
-              parseFloat(notch.style.left) +
-              notch.offsetWidth / 2
+        if (mark && !mark.hasAttribute('aria-hidden')) {
+          const n = mark.querySelectorAll('[data-coach-notch]').length;
+          const side = mark.getAttribute('data-coach-side');
+          frames.push(
+            side === 'free'
+              ? `${n} ${mark.style.left} ${mark.style.top}`
+              : `${n}`
           );
         }
         requestAnimationFrame(read);
       };
       requestAnimationFrame(read);
     });
-    const page = await openRunningFullView(context, extensionId, false, 9);
-    await landedAt(page, 9);
-    const tips = await page.evaluate((): unknown =>
-      Reflect.get(window, '__notchTips')
+    const page = await openRunningFullView(context, extensionId, false, step);
+    await landedAt(page, step);
+    const frames = await page.evaluate((): unknown =>
+      Reflect.get(window, '__coachFrames')
     );
-    if (!Array.isArray(tips)) throw new Error('no notch record');
-    expect(tips.length).toBeGreaterThan(0);
-    // One tip only, 1px past the aim: the notch is drawn inside the card's border.
-    expect([...new Set(tips)]).toEqual([aim + 1]);
+    if (!Array.isArray(frames)) throw new Error('no frame record');
+    expect(frames.length).toBeGreaterThan(0);
+    expect([...new Set(frames)]).toEqual([
+      step === 9 ? '0 40px 20px' : `${notches}`,
+    ]);
   });
 }
 
@@ -225,14 +230,11 @@ for (const how of ['Skip setup', 'Done'] as const) {
   });
 }
 
-// KAN-457: step 9's buttons are one row at the default size, and its notch points up at the tab strip.
+// KAN-457: step 9's buttons are one row at the default size.
 // KAN-654: Not now sits under them, centred, as Skip tutorial does on the other cards.
-// KAN-563: at the first tab on a Mac (140), elsewhere where it always was (88).
-for (const [os, aim] of [
-  ['mac', 140],
-  ['win', 88],
-] as const) {
-  test(`step 9 (${os}): Back and Pin this tab one row, Not now centred under them; the notch up at ${aim}px`, async ({
+// KAN-755: no notch, on any platform; step 8, the anchored card before it, has its one.
+for (const os of ['mac', 'win'] as const) {
+  test(`step 9 (${os}): Back and Pin this tab one row, Not now centred under them; no notch`, async ({
     context,
     extensionId,
   }) => {
@@ -243,6 +245,7 @@ for (const [os, aim] of [
     // KAN-569: the step changes a frame before the card moves; measure once it sits free and has glided there.
     await expect(card).toHaveAttribute('data-coach-side', 'free');
     await landedAt(page, 9);
+    await expect(card.locator('[data-coach-notch]')).toHaveCount(0);
     const geometry = await card.evaluate((el) => {
       const box = (e: Element | null) => {
         if (e === null) throw new Error('missing');
@@ -254,7 +257,6 @@ for (const [os, aim] of [
             (b) => b.textContent === name
           ) ?? null
         );
-      const notch = box(el.querySelector('[data-coach-notch]'));
       const card = box(el);
       return {
         width: card.width,
@@ -262,11 +264,6 @@ for (const [os, aim] of [
         pinBottom: button('Pin this tab').bottom,
         notNowCentre: button('Not now').left + button('Not now').width / 2,
         cardCentre: card.left + card.width / 2,
-        notch: {
-          tip: notch.left + notch.width / 2,
-          bottom: notch.bottom - card.top,
-          top: notch.top,
-        },
       };
     });
     expect(geometry.width).toBe(400);
@@ -276,50 +273,9 @@ for (const [os, aim] of [
     expect(Math.abs(geometry.notNowCentre - geometry.cardCentre)).toBeLessThan(
       1
     );
-    // Above the card, its base over the card's 1px border (KAN-735), its tip on the aim, and still inside the page.
-    expect(geometry.notch.bottom).toBeLessThanOrEqual(1);
-    expect(Math.abs(geometry.notch.tip - aim)).toBeLessThanOrEqual(1);
-    expect(geometry.notch.top).toBeGreaterThanOrEqual(0);
-  });
-}
-
-// KAN-735. Nothing else points on step 9 (no ring), so its notch is one triangle in the bar's colour.
-for (const [theme, palette] of THEMES) {
-  test(`${theme}: step 9's notch is one triangle in the bar's colour, at 3:1 or more`, async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await openRunningFullView(context, extensionId, false, 9, {
-      theme,
-    });
-    await landedAt(page, 9);
-    const card = cardAt(page, 9);
-    await expect(card).toHaveAttribute('data-coach-side', 'free');
-    const notches = card.locator('[data-coach-notch]');
-    await expect(notches).toHaveCount(1);
-    const n = await notches.evaluate((el) =>
-      el.getBoundingClientRect().toJSON()
-    );
-    const c = await card.evaluate((el) => el.getBoundingClientRect().toJSON());
-    expect(n.width).toBe(18);
-    const x = n.left + n.width / 2;
-    const [inside, ground, frameRow, bar, fill] = await pixelsAt(page, [
-      [x, n.bottom - 2],
-      [n.left - 12, n.bottom - 2],
-      [x, c.top],
-      [x, c.top + 2],
-      [c.left + 6, c.bottom - 6],
-    ]);
-    // CONTROL: the decode reads the card's own fill as its token.
-    expect(fill).toBe(palette.PRIMARY_COLOR);
-    const ratio = contrast(ground, palette.TEXT_COLOR);
-    console.log(
-      `[step 9 notch] ${theme} ${inside} on ${ground} ${ratio.toFixed(2)}:1, frame ${frameRow}, bar ${bar}`
-    );
-    expect(inside).toBe(palette.TEXT_COLOR);
-    expect(ratio).toBeGreaterThanOrEqual(3);
-    // The base covers the frame, so the notch meets the bar.
-    expect(frameRow).toBe(palette.TEXT_COLOR);
-    expect(bar).toBe(palette.TEXT_COLOR);
+    // CONTROL: Back to step 8, anchored, and its notch is drawn.
+    await cardButton(page, 'Back').click();
+    await landedAt(page, 8);
+    await expect(cardAt(page, 8).locator('[data-coach-notch]')).toHaveCount(1);
   });
 }
