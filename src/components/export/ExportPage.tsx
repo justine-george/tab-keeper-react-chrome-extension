@@ -74,13 +74,12 @@ import {
  * The document below sits in a 720px column; this is what keeps Edit and
  * Save as PDF… from running to the monitor's edges above it. The number is the
  * toolbar's one-line floor: it wraps its right-hand group onto its own line
- * when it cannot fit. With Save as HTML hidden (KAN-734) the widest locale's
- * one-line width is Russian at 849px (ko 561, zh 582, zh-TW 585, hi 663,
- * en 673, sv 715, it 719, ja 723, pt 765, es 768, de 784, fr 784). 870 leaves
- * room for Linux text layout on CI. With Save shown again Russian needs 1061,
- * so this goes back to 1100.
+ * when it cannot fit. With Save as PDF… (KAN-742) the widest locale's
+ * one-line width is Russian at 906px (ko 577, zh 600, zh-TW 600, en 695,
+ * hi 722, sv 739, it 748, ja 766, pt 795, es 810, fr 821, de 822). 930 leaves
+ * room for Linux text layout on CI.
  */
-const HEADER_CONTENT_MAX_PX = 870;
+const HEADER_CONTENT_MAX_PX = 930;
 
 // KAN-603. The longest Print waits for the icons; measured, they land 60-160ms after opening.
 const OUTPUT_WAIT_CAP_MS = 1000;

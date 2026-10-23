@@ -4,7 +4,8 @@ import { dirname, join } from 'node:path';
 import type { Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { sessionHeaderMenu } from './fixtures/menus';
+import { saveRowMenu, sessionHeaderMenu } from './fixtures/menus';
+import { localeStrings } from './fixtures/locales';
 import { previewFile } from './fixtures/previewFile';
 import { waitForFontsLoaded } from './fixtures/fonts';
 import {
@@ -1519,8 +1520,23 @@ test('the session menu paints above the tab rows it opens over', async ({
 });
 
 // KAN-193. A menu crossing into the neighbouring pane reads as detached from
-// its trigger; this trigger sits near the row's start.
-for (const lang of ['en', 'de'] as const) {
+// its trigger; this trigger sits near the row's start. KAN-742: every locale.
+const ALL_LANGS = [
+  'de',
+  'en',
+  'es',
+  'fr',
+  'hi',
+  'it',
+  'ja',
+  'ko',
+  'pt',
+  'ru',
+  'sv',
+  'zh',
+  'zh-TW',
+] as const;
+for (const lang of ALL_LANGS) {
   test(`the session menu stays in its pane with each label on one line (${lang})`, async ({
     context,
     extensionId,
@@ -1540,7 +1556,7 @@ for (const lang of ['en', 'de'] as const) {
 
     const trigger = sessionHeaderMenu(
       popup,
-      lang === 'de' ? 'Weitere Aktionen' : 'More actions'
+      localeStrings(lang)['More actions']
     );
     await expect(trigger).toBeVisible();
     await trigger.click();
@@ -1586,6 +1602,46 @@ for (const lang of ['en', 'de'] as const) {
       `the menu starts at ${shape.menuLeft}px, left of its pane at ${shape.paneLeft}px`
     ).toBeGreaterThanOrEqual(shape.paneLeft);
     expect(shape.menuRight).toBeLessThanOrEqual(shape.paneRight);
+    expect(
+      new Set(shape.heights).size,
+      `item heights ${shape.heights.join('/')}px: a label wrapped`
+    ).toBe(1);
+  });
+
+  // KAN-742. The save row's menu holds the longest new label, "Save open windows as PDF…".
+  test(`the save row menu stays in the popup with each label on one line (${lang})`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, {
+      language: lang,
+      isNeverAskAgainForTabGroups: true,
+      isNeverAskAgainToRate: true,
+    });
+    const popup = await context.newPage();
+    await popup.setViewportSize({ width: 790, height: 550 });
+    await popup.goto(`chrome-extension://${extensionId}/index.html`);
+    await saveRowMenu(popup).click();
+    const menu = popup.getByRole('menu');
+    await expect(menu).toBeVisible();
+
+    const shape = await menu.evaluate((menuEl) => {
+      const box = menuEl.getBoundingClientRect();
+      return {
+        left: Math.round(box.left),
+        right: Math.round(box.right),
+        width: Math.round(box.width),
+        heights: [...menuEl.querySelectorAll('[role="menuitem"]')].map((item) =>
+          Math.round(item.getBoundingClientRect().height)
+        ),
+      };
+    });
+    console.log(`${lang}: save row menu ${shape.width}px`);
+
+    // CONTROL: the menu holds both saves, so "one line each" can fail.
+    expect(shape.heights).toHaveLength(2);
+    expect(shape.left).toBeGreaterThanOrEqual(0);
+    expect(shape.right).toBeLessThanOrEqual(790);
     expect(
       new Set(shape.heights).size,
       `item heights ${shape.heights.join('/')}px: a label wrapped`
