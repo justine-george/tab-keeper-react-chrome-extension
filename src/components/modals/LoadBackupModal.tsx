@@ -13,7 +13,12 @@ import {
   replaceSessionsFromBackup,
 } from '../../redux/slices/globalStateSlice';
 import { DIALOG, TYPE } from '../../styles/scale';
-import { dialogButtonStyles } from './dialogButtons';
+import {
+  dialogButtonStyles,
+  flushLinkCss,
+  pairCss,
+  tallButtonCss,
+} from './dialogButtons';
 
 const TITLE_ID = 'load-backup-title';
 const BODY_ID = 'load-backup-body';
@@ -124,11 +129,20 @@ export const LoadBackupModal: React.FC = () => {
     }
   `;
 
+  // KAN-748. Cancel as a link at the left; Merge, the safe answer, is the filled and widest of the pair.
+  // Too narrow for one row, Cancel drops below the pair rather than a label wrapping.
   const actionsStyle = css`
     display: flex;
-    justify-content: flex-end;
-    gap: 8px;
+    flex-wrap: wrap-reverse;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   `;
+  const pairStyle = css`
+    ${pairCss}
+    margin-left: auto;
+  `;
+  const tall = tallButtonCss(24);
 
   return (
     <dialog
@@ -165,15 +179,29 @@ export const LoadBackupModal: React.FC = () => {
       </div>
 
       <div css={actionsStyle}>
-        <button type="button" css={buttons.quiet} onClick={handleCancel}>
+        <button
+          type="button"
+          css={[buttons.link, flushLinkCss]}
+          onClick={handleCancel}
+        >
           {t('Cancel')}
         </button>
-        <button type="button" css={buttons.quiet} onClick={handleMerge}>
-          {t('Merge sessions')}
-        </button>
-        <button type="button" css={buttons.danger} onClick={handleReplace}>
-          {t('Replace sessions')}
-        </button>
+        <span css={pairStyle}>
+          <button
+            type="button"
+            css={[buttons.quiet, tall]}
+            onClick={handleReplace}
+          >
+            {t('LoadBackupReplace')}
+          </button>
+          <button
+            type="button"
+            css={[buttons.filled, tall]}
+            onClick={handleMerge}
+          >
+            {t('LoadBackupMerge')}
+          </button>
+        </span>
       </div>
     </dialog>
   );
