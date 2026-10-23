@@ -24,7 +24,7 @@ import {
 } from '../../redux/slices/tabContainerDataStateSlice';
 import {
   peekSavedSession,
-  selectReopenOfferForKey,
+  selectUndoKeyTarget,
   setIsNotDirty,
   showToast,
 } from '../../redux/slices/globalStateSlice';
@@ -232,14 +232,17 @@ describe('the copy toast and a Reopen offer (C′)', () => {
     await made.store.dispatch(
       showToast({ toastText: TOAST_MESSAGES.TAB_CLOSED, reopenOfferId: 7 })
     );
-    expect(selectReopenOfferForKey(made.store.getState())).toBe(7);
+    expect(selectUndoKeyTarget(made.store.getState())).toEqual({
+      kind: 'offer',
+      offerId: 7,
+    });
     return made.store;
   };
 
   it('"Copied to" takes the key', async () => {
     const store = await withOffer(container(undefined, 'S1'));
     store.dispatch(copyOnSessionRow(LIVE(L1), 'S2'));
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toEqual({ kind: 'step' });
   });
 });
 

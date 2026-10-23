@@ -23,7 +23,7 @@ import {
   type tabContainerData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import {
-  selectReopenOfferForKey,
+  selectUndoKeyTarget,
   setIsNotDirty,
   showToast,
 } from '../../redux/slices/globalStateSlice';
@@ -199,7 +199,10 @@ describe('moveToSession: both toasts take ⌘Z from a Reopen offer (C′)', () =
         reopenOfferId: 7,
       })
     );
-    expect(selectReopenOfferForKey(made.store.getState())).toBe(7);
+    expect(selectUndoKeyTarget(made.store.getState())).toEqual({
+      kind: 'offer',
+      offerId: 7,
+    });
     return made.store;
   };
 
@@ -207,7 +210,7 @@ describe('moveToSession: both toasts take ⌘Z from a Reopen offer (C′)', () =
     const store = await withOffer(container());
     store.dispatch(moveToSession({ move: T1_TO_D1, announceMoved: true }));
 
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toEqual({ kind: 'step' });
   });
 
   it('the emptied toast', async () => {
@@ -219,7 +222,7 @@ describe('moveToSession: both toasts take ⌘Z from a Reopen offer (C′)', () =
     expect(toasts(store).map((t) => t.text)).toContain(
       TOAST_MESSAGES.SESSION_EMPTIED_REMOVED
     );
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toEqual({ kind: 'step' });
   });
 });
 

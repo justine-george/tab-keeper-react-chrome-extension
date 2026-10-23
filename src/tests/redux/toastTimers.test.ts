@@ -19,7 +19,7 @@ import {
   closeAllToasts,
   closeOfferToast,
   closePlainToasts,
-  selectReopenOfferForKey,
+  selectUndoKeyTarget,
   showToast,
 } from '../../redux/slices/globalStateSlice';
 import { holdToasts, releaseToasts } from '../../redux/toastTimers';
@@ -172,20 +172,23 @@ describe('which offer ⌘Z takes (Q1 C′)', () => {
   test('an offer alone has the key', async () => {
     const { store } = makeTestStore();
     await offerOn(store);
-    expect(selectReopenOfferForKey(store.getState())).toBe(7);
+    expect(selectUndoKeyTarget(store.getState())).toEqual({
+      kind: 'offer',
+      offerId: 7,
+    });
   });
 
   test('no offer, no key', async () => {
     const { store } = makeTestStore();
     await show(store, 'Links copied');
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toBeNull();
   });
 
   test('a saved-session change announced after the offer takes the key', async () => {
     const { store } = makeTestStore();
     await offerOn(store);
     await showSavedChange(store, 'Tab deleted');
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toBeNull();
     expect(texts(store)).toEqual(['Tab closed', 'Tab deleted']);
   });
 
@@ -193,7 +196,10 @@ describe('which offer ⌘Z takes (Q1 C′)', () => {
     const { store } = makeTestStore();
     await offerOn(store);
     await show(store, 'Sync merged');
-    expect(selectReopenOfferForKey(store.getState())).toBe(7);
+    expect(selectUndoKeyTarget(store.getState())).toEqual({
+      kind: 'offer',
+      offerId: 7,
+    });
   });
 
   test('the key does not come back when the taking toast times out', async () => {
@@ -207,7 +213,7 @@ describe('which offer ⌘Z takes (Q1 C′)', () => {
     );
     vi.advanceTimersByTime(TOAST_MS);
     expect(texts(store)).toEqual(['Tab closed']);
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toBeNull();
   });
 
   test('the key does not come back when an undo closes the taking toast', async () => {
@@ -216,7 +222,7 @@ describe('which offer ⌘Z takes (Q1 C′)', () => {
     await showSavedChange(store, 'Tab deleted');
     store.dispatch(closePlainToasts());
     expect(texts(store)).toEqual(['Tab closed']);
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toBeNull();
   });
 
   test('a new close after a saved change has the key again', async () => {
@@ -224,6 +230,9 @@ describe('which offer ⌘Z takes (Q1 C′)', () => {
     await offerOn(store);
     await showSavedChange(store, 'Tab deleted');
     await show(store, 'Tab closed', { reopenOfferId: 8 });
-    expect(selectReopenOfferForKey(store.getState())).toBe(8);
+    expect(selectUndoKeyTarget(store.getState())).toEqual({
+      kind: 'offer',
+      offerId: 8,
+    });
   });
 });

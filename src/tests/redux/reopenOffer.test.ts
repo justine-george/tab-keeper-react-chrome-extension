@@ -30,7 +30,7 @@ import type { ClosedItem } from '../../utils/functions/reopen';
 import {
   closeAllToasts,
   closePlainToasts,
-  selectReopenOfferForKey,
+  selectUndoKeyTarget,
   showToast,
 } from '../../redux/slices/globalStateSlice';
 import {
@@ -141,7 +141,7 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
       })
     );
 
-    expect(selectReopenOfferForKey(store.getState())).toBeNull();
+    expect(selectUndoKeyTarget(store.getState())).toBeNull();
     expect(shownOfferId(store.getState())).toBe(id);
     expect(takeReopenOffer(id)).toBe(item);
   });

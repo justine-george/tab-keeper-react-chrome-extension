@@ -1083,11 +1083,6 @@ function offerKeepingUndoKey(state: RootState): ToastOffer | null {
   return null;
 }
 
-// The id of that offer, or null. A live step newer than it still takes ⌘Z first: selectUndoKeyTarget says what the key does.
-export function selectReopenOfferForKey(state: RootState): number | null {
-  return offerKeepingUndoKey(state)?.id ?? null;
-}
-
 export type UndoKeyTarget =
   { kind: 'offer'; offerId: number } | { kind: 'step' } | null;
 
