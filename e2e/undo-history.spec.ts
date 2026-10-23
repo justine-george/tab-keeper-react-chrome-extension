@@ -23,6 +23,7 @@ import {
 
 const TITLE = 'Launch week';
 const RENAMED = 'Launch day';
+const RENAMED_AGAIN = 'Launch night';
 
 const UNDO_SORT = "Couldn't undo the sort. That window's tabs changed since.";
 const UNDO_MOVE = "Couldn't undo the move. Those tabs moved or closed since.";
@@ -664,6 +665,13 @@ test('a group Chrome removed comes back on redo', async ({
 
 // ---- Refused steps (R9-R11) ---------------------------------------------------------
 
+// Two saved steps on the near side of the refused one: a press that refused and
+// also took a saved step would leave the next press on the far rename.
+async function renameTwice(page: Page) {
+  await renameShown(page, TITLE, RENAMED);
+  await renameShown(page, RENAMED, RENAMED_AGAIN);
+}
+
 test.describe('refused steps', () => {
   test('refused: undo a sort after a new tab opens', async ({
     context,
@@ -671,7 +679,7 @@ test.describe('refused steps', () => {
     serviceWorker: worker,
   }) => {
     const { page, a } = await exampleWindows(context, extensionId, worker);
-    await renameShown(page, TITLE, RENAMED);
+    await renameTwice(page);
     await sortInOpenNow(page, a.windowId);
     await expectStrips(worker, [a], [SORTED]);
     await openTabIn(worker, a.windowId, pageOn({ n: 'extra', site: 'beta' }));
@@ -681,12 +689,12 @@ test.describe('refused steps', () => {
     await undoKey(page);
     await expectRefusedToast(page, UNDO_SORT);
     await expectStrips(worker, [a], [changed]);
-    await expectTitle(page, RENAMED);
+    await expectTitle(page, RENAMED_AGAIN);
 
-    // The next press reaches the rename before it.
+    // The next press reaches the newer rename only.
     await undoKey(page);
-    await expectTitle(page, TITLE);
-    await expectHistory(page, { undo: false, redo: true });
+    await expectTitle(page, RENAMED);
+    await expectHistory(page, { undo: true, redo: true });
     await expectStrips(worker, [a], [changed]);
   });
 
@@ -696,7 +704,7 @@ test.describe('refused steps', () => {
     serviceWorker: worker,
   }) => {
     const { page, b, c } = await exampleWindows(context, extensionId, worker);
-    await renameShown(page, TITLE, RENAMED);
+    await renameTwice(page);
     await dragTab(page, b.tab('b1'), c.tab('c1'));
     await expectStrips(worker, [b, c], [FROM_AFTER, TO_AFTER]);
     await moveByHand(worker, b.tab('b1'), 0);
@@ -706,11 +714,11 @@ test.describe('refused steps', () => {
     await undoKey(page);
     await expectRefusedToast(page, UNDO_MOVE);
     await expectStrips(worker, [b, c], [FROM_AFTER, byHand]);
-    await expectTitle(page, RENAMED);
+    await expectTitle(page, RENAMED_AGAIN);
 
     await undoKey(page);
-    await expectTitle(page, TITLE);
-    await expectHistory(page, { undo: false, redo: true });
+    await expectTitle(page, RENAMED);
+    await expectHistory(page, { undo: true, redo: true });
     await expectStrips(worker, [b, c], [FROM_AFTER, byHand]);
   });
 
@@ -722,7 +730,9 @@ test.describe('refused steps', () => {
     const { page, a } = await exampleWindows(context, extensionId, worker);
     await sortInOpenNow(page, a.windowId);
     await expectStrips(worker, [a], [SORTED]);
-    await renameShown(page, TITLE, RENAMED);
+    await renameTwice(page);
+    await undoKey(page);
+    await expectTitle(page, RENAMED);
     await undoKey(page);
     await expectTitle(page, TITLE);
     await undoKey(page);
@@ -737,10 +747,10 @@ test.describe('refused steps', () => {
     await expectStrips(worker, [a], [changed]);
     await expectTitle(page, TITLE);
 
-    // The next press reaches the rename after it.
+    // The next press reaches the older rename only.
     await redoKey(page);
     await expectTitle(page, RENAMED);
-    await expectHistory(page, { undo: true, redo: false });
+    await expectHistory(page, { undo: true, redo: true });
     await expectStrips(worker, [a], [changed]);
   });
 
@@ -752,7 +762,9 @@ test.describe('refused steps', () => {
     const { page, b, c } = await exampleWindows(context, extensionId, worker);
     await dragTab(page, b.tab('b1'), c.tab('c1'));
     await expectStrips(worker, [b, c], [FROM_AFTER, TO_AFTER]);
-    await renameShown(page, TITLE, RENAMED);
+    await renameTwice(page);
+    await undoKey(page);
+    await expectTitle(page, RENAMED);
     await undoKey(page);
     await expectTitle(page, TITLE);
     await undoKey(page);
@@ -769,7 +781,7 @@ test.describe('refused steps', () => {
 
     await redoKey(page);
     await expectTitle(page, RENAMED);
-    await expectHistory(page, { undo: true, redo: false });
+    await expectHistory(page, { undo: true, redo: true });
     await expectStrips(worker, [b, c], [byHand, TO_BEFORE]);
   });
 
@@ -779,7 +791,7 @@ test.describe('refused steps', () => {
     serviceWorker: worker,
   }) => {
     const { page, b, c } = await exampleWindows(context, extensionId, worker);
-    await renameShown(page, TITLE, RENAMED);
+    await renameTwice(page);
     await dragTab(page, b.tab('b1'), c.tab('c1'));
     await expectStrips(worker, [b, c], [FROM_AFTER, TO_AFTER]);
     await worker.evaluate(async (id) => {
@@ -790,11 +802,11 @@ test.describe('refused steps', () => {
     await undoKey(page);
     await expectRefusedToast(page, UNDO_WINDOW_CLOSED);
     await expectStrips(worker, [c], [TO_AFTER]);
-    await expectTitle(page, RENAMED);
+    await expectTitle(page, RENAMED_AGAIN);
 
     await undoKey(page);
-    await expectTitle(page, TITLE);
-    await expectHistory(page, { undo: false, redo: true });
+    await expectTitle(page, RENAMED);
+    await expectHistory(page, { undo: true, redo: true });
     await expectStrips(worker, [c], [TO_AFTER]);
   });
 });

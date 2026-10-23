@@ -1370,7 +1370,7 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
 
   // O11f, KAN-744 R10-R11: a drag whose tabs Chrome no longer has where it
   // left them is not undone; that press says so, and undoes nothing saved. The
-  // second ⌘Z reaches the saved change before it.
+  // second ⌘Z reaches only the newer of the two saved changes before it.
   const staleCases: readonly ('moved by hand' | 'closed')[] = [
     'moved by hand',
     'closed',
@@ -1384,6 +1384,9 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
       const page = await openTabView(context, extensionId);
       const a = await openWindow(worker, ['a0', 'a1', 'a2', 'a3']);
       await expect(tabRow(page, a.tab('a3'))).toBeVisible();
+      // Two saved steps: a press that refused and also undid one would leave
+      // the second press on the older.
+      await saveAll(page);
       const saved = await saveAll(page);
 
       await dragTab(page, a.tab('a3'), () => justInside(page, a.tab('a1')));
@@ -1421,6 +1424,8 @@ test.describe('⌘Z undoes an Open now drag (KAN-280 O11f, U1)', () => {
 
       await undoKey(page);
       await expect.poll(() => savedCount(page)).toBe(saved - 1);
+      // Read again after the press: a fall-through would have taken two.
+      expect(await savedCount(page)).toBe(saved - 1);
       expect(await chromeOrder(worker, a.windowId)).toEqual(expected);
     });
   }
