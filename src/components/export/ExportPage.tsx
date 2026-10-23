@@ -390,6 +390,11 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // KAN-603. Print and Save wait until the frame has loaded the file carrying
   // the icons, or OUTPUT_WAIT_CAP_MS, whichever comes first.
   const frameShowsIcons = iconsReady && loadedHtml === html;
+  // KAN-603. What Save writes once its wait ends: the file as it is then, not as it was when pressed.
+  const savedFileRef = useRef({ html, title: '', edits });
+  useEffect(() => {
+    savedFileRef.current = { html, title: edited?.title ?? '', edits };
+  }, [html, edited, edits]);
   const frameShowsIconsRef = useRef(false);
   const outputWaiters = useRef(new Set<() => void>());
   useEffect(() => {
@@ -510,24 +515,31 @@ export default function ExportPage({ source }: { source: ExportSource }) {
     );
     await untilFrameShowsIcons();
     clearTimeout(face);
-    run();
-    setPendingOutput(null);
-    setOutputFaceShown(false);
+    // A refused print or save must not leave both buttons busy until a reload.
+    try {
+      run();
+    } catch (error) {
+      console.error(`Could not ${output} the export:`, error);
+    } finally {
+      setPendingOutput(null);
+      setOutputFaceShown(false);
+    }
   };
 
   const saveFile = () => {
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const file = savedFileRef.current;
+    const blob = new Blob([file.html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = exportFileName(edited.title, new Date());
+    anchor.download = exportFileName(file.title, new Date());
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     // Revoked on a later turn, not immediately: the download is handed off
     // asynchronously, and revoking in the same tick cancels it in Chrome.
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    setWrittenEdits(edits);
+    setWrittenEdits(file.edits);
   };
 
   const handleSave = () => afterIcons('save', saveFile);
@@ -941,7 +953,6 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                     onClick={handlePrint}
                     busy={pendingOutput !== null}
                     secondFace={{
-                      iconType: 'print',
                       glyph: <SpinnerGlyph size="1.2rem" />,
                       text: t('Preparing…'),
                       shown: pendingOutput === 'print' && outputFaceShown,

@@ -1,7 +1,10 @@
-import { describe, expect, test } from 'vitest';
+import type { ComponentProps, ReactNode } from 'react';
+import { describe, expect, expectTypeOf, test } from 'vitest';
 
 import Button from '../../components/common/Button';
 import { renderWithProviders } from '../setup/renderWithProviders';
+
+type Face = NonNullable<ComponentProps<typeof Button>['secondFace']>;
 
 // KAN-603. Print's "Preparing…" face shows a spinner, which is a glyph rather than a ligature.
 describe('a second face with a glyph (KAN-603)', () => {
@@ -11,7 +14,6 @@ describe('a second face with a glyph (KAN-603)', () => {
         text="PDF / Print"
         iconType="print"
         secondFace={{
-          iconType: 'print',
           glyph: <svg data-testid="g" />,
           text: 'Preparing…',
           shown: true,
@@ -28,6 +30,17 @@ describe('a second face with a glyph (KAN-603)', () => {
     expect(face.textContent).toContain('Preparing…');
     expect(face.querySelector('.material-symbols-outlined')).toBeNull();
     expect(face.textContent).not.toContain('print');
+  });
+
+  // A face draws a glyph or an icon, never both, so it never names an icon it won't draw.
+  test('a face takes a glyph or an icon, never both', () => {
+    expectTypeOf<{ glyph: ReactNode; shown: boolean }>().toExtend<Face>();
+    expectTypeOf<{ iconType: 'print'; shown: boolean }>().toExtend<Face>();
+    expectTypeOf<{
+      iconType: 'print';
+      glyph: ReactNode;
+      shown: boolean;
+    }>().not.toExtend<Face>();
   });
 
   test('spaces the glyph away from its word as the icon is', async () => {

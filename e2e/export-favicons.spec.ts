@@ -1,5 +1,4 @@
 import { createServer } from 'node:http';
-import type { AddressInfo } from 'node:net';
 import { deflateSync } from 'node:zlib';
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
@@ -61,8 +60,13 @@ test.beforeAll(
 test.afterAll(
   () => new Promise<void>((closed) => server.close(() => closed()))
 );
-const visitedPage = () =>
-  `http://127.0.0.1:${(server.address() as AddressInfo).port}/kiyomizu`;
+const visitedPage = () => {
+  const address = server.address();
+  if (address === null || typeof address === 'string') {
+    throw new Error('the icon server is not listening on a port');
+  }
+  return `http://127.0.0.1:${address.port}/kiyomizu`;
+};
 
 const NEVER_VISITED = 'https://never-visited.invalid/kyoto';
 const SETTINGS = 'chrome://settings/';

@@ -64,10 +64,11 @@ interface ButtonProps {
    * beside its word. The accessible name does not change; say what happened
    * from a status region, or with `ariaPressed` for a toggle.
    */
-  secondFace?: {
-    iconType: IconName;
-    /** KAN-603. Drawn in place of iconType's icon, e.g. a spinner. */
-    glyph?: ReactNode;
+  secondFace?: (
+    | { iconType: IconName; glyph?: never }
+    // KAN-603. A drawn glyph in place of an icon, e.g. a spinner.
+    | { glyph: ReactNode; iconType?: never }
+  ) & {
     text?: string;
     shown: boolean;
     /** The crossfade's length. 200ms; shorter for a control used in runs. */

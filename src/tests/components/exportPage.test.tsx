@@ -1019,5 +1019,54 @@ describe('the icons on the export page (KAN-603)', () => {
       expect(printed).toHaveBeenCalledTimes(1);
       expect(printButton().getAttribute('aria-disabled')).toBeNull();
     });
+
+    test('a print that throws still frees the button', async () => {
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+      await renderPage();
+      await waitFor(() => expect(srcdoc()).toContain('data-icons="ready"'));
+      fireEvent.load(frame());
+      Object.defineProperty(frame(), 'contentWindow', {
+        configurable: true,
+        value: {
+          print: () => {
+            throw new DOMException('blocked', 'SecurityError');
+          },
+        },
+      });
+
+      fireEvent.click(printButton());
+
+      await waitFor(() =>
+        expect(printButton().getAttribute('aria-disabled')).toBeNull()
+      );
+      expect(error).toHaveBeenCalled();
+    });
+  });
+
+  test('Save pressed before the icons land saves the file that carries them', async () => {
+    saveSwitch.shown = true;
+    const blobs: Blob[] = [];
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      if (blob instanceof Blob) blobs.push(blob);
+      return 'blob:saved';
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const read = deferred<ReadonlyMap<string, string>>();
+    vi.mocked(readExportIcons).mockReturnValue(read.promise);
+    await renderPage();
+    fireEvent.load(frame());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save as HTML' }));
+    await act(async () =>
+      read.resolve(new Map([['https://inari.jp/en/', INARI]]))
+    );
+    await act(async () => {
+      fireEvent.load(frame());
+    });
+
+    await waitFor(() => expect(blobs).toHaveLength(1));
+    const saved = await blobs[0].text();
+    expect(saved).toContain('data-icons="ready"');
+    expect(saved).toContain(INARI);
   });
 });
