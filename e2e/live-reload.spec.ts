@@ -367,7 +367,7 @@ test.describe('a sync keeps each page its own selection (KAN-294)', () => {
 // for the drag (KAN-295) -- with nothing of the cloud's to apply at the release.
 // The held run returns before it settles, so something must finish the sync
 // once the row is released. Before the fix nothing did: a cancelled drag left
-// the control on cloud_sync, aria-disabled, until the next edit.
+// the control on Syncing…, aria-disabled, until the next edit.
 //
 // Needs the cloud config, like the describe above; skips without it.
 test.describe('a sync held by a drag still finishes after a cancel (KAN-297)', () => {
