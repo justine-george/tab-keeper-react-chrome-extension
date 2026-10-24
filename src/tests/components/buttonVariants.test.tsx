@@ -142,6 +142,18 @@ describe('Button variants (KAN-205)', () => {
     );
   });
 
+  // KAN-750 r3. A drawn glyph (the busy face's sync arrows) turns white on the red too.
+  test('danger re-inks a drawn sync glyph under the pointer', async () => {
+    await render({ variant: 'danger', iconType: 'delete' });
+
+    expect(hoverRulesFor(button())).toMatch(
+      new RegExp(
+        `\\[data-glyph\\] svg[^}]*color:\\s*${asWritten(LIGHT_THEME.ON_DANGER_FILL).source}`,
+        'i'
+      )
+    );
+  });
+
   test('danger draws its ring in its own ink', async () => {
     await render({ variant: 'danger' });
 

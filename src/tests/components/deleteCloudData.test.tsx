@@ -35,6 +35,8 @@ import { cloudDocumentExists } from '../../utils/functions/external';
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { DeleteCloudDataModal } from '../../components/modals/DeleteCloudDataModal';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { FakeMediaQueryList } from '../setup/mediaQueryFake';
+import { CROSSFADE_MS } from '../../components/common/syncMotion';
 import { asWritten } from '../setup/asWritten';
 import { newestToast } from '../setup/toasts';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
@@ -314,6 +316,77 @@ describe('the Delete cloud data button while it checks (KAN-719)', () => {
     ).toBeTruthy();
     resolveCheck(true);
     await flush();
+  });
+
+  // KAN-750 r3 (D1). The busy face's glyph is the sync button's turning arrows.
+  const busyGlyph = () => {
+    const g = deleteButton().querySelector('[data-second-face] [data-glyph]');
+    return {
+      glyph: g?.getAttribute('data-glyph'),
+      turning: g?.getAttribute('data-turning'),
+    };
+  };
+
+  test('Checking… turns the sync arrows until its face has faded out', async () => {
+    await renderPane('granted');
+    expect(busyGlyph()).toEqual({ glyph: 'sync', turning: 'false' });
+    await press();
+    await flush(299);
+    expect(busyGlyph().turning).toBe('false');
+    await flush(1);
+    expect(faceShown()).toBe('true');
+    expect(busyGlyph()).toEqual({ glyph: 'sync', turning: 'true' });
+    // Drawn arrows, not the cloud_sync ligature.
+    expect(
+      deleteButton().querySelector(
+        '[data-second-face] .material-symbols-outlined'
+      )
+    ).toBeNull();
+
+    resolveCheck(true);
+    await flush();
+    expect(faceShown()).toBe('false');
+    // Still turning while the face fades out, then still.
+    await flush(CROSSFADE_MS - 1);
+    expect(busyGlyph().turning).toBe('true');
+    await flush(1);
+    expect(busyGlyph().turning).toBe('false');
+  });
+
+  test('a second check turns the arrows again', async () => {
+    await renderPane('granted');
+    await press();
+    await flush(300);
+    resolveCheck(false);
+    await flush(CROSSFADE_MS);
+    expect(busyGlyph().turning).toBe('false');
+
+    await press();
+    await flush(300);
+    expect(faceShown()).toBe('true');
+    expect(busyGlyph().turning).toBe('true');
+    resolveCheck(true);
+    await flush();
+  });
+
+  test('under reduced motion Checking… shows the arrows still', async () => {
+    const media = vi
+      .spyOn(window, 'matchMedia')
+      .mockImplementation(
+        (query: string) =>
+          new FakeMediaQueryList(
+            query,
+            query === '(prefers-reduced-motion: reduce)'
+          )
+      );
+    await renderPane('granted');
+    await press();
+    await flush(300);
+    expect(faceShown()).toBe('true');
+    expect(busyGlyph()).toEqual({ glyph: 'sync', turning: 'false' });
+    resolveCheck(true);
+    await flush();
+    media.mockRestore();
   });
 
   test('declined: the dialog opens with no check and no face', async () => {
