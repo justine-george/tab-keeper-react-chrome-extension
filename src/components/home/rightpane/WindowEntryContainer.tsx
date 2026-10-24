@@ -10,6 +10,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { css } from '@emotion/react';
 
+import ChevronGlyph from '../../common/ChevronGlyph';
 import ClickableRow from '../../common/ClickableRow';
 import {
   focusRingOutsideCss,
@@ -1087,6 +1088,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               }
               ariaExpanded={isWindowOpen}
               type={isWindowOpen ? 'expand_less' : 'expand_more'}
+              // KAN-757. Turns over on a fold change rather than swapping glyphs.
+              renderGlyph={(glyphCss) => (
+                <ChevronGlyph open={isWindowOpen} glyphCss={glyphCss} />
+              )}
               onClick={handleAccordionClick}
             />
             <DragHandleSwap rowId={windowId}>
