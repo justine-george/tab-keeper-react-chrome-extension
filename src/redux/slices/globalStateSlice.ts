@@ -909,8 +909,8 @@ export const askToDeleteCloudData =
 // THIS device -- otherwise the next edit re-uploads everything and the delete
 // was theatre. Local sessions are untouched, and so is the token: minting a
 // fresh one would detach this device from the document but leave it standing.
-// Other devices on the same profile will upload their copy again on their
-// next sync unless auto sync is off there too; the dialog says so.
+// Other devices on the same profile keep their copy and, finding the document
+// gone on their next sync, turn sync off rather than upload it (KAN-759).
 //
 // On failure nothing changes but the toast: reporting "deleted" for a
 // document that is still there is the one outcome worse than an error.

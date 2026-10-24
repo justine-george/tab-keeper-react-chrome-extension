@@ -189,7 +189,7 @@
   "Checking…": "Checking…",
   "Deleting…": "Deleting…",
   "Delete your cloud data?": "Delete your cloud data?",
-  "DeleteCloudDataBody": "This removes your sessions from the cloud and turns Auto sync off on this device. Your sessions stay on this device. Other devices on the same Chrome profile will upload their copy again the next time they sync, unless Auto sync is off there too.",
+  "DeleteCloudDataBody": "This removes your sessions from the cloud and turns Auto sync off on this device. Your sessions stay on this device. Other devices on the same Chrome profile keep their sessions and turn sync off the next time they sync.",
   "Your cloud copy was deleted": "Your cloud copy was deleted",
   "CloudDeletedElsewhereBody": "It was deleted on another device, so sync is off here. The sessions on this device are unchanged. Turn sync on again to upload them as the new cloud copy.",
   "Keep sync off": "Keep sync off",

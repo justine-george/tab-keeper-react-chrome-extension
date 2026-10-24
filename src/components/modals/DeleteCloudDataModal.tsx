@@ -22,10 +22,10 @@ const BODY_ID = 'delete-cloud-data-body';
  * FocusConfirmModal: showModal() for the top layer, focus trap and Escape;
  * Cancel first so the initial focus lands on the action that changes nothing.
  *
- * The body says the one thing the user cannot see from here: other devices on
- * the same Chrome profile hold their own copy and will upload it again unless
- * auto sync is off there too. Without that line the delete looks complete and
- * is not.
+ * The body says the one thing the user cannot see from here: what other
+ * devices on the same Chrome profile do. They keep their own copy, and since
+ * KAN-759 they turn sync off when their next sync finds the cloud copy gone,
+ * rather than uploading it again.
  */
 export const DeleteCloudDataModal: React.FC = () => {
   const COLORS = useThemeColors();
