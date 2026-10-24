@@ -11,7 +11,9 @@ import {
 
 // Timings and curves for the sync glyph's turn-and-morph (KAN-750).
 export const TURN_MS = 800; // one counter-clockwise turn, linear
-export const MORPH_MS = 300; // the settle, the shape morph and the press into the turn
+export const MORPH_MS = 300; // the settle and the shape morph
+// The press into the turn: a quarter turn at the turn's own speed (KAN-760).
+export const INTO_TURN_MS = TURN_MS / 4;
 export const CROSSFADE_MS = 200; // = DURATION.MOVE (asserted in the unit test)
 export const UNPRESSED_DELAY_MS = 150; // wait before an unpressed sync shows
 export const HOLD_MS = 400;
@@ -20,7 +22,9 @@ export const UNSEEN_MS = 50; // a glyph shown for less than this never draws
 // The settle's cubic-bezier(x1, y1, x2, y2).
 const SETTLE_CURVE = [0.5, 0.75, 0.6, 1] as const;
 export const SETTLE_EASE = `cubic-bezier(${SETTLE_CURVE.join(', ')})`;
-export const INTO_TURN_EASE = 'cubic-bezier(0.45, 0, 0.75, 0.65)';
+export const INTO_TURN_EASE = 'linear';
+// = EASE.OUT (asserted in the unit test): the press's shape, eased in JS.
+export const EASE_OUT_CURVE = [0.23, 1, 0.32, 1] as const;
 
 // How far before its pose a running turn starts to settle, so the settle leaves at
 // the turn's speed: turn speed x MORPH_MS / the curve's start slope (y1 / x1).
@@ -31,6 +35,55 @@ const MIN_SETTLE_AHEAD_DEG = 45;
 
 export const easeInOutCubic = (t: number): number =>
   t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+
+// A CSS cubic-bezier as a function of linear progress: solves x for the curve's
+// parameter, then reads y there. x1 and x2 must lie in 0 to 1, as CSS requires.
+export function cubicBezier(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number
+): (t: number) => number {
+  if (x1 < 0 || x1 > 1 || x2 < 0 || x2 > 1)
+    throw new RangeError('A cubic-bezier needs x1 and x2 in 0 to 1');
+  const at = (s: number, p1: number, p2: number) =>
+    3 * (1 - s) ** 2 * s * p1 + 3 * (1 - s) * s ** 2 * p2 + s ** 3;
+  return (t) => {
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    // x rises with s on 0 to 1, so halving finds it.
+    let lo = 0;
+    let hi = 1;
+    for (let i = 0; i < 40; i++) {
+      const mid = (lo + hi) / 2;
+      if (at(mid, x1, x2) < t) lo = mid;
+      else hi = mid;
+    }
+    return at((lo + hi) / 2, y1, y2);
+  };
+}
+
+export const easeOut = cubicBezier(...EASE_OUT_CURVE);
+
+// A morph's length, its rotation's CSS easing and its outline's eased progress.
+export interface MorphTiming {
+  ms: number;
+  easing: string;
+  shape: (t: number) => number;
+}
+
+// Settles, landings, failures and a change into still arrows.
+export const SETTLE: MorphTiming = {
+  ms: MORPH_MS,
+  easing: SETTLE_EASE,
+  shape: easeInOutCubic,
+};
+// Into turning arrows: at the turn's speed from the first frame, the shape there early.
+export const INTO_TURN: MorphTiming = {
+  ms: INTO_TURN_MS,
+  easing: INTO_TURN_EASE,
+  shape: easeOut,
+};
 
 // The next multiple of 180 at least 45 degrees ahead of a counter-clockwise angle (angles fall).
 export function settlePose(angleDeg: number): number {
