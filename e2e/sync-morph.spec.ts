@@ -16,6 +16,8 @@ import {
 } from '../src/components/common/syncMorph.data';
 import {
   MORPH_MS,
+  SETTLE_DISTANCE_DEG,
+  TURN_MS,
   UNPRESSED_DELAY_MS,
 } from '../src/components/common/syncMotion';
 
@@ -108,6 +110,8 @@ interface Frame {
   // The top layer's path and its svg's rotation.
   d: string | null;
   transform: string;
+  // A morph's rotation as written: its first and last keyframe transforms.
+  rotation: string[] | null;
   box: { x: number; y: number; w: number; h: number } | null;
 }
 
@@ -132,6 +136,15 @@ function sampleFrames(page: Page, options: SampleOptions): Promise<Frame[]> {
         }
         const root = roots[0];
         const frames: Frame[] = [];
+        // The Web Animations rotation's keyframes; the CSS turn names its own.
+        const rotationOf = (svg: SVGSVGElement | null) => {
+          const effect = svg
+            ?.getAnimations()
+            .find((a) => !('animationName' in a))?.effect;
+          return effect instanceof KeyframeEffect
+            ? effect.getKeyframes().map((k) => String(k.transform))
+            : null;
+        };
         const start = performance.now();
         let from: number | null = until === null ? start : null;
         const step = () => {
@@ -147,6 +160,7 @@ function sampleFrames(page: Page, options: SampleOptions): Promise<Frame[]> {
             layers: root.childElementCount,
             d: path?.getAttribute('d') ?? null,
             transform: svg ? getComputedStyle(svg).transform : 'none',
+            rotation: rotationOf(svg),
             box: r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null,
           });
           if (from === null && shown === until) from = t;
@@ -206,6 +220,93 @@ function expectMorphed(frames: Frame[], name: string, end: string): void {
   );
 }
 
+// The svg's turn in degrees, from its computed matrix: (-180, 180], 0 at rest.
+function angleOf(transform: string): number {
+  if (transform === 'none') return 0;
+  const m = /^matrix\(([^,]+), ([^,]+),/.exec(transform);
+  if (!m) throw new Error(`not a 2D rotation: ${transform}`);
+  return (Math.atan2(Number(m[2]), Number(m[1])) * 180) / Math.PI;
+}
+
+// How far a counter-clockwise turn still has to go to its next half-turn pose.
+const toPose = (deg: number) => ((deg % 180) + 180) % 180;
+
+// The counter-clockwise turn between two frames' angles, in degrees.
+const turnedBetween = (a: Frame, b: Frame) =>
+  (((angleOf(a.transform) - angleOf(b.transform)) % 360) + 360) % 360;
+
+interface Leaving {
+  turnDegPerMs: number;
+  // How far from the pose the last turning frame and the first settle frame are.
+  lastTurnToPose: number;
+  firstSettleToPose: number;
+  frameGapMs: number;
+  // The settle's rotation, as the page wrote it.
+  settleFromDeg: number;
+  settleToDeg: number;
+  // The first settle frame's turn per ms, over the turn's.
+  leavingSpeedRatio: number;
+}
+
+// How long the turn is sampled before a landing: the spot may come at once.
+const TURN_SAMPLE_MS = 200;
+
+// KAN-750 "same every time": a landing's arrows turn on to SETTLE_DISTANCE_DEG
+// before the pose and settle from there, leaving at the turn's speed.
+function leaving(frames: Frame[], name: string): Leaving {
+  const at = frames.findIndex((f) => f.glyph === name);
+  const turning = frames
+    .slice(0, at)
+    .filter((f) => f.glyph === 'sync' && f.turning === 'true');
+  expect(turning.length, 'too few turning frames').toBeGreaterThan(5);
+  expect(turning[turning.length - 1], 'a gap before the settle').toBe(
+    frames[at - 1]
+  );
+  let turned = 0;
+  for (let i = 1; i < turning.length; i++)
+    turned += turnedBetween(turning[i - 1], turning[i]);
+  const turnDegPerMs = turned / (turning[turning.length - 1].t - turning[0].t);
+  const last = frames[at - 1];
+  const first = frames[at];
+  const [settleFromDeg, settleToDeg] = (first.rotation ?? []).map((k) => {
+    const m = /^rotate\((-?[\d.]+)deg\)$/.exec(k);
+    if (!m) throw new Error(`not a rotation keyframe: ${k}`);
+    return Number(m[1]);
+  });
+  return {
+    settleFromDeg,
+    settleToDeg,
+    turnDegPerMs,
+    lastTurnToPose: toPose(angleOf(last.transform)),
+    firstSettleToPose: toPose(angleOf(first.transform)),
+    frameGapMs: first.t - last.t,
+    leavingSpeedRatio:
+      turnedBetween(last, first) / (first.t - last.t) / turnDegPerMs,
+  };
+}
+
+function expectLeavesAtTurnSpeed(frames: Frame[], name: string): Leaving {
+  const l = leaving(frames, name);
+  // PREMISE: the arrows turned at TURN_MS a turn.
+  expect(l.turnDegPerMs).toBeGreaterThan((0.95 * 360) / TURN_MS);
+  expect(l.turnDegPerMs).toBeLessThan((1.05 * 360) / TURN_MS);
+  // It settles from SETTLE_DISTANCE_DEG before a half-turn pose,
+  expect(l.settleFromDeg - l.settleToDeg).toBe(SETTLE_DISTANCE_DEG);
+  expect(Math.abs(l.settleToDeg % 180)).toBe(0);
+  // and its first frame is no further from the pose: it did not start early,
+  expect(l.firstSettleToPose).toBeLessThanOrEqual(SETTLE_DISTANCE_DEG + 1);
+  // nor behind the last turning frame, nor more than the turn's step past it.
+  expect(l.lastTurnToPose).toBeGreaterThan(l.firstSettleToPose - 1);
+  expect(l.lastTurnToPose - l.firstSettleToPose).toBeLessThan(
+    l.turnDegPerMs * l.frameGapMs + 2
+  );
+  // No stall and no lurch where the turn hands over to the settle (frame
+  // times jitter by a couple of ms, so a quarter either way).
+  expect(l.leavingSpeedRatio).toBeGreaterThan(0.75);
+  expect(l.leavingSpeedRatio).toBeLessThan(1.25);
+  return l;
+}
+
 test.describe('the sync glyph turns and morphs (KAN-750)', () => {
   test.beforeEach(() => {
     test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
@@ -227,6 +328,9 @@ test.describe('the sync glyph turns and morphs (KAN-750)', () => {
       until: 'cloud_done',
       forMs: 600,
     });
+    // Frames of the turn first: its speed is measured from them.
+    await samplingStarted(page);
+    await page.waitForTimeout(TURN_SAMPLE_MS);
     hold.release();
     const frames = await sampled;
     writeFileSync(testInfo.outputPath('frames.json'), JSON.stringify(frames));
@@ -235,6 +339,10 @@ test.describe('the sync glyph turns and morphs (KAN-750)', () => {
     expect(frames[0].glyph).toBe('sync');
     expect(frames[0].turning).toBe('true');
     expectMorphed(frames, 'cloud_done', CLOUD_DONE_PATH);
+    writeFileSync(
+      testInfo.outputPath('leaving.json'),
+      JSON.stringify(expectLeavesAtTurnSpeed(frames, 'cloud_done'))
+    );
     await expect(glyph(page)).toHaveAttribute('data-glyph', 'cloud_done');
     await expect(glyph(page).locator('path')).toHaveCount(1);
     await expect(glyph(page).locator('path')).toHaveAttribute(
@@ -294,6 +402,7 @@ test.describe('the sync glyph turns and morphs (KAN-750)', () => {
       forMs: 600,
     });
     await samplingStarted(page);
+    await page.waitForTimeout(TURN_SAMPLE_MS);
     hold.fail();
     const frames = await sampled;
     writeFileSync(
@@ -305,6 +414,10 @@ test.describe('the sync glyph turns and morphs (KAN-750)', () => {
     expect(frames[0].glyph).toBe('sync');
     expect(frames[0].turning).toBe('true');
     expectMorphed(frames, 'sync_problem', SYNC_PROBLEM_PATH);
+    writeFileSync(
+      testInfo.outputPath('fail-leaving.json'),
+      JSON.stringify(expectLeavesAtTurnSpeed(frames, 'sync_problem'))
+    );
     // A morph, not a crossfade: one layer on every frame.
     expect(frames.map((f) => f.layers)).toEqual(frames.map(() => 1));
     await expect(glyph(page)).toHaveAttribute('data-glyph', 'sync_problem');

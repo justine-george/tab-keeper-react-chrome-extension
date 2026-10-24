@@ -267,6 +267,69 @@ test.describe('Delete cloud data asks before it acts (KAN-254)', () => {
     await expect(button).not.toHaveAttribute('aria-disabled');
     await expect(arrows).toHaveAttribute('data-turning', 'false');
   });
+
+  // KAN-750. The delete after the confirm says "Deleting…" with the arrows turning.
+  test('Deleting… turns while the delete is held, and a press starts nothing', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
+    // Declined with an id: the press opens the dialog with no check first.
+    await seedSettings(context, {
+      cloudConsent: 'declined',
+      isAutoSync: false,
+    });
+    await seedSessions(context, buildContainer());
+    await putDeviceId(serviceWorker);
+    // Every cloud request waits for the release, then fails.
+    let release: () => void = () => {};
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const held: string[] = [];
+    await context.route(CLOUD, async (route) => {
+      held.push(route.request().url());
+      await released;
+      await route.abort().catch(() => undefined);
+    });
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 790, height: 550 });
+    await openSyncPane(page, extensionId);
+
+    const button = page.getByRole('button', { name: 'Delete cloud data' });
+    const face = button.locator('[data-second-face]');
+    const arrows = face.locator('[data-glyph="sync"]');
+    await button.click();
+    const dialog = page.getByRole('dialog', {
+      name: 'Delete your cloud data?',
+    });
+    await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect.poll(() => held.length).toBeGreaterThan(0);
+
+    await expect(button).toHaveAttribute('data-second-face-shown', 'true');
+    await expect(face).toHaveText('Deleting…');
+    await expect(arrows).toHaveAttribute('data-turning', 'true');
+    await expect(button).toHaveAttribute('aria-disabled', 'true');
+    // The name stays the action; the face says what it is doing.
+    await expect(button).toHaveAccessibleName('Delete cloud data');
+    const requests = held.length;
+    await button.click({ force: true });
+    await page.waitForTimeout(500);
+    await expect(dialog).toHaveCount(0);
+    expect(held, 'a press mid-delete reached the network').toHaveLength(
+      requests
+    );
+
+    release();
+    await expect(page.getByText(DELETE_FAILED)).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(button).toHaveAttribute('data-second-face-shown', 'false');
+    await expect(button).not.toHaveAttribute('aria-disabled');
+    await expect(arrows).toHaveAttribute('data-turning', 'false');
+  });
 });
 
 async function openSyncPane(page: Page, extensionId: string): Promise<void> {
