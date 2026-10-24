@@ -6,6 +6,7 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { syncPressedAt } from '../../components/common/useShownSyncStatus';
 import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
 import {
+  setCloudConfigured,
   setLoggedOut,
   setSignedIn,
   setSyncStatus,
@@ -190,6 +191,70 @@ describe('the header sync affordance', () => {
     expect(glyphOf(syncControl())).toEqual({
       glyph: 'cloud_done',
       turning: 'false',
+    });
+  });
+
+  // KAN-750 R8. Signed in, cloud on, consent and Auto Sync, nothing started:
+  // the boot sync is coming, so the DRAWING turns while the words stay real
+  // (KAN-342): "Sync now", enabled.
+  describe('while the boot sync waits for sign-in', () => {
+    const renderBootWait = async () => {
+      // Page time starts at 0 only on the fully faked clock.
+      vi.useRealTimers();
+      vi.useFakeTimers();
+      return renderMenu((s) => {
+        s.dispatch(setSignedIn());
+        s.dispatch(setCloudConfigured(true));
+        s.dispatch(grantCloudConsent());
+        s.dispatch(setSyncStatus('idle'));
+      });
+    };
+    const advance = (ms: number) =>
+      act(async () => {
+        await vi.advanceTimersByTimeAsync(ms);
+      });
+
+    test('the drawing turns from 150 ms while the name stays Sync now and enabled', async () => {
+      await renderBootWait();
+      await advance(149);
+      expect(glyphOf(syncControl()).turning).toBe('false');
+      await advance(1);
+      expect(glyphOf(syncControl())).toEqual({
+        glyph: 'sync',
+        turning: 'true',
+      });
+      expect(syncControl().getAttribute('aria-disabled')).toBeNull();
+    });
+
+    test('once the sync starts and lands, the drawing settles per the normal rules', async () => {
+      const { store } = await renderBootWait();
+      await advance(150);
+      expect(glyphOf(syncControl()).turning).toBe('true');
+      await act(async () => {
+        store.dispatch(syncStateWithFirestore.pending('boot', undefined));
+      });
+      expect(glyphOf(syncControl('Syncing…')).turning).toBe('true');
+      await act(async () => {
+        store.dispatch(setSyncStatus('success'));
+      });
+      // Shown for its hold, then it morphs to done.
+      await advance(400);
+      expect(glyphOf(syncControl())).toEqual({
+        glyph: 'cloud_done',
+        turning: 'false',
+      });
+    });
+
+    test('a wait that never ends stops turning at 8 s of page time', async () => {
+      await renderBootWait();
+      await advance(7999);
+      expect(glyphOf(syncControl()).turning).toBe('true');
+      await advance(1);
+      expect(glyphOf(syncControl())).toEqual({
+        glyph: 'sync',
+        turning: 'false',
+      });
+      expect(syncControl().getAttribute('aria-disabled')).toBeNull();
     });
   });
 });
