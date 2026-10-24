@@ -12,6 +12,7 @@ import { CHALK_THEME } from '../src/hooks/useThemeColors';
 import {
   CLOUD_DONE_PATH,
   SYNC_PATH,
+  SYNC_PROBLEM_PATH,
 } from '../src/components/common/syncMorph.data';
 import {
   MORPH_MS,
@@ -19,7 +20,8 @@ import {
 } from '../src/components/common/syncMotion';
 
 // KAN-750, in the real bundle. The sync button's `sync` glyph turns while a
-// sync runs and morphs into `cloud_done` when it lands; a press morphs it back.
+// sync runs and morphs into `cloud_done` when it lands, or into `sync_problem`
+// when it fails; a press morphs it back.
 // Reduced motion swaps the two at once. Read from SyncGlyph's data-glyph and
 // data-turning, and from the path it draws, frame by frame in the page.
 //
@@ -38,26 +40,33 @@ interface ReadHold {
   // Resolves when the held read reaches the network.
   arrived: Promise<void>;
   release: () => void;
+  // Ends the held read with a network error, so the sync fails.
+  fail: () => void;
 }
 
-// Holds the next cloud read until released; every other read passes.
+// Holds the next cloud read until released or failed; every other read passes.
 async function readGate(page: Page): Promise<() => ReadHold> {
-  let next: { arrived: () => void; gate: Promise<void> } | null = null;
+  let next: { arrived: () => void; gate: Promise<'pass' | 'fail'> } | null =
+    null;
   await page.route(READ, async (route: Route) => {
     const hold = next;
     next = null;
     if (hold) {
       hold.arrived();
-      await hold.gate;
+      if ((await hold.gate) === 'fail') return route.abort();
     }
     await route.continue();
   });
   return () => {
     let arrived: () => void = () => {};
-    let release: () => void = () => {};
+    let end: (how: 'pass' | 'fail') => void = () => {};
     const reached = new Promise<void>((r) => (arrived = r));
-    next = { arrived, gate: new Promise<void>((r) => (release = r)) };
-    return { arrived: reached, release };
+    next = { arrived, gate: new Promise((r) => (end = r)) };
+    return {
+      arrived: reached,
+      release: () => end('pass'),
+      fail: () => end('fail'),
+    };
   };
 }
 
@@ -143,15 +152,25 @@ function sampleFrames(page: Page, options: SampleOptions): Promise<Frame[]> {
           if (from === null && shown === until) from = t;
           // A cap, so a glyph that never comes ends the wait with the frames.
           const done = from !== null ? t - from >= forMs : t - start >= 20_000;
-          if (done) resolve(frames);
-          else requestAnimationFrame(step);
+          if (done) {
+            document.body.dataset.sampling = 'done';
+            resolve(frames);
+          } else requestAnimationFrame(step);
         };
         requestAnimationFrame(() => {
+          document.body.dataset.sampling = 'started';
           if (press) button.click();
           step();
         });
       }),
     options
+  );
+}
+
+// A failed read ends at once, unlike a released one: wait for the first frame.
+async function samplingStarted(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => document.body.dataset.sampling === 'started'
   );
 }
 
@@ -163,12 +182,17 @@ function framesFrom(frames: Frame[], name: string): Frame[] {
   return i < 0 ? [] : frames.slice(i);
 }
 
-// A morph draws a new outline every frame, frame rate aside. Two may repeat: the
-// first (the render's t=0 outline) and the last (t=1, until its timer swaps it).
-function expectMorphed(frames: Frame[], name: string): void {
+// A morph draws a new outline every frame, frame rate aside, until the glyph's
+// own outline (`end`) replaces it. Two may repeat: the first (the render's t=0
+// outline) and the last (t=1, until its timer swaps it). Cut at `end`, since a
+// stalled first frame lets the morph's timer end it under MORPH_MS after it.
+function expectMorphed(frames: Frame[], name: string, end: string): void {
   const from = framesFrom(frames, name);
-  const during = from.filter((f) => f.t - from[0].t < MORPH_MS);
-  expect(during.length, `the glyph never became ${name}`).toBeGreaterThan(0);
+  const ended = from.findIndex((f) => f.d === end);
+  const during = (ended < 0 ? from : from.slice(0, ended)).filter(
+    (f) => f.t - from[0].t < MORPH_MS
+  );
+  expect(during.length, `no frame morphed into ${name}`).toBeGreaterThan(0);
   expect(distinct(during), 'the outline did not morph').toBeGreaterThanOrEqual(
     Math.max(5, during.length - 2)
   );
@@ -202,7 +226,7 @@ test.describe('the sync glyph turns and morphs (KAN-750)', () => {
     // PREMISE: sampling began while it still turned, so it saw the morph start.
     expect(frames[0].glyph).toBe('sync');
     expect(frames[0].turning).toBe('true');
-    expectMorphed(frames, 'cloud_done');
+    expectMorphed(frames, 'cloud_done', CLOUD_DONE_PATH);
     await expect(glyph(page)).toHaveAttribute('data-glyph', 'cloud_done');
     await expect(glyph(page).locator('path')).toHaveCount(1);
     await expect(glyph(page).locator('path')).toHaveAttribute(
@@ -235,7 +259,7 @@ test.describe('the sync glyph turns and morphs (KAN-750)', () => {
     });
     writeFileSync(testInfo.outputPath('frames.json'), JSON.stringify(frames));
 
-    expectMorphed(frames, 'sync');
+    expectMorphed(frames, 'sync', SYNC_PATH);
     await expect(glyph(page)).toHaveAttribute('data-glyph', 'sync');
     await expect(glyph(page)).toHaveAttribute('data-turning', 'true');
     await expect(glyph(page).locator('path')).toHaveCount(1);
@@ -243,6 +267,64 @@ test.describe('the sync glyph turns and morphs (KAN-750)', () => {
     // CONTROL: the press started a sync, not just a redraw.
     await readReached(page, hold);
     hold.release();
+  });
+
+  test('a failure morphs into sync_problem, and a retry turns it back', async ({
+    context,
+    extensionId,
+  }, testInfo) => {
+    const { page, holdNextRead } = await openPage(context);
+    const hold = holdNextRead();
+    await goto(page, extensionId);
+    await readReached(page, hold);
+    await expect(glyph(page)).toHaveAttribute('data-glyph', 'sync');
+    await expect(glyph(page)).toHaveAttribute('data-turning', 'true');
+
+    const sampled = sampleFrames(page, {
+      press: false,
+      until: 'sync_problem',
+      forMs: 600,
+    });
+    await samplingStarted(page);
+    hold.fail();
+    const frames = await sampled;
+    writeFileSync(
+      testInfo.outputPath('fail-frames.json'),
+      JSON.stringify(frames)
+    );
+
+    // PREMISE: sampling began while it still turned, so it saw the morph start.
+    expect(frames[0].glyph).toBe('sync');
+    expect(frames[0].turning).toBe('true');
+    expectMorphed(frames, 'sync_problem', SYNC_PROBLEM_PATH);
+    // A morph, not a crossfade: one layer on every frame.
+    expect(frames.map((f) => f.layers)).toEqual(frames.map(() => 1));
+    await expect(glyph(page)).toHaveAttribute('data-glyph', 'sync_problem');
+    await expect(glyph(page)).toHaveAttribute('data-turning', 'false');
+    await expect(glyph(page).locator('path')).toHaveCount(1);
+    await expect(glyph(page).locator('path')).toHaveAttribute(
+      'd',
+      SYNC_PROBLEM_PATH
+    );
+
+    // The retry's read waits, so the sync is still running when sampling ends.
+    const retry = holdNextRead();
+    const pressed = await sampleFrames(page, {
+      press: true,
+      until: null,
+      forMs: 500,
+    });
+    writeFileSync(
+      testInfo.outputPath('retry-frames.json'),
+      JSON.stringify(pressed)
+    );
+    expectMorphed(pressed, 'sync', SYNC_PATH);
+    await expect(glyph(page)).toHaveAttribute('data-glyph', 'sync');
+    await expect(glyph(page)).toHaveAttribute('data-turning', 'true');
+    await expect(glyph(page).locator('path')).toHaveAttribute('d', SYNC_PATH);
+    // CONTROL: the press started a sync, not just a redraw.
+    await readReached(page, retry);
+    retry.release();
   });
 
   test('no in-between frames under reduced motion', async ({

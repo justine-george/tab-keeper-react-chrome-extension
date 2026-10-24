@@ -199,13 +199,23 @@ test.describe('Delete cloud data asks before it acts (KAN-254)', () => {
     // The second face is always in the DOM (faded out), so the shown state is
     // the button's own attribute, not the text's presence.
     const button = page.getByRole('button', { name: 'Delete cloud data' });
+    // KAN-750. The face's glyph is the sync button's arrows, turning while it checks.
+    const arrows = button.locator('[data-second-face] [data-glyph="sync"]');
     await expect(button).toHaveAttribute('data-second-face-shown', 'false');
+    await expect(arrows).toHaveAttribute('data-turning', 'false');
     await button.click();
     await expect(button).toHaveAttribute('data-second-face-shown', 'true');
+    await expect(arrows).toHaveAttribute('data-turning', 'true');
+    // CONTROL: the shown face is the arrows drawn, not a ligature.
+    await expect(
+      button.locator('[data-second-face] .material-symbols-outlined')
+    ).toHaveCount(0);
     await expect(page.getByText(DELETE_FAILED)).toBeVisible({
       timeout: 20_000,
     });
     await expect(button).toHaveAttribute('data-second-face-shown', 'false');
+    // Its fade-out over, the arrows stop.
+    await expect(arrows).toHaveAttribute('data-turning', 'false');
   });
 });
 
