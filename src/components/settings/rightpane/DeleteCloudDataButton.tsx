@@ -20,19 +20,18 @@ const DeleteCloudDataButton: React.FC = () => {
   // KAN-750. Its arrows turn from the face's show until its fade-out ends.
   const [turning, setTurning] = useState(false);
   const faceTimer = useRef<ReturnType<typeof setTimeout>>();
-  const turnTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  useEffect(
-    () => () => {
-      clearTimeout(faceTimer.current);
-      clearTimeout(turnTimer.current);
-    },
-    []
-  );
+  useEffect(() => () => clearTimeout(faceTimer.current), []);
+
+  // Stops once the face has faded out; a new press or the unmount drops the stop.
+  useEffect(() => {
+    if (!turning || busy || checkingShown) return;
+    const stop = setTimeout(() => setTurning(false), CROSSFADE_MS);
+    return () => clearTimeout(stop);
+  }, [turning, busy, checkingShown]);
 
   const press = async () => {
     setBusy(true);
-    clearTimeout(turnTimer.current);
     faceTimer.current = setTimeout(() => {
       setCheckingShown(true);
       setTurning(true);
@@ -43,7 +42,6 @@ const DeleteCloudDataButton: React.FC = () => {
       clearTimeout(faceTimer.current);
       setBusy(false);
       setCheckingShown(false);
-      turnTimer.current = setTimeout(() => setTurning(false), CROSSFADE_MS);
     }
   };
 

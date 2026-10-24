@@ -182,17 +182,25 @@ function framesFrom(frames: Frame[], name: string): Frame[] {
   return i < 0 ? [] : frames.slice(i);
 }
 
+// How late the first frame may come after the render that starts a morph; the
+// longest stall seen was ~90 ms, under the full suite (KAN-750 r3 build).
+const FIRST_FRAME_STALL_MS = 150;
+
 // A morph draws a new outline every frame, frame rate aside, until the glyph's
 // own outline (`end`) replaces it. Two may repeat: the first (the render's t=0
 // outline) and the last (t=1, until its timer swaps it). Cut at `end`, since a
-// stalled first frame lets the morph's timer end it under MORPH_MS after it.
+// stalled first frame lets the morph's timer end it under MORPH_MS after it;
+// but no sooner than the stall allows, so a morph cut short still fails.
 function expectMorphed(frames: Frame[], name: string, end: string): void {
   const from = framesFrom(frames, name);
   const ended = from.findIndex((f) => f.d === end);
-  const during = (ended < 0 ? from : from.slice(0, ended)).filter(
-    (f) => f.t - from[0].t < MORPH_MS
-  );
+  expect(ended, `${name} never drew its own outline`).toBeGreaterThanOrEqual(0);
+  const during = from.slice(0, ended).filter((f) => f.t - from[0].t < MORPH_MS);
   expect(during.length, `no frame morphed into ${name}`).toBeGreaterThan(0);
+  expect(
+    from[ended].t - from[0].t,
+    `the morph into ${name} ended early`
+  ).toBeGreaterThanOrEqual(MORPH_MS - FIRST_FRAME_STALL_MS);
   expect(distinct(during), 'the outline did not morph').toBeGreaterThanOrEqual(
     Math.max(5, during.length - 2)
   );

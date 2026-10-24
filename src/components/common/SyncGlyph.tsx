@@ -47,10 +47,10 @@ const fadeIn = keyframes`from { opacity: 0; }`;
 const fadeOut = keyframes`to { opacity: 0; }`;
 
 // The arrows unchanged: a turn that stops settles without a change of shape.
-const ARROWS_STILL: MorphPair[] = CLOUD_DONE_UPRIGHT.map(({ from }) => ({
-  from,
-  to: from,
-}));
+// Only the two arrows, so any other ring on screen shrinks where it is.
+const ARROWS_STILL: MorphPair[] = CLOUD_DONE_UPRIGHT.slice(0, 2).map(
+  ({ from }) => ({ from, to: from })
+);
 
 interface Morph {
   // From the shape it starts at to the shape it ends at, in the turned frame.
@@ -285,7 +285,7 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
       const fromDeg =
         live?.deg ??
         (intoArrows ? 0 : turnAngle(outlines.current.get(top.key)));
-      // Into the cloud: to the next upright-looking pose. Into turning arrows: a
+      // Into the glyph: to the next upright-looking pose. Into turning arrows: a
       // quarter turn on, where the turn picks up. Into still arrows: no turn from
       // rest, else to the next upright-looking pose.
       let toDeg = settlePose(fromDeg);

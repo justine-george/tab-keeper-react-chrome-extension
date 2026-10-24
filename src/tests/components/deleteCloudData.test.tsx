@@ -358,10 +358,56 @@ describe('the Delete cloud data button while it checks (KAN-719)', () => {
     await press();
     await flush(300);
     resolveCheck(false);
+    // The stop starts at the commit, which act holds to the end of its flush.
+    await flush();
     await flush(CROSSFADE_MS);
     expect(busyGlyph().turning).toBe('false');
 
     await press();
+    await flush(300);
+    expect(faceShown()).toBe('true');
+    expect(busyGlyph().turning).toBe('true');
+    resolveCheck(true);
+    await flush();
+  });
+
+  // A check that outlives the pane leaves no timer behind to stop the arrows.
+  test('a check that ends after the pane closes schedules nothing', async () => {
+    const { unmount } = await renderPane('granted');
+    await press();
+    await flush(300);
+    expect(busyGlyph().turning).toBe('true');
+    unmount();
+    await flush();
+    const left = vi.getTimerCount();
+
+    resolveCheck(true);
+    await flush();
+    expect(vi.getTimerCount()).toBe(left);
+  });
+
+  test('a pane closed while the face fades out leaves no timer', async () => {
+    const { unmount } = await renderPane('granted');
+    await press();
+    await flush(300);
+    resolveCheck(true);
+    await flush();
+    expect(faceShown()).toBe('false');
+    expect(busyGlyph().turning).toBe('true');
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  test('a press while the face fades out keeps the arrows turning', async () => {
+    await renderPane('granted');
+    await press();
+    await flush(300);
+    resolveCheck(false);
+    await flush();
+    await flush(CROSSFADE_MS / 2);
+    await press();
+    await flush(CROSSFADE_MS);
+    expect(busyGlyph().turning).toBe('true');
     await flush(300);
     expect(faceShown()).toBe('true');
     expect(busyGlyph().turning).toBe('true');

@@ -471,8 +471,28 @@ const atStart = (glyph: 'cloud_done' | 'sync_problem') =>
     ({ to }) => ({ from: to, to })
   );
 const CLOUD_TO_ARROWS_AT_START = atStart('cloud_done');
-// The upright arrows, unchanged from first frame to last.
-const ARROWS_STILL = CLOUD_DONE_UPRIGHT.map(({ from }) => ({ from, to: from }));
+// The two upright arrows, unchanged from first frame to last.
+const ARROWS_STILL = CLOUD_DONE_UPRIGHT.slice(0, 2).map(({ from }) => ({
+  from,
+  to: from,
+}));
+
+// The x,y points of each ring in a drawn path.
+const ringsOf = (d: string | null): number[][] =>
+  (d ?? '')
+    .split('Z')
+    .filter((ring) => ring !== '')
+    .map((ring) => ring.slice(1).split(/[ L]/).map(Number));
+const centroidOf = (ring: number[]): [number, number] => {
+  const n = ring.length / 2;
+  let x = 0;
+  let y = 0;
+  for (let i = 0; i < ring.length; i += 2) {
+    x += ring[i] / n;
+    y += ring[i + 1] / n;
+  }
+  return [x, y];
+};
 
 // With Web Animations present: the settle turns from where the CSS turn is.
 describe('SyncGlyph with Web Animations', () => {
@@ -725,6 +745,27 @@ describe('SyncGlyph with Web Animations', () => {
     wait(MORPH_MS);
     expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
     expect(error).not.toHaveBeenCalled();
+  });
+
+  // Still arrows have only the two arrows, so every other ring shrinks where it is.
+  test('a stop during a retry morph shrinks the "!" in place', () => {
+    const { update, paths } = setup({ glyph: 'sync_problem', turning: false });
+    wait(160);
+    update({ glyph: 'sync', turning: true });
+    wait(208);
+    const shown = ringsOf(paths()[0].getAttribute('d'));
+    expect(shown).toHaveLength(4);
+    rotationProgress = 0.4;
+
+    update({ glyph: 'sync', turning: false });
+    wait(MORPH_MS / 2);
+    const halfway = ringsOf(paths()[0].getAttribute('d'));
+    expect(halfway).toHaveLength(4);
+    for (const i of [2, 3]) {
+      const [x0, y0] = centroidOf(shown[i]);
+      const [x1, y1] = centroidOf(halfway[i]);
+      expect(Math.hypot(x1 - x0, y1 - y0)).toBeLessThan(0.5);
+    }
   });
 
   test('a press mid-failure-morph turns back from the frame on screen', () => {
