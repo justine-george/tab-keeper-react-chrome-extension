@@ -217,6 +217,56 @@ test.describe('Delete cloud data asks before it acts (KAN-254)', () => {
     // Its fade-out over, the arrows stop.
     await expect(arrows).toHaveAttribute('data-turning', 'false');
   });
+
+  // KAN-750 R20. The check is the store's: another pane and back finds it still checking.
+  test('Checking… is still turning after another pane and back, and a press starts no second check', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
+    await seedSessions(context, buildContainer());
+    // Every cloud request waits for the release, then fails.
+    let release: () => void = () => {};
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const held: string[] = [];
+    await context.route(CLOUD, async (route) => {
+      held.push(route.request().url());
+      await released;
+      await route.abort().catch(() => undefined);
+    });
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 790, height: 550 });
+    await openSyncPane(page, extensionId);
+    await expect.poll(() => storedDeviceId(serviceWorker)).not.toBeNull();
+
+    const button = page.getByRole('button', { name: 'Delete cloud data' });
+    const arrows = button.locator('[data-second-face] [data-glyph="sync"]');
+    await button.click();
+    await expect(button).toHaveAttribute('data-second-face-shown', 'true');
+    await expect.poll(() => held.length).toBeGreaterThan(0);
+
+    await page.getByRole('button', { name: 'Display', exact: true }).click();
+    await expect(button).toHaveCount(0);
+    await page.locator('button[aria-label="Sync & backup"]').click();
+    await expect(button).toHaveAttribute('data-second-face-shown', 'true');
+    await expect(arrows).toHaveAttribute('data-turning', 'true');
+    await expect(button).toHaveAttribute('aria-disabled', 'true');
+    const requests = held.length;
+    await button.click({ force: true });
+    await page.waitForTimeout(500);
+    expect(held, 'a second check reached the network').toHaveLength(requests);
+
+    release();
+    await expect(page.getByText(DELETE_FAILED)).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(button).toHaveAttribute('data-second-face-shown', 'false');
+    await expect(button).not.toHaveAttribute('aria-disabled');
+    await expect(arrows).toHaveAttribute('data-turning', 'false');
+  });
 });
 
 async function openSyncPane(page: Page, extensionId: string): Promise<void> {

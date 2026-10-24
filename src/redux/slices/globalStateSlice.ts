@@ -215,6 +215,9 @@ export interface Global {
   // KAN-750 R12. A Sync now runs, from its press through sign-in to its
   // sync's end: the button reads "Syncing…" before syncStatus can.
   isSyncNowRunning: boolean;
+  // KAN-750 R20. performance.now() when the running Delete cloud data check
+  // began, null when none runs: the button shows it again after a remount.
+  deleteCheckStartedAt: number | null;
   // KAN-750 R14. Any anonymous sign-in the auth listener ran has failed
   // (offline, blocked): no boot sync is coming. A press signs in again.
   hasAuthListenerSignInFailed: boolean;
@@ -339,6 +342,7 @@ export const initialState: Global = {
   isSyncQueued: false,
   hasStartedSync: false,
   isSyncNowRunning: false,
+  deleteCheckStartedAt: null,
   hasAuthListenerSignInFailed: false,
   isPeekingSavedSession: false,
   isRunHere: false,
@@ -822,25 +826,30 @@ const signInAndCheckCloudDocument = async (
 export const askToDeleteCloudData =
   () =>
   async (dispatch: AppDispatch, getState: () => RootState): Promise<void> => {
-    const userId = await storedIdOrToast(dispatch);
-    if (userId === null) return;
-    if (getState().settingsDataState.cloudConsent !== 'granted') {
-      dispatch(openDeleteCloudDataModal());
-      return;
-    }
+    dispatch(deleteCheckStarted(performance.now()));
     try {
-      if (await signInAndCheckCloudDocument(dispatch, userId)) {
+      const userId = await storedIdOrToast(dispatch);
+      if (userId === null) return;
+      if (getState().settingsDataState.cloudConsent !== 'granted') {
         dispatch(openDeleteCloudDataModal());
-      } else {
+        return;
+      }
+      try {
+        if (await signInAndCheckCloudDocument(dispatch, userId)) {
+          dispatch(openDeleteCloudDataModal());
+        } else {
+          dispatch(
+            showToast({ toastText: TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE })
+          );
+        }
+      } catch (error) {
+        console.warn('askToDeleteCloudData: cloud check failed:', error);
         dispatch(
-          showToast({ toastText: TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE })
+          showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED })
         );
       }
-    } catch (error) {
-      console.warn('askToDeleteCloudData: cloud check failed:', error);
-      dispatch(
-        showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED })
-      );
+    } finally {
+      dispatch(deleteCheckEnded());
     }
   };
 
@@ -1351,6 +1360,12 @@ export const globalStateSlice = createSlice({
     setSyncNowRunning: (state, action: PayloadAction<boolean>) => {
       state.isSyncNowRunning = action.payload;
     },
+    deleteCheckStarted: (state, action: PayloadAction<number>) => {
+      state.deleteCheckStartedAt = action.payload;
+    },
+    deleteCheckEnded: (state) => {
+      state.deleteCheckStartedAt = null;
+    },
     authListenerSignInFailed: (state) => {
       state.hasAuthListenerSignInFailed = true;
     },
@@ -1611,6 +1626,8 @@ export const {
   setLoggedOut,
   setSyncStatus,
   setSyncNowRunning,
+  deleteCheckStarted,
+  deleteCheckEnded,
   authListenerSignInFailed,
   setUserId,
   removeUserId,

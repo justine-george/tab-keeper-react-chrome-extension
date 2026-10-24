@@ -46,6 +46,7 @@ import {
   SettingsCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
 import {
+  askToDeleteCloudData,
   openDeleteCloudDataModal,
   setSignedIn,
   setUserId,
@@ -415,6 +416,57 @@ describe('the Delete cloud data button while it checks (KAN-719)', () => {
     await flush();
   });
 
+  // KAN-750 R20. The check runs in the store; the pane is only its view.
+  const switchPane = (
+    store: Awaited<ReturnType<typeof renderPane>>['store'],
+    to: SettingsCategory
+  ) =>
+    act(() => {
+      store.dispatch(selectCategory(to));
+    });
+
+  test('back on the pane mid-check, Checking… still turns and a press starts nothing', async () => {
+    const { store } = await renderPane('granted');
+    await press();
+    await flush(300);
+    expect(busyGlyph().turning).toBe('true');
+
+    switchPane(store, SettingsCategory.DISPLAY);
+    expect(
+      screen.queryByRole('button', { name: 'Delete cloud data' })
+    ).toBeNull();
+    await flush(100);
+    switchPane(store, SettingsCategory.SYNC);
+    expect(faceShown()).toBe('true');
+    expect(busyGlyph()).toEqual({ glyph: 'sync', turning: 'true' });
+    expect(deleteButton()).toHaveAttribute('aria-disabled', 'true');
+    await press();
+    expect(cloudDocumentExists).toHaveBeenCalledTimes(1);
+
+    resolveCheck(true);
+    await flush();
+    expect(faceShown()).toBe('false');
+    expect(dialogOpen(store)).toBe(true);
+  });
+
+  test('back on the pane before 300ms, Checking… still waits out the 300ms', async () => {
+    const { store } = await renderPane('granted');
+    await press();
+    await flush(100);
+    switchPane(store, SettingsCategory.DISPLAY);
+    await flush(50);
+    switchPane(store, SettingsCategory.SYNC);
+    expect(faceShown()).toBe('false');
+    expect(deleteButton()).toHaveAttribute('aria-disabled', 'true');
+    await flush(149);
+    expect(faceShown()).toBe('false');
+    await flush(1);
+    expect(faceShown()).toBe('true');
+    expect(busyGlyph().turning).toBe('true');
+    resolveCheck(true);
+    await flush();
+  });
+
   test('under reduced motion Checking… shows the arrows still', async () => {
     const media = vi
       .spyOn(window, 'matchMedia')
@@ -441,5 +493,94 @@ describe('the Delete cloud data button while it checks (KAN-719)', () => {
     expect(dialogOpen(store)).toBe(true);
     expect(cloudDocumentExists).not.toHaveBeenCalled();
     expect(faceShown()).toBe('false');
+  });
+});
+
+// KAN-750 R20. Whether a delete check is running is the store's, so every view of it agrees.
+describe('the store knows when a delete check runs', () => {
+  afterEach(() => {
+    vi.mocked(cloudDocumentExists).mockReset().mockResolvedValue(true);
+  });
+
+  const running = (
+    store: Awaited<ReturnType<typeof renderWithProviders>>['store']
+  ) => store.getState().globalState.deleteCheckStartedAt !== null;
+
+  async function check(
+    seed: (s: Awaited<ReturnType<typeof renderWithProviders>>['store']) => void
+  ) {
+    let finish: () => void = () => {};
+    const { store } = await renderWithProviders(<div />, { seedStore: seed });
+    const held = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    vi.mocked(cloudDocumentExists).mockImplementation(async () => {
+      await held;
+      return mockedExists();
+    });
+    expect(running(store)).toBe(false);
+    const done = store.dispatch(askToDeleteCloudData());
+    const during = running(store);
+    finish();
+    await done;
+    return { store, during };
+  }
+  let mockedExists: () => boolean = () => true;
+
+  const signedInWithConsent = (
+    s: Awaited<ReturnType<typeof renderWithProviders>>['store']
+  ) => {
+    s.dispatch(setSignedIn());
+    s.dispatch(setUserId('uuid-1'));
+    s.dispatch(grantCloudConsent());
+  };
+
+  test('a check that finds a document: running until the dialog opens', async () => {
+    mockedExists = () => true;
+    const { store, during } = await check(signedInWithConsent);
+    expect(during).toBe(true);
+    expect(running(store)).toBe(false);
+    expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(true);
+  });
+
+  test('a check that finds none: running until its toast', async () => {
+    mockedExists = () => false;
+    const { store, during } = await check(signedInWithConsent);
+    expect(during).toBe(true);
+    expect(running(store)).toBe(false);
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE
+    );
+  });
+
+  test('a check that throws: running until its toast', async () => {
+    mockedExists = () => {
+      throw new Error('offline');
+    };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { store, during } = await check(signedInWithConsent);
+    expect(during).toBe(true);
+    expect(running(store)).toBe(false);
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
+    );
+    warn.mockRestore();
+  });
+
+  test('no id to check, or no cloud check at all: running, then not', async () => {
+    const noId = await check(() => {});
+    expect(noId.during).toBe(true);
+    expect(running(noId.store)).toBe(false);
+
+    const declined = await check((s) => {
+      s.dispatch(setSignedIn());
+      s.dispatch(setUserId('uuid-1'));
+      s.dispatch(declineCloudConsent());
+    });
+    expect(declined.during).toBe(true);
+    expect(running(declined.store)).toBe(false);
+    expect(
+      declined.store.getState().globalState.isDeleteCloudDataModalOpen
+    ).toBe(true);
   });
 });
