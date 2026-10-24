@@ -47,6 +47,7 @@ import {
 } from '../../redux/slices/settingsCategoryStateSlice';
 import {
   askToDeleteCloudData,
+  deleteCloudData,
   openDeleteCloudDataModal,
   setSignedIn,
   setUserId,
@@ -184,7 +185,7 @@ describe('after Delete cloud data, Sync Status (KAN-573, KAN-632)', () => {
 
 // KAN-719. A granted press reads the cloud first; the button says so once the
 // read has taken longer than 300ms, and ignores presses until it ends.
-describe('the Delete cloud data button while it checks (KAN-719)', () => {
+describe('the Delete cloud data button while it checks or deletes (KAN-719, KAN-750)', () => {
   let resolveCheck: (exists: boolean) => void;
 
   beforeEach(() => {
@@ -493,6 +494,103 @@ describe('the Delete cloud data button while it checks (KAN-719)', () => {
     expect(dialogOpen(store)).toBe(true);
     expect(cloudDocumentExists).not.toHaveBeenCalled();
     expect(faceShown()).toBe('false');
+  });
+
+  // KAN-750. The delete after the confirm: the same face, saying "Deleting…".
+  const busyText = () =>
+    deleteButton().querySelector('[data-second-face]')?.textContent;
+  const confirm = async (
+    store: Awaited<ReturnType<typeof renderPane>>['store']
+  ) => {
+    act(() => {
+      void store.dispatch(deleteCloudData());
+    });
+    await flush();
+  };
+
+  test('a delete still running at 300ms shows Deleting… with the arrows turning, until its face fades out', async () => {
+    const { store } = await renderPane('declined');
+    await press();
+    expect(dialogOpen(store)).toBe(true);
+    await confirm(store);
+    expect(dialogOpen(store)).toBe(false);
+    expect(deleteButton()).toHaveAttribute('aria-disabled', 'true');
+    await flush(299);
+    expect(faceShown()).toBe('false');
+    await flush(1);
+    expect(faceShown()).toBe('true');
+    expect(busyText()).toBe('Deleting…');
+    expect(busyGlyph()).toEqual({ glyph: 'sync', turning: 'true' });
+
+    resolveCheck(true);
+    await flush();
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.CLOUD_DATA_DELETED
+    );
+    expect(faceShown()).toBe('false');
+    expect(deleteButton()).not.toHaveAttribute('aria-disabled');
+    // Fading out, it still says what it was doing.
+    expect(busyText()).toBe('Deleting…');
+    await flush(CROSSFADE_MS - 1);
+    expect(busyGlyph().turning).toBe('true');
+    await flush(1);
+    expect(busyGlyph().turning).toBe('false');
+  });
+
+  test('a delete that ends before 300ms never shows Deleting…', async () => {
+    const { store } = await renderPane('declined');
+    await press();
+    await confirm(store);
+    await flush(299);
+    resolveCheck(false);
+    await flush();
+    expect(faceShown()).toBe('false');
+    await flush(1000);
+    expect(faceShown()).toBe('false');
+    expect(busyGlyph().turning).toBe('false');
+  });
+
+  test('a check after a delete says Checking… again', async () => {
+    const { store } = await renderPane('declined');
+    await press();
+    await confirm(store);
+    await flush(300);
+    expect(busyText()).toBe('Deleting…');
+    resolveCheck(false);
+    await flush();
+    act(() => {
+      store.dispatch(grantCloudConsent());
+    });
+
+    await press();
+    await flush(300);
+    expect(faceShown()).toBe('true');
+    expect(busyText()).toBe('Checking…');
+    resolveCheck(false);
+    await flush();
+  });
+
+  test('back on the pane mid-delete, Deleting… still turns and a press starts nothing', async () => {
+    mocks.deleteFromFirestore.mockClear();
+    const { store } = await renderPane('declined');
+    await press();
+    await confirm(store);
+    await flush(300);
+    switchPane(store, SettingsCategory.DISPLAY);
+    await flush(100);
+    switchPane(store, SettingsCategory.SYNC);
+    expect(faceShown()).toBe('true');
+    expect(busyText()).toBe('Deleting…');
+    expect(busyGlyph()).toEqual({ glyph: 'sync', turning: 'true' });
+    expect(deleteButton()).toHaveAttribute('aria-disabled', 'true');
+    await press();
+    expect(store.getState().globalState.deleteCheckStartedAt).toBeNull();
+    expect(cloudDocumentExists).toHaveBeenCalledTimes(1);
+
+    resolveCheck(true);
+    await flush();
+    expect(faceShown()).toBe('false');
+    expect(mocks.deleteFromFirestore).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -218,6 +218,8 @@ export interface Global {
   // KAN-750 R20. performance.now() when the running Delete cloud data check
   // began, null when none runs: the button shows it again after a remount.
   deleteCheckStartedAt: number | null;
+  // KAN-750. The same for the delete itself, from the confirm to its end.
+  deletingStartedAt: number | null;
   // KAN-750 R14. Any anonymous sign-in the auth listener ran has failed
   // (offline, blocked): no boot sync is coming. A press signs in again.
   hasAuthListenerSignInFailed: boolean;
@@ -343,6 +345,7 @@ export const initialState: Global = {
   hasStartedSync: false,
   isSyncNowRunning: false,
   deleteCheckStartedAt: null,
+  deletingStartedAt: null,
   hasAuthListenerSignInFailed: false,
   isPeekingSavedSession: false,
   isRunHere: false,
@@ -826,6 +829,7 @@ const signInAndCheckCloudDocument = async (
 export const askToDeleteCloudData =
   () =>
   async (dispatch: AppDispatch, getState: () => RootState): Promise<void> => {
+    if (isDeleteCloudDataRunning(getState())) return;
     dispatch(deleteCheckStarted(performance.now()));
     try {
       const userId = await storedIdOrToast(dispatch);
@@ -864,36 +868,47 @@ export const askToDeleteCloudData =
 // document that is still there is the one outcome worse than an error.
 //
 // KAN-719. Reads before it deletes: no document is "No cloud data to delete."
-export const deleteCloudData = createAsyncThunk(
+export const deleteCloudData = createAsyncThunk<
+  void,
+  void,
+  { state: RootState }
+>(
   'global/deleteCloudData',
-  async (_: void, thunkAPI) => {
+  async (_, thunkAPI) => {
     const dispatch = thunkAPI.dispatch as AppDispatch;
     dispatch(closeDeleteCloudDataModal());
-    const userId = await storedIdOrToast(dispatch);
-    if (userId === null) return;
+    dispatch(deletingStarted(performance.now()));
     try {
-      // KAN-259. With lazy sign-in a user who declined the cloud may never
-      // have signed in, so the read starts the session and waits for it.
-      if (!(await signInAndCheckCloudDocument(dispatch, userId))) {
+      const userId = await storedIdOrToast(dispatch);
+      if (userId === null) return;
+      try {
+        // KAN-259. With lazy sign-in a user who declined the cloud may never
+        // have signed in, so the read starts the session and waits for it.
+        if (!(await signInAndCheckCloudDocument(dispatch, userId))) {
+          dispatch(
+            showToast({ toastText: TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE })
+          );
+          return;
+        }
+        await deleteFromFirestore(userId);
+      } catch (error) {
+        console.warn('deleteCloudData: sign-in, read or delete failed:', error);
         dispatch(
-          showToast({ toastText: TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE })
+          showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED })
         );
         return;
       }
-      await deleteFromFirestore(userId);
-    } catch (error) {
-      console.warn('deleteCloudData: sign-in, read or delete failed:', error);
-      dispatch(
-        showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED })
-      );
-      return;
+      // KAN-632. Not Auto Sync alone: with the yes kept, one cloud-button press re-uploaded everything unasked.
+      dispatch(declineCloudConsent());
+      dispatch(forgetLastSync());
+      dispatch(setSyncStatus('idle'));
+      dispatch(showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETED }));
+    } finally {
+      dispatch(deletingEnded());
     }
-    // KAN-632. Not Auto Sync alone: with the yes kept, one cloud-button press re-uploaded everything unasked.
-    dispatch(declineCloudConsent());
-    dispatch(forgetLastSync());
-    dispatch(setSyncStatus('idle'));
-    dispatch(showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETED }));
-  }
+  },
+  // KAN-750. One check or delete at a time.
+  { condition: (_, { getState }) => !isDeleteCloudDataRunning(getState()) }
 );
 
 /**
@@ -1366,6 +1381,12 @@ export const globalStateSlice = createSlice({
     deleteCheckEnded: (state) => {
       state.deleteCheckStartedAt = null;
     },
+    deletingStarted: (state, action: PayloadAction<number>) => {
+      state.deletingStartedAt = action.payload;
+    },
+    deletingEnded: (state) => {
+      state.deletingStartedAt = null;
+    },
     authListenerSignInFailed: (state) => {
       state.hasAuthListenerSignInFailed = true;
     },
@@ -1628,6 +1649,8 @@ export const {
   setSyncNowRunning,
   deleteCheckStarted,
   deleteCheckEnded,
+  deletingStarted,
+  deletingEnded,
   authListenerSignInFailed,
   setUserId,
   removeUserId,
@@ -1654,5 +1677,10 @@ export const selectAwaitsBootSync = (state: RootState): boolean =>
   state.globalState.isCloudConfigured &&
   !state.globalState.hasStartedSync &&
   !state.globalState.hasAuthListenerSignInFailed;
+
+// KAN-750. A Delete cloud data check or delete is running: a second does not start.
+export const isDeleteCloudDataRunning = (state: RootState): boolean =>
+  state.globalState.deleteCheckStartedAt !== null ||
+  state.globalState.deletingStartedAt !== null;
 
 export default globalStateSlice.reducer;
