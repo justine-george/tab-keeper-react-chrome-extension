@@ -37,7 +37,11 @@ async function openHome(
   lang = 'en'
 ): Promise<Page> {
   await seedSessions(context);
-  if (lang !== 'en') await seedSettings(context, { language: lang });
+  // Manual sync: no boot sync to rename and redraw the sync button (KAN-750).
+  await seedSettings(context, {
+    isAutoSync: false,
+    ...(lang === 'en' ? {} : { language: lang }),
+  });
   const page = await context.newPage();
   const viewport = view === 'popup' ? POPUP_VIEWPORT : TAB_VIEWPORT;
   await page.setViewportSize(viewport);
@@ -51,6 +55,15 @@ async function openHome(
     .getByRole('button', { name: localeStrings(lang)['Sort sessions'] })
     .waitFor();
   await waitForFontsLoaded(page);
+  // The header at rest: one glyph layer, nothing crossfading (KAN-750).
+  await expect(
+    page
+      .getByRole('button', {
+        name: localeStrings(lang)['Sync now'],
+        exact: true,
+      })
+      .locator('[data-glyph] > *')
+  ).toHaveCount(1);
   await page.evaluate((px) => {
     document.documentElement.style.fontSize = `${px}px`;
   }, rootPx);
@@ -303,8 +316,8 @@ const MOTIONS: HoverMotionCase[] = [
   },
 ];
 
-/** Buttons that have no motion. */
-const STILL = ['Sort sessions', 'Sync now'];
+/** Buttons that have no motion. Sync now too, tested on its own below. */
+const STILL = ['Sort sessions'];
 
 const glyphOf = (page: Page, name: string): Locator =>
   control(page, name).locator('.material-symbols-outlined');
@@ -566,6 +579,22 @@ test.describe('hover motions (KAN-344)', () => {
       expect(poses.every(atRest)).toBe(true);
     });
   }
+
+  // KAN-750. Sync now draws its glyph as an outline: the svg inside SyncGlyph,
+  // which is what a hover motion would move. openHome turns Auto Sync off, so
+  // no boot sync turns it and any change in its pose is the hover's.
+  test('Sync now stays still on hover', async ({ context, extensionId }) => {
+    const page = await openHome(context, extensionId, 'popup', 16);
+    const drawn = control(page, 'Sync now').locator('[data-glyph]');
+    await expect(drawn).toHaveAttribute('data-glyph', 'sync');
+    await expect(drawn).toHaveAttribute('data-turning', 'false');
+
+    const poses = await posesDuring(drawn.locator('svg'), 700, () =>
+      control(page, 'Sync now').hover()
+    );
+
+    expect(poses.every(atRest)).toBe(true);
+  });
 });
 
 const mark = (page: Page): Locator =>

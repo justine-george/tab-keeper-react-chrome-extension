@@ -111,6 +111,10 @@ function markupKeysOf(page: Page, selector: string): Promise<string[]> {
 
 async function recordAx(page: Page, surface: string): Promise<AxRecord[]> {
   await expectUtc(page);
+  // KAN-750 R8b, R14. A cloud build opens on "Syncing…" while the boot sync
+  // waits for sign-in, until the blocked cloud fails it. The rows pin the
+  // button after that: "Sync now", described as on.
+  await expect(page.locator('[aria-label="Syncing…"]')).toHaveCount(0);
   const [readings, keys] = await Promise.all([
     axOf(page, TITLED),
     markupKeysOf(page, TITLED),

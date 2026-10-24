@@ -11,6 +11,7 @@ import {
   setCloudConfigured,
   setSignedIn,
   setSyncStatus,
+  syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
 import {
   grantCloudConsent,
@@ -73,6 +74,8 @@ function synced(at: number) {
     store.dispatch(setCloudConfigured(true));
     store.dispatch(grantCloudConsent());
     store.dispatch(setLastSyncedTime(at));
+    // The sync that landed started this page load (else the boot wait, KAN-750).
+    store.dispatch(syncStateWithFirestore.pending('boot', undefined));
     store.dispatch(setSyncStatus('success'));
   };
 }
@@ -92,7 +95,11 @@ const renderSettings = (at: number) =>
 const headerTooltip = () =>
   screen
     .getAllByRole('button')
-    .find((b) => b.textContent === 'cloud_done')
+    .find(
+      (b) =>
+        b.querySelector('[data-glyph]')?.getAttribute('data-glyph') ===
+        'cloud_done'
+    )
     ?.getAttribute('data-tooltip');
 
 describe('"Last synced" reads like a session date (KAN-584)', () => {

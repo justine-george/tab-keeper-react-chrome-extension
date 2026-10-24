@@ -8,6 +8,12 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useBackPlan } from '../../../hooks/useBackPlan';
 
 import Icon from '../../common/Icon';
+import SyncGlyph from '../../common/SyncGlyph';
+import {
+  syncPressedAt,
+  useBootSyncWait,
+  useShownSyncStatus,
+} from '../../common/useShownSyncStatus';
 import OverflowMenu from '../../common/OverflowMenu';
 import type { OverflowMenuItem } from '../../common/OverflowMenu';
 import {
@@ -21,6 +27,7 @@ import {
   syncNowWhenSignedIn,
   closeFullViewCallout,
   openCloudConsentModal,
+  selectAwaitsBootSync,
 } from '../../../redux/slices/globalStateSlice';
 import {
   isRedoableSelector,
@@ -71,6 +78,19 @@ export default function MenuContainer() {
   const awaitsDeviceId = useSelector(
     (state: RootState) => state.globalState.awaitsDeviceId
   );
+  const hasReadDeviceId = useSelector(
+    (state: RootState) => state.globalState.hasReadDeviceId
+  );
+  // KAN-599: no id yet is not unavailable. KAN-750 R19: nor is an id not read yet.
+  const isDeviceIdUnavailable =
+    hasReadDeviceId && !isSignedIn && !awaitsDeviceId;
+  const awaitsBootSync = useSelector(selectAwaitsBootSync);
+  const isBootWait = useBootSyncWait(awaitsBootSync);
+  const isSyncNowRunning = useSelector(
+    (state: RootState) => state.globalState.isSyncNowRunning
+  );
+  // A sync committed to whose status may not be 'loading' yet.
+  const awaitsSync = isBootWait || isSyncNowRunning;
   const isCloudConfigured = useSelector(
     (state: RootState) => state.globalState.isCloudConfigured
   );
@@ -127,6 +147,7 @@ export default function MenuContainer() {
       dispatch(openCloudConsentModal({ variant: 'enable', then: 'syncNow' }));
       return;
     }
+    syncPressedAt.current = performance.now();
     void dispatch(syncNowWhenSignedIn());
   }
 
@@ -155,13 +176,21 @@ export default function MenuContainer() {
     void requestTabView();
   }
 
+  // KAN-750. Only the drawing follows the shown status, which lags a sync that
+  // nobody pressed; the words, the dimming and the tooltip do not (KAN-342 below).
+  const shownSyncStatus = useShownSyncStatus(syncStatus, {
+    awaitsSync,
+    pressedAt: syncPressedAt,
+  });
+
   // The control shows the `sync` glyph only when syncing is possible AND
   // something may be out of sync. Every other case shows what is true instead.
   //
   // `isSignedIn` is checked FIRST and beats any status, because it is the only
   // one of the two that decides whether the action can work at all. It is not
-  // a startup flash: App.tsx dispatches setLoggedOut on a failed
-  // chrome.storage.sync write, on a read-back that does not match what was
+  // a startup flash, since it counts only once the open's read has landed
+  // (R19): deviceId.ts dispatches setLoggedOut on a failed chrome.storage.sync
+  // read or write, on a read-back that does not match what was
   // written, and on a token that is present but unusable. In each of those the
   // control used to invite a click that called loadFromFirestore(userId!) with
   // no userId (KAN-79).
@@ -176,22 +205,22 @@ export default function MenuContainer() {
   // every mode: describeSyncState puts Auto Sync first because the card
   // describes the setting, and under Manual sync it would name a dimmed
   // button "Manual sync", which says nothing about why it is dimmed.
-  let syncIconType: IconName;
+  //
+  // KAN-750 R8b, R12. "Syncing…" for the real loading status, the boot sync
+  // waiting for sign-in (until its 8 s limit or a failed sign-in), or a pressed
+  // Sync now that still runs, the whole sync and not only its sign-in.
   let dimmedBecause: string | null = null;
-  // KAN-599. No id yet is no reason to dim: the press asks the question, and the yes mints one.
-  if (!isSignedIn && !awaitsDeviceId) {
-    syncIconType = 'cloud_off';
-    dimmedBecause = t('Sync unavailable');
-  } else if (syncStatus === 'loading') {
-    syncIconType = 'cloud_sync';
+  if (isDeviceIdUnavailable) dimmedBecause = t('Sync unavailable');
+  else if (syncStatus === 'loading' || awaitsSync)
     dimmedBecause = t('Syncing…');
-  } else if (syncStatus === 'error') {
-    syncIconType = 'sync_problem';
-  } else if (syncStatus === 'success') {
-    syncIconType = 'cloud_done';
-  } else {
-    syncIconType = 'sync';
-  }
+
+  // What is drawn: cloud_off beats any status, as above; a shown sync turns.
+  let drawnGlyph: IconName;
+  if (isDeviceIdUnavailable) drawnGlyph = 'cloud_off';
+  else if (shownSyncStatus === 'loading') drawnGlyph = 'sync';
+  else if (shownSyncStatus === 'error') drawnGlyph = 'sync_problem';
+  else if (shownSyncStatus === 'success') drawnGlyph = 'cloud_done';
+  else drawnGlyph = 'sync';
 
   // A clickable button keeps its action as its name. The state, in the Sync &
   // Backup card's words, is its description and the tooltip's first line.
@@ -199,6 +228,7 @@ export default function MenuContainer() {
     describeSyncState({
       isSignedIn,
       awaitsDeviceId,
+      hasReadDeviceId,
       isAutoSync,
       isCloudConfigured,
       cloudConsent,
@@ -209,14 +239,14 @@ export default function MenuContainer() {
   // Once synced there is nothing known to send, so the tooltip says when
   // instead of "Sync now", as the card does (KAN-255). A click still reads
   // the cloud for other devices' changes -- firestore/lite has no listener --
-  // so the name stays the action. Keyed on the glyph that says synced.
+  // so the name stays the action. Keyed on a pressable button after a sync.
   // Dated like a session (KAN-584); a time that isn't a date says nothing.
   const syncedTime =
     lastSyncedTime === ''
       ? ''
       : sessionWhen(lastSyncedTime, i18n.language, timeFormat, today);
   const syncedWhen =
-    syncIconType === 'cloud_done' && syncedTime !== ''
+    dimmedBecause === null && syncStatus === 'success' && syncedTime !== ''
       ? t('Last synced {{time}}', { time: syncedTime })
       : null;
   const syncDetail =
@@ -494,7 +524,14 @@ export default function MenuContainer() {
               detail: syncedWhen ?? t('Sync now'),
             })
           }
-          type={syncIconType}
+          type={drawnGlyph}
+          renderGlyph={(glyphCss) => (
+            <SyncGlyph
+              glyph={drawnGlyph}
+              turning={shownSyncStatus === 'loading'}
+              glyphCss={glyphCss}
+            />
+          )}
           onClick={handleClickSync}
           disable={dimmedBecause !== null}
         />

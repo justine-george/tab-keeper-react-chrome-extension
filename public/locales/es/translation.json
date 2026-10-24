@@ -192,6 +192,7 @@
   "Cloud data": "Datos en la nube",
   "Delete cloud data": "Eliminar datos de la nube",
   "Checking…": "Comprobando…",
+  "Deleting…": "Eliminando…",
   "Delete your cloud data?": "¿Eliminar tus datos de la nube?",
   "DeleteCloudDataBody": "Esto elimina tus sesiones de la nube y desactiva la sincronización automática en este dispositivo. Tus sesiones se quedan en este dispositivo. Otros dispositivos con el mismo perfil de Chrome volverán a subir su copia en la próxima sincronización, salvo que allí también esté desactivada.",
   "Cancel": "Cancelar",

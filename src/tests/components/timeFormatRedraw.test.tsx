@@ -19,6 +19,7 @@ import {
   setCloudConfigured,
   setSignedIn,
   setSyncStatus,
+  syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
 import {
   grantCloudConsent,
@@ -60,6 +61,8 @@ const synced = (store: Store) => {
   store.dispatch(setCloudConfigured(true));
   store.dispatch(grantCloudConsent());
   store.dispatch(setLastSyncedTime(AT));
+  // The sync that landed started this page load (else the boot wait, KAN-750).
+  store.dispatch(syncStateWithFirestore.pending('boot', undefined));
   store.dispatch(setSyncStatus('success'));
 };
 
@@ -137,7 +140,11 @@ describe('time format redraws every time (KAN-587)', () => {
     const tooltip = () =>
       screen
         .getAllByRole('button')
-        .find((b) => b.textContent === 'cloud_done')
+        .find(
+          (b) =>
+            b.querySelector('[data-glyph]')?.getAttribute('data-glyph') ===
+            'cloud_done'
+        )
         ?.getAttribute('data-tooltip');
     expect(plain(tooltip())).toBe('Cloud sync on · Last synced today, 3:09 PM');
 

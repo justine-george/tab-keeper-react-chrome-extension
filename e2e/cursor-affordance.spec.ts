@@ -235,15 +235,21 @@ test.describe('clickable controls show a pointer over their icon (KAN-76)', () =
     await openSettingsCategory(page, 'Sync & backup');
 
     // Which glyph the card draws depends on the build (KAN-248): the fixture
-    // context is signed in with auto sync on, so with a cloud this is
-    // `cloud_done` and in PR CI, which builds without one, `cloud_off`. The
-    // card is located as itself and its glyph read from it, so the assertion
-    // does not depend on which; and the card is asserted present first, so
-    // a wrong glyph name surfaces here rather than as a locator timeout.
+    // context is signed in with auto sync on and the cloud blocked (KAN-383),
+    // so with a cloud config the boot sync waits on a sign-in that never
+    // lands and the card draws `sync`; after a sync that lands it is
+    // `cloud_done`; PR CI, which builds without a cloud, draws `cloud_off`.
+    // SyncGlyph names the glyph in data-glyph whether it draws a ligature or
+    // an outline (KAN-750), so the assertion does not depend on which; and
+    // the card is asserted present first, so a wrong glyph name surfaces here
+    // rather than as a locator timeout.
     const card = page.getByTestId('sync-status');
     await expect(card).toBeVisible();
-    const decorative = card.locator('span.material-symbols-outlined').first();
-    await expect(decorative).toHaveText(/^cloud_(done|off)$/);
+    const decorative = card.locator('[data-glyph]');
+    await expect(decorative).toHaveAttribute(
+      'data-glyph',
+      /^(cloud_done|cloud_off|sync)$/
+    );
 
     expect(await cursorAtCentreOf(page, decorative)).not.toBe('pointer');
   });

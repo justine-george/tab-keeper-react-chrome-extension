@@ -9,6 +9,7 @@ const mark = (page: Page) =>
   page.locator('svg:has([data-mark-part="shutter"])').first();
 
 // Records, every frame, which parts of the header mark are animating and how.
+// Only the mark's own: the sync glyph beside it animates too (KAN-750).
 async function watchMark(page: Page): Promise<void> {
   await page.evaluate(() => {
     const seen = new Set<string>();
@@ -17,10 +18,11 @@ async function watchMark(page: Page): Promise<void> {
       configurable: true,
     });
     const tick = () => {
+      const svg = document.querySelector('svg:has([data-mark-part="shutter"])');
       for (const animation of document.getAnimations()) {
         if (!(animation.effect instanceof KeyframeEffect)) continue;
         const target = animation.effect.target;
-        if (target === null) continue;
+        if (target === null || svg === null || !svg.contains(target)) continue;
         const part = target.hasAttribute('data-mark-part') ? 'shutter' : 'mark';
         const props = animation.effect
           .getKeyframes()
@@ -48,6 +50,24 @@ const twoFrames = (page: Page) =>
   );
 const BOTH = ['mark:transform', 'shutter:transform'];
 
+// An opacity animation outside the mark, for the watcher to ignore.
+const startDecoy = (page: Page) =>
+  page.evaluate(() => {
+    const decoy = document.body.appendChild(document.createElement('div'));
+    decoy.setAttribute('data-decoy', '');
+    decoy.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 60_000 });
+  });
+const decoyRuns = (page: Page) =>
+  page.evaluate(() =>
+    document
+      .getAnimations()
+      .some(
+        (a) =>
+          a.effect instanceof KeyframeEffect &&
+          a.effect.target?.hasAttribute('data-decoy') === true
+      )
+  );
+
 test('a click on the header mark presses it and slides the shutter, transform only', async ({
   context,
   extensionId,
@@ -64,10 +84,13 @@ test('reduced motion: a click starts nothing, and the same observer sees it once
 }) => {
   const page = await openPopup(context, extensionId);
   await watchMark(page);
+  await startDecoy(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await mark(page).click();
   await twoFrames(page);
   expect(await animated(page)).toEqual([]);
+  // CONTROL: an animation elsewhere ran through those frames, unrecorded.
+  expect(await decoyRuns(page)).toBe(true);
 
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await mark(page).click();

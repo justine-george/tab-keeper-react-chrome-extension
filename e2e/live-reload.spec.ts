@@ -92,11 +92,12 @@ const opacityOf = (page: Page, name: string) =>
 const CLOUD = /firestore\.googleapis\.com|identitytoolkit\.googleapis\.com/;
 const READ = /firestore\.googleapis\.com\/.*documents:batchGet/;
 
-// The header's sync control shows the sync's state as its glyph: the icon
-// font's ligature is the element's text (MenuContainer). Mid-sync it is dimmed
-// and named "Syncing…" (KAN-342), and these tests watch it through that.
+// The header's sync control. Mid-sync it is dimmed and named "Syncing…"
+// (KAN-342): the real state. Its glyph is drawn by SyncGlyph, which names the
+// glyph it settles on in data-glyph and turns while a sync shows (KAN-750).
 const syncControl = (page: Page) =>
   page.getByRole('button', { name: /^(Sync now|Syncing…)$/ });
+const syncGlyph = (page: Page) => syncControl(page).locator('[data-glyph]');
 
 async function openPage(
   context: BrowserContext,
@@ -291,11 +292,11 @@ test.describe('open pages reload what another page changed (KAN-279 D9)', () => 
 test.describe('a sync keeps each page its own selection (KAN-294)', () => {
   // Sync now, and wait for that sync to read the cloud and settle.
   async function syncNow(page: Page): Promise<void> {
-    await expect(syncControl(page)).toHaveText('cloud_done');
+    await expect(syncGlyph(page)).toHaveAttribute('data-glyph', 'cloud_done');
     const read = page.waitForResponse((r) => READ.test(r.url()));
     await syncControl(page).click();
     await read;
-    await expect(syncControl(page)).toHaveText('cloud_done', {
+    await expect(syncGlyph(page)).toHaveAttribute('data-glyph', 'cloud_done', {
       timeout: 15_000,
     });
   }
@@ -311,14 +312,14 @@ test.describe('a sync keeps each page its own selection (KAN-294)', () => {
 
     // Page 1's startup sync: a fresh anonymous user, so it finds no document
     // and writes the local copy.
-    const synced = await expect(syncControl(page1))
-      .toHaveText('cloud_done', { timeout: 20_000 })
+    const synced = await expect(syncGlyph(page1))
+      .toHaveAttribute('data-glyph', 'cloud_done', { timeout: 20_000 })
       .then(() => true)
       .catch(() => false);
     expect(synced, "page 1's startup sync never completed").toBe(true);
 
     const page2 = await openPage(context, extensionId, cloudRequests);
-    await expect(syncControl(page2)).toHaveText('cloud_done', {
+    await expect(syncGlyph(page2)).toHaveAttribute('data-glyph', 'cloud_done', {
       timeout: 20_000,
     });
 
@@ -366,7 +367,7 @@ test.describe('a sync keeps each page its own selection (KAN-294)', () => {
 // for the drag (KAN-295) -- with nothing of the cloud's to apply at the release.
 // The held run returns before it settles, so something must finish the sync
 // once the row is released. Before the fix nothing did: a cancelled drag left
-// the control on cloud_sync, aria-disabled, until the next edit.
+// the control on Syncing…, aria-disabled, until the next edit.
 //
 // Needs the cloud config, like the describe above; skips without it.
 test.describe('a sync held by a drag still finishes after a cancel (KAN-297)', () => {
@@ -378,14 +379,14 @@ test.describe('a sync held by a drag still finishes after a cancel (KAN-297)', (
     await seedOnce(context, { cloudConsent: 'granted', isAutoSync: true });
     const cloudRequests: string[] = [];
     const page1 = await openPage(context, extensionId, cloudRequests);
-    const synced = await expect(syncControl(page1))
-      .toHaveText('cloud_done', { timeout: 20_000 })
+    const synced = await expect(syncGlyph(page1))
+      .toHaveAttribute('data-glyph', 'cloud_done', { timeout: 20_000 })
       .then(() => true)
       .catch(() => false);
     expect(synced, "page 1's startup sync never completed").toBe(true);
 
     const page2 = await openPage(context, extensionId, cloudRequests);
-    await expect(syncControl(page2)).toHaveText('cloud_done', {
+    await expect(syncGlyph(page2)).toHaveAttribute('data-glyph', 'cloud_done', {
       timeout: 20_000,
     });
     await select(page2, C.title);
@@ -441,7 +442,9 @@ test.describe('a sync held by a drag still finishes after a cancel (KAN-297)', (
     await landed;
     // PREMISE: the sync held for the drag. It is still running, and nothing
     // moved under the pointer.
-    await expect(syncControl(page1)).toHaveText('cloud_sync');
+    await expect(syncControl(page1)).toHaveAccessibleName('Syncing…');
+    await expect(syncGlyph(page1)).toHaveAttribute('data-glyph', 'sync');
+    await expect(syncGlyph(page1)).toHaveAttribute('data-turning', 'true');
     await expect(row(page1, C.title)).toBeVisible();
     expect(await dragging()).toBe('session');
 
@@ -450,9 +453,9 @@ test.describe('a sync held by a drag still finishes after a cancel (KAN-297)', (
     expect(await dragging(), 'Esc did not end the drag').toBeNull();
 
     await softly(
-      syncControl(page1),
+      syncGlyph(page1),
       'the sync never finished after the cancel'
-    ).toHaveText('cloud_done', { timeout: 15_000 });
+    ).toHaveAttribute('data-glyph', 'cloud_done', { timeout: 15_000 });
     await softly(syncControl(page1)).not.toHaveAttribute('aria-disabled');
     // CONTROL for the premise: the release re-ran the sync. A sync that never
     // held (KAN-295 broken) would reach cloud_done too, with one read only.
@@ -511,7 +514,8 @@ test.describe('a local-only sync holds for a drag, and finishes after a cancel (
       .poll(
         async () =>
           readArrived ||
-          (await syncControl(page1).textContent()) === 'sync_problem',
+          (await syncGlyph(page1).getAttribute('data-glyph')) ===
+            'sync_problem',
         { timeout: 20_000 }
       )
       .toBe(true);
@@ -556,7 +560,9 @@ test.describe('a local-only sync holds for a drag, and finishes after a cancel (
     // Held: still running, nothing moved under the pointer, nothing written.
     // A write is async after the branch, so give one the time to show.
     await page1.waitForTimeout(1_500);
-    await expect(syncControl(page1)).toHaveText('cloud_sync');
+    await expect(syncControl(page1)).toHaveAccessibleName('Syncing…');
+    await expect(syncGlyph(page1)).toHaveAttribute('data-glyph', 'sync');
+    await expect(syncGlyph(page1)).toHaveAttribute('data-turning', 'true');
     await expect(row(page1, C.title)).toBeVisible();
     expect(await dragging()).toBe('session');
     expect(
@@ -570,9 +576,9 @@ test.describe('a local-only sync holds for a drag, and finishes after a cancel (
     expect(await dragging(), 'Esc did not end the drag').toBeNull();
 
     await softly(
-      syncControl(page1),
+      syncGlyph(page1),
       'the sync never finished after the cancel'
-    ).toHaveText('cloud_done', { timeout: 15_000 });
+    ).toHaveAttribute('data-glyph', 'cloud_done', { timeout: 15_000 });
     // The release re-ran the sync, and that run wrote the sessions up.
     expect(reads, 'the release re-ran no sync').toBe(2);
     expect(

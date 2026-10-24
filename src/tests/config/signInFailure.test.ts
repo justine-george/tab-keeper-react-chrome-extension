@@ -107,6 +107,32 @@ describe('a failed anonymous sign-in is reported, not waited on (KAN-289)', () =
     expect(fake.signInAnonymously).toHaveBeenCalledTimes(1);
   });
 
+  // KAN-750 R14. The listener's own sign-in is the one the boot sync waits for.
+  test("the listener's failed sign-in says so to the store", async () => {
+    fake.signInAnonymously.mockRejectedValue(failure);
+    const firebase = await import('../../config/firebase');
+    const { authListenerSignInFailed } =
+      await import('../../redux/slices/globalStateSlice');
+    const dispatch = vi.fn();
+    firebase.observeAuthState(dispatch);
+    await settled(Promise.resolve());
+
+    expect(dispatch).toHaveBeenCalledWith(authListenerSignInFailed());
+  });
+
+  test('CONTROL: a sign-in that lands says nothing of a failure', async () => {
+    fake.signInAnonymously.mockImplementation(signedIn);
+    const firebase = await import('../../config/firebase');
+    const { authListenerSignInFailed } =
+      await import('../../redux/slices/globalStateSlice');
+    const dispatch = vi.fn();
+    firebase.observeAuthState(dispatch);
+    await settled(Promise.resolve());
+
+    expect(fake.signInAnonymously).toHaveBeenCalledTimes(1);
+    expect(dispatch).not.toHaveBeenCalledWith(authListenerSignInFailed());
+  });
+
   test('an existing user resolves at once, without signing in', async () => {
     fake.auth.currentUser = { uid: 'anon-0' };
     const ready = await load();

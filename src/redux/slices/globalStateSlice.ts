@@ -75,6 +75,8 @@ import {
 } from './settingsDataStateSlice';
 import { noteReviewMoment } from '../reviewAsk';
 
+export type SyncStatus = 'idle' | 'loading' | 'success' | 'error';
+
 export interface Global {
   hasSyncedBefore: boolean;
   // KAN-294. The sessions in this store are still the slice's placeholder:
@@ -102,6 +104,9 @@ export interface Global {
   // to bring another machine's. Not "unavailable", which is isSignedIn false
   // with this false too.
   awaitsDeviceId: boolean;
+  // KAN-750 R19. The open's read of the stored id has landed, whatever it
+  // found. Before it, isSignedIn false is "not read yet", not "unavailable".
+  hasReadDeviceId: boolean;
   // "Firebase anonymous auth has landed", i.e. request.auth is non-null and the
   // security rules will accept a request. Written ONLY by onAuthStateChanged.
   //
@@ -114,13 +119,14 @@ export interface Global {
   // Constant for the life of the popup; it is in the store so the sync status
   // card can derive from state alone and tests can set it, rather than the
   // card importing config/firebase.ts and every test inheriting whatever
-  // .env the machine happens to have (KAN-248). App.tsx writes it at boot.
+  // .env the machine happens to have (KAN-248). store.tsx writes it as the
+  // store is made, before the first render (KAN-750).
   isCloudConfigured: boolean;
   userId: string | null;
   isDirty: boolean;
   isSettingsPage: boolean;
   searchInputText: string;
-  syncStatus: 'idle' | 'loading' | 'success' | 'error';
+  syncStatus: SyncStatus;
   // KAN-349. The toasts on screen, newest last (toastStack.ts). A toast's
   // text is an i18n KEY, and its params the values for it (KAN-86): slices
   // dispatch a key plus its values and Toast does the interpolation, because
@@ -204,6 +210,20 @@ export interface Global {
   // lands. Session-only, like every flag here.
   syncsInFlight: number;
   isSyncQueued: boolean;
+  // KAN-750. Whether a cloud call has started this page load. Until one has,
+  // the sync glyph shows the boot sync while sign-in is still pending.
+  hasStartedSync: boolean;
+  // KAN-750 R12. A Sync now runs, from its press through sign-in to its
+  // sync's end: the button reads "Syncing…" before syncStatus can.
+  isSyncNowRunning: boolean;
+  // KAN-750 R20. performance.now() when the running Delete cloud data check
+  // began, null when none runs: the button shows it again after a remount.
+  deleteCheckStartedAt: number | null;
+  // KAN-750. The same for the delete itself, from the confirm to its end.
+  deletingStartedAt: number | null;
+  // KAN-750 R14. Any anonymous sign-in the auth listener ran has failed
+  // (offline, blocked): no boot sync is coming. A press signs in again.
+  hasAuthListenerSignInFailed: boolean;
   // KAN-280 O5. A saved session clicked while the tab view is folded shows
   // beside Open now until the fold button is next pressed. Session-only, so
   // a new page opens as the stored setting says.
@@ -296,6 +316,7 @@ export const initialState: Global = {
   holdsPlaceholderSessions: true,
   isSignedIn: false,
   awaitsDeviceId: false,
+  hasReadDeviceId: false,
   isFirebaseAuthed: false,
   isCloudConfigured: false,
   userId: null,
@@ -322,6 +343,11 @@ export const initialState: Global = {
   collapsedWindows: null,
   syncsInFlight: 0,
   isSyncQueued: false,
+  hasStartedSync: false,
+  isSyncNowRunning: false,
+  deleteCheckStartedAt: null,
+  deletingStartedAt: null,
+  hasAuthListenerSignInFailed: false,
   isPeekingSavedSession: false,
   isRunHere: false,
   hasRunShownHere: false,
@@ -755,20 +781,25 @@ const resyncAfterHold =
 export const syncNowWhenSignedIn =
   () =>
   async (dispatch: AppDispatch, getState: () => RootState): Promise<void> => {
-    // KAN-599. A yes on a device with no id yet mints it before this reads.
-    await dispatch(mintDeviceIdIfNone());
-    if (!getState().globalState.userId) {
-      dispatch(setSyncStatus('error'));
-      return;
-    }
+    dispatch(setSyncNowRunning(true));
     try {
-      await ensureCloudSessionReady(dispatch);
-    } catch (error) {
-      console.warn('Sync not started: sign-in failed:', error);
-      dispatch(setSyncStatus('error'));
-      return;
+      // KAN-599. A yes on a device with no id yet mints it before this reads.
+      await dispatch(mintDeviceIdIfNone());
+      if (!getState().globalState.userId) {
+        dispatch(setSyncStatus('error'));
+        return;
+      }
+      try {
+        await ensureCloudSessionReady(dispatch);
+      } catch (error) {
+        console.warn('Sync not started: sign-in failed:', error);
+        dispatch(setSyncStatus('error'));
+        return;
+      }
+      await dispatch(syncStateWithFirestore());
+    } finally {
+      dispatch(setSyncNowRunning(false));
     }
-    await dispatch(syncStateWithFirestore());
   };
 
 // KAN-719. The id Delete cloud data acts on, read locally and never minted, or null after saying why there is none.
@@ -799,25 +830,31 @@ const signInAndCheckCloudDocument = async (
 export const askToDeleteCloudData =
   () =>
   async (dispatch: AppDispatch, getState: () => RootState): Promise<void> => {
-    const userId = await storedIdOrToast(dispatch);
-    if (userId === null) return;
-    if (getState().settingsDataState.cloudConsent !== 'granted') {
-      dispatch(openDeleteCloudDataModal());
-      return;
-    }
+    if (isDeleteCloudDataRunning(getState())) return;
+    dispatch(deleteCheckStarted(performance.now()));
     try {
-      if (await signInAndCheckCloudDocument(dispatch, userId)) {
+      const userId = await storedIdOrToast(dispatch);
+      if (userId === null) return;
+      if (getState().settingsDataState.cloudConsent !== 'granted') {
         dispatch(openDeleteCloudDataModal());
-      } else {
+        return;
+      }
+      try {
+        if (await signInAndCheckCloudDocument(dispatch, userId)) {
+          dispatch(openDeleteCloudDataModal());
+        } else {
+          dispatch(
+            showToast({ toastText: TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE })
+          );
+        }
+      } catch (error) {
+        console.warn('askToDeleteCloudData: cloud check failed:', error);
         dispatch(
-          showToast({ toastText: TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE })
+          showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED })
         );
       }
-    } catch (error) {
-      console.warn('askToDeleteCloudData: cloud check failed:', error);
-      dispatch(
-        showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED })
-      );
+    } finally {
+      dispatch(deleteCheckEnded());
     }
   };
 
@@ -832,36 +869,47 @@ export const askToDeleteCloudData =
 // document that is still there is the one outcome worse than an error.
 //
 // KAN-719. Reads before it deletes: no document is "No cloud data to delete."
-export const deleteCloudData = createAsyncThunk(
+export const deleteCloudData = createAsyncThunk<
+  void,
+  void,
+  { state: RootState }
+>(
   'global/deleteCloudData',
-  async (_: void, thunkAPI) => {
+  async (_, thunkAPI) => {
     const dispatch = thunkAPI.dispatch as AppDispatch;
     dispatch(closeDeleteCloudDataModal());
-    const userId = await storedIdOrToast(dispatch);
-    if (userId === null) return;
+    dispatch(deletingStarted(performance.now()));
     try {
-      // KAN-259. With lazy sign-in a user who declined the cloud may never
-      // have signed in, so the read starts the session and waits for it.
-      if (!(await signInAndCheckCloudDocument(dispatch, userId))) {
+      const userId = await storedIdOrToast(dispatch);
+      if (userId === null) return;
+      try {
+        // KAN-259. With lazy sign-in a user who declined the cloud may never
+        // have signed in, so the read starts the session and waits for it.
+        if (!(await signInAndCheckCloudDocument(dispatch, userId))) {
+          dispatch(
+            showToast({ toastText: TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE })
+          );
+          return;
+        }
+        await deleteFromFirestore(userId);
+      } catch (error) {
+        console.warn('deleteCloudData: sign-in, read or delete failed:', error);
         dispatch(
-          showToast({ toastText: TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE })
+          showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED })
         );
         return;
       }
-      await deleteFromFirestore(userId);
-    } catch (error) {
-      console.warn('deleteCloudData: sign-in, read or delete failed:', error);
-      dispatch(
-        showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED })
-      );
-      return;
+      // KAN-632. Not Auto Sync alone: with the yes kept, one cloud-button press re-uploaded everything unasked.
+      dispatch(declineCloudConsent());
+      dispatch(forgetLastSync());
+      dispatch(setSyncStatus('idle'));
+      dispatch(showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETED }));
+    } finally {
+      dispatch(deletingEnded());
     }
-    // KAN-632. Not Auto Sync alone: with the yes kept, one cloud-button press re-uploaded everything unasked.
-    dispatch(declineCloudConsent());
-    dispatch(forgetLastSync());
-    dispatch(setSyncStatus('idle'));
-    dispatch(showToast({ toastText: TOAST_MESSAGES.CLOUD_DATA_DELETED }));
-  }
+  },
+  // KAN-750. One check or delete at a time.
+  { condition: (_, { getState }) => !isDeleteCloudDataRunning(getState()) }
 );
 
 /**
@@ -1325,6 +1373,24 @@ export const globalStateSlice = createSlice({
     ) => {
       state.syncStatus = action.payload;
     },
+    setSyncNowRunning: (state, action: PayloadAction<boolean>) => {
+      state.isSyncNowRunning = action.payload;
+    },
+    deleteCheckStarted: (state, action: PayloadAction<number>) => {
+      state.deleteCheckStartedAt = action.payload;
+    },
+    deleteCheckEnded: (state) => {
+      state.deleteCheckStartedAt = null;
+    },
+    deletingStarted: (state, action: PayloadAction<number>) => {
+      state.deletingStartedAt = action.payload;
+    },
+    deletingEnded: (state) => {
+      state.deletingStartedAt = null;
+    },
+    authListenerSignInFailed: (state) => {
+      state.hasAuthListenerSignInFailed = true;
+    },
 
     setUserId: (state, action: PayloadAction<string>) => {
       state.userId = action.payload;
@@ -1336,6 +1402,9 @@ export const globalStateSlice = createSlice({
 
     setAwaitsDeviceId: (state, action: PayloadAction<boolean>) => {
       state.awaitsDeviceId = action.payload;
+    },
+    deviceIdReadFinished: (state) => {
+      state.hasReadDeviceId = true;
     },
 
     replaceState: (state, action: PayloadAction<typeof state>) =>
@@ -1483,6 +1552,7 @@ export const globalStateSlice = createSlice({
       // body sets every completion status itself; it cannot set the start.
       .addCase(syncStateWithFirestore.pending, (state) => {
         state.syncStatus = 'loading';
+        state.hasStartedSync = true;
         state.syncsInFlight += 1;
       })
       .addCase(syncStateWithFirestore.fulfilled, (state) => {
@@ -1501,6 +1571,7 @@ export const globalStateSlice = createSlice({
       })
       .addCase(saveToFirestoreIfDirty.pending, (state) => {
         state.syncStatus = 'loading';
+        state.hasStartedSync = true;
         state.syncsInFlight += 1;
       })
       .addCase(saveToFirestoreIfDirty.fulfilled, (state) => {
@@ -1576,9 +1647,16 @@ export const {
   endPlaceholderSessions,
   setLoggedOut,
   setSyncStatus,
+  setSyncNowRunning,
+  deleteCheckStarted,
+  deleteCheckEnded,
+  deletingStarted,
+  deletingEnded,
+  authListenerSignInFailed,
   setUserId,
   removeUserId,
   setAwaitsDeviceId,
+  deviceIdReadFinished,
   setHasTabGroupsPermission,
   toggleWindowCollapse,
   expandWindow,
@@ -1590,5 +1668,20 @@ export const {
   setRunSaveCard,
   setRunSaveEcho,
 } = globalStateSlice.actions;
+
+// KAN-750. Signed in and set to sync, but no sync has begun: the slow
+// Firebase sign-in is pending. The glyph shows this wait as syncing; a failed
+// sign-in ends it (R14).
+export const selectAwaitsBootSync = (state: RootState): boolean =>
+  state.globalState.isSignedIn &&
+  cloudSyncAllowed(state.settingsDataState) &&
+  state.globalState.isCloudConfigured &&
+  !state.globalState.hasStartedSync &&
+  !state.globalState.hasAuthListenerSignInFailed;
+
+// KAN-750. A Delete cloud data check or delete is running: a second does not start.
+export const isDeleteCloudDataRunning = (state: RootState): boolean =>
+  state.globalState.deleteCheckStartedAt !== null ||
+  state.globalState.deletingStartedAt !== null;
 
 export default globalStateSlice.reducer;

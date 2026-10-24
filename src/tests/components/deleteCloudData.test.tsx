@@ -35,6 +35,8 @@ import { cloudDocumentExists } from '../../utils/functions/external';
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { DeleteCloudDataModal } from '../../components/modals/DeleteCloudDataModal';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { FakeMediaQueryList } from '../setup/mediaQueryFake';
+import { CROSSFADE_MS } from '../../components/common/syncMotion';
 import { asWritten } from '../setup/asWritten';
 import { newestToast } from '../setup/toasts';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
@@ -44,6 +46,8 @@ import {
   SettingsCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
 import {
+  askToDeleteCloudData,
+  deleteCloudData,
   openDeleteCloudDataModal,
   setSignedIn,
   setUserId,
@@ -181,7 +185,7 @@ describe('after Delete cloud data, Sync Status (KAN-573, KAN-632)', () => {
 
 // KAN-719. A granted press reads the cloud first; the button says so once the
 // read has taken longer than 300ms, and ignores presses until it ends.
-describe('the Delete cloud data button while it checks (KAN-719)', () => {
+describe('the Delete cloud data button while it checks or deletes (KAN-719, KAN-750)', () => {
   let resolveCheck: (exists: boolean) => void;
 
   beforeEach(() => {
@@ -316,11 +320,365 @@ describe('the Delete cloud data button while it checks (KAN-719)', () => {
     await flush();
   });
 
+  // KAN-750 r3 (D1). The busy face's glyph is the sync button's turning arrows.
+  const busyGlyph = () => {
+    const g = deleteButton().querySelector('[data-second-face] [data-glyph]');
+    return {
+      glyph: g?.getAttribute('data-glyph'),
+      turning: g?.getAttribute('data-turning'),
+    };
+  };
+
+  test('Checking… turns the sync arrows until its face has faded out', async () => {
+    await renderPane('granted');
+    expect(busyGlyph()).toEqual({ glyph: 'sync', turning: 'false' });
+    await press();
+    await flush(299);
+    expect(busyGlyph().turning).toBe('false');
+    await flush(1);
+    expect(faceShown()).toBe('true');
+    expect(busyGlyph()).toEqual({ glyph: 'sync', turning: 'true' });
+    // Drawn arrows, not the cloud_sync ligature.
+    expect(
+      deleteButton().querySelector(
+        '[data-second-face] .material-symbols-outlined'
+      )
+    ).toBeNull();
+
+    resolveCheck(true);
+    await flush();
+    expect(faceShown()).toBe('false');
+    // Still turning while the face fades out, then still.
+    await flush(CROSSFADE_MS - 1);
+    expect(busyGlyph().turning).toBe('true');
+    await flush(1);
+    expect(busyGlyph().turning).toBe('false');
+  });
+
+  test('a second check turns the arrows again', async () => {
+    await renderPane('granted');
+    await press();
+    await flush(300);
+    resolveCheck(false);
+    // The stop starts at the commit, which act holds to the end of its flush.
+    await flush();
+    await flush(CROSSFADE_MS);
+    expect(busyGlyph().turning).toBe('false');
+
+    await press();
+    await flush(300);
+    expect(faceShown()).toBe('true');
+    expect(busyGlyph().turning).toBe('true');
+    resolveCheck(true);
+    await flush();
+  });
+
+  // A check that outlives the pane leaves no timer behind to stop the arrows.
+  test('a check that ends after the pane closes schedules nothing', async () => {
+    const { unmount } = await renderPane('granted');
+    await press();
+    await flush(300);
+    expect(busyGlyph().turning).toBe('true');
+    unmount();
+    await flush();
+    const left = vi.getTimerCount();
+
+    resolveCheck(true);
+    await flush();
+    expect(vi.getTimerCount()).toBe(left);
+  });
+
+  test('a pane closed while the face fades out leaves no timer', async () => {
+    const { unmount } = await renderPane('granted');
+    await press();
+    await flush(300);
+    resolveCheck(true);
+    await flush();
+    expect(faceShown()).toBe('false');
+    expect(busyGlyph().turning).toBe('true');
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  test('a press while the face fades out keeps the arrows turning', async () => {
+    await renderPane('granted');
+    await press();
+    await flush(300);
+    resolveCheck(false);
+    await flush();
+    await flush(CROSSFADE_MS / 2);
+    await press();
+    await flush(CROSSFADE_MS);
+    expect(busyGlyph().turning).toBe('true');
+    await flush(300);
+    expect(faceShown()).toBe('true');
+    expect(busyGlyph().turning).toBe('true');
+    resolveCheck(true);
+    await flush();
+  });
+
+  // KAN-750 R20. The check runs in the store; the pane is only its view.
+  const switchPane = (
+    store: Awaited<ReturnType<typeof renderPane>>['store'],
+    to: SettingsCategory
+  ) =>
+    act(() => {
+      store.dispatch(selectCategory(to));
+    });
+
+  test('back on the pane mid-check, Checking… still turns and a press starts nothing', async () => {
+    const { store } = await renderPane('granted');
+    await press();
+    await flush(300);
+    expect(busyGlyph().turning).toBe('true');
+
+    switchPane(store, SettingsCategory.DISPLAY);
+    expect(
+      screen.queryByRole('button', { name: 'Delete cloud data' })
+    ).toBeNull();
+    await flush(100);
+    switchPane(store, SettingsCategory.SYNC);
+    expect(faceShown()).toBe('true');
+    expect(busyGlyph()).toEqual({ glyph: 'sync', turning: 'true' });
+    expect(deleteButton()).toHaveAttribute('aria-disabled', 'true');
+    await press();
+    expect(cloudDocumentExists).toHaveBeenCalledTimes(1);
+
+    resolveCheck(true);
+    await flush();
+    expect(faceShown()).toBe('false');
+    expect(dialogOpen(store)).toBe(true);
+  });
+
+  test('back on the pane before 300ms, Checking… still waits out the 300ms', async () => {
+    const { store } = await renderPane('granted');
+    await press();
+    await flush(100);
+    switchPane(store, SettingsCategory.DISPLAY);
+    await flush(50);
+    switchPane(store, SettingsCategory.SYNC);
+    expect(faceShown()).toBe('false');
+    expect(deleteButton()).toHaveAttribute('aria-disabled', 'true');
+    await flush(149);
+    expect(faceShown()).toBe('false');
+    await flush(1);
+    expect(faceShown()).toBe('true');
+    expect(busyGlyph().turning).toBe('true');
+    resolveCheck(true);
+    await flush();
+  });
+
+  test('under reduced motion Checking… shows the arrows still', async () => {
+    const media = vi
+      .spyOn(window, 'matchMedia')
+      .mockImplementation(
+        (query: string) =>
+          new FakeMediaQueryList(
+            query,
+            query === '(prefers-reduced-motion: reduce)'
+          )
+      );
+    await renderPane('granted');
+    await press();
+    await flush(300);
+    expect(faceShown()).toBe('true');
+    expect(busyGlyph()).toEqual({ glyph: 'sync', turning: 'false' });
+    resolveCheck(true);
+    await flush();
+    media.mockRestore();
+  });
+
   test('declined: the dialog opens with no check and no face', async () => {
     const { store } = await renderPane('declined');
     await press();
     expect(dialogOpen(store)).toBe(true);
     expect(cloudDocumentExists).not.toHaveBeenCalled();
     expect(faceShown()).toBe('false');
+  });
+
+  // KAN-750. The delete after the confirm: the same face, saying "Deleting…".
+  const busyText = () =>
+    deleteButton().querySelector('[data-second-face]')?.textContent;
+  const confirm = async (
+    store: Awaited<ReturnType<typeof renderPane>>['store']
+  ) => {
+    act(() => {
+      void store.dispatch(deleteCloudData());
+    });
+    await flush();
+  };
+
+  test('a delete still running at 300ms shows Deleting… with the arrows turning, until its face fades out', async () => {
+    const { store } = await renderPane('declined');
+    await press();
+    expect(dialogOpen(store)).toBe(true);
+    await confirm(store);
+    expect(dialogOpen(store)).toBe(false);
+    expect(deleteButton()).toHaveAttribute('aria-disabled', 'true');
+    await flush(299);
+    expect(faceShown()).toBe('false');
+    await flush(1);
+    expect(faceShown()).toBe('true');
+    expect(busyText()).toBe('Deleting…');
+    expect(busyGlyph()).toEqual({ glyph: 'sync', turning: 'true' });
+
+    resolveCheck(true);
+    await flush();
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.CLOUD_DATA_DELETED
+    );
+    expect(faceShown()).toBe('false');
+    expect(deleteButton()).not.toHaveAttribute('aria-disabled');
+    // Fading out, it still says what it was doing.
+    expect(busyText()).toBe('Deleting…');
+    await flush(CROSSFADE_MS - 1);
+    expect(busyGlyph().turning).toBe('true');
+    await flush(1);
+    expect(busyGlyph().turning).toBe('false');
+  });
+
+  test('a delete that ends before 300ms never shows Deleting…', async () => {
+    const { store } = await renderPane('declined');
+    await press();
+    await confirm(store);
+    await flush(299);
+    resolveCheck(false);
+    await flush();
+    expect(faceShown()).toBe('false');
+    await flush(1000);
+    expect(faceShown()).toBe('false');
+    expect(busyGlyph().turning).toBe('false');
+  });
+
+  test('a check after a delete says Checking… again', async () => {
+    const { store } = await renderPane('declined');
+    await press();
+    await confirm(store);
+    await flush(300);
+    expect(busyText()).toBe('Deleting…');
+    resolveCheck(false);
+    await flush();
+    act(() => {
+      store.dispatch(grantCloudConsent());
+    });
+
+    await press();
+    await flush(300);
+    expect(faceShown()).toBe('true');
+    expect(busyText()).toBe('Checking…');
+    resolveCheck(false);
+    await flush();
+  });
+
+  test('back on the pane mid-delete, Deleting… still turns and a press starts nothing', async () => {
+    mocks.deleteFromFirestore.mockClear();
+    const { store } = await renderPane('declined');
+    await press();
+    await confirm(store);
+    await flush(300);
+    switchPane(store, SettingsCategory.DISPLAY);
+    await flush(100);
+    switchPane(store, SettingsCategory.SYNC);
+    expect(faceShown()).toBe('true');
+    expect(busyText()).toBe('Deleting…');
+    expect(busyGlyph()).toEqual({ glyph: 'sync', turning: 'true' });
+    expect(deleteButton()).toHaveAttribute('aria-disabled', 'true');
+    await press();
+    expect(store.getState().globalState.deleteCheckStartedAt).toBeNull();
+    expect(cloudDocumentExists).toHaveBeenCalledTimes(1);
+
+    resolveCheck(true);
+    await flush();
+    expect(faceShown()).toBe('false');
+    expect(mocks.deleteFromFirestore).toHaveBeenCalledTimes(1);
+  });
+});
+
+// KAN-750 R20. Whether a delete check is running is the store's, so every view of it agrees.
+describe('the store knows when a delete check runs', () => {
+  afterEach(() => {
+    vi.mocked(cloudDocumentExists).mockReset().mockResolvedValue(true);
+  });
+
+  const running = (
+    store: Awaited<ReturnType<typeof renderWithProviders>>['store']
+  ) => store.getState().globalState.deleteCheckStartedAt !== null;
+
+  async function check(
+    seed: (s: Awaited<ReturnType<typeof renderWithProviders>>['store']) => void
+  ) {
+    let finish: () => void = () => {};
+    const { store } = await renderWithProviders(<div />, { seedStore: seed });
+    const held = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    vi.mocked(cloudDocumentExists).mockImplementation(async () => {
+      await held;
+      return mockedExists();
+    });
+    expect(running(store)).toBe(false);
+    const done = store.dispatch(askToDeleteCloudData());
+    const during = running(store);
+    finish();
+    await done;
+    return { store, during };
+  }
+  let mockedExists: () => boolean = () => true;
+
+  const signedInWithConsent = (
+    s: Awaited<ReturnType<typeof renderWithProviders>>['store']
+  ) => {
+    s.dispatch(setSignedIn());
+    s.dispatch(setUserId('uuid-1'));
+    s.dispatch(grantCloudConsent());
+  };
+
+  test('a check that finds a document: running until the dialog opens', async () => {
+    mockedExists = () => true;
+    const { store, during } = await check(signedInWithConsent);
+    expect(during).toBe(true);
+    expect(running(store)).toBe(false);
+    expect(store.getState().globalState.isDeleteCloudDataModalOpen).toBe(true);
+  });
+
+  test('a check that finds none: running until its toast', async () => {
+    mockedExists = () => false;
+    const { store, during } = await check(signedInWithConsent);
+    expect(during).toBe(true);
+    expect(running(store)).toBe(false);
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE
+    );
+  });
+
+  test('a check that throws: running until its toast', async () => {
+    mockedExists = () => {
+      throw new Error('offline');
+    };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { store, during } = await check(signedInWithConsent);
+    expect(during).toBe(true);
+    expect(running(store)).toBe(false);
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED
+    );
+    warn.mockRestore();
+  });
+
+  test('no id to check, or no cloud check at all: running, then not', async () => {
+    const noId = await check(() => {});
+    expect(noId.during).toBe(true);
+    expect(running(noId.store)).toBe(false);
+
+    const declined = await check((s) => {
+      s.dispatch(setSignedIn());
+      s.dispatch(setUserId('uuid-1'));
+      s.dispatch(declineCloudConsent());
+    });
+    expect(declined.during).toBe(true);
+    expect(running(declined.store)).toBe(false);
+    expect(
+      declined.store.getState().globalState.isDeleteCloudDataModalOpen
+    ).toBe(true);
   });
 });

@@ -5,7 +5,7 @@ import { useDispatch, useSelector, useStore } from 'react-redux';
 import { css } from '@emotion/react';
 
 import { APP_WIDTH } from './utils/constants/common';
-import { ensureCloudSession, isCloudConfigured } from './config/firebase';
+import { ensureCloudSession } from './config/firebase';
 import MainContainer from './components/MainContainer';
 import { AppDispatch, RootState } from './redux/store';
 import { setPresentStartup } from './redux/slices/undoRedoSlice';
@@ -31,7 +31,6 @@ import {
   readDeviceId,
 } from './redux/deviceId';
 import {
-  setCloudConfigured,
   setHasTabGroupsPermission,
   loadStoredSessionsIntoPage,
   storedLoadMustWaitForRelease,
@@ -111,7 +110,6 @@ function App() {
   useEffect(() => {
     void dispatch(readDeviceId());
     const stopFollowingDeviceId = followDeviceId(dispatch, reduxStore.getState);
-    dispatch(setCloudConfigured(isCloudConfigured));
     // KAN-7 §8. Decided from the disk as this open found it, past the slice's load-time writes (retired keys, KAN-731's move).
     const storedAtOpen = asPartialSettings<SettingsData>(
       loadFromLocalStorage('settingsData')

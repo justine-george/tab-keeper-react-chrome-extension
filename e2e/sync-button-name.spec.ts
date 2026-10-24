@@ -1,5 +1,6 @@
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
+import { hasCloudConfig } from './fixtures/cloud';
 import { test, expect } from './fixtures/extension';
 import { seedSessions, seedSettings } from './fixtures/seed';
 
@@ -74,9 +75,8 @@ test.describe('the header sync button says what is true (KAN-342)', () => {
   }) => {
     await seedUnusableToken(serviceWorker);
     const page = await openHome(context, extensionId);
-    // PREMISE: the token has been read and refused. The store starts signed
-    // out, so without this the button reads "Sync unavailable" at mount
-    // whatever the token says, and a broken token path could still pass.
+    // PREMISE: the token has been read and refused. Until the read lands the
+    // button reads "Sync now" (KAN-750 R19), so this waits for the refusal.
     await expect(page.getByRole('status')).toContainText(
       'Sync unavailable: your saved account token could not be read.'
     );
@@ -135,5 +135,50 @@ test.describe('the header sync button says what is true (KAN-342)', () => {
     expect(await chromeAx(page, 'Sync now')).toEqual([
       { name: 'Sync now', description: 'Manual sync', disabled: false },
     ]);
+  });
+
+  // KAN-750. isCloudConfigured was written after the first paint, so a cloud
+  // build's button was described as "Sync unavailable" for its first frame.
+  test('in a cloud build, no frame describes it as unavailable', async ({
+    context,
+    extensionId,
+  }) => {
+    test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
+    // Every description the button is drawn with, from its first commit on:
+    // the observer runs before paint, and an old value catches one replaced.
+    await context.addInitScript(() => {
+      if (window !== window.top) return;
+      const seen: string[] = [];
+      Object.assign(window, { syncDescriptions: seen });
+      const note = (value: string | null) => {
+        if (value !== null && seen[seen.length - 1] !== value) seen.push(value);
+      };
+      new MutationObserver((records) => {
+        const sync = document
+          .querySelector('[data-glyph]')
+          ?.closest('[role="button"]');
+        if (!sync) return;
+        for (const r of records)
+          if (r.target === sync && r.attributeName === 'aria-description')
+            note(r.oldValue);
+        note(sync.getAttribute('aria-description'));
+      }).observe(document, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['aria-description'],
+        attributeOldValue: true,
+      });
+    });
+    const page = await openHome(context, extensionId);
+    const sync = button(page, 'Sync now');
+    // PREMISE: granted with Auto Sync on, the one state the config decides.
+    await expect(sync).toHaveAttribute('aria-description', /.+/);
+    const seen = await page.evaluate(() => {
+      const value: unknown = Reflect.get(window, 'syncDescriptions');
+      return Array.isArray(value) ? value.map(String) : [];
+    });
+    expect(seen.length, 'the observer saw the button').toBeGreaterThan(0);
+    expect(seen).not.toContain('Sync unavailable');
   });
 });

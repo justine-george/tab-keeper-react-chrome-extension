@@ -1,6 +1,6 @@
 import React, { MouseEventHandler } from 'react';
 
-import { css } from '@emotion/react';
+import { css, type SerializedStyles } from '@emotion/react';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { DURATION, ICON } from '../../styles/scale';
@@ -91,6 +91,11 @@ interface IconBaseProps {
    */
   ariaHasPopup?: 'menu';
   ariaExpanded?: boolean;
+  /**
+   * Draws the glyph in place of the ligature, handed the ligature's own size
+   * and colour css: the sync button's turning, morphing glyph (KAN-750).
+   */
+  renderGlyph?: (glyphCss: SerializedStyles) => React.ReactNode;
 }
 
 /**
@@ -145,6 +150,7 @@ const Icon: React.FC<IconProps> = ({
   tourAnchor,
   ariaHasPopup,
   ariaExpanded,
+  renderGlyph,
 }) => {
   const COLORS = useThemeColors();
 
@@ -321,7 +327,9 @@ const Icon: React.FC<IconProps> = ({
             align-items: center;
           `}
         >
-          {isBrandIcon(type) ? (
+          {renderGlyph ? (
+            renderGlyph(iconStyle)
+          ) : isBrandIcon(type) ? (
             // A brand mark, not a ligature. Material Symbols carries no logos
             // at all, so `type="x"` would render the LETTER x -- an unavailable
             // ligature falls back to literal text rather than to tofu, which is

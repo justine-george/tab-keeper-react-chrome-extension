@@ -5,10 +5,12 @@ import Icon from '../../components/common/Icon';
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { describeSyncState } from '../../components/settings/rightpane/Account/describeSyncState';
 import {
+  deviceIdReadFinished,
   setAwaitsDeviceId,
   setCloudConfigured,
   setSignedIn,
   setSyncStatus,
+  syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
 import {
   declineCloudConsent,
@@ -58,6 +60,9 @@ function ready(store: Store): void {
   store.dispatch(setSignedIn());
   store.dispatch(setCloudConfigured(true));
   store.dispatch(grantCloudConsent());
+  // A sync has started this page load; before one, the boot wait is its own case.
+  store.dispatch(syncStateWithFirestore.pending('boot', undefined));
+  store.dispatch(setSyncStatus('idle'));
 }
 
 interface Case {
@@ -72,12 +77,23 @@ interface Case {
 const CASES: Case[] = [
   {
     state: 'unavailable',
-    // The default store: signed out, no cloud, Auto Sync on, no answer yet.
-    seed: () => {},
+    // The default store once the read finds no id: signed out, no cloud, Auto Sync on, no answer yet.
+    seed: (s) => {
+      s.dispatch(deviceIdReadFinished());
+    },
     name: 'Sync unavailable',
     description: null,
     tooltip: 'Sync unavailable',
     dimmed: true,
+  },
+  {
+    // KAN-750 R19. Before the stored id is read, named as signed in: nothing is known to be unavailable.
+    state: 'id not read yet',
+    seed: () => {},
+    name: 'Sync now',
+    description: 'Sync is off',
+    tooltip: 'Sync is off · Sync now',
+    dimmed: false,
   },
   {
     state: 'off',
@@ -208,6 +224,20 @@ const CASES: Case[] = [
     dimmed: false,
   },
   {
+    // KAN-750 R8b. Auto Sync's boot sync is committed and waits for sign-in:
+    // "Syncing…" at once, as the sync itself will be, until its 8 s limit.
+    state: 'boot sync waiting for sign-in',
+    seed: (s) => {
+      s.dispatch(setSignedIn());
+      s.dispatch(setCloudConfigured(true));
+      s.dispatch(grantCloudConsent());
+    },
+    name: 'Syncing…',
+    description: null,
+    tooltip: 'Syncing…',
+    dimmed: true,
+  },
+  {
     // A Sync now press with Auto Sync off. Dimmed because a sync is running,
     // so that is what the name says (Justine's pick, 2026-09-29).
     state: 'manual, mid-sync',
@@ -240,15 +270,6 @@ const CASES: Case[] = [
 const renderMenu = (seed: (store: Store) => void) =>
   renderWithProviders(<MenuContainer />, { seedStore: seed });
 
-/** Every glyph the header's sync button can show (MenuContainer). */
-const SYNC_GLYPHS = [
-  'sync',
-  'cloud_done',
-  'cloud_sync',
-  'cloud_off',
-  'sync_problem',
-];
-
 /**
  * The words the rendered sync button uses for the state: its description's
  * first line when it is clickable (a second line may say when it synced), its
@@ -257,7 +278,7 @@ const SYNC_GLYPHS = [
 function renderedStateWords(): string | null {
   const button = screen
     .getAllByRole('button')
-    .find((b) => SYNC_GLYPHS.includes(b.textContent ?? ''));
+    .find((b) => b.querySelector('[data-glyph]') !== null);
   if (button === undefined) throw new Error('no sync button in the header');
   const description = button.getAttribute('aria-description');
   // Empty on a dimmed button: its name is the state (KAN-345).
@@ -272,6 +293,7 @@ function cardTitle(store: Store): string {
   return describeSyncState({
     isSignedIn: globalState.isSignedIn,
     awaitsDeviceId: globalState.awaitsDeviceId,
+    hasReadDeviceId: globalState.hasReadDeviceId,
     isAutoSync: settingsDataState.isAutoSync,
     isCloudConfigured: globalState.isCloudConfigured,
     cloudConsent: settingsDataState.cloudConsent,
@@ -297,7 +319,13 @@ describe('the header sync button says what is true (KAN-342)', () => {
   // The words must be the card's, for the same facts. Read from what the
   // header RENDERS, found by its glyph rather than its name, so a state renamed
   // in describeSyncState can't leave the header saying the old thing.
-  test.each(CASES.filter((c) => c.state !== 'manual, mid-sync'))(
+  test.each(
+    CASES.filter(
+      (c) =>
+        c.state !== 'manual, mid-sync' &&
+        c.state !== 'boot sync waiting for sign-in'
+    )
+  )(
     '$state: the header says what the Sync & Backup card says',
     async ({ seed }) => {
       const { store } = await renderMenu(seed);
@@ -306,7 +334,16 @@ describe('the header sync button says what is true (KAN-342)', () => {
     }
   );
 
-  // The one place the two disagree, on purpose.
+  // The places the two disagree, on purpose.
+  test('boot sync waiting: the card says the setting until the drawing shows the sync, the button says Syncing…', async () => {
+    const boot = CASES.find((c) => c.state === 'boot sync waiting for sign-in');
+    if (boot === undefined) throw new Error('no boot wait case');
+    const { store } = await renderMenu(boot.seed);
+
+    expect(cardTitle(store)).toBe('Cloud sync on');
+    expect(renderedStateWords()).toBe('Syncing…');
+  });
+
   test('manual, mid-sync: the card describes the setting, the button what it is doing', async () => {
     const manualMidSync = CASES.find((c) => c.state === 'manual, mid-sync');
     if (manualMidSync === undefined)

@@ -13,6 +13,7 @@ import {
   toggleAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
 import {
+  deviceIdReadFinished,
   setCloudConfigured,
   setLoggedOut,
   setSignedIn,
@@ -199,6 +200,7 @@ describe('the sync space bar (KAN-596)', () => {
     act(() => {
       store.dispatch(grantCloudConsent());
       store.dispatch(setLoggedOut());
+      store.dispatch(deviceIdReadFinished());
     });
     expect(meter()).toBeNull();
   });
@@ -270,6 +272,7 @@ describe('the sync space bar with sync off (KAN-633)', () => {
     const { store } = await renderOff(FIRESTORE_MAX_DOCUMENT_BYTES + 50_000);
     act(() => {
       store.dispatch(setLoggedOut());
+      store.dispatch(deviceIdReadFinished());
     });
     expect(state()).toBe('unavailable');
     expect(meter()).toBeNull();

@@ -6,6 +6,7 @@ import ExportPage from '../../components/export/ExportPage';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import {
   openSettingsPage,
+  deviceIdReadFinished,
   setHasTabGroupsPermission,
 } from '../../redux/slices/globalStateSlice';
 import {
@@ -49,6 +50,7 @@ describe('no element asks Chrome for a native tooltip (KAN-695)', () => {
     const { container } = await renderWithProviders(<MainContainer />, {
       seedStore: (store) => {
         store.dispatch(setHasTabGroupsPermission(true));
+        store.dispatch(deviceIdReadFinished());
         store.dispatch(saveToTabContainerInternal(SESSION));
         store.dispatch(selectTabContainer('session-kyoto'));
       },

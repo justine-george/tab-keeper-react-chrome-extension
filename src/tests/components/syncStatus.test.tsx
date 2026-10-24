@@ -1,6 +1,16 @@
-import { describe, expect, test } from 'vitest';
-import { act, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { act, fireEvent, screen } from '@testing-library/react';
 
+import MenuContainer from '../../components/home/leftpane/MenuContainer';
+import {
+  syncPressedAt,
+  syncShownAt,
+} from '../../components/common/useShownSyncStatus';
+import { MORPH_MS, morphPath } from '../../components/common/syncMotion';
+import {
+  SYNC_PROBLEM_HALF_TURN,
+  SYNC_PROBLEM_PATH,
+} from '../../components/common/syncMorph.data';
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { describeSyncState } from '../../components/settings/rightpane/Account/describeSyncState';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -16,6 +26,7 @@ import {
   toggleAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
 import {
+  deviceIdReadFinished,
   saveToFirestoreIfDirty,
   setCloudConfigured,
   setLoggedOut,
@@ -52,6 +63,7 @@ import { asWritten } from '../setup/asWritten';
 const base = {
   isSignedIn: true,
   awaitsDeviceId: false,
+  hasReadDeviceId: true,
   isAutoSync: true,
   isCloudConfigured: true,
   cloudConsent: 'granted' as const,
@@ -66,13 +78,25 @@ describe('describeSyncState', () => {
     );
   });
 
+  // KAN-750 R13b. "On" draws the done cloud only once a sync has landed;
+  // before one, or after an edit, the still arrows, as the header draws them.
+  test('on draws the done cloud after a landed sync, still arrows otherwise', () => {
+    expect(describeSyncState({ ...base, syncStatus: 'success' }).icon).toBe(
+      'cloud_done'
+    );
+    const idle = describeSyncState({ ...base, syncStatus: 'idle' });
+    expect(idle.icon).toBe('sync');
+    expect(idle.kind).toBe('on');
+    expect(idle.title).toBe('Cloud sync on');
+  });
+
   // KAN-261. A write in flight is neither "on" nor "failed" yet, and the user
   // who just pressed Merge or Replace is looking at this card, not at the
   // header's cloud glyph. Same glyph as the header uses for the same state.
   test("a sync in flight is syncing, with the header's in-flight glyph", () => {
     const syncing = describeSyncState({ ...base, syncStatus: 'loading' });
     expect(syncing.kind).toBe('syncing');
-    expect(syncing.icon).toBe('cloud_sync');
+    expect(syncing.icon).toBe('sync');
     expect(syncing.title).toBe('Syncing…');
   });
 
@@ -140,6 +164,14 @@ describe('describeSyncState', () => {
     ).toBe('unavailable');
   });
 
+  // KAN-750 R19. Signed out before the open's read lands is "not read yet": described as signed in.
+  test('no token before the stored id is read is not unavailable', () => {
+    const unread = { ...base, isSignedIn: false, hasReadDeviceId: false };
+    expect(describeSyncState(unread).kind).toBe('on');
+    expect(describeSyncState(unread).icon).toBe('sync');
+    expect(describeSyncState({ ...unread, cloudConsent: '' }).kind).toBe('off');
+  });
+
   // KAN-599. A fresh install holds no id until the yes; that is off, not unavailable.
   test('no id yet, awaiting the yes, is off; with the yes it is not unavailable either', () => {
     const awaiting = { ...base, isSignedIn: false, awaitsDeviceId: true };
@@ -169,7 +201,7 @@ describe('describeSyncState', () => {
 
   test('each state names a distinct icon and title', () => {
     const kinds = [
-      describeSyncState(base),
+      describeSyncState({ ...base, syncStatus: 'success' }),
       describeSyncState({ ...base, isAutoSync: false }),
       describeSyncState({
         ...base,
@@ -194,8 +226,25 @@ const renderSync = () =>
       store.dispatch(setSignedIn());
       store.dispatch(setCloudConfigured(true));
       store.dispatch(grantCloudConsent());
+      // The boot sync has run, so the card is not waiting for it (KAN-750).
+      store.dispatch(syncStateWithFirestore.pending('boot', undefined));
+      store.dispatch(setSyncStatus('idle'));
     },
   });
+
+// KAN-750. An unpressed sync shows after 150 ms and stays 400 ms.
+const advance = (ms: number) =>
+  act(async () => {
+    await vi.advanceTimersByTimeAsync(ms);
+  });
+beforeEach(() => {
+  syncPressedAt.current = -Infinity;
+  syncShownAt.current = -Infinity;
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const card = () => screen.getByTestId('sync-status');
 
@@ -214,21 +263,25 @@ describe('the sync status line follows the store (KAN-248)', () => {
     act(() => {
       store.dispatch({ type: saveToFirestoreIfDirty.pending.type });
     });
+    await advance(150);
     expect(card().textContent).toContain('Syncing…');
     expect(card().textContent).not.toContain('Cloud sync on');
 
     act(() => {
       store.dispatch({ type: saveToFirestoreIfDirty.rejected.type });
     });
+    await advance(400);
     expect(card().textContent).toContain('Last sync failed');
 
     act(() => {
       store.dispatch({ type: saveToFirestoreIfDirty.pending.type });
     });
+    await advance(150);
     expect(card().textContent).toContain('Syncing…');
     act(() => {
       store.dispatch({ type: saveToFirestoreIfDirty.fulfilled.type });
     });
+    await advance(400);
     expect(card().textContent).toContain('Cloud sync on');
   });
 
@@ -243,6 +296,7 @@ describe('the sync status line follows the store (KAN-248)', () => {
     act(() => {
       store.dispatch(syncStateWithFirestore.pending('read-phase', undefined));
     });
+    await advance(150);
     expect(card().textContent).toContain('Syncing…');
     expect(card().textContent).not.toContain('Cloud sync on');
 
@@ -255,6 +309,7 @@ describe('the sync status line follows the store (KAN-248)', () => {
         )
       );
     });
+    await advance(400);
     expect(card().textContent).toContain('Last sync failed');
   });
 
@@ -301,11 +356,88 @@ describe('the sync status line follows the store (KAN-248)', () => {
     expect(getComputedStyle(line).maxWidth).toBe('576px');
   });
 
+  // KAN-750 R20. A shown sync stays shown across another pane and back, pressed or not.
+  const cardTurning = () =>
+    card().querySelector('[data-glyph]')?.getAttribute('data-turning');
+  const awayAndBack = (
+    store: Awaited<ReturnType<typeof renderSync>>['store']
+  ) => {
+    act(() => {
+      store.dispatch(selectCategory(SettingsCategory.DISPLAY));
+    });
+    expect(screen.queryByTestId('sync-status')).toBeNull();
+    act(() => {
+      store.dispatch(selectCategory(SettingsCategory.SYNC));
+    });
+  };
+
+  test('back on the pane mid-sync, an unpressed sync already shown turns at once', async () => {
+    const { store } = await renderSync();
+    act(() => {
+      store.dispatch(syncStateWithFirestore.pending('unpressed', undefined));
+    });
+    await advance(150);
+    expect(cardTurning()).toBe('true');
+
+    awayAndBack(store);
+    expect(cardTurning()).toBe('true');
+    expect(card().textContent).toContain('Syncing…');
+  });
+
+  test('back on the pane mid-sync, a pressed sync turns at once', async () => {
+    const { store } = await renderSync();
+    // The press comes after the pane opened.
+    await advance(1);
+    syncPressedAt.current = performance.now();
+    act(() => {
+      store.dispatch(syncStateWithFirestore.pending('pressed', undefined));
+    });
+    expect(cardTurning()).toBe('true');
+    awayAndBack(store);
+    expect(cardTurning()).toBe('true');
+  });
+
+  // CONTROL: one not yet shown still waits out its delay.
+  test('back on the pane before an unpressed sync showed, it still waits', async () => {
+    const { store } = await renderSync();
+    act(() => {
+      store.dispatch(syncStateWithFirestore.pending('unpressed', undefined));
+    });
+    await advance(100);
+    awayAndBack(store);
+    expect(cardTurning()).toBe('false');
+    await advance(150);
+    expect(cardTurning()).toBe('true');
+  });
+
   test('no token: unavailable', async () => {
     const { store } = await renderSync();
     act(() => {
       store.dispatch(setLoggedOut());
+      store.dispatch(deviceIdReadFinished());
     });
+    expect(card().textContent).toContain('Sync unavailable');
+  });
+
+  // KAN-750 R19. The card says the same as the button while the stored id is unread.
+  test('before the stored id is read, the card is not unavailable', async () => {
+    const { store } = await renderWithProviders(<SettingsDetailsContainer />, {
+      seedStore: (s) => {
+        s.dispatch(selectCategory(SettingsCategory.SYNC));
+        s.dispatch(setCloudConfigured(true));
+        s.dispatch(grantCloudConsent());
+      },
+    });
+    expect(card().getAttribute('data-sync-state')).toBe('on');
+    expect(
+      card().querySelector('[data-glyph]')?.getAttribute('data-glyph')
+    ).toBe('sync');
+
+    act(() => {
+      store.dispatch(setLoggedOut());
+      store.dispatch(deviceIdReadFinished());
+    });
+    expect(card().getAttribute('data-sync-state')).toBe('unavailable');
     expect(card().textContent).toContain('Sync unavailable');
   });
 
@@ -419,6 +551,7 @@ describe('the status line shows when it last synced (KAN-255)', () => {
     const { store } = await renderWith({ autoSync: true, lastSyncedTime: AT });
     act(() => {
       store.dispatch(setLoggedOut());
+      store.dispatch(deviceIdReadFinished());
     });
     expect(card().querySelector('[data-sync-synced]')).toBeNull();
   });
@@ -432,5 +565,140 @@ describe('the status line shows when it last synced (KAN-255)', () => {
     const stamped = store.getState().settingsDataState.lastSyncedTime;
     expect(typeof stamped).toBe('number');
     expect(Math.abs((stamped as number) - Date.now())).toBeLessThan(5000);
+  });
+});
+
+// KAN-750. The card's icon and title follow the SHOWN status, drawn with the
+// button's glyph; the two share one press ref so they never disagree.
+describe('the card follows the shown sync status (KAN-750)', () => {
+  const glyphOf = (root: HTMLElement) => {
+    const g = root.querySelector('[data-glyph]');
+    return {
+      glyph: g?.getAttribute('data-glyph'),
+      turning: g?.getAttribute('data-turning'),
+    };
+  };
+  test('the card turns while the button would, and shows done after the hold', async () => {
+    const { store } = await renderSync();
+    expect(glyphOf(card())).toEqual({ glyph: 'sync', turning: 'false' });
+
+    await act(async () => {
+      store.dispatch(setSyncStatus('loading'));
+    });
+    // Unpressed: title and icon wait for the delay together.
+    await advance(149);
+    expect(card().textContent).toContain('Cloud sync on');
+    expect(glyphOf(card()).turning).toBe('false');
+    await advance(1);
+    expect(card().textContent).toContain('Syncing…');
+    expect(glyphOf(card())).toEqual({ glyph: 'sync', turning: 'true' });
+
+    await act(async () => {
+      store.dispatch(setSyncStatus('success'));
+    });
+    // Held for HOLD_MS after it was shown, then done.
+    await advance(399);
+    expect(glyphOf(card()).turning).toBe('true');
+    await advance(1);
+    expect(card().textContent).toContain('Cloud sync on');
+    expect(glyphOf(card())).toEqual({ glyph: 'cloud_done', turning: 'false' });
+  });
+
+  // KAN-750 r3 (B). The card shares SyncGlyph, so a failure morphs there too.
+  test('"Last sync failed" arrives by morph: the turning arrows grow a "!"', async () => {
+    const { store } = await renderSync();
+    await act(async () => {
+      store.dispatch(setSyncStatus('loading'));
+    });
+    await advance(150);
+    expect(glyphOf(card())).toEqual({ glyph: 'sync', turning: 'true' });
+
+    await act(async () => {
+      store.dispatch(setSyncStatus('error'));
+    });
+    await advance(400);
+    expect(card().textContent).toContain('Last sync failed');
+    expect(glyphOf(card())).toEqual({
+      glyph: 'sync_problem',
+      turning: 'false',
+    });
+    const root = card().querySelector('[data-glyph]');
+    const d = () =>
+      [...(root?.querySelectorAll('path') ?? [])].map((p) =>
+        p.getAttribute('d')
+      );
+    // One layer, morphing (no turn to read here, so it settles a half turn round).
+    expect(root?.childElementCount).toBe(1);
+    expect(d()).toEqual([morphPath(SYNC_PROBLEM_HALF_TURN, 0)]);
+    await advance(MORPH_MS);
+    expect(d()).toEqual([SYNC_PROBLEM_PATH]);
+  });
+
+  test('the button and the card show the same glyph at the click, at 150 ms and after the hold', async () => {
+    const { store } = await renderWithProviders(
+      <>
+        <MenuContainer />
+        <SettingsDetailsContainer />
+      </>,
+      {
+        seedStore: (s) => {
+          s.dispatch(selectCategory(SettingsCategory.SYNC));
+          s.dispatch(setSignedIn());
+          s.dispatch(setCloudConfigured(true));
+          s.dispatch(grantCloudConsent());
+          s.dispatch(syncStateWithFirestore.pending('boot', undefined));
+          s.dispatch(setSyncStatus('idle'));
+        },
+      }
+    );
+    const button = () =>
+      screen.getByRole('button', { name: /^Sync now|Syncing…$/ });
+    const same = () => {
+      expect(glyphOf(card())).toEqual(glyphOf(button()));
+      return glyphOf(card());
+    };
+    // The fake clock is frozen at mount; a press needs to come after it.
+    await advance(1);
+    // One synchronous act, as in a real click: the press then the load.
+    act(() => {
+      fireEvent.click(button());
+      store.dispatch(setSyncStatus('loading'));
+    });
+    expect(same()).toEqual({ glyph: 'sync', turning: 'true' });
+    await advance(150);
+    expect(same().turning).toBe('true');
+    await act(async () => {
+      store.dispatch(setSyncStatus('success'));
+    });
+    await advance(400);
+    expect(same()).toEqual({ glyph: 'cloud_done', turning: 'false' });
+
+    // KAN-750 R13b. An edit after the sync (markDirty sets 'idle'): both
+    // turn back into the still arrows, nothing claims a sync that did not land.
+    await act(async () => {
+      store.dispatch(setSyncStatus('idle'));
+    });
+    await advance(MORPH_MS);
+    expect(same()).toEqual({ glyph: 'sync', turning: 'false' });
+  });
+
+  // KAN-750 R13b. Offline: the boot sync never starts. At the 8 s limit the
+  // card stops turning on still arrows; it does not morph into the done cloud.
+  test('a boot sync that never lands stops on still arrows at 8 s', async () => {
+    await renderWithProviders(<SettingsDetailsContainer />, {
+      seedStore: (s) => {
+        s.dispatch(selectCategory(SettingsCategory.SYNC));
+        s.dispatch(setSignedIn());
+        s.dispatch(setCloudConfigured(true));
+        s.dispatch(grantCloudConsent());
+      },
+    });
+    await advance(7999);
+    expect(glyphOf(card())).toEqual({ glyph: 'sync', turning: 'true' });
+    await advance(1);
+    expect(glyphOf(card())).toEqual({ glyph: 'sync', turning: 'false' });
+    expect(card().textContent).toContain('Cloud sync on');
+    await advance(MORPH_MS);
+    expect(glyphOf(card()).glyph).toBe('sync');
   });
 });

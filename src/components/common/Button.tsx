@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { css } from '@emotion/react';
+import { css, type SerializedStyles } from '@emotion/react';
 
 import Icon from './Icon';
 import type { IconName } from './iconNames';
@@ -66,6 +66,8 @@ interface ButtonProps {
    */
   secondFace?: {
     iconType: IconName;
+    /** Draws its glyph in place of the ligature: Checking…'s turning arrows (KAN-750). */
+    renderGlyph?: (glyphCss: SerializedStyles) => React.ReactNode;
     text?: string;
     shown: boolean;
     /** The crossfade's length. 200ms; shorter for a control used in runs. */
@@ -207,11 +209,11 @@ const Button: React.FC<ButtonProps> = ({
       ? PALETTE.hoverEdge
       : PALETTE.pressEdge;
   // The glyph's colour is a class of its own on the Icon, so it is reached
-  // from here; a caller's iconColor is its own call and is left alone.
+  // from here; a caller's iconColor is its own call and is left alone. A drawn
+  // glyph (SyncGlyph's outline) sets its colour on its svg, so it is reached too.
+  const GLYPHS = '.material-symbols-outlined, [data-glyph] svg';
   const glyphInk = (ink: string) =>
-    iconColor || ink === restInk
-      ? ''
-      : `.material-symbols-outlined { color: ${ink}; }`;
+    iconColor || ink === restInk ? '' : `${GLYPHS} { color: ${ink}; }`;
 
   // KAN-725. Only a variant whose edge or ink changes under the pointer
   // animates them; the others keep the one transition they had.
@@ -221,7 +223,7 @@ const Button: React.FC<ButtonProps> = ({
   // KAN-725. The glyph's ink eases with the fill, so it never shows white on the pale ground.
   const glyphTransition =
     variantRetints && !iconColor
-      ? `.material-symbols-outlined { transition: color ${DURATION.COLOR}; }`
+      ? `${GLYPHS} { transition: color ${DURATION.COLOR}; }`
       : '';
   const hoverInkCss = touchedInk !== restInk ? `color: ${touchedInk};` : '';
 
@@ -303,7 +305,8 @@ const Button: React.FC<ButtonProps> = ({
   // is built exactly like the resting one and the two cannot drift apart.
   const face = (
     faceIcon: IconName | undefined,
-    faceText: string | undefined
+    faceText: string | undefined,
+    renderGlyph?: (glyphCss: SerializedStyles) => React.ReactNode
   ) => (
     <>
       {faceIcon && (
@@ -313,6 +316,7 @@ const Button: React.FC<ButtonProps> = ({
           size={iconSize}
           color={iconColor ?? restInk}
           style={iconSpacing}
+          renderGlyph={renderGlyph}
         />
       )}
       {imageSrc && (
@@ -394,7 +398,7 @@ const Button: React.FC<ButtonProps> = ({
             css={faceStyle(secondFace.shown)}
             aria-hidden={!secondFace.shown || undefined}
           >
-            {face(secondFace.iconType, secondFace.text)}
+            {face(secondFace.iconType, secondFace.text, secondFace.renderGlyph)}
           </span>
         </span>
       ) : (

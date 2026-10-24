@@ -429,3 +429,120 @@ describe('askToDeleteCloudData (KAN-719)', () => {
     expect(modalOpen(store)).toBe(true);
   });
 });
+
+// KAN-750. The delete itself is the store's too, so the button can say "Deleting…"
+// after a remount; and only one check or delete runs at a time.
+describe('the store knows when a delete runs (KAN-750)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    mocks.deleteFromFirestore.mockReset().mockResolvedValue(undefined);
+    mocks.ensureCloudSessionReady.mockReset().mockResolvedValue(undefined);
+    mocks.cloudDocumentExists.mockReset().mockResolvedValue(true);
+    setupChromeFake();
+  });
+
+  const deleting = (store: TestStore) =>
+    store.getState().globalState.deletingStartedAt;
+
+  // A promise and the function that settles it, for a cloud call held open.
+  function held<T>() {
+    let settle: (value: T) => void = () => {};
+    const promise = new Promise<T>((resolve) => {
+      settle = resolve;
+    });
+    return { promise, settle };
+  }
+
+  it.each([
+    ['deletes', () => {}, TOAST_MESSAGES.CLOUD_DATA_DELETED],
+    [
+      'finds nothing',
+      () => mocks.cloudDocumentExists.mockResolvedValue(false),
+      TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE,
+    ],
+    [
+      'fails',
+      () => mocks.deleteFromFirestore.mockRejectedValue(new Error('denied')),
+      TOAST_MESSAGES.CLOUD_DATA_DELETE_FAILED,
+    ],
+  ])(
+    'a delete that %s: running from the confirm until its toast',
+    async (_name, arrange, toast) => {
+      arrange();
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const { store } = signedInWithId('granted');
+      expect(deleting(store)).toBeNull();
+      const before = performance.now();
+
+      const done = store.dispatch(deleteCloudData());
+      expect(deleting(store)).toBeGreaterThanOrEqual(before);
+      await done;
+
+      expect(deleting(store)).toBeNull();
+      expect(newestToast(store.getState())?.text).toBe(toast);
+      warn.mockRestore();
+    }
+  );
+
+  it('a delete with no stored id: running, then not', async () => {
+    const { store } = makeTestStore();
+    const done = store.dispatch(deleteCloudData());
+    expect(deleting(store)).not.toBeNull();
+    await done;
+    expect(deleting(store)).toBeNull();
+    expect(newestToast(store.getState())?.text).toBe(
+      TOAST_MESSAGES.NO_CLOUD_DATA_TO_DELETE
+    );
+  });
+
+  it('a second delete while one runs does not start', async () => {
+    const read = held<boolean>();
+    mocks.cloudDocumentExists.mockReturnValue(read.promise);
+    const { store } = signedInWithId('granted');
+    const first = store.dispatch(deleteCloudData());
+    const startedAt = deleting(store);
+    await vi.waitFor(() =>
+      expect(mocks.cloudDocumentExists).toHaveBeenCalled()
+    );
+
+    await store.dispatch(deleteCloudData());
+    expect(mocks.cloudDocumentExists).toHaveBeenCalledTimes(1);
+    expect(deleting(store)).toBe(startedAt);
+
+    read.settle(true);
+    await first;
+    expect(mocks.deleteFromFirestore).toHaveBeenCalledTimes(1);
+    expect(deleting(store)).toBeNull();
+  });
+
+  it('a check does not start while a delete runs', async () => {
+    const read = held<boolean>();
+    mocks.cloudDocumentExists.mockReturnValue(read.promise);
+    const { store } = signedInWithId('granted');
+    const deletion = store.dispatch(deleteCloudData());
+    await vi.waitFor(() =>
+      expect(mocks.cloudDocumentExists).toHaveBeenCalled()
+    );
+    await store.dispatch(askToDeleteCloudData());
+    expect(store.getState().globalState.deleteCheckStartedAt).toBeNull();
+    expect(mocks.cloudDocumentExists).toHaveBeenCalledTimes(1);
+    read.settle(true);
+    await deletion;
+  });
+
+  it('a delete does not start while a check runs', async () => {
+    const read = held<boolean>();
+    mocks.cloudDocumentExists.mockReturnValue(read.promise);
+    const { store } = signedInWithId('granted');
+    const asking = store.dispatch(askToDeleteCloudData());
+    await vi.waitFor(() =>
+      expect(mocks.cloudDocumentExists).toHaveBeenCalled()
+    );
+    await store.dispatch(deleteCloudData());
+    expect(deleting(store)).toBeNull();
+    expect(mocks.cloudDocumentExists).toHaveBeenCalledTimes(1);
+    read.settle(false);
+    await asking;
+    expect(mocks.deleteFromFirestore).not.toHaveBeenCalled();
+  });
+});
