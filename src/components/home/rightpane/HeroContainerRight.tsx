@@ -9,6 +9,7 @@ import { useFocusOnRemount } from '../../../hooks/useFocusOnRemount';
 import { DropBoxLabel } from '../../common/dropBox';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
 import Icon from '../../common/Icon';
+import FoldAllGlyph from '../../common/FoldAllGlyph';
 import OverflowMenu from '../../common/OverflowMenu';
 import Button from '../../common/Button';
 import ClickableRow from '../../common/ClickableRow';
@@ -509,6 +510,14 @@ export default function HeroContainerRight() {
                   : t('Expand all windows')
               }
               type={anyWindowOpen ? 'unfold_less' : 'unfold_more'}
+              // KAN-756. Keyed by session: another session's glyph is drawn, not slid to.
+              renderGlyph={(glyphCss) => (
+                <FoldAllGlyph
+                  key={tabGroupId}
+                  folds={anyWindowOpen}
+                  glyphCss={glyphCss}
+                />
+              )}
               onClick={() =>
                 dispatch(
                   setAllWindowsCollapsed({

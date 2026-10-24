@@ -5,12 +5,10 @@ import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 //
 // Two of the three things asserted here are invisible to jsdom:
 //
-//   1. THE LIGATURE. Material Symbols renders `unfold_less` as one glyph only
-//      if that name is in the font. An unavailable ligature falls back to the
-//      LITERAL TEXT "unfold_less" rather than to tofu -- the trap Icon.tsx:251
-//      documents and the one KAN-5 had to measure inked width to catch. jsdom
-//      loads no font at all, so a component test sees the same DOM either way
-//      and can never tell a real glyph from the word.
+//   1. THE GLYPH IS DRAWN. Since KAN-756 the control draws its chevrons as
+//      outlines rather than the `unfold_less` ligature, so no font can turn
+//      it into the literal word. Where they are drawn, and how they move, is
+//      e2e/fold-all-morph.spec.ts.
 //
 //   2. THE ROWS LEAVING THE LAYOUT. jsdom reports every box as 0x0, so
 //      "collapsed" there means only "absent from the DOM". Whether the pane
@@ -88,33 +86,13 @@ test('folding every window shortens the pane, and the control offers to undo it'
   await expect(page.getByText('Alpha Page')).toBeVisible();
   await expect(page.getByText('Charlie Page')).toBeVisible();
 
-  // THE LIGATURE CHECK -- does `unfold_less` resolve to one glyph, or fall back
-  // to the literal word?
-  //
-  // MEASURED AS OVERFLOW, not as width. The obvious probe is the span's
-  // bounding box, and it cannot work: Icon.tsx:142 sets an explicit
-  // `width: ${size}` on this span, so the box reads 24px whether a glyph fills
-  // it or eleven characters spill out of it. That first version of this check
-  // passed happily against a deliberately misspelt ligature -- a probe with no
-  // control, which is how it got through.
-  //
-  // scrollWidth is the content's own width inside that fixed box, so it is the
-  // number that moves. Measured both ways at ICON.DEFAULT (1.5rem = 24px):
-  //
-  //   type="unfold_less"   box 24, scrollWidth 24   <- one glyph, fits
-  //   type="unfold_lesss"  box 24, scrollWidth 48   <- the word, overflowing
-  //
-  // Asserted as "does not overflow" rather than against the literal 24, so the
-  // check follows ICON.DEFAULT if the scale ever moves.
-  await page.waitForFunction(() => document.fonts.status === 'loaded');
-  const glyph = await control.evaluate((el) => {
-    const span = el.querySelector('.material-symbols-outlined')!;
-    return {
-      box: span.getBoundingClientRect().width,
-      content: span.scrollWidth,
-    };
-  });
-  expect(glyph.content).toBeLessThanOrEqual(glyph.box);
+  // THE GLYPH CHECK: two outlined chevrons and no text, which a ligature
+  // missing from the font would fall back to.
+  const glyph = await control.evaluate((el) => ({
+    chevrons: el.querySelectorAll('[data-fold-glyph] path').length,
+    text: el.textContent,
+  }));
+  expect(glyph).toEqual({ chevrons: 2, text: '' });
 
   // How much vertical room the window blocks actually occupy, before and after.
   //
