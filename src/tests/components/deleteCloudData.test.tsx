@@ -338,7 +338,7 @@ describe('the Delete cloud data button while it checks or deletes (KAN-719, KAN-
     await flush(1);
     expect(faceShown()).toBe('true');
     expect(busyGlyph()).toEqual({ glyph: 'sync', turning: 'true' });
-    // Drawn arrows, not the cloud_sync ligature.
+    // Drawn arrows, not a font ligature.
     expect(
       deleteButton().querySelector(
         '[data-second-face] .material-symbols-outlined'

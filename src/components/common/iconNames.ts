@@ -26,7 +26,6 @@ export const LIGATURE_ICON_NAMES = [
   'cloud',
   'cloud_done',
   'cloud_off',
-  'cloud_sync',
   'dark_mode',
   'delete',
   'done',
