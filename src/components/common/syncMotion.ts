@@ -1,7 +1,12 @@
+import type { IconName } from './iconNames';
 import {
-  type MorphPair,
   CLOUD_DONE_HALF_TURN,
+  CLOUD_DONE_PATH,
   CLOUD_DONE_UPRIGHT,
+  type MorphPair,
+  SYNC_PROBLEM_HALF_TURN,
+  SYNC_PROBLEM_PATH,
+  SYNC_PROBLEM_UPRIGHT,
 } from './syncMorph.data';
 
 // Timings and curves for the sync glyph's turn-and-morph (KAN-750).
@@ -26,10 +31,49 @@ export function settlePose(angleDeg: number): number {
   return angleDeg - pose < MIN_SETTLE_AHEAD_DEG ? pose - 180 : pose;
 }
 
-// Whole turns end upright; odd half turns end with the cloud turned 180 degrees.
-export function morphSetFor(endDeg: number): MorphPair[] {
-  if (endDeg % 360 === 0) return CLOUD_DONE_UPRIGHT;
-  if (endDeg % 180 === 0) return CLOUD_DONE_HALF_TURN;
+interface MorphTargetOutlines {
+  // The glyph's own outline, drawn at rest.
+  path: string;
+  // From the arrows to the glyph, for arrows that settle upright or upside down.
+  upright: MorphPair[];
+  halfTurn: MorphPair[];
+  // From the glyph back to the arrows: the upright set played backwards.
+  intoArrows: MorphPair[];
+}
+
+const outlines = (
+  path: string,
+  upright: MorphPair[],
+  halfTurn: MorphPair[]
+): MorphTargetOutlines => ({
+  path,
+  upright,
+  halfTurn,
+  intoArrows: upright.map(({ from, to }) => ({ from: to, to: from })),
+});
+
+// The glyphs the sync arrows morph into and back out of; any other change crossfades.
+export const MORPH_TARGETS = {
+  cloud_done: outlines(
+    CLOUD_DONE_PATH,
+    CLOUD_DONE_UPRIGHT,
+    CLOUD_DONE_HALF_TURN
+  ),
+  sync_problem: outlines(
+    SYNC_PROBLEM_PATH,
+    SYNC_PROBLEM_UPRIGHT,
+    SYNC_PROBLEM_HALF_TURN
+  ),
+} satisfies Partial<Record<IconName, MorphTargetOutlines>>;
+export type MorphTarget = keyof typeof MORPH_TARGETS;
+
+export const isMorphTarget = (glyph: IconName): glyph is MorphTarget =>
+  Object.prototype.hasOwnProperty.call(MORPH_TARGETS, glyph);
+
+// Whole turns end upright; odd half turns end with the glyph turned 180 degrees.
+export function morphSetFor(target: MorphTarget, endDeg: number): MorphPair[] {
+  if (endDeg % 360 === 0) return MORPH_TARGETS[target].upright;
+  if (endDeg % 180 === 0) return MORPH_TARGETS[target].halfTurn;
   throw new RangeError(
     `No morph set for ${endDeg} degrees; it must be a multiple of 180`
   );
@@ -102,4 +146,27 @@ export function matchRing(from: number[], to: number[]): number[] {
     }
   }
   return [...ring.slice(best * 2), ...ring.slice(0, best * 2)];
+}
+
+// A morph from the rings on screen to `ends`: ring i runs to ends[i]'s end. An end
+// with no ring on screen grows as its own set would; a ring with no end shrinks to
+// a point where it is (the sets differ in ring count).
+export function pairsFromFrame(
+  rings: number[][],
+  ends: MorphPair[]
+): MorphPair[] {
+  const toEnds = ends.map((end, i) =>
+    i < rings.length ? { from: rings[i], to: matchRing(rings[i], end.to) } : end
+  );
+  const shrinking = rings.slice(ends.length).map((ring) => {
+    const n = ring.length / 2;
+    let x = 0;
+    let y = 0;
+    for (let i = 0; i < ring.length; i += 2) {
+      x += ring[i] / n;
+      y += ring[i + 1] / n;
+    }
+    return { from: ring, to: ring.map((_, i) => (i % 2 === 0 ? x : y)) };
+  });
+  return [...toEnds, ...shrinking];
 }

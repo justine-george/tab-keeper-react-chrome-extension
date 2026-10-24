@@ -3,7 +3,11 @@ import { act, fireEvent, screen } from '@testing-library/react';
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { syncPressedAt } from '../../components/common/useShownSyncStatus';
-import { MORPH_MS } from '../../components/common/syncMotion';
+import { MORPH_MS, morphPath } from '../../components/common/syncMotion';
+import {
+  SYNC_PROBLEM_HALF_TURN,
+  SYNC_PROBLEM_PATH,
+} from '../../components/common/syncMorph.data';
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { describeSyncState } from '../../components/settings/rightpane/Account/describeSyncState';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -506,6 +510,36 @@ describe('the card follows the shown sync status (KAN-750)', () => {
     await advance(1);
     expect(card().textContent).toContain('Cloud sync on');
     expect(glyphOf(card())).toEqual({ glyph: 'cloud_done', turning: 'false' });
+  });
+
+  // KAN-750 r3 (B). The card shares SyncGlyph, so a failure morphs there too.
+  test('"Last sync failed" arrives by morph: the turning arrows grow a "!"', async () => {
+    const { store } = await renderSync();
+    await act(async () => {
+      store.dispatch(setSyncStatus('loading'));
+    });
+    await advance(150);
+    expect(glyphOf(card())).toEqual({ glyph: 'sync', turning: 'true' });
+
+    await act(async () => {
+      store.dispatch(setSyncStatus('error'));
+    });
+    await advance(400);
+    expect(card().textContent).toContain('Last sync failed');
+    expect(glyphOf(card())).toEqual({
+      glyph: 'sync_problem',
+      turning: 'false',
+    });
+    const root = card().querySelector('[data-glyph]');
+    const d = () =>
+      [...(root?.querySelectorAll('path') ?? [])].map((p) =>
+        p.getAttribute('d')
+      );
+    // One layer, morphing (no turn to read here, so it settles a half turn round).
+    expect(root?.childElementCount).toBe(1);
+    expect(d()).toEqual([morphPath(SYNC_PROBLEM_HALF_TURN, 0)]);
+    await advance(MORPH_MS);
+    expect(d()).toEqual([SYNC_PROBLEM_PATH]);
   });
 
   test('the button and the card show the same glyph at the click, at 150 ms and after the hold', async () => {

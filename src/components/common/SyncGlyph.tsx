@@ -11,7 +11,6 @@ import { DURATION, EASE } from '../../styles/scale';
 import { prefersReducedMotion } from '../modals/getStartedMotion';
 import type { IconName } from './iconNames';
 import {
-  CLOUD_DONE_PATH,
   type MorphPair,
   CLOUD_DONE_UPRIGHT,
   SYNC_PATH,
@@ -20,10 +19,13 @@ import {
   blendPoints,
   easeInOutCubic,
   INTO_TURN_EASE,
-  matchRing,
+  isMorphTarget,
   MORPH_MS,
+  MORPH_TARGETS,
+  type MorphTarget,
   morphPath,
   morphSetFor,
+  pairsFromFrame,
   SETTLE_EASE,
   settlePose,
   TURN_MS,
@@ -31,25 +33,19 @@ import {
 } from './syncMotion';
 
 // KAN-750. The sync button's glyph: `sync` turns while syncing and morphs to and
-// from `cloud_done`; any other change crossfades; reduced motion swaps at once.
+// from `cloud_done` and `sync_problem`; any other change crossfades; reduced
+// motion swaps at once.
 
-type OutlinedGlyph = 'sync' | 'cloud_done';
-const OUTLINES: Record<OutlinedGlyph, string> = {
-  sync: SYNC_PATH,
-  cloud_done: CLOUD_DONE_PATH,
-};
+type OutlinedGlyph = 'sync' | MorphTarget;
 const isOutlined = (glyph: IconName): glyph is OutlinedGlyph =>
-  glyph === 'sync' || glyph === 'cloud_done';
+  glyph === 'sync' || isMorphTarget(glyph);
+const outlineOf = (glyph: OutlinedGlyph): string =>
+  glyph === 'sync' ? SYNC_PATH : MORPH_TARGETS[glyph].path;
 
 const turn = keyframes`to { transform: rotate(-360deg); }`;
 const fadeIn = keyframes`from { opacity: 0; }`;
 const fadeOut = keyframes`to { opacity: 0; }`;
 
-// The cloud flowing into arrows: the upright set played backwards.
-const CLOUD_TO_ARROWS: MorphPair[] = CLOUD_DONE_UPRIGHT.map(({ from, to }) => ({
-  from: to,
-  to: from,
-}));
 // The arrows unchanged: a turn that stops settles without a change of shape.
 const ARROWS_STILL: MorphPair[] = CLOUD_DONE_UPRIGHT.map(({ from }) => ({
   from,
@@ -237,12 +233,7 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
     // A morph cut short by this change: start from the frame it shows.
     const live = liveFrames.current.get(top.key)?.();
     const startPairs = (ends: MorphPair[]) =>
-      live
-        ? live.points.map((points, i) => ({
-            from: points,
-            to: matchRing(points, ends[i].to),
-          }))
-        : ends;
+      live ? pairsFromFrame(live.points, ends) : ends;
     if (was.glyph === glyph) {
       asked.current = { ...was, turning };
       // A turn that stops settles to the next upright-looking pose, as a landing does.
@@ -284,9 +275,13 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
       setLayers([fresh]);
       return;
     }
-    if (isOutlined(was.glyph) && isOutlined(glyph)) {
+    // Only between the arrows and a glyph they morph into.
+    const target = glyph === 'sync' ? was.glyph : glyph;
+    const morphs =
+      (was.glyph === 'sync' || glyph === 'sync') && isMorphTarget(target);
+    if (morphs) {
       const intoArrows = glyph === 'sync';
-      // From where the glyph is turned now; a cloud at rest is upright.
+      // From where the glyph is turned now; a glyph at rest is upright.
       const fromDeg =
         live?.deg ??
         (intoArrows ? 0 : turnAngle(outlines.current.get(top.key)));
@@ -296,7 +291,9 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
       let toDeg = settlePose(fromDeg);
       if (intoArrows && turns) toDeg = fromDeg - 90;
       else if (intoArrows && fromDeg % 180 === 0) toDeg = fromDeg;
-      const ends = intoArrows ? CLOUD_TO_ARROWS : morphSetFor(toDeg);
+      const ends = intoArrows
+        ? MORPH_TARGETS[target].intoArrows
+        : morphSetFor(target, toDeg);
       setLayers([
         {
           ...fresh,
@@ -365,7 +362,7 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
           fill="currentColor"
           focusable="false"
         >
-          <path d={OUTLINES[l.glyph]} />
+          <path d={outlineOf(l.glyph)} />
         </svg>
       );
     return (

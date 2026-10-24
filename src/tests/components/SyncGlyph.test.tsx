@@ -10,6 +10,9 @@ import {
   CLOUD_DONE_HALF_TURN,
   CLOUD_DONE_UPRIGHT,
   SYNC_PATH,
+  SYNC_PROBLEM_HALF_TURN,
+  SYNC_PROBLEM_PATH,
+  SYNC_PROBLEM_UPRIGHT,
 } from '../../components/common/syncMorph.data';
 import {
   easeInOutCubic,
@@ -125,7 +128,7 @@ describe('SyncGlyph', () => {
     expect(keyframesOf(svg())).toBe('');
   });
 
-  test('draws sync and cloud_done as outlines and others as ligatures', () => {
+  test('draws sync, cloud_done and sync_problem as outlines and others as ligatures', () => {
     const { root, update, paths, svg } = setup({
       glyph: 'sync',
       turning: false,
@@ -143,10 +146,12 @@ describe('SyncGlyph', () => {
     // Under 50 ms after mount, so no morph: this is the drawing alone.
     update({ glyph: 'cloud_done', turning: false });
     outline(CLOUD_DONE_PATH);
+    update({ glyph: 'sync_problem', turning: false });
+    outline(SYNC_PROBLEM_PATH);
 
-    const ligature = setup({ glyph: 'sync_problem', turning: false });
+    const ligature = setup({ glyph: 'cloud_off', turning: false });
     const span = one(ligature.root(), '.material-symbols-outlined');
-    expect(span.textContent).toBe('sync_problem');
+    expect(span.textContent).toBe('cloud_off');
     expect(getComputedStyle(span).width).toBe('24px');
     expect(getComputedStyle(span).color).toBe('rgb(1, 2, 3)');
     expect(ligature.root().querySelector('svg')).toBeNull();
@@ -160,15 +165,15 @@ describe('SyncGlyph', () => {
   test('crossfades a pair with no morph', () => {
     const { root, update, layers } = setup({ glyph: 'sync', turning: true });
     wait(100);
-    update({ glyph: 'sync_problem', turning: false });
+    update({ glyph: 'cloud_off', turning: false });
 
-    expect(root().getAttribute('data-glyph')).toBe('sync_problem');
+    expect(root().getAttribute('data-glyph')).toBe('cloud_off');
     const [old, fresh] = layers();
     expect(layers()).toHaveLength(2);
     expect(old.querySelector('path')?.getAttribute('d')).toBe(SYNC_PATH);
     expect(keyframesOf(old)).toMatch(/to\{opacity:0;?\}/);
     expect(animationOf(old)).toMatch(/ 200ms /);
-    expect(fresh.textContent).toBe('sync_problem');
+    expect(fresh.textContent).toBe('cloud_off');
     expect(keyframesOf(fresh)).toMatch(/from\{opacity:0;?\}/);
 
     // Neither the arriving layer's end nor the turn inside the old one removes it.
@@ -194,7 +199,10 @@ describe('SyncGlyph', () => {
 
   // Chromium cancels the fade-in when a change swaps it for the fade-out mid-way.
   test('a change mid-fade-in fades the layer out instead of dropping it', () => {
-    const { update, layers } = setup({ glyph: 'cloud_off', turning: false });
+    const { update, layers, paths } = setup({
+      glyph: 'cloud_off',
+      turning: false,
+    });
     wait(100);
     update({ glyph: 'cloud', turning: false });
     const arriving = layers()[1];
@@ -209,7 +217,9 @@ describe('SyncGlyph', () => {
 
     fireAnimation(arriving, 'animationend', animationNameOf(arriving));
     expect(layers()).toHaveLength(1);
-    expect(layers()[0].textContent).toBe('sync_problem');
+    expect(paths().map((p) => p.getAttribute('d'))).toEqual([
+      SYNC_PROBLEM_PATH,
+    ]);
   });
 
   test('a glyph up under 50 ms is replaced without motion', () => {
@@ -255,12 +265,22 @@ describe('SyncGlyph', () => {
     update({ glyph: 'sync_problem', turning: false });
     expect(layers()).toHaveLength(1);
     expect(keyframesOf(layers()[0])).toBe('');
-    expect(layers()[0].textContent).toBe('sync_problem');
+    expect(paths().map((p) => p.getAttribute('d'))).toEqual([
+      SYNC_PROBLEM_PATH,
+    ]);
 
     wait(100);
     update({ glyph: 'sync', turning: true });
     expect(root().getAttribute('data-turning')).toBe('false');
     expect(keyframesOf(svg())).toBe('');
+
+    // A failure from turning arrows: no morph either.
+    wait(100);
+    update({ glyph: 'sync_problem', turning: false });
+    expect(layers()).toHaveLength(1);
+    expect(paths().map((p) => p.getAttribute('d'))).toEqual([
+      SYNC_PROBLEM_PATH,
+    ]);
   });
 
   test('a morph ends on the exact outline after MORPH_MS, without Web Animations', () => {
@@ -295,6 +315,100 @@ describe('SyncGlyph', () => {
     expect(getComputedStyle(svg()).animationDelay).toBe(`-${TURN_MS / 4}ms`);
   });
 
+  test('a failed sync morphs into sync_problem, and a press turns it back', () => {
+    const { root, update, layers, paths, svg } = setup({
+      glyph: 'sync',
+      turning: true,
+    });
+    wait(100);
+    update({ glyph: 'sync_problem', turning: false });
+    expect(root().getAttribute('data-glyph')).toBe('sync_problem');
+    expect(root().getAttribute('data-turning')).toBe('false');
+    // One layer, no crossfade: it settles a half turn round, the "!" upright.
+    expect(layers()).toHaveLength(1);
+    expect(keyframesOf(layers()[0])).toBe('');
+    expect(paths()[0].getAttribute('d')).toBe(
+      morphPath(SYNC_PROBLEM_HALF_TURN, 0)
+    );
+    wait(MORPH_MS - 1);
+    expect(paths()[0].getAttribute('d')).not.toBe(SYNC_PROBLEM_PATH);
+    wait(1);
+    expect(paths().map((p) => p.getAttribute('d'))).toEqual([
+      SYNC_PROBLEM_PATH,
+    ]);
+
+    // The retry: the "!" shrinks away as the arrows turn back in.
+    wait(100);
+    update({ glyph: 'sync', turning: true });
+    expect(layers()).toHaveLength(1);
+    expect(paths()[0].getAttribute('d')).toBe(
+      morphPath(SYNC_PROBLEM_UPRIGHT, 1)
+    );
+    wait(MORPH_MS);
+    expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
+    expect(keyframesOf(svg())).toContain('rotate(-360deg)');
+    expect(getComputedStyle(svg()).animationDelay).toBe(`-${TURN_MS / 4}ms`);
+  });
+
+  test('sync_problem and cloud_done crossfade: no morph between the two', () => {
+    const { update, layers } = setup({ glyph: 'cloud_done', turning: false });
+    wait(100);
+    update({ glyph: 'sync_problem', turning: false });
+    expect(layers()).toHaveLength(2);
+    expect(keyframesOf(layers()[1])).toMatch(/from\{opacity:0;?\}/);
+    expect(layers()[1].querySelector('path')?.getAttribute('d')).toBe(
+      SYNC_PROBLEM_PATH
+    );
+
+    const back = setup({ glyph: 'sync_problem', turning: false });
+    wait(100);
+    back.update({ glyph: 'cloud_done', turning: false });
+    expect(back.layers()).toHaveLength(2);
+    expect(back.layers()[1].querySelector('path')?.getAttribute('d')).toBe(
+      CLOUD_DONE_PATH
+    );
+  });
+
+  // The sets differ in ring count (arrows + check, arrows + bar + dot).
+  test.each([
+    { first: 'cloud_done', then: 'sync_problem' },
+    { first: 'sync_problem', then: 'cloud_done' },
+  ] as const)(
+    'a $then mid-press-morph from $first ends exact on $then',
+    ({ first, then }) => {
+      const error = vi.spyOn(console, 'error');
+      const { root, update, layers, paths } = setup({
+        glyph: first,
+        turning: false,
+      });
+      wait(100);
+      update({ glyph: 'sync', turning: true });
+      wait(208);
+      const shown = paths()[0].getAttribute('d');
+      update({ glyph: then, turning: false });
+      // From the frame on screen: no jump. Into sync_problem the "!" dot also
+      // starts, from a point (at most 4 units across) that the check never had.
+      const drawn = paths()[0].getAttribute('d') ?? '';
+      expect(drawn.startsWith(shown ?? '-')).toBe(true);
+      const seed = drawn.slice(shown?.length).match(/-?\d+(\.\d+)?/g) ?? [];
+      expect(seed.length).toBe(then === 'sync_problem' ? 24 : 0);
+      const xs = seed.filter((_, i) => i % 2 === 0).map(Number);
+      const ys = seed.filter((_, i) => i % 2 === 1).map(Number);
+      if (seed.length) {
+        expect(Math.max(...xs) - Math.min(...xs)).toBeLessThanOrEqual(4);
+        expect(Math.max(...ys) - Math.min(...ys)).toBeLessThanOrEqual(4);
+      }
+      expect(layers()).toHaveLength(1);
+      wait(MORPH_MS);
+      expect(root().getAttribute('data-glyph')).toBe(then);
+      expect(paths().map((p) => p.getAttribute('d'))).toEqual([
+        then === 'cloud_done' ? CLOUD_DONE_PATH : SYNC_PROBLEM_PATH,
+      ]);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(error).not.toHaveBeenCalled();
+    }
+  );
+
   test('a change during a morph ends on the newest glyph', () => {
     const error = vi.spyOn(console, 'error');
     const { root, update, layers, paths, svg } = setup({
@@ -328,7 +442,9 @@ describe('SyncGlyph', () => {
     const [old, fresh] = layers();
     expect(old.querySelector('path')?.getAttribute('d')).toBe(CLOUD_DONE_PATH);
     expect(keyframesOf(old)).toMatch(/to\{opacity:0;?\}/);
-    expect(fresh.textContent).toBe('sync_problem');
+    expect(fresh.querySelector('path')?.getAttribute('d')).toBe(
+      SYNC_PROBLEM_PATH
+    );
     wait(MORPH_MS);
     expect(root().getAttribute('data-glyph')).toBe('sync_problem');
     expect(old.querySelector('path')?.getAttribute('d')).toBe(CLOUD_DONE_PATH);
@@ -349,11 +465,12 @@ describe('SyncGlyph', () => {
   });
 });
 
-// The cloud's first frame as it starts to flow into arrows.
-const CLOUD_TO_ARROWS_AT_START = CLOUD_DONE_UPRIGHT.map(({ to }) => ({
-  from: to,
-  to,
-}));
+// The glyph's first frame as it starts to flow into arrows.
+const atStart = (glyph: 'cloud_done' | 'sync_problem') =>
+  (glyph === 'cloud_done' ? CLOUD_DONE_UPRIGHT : SYNC_PROBLEM_UPRIGHT).map(
+    ({ to }) => ({ from: to, to })
+  );
+const CLOUD_TO_ARROWS_AT_START = atStart('cloud_done');
 // The upright arrows, unchanged from first frame to last.
 const ARROWS_STILL = CLOUD_DONE_UPRIGHT.map(({ from }) => ({ from, to: from }));
 
@@ -407,17 +524,49 @@ describe('SyncGlyph with Web Animations', () => {
 
   test.each([
     // 0.4 of a turn is -144 degrees: the next half-turn pose 45 ahead is -360, upright.
-    { progress: 0.4, from: -144, to: -360, pairs: CLOUD_DONE_UPRIGHT },
+    {
+      glyph: 'cloud_done',
+      progress: 0.4,
+      from: -144,
+      to: -360,
+      pairs: CLOUD_DONE_UPRIGHT,
+      path: CLOUD_DONE_PATH,
+    },
     // 0.3 is -108: -180 is 72 ahead, so it settles a half turn round.
-    { progress: 0.3, from: -108, to: -180, pairs: CLOUD_DONE_HALF_TURN },
-  ])(
-    'at $progress of a turn it settles from $from to $to degrees',
-    ({ progress, from, to, pairs }) => {
+    {
+      glyph: 'cloud_done',
+      progress: 0.3,
+      from: -108,
+      to: -180,
+      pairs: CLOUD_DONE_HALF_TURN,
+      path: CLOUD_DONE_PATH,
+    },
+    // A failed sync lands the same way, into the arrows with a "!".
+    {
+      glyph: 'sync_problem',
+      progress: 0.4,
+      from: -144,
+      to: -360,
+      pairs: SYNC_PROBLEM_UPRIGHT,
+      path: SYNC_PROBLEM_PATH,
+    },
+    // Upside down, so the half-turn set: the "!" ends upright.
+    {
+      glyph: 'sync_problem',
+      progress: 0.3,
+      from: -108,
+      to: -180,
+      pairs: SYNC_PROBLEM_HALF_TURN,
+      path: SYNC_PROBLEM_PATH,
+    },
+  ] as const)(
+    'into $glyph at $progress of a turn it settles from $from to $to degrees',
+    ({ glyph, progress, from, to, pairs, path }) => {
       const { update, paths, svg } = setup({ glyph: 'sync', turning: true });
       // On a frame boundary, so the frames below land on known times.
       wait(160);
       turnAt(svg(), progress);
-      update({ glyph: 'cloud_done', turning: false });
+      update({ glyph, turning: false });
 
       expect(animate).toHaveBeenCalledTimes(1);
       expect(animate.mock.calls[0]).toEqual([
@@ -437,42 +586,46 @@ describe('SyncGlyph with Web Animations', () => {
       expect(cancel).not.toHaveBeenCalled();
       wait(MORPH_MS - 208);
       expect(cancel).toHaveBeenCalledTimes(1);
-      expect(paths().map((p) => p.getAttribute('d'))).toEqual([
-        CLOUD_DONE_PATH,
-      ]);
+      expect(paths().map((p) => p.getAttribute('d'))).toEqual([path]);
     }
   );
 
-  test('into a turning sync it turns a quarter with the into-turn ease', () => {
-    const { update } = setup({ glyph: 'cloud_done', turning: false });
-    wait(100);
-    update({ glyph: 'sync', turning: true });
-    expect(animate.mock.calls[0]).toEqual([
-      [{ transform: 'rotate(0deg)' }, { transform: 'rotate(-90deg)' }],
-      { duration: MORPH_MS, easing: INTO_TURN_EASE, fill: 'forwards' },
-    ]);
-  });
+  test.each(['cloud_done', 'sync_problem'] as const)(
+    'from %s into a turning sync it turns a quarter with the into-turn ease',
+    (glyph) => {
+      const { update, paths } = setup({ glyph, turning: false });
+      wait(100);
+      update({ glyph: 'sync', turning: true });
+      expect(animate.mock.calls[0]).toEqual([
+        [{ transform: 'rotate(0deg)' }, { transform: 'rotate(-90deg)' }],
+        { duration: MORPH_MS, easing: INTO_TURN_EASE, fill: 'forwards' },
+      ]);
+      // It starts from the glyph itself, upright.
+      expect(paths()[0].getAttribute('d')).toBe(morphPath(atStart(glyph), 0));
+    }
+  );
 
-  // An edit after a sync: the cloud becomes still arrows where it stands.
-  test('into a still sync it morphs without turning', () => {
-    const { root, update, paths, svg } = setup({
-      glyph: 'cloud_done',
-      turning: false,
-    });
-    wait(100);
-    update({ glyph: 'sync', turning: false });
-    expect(animate.mock.calls[0]).toEqual([
-      [{ transform: 'rotate(0deg)' }, { transform: 'rotate(0deg)' }],
-      { duration: MORPH_MS, easing: SETTLE_EASE, fill: 'forwards' },
-    ]);
-    expect(paths()[0].getAttribute('d')).toBe(
-      morphPath(CLOUD_TO_ARROWS_AT_START, 0)
-    );
-    wait(MORPH_MS);
-    expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
-    expect(root().getAttribute('data-turning')).toBe('false');
-    expect(keyframesOf(svg())).toBe('');
-  });
+  // An edit after a sync, or after a failed one: the glyph becomes still arrows where it stands.
+  test.each(['cloud_done', 'sync_problem'] as const)(
+    'from %s into a still sync it morphs without turning',
+    (glyph) => {
+      const { root, update, paths, svg } = setup({
+        glyph,
+        turning: false,
+      });
+      wait(100);
+      update({ glyph: 'sync', turning: false });
+      expect(animate.mock.calls[0]).toEqual([
+        [{ transform: 'rotate(0deg)' }, { transform: 'rotate(0deg)' }],
+        { duration: MORPH_MS, easing: SETTLE_EASE, fill: 'forwards' },
+      ]);
+      expect(paths()[0].getAttribute('d')).toBe(morphPath(atStart(glyph), 0));
+      wait(MORPH_MS);
+      expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
+      expect(root().getAttribute('data-turning')).toBe('false');
+      expect(keyframesOf(svg())).toBe('');
+    }
+  );
 
   test('a landing cut short into a still sync settles upright from the frame on screen', () => {
     const { update, paths, svg } = setup({ glyph: 'sync', turning: true });
@@ -551,6 +704,52 @@ describe('SyncGlyph with Web Animations', () => {
     ]);
     wait(MORPH_MS);
     expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
+  });
+
+  // Its rings are the arrows, the "!" bar and dot; still arrows have no bar.
+  test('a stop during a retry morph settles from the frame on screen, the "!" gone', () => {
+    const error = vi.spyOn(console, 'error');
+    const { update, paths } = setup({ glyph: 'sync_problem', turning: false });
+    wait(160);
+    update({ glyph: 'sync', turning: true });
+    wait(208);
+    const shown = paths()[0].getAttribute('d');
+    rotationProgress = 0.4;
+
+    update({ glyph: 'sync', turning: false });
+    expect(paths()[0].getAttribute('d')).toBe(shown);
+    expect(animate.mock.calls[1]).toEqual([
+      [{ transform: 'rotate(-36deg)' }, { transform: 'rotate(-180deg)' }],
+      { duration: MORPH_MS, easing: SETTLE_EASE, fill: 'forwards' },
+    ]);
+    wait(MORPH_MS);
+    expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  test('a press mid-failure-morph turns back from the frame on screen', () => {
+    const { root, update, paths, svg } = setup({
+      glyph: 'sync',
+      turning: true,
+    });
+    wait(160);
+    turnAt(svg(), 0.4);
+    update({ glyph: 'sync_problem', turning: false });
+    wait(208);
+    const shown = paths()[0].getAttribute('d');
+    // -144 to -360, half way along its ease: -252 on screen.
+    rotationProgress = 0.5;
+
+    update({ glyph: 'sync', turning: true });
+    expect(paths()[0].getAttribute('d')).toBe(shown);
+    expect(animate.mock.calls[1]).toEqual([
+      [{ transform: 'rotate(-252deg)' }, { transform: 'rotate(-342deg)' }],
+      { duration: MORPH_MS, easing: INTO_TURN_EASE, fill: 'forwards' },
+    ]);
+    wait(MORPH_MS);
+    expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
+    expect(root().getAttribute('data-turning')).toBe('true');
+    expect(getComputedStyle(svg()).animationDelay).toBe('-950ms');
   });
 
   test('a stop under reduced motion changes nothing: there was no turn', () => {

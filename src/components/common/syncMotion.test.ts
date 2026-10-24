@@ -1,13 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { DURATION } from '../../styles/scale';
-import { CLOUD_DONE_HALF_TURN, CLOUD_DONE_UPRIGHT } from './syncMorph.data';
+import {
+  CLOUD_DONE_HALF_TURN,
+  CLOUD_DONE_PATH,
+  CLOUD_DONE_UPRIGHT,
+  SYNC_PROBLEM_HALF_TURN,
+  SYNC_PROBLEM_PATH,
+  SYNC_PROBLEM_UPRIGHT,
+} from './syncMorph.data';
 import {
   blendPoints,
   CROSSFADE_MS,
   easeInOutCubic,
+  isMorphTarget,
   matchRing,
+  MORPH_TARGETS,
   morphPath,
   morphSetFor,
+  pairsFromFrame,
   settlePose,
 } from './syncMotion';
 
@@ -43,19 +53,86 @@ describe('settlePose', () => {
 });
 
 describe('morphSetFor', () => {
-  it('uses the upright set for whole turns', () => {
-    expect(morphSetFor(0)).toBe(CLOUD_DONE_UPRIGHT);
-    expect(morphSetFor(-360)).toBe(CLOUD_DONE_UPRIGHT);
-    expect(morphSetFor(-720)).toBe(CLOUD_DONE_UPRIGHT);
-  });
-  it('uses the half-turn set for odd multiples of 180', () => {
-    expect(morphSetFor(-180)).toBe(CLOUD_DONE_HALF_TURN);
-    expect(morphSetFor(180)).toBe(CLOUD_DONE_HALF_TURN);
-    expect(morphSetFor(-540)).toBe(CLOUD_DONE_HALF_TURN);
-  });
+  it.each([
+    ['cloud_done', CLOUD_DONE_UPRIGHT, CLOUD_DONE_HALF_TURN],
+    ['sync_problem', SYNC_PROBLEM_UPRIGHT, SYNC_PROBLEM_HALF_TURN],
+  ] as const)(
+    '%s: upright for whole turns, half-turn for odd half turns',
+    (target, upright, halfTurn) => {
+      expect(morphSetFor(target, 0)).toBe(upright);
+      expect(morphSetFor(target, -360)).toBe(upright);
+      expect(morphSetFor(target, -720)).toBe(upright);
+      expect(morphSetFor(target, -180)).toBe(halfTurn);
+      expect(morphSetFor(target, 180)).toBe(halfTurn);
+      expect(morphSetFor(target, -540)).toBe(halfTurn);
+    }
+  );
   it('throws for an angle that is not a multiple of 180', () => {
-    expect(() => morphSetFor(-90)).toThrow(RangeError);
-    expect(() => morphSetFor(NaN)).toThrow(RangeError);
+    expect(() => morphSetFor('cloud_done', -90)).toThrow(RangeError);
+    expect(() => morphSetFor('sync_problem', NaN)).toThrow(RangeError);
+  });
+});
+
+describe('MORPH_TARGETS', () => {
+  it('draws each target with its own outline, and flows back by its upright set reversed', () => {
+    expect(MORPH_TARGETS.cloud_done.path).toBe(CLOUD_DONE_PATH);
+    expect(MORPH_TARGETS.sync_problem.path).toBe(SYNC_PROBLEM_PATH);
+    for (const [target, upright] of [
+      ['cloud_done', CLOUD_DONE_UPRIGHT],
+      ['sync_problem', SYNC_PROBLEM_UPRIGHT],
+    ] as const) {
+      expect(MORPH_TARGETS[target].intoArrows).toEqual(
+        upright.map(({ from, to }) => ({ from: to, to: from }))
+      );
+    }
+  });
+  it('names only the glyphs the arrows morph into', () => {
+    expect(isMorphTarget('cloud_done')).toBe(true);
+    expect(isMorphTarget('sync_problem')).toBe(true);
+    expect(isMorphTarget('sync')).toBe(false);
+    expect(isMorphTarget('cloud_off')).toBe(false);
+  });
+});
+
+describe('pairsFromFrame', () => {
+  const ring = (cx: number, cy: number) => [
+    cx - 1,
+    cy - 1,
+    cx + 1,
+    cy - 1,
+    cx + 1,
+    cy + 1,
+    cx - 1,
+    cy + 1,
+  ];
+  const end = (cx: number, cy: number) => ({
+    from: ring(cx, cy),
+    to: ring(cx + 10, cy),
+  });
+
+  it('runs each ring on screen to its end, without a twist', () => {
+    const shown = [ring(0, 0), ring(50, 0)];
+    const ends = [end(0, 0), end(50, 0)];
+    expect(pairsFromFrame(shown, ends)).toEqual(
+      shown.map((from, i) => ({ from, to: matchRing(from, ends[i].to) }))
+    );
+  });
+
+  it('grows an end with no ring on screen as its own set would', () => {
+    const ends = [end(0, 0), end(50, 0), end(90, 0)];
+    const pairs = pairsFromFrame([ring(0, 0), ring(50, 0)], ends);
+    expect(pairs).toHaveLength(3);
+    expect(pairs[2]).toBe(ends[2]);
+  });
+
+  it('shrinks a ring with no end to a point where it is', () => {
+    const shown = [ring(0, 0), ring(50, 0), ring(90, 20)];
+    const pairs = pairsFromFrame(shown, [end(0, 0), end(50, 0)]);
+    expect(pairs).toHaveLength(3);
+    expect(pairs[2]).toEqual({
+      from: shown[2],
+      to: [90, 20, 90, 20, 90, 20, 90, 20],
+    });
   });
 });
 
