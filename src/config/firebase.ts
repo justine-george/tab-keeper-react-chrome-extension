@@ -16,6 +16,7 @@ import {
 import { AppDispatch } from '../redux/store';
 import { decompressFromBytes } from '../utils/functions/compression';
 import {
+  bootSignInFailed,
   setFirebaseAuthed,
   setFirebaseUnauthed,
 } from '../redux/slices/globalStateSlice';
@@ -133,6 +134,8 @@ export const observeAuthState = (dispatch: AppDispatch) => {
       // wait (ensureCloudSessionReady) gets the same rejection and reports it.
       signInUserAnonymously().catch((error) => {
         console.warn(`Error (${error.code}): ${error.message}`);
+        // KAN-750 R14. The boot sync waits on this sign-in; it is not coming.
+        dispatch(bootSignInFailed());
       });
     }
   });

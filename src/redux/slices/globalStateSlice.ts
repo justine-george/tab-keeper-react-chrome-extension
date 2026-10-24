@@ -212,6 +212,9 @@ export interface Global {
   // KAN-750 R12. A Sync now runs, from its press through sign-in to its
   // sync's end: the button reads "Syncing…" before syncStatus can.
   isSyncNowRunning: boolean;
+  // KAN-750 R14. The auth listener's own sign-in failed (offline, blocked):
+  // the boot sync waiting on it is not coming. A press signs in again.
+  hasBootSignInFailed: boolean;
   // KAN-280 O5. A saved session clicked while the tab view is folded shows
   // beside Open now until the fold button is next pressed. Session-only, so
   // a new page opens as the stored setting says.
@@ -332,6 +335,7 @@ export const initialState: Global = {
   isSyncQueued: false,
   hasStartedSync: false,
   isSyncNowRunning: false,
+  hasBootSignInFailed: false,
   isPeekingSavedSession: false,
   isRunHere: false,
   hasRunShownHere: false,
@@ -1343,6 +1347,9 @@ export const globalStateSlice = createSlice({
     setSyncNowRunning: (state, action: PayloadAction<boolean>) => {
       state.isSyncNowRunning = action.payload;
     },
+    bootSignInFailed: (state) => {
+      state.hasBootSignInFailed = true;
+    },
 
     setUserId: (state, action: PayloadAction<string>) => {
       state.userId = action.payload;
@@ -1597,6 +1604,7 @@ export const {
   setLoggedOut,
   setSyncStatus,
   setSyncNowRunning,
+  bootSignInFailed,
   setUserId,
   removeUserId,
   setAwaitsDeviceId,
@@ -1613,11 +1621,13 @@ export const {
 } = globalStateSlice.actions;
 
 // KAN-750. Signed in and set to sync, but no sync has begun: the slow
-// Firebase sign-in is pending. The glyph shows this wait as syncing.
+// Firebase sign-in is pending. The glyph shows this wait as syncing; a failed
+// sign-in ends it (R14).
 export const selectAwaitsBootSync = (state: RootState): boolean =>
   state.globalState.isSignedIn &&
   cloudSyncAllowed(state.settingsDataState) &&
   state.globalState.isCloudConfigured &&
-  !state.globalState.hasStartedSync;
+  !state.globalState.hasStartedSync &&
+  !state.globalState.hasBootSignInFailed;
 
 export default globalStateSlice.reducer;

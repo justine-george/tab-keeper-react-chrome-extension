@@ -7,8 +7,10 @@ vi.hoisted(() => {
 });
 
 import {
+  bootSignInFailed,
   saveToFirestoreIfDirty,
   selectAwaitsBootSync,
+  setFirebaseAuthed,
   setCloudConfigured,
   setSignedIn,
   syncStateWithFirestore,
@@ -55,6 +57,21 @@ describe('hasStartedSync', () => {
 describe('selectAwaitsBootSync', () => {
   it('is true when signed in, consented, auto sync on, configured, nothing started', () => {
     expect(selectAwaitsBootSync(readyStore().getState())).toBe(true);
+  });
+
+  // KAN-750 R14. Offline or blocked: the boot sync is not coming, so no wait.
+  it('is false once the boot sign-in has failed', () => {
+    const store = readyStore();
+    store.dispatch(bootSignInFailed());
+    expect(selectAwaitsBootSync(store.getState())).toBe(false);
+  });
+
+  it('a sign-in that lands keeps it true until the sync starts', () => {
+    const store = readyStore();
+    store.dispatch(setFirebaseAuthed());
+    expect(selectAwaitsBootSync(store.getState())).toBe(true);
+    store.dispatch({ type: SYNC_PENDING });
+    expect(selectAwaitsBootSync(store.getState())).toBe(false);
   });
 
   it('is false once a sync has started', () => {
