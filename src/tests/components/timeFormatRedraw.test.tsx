@@ -19,6 +19,7 @@ import {
   setCloudConfigured,
   setSignedIn,
   setSyncStatus,
+  syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
 import {
   grantCloudConsent,
@@ -60,6 +61,8 @@ const synced = (store: Store) => {
   store.dispatch(setCloudConfigured(true));
   store.dispatch(grantCloudConsent());
   store.dispatch(setLastSyncedTime(AT));
+  // The sync that landed started this page load (else the boot wait, KAN-750).
+  store.dispatch(syncStateWithFirestore.pending('boot', undefined));
   store.dispatch(setSyncStatus('success'));
 };
 

@@ -194,14 +194,15 @@ describe('the header sync affordance', () => {
     });
   });
 
-  // KAN-750 R8. Signed in, cloud on, consent and Auto Sync, nothing started:
-  // the boot sync is coming, so the DRAWING turns while the words stay real
-  // (KAN-342): "Sync now", enabled.
+  // KAN-750 R8b. Signed in, cloud on, consent and Auto Sync, nothing started:
+  // the boot sync is committed, so the button is "Syncing…" and dimmed at once.
+  // The drawing still waits 150 ms; the 8 s limit gives back "Sync now".
   describe('while the boot sync waits for sign-in', () => {
-    const renderBootWait = async () => {
-      // Page time starts at 0 only on the fully faked clock.
+    // Page time starts at 0 only on the fully faked clock.
+    const renderBootWait = async (pageMs = 0) => {
       vi.useRealTimers();
       vi.useFakeTimers();
+      vi.advanceTimersByTime(pageMs);
       return renderMenu((s) => {
         s.dispatch(setSignedIn());
         s.dispatch(setCloudConfigured(true));
@@ -214,25 +215,34 @@ describe('the header sync affordance', () => {
         await vi.advanceTimersByTimeAsync(ms);
       });
 
-    test('the drawing turns from 150 ms while the name stays Sync now and enabled', async () => {
+    test('named Syncing… and dimmed at once; the drawing turns from 150 ms', async () => {
       await renderBootWait();
+      expect(syncControl('Syncing…').getAttribute('aria-disabled')).toBe(
+        'true'
+      );
       await advance(149);
-      expect(glyphOf(syncControl()).turning).toBe('false');
+      expect(glyphOf(syncControl('Syncing…'))).toEqual({
+        glyph: 'sync',
+        turning: 'false',
+      });
       await advance(1);
-      expect(glyphOf(syncControl())).toEqual({
+      expect(glyphOf(syncControl('Syncing…'))).toEqual({
         glyph: 'sync',
         turning: 'true',
       });
-      expect(syncControl().getAttribute('aria-disabled')).toBeNull();
     });
 
-    test('once the sync starts and lands, the drawing settles per the normal rules', async () => {
+    // One reducer sets both the start and 'loading': no gap, no second delay.
+    test('the real sync takes over with no change and no second delay', async () => {
       const { store } = await renderBootWait();
-      await advance(150);
-      expect(glyphOf(syncControl()).turning).toBe('true');
+      await advance(100);
       await act(async () => {
         store.dispatch(syncStateWithFirestore.pending('boot', undefined));
       });
+      expect(syncControl('Syncing…').getAttribute('aria-disabled')).toBe(
+        'true'
+      );
+      await advance(50); // 150 ms after open, not after the start
       expect(glyphOf(syncControl('Syncing…')).turning).toBe('true');
       await act(async () => {
         store.dispatch(setSyncStatus('success'));
@@ -245,16 +255,34 @@ describe('the header sync affordance', () => {
       });
     });
 
-    test('a wait that never ends stops turning at 8 s of page time', async () => {
+    test('a wait that never ends gives back an enabled Sync now at 8 s of page time', async () => {
       await renderBootWait();
       await advance(7999);
-      expect(glyphOf(syncControl()).turning).toBe('true');
+      expect(glyphOf(syncControl('Syncing…')).turning).toBe('true');
+      expect(syncControl('Syncing…').getAttribute('aria-disabled')).toBe(
+        'true'
+      );
       await advance(1);
       expect(glyphOf(syncControl())).toEqual({
         glyph: 'sync',
         turning: 'false',
       });
       expect(syncControl().getAttribute('aria-disabled')).toBeNull();
+    });
+
+    test('opened after 8 s of page time, it is Sync now from the first render', async () => {
+      await renderBootWait(8000);
+      // No timer has run: this is what the first render drew.
+      expect(syncControl().getAttribute('aria-disabled')).toBeNull();
+      expect(glyphOf(syncControl()).turning).toBe('false');
+    });
+
+    test('a click during the wait starts nothing', async () => {
+      const { store } = await renderBootWait();
+      await advance(1);
+      fireEvent.click(syncControl('Syncing…'));
+      expect(syncPressedAt.current).toBe(-Infinity);
+      expect(store.getState().globalState.syncStatus).toBe('idle');
     });
   });
 });

@@ -11,6 +11,7 @@ import Icon from '../../common/Icon';
 import SyncGlyph from '../../common/SyncGlyph';
 import {
   syncPressedAt,
+  useBootSyncWait,
   useShownSyncStatus,
 } from '../../common/useShownSyncStatus';
 import OverflowMenu from '../../common/OverflowMenu';
@@ -78,6 +79,7 @@ export default function MenuContainer() {
     (state: RootState) => state.globalState.awaitsDeviceId
   );
   const awaitsBootSync = useSelector(selectAwaitsBootSync);
+  const isBootWait = useBootSyncWait(awaitsBootSync);
   const isCloudConfigured = useSelector(
     (state: RootState) => state.globalState.isCloudConfigured
   );
@@ -164,9 +166,9 @@ export default function MenuContainer() {
   }
 
   // KAN-750. Only the drawing follows the shown status, which lags a sync that
-  // nobody pressed; the words, the dimming and the tooltip keep the real one.
+  // nobody pressed; the words, the dimming and the tooltip do not (KAN-342 below).
   const shownSyncStatus = useShownSyncStatus(syncStatus, {
-    awaitsBootSync,
+    awaitsSync: isBootWait,
     pressedAt: syncPressedAt,
   });
 
@@ -191,22 +193,14 @@ export default function MenuContainer() {
   // every mode: describeSyncState puts Auto Sync first because the card
   // describes the setting, and under Manual sync it would name a dimmed
   // button "Manual sync", which says nothing about why it is dimmed.
-  let syncIconType: IconName;
+  //
+  // KAN-750 R8b. The words follow the real state at once, or a sync already
+  // committed to: the boot sync waiting for sign-in, until its 8 s limit.
   let dimmedBecause: string | null = null;
   // KAN-599. No id yet is no reason to dim: the press asks the question, and the yes mints one.
-  if (!isSignedIn && !awaitsDeviceId) {
-    syncIconType = 'cloud_off';
-    dimmedBecause = t('Sync unavailable');
-  } else if (syncStatus === 'loading') {
-    syncIconType = 'cloud_sync';
+  if (!isSignedIn && !awaitsDeviceId) dimmedBecause = t('Sync unavailable');
+  else if (syncStatus === 'loading' || isBootWait)
     dimmedBecause = t('Syncing…');
-  } else if (syncStatus === 'error') {
-    syncIconType = 'sync_problem';
-  } else if (syncStatus === 'success') {
-    syncIconType = 'cloud_done';
-  } else {
-    syncIconType = 'sync';
-  }
 
   // What is drawn: cloud_off beats any status, as above; a shown sync turns.
   let drawnGlyph: IconName;
@@ -232,14 +226,14 @@ export default function MenuContainer() {
   // Once synced there is nothing known to send, so the tooltip says when
   // instead of "Sync now", as the card does (KAN-255). A click still reads
   // the cloud for other devices' changes -- firestore/lite has no listener --
-  // so the name stays the action. Keyed on the glyph that says synced.
+  // so the name stays the action. Keyed on a pressable button after a sync.
   // Dated like a session (KAN-584); a time that isn't a date says nothing.
   const syncedTime =
     lastSyncedTime === ''
       ? ''
       : sessionWhen(lastSyncedTime, i18n.language, timeFormat, today);
   const syncedWhen =
-    syncIconType === 'cloud_done' && syncedTime !== ''
+    dimmedBecause === null && syncStatus === 'success' && syncedTime !== ''
       ? t('Last synced {{time}}', { time: syncedTime })
       : null;
   const syncDetail =
@@ -517,7 +511,7 @@ export default function MenuContainer() {
               detail: syncedWhen ?? t('Sync now'),
             })
           }
-          type={syncIconType}
+          type={drawnGlyph}
           renderGlyph={(glyphCss) => (
             <SyncGlyph
               glyph={drawnGlyph}

@@ -4,6 +4,7 @@ import { StrictMode } from 'react';
 
 import {
   syncBusyEndedAt,
+  useBootSyncWait,
   useShownSyncStatus,
 } from '../../components/common/useShownSyncStatus';
 import type { SyncStatus } from '../../redux/slices/globalStateSlice';
@@ -14,11 +15,21 @@ import type { SyncStatus } from '../../redux/slices/globalStateSlice';
 type Props = { raw: SyncStatus; awaitsBootSync: boolean };
 const NEVER = -Infinity;
 
+// The two hooks as the button and the card compose them.
+function useShownWithBootWait(
+  raw: SyncStatus,
+  awaitsBootSync: boolean,
+  pressedAt: { current: number }
+): SyncStatus {
+  const awaitsSync = useBootSyncWait(awaitsBootSync);
+  return useShownSyncStatus(raw, { awaitsSync, pressedAt });
+}
+
 function setup(initial: Partial<Props> = {}) {
   const pressed = { current: NEVER };
   let latest: Props = { raw: 'idle', awaitsBootSync: false, ...initial };
   const view = renderHook(
-    (p: Props) => useShownSyncStatus(p.raw, { ...p, pressedAt: pressed }),
+    (p: Props) => useShownWithBootWait(p.raw, p.awaitsBootSync, pressed),
     { initialProps: latest }
   );
   const update = (p: Partial<Props>) => {
@@ -111,7 +122,7 @@ describe('useShownSyncStatus', () => {
     const mk = () =>
       renderHook(
         (raw: SyncStatus) =>
-          useShownSyncStatus(raw, { awaitsBootSync: false, pressedAt: shared }),
+          useShownSyncStatus(raw, { awaitsSync: false, pressedAt: shared }),
         { initialProps: 'idle' as SyncStatus }
       );
     const a = mk();
@@ -140,7 +151,7 @@ describe('useShownSyncStatus', () => {
     const mk = (raw: SyncStatus) =>
       renderHook(
         (r: SyncStatus) =>
-          useShownSyncStatus(r, { awaitsBootSync: false, pressedAt: shared }),
+          useShownSyncStatus(r, { awaitsSync: false, pressedAt: shared }),
         { initialProps: raw }
       );
     const first = mk('idle');
@@ -159,7 +170,7 @@ describe('useShownSyncStatus', () => {
     const view = renderHook(
       (r: SyncStatus) =>
         useShownSyncStatus(r, {
-          awaitsBootSync: false,
+          awaitsSync: false,
           pressedAt: { current: -Infinity },
         }),
       { initialProps: 'loading' as SyncStatus }
@@ -176,7 +187,7 @@ describe('useShownSyncStatus', () => {
     vi.advanceTimersByTime(1);
     const view = renderHook(
       (r: SyncStatus) =>
-        useShownSyncStatus(r, { awaitsBootSync: false, pressedAt: shared }),
+        useShownSyncStatus(r, { awaitsSync: false, pressedAt: shared }),
       { initialProps: 'idle' as SyncStatus }
     );
     act(() => view.rerender('loading'));
@@ -186,11 +197,7 @@ describe('useShownSyncStatus', () => {
   // Dev builds render under StrictMode, which unmounts and remounts once.
   test('under StrictMode a busy mount still shows after the delay', () => {
     const view = renderHook(
-      () =>
-        useShownSyncStatus('idle', {
-          awaitsBootSync: true,
-          pressedAt: { current: -Infinity },
-        }),
+      () => useShownWithBootWait('idle', true, { current: -Infinity }),
       { wrapper: StrictMode }
     );
     act(() => void vi.advanceTimersByTime(150));
@@ -302,5 +309,33 @@ describe('useShownSyncStatus', () => {
     update({ raw: 'loading' });
     view.unmount();
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe('useBootSyncWait', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  test('counts until 8 s of page time, then not', () => {
+    vi.advanceTimersByTime(5000);
+    const view = renderHook(() => useBootSyncWait(true));
+    expect(view.result.current).toBe(true);
+    act(() => void vi.advanceTimersByTime(2999)); // page time 7999
+    expect(view.result.current).toBe(true);
+    act(() => void vi.advanceTimersByTime(1));
+    expect(view.result.current).toBe(false);
+  });
+
+  // The button's name reads this on its first render: no "Syncing…" flash.
+  test('mounted after 8 s, it is false on the first render', () => {
+    vi.advanceTimersByTime(8000);
+    const firsts: boolean[] = [];
+    renderHook(() => firsts.push(useBootSyncWait(true)));
+    expect(firsts[0]).toBe(false);
+  });
+
+  test('false whenever no boot sync is awaited', () => {
+    const view = renderHook(() => useBootSyncWait(false));
+    expect(view.result.current).toBe(false);
   });
 });

@@ -9,6 +9,7 @@ import Icon from '../../../common/Icon';
 import SyncGlyph from '../../../common/SyncGlyph';
 import {
   syncPressedAt,
+  useBootSyncWait,
   useShownSyncStatus,
 } from '../../../common/useShownSyncStatus';
 import { selectAwaitsBootSync } from '../../../../redux/slices/globalStateSlice';
@@ -64,13 +65,13 @@ const SyncStatus: React.FC = () => {
       : getTooltipDate(lastSyncedTime, i18n.language, timeFormat);
   // KAN-750. The status is the SHOWN one, the button's, so title and icon change
   // together and in step with it; syncPressedAt is the button's own press ref.
-  const shownSyncStatus = useShownSyncStatus(
-    useSelector((s: RootState) => s.globalState.syncStatus),
-    {
-      awaitsBootSync: useSelector(selectAwaitsBootSync),
-      pressedAt: syncPressedAt,
-    }
-  );
+  const syncStatus = useSelector((s: RootState) => s.globalState.syncStatus);
+  const awaitsBootSync = useSelector(selectAwaitsBootSync);
+  const isBootWait = useBootSyncWait(awaitsBootSync);
+  const shownSyncStatus = useShownSyncStatus(syncStatus, {
+    awaitsSync: isBootWait,
+    pressedAt: syncPressedAt,
+  });
   // shallowEqual: describeSyncState builds a fresh object every call, so
   // without it any store change re-rendered this component and react-redux's
   // dev check warned that the selector is unstable (seen from the KAN-252

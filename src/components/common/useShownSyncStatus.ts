@@ -10,24 +10,39 @@ export const syncPressedAt = { current: -Infinity };
 // ending, or a mount while idle. Shared, so a remount mid-sync keeps a press.
 export const syncBusyEndedAt = { current: -Infinity };
 
+// KAN-750 R8b. Whether the boot sync's wait for sign-in still counts as syncing:
+// until BOOT_SYNC_LIMIT_MS after page open, so every instance agrees.
+export function useBootSyncWait(awaitsBootSync: boolean): boolean {
+  // Seeded, so a page past the limit never counts it, not even for a render.
+  const [isLimitHit, setIsLimitHit] = useState(
+    () => performance.now() >= BOOT_SYNC_LIMIT_MS
+  );
+  useEffect(() => {
+    if (isLimitHit) return;
+    const id = setTimeout(
+      () => setIsLimitHit(true),
+      Math.max(0, BOOT_SYNC_LIMIT_MS - performance.now())
+    );
+    return () => clearTimeout(id);
+  }, [isLimitHit]);
+  return awaitsBootSync && !isLimitHit;
+}
+
 interface Options {
-  awaitsBootSync: boolean;
+  // A sync is on its way while the status is not 'loading' yet: the boot wait.
+  awaitsSync: boolean;
   // performance.now() clock, like syncPressedAt.
   pressedAt: { current: number };
 }
 
 // KAN-750. 'loading' while syncing is SHOWN, else the real status. An
 // unpressed sync shows after UNPRESSED_DELAY_MS, a pressed one at once; once
-// shown it stays HOLD_MS. The boot sync (sign-in pending) shows, but only until
-// BOOT_SYNC_LIMIT_MS after page open; a real 'loading' still shows after that.
+// shown it stays HOLD_MS. A sync on its way (awaitsSync) is busy like 'loading'.
 // A press counts if it came after the last time an instance saw no sync under way.
 export function useShownSyncStatus(
   raw: SyncStatus,
-  { awaitsBootSync, pressedAt }: Options
+  { awaitsSync, pressedAt }: Options
 ): SyncStatus {
-  const [isBootLimitHit, setIsBootLimitHit] = useState(
-    () => performance.now() >= BOOT_SYNC_LIMIT_MS
-  );
   const [isShown, setIsShown] = useState(false);
   const shownAt = useRef(0);
   const isShownRef = useRef(false);
@@ -41,16 +56,7 @@ export function useShownSyncStatus(
   );
   if (raw !== 'loading' && raw !== calm) setCalm(raw);
 
-  const isBusy = raw === 'loading' || (awaitsBootSync && !isBootLimitHit);
-
-  useEffect(() => {
-    if (isBootLimitHit) return;
-    const id = setTimeout(
-      () => setIsBootLimitHit(true),
-      Math.max(0, BOOT_SYNC_LIMIT_MS - performance.now())
-    );
-    return () => clearTimeout(id);
-  }, [isBootLimitHit]);
+  const isBusy = raw === 'loading' || awaitsSync;
 
   // Reset too: StrictMode's rehearsal remount must schedule the delay again.
   useEffect(
