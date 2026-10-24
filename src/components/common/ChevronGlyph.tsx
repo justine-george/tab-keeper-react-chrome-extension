@@ -15,7 +15,6 @@ import { DURATION, EASE } from '../../styles/scale';
 const TURN_ORIGIN = `50% ${(468 / 960) * 100}%`;
 
 const glyphTurnCss = css`
-  display: inline-block;
   transform-origin: ${TURN_ORIGIN};
   transition: transform ${DURATION.MOVE} ${EASE.IN_OUT};
   @media (prefers-reduced-motion: reduce) {

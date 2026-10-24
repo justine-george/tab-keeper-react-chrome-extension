@@ -297,29 +297,47 @@ function inkOf(page: Page, png: Buffer) {
 }
 
 // Turned, expand_more lands on expand_less, to within how the font is drawn:
-// its ink sits left of the box's centre, so a turn moves it about 0.5px right,
-// and an upright glyph snaps to whole pixels where a turned one does not, up
-// to half a pixel up or down (0.32 lower at scale 1, 0.17 higher at scale 2).
-// Turned about the box's centre instead, it would land a further 0.6px lower.
-test('the open chevron rests where expand_less draws', async ({
-  context,
-  extensionId,
-}) => {
-  const page = await openPopup(context, extensionId);
-  const button = page.getByRole('button', { name: 'Collapse: Flights' });
-  await pose(button);
-  // Off the button, so no hover fill sits under either shot.
-  await page.mouse.move(5, 540);
-  const glyph = button.locator('[data-window-chevron]');
-  const turned = await inkOf(page, await glyph.screenshot());
-  // The same box drawing expand_less itself, unturned.
-  await glyph.evaluate((el) => {
-    (el as HTMLElement).style.transition = 'none';
-    (el as HTMLElement).style.transform = 'none';
-    el.textContent = 'expand_less';
+// its ink sits a device pixel left of the box's centre, so a turn moves it
+// 0.5px right, and it lands 0.18px higher. Turned about the box's centre
+// instead, it lands 0.32px lower. At scale 2, where most Macs draw: at scale 1
+// a half turn snaps to whole pixels, and both origins draw the same.
+test.describe('at scale 2', () => {
+  test.use({ deviceScaleFactor: 2 });
+
+  test('the open chevron rests where expand_less draws', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const button = page.getByRole('button', { name: 'Collapse: Flights' });
+    await pose(button);
+    // Off the button, so no hover fill sits under either shot.
+    await page.mouse.move(5, 540);
+    const glyph = button.locator('[data-window-chevron]');
+    // One clip for both shots, from the glyph's slot, which nothing turns.
+    const clip = await glyph.evaluate((el) => {
+      const r = el.parentElement!.getBoundingClientRect();
+      const x = Math.floor(r.left) - 2;
+      const y = Math.floor(r.top) - 2;
+      return {
+        x,
+        y,
+        width: Math.ceil(r.right) + 2 - x,
+        height: Math.ceil(r.bottom) + 2 - y,
+      };
+    });
+    const turned = await inkOf(page, await page.screenshot({ clip }));
+    // The same box drawing expand_less itself, unturned.
+    await glyph.evaluate((el) => {
+      (el as HTMLElement).style.transition = 'none';
+      (el as HTMLElement).style.transform = 'none';
+      el.textContent = 'expand_less';
+    });
+    const real = await inkOf(page, await page.screenshot({ clip }));
+    // PREMISE: drawn at scale 2.
+    expect(await page.evaluate(() => devicePixelRatio)).toBe(2);
+    expect(Math.abs(turned.y - real.y), 'up or down').toBeLessThan(0.25);
+    expect(Math.abs(turned.x - real.x), 'left or right').toBeLessThan(0.6);
+    expect(Math.abs(turned.ink / real.ink - 1), 'ink').toBeLessThan(0.05);
   });
-  const real = await inkOf(page, await glyph.screenshot());
-  expect(Math.abs(turned.y - real.y), 'up or down').toBeLessThan(0.5);
-  expect(Math.abs(turned.x - real.x), 'left or right').toBeLessThan(0.6);
-  expect(Math.abs(turned.ink / real.ink - 1), 'ink').toBeLessThan(0.05);
 });
