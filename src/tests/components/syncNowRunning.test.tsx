@@ -117,12 +117,17 @@ describe('isSyncNowRunning', () => {
 
   test('is cleared when there is no id to sync', async () => {
     setupChromeFake();
+    // No stored id, and the mint's write fails: nothing to sync as.
+    vi.spyOn(chrome.storage.sync, 'set').mockRejectedValue(new Error('quota'));
     const { store } = makeTestStore();
     store.dispatch(grantCloudConsent());
     store.dispatch(setSignedIn());
     const done = store.dispatch(syncNowWhenSignedIn());
     expect(running(store)).toBe(true);
     await done;
+    expect(store.getState().globalState.userId).toBeNull();
+    expect(mocks.ensureCloudSessionReady).not.toHaveBeenCalled();
+    expect(store.getState().globalState.syncStatus).toBe('error');
     expect(running(store)).toBe(false);
   });
 });
