@@ -50,6 +50,11 @@ const CLOUD_TO_ARROWS: MorphPair[] = MORPH_UPRIGHT.map(({ from, to }) => ({
   from: to,
   to: from,
 }));
+// The arrows unchanged: a turn that stops settles without a change of shape.
+const ARROWS_STILL: MorphPair[] = MORPH_UPRIGHT.map(({ from }) => ({
+  from,
+  to: from,
+}));
 
 interface Morph {
   // From the shape it starts at to the shape it ends at, in the turned frame.
@@ -70,8 +75,8 @@ interface Layer {
   glyph: IconName;
   // Only a sync turns, and never under reduced motion.
   turns: boolean;
-  // A morph into a turning sync hands over a quarter turn in.
-  turnsFromQuarter: boolean;
+  // The angle the turn starts from: where a morph into it ended.
+  turnStartDeg: number;
   morph: Morph | null;
   fade: 'in' | 'out' | null;
 }
@@ -175,9 +180,10 @@ const fadeCss = {
     animation: ${fadeOut} ${DURATION.MOVE} ${EASE.OUT} both;
   `,
 };
-const turnCss = (fromQuarter: boolean) => css`
+// A negative delay starts the turn part way round, at startDeg.
+const turnCss = (startDeg: number) => css`
   animation: ${turn} ${TURN_MS}ms linear infinite;
-  animation-delay: ${fromQuarter ? -TURN_MS / 4 : 0}ms;
+  animation-delay: ${-((((-startDeg % 360) + 360) % 360) * TURN_MS) / 360}ms;
   @media (prefers-reduced-motion: reduce) {
     animation: none;
   }
@@ -202,7 +208,7 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
       key: 0,
       glyph,
       turns: turning && glyph === 'sync' && !prefersReducedMotion(),
-      turnsFromQuarter: false,
+      turnStartDeg: 0,
       morph: null,
       fade: null,
     },
@@ -228,11 +234,38 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
     if (was.glyph === glyph && was.turning === turning) return;
     const reduced = prefersReducedMotion();
     const turns = turning && glyph === 'sync' && !reduced;
+    // A morph cut short by this change: start from the frame it shows.
+    const live = liveFrames.current.get(top.key)?.();
+    const startPairs = (ends: MorphPair[]) =>
+      live
+        ? live.points.map((points, i) => ({
+            from: points,
+            to: matchRing(points, ends[i].to),
+          }))
+        : ends;
     if (was.glyph === glyph) {
       asked.current = { ...was, turning };
+      // A turn that stops settles to the next upright-looking pose, as a landing does.
+      let settle: Morph | null = null;
+      if (glyph === 'sync' && was.turning && !turning && !reduced) {
+        const fromDeg = live?.deg ?? turnAngle(outlines.current.get(top.key));
+        settle = {
+          pairs: startPairs(ARROWS_STILL),
+          fromDeg,
+          toDeg: settlePose(fromDeg),
+          easing: SETTLE_EASE,
+        };
+      }
       setLayers((ls) =>
         ls.map((l) =>
-          l.fade === 'out' ? l : { ...l, turns, turnsFromQuarter: false }
+          l.fade === 'out'
+            ? l
+            : {
+                ...l,
+                turns,
+                turnStartDeg: 0,
+                morph: l.key === top.key && settle ? settle : l.morph,
+              }
         )
       );
       return;
@@ -243,7 +276,7 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
       key: nextKey.current++,
       glyph,
       turns,
-      turnsFromQuarter: false,
+      turnStartDeg: 0,
       morph: null,
       fade: null,
     };
@@ -253,32 +286,26 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
     }
     if (isOutlined(was.glyph) && isOutlined(glyph)) {
       const intoArrows = glyph === 'sync';
-      // A morph cut short by this one: start from the frame it shows.
-      const live = liveFrames.current.get(top.key)?.();
-      // From where the glyph is turned now. Into the cloud: to the next upright-looking
-      // pose. Into arrows: a quarter turn on from one, where the turn picks up, or to rest.
+      // From where the glyph is turned now; a cloud at rest is upright.
       const fromDeg =
         live?.deg ??
         (intoArrows ? 0 : turnAngle(outlines.current.get(top.key)));
-      const toDeg =
-        intoArrows && turns
-          ? settlePose(fromDeg + 90) - 90
-          : settlePose(fromDeg);
+      // Into the cloud: to the next upright-looking pose. Into turning arrows: a
+      // quarter turn on, where the turn picks up. Into still arrows: no turn from
+      // rest, else to the next upright-looking pose.
+      let toDeg = settlePose(fromDeg);
+      if (intoArrows && turns) toDeg = fromDeg - 90;
+      else if (intoArrows && fromDeg % 180 === 0) toDeg = fromDeg;
       const ends = intoArrows ? CLOUD_TO_ARROWS : morphSetFor(toDeg);
       setLayers([
         {
           ...fresh,
-          turnsFromQuarter: turns,
+          turnStartDeg: turns ? toDeg : 0,
           morph: {
-            pairs: live
-              ? live.points.map((points, i) => ({
-                  from: points,
-                  to: matchRing(points, ends[i].to),
-                }))
-              : ends,
+            pairs: startPairs(ends),
             fromDeg,
             toDeg,
-            easing: intoArrows ? INTO_TURN_EASE : SETTLE_EASE,
+            easing: intoArrows && turns ? INTO_TURN_EASE : SETTLE_EASE,
           },
         },
       ]);
@@ -333,7 +360,7 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
             if (el) outlines.current.set(l.key, el);
             else outlines.current.delete(l.key);
           }}
-          css={[glyphCss, blockCss, l.turns && turnCss(l.turnsFromQuarter)]}
+          css={[glyphCss, blockCss, l.turns && turnCss(l.turnStartDeg)]}
           viewBox="0 -960 960 960"
           fill="currentColor"
           focusable="false"
