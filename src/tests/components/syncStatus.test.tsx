@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen } from '@testing-library/react';
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
-import { syncPressedAt } from '../../components/common/useShownSyncStatus';
+import {
+  syncPressedAt,
+  syncShownAt,
+} from '../../components/common/useShownSyncStatus';
 import { MORPH_MS, morphPath } from '../../components/common/syncMotion';
 import {
   SYNC_PROBLEM_HALF_TURN,
@@ -236,6 +239,7 @@ const advance = (ms: number) =>
   });
 beforeEach(() => {
   syncPressedAt.current = -Infinity;
+  syncShownAt.current = -Infinity;
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
 });
 afterEach(() => {
@@ -350,6 +354,60 @@ describe('the sync status line follows the store (KAN-248)', () => {
     if (line === null) throw new Error('no sync sentence');
     // 36rem; jsdom resolves it against its 16px root.
     expect(getComputedStyle(line).maxWidth).toBe('576px');
+  });
+
+  // KAN-750 R20. A shown sync stays shown across another pane and back, pressed or not.
+  const cardTurning = () =>
+    card().querySelector('[data-glyph]')?.getAttribute('data-turning');
+  const awayAndBack = (
+    store: Awaited<ReturnType<typeof renderSync>>['store']
+  ) => {
+    act(() => {
+      store.dispatch(selectCategory(SettingsCategory.DISPLAY));
+    });
+    expect(screen.queryByTestId('sync-status')).toBeNull();
+    act(() => {
+      store.dispatch(selectCategory(SettingsCategory.SYNC));
+    });
+  };
+
+  test('back on the pane mid-sync, an unpressed sync already shown turns at once', async () => {
+    const { store } = await renderSync();
+    act(() => {
+      store.dispatch(syncStateWithFirestore.pending('unpressed', undefined));
+    });
+    await advance(150);
+    expect(cardTurning()).toBe('true');
+
+    awayAndBack(store);
+    expect(cardTurning()).toBe('true');
+    expect(card().textContent).toContain('Syncing…');
+  });
+
+  test('back on the pane mid-sync, a pressed sync turns at once', async () => {
+    const { store } = await renderSync();
+    // The press comes after the pane opened.
+    await advance(1);
+    syncPressedAt.current = performance.now();
+    act(() => {
+      store.dispatch(syncStateWithFirestore.pending('pressed', undefined));
+    });
+    expect(cardTurning()).toBe('true');
+    awayAndBack(store);
+    expect(cardTurning()).toBe('true');
+  });
+
+  // CONTROL: one not yet shown still waits out its delay.
+  test('back on the pane before an unpressed sync showed, it still waits', async () => {
+    const { store } = await renderSync();
+    act(() => {
+      store.dispatch(syncStateWithFirestore.pending('unpressed', undefined));
+    });
+    await advance(100);
+    awayAndBack(store);
+    expect(cardTurning()).toBe('false');
+    await advance(150);
+    expect(cardTurning()).toBe('true');
   });
 
   test('no token: unavailable', async () => {

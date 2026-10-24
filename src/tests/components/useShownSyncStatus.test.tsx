@@ -4,6 +4,7 @@ import { StrictMode } from 'react';
 
 import {
   syncBusyEndedAt,
+  syncShownAt,
   useBootSyncWait,
   useShownSyncStatus,
 } from '../../components/common/useShownSyncStatus';
@@ -45,6 +46,7 @@ describe('useShownSyncStatus', () => {
     vi.useFakeTimers();
     vi.setSystemTime(100_000);
     syncBusyEndedAt.current = -Infinity;
+    syncShownAt.current = -Infinity;
   });
   afterEach(() => vi.useRealTimers());
 

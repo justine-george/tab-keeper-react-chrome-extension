@@ -3,7 +3,10 @@ import { act, fireEvent, screen } from '@testing-library/react';
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import { syncPressedAt } from '../../components/common/useShownSyncStatus';
+import {
+  syncPressedAt,
+  syncShownAt,
+} from '../../components/common/useShownSyncStatus';
 import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
 import {
   authListenerSignInFailed,
@@ -42,6 +45,7 @@ const glyphOf = (button: HTMLElement) => {
 // The shown status waits for an unpressed sync; fake timers let a test pass it.
 beforeEach(() => {
   syncPressedAt.current = -Infinity;
+  syncShownAt.current = -Infinity;
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 });
 afterEach(() => {

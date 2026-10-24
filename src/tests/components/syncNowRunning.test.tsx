@@ -15,6 +15,7 @@ vi.mock('../../utils/functions/external', () => ({
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import {
   syncBusyEndedAt,
+  syncShownAt,
   syncPressedAt,
 } from '../../components/common/useShownSyncStatus';
 import {
@@ -73,6 +74,7 @@ beforeEach(() => {
   mocks.ensureCloudSessionReady.mockReset();
   syncPressedAt.current = -Infinity;
   syncBusyEndedAt.current = -Infinity;
+  syncShownAt.current = -Infinity;
 });
 afterEach(() => {
   vi.restoreAllMocks();

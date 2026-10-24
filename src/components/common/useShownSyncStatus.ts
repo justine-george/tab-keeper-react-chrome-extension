@@ -9,6 +9,9 @@ export const syncPressedAt = { current: -Infinity };
 // performance.now() of the last time any instance saw no sync under way: busy
 // ending, or a mount while idle. Shared, so a remount mid-sync keeps a press.
 export const syncBusyEndedAt = { current: -Infinity };
+// performance.now() of the last time any instance began showing a sync. Shared,
+// so a remount mid-sync keeps showing one already shown (R20).
+export const syncShownAt = { current: -Infinity };
 
 // KAN-750 R8b. Whether the boot sync's wait for sign-in still counts as syncing:
 // until BOOT_SYNC_LIMIT_MS after page open, so every instance agrees.
@@ -39,7 +42,8 @@ interface Options {
 // KAN-750. 'loading' while syncing is SHOWN, else the real status. An
 // unpressed sync shows after UNPRESSED_DELAY_MS, a pressed one at once; once
 // shown it stays HOLD_MS. A sync on its way (awaitsSync) is busy like 'loading'.
-// A press counts if it came after the last time an instance saw no sync under way.
+// A press counts if it came after the last time an instance saw no sync under way;
+// so does a sync another instance, or this one before a remount, already shows.
 export function useShownSyncStatus(
   raw: SyncStatus,
   { awaitsSync, pressedAt }: Options
@@ -72,7 +76,10 @@ export function useShownSyncStatus(
   useLayoutEffect(() => {
     const setShown = (next: boolean) => {
       isShownRef.current = next;
-      if (next) shownAt.current = performance.now();
+      if (next) {
+        shownAt.current = performance.now();
+        syncShownAt.current = shownAt.current;
+      }
       setIsShown(next);
     };
     if (isBusy !== wasBusy.current) {
@@ -94,7 +101,8 @@ export function useShownSyncStatus(
     if (
       isBusy &&
       !isShownRef.current &&
-      pressedAt.current > syncBusyEndedAt.current
+      (pressedAt.current > syncBusyEndedAt.current ||
+        syncShownAt.current > syncBusyEndedAt.current)
     ) {
       clearTimeout(timer.current);
       setShown(true);
