@@ -27,7 +27,7 @@ import type { CloudConsent } from '../../../../redux/slices/settingsDataStateSli
  *     release carries one. Without it the CI popup would claim "on".
  *  6. A sync in flight: syncing (KAN-261). The write after Merge or Replace
  *     runs while the user is on this pane, and this card is what they are
- *     looking at; the header's cloud_sync glyph is one screen away. `idle`
+ *     looking at; the header's turning sync glyph is one screen away. `idle`
  *     used to share "on" with `loading` so the half-second before auth
  *     resolves at cold start would not flash "unavailable"; it still does not
  *     -- "Syncing…" for that half-second is simply true.
@@ -104,7 +104,7 @@ export function describeSyncState({
   if (syncStatus === 'loading') {
     return {
       kind: 'syncing',
-      icon: 'cloud_sync',
+      icon: 'sync',
       title: 'Syncing…',
       line: 'Your latest changes are on their way to the cloud.',
     };

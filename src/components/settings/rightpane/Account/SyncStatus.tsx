@@ -6,6 +6,12 @@ import { sessionWhen } from '../../../../utils/functions/sessionDate';
 import { useToday } from '../../../../hooks/useToday';
 
 import Icon from '../../../common/Icon';
+import SyncGlyph from '../../../common/SyncGlyph';
+import {
+  syncPressedAt,
+  useShownSyncStatus,
+} from '../../../common/useShownSyncStatus';
+import { selectAwaitsBootSync } from '../../../../redux/slices/globalStateSlice';
 import { describeSyncState } from './describeSyncState';
 import SyncSpaceBar from './SyncSpaceBar';
 import { useFontFamily } from '../../../../hooks/useFontFamily';
@@ -56,6 +62,15 @@ const SyncStatus: React.FC = () => {
     syncedTime === ''
       ? undefined
       : getTooltipDate(lastSyncedTime, i18n.language, timeFormat);
+  // KAN-750. The status is the SHOWN one, the button's, so title and icon change
+  // together and in step with it; syncPressedAt is the button's own press ref.
+  const shownSyncStatus = useShownSyncStatus(
+    useSelector((s: RootState) => s.globalState.syncStatus),
+    {
+      awaitsBootSync: useSelector(selectAwaitsBootSync),
+      pressedAt: syncPressedAt,
+    }
+  );
   // shallowEqual: describeSyncState builds a fresh object every call, so
   // without it any store change re-rendered this component and react-redux's
   // dev check warned that the selector is unstable (seen from the KAN-252
@@ -68,7 +83,7 @@ const SyncStatus: React.FC = () => {
         isAutoSync: s.settingsDataState.isAutoSync,
         isCloudConfigured: s.globalState.isCloudConfigured,
         cloudConsent: s.settingsDataState.cloudConsent,
-        syncStatus: s.globalState.syncStatus,
+        syncStatus: shownSyncStatus,
       }),
     shallowEqual
   );
@@ -124,7 +139,17 @@ const SyncStatus: React.FC = () => {
       data-sync-state={state.kind}
     >
       <div css={titleRowStyle}>
-        <Icon type={state.icon} disable={true} />
+        <Icon
+          type={state.icon}
+          disable={true}
+          renderGlyph={(glyphCss) => (
+            <SyncGlyph
+              glyph={state.icon}
+              turning={state.kind === 'syncing'}
+              glyphCss={glyphCss}
+            />
+          )}
+        />
         <span css={titleStyle}>{t(state.title)}</span>
       </div>
       {/* KAN-255. The time is shown where "when" answers a real question:
