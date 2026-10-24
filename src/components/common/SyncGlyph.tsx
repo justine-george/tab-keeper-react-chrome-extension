@@ -248,12 +248,15 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
     ]);
   }, [glyph, turning, top.key]);
 
-  // A faded-out layer goes when its own fade ends (or is cancelled), not a turn inside it.
+  // A faded-out layer goes when its own fade-out ends (or is cancelled): not a turn
+  // inside it, nor the fade-in Chromium cancels when a change swaps it for the fade-out.
   // Native, not onAnimationEnd: React's does not fire for a dispatched animationend in jsdom.
   useEffect(() => {
     const el = root.current;
     if (!el) return;
     const onEnd = (event: Event) => {
+      if (!('animationName' in event) || event.animationName !== fadeOut.name)
+        return;
       const layer = event.target;
       if (!(layer instanceof HTMLElement) || layer.parentElement !== el) return;
       const key = Number(layer.dataset.layer);

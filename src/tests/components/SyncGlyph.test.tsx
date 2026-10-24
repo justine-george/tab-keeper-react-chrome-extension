@@ -56,9 +56,23 @@ const wait = (ms: number) => act(() => void vi.advanceTimersByTime(ms));
 // jsdom keeps the `animation` shorthand as written and does not expand it.
 const animationOf = (el: Element) => getComputedStyle(el).animation;
 
+const animationNameOf = (el: Element) => animationOf(el).split(' ')[0];
+
+// An animation event as the browser fires it: it names the keyframes it is for.
+function fireAnimation(
+  el: Element,
+  type: 'animationend' | 'animationcancel',
+  animationName: string
+) {
+  fireEvent(
+    el,
+    Object.assign(new Event(type, { bubbles: true }), { animationName })
+  );
+}
+
 // The @keyframes rule an element's animation names, as emotion wrote it.
 function keyframesOf(el: Element): string {
-  const name = animationOf(el).split(' ')[0];
+  const name = animationNameOf(el);
   if (!name || name === 'none') return '';
   const rules = [...document.querySelectorAll('style')]
     .map((s) => s.textContent ?? '')
@@ -158,23 +172,44 @@ describe('SyncGlyph', () => {
     expect(keyframesOf(fresh)).toMatch(/from\{opacity:0;?\}/);
 
     // Neither the arriving layer's end nor the turn inside the old one removes it.
-    fireEvent.animationEnd(fresh);
-    fireEvent.animationEnd(one(old, 'svg'));
+    fireAnimation(fresh, 'animationend', animationNameOf(fresh));
+    const turning = one(old, 'svg');
+    fireAnimation(turning, 'animationend', animationNameOf(turning));
     expect(layers()).toHaveLength(2);
 
-    fireEvent.animationEnd(old);
+    fireAnimation(old, 'animationend', animationNameOf(old));
     expect(layers()).toEqual([fresh]);
     expect(root().querySelector('svg')).toBeNull();
   });
 
-  // Reduced motion switched on mid-fade sets `animation: none`, which cancels it.
+  // A fade-out cut short (its element hidden, say) is over too.
   test('a cancelled fade-out also removes its layer', () => {
     const { update, layers } = setup({ glyph: 'cloud_off', turning: false });
     wait(100);
     update({ glyph: 'sync_problem', turning: false });
     const [old, fresh] = layers();
-    fireEvent(old, new Event('animationcancel', { bubbles: true }));
+    fireAnimation(old, 'animationcancel', animationNameOf(old));
     expect(layers()).toEqual([fresh]);
+  });
+
+  // Chromium cancels the fade-in when a change swaps it for the fade-out mid-way.
+  test('a change mid-fade-in fades the layer out instead of dropping it', () => {
+    const { update, layers } = setup({ glyph: 'cloud_off', turning: false });
+    wait(100);
+    update({ glyph: 'cloud', turning: false });
+    const arriving = layers()[1];
+    const fadeIn = animationNameOf(arriving);
+    wait(100);
+    update({ glyph: 'sync_problem', turning: false });
+    expect(layers()).toEqual([arriving, expect.anything()]);
+
+    fireAnimation(arriving, 'animationcancel', fadeIn);
+    expect(layers()).toHaveLength(2);
+    expect(arriving.isConnected).toBe(true);
+
+    fireAnimation(arriving, 'animationend', animationNameOf(arriving));
+    expect(layers()).toHaveLength(1);
+    expect(layers()[0].textContent).toBe('sync_problem');
   });
 
   test('a glyph up under 50 ms is replaced without motion', () => {
@@ -337,6 +372,7 @@ describe('SyncGlyph with Web Animations', () => {
   afterEach(() => {
     Reflect.deleteProperty(Element.prototype, 'animate');
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   // The running CSS turn, as getAnimations() reports it, at a given progress.
