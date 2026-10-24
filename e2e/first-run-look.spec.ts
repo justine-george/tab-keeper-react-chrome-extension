@@ -1,6 +1,7 @@
 import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { elementLanded } from './fixtures/landed';
 import { hasCloudConfig } from './fixtures/cloud';
 import {
   buildContainer,
@@ -43,13 +44,7 @@ const button = (scope: Locator, name: string) =>
 // Once whatever carries it has arrived: a card grows from 97% as it appears.
 // Its ancestors only, so the welcome drawing's loop beside it is not waited on.
 const box = async (locator: Locator) => {
-  await locator.evaluate(async (el) => {
-    const rising: Animation[] = [];
-    for (let at: Element | null = el; at !== null; at = at.parentElement) {
-      rising.push(...at.getAnimations());
-    }
-    await Promise.all(rising.map((a) => a.finished));
-  });
+  await elementLanded(locator, 'ancestors');
   const b = await locator.boundingBox();
   if (b === null) throw new Error('not drawn');
   return b;

@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs';
 import type { Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { documentLanded } from './fixtures/landed';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { POPUP, stored } from './fixtures/savedWindows';
 import { differingPixels, pixelsAt, rgb } from './fixtures/pixels';
@@ -47,9 +48,7 @@ const ids = async (page: Page) =>
 // Pointer away, and fills and reveals landed.
 async function settle(page: Page) {
   await page.mouse.move(2, 540);
-  await page.evaluate(() =>
-    Promise.all(document.getAnimations().map((a) => a.finished))
-  );
+  await documentLanded(page);
 }
 
 // The pixel 3px inside `box`'s left edge, mid height: inside every ring's

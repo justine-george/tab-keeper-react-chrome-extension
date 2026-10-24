@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { elementLanded } from './fixtures/landed';
 import { FULL, FULL_VIEW_PATH, openPage } from './fixtures/onboarding';
 
 // KAN-574. Toasts sit bottom-left on every page; Settings used to put them bottom-right.
@@ -11,9 +12,7 @@ const POPUP = { width: 790, height: 550 };
 
 // Where the toast's box sits from the window's left and bottom edges, once it has finished arriving.
 async function corner(page: Page) {
-  await toast(page).evaluate((el) =>
-    Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished))
-  );
+  await elementLanded(toast(page), 'subtree');
   const box = await toast(page).boundingBox();
   if (box === null) throw new Error('no toast drawn');
   const viewport = page.viewportSize();

@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { elementLanded } from './fixtures/landed';
 import { localeStrings } from './fixtures/locales';
 import { FULL, FULL_VIEW_PATH, openPage } from './fixtures/onboarding';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
@@ -163,9 +164,7 @@ test('full view at 24px: a toast on Settings is capped by the wider column, not 
   await expect(toast).toHaveText(
     'Error restoring tabs: The file is not valid JSON.'
   );
-  await toast.evaluate((el) =>
-    Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished))
-  );
+  await elementLanded(toast, 'subtree');
   const column = await page.locator('[data-pane="sessions"]').boundingBox();
   const box = await toast.boundingBox();
   if (column === null || box === null) throw new Error('no column or toast');

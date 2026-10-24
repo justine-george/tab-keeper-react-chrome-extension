@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { documentLanded } from './fixtures/landed';
 import { sessionHeaderMenu } from './fixtures/menus';
 import { contrast, rgbToHex } from './fixtures/pixels';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
@@ -26,9 +27,7 @@ interface Reading {
 // The focused item's outline and the first opaque fill at or behind it,
 // once every transition has landed.
 async function readFocused(page: Page): Promise<Reading> {
-  await page.evaluate(() =>
-    Promise.all(document.getAnimations().map((a) => a.finished))
-  );
+  await documentLanded(page);
   return page.evaluate(() => {
     const el = document.activeElement;
     if (!(el instanceof HTMLElement) || !el.hasAttribute('data-menu-item'))
