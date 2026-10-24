@@ -6,6 +6,9 @@ import { BOOT_SYNC_LIMIT_MS, HOLD_MS, UNPRESSED_DELAY_MS } from './syncMotion';
 // performance.now() of the last press of the sync button, -Infinity if never.
 // One ref for the toolbar button and the Settings card, so both show the same.
 export const syncPressedAt = { current: -Infinity };
+// performance.now() of the last time any instance saw no sync under way: busy
+// ending, or a mount while idle. Shared, so a remount mid-sync keeps a press.
+export const syncBusyEndedAt = { current: -Infinity };
 
 interface Options {
   awaitsBootSync: boolean;
@@ -17,7 +20,7 @@ interface Options {
 // unpressed sync shows after UNPRESSED_DELAY_MS, a pressed one at once; once
 // shown it stays HOLD_MS. The boot sync (sign-in pending) shows, but only until
 // BOOT_SYNC_LIMIT_MS after page open; a real 'loading' still shows after that.
-// A press counts if it came after the last time this hook saw busy end.
+// A press counts if it came after the last time an instance saw no sync under way.
 export function useShownSyncStatus(
   raw: SyncStatus,
   { awaitsBootSync, pressedAt }: Options
@@ -28,9 +31,8 @@ export function useShownSyncStatus(
   const [isShown, setIsShown] = useState(false);
   const shownAt = useRef(0);
   const isShownRef = useRef(false);
-  const wasBusy = useRef(false);
-  const [mountedAt] = useState(() => performance.now());
-  const busyEndedAt = useRef(mountedAt);
+  // null until this mount has looked.
+  const wasBusy = useRef<boolean | null>(null);
   // At most one pending: the delay before showing, or the hold before hiding.
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // What to draw while a loading is not yet shown.
@@ -50,7 +52,14 @@ export function useShownSyncStatus(
     return () => clearTimeout(id);
   }, [isBootLimitHit]);
 
-  useEffect(() => () => clearTimeout(timer.current), []);
+  // Reset too: StrictMode's rehearsal remount must schedule the delay again.
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current);
+      wasBusy.current = null;
+    },
+    []
+  );
 
   // Every render: a press does not change props, but the click's dispatch does.
   useLayoutEffect(() => {
@@ -67,7 +76,7 @@ export function useShownSyncStatus(
           timer.current = setTimeout(() => setShown(true), UNPRESSED_DELAY_MS);
         }
       } else {
-        busyEndedAt.current = performance.now();
+        syncBusyEndedAt.current = performance.now();
         if (isShownRef.current) {
           const left = HOLD_MS - (performance.now() - shownAt.current);
           if (left > 0) timer.current = setTimeout(() => setShown(false), left);
@@ -78,7 +87,7 @@ export function useShownSyncStatus(
     if (
       isBusy &&
       !isShownRef.current &&
-      pressedAt.current > busyEndedAt.current
+      pressedAt.current > syncBusyEndedAt.current
     ) {
       clearTimeout(timer.current);
       setShown(true);

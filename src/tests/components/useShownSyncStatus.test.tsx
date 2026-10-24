@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
+import { StrictMode } from 'react';
 
-import { useShownSyncStatus } from '../../components/common/useShownSyncStatus';
+import {
+  syncBusyEndedAt,
+  useShownSyncStatus,
+} from '../../components/common/useShownSyncStatus';
 import type { SyncStatus } from '../../redux/slices/globalStateSlice';
 
 // KAN-750. When the glyph SHOWS syncing: unpressed syncs wait 150 ms, a shown
@@ -29,6 +33,7 @@ describe('useShownSyncStatus', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(100_000);
+    syncBusyEndedAt.current = -Infinity;
   });
   afterEach(() => vi.useRealTimers());
 
@@ -127,6 +132,69 @@ describe('useShownSyncStatus', () => {
     act(() => void vi.advanceTimersByTime(400));
     expect(a.result.current).toBe('success');
     expect(b.result.current).toBe('success');
+  });
+
+  // The toolbar button remounts on Home <-> Settings; the card mounts with Settings.
+  test('an instance mounted mid-sync after a press shows at once', () => {
+    const shared = { current: -Infinity };
+    const mk = (raw: SyncStatus) =>
+      renderHook(
+        (r: SyncStatus) =>
+          useShownSyncStatus(r, { awaitsBootSync: false, pressedAt: shared }),
+        { initialProps: raw }
+      );
+    const first = mk('idle');
+    vi.advanceTimersByTime(1);
+    shared.current = performance.now();
+    act(() => first.rerender('loading'));
+    expect(first.result.current).toBe('loading');
+    act(() => void vi.advanceTimersByTime(50));
+    first.unmount();
+
+    const remounted = mk('loading');
+    expect(remounted.result.current).toBe('loading');
+  });
+
+  test('CONTROL: mounted mid-sync nobody pressed, it waits the delay', () => {
+    const view = renderHook(
+      (r: SyncStatus) =>
+        useShownSyncStatus(r, {
+          awaitsBootSync: false,
+          pressedAt: { current: -Infinity },
+        }),
+      { initialProps: 'loading' as SyncStatus }
+    );
+    expect(view.result.current).toBe('idle');
+    act(() => void vi.advanceTimersByTime(150));
+    expect(view.result.current).toBe('loading');
+  });
+
+  test('a press before a later mount while idle does not count', () => {
+    const shared = { current: -Infinity };
+    vi.advanceTimersByTime(1);
+    shared.current = performance.now(); // a press whose sync ended unseen
+    vi.advanceTimersByTime(1);
+    const view = renderHook(
+      (r: SyncStatus) =>
+        useShownSyncStatus(r, { awaitsBootSync: false, pressedAt: shared }),
+      { initialProps: 'idle' as SyncStatus }
+    );
+    act(() => view.rerender('loading'));
+    expect(view.result.current).not.toBe('loading');
+  });
+
+  // Dev builds render under StrictMode, which unmounts and remounts once.
+  test('under StrictMode a busy mount still shows after the delay', () => {
+    const view = renderHook(
+      () =>
+        useShownSyncStatus('idle', {
+          awaitsBootSync: true,
+          pressedAt: { current: -Infinity },
+        }),
+      { wrapper: StrictMode }
+    );
+    act(() => void vi.advanceTimersByTime(150));
+    expect(view.result.current).toBe('loading');
   });
 
   test('the boot sync shows while signing in', () => {
