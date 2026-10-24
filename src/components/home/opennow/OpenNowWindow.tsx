@@ -4,6 +4,7 @@ import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 
+import ChevronGlyph from '../../common/ChevronGlyph';
 import ClickableRow from '../../common/ClickableRow';
 import { focusRingOverTickCss, whileKeyNav } from '../../common/focusRing';
 import { renameOnClickStyle } from '../../common/renameOnClickStyle';
@@ -822,6 +823,10 @@ export default function OpenNowWindow({
               ariaLabel={(isOpen ? t('Collapse') : t('Expand')) + ': ' + title}
               ariaExpanded={isOpen}
               type={isOpen ? 'expand_less' : 'expand_more'}
+              // KAN-757. Turns over on a fold change rather than swapping glyphs.
+              renderGlyph={(glyphCss) => (
+                <ChevronGlyph open={isOpen} glyphCss={glyphCss} />
+              )}
               onClick={onToggle}
             />
             {goesToWindow ? (
