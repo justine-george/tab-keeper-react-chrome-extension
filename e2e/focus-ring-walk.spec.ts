@@ -2,6 +2,7 @@ import type { JSHandle, Locator, Page } from '@playwright/test';
 
 import { hasCloudConfig } from './fixtures/cloud';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
+import { documentLanded } from './fixtures/landed';
 import {
   openPopup,
   seed,
@@ -404,9 +405,7 @@ async function expectFieldRing(
   for (const [where, move] of states) {
     await move();
     // The tick's fill and reveal ease in: read once they have landed.
-    await page.evaluate(() =>
-      Promise.all(document.getAnimations().map((a) => a.finished))
-    );
+    await documentLanded(page);
     const [ground, inner, left, right, tickFill] = await pixelsAt(page, [
       [box.x + 5, midY],
       [box.x + 3, midY],
