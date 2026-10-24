@@ -1,8 +1,10 @@
-import { describe, expect, test } from 'vitest';
-import { screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { act, fireEvent, screen } from '@testing-library/react';
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { syncPressedAt } from '../../components/common/useShownSyncStatus';
+import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
 import {
   setLoggedOut,
   setSignedIn,
@@ -14,9 +16,8 @@ import {
 // rule it has to keep is: offer "sync now" only when syncing is possible AND
 // something is out of sync. Every other case shows what is true instead.
 //
-// Asserted on the Material Symbols LIGATURE, which is the icon's rendered text
-// content -- the same reason golden-path.spec.ts has to pass `exact: true` to
-// stop "arrow_back" substring-matching "Back".
+// Asserted on the glyph's data-glyph / data-turning (KAN-750), not on text: the
+// sync glyph is drawn as an outline, and only some states are a ligature.
 
 const renderMenu = (
   seed: (store: { dispatch: (a: unknown) => void }) => void
@@ -25,6 +26,24 @@ const renderMenu = (
 // A dimmed control is named for why it is dimmed (KAN-342), so the dimmed
 // cases below name it that way.
 const syncControl = (name = 'Sync now') => screen.getByRole('button', { name });
+
+// What the button draws, and whether the drawing turns.
+const glyphOf = (button: HTMLElement) => {
+  const root = button.querySelector('[data-glyph]');
+  return {
+    glyph: root?.getAttribute('data-glyph'),
+    turning: root?.getAttribute('data-turning'),
+  };
+};
+
+// The shown status waits for an unpressed sync; fake timers let a test pass it.
+beforeEach(() => {
+  syncPressedAt.current = -Infinity;
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('the header sync affordance', () => {
   // CONTROL for every assertion below: this is the one case that SHOULD offer
@@ -36,7 +55,8 @@ describe('the header sync affordance', () => {
       store.dispatch(setSyncStatus('idle'));
     });
 
-    expect(syncControl().textContent).toBe('sync');
+    expect(glyphOf(syncControl()).glyph).toBe('sync');
+    expect(glyphOf(syncControl()).turning).toBe('false');
     expect(syncControl().getAttribute('aria-disabled')).toBeNull();
   });
 
@@ -46,7 +66,7 @@ describe('the header sync affordance', () => {
       store.dispatch(setSyncStatus('success'));
     });
 
-    expect(syncControl().textContent).toBe('cloud_done');
+    expect(glyphOf(syncControl()).glyph).toBe('cloud_done');
   });
 
   test('shows the sync is under way, and takes the action away while it is', async () => {
@@ -55,7 +75,14 @@ describe('the header sync affordance', () => {
       store.dispatch(setSyncStatus('loading'));
     });
 
-    expect(syncControl('Syncing…').textContent).toBe('cloud_sync');
+    // Unpressed: the drawing turns once the shown status catches up.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(150);
+    });
+    expect(glyphOf(syncControl('Syncing…'))).toEqual({
+      glyph: 'sync',
+      turning: 'true',
+    });
     expect(syncControl('Syncing…').getAttribute('aria-disabled')).toBe('true');
   });
 
@@ -70,7 +97,14 @@ describe('the header sync affordance', () => {
       store.dispatch(syncStateWithFirestore.pending('read-phase', undefined));
     });
 
-    expect(syncControl('Syncing…').textContent).toBe('cloud_sync');
+    // Unpressed: the drawing turns once the shown status catches up.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(150);
+    });
+    expect(glyphOf(syncControl('Syncing…'))).toEqual({
+      glyph: 'sync',
+      turning: 'true',
+    });
     expect(syncControl('Syncing…').getAttribute('aria-disabled')).toBe('true');
   });
 
@@ -80,7 +114,7 @@ describe('the header sync affordance', () => {
       store.dispatch(setSyncStatus('error'));
     });
 
-    expect(syncControl().textContent).toBe('sync_problem');
+    expect(glyphOf(syncControl()).glyph).toBe('sync_problem');
   });
 
   // The defect this file adds. Signed out is not a transient startup flash --
@@ -94,7 +128,7 @@ describe('the header sync affordance', () => {
       store.dispatch(setSyncStatus('idle'));
     });
 
-    expect(syncControl('Sync unavailable').textContent).toBe('cloud_off');
+    expect(glyphOf(syncControl('Sync unavailable')).glyph).toBe('cloud_off');
     expect(syncControl('Sync unavailable').getAttribute('aria-disabled')).toBe(
       'true'
     );
@@ -110,6 +144,52 @@ describe('the header sync affordance', () => {
       store.dispatch(setLoggedOut());
     });
 
-    expect(syncControl('Sync unavailable').textContent).toBe('cloud_off');
+    expect(glyphOf(syncControl('Sync unavailable')).glyph).toBe('cloud_off');
+  });
+
+  // KAN-750. The words are the real status; the drawing is the shown one.
+  test('the name says Syncing… on the click while the drawing follows the shown status', async () => {
+    const { store } = await renderMenu((s) => {
+      s.dispatch(setSignedIn());
+      s.dispatch(grantCloudConsent());
+      s.dispatch(setSyncStatus('idle'));
+    });
+    // One synchronous act: the click's thunk has not finished when loading lands.
+    act(() => {
+      fireEvent.click(syncControl());
+      store.dispatch(setSyncStatus('loading'));
+    });
+    // No timers advanced: the press shows the sync at once.
+    expect(glyphOf(syncControl('Syncing…'))).toEqual({
+      glyph: 'sync',
+      turning: 'true',
+    });
+  });
+
+  test('a short unpressed sync never turns the drawing while the name says Syncing… at once', async () => {
+    const { store } = await renderMenu((s) => {
+      s.dispatch(setSignedIn());
+      s.dispatch(setSyncStatus('idle'));
+    });
+    await act(async () => {
+      store.dispatch(setSyncStatus('loading'));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(glyphOf(syncControl('Syncing…'))).toEqual({
+      glyph: 'sync',
+      turning: 'false',
+    });
+    await act(async () => {
+      store.dispatch(setSyncStatus('success'));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(glyphOf(syncControl())).toEqual({
+      glyph: 'cloud_done',
+      turning: 'false',
+    });
   });
 });

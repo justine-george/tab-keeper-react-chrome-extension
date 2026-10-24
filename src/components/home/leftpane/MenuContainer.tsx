@@ -8,6 +8,11 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useBackPlan } from '../../../hooks/useBackPlan';
 
 import Icon from '../../common/Icon';
+import SyncGlyph from '../../common/SyncGlyph';
+import {
+  syncPressedAt,
+  useShownSyncStatus,
+} from '../../common/useShownSyncStatus';
 import OverflowMenu from '../../common/OverflowMenu';
 import type { OverflowMenuItem } from '../../common/OverflowMenu';
 import {
@@ -21,6 +26,7 @@ import {
   syncNowWhenSignedIn,
   closeFullViewCallout,
   openCloudConsentModal,
+  selectAwaitsBootSync,
 } from '../../../redux/slices/globalStateSlice';
 import {
   isRedoableSelector,
@@ -71,6 +77,7 @@ export default function MenuContainer() {
   const awaitsDeviceId = useSelector(
     (state: RootState) => state.globalState.awaitsDeviceId
   );
+  const awaitsBootSync = useSelector(selectAwaitsBootSync);
   const isCloudConfigured = useSelector(
     (state: RootState) => state.globalState.isCloudConfigured
   );
@@ -127,6 +134,7 @@ export default function MenuContainer() {
       dispatch(openCloudConsentModal({ variant: 'enable', then: 'syncNow' }));
       return;
     }
+    syncPressedAt.current = performance.now();
     void dispatch(syncNowWhenSignedIn());
   }
 
@@ -154,6 +162,13 @@ export default function MenuContainer() {
     seeFullViewCallout();
     void requestTabView();
   }
+
+  // KAN-750. Only the drawing follows the shown status, which lags a sync that
+  // nobody pressed; the words, the dimming and the tooltip keep the real one.
+  const shownSyncStatus = useShownSyncStatus(syncStatus, {
+    awaitsBootSync,
+    pressedAt: syncPressedAt,
+  });
 
   // The control shows the `sync` glyph only when syncing is possible AND
   // something may be out of sync. Every other case shows what is true instead.
@@ -192,6 +207,14 @@ export default function MenuContainer() {
   } else {
     syncIconType = 'sync';
   }
+
+  // What is drawn: cloud_off beats any status, as above; a shown sync turns.
+  let drawnGlyph: IconName;
+  if (!isSignedIn && !awaitsDeviceId) drawnGlyph = 'cloud_off';
+  else if (shownSyncStatus === 'loading') drawnGlyph = 'sync';
+  else if (shownSyncStatus === 'error') drawnGlyph = 'sync_problem';
+  else if (shownSyncStatus === 'success') drawnGlyph = 'cloud_done';
+  else drawnGlyph = 'sync';
 
   // A clickable button keeps its action as its name. The state, in the Sync &
   // Backup card's words, is its description and the tooltip's first line.
@@ -495,6 +518,13 @@ export default function MenuContainer() {
             })
           }
           type={syncIconType}
+          renderGlyph={(glyphCss) => (
+            <SyncGlyph
+              glyph={drawnGlyph}
+              turning={shownSyncStatus === 'loading'}
+              glyphCss={glyphCss}
+            />
+          )}
           onClick={handleClickSync}
           disable={dimmedBecause !== null}
         />

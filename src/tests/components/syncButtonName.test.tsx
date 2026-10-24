@@ -240,15 +240,6 @@ const CASES: Case[] = [
 const renderMenu = (seed: (store: Store) => void) =>
   renderWithProviders(<MenuContainer />, { seedStore: seed });
 
-/** Every glyph the header's sync button can show (MenuContainer). */
-const SYNC_GLYPHS = [
-  'sync',
-  'cloud_done',
-  'cloud_sync',
-  'cloud_off',
-  'sync_problem',
-];
-
 /**
  * The words the rendered sync button uses for the state: its description's
  * first line when it is clickable (a second line may say when it synced), its
@@ -257,7 +248,7 @@ const SYNC_GLYPHS = [
 function renderedStateWords(): string | null {
   const button = screen
     .getAllByRole('button')
-    .find((b) => SYNC_GLYPHS.includes(b.textContent ?? ''));
+    .find((b) => b.querySelector('[data-glyph]') !== null);
   if (button === undefined) throw new Error('no sync button in the header');
   const description = button.getAttribute('aria-description');
   // Empty on a dimmed button: its name is the state (KAN-345).

@@ -92,7 +92,11 @@ const renderSettings = (at: number) =>
 const headerTooltip = () =>
   screen
     .getAllByRole('button')
-    .find((b) => b.textContent === 'cloud_done')
+    .find(
+      (b) =>
+        b.querySelector('[data-glyph]')?.getAttribute('data-glyph') ===
+        'cloud_done'
+    )
     ?.getAttribute('data-tooltip');
 
 describe('"Last synced" reads like a session date (KAN-584)', () => {
