@@ -303,8 +303,8 @@ const MOTIONS: HoverMotionCase[] = [
   },
 ];
 
-/** Buttons that have no motion. */
-const STILL = ['Sort sessions', 'Sync now'];
+/** Buttons that have no motion. Sync now too, tested on its own below. */
+const STILL = ['Sort sessions'];
 
 const glyphOf = (page: Page, name: string): Locator =>
   control(page, name).locator('.material-symbols-outlined');
@@ -566,6 +566,23 @@ test.describe('hover motions (KAN-344)', () => {
       expect(poses.every(atRest)).toBe(true);
     });
   }
+
+  // KAN-750. Sync now draws its glyph as an outline: the svg inside SyncGlyph,
+  // which is what a hover motion would move. Auto Sync off, so no boot sync
+  // turns it and any change in its pose is the hover's.
+  test('Sync now stays still on hover', async ({ context, extensionId }) => {
+    await seedSettings(context, { isAutoSync: false });
+    const page = await openHome(context, extensionId, 'popup', 16);
+    const drawn = control(page, 'Sync now').locator('[data-glyph]');
+    await expect(drawn).toHaveAttribute('data-glyph', 'sync');
+    await expect(drawn).toHaveAttribute('data-turning', 'false');
+
+    const poses = await posesDuring(drawn.locator('svg'), 700, () =>
+      control(page, 'Sync now').hover()
+    );
+
+    expect(poses.every(atRest)).toBe(true);
+  });
 });
 
 const mark = (page: Page): Locator =>

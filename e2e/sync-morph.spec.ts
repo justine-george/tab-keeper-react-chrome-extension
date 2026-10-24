@@ -9,8 +9,14 @@ import { test, expect } from './fixtures/extension';
 import { rgbToHex } from './fixtures/pixels';
 import { seedSessions, seedSettings } from './fixtures/seed';
 import { CHALK_THEME } from '../src/hooks/useThemeColors';
-import { CLOUD_DONE_PATH } from '../src/components/common/syncMorph.data';
-import { UNPRESSED_DELAY_MS } from '../src/components/common/syncMotion';
+import {
+  CLOUD_DONE_PATH,
+  SYNC_PATH,
+} from '../src/components/common/syncMorph.data';
+import {
+  MORPH_MS,
+  UNPRESSED_DELAY_MS,
+} from '../src/components/common/syncMotion';
 
 // KAN-750, in the real bundle. The sync button's `sync` glyph turns while a
 // sync runs and morphs into `cloud_done` when it lands; a press morphs it back.
@@ -157,6 +163,17 @@ function framesFrom(frames: Frame[], name: string): Frame[] {
   return i < 0 ? [] : frames.slice(i);
 }
 
+// A morph draws a new outline every frame, frame rate aside. Two may repeat: the
+// first (the render's t=0 outline) and the last (t=1, until its timer swaps it).
+function expectMorphed(frames: Frame[], name: string): void {
+  const from = framesFrom(frames, name);
+  const during = from.filter((f) => f.t - from[0].t < MORPH_MS);
+  expect(during.length, `the glyph never became ${name}`).toBeGreaterThan(0);
+  expect(distinct(during), 'the outline did not morph').toBeGreaterThanOrEqual(
+    Math.max(5, during.length - 2)
+  );
+}
+
 test.describe('the sync glyph turns and morphs (KAN-750)', () => {
   test.beforeEach(() => {
     test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
@@ -185,13 +202,7 @@ test.describe('the sync glyph turns and morphs (KAN-750)', () => {
     // PREMISE: sampling began while it still turned, so it saw the morph start.
     expect(frames[0].glyph).toBe('sync');
     expect(frames[0].turning).toBe('true');
-    const morph = framesFrom(frames, 'cloud_done');
-    expect(morph.length, 'the glyph never became cloud_done').toBeGreaterThan(
-      0
-    );
-    expect(distinct(morph), 'the outline did not morph').toBeGreaterThanOrEqual(
-      15
-    );
+    expectMorphed(frames, 'cloud_done');
     await expect(glyph(page)).toHaveAttribute('data-glyph', 'cloud_done');
     await expect(glyph(page).locator('path')).toHaveCount(1);
     await expect(glyph(page).locator('path')).toHaveAttribute(
@@ -224,12 +235,11 @@ test.describe('the sync glyph turns and morphs (KAN-750)', () => {
     });
     writeFileSync(testInfo.outputPath('frames.json'), JSON.stringify(frames));
 
-    expect(
-      distinct(frames),
-      'the outline did not morph'
-    ).toBeGreaterThanOrEqual(10);
+    expectMorphed(frames, 'sync');
     await expect(glyph(page)).toHaveAttribute('data-glyph', 'sync');
     await expect(glyph(page)).toHaveAttribute('data-turning', 'true');
+    await expect(glyph(page).locator('path')).toHaveCount(1);
+    await expect(glyph(page).locator('path')).toHaveAttribute('d', SYNC_PATH);
     // CONTROL: the press started a sync, not just a redraw.
     await readReached(page, hold);
     hold.release();
