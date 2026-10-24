@@ -71,7 +71,11 @@ import {
   cloudSyncAllowed,
   declineCloudConsent,
   forgetLastSync,
+  grantCloudConsent,
+  hasSyncedSinceConsent,
+  markCloudDeletedElsewhere,
   recordSyncedNow,
+  setAutoSync,
 } from './settingsDataStateSlice';
 import { noteReviewMoment } from '../reviewAsk';
 
@@ -150,6 +154,8 @@ export interface Global {
   focusRequest: FocusRequest | null;
   // KAN-254. The "Delete cloud data" confirm dialog.
   isDeleteCloudDataModalOpen: boolean;
+  // KAN-759. "Your cloud copy was deleted", in the page whose sync found it gone.
+  isCloudDeletedNoticeOpen: boolean;
   // KAN-252. A backup that has been read and validated but not yet applied:
   // the "Replace your saved sessions?" dialog is open exactly while this is
   // set. Session-only, like the other dialog flags.
@@ -329,6 +335,7 @@ export const initialState: Global = {
   tabGroupsPromptCount: null,
   focusRequest: null,
   isDeleteCloudDataModalOpen: false,
+  isCloudDeletedNoticeOpen: false,
   pendingImport: null,
   isCloudConsentModalOpen: false,
   cloudConsentVariant: 'welcome',
@@ -477,6 +484,23 @@ export const loadStoredSessionsIntoPage =
     return loaded;
   };
 
+// KAN-759. Another device deleted the cloud copy this device synced with.
+// Uploading would undo that delete, so: sync off here, as a decline would
+// leave it, Auto sync noted for the way back, and the notice. The sessions on
+// this device are left as they are.
+const stopForCloudDeletedElsewhere =
+  (): ThunkAction<void, RootState, unknown, UnknownAction> =>
+  (dispatch, getState) => {
+    dispatch(
+      markCloudDeletedElsewhere({
+        wasAutoSync: getState().settingsDataState.isAutoSync,
+      })
+    );
+    dispatch(declineCloudConsent());
+    dispatch(setSyncStatus('idle'));
+    dispatch(openCloudDeletedNotice());
+  };
+
 // syncs data with Firestore
 export const syncStateWithFirestore = createAsyncThunk<
   void,
@@ -517,6 +541,15 @@ export const syncStateWithFirestore = createAsyncThunk<
           toastText: TOAST_MESSAGES.UNREADABLE_CLOUD_DOCUMENT,
         })
       );
+      return;
+    }
+    // KAN-759. No document, after a sync since this device's yes: another
+    // device deleted it. The settings as they are now, past the read.
+    if (
+      cloudCandidate === undefined &&
+      hasSyncedSinceConsent(thunkAPI.getState().settingsDataState)
+    ) {
+      thunkAPI.dispatch(stopForCloudDeletedElsewhere());
       return;
     }
     const tabDataFromCloud: TabMasterContainer | undefined = cloudCandidate;
@@ -817,6 +850,20 @@ const storedIdOrToast = async (
   return null;
 };
 
+// KAN-759. The notice's and the card's "Turn sync on": the yes the cloud
+// question would give, Auto sync as it was, and this device's sessions
+// uploaded as the new cloud copy (the first sync after a yes may upload).
+export const turnSyncBackOn =
+  () =>
+  async (dispatch: AppDispatch, getState: () => RootState): Promise<void> => {
+    const wasAutoSync =
+      getState().settingsDataState.cloudDeletedElsewhere?.wasAutoSync ?? false;
+    dispatch(closeCloudDeletedNotice());
+    dispatch(grantCloudConsent());
+    dispatch(setAutoSync(wasAutoSync));
+    await dispatch(syncNowWhenSignedIn());
+  };
+
 // KAN-719. Reads the cloud for the document; signs in first because the rules need request.auth (KAN-259).
 const signInAndCheckCloudDocument = async (
   dispatch: AppDispatch,
@@ -924,6 +971,23 @@ export const deleteCloudData = createAsyncThunk<
  * `changed` false means the load altered nothing (a merge with nothing new):
  * no dirty flag, so no cloud write of nothing, but the load itself went fine.
  */
+// KAN-759. A backup load writes without the sync's read, so a device that has
+// synced since its yes checks the document is still there. null: the check
+// itself failed, so nothing is known and nothing is written.
+async function isCloudDeletedElsewhere(
+  dispatch: AppDispatch,
+  state: RootState
+): Promise<boolean | null> {
+  const userId = state.globalState.userId;
+  if (!userId || !hasSyncedSinceConsent(state.settingsDataState)) return false;
+  try {
+    return !(await signInAndCheckCloudDocument(dispatch, userId));
+  } catch (error) {
+    console.warn('Backup load: could not check the cloud document:', error);
+    return null;
+  }
+}
+
 async function finishBackupLoad(
   thunkAPI: Pick<GetThunkAPI<AsyncThunkConfig>, 'dispatch' | 'getState'>,
   changed: boolean
@@ -934,8 +998,19 @@ async function finishBackupLoad(
     thunkAPI.dispatch(setIsDirty());
     const { settingsDataState } = thunkAPI.getState() as RootState;
     if (cloudSyncAllowed(settingsDataState)) {
-      const saveResult = await thunkAPI.dispatch(saveToFirestoreIfDirty());
-      syncFailed = saveResult.meta.requestStatus === 'rejected';
+      const dispatch = thunkAPI.dispatch as AppDispatch;
+      const deletedElsewhere = await isCloudDeletedElsewhere(
+        dispatch,
+        thunkAPI.getState() as RootState
+      );
+      if (deletedElsewhere === null) {
+        syncFailed = true;
+      } else if (deletedElsewhere) {
+        dispatch(stopForCloudDeletedElsewhere());
+      } else {
+        const saveResult = await thunkAPI.dispatch(saveToFirestoreIfDirty());
+        syncFailed = saveResult.meta.requestStatus === 'rejected';
+      }
     }
   }
   thunkAPI.dispatch(
@@ -1194,6 +1269,14 @@ export const globalStateSlice = createSlice({
 
     closeDeleteCloudDataModal: (state) => {
       state.isDeleteCloudDataModalOpen = false;
+    },
+
+    openCloudDeletedNotice: (state) => {
+      state.isCloudDeletedNoticeOpen = true;
+    },
+
+    closeCloudDeletedNotice: (state) => {
+      state.isCloudDeletedNoticeOpen = false;
     },
 
     // KAN-252. Opens "Replace your saved sessions?" for a backup that has
@@ -1616,6 +1699,8 @@ export const {
   closeFocusModal,
   openDeleteCloudDataModal,
   closeDeleteCloudDataModal,
+  openCloudDeletedNotice,
+  closeCloudDeletedNotice,
   askToReplaceSessions,
   cancelReplaceSessions,
   openCloudConsentModal,

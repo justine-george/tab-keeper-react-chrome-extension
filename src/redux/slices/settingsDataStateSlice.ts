@@ -59,6 +59,10 @@ export type CloudConsent = 'granted' | 'declined' | '';
 // KAN-7. Where this machine is in the new-install setup.
 export type SetupState = 'none' | 'pending' | 'done';
 
+export interface CloudDeletedElsewhere {
+  wasAutoSync: boolean;
+}
+
 export interface SettingsData {
   theme: Theme;
   /**
@@ -90,6 +94,13 @@ export interface SettingsData {
   // the first. Per device, like the rest of this slice: the other device's
   // last sync is its own fact.
   lastSyncedTime: number | '';
+  // KAN-759. When this device last said yes to the cloud, ms since epoch; ''
+  // before the first, and on a build that predates the stamp.
+  cloudConsentGrantedAt: number | '';
+  // KAN-759. Set when a sync found the cloud copy gone that this device had
+  // synced with: another device deleted it. Holds Auto sync as it was, for the
+  // way back on. A yes clears it.
+  cloudDeletedElsewhere: CloudDeletedElsewhere | null;
   // KAN-74. The tab-groups permission offer fires on every popup open that
   // finds groups open; this one flag keeps it quiet (setup's step left Off, or
   // an older build's "Don't ask again").
@@ -211,6 +222,15 @@ export function asSetupState(value: unknown): SetupState {
 }
 
 const asFlag = (value: unknown): boolean => value === true;
+// KAN-759. Unvalidated like the rest of settingsDataLocal.
+export const asConsentTime = (value: unknown): number | '' =>
+  typeof value === 'number' && Number.isFinite(value) ? value : '';
+export const asCloudDeletedElsewhere = (
+  value: unknown
+): CloudDeletedElsewhere | null =>
+  typeof value === 'object' && value !== null && 'wasAutoSync' in value
+    ? { wasAutoSync: asFlag(value.wasAutoSync) }
+    : null;
 
 /**
  * KAN-7. The onboarding fields of a stored settings object, each guarded: a
@@ -325,6 +345,8 @@ const defaultSettings: SettingsData = {
   pendingReviewAsk: null,
   isTimeAskDone: false,
   lastSyncedTime: '',
+  cloudConsentGrantedAt: '',
+  cloudDeletedElsewhere: null,
   isNeverAskAgainForTabGroups: false,
   sessionDateBasis: 'edited',
   timeFormat: 'h12',
@@ -364,6 +386,11 @@ export const initialState: SettingsData = {
   // KAN-653. Guarded: an older build never wrote these.
   pendingReviewAsk: readPendingAsk(settingsDataLocal.pendingReviewAsk),
   isTimeAskDone: asFlag(settingsDataLocal.isTimeAskDone),
+  // KAN-759. Guarded: an older build never wrote these.
+  cloudConsentGrantedAt: asConsentTime(settingsDataLocal.cloudConsentGrantedAt),
+  cloudDeletedElsewhere: asCloudDeletedElsewhere(
+    settingsDataLocal.cloudDeletedElsewhere
+  ),
   // KAN-7. Guarded like openNowWidth: settingsDataLocal is unvalidated.
   ...guardOnboarding(settingsDataLocal, ONBOARDING_DEFAULTS),
   // KAN-731. Applied by here: moved above, already applied, or nothing to move.
@@ -391,8 +418,20 @@ export const settingsDataStateSlice = createSlice({
     },
 
     // KAN-259. Only the existing and enable dialogs grant; each caller sets Auto Sync, as one sync asked is not a setting.
+    // KAN-759. A yes starts afresh: the first sync after it may upload into
+    // an empty cloud, and a deleted-elsewhere record is answered.
     grantCloudConsent: (state) => {
       state.cloudConsent = 'granted';
+      state.cloudConsentGrantedAt = Date.now();
+      state.cloudDeletedElsewhere = null;
+      saveLocalSettings(state);
+    },
+
+    markCloudDeletedElsewhere: (
+      state,
+      action: PayloadAction<CloudDeletedElsewhere>
+    ) => {
+      state.cloudDeletedElsewhere = action.payload;
       saveLocalSettings(state);
     },
 
@@ -672,6 +711,7 @@ export const {
   toggleAutoSync,
   setAutoSync,
   grantCloudConsent,
+  markCloudDeletedElsewhere,
   declineCloudConsent,
   setNeverAskAgainToRate,
   setUserRatedAndReviewed,
@@ -738,3 +778,16 @@ export const timedCloudReadAllowed = (state: RootState): boolean =>
   state.globalState.isFirebaseAuthed &&
   !!state.globalState.userId &&
   cloudSyncAllowed(state.settingsDataState);
+
+// KAN-759. Whether a sync has landed since this device's last yes: if so, the
+// cloud copy existed after it, and finding none means another device deleted
+// it. A device that predates the stamp counts any landed sync.
+export function hasSyncedSinceConsent(
+  settings: Pick<SettingsData, 'lastSyncedTime' | 'cloudConsentGrantedAt'>
+): boolean {
+  const { lastSyncedTime, cloudConsentGrantedAt } = settings;
+  if (lastSyncedTime === '') return false;
+  return (
+    cloudConsentGrantedAt === '' || lastSyncedTime >= cloudConsentGrantedAt
+  );
+}
