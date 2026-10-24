@@ -10,7 +10,6 @@ vi.mock('../../config/firebase', () => ({
   ensureCloudSession: mocks.ensureCloudSession,
   observeAuthState: vi.fn(),
   signInUserAnonymously: () => {},
-  isCloudConfigured: true,
 }));
 vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: mocks.loadFromFirestore,

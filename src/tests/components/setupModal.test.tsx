@@ -5,7 +5,6 @@ vi.mock('../../config/firebase', () => ({
   observeAuthState: () => {},
   signInUserAnonymously: () => {},
   ensureCloudSession: () => {},
-  isCloudConfigured: false,
 }));
 
 import {

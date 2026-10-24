@@ -119,7 +119,8 @@ export interface Global {
   // Constant for the life of the popup; it is in the store so the sync status
   // card can derive from state alone and tests can set it, rather than the
   // card importing config/firebase.ts and every test inheriting whatever
-  // .env the machine happens to have (KAN-248). App.tsx writes it at boot.
+  // .env the machine happens to have (KAN-248). store.tsx writes it as the
+  // store is made, before the first render (KAN-750).
   isCloudConfigured: boolean;
   userId: string | null;
   isDirty: boolean;

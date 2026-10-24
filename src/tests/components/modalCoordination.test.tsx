@@ -11,9 +11,6 @@ vi.mock('../../config/firebase', () => ({
   signInUserAnonymously: () => {},
   // Reached once a seeded grant makes syncAllowed true; no cloud in this file.
   ensureCloudSession: () => {},
-  // App writes this into the store at boot (KAN-248); its value is not
-  // exercised here.
-  isCloudConfigured: false,
 }));
 
 // One test makes the tab-groups check throw before it returns; the rest run the real one.

@@ -17,7 +17,6 @@ vi.mock('../../config/firebase', () => ({
   ensureCloudSession: mocks.ensureCloudSession,
   observeAuthState: vi.fn(),
   signInUserAnonymously: () => {},
-  isCloudConfigured: true,
 }));
 // The manual starters reach the wait through the sync thunk, which talks to
 // Firebase only via utils/functions/external (KAN-259). As the real one does:
