@@ -17,6 +17,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import Button from '../../common/Button';
 import ClosesThisTab from '../../common/ClosesThisTab';
 import Icon from '../../common/Icon';
+import FoldAllGlyph from '../../common/FoldAllGlyph';
 import { NormalLabel } from '../../common/Label';
 import EmptyListLine from '../../common/EmptyListLine';
 import NoMatchState from '../../common/NoMatchState';
@@ -699,6 +700,9 @@ export default function OpenNowPane({
                   : t('Expand all windows')
               }
               type={anyWindowOpen ? 'unfold_less' : 'unfold_more'}
+              renderGlyph={(glyphCss) => (
+                <FoldAllGlyph folds={anyWindowOpen} glyphCss={glyphCss} />
+              )}
               onClick={() =>
                 setFoldedIds(
                   anyWindowOpen

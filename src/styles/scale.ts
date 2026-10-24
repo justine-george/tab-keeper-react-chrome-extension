@@ -179,6 +179,11 @@ export const EASE = {
   OUT: 'cubic-bezier(0.23, 1, 0.32, 1)',
   /** Ease-out with an overshoot past the target (easings.net easeOutBack). */
   OUT_BACK: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+  /**
+   * Speeds up, then brakes (easings.net easeInOutCubic): for something already
+   * on screen moving to a new place, like the fold-all chevrons (KAN-756).
+   */
+  IN_OUT: 'cubic-bezier(0.65, 0, 0.35, 1)',
 } as const;
 
 /**
