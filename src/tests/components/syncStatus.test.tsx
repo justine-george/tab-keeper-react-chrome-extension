@@ -3,6 +3,7 @@ import { act, fireEvent, screen } from '@testing-library/react';
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { syncPressedAt } from '../../components/common/useShownSyncStatus';
+import { MORPH_MS } from '../../components/common/syncMotion';
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { describeSyncState } from '../../components/settings/rightpane/Account/describeSyncState';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -66,6 +67,18 @@ describe('describeSyncState', () => {
     expect(describeSyncState({ ...base, syncStatus: 'success' }).kind).toBe(
       'on'
     );
+  });
+
+  // KAN-750 R13b. "On" draws the done cloud only once a sync has landed;
+  // before one, or after an edit, the still arrows, as the header draws them.
+  test('on draws the done cloud after a landed sync, still arrows otherwise', () => {
+    expect(describeSyncState({ ...base, syncStatus: 'success' }).icon).toBe(
+      'cloud_done'
+    );
+    const idle = describeSyncState({ ...base, syncStatus: 'idle' });
+    expect(idle.icon).toBe('sync');
+    expect(idle.kind).toBe('on');
+    expect(idle.title).toBe('Cloud sync on');
   });
 
   // KAN-261. A write in flight is neither "on" nor "failed" yet, and the user
@@ -171,7 +184,7 @@ describe('describeSyncState', () => {
 
   test('each state names a distinct icon and title', () => {
     const kinds = [
-      describeSyncState(base),
+      describeSyncState({ ...base, syncStatus: 'success' }),
       describeSyncState({ ...base, isAutoSync: false }),
       describeSyncState({
         ...base,
@@ -471,7 +484,7 @@ describe('the card follows the shown sync status (KAN-750)', () => {
   };
   test('the card turns while the button would, and shows done after the hold', async () => {
     const { store } = await renderSync();
-    expect(glyphOf(card())).toEqual({ glyph: 'cloud_done', turning: 'false' });
+    expect(glyphOf(card())).toEqual({ glyph: 'sync', turning: 'false' });
 
     await act(async () => {
       store.dispatch(setSyncStatus('loading'));
@@ -533,5 +546,33 @@ describe('the card follows the shown sync status (KAN-750)', () => {
     });
     await advance(400);
     expect(same()).toEqual({ glyph: 'cloud_done', turning: 'false' });
+
+    // KAN-750 R13b. An edit after the sync (markDirty sets 'idle'): both
+    // turn back into the still arrows, nothing claims a sync that did not land.
+    await act(async () => {
+      store.dispatch(setSyncStatus('idle'));
+    });
+    await advance(MORPH_MS);
+    expect(same()).toEqual({ glyph: 'sync', turning: 'false' });
+  });
+
+  // KAN-750 R13b. Offline: the boot sync never starts. At the 8 s limit the
+  // card stops turning on still arrows; it does not morph into the done cloud.
+  test('a boot sync that never lands stops on still arrows at 8 s', async () => {
+    await renderWithProviders(<SettingsDetailsContainer />, {
+      seedStore: (s) => {
+        s.dispatch(selectCategory(SettingsCategory.SYNC));
+        s.dispatch(setSignedIn());
+        s.dispatch(setCloudConfigured(true));
+        s.dispatch(grantCloudConsent());
+      },
+    });
+    await advance(7999);
+    expect(glyphOf(card())).toEqual({ glyph: 'sync', turning: 'true' });
+    await advance(1);
+    expect(glyphOf(card())).toEqual({ glyph: 'sync', turning: 'false' });
+    expect(card().textContent).toContain('Cloud sync on');
+    await advance(MORPH_MS);
+    expect(glyphOf(card()).glyph).toBe('sync');
   });
 });

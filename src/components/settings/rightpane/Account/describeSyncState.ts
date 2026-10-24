@@ -31,7 +31,8 @@ import type { CloudConsent } from '../../../../redux/slices/settingsDataStateSli
  *     used to share "on" with `loading` so the half-second before auth
  *     resolves at cold start would not flash "unavailable"; it still does not
  *     -- "Syncing…" for that half-second is simply true.
- *  7. On.
+ *  7. On. Its icon is the done cloud only once a sync has landed; before one,
+ *     or after an edit, it is the still arrows the header draws (KAN-750).
  *
  * `title` and `line` are i18n keys; the card passes them through t().
  */
@@ -111,7 +112,7 @@ export function describeSyncState({
   }
   return {
     kind: 'on',
-    icon: 'cloud_done',
+    icon: syncStatus === 'success' ? 'cloud_done' : 'sync',
     title: 'Cloud sync on',
     line: 'Your sessions sync automatically across your Chrome devices. No separate sign-in is needed.',
   };
