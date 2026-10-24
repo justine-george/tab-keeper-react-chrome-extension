@@ -36,6 +36,7 @@ import {
 import { reopenFromOffer } from '../redux/reopenOffer';
 import { ReviewCard } from './reviewCard/ReviewCard';
 import { FocusConfirmModal } from './modals/FocusConfirmModal';
+import { CloudDeletedNoticeModal } from './modals/CloudDeletedNoticeModal';
 import { DeleteCloudDataModal } from './modals/DeleteCloudDataModal';
 import { LoadBackupModal } from './modals/LoadBackupModal';
 import { CloudConsentModal } from './modals/CloudConsentModal';
@@ -83,6 +84,9 @@ export default function MainContainer() {
   );
   const isDeleteCloudDataModalOpen = useSelector(
     (state: RootState) => state.globalState.isDeleteCloudDataModalOpen
+  );
+  const isCloudDeletedNoticeOpen = useSelector(
+    (state: RootState) => state.globalState.isCloudDeletedNoticeOpen
   );
   const pendingImport = useSelector(
     (state: RootState) => state.globalState.pendingImport
@@ -502,6 +506,7 @@ export default function MainContainer() {
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}
       {isDeleteCloudDataModalOpen && <DeleteCloudDataModal />}
+      {isCloudDeletedNoticeOpen && <CloudDeletedNoticeModal />}
       {pendingImport !== null && <LoadBackupModal />}
       {isCloudConsentModalOpen && <CloudConsentModal />}
       {isPinGuideOpen && <PinGuideModal />}

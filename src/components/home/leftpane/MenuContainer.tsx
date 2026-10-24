@@ -71,6 +71,9 @@ export default function MenuContainer() {
   const cloudConsent = useSelector(
     (state: RootState) => state.settingsDataState.cloudConsent
   );
+  const isCloudDeletedElsewhere = useSelector(
+    (state: RootState) => state.settingsDataState.cloudDeletedElsewhere !== null
+  );
 
   const isSignedIn = useSelector(
     (state: RootState) => state.globalState.isSignedIn
@@ -233,6 +236,7 @@ export default function MenuContainer() {
       isCloudConfigured,
       cloudConsent,
       syncStatus,
+      isCloudDeletedElsewhere,
     }).kind
   );
 
@@ -260,6 +264,8 @@ export default function MenuContainer() {
         return t('Sync unavailable');
       case 'off':
         return t('Sync is off');
+      case 'deletedElsewhere':
+        return t('Cloud copy deleted');
       case 'manual':
         return t('Manual sync');
       case 'failed':

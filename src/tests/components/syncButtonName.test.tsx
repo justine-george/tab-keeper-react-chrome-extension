@@ -15,6 +15,7 @@ import {
 import {
   declineCloudConsent,
   grantCloudConsent,
+  markCloudDeletedElsewhere,
   setLastSyncedTime,
   toggleAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
@@ -105,6 +106,20 @@ const CASES: Case[] = [
     name: 'Sync now',
     description: 'Sync is off',
     tooltip: 'Sync is off · Sync now',
+    dimmed: false,
+  },
+  {
+    // KAN-759. Off because another device deleted the cloud copy.
+    state: 'deleted elsewhere',
+    seed: (s) => {
+      s.dispatch(setSignedIn());
+      s.dispatch(setCloudConfigured(true));
+      s.dispatch(markCloudDeletedElsewhere({ wasAutoSync: true }));
+      s.dispatch(declineCloudConsent());
+    },
+    name: 'Sync now',
+    description: 'Cloud copy deleted',
+    tooltip: 'Cloud copy deleted · Sync now',
     dimmed: false,
   },
   {
@@ -298,6 +313,7 @@ function cardTitle(store: Store): string {
     isCloudConfigured: globalState.isCloudConfigured,
     cloudConsent: settingsDataState.cloudConsent,
     syncStatus: globalState.syncStatus,
+    isCloudDeletedElsewhere: settingsDataState.cloudDeletedElsewhere !== null,
   }).title;
 }
 
