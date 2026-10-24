@@ -18,7 +18,13 @@ import {
   morphPath,
   morphSetFor,
   pairsFromFrame,
+  MORPH_MS,
+  SETTLE_DISTANCE_DEG,
+  SETTLE_EASE,
   settlePose,
+  settleSpot,
+  TURN_MS,
+  turnMsBetween,
 } from './syncMotion';
 
 const numbers = (d: string) => (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
@@ -28,6 +34,66 @@ const flat = (pairs: { from: number[]; to: number[] }[], side: 'from' | 'to') =>
 describe('CROSSFADE_MS', () => {
   it('is the app move duration', () => {
     expect(`${CROSSFADE_MS}ms`).toBe(DURATION.MOVE);
+  });
+});
+
+describe('the tuned motion (KAN-750)', () => {
+  it('turns once per 800 ms; settles, morphs and presses into the turn in 300 ms', () => {
+    expect(TURN_MS).toBe(800);
+    expect(MORPH_MS).toBe(300);
+    expect(SETTLE_EASE).toBe('cubic-bezier(0.5, 0.75, 0.6, 1)');
+  });
+});
+
+describe('SETTLE_DISTANCE_DEG', () => {
+  // The settle curve's point at parameter s, from the eased string itself.
+  const [x1, y1, x2, y2] = (SETTLE_EASE.match(/[\d.]+/g) ?? []).map(Number);
+  const bezier = (s: number, p1: number, p2: number) =>
+    3 * (1 - s) ** 2 * s * p1 + 3 * (1 - s) * s ** 2 * p2 + s ** 3;
+
+  it('is 90 degrees with the tuned values', () => {
+    expect(SETTLE_DISTANCE_DEG).toBe(90);
+  });
+
+  it('makes the settle leave at the turn speed', () => {
+    const s = 1e-6;
+    // Degrees per ms as the settle starts: its distance x the curve's slope over its time.
+    const slope = bezier(s, y1, y2) / bezier(s, x1, x2);
+    const leaving = (SETTLE_DISTANCE_DEG * slope) / MORPH_MS;
+    expect(leaving).toBeCloseTo(360 / TURN_MS, 5);
+  });
+});
+
+describe('settleSpot', () => {
+  it.each([
+    // [turn angle now, settles from, settles to]
+    [0, -90, -180],
+    [-90, -90, -180],
+    [-90.5, -270, -360],
+    [-135, -270, -360],
+    [-270, -270, -360],
+    [-300, -450, -540],
+    [-359, -450, -540],
+  ])('a turn at %d settles from %d to %d', (angle, from, to) => {
+    expect(settleSpot(angle)).toEqual({ fromDeg: from, toDeg: to });
+  });
+
+  it('is always SETTLE_DISTANCE_DEG before a multiple of 180, under half a turn on', () => {
+    for (let a = 0; a > -360; a -= 0.25) {
+      const { fromDeg, toDeg } = settleSpot(a);
+      expect(toDeg % 180 === 0).toBe(true);
+      expect(fromDeg - toDeg).toBe(SETTLE_DISTANCE_DEG);
+      expect(a - fromDeg).toBeGreaterThanOrEqual(0);
+      expect(a - fromDeg).toBeLessThan(180);
+    }
+  });
+});
+
+describe('turnMsBetween', () => {
+  it('is the turn time for the angle between', () => {
+    expect(turnMsBetween(0, -360)).toBe(TURN_MS);
+    expect(turnMsBetween(-135, -270)).toBe(300);
+    expect(turnMsBetween(-90, -90)).toBe(0);
   });
 });
 

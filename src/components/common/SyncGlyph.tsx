@@ -28,7 +28,9 @@ import {
   pairsFromFrame,
   SETTLE_EASE,
   settlePose,
+  settleSpot,
   TURN_MS,
+  turnMsBetween,
   UNSEEN_MS,
 } from './syncMotion';
 
@@ -58,6 +60,15 @@ interface Morph {
   fromDeg: number;
   toDeg: number;
   easing: string;
+  // The page time it began (performance.now()); null begins it on its first frame.
+  startedAt: number | null;
+}
+
+// A running turn's settle, timed to leave the turn at its speed (KAN-750).
+interface SettleSpot {
+  fromDeg: number;
+  toDeg: number;
+  startedAt: number;
 }
 
 // What a running morph shows now: its last frame's points and its rotation.
@@ -77,13 +88,22 @@ interface Layer {
   fade: 'in' | 'out' | null;
 }
 
-// Where a turning outline is now, in degrees (counter-clockwise is negative); 0 if unknown.
-function turnAngle(el: Element | undefined): number {
+// Where a turning outline is, in degrees (counter-clockwise is negative), and the
+// page time that angle is for; null if unknown.
+function readTurn(el: Element | undefined): { deg: number; at: number } | null {
   // A CSS animation names its keyframes; the Web Animations rotation does not.
   const cssTurn = el?.getAnimations?.().find((a) => 'animationName' in a);
   const progress = cssTurn?.effect?.getComputedTiming().progress;
-  return progress == null ? 0 : -progress * 360;
+  if (progress == null) return null;
+  // The angle is the current frame's: the timeline's time, not the clock's.
+  const frameAt = 'timeline' in document ? document.timeline.currentTime : null;
+  return {
+    deg: -progress * 360,
+    at: typeof frameAt === 'number' ? frameAt : performance.now(),
+  };
 }
+
+const turnAngle = (el: Element | undefined): number => readTurn(el)?.deg ?? 0;
 
 function MorphingOutline({
   layerKey,
@@ -112,10 +132,14 @@ function MorphingOutline({
               { transform: `rotate(${morph.fromDeg}deg)` },
               { transform: `rotate(${morph.toDeg}deg)` },
             ],
-            { duration: MORPH_MS, easing: morph.easing, fill: 'forwards' }
+            // Both: a settle timed to a moment the frame clock has not reached
+            // yet holds its first pose, not none (upright) for that frame.
+            { duration: MORPH_MS, easing: morph.easing, fill: 'both' }
           )
         : null;
-    const start = performance.now();
+    if (rotation && morph.startedAt !== null)
+      rotation.startTime = morph.startedAt;
+    const start = morph.startedAt ?? performance.now();
     let frame: number | undefined;
     // The eased progress of the last frame drawn.
     let drawn = 0;
@@ -137,7 +161,10 @@ function MorphingOutline({
     if (typeof requestAnimationFrame === 'function')
       frame = requestAnimationFrame(step);
     // The timer, not the frames, ends the morph: it runs where frames do not.
-    const end = setTimeout(() => onEnd(layerKey), MORPH_MS);
+    const end = setTimeout(
+      () => onEnd(layerKey),
+      start + MORPH_MS - performance.now()
+    );
     return () => {
       onLive(layerKey, null);
       if (frame !== undefined) cancelAnimationFrame(frame);
@@ -199,6 +226,8 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
   const asked = useRef({ glyph, turning, since: mountedAt });
   const nextKey = useRef(1);
   const outlines = useRef(new Map<number, SVGSVGElement>());
+  // A settle waiting for its turn to reach the spot it leaves from.
+  const pendingSettle = useRef<ReturnType<typeof setTimeout>>();
   const [layers, setLayers] = useState<Layer[]>(() => [
     {
       key: 0,
@@ -226,6 +255,9 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
   }, []);
 
   useLayoutEffect(() => {
+    // A change before the turn reaches its spot drops that settle.
+    clearTimeout(pendingSettle.current);
+    pendingSettle.current = undefined;
     const was = asked.current;
     if (was.glyph === glyph && was.turning === turning) return;
     const reduced = prefersReducedMotion();
@@ -234,88 +266,132 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
     const live = liveFrames.current.get(top.key)?.();
     const startPairs = (ends: MorphPair[]) =>
       live ? pairsFromFrame(live.points, ends) : ends;
-    if (was.glyph === glyph) {
-      asked.current = { ...was, turning };
-      // A turn that stops settles to the next upright-looking pose, as a landing does.
-      let settle: Morph | null = null;
-      if (glyph === 'sync' && was.turning && !turning && !reduced) {
-        const fromDeg = live?.deg ?? turnAngle(outlines.current.get(top.key));
-        settle = {
-          pairs: startPairs(ARROWS_STILL),
-          fromDeg,
-          toDeg: settlePose(fromDeg),
-          easing: SETTLE_EASE,
-        };
-      }
-      setLayers((ls) =>
-        ls.map((l) =>
-          l.fade === 'out'
-            ? l
-            : {
-                ...l,
-                turns,
-                turnStartDeg: 0,
-                morph: l.key === top.key && settle ? settle : l.morph,
-              }
-        )
-      );
-      return;
-    }
-    const now = performance.now();
-    asked.current = { glyph, turning, since: now };
-    const fresh: Layer = {
-      key: nextKey.current++,
-      glyph,
-      turns,
-      turnStartDeg: 0,
-      morph: null,
-      fade: null,
-    };
-    if (reduced || now - was.since < UNSEEN_MS) {
-      setLayers([fresh]);
-      return;
-    }
-    // Only between the arrows and a glyph they morph into.
-    const target = glyph === 'sync' ? was.glyph : glyph;
-    const morphs =
-      (was.glyph === 'sync' || glyph === 'sync') && isMorphTarget(target);
-    if (morphs) {
-      const intoArrows = glyph === 'sync';
-      // From where the glyph is turned now; a glyph at rest is upright.
-      const fromDeg =
-        live?.deg ??
-        (intoArrows ? 0 : turnAngle(outlines.current.get(top.key)));
-      // Into the glyph: to the next upright-looking pose. Into turning arrows: a
-      // quarter turn on, where the turn picks up. Into still arrows: no turn from
-      // rest, else to the next upright-looking pose.
-      let toDeg = settlePose(fromDeg);
-      if (intoArrows && turns) toDeg = fromDeg - 90;
-      else if (intoArrows && fromDeg % 180 === 0) toDeg = fromDeg;
-      const ends = intoArrows
-        ? MORPH_TARGETS[target].intoArrows
-        : morphSetFor(target, toDeg);
-      setLayers([
-        {
-          ...fresh,
-          turnStartDeg: turns ? toDeg : 0,
-          morph: {
-            pairs: startPairs(ends),
+
+    const show = (spot: SettleSpot | null) => {
+      if (was.glyph === glyph) {
+        asked.current = { ...was, turning };
+        // A turn that stops settles to the next upright-looking pose, as a landing does.
+        let settle: Morph | null = null;
+        if (glyph === 'sync' && was.turning && !turning && !reduced) {
+          const fromDeg =
+            spot?.fromDeg ??
+            live?.deg ??
+            turnAngle(outlines.current.get(top.key));
+          settle = {
+            pairs: startPairs(ARROWS_STILL),
             fromDeg,
-            toDeg,
-            easing: intoArrows && turns ? INTO_TURN_EASE : SETTLE_EASE,
+            toDeg: spot?.toDeg ?? settlePose(fromDeg),
+            easing: SETTLE_EASE,
+            startedAt: spot?.startedAt ?? null,
+          };
+        }
+        setLayers((ls) =>
+          ls.map((l) =>
+            l.fade === 'out'
+              ? l
+              : {
+                  ...l,
+                  turns,
+                  turnStartDeg: 0,
+                  morph: l.key === top.key && settle ? settle : l.morph,
+                }
+          )
+        );
+        return;
+      }
+      const now = performance.now();
+      asked.current = { glyph, turning, since: now };
+      const fresh: Layer = {
+        key: nextKey.current++,
+        glyph,
+        turns,
+        turnStartDeg: 0,
+        morph: null,
+        fade: null,
+      };
+      if (reduced || now - was.since < UNSEEN_MS) {
+        setLayers([fresh]);
+        return;
+      }
+      // Only between the arrows and a glyph they morph into.
+      const target = glyph === 'sync' ? was.glyph : glyph;
+      const morphs =
+        (was.glyph === 'sync' || glyph === 'sync') && isMorphTarget(target);
+      if (morphs) {
+        const intoArrows = glyph === 'sync';
+        // From where the glyph is turned now; a glyph at rest is upright.
+        const fromDeg =
+          spot?.fromDeg ??
+          live?.deg ??
+          (intoArrows ? 0 : turnAngle(outlines.current.get(top.key)));
+        // Into the glyph: to the next upright-looking pose. Into turning arrows: a
+        // quarter turn on, where the turn picks up. Into still arrows: no turn from
+        // rest, else to the next upright-looking pose.
+        let toDeg = spot?.toDeg ?? settlePose(fromDeg);
+        if (intoArrows && turns) toDeg = fromDeg - 90;
+        else if (intoArrows && fromDeg % 180 === 0) toDeg = fromDeg;
+        const ends = intoArrows
+          ? MORPH_TARGETS[target].intoArrows
+          : morphSetFor(target, toDeg);
+        setLayers([
+          {
+            ...fresh,
+            turnStartDeg: turns ? toDeg : 0,
+            morph: {
+              pairs: startPairs(ends),
+              fromDeg,
+              toDeg,
+              easing: intoArrows && turns ? INTO_TURN_EASE : SETTLE_EASE,
+              startedAt: spot?.startedAt ?? null,
+            },
           },
-        },
+        ]);
+        return;
+      }
+      // A running morph stops on its outline and fades from there.
+      setLayers((ls) => [
+        ...ls
+          .filter((l) => l.fade !== 'out')
+          .map((l) => ({ ...l, morph: null, fade: 'out' as const })),
+        { ...fresh, fade: 'in' },
       ]);
+    };
+
+    // KAN-750 "same every time": a turn that stops, lands or fails turns on to the
+    // one spot its settle leaves from at the turn's speed, so every settle is alike.
+    const settlesFromTurn =
+      top.turns &&
+      !live &&
+      !reduced &&
+      (glyph === 'sync'
+        ? !turning
+        : isMorphTarget(glyph) && performance.now() - was.since >= UNSEEN_MS);
+    const turn = settlesFromTurn
+      ? readTurn(outlines.current.get(top.key))
+      : null;
+    if (!turn) {
+      show(null);
       return;
     }
-    // A running morph stops on its outline and fades from there.
-    setLayers((ls) => [
-      ...ls
-        .filter((l) => l.fade !== 'out')
-        .map((l) => ({ ...l, morph: null, fade: 'out' as const })),
-      { ...fresh, fade: 'in' },
-    ]);
-  }, [glyph, turning, top.key]);
+    const { fromDeg, toDeg } = settleSpot(turn.deg);
+    const spot = {
+      fromDeg,
+      toDeg,
+      startedAt: turn.at + turnMsBetween(turn.deg, fromDeg),
+    };
+    const due = spot.startedAt - performance.now();
+    if (due <= 0) {
+      show(spot);
+      return;
+    }
+    // Until then the drawing is the turning arrows, and data-glyph says so.
+    pendingSettle.current = setTimeout(() => {
+      pendingSettle.current = undefined;
+      show(spot);
+    }, Math.ceil(due));
+  }, [glyph, turning, top.key, top.turns]);
+
+  useEffect(() => () => clearTimeout(pendingSettle.current), []);
 
   // A faded-out layer goes when its own fade-out ends (or is cancelled): not a turn
   // inside it, nor the fade-in Chromium cancels when a change swaps it for the fade-out.

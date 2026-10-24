@@ -10,15 +10,22 @@ import {
 } from './syncMorph.data';
 
 // Timings and curves for the sync glyph's turn-and-morph (KAN-750).
-export const TURN_MS = 1000; // one counter-clockwise turn, linear
-export const MORPH_MS = 420;
+export const TURN_MS = 800; // one counter-clockwise turn, linear
+export const MORPH_MS = 300; // the settle, the shape morph and the press into the turn
 export const CROSSFADE_MS = 200; // = DURATION.MOVE (asserted in the unit test)
 export const UNPRESSED_DELAY_MS = 150; // wait before an unpressed sync shows
 export const HOLD_MS = 400;
 export const BOOT_SYNC_LIMIT_MS = 8000;
 export const UNSEEN_MS = 50; // a glyph shown for less than this never draws
-export const SETTLE_EASE = 'cubic-bezier(0.5, 0.75, 0.6, 1)';
+// The settle's cubic-bezier(x1, y1, x2, y2).
+const SETTLE_CURVE = [0.5, 0.75, 0.6, 1] as const;
+export const SETTLE_EASE = `cubic-bezier(${SETTLE_CURVE.join(', ')})`;
 export const INTO_TURN_EASE = 'cubic-bezier(0.45, 0, 0.75, 0.65)';
+
+// How far before its pose a running turn starts to settle, so the settle leaves at
+// the turn's speed: turn speed x MORPH_MS / the curve's start slope (y1 / x1).
+export const SETTLE_DISTANCE_DEG =
+  (360 * MORPH_MS * SETTLE_CURVE[0]) / (TURN_MS * SETTLE_CURVE[1]);
 
 const MIN_SETTLE_AHEAD_DEG = 45;
 
@@ -30,6 +37,20 @@ export function settlePose(angleDeg: number): number {
   const pose = Math.floor(angleDeg / 180) * 180;
   return angleDeg - pose < MIN_SETTLE_AHEAD_DEG ? pose - 180 : pose;
 }
+
+// Where a turn now at angleDeg settles from and to: the next multiple of 180 at
+// least SETTLE_DISTANCE_DEG ahead, so it turns on under half a turn first.
+export function settleSpot(angleDeg: number): {
+  fromDeg: number;
+  toDeg: number;
+} {
+  const toDeg = Math.floor((angleDeg - SETTLE_DISTANCE_DEG) / 180) * 180;
+  return { fromDeg: toDeg + SETTLE_DISTANCE_DEG, toDeg };
+}
+
+// How long a turn takes from one angle on to another, further counter-clockwise.
+export const turnMsBetween = (fromDeg: number, toDeg: number): number =>
+  ((fromDeg - toDeg) * TURN_MS) / 360;
 
 interface MorphTargetOutlines {
   // The glyph's own outline, drawn at rest.

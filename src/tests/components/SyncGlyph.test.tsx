@@ -19,6 +19,7 @@ import {
   INTO_TURN_EASE,
   MORPH_MS,
   morphPath,
+  SETTLE_DISTANCE_DEG,
   SETTLE_EASE,
   TURN_MS,
 } from '../../components/common/syncMotion';
@@ -506,6 +507,8 @@ describe('SyncGlyph with Web Animations', () => {
     ) => {
       cancel(): void;
       effect: { getComputedTiming(): { progress: number } };
+      // Set by a settle timed to its turn.
+      startTime?: number | null;
     }
   >(() => ({
     cancel,
@@ -529,34 +532,59 @@ describe('SyncGlyph with Web Animations', () => {
     vi.restoreAllMocks();
   });
 
-  // The running CSS turn, as getAnimations() reports it, at a given progress.
-  function turnAt(svg: Element, progress: number) {
+  // The running CSS turn, as getAnimations() reports it: `progress` of the way
+  // round now, and going on round at one turn per TURN_MS.
+  function turnFrom(svg: Element, progress: number) {
+    const from = performance.now();
     Object.defineProperty(svg, 'getAnimations', {
       configurable: true,
       value: () => [
         {
           animationName: 'turn',
-          effect: { getComputedTiming: () => ({ progress }) },
+          effect: {
+            getComputedTiming: () => ({
+              progress: (progress + (performance.now() - from) / TURN_MS) % 1,
+            }),
+          },
         },
       ],
     });
   }
 
+  const settleArgs = (from: number, to: number, easing = SETTLE_EASE) => [
+    [{ transform: `rotate(${from}deg)` }, { transform: `rotate(${to}deg)` }],
+    { duration: MORPH_MS, easing, fill: 'both' },
+  ];
+
+  // KAN-750 "same every time": from wherever the turn is, it turns on to the spot
+  // SETTLE_DISTANCE_DEG before the next half-turn pose, then settles from there.
   test.each([
-    // 0.4 of a turn is -144 degrees: the next half-turn pose 45 ahead is -360, upright.
+    // 0.375 of a turn is -135: on 135 degrees (300 ms) to -270, then to -360, upright.
     {
       glyph: 'cloud_done',
-      progress: 0.4,
-      from: -144,
+      progress: 0.375,
+      waitMs: 300,
+      from: -270,
       to: -360,
       pairs: CLOUD_DONE_UPRIGHT,
       path: CLOUD_DONE_PATH,
     },
-    // 0.3 is -108: -180 is 72 ahead, so it settles a half turn round.
+    // Just past a spot (-90): on almost half a turn, to the next one.
     {
       glyph: 'cloud_done',
-      progress: 0.3,
-      from: -108,
+      progress: 0.25 + 1 / 1024,
+      waitMs: ((180 - 360 / 1024) * TURN_MS) / 360,
+      from: -270,
+      to: -360,
+      pairs: CLOUD_DONE_UPRIGHT,
+      path: CLOUD_DONE_PATH,
+    },
+    // On a spot: it settles at once, a half turn round.
+    {
+      glyph: 'cloud_done',
+      progress: 0.25,
+      waitMs: 0,
+      from: -90,
       to: -180,
       pairs: CLOUD_DONE_HALF_TURN,
       path: CLOUD_DONE_PATH,
@@ -564,51 +592,162 @@ describe('SyncGlyph with Web Animations', () => {
     // A failed sync lands the same way, into the arrows with a "!".
     {
       glyph: 'sync_problem',
-      progress: 0.4,
-      from: -144,
+      progress: 0.625,
+      waitMs: 100,
+      from: -270,
       to: -360,
       pairs: SYNC_PROBLEM_UPRIGHT,
       path: SYNC_PROBLEM_PATH,
     },
-    // Upside down, so the half-turn set: the "!" ends upright.
+    // -315 turns on through -360 to -450 (= -90): upside down, so the half-turn set.
     {
       glyph: 'sync_problem',
-      progress: 0.3,
-      from: -108,
-      to: -180,
+      progress: 0.875,
+      waitMs: 300,
+      from: -450,
+      to: -540,
       pairs: SYNC_PROBLEM_HALF_TURN,
       path: SYNC_PROBLEM_PATH,
     },
   ] as const)(
-    'into $glyph at $progress of a turn it settles from $from to $to degrees',
-    ({ glyph, progress, from, to, pairs, path }) => {
-      const { update, paths, svg } = setup({ glyph: 'sync', turning: true });
+    'into $glyph at $progress of a turn it turns on $waitMs ms, then settles from $from to $to degrees',
+    ({ glyph, progress, waitMs, from, to, pairs, path }) => {
+      const { root, update, paths, svg } = setup({
+        glyph: 'sync',
+        turning: true,
+      });
       // On a frame boundary, so the frames below land on known times.
       wait(160);
-      turnAt(svg(), progress);
+      turnFrom(svg(), progress);
+      const askedAt = performance.now();
       update({ glyph, turning: false });
 
+      if (waitMs > 1) {
+        wait(Math.ceil(waitMs) - 1);
+        // R21: still the turning arrows, and data-glyph says so.
+        expect(animate).not.toHaveBeenCalled();
+        expect(root().getAttribute('data-glyph')).toBe('sync');
+        expect(root().getAttribute('data-turning')).toBe('true');
+        expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
+        wait(1);
+      }
+      expect(root().getAttribute('data-glyph')).toBe(glyph);
+      expect(root().getAttribute('data-turning')).toBe('false');
       expect(animate).toHaveBeenCalledTimes(1);
-      expect(animate.mock.calls[0]).toEqual([
-        [
-          { transform: `rotate(${from}deg)` },
-          { transform: `rotate(${to}deg)` },
-        ],
-        { duration: MORPH_MS, easing: SETTLE_EASE, fill: 'forwards' },
-      ]);
+      expect(animate.mock.calls[0]).toEqual(settleArgs(from, to));
+      expect(from - to).toBe(SETTLE_DISTANCE_DEG);
+      // Timed from the moment the turn reached the spot, not when the timer ran.
+      expect(animate.mock.results[0].value.startTime).toBeCloseTo(
+        askedAt + waitMs,
+        6
+      );
       expect(paths()[0].getAttribute('d')).toBe(morphPath(pairs, 0));
 
-      wait(208);
-      expect(paths()[0].getAttribute('d')).toBe(
-        morphPath(pairs, easeInOutCubic(208 / MORPH_MS))
-      );
-
       expect(cancel).not.toHaveBeenCalled();
-      wait(MORPH_MS - 208);
+      wait(MORPH_MS);
       expect(cancel).toHaveBeenCalledTimes(1);
       expect(paths().map((p) => p.getAttribute('d'))).toEqual([path]);
+      expect(vi.getTimerCount()).toBe(0);
     }
   );
+
+  test('the shape eases in step with the settle', () => {
+    const { update, paths, svg } = setup({ glyph: 'sync', turning: true });
+    // On a frame boundary, so the frames below land on known times.
+    wait(160);
+    // On a spot, so the settle starts now.
+    turnFrom(svg(), 0.25);
+    update({ glyph: 'cloud_done', turning: false });
+    wait(208);
+    expect(paths()[0].getAttribute('d')).toBe(
+      morphPath(CLOUD_DONE_HALF_TURN, easeInOutCubic(208 / MORPH_MS))
+    );
+  });
+
+  test('a press while the turn runs on to its spot keeps it turning: no settle', () => {
+    const { root, update, layers, paths, svg } = setup({
+      glyph: 'sync',
+      turning: true,
+    });
+    wait(160);
+    turnFrom(svg(), 0.375);
+    update({ glyph: 'cloud_done', turning: false });
+    wait(100);
+    update({ glyph: 'sync', turning: true });
+    wait(TURN_MS + MORPH_MS);
+    expect(animate).not.toHaveBeenCalled();
+    expect(root().getAttribute('data-glyph')).toBe('sync');
+    expect(root().getAttribute('data-turning')).toBe('true');
+    expect(layers()).toHaveLength(1);
+    expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
+    expect(keyframesOf(svg())).toContain('rotate(-360deg)');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  test('another landing while the turn runs on settles there instead, at the same spot', () => {
+    const { root, update, paths, svg } = setup({
+      glyph: 'sync',
+      turning: true,
+    });
+    wait(160);
+    turnFrom(svg(), 0.375);
+    const askedAt = performance.now();
+    update({ glyph: 'cloud_done', turning: false });
+    wait(100);
+    update({ glyph: 'sync_problem', turning: false });
+    wait(199);
+    expect(animate).not.toHaveBeenCalled();
+    wait(1);
+    expect(animate).toHaveBeenCalledTimes(1);
+    expect(animate.mock.calls[0]).toEqual(settleArgs(-270, -360));
+    expect(animate.mock.results[0].value.startTime).toBe(askedAt + 300);
+    expect(root().getAttribute('data-glyph')).toBe('sync_problem');
+    wait(MORPH_MS);
+    expect(paths().map((p) => p.getAttribute('d'))).toEqual([
+      SYNC_PROBLEM_PATH,
+    ]);
+  });
+
+  test('a crossfade while the turn runs on starts at once, from the turning arrows', () => {
+    const { root, update, layers, svg } = setup({
+      glyph: 'sync',
+      turning: true,
+    });
+    wait(160);
+    turnFrom(svg(), 0.375);
+    update({ glyph: 'cloud_done', turning: false });
+    wait(100);
+    update({ glyph: 'cloud_off', turning: false });
+    expect(root().getAttribute('data-glyph')).toBe('cloud_off');
+    expect(layers()).toHaveLength(2);
+    wait(TURN_MS);
+    expect(animate).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  test('unmounting while the turn runs on to its spot leaves nothing running', () => {
+    const error = vi.spyOn(console, 'error');
+    const { view, update, svg } = setup({ glyph: 'sync', turning: true });
+    wait(160);
+    turnFrom(svg(), 0.375);
+    update({ glyph: 'cloud_done', turning: false });
+    wait(100);
+    expect(vi.getTimerCount()).toBe(1);
+    view.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    wait(TURN_MS);
+    expect(animate).not.toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  test('a sync up under 50 ms becomes cloud_done at once, with no turn on', () => {
+    const { update, paths, svg } = setup({ glyph: 'sync', turning: true });
+    turnFrom(svg(), 0.375);
+    wait(10);
+    update({ glyph: 'cloud_done', turning: false });
+    expect(animate).not.toHaveBeenCalled();
+    expect(paths().map((p) => p.getAttribute('d'))).toEqual([CLOUD_DONE_PATH]);
+  });
 
   test.each(['cloud_done', 'sync_problem'] as const)(
     'from %s into a turning sync it turns a quarter with the into-turn ease',
@@ -618,7 +757,7 @@ describe('SyncGlyph with Web Animations', () => {
       update({ glyph: 'sync', turning: true });
       expect(animate.mock.calls[0]).toEqual([
         [{ transform: 'rotate(0deg)' }, { transform: 'rotate(-90deg)' }],
-        { duration: MORPH_MS, easing: INTO_TURN_EASE, fill: 'forwards' },
+        { duration: MORPH_MS, easing: INTO_TURN_EASE, fill: 'both' },
       ]);
       // It starts from the glyph itself, upright.
       expect(paths()[0].getAttribute('d')).toBe(morphPath(atStart(glyph), 0));
@@ -637,7 +776,7 @@ describe('SyncGlyph with Web Animations', () => {
       update({ glyph: 'sync', turning: false });
       expect(animate.mock.calls[0]).toEqual([
         [{ transform: 'rotate(0deg)' }, { transform: 'rotate(0deg)' }],
-        { duration: MORPH_MS, easing: SETTLE_EASE, fill: 'forwards' },
+        { duration: MORPH_MS, easing: SETTLE_EASE, fill: 'both' },
       ]);
       expect(paths()[0].getAttribute('d')).toBe(morphPath(atStart(glyph), 0));
       wait(MORPH_MS);
@@ -647,52 +786,48 @@ describe('SyncGlyph with Web Animations', () => {
     }
   );
 
+  // No turn on: the frame on screen is already settling.
   test('a landing cut short into a still sync settles upright from the frame on screen', () => {
     const { update, paths, svg } = setup({ glyph: 'sync', turning: true });
     wait(160);
-    turnAt(svg(), 0.4);
+    turnFrom(svg(), 0.375);
     update({ glyph: 'cloud_done', turning: false });
-    wait(208);
+    wait(300 + 150);
     const shown = paths()[0].getAttribute('d');
-    // -144 to -360, half way along its ease: -252 on screen.
+    // -270 to -360, half way along its ease: -315 on screen.
     rotationProgress = 0.5;
 
     update({ glyph: 'sync', turning: false });
     expect(paths()[0].getAttribute('d')).toBe(shown);
-    expect(animate.mock.calls[1]).toEqual([
-      [{ transform: 'rotate(-252deg)' }, { transform: 'rotate(-360deg)' }],
-      { duration: MORPH_MS, easing: SETTLE_EASE, fill: 'forwards' },
-    ]);
+    expect(animate.mock.calls[1]).toEqual(settleArgs(-315, -360));
     wait(MORPH_MS);
     expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
   });
 
   // The 8 s offline stop, an edit mid-sync, a gate that closes: no snap to 0.
   test.each([
-    // 0.4 of a turn is -144: -180 is 36 ahead, under 45, so on to -360.
-    { progress: 0.4, from: -144, to: -360 },
-    // 0.1 is -36: -180 is 144 ahead.
-    { progress: 0.1, from: -36, to: -180 },
+    // 0.375 of a turn is -135: on to -270 (300 ms), then settles to -360.
+    { progress: 0.375, waitMs: 300, from: -270, to: -360 },
+    // 0.125 is -45: on to -90 (100 ms), then to -180.
+    { progress: 0.125, waitMs: 100, from: -90, to: -180 },
   ])(
-    'a turn that stops at $from settles to $to with its shape unchanged',
-    ({ progress, from, to }) => {
+    'a turn stopped at $progress turns on $waitMs ms and settles from $from to $to, its shape unchanged',
+    ({ progress, waitMs, from, to }) => {
       const { root, update, layers, paths, svg } = setup({
         glyph: 'sync',
         turning: true,
       });
       wait(160);
-      turnAt(svg(), progress);
+      turnFrom(svg(), progress);
       update({ glyph: 'sync', turning: false });
+      wait(waitMs - 1);
+      expect(animate).not.toHaveBeenCalled();
+      expect(root().getAttribute('data-turning')).toBe('true');
+      wait(1);
 
-      // The first settle frame is the last turn frame: the arrows, at its angle.
+      // The first settle frame is where the turn is: the arrows, at its angle.
       expect(animate).toHaveBeenCalledTimes(1);
-      expect(animate.mock.calls[0]).toEqual([
-        [
-          { transform: `rotate(${from}deg)` },
-          { transform: `rotate(${to}deg)` },
-        ],
-        { duration: MORPH_MS, easing: SETTLE_EASE, fill: 'forwards' },
-      ]);
+      expect(animate.mock.calls[0]).toEqual(settleArgs(from, to));
       expect(root().getAttribute('data-turning')).toBe('false');
       expect(layers()).toHaveLength(1);
       expect(paths()[0].getAttribute('d')).toBe(morphPath(ARROWS_STILL, 0));
@@ -720,7 +855,7 @@ describe('SyncGlyph with Web Animations', () => {
     expect(paths()[0].getAttribute('d')).toBe(shown);
     expect(animate.mock.calls[1]).toEqual([
       [{ transform: 'rotate(-36deg)' }, { transform: 'rotate(-180deg)' }],
-      { duration: MORPH_MS, easing: SETTLE_EASE, fill: 'forwards' },
+      { duration: MORPH_MS, easing: SETTLE_EASE, fill: 'both' },
     ]);
     wait(MORPH_MS);
     expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
@@ -740,7 +875,7 @@ describe('SyncGlyph with Web Animations', () => {
     expect(paths()[0].getAttribute('d')).toBe(shown);
     expect(animate.mock.calls[1]).toEqual([
       [{ transform: 'rotate(-36deg)' }, { transform: 'rotate(-180deg)' }],
-      { duration: MORPH_MS, easing: SETTLE_EASE, fill: 'forwards' },
+      { duration: MORPH_MS, easing: SETTLE_EASE, fill: 'both' },
     ]);
     wait(MORPH_MS);
     expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
@@ -774,23 +909,26 @@ describe('SyncGlyph with Web Animations', () => {
       turning: true,
     });
     wait(160);
-    turnAt(svg(), 0.4);
+    // On a spot, so it settles at once.
+    turnFrom(svg(), 0.25);
     update({ glyph: 'sync_problem', turning: false });
-    wait(208);
+    wait(150);
     const shown = paths()[0].getAttribute('d');
-    // -144 to -360, half way along its ease: -252 on screen.
+    // -90 to -180, half way along its ease: -135 on screen.
     rotationProgress = 0.5;
 
     update({ glyph: 'sync', turning: true });
     expect(paths()[0].getAttribute('d')).toBe(shown);
-    expect(animate.mock.calls[1]).toEqual([
-      [{ transform: 'rotate(-252deg)' }, { transform: 'rotate(-342deg)' }],
-      { duration: MORPH_MS, easing: INTO_TURN_EASE, fill: 'forwards' },
-    ]);
+    expect(animate.mock.calls[1]).toEqual(
+      settleArgs(-135, -225, INTO_TURN_EASE)
+    );
     wait(MORPH_MS);
     expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
     expect(root().getAttribute('data-turning')).toBe('true');
-    expect(getComputedStyle(svg()).animationDelay).toBe('-950ms');
+    // The turn picks up at -225: 0.625 of the way round.
+    expect(getComputedStyle(svg()).animationDelay).toBe(
+      `-${0.625 * TURN_MS}ms`
+    );
   });
 
   test('a stop under reduced motion changes nothing: there was no turn', () => {
@@ -803,8 +941,8 @@ describe('SyncGlyph with Web Animations', () => {
     expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
   });
 
-  // A press shows at once and holds 400 ms, under the 420 ms morph: a quick sync
-  // lands while the cloud is still flowing into arrows.
+  // The 400 ms hold now outlasts the 300 ms morph, so the shown status lands after
+  // it; a landing that does come mid-morph still starts from the frame on screen.
   test('a landing mid-press-morph starts from the frame on screen', () => {
     const { root, update, paths, svg } = setup({
       glyph: 'cloud_done',
@@ -822,7 +960,7 @@ describe('SyncGlyph with Web Animations', () => {
     expect(paths()[0].getAttribute('d')).toBe(shown);
     expect(animate.mock.calls[1]).toEqual([
       [{ transform: 'rotate(-36deg)' }, { transform: 'rotate(-180deg)' }],
-      { duration: MORPH_MS, easing: SETTLE_EASE, fill: 'forwards' },
+      { duration: MORPH_MS, easing: SETTLE_EASE, fill: 'both' },
     ]);
     expect(cancel).toHaveBeenCalledTimes(1);
 
@@ -839,41 +977,47 @@ describe('SyncGlyph with Web Animations', () => {
       turning: true,
     });
     wait(160);
-    turnAt(svg(), 0.4);
+    turnFrom(svg(), 0.25);
     update({ glyph: 'cloud_done', turning: false });
-    wait(208);
+    wait(150);
     const shown = paths()[0].getAttribute('d');
-    // -144 to -360, half way along its ease: -252 on screen.
+    // -90 to -180, half way along its ease: -135 on screen.
     rotationProgress = 0.5;
 
     update({ glyph: 'sync', turning: true });
     expect(paths()[0].getAttribute('d')).toBe(shown);
     // A quarter turn on from where it is.
-    expect(animate.mock.calls[1]).toEqual([
-      [{ transform: 'rotate(-252deg)' }, { transform: 'rotate(-342deg)' }],
-      { duration: MORPH_MS, easing: INTO_TURN_EASE, fill: 'forwards' },
-    ]);
+    expect(animate.mock.calls[1]).toEqual(
+      settleArgs(-135, -225, INTO_TURN_EASE)
+    );
 
     wait(MORPH_MS);
     expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
     expect(root().getAttribute('data-turning')).toBe('true');
-    // The turn picks up at -342: 0.95 of the way round.
-    expect(getComputedStyle(svg()).animationDelay).toBe('-950ms');
+    // The turn picks up at -225: 0.625 of the way round.
+    expect(getComputedStyle(svg()).animationDelay).toBe(
+      `-${0.625 * TURN_MS}ms`
+    );
   });
 
   test.each([
-    // A landing at rest on -180 (0.3 of a turn settles there): on to -270.
-    { turn: 0.3, progress: 1, from: -180, to: -270, delay: '-750ms' },
-    // Part way from -108 to -180: -126 on screen.
-    { turn: 0.3, progress: 0.25, from: -126, to: -216, delay: '-600ms' },
+    // A landing at rest on -180 (from the spot at -90): on to -270.
+    { progress: 1, from: -180, to: -270, delay: `-${0.75 * TURN_MS}ms` },
+    // Part way from -90 to -180: -112.5 on screen.
+    {
+      progress: 0.25,
+      from: -112.5,
+      to: -202.5,
+      delay: `-${(202.5 / 360) * TURN_MS}ms`,
+    },
   ])(
     'a press with the landing at $from turns a quarter to $to and the turn picks up there',
-    ({ turn, progress, from, to, delay }) => {
+    ({ progress, from, to, delay }) => {
       const { update, svg } = setup({ glyph: 'sync', turning: true });
       wait(160);
-      turnAt(svg(), turn);
+      turnFrom(svg(), 0.25);
       update({ glyph: 'cloud_done', turning: false });
-      wait(208);
+      wait(150);
       rotationProgress = progress;
 
       update({ glyph: 'sync', turning: true });
@@ -894,12 +1038,15 @@ describe('SyncGlyph with Web Animations', () => {
     expect(cancel).toHaveBeenCalledTimes(1);
   });
 
-  test('reduced motion starts no rotation', () => {
+  test('reduced motion starts no rotation and swaps at once', () => {
     reduceMotion();
-    const { update } = setup({ glyph: 'sync', turning: true });
+    const { update, paths, svg } = setup({ glyph: 'sync', turning: true });
     wait(100);
+    turnFrom(svg(), 0.375);
     update({ glyph: 'cloud_done', turning: false });
     expect(animate).not.toHaveBeenCalled();
+    expect(paths().map((p) => p.getAttribute('d'))).toEqual([CLOUD_DONE_PATH]);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
 
