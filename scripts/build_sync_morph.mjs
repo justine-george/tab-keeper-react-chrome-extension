@@ -1,6 +1,7 @@
-// Bakes the sync -> cloud_done morph outlines into src/components/common/syncMorph.data.ts (KAN-750).
+// Bakes the sync -> cloud_done and sync -> sync_problem morph outlines into src/components/common/syncMorph.data.ts (KAN-750).
 //
-// The popup blends the sync arrows into the cloud-with-check with a plain linear
+// The popup blends the sync arrows into the cloud-with-check, or into the arrows
+// with a "!" (a failed sync), with a plain linear
 // blend between two matched point lists. Matching them needs flubber, which stays
 // out of the bundle: this script is run BY HAND and its output is committed.
 //
@@ -20,11 +21,14 @@ const OUT = fileURLToPath(
 );
 
 // Material Symbols Outlined, weight 400: @material-symbols/svg-400@0.47.6,
-// outlined/sync.svg and outlined/cloud_done.svg. viewBox "0 -960 960 960".
+// outlined/sync.svg, outlined/cloud_done.svg and outlined/sync_problem.svg.
+// viewBox "0 -960 960 960".
 const SYNC_PATH =
   'M167-160v-60h130l-15-12q-64-51-93-111t-29-134q0-106 62.5-190.5T387-784v62q-75 29-121 96.5T220-477q0 63 23.5 109.5T307-287l30 21v-124h60v230H167Zm407-15v-63q76-29 121-96.5T740-483q0-48-23.5-97.5T655-668l-29-26v124h-60v-230h230v60H665l15 14q60 56 90 120t30 123q0 106-62 191T574-175Z';
 const CLOUD_DONE_PATH =
   'm412-279 230-230-40-40-189 189-100-100-41 41 140 140ZM251-160q-88 0-149.5-61.5T40-371q0-78 50-137t127-71q20-97 94-158.5T482-799q112 0 189 81.5T748-522v24q72-2 122 46.5T920-329q0 69-50 119t-119 50H251Zm0-60h500q45 0 77-32t32-77q0-45-32-77t-77-32h-63v-84q0-91-61-154t-149-63q-88 0-149.5 63T267-522h-19q-62 0-105 43.5T100-371q0 63 44 107t107 44Z';
+const SYNC_PROBLEM_PATH =
+  'M132-160v-60h123l-14-14q-60-60-86.5-121.5T128-476q0-109 62.5-195T355-790v62q-76 30-121.5 99T188-476q0 52 17.5 98.5T265-293l30 27v-117h60v223H132Zm327-131q-9-9-9-21t9-21q9-9 21-9t21 9q9 9 9 21t-9 21q-9 9-21 9t-21-9Zm-7-139v-249h60v249h-60Zm153 261v-63q76-29 121.5-98T772-483q0-54-18-100.5T695-667l-30-27v117h-60v-223h223v60H704l15 14q62 57 87.5 120T832-483q0 108-63 194.5T605-169Z';
 
 const MAX_SEGMENT = 24;
 // The two halves of the cloud overlap by 12 units so no seam shows between them.
@@ -99,10 +103,34 @@ function pair(from, to) {
   return { from: flat(fn(0)), to: flat(fn(1)) };
 }
 
+// Two outlines sorted left to right.
+const leftFirst = (rings) => rings.sort((a, b) => centre(a)[0] - centre(b)[0]);
+
+// Each sync arrow into the arrow on its side, then the "!" bar and dot each from
+// a point at its own centre. Turned half a turn, each arrow takes the other side's.
+function syncProblemSets(arrows) {
+  const [arrowL, arrowR, bar, exDot] = outlineRings(SYNC_PROBLEM_PATH)
+    .map(oneWay)
+    .sort((a, b) => area(b) - area(a));
+  const [left, right] = leftFirst([arrowL, arrowR]);
+  const grow = (part) => pair(dot(centre(part)), part);
+  const upright = [
+    pair(arrows[0], left),
+    pair(arrows[1], right),
+    grow(bar),
+    grow(exDot),
+  ];
+  const halfTurn = [
+    pair(arrows[0], halfTurned(right)),
+    pair(arrows[1], halfTurned(left)),
+    grow(halfTurned(bar)),
+    grow(halfTurned(exDot)),
+  ];
+  return { upright, halfTurn };
+}
+
 export function buildMorphData() {
-  const arrows = outlineRings(SYNC_PATH)
-    .sort((a, b) => centre(a)[0] - centre(b)[0])
-    .map(oneWay);
+  const arrows = leftFirst(outlineRings(SYNC_PATH)).map(oneWay);
   const [outerEdge, innerEdge, check] = outlineRings(CLOUD_DONE_PATH)
     .filter((r) => area(r) > 100)
     .sort((a, b) => area(b) - area(a))
@@ -113,11 +141,15 @@ export function buildMorphData() {
   // Turned half a turn the cloud is upside down, so each arrow takes the other side's half.
   const upright = [left, right, check];
   const turned = [right, left, check].map(halfTurned);
+  const problem = syncProblemSets(arrows);
   return {
     SYNC_PATH,
     CLOUD_DONE_PATH,
-    MORPH_UPRIGHT: arrowsAndDot.map((r, i) => pair(r, upright[i])),
-    MORPH_HALF_TURN: arrowsAndDot.map((r, i) => pair(r, turned[i])),
+    SYNC_PROBLEM_PATH,
+    CLOUD_DONE_UPRIGHT: arrowsAndDot.map((r, i) => pair(r, upright[i])),
+    CLOUD_DONE_HALF_TURN: arrowsAndDot.map((r, i) => pair(r, turned[i])),
+    SYNC_PROBLEM_UPRIGHT: problem.upright,
+    SYNC_PROBLEM_HALF_TURN: problem.halfTurn,
   };
 }
 

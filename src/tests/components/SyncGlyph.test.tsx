@@ -7,8 +7,8 @@ import SyncGlyph from '../../components/common/SyncGlyph';
 import type { IconName } from '../../components/common/iconNames';
 import {
   CLOUD_DONE_PATH,
-  MORPH_HALF_TURN,
-  MORPH_UPRIGHT,
+  CLOUD_DONE_HALF_TURN,
+  CLOUD_DONE_UPRIGHT,
   SYNC_PATH,
 } from '../../components/common/syncMorph.data';
 import {
@@ -275,7 +275,9 @@ describe('SyncGlyph', () => {
     expect(root().getAttribute('data-turning')).toBe('false');
     expect(layers()).toHaveLength(1);
     // Not turning (no CSS turn to read), so it settles a half turn round.
-    expect(paths()[0].getAttribute('d')).toBe(morphPath(MORPH_HALF_TURN, 0));
+    expect(paths()[0].getAttribute('d')).toBe(
+      morphPath(CLOUD_DONE_HALF_TURN, 0)
+    );
 
     wait(MORPH_MS - 1);
     expect(paths()[0].getAttribute('d')).not.toBe(CLOUD_DONE_PATH);
@@ -285,7 +287,7 @@ describe('SyncGlyph', () => {
     // And back: the cloud flows into arrows whose turn starts a quarter in.
     wait(100);
     update({ glyph: 'sync', turning: true });
-    expect(paths()[0].getAttribute('d')).toBe(morphPath(MORPH_UPRIGHT, 1));
+    expect(paths()[0].getAttribute('d')).toBe(morphPath(CLOUD_DONE_UPRIGHT, 1));
     expect(keyframesOf(svg())).toBe('');
     wait(MORPH_MS);
     expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
@@ -348,12 +350,12 @@ describe('SyncGlyph', () => {
 });
 
 // The cloud's first frame as it starts to flow into arrows.
-const CLOUD_TO_ARROWS_AT_START = MORPH_UPRIGHT.map(({ to }) => ({
+const CLOUD_TO_ARROWS_AT_START = CLOUD_DONE_UPRIGHT.map(({ to }) => ({
   from: to,
   to,
 }));
 // The upright arrows, unchanged from first frame to last.
-const ARROWS_STILL = MORPH_UPRIGHT.map(({ from }) => ({ from, to: from }));
+const ARROWS_STILL = CLOUD_DONE_UPRIGHT.map(({ from }) => ({ from, to: from }));
 
 // With Web Animations present: the settle turns from where the CSS turn is.
 describe('SyncGlyph with Web Animations', () => {
@@ -405,9 +407,9 @@ describe('SyncGlyph with Web Animations', () => {
 
   test.each([
     // 0.4 of a turn is -144 degrees: the next half-turn pose 45 ahead is -360, upright.
-    { progress: 0.4, from: -144, to: -360, pairs: MORPH_UPRIGHT },
+    { progress: 0.4, from: -144, to: -360, pairs: CLOUD_DONE_UPRIGHT },
     // 0.3 is -108: -180 is 72 ahead, so it settles a half turn round.
-    { progress: 0.3, from: -108, to: -180, pairs: MORPH_HALF_TURN },
+    { progress: 0.3, from: -108, to: -180, pairs: CLOUD_DONE_HALF_TURN },
   ])(
     'at $progress of a turn it settles from $from to $to degrees',
     ({ progress, from, to, pairs }) => {

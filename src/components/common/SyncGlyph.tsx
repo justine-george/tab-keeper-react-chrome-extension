@@ -13,7 +13,7 @@ import type { IconName } from './iconNames';
 import {
   CLOUD_DONE_PATH,
   type MorphPair,
-  MORPH_UPRIGHT,
+  CLOUD_DONE_UPRIGHT,
   SYNC_PATH,
 } from './syncMorph.data';
 import {
@@ -46,12 +46,12 @@ const fadeIn = keyframes`from { opacity: 0; }`;
 const fadeOut = keyframes`to { opacity: 0; }`;
 
 // The cloud flowing into arrows: the upright set played backwards.
-const CLOUD_TO_ARROWS: MorphPair[] = MORPH_UPRIGHT.map(({ from, to }) => ({
+const CLOUD_TO_ARROWS: MorphPair[] = CLOUD_DONE_UPRIGHT.map(({ from, to }) => ({
   from: to,
   to: from,
 }));
 // The arrows unchanged: a turn that stops settles without a change of shape.
-const ARROWS_STILL: MorphPair[] = MORPH_UPRIGHT.map(({ from }) => ({
+const ARROWS_STILL: MorphPair[] = CLOUD_DONE_UPRIGHT.map(({ from }) => ({
   from,
   to: from,
 }));

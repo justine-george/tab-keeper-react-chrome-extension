@@ -1,7 +1,7 @@
 import {
   type MorphPair,
-  MORPH_HALF_TURN,
-  MORPH_UPRIGHT,
+  CLOUD_DONE_HALF_TURN,
+  CLOUD_DONE_UPRIGHT,
 } from './syncMorph.data';
 
 // Timings and curves for the sync glyph's turn-and-morph (KAN-750).
@@ -28,8 +28,8 @@ export function settlePose(angleDeg: number): number {
 
 // Whole turns end upright; odd half turns end with the cloud turned 180 degrees.
 export function morphSetFor(endDeg: number): MorphPair[] {
-  if (endDeg % 360 === 0) return MORPH_UPRIGHT;
-  if (endDeg % 180 === 0) return MORPH_HALF_TURN;
+  if (endDeg % 360 === 0) return CLOUD_DONE_UPRIGHT;
+  if (endDeg % 180 === 0) return CLOUD_DONE_HALF_TURN;
   throw new RangeError(
     `No morph set for ${endDeg} degrees; it must be a multiple of 180`
   );

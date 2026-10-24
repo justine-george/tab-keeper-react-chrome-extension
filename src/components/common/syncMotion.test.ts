@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DURATION } from '../../styles/scale';
-import { MORPH_HALF_TURN, MORPH_UPRIGHT } from './syncMorph.data';
+import { CLOUD_DONE_HALF_TURN, CLOUD_DONE_UPRIGHT } from './syncMorph.data';
 import {
   blendPoints,
   CROSSFADE_MS,
@@ -44,14 +44,14 @@ describe('settlePose', () => {
 
 describe('morphSetFor', () => {
   it('uses the upright set for whole turns', () => {
-    expect(morphSetFor(0)).toBe(MORPH_UPRIGHT);
-    expect(morphSetFor(-360)).toBe(MORPH_UPRIGHT);
-    expect(morphSetFor(-720)).toBe(MORPH_UPRIGHT);
+    expect(morphSetFor(0)).toBe(CLOUD_DONE_UPRIGHT);
+    expect(morphSetFor(-360)).toBe(CLOUD_DONE_UPRIGHT);
+    expect(morphSetFor(-720)).toBe(CLOUD_DONE_UPRIGHT);
   });
   it('uses the half-turn set for odd multiples of 180', () => {
-    expect(morphSetFor(-180)).toBe(MORPH_HALF_TURN);
-    expect(morphSetFor(180)).toBe(MORPH_HALF_TURN);
-    expect(morphSetFor(-540)).toBe(MORPH_HALF_TURN);
+    expect(morphSetFor(-180)).toBe(CLOUD_DONE_HALF_TURN);
+    expect(morphSetFor(180)).toBe(CLOUD_DONE_HALF_TURN);
+    expect(morphSetFor(-540)).toBe(CLOUD_DONE_HALF_TURN);
   });
   it('throws for an angle that is not a multiple of 180', () => {
     expect(() => morphSetFor(-90)).toThrow(RangeError);
@@ -61,8 +61,8 @@ describe('morphSetFor', () => {
 
 describe('morphPath', () => {
   for (const [name, pairs] of [
-    ['upright', MORPH_UPRIGHT],
-    ['half-turn', MORPH_HALF_TURN],
+    ['upright', CLOUD_DONE_UPRIGHT],
+    ['half-turn', CLOUD_DONE_HALF_TURN],
   ] as const) {
     it(`${name}: t=0 starts at the first from point and closes 3 subpaths`, () => {
       const d = morphPath(pairs, 0);
@@ -117,9 +117,9 @@ describe('blendPoints', () => {
 
   it('is the frame morphPath draws', () => {
     const t = easeInOutCubic(0.3);
-    const points = MORPH_UPRIGHT.map((p) => blendPoints(p, t));
+    const points = CLOUD_DONE_UPRIGHT.map((p) => blendPoints(p, t));
     const asPairs = points.map((from) => ({ from, to: from }));
-    expect(morphPath(asPairs, 0)).toBe(morphPath(MORPH_UPRIGHT, t));
+    expect(morphPath(asPairs, 0)).toBe(morphPath(CLOUD_DONE_UPRIGHT, t));
   });
 });
 
@@ -145,8 +145,8 @@ describe('matchRing', () => {
   });
 
   it('leaves equal counts unresampled', () => {
-    const to = MORPH_HALF_TURN[2].to;
-    const matched = matchRing(MORPH_UPRIGHT[2].to, to);
+    const to = CLOUD_DONE_HALF_TURN[2].to;
+    const matched = matchRing(CLOUD_DONE_UPRIGHT[2].to, to);
     const starts = Array.from({ length: to.length / 2 }, (_, k) =>
       rotated(to, k)
     );
@@ -154,9 +154,9 @@ describe('matchRing', () => {
   });
 
   it('matches a blend back to its own end without a shift', () => {
-    const live = blendPoints(MORPH_UPRIGHT[0], 0.4);
-    expect(matchRing(live, MORPH_UPRIGHT[0].from)).toEqual(
-      MORPH_UPRIGHT[0].from
+    const live = blendPoints(CLOUD_DONE_UPRIGHT[0], 0.4);
+    expect(matchRing(live, CLOUD_DONE_UPRIGHT[0].from)).toEqual(
+      CLOUD_DONE_UPRIGHT[0].from
     );
   });
 });
