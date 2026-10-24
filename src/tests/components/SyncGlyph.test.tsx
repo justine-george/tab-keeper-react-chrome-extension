@@ -347,22 +347,35 @@ describe('SyncGlyph', () => {
   });
 });
 
+// The cloud's first frame as it starts to flow into arrows.
+const CLOUD_TO_ARROWS_AT_START = MORPH_UPRIGHT.map(({ to }) => ({
+  from: to,
+  to,
+}));
+
 // With Web Animations present: the settle turns from where the CSS turn is.
 describe('SyncGlyph with Web Animations', () => {
   const cancel = vi.fn();
+  // How far along its easing the running rotation reports it is.
+  let rotationProgress = 0;
   const animate = vi.fn<
     (
       keyframes: Keyframe[],
       options: KeyframeAnimationOptions
     ) => {
       cancel(): void;
+      effect: { getComputedTiming(): { progress: number } };
     }
-  >(() => ({ cancel }));
+  >(() => ({
+    cancel,
+    effect: { getComputedTiming: () => ({ progress: rotationProgress }) },
+  }));
 
   beforeEach(() => {
     // Cleared here, not after: the last test's unmount runs after its afterEach.
     animate.mockClear();
     cancel.mockClear();
+    rotationProgress = 0;
     vi.useFakeTimers();
     Object.defineProperty(Element.prototype, 'animate', {
       configurable: true,
@@ -444,6 +457,63 @@ describe('SyncGlyph with Web Animations', () => {
       { transform: 'rotate(0deg)' },
       { transform: 'rotate(-180deg)' },
     ]);
+  });
+
+  // A press shows at once and holds 400 ms, under the 420 ms morph: a quick sync
+  // lands while the cloud is still flowing into arrows.
+  test('a landing mid-press-morph starts from the frame on screen', () => {
+    const { root, update, paths, svg } = setup({
+      glyph: 'cloud_done',
+      turning: false,
+    });
+    wait(160);
+    update({ glyph: 'sync', turning: true });
+    wait(208);
+    const shown = paths()[0].getAttribute('d');
+    expect(shown).not.toBe(morphPath(CLOUD_TO_ARROWS_AT_START, 0));
+    // 0 to -90, 40% along its ease: turned -36 on screen.
+    rotationProgress = 0.4;
+
+    update({ glyph: 'cloud_done', turning: false });
+    expect(paths()[0].getAttribute('d')).toBe(shown);
+    expect(animate.mock.calls[1]).toEqual([
+      [{ transform: 'rotate(-36deg)' }, { transform: 'rotate(-180deg)' }],
+      { duration: MORPH_MS, easing: SETTLE_EASE, fill: 'forwards' },
+    ]);
+    expect(cancel).toHaveBeenCalledTimes(1);
+
+    wait(MORPH_MS);
+    expect(paths().map((p) => p.getAttribute('d'))).toEqual([CLOUD_DONE_PATH]);
+    expect(root().getAttribute('data-turning')).toBe('false');
+    expect(keyframesOf(svg())).toBe('');
+    expect(cancel).toHaveBeenCalledTimes(2);
+  });
+
+  test('a press mid-landing-morph starts from the frame on screen', () => {
+    const { root, update, paths, svg } = setup({
+      glyph: 'sync',
+      turning: true,
+    });
+    wait(160);
+    turnAt(svg(), 0.4);
+    update({ glyph: 'cloud_done', turning: false });
+    wait(208);
+    const shown = paths()[0].getAttribute('d');
+    // -144 to -360, half way along its ease: -252 on screen.
+    rotationProgress = 0.5;
+
+    update({ glyph: 'sync', turning: true });
+    expect(paths()[0].getAttribute('d')).toBe(shown);
+    // On to a quarter-turn pose at least 45 ahead: -270 is 18 ahead, so -450.
+    expect(animate.mock.calls[1]).toEqual([
+      [{ transform: 'rotate(-252deg)' }, { transform: 'rotate(-450deg)' }],
+      { duration: MORPH_MS, easing: INTO_TURN_EASE, fill: 'forwards' },
+    ]);
+
+    wait(MORPH_MS);
+    expect(paths().map((p) => p.getAttribute('d'))).toEqual([SYNC_PATH]);
+    expect(root().getAttribute('data-turning')).toBe('true');
+    expect(getComputedStyle(svg()).animationDelay).toBe(`-${TURN_MS / 4}ms`);
   });
 
   test('an unmount mid-morph cancels the rotation', () => {

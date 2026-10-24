@@ -17,8 +17,10 @@ import {
   SYNC_PATH,
 } from './syncMorph.data';
 import {
+  blendPoints,
   easeInOutCubic,
   INTO_TURN_EASE,
+  matchRing,
   MORPH_MS,
   morphPath,
   morphSetFor,
@@ -43,13 +45,24 @@ const turn = keyframes`to { transform: rotate(-360deg); }`;
 const fadeIn = keyframes`from { opacity: 0; }`;
 const fadeOut = keyframes`to { opacity: 0; }`;
 
+// The cloud flowing into arrows: the upright set played backwards.
+const CLOUD_TO_ARROWS: MorphPair[] = MORPH_UPRIGHT.map(({ from, to }) => ({
+  from: to,
+  to: from,
+}));
+
 interface Morph {
+  // From the shape it starts at to the shape it ends at, in the turned frame.
   pairs: MorphPair[];
   fromDeg: number;
   toDeg: number;
   easing: string;
-  // Plays the pairs from `to` back to `from`: the cloud flowing into arrows.
-  intoArrows: boolean;
+}
+
+// What a running morph shows now: its last frame's points and its rotation.
+interface LiveFrame {
+  points: number[][];
+  deg: number;
 }
 
 interface Layer {
@@ -71,24 +84,23 @@ function turnAngle(el: Element | undefined): number {
   return progress == null ? 0 : -progress * 360;
 }
 
-function frameAt(morph: Morph, t: number): string {
-  return morphPath(morph.pairs, easeInOutCubic(morph.intoArrows ? 1 - t : t));
-}
-
 function MorphingOutline({
   layerKey,
   morph,
   glyphCss,
   onEnd,
+  onLive,
 }: {
   layerKey: number;
   morph: Morph;
   glyphCss: SerializedStyles;
   onEnd: (layerKey: number) => void;
+  // Hands over how to read the frame on screen, null once the morph is gone.
+  onLive: (layerKey: number, read: (() => LiveFrame) | null) => void;
 }) {
   const svg = useRef<SVGSVGElement>(null);
   const path = useRef<SVGPathElement>(null);
-  const [firstFrame] = useState(() => frameAt(morph, 0));
+  const [firstFrame] = useState(() => morphPath(morph.pairs, 0));
 
   useLayoutEffect(() => {
     const el = svg.current;
@@ -104,21 +116,34 @@ function MorphingOutline({
         : null;
     const start = performance.now();
     let frame: number | undefined;
+    // The eased progress of the last frame drawn.
+    let drawn = 0;
     const step = () => {
       const t = Math.min(1, (performance.now() - start) / MORPH_MS);
-      path.current?.setAttribute('d', frameAt(morph, t));
+      drawn = easeInOutCubic(t);
+      path.current?.setAttribute('d', morphPath(morph.pairs, drawn));
       frame = t < 1 ? requestAnimationFrame(step) : undefined;
     };
+    onLive(layerKey, () => ({
+      points: morph.pairs.map((pair) => blendPoints(pair, drawn)),
+      // Unrotated where there are no Web Animations.
+      deg: rotation
+        ? morph.fromDeg +
+          (morph.toDeg - morph.fromDeg) *
+            (rotation.effect?.getComputedTiming().progress ?? 0)
+        : 0,
+    }));
     if (typeof requestAnimationFrame === 'function')
       frame = requestAnimationFrame(step);
     // The timer, not the frames, ends the morph: it runs where frames do not.
     const end = setTimeout(() => onEnd(layerKey), MORPH_MS);
     return () => {
+      onLive(layerKey, null);
       if (frame !== undefined) cancelAnimationFrame(frame);
       clearTimeout(end);
       rotation?.cancel();
     };
-  }, [layerKey, morph, onEnd]);
+  }, [layerKey, morph, onEnd, onLive]);
 
   return (
     <svg
@@ -184,6 +209,14 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
   ]);
   const top = layers[layers.length - 1];
 
+  const liveFrames = useRef(new Map<number, () => LiveFrame>());
+  const setLiveFrame = useCallback(
+    (key: number, read: (() => LiveFrame) | null) => {
+      if (read) liveFrames.current.set(key, read);
+      else liveFrames.current.delete(key);
+    },
+    []
+  );
   const endMorph = useCallback((key: number) => {
     setLayers((ls) =>
       ls.map((l) => (l.key === key && l.morph ? { ...l, morph: null } : l))
@@ -220,20 +253,32 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
     }
     if (isOutlined(was.glyph) && isOutlined(glyph)) {
       const intoArrows = glyph === 'sync';
-      // Into the cloud: from where the turn is to the next upright-looking pose.
-      // Into arrows: a quarter turn where the turn picks up, or a half to rest.
-      const fromDeg = intoArrows ? 0 : turnAngle(outlines.current.get(top.key));
-      const toDeg = intoArrows ? (turns ? -90 : -180) : settlePose(fromDeg);
+      // A morph cut short by this one: start from the frame it shows.
+      const live = liveFrames.current.get(top.key)?.();
+      // From where the glyph is turned now. Into the cloud: to the next upright-looking
+      // pose. Into arrows: a quarter turn on from one, where the turn picks up, or to rest.
+      const fromDeg =
+        live?.deg ??
+        (intoArrows ? 0 : turnAngle(outlines.current.get(top.key)));
+      const toDeg =
+        intoArrows && turns
+          ? settlePose(fromDeg + 90) - 90
+          : settlePose(fromDeg);
+      const ends = intoArrows ? CLOUD_TO_ARROWS : morphSetFor(toDeg);
       setLayers([
         {
           ...fresh,
           turnsFromQuarter: turns,
           morph: {
-            pairs: intoArrows ? MORPH_UPRIGHT : morphSetFor(toDeg),
+            pairs: live
+              ? live.points.map((points, i) => ({
+                  from: points,
+                  to: matchRing(points, ends[i].to),
+                }))
+              : ends,
             fromDeg,
             toDeg,
             easing: intoArrows ? INTO_TURN_EASE : SETTLE_EASE,
-            intoArrows,
           },
         },
       ]);
@@ -278,6 +323,7 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
           morph={l.morph}
           glyphCss={glyphCss}
           onEnd={endMorph}
+          onLive={setLiveFrame}
         />
       );
     if (isOutlined(l.glyph))

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { DURATION } from '../../styles/scale';
 import { MORPH_HALF_TURN, MORPH_UPRIGHT } from './syncMorph.data';
 import {
+  blendPoints,
   CROSSFADE_MS,
   easeInOutCubic,
+  matchRing,
   morphPath,
   morphSetFor,
   settlePose,
@@ -102,5 +104,59 @@ describe('easeInOutCubic', () => {
     expect(easeInOutCubic(0.5)).toBe(0.5);
     expect(easeInOutCubic(0.25)).toBeCloseTo(0.0625, 10);
     expect(easeInOutCubic(0.75)).toBeCloseTo(0.9375, 10);
+  });
+});
+
+describe('blendPoints', () => {
+  const pair = { from: [0, 0, 10, 0], to: [10, 10, 30, 20] };
+  it('runs from `from` to `to`', () => {
+    expect(blendPoints(pair, 0)).toEqual(pair.from);
+    expect(blendPoints(pair, 1)).toEqual(pair.to);
+    expect(blendPoints(pair, 0.5)).toEqual([5, 5, 20, 10]);
+  });
+
+  it('is the frame morphPath draws', () => {
+    const t = easeInOutCubic(0.3);
+    const points = MORPH_UPRIGHT.map((p) => blendPoints(p, t));
+    const asPairs = points.map((from) => ({ from, to: from }));
+    expect(morphPath(asPairs, 0)).toBe(morphPath(MORPH_UPRIGHT, t));
+  });
+});
+
+// A 10-unit square, as a closed ring of 4 corners.
+const SQUARE = [0, 0, 10, 0, 10, 10, 0, 10];
+const rotated = (ring: number[], by: number) => [
+  ...ring.slice(by * 2),
+  ...ring.slice(0, by * 2),
+];
+
+describe('matchRing', () => {
+  it('starts the ring where it lies closest, keeping its points', () => {
+    expect(matchRing(SQUARE, rotated(SQUARE, 1))).toEqual(SQUARE);
+    expect(matchRing(SQUARE, rotated(SQUARE, 3))).toEqual(SQUARE);
+  });
+
+  it('resamples to the count of `from`, every point on the ring', () => {
+    const from = [0, 0, 5, 0, 10, 0, 10, 5, 10, 10, 5, 10, 0, 10, 0, 5];
+    const matched = matchRing(from, rotated(SQUARE, 2));
+    expect(matched).toHaveLength(from.length);
+    // Spaced by arc length: 40 around, 8 points, so the edge midpoints and corners.
+    expect(matched).toEqual(from);
+  });
+
+  it('leaves equal counts unresampled', () => {
+    const to = MORPH_HALF_TURN[2].to;
+    const matched = matchRing(MORPH_UPRIGHT[2].to, to);
+    const starts = Array.from({ length: to.length / 2 }, (_, k) =>
+      rotated(to, k)
+    );
+    expect(starts).toContainEqual(matched);
+  });
+
+  it('matches a blend back to its own end without a shift', () => {
+    const live = blendPoints(MORPH_UPRIGHT[0], 0.4);
+    expect(matchRing(live, MORPH_UPRIGHT[0].from)).toEqual(
+      MORPH_UPRIGHT[0].from
+    );
   });
 });
