@@ -7,6 +7,7 @@ import { syncPressedAt } from '../../components/common/useShownSyncStatus';
 import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
 import {
   authListenerSignInFailed,
+  deviceIdReadFinished,
   setCloudConfigured,
   setLoggedOut,
   setSignedIn,
@@ -127,6 +128,7 @@ describe('the header sync affordance', () => {
   test('does not offer "sync now" when there is nothing to sync to', async () => {
     await renderMenu((store) => {
       store.dispatch(setLoggedOut());
+      store.dispatch(deviceIdReadFinished());
       store.dispatch(setSyncStatus('idle'));
     });
 
@@ -144,9 +146,49 @@ describe('the header sync affordance', () => {
       store.dispatch(setSignedIn());
       store.dispatch(setSyncStatus('success'));
       store.dispatch(setLoggedOut());
+      store.dispatch(deviceIdReadFinished());
     });
 
     expect(glyphOf(syncControl('Sync unavailable')).glyph).toBe('cloud_off');
+  });
+
+  // KAN-750 R19. Signed out before the open's read lands is "not read yet": it
+  // drew cloud_off, then crossfaded into sync at every open the read took > 50 ms.
+  test('before the stored id is read, the button is "Sync now" and draws still sync', async () => {
+    const { store } = await renderMenu(() => {});
+
+    const sync = syncControl();
+    expect(glyphOf(sync)).toEqual({ glyph: 'sync', turning: 'false' });
+    expect(sync.getAttribute('aria-disabled')).toBeNull();
+    expect(sync.getAttribute('aria-description')).not.toContain(
+      'Sync unavailable'
+    );
+    expect(sync.getAttribute('data-tooltip')).not.toContain('Sync unavailable');
+
+    // Up long enough to be seen; the read then finds an id.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    act(() => {
+      store.dispatch(setSignedIn());
+      store.dispatch(deviceIdReadFinished());
+    });
+    const root = syncControl().querySelector('[data-glyph]');
+    expect(root?.children).toHaveLength(1);
+    expect(glyphOf(syncControl())).toEqual({ glyph: 'sync', turning: 'false' });
+  });
+
+  test('a read that finds no way to sync turns it into "Sync unavailable" and cloud_off', async () => {
+    const { store } = await renderMenu(() => {});
+    act(() => {
+      store.dispatch(setLoggedOut());
+      store.dispatch(deviceIdReadFinished());
+    });
+
+    expect(glyphOf(syncControl('Sync unavailable')).glyph).toBe('cloud_off');
+    expect(syncControl('Sync unavailable').getAttribute('aria-disabled')).toBe(
+      'true'
+    );
   });
 
   // KAN-750. The words are the real status; the drawing is the shown one.

@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import type { AppDispatch, RootState } from './store';
 import {
+  deviceIdReadFinished,
   removeUserId,
   setAwaitsDeviceId,
   setLoggedOut,
@@ -38,26 +39,31 @@ const storedToken = async (): Promise<unknown> =>
 // At the open. None stored: nothing is minted before the yes, so Chrome Sync has until then to bring another machine's.
 export const readDeviceId =
   (): Thunk<Promise<void>> => async (dispatch, getState) => {
-    let token: unknown;
     try {
-      token = await storedToken();
-    } catch {
-      dispatch(unavailable());
-      return;
-    }
-    if (isUsableToken(token)) {
-      dispatch(adopt(token));
-    } else if (classifyStoredToken(token) === 'mint') {
-      // An id that arrived while the read was out has been followed already.
-      if (getState().globalState.userId === null) {
-        dispatch(setAwaitsDeviceId(true));
+      let token: unknown;
+      try {
+        token = await storedToken();
+      } catch {
+        dispatch(unavailable());
+        return;
       }
-    } else {
-      // Present but unusable: a replacement would strand the data stored under it.
-      dispatch(unavailable());
-      dispatch(
-        showToast({ toastText: TOAST_MESSAGES.UNREADABLE_ACCOUNT_TOKEN })
-      );
+      if (isUsableToken(token)) {
+        dispatch(adopt(token));
+      } else if (classifyStoredToken(token) === 'mint') {
+        // An id that arrived while the read was out has been followed already.
+        if (getState().globalState.userId === null) {
+          dispatch(setAwaitsDeviceId(true));
+        }
+      } else {
+        // Present but unusable: a replacement would strand the data stored under it.
+        dispatch(unavailable());
+        dispatch(
+          showToast({ toastText: TOAST_MESSAGES.UNREADABLE_ACCOUNT_TOKEN })
+        );
+      }
+    } finally {
+      // KAN-750 R19. After the outcome, so the unread state never reads as unavailable.
+      dispatch(deviceIdReadFinished());
     }
   };
 

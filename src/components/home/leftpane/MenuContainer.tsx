@@ -78,6 +78,12 @@ export default function MenuContainer() {
   const awaitsDeviceId = useSelector(
     (state: RootState) => state.globalState.awaitsDeviceId
   );
+  const hasReadDeviceId = useSelector(
+    (state: RootState) => state.globalState.hasReadDeviceId
+  );
+  // KAN-599: no id yet is not unavailable. KAN-750 R19: nor is an id not read yet.
+  const isDeviceIdUnavailable =
+    hasReadDeviceId && !isSignedIn && !awaitsDeviceId;
   const awaitsBootSync = useSelector(selectAwaitsBootSync);
   const isBootWait = useBootSyncWait(awaitsBootSync);
   const isSyncNowRunning = useSelector(
@@ -182,8 +188,9 @@ export default function MenuContainer() {
   //
   // `isSignedIn` is checked FIRST and beats any status, because it is the only
   // one of the two that decides whether the action can work at all. It is not
-  // a startup flash: App.tsx dispatches setLoggedOut on a failed
-  // chrome.storage.sync write, on a read-back that does not match what was
+  // a startup flash, since it counts only once the open's read has landed
+  // (R19): deviceId.ts dispatches setLoggedOut on a failed chrome.storage.sync
+  // read or write, on a read-back that does not match what was
   // written, and on a token that is present but unusable. In each of those the
   // control used to invite a click that called loadFromFirestore(userId!) with
   // no userId (KAN-79).
@@ -203,14 +210,13 @@ export default function MenuContainer() {
   // waiting for sign-in (until its 8 s limit or a failed sign-in), or a pressed
   // Sync now that still runs, the whole sync and not only its sign-in.
   let dimmedBecause: string | null = null;
-  // KAN-599. No id yet is no reason to dim: the press asks the question, and the yes mints one.
-  if (!isSignedIn && !awaitsDeviceId) dimmedBecause = t('Sync unavailable');
+  if (isDeviceIdUnavailable) dimmedBecause = t('Sync unavailable');
   else if (syncStatus === 'loading' || awaitsSync)
     dimmedBecause = t('Syncing…');
 
   // What is drawn: cloud_off beats any status, as above; a shown sync turns.
   let drawnGlyph: IconName;
-  if (!isSignedIn && !awaitsDeviceId) drawnGlyph = 'cloud_off';
+  if (isDeviceIdUnavailable) drawnGlyph = 'cloud_off';
   else if (shownSyncStatus === 'loading') drawnGlyph = 'sync';
   else if (shownSyncStatus === 'error') drawnGlyph = 'sync_problem';
   else if (shownSyncStatus === 'success') drawnGlyph = 'cloud_done';
@@ -222,6 +228,7 @@ export default function MenuContainer() {
     describeSyncState({
       isSignedIn,
       awaitsDeviceId,
+      hasReadDeviceId,
       isAutoSync,
       isCloudConfigured,
       cloudConsent,

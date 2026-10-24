@@ -55,7 +55,7 @@ async function openHome(
     .getByRole('button', { name: localeStrings(lang)['Sort sessions'] })
     .waitFor();
   await waitForFontsLoaded(page);
-  // The header at rest: the startup cloud_off has crossfaded into sync (KAN-750).
+  // The header at rest: one glyph layer, nothing crossfading (KAN-750).
   await expect(
     page
       .getByRole('button', {

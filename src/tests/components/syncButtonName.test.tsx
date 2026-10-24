@@ -5,6 +5,7 @@ import Icon from '../../components/common/Icon';
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { describeSyncState } from '../../components/settings/rightpane/Account/describeSyncState';
 import {
+  deviceIdReadFinished,
   setAwaitsDeviceId,
   setCloudConfigured,
   setSignedIn,
@@ -76,12 +77,23 @@ interface Case {
 const CASES: Case[] = [
   {
     state: 'unavailable',
-    // The default store: signed out, no cloud, Auto Sync on, no answer yet.
-    seed: () => {},
+    // The default store once the read finds no id: signed out, no cloud, Auto Sync on, no answer yet.
+    seed: (s) => {
+      s.dispatch(deviceIdReadFinished());
+    },
     name: 'Sync unavailable',
     description: null,
     tooltip: 'Sync unavailable',
     dimmed: true,
+  },
+  {
+    // KAN-750 R19. Before the stored id is read, named as signed in: nothing is known to be unavailable.
+    state: 'id not read yet',
+    seed: () => {},
+    name: 'Sync now',
+    description: 'Sync is off',
+    tooltip: 'Sync is off · Sync now',
+    dimmed: false,
   },
   {
     state: 'off',
@@ -281,6 +293,7 @@ function cardTitle(store: Store): string {
   return describeSyncState({
     isSignedIn: globalState.isSignedIn,
     awaitsDeviceId: globalState.awaitsDeviceId,
+    hasReadDeviceId: globalState.hasReadDeviceId,
     isAutoSync: settingsDataState.isAutoSync,
     isCloudConfigured: globalState.isCloudConfigured,
     cloudConsent: settingsDataState.cloudConsent,

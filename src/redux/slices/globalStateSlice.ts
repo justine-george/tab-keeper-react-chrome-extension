@@ -104,6 +104,9 @@ export interface Global {
   // to bring another machine's. Not "unavailable", which is isSignedIn false
   // with this false too.
   awaitsDeviceId: boolean;
+  // KAN-750 R19. The open's read of the stored id has landed, whatever it
+  // found. Before it, isSignedIn false is "not read yet", not "unavailable".
+  hasReadDeviceId: boolean;
   // "Firebase anonymous auth has landed", i.e. request.auth is non-null and the
   // security rules will accept a request. Written ONLY by onAuthStateChanged.
   //
@@ -307,6 +310,7 @@ export const initialState: Global = {
   holdsPlaceholderSessions: true,
   isSignedIn: false,
   awaitsDeviceId: false,
+  hasReadDeviceId: false,
   isFirebaseAuthed: false,
   isCloudConfigured: false,
   userId: null,
@@ -1362,6 +1366,9 @@ export const globalStateSlice = createSlice({
     setAwaitsDeviceId: (state, action: PayloadAction<boolean>) => {
       state.awaitsDeviceId = action.payload;
     },
+    deviceIdReadFinished: (state) => {
+      state.hasReadDeviceId = true;
+    },
 
     replaceState: (state, action: PayloadAction<typeof state>) =>
       action.payload,
@@ -1608,6 +1615,7 @@ export const {
   setUserId,
   removeUserId,
   setAwaitsDeviceId,
+  deviceIdReadFinished,
   setHasTabGroupsPermission,
   toggleWindowCollapse,
   expandWindow,

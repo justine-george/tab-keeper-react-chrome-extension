@@ -10,7 +10,8 @@ import type { CloudConsent } from '../../../../redux/slices/settingsDataStateSli
  * failed sync while the header showed sync_problem. One derivation, in an
  * order that makes each line true:
  *
- *  1. No token: nothing can be sent. Unavailable.
+ *  1. No token, once the open's read has found none: nothing can be sent.
+ *     Unavailable. Before the read lands, nothing is known (KAN-750 R19).
  *  2. The cloud question declined, or not yet answered (KAN-259): off. Not
  *     "manual" -- the cloud button asks that user first rather than syncing,
  *     so "until you press the cloud button" would be a half-truth for them.
@@ -49,6 +50,7 @@ export interface SyncPresentation {
 export function describeSyncState({
   isSignedIn,
   awaitsDeviceId,
+  hasReadDeviceId,
   isAutoSync,
   isCloudConfigured,
   cloudConsent,
@@ -57,12 +59,14 @@ export function describeSyncState({
   isSignedIn: boolean;
   // KAN-599. No id yet, minted at the yes: not unavailable.
   awaitsDeviceId: boolean;
+  // KAN-750 R19. Before the read lands, isSignedIn false is not unavailable.
+  hasReadDeviceId: boolean;
   isAutoSync: boolean;
   isCloudConfigured: boolean;
   cloudConsent: CloudConsent;
   syncStatus: 'idle' | 'loading' | 'success' | 'error';
 }): SyncPresentation {
-  if (!isSignedIn && !awaitsDeviceId) {
+  if (hasReadDeviceId && !isSignedIn && !awaitsDeviceId) {
     return {
       kind: 'unavailable',
       icon: 'cloud_off',

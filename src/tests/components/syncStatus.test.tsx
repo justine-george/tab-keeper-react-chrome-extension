@@ -23,6 +23,7 @@ import {
   toggleAutoSync,
 } from '../../redux/slices/settingsDataStateSlice';
 import {
+  deviceIdReadFinished,
   saveToFirestoreIfDirty,
   setCloudConfigured,
   setLoggedOut,
@@ -59,6 +60,7 @@ import { asWritten } from '../setup/asWritten';
 const base = {
   isSignedIn: true,
   awaitsDeviceId: false,
+  hasReadDeviceId: true,
   isAutoSync: true,
   isCloudConfigured: true,
   cloudConsent: 'granted' as const,
@@ -157,6 +159,14 @@ describe('describeSyncState', () => {
       describeSyncState({ ...base, isSignedIn: false, syncStatus: 'error' })
         .kind
     ).toBe('unavailable');
+  });
+
+  // KAN-750 R19. Signed out before the open's read lands is "not read yet": described as signed in.
+  test('no token before the stored id is read is not unavailable', () => {
+    const unread = { ...base, isSignedIn: false, hasReadDeviceId: false };
+    expect(describeSyncState(unread).kind).toBe('on');
+    expect(describeSyncState(unread).icon).toBe('sync');
+    expect(describeSyncState({ ...unread, cloudConsent: '' }).kind).toBe('off');
   });
 
   // KAN-599. A fresh install holds no id until the yes; that is off, not unavailable.
@@ -346,7 +356,30 @@ describe('the sync status line follows the store (KAN-248)', () => {
     const { store } = await renderSync();
     act(() => {
       store.dispatch(setLoggedOut());
+      store.dispatch(deviceIdReadFinished());
     });
+    expect(card().textContent).toContain('Sync unavailable');
+  });
+
+  // KAN-750 R19. The card says the same as the button while the stored id is unread.
+  test('before the stored id is read, the card is not unavailable', async () => {
+    const { store } = await renderWithProviders(<SettingsDetailsContainer />, {
+      seedStore: (s) => {
+        s.dispatch(selectCategory(SettingsCategory.SYNC));
+        s.dispatch(setCloudConfigured(true));
+        s.dispatch(grantCloudConsent());
+      },
+    });
+    expect(card().getAttribute('data-sync-state')).toBe('on');
+    expect(
+      card().querySelector('[data-glyph]')?.getAttribute('data-glyph')
+    ).toBe('sync');
+
+    act(() => {
+      store.dispatch(setLoggedOut());
+      store.dispatch(deviceIdReadFinished());
+    });
+    expect(card().getAttribute('data-sync-state')).toBe('unavailable');
     expect(card().textContent).toContain('Sync unavailable');
   });
 
@@ -460,6 +493,7 @@ describe('the status line shows when it last synced (KAN-255)', () => {
     const { store } = await renderWith({ autoSync: true, lastSyncedTime: AT });
     act(() => {
       store.dispatch(setLoggedOut());
+      store.dispatch(deviceIdReadFinished());
     });
     expect(card().querySelector('[data-sync-synced]')).toBeNull();
   });

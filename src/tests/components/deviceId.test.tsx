@@ -12,7 +12,9 @@ vi.mock('../../config/firebase', () => ({
 
 import App from '../../App';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import type { ChromeSeed } from '../setup/chrome.fake';
 import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
+import { readDeviceId } from '../../redux/deviceId';
 
 // KAN-599. The device id is the Firestore doc id, a uuid in chrome.storage.sync
 // that Chrome Sync carries to the user's other machines. A new machine used to
@@ -144,5 +146,39 @@ describe('the device id (KAN-599)', () => {
       awaitsDeviceId: false,
     });
     expect(await storedId()).toBe(0);
+  });
+});
+
+// KAN-750 R19. Until the open's read lands nothing may say sync is unavailable, so every outcome ends the wait, and only after the outcome is in the store.
+describe('the open read of the device id ends whatever it finds', () => {
+  async function readAtOpen(seed: ChromeSeed, readFails = false) {
+    const { store } = await renderWithProviders(<div />, { seed });
+    if (readFails) {
+      vi.spyOn(chrome.storage.sync, 'get').mockRejectedValue(
+        new Error('unreadable')
+      );
+    }
+    const before = store.getState().globalState.hasReadDeviceId;
+    let atEnd: ReturnType<typeof idState> | null = null;
+    const unsubscribe = store.subscribe(() => {
+      if (atEnd === null && store.getState().globalState.hasReadDeviceId) {
+        atEnd = idState(store);
+      }
+    });
+    await act(() => store.dispatch(readDeviceId()));
+    unsubscribe();
+    return { before, atEnd, after: idState(store) };
+  }
+
+  test.each([
+    ['a stored id', { storage: { tokenValue: 'X' } }, false, true, false],
+    ['no id yet', {}, false, false, true],
+    ['an unusable id', { storage: { tokenValue: 0 } }, false, false, false],
+    ['a read that throws', {}, true, false, false],
+  ])('%s', async (_name, seed, readFails, isSignedIn, awaitsDeviceId) => {
+    const { before, atEnd, after } = await readAtOpen(seed, readFails);
+    expect(before).toBe(false);
+    expect(after).toMatchObject({ isSignedIn, awaitsDeviceId });
+    expect(atEnd).toEqual(after);
   });
 });
