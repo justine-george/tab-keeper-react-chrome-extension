@@ -17,16 +17,15 @@ import {
 } from './syncMorph.data';
 import {
   blendPoints,
-  easeInOutCubic,
-  INTO_TURN_EASE,
+  INTO_TURN,
   isMorphTarget,
-  MORPH_MS,
   MORPH_TARGETS,
   type MorphTarget,
+  type MorphTiming,
   morphPath,
   morphSetFor,
   pairsFromFrame,
-  SETTLE_EASE,
+  SETTLE,
   settlePose,
   settleSpot,
   TURN_MS,
@@ -59,7 +58,7 @@ interface Morph {
   pairs: MorphPair[];
   fromDeg: number;
   toDeg: number;
-  easing: string;
+  timing: MorphTiming;
   // The page time it began (performance.now()); null begins it on its first frame.
   startedAt: number | null;
 }
@@ -134,7 +133,11 @@ function MorphingOutline({
             ],
             // Both: a settle timed to a moment the frame clock has not reached
             // yet holds its first pose, not none (upright) for that frame.
-            { duration: MORPH_MS, easing: morph.easing, fill: 'both' }
+            {
+              duration: morph.timing.ms,
+              easing: morph.timing.easing,
+              fill: 'both',
+            }
           )
         : null;
     if (rotation && morph.startedAt !== null)
@@ -144,8 +147,8 @@ function MorphingOutline({
     // The eased progress of the last frame drawn.
     let drawn = 0;
     const step = () => {
-      const t = Math.min(1, (performance.now() - start) / MORPH_MS);
-      drawn = easeInOutCubic(t);
+      const t = Math.min(1, (performance.now() - start) / morph.timing.ms);
+      drawn = morph.timing.shape(t);
       path.current?.setAttribute('d', morphPath(morph.pairs, drawn));
       frame = t < 1 ? requestAnimationFrame(step) : undefined;
     };
@@ -163,7 +166,7 @@ function MorphingOutline({
     // The timer, not the frames, ends the morph: it runs where frames do not.
     const end = setTimeout(
       () => onEnd(layerKey),
-      start + MORPH_MS - performance.now()
+      start + morph.timing.ms - performance.now()
     );
     return () => {
       onLive(layerKey, null);
@@ -281,7 +284,7 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
             pairs: startPairs(ARROWS_STILL),
             fromDeg,
             toDeg: spot?.toDeg ?? settlePose(fromDeg),
-            easing: SETTLE_EASE,
+            timing: SETTLE,
             startedAt: spot?.startedAt ?? null,
           };
         }
@@ -341,7 +344,7 @@ const SyncGlyph: React.FC<SyncGlyphProps> = ({ glyph, turning, glyphCss }) => {
               pairs: startPairs(ends),
               fromDeg,
               toDeg,
-              easing: intoArrows && turns ? INTO_TURN_EASE : SETTLE_EASE,
+              timing: intoArrows && turns ? INTO_TURN : SETTLE,
               startedAt: spot?.startedAt ?? null,
             },
           },

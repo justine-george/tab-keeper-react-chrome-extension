@@ -15,7 +15,12 @@ import {
   SYNC_PROBLEM_PATH,
 } from '../src/components/common/syncMorph.data';
 import {
+  easeOut,
+  INTO_TURN_MS,
   MORPH_MS,
+  MORPH_TARGETS,
+  type MorphTarget,
+  morphPath,
   SETTLE_DISTANCE_DEG,
   TURN_MS,
   UNPRESSED_DELAY_MS,
@@ -116,7 +121,7 @@ interface Frame {
 }
 
 interface SampleOptions {
-  // Click the button on the first frame.
+  // Click the button just after the first frame.
   press: boolean;
   // Sample until this many ms after `until` is first the glyph, or after the start.
   until: string | null;
@@ -173,7 +178,9 @@ function sampleFrames(page: Page, options: SampleOptions): Promise<Frame[]> {
         };
         requestAnimationFrame(() => {
           document.body.dataset.sampling = 'started';
-          if (press) button.click();
+          // As a real click comes: a task between frames. An animation begun
+          // inside a frame callback starts at that frame's time, a frame early.
+          if (press) setTimeout(() => button.click());
           step();
         });
       }),
@@ -203,18 +210,23 @@ const FIRST_FRAME_STALL_MS = 150;
 // A morph draws a new outline every frame, frame rate aside, until the glyph's
 // own outline (`end`) replaces it. Two may repeat: the first (the render's t=0
 // outline) and the last (t=1, until its timer swaps it). Cut at `end`, since a
-// stalled first frame lets the morph's timer end it under MORPH_MS after it;
+// stalled first frame lets the morph's timer end it under `ms` after it;
 // but no sooner than the stall allows, so a morph cut short still fails.
-function expectMorphed(frames: Frame[], name: string, end: string): void {
+function expectMorphed(
+  frames: Frame[],
+  name: string,
+  end: string,
+  ms = MORPH_MS
+): void {
   const from = framesFrom(frames, name);
   const ended = from.findIndex((f) => f.d === end);
   expect(ended, `${name} never drew its own outline`).toBeGreaterThanOrEqual(0);
-  const during = from.slice(0, ended).filter((f) => f.t - from[0].t < MORPH_MS);
+  const during = from.slice(0, ended).filter((f) => f.t - from[0].t < ms);
   expect(during.length, `no frame morphed into ${name}`).toBeGreaterThan(0);
   expect(
     from[ended].t - from[0].t,
     `the morph into ${name} ended early`
-  ).toBeGreaterThanOrEqual(MORPH_MS - FIRST_FRAME_STALL_MS);
+  ).toBeGreaterThanOrEqual(ms - FIRST_FRAME_STALL_MS);
   expect(distinct(during), 'the outline did not morph').toBeGreaterThanOrEqual(
     Math.max(5, during.length - 2)
   );
@@ -307,6 +319,61 @@ function expectLeavesAtTurnSpeed(frames: Frame[], name: string): Leaving {
   return l;
 }
 
+// How far along its morph an outline is, 0 to 1, read off the coordinates that
+// move most (the path is drawn to 0.1 of a unit).
+function morphProgress(d: string, target: MorphTarget): number {
+  const nums = (path: string) =>
+    (path.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+  const pairs = MORPH_TARGETS[target].intoArrows;
+  const [from, to, now] = [
+    nums(morphPath(pairs, 0)),
+    nums(morphPath(pairs, 1)),
+    nums(d),
+  ];
+  expect(now.length, 'not a frame of the press').toBe(from.length);
+  const along = from
+    .map((a, i) => ({ span: to[i] - a, moved: now[i] - a }))
+    .filter(({ span }) => Math.abs(span) > 20)
+    .map(({ span, moved }) => moved / span)
+    .sort((a, b) => a - b);
+  return along[Math.floor(along.length / 2)];
+}
+
+// KAN-760 P1: a press turns at the turn's speed from its first turned frame,
+// on through the hand-off to the turn, while the outline gets there early.
+function expectPressesAtTurnSpeed(frames: Frame[], target: MorphTarget): void {
+  const from = framesFrom(frames, 'sync');
+  expect(from[0]?.rotation, 'the press did not turn').toEqual([
+    'rotate(0deg)',
+    'rotate(-90deg)',
+  ]);
+  const t0 = from[0].t;
+  // The rotation starts on a frame's time, so the first frame is still upright.
+  const moving = from.findIndex((f) => angleOf(f.transform) !== 0);
+  const turning = from
+    .slice(moving)
+    .filter((f) => f.t - t0 <= INTO_TURN_MS + 100);
+  expect(turning.length, 'too few frames of the press').toBeGreaterThan(5);
+  const turnDegPerMs = 360 / TURN_MS;
+  for (let i = 1; i < turning.length; i++) {
+    const [a, b] = [turning[i - 1], turning[i]];
+    const ratio = turnedBetween(a, b) / (b.t - a.t) / turnDegPerMs;
+    expect(ratio, `turn speed at ${b.t - t0} ms`).toBeGreaterThan(0.75);
+    expect(ratio, `turn speed at ${b.t - t0} ms`).toBeLessThan(1.25);
+  }
+  // No frame is behind EASE.OUT: the morph started no later than t0, and a
+  // frame may show the outline drawn for the frame before it.
+  const morphing = from.filter((f) => f.d !== SYNC_PATH && f.rotation);
+  expect(morphing.length, 'too few frames of the shape').toBeGreaterThan(5);
+  for (let i = 1; i < morphing.length; i++) {
+    const before = (morphing[i - 1].t - t0) / INTO_TURN_MS;
+    expect(
+      morphProgress(morphing[i].d ?? '', target),
+      `shape at ${morphing[i].t - t0} ms`
+    ).toBeGreaterThanOrEqual(easeOut(before) - 0.01);
+  }
+}
+
 test.describe('the sync glyph turns and morphs (KAN-750)', () => {
   test.beforeEach(() => {
     test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
@@ -375,7 +442,8 @@ test.describe('the sync glyph turns and morphs (KAN-750)', () => {
     });
     writeFileSync(testInfo.outputPath('frames.json'), JSON.stringify(frames));
 
-    expectMorphed(frames, 'sync', SYNC_PATH);
+    expectMorphed(frames, 'sync', SYNC_PATH, INTO_TURN_MS);
+    expectPressesAtTurnSpeed(frames, 'cloud_done');
     await expect(glyph(page)).toHaveAttribute('data-glyph', 'sync');
     await expect(glyph(page)).toHaveAttribute('data-turning', 'true');
     await expect(glyph(page).locator('path')).toHaveCount(1);
@@ -439,7 +507,8 @@ test.describe('the sync glyph turns and morphs (KAN-750)', () => {
       testInfo.outputPath('retry-frames.json'),
       JSON.stringify(pressed)
     );
-    expectMorphed(pressed, 'sync', SYNC_PATH);
+    expectMorphed(pressed, 'sync', SYNC_PATH, INTO_TURN_MS);
+    expectPressesAtTurnSpeed(pressed, 'sync_problem');
     await expect(glyph(page)).toHaveAttribute('data-glyph', 'sync');
     await expect(glyph(page)).toHaveAttribute('data-turning', 'true');
     await expect(glyph(page).locator('path')).toHaveAttribute('d', SYNC_PATH);

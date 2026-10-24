@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DURATION } from '../../styles/scale';
+import { DURATION, EASE } from '../../styles/scale';
 import {
   CLOUD_DONE_HALF_TURN,
   CLOUD_DONE_PATH,
@@ -11,7 +11,12 @@ import {
 import {
   blendPoints,
   CROSSFADE_MS,
+  cubicBezier,
+  EASE_OUT_CURVE,
   easeInOutCubic,
+  easeOut,
+  INTO_TURN,
+  INTO_TURN_MS,
   isMorphTarget,
   matchRing,
   MORPH_TARGETS,
@@ -19,6 +24,7 @@ import {
   morphSetFor,
   pairsFromFrame,
   MORPH_MS,
+  SETTLE,
   SETTLE_DISTANCE_DEG,
   SETTLE_EASE,
   settlePose,
@@ -38,10 +44,64 @@ describe('CROSSFADE_MS', () => {
 });
 
 describe('the tuned motion (KAN-750)', () => {
-  it('turns once per 800 ms; settles, morphs and presses into the turn in 300 ms', () => {
+  it('turns once per 800 ms; settles and morphs in 300 ms', () => {
     expect(TURN_MS).toBe(800);
     expect(MORPH_MS).toBe(300);
     expect(SETTLE_EASE).toBe('cubic-bezier(0.5, 0.75, 0.6, 1)');
+    expect(SETTLE).toEqual({
+      ms: MORPH_MS,
+      easing: SETTLE_EASE,
+      shape: easeInOutCubic,
+    });
+  });
+});
+
+// KAN-760 P1: the press into the turn goes at the turn's speed from its first frame.
+describe('INTO_TURN', () => {
+  it('turns its quarter turn at the turn speed, in 200 ms', () => {
+    expect(INTO_TURN_MS).toBe(200);
+    expect(INTO_TURN.ms).toBe(INTO_TURN_MS);
+    expect(INTO_TURN.easing).toBe('linear');
+    expect(90 / INTO_TURN.ms).toBe(360 / TURN_MS);
+  });
+
+  it('eases its shape with EASE.OUT', () => {
+    expect(`cubic-bezier(${EASE_OUT_CURVE.join(', ')})`).toBe(EASE.OUT);
+    expect(INTO_TURN.shape).toBe(easeOut);
+  });
+});
+
+describe('cubicBezier', () => {
+  // The curve's point at parameter s.
+  const at = (s: number, p1: number, p2: number) =>
+    3 * (1 - s) ** 2 * s * p1 + 3 * (1 - s) * s ** 2 * p2 + s ** 3;
+
+  it('is y for x, from the curve itself', () => {
+    const [x1, y1, x2, y2] = EASE_OUT_CURVE;
+    for (const s of [0.05, 0.2, 0.5, 0.8, 0.95])
+      expect(easeOut(at(s, x1, x2))).toBeCloseTo(at(s, y1, y2), 6);
+  });
+
+  it('runs 0 to 1 and holds there outside', () => {
+    for (const ease of [easeOut, cubicBezier(0.42, 0, 0.58, 1)]) {
+      expect(ease(0)).toBe(0);
+      expect(ease(1)).toBe(1);
+      expect(ease(-0.5)).toBe(0);
+      expect(ease(1.5)).toBe(1);
+    }
+    // Symmetric curves cross the middle.
+    expect(cubicBezier(0.42, 0, 0.58, 1)(0.5)).toBeCloseTo(0.5, 6);
+    // A straight line is its own x.
+    expect(cubicBezier(1 / 3, 1 / 3, 2 / 3, 2 / 3)(0.3)).toBeCloseTo(0.3, 6);
+  });
+
+  it('starts fast: EASE.OUT is three quarters along a quarter of the way in', () => {
+    expect(easeOut(0.25)).toBeGreaterThan(0.75);
+  });
+
+  it('refuses an x outside 0 to 1, as CSS does', () => {
+    expect(() => cubicBezier(-0.1, 0, 0.5, 1)).toThrow(RangeError);
+    expect(() => cubicBezier(0.5, 0, 1.1, 1)).toThrow(RangeError);
   });
 });
 
