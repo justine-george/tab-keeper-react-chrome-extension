@@ -3,6 +3,8 @@ import type { RootState } from './store';
 import { isDragHeld, whenDragReleases } from './dragHold';
 import { hydrateFromOtherPage } from './slices/tabContainerDataStateSlice';
 import {
+  asCloudDeletedElsewhere,
+  asConsentTime,
   asPaneWidth,
   asTimeFormat,
   asDefaultSaveScope,
@@ -136,6 +138,15 @@ export const applyOtherPageSettings =
         'isChalkCharcoalMoveApplied' in incoming
           ? incoming.isChalkCharcoalMoveApplied === true
           : current.isChalkCharcoalMoveApplied,
+      // KAN-759. Guarded like the rest; absent means an older page, keep ours.
+      cloudConsentGrantedAt:
+        'cloudConsentGrantedAt' in incoming
+          ? asConsentTime(incoming.cloudConsentGrantedAt)
+          : current.cloudConsentGrantedAt,
+      cloudDeletedElsewhere:
+        'cloudDeletedElsewhere' in incoming
+          ? asCloudDeletedElsewhere(incoming.cloudDeletedElsewhere)
+          : current.cloudDeletedElsewhere,
       // KAN-7. Same rule for the onboarding answers.
       ...guardOnboarding(loaded, current),
     };

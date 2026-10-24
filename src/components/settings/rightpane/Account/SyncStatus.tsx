@@ -1,10 +1,11 @@
 import { css } from '@emotion/react';
-import { shallowEqual, useSelector } from 'react-redux';
+import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { getTooltipDate } from '../../../../utils/functions/local';
 import { sessionWhen } from '../../../../utils/functions/sessionDate';
 import { useToday } from '../../../../hooks/useToday';
 
+import Button from '../../../common/Button';
 import Icon from '../../../common/Icon';
 import SyncGlyph from '../../../common/SyncGlyph';
 import {
@@ -12,12 +13,15 @@ import {
   useBootSyncWait,
   useShownSyncStatus,
 } from '../../../common/useShownSyncStatus';
-import { selectAwaitsBootSync } from '../../../../redux/slices/globalStateSlice';
+import {
+  selectAwaitsBootSync,
+  turnSyncBackOn,
+} from '../../../../redux/slices/globalStateSlice';
 import { describeSyncState } from './describeSyncState';
 import SyncSpaceBar from './SyncSpaceBar';
 import { useFontFamily } from '../../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../../hooks/useThemeColors';
-import { RootState } from '../../../../redux/store';
+import { AppDispatch, RootState } from '../../../../redux/store';
 import { TYPE } from '../../../../styles/scale';
 
 /**
@@ -45,6 +49,7 @@ const SyncStatus: React.FC = () => {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t, i18n } = useTranslation();
+  const dispatch: AppDispatch = useDispatch();
 
   const lastSyncedTime = useSelector(
     (s: RootState) => s.settingsDataState.lastSyncedTime
@@ -89,6 +94,8 @@ const SyncStatus: React.FC = () => {
         isCloudConfigured: s.globalState.isCloudConfigured,
         cloudConsent: s.settingsDataState.cloudConsent,
         syncStatus: shownSyncStatus,
+        isCloudDeletedElsewhere:
+          s.settingsDataState.cloudDeletedElsewhere !== null,
       }),
     shallowEqual
   );
@@ -124,6 +131,12 @@ const SyncStatus: React.FC = () => {
     line-height: 1.45;
     color: ${COLORS.LABEL_L1_COLOR};
     font-variant-numeric: tabular-nums;
+  `;
+
+  // KAN-759. Set apart from the sentence above it.
+  const turnOnRowStyle = css`
+    display: flex;
+    margin-top: 12px;
   `;
 
   // KAN-650. Capped at the reading width of the other Settings help lines.
@@ -177,6 +190,17 @@ const SyncStatus: React.FC = () => {
         <p css={lineStyle} data-sync-line>
           {t(state.line)}
         </p>
+      )}
+      {/* KAN-759. The way back on: the yes, and this device's copy uploaded. */}
+      {state.kind === 'deletedElsewhere' && (
+        <div css={turnOnRowStyle}>
+          <Button
+            text={t('Turn sync on')}
+            iconType="sync"
+            variant="outline"
+            onClick={() => void dispatch(turnSyncBackOn())}
+          />
+        </div>
       )}
       {/* KAN-596. Only where this device syncs: off and unavailable write nothing.
           KAN-633. Off still warns from 80%, so the size is known before the yes. */}

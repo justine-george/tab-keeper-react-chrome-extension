@@ -577,6 +577,32 @@ describe('applyOtherPageSettings (KAN-279 D9)', () => {
     expect(store.getState().settingsDataState.language).toBe(current.language);
   });
 
+  // KAN-759. A sync in the popup stops sync on this device: the full view
+  // takes it in, so the card there says why, and nothing uploads from a stale yes.
+  it('(7h) a stop for a cloud copy deleted elsewhere lands; a malformed record does not', () => {
+    const { store } = settingsStore();
+    const current = store.getState().settingsDataState;
+    otherPageWrites('settingsData', {
+      ...current,
+      cloudConsent: 'declined',
+      isAutoSync: false,
+      cloudDeletedElsewhere: { wasAutoSync: true },
+    });
+    store.dispatch(applyOtherPageSettings());
+    const taken = store.getState().settingsDataState;
+    expect(taken.cloudConsent).toBe('declined');
+    expect(taken.cloudDeletedElsewhere).toEqual({ wasAutoSync: true });
+
+    otherPageWrites('settingsData', {
+      ...taken,
+      cloudDeletedElsewhere: true,
+      cloudConsentGrantedAt: 'soon',
+    });
+    store.dispatch(applyOtherPageSettings());
+    expect(store.getState().settingsDataState.cloudDeletedElsewhere).toBeNull();
+    expect(store.getState().settingsDataState.cloudConsentGrantedAt).toBe('');
+  });
+
   it('(7g) absent: no dispatch and no warning', () => {
     const { store, seen } = settingsStore();
     localStorage.removeItem('settingsData');

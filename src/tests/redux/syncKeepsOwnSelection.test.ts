@@ -34,7 +34,10 @@ import {
   setUserId,
   syncStateWithFirestore,
 } from '../../redux/slices/globalStateSlice';
-import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
+import {
+  grantCloudConsent,
+  setLastSyncedTime,
+} from '../../redux/slices/settingsDataStateSlice';
 import {
   replaceState,
   saveToTabContainerInternal,
@@ -162,6 +165,12 @@ const cloudDeletesAlpha = () => {
   };
 };
 
+// KAN-759. The local-only branch runs only before a sync lands after the yes:
+// after one, a missing document means another device deleted it, and the
+// sync stops instead.
+const noSyncSinceTheYes = (store: Store) =>
+  store.dispatch(setLastSyncedTime(''));
+
 beforeEach(() => {
   vi.useFakeTimers();
   localStorage.clear();
@@ -243,6 +252,7 @@ describe("a sync keeps this page's own selection (KAN-294)", () => {
 
   it("site 3, local only: the other page's selection does not replace this page's", async () => {
     const { store } = await openPage();
+    noSyncSinceTheYes(store);
     mocks.cloud.doc = undefined;
     otherPageSelects('bravo');
 
@@ -254,6 +264,7 @@ describe("a sync keeps this page's own selection (KAN-294)", () => {
 
   it('site 3: alpha deleted by the other page falls back to the first session (bravo), not the incoming charlie', async () => {
     const { store } = await openPage();
+    noSyncSinceTheYes(store);
     mocks.cloud.doc = undefined;
     localStorage.setItem(
       'tabContainerData',

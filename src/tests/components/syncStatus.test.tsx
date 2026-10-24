@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import {
@@ -21,6 +21,7 @@ import {
 import {
   declineCloudConsent,
   grantCloudConsent,
+  markCloudDeletedElsewhere,
   recordSyncedNow,
   setLastSyncedTime,
   toggleAutoSync,
@@ -68,6 +69,7 @@ const base = {
   isCloudConfigured: true,
   cloudConsent: 'granted' as const,
   syncStatus: 'idle' as const,
+  isCloudDeletedElsewhere: false,
 };
 
 describe('describeSyncState', () => {
@@ -114,6 +116,22 @@ describe('describeSyncState', () => {
     expect(
       describeSyncState({ ...base, cloudConsent: '', isAutoSync: true }).kind
     ).toBe('off');
+  });
+
+  // KAN-759. Off, and why: another device deleted the cloud copy.
+  test('declined after the cloud copy was deleted elsewhere says so; a yes answers it', () => {
+    const gone = describeSyncState({
+      ...base,
+      cloudConsent: 'declined',
+      isAutoSync: false,
+      isCloudDeletedElsewhere: true,
+    });
+    expect(gone.kind).toBe('deletedElsewhere');
+    expect(gone.title).toBe('Cloud copy deleted');
+    expect(gone.icon).toBe('cloud');
+    expect(
+      describeSyncState({ ...base, isCloudDeletedElsewhere: true }).kind
+    ).toBe('on');
   });
 
   test('auto sync off is manual, even with a healthy cloud', () => {
@@ -211,10 +229,16 @@ describe('describeSyncState', () => {
       describeSyncState({ ...base, syncStatus: 'error' }),
       describeSyncState({ ...base, syncStatus: 'loading' }),
       describeSyncState({ ...base, isSignedIn: false }),
+      describeSyncState({
+        ...base,
+        cloudConsent: 'declined',
+        isAutoSync: false,
+        isCloudDeletedElsewhere: true,
+      }),
     ];
-    // Off and manual share the cloud glyph -- both are "not sending" -- and
-    // differ in title; every other state has its own glyph.
-    expect(new Set(kinds.map((k) => k.title)).size).toBe(6);
+    // Off, manual and deleted elsewhere share the cloud glyph -- all are "not
+    // sending" -- and differ in title; every other state has its own glyph.
+    expect(new Set(kinds.map((k) => k.title)).size).toBe(7);
     expect(new Set(kinds.map((k) => k.icon)).size).toBe(5);
   });
 });
@@ -341,6 +365,46 @@ describe('the sync status line follows the store (KAN-248)', () => {
     expect(card().getAttribute('data-sync-state')).toBe('off');
     expect(card().textContent).toContain('Sync is off');
     expect(card().textContent).not.toContain('Manual sync');
+  });
+
+  // KAN-759. The reason sync is off stays on the card, with the way back on.
+  test('deleted elsewhere: says so, and Turn sync on gives the yes', async () => {
+    const { store } = await renderSync();
+    act(() => {
+      store.dispatch(markCloudDeletedElsewhere({ wasAutoSync: true }));
+      store.dispatch(declineCloudConsent());
+    });
+    expect(card().getAttribute('data-sync-state')).toBe('deletedElsewhere');
+    expect(card().textContent).toContain('Cloud copy deleted');
+    expect(card().textContent).toContain(
+      'It was deleted on another device, so sync is off here. The sessions on this device are unchanged.'
+    );
+    const turnOn = within(card()).getByRole('button', { name: 'Turn sync on' });
+    // Set apart from the line above it.
+    expect(
+      parseFloat(getComputedStyle(turnOn.parentElement!).marginTop)
+    ).toBeGreaterThan(0);
+
+    await act(async () => {
+      fireEvent.click(turnOn);
+    });
+    const { settingsDataState } = store.getState();
+    expect(settingsDataState.cloudConsent).toBe('granted');
+    expect(settingsDataState.isAutoSync).toBe(true);
+    expect(settingsDataState.cloudDeletedElsewhere).toBeNull();
+    expect(card().getAttribute('data-sync-state')).not.toBe('deletedElsewhere');
+  });
+
+  // CONTROL: a plain decline keeps today's card, with no button.
+  test('declined without a delete elsewhere has no Turn sync on', async () => {
+    const { store } = await renderSync();
+    act(() => {
+      store.dispatch(declineCloudConsent());
+    });
+    expect(card().getAttribute('data-sync-state')).toBe('off');
+    expect(
+      within(card()).queryByRole('button', { name: 'Turn sync on' })
+    ).toBeNull();
   });
 
   // KAN-650. A wide full view ran the sentence the whole pane; it stops at

@@ -38,7 +38,13 @@ import type { CloudConsent } from '../../../../redux/slices/settingsDataStateSli
  * `title` and `line` are i18n keys; the card passes them through t().
  */
 export type SyncKind =
-  'unavailable' | 'off' | 'manual' | 'failed' | 'syncing' | 'on';
+  | 'unavailable'
+  | 'off'
+  | 'deletedElsewhere'
+  | 'manual'
+  | 'failed'
+  | 'syncing'
+  | 'on';
 
 export interface SyncPresentation {
   kind: SyncKind;
@@ -55,6 +61,7 @@ export function describeSyncState({
   isCloudConfigured,
   cloudConsent,
   syncStatus,
+  isCloudDeletedElsewhere,
 }: {
   isSignedIn: boolean;
   // KAN-599. No id yet, minted at the yes: not unavailable.
@@ -65,6 +72,8 @@ export function describeSyncState({
   isCloudConfigured: boolean;
   cloudConsent: CloudConsent;
   syncStatus: 'idle' | 'loading' | 'success' | 'error';
+  // KAN-759. Off because a sync found the cloud copy deleted on another device.
+  isCloudDeletedElsewhere: boolean;
 }): SyncPresentation {
   if (hasReadDeviceId && !isSignedIn && !awaitsDeviceId) {
     return {
@@ -72,6 +81,14 @@ export function describeSyncState({
       icon: 'cloud_off',
       title: 'Sync unavailable',
       line: 'Chrome’s sync storage isn’t available in this profile, so your sessions stay on this device.',
+    };
+  }
+  if (cloudConsent !== 'granted' && isCloudDeletedElsewhere) {
+    return {
+      kind: 'deletedElsewhere',
+      icon: 'cloud',
+      title: 'Cloud copy deleted',
+      line: 'It was deleted on another device, so sync is off here. The sessions on this device are unchanged.',
     };
   }
   if (cloudConsent !== 'granted') {
