@@ -68,8 +68,11 @@ const SyncStatus: React.FC = () => {
   const syncStatus = useSelector((s: RootState) => s.globalState.syncStatus);
   const awaitsBootSync = useSelector(selectAwaitsBootSync);
   const isBootWait = useBootSyncWait(awaitsBootSync);
+  const isSyncNowRunning = useSelector(
+    (s: RootState) => s.globalState.isSyncNowRunning
+  );
   const shownSyncStatus = useShownSyncStatus(syncStatus, {
-    awaitsSync: isBootWait,
+    awaitsSync: isBootWait || isSyncNowRunning,
     pressedAt: syncPressedAt,
   });
   // shallowEqual: describeSyncState builds a fresh object every call, so

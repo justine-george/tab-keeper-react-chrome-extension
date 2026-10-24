@@ -209,6 +209,9 @@ export interface Global {
   // KAN-750. Whether a cloud call has started this page load. Until one has,
   // the sync glyph shows the boot sync while sign-in is still pending.
   hasStartedSync: boolean;
+  // KAN-750 R12. A Sync now runs, from its press through sign-in to its
+  // sync's end: the button reads "Syncing…" before syncStatus can.
+  isSyncNowRunning: boolean;
   // KAN-280 O5. A saved session clicked while the tab view is folded shows
   // beside Open now until the fold button is next pressed. Session-only, so
   // a new page opens as the stored setting says.
@@ -328,6 +331,7 @@ export const initialState: Global = {
   syncsInFlight: 0,
   isSyncQueued: false,
   hasStartedSync: false,
+  isSyncNowRunning: false,
   isPeekingSavedSession: false,
   isRunHere: false,
   hasRunShownHere: false,
@@ -761,20 +765,25 @@ const resyncAfterHold =
 export const syncNowWhenSignedIn =
   () =>
   async (dispatch: AppDispatch, getState: () => RootState): Promise<void> => {
-    // KAN-599. A yes on a device with no id yet mints it before this reads.
-    await dispatch(mintDeviceIdIfNone());
-    if (!getState().globalState.userId) {
-      dispatch(setSyncStatus('error'));
-      return;
-    }
+    dispatch(setSyncNowRunning(true));
     try {
-      await ensureCloudSessionReady(dispatch);
-    } catch (error) {
-      console.warn('Sync not started: sign-in failed:', error);
-      dispatch(setSyncStatus('error'));
-      return;
+      // KAN-599. A yes on a device with no id yet mints it before this reads.
+      await dispatch(mintDeviceIdIfNone());
+      if (!getState().globalState.userId) {
+        dispatch(setSyncStatus('error'));
+        return;
+      }
+      try {
+        await ensureCloudSessionReady(dispatch);
+      } catch (error) {
+        console.warn('Sync not started: sign-in failed:', error);
+        dispatch(setSyncStatus('error'));
+        return;
+      }
+      await dispatch(syncStateWithFirestore());
+    } finally {
+      dispatch(setSyncNowRunning(false));
     }
-    await dispatch(syncStateWithFirestore());
   };
 
 // KAN-719. The id Delete cloud data acts on, read locally and never minted, or null after saying why there is none.
@@ -1331,6 +1340,9 @@ export const globalStateSlice = createSlice({
     ) => {
       state.syncStatus = action.payload;
     },
+    setSyncNowRunning: (state, action: PayloadAction<boolean>) => {
+      state.isSyncNowRunning = action.payload;
+    },
 
     setUserId: (state, action: PayloadAction<string>) => {
       state.userId = action.payload;
@@ -1584,6 +1596,7 @@ export const {
   endPlaceholderSessions,
   setLoggedOut,
   setSyncStatus,
+  setSyncNowRunning,
   setUserId,
   removeUserId,
   setAwaitsDeviceId,

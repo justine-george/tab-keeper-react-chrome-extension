@@ -29,7 +29,8 @@ export function useBootSyncWait(awaitsBootSync: boolean): boolean {
 }
 
 interface Options {
-  // A sync is on its way while the status is not 'loading' yet: the boot wait.
+  // A sync is on its way while the status may not be 'loading' yet: the boot
+  // wait (from useBootSyncWait) or a running Sync now.
   awaitsSync: boolean;
   // performance.now() clock, like syncPressedAt.
   pressedAt: { current: number };
