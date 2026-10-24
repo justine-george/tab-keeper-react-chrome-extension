@@ -6,7 +6,7 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { syncPressedAt } from '../../components/common/useShownSyncStatus';
 import { grantCloudConsent } from '../../redux/slices/settingsDataStateSlice';
 import {
-  bootSignInFailed,
+  authListenerSignInFailed,
   setCloudConfigured,
   setLoggedOut,
   setSignedIn,
@@ -278,13 +278,13 @@ describe('the header sync affordance', () => {
       expect(glyphOf(syncControl()).turning).toBe('false');
     });
 
-    // KAN-750 R14. Offline: the boot sign-in fails, so the sync is not coming.
-    test('a failed boot sign-in ends the wait at once, not at 8 s', async () => {
+    // KAN-750 R14. Offline: the listener's sign-in fails, so the sync is not coming.
+    test('a failed listener sign-in ends the wait at once, not at 8 s', async () => {
       const { store } = await renderBootWait();
       await advance(200);
       expect(glyphOf(syncControl('Syncing…')).turning).toBe('true');
       await act(async () => {
-        store.dispatch(bootSignInFailed());
+        store.dispatch(authListenerSignInFailed());
       });
       expect(syncControl().getAttribute('aria-disabled')).toBeNull();
       // Shown at 150 ms, so it holds to 550 ms, then stops.

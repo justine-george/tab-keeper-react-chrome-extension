@@ -212,9 +212,9 @@ export interface Global {
   // KAN-750 R12. A Sync now runs, from its press through sign-in to its
   // sync's end: the button reads "Syncing…" before syncStatus can.
   isSyncNowRunning: boolean;
-  // KAN-750 R14. The auth listener's own sign-in failed (offline, blocked):
-  // the boot sync waiting on it is not coming. A press signs in again.
-  hasBootSignInFailed: boolean;
+  // KAN-750 R14. Any anonymous sign-in the auth listener ran has failed
+  // (offline, blocked): no boot sync is coming. A press signs in again.
+  hasAuthListenerSignInFailed: boolean;
   // KAN-280 O5. A saved session clicked while the tab view is folded shows
   // beside Open now until the fold button is next pressed. Session-only, so
   // a new page opens as the stored setting says.
@@ -335,7 +335,7 @@ export const initialState: Global = {
   isSyncQueued: false,
   hasStartedSync: false,
   isSyncNowRunning: false,
-  hasBootSignInFailed: false,
+  hasAuthListenerSignInFailed: false,
   isPeekingSavedSession: false,
   isRunHere: false,
   hasRunShownHere: false,
@@ -1347,8 +1347,8 @@ export const globalStateSlice = createSlice({
     setSyncNowRunning: (state, action: PayloadAction<boolean>) => {
       state.isSyncNowRunning = action.payload;
     },
-    bootSignInFailed: (state) => {
-      state.hasBootSignInFailed = true;
+    authListenerSignInFailed: (state) => {
+      state.hasAuthListenerSignInFailed = true;
     },
 
     setUserId: (state, action: PayloadAction<string>) => {
@@ -1604,7 +1604,7 @@ export const {
   setLoggedOut,
   setSyncStatus,
   setSyncNowRunning,
-  bootSignInFailed,
+  authListenerSignInFailed,
   setUserId,
   removeUserId,
   setAwaitsDeviceId,
@@ -1628,6 +1628,6 @@ export const selectAwaitsBootSync = (state: RootState): boolean =>
   cloudSyncAllowed(state.settingsDataState) &&
   state.globalState.isCloudConfigured &&
   !state.globalState.hasStartedSync &&
-  !state.globalState.hasBootSignInFailed;
+  !state.globalState.hasAuthListenerSignInFailed;
 
 export default globalStateSlice.reducer;

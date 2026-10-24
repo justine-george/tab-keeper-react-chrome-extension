@@ -199,9 +199,9 @@ export default function MenuContainer() {
   // describes the setting, and under Manual sync it would name a dimmed
   // button "Manual sync", which says nothing about why it is dimmed.
   //
-  // KAN-750 R8b, R12. The words follow the real state at once, or a sync
-  // already committed to: the boot sync waiting for sign-in, until its 8 s
-  // limit, or a pressed Sync now still signing in.
+  // KAN-750 R8b, R12. "Syncing…" for the real loading status, the boot sync
+  // waiting for sign-in (until its 8 s limit or a failed sign-in), or a pressed
+  // Sync now that still runs, the whole sync and not only its sign-in.
   let dimmedBecause: string | null = null;
   // KAN-599. No id yet is no reason to dim: the press asks the question, and the yes mints one.
   if (!isSignedIn && !awaitsDeviceId) dimmedBecause = t('Sync unavailable');

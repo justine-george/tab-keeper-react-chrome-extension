@@ -7,7 +7,7 @@ vi.hoisted(() => {
 });
 
 import {
-  bootSignInFailed,
+  authListenerSignInFailed,
   saveToFirestoreIfDirty,
   selectAwaitsBootSync,
   setFirebaseAuthed,
@@ -60,9 +60,9 @@ describe('selectAwaitsBootSync', () => {
   });
 
   // KAN-750 R14. Offline or blocked: the boot sync is not coming, so no wait.
-  it('is false once the boot sign-in has failed', () => {
+  it('is false once the auth listener sign-in has failed', () => {
     const store = readyStore();
-    store.dispatch(bootSignInFailed());
+    store.dispatch(authListenerSignInFailed());
     expect(selectAwaitsBootSync(store.getState())).toBe(false);
   });
 
