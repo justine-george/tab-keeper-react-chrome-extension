@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
-import { MenuPanel, actionRowCount, type OverflowMenuItem } from '../MenuPanel';
+import { MenuPanel, type OverflowMenuItem } from '../MenuPanel';
 import { useMenuList } from '../../../hooks/useMenuList';
 import { placeMenu, VIEWPORT_GUTTER_PX } from './placeMenu';
 import type { RowMenuTarget } from './rowMenuStore';
