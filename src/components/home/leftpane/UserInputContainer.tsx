@@ -301,7 +301,13 @@ export default function UserInputContainer() {
           secondary save reads better there than it did as a glyph.
 
           KAN-635. Which save holds the wide segment is the Default save
-          setting; the menu holds the other. Still one plus-bearing glyph. */}
+          setting; the menu holds the other. Still one plus-bearing glyph.
+
+          KAN-780. The saves' glyphs are now one window and two windows, each
+          with the same plus badge: still a plus on a container, still
+          "creates a session". The two measure 56.2% apart (the library_add /
+          add_box pair they replaced, 54.0%), on purpose: one family, told
+          apart by the windows. Open now's header shows them side by side. */}
       {!isSearching && (
         <div css={saveGroupStyle}>
           <Button
