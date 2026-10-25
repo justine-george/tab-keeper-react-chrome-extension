@@ -60,7 +60,7 @@ function SearchablePane({ windows }: { windows: OpenWindow[] | null }) {
   return (
     <OpenNowPane
       windows={windows}
-      actions={[]}
+      titleActions={[]}
       headingId="open-now-heading"
       searchText={text}
       onSearchTextChange={setText}

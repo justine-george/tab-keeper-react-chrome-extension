@@ -35,7 +35,7 @@ const seed = (): ChromeSeed => ({
 
 async function renderPane() {
   const props = {
-    actions: [],
+    titleActions: [],
     headingId: 'open-now-heading',
     onSearchTextChange: () => undefined,
     searchInputRef: createRef<HTMLInputElement>(),

@@ -319,16 +319,20 @@ describe('step 2 names the fold button the view shows', () => {
   };
   afterEach(() => widthOf(ORIGINAL_INNER_WIDTH));
 
-  test('folded but peeked: the saved session is beside Open now, so the card names «', async () => {
+  test('folded but peeked: the saved session is beside Open now, so the card names the fold glyph', async () => {
     widthOf(1400);
     history.replaceState(null, '', '?view=tab');
     const r = await renderAt(newRun('full', 2));
     act(() => {
       r.store.dispatch(peekSavedSession());
     });
-    expect(
-      await screen.findByRole('img', { name: 'Fold the saved session away' })
-    ).toBeInTheDocument();
+    const glyph = await screen.findByRole('img', {
+      name: 'Fold the saved session away',
+    });
+    // KAN-794. The button's own glyph.
+    expect(glyph.querySelector('[data-icon]')?.getAttribute('data-icon')).toBe(
+      'left_panel_close'
+    );
     expect(mark()).toHaveTextContent('Drag the edge');
   });
 });

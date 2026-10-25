@@ -248,14 +248,15 @@ describe('narrow and side by side (O2)', () => {
     const heading = within(drawer).getByRole('heading', {
       name: 'Currently open',
     });
-    const fold = within(drawer).getByRole('button', {
-      name: 'Fold the saved session away',
+    // The action row is Collapse all's (KAN-794 moved the fold to this line).
+    const collapse = within(drawer).getByRole('button', {
+      name: 'Collapse all windows',
     });
     expect(close.parentElement).toBe(heading.parentElement);
     expect(heading.compareDocumentPosition(close)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     );
-    expect(fold.parentElement).not.toBe(close.parentElement);
+    expect(collapse.parentElement).not.toBe(close.parentElement);
   });
 
   // The wide pane is not a dialog: nothing to close.
@@ -779,5 +780,77 @@ describe('closing from outside (KAN-681, KAN-682)', () => {
     await settle();
 
     expect(button).toHaveAttribute('aria-expanded', 'true');
+  });
+});
+
+// KAN-794 (his picks B and F). The fold is a panel glyph on the heading's
+// line, as the drawer's close is, so the icon row keeps the actions on tabs.
+describe('the fold control', () => {
+  const FOLD = 'Fold the saved session away';
+  const UNFOLD = 'Show the saved session';
+
+  // The heading's line: the heading, then its controls.
+  const headingLineIn = async (scope: HTMLElement) => {
+    const heading = await within(scope).findByRole('heading', {
+      name: 'Currently open',
+    });
+    const line = heading.parentElement;
+    if (line === null) throw new Error('heading has no line');
+    return line;
+  };
+  const glyphOf = (el: HTMLElement) =>
+    el.querySelector('[data-icon]')?.getAttribute('data-icon');
+  // The row Collapse all sits in.
+  const iconRowIn = async (scope: HTMLElement) => {
+    const collapse = await within(scope).findByRole('button', {
+      name: 'Collapse all windows',
+    });
+    const row = collapse.parentElement;
+    if (row === null) throw new Error('Collapse all has no row');
+    return row;
+  };
+
+  test("side by side: a panel-close glyph on the heading's line, not in the icon row", async () => {
+    installMatchMedia(false);
+    await renderHome(false);
+
+    const line = await headingLineIn(openNowSlot());
+    const fold = within(line).getByRole('button', { name: FOLD });
+
+    expect(glyphOf(fold)).toBe('left_panel_close');
+    expect(
+      within(await iconRowIn(openNowSlot())).queryByRole('button', {
+        name: FOLD,
+      })
+    ).toBeNull();
+  });
+
+  test("folded: Show the saved session is a panel-open glyph on the heading's line", async () => {
+    installMatchMedia(false);
+    await renderHome(true);
+
+    const line = await headingLineIn(openNowSlot());
+    const unfold = within(line).getByRole('button', { name: UNFOLD });
+
+    expect(glyphOf(unfold)).toBe('left_panel_open');
+    expect(
+      within(await iconRowIn(openNowSlot())).queryByRole('button', {
+        name: UNFOLD,
+      })
+    ).toBeNull();
+  });
+
+  test("in the drawer the heading's line holds the fold, then the close", async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+
+    const { drawer } = await openDrawer();
+    const line = await headingLineIn(drawer);
+
+    expect(
+      within(line)
+        .getAllByRole('button')
+        .map((b) => b.getAttribute('aria-label'))
+    ).toEqual([FOLD, CLOSE]);
   });
 });

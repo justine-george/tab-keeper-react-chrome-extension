@@ -292,7 +292,7 @@ export default function OpenNowRail({
         >
           <OpenNowPane
             windows={windows}
-            actions={[foldAction]}
+            titleActions={[foldAction]}
             close={{
               icon: 'close',
               label: t('Close Open now'),

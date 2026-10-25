@@ -106,19 +106,19 @@ async function renderPane(
   {
     thisWindowId = 2,
     groups = 'read',
-    actions = [],
+    titleActions = [],
     searchText = '',
   }: {
     thisWindowId?: number | null;
     groups?: 'read' | 'none';
-    actions?: OpenNowHeaderAction[];
+    titleActions?: OpenNowHeaderAction[];
     searchText?: string;
   } = {}
 ) {
   const result = await renderWithProviders(
     <OpenNowPane
       windows={null}
-      actions={actions}
+      titleActions={titleActions}
       headingId="open-now-heading"
       searchText=""
       onSearchTextChange={() => undefined}
@@ -134,7 +134,7 @@ async function renderPane(
   result.rerender(
     <OpenNowPane
       windows={windows}
-      actions={actions}
+      titleActions={titleActions}
       headingId="open-now-heading"
       searchText={searchText}
       onSearchTextChange={() => undefined}
@@ -247,7 +247,7 @@ describe('the Open now pane (KAN-280)', () => {
     await renderWithProviders(
       <OpenNowPane
         windows={[]}
-        actions={[]}
+        titleActions={[]}
         headingId="open-now-heading"
         searchText=""
         onSearchTextChange={() => undefined}
@@ -274,7 +274,7 @@ describe('the Open now pane (KAN-280)', () => {
     await renderWithProviders(
       <OpenNowPane
         windows={[]}
-        actions={[]}
+        titleActions={[]}
         headingId="open-now-heading"
         searchText=""
         onSearchTextChange={() => undefined}
@@ -298,7 +298,7 @@ describe('the Open now pane (KAN-280)', () => {
     await renderWithProviders(
       <OpenNowPane
         windows={null}
-        actions={[]}
+        titleActions={[]}
         headingId="open-now-heading"
         searchText=""
         onSearchTextChange={() => undefined}
