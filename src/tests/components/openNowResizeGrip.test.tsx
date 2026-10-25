@@ -578,7 +578,7 @@ describe('the grip lights on hover and during its drag (O1a G A)', () => {
     expect(hovered).toContain('transition-delay: 300ms');
     const active = declarationsFor(grip(), `${cls}[data-active]::before`);
     expect(active).toContain('opacity: 1');
-    expect(active).toContain('transition-delay: 0ms');
+    expect(active).toContain('transition-delay: initial');
   });
 
   test('during its drag it is marked active, and not after', async () => {

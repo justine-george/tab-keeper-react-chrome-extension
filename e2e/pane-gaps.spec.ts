@@ -363,12 +363,13 @@ for (const [theme, palette] of [
       await page.mouse.move(m.centre, (m.top + m.bottom) / 2);
       // Waits before it shows, so a pointer crossing the gap draws nothing.
       expect((await line(page, GRIPS[which])).delay, which).toBe('0.3s');
+      // Until the fade has ended: painted, and fully opaque.
       await expect
         .poll(async () => {
           const l = await line(page, GRIPS[which]);
-          return contrast(l.painted, palette.PRIMARY_COLOR) > 1.15;
+          return [contrast(l.painted, palette.PRIMARY_COLOR) > 1.15, l.opacity];
         })
-        .toBe(true);
+        .toEqual([true, '1']);
       const shown = await line(page, GRIPS[which]);
       expect(shown, which).toMatchObject({
         opacity: '1',

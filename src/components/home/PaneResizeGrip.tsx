@@ -257,18 +257,20 @@ export default function PaneResizeGrip({
       opacity: 0;
       transition: opacity ${DURATION.COLOR};
       pointer-events: none;
+      /* The hover rule keeps its own delay, so the wait stays. */
       @media (prefers-reduced-motion: reduce) {
-        transition-duration: 0ms;
+        transition: none;
       }
     }
     &:hover::before {
       opacity: 1;
-      transition-delay: 300ms;
+      transition-delay: ${DURATION.HOVER_INTENT};
     }
     /* After :hover, so a dragged grip, hovered too, shows it at once. */
     ${whileKeyNav('&:focus-visible::before')}, &[data-active]::before {
       opacity: 1;
-      transition-delay: 0ms;
+      /* No wait. */
+      transition-delay: initial;
     }
     /* The app's ring (dialogButtons.ts): 2px of TEXT_COLOR. */
     ${whileKeyNav('&:focus-visible > span')} {
