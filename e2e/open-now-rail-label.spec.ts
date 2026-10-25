@@ -77,9 +77,41 @@ for (const language of shippedLanguages()) {
     const slot = page.locator('[data-pane="open-now"]');
     const glyph = rail.locator('.material-symbols-outlined');
 
+    // CJK stacks in horizontal text: in vertical-rl, a font with zero vertical
+    // advances (WenQuanYi Zen Hei, CI's Chinese face) drew every character on one spot.
     expect(await label.evaluate((el) => getComputedStyle(el).writingMode)).toBe(
-      'vertical-rl'
+      /^(ja|zh|ko)\b/i.test(language) ? 'horizontal-tb' : 'vertical-rl'
     );
+    // The characters run down the label. A collapse drew them all on one spot,
+    // so their centres move down and span at least 0.3em each. A letter counts
+    // with its marks (a Hindi vowel sign sits on its letter); centres, since a
+    // CJK glyph's box is taller than its 1em line.
+    const run = await label.evaluate((el) => {
+      const centres: number[] = [];
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n !== null; n = walker.nextNode()) {
+        for (const m of (n.textContent ?? '').matchAll(/\P{M}\p{M}*/gu)) {
+          if (m[0].trim() === '' || m.index === undefined) continue;
+          const range = document.createRange();
+          range.setStart(n, m.index);
+          range.setEnd(n, m.index + m[0].length);
+          const r = range.getBoundingClientRect();
+          centres.push((r.top + r.bottom) / 2);
+        }
+      }
+      return { centres, em: parseFloat(getComputedStyle(el).fontSize) };
+    });
+    const { centres, em } = run;
+    for (let i = 1; i < centres.length; i++) {
+      expect(
+        centres[i],
+        `letter ${i} not above letter ${i - 1}`
+      ).toBeGreaterThanOrEqual(centres[i - 1] - 0.5);
+    }
+    expect(
+      centres[centres.length - 1] - centres[0],
+      'the characters run down the label'
+    ).toBeGreaterThanOrEqual(0.3 * em * (centres.length - 1));
     // WCAG 2.5.3: the name a voice user speaks starts with what they see.
     const name = await rail.evaluate((el) => el.getAttribute('aria-label'));
     expect(name?.startsWith(`${strings['Open now']}, `), String(name)).toBe(
@@ -105,13 +137,18 @@ for (const language of shippedLanguages()) {
     expect(b.y + b.height, 'on screen').toBeLessThanOrEqual(
       RAIL_VIEWPORT.height
     );
-    // Nothing clipped inside its own box.
-    const clipped = await label.evaluate(
-      (el) =>
-        el.scrollWidth > el.clientWidth + 1 ||
-        el.scrollHeight > el.clientHeight + 1
-    );
-    expect(clipped).toBe(false);
+    // The text itself, not only its box, stays inside the button: a CJK
+    // glyph's box is taller than its 1em line.
+    const text = await label.evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const r = range.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    });
+    expect(text.x).toBeGreaterThanOrEqual(b.x);
+    expect(text.x + text.width).toBeLessThanOrEqual(b.x + b.width);
+    expect(text.y, 'under the glyph').toBeGreaterThanOrEqual(g.y + g.height);
+    expect(text.y + text.height).toBeLessThanOrEqual(b.y + b.height);
   });
 }
 
