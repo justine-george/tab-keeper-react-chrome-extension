@@ -165,6 +165,10 @@ test('popup: a row button takes the list items’ hover and press fills', async 
   const page = await openSaved(context, extensionId, 'popup', {
     sessions: SESSIONS,
   });
+  // Each fill lands at once, so a read never catches a colour mid-transition.
+  await page.addStyleTag({
+    content: '[role="menu"] * { transition: none !important; }',
+  });
   await rightClickTitle(page, sessionRow(page, 'S2'));
   const fill = (item: Locator) =>
     item.evaluate((el) => getComputedStyle(el).backgroundColor);
@@ -174,15 +178,14 @@ test('popup: a row button takes the list items’ hover and press fills', async 
   });
   const copy = rowMenu(page).locator('[data-menu-item="copy"]');
 
-  // Hover, then press, each read once its colour transition settles; the press is let go off the item, so nothing runs.
+  // Hover, then press; the press is let go off the item, so nothing runs.
   const touched = async (item: Locator) => {
+    const rest = await fill(item);
     await item.hover();
-    await expect.poll(() => fill(item)).not.toBe('rgba(0, 0, 0, 0)');
-    await page.waitForTimeout(300);
+    await expect.poll(() => fill(item)).not.toBe(rest);
     const hover = await fill(item);
     await page.mouse.down();
     await expect.poll(() => fill(item)).not.toBe(hover);
-    await page.waitForTimeout(300);
     const press = await fill(item);
     await page.mouse.move(1, 1);
     await page.mouse.up();
