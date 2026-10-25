@@ -401,6 +401,10 @@ describe('Currently open windows and groups', () => {
     fireEvent.contextMenu(windowRow(1));
     expect(actionRow(rowMenu())).toBeNull();
     expect(listKeys(rowMenu())).toEqual(['copy']);
+    fireEvent.keyDown(rowMenu(), { key: 'Escape' });
+
+    fireEvent.contextMenu(groupRow());
+    expect(rowNames(rowMenu())).toEqual(['Rename']);
   });
 
   test('a window ⋮ has no top row', async () => {
