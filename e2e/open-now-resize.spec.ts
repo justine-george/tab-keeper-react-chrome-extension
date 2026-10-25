@@ -508,6 +508,7 @@ interface OverTheGrip {
   markColour: string;
   markHeight: number;
   lineOpacity: string;
+  lineTransitions: number;
   gripCursor: string;
   openNowWidth: number;
   resizingMidDrag: boolean;
@@ -517,13 +518,19 @@ interface OverTheGrip {
 // Test 8 and test 10's gesture: pick up saved-5, carry it across the grip
 // (resting there, pointer over the chip), then back into the list to aim
 // just inside saved-1's top edge, and release.
-async function dragSavedRowOverTheGrip(page: Page): Promise<OverTheGrip> {
+// `linger`: how long to rest over the grip before reading it (KAN-791: past
+// the line's 300ms hover delay, so an absent line is not just a late one).
+async function dragSavedRowOverTheGrip(
+  page: Page,
+  { linger = 0 }: { linger?: number } = {}
+): Promise<OverTheGrip> {
   await installPreviewReader(page);
   const start = await pickUp(page, savedRow(page, 'saved-5'));
   const grip = await gripCentre(page);
 
   // Over the grip's mark (KAN-747, three dots since KAN-790), at its centre.
   await moveHeld(page, grip.x, grip.y);
+  if (linger > 0) await page.waitForTimeout(linger);
   const over = await page.evaluate((sel) => {
     const el = document.querySelector(sel);
     const mark = el?.querySelector(':scope > span') ?? null;
@@ -532,6 +539,17 @@ async function dragSavedRowOverTheGrip(page: Page): Promise<OverTheGrip> {
       markColour: mark === null ? '' : getComputedStyle(mark).color,
       markHeight: mark === null ? 0 : mark.getBoundingClientRect().height,
       lineOpacity: el === null ? '' : getComputedStyle(el, '::before').opacity,
+      // A transition on the line, running or still waiting out its delay.
+      lineTransitions:
+        el === null
+          ? -1
+          : el
+              .getAnimations({ subtree: true })
+              .filter(
+                (a) =>
+                  (a.effect as KeyframeEffect | null)?.pseudoElement ===
+                  '::before'
+              ).length,
       gripCursor: el === null ? '' : getComputedStyle(el).cursor,
       resizingMidDrag: document.documentElement.hasAttribute('data-resizing'),
     };
@@ -1061,12 +1079,13 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
       .toBe(rgb(CHALK_THEME.TEXT_COLOR));
     await page.mouse.move(grip.x - 300, grip.y);
 
-    const seen = await dragSavedRowOverTheGrip(page);
+    const seen = await dragSavedRowOverTheGrip(page, { linger: 500 });
     expect(seen.gripHovered).toBe(true);
     expect(rgbToHex(seen.markColour)).toBe(CHALK_THEME.LABEL_L3_COLOR);
     expect(seen.markHeight).toBe(20);
     // KAN-791. Nor its line.
     expect(seen.lineOpacity).toBe('0');
+    expect(seen.lineTransitions).toBe(0);
     // And no resize cursor: the row drag's own grabbing hand.
     expect(seen.gripCursor).toBe('grabbing');
   });
