@@ -3,6 +3,7 @@ import React from 'react';
 import { css } from '@emotion/react';
 
 import { focusRingCss, focusRingInInkCss } from './focusRing';
+import { tooltipDescription } from './tooltipRules';
 import type { IconName } from './iconNames';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -16,6 +17,8 @@ export interface OverflowMenuItem {
   /** A Material Symbols ligature, rendered decoratively. */
   icon: IconName;
   onSelect: () => void;
+  /** KAN-775. Draws the item in the action row above the list, under this short label; `label` becomes its tooltip and description. Row menus only: RowContextMenu walks the row. */
+  actionRowLabel?: string;
   /** KAN-725. Red ink at rest; a red fill with white ink when touched. */
   danger?: boolean;
   /**
@@ -88,7 +91,13 @@ export function MenuPanel({
        Per theme: the dark grounds need a far heavier one to show anything. */
     box-shadow: ${COLORS.FLOATING_SHADOW};
     font-family: ${FONT_FAMILY};
+    /* KAN-775. Every fill, row and list alike, sits 4px inside the border. */
+    padding: 4px;
   `;
+
+  // KAN-775. The row's buttons, then the list's items: the order focus walks.
+  const rowItems = items.filter((item) => item.actionRowLabel !== undefined);
+  const listItems = items.filter((item) => item.actionRowLabel === undefined);
 
   // KAN-725. A danger item's hint sets its own ink, so it eases on the item's timing itself.
   const dangerHintEase = `
@@ -145,6 +154,45 @@ export function MenuPanel({
     }
   `;
 
+  // KAN-775. Icon beside a short label, sized to fit, 8px taller than a list item so the row reads as a toolbar; the same side padding keeps the first glyph on the list's icon column.
+  const rowStyle = css`
+    display: flex;
+    gap: 4px;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+  `;
+  const rowButtonStyle = css`
+    ${itemStyle(false)}
+    width: auto;
+    gap: 6px;
+    padding-block: 12px;
+  `;
+
+  const glyph = (icon: IconName) => (
+    /* Presentational: the label already names the item, and a bare
+       Icon is aria-hidden, so the ligature text cannot leak into
+       the accessible name (KAN-56). */
+    <span
+      className="material-symbols-outlined overflow-menu-glyph"
+      aria-hidden="true"
+      css={css`
+        font-size: ${TYPE.SECTION};
+        line-height: 1;
+        /* KAN-203, KAN-725. The item's own ink, per state: the label's colour, never one of its own. */
+        color: inherit;
+      `}
+    >
+      {icon}
+    </span>
+  );
+
+  const choose = (item: OverflowMenuItem) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    close();
+    item.onSelect();
+  };
+
   return (
     <div
       ref={menuRef}
@@ -171,7 +219,32 @@ export function MenuPanel({
         item.onSelect();
       }}
     >
-      {items.map((item, index) => (
+      {rowItems.length > 0 && (
+        <div data-menu-action-row css={rowStyle}>
+          {rowItems.map((item, index) => (
+            // KAN-775. Named by the short label, described and tooltipped by the long one, as a row's own buttons.
+            <button
+              key={item.key}
+              type="button"
+              role="menuitem"
+              aria-label={item.actionRowLabel}
+              aria-description={tooltipDescription(
+                item.label,
+                item.actionRowLabel
+              )}
+              data-tooltip={item.label}
+              data-menu-item={item.key}
+              ref={registerItem(index)}
+              css={rowButtonStyle}
+              onClick={choose(item)}
+            >
+              {glyph(item.icon)}
+              {item.actionRowLabel}
+            </button>
+          ))}
+        </div>
+      )}
+      {listItems.map((item, index) => (
         <button
           key={item.key}
           type="button"
@@ -179,29 +252,11 @@ export function MenuPanel({
           aria-checked={isRadioGroup ? !!item.checked : undefined}
           aria-keyshortcuts={item.shortcut?.ariaKeyShortcuts}
           data-menu-item={item.key}
-          ref={registerItem(index)}
+          ref={registerItem(rowItems.length + index)}
           css={itemStyle(item.danger)}
-          onClick={(e) => {
-            e.stopPropagation();
-            close();
-            item.onSelect();
-          }}
+          onClick={choose(item)}
         >
-          {/* Presentational: the label already names the item, and a bare
-              Icon is aria-hidden, so the ligature text cannot leak into
-              the accessible name (KAN-56). */}
-          <span
-            className="material-symbols-outlined overflow-menu-glyph"
-            aria-hidden="true"
-            css={css`
-              font-size: ${TYPE.SECTION};
-              line-height: 1;
-              /* KAN-203, KAN-725. The item's own ink, per state: the label's colour, never one of its own. */
-              color: inherit;
-            `}
-          >
-            {item.icon}
-          </span>
+          {glyph(item.icon)}
           {item.label}
           {item.shortcut !== undefined && (
             <span

@@ -6,6 +6,10 @@ import { useMenuList } from '../../../hooks/useMenuList';
 import { placeMenu, VIEWPORT_GUTTER_PX } from './placeMenu';
 import type { RowMenuTarget } from './rowMenuStore';
 
+// KAN-775. MenuPanel draws the action row's items first, so they are the list's first indexes.
+const actionRowCount = (items: OverflowMenuItem[]): number =>
+  items.filter((item) => item.actionRowLabel !== undefined).length;
+
 export type RowMenuCloseReason = 'chosen' | 'outside' | 'escape' | 'away';
 
 // KAN-708. Hidden until placed; the layout effect writes left/top before the first paint.
@@ -70,6 +74,7 @@ export function RowContextMenu({
   const { registerItem, handleKeyDown } = useMenuList({
     count: items.length,
     axis: 'vertical',
+    rowCount: actionRowCount(items),
     isOpen: true,
     wrapperRef: menuRef,
     onDismiss: onClose,

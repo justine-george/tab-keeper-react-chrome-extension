@@ -5,9 +5,13 @@ import type { OverflowMenuItem } from '../common/MenuPanel';
 import type { AppDispatch } from '../../redux/store';
 import {
   deleteTabContainer,
+  openAllTabContainer,
   removeDuplicateTabs,
+  replaceSessionWithOpenWindows,
+  requestFocusTabContainer,
   type tabContainerData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { showSessionAndAddCurrentWindow } from '../../redux/showSessionAndAddCurrentWindow';
 import { showToast } from '../../redux/slices/globalStateSlice';
 import { copySessionLinks } from '../../utils/functions/copySessionLinks';
 import { tidySessionForExport } from '../../utils/functions/sessionExportHtml';
@@ -19,6 +23,7 @@ import {
   isDeleteKey,
 } from '../../utils/functions/deleteKey';
 import { useMacKeys } from '../../hooks/useIsMac';
+import { isTabView } from '../../utils/functions/viewMode';
 
 type DeleteKey = NonNullable<OverflowMenuItem['shortcut']>;
 
@@ -33,6 +38,9 @@ export function useSessionDeleteKey(): DeleteKey {
   };
 }
 
+// KAN-775. Where the menu opened: the header, the row of the session on screen, or any other row.
+export type SessionMenuPlace = 'header' | 'onScreenRow' | 'offScreenRow';
+
 // KAN-708. The one item source for the header ⋮ and the row's right-click; every item acts on `session`, never the selection.
 export function sessionMenuItems(
   session: tabContainerData,
@@ -41,12 +49,70 @@ export function sessionMenuItems(
     language: string;
     dispatch: AppDispatch;
     deleteKey: DeleteKey;
+    place: SessionMenuPlace;
   }
 ): OverflowMenuItem[] {
-  const { t, language, dispatch, deleteKey } = ctx;
+  const { t, language, dispatch, deleteKey, place } = ctx;
   const { tabGroupId } = session;
   const duplicateCount = countDuplicateTabs(session);
+  // KAN-775. A row off screen has no buttons of its own, so its menu leads with them; Switch is popup only, as the row's.
+  const rowButtons: OverflowMenuItem[] =
+    place !== 'offScreenRow'
+      ? []
+      : [
+          {
+            key: 'open',
+            actionRowLabel: t('Open'),
+            label: t('Open session'),
+            icon: 'reopen_window',
+            onSelect: () =>
+              void dispatch(
+                openAllTabContainer({ tabGroupId, goToURLText: t('Go to URL') })
+              ),
+          },
+          ...(isTabView()
+            ? []
+            : [
+                {
+                  key: 'switch',
+                  actionRowLabel: t('Switch'),
+                  label: t('Switch to session'),
+                  icon: 'filter_center_focus' as const,
+                  onSelect: () =>
+                    void dispatch(
+                      requestFocusTabContainer({
+                        tabGroupId,
+                        goToURLText: t('Go to URL'),
+                        saveTitle: t('FocusAutoSaveTitle'),
+                      })
+                    ),
+                },
+              ]),
+          {
+            key: 'replace',
+            actionRowLabel: t('Replace'),
+            label: t('Replace this session with open windows'),
+            icon: 'browser_updated',
+            onSelect: () =>
+              void dispatch(replaceSessionWithOpenWindows(tabGroupId)),
+          },
+        ];
+  // KAN-775. The header has its own Add chip beside the ⋮.
+  const add: OverflowMenuItem[] =
+    place === 'header'
+      ? []
+      : [
+          {
+            key: 'add',
+            label: t('Add current window'),
+            icon: 'playlist_add',
+            onSelect: () =>
+              void dispatch(showSessionAndAddCurrentWindow(tabGroupId)),
+          },
+        ];
   return [
+    ...rowButtons,
+    ...add,
     {
       // KAN-209. The one output that needs no preview: Copy ignores
       // the layout and colour choices the export page exists to

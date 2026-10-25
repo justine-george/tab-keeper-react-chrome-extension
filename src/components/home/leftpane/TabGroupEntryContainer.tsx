@@ -93,6 +93,13 @@ export default function TabGroupEntryContainer() {
   const { query: noMatchQuery, place: noMatchPlace } = useNoMatchPlace();
   const isEmpty = useIsSavedListEmpty();
 
+  const selectedTabGroupId = tabContainerDataList.selectedTabGroupId;
+  const selectedOnScreen = useSelector(
+    (state: RootState) =>
+      selectedTabGroupId !== null &&
+      isSessionOnScreen(state, selectedTabGroupId)
+  );
+
   // KAN-708. A row's right-click menu: the header ⋮'s items, for the row that was clicked.
   const sessionById = (id: string) =>
     tabContainerDataList.tabGroups.find((g) => g.tabGroupId === id);
@@ -107,6 +114,10 @@ export default function TabGroupEntryContainer() {
         language: i18n.language,
         dispatch,
         deleteKey,
+        place:
+          id === selectedTabGroupId && selectedOnScreen
+            ? 'onScreenRow'
+            : 'offScreenRow',
       });
     },
   });
@@ -114,8 +125,6 @@ export default function TabGroupEntryContainer() {
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
-
-  const selectedTabGroupId = tabContainerDataList.selectedTabGroupId;
 
   // KAN-131, at the session level and more exposed than the panes below it:
   // search filters sessions directly, so an index counted over the rendered
@@ -415,11 +424,6 @@ export default function TabGroupEntryContainer() {
   //
   // KAN-280 Part F. P5: on screen is selected and not folded away, so folded the selected row opens as a peek (N3 A).
   // P4: no spring-open under the saved search, where exact spots are off (D5 A).
-  const selectedOnScreen = useSelector(
-    (state: RootState) =>
-      selectedTabGroupId !== null &&
-      isSessionOnScreen(state, selectedTabGroupId)
-  );
   const dwellId =
     !isSearching &&
     carryTargetId !== null &&
