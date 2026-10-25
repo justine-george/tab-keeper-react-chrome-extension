@@ -4,18 +4,18 @@ import {
   type BrowserContext,
   type Worker,
 } from '@playwright/test';
-import {
-  cpSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { blockCloud } from './cloud';
+import {
+  REUSE_BROWSER,
+  ReusedBrowser,
+  removeDirs,
+  type LaunchedBrowser,
+} from './reusedBrowser';
 import { seedCloudConsentIfSettingsAbsent } from './seed';
 
 // tabGroups is OPTIONAL in the shipped manifest, and an optional permission
@@ -30,14 +30,27 @@ interface Manifest {
   optional_permissions?: string[];
 }
 
-export const grantedTest = base.extend<{
-  context: BrowserContext;
-  serviceWorker: Worker;
-  extensionId: string;
-  keepWindowBounds: boolean;
-  showScrollbars: boolean;
-  refuseSessions: boolean;
-}>({
+export const grantedTest = base.extend<
+  {
+    context: BrowserContext;
+    serviceWorker: Worker;
+    extensionId: string;
+    keepWindowBounds: boolean;
+    showScrollbars: boolean;
+    refuseSessions: boolean;
+  },
+  { reused: ReusedBrowser }
+>({
+  // KAN-766. Only used under E2E_REUSE_BROWSER=1.
+  reused: [
+    async ({}, use) => {
+      const reused = new ReusedBrowser();
+      await use(reused);
+      await reused.close();
+    },
+    { scope: 'worker' },
+  ],
+
   // Off by default. Two things in the harness move a window away from the
   // bounds windows.create gave it, measured 2026-09-24 (KAN-280): headless
   // Chromium's screen is 800x600, so a 900x640 window at 140,90 is clamped to
@@ -61,40 +74,95 @@ export const grantedTest = base.extend<{
   // --headed: a spec that needs a real window manager can then be run headed
   // on purpose (open-now-close.spec.ts test 2).
   context: async (
-    { keepWindowBounds, showScrollbars, refuseSessions, headless },
-    use
-  ) => {
-    const copy = mkdtempSync(join(tmpdir(), 'tabkeeper-granted-'));
-    cpSync(DIST, copy, { recursive: true });
-    const manifestPath = join(copy, 'manifest.json');
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Manifest;
-    manifest.permissions = [...(manifest.permissions ?? []), 'tabGroups'];
-    manifest.optional_permissions = (
-      manifest.optional_permissions ?? []
-    ).filter((p) => p !== 'tabGroups' && !(refuseSessions && p === 'sessions'));
-    writeFileSync(manifestPath, JSON.stringify(manifest));
-
-    const userDataDir = mkdtempSync(join(tmpdir(), 'tabkeeper-e2e-'));
-    const context = await chromium.launchPersistentContext(userDataDir, {
+    {
+      keepWindowBounds,
+      showScrollbars,
+      refuseSessions,
       headless,
-      channel: 'chromium',
-      ...(keepWindowBounds ? { viewport: null } : {}),
-      ...(showScrollbars ? { ignoreDefaultArgs: ['--hide-scrollbars'] } : {}),
-      args: [
-        `--disable-extensions-except=${copy}`,
-        `--load-extension=${copy}`,
-        ...(keepWindowBounds ? ['--screen-info={1920x1080}'] : []),
-      ],
-    });
+      reused,
+      deviceScaleFactor,
+      viewport,
+      locale,
+      timezoneId,
+      reducedMotion,
+      forcedColors,
+      hasTouch,
+      isMobile,
+      userAgent,
+      javaScriptEnabled,
+      contextOptions,
+    },
+    use,
+    testInfo
+  ) => {
+    const launch = async (): Promise<LaunchedBrowser> => {
+      const copy = mkdtempSync(join(tmpdir(), 'tabkeeper-granted-'));
+      cpSync(DIST, copy, { recursive: true });
+      const manifestPath = join(copy, 'manifest.json');
+      const manifest = JSON.parse(
+        readFileSync(manifestPath, 'utf8')
+      ) as Manifest;
+      manifest.permissions = [...(manifest.permissions ?? []), 'tabGroups'];
+      manifest.optional_permissions = (
+        manifest.optional_permissions ?? []
+      ).filter(
+        (p) => p !== 'tabGroups' && !(refuseSessions && p === 'sessions')
+      );
+      writeFileSync(manifestPath, JSON.stringify(manifest));
+
+      const userDataDir = mkdtempSync(join(tmpdir(), 'tabkeeper-e2e-'));
+      const context = await chromium.launchPersistentContext(userDataDir, {
+        headless,
+        channel: 'chromium',
+        ...(keepWindowBounds ? { viewport: null } : {}),
+        ...(showScrollbars ? { ignoreDefaultArgs: ['--hide-scrollbars'] } : {}),
+        args: [
+          `--disable-extensions-except=${copy}`,
+          `--load-extension=${copy}`,
+          ...(keepWindowBounds ? ['--screen-info={1920x1080}'] : []),
+        ],
+      });
+      return { context, removeFiles: removeDirs(userDataDir, copy) };
+    };
+
+    const launched = REUSE_BROWSER ? undefined : await launch();
+    const context =
+      launched?.context ??
+      (await reused.take(
+        JSON.stringify({
+          keepWindowBounds,
+          showScrollbars,
+          refuseSessions,
+          headless,
+          // The runner hands each of these to every launch, so each is a launch option.
+          runner: {
+            deviceScaleFactor,
+            viewport,
+            locale,
+            timezoneId,
+            reducedMotion,
+            forcedColors,
+            hasTouch,
+            isMobile,
+            userAgent,
+            javaScriptEnabled,
+            contextOptions,
+          },
+        }),
+        launch
+      ));
     // KAN-259. Same as extension.ts: no granted spec is about the cloud
     // question, so the profile always starts as a user who said yes.
     await seedCloudConsentIfSettingsAbsent(context);
     // No granted spec needs the dev cloud (KAN-383).
     await blockCloud(context);
     await use(context);
-    await context.close();
-    rmSync(userDataDir, { recursive: true, force: true });
-    rmSync(copy, { recursive: true, force: true });
+    if (launched) {
+      await context.close();
+      launched.removeFiles();
+    } else {
+      await reused.giveBack(testInfo.status === testInfo.expectedStatus);
+    }
   },
   serviceWorker: async ({ context }, use) => {
     const worker =

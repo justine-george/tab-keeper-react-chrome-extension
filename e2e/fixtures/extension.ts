@@ -4,12 +4,18 @@ import {
   type BrowserContext,
   type Worker,
 } from '@playwright/test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { blockCloud } from './cloud';
+import {
+  REUSE_BROWSER,
+  ReusedBrowser,
+  removeDirs,
+  type LaunchedBrowser,
+} from './reusedBrowser';
 import { seedCloudConsentIfSettingsAbsent } from './seed';
 
 // The built, pruned artifact -- what `npm run build:e2e` produces and what
@@ -22,15 +28,28 @@ import { seedCloudConsentIfSettingsAbsent } from './seed';
 // the directory playwright was invoked from.
 const DIST = fileURLToPath(new URL('../../dist', import.meta.url));
 
-export const test = base.extend<{
-  context: BrowserContext;
-  serviceWorker: Worker;
-  extensionId: string;
-  showScrollbars: boolean;
-  audibleTabs: boolean;
-  freshProfile: boolean;
-  cloud: boolean;
-}>({
+export const test = base.extend<
+  {
+    context: BrowserContext;
+    serviceWorker: Worker;
+    extensionId: string;
+    showScrollbars: boolean;
+    audibleTabs: boolean;
+    freshProfile: boolean;
+    cloud: boolean;
+  },
+  { reused: ReusedBrowser }
+>({
+  // KAN-766. Only used under E2E_REUSE_BROWSER=1.
+  reused: [
+    async ({}, use) => {
+      const reused = new ReusedBrowser();
+      await use(reused);
+      await reused.close();
+    },
+    { scope: 'worker' },
+  ],
+
   // Playwright launches headless Chromium with --hide-scrollbars, so every
   // scrollbar measures 0px and paints nothing (KAN-188). Off by default on
   // purpose: a visible bar takes 10px from each scrolling pane, and the drag
@@ -62,32 +81,80 @@ export const test = base.extend<{
   cloud: [false, { option: true }],
 
   context: async (
-    { showScrollbars, audibleTabs, freshProfile, cloud, colorScheme },
-    use
-  ) => {
-    // A throwaway profile per test: extension state (localStorage,
-    // chrome.storage) persists in the profile, so sharing one would let tests
-    // leak into each other.
-    const userDataDir = mkdtempSync(join(tmpdir(), 'tabkeeper-e2e-'));
-    const context = await chromium.launchPersistentContext(userDataDir, {
-      // `channel: 'chromium'` is load-bearing. Plain headless uses the
-      // headless SHELL, which never loads the extension -- the service worker
-      // simply never registers and waitForEvent below times out. Measured
-      // 2026-09-01 across all three modes.
-      headless: true,
-      channel: 'chromium',
-      // KAN-731. Playwright's own option, so `test.use({ colorScheme: 'dark' })` emulates a dark OS.
+    {
+      showScrollbars,
+      audibleTabs,
+      freshProfile,
+      cloud,
       colorScheme,
-      ignoreDefaultArgs: [
-        ...(showScrollbars ? ['--hide-scrollbars'] : []),
-        ...(audibleTabs ? ['--mute-audio'] : []),
-      ],
-      args: [
-        ...(audibleTabs ? ['--disable-audio-output'] : []),
-        `--disable-extensions-except=${DIST}`,
-        `--load-extension=${DIST}`,
-      ],
-    });
+      reused,
+      deviceScaleFactor,
+      viewport,
+      locale,
+      timezoneId,
+      reducedMotion,
+      forcedColors,
+      hasTouch,
+      isMobile,
+      userAgent,
+      javaScriptEnabled,
+      contextOptions,
+    },
+    use,
+    testInfo
+  ) => {
+    const launch = async (): Promise<LaunchedBrowser> => {
+      // A throwaway profile per test: extension state (localStorage,
+      // chrome.storage) persists in the profile, so sharing one would let tests
+      // leak into each other. With E2E_REUSE_BROWSER a reset stands in (KAN-766).
+      const userDataDir = mkdtempSync(join(tmpdir(), 'tabkeeper-e2e-'));
+      const context = await chromium.launchPersistentContext(userDataDir, {
+        // `channel: 'chromium'` is load-bearing. Plain headless uses the
+        // headless SHELL, which never loads the extension -- the service worker
+        // simply never registers and waitForEvent below times out. Measured
+        // 2026-09-01 across all three modes.
+        headless: true,
+        channel: 'chromium',
+        // KAN-731. Playwright's own option, so `test.use({ colorScheme: 'dark' })` emulates a dark OS.
+        colorScheme,
+        ignoreDefaultArgs: [
+          ...(showScrollbars ? ['--hide-scrollbars'] : []),
+          ...(audibleTabs ? ['--mute-audio'] : []),
+        ],
+        args: [
+          ...(audibleTabs ? ['--disable-audio-output'] : []),
+          `--disable-extensions-except=${DIST}`,
+          `--load-extension=${DIST}`,
+        ],
+      });
+      return { context, removeFiles: removeDirs(userDataDir) };
+    };
+
+    const launched = REUSE_BROWSER ? undefined : await launch();
+    const context =
+      launched?.context ??
+      (await reused.take(
+        JSON.stringify({
+          showScrollbars,
+          audibleTabs,
+          colorScheme,
+          // The runner hands each of these to every launch, so each is a launch option.
+          runner: {
+            deviceScaleFactor,
+            viewport,
+            locale,
+            timezoneId,
+            reducedMotion,
+            forcedColors,
+            hasTouch,
+            isMobile,
+            userAgent,
+            javaScriptEnabled,
+            contextOptions,
+          },
+        }),
+        launch
+      ));
 
     // KAN-259, see the freshProfile option above.
     if (!freshProfile) {
@@ -97,8 +164,12 @@ export const test = base.extend<{
 
     await use(context);
 
-    await context.close();
-    rmSync(userDataDir, { recursive: true, force: true });
+    if (launched) {
+      await context.close();
+      launched.removeFiles();
+    } else {
+      await reused.giveBack(testInfo.status === testInfo.expectedStatus);
+    }
   },
 
   serviceWorker: async ({ context }, use) => {

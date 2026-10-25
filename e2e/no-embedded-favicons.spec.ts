@@ -65,9 +65,11 @@ test.beforeAll(
   () =>
     new Promise<void>((listening) => server.listen(0, '127.0.0.1', listening))
 );
-test.afterAll(
-  () => new Promise<void>((closed) => server.close(() => closed()))
-);
+// A browser kept open across tests (KAN-766) holds its sockets; close() waits on them.
+test.afterAll(() => {
+  server.closeAllConnections();
+  return new Promise<void>((closed) => server.close(() => closed()));
+});
 const embeddedPage = () =>
   `http://127.0.0.1:${(server.address() as AddressInfo).port}/embedded`;
 
