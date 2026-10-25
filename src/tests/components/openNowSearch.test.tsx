@@ -172,7 +172,7 @@ describe('a search draws only the matching tabs (O14a)', () => {
     await renderWithProviders(
       <OpenNowPane
         windows={null}
-        actions={[]}
+        titleActions={[]}
         headingId="open-now-heading"
         searchText="zzz"
         onSearchTextChange={() => undefined}

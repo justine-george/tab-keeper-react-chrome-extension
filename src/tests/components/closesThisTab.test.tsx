@@ -322,7 +322,7 @@ describe("Open now's Back to your tab chip (KAN-578)", () => {
     const { chrome } = await renderWithProviders(
       <OpenNowPane
         windows={[]}
-        actions={[]}
+        titleActions={[]}
         headingId="open-now-heading"
         searchText=""
         onSearchTextChange={() => undefined}

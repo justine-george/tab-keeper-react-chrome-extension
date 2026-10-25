@@ -93,7 +93,7 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
   return (
     <OpenNowPane
       windows={windows}
-      actions={[foldAction]}
+      titleActions={[foldAction]}
       headingId={headingId}
       headingRef={headingRef}
       searchText={searchText}

@@ -261,7 +261,7 @@ describe('the session list keeps today’s drag on a carry receiver; Open now ha
       ],
     };
     const props = {
-      actions: [],
+      titleActions: [],
       headingId: 'open-now-heading',
       searchText: '',
       onSearchTextChange: () => undefined,

@@ -41,7 +41,7 @@ async function renderPane(
   { thisWindowId = 99, searchText = '' } = {}
 ) {
   const props = {
-    actions: [],
+    titleActions: [],
     headingId: 'open-now-heading',
     onSearchTextChange: () => undefined,
     searchInputRef: createRef<HTMLInputElement>(),

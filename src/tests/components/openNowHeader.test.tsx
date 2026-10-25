@@ -24,7 +24,7 @@ const renderPane = (view: DefaultView, seed: Partial<ChromeSeed> = {}) => {
   return renderWithProviders(
     <OpenNowPane
       windows={[]}
-      actions={[]}
+      titleActions={[]}
       headingId="open-now-heading"
       searchText=""
       onSearchTextChange={() => undefined}

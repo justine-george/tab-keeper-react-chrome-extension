@@ -77,7 +77,7 @@ const pane = (windows: OpenWindow[] | null) => (
   <>
     <OpenNowPane
       windows={windows}
-      actions={[]}
+      titleActions={[]}
       headingId="open-now-heading"
       searchText=""
       onSearchTextChange={() => undefined}

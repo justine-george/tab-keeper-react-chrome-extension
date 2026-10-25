@@ -110,9 +110,9 @@ export type OpenNowHeaderAction = {
 interface OpenNowPaneProps {
   // null while the first read is in flight; [] when it found nothing to list.
   windows: OpenWindow[] | null;
-  // Shown in the header's action row after Collapse all and Save all, in
-  // order.
-  actions: OpenNowHeaderAction[];
+  // KAN-794 (his pick F). Drawn on the heading's line, before the drawer's
+  // close, in order: they change the layout, not the tabs.
+  titleActions: OpenNowHeaderAction[];
   // KAN-784. The drawer's close, drawn in the header's top-right corner on the
   // heading's line, as a dialog's close is. The wide pane has none.
   close?: OpenNowHeaderAction;
@@ -180,7 +180,7 @@ const OPEN_NOW_HEADER_MENU_ID = 'open-now-header';
 // and saves them (O13).
 export default function OpenNowPane({
   windows,
-  actions,
+  titleActions,
   close,
   headingId,
   headingRef,
@@ -653,6 +653,15 @@ export default function OpenNowPane({
     min-width: 0;
   `;
 
+  // KAN-794. No height of its own, so the line stays the heading's: at a larger
+  // root the icon outgrows the heading and would push the list out of line
+  // with the saved pane's (searchRowAlignment.spec). Centred, it overflows evenly.
+  const titleActionsStyle = css`
+    display: flex;
+    align-items: center;
+    height: 0;
+  `;
+
   // NormalLabel's inner box: text-overflow does not apply to a flex
   // container, so the ellipsis lives on the text's own span.
   const headingTextStyle = css`
@@ -748,6 +757,20 @@ export default function OpenNowPane({
             >
               <span css={headingTextStyle}>{t('Open now')}</span>
             </h2>
+            <span css={titleActionsStyle}>
+              {titleActions.map((action, index) => (
+                <Icon
+                  // By position: the caller's list is fixed, and two actions may
+                  // share a label.
+                  key={index}
+                  tooltipText={action.label}
+                  ariaLabel={action.label}
+                  type={action.icon}
+                  tourAnchor={action.tourAnchor}
+                  onClick={action.onClick}
+                />
+              ))}
+            </span>
             {close && (
               <Icon
                 tooltipText={close.label}
@@ -799,6 +822,10 @@ export default function OpenNowPane({
             align-items: flex-end;
             padding-top: 8px;
             width: 100%;
+            /* KAN-794. The 8px above, then an icon's box (4px around the glyph;
+               border-box), so with nothing listed, and so no icon here, the row
+               keeps its height (KAN-491). */
+            min-height: calc(8px + ${ICON.DEFAULT} + 8px);
           `}
         >
           {/* Only with something to fold; with no windows it would offer
@@ -859,18 +886,6 @@ export default function OpenNowPane({
               />
             </>
           )}
-          {actions.map((action, index) => (
-            <Icon
-              // By position: the caller's list is fixed, and two actions may
-              // share a label.
-              key={index}
-              tooltipText={action.label}
-              ariaLabel={action.label}
-              type={action.icon}
-              tourAnchor={action.tourAnchor}
-              onClick={action.onClick}
-            />
-          ))}
           {/* KAN-577. Add window's chip and corner (HeroContainerRight); dimmed like the left header's Back with nowhere to go.
               margin-top -8px: its 32px outgrew the icons at a 12px root and pushed the list 6px down (searchRowAlignment.spec).
               Shrinks to the room left, label cut with an ellipsis (his pick): ru is 321px, the drawer leaves ~220. */}

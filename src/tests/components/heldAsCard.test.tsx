@@ -846,7 +846,7 @@ describe('Open now shows its card from pick-up (KAN-611)', () => {
       ],
     };
     const props = {
-      actions: [],
+      titleActions: [],
       headingId: 'open-now-heading',
       searchText: '',
       onSearchTextChange: () => undefined,

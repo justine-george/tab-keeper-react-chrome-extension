@@ -975,6 +975,10 @@ test.describe('Open now heading and empty-list layout (KAN-280)', () => {
           height: box.height,
         },
         headerWidth: outer.width,
+        // KAN-794. The line's controls after the heading: the fold.
+        controlsWidth: Array.from(header.children)
+          .filter((el) => el !== h2)
+          .reduce((sum, el) => sum + el.getBoundingClientRect().width, 0),
         text: {
           left: inner.left - box.left,
           top: inner.top - box.top,
@@ -997,12 +1001,14 @@ test.describe('Open now heading and empty-list layout (KAN-280)', () => {
     // An h2 allows only phrasing content: the text's span, nothing else.
     expect(facts.descendants).toEqual(['SPAN']);
     // Drawn as the NormalLabel inside it was: no heading margin, the header's
-    // full width, 32px tall, the text 8px in and centred on the line.
+    // line's full width less its controls, 32px tall, the text 8px in and
+    // centred on the line.
     expect(facts.margins).toEqual(['0px', '0px', '0px', '0px']);
+    expect(facts.controlsWidth).toBeGreaterThan(0);
     expect(facts.box).toEqual({
       left: 0,
       top: 0,
-      width: facts.headerWidth,
+      width: facts.headerWidth - facts.controlsWidth,
       height: 32,
     });
     expect(facts.text.left).toBe(8);

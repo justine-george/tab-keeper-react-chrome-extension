@@ -43,7 +43,7 @@ describe('the row tag (KAN-720)', () => {
     const result = await renderWithProviders(
       <OpenNowPane
         windows={null}
-        actions={[]}
+        titleActions={[]}
         headingId="open-now-heading"
         searchText=""
         onSearchTextChange={() => undefined}
@@ -77,7 +77,7 @@ describe('the row tag (KAN-720)', () => {
     result.rerender(
       <OpenNowPane
         windows={windows}
-        actions={[]}
+        titleActions={[]}
         headingId="open-now-heading"
         searchText=""
         onSearchTextChange={() => undefined}

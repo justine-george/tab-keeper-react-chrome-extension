@@ -137,7 +137,7 @@ describe('only a menu trigger holds a fill while expanded (KAN-329)', () => {
     const result = await renderWithProviders(
       <OpenNowPane
         windows={null}
-        actions={[]}
+        titleActions={[]}
         headingId="h"
         searchText=""
         onSearchTextChange={() => undefined}
@@ -153,7 +153,7 @@ describe('only a menu trigger holds a fill while expanded (KAN-329)', () => {
     result.rerender(
       <OpenNowPane
         windows={windows}
-        actions={[]}
+        titleActions={[]}
         headingId="h"
         searchText=""
         onSearchTextChange={() => undefined}

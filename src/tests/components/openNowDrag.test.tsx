@@ -69,7 +69,7 @@ async function renderPane(
   const result = await renderWithProviders(
     <OpenNowPane
       windows={null}
-      actions={[]}
+      titleActions={[]}
       headingId="open-now-heading"
       searchText=""
       onSearchTextChange={() => undefined}
@@ -85,7 +85,7 @@ async function renderPane(
   result.rerender(
     <OpenNowPane
       windows={windows}
-      actions={[]}
+      titleActions={[]}
       headingId="open-now-heading"
       searchText=""
       onSearchTextChange={() => undefined}
