@@ -3,6 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { waitForFontsLoaded } from './fixtures/fonts';
 import { localeStrings, shippedLanguages } from './fixtures/locales';
+import { sessionHeaderMenu } from './fixtures/menus';
 import {
   VIEWS,
   boxOf,
@@ -157,6 +158,63 @@ test('popup: a row button shows its long label below it, and lines up with the l
   );
   expect(Math.abs(rowLeft - listLeft)).toBeLessThanOrEqual(0.5);
 });
+
+// KAN-775 r7. Every fill, row and list, sits the same 4px inside the menu's border: the row menu and the header ⋮ alike.
+const INSET_PX = 4;
+
+async function insets(menu: Locator) {
+  return menu.evaluate((el) => {
+    const m = el.getBoundingClientRect();
+    const border = parseFloat(getComputedStyle(el).borderTopWidth);
+    const fills = [...el.querySelectorAll<HTMLElement>('[data-menu-item]')].map(
+      (item) => item.getBoundingClientRect()
+    );
+    const rowItems = [
+      ...el.querySelectorAll<HTMLElement>('[data-menu-action-row] > *'),
+    ].map((item) => item.getBoundingClientRect());
+    const list = [
+      ...el.querySelectorAll<HTMLElement>(':scope > [data-menu-item]'),
+    ].map((item) => item.getBoundingClientRect());
+    return {
+      top: Math.min(...fills.map((f) => f.top)) - m.top - border,
+      bottom: m.bottom - Math.max(...fills.map((f) => f.bottom)) - border,
+      left: Math.min(...fills.map((f) => f.left)) - m.left - border,
+      listRight: list.map((f) => m.right - f.right - border),
+      listLeft: list.map((f) => f.left - m.left - border),
+      rowCount: rowItems.length,
+    };
+  });
+}
+
+for (const where of ['an unselected row', 'the header ⋮'] as const) {
+  test(`popup: every fill sits ${INSET_PX}px inside the menu's border (${where})`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: SESSIONS,
+    });
+    let menu: Locator;
+    if (where === 'the header ⋮') {
+      await sessionHeaderMenu(page).click();
+      menu = page.getByRole('menu', { name: 'More actions' });
+    } else {
+      await rightClickTitle(page, sessionRow(page, 'S2'));
+      menu = rowMenu(page);
+    }
+    await expect(menu).toBeVisible();
+
+    const got = await insets(menu);
+    // PREMISE: the row menu has its action row; the header's has none.
+    expect(got.rowCount).toBe(where === 'the header ⋮' ? 0 : 3);
+    expect(got.top).toBeCloseTo(INSET_PX, 0);
+    expect(got.bottom).toBeCloseTo(INSET_PX, 0);
+    expect(got.left).toBeCloseTo(INSET_PX, 0);
+    for (const v of [...got.listLeft, ...got.listRight]) {
+      expect(v).toBeCloseTo(INSET_PX, 0);
+    }
+  });
+}
 
 test('popup: a row button takes the list items’ hover and press fills', async ({
   context,

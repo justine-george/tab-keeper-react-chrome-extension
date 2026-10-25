@@ -91,6 +91,8 @@ export function MenuPanel({
        Per theme: the dark grounds need a far heavier one to show anything. */
     box-shadow: ${COLORS.FLOATING_SHADOW};
     font-family: ${FONT_FAMILY};
+    /* KAN-775. Every fill, row and list alike, sits 4px inside the border. */
+    padding: 4px;
   `;
 
   // KAN-775. The row's buttons, then the list's items: the order focus walks.
@@ -152,18 +154,18 @@ export function MenuPanel({
     }
   `;
 
-  // KAN-775. Icon beside a short label, sized to fit; 2px + 10px puts the first glyph on the list's 12px icon column.
+  // KAN-775. Icon beside a short label, sized to fit, as tall as a list item; the same padding keeps the first glyph on the list's icon column.
   const rowStyle = css`
     display: flex;
-    gap: 6px;
-    padding: 6px 2px;
+    gap: 4px;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
     border-bottom: 1px solid ${COLORS.PANEL_BORDER_COLOR};
   `;
   const rowButtonStyle = css`
     ${itemStyle(false)}
     width: auto;
     gap: 6px;
-    padding: 6px 10px;
   `;
 
   const glyph = (icon: IconName) => (
