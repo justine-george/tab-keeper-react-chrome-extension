@@ -113,7 +113,7 @@ test('step 2 names the list, and step 6 says right-clicking the title opens the 
     'Copy all links, save as PDF, or delete'
   );
   await expect(card(page)).toContainText(
-    "Right-clicking the session's title opens this menu too."
+    'Right-click a session, window, group or tab to open its menu.'
   );
 });
 

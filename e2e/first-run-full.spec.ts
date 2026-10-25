@@ -76,7 +76,7 @@ test('Help starts at card 1 with no Hello; the nine cards in their places, Back 
   );
   // KAN-562: led by the name, so it can't read as "this is open at the moment".
   await expect(card(page)).toContainText(
-    'Currently open shows every window and tab in Chrome, kept up to date as you browse.'
+    'Currently open shows every window and tab in Chrome on this device, kept up to date as you browse.'
   );
   await expect(cardButton(page, 'Back')).toHaveCount(0);
   // Step 1 is look-only: Open now takes no press.
