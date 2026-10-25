@@ -64,10 +64,10 @@ async function cursorAtCentreOf(page: Page, target: Locator): Promise<string> {
   return cursorAt(page, box.x + box.width / 2, box.y + box.height / 2);
 }
 
-// Material Symbols renders its glyph as ligature TEXT, so the icon inside a
-// control is the span whose text content is the glyph name.
+// The icon inside a control: a ligature span or, for an SVG glyph (KAN-780),
+// its svg. Both carry data-icon.
 function glyphOf(control: Locator): Locator {
-  return control.locator('span.material-symbols-outlined').first();
+  return control.locator('[data-icon]').first();
 }
 
 // Probes the glyph specifically, not the control's centre. On an icon-only
