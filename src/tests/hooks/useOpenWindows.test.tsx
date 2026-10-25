@@ -366,7 +366,7 @@ describe('useOpenWindows', () => {
 
     expect(result.current).toBe(lastGood);
     expect(warn).toHaveBeenCalledWith(
-      'Open now could not read the open windows: ',
+      'Tab Keeper could not read the open windows: ',
       gone
     );
 
@@ -467,7 +467,7 @@ describe('useOpenWindows', () => {
     handle.browser.updateTab(11, { title: 'A2' });
     await advance(OPEN_NOW_REFRESH_COALESCE_MS);
     expect(warn).toHaveBeenCalledWith(
-      'Open now could not read the open windows: ',
+      'Tab Keeper could not read the open windows: ',
       gone
     );
     expect(result.current).toBeNull();
