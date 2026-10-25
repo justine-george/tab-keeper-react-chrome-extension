@@ -320,8 +320,8 @@ describe('two group rows in one window', () => {
     );
   });
 
-  // Already true via the mousedown listener, but stated as an invariant here
-  // so a later change to the dismiss mechanism cannot quietly allow two.
+  // Stated as an invariant so a later change to the dismiss mechanism cannot quietly allow two.
+  // KAN-778. The click on the other ⋮ only closes the open one; the next click opens it.
   test('opening one menu closes any other', async () => {
     const user = userEvent.setup();
     await renderTwoGroups();
@@ -330,6 +330,8 @@ describe('two group rows in one window', () => {
     await user.click(triggers[0]);
     expect(screen.getAllByRole('menu')).toHaveLength(1);
 
+    await user.click(triggers[1]);
+    expect(screen.queryAllByRole('menu')).toHaveLength(0);
     await user.click(triggers[1]);
 
     expect(screen.getAllByRole('menu')).toHaveLength(1);

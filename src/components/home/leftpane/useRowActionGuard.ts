@@ -6,9 +6,10 @@ type Point = { x: number; y: number };
  * KAN-582. Which of a saved row's action buttons may be pressed.
  *
  * When the strip appears (`shown` turns true) under a pointer already on the row -- a click that
- * selects the row draws it there -- the button under the pointer is not pressable until the pointer
- * leaves that button, so a double-click selects instead of pressing it. `pressable` is false for it;
- * the row's own click handles that press. Leaving the row lifts the hold.
+ * selects the row draws it there -- the button under the pointer is not pressable by the rest of
+ * that click's double-click, so a double-click selects instead of pressing it. `pressable` is false
+ * for it; the row's own click handles that press. A click of its own (KAN-779: `detail` 1, or 0 from
+ * a key) presses it. Leaving the button lifts the hold.
  */
 export function useRowActionGuard(shown: boolean) {
   const point = useRef<Point | null>(null);
@@ -44,7 +45,9 @@ export function useRowActionGuard(shown: boolean) {
     },
   };
 
-  const pressable = (button: Element) =>
+  // `clickCount` is the click's `detail`: above 1, it continues the click that drew the strip.
+  const pressable = (button: Element, clickCount: number) =>
+    clickCount <= 1 ||
     covered.current === null ||
     !(covered.current.contains(button) || button.contains(covered.current));
 

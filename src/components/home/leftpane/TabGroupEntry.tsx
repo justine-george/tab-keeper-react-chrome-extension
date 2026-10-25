@@ -160,7 +160,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     (act: MouseEventHandler): MouseEventHandler =>
     (e) => {
       e.stopPropagation();
-      if (pressable(e.currentTarget)) act(e);
+      if (pressable(e.currentTarget, e.detail)) act(e);
       else onTabGroupClick();
     };
 

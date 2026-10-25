@@ -279,14 +279,14 @@ describe('right-click on a row', () => {
     }
   });
 
-  test('mousedown outside closes; right-press on row b while a’s menu is open opens b’s', async () => {
+  test('a press outside closes; right-press on row b while a’s menu is open opens b’s', async () => {
     const { calls } = await renderRows();
     fireEvent.contextMenu(row('a'));
-    fireEvent.mouseDown(document.body);
+    fireEvent.pointerDown(document.body);
     expect(rowMenus()).toHaveLength(0);
 
     fireEvent.contextMenu(row('a'));
-    fireEvent.mouseDown(row('b'), { button: 2 });
+    fireEvent.pointerDown(row('b'), { button: 2 });
     expect(rowMenus()).toHaveLength(0);
     fireEvent.contextMenu(row('b'), { clientX: 70, clientY: 80 });
     const menu = screen.getByRole('menu', { name: 'Actions for b' });
@@ -299,7 +299,7 @@ describe('right-click on a row', () => {
   test('a press inside the menu does not close it', async () => {
     await renderRows();
     fireEvent.contextMenu(row('a'));
-    fireEvent.mouseDown(itemsOf(rowMenu())[1]);
+    fireEvent.pointerDown(itemsOf(rowMenu())[1]);
     expect(rowMenus()).toHaveLength(1);
   });
 
@@ -500,7 +500,7 @@ describe('right-click on a row', () => {
     expect(screen.getByTestId('held')).toHaveTextContent('a');
     expect(row('a')).toHaveAttribute('data-row-menu-held', '');
     expect(row('b')).not.toHaveAttribute('data-row-menu-held');
-    fireEvent.mouseDown(document.body);
+    fireEvent.pointerDown(document.body);
     expect(row('a')).not.toHaveAttribute('data-row-menu-held');
   });
 
@@ -512,8 +512,13 @@ describe('right-click on a row', () => {
   });
 
   describe('Ctrl+click', () => {
+    // A real press: pointerdown before mousedown (KAN-778 holds a press back until the next one).
+    const press = (el: Element, init: MouseEventInit) => {
+      fireEvent.pointerDown(el, init);
+      fireEvent.mouseDown(el, init);
+    };
     const ctrlClick = (el: Element) => {
-      fireEvent.mouseDown(el, { button: 0, ctrlKey: true });
+      press(el, { button: 0, ctrlKey: true });
       fireEvent.click(el, { button: 0, ctrlKey: true });
     };
 
@@ -523,7 +528,7 @@ describe('right-click on a row', () => {
       ctrlClick(title('a'));
       expect(calls.onRowClick).not.toHaveBeenCalled();
       // The next plain click is the row's again.
-      fireEvent.mouseDown(title('a'), { button: 0 });
+      press(title('a'), { button: 0 });
       fireEvent.click(title('a'), { button: 0 });
       expect(calls.onRowClick).toHaveBeenCalledExactlyOnceWith('a');
     });
@@ -538,7 +543,7 @@ describe('right-click on a row', () => {
     test('on a Mac, a press with no click after it does not swallow a later keyboard click', async () => {
       const { calls } = await renderRows({ platformOs: 'mac' });
       await settlePlatform();
-      fireEvent.mouseDown(title('a'), { button: 0, ctrlKey: true });
+      press(title('a'), { button: 0, ctrlKey: true });
       fireEvent.keyDown(title('a'), { key: 'Enter' });
       fireEvent.click(title('a'));
       expect(calls.onRowClick).toHaveBeenCalledExactlyOnceWith('a');
@@ -618,7 +623,7 @@ describe('only the owning container re-renders', () => {
     renders.length = 0;
     fireEvent.contextMenu(screen.getByText('Row one'));
     expect(screen.getByRole('menu', { name: 'Window one' })).toBeVisible();
-    fireEvent.mouseDown(document.body);
+    fireEvent.pointerDown(document.body);
     expect(rowMenus()).toHaveLength(0);
     expect(renders).not.toContain('two');
     // CONTROL: the owner did re-render, to open and to close.

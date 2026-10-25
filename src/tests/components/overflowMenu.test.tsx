@@ -617,9 +617,9 @@ describe('OverflowMenu beside the coach mark (KAN-413)', () => {
     const finish = document.createElement('button');
     coach.append(finish);
     document.body.append(coach);
-    fireEvent.mouseDown(finish);
+    fireEvent.pointerDown(finish);
     expect(screen.getByRole('menu')).toBeInTheDocument();
-    fireEvent.mouseDown(document.body);
+    fireEvent.pointerDown(document.body);
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
     coach.remove();
   });

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 
+import { swallowPress } from './swallowPress';
 import type { PopoverAxis } from './usePopoverList';
 
 // A press on the run's card counts as inside: its buttons must not close a menu open under it.
@@ -42,16 +43,20 @@ export function useMenuList({
 
   useEffect(() => {
     if (!isOpen) return;
-    const onPointerDown = (e: MouseEvent) => {
+    const onPointerDown = (e: PointerEvent) => {
       const target = e.target instanceof Element ? e.target : null;
       const isInside =
         target !== null &&
         (wrapperRef.current?.contains(target) === true ||
           target.closest(PRESS_INSIDE) !== null);
-      if (!isInside) onDismissRef.current('outside');
+      if (isInside) return;
+      onDismissRef.current('outside');
+      // KAN-778. A right press goes on to open its row's menu (KAN-708 pick 3).
+      if (e.button === 0 && !e.ctrlKey) swallowPress(e);
     };
-    document.addEventListener('mousedown', onPointerDown);
-    return () => document.removeEventListener('mousedown', onPointerDown);
+    // Capture at window: ahead of every listener that could act on the press.
+    window.addEventListener('pointerdown', onPointerDown, true);
+    return () => window.removeEventListener('pointerdown', onPointerDown, true);
   }, [isOpen, wrapperRef]);
 
   const focusItem = (index: number) => {
