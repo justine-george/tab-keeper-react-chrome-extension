@@ -214,7 +214,6 @@ export default function OpenNowRail({
     line-height: 1;
     & > span {
       width: 1em;
-      word-break: break-all;
       text-align: center;
     }
   `;

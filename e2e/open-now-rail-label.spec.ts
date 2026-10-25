@@ -79,39 +79,67 @@ for (const language of shippedLanguages()) {
 
     // CJK stacks in horizontal text: in vertical-rl, a font with zero vertical
     // advances (WenQuanYi Zen Hei, CI's Chinese face) drew every character on one spot.
+    const stacked = /^(ja|zh|ko)\b/i.test(language);
     expect(await label.evaluate((el) => getComputedStyle(el).writingMode)).toBe(
-      /^(ja|zh|ko)\b/i.test(language) ? 'horizontal-tb' : 'vertical-rl'
+      stacked ? 'horizontal-tb' : 'vertical-rl'
     );
-    // The characters run down the label. A collapse drew them all on one spot,
-    // so their centres move down and span at least 0.3em each. A letter counts
+    // The letters run down one column. A collapse drew them all on one spot,
+    // and a box wider than one character put two on a line. A letter counts
     // with its marks (a Hindi vowel sign sits on its letter); centres, since a
     // CJK glyph's box is taller than its 1em line.
     const run = await label.evaluate((el) => {
-      const centres: number[] = [];
+      const letters: { x: number; y: number; afterSpace: boolean }[] = [];
+      let afterSpace = false;
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       for (let n = walker.nextNode(); n !== null; n = walker.nextNode()) {
         for (const m of (n.textContent ?? '').matchAll(/\P{M}\p{M}*/gu)) {
-          if (m[0].trim() === '' || m.index === undefined) continue;
+          if (m.index === undefined) continue;
+          if (m[0].trim() === '') {
+            afterSpace = true;
+            continue;
+          }
           const range = document.createRange();
           range.setStart(n, m.index);
           range.setEnd(n, m.index + m[0].length);
           const r = range.getBoundingClientRect();
-          centres.push((r.top + r.bottom) / 2);
+          letters.push({
+            x: (r.left + r.right) / 2,
+            y: (r.top + r.bottom) / 2,
+            afterSpace,
+          });
+          afterSpace = false;
         }
       }
-      return { centres, em: parseFloat(getComputedStyle(el).fontSize) };
+      return { letters, em: parseFloat(getComputedStyle(el).fontSize) };
     });
-    const { centres, em } = run;
-    for (let i = 1; i < centres.length; i++) {
+    const { letters, em } = run;
+    const xs = letters.map((l) => l.x);
+    expect(Math.max(...xs) - Math.min(...xs), 'one column').toBeLessThanOrEqual(
+      1
+    );
+    for (let i = 1; i < letters.length; i++) {
       expect(
-        centres[i],
+        letters[i].y,
         `letter ${i} not above letter ${i - 1}`
-      ).toBeGreaterThanOrEqual(centres[i - 1] - 0.5);
+      ).toBeGreaterThanOrEqual(letters[i - 1].y - 0.5);
     }
     expect(
-      centres[centres.length - 1] - centres[0],
-      'the characters run down the label'
-    ).toBeGreaterThanOrEqual(0.3 * em * (centres.length - 1));
+      letters[letters.length - 1].y - letters[0].y,
+      'the letters run down the label'
+    ).toBeGreaterThanOrEqual(0.3 * em * (letters.length - 1));
+    // Stacked, a space would vanish at a line end; the word blocks keep it.
+    if (stacked) {
+      const steps = letters.slice(1).map((l, i) => ({
+        step: l.y - letters[i].y,
+        afterSpace: l.afterSpace,
+      }));
+      const inWord = Math.max(
+        ...steps.filter((s) => !s.afterSpace).map((s) => s.step)
+      );
+      for (const s of steps.filter((s) => s.afterSpace)) {
+        expect(s.step, 'a gap between words').toBeGreaterThan(inWord + 2);
+      }
+    }
     // WCAG 2.5.3: the name a voice user speaks starts with what they see.
     const name = await rail.evaluate((el) => el.getAttribute('aria-label'));
     expect(name?.startsWith(`${strings['Open now']}, `), String(name)).toBe(

@@ -184,7 +184,6 @@ describe('narrow and side by side (O2)', () => {
       expect(getComputedStyle(word).width).toBe(
         getComputedStyle(label).fontSize
       );
-      expect(getComputedStyle(word).wordBreak).toBe('break-all');
     }
   });
 
