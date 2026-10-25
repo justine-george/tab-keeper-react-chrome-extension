@@ -37,7 +37,7 @@ import { rgb } from '../setup/hexColor';
 // What the drag LOOKS like (the cursor, the pill, the 12px hit area on the
 // line) is Task 5's real-browser spec.
 
-const NAME = 'Resize Open now';
+const NAME = 'Resize the Currently open panel';
 const SET_WIDTH = setOpenNowWidth.type;
 
 const ORIGINAL_INNER_WIDTH = window.innerWidth;
@@ -213,7 +213,7 @@ describe('only side by side (O1a)', () => {
     await mounted();
     // PREMISE: the rail is what shows.
     expect(
-      await screen.findByRole('button', { name: /^Open now, / })
+      await screen.findByRole('button', { name: /^Currently open, / })
     ).toBeInTheDocument();
 
     expect(

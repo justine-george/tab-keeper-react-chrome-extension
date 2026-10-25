@@ -248,7 +248,7 @@ describe('each max reads the other (KAN-687 comment 11077)', () => {
     await renderHome({ list: 600 });
     await mounted();
     const openNowGrip = screen.getByRole('separator', {
-      name: 'Resize Open now',
+      name: 'Resize the Currently open panel',
     });
     expect(openNowGrip).toHaveAttribute(
       'aria-valuemax',

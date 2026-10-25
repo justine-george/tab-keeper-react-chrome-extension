@@ -18,7 +18,7 @@ import { buildSession } from '../fixtures/sessionFixture';
 // focus: Open now's, opening the drawer first when the rail shows, else the
 // saved list's.
 
-const RAIL_NAME = 'Open now, 3 Tabs';
+const RAIL_NAME = 'Currently open, 3 Tabs';
 
 // Two windows, three tabs.
 const twoWindows = (): ChromeSeed => ({
@@ -125,7 +125,7 @@ describe('/ focuses the search (O14b)', () => {
     const button = await railButton();
     fireEvent.click(button);
     const drawer = drawerOf(button);
-    const inside = within(drawer).getByRole('heading', { name: 'Open now' });
+    const inside = within(drawer).getByRole('heading', { name: 'Currently open' });
     inside.focus();
     fireEvent.keyDown(inside, { key: '/' });
     expect(document.activeElement).toBe(field());
@@ -152,7 +152,7 @@ describe('/ focuses the search (O14b)', () => {
     const button = await railButton();
     fireEvent.click(button);
     const drawer = drawerOf(button);
-    const heading = within(drawer).getByRole('heading', { name: 'Open now' });
+    const heading = within(drawer).getByRole('heading', { name: 'Currently open' });
     // PREMISE: opened by the button, focus is on the heading.
     expect(document.activeElement).toBe(heading);
 
@@ -169,7 +169,7 @@ describe('/ focuses the search (O14b)', () => {
 
     fireEvent.click(button);
     expect(document.activeElement).toBe(
-      within(drawerOf(button)).getByRole('heading', { name: 'Open now' })
+      within(drawerOf(button)).getByRole('heading', { name: 'Currently open' })
     );
   });
 
@@ -179,7 +179,7 @@ describe('/ focuses the search (O14b)', () => {
     const button = await railButton();
     fireEvent.click(button);
     await userEvent.setup().type(field(), 'b');
-    fireEvent.click(screen.getByRole('button', { name: 'Close Open now' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close the Currently open panel' }));
     fireEvent.click(button);
     expect(field()).toHaveValue('b');
   });

@@ -171,7 +171,7 @@ describe('the Open now pane (KAN-280)', () => {
   test('the header names the pane, counts windows and tabs, and says it is live', async () => {
     await renderPane(twoWindows());
 
-    expect(screen.getByText('Open now')).toBeInTheDocument();
+    expect(screen.getByText('Currently open')).toBeInTheDocument();
     expect(screen.getByText('2 Windows · 3 Tabs')).toBeInTheDocument();
     expect(screen.getByText('Updates as you browse')).toBeInTheDocument();
   });
@@ -258,7 +258,7 @@ describe('the Open now pane (KAN-280)', () => {
     expect(screen.getByText('No other tabs are open.')).toBeInTheDocument();
     // Not a search result, so not the no-match block.
     expect(document.querySelector('[data-no-match]')).toBeNull();
-    expect(screen.getByText('Open now')).toBeInTheDocument();
+    expect(screen.getByText('Currently open')).toBeInTheDocument();
     expect(screen.queryByText(/·/)).toBeNull();
   });
 
@@ -306,7 +306,7 @@ describe('the Open now pane (KAN-280)', () => {
       />
     );
 
-    expect(screen.getByText('Open now')).toBeInTheDocument();
+    expect(screen.getByText('Currently open')).toBeInTheDocument();
     expect(screen.getByText('Updates as you browse')).toBeInTheDocument();
     expect(screen.queryByText(/·/)).toBeNull();
     // Loading is not "nothing is open": the empty message waits for a read.

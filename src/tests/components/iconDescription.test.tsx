@@ -147,8 +147,8 @@ describe('the other controls with a tooltip follow the same rule', () => {
         searchInputRef={createRef()}
       />
     );
-    const rail = screen.getByRole('button', { name: 'Open now' });
-    expect(rail).toHaveAttribute('data-tooltip', 'Open now');
+    const rail = screen.getByRole('button', { name: 'Currently open' });
+    expect(rail).toHaveAttribute('data-tooltip', 'Currently open');
     expect(rail).not.toHaveAttribute('aria-description');
   });
 });

@@ -290,7 +290,7 @@ describe('saving from the Open now pane (KAN-280 O13)', () => {
       windows: [{ id: 1, focused: true, tabs: [tabView(), tab(11, 'A')] }],
     });
 
-    const pane = screen.getByRole('region', { name: 'Open now' });
+    const pane = screen.getByRole('region', { name: 'Currently open' });
     const headerNames = within(pane)
       .getAllByRole('button')
       .filter((button) => !button.closest('[data-open-window-id]'))

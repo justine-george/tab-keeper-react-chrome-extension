@@ -33,8 +33,8 @@ import ko from '../../../public/locales/ko/translation.json';
 // with one button, and the button opens Open now as a drawer over the right
 // side. Folded, Open now is in the detail column at any width, so no rail.
 
-const RAIL_NAME = 'Open now, 3 Tabs';
-const CLOSE = 'Close Open now';
+const RAIL_NAME = 'Currently open, 3 Tabs';
+const CLOSE = 'Close the Currently open panel';
 // Only the pane renders this line, so its presence is the pane's.
 const PANE_ONLY = 'Updates as you browse';
 // Only HeroContainerRight renders this, so its presence is the saved detail's.
@@ -142,7 +142,7 @@ describe('narrow and side by side (O2)', () => {
     await renderHome(false);
 
     const button = await railButton();
-    const label = within(button).getByText('Open now');
+    const label = within(button).getByText('Currently open');
     const glyph = within(button).getByText('tab');
 
     expect(glyph).toHaveClass('material-symbols-outlined');
@@ -196,7 +196,7 @@ describe('narrow and side by side (O2)', () => {
     expect(button).toHaveAttribute('aria-expanded', 'true');
     expect(within(drawer).getByText(PANE_ONLY)).toBeInTheDocument();
     expect(within(drawer).getByText('B')).toBeInTheDocument();
-    const heading = within(drawer).getByRole('heading', { name: 'Open now' });
+    const heading = within(drawer).getByRole('heading', { name: 'Currently open' });
     expect(document.activeElement).toBe(heading);
     expect(
       within(drawer).getByRole('button', { name: CLOSE })
@@ -243,7 +243,7 @@ describe('narrow and side by side (O2)', () => {
     const { drawer } = await openDrawer();
 
     const close = within(drawer).getByRole('button', { name: CLOSE });
-    const heading = within(drawer).getByRole('heading', { name: 'Open now' });
+    const heading = within(drawer).getByRole('heading', { name: 'Currently open' });
     const fold = within(drawer).getByRole('button', {
       name: 'Fold the saved session away',
     });
@@ -296,12 +296,12 @@ describe('narrow and side by side (O2)', () => {
       },
     });
 
-    const button = await screen.findByRole('button', { name: 'Open now' });
+    const button = await screen.findByRole('button', { name: 'Currently open' });
     // Settle everything that can settle: the name must still have no count.
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
-    expect(button).toHaveAccessibleName('Open now');
+    expect(button).toHaveAccessibleName('Currently open');
     expect(openNowSlot().contains(button)).toBe(true);
   });
 
@@ -408,7 +408,7 @@ describe('focus after a fold or unfold (O2)', () => {
       'detail'
     );
     const heading = within(openNowSlot()).getByRole('heading', {
-      name: 'Open now',
+      name: 'Currently open',
     });
     expect(document.activeElement).toBe(heading);
   });
@@ -697,7 +697,7 @@ describe('closing from outside (KAN-681, KAN-682)', () => {
     const { button, drawer } = await openDrawer();
 
     fireEvent.pointerDown(
-      within(drawer).getByRole('heading', { name: 'Open now' })
+      within(drawer).getByRole('heading', { name: 'Currently open' })
     );
     await settle();
 
