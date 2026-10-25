@@ -17,6 +17,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import Button from '../../common/Button';
 import ClosesThisTab from '../../common/ClosesThisTab';
 import Icon from '../../common/Icon';
+import OverflowMenu from '../../common/OverflowMenu';
+import type { OverflowMenuItem } from '../../common/MenuPanel';
+import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
+import { SAVE_OF } from '../leftpane/saveScopes';
+import { exportOpenWindows } from '../exportOpenWindows';
 import FoldAllGlyph from '../../common/FoldAllGlyph';
 import { NormalLabel } from '../../common/Label';
 import EmptyListLine from '../../common/EmptyListLine';
@@ -64,6 +69,8 @@ import {
   subscribeReopenFocus,
 } from '../../../redux/reopenFocus';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
+import { showToast } from '../../../redux/slices/globalStateSlice';
+import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import type { AppDispatch, RootState } from '../../../redux/store';
 import { ICON, TYPE } from '../../../styles/scale';
 import { paneInsetCss } from '../../../styles/paneInset';
@@ -163,6 +170,9 @@ function neighbourAt(list: Element[], index: number): Element | undefined {
 // saved-session detail draws a saved one. The caller reads Chrome and hands
 // the result in as `windows`; the pane closes tabs and windows itself (O7a)
 // and saves them (O13).
+
+// KAN-774. The header's one id for its right-click menu.
+const OPEN_NOW_HEADER_MENU_ID = 'open-now-header';
 export default function OpenNowPane({
   windows,
   actions,
@@ -455,8 +465,12 @@ export default function OpenNowPane({
   };
 
   // KAN-280 O13. The window's tabs as listed are saved, named by rule 1 and
-  // announced by rule 2.
-  const handleSaveWindow = async (openWindow: OpenWindow) => {
+  // announced by rule 2. KAN-774: This window from the header's menu is
+  // announced as the current window, as the save row's is.
+  const handleSaveWindow = async (
+    openWindow: OpenWindow,
+    scope: 'one-window' | 'current-window' = 'one-window'
+  ) => {
     const title = await suggestTitleForWindow(
       openWindow.id,
       t('New Tab Group')
@@ -471,7 +485,7 @@ export default function OpenNowPane({
           new Date(),
           recentTabsOf
         ),
-        scope: 'one-window',
+        scope,
       })
     );
   };
@@ -501,6 +515,47 @@ export default function OpenNowPane({
       })
     );
   };
+
+  // KAN-774. A This window holding only Tab Keeper is not listed: say so, as the save row does.
+  const handleSaveCurrent = () => {
+    const thisWindow = listed.find((w) => w.isThisWindow);
+    if (thisWindow === undefined) {
+      void dispatch(
+        showToast({ toastText: TOAST_MESSAGES.NOTHING_TO_SAVE_IN_WINDOW })
+      );
+      return;
+    }
+    void handleSaveWindow(thisWindow, 'current-window');
+  };
+
+  // With nothing listed there is nothing to save; N1, none while the saved search holds text.
+  const canSave = listed.length > 0 && !isSavedSearching;
+  // KAN-774 (his pick A). The header's ⋮ and its right-click menu: all three saves, in words.
+  const saveItems: OverflowMenuItem[] = [
+    {
+      key: 'save-all-windows',
+      label: t(SAVE_OF['all-windows'].labelKey),
+      icon: SAVE_OF['all-windows'].icon,
+      onSelect: () => void handleSaveAll(),
+    },
+    {
+      key: 'save-current-window',
+      label: t(SAVE_OF['current-window'].labelKey),
+      icon: SAVE_OF['current-window'].icon,
+      onSelect: handleSaveCurrent,
+    },
+    {
+      key: 'export-open-windows',
+      label: t('Save open windows as PDF'),
+      icon: 'ios_share',
+      onSelect: () => void exportOpenWindows(dispatch),
+    },
+  ];
+  const headerMenu = useRowContextMenu({
+    kind: 'openNowHeader',
+    ariaLabel: () => `${t('More actions')}: ${t('Open now')}`,
+    itemsFor: () => (canSave ? saveItems : null),
+  });
 
   // Copied from RightPane's containerStyle, so the pane sits in its column the
   // way the saved detail does.
@@ -634,7 +689,11 @@ export default function OpenNowPane({
       role="region"
       aria-labelledby={headingId}
     >
-      <div css={headerStyle} data-open-now-header>
+      <div
+        css={headerStyle}
+        data-open-now-header
+        {...headerMenu.rowProps(OPEN_NOW_HEADER_MENU_ID)}
+      >
         <div css={topStyle}>
           {/* tabIndex -1: focusable from script (the drawer moves focus here
               on open), never a Tab stop. */}
@@ -712,14 +771,28 @@ export default function OpenNowPane({
               }
             />
           )}
-          {/* With nothing listed there is nothing to save. */}
-          {listed.length > 0 && !isSavedSearching && (
-            <Icon
-              tooltipText={t('Save every open window as a session')}
-              ariaLabel={t('Save every open window as a session')}
-              type="library_add"
-              onClick={() => void handleSaveAll()}
-            />
+          {canSave && (
+            <>
+              <Icon
+                tooltipText={t('Save every open window as a session')}
+                ariaLabel={t('Save every open window as a session')}
+                type="library_add"
+                onClick={() => void handleSaveAll()}
+              />
+              {/* KAN-774. Not Save current window: beside library_add, add_box would be KAN-213's twins. */}
+              <Icon
+                tooltipText={t('Save open windows as PDF')}
+                ariaLabel={t('Save open windows as PDF')}
+                type="ios_share"
+                onClick={() => void exportOpenWindows(dispatch)}
+              />
+              {/* Near the start of the row, so it opens rightward, inside the pane (KAN-193). */}
+              <OverflowMenu
+                ariaLabel={t('More actions')}
+                align="start"
+                items={saveItems}
+              />
+            </>
           )}
           {actions.map((action, index) => (
             <Icon
@@ -787,6 +860,7 @@ export default function OpenNowPane({
           </ClosesThisTab>
         </div>
       </div>
+      {headerMenu.menu}
       <div css={listBoxStyle}>
         <OpenNowSearchRow
           text={searchText}

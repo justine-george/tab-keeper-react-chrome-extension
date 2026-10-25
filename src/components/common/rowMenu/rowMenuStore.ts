@@ -8,7 +8,8 @@ export type RowMenuKind =
   | 'savedTab'
   | 'openWindow'
   | 'openGroup'
-  | 'openTab';
+  | 'openTab'
+  | 'openNowHeader';
 
 export interface RowMenuTarget {
   // KAN-708. The useRowContextMenu instance that opened it.
