@@ -147,12 +147,17 @@ describe('live windows and groups (Open now)', () => {
     expect(await screen.findByText('4 links copied.')).toBeVisible();
   });
 
-  test("the window row's right-click offers the same first item", async () => {
+  // KAN-793. Under the row's Go to · Save.
+  test("the window row's right-click list starts with the same item", async () => {
     await renderOpenNow();
 
     fireEvent.contextMenu(within(block(2)).getByText('Window 2'));
 
-    expect(menuKeys()[0]).toBe('copy');
+    expect(menuKeys().slice(0, 3)).toEqual([
+      'goToWindow',
+      'saveWindow',
+      'copy',
+    ]);
   });
 
   test('This window always has a ⋮: with nothing to sort it holds Copy all links alone', async () => {

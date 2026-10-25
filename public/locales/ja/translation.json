@@ -400,5 +400,10 @@
   "Default save": "既定の保存",
   "All windows": "すべてのウィンドウ",
   "Current window": "現在のウィンドウ",
-  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "保存ボタンと Enter キーで使われます。もう一方の保存は ⋮ メニューにあります。"
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "保存ボタンと Enter キーで使われます。もう一方の保存は ⋮ メニューにあります。",
+  "Rename": "名前を変更",
+  "GoToWindowShort": "移動",
+  "Add tab": "タブを追加",
+  "GoToGroupShort": "移動",
+  "Go to group": "グループに移動"
 }

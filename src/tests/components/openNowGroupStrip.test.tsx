@@ -404,11 +404,19 @@ describe('a live group row right-click (KAN-708)', () => {
   const firstControl = () =>
     stripIn(titleRowOf('Docs'))?.firstElementChild as HTMLElement;
 
-  test('right-click = Copy all links, Ungroup, Close group, acting on that group', async () => {
+  // KAN-793. Led by the row's Go to · Save · Rename.
+  test('right-click = Go to · Save · Rename, then Copy all links, Ungroup, Close group, acting on that group', async () => {
     await renderOpenNow();
 
     expect(fireEvent.contextMenu(titleRowOf('Docs'))).toBe(false);
-    expect(menuKeys()).toEqual(['copy', 'ungroup', 'closeGroup']);
+    expect(menuKeys()).toEqual([
+      'goToGroup',
+      'saveGroup',
+      'rename',
+      'copy',
+      'ungroup',
+      'closeGroup',
+    ]);
 
     fireEvent.click(
       within(screen.getByRole('menu')).getByRole('menuitem', {
@@ -567,7 +575,15 @@ describe('Sort tabs by site on a live group (KAN-746)', () => {
   test('right-click offers it too', async () => {
     await renderOpenNow(unsorted());
     fireEvent.contextMenu(titleRowOf('Docs'));
-    expect(menuKeys()).toEqual(['copy', 'sortBySite', 'ungroup', 'closeGroup']);
+    expect(menuKeys()).toEqual([
+      'goToGroup',
+      'saveGroup',
+      'rename',
+      'copy',
+      'sortBySite',
+      'ungroup',
+      'closeGroup',
+    ]);
   });
 
   test('absent for a sorted group', async () => {

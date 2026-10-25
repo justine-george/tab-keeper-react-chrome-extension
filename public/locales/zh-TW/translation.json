@@ -400,5 +400,10 @@
   "Default save": "預設儲存",
   "All windows": "所有視窗",
   "Current window": "目前視窗",
-  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "儲存按鈕和 Enter 鍵會使用此設定。另一種儲存方式在 ⋮ 選單中。"
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "儲存按鈕和 Enter 鍵會使用此設定。另一種儲存方式在 ⋮ 選單中。",
+  "Rename": "重新命名",
+  "GoToWindowShort": "前往",
+  "Add tab": "新增分頁",
+  "GoToGroupShort": "前往",
+  "Go to group": "前往群組"
 }

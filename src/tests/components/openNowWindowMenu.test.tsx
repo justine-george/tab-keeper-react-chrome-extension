@@ -335,13 +335,20 @@ describe('an Open now window row right-click (KAN-708)', () => {
     ...document.querySelectorAll<HTMLElement>('[data-row-menu]'),
   ];
 
-  test('right-click = its ⋮ items: Copy all links, Sort tabs by site when offered, Close window last', async () => {
+  // KAN-793. Led by the row's Go to · Save.
+  test('right-click = Go to · Save, then its ⋮ items: Copy all links, Sort tabs by site when offered, Close window last', async () => {
     await renderOpenNow(seed(UNSORTED()));
 
     expect(fireEvent.contextMenu(windowRow(2))).toBe(false);
 
     expect(rowMenus()).toHaveLength(1);
-    expect(menuKeys()).toEqual(['copy', 'sortBySite', 'closeWindow']);
+    expect(menuKeys()).toEqual([
+      'goToWindow',
+      'saveWindow',
+      'copy',
+      'sortBySite',
+      'closeWindow',
+    ]);
   });
 
   test('Sort tabs by site is left out where the ⋮ leaves it out', async () => {
@@ -351,7 +358,12 @@ describe('an Open now window row right-click (KAN-708)', () => {
 
     fireEvent.contextMenu(windowRow(2));
 
-    expect(menuKeys()).toEqual(['copy', 'closeWindow']);
+    expect(menuKeys()).toEqual([
+      'goToWindow',
+      'saveWindow',
+      'copy',
+      'closeWindow',
+    ]);
   });
 
   test('Close window from the right-click closes that window', async () => {

@@ -114,10 +114,7 @@ export default function TabGroupEntryContainer() {
         language: i18n.language,
         dispatch,
         deleteKey,
-        place:
-          id === selectedTabGroupId && selectedOnScreen
-            ? 'onScreenRow'
-            : 'offScreenRow',
+        place: 'row',
       });
     },
   });

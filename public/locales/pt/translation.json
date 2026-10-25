@@ -428,5 +428,10 @@
   "Default save": "Salvamento padrão",
   "All windows": "Todas as janelas",
   "Current window": "Janela atual",
-  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Usado pelo botão de salvar e pela tecla Enter. A outra opção de salvar fica no menu ⋮."
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Usado pelo botão de salvar e pela tecla Enter. A outra opção de salvar fica no menu ⋮.",
+  "Rename": "Renomear",
+  "GoToWindowShort": "Ir para a janela",
+  "Add tab": "Adicionar aba",
+  "GoToGroupShort": "Ir para o grupo",
+  "Go to group": "Ir para o grupo"
 }

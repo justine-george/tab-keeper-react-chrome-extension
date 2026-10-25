@@ -104,7 +104,8 @@ describe('saved window', () => {
       (t) => t.tabId
     );
 
-  test('sits right under Sort tabs by site, and the right-click offers the same', async () => {
+  // KAN-793. The right-click adds the row's Open · Add tab · Rename on top.
+  test('sits right under Sort tabs by site, and the right-click offers the same under its top row', async () => {
     const user = userEvent.setup();
     await render([tab('x'), tab('z1', 'gZ'), tab('a1', 'gA')], [ZULU, ALPHA]);
     const dots = labels(await openMenu(user));
@@ -122,7 +123,12 @@ describe('saved window', () => {
     fireEvent.contextMenu(
       screen.getByRole('button', { name: 'Rename window: Planning' })
     );
-    expect(labels(screen.getByRole('menu'))).toEqual(dots);
+    expect(labels(screen.getByRole('menu'))).toEqual([
+      'Open',
+      'Add tab',
+      'Rename',
+      ...dots,
+    ]);
   });
 
   test('choosing it moves only the groups and says so with Undo', async () => {

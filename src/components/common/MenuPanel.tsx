@@ -223,6 +223,7 @@ export function MenuPanel({
         <div data-menu-action-row css={rowStyle}>
           {rowItems.map((item, index) => (
             // KAN-775. Named by the short label, described and tooltipped by the long one, as a row's own buttons.
+            // KAN-793. No tooltip where the long label only repeats the short one.
             <button
               key={item.key}
               type="button"
@@ -232,7 +233,9 @@ export function MenuPanel({
                 item.label,
                 item.actionRowLabel
               )}
-              data-tooltip={item.label}
+              data-tooltip={
+                item.label === item.actionRowLabel ? undefined : item.label
+              }
               data-menu-item={item.key}
               ref={registerItem(index)}
               css={rowButtonStyle}

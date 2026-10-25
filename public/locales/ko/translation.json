@@ -400,5 +400,10 @@
   "Default save": "기본 저장",
   "All windows": "모든 창",
   "Current window": "현재 창",
-  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "저장 버튼과 Enter 키에 적용됩니다. 다른 저장 방식은 ⋮ 메뉴에 있습니다."
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "저장 버튼과 Enter 키에 적용됩니다. 다른 저장 방식은 ⋮ 메뉴에 있습니다.",
+  "Rename": "이름 변경",
+  "GoToWindowShort": "이동",
+  "Add tab": "탭 추가",
+  "GoToGroupShort": "이동",
+  "Go to group": "그룹으로 이동"
 }

@@ -44,4 +44,34 @@ describe('MenuPanel', () => {
       'data-row-menu'
     );
   });
+  // KAN-793. es "Ir a la ventana" is both: a tooltip would only repeat the button.
+  it('an action row button whose short label is its whole label has no tooltip or description', async () => {
+    await renderWithProviders(
+      <MenuPanel
+        {...panelProps}
+        items={[
+          {
+            key: 'short',
+            actionRowLabel: 'Go to',
+            label: 'Go to window',
+            icon: 'check',
+            onSelect: vi.fn(),
+          },
+          {
+            key: 'whole',
+            actionRowLabel: 'Ir a la ventana',
+            label: 'Ir a la ventana',
+            icon: 'check',
+            onSelect: vi.fn(),
+          },
+        ]}
+      />
+    );
+    const short = screen.getByRole('menuitem', { name: 'Go to' });
+    expect(short).toHaveAttribute('data-tooltip', 'Go to window');
+    expect(short).toHaveAttribute('aria-description', 'Go to window');
+    const whole = screen.getByRole('menuitem', { name: 'Ir a la ventana' });
+    expect(whole).not.toHaveAttribute('data-tooltip');
+    expect(whole).not.toHaveAttribute('aria-description');
+  });
 });

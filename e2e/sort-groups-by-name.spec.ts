@@ -129,8 +129,15 @@ for (const view of VIEWS) {
       const rowItems = await menuNames(page);
       await closeMenu(page);
       await openSavedMenu(page);
-      expect(await menuNames(page)).toEqual(rowItems);
-      expect(rowItems.slice(0, 3)).toEqual([
+      const dotItems = await menuNames(page);
+      // KAN-793. The right-click leads with the row's buttons; Add tab is popup only.
+      expect(rowItems).toEqual([
+        ...(view === 'popup'
+          ? ['Open', 'Add tab', 'Rename']
+          : ['Open', 'Rename']),
+        ...dotItems,
+      ]);
+      expect(dotItems.slice(0, 3)).toEqual([
         'Copy all links',
         'Sort tabs by site',
         'Sort groups by name',
@@ -306,8 +313,10 @@ test.describe('Open now window', () => {
     const rowItems = await menuNames(page);
     await closeMenu(page);
     await openLiveMenu(page, windowId);
-    expect(await menuNames(page)).toEqual(rowItems);
-    expect(rowItems.slice(0, 3)).toEqual([
+    const dotItems = await menuNames(page);
+    // KAN-793. The right-click leads with the row's Go to · Save.
+    expect(rowItems).toEqual(['Go to', 'Save', ...dotItems]);
+    expect(dotItems.slice(0, 3)).toEqual([
       'Copy all links',
       'Sort tabs by site',
       'Sort groups by name',
