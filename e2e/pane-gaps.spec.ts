@@ -316,3 +316,126 @@ test('keyboard focus and a drag both draw the larger dots', async ({
   await page.keyboard.press('Escape');
   await page.mouse.up();
 });
+
+// KAN-791. While a grip is in use, a 2px line runs the gap's full height.
+// Read 150px below the grip's top, well clear of the dots in its middle.
+async function line(page: Page, sel: string) {
+  const g = (await page.locator(sel).boundingBox())!;
+  const x = g.x + g.width / 2;
+  const [painted] = await pixelsAt(page, [[x, g.y + 150]]);
+  const style = await page.locator(sel).evaluate((el) => {
+    const s = getComputedStyle(el, '::before');
+    return {
+      opacity: s.opacity,
+      delay: s.transitionDelay,
+      duration: s.transitionDuration,
+      width: s.width,
+      height: parseFloat(s.height),
+      gripHeight: el.getBoundingClientRect().height,
+      pointerEvents: s.pointerEvents,
+    };
+  });
+  return { painted, ...style };
+}
+
+for (const [theme, palette] of [
+  ['Chalk', CHALK_THEME],
+  ['Charcoal', CHARCOAL_THEME],
+] as const) {
+  test(`${theme}: a hover held past 300ms draws a 2px line down each grip, and leaving takes it away`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(
+      context,
+      extensionId,
+      'tab',
+      { width: 1440, height: 900 },
+      { theme }
+    );
+    for (const which of ['list', 'openNow'] as const) {
+      const rest = await line(page, GRIPS[which]);
+      // At rest the gap is bare: its pixels are the pane colour.
+      expect(rest.painted, which).toBe(palette.PRIMARY_COLOR);
+      expect(rest.opacity, which).toBe('0');
+
+      const m = await mark(page, GRIPS[which]);
+      await page.mouse.move(m.centre, (m.top + m.bottom) / 2);
+      // Waits before it shows, so a pointer crossing the gap draws nothing.
+      expect((await line(page, GRIPS[which])).delay, which).toBe('0.3s');
+      await expect
+        .poll(async () => {
+          const l = await line(page, GRIPS[which]);
+          return contrast(l.painted, palette.PRIMARY_COLOR) > 1.15;
+        })
+        .toBe(true);
+      const shown = await line(page, GRIPS[which]);
+      expect(shown, which).toMatchObject({
+        opacity: '1',
+        width: '2px',
+        pointerEvents: 'none',
+      });
+      expect(shown.height, which).toBe(shown.gripHeight);
+
+      await page.mouse.move(5, 5);
+      // Gone with no wait.
+      expect((await line(page, GRIPS[which])).delay, which).toBe('0s');
+      await expect
+        .poll(async () => (await line(page, GRIPS[which])).painted)
+        .toBe(palette.PRIMARY_COLOR);
+    }
+  });
+}
+
+test('keyboard focus and a drag draw the line at once', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await open(context, extensionId, 'tab', {
+    width: 1440,
+    height: 900,
+  });
+  const grip = page.locator(GRIPS.openNow);
+  await grip.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(grip).toBeFocused();
+  expect((await line(page, GRIPS.openNow)).delay).toBe('0s');
+  await expect
+    .poll(async () => (await line(page, GRIPS.openNow)).opacity)
+    .toBe('1');
+
+  await grip.blur();
+  await page.mouse.move(5, 5);
+  await expect
+    .poll(async () => (await line(page, GRIPS.openNow)).opacity)
+    .toBe('0');
+  const g = (await grip.boundingBox())!;
+  await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+  await page.mouse.down();
+  // Pressed: no wait, even though the pointer is also hovering.
+  expect((await line(page, GRIPS.openNow)).delay).toBe('0s');
+  // Off the grip, still dragging: the line stays.
+  await page.mouse.move(g.x - 60, g.y + g.height / 2, { steps: 4 });
+  await expect
+    .poll(async () => (await line(page, GRIPS.openNow)).opacity)
+    .toBe('1');
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+});
+
+test('with Reduce motion on, the line does not fade, and the hover still waits', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await open(context, extensionId, 'tab', {
+    width: 1440,
+    height: 900,
+  });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const m = await mark(page, GRIPS.openNow);
+  await page.mouse.move(m.centre, (m.top + m.bottom) / 2);
+  const l = await line(page, GRIPS.openNow);
+  expect(l.duration).toBe('0s');
+  expect(l.delay).toBe('0.3s');
+});

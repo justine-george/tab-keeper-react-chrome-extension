@@ -507,6 +507,7 @@ interface OverTheGrip {
   gripHovered: boolean;
   markColour: string;
   markHeight: number;
+  lineOpacity: string;
   gripCursor: string;
   openNowWidth: number;
   resizingMidDrag: boolean;
@@ -530,6 +531,7 @@ async function dragSavedRowOverTheGrip(page: Page): Promise<OverTheGrip> {
       gripHovered: el?.matches(':hover') ?? false,
       markColour: mark === null ? '' : getComputedStyle(mark).color,
       markHeight: mark === null ? 0 : mark.getBoundingClientRect().height,
+      lineOpacity: el === null ? '' : getComputedStyle(el, '::before').opacity,
       gripCursor: el === null ? '' : getComputedStyle(el).cursor,
       resizingMidDrag: document.documentElement.hasAttribute('data-resizing'),
     };
@@ -1063,6 +1065,8 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     expect(seen.gripHovered).toBe(true);
     expect(rgbToHex(seen.markColour)).toBe(CHALK_THEME.LABEL_L3_COLOR);
     expect(seen.markHeight).toBe(20);
+    // KAN-791. Nor its line.
+    expect(seen.lineOpacity).toBe('0');
     // And no resize cursor: the row drag's own grabbing hand.
     expect(seen.gripCursor).toBe('grabbing');
   });
