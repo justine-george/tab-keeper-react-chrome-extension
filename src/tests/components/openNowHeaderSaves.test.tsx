@@ -24,8 +24,6 @@ const SAVE_ALL = 'Save all open windows as a session';
 const SAVE_CURRENT = 'Save current window as a session';
 const COPY = 'Copy all links';
 const PDF = 'Save open windows as PDF…';
-// KAN-783. Copy all links sits after the two saves.
-const ITEMS = [SAVE_ALL, SAVE_CURRENT, COPY, PDF];
 
 function tabViewUrl(): string {
   const scratch = setupChromeFake();
@@ -87,10 +85,18 @@ const openHeaderMenu = () =>
   fireEvent.contextMenu(
     within(header()).getByRole('heading', { name: 'Currently open' })
   );
-const itemLabels = () =>
-  within(screen.getByRole('menu'))
-    .getAllByRole('menuitem')
-    .map((item) => item.textContent?.replace(/^[a-z_]+/, ''));
+// KAN-799. The right-click leads with the two saves in a row, by their short labels.
+const actionRow = () => {
+  const row = screen.getByRole('menu').querySelector('[data-menu-action-row]');
+  if (!(row instanceof HTMLElement)) throw new Error('no top row');
+  return row;
+};
+const rowButton = (name: string) =>
+  within(actionRow()).getByRole('menuitem', { name });
+const listLabels = () =>
+  [
+    ...screen.getByRole('menu').querySelectorAll(':scope > [data-menu-item]'),
+  ].map((item) => item.textContent?.replace(/^[a-z_]+/, ''));
 const titlesOf = (window: { tabs: { title: string }[] }) =>
   window.tabs.map((saved) => saved.title);
 
@@ -145,7 +151,7 @@ describe("Open now's header saves (KAN-774)", () => {
     const { store } = await renderOpenNow(twoWindows);
 
     openHeaderMenu();
-    await userEvent.click(screen.getByRole('menuitem', { name: SAVE_ALL }));
+    await userEvent.click(rowButton('Save all'));
 
     await waitFor(() => expect(sessionsOf(store)).toHaveLength(1));
     expect(sessionsOf(store)[0].windows.map(titlesOf)).toEqual([
@@ -181,7 +187,7 @@ describe("Open now's header saves (KAN-774)", () => {
     const { store } = await renderOpenNow(twoWindows);
 
     openHeaderMenu();
-    await userEvent.click(screen.getByRole('menuitem', { name: SAVE_CURRENT }));
+    await userEvent.click(rowButton('Save current window'));
 
     await waitFor(() => expect(sessionsOf(store)).toHaveLength(1));
     expect(sessionsOf(store)[0].windows.map(titlesOf)).toEqual([['A', 'B']]);
@@ -198,7 +204,7 @@ describe("Open now's header saves (KAN-774)", () => {
     );
   });
 
-  test('right-clicking the header opens the same three items', async () => {
+  test('right-clicking the header leads with Save all · Save current, then Copy all links and Save as PDF (KAN-799)', async () => {
     await renderOpenNow(twoWindows);
 
     const event = fireEvent.contextMenu(
@@ -207,7 +213,21 @@ describe("Open now's header saves (KAN-774)", () => {
 
     // Our menu, not Chrome's.
     expect(event).toBe(false);
-    expect(itemLabels()).toEqual(ITEMS);
+    const buttons = within(actionRow()).getAllByRole('menuitem');
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Save all',
+      'Save current window',
+    ]);
+    expect(buttons.map((b) => b.getAttribute('aria-description'))).toEqual([
+      SAVE_ALL,
+      SAVE_CURRENT,
+    ]);
+    expect(
+      buttons.map((b) =>
+        b.querySelector('[data-icon]')?.getAttribute('data-icon')
+      )
+    ).toEqual(['two_windows_add', 'window_add']);
+    expect(listLabels()).toEqual([COPY, PDF]);
   });
 
   test('right-clicking the search field leaves Chrome its menu', async () => {

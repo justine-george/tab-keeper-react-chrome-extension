@@ -10,8 +10,9 @@ import { standIn } from './fixtures/standInPages';
 // KAN-780: Save current window is a button of its own; the header's ⋮ is gone.
 
 const ITEMS = [
-  'Save all open windows as a session',
-  'Save current window as a session',
+  // KAN-799. The two saves lead in a row, by their short labels.
+  'Save all',
+  'Save current window',
   // KAN-783. After the two saves.
   'Copy all links',
   'Save open windows as PDF…',

@@ -419,5 +419,7 @@
   "GoToWindowShort": "Zum Fenster",
   "Add tab": "Tab hinzufügen",
   "GoToGroupShort": "Zur Gruppe",
+  "SaveAllShort": "Alle speichern",
+  "SaveCurrentShort": "Aktuelles Fenster speichern",
   "Go to group": "Zur Gruppe wechseln"
 }

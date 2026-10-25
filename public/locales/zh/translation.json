@@ -405,5 +405,7 @@
   "GoToWindowShort": "转到",
   "Add tab": "添加标签",
   "GoToGroupShort": "转到",
+  "SaveAllShort": "全部保存",
+  "SaveCurrentShort": "保存当前窗口",
   "Go to group": "转到群组"
 }

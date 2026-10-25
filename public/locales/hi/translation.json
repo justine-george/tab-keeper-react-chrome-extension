@@ -419,5 +419,7 @@
   "GoToWindowShort": "जाएं",
   "Add tab": "टैब जोड़ें",
   "GoToGroupShort": "जाएं",
+  "SaveAllShort": "सभी सहेजें",
+  "SaveCurrentShort": "वर्तमान विंडो सहेजें",
   "Go to group": "समूह पर जाएं"
 }

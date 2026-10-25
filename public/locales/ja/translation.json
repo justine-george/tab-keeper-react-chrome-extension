@@ -405,5 +405,7 @@
   "GoToWindowShort": "移動",
   "Add tab": "タブを追加",
   "GoToGroupShort": "移動",
+  "SaveAllShort": "すべて保存",
+  "SaveCurrentShort": "現在のウィンドウを保存",
   "Go to group": "グループに移動"
 }

@@ -563,15 +563,18 @@ export default function OpenNowPane({
         )
       : null;
   // KAN-774 (his pick A). The header's right-click menu: all three saves, in words. KAN-780 dropped its ⋮.
+  // KAN-799 (his pick B). The two saves lead in a row, as a window's Save does; Copy and PDF stay listed.
   const saveItems: OverflowMenuItem[] = [
     {
       key: 'save-all-windows',
+      actionRowLabel: t('SaveAllShort'),
       label: t(SAVE_OF['all-windows'].labelKey),
       icon: SAVE_OF['all-windows'].icon,
       onSelect: () => void handleSaveAll(),
     },
     {
       key: 'save-current-window',
+      actionRowLabel: t('SaveCurrentShort'),
       label: t(SAVE_OF['current-window'].labelKey),
       icon: SAVE_OF['current-window'].icon,
       onSelect: handleSaveCurrent,

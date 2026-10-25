@@ -419,5 +419,7 @@
   "GoToWindowShort": "Gå till fönstret",
   "Add tab": "Lägg till flik",
   "GoToGroupShort": "Gå till gruppen",
+  "SaveAllShort": "Spara alla",
+  "SaveCurrentShort": "Spara aktuellt fönster",
   "Go to group": "Gå till gruppen"
 }

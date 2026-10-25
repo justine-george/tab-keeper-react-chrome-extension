@@ -433,5 +433,7 @@
   "GoToWindowShort": "Ir a la ventana",
   "Add tab": "Añadir pestaña",
   "GoToGroupShort": "Ir al grupo",
+  "SaveAllShort": "Guardar todo",
+  "SaveCurrentShort": "Guardar ventana actual",
   "Go to group": "Ir al grupo"
 }
