@@ -350,7 +350,9 @@ export default function FirstRun() {
           text: t(
             "Copy all links, save as PDF, or delete this session from this menu. Deleting doesn't close your open windows."
           ),
-          fine: t("Right-clicking the session's title opens this menu too."),
+          fine: t(
+            'Right-click a session, window, group or tab to open its menu.'
+          ),
           primary: next,
         };
       case 'windows':

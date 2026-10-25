@@ -157,6 +157,6 @@ test('full view: step 6 explains Replace under the row’s Replace, after Open, 
     'Copy all links, save as PDF, or delete'
   );
   await expect(card(page)).toContainText(
-    "Right-clicking the session's title opens this menu too."
+    'Right-click a session, window, group or tab to open its menu.'
   );
 });
