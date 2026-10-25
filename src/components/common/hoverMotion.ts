@@ -12,15 +12,17 @@ export interface HoverMotion {
   rotate?: `${number}deg`;
   /** The factor to grow to. */
   scale?: number;
+  /** How far to slide sideways; negative is left (KAN-773). */
+  translate?: `${number}px`;
   /** How long the way in takes. The way back is always DURATION.MOVE. */
   duration: (typeof DURATION)['MOVE' | 'FLOURISH'];
 }
 
 /**
  * The CSS for a hover motion, for the emotion block of the element that
- * owns the hover: it moves that element's glyph. Icon is the only owner
- * today; a button whose glyph sits inside a wider control would use this
- * too, so the gates stay in one place. (Search's magnifier had one, and
+ * owns the hover: it moves that element's glyph. Icon and Settings' Back
+ * (KAN-773), whose glyph sits inside a wider control, both use it, so the
+ * gates stay in one place. (Search's magnifier had one, and
  * Justine removed it as tacky.)
  *
  * Transitions, not keyframes, so leaving early reverses from wherever the
@@ -31,14 +33,20 @@ export interface HoverMotion {
 export function hoverMotionCss(motion: HoverMotion): string {
   const rotate = motion.rotate ?? '0deg';
   const scale = motion.scale ?? 1;
+  const translate = motion.translate ?? '0px';
+  const ease = (curve: string, duration: string) =>
+    ['rotate', 'scale', 'translate']
+      .map((p) => `${p} ${duration} ${curve}`)
+      .join(', ');
   return `@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
     & .material-symbols-outlined, & svg {
-      transition: rotate ${DURATION.MOVE} ${EASE.OUT}, scale ${DURATION.MOVE} ${EASE.OUT};
+      transition: ${ease(EASE.OUT, DURATION.MOVE)};
     }
     &:hover .material-symbols-outlined, &:hover svg {
       rotate: ${rotate};
       scale: ${scale};
-      transition: rotate ${motion.duration} ${EASE.OUT_BACK}, scale ${motion.duration} ${EASE.OUT_BACK};
+      translate: ${translate};
+      transition: ${ease(EASE.OUT_BACK, motion.duration)};
     }
   }`;
 }

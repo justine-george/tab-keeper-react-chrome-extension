@@ -5,7 +5,9 @@ import ClickableRow from '../../common/ClickableRow';
 import {
   BACK_LABEL_GAP,
   HEADER_BACK_TARGET,
+  headerBackFillCss,
 } from '../../common/headerBackTarget';
+import { hoverMotionCss } from '../../common/hoverMotion';
 import { NormalLabel } from '../../common/Label';
 import { AppDispatch } from '../../../redux/store';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -14,7 +16,7 @@ import {
   closeAllToasts,
 } from '../../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
-import { TYPE } from '../../../styles/scale';
+import { DURATION, TYPE } from '../../../styles/scale';
 
 export default function MenuContainer() {
   const COLORS = useThemeColors();
@@ -25,6 +27,8 @@ export default function MenuContainer() {
     justify-content: space-around;
     align-items: center;
     ${HEADER_BACK_TARGET}
+    ${headerBackFillCss(COLORS)}
+    ${hoverMotionCss({ translate: '-3px', duration: DURATION.MOVE })}
   `;
 
   const dispatch: AppDispatch = useDispatch();
