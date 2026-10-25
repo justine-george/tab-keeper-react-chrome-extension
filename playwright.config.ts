@@ -27,8 +27,9 @@ export default defineConfig({
     ...(process.env.PLAYWRIGHT_JSON_OUTPUT_NAME ? ([['json']] as const) : []),
   ],
 
-  // Any test may run on any worker or shard: each launches its own browser on
-  // a fresh profile and only reads dist/ (KAN-444). Locally 4 workers ran the
+  // Any test may run on any worker or shard: each starts from a fresh profile
+  // and only reads dist/ (KAN-444). Locally that is a reset browser the worker
+  // keeps (KAN-771, e2e/fixtures/reusedBrowser.ts); on CI a new launch. Locally 4 workers ran the
   // full suite in 10.2 min against ~35 at 1. On an 18-core Mac, a sixth of the
   // suite took 253s at 4, 213s at 8 and 207s at 12 (2026-10-24). CI keeps one
   // browser per VM and gets its parallelism from shards.

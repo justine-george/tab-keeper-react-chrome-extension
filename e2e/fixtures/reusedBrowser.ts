@@ -2,9 +2,18 @@ import { rmSync } from 'node:fs';
 
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
-// KAN-766. Opt in with E2E_REUSE_BROWSER=1: each worker keeps one browser and
-// resets it between tests. Off by default, so every test gets a fresh profile.
-export const REUSE_BROWSER = process.env.E2E_REUSE_BROWSER === '1';
+// KAN-766. Each worker keeps one browser and resets it between tests. On by
+// default locally (KAN-771), off on CI, where every test gets a fresh profile;
+// E2E_REUSE_BROWSER=1 or =0 picks either anywhere.
+export function reusesBrowser(env: NodeJS.ProcessEnv): boolean {
+  const pick = env.E2E_REUSE_BROWSER;
+  if (pick === undefined) return !env.CI;
+  if (pick === '1') return true;
+  if (pick === '0') return false;
+  throw new Error(`E2E_REUSE_BROWSER is 1 or 0, not "${pick}"`);
+}
+
+export const REUSE_BROWSER = reusesBrowser(process.env);
 
 export interface LaunchedBrowser {
   context: BrowserContext;

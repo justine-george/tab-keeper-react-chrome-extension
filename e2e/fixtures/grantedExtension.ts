@@ -41,7 +41,7 @@ export const grantedTest = base.extend<
   },
   { reused: ReusedBrowser }
 >({
-  // KAN-766. Only used under E2E_REUSE_BROWSER=1.
+  // KAN-766. Only used when REUSE_BROWSER is on.
   reused: [
     async ({}, use) => {
       const reused = new ReusedBrowser();

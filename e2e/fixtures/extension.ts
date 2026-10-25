@@ -40,7 +40,7 @@ export const test = base.extend<
   },
   { reused: ReusedBrowser }
 >({
-  // KAN-766. Only used under E2E_REUSE_BROWSER=1.
+  // KAN-766. Only used when REUSE_BROWSER is on.
   reused: [
     async ({}, use) => {
       const reused = new ReusedBrowser();
@@ -106,7 +106,7 @@ export const test = base.extend<
     const launch = async (): Promise<LaunchedBrowser> => {
       // A throwaway profile per test: extension state (localStorage,
       // chrome.storage) persists in the profile, so sharing one would let tests
-      // leak into each other. With E2E_REUSE_BROWSER a reset stands in (KAN-766).
+      // leak into each other. When a browser is reused, a reset stands in (KAN-766).
       const userDataDir = mkdtempSync(join(tmpdir(), 'tabkeeper-e2e-'));
       const context = await chromium.launchPersistentContext(userDataDir, {
         // `channel: 'chromium'` is load-bearing. Plain headless uses the
