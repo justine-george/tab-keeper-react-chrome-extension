@@ -124,6 +124,26 @@ describe('a live group row: Save and a ⋮ (KAN-696)', () => {
     ).toHaveTextContent('Save');
   });
 
+  // KAN-780. A window's Save saves that one window, so it wears Save current window's glyph; a group's keeps add_box.
+  test("a window's Save draws window_add; a group's Save keeps add_box", async () => {
+    await renderOpenNow();
+    const glyphOf = (button: HTMLElement) =>
+      button.querySelector('[data-icon]')?.getAttribute('data-icon');
+
+    expect(
+      glyphOf(
+        screen.getAllByRole('button', {
+          name: /^Save window as a session: /,
+        })[0]
+      )
+    ).toBe('window_add');
+    expect(
+      glyphOf(
+        screen.getByRole('button', { name: 'Save group as a session: Docs' })
+      )
+    ).toBe('add_box');
+  });
+
   test('an unnamed group names both controls Unnamed group', async () => {
     await renderOpenNow();
     expect(labelsIn(stripIn(titleRowOf('Unnamed group')))).toEqual([

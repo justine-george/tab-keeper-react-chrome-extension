@@ -284,7 +284,7 @@ describe('saving from the Open now pane (KAN-280 O13)', () => {
     expect(saved.windows.map(tabTitlesOf)).toEqual([['D']]);
   });
 
-  test('Save all, Save as PDF and the ⋮ sit between Collapse all and the fold button', async () => {
+  test('Save all, Save current window and Save as PDF sit between Collapse all and the fold button', async () => {
     await renderOpenNow({
       currentTabId: TAB_VIEW_ID,
       windows: [{ id: 1, focused: true, tabs: [tabView(), tab(11, 'A')] }],
@@ -298,9 +298,10 @@ describe('saving from the Open now pane (KAN-280 O13)', () => {
     expect(headerNames).toEqual([
       'Collapse all windows',
       'Save all open windows as a session',
+      // KAN-780. Its own button; the header's ⋮ is gone.
+      'Save current window as a session',
       // KAN-774 (pick A).
       'Save open windows as PDF…',
-      'More actions',
       'Show the saved session',
       // KAN-577. In the header's bottom-right corner.
       'Back to last tab',

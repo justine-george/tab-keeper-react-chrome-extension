@@ -17,7 +17,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import Button from '../../common/Button';
 import ClosesThisTab from '../../common/ClosesThisTab';
 import Icon from '../../common/Icon';
-import OverflowMenu from '../../common/OverflowMenu';
 import type { OverflowMenuItem } from '../../common/MenuPanel';
 import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
 import { SAVE_OF } from '../leftpane/saveScopes';
@@ -530,7 +529,7 @@ export default function OpenNowPane({
 
   // With nothing listed there is nothing to save; N1, none while the saved search holds text.
   const canSave = listed.length > 0 && !isSavedSearching;
-  // KAN-774 (his pick A). The header's ⋮ and its right-click menu: all three saves, in words.
+  // KAN-774 (his pick A). The header's right-click menu: all three saves, in words. KAN-780 dropped its ⋮.
   const saveItems: OverflowMenuItem[] = [
     {
       key: 'save-all-windows',
@@ -774,23 +773,23 @@ export default function OpenNowPane({
           {canSave && (
             <>
               <Icon
-                tooltipText={t('Save every open window as a session')}
-                ariaLabel={t('Save every open window as a session')}
-                type="library_add"
+                tooltipText={t(SAVE_OF['all-windows'].labelKey)}
+                ariaLabel={t(SAVE_OF['all-windows'].labelKey)}
+                type={SAVE_OF['all-windows'].icon}
                 onClick={() => void handleSaveAll()}
               />
-              {/* KAN-774. Not Save current window: beside library_add, add_box would be KAN-213's twins. */}
+              {/* KAN-780. Beside Save all: one window and two, the same plus, so the pair reads as one family. */}
+              <Icon
+                tooltipText={t(SAVE_OF['current-window'].labelKey)}
+                ariaLabel={t(SAVE_OF['current-window'].labelKey)}
+                type={SAVE_OF['current-window'].icon}
+                onClick={handleSaveCurrent}
+              />
               <Icon
                 tooltipText={t('Save open windows as PDF')}
                 ariaLabel={t('Save open windows as PDF')}
                 type="ios_share"
                 onClick={() => void exportOpenWindows(dispatch)}
-              />
-              {/* Near the start of the row, so it opens rightward, inside the pane (KAN-193). */}
-              <OverflowMenu
-                ariaLabel={t('More actions')}
-                align="start"
-                items={saveItems}
               />
             </>
           )}

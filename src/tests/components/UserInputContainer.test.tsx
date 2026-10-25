@@ -313,8 +313,8 @@ describe('the save row menu (KAN-208)', () => {
     const menu = await openSaveMenu();
     const items = within(menu).getAllByRole('menuitem');
 
-    // Accessible names, not textContent: each item's aria-hidden glyph span
-    // holds the ligature text ("add_box"), which textContent would include.
+    // Accessible names, not textContent: a ligature item's aria-hidden glyph
+    // span holds its name ("ios_share"), which textContent would include.
     expect(items).toHaveLength(2);
     expect(items[0]).toHaveAccessibleName('Save current window as a session');
     expect(items[1]).toHaveAccessibleName('Save open windows as PDF…');

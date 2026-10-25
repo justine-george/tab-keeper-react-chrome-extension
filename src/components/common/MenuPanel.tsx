@@ -3,6 +3,7 @@ import React from 'react';
 import { css } from '@emotion/react';
 
 import { focusRingCss, focusRingInInkCss } from './focusRing';
+import { Glyph } from './Glyph';
 import { tooltipDescription } from './tooltipRules';
 import type { IconName } from './iconNames';
 import { useFontFamily } from '../../hooks/useFontFamily';
@@ -14,7 +15,7 @@ export interface OverflowMenuItem {
   key: string;
   /** The visible text, and the item's accessible name. Must be translated. */
   label: string;
-  /** A Material Symbols ligature, rendered decoratively. */
+  /** A Material Symbols ligature or an SVG glyph, rendered decoratively. */
   icon: IconName;
   onSelect: () => void;
   /** KAN-775. Draws the item in the action row above the list, under this short label; `label` becomes its tooltip and description. Row menus only: RowContextMenu walks the row. */
@@ -170,21 +171,20 @@ export function MenuPanel({
   `;
 
   const glyph = (icon: IconName) => (
-    /* Presentational: the label already names the item, and a bare
-       Icon is aria-hidden, so the ligature text cannot leak into
-       the accessible name (KAN-56). */
-    <span
-      className="material-symbols-outlined overflow-menu-glyph"
-      aria-hidden="true"
-      css={css`
+    /* Presentational: the label already names the item, and the glyph is
+       aria-hidden, so ligature text cannot leak into the accessible name
+       (KAN-56). KAN-780: an SVG glyph draws here too. */
+    <Glyph
+      type={icon}
+      className="overflow-menu-glyph"
+      hidesLigatureText
+      glyphCss={css`
         font-size: ${TYPE.SECTION};
         line-height: 1;
         /* KAN-203, KAN-725. The item's own ink, per state: the label's colour, never one of its own. */
         color: inherit;
       `}
-    >
-      {icon}
-    </span>
+    />
   );
 
   const choose = (item: OverflowMenuItem) => (e: React.MouseEvent) => {

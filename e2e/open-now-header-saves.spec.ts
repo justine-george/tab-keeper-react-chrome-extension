@@ -5,9 +5,9 @@ import { seedSessions, seedSettings } from './fixtures/seed';
 import { FULL, FULL_VIEW_PATH, openPage } from './fixtures/onboarding';
 import { standIn } from './fixtures/standInPages';
 
-// KAN-774 (his pick A). Open now's header offers all three saves: Save as PDF
-// beside Save all, a ⋮ with all three in words, and the same menu on a
-// right-click or the menu keys anywhere on the header.
+// KAN-774 (his pick A). Open now's header offers all three saves, and the same
+// three in words on a right-click or the menu keys anywhere on the header.
+// KAN-780: Save current window is a button of its own; the header's ⋮ is gone.
 
 const ITEMS = [
   'Save all open windows as a session',
@@ -90,15 +90,17 @@ test('right-clicking the search field opens no Tab Keeper menu', async ({
   await expect(page.getByRole('menu')).toHaveCount(0);
 });
 
-test("Save current window from the ⋮ saves This window's tabs alone", async ({
+test("the header has no ⋮, and its Save current window saves This window's tabs alone", async ({
   context,
   extensionId,
 }) => {
   const page = await openFullView(context, extensionId);
+  await expect(
+    header(page).getByRole('button', { name: 'More actions' })
+  ).toHaveCount(0);
 
-  await header(page).getByRole('button', { name: 'More actions' }).click();
-  await page
-    .getByRole('menuitem', { name: 'Save current window as a session' })
+  await header(page)
+    .getByRole('button', { name: 'Save current window as a session' })
     .click();
 
   await expect(

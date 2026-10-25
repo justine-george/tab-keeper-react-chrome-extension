@@ -58,26 +58,26 @@ const addButton = () => screen.getByRole('button', { name: ADD });
 
 describe('the add-window button reads as a button (KAN-213)', () => {
   // The glyph says which KIND of action this is, and a bare plus said the wrong
-  // one. The left pane already carries two plus-bearing controls -- `add_box`
-  // ("Save current window as a session") and `library_add` ("Save every open
-  // window as a session") -- and both CREATE a session. This one APPENDS to the
-  // session already on screen, which is the odd one out, yet it wore the most
-  // generic mark of the three.
+  // one. The left pane already carries two plus-bearing controls -- the saves,
+  // since KAN-780 a window and two windows with a plus badge -- and both CREATE
+  // a session. This one APPENDS to the session already on screen, which is the
+  // odd one out, yet it wore the most generic mark of the three.
   //
-  // Both of those glyphs are a plus inside a CONTAINER, which is what makes them
-  // read as siblings -- correctly, since they differ only in how many windows
-  // they take. `playlist_add` has no container: a plus against horizontal lines,
+  // Both saves are a plus on a CONTAINER, which is what makes them read as
+  // siblings -- correctly, since they differ only in how many windows they
+  // take. `playlist_add` has no container: a plus against horizontal lines,
   // "add this to the list you are looking at". A session IS a list of windows.
   //
   // Measured with KAN-5's technique (rescale each glyph's ink to a common box,
-  // distinct% = symmetric difference / union): 79.7% from `add_box` and 81.1%
-  // from `library_add`, against the 54.1% those two already measure from each
-  // other. The shipping pair is the most similar thing on the screen.
+  // distinct% = symmetric difference / union), in e2e/save-glyphs.spec.ts:
+  // 79.1% from Save current window and 76.2% from Save all, against the 56.2%
+  // those two measure from each other. The save pair is the most similar thing
+  // on the screen, by design.
   //
-  // Note what that number could NOT settle: a bare `add` scores 76.6% from
-  // `add_box`, which is high -- the shapes really do differ. It was the MEANING
-  // that collided, and an ink metric cannot see meaning. The measurement ruled
-  // out a new collision; it did not choose the glyph.
+  // Note what that number could NOT settle: a bare `add` scored 76.6% from the
+  // old `add_box`, which is high -- the shapes really do differ. It was the
+  // MEANING that collided, and an ink metric cannot see meaning. The
+  // measurement ruled out a new collision; it did not choose the glyph.
   test('is the list-append glyph, not a bare create-new plus', async () => {
     await renderHeader();
 

@@ -1,6 +1,10 @@
 import { test, expect } from './fixtures/extension';
 import { waitForFontsLoaded } from './fixtures/fonts';
-import { LIGATURE_ICON_NAMES } from '../src/components/common/iconNames';
+import {
+  LIGATURE_ICON_NAMES,
+  SVG_ICON_NAMES,
+} from '../src/components/common/iconNames';
+import { SVG_GLYPHS } from '../src/components/common/svgGlyphs';
 
 // KAN-215. The bundled icon font is a SUBSET, and this is the contract that
 // keeps it whole.
@@ -60,6 +64,47 @@ test('every listed icon name is a glyph in the bundled font', async ({
   expect(drawnAsText, 'missing from the font: run npm run fonts:fetch').toEqual(
     []
   );
+});
+
+// KAN-780. The SVG names are the other half of the set: never in the font, so
+// each must draw from its own path. Each path is filled at 24px and its ink
+// counted; and each name is drawn as a ligature too, which must come out as
+// its letters -- the proof that the path is the only thing drawing it.
+test('every SVG icon name draws its own path, and is not in the font', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/index.html`);
+  await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible();
+  await waitForFontsLoaded(page, ['Material Symbols Outlined']);
+
+  const drawn = await page.evaluate(
+    async ({ names, paths }) => {
+      await document.fonts.ready;
+      return names.map((name) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 24;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+        ctx.fill(new Path2D(paths[name]));
+        const { data } = ctx.getImageData(0, 0, 24, 24);
+        let ink = 0;
+        for (let i = 3; i < data.length; i += 4) if (data[i] > 127) ink++;
+        ctx.font = '24px "Material Symbols Outlined"';
+        return { name, ink, ligatureWidth: ctx.measureText(name).width };
+      });
+    },
+    { names: [...SVG_ICON_NAMES], paths: SVG_GLYPHS }
+  );
+
+  for (const { name, ink, ligatureWidth } of drawn) {
+    // An outline glyph inks between a tenth and a half of its 576px box.
+    expect(ink, name).toBeGreaterThan(57);
+    expect(ink, name).toBeLessThan(288);
+    expect(ligatureWidth, `${name} must not be a font glyph`).toBeGreaterThan(
+      48
+    );
+  }
 });
 
 // KAN-218. The export toolbar's knob draws its glyph FILLED, through the FILL

@@ -16,9 +16,9 @@ import type { RenderWithProvidersResult } from '../setup/renderWithProviders';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeSeed } from '../setup/chrome.fake';
 
-// KAN-774 (his pick A). Open now's header offers all three saves: Save as PDF
-// beside Save all, a ⋮ holding all three in words, and the same items on a
-// right-click of the header (KAN-708's pattern).
+// KAN-774 (his pick A). Open now's header offers all three saves, with the
+// same items on a right-click of the header (KAN-708's pattern). KAN-780: Save
+// current window is a button of its own, and the header's ⋮ is gone.
 
 const SAVE_ALL = 'Save all open windows as a session';
 const SAVE_CURRENT = 'Save current window as a session';
@@ -79,8 +79,12 @@ const header = () => {
   if (!(el instanceof HTMLElement)) throw new Error('no Open now header');
   return el;
 };
-const more = () =>
-  within(header()).getByRole('button', { name: 'More actions' });
+const headerButton = (name: string) =>
+  within(header()).getByRole('button', { name });
+const openHeaderMenu = () =>
+  fireEvent.contextMenu(
+    within(header()).getByRole('heading', { name: 'Open now' })
+  );
 const itemLabels = () =>
   within(screen.getByRole('menu'))
     .getAllByRole('menuitem')
@@ -92,31 +96,39 @@ beforeEach(() => localStorage.clear());
 afterEach(() => vi.restoreAllMocks());
 
 describe("Open now's header saves (KAN-774)", () => {
-  test('Save as PDF sits after Save all, then the ⋮, then the caller actions', async () => {
+  test('Collapse, Save all, Save current window, Save as PDF, in that order, and no ⋮ (KAN-780)', async () => {
     await renderOpenNow(twoWindows);
 
     const labels = within(header())
       .getAllByRole('button')
       .map((b) => b.getAttribute('aria-label'));
     const at = (name: string) => labels.indexOf(name);
-    expect(at(SAVE_ALL)).toBeGreaterThan(-1);
-    expect(at(PDF)).toBe(at(SAVE_ALL) + 1);
-    expect(at('More actions')).toBe(at(PDF) + 1);
+    expect(at('Collapse all windows')).toBeGreaterThan(-1);
+    expect(at(SAVE_ALL)).toBe(at('Collapse all windows') + 1);
+    expect(at(SAVE_CURRENT)).toBe(at(SAVE_ALL) + 1);
+    expect(at(PDF)).toBe(at(SAVE_CURRENT) + 1);
+    expect(labels).not.toContain('More actions');
   });
 
-  test('the ⋮ holds all three saves, in order', async () => {
+  test("each save button wears its save's glyph and says its save in its tooltip", async () => {
     await renderOpenNow(twoWindows);
 
-    await userEvent.click(more());
-
-    expect(itemLabels()).toEqual(ITEMS);
+    const glyphOf = (name: string) =>
+      headerButton(name)
+        .querySelector('[data-icon]')
+        ?.getAttribute('data-icon');
+    expect(glyphOf(SAVE_ALL)).toBe('two_windows_add');
+    expect(glyphOf(SAVE_CURRENT)).toBe('window_add');
+    expect(headerButton(SAVE_CURRENT)).toHaveAttribute(
+      'data-tooltip',
+      SAVE_CURRENT
+    );
   });
 
   test("Save current window saves This window alone, without Tab Keeper's tab", async () => {
     const { store } = await renderOpenNow(twoWindows);
 
-    await userEvent.click(more());
-    await userEvent.click(screen.getByRole('menuitem', { name: SAVE_CURRENT }));
+    await userEvent.click(headerButton(SAVE_CURRENT));
 
     await waitFor(() => expect(sessionsOf(store)).toHaveLength(1));
     expect(sessionsOf(store)[0].windows.map(titlesOf)).toEqual([['A', 'B']]);
@@ -125,10 +137,10 @@ describe("Open now's header saves (KAN-774)", () => {
     );
   });
 
-  test('Save all from the ⋮ saves every listed window, as the icon does', async () => {
+  test('Save all from the right-click menu saves every listed window, as the icon does', async () => {
     const { store } = await renderOpenNow(twoWindows);
 
-    await userEvent.click(more());
+    openHeaderMenu();
     await userEvent.click(screen.getByRole('menuitem', { name: SAVE_ALL }));
 
     await waitFor(() => expect(sessionsOf(store)).toHaveLength(1));
@@ -151,8 +163,7 @@ describe("Open now's header saves (KAN-774)", () => {
       ],
     });
 
-    await userEvent.click(more());
-    await userEvent.click(screen.getByRole('menuitem', { name: SAVE_CURRENT }));
+    await userEvent.click(headerButton(SAVE_CURRENT));
 
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
@@ -160,6 +171,16 @@ describe("Open now's header saves (KAN-774)", () => {
       )
     );
     expect(sessionsOf(store)).toEqual([]);
+  });
+
+  test("the right-click menu's Save current window saves This window alone too", async () => {
+    const { store } = await renderOpenNow(twoWindows);
+
+    openHeaderMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: SAVE_CURRENT }));
+
+    await waitFor(() => expect(sessionsOf(store)).toHaveLength(1));
+    expect(sessionsOf(store)[0].windows.map(titlesOf)).toEqual([['A', 'B']]);
   });
 
   test('the PDF icon opens the export of every open window', async () => {
@@ -196,22 +217,18 @@ describe("Open now's header saves (KAN-774)", () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
-  test('while the saved search holds text: no PDF icon, no ⋮, and a right-click is left to Chrome', async () => {
+  test('while the saved search holds text: no save buttons, no PDF icon, and a right-click is left to Chrome', async () => {
     const { store } = await renderOpenNow(twoWindows);
-    // CONTROL: both are there before the search.
-    expect(
-      within(header()).getByRole('button', { name: PDF })
-    ).toBeInTheDocument();
-    expect(more()).toBeInTheDocument();
+    // CONTROL: all three are there before the search.
+    for (const name of [SAVE_ALL, SAVE_CURRENT, PDF])
+      expect(headerButton(name)).toBeInTheDocument();
 
     act(() => {
       store.dispatch(setSearchInputText('kagi'));
     });
 
-    expect(within(header()).queryByRole('button', { name: PDF })).toBeNull();
-    expect(
-      within(header()).queryByRole('button', { name: 'More actions' })
-    ).toBeNull();
+    for (const name of [SAVE_ALL, SAVE_CURRENT, PDF])
+      expect(within(header()).queryByRole('button', { name })).toBeNull();
     const event = fireEvent.contextMenu(
       within(header()).getByRole('heading', { name: 'Open now' })
     );

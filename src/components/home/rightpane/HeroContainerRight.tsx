@@ -599,17 +599,18 @@ export default function HeroContainerRight() {
                 iconSize={ICON.SMALL}
                 tooltipText={t('Add current window')}
                 ariaLabel={t('Add window')}
-                // Not a bare plus. The left pane carries two plus-bearing controls
-                // -- `add_box` and `library_add` -- and both CREATE a session; this
-                // one appends to the session already on screen. Both of theirs are
-                // a plus inside a container, which is what makes them read as a
-                // pair; `playlist_add` has none, and says "add this to the list you
-                // are looking at", which is what a session is.
+                // Not a bare plus. The two saves wear a plus badge on a window
+                // (KAN-780: one window, two windows) and both CREATE a session;
+                // this one appends to the session already on screen. Theirs is a
+                // plus on a container, which is what makes them read as a pair;
+                // `playlist_add` has none, and says "add this to the list you are
+                // looking at", which is what a session is.
                 //
-                // Measured 79.7% / 81.1% distinct from those two (KAN-5's ink
-                // comparison), against the 54.1% they already measure from each
-                // other. A bare `add` scored 76.6% and was still the confusable one:
-                // the collision was in the meaning, which an ink metric cannot see.
+                // Measured 79.1% / 76.2% distinct from those two (KAN-5's ink
+                // comparison, e2e/save-glyphs.spec.ts), against the 56.2% they
+                // measure from each other. A bare `add` scored 76.6% from the old
+                // add_box and was still the confusable one: the collision was in
+                // the meaning, which an ink metric cannot see.
                 iconType="playlist_add"
                 onClick={() =>
                   void dispatch(showSessionAndAddCurrentWindow(tabGroupId))

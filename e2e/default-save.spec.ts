@@ -88,7 +88,7 @@ const saveRow = (page: Page) => page.locator('[data-save-row]');
 const glyph = (page: Page, name: string) =>
   saveRow(page)
     .getByRole('button', { name, exact: true })
-    .locator('.material-symbols-outlined');
+    .locator('[data-icon]');
 
 test.beforeEach(async ({ context }) => {
   await seedOnce(context, [
@@ -103,7 +103,10 @@ test('CONTROL, all windows by default: Enter saves the far window too', async ({
 }) => {
   await openFarWindow(serviceWorker);
   const page = await openFullView(context, extensionId);
-  await expect(glyph(page, ALL)).toHaveText('library_add');
+  await expect(glyph(page, ALL)).toHaveAttribute(
+    'data-icon',
+    'two_windows_add'
+  );
 
   await saveByEnter(page, 'Everything');
   const titles = (await storedTitles(page))['Everything'] ?? [];
@@ -132,7 +135,7 @@ test('Current window: the button and Enter save this window; the menu saves all;
   await page.screenshot({ path: testInfo.outputPath('settings-current.png') });
   await page.getByText('Back', { exact: true }).click();
 
-  await expect(glyph(page, CURRENT)).toHaveText('add_box');
+  await expect(glyph(page, CURRENT)).toHaveAttribute('data-icon', 'window_add');
   await expect(saveRow(page).getByRole('button', { name: ALL })).toHaveCount(0);
 
   await saveByEnter(page, 'Here only');
@@ -154,7 +157,7 @@ test('Current window: the button and Enter save this window; the menu saves all;
 
   await page.reload();
   await page.locator('[data-tour-anchor="save"]').waitFor();
-  await expect(glyph(page, CURRENT)).toHaveText('add_box');
+  await expect(glyph(page, CURRENT)).toHaveAttribute('data-icon', 'window_add');
 });
 
 // Each glyph's horizontal offset from the middle of the cell it sits in,
@@ -164,7 +167,7 @@ const LAYOUT_UNIT = 1 / 64;
 const glyphOffsets = (cells: ReturnType<Page['locator']>) =>
   cells.evaluateAll((els) =>
     els.map((cell) => {
-      const glyph = cell.querySelector('.material-symbols-outlined');
+      const glyph = cell.querySelector('[data-icon]');
       if (!glyph) throw new Error('a cell without a glyph');
       const c = cell.getBoundingClientRect();
       const g = glyph.getBoundingClientRect();
@@ -212,7 +215,10 @@ test('another open page swaps its row without a reload', async ({
   extensionId,
 }) => {
   const other = await openFullView(context, extensionId);
-  await expect(glyph(other, ALL)).toHaveText('library_add');
+  await expect(glyph(other, ALL)).toHaveAttribute(
+    'data-icon',
+    'two_windows_add'
+  );
 
   const page = await openFullView(context, extensionId);
   await page.getByRole('button', { name: 'Settings' }).click();
@@ -222,7 +228,10 @@ test('another open page swaps its row without a reload', async ({
     .locator('label', { hasText: 'Current window' })
     .click();
 
-  await expect(glyph(other, CURRENT)).toHaveText('add_box');
+  await expect(glyph(other, CURRENT)).toHaveAttribute(
+    'data-icon',
+    'window_add'
+  );
 });
 
 // KAN-675. The chosen tile's mark is its own frame at 2px of LABEL_L2, not the
