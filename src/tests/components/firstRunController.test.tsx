@@ -391,8 +391,8 @@ describe('Back to the save step after the run’s save (R6, A5, M4)', () => {
 // KAN-635. The save card shows the button Default save puts on the row.
 describe('the save card’s glyph follows Default save', () => {
   test.each([
-    ['all-windows', 'Save all open windows as a session', 'library_add'],
-    ['current-window', 'Save current window as a session', 'add_box'],
+    ['all-windows', 'Save all open windows as a session', 'two_windows_add'],
+    ['current-window', 'Save current window as a session', 'window_add'],
   ] as const)('%s: %s', async (scope, name, glyph) => {
     const r = await renderAt({ ...newRun('popup', 1), sessionId: 'own' });
     act(() => {
@@ -401,7 +401,10 @@ describe('the save card’s glyph follows Default save', () => {
     const card = await screen.findByRole('button', { name: 'Next' });
     const img = within(mark() as HTMLElement).getByRole('img', { name });
     expect(card).toBeVisible();
-    expect(img).toHaveTextContent(glyph);
+    expect(img.querySelector('[data-icon]')).toHaveAttribute(
+      'data-icon',
+      glyph
+    );
   });
 });
 

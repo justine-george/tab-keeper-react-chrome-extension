@@ -210,8 +210,9 @@ const Button: React.FC<ButtonProps> = ({
       : PALETTE.pressEdge;
   // The glyph's colour is a class of its own on the Icon, so it is reached
   // from here; a caller's iconColor is its own call and is left alone. A drawn
-  // glyph (SyncGlyph's outline) sets its colour on its svg, so it is reached too.
-  const GLYPHS = '.material-symbols-outlined, [data-glyph] svg';
+  // glyph (SyncGlyph's outline) sets its colour on its svg, so it is reached
+  // too, as is an SVG glyph (KAN-780), the svg carrying data-icon.
+  const GLYPHS = '.material-symbols-outlined, [data-glyph] svg, svg[data-icon]';
   const glyphInk = (ink: string) =>
     iconColor || ink === restInk ? '' : `${GLYPHS} { color: ${ink}; }`;
 

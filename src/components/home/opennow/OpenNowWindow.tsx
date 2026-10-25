@@ -63,6 +63,7 @@ import {
   ADJACENT_GROUP_GAP_PX,
   BAND_MARGIN_PX,
 } from '../rightpane/bandSpacing';
+import { SAVE_OF } from '../leftpane/saveScopes';
 import { DraggableRow } from '../rightpane/rowDrag/RowDragArea';
 import { DragHandle, DragHandleSwap } from '../rightpane/rowDrag/DragHandle';
 import { useDragState } from '../rightpane/rowDrag/dragContext';
@@ -851,7 +852,8 @@ export default function OpenNowWindow({
             <div data-row-actions css={parentRightStyle}>
               {!isSavedSearching && (
                 <RowTextButton
-                  iconType="add_box"
+                  // KAN-780. Saves this one window: Save current window's glyph.
+                  iconType={SAVE_OF['current-window'].icon}
                   text={t('Save')}
                   tooltipText={t('Save window as a session')}
                   ariaLabel={t('Save window as a session') + ': ' + title}

@@ -27,7 +27,7 @@ describe('a brand icon (the Tab Keeper mark)', () => {
   });
 
   // THE CONTROL. Without it, an Icon that drew an <svg> for every type -- or a
-  // BRAND_GLYPHS lookup that matched anything -- would satisfy the test above
+  // SVG_GLYPHS lookup that matched anything -- would satisfy the test above
   // while breaking every other icon in the app.
   test('CONTROL: an ordinary icon still renders as a ligature', async () => {
     const { container } = await renderWithProviders(

@@ -7,37 +7,9 @@ import { DURATION, ICON } from '../../styles/scale';
 import { hoverMotionCss } from './hoverMotion';
 import { focusRingCss, whileKeyNav } from './focusRing';
 import type { HoverMotion } from './hoverMotion';
-import type { BrandIconName, IconName } from './iconNames';
+import { Glyph } from './Glyph';
+import type { IconName } from './iconNames';
 import { tooltipDescription } from './tooltipRules';
-
-/**
- * Logos, which Material Symbols does not carry and never will -- Google
- * removed brand marks from the set. Keyed by the same `type` string a ligature
- * uses, so a caller says `type="x"` and neither knows nor cares which path it
- * took.
- *
- * Add sparingly. Every entry is bytes in every user's bundle whether or not
- * anything renders it, the same trap the TOAST_MESSAGES comment describes.
- */
-const BRAND_GLYPHS: Record<BrandIconName, string> = {
-  // X, from the official brand assets, drawn to a 24x24 box.
-  // The app's own mark, for the About nameplate (KAN-241): the floppy from
-  // icon128.png -- notched body, top label with its slider, lower label with
-  // three stripes -- traced to a 24x24 box as ONE colour. Not the PNG: that is
-  // an opaque mint square edge to edge, the only saturated fill on any
-  // settings pane, and it read as a tile rather than a mark. Drawn in
-  // currentColor it is made of the same ink as the text beside it, which is
-  // how the popup treats every other glyph.
-  //
-  // Nonzero winding: the body runs clockwise, the two label cut-outs
-  // anticlockwise, the stripes clockwise again inside the lower cut-out.
-  tab_keeper:
-    'M3 3.5h14.5L21 7v13.5H3zM7 3.5v6h9v-6h-2.4v4.2h-2.2V3.5zM6.5 13v7.5h11V13zM8 14.4h8v1.2H8zM8 16.6h8v1.2H8zM8 18.8h8v1.2H8z',
-};
-
-function isBrandIcon(type: IconName): type is BrandIconName {
-  return Object.prototype.hasOwnProperty.call(BRAND_GLYPHS, type);
-}
 
 interface IconBaseProps {
   type: IconName;
@@ -281,7 +253,7 @@ const Icon: React.FC<IconProps> = ({
         (onClick ? tooltipDescription(tooltipText, ariaLabel) : undefined)
       }
       // Presentational icons are hidden outright rather than merely unnamed.
-      // The glyph renders as ligature text ("arrow_back", "add_box"), which
+      // A ligature glyph renders as text ("arrow_back", "add_box"), which
       // would otherwise leak into the accessible name of whatever button
       // contains it -- Button's inner Icon is exactly that case.
       aria-hidden={onClick ? undefined : true}
@@ -329,26 +301,8 @@ const Icon: React.FC<IconProps> = ({
         >
           {renderGlyph ? (
             renderGlyph(iconStyle)
-          ) : isBrandIcon(type) ? (
-            // A brand mark, not a ligature. Material Symbols carries no logos
-            // at all, so `type="x"` would render the LETTER x -- an unavailable
-            // ligature falls back to literal text rather than to tofu, which is
-            // exactly the failure KAN-5 had to measure inked width to catch.
-            // Drawn at the same box and colour as a ligature so callers cannot
-            // tell the two apart.
-            <svg
-              css={iconStyle}
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path d={BRAND_GLYPHS[type]} />
-            </svg>
           ) : (
-            <span css={iconStyle} className="material-symbols-outlined">
-              {type}
-            </span>
+            <Glyph type={type} glyphCss={iconStyle} />
           )}
           {text && (
             <p

@@ -30,11 +30,9 @@ const group = () => screen.getByRole('radiogroup', { name: LABEL });
 const choice = (name: 'All windows' | 'Current window') =>
   within(group()).getByRole('radio', { name });
 const glyphs = (radio: HTMLElement) =>
-  [
-    ...radio
-      .closest('label')!
-      .querySelectorAll<HTMLElement>('.material-symbols-outlined'),
-  ].map((g) => g.textContent);
+  [...radio.closest('label')!.querySelectorAll<Element>('[data-icon]')].map(
+    (g) => g.getAttribute('data-icon')
+  );
 const sectionLabels = (container: HTMLElement) =>
   [...container.querySelectorAll<HTMLElement>('[data-settings-section]')].map(
     (section) => section.querySelector('span')?.textContent
@@ -56,8 +54,14 @@ describe('the Default save row', () => {
 
   test('each tile is its save box: the save’s glyph, then ⋮', async () => {
     await renderSessions();
-    expect(glyphs(choice('All windows'))).toEqual(['library_add', 'more_vert']);
-    expect(glyphs(choice('Current window'))).toEqual(['add_box', 'more_vert']);
+    expect(glyphs(choice('All windows'))).toEqual([
+      'two_windows_add',
+      'more_vert',
+    ]);
+    expect(glyphs(choice('Current window'))).toEqual([
+      'window_add',
+      'more_vert',
+    ]);
   });
 
   test('a saved current window shows chosen', async () => {
@@ -70,7 +74,7 @@ describe('the Default save row', () => {
     const { store, container } = await renderSessions();
     const dots = choice('Current window')
       .closest('label')!
-      .querySelectorAll<HTMLElement>('.material-symbols-outlined')[1];
+      .querySelector<HTMLElement>('[data-icon="more_vert"]')!;
     await userEvent.click(dots);
     expect(store.getState().settingsDataState.defaultSaveScope).toBe(
       'current-window'

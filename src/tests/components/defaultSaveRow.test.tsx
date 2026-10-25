@@ -46,7 +46,7 @@ async function renderRow(scope: CaptureScope) {
 }
 
 const glyphOf = (el: HTMLElement) =>
-  el.querySelector('.material-symbols-outlined')?.textContent;
+  el.querySelector('[data-icon]')?.getAttribute('data-icon');
 
 const openSaveMenu = async () => {
   await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
@@ -58,8 +58,8 @@ const savedWindowCount = (
 ) => store.getState().tabContainerDataState.tabGroups[0]?.windows.length;
 
 describe.each([
-  ['all-windows', ALL, 'library_add', CURRENT, 'add_box', 2, 1],
-  ['current-window', CURRENT, 'add_box', ALL, 'library_add', 1, 2],
+  ['all-windows', ALL, 'two_windows_add', CURRENT, 'window_add', 2, 1],
+  ['current-window', CURRENT, 'window_add', ALL, 'two_windows_add', 1, 2],
 ] as const)(
   'Default save %s',
   (

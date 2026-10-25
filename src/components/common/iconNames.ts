@@ -43,7 +43,6 @@ export const LIGATURE_ICON_NAMES = [
   'keyboard_double_arrow_left',
   'keyboard_double_arrow_right',
   'label_off',
-  'library_add',
   'light_mode',
   'link',
   'mail',
@@ -80,9 +79,13 @@ export const LIGATURE_ICON_NAMES = [
   'web_asset',
 ] as const;
 
-/** Drawn as inline SVG by Icon's BRAND_GLYPHS; Material Symbols has no logos. */
-export const BRAND_ICON_NAMES = ['tab_keeper'] as const;
+/** Drawn as inline SVG from Glyph's SVG_GLYPHS: a logo, or a shape Material Symbols lacks. */
+export const SVG_ICON_NAMES = [
+  'tab_keeper',
+  'window_add',
+  'two_windows_add',
+] as const;
 
 export type LigatureIconName = (typeof LIGATURE_ICON_NAMES)[number];
-export type BrandIconName = (typeof BRAND_ICON_NAMES)[number];
-export type IconName = LigatureIconName | BrandIconName;
+export type SvgIconName = (typeof SVG_ICON_NAMES)[number];
+export type IconName = LigatureIconName | SvgIconName;
