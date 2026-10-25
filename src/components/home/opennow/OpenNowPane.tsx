@@ -653,6 +653,15 @@ export default function OpenNowPane({
     min-width: 0;
   `;
 
+  // KAN-794. No height of its own, so the line stays the heading's: at a larger
+  // root the icon outgrows the heading and would push the list out of line
+  // with the saved pane's (searchRowAlignment.spec). Centred, it overflows evenly.
+  const titleActionsStyle = css`
+    display: flex;
+    align-items: center;
+    height: 0;
+  `;
+
   // NormalLabel's inner box: text-overflow does not apply to a flex
   // container, so the ellipsis lives on the text's own span.
   const headingTextStyle = css`
@@ -748,18 +757,20 @@ export default function OpenNowPane({
             >
               <span css={headingTextStyle}>{t('Open now')}</span>
             </h2>
-            {titleActions.map((action, index) => (
-              <Icon
-                // By position: the caller's list is fixed, and two actions may
-                // share a label.
-                key={index}
-                tooltipText={action.label}
-                ariaLabel={action.label}
-                type={action.icon}
-                tourAnchor={action.tourAnchor}
-                onClick={action.onClick}
-              />
-            ))}
+            <span css={titleActionsStyle}>
+              {titleActions.map((action, index) => (
+                <Icon
+                  // By position: the caller's list is fixed, and two actions may
+                  // share a label.
+                  key={index}
+                  tooltipText={action.label}
+                  ariaLabel={action.label}
+                  type={action.icon}
+                  tourAnchor={action.tourAnchor}
+                  onClick={action.onClick}
+                />
+              ))}
+            </span>
             {close && (
               <Icon
                 tooltipText={close.label}
@@ -811,6 +822,10 @@ export default function OpenNowPane({
             align-items: flex-end;
             padding-top: 8px;
             width: 100%;
+            /* KAN-794. The 8px above, then an icon's box (4px around the glyph;
+               border-box), so with nothing listed, and so no icon here, the row
+               keeps its height (KAN-491). */
+            min-height: calc(8px + ${ICON.DEFAULT} + 8px);
           `}
         >
           {/* Only with something to fold; with no windows it would offer

@@ -62,10 +62,8 @@ test("the drawer's ✕ is flush in the header's top-right corner, on the heading
   expect(box.top).toBeCloseTo(0, 1);
   expect(box.middleOffHeading).toBeCloseTo(0, 1);
 
-  // The action row holds « and no ✕.
-  const row = drawer.getByRole('button', {
-    name: 'Fold the saved session away',
-  });
+  // The action row holds Collapse all and no ✕ (KAN-794 put the fold beside it).
+  const row = drawer.getByRole('button', { name: 'Collapse all windows' });
   const rowParent = await row.evaluate((el) => el.parentElement!.outerHTML);
   expect(rowParent).not.toContain(CLOSE);
 });
