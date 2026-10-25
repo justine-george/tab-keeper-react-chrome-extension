@@ -130,7 +130,8 @@ for (const view of VIEWS) {
       await closeMenu(page);
       await openSavedMenu(page);
       expect(await menuNames(page)).toEqual(rowItems);
-      expect(rowItems.slice(0, 2)).toEqual([
+      expect(rowItems.slice(0, 3)).toEqual([
+        'Copy all links',
         'Sort tabs by site',
         'Sort groups by name',
       ]);
@@ -306,7 +307,8 @@ test.describe('Open now window', () => {
     await closeMenu(page);
     await openLiveMenu(page, windowId);
     expect(await menuNames(page)).toEqual(rowItems);
-    expect(rowItems.slice(0, 2)).toEqual([
+    expect(rowItems.slice(0, 3)).toEqual([
+      'Copy all links',
       'Sort tabs by site',
       'Sort groups by name',
     ]);

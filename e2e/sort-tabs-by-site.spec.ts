@@ -116,7 +116,7 @@ for (const view of VIEWS) {
         sessions: [session('S1', 'Launch week', [WINDOW])],
       });
 
-    test('Sort tabs by site is the first item and sorts; one ⌘Z restores', async ({
+    test('Sort tabs by site comes right after Copy all links and sorts; one ⌘Z restores', async ({
       context,
       extensionId,
     }) => {
@@ -124,7 +124,11 @@ for (const view of VIEWS) {
       expect(await screenOrder(page)).toEqual(BEFORE_IDS);
 
       await openMenu(page);
-      await expect(page.getByRole('menuitem').first()).toHaveAccessibleName(
+      // KAN-783. Copy all links leads every window and group menu.
+      await expect(page.getByRole('menuitem').nth(0)).toHaveAccessibleName(
+        'Copy all links'
+      );
+      await expect(page.getByRole('menuitem').nth(1)).toHaveAccessibleName(
         'Sort tabs by site'
       );
       await sortItem(page).click();
@@ -761,7 +765,7 @@ async function openGroupMenu(page: Page): Promise<void> {
 
 for (const view of VIEWS) {
   test.describe(`${view}, a saved group (KAN-746)`, () => {
-    test("the group's ⋮ sorts its tabs only, first item; ⌘Z restores; then it is gone", async ({
+    test("the group's ⋮ sorts its tabs only, right after Copy all links; ⌘Z restores; then it is gone", async ({
       context,
       extensionId,
     }) => {
@@ -770,7 +774,11 @@ for (const view of VIEWS) {
       });
 
       await openGroupMenu(page);
-      await expect(page.getByRole('menuitem').first()).toHaveAccessibleName(
+      // KAN-783. Copy all links leads every window and group menu.
+      await expect(page.getByRole('menuitem').nth(0)).toHaveAccessibleName(
+        'Copy all links'
+      );
+      await expect(page.getByRole('menuitem').nth(1)).toHaveAccessibleName(
         'Sort tabs by site'
       );
       await sortItem(page).click();

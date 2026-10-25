@@ -770,7 +770,7 @@ test.describe('Open now close controls in a real browser (KAN-280)', () => {
     await expect(liveRowIn(block, 'Beta')).toBeVisible();
   });
 
-  test('5. This window has no Close window, in the real accessibility tree, and the other window has it in its menu', async ({
+  test('5. This window has no Close window, in the real accessibility tree or its ⋮, and the other window has it in its menu', async ({
     context,
     extensionId,
     serviceWorker,
@@ -813,11 +813,17 @@ test.describe('Open now close controls in a real browser (KAN-280)', () => {
     expect(buttons.filter((name) => name.startsWith('Close window'))).toEqual(
       []
     );
-    // This window is not granted tab groups here, so Sort is not offered and
-    // its ⋮ would be empty: it has none (a granted This window's ⋮ holds Sort
-    // only: openNowWindowMenu.test.tsx).
-    expect(buttons).not.toContain(`More actions: ${thisName}`);
-    await expect(openNowWindowMenu(thisBlock)).toHaveCount(0);
+    // KAN-783. This window's ⋮ holds Copy all links (Sort is not granted
+    // here), and no Close window.
+    expect(buttons).toContain(`More actions: ${thisName}`);
+    await thisBlock.locator('[data-window-row]').hover();
+    await openNowWindowMenu(thisBlock).click();
+    await expect(page.getByRole('menu').getByRole('menuitem')).toHaveAttribute(
+      'data-menu-item',
+      'copy'
+    );
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
 
     // The other window's Close window is the last item of its ⋮.
     await otherBlock.locator('[data-window-row]').hover();
