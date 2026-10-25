@@ -8,7 +8,8 @@ import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 
 // KAN-582 (picks: A without the reveal; Delete only in the header's ⋮). Only the session shown has row
-// actions, Open, Switch and Replace; a button that appears under a resting pointer selects the row until the pointer leaves it.
+// actions, Open, Switch and Replace; a button that appears under a resting pointer selects the row for the rest of
+// that double-click (KAN-779: until a click of its own, or the pointer leaving it).
 
 const SHOWN = buildSession({
   tabGroupId: 'session-shown',
@@ -116,10 +117,13 @@ describe('a strip that appears under the pointer (KAN-582)', () => {
     return h;
   }
 
-  test('the button under the pointer selects the row instead (a double-click selects), until the pointer leaves it', async () => {
+  // The second click of the double-click that selected the row.
+  const SECOND_CLICK = { detail: 2 };
+
+  test('the button under the pointer selects the row instead for the rest of the double-click, until the pointer leaves it', async () => {
     const h = await selectUnderPointer('Replace');
 
-    fireEvent.click(action('Weekend in Kyoto', 'Replace'));
+    fireEvent.click(action('Weekend in Kyoto', 'Replace'), SECOND_CLICK);
     expect(h.onReplaceClick).not.toHaveBeenCalled();
     expect(h.onTabGroupClick).toHaveBeenCalledTimes(1);
 
@@ -127,22 +131,36 @@ describe('a strip that appears under the pointer (KAN-582)', () => {
       clientX: 200,
       clientY: 20,
     });
-    fireEvent.click(action('Weekend in Kyoto', 'Replace'));
+    fireEvent.click(action('Weekend in Kyoto', 'Replace'), SECOND_CLICK);
     expect(h.onReplaceClick).toHaveBeenCalledTimes(1);
   });
 
-  test('moving within that button keeps it a select', async () => {
+  test('moving within that button keeps the double-click a select', async () => {
     const h = await selectUnderPointer('Replace');
 
     fireEvent.pointerMove(action('Weekend in Kyoto', 'Replace'), AT);
-    fireEvent.click(action('Weekend in Kyoto', 'Replace'));
+    fireEvent.click(action('Weekend in Kyoto', 'Replace'), SECOND_CLICK);
     expect(h.onReplaceClick).not.toHaveBeenCalled();
   });
+
+  test.each([
+    ['a click of its own', 1],
+    ['a key', 0],
+  ])(
+    'KAN-779: %s presses that button at once, the pointer unmoved',
+    async (_, detail) => {
+      const h = await selectUnderPointer('Replace');
+
+      fireEvent.click(action('Weekend in Kyoto', 'Replace'), { detail });
+      expect(h.onReplaceClick).toHaveBeenCalledTimes(1);
+      expect(h.onTabGroupClick).not.toHaveBeenCalled();
+    }
+  );
 
   test('a button the pointer is not on acts at once', async () => {
     const h = await selectUnderPointer('Switch');
 
-    fireEvent.click(action('Weekend in Kyoto', 'Replace'));
+    fireEvent.click(action('Weekend in Kyoto', 'Replace'), SECOND_CLICK);
     expect(h.onReplaceClick).toHaveBeenCalledTimes(1);
   });
 
@@ -152,7 +170,7 @@ describe('a strip that appears under the pointer (KAN-582)', () => {
     fireEvent.pointerOut(rowButton('Weekend in Kyoto'), {
       relatedTarget: document.body,
     });
-    fireEvent.click(action('Weekend in Kyoto', 'Replace'));
+    fireEvent.click(action('Weekend in Kyoto', 'Replace'), SECOND_CLICK);
     expect(h.onReplaceClick).toHaveBeenCalledTimes(1);
   });
 
@@ -162,7 +180,7 @@ describe('a strip that appears under the pointer (KAN-582)', () => {
     pointerRestsOn('Weekend in Kyoto', 'Replace');
     fireEvent.pointerOver(action('Weekend in Kyoto', 'Replace'), AT);
 
-    fireEvent.click(action('Weekend in Kyoto', 'Replace'));
+    fireEvent.click(action('Weekend in Kyoto', 'Replace'), SECOND_CLICK);
     expect(h.onReplaceClick).toHaveBeenCalledTimes(1);
   });
 });

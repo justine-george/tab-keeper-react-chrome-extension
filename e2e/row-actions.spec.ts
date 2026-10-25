@@ -71,7 +71,7 @@ test('only the session shown has row actions, Open, Switch and Replace, drawn at
   await expect(actions(page, 'S3')).toHaveCount(0);
 });
 
-test('a double-click on another row, where its Switch will appear, selects it and presses nothing; leaving Switch and coming back presses it', async ({
+test('a double-click on another row, where its Switch will appear, selects it and presses nothing; the next click, unmoved, presses it (KAN-779)', async ({
   context,
   extensionId,
 }) => {
@@ -87,15 +87,13 @@ test('a double-click on another row, where its Switch will appear, selects it an
   await expect(shownTitle(page)).toHaveText('Weekend in Kyoto');
   // The premise: the strip appeared with Switch under the pointer.
   expect(await nameUnder(page, at)).toBe('Switch');
-  // A double-click can land both clicks before the strip is drawn, so press once more, unmoved.
-  await page.mouse.down();
-  await page.mouse.up();
+  // A double-click can land both clicks before the strip is drawn, so send its second half again, on Switch.
+  await page.mouse.down({ clickCount: 2 });
+  await page.mouse.up({ clickCount: 2 });
   await page.waitForTimeout(300);
   await expect(focusConfirm(page)).toHaveCount(0);
 
-  const open = await centreOf(button(page, 'S3', 'Open'));
-  await page.mouse.move(open.x, open.y, { steps: 4 });
-  await page.mouse.move(at.x, at.y, { steps: 4 });
+  // KAN-779. A click of its own presses it, without the pointer leaving first.
   await page.mouse.down();
   await page.mouse.up();
   await expect(focusConfirm(page)).toBeVisible();

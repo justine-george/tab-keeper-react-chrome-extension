@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { sessionHeaderMenu } from './fixtures/menus';
+import { focusConfirm } from './fixtures/sessionActions';
 import {
   VIEWS,
   boxOf,
@@ -259,4 +260,43 @@ test('with a row menu open, a click on the header ⋮ only closes it; the next c
   await sessionHeaderMenu(page).click();
   await expect(MENUS['header ⋮'].menu(page)).toBeVisible();
   await expect(page.getByRole('menu')).toHaveCount(1);
+});
+
+// KAN-779, as Justine hit it: the dismissing click and the selecting click both land where Switch draws.
+test('after a click that only closed a row menu, a second click selects Bravo with Switch under the pointer; a click on Switch then switches', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openSaved(context, extensionId, 'popup', {
+    sessions: SESSIONS,
+  });
+  const row = MENUS['row menu'];
+  const switchOf = (id: string) =>
+    page
+      .locator(
+        `[data-pane="sessions"] [data-drag-row-id="${id}"] [data-row-actions]`
+      )
+      .getByRole('button', { name: 'Switch', exact: true });
+  // Every row's strip sits at the same x: S1's Switch shows where Bravo's will be.
+  const sw = await centreOf(switchOf('S1'));
+  const at = { x: sw.x, y: (await centreOf(sessionRow(page, 'S2'))).y };
+  await row.open(page);
+  await expect(row.menu(page)).toBeVisible();
+
+  await page.mouse.click(at.x, at.y);
+  await expect(row.menu(page)).toHaveCount(0);
+  await expect(shownSession(page, 'Trip')).toBeVisible();
+  await page.mouse.click(at.x, at.y);
+  await expect(shownSession(page, 'Bravo')).toBeVisible();
+  // PREMISE: Bravo's Switch drew under the pointer.
+  await expect(switchOf('S2')).toBeVisible();
+  const box = await boxOf(switchOf('S2'));
+  expect(at.x >= box.x && at.x <= box.x + box.width).toBe(true);
+  expect(at.y >= box.y && at.y <= box.y + box.height).toBe(true);
+
+  // A few pixels within Switch, as a hand moves, then a click.
+  await page.mouse.move(at.x + 6, at.y + 4, { steps: 3 });
+  await page.waitForTimeout(600);
+  await page.mouse.click(at.x + 6, at.y + 4);
+  await expect(focusConfirm(page)).toBeVisible();
 });
