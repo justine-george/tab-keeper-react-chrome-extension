@@ -272,7 +272,9 @@ export class ReusedBrowser {
       await registrations?.undo();
       await resetProfile(held);
     } catch (error) {
-      console.warn(`KAN-766 reset failed, relaunching: ${String(error)}`);
+      console.warn(
+        `KAN-766 no reset, the next test launches: ${String(error)}`
+      );
       await this.close();
     }
   }
