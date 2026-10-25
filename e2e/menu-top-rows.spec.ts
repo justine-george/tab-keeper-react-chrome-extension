@@ -198,7 +198,7 @@ test('tab view: a live group’s Save saves its two tabs as a session', async ({
   );
   await expect
     .poll(() => names(actionRow(page).getByRole('menuitem')))
-    .toEqual(['Save', 'Rename']);
+    .toEqual(['Go to', 'Save', 'Rename']);
   await rowButton(page, 'Save').click();
 
   await expect.poll(async () => (await stored(page)).tabGroups.length).toBe(1);
@@ -207,6 +207,55 @@ test('tab view: a live group’s Save saves its two tabs as a session', async ({
     'Fushimi Inari hours',
     'Kinkaku-ji tickets',
   ]);
+});
+
+test('tab view: a live group’s Go to lands on its tab used last, with its window in front', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const windowId = await stage(serviceWorker);
+  // In Chrome's order: Flights, then Temples (Inari, Kinkaku-ji), then Kyoto weather.
+  const ids = await serviceWorker.evaluate(
+    async (id) =>
+      (await chrome.tabs.query({ windowId: id }))
+        .sort((a, b) => a.index - b.index)
+        .map((tab) => tab.id ?? -1),
+    windowId
+  );
+  const [flights, , kinkaku] = ids;
+  // Use the group's second tab, then leave the group, as a person would.
+  for (const id of [kinkaku, flights]) {
+    await serviceWorker.evaluate(async (tabId) => {
+      await chrome.tabs.update(tabId, { active: true });
+    }, id);
+  }
+  const page = await context.newPage();
+  await openTabView(page, extensionId);
+  const activeIn = () =>
+    serviceWorker.evaluate(
+      async (id) =>
+        (await chrome.tabs.query({ windowId: id, active: true }))[0]?.id,
+      windowId
+    );
+  const lastFocused = () =>
+    serviceWorker.evaluate(
+      async () => (await chrome.windows.getLastFocused()).id ?? null
+    );
+  // PREMISE: the group is not showing, and its window is behind the tab view.
+  expect(await activeIn()).toBe(flights);
+  expect(await lastFocused()).not.toBe(windowId);
+
+  await rightClickTitle(
+    page,
+    page
+      .locator('[data-pane="open-now"] [data-band-id] [data-group-drag-handle]')
+      .first()
+  );
+  await rowButton(page, 'Go to').click();
+
+  await expect.poll(activeIn).toBe(kinkaku);
+  await expect.poll(lastFocused).toBe(windowId);
 });
 
 // Whether a top row sits on one line, inside its menu, with every button one line tall.
