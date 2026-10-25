@@ -292,10 +292,12 @@ export default function OpenNowRail({
         >
           <OpenNowPane
             windows={windows}
-            actions={[
-              foldAction,
-              { icon: 'close', label: t('Close Open now'), onClick: close },
-            ]}
+            actions={[foldAction]}
+            close={{
+              icon: 'close',
+              label: t('Close Open now'),
+              onClick: close,
+            }}
             headingId={headingId}
             headingRef={headingRef}
             searchText={searchText}
