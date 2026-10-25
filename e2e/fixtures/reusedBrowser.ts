@@ -102,6 +102,8 @@ async function turnOnDeveloperMode(context: BrowserContext): Promise<void> {
 class TestRegistrations {
   private readonly disposables: Disposable[] = [];
   private readonly listenersBefore: Map<string | symbol, unknown[]>;
+  // Playwright cannot uninstall a clock, and page.clock is the context's.
+  private clockUsed = false;
 
   constructor(private readonly context: BrowserContext) {
     this.listenersBefore = listenersNow(context);
@@ -118,6 +120,25 @@ class TestRegistrations {
       track(await exposeFunction(name, callback));
     context.exposeBinding = async (name, binding) =>
       track(await exposeBinding(name, binding));
+
+    const { clock } = context;
+    const used = () => {
+      this.clockUsed = true;
+    };
+    const install = clock.install.bind(clock);
+    const pauseAt = clock.pauseAt.bind(clock);
+    const setFixedTime = clock.setFixedTime.bind(clock);
+    const setSystemTime = clock.setSystemTime.bind(clock);
+    const fastForward = clock.fastForward.bind(clock);
+    const runFor = clock.runFor.bind(clock);
+    const resume = clock.resume.bind(clock);
+    clock.install = (options) => (used(), install(options));
+    clock.pauseAt = (time) => (used(), pauseAt(time));
+    clock.setFixedTime = (time) => (used(), setFixedTime(time));
+    clock.setSystemTime = (time) => (used(), setSystemTime(time));
+    clock.fastForward = (ticks) => (used(), fastForward(ticks));
+    clock.runFor = (ticks) => (used(), runFor(ticks));
+    clock.resume = () => (used(), resume());
   }
 
   async undo(): Promise<void> {
@@ -126,6 +147,18 @@ class TestRegistrations {
     Reflect.deleteProperty(context, 'addInitScript');
     Reflect.deleteProperty(context, 'exposeFunction');
     Reflect.deleteProperty(context, 'exposeBinding');
+    for (const name of [
+      'install',
+      'pauseAt',
+      'setFixedTime',
+      'setSystemTime',
+      'fastForward',
+      'runFor',
+      'resume',
+    ]) {
+      Reflect.deleteProperty(context.clock, name);
+    }
+    if (this.clockUsed) throw new Error('the clock was installed');
     // Not removeAllListeners: Playwright's own close() waits on a listener.
     for (const [event, listeners] of listenersNow(context)) {
       const before = this.listenersBefore.get(event) ?? [];

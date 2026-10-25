@@ -129,6 +129,26 @@ test.describe('a reused browser', () => {
     expect(pagesSeenByListener).toBe(seenBefore);
   });
 
+  test('a test pauses the clock', async ({ context }) => {
+    dirtiedContext = context;
+    const page = await context.newPage();
+    const later = Date.now() + 60_000;
+    await page.clock.pauseAt(later);
+    expect(await page.evaluate(() => Date.now())).toBeGreaterThanOrEqual(later);
+  });
+
+  test('the next test gets a new browser, with real timers', async ({
+    context,
+  }) => {
+    expect(context).not.toBe(dirtiedContext);
+    const page = await context.newPage();
+    expect(
+      await page.evaluate(
+        () => new Promise((resolve) => setTimeout(() => resolve('fired'), 50))
+      )
+    ).toBe('fired');
+  });
+
   test('a test leaves state a reset cannot undo', async ({
     context,
     extensionId,
