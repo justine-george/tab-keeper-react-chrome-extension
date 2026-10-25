@@ -220,7 +220,7 @@ test("Open now's header right-click: Copy all links after the two saves pastes e
 
   await page
     .locator('[data-open-now-header]')
-    .getByRole('heading', { name: 'Open now' })
+    .getByRole('heading', { name: 'Currently open' })
     .click({ button: 'right' });
   expect(await menuKeys(page)).toEqual([
     'save-all-windows',
@@ -310,7 +310,7 @@ test("while Open now's search holds text, the header menu has no Copy all links"
   await openTabView(page, extensionId);
   const heading = page
     .locator('[data-open-now-header]')
-    .getByRole('heading', { name: 'Open now' });
+    .getByRole('heading', { name: 'Currently open' });
 
   // CONTROL: offered before the search.
   await heading.click({ button: 'right' });

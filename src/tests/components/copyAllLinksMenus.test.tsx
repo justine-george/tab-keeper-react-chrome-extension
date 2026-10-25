@@ -231,7 +231,7 @@ describe('live windows and groups (Open now)', () => {
     };
     const openHeaderMenu = () =>
       fireEvent.contextMenu(
-        within(header()).getByRole('heading', { name: 'Open now' })
+        within(header()).getByRole('heading', { name: 'Currently open' })
       );
 
     test('Copy all links sits after the two saves and before Save as PDF', async () => {
