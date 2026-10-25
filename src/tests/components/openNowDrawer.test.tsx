@@ -26,6 +26,8 @@ import { live } from '../fixtures/liveSnapshotFixture';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { TYPE } from '../../styles/scale';
 import { asWritten } from '../setup/asWritten';
+import { testI18n } from '../setup/i18nForTests';
+import ko from '../../../public/locales/ko/translation.json';
 
 // KAN-280 O2. Below 1100px, side by side, Open now's column is a 44px rail
 // with one button, and the button opens Open now as a drawer over the right
@@ -111,10 +113,12 @@ beforeEach(() => {
   history.replaceState(null, '', '?view=tab');
 });
 
-afterEach(() => {
+afterEach(async () => {
   vi.restoreAllMocks();
   history.replaceState(null, '', '/');
   localStorage.clear();
+  // The instance is shared, so a leaked locale would run later tests in Korean.
+  await testI18n.changeLanguage('en');
 });
 
 describe('narrow and side by side (O2)', () => {
@@ -151,6 +155,37 @@ describe('narrow and side by side (O2)', () => {
     // jsdom resolves rem against 16px.
     expect(style.fontSize).toBe(`${parseFloat(TYPE.SECONDARY) * 16}px`);
     expect(style.color).toMatch(asWritten(LIGHT_THEME.TEXT_COLOR));
+  });
+
+  // KAN-776. Upright CJK in vertical-rl advances by the font's vertical metrics,
+  // and WenQuanYi Zen Hei's are zero: every character drew on one spot. Stacked
+  // in horizontal text, each takes its horizontal advance, which every font has.
+  test('in Korean the label stacks each word one character per line, in horizontal text', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    testI18n.addResourceBundle('ko', 'translation', ko, true, true);
+    await act(async () => {
+      await testI18n.changeLanguage('ko');
+    });
+
+    const button = openNowSlot().querySelector('button[aria-expanded]');
+    if (button === null) throw new Error('no rail button');
+    const label = [...button.querySelectorAll('span')].find(
+      (el) => el.textContent === ko['Open now']
+    );
+    if (label === undefined) throw new Error('no label');
+    const words = [...label.children] as HTMLElement[];
+
+    expect(getComputedStyle(label).writingMode).not.toBe('vertical-rl');
+    expect(getComputedStyle(label).flexDirection).toBe('column');
+    expect(words.map((w) => w.textContent)).toEqual(ko['Open now'].split(' '));
+    for (const word of words) {
+      // One em: one character wide.
+      expect(getComputedStyle(word).width).toBe(
+        getComputedStyle(label).fontSize
+      );
+      expect(getComputedStyle(word).wordBreak).toBe('break-all');
+    }
   });
 
   test('clicking the rail opens the drawer with the pane, and focus moves to its heading', async () => {
