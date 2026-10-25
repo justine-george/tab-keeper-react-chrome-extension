@@ -100,8 +100,18 @@ export default function DefaultSaveChoice({
       pointer-events: none;
     }
   `;
+  // KAN-801. The word is stacked on a hidden bold copy of itself, so its column is always the bold width and choosing never moves the centred tile.
   const wordStyle = (isChosen: boolean) => css`
+    display: grid;
+    justify-items: center;
+    & > * {
+      grid-area: 1 / 1;
+    }
     ${isChosen && `color: ${COLORS.TEXT_COLOR}; font-weight: ${WEIGHT.CHOSEN};`}
+  `;
+  const reservedStyle = css`
+    visibility: hidden;
+    font-weight: ${WEIGHT.CHOSEN};
   `;
 
   return (
@@ -131,7 +141,12 @@ export default function DefaultSaveChoice({
                 <Icon type="more_vert" />
               </span>
             </span>
-            <span css={wordStyle(isChosen)}>{t(word)}</span>
+            <span css={wordStyle(isChosen)}>
+              <span>{t(word)}</span>
+              <span aria-hidden="true" css={reservedStyle}>
+                {t(word)}
+              </span>
+            </span>
           </label>
         );
       })}

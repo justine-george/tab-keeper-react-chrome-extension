@@ -89,7 +89,10 @@ describe('the Default save row', () => {
 
   test('a click on the word chooses back', async () => {
     const { store } = await renderSessions('current-window');
-    await userEvent.click(screen.getByText('All windows'));
+    // The visible word; its hidden bold copy only holds the width (KAN-801).
+    await userEvent.click(
+      screen.getByText('All windows', { ignore: '[aria-hidden="true"]' })
+    );
     expect(store.getState().settingsDataState.defaultSaveScope).toBe(
       'all-windows'
     );

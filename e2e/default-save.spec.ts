@@ -14,6 +14,7 @@ import {
 } from '../src/hooks/useThemeColors';
 import { seedOnce } from './fixtures/cloud';
 import { rgb } from './fixtures/pixels';
+import { localeStrings } from './fixtures/locales';
 
 // KAN-635 on the real artifact: Settings › Sessions › Default save decides
 // what the row's button and Enter save; the ⋮ menu's first item is the other.
@@ -313,3 +314,54 @@ for (const [theme, colors] of [
     expect(await widths()).toEqual(before);
   });
 }
+
+// KAN-801. The chosen word is bold, which widened "Current window" past its
+// tile, so its column grew and the centred tile moved. Nothing may move.
+for (const language of ['en', 'de', 'ru'])
+  for (const root of [16, 20])
+    test(`KAN-801: choosing a save moves neither tile nor word (${language}, ${root}px root)`, async ({
+      context,
+      extensionId,
+    }) => {
+      const strings = localeStrings(language);
+      await seedSettings(context, { language });
+      const page = await context.newPage();
+      await page.setViewportSize(VIEW);
+      await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+      await page
+        .getByRole('button', { name: strings.Settings, exact: true })
+        .click();
+      await page
+        .getByRole('button', { name: strings.Sessions, exact: true })
+        .click();
+      await page.evaluate((px) => {
+        document.documentElement.style.fontSize = `${px}px`;
+      }, root);
+      const group = page.getByRole('radiogroup');
+      const radio = (word: string) =>
+        group.getByRole('radio', { name: word, exact: true });
+      const all = strings['All windows'];
+      const current = strings['Current window'];
+      // The words name the radios once each: the reserved bold copy is hidden.
+      await expect(radio(all)).toBeChecked();
+      await expect(radio(current)).toHaveCount(1);
+      const boxes = () =>
+        group.locator('label').evaluateAll((labels) =>
+          labels.map((label) => {
+            const box = (el: Element) => {
+              const r = el.getBoundingClientRect();
+              return [r.x, r.width].map((n) => Math.round(n * 100) / 100);
+            };
+            return {
+              tile: box(label.querySelector('[data-tile]')!),
+              word: (label.lastElementChild as HTMLElement).innerText.trim(),
+            };
+          })
+        );
+      const before = await boxes();
+      expect(before.map((b) => b.word)).toEqual([all, current]);
+
+      await radio(current).check({ force: true });
+      await expect(radio(current)).toBeChecked();
+      expect(await boxes()).toEqual(before);
+    });
