@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -24,4 +24,15 @@ export function localeStrings(lang: string): Record<string, string> {
       'utf8'
     )
   );
+}
+
+// KAN-770. Folders only: Finder leaves a .DS_Store beside them.
+export function shippedLanguages(): string[] {
+  return readdirSync(
+    fileURLToPath(new URL('../../public/locales', import.meta.url)),
+    { withFileTypes: true }
+  )
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
 }

@@ -1,11 +1,9 @@
 import type { BrowserContext, Page } from '@playwright/test';
-import { readdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 
 import { test, expect } from './fixtures/extension';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import { POPUP, openPage } from './fixtures/onboarding';
-import { localeStrings } from './fixtures/locales';
+import { localeStrings, shippedLanguages } from './fixtures/locales';
 
 // KAN-517. Settings' category labels start where the header's "Back" starts.
 
@@ -105,9 +103,7 @@ test('at the largest Chrome font size (a 24px root), the labels still start wher
     expect(Math.abs(r.x - back)).toBeLessThan(0.5);
 });
 
-const LANGS = readdirSync(
-  fileURLToPath(new URL('../public/locales', import.meta.url))
-);
+const LANGS = shippedLanguages();
 
 test('PREMISE: all 13 shipped languages are checked below', () => {
   expect(LANGS).toHaveLength(13);

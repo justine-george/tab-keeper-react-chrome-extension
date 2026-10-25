@@ -1,20 +1,15 @@
-import { readdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-
 import type { BrowserContext, Locator, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
-import { localeStrings } from './fixtures/locales';
+import { localeStrings, shippedLanguages } from './fixtures/locales';
 import { openTabGroup } from './fixtures/onboarding';
 import { stubToolbarPin } from './fixtures/toolbarPin';
 
 // KAN-731. Setup is 600px at a 1280px window on every step, in every locale, at 16px and Chrome's Large (20px root).
 
 // Every shipped locale, read from the folder the build copies.
-const LANGS = readdirSync(
-  fileURLToPath(new URL('../public/locales', import.meta.url))
-).sort();
+const LANGS = shippedLanguages();
 
 // The distinct line tops of an element's own text.
 const linesOf = (el: Locator) =>
