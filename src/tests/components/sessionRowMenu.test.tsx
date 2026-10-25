@@ -91,7 +91,8 @@ const labels = (menu: HTMLElement) =>
     .map((i) => i.getAttribute('aria-label') ?? i.textContent);
 
 describe('right-clicking a session row (KAN-708)', () => {
-  test('a session that is not selected offers the header ⋮’s items in order', async () => {
+  // KAN-775. Led by the row's Open · Switch · Replace and Add current window, which the header has as buttons.
+  test('a session that is not selected offers the header ⋮’s items in order, after the row’s buttons and Add', async () => {
     const user = userEvent.setup();
     await renderBoth();
 
@@ -107,8 +108,14 @@ describe('right-clicking a session row (KAN-708)', () => {
     await user.click(screen.getByRole('button', { name: 'More actions' }));
     const headerItems = labels(screen.getByRole('menu', { name: /./ }));
 
-    expect(rowItems).toEqual(headerItems);
-    expect(rowItems.length).toBeGreaterThanOrEqual(4);
+    expect(rowItems).toEqual([
+      'Open',
+      'Switch',
+      'Replace',
+      'playlist_addAdd current window to this session',
+      ...headerItems,
+    ]);
+    expect(headerItems.length).toBeGreaterThanOrEqual(4);
   });
 
   test('the menu is named for the session', async () => {

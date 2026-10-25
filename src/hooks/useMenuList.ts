@@ -15,9 +15,12 @@ export function useMenuList({
   wrapperRef,
   onDismiss,
   onWalk,
+  rowCount = 0,
 }: {
   count: number;
   axis: PopoverAxis;
+  /** KAN-775. The first `rowCount` items sit side by side above a vertical list: one stop for ↑/↓, walked with ←/→. */
+  rowCount?: number;
   isOpen: boolean;
   wrapperRef: React.RefObject<HTMLElement | null>;
   onDismiss: (reason: MenuDismissReason) => void;
@@ -63,6 +66,20 @@ export function useMenuList({
   const prevKey = axis === 'vertical' ? 'ArrowUp' : 'ArrowLeft';
   const nextKey = axis === 'vertical' ? 'ArrowDown' : 'ArrowRight';
 
+  // KAN-775. The row counts as one stop at its first item; the list's items are a stop each.
+  const hasRow = axis === 'vertical' && rowCount > 0;
+  const stepFrom = (index: number, by: 1 | -1): number => {
+    if (!hasRow) return index + by;
+    const stops = count - rowCount + 1;
+    const stop = index < rowCount ? 0 : index - rowCount + 1;
+    const next = (((stop + by) % stops) + stops) % stops;
+    return next === 0 ? 0 : next + rowCount - 1;
+  };
+  const walkRow = (index: number, by: 1 | -1) =>
+    itemRefs.current[
+      (((index + by) % rowCount) + rowCount) % rowCount
+    ]?.focus();
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.stopPropagation();
@@ -74,13 +91,21 @@ export function useMenuList({
     if (e.key === nextKey) {
       e.preventDefault();
       onWalk?.();
-      focusItem(indexOfFocused() + 1);
+      focusItem(stepFrom(indexOfFocused(), 1));
       return;
     }
     if (e.key === prevKey) {
       e.preventDefault();
       onWalk?.();
-      focusItem(indexOfFocused() - 1);
+      focusItem(stepFrom(indexOfFocused(), -1));
+      return;
+    }
+    const focused = indexOfFocused();
+    const inRow = hasRow && focused >= 0 && focused < rowCount;
+    if (inRow && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+      e.preventDefault();
+      onWalk?.();
+      walkRow(focused, e.key === 'ArrowRight' ? 1 : -1);
     }
   };
 

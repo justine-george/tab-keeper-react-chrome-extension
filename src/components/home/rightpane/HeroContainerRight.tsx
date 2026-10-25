@@ -25,11 +25,6 @@ import {
   sessionDateTitle,
 } from '../../../utils/functions/sessionDate';
 import {
-  isTabKeeperPage,
-  readCurrentWindowGroups,
-  toWindowGroupData,
-} from '../../../utils/functions/capture';
-import {
   formatGroupCounts,
   selectVisibleTabGroups,
 } from '../../../utils/functions/local';
@@ -38,7 +33,6 @@ import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
 import { sessionMenuItems, useSessionDeleteKey } from '../sessionMenuItems';
 import {
-  addCurrWindowToTabGroup,
   replaceSessionWithOpenWindows,
   openAllTabContainer,
   requestFocusTabContainer,
@@ -48,7 +42,7 @@ import {
   collapsedWindowIdsOf,
   setAllWindowsCollapsed,
 } from '../../../redux/slices/globalStateSlice';
-import { readRecentTabs } from '../../../utils/functions/recentTabs';
+import { showSessionAndAddCurrentWindow } from '../../../redux/showSessionAndAddCurrentWindow';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
@@ -134,7 +128,13 @@ export default function HeroContainerRight() {
   // KAN-592, KAN-638. The row's Delete key also deletes from the open ⋮.
   const deleteKey = useSessionDeleteKey();
   // KAN-708. One ctx for the header ⋮ and the header's right-click menu.
-  const menuCtx = { t, language: i18n.language, dispatch, deleteKey };
+  const menuCtx = {
+    t,
+    language: i18n.language,
+    dispatch,
+    deleteKey,
+    place: 'header' as const,
+  };
   // KAN-708. Right-clicking the header opens the ⋮ items; none while searching, when the ⋮ is hidden.
   const headerMenu = useRowContextMenu({
     kind: 'session',
@@ -214,34 +214,6 @@ export default function HeroContainerRight() {
   const anyWindowOpen = selectedTabGroup.windows.some(
     (w) => !collapsedIds.includes(w.windowId)
   );
-
-  const handleAddCurrWindowClick = async () => {
-    // fetch current window
-    const windowData = await new Promise<chrome.windows.Window>((resolve) =>
-      chrome.windows.getCurrent({ populate: true }, (result) => resolve(result))
-    );
-
-    // KAN-279 D14 / KAN-300. Leaves out every Tab Keeper page -- the SAME
-    // rule captureOpenWindows applies (isTabKeeperPage, capture.ts), since
-    // this call site builds a window the same shape a capture would, without
-    // going through captureOpenWindows itself.
-    const tabs = (windowData.tabs ?? []).filter((tab) => !isTabKeeperPage(tab));
-    // If that empties the window, there is nothing to add.
-    if (tabs.length === 0) return;
-
-    const read = await readCurrentWindowGroups(windowData.id);
-    const recentTabsOf = await readRecentTabs(
-      windowData.id === undefined ? [] : [windowData.id]
-    );
-    const window = toWindowGroupData(
-      { ...windowData, tabs },
-      read?.groups,
-      read?.idByChromeId ?? new Map(),
-      recentTabsOf(windowData.id)
-    );
-
-    dispatch(addCurrWindowToTabGroup({ tabGroupId, window }));
-  };
 
   const cancelRename = () => {
     renameCancelled.current = true;
@@ -639,7 +611,9 @@ export default function HeroContainerRight() {
                 // other. A bare `add` scored 76.6% and was still the confusable one:
                 // the collision was in the meaning, which an ink metric cannot see.
                 iconType="playlist_add"
-                onClick={handleAddCurrWindowClick}
+                onClick={() =>
+                  void dispatch(showSessionAndAddCurrentWindow(tabGroupId))
+                }
                 iconStyle={`
               padding: 4px 4px 2px 4px;
             `}

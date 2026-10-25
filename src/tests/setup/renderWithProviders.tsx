@@ -15,6 +15,7 @@ type Options = {
 export type RenderWithProvidersResult = RenderResult & {
   store: ReturnType<typeof makeTestStore>['store'];
   seen: string[];
+  actions: ReturnType<typeof makeTestStore>['actions'];
   chrome: ChromeFakeHandle;
 };
 
@@ -31,7 +32,7 @@ export async function renderWithProviders(
 ): Promise<RenderWithProvidersResult> {
   await initTestI18n();
   const chrome = setupChromeFake(seed);
-  const { store, seen } = makeTestStore();
+  const { store, seen, actions } = makeTestStore();
 
   // Some components read selected/derived state on their very first render
   // and throw against an empty store (e.g. KAN-39: TabGroupDetailsContainer
@@ -63,5 +64,5 @@ export async function renderWithProviders(
 
   const result = render(ui, { wrapper: Wrapper });
 
-  return { ...result, store, seen, chrome };
+  return { ...result, store, seen, actions, chrome };
 }
