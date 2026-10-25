@@ -208,6 +208,8 @@ jobs:
         timeout-minutes: 13
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: results-shard-${{ matrix.shard }}.json
+          # KAN-766 measurement only: one browser per runner, reset between tests.
+          E2E_REUSE_BROWSER: '1'
         run: npx playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
       # Per-test times: e2e/README.md has the steps that refresh
