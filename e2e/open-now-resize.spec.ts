@@ -670,7 +670,9 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     await seedOnce(context, {});
     const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
     await expectOpenNow(page, 600);
-    const separator = page.getByRole('separator', { name: 'Resize the Currently open panel' });
+    const separator = page.getByRole('separator', {
+      name: 'Resize the Currently open panel',
+    });
     await expect(separator).toHaveAttribute('aria-valuemin', '480');
     await expect(separator).toHaveAttribute('aria-valuemax', '720');
 
@@ -796,7 +798,9 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     expect(await focusedPlace()).toBe('detail');
     await page.keyboard.press('Tab');
     expect(await focusedPlace()).toBe('GRIP');
-    const grip = page.getByRole('separator', { name: 'Resize the Currently open panel' });
+    const grip = page.getByRole('separator', {
+      name: 'Resize the Currently open panel',
+    });
     await expect(grip).toBeFocused();
     // Keyboard focus, so the ring shows.
     expect(await grip.evaluate((el) => el.matches(':focus-visible'))).toBe(
@@ -1127,7 +1131,9 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     await page.setViewportSize(NARROWEST_RESIZABLE);
     await expect(grip).toHaveCount(1);
     await expectOpenNow(page, 484);
-    const separator = page.getByRole('separator', { name: 'Resize the Currently open panel' });
+    const separator = page.getByRole('separator', {
+      name: 'Resize the Currently open panel',
+    });
     await expect(separator).toHaveAttribute('aria-valuemin', '480');
     await expect(separator).toHaveAttribute('aria-valuemax', '484');
 

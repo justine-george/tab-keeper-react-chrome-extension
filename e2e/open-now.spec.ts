@@ -1094,7 +1094,10 @@ test.describe('Open now names its region and its drawer (KAN-280)', () => {
     // PREMISE: both panes offer the control under the same name.
     await expect(page.getByRole('button', collapseAll)).toHaveCount(2);
 
-    const region = page.getByRole('region', { name: 'Currently open', exact: true });
+    const region = page.getByRole('region', {
+      name: 'Currently open',
+      exact: true,
+    });
     await expect(region).toHaveCount(1);
     await expect(region).toHaveAccessibleName('Currently open');
     const scoped = region.getByRole('button', collapseAll);
@@ -1121,7 +1124,10 @@ test.describe('Open now names its region and its drawer (KAN-280)', () => {
       NARROW_VIEWPORT
     );
     await page.getByRole('button', { name: /^Currently open/ }).click();
-    const drawer = page.getByRole('dialog', { name: 'Currently open', exact: true });
+    const drawer = page.getByRole('dialog', {
+      name: 'Currently open',
+      exact: true,
+    });
     await expect(drawer).toBeVisible();
     await expect(drawer).toHaveAccessibleName('Currently open');
     await expect(drawer).not.toHaveAttribute('aria-label');

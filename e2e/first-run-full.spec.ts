@@ -207,7 +207,9 @@ test('step 2 side by side: the edge only in a window wide enough for the grip', 
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(grip).toHaveCount(0);
   await expect(card(page)).not.toContainText('Drag the edge');
-  await expect(card(page)).toContainText('to give Currently open the whole view.');
+  await expect(card(page)).toContainText(
+    'to give Currently open the whole view.'
+  );
   await page.setViewportSize({ width: 1400, height: 800 });
   await expect(grip).toHaveCount(1);
   await expect(card(page)).toContainText('Drag the edge');
@@ -250,7 +252,9 @@ test('step 2 in the default folded view names the fold button it shows, and pres
     'Type in the search box to find an open tab. Press'
   );
   await expect(card(page)).not.toContainText('Search here');
-  await expect(card(page)).toContainText('to give Currently open the whole view.');
+  await expect(card(page)).toContainText(
+    'to give Currently open the whole view.'
+  );
   await expect(glyph('Fold the saved session away')).toBeVisible();
   expect(await glyph('Fold the saved session away').textContent()).toBe(
     await fold.textContent()

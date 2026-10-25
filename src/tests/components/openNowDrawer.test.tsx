@@ -196,7 +196,9 @@ describe('narrow and side by side (O2)', () => {
     expect(button).toHaveAttribute('aria-expanded', 'true');
     expect(within(drawer).getByText(PANE_ONLY)).toBeInTheDocument();
     expect(within(drawer).getByText('B')).toBeInTheDocument();
-    const heading = within(drawer).getByRole('heading', { name: 'Currently open' });
+    const heading = within(drawer).getByRole('heading', {
+      name: 'Currently open',
+    });
     expect(document.activeElement).toBe(heading);
     expect(
       within(drawer).getByRole('button', { name: CLOSE })
@@ -243,7 +245,9 @@ describe('narrow and side by side (O2)', () => {
     const { drawer } = await openDrawer();
 
     const close = within(drawer).getByRole('button', { name: CLOSE });
-    const heading = within(drawer).getByRole('heading', { name: 'Currently open' });
+    const heading = within(drawer).getByRole('heading', {
+      name: 'Currently open',
+    });
     const fold = within(drawer).getByRole('button', {
       name: 'Fold the saved session away',
     });
@@ -296,7 +300,9 @@ describe('narrow and side by side (O2)', () => {
       },
     });
 
-    const button = await screen.findByRole('button', { name: 'Currently open' });
+    const button = await screen.findByRole('button', {
+      name: 'Currently open',
+    });
     // Settle everything that can settle: the name must still have no count.
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 100));

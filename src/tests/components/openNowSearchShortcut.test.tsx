@@ -125,7 +125,9 @@ describe('/ focuses the search (O14b)', () => {
     const button = await railButton();
     fireEvent.click(button);
     const drawer = drawerOf(button);
-    const inside = within(drawer).getByRole('heading', { name: 'Currently open' });
+    const inside = within(drawer).getByRole('heading', {
+      name: 'Currently open',
+    });
     inside.focus();
     fireEvent.keyDown(inside, { key: '/' });
     expect(document.activeElement).toBe(field());
@@ -152,7 +154,9 @@ describe('/ focuses the search (O14b)', () => {
     const button = await railButton();
     fireEvent.click(button);
     const drawer = drawerOf(button);
-    const heading = within(drawer).getByRole('heading', { name: 'Currently open' });
+    const heading = within(drawer).getByRole('heading', {
+      name: 'Currently open',
+    });
     // PREMISE: opened by the button, focus is on the heading.
     expect(document.activeElement).toBe(heading);
 
@@ -179,7 +183,9 @@ describe('/ focuses the search (O14b)', () => {
     const button = await railButton();
     fireEvent.click(button);
     await userEvent.setup().type(field(), 'b');
-    fireEvent.click(screen.getByRole('button', { name: 'Close the Currently open panel' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close the Currently open panel' })
+    );
     fireEvent.click(button);
     expect(field()).toHaveValue('b');
   });

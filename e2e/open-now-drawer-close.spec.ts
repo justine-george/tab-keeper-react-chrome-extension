@@ -27,7 +27,9 @@ async function openDrawer(page: Page, extensionId: string) {
   await page.setViewportSize({ width: 1024, height: 700 });
   await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
   await page.locator('[data-tour-anchor="save"]').waitFor();
-  const rail = page.locator('button[aria-expanded][aria-label^="Currently open"]');
+  const rail = page.locator(
+    'button[aria-expanded][aria-label^="Currently open"]'
+  );
   await rail.click();
   const drawer = page.getByRole('dialog');
   await expect(drawer.getByRole('button', { name: CLOSE })).toBeVisible();

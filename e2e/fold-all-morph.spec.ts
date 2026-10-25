@@ -240,7 +240,10 @@ test('in Open now, a press and a window Chrome opens both slide it', async ({
     'index.html?view=tab',
     TAB_VIEW
   );
-  const region = page.getByRole('region', { name: 'Currently open', exact: true });
+  const region = page.getByRole('region', {
+    name: 'Currently open',
+    exact: true,
+  });
   const collapse = region.getByRole('button', COLLAPSE);
   expectGlyph(await pose(collapse), 'unfold_less');
   expect(await runs(page)).toEqual([]);

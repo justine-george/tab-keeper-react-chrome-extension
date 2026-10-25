@@ -253,7 +253,10 @@ test('in Open now, a press turns it', async ({ context, extensionId }) => {
     'index.html?view=tab',
     TAB_VIEW
   );
-  const region = page.getByRole('region', { name: 'Currently open', exact: true });
+  const region = page.getByRole('region', {
+    name: 'Currently open',
+    exact: true,
+  });
   const collapse = region.getByRole('button', { name: /^Collapse: / }).first();
   expect(await pose(collapse)).toEqual(OPEN);
   expect(await runs(page)).toEqual([]);

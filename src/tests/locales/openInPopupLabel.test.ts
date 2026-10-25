@@ -107,9 +107,7 @@ describe('"Currently open" names the pane in English (KAN-787)', () => {
   });
 
   test('no en value still says "Open now"', () => {
-    expect(Object.values(en).filter((v) => v.includes('Open now'))).toEqual(
-      []
-    );
+    expect(Object.values(en).filter((v) => v.includes('Open now'))).toEqual([]);
   });
 
   // The other 12 already said "open tabs" and are untouched.

@@ -116,7 +116,9 @@ test('a pointermove in a grip drag re-renders none of the three panes, and keeps
   if (grid == null) throw new Error('no grid');
   const gridClass = grid.className;
 
-  const grip = screen.getByRole('separator', { name: 'Resize the Currently open panel' });
+  const grip = screen.getByRole('separator', {
+    name: 'Resize the Currently open panel',
+  });
   fireEvent.pointerDown(grip, { clientX: 1000, clientY: 300, button: 0 });
   fireEvent.pointerMove(window, { clientX: 950, clientY: 300 });
   fireEvent.pointerMove(window, { clientX: 925, clientY: 300 });
