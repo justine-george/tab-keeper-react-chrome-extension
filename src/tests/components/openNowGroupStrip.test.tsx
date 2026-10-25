@@ -124,8 +124,8 @@ describe('a live group row: Save and a ⋮ (KAN-696)', () => {
     ).toHaveTextContent('Save');
   });
 
-  // KAN-780. A window's Save saves that one window, so it wears Save current window's glyph; a group's keeps add_box.
-  test("a window's Save draws window_add; a group's Save keeps add_box", async () => {
+  // KAN-780: a window's Save wears Save current window's glyph. KAN-796: a group's wears a group with the same plus.
+  test("a window's Save draws window_add; a group's Save draws group_add", async () => {
     await renderOpenNow();
     const glyphOf = (button: HTMLElement) =>
       button.querySelector('[data-icon]')?.getAttribute('data-icon');
@@ -141,7 +141,7 @@ describe('a live group row: Save and a ⋮ (KAN-696)', () => {
       glyphOf(
         screen.getByRole('button', { name: 'Save group as a session: Docs' })
       )
-    ).toBe('add_box');
+    ).toBe('group_add');
   });
 
   test('an unnamed group names both controls Unnamed group', async () => {

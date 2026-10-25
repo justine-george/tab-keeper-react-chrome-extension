@@ -2,6 +2,7 @@ import type { Locator, Page, Worker } from '@playwright/test';
 
 import { expect, grantedTest as test } from './fixtures/grantedExtension';
 import { waitForFontsLoaded } from './fixtures/fonts';
+import { expectGlyph } from './fixtures/glyphInk';
 import { localeStrings, shippedLanguages } from './fixtures/locales';
 import {
   VIEWS,
@@ -207,6 +208,35 @@ test('tab view: a live group’s Save saves its two tabs as a session', async ({
     'Fushimi Inari hours',
     'Kinkaku-ji tickets',
   ]);
+});
+
+// KAN-796. A group's Save is a group with the window saves' plus, on its strip and in its top row alike.
+test('tab view: a live group’s Save draws group_add on its strip and in its right-click row', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  await stage(serviceWorker);
+  const page = await context.newPage();
+  await openTabView(page, extensionId);
+  await waitForFontsLoaded(page, ['Material Symbols Outlined']);
+  const title = page
+    .locator('[data-pane="open-now"] [data-band-id] [data-group-drag-handle]')
+    .first();
+
+  // The strip shows under the pointer only.
+  await title.hover();
+  const stripSave = title.getByRole('button', {
+    name: 'Save group as a session: Temples',
+  });
+  await expect(stripSave).toHaveCSS('opacity', '1');
+  await expectGlyph(page, stripSave, 'group_add');
+
+  await rightClickTitle(page, title);
+  await expect
+    .poll(() => names(actionRow(page).getByRole('menuitem')))
+    .toEqual(['Go to', 'Save', 'Rename']);
+  await expectGlyph(page, rowButton(page, 'Save'), 'group_add');
 });
 
 test('tab view: a live group’s Go to lands on its tab used last, with its window in front', async ({

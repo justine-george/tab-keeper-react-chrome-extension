@@ -639,7 +639,7 @@ export default function OpenNowWindow({
             key: 'saveGroup',
             actionRowLabel: t('Save'),
             label: t('Save group as a session'),
-            icon: 'add_box' as const,
+            icon: 'group_add' as const,
             onSelect: () => onSaveGroup(Number(group.groupId)),
           },
         ]),
@@ -1280,7 +1280,7 @@ export default function OpenNowWindow({
                             >
                               {!isSavedSearching && (
                                 <RowTextButton
-                                  iconType="add_box"
+                                  iconType="group_add"
                                   text={t('Save')}
                                   tooltipText={t('Save group as a session')}
                                   ariaLabel={
