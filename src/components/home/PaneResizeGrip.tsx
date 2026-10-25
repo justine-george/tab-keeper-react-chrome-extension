@@ -10,7 +10,7 @@ import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { DURATION, RADIUS } from '../../styles/scale';
+import { DURATION } from '../../styles/scale';
 import { whileKeyNav } from '../common/focusRing';
 import {
   setListWidth,
@@ -198,22 +198,30 @@ export default function PaneResizeGrip({
     align-items: center;
     justify-content: center;
     cursor: col-resize;
-    /* The ring goes round the pill below, not this full-height strip. */
+    /* The ring goes round the dots below, not this full-height strip. */
     outline: none;
     touch-action: none;
 
-    /* KAN-747. A slim pill in LABEL_L3, the lightest grey still 3:1 on the pane.
-       48px (1.2x) and in the text colour while it is in use. */
+    /* KAN-790. Three dots, not KAN-747's pill, which read as the scrollbar
+       beside it. LABEL_L3, the lightest grey still 3:1 on the pane; 1.15x and
+       in the text colour while in use. Painted in currentColor, so the colour
+       transition still runs. */
     & > span {
       width: 4px;
-      height: 40px;
-      border-radius: ${RADIUS.PILL};
-      background-color: ${COLORS.LABEL_L3_COLOR};
+      height: 20px;
+      color: ${COLORS.LABEL_L3_COLOR};
+      background-image: radial-gradient(
+        circle,
+        currentColor 1.6px,
+        transparent 2px
+      );
+      background-size: 4px 7px;
+      background-position: center 0;
       /* Grown by transform, not height: a height that animates re-lays out
          the page each frame, and the toast stack's hover flickered with it. */
       transition:
         transform ${DURATION.MOVE},
-        background-color ${DURATION.COLOR};
+        color ${DURATION.COLOR};
       @media (prefers-reduced-motion: reduce) {
         transition: none;
       }
@@ -222,8 +230,8 @@ export default function PaneResizeGrip({
     &:hover,
     ${whileKeyNav('&:focus-visible')}, &[data-active] {
       & > span {
-        transform: scaleY(1.2);
-        background-color: ${COLORS.TEXT_COLOR};
+        transform: scale(1.15);
+        color: ${COLORS.TEXT_COLOR};
       }
     }
     /* The app's ring (dialogButtons.ts): 2px of TEXT_COLOR. */
@@ -239,7 +247,7 @@ export default function PaneResizeGrip({
     html[data-dragging] &:hover {
       & > span {
         transform: none;
-        background-color: ${COLORS.LABEL_L3_COLOR};
+        color: ${COLORS.LABEL_L3_COLOR};
       }
     }
   `;

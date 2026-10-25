@@ -4,12 +4,12 @@ import { test, expect } from './fixtures/extension';
 import { S1, S2, S3, S4, seed } from './fixtures/betweenSessions';
 import { POPUP } from './fixtures/onboarding';
 import { seedSettings } from './fixtures/seed';
-import { contrast, rgbToHex } from './fixtures/pixels';
+import { contrast, pixelsAt, rgbToHex } from './fixtures/pixels';
 import { CHALK_THEME, CHARCOAL_THEME } from '../src/hooks/useThemeColors';
-import { RADIUS } from '../src/styles/scale';
 
 // KAN-747. No line between the panes: each gap is 8px of space, the popup's
-// own outer margin, and the tab view's resize handles are a slim pill in it.
+// own outer margin, and the tab view's resize handles sit in it. KAN-790: each
+// handle is three dots, so it no longer reads as the scrollbar beside it.
 
 const GAP = 8;
 
@@ -182,30 +182,52 @@ const GRIPS = {
   openNow: '[data-resize-grip]',
 } as const;
 
-function pill(page: Page, sel: string) {
+// The handle's mark: its box (transform included), its dots' colour, its centre.
+function mark(page: Page, sel: string) {
   return page.locator(sel).evaluate((g) => {
     const p = g.firstElementChild as HTMLElement;
     const r = p.getBoundingClientRect();
     const gr = g.getBoundingClientRect();
-    const s = getComputedStyle(p);
     return {
       gripLeft: gr.left,
       gripRight: gr.right,
       width: r.width,
       height: r.height,
+      top: r.top,
+      bottom: r.bottom,
       centre: r.left + r.width / 2,
-      colour: s.backgroundColor,
-      radius: s.borderTopLeftRadius,
+      colour: getComputedStyle(p).color,
       children: p.childElementCount,
     };
   });
+}
+
+// How many separate marks are PAINTED down the handle's centre line: a run is
+// pixels unlike the gap's own, read 6px above the mark. The pill was one run.
+async function inkRuns(page: Page, sel: string) {
+  const m = await mark(page, sel);
+  const ys: number[] = [];
+  for (let y = Math.floor(m.top) - 6; y <= Math.ceil(m.bottom) + 2; y++)
+    ys.push(y);
+  const [ground, ...column] = await pixelsAt(page, [
+    [m.centre, m.top - 6],
+    ...ys.map((y): [number, number] => [m.centre, y]),
+  ]);
+  let runs = 0;
+  let inRun = false;
+  for (const colour of column) {
+    const ink = contrast(colour, ground) > 1.15;
+    if (ink && !inRun) runs++;
+    inRun = ink;
+  }
+  return { runs, ground };
 }
 
 for (const [theme, palette] of [
   ['Chalk', CHALK_THEME],
   ['Charcoal', CHARCOAL_THEME],
 ] as const) {
-  test(`${theme}: each handle is a 4×40 pill centred in its gap, 48px in the text colour on hover`, async ({
+  test(`${theme}: each handle is three dots centred in its gap, larger in the text colour on hover`, async ({
     context,
     extensionId,
   }) => {
@@ -223,13 +245,12 @@ for (const [theme, palette] of [
     } as const;
     for (const which of ['list', 'openNow'] as const) {
       const [from, to] = gaps[which];
-      const rest = await pill(page, GRIPS[which]);
-      expect(rest, which).toMatchObject({
-        width: 4,
-        height: 40,
-        radius: RADIUS.PILL,
-        children: 0,
-      });
+      const rest = await mark(page, GRIPS[which]);
+      expect(rest, which).toMatchObject({ width: 4, height: 20, children: 0 });
+      // CONTROL: the line read 6px above the mark is the gap's own ground.
+      const { runs, ground } = await inkRuns(page, GRIPS[which]);
+      expect(ground, which).toBe(palette.PRIMARY_COLOR);
+      expect(runs, which).toBe(3);
       expect(rgbToHex(rest.colour), which).toBe(palette.LABEL_L3_COLOR);
       // Findable before it is hovered: 3:1 on the pane, as a control needs (WCAG 1.4.11).
       expect(
@@ -245,19 +266,20 @@ for (const [theme, palette] of [
       await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
       await expect
         .poll(async () => {
-          const h = await pill(page, GRIPS[which]);
+          const h = await mark(page, GRIPS[which]);
           return [h.height, rgbToHex(h.colour)];
         })
-        .toEqual([48, palette.TEXT_COLOR]);
+        .toEqual([23, palette.TEXT_COLOR]);
+      expect((await inkRuns(page, GRIPS[which])).runs, which).toBe(3);
       await page.mouse.move(5, 5);
       await expect
-        .poll(async () => (await pill(page, GRIPS[which])).height)
-        .toBe(40);
+        .poll(async () => (await mark(page, GRIPS[which])).height)
+        .toBe(20);
     }
   });
 }
 
-test('keyboard focus and a drag both draw the long pill', async ({
+test('keyboard focus and a drag both draw the larger dots', async ({
   context,
   extensionId,
 }) => {
@@ -272,9 +294,9 @@ test('keyboard focus and a drag both draw the long pill', async ({
   await page.keyboard.press('Tab');
   await expect(grip).toBeFocused();
   await expect
-    .poll(async () => (await pill(page, GRIPS.openNow)).height)
-    .toBe(48);
-  // The ring goes round the pill.
+    .poll(async () => (await mark(page, GRIPS.openNow)).height)
+    .toBe(23);
+  // The ring goes round the dots.
   expect(
     await grip.evaluate(
       (g) => getComputedStyle(g.firstElementChild as HTMLElement).outlineStyle
@@ -286,11 +308,11 @@ test('keyboard focus and a drag both draw the long pill', async ({
   const g = (await grip.boundingBox())!;
   await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
   await page.mouse.down();
-  // Off the grip, still dragging: the pill stays long.
+  // Off the grip, still dragging: the dots stay larger.
   await page.mouse.move(g.x - 60, g.y + g.height / 2, { steps: 4 });
   await expect
-    .poll(async () => (await pill(page, GRIPS.openNow)).height)
-    .toBe(48);
+    .poll(async () => (await mark(page, GRIPS.openNow)).height)
+    .toBe(23);
   await page.keyboard.press('Escape');
   await page.mouse.up();
 });
