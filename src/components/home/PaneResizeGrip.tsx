@@ -217,6 +217,9 @@ export default function PaneResizeGrip({
       );
       background-size: 4px 7px;
       background-position: center 0;
+      /* Above the line below. */
+      position: relative;
+      z-index: 1;
       /* Grown by transform, not height: a height that animates re-lays out
          the page each frame, and the toast stack's hover flickered with it. */
       transition:
@@ -234,6 +237,39 @@ export default function PaneResizeGrip({
         color: ${COLORS.TEXT_COLOR};
       }
     }
+    /* KAN-791. While in use, a 2px line runs the gap's full height, under
+       the dots: after 300ms of hover, so a pointer crossing the gap draws
+       nothing, and at once on keyboard focus and while dragged. It leaves at
+       once. Reduce motion drops the fade, not the wait. */
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 2px;
+      transform: translateX(-50%);
+      background-color: color-mix(
+        in srgb,
+        ${COLORS.TEXT_COLOR} 40%,
+        transparent
+      );
+      opacity: 0;
+      transition: opacity ${DURATION.COLOR};
+      pointer-events: none;
+      @media (prefers-reduced-motion: reduce) {
+        transition-duration: 0ms;
+      }
+    }
+    &:hover::before {
+      opacity: 1;
+      transition-delay: 300ms;
+    }
+    /* After :hover, so a dragged grip, hovered too, shows it at once. */
+    ${whileKeyNav('&:focus-visible::before')}, &[data-active]::before {
+      opacity: 1;
+      transition-delay: 0ms;
+    }
     /* The app's ring (dialogButtons.ts): 2px of TEXT_COLOR. */
     ${whileKeyNav('&:focus-visible > span')} {
       outline: 2px solid ${COLORS.TEXT_COLOR};
@@ -244,6 +280,9 @@ export default function PaneResizeGrip({
        html, not :root: Emotion reads a selector that starts with a colon as
        one on this element, and wrote ".css-x:root[data-dragging] .css-x",
        which matches nothing. */
+    html[data-dragging] &:hover::before {
+      opacity: 0;
+    }
     html[data-dragging] &:hover {
       & > span {
         transform: none;
