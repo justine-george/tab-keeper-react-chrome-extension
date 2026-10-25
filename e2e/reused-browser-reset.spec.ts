@@ -15,6 +15,7 @@ import { allowInIncognito } from './fixtures/incognito';
 import {
   ReusedBrowser,
   removeDirs,
+  reusesBrowser,
   type LaunchedBrowser,
 } from './fixtures/reusedBrowser';
 
@@ -221,4 +222,15 @@ test('incognito access cannot be undone: the next test gets a new browser withou
   } finally {
     await reused.close();
   }
+});
+
+// KAN-771. On locally, off on CI, and either when asked.
+test('which runs reuse a browser', () => {
+  expect(reusesBrowser({})).toBe(true);
+  expect(reusesBrowser({ CI: 'true' })).toBe(false);
+  expect(reusesBrowser({ E2E_REUSE_BROWSER: '0' })).toBe(false);
+  expect(reusesBrowser({ CI: 'true', E2E_REUSE_BROWSER: '1' })).toBe(true);
+  expect(() => reusesBrowser({ E2E_REUSE_BROWSER: 'true' })).toThrow(
+    'E2E_REUSE_BROWSER is 1 or 0, not "true"'
+  );
 });
