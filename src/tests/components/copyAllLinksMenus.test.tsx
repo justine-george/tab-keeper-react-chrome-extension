@@ -286,6 +286,73 @@ describe('live windows and groups (Open now)', () => {
       ]);
     });
   });
+
+  // KAN-792. The same copy as a header icon, after the two saves.
+  describe("Open now's header Copy all links icon", () => {
+    const header = () => {
+      const el = document.querySelector<HTMLElement>('[data-open-now-header]');
+      if (!el) throw new Error('no Open now header');
+      return el;
+    };
+    const copyIcon = () =>
+      within(header()).queryByRole('button', { name: 'Copy all links' });
+    const clickCopyIcon = (user: ReturnType<typeof userEvent.setup>) => {
+      const icon = copyIcon();
+      if (!icon) throw new Error('no Copy all links icon');
+      return user.click(icon);
+    };
+
+    test("it copies exactly what the header right-click's Copy all links copies", async () => {
+      const user = userEvent.setup();
+      const writeText = clipboard(() => Promise.resolve());
+      await renderOpenNow();
+
+      await clickCopyIcon(user);
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      expect(await screen.findByText('5 links copied.')).toBeVisible();
+      fireEvent.contextMenu(
+        within(header()).getByRole('heading', { name: 'Currently open' })
+      );
+      await chooseCopy(user);
+
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+      expect(writeText.mock.calls[0][0]).toBe(writeText.mock.calls[1][0]);
+      expect(String(writeText.mock.calls[0][0]).split('\n')[1]).toBe(
+        '2 Windows · 5 Tabs'
+      );
+    });
+
+    test('a refused clipboard from the icon copies nothing and shows no toast', async () => {
+      const user = userEvent.setup();
+      const writeText = clipboard(refused);
+      const { store } = await renderOpenNow();
+
+      await clickCopyIcon(user);
+
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      expect(newestToast(store.getState())).toBeUndefined();
+    });
+
+    // O14e: a held search hides tabs, and the copy would carry them unseen.
+    test('is hidden while the Open now search holds text, and back when it is cleared', async () => {
+      const user = userEvent.setup();
+      await renderOpenNow();
+      const search = screen.getByRole('textbox', { name: 'Search open tabs' });
+      // CONTROL: there before the search.
+      expect(copyIcon()).toBeInTheDocument();
+
+      await user.type(search, 't2');
+
+      expect(copyIcon()).toBeNull();
+      expect(
+        screen.getByRole('button', {
+          name: 'Save all open windows as a session',
+        })
+      ).toBeInTheDocument();
+      await user.clear(search);
+      expect(copyIcon()).toBeInTheDocument();
+    });
+  });
 });
 
 describe('saved windows and groups', () => {
