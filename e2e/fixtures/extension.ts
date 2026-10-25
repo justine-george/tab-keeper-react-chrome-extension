@@ -81,7 +81,25 @@ export const test = base.extend<
   cloud: [false, { option: true }],
 
   context: async (
-    { showScrollbars, audibleTabs, freshProfile, cloud, colorScheme, reused },
+    {
+      showScrollbars,
+      audibleTabs,
+      freshProfile,
+      cloud,
+      colorScheme,
+      reused,
+      deviceScaleFactor,
+      viewport,
+      locale,
+      timezoneId,
+      reducedMotion,
+      forcedColors,
+      hasTouch,
+      isMobile,
+      userAgent,
+      javaScriptEnabled,
+      contextOptions,
+    },
     use,
     testInfo
   ) => {
@@ -116,7 +134,25 @@ export const test = base.extend<
     const context =
       launched?.context ??
       (await reused.take(
-        JSON.stringify({ showScrollbars, audibleTabs, colorScheme }),
+        JSON.stringify({
+          showScrollbars,
+          audibleTabs,
+          colorScheme,
+          // The runner hands each of these to every launch, so each is a launch option.
+          runner: {
+            deviceScaleFactor,
+            viewport,
+            locale,
+            timezoneId,
+            reducedMotion,
+            forcedColors,
+            hasTouch,
+            isMobile,
+            userAgent,
+            javaScriptEnabled,
+            contextOptions,
+          },
+        }),
         launch
       ));
 

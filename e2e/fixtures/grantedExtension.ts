@@ -74,7 +74,24 @@ export const grantedTest = base.extend<
   // --headed: a spec that needs a real window manager can then be run headed
   // on purpose (open-now-close.spec.ts test 2).
   context: async (
-    { keepWindowBounds, showScrollbars, refuseSessions, headless, reused },
+    {
+      keepWindowBounds,
+      showScrollbars,
+      refuseSessions,
+      headless,
+      reused,
+      deviceScaleFactor,
+      viewport,
+      locale,
+      timezoneId,
+      reducedMotion,
+      forcedColors,
+      hasTouch,
+      isMobile,
+      userAgent,
+      javaScriptEnabled,
+      contextOptions,
+    },
     use,
     testInfo
   ) => {
@@ -117,6 +134,20 @@ export const grantedTest = base.extend<
           showScrollbars,
           refuseSessions,
           headless,
+          // The runner hands each of these to every launch, so each is a launch option.
+          runner: {
+            deviceScaleFactor,
+            viewport,
+            locale,
+            timezoneId,
+            reducedMotion,
+            forcedColors,
+            hasTouch,
+            isMobile,
+            userAgent,
+            javaScriptEnabled,
+            contextOptions,
+          },
         }),
         launch
       ));
