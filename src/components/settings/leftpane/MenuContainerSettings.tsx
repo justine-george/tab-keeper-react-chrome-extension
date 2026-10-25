@@ -3,9 +3,12 @@ import { useDispatch } from 'react-redux';
 import Icon from '../../common/Icon';
 import ClickableRow from '../../common/ClickableRow';
 import {
+  BACK_GLYPH_SHIFT_PX,
   BACK_LABEL_GAP,
   HEADER_BACK_TARGET,
+  headerBackFillCss,
 } from '../../common/headerBackTarget';
+import { hoverMotionCss } from '../../common/hoverMotion';
 import { NormalLabel } from '../../common/Label';
 import { AppDispatch } from '../../../redux/store';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -14,7 +17,7 @@ import {
   closeAllToasts,
 } from '../../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
-import { TYPE } from '../../../styles/scale';
+import { DURATION, TYPE } from '../../../styles/scale';
 
 export default function MenuContainer() {
   const COLORS = useThemeColors();
@@ -25,6 +28,11 @@ export default function MenuContainer() {
     justify-content: space-around;
     align-items: center;
     ${HEADER_BACK_TARGET}
+    ${headerBackFillCss(COLORS)}
+    ${hoverMotionCss({
+      translate: `${-BACK_GLYPH_SHIFT_PX}px`,
+      duration: DURATION.MOVE,
+    })}
   `;
 
   const dispatch: AppDispatch = useDispatch();
@@ -41,7 +49,10 @@ export default function MenuContainer() {
       onClick={handleBackClick}
       style={containerStyle}
     >
-      <Icon type="arrow_back" />
+      <Icon
+        type="arrow_back"
+        style={`margin-left: ${BACK_GLYPH_SHIFT_PX}px; margin-right: ${-BACK_GLYPH_SHIFT_PX}px;`}
+      />
       <NormalLabel
         value={t('Back')}
         size={TYPE.SECTION}
