@@ -154,7 +154,7 @@ export function MenuPanel({
     }
   `;
 
-  // KAN-775. Icon beside a short label, sized to fit, as tall as a list item; the same padding keeps the first glyph on the list's icon column.
+  // KAN-775. Icon beside a short label, sized to fit, 8px taller than a list item so the row reads as a toolbar; the same side padding keeps the first glyph on the list's icon column.
   const rowStyle = css`
     display: flex;
     gap: 4px;
@@ -166,6 +166,7 @@ export function MenuPanel({
     ${itemStyle(false)}
     width: auto;
     gap: 6px;
+    padding-block: 12px;
   `;
 
   const glyph = (icon: IconName) => (

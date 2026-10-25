@@ -216,6 +216,28 @@ for (const where of ['an unselected row', 'the header ⋮'] as const) {
   });
 }
 
+// KAN-775 r8. The row's buttons stand 8px taller than a list item, so the row reads as a toolbar; the list keeps every menu's item height.
+test('popup: row buttons are 42px tall; list items stay 34px', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openSaved(context, extensionId, 'popup', {
+    sessions: SESSIONS,
+  });
+  await rightClickTitle(page, sessionRow(page, 'S2'));
+  const heights = (items: Locator) =>
+    items.evaluateAll((els) =>
+      els.map((el) => Math.round(el.getBoundingClientRect().height))
+    );
+
+  expect(await heights(actionRow(page).getByRole('menuitem'))).toEqual([
+    42, 42, 42,
+  ]);
+  expect(
+    new Set(await heights(rowMenu(page).locator(':scope > [data-menu-item]')))
+  ).toEqual(new Set([34]));
+});
+
 test('popup: a row button takes the list items’ hover and press fills', async ({
   context,
   extensionId,
