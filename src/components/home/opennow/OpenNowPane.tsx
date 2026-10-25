@@ -600,6 +600,8 @@ export default function OpenNowPane({
   // TYPE.SECTION/TEXT_COLOR, inside the same 32px line, so nothing moves.
   const headingStyle = css`
     display: flex;
+    /* KAN-784. Fills the title line, so the heading keeps the header's width beside no close. */
+    flex: 1 1 auto;
     align-items: center;
     height: 32px;
     max-width: 100%;
@@ -618,7 +620,6 @@ export default function OpenNowPane({
   const titleLineStyle = css`
     display: flex;
     align-items: center;
-    justify-content: space-between;
     min-width: 0;
   `;
 
