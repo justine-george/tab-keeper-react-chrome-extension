@@ -67,7 +67,7 @@ export function useOpenWindows(showGroups: boolean): OpenWindow[] | null {
       } catch (error) {
         // A window closed between calls, say. Keep the last good snapshot;
         // the next event reads again.
-        console.warn('Open now could not read the open windows: ', error);
+        console.warn('Tab Keeper could not read the open windows: ', error);
       }
     };
 

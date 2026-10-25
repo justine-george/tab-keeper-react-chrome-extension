@@ -290,7 +290,7 @@ test('a narrow full view: the card stays over the Open now drawer', async ({
   await page
     .getByRole('button', { name: 'Show the saved session', exact: true })
     .click();
-  await page.getByRole('button', { name: /^Open now/ }).click();
+  await page.getByRole('button', { name: /^Currently open/ }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
 
   const close = time.getByRole('button', { name: 'Not now', exact: true });

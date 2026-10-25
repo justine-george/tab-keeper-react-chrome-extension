@@ -283,8 +283,8 @@ grantedTest(
       },
       { urls: ['Temples', 'Gardens', 'Loose'].map(standIn), title: LONG_GROUP }
     );
-    await page.getByRole('button', { name: /^Open now/ }).click();
-    const drawer = page.getByRole('dialog', { name: 'Open now' });
+    await page.getByRole('button', { name: /^Currently open/ }).click();
+    const drawer = page.getByRole('dialog', { name: 'Currently open' });
     await expect(drawer).toBeVisible();
     // PREMISE: the drawer is the narrow one.
     expect((await boxOf(drawer)).width).toBe(380);

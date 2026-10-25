@@ -369,7 +369,7 @@ describe('closing from the Open now pane (KAN-280 O7a)', () => {
     await closeWindowFromMenu('Window 1');
     await gone(3);
     expect(document.activeElement).toBe(
-      screen.getByRole('heading', { name: 'Open now' })
+      screen.getByRole('heading', { name: 'Currently open' })
     );
   });
 

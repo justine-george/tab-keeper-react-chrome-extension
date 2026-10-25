@@ -484,14 +484,14 @@ test.describe('Open now in the tab view (KAN-280)', () => {
       VIEW_TAB,
       NARROW_VIEWPORT
     );
-    const rail = page.getByRole('button', { name: /^Open now/ });
+    const rail = page.getByRole('button', { name: /^Currently open/ });
     await expect(rail).toBeVisible();
     await expect
       .poll(async () => Math.round((await need(page, OPEN_NOW)).width))
       .toBe(44);
 
     await rail.click();
-    const drawer = page.getByRole('dialog', { name: 'Open now' });
+    const drawer = page.getByRole('dialog', { name: 'Currently open' });
     await expect(drawer).toBeVisible();
     const box = await drawer.boundingBox();
     if (box === null) throw new Error('the drawer has no box');
@@ -545,8 +545,8 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     const toast = page.locator('[data-toast]', { hasText: '1 link copied.' });
     await expect(toast).toBeVisible();
 
-    await page.getByRole('button', { name: /^Open now/ }).click();
-    const drawer = page.getByRole('dialog', { name: 'Open now' });
+    await page.getByRole('button', { name: /^Currently open/ }).click();
+    const drawer = page.getByRole('dialog', { name: 'Currently open' });
     await expect(drawer).toBeVisible();
     await expect(toast).toBeVisible();
 
@@ -949,7 +949,7 @@ test.describe('Open now heading and empty-list layout (KAN-280)', () => {
   }) => {
     const page = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
     const heading = page.locator(`${OPEN_NOW} h2`);
-    await expect(heading).toHaveText('Open now');
+    await expect(heading).toHaveText('Currently open');
     const facts = await heading.evaluate((h2: Element) => {
       const header = h2.parentElement;
       const text = h2.querySelector('span');
@@ -1094,9 +1094,12 @@ test.describe('Open now names its region and its drawer (KAN-280)', () => {
     // PREMISE: both panes offer the control under the same name.
     await expect(page.getByRole('button', collapseAll)).toHaveCount(2);
 
-    const region = page.getByRole('region', { name: 'Open now', exact: true });
+    const region = page.getByRole('region', {
+      name: 'Currently open',
+      exact: true,
+    });
     await expect(region).toHaveCount(1);
-    await expect(region).toHaveAccessibleName('Open now');
+    await expect(region).toHaveAccessibleName('Currently open');
     const scoped = region.getByRole('button', collapseAll);
     await expect(scoped).toHaveCount(1);
     // The one the region scopes is Open now's own, not the saved pane's.
@@ -1120,10 +1123,13 @@ test.describe('Open now names its region and its drawer (KAN-280)', () => {
       VIEW_TAB,
       NARROW_VIEWPORT
     );
-    await page.getByRole('button', { name: /^Open now/ }).click();
-    const drawer = page.getByRole('dialog', { name: 'Open now', exact: true });
+    await page.getByRole('button', { name: /^Currently open/ }).click();
+    const drawer = page.getByRole('dialog', {
+      name: 'Currently open',
+      exact: true,
+    });
     await expect(drawer).toBeVisible();
-    await expect(drawer).toHaveAccessibleName('Open now');
+    await expect(drawer).toHaveAccessibleName('Currently open');
     await expect(drawer).not.toHaveAttribute('aria-label');
     // The name's source is the drawer's own h2.
     expect(
@@ -1137,7 +1143,7 @@ test.describe('Open now names its region and its drawer (KAN-280)', () => {
     ).toEqual({ tag: 'H2', inDrawer: true });
     // Inside it, Open now is still the region its heading names.
     await expect(
-      drawer.getByRole('region', { name: 'Open now', exact: true })
+      drawer.getByRole('region', { name: 'Currently open', exact: true })
     ).toHaveCount(1);
   });
 });

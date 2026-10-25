@@ -545,7 +545,7 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['full view: folded rail', 'button "Open in new window: Morning reading" #1', 'button', 'Open in new window: Morning reading', ''],
     ['full view: folded rail', 'div[button] "More actions" #3', 'button', 'More actions', ''],
     ['full view: folded rail', 'div[button] "Delete tab" #1', 'button', 'Delete tab', ''],
-    ['full view: folded rail', 'button "Open now, 4 Tabs" #1', 'button', 'Open now, 4 Tabs', ''],
+    ['full view: folded rail', 'button "Currently open, 4 Tabs" #1', 'button', 'Currently open, 4 Tabs', ''],
     ['full view: Open now drawer', 'anchor:compact #1', 'button', 'Open compact view', ''],
     ['full view: Open now drawer', 'div[button] "Sort sessions" #1', 'button', 'Sort sessions', ''],
     ['full view: Open now drawer', 'div[button] "Undo" #1', 'button', 'Undo', ''],
@@ -570,8 +570,8 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['full view: Open now drawer', 'button "Open in new window: Morning reading" #1', 'button', 'Open in new window: Morning reading', ''],
     ['full view: Open now drawer', 'div[button] "More actions" #3', 'button', 'More actions', ''],
     ['full view: Open now drawer', 'div[button] "Delete tab" #1', 'button', 'Delete tab', ''],
-    ['full view: Open now drawer', 'button "Open now, 4 Tabs" #1', 'button', 'Open now, 4 Tabs', ''],
-    ['full view: Open now drawer', 'div[button] "Close Open now" #1', 'button', 'Close Open now', ''],
+    ['full view: Open now drawer', 'button "Currently open, 4 Tabs" #1', 'button', 'Currently open, 4 Tabs', ''],
+    ['full view: Open now drawer', 'div[button] "Close the Currently open panel" #1', 'button', 'Close the Currently open panel', ''],
     ['full view: Open now drawer', 'div[button] "Collapse all windows" #2', 'button', 'Collapse all windows', ''],
     ['full view: Open now drawer', 'div[button] "Save all open windows as a session" #1', 'button', 'Save all open windows as a session', ''],
     ['full view: Open now drawer', 'div[button] "Save current window as a session" #1', 'button', 'Save current window as a session', ''],
@@ -930,11 +930,11 @@ grantedTest(
     await page.keyboard.press('Escape');
 
     await page.setViewportSize({ width: 900, height: 800 });
-    const rail = page.getByRole('button', { name: /^Open now/ });
+    const rail = page.getByRole('button', { name: /^Currently open/ });
     await rail.waitFor();
     ax.push(...(await recordAx(page, 'full view: folded rail')));
     await rail.click();
-    await page.getByRole('dialog', { name: 'Open now' }).waitFor();
+    await page.getByRole('dialog', { name: 'Currently open' }).waitFor();
     ax.push(...(await recordAx(page, 'full view: Open now drawer')));
     await expectAx(page, ax, EXPECTED.fullView);
   }

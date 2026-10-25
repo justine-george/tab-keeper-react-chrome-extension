@@ -54,7 +54,7 @@ test('right-clicking the header opens the three saves; Esc closes it', async ({
 }) => {
   const page = await openFullView(context, extensionId);
 
-  await header(page).getByRole('heading', { name: 'Open now' }).click({
+  await header(page).getByRole('heading', { name: 'Currently open' }).click({
     button: 'right',
   });
 

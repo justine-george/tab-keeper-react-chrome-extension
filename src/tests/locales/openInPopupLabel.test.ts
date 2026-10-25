@@ -85,3 +85,39 @@ describe('"Back to your tab" in every locale (KAN-509, KAN-785)', () => {
     }
   );
 });
+
+// KAN-787. On a button "Open now" read as a command; English only, keys stay and en re-maps.
+const CURRENTLY_OPEN: Record<string, string> = {
+  'Open now': 'Currently open',
+  'Close Open now': 'Close the Currently open panel',
+  'Resize Open now': 'Resize the Currently open panel',
+  'Open now shows every window and tab in Chrome, kept up to date as you browse.':
+    'Currently open shows every window and tab in Chrome, kept up to date as you browse.',
+  'Type in the search box to find an open tab. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.':
+    'Type in the search box to find an open tab. Drag the edge to make this wider, or press {{icon}} to give Currently open the whole view.',
+  'Type in the search box to find an open tab. Press {{icon}} to give Open now the whole view.':
+    'Type in the search box to find an open tab. Press {{icon}} to give Currently open the whole view.',
+  'Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.':
+    'Currently open is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.',
+};
+
+describe('"Currently open" names the pane in English (KAN-787)', () => {
+  test.each(Object.entries(CURRENTLY_OPEN))('en maps %s', (key, value) => {
+    expect(en[key as keyof typeof en]).toBe(value);
+  });
+
+  test('no en value still says "Open now"', () => {
+    expect(Object.values(en).filter((v) => v.includes('Open now'))).toEqual([]);
+  });
+
+  // The other 12 already said "open tabs" and are untouched.
+  test.each(Object.keys(LOCALES).filter((l) => l !== 'en'))(
+    '%s keeps its own name',
+    (lang) => {
+      for (const [key, value] of Object.entries(CURRENTLY_OPEN)) {
+        expect(LOCALES[lang][key]).toEqual(expect.any(String));
+        expect(LOCALES[lang][key]).not.toBe(value);
+      }
+    }
+  );
+});

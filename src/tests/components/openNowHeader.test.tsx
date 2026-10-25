@@ -66,7 +66,7 @@ describe("Open now's title is a session title's size (KAN-576)", () => {
   test('TYPE.SECTION in TEXT_COLOR, as HeroContainerRight draws a session name', async () => {
     await renderPane('compact');
 
-    const heading = screen.getByRole('heading', { name: 'Open now' });
+    const heading = screen.getByRole('heading', { name: 'Currently open' });
     // jsdom resolves rem against its 16px root.
     expect(getComputedStyle(heading).fontSize).toBe(
       `${parseFloat(TYPE.SECTION) * 16}px`

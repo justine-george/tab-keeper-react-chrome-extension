@@ -83,7 +83,7 @@ const headerButton = (name: string) =>
   within(header()).getByRole('button', { name });
 const openHeaderMenu = () =>
   fireEvent.contextMenu(
-    within(header()).getByRole('heading', { name: 'Open now' })
+    within(header()).getByRole('heading', { name: 'Currently open' })
   );
 const itemLabels = () =>
   within(screen.getByRole('menu'))
@@ -198,7 +198,7 @@ describe("Open now's header saves (KAN-774)", () => {
     await renderOpenNow(twoWindows);
 
     const event = fireEvent.contextMenu(
-      within(header()).getByRole('heading', { name: 'Open now' })
+      within(header()).getByRole('heading', { name: 'Currently open' })
     );
 
     // Our menu, not Chrome's.
@@ -230,7 +230,7 @@ describe("Open now's header saves (KAN-774)", () => {
     for (const name of [SAVE_ALL, SAVE_CURRENT, PDF])
       expect(within(header()).queryByRole('button', { name })).toBeNull();
     const event = fireEvent.contextMenu(
-      within(header()).getByRole('heading', { name: 'Open now' })
+      within(header()).getByRole('heading', { name: 'Currently open' })
     );
     expect(event).toBe(true);
     expect(screen.queryByRole('menu')).toBeNull();

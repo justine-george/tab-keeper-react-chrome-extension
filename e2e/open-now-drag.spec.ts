@@ -1769,8 +1769,8 @@ test("9. in the narrow tab view's drawer, a drop moves the real tab as in the pa
   const page = await openTabView(context, extensionId, NARROW_VIEWPORT);
   const a = await openWindow(worker, ['a0', 'a1', 'a2']);
   const b = await openWindow(worker, ['b0', 'b1']);
-  await page.getByRole('button', { name: /^Open now/ }).click();
-  const drawer = page.getByRole('dialog', { name: 'Open now' });
+  await page.getByRole('button', { name: /^Currently open/ }).click();
+  const drawer = page.getByRole('dialog', { name: 'Currently open' });
   await expect(drawer).toBeVisible();
   await expect(tabRow(page, b.tab('b1'))).toBeVisible();
 

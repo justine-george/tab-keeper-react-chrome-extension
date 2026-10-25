@@ -36,9 +36,9 @@ async function openDrawer(
   const page = await context.newPage();
   await page.setViewportSize(viewport);
   await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
-  const rail = page.getByRole('button', { name: /^Open now/ });
+  const rail = page.getByRole('button', { name: /^Currently open/ });
   await rail.click();
-  const drawer = page.getByRole('dialog', { name: 'Open now' });
+  const drawer = page.getByRole('dialog', { name: 'Currently open' });
   await expect(drawer).toBeVisible();
   return { page, rail, drawer };
 }
@@ -143,7 +143,7 @@ test('a click on the toast leaves the drawer open', async ({
   await page.getByRole('menuitem', { name: 'Copy all links' }).click();
   const toast = page.locator('[data-toast]', { hasText: '1 link copied.' });
   await expect(toast).toBeVisible();
-  await page.getByRole('button', { name: /^Open now/ }).click();
+  await page.getByRole('button', { name: /^Currently open/ }).click();
   await expect(drawer).toBeVisible();
 
   await toast.getByText('1 link copied.').click();

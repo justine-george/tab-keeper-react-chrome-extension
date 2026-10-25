@@ -8,7 +8,7 @@ import { standIn } from './fixtures/standInPages';
 // header's top-right corner, flush, as a dialog's close does (his pick). The
 // action row keeps « and gives the ✕'s 32px to Back to your tab.
 
-const CLOSE = 'Close Open now';
+const CLOSE = 'Close the Currently open panel';
 
 test.beforeEach(async ({ context, serviceWorker }) => {
   await seedSettings(context, { foldSavedSessionInTabView: false });
@@ -27,7 +27,9 @@ async function openDrawer(page: Page, extensionId: string) {
   await page.setViewportSize({ width: 1024, height: 700 });
   await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
   await page.locator('[data-tour-anchor="save"]').waitFor();
-  const rail = page.locator('button[aria-expanded][aria-label^="Open now"]');
+  const rail = page.locator(
+    'button[aria-expanded][aria-label^="Currently open"]'
+  );
   await rail.click();
   const drawer = page.getByRole('dialog');
   await expect(drawer.getByRole('button', { name: CLOSE })).toBeVisible();

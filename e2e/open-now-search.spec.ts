@@ -106,7 +106,7 @@ const seedSideBySide = (context: BrowserContext) =>
   seedSettings(context, { foldSavedSessionInTabView: false });
 
 const railButton = (page: Page) =>
-  page.getByRole('button', { name: /^Open now/ });
+  page.getByRole('button', { name: /^Currently open/ });
 
 const field = (page: Page) =>
   page
@@ -557,7 +557,7 @@ test.describe('Open now search (KAN-330)', () => {
       height: 768,
     });
     await railButton(page).click();
-    const drawer = page.getByRole('dialog', { name: 'Open now' });
+    const drawer = page.getByRole('dialog', { name: 'Currently open' });
     await expect(drawer).toBeVisible();
     await field(page).click();
     await page.keyboard.type('x');
@@ -584,7 +584,7 @@ test.describe('Open now search (KAN-330)', () => {
       height: 768,
     });
     await expect(railButton(page)).toBeVisible();
-    const drawer = page.getByRole('dialog', { name: 'Open now' });
+    const drawer = page.getByRole('dialog', { name: 'Currently open' });
     // PREMISE: the drawer is closed, so the field is not on the page.
     await expect(drawer).toHaveCount(0);
     await expect(field(page)).toHaveCount(0);
@@ -1118,7 +1118,7 @@ test.describe('an IME composing a word in the field (KAN-330)', () => {
       height: 768,
     });
     await railButton(page).click();
-    const drawer = page.getByRole('dialog', { name: 'Open now' });
+    const drawer = page.getByRole('dialog', { name: 'Currently open' });
     await expect(drawer).toBeVisible();
     const cdp = await composing(page, context);
     const esc = { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 };
