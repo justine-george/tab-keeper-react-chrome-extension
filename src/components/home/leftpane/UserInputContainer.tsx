@@ -16,7 +16,6 @@ import { TYPE } from '../../../styles/scale';
 import { AppDispatch, type RootState } from '../../../redux/store';
 import {
   captureOpenWindows,
-  hasTabsToSave,
   isNameSourceNoise,
   isNotANameSource,
   isTabKeeperPage,
@@ -26,7 +25,7 @@ import { dropNotificationCount } from '../../../utils/functions/sessionExportHtm
 import { selectRunAwaitsSave, takeRunSave } from '../../../redux/firstRun';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { normalizeTitle } from '../../../utils/functions/local';
-import { openBesideActiveTab } from '../../../utils/functions/openBesideActiveTab';
+import { exportOpenWindows } from '../exportOpenWindows';
 import { showToast } from '../../../redux/slices/globalStateSlice';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import {
@@ -357,22 +356,7 @@ export default function UserInputContainer() {
                 key: 'export-open-windows',
                 label: t('Save open windows as PDF'),
                 icon: 'ios_share',
-                onSelect: async () => {
-                  // KAN-522. Checked first: with only Tab Keeper open the page would have nothing to export.
-                  if (!(await hasTabsToSave())) {
-                    void dispatch(
-                      showToast({ toastText: TOAST_MESSAGES.NOTHING_TO_SAVE })
-                    );
-                    return;
-                  }
-                  // Opening a tab takes focus, which destroys the popup.
-                  // Nothing may be sequenced after this call -- the page
-                  // captures the windows for itself when it loads, which is
-                  // also why no snapshot is handed over here.
-                  void openBesideActiveTab(
-                    chrome.runtime.getURL('export.html?source=open-windows')
-                  );
-                },
+                onSelect: () => void exportOpenWindows(dispatch),
               },
             ]}
           />
