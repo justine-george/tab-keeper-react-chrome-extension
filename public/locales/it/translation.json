@@ -428,5 +428,8 @@
   "Default save": "Salvataggio predefinito",
   "All windows": "Tutte le finestre",
   "Current window": "Finestra attuale",
-  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Usato dal pulsante Salva e dal tasto Invio. L’altro salvataggio è nel menu ⋮."
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Usato dal pulsante Salva e dal tasto Invio. L’altro salvataggio è nel menu ⋮.",
+  "Rename": "Rinomina",
+  "Go to": "Vai",
+  "Add tab": "Aggiungi scheda"
 }

@@ -58,7 +58,8 @@ const title = () => within(header()).getByText('Roadmap');
 const dots = () => screen.getByRole('button', { name: 'More actions' });
 
 describe('right-clicking the session header (KAN-708)', () => {
-  test('the title offers exactly the header ⋮’s items, in order, and Chrome’s menu is suppressed', async () => {
+  // KAN-793. The right-click leads with the header's Open · Switch · Replace; the ⋮ beside them does not.
+  test('the title offers the header’s three buttons, then exactly the ⋮’s items, and Chrome’s menu is suppressed', async () => {
     const user = userEvent.setup();
     await renderBoth();
 
@@ -73,8 +74,8 @@ describe('right-clicking the session header (KAN-708)', () => {
 
     await user.click(dots());
     const dotItems = labels(screen.getByRole('menu', { name: 'More actions' }));
-    expect(rightClickItems).toEqual(dotItems);
-    expect(rightClickItems.length).toBeGreaterThanOrEqual(3);
+    expect(rightClickItems).toEqual(['Open', 'Switch', 'Replace', ...dotItems]);
+    expect(dotItems.length).toBeGreaterThanOrEqual(3);
   });
 
   test('the Open button gives the same menu', async () => {

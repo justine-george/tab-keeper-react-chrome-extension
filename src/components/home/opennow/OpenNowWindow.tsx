@@ -307,11 +307,43 @@ export default function OpenNowWindow({
   // not rendered at all (out of the tab order too). Clearing the search
   // brings both back.
   const offersWindowActions = matchedTabIds === null;
-  // KAN-708. The window row's right-click shows the same items its ⋮ does, and holds the row as hovered.
+  const { isSearching: isSavedSearching } = useSavedSearch();
+  // KAN-331 O15. The row takes you to its window: not "This window" (W2 A,
+  // you are in it), and not while a search is held (S2).
+  const goesToWindow = !openWindow.isThisWindow && matchedTabIds === null;
+  // KAN-793. A right-click leads with the title's Go to and the strip's Save, each where the row has it; the ⋮ beside Save does not.
+  const windowRowButtons: OverflowMenuItem[] = [
+    ...(goesToWindow
+      ? [
+          {
+            key: 'goToWindow',
+            actionRowLabel: t('Go to'),
+            label: t('Go to window'),
+            icon: 'filter_center_focus' as const,
+            // As the title's click: Chrome rejects when the window closed after this row was drawn.
+            onSelect: () =>
+              void focusOpenWindow(openWindow.id).catch(() => undefined),
+          },
+        ]
+      : []),
+    ...(isSavedSearching
+      ? []
+      : [
+          {
+            key: 'saveWindow',
+            actionRowLabel: t('Save'),
+            label: t('Save window as a session'),
+            icon: SAVE_OF['current-window'].icon,
+            onSelect: onSaveWindow,
+          },
+        ]),
+  ];
+  // KAN-708. The window row's right-click shows its buttons, then the items its ⋮ does, and holds the row as hovered.
   const windowMenu = useRowContextMenu({
     kind: 'openWindow',
     ariaLabel: () => `${t('More actions')}: ${title}`,
-    itemsFor: () => (offersWindowActions ? windowMenuItems : null),
+    itemsFor: () =>
+      offersWindowActions ? [...windowRowButtons, ...windowMenuItems] : null,
   });
   const menuOpen = isWindowMenuOpen || windowMenu.heldId !== null;
   // By Chrome tab id, not by position, for KAN-127's reason: a re-read (and,
@@ -332,11 +364,6 @@ export default function OpenNowWindow({
     font-family: ${FONT_FAMILY};
     margin-bottom: 8px;
   `;
-
-  const { isSearching: isSavedSearching } = useSavedSearch();
-  // KAN-331 O15. The row takes you to its window: not "This window" (W2 A,
-  // you are in it), and not while a search is held (S2).
-  const goesToWindow = !openWindow.isThisWindow && matchedTabIds === null;
 
   // KAN-700. Every row with a strip shades on hover, "This window" too, as
   // the saved list's do; under a search there is no strip and no button.
@@ -582,6 +609,31 @@ export default function OpenNowWindow({
     }))
   );
 
+  // KAN-793. A group's right-click leads with the strip's Save and the title's Rename; the ⋮ beside Save does not.
+  const groupRowButtons = (group: {
+    groupId: string;
+    title: string;
+  }): OverflowMenuItem[] => [
+    ...(isSavedSearching
+      ? []
+      : [
+          {
+            key: 'saveGroup',
+            actionRowLabel: t('Save'),
+            label: t('Save group as a session'),
+            icon: 'add_box' as const,
+            onSelect: () => onSaveGroup(Number(group.groupId)),
+          },
+        ]),
+    {
+      key: 'rename',
+      actionRowLabel: t('Rename'),
+      label: t('Rename group'),
+      icon: 'edit',
+      onSelect: () => startEditingGroup(group),
+    },
+  ];
+
   // KAN-708. One item source for a live group: its ⋮ and its right-click read the same list.
   const openGroupMenuItems = (groupId: string): OverflowMenuItem[] => [
     // KAN-783. First, as on the window. toSavedWindow keeps the i-th group as the i-th entry.
@@ -657,14 +709,16 @@ export default function OpenNowWindow({
           : ''
       }`;
     },
-    itemsFor: (groupId) =>
-      editingGroupId !== groupId &&
-      offersWindowActions &&
-      items.some(
+    itemsFor: (groupId) => {
+      const band = items.find(
         (item) => item.kind === 'group' && item.group.groupId === groupId
-      )
-        ? openGroupMenuItems(groupId)
-        : null,
+      );
+      return editingGroupId !== groupId &&
+        offersWindowActions &&
+        band?.kind === 'group'
+        ? [...groupRowButtons(band.group), ...openGroupMenuItems(groupId)]
+        : null;
+    },
   });
 
   function renderTab(tab: OpenTab, grouped: boolean) {

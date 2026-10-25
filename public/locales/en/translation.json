@@ -414,5 +414,8 @@
   "Default save": "Default save",
   "All windows": "All windows",
   "Current window": "Current window",
-  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Used by the save button and the Enter key. The other save is in the ⋮ menu."
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Used by the save button and the Enter key. The other save is in the ⋮ menu.",
+  "Rename": "Rename",
+  "Go to": "Go to",
+  "Add tab": "Add tab"
 }

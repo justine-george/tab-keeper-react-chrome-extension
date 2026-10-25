@@ -818,7 +818,8 @@ describe('right-click (KAN-708)', () => {
         (g) => g.groupId
       );
 
-  test("a window row's right-click offers its ⋮ items in order", async () => {
+  // KAN-793. Then the row's Open · Add tab · Rename lead the right-click (menuTopRows.test.tsx).
+  test("a window row's right-click offers its ⋮ items in order, after its top row", async () => {
     const user = userEvent.setup();
     await renderSeeded();
 
@@ -834,13 +835,16 @@ describe('right-click (KAN-708)', () => {
     const dotsItems = labels(screen.getByRole('menu', { name: /./ }));
 
     expect(rowItems).toEqual([
+      'Open',
+      'Add tab',
+      'Rename',
       'Copy all links',
       'Sort tabs by site',
       'Sort groups by name',
       'Remove 1 duplicate tab',
       'Delete window',
     ]);
-    expect(rowItems).toEqual(dotsItems);
+    expect(rowItems.slice(3)).toEqual(dotsItems);
   });
 
   test('Delete window calls onDeleteClick', async () => {
@@ -861,6 +865,9 @@ describe('right-click (KAN-708)', () => {
     fireEvent.contextMenu(groupTitle('Work'));
     expect(menus()[0]).toHaveAccessibleName('More actions: Work');
     expect(labels(menus()[0])).toEqual([
+      'Open',
+      'Add tab',
+      'Rename',
       'Copy all links',
       'Ungroup',
       'Remove 1 duplicate tab',
@@ -871,6 +878,9 @@ describe('right-click (KAN-708)', () => {
     // Play has no duplicate; its menu is its own.
     fireEvent.contextMenu(groupTitle('Play'));
     expect(labels(menus()[0])).toEqual([
+      'Open',
+      'Add tab',
+      'Rename',
       'Copy all links',
       'Ungroup',
       'Delete tab group',

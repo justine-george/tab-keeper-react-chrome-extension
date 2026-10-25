@@ -442,5 +442,8 @@
   "Default save": "Сохранение по умолчанию",
   "All windows": "Все окна",
   "Current window": "Текущее окно",
-  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Используется кнопкой сохранения и клавишей Enter. Другой вариант сохранения — в меню ⋮."
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Используется кнопкой сохранения и клавишей Enter. Другой вариант сохранения — в меню ⋮.",
+  "Rename": "Переименовать",
+  "Go to": "Перейти",
+  "Add tab": "Добавить вкладку"
 }

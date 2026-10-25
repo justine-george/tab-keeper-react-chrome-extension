@@ -428,5 +428,8 @@
   "Default save": "Enregistrement par défaut",
   "All windows": "Toutes les fenêtres",
   "Current window": "Cette fenêtre",
-  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Utilisé par le bouton d’enregistrement et la touche Entrée. L’autre enregistrement se trouve dans le menu ⋮."
+  "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Utilisé par le bouton d’enregistrement et la touche Entrée. L’autre enregistrement se trouve dans le menu ⋮.",
+  "Rename": "Renommer",
+  "Go to": "Aller",
+  "Add tab": "Ajouter l’onglet"
 }

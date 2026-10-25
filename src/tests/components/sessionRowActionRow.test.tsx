@@ -22,7 +22,7 @@ import { setFoldSavedSessionInTabView } from '../../redux/slices/settingsDataSta
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { ADD_CURR_WINDOW_TO_TABGROUP_ACTION } from '../../utils/constants/actionTypes';
 
-// KAN-775. A session row's right-click: an unselected row opens with Open · Switch · Replace and offers Add current window; the selected row only gains Add.
+// KAN-775, KAN-793. Every session row's right-click opens with Open · Switch · Replace, then Add current window; the header's right-click has the row but no Add, and its ⋮ neither.
 
 const OWN_URL = 'chrome-extension://faketestid/index.html';
 const twoTabs: ChromeSeed = {
@@ -221,12 +221,40 @@ describe('an unselected row', () => {
 });
 
 describe('the selected row', () => {
-  test('popup: Add current window on top of today’s list, no action row', async () => {
+  test('popup: the same action row as any other row, then Add current window', async () => {
     await renderList();
     fireEvent.contextMenu(rowOf('Trip'));
 
-    expect(actionRow()).toBeNull();
-    expect(keys()).toEqual(['add', 'copy', 'export', 'delete']);
+    expect(actionRowNames()).toEqual(['Open', 'Switch', 'Replace']);
+    expect(keys()).toEqual([
+      'open',
+      'switch',
+      'replace',
+      'add',
+      'copy',
+      'export',
+      'delete',
+    ]);
+  });
+
+  test('its Open acts on it', async () => {
+    const { actions } = await renderList();
+    fireEvent.contextMenu(rowOf('Trip'));
+    fireEvent.click(item('Open'));
+
+    expect(
+      actions
+        .filter((a) => a.type === 'global/openAllTabContainer/pending')
+        .map((a) => ('meta' in a ? Reflect.get(Object(a.meta), 'arg') : null))
+    ).toEqual([{ tabGroupId: 'S1', goToURLText: 'Visit Site' }]);
+  });
+
+  test('full view, unfolded: Open · Replace, as the row has', async () => {
+    history.replaceState(null, '', '?view=tab');
+    await renderList(twoTabs, false);
+    fireEvent.contextMenu(rowOf('Trip'));
+
+    expect(actionRowNames()).toEqual(['Open', 'Replace']);
   });
 
   test('its Add adds to it and keeps it shown', async () => {
@@ -309,15 +337,33 @@ describe('keyboard', () => {
   });
 });
 
-describe('the header is unchanged', () => {
-  test('its ⋮ has no action row and no Add current window', async () => {
-    await renderWithProviders(<HeroContainerRight />, {
+describe('the header', () => {
+  const renderHeader = () =>
+    renderWithProviders(<HeroContainerRight />, {
       seed: twoTabs,
       seedStore: (store) => {
         store.dispatch(replaceState(buildContainer([S1, S2])));
         store.dispatch(selectTabContainer('S1'));
       },
     });
+
+  test('its right-click leads with Open · Switch · Replace and has no Add current window: the Add chip sits beside it', async () => {
+    await renderHeader();
+    fireEvent.contextMenu(screen.getAllByText('Trip')[0]);
+
+    expect(actionRowNames()).toEqual(['Open', 'Switch', 'Replace']);
+    expect(keys()).toEqual([
+      'open',
+      'switch',
+      'replace',
+      'copy',
+      'export',
+      'delete',
+    ]);
+  });
+
+  test('its ⋮ has no action row and no Add current window', async () => {
+    await renderHeader();
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
     const menu = screen.getByRole('menu');
 

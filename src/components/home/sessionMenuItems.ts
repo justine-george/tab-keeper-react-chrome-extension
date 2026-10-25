@@ -37,8 +37,8 @@ export function useSessionDeleteKey(): DeleteKey {
   };
 }
 
-// KAN-775. Where the menu opened: the header, the row of the session on screen, or any other row.
-export type SessionMenuPlace = 'header' | 'onScreenRow' | 'offScreenRow';
+// KAN-775, KAN-793. Where the menu opened: the header's ⋮, a right-click on the header, or a right-click on a row.
+export type SessionMenuPlace = 'headerMenuButton' | 'headerRightClick' | 'row';
 
 // KAN-708. The one item source for the header ⋮ and the row's right-click; every item acts on `session`, never the selection.
 export function sessionMenuItems(
@@ -54,9 +54,9 @@ export function sessionMenuItems(
   const { t, language, dispatch, deleteKey, place } = ctx;
   const { tabGroupId } = session;
   const duplicateCount = countDuplicateTabs(session);
-  // KAN-775. A row off screen has no buttons of its own, so its menu leads with them; Switch is popup only, as the row's.
+  // KAN-775, KAN-793. A right-click leads with the row's buttons; the header's ⋮ sits beside them. Switch is popup only, as the row's.
   const rowButtons: OverflowMenuItem[] =
-    place !== 'offScreenRow'
+    place === 'headerMenuButton'
       ? []
       : [
           {
@@ -98,7 +98,7 @@ export function sessionMenuItems(
         ];
   // KAN-775. The header has its own Add chip beside the ⋮.
   const add: OverflowMenuItem[] =
-    place === 'header'
+    place !== 'row'
       ? []
       : [
           {

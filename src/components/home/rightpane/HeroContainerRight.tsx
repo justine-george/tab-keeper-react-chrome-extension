@@ -127,15 +127,15 @@ export default function HeroContainerRight() {
   const isOpenBlocked = useIsOpenBlockedByTour(selectedTabGroup?.tabGroupId);
   // KAN-592, KAN-638. The row's Delete key also deletes from the open ⋮.
   const deleteKey = useSessionDeleteKey();
-  // KAN-708. One ctx for the header ⋮ and the header's right-click menu.
+  // KAN-708. The header ⋮'s ctx; the header's right-click differs only in its place (KAN-793).
   const menuCtx = {
     t,
     language: i18n.language,
     dispatch,
     deleteKey,
-    place: 'header' as const,
+    place: 'headerMenuButton' as const,
   };
-  // KAN-708. Right-clicking the header opens the ⋮ items; none while searching, when the ⋮ is hidden.
+  // KAN-708, KAN-793. Right-clicking the header opens its buttons, then the ⋮ items; none while searching, when the ⋮ is hidden.
   const headerMenu = useRowContextMenu({
     kind: 'session',
     ariaLabel: (id) =>
@@ -147,7 +147,10 @@ export default function HeroContainerRight() {
       selectedTabGroup === undefined ||
       id !== selectedTabGroup.tabGroupId
         ? null
-        : sessionMenuItems(selectedTabGroup, menuCtx),
+        : sessionMenuItems(selectedTabGroup, {
+            ...menuCtx,
+            place: 'headerRightClick',
+          }),
   });
   // KAN-582. The tour's Delete step points at this ⋮, which then explains only (hard rule 2).
   const holdsDelete = useSelector(

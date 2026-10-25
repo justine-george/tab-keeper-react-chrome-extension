@@ -1,10 +1,4 @@
-import React, {
-  MouseEventHandler,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useId, useMemo, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -129,7 +123,7 @@ interface WindowEntryContainerProps {
   windowId: string;
   onOpenWindow: () => void;
   onUpdateWindowGroupTitle: (newTitle: string) => void;
-  onAddCurrTabToWindowClick: MouseEventHandler;
+  onAddCurrTabToWindowClick: () => void;
   onDeleteClick: () => void;
 }
 
@@ -399,13 +393,71 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     },
   ];
 
+  // KAN-793. A right-click leads with the strip's Open and Add current tab, and the title's Rename; the ⋮ beside them does not.
+  // Lambdas: the handlers are declared further down.
+  // No tour check: a running tour keeps every right-click menu shut.
+  const windowRowButtons: OverflowMenuItem[] = [
+    {
+      key: 'open',
+      actionRowLabel: t('Open'),
+      label: t('Open in new window'),
+      icon: 'reopen_window',
+      onSelect: () => onOpenWindow(),
+    },
+    ...(isTabView()
+      ? []
+      : [
+          {
+            key: 'addTab',
+            actionRowLabel: t('Add tab'),
+            label: t('Add current tab'),
+            icon: 'add' as const,
+            onSelect: () => onAddCurrTabToWindowClick(),
+          },
+        ]),
+    {
+      key: 'rename',
+      actionRowLabel: t('Rename'),
+      label: t('Rename window'),
+      icon: 'edit',
+      onSelect: () => startEditing(),
+    },
+  ];
+  const groupRowButtons = (run: GroupRun): OverflowMenuItem[] => [
+    {
+      key: 'open',
+      actionRowLabel: t('Open'),
+      label: t('Open group'),
+      icon: 'reopen_window',
+      onSelect: () => openGroup(run),
+    },
+    ...(isTabView()
+      ? []
+      : [
+          {
+            key: 'addTab',
+            actionRowLabel: t('Add tab'),
+            label: t('Add current tab to group'),
+            icon: 'add' as const,
+            onSelect: () => void addCurrentTabToGroup(run.group),
+          },
+        ]),
+    {
+      key: 'rename',
+      actionRowLabel: t('Rename'),
+      label: t('Rename group'),
+      icon: 'edit',
+      onSelect: () => startEditingGroup(run.group),
+    },
+  ];
+
   // KAN-708. A row's menu exists exactly when its ⋮ shows.
   const windowMenu = useRowContextMenu({
     kind: 'savedWindow',
     ariaLabel: () => `${t('More actions')}: ${label.text}`,
     itemsFor: () =>
       !isTrailingBlock && !isEditing && !isSearching
-        ? savedWindowMenuItems
+        ? [...windowRowButtons, ...savedWindowMenuItems]
         : null,
   });
   const groupMenu = useRowContextMenu({
@@ -414,12 +466,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       const group = chromeTabGroups?.find((g) => g.groupId === groupId);
       return `${t('More actions')}: ${group ? groupDisplayName(group) : ''}`;
     },
-    itemsFor: (groupId) =>
-      !isSearching &&
-      editingGroupId !== groupId &&
-      items.some((i) => i.kind === 'group' && i.group.groupId === groupId)
-        ? savedGroupMenuItems(groupId)
-        : null,
+    itemsFor: (groupId) => {
+      const run = items.find(
+        (i): i is GroupRun => i.kind === 'group' && i.group.groupId === groupId
+      );
+      return !isSearching && editingGroupId !== groupId && run !== undefined
+        ? [...groupRowButtons(run), ...savedGroupMenuItems(groupId)]
+        : null;
+    },
   });
 
   const containerStyle = css`
@@ -1245,7 +1299,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 type="add"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onAddCurrTabToWindowClick(e);
+                  onAddCurrTabToWindowClick();
                 }}
               />
             )}
