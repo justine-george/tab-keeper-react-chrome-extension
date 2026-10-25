@@ -720,7 +720,7 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
       { width: 1024, height: 768 }
     );
     const live = await openLiveWindow(serviceWorker, ['Live A', 'Live B']);
-    const rail = page.getByRole('button', { name: /^Open now/ });
+    const rail = page.getByRole('button', { name: /^Currently open/ });
     await rail.click();
     const drawer = page.getByRole('dialog');
     await expect(liveRow(page, live.idOf('Live A'))).toBeVisible();
@@ -762,7 +762,7 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
       { width: 1024, height: 768 }
     );
     const live = await openLiveWindow(serviceWorker, ['Live A']);
-    await page.getByRole('button', { name: /^Open now/ }).click();
+    await page.getByRole('button', { name: /^Currently open/ }).click();
     const drawer = page.getByRole('dialog');
     await expect(liveRow(page, live.idOf('Live A'))).toBeVisible();
     const box = await boxOf(drawer);

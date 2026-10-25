@@ -76,7 +76,7 @@ test('Help starts at card 1 with no Hello; the nine cards in their places, Back 
   );
   // KAN-562: led by the name, so it can't read as "this is open at the moment".
   await expect(card(page)).toContainText(
-    'Open now shows every window and tab in Chrome, kept up to date as you browse.'
+    'Currently open shows every window and tab in Chrome, kept up to date as you browse.'
   );
   await expect(cardButton(page, 'Back')).toHaveCount(0);
   // Step 1 is look-only: Open now takes no press.
@@ -180,13 +180,13 @@ test('step 2 on the narrow rail names the rail’s button, not a search field, e
     page.locator('[data-pane="open-now"] [data-open-now-search]')
   ).toHaveCount(0);
   await expect(card(page)).toContainText(
-    'Open now is tucked in here while the window is narrow. Press'
+    'Currently open is tucked in here while the window is narrow. Press'
   );
   await expect(card(page)).toContainText('to see and search every open tab.');
   await expect(card(page)).not.toContainText('Search here');
   await expect(card(page)).not.toContainText('Drag the edge');
   await expect(
-    card(page).getByRole('img', { name: 'Open now', exact: true })
+    card(page).getByRole('img', { name: 'Currently open', exact: true })
   ).toHaveText('tab');
 });
 
@@ -207,7 +207,7 @@ test('step 2 side by side: the edge only in a window wide enough for the grip', 
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(grip).toHaveCount(0);
   await expect(card(page)).not.toContainText('Drag the edge');
-  await expect(card(page)).toContainText('to give Open now the whole view.');
+  await expect(card(page)).toContainText('to give Currently open the whole view.');
   await page.setViewportSize({ width: 1400, height: 800 });
   await expect(grip).toHaveCount(1);
   await expect(card(page)).toContainText('Drag the edge');
@@ -250,7 +250,7 @@ test('step 2 in the default folded view names the fold button it shows, and pres
     'Type in the search box to find an open tab. Press'
   );
   await expect(card(page)).not.toContainText('Search here');
-  await expect(card(page)).toContainText('to give Open now the whole view.');
+  await expect(card(page)).toContainText('to give Currently open the whole view.');
   await expect(glyph('Fold the saved session away')).toBeVisible();
   expect(await glyph('Fold the saved session away').textContent()).toBe(
     await fold.textContent()

@@ -98,7 +98,7 @@ test("the title is the session title's size and colour, and Back sits in Add win
   await expect(sessionTitle).toBeVisible();
 
   expect(
-    await styleOf(page.getByRole('heading', { name: 'Open now' }))
+    await styleOf(page.getByRole('heading', { name: 'Currently open' }))
   ).toEqual(await styleOf(sessionTitle));
 
   const addWindow = page.getByRole('button', {

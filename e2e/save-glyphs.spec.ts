@@ -115,7 +115,7 @@ test('every surface that saves draws its save glyph, and it inks', async ({
     'window_add'
   );
   await header(page)
-    .getByRole('heading', { name: 'Open now' })
+    .getByRole('heading', { name: 'Currently open' })
     .click({ button: 'right' });
   await expectGlyph(
     page,
