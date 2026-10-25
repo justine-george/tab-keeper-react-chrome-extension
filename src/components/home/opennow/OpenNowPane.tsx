@@ -48,6 +48,9 @@ import {
   suggestTitleForWindow,
 } from '../../../utils/functions/openWindowsToSession';
 import { ungroupLiveGroup } from '../../../utils/functions/liveTabGroups';
+import { copySessionLinks } from '../../../utils/functions/copySessionLinks';
+import { tidySessionForExport } from '../../../utils/functions/sessionExportHtml';
+import { copyAllLinksItem } from '../../common/rowMenu/copyAllLinksItem';
 import { readRecentTabs } from '../../../utils/functions/recentTabs';
 import {
   countMatchedTabs,
@@ -187,7 +190,7 @@ export default function OpenNowPane({
 }: OpenNowPaneProps) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // KAN-577 (pick A). The left header's Back (KAN-509), in both Default views; Open now lives only in the full view.
   const backPlan = useBackPlan(true);
   const canGoBack = backPlan !== null && backPlan.kind !== 'none';
@@ -493,16 +496,20 @@ export default function OpenNowPane({
     );
   };
 
-  // In `listed`'s order, This window first, as a capture orders them
-  // (windowsInScope), so a restore brings the user back where they were.
   // Named from This window alone, which is exactly the name box's
   // suggestion; a This window holding only Tab Keeper is not listed, and
-  // falls back.
-  const handleSaveAll = async () => {
+  // falls back. Save all and its Copy all links (KAN-783) both read it.
+  const suggestSaveAllTitle = async () => {
     const thisWindow = listed.find((w) => w.isThisWindow);
-    const title = thisWindow
+    return thisWindow
       ? await suggestTitleForWindow(thisWindow.id, t('New Tab Group'))
       : t('New Tab Group');
+  };
+
+  // In `listed`'s order, This window first, as a capture orders them
+  // (windowsInScope), so a restore brings the user back where they were.
+  const handleSaveAll = async () => {
+    const title = await suggestSaveAllTitle();
     const recentTabsOf = await readRecentTabs(listed.map((w) => w.id));
     // KAN-476. Place and state as Chrome has them now.
     const current = await Promise.all(listed.map(withCurrentPlacement));
@@ -547,6 +554,29 @@ export default function OpenNowPane({
       icon: SAVE_OF['current-window'].icon,
       onSelect: handleSaveCurrent,
     },
+    // KAN-783. Every open window, as Save all would save it, in the session
+    // copy's shape. Left out while Open now's search holds text (O14e): the
+    // copy would carry tabs the search hides.
+    ...(searchTerm === null
+      ? [
+          copyAllLinksItem(
+            async () =>
+              copySessionLinks(
+                tidySessionForExport(
+                  openWindowsToSession(
+                    listed,
+                    await suggestSaveAllTitle(),
+                    new Date(),
+                    () => []
+                  )
+                ),
+                t,
+                i18n.language
+              ),
+            { t, dispatch }
+          ),
+        ]
+      : []),
     {
       key: 'export-open-windows',
       label: t('Save open windows as PDF'),

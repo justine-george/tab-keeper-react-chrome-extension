@@ -628,7 +628,7 @@ export interface LinkScope {
 
 export function windowLinkScope(
   heading: string,
-  window: windowGroupData
+  window: Pick<windowGroupData, 'tabs' | 'chromeTabGroups'>
 ): LinkScope {
   return {
     heading,
@@ -640,7 +640,7 @@ export function windowLinkScope(
 // Only that group's tabs: the window's other tabs are not part of the copy.
 export function groupLinkScope(
   heading: string,
-  window: windowGroupData,
+  window: Pick<windowGroupData, 'tabs'>,
   groupId: string
 ): LinkScope {
   return {

@@ -12,12 +12,11 @@ import {
   type tabContainerData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { showSessionAndAddCurrentWindow } from '../../redux/showSessionAndAddCurrentWindow';
-import { showToast } from '../../redux/slices/globalStateSlice';
 import { copySessionLinks } from '../../utils/functions/copySessionLinks';
+import { copyAllLinksItem } from '../common/rowMenu/copyAllLinksItem';
 import { tidySessionForExport } from '../../utils/functions/sessionExportHtml';
 import { countDuplicateTabs } from '../../utils/functions/duplicateTabs';
 import { openBesideActiveTab } from '../../utils/functions/openBesideActiveTab';
-import { TOAST_MESSAGES } from '../../utils/constants/common';
 import {
   deleteKeyShortcutsFor,
   isDeleteKey,
@@ -113,47 +112,28 @@ export function sessionMenuItems(
   return [
     ...rowButtons,
     ...add,
-    {
-      // KAN-209. The one output that needs no preview: Copy ignores
-      // the layout and colour choices the export page exists to
-      // offer, so reaching it through a new tab was a detour.
-      //
-      // FIRST, because it is the only item here that finishes where
-      // it started -- Export opens a tab, Delete changes the session
-      // -- so the menu reads cheap, heavier, destructive.
-      //
-      // TIDIED, exactly as the export page's Copy is (KAN-210).
-      // KAN-202's clean-ups -- dropping a site's notification count
-      // from a title, and unwrapping a suspended tab's real address
-      // -- are not a preview concern: they are wrong in anything
-      // anyone shares, whichever button produced it. This shipped
-      // passing the raw session, so the shortcut gave the worse of
-      // two answers for the same command.
-      //
-      // No edits applied: there is no preview here to respect, which
-      // is the only difference left between the two call sites.
-      key: 'copy',
-      label: t('Copy all links'),
-      icon: 'link',
-      onSelect: async () => {
-        const count = await copySessionLinks(
-          tidySessionForExport(session),
-          t,
-          language
-        );
-        // KAN-713. Nothing on the clipboard, so nothing to announce.
-        if (count === null) return;
-        // The clipboard says nothing of its own, and unlike the
-        // export page there is no room here for an inline note.
-        dispatch(
-          showToast({
-            toastText: TOAST_MESSAGES.COPY_LINKS_SUCCESS,
-            toastParams: { count },
-            stacksOnTwin: true,
-          })
-        );
-      },
-    },
+    // KAN-209. The one output that needs no preview: Copy ignores
+    // the layout and colour choices the export page exists to
+    // offer, so reaching it through a new tab was a detour.
+    //
+    // FIRST, because it is the only item here that finishes where
+    // it started -- Export opens a tab, Delete changes the session
+    // -- so the menu reads cheap, heavier, destructive.
+    //
+    // TIDIED, exactly as the export page's Copy is (KAN-210).
+    // KAN-202's clean-ups -- dropping a site's notification count
+    // from a title, and unwrapping a suspended tab's real address
+    // -- are not a preview concern: they are wrong in anything
+    // anyone shares, whichever button produced it. This shipped
+    // passing the raw session, so the shortcut gave the worse of
+    // two answers for the same command.
+    //
+    // No edits applied: there is no preview here to respect, which
+    // is the only difference left between the two call sites.
+    copyAllLinksItem(
+      () => copySessionLinks(tidySessionForExport(session), t, language),
+      { t, dispatch }
+    ),
     {
       key: 'export',
       label: t('Save session as PDF'),

@@ -18,8 +18,9 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 import { asWritten } from '../setup/asWritten';
 
 // KAN-694, KAN-696. An Open now window's strip is a labeled Save, then a ⋮. The
-// ⋮ offers Sort tabs by site only where the live sort would run and change
-// something, and ends with Close window, which This window does not have.
+// ⋮ starts with Copy all links (KAN-783), offers Sort tabs by site only where
+// the live sort would run and change something, and ends with Close window,
+// which This window does not have.
 
 const url = (host: string, path = '') => `https://${host}.test/${path}`;
 const tab = (
@@ -140,11 +141,11 @@ describe('Open now window header: Save and a ⋮ (KAN-696)', () => {
     expect(await screen.findByText('Window saved as a session.')).toBeVisible();
   });
 
-  test('the menu lists Sort tabs by site, then Close window last in the danger style', async () => {
+  test('the menu lists Copy all links, Sort tabs by site, then Close window last in the danger style', async () => {
     const user = userEvent.setup();
     await renderOpenNow(seed(UNSORTED()));
     await openMenu(user, 2);
-    expect(menuKeys()).toEqual(['sortBySite', 'closeWindow']);
+    expect(menuKeys()).toEqual(['copy', 'sortBySite', 'closeWindow']);
     const items = within(screen.getByRole('menu')).getAllByRole('menuitem');
     expect(items[items.length - 1]).toHaveTextContent('Close window');
     // KAN-725. Danger is the red hover fill, derived from the token (jsdom writes rgb()).
@@ -152,8 +153,9 @@ describe('Open now window header: Save and a ⋮ (KAN-696)', () => {
       `background-color:\\s*${asWritten(LIGHT_THEME.DANGER_FILL).source}`,
       'i'
     );
-    expect(hoverRulesFor(items[1])).toMatch(DELETE_FILL);
+    expect(hoverRulesFor(items[2])).toMatch(DELETE_FILL);
     expect(hoverRulesFor(items[0])).not.toMatch(DELETE_FILL);
+    expect(hoverRulesFor(items[1])).not.toMatch(DELETE_FILL);
   });
 
   test('choosing Close window closes the window and offers Reopen', async () => {
@@ -172,23 +174,23 @@ describe('Open now window header: Save and a ⋮ (KAN-696)', () => {
     );
   });
 
-  test('Close window is the only item when the window is already sorted', async () => {
+  test('no Sort when the window is already sorted', async () => {
     const user = userEvent.setup();
     await renderOpenNow(
       seed([tab(21, 'a', { active: true }), tab(22, 'a'), tab(23, 'b')])
     );
     await openMenu(user, 2);
-    expect(menuKeys()).toEqual(['closeWindow']);
+    expect(menuKeys()).toEqual(['copy', 'closeWindow']);
   });
 
-  test('Close window is the only item without the tab group grant', async () => {
+  test('no Sort without the tab group grant', async () => {
     const user = userEvent.setup();
     await renderOpenNow(seed(UNSORTED()), { granted: false });
     await openMenu(user, 2);
-    expect(menuKeys()).toEqual(['closeWindow']);
+    expect(menuKeys()).toEqual(['copy', 'closeWindow']);
   });
 
-  test('Close window is the only item when a tab of the window is in a split view', async () => {
+  test('no Sort when a tab of the window is in a split view', async () => {
     const user = userEvent.setup();
     await renderOpenNow(
       seed(
@@ -201,7 +203,7 @@ describe('Open now window header: Save and a ⋮ (KAN-696)', () => {
       )
     );
     await openMenu(user, 2);
-    expect(menuKeys()).toEqual(['closeWindow']);
+    expect(menuKeys()).toEqual(['copy', 'closeWindow']);
   });
 
   test('after Save and Close the Sort item is still the one before Close window', async () => {
@@ -214,7 +216,7 @@ describe('Open now window header: Save and a ⋮ (KAN-696)', () => {
     );
     await screen.findByText('Window saved as a session.');
     await openMenu(user, 2);
-    expect(menuKeys()).toEqual(['sortBySite', 'closeWindow']);
+    expect(menuKeys()).toEqual(['copy', 'sortBySite', 'closeWindow']);
   });
 
   test('choosing Sort sorts the window and says so, and the ⋮ stays', async () => {
@@ -233,24 +235,27 @@ describe('Open now window header: Save and a ⋮ (KAN-696)', () => {
     expect(moreActionsIn(2)).toHaveLength(1);
   });
 
-  test('This window: the ⋮ holds Sort only, with no Close window', async () => {
+  test('This window: the ⋮ holds Copy all links and Sort, with no Close window', async () => {
     const user = userEvent.setup();
     await renderOpenNow(seed(UNSORTED(), { currentTabId: 11 }));
     expect(moreActionsIn(1)).toHaveLength(1);
     await openMenu(user, 1);
-    expect(menuKeys()).toEqual(['sortBySite']);
+    expect(menuKeys()).toEqual(['copy', 'sortBySite']);
   });
 
-  test('This window: with Sort not offered there is no ⋮', async () => {
+  // KAN-783. Before Copy all links, This window had no ⋮ here.
+  test('This window: with Sort not offered the ⋮ still holds Copy all links', async () => {
+    const user = userEvent.setup();
     await renderOpenNow(seed(UNSORTED(), { currentTabId: 11 }), {
       granted: false,
     });
-    expect(moreActionsIn(1)).toHaveLength(0);
     expect(
       within(stripOf(1))
         .getAllByRole('button')
         .map((b) => b.getAttribute('aria-label'))
-    ).toEqual(['Save window as a session: Window 1']);
+    ).toEqual(['Save window as a session: Window 1', 'More actions: Window 1']);
+    await openMenu(user, 1);
+    expect(menuKeys()).toEqual(['copy']);
   });
 
   test('a held Open now search renders no strip', async () => {
@@ -295,7 +300,7 @@ describe('Open now window header: Save and a ⋮ (KAN-696)', () => {
     await act(async () => {
       await chrome.tabs.move(22, { index: 2 });
     });
-    await waitFor(() => expect(menuKeys()).toEqual(['closeWindow']));
+    await waitFor(() => expect(menuKeys()).toEqual(['copy', 'closeWindow']));
     expect(moreActionsIn(2)).toHaveLength(1);
     expect(stripOpacity(2)).toBe('1');
     // Focus went with the Sort item, so Escape has no menu to hear it: an outside press closes.
@@ -304,20 +309,18 @@ describe('Open now window header: Save and a ⋮ (KAN-696)', () => {
     expect(stripOpacity(2)).toBe('0');
   });
 
-  test('a menu that disappears while open leaves the strip hidden and not lifted', async () => {
+  // KAN-783. This window's ⋮ used to unmount here, its only item gone; Copy all links keeps it.
+  test("This window's menu stays open when its Sort item goes", async () => {
     const user = userEvent.setup();
-    // This window, whose only item is Sort: sorted from outside, the ⋮ unmounts.
     await renderOpenNow(seed(UNSORTED(), { currentTabId: 11 }));
-    const resting = getComputedStyle(stripOf(1)).zIndex;
     await openMenu(user, 1);
     await user.unhover(moreActionsIn(1)[0]);
-    expect(stripOpacity(1)).toBe('1');
     await act(async () => {
       await chrome.tabs.move(12, { index: 2 });
     });
-    await waitFor(() => expect(moreActionsIn(1)).toHaveLength(0));
-    expect(stripOpacity(1)).toBe('0');
-    expect(getComputedStyle(stripOf(1)).zIndex).toBe(resting);
+    await waitFor(() => expect(menuKeys()).toEqual(['copy']));
+    expect(moreActionsIn(1)).toHaveLength(1);
+    expect(stripOpacity(1)).toBe('1');
   });
 });
 
@@ -332,13 +335,13 @@ describe('an Open now window row right-click (KAN-708)', () => {
     ...document.querySelectorAll<HTMLElement>('[data-row-menu]'),
   ];
 
-  test('right-click = its ⋮ items: Sort tabs by site when offered, Close window last', async () => {
+  test('right-click = its ⋮ items: Copy all links, Sort tabs by site when offered, Close window last', async () => {
     await renderOpenNow(seed(UNSORTED()));
 
     expect(fireEvent.contextMenu(windowRow(2))).toBe(false);
 
     expect(rowMenus()).toHaveLength(1);
-    expect(menuKeys()).toEqual(['sortBySite', 'closeWindow']);
+    expect(menuKeys()).toEqual(['copy', 'sortBySite', 'closeWindow']);
   });
 
   test('Sort tabs by site is left out where the ⋮ leaves it out', async () => {
@@ -348,7 +351,7 @@ describe('an Open now window row right-click (KAN-708)', () => {
 
     fireEvent.contextMenu(windowRow(2));
 
-    expect(menuKeys()).toEqual(['closeWindow']);
+    expect(menuKeys()).toEqual(['copy', 'closeWindow']);
   });
 
   test('Close window from the right-click closes that window', async () => {

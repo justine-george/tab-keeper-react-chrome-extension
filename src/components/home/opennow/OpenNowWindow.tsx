@@ -27,6 +27,13 @@ import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import { copyLinkItem } from '../../common/rowMenu/copyLinkItem';
+import { copyAllLinksItem } from '../../common/rowMenu/copyAllLinksItem';
+import { copyScopeLinks } from '../../../utils/functions/copySessionLinks';
+import { toSavedWindow } from '../../../utils/functions/openWindowsToSession';
+import {
+  groupLinkScope,
+  windowLinkScope,
+} from '../../../utils/functions/sessionExportHtml';
 import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
 import type { AppDispatch, RootState } from '../../../redux/store';
 import {
@@ -239,8 +246,18 @@ export default function OpenNowWindow({
   const offersSort =
     canSortOpenWindowLive(openWindow, hasTabGroups) &&
     !isOpenWindowSortedBySite(openWindow);
+  const title = windowLabel('', number, t('Window')).text;
   // KAN-696. Close window is last, as Delete window is on a saved row. This window has none.
+  // KAN-783. Copy all links is first, as on a session, so every window, This window too, has a ⋮.
   const windowMenuItems: OverflowMenuItem[] = [
+    copyAllLinksItem(
+      () =>
+        copyScopeLinks(
+          windowLinkScope(title, toSavedWindow(openWindow, [])),
+          t
+        ),
+      { t, dispatch }
+    ),
     ...(offersSort
       ? [
           {
@@ -285,23 +302,18 @@ export default function OpenNowWindow({
         ]
       : []),
   ];
-  const hasWindowMenu = windowMenuItems.length > 0;
-  // The menu can unmount while open (This window got sorted), and then it never reports closing.
   // O14e. While a search is held its Save window and Close window would act on
   // tabs the search hides, with nothing on screen saying so, so the strip is
   // not rendered at all (out of the tab order too). Clearing the search
   // brings both back.
   const offersWindowActions = matchedTabIds === null;
-  const title = windowLabel('', number, t('Window')).text;
   // KAN-708. The window row's right-click shows the same items its ⋮ does, and holds the row as hovered.
   const windowMenu = useRowContextMenu({
     kind: 'openWindow',
     ariaLabel: () => `${t('More actions')}: ${title}`,
-    itemsFor: () =>
-      offersWindowActions && hasWindowMenu ? windowMenuItems : null,
+    itemsFor: () => (offersWindowActions ? windowMenuItems : null),
   });
-  const menuOpen =
-    hasWindowMenu && (isWindowMenuOpen || windowMenu.heldId !== null);
+  const menuOpen = isWindowMenuOpen || windowMenu.heldId !== null;
   // By Chrome tab id, not by position, for KAN-127's reason: a re-read (and,
   // later, a drag) moves rows, and a position-keyed flag would then reveal
   // whichever tab moved into the hovered slot.
@@ -572,6 +584,30 @@ export default function OpenNowWindow({
 
   // KAN-708. One item source for a live group: its ⋮ and its right-click read the same list.
   const openGroupMenuItems = (groupId: string): OverflowMenuItem[] => [
+    // KAN-783. First, as on the window. toSavedWindow keeps the i-th group as the i-th entry.
+    copyAllLinksItem(
+      () => {
+        const saved = toSavedWindow(openWindow, []);
+        const index = openWindow.groups.findIndex(
+          (group) => String(group.id) === groupId
+        );
+        const group = items.find(
+          (item) => item.kind === 'group' && item.group.groupId === groupId
+        );
+        const heading =
+          (group?.kind === 'group' && titleOf(group.group)) ||
+          t('Unnamed group');
+        return copyScopeLinks(
+          groupLinkScope(
+            heading,
+            saved,
+            saved.chromeTabGroups?.[index]?.groupId ?? ''
+          ),
+          t
+        );
+      },
+      { t, dispatch }
+    ),
     // KAN-746. First, as on the window, and only where the live sort would run and change the group.
     ...(canSortOpenGroupLive(openWindow, Number(groupId), hasTabGroups) &&
     !isOpenGroupSortedBySite(openWindow, Number(groupId))
@@ -860,13 +896,11 @@ export default function OpenNowWindow({
                   onClick={onSaveWindow}
                 />
               )}
-              {hasWindowMenu && (
-                <OverflowMenu
-                  ariaLabel={t('More actions') + ': ' + title}
-                  onOpenChange={setIsWindowMenuOpen}
-                  items={windowMenuItems}
-                />
-              )}
+              <OverflowMenu
+                ariaLabel={t('More actions') + ': ' + title}
+                onOpenChange={setIsWindowMenuOpen}
+                items={windowMenuItems}
+              />
             </div>
           )}
         </div>
