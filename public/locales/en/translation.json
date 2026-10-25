@@ -350,7 +350,7 @@
   "What's new in Tab Keeper 2.0": "What's new in Tab Keeper 2.0",
   "A full view for everything you have open, plus new themes, languages and a keyboard shortcut. Here's a one-minute look.": "A full view for everything you have open, plus new themes, languages and a keyboard shortcut. Here's a one-minute look.",
   "Start": "Start",
-  "Open now shows every window and tab in Chrome, kept up to date as you browse.": "Currently open shows every window and tab in Chrome on this device, kept up to date as you browse.",
+  "Open now shows every window and tab in Chrome, kept up to date as you browse.": "Currently open shows every Chrome window and tab on this device, and stays up to date as you browse.",
   "Type in the search box to find an open tab. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "Type in the search box to find an open tab. Drag the edge to make this wider, or press {{icon}} to give Currently open the whole view.",
   "Type in the search box to find an open tab. Press {{icon}} to give Open now the whole view.": "Type in the search box to find an open tab. Press {{icon}} to give Currently open the whole view.",
   "Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.": "Currently open is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.",

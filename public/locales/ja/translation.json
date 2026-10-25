@@ -340,7 +340,7 @@
   "What's new in Tab Keeper 2.0": "Tab Keeper 2.0 の新機能",
   "A full view for everything you have open, plus new themes, languages and a keyboard shortcut. Here's a one-minute look.": "開いているものすべてを見渡せるフルビューに加え、新しいテーマ、言語、キーボードショートカットが使えるようになりました。1分でご紹介します。",
   "Start": "開始",
-  "Open now shows every window and tab in Chrome, kept up to date as you browse.": "「現在開いているタブ」には、このデバイスの Chrome のすべてのウィンドウとタブが表示され、ブラウジングに合わせて更新されます。",
+  "Open now shows every window and tab in Chrome, kept up to date as you browse.": "「現在開いているタブ」には、このデバイスの Chrome のすべてのウィンドウとタブが表示され、閲覧中も最新の状態に保たれます。",
   "Type in the search box to find an open tab. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.": "検索ボックスに入力すると、開いているタブを見つけられます。端をドラッグすると幅を広げられ、{{icon}} を押すと「現在開いているタブ」が画面全体に表示されます。",
   "Type in the search box to find an open tab. Press {{icon}} to give Open now the whole view.": "検索ボックスに入力すると、開いているタブを見つけられます。{{icon}} を押すと「現在開いているタブ」が画面全体に表示されます。",
   "Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.": "ウィンドウの幅が狭いときは、「現在開いているタブ」はここに格納されます。{{icon}} を押すと、開いているすべてのタブを表示して検索できます。",

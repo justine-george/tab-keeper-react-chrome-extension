@@ -93,7 +93,7 @@ const CURRENTLY_OPEN: Record<string, string> = {
   'Resize Open now': 'Resize the Currently open panel',
   'Open now shows every window and tab in Chrome, kept up to date as you browse.':
     // KAN-789 added "on this device".
-    'Currently open shows every window and tab in Chrome on this device, kept up to date as you browse.',
+    'Currently open shows every Chrome window and tab on this device, and stays up to date as you browse.',
   'Type in the search box to find an open tab. Drag the edge to make this wider, or press {{icon}} to give Open now the whole view.':
     'Type in the search box to find an open tab. Drag the edge to make this wider, or press {{icon}} to give Currently open the whole view.',
   'Type in the search box to find an open tab. Press {{icon}} to give Open now the whole view.':

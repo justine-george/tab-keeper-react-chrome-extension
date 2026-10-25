@@ -62,7 +62,7 @@ const THIS_DEVICE: Record<string, string> = {
 describe('the Currently open card says "on this device" (KAN-789)', () => {
   test('en reads the agreed line', () => {
     expect(en[PANE_CARD as keyof typeof en]).toBe(
-      'Currently open shows every window and tab in Chrome on this device, kept up to date as you browse.'
+      'Currently open shows every Chrome window and tab on this device, and stays up to date as you browse.'
     );
   });
 
