@@ -52,7 +52,8 @@ const names = (items: Locator): Promise<string[]> =>
   );
 
 for (const view of VIEWS) {
-  test(`${view}: an unselected row's menu opens with the action row; the selected row's has Add on top and no row`, async ({
+  // KAN-793. The selected row's menu is the same as any other's.
+  test(`${view}: every row's menu opens with the action row, then Add current window`, async ({
     context,
     extensionId,
   }) => {
@@ -80,7 +81,11 @@ for (const view of VIEWS) {
     await expect(rowMenu(page)).toHaveCount(0);
     await rightClickTitle(page, sessionRow(page, 'S1'));
     await expect(rowMenu(page)).toBeVisible();
-    await expect(actionRow(page)).toHaveCount(0);
+    await expect
+      .poll(() => names(actionRow(page).getByRole('menuitem')))
+      .toEqual(
+        view === 'popup' ? ['Open', 'Switch', 'Replace'] : ['Open', 'Replace']
+      );
     await expect(
       rowMenu(page).locator(':scope > [data-menu-item]').first()
     ).toHaveText(/Add current window to this session$/);

@@ -581,7 +581,8 @@ grantedTest(
 );
 
 // KAN-708. Anything with a ⋮ answers a right-click with that ⋮'s items; the pane around the header keeps Chrome's menu.
-test('right-clicking the session header opens its ⋮ items at the pointer', async ({
+// KAN-793. Under the header's Open · Switch · Replace.
+test('right-clicking the session header opens its buttons, then its ⋮ items, at the pointer', async ({
   context,
   extensionId,
 }) => {
@@ -618,7 +619,12 @@ test('right-clicking the session header opens its ⋮ items at the pointer', asy
   const menu = rowMenu(page);
   await expect(menu).toBeVisible();
   await expect(menu).toHaveAccessibleName('More actions: Trip');
-  const opened = rowMenu(page).getByRole('menuitem');
+  expect(
+    await menu
+      .locator('[data-menu-action-row] [role="menuitem"]')
+      .evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')))
+  ).toEqual(['Open', 'Switch', 'Replace']);
+  const opened = menu.locator(':scope > [data-menu-item]');
   await expect(opened).toHaveCount(expected.length);
   for (const [i, snapshot] of expected.entries()) {
     await expect(opened.nth(i)).toMatchAriaSnapshot(snapshot);
