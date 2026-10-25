@@ -190,7 +190,7 @@
   "Keep sync off": "保持同步關閉",
   "Turn sync on": "開啟同步",
   "Cloud copy deleted": "雲端副本已刪除",
-  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged.": "它已在另一部裝置上被刪除，因此這部裝置上的同步已關閉。這部裝置上的工作階段沒有變動。",
+  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged. Turn on Auto Sync to sync again.": "它已在另一部裝置上被刪除，因此這部裝置上的同步已關閉。這部裝置上的工作階段沒有變動。開啟自動同步即可重新同步。",
   "Cancel": "取消",
   "LoadBackupTitleOne": "要從這個備份載入 1 個工作階段嗎？",
   "LoadBackupTitleOther": "要從這個備份載入 {{count}} 個工作階段嗎？",

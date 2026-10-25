@@ -200,7 +200,7 @@
   "Keep sync off": "Dejar desactivada",
   "Turn sync on": "Activar sincronización",
   "Cloud copy deleted": "Copia en la nube eliminada",
-  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged.": "Se eliminó en otro dispositivo, así que la sincronización está desactivada aquí. Las sesiones de este dispositivo no han cambiado.",
+  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged. Turn on Auto Sync to sync again.": "Se eliminó en otro dispositivo, así que la sincronización está desactivada aquí. Las sesiones de este dispositivo no han cambiado. Activa la sincronización automática para volver a sincronizar.",
   "Cancel": "Cancelar",
   "LoadBackupTitleOne": "¿Cargar 1 sesión de esta copia?",
   "LoadBackupTitleOther": "¿Cargar {{count}} sesiones de esta copia?",

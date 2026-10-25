@@ -195,7 +195,7 @@
   "Keep sync off": "सिंक बंद रखें",
   "Turn sync on": "सिंक चालू करें",
   "Cloud copy deleted": "क्लाउड कॉपी हटा दी गई",
-  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged.": "इसे दूसरे डिवाइस पर हटाया गया, इसलिए यहाँ सिंक बंद है। इस डिवाइस के सेशन जैसे थे वैसे ही हैं।",
+  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged. Turn on Auto Sync to sync again.": "इसे दूसरे डिवाइस पर हटाया गया, इसलिए यहाँ सिंक बंद है। इस डिवाइस के सेशन जैसे थे वैसे ही हैं। फिर से सिंक करने के लिए ऑटो सिंक चालू करें।",
   "Cancel": "रद्द करें",
   "LoadBackupTitleOne": "इस बैकअप से 1 सेशन लोड करें?",
   "LoadBackupTitleOther": "इस बैकअप से {{count}} सेशन लोड करें?",

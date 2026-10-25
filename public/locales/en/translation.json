@@ -195,7 +195,7 @@
   "Keep sync off": "Keep sync off",
   "Turn sync on": "Turn sync on",
   "Cloud copy deleted": "Cloud copy deleted",
-  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged.": "It was deleted on another device, so sync is off here. The sessions on this device are unchanged.",
+  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged. Turn on Auto Sync to sync again.": "It was deleted on another device, so sync is off here. The sessions on this device are unchanged. Turn on Auto sync to sync again.",
   "Cancel": "Cancel",
   "LoadBackupTitleOne": "Load 1 session from this backup?",
   "LoadBackupTitleOther": "Load {{count}} sessions from this backup?",

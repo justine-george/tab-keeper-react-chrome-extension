@@ -190,7 +190,7 @@
   "Keep sync off": "保持同步关闭",
   "Turn sync on": "开启同步",
   "Cloud copy deleted": "云端副本已删除",
-  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged.": "它已在另一台设备上被删除，因此此设备上的同步已关闭。此设备上的会话没有变化。",
+  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged. Turn on Auto Sync to sync again.": "它已在另一台设备上被删除，因此此设备上的同步已关闭。此设备上的会话没有变化。开启自动同步即可重新同步。",
   "Cancel": "取消",
   "LoadBackupTitleOne": "从此备份载入 1 个会话？",
   "LoadBackupTitleOther": "从此备份载入 {{count}} 个会话？",
