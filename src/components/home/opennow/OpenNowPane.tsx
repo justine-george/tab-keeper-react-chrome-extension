@@ -166,13 +166,13 @@ function neighbourAt(list: Element[], index: number): Element | undefined {
   return list[index + 1] ?? list[index - 1];
 }
 
+// KAN-774. The header's one id for its right-click menu.
+const OPEN_NOW_HEADER_MENU_ID = 'open-now-header';
+
 // The Open now pane (KAN-280): the browser's live windows, drawn the way the
 // saved-session detail draws a saved one. The caller reads Chrome and hands
 // the result in as `windows`; the pane closes tabs and windows itself (O7a)
 // and saves them (O13).
-
-// KAN-774. The header's one id for its right-click menu.
-const OPEN_NOW_HEADER_MENU_ID = 'open-now-header';
 export default function OpenNowPane({
   windows,
   actions,
