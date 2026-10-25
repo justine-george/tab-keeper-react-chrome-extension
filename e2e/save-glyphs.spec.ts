@@ -127,6 +127,13 @@ test('every surface that saves draws its save glyph, and it inks', async ({
     page.getByRole('menuitem', { name: CURRENT }),
     'window_add'
   );
+  // The svg takes the box the ligature beside it takes, so the labels line up.
+  const boxOf = (name: RegExp | string) =>
+    iconIn(page.getByRole('menuitem', { name })).boundingBox();
+  const [svgBox, ligatureBox] = [await boxOf(CURRENT), await boxOf(/PDF/)];
+  expect(svgBox!.width).toBeCloseTo(ligatureBox!.width, 1);
+  expect(svgBox!.height).toBeCloseTo(ligatureBox!.height, 1);
+  expect(svgBox!.x).toBeCloseTo(ligatureBox!.x, 1);
   await page.keyboard.press('Escape');
 
   // A window row's Save saves that one window: Save current window's glyph.
