@@ -3,10 +3,14 @@ import { describe, expect, test } from 'vitest';
 import { buildSession } from '../fixtures/sessionFixture';
 import {
   dropNotificationCount,
+  groupLinkScope,
+  scopeToLinkHtml,
+  scopeToLinkList,
   sessionToLinkHtml,
   sessionToLinkList,
   tidySessionForExport,
   suspendedTabAddress,
+  windowLinkScope,
   type LinkListStrings,
 } from '../../utils/functions/sessionExportHtml';
 import type {
@@ -406,5 +410,106 @@ describe('a window with no name (KAN-394)', () => {
     expect(sessionToLinkHtml(blank, strings)).toContain(
       '<p><b>Window 1</b> (1 Tab)</p>'
     );
+  });
+});
+
+// KAN-783 (pick 2B). One window or one group, headed by its own name and size:
+// no session title, no counts line, no WINDOW line.
+describe('a window or a group copied on its own (KAN-783)', () => {
+  const trip = KYOTO.windows[0];
+
+  test('a window: its heading, its size, then its tabs with each group indented under its name', () => {
+    expect(
+      scopeToLinkList(windowLinkScope('Trip planning', trip), strings)
+    ).toBe(
+      [
+        'Trip planning',
+        '3 Tabs',
+        '',
+        '- Nozomi timetable',
+        '  https://jr.example/nozomi',
+        '',
+        'Flights (2 Tabs)',
+        '  - Haruka',
+        '    https://haruka.example/',
+        '  - Airport bus',
+        '    https://bus.example/',
+      ].join('\n')
+    );
+  });
+
+  // The worst path from the ticket: a window holding other tabs gives only the group's.
+  test('a group: only its own tabs, flat under its name, from a window holding others', () => {
+    expect(scopeToLinkList(groupLinkScope('Flights', trip, 'g'), strings)).toBe(
+      [
+        'Flights',
+        '2 Tabs',
+        '',
+        '- Haruka',
+        '  https://haruka.example/',
+        '- Airport bus',
+        '  https://bus.example/',
+      ].join('\n')
+    );
+  });
+
+  test('the rich copy: the heading, the size, then the same list the session copy draws', () => {
+    expect(
+      scopeToLinkHtml(windowLinkScope('Trip planning', trip), strings)
+    ).toBe(
+      '<h3>Trip planning</h3><p>3 Tabs</p><ul>' +
+        '<li><a href="https://jr.example/nozomi">Nozomi timetable</a></li>' +
+        '<li><b>Flights</b> (2 Tabs)<ul>' +
+        '<li><a href="https://haruka.example/">Haruka</a></li>' +
+        '<li><a href="https://bus.example/">Airport bus</a></li>' +
+        '</ul></li></ul>'
+    );
+    expect(scopeToLinkHtml(groupLinkScope('Flights', trip, 'g'), strings)).toBe(
+      '<h3>Flights</h3><p>2 Tabs</p><ul>' +
+        '<li><a href="https://haruka.example/">Haruka</a></li>' +
+        '<li><a href="https://bus.example/">Airport bus</a></li></ul>'
+    );
+  });
+
+  test('the heading is escaped in the rich copy and kept as typed in the plain one', () => {
+    const scope = windowLinkScope('<b>Plans</b> & co', window('', [tab()]));
+
+    expect(scopeToLinkHtml(scope, strings)).toContain(
+      '<h3>&lt;b&gt;Plans&lt;/b&gt; &amp; co</h3>'
+    );
+    expect(scopeToLinkList(scope, strings).split('\n')[0]).toBe(
+      '<b>Plans</b> & co'
+    );
+  });
+
+  // As the session menu's copy is (KAN-210): tidied, whichever row it came from.
+  test('both scopes are tidied: a notification count is dropped and a suspended tab carries its address', () => {
+    const noisy = window(
+      'W',
+      [
+        tab({ tabId: 'x', title: '(3) Inbox', chromeGroupId: 'g' }),
+        tab({
+          tabId: 'y',
+          title: 'Sleeping',
+          url: 'chrome-extension://abc/suspended.html?url=https%3A%2F%2Fawake.example%2F',
+          chromeGroupId: 'g',
+        }),
+      ],
+      { chromeTabGroups: [{ groupId: 'g', title: 'G', color: 'red' }] }
+    );
+
+    for (const scope of [
+      windowLinkScope('W', noisy),
+      groupLinkScope('G', noisy, 'g'),
+    ]) {
+      expect(scope.tabs.map((t) => [t.title, t.url])).toEqual([
+        ['Inbox', 'https://example.com/'],
+        ['Sleeping', 'https://awake.example/'],
+      ]);
+    }
+  });
+
+  test('a group id the window does not hold copies nothing', () => {
+    expect(groupLinkScope('Gone', trip, 'nope').tabs).toEqual([]);
   });
 });

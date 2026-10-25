@@ -45,6 +45,12 @@ import {
 import { visuallyHiddenStyle } from '../../../styles/visuallyHidden';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import { copyLinkItem } from '../../common/rowMenu/copyLinkItem';
+import { copyAllLinksItem } from '../../common/rowMenu/copyAllLinksItem';
+import { copyScopeLinks } from '../../../utils/functions/copySessionLinks';
+import {
+  groupLinkScope,
+  windowLinkScope,
+} from '../../../utils/functions/sessionExportHtml';
 import {
   deleteTab,
   tabData,
@@ -280,6 +286,15 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   // KAN-708. The window's items: the one source for its ⋮ and its right-click menu.
   const savedWindowMenuItems: OverflowMenuItem[] = [
+    // KAN-783. First, as on a session: the one item that changes nothing.
+    copyAllLinksItem(
+      () =>
+        copyScopeLinks(
+          windowLinkScope(label.text, { tabs, chromeTabGroups }),
+          t
+        ),
+      { t, dispatch }
+    ),
     // Only while sorting would change the order.
     ...(isSavedWindowSortedBySite({ tabs })
       ? []
@@ -336,6 +351,21 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   // KAN-708. A group's items: the one source for its ⋮ and its right-click menu.
   const savedGroupMenuItems = (groupId: string): OverflowMenuItem[] => [
+    // KAN-783. First, as on the window.
+    copyAllLinksItem(
+      () => {
+        const group = chromeTabGroups?.find((g) => g.groupId === groupId);
+        return copyScopeLinks(
+          groupLinkScope(
+            group ? groupDisplayName(group) : t('Unnamed group'),
+            { tabs },
+            groupId
+          ),
+          t
+        );
+      },
+      { t, dispatch }
+    ),
     // KAN-746. First, as on the window, and only while sorting would change the group's order.
     ...(isSavedGroupSortedBySite({ tabs }, groupId)
       ? []

@@ -12,6 +12,8 @@ import { standIn } from './fixtures/standInPages';
 const ITEMS = [
   'Save all open windows as a session',
   'Save current window as a session',
+  // KAN-783. After the two saves.
+  'Copy all links',
   'Save open windows as PDF…',
 ];
 
@@ -48,7 +50,7 @@ const ITEM_TEXTS = ITEMS.map(
   (label) => new RegExp(`${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`)
 );
 
-test('right-clicking the header opens the three saves; Esc closes it', async ({
+test('right-clicking the header opens the saves and Copy all links; Esc closes it', async ({
   context,
   extensionId,
 }) => {

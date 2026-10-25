@@ -23,7 +23,8 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 const SAVE_ALL = 'Save all open windows as a session';
 const SAVE_CURRENT = 'Save current window as a session';
 const PDF = 'Save open windows as PDF…';
-const ITEMS = [SAVE_ALL, SAVE_CURRENT, PDF];
+// KAN-783. Copy all links sits after the two saves.
+const ITEMS = [SAVE_ALL, SAVE_CURRENT, 'Copy all links', PDF];
 
 function tabViewUrl(): string {
   const scratch = setupChromeFake();

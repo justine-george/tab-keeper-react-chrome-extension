@@ -834,6 +834,7 @@ describe('right-click (KAN-708)', () => {
     const dotsItems = labels(screen.getByRole('menu', { name: /./ }));
 
     expect(rowItems).toEqual([
+      'Copy all links',
       'Sort tabs by site',
       'Sort groups by name',
       'Remove 1 duplicate tab',
@@ -854,12 +855,13 @@ describe('right-click (KAN-708)', () => {
     expect(onDeleteClick).toHaveBeenCalledTimes(1);
   });
 
-  test("a group header's right-click offers Ungroup / Remove duplicates / Delete tab group, acting on that group", async () => {
+  test("a group header's right-click offers Copy all links / Ungroup / Remove duplicates / Delete tab group, acting on that group", async () => {
     const { store } = await renderSeeded();
 
     fireEvent.contextMenu(groupTitle('Work'));
     expect(menus()[0]).toHaveAccessibleName('More actions: Work');
     expect(labels(menus()[0])).toEqual([
+      'Copy all links',
       'Ungroup',
       'Remove 1 duplicate tab',
       'Delete tab group',
@@ -868,7 +870,11 @@ describe('right-click (KAN-708)', () => {
 
     // Play has no duplicate; its menu is its own.
     fireEvent.contextMenu(groupTitle('Play'));
-    expect(labels(menus()[0])).toEqual(['Ungroup', 'Delete tab group']);
+    expect(labels(menus()[0])).toEqual([
+      'Copy all links',
+      'Ungroup',
+      'Delete tab group',
+    ]);
     fireEvent.click(
       within(menus()[0]).getByRole('menuitem', { name: 'Delete tab group' })
     );

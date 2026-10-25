@@ -3,9 +3,12 @@ import type { TFunction } from 'i18next';
 
 import { formatGroupCounts, formatTabCount } from './local';
 import {
+  scopeToLinkHtml,
+  scopeToLinkList,
   sessionToLinkHtml,
   sessionToLinkList,
   type LinkListStrings,
+  type LinkScope,
 } from './sessionExportHtml';
 
 /**
@@ -75,16 +78,43 @@ export async function copySessionLinks(
     locale: language,
   };
 
-  const plain = sessionToLinkList(session, strings);
-  if (!(await writeRich(sessionToLinkHtml(session, strings), plain))) {
-    // KAN-713. A refused plain write is the one failure left; report it, don't throw.
-    try {
-      await navigator.clipboard.writeText(plain);
-    } catch {
-      return null;
-    }
+  const written = await writeLinks(
+    sessionToLinkHtml(session, strings),
+    sessionToLinkList(session, strings)
+  );
+  return written ? linkCount : null;
+}
+
+/**
+ * One window's or one group's links (KAN-783), with copySessionLinks's
+ * promise: the link count once something is on the clipboard, null when both
+ * writes were refused, never a rejection. Copies `scope` as given; the scope
+ * builders tidy it.
+ */
+export async function copyScopeLinks(
+  scope: LinkScope,
+  t: TFunction
+): Promise<number | null> {
+  const strings = {
+    tabCountLabel: (count: number) => formatTabCount(count, t),
+  };
+  const written = await writeLinks(
+    scopeToLinkHtml(scope, strings),
+    scopeToLinkList(scope, strings)
+  );
+  return written ? scope.tabs.length : null;
+}
+
+// The rich list, else the plain one; false only when both were refused.
+async function writeLinks(html: string, plain: string): Promise<boolean> {
+  if (await writeRich(html, plain)) return true;
+  // KAN-713. A refused plain write is the one failure left; report it, don't throw.
+  try {
+    await navigator.clipboard.writeText(plain);
+    return true;
+  } catch {
+    return false;
   }
-  return linkCount;
 }
 
 /**

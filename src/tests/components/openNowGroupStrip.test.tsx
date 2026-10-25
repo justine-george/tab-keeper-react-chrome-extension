@@ -152,11 +152,11 @@ describe('a live group row: Save and a ⋮ (KAN-696)', () => {
     ]);
   });
 
-  test('the menu lists Ungroup, then Close group last', async () => {
+  test('the menu lists Copy all links (KAN-783), Ungroup, then Close group last', async () => {
     const user = userEvent.setup();
     await renderOpenNow();
     await openGroupMenu(user, 'Docs');
-    expect(menuKeys()).toEqual(['ungroup', 'closeGroup']);
+    expect(menuKeys()).toEqual(['copy', 'ungroup', 'closeGroup']);
     const items = within(screen.getByRole('menu')).getAllByRole('menuitem');
     expect(items[items.length - 1]).toHaveTextContent('Close group');
   });
@@ -404,11 +404,11 @@ describe('a live group row right-click (KAN-708)', () => {
   const firstControl = () =>
     stripIn(titleRowOf('Docs'))?.firstElementChild as HTMLElement;
 
-  test('right-click = Ungroup, Close group, acting on that group', async () => {
+  test('right-click = Copy all links, Ungroup, Close group, acting on that group', async () => {
     await renderOpenNow();
 
     expect(fireEvent.contextMenu(titleRowOf('Docs'))).toBe(false);
-    expect(menuKeys()).toEqual(['ungroup', 'closeGroup']);
+    expect(menuKeys()).toEqual(['copy', 'ungroup', 'closeGroup']);
 
     fireEvent.click(
       within(screen.getByRole('menu')).getByRole('menuitem', {
@@ -536,11 +536,11 @@ describe('Sort tabs by site on a live group (KAN-746)', () => {
       ],
     });
 
-  test('the menu lists Sort tabs by site first, then Ungroup, then Close group', async () => {
+  test('the menu lists Sort tabs by site right after Copy all links, then Ungroup, then Close group', async () => {
     const user = userEvent.setup();
     await renderOpenNow(unsorted());
     await openGroupMenu(user, 'Docs');
-    expect(menuKeys()).toEqual(['sortBySite', 'ungroup', 'closeGroup']);
+    expect(menuKeys()).toEqual(['copy', 'sortBySite', 'ungroup', 'closeGroup']);
   });
 
   test("choosing it sorts the real group's tabs and says so", async () => {
@@ -567,13 +567,13 @@ describe('Sort tabs by site on a live group (KAN-746)', () => {
   test('right-click offers it too', async () => {
     await renderOpenNow(unsorted());
     fireEvent.contextMenu(titleRowOf('Docs'));
-    expect(menuKeys()).toEqual(['sortBySite', 'ungroup', 'closeGroup']);
+    expect(menuKeys()).toEqual(['copy', 'sortBySite', 'ungroup', 'closeGroup']);
   });
 
   test('absent for a sorted group', async () => {
     const user = userEvent.setup();
     await renderOpenNow();
     await openGroupMenu(user, 'Docs');
-    expect(menuKeys()).toEqual(['ungroup', 'closeGroup']);
+    expect(menuKeys()).toEqual(['copy', 'ungroup', 'closeGroup']);
   });
 });

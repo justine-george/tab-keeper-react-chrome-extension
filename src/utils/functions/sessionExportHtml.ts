@@ -7,6 +7,7 @@ import {
   partitionTabsIntoRuns,
   sanitizeTabGroupColor,
   TAB_GROUP_COLOR_HEX,
+  type chromeTabGroupData,
 } from './tabGroups';
 import { windowLabel } from './windowLabel';
 import { isPngDataUri } from './exportIcons';
@@ -481,21 +482,29 @@ export function tidySessionForExport(
     ...session,
     windows: session.windows.map((window) => ({
       ...window,
-      tabs: window.tabs.map((tab) => {
-        const title = dropNotificationCount(tab.title);
-        const url = suspendedTabAddress(tab.url);
-        return title === tab.title && url === tab.url
-          ? tab
-          : { ...tab, title, url };
-      }),
+      tabs: window.tabs.map(tidyTabForExport),
     })),
   };
+}
+
+function tidyTabForExport(tab: tabData): tabData {
+  const title = dropNotificationCount(tab.title);
+  const url = suspendedTabAddress(tab.url);
+  return title === tab.title && url === tab.url ? tab : { ...tab, title, url };
+}
+
+function tabLines(tab: tabData, indent: string): string[] {
+  const url = tab.url;
+  const title = labelOf(tab);
+  return title === url
+    ? [`${indent}- ${url}`]
+    : [`${indent}- ${title}`, `${indent}  ${url}`];
 }
 
 function groupHeading(
   group: { title: string },
   count: number,
-  strings: LinkListStrings
+  strings: Pick<LinkListStrings, 'tabCountLabel'>
 ): string {
   const size = strings.tabCountLabel(count);
   // An unnamed group is a real Chrome state: its size alone heads it.
@@ -517,14 +526,6 @@ export function sessionToLinkList(
 ): string {
   const label = strings.window.toLocaleUpperCase(strings.locale);
   const lines: string[] = [session.title, strings.countsLabel];
-
-  const tabLines = (tab: tabData, indent: string): string[] => {
-    const url = tab.url;
-    const title = labelOf(tab);
-    return title === url
-      ? [`${indent}- ${url}`]
-      : [`${indent}- ${title}`, `${indent}  ${url}`];
-  };
 
   session.windows.forEach((window, index) => {
     lines.push(
@@ -552,6 +553,35 @@ export function sessionToLinkList(
   return lines.join('\n');
 }
 
+function linkItemHtml(tab: tabData): string {
+  const url = tab.url;
+  const title = labelOf(tab);
+  if (!LINKABLE.test(url)) {
+    return `<li>${escapeHtml(title === url ? url : `${title} (${url})`)}</li>`;
+  }
+  return `<li><a href="${escapeHtml(url)}">${escapeHtml(title)}</a></li>`;
+}
+
+// Tabs as one list, each group a nested list under its name and size.
+function runsToHtmlList(
+  tabs: readonly tabData[],
+  groups: readonly chromeTabGroupData[] | undefined,
+  strings: Pick<LinkListStrings, 'tabCountLabel'>
+): string {
+  const body = partitionTabsIntoRuns(tabs, groups)
+    .map((run) => {
+      const items = run.tabs.map(linkItemHtml).join('');
+      if (run.kind === 'ungrouped') return items;
+      const size = escapeHtml(strings.tabCountLabel(run.tabs.length));
+      const heading = run.group.title.trim()
+        ? `<b>${escapeHtml(run.group.title)}</b> (${size})`
+        : size;
+      return `<li>${heading}<ul>${items}</ul></li>`;
+    })
+    .join('');
+  return `<ul>${body}</ul>`;
+}
+
 /**
  * The session as a rich list, for the clipboard's text/html (KAN-195).
  *
@@ -566,43 +596,95 @@ export function sessionToLinkHtml(
   session: tabContainerData,
   strings: LinkListStrings
 ): string {
-  const item = (tab: tabData): string => {
-    const url = tab.url;
-    const title = labelOf(tab);
-    if (!LINKABLE.test(url)) {
-      return `<li>${escapeHtml(
-        title === url ? url : `${title} (${url})`
-      )}</li>`;
-    }
-    return `<li><a href="${escapeHtml(url)}">${escapeHtml(title)}</a></li>`;
-  };
-
   const windows = session.windows
-    .map((window, index) => {
-      const body = partitionTabsIntoRuns(window.tabs, window.chromeTabGroups)
-        .map((run) => {
-          const items = run.tabs.map(item).join('');
-          if (run.kind === 'ungrouped') return items;
-          const size = escapeHtml(strings.tabCountLabel(run.tabs.length));
-          const heading = run.group.title.trim()
-            ? `<b>${escapeHtml(run.group.title)}</b> (${size})`
-            : size;
-          return `<li>${heading}<ul>${items}</ul></li>`;
-        })
-        .join('');
-      return (
+    .map(
+      (window, index) =>
         `<p><b>${escapeHtml(
           windowHeading(strings.window, index + 1, window.title)
         )}</b> ` +
         `(${escapeHtml(strings.tabCountLabel(window.tabs.length))})</p>` +
-        `<ul>${body}</ul>`
-      );
-    })
+        runsToHtmlList(window.tabs, window.chromeTabGroups, strings)
+    )
     .join('');
 
   return (
     `<h3>${escapeHtml(session.title)}</h3>` +
     `<p>${escapeHtml(strings.countsLabel)}</p>` +
     windows
+  );
+}
+
+/**
+ * One window or one group, as its own menu copies it (KAN-783): a heading
+ * naming it, and its tabs, tidied as the session copy's are (KAN-210).
+ * `groups` holds the groups drawn among those tabs; a group copied on its own
+ * has none, so its tabs read flat under its name.
+ */
+export interface LinkScope {
+  heading: string;
+  tabs: tabData[];
+  groups?: chromeTabGroupData[];
+}
+
+export function windowLinkScope(
+  heading: string,
+  window: Pick<windowGroupData, 'tabs' | 'chromeTabGroups'>
+): LinkScope {
+  return {
+    heading,
+    tabs: window.tabs.map(tidyTabForExport),
+    groups: window.chromeTabGroups,
+  };
+}
+
+// Only that group's tabs: the window's other tabs are not part of the copy.
+export function groupLinkScope(
+  heading: string,
+  window: Pick<windowGroupData, 'tabs'>,
+  groupId: string
+): LinkScope {
+  return {
+    heading,
+    tabs: window.tabs
+      .filter((tab) => tab.chromeGroupId === groupId)
+      .map(tidyTabForExport),
+  };
+}
+
+/**
+ * A scope as plain text (KAN-783 pick 2B): its heading, its size, then its
+ * tabs laid out as the session copy lays a window's, one indent shallower
+ * because there is no window line above them.
+ */
+export function scopeToLinkList(
+  scope: LinkScope,
+  strings: Pick<LinkListStrings, 'tabCountLabel'>
+): string {
+  const lines: string[] = [
+    scope.heading,
+    strings.tabCountLabel(scope.tabs.length),
+    '',
+  ];
+  partitionTabsIntoRuns(scope.tabs, scope.groups).forEach((run, runIndex) => {
+    if (runIndex > 0) lines.push('');
+    if (run.kind === 'ungrouped') {
+      run.tabs.forEach((tab) => lines.push(...tabLines(tab, '')));
+      return;
+    }
+    lines.push(groupHeading(run.group, run.tabs.length, strings));
+    run.tabs.forEach((tab) => lines.push(...tabLines(tab, '  ')));
+  });
+  return lines.join('\n');
+}
+
+// The rich twin of scopeToLinkList: the heading, the size, the list.
+export function scopeToLinkHtml(
+  scope: LinkScope,
+  strings: Pick<LinkListStrings, 'tabCountLabel'>
+): string {
+  return (
+    `<h3>${escapeHtml(scope.heading)}</h3>` +
+    `<p>${escapeHtml(strings.tabCountLabel(scope.tabs.length))}</p>` +
+    runsToHtmlList(scope.tabs, scope.groups, strings)
   );
 }

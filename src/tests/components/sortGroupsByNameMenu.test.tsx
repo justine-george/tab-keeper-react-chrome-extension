@@ -109,6 +109,7 @@ describe('saved window', () => {
     await render([tab('x'), tab('z1', 'gZ'), tab('a1', 'gA')], [ZULU, ALPHA]);
     const dots = labels(await openMenu(user));
     expect(dots).toEqual([
+      'Copy all links',
       'Sort tabs by site',
       'Sort groups by name',
       'Delete window',
@@ -146,7 +147,10 @@ describe('saved window', () => {
       [tab('a1', 'gA'), tab('z1', 'gZ'), tab('u1', 'gU'), tab('x')],
       [ALPHA, ZULU, { groupId: 'gU', title: '', color: 'grey' }]
     );
-    expect(labels(await openMenu(user))).toEqual(['Delete window']);
+    expect(labels(await openMenu(user))).toEqual([
+      'Copy all links',
+      'Delete window',
+    ]);
   });
 
   // Without the grant the window draws flat, so there are no groups on screen to sort.
@@ -161,7 +165,10 @@ describe('saved window', () => {
   test('is absent with only one group', async () => {
     const user = userEvent.setup();
     await render([tab('z1', 'gZ'), tab('x')], [ZULU]);
-    expect(labels(await openMenu(user))).toEqual(['Delete window']);
+    expect(labels(await openMenu(user))).toEqual([
+      'Copy all links',
+      'Delete window',
+    ]);
   });
 });
 
@@ -243,6 +250,7 @@ describe('Open now window', () => {
     await renderOpenNow(seed(OUT_OF_ORDER(), GROUPS));
     await openMenu(user, 2);
     expect(menuKeys()).toEqual([
+      'copy',
       'sortBySite',
       'sortGroupsByName',
       'closeWindow',

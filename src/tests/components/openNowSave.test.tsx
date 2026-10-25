@@ -221,7 +221,11 @@ describe('saving from the Open now pane (KAN-280 O13)', () => {
             .getAllByRole('button')
             .map((button) => button.getAttribute('aria-label'))
         : [];
-    expect(namesIn(stripOf(1))).toEqual(['Save window as a session: Window 1']);
+    // KAN-783. This window's ⋮ holds Copy all links even with nothing to sort.
+    expect(namesIn(stripOf(1))).toEqual([
+      'Save window as a session: Window 1',
+      'More actions: Window 1',
+    ]);
     expect(namesIn(stripOf(2))).toEqual([
       'Save window as a session: Window 2',
       'More actions: Window 2',

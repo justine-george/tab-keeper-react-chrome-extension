@@ -299,6 +299,7 @@ test('(c) a double-click on Close window closes exactly one window', async ({
   expect(before).toEqual(
     expect.arrayContaining([first.windowId, second.windowId])
   );
+  const savedBefore = await stored(page);
 
   await firstBlock.locator('[data-window-row]').hover();
   await openNowWindowMenu(firstBlock).click();
@@ -345,21 +346,24 @@ test('(c) a double-click on Close window closes exactly one window', async ({
   await expect
     .poll(async () => (await clicks()).map((c) => c.detail))
     .toEqual([1, 2]);
-  // PREMISE: click 2 landed on a tab row's Switch button (measured: the row
-  // under the menu item, in the window just closed), which would act if the
-  // guard were missing -- not on empty space.
+  // PREMISE: click 2 landed on a control that would act if the guard were
+  // missing -- not on empty space. Measured: the next window's Save (KAN-783
+  // put Copy all links above Close window; before, a tab row's Switch).
   const [, secondClick] = await clicks();
-  expect(secondClick.control).toMatch(/^Switch to tab: /);
+  expect(secondClick.control).toMatch(
+    /^(Switch to tab|Save window as a session): /
+  );
 
   // PREMISE: the first half of the double-click closed the window.
   await expect
     .poll(() => allWindowIds(serviceWorker))
     .not.toContain(first.windowId);
-  // Then a second of watching: nothing else closes.
+  // Then a second of watching: nothing else closes, and nothing is saved.
   const expected = before.filter((id) => id !== first.windowId).sort();
   const until = Date.now() + 1000;
   while (Date.now() < until) {
     expect((await allWindowIds(serviceWorker)).sort()).toEqual(expected);
+    expect(await stored(page)).toEqual(savedBefore);
     await page.waitForTimeout(100);
   }
 });
