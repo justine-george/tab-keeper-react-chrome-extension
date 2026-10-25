@@ -23,6 +23,9 @@ import {
 import { liveItem } from '../../redux/carriedItem';
 import { endDragHold } from '../../redux/dragHold';
 import { live } from '../fixtures/liveSnapshotFixture';
+import { LIGHT_THEME } from '../../hooks/useThemeColors';
+import { TYPE } from '../../styles/scale';
+import { asWritten } from '../setup/asWritten';
 
 // KAN-280 O2. Below 1100px, side by side, Open now's column is a 44px rail
 // with one button, and the button opens Open now as a drawer over the right
@@ -127,6 +130,27 @@ describe('narrow and side by side (O2)', () => {
     expect(screen.queryByText(PANE_ONLY)).not.toBeInTheDocument();
     // PREMISE: side by side, so the saved detail is still on screen.
     expect(screen.getByRole('button', { name: HERO_ONLY })).toBeInTheDocument();
+  });
+
+  // KAN-776 C. The glyph alone did not say what the rail is.
+  test('the rail button shows its glyph and, under it, Open now set vertically', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+
+    const button = await railButton();
+    const label = within(button).getByText('Open now');
+    const glyph = within(button).getByText('tab');
+
+    expect(glyph).toHaveClass('material-symbols-outlined');
+    expect(
+      glyph.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(getComputedStyle(button).flexDirection).toBe('column');
+    const style = getComputedStyle(label);
+    expect(style.writingMode).toBe('vertical-rl');
+    // jsdom resolves rem against 16px.
+    expect(style.fontSize).toBe(`${parseFloat(TYPE.SECONDARY) * 16}px`);
+    expect(style.color).toMatch(asWritten(LIGHT_THEME.TEXT_COLOR));
   });
 
   test('clicking the rail opens the drawer with the pane, and focus moves to its heading', async () => {

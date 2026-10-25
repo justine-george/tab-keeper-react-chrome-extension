@@ -18,7 +18,7 @@ import type { OpenWindow } from '../../../utils/functions/openNow';
 import OpenNowPane from './OpenNowPane';
 import type { OpenNowHeaderAction } from './OpenNowPane';
 import { currentCarry, subscribeCarry } from '../../../redux/carry';
-import { DURATION } from '../../../styles/scale';
+import { DURATION, TYPE } from '../../../styles/scale';
 import { isUnclaimedEscape } from '../../common/unclaimedEscape';
 
 interface OpenNowRailProps {
@@ -167,10 +167,13 @@ export default function OpenNowRail({
 
   // Sized and filled as an actionable Icon is (padding 4px round a 24px
   // glyph, hover and press fills), but a native button: it needs a ref for
-  // focus to come back to, and aria-controls.
+  // focus to come back to, and aria-controls. KAN-776: the label stacks under
+  // the glyph.
   const buttonStyle = css`
     display: flex;
+    flex-direction: column;
     align-items: center;
+    min-width: 32px;
     justify-content: center;
     padding: 4px;
     border: none;
@@ -184,6 +187,17 @@ export default function OpenNowRail({
     &[aria-expanded='true'] {
       background-color: ${COLORS.ICON_ACTIVE_COLOR};
     }
+  `;
+
+  // KAN-776 C. Read top to bottom; CJK stands upright. Set, not inherited:
+  // inherited, it drew black on Charcoal.
+  const labelStyle = css`
+    writing-mode: vertical-rl;
+    color: ${COLORS.TEXT_COLOR};
+    font-size: ${TYPE.SECONDARY};
+    line-height: 1.25;
+    padding: 6px 0 4px;
+    white-space: nowrap;
   `;
 
   // z-index 900: over the panes, and under the toast (1050), which must stay
@@ -230,6 +244,8 @@ export default function OpenNowRail({
         onClick={() => (isOpen ? close() : setIsOpen(true))}
       >
         <Icon type="tab" />
+        {/* Named by aria-label, which holds this text and the count. */}
+        <span css={labelStyle}>{t('Open now')}</span>
       </button>
       {isOpen && (
         <div
