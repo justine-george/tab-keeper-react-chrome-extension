@@ -57,7 +57,7 @@ const renderMenu = (
   });
 };
 
-const back = () => screen.getByRole('button', { name: 'Back to last tab' });
+const back = () => screen.getByRole('button', { name: 'Back to your tab' });
 const compact = () =>
   screen.getAllByRole('button', { name: 'Open compact view' })[0];
 const card = () => screen.getByRole('dialog');
@@ -74,7 +74,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('Back to last tab, from an unpinned full view (KAN-578)', () => {
+describe('Back to your tab, from an unpinned full view (KAN-578)', () => {
   const pressBack = async () => {
     const rendered = await renderMenu('full');
     await waitFor(() => expect(back()).not.toHaveAttribute('aria-disabled'));
@@ -219,7 +219,7 @@ describe('Back to last tab, from an unpinned full view (KAN-578)', () => {
   });
 });
 
-describe('Back to last tab, when the press closes nothing or only closes (KAN-578)', () => {
+describe('Back to your tab, when the press closes nothing or only closes (KAN-578)', () => {
   test('a pinned full view: no card, the press goes back at once', async () => {
     const { chrome } = await renderMenu('full', { seed: seedFor(true) });
     await waitFor(() => expect(back()).not.toHaveAttribute('aria-disabled'));
@@ -316,7 +316,7 @@ describe('Open compact view (KAN-578)', () => {
   });
 });
 
-describe("Open now's Back to last tab chip (KAN-578)", () => {
+describe("Open now's Back to your tab chip (KAN-578)", () => {
   test('the first press shows the card; Go back sends one message', async () => {
     history.replaceState(null, '', '?view=tab');
     const { chrome } = await renderWithProviders(

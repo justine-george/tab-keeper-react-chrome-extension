@@ -16,7 +16,7 @@ import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { TYPE } from '../../styles/scale';
 import { rgb } from '../setup/hexColor';
 
-// KAN-576 and KAN-577 (pick A). Open now's header: a session-sized title, and Back to last tab in Add window's corner.
+// KAN-576 and KAN-577 (pick A). Open now's header: a session-sized title, and Back to your tab in Add window's corner.
 
 // The full view is tab 7 in window 1, beside tab 6.
 const renderPane = (view: DefaultView, seed: Partial<ChromeSeed> = {}) => {
@@ -56,7 +56,7 @@ const renderPane = (view: DefaultView, seed: Partial<ChromeSeed> = {}) => {
     }
   );
 };
-const back = () => screen.getByRole('button', { name: 'Back to last tab' });
+const back = () => screen.getByRole('button', { name: 'Back to your tab' });
 
 afterEach(() => {
   history.replaceState(null, '', '?');
@@ -76,13 +76,13 @@ describe("Open now's title is a session title's size (KAN-576)", () => {
   });
 });
 
-describe("Open now's Back to last tab (KAN-577, pick A)", () => {
+describe("Open now's Back to your tab (KAN-577, pick A)", () => {
   test.each(['compact', 'full'] as const)(
     'Default view %s: the chip shows, labelled, with its icon',
     async (view) => {
       await renderPane(view);
 
-      expect(back()).toHaveTextContent('Back to last tab');
+      expect(back()).toHaveTextContent('Back to your tab');
       expect(back()).toHaveTextContent('arrow_back');
     }
   );

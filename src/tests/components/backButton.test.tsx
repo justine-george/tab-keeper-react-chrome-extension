@@ -44,7 +44,7 @@ const renderFullView = (view: DefaultView, seed: Partial<ChromeSeed> = {}) => {
     },
   });
 };
-const back = () => screen.getByRole('button', { name: 'Back to last tab' });
+const back = () => screen.getByRole('button', { name: 'Back to your tab' });
 
 afterEach(() => {
   history.replaceState(null, '', '?');
@@ -55,9 +55,9 @@ describe("the full view's Back button (KAN-509)", () => {
     await renderFullView('full');
 
     const names = screen.getAllByRole('button').map((el) => el.ariaLabel);
-    expect(names.slice(0, 2)).toEqual(['Back to last tab', 'Sort sessions']);
+    expect(names.slice(0, 2)).toEqual(['Back to your tab', 'Sort sessions']);
     expect(back()).toHaveTextContent('arrow_back');
-    expect(back()).toHaveAttribute('data-tooltip', 'Back to last tab');
+    expect(back()).toHaveAttribute('data-tooltip', 'Back to your tab');
   });
 
   test('Default view Compact: Open compact view as before, no Back', async () => {
@@ -67,7 +67,7 @@ describe("the full view's Back button (KAN-509)", () => {
       screen.getByRole('button', { name: 'Open compact view' })
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Back to last tab' })
+      screen.queryByRole('button', { name: 'Back to your tab' })
     ).not.toBeInTheDocument();
   });
 

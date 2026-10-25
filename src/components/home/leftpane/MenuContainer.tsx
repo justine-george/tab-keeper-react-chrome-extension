@@ -458,8 +458,8 @@ export default function MenuContainer() {
           >
             {(press) => (
               <Icon
-                ariaLabel={t('Back to last tab')}
-                tooltipText={t('Back to last tab')}
+                ariaLabel={t('Back to your tab')}
+                tooltipText={t('Back to your tab')}
                 type="arrow_back"
                 onClick={press}
                 style={canGoBack ? 'opacity: 1;' : 'opacity: 0.3;'}

@@ -59,11 +59,11 @@ describe('"Open compact view" in every locale (KAN-437)', () => {
   );
 });
 
-describe('"Back to last tab" in every locale (KAN-509)', () => {
+describe('"Back to your tab" in every locale (KAN-509, KAN-785)', () => {
   test.each(Object.keys(LOCALES))(
     '%s names it, apart from Open compact view and Back',
     (lang) => {
-      const value = LOCALES[lang]['Back to last tab'];
+      const value = LOCALES[lang]['Back to your tab'];
       expect(typeof value === 'string' && value.length > 0).toBe(true);
       expect(value).not.toBe(LOCALES[lang]['Open compact view']);
       expect(value).not.toBe(LOCALES[lang]['Back']);
@@ -73,7 +73,15 @@ describe('"Back to last tab" in every locale (KAN-509)', () => {
   test.each(Object.keys(LOCALES).filter((l) => l !== 'en'))(
     '%s translates it',
     (lang) => {
-      expect(LOCALES[lang]['Back to last tab']).not.toBe('Back to last tab');
+      expect(LOCALES[lang]['Back to your tab']).not.toBe('Back to your tab');
+    }
+  );
+
+  // KAN-785. "Last tab" read as the rightmost one; a leftover key is dead text.
+  test.each(Object.keys(LOCALES))(
+    '%s no longer has "Back to last tab"',
+    (lang) => {
+      expect(LOCALES[lang]).not.toHaveProperty(['Back to last tab']);
     }
   );
 });
