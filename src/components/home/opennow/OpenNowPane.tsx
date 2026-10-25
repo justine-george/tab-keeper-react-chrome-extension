@@ -540,6 +540,28 @@ export default function OpenNowPane({
 
   // With nothing listed there is nothing to save; N1, none while the saved search holds text.
   const canSave = listed.length > 0 && !isSavedSearching;
+  // KAN-783. Every open window, as Save all would save it, in the session
+  // copy's shape. Null while Open now's search holds text (O14e): the copy
+  // would carry tabs the search hides. The menu item and the icon (KAN-792).
+  const copyAllLinks: OverflowMenuItem | null =
+    searchTerm === null
+      ? copyAllLinksItem(
+          async () =>
+            copySessionLinks(
+              tidySessionForExport(
+                openWindowsToSession(
+                  listed,
+                  await suggestSaveAllTitle(),
+                  new Date(),
+                  () => []
+                )
+              ),
+              t,
+              i18n.language
+            ),
+          { t, dispatch }
+        )
+      : null;
   // KAN-774 (his pick A). The header's right-click menu: all three saves, in words. KAN-780 dropped its ⋮.
   const saveItems: OverflowMenuItem[] = [
     {
@@ -554,29 +576,7 @@ export default function OpenNowPane({
       icon: SAVE_OF['current-window'].icon,
       onSelect: handleSaveCurrent,
     },
-    // KAN-783. Every open window, as Save all would save it, in the session
-    // copy's shape. Left out while Open now's search holds text (O14e): the
-    // copy would carry tabs the search hides.
-    ...(searchTerm === null
-      ? [
-          copyAllLinksItem(
-            async () =>
-              copySessionLinks(
-                tidySessionForExport(
-                  openWindowsToSession(
-                    listed,
-                    await suggestSaveAllTitle(),
-                    new Date(),
-                    () => []
-                  )
-                ),
-                t,
-                i18n.language
-              ),
-            { t, dispatch }
-          ),
-        ]
-      : []),
+    ...(copyAllLinks === null ? [] : [copyAllLinks]),
     {
       key: 'export-open-windows',
       label: t('Save open windows as PDF'),
@@ -843,6 +843,14 @@ export default function OpenNowPane({
                 type={SAVE_OF['current-window'].icon}
                 onClick={handleSaveCurrent}
               />
+              {copyAllLinks !== null && (
+                <Icon
+                  tooltipText={copyAllLinks.label}
+                  ariaLabel={copyAllLinks.label}
+                  type={copyAllLinks.icon}
+                  onClick={copyAllLinks.onSelect}
+                />
+              )}
               <Icon
                 tooltipText={t('Save open windows as PDF')}
                 ariaLabel={t('Save open windows as PDF')}

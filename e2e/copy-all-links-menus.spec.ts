@@ -98,8 +98,12 @@ const menuKeys = (page: Page) =>
       items.map((item) => item.getAttribute('data-menu-item'))
     );
 
-async function copyAndPaste(page: Page, links: string | RegExp) {
-  await page.getByRole('menuitem', { name: 'Copy all links' }).click();
+async function copyAndPaste(
+  page: Page,
+  links: string | RegExp,
+  copy = page.getByRole('menuitem', { name: 'Copy all links' })
+) {
+  await copy.click();
   // Barrier: the toast appears after the write resolves.
   await expect(page.getByText(links).last()).toBeVisible();
 
@@ -237,6 +241,38 @@ test("Open now's header right-click: Copy all links after the two saves pastes e
   expect(lines).toContain('  Temples (2 Tabs)');
 });
 
+// KAN-792. The same copy as an icon, after the two saves and before Save as PDF.
+test("Open now's header Copy all links icon pastes what its right-click item pastes", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await context.newPage();
+  await openTabView(page, extensionId);
+  const header = page.locator('[data-open-now-header]');
+  const labels = await header
+    .getByRole('button')
+    .evaluateAll((all) => all.map((b) => b.getAttribute('aria-label')));
+  const at = labels.indexOf('Copy all links');
+  expect(labels.slice(at - 1, at + 2)).toEqual([
+    'Save current window as a session',
+    'Copy all links',
+    'Save open windows as PDF…',
+  ]);
+
+  const fromIcon = await copyAndPaste(
+    page,
+    /links copied\./,
+    header.getByRole('button', { name: 'Copy all links' })
+  );
+  await header
+    .getByRole('heading', { name: 'Currently open' })
+    .click({ button: 'right' });
+  const fromMenu = await copyAndPaste(page, /links copied\./);
+
+  expect(fromIcon.plain.split('\n')[1]).toMatch(/^2 Windows · \d+ Tabs$/);
+  expect(fromIcon).toEqual(fromMenu);
+});
+
 test("a saved window's ⋮ leads with Copy all links and pastes the window under its name", async ({
   context,
   extensionId,
@@ -302,7 +338,7 @@ test("a saved group's ⋮ leads with Copy all links and pastes only the group", 
 });
 
 // O14e. A held search hides tabs; a copy would carry them unseen.
-test("while Open now's search holds text, the header menu has no Copy all links", async ({
+test("while Open now's search holds text, the header has no Copy all links, icon or item (KAN-792)", async ({
   context,
   extensionId,
 }) => {
@@ -312,7 +348,12 @@ test("while Open now's search holds text, the header menu has no Copy all links"
     .locator('[data-open-now-header]')
     .getByRole('heading', { name: 'Currently open' });
 
+  const icon = page
+    .locator('[data-open-now-header]')
+    .getByRole('button', { name: 'Copy all links' });
+
   // CONTROL: offered before the search.
+  await expect(icon).toBeVisible();
   await heading.click({ button: 'right' });
   expect(await menuKeys(page)).toContain('copy');
   await page.keyboard.press('Escape');
@@ -324,6 +365,7 @@ test("while Open now's search holds text, the header menu has no Copy all links"
   await expect(
     pane(page, 'open-now').getByText('Kyoto weather')
   ).not.toBeVisible();
+  await expect(icon).toHaveCount(0);
   await heading.click({ button: 'right' });
 
   expect(await menuKeys(page)).toEqual([

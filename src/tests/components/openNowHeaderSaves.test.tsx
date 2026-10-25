@@ -22,9 +22,10 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 
 const SAVE_ALL = 'Save all open windows as a session';
 const SAVE_CURRENT = 'Save current window as a session';
+const COPY = 'Copy all links';
 const PDF = 'Save open windows as PDF…';
 // KAN-783. Copy all links sits after the two saves.
-const ITEMS = [SAVE_ALL, SAVE_CURRENT, 'Copy all links', PDF];
+const ITEMS = [SAVE_ALL, SAVE_CURRENT, COPY, PDF];
 
 function tabViewUrl(): string {
   const scratch = setupChromeFake();
@@ -97,7 +98,7 @@ beforeEach(() => localStorage.clear());
 afterEach(() => vi.restoreAllMocks());
 
 describe("Open now's header saves (KAN-774)", () => {
-  test('Collapse, Save all, Save current window, Save as PDF, in that order, and no ⋮ (KAN-780)', async () => {
+  test('Collapse, Save all, Save current window, Copy all links, Save as PDF, in that order, and no ⋮ (KAN-780, KAN-792)', async () => {
     await renderOpenNow(twoWindows);
 
     const labels = within(header())
@@ -107,7 +108,8 @@ describe("Open now's header saves (KAN-774)", () => {
     expect(at('Collapse all windows')).toBeGreaterThan(-1);
     expect(at(SAVE_ALL)).toBe(at('Collapse all windows') + 1);
     expect(at(SAVE_CURRENT)).toBe(at(SAVE_ALL) + 1);
-    expect(at(PDF)).toBe(at(SAVE_CURRENT) + 1);
+    expect(at(COPY)).toBe(at(SAVE_CURRENT) + 1);
+    expect(at(PDF)).toBe(at(COPY) + 1);
     expect(labels).not.toContain('More actions');
   });
 
@@ -120,6 +122,7 @@ describe("Open now's header saves (KAN-774)", () => {
         ?.getAttribute('data-icon');
     expect(glyphOf(SAVE_ALL)).toBe('two_windows_add');
     expect(glyphOf(SAVE_CURRENT)).toBe('window_add');
+    expect(glyphOf(COPY)).toBe('link');
     expect(headerButton(SAVE_CURRENT)).toHaveAttribute(
       'data-tooltip',
       SAVE_CURRENT
@@ -218,17 +221,17 @@ describe("Open now's header saves (KAN-774)", () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
-  test('while the saved search holds text: no save buttons, no PDF icon, and a right-click is left to Chrome', async () => {
+  test('while the saved search holds text: no save buttons, no Copy or PDF icon, and a right-click is left to Chrome', async () => {
     const { store } = await renderOpenNow(twoWindows);
-    // CONTROL: all three are there before the search.
-    for (const name of [SAVE_ALL, SAVE_CURRENT, PDF])
+    // CONTROL: all four are there before the search.
+    for (const name of [SAVE_ALL, SAVE_CURRENT, COPY, PDF])
       expect(headerButton(name)).toBeInTheDocument();
 
     act(() => {
       store.dispatch(setSearchInputText('kagi'));
     });
 
-    for (const name of [SAVE_ALL, SAVE_CURRENT, PDF])
+    for (const name of [SAVE_ALL, SAVE_CURRENT, COPY, PDF])
       expect(within(header()).queryByRole('button', { name })).toBeNull();
     const event = fireEvent.contextMenu(
       within(header()).getByRole('heading', { name: 'Currently open' })
