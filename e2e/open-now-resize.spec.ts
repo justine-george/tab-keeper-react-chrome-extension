@@ -505,8 +505,8 @@ const detailScroll = (page: Page) =>
 // What a row drag passing over the grip observed there, and how it ended.
 interface OverTheGrip {
   gripHovered: boolean;
-  pillColour: string;
-  pillHeight: number;
+  markColour: string;
+  markHeight: number;
   gripCursor: string;
   openNowWidth: number;
   resizingMidDrag: boolean;
@@ -521,15 +521,15 @@ async function dragSavedRowOverTheGrip(page: Page): Promise<OverTheGrip> {
   const start = await pickUp(page, savedRow(page, 'saved-5'));
   const grip = await gripCentre(page);
 
-  // Over the grip's pill (KAN-747), at its centre.
+  // Over the grip's mark (KAN-747, three dots since KAN-790), at its centre.
   await moveHeld(page, grip.x, grip.y);
   const over = await page.evaluate((sel) => {
     const el = document.querySelector(sel);
-    const pill = el?.querySelector(':scope > span') ?? null;
+    const mark = el?.querySelector(':scope > span') ?? null;
     return {
       gripHovered: el?.matches(':hover') ?? false,
-      pillColour: pill === null ? '' : getComputedStyle(pill).backgroundColor,
-      pillHeight: pill === null ? 0 : pill.getBoundingClientRect().height,
+      markColour: mark === null ? '' : getComputedStyle(mark).color,
+      markHeight: mark === null ? 0 : mark.getBoundingClientRect().height,
       gripCursor: el === null ? '' : getComputedStyle(el).cursor,
       resizingMidDrag: document.documentElement.hasAttribute('data-resizing'),
     };
@@ -1052,8 +1052,8 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     await expect
       .poll(() =>
         page.evaluate((sel) => {
-          const pill = document.querySelector(`${sel} > span`);
-          return pill === null ? '' : getComputedStyle(pill).backgroundColor;
+          const mark = document.querySelector(`${sel} > span`);
+          return mark === null ? '' : getComputedStyle(mark).color;
         }, GRIP)
       )
       .toBe(rgb(CHALK_THEME.TEXT_COLOR));
@@ -1061,8 +1061,8 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
 
     const seen = await dragSavedRowOverTheGrip(page);
     expect(seen.gripHovered).toBe(true);
-    expect(rgbToHex(seen.pillColour)).toBe(CHALK_THEME.LABEL_L3_COLOR);
-    expect(seen.pillHeight).toBe(40);
+    expect(rgbToHex(seen.markColour)).toBe(CHALK_THEME.LABEL_L3_COLOR);
+    expect(seen.markHeight).toBe(20);
     // And no resize cursor: the row drag's own grabbing hand.
     expect(seen.gripCursor).toBe('grabbing');
   });

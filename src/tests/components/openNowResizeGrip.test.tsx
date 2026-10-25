@@ -512,6 +512,10 @@ function declarationsFor(el: Element, selector: string): string | null {
   return found.length === 0 ? null : found.join('\n');
 }
 
+// `color` itself: a bare substring would also match `background-color`.
+const ownColour = (value: string) =>
+  new RegExp(`(?<![-\\w])color: ${value.replace(/[()]/g, '\\$&')}`);
+
 const gripClass = (el: Element) => {
   const cls = [...el.classList].find((c) => c.startsWith('css-'));
   if (cls === undefined) throw new Error('the grip has no emotion class');
@@ -519,17 +523,15 @@ const gripClass = (el: Element) => {
 };
 
 describe('the grip lights on hover and during its drag (O1a G A)', () => {
-  // KAN-747. The pill grows to 48px (scaleY 1.2) in TEXT_COLOR.
-  test('hovered, the pill grows to 48px and is TEXT_COLOR', async () => {
+  // KAN-790. The three dots grow by 1.15 in TEXT_COLOR (KAN-747's pill grew 1.2).
+  test('hovered, the dots grow and are TEXT_COLOR', async () => {
     await renderHome();
     await mounted();
     const cls = gripClass(grip());
 
     const hovered = declarationsFor(grip(), `${cls}:hover>span`);
-    expect(hovered).toContain('transform: scaleY(1.2)');
-    expect(hovered).toContain(
-      `background-color: ${rgb(LIGHT_THEME.TEXT_COLOR)}`
-    );
+    expect(hovered).toContain('transform: scale(1.15)');
+    expect(hovered).toMatch(ownColour(rgb(LIGHT_THEME.TEXT_COLOR)));
   });
 
   // O1a: on hover, keyboard focus and during the drag it looks the same,
@@ -541,11 +543,9 @@ describe('the grip lights on hover and during its drag (O1a G A)', () => {
     const cls = `html[data-key-nav] ${gripClass(grip())}`;
 
     const focused = declarationsFor(grip(), `${cls}:focus-visible>span`);
-    expect(focused).toContain('transform: scaleY(1.2)');
-    expect(focused).toContain(
-      `background-color: ${rgb(LIGHT_THEME.TEXT_COLOR)}`
-    );
-    // The app's ring (dialogButtons.ts): 2px of TEXT_COLOR, on the pill.
+    expect(focused).toContain('transform: scale(1.15)');
+    expect(focused).toMatch(ownColour(rgb(LIGHT_THEME.TEXT_COLOR)));
+    // The app's ring (dialogButtons.ts): 2px of TEXT_COLOR, round the dots.
     // jsdom keeps an outline shorthand's colour as written (hex), unlike a
     // background-color, which it serialises as rgb().
     expect(
@@ -559,10 +559,8 @@ describe('the grip lights on hover and during its drag (O1a G A)', () => {
     const cls = gripClass(grip());
 
     const active = declarationsFor(grip(), `${cls}[data-active]>span`);
-    expect(active).toContain('transform: scaleY(1.2)');
-    expect(active).toContain(
-      `background-color: ${rgb(LIGHT_THEME.TEXT_COLOR)}`
-    );
+    expect(active).toContain('transform: scale(1.15)');
+    expect(active).toMatch(ownColour(rgb(LIGHT_THEME.TEXT_COLOR)));
   });
 
   test('during its drag it is marked active, and not after', async () => {
