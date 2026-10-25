@@ -205,7 +205,7 @@
   "Keep sync off": "Оставить выключённой",
   "Turn sync on": "Включить синхронизацию",
   "Cloud copy deleted": "Копия в облаке удалена",
-  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged. Turn on Auto Sync to sync again.": "Она была удалена на другом устройстве, поэтому синхронизация здесь выключена. Сессии на этом устройстве не изменились. Включите авто-синхронизацию, чтобы снова начать синхронизацию.",
+  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged. Turn on Auto Sync to sync again.": "Она была удалена на другом устройстве, поэтому синхронизация здесь выключена. Сессии на этом устройстве не изменились. Включите авто-синхронизацию, чтобы снова синхронизировать.",
   "Cancel": "Отмена",
   "LoadBackupTitleOne": "Загрузить 1 сессию из этой резервной копии?",
   "LoadBackupTitleOther": "Загрузить сессии из этой резервной копии ({{count}})?",
