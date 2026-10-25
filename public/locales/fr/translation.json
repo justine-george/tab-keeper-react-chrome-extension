@@ -200,7 +200,7 @@
   "Keep sync off": "Laisser désactivée",
   "Turn sync on": "Activer la synchronisation",
   "Cloud copy deleted": "Copie cloud supprimée",
-  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged.": "Elle a été supprimée sur un autre appareil, la synchronisation est donc désactivée ici. Les sessions de cet appareil n’ont pas changé.",
+  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged. Turn on Auto Sync to sync again.": "Elle a été supprimée sur un autre appareil, la synchronisation est donc désactivée ici. Les sessions de cet appareil n’ont pas changé. Activez la synchronisation automatique pour synchroniser à nouveau.",
   "Cancel": "Annuler",
   "LoadBackupTitleOne": "Charger 1 session depuis cette sauvegarde ?",
   "LoadBackupTitleOther": "Charger {{count}} sessions depuis cette sauvegarde ?",

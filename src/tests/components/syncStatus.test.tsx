@@ -367,8 +367,9 @@ describe('the sync status line follows the store (KAN-248)', () => {
     expect(card().textContent).not.toContain('Manual sync');
   });
 
-  // KAN-759. The reason sync is off stays on the card, with the way back on.
-  test('deleted elsewhere: says so, and Turn sync on gives the yes', async () => {
+  // KAN-759, KAN-772. The reason sync is off stays on the card. The way back
+  // is the Auto sync pair above it, not a second button of the card's own.
+  test('deleted elsewhere: says so, points to Auto sync, and Auto sync On asks the question', async () => {
     const { store } = await renderSync();
     act(() => {
       store.dispatch(markCloudDeletedElsewhere({ wasAutoSync: true }));
@@ -377,34 +378,26 @@ describe('the sync status line follows the store (KAN-248)', () => {
     expect(card().getAttribute('data-sync-state')).toBe('deletedElsewhere');
     expect(card().textContent).toContain('Cloud copy deleted');
     expect(card().textContent).toContain(
-      'It was deleted on another device, so sync is off here. The sessions on this device are unchanged.'
+      'It was deleted on another device, so sync is off here. The sessions on this device are unchanged. Turn on Auto sync to sync again.'
     );
-    const turnOn = within(card()).getByRole('button', { name: 'Turn sync on' });
-    // Set apart from the line above it.
-    expect(
-      parseFloat(getComputedStyle(turnOn.parentElement!).marginTop)
-    ).toBeGreaterThan(0);
+    expect(within(card()).queryByRole('button')).toBeNull();
 
-    await act(async () => {
-      fireEvent.click(turnOn);
-    });
-    const { settingsDataState } = store.getState();
-    expect(settingsDataState.cloudConsent).toBe('granted');
-    expect(settingsDataState.isAutoSync).toBe(true);
-    expect(settingsDataState.cloudDeletedElsewhere).toBeNull();
-    expect(card().getAttribute('data-sync-state')).not.toBe('deletedElsewhere');
-  });
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Auto sync' })).getByRole(
+        'button',
+        { name: 'On' }
+      )
+    );
+    const { globalState } = store.getState();
+    expect(globalState.isCloudConsentModalOpen).toBe(true);
+    expect(globalState.cloudConsentThen).toBe('autoSync');
 
-  // CONTROL: a plain decline keeps today's card, with no button.
-  test('declined without a delete elsewhere has no Turn sync on', async () => {
-    const { store } = await renderSync();
+    // The question's Sync: the yes answers the delete elsewhere.
     act(() => {
-      store.dispatch(declineCloudConsent());
+      store.dispatch(grantCloudConsent());
     });
-    expect(card().getAttribute('data-sync-state')).toBe('off');
-    expect(
-      within(card()).queryByRole('button', { name: 'Turn sync on' })
-    ).toBeNull();
+    expect(store.getState().settingsDataState.cloudDeletedElsewhere).toBeNull();
+    expect(card().getAttribute('data-sync-state')).not.toBe('deletedElsewhere');
   });
 
   // KAN-650. A wide full view ran the sentence the whole pane; it stops at

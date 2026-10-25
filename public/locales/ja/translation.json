@@ -190,7 +190,7 @@
   "Keep sync off": "同期をオフのままにする",
   "Turn sync on": "同期をオンにする",
   "Cloud copy deleted": "クラウドのコピーは削除済みです",
-  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged.": "別のデバイスで削除されたため、このデバイスの同期はオフです。このデバイスのセッションは変わっていません。",
+  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged. Turn on Auto Sync to sync again.": "別のデバイスで削除されたため、このデバイスの同期はオフです。このデバイスのセッションは変わっていません。再び同期するには、自動同期をオンにしてください。",
   "Cancel": "キャンセル",
   "LoadBackupTitleOne": "このバックアップから 1 件のセッションを読み込みますか？",
   "LoadBackupTitleOther": "このバックアップから {{count}} 件のセッションを読み込みますか？",

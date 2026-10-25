@@ -850,7 +850,7 @@ const storedIdOrToast = async (
   return null;
 };
 
-// KAN-759. The notice's and the card's "Turn sync on": the yes the cloud
+// KAN-759. The notice's "Turn sync on": the yes the cloud
 // question would give, Auto sync as it was, and this device's sessions
 // uploaded as the new cloud copy (the first sync after a yes may upload).
 export const turnSyncBackOn =

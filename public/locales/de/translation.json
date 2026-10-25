@@ -195,7 +195,7 @@
   "Keep sync off": "Sync ausgeschaltet lassen",
   "Turn sync on": "Sync einschalten",
   "Cloud copy deleted": "Cloud-Kopie gelöscht",
-  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged.": "Sie wurde auf einem anderen Gerät gelöscht, daher ist Sync hier aus. Die Sitzungen auf diesem Gerät sind unverändert.",
+  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged. Turn on Auto Sync to sync again.": "Sie wurde auf einem anderen Gerät gelöscht, daher ist Sync hier aus. Die Sitzungen auf diesem Gerät sind unverändert. Schalten Sie Auto-Sync ein, um wieder zu synchronisieren.",
   "Cancel": "Abbrechen",
   "LoadBackupTitleOne": "1 Sitzung aus dieser Sicherung laden?",
   "LoadBackupTitleOther": "{{count}} Sitzungen aus dieser Sicherung laden?",

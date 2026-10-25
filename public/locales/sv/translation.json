@@ -195,7 +195,7 @@
   "Keep sync off": "Låt synk vara avstängd",
   "Turn sync on": "Slå på synk",
   "Cloud copy deleted": "Molnkopian har raderats",
-  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged.": "Den raderades på en annan enhet, så synk är avstängd här. Sessionerna på den här enheten är oförändrade.",
+  "It was deleted on another device, so sync is off here. The sessions on this device are unchanged. Turn on Auto Sync to sync again.": "Den raderades på en annan enhet, så synk är avstängd här. Sessionerna på den här enheten är oförändrade. Aktivera Autosynk för att synka igen.",
   "Cancel": "Avbryt",
   "LoadBackupTitleOne": "Läsa in 1 session från den här säkerhetskopian?",
   "LoadBackupTitleOther": "Läsa in {{count}} sessioner från den här säkerhetskopian?",

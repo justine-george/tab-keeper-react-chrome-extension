@@ -88,7 +88,7 @@ export function describeSyncState({
       kind: 'deletedElsewhere',
       icon: 'cloud',
       title: 'Cloud copy deleted',
-      line: 'It was deleted on another device, so sync is off here. The sessions on this device are unchanged.',
+      line: 'It was deleted on another device, so sync is off here. The sessions on this device are unchanged. Turn on Auto Sync to sync again.',
     };
   }
   if (cloudConsent !== 'granted') {
