@@ -204,8 +204,9 @@ describe('live windows and groups (Open now)', () => {
     );
     await chooseCopy(user);
 
-    expect(String(writeText.mock.calls[0][0]).split('\n')[0]).toBe(
-      'Unnamed group'
+    // Its own tab, not Docs's: the band pressed is the one copied.
+    expect(writeText).toHaveBeenCalledExactlyOnceWith(
+      ['Unnamed group', '1 Tab', '', '- t24', '  https://h24.test/'].join('\n')
     );
   });
 
@@ -297,7 +298,7 @@ describe('saved windows and groups', () => {
   });
 
   // Planning: a loose tab, then Research (r1, r2), then another loose tab.
-  const render = () =>
+  const render = ({ windowTitle = 'Planning', groupTitle = 'Research' } = {}) =>
     renderWithProviders(<MainContainer />, {
       seedStore: (store) => {
         store.dispatch(setHasTabGroupsPermission(true));
@@ -316,9 +317,9 @@ describe('saved windows and groups', () => {
                   windowOffsetTop: 0,
                   windowOffsetLeft: 0,
                   tabCount: 4,
-                  title: 'Planning',
+                  title: windowTitle,
                   chromeTabGroups: [
-                    { groupId: 'g1', title: 'Research', color: 'blue' },
+                    { groupId: 'g1', title: groupTitle, color: 'blue' },
                   ],
                   tabs: [
                     tab('a'),
@@ -347,11 +348,10 @@ describe('saved windows and groups', () => {
     within(windowBlock())
       .getAllByRole('button', { name: 'More actions' })
       .filter((b) => !b.closest('[role="group"]'))[0];
-  const groupMenuButton = () =>
-    within(screen.getByRole('group', { name: /Research/ })).getAllByRole(
-      'button',
-      { name: 'More actions' }
-    )[0];
+  const groupMenuButton = (name: RegExp = /Research/) =>
+    within(screen.getByRole('group', { name })).getAllByRole('button', {
+      name: 'More actions',
+    })[0];
 
   test("a saved window's ⋮ leads with Copy all links, and it copies that window under its name", async () => {
     const user = userEvent.setup();
@@ -408,6 +408,26 @@ describe('saved windows and groups', () => {
       ].join('\n')
     );
     expect(newestToast(store.getState())?.params).toEqual({ count: 2 });
+  });
+
+  // As drawn: an unnamed window reads its number, an unnamed group "Unnamed group".
+  test('an unnamed saved window and group are headed as their rows read', async () => {
+    const user = userEvent.setup();
+    const writeText = clipboard(() => Promise.resolve());
+    await render({ windowTitle: '', groupTitle: '' });
+
+    await user.click(windowMenuButton());
+    await chooseCopy(user);
+    await user.click(groupMenuButton(/Unnamed group/));
+    await chooseCopy(user);
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+    expect(
+      writeText.mock.calls.map(([text]) => text.split('\n').slice(0, 2))
+    ).toEqual([
+      ['Window 1', '4 Tabs'],
+      ['Unnamed group', '2 Tabs'],
+    ]);
   });
 
   test('a refused clipboard shows no toast from a saved window either', async () => {
