@@ -202,10 +202,13 @@ test.describe('Delete cloud data, then sync on again, on two devices', () => {
         'data-sync-state',
         'deletedElsewhere'
       );
-      // Then on again from the card: B's copy becomes the new cloud copy.
-      const bWrote = commitLanded(deviceB.page);
-      await status.getByRole('button', { name: 'Turn sync on' }).click();
-      expect(await bWrote, "device B's turn-on never wrote").toBe(true);
+      // Then on again from Auto sync (KAN-772): B's copy becomes the new cloud copy.
+      await expect(status.getByRole('button')).toHaveCount(0);
+      await goHome(deviceB.page);
+      expect(
+        await turnAutoSyncOn(deviceB.page),
+        "device B's turn-on never wrote"
+      ).toBe(true);
       await expect(status).not.toHaveAttribute(
         'data-sync-state',
         'deletedElsewhere'
