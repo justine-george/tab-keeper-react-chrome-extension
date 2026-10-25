@@ -169,6 +169,11 @@ export const DURATION = {
    * only for motion nobody waits on. Its way back uses MOVE.
    */
   FLOURISH: '520ms',
+  /**
+   * A wait before something shows on hover, so a pointer only passing
+   * through shows nothing: a resize grip's line (KAN-791).
+   */
+  HOVER_INTENT: '300ms',
 } as const;
 
 /**

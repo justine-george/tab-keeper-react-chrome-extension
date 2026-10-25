@@ -563,6 +563,24 @@ describe('the grip lights on hover and during its drag (O1a G A)', () => {
     expect(active).toMatch(ownColour(rgb(LIGHT_THEME.TEXT_COLOR)));
   });
 
+  // KAN-791. The gap's line: after 300ms of hover, at once while dragging.
+  test('hovered, its line shows after 300ms; dragged, at once', async () => {
+    await renderHome();
+    await mounted();
+    const cls = gripClass(grip());
+
+    const atRest = declarationsFor(grip(), `${cls}::before`);
+    expect(atRest).toContain('opacity: 0');
+    expect(atRest).toContain('width: 2px');
+    expect(atRest).toContain('pointer-events: none');
+    const hovered = declarationsFor(grip(), `${cls}:hover::before`);
+    expect(hovered).toContain('opacity: 1');
+    expect(hovered).toContain('transition-delay: 300ms');
+    const active = declarationsFor(grip(), `${cls}[data-active]::before`);
+    expect(active).toContain('opacity: 1');
+    expect(active).toContain('transition-delay: initial');
+  });
+
   test('during its drag it is marked active, and not after', async () => {
     await renderHome();
     await mounted();
