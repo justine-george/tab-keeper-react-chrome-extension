@@ -419,5 +419,7 @@
   "GoToWindowShort": "Go to",
   "Add tab": "Add tab",
   "GoToGroupShort": "Go to",
+  "SaveAllShort": "Save all",
+  "SaveCurrentShort": "Save current window",
   "Go to group": "Go to group"
 }

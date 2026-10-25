@@ -84,20 +84,24 @@ test('every surface that saves draws its save glyph, and it inks', async ({
   await header(page)
     .getByRole('heading', { name: 'Currently open' })
     .click({ button: 'right' });
+  // KAN-799. The two saves lead the menu in a row, by their short labels.
   await expectGlyph(
     page,
-    page.getByRole('menuitem', { name: ALL }),
+    page.getByRole('menuitem', { name: 'Save all', exact: true }),
     'two_windows_add'
   );
   await expectGlyph(
     page,
-    page.getByRole('menuitem', { name: CURRENT }),
+    page.getByRole('menuitem', { name: 'Save current window', exact: true }),
     'window_add'
   );
-  // The svg takes the box the ligature beside it takes, so the labels line up.
+  // The row's first svg takes the box the list's ligature takes, on the same column.
   const boxOf = (name: RegExp | string) =>
-    iconIn(page.getByRole('menuitem', { name })).boundingBox();
-  const [svgBox, ligatureBox] = [await boxOf(CURRENT), await boxOf(/PDF/)];
+    iconIn(page.getByRole('menuitem', { name, exact: true })).boundingBox();
+  const [svgBox, ligatureBox] = [
+    await boxOf('Save all'),
+    await boxOf('Save open windows as PDF…'),
+  ];
   expect(svgBox!.width).toBeCloseTo(ligatureBox!.width, 1);
   expect(svgBox!.height).toBeCloseTo(ligatureBox!.height, 1);
   expect(svgBox!.x).toBeCloseTo(ligatureBox!.x, 1);

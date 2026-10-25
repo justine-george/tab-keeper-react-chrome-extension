@@ -366,3 +366,34 @@ for (const language of shippedLanguages()) {
     expect(menu.x + menu.width).toBeLessThanOrEqual(viewport.width);
   });
 }
+
+// KAN-799. The Currently open header's right-click leads with its two saves.
+for (const language of shippedLanguages()) {
+  test(`${language}: the Currently open header's top row fits on one line inside the tab view`, async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const strings = localeStrings(language);
+    await stage(serviceWorker);
+    await seedSettings(context, { language });
+    const page = await context.newPage();
+    await openTabView(page, extensionId);
+    await waitForFontsLoaded(page, ['Material Symbols Outlined']);
+    await rightClickTitle(
+      page,
+      page.locator('[data-open-now-header]').getByRole('heading').first()
+    );
+
+    // CONTROL: the page runs in this language.
+    await expect
+      .poll(() => names(actionRow(page).getByRole('menuitem')))
+      .toEqual([strings.SaveAllShort, strings.SaveCurrentShort]);
+    expect(await rowFit(page)).toEqual(FITS);
+    const menu = await boxOf(rowMenu(page));
+    const viewport = page.viewportSize();
+    if (viewport === null) throw new Error('no viewport');
+    expect(menu.x).toBeGreaterThanOrEqual(0);
+    expect(menu.x + menu.width).toBeLessThanOrEqual(viewport.width);
+  });
+}

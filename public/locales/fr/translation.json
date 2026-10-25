@@ -433,5 +433,7 @@
   "GoToWindowShort": "Aller à la fenêtre",
   "Add tab": "Ajouter l’onglet",
   "GoToGroupShort": "Aller au groupe",
+  "SaveAllShort": "Tout enregistrer",
+  "SaveCurrentShort": "Enregistrer cette fenêtre",
   "Go to group": "Aller au groupe"
 }

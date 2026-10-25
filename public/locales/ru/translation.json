@@ -447,5 +447,7 @@
   "GoToWindowShort": "Перейти",
   "Add tab": "Добавить вкладку",
   "GoToGroupShort": "Перейти",
+  "SaveAllShort": "Сохранить все",
+  "SaveCurrentShort": "Сохранить текущее окно",
   "Go to group": "Перейти к группе"
 }

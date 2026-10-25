@@ -433,5 +433,7 @@
   "GoToWindowShort": "Ir para a janela",
   "Add tab": "Adicionar aba",
   "GoToGroupShort": "Ir para o grupo",
+  "SaveAllShort": "Salvar tudo",
+  "SaveCurrentShort": "Salvar janela atual",
   "Go to group": "Ir para o grupo"
 }

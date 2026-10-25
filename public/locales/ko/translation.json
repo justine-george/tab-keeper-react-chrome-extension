@@ -405,5 +405,7 @@
   "GoToWindowShort": "이동",
   "Add tab": "탭 추가",
   "GoToGroupShort": "이동",
+  "SaveAllShort": "모두 저장",
+  "SaveCurrentShort": "현재 창 저장",
   "Go to group": "그룹으로 이동"
 }
