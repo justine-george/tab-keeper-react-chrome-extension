@@ -84,6 +84,7 @@ export const SVG_ICON_NAMES = [
   'tab_keeper',
   'window_add',
   'two_windows_add',
+  'group_add',
 ] as const;
 
 export type LigatureIconName = (typeof LIGATURE_ICON_NAMES)[number];

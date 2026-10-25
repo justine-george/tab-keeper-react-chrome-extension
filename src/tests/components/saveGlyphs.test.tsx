@@ -44,6 +44,22 @@ describe('the save glyphs (KAN-780)', () => {
     expect(pathOf(current)).not.toBe(pathOf(all));
   });
 
+  // KAN-796. A live group's Save: a group with the same plus badge.
+  test('group_add draws its own svg path, unlike either window save', async () => {
+    const { container } = await renderWithProviders(<Icon type="group_add" />);
+
+    const svg = container.querySelector('svg');
+    expect(svg?.getAttribute('data-icon')).toBe('group_add');
+    expect(pathOf(container)).toMatch(/^M[\d.]/);
+    expect(container.textContent).not.toContain('group_add');
+    for (const scope of ['current-window', 'all-windows'] as const) {
+      const { container: other } = await renderWithProviders(
+        <Icon type={SAVE_OF[scope].icon} />
+      );
+      expect(pathOf(container)).not.toBe(pathOf(other));
+    }
+  });
+
   // CONTROL: a ligature still draws from the font, and is named the same way.
   test('CONTROL: a ligature is a span carrying its name', async () => {
     const { container } = await renderWithProviders(<Icon type="add_box" />);

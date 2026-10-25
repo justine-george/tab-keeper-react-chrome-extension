@@ -434,6 +434,19 @@ describe('Currently open windows and groups', () => {
     expect(listKeys(rowMenu())).toEqual(['copy', 'ungroup', 'closeGroup']);
   });
 
+  // KAN-796. The row's Save draws what the strip's Save draws.
+  test('a group’s right-click Save draws group_add', async () => {
+    await renderOpenNow();
+    fireEvent.contextMenu(groupRow());
+
+    const save = within(actionRow(rowMenu())!).getByRole('menuitem', {
+      name: 'Save',
+    });
+    expect(save.querySelector('[data-icon]')?.getAttribute('data-icon')).toBe(
+      'group_add'
+    );
+  });
+
   const activeIn = async (windowId: number) =>
     (await chrome.tabs.query({ windowId, active: true })).map((t) => t.id);
   const lastFocused = async () => (await chrome.windows.getLastFocused()).id;

@@ -1,11 +1,13 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { waitForFontsLoaded } from './fixtures/fonts';
+import { expectGlyph, iconIn, inkOf } from './fixtures/glyphInk';
 import { saveRowMenu } from './fixtures/menus';
 import { seedSessions, seedSettings } from './fixtures/seed';
 import { FULL, FULL_VIEW_PATH, openPage } from './fixtures/onboarding';
 import { standIn } from './fixtures/standInPages';
+import { SVG_GLYPHS } from '../src/components/common/svgGlyphs';
 
 // KAN-780. Save current window is a window with a plus badge, Save all two
 // windows with the same badge: custom SVG paths, since Material Symbols has
@@ -42,41 +44,6 @@ async function openFullView(
 }
 
 const header = (page: Page) => page.locator('[data-open-now-header]');
-const iconIn = (control: Locator) => control.locator('[data-icon]').first();
-
-/** Pixels of a glyph that differ from its own corner pixel (the ground) by more than 64 in some channel. */
-async function inkOf(page: Page, glyph: Locator): Promise<number> {
-  const png = (await glyph.screenshot()).toString('base64');
-  return page.evaluate(async (png) => {
-    const img = new Image();
-    img.src = `data:image/png;base64,${png}`;
-    await img.decode();
-    const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-    ctx.drawImage(img, 0, 0);
-    const { data } = ctx.getImageData(0, 0, img.width, img.height);
-    let ink = 0;
-    for (let i = 0; i < data.length; i += 4)
-      if ([0, 1, 2].some((c) => Math.abs(data[i + c] - data[c]) > 64)) ink++;
-    return ink;
-  }, png);
-}
-
-async function expectGlyph(page: Page, control: Locator, name: string) {
-  const glyph = iconIn(control);
-  await expect(glyph).toHaveAttribute('data-icon', name);
-  // An svg, so a missing ligature cannot print the name as text.
-  expect(await glyph.evaluate((el) => el.tagName.toLowerCase())).toBe('svg');
-  const box = (await glyph.boundingBox())!;
-  const ink = await inkOf(page, glyph);
-  // A drawn outline covers roughly a fifth of its box; a blank square covers none.
-  expect(ink, `${name} in "${await control.textContent()}"`).toBeGreaterThan(
-    box.width * box.height * 0.1
-  );
-}
-
 test('every surface that saves draws its save glyph, and it inks', async ({
   context,
   extensionId,
@@ -173,7 +140,12 @@ test('the save glyphs are told apart from each other and from Add window', async
   const paths = {
     window_add: (await pathOf('window_add'))!,
     two_windows_add: (await pathOf('two_windows_add'))!,
+    // No live group here (tabGroups is not granted), so read from the source.
+    group_add: SVG_GLYPHS.group_add,
   };
+
+  // An empty path masks to nothing and would read 100% apart from anything.
+  for (const d of Object.values(paths)) expect(d).toMatch(/^M[\d.]/);
 
   const distinct = await page.evaluate((paths) => {
     const S = 160;
@@ -229,6 +201,8 @@ test('the save glyphs are told apart from each other and from Add window', async
       pair: apart(current, all),
       addWindowCurrent: apart(playlist, current),
       addWindowAll: apart(playlist, all),
+      groupCurrent: apart(svg(paths.group_add), current),
+      groupAll: apart(svg(paths.group_add), all),
     };
   }, paths);
   console.log('KAN-780 distinctness', JSON.stringify(distinct));
@@ -243,4 +217,9 @@ test('the save glyphs are told apart from each other and from Add window', async
   expect(distinct.pair).toBeGreaterThanOrEqual(55);
   expect(distinct.addWindowCurrent).toBeGreaterThanOrEqual(75);
   expect(distinct.addWindowAll).toBeGreaterThanOrEqual(75);
+  // KAN-796, measured 2026-10-25: a group's Save 47.3% / 50.4% from the window
+  // saves, closer than they are to each other. His pick: never on one row, and
+  // always beside the word Save.
+  expect(distinct.groupCurrent).toBeGreaterThanOrEqual(45);
+  expect(distinct.groupAll).toBeGreaterThanOrEqual(48);
 });
