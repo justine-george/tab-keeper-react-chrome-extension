@@ -229,10 +229,8 @@ test('ru, in the drawer: the chip shrinks clear of the icons, its label cut, sti
   const page = await context.newPage();
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
-  await page
-    .locator('button[aria-expanded]')
-    .filter({ hasText: /^tab$/ })
-    .click();
+  // The rail's one button (KAN-776: its text is now the glyph and a label).
+  await page.locator('[data-pane="open-now"] button[aria-expanded]').click();
   const header = page.getByRole('dialog').locator('[data-open-now-header]');
   const back = header.getByRole('button', {
     name: 'Вернуться к последней использованной вкладке',

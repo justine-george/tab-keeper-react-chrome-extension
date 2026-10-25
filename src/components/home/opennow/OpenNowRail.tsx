@@ -18,7 +18,7 @@ import type { OpenWindow } from '../../../utils/functions/openNow';
 import OpenNowPane from './OpenNowPane';
 import type { OpenNowHeaderAction } from './OpenNowPane';
 import { currentCarry, subscribeCarry } from '../../../redux/carry';
-import { DURATION } from '../../../styles/scale';
+import { DURATION, TYPE } from '../../../styles/scale';
 import { isUnclaimedEscape } from '../../common/unclaimedEscape';
 
 interface OpenNowRailProps {
@@ -48,7 +48,7 @@ export default function OpenNowRail({
   searchInputRef,
 }: OpenNowRailProps) {
   const COLORS = useThemeColors();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const drawerId = useId();
   const headingId = useId();
 
@@ -167,10 +167,13 @@ export default function OpenNowRail({
 
   // Sized and filled as an actionable Icon is (padding 4px round a 24px
   // glyph, hover and press fills), but a native button: it needs a ref for
-  // focus to come back to, and aria-controls.
+  // focus to come back to, and aria-controls. KAN-776: the label stacks under
+  // the glyph.
   const buttonStyle = css`
     display: flex;
+    flex-direction: column;
     align-items: center;
+    min-width: 32px;
     justify-content: center;
     padding: 4px;
     border: none;
@@ -183,6 +186,35 @@ export default function OpenNowRail({
     &:active,
     &[aria-expanded='true'] {
       background-color: ${COLORS.ICON_ACTIVE_COLOR};
+    }
+  `;
+
+  // KAN-776 C. Read top to bottom; CJK stands upright. Set, not inherited:
+  // inherited, it drew black on Charcoal.
+  const labelStyle = css`
+    color: ${COLORS.TEXT_COLOR};
+    font-size: ${TYPE.SECONDARY};
+    padding: 6px 0 4px;
+  `;
+  const verticalStyle = css`
+    writing-mode: vertical-rl;
+    line-height: 1.25;
+    white-space: nowrap;
+  `;
+  // Upright CJK in vertical-rl advances by the font's vertical metrics, and
+  // WenQuanYi Zen Hei's are zero: the label drew on one spot. Stacked one
+  // character per line, each takes its horizontal advance; a word per block
+  // keeps Korean's spaces.
+  const stacksUpright = /^(ja|zh|ko)\b/i.test(i18n.language);
+  const stackedStyle = css`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35em;
+    line-height: 1;
+    & > span {
+      width: 1em;
+      text-align: center;
     }
   `;
 
@@ -230,6 +262,19 @@ export default function OpenNowRail({
         onClick={() => (isOpen ? close() : setIsOpen(true))}
       >
         <Icon type="tab" />
+        {/* Named by aria-label, which holds this text and the count. */}
+        {stacksUpright ? (
+          <span css={[labelStyle, stackedStyle]}>
+            {t('Open now')
+              .split(' ')
+              .flatMap((word, i) => [
+                i > 0 ? ' ' : null,
+                <span key={i}>{word}</span>,
+              ])}
+          </span>
+        ) : (
+          <span css={[labelStyle, verticalStyle]}>{t('Open now')}</span>
+        )}
       </button>
       {isOpen && (
         <div
