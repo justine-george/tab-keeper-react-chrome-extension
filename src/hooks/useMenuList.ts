@@ -5,8 +5,6 @@ import type { PopoverAxis } from './usePopoverList';
 
 // A press on the run's card counts as inside: its buttons must not close a menu open under it.
 const PRESS_INSIDE = '[data-coach-mark]';
-// KAN-778. A press here closes the open menu and opens this one.
-const OTHER_MENU_TRIGGER = '[aria-haspopup="menu"]';
 
 export type MenuDismissReason = 'outside' | 'escape';
 
@@ -53,11 +51,8 @@ export function useMenuList({
           target.closest(PRESS_INSIDE) !== null);
       if (isInside) return;
       onDismissRef.current('outside');
-      // KAN-778. A right press goes on to open its row's menu (KAN-708 pick 3); another menu's trigger opens it.
-      const isLeftClick = e.button === 0 && !e.ctrlKey;
-      if (isLeftClick && target?.closest(OTHER_MENU_TRIGGER) == null) {
-        swallowPress(e);
-      }
+      // KAN-778. A right press goes on to open its row's menu (KAN-708 pick 3).
+      if (e.button === 0 && !e.ctrlKey) swallowPress(e);
     };
     // Capture at window: ahead of every listener that could act on the press.
     window.addEventListener('pointerdown', onPointerDown, true);

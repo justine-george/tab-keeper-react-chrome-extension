@@ -172,13 +172,13 @@ describe('useMenuList: a press outside only closes (KAN-778)', () => {
     expect(heard).toEqual(PRESS);
   });
 
-  it('a press on another menu’s trigger closes this menu and goes on', () => {
+  it('a press on another menu’s trigger only closes this menu too', () => {
     const onDismiss = vi.fn();
     render(<Harness onDismiss={onDismiss} />);
     const heard = listen();
     press(screen.getByText('other menu'));
     expect(onDismiss).toHaveBeenCalledExactlyOnceWith('outside');
-    expect(heard).toEqual(PRESS);
+    expect(heard).toEqual([]);
   });
 
   it.each(['two', 'coach'])('a press on %s (inside) goes on', (name) => {

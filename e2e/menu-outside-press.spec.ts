@@ -213,7 +213,7 @@ for (const [menuName, menu] of Object.entries(MENUS)) {
   });
 }
 
-test("with the header ⋮ open, a click on a window's ⋮ closes it and opens the window's", async ({
+test("with the header ⋮ open, a click on a window's ⋮ only closes it; the next click opens the window's", async ({
   context,
   extensionId,
 }) => {
@@ -230,11 +230,16 @@ test("with the header ⋮ open, a click on a window's ⋮ closes it and opens th
   await windowTrigger.click();
 
   await expect(header.menu(page)).toHaveCount(0);
+  await settle(page);
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  await expect(windowTrigger).toHaveAttribute('aria-expanded', 'false');
+
+  await windowTrigger.click();
   await expect(windowTrigger).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByRole('menu')).toHaveCount(1);
 });
 
-test('with a row menu open, a click on the header ⋮ closes it and opens the header ⋮', async ({
+test('with a row menu open, a click on the header ⋮ only closes it; the next click opens the header ⋮', async ({
   context,
   extensionId,
 }) => {
@@ -248,6 +253,10 @@ test('with a row menu open, a click on the header ⋮ closes it and opens the he
   await sessionHeaderMenu(page).click();
 
   await expect(row.menu(page)).toHaveCount(0);
+  await settle(page);
+  await expect(page.getByRole('menu')).toHaveCount(0);
+
+  await sessionHeaderMenu(page).click();
   await expect(MENUS['header ⋮'].menu(page)).toBeVisible();
   await expect(page.getByRole('menu')).toHaveCount(1);
 });
