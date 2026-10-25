@@ -17,8 +17,12 @@ async function closeOtherTabs(page: Page): Promise<void> {
   });
 }
 
+// The save row's ⋮: Open now's header has one too (KAN-774).
 const openMenuItem = async (page: Page, name: string) => {
-  await page.getByRole('button', { name: 'More actions', exact: true }).click();
+  await page
+    .locator('[data-pane="sessions"]')
+    .getByRole('button', { name: 'More actions', exact: true })
+    .click();
   await page.getByRole('menuitem', { name, exact: true }).click();
 };
 
