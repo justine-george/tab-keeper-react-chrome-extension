@@ -110,6 +110,9 @@ interface OpenNowPaneProps {
   // Shown in the header's action row after Collapse all and Save all, in
   // order.
   actions: OpenNowHeaderAction[];
+  // KAN-784. The drawer's close, drawn in the header's top-right corner on the
+  // heading's line, as a dialog's close is. The wide pane has none.
+  close?: OpenNowHeaderAction;
   // The "Open now" heading's id. The pane is a region named by its heading,
   // so its controls are told apart from the saved pane's same-named ones, and
   // the drawer names itself by the same heading (KAN-280 O2).
@@ -175,6 +178,7 @@ const OPEN_NOW_HEADER_MENU_ID = 'open-now-header';
 export default function OpenNowPane({
   windows,
   actions,
+  close,
   headingId,
   headingRef,
   searchText,
@@ -596,6 +600,8 @@ export default function OpenNowPane({
   // TYPE.SECTION/TEXT_COLOR, inside the same 32px line, so nothing moves.
   const headingStyle = css`
     display: flex;
+    /* KAN-784. Fills the title line, so the heading keeps the header's width beside no close. */
+    flex: 1 1 auto;
     align-items: center;
     height: 32px;
     max-width: 100%;
@@ -608,6 +614,13 @@ export default function OpenNowPane({
     color: ${COLORS.TEXT_COLOR};
     overflow: hidden;
     white-space: nowrap;
+  `;
+
+  // KAN-784. The heading, then the drawer's close at the far end of its line.
+  const titleLineStyle = css`
+    display: flex;
+    align-items: center;
+    min-width: 0;
   `;
 
   // NormalLabel's inner box: text-overflow does not apply to a flex
@@ -696,9 +709,24 @@ export default function OpenNowPane({
         <div css={topStyle}>
           {/* tabIndex -1: focusable from script (the drawer moves focus here
               on open), never a Tab stop. */}
-          <h2 id={headingId} ref={headingRef} tabIndex={-1} css={headingStyle}>
-            <span css={headingTextStyle}>{t('Open now')}</span>
-          </h2>
+          <div css={titleLineStyle}>
+            <h2
+              id={headingId}
+              ref={headingRef}
+              tabIndex={-1}
+              css={headingStyle}
+            >
+              <span css={headingTextStyle}>{t('Open now')}</span>
+            </h2>
+            {close && (
+              <Icon
+                tooltipText={close.label}
+                ariaLabel={close.label}
+                type={close.icon}
+                onClick={close.onClick}
+              />
+            )}
+          </div>
           {/* No counts while loading, and none for an empty list: "0 Windows"
               says less than the body's own message does. */}
           {listed.length > 0 && (

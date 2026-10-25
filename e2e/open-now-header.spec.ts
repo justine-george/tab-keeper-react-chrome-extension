@@ -239,8 +239,11 @@ test('ru, in the drawer: the chip shrinks clear of the icons, its label cut, sti
   await expect(back).toBeVisible();
 
   const m = await header.evaluate((el) => {
-    const controls = [...el.querySelectorAll('[aria-label]')];
-    const chip = controls[controls.length - 1];
+    // The action row's controls: KAN-784 put the drawer's close on the title line above it.
+    const chip = [...el.querySelectorAll('[aria-label]')].pop()!;
+    const controls = [...el.querySelectorAll('[aria-label]')].filter(
+      (c) => c.getBoundingClientRect().bottom > chip.getBoundingClientRect().top
+    );
     const label = chip.querySelector(':scope > span:last-child');
     if (!(label instanceof HTMLElement)) throw new Error('no label');
     return {

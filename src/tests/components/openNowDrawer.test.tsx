@@ -236,6 +236,33 @@ describe('narrow and side by side (O2)', () => {
     expect(document.activeElement).toBe(button);
   });
 
+  // KAN-784. A dialog's close sits in its top-right corner: on the heading's line, after it, not in the action row with «.
+  test("Close Open now shares the heading's line, after it, and is not in the action row", async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { drawer } = await openDrawer();
+
+    const close = within(drawer).getByRole('button', { name: CLOSE });
+    const heading = within(drawer).getByRole('heading', { name: 'Open now' });
+    const fold = within(drawer).getByRole('button', {
+      name: 'Fold the saved session away',
+    });
+    expect(close.parentElement).toBe(heading.parentElement);
+    expect(heading.compareDocumentPosition(close)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+    expect(fold.parentElement).not.toBe(close.parentElement);
+  });
+
+  // The wide pane is not a dialog: nothing to close.
+  test('the wide pane has no close button', async () => {
+    installMatchMedia(false);
+    await renderHome(false);
+    await screen.findByText(PANE_ONLY);
+
+    expect(screen.queryByRole('button', { name: CLOSE })).toBeNull();
+  });
+
   test('growing past 1100px removes the rail and the drawer, and the column pane is back', async () => {
     installMatchMedia(true);
     await renderHome(false);
