@@ -9,10 +9,11 @@ import {
   CHARCOAL_THEME,
 } from '../src/utils/constants/themePalettes';
 
-// KAN-773. Settings' Back answered a hover with nothing. Justine's pick E: the
+// KAN-773. Settings' Back answered a hover with nothing. Justine's picks: the
 // icon buttons' hover fill, drawn 8px inside the click area so it lines up
-// with the category tiles and stays off the page's top and left edges, and
-// the arrow eases 3px left. The click area itself is KAN-240's, unchanged
+// with the category tiles and stays off the page's top and left edges (E);
+// the arrow resting 2px right and sliding 2px left on hover, back to where it
+// rested before (B). The click area itself is KAN-240's, unchanged
 // (back-target.spec).
 
 const THEMES = [
@@ -63,16 +64,19 @@ function probes(box: { x: number; y: number; width: number; height: number }) {
   return { inside, outside };
 }
 
-/** The glyph's horizontal offset, from `translate` and `transform` together. */
+/**
+ * The arrow glyph's left edge from the control's content edge, as drawn:
+ * getBoundingClientRect includes the slide. Before KAN-773 it was 4, the
+ * Icon box's padding.
+ */
 const glyphX = (page: Page) =>
-  back(page)
-    .locator('.material-symbols-outlined')
-    .evaluate((el) => {
-      const cs = getComputedStyle(el);
-      const t = cs.translate === 'none' ? 0 : parseFloat(cs.translate);
-      const m = cs.transform === 'none' ? null : new DOMMatrix(cs.transform);
-      return t + (m ? m.e : 0);
-    });
+  back(page).evaluate((el) => {
+    const glyph = el.querySelector('.material-symbols-outlined')!;
+    const content =
+      el.getBoundingClientRect().x +
+      parseFloat(getComputedStyle(el).paddingLeft);
+    return glyph.getBoundingClientRect().x - content;
+  });
 
 for (const [theme, COLORS] of THEMES) {
   test(`${theme}: the hover fill sits 8px inside the click area, and deepens on press`, async ({
@@ -110,18 +114,18 @@ for (const [theme, COLORS] of THEMES) {
   });
 }
 
-test('the arrow eases 3px left on hover and back when the pointer leaves', async ({
+test('the arrow rests 2px right and slides back to its old spot on hover, then returns', async ({
   context,
   extensionId,
 }) => {
   const page = await openSettings(context, extensionId, 'Chalk');
-  expect(await glyphX(page)).toBe(0);
+  expect(await glyphX(page)).toBe(6);
 
   await back(page).hover();
-  await expect.poll(() => glyphX(page)).toBeCloseTo(-3, 2);
+  await expect.poll(() => glyphX(page)).toBeCloseTo(4, 2);
 
   await page.mouse.move(400, 540);
-  await expect.poll(() => glyphX(page)).toBeCloseTo(0, 2);
+  await expect.poll(() => glyphX(page)).toBeCloseTo(6, 2);
 });
 
 test('with reduced motion the arrow stays still, and the fill still answers', async ({
@@ -137,7 +141,7 @@ test('with reduced motion the arrow stays still, and the fill still answers', as
   await expect
     .poll(() => pixelsAt(page, inside))
     .toEqual([CHALK_THEME.ICON_HOVER_COLOR, CHALK_THEME.ICON_HOVER_COLOR]);
-  expect(await glyphX(page)).toBe(0);
+  expect(await glyphX(page)).toBe(6);
 });
 
 test('reaching Back from the keyboard moves nothing', async ({
@@ -149,5 +153,5 @@ test('reaching Back from the keyboard moves nothing', async ({
   await expect(back(page)).toBeFocused();
 
   await page.waitForTimeout(400);
-  expect(await glyphX(page)).toBe(0);
+  expect(await glyphX(page)).toBe(6);
 });

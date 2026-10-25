@@ -3,6 +3,7 @@ import { useDispatch } from 'react-redux';
 import Icon from '../../common/Icon';
 import ClickableRow from '../../common/ClickableRow';
 import {
+  BACK_GLYPH_SHIFT_PX,
   BACK_LABEL_GAP,
   HEADER_BACK_TARGET,
   headerBackFillCss,
@@ -28,7 +29,10 @@ export default function MenuContainer() {
     align-items: center;
     ${HEADER_BACK_TARGET}
     ${headerBackFillCss(COLORS)}
-    ${hoverMotionCss({ translate: '-3px', duration: DURATION.MOVE })}
+    ${hoverMotionCss({
+      translate: `${-BACK_GLYPH_SHIFT_PX}px`,
+      duration: DURATION.MOVE,
+    })}
   `;
 
   const dispatch: AppDispatch = useDispatch();
@@ -45,7 +49,10 @@ export default function MenuContainer() {
       onClick={handleBackClick}
       style={containerStyle}
     >
-      <Icon type="arrow_back" />
+      <Icon
+        type="arrow_back"
+        style={`margin-left: ${BACK_GLYPH_SHIFT_PX}px; margin-right: ${-BACK_GLYPH_SHIFT_PX}px;`}
+      />
       <NormalLabel
         value={t('Back')}
         size={TYPE.SECTION}

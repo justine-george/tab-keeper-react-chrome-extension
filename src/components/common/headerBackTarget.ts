@@ -29,6 +29,9 @@ export const BACK_LABEL_GAP = '3px';
 // The Back label's left edge from the control's content edge: a default Icon's box (its glyph and 4px a side), then the gap. Settings' category labels start here too.
 export const BACK_LABEL_INSET = `calc(${ICON.DEFAULT} + 8px + ${BACK_LABEL_GAP})`;
 
+// KAN-773 (Justine's pick B, mock round 4). The glyph rests this far right of its box's place, and its hover slide brings it back there, so the hover lands on the KAN-517 spacing. The label stays put.
+export const BACK_GLYPH_SHIFT_PX = 2;
+
 /**
  * The hover fill (KAN-773, Justine's pick from two mock rounds): the icon
  * buttons' hover and press greys, drawn 8px inside the target above. Its left
