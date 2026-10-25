@@ -58,8 +58,10 @@ import { placeholderStyle } from '../../../styles/placeholder';
 import { openSplitPartners } from '../../../utils/functions/splitPartners';
 import {
   focusOpenWindow,
+  groupLandingTab,
   switchToOpenTab,
 } from '../../../utils/functions/openNow';
+import { readRecentTabs } from '../../../utils/functions/recentTabs';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 import {
   itemIdOf,
@@ -317,7 +319,7 @@ export default function OpenNowWindow({
       ? [
           {
             key: 'goToWindow',
-            actionRowLabel: t('Go to'),
+            actionRowLabel: t('GoToWindowShort'),
             label: t('Go to window'),
             icon: 'filter_center_focus' as const,
             // As the title's click: Chrome rejects when the window closed after this row was drawn.
@@ -609,11 +611,27 @@ export default function OpenNowWindow({
     }))
   );
 
-  // KAN-793. A group's right-click leads with the strip's Save and the title's Rename; the ⋮ beside Save does not.
+  // KAN-793. Its last used tab, by the worker's record read now; Chrome rejects when the tab closed after this row was drawn.
+  const goToGroup = async (groupId: number) => {
+    const recent = (await readRecentTabs([openWindow.id]))(openWindow.id);
+    const tab = groupLandingTab(
+      openWindow.tabs.filter((candidate) => candidate.groupId === groupId),
+      recent
+    );
+    if (tab) await switchToOpenTab(tab).catch(() => undefined);
+  };
+  // KAN-793. A group's right-click leads with Go to, the strip's Save and the title's Rename; the ⋮ beside Save does not.
   const groupRowButtons = (group: {
     groupId: string;
     title: string;
   }): OverflowMenuItem[] => [
+    {
+      key: 'goToGroup',
+      actionRowLabel: t('GoToGroupShort'),
+      label: t('Go to group'),
+      icon: 'filter_center_focus',
+      onSelect: () => void goToGroup(Number(group.groupId)),
+    },
     ...(isSavedSearching
       ? []
       : [

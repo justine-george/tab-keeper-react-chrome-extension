@@ -288,7 +288,7 @@ describe('Currently open windows and groups', () => {
     return url;
   };
   // Window 1 holds the tab view, so it is This window; window 2 holds the group Docs.
-  const seed = (): ChromeSeed => ({
+  const seed = (extra: Partial<ChromeSeed> = {}): ChromeSeed => ({
     grantedPermissions: ['tabGroups'],
     currentTabId: 10,
     windows: [
@@ -310,16 +310,20 @@ describe('Currently open windows and groups', () => {
       },
     ],
     tabGroups: [{ id: 50, windowId: 2, title: 'Docs', color: 'blue' }],
+    ...extra,
   });
 
-  async function renderOpenNow({ savedSearch = false } = {}) {
+  async function renderOpenNow({
+    savedSearch = false,
+    chromeSeed = seed(),
+  }: { savedSearch?: boolean; chromeSeed?: ChromeSeed } = {}) {
     const result = await renderWithProviders(
       <>
         <OpenNowColumn folded={true} />
         <Toast />
       </>,
       {
-        seed: seed(),
+        seed: chromeSeed,
         seedStore: (store) => {
           store.dispatch(setHasTabGroupsPermission(true));
           if (savedSearch) store.dispatch(setSearchInputText('zzz'));
@@ -404,7 +408,7 @@ describe('Currently open windows and groups', () => {
     fireEvent.keyDown(rowMenu(), { key: 'Escape' });
 
     fireEvent.contextMenu(groupRow());
-    expect(rowNames(rowMenu())).toEqual(['Rename']);
+    expect(rowNames(rowMenu())).toEqual(['Go to', 'Rename']);
   });
 
   test('a window ⋮ has no top row', async () => {
@@ -417,16 +421,49 @@ describe('Currently open windows and groups', () => {
     expect(actionRow(screen.getByRole('menu'))).toBeNull();
   });
 
-  test('a group’s right-click leads with Save · Rename', async () => {
+  test('a group’s right-click leads with Go to · Save · Rename', async () => {
     await renderOpenNow();
     fireEvent.contextMenu(groupRow());
 
-    expect(rowNames(rowMenu())).toEqual(['Save', 'Rename']);
+    expect(rowNames(rowMenu())).toEqual(['Go to', 'Save', 'Rename']);
     expect(rowDescriptions(rowMenu())).toEqual([
+      'Go to group',
       'Save group as a session',
       'Rename group',
     ]);
     expect(listKeys(rowMenu())).toEqual(['copy', 'ungroup', 'closeGroup']);
+  });
+
+  const activeIn = async (windowId: number) =>
+    (await chrome.tabs.query({ windowId, active: true })).map((t) => t.id);
+  const lastFocused = async () => (await chrome.windows.getLastFocused()).id;
+
+  test('the group’s Go to lands on its tab used last, and brings its window to the front', async () => {
+    await renderOpenNow({
+      chromeSeed: seed({ sessionArea: { 'recentTabs.2': [21, 23, 22] } }),
+    });
+    fireEvent.contextMenu(groupRow());
+    press(rowMenu(), 'Go to');
+
+    await waitFor(async () => expect(await activeIn(2)).toEqual([23]));
+    await waitFor(async () => expect(await lastFocused()).toBe(2));
+  });
+
+  test('with no record of the group’s tabs, Go to lands on its first tab', async () => {
+    await renderOpenNow();
+    fireEvent.contextMenu(groupRow());
+    press(rowMenu(), 'Go to');
+
+    await waitFor(async () => expect(await activeIn(2)).toEqual([22]));
+  });
+
+  test('worst path: Go to on a group whose tabs Chrome has just closed throws nothing', async () => {
+    await renderOpenNow();
+    fireEvent.contextMenu(groupRow());
+    await chrome.tabs.remove([22, 23]);
+    press(rowMenu(), 'Go to');
+
+    await waitFor(async () => expect(await activeIn(2)).toEqual([21]));
   });
 
   test('the group’s Save saves only its tabs', async () => {

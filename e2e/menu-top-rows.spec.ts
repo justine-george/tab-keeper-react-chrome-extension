@@ -251,7 +251,7 @@ for (const language of shippedLanguages()) {
     // CONTROL: the page runs in this language.
     await expect
       .poll(() => names(actionRow(page).getByRole('menuitem')))
-      .toEqual([strings['Go to'], strings.Save]);
+      .toEqual([strings.GoToWindowShort, strings.Save]);
     expect(await rowFit(page)).toEqual(FITS);
     const menu = await boxOf(rowMenu(page));
     const viewport = page.viewportSize();

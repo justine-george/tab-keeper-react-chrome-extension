@@ -185,6 +185,15 @@ export function lastUsedTabId(
   return index === undefined ? null : window.tabs[index].id;
 }
 
+// KAN-793. Where a live group's Go to lands: the window's active tab if the
+// group holds it, else the group's tab used last, else its first.
+export function groupLandingTab(
+  groupTabs: readonly OpenTab[],
+  recentTabIds: readonly number[]
+): OpenTab | undefined {
+  return groupTabs[pickActiveTabIndex(groupTabs, recentTabIds) ?? 0];
+}
+
 // Activates a tab and brings its window to the front -- the Open now pane's
 // "Switch to tab" action. Two calls because Chrome has no single one:
 // tabs.update({active:true}) only raises the tab within its own window, so

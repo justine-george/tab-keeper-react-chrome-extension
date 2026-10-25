@@ -404,12 +404,13 @@ describe('a live group row right-click (KAN-708)', () => {
   const firstControl = () =>
     stripIn(titleRowOf('Docs'))?.firstElementChild as HTMLElement;
 
-  // KAN-793. Led by the row's Save · Rename.
-  test('right-click = Save · Rename, then Copy all links, Ungroup, Close group, acting on that group', async () => {
+  // KAN-793. Led by the row's Go to · Save · Rename.
+  test('right-click = Go to · Save · Rename, then Copy all links, Ungroup, Close group, acting on that group', async () => {
     await renderOpenNow();
 
     expect(fireEvent.contextMenu(titleRowOf('Docs'))).toBe(false);
     expect(menuKeys()).toEqual([
+      'goToGroup',
       'saveGroup',
       'rename',
       'copy',
@@ -575,6 +576,7 @@ describe('Sort tabs by site on a live group (KAN-746)', () => {
     await renderOpenNow(unsorted());
     fireEvent.contextMenu(titleRowOf('Docs'));
     expect(menuKeys()).toEqual([
+      'goToGroup',
       'saveGroup',
       'rename',
       'copy',

@@ -430,6 +430,8 @@
   "Current window": "Ventana actual",
   "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Lo usan el botón de guardar y la tecla Intro. La otra opción de guardado está en el menú ⋮.",
   "Rename": "Renombrar",
-  "Go to": "Ir a la ventana",
-  "Add tab": "Añadir pestaña"
+  "GoToWindowShort": "Ir a la ventana",
+  "Add tab": "Añadir pestaña",
+  "GoToGroupShort": "Ir al grupo",
+  "Go to group": "Ir al grupo"
 }
