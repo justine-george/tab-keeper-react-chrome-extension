@@ -11,7 +11,7 @@ import {
   session,
   stored,
 } from './fixtures/savedWindows';
-import { buildContainer, seedSessions } from './fixtures/seed';
+import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import { standIn } from './fixtures/standInPages';
 
 // KAN-793 on the real artifact: a row's right-click leads with that row's own buttons.
@@ -209,6 +209,58 @@ test('tab view: a live group’s Save saves its two tabs as a session', async ({
   ]);
 });
 
+// Whether a top row sits on one line, inside its menu, with every button one line tall.
+const rowFit = (page: Page) =>
+  actionRow(page).evaluate((row) => {
+    const rect = row.getBoundingClientRect();
+    const kids = [...row.children].map((el) => el.getBoundingClientRect());
+    return {
+      overflows: row.scrollWidth > row.clientWidth,
+      oneLine: kids.every((k) => Math.abs(k.top - kids[0].top) < 0.5),
+      inside: kids.every((k) => k.right <= rect.right + 0.5),
+      sameHeight: new Set(kids.map((k) => Math.round(k.height))).size === 1,
+    };
+  });
+const FITS = {
+  overflows: false,
+  oneLine: true,
+  inside: true,
+  sameHeight: true,
+};
+
+// A live window's Go to · Save: es, fr, pt and sv spell Go to out in full.
+for (const language of shippedLanguages()) {
+  test(`${language}: a live window's top row fits on one line inside the tab view`, async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const strings = localeStrings(language);
+    const windowId = await stage(serviceWorker);
+    await seedSettings(context, { language });
+    const page = await context.newPage();
+    await openTabView(page, extensionId);
+    await waitForFontsLoaded(page, ['Material Symbols Outlined']);
+    await rightClickTitle(
+      page,
+      page
+        .locator(`[data-open-window-id="${windowId}"] [data-window-row]`)
+        .first()
+    );
+
+    // CONTROL: the page runs in this language.
+    await expect
+      .poll(() => names(actionRow(page).getByRole('menuitem')))
+      .toEqual([strings['Go to'], strings.Save]);
+    expect(await rowFit(page)).toEqual(FITS);
+    const menu = await boxOf(rowMenu(page));
+    const viewport = page.viewportSize();
+    if (viewport === null) throw new Error('no viewport');
+    expect(menu.x).toBeGreaterThanOrEqual(0);
+    expect(menu.x + menu.width).toBeLessThanOrEqual(viewport.width);
+  });
+}
+
 // The widest row: a saved window's three buttons, in the popup.
 for (const language of shippedLanguages()) {
   test(`${language}: a saved window's top row fits on one line inside the popup`, async ({
@@ -227,20 +279,7 @@ for (const language of shippedLanguages()) {
     await expect
       .poll(() => names(actionRow(page).getByRole('menuitem')))
       .toEqual([strings.Open, strings['Add tab'], strings.Rename]);
-    const fit = await actionRow(page).evaluate((row) => {
-      const rect = row.getBoundingClientRect();
-      const kids = [...row.children].map((el) => el.getBoundingClientRect());
-      return {
-        overflows: row.scrollWidth > row.clientWidth,
-        oneLine: kids.every((k) => Math.abs(k.top - kids[0].top) < 0.5),
-        inside: kids.every((k) => k.right <= rect.right + 0.5),
-        heights: kids.map((k) => Math.round(k.height)),
-      };
-    });
-    expect(fit.overflows).toBe(false);
-    expect(fit.oneLine).toBe(true);
-    expect(fit.inside).toBe(true);
-    expect(new Set(fit.heights).size).toBe(1);
+    expect(await rowFit(page)).toEqual(FITS);
     const menu = await boxOf(rowMenu(page));
     const viewport = page.viewportSize();
     if (viewport === null) throw new Error('no viewport');
