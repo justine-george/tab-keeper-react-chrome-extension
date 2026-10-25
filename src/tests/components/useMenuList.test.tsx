@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useMenuList } from '../../hooks/useMenuList';
 import type { MenuDismissReason } from '../../hooks/useMenuList';
@@ -29,6 +29,7 @@ function Harness({
   return (
     <div onKeyDown={onParentKeyDown}>
       <button>outside</button>
+      <button aria-haspopup="menu">other menu</button>
       <div data-coach-mark>
         <button>coach</button>
       </div>
@@ -81,13 +82,13 @@ describe('useMenuList', () => {
     expect(onParentKeyDown).not.toHaveBeenCalled();
   });
 
-  it("mousedown outside calls onDismiss('outside'); mousedown on [data-coach-mark] does not", () => {
+  it("a press outside calls onDismiss('outside'); a press on [data-coach-mark] does not", () => {
     const onDismiss = vi.fn();
     render(<Harness onDismiss={onDismiss} />);
-    fireEvent.mouseDown(screen.getByText('coach'));
-    fireEvent.mouseDown(screen.getByText('two'));
+    fireEvent.pointerDown(screen.getByText('coach'));
+    fireEvent.pointerDown(screen.getByText('two'));
     expect(onDismiss).not.toHaveBeenCalled();
-    fireEvent.mouseDown(screen.getByText('outside'));
+    fireEvent.pointerDown(screen.getByText('outside'));
     expect(onDismiss).toHaveBeenCalledTimes(1);
     expect(onDismiss).toHaveBeenCalledWith('outside');
   });
@@ -95,7 +96,97 @@ describe('useMenuList', () => {
   it('ignores a press outside while closed', () => {
     const onDismiss = vi.fn();
     render(<Harness isOpen={false} onDismiss={onDismiss} />);
-    fireEvent.mouseDown(screen.getByText('outside'));
+    fireEvent.pointerDown(screen.getByText('outside'));
     expect(onDismiss).not.toHaveBeenCalled();
+  });
+});
+
+describe('useMenuList: a press outside only closes (KAN-778)', () => {
+  const PRESS = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
+
+  // What reaches the page under the window's capture listeners.
+  function listen() {
+    const heard: string[] = [];
+    const record = (e: Event) => heard.push(e.type);
+    for (const type of PRESS) document.addEventListener(type, record, true);
+    return heard;
+  }
+
+  function press(el: Element, init: MouseEventInit = {}) {
+    fireEvent.pointerDown(el, init);
+    fireEvent.mouseDown(el, init);
+    fireEvent.pointerUp(el, init);
+    fireEvent.mouseUp(el, init);
+    fireEvent.click(el, { detail: 1, ...init });
+  }
+
+  // A key ends any hold, so none outlives its test.
+  afterEach(() => {
+    fireEvent.keyDown(window, { key: 'Shift' });
+  });
+
+  it('a left press outside closes the menu and nothing under it hears any of the press', () => {
+    const onDismiss = vi.fn();
+    render(<Harness onDismiss={onDismiss} />);
+    const heard = listen();
+    press(screen.getByText('outside'));
+    expect(onDismiss).toHaveBeenCalledExactlyOnceWith('outside');
+    expect(heard).toEqual([]);
+  });
+
+  it('the next press is heard whole', () => {
+    const { rerender } = render(<Harness onDismiss={vi.fn()} />);
+    press(screen.getByText('outside'));
+    rerender(<Harness isOpen={false} onDismiss={vi.fn()} />);
+    const heard = listen();
+    press(screen.getByText('outside'));
+    expect(heard).toEqual(PRESS);
+  });
+
+  it('a click with no press behind it gets through while the press is held', () => {
+    render(<Harness onDismiss={vi.fn()} />);
+    fireEvent.pointerDown(screen.getByText('outside'));
+    const heard = listen();
+    fireEvent.click(screen.getByText('outside'), { detail: 0 });
+    expect(heard).toEqual(['click']);
+  });
+
+  it('a key ends the hold: the press’s late click is heard', () => {
+    render(<Harness onDismiss={vi.fn()} />);
+    fireEvent.pointerDown(screen.getByText('outside'));
+    fireEvent.keyDown(window, { key: 'Enter' });
+    const heard = listen();
+    fireEvent.click(screen.getByText('outside'), { detail: 1 });
+    expect(heard).toEqual(['click']);
+  });
+
+  it.each([
+    ['a right press', { button: 2 }],
+    ['a Ctrl+press', { button: 0, ctrlKey: true }],
+  ])('%s outside closes the menu and goes on', (_, init) => {
+    const onDismiss = vi.fn();
+    render(<Harness onDismiss={onDismiss} />);
+    const heard = listen();
+    press(screen.getByText('outside'), init);
+    expect(onDismiss).toHaveBeenCalledExactlyOnceWith('outside');
+    expect(heard).toEqual(PRESS);
+  });
+
+  it('a press on another menu’s trigger closes this menu and goes on', () => {
+    const onDismiss = vi.fn();
+    render(<Harness onDismiss={onDismiss} />);
+    const heard = listen();
+    press(screen.getByText('other menu'));
+    expect(onDismiss).toHaveBeenCalledExactlyOnceWith('outside');
+    expect(heard).toEqual(PRESS);
+  });
+
+  it.each(['two', 'coach'])('a press on %s (inside) goes on', (name) => {
+    const onDismiss = vi.fn();
+    render(<Harness onDismiss={onDismiss} />);
+    const heard = listen();
+    press(screen.getByText(name));
+    expect(onDismiss).not.toHaveBeenCalled();
+    expect(heard).toEqual(PRESS);
   });
 });
