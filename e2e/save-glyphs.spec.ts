@@ -233,9 +233,10 @@ test('the save glyphs are told apart from each other and from Add window', async
   }, paths);
   console.log('KAN-780 distinctness', JSON.stringify(distinct));
 
-  // CONTROLS: a glyph against itself is 0%; KAN-5's benchmark pair reads 82.1%.
+  // CONTROLS: a glyph against itself is 0%; KAN-5's benchmark pair reads 82.1%
+  // on a Mac and 83.0% on CI's Linux, which rasterises the font differently.
   expect(distinct.self).toBe(0);
-  expect(distinct.searchSettings).toBeCloseTo(82.1, 0);
+  expect(Math.abs(distinct.searchSettings - 82.1)).toBeLessThanOrEqual(2);
   // Measured 2026-10-25: the pair 56.2%, as close as the library_add / add_box
   // pair it replaced (54.0%), by his choice: one family, told apart by one
   // window or two. Add window 79.1% / 76.2%, so it stays the odd one out.
