@@ -6,7 +6,7 @@ import { standIn } from './fixtures/standInPages';
 
 // KAN-784. Below 1100px Open now opens as a drawer, and its ✕ sits in the
 // header's top-right corner, flush, as a dialog's close does (his pick). The
-// action row keeps « and gives the ✕'s 32px to Back to last tab.
+// action row keeps « and gives the ✕'s 32px to Back to your tab.
 
 const CLOSE = 'Close Open now';
 

@@ -282,7 +282,7 @@
   "Opening compact view closes this tab. Pin it to keep it open.": "コンパクトビューを開くとこのタブは閉じます。開いたままにするには固定してください。",
   "Pin and go back": "固定して戻る",
   "Pin and open": "固定して開く",
-  "Back to last tab": "最後に使ったタブに戻る",
+  "Back to your tab": "元のタブに戻る",
   "Default view": "既定のビュー",
   "Pin Tab Keeper in new windows": "新しいウィンドウに Tab Keeper を固定",
   "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper が開くウィンドウや切り替え先のウィンドウには、すべて Tab Keeper のタブが先頭に固定されます。",

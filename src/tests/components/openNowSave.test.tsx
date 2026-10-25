@@ -304,7 +304,7 @@ describe('saving from the Open now pane (KAN-280 O13)', () => {
       'Save open windows as PDF…',
       'Show the saved session',
       // KAN-577. In the header's bottom-right corner.
-      'Back to last tab',
+      'Back to your tab',
     ]);
   });
 

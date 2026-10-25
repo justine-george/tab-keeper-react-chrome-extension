@@ -16,7 +16,7 @@ test.beforeEach(async ({ context }) => {
 const openNowHeader = (page: Page) => page.locator('[data-open-now-header]');
 const chip = (page: Page) =>
   openNowHeader(page).getByRole('button', {
-    name: 'Back to last tab',
+    name: 'Back to your tab',
     exact: true,
   });
 
@@ -233,7 +233,7 @@ test('ru, in the drawer: the chip shrinks clear of the icons, its label cut, sti
   await page.locator('[data-pane="open-now"] button[aria-expanded]').click();
   const header = page.getByRole('dialog').locator('[data-open-now-header]');
   const back = header.getByRole('button', {
-    name: 'Вернуться к последней использованной вкладке',
+    name: 'Вернуться к вашей вкладке',
     exact: true,
   });
   await expect(back).toBeVisible();

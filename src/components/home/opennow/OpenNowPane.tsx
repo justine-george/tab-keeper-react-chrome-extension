@@ -856,10 +856,10 @@ export default function OpenNowPane({
           >
             {(press) => (
               <Button
-                text={t('Back to last tab')}
+                text={t('Back to your tab')}
                 iconSize={ICON.SMALL}
-                tooltipText={t('Back to last tab')}
-                ariaLabel={t('Back to last tab')}
+                tooltipText={t('Back to your tab')}
+                ariaLabel={t('Back to your tab')}
                 iconType="arrow_back"
                 onClick={press}
                 ariaDisabled={!canGoBack}
