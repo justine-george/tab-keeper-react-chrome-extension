@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import MainContainer from '../../components/MainContainer';
@@ -123,7 +123,8 @@ describe('/ focuses the search (O14b)', () => {
     installMatchMedia(true);
     await renderHome(false);
     const button = await railButton();
-    fireEvent.click(button);
+    // A real press: it chooses Currently open (KAN-800).
+    await userEvent.setup().click(button);
     const drawer = drawerOf(button);
     const inside = within(drawer).getByRole('heading', {
       name: 'Currently open',
@@ -152,7 +153,8 @@ describe('/ focuses the search (O14b)', () => {
     installMatchMedia(true);
     await renderHome(false);
     const button = await railButton();
-    fireEvent.click(button);
+    const user = userEvent.setup();
+    await user.click(button);
     const drawer = drawerOf(button);
     const heading = within(drawer).getByRole('heading', {
       name: 'Currently open',
@@ -160,7 +162,6 @@ describe('/ focuses the search (O14b)', () => {
     // PREMISE: opened by the button, focus is on the heading.
     expect(document.activeElement).toBe(heading);
 
-    const user = userEvent.setup();
     await user.keyboard('/');
     expect(document.activeElement).toBe(field());
     expect(field()).toHaveValue('');
@@ -188,5 +189,113 @@ describe('/ focuses the search (O14b)', () => {
     );
     fireEvent.click(button);
     expect(field()).toHaveValue('b');
+  });
+});
+
+// KAN-800 (pick A). The / chip, and aria-keyshortcuts with it, show only where / goes now.
+const chipOn = (input: HTMLElement) => {
+  const row = input.closest('[data-saved-search], [data-open-now-search]');
+  if (row === null) throw new Error('no search row');
+  return (
+    input.getAttribute('aria-keyshortcuts') === '/' &&
+    within(row as HTMLElement).queryByText('/') !== null
+  );
+};
+const paneOf = (name: string) => {
+  const el = document.querySelector<HTMLElement>(`[data-pane="${name}"]`);
+  if (el === null) throw new Error(`no ${name} pane`);
+  return el;
+};
+
+describe('the / chip shows where / goes (KAN-800)', () => {
+  test('first open: on the saved field only', async () => {
+    installMatchMedia(false);
+    await renderHome(false);
+    await screen.findByRole('textbox', { name: 'Search open tabs' });
+    expect(chipOn(savedField())).toBe(true);
+    expect(chipOn(field())).toBe(false);
+    expect(field()).not.toHaveAttribute('aria-keyshortcuts');
+  });
+
+  test('a press on Currently open’s empty space moves it there, and / follows; a press on the saved list moves it back', async () => {
+    installMatchMedia(false);
+    await renderHome(false);
+    await screen.findByRole('textbox', { name: 'Search open tabs' });
+    const user = userEvent.setup();
+
+    fireEvent.pointerDown(paneOf('open-now'));
+    expect(chipOn(field())).toBe(true);
+    expect(chipOn(savedField())).toBe(false);
+    await user.keyboard('/');
+    expect(document.activeElement).toBe(field());
+
+    await user.keyboard('{Escape}');
+    fireEvent.pointerDown(paneOf('sessions'));
+    expect(chipOn(savedField())).toBe(true);
+    expect(chipOn(field())).toBe(false);
+    act(() => (document.activeElement as HTMLElement | null)?.blur());
+    await user.keyboard('/');
+    expect(document.activeElement).toBe(savedField());
+  });
+
+  test('a typed search swaps the chip for Clear on that field only', async () => {
+    installMatchMedia(false);
+    await renderHome(false);
+    const user = userEvent.setup();
+    await user.type(savedField(), 'k');
+    expect(
+      within(
+        savedField().closest('[data-saved-search]') as HTMLElement
+      ).queryByText('/')
+    ).toBeNull();
+    expect(chipOn(field())).toBe(false);
+  });
+
+  test('rail: the drawer’s field wears it while open; closed by Esc, the rail wears it and / opens the drawer into its search', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const button = await railButton();
+    expect(within(button).queryByText('/')).toBeNull();
+    expect(button).not.toHaveAttribute('aria-keyshortcuts');
+
+    const user = userEvent.setup();
+    await user.click(button);
+    expect(chipOn(field())).toBe(true);
+    expect(chipOn(savedField())).toBe(false);
+    // One chip: the rail drops its own while the drawer is open.
+    expect(within(button).queryByText('/')).toBeNull();
+    expect(button).not.toHaveAttribute('aria-keyshortcuts');
+
+    await user.keyboard('{Escape}');
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(document.activeElement).toBe(button);
+    expect(within(button).queryByText('/')).not.toBeNull();
+    expect(button).toHaveAttribute('aria-keyshortcuts', '/');
+    expect(chipOn(savedField())).toBe(false);
+
+    await user.keyboard('/');
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(document.activeElement).toBe(field());
+  });
+
+  test('rail: a press on the saved list closes the drawer and sends / there, though the rail takes focus back', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const button = await railButton();
+    const user = userEvent.setup();
+    await user.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+
+    await user.pointer({ keys: '[MouseLeft]', target: paneOf('sessions') });
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    // The drawer hands focus to the rail after the press (KAN-682).
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(document.activeElement).toBe(button);
+    expect(chipOn(savedField())).toBe(true);
+    expect(within(button).queryByText('/')).toBeNull();
+
+    await user.keyboard('/');
+    expect(document.activeElement).toBe(savedField());
+    expect(button).toHaveAttribute('aria-expanded', 'false');
   });
 });

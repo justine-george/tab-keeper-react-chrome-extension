@@ -1,6 +1,7 @@
 import type {
   BrowserContext,
   CDPSession,
+  Locator,
   Page,
   Worker,
 } from '@playwright/test';
@@ -104,6 +105,43 @@ async function seedTwoSessions(context: BrowserContext): Promise<void> {
 // by side with no show button to press.
 const seedSideBySide = (context: BrowserContext) =>
   seedSettings(context, { foldSavedSessionInTabView: false });
+
+// KAN-800. A press low in a pane, on nothing a press would act on.
+async function pressEmptySpace(page: Page, pane: string): Promise<void> {
+  const box = await boxOf(page, pane);
+  const at = {
+    x: Math.round(box.left + box.width / 2),
+    y: Math.round(box.bottom - 20),
+  };
+  // PREMISE: the point is in the pane and on nothing that acts.
+  expect(
+    await page.evaluate(
+      ({ x, y, pane }) => {
+        const el = document.elementFromPoint(x, y);
+        return (
+          el !== null &&
+          el.closest(pane) !== null &&
+          el.closest(
+            'button, [role="button"], input, a, [data-drag-handle-row]'
+          ) === null
+        );
+      },
+      { ...at, pane }
+    )
+  ).toBe(true);
+  await page.mouse.click(at.x, at.y);
+}
+
+// KAN-800. Whether a field wears the / chip: its hint drawn, and aria-keyshortcuts with it.
+async function wearsChip(input: Locator): Promise<boolean> {
+  return input.evaluate((el: HTMLElement) => {
+    const row = el.closest('[data-saved-search], [data-open-now-search]');
+    const hint = [
+      ...(row?.querySelectorAll('[aria-hidden="true"]') ?? []),
+    ].some((n) => n.textContent?.trim() === '/');
+    return hint && el.getAttribute('aria-keyshortcuts') === '/';
+  });
+}
 
 const railButton = (page: Page) =>
   page.getByRole('button', { name: /^Currently open/ });
@@ -334,11 +372,8 @@ test.describe('Open now search (KAN-330)', () => {
       height: 800,
     });
     await expect(field(page)).toBeVisible();
-    // An empty spot of the Open now column: nothing there takes focus, but
-    // the key goes to the pane that holds it.
-    const column = page.locator(OPEN_NOW);
-    await column.evaluate((el) => el.setAttribute('tabindex', '-1'));
-    await column.focus();
+    // KAN-800. A press on an empty spot of the Open now column: nothing there takes focus, but it chooses the pane.
+    await pressEmptySpace(page, OPEN_NOW);
     await expect(field(page)).not.toBeFocused();
     await page.keyboard.press('/');
     await expect(field(page)).toBeFocused();
@@ -573,6 +608,81 @@ test.describe('Open now search (KAN-330)', () => {
     await expect(railButton(page)).toBeFocused();
   });
 
+  // KAN-800 (pick A). The chip shows only on the field / opens; a press anywhere in a pane chooses it.
+  test('the / chip starts on the saved field and follows a press on either pane, and / goes with it', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedTwoSessions(context);
+    await seedSideBySide(context);
+    const page = await openPage(context, extensionId, VIEW_TAB, {
+      width: 1600,
+      height: 800,
+    });
+    const saved = page.getByRole('textbox', {
+      name: 'Search saved tabs',
+      exact: true,
+    });
+    await expect(field(page)).toBeVisible();
+    expect([await wearsChip(saved), await wearsChip(field(page))]).toEqual([
+      true,
+      false,
+    ]);
+
+    await pressEmptySpace(page, OPEN_NOW);
+    await expect.poll(() => wearsChip(field(page))).toBe(true);
+    expect(await wearsChip(saved)).toBe(false);
+    await page.keyboard.press('/');
+    await expect(field(page)).toBeFocused();
+
+    await pressEmptySpace(page, SESSIONS);
+    await expect.poll(() => wearsChip(saved)).toBe(true);
+    expect(await wearsChip(field(page))).toBe(false);
+    await page.keyboard.press('/');
+    await expect(saved).toBeFocused();
+  });
+
+  test('rail: closed by Esc, the rail wears the chip; a press on the saved list instead sends / there, though the rail takes focus back', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedTwoSessions(context);
+    await seedSideBySide(context);
+    const page = await openPage(context, extensionId, VIEW_TAB, {
+      width: 1024,
+      height: 768,
+    });
+    const saved = page.getByRole('textbox', {
+      name: 'Search saved tabs',
+      exact: true,
+    });
+    const drawer = page.getByRole('dialog', { name: 'Currently open' });
+    const railChip = railButton(page).getByText('/', { exact: true });
+    await expect(railChip).toHaveCount(0);
+
+    await railButton(page).click();
+    await expect(drawer).toBeVisible();
+    expect(await wearsChip(field(page))).toBe(true);
+    await expect(railChip).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(drawer).toHaveCount(0);
+    await expect(railChip).toBeVisible();
+    await expect(railButton(page)).toHaveAttribute('aria-keyshortcuts', '/');
+    expect(await wearsChip(saved)).toBe(false);
+
+    await railButton(page).click();
+    await expect(drawer).toBeVisible();
+    await pressEmptySpace(page, SESSIONS);
+    await expect(drawer).toHaveCount(0);
+    // The drawer hands focus to the rail after the press (KAN-682): not a choice.
+    await expect(railButton(page)).toBeFocused();
+    await expect(railChip).toHaveCount(0);
+    expect(await wearsChip(saved)).toBe(true);
+    await page.keyboard.press('/');
+    await expect(saved).toBeFocused();
+    await expect(drawer).toHaveCount(0);
+  });
+
   test('R1: / with the rail showing opens the drawer with the cursor in the field', async ({
     context,
     extensionId,
@@ -589,8 +699,12 @@ test.describe('Open now search (KAN-330)', () => {
     await expect(drawer).toHaveCount(0);
     await expect(field(page)).toHaveCount(0);
 
-    // Focus in Open now's column, which the rail button is part of.
-    await railButton(page).focus();
+    // KAN-800. Opened and closed again from the keys: focus is back on the rail, in Open now's column.
+    await railButton(page).click();
+    await expect(drawer).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(drawer).toHaveCount(0);
+    await expect(railButton(page)).toBeFocused();
     await page.keyboard.press('/');
     await expect(drawer).toBeVisible();
     await expect(field(page)).toBeFocused();

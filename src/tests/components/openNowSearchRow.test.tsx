@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 
 import OpenNowSearchRow from '../../components/home/opennow/OpenNowSearchRow';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { useSearchShortcut } from '../../hooks/useSearchShortcut';
 
 // The row with its text held, as OpenNowColumn holds it.
 function Held({
@@ -18,8 +19,10 @@ function Held({
 }) {
   const [text, setText] = useState('');
   const [inputRef] = useState(() => createRef<HTMLInputElement>());
+  // As OpenNowPane registers it: / can come here once this pane is chosen (KAN-800).
+  useSearchShortcut('openNow', () => inputRef.current?.focus());
   return (
-    <div onKeyDown={(e) => onOuterKey(e.key)}>
+    <div data-pane="open-now" onKeyDown={(e) => onOuterKey(e.key)}>
       <OpenNowSearchRow
         text={text}
         onTextChange={setText}
@@ -34,16 +37,27 @@ function Held({
 const field = () => screen.getByRole('textbox', { name: 'Search open tabs' });
 
 describe('the Open now search row (KAN-330 O14, O14d C1)', () => {
-  test('a field named and labelled "Search open tabs", with the / hint while empty', async () => {
+  test('a field named and labelled "Search open tabs", with the / hint while empty and / comes here', async () => {
     await renderWithProviders(<Held />);
+    fireEvent.pointerDown(field());
     expect(field()).toHaveAttribute('placeholder', 'Search open tabs');
     expect(field()).toHaveAttribute('aria-keyshortcuts', '/');
     expect(screen.getByText('/')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull();
   });
 
+  // KAN-800. Nothing chose this pane, so / goes to the saved search.
+  test('no / hint while / goes elsewhere', async () => {
+    await renderWithProviders(<Held />);
+    expect(field()).not.toHaveAttribute('aria-keyshortcuts');
+    expect(screen.queryByText('/')).toBeNull();
+  });
+
   test('with text, the clear × replaces the hint, and clears back into the field', async () => {
     await renderWithProviders(<Held />);
+    fireEvent.pointerDown(field());
+    // PREMISE: the hint shows before the text.
+    expect(screen.getByText('/')).toBeInTheDocument();
     const user = userEvent.setup();
     await user.type(field(), 'kyoto');
     expect(screen.queryByText('/')).toBeNull();

@@ -1,13 +1,16 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import {
   isSearchShortcut,
-  searchPaneFor,
+  searchPaneOf,
   type SearchPane,
 } from '../../components/common/searchShortcut';
-import { useSearchShortcut } from '../../hooks/useSearchShortcut';
+import {
+  useSearchShortcut,
+  useSearchTarget,
+} from '../../hooks/useSearchShortcut';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
 
 afterEach(() => {
@@ -87,20 +90,20 @@ describe('isSearchShortcut (KAN-330 O14b)', () => {
   });
 });
 
-describe('searchPaneFor', () => {
-  test('null and the page are the saved list', () => {
-    expect(searchPaneFor(null)).toBe('saved');
-    expect(searchPaneFor(document.body)).toBe('saved');
+// KAN-800. Which pane a press or a keyboard focus chooses: none outside the panes.
+describe('searchPaneOf', () => {
+  test('null and the page outside the panes choose nothing', () => {
+    expect(searchPaneOf(null)).toBeNull();
+    expect(searchPaneOf(document.body)).toBeNull();
   });
   test('a node inside the Open now column is Open now', () => {
     document.body.innerHTML =
       '<div data-pane="open-now"><div><button id="b"></button></div></div>';
-    expect(searchPaneFor(document.getElementById('b'))).toBe('openNow');
+    expect(searchPaneOf(document.getElementById('b'))).toBe('openNow');
   });
-  test('another pane is the saved list', () => {
-    document.body.innerHTML =
-      '<div data-pane="detail"><button id="b"></button></div>';
-    expect(searchPaneFor(document.getElementById('b'))).toBe('saved');
+  test.each(['sessions', 'detail'])('the %s pane is the saved list', (pane) => {
+    document.body.innerHTML = `<div data-pane="${pane}"><button id="b"></button></div>`;
+    expect(searchPaneOf(document.getElementById('b'))).toBe('saved');
   });
 });
 
@@ -109,13 +112,20 @@ type Handlers = Partial<Record<SearchPane, (() => void) | null>>;
 function Harness({ handlers }: { handlers: Handlers }) {
   useSearchShortcut('saved', handlers.saved ?? null);
   useSearchShortcut('openNow', handlers.openNow ?? null);
+  const target = useSearchTarget();
   return (
     <div>
-      <input aria-label="saved field" />
+      <output aria-label="target">{target}</output>
+      <div data-pane="sessions">
+        <input aria-label="saved field" />
+        <div data-testid="saved space" />
+      </div>
       <div data-pane="open-now">
         <button>inside</button>
         <input aria-label="open now field" />
+        <div data-testid="open now space" />
       </div>
+      <button>outside</button>
     </div>
   );
 }
@@ -124,7 +134,7 @@ function spies() {
   return { saved: vi.fn(), openNow: vi.fn() };
 }
 
-describe('useSearchShortcut routes by the pane holding focus', () => {
+describe('useSearchShortcut routes to the pane last pressed or reached by key', () => {
   test('focus on the page runs the saved handler only', async () => {
     const h = spies();
     render(<Harness handlers={h} />);
@@ -133,21 +143,90 @@ describe('useSearchShortcut routes by the pane holding focus', () => {
     expect(h.openNow).not.toHaveBeenCalled();
   });
 
-  test('focus inside Open now runs its handler only', async () => {
+  test('Tab into Open now runs its handler only', async () => {
     const h = spies();
-    const view = render(<Harness handlers={h} />);
-    view.getByRole('button', { name: 'inside' }).focus();
-    await userEvent.setup().keyboard('/');
+    render(<Harness handlers={h} />);
+    const user = userEvent.setup();
+    // saved field, saved space has no tabindex, then Open now's button.
+    await user.tab();
+    await user.tab();
+    expect(document.activeElement).toHaveTextContent('inside');
+    await user.keyboard('/');
     expect(h.openNow).toHaveBeenCalledTimes(1);
     expect(h.saved).not.toHaveBeenCalled();
   });
 
-  test('a pane with no handler is left alone: the key is not cancelled', () => {
+  // KAN-800. A press on empty space moves no focus, and still chooses its pane.
+  test('a press on Open now’s empty space sends / there, and one on the saved pane sends it back', async () => {
     const h = spies();
-    render(<Harness handlers={{ saved: h.saved }} />);
+    const view = render(<Harness handlers={h} />);
+    const user = userEvent.setup();
+    fireEvent.pointerDown(view.getByTestId('open now space'));
+    expect(view.getByRole('status', { name: 'target' })).toHaveTextContent(
+      'openNow'
+    );
+    await user.keyboard('/');
+    expect(h.openNow).toHaveBeenCalledTimes(1);
+
+    fireEvent.pointerDown(view.getByTestId('saved space'));
+    await user.keyboard('/');
+    expect(h.saved).toHaveBeenCalledTimes(1);
+    expect(h.openNow).toHaveBeenCalledTimes(1);
+  });
+
+  test('a press outside the panes keeps the choice', async () => {
+    const h = spies();
+    const view = render(<Harness handlers={h} />);
+    fireEvent.pointerDown(view.getByTestId('open now space'));
+    fireEvent.pointerDown(view.getByRole('button', { name: 'outside' }));
+    await userEvent.setup().keyboard('/');
+    expect(h.openNow).toHaveBeenCalledTimes(1);
+  });
+
+  // The Open now drawer hands focus back to its rail after a press elsewhere: that is not a choice.
+  test('focus the page moves after a press does not choose', async () => {
+    const h = spies();
+    const view = render(<Harness handlers={h} />);
+    fireEvent.pointerDown(view.getByTestId('saved space'));
+    act(() => view.getByRole('button', { name: 'inside' }).focus());
+    await userEvent.setup().keyboard('/');
+    expect(h.saved).toHaveBeenCalledTimes(1);
+    expect(h.openNow).not.toHaveBeenCalled();
+  });
+
+  test('nothing pressed is the saved list', () => {
+    const view = render(<Harness handlers={spies()} />);
+    expect(view.getByRole('status', { name: 'target' })).toHaveTextContent(
+      'saved'
+    );
+  });
+
+  test('Open now chosen but not mounted is the saved list', async () => {
+    const saved = vi.fn();
+    const view = render(<Harness handlers={{ saved }} />);
+    fireEvent.pointerDown(view.getByTestId('open now space'));
+    expect(view.getByRole('status', { name: 'target' })).toHaveTextContent(
+      'saved'
+    );
+    await userEvent.setup().keyboard('/');
+    expect(saved).toHaveBeenCalledTimes(1);
+  });
+
+  test('the choice ends with the last registration', () => {
+    const first = render(<Harness handlers={spies()} />);
+    fireEvent.pointerDown(first.getByTestId('open now space'));
+    first.unmount();
+    const next = render(<Harness handlers={spies()} />);
+    expect(next.getByRole('status', { name: 'target' })).toHaveTextContent(
+      'saved'
+    );
+  });
+
+  test('with no handler to take it, the key is left alone: not cancelled', () => {
+    render(<Harness handlers={{}} />);
     const inside = document.querySelector('button');
     if (inside === null) throw new Error('no button');
-    inside.focus();
+    fireEvent.pointerDown(inside);
     const event = new KeyboardEvent('keydown', {
       key: '/',
       bubbles: true,
@@ -155,7 +234,6 @@ describe('useSearchShortcut routes by the pane holding focus', () => {
     });
     inside.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(false);
-    expect(h.saved).not.toHaveBeenCalled();
   });
 
   test('a handled key is cancelled', () => {

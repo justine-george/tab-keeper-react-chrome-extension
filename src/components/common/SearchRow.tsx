@@ -10,7 +10,8 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../utils/constants/common';
 import { ICON, TYPE } from '../../styles/scale';
 import { placeholderStyle } from '../../styles/placeholder';
-import { SEARCH_SHORTCUT_KEY } from './searchShortcut';
+import { SEARCH_SHORTCUT_KEY, type SearchPane } from './searchShortcut';
+import { useSearchTarget } from '../../hooks/useSearchShortcut';
 import { focusRingCss } from './focusRing';
 
 // The header's action row height (8px + CONTROL.ROW), then a 4px gap.
@@ -31,7 +32,8 @@ interface SearchRowProps {
   glassBox: 'column' | 'tight';
   // The input's padding-left.
   textInset: string;
-  rowAttribute: 'data-open-now-search' | 'data-saved-search';
+  // Whose search this is: it marks the row, and shows the / chip while / goes here (KAN-800).
+  pane: SearchPane;
   // Without a handler the key keeps its default.
   onArrowDown?: () => void;
   onEnter?: () => void;
@@ -50,7 +52,7 @@ export default function SearchRow({
   glassInset,
   glassBox,
   textInset,
-  rowAttribute,
+  pane,
   onArrowDown,
   onEnter,
   emptyEscape,
@@ -58,6 +60,9 @@ export default function SearchRow({
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t } = useTranslation();
+  const isShortcutTarget = useSearchTarget() === pane;
+  const rowAttribute =
+    pane === 'openNow' ? 'data-open-now-search' : 'data-saved-search';
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     // While an IME composes a word, its keys are the IME's: the Enter that
@@ -158,7 +163,7 @@ export default function SearchRow({
         value={text}
         placeholder={label}
         aria-label={label}
-        aria-keyshortcuts={SEARCH_SHORTCUT_KEY}
+        aria-keyshortcuts={isShortcutTarget ? SEARCH_SHORTCUT_KEY : undefined}
         autoComplete="off"
         spellCheck={false}
         onChange={(event) => onTextChange(event.target.value)}
@@ -167,9 +172,11 @@ export default function SearchRow({
       />
       <span css={endSlotStyle}>
         {text === '' ? (
-          <span aria-hidden="true">
-            <Tag value={SEARCH_SHORTCUT_KEY} />
-          </span>
+          isShortcutTarget && (
+            <span aria-hidden="true">
+              <Tag value={SEARCH_SHORTCUT_KEY} />
+            </span>
+          )
         ) : (
           <Icon
             tooltipText={t('Clear search')}
