@@ -112,6 +112,7 @@ for (const view of VIEWS) {
       'Replace',
       'Add current window to this session',
       'Copy all links',
+      'Rename session',
       'Save as PDF…',
       'Delete session',
     ]);
@@ -225,20 +226,23 @@ test('a right press on another row while a menu is open swaps menus; a press out
   });
   const menu = rowMenu(page);
 
-  // Swap: one press, the other row's menu. S2 is above S3, clear of S3's menu, which opens downwards.
-  await rightClickAt(page, await onTitle(sessionRow(page, 'S3')));
-  await expect(menu).toHaveAccessibleName('More actions: Session 3');
-  const second = await onTitle(sessionRow(page, 'S2'));
+  // Swap: one press, the other row's menu. S1 is above S2, clear of S2's menu, which opens downwards.
+  const first = await onTitle(sessionRow(page, 'S2'));
+  await rightClickAt(page, first);
+  await expect(menu).toHaveAccessibleName('More actions: Session 2');
+  // PREMISE (KAN-805: a taller menu flipped S3's up over S2): the menu opens downwards, below the next press.
+  expect(Math.abs((await boxOf(menu)).y - first.y)).toBeLessThanOrEqual(1);
+  const second = await onTitle(sessionRow(page, 'S1'));
   await rightClickAt(page, second);
   await expect(menu).toHaveCount(1);
-  await expect(menu).toHaveAccessibleName('More actions: Session 2');
+  await expect(menu).toHaveAccessibleName('More actions: Trip');
   const box = await boxOf(menu);
   expect(Math.abs(box.x - second.x)).toBeLessThanOrEqual(1);
   expect(Math.abs(box.y - second.y)).toBeLessThanOrEqual(1);
-  await expect(sessionRow(page, 'S3')).not.toHaveAttribute(
+  await expect(sessionRow(page, 'S2')).not.toHaveAttribute(
     'data-row-menu-held'
   );
-  await expect(sessionRow(page, 'S2')).toHaveAttribute(
+  await expect(sessionRow(page, 'S1')).toHaveAttribute(
     'data-row-menu-held',
     ''
   );

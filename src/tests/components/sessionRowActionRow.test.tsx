@@ -19,6 +19,7 @@ import {
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { setFoldSavedSessionInTabView } from '../../redux/slices/settingsDataStateSlice';
+import { requestSessionRename } from '../../redux/slices/globalStateSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { ADD_CURR_WINDOW_TO_TABGROUP_ACTION } from '../../utils/constants/actionTypes';
 
@@ -138,6 +139,7 @@ describe('an unselected row', () => {
       'replace',
       'add',
       'copy',
+      'rename',
       'export',
       'delete',
     ]);
@@ -232,6 +234,7 @@ describe('the selected row', () => {
       'replace',
       'add',
       'copy',
+      'rename',
       'export',
       'delete',
     ]);
@@ -357,6 +360,7 @@ describe('the header', () => {
       'switch',
       'replace',
       'copy',
+      'rename',
       'export',
       'delete',
     ]);
@@ -372,6 +376,155 @@ describe('the header', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((el) => el.getAttribute('data-menu-item'))
-    ).toEqual(['copy', 'export', 'delete']);
+    ).toEqual(['copy', 'rename', 'export', 'delete']);
+  });
+
+  // KAN-805. Rename session, right after Copy all links, opens the title with the cursor in it.
+  test('its ⋮ Rename session opens the title field', async () => {
+    const user = userEvent.setup();
+    await renderHeader();
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(
+      within(screen.getByRole('menu')).getByRole('menuitem', {
+        name: 'Rename session',
+      })
+    );
+
+    const field = await waitFor(() => {
+      const el = document.querySelector<HTMLInputElement>(
+        'input[data-tour-anchor="title"]'
+      );
+      expect(el).not.toBeNull();
+      return el as HTMLInputElement;
+    });
+    expect(field).toHaveValue('Trip');
+    expect(field).toHaveFocus();
+  });
+  // After an Esc, whose blur commits nothing, the menu's Rename still saves what is typed.
+  test('after an Esc on the title, its ⋮ Rename session still saves', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderHeader();
+    await user.click(
+      screen.getByRole('button', { name: 'Rename session: Trip' })
+    );
+    await user.keyboard('{Escape}');
+    await waitFor(() =>
+      expect(
+        document.querySelector('input[data-tour-anchor="title"]')
+      ).toBeNull()
+    );
+
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(
+      within(screen.getByRole('menu')).getByRole('menuitem', {
+        name: 'Rename session',
+      })
+    );
+    const field = await waitFor(() => {
+      const el = document.querySelector<HTMLInputElement>(
+        'input[data-tour-anchor="title"]'
+      );
+      expect(el).not.toBeNull();
+      return el as HTMLInputElement;
+    });
+    await user.clear(field);
+    await user.type(field, 'Kyoto{Enter}');
+
+    expect(
+      store
+        .getState()
+        .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === 'S1')
+        ?.title
+    ).toBe('Kyoto');
+  });
+});
+
+// KAN-805. A row's Rename shows that session first, as a click on the row does, then opens its title.
+describe('Rename session from a row', () => {
+  const renderBoth = (folded = false) =>
+    renderWithProviders(
+      <>
+        <TabGroupEntryContainer />
+        <HeroContainerRight />
+      </>,
+      {
+        seed: twoTabs,
+        seedStore: (store) => {
+          store.dispatch(replaceState(buildContainer([S1, S2])));
+          store.dispatch(selectTabContainer('S1'));
+          store.dispatch(setFoldSavedSessionInTabView(folded));
+        },
+      }
+    );
+
+  test('selects the right-clicked session and opens its title, cursor in it', async () => {
+    const { store } = await renderBoth();
+    fireEvent.contextMenu(rowOf('Bravo'));
+    fireEvent.click(
+      within(rowMenu()).getByRole('menuitem', { name: 'Rename session' })
+    );
+
+    await waitFor(() =>
+      expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+        'S2'
+      )
+    );
+    const field = await waitFor(() => {
+      const el = document.querySelector<HTMLInputElement>(
+        'input[data-tour-anchor="title"]'
+      );
+      expect(el).not.toBeNull();
+      return el as HTMLInputElement;
+    });
+    expect(field).toHaveValue('Bravo');
+    expect(field).toHaveFocus();
+  });
+
+  // Off the happy path: a request the header cannot honour now is dropped, not kept for later.
+  test('a request for a session not on screen is dropped, and selecting it later opens nothing', async () => {
+    const { store } = await renderBoth();
+    act(() => {
+      store.dispatch(requestSessionRename('S2'));
+    });
+    await waitFor(() =>
+      expect(store.getState().globalState.sessionRenameRequest).toBeNull()
+    );
+
+    act(() => {
+      store.dispatch(selectTabContainer('S2'));
+    });
+    expect(
+      await screen.findByRole('button', { name: 'Rename session: Bravo' })
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('input[data-tour-anchor="title"]')
+    ).toBeNull();
+  });
+
+  test('a request for a session no longer listed is dropped', async () => {
+    const { store } = await renderBoth();
+    act(() => {
+      store.dispatch(requestSessionRename('gone'));
+    });
+    await waitFor(() =>
+      expect(store.getState().globalState.sessionRenameRequest).toBeNull()
+    );
+    expect(
+      document.querySelector('input[data-tour-anchor="title"]')
+    ).toBeNull();
+  });
+
+  test('full view, folded: peeks the saved session first, as a row click does', async () => {
+    history.replaceState(null, '', '?view=tab');
+    const { store } = await renderBoth(true);
+    fireEvent.contextMenu(rowOf('Bravo'));
+    fireEvent.click(
+      within(rowMenu()).getByRole('menuitem', { name: 'Rename session' })
+    );
+
+    expect(store.getState().globalState.isPeekingSavedSession).toBe(true);
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'S2'
+    );
   });
 });
