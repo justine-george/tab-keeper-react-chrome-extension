@@ -27,6 +27,7 @@ import { live } from '../fixtures/liveSnapshotFixture';
 import {
   currentCarry,
   endCarry,
+  setCarryOpens,
   startCarry,
   type CarryCard,
 } from '../../redux/carry';
@@ -39,6 +40,8 @@ import { LIGHT_THEME } from '../../hooks/useThemeColors';
 
 const RAIL_NAME = 'Currently open, 3 Tabs';
 const RAIL_BOX = DOMRect.fromRect({ x: 980, y: 0, width: 44, height: 800 });
+// The drawer over the right side, the rail under it.
+const DRAWER_BOX = DOMRect.fromRect({ x: 644, y: 0, width: 380, height: 800 });
 const ON_RAIL = { x: 1000, y: 300 };
 const OFF_RAIL = { x: 300, y: 300 };
 const REDUCED = '(prefers-reduced-motion: reduce)';
@@ -117,6 +120,14 @@ function rail(): HTMLElement {
   return el;
 }
 const drawer = () => document.querySelector('[data-pane-layer="drawer"]');
+const opens = () => document.documentElement.hasAttribute('data-carry-opens');
+// The drawer's heading, which names it.
+function heading(): HTMLElement {
+  const id = drawer()?.getAttribute('aria-labelledby');
+  const el = id == null ? null : document.getElementById(id);
+  if (el === null) throw new Error('no drawer heading');
+  return el;
+}
 const isTarget = () => rail().hasAttribute('data-carry-target');
 const isSweeping = () => rail().hasAttribute('data-carry-dwell');
 
@@ -236,7 +247,13 @@ describe('narrow, a saved carry on the rail (KAN-820 E)', () => {
     installMatchMedia(true);
     await renderHome();
     carrySaved();
+    // As a receiver that left the + on would (only Currently open's turn it on, and their leave clears it).
+    act(() => setCarryOpens(true));
+    // PREMISE: the + is on before the rail is reached.
+    expect(opens()).toBe(true);
     moveTo(ON_RAIL);
+    // Resting on the rail, letting go opens nothing, so the card has no +.
+    expect(opens()).toBe(false);
     wait(300);
     fireEvent.pointerUp(document, { clientX: ON_RAIL.x, clientY: ON_RAIL.y });
 
@@ -244,9 +261,36 @@ describe('narrow, a saved carry on the rail (KAN-820 E)', () => {
     expect(isTarget()).toBe(false);
     wait(SPRING_OPEN_MS * 2);
     expect(drawer()).toBeNull();
-    expect(document.documentElement.hasAttribute('data-carry-opens')).toBe(
-      false
-    );
+  });
+
+  // R1: a spring into a drawer already open must not eat the next open's focus.
+  test('a rest on the rail beside a user-opened drawer sent away leaves the next open focusing the heading', async () => {
+    installMatchMedia(true);
+    const { button } = await renderHome();
+    fireEvent.click(button);
+    const open = drawer();
+    if (!(open instanceof HTMLElement)) throw new Error('no drawer');
+    open.getBoundingClientRect = () => DRAWER_BOX;
+    // PREMISE: the button's open focuses the heading.
+    expect(document.activeElement).toBe(heading());
+
+    // Off the drawer: it goes away (N2 A), so the rail is uncovered.
+    carrySaved();
+    expect(open).toHaveAttribute('data-carry-away');
+    moveTo(ON_RAIL);
+    expect(isTarget()).toBe(true);
+    wait(SPRING_OPEN_MS);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(currentCarry()).toBeNull();
+
+    fireEvent.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    act(() => {
+      fireEvent.animationEnd(open);
+    });
+    fireEvent.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(document.activeElement).toBe(heading());
   });
 
   test("past the window's right edge is still the rail", async () => {

@@ -167,7 +167,9 @@ export default function OpenNowRail({
   const { isTarget } = useRailSpring({
     railRef,
     drawerOver: !isOpen || away ? 'none' : 'settled',
+    // Only a closed drawer opens: set on an open one, the flag would outlive this open (R1).
     onSpring: () => {
+      if (isOpen) return;
       openedBySpring.current = true;
       openDrawer();
     },
