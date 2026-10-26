@@ -762,25 +762,44 @@ export default function OpenNowPane({
             </h2>
             <span css={titleActionsStyle}>
               {titleActions.map((action, index) => (
-                <Icon
+                // KAN-810. The fold button rides Currently open's edge as the
+                // saved session folds: its own box, since this row is 0px tall.
+                <span
                   // By position: the caller's list is fixed, and two actions may
                   // share a label.
                   key={index}
-                  tooltipText={action.label}
-                  ariaLabel={action.label}
-                  type={action.icon}
-                  tourAnchor={action.tourAnchor}
-                  onClick={action.onClick}
-                />
+                  data-pane-layer={
+                    action.tourAnchor === 'fold' ? 'open-now-fold' : undefined
+                  }
+                  css={css`
+                    display: inline-flex;
+                  `}
+                >
+                  <Icon
+                    tooltipText={action.label}
+                    ariaLabel={action.label}
+                    type={action.icon}
+                    tourAnchor={action.tourAnchor}
+                    onClick={action.onClick}
+                  />
+                </span>
               ))}
             </span>
             {close && (
-              <Icon
-                tooltipText={close.label}
-                ariaLabel={close.label}
-                type={close.icon}
-                onClick={close.onClick}
-              />
+              // KAN-810. Its own layer: it fades as the drawer widens into a column with no close button.
+              <span
+                data-pane-layer="open-now-close"
+                css={css`
+                  display: inline-flex;
+                `}
+              >
+                <Icon
+                  tooltipText={close.label}
+                  ariaLabel={close.label}
+                  type={close.icon}
+                  onClick={close.onClick}
+                />
+              </span>
             )}
           </div>
           {/* No counts while loading, and none for an empty list: "0 Windows"
@@ -909,6 +928,7 @@ export default function OpenNowPane({
             align="right"
             notchInset="40px"
             shrinks
+            layer="open-now-back"
           >
             {(press) => (
               <Button

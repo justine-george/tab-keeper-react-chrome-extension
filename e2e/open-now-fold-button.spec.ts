@@ -1,6 +1,7 @@
 import type { BrowserContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { elementLanded } from './fixtures/landed';
 import {
   buildContainer,
   buildSession,
@@ -110,6 +111,8 @@ test('folded, the rail opens its drawer over the saved session, and Esc leaves i
   await rail(page).click();
   const drawer = page.getByRole('dialog', { name: 'Currently open' });
   await expect(drawer).toBeVisible();
+  // KAN-810. It slides in: measure it where it comes to rest.
+  await elementLanded(drawer, 'subtree');
   const box = await drawer.boundingBox();
   if (box === null) throw new Error('the drawer has no box');
   expect(Math.round(box.width)).toBe(380);

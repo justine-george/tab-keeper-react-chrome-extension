@@ -252,11 +252,15 @@ describe('narrow and side by side (O2)', () => {
     const collapse = within(drawer).getByRole('button', {
       name: 'Collapse all windows',
     });
-    expect(close.parentElement).toBe(heading.parentElement);
+    // On the heading's line (KAN-810 wraps it in a box of its own for the motion).
+    const line = heading.parentElement!;
+    expect(
+      close.closest('[data-pane-layer="open-now-close"]')?.parentElement
+    ).toBe(line);
     expect(heading.compareDocumentPosition(close)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     );
-    expect(collapse.parentElement).not.toBe(close.parentElement);
+    expect(collapse.parentElement!.contains(close)).toBe(false);
   });
 
   // The wide pane is not a dialog: nothing to close.

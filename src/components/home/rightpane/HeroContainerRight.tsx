@@ -49,6 +49,7 @@ import { isTabView } from '../../../utils/functions/viewMode';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { OPEN_NOW_RAIL_QUERY } from '../opennow/railQuery';
 import { OPEN_NOW_FOLD_ICON } from '../opennow/foldIcon';
+import { runPaneMotion } from '../paneMotion';
 import { selectIsOpenNowFolded } from '../../../redux/savedSessionFold';
 import { setFoldOpenNowInTabView } from '../../../redux/slices/settingsDataStateSlice';
 import { useTranslation } from 'react-i18next';
@@ -403,6 +404,8 @@ export default function HeroContainerRight() {
               </ClickableRow>
             )}
             <div
+              // KAN-810. Rides the session's edge as Currently open folds.
+              data-pane-layer="saved-title-action"
               css={css`
                 position: absolute;
                 top: 50%;
@@ -458,8 +461,14 @@ export default function HeroContainerRight() {
                   onClick={(e) => {
                     e.stopPropagation();
                     // As Open now's own fold button: the press ends a peek.
-                    dispatch(setFoldOpenNowInTabView(!isOpenNowFolded));
-                    dispatch(endSavedSessionPeek());
+                    runPaneMotion(
+                      () => {
+                        dispatch(setFoldOpenNowInTabView(!isOpenNowFolded));
+                        dispatch(endSavedSessionPeek());
+                      },
+                      'openNow',
+                      isOpenNowFolded ? 'unfold' : 'fold'
+                    );
                   }}
                 />
               ) : (
@@ -647,6 +656,8 @@ export default function HeroContainerRight() {
             )}
           </div>
           <div
+            // KAN-810. Rides the session's edge as Currently open folds.
+            data-pane-layer="saved-add-window"
             css={css`
               display: flex;
             `}

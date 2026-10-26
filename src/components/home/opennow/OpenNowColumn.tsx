@@ -11,6 +11,7 @@ import { endSavedSessionPeek } from '../../../redux/slices/globalStateSlice';
 import { setFoldSavedSessionInTabView } from '../../../redux/slices/settingsDataStateSlice';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { FOLD_ICON } from './foldIcon';
+import { runPaneMotion } from '../paneMotion';
 import OpenNowPane from './OpenNowPane';
 import type { OpenNowHeaderAction } from './OpenNowPane';
 import OpenNowRail from './OpenNowRail';
@@ -62,8 +63,14 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
 
   const setFolded = (fold: boolean) => {
     focusAfterSwap.current = isNarrow || showRail;
-    dispatch(setFoldSavedSessionInTabView(fold));
-    dispatch(endSavedSessionPeek());
+    runPaneMotion(
+      () => {
+        dispatch(setFoldSavedSessionInTabView(fold));
+        dispatch(endSavedSessionPeek());
+      },
+      'saved',
+      fold ? 'fold' : 'unfold'
+    );
   };
 
   const foldAction: OpenNowHeaderAction = folded

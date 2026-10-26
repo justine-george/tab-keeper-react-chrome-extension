@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { elementLanded } from './fixtures/landed';
 import { seedSessions, seedSettings } from './fixtures/seed';
 import { standIn } from './fixtures/standInPages';
 
@@ -33,6 +34,8 @@ async function openDrawer(page: Page, extensionId: string) {
   await rail.click();
   const drawer = page.getByRole('dialog');
   await expect(drawer.getByRole('button', { name: CLOSE })).toBeVisible();
+  // KAN-810. The drawer slides in: measure and press it where it comes to rest.
+  await elementLanded(drawer, 'subtree');
   return { rail, drawer };
 }
 

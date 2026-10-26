@@ -26,6 +26,8 @@ interface ClosesThisTabProps {
   notchInset: string;
   // For a control that shrinks in its row (Open now's chip).
   shrinks?: boolean;
+  // KAN-810. A pane-motion layer name (paneMotion.ts) for the control's box.
+  layer?: string;
   children: (press: () => void) => ReactNode;
 }
 
@@ -43,6 +45,7 @@ export default function ClosesThisTab({
   align,
   notchInset,
   shrinks = false,
+  layer,
   children,
 }: ClosesThisTabProps) {
   const dispatch: AppDispatch = useDispatch();
@@ -112,6 +115,7 @@ export default function ClosesThisTab({
   return (
     <span
       ref={anchorRef}
+      data-pane-layer={layer}
       css={css`
         position: relative;
         display: inline-flex;

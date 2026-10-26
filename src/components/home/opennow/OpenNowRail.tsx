@@ -3,11 +3,12 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
 
-import { css } from '@emotion/react';
+import { css, keyframes } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -23,7 +24,7 @@ import type { OpenWindow } from '../../../utils/functions/openNow';
 import OpenNowPane from './OpenNowPane';
 import type { OpenNowHeaderAction } from './OpenNowPane';
 import { currentCarry, subscribeCarry } from '../../../redux/carry';
-import { DURATION, TYPE } from '../../../styles/scale';
+import { DURATION, EASE, TYPE } from '../../../styles/scale';
 import { isUnclaimedEscape } from '../../common/unclaimedEscape';
 
 interface OpenNowRailProps {
@@ -44,6 +45,17 @@ interface OpenNowRailProps {
 // KAN-280 O2. A 44px column with one button, which opens Open now as a 380px
 // drawer over the right side. The drawer's open state lives here, so it goes
 // when the rail does: a window grown past 1100px, or a fold, drops both.
+const slideIn = keyframes`
+  from {
+    transform: translateX(100%);
+  }
+`;
+const slideOut = keyframes`
+  to {
+    transform: translateX(100%);
+  }
+`;
+
 export default function OpenNowRail({
   windows,
   foldAction,
@@ -58,6 +70,20 @@ export default function OpenNowRail({
   const headingId = useId();
 
   const [isOpen, setIsOpen] = useState(false);
+  // KAN-810. The drawer slides in and out on itself (drawerStyle), so it
+  // takes presses from its first frame, and a press that closes it still
+  // lands where it pressed. Closed, it stays drawn while it slides out,
+  // inert, and goes at the slide's end, or at once if nothing slides
+  // (reduced motion).
+  const [isLeaving, setIsLeaving] = useState(false);
+  const openDrawer = () => {
+    setIsLeaving(false);
+    setIsOpen(true);
+  };
+  const closeDrawer = () => {
+    setIsOpen(false);
+    setIsLeaving(true);
+  };
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   // KAN-330 R1. Opened by `/`, the drawer puts the cursor in its search
@@ -73,7 +99,7 @@ export default function OpenNowRail({
       ? null
       : () => {
           openedByShortcut.current = true;
-          setIsOpen(true);
+          openDrawer();
         }
   );
   useEffect(() => {
@@ -91,6 +117,22 @@ export default function OpenNowRail({
   // wide; it comes back when the carry ends, mounted all along, so its scroll, folds and search are as they were.
   const [away, setAway] = useState(false);
   const drawerRef = useRef<HTMLDivElement | null>(null);
+  // Leaving with no slide running (reduced motion), it goes at once; a slide
+  // cut short goes too (React has no animationcancel prop).
+  useLayoutEffect(() => {
+    if (!isLeaving || isOpen) return;
+    const drawer = drawerRef.current;
+    const sliding = drawer
+      ?.getAnimations()
+      .some((a) => a.playState === 'running');
+    if (!drawer || !sliding) {
+      setIsLeaving(false);
+      return;
+    }
+    const gone = () => setIsLeaving(false);
+    drawer.addEventListener('animationcancel', gone);
+    return () => drawer.removeEventListener('animationcancel', gone);
+  }, [isLeaving, isOpen]);
   useEffect(() => {
     // Read once per carry, at its first move, before the drawer has moved.
     let box: DOMRect | null = null;
@@ -114,7 +156,7 @@ export default function OpenNowRail({
 
   // Back to the button that opened it, so the user's place is kept.
   const close = useCallback(() => {
-    setIsOpen(false);
+    closeDrawer();
     buttonRef.current?.focus();
   }, [buttonRef]);
 
@@ -144,7 +186,7 @@ export default function OpenNowRail({
       // KAN-708. A row menu opened from the drawer is part of it.
       if (target.closest('[data-toast], dialog, [data-row-menu]') !== null)
         return;
-      setIsOpen(false);
+      closeDrawer();
       // After the press's own focus change: the rail, unless it focused something.
       setTimeout(() => {
         if (document.activeElement === document.body)
@@ -190,8 +232,8 @@ export default function OpenNowRail({
     &:hover {
       background-color: ${COLORS.ICON_HOVER_COLOR};
     }
-    &:active,
-    &[aria-expanded='true'] {
+    /* KAN-810. No fill while expanded: the drawer covers the button then, so the fill only ever flashed as the drawer moved. */
+    &:active {
       background-color: ${COLORS.ICON_ACTIVE_COLOR};
     }
   `;
@@ -250,8 +292,15 @@ export default function OpenNowRail({
     &:not([data-carry-away]) {
       transition: transform ${DURATION.MOVE} ease;
     }
+    /* KAN-810. In from the window's edge and back out, on the drawer itself. */
+    animation: ${slideIn} ${DURATION.DRAWER_IN} ${EASE.OUT} backwards;
+    &[data-leaving] {
+      animation: ${slideOut} ${DURATION.DRAWER_OUT} ${EASE.IN} forwards;
+      pointer-events: none;
+    }
     @media (prefers-reduced-motion: reduce) {
       transition: none;
+      animation: none;
     }
   `;
 
@@ -267,7 +316,7 @@ export default function OpenNowRail({
         aria-keyshortcuts={showsShortcut ? SEARCH_SHORTCUT_KEY : undefined}
         // Only while the drawer exists: an IDREF to nothing names no element.
         aria-controls={isOpen ? drawerId : undefined}
-        onClick={() => (isOpen ? close() : setIsOpen(true))}
+        onClick={() => (isOpen ? close() : openDrawer())}
       >
         <Icon type="tab" />
         {/* Named by aria-label, which holds this text and the count. */}
@@ -289,19 +338,29 @@ export default function OpenNowRail({
           </span>
         )}
       </button>
-      {isOpen && (
+      {(isOpen || isLeaving) && (
         <div
           id={drawerId}
           role="dialog"
+          data-pane-layer="drawer"
           // Named by the pane's own heading, not a second copy of its text.
           aria-labelledby={headingId}
           css={drawerStyle}
           ref={(el) => {
             drawerRef.current = el;
-            // Away, nothing in it takes focus or a click (as DraggableRow sets it).
-            if (el && el.inert !== away) el.inert = away;
+            // Away, or sliding out, nothing in it takes focus or a click (as DraggableRow sets it).
+            const inert = away || !isOpen;
+            if (el && el.inert !== inert) el.inert = inert;
           }}
           data-carry-away={away ? '' : undefined}
+          data-leaving={isOpen ? undefined : ''}
+          onAnimationEnd={(e) => {
+            if (
+              e.target === e.currentTarget &&
+              e.animationName === slideOut.name
+            )
+              setIsLeaving(false);
+          }}
         >
           <OpenNowPane
             windows={windows}

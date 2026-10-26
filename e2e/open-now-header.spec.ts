@@ -1,6 +1,7 @@
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { elementLanded } from './fixtures/landed';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import { FULL, FULL_VIEW_PATH, openPage } from './fixtures/onboarding';
 import { savedWindow, session } from './fixtures/savedWindows';
@@ -237,6 +238,8 @@ test('ru, in the drawer: the chip shrinks clear of the icons, its label cut, sti
     exact: true,
   });
   await expect(back).toBeVisible();
+  // KAN-810. The drawer slides in: measure and press it where it comes to rest.
+  await elementLanded(page.getByRole('dialog'), 'subtree');
 
   const m = await header.evaluate((el) => {
     // The action row's controls: KAN-784 put the drawer's close on the title line above it.

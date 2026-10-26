@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useDispatch, useSelector, useStore } from 'react-redux';
 
-import { css } from '@emotion/react';
+import { css, Global } from '@emotion/react';
 
 import { isTabView } from '../utils/functions/viewMode';
 import { PANE_INSET } from '../styles/paneInset';
@@ -38,6 +38,7 @@ import {
   selectIsSavedSessionFolded,
 } from '../redux/savedSessionFold';
 import { useOpenNowPlace } from '../hooks/useOpenNowPlace';
+import { paneMotionCss } from './home/paneMotion';
 import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
 import RightPaneSettings from './settings/rightpane/RightPaneSettings';
 import {
@@ -441,6 +442,14 @@ export default function MainContainer() {
 
   return (
     <div>
+      {/* KAN-810. The folds' and the drawer's motion; the popup has neither. */}
+      {isTab && (
+        <Global
+          styles={css`
+            ${paneMotionCss}
+          `}
+        />
+      )}
       {!isSettingsPage ? (
         <div
           ref={isTab ? tabGridRef : undefined}

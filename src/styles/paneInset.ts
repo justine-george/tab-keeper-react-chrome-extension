@@ -9,10 +9,10 @@ export const PANE_INSET = {
   RIGHT: '--pane-inset-right',
 } as const;
 
-const SIDE = '8px';
+export const PANE_SIDE = '8px';
 
 /** For a pane's root: its side padding, unless its wrapper zeroed a side. */
 export const paneInsetCss = `
-  padding-left: var(${PANE_INSET.LEFT}, ${SIDE});
-  padding-right: var(${PANE_INSET.RIGHT}, ${SIDE});
+  padding-left: var(${PANE_INSET.LEFT}, ${PANE_SIDE});
+  padding-right: var(${PANE_INSET.RIGHT}, ${PANE_SIDE});
 `;
