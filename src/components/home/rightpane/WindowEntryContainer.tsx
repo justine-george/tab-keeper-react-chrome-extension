@@ -308,7 +308,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           {
             key: 'sortGroupsByName',
             label: t('Sort groups by name'),
-            icon: 'sort' as const,
+            icon: 'sort_by_alpha' as const,
             onSelect: () =>
               void dispatch(
                 sortWindowGroupsByName({
@@ -411,7 +411,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             key: 'addTab',
             actionRowLabel: t('Add tab'),
             label: t('Add current tab'),
-            icon: 'add' as const,
+            icon: 'playlist_add' as const,
             onSelect: () => onAddCurrTabToWindowClick(),
           },
         ]),
@@ -438,7 +438,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             key: 'addTab',
             actionRowLabel: t('Add tab'),
             label: t('Add current tab to group'),
-            icon: 'add' as const,
+            icon: 'playlist_add' as const,
             onSelect: () => void addCurrentTabToGroup(run.group),
           },
         ]),
@@ -1296,7 +1296,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               <Icon
                 tooltipText={t('Add current tab')}
                 ariaLabel={t('Add current tab')}
-                type="add"
+                type="playlist_add"
                 onClick={(e) => {
                   e.stopPropagation();
                   onAddCurrTabToWindowClick();
@@ -1770,7 +1770,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                             <Icon
                               tooltipText={t('Add current tab to group')}
                               ariaLabel={t('Add current tab to group')}
-                              type="add"
+                              type="playlist_add"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 addCurrentTabToGroup(item.group);

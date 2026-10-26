@@ -355,6 +355,19 @@ describe('an Open now tab row right-click (KAN-708)', () => {
     expect(second.defaultPrevented).toBe(true);
   });
 
+  // KAN-804. Bringing a tab to the front draws what Go to window and Switch to session draw.
+  test('Switch to tab draws filter_center_focus', async () => {
+    await renderOpenNow(() => undefined);
+    fireEvent.contextMenu(liveRow('Live 2'));
+
+    const item = within(menus()[0]).getByRole('menuitem', {
+      name: /^Switch to tab/,
+    });
+    expect(item.querySelector('[data-icon]')?.getAttribute('data-icon')).toBe(
+      'filter_center_focus'
+    );
+  });
+
   test('Switch to tab activates that tab', async () => {
     await renderOpenNow(() => undefined);
     const update = vi.spyOn(globalThis.chrome.tabs, 'update');

@@ -55,7 +55,7 @@ describe('Button icon spacing', () => {
     const { container } = await renderWithProviders(
       <Button
         text="Add window"
-        iconType="add"
+        iconType="playlist_add"
         iconStyle="padding: 4px 4px 2px 4px;"
       />
     );
