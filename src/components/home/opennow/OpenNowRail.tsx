@@ -26,6 +26,7 @@ import OpenNowPane from './OpenNowPane';
 import type { OpenNowHeaderAction } from './OpenNowPane';
 import {
   currentCarry,
+  noteCarryOverOpenNow,
   rerouteCarry,
   subscribeCarry,
 } from '../../../redux/carry';
@@ -41,6 +42,7 @@ import {
   drawerAfterMove,
   drawerStaysAfterCarry,
   inRightColumn,
+  restingBox,
   type DrawerCarry,
 } from './drawerCarry';
 
@@ -195,13 +197,16 @@ export default function OpenNowRail({
           if (held !== null && drawerRef.current?.contains(held) === true)
             carryState.current = { ...carryState.current, beenIn: true };
         }
-        if (!shown.current || settling.current) return;
-        carryBox.current ??= drawerRef.current?.getBoundingClientRect() ?? null;
-        if (carryBox.current === null) return;
+        const drawer = drawerRef.current;
+        if (!shown.current || drawer === null) return;
+        // KAN-820 F2. Sliding in, against its resting box (as the rail's hit); settled, the box as drawn.
+        const box = settling.current
+          ? restingBox(drawer)
+          : (carryBox.current ??= drawer.getBoundingClientRect());
         // KAN-820. Away only after in, then out: a carry that starts outside leaves it be.
         carryState.current = drawerAfterMove(
           carryState.current,
-          inRightColumn(carryBox.current, carry.x, carry.y)
+          inRightColumn(box, carry.x, carry.y)
         );
         if (carryState.current.away) setAway(true);
       }),
@@ -222,6 +227,7 @@ export default function OpenNowRail({
   const railRef = useRef<HTMLDivElement>(null);
   const { isTarget } = useRailSpring({
     railRef,
+    drawerRef,
     drawerOver: !isOpen || away ? 'none' : isSettling ? 'settling' : 'settled',
     onSpring: () => {
       // Only a closed drawer opens: set on an open one, the flag would outlive this open (R1).
@@ -239,6 +245,8 @@ export default function OpenNowRail({
       carryBox.current = null;
       settling.current = true;
       setIsSettling(true);
+      // KAN-820 F2. Sprung, the carry is in Currently open: the saved side takes nothing from here (spec "Crossed").
+      noteCarryOverOpenNow(true);
     },
   });
 

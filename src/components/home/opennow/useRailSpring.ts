@@ -12,16 +12,23 @@ import {
 import { sourceSessionIdOf } from '../../../redux/carriedItem';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import { SPRING_OPEN_MS } from '../../common/springOpen';
-import { inRightColumn, type DrawerOverRail } from './drawerCarry';
+import { inRightColumn, restingBox, type DrawerOverRail } from './drawerCarry';
 
 interface Options {
   // The rail's column; past its right edge counts too (inRightColumn).
   railRef: RefObject<HTMLElement>;
+  // The drawer, whose resting box is the rail's while it slides in (KAN-820 F1).
+  drawerRef: RefObject<HTMLElement>;
   drawerOver: DrawerOverRail;
   onSpring: () => void;
 }
 
-export function useRailSpring({ railRef, drawerOver, onSpring }: Options): {
+export function useRailSpring({
+  railRef,
+  drawerRef,
+  drawerOver,
+  onSpring,
+}: Options): {
   isTarget: boolean;
 } {
   const carried = useCarried();
@@ -49,12 +56,14 @@ export function useRailSpring({ railRef, drawerOver, onSpring }: Options): {
       springsCurrentlyOpen: true,
       hit: (x, y) => {
         const el = rail();
-        return (
-          el !== null &&
-          uncovered() &&
-          springs() &&
-          inRightColumn(el.getBoundingClientRect(), x, y)
-        );
+        if (el === null || !uncovered() || !springs()) return false;
+        // KAN-820 F1. While the drawer slides in, its resting box is the rail's: nothing under it takes the carry.
+        const drawer = drawerRef.current;
+        const box =
+          latest.current.drawerOver === 'settling' && drawer !== null
+            ? restingBox(drawer)
+            : el.getBoundingClientRect();
+        return inRightColumn(box, x, y);
       },
       measureHit: () => {
         const el = rail();
@@ -73,7 +82,7 @@ export function useRailSpring({ railRef, drawerOver, onSpring }: Options): {
       take: () => false,
     });
     return unregister;
-  }, [railRef]);
+  }, [railRef, drawerRef]);
 
   // S1 A's shape: the timer starts with the target look, and any change clears it.
   useEffect(() => {

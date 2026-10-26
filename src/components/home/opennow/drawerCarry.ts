@@ -49,5 +49,15 @@ export function inRightColumn(
   return x >= box.left && y >= box.top && y < box.bottom;
 }
 
+// KAN-820 F1. Where an element rests, its slide ignored: offset geometry ignores transforms, and a fixed element's is the page's.
+export function restingBox(el: HTMLElement): DOMRect {
+  return DOMRect.fromRect({
+    x: el.offsetLeft - window.scrollX,
+    y: el.offsetTop - window.scrollY,
+    width: el.offsetWidth,
+    height: el.offsetHeight,
+  });
+}
+
 // What lies over the rail: nothing (closed, or away), a drawer still moving in, or a settled one.
 export type DrawerOverRail = 'none' | 'settling' | 'settled';

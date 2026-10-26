@@ -5,7 +5,11 @@ import MainContainer from '../../components/MainContainer';
 import { OPEN_NOW_RAIL_QUERY } from '../../components/home/opennow/railQuery';
 import { SPRING_OPEN_MS } from '../../components/common/springOpen';
 import { setDragging } from '../../components/home/rightpane/rowDrag/dropRules';
-import { renderWithProviders } from '../setup/renderWithProviders';
+import { NEW_LAST_WINDOW } from '../../components/home/rightpane/newWindowTarget';
+import {
+  renderWithProviders,
+  type RenderWithProvidersResult,
+} from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import { asWritten } from '../setup/asWritten';
@@ -84,15 +88,33 @@ function installMatchMedia(narrow: boolean, reducedMotion = false) {
   );
 }
 
+// The saved session's window with three tabs, so a move of tab-1 shows in the store.
+function threeTabSession() {
+  const base = buildSession({ tabGroupId: 'first', title: 'First session' });
+  const tabs = ['tab-1', 'tab-2', 'tab-3'].map((tabId) => ({
+    tabId,
+    favicon: '',
+    title: tabId,
+    url: `https://${tabId}.test/`,
+  }));
+  return {
+    ...base,
+    tabCount: 3,
+    windows: base.windows.map((w) => ({ ...w, tabCount: 3, tabs })),
+  };
+}
+
 async function renderHome(
-  options: { tour?: boolean; foldOpenNow?: boolean } = {}
+  options: { tour?: boolean; foldOpenNow?: boolean; threeTabs?: boolean } = {}
 ) {
   const result = await renderWithProviders(<MainContainer />, {
     seed: twoWindows(),
     seedStore: (store) => {
       store.dispatch(
         saveToTabContainerInternal(
-          buildSession({ tabGroupId: 'first', title: 'First session' })
+          options.threeTabs === true
+            ? threeTabSession()
+            : buildSession({ tabGroupId: 'first', title: 'First session' })
         )
       );
       store.dispatch(selectTabContainer('first'));
@@ -172,10 +194,22 @@ function drawerEl(): HTMLElement {
 }
 // The pane's header lies above its scroller, here y 400.
 const IN_HEADER = { x: 700, y: 100 };
+// The drawer over the right side, as drawn and where it rests (test-only stubs: jsdom lays nothing out).
+function placeDrawer(el: HTMLElement) {
+  el.getBoundingClientRect = () => DRAWER_BOX;
+  for (const [key, value] of [
+    ['offsetLeft', DRAWER_BOX.left],
+    ['offsetTop', DRAWER_BOX.top],
+    ['offsetWidth', DRAWER_BOX.width],
+    ['offsetHeight', DRAWER_BOX.height],
+  ] as const) {
+    Object.defineProperty(el, key, { configurable: true, value });
+  }
+}
 // Lays the drawer out over the right side, its pane filling it.
 function layOutDrawer() {
   const el = drawerEl();
-  el.getBoundingClientRect = () => DRAWER_BOX;
+  placeDrawer(el);
   const pane = el.querySelector<HTMLElement>('[role="region"]');
   const scroller = el.querySelector<HTMLElement>('[data-open-now-scroller]');
   if (pane === null || scroller === null) throw new Error('no pane');
@@ -319,7 +353,7 @@ describe('narrow, a saved carry on the rail (KAN-820 E)', () => {
     fireEvent.click(button);
     const open = drawer();
     if (!(open instanceof HTMLElement)) throw new Error('no drawer');
-    open.getBoundingClientRect = () => DRAWER_BOX;
+    placeDrawer(open);
     // PREMISE: the button's open focuses the heading.
     expect(document.activeElement).toBe(heading());
 
@@ -518,7 +552,7 @@ describe('the drawer under a carry (KAN-820)', () => {
     const { button } = await renderHome();
     fireEvent.click(button);
     const open = drawerEl();
-    open.getBoundingClientRect = () => DRAWER_BOX;
+    placeDrawer(open);
     carrySaved();
     moveTo(IN_HEADER);
     moveTo(OFF_RAIL);
@@ -559,7 +593,7 @@ describe('the drawer under a carry (KAN-820)', () => {
     const { button } = await renderHome();
     fireEvent.click(button);
     const open = drawerEl();
-    open.getBoundingClientRect = () => DRAWER_BOX;
+    placeDrawer(open);
 
     carryLive();
     // Out first, it stays.
@@ -657,6 +691,162 @@ describe('the drawer under a carry (KAN-820)', () => {
 
     expect(isSettling()).toBe(false);
     expect(opens()).toBe(true);
+  });
+});
+
+// KAN-820 F1, F2. While the sprung drawer slides in, its resting box is the rail's: nothing under it takes the carry.
+describe('while the sprung drawer slides in', () => {
+  // The saved list's pane, under the drawer up to the rail.
+  const SAVED_PANE_BOX = DOMRect.fromRect({
+    x: 300,
+    y: 0,
+    width: 680,
+    height: 800,
+  });
+  // Over the drawer's list, off the rail column.
+  const IN_DRAWER_LIST = { x: 700, y: 470 };
+  // On the saved side, by the saved list's last row.
+  const SAVED_SIDE = { x: 400, y: 515 };
+
+  const crossedOut = () =>
+    document.documentElement.hasAttribute('data-carry-crossed-out');
+  const savedTabs = (store: RenderWithProvidersResult['store']) =>
+    store
+      .getState()
+      .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === 'first')
+      ?.windows.flatMap((w) => w.tabs.map((t) => t.tabId));
+
+  // Lays the saved list out under the drawer: window-1 [tab-2, tab-3] from y 400, then the trailing block
+  // with the phantom. jsdom does not expand `overflow` into overflowY, which the engine's paneOf reads, so
+  // it is set (openNowLayout.test.tsx, O3a).
+  function layOutSavedList() {
+    const phantom = [
+      ...document.querySelectorAll<HTMLElement>('[data-carry-phantom]'),
+    ].find((row) => drawer()?.contains(row) !== true);
+    let pane = phantom?.parentElement ?? null;
+    while (
+      pane !== null &&
+      !/auto|scroll/.test(getComputedStyle(pane).overflow)
+    )
+      pane = pane.parentElement;
+    if (pane === null) throw new Error('no saved list pane');
+    pane.style.overflowY = 'auto';
+    pane.getBoundingClientRect = () => SAVED_PANE_BOX;
+    const boxes: [selector: string, top: number, height: number][] = [
+      ['[data-drop-window-id="window-1"]', 400, 120],
+      ['[data-drag-row-id="window-1"]', 400, 120],
+      ['[data-drag-row-id="tab:tab-2"]', 440, 40],
+      ['[data-drag-row-id="tab-2"]', 440, 40],
+      ['[data-drag-row-id="tab:tab-3"]', 480, 40],
+      ['[data-drag-row-id="tab-3"]', 480, 40],
+      [`[data-drop-window-id="${NEW_LAST_WINDOW}"]`, 520, 40],
+      ['[data-drag-row-id="tab:carried:tab-1"]', 524, 32],
+      ['[data-drag-row-id="carried:tab-1"]', 524, 32],
+    ];
+    for (const [selector, top, height] of boxes) {
+      const el = pane.querySelector<HTMLElement>(selector);
+      if (el === null) throw new Error(`nothing matches ${selector}`);
+      el.getBoundingClientRect = () =>
+        DOMRect.fromRect({ x: 300, y: top, width: 680, height });
+    }
+  }
+
+  // The drawer's own list may adopt a crossed carry (KAN-815): its scroller, as layOutSavedList's.
+  function letDrawerListAdopt() {
+    const scroller = drawerEl().querySelector<HTMLElement>(
+      '[data-open-now-scroller]'
+    );
+    if (scroller === null) throw new Error('no drawer scroller');
+    scroller.style.overflowY = 'auto';
+  }
+
+  test("a move over it, off the rail, stays the layer's; settled, the pane owns and a release opens", async () => {
+    installMatchMedia(true);
+    await renderHome({ threeTabs: true });
+    const endMotion = holdDrawerMotion();
+    const item = carrySaved();
+    layOutSavedList();
+    await springDrawer();
+    letDrawerListAdopt();
+    // PREMISE: still sliding in.
+    expect(isSettling()).toBe(true);
+
+    moveTo(IN_DRAWER_LIST);
+    expect(currentCarry()?.owner).toBe('layer');
+    expect(opens()).toBe(false);
+    // Inside the drawer: the card is not dimmed as out of it (D3).
+    expect(crossedOut()).toBe(false);
+    moveTo(IN_HEADER);
+    expect(currentCarry()?.owner).toBe('layer');
+    expect(opens()).toBe(false);
+
+    await endMotion();
+    expect(isSettling()).toBe(false);
+    expect(currentCarry()?.owner).toBe('layer');
+    expect(opens()).toBe(true);
+    releaseAt(IN_HEADER);
+    expect(carryEndedAs(item)).toBe('copied');
+  });
+
+  test('a release over it, off the rail, cancels: the saved session is unchanged and the drawer stays', async () => {
+    installMatchMedia(true);
+    const { store, button } = await renderHome({ threeTabs: true });
+    const before = savedTabs(store);
+    holdDrawerMotion();
+    const item = carrySaved();
+    layOutSavedList();
+    await springDrawer();
+    expect(isSettling()).toBe(true);
+
+    moveTo(IN_DRAWER_LIST);
+    releaseAt(IN_DRAWER_LIST);
+
+    expect(carryEndedAs(item)).toBe('cancelled');
+    expect(savedTabs(store)).toEqual(before);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test("the session header's New window target under it takes nothing", async () => {
+    installMatchMedia(true);
+    const { store } = await renderHome({ threeTabs: true });
+    const before = savedTabs(store);
+    holdDrawerMotion();
+    const item = carrySaved();
+    const target = document.querySelector<HTMLElement>(
+      '[data-new-window-target="first"]'
+    );
+    if (target === null) throw new Error('no New window target');
+    // Shown by App.css while a carry can make a new window, which jsdom does not load.
+    target.style.visibility = 'visible';
+    target.getBoundingClientRect = () =>
+      DOMRect.fromRect({ x: 660, y: 40, width: 300, height: 40 });
+    await springDrawer();
+    expect(isSettling()).toBe(true);
+
+    moveTo({ x: 700, y: 60 });
+    expect(target).not.toHaveAttribute('data-landing');
+    releaseAt({ x: 700, y: 60 });
+
+    expect(carryEndedAs(item)).toBe('cancelled');
+    expect(savedTabs(store)).toEqual(before);
+  });
+
+  test('sprung, out to the saved side, released before it settles: nothing moves and the drawer closes', async () => {
+    installMatchMedia(true);
+    const { store, button } = await renderHome({ threeTabs: true });
+    const before = savedTabs(store);
+    holdDrawerMotion();
+    const item = carrySaved();
+    layOutSavedList();
+    await springDrawer();
+    expect(isSettling()).toBe(true);
+
+    moveTo(SAVED_SIDE);
+    releaseAt(SAVED_SIDE);
+
+    expect(carryEndedAs(item)).toBe('cancelled');
+    expect(savedTabs(store)).toEqual(before);
+    expect(button).toHaveAttribute('aria-expanded', 'false');
   });
 });
 

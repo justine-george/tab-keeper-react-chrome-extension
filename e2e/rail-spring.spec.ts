@@ -159,6 +159,72 @@ test('in, out, in: springs again, and a drop in a window opens there with the dr
   await expectDrawerStays(page);
 });
 
+// KAN-820 F1. Straight into the drawer while it slides in: the rail holds the pointer there, so the saved list under it takes nothing.
+test('spring, then straight into a window while it slides in: the drop opens there and the drawer stays', async ({
+  context,
+  extensionId,
+  serviceWorker: worker,
+}) => {
+  const live = await openLiveWindow(worker, ['A', 'B', 'C']);
+  const page = await setUp(context, extensionId);
+  const before = await stored(page);
+  // C's slot where the drawer rests, read with it opened by its button, then closed.
+  await railButton(page).click();
+  await expect
+    .poll(() => drawer(page).evaluate((el) => el.getAnimations().length))
+    .toBe(0);
+  const slot = await topOf(liveRow(page, live.idOf('C')));
+  await drawer(page)
+    .getByRole('button', { name: 'Close the Currently open panel' })
+    .click();
+  await expectDrawerGone(page);
+
+  await pickUp(page, tabHandle(page, 's2'));
+  await holdTimers(page);
+  await carryTo(page, await onRail(page));
+  await expect(rail(page)).toHaveAttribute('data-carry-target', '');
+  // The slide in slowed 100x, so the moves below land while it runs (not rate 0: KAN-559).
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('Animation.enable');
+  await cdp.send('Animation.setPlaybackRate', { playbackRate: 0.01 });
+  await page.clock.runFor(SPRING_OPEN_MS);
+  await page.clock.resume();
+  await expect(drawer(page)).toBeVisible();
+  await page.mouse.move(slot.x, slot.y, { steps: 20 });
+  // PREMISE: every move so far landed while it slid in.
+  await expect(page.locator('[data-drawer-settling]')).toHaveCount(1);
+  // Its offset box, read mid-slide, is where it comes to rest (restingBox).
+  const resting = await drawer(page).evaluate((el) =>
+    el instanceof HTMLElement
+      ? [
+          el.offsetLeft - scrollX,
+          el.offsetTop - scrollY,
+          el.offsetWidth,
+          el.offsetHeight,
+        ]
+      : []
+  );
+  await cdp.send('Animation.setPlaybackRate', { playbackRate: 1 });
+  await expect(page.locator('[data-drawer-settling]')).toHaveCount(0);
+  const settled = await boxOf(drawer(page));
+  expect(resting).toEqual([
+    settled.x,
+    settled.y,
+    settled.width,
+    settled.height,
+  ]);
+  // A last small move, so the landing is read at rest.
+  await page.mouse.move(slot.x, slot.y + 1, { steps: 2 });
+  await expect(page.locator(BADGE)).toBeVisible();
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => (await strip(worker, live.windowId)).map((t) => t.url))
+    .toEqual([dataUrl('A'), dataUrl('B'), 'https://s2.test/', dataUrl('C')]);
+  await expectDrawerStays(page);
+  expect(await stored(page)).toEqual(before);
+});
+
 // The spec's worst path.
 test('worst path: spring, in, out, release on the saved side', async ({
   context,

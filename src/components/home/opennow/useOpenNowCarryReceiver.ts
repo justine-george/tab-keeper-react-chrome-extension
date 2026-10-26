@@ -63,6 +63,10 @@ const inPaneBox = (pane: DOMRect, grip: DOMRect | null, x: number, y: number) =>
 const answersNothing = (pane: HTMLElement) =>
   pane.closest('[data-carry-away], [data-drawer-settling]') !== null;
 
+// KAN-820 F2. Sprung and sliding in, the pointer is inside the drawer: out of it, the drawer is away.
+const slidingIn = (pane: HTMLElement) =>
+  pane.closest('[data-drawer-settling]:not([data-carry-away])') !== null;
+
 // Written straight to the DOM, as the saved pane's targets are (markNewWindowTarget).
 function light(pane: HTMLElement | null, target: string, on: boolean): void {
   pane
@@ -216,7 +220,7 @@ export function useOpenNowCarryReceiver({
         !answersNothing(el) &&
         inPaneBox(paneBox, grip, carry.x, carry.y);
       noteCarryOverOpenNow(over);
-      markCrossedOut(!over && carryCrossedIntoOpenNow());
+      markCrossedOut(!over && carryCrossedIntoOpenNow() && !slidingIn(el));
     });
 
     return () => {
