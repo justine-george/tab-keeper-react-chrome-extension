@@ -1,3 +1,5 @@
+import { OPEN_NOW_RAIL_PX } from './opennow/railQuery';
+
 // KAN-321 O1/O1a and KAN-687. Every width in the tab view's grid: the saved
 // list's and Open now's, from the window's width, the fold and the widths
 // the user chose. The grid, both grips' aria values and their arrow keys all
@@ -25,6 +27,10 @@ const OPEN_NOW_DEFAULT_FLOOR = 340;
 const RESIZABLE_MIN_VIEWPORT = 1100;
 
 export const RESIZE_KEY_STEP = 16;
+
+// KAN-808. Where Open now sits: beside the saved session, folded to its
+// rail beside it, or in the saved session's column (the saved session folded).
+export type OpenNowPlace = 'beside' | 'rail' | 'detail';
 
 export interface WidthRange {
   min: number;
@@ -78,13 +84,10 @@ function openNowRange(viewportWidth: number, listWidth: number): WidthRange {
   };
 }
 
-// The list leaves the pane beside it 480: the saved session beside this
-// Open now, or folded (null) Open now itself.
-function listRange(
-  viewportWidth: number,
-  openNowWidth: number | null
-): WidthRange {
-  const beside = openNowWidth === null ? 0 : openNowWidth;
+// The list leaves the pane beside it 480: the saved session beside Open
+// now's column (its width, the rail's, or none when Open now is in the
+// saved session's column), or that Open now itself.
+function listRange(viewportWidth: number, beside: number): WidthRange {
   return {
     min: LIST_MIN_WIDTH,
     max: Math.max(
@@ -101,7 +104,7 @@ function listRange(
 // width saved at the end of either range shows again unchanged.
 export function paneWidths(
   viewportWidth: number,
-  folded: boolean,
+  place: OpenNowPlace,
   chosen: ChosenWidths
 ): PaneWidths {
   const openNow = clampToRange(
@@ -111,7 +114,7 @@ export function paneWidths(
   const lists =
     viewportWidth < RESIZABLE_MIN_VIEWPORT
       ? { min: LIST_MIN_WIDTH, max: LIST_MIN_WIDTH }
-      : listRange(viewportWidth, folded ? null : openNow);
+      : listRange(viewportWidth, besideList(place, openNow));
   const list = clampToRange(
     chosen.list ?? defaultListWidth(viewportWidth),
     lists
@@ -120,9 +123,12 @@ export function paneWidths(
     list,
     listRange: lists,
     openNow,
-    // Folded, Open now fills the saved session's column and its own width
-    // waits, unchanged, for the unfold: no list width bounds it.
-    openNowRange: openNowRange(viewportWidth, folded ? LIST_MIN_WIDTH : list),
+    // Folded either way, Open now's own width waits, unchanged, for the
+    // unfold: no list width bounds it.
+    openNowRange: openNowRange(
+      viewportWidth,
+      place === 'beside' ? list : LIST_MIN_WIDTH
+    ),
   };
 }
 
@@ -137,12 +143,19 @@ export function isOpenNowResizable(viewportWidth: number): boolean {
 // window alone, so the grip does not come and go while Open now's is dragged.
 export function isListResizable(
   viewportWidth: number,
-  folded: boolean
+  place: OpenNowPlace
 ): boolean {
   if (viewportWidth < RESIZABLE_MIN_VIEWPORT) return false;
-  const beside = folded
-    ? null
-    : openNowRange(viewportWidth, LIST_MIN_WIDTH).min;
-  const { min, max } = listRange(viewportWidth, beside);
+  const { min, max } = listRange(
+    viewportWidth,
+    besideList(place, openNowRange(viewportWidth, LIST_MIN_WIDTH).min)
+  );
   return min < max;
+}
+
+// The width Open now's column takes beside the saved session: its own, the
+// rail's, or none in the saved session's column.
+function besideList(place: OpenNowPlace, openNowWidth: number): number {
+  if (place === 'beside') return openNowWidth;
+  return place === 'rail' ? OPEN_NOW_RAIL_PX : 0;
 }

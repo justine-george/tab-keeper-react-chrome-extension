@@ -41,10 +41,16 @@ import {
 import {
   clearSessionRenameRequest,
   collapsedWindowIdsOf,
+  endSavedSessionPeek,
   setAllWindowsCollapsed,
 } from '../../../redux/slices/globalStateSlice';
 import { showSessionAndAddCurrentWindow } from '../../../redux/showSessionAndAddCurrentWindow';
 import { isTabView } from '../../../utils/functions/viewMode';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { OPEN_NOW_RAIL_QUERY } from '../opennow/railQuery';
+import { OPEN_NOW_FOLD_ICON } from '../opennow/foldIcon';
+import { selectIsOpenNowFolded } from '../../../redux/savedSessionFold';
+import { setFoldOpenNowInTabView } from '../../../redux/slices/settingsDataStateSlice';
 import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
 import { useNewFirstWindowReceiver } from './useNewFirstWindowReceiver';
@@ -61,6 +67,15 @@ export default function HeroContainerRight() {
   const [editableTitle, setEditableTitle] = useState('');
   const [isContainerHovered, setIsContainerHovered] = useState<boolean>(false);
   const dispatch: AppDispatch = useDispatch();
+  // KAN-808. The full view folds Open now from the title line. Not in the
+  // popup, which has no Open now, nor narrow, where Open now is already the
+  // rail: there the slot keeps its pencil.
+  const isNarrow = useMediaQuery(OPEN_NOW_RAIL_QUERY);
+  const hasOpenNowFold = isTabView() && !isNarrow;
+  const isOpenNowFolded = useSelector(selectIsOpenNowFolded);
+  const openNowFoldLabel = isOpenNowFolded
+    ? t('Show Open now')
+    : t('Fold Open now away');
 
   const tabContainerDataList = useSelector(
     (state: RootState) => state.tabContainerDataState
@@ -321,6 +336,8 @@ export default function HeroContainerRight() {
               justify-content: space-between;
               align-items: center;
               width: 100%;
+              /* Room for the fold button, which is always shown, so a long title truncates before it. */
+              ${hasOpenNowFold && !isEditing && `padding-right: calc(${ICON.DEFAULT} + 8px);`}
               ${focusRingOverTickCss(COLORS, '&:has(> input:focus-visible)')}
             `}
           >
@@ -392,7 +409,7 @@ export default function HeroContainerRight() {
                 right: 0;
                 transform: translateY(-50%);
                 /* The tick is the edit's save control, shown for the whole edit as the window's is (KAN-677). */
-                opacity: ${isEditing || isContainerHovered ? 1 : 0};
+                opacity: ${isEditing || isContainerHovered || hasOpenNowFold ? 1 : 0};
                 transition: opacity ${DURATION.COLOR} ease-out;
                 /* The keyboard's equivalent of the hover reveal (KAN-68); keyboard focus only (KAN-636). */
                 ${whileKeyNav('&:has(:focus-visible)')} {
@@ -428,6 +445,23 @@ export default function HeroContainerRight() {
                     }}
                   />
                 </span>
+              ) : hasOpenNowFold ? (
+                <Icon
+                  tooltipText={openNowFoldLabel}
+                  ariaLabel={openNowFoldLabel}
+                  type={
+                    isOpenNowFolded
+                      ? OPEN_NOW_FOLD_ICON.folded
+                      : OPEN_NOW_FOLD_ICON.unfolded
+                  }
+                  backgroundColor={COLORS.SECONDARY_COLOR}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // As Open now's own fold button: the press ends a peek.
+                    dispatch(setFoldOpenNowInTabView(!isOpenNowFolded));
+                    dispatch(endSavedSessionPeek());
+                  }}
+                />
               ) : (
                 <Icon
                   tooltipText={t('Rename session')}

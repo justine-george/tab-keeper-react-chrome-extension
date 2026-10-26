@@ -132,7 +132,8 @@ export interface SettingsData {
   /**
    * Whether the tab view opens with the saved session folded away, so Open
    * now takes its column (KAN-280 O4/O5). True until the fold button is
-   * pressed, so a first open is folded. Only that button writes it: a peek
+   * pressed, so a first open is folded. Only the fold buttons write it (the
+   * saved session's, KAN-808, clears it): a peek
    * (globalState.isPeekingSavedSession) shows the session for now and leaves
    * this alone.
    *
@@ -140,6 +141,14 @@ export interface SettingsData {
    * tabContainerData and nothing else.
    */
   foldSavedSessionInTabView: boolean;
+  /**
+   * KAN-808. Whether the tab view folds Open now to its rail, so the saved
+   * session takes the width: the saved session's title-line button. Never
+   * true while foldSavedSessionInTabView is: one fold at a time.
+   *
+   * DEVICE-LOCAL, like everything else here.
+   */
+  foldOpenNowInTabView: boolean;
   /**
    * The width the user dragged Open now to (KAN-321 O1a), in CSS px, or null
    * for the O1 default. The STORED choice, not what is shown: the shown width
@@ -353,6 +362,7 @@ const defaultSettings: SettingsData = {
   // KAN-280 O5. Also what a user whose saved settings predate the field
   // gets: initialState lays the stored object over these defaults.
   foldSavedSessionInTabView: true,
+  foldOpenNowInTabView: false,
   openNowWidth: null,
   listWidth: null,
   pinTabKeeperInNewWindows: false,
@@ -379,6 +389,13 @@ export const initialState: SettingsData = {
   listWidth: asPaneWidth(settingsDataLocal.listWidth),
   // KAN-459. Guarded: settingsDataLocal is unvalidated.
   pinTabKeeperInNewWindows: asFlag(settingsDataLocal.pinTabKeeperInNewWindows),
+  // KAN-808. Guarded, and off beside a folded saved session: one fold at a time.
+  foldOpenNowInTabView:
+    asFlag(settingsDataLocal.foldOpenNowInTabView) &&
+    !(
+      settingsDataLocal.foldSavedSessionInTabView ??
+      defaultSettings.foldSavedSessionInTabView
+    ),
   // KAN-587. Guarded: an unknown hourCycle would throw in every row's render.
   timeFormat: asTimeFormat(settingsDataLocal.timeFormat),
   // KAN-635. Guarded: settingsDataLocal is unvalidated.
@@ -557,11 +574,20 @@ export const settingsDataStateSlice = createSlice({
       saveLocalSettings(state);
     },
 
-    // KAN-280 O5. The fold button's choice, and nothing else's.
+    // KAN-280 O5. The fold button's choice, and nothing else's. KAN-808:
+    // folding the saved session shows Open now.
     setFoldSavedSessionInTabView: (state, action: PayloadAction<boolean>) => {
       state.foldSavedSessionInTabView = action.payload;
+      if (action.payload) state.foldOpenNowInTabView = false;
 
       // Save updated state to localStorage
+      saveLocalSettings(state);
+    },
+
+    // KAN-808. The saved session's title-line button: folding Open now shows the saved session.
+    setFoldOpenNowInTabView: (state, action: PayloadAction<boolean>) => {
+      state.foldOpenNowInTabView = action.payload;
+      if (action.payload) state.foldSavedSessionInTabView = false;
       saveLocalSettings(state);
     },
 
@@ -728,6 +754,7 @@ export const {
   setTimeFormat,
   setExportLayout,
   setFoldSavedSessionInTabView,
+  setFoldOpenNowInTabView,
   setOpenNowWidth,
   setListWidth,
   setPinTabKeeperInNewWindows,
