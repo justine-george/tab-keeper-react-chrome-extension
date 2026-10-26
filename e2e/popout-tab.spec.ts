@@ -33,14 +33,16 @@ const POPUP_VIEWPORT = { width: 790, height: 550 };
 // 355.5 = 45% of 790, 434.5 = 55% of 790, 237 = 30% of 790 (rounded down by
 // the browser), 553 = 70% of 790. These must be bit-for-bit unchanged after
 // this task's change, since the popup's own styles are untouched.
+// KAN-802: Settings' category column is 10px wider (its scrollbar gutter), so
+// Settings is 247 | 543 now; home is unchanged.
 const CONTROL = {
   home: {
     sessions: { left: 0, right: 355.5, width: 355.5, bottom: 550 },
     detail: { left: 355.5, right: 790, width: 434.5, bottom: 550 },
   },
   settings: {
-    sessions: { left: 0, right: 237, width: 237, bottom: 550 },
-    detail: { left: 237, right: 790, width: 553, bottom: 550 },
+    sessions: { left: 0, right: 247, width: 247, bottom: 550 },
+    detail: { left: 247, right: 790, width: 543, bottom: 550 },
   },
 };
 
@@ -114,7 +116,7 @@ test('tab view at 1280x800: the sessions pane is 356px and the detail pane fills
   expect(scrollWidth).toBeLessThanOrEqual(TAB_VIEWPORT.width);
 });
 
-test('tab view settings: the sessions pane is 238px', async ({
+test('tab view settings: the sessions pane is 248px (238 + its 10px gutter, KAN-802)', async ({
   context,
   extensionId,
 }) => {
@@ -128,8 +130,8 @@ test('tab view settings: the sessions pane is 238px', async ({
   await page.getByText('Themes').waitFor();
 
   const sessions = await paneBox(page, 'sessions');
-  expect(sessions.width).toBeGreaterThanOrEqual(237);
-  expect(sessions.width).toBeLessThanOrEqual(239);
+  expect(sessions.width).toBeGreaterThanOrEqual(247);
+  expect(sessions.width).toBeLessThanOrEqual(249);
 });
 
 test('CONTROL: popup at 790x550 keeps its current pane widths, home view', async ({
