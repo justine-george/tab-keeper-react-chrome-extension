@@ -19,6 +19,7 @@ import { Tag } from '../../common/Tag';
 import { SEARCH_SHORTCUT_KEY } from '../../common/searchShortcut';
 import Icon from '../../common/Icon';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { formatTabCount } from '../../../utils/functions/local';
 import type { OpenWindow } from '../../../utils/functions/openNow';
 import OpenNowPane from './OpenNowPane';
@@ -27,6 +28,8 @@ import { currentCarry, subscribeCarry } from '../../../redux/carry';
 import { DURATION, EASE, TYPE } from '../../../styles/scale';
 import { isUnclaimedEscape } from '../../common/unclaimedEscape';
 import { COACH_CARD_SHOWN } from '../paneMotion';
+import { springSweepStyle } from '../../common/springOpen';
+import { useRailSpring } from './useRailSpring';
 
 interface OpenNowRailProps {
   windows: OpenWindow[] | null;
@@ -92,6 +95,8 @@ export default function OpenNowRail({
   // screen reader announces where it landed and Tab continues into the
   // drawer (O2).
   const openedByShortcut = useRef(false);
+  // KAN-820 E. Sprung by a resting carry, the drawer opens and focus stays where it was.
+  const openedBySpring = useRef(false);
   // KAN-800. While / would open the drawer into its search, the rail wears the chip.
   const showsShortcut = useSearchTarget() === 'openNow' && !isOpen;
   useSearchShortcut(
@@ -105,7 +110,9 @@ export default function OpenNowRail({
   );
   useEffect(() => {
     if (!isOpen) return;
-    if (openedByShortcut.current) {
+    if (openedBySpring.current) {
+      openedBySpring.current = false;
+    } else if (openedByShortcut.current) {
       openedByShortcut.current = false;
       searchInputRef.current?.focus();
       searchInputRef.current?.select();
@@ -154,6 +161,19 @@ export default function OpenNowRail({
       if (outside) setAway(true);
     });
   }, []);
+
+  // KAN-820 E. A saved carry resting on the rail springs the drawer out.
+  const railRef = useRef<HTMLDivElement>(null);
+  const { isTarget } = useRailSpring({
+    railRef,
+    drawerOver: !isOpen || away ? 'none' : 'settled',
+    onSpring: () => {
+      openedBySpring.current = true;
+      openDrawer();
+    },
+  });
+  // Reduced motion draws no sweep; the drawer still opens after the wait.
+  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
 
   // Back to the button that opened it, so the user's place is kept.
   const close = useCallback(() => {
@@ -213,6 +233,24 @@ export default function OpenNowRail({
     align-items: center;
     height: 100%;
     padding-top: 8px;
+    /* KAN-820 E. The session row's carry-target look; its button shows no hover or press fill under it. */
+    &[data-carry-target] {
+      background-color: ${COLORS.ACTIVE_COLOR};
+      outline-width: 2px;
+      outline-style: solid;
+      outline-color: ${COLORS.LABEL_L2_COLOR};
+      outline-offset: -2px;
+    }
+    &[data-carry-target] > button,
+    &[data-carry-target] > button:hover,
+    &[data-carry-target] > button:active {
+      background-color: transparent;
+    }
+    /* The sweep is the dwell's fill, in from the window's edge. */
+    &[data-carry-dwell] {
+      background-color: transparent;
+      ${springSweepStyle(COLORS.ACTIVE_COLOR, 'right')}
+    }
   `;
 
   // Sized and filled as an actionable Icon is (padding 4px round a 24px
@@ -310,7 +348,13 @@ export default function OpenNowRail({
   `;
 
   return (
-    <div css={railStyle}>
+    <div
+      ref={railRef}
+      css={railStyle}
+      data-open-now-rail=""
+      data-carry-target={isTarget ? '' : undefined}
+      data-carry-dwell={isTarget && !reducedMotion ? '' : undefined}
+    >
       <button
         ref={buttonRef}
         type="button"

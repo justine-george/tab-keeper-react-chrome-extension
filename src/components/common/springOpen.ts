@@ -15,10 +15,14 @@ export const SPRING_SWEEP = keyframes`
   }
 `;
 
-// The dwell fill: `color` swept across the row over SPRING_OPEN_MS.
-export const springSweepStyle = (color: string) => css`
+// The dwell fill: `color` swept across the row over SPRING_OPEN_MS, growing from `from` (KAN-820: the rail's from the right).
+export const springSweepStyle = (
+  color: string,
+  from: 'left' | 'right' = 'left'
+) => css`
   background-image: linear-gradient(${color}, ${color});
   background-repeat: no-repeat;
+  background-position: ${from};
   background-size: 0 100%;
   animation: ${SPRING_SWEEP} ${SPRING_OPEN_MS}ms linear forwards;
 `;
