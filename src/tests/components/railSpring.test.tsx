@@ -25,6 +25,7 @@ import { newRun } from '../../utils/functions/firstRun';
 import { buildSession } from '../fixtures/sessionFixture';
 import { live } from '../fixtures/liveSnapshotFixture';
 import {
+  carryEndedAs,
   currentCarry,
   endCarry,
   setCarryOpens,
@@ -135,7 +136,9 @@ const isSweeping = () => rail().hasAttribute('data-carry-dwell');
 function carrySaved(ref: CarriedRef = TAB) {
   setDragging(true, ref.kind);
   beginDragHold();
-  act(() => startCarry(savedItem(ref), CARD, OFF_RAIL.x, OFF_RAIL.y));
+  const item = savedItem(ref);
+  act(() => startCarry(item, CARD, OFF_RAIL.x, OFF_RAIL.y));
+  return item;
 }
 function carryLive() {
   setDragging(true, 'tab');
@@ -156,7 +159,53 @@ function carryLive() {
 
 const moveTo = ({ x, y }: { x: number; y: number }) =>
   fireEvent.pointerMove(document, { clientX: x, clientY: y });
+const releaseAt = ({ x, y }: { x: number; y: number }) =>
+  fireEvent.pointerUp(document, { clientX: x, clientY: y });
 const wait = (ms: number) => act(() => vi.advanceTimersByTime(ms));
+// Lets a settled drawer's promise chain run.
+const flush = () => act(async () => {});
+
+function drawerEl(): HTMLElement {
+  const el = drawer();
+  if (!(el instanceof HTMLElement)) throw new Error('no drawer');
+  return el;
+}
+// The pane's header lies above its scroller, here y 400.
+const IN_HEADER = { x: 700, y: 100 };
+// Lays the drawer out over the right side, its pane filling it.
+function layOutDrawer() {
+  const el = drawerEl();
+  el.getBoundingClientRect = () => DRAWER_BOX;
+  const pane = el.querySelector<HTMLElement>('[role="region"]');
+  const scroller = el.querySelector<HTMLElement>('[data-open-now-scroller]');
+  if (pane === null || scroller === null) throw new Error('no pane');
+  pane.getBoundingClientRect = () => DRAWER_BOX;
+  scroller.getBoundingClientRect = () =>
+    DOMRect.fromRect({ x: 644, y: 400, width: 380, height: 400 });
+}
+// Rests on the rail until the drawer springs, laid out before it settles.
+async function springDrawer() {
+  moveTo(ON_RAIL);
+  wait(SPRING_OPEN_MS);
+  layOutDrawer();
+  await flush();
+}
+const isSettling = () => drawerEl().hasAttribute('data-drawer-settling');
+
+// The drawer's motion, held until the test lets it end (test-only stub: jsdom has no Animation).
+function holdDrawerMotion() {
+  let end = () => {};
+  const finished = new Promise<void>((resolve) => {
+    end = resolve;
+  });
+  const motion = { finished, playState: 'running' } as unknown as Animation;
+  vi.spyOn(Element.prototype, 'getAnimations').mockImplementation(function (
+    this: Element
+  ) {
+    return this.matches('[data-pane-layer="drawer"]') ? [motion] : [];
+  });
+  return () => act(async () => end());
+}
 
 beforeEach(() => {
   localStorage.clear();
@@ -274,14 +323,20 @@ describe('narrow, a saved carry on the rail (KAN-820 E)', () => {
     // PREMISE: the button's open focuses the heading.
     expect(document.activeElement).toBe(heading());
 
-    // Off the drawer: it goes away (N2 A), so the rail is uncovered.
+    // In, then out of the drawer: it goes away, so the rail is uncovered.
     carrySaved();
+    moveTo(IN_HEADER);
+    moveTo(OFF_RAIL);
     expect(open).toHaveAttribute('data-carry-away');
     moveTo(ON_RAIL);
     expect(isTarget()).toBe(true);
     wait(SPRING_OPEN_MS);
-    fireEvent.keyDown(window, { key: 'Escape' });
+    await flush();
+    // Released inside, the drawer stays, so the button closes it next.
+    releaseAt(ON_RAIL);
     expect(currentCarry()).toBeNull();
+    // The click Chrome sends after the release, which the layer eats.
+    fireEvent.click(document.body);
 
     fireEvent.click(button);
     expect(button).toHaveAttribute('aria-expanded', 'false');
@@ -360,6 +415,210 @@ describe('narrow, a saved carry on the rail (KAN-820 E)', () => {
     expect(vi.getTimerCount()).toBeLessThan(timersBefore);
     expect(() => wait(SPRING_OPEN_MS)).not.toThrow();
     expect(drawer()).toBeNull();
+  });
+});
+
+// KAN-820. The drawer goes away only after the carry was in it and left; a sprung one stays at the end only if
+// the carry ended inside it, not by Esc.
+describe('the drawer under a carry (KAN-820)', () => {
+  test('in, then out: away. Back on the rail: springs again', async () => {
+    installMatchMedia(true);
+    const { button } = await renderHome();
+    carrySaved();
+    await springDrawer();
+    const sprung = drawerEl();
+
+    moveTo(IN_HEADER);
+    expect(sprung).not.toHaveAttribute('data-carry-away');
+    moveTo(OFF_RAIL);
+    expect(sprung).toHaveAttribute('data-carry-away');
+
+    moveTo(ON_RAIL);
+    expect(isTarget()).toBe(true);
+    wait(SPRING_OPEN_MS - 1);
+    expect(sprung).toHaveAttribute('data-carry-away');
+    wait(1);
+    expect(sprung).not.toHaveAttribute('data-carry-away');
+    // Back, not remounted.
+    expect(drawerEl()).toBe(sprung);
+    await flush();
+    releaseAt(ON_RAIL);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(sprung).not.toHaveAttribute('data-carry-away');
+  });
+
+  test('sprung, released inside on a refused spot: stays', async () => {
+    installMatchMedia(true);
+    const { button } = await renderHome();
+    // Search held: nothing in the drawer lands (O14c).
+    fireEvent.click(button);
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Search open tabs' }),
+      {
+        target: { value: 'a' },
+      }
+    );
+    fireEvent.click(button);
+    expect(drawer()).toBeNull();
+
+    const item = carrySaved();
+    await springDrawer();
+    moveTo(IN_HEADER);
+    releaseAt(IN_HEADER);
+
+    expect(carryEndedAs(item)).toBe('cancelled');
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(drawerEl()).not.toHaveAttribute('data-carry-away');
+  });
+
+  test('sprung, released inside after a drop that opened: stays', async () => {
+    installMatchMedia(true);
+    const { button } = await renderHome();
+    const item = carrySaved();
+    await springDrawer();
+    // PREMISE: resting over the pane's header, a release opens a copy.
+    expect(opens()).toBe(true);
+    releaseAt(ON_RAIL);
+
+    expect(carryEndedAs(item)).toBe('copied');
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(drawerEl()).not.toHaveAttribute('data-carry-away');
+  });
+
+  test('sprung, Esc: carry ends and the drawer closes', async () => {
+    installMatchMedia(true);
+    const { button } = await renderHome();
+    carrySaved();
+    await springDrawer();
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    expect(currentCarry()).toBeNull();
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('sprung, gone away, released on the saved side: closes, unmounted', async () => {
+    installMatchMedia(true);
+    const { button } = await renderHome();
+    const item = carrySaved();
+    await springDrawer();
+    // A slide out would keep it drawn; away, it goes at once.
+    holdDrawerMotion();
+    moveTo(IN_HEADER);
+    moveTo(OFF_RAIL);
+    expect(drawerEl()).toHaveAttribute('data-carry-away');
+
+    releaseAt(OFF_RAIL);
+
+    expect(carryEndedAs(item)).toBe('cancelled');
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(drawer()).toBeNull();
+  });
+
+  // Review Focus 4.
+  test('user-opened, gone away under a live carry, back at the end', async () => {
+    installMatchMedia(true);
+    const { button } = await renderHome();
+    fireEvent.click(button);
+    const open = drawerEl();
+    open.getBoundingClientRect = () => DRAWER_BOX;
+
+    carryLive();
+    // Out first, it stays.
+    expect(open).not.toHaveAttribute('data-carry-away');
+    moveTo(IN_HEADER);
+    moveTo(OFF_RAIL);
+    expect(open).toHaveAttribute('data-carry-away');
+    moveTo(ON_RAIL);
+    expect(isTarget()).toBe(false);
+    wait(SPRING_OPEN_MS * 2);
+    expect(open).toHaveAttribute('data-carry-away');
+
+    releaseAt(OFF_RAIL);
+
+    expect(currentCarry()).toBeNull();
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(drawerEl()).toBe(open);
+    expect(open).not.toHaveAttribute('data-carry-away');
+  });
+
+  // Review Focus 1.
+  test('a release while the sprung drawer settles cancels and the drawer stays', async () => {
+    installMatchMedia(true);
+    const { button } = await renderHome();
+    const endMotion = holdDrawerMotion();
+    const item = carrySaved();
+    await springDrawer();
+
+    expect(isSettling()).toBe(true);
+    // The pointer rests over the pane's header, and the rail still owns it: no +.
+    expect(opens()).toBe(false);
+    releaseAt(ON_RAIL);
+
+    expect(carryEndedAs(item)).toBe('cancelled');
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    await endMotion();
+    expect(isSettling()).toBe(false);
+  });
+
+  test('once the sprung drawer settles, the pane owns the resting pointer with no move', async () => {
+    installMatchMedia(true);
+    await renderHome();
+    const endMotion = holdDrawerMotion();
+    carrySaved();
+    await springDrawer();
+    // PREMISE: still settling, the rail's.
+    expect(opens()).toBe(false);
+
+    await endMotion();
+
+    expect(isSettling()).toBe(false);
+    expect(opens()).toBe(true);
+  });
+
+  // Spec: geometry after the slide-in.
+  test('a box read while the drawer slides in is not the one the away rule keeps', async () => {
+    installMatchMedia(true);
+    await renderHome();
+    const endMotion = holdDrawerMotion();
+    carrySaved();
+    await springDrawer();
+    // Mid-slide, the drawer is still off to the right.
+    drawerEl().getBoundingClientRect = () =>
+      DOMRect.fromRect({ x: 1024, y: 0, width: 380, height: 800 });
+    moveTo(IN_HEADER);
+    layOutDrawer();
+    await endMotion();
+
+    moveTo(IN_HEADER);
+    moveTo(OFF_RAIL);
+
+    expect(drawerEl()).toHaveAttribute('data-carry-away');
+  });
+
+  // Review Focus 3.
+  test('back from away by a second spring, it settles and reroutes', async () => {
+    installMatchMedia(true);
+    await renderHome();
+    carrySaved();
+    await springDrawer();
+    moveTo(IN_HEADER);
+    moveTo(OFF_RAIL);
+    expect(drawerEl()).toHaveAttribute('data-carry-away');
+
+    // Its way back is a transition, held here.
+    const endMotion = holdDrawerMotion();
+    moveTo(ON_RAIL);
+    wait(SPRING_OPEN_MS);
+    await flush();
+    expect(drawerEl()).not.toHaveAttribute('data-carry-away');
+    expect(isSettling()).toBe(true);
+    expect(opens()).toBe(false);
+
+    await endMotion();
+
+    expect(isSettling()).toBe(false);
+    expect(opens()).toBe(true);
   });
 });
 

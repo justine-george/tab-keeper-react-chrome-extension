@@ -24,12 +24,24 @@ import { formatTabCount } from '../../../utils/functions/local';
 import type { OpenWindow } from '../../../utils/functions/openNow';
 import OpenNowPane from './OpenNowPane';
 import type { OpenNowHeaderAction } from './OpenNowPane';
-import { currentCarry, subscribeCarry } from '../../../redux/carry';
+import {
+  currentCarry,
+  rerouteCarry,
+  subscribeCarry,
+} from '../../../redux/carry';
 import { DURATION, EASE, TYPE } from '../../../styles/scale';
 import { isUnclaimedEscape } from '../../common/unclaimedEscape';
 import { COACH_CARD_SHOWN } from '../paneMotion';
 import { springSweepStyle } from '../../common/springOpen';
 import { useRailSpring } from './useRailSpring';
+import {
+  DRAWER_CARRY_START,
+  DRAWER_SPRUNG,
+  drawerAfterMove,
+  drawerStaysAfterCarry,
+  inRightColumn,
+  type DrawerCarry,
+} from './drawerCarry';
 
 interface OpenNowRailProps {
   windows: OpenWindow[] | null;
@@ -121,8 +133,8 @@ export default function OpenNowRail({
     }
   }, [isOpen, searchInputRef]);
 
-  // KAN-280 Part F (N2 A). Once a carry's pointer leaves the drawer, the drawer slides away so every drop works as
-  // wide; it comes back when the carry ends, mounted all along, so its scroll, folds and search are as they were.
+  // KAN-280 Part F (N2 A). Away during a carry, the drawer slides off so every drop works as wide; it stays
+  // mounted, so its scroll, folds and search are as they were when it comes back.
   const [away, setAway] = useState(false);
   const drawerRef = useRef<HTMLDivElement | null>(null);
   // Leaving with no slide running (reduced motion), it goes at once; a slide
@@ -141,39 +153,104 @@ export default function OpenNowRail({
     drawer.addEventListener('animationcancel', gone);
     return () => drawer.removeEventListener('animationcancel', gone);
   }, [isLeaving, isOpen]);
+
+  // KAN-820. The carry's hold on the drawer, reset at its end; the box is its resting one, read once settled.
+  const carryState = useRef<DrawerCarry>(DRAWER_CARRY_START);
+  const carryBox = useRef<DOMRect | null>(null);
+  const endedByEscape = useRef(false);
+  // From a spring until the drawer's motion in ends: its box is still moving.
+  const [isSettling, setIsSettling] = useState(false);
+  const settling = useRef(false);
+  const shown = useRef(isOpen);
   useEffect(() => {
-    // Read once per carry, at its first move, before the drawer has moved.
-    let box: DOMRect | null = null;
-    return subscribeCarry(() => {
-      const carry = currentCarry();
-      if (carry === null) {
-        box = null;
-        setAway(false);
-        return;
-      }
-      box ??= drawerRef.current?.getBoundingClientRect() ?? null;
-      if (box === null) return;
-      const outside =
-        carry.x < box.left ||
-        carry.x >= box.right ||
-        carry.y < box.top ||
-        carry.y >= box.bottom;
-      if (outside) setAway(true);
-    });
+    shown.current = isOpen;
+  }, [isOpen]);
+
+  useEffect(
+    () =>
+      subscribeCarry(() => {
+        const carry = currentCarry();
+        if (carry === null) {
+          // KAN-820. A sprung drawer stays only if the carry ended in it, not by Esc; a user-opened one comes back (N2 A).
+          const s = carryState.current;
+          const stays = drawerStaysAfterCarry(s, endedByEscape.current);
+          carryState.current = DRAWER_CARRY_START;
+          carryBox.current = null;
+          endedByEscape.current = false;
+          setAway(false);
+          if (!stays && shown.current) {
+            setIsOpen(false);
+            // Visible, it slides out; away, it is already off, so it goes at once.
+            setIsLeaving(!s.away);
+          }
+          return;
+        }
+        if (!shown.current || settling.current) return;
+        carryBox.current ??= drawerRef.current?.getBoundingClientRect() ?? null;
+        if (carryBox.current === null) return;
+        // KAN-820. Away only after in, then out: a carry that starts outside leaves it be.
+        carryState.current = drawerAfterMove(
+          carryState.current,
+          inRightColumn(carryBox.current, carry.x, carry.y)
+        );
+        if (carryState.current.away) setAway(true);
+      }),
+    []
+  );
+
+  // KAN-820. The carry's Esc, seen before the layer ends the carry with it.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && currentCarry() !== null)
+        endedByEscape.current = true;
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
   }, []);
 
   // KAN-820 E. A saved carry resting on the rail springs the drawer out.
   const railRef = useRef<HTMLDivElement>(null);
   const { isTarget } = useRailSpring({
     railRef,
-    drawerOver: !isOpen || away ? 'none' : 'settled',
-    // Only a closed drawer opens: set on an open one, the flag would outlive this open (R1).
+    drawerOver: !isOpen || away ? 'none' : isSettling ? 'settling' : 'settled',
     onSpring: () => {
-      if (isOpen) return;
-      openedBySpring.current = true;
-      openDrawer();
+      // Only a closed drawer opens: set on an open one, the flag would outlive this open (R1).
+      if (isOpen) {
+        setAway(false);
+      } else {
+        openedBySpring.current = true;
+        openDrawer();
+      }
+      carryState.current = DRAWER_SPRUNG;
+      carryBox.current = null;
+      settling.current = true;
+      setIsSettling(true);
     },
   });
+
+  // Settled when its slide in, or its way back, ends or is cut short; not after an unmount.
+  useEffect(() => {
+    if (!isSettling) return;
+    const drawer = drawerRef.current;
+    // Style flushed first, so a transition just started is among the animations.
+    if (drawer !== null) getComputedStyle(drawer).getPropertyValue('transform');
+    const motion = drawer?.getAnimations() ?? [];
+    let current = true;
+    void Promise.allSettled(motion.map((a) => a.finished)).then(() => {
+      if (!current) return;
+      settling.current = false;
+      setIsSettling(false);
+    });
+    return () => {
+      current = false;
+    };
+  }, [isSettling]);
+  // Settled, the layer routes the resting pointer again. After useRailSpring's effects, so the rail reads 'settled'.
+  const wasSettling = useRef(false);
+  useEffect(() => {
+    if (wasSettling.current && !isSettling) rerouteCarry();
+    wasSettling.current = isSettling;
+  }, [isSettling]);
   // Reduced motion draws no sweep; the drawer still opens after the wait.
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
 
@@ -404,6 +481,7 @@ export default function OpenNowRail({
             if (el && el.inert !== inert) el.inert = inert;
           }}
           data-carry-away={away ? '' : undefined}
+          data-drawer-settling={isSettling ? '' : undefined}
           data-leaving={isOpen ? undefined : ''}
           onAnimationEnd={(e) => {
             if (
