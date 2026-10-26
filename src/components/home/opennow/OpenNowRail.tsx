@@ -29,6 +29,7 @@ import {
   rerouteCarry,
   subscribeCarry,
 } from '../../../redux/carry';
+import type { CarriedItem } from '../../../redux/carriedItem';
 import { DURATION, EASE, TYPE } from '../../../styles/scale';
 import { isUnclaimedEscape } from '../../common/unclaimedEscape';
 import { COACH_CARD_SHOWN } from '../paneMotion';
@@ -158,6 +159,7 @@ export default function OpenNowRail({
   const carryState = useRef<DrawerCarry>(DRAWER_CARRY_START);
   const carryBox = useRef<DOMRect | null>(null);
   const endedByEscape = useRef(false);
+  const carried = useRef<CarriedItem | null>(null);
   // From a spring until the drawer's motion in ends: its box is still moving.
   const [isSettling, setIsSettling] = useState(false);
   const settling = useRef(false);
@@ -177,6 +179,7 @@ export default function OpenNowRail({
           carryState.current = DRAWER_CARRY_START;
           carryBox.current = null;
           endedByEscape.current = false;
+          carried.current = null;
           setAway(false);
           if (!stays && shown.current) {
             setIsOpen(false);
@@ -184,6 +187,13 @@ export default function OpenNowRail({
             setIsLeaving(!s.away);
           }
           return;
+        }
+        // A row carried out of the drawer started in it: the engine hands it off past the pane's edge, still held (KAN-354's order).
+        if (carry.item !== carried.current) {
+          carried.current = carry.item;
+          const held = document.querySelector('[data-drag-held]');
+          if (held !== null && drawerRef.current?.contains(held) === true)
+            carryState.current = { ...carryState.current, beenIn: true };
         }
         if (!shown.current || settling.current) return;
         carryBox.current ??= drawerRef.current?.getBoundingClientRect() ?? null;

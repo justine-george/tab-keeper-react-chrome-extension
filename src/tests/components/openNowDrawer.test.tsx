@@ -28,6 +28,14 @@ import { TYPE } from '../../styles/scale';
 import { asWritten } from '../setup/asWritten';
 import { testI18n } from '../setup/i18nForTests';
 import ko from '../../../public/locales/ko/translation.json';
+import {
+  ROW,
+  box,
+  find,
+  layOut,
+  snapshot,
+  tabRow,
+} from '../setup/openNowDragHarness';
 
 // KAN-280 O2. Below 1100px, side by side, Open now's column is a 44px rail
 // with one button, and the button opens Open now as a drawer over the right
@@ -520,6 +528,34 @@ describe('a carry from the drawer (N2 A)', () => {
     expect(scrollerOf(drawer)).toBe(scroller);
     expect(scroller.scrollTop).toBe(120);
     expect(button.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  // KAN-820. The engine hands a row off only once it is past the pane's edge, so the carry's first point is outside.
+  test('a tab dragged out of the drawer started in it: away, and back after the drop', async () => {
+    installMatchMedia(true);
+    await renderHome(false);
+    const { drawer, button } = await openDrawer();
+    // The drawer and its pane x 0..300, its rows laid out in it.
+    drawer.getBoundingClientRect = () => box(0, 2000);
+    find('[role="region"]').getBoundingClientRect = () => box(0, 2000);
+    find('[data-open-now-scroller]').getBoundingClientRect = () => box(0, 2000);
+    const windows = await snapshot(false);
+    const top = layOut(windows);
+    const id = windows[1].tabs[0].id;
+    const y = (top.get(String(id)) ?? 0) + ROW / 2;
+
+    fireEvent.pointerDown(tabRow(id), { clientX: 10, clientY: y, button: 0 });
+    fireEvent.pointerMove(document, { clientX: 10, clientY: y + 8 });
+    expect(currentCarry()).toBeNull();
+    fireEvent.pointerMove(document, { clientX: -50, clientY: y + 8 });
+    // PREMISE: handed off outside, so the carry's first point is outside the drawer.
+    expect(currentCarry()?.item.source).toBe('live');
+
+    expect(drawer).toHaveAttribute('data-carry-away');
+    fireEvent.pointerUp(document, { clientX: -50, clientY: y + 8 });
+    expect(currentCarry()).toBeNull();
+    expect(drawer).not.toHaveAttribute('data-carry-away');
+    expect(button).toHaveAttribute('aria-expanded', 'true');
   });
 
   test('a carry that stays inside the drawer leaves it in place', async () => {
