@@ -420,8 +420,20 @@ describe('a drag in the history and the toasts (KAN-744)', () => {
     moved: [
       {
         tabId: 11,
-        before: { windowId: 1, index: 0, groupId: -1, group: null },
-        after: { windowId: 1, index: 1, groupId: -1, group: null },
+        before: {
+          windowId: 1,
+          index: 0,
+          groupId: -1,
+          group: null,
+          pinned: false,
+        },
+        after: {
+          windowId: 1,
+          index: 1,
+          groupId: -1,
+          group: null,
+          pinned: false,
+        },
       },
     ],
   };
@@ -541,8 +553,20 @@ describe('Undo in the live sort toast (KAN-694)', () => {
         moved: [
           {
             tabId: 2,
-            before: { windowId: 1, index: 2, groupId: -1, group: null },
-            after: { windowId: 1, index: 0, groupId: -1, group: null },
+            before: {
+              windowId: 1,
+              index: 2,
+              groupId: -1,
+              group: null,
+              pinned: false,
+            },
+            after: {
+              windowId: 1,
+              index: 0,
+              groupId: -1,
+              group: null,
+              pinned: false,
+            },
           },
         ],
       });

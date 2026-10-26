@@ -262,9 +262,9 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
         const message = t(toast.text, toast.params);
         const offer = toast.reopenOffer;
         const show = toast.show;
-        const offersSortUndo =
+        const offersLiveUndo =
           toast.liveStepId !== null && toast.liveStepId === liveStepOnTopId;
-        const offersAnyUndo = toast.offersUndo || offersSortUndo;
+        const offersAnyUndo = toast.offersUndo || offersLiveUndo;
         if (offer === null && show === null && !offersAnyUndo) {
           return (
             <div
@@ -318,13 +318,13 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
                 style={chipStyle}
               />
             )}
-            {offersSortUndo && (
+            {offersLiveUndo && (
               <Button
                 variant="chip"
                 iconType="undo"
                 text={t('Undo')}
                 keyHint={keyTakesStep ? undoKeyHint : undefined}
-                // Shown only while its sort is the newest step, so this undoes the sort, then closes this toast; a press ignored while another step runs (R19) leaves it.
+                // Shown only while its step (a sort, or a drop that changed a pin) is the newest, so this undoes it, then closes this toast; a press ignored while another step runs (R19) leaves it.
                 onClick={() =>
                   void dispatch(undoStep(LEAVES_PLAIN_TOASTS)).then((run) => {
                     if (

@@ -447,7 +447,13 @@ describe('keepLiveStep', () => {
   test('keeps nothing for a drop that changed no place', async () => {
     handle = setupChromeFake(seed);
     const s = setup();
-    const place = { windowId: 1, index: 0, groupId: -1, group: null };
+    const place = {
+      windowId: 1,
+      index: 0,
+      groupId: -1,
+      group: null,
+      pinned: false,
+    };
     const stay: OpenNowDrop = {
       kind: 'tab',
       moved: [{ tabId: 1, before: place, after: { ...place } }],

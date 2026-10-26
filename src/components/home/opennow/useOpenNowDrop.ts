@@ -9,18 +9,21 @@
 //   (O11b). The list is not changed optimistically: the drag hold keeps
 //   Open now's re-reads waiting until the release, and the re-read then
 //   shows what Chrome did.
-// - Where a held row may land in a window (landingRange): a pinned tab among
-//   its window's pinned tabs, anything else below them (O11c).
-// - Which windows take it at all (acceptsWindow): a pinned tab only its own
-//   (K1), a row only windows of its own profile (O11d), and a group holding
-//   the page this pane is on only its own (T1, O11h).
+// - Where a held row may land in a window (landingRange): a tab on any row,
+//   the slot deciding its pin (KAN-814); a group below the pinned tabs (O11c).
+// - Which windows take it at all (acceptsWindow): a row only windows of its
+//   own profile (O11d), and a group holding the page this pane is on only its
+//   own (T1, O11h). A pinned tab may leave its window (KAN-814 K-B).
 // - A drop that changed something is a step in the undo history (O11f,
-//   KAN-744 R1); a drop in place is not an action at all (ledger R23).
+//   KAN-744 R1); a drop in place is not an action at all (ledger R23). One
+//   that changed a tab's pin says so, with an Undo for that step (KAN-814).
 //
 // Both limits are asked on every pointer move, so each is a few map reads
 // over tables built once per snapshot.
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useDispatch } from 'react-redux';
+
+import { showToast } from '../../../redux/slices/globalStateSlice';
 
 import type { DragWindows } from '../rightpane/rowDrag/dropRules';
 import { useGroupDropGeometry } from '../rightpane/useGroupDrop';
@@ -33,6 +36,8 @@ import {
 } from '../../../utils/functions/openNowMoves';
 import type { AppDispatch } from '../../../redux/store';
 import { keepLiveStep, whileMovingTabs } from '../../../redux/undoHistory';
+import { TOAST_MESSAGES } from '../../../utils/constants/common';
+import { noRowsTabIndex } from '../../../utils/functions/pinnedRun';
 import {
   itemIdOf,
   partitionTabsIntoItems,
@@ -98,8 +103,8 @@ type Range = { min: number; max: number };
 
 // Where `held` may land in `windowId`, counted as the engine counts: among
 // the rows the window shows, with the held row lifted out (RowDragArea's
-// landingRange). Pinned tabs come first in a Chrome window, so the pinned run
-// is the first `pinned` rows.
+// landingRange). A tab may land on any of them; a group only below the pinned
+// run, the window's first `pinned` rows, as Chrome holds no pinned tab in one.
 function rangeIn(
   held: Held | undefined,
   windowId: string | undefined,
@@ -109,13 +114,10 @@ function rangeIn(
   if (held === undefined || windowId === undefined) {
     return { min: 0, max: rows };
   }
-  const own = held.windowId === windowId;
-  const others = own && rows > 0 ? rows - 1 : rows;
-  const pinnedOthers =
-    own && held.pinned && shown.pinned > 0 ? shown.pinned - 1 : shown.pinned;
-  return held.pinned
-    ? { min: 0, max: pinnedOthers }
-    : { min: pinnedOthers, max: others };
+  const others = held.windowId === windowId && rows > 0 ? rows - 1 : rows;
+  return held.groupId === undefined
+    ? { min: 0, max: others }
+    : { min: shown.pinned, max: others };
 }
 
 interface Options {
@@ -224,8 +226,6 @@ export function useOpenNowDrop({
       // A row the snapshot does not hold describes no move either; nothing to
       // refuse here.
       if (held === undefined || windowId === held.windowId) return true;
-      // K1: Chrome unpins a pinned tab moved to another window.
-      if (held.pinned) return false;
       // O11d: incognito and normal refuse each other's rows.
       if (
         tables.incognito.get(windowId) !== tables.incognito.get(held.windowId)
@@ -279,17 +279,41 @@ export function useOpenNowDrop({
       dropTargetId?: string,
       toWindowId?: string
     ): Promise<MovedTabs | null> => {
-      const move = describeTabMove(rowId, toIndex, dropTargetId, toWindowId);
+      // A folded window shows no slot, so the engine's position 0 chose no
+      // pin there: the tab keeps its own, as in a saved session.
+      const folded = windows.find(
+        (w) => String(w.id) === toWindowId && collapsedIds.has(w.id)
+      );
+      const index =
+        folded === undefined
+          ? toIndex
+          : noRowsTabIndex(
+              folded.tabs,
+              tables.tabs.get(rowId)?.pinned === true
+            );
+      const move = describeTabMove(rowId, index, dropTargetId, toWindowId);
       if (move === undefined) return null;
       const moved = await whileMovingTabs(() =>
         moveOpenTab(move, windows, hasTabGroups)
       );
-      if (moved !== null) {
-        keepLiveStep(dispatch, { kind: 'tab', moved });
+      if (moved === null) return null;
+      const id = keepLiveStep(dispatch, { kind: 'tab', moved });
+      const pinChange = moved.find(
+        ({ before, after }) => before.pinned !== after.pinned
+      );
+      if (id !== null && pinChange !== undefined) {
+        await dispatch(
+          showToast({
+            toastText: pinChange.after.pinned
+              ? TOAST_MESSAGES.TAB_PINNED
+              : TOAST_MESSAGES.TAB_UNPINNED,
+            liveStepId: id,
+          })
+        );
       }
       return moved;
     },
-    [describeTabMove, windows, hasTabGroups, dispatch]
+    [describeTabMove, windows, collapsedIds, tables, hasTabGroups, dispatch]
   );
   const onItemMove = useCallback(
     async (

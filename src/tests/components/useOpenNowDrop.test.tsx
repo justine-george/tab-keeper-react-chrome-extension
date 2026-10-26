@@ -29,6 +29,7 @@ import {
 } from '../../redux/slices/undoRedoSlice';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
 import { undoStep } from '../../redux/undoHistory';
+import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { buildSession } from '../fixtures/sessionFixture';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeFakeHandle, ChromeSeed } from '../setup/chrome.fake';
@@ -37,7 +38,7 @@ import { makeTestStore } from '../setup/makeStore';
 // KAN-280 Part E, Task 6c. What an Open now drag MEANS, apart from how the
 // engine drives it: the windows as the drop geometry reads them, where a held
 // row may land in a window (landingRange, O11c), which windows take it at all
-// (acceptsWindow: K1, O11d, T1), and that a drop becomes the Chrome calls of
+// (acceptsWindow: O11d, T1), and that a drop becomes the Chrome calls of
 // openNowMoves.ts -- or none, when the geometry describes no move.
 
 let handle: ChromeFakeHandle | undefined;
@@ -226,38 +227,35 @@ describe('openDragWindows: the windows as the drop geometry reads them', () => {
 });
 
 describe('landingRange: where a held row may land in a window (O11c)', () => {
-  test('an unpinned tab lands below the pinned run, in its own window and another', async () => {
+  // KAN-814. The slot decides a tab's pin, so a tab may land on any row, in
+  // its own window and another.
+  test('a tab lands anywhere, in its own window and another, pinned or not', async () => {
     const { result } = renderDrop(await install(fourWindows()));
-    // W1 with LOOSE_A lifted out: [PA, PB, LB], so from 2 to 3.
+    // W1 with LOOSE_A lifted out: [PA, PB, LB].
     expect(result.current.tabs.landingRange(String(LOOSE_A), '1')).toEqual({
-      min: 2,
-      max: 3,
-    });
-    // Into W1 from W2: [PA, PB, LA, LB], so from 2 to 4.
-    expect(result.current.tabs.landingRange(String(LOOSE_C), '1')).toEqual({
-      min: 2,
-      max: 4,
-    });
-  });
-
-  test('a window with no pinned tabs takes an unpinned tab anywhere', async () => {
-    const { result } = renderDrop(await install(fourWindows()));
-    expect(result.current.tabs.landingRange(String(LOOSE_A), '2')).toEqual({
       min: 0,
       max: 3,
     });
-  });
-
-  test('a window whose tabs are all pinned takes an unpinned tab only at its end', async () => {
-    const { result } = renderDrop(await install(fourWindows()));
+    // W1 with PINNED_A lifted out: [PB, LA, LB].
+    expect(result.current.tabs.landingRange(String(PINNED_A), '1')).toEqual({
+      min: 0,
+      max: 3,
+    });
+    // Into W1 from W2: [PA, PB, LA, LB].
+    expect(result.current.tabs.landingRange(String(LOOSE_C), '1')).toEqual({
+      min: 0,
+      max: 4,
+    });
+    // A pinned tab into W2, which has no pinned run: [LC, G1, G2].
+    expect(result.current.tabs.landingRange(String(PINNED_A), '2')).toEqual({
+      min: 0,
+      max: 3,
+    });
+    // An unpinned tab into W3, every tab of which is pinned: [AP1, AP2].
     expect(result.current.tabs.landingRange(String(LOOSE_A), '3')).toEqual({
-      min: 2,
+      min: 0,
       max: 2,
     });
-    // And its own pinned tab anywhere in it.
-    expect(result.current.tabs.landingRange(String(ALL_PINNED_1), '3')).toEqual(
-      { min: 0, max: 1 }
-    );
   });
 
   test('a group lands below the pinned run, counted in top-level rows', async () => {
@@ -312,6 +310,17 @@ describe('acceptsWindow: which windows take a held row at all', () => {
     });
     return seed;
   };
+
+  // KAN-814 K-B, replacing K1: the slot decides the pin in another window too.
+  test('a pinned tab may go to another window of its profile', async () => {
+    const { result } = renderDrop(await install(fourWindows()));
+    expect(result.current.tabs.acceptsWindow(String(PINNED_A), '2')).toBe(true);
+    expect(result.current.tabs.acceptsWindow(String(PINNED_A), '3')).toBe(true);
+    // O11d still holds.
+    expect(result.current.tabs.acceptsWindow(String(PINNED_A), '4')).toBe(
+      false
+    );
+  });
 
   test('T1: a group holding this page stays in its own window', async () => {
     const { result } = renderDrop(await install(tabViewInGroup()));
@@ -487,4 +496,131 @@ describe('a drop becomes Chrome calls, or none', () => {
       expect(store.getState().undoRedo.past).toHaveLength(1);
     }
   );
+});
+
+// KAN-814. The slot decides the pin (moveOpenTab); the hook says so with
+// KAN-811's toast, whose Undo is the drop's own step (KAN-744 R16).
+describe('a drop that pins or unpins a tab says so', () => {
+  const tabNow = async (id: number) => {
+    const tab = await chrome.tabs.get(id);
+    return { windowId: tab.windowId, index: tab.index, pinned: tab.pinned };
+  };
+  const toasts = (store: ReturnType<typeof renderDrop>['store']) =>
+    store.getState().globalState.toasts.map((t) => ({
+      text: t.text,
+      liveStepId: t.liveStepId,
+    }));
+  const topId = (store: ReturnType<typeof renderDrop>['store']) =>
+    selectLiveStepOnTop(store.getState())?.id;
+
+  test('into the pinned run: pinned, "Tab pinned." with Undo for that step', async () => {
+    const { result, store } = renderDrop(await install(fourWindows()));
+    expect(
+      await result.current.tabs.onMove(String(LOOSE_A), 0, undefined, '1')
+    ).not.toBe(null);
+    expect(await tabNow(LOOSE_A)).toEqual({
+      windowId: 1,
+      index: 0,
+      pinned: true,
+    });
+    expect(topId(store)).toBeDefined();
+    expect(toasts(store)).toEqual([
+      { text: TOAST_MESSAGES.TAB_PINNED, liveStepId: topId(store) },
+    ]);
+  });
+
+  test('below the pinned run: unpinned, "Tab unpinned."', async () => {
+    const { result, store } = renderDrop(await install(fourWindows()));
+    // W1 with PINNED_A lifted out: [PB, LA, LB]; 3 is the end.
+    await result.current.tabs.onMove(String(PINNED_A), 3, undefined, '1');
+    expect(await tabNow(PINNED_A)).toEqual({
+      windowId: 1,
+      index: 3,
+      pinned: false,
+    });
+    expect(toasts(store)).toEqual([
+      { text: TOAST_MESSAGES.TAB_UNPINNED, liveStepId: topId(store) },
+    ]);
+  });
+
+  // K-B: a pinned tab may leave its window; the slot there decides. One drop
+  // per snapshot: a second would be refused as stale (ledger R3).
+  test('into another window’s pinned run: still pinned, and nothing is told', async () => {
+    const { result, store } = renderDrop(await install(fourWindows()));
+    // W3's run is [AP1, AP2]: 1 is inside it.
+    await result.current.tabs.onMove(String(PINNED_A), 1, undefined, '3');
+    expect(await tabNow(PINNED_A)).toEqual({
+      windowId: 3,
+      index: 1,
+      pinned: true,
+    });
+    expect(toasts(store)).toEqual([]);
+  });
+
+  test('into another window with no pinned run: unpinned, "Tab unpinned."', async () => {
+    const { result, store } = renderDrop(await install(fourWindows()));
+    // W2 is [LC, G1, G2]: 0 is the boundary of an empty run, which keeps a
+    // pin, so 1 is below it.
+    await result.current.tabs.onMove(String(PINNED_B), 1, undefined, '2');
+    expect(await tabNow(PINNED_B)).toEqual({
+      windowId: 2,
+      index: 1,
+      pinned: false,
+    });
+    expect(toasts(store)).toEqual([
+      { text: TOAST_MESSAGES.TAB_UNPINNED, liveStepId: topId(store) },
+    ]);
+  });
+
+  test('a move that keeps the pin is a step, told by no toast', async () => {
+    const { result, store } = renderDrop(await install(fourWindows()));
+    await result.current.tabs.onMove(String(LOOSE_A), 3, undefined, '1');
+    expect(await tabNow(LOOSE_A)).toEqual({
+      windowId: 1,
+      index: 3,
+      pinned: false,
+    });
+    expect(topId(store)).toBeDefined();
+    expect(toasts(store)).toEqual([]);
+  });
+
+  // My call, told in the PR: a folded window shows no slot, so nothing chose a
+  // pin there. The engine names position 0; the hook keeps the tab's pin.
+  test.each([
+    ['an unpinned tab lands below the run', LOOSE_C, 1, 2, false],
+    ['a pinned tab lands at the front of the run', ALL_PINNED_1, 1, 0, true],
+    ['a pinned tab, no run there, keeps its pin', ALL_PINNED_1, 2, 0, true],
+  ] as const)(
+    'a drop on a folded window keeps the tab’s pin: %s',
+    async (_name, tabId, toWindowId, index, pinned) => {
+      const { result, store } = renderDrop(await install(fourWindows()), {
+        collapsedIds: new Set([toWindowId]),
+      });
+      await result.current.tabs.onMove(
+        String(tabId),
+        0,
+        undefined,
+        String(toWindowId)
+      );
+      expect(await tabNow(tabId)).toEqual({
+        windowId: toWindowId,
+        index,
+        pinned,
+      });
+      expect(toasts(store)).toEqual([]);
+    }
+  );
+
+  test('undoing the drop puts the pin back', async () => {
+    const { result, store } = renderDrop(await install(fourWindows()));
+    await result.current.tabs.onMove(String(LOOSE_A), 0, undefined, '1');
+    // PREMISE: the drop pinned it.
+    expect((await tabNow(LOOSE_A)).pinned).toBe(true);
+    expect(await store.dispatch(undoStep()).unwrap()).not.toBe('busy');
+    expect(await tabNow(LOOSE_A)).toEqual({
+      windowId: 1,
+      index: 2,
+      pinned: false,
+    });
+  });
 });

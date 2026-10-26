@@ -27,7 +27,7 @@ export interface ToastItem {
   show: ToastShow | null;
   // KAN-583. An Undo button: true only while the change this toast announces is the latest undo step.
   offersUndo: boolean;
-  // KAN-694, KAN-744 R16. The live sort step this toast announces, or null once a newer step took its Undo off: shown while that step is the newest in the history.
+  // KAN-694, KAN-744 R16, KAN-814. The live step (a sort, or a drop that changed a pin) this toast announces, or null once a newer step took its Undo off: shown while that step is the newest in the history.
   liveStepId: number | null;
 }
 

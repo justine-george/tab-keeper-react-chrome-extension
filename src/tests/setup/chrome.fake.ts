@@ -926,6 +926,23 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     });
   };
 
+  // Measured 2026-10-07 (KAN-458): a pin or unpin lands the tab on the pinned
+  // boundary, onUpdated then onMoved. `tab.pinned` is already the new state.
+  const landOnPinnedBoundary = (tab: chrome.tabs.Tab): void => {
+    tabsOnUpdated.fire(idOf(tab), { pinned: tab.pinned }, tab);
+    const fromIndex = tab.index;
+    const others = windowTabsInOrder(tab.windowId).filter((t) => t !== tab);
+    tabs.splice(tabs.indexOf(tab), 1);
+    insertAtSlot(tab, others, others.filter((t) => t.pinned).length);
+    if (tab.index !== fromIndex) {
+      tabsOnMoved.fire(idOf(tab), {
+        windowId: tab.windowId,
+        fromIndex,
+        toIndex: tab.index,
+      });
+    }
+  };
+
   // One tab to another window, as tabs.move does it (Part E Task 1, Q1, Q2,
   // Q3, Q5, Q6): a pinned tab is unpinned first (onUpdated {pinned:false});
   // a grouped one leaves its group (onUpdated {groupId:-1}, then
@@ -2114,25 +2131,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const wasPinned = target.pinned;
         Object.assign(target, rest);
         if (rest.pinned !== undefined && rest.pinned !== wasPinned) {
-          // Measured 2026-10-07 (KAN-458): a pin or unpin lands the tab on the pinned boundary, onUpdated then onMoved.
-          tabsOnUpdated.fire(tabId, { pinned: rest.pinned }, target);
-          const fromIndex = target.index;
-          const others = windowTabsInOrder(target.windowId).filter(
-            (tab) => tab !== target
-          );
-          tabs.splice(tabs.indexOf(target), 1);
-          insertAtSlot(
-            target,
-            others,
-            others.filter((tab) => tab.pinned).length
-          );
-          if (target.index !== fromIndex) {
-            tabsOnMoved.fire(tabId, {
-              windowId: target.windowId,
-              fromIndex,
-              toIndex: target.index,
-            });
-          }
+          landOnPinnedBoundary(target);
         }
         // A window has one front tab: activating one takes the front from
         // the rest of its window, and from no other window (Task 1, Q2b:
@@ -2332,6 +2331,15 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         }
         const sources = new Set(arriving.map((tab) => tab.windowId));
         const groupId = options.groupId ?? nextId++;
+        // Measured 2026-10-26 (KAN-814, e2e 5e2): a group holds no pinned
+        // tab, so a pinned one is unpinned as it joins. Measured only for the
+        // run's last tab beside the group's head; it stays there.
+        for (const target of targets) {
+          if (target.pinned && !arriving.includes(target)) {
+            target.pinned = false;
+            landOnPinnedBoundary(target);
+          }
+        }
 
         if (!existing) {
           for (const target of arriving) {

@@ -1119,7 +1119,7 @@ interface ShowToastPayload {
   show?: { tabGroupId: string };
   // KAN-583. An Undo button. Set only when the change announced was just recorded as the latest undo step.
   offersUndo?: boolean;
-  // KAN-694, KAN-744 R16. The live sort step just kept: an Undo button, shown while that step is the newest in the history.
+  // KAN-694, KAN-744 R16, KAN-814. The live step just kept (a sort, or a drop that changed a pin): an Undo button, shown while that step is the newest in the history.
   liveStepId?: number;
 }
 
@@ -1131,8 +1131,8 @@ const withoutUndo = (toasts: ToastItem[]): ToastItem[] =>
     ? toasts.map((t) => (t.offersUndo ? { ...t, offersUndo: false } : t))
     : toasts;
 
-// KAN-744 R16. Takes the sort Undo off every toast but step `keep`'s, so a chip a newer step removed stays removed.
-const withoutSortUndo = (
+// KAN-744 R16. Takes the live step's Undo off every toast but step `keep`'s, so a chip a newer step removed stays removed.
+const withoutLiveUndo = (
   toasts: ToastItem[],
   keep: number | null
 ): ToastItem[] => {
@@ -1590,10 +1590,10 @@ export const globalStateSlice = createSlice({
       // as ⌘Z closes a plain one. A new step takes a sort toast's Undo off
       // too, for good; a reset keeps it, since live steps outlive it (R14).
       .addCase(set, (state) => {
-        state.toasts = withoutSortUndo(withoutUndo(state.toasts), null);
+        state.toasts = withoutLiveUndo(withoutUndo(state.toasts), null);
       })
       .addCase(pushLiveStep, (state, action) => {
-        state.toasts = withoutSortUndo(
+        state.toasts = withoutLiveUndo(
           withoutUndo(state.toasts),
           action.payload.id
         );

@@ -176,16 +176,17 @@ describe('liveOrderOf', () => {
 
 describe('orderBeforeSort', () => {
   test('rebuilds the order from the before indexes: pinned first, a group mid-window as one block', () => {
-    const place = (index: number, groupId = -1) => ({
+    const place = (index: number, groupId = -1, pinned = false) => ({
       windowId: 1,
       index,
       groupId,
       group: null,
+      pinned,
     });
     // Before: 20P 21P 22 [23 24]g7 25; recorded in the order the sort left them.
     const records = [
-      { tabId: 21, before: place(1), pinned: true },
-      { tabId: 20, before: place(0), pinned: true },
+      { tabId: 21, before: place(1, -1, true), pinned: true },
+      { tabId: 20, before: place(0, -1, true), pinned: true },
       { tabId: 24, before: place(4, 7), pinned: false },
       { tabId: 23, before: place(3, 7), pinned: false },
       { tabId: 25, before: place(5), pinned: false },
