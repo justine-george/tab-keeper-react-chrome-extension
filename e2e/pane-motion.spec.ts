@@ -8,6 +8,16 @@ import {
   seedSessions,
   seedSettings,
 } from './fixtures/seed';
+import {
+  FULL_RUN,
+  card,
+  cardAt,
+  cardButton,
+  centreOf,
+  closeReplayNote,
+  nextTo,
+  openRunFromHelp,
+} from './fixtures/run';
 
 // KAN-810 on the real artifact: the folds and the drawer run as view
 // transitions. What jsdom cannot show: that each one starts (two layers with
@@ -342,4 +352,88 @@ test('a click on a saved session while the drawer is open slides it out and show
   await expect(page.locator('[data-pane="detail"]')).toContainText(
     'Weekend in Kyoto'
   );
+});
+
+// KAN-812 (his call): no motion while the tour's card is on screen; its
+// panes' pictures would paint over the card and its dim.
+test.describe('during the tour', () => {
+  test.beforeEach(async ({ context }) => {
+    await recordTransitions(context);
+    await seedSettings(context, { foldSavedSessionInTabView: false });
+  });
+
+  test("step 2's fold swaps at once; after the tour it moves again", async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openRunFromHelp(context, extensionId, {
+      ...FULL_RUN,
+      viewport: WIDE,
+    });
+    await nextTo(page, 2);
+    const fold = page.locator(
+      '[data-pane="open-now"] [data-tour-anchor="fold"]'
+    );
+    await expect(fold).toHaveAccessibleName(FOLD_SAVED);
+    const [x, y] = await centreOf(fold);
+    await page.mouse.click(x, y);
+    await expect(fold).toHaveAccessibleName(SHOW_SAVED);
+    await expect(cardAt(page, 2)).toBeVisible();
+    expect(await runs(page)).toEqual([]);
+
+    // CONTROL: with the tour and its note gone, the same press moves.
+    await cardButton(page, 'Skip tutorial').click();
+    await closeReplayNote(page);
+    await expect(card(page)).toHaveCount(0);
+    const unfold = await press(page, () => fold.click());
+    expect(unfold).toMatchObject({
+      move: 'saved',
+      dir: 'unfold',
+      ready: 'started',
+    });
+  });
+
+  test("on the narrow rail, step 2's drawer opens and closes at once; after the tour it slides", async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openRunFromHelp(context, extensionId, {
+      ...FULL_RUN,
+      viewport: { width: 1000, height: 800 },
+    });
+    await nextTo(page, 2);
+    const [x, y] = await centreOf(rail(page));
+    await page.mouse.click(x, y);
+    const drawer = page.getByRole('dialog', {
+      name: 'Currently open',
+      exact: true,
+    });
+    await expect(drawer).toBeVisible();
+    expect(await drawer.evaluate((el) => el.getAnimations().length)).toBe(0);
+    const [cx, cy] = await centreOf(
+      drawer.locator('[data-pane-layer="open-now-close"]')
+    );
+    await page.mouse.click(cx, cy);
+    // Nothing slides out: no drawer left with a slide running.
+    expect(
+      await page.evaluate(
+        () =>
+          [...document.querySelectorAll('[data-pane-layer="drawer"]')].flatMap(
+            (d) => d.getAnimations()
+          ).length
+      )
+    ).toBe(0);
+    await expect(drawer).toHaveCount(0);
+    await expect(cardAt(page, 2)).toBeVisible();
+
+    // CONTROL: after the tour, the same drawer slides in.
+    await cardButton(page, 'Skip tutorial').click();
+    await closeReplayNote(page);
+    await expect(card(page)).toHaveCount(0);
+    await rail(page).click();
+    await expect(drawer).toBeVisible();
+    expect(
+      await drawer.evaluate((el) => el.getAnimations().length)
+    ).toBeGreaterThan(0);
+  });
 });

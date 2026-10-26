@@ -26,6 +26,7 @@ import type { OpenNowHeaderAction } from './OpenNowPane';
 import { currentCarry, subscribeCarry } from '../../../redux/carry';
 import { DURATION, EASE, TYPE } from '../../../styles/scale';
 import { isUnclaimedEscape } from '../../common/unclaimedEscape';
+import { COACH_CARD_SHOWN } from '../paneMotion';
 
 interface OpenNowRailProps {
   windows: OpenWindow[] | null;
@@ -300,6 +301,10 @@ export default function OpenNowRail({
     }
     @media (prefers-reduced-motion: reduce) {
       transition: none;
+      animation: none;
+    }
+    /* KAN-812. Nor while the tour's card is on screen. */
+    html:has(${COACH_CARD_SHOWN}) & {
       animation: none;
     }
   `;
