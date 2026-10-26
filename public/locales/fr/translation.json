@@ -75,6 +75,8 @@
   "Session replaced with all open windows.": "Session remplacée par toutes les fenêtres ouvertes.",
   "Session window deleted.": "Fenêtre de session supprimée.",
   "Session tab deleted.": "Onglet de session supprimé.",
+  "TabPinned": "Onglet épinglé.",
+  "TabUnpinned": "Onglet désépinglé.",
   "Session tab group deleted.": "Groupe d’onglets de session supprimé.",
   "Sync unavailable: your saved account token could not be read.": "Synchronisation indisponible : votre jeton de compte enregistré n’a pas pu être lu.",
   "Back": "Retour",

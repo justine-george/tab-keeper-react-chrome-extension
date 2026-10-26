@@ -73,6 +73,8 @@
   "Session replaced with all open windows.": "Sessionen har ersatts med alla öppna fönster.",
   "Session window deleted.": "Fönstret har raderats från sessionen.",
   "Session tab deleted.": "Fliken har raderats från sessionen.",
+  "TabPinned": "Fliken har fästs.",
+  "TabUnpinned": "Fliken har lossats.",
   "Session tab group deleted.": "Flikgruppen har raderats från sessionen.",
   "Back": "Tillbaka",
   "Display": "Utseende",

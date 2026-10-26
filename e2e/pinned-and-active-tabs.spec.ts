@@ -20,6 +20,7 @@ import {
   stored,
 } from './fixtures/savedWindows';
 import { groupHandle, pickUp, tabHandle } from './fixtures/sessionDrag';
+import { settled } from './fixtures/betweenSessions';
 import {
   focusConfirm,
   pressOpen,
@@ -801,6 +802,23 @@ const markOn = (p: Page, title: string) =>
   p
     .getByRole('button', { name: `Open in new tab: ${title}`, exact: true })
     .locator('[data-pin]');
+// KAN-811. The toasts on screen, and the drag that lets a tab go just inside a row's top or bottom edge.
+const toasts = (p: Page) =>
+  p.locator('[role="status"] > [data-toast]:not([aria-hidden="true"])');
+async function dragTab(
+  p: Page,
+  tabId: string,
+  ontoTabId: string,
+  edge: 'top' | 'bottom'
+) {
+  // Rows the last drop moved may still be arriving: measure once they have.
+  await settled(p);
+  await pickUp(p, tabHandle(p, tabId));
+  const b = await boxOf(tabHandle(p, ontoTabId));
+  await p.mouse.move(b.x + 60, edge === 'top' ? b.y + 3 : b.y + b.height - 3, {
+    steps: 8,
+  });
+}
 
 test.describe('Dragging a saved tab: where it lands decides its pin', () => {
   test('an unpinned tab dragged above the pinned tabs lands where the preview showed, pinned', async ({
@@ -824,6 +842,10 @@ test.describe('Dragging a saved tab: where it lands decides its pin', () => {
         ['w1-t2', false],
       ]);
     await expect(markOn(p, 'Page w1.3')).toBeVisible();
+    // KAN-811: the drop changed the pin, so it says so, with Undo.
+    await expect(toasts(p)).toHaveCount(1);
+    await expect(toasts(p)).toContainText('Tab pinned.');
+    await expect(toasts(p).getByRole('button', { name: 'Undo' })).toBeVisible();
   });
 
   test('a pinned tab dragged below the unpinned tabs lands where the preview showed, unpinned', async ({
@@ -847,8 +869,93 @@ test.describe('Dragging a saved tab: where it lands decides its pin', () => {
         ['w1-t0', false],
       ]);
     await expect(markOn(p, 'Page w1.0')).toHaveCount(0);
+    await expect(toasts(p)).toHaveCount(1);
+    await expect(toasts(p)).toContainText('Tab unpinned.');
+  });
+
+  test('a move that keeps the pin says nothing; one that changes it says "Tab pinned."', async ({
+    context,
+    extensionId,
+  }) => {
+    const p = await openSaved(context, extensionId, 'popup', {
+      sessions: [savedSession('S1', 'Pins', [pinnedFirstTwo()])],
+    });
+    // Within the unpinned tabs: w1-t3 above w1-t2.
+    await dragTab(p, 'w1-t3', 'w1-t2', 'top');
+    await p.mouse.up();
+    await expect
+      .poll(async () => (await w1Tabs(p)).map(([id]) => id))
+      .toEqual(['w1-t0', 'w1-t1', 'w1-t3', 'w1-t2']);
+    // Within the pinned run: w1-t1 above w1-t0.
+    await dragTab(p, 'w1-t1', 'w1-t0', 'top');
+    await p.mouse.up();
+    await expect
+      .poll(async () => (await w1Tabs(p)).map(([id]) => id))
+      .toEqual(['w1-t1', 'w1-t0', 'w1-t3', 'w1-t2']);
+    // CONTROL: a drop that pins. Saved-change toasts stack, so one toast means the two moves made none.
+    await dragTab(p, 'w1-t2', 'w1-t1', 'top');
+    await p.mouse.up();
+    await expect(toasts(p)).toContainText('Tab pinned.');
+    await expect(toasts(p)).toHaveCount(1);
+  });
+
+  test("the toast's Undo takes the drop back and closes the toast", async ({
+    context,
+    extensionId,
+  }) => {
+    const p = await openSaved(context, extensionId, 'popup', {
+      sessions: [savedSession('S1', 'Pins', [pinnedFirstTwo()])],
+    });
+    await dragTab(p, 'w1-t3', 'w1-t0', 'top');
+    await p.mouse.up();
+    await expect(markOn(p, 'Page w1.3')).toBeVisible();
+    await toasts(p).getByRole('button', { name: 'Undo' }).click();
+    await expect
+      .poll(() => w1Tabs(p))
+      .toEqual([
+        ['w1-t0', true],
+        ['w1-t1', true],
+        ['w1-t2', false],
+        ['w1-t3', false],
+      ]);
+    await expect(markOn(p, 'Page w1.3')).toHaveCount(0);
+    await expect(toasts(p)).toHaveCount(0);
   });
 });
+
+grantedTest(
+  'a pinned tab dropped into a group band says "Tab unpinned."',
+  async ({ context, extensionId }) => {
+    const loose = savedWindow('w1', '', 2);
+    const grouped = groupedWindow('w1', '', [
+      { groupId: 'g1', title: 'Group', color: 'blue' },
+    ]);
+    const w: windowGroupData = {
+      ...loose,
+      tabs: [pin(loose.tabs[0]), loose.tabs[1], ...grouped.tabs],
+      tabCount: 2 + grouped.tabs.length,
+      chromeTabGroups: grouped.chromeTabGroups,
+    };
+    const p = await openSaved(context, extensionId, 'popup', {
+      sessions: [savedSession('S1', 'Pins', [w])],
+    });
+    await pickUp(p, tabHandle(p, 'w1-t0'));
+    const member = await boxOf(tabHandle(p, 'g1-t1'));
+    await p.mouse.move(member.x + 60, member.y + member.height / 2, {
+      steps: 8,
+    });
+    await p.mouse.up();
+    await expect
+      .poll(async () =>
+        (await stored(p)).tabGroups[0].windows[0].tabs
+          .filter((t) => t.tabId === 'w1-t0')
+          .map((t) => [t.chromeGroupId, t.pinned === true])
+      )
+      .toEqual([['g1', false]]);
+    await expect(toasts(p)).toHaveCount(1);
+    await expect(toasts(p)).toContainText('Tab unpinned.');
+  }
+);
 
 grantedTest(
   'a group held above the pinned tabs previews and lands right after them',

@@ -937,8 +937,16 @@ export function recordsUndoStep(
 ): boolean {
   const before = getState().undoRedo.present;
   change();
+  return isLatestUndoStep(getState, before);
+}
+
+// Whether the newest undo step takes the state back to `present`, read before a change.
+export function isLatestUndoStep(
+  getState: () => RootState,
+  present: RootState['undoRedo']['present']
+): boolean {
   const { past } = getState().undoRedo;
-  return past[past.length - 1] === before;
+  return past[past.length - 1] === present;
 }
 
 // KAN-468. Every open window, captured as Save does, replaces the session's; the session keeps its name.

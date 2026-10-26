@@ -22,8 +22,8 @@ import {
   noRowsTabIndex,
   isTabPinnedIn,
 } from '../../../utils/functions/pinnedRun';
-import { dropOnTop } from '../../../redux/dropOnTop';
-import { intoNewWindow, tabDrop } from '../../../redux/dropSpecs';
+import { dropSavedTab } from '../../../redux/pinChangeToast';
+import { intoNewWindow } from '../../../redux/dropSpecs';
 import { isCarriedTabPinned, pickOf } from '../../../redux/carriedItem';
 import { carryToSpot } from '../../../redux/commitCarry';
 import { moveToSession } from '../../../redux/moveToSession';
@@ -771,16 +771,14 @@ export function useTabDrop(
         return;
       }
       dispatch(
-        dropOnTop(
-          tabDrop({
-            tabGroupId,
-            tabId: move.tabId,
-            fromWindowId: move.fromWindowId,
-            toWindowId: move.toWindowId,
-            toIndex: move.toIndex,
-            toChromeGroupId: move.toGroupId,
-          })
-        )
+        dropSavedTab({
+          tabGroupId,
+          tabId: move.tabId,
+          fromWindowId: move.fromWindowId,
+          toWindowId: move.toWindowId,
+          toIndex: move.toIndex,
+          toChromeGroupId: move.toGroupId,
+        })
       );
     },
     [dispatch, store, tabGroupId, windows, describeTabMove]
