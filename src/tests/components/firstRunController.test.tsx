@@ -24,6 +24,7 @@ import {
   recordFirstRun,
   setDefaultSaveScope,
   setDefaultView,
+  setFoldOpenNowInTabView,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { firstOpenDialogs } from '../../redux/firstOpenDialogs';
@@ -334,6 +335,22 @@ describe('step 2 names the fold button the view shows', () => {
       'left_panel_close'
     );
     expect(mark()).toHaveTextContent('Drag the edge');
+  });
+
+  // KAN-808. Folded by the saved session's button, Open now is the rail in a
+  // wide window: the card points at the rail, and does not blame the window.
+  test("Open now folded to its rail: the rail's card, without the narrow window", async () => {
+    widthOf(1400);
+    history.replaceState(null, '', '?view=tab');
+    const r = await renderAt(newRun('full', 2));
+    act(() => {
+      r.store.dispatch(setFoldOpenNowInTabView(true));
+    });
+    await waitFor(() =>
+      expect(mark()).toHaveTextContent('Currently open is tucked in here.')
+    );
+    expect(mark()).not.toHaveTextContent('narrow');
+    expect(mark()).not.toHaveTextContent('Drag the edge');
   });
 });
 

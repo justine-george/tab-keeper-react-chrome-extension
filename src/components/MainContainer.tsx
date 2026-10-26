@@ -15,7 +15,10 @@ import ReplayNote from './tour/ReplayNote';
 import RightPane from './home/rightpane/RightPane';
 import OpenNowColumn from './home/opennow/OpenNowColumn';
 import PaneResizeGrip from './home/PaneResizeGrip';
-import { OPEN_NOW_RAIL_QUERY } from './home/opennow/railQuery';
+import {
+  OPEN_NOW_RAIL_PX,
+  OPEN_NOW_RAIL_QUERY,
+} from './home/opennow/railQuery';
 import { paneWidths } from './home/paneWidths';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { useViewportWidth } from '../hooks/useViewportWidth';
@@ -30,7 +33,11 @@ import {
 import { AppDispatch, RootState } from '../redux/store';
 import { selectNextStep } from '../redux/slices/undoRedoSlice';
 import { redoStep, undoStep } from '../redux/undoHistory';
-import { selectIsSavedSessionFolded } from '../redux/savedSessionFold';
+import {
+  selectIsOpenNowFolded,
+  selectIsSavedSessionFolded,
+} from '../redux/savedSessionFold';
+import { useOpenNowPlace } from '../hooks/useOpenNowPlace';
 import LeftPaneSettings from './settings/leftpane/LeftPaneSettings';
 import RightPaneSettings from './settings/rightpane/RightPaneSettings';
 import {
@@ -112,6 +119,10 @@ export default function MainContainer() {
 
   // KAN-280 O4/O5. Folded, Open now takes the saved session's column.
   const folded = useSelector(selectIsSavedSessionFolded);
+  // KAN-808. Open now's column: beside, its rail (narrow or folded by the
+  // saved session's button), or the saved session's column (folded).
+  const place = useOpenNowPlace();
+  const openNowFolded = useSelector(selectIsOpenNowFolded);
   // Settings needs no test here: it renders its own grid, with no Open now and no grip.
   const showResizeGrip = useIsOpenNowGripShown();
   const showListGrip = useIsListGripShown();
@@ -140,12 +151,12 @@ export default function MainContainer() {
   // element below (not through its Emotion class: a drag changes one on
   // every pointermove, and a class per width would insert a stylesheet rule
   // per pixel), and they are handed to the grips.
-  const drawn = paneWidths(viewportWidth, folded, {
+  const drawn = paneWidths(viewportWidth, place, {
     list: liveListWidth ?? listWidth,
     openNow: liveOpenNowWidth ?? openNowWidth,
   });
   // What a press or an arrow key starts from: the stored widths alone.
-  const resting = paneWidths(viewportWidth, folded, {
+  const resting = paneWidths(viewportWidth, place, {
     list: listWidth,
     openNow: openNowWidth,
   });
@@ -348,19 +359,24 @@ export default function MainContainer() {
   //
   // KAN-280 O1/O4. The third column is Open now's, side by side: its width
   // is --open-now-width (openNowTrackWidth above). Below 1100px it is the
-  // 44px rail's (O2). Folded it is 0 at every width, and Open now sits in
-  // `detail` instead: the same grid either way, so nothing changes sides.
+  // 44px rail's (O2), and at any width while the saved session's button has
+  // folded Open now (KAN-808). Folded it is 0 at every width, and Open now
+  // sits in `detail` instead: the same grid either way, so nothing changes sides.
   const tabContainerStyle = css`
     display: grid;
     grid-template-columns: var(--list-width) minmax(0, 1fr) ${
-        folded ? '0' : 'var(--open-now-width)'
+        folded
+          ? '0'
+          : openNowFolded
+            ? `${OPEN_NOW_RAIL_PX}px`
+            : 'var(--open-now-width)'
       };
     grid-template-areas: 'sessions detail active-session';
     ${
       !folded &&
       css`
         @media ${OPEN_NOW_RAIL_QUERY} {
-          grid-template-columns: 356px minmax(0, 1fr) 44px;
+          grid-template-columns: 356px minmax(0, 1fr) ${OPEN_NOW_RAIL_PX}px;
         }
       `
     }
@@ -402,7 +418,8 @@ export default function MainContainer() {
       !isSettingsPage &&
       css`
         border-right: none;
-        ${PANE_INSET.RIGHT}: 0px;
+        /* Beside the rail, which has no padding of its own (KAN-808: folded too). */
+        ${PANE_INSET.RIGHT}: ${place === 'rail' ? '8px' : '0px'};
         @media ${OPEN_NOW_RAIL_QUERY} {
           ${PANE_INSET.RIGHT}: 8px;
         }

@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { useOpenNowPlace } from '../../../hooks/useOpenNowPlace';
 import { useOpenWindows } from '../../../hooks/useOpenWindows';
 import { endSavedSessionPeek } from '../../../redux/slices/globalStateSlice';
 import { setFoldSavedSessionInTabView } from '../../../redux/slices/settingsDataStateSlice';
@@ -33,9 +34,10 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
   );
   const windows = useOpenWindows(hasTabGroupsPermission);
   const isNarrow = useMediaQuery(OPEN_NOW_RAIL_QUERY);
-  // O2. Side by side below 1100px the column is a rail. Folded, Open now
-  // has the detail column's width, so it is the pane at any width.
-  const showRail = isNarrow && !folded;
+  // O2. Side by side below 1100px the column is a rail, and at any width
+  // once the saved session's button folds it (KAN-808). Folded, Open now has
+  // the detail column's width, so it is the pane at any width.
+  const showRail = useOpenNowPlace() === 'rail';
 
   // KAN-330 O14. The search text lives here, above the rail <-> pane swap,
   // so a resize across 1100px or a drawer close keeps it. Never stored.
@@ -48,8 +50,9 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
   // Narrow, every fold or unfold swaps the rail and the pane, so the button
   // just pressed unmounts and focus would fall to <body>. The press sets
   // this; once the swap has mounted, focus goes to what took its place: the
-  // pane's heading, or the rail's button. Wide, nothing is swapped and the
-  // pressed button keeps focus.
+  // pane's heading, or the rail's button. Wide, a fold from the rail's drawer
+  // swaps too (KAN-808); otherwise nothing is swapped and the pressed button
+  // keeps focus.
   const focusAfterSwap = useRef(false);
   useEffect(() => {
     if (!focusAfterSwap.current) return;
@@ -58,7 +61,7 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
   }, [showRail]);
 
   const setFolded = (fold: boolean) => {
-    focusAfterSwap.current = isNarrow;
+    focusAfterSwap.current = isNarrow || showRail;
     dispatch(setFoldSavedSessionInTabView(fold));
     dispatch(endSavedSessionPeek());
   };

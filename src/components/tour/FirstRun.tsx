@@ -42,6 +42,7 @@ import { useSampleNames } from '../../hooks/useSampleNames';
 import { useIsOpenNowGripShown } from '../../hooks/useIsOpenNowGripShown';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { OPEN_NOW_RAIL_QUERY } from '../home/opennow/railQuery';
+import { useOpenNowPlace } from '../../hooks/useOpenNowPlace';
 import { useSessionListSettled } from '../../hooks/useSessionListSettled';
 import {
   needsSession,
@@ -87,8 +88,10 @@ export default function FirstRun() {
   );
   const hasCompactButton = hasCompactViewButton(defaultView);
   const hasGrip = useIsOpenNowGripShown();
-  // Open now as the narrow rail: one button, its search and « inside the drawer it opens.
-  const isRail = useMediaQuery(OPEN_NOW_RAIL_QUERY) && !isFolded;
+  // Open now as the rail: one button, its search and « inside the drawer it
+  // opens. Narrow, or folded by the saved session's button (KAN-808).
+  const isNarrow = useMediaQuery(OPEN_NOW_RAIL_QUERY);
+  const isRail = useOpenNowPlace() === 'rail';
   const shownSession = useRef<string | null>(null);
 
   // R2, and a record ended or replaced from another page.
@@ -220,10 +223,17 @@ export default function FirstRun() {
           return {
             text: (
               <GlyphSentence
-                sentence={t(
-                  'Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.',
-                  { icon: GLYPH_SLOT }
-                )}
+                sentence={
+                  isNarrow
+                    ? t(
+                        'Open now is tucked in here while the window is narrow. Press {{icon}} to see and search every open tab.',
+                        { icon: GLYPH_SLOT }
+                      )
+                    : t(
+                        'Open now is tucked in here. Press {{icon}} to see and search every open tab.',
+                        { icon: GLYPH_SLOT }
+                      )
+                }
                 icon="tab"
                 label={t('Open now')}
               />

@@ -121,6 +121,16 @@ export const applyOtherPageSettings =
         'pinTabKeeperInNewWindows' in incoming
           ? incoming.pinTabKeeperInNewWindows === true
           : current.pinTabKeeperInNewWindows,
+      // KAN-808. Absent means an older page wrote this; keep ours. Off beside a
+      // folded saved session: one fold at a time.
+      foldOpenNowInTabView:
+        ('foldOpenNowInTabView' in incoming
+          ? incoming.foldOpenNowInTabView === true
+          : current.foldOpenNowInTabView) &&
+        !(
+          incoming.foldSavedSessionInTabView ??
+          current.foldSavedSessionInTabView
+        ),
       // KAN-587. Absent means an older page wrote this; keep ours.
       timeFormat:
         'timeFormat' in incoming

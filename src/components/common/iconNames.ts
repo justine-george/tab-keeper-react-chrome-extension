@@ -42,6 +42,8 @@ export const LIGATURE_ICON_NAMES = [
   'label_off',
   'left_panel_close',
   'left_panel_open',
+  'right_panel_close',
+  'right_panel_open',
   'light_mode',
   'link',
   'mail',
