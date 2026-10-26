@@ -14,7 +14,7 @@ import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import { SPRING_OPEN_MS } from '../../common/springOpen';
 import { inRightColumn, restingBox, type DrawerOverRail } from './drawerCarry';
 
-// KAN-820. What lies over the rail, from the drawer's marks when asked, as the pane reads them: an effect's copy lags the commit.
+// KAN-820. What lies over the rail, read from the drawer's marks when asked (the pane reads the same away and settling marks): an effect's copy lags the commit.
 function drawerOverNow(drawer: HTMLElement | null): DrawerOverRail {
   if (drawer === null || drawer.matches('[data-carry-away], [data-leaving]'))
     return 'none';
