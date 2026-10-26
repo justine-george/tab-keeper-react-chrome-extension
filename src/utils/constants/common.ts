@@ -10,6 +10,8 @@ export const NON_INTERACTIVE_ICON_STYLE =
 export const APP_HEIGHT = '550px';
 // The Settings page's category column: a share of the popup; in the full view 238px at 16px text, growing with Chrome's text size (KAN-754). Toasts on that page stay inside it (KAN-574).
 export const SETTINGS_COLUMN = { POPUP_PERCENT: 30, TAB_REM: 14.875 } as const;
+// The app's scrollbar width (App.css ::-webkit-scrollbar). KAN-802: the Settings column is this much wider, the room its gutter keeps, so its labels keep their width.
+export const SCROLLBAR_PX = 10;
 export const APP_WIDTH = '790px';
 
 // default dimensions for a new window

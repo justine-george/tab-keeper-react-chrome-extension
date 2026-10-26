@@ -49,6 +49,8 @@ const SettingsCategoryContainer: React.FC = () => {
        tops 4px apart. Measured: 67px on both sides. */
     margin: 10px 0 8px 0;
     overflow: auto;
+    /* KAN-802. As the details pane: a short window's scrollbar never narrows the rows. */
+    scrollbar-gutter: stable;
     user-select: none;
   `;
 

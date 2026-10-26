@@ -22,7 +22,11 @@ import { useViewportWidth } from '../hooks/useViewportWidth';
 import { useIsOpenNowGripShown } from '../hooks/useIsOpenNowGripShown';
 import { useIsListGripShown } from '../hooks/useIsListGripShown';
 import { useDialogEscape } from '../hooks/useDialogEscape';
-import { APP_HEIGHT, SETTINGS_COLUMN } from '../utils/constants/common';
+import {
+  APP_HEIGHT,
+  SCROLLBAR_PX,
+  SETTINGS_COLUMN,
+} from '../utils/constants/common';
 import { AppDispatch, RootState } from '../redux/store';
 import { selectNextStep } from '../redux/slices/undoRedoSlice';
 import { redoStep, undoStep } from '../redux/undoHistory';
@@ -321,7 +325,7 @@ export default function MainContainer() {
   `;
 
   const leftPaneSettingsStyle = css`
-    width: ${SETTINGS_COLUMN.POPUP_PERCENT}%;
+    width: calc(${SETTINGS_COLUMN.POPUP_PERCENT}% + ${SCROLLBAR_PX}px);
     height: ${APP_HEIGHT};
     min-width: 0;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
@@ -329,7 +333,7 @@ export default function MainContainer() {
   `;
 
   const rightPaneSettingsStyle = css`
-    width: ${100 - SETTINGS_COLUMN.POPUP_PERCENT}%;
+    width: calc(${100 - SETTINGS_COLUMN.POPUP_PERCENT}% - ${SCROLLBAR_PX}px);
     height: ${APP_HEIGHT};
     min-width: 0;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
@@ -364,7 +368,9 @@ export default function MainContainer() {
 
   const tabContainerSettingsStyle = css`
     display: grid;
-    grid-template-columns: ${SETTINGS_COLUMN.TAB_REM}rem minmax(0, 1fr) 0;
+    grid-template-columns:
+      calc(${SETTINGS_COLUMN.TAB_REM}rem + ${SCROLLBAR_PX}px)
+      minmax(0, 1fr) 0;
     grid-template-areas: 'sessions detail active-session';
   `;
 
