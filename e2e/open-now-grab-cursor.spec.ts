@@ -5,9 +5,9 @@ import { openPage } from './fixtures/onboarding';
 import { standIn } from './fixtures/standInPages';
 
 // KAN-639 in Open now. A handle only the drag uses shows the hand: This
-// window's header and a group's title row. A header that goes to its window
-// is a button and keeps the pointer. Under Open now's search both drags are
-// off, and both show the arrow.
+// window's header. A header that goes to its window, and a group's title row,
+// which goes to its group (KAN-797), keep the pointer. Under Open now's search
+// both drags are off, and both show the arrow.
 const VIEW_TAB = 'index.html?view=tab';
 const TAB_VIEWPORT = { width: 1280, height: 800 };
 const OPEN_NOW = '[data-pane="open-now"]';
@@ -109,14 +109,14 @@ test('This window shows the hand; a window that goes to its window keeps the poi
   expect(await cursorAtCentreOf(page, glyphIn(block))).toBe('pointer');
 });
 
-test("a group's title row shows the hand beside its title; the title keeps the caret", async ({
+test("a group's title row shows the pointer beside its title, as it goes to the group (KAN-797); the title keeps the caret", async ({
   context,
   extensionId,
   serviceWorker,
 }) => {
   const { page, band } = await setUp(context, extensionId, serviceWorker);
   const gap = await gapBesideGroupTitle(band);
-  expect(await cursorAt(page, gap.x, gap.y)).toBe('grab');
+  expect(await cursorAt(page, gap.x, gap.y)).toBe('pointer');
   const title = band
     .getByRole('button', { name: 'Rename group: Kyoto' })
     .getByText('Kyoto', { exact: true });

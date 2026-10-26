@@ -2424,13 +2424,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
 };
 
 // KAN-639. A handle shows the drag it starts: the hand, closed while pressed.
-// Only while this area can start one, and not in a <button>, whose click is
-// the row's (Open now's Go to window). Children with their own cursor keep it.
+// Only while this area can start one, and not in a <button> or a row marked
+// data-click-goes, whose click goes somewhere (Open now's Go to window, KAN-797's
+// group row). Children with their own cursor keep it.
 const handleCursorStyle = (handleSelector: string) => css`
-  & ${handleSelector}:not(button *) {
+  & ${handleSelector}:not(button *):not([data-click-goes]) {
     cursor: grab;
   }
-  & ${handleSelector}:not(button *):active {
+  & ${handleSelector}:not(button *):not([data-click-goes]):active {
     cursor: grabbing;
   }
 `;

@@ -553,6 +553,91 @@ describe('Currently open windows and groups', () => {
     await waitFor(async () => expect(await activeIn(2)).toEqual([21]));
   });
 
+  // KAN-797 (pick A). A plain click on the group's title row goes there, as its right-click's Go to does; its name still renames.
+  describe('a click on a live group’s title row', () => {
+    // Long enough for a go that was going to happen to have happened.
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
+
+    test('on the row’s own space it lands on the tab used last and brings the window to the front', async () => {
+      await renderOpenNow({
+        chromeSeed: seed({ sessionArea: { 'recentTabs.2': [21, 23, 22] } }),
+      });
+      expect(groupRow()).toHaveAttribute('data-click-goes');
+      fireEvent.click(groupRow());
+
+      await waitFor(async () => expect(await activeIn(2)).toEqual([23]));
+      await waitFor(async () => expect(await lastFocused()).toBe(2));
+    });
+
+    test('on its tab count it goes too', async () => {
+      await renderOpenNow();
+      fireEvent.click(within(groupRow()).getByText('2 Tabs'));
+
+      await waitFor(async () => expect(await activeIn(2)).toEqual([22]));
+    });
+
+    test('on its name it renames and goes nowhere', async () => {
+      await renderOpenNow();
+      fireEvent.click(
+        within(groupRow()).getByRole('button', { name: 'Rename group: Docs' })
+      );
+
+      expect(
+        await screen.findByPlaceholderText('Name this group')
+      ).toHaveFocus();
+      await settle();
+      expect(await activeIn(2)).toEqual([21]);
+      expect(await lastFocused()).toBe(1);
+    });
+
+    test('on its strip’s buttons it does what they do, and goes nowhere', async () => {
+      const user = userEvent.setup();
+      await renderOpenNow();
+      await user.click(
+        within(groupRow()).getByRole('button', { name: 'More actions: Docs' })
+      );
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+      await settle();
+      expect(await activeIn(2)).toEqual([21]);
+      expect(await lastFocused()).toBe(1);
+    });
+
+    test('while the name is being edited, a click on the row goes nowhere', async () => {
+      await renderOpenNow();
+      fireEvent.click(
+        within(groupRow()).getByRole('button', { name: 'Rename group: Docs' })
+      );
+      await screen.findByPlaceholderText('Name this group');
+      expect(groupRow()).not.toHaveAttribute('data-click-goes');
+      fireEvent.click(groupRow());
+      await settle();
+      expect(await activeIn(2)).toEqual([21]);
+    });
+
+    test('while a search is held the row goes nowhere, as its right-click offers no Go to', async () => {
+      const user = userEvent.setup();
+      await renderOpenNow();
+      await user.type(
+        screen.getByRole('textbox', { name: 'Search open tabs' }),
+        't22'
+      );
+      // PREMISE: the group is still drawn, with no right-click.
+      expect(groupRow()).not.toHaveAttribute('data-click-goes');
+      fireEvent.click(groupRow());
+      await settle();
+      expect(await activeIn(2)).toEqual([21]);
+      expect(await lastFocused()).toBe(1);
+    });
+
+    test('worst path: a click on a group whose tabs Chrome has just closed throws nothing', async () => {
+      await renderOpenNow();
+      await chrome.tabs.remove([22, 23]);
+      fireEvent.click(groupRow());
+      await settle();
+      expect(await activeIn(2)).toEqual([21]);
+    });
+  });
+
   test('the group’s Save saves only its tabs', async () => {
     const { store } = await renderOpenNow();
     fireEvent.contextMenu(groupRow());
