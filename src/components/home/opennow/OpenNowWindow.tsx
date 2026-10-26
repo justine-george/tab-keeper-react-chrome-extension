@@ -1017,6 +1017,9 @@ export default function OpenNowWindow({
               const groupName = groupTitle || t('Unnamed group');
               // KAN-708. Held: the right-click menu is open, and the header fills. Engaged: that or the ⋮ open, and the strip shows.
               const groupHeld = groupMenu.heldId === item.group.groupId;
+              // KAN-797. Where its right-click offers Go to: no search held, and not while its name is being edited.
+              const groupClickGoes =
+                offersWindowActions && editingGroupId !== item.group.groupId;
               const groupEngaged =
                 openMenuGroupId === item.group.groupId || groupHeld;
               return (
@@ -1114,9 +1117,26 @@ export default function OpenNowWindow({
                         data-group-drag-handle
                         data-drag-handle-row=""
                         data-fixed-row-id={item.group.groupId}
+                        data-click-goes={groupClickGoes ? '' : undefined}
                         {...groupMenu.rowProps(item.group.groupId)}
+                        // KAN-797. A click on the row's own space goes to the group, as its right-click's Go to; the name, the field and the strip keep their clicks.
+                        onClick={
+                          groupClickGoes
+                            ? (e) => {
+                                if (
+                                  e.target instanceof Element &&
+                                  e.target.closest(
+                                    'button, input, [role="menu"]'
+                                  ) !== null
+                                )
+                                  return;
+                                void goToGroup(Number(item.group.groupId));
+                              }
+                            : undefined
+                        }
                         css={css`
                           position: relative;
+                          ${groupClickGoes ? 'cursor: pointer;' : ''}
                           ${
                             groupHeld
                               ? `background-color: ${COLORS.HOVER_COLOR};`
