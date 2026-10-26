@@ -93,10 +93,27 @@ import {
 } from './liveCarryOut';
 import {
   currentCarry,
-  registerCarryReceiver,
+  setCarryOpens,
   subscribeCarry,
+  useCarried,
+  useCarryCrossedIntoOpenNow,
 } from '../../../redux/carry';
+import { isItemStillThere, pickOf } from '../../../redux/carriedItem';
 import { readLivePlacement } from '../../../redux/livePlacement';
+import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
+import { dropBoxStyle } from '../../common/dropBoxStyle';
+import { DropBoxLabel } from '../../common/dropBox';
+import {
+  OPEN_NOW_FIRST_TARGET,
+  OPEN_NOW_LAST_TARGET,
+} from '../rightpane/newWindowTarget';
+import {
+  OPEN_NOW_HEADER_NEW_WINDOW,
+  OPEN_NOW_NEW_WINDOW,
+  carriedIntoOpenNow,
+} from './carriedIntoOpenNow';
+import OpenNowNewWindowBlock from './OpenNowNewWindowBlock';
+import { useOpenNowCarryReceiver } from './useOpenNowCarryReceiver';
 
 export type OpenNowHeaderAction = {
   icon: IconName;
@@ -196,6 +213,7 @@ export default function OpenNowPane({
   const canGoBack = backPlan !== null && backPlan.kind !== 'none';
   const dispatch: AppDispatch = useDispatch();
   const paneRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
 
   // Folded windows, by Chrome window id. Local and unsaved: a live window has
   // no identity worth keeping past this page, and an id Chrome has since
@@ -242,39 +260,6 @@ export default function OpenNowPane({
     [listed, inChromeOrder, recentTabsOf]
   );
   const windowRowIds = useMemo(() => listed.map((w) => String(w.id)), [listed]);
-
-  // N4 A. Open now takes nothing: over it, a live carry is the layer's (a saved detail that adopted it hands it
-  // back here), and a release cancels. A saved carry, and a drag inside Open now, are never answered (KAN-352).
-  useEffect(() => {
-    const measureHit = (): ((x: number, y: number) => boolean) => {
-      const el = paneRef.current;
-      if (el === null || currentCarry()?.item.source !== 'live') {
-        return () => false;
-      }
-      const b = el.getBoundingClientRect();
-      // A drawer sent away (N2 A) answers nothing; read when asked, as it goes away mid-carry.
-      return (x, y) =>
-        el.closest('[data-carry-away]') === null &&
-        x >= b.left &&
-        x < b.right &&
-        y >= b.top &&
-        y < b.bottom;
-    };
-    // Justine's pick A: over Open now the copy card dims and loses its + (CarryLayer keys on this mark).
-    const mark = (on: boolean) =>
-      document.documentElement.toggleAttribute('data-carry-over-open-now', on);
-    const unregister = registerCarryReceiver({
-      hit: (x, y) => measureHit()(x, y),
-      measureHit,
-      hover: () => mark(true),
-      leave: () => mark(false),
-      take: () => false,
-    });
-    return () => {
-      unregister();
-      mark(false);
-    };
-  }, []);
 
   // P1. Open now's own box: the line a drag crosses to become a copy, and the one its receiver fades the card inside.
   const openNowRegion = useCallback(() => paneRef.current, []);
@@ -335,10 +320,75 @@ export default function OpenNowPane({
   // The whole list, not only what a search draws: safe because under a search
   // a tab drag only carries out (O14c amended), which lands nowhere here, and
   // a search that starts mid-drag ends an in-pane drag (KAN-335).
+  // KAN-815. A saved carry Open now can open: not under its own search
+  // (O14c), not the tour's sample while the tour runs (KAN-413), and still
+  // stored. A tab or group is adopted by the lists; a window by the pane.
+  const carried = useCarried();
+  const savedTabGroups = useSelector(
+    (state: RootState) => state.tabContainerDataState.tabGroups
+  );
+  const tourBlocked = useIsOpenBlockedByTour(
+    carried?.source === 'saved' ? carried.ref.tabGroupId : undefined
+  );
+  const takesCarry =
+    carried?.source === 'saved' &&
+    searchTerm === null &&
+    !tourBlocked &&
+    isItemStillThere(savedTabGroups, carried);
+  // Drawn -- the boxes, the phantom its lists adopt -- only once the carry
+  // has been over Currently open (demo D6): carried onto the session list it
+  // is not headed here.
+  const crossed = useCarryCrossedIntoOpenNow();
+  const drawsCarry = takesCarry && crossed;
+  const carriedIn = useMemo(
+    () =>
+      drawsCarry
+        ? carriedIntoOpenNow(savedTabGroups, carried, hasTabGroupsPermission)
+        : null,
+    [drawsCarry, savedTabGroups, carried, hasTabGroupsPermission]
+  );
+  const drawsWindowBlock =
+    drawsCarry && carried !== null && pickOf(carried).kind === 'window';
+  useOpenNowCarryReceiver({
+    paneRef,
+    scrollerRef,
+    takes: takesCarry,
+    goToURLText: t('Go to URL'),
+  });
+  // While an Open now list drives the adopted carry: the block below lights
+  // while the landing is in it, and the + shows wherever a release lands.
+  const onCarriedLanding = useCallback((windowId: string | undefined) => {
+    if (currentCarry()?.item.source !== 'saved') return;
+    const light = (target: string, on: boolean) =>
+      paneRef.current
+        ?.querySelector(`[data-new-window-target="${target}"]`)
+        ?.toggleAttribute('data-landing', on);
+    light(OPEN_NOW_LAST_TARGET, windowId === OPEN_NOW_NEW_WINDOW);
+    light(OPEN_NOW_FIRST_TARGET, windowId === OPEN_NOW_HEADER_NEW_WINDOW);
+    setCarryOpens(windowId !== undefined);
+  }, []);
+  // The header -- everything in the pane above the scroller, as the receiver
+  // reads it (builder call 2) -- lands an adopted carry as a new window, and
+  // the list keeps the drag there, as the saved list does over its own.
+  const headerLanding = useMemo(
+    () => ({
+      windowId: OPEN_NOW_HEADER_NEW_WINDOW,
+      measure: () => {
+        const pane = paneRef.current?.getBoundingClientRect();
+        const top = scrollerRef.current?.getBoundingClientRect().top;
+        if (pane === undefined || top === undefined) return null;
+        return (x: number, y: number) =>
+          x >= pane.left && x < pane.right && y >= pane.top && y < top;
+      },
+    }),
+    []
+  );
+
   const drop = useOpenNowDrop({
     windows: listed,
     hasTabGroups: hasTabGroupsPermission,
     collapsedIds: foldedIds,
+    carriedIn,
   });
 
   const toggleWindow = (id: number) =>
@@ -839,11 +889,17 @@ export default function OpenNowPane({
           )}
         </div>
         <div
+          data-shows-new-window={carriedIn === null ? undefined : ''}
           css={css`
+            position: relative;
             display: flex;
             align-items: flex-end;
             padding-top: 8px;
             width: 100%;
+            /* KAN-815. The New window box takes the toolbar's place, as the saved header's does (KAN-361). */
+            &[data-shows-new-window] > :not([data-new-window-target]) {
+              visibility: hidden;
+            }
             /* KAN-794. The 8px above, then an icon's box (4px around the glyph;
                border-box), so with nothing listed, and so no icon here, the row
                keeps its height (KAN-491). */
@@ -961,6 +1017,22 @@ export default function OpenNowPane({
               />
             )}
           </ClosesThisTab>
+          {carriedIn !== null && (
+            <div
+              data-new-window-target={OPEN_NOW_FIRST_TARGET}
+              aria-hidden="true"
+              css={[
+                dropBoxStyle(COLORS),
+                css`
+                  position: absolute;
+                  inset: 6px 0 0;
+                  pointer-events: none;
+                `,
+              ]}
+            >
+              <DropBoxLabel text={t('CarryNewWindowTarget')} />
+            </div>
+          )}
         </div>
       </div>
       {headerMenu.menu}
@@ -973,6 +1045,7 @@ export default function OpenNowPane({
           onEnter={switchToFirstDrawnTab}
         />
         <div
+          ref={scrollerRef}
           css={scrollerStyle}
           onKeyDown={handleListKeyDown}
           data-open-now-scroller=""
@@ -1016,6 +1089,11 @@ export default function OpenNowPane({
                 fixedRowSelector="[data-fixed-row-id]"
                 landingRange={drop.tabs.landingRange}
                 acceptsWindow={drop.tabs.acceptsWindow}
+                adoptRowId={
+                  carriedIn?.kind === 'tab' ? carriedIn.rowId : undefined
+                }
+                onLandingWindowChange={onCarriedLanding}
+                adoptedHeaderLanding={headerLanding}
                 // KAN-280 Part F. Copied out to the saved side, beside the pane (P1); a card from pick-up (KAN-611).
                 // KAN-610: under the saved search nothing goes to the saved side; the drag stays in Open now.
                 carryOut={isSavedSearching ? undefined : carryTabOut}
@@ -1035,6 +1113,11 @@ export default function OpenNowPane({
                   restoreScrollIfNoDrop
                   landingRange={drop.items.landingRange}
                   acceptsWindow={drop.items.acceptsWindow}
+                  adoptRowId={
+                    carriedIn?.kind === 'group' ? carriedIn.rowId : undefined
+                  }
+                  onLandingWindowChange={onCarriedLanding}
+                  adoptedHeaderLanding={headerLanding}
                   carryOut={isSavedSearching ? undefined : carryGroupOut}
                   handsOffOutside={openNowRegion}
                   disabled={searchTerm !== null}
@@ -1083,6 +1166,15 @@ export default function OpenNowPane({
                       />
                     );
                   })}
+                  {(carriedIn !== null || drawsWindowBlock) && (
+                    <OpenNowNewWindowBlock
+                      phantom={
+                        carriedIn === null
+                          ? null
+                          : { rowId: carriedIn.rowId, kind: carriedIn.kind }
+                      }
+                    />
+                  )}
                 </RowDragArea>
               </RowDragArea>
             </RowDragArea>

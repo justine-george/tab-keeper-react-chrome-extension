@@ -206,7 +206,7 @@ function landingOf(
 // which the snapshot leaves out. Chrome refuses a group there (Task 1 Q3)
 // and only clamps a tab. Pinned tabs come first in a window, so the run ends
 // at the count of pinned tabs. Null when Chrome won't list the window.
-async function belowPinnedRun(
+export async function belowPinnedRun(
   windowId: number,
   landing: { inPlace: false; slot: number }
 ): Promise<Landing | null> {
@@ -465,6 +465,66 @@ function topLevelRows(window: OpenWindow, heldGroupId: number): RowSpan[] {
     const indices = item.tabs.map((tab) => tab.index);
     return [{ first: Math.min(...indices), last: Math.max(...indices) }];
   });
+}
+
+// KAN-815. Where a saved tab dropped at visible row `toIndex` of a live window
+// opens: the slot a live tab's move takes there (landingOf), and the pin the
+// slot decides (KAN-814). `groupId` is the band's group, with the grant only.
+// Null for an unknown window or group, or a toIndex outside the rows.
+export interface TabCopySlot {
+  windowId: number;
+  index: number;
+  pinned: boolean;
+  groupId?: number;
+}
+
+export function tabCopySlot(
+  windows: readonly OpenWindow[],
+  toWindowId: string,
+  toIndex: number,
+  savedPinned: boolean,
+  toGroupId: string | undefined,
+  hasTabGroups: boolean
+): TabCopySlot | null {
+  const { windowById, groupById } = indexSnapshot(windows);
+  const to = windowById.get(toWindowId);
+  if (!to) return null;
+  let groupId: number | undefined;
+  if (hasTabGroups && toGroupId !== undefined) {
+    const group = groupById.get(toGroupId);
+    if (!group || group.windowId !== to.id) return null;
+    groupId = group.id;
+  }
+  const rows = to.tabs.map((tab) => ({ first: tab.index, last: tab.index }));
+  const landing = landingOf(rows, toIndex, null);
+  if (landing === null || landing.inPlace) return null;
+  const pinned =
+    groupId === undefined && isPinnedSlot(to.tabs, toIndex, savedPinned);
+  return {
+    windowId: to.id,
+    index: landing.slot,
+    pinned,
+    ...(groupId === undefined ? {} : { groupId }),
+  };
+}
+
+// KAN-815. Where a saved group dropped at top-level row `toIndex` opens:
+// between rows, never inside a live group's span (O11c).
+export interface GroupCopySlot {
+  windowId: number;
+  index: number;
+}
+
+export function groupCopySlot(
+  windows: readonly OpenWindow[],
+  toWindowId: string,
+  toIndex: number
+): GroupCopySlot | null {
+  const to = indexSnapshot(windows).windowById.get(toWindowId);
+  if (!to) return null;
+  const landing = landingOf(topLevelRows(to, NO_GROUP), toIndex, null);
+  if (landing === null || landing.inPlace) return null;
+  return { windowId: to.id, index: landing.slot };
 }
 
 // A tab Chrome listed with an id, which every tab in a window's strip has;

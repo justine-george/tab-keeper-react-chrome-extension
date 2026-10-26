@@ -523,7 +523,7 @@ export interface copyToNewSessionParams {
 // Bounds are resolved here rather than inside createWindowWithRetries because
 // the defaults come from `window.screen`, which the service worker that shares
 // that helper does not have.
-function toWindowSpec(
+export function toWindowSpec(
   windowGroup: windowGroupData,
   focused: boolean
 ): WindowSpec {

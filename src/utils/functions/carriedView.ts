@@ -84,7 +84,7 @@ export function carriedView(
 // under one key is one row to it. Distinct from NEW_LAST_WINDOW's prefix, so
 // no carried window's phantom can be the window a tab or group rests in.
 const PHANTOM_ID_PREFIX = 'carried:';
-const phantomIdOf = (id: string) => `${PHANTOM_ID_PREFIX}${id}`;
+export const phantomIdOf = (id: string) => `${PHANTOM_ID_PREFIX}${id}`;
 
 /**
  * The id the phantom row a carried item is drawn as goes by, in the list that

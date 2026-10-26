@@ -7,8 +7,10 @@ import type {
 import { toOpenWindows } from '../../../utils/functions/openNow';
 import type { OpenWindow } from '../../../utils/functions/openNow';
 import {
+  groupCopySlot,
   moveOpenGroup,
   moveOpenTab,
+  tabCopySlot,
 } from '../../../utils/functions/openNowMoves';
 import type {
   GroupLook,
@@ -1950,5 +1952,150 @@ describe('an unpinned tab or a group lands below the pinned run as Chrome has it
     ).not.toBeNull();
     expect(moveSpy).toHaveBeenCalledWith(22, { index: 0 });
     expect(await strip(2)).toEqual(['22P', '21P', '23*', '24']);
+  });
+});
+
+// KAN-815. Where a saved tab or group dropped into Open now opens: the same
+// slot a live tab's move would take, read off the snapshot.
+describe('tabCopySlot', () => {
+  test('names the strip index of the row at toIndex, past a hidden Tab Keeper page', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, active: true },
+            { id: 12, url: TAB_KEEPER_PAGE },
+            { id: 13 },
+            { id: 14 },
+          ],
+        },
+      ],
+    });
+    const windows = await snapshot();
+
+    expect(tabCopySlot(windows, '1', 1, false, undefined, true)).toEqual({
+      windowId: 1,
+      index: 2,
+      pinned: false,
+    });
+    expect(tabCopySlot(windows, '1', 3, false, undefined, true)).toEqual({
+      windowId: 1,
+      index: 4,
+      pinned: false,
+    });
+  });
+
+  test('the slot decides the pin: inside the run pins, below unpins, the boundary keeps it', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, pinned: true },
+            { id: 12, pinned: true },
+            { id: 13, active: true },
+            { id: 14 },
+          ],
+        },
+      ],
+    });
+    const windows = await snapshot();
+
+    expect(tabCopySlot(windows, '1', 1, false, undefined, true)).toEqual({
+      windowId: 1,
+      index: 1,
+      pinned: true,
+    });
+    expect(tabCopySlot(windows, '1', 3, true, undefined, true)).toEqual({
+      windowId: 1,
+      index: 3,
+      pinned: false,
+    });
+    expect(tabCopySlot(windows, '1', 2, true, undefined, true)?.pinned).toBe(
+      true
+    );
+    expect(tabCopySlot(windows, '1', 2, false, undefined, true)?.pinned).toBe(
+      false
+    );
+  });
+
+  test("a band names the group's Chrome id and unpins", async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, active: true },
+            { id: 12, groupId: 5 },
+            { id: 13, groupId: 5 },
+            { id: 14 },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
+    });
+    const windows = await snapshot();
+
+    expect(tabCopySlot(windows, '1', 2, true, '5', true)).toEqual({
+      windowId: 1,
+      index: 2,
+      pinned: false,
+      groupId: 5,
+    });
+    // Without the grant there are no bands, so no group is named.
+    expect(tabCopySlot(windows, '1', 2, false, '5', false)).toEqual({
+      windowId: 1,
+      index: 2,
+      pinned: false,
+    });
+  });
+
+  test('null for an unknown window, a group of another window, or an index out of range', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, active: true },
+            { id: 12, groupId: 5 },
+          ],
+        },
+        { id: 2, tabs: [{ id: 21, active: true }] },
+      ],
+      tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
+    });
+    const windows = await snapshot();
+
+    expect(tabCopySlot(windows, '9', 0, false, undefined, true)).toBeNull();
+    expect(tabCopySlot(windows, '2', 0, false, '5', true)).toBeNull();
+    expect(tabCopySlot(windows, '1', 0, false, '7', true)).toBeNull();
+    expect(tabCopySlot(windows, '1', 3, false, undefined, true)).toBeNull();
+  });
+});
+
+describe('groupCopySlot', () => {
+  test("lands between top-level rows, never inside a group's span", async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 11, active: true },
+            { id: 12, groupId: 5 },
+            { id: 13, groupId: 5 },
+            { id: 14 },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
+    });
+    const windows = await snapshot();
+
+    expect(groupCopySlot(windows, '1', 1)).toEqual({ windowId: 1, index: 1 });
+    expect(groupCopySlot(windows, '1', 2)).toEqual({ windowId: 1, index: 3 });
+    expect(groupCopySlot(windows, '1', 3)).toEqual({ windowId: 1, index: 4 });
+    expect(groupCopySlot(windows, '1', 4)).toBeNull();
+    expect(groupCopySlot(windows, '9', 0)).toBeNull();
   });
 });

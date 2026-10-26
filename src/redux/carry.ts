@@ -65,10 +65,10 @@ export interface Carry {
 }
 
 let carry: Carry | null = null;
-// What puts the source's pane back at the press's scroll if the carry is
-// cancelled (KAN-157, KAN-406). Kept beside the carry rather than in it,
-// because it is not something any reader of the carry needs.
-let restoreOnCancel: (() => void) | null = null;
+// What puts the source's pane back at the press's scroll if the carry ends
+// cancelled or copied (KAN-157, KAN-406). Kept beside the carry rather than
+// in it, because it is not something any reader of the carry needs.
+let restoreView: (() => void) | null = null;
 const listeners = new Set<() => void>();
 
 function notify(): void {
@@ -78,21 +78,22 @@ function notify(): void {
 // Starts carrying, driven by the layer. Replaces any carry already on. An
 // adopted drag that reaches the session list again does NOT come through
 // here: it hands the same carry back with setCarryOwner('layer'), so the
-// source's card and restoreOnCancel stay as they are (KAN-350, RowDragArea's
+// source's card and restoreView stay as they are (KAN-350, RowDragArea's
 // handOff).
 //
-// `restoreOnCancel` runs once, on the frame after a CANCELLED carry ends --
-// see endCarry -- and never after a committed one.
+// `restoreView` runs once, on the frame after a carry ends cancelled or
+// copied -- see endCarry -- and never after a committed one.
 export function startCarry(
   item: CarriedItem,
   card: CarryCard,
   x: number,
   y: number,
-  onCancel?: () => void,
+  restore?: () => void,
   pressOffRowX = 0
 ): void {
   carry = { item, card, x, y, owner: 'layer', pressOffRowX };
-  restoreOnCancel = onCancel ?? null;
+  restoreView = restore ?? null;
+  crossed = false;
   setDragNewWindow(pickOf(item).kind !== 'window');
   setDragNewSession(true);
   setCarrying(true);
@@ -103,6 +104,44 @@ export function startCarry(
 export function setCarrying(on: boolean): void {
   if (on) document.documentElement.setAttribute('data-carrying', '');
   else document.documentElement.removeAttribute('data-carrying');
+}
+
+// KAN-815. On while letting go here opens a copy in Chrome: a saved carry's
+// card wears the + then (CarryLayer). Only while a carry is on; endCarry ends it.
+let opens = false;
+
+export function setCarryOpens(on: boolean): void {
+  const next = on && carry !== null;
+  if (next === opens) return;
+  opens = next;
+  document.documentElement.toggleAttribute('data-carry-opens', opens);
+  notify();
+}
+
+const currentOpens = (): boolean => opens;
+export function useCarryOpens(): boolean {
+  return useSyncExternalStore(subscribeCarry, currentOpens);
+}
+
+// KAN-815, demo D3 (his pick). Whether this carry has been over Currently
+// open. From then on a release there copies and nothing else takes it: only
+// Currently open's receivers are asked, and the saved source keeps its row.
+// Told by Currently open's pane on every move; cleared by a new carry and by
+// the end.
+let crossed = false;
+
+export function noteCarryOverOpenNow(over: boolean): void {
+  if (!over || crossed || carry === null) return;
+  crossed = true;
+  // Nothing on the saved side takes it now, so its targets go (demo D5).
+  setDragNewWindow(false);
+  setDragNewSession(false);
+  notify();
+}
+
+export const carryCrossedIntoOpenNow = (): boolean => crossed;
+export function useCarryCrossedIntoOpenNow(): boolean {
+  return useSyncExternalStore(subscribeCarry, carryCrossedIntoOpenNow);
 }
 
 export function currentCarry(): Carry | null {
@@ -131,10 +170,16 @@ export function moveCarry(x: number, y: number): void {
 }
 
 // How a carry ended. 'committed': something took it and moved the item, so
-// the view is where the move left it. 'cancelled': nothing moved (Esc, a
-// release nothing took, pointercancel, the item gone), so the source's view
-// is put back as a refused drag puts it back.
-export type CarryOutcome = 'committed' | 'cancelled';
+// the view is where the move left it. 'copied': Currently open took it and
+// opened a copy (KAN-815); the item stayed, so the view is put back as on a
+// cancel. 'cancelled': nothing moved (Esc, a release nothing took,
+// pointercancel, the item gone), so the source's view is put back as a
+// refused drag puts it back.
+export type CarryOutcome = 'committed' | 'copied' | 'cancelled';
+
+// Whether a carry ended so puts its source's view back: the item never left.
+export const putsViewBack = (outcome: CarryOutcome | undefined): boolean =>
+  outcome === 'cancelled' || outcome === 'copied';
 
 // Ends the carry: unpublishes the carrying marker, the drag kind and the New
 // window and New session markers, ends the drag hold (which applies every change held
@@ -145,8 +190,8 @@ export type CarryOutcome = 'committed' | 'cancelled';
 // kind are document-wide, and ending them for a carry that is not on would end
 // a drag some area is still running.
 //
-// A CANCELLED carry's restoreOnCancel runs on the next frame, not here. The
-// engine puts a refused drag's scroll back synchronously, straight after
+// A cancelled or copied carry's restoreView runs on the next frame, not
+// here. The engine puts a refused drag's scroll back synchronously, straight after
 // unpublishing, because its row never left the list. A carried row did: the
 // source draws without it until React re-renders from the notify below, and
 // that render is not synchronous with this call (an external-store update
@@ -158,12 +203,15 @@ export function endCarry(outcome: CarryOutcome): void {
   if (carry === null) return;
   outcomes.set(carry.item, outcome);
   carry = null;
-  const restore = restoreOnCancel;
-  restoreOnCancel = null;
+  crossed = false;
+  const restore = restoreView;
+  restoreView = null;
   try {
     // First, so nothing below that throws leaves the save row hidden.
     setDragNewSession(false);
     setCarrying(false);
+    opens = false;
+    document.documentElement.removeAttribute('data-carry-opens');
     // The engine's order at a drop: unpublish, then apply held changes.
     setDragging(false);
     setDragNewWindow(false);
@@ -172,7 +220,7 @@ export function endCarry(outcome: CarryOutcome): void {
     endDragHold();
   } finally {
     notify();
-    if (outcome === 'cancelled' && restore !== null) {
+    if (putsViewBack(outcome) && restore !== null) {
       requestAnimationFrame(restore);
     }
   }
@@ -216,16 +264,26 @@ export function useCarried(): CarriedItem | null {
 //   hover -- each move while it owns it;
 //   leave -- when it stops owning it: another receiver or none is hit, the
 //            carry ends, or an area adopts the carry;
-//   take  -- the release, while it owns it: commit, and say whether it did.
+//   take  -- the release, while it owns it: commit, and say whether it did;
+//   region -- optional: an area whose phantom row is inside it may adopt the
+//            carry under it (RowDragArea's adopt); without one, none may.
 // The layer ends the carry after every release either way, so a receiver never
-// has to (endCarry is a no-op if it did).
+// has to (endCarry is a no-op if it did): one that copied ends it 'copied'.
 export interface CarryReceiver {
   hit(x: number, y: number): boolean;
+  // KAN-815. The element it answers for, when it sits over a list that may
+  // adopt the carry inside it (Open now's pane over its own lists).
+  region?(): Element | null;
   measureHit?(): (x: number, y: number) => boolean;
   hover(x: number, y: number): void;
   leave(): void;
   take(): boolean;
+  // KAN-815 (D3). Currently open's: the only kind asked once a carry crossed into it.
+  inCurrentlyOpen?: boolean;
 }
+
+// Whether `r` may be asked now (D3).
+const asked = (r: CarryReceiver) => !crossed || r.inCurrentlyOpen === true;
 
 const receivers: CarryReceiver[] = [];
 
@@ -239,7 +297,7 @@ export function registerCarryReceiver(r: CarryReceiver): () => void {
 
 // The first receiver, in registration order, that the point hits.
 export function carryReceiverAt(x: number, y: number): CarryReceiver | null {
-  return receivers.find((r) => r.hit(x, y)) ?? null;
+  return receivers.find((r) => asked(r) && r.hit(x, y)) ?? null;
 }
 
 // The receivers as they are NOW, for a caller that asks on every pointermove
@@ -258,6 +316,7 @@ export function measureCarryReceivers(): (
     hit: r.measureHit?.() ?? ((x: number, y: number) => r.hit(x, y)),
   }));
   return (x, y) =>
-    measured.find(({ r, hit }) => receivers.includes(r) && hit(x, y))?.r ??
-    null;
+    measured.find(
+      ({ r, hit }) => receivers.includes(r) && asked(r) && hit(x, y)
+    )?.r ?? null;
 }

@@ -863,18 +863,19 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     await expect.poll(() => clicks(page)).toBe(1);
   });
 
-  // KAN-352: over Open now is no receiver, so the saved drag never becomes a
-  // carry there. Let go over a live row, it is refused as any saved drag
-  // there is: nothing moves, and the live row hears no click.
-  test('a release over Open now moves nothing, with no stray click, and Chrome is untouched', async ({
+  // KAN-815 (reversing KAN-352's "over Open now is no receiver"): let go over a
+  // live row, a saved tab opens there as a copy. The saved session is
+  // unchanged, and the live row hears no click.
+  test('a release over a live row opens a copy, with no stray click, and the session unchanged', async ({
     context,
     extensionId,
     serviceWorker,
   }) => {
     const page = await openTabView(context, extensionId, false);
-    const chromeBefore = await chromeNow(serviceWorker);
+    const tabsNow = () =>
+      serviceWorker.evaluate(async () => (await chrome.tabs.query({})).length);
+    const tabsBefore = await tabsNow();
     await countClicks(page);
-    await watchForCarry(page);
     const openNow = page.locator('[data-pane="open-now"]');
     const liveRow = openNow.getByRole('button', { name: /^Switch to tab: / });
     await expect(liveRow.first()).toBeVisible();
@@ -882,7 +883,6 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
 
     const at = await pickUp(page, tabHandle(page, 'a1'));
     await page.mouse.move(target.x + target.width / 2, at.y, { steps: 8 });
-    await expect(tabHandle(page, 'a1')).toHaveAttribute('data-drag-held', '');
     await page.mouse.move(
       target.x + target.width / 2,
       target.y + target.height / 2,
@@ -890,13 +890,11 @@ test.describe('Review Focus 2: cancels, quick passes, the shown row', () => {
     );
     await page.mouse.up();
 
-    // NEGATIVE, so a fixed wait: no card, and no stray click, which would
-    // follow the release at once.
+    await expect.poll(tabsNow).toBe(tabsBefore + 1);
+    // NEGATIVE, so a fixed wait: a stray click would follow the release at once.
     await page.waitForTimeout(300);
-    expect(await sawCarry(page)).toEqual({ card: '0', phantom: '0' });
     expect(await clicks(page)).toBe(0);
     expect(await layout(page, 'S1')).toEqual([W1_START, 'b0 b1']);
-    expect(await chromeNow(serviceWorker)).toBe(chromeBefore);
 
     // CONTROL: the same place clicked for real is heard.
     await page.mouse.click(
@@ -5278,7 +5276,9 @@ test.describe("a group's only tab carried out and back (KAN-371)", () => {
   }) => {
     const page = await openPopup(context, extensionId, [SOLO(), S2()]);
     const at = await carryOut(page);
-    // Measured as the carry draws the list: untransformed until adopted.
+    // Measured as the carry draws the list, once the held row's gap has
+    // closed: untransformed until adopted.
+    await settled(page);
     const a2 = await boxOf(tabHandle(page, 'a2'));
     await releaseAt(page, at.x, a2.y + a2.height - 4);
     expect(await layout(page, 'S1')).toEqual(['a0 a1 a2 s0 a3', 'b0']);

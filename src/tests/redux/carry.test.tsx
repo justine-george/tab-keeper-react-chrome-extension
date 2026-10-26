@@ -1,15 +1,20 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
 
 import {
   carryEndedAs,
   carryReceiverAt,
   currentCarry,
   endCarry,
+  measureCarryReceivers,
   moveCarry,
+  noteCarryOverOpenNow,
   registerCarryReceiver,
+  setCarryOpens,
   setCarryOwner,
   startCarry,
   subscribeCarry,
+  useCarryCrossedIntoOpenNow,
   type CarryCard,
   type CarryReceiver,
 } from '../../redux/carry';
@@ -315,6 +320,100 @@ describe('the carrying marker', () => {
     expect(currentCarry()).toBeNull();
     expect(carrying()).toBe(false);
     expect(offersNewSession()).toBe(false);
+  });
+});
+
+// KAN-815. "Letting go here opens something": the card's + for a saved carry.
+describe('the opens marker', () => {
+  const opens = () => document.documentElement.hasAttribute('data-carry-opens');
+
+  test('set while a carry is on; its end clears it', () => {
+    startCarry(savedItem(CARRIED), CARD, 40, 50);
+    setCarryOpens(true);
+    expect(opens()).toBe(true);
+    setCarryOpens(false);
+    expect(opens()).toBe(false);
+    setCarryOpens(true);
+
+    endCarry('committed');
+    expect(opens()).toBe(false);
+  });
+
+  test('with nothing carried, it is never set', () => {
+    setCarryOpens(true);
+    expect(opens()).toBe(false);
+  });
+});
+
+// KAN-815, demo D3 (his pick): once a carry has been over Currently open,
+// nothing else takes it.
+describe('crossed into Currently open', () => {
+  test('set the first time over, kept back outside, cleared by the end', () => {
+    const { result } = renderHook(() => useCarryCrossedIntoOpenNow());
+    act(() => startCarry(savedItem(CARRIED), CARD, 40, 50));
+    act(() => noteCarryOverOpenNow(false));
+    expect(result.current).toBe(false);
+    act(() => noteCarryOverOpenNow(true));
+    expect(result.current).toBe(true);
+    act(() => noteCarryOverOpenNow(false));
+    expect(result.current).toBe(true);
+
+    act(() => endCarry('cancelled'));
+    expect(result.current).toBe(false);
+  });
+
+  // Demo D5: nothing on the saved side takes it, so its New window and New session boxes go.
+  test("crossing takes down the saved side's New window and New session boxes", () => {
+    const has = (name: string) => document.documentElement.hasAttribute(name);
+    startCarry(savedItem(CARRIED), CARD, 40, 50);
+    // PREMISE: a tab carry shows both.
+    expect(has('data-drag-new-window')).toBe(true);
+    expect(has('data-drag-new-session')).toBe(true);
+    noteCarryOverOpenNow(false);
+    expect(has('data-drag-new-window')).toBe(true);
+
+    noteCarryOverOpenNow(true);
+
+    expect(has('data-drag-new-window')).toBe(false);
+    expect(has('data-drag-new-session')).toBe(false);
+  });
+
+  test('a new carry starts uncrossed', () => {
+    const { result } = renderHook(() => useCarryCrossedIntoOpenNow());
+    act(() => startCarry(savedItem(CARRIED), CARD, 40, 50));
+    act(() => noteCarryOverOpenNow(true));
+    act(() => startCarry(savedItem(CARRIED), CARD, 40, 50));
+    expect(result.current).toBe(false);
+  });
+
+  test('with nothing carried, it reads false', () => {
+    const { result } = renderHook(() => useCarryCrossedIntoOpenNow());
+    act(() => noteCarryOverOpenNow(true));
+    expect(result.current).toBe(false);
+  });
+
+  test("once crossed, only Currently open's receivers are asked, even by a drag measured before", () => {
+    const hits = (inCurrentlyOpen: boolean): CarryReceiver => ({
+      hit: () => true,
+      hover: () => {},
+      leave: () => {},
+      take: () => false,
+      ...(inCurrentlyOpen ? { inCurrentlyOpen } : {}),
+    });
+    const saved = hits(false);
+    const openNow = hits(true);
+    const offs = [saved, openNow].map(registerCarryReceiver);
+    startCarry(savedItem(CARRIED), CARD, 40, 50);
+    const measured = measureCarryReceivers();
+    // PREMISE: first registered, the saved side's answers.
+    expect(carryReceiverAt(0, 0)).toBe(saved);
+    expect(measured(0, 0)).toBe(saved);
+
+    noteCarryOverOpenNow(true);
+
+    expect(carryReceiverAt(0, 0)).toBe(openNow);
+    expect(measured(0, 0)).toBe(openNow);
+    offs.forEach((off) => off());
   });
 });
 

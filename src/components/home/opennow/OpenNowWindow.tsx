@@ -376,7 +376,8 @@ export default function OpenNowWindow({
     justify-content: space-between;
     ${
       offersWindowActions
-        ? `&:hover { background-color: ${COLORS.HOVER_COLOR}; }`
+        ? // KAN-815. Not under a carry: the landing slot says where it goes.
+          `html:not([data-carrying]) &:hover { background-color: ${COLORS.HOVER_COLOR}; }`
         : ''
     }
     /* KAN-708. Held while its right-click menu is open, as if hovered. */
@@ -480,7 +481,8 @@ export default function OpenNowWindow({
     display: flex;
     align-items: stretch;
     justify-content: space-between;
-    &:hover {
+    /* KAN-815. Not under a carry: the landing slot says where it goes. */
+    html:not([data-carrying]) &:hover {
       background-color: ${COLORS.HOVER_COLOR};
     }
   `;
@@ -1151,7 +1153,8 @@ export default function OpenNowWindow({
                             '&:has(> input:focus-visible)'
                           )}
                           /* Keyboard focus only (KAN-636), in its own rule beside :hover (KAN-94). */
-                          &:hover {
+                          /* KAN-815. Not under a carry: the landing slot says where it goes. */
+                          html:not([data-carrying]) &:hover {
                             background-color: ${COLORS.HOVER_COLOR};
                           }
                           ${whileKeyNav('&:has(:focus-visible)')} {
