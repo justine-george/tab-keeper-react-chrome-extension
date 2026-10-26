@@ -82,14 +82,16 @@ async function makeCurrentTab(worker: Worker, url: string) {
     }
   }, url);
   // CONTROL: the handler's own query now answers with that page.
-  expect(
-    await worker.evaluate(
-      async () =>
-        (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0]
-          ?.url
-    )
-  ).toBe(url);
+  expect(await currentTabUrl(worker)).toBe(url);
 }
+
+// What the Add handler's own query answers.
+const currentTabUrl = (worker: Worker) =>
+  worker.evaluate(
+    async () =>
+      (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0]
+        ?.url
+  );
 
 const block = (page: Page) => page.locator('[data-drop-window-id="w3"]');
 const chevron = (page: Page, verb: 'Collapse' | 'Expand') =>
@@ -186,8 +188,11 @@ test('an open window at the bottom edge scrolls to the new tab', async ({
 test('a Tab Keeper page as current tab leaves the window collapsed', async ({
   context,
   extensionId,
+  serviceWorker,
 }) => {
   const page = await openPopup(context, extensionId);
+  // CONTROL: the refusal is the Tab Keeper one, not "no current tab".
+  expect(await currentTabUrl(serviceWorker)).toBe(page.url());
   await chevron(page, 'Collapse').click();
   await headerAtBottomEdge(page);
 

@@ -511,10 +511,11 @@ describe('KAN-821 Add current tab opens the window and shows the new tab', () =>
 
   const foldedIds = (store: TestStore) =>
     store.getState().globalState.collapsedWindows?.windowIds;
-  const scrolledRow = () => {
+  // What the one scroll was called on, compared by identity with toBe.
+  const scrolledTarget = (): unknown => {
     expect(scrolled).toHaveBeenCalledTimes(1);
     expect(scrolled).toHaveBeenCalledWith({ block: 'nearest' });
-    return scrolled.mock.contexts[0] as Element;
+    return scrolled.mock.contexts[0];
   };
   const addedRow = () =>
     screen.getByText('Added').closest('[data-drag-row-id]');
@@ -531,21 +532,20 @@ describe('KAN-821 Add current tab opens the window and shows the new tab', () =>
   test("the new tab's row is scrolled into view, only as far as needed", async () => {
     await renderWith(ADDED, { folded: true });
     expect(addedRow()).not.toBeNull();
-    expect(scrolledRow()).toBe(addedRow());
+    expect(scrolledTarget()).toBe(addedRow());
   });
 
   test('an open window also scrolls to the new tab', async () => {
     const { store } = await renderWith(ADDED, { folded: false });
-    expect(scrolledRow()).toBe(addedRow());
+    expect(scrolledTarget()).toBe(addedRow());
     // Opening an open window changes nothing: no fold record appears.
     expect(store.getState().globalState.collapsedWindows).toBeNull();
   });
 
   test('with a pinned tab first, the scroll targets the new row', async () => {
     await renderWith(ADDED, { folded: true, pinnedFirst: true });
-    const row = scrolledRow();
-    expect(row.getAttribute('data-drag-row-id')).not.toBe('t1');
-    expect(row).toBe(addedRow());
+    expect(addedRow()?.getAttribute('data-drag-row-id')).not.toBe('t1');
+    expect(scrolledTarget()).toBe(addedRow());
   });
 
   test('a refused add leaves the window collapsed', async () => {
