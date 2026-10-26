@@ -158,6 +158,31 @@ describe('a saved window and its groups', () => {
     expect(listKeys(rowMenu())).toEqual(['copy', 'sortBySite', 'delete']);
   });
 
+  // KAN-804. Adding what is open draws what Add current window draws.
+  test('popup: Add current tab draws playlist_add on both strips and in both top rows', async () => {
+    await renderSaved();
+    const glyph = (el: Element) =>
+      el.querySelector('[data-icon]')?.getAttribute('data-icon');
+    expect(glyph(screen.getByRole('button', { name: 'Add current tab' }))).toBe(
+      'playlist_add'
+    );
+    expect(
+      glyph(screen.getByRole('button', { name: 'Add current tab to group' }))
+    ).toBe('playlist_add');
+
+    for (const title of [windowTitle, groupTitle]) {
+      fireEvent.contextMenu(title());
+      expect(
+        glyph(
+          within(actionRow(rowMenu()) as HTMLElement).getByRole('menuitem', {
+            name: 'Add tab',
+          })
+        )
+      ).toBe('playlist_add');
+      fireEvent.keyDown(rowMenu(), { key: 'Escape' });
+    }
+  });
+
   test('full view: no Add tab, as the row has none there', async () => {
     history.replaceState(null, '', '?view=tab');
     await renderSaved();

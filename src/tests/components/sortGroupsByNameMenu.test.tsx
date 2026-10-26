@@ -131,6 +131,20 @@ describe('saved window', () => {
     ]);
   });
 
+  // KAN-804. Two sorts, two glyphs: by name draws the sessions list's Name glyph.
+  test('draws sort_by_alpha, and Sort tabs by site keeps sort', async () => {
+    const user = userEvent.setup();
+    await render([tab('x'), tab('z1', 'gZ'), tab('a1', 'gA')], [ZULU, ALPHA]);
+    const menu = await openMenu(user);
+    const glyph = (name: string) =>
+      within(menu)
+        .getByRole('menuitem', { name })
+        .querySelector('[data-icon]')
+        ?.getAttribute('data-icon');
+    expect(glyph('Sort groups by name')).toBe('sort_by_alpha');
+    expect(glyph('Sort tabs by site')).toBe('sort');
+  });
+
   test('choosing it moves only the groups and says so with Undo', async () => {
     const user = userEvent.setup();
     const { store } = await render(
@@ -261,6 +275,20 @@ describe('Open now window', () => {
       'sortGroupsByName',
       'closeWindow',
     ]);
+  });
+
+  // KAN-804. As in a saved window.
+  test('draws sort_by_alpha, and Sort tabs by site keeps sort', async () => {
+    const user = userEvent.setup();
+    await renderOpenNow(seed(OUT_OF_ORDER(), GROUPS));
+    const menu = await openMenu(user, 2);
+    const glyph = (name: string) =>
+      within(menu)
+        .getByRole('menuitem', { name })
+        .querySelector('[data-icon]')
+        ?.getAttribute('data-icon');
+    expect(glyph('Sort groups by name')).toBe('sort_by_alpha');
+    expect(glyph('Sort tabs by site')).toBe('sort');
   });
 
   test('choosing it moves only the groups in Chrome, never a loose tab, and says so', async () => {

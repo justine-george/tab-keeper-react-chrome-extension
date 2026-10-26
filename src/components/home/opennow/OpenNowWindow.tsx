@@ -277,7 +277,7 @@ export default function OpenNowWindow({
           {
             key: 'sortGroupsByName',
             label: t('Sort groups by name'),
-            icon: 'sort' as const,
+            icon: 'sort_by_alpha' as const,
             onSelect: () =>
               void dispatch(
                 sortOpenWindowGroupsByName({
@@ -578,7 +578,7 @@ export default function OpenNowWindow({
         {
           key: 'switch',
           label: t('Switch to tab'),
-          icon: 'tab' as const,
+          icon: 'filter_center_focus' as const,
           // Chrome rejects when the tab closed after this row was drawn; the next read drops the row.
           onSelect: () => void switchToOpenTab(tab).catch(() => undefined),
         },
