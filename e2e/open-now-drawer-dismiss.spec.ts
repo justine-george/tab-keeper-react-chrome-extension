@@ -8,6 +8,7 @@ import {
   seedSettings,
 } from './fixtures/seed';
 import { ON_TITLE } from './fixtures/savedRow';
+import { elementLanded } from './fixtures/landed';
 
 // KAN-681, KAN-682 on the real artifact: the narrow Open now drawer is not
 // modal. What jsdom cannot show: a click on blank space moving focus to the
@@ -40,6 +41,8 @@ async function openDrawer(
   await rail.click();
   const drawer = page.getByRole('dialog', { name: 'Currently open' });
   await expect(drawer).toBeVisible();
+  // KAN-810. It slides in: measure and press where it comes to rest.
+  await elementLanded(drawer, 'subtree');
   return { page, rail, drawer };
 }
 

@@ -7,6 +7,7 @@ import type {
 } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { elementLanded } from './fixtures/landed';
 import { localeStrings } from './fixtures/locales';
 import { openNowWindowMenu } from './fixtures/menus';
 import {
@@ -268,6 +269,8 @@ test.describe('Open now search (KAN-330)', () => {
       const root = drawer ? page.getByRole('dialog') : page.locator(OPEN_NOW);
       await expect(root.locator('[data-open-now-search]')).toBeVisible();
       await expect(root.locator('[data-open-window-id]').first()).toBeVisible();
+      // KAN-810. The drawer slides in: measure and press it where it comes to rest.
+      if (drawer) await elementLanded(root, 'subtree');
       const m = await root.evaluate((el) => {
         const r = (e: Element | null | undefined) => {
           if (!e) return null;
@@ -594,6 +597,8 @@ test.describe('Open now search (KAN-330)', () => {
     await railButton(page).click();
     const drawer = page.getByRole('dialog', { name: 'Currently open' });
     await expect(drawer).toBeVisible();
+    // KAN-810. The drawer slides in: measure and press it where it comes to rest.
+    await elementLanded(drawer, 'subtree');
     await field(page).click();
     await page.keyboard.type('x');
     await expect(field(page)).toHaveValue('x');
@@ -662,6 +667,8 @@ test.describe('Open now search (KAN-330)', () => {
 
     await railButton(page).click();
     await expect(drawer).toBeVisible();
+    // KAN-810. The drawer slides in: measure and press it where it comes to rest.
+    await elementLanded(drawer, 'subtree');
     expect(await wearsChip(field(page))).toBe(true);
     await expect(railChip).toHaveCount(0);
     await page.keyboard.press('Escape');
@@ -672,6 +679,8 @@ test.describe('Open now search (KAN-330)', () => {
 
     await railButton(page).click();
     await expect(drawer).toBeVisible();
+    // KAN-810. The drawer slides in: measure and press it where it comes to rest.
+    await elementLanded(drawer, 'subtree');
     await pressEmptySpace(page, SESSIONS);
     await expect(drawer).toHaveCount(0);
     // The drawer hands focus to the rail after the press (KAN-682): not a choice.
@@ -702,6 +711,8 @@ test.describe('Open now search (KAN-330)', () => {
     // KAN-800. Opened and closed again from the keys: focus is back on the rail, in Open now's column.
     await railButton(page).click();
     await expect(drawer).toBeVisible();
+    // KAN-810. The drawer slides in: measure and press it where it comes to rest.
+    await elementLanded(drawer, 'subtree');
     await page.keyboard.press('Escape');
     await expect(drawer).toHaveCount(0);
     await expect(railButton(page)).toBeFocused();
@@ -1234,6 +1245,8 @@ test.describe('an IME composing a word in the field (KAN-330)', () => {
     await railButton(page).click();
     const drawer = page.getByRole('dialog', { name: 'Currently open' });
     await expect(drawer).toBeVisible();
+    // KAN-810. The drawer slides in: measure and press it where it comes to rest.
+    await elementLanded(drawer, 'subtree');
     const cdp = await composing(page, context);
     const esc = { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 };
     await cdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...esc });

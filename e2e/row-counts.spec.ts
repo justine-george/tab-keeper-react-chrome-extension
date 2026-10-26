@@ -8,6 +8,7 @@ import type { BrowserContext, Locator, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { grantedTest } from './fixtures/grantedExtension';
+import { elementLanded } from './fixtures/landed';
 import { FULL, FULL_VIEW_PATH, openPage } from './fixtures/onboarding';
 import { seedSettings } from './fixtures/seed';
 import {
@@ -286,6 +287,8 @@ grantedTest(
     await page.getByRole('button', { name: /^Currently open/ }).click();
     const drawer = page.getByRole('dialog', { name: 'Currently open' });
     await expect(drawer).toBeVisible();
+    // KAN-810. The drawer slides in: measure and press it where it comes to rest.
+    await elementLanded(drawer, 'subtree');
     // PREMISE: the drawer is the narrow one.
     expect((await boxOf(drawer)).width).toBe(380);
 

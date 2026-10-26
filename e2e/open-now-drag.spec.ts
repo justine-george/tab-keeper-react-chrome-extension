@@ -1,6 +1,7 @@
 import type { BrowserContext, Locator, Page, Worker } from '@playwright/test';
 
 import { test as ungrantedTest } from './fixtures/extension';
+import { elementLanded } from './fixtures/landed';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { allowInIncognito } from './fixtures/incognito';
 import { seedSettings } from './fixtures/seed';
@@ -1772,6 +1773,8 @@ test("9. in the narrow tab view's drawer, a drop moves the real tab as in the pa
   await page.getByRole('button', { name: /^Currently open/ }).click();
   const drawer = page.getByRole('dialog', { name: 'Currently open' });
   await expect(drawer).toBeVisible();
+  // KAN-810. The drawer slides in: measure and press it where it comes to rest.
+  await elementLanded(drawer, 'subtree');
   await expect(tabRow(page, b.tab('b1'))).toBeVisible();
 
   const preview = await dragTab(page, a.tab('a2'), () =>

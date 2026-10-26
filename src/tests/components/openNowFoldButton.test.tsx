@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import MainContainer from '../../components/MainContainer';
 import { OPEN_NOW_RAIL_QUERY } from '../../components/home/opennow/railQuery';
@@ -266,5 +267,92 @@ describe('a peek', () => {
     expect(folds(store)).toEqual({ saved: false, openNow: true });
     expect(store.getState().globalState.isPeekingSavedSession).toBe(false);
     expect(screen.getByRole('button', { name: HERO_ONLY })).toBeInTheDocument();
+  });
+});
+
+// KAN-810. Each press runs its change as the motion of its kind; / opening
+// the drawer does not, so keys typed after it reach the field. jsdom has no
+// view transitions: this one records the marks a press set and runs the change.
+describe('the motions', () => {
+  const started: { move?: string; dir?: string; from?: string }[] = [];
+  beforeEach(() => {
+    started.length = 0;
+    document.startViewTransition = vi.fn((callback) => {
+      const d = document.documentElement.dataset;
+      started.push({
+        move: d.paneMove,
+        dir: d.paneMoveDir,
+        from: d.paneMoveFrom,
+      });
+      void callback?.();
+      return {
+        finished: Promise.resolve(),
+        ready: Promise.resolve(),
+        updateCallbackDone: Promise.resolve(),
+        skipTransition: () => {},
+      };
+    });
+  });
+  afterEach(() => {
+    delete document.startViewTransition;
+  });
+
+  test('the title-line button folds and shows Currently open as its motion', async () => {
+    await renderHome();
+    await mounted();
+    fireEvent.click(button(FOLD_OPEN_NOW)!);
+    fireEvent.click(await screen.findByRole('button', { name: SHOW_OPEN_NOW }));
+    expect(started).toEqual([
+      { move: 'openNow', dir: 'fold', from: undefined },
+      { move: 'openNow', dir: 'unfold', from: undefined },
+    ]);
+  });
+
+  test("Currently open's button folds the saved session as its motion", async () => {
+    await renderHome();
+    await mounted();
+    fireEvent.click(screen.getByRole('button', { name: FOLD_SAVED }));
+    expect(started).toEqual([{ move: 'saved', dir: 'fold', from: undefined }]);
+  });
+
+  test('the drawer opens and closes on its own, never as a pane motion', async () => {
+    await renderHome();
+    await mounted();
+    fireEvent.click(button(FOLD_OPEN_NOW)!);
+    started.length = 0;
+    const user = userEvent.setup();
+    const rail = await screen.findByRole('button', { name: RAIL_NAME });
+    await user.click(rail);
+    expect(rail).toHaveAttribute('aria-expanded', 'true');
+    await user.keyboard('{Escape}');
+    expect(rail).toHaveAttribute('aria-expanded', 'false');
+    // Closed by Esc, the rail is /'s target: / opens the drawer into its field.
+    await user.keyboard('/');
+    expect(rail).toHaveAttribute('aria-expanded', 'true');
+    expect(document.activeElement).toBe(
+      screen.getByRole('textbox', { name: 'Search open tabs' })
+    );
+    await user.pointer({
+      keys: '[MouseLeft]',
+      target: document.querySelector<HTMLElement>('[data-pane="sessions"]')!,
+    });
+    expect(rail).toHaveAttribute('aria-expanded', 'false');
+    // jsdom animates nothing: the drawer goes at once.
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(started).toEqual([]);
+  });
+
+  test("the drawer's fold button folds the saved session from the drawer", async () => {
+    await renderHome();
+    await mounted();
+    fireEvent.click(button(FOLD_OPEN_NOW)!);
+    fireEvent.click(await screen.findByRole('button', { name: RAIL_NAME }));
+    started.length = 0;
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', {
+        name: FOLD_SAVED,
+      })
+    );
+    expect(started).toEqual([{ move: 'saved', dir: 'fold', from: 'drawer' }]);
   });
 });

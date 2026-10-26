@@ -173,7 +173,8 @@ export default function SearchRow({
       <span css={endSlotStyle}>
         {text === '' ? (
           isShortcutTarget && (
-            <span aria-hidden="true">
+            // KAN-810. Moves with the / target as the saved session folds.
+            <span aria-hidden="true" data-pane-layer="search-chip">
               <Tag value={SEARCH_SHORTCUT_KEY} />
             </span>
           )

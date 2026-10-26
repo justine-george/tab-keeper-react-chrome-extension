@@ -25,6 +25,7 @@ import {
 import { boxOf, saveRowAim, stored } from './fixtures/sessionDrag';
 import { allowInIncognito } from './fixtures/incognito';
 import { seedSettings } from './fixtures/seed';
+import { elementLanded } from './fixtures/landed';
 import type { TabMasterContainer } from '../src/redux/slices/tabContainerDataStateSlice';
 
 // KAN-280 Part F (spec O12c) on the real artifact: a live tab, group or window dragged out of Open now and let go on
@@ -765,6 +766,8 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     await page.getByRole('button', { name: /^Currently open/ }).click();
     const drawer = page.getByRole('dialog');
     await expect(liveRow(page, live.idOf('Live A'))).toBeVisible();
+    // KAN-810. It slides in: measure it where it comes to rest.
+    await elementLanded(drawer, 'subtree');
     const box = await boxOf(drawer);
     // Every time a row becomes held, counted: an adoption marks the phantom held, a hand-back clears it.
     await page.evaluate(() => {

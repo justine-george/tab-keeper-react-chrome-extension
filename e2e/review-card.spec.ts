@@ -1,6 +1,7 @@
 import type { BrowserContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
+import { elementLanded } from './fixtures/landed';
 import {
   buildContainer,
   buildSession,
@@ -292,6 +293,8 @@ test('a narrow full view: the card stays over the Open now drawer', async ({
     .click();
   await page.getByRole('button', { name: /^Currently open/ }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  // KAN-810. The drawer slides in: measure and press it where it comes to rest.
+  await elementLanded(page.getByRole('dialog'), 'subtree');
 
   const close = time.getByRole('button', { name: 'Not now', exact: true });
   // KAN-655: polled, as the card takes no pointer input until its rise ends, so a

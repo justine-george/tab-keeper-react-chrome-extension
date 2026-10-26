@@ -174,6 +174,20 @@ export const DURATION = {
    * through shows nothing: a resize grip's line (KAN-791).
    */
   HOVER_INTENT: '300ms',
+  /**
+   * A pane folding or unfolding across the tab view (KAN-810). Longer than
+   * MOVE: whole panes travel up to ~470px, and big moves get more time.
+   */
+  FOLD: '280ms',
+  /**
+   * Inside a fold, one picture handing over to another: a pane fading out at
+   * the window's edge, the rail fading in where it lives (KAN-810).
+   */
+  HANDOFF: '50ms',
+  /** The rail's drawer sliding in from the window's edge (KAN-810). */
+  DRAWER_IN: '240ms',
+  /** ...and out: faster, since the user has already moved on (KAN-810). */
+  DRAWER_OUT: '170ms',
 } as const;
 
 /**
@@ -189,6 +203,11 @@ export const EASE = {
    * on screen moving to a new place, like the fold-all chevrons (KAN-756).
    */
   IN_OUT: 'cubic-bezier(0.65, 0, 0.35, 1)',
+  /**
+   * Slow start, fast finish: only as the exit half of a pair, for something
+   * leaving that the user is already done with (the drawer's close, KAN-810).
+   */
+  IN: 'cubic-bezier(0.4, 0, 1, 1)',
 } as const;
 
 /**

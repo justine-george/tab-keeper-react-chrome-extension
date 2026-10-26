@@ -14,6 +14,7 @@ import { CHALK_THEME } from '../src/hooks/useThemeColors';
 import { TYPE } from '../src/styles/scale';
 import { ON_TITLE } from './fixtures/savedRow';
 import { rgb } from './fixtures/pixels';
+import { elementLanded } from './fixtures/landed';
 
 // KAN-280 Part A on the real artifact: the Open now pane in the tab view
 // (`index.html?view=tab`). What jsdom cannot show: the grid's real widths at
@@ -493,6 +494,8 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     await rail.click();
     const drawer = page.getByRole('dialog', { name: 'Currently open' });
     await expect(drawer).toBeVisible();
+    // KAN-810. It slides in: measure it where it comes to rest.
+    await elementLanded(drawer, 'subtree');
     const box = await drawer.boundingBox();
     if (box === null) throw new Error('the drawer has no box');
     expect(Math.round(box.width)).toBe(380);
@@ -548,6 +551,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     await page.getByRole('button', { name: /^Currently open/ }).click();
     const drawer = page.getByRole('dialog', { name: 'Currently open' });
     await expect(drawer).toBeVisible();
+    await elementLanded(drawer, 'subtree');
     await expect(toast).toBeVisible();
 
     const drawerBox = await drawer.boundingBox();
