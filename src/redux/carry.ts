@@ -292,7 +292,7 @@ export interface CarryReceiver {
   hover(x: number, y: number): void;
   leave(): void;
   take(): boolean;
-  // KAN-815 (D3). Currently open's: the only kind asked once a carry crossed into it.
+  // KAN-815 (D3). Currently open's: asked once a carry crossed into it, as is the rail (springsCurrentlyOpen).
   inCurrentlyOpen?: boolean;
   // KAN-820. The rail: asked after a carry crossed into Currently open, which springs it again.
   springsCurrentlyOpen?: boolean;

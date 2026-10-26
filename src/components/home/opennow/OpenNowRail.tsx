@@ -165,9 +165,10 @@ export default function OpenNowRail({
   // From a spring until the drawer's motion in ends: its box is still moving.
   const [isSettling, setIsSettling] = useState(false);
   const settling = useRef(false);
-  const shown = useRef(isOpen);
+  // isOpen as last committed, read by the carry's subscriber.
+  const isOpenRef = useRef(isOpen);
   useEffect(() => {
-    shown.current = isOpen;
+    isOpenRef.current = isOpen;
   }, [isOpen]);
 
   useEffect(
@@ -183,7 +184,7 @@ export default function OpenNowRail({
           endedByEscape.current = false;
           carried.current = null;
           setAway(false);
-          if (!stays && shown.current) {
+          if (!stays && isOpenRef.current) {
             setIsOpen(false);
             // Visible, it slides out; away, it is already off, so it goes at once.
             setIsLeaving(!s.away);
@@ -198,7 +199,7 @@ export default function OpenNowRail({
             carryState.current = { ...carryState.current, beenIn: true };
         }
         const drawer = drawerRef.current;
-        if (!shown.current || drawer === null) return;
+        if (!isOpenRef.current || drawer === null) return;
         // KAN-820 F2. Sliding in, against its resting box (as the rail's hit); settled, the box as drawn.
         const box = settling.current
           ? restingBox(drawer)
@@ -250,7 +251,7 @@ export default function OpenNowRail({
     },
   });
 
-  // Settled when its slide in, or its way back, ends or is cut short; not after an unmount.
+  // KAN-820. Settled when its slide in, or its way back, ends or is cut short; not after an unmount.
   useEffect(() => {
     if (!isSettling) return;
     const drawer = drawerRef.current;

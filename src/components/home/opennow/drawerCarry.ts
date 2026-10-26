@@ -1,7 +1,4 @@
-// KAN-820. The Currently open drawer's carry state, as pure rules: a saved
-// carry over the rail springs the drawer out, and it stays unless the carry
-// ends away from it or by Esc. A user-opened drawer is never sprung, so it
-// always stays.
+// KAN-820. The drawer's carry state as pure rules: sprung, it stays unless it went away or Esc ended the carry; user-opened, it stays.
 
 export interface DrawerCarry {
   // The drawer opened under this carry (it was not opened by the user).
