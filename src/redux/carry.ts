@@ -155,6 +155,20 @@ export function subscribeCarry(fn: () => void): () => void {
   };
 }
 
+const rerouteListeners = new Set<() => void>();
+
+export function subscribeCarryReroute(fn: () => void): () => void {
+  rerouteListeners.add(fn);
+  return () => {
+    rerouteListeners.delete(fn);
+  };
+}
+
+// KAN-820. Asks the layer to route the resting pointer again, without a move.
+export function rerouteCarry(): void {
+  rerouteListeners.forEach((fn) => fn());
+}
+
 export function setCarryOwner(owner: CarryOwner): void {
   if (carry === null || carry.owner === owner) return;
   carry = { ...carry, owner };
@@ -280,10 +294,13 @@ export interface CarryReceiver {
   take(): boolean;
   // KAN-815 (D3). Currently open's: the only kind asked once a carry crossed into it.
   inCurrentlyOpen?: boolean;
+  // KAN-820. The rail: asked after a carry crossed into Currently open, which springs it again.
+  springsCurrentlyOpen?: boolean;
 }
 
 // Whether `r` may be asked now (D3).
-const asked = (r: CarryReceiver) => !crossed || r.inCurrentlyOpen === true;
+const asked = (r: CarryReceiver) =>
+  !crossed || r.inCurrentlyOpen === true || r.springsCurrentlyOpen === true;
 
 const receivers: CarryReceiver[] = [];
 

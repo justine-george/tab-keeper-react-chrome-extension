@@ -415,6 +415,27 @@ describe('crossed into Currently open', () => {
     expect(measured(0, 0)).toBe(openNow);
     offs.forEach((off) => off());
   });
+
+  test('a springsCurrentlyOpen receiver is still asked after crossing', () => {
+    const hits = (springsCurrentlyOpen: boolean): CarryReceiver => ({
+      hit: () => true,
+      hover: () => {},
+      leave: () => {},
+      take: () => false,
+      ...(springsCurrentlyOpen ? { springsCurrentlyOpen } : {}),
+    });
+    const plain = hits(false);
+    const rail = hits(true);
+    const offs = [plain, rail].map(registerCarryReceiver);
+    startCarry(savedItem(CARRIED), CARD, 40, 50);
+    // CONTROL: before crossing, the plain one, registered first, answers.
+    expect(carryReceiverAt(1, 1)).toBe(plain);
+
+    noteCarryOverOpenNow(true);
+
+    expect(carryReceiverAt(1, 1)).toBe(rail);
+    offs.forEach((off) => off());
+  });
 });
 
 describe('carry receivers (Ruling 2)', () => {

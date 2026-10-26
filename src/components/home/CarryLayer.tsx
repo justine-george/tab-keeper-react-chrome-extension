@@ -32,6 +32,7 @@ import {
   moveCarry,
   putsViewBack,
   subscribeCarry,
+  subscribeCarryReroute,
   useCarry,
   useCarryOpens,
   type CarryCard,
@@ -220,7 +221,13 @@ export function CarryLayer() {
     // its dwell starts, with that move rather than the next one.
     const now = currentCarry();
     if (now?.owner === 'layer') route(now.x, now.y);
+    // KAN-820. A reroute is a move that did not happen: the pointer rests where it was.
+    const offReroute = subscribeCarryReroute(() => {
+      const at = currentCarry();
+      if (at?.owner === 'layer') route(at.x, at.y);
+    });
     return () => {
+      offReroute();
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
