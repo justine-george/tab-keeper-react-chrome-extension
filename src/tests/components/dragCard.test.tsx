@@ -68,6 +68,13 @@ describe('the drag card', () => {
     expect(dragCard()).toBeNull();
   });
 
+  test("the drag card flips left of the pointer at the window's right edge (KAN-820 2B)", async () => {
+    await renderWithProviders(<CarryLayer />);
+    act(() => showDragCard(OWNER, TAB_CARD, 1000, 50));
+    // 1000 + 8 + 230 is past jsdom's 1024px window, so 1000 - 8 - 230.
+    expect(dragCard()?.style.transform).toBe('translate(762px, 54px)');
+  });
+
   test('another owner can neither move nor hide it', async () => {
     await renderWithProviders(<CarryLayer />);
     act(() => showDragCard(OWNER, TAB_CARD, 100, 50));

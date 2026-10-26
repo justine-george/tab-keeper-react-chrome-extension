@@ -256,6 +256,20 @@ describe('the pane receiver, as a drag measures it', () => {
     root.parentElement?.removeAttribute('data-carry-away');
   });
 
+  // KAN-820. A drawer still sliding in after a spring is not where it will rest.
+  test('answers nothing while the drawer settles, measured or asked', async () => {
+    await renderPane();
+    carry(tabOf(), 10, LIST_Y);
+    // CONTROL: settled, the pane answers.
+    expect(measureCarryReceivers()(10, LIST_Y)).not.toBeNull();
+    expect(carryReceiverAt(10, LIST_Y)).not.toBeNull();
+
+    root.parentElement?.setAttribute('data-drawer-settling', '');
+    expect(measureCarryReceivers()(10, LIST_Y)).toBeNull();
+    expect(carryReceiverAt(10, LIST_Y)).toBeNull();
+    root.parentElement?.removeAttribute('data-drawer-settling');
+  });
+
   // Demo round 1 (D2): its list keeps it there and lands it as a new window.
   test('an adopted saved tab is never handed back, over the header either', async () => {
     await renderPane();
@@ -520,6 +534,24 @@ describe('crossed into Currently open', () => {
     act(() => moveCarry(10, LIST_Y));
     expect(crossed()).toBe('true');
     act(() => moveCarry(-50, LIST_Y));
+    expect(crossed()).toBe('true');
+  });
+
+  // KAN-820. The once-per-carry box waits for the drawer to rest.
+  test('a box read while the drawer settles is not kept', async () => {
+    await renderPane();
+    const resting = root.getBoundingClientRect;
+    root.parentElement?.setAttribute('data-drawer-settling', '');
+    root.getBoundingClientRect = () => ({
+      ...box(0, 2000),
+      left: 380,
+      right: 680,
+      x: 380,
+    });
+    carry(tabOf(), 700, LIST_Y);
+    root.parentElement?.removeAttribute('data-drawer-settling');
+    root.getBoundingClientRect = resting;
+    act(() => moveCarry(10, LIST_Y));
     expect(crossed()).toBe('true');
   });
 

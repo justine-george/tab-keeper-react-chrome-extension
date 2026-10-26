@@ -9,6 +9,7 @@ import {
   currentCarry,
   endCarry,
   registerCarryReceiver,
+  rerouteCarry,
   setCarryOpens,
   setCarryOwner,
   startCarry,
@@ -264,6 +265,22 @@ describe('receivers (Ruling 2)', () => {
     fireEvent.pointerMove(window, { clientX: 300, clientY: 20 });
 
     expect(calls).toEqual(['hover 50,10', 'hover 60,20', 'leave']);
+    off();
+  });
+
+  test('a reroute routes the resting pointer', async () => {
+    await renderLayer();
+    let hit = false;
+    const { r, calls } = fake(true);
+    const off = registerCarryReceiver({ ...r, hit: () => hit });
+    handOff(TAB_CARD, TAB, 50, 50);
+    hit = true;
+    // CONTROL: the pointer did not move, so nothing routed it.
+    expect(calls).toEqual([]);
+
+    act(() => rerouteCarry());
+
+    expect(calls).toEqual(['hover 50,50']);
     off();
   });
 

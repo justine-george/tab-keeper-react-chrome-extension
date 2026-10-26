@@ -59,9 +59,13 @@ const gripBox = (): DOMRect | null =>
 const inPaneBox = (pane: DOMRect, grip: DOMRect | null, x: number, y: number) =>
   inBox(pane, x, y) && (grip === null || !inBox(grip, x, y));
 
-// A drawer sent away (N2 A) answers nothing; read when asked, as it goes away mid-carry.
-const isAway = (pane: HTMLElement) =>
-  pane.closest('[data-carry-away]') !== null;
+// A drawer sent away (N2 A) or still sliding in (KAN-820) answers nothing; read when asked.
+const answersNothing = (pane: HTMLElement) =>
+  pane.closest('[data-carry-away], [data-drawer-settling]') !== null;
+
+// KAN-820 F2. Sprung and sliding in, the pointer is inside the drawer: out of it, the drawer is away.
+const slidingIn = (pane: HTMLElement) =>
+  pane.closest('[data-drawer-settling]:not([data-carry-away])') !== null;
 
 // Written straight to the DOM, as the saved pane's targets are (markNewWindowTarget).
 function light(pane: HTMLElement | null, target: string, on: boolean): void {
@@ -102,13 +106,13 @@ export function useOpenNowCarryReceiver({
       const el = pane();
       return (
         el !== null &&
-        !isAway(el) &&
+        !answersNothing(el) &&
         inPaneBox(el.getBoundingClientRect(), gripBox(), x, y)
       );
     };
     const inHeader = (x: number, y: number): boolean => {
       const el = pane();
-      if (el === null || isAway(el)) return false;
+      if (el === null || answersNothing(el)) return false;
       const b = el.getBoundingClientRect();
       return inBox(b, x, y) && y < headerBottom(b);
     };
@@ -133,7 +137,7 @@ export function useOpenNowCarryReceiver({
         // saved tab or group, over the header too (adoptedHeaderLanding).
         const held = document.querySelector('[data-drag-held]');
         if (held !== null && el.contains(held)) return () => false;
-        return (x, y) => !isAway(el) && inPaneBox(b, grip, x, y);
+        return (x, y) => !answersNothing(el) && inPaneBox(b, grip, x, y);
       },
       hover: (x, y) => {
         const carry = currentCarry();
@@ -204,17 +208,19 @@ export function useOpenNowCarryReceiver({
         markCrossedOut(false);
         return;
       }
-      if (carry.item !== measuredFor) {
+      // KAN-820. Read at the first notify the drawer answers, never mid-slide.
+      if (carry.item !== measuredFor && !answersNothing(el)) {
         measuredFor = carry.item;
         paneBox = el.getBoundingClientRect();
         grip = gripBox();
       }
       const over =
+        measuredFor === carry.item &&
         paneBox !== null &&
-        !isAway(el) &&
+        !answersNothing(el) &&
         inPaneBox(paneBox, grip, carry.x, carry.y);
       noteCarryOverOpenNow(over);
-      markCrossedOut(!over && carryCrossedIntoOpenNow());
+      markCrossedOut(!over && carryCrossedIntoOpenNow() && !slidingIn(el));
     });
 
     return () => {

@@ -32,16 +32,17 @@ import {
   moveCarry,
   putsViewBack,
   subscribeCarry,
+  subscribeCarryReroute,
   useCarry,
   useCarryOpens,
   type CarryCard,
   type CarryReceiver,
 } from '../../redux/carry';
 import { useDragCard } from '../../redux/dragCard';
+import { CARD_WIDTH_PX, cardLeft } from './cardPlace';
 
 // Where the card sits from the pointer: just below and to the right of the
-// arrow's tip, as the mock draws it.
-const CARD_OFFSET_X = 8;
+// arrow's tip, as the mock draws it. x gap: CARD_OFFSET_X in cardPlace.ts.
 const CARD_OFFSET_Y = 4;
 // Above the toast (1050): the card is under the pointer, and a toast arriving
 // mid-carry must not cover what is being carried.
@@ -220,7 +221,13 @@ export function CarryLayer() {
     // its dwell starts, with that move rather than the next one.
     const now = currentCarry();
     if (now?.owner === 'layer') route(now.x, now.y);
+    // KAN-820. A reroute is a move that did not happen: the pointer rests where it was.
+    const offReroute = subscribeCarryReroute(() => {
+      const at = currentCarry();
+      if (at?.owner === 'layer') route(at.x, at.y);
+    });
     return () => {
+      offReroute();
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
@@ -289,7 +296,7 @@ export function CarryLayer() {
         top: 0;
         z-index: ${CARD_Z_INDEX};
         box-sizing: border-box;
-        width: 230px;
+        width: ${CARD_WIDTH_PX}px;
         display: flex;
         align-items: center;
         gap: 10px;
@@ -309,7 +316,7 @@ export function CarryLayer() {
         }
       `}
       style={{
-        transform: `translate(${shown.x + CARD_OFFSET_X}px, ${
+        transform: `translate(${cardLeft(shown.x, window.innerWidth)}px, ${
           shown.y + CARD_OFFSET_Y
         }px)`,
       }}
