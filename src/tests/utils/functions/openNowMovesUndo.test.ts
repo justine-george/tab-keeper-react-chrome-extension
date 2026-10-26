@@ -156,6 +156,94 @@ describe('runLiveStep, undo: a tab goes back', () => {
   });
 });
 
+// KAN-814. A drop can pin or unpin; undo puts the pin back with the place,
+// and redo takes it again.
+describe('runLiveStep: a pin the drop changed (KAN-814)', () => {
+  // W1 [10P, 11P, 12*, 13, 14], W2 [21P, 22P, 23*].
+  const pinnedRuns: ChromeSeed = {
+    windows: [
+      {
+        id: 1,
+        tabs: [
+          { id: 10, pinned: true },
+          { id: 11, pinned: true },
+          { id: 12, active: true },
+          { id: 13 },
+          { id: 14 },
+        ],
+      },
+      {
+        id: 2,
+        tabs: [
+          { id: 21, pinned: true },
+          { id: 22, pinned: true },
+          { id: 23, active: true },
+        ],
+      },
+    ],
+  };
+  const START = ['10P', '11P', '12*', '13', '14'];
+
+  test.each([
+    ['pinned within its window: back unpinned', tabMove(13, 1, 1, 1)],
+    ['unpinned within its window: back pinned', tabMove(10, 1, 1, 3)],
+    [
+      "pinned, into another window's run: back pinned in its own",
+      tabMove(10, 1, 2, 1),
+    ],
+    [
+      'unpinned on the way to another window: back pinned',
+      tabMove(10, 1, 2, 3),
+    ],
+    [
+      'pinned on the way to another window: back unpinned',
+      tabMove(13, 1, 2, 0),
+    ],
+  ])('%s', async (_name, move) => {
+    handle = setupChromeFake(pinnedRuns);
+    const drop = await dropTab(move, false);
+    // PREMISE: the drop moved it.
+    expect(await strip(1)).not.toEqual(START);
+
+    expect(await runLiveStep(drop, 'undo', false)).toMatchObject({
+      outcome: 'done',
+    });
+
+    expect(await strip(1)).toEqual(START);
+    expect(await strip(2)).toEqual(['21P', '22P', '23*']);
+  });
+
+  test('redo takes the pin again', async () => {
+    handle = setupChromeFake(pinnedRuns);
+    const drop = await dropTab(tabMove(13, 1, 1, 1), false);
+    const undone = await ran(runLiveStep(drop, 'undo', false));
+
+    expect(await runLiveStep(undone, 'redo', false)).toMatchObject({
+      outcome: 'done',
+    });
+
+    expect(await strip(1)).toEqual(['10P', '13P', '11P', '12*', '14']);
+  });
+
+  test('a pin changed by hand since the drop: nothing moves', async () => {
+    handle = setupChromeFake(pinnedRuns);
+    // 10 to the run's end, still pinned (the boundary keeps it).
+    const drop = await dropTab(tabMove(10, 1, 1, 1), false);
+    expect(await strip(1)).toEqual(['11P', '10P', '12*', '13', '14']);
+    // Unpinned at the run's end, Chrome leaves it at the same index, as the
+    // first unpinned tab: only the pin says it changed.
+    await chrome.tabs.update(10, { pinned: false });
+    // PREMISE: the index is still the one the drop left.
+    expect(await strip(1)).toEqual(['11P', '10', '12*', '13', '14']);
+
+    expect(await runLiveStep(drop, 'undo', false)).toEqual({
+      outcome: 'changedSince',
+    });
+
+    expect(await strip(1)).toEqual(['11P', '10', '12*', '13', '14']);
+  });
+});
+
 describe('runLiveStep, undo: the group a tab had', () => {
   test('dragged out of a group within its window: back in it', async () => {
     handle = setupChromeFake(grouped());
@@ -326,6 +414,7 @@ describe('runLiveStep, undo: a lone tab whose group Chrome removed (settled A)',
       index: 1,
       groupId: 7,
       group: null,
+      pinned: false,
     });
 
     await runLiveStep(drop, 'undo', false);
@@ -928,6 +1017,7 @@ describe('changedAnyPlace (ledger R23)', () => {
     index,
     groupId,
     group: null,
+    pinned: false,
   });
   const record = (before: TabPlace, after: TabPlace): MovedTabs => [
     { tabId: 1, before, after },
@@ -937,6 +1027,12 @@ describe('changedAnyPlace (ledger R23)', () => {
     ['a window', record(at(1, 0), at(2, 0)), true],
     ['an index', record(at(1, 0), at(1, 1)), true],
     ['a group only (the index unchanged)', record(at(1, 0), at(1, 0, 5)), true],
+    // KAN-814. The pin is part of the place undo puts back.
+    [
+      'a pin only (the index unchanged)',
+      record(at(1, 0), { ...at(1, 0), pinned: true }),
+      true,
+    ],
     ['nothing: a drop in place', record(at(1, 0, 5), at(1, 0, 5)), false],
   ])('%s changed: %s', (_name, moved, expected) => {
     expect(changedAnyPlace(moved)).toBe(expected);

@@ -2444,6 +2444,32 @@ describe('tabs.update({pinned}) moves the tab to the pinned boundary (KAN-458)',
   });
 });
 
+// Measured 2026-10-26 on Chromium (KAN-814, open-now-drag 5e2): a group
+// holds no pinned tab. Only the run's last tab beside the group's head is
+// measured.
+test('tabs.group unpins a pinned tab as it joins, in place beside the group', async () => {
+  handle = setupChromeFake({
+    windows: [
+      {
+        id: 1,
+        tabs: [{ id: 10, pinned: true }, { id: 11, groupId: 5 }, { id: 12 }],
+      },
+    ],
+    tabGroups: [{ id: 5, windowId: 1, title: 'G', color: 'blue' }],
+  });
+
+  await chrome.tabs.group({ groupId: 5, tabIds: [10] });
+
+  const strip = (await chrome.tabs.query({ windowId: 1 }))
+    .sort((a, b) => a.index - b.index)
+    .map((t) => ({ id: t.id, pinned: t.pinned, groupId: t.groupId }));
+  expect(strip).toEqual([
+    { id: 10, pinned: false, groupId: 5 },
+    { id: 11, pinned: false, groupId: 5 },
+    { id: 12, pinned: false, groupId: -1 },
+  ]);
+});
+
 describe('a restored window never has its front tab in a collapsed group', () => {
   // Task 1, Q2b: when the active tab was grouped, tab 0 comes back active.
   // Chrome never shows a front tab inside a collapsed group, so tab 0's own

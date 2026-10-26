@@ -15,6 +15,7 @@ import type {
 } from '../../components/home/rightpane/rowDrag/dropRules';
 import type { OpenTab, OpenWindow } from './openNow';
 import { isTabKeeperPage } from './capture';
+import { isPinnedSlot } from './pinnedRun';
 import {
   applyGroupOrder,
   applyGroupSlots,
@@ -40,6 +41,8 @@ export interface TabPlace {
   index: number;
   groupId: number;
   group: GroupLook | null;
+  // KAN-814. A drop can pin or unpin, so undo puts the pin back too.
+  pinned: boolean;
 }
 
 export interface MovedTab {
@@ -118,6 +121,7 @@ async function placeOf(
     index: tab.index,
     groupId: tab.groupId,
     group,
+    pinned: tab.pinned,
   };
 }
 
@@ -212,6 +216,33 @@ async function belowPinnedRun(
   return { inPlace: false, slot: Math.max(landing.slot, runEnd) };
 }
 
+// KAN-814. A tab that ends pinned, to `slot` of `windowId`'s strip as it
+// stands. Across windows Chrome unpins it and keeps it below the run, so it
+// is moved, pinned (which takes it to the run's end), then moved to its slot,
+// measured in that order (K-B probe). Within its window, `standsAt` is where
+// it is now. False when Chrome refuses a step.
+async function landPinned(
+  tabId: number,
+  across: boolean,
+  windowId: number,
+  slot: number,
+  standsAt: number
+): Promise<boolean> {
+  const index = across ? slot : finalIndex(slot, standsAt, 1);
+  if (across) {
+    const arrived = await attempt(() =>
+      chrome.tabs.move(tabId, { windowId, index: slot })
+    );
+    if (arrived === REFUSED) return false;
+  }
+  const pinned = await attempt(() =>
+    chrome.tabs.update(tabId, { pinned: true })
+  );
+  if (pinned === REFUSED) return false;
+  const placed = await attempt(() => chrome.tabs.move(tabId, { index }));
+  return placed !== REFUSED;
+}
+
 // A slot as it stands, as the index Chrome takes for a move within one
 // window: the FINAL index, counted with the moving tabs removed (Task 1 Q1
 // for tabs.move, Q3 for tabGroups.move). `first` and `count` are the moving
@@ -291,9 +322,8 @@ export async function moveOpenTab(
   if (!held || !from || !to || held.windowId !== from.id) return null;
   const across = to.id !== from.id;
   // Refused here too, before any call, whatever the caller checked (ledger
-  // R15): Chrome UNPINS a pinned tab moved to another window (K1, Task 1 Q2),
-  // and rejects a move between profiles (O11d, Task 1 Q4).
-  if (across && (held.pinned || from.incognito !== to.incognito)) return null;
+  // R15): Chrome rejects a move between profiles (O11d, Task 1 Q4).
+  if (across && from.incognito !== to.incognito) return null;
 
   // The group the tab must end in. A band names one of the destination's
   // groups; any other name is refused.
@@ -301,38 +331,63 @@ export async function moveOpenTab(
   if (hasTabGroups && move.toGroupId !== undefined) {
     const group = groupById.get(move.toGroupId);
     if (!group || group.windowId !== to.id) return null;
-    // A pinned tab is never in a group, and what tabs.group does to one is
-    // unmeasured; a drag never pins or unpins (spec O11a).
-    if (held.pinned) return null;
     toGroupId = group.id;
   }
 
-  const rows = to.tabs
-    .filter((tab) => tab.id !== held.id)
-    .map((tab) => ({ first: tab.index, last: tab.index }));
+  const others = to.tabs.filter((tab) => tab.id !== held.id);
+  // KAN-814. The slot decides the pin among the rows the pane draws, as in a
+  // saved session (KAN-458): inside the run pins, below unpins, the boundary
+  // keeps it. A band unpins, as Chrome's groups hold no pinned tab.
+  const endsPinned =
+    toGroupId === NO_GROUP && isPinnedSlot(others, move.toIndex, held.pinned);
+  const rows = others.map((tab) => ({ first: tab.index, last: tab.index }));
   const landing = landingOf(rows, move.toIndex, across ? null : held.index);
   if (landing === null) return null;
 
   // Chrome's own answer at drop time (ledger R3). A tab that has left the
-  // window the snapshot put it in, moved within it, or been pinned since,
-  // makes the snapshot's indices and the K1 check above stale: refused, and
-  // the list re-reads (O11b).
+  // window the snapshot put it in, moved within it, or been pinned or
+  // unpinned since, makes the snapshot's indices and the pin decided above
+  // stale: refused, and the list re-reads (O11b).
   const now = await readTab(held.id);
-  if (now === null || now.windowId !== from.id || now.index !== held.index) {
+  if (
+    now === null ||
+    now.windowId !== from.id ||
+    now.index !== held.index ||
+    now.pinned !== held.pinned
+  ) {
     return null;
   }
-  if (across && now.pinned) return null;
   const before = await placeOf(now, hasTabGroups);
   if (before === null) return null;
-  // A pinned tab stays within the run (landingRange, K1), so only an
-  // unpinned one is kept below it.
+  // A tab that ends pinned lands in the run; one that ends unpinned is kept
+  // below it.
   const target =
-    landing.inPlace || held.pinned
+    landing.inPlace || endsPinned
       ? landing
       : await belowPinnedRun(to.id, landing);
   if (target === null) return null;
 
-  if (target.inPlace) {
+  // Where the tab stands in its own window once any unpin below has run.
+  let standsAt = held.index;
+  if (!target.inPlace && endsPinned) {
+    if (!(await landPinned(held.id, across, to.id, target.slot, held.index))) {
+      return null;
+    }
+  } else if (!target.inPlace && held.pinned) {
+    // Chrome keeps a pinned tab within the run, so it is unpinned first: it
+    // moves to the start of the unpinned tabs (KAN-458), past every slot the
+    // run held, so the slot read above still names the same gap. In place it
+    // can only be joining a band at its head, and joining unpins it.
+    const unpinned = await attempt(() =>
+      chrome.tabs.update(held.id, { pinned: false })
+    );
+    if (unpinned === REFUSED) return null;
+    const moved = await readTab(held.id);
+    if (moved === null) return null;
+    standsAt = moved.index;
+  }
+
+  if (target.inPlace || endsPinned) {
     // Already where the drop names; only its group may change, below.
   } else if (across && toGroupId !== NO_GROUP) {
     // The slot as it stood is its final index there: counted without the
@@ -361,7 +416,7 @@ export async function moveOpenTab(
         across
           ? chrome.tabs.move(held.id, { windowId: to.id, index: slot })
           : chrome.tabs.move(held.id, {
-              index: finalIndex(slot, held.index, 1),
+              index: finalIndex(slot, standsAt, 1),
             })
       );
       if (moved === REFUSED) return null;
@@ -595,20 +650,22 @@ export function isSortKind(kind: OpenNowDrop['kind']): boolean {
   return kind === 'sort' || kind === 'groupSort' || kind === 'groupOrder';
 }
 
-// Whether a drop's record changed any tab's window, index or group (ledger
-// R23). A drop in place records before == after for every tab; a tab can
-// join or leave a group without its index changing, so the group counts.
+// Whether a drop's record changed any tab's window, index, group or pin
+// (ledger R23). A drop in place records before == after for every tab; a tab
+// can join or leave a group without its index changing, so the group counts,
+// and the pin with it (KAN-814).
 export function changedAnyPlace(moved: MovedTabs): boolean {
   return moved.some(
     ({ before, after }) =>
       before.windowId !== after.windowId ||
       before.index !== after.index ||
-      before.groupId !== after.groupId
+      before.groupId !== after.groupId ||
+      before.pinned !== after.pinned
   );
 }
 
 // Each recorded tab as Chrome has it now, when every one is still where the
-// last run left it (its `after` window, index and group, ledger R14: the
+// last run left it (its `after` window, index, group and pin, ledger R14: the
 // drop's, or the last undo's in a reversed record, KAN-744 R9); null when
 // any has moved, been regrouped or closed since. A tab regrouped by hand in
 // place is not where the last run left it: moving it would ungroup it and
@@ -625,7 +682,8 @@ async function whereTheLastRunLeftThem(
       now === null ||
       now.windowId !== after.windowId ||
       now.index !== after.index ||
-      now.groupId !== after.groupId
+      now.groupId !== after.groupId ||
+      now.pinned !== after.pinned
     ) {
       return null;
     }
@@ -701,8 +759,8 @@ async function groupBackFor(
     : { kind: 'none' };
 }
 
-// One tab back to its `before` window, index and group. `now` is where it
-// is. The index is `before.index` both ways: within a window Chrome takes a
+// One tab back to its `before` window, index, group and pin. `now` is where
+// it is. The index is `before.index` both ways: within a window Chrome takes a
 // final index (Task 1 Q1), and across windows a slot as it stands in a strip
 // that is the old one without the tab, so the same number. The group is set
 // after the move, as a drop sets it (ledger R16): Chrome's own join rule may
@@ -714,11 +772,23 @@ async function putTabBack(
 ): Promise<boolean> {
   const back = await groupBackFor(before, withLook);
   if (back === null) return false;
-  const across = now.windowId !== before.windowId;
+  let at = now;
+  if (now.pinned && !before.pinned) {
+    // KAN-814. Chrome keeps a pinned tab within the run, so it is unpinned
+    // before it moves.
+    const unpinned = await attempt(() =>
+      chrome.tabs.update(tabId, { pinned: false })
+    );
+    if (unpinned === REFUSED) return false;
+    const moved = await readTab(tabId);
+    if (moved === null) return false;
+    at = moved;
+  }
+  const across = at.windowId !== before.windowId;
 
   if (across && back.kind === 'rejoin') {
     if (!(await joinAcross(tabId, back.groupId, before.index))) return false;
-  } else if (across || now.index !== before.index) {
+  } else if (across || at.index !== before.index) {
     const moved = await attempt(() =>
       across
         ? chrome.tabs.move(tabId, {
@@ -758,6 +828,18 @@ async function putTabBack(
       chrome.tabGroups.update(back.groupId, { collapsed })
     );
     if (restored === REFUSED) return false;
+  }
+  if (before.pinned && !landed.pinned) {
+    // KAN-814. Chrome kept it below the run; pinning takes it to the run's
+    // end, so it then goes to its place.
+    const pinned = await attempt(() =>
+      chrome.tabs.update(tabId, { pinned: true })
+    );
+    if (pinned === REFUSED) return false;
+    const placed = await attempt(() =>
+      chrome.tabs.move(tabId, { index: before.index })
+    );
+    if (placed === REFUSED) return false;
   }
   return true;
 }

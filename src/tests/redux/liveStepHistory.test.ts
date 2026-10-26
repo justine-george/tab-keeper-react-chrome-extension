@@ -27,7 +27,13 @@ import { STACK_LEVEL } from '../../utils/constants/common';
 import { makeTestStore } from '../setup/makeStore';
 import { buildContainer } from '../fixtures/sessionFixture';
 
-const place = { windowId: 1, index: 0, groupId: -1, group: null };
+const place = {
+  windowId: 1,
+  index: 0,
+  groupId: -1,
+  group: null,
+  pinned: false,
+};
 
 function drop(tabId: number): OpenNowDrop {
   return {

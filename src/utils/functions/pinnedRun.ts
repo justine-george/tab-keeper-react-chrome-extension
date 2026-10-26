@@ -6,7 +6,8 @@ import type {
 
 // KAN-458. A saved window keeps Chrome's shape: pinned tabs first. Where a tab is dropped decides its pin; the row never moves.
 
-type Pinnable = Pick<tabData, 'pinned'>;
+// A saved tab or a live one (KAN-814): only whether it is pinned is read.
+type Pinnable = { readonly pinned?: boolean };
 
 export function pinnedRunLength(tabs: readonly Pinnable[]): number {
   const firstUnpinned = tabs.findIndex((tab) => tab.pinned !== true);

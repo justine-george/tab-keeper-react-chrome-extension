@@ -82,8 +82,9 @@ const place = (
   windowId: number,
   index: number,
   groupId = -1,
-  group: GroupLook | null = null
-): TabPlace => ({ windowId, index, groupId, group });
+  group: GroupLook | null = null,
+  pinned = false
+): TabPlace => ({ windowId, index, groupId, group, pinned });
 
 describe('moveOpenTab: where a tab lands', () => {
   // W1 [11, 12, 13, 14], W2 [21, 22]
@@ -326,24 +327,6 @@ describe('moveOpenTab: pinned tabs and profiles (ledger R15)', () => {
       ],
     });
 
-  test('K1: a pinned tab to another window is refused before any call (Chrome would unpin it)', async () => {
-    handle = pinnedAndIncognito();
-    const moveSpy = vi.spyOn(chrome.tabs, 'move');
-    const getSpy = vi.spyOn(chrome.tabs, 'get');
-
-    const moved = await moveOpenTab(
-      tabMove(12, 1, 2, 0),
-      await snapshot(),
-      false
-    );
-
-    expect(moved).toBeNull();
-    expect(moveSpy).not.toHaveBeenCalled();
-    expect(getSpy).not.toHaveBeenCalled();
-    expect(await strip(1)).toEqual(['11P*', '12P', '13']);
-    expect(await strip(2)).toEqual(['21*']);
-  });
-
   test.each([
     ['normal to incognito', tabMove(13, 1, 3, 0)],
     ['incognito to normal', tabMove(31, 3, 2, 0)],
@@ -385,6 +368,210 @@ describe('moveOpenTab: pinned tabs and profiles (ledger R15)', () => {
     const moveSpy = vi.spyOn(chrome.tabs, 'move');
 
     const moved = await moveOpenTab(tabMove(13, 1, 1, 2), windows, false);
+
+    expect(moved).toBeNull();
+    expect(moveSpy).not.toHaveBeenCalled();
+  });
+});
+
+// KAN-814. Where a tab is dropped decides its pin, as in a saved session
+// (KAN-458's isPinnedSlot): inside the pinned run pins it, below unpins it,
+// the boundary keeps it. Across windows too (K-B, replacing K1's refusal).
+describe('moveOpenTab: the slot decides the pin (KAN-814)', () => {
+  // W1 [10P, 11P, 12*, 13, 14], W2 [21P, 22P, 23*].
+  const pinnedRuns = () =>
+    setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 10, pinned: true },
+            { id: 11, pinned: true },
+            { id: 12, active: true },
+            { id: 13 },
+            { id: 14 },
+          ],
+        },
+        {
+          id: 2,
+          tabs: [
+            { id: 21, pinned: true },
+            { id: 22, pinned: true },
+            { id: 23, active: true },
+          ],
+        },
+      ],
+    });
+
+  test('an unpinned tab dropped inside the pinned run is pinned there', async () => {
+    handle = pinnedRuns();
+
+    const moved = await moveOpenTab(
+      tabMove(13, 1, 1, 1),
+      await snapshot(),
+      false
+    );
+
+    expect(await strip(1)).toEqual(['10P', '13P', '11P', '12*', '14']);
+    expect(moved).toEqual([
+      {
+        tabId: 13,
+        before: place(1, 3),
+        after: place(1, 1, -1, null, true),
+      },
+    ]);
+  });
+
+  test('a pinned tab dropped below the pinned run is unpinned there', async () => {
+    handle = pinnedRuns();
+
+    const moved = await moveOpenTab(
+      tabMove(10, 1, 1, 3),
+      await snapshot(),
+      false
+    );
+
+    expect(await strip(1)).toEqual(['11P', '12*', '13', '10', '14']);
+    expect(moved).toEqual([
+      {
+        tabId: 10,
+        before: place(1, 0, -1, null, true),
+        after: place(1, 3),
+      },
+    ]);
+  });
+
+  test.each([
+    [
+      'a pinned tab, at the end of the run',
+      10,
+      1,
+      ['11P', '10P', '12*', '13', '14'],
+    ],
+    [
+      'an unpinned tab, at the start of the unpinned tabs',
+      13,
+      2,
+      ['10P', '11P', '13', '12*', '14'],
+    ],
+  ])('the boundary keeps the pin: %s', async (_name, tabId, toIndex, after) => {
+    handle = pinnedRuns();
+
+    await moveOpenTab(tabMove(tabId, 1, 1, toIndex), await snapshot(), false);
+
+    expect(await strip(1)).toEqual(after);
+  });
+
+  test('a window with no pinned tabs never pins: a drop at its top stays unpinned', async () => {
+    handle = setupChromeFake({
+      windows: [{ id: 1, tabs: [{ id: 11, active: true }, { id: 12 }] }],
+    });
+
+    await moveOpenTab(tabMove(12, 1, 1, 0), await snapshot(), false);
+
+    expect(await strip(1)).toEqual(['12', '11*']);
+  });
+
+  test("K-B: a pinned tab dropped inside another window's pinned run stays pinned there", async () => {
+    handle = pinnedRuns();
+
+    const moved = await moveOpenTab(
+      tabMove(10, 1, 2, 1),
+      await snapshot(),
+      false
+    );
+
+    expect(await strip(1)).toEqual(['11P', '12*', '13', '14']);
+    expect(await strip(2)).toEqual(['21P', '10P', '22P', '23*']);
+    expect(moved).toEqual([
+      {
+        tabId: 10,
+        before: place(1, 0, -1, null, true),
+        after: place(2, 1, -1, null, true),
+      },
+    ]);
+  });
+
+  test("K-B: a pinned tab dropped below another window's pinned run is unpinned there", async () => {
+    handle = pinnedRuns();
+
+    await moveOpenTab(tabMove(10, 1, 2, 3), await snapshot(), false);
+
+    expect(await strip(2)).toEqual(['21P', '22P', '23*', '10']);
+  });
+
+  test("an unpinned tab dropped inside another window's pinned run is pinned there", async () => {
+    handle = pinnedRuns();
+
+    await moveOpenTab(tabMove(13, 1, 2, 0), await snapshot(), false);
+
+    expect(await strip(1)).toEqual(['10P', '11P', '12*', '14']);
+    expect(await strip(2)).toEqual(['13P', '21P', '22P', '23*']);
+  });
+
+  test('a pinned tab dropped into a group band is unpinned and joins the group', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 10, pinned: true },
+            { id: 11, active: true },
+            { id: 12, groupId: 5 },
+            { id: 13, groupId: 5 },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
+    });
+
+    const moved = await moveOpenTab(
+      tabMove(10, 1, 1, 2, 5),
+      await snapshot(),
+      true
+    );
+
+    expect(await strip(1)).toEqual(['11*', '12g5', '10g5', '13g5']);
+    expect(moved?.[0]?.after.pinned).toBe(false);
+  });
+
+  // The band's head right after the run is the run's boundary, which keeps a
+  // pin (isPinnedSlot): only the band says it unpins there.
+  test('a pinned tab dropped at the head of a band just after the run is unpinned too', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            { id: 10, pinned: true },
+            { id: 12, groupId: 5 },
+            { id: 13, groupId: 5 },
+            { id: 11, active: true },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
+    });
+
+    const moved = await moveOpenTab(
+      tabMove(10, 1, 1, 0, 5),
+      await snapshot(),
+      true
+    );
+
+    expect(await strip(1)).toEqual(['10g5', '12g5', '13g5', '11*']);
+    expect(moved?.[0]?.after.pinned).toBe(false);
+  });
+
+  test('a tab pinned since the snapshot is refused within its window too', async () => {
+    handle = pinnedRuns();
+    const windows = await snapshot();
+    // Pinned at the run's end, its index unchanged: only the pin says the snapshot is stale.
+    await chrome.tabs.update(12, { pinned: true });
+    expect((await chrome.tabs.get(12)).index).toBe(2);
+    const moveSpy = vi.spyOn(chrome.tabs, 'move');
+
+    const moved = await moveOpenTab(tabMove(12, 1, 1, 4), windows, false);
 
     expect(moved).toBeNull();
     expect(moveSpy).not.toHaveBeenCalled();
@@ -886,36 +1073,6 @@ describe('moveOpenTab: groups, with the grant (ledger R16)', () => {
       expect(moved).toBeNull();
       expect(moveSpy).not.toHaveBeenCalled();
       expect(groupSpy).not.toHaveBeenCalled();
-    });
-
-    test('a pinned tab named into a band: null before any call (a drag never pins or unpins, O11a)', async () => {
-      handle = setupChromeFake({
-        windows: [
-          {
-            id: 1,
-            tabs: [
-              { id: 10, pinned: true },
-              { id: 11, active: true },
-              { id: 12, groupId: 5 },
-              { id: 13, groupId: 5 },
-            ],
-          },
-        ],
-        tabGroups: [{ id: 5, windowId: 1, title: 'Work', color: 'blue' }],
-      });
-      const moveSpy = vi.spyOn(chrome.tabs, 'move');
-      const groupSpy = vi.spyOn(chrome.tabs, 'group');
-
-      const moved = await moveOpenTab(
-        tabMove(10, 1, 1, 0, 5),
-        await snapshot(),
-        true
-      );
-
-      expect(moved).toBeNull();
-      expect(moveSpy).not.toHaveBeenCalled();
-      expect(groupSpy).not.toHaveBeenCalled();
-      expect(await strip(1)).toEqual(['10P', '11*', '12g5', '13g5']);
     });
 
     // A slot inside a run with no band named now lands before the run
@@ -1644,9 +1801,10 @@ describe('moveOpenGroup', () => {
 });
 
 // Task 6c fix round 1 (review Important 1, spec O11c). The engine commits
-// index 0 for a FOLDED window, which draws no rows, and the snapshot leaves
-// out hidden Tab Keeper pages, so a visible index can name a slot inside the
-// pinned run as Chrome has it. An unpinned tab or a group is placed no
+// index 0 for a FOLDED window, which draws no rows (a group's drop; a tab's is
+// turned into the window's pinned boundary by useOpenNowDrop, KAN-814), and
+// the snapshot leaves out hidden Tab Keeper pages, so a visible index can name
+// a slot inside the pinned run as Chrome has it. An unpinned tab or a group is placed no
 // earlier than the end of that run, read from Chrome at drop time -- the
 // slot the preview drew under the pinned line.
 describe('an unpinned tab or a group lands below the pinned run as Chrome has it', () => {
@@ -1703,12 +1861,12 @@ describe('an unpinned tab or a group lands below the pinned run as Chrome has it
     expect(await strip(2)).toEqual(['21P', '22P', '12g5', '13g5', '23*', '24']);
   });
 
-  test('an unpinned tab dropped at 0 on a folded window with pinned tabs: asked for the first unpinned index', async () => {
+  test('an unpinned tab dropped at the pinned boundary: asked for the first unpinned index', async () => {
     handle = pinnedWindows();
     const moveSpy = vi.spyOn(chrome.tabs, 'move');
 
     const moved = await moveOpenTab(
-      tabMove(14, 1, 2, 0),
+      tabMove(14, 1, 2, 2),
       await snapshot(),
       true
     );
@@ -1742,7 +1900,7 @@ describe('an unpinned tab or a group lands below the pinned run as Chrome has it
   );
 
   test.each([
-    ['a window whose tabs are all pinned, folded (toIndex 0)', 3, 0],
+    ['a window whose tabs are all pinned, at its pinned boundary', 3, 2],
     ['a hidden pinned Tab Keeper page ending the run', 4, 1],
   ])('%s: a tab is asked for the end of the run', async (_name, to, at) => {
     handle = pinnedWindows();

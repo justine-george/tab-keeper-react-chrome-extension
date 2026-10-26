@@ -339,12 +339,12 @@ test.describe("in Open now, a tab's slot is the box of the row it becomes (KAN-3
   }
 });
 
-// A pinned tab held over another window's band keeps its own (loose) box
-// (KAN-364). A pinned tab is refused by every window but its own (K1), and
-// the band under the pointer is in the refused window, which the drop rule
-// never searches (dropRoot), so no band is named. A refused MEMBER keeping
-// its own box is pinned in drag-between-sessions.spec.ts.
-test("in Open now, a pinned tab held over another window's band keeps its own box", async ({
+// A pinned tab held over another window's band is drawn a member's box
+// (KAN-364), and joins the band unpinned: since KAN-814 (K-B) a pinned tab may
+// leave its window, and a band unpins, as Chrome's groups hold no pinned tab.
+// A refused MEMBER keeping its own box is pinned in
+// drag-between-sessions.spec.ts.
+test("in Open now, a pinned tab held over another window's band is drawn a member's box, and joins it unpinned", async ({
   context,
   extensionId,
   serviceWorker,
@@ -424,26 +424,30 @@ test("in Open now, a pinned tab held over another window's band keeps its own bo
     steps: 12,
   });
   await settled(page);
-  // PREMISE: the release is refused -- the slot is back at the pinned tab's
-  // own place, not among the members.
   const slot = await page.evaluate(() => {
     const b = document
       .querySelector('[data-drag-landing-slot]')
       ?.getBoundingClientRect();
-    return b === undefined
-      ? null
-      : { left: b.left, right: b.right, top: b.top };
+    return b === undefined ? null : { left: b.left, right: b.right };
   });
   if (slot === null) throw new Error('no landing slot drawn');
-  expect(Math.abs(slot.top - own.top)).toBeLessThanOrEqual(1);
   expect(
-    Math.abs(slot.left - own.left),
-    `slot left ${slot.left} vs ${own.left}`
+    Math.abs(slot.left - member.x),
+    `slot left ${slot.left} vs ${member.x}`
   ).toBeLessThanOrEqual(2 / 64);
   expect(
-    Math.abs(slot.right - own.right),
-    `slot right ${slot.right} vs ${own.right}`
+    Math.abs(slot.right - (member.x + member.width)),
+    `slot right ${slot.right} vs ${member.x + member.width}`
   ).toBeLessThanOrEqual(2 / 64);
-  await page.keyboard.press('Escape');
   await page.mouse.up();
+  await expect
+    .poll(() =>
+      serviceWorker.evaluate(async (windowId) => {
+        const [tab] = await chrome.tabs.query({ windowId, title: 'pp0' });
+        return tab === undefined
+          ? null
+          : { groupId: tab.groupId, pinned: tab.pinned };
+      }, ids.b)
+    )
+    .toEqual({ groupId: ids.group, pinned: false });
 });

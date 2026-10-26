@@ -68,6 +68,7 @@ function placeOf(
     index: tab.index,
     groupId: tab.groupId,
     group: looks.get(tab.groupId) ?? null,
+    pinned: tab.pinned,
   };
 }
 

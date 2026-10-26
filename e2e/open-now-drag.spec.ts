@@ -951,70 +951,95 @@ test.describe('a whole group (KAN-280 O11a Q1, O11g G1)', () => {
 
 // ---- 5: pinned -----------------------------------------------------------------
 
-test.describe('the pinned boundary (KAN-280 O11c, K1)', () => {
-  test('5a. an unpinned tab held over the pinned run is never shown a slot in it, and lands just below it', async ({
+// KAN-814: the slot decides the pin, as in a saved session (KAN-458), and a
+// change says so with KAN-811's toast. On main's build a tab is held to its
+// side of the run and a pinned tab to its window, so each change below fails
+// there; 5c and 5g's unpinned half are the silent CONTROLS.
+const toasts = (page: Page) =>
+  page.locator('[role="status"] > [data-toast]:not([aria-hidden="true"])');
+
+test.describe('the slot decides the pin (KAN-814)', () => {
+  test('5a. an unpinned tab dropped into the pinned run is pinned there, and "Tab pinned." offers Undo', async ({
     context,
     extensionId,
     serviceWorker: worker,
   }) => {
-    // Pinned before the tab view opens, so its first read has them: a
-    // premise that holds on any build (main's rows have no pin mark).
+    // Pinned before the tab view opens, so its first read has them.
     const a = await openWindow(worker, ['p0', 'p1', 'a2', 'a3', 'a4']);
     await pin(worker, [a.tab('p0'), a.tab('p1')]);
     const page = await openTabView(context, extensionId);
     await expect(tabRow(page, a.tab('a4'))).toBeVisible();
     await paneFits(page);
 
-    const { x } = await pickUp(page, tabRow(page, a.tab('a4')));
-    // Over every point of the pinned run, the slot is below it.
-    const top = (await boxOf(tabRow(page, a.tab('p0')))).y;
-    const seen: (number | null)[] = [];
-    for (const y of [top + 4, top + 16, top + 28, top + 36, top + 50]) {
-      await moveTo(page, x, y);
-      const preview = await previewNow(page, 'tabs');
-      seen.push(preview?.index ?? null);
-    }
-    expect(seen).toEqual([2, 2, 2, 2, 2]);
-    await moveTo(page, x, top + 4);
-    const preview = await release(page, 'tabs');
-    expect(preview).toMatchObject({ windowId: a.windowId, index: 2 });
+    const preview = await dragTab(page, a.tab('a4'), () =>
+      justInside(page, a.tab('p1'))
+    );
+    expect(preview).toMatchObject({ windowId: a.windowId, index: 1 });
 
     await expect
       .poll(() => chromeOrder(worker, a.windowId))
       .toEqual([
         a.tab('p0'),
-        a.tab('p1'),
         a.tab('a4'),
+        a.tab('p1'),
         a.tab('a2'),
         a.tab('a3'),
       ]);
-    expect((await chromeTab(worker, a.tab('a4')))?.pinned).toBe(false);
+    expect((await chromeTab(worker, a.tab('a4')))?.pinned).toBe(true);
     await listMatchesChrome(page, worker, [a.windowId], extensionId);
     await expectLandedAsPreviewed(page, a.tab('a4'), preview);
+    await expect(toasts(page)).toHaveText(/^Tab pinned\./);
+    await expect(
+      toasts(page).getByRole('button', { name: 'Undo' })
+    ).toBeVisible();
   });
 
-  test('5b. a pinned tab held below the run is only shown slots inside it, and stays pinned', async ({
+  test('5b. a pinned tab dropped below the run is unpinned there, and "Tab unpinned." says so', async ({
     context,
     extensionId,
     serviceWorker: worker,
   }) => {
-    // Pinned before the tab view opens, so its first read has them: a
-    // premise that holds on any build (main's rows have no pin mark).
     const a = await openWindow(worker, ['p0', 'p1', 'a2', 'a3', 'a4']);
     await pin(worker, [a.tab('p0'), a.tab('p1')]);
     const page = await openTabView(context, extensionId);
     await expect(tabRow(page, a.tab('a4'))).toBeVisible();
     await paneFits(page);
 
-    const { x } = await pickUp(page, tabRow(page, a.tab('p0')));
-    const seen: (number | null)[] = [];
-    for (const id of [a.tab('a2'), a.tab('a3'), a.tab('a4')]) {
-      await moveTo(page, x, await justBelow(page, id));
-      seen.push((await previewNow(page, 'tabs'))?.index ?? null);
-    }
-    // One other pinned tab: the run's slots are 0 and 1.
-    expect(seen).toEqual([1, 1, 1]);
-    const preview = await release(page, 'tabs');
+    const preview = await dragTab(page, a.tab('p0'), () =>
+      justBelow(page, a.tab('a3'))
+    );
+    expect(preview).toMatchObject({ windowId: a.windowId, index: 3 });
+
+    await expect
+      .poll(() => chromeOrder(worker, a.windowId))
+      .toEqual([
+        a.tab('p1'),
+        a.tab('a2'),
+        a.tab('a3'),
+        a.tab('p0'),
+        a.tab('a4'),
+      ]);
+    expect((await chromeTab(worker, a.tab('p0')))?.pinned).toBe(false);
+    await listMatchesChrome(page, worker, [a.windowId], extensionId);
+    await expectLandedAsPreviewed(page, a.tab('p0'), preview);
+    await expect(toasts(page)).toHaveText(/^Tab unpinned\./);
+  });
+
+  // CONTROL for 5a/5b's toast: the run's boundary keeps a pin.
+  test("5c. a pinned tab reordered at the run's edge stays pinned, and nothing is told", async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const a = await openWindow(worker, ['p0', 'p1', 'a2', 'a3', 'a4']);
+    await pin(worker, [a.tab('p0'), a.tab('p1')]);
+    const page = await openTabView(context, extensionId);
+    await expect(tabRow(page, a.tab('a4'))).toBeVisible();
+    await paneFits(page);
+
+    const preview = await dragTab(page, a.tab('p0'), () =>
+      justBelow(page, a.tab('p1'))
+    );
     expect(preview).toMatchObject({ windowId: a.windowId, index: 1 });
 
     await expect
@@ -1029,15 +1054,16 @@ test.describe('the pinned boundary (KAN-280 O11c, K1)', () => {
     expect((await chromeTab(worker, a.tab('p0')))?.pinned).toBe(true);
     await listMatchesChrome(page, worker, [a.windowId], extensionId);
     await expectLandedAsPreviewed(page, a.tab('p0'), preview);
+    // A toast is up within ~100ms of the re-read; none is.
+    await page.waitForTimeout(500);
+    await expect(toasts(page)).toHaveCount(0);
   });
 
-  test('5c. K1: a pinned tab held over another window is shown no slot there, and a release puts it back, pinned', async ({
+  test("5d. K-B: a pinned tab dropped among another window's tabs goes there, unpinned below its (empty) run", async ({
     context,
     extensionId,
     serviceWorker: worker,
   }) => {
-    // Pinned before the tab view opens, so its first read has them: a
-    // premise that holds on any build (main's rows have no pin mark).
     const a = await openWindow(worker, ['p0', 'a1', 'a2']);
     const b = await openWindow(worker, ['b0', 'b1', 'b2']);
     await pin(worker, [a.tab('p0')]);
@@ -1046,44 +1072,17 @@ test.describe('the pinned boundary (KAN-280 O11c, K1)', () => {
     await expect(tabRow(page, b.tab('b2'))).toBeVisible();
     await paneFits(page);
 
-    // CONTROL: an unpinned tab held at the same point IS shown a slot in B.
-    const control = await pickUp(page, tabRow(page, a.tab('a1')));
-    await moveTo(page, control.x, await justInside(page, b.tab('b1')));
-    expect(await previewNow(page, 'tabs')).toMatchObject({
-      windowId: b.windowId,
-      index: 1,
-    });
-    await page.keyboard.press('Escape');
-    await page.mouse.up();
-    await page.waitForTimeout(300);
-    // PREMISE: Escape cancelled the control; nothing moved.
-    expect(await chromeOrder(worker, a.windowId)).toEqual([
-      a.tab('p0'),
-      a.tab('a1'),
-      a.tab('a2'),
-    ]);
-
-    // Over each row of B, and released there: the refused preview (p0's
-    // own slot, index 0 in A), and p0 back there.
-    await expectTabRefused(
-      page,
-      worker,
-      a.tab('p0'),
-      [b.tab('b0'), b.tab('b1'), b.tab('b2')].map(
-        (id) => () => justInside(page, id)
-      ),
-      [a.windowId, b.windowId],
-      extensionId
+    const preview = await dragTab(page, a.tab('p0'), () =>
+      justInside(page, b.tab('b1'))
     );
-    expect(await chromeOrder(worker, b.windowId)).toEqual([
-      b.tab('b0'),
-      b.tab('b1'),
-      b.tab('b2'),
-    ]);
+    expect(preview).toMatchObject({ windowId: b.windowId, index: 1 });
+
+    await expect
+      .poll(() => chromeOrder(worker, b.windowId))
+      .toEqual([b.tab('b0'), a.tab('p0'), b.tab('b1'), b.tab('b2')]);
     expect(await chromeTab(worker, a.tab('p0'))).toMatchObject({
-      windowId: a.windowId,
-      index: 0,
-      pinned: true,
+      windowId: b.windowId,
+      pinned: false,
     });
     await listMatchesChrome(
       page,
@@ -1091,6 +1090,159 @@ test.describe('the pinned boundary (KAN-280 O11c, K1)', () => {
       [a.windowId, b.windowId],
       extensionId
     );
+    await expectLandedAsPreviewed(page, a.tab('p0'), preview);
+    await expect(toasts(page)).toHaveText(/^Tab unpinned\./);
+  });
+
+  test("5e. a pinned tab dropped in a group's band joins it, unpinned", async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const a = await openWindow(worker, ['p0', 'a1', 'g0', 'g1']);
+    await pin(worker, [a.tab('p0')]);
+    const group = await makeGroup(
+      worker,
+      a.windowId,
+      [a.tab('g0'), a.tab('g1')],
+      'Band',
+      'blue'
+    );
+    const page = await openTabView(context, extensionId);
+    await expect(tabRow(page, a.tab('g1'))).toBeVisible();
+    await paneFits(page);
+
+    const preview = await dragTab(page, a.tab('p0'), () =>
+      justInside(page, a.tab('g1'))
+    );
+    expect(preview).toMatchObject({
+      windowId: a.windowId,
+      lit: [String(group)],
+    });
+
+    await expect
+      .poll(async () => (await chromeTab(worker, a.tab('p0')))?.groupId)
+      .toBe(group);
+    expect((await chromeTab(worker, a.tab('p0')))?.pinned).toBe(false);
+    await listMatchesChrome(page, worker, [a.windowId], extensionId);
+    await expectLandedAsPreviewed(page, a.tab('p0'), preview);
+    await expect(toasts(page)).toHaveText(/^Tab unpinned\./);
+  });
+
+  // The band's head right after the run is the tab's own slot, and the
+  // run's boundary, which keeps a pin: only the band unpins it there.
+  test('5e2. a pinned tab dropped at the head of a band just after the run joins it, unpinned, in place', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const a = await openWindow(worker, ['p0', 'g0', 'g1', 'a1']);
+    await pin(worker, [a.tab('p0')]);
+    const group = await makeGroup(
+      worker,
+      a.windowId,
+      [a.tab('g0'), a.tab('g1')],
+      'Band',
+      'blue'
+    );
+    const page = await openTabView(context, extensionId);
+    await expect(tabRow(page, a.tab('a1'))).toBeVisible();
+    await paneFits(page);
+
+    const preview = await dragTab(page, a.tab('p0'), () =>
+      justInside(page, a.tab('g0'))
+    );
+    expect(preview).toMatchObject({
+      windowId: a.windowId,
+      index: 0,
+      lit: [String(group)],
+    });
+
+    await expect
+      .poll(async () => (await chromeTab(worker, a.tab('p0')))?.groupId)
+      .toBe(group);
+    expect((await chromeTab(worker, a.tab('p0')))?.pinned).toBe(false);
+    expect(await chromeOrder(worker, a.windowId)).toEqual([
+      a.tab('p0'),
+      a.tab('g0'),
+      a.tab('g1'),
+      a.tab('a1'),
+    ]);
+    // The order is unchanged, so only the band says the list re-read.
+    await expect
+      .poll(async () => (await shownPlace(page, a.tab('p0')))?.band)
+      .toBe(String(group));
+    await expectLandedAsPreviewed(page, a.tab('p0'), preview);
+    await expect(toasts(page)).toHaveText(/^Tab unpinned\./);
+  });
+
+  test("5f. the toast's Undo puts the tab back where it was, unpinned, and closes the toast", async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const a = await openWindow(worker, ['p0', 'p1', 'a2', 'a3', 'a4']);
+    await pin(worker, [a.tab('p0'), a.tab('p1')]);
+    const page = await openTabView(context, extensionId);
+    await expect(tabRow(page, a.tab('a4'))).toBeVisible();
+    await paneFits(page);
+    const before = await chromeOrder(worker, a.windowId);
+
+    await dragTab(page, a.tab('a4'), () => justInside(page, a.tab('p0')));
+    // PREMISE: the drop pinned it.
+    await expect
+      .poll(async () => (await chromeTab(worker, a.tab('a4')))?.pinned)
+      .toBe(true);
+
+    await toasts(page).getByRole('button', { name: 'Undo' }).click();
+
+    await expect.poll(() => chromeOrder(worker, a.windowId)).toEqual(before);
+    expect((await chromeTab(worker, a.tab('a4')))?.pinned).toBe(false);
+    await listMatchesChrome(page, worker, [a.windowId], extensionId);
+    await expect(toasts(page)).toHaveCount(0);
+  });
+
+  // My call (KAN-814 PR): a folded window shows no slot, so nothing chose a
+  // pin there; the tab keeps its own, as in a saved session.
+  test("5g. a drop on a folded window keeps the tab's pin", async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const a = await openWindow(worker, ['p0', 'a1', 'a2']);
+    const b = await openWindow(worker, ['bp0', 'b1']);
+    await pin(worker, [a.tab('p0'), b.tab('bp0')]);
+    const page = await openTabView(context, extensionId);
+    await expect(tabRow(page, a.tab('a2'))).toBeVisible();
+    await expect(tabRow(page, b.tab('b1'))).toBeVisible();
+    const windowB = page.locator(`[data-open-window-id="${b.windowId}"]`);
+    await windowB.getByRole('button', { name: /^Collapse:/ }).click();
+    await expect(tabRow(page, b.tab('b1'))).toBeHidden();
+    await paneFits(page);
+    const onB = async () => {
+      const box = await boxOf(windowB);
+      return box.y + box.height / 2;
+    };
+
+    // Pinned: it goes to the front of B's run, still pinned.
+    const pinned = await dragTab(page, a.tab('p0'), onB);
+    expect(pinned).toMatchObject({ windowId: b.windowId, index: 0 });
+    await expect
+      .poll(() => chromeOrder(worker, b.windowId))
+      .toEqual([a.tab('p0'), b.tab('bp0'), b.tab('b1')]);
+    expect((await chromeTab(worker, a.tab('p0')))?.pinned).toBe(true);
+    await listMatchesChrome(page, worker, [a.windowId], extensionId);
+
+    // Unpinned: it goes just below B's run, still unpinned (the CONTROL main
+    // passes too; it fails on a build that reads position 0 as a slot).
+    const unpinned = await dragTab(page, a.tab('a1'), onB);
+    expect(unpinned).toMatchObject({ windowId: b.windowId, index: 0 });
+    await expect
+      .poll(() => chromeOrder(worker, b.windowId))
+      .toEqual([a.tab('p0'), b.tab('bp0'), a.tab('a1'), b.tab('b1')]);
+    expect((await chromeTab(worker, a.tab('a1')))?.pinned).toBe(false);
+    await page.waitForTimeout(500);
+    await expect(toasts(page)).toHaveCount(0);
   });
 });
 
