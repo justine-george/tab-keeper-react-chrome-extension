@@ -204,7 +204,7 @@ describe('a saved window and its groups', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.getAttribute('data-menu-item'))
-    ).toEqual(['copy', 'sortBySite', 'delete']);
+    ).toEqual(['copy', 'rename', 'sortBySite', 'delete']);
   });
 
   test('Open and Add tab run the row’s own buttons’ actions and close the menu', async () => {
@@ -287,6 +287,39 @@ describe('a saved window and its groups', () => {
     expect(
       await screen.findByRole('textbox', { name: 'Rename group: Work' })
     ).toHaveFocus();
+  });
+
+  // KAN-805. The ⋮ offers Rename too, right after Copy all links; the right-click keeps it in its top row only.
+  test('the window ⋮ offers Rename after Copy all links, and it opens the name field', async () => {
+    const user = userEvent.setup();
+    await renderSaved();
+    await user.click(
+      screen.getAllByRole('button', { name: 'More actions' })[0]
+    );
+    const menu = screen.getByRole('menu');
+
+    expect(listKeys(menu)).toEqual(['copy', 'rename', 'sortBySite', 'delete']);
+    await user.click(
+      within(menu).getByRole('menuitem', { name: 'Rename window' })
+    );
+    expect(
+      await screen.findByPlaceholderText('Name this window')
+    ).toHaveFocus();
+  });
+
+  test('the group ⋮ offers Rename after Copy all links, and it opens the name field', async () => {
+    const user = userEvent.setup();
+    await renderSaved();
+    await user.click(
+      screen.getAllByRole('button', { name: 'More actions' })[1]
+    );
+    const menu = screen.getByRole('menu');
+
+    expect(listKeys(menu)).toEqual(['copy', 'rename', 'ungroup', 'delete']);
+    await user.click(
+      within(menu).getByRole('menuitem', { name: 'Rename group' })
+    );
+    expect(await screen.findByPlaceholderText('Name this group')).toHaveFocus();
   });
 
   test('the group ⋮ has no top row', async () => {
@@ -434,6 +467,22 @@ describe('Currently open windows and groups', () => {
 
     fireEvent.contextMenu(groupRow());
     expect(rowNames(rowMenu())).toEqual(['Go to', 'Rename']);
+  });
+
+  // KAN-805. As a saved group's ⋮.
+  test('a live group’s ⋮ offers Rename after Copy all links, and it opens the name field', async () => {
+    const user = userEvent.setup();
+    await renderOpenNow();
+    await user.click(
+      screen.getByRole('button', { name: 'More actions: Docs' })
+    );
+    const menu = screen.getByRole('menu');
+
+    expect(listKeys(menu)).toEqual(['copy', 'rename', 'ungroup', 'closeGroup']);
+    await user.click(
+      within(menu).getByRole('menuitem', { name: 'Rename group' })
+    );
+    expect(await screen.findByPlaceholderText('Name this group')).toHaveFocus();
   });
 
   test('a window ⋮ has no top row', async () => {

@@ -96,7 +96,7 @@ const storedIds = (state: RootState) =>
   state.tabContainerDataState.tabGroups[0].windows[0].tabs.map((t) => t.tabId);
 
 describe('Sort tabs by site in a saved window menu (KAN-694)', () => {
-  test('comes right after Copy all links, above Remove duplicate tabs and Delete window', async () => {
+  test('comes right after Copy all links and Rename, above Remove duplicate tabs and Delete window', async () => {
     const user = userEvent.setup();
     await render([
       tab('a1', 'a.test'),
@@ -106,6 +106,7 @@ describe('Sort tabs by site in a saved window menu (KAN-694)', () => {
     const menu = await openMenu(user);
     expect(names(menu)).toEqual([
       expect.stringMatching(/Copy all links$/),
+      expect.stringMatching(/Rename window$/),
       expect.stringMatching(/Sort tabs by site$/),
       expect.stringMatching(/Remove 1 duplicate tab$/),
       expect.stringMatching(/Delete window$/),
@@ -135,6 +136,7 @@ describe('Sort tabs by site in a saved window menu (KAN-694)', () => {
     const menu = await openMenu(user);
     expect(names(menu)).toEqual([
       expect.stringMatching(/Copy all links$/),
+      expect.stringMatching(/Rename window$/),
       expect.stringMatching(/Delete window$/),
     ]);
   });
@@ -151,7 +153,7 @@ describe('Sort tabs by site in a saved group menu (KAN-746)', () => {
     return screen.getByRole('menu');
   };
 
-  test('comes right after Copy all links, above Ungroup and Delete tab group', async () => {
+  test('comes right after Copy all links and Rename, above Ungroup and Delete tab group', async () => {
     const user = userEvent.setup();
     await render([
       tab('b1', 'b.test', g1),
@@ -161,6 +163,7 @@ describe('Sort tabs by site in a saved group menu (KAN-746)', () => {
     const menu = await openGroupMenu(user);
     expect(names(menu)).toEqual([
       expect.stringMatching(/Copy all links$/),
+      expect.stringMatching(/Rename group$/),
       expect.stringMatching(/Sort tabs by site$/),
       expect.stringMatching(/Ungroup$/),
       expect.stringMatching(/Delete tab group$/),
@@ -207,6 +210,7 @@ describe('Sort tabs by site in a saved group menu (KAN-746)', () => {
     const menu = await openGroupMenu(user);
     expect(names(menu)).toEqual([
       expect.stringMatching(/Copy all links$/),
+      expect.stringMatching(/Rename group$/),
       expect.stringMatching(/Ungroup$/),
       expect.stringMatching(/Delete tab group$/),
     ]);

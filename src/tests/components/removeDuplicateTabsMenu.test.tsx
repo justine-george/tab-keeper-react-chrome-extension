@@ -80,6 +80,7 @@ describe('Remove duplicate tabs in the session menu (KAN-609)', () => {
     const items = within(menu).getAllByRole('menuitem');
     expect(items).toEqual([
       within(menu).getByRole('menuitem', { name: 'Copy all links' }),
+      within(menu).getByRole('menuitem', { name: 'Rename session' }),
       within(menu).getByRole('menuitem', { name: 'Save as PDF…' }),
       within(menu).getByRole('menuitem', { name: 'Remove 2 duplicate tabs' }),
       within(menu).getByRole('menuitem', { name: /^Delete session/ }),
@@ -109,7 +110,7 @@ describe('Remove duplicate tabs in the session menu (KAN-609)', () => {
     const user = userEvent.setup();
     await renderHeader([tab('t1', A), tab('t2', B)]);
     const menu = await openMenu(user);
-    expect(itemNames(menu)).toHaveLength(3);
+    expect(itemNames(menu)).toHaveLength(4);
     expect(
       within(menu).queryByRole('menuitem', { name: /duplicate/ })
     ).toBeNull();

@@ -791,7 +791,7 @@ test('(j) Close group by keyboard leaves focus on the window chevron', async ({
   await expect(closeGroup).toBeVisible();
   for (
     let i = 0;
-    i < 3 &&
+    i < 5 &&
     !(await closeGroup.evaluate((el) => el === document.activeElement));
     i++
   ) {

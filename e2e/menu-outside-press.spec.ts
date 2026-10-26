@@ -62,9 +62,14 @@ const MENUS = {
       page.locator('[data-tour-anchor="session-menu"] [role="menu"]'),
   },
   'row menu': {
+    // KAN-805. Trip's, 140px in: it opens down, below the fold chevron and right of Bravo's title (S3's, taller now, flipped up over it).
     open: async (page: Page) => {
-      const at = await onTitle(sessionRow(page, 'S3'));
-      await page.mouse.click(at.x, at.y, { button: 'right' });
+      const box = await boxOf(sessionRow(page, 'S1'));
+      await page.mouse.click(
+        Math.round(box.x + 140),
+        Math.round(box.y + box.height / 2),
+        { button: 'right' }
+      );
     },
     menu: (page: Page) => page.locator('[role="menu"][data-row-menu]'),
   },

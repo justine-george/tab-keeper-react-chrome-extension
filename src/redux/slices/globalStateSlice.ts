@@ -234,6 +234,8 @@ export interface Global {
   // beside Open now until the fold button is next pressed. Session-only, so
   // a new page opens as the stored setting says.
   isPeekingSavedSession: boolean;
+  // KAN-805. A menu's Rename session, for the header to open that session's title once it shows it.
+  sessionRenameRequest: string | null;
   // The run shows in this page, which holds its lock; a reload shows it only by resuming.
   isRunHere: boolean;
   // Once the run showed here, this open's first-open dialogs and quiet cards stand down.
@@ -356,6 +358,7 @@ export const initialState: Global = {
   deletingStartedAt: null,
   hasAuthListenerSignInFailed: false,
   isPeekingSavedSession: false,
+  sessionRenameRequest: null,
   isRunHere: false,
   hasRunShownHere: false,
   runSaveCard: null,
@@ -1550,6 +1553,14 @@ export const globalStateSlice = createSlice({
       state.isPeekingSavedSession = false;
     },
 
+    requestSessionRename: (state, action: PayloadAction<string>) => {
+      state.sessionRenameRequest = action.payload;
+    },
+
+    clearSessionRenameRequest: (state) => {
+      state.sessionRenameRequest = null;
+    },
+
     runShownHere: (state) => {
       state.isRunHere = true;
       state.hasRunShownHere = true;
@@ -1748,6 +1759,8 @@ export const {
   setAllWindowsCollapsed,
   peekSavedSession,
   endSavedSessionPeek,
+  requestSessionRename,
+  clearSessionRenameRequest,
   runShownHere,
   runStoppedHere,
   setRunSaveCard,

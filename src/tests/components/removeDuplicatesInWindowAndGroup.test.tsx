@@ -138,6 +138,7 @@ describe('the window ⋮ (KAN-616, 1A)', () => {
     // Copy all links (KAN-783) first; Planning is out of order, so Sort tabs by site (KAN-694) follows.
     expect(items(menu)).toEqual([
       'Copy all links',
+      'Rename window',
       'Sort tabs by site',
       'Remove 2 duplicate tabs',
       'Delete window',
@@ -148,7 +149,11 @@ describe('the window ⋮ (KAN-616, 1A)', () => {
     const user = userEvent.setup();
     await render();
     const menu = await openWindowMenu(user, 'w2');
-    expect(items(menu)).toEqual(['Copy all links', 'Delete window']);
+    expect(items(menu)).toEqual([
+      'Copy all links',
+      'Rename window',
+      'Delete window',
+    ]);
   });
 
   test('Remove takes out the window’s repeats only, with Undo', async () => {
@@ -187,9 +192,10 @@ describe('the group ⋮ (KAN-616, 2A)', () => {
     const user = userEvent.setup();
     await render();
     const menu = await openGroupMenu(user);
-    // KAN-746: guide, tram, guide is out of site order, so Sort follows Copy all links.
+    // KAN-746: guide, tram, guide is out of site order, so Sort follows Copy all links and Rename (KAN-805).
     expect(items(menu)).toEqual([
       'Copy all links',
+      'Rename group',
       'Sort tabs by site',
       'Ungroup',
       'Remove 1 duplicate tab',

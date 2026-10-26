@@ -72,6 +72,7 @@ for (const view of VIEWS) {
       [
         /Add current window to this session$/,
         /Copy all links$/,
+        /Rename session$/,
         /Save as PDF…$/,
         /Delete session/,
       ]

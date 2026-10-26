@@ -131,14 +131,16 @@ for (const view of VIEWS) {
       await openSavedMenu(page);
       const dotItems = await menuNames(page);
       // KAN-793. The right-click leads with the row's buttons; Add tab is popup only.
+      // KAN-805. Its top row holds Rename, so its list leaves out the ⋮'s Rename window.
       expect(rowItems).toEqual([
         ...(view === 'popup'
           ? ['Open', 'Add tab', 'Rename']
           : ['Open', 'Rename']),
-        ...dotItems,
+        ...dotItems.filter((name) => name !== 'Rename window'),
       ]);
-      expect(dotItems.slice(0, 3)).toEqual([
+      expect(dotItems.slice(0, 4)).toEqual([
         'Copy all links',
+        'Rename window',
         'Sort tabs by site',
         'Sort groups by name',
       ]);

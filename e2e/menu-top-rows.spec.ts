@@ -9,6 +9,7 @@ import {
   boxOf,
   groupedWindow,
   openSaved,
+  savedWindow,
   session,
   stored,
 } from './fixtures/savedWindows';
@@ -81,6 +82,88 @@ for (const view of VIEWS) {
     await expect
       .poll(async () => (await stored(page)).tabGroups[0].windows[0].title)
       .toBe('Ramen list');
+  });
+}
+
+// KAN-805. The ⋮ offers Rename too, right after Copy all links; a session row's Rename shows that session first.
+const sessionRow = (page: Page, id: string): Locator =>
+  page.locator(
+    `[data-pane="sessions"] [data-drag-row-id="${id}"] [data-drag-handle-row]`
+  );
+
+for (const view of VIEWS) {
+  test(`${view}: a saved window's ⋮ Rename window opens its name field with the focus in it`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, view, {
+      sessions: SESSIONS,
+    });
+    await page
+      .locator('[data-pane="detail"] [data-drag-row-id="w1"]')
+      .getByRole('button', { name: /^More actions/ })
+      .first()
+      .click();
+    const menu = page.getByRole('menu');
+    await expect
+      .poll(() =>
+        menu
+          .locator('[data-menu-item]')
+          .evaluateAll((els) =>
+            els.slice(0, 2).map((el) => el.getAttribute('data-menu-item'))
+          )
+      )
+      .toEqual(['copy', 'rename']);
+    await menu.getByRole('menuitem', { name: 'Rename window' }).click();
+
+    await expect(menu).toHaveCount(0);
+    const field = page.getByPlaceholder('Name this window');
+    await expect(field).toBeFocused();
+    await expect(field).toHaveValue('Reading');
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.type('Ramen list');
+    await page.keyboard.press('Enter');
+    await expect
+      .poll(async () => (await stored(page)).tabGroups[0].windows[0].title)
+      .toBe('Ramen list');
+  });
+
+  test(`${view}: a session row's Rename session selects it and opens its title with the focus in it`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, view, {
+      sessions: [
+        ...SESSIONS,
+        session('S2', 'Bravo', [savedWindow('w2', 'Other')]),
+      ],
+    });
+    await sessionRow(page, 'S2').click({ button: 'right' });
+    await rowMenu(page)
+      .getByRole('menuitem', { name: 'Rename session', exact: true })
+      .click();
+
+    await expect(rowMenu(page)).toHaveCount(0);
+    const field = page.locator('input[data-tour-anchor="title"]');
+    await expect(field).toBeFocused();
+    await expect(field).toHaveValue('Bravo');
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.type('Kyoto');
+    await page.keyboard.press('Enter');
+    await expect
+      .poll(async () =>
+        (await stored(page)).tabGroups.map((g) => [
+          g.tabGroupId,
+          g.title,
+          g.isSelected,
+        ])
+      )
+      .toEqual(
+        expect.arrayContaining([
+          ['S1', 'Trip', false],
+          ['S2', 'Kyoto', true],
+        ])
+      );
   });
 }
 

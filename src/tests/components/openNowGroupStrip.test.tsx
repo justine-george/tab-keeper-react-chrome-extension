@@ -156,7 +156,7 @@ describe('a live group row: Save and a ⋮ (KAN-696)', () => {
     const user = userEvent.setup();
     await renderOpenNow();
     await openGroupMenu(user, 'Docs');
-    expect(menuKeys()).toEqual(['copy', 'ungroup', 'closeGroup']);
+    expect(menuKeys()).toEqual(['copy', 'rename', 'ungroup', 'closeGroup']);
     const items = within(screen.getByRole('menu')).getAllByRole('menuitem');
     expect(items[items.length - 1]).toHaveTextContent('Close group');
   });
@@ -548,7 +548,13 @@ describe('Sort tabs by site on a live group (KAN-746)', () => {
     const user = userEvent.setup();
     await renderOpenNow(unsorted());
     await openGroupMenu(user, 'Docs');
-    expect(menuKeys()).toEqual(['copy', 'sortBySite', 'ungroup', 'closeGroup']);
+    expect(menuKeys()).toEqual([
+      'copy',
+      'rename',
+      'sortBySite',
+      'ungroup',
+      'closeGroup',
+    ]);
   });
 
   test("choosing it sorts the real group's tabs and says so", async () => {
@@ -590,6 +596,6 @@ describe('Sort tabs by site on a live group (KAN-746)', () => {
     const user = userEvent.setup();
     await renderOpenNow();
     await openGroupMenu(user, 'Docs');
-    expect(menuKeys()).toEqual(['copy', 'ungroup', 'closeGroup']);
+    expect(menuKeys()).toEqual(['copy', 'rename', 'ungroup', 'closeGroup']);
   });
 });
