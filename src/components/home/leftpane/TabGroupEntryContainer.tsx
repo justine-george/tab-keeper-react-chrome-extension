@@ -515,7 +515,7 @@ export default function TabGroupEntryContainer() {
         glassInset={SAVED_SEARCH_GLASS_INSET}
         glassBox="tight"
         textInset={SAVED_SEARCH_TEXT_PADDING}
-        rowAttribute="data-saved-search"
+        pane="saved"
         emptyEscape="leave-field"
       />
       <div css={scrollerStyle} ref={listRef}>

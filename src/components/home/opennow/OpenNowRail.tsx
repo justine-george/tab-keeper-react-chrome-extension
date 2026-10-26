@@ -10,7 +10,12 @@ import {
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
-import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
+import {
+  useSearchShortcut,
+  useSearchTarget,
+} from '../../../hooks/useSearchShortcut';
+import { Tag } from '../../common/Tag';
+import { SEARCH_SHORTCUT_KEY } from '../../common/searchShortcut';
 import Icon from '../../common/Icon';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { formatTabCount } from '../../../utils/functions/local';
@@ -60,6 +65,8 @@ export default function OpenNowRail({
   // screen reader announces where it landed and Tab continues into the
   // drawer (O2).
   const openedByShortcut = useRef(false);
+  // KAN-800. While / would open the drawer into its search, the rail wears the chip.
+  const showsShortcut = useSearchTarget() === 'openNow' && !isOpen;
   useSearchShortcut(
     'openNow',
     isOpen
@@ -257,6 +264,7 @@ export default function OpenNowRail({
         aria-label={railLabel}
         data-tooltip={railLabel}
         aria-expanded={isOpen}
+        aria-keyshortcuts={showsShortcut ? SEARCH_SHORTCUT_KEY : undefined}
         // Only while the drawer exists: an IDREF to nothing names no element.
         aria-controls={isOpen ? drawerId : undefined}
         onClick={() => (isOpen ? close() : setIsOpen(true))}
@@ -274,6 +282,11 @@ export default function OpenNowRail({
           </span>
         ) : (
           <span css={[labelStyle, verticalStyle]}>{t('Open now')}</span>
+        )}
+        {showsShortcut && (
+          <span aria-hidden="true">
+            <Tag value={SEARCH_SHORTCUT_KEY} />
+          </span>
         )}
       </button>
       {isOpen && (

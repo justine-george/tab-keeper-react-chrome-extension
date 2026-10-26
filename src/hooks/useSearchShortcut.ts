@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 
 import {
   isSearchShortcut,
-  searchPaneFor,
+  searchPaneOf,
   type SearchPane,
 } from '../components/common/searchShortcut';
 
@@ -20,9 +20,31 @@ function handlerFor(pane: SearchPane): (() => void) | null {
   return null;
 }
 
+// KAN-800. The pane last pressed, empty space included, or reached by a key; none until then.
+let chosen: SearchPane | null = null;
+// Whether the latest input was a key: focus the page moves after a press (the drawer handing it to its rail) chooses nothing.
+let lastInputWasKey = false;
+const subscribers = new Set<() => void>();
+const notify = () => subscribers.forEach((subscriber) => subscriber());
+
+function choose(node: EventTarget | null) {
+  const pane = searchPaneOf(node instanceof Element ? node : null);
+  if (pane === null || pane === chosen) return;
+  chosen = pane;
+  notify();
+}
+
+/** Where / goes now: the chosen pane while it has a handler, else the saved list's. */
+function searchTarget(): SearchPane {
+  return chosen === 'openNow' && handlerFor('openNow') !== null
+    ? 'openNow'
+    : 'saved';
+}
+
 function onKeyDown(event: KeyboardEvent) {
+  lastInputWasKey = true;
   if (!isSearchShortcut(event)) return;
-  const handler = handlerFor(searchPaneFor(document.activeElement));
+  const handler = handlerFor(searchTarget());
   // No handler: the key is not ours, so it types or acts as usual.
   if (handler === null) return;
   // Before focus moves: otherwise the / is typed into the field.
@@ -30,12 +52,36 @@ function onKeyDown(event: KeyboardEvent) {
   handler();
 }
 
+function onPointerDown(event: PointerEvent) {
+  lastInputWasKey = false;
+  choose(event.target);
+}
+
+function onFocusIn(event: FocusEvent) {
+  if (lastInputWasKey) choose(event.target);
+}
+
 function registrations(): number {
   return registry.saved.length + registry.openNow.length;
 }
 
+function listen() {
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('pointerdown', onPointerDown, true);
+  window.addEventListener('focusin', onFocusIn, true);
+}
+
+function stopListening() {
+  window.removeEventListener('keydown', onKeyDown);
+  window.removeEventListener('pointerdown', onPointerDown, true);
+  window.removeEventListener('focusin', onFocusIn, true);
+  // Nothing left to search: the next page starts unchosen.
+  chosen = null;
+  lastInputWasKey = false;
+}
+
 /**
- * Calls `onShortcut` on `/` while focus is in `pane` and it is not null.
+ * Calls `onShortcut` on `/` while `pane` is where / goes and it is not null.
  * The caller's closure is read through a ref, so a new one each render
  * doesn't re-register.
  */
@@ -49,13 +95,23 @@ export function useSearchShortcut(
   });
   useEffect(() => {
     const mine = entry.current;
-    if (registrations() === 0) window.addEventListener('keydown', onKeyDown);
+    if (registrations() === 0) listen();
     registry[pane].push(mine);
+    notify();
     return () => {
       registry[pane] = registry[pane].filter((h) => h !== mine);
-      if (registrations() === 0) {
-        window.removeEventListener('keydown', onKeyDown);
-      }
+      if (registrations() === 0) stopListening();
+      notify();
     };
   }, [pane]);
+}
+
+function subscribe(subscriber: () => void): () => void {
+  subscribers.add(subscriber);
+  return () => subscribers.delete(subscriber);
+}
+
+/** KAN-800. Where / goes now, for the field (or the rail) that shows its chip. */
+export function useSearchTarget(): SearchPane {
+  return useSyncExternalStore(subscribe, searchTarget);
 }

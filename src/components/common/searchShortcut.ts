@@ -27,7 +27,10 @@ export function isSearchShortcut(event: KeyboardEvent): boolean {
 
 export type SearchPane = 'saved' | 'openNow';
 
-/** Open now's when focus is inside its column (pane, rail or drawer), else the saved list's. */
-export function searchPaneFor(active: Element | null): SearchPane {
-  return active?.closest('[data-pane="open-now"]') ? 'openNow' : 'saved';
+/** KAN-800. The pane a node sits in: Open now's column (pane, rail or drawer), the saved list's panes, or none. */
+export function searchPaneOf(node: Element | null): SearchPane | null {
+  const pane = node?.closest('[data-pane]')?.getAttribute('data-pane');
+  if (pane === 'open-now') return 'openNow';
+  if (pane === 'sessions' || pane === 'detail') return 'saved';
+  return null;
 }

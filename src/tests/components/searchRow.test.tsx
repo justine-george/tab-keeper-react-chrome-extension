@@ -19,7 +19,7 @@ function Held(props: Props) {
       glassInset="32px"
       glassBox="column"
       textInset="8px"
-      rowAttribute="data-saved-search"
+      pane="saved"
       emptyEscape="leave-field"
       {...props}
     />
@@ -41,8 +41,8 @@ describe('SearchRow', () => {
     expect(field()).toHaveAttribute('placeholder', 'Search things');
   });
 
-  test('rowAttribute marks the row', async () => {
-    await renderWithProviders(<Held rowAttribute="data-open-now-search" />);
+  test('pane marks the row', async () => {
+    await renderWithProviders(<Held pane="openNow" />);
     expect(document.querySelector('[data-open-now-search]')).not.toBeNull();
     expect(document.querySelector('[data-saved-search]')).toBeNull();
   });
