@@ -10,6 +10,7 @@ import {
 import {
   currentCarry,
   endCarry,
+  registerCarryReceiver,
   startCarry,
   type CarryOut,
 } from '../../redux/carry';
@@ -248,6 +249,49 @@ describe('reaching the session list hands the drag to the carry', () => {
     expect(currentCarry()?.owner).toBe('layer');
     expect(currentCarry()?.item).toBe(OUT.item);
     expect(heldMarker()).toBeNull();
+  });
+
+  // KAN-815. Open now's pane is a receiver over its own lists; a phantom
+  // inside the box it answers for is adopted under it. Its measured hit
+  // misses there, as the pane's does for a drag it can land (Task 5).
+  const receiverOver = (region: () => Element | null) =>
+    registerCarryReceiver({
+      hit: (x, y) =>
+        x >= PANE.left && x < PANE.right && y >= PANE.top && y < PANE.bottom,
+      measureHit: () => () => false,
+      region,
+      hover: () => {},
+      leave: () => {},
+      take: () => false,
+    });
+
+  test('a receiver whose region holds the phantom lets the area adopt under it', () => {
+    render(<Harness onMove={() => {}} adoptRowId="a" />);
+    const pane = layout();
+    const unregister = receiverOver(() => pane);
+    startCarry(OUT.item, OUT.card, ON_LIST, 40);
+
+    fireEvent.pointerMove(document, { clientX: 10, clientY: 40 });
+
+    expect(currentCarry()?.owner).toBe('area');
+    expect(heldMarker()).not.toBeNull();
+    unregister();
+  });
+
+  test('a receiver drawn over the pane from elsewhere keeps the carry (the narrow drawer)', () => {
+    render(<Harness onMove={() => {}} adoptRowId="a" />);
+    layout();
+    const drawer = document.createElement('div');
+    document.body.append(drawer);
+    const unregister = receiverOver(() => drawer);
+    startCarry(OUT.item, OUT.card, ON_LIST, 40);
+
+    fireEvent.pointerMove(document, { clientX: 10, clientY: 40 });
+
+    expect(currentCarry()?.owner).toBe('layer');
+    expect(heldMarker()).toBeNull();
+    unregister();
+    drawer.remove();
   });
 
   test('a press while a carry is on starts no second drag', () => {

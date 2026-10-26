@@ -381,6 +381,9 @@ interface LiveDrag {
   // point on it lands as a new first window (landingOf), and is never a
   // hand-off (onMoveEvent, Q3 i).
   isOnNewFirstWindow: ((x: number, y: number) => boolean) | null;
+  // The window a point on it lands as: NEW_FIRST_WINDOW, or an adopted
+  // drag's header landing (adoptedHeaderLanding, KAN-815).
+  newFirstWindowId: string;
   // KAN-280 Part F (P1). Whether a point is left or right of handsOffOutside's box, read at activation; null without it.
   besidePane: ((x: number) => boolean) | null;
   // KAN-366. In a list that fits, the space free below its last window
@@ -499,6 +502,7 @@ function pressRecord(
     heldWindow: null,
     receiverAt: null,
     isOnNewFirstWindow: null,
+    newFirstWindowId: NEW_FIRST_WINDOW,
     besidePane: null,
     freeForNewWindow: null,
     dropTarget: undefined,
@@ -544,6 +548,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   adoptedRowLandsAs,
   onLandingWindowChange,
   offersNewWindow = false,
+  adoptedHeaderLanding,
   keepWindowOpen,
   disabled = false,
   handsOffOutside,
@@ -744,6 +749,16 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       );
     };
 
+    // Whether a landing in `windowId` makes a new window: the session header's
+    // target or the trailing block (KAN-361, KAN-366 B), or an adopted drag's
+    // header landing (KAN-815).
+    const makesNewWindow = (
+      l: NonNullable<typeof live.current>,
+      windowId: string | undefined
+    ) =>
+      newWindowPlacement(windowId) !== undefined ||
+      (windowId !== undefined && windowId === l.newFirstWindowId);
+
     // One window's rows, in list order. Undefined picks out the rows in no
     // window, which in a list with no windows is all of them.
     const rowsIn = (
@@ -855,7 +870,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // window is under it, and the held row's own window would otherwise
       // answer for it.
       if (l.isOnNewFirstWindow?.(l.lastX, l.lastY) === true) {
-        return { windowId: NEW_FIRST_WINDOW, index: 0, clamped: false };
+        return { windowId: l.newFirstWindowId, index: 0, clamped: false };
       }
 
       // Content space, matching how the rects were measured. Using the raw
@@ -968,8 +983,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       block: HTMLElement | null,
       landing: Landing | undefined
     ): string | undefined =>
-      landing?.clamped === true ||
-      newWindowPlacement(landing?.windowId) !== undefined
+      landing?.clamped === true || makesNewWindow(l, landing?.windowId)
         ? undefined
         : resolveDrop?.(dropRoot(l, block), l.lastX + l.pressOffRowX, l.lastY)
             ?.bandId;
@@ -1255,7 +1269,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // as the landing.
         const heldRect = l.rects[l.fromIndex];
         if (
-          newWindowPlacement(landing.windowId) === undefined &&
+          !makesNewWindow(l, landing.windowId) &&
           l.card !== null &&
           heldRect !== undefined
         ) {
@@ -1344,7 +1358,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         // would be drawn in the list -- or at an adopted phantom's own place
         // in the trailing block -- where it is not going.
         landingSlotShown:
-          newWindowPlacement(landing?.windowId) === undefined &&
+          !makesNewWindow(l, landing?.windowId) &&
           !(l.adopted && landing === undefined),
         newlyMeasured: l.newlyMeasured,
       });
@@ -1583,9 +1597,11 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // receivers above, and AFTER the marker that draws it: a target that
       // is not drawn is no landing, so read before the marker it would
       // never be one.
+      const header = l.adopted ? adoptedHeaderLanding : undefined;
       l.isOnNewFirstWindow = offersNewWindow
         ? measureNewFirstWindowTarget(document)
-        : null;
+        : (header?.measure() ?? null);
+      l.newFirstWindowId = header?.windowId ?? NEW_FIRST_WINDOW;
       // P1. The sides of the box the list hands off outside, read once like the receivers.
       // A box with no width is not laid out: it has no sides to cross.
       const paneBox = handsOffOutside?.()?.getBoundingClientRect();
@@ -1914,7 +1930,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       }
       // KAN-280 Part F. A receiver drawn over the pane (Open now's drawer, narrow) has the carry there: adopting it
       // would hand it straight back on the same move, and again on the next.
-      if (carryReceiverAt(x, y) !== null) return null;
+      // KAN-815. Unless the phantom is inside the receiver's own region (Open now's pane over its lists).
+      const over = carryReceiverAt(x, y);
+      if (over !== null && over.region?.()?.contains(el) !== true) return null;
       const l = pressRecord(
         adoptRowId,
         rowIds.indexOf(adoptRowId),
@@ -1952,13 +1970,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         }
       }
 
-      // Onto a carry receiver -- the session list -- the drag goes to the
-      // carry (KAN-350). For the saved lists ONLY there (KAN-352): anywhere
-      // else -- beside the pane, past it, over Open now or the resize grip on
-      // the line between them (x 972-984 against a pane ending at 969,
-      // measured), above or below it in the auto-scroll overshoot (KAN-152) --
-      // the drag is exactly what it always was: its preview, its landing, its
-      // refusal, its auto-scroll. A list with handsOffOutside (Open now,
+      // Onto a carry receiver -- the session list, or Currently open, which
+      // opens a copy (KAN-815) -- the drag goes to the carry (KAN-350). For
+      // the saved lists ONLY there (KAN-352): anywhere else -- beside the
+      // pane, the resize grip on the line between it and Currently open
+      // (x 972-984 against a pane ending at 969, measured), above or below it
+      // in the auto-scroll overshoot (KAN-152) -- the drag is exactly what it
+      // always was: its preview, its landing, its refusal, its auto-scroll. A list with handsOffOutside (Open now,
       // KAN-280 Part F P1) also hands off once the pointer is left or right of
       // the box it names; above or below stays its drag.
       //
@@ -2281,6 +2299,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     adoptedRowLandsAs,
     onLandingWindowChange,
     offersNewWindow,
+    adoptedHeaderLanding,
     keepWindowOpen,
     clampDropToEnds,
     clicks,

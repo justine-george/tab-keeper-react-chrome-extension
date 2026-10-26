@@ -395,7 +395,7 @@ async function confirmSavedWindowState(
   }
 }
 
-const placeholderUrl = (
+export const placeholderUrl = (
   tabInfo: tabData,
   icon: string,
   goToURLText: string
@@ -408,7 +408,7 @@ const placeholderUrl = (
   );
 
 // KAN-594. The stored favicon, else Chrome's cached icon for the page, inlined: a data: page cannot load _favicon (measured). '' when neither.
-async function placeholderIcon(tabInfo: tabData): Promise<string> {
+export async function placeholderIcon(tabInfo: tabData): Promise<string> {
   if (tabInfo.favicon) return tabInfo.favicon;
   const address = resolveFaviconUrl('', resolveTabUrl(tabInfo.url));
   if (!address) return '';
@@ -416,7 +416,7 @@ async function placeholderIcon(tabInfo: tabData): Promise<string> {
 }
 
 // Resolves to the new tab's id, or undefined when Chrome refused it: that tab is skipped, never the restore.
-function createRestoredTab(
+export function createRestoredTab(
   windowId: number,
   tabInfo: tabData,
   url: string,

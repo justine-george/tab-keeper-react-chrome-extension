@@ -9,6 +9,7 @@ import {
   currentCarry,
   endCarry,
   registerCarryReceiver,
+  setCarryOpens,
   setCarryOwner,
   startCarry,
   type CarryCard,
@@ -582,6 +583,24 @@ describe('a live carry (KAN-280 Part F)', () => {
     act(() => startCarry(savedItem(TAB), LIVE_CARD, 10, 10));
     expect(card()).not.toBeNull();
     expect(badge()).toBeNull();
+  });
+
+  // KAN-815. A saved carry's + says letting go here opens a copy in Chrome.
+  test("a saved carry's card wears it only while letting go would open something", async () => {
+    await renderLayer();
+    act(() => startCarry(savedItem(TAB), LIVE_CARD, 10, 10));
+    expect(badge()).toBeNull();
+    act(() => setCarryOpens(true));
+    expect(badge()?.textContent).toBe('add');
+    act(() => setCarryOpens(false));
+    expect(badge()).toBeNull();
+  });
+
+  test('a live carry keeps its badge whatever the opens marker says', async () => {
+    await renderLayer();
+    act(() => startCarry(LIVE_ITEM(), LIVE_CARD, 10, 10));
+    act(() => setCarryOpens(false));
+    expect(badge()?.textContent).toBe('add');
   });
 
   test('cancelled, it re-selects nothing (P3)', async () => {

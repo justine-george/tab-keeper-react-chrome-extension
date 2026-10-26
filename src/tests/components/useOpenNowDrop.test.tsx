@@ -16,10 +16,28 @@ vi.mock('../../utils/functions/openNowMoves', async (importOriginal) => {
   };
 });
 
+// KAN-815. Spied the same way: the real thunk still opens the copy.
+vi.mock('../../redux/openCopy', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../redux/openCopy')>();
+  return { ...actual, openCarriedCopy: vi.fn(actual.openCarriedCopy) };
+});
+
 import {
   openDragWindows,
   useOpenNowDrop,
 } from '../../components/home/opennow/useOpenNowDrop';
+import {
+  OPEN_NOW_HEADER_NEW_WINDOW,
+  OPEN_NOW_NEW_WINDOW,
+  carriedIntoOpenNow,
+  type CarriedIntoOpenNow,
+} from '../../components/home/opennow/carriedIntoOpenNow';
+import { carryEndedAs, endCarry, startCarry } from '../../redux/carry';
+import { savedItem } from '../../redux/carriedItem';
+import type { CarriedItem } from '../../redux/carriedItem';
+import { openCarriedCopy } from '../../redux/openCopy';
+import { groupCopySlot, tabCopySlot } from '../../utils/functions/openNowMoves';
+import { carriedRowId } from '../../utils/functions/carriedView';
 import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import { moveOpenGroup, moveOpenTab } from '../../utils/functions/openNowMoves';
@@ -27,7 +45,10 @@ import {
   selectLiveStepOnTop,
   setPresentStartup,
 } from '../../redux/slices/undoRedoSlice';
-import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
+import {
+  saveToTabContainerInternal,
+  type tabContainerData,
+} from '../../redux/slices/tabContainerDataStateSlice';
 import { undoStep } from '../../redux/undoHistory';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { buildSession } from '../fixtures/sessionFixture';
@@ -46,10 +67,12 @@ let handle: ChromeFakeHandle | undefined;
 beforeEach(() => {
   vi.mocked(moveOpenTab).mockClear();
   vi.mocked(moveOpenGroup).mockClear();
+  vi.mocked(openCarriedCopy).mockClear();
 });
 
 afterEach(() => {
   cleanup();
+  endCarry('cancelled');
   handle?.restore();
   handle = undefined;
 });
@@ -97,19 +120,29 @@ function renderDrop(
   options: {
     hasTabGroups?: boolean;
     collapsedIds?: ReadonlySet<number>;
+    // KAN-815. Built from the store the hook renders in, once it is seeded.
+    carriedIn?: (
+      tabGroups: readonly tabContainerData[]
+    ) => CarriedIntoOpenNow | null;
+    seed?: (store: ReturnType<typeof storeWrapper>['store']) => void;
   } = {}
 ) {
   const { store, wrapper } = storeWrapper();
+  options.seed?.(store);
+  const carriedIn =
+    options.carriedIn?.(store.getState().tabContainerDataState.tabGroups) ??
+    null;
   const rendered = renderHook(
     () =>
       useOpenNowDrop({
         windows,
         hasTabGroups: options.hasTabGroups ?? true,
         collapsedIds: options.collapsedIds ?? new Set(),
+        carriedIn,
       }),
     { wrapper }
   );
-  return { ...rendered, store };
+  return { ...rendered, store, carriedIn };
 }
 
 // W1: two pinned tabs, then two unpinned. W2: a loose tab and group 50 (two
@@ -353,6 +386,7 @@ describe('acceptsWindow: which windows take a held row at all', () => {
           windows,
           hasTabGroups: true,
           collapsedIds: new Set(),
+          carriedIn: null,
         }),
       { initialProps: { windows: first }, wrapper }
     );
@@ -622,5 +656,282 @@ describe('a drop that pins or unpins a tab says so', () => {
       index: 2,
       pinned: false,
     });
+  });
+});
+
+// KAN-815. A saved tab or group carried in from the saved pane: Open now's
+// lists adopt its phantom (in the trailing New window block) and a release
+// opens a copy in Chrome, never a move.
+describe('a saved item carried in', () => {
+  const saved = (incognito = false) =>
+    buildSession({
+      tabGroupId: 'S1',
+      windows: [
+        {
+          ...(incognito ? { incognito: true as const } : {}),
+          windowId: 'w1',
+          windowHeight: 700,
+          windowWidth: 900,
+          windowOffsetTop: 0,
+          windowOffsetLeft: 0,
+          tabCount: 3,
+          title: '',
+          tabs: [
+            {
+              tabId: 't1',
+              favicon: '',
+              title: 'One',
+              url: url('one'),
+              pinned: true,
+            },
+            {
+              tabId: 'ga',
+              favicon: '',
+              title: 'A',
+              url: url('a'),
+              chromeGroupId: 'g1',
+            },
+            {
+              tabId: 'gb',
+              favicon: '',
+              title: 'B',
+              url: url('b'),
+              chromeGroupId: 'g1',
+            },
+          ],
+          chromeTabGroups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
+        },
+      ],
+    });
+  const tabItem = (): CarriedItem =>
+    savedItem({ kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 't1' });
+  const groupItem = (): CarriedItem =>
+    savedItem({
+      kind: 'group',
+      tabGroupId: 'S1',
+      windowId: 'w1',
+      groupId: 'g1',
+    });
+
+  // The carry is on, as the hand-off leaves it, while the lists adopt it.
+  async function carrying(
+    item: CarriedItem,
+    options: { collapsedIds?: ReadonlySet<number>; incognito?: boolean } = {}
+  ) {
+    const windows = await install(fourWindows());
+    startCarry(item, { kind: 'tab', title: 'One', faviconUrl: '' }, 0, 0);
+    const rendered = renderDrop(windows, {
+      collapsedIds: options.collapsedIds,
+      seed: (store) => {
+        store.dispatch(saveToTabContainerInternal(saved(options.incognito)));
+      },
+      carriedIn: (tabGroups) => carriedIntoOpenNow(tabGroups, item, true),
+    });
+    if (rendered.carriedIn === null) throw new Error('nothing carried in');
+    return { ...rendered, windows, carriedIn: rendered.carriedIn };
+  }
+
+  test("the tab list's rows end with the phantom", async () => {
+    const { result, carriedIn } = await carrying(tabItem());
+    const rowIds = result.current.tabs.rowIds;
+    expect(rowIds[rowIds.length - 1]).toBe(carriedIn.rowId);
+    expect(carriedIn.rowId).not.toBe(carriedRowId(tabItem()));
+  });
+
+  test('it lands only in a live window of its own kind, or the New window block', async () => {
+    const { result, carriedIn } = await carrying(tabItem());
+    expect(result.current.tabs.acceptsWindow(carriedIn.rowId, '1')).toBe(true);
+    expect(result.current.tabs.acceptsWindow(carriedIn.rowId, '4')).toBe(false);
+    expect(
+      result.current.tabs.acceptsWindow(carriedIn.rowId, OPEN_NOW_NEW_WINDOW)
+    ).toBe(true);
+  });
+
+  test('a tab saved in an incognito window lands only in an incognito one', async () => {
+    const { result, carriedIn } = await carrying(tabItem(), {
+      incognito: true,
+    });
+    expect(result.current.tabs.acceptsWindow(carriedIn.rowId, '4')).toBe(true);
+    expect(result.current.tabs.acceptsWindow(carriedIn.rowId, '1')).toBe(false);
+  });
+
+  test('a group lands below the pinned run', async () => {
+    const { result, carriedIn } = await carrying(groupItem());
+    expect(result.current.items.landingRange(carriedIn.rowId, '1').min).toBe(2);
+  });
+
+  test('a tab let go at a slot opens a copy there, ends the carry as copied at once, and moves nothing', async () => {
+    const item = tabItem();
+    const { result, carriedIn, windows, store } = await carrying(item);
+
+    const done = result.current.tabs.onMove(carriedIn.rowId, 3, undefined, '1');
+
+    expect(carryEndedAs(item)).toBe('copied');
+    expect(openCarriedCopy).toHaveBeenCalledWith(
+      item,
+      {
+        kind: 'tab',
+        slot: tabCopySlot(windows, '1', 3, true, undefined, true),
+      },
+      expect.any(String)
+    );
+    await done;
+    expect(moveOpenTab).not.toHaveBeenCalled();
+    expect(selectLiveStepOnTop(store.getState())).toBeNull();
+    await waitFor(() => expect(handle?.createdTabs).toHaveLength(1));
+  });
+
+  test('onto a folded window it keeps its saved pin', async () => {
+    const item = tabItem();
+    const { result, carriedIn, windows } = await carrying(item, {
+      collapsedIds: new Set([1]),
+    });
+
+    void result.current.tabs.onMove(carriedIn.rowId, 0, undefined, '1');
+
+    expect(openCarriedCopy).toHaveBeenCalledWith(
+      item,
+      {
+        kind: 'tab',
+        slot: tabCopySlot(windows, '1', 0, true, undefined, true),
+      },
+      expect.any(String)
+    );
+    await waitFor(() => expect(handle?.createdTabs).toHaveLength(1));
+    expect(handle?.createdTabs[0]).toMatchObject({ index: 0, pinned: true });
+  });
+
+  test('an unpinned tab onto a folded window opens below its pinned run, unpinned', async () => {
+    const item = savedItem({
+      kind: 'tab',
+      tabGroupId: 'S1',
+      windowId: 'w1',
+      tabId: 'ga',
+    });
+    const { result, carriedIn } = await carrying(item, {
+      collapsedIds: new Set([1]),
+    });
+
+    void result.current.tabs.onMove(carriedIn.rowId, 0, undefined, '1');
+
+    await waitFor(() => expect(handle?.createdTabs).toHaveLength(1));
+    expect(handle?.createdTabs[0]).toMatchObject({ windowId: 1, index: 2 });
+    expect(handle?.createdTabs[0]).not.toHaveProperty('pinned');
+  });
+
+  test('the New window block opens it in a new window', async () => {
+    const item = tabItem();
+    const { result, carriedIn } = await carrying(item);
+
+    void result.current.tabs.onMove(
+      carriedIn.rowId,
+      0,
+      undefined,
+      OPEN_NOW_NEW_WINDOW
+    );
+
+    expect(openCarriedCopy).toHaveBeenCalledWith(
+      item,
+      { kind: 'newWindow' },
+      expect.any(String)
+    );
+    expect(carryEndedAs(item)).toBe('copied');
+  });
+
+  // Demo round 1 (D2): the header, where the list keeps the drag.
+  test('the header opens it in a new window', async () => {
+    const item = tabItem();
+    const { result, carriedIn } = await carrying(item);
+
+    void result.current.tabs.onMove(
+      carriedIn.rowId,
+      0,
+      undefined,
+      OPEN_NOW_HEADER_NEW_WINDOW
+    );
+
+    expect(openCarriedCopy).toHaveBeenCalledWith(
+      item,
+      { kind: 'newWindow' },
+      expect.any(String)
+    );
+    expect(carryEndedAs(item)).toBe('copied');
+  });
+
+  test('a group opens at a slot between rows, or in a new window', async () => {
+    const item = groupItem();
+    const { result, carriedIn, windows } = await carrying(item);
+
+    void result.current.items.onMove(carriedIn.rowId, 1, undefined, '2');
+    expect(openCarriedCopy).toHaveBeenLastCalledWith(
+      item,
+      { kind: 'group', slot: groupCopySlot(windows, '2', 1) },
+      expect.any(String)
+    );
+    expect(carryEndedAs(item)).toBe('copied');
+    expect(moveOpenGroup).not.toHaveBeenCalled();
+    // Chrome's answer, before the fake goes.
+    await waitFor(async () =>
+      expect((await chrome.tabGroups.query({})).map((g) => g.title)).toContain(
+        'Work'
+      )
+    );
+  });
+
+  test('a group let go in the New window block opens a new window', async () => {
+    const item = groupItem();
+    const { result, carriedIn } = await carrying(item);
+
+    void result.current.items.onMove(
+      carriedIn.rowId,
+      0,
+      undefined,
+      OPEN_NOW_NEW_WINDOW
+    );
+    expect(openCarriedCopy).toHaveBeenLastCalledWith(
+      item,
+      { kind: 'newWindow' },
+      expect.any(String)
+    );
+  });
+
+  test('when nothing was asked of Chrome, the carry ends cancelled', async () => {
+    const item = tabItem();
+    const { result, carriedIn } = await carrying(item);
+    vi.mocked(openCarriedCopy).mockImplementationOnce(() => () => false);
+
+    void result.current.tabs.onMove(carriedIn.rowId, 3, undefined, '1');
+
+    expect(carryEndedAs(item)).toBe('cancelled');
+  });
+
+  test('a slot that names no row asks nothing and cancels', async () => {
+    const item = tabItem();
+    const { result, carriedIn } = await carrying(item);
+
+    void result.current.tabs.onMove(carriedIn.rowId, 99, undefined, '1');
+
+    expect(openCarriedCopy).not.toHaveBeenCalled();
+    expect(carryEndedAs(item)).toBe('cancelled');
+  });
+
+  test('a release in a live window of the other kind asks nothing, whatever the engine checked', async () => {
+    const item = tabItem();
+    const { result, carriedIn } = await carrying(item);
+
+    void result.current.tabs.onMove(carriedIn.rowId, 0, undefined, '4');
+
+    expect(openCarriedCopy).not.toHaveBeenCalled();
+    expect(carryEndedAs(item)).toBe('cancelled');
+  });
+
+  test("a live tab's own drop is still a move", async () => {
+    const { result } = await carrying(tabItem());
+    endCarry('cancelled');
+
+    await result.current.tabs.onMove(String(LOOSE_A), 3, undefined, '1');
+
+    expect(moveOpenTab).toHaveBeenCalledTimes(1);
+    expect(openCarriedCopy).not.toHaveBeenCalled();
   });
 });

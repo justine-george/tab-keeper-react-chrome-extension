@@ -35,7 +35,12 @@ import { TabDragArea } from './TabDragArea';
 import { GroupDragArea } from './GroupDragArea';
 import { dropOnTop } from '../../../redux/dropOnTop';
 import { windowDrop } from '../../../redux/dropSpecs';
-import { currentCarry, endCarry, useCarried } from '../../../redux/carry';
+import {
+  currentCarry,
+  endCarry,
+  useCarried,
+  useCarryCrossedIntoOpenNow,
+} from '../../../redux/carry';
 import { pickOf } from '../../../redux/carriedItem';
 import { carryWindowTo } from '../../../redux/commitCarry';
 import {
@@ -92,8 +97,10 @@ export default function TabGroupDetailsContainer() {
   // carried, which holds still for the whole carry: the pointer moving does
   // not re-render this.
   const carried = useCarried();
+  // KAN-815 (1 A, D3). Once over Currently open a saved carry only copies, so its source keeps the row.
+  const crossed = useCarryCrossedIntoOpenNow();
   const { shownSession, phantomRowId } = useMemo(() => {
-    if (carried === null || selectedTabGroup === undefined) {
+    if (carried === null || selectedTabGroup === undefined || crossed) {
       return { shownSession: selectedTabGroup, phantomRowId: undefined };
     }
     const landing = landingView(
@@ -116,6 +123,7 @@ export default function TabGroupDetailsContainer() {
     };
   }, [
     carried,
+    crossed,
     selectedTabGroup,
     tabContainerDataList.tabGroups,
     hasTabGroupsPermission,

@@ -26,7 +26,7 @@ import {
   endCarry,
   startCarry,
 } from '../../redux/carry';
-import { liveItem, savedItem } from '../../redux/carriedItem';
+import { liveItem } from '../../redux/carriedItem';
 import { live } from '../fixtures/liveSnapshotFixture';
 import { endDragHold } from '../../redux/dragHold';
 import { placedWindowOf } from '../../redux/livePlacement';
@@ -264,29 +264,14 @@ describe('Open now hands its rows to the carry (KAN-280 Part F)', () => {
   });
 
   // N4 A on the real page: a saved detail that adopted the carry hands it back here (receiverAt), and a release cancels.
-  test('Open now is a receiver for a live carry only, and takes nothing (N4 A)', async () => {
+  test('Open now receives a live carry, and takes nothing (N4 A)', async () => {
     const { container } = await renderPane(groupSeed());
     const root = container.querySelector<HTMLElement>('[role="region"]');
     if (root === null) throw new Error('no Open now region');
     root.getBoundingClientRect = () => box(0, 2000);
     // No carry: an in-pane drag is never handed off here.
     expect(carryReceiverAt(10, 50)).toBeNull();
-    act(() =>
-      startCarry(
-        savedItem({
-          kind: 'tab',
-          tabGroupId: 'S1',
-          windowId: 'w1',
-          tabId: 't1',
-        }),
-        { kind: 'tab', title: 't1', faviconUrl: '' },
-        10,
-        50
-      )
-    );
-    // A saved carry over Open now is as KAN-350 left it.
-    expect(carryReceiverAt(10, 50)).toBeNull();
-    act(() => endCarry('cancelled'));
+    // A saved carry over Open now opens a copy (KAN-815): openNowCarryIn.test.tsx.
     act(() =>
       startCarry(
         liveItem({

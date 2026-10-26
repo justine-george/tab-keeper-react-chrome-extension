@@ -17,11 +17,19 @@
 // - A drop that changed something is a step in the undo history (O11f,
 //   KAN-744 R1); a drop in place is not an action at all (ledger R23). One
 //   that changed a tab's pin says so, with an Undo for that step (KAN-814).
+// - A saved tab or group carried in (KAN-815) is adopted as a phantom in a
+//   trailing New window block, and its release opens a copy in Chrome: no
+//   move, no undo step, the saved session untouched.
 //
 // Both limits are asked on every pointer move, so each is a few map reads
 // over tables built once per snapshot.
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDispatch } from 'react-redux';
+
+import { currentCarry, endCarry } from '../../../redux/carry';
+import type { CarriedItem } from '../../../redux/carriedItem';
+import { openCarriedCopy, type CopyPlace } from '../../../redux/openCopy';
 
 import { showToast } from '../../../redux/slices/globalStateSlice';
 
@@ -30,8 +38,10 @@ import { useGroupDropGeometry } from '../rightpane/useGroupDrop';
 import { useTabDropGeometry } from '../rightpane/useTabDrop';
 import type { OpenWindow } from '../../../utils/functions/openNow';
 import {
+  groupCopySlot,
   moveOpenGroup,
   moveOpenTab,
+  tabCopySlot,
   type MovedTabs,
 } from '../../../utils/functions/openNowMoves';
 import type { AppDispatch } from '../../../redux/store';
@@ -42,6 +52,11 @@ import {
   itemIdOf,
   partitionTabsIntoItems,
 } from '../../../utils/functions/tabGroups';
+import {
+  OPEN_NOW_HEADER_NEW_WINDOW,
+  OPEN_NOW_NEW_WINDOW,
+} from './carriedIntoOpenNow';
+import type { CarriedIntoOpenNow } from './carriedIntoOpenNow';
 
 // Open now's two lists, named apart from the saved pane's `tabs` and `items`
 // so a row can never join a list of the other pane.
@@ -127,6 +142,9 @@ interface Options {
   hasTabGroups: boolean;
   // The windows the pane has folded shut, by Chrome id.
   collapsedIds: ReadonlySet<number>;
+  // KAN-815. A saved tab or group carried in, or null. Memoized by the
+  // caller, like `windows`: the tables are built from it.
+  carriedIn: CarriedIntoOpenNow | null;
 }
 
 /**
@@ -137,11 +155,17 @@ export function useOpenNowDrop({
   windows,
   hasTabGroups,
   collapsedIds,
+  carriedIn,
 }: Options) {
   const dispatch: AppDispatch = useDispatch();
+  const { t } = useTranslation();
+  // The trailing block comes last, as the pane draws it.
   const dragWindows = useMemo(
-    () => openDragWindows(windows, hasTabGroups),
-    [windows, hasTabGroups]
+    () => [
+      ...openDragWindows(windows, hasTabGroups),
+      ...(carriedIn === null ? [] : [carriedIn.window]),
+    ],
+    [windows, hasTabGroups, carriedIn]
   );
   const { describeTabMove, ...tabGeometry } = useTabDropGeometry(
     dragWindows,
@@ -162,15 +186,19 @@ export function useOpenNowDrop({
     const items = new Map<string, Held>();
     for (const window of dragWindows) {
       const open = windows.find((w) => String(w.id) === window.windowId);
-      if (open === undefined) continue;
-      incognito.set(window.windowId, open.incognito);
+      const isCarriedIn = carriedIn?.window === window;
+      if (open === undefined && !isCarriedIn) continue;
+      incognito.set(
+        window.windowId,
+        open === undefined ? carriedIn?.incognito === true : open.incognito
+      );
       const partition = partitionTabsIntoItems(
         window.tabs,
         window.chromeTabGroups
       );
       shown.set(
         window.windowId,
-        collapsedIds.has(open.id)
+        open !== undefined && collapsedIds.has(open.id)
           ? NOTHING_SHOWN
           : {
               tabs: window.tabs.length,
@@ -194,7 +222,7 @@ export function useOpenNowDrop({
       }
     }
     return { shown, incognito, tabs, items };
-  }, [dragWindows, windows, collapsedIds]);
+  }, [dragWindows, windows, collapsedIds, carriedIn]);
 
   // T1. The group, if any, holding the Tab Keeper page this pane is on. Open
   // now leaves that page out, so only Chrome can say; read again with each
@@ -268,6 +296,45 @@ export function useOpenNowDrop({
     [accepts, tables]
   );
 
+  // KAN-815. The saved item an adopted phantom stands for, when `rowId` is it.
+  const carriedFor = useCallback(
+    (rowId: string): CarriedItem | undefined => {
+      const item = currentCarry()?.item;
+      return carriedIn !== null &&
+        rowId === carriedIn.rowId &&
+        item?.source === 'saved'
+        ? item
+        : undefined;
+    },
+    [carriedIn]
+  );
+
+  // KAN-815. A copy is asked of Chrome, or nothing is; either way the carry
+  // ends here, synchronously, as an adopted drop must end it (useTabDrop). A
+  // live window of the other kind is refused here too, whatever the engine
+  // checked (O11d, ledger R15).
+  const openCopy = useCallback(
+    (
+      item: CarriedItem,
+      toWindowId: string | undefined,
+      place: (toWindowId: string) => CopyPlace | null
+    ) => {
+      const at =
+        toWindowId === undefined
+          ? null
+          : toWindowId === OPEN_NOW_NEW_WINDOW ||
+              toWindowId === OPEN_NOW_HEADER_NEW_WINDOW
+            ? { kind: 'newWindow' as const }
+            : tables.incognito.get(toWindowId) !== carriedIn?.incognito
+              ? null
+              : place(toWindowId);
+      const asked =
+        at !== null && dispatch(openCarriedCopy(item, at, t('Go to URL')));
+      endCarry(asked ? 'copied' : 'cancelled');
+    },
+    [tables, carriedIn, dispatch, t]
+  );
+
   // The drop, as Chrome calls. A drop the geometry describes no move for
   // (a row this snapshot does not hold, or a release that names no window)
   // calls nothing. Resolves with each moved tab's place before and after, or
@@ -284,6 +351,24 @@ export function useOpenNowDrop({
       const folded = windows.find(
         (w) => String(w.id) === toWindowId && collapsedIds.has(w.id)
       );
+      const carried = carriedFor(rowId);
+      if (carried !== undefined) {
+        const savedPinned = carriedIn?.pinned === true;
+        openCopy(carried, toWindowId, (liveId) => {
+          const slot = tabCopySlot(
+            windows,
+            liveId,
+            folded === undefined
+              ? toIndex
+              : noRowsTabIndex(folded.tabs, savedPinned),
+            savedPinned,
+            dropTargetId,
+            hasTabGroups
+          );
+          return slot === null ? null : { kind: 'tab', slot };
+        });
+        return null;
+      }
       const index =
         folded === undefined
           ? toIndex
@@ -313,7 +398,17 @@ export function useOpenNowDrop({
       }
       return moved;
     },
-    [describeTabMove, windows, collapsedIds, tables, hasTabGroups, dispatch]
+    [
+      describeTabMove,
+      windows,
+      collapsedIds,
+      tables,
+      hasTabGroups,
+      dispatch,
+      carriedFor,
+      carriedIn,
+      openCopy,
+    ]
   );
   const onItemMove = useCallback(
     async (
@@ -323,6 +418,14 @@ export function useOpenNowDrop({
       _dropTargetId?: string,
       toWindowId?: string
     ): Promise<MovedTabs | null> => {
+      const carried = carriedFor(rowId);
+      if (carried !== undefined) {
+        openCopy(carried, toWindowId, (liveId) => {
+          const slot = groupCopySlot(windows, liveId, toIndex);
+          return slot === null ? null : { kind: 'group', slot };
+        });
+        return null;
+      }
       const move = describeGroupMove(rowId, toIndex, toWindowId);
       if (move === undefined) return null;
       const moved = await whileMovingTabs(() => moveOpenGroup(move, windows));
@@ -331,7 +434,7 @@ export function useOpenNowDrop({
       }
       return moved;
     },
-    [describeGroupMove, windows, dispatch]
+    [describeGroupMove, windows, dispatch, carriedFor, openCopy]
   );
 
   return {

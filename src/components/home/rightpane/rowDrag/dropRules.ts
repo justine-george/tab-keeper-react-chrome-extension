@@ -10,6 +10,7 @@ import type { LandingSide } from '../../../../utils/functions/dragPreview';
 import type { windowGroupData } from '../../../../redux/slices/tabContainerDataStateSlice';
 import type { chromeTabGroupData } from '../../../../utils/functions/tabGroups';
 import type { CarryOut } from '../../../../redux/carry';
+import { OPEN_NOW_LAST_TARGET } from '../newWindowTarget';
 
 export const ACTIVATION_DISTANCE_PX = 5;
 
@@ -520,6 +521,17 @@ export interface RowDragAreaProps {
    */
   offersNewWindow?: boolean;
   /**
+   * KAN-815. For an ADOPTED drag only, a header box outside the list that
+   * lands as a new window (Currently open's header), as the session header's
+   * target does for offersNewWindow: read once at adoption, a point on it
+   * lands as `windowId` and is never a hand-off, so the list keeps the drag
+   * there. `measure` answers null when nothing is drawn to land on.
+   */
+  adoptedHeaderLanding?: {
+    windowId: string;
+    measure: () => ((x: number, y: number) => boolean) | null;
+  };
+  /**
    * KAN-379. Present, a tab or group resting on a collapsed window's title
    * row for SPRING_OPEN_MS opens it for the rest of the gesture; the windows
    * it opened fold back when the gesture ends. Called to keep one open in the
@@ -760,9 +772,10 @@ export function windowBlockAt(
 // The list's trailing block (KAN-361/366): the empty window block it draws
 // after its last window, where a carried tab's or group's phantom rests and
 // a release below the last window makes a new last window. Marked by its
-// New window target value, `last`.
+// New window target value, `last` (KAN-815: Open now's, `open-now-last`).
 export function isTrailingBlock(el: HTMLElement): boolean {
-  return el.dataset.newWindowTarget === 'last';
+  const target = el.dataset.newWindowTarget;
+  return target === 'last' || target === OPEN_NOW_LAST_TARGET;
 }
 
 // KAN-379. A window block drawn folded, as WindowEntryContainer marks it.

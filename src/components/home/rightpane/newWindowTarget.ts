@@ -16,6 +16,13 @@ import type { NewWindowPlace } from '../../../redux/slices/tabContainerDataState
 export const NEW_FIRST_WINDOW = 'new-window:first';
 export const NEW_LAST_WINDOW = 'new-window:last';
 
+// KAN-815. Currently open's two New window boxes, by their
+// data-new-window-target values: the header's and the block below its last
+// window. Never the saved pane's `first` / `last`, which TARGETS finds
+// document-wide: a saved drag must never read Open now's boxes as its own.
+export const OPEN_NOW_FIRST_TARGET = 'open-now-first';
+export const OPEN_NOW_LAST_TARGET = 'open-now-last';
+
 // Where the new window a landing in `windowId` makes is placed: first for
 // the header's target, last for the list's trailing block (KAN-366 B).
 // Undefined for every other window, which is no new window -- so it also

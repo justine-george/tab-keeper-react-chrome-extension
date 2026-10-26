@@ -713,6 +713,21 @@ describe('a cancel returns to where the carry started', () => {
     expect(scroller.scrollTop).toBe(20);
   });
 
+  // KAN-815 review I1: a copy into Currently open leaves the item where it was.
+  test('a copy brings the list back to its scroll, as a cancel does', async () => {
+    const { scroller } = await renderList();
+    scroller.scrollTop = 20;
+    handOff();
+    moveTo(LIST_TOP + LIST_H - 10);
+    act(() => runFrames(20));
+    expect(scroller.scrollTop).toBe(60);
+
+    act(() => endCarry('copied'));
+    runFrames(1);
+
+    expect(scroller.scrollTop).toBe(20);
+  });
+
   test('a committed row drop leaves the session shown and the scroll where they are', async () => {
     const { store, scroller } = await renderList();
     handOff();

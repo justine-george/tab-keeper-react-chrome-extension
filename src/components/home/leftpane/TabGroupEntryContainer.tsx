@@ -47,6 +47,7 @@ import { carryToSessionRow } from '../../../redux/commitCarry';
 import {
   carryEndedAs,
   currentCarry,
+  putsViewBack,
   registerCarryReceiver,
   subscribeCarry,
   type CarryReceiver,
@@ -391,8 +392,8 @@ export default function TabGroupEntryContainer() {
     };
   }, [isSearching, dispatch]);
 
-  // KAN-406. A cancelled carry puts the list back at its scroll when the
-  // carry started, on the frame after, past KAN-143's follow above.
+  // KAN-406. A cancelled or copied carry puts the list back at its scroll
+  // when the carry started, on the frame after, past KAN-143's follow above.
   useEffect(() => {
     let last = currentCarry()?.item ?? null;
     let scrollAtStart = listRef.current?.scrollTop ?? 0;
@@ -403,7 +404,7 @@ export default function TabGroupEntryContainer() {
       last = now;
       if (now !== null) {
         scrollAtStart = listRef.current?.scrollTop ?? 0;
-      } else if (ended !== null && carryEndedAs(ended) === 'cancelled') {
+      } else if (ended !== null && putsViewBack(carryEndedAs(ended))) {
         const top = scrollAtStart;
         requestAnimationFrame(() => {
           if (listRef.current !== null) listRef.current.scrollTop = top;

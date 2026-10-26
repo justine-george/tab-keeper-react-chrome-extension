@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -15,6 +15,10 @@ import {
 import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
 import type { RenderWithProvidersResult } from '../setup/renderWithProviders';
 import { ADD_CURR_TAB_TO_WINDOW_ACTION } from '../../utils/constants/actionTypes';
+import { endCarry, noteCarryOverOpenNow, startCarry } from '../../redux/carry';
+import { savedItem } from '../../redux/carriedItem';
+import { endDragHold } from '../../redux/dragHold';
+import { carriedRowId } from '../../utils/functions/carriedView';
 
 type TestStore = RenderWithProvidersResult['store'];
 
@@ -399,5 +403,59 @@ describe('unnamed windows are numbered', () => {
     expect(screen.queryByText('Alpha Page')).toBeNull();
     expect(screen.getByText('Window 2')).toBeTruthy();
     expect(screen.queryByText('Window 1')).toBeNull();
+  });
+});
+
+// KAN-815 (1 A). Over Currently open a release copies, so the source keeps the
+// carried row where it is -- and keeps it once crossed, back over the saved
+// side too, where nothing takes the carry any more (demo D3, his pick).
+describe('the carried row while over Currently open', () => {
+  const T1 = savedItem({
+    kind: 'tab',
+    tabGroupId: 'group-1',
+    windowId: 'win-1',
+    tabId: 't1',
+  });
+  const sourceRow = () => document.querySelector('[data-drag-row-id="t1"]');
+  const phantom = () =>
+    document.querySelector(`[data-drag-row-id="${carriedRowId(T1)}"]`);
+
+  afterEach(() => {
+    act(() => endCarry('cancelled'));
+    endDragHold();
+  });
+
+  test('stays in place once over Currently open, back over the saved side too', async () => {
+    await renderWithProviders(<TabGroupDetailsContainer />, {
+      seedStore: (store) => {
+        store.dispatch(saveToTabContainerInternal(buildSession()));
+        store.dispatch(selectTabContainer('group-1'));
+      },
+    });
+    await screen.findByText('Kagi Search');
+    const windowText = () =>
+      document.querySelector('[data-drop-window-id="win-1"]')?.textContent;
+    const atRest = windowText();
+    act(() =>
+      startCarry(
+        T1,
+        { kind: 'tab', title: 'Kagi Search', faviconUrl: '' },
+        0,
+        0
+      )
+    );
+    // PREMISE: carried, the row leaves its place for a phantom.
+    expect(sourceRow()).toBeNull();
+    expect(phantom()).not.toBeNull();
+
+    act(() => noteCarryOverOpenNow(true));
+    expect(sourceRow()).not.toBeNull();
+    expect(phantom()).toBeNull();
+    // Its count tag and rows read as before the carry.
+    expect(windowText()).toBe(atRest);
+
+    act(() => noteCarryOverOpenNow(false));
+    expect(sourceRow()).not.toBeNull();
+    expect(phantom()).toBeNull();
   });
 });

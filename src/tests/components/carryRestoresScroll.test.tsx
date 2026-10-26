@@ -252,3 +252,29 @@ describe('a cancel after a spring-open returns to the source', () => {
     expect(pane.scrollTop).toBe(0);
   });
 });
+
+// KAN-815 review I1. A copy dropped into Currently open leaves the item where
+// it was: the source's view comes back as after a cancel.
+describe('a copy returns to the source, as a cancel does', () => {
+  test('a window carried out, sprung open onto S2, then copied', async () => {
+    const { pane, store } = await renderScrolled();
+    carryOutLeft(
+      pane,
+      handleOf('[data-drag-row-id="w2"]', '[data-window-drag-handle]')
+    );
+    act(() => {
+      store.dispatch(selectTabContainer('S2'));
+    });
+    // The premise: still carrying, and clamped.
+    expect(carriedRef()).toMatchObject({ kind: 'window' });
+    expect(pane.scrollTop).toBe(0);
+
+    act(() => endCarry('copied'));
+    runFrames();
+
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'S1'
+    );
+    expect(pane.scrollTop).toBe(PRESS_SCROLL);
+  });
+});

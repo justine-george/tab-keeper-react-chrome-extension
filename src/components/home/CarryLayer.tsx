@@ -30,8 +30,10 @@ import {
   currentCarry,
   endCarry,
   moveCarry,
+  putsViewBack,
   subscribeCarry,
   useCarry,
+  useCarryOpens,
   type CarryCard,
   type CarryReceiver,
 } from '../../redux/carry';
@@ -111,6 +113,7 @@ function CardBody({ card }: { card: CarryCard }) {
 
 export function CarryLayer() {
   const carry = useCarry();
+  const opens = useCarryOpens();
   const dragCard = useDragCard();
   const COLORS = useThemeColors();
   const tabGroups = useSelector(
@@ -228,8 +231,9 @@ export function CarryLayer() {
     };
   }, [carrying, owner, clicks]);
 
-  // KAN-406. A cancelled carry shows its source session again, undoing any
-  // spring-open. In the notify, before the frame its scroll is put back on.
+  // KAN-406. A cancelled or copied carry shows its source session again,
+  // undoing any spring-open. In the notify, before the frame its scroll is
+  // put back on.
   const dispatch: AppDispatch = useDispatch();
   useEffect(() => {
     let last = currentCarry()?.item ?? null;
@@ -238,7 +242,7 @@ export function CarryLayer() {
       if (now === last) return;
       const ended = last;
       last = now;
-      if (ended !== null && carryEndedAs(ended) === 'cancelled') {
+      if (ended !== null && putsViewBack(carryEndedAs(ended))) {
         // P3. A live carry came from no saved session, so nothing is re-selected.
         const back = sourceSessionIdOf(ended);
         if (back !== null) dispatch(showSession(back));
@@ -297,8 +301,10 @@ export function CarryLayer() {
         font-size: ${TYPE.BODY};
         pointer-events: none;
         /* Over Open now a release copies nothing (N4 A): its contents fade (Justine's pick A). The card stays
-           opaque: see-through, the rows behind it showed through like a glitch. */
-        html[data-carry-over-open-now] & > :not([data-carry-card-badge]) {
+           opaque: see-through, the rows behind it showed through like a glitch.
+           KAN-815 D3: so does a saved carry's once crossed into Currently open, outside it. */
+        html[data-carry-over-open-now] & > :not([data-carry-card-badge]),
+        html[data-carry-crossed-out] & > :not([data-carry-card-badge]) {
           opacity: 0.45;
         }
       `}
@@ -309,8 +315,8 @@ export function CarryLayer() {
       }}
     >
       <CardBody card={shown.card} />
-      {carry !== null && carry.item.source === 'live' && (
-        // D1 A. The + that says a copy is being made.
+      {carry !== null && (carry.item.source === 'live' || opens) && (
+        // D1 A. The + that says a copy is being made. KAN-815: a saved carry's, only where a release opens it.
         <span
           data-carry-card-badge=""
           className="material-symbols-outlined"
