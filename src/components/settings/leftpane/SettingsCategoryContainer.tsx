@@ -48,9 +48,8 @@ const SettingsCategoryContainer: React.FC = () => {
        differ by the card's two borders, and 6px -- what it was -- left the
        tops 4px apart. Measured: 67px on both sides. */
     margin: 10px 0 8px 0;
+    /* No scrollbar-gutter (KAN-807): it drew an empty strip beside every row. The column keeps its 10px. */
     overflow: auto;
-    /* KAN-802. As the details pane: a short window's scrollbar never narrows the rows. */
-    scrollbar-gutter: stable;
     user-select: none;
   `;
 
