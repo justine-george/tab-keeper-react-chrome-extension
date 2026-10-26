@@ -28,6 +28,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import { copyLinkItem } from '../../common/rowMenu/copyLinkItem';
 import { copyAllLinksItem } from '../../common/rowMenu/copyAllLinksItem';
+import { withoutRename } from '../../common/rowMenu/withoutRename';
 import { copyScopeLinks } from '../../../utils/functions/copySessionLinks';
 import { toSavedWindow } from '../../../utils/functions/openWindowsToSession';
 import {
@@ -678,6 +679,18 @@ export default function OpenNowWindow({
       },
       { t, dispatch }
     ),
+    // KAN-805. As on a saved group.
+    {
+      key: 'rename',
+      label: t('Rename group'),
+      icon: 'edit',
+      onSelect: () => {
+        const band = items.find(
+          (item) => item.kind === 'group' && item.group.groupId === groupId
+        );
+        if (band?.kind === 'group') startEditingGroup(band.group);
+      },
+    },
     // KAN-746. First, as on the window, and only where the live sort would run and change the group.
     ...(canSortOpenGroupLive(openWindow, Number(groupId), hasTabGroups) &&
     !isOpenGroupSortedBySite(openWindow, Number(groupId))
@@ -734,7 +747,10 @@ export default function OpenNowWindow({
       return editingGroupId !== groupId &&
         offersWindowActions &&
         band?.kind === 'group'
-        ? [...groupRowButtons(band.group), ...openGroupMenuItems(groupId)]
+        ? [
+            ...groupRowButtons(band.group),
+            ...withoutRename(openGroupMenuItems(groupId)),
+          ]
         : null;
     },
   });

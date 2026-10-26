@@ -844,7 +844,11 @@ describe('right-click (KAN-708)', () => {
       'Remove 1 duplicate tab',
       'Delete window',
     ]);
-    expect(rowItems.slice(3)).toEqual(dotsItems);
+    // KAN-805. The ⋮ also holds Rename, after Copy all links; the right-click has it in its top row.
+    expect(rowItems.slice(3)).toEqual(
+      dotsItems.filter((name) => name !== 'Rename window')
+    );
+    expect(dotsItems[1]).toBe('Rename window');
   });
 
   test('Delete window calls onDeleteClick', async () => {

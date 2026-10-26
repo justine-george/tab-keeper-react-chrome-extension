@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -39,6 +39,7 @@ import {
   updateTabGroupTitle,
 } from '../../../redux/slices/tabContainerDataStateSlice';
 import {
+  clearSessionRenameRequest,
   collapsedWindowIdsOf,
   setAllWindowsCollapsed,
 } from '../../../redux/slices/globalStateSlice';
@@ -119,6 +120,26 @@ export default function HeroContainerRight() {
   const newWindowTargetRef = useRef<HTMLDivElement>(null);
   // Set by Esc so the blur that follows in the same batch commits nothing.
   const renameCancelled = useRef(false);
+  // KAN-805. A menu's Rename session opens this title once the session shows here (set during render, as above).
+  const renameRequest = useSelector(
+    (state: RootState) => state.globalState.sessionRenameRequest
+  );
+  const isRenameRequestedHere =
+    renameRequest !== null && renameRequest === selectedTabGroup?.tabGroupId;
+  if (
+    isRenameRequestedHere &&
+    selectedTabGroup !== undefined &&
+    editingTabGroupId !== renameRequest
+  ) {
+    setEditableTitle(selectedTabGroup.title);
+    setEditingTabGroupId(renameRequest);
+  }
+  // Spent once seen: one for a session not shown here is dropped, so it cannot open a title later.
+  useEffect(() => {
+    if (renameRequest === null) return;
+    if (isRenameRequestedHere) renameCancelled.current = false;
+    dispatch(clearSessionRenameRequest());
+  }, [renameRequest, isRenameRequestedHere, dispatch]);
   // Enter, Esc and the tick end a rename on the title button (KAN-389); a blur leaves focus where it went.
   const titleFocus = useFocusOnRemount();
   useNewFirstWindowReceiver(newWindowTargetRef, selectedTabGroup?.tabGroupId);

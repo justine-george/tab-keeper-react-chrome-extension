@@ -111,6 +111,7 @@ describe('saved window', () => {
     const dots = labels(await openMenu(user));
     expect(dots).toEqual([
       'Copy all links',
+      'Rename window',
       'Sort tabs by site',
       'Sort groups by name',
       'Delete window',
@@ -127,7 +128,7 @@ describe('saved window', () => {
       'Open',
       'Add tab',
       'Rename',
-      ...dots,
+      ...dots.filter((label) => label !== 'Rename window'),
     ]);
   });
 
@@ -169,6 +170,7 @@ describe('saved window', () => {
     );
     expect(labels(await openMenu(user))).toEqual([
       'Copy all links',
+      'Rename window',
       'Delete window',
     ]);
   });
@@ -187,6 +189,7 @@ describe('saved window', () => {
     await render([tab('z1', 'gZ'), tab('x')], [ZULU]);
     expect(labels(await openMenu(user))).toEqual([
       'Copy all links',
+      'Rename window',
       'Delete window',
     ]);
   });

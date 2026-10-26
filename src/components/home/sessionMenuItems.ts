@@ -12,6 +12,8 @@ import {
   type tabContainerData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { showSessionAndAddCurrentWindow } from '../../redux/showSessionAndAddCurrentWindow';
+import { showSession } from '../../redux/showSession';
+import { requestSessionRename } from '../../redux/slices/globalStateSlice';
 import { copySessionLinks } from '../../utils/functions/copySessionLinks';
 import { copyAllLinksItem } from '../common/rowMenu/copyAllLinksItem';
 import { tidySessionForExport } from '../../utils/functions/sessionExportHtml';
@@ -134,6 +136,16 @@ export function sessionMenuItems(
       () => copySessionLinks(tidySessionForExport(session), t, language),
       { t, dispatch }
     ),
+    // KAN-805. Shows the session first, as a click on its row does; the header then opens its title.
+    {
+      key: 'rename',
+      label: t('Rename session'),
+      icon: 'edit',
+      onSelect: () => {
+        dispatch(showSession(tabGroupId));
+        dispatch(requestSessionRename(tabGroupId));
+      },
+    },
     {
       key: 'export',
       label: t('Save session as PDF'),

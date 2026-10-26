@@ -40,6 +40,7 @@ import { visuallyHiddenStyle } from '../../../styles/visuallyHidden';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import { copyLinkItem } from '../../common/rowMenu/copyLinkItem';
 import { copyAllLinksItem } from '../../common/rowMenu/copyAllLinksItem';
+import { withoutRename } from '../../common/rowMenu/withoutRename';
 import { copyScopeLinks } from '../../../utils/functions/copySessionLinks';
 import {
   groupLinkScope,
@@ -289,6 +290,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         ),
       { t, dispatch }
     ),
+    // KAN-805. Right after Copy all links; the right-click draws it in its top row instead.
+    {
+      key: 'rename',
+      label: t('Rename window'),
+      icon: 'edit',
+      onSelect: () => startEditing(),
+    },
     // Only while sorting would change the order.
     ...(isSavedWindowSortedBySite({ tabs })
       ? []
@@ -360,6 +368,16 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       },
       { t, dispatch }
     ),
+    // KAN-805. As on the window.
+    {
+      key: 'rename',
+      label: t('Rename group'),
+      icon: 'edit',
+      onSelect: () => {
+        const group = chromeTabGroups?.find((g) => g.groupId === groupId);
+        if (group) startEditingGroup(group);
+      },
+    },
     // KAN-746. First, as on the window, and only while sorting would change the group's order.
     ...(isSavedGroupSortedBySite({ tabs }, groupId)
       ? []
@@ -457,7 +475,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     ariaLabel: () => `${t('More actions')}: ${label.text}`,
     itemsFor: () =>
       !isTrailingBlock && !isEditing && !isSearching
-        ? [...windowRowButtons, ...savedWindowMenuItems]
+        ? [...windowRowButtons, ...withoutRename(savedWindowMenuItems)]
         : null,
   });
   const groupMenu = useRowContextMenu({
@@ -471,7 +489,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         (i): i is GroupRun => i.kind === 'group' && i.group.groupId === groupId
       );
       return !isSearching && editingGroupId !== groupId && run !== undefined
-        ? [...groupRowButtons(run), ...savedGroupMenuItems(groupId)]
+        ? [
+            ...groupRowButtons(run),
+            ...withoutRename(savedGroupMenuItems(groupId)),
+          ]
         : null;
     },
   });

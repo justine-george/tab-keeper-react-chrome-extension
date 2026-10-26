@@ -138,7 +138,7 @@ test.describe('the window ⋮ is drawn over what is below it', () => {
   test('over its own tab rows', async ({ context, extensionId }) => {
     const page = await openPopup(context, extensionId);
     await openWindowMenu(page, 'w1');
-    expect(await itemsOnTop(page)).toEqual([true, true, true, true]);
+    expect(await itemsOnTop(page)).toEqual([true, true, true, true, true]);
     expect(await rowIsHit(page, 'Tab a3')).toBe(true);
   });
 
@@ -152,7 +152,7 @@ test.describe('the window ⋮ is drawn over what is below it', () => {
       .click();
     await expect(page.getByText('Tab guide2')).toBeHidden();
     await openWindowMenu(page, 'w1');
-    expect(await itemsOnTop(page)).toEqual([true, true, true, true]);
+    expect(await itemsOnTop(page)).toEqual([true, true, true, true, true]);
     expect(await rowIsHit(page, 'Tab sun')).toBe(true);
   });
 });
@@ -167,6 +167,7 @@ test('a window removes its own repeats, and one ⌘Z brings them back', async ({
   await openWindowMenu(page, 'w1');
   await expect(page.getByRole('menuitem')).toHaveText([
     /Copy all links$/,
+    /Rename window$/,
     /Sort tabs by site$/,
     /Remove 2 duplicate tabs$/,
     /Delete window$/,
@@ -188,7 +189,7 @@ test('a window removes its own repeats, and one ⌘Z brings them back', async ({
     .toEqual(before);
 });
 
-test('a window with no repeats of its own offers only Delete window', async ({
+test('a window with no repeats of its own offers no Remove', async ({
   context,
   extensionId,
 }) => {
@@ -196,6 +197,7 @@ test('a window with no repeats of its own offers only Delete window', async ({
   await openWindowMenu(page, 'w2');
   await expect(page.getByRole('menuitem')).toHaveText([
     /Copy all links$/,
+    /Rename window$/,
     /Delete window$/,
   ]);
 });
@@ -209,9 +211,10 @@ test('a group removes its own repeat and leaves the copy outside it', async ({
   await bandHandle(page, 'g1')
     .getByRole('button', { name: 'More actions', exact: true })
     .click();
-  // KAN-746: guide, tram, guide is out of site order, so Sort follows Copy all links.
+  // KAN-746: guide, tram, guide is out of site order, so Sort follows Copy all links and Rename (KAN-805).
   await expect(page.getByRole('menuitem')).toHaveText([
     /Copy all links$/,
+    /Rename group$/,
     /Sort tabs by site$/,
     /Ungroup$/,
     /Remove 1 duplicate tab$/,

@@ -78,7 +78,7 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
 
   // KAN-209, KAN-581. Cheap, heavier, destructive: Copy finishes here, Export opens a
   // tab, Delete goes last. Replace left for the header row.
-  test('the menu holds Copy, then Save as PDF, then Delete', async () => {
+  test('the menu holds Copy, Rename, then Save as PDF, then Delete', async () => {
     const user = userEvent.setup();
     await renderHeader();
 
@@ -86,9 +86,10 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
 
     // By accessible name: textContent includes each glyph's ligature text.
     const items = within(menu).getAllByRole('menuitem');
-    expect(items).toHaveLength(3);
+    expect(items).toHaveLength(4);
     expect(items).toEqual([
       within(menu).getByRole('menuitem', { name: 'Copy all links' }),
+      within(menu).getByRole('menuitem', { name: 'Rename session' }),
       within(menu).getByRole('menuitem', { name: 'Save as PDF…' }),
       within(menu).getByRole('menuitem', { name: 'Delete session' }),
     ]);
