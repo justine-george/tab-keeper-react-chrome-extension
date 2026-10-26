@@ -19,10 +19,10 @@ export const DRAWER_CARRY_START: DrawerCarry = {
   away: false,
 };
 
-// A drawer the spring has opened.
+// A drawer the spring has opened: the pointer is on the rail, under it, so in.
 export const DRAWER_SPRUNG: DrawerCarry = {
   sprung: true,
-  beenIn: false,
+  beenIn: true,
   away: false,
 };
 

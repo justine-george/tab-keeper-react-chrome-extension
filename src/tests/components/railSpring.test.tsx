@@ -332,11 +332,9 @@ describe('narrow, a saved carry on the rail (KAN-820 E)', () => {
     expect(isTarget()).toBe(true);
     wait(SPRING_OPEN_MS);
     await flush();
-    // Released inside, the drawer stays, so the button closes it next.
-    releaseAt(ON_RAIL);
+    // User-opened, it stays after an Esc, so the button closes it next.
+    fireEvent.keyDown(document.body, { key: 'Escape' });
     expect(currentCarry()).toBeNull();
-    // The click Chrome sends after the release, which the layer eats.
-    fireEvent.click(document.body);
 
     fireEvent.click(button);
     expect(button).toHaveAttribute('aria-expanded', 'false');
@@ -513,6 +511,46 @@ describe('the drawer under a carry (KAN-820)', () => {
     expect(carryEndedAs(item)).toBe('cancelled');
     expect(button).toHaveAttribute('aria-expanded', 'false');
     expect(drawer()).toBeNull();
+  });
+
+  test('user-opened, away, brought back by a spring, then Esc: still open', async () => {
+    installMatchMedia(true);
+    const { button } = await renderHome();
+    fireEvent.click(button);
+    const open = drawerEl();
+    open.getBoundingClientRect = () => DRAWER_BOX;
+    carrySaved();
+    moveTo(IN_HEADER);
+    moveTo(OFF_RAIL);
+    expect(open).toHaveAttribute('data-carry-away');
+    moveTo(ON_RAIL);
+    wait(SPRING_OPEN_MS);
+    await flush();
+    // PREMISE: brought back.
+    expect(open).not.toHaveAttribute('data-carry-away');
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    expect(currentCarry()).toBeNull();
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('sprung, out to the saved side mid-slide, released there: closes', async () => {
+    installMatchMedia(true);
+    const { button } = await renderHome();
+    const endMotion = holdDrawerMotion();
+    const item = carrySaved();
+    await springDrawer();
+    // PREMISE: still sliding in.
+    expect(isSettling()).toBe(true);
+    moveTo(OFF_RAIL);
+    await endMotion();
+    moveTo({ x: OFF_RAIL.x, y: OFF_RAIL.y + 10 });
+
+    releaseAt({ x: OFF_RAIL.x, y: OFF_RAIL.y + 10 });
+
+    expect(carryEndedAs(item)).toBe('cancelled');
+    expect(button).toHaveAttribute('aria-expanded', 'false');
   });
 
   // Review Focus 4.

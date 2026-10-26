@@ -28,6 +28,9 @@ describe('drawerAfterMove (KAN-820 in then out)', () => {
   });
   test('sprung is kept', () =>
     expect(drawerAfterMove(DRAWER_SPRUNG, true).sprung).toBe(true));
+  // At the spring the pointer is on the rail, under the drawer: in.
+  test('sprung, then out: away', () =>
+    expect(drawerAfterMove(DRAWER_SPRUNG, false).away).toBe(true));
 });
 
 describe('drawerStaysAfterCarry', () => {
@@ -39,7 +42,7 @@ describe('drawerStaysAfterCarry', () => {
     expect(
       drawerStaysAfterCarry({ sprung: true, beenIn: true, away: false }, false)
     ).toBe(true));
-  test('sprung, never moved in (released on the rail under it): stays', () =>
+  test('sprung, released where it sprang (on the rail under it): stays', () =>
     expect(drawerStaysAfterCarry(DRAWER_SPRUNG, false)).toBe(true));
   test('sprung, away: closes', () =>
     expect(

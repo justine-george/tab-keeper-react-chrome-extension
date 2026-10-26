@@ -221,7 +221,11 @@ export default function OpenNowRail({
         openedBySpring.current = true;
         openDrawer();
       }
-      carryState.current = DRAWER_SPRUNG;
+      // Brought back, it keeps who opened it: a user-opened drawer never becomes sprung.
+      carryState.current = {
+        ...DRAWER_SPRUNG,
+        sprung: !isOpen || carryState.current.sprung,
+      };
       carryBox.current = null;
       settling.current = true;
       setIsSettling(true);
