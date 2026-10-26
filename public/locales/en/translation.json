@@ -73,6 +73,8 @@
   "Session replaced with all open windows.": "Session replaced with all open windows.",
   "Session window deleted.": "Session window deleted.",
   "Session tab deleted.": "Session tab deleted.",
+  "TabPinned": "Tab pinned.",
+  "TabUnpinned": "Tab unpinned.",
   "Session tab group deleted.": "Session tab group deleted.",
   "Back": "Back",
   "Display": "Display",

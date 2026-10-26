@@ -127,6 +127,9 @@ export const TOAST_MESSAGES = {
   REDO_REFUSED_MOVE: 'RedoRefusedMove',
   UNDO_REFUSED_WINDOW_CLOSED: 'UndoRefusedWindowClosed',
   REDO_REFUSED_WINDOW_CLOSED: 'RedoRefusedWindowClosed',
+  // KAN-811. A drop that changed a saved tab's pin.
+  TAB_PINNED: 'TabPinned',
+  TAB_UNPINNED: 'TabUnpinned',
   DELETE_WINDOW_SUCCESS: 'Session window deleted.',
   DELETE_TAB_SUCCESS: 'Session tab deleted.',
   DELETE_CHROME_GROUP_SUCCESS: 'Session tab group deleted.',

@@ -24,6 +24,7 @@ import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 import { dropOnTopMoved } from './dropOnTop';
 import { groupDrop, intoNewWindow, tabDrop, windowDrop } from './dropSpecs';
 import { moveToSession } from './moveToSession';
+import { announcingPinChange } from './pinChangeToast';
 import type { CarriedRef } from './slices/tabContainerDataStateSlice';
 import type { RootState } from './store';
 import { newWindowPlacement } from '../components/home/rightpane/newWindowTarget';
@@ -55,28 +56,38 @@ export const dropCarriedTab =
         })
       );
     }
+    // KAN-811. Among a window's rows, where it lands decides its pin; a new window keeps it.
+    const landing = { tabGroupId, windowId: toWindowId };
     if (carried.tabGroupId === tabGroupId) {
       return dispatch(
-        dropOnTopMoved(
-          tabDrop({
-            tabGroupId,
-            tabId: carried.tabId,
-            fromWindowId: carried.windowId,
-            toWindowId,
-            toIndex,
-            toChromeGroupId,
-          })
+        announcingPinChange(
+          carried,
+          landing,
+          dropOnTopMoved(
+            tabDrop({
+              tabGroupId,
+              tabId: carried.tabId,
+              fromWindowId: carried.windowId,
+              toWindowId,
+              toIndex,
+              toChromeGroupId,
+            })
+          )
         )
       );
     }
     return dispatch(
-      moveToSession({
-        move: {
-          carried,
-          to: { tabGroupId, windowId: toWindowId, toIndex, toChromeGroupId },
-        },
-        announceMoved: false,
-      })
+      announcingPinChange(
+        carried,
+        landing,
+        moveToSession({
+          move: {
+            carried,
+            to: { tabGroupId, windowId: toWindowId, toIndex, toChromeGroupId },
+          },
+          announceMoved: false,
+        })
+      )
     );
   };
 

@@ -71,6 +71,8 @@
   "Session replaced with all open windows.": "已將工作階段取代為所有開啟的視窗。",
   "Session window deleted.": "已刪除工作階段中的視窗。",
   "Session tab deleted.": "已刪除工作階段中的分頁。",
+  "TabPinned": "已固定分頁。",
+  "TabUnpinned": "已取消固定分頁。",
   "Session tab group deleted.": "已刪除工作階段中的分頁群組。",
   "Back": "返回",
   "Display": "顯示",
