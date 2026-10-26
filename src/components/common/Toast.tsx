@@ -26,7 +26,11 @@ import {
   TOAST_MOVE,
   useToastStack,
 } from './useToastStack';
-import { APP_WIDTH, SETTINGS_COLUMN } from '../../utils/constants/common';
+import {
+  APP_WIDTH,
+  SCROLLBAR_PX,
+  SETTINGS_COLUMN,
+} from '../../utils/constants/common';
 import { isTabView } from '../../utils/functions/viewMode';
 
 // KAN-583, KAN-694. A toast's Undo closes its own toast only; the other plain toasts stay up.
@@ -57,8 +61,8 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
   // KAN-574. On Settings a toast stays inside the category column, as far from its right edge as from the window's left.
   // Only plain toasts: opening Settings clears the stack, so no Reopen offer is ever drawn there.
   const settingsColumn = isTabView()
-    ? `${SETTINGS_COLUMN.TAB_REM}rem`
-    : `calc(${APP_WIDTH} * ${SETTINGS_COLUMN.POPUP_PERCENT} / 100)`;
+    ? `calc(${SETTINGS_COLUMN.TAB_REM}rem + ${SCROLLBAR_PX}px)`
+    : `calc(${APP_WIDTH} * ${SETTINGS_COLUMN.POPUP_PERCENT} / 100 + ${SCROLLBAR_PX}px)`;
   const settingsCap = `calc(${settingsColumn} - ${2 * EDGE_PX}px)`;
   // KAN-349 Q1 C′, KAN-744 R16-R17. A chip names the key only while the key
   // would do what the chip does: not while ⌘Z would take a Reopen offer shown

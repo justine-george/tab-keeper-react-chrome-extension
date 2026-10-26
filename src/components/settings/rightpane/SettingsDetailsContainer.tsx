@@ -113,6 +113,8 @@ const SettingsDetailsContainer: React.FC = () => {
        fixed pixel widths, so without this they push the whole popup wide
        instead of scrolling within the pane. */
     overflow: auto;
+    /* KAN-802. Room for the scrollbar kept free, so a long page's bar never narrows the pane under you. */
+    scrollbar-gutter: stable;
     min-width: 0;
     user-select: none;
   `;

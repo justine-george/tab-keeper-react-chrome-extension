@@ -113,7 +113,8 @@ for (const view of VIEWS) {
           at
         ).toEqual([]);
         if (view.name === 'full view') {
-          expect(rail.column, at).toBeCloseTo(14.875 * root, 0);
+          // KAN-802: plus the 10px its scrollbar gutter keeps.
+          expect(rail.column, at).toBeCloseTo(14.875 * root + 10, 0);
           expect(
             rail.labels.filter((l) => l.lines > 1).map((l) => l.name),
             at
@@ -168,8 +169,8 @@ test('full view at 24px: a toast on Settings is capped by the wider column, not 
   const column = await page.locator('[data-pane="sessions"]').boundingBox();
   const box = await toast.boundingBox();
   if (column === null || box === null) throw new Error('no column or toast');
-  // PREMISE: the column grew with the text.
-  expect(column.width).toBeCloseTo(357, 0);
+  // PREMISE: the column grew with the text (KAN-802: 14.875rem plus a 10px gutter).
+  expect(column.width).toBeCloseTo(367, 0);
   expect(box.x).toBeCloseTo(20, 0);
   // The toast's own 300px, or the column less 20px each side where that is narrower.
   expect(box.width).toBeCloseTo(Math.min(300, column.width - 40), 0);

@@ -2,6 +2,20 @@
   box-sizing: border-box;
 }
 
+/* KAN-802. Every line as tall as a Libre Franklin line. Under `normal`, a line
+   drawn partly in a fallback font (Devanagari, CJK: Libre Franklin has
+   neither) took that font's taller metrics, so switching to Hindi, Japanese or
+   Chinese moved the layout. This is Chrome's own `normal` for Libre Franklin:
+   its ascent and descent (966 and 246 per 1000) each rounded to a pixel, so a
+   Latin line keeps its exact height. :where() leaves it no specificity, so
+   any line-height a component sets still wins. Per element, because a length
+   computed on <html> would be inherited at <html>'s font size. */
+:where(*) {
+  line-height: calc(
+    round(nearest, 0.966em, 1px) + round(nearest, 0.246em, 1px)
+  );
+}
+
 body {
   margin: 0;
   /* useDocumentTheme publishes --app-background on <html> (KAN-49). The literal
