@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
 import Icon from '../common/Icon';
+import type { LigatureIconName } from '../common/iconNames';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useSavedSearch } from '../../hooks/useSavedSearch';
 import { ICON, RADIUS, TYPE } from '../../styles/scale';
@@ -43,6 +44,8 @@ const CARD_OFFSET_Y = 4;
 // Above the toast (1050): the card is under the pointer, and a toast arriving
 // mid-carry must not cover what is being carried.
 const CARD_Z_INDEX = 1100;
+// D1 A's +, drawn by the icon font. Typed, so a name the font subset drops fails tsc (KAN-816).
+const COPY_BADGE_GLYPH: LigatureIconName = 'add';
 
 function CardBody({ card }: { card: CarryCard }) {
   const { t } = useTranslation();
@@ -328,7 +331,7 @@ export function CarryLayer() {
             }
           `}
         >
-          add
+          {COPY_BADGE_GLYPH}
         </span>
       )}
     </div>,

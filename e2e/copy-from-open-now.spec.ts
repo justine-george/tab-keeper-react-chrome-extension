@@ -26,6 +26,7 @@ import { boxOf, saveRowAim, stored } from './fixtures/sessionDrag';
 import { allowInIncognito } from './fixtures/incognito';
 import { seedSettings } from './fixtures/seed';
 import { elementLanded } from './fixtures/landed';
+import { waitForFontsLoaded } from './fixtures/fonts';
 import type { TabMasterContainer } from '../src/redux/slices/tabContainerDataStateSlice';
 
 // KAN-280 Part F (spec O12c) on the real artifact: a live tab, group or window dragged out of Open now and let go on
@@ -80,6 +81,25 @@ async function carryOutOfOpenNow(page: Page, y: number) {
   await page.mouse.move(pane.x - 40, y, { steps: 6 });
   await expect(page.locator(CARD)).toHaveCount(1);
   await expect(page.locator(`${CARD} [data-carry-card-badge]`)).toHaveCount(1);
+}
+
+// KAN-816. The + is the `add` ligature: a name missing from the icon subset draws as text, three letters wide.
+async function expectBadgeIsOneGlyph(page: Page) {
+  await waitForFontsLoaded(page, ['Material Symbols Outlined']);
+  const { text, width, em } = await page
+    .locator(`${CARD} [data-carry-card-badge]`)
+    .evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return {
+        text: el.textContent,
+        width: range.getBoundingClientRect().width,
+        em: parseFloat(getComputedStyle(el).fontSize),
+      };
+    });
+  // PREMISE: the badge still spells the ligature, so its width says whether the font drew it.
+  expect(text).toBe('add');
+  expect(width).toBeLessThanOrEqual(em);
 }
 
 // The urls of each window of a stored session, in order.
@@ -259,6 +279,7 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     await page.mouse.move(region.x - 6, at.y, { steps: 3 });
     await expect(page.locator(CARD)).toHaveCount(1);
     await expect(page.locator(`${CARD} [data-carry-card-badge]`)).toBeVisible();
+    await expectBadgeIsOneGlyph(page);
     await expect(page.locator(`${CARD} [data-carry-card-name]`)).toHaveCSS(
       'opacity',
       '1'
