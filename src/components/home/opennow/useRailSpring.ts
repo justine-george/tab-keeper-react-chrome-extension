@@ -14,6 +14,13 @@ import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import { SPRING_OPEN_MS } from '../../common/springOpen';
 import { inRightColumn, restingBox, type DrawerOverRail } from './drawerCarry';
 
+// KAN-820. What lies over the rail, from the drawer's marks when asked, as the pane reads them: an effect's copy lags the commit.
+function drawerOverNow(drawer: HTMLElement | null): DrawerOverRail {
+  if (drawer === null || drawer.matches('[data-carry-away], [data-leaving]'))
+    return 'none';
+  return drawer.matches('[data-drawer-settling]') ? 'settling' : 'settled';
+}
+
 interface Options {
   // The rail's column; past its right edge counts too (inRightColumn).
   railRef: RefObject<HTMLElement>;
@@ -36,10 +43,10 @@ export function useRailSpring({
     carried === null ? undefined : (sourceSessionIdOf(carried) ?? undefined)
   );
   // Read when the receiver is asked, not when it registered.
-  const latest = useRef({ drawerOver, blocked, onSpring });
+  const latest = useRef({ blocked, onSpring });
   useEffect(() => {
-    latest.current = { drawerOver, blocked, onSpring };
-  }, [drawerOver, blocked, onSpring]);
+    latest.current = { blocked, onSpring };
+  }, [blocked, onSpring]);
 
   // The layer routes the carry here; it is the target only while nothing lies over the rail.
   const [owned, setOwned] = useState(false);
@@ -48,7 +55,7 @@ export function useRailSpring({
   useEffect(() => {
     const rail = () => railRef.current;
     // Uncovered by a settled drawer, whatever is carried.
-    const uncovered = () => latest.current.drawerOver !== 'settled';
+    const uncovered = () => drawerOverNow(drawerRef.current) !== 'settled';
     const springs = () =>
       currentCarry()?.item.source === 'saved' && !latest.current.blocked;
 
@@ -60,7 +67,7 @@ export function useRailSpring({
         // KAN-820 F1. While the drawer slides in, its resting box is the rail's: nothing under it takes the carry.
         const drawer = drawerRef.current;
         const box =
-          latest.current.drawerOver === 'settling' && drawer !== null
+          drawer !== null && drawerOverNow(drawer) === 'settling'
             ? restingBox(drawer)
             : el.getBoundingClientRect();
         return inRightColumn(box, x, y);

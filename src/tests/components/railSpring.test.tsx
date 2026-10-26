@@ -848,6 +848,45 @@ describe('while the sprung drawer slides in', () => {
     expect(savedTabs(store)).toEqual(before);
     expect(button).toHaveAttribute('aria-expanded', 'false');
   });
+
+  // Review R2. A commit marks the drawer before its effects run: the rail reads the mark when asked, as the pane does.
+  test('marked settled before its effects run: the pane owns the pointer over it and a release copies', async () => {
+    installMatchMedia(true);
+    await renderHome({ threeTabs: true });
+    holdDrawerMotion();
+    const item = carrySaved();
+    layOutSavedList();
+    await springDrawer();
+    // PREMISE: still sliding in, the rail's.
+    moveTo(IN_HEADER);
+    expect(opens()).toBe(false);
+
+    // As the settle's commit leaves it.
+    drawerEl().removeAttribute('data-drawer-settling');
+    moveTo(IN_HEADER);
+
+    expect(opens()).toBe(true);
+    releaseAt(IN_HEADER);
+    expect(carryEndedAs(item)).toBe('copied');
+  });
+
+  test('marked sliding in before its effects run: its list does not adopt the carry', async () => {
+    installMatchMedia(true);
+    await renderHome({ threeTabs: true });
+    const endMotion = holdDrawerMotion();
+    carrySaved();
+    layOutSavedList();
+    await springDrawer();
+    letDrawerListAdopt();
+    await endMotion();
+    expect(isSettling()).toBe(false);
+
+    // As a settle's commit leaves it (a second spring's way back).
+    drawerEl().setAttribute('data-drawer-settling', '');
+    moveTo(IN_DRAWER_LIST);
+
+    expect(currentCarry()?.owner).toBe('layer');
+  });
 });
 
 describe('folded wide (spec call 1)', () => {

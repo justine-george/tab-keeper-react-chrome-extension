@@ -268,7 +268,7 @@ export default function OpenNowRail({
       current = false;
     };
   }, [isSettling]);
-  // Settled, the layer routes the resting pointer again. After useRailSpring's effects, so the rail reads 'settled'.
+  // Settled, the layer routes the resting pointer again.
   const wasSettling = useRef(false);
   useEffect(() => {
     if (wasSettling.current && !isSettling) rerouteCarry();

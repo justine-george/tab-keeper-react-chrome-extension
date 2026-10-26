@@ -46,11 +46,11 @@ export function inRightColumn(
   return x >= box.left && y >= box.top && y < box.bottom;
 }
 
-// KAN-820 F1. Where an element rests, its slide ignored: offset geometry ignores transforms, and a fixed element's is the page's.
+// KAN-820 F1. Where a fixed element rests, its slide ignored: its offsets ignore transforms and are already the viewport's.
 export function restingBox(el: HTMLElement): DOMRect {
   return DOMRect.fromRect({
-    x: el.offsetLeft - window.scrollX,
-    y: el.offsetTop - window.scrollY,
+    x: el.offsetLeft,
+    y: el.offsetTop,
     width: el.offsetWidth,
     height: el.offsetHeight,
   });
