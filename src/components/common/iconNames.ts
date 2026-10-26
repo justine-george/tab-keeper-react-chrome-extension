@@ -16,7 +16,6 @@
 /** Drawn by the bundled Material Symbols subset. Keep sorted. */
 export const LIGATURE_ICON_NAMES = [
   'add_box',
-  'add',
   'arrow_back',
   'browser_updated',
   'check',
