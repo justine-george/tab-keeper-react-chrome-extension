@@ -37,11 +37,15 @@ const STRIP = '10px';
 // end must not clear the second's attributes.
 let current = 0;
 
+// KAN-812. A tour card on screen, placed: none of this motion while it is
+// (his call). The panes' pictures would paint over the card and its dim.
+export const COACH_CARD_SHOWN = '[data-coach-mark]:not([aria-hidden])';
+
 /**
  * Runs `update`, the React state change that folds or unfolds a pane, as a
- * view transition of `kind`. Instant where there is no API (jsdom) or the
- * user asked for reduced motion: `update` runs synchronously, as it would
- * without this.
+ * view transition of `kind`. Instant where there is no API (jsdom), the
+ * user asked for reduced motion, or a tour card is on screen: `update` runs
+ * synchronously, as it would without this.
  */
 export function runPaneMotion(
   update: () => void,
@@ -51,7 +55,8 @@ export function runPaneMotion(
   const start = document.startViewTransition?.bind(document);
   if (
     start === undefined ||
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+    document.querySelector(COACH_CARD_SHOWN) !== null
   ) {
     update();
     return;

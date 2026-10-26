@@ -70,6 +70,29 @@ describe('runPaneMotion', () => {
     expect(start).not.toHaveBeenCalled();
   });
 
+  // KAN-812. The panes' pictures would paint over the tour's card and dim.
+  test('with a coach card on screen, the change happens at once and no transition starts', () => {
+    const { start } = fakeTransitions();
+    const card = document.createElement('div');
+    card.setAttribute('data-coach-mark', '');
+    document.body.append(card);
+    const update = vi.fn();
+    runPaneMotion(update, 'saved', 'fold');
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(start).not.toHaveBeenCalled();
+    expect(attrs().move).toBeUndefined();
+  });
+
+  test('a coach card not yet placed (hidden) does not stop the motion', () => {
+    const { start } = fakeTransitions();
+    const card = document.createElement('div');
+    card.setAttribute('data-coach-mark', '');
+    card.setAttribute('aria-hidden', 'true');
+    document.body.append(card);
+    runPaneMotion(() => {}, 'saved', 'fold');
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
   test('the change runs inside the transition, marked with its kind and direction, which clear at its end', async () => {
     const { start, runs } = fakeTransitions();
     const update = vi.fn();
