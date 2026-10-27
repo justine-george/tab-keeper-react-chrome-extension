@@ -155,6 +155,7 @@ export default function CoachMark({
   const isPlaced = frame !== null;
 
   // Only while drawn; the last step's Esc is its non-pin button. A layout effect, so it lands in the commit that shows the card (KAN-520).
+  // On window, so it hears Esc after the overlays on document: an open drawer closes before the tour skips (KAN-813).
   useLayoutEffect(() => {
     if (!isPlaced) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -162,8 +163,8 @@ export default function CoachMark({
       event.preventDefault();
       onEscape();
     };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, [isPlaced, onEscape]);
 
   // The dim over the panes and their menus (1000), the mark and ring over it, all under the toasts (1050).

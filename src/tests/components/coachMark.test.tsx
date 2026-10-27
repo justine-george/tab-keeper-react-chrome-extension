@@ -147,6 +147,19 @@ describe('the coach mark', () => {
     expect(onEscape).not.toHaveBeenCalled();
   });
 
+  // KAN-813. An overlay opened over the card (the Currently open drawer) listens later, and still goes first.
+  test('an Esc an overlay on document claims after the card appeared is left alone', async () => {
+    const { onEscape } = await render();
+    await placed();
+    const overlay = (event: KeyboardEvent) => event.preventDefault();
+    document.addEventListener('keydown', overlay);
+    act(() => {
+      document.dispatchEvent(escape());
+    });
+    document.removeEventListener('keydown', overlay);
+    expect(onEscape).not.toHaveBeenCalled();
+  });
+
   test('an Esc while a modal dialog is open is the dialog’s', async () => {
     const { onEscape } = await render();
     await placed();
