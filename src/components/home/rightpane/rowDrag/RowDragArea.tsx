@@ -2133,7 +2133,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // `pressStillDown` is true for a cancel the pointer has not ended -- Esc,
     // or the list turning drag off (KAN-335) -- whose press will still be
     // released, and whose release Chrome may still turn into a click.
-    const finish = (commit: boolean, pressStillDown: boolean) => {
+    // `listTurnedOff` is true for the list turning drag off (`disabled`, or
+    // carry-only for an in-list drag): a search changed its rows, so the
+    // scroll from the press is not put back (KAN-832).
+    const finish = (
+      commit: boolean,
+      pressStillDown: boolean,
+      listTurnedOff = false
+    ) => {
       const l = live.current;
       live.current = null;
       // Only this area's own drag: every release and Esc lands here, and a
@@ -2308,7 +2315,12 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               rows.current.get(dropped)?.scrollIntoView({ block: 'nearest' });
             });
           }
-        } else if (restoreScrollIfNoDrop && l.scroller && !l.adopted) {
+        } else if (
+          restoreScrollIfNoDrop &&
+          l.scroller &&
+          !l.adopted &&
+          !listTurnedOff
+        ) {
           // Put the view back (KAN-157). For a window drag "nothing happened" is
           // not the same as "leave the scroll alone": the collapse already
           // clamped it, and unfolding does not give it back -- measured, five
@@ -2393,7 +2405,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     window.addEventListener('pointerdown', onPointerDownCapture, true);
 
     // A list that turns drag off while a row is held cancels that drag, and
-    // through Esc's own finish(false, true), not a copy of it (KAN-335, O14c).
+    // through Esc's own finish, not a copy of it (KAN-335, O14c).
     // `begin` alone only stops the NEXT drag: Open now turns drag off when a
     // search starts, a search can start with a row held (Shift+Tab back to the
     // field), and the release then committed a move worked out from rows the
@@ -2401,9 +2413,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // marker, which is safe on an element the search has unmounted. A press
     // still under the threshold is dropped the same way, so it cannot go on
     // to start a drag the list has turned off.
-    if (disabled && live.current) finish(false, true);
+    if (disabled && live.current) finish(false, true, true);
     // P2. A list turned carry-only (Open now's search starting) ends an in-list drag; a carry-only drag has already handed off.
-    if (carryOnly && live.current?.started === true) finish(false, true);
+    if (carryOnly && live.current?.started === true) finish(false, true, true);
 
     return () => {
       unsubscribeCarry();
