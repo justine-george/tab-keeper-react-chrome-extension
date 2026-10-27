@@ -102,7 +102,7 @@ describe('slideLanding', () => {
     );
   });
 
-  it('CONTROL: no block moved (a drop within a window, or into one above): nothing glides, not even the dropped row', () => {
+  it('CONTROL: no block moved (a drop within a window): nothing glides, not even the dropped row', () => {
     reduceMotion(false);
     const { root, blocks, row } = list();
     blocks.forEach((b, i) => at(b, i * 100));
@@ -114,6 +114,50 @@ describe('slideLanding', () => {
     slideLanding(root, before, row);
 
     for (const a of animations) expect(a).not.toHaveBeenCalled();
+  });
+
+  it('a scroll while the drop waits for its move glides nothing', () => {
+    reduceMotion(false);
+    const { root, blocks, row } = list();
+    at(root, 0);
+    blocks.forEach((b, i) => at(b, i * 100));
+    at(row, 110);
+    const before = landingTops(root, row);
+    // Scrolled 40px: the list and everything in it, 40px up, nothing moved in it.
+    at(root, -40);
+    blocks.forEach((b, i) => at(b, i * 100 - 40));
+    at(row, 70);
+    const animations = [...blocks, row].map(animated);
+
+    slideLanding(root, before, row);
+
+    for (const a of animations) expect(a).not.toHaveBeenCalled();
+  });
+
+  it('a window the drop made glides with the block above it', () => {
+    reduceMotion(false);
+    const { root, blocks, row } = list();
+    const [w1, w2, w3] = blocks;
+    at(w1, 0);
+    at(w2, 120);
+    at(w3, 260);
+    at(row, 10);
+    const before = landingTops(root, row);
+    // The dropped row's room in w1 closed, and a new window holds it below w3.
+    const made = block(root, 'w4');
+    at(w2, 88);
+    at(w3, 228);
+    at(made, 300);
+    const [, , a3, a4] = [...blocks, made].map(animated);
+
+    slideLanding(root, before, row);
+
+    for (const a of [a3, a4]) {
+      expect(a).toHaveBeenCalledWith(
+        [{ transform: 'translateY(32px)' }, { transform: 'none' }],
+        expect.anything()
+      );
+    }
   });
 
   it('with Reduce motion on, nothing glides', () => {

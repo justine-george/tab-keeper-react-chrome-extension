@@ -2251,16 +2251,17 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               drawsLater: later,
               timer: null,
               keptFold: later && FOLDING_KINDS.has(dragKind) ? l.heldEl : null,
-              // A folding drag's blocks change height as the fold comes off: not a glide.
-              landing: FOLDING_KINDS.has(dragKind)
-                ? null
-                : {
-                    tops: landingTops(
-                      containerRef.current,
-                      rows.current.get(l.rowId)
-                    ),
-                    rowId: l.rowId,
-                  },
+              // A fold coming off changes the blocks' heights, a drag's own or a window it opened folding back: not a glide.
+              landing:
+                FOLDING_KINDS.has(dragKind) || foldedBack
+                  ? null
+                  : {
+                      tops: landingTops(
+                        containerRef.current,
+                        rows.current.get(l.rowId)
+                      ),
+                      rowId: l.rowId,
+                    },
             };
             if (s.keptFold !== null) {
               setDragging(true, dragKind);
