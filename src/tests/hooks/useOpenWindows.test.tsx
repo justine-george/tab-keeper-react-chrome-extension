@@ -21,6 +21,7 @@ import {
   flushHeldChanges,
   whenDragReleases,
 } from '../../redux/dragHold';
+import { whileMovingTabs } from '../../redux/undoHistory';
 import { setupChromeFake } from '../setup/chrome.fake';
 import type { ChromeFakeHandle, ChromeSeed } from '../setup/chrome.fake';
 
@@ -202,6 +203,37 @@ describe('useOpenWindows', () => {
     await advance(OPEN_NOW_REFRESH_COALESCE_MS);
 
     expect(titlesIn(result.current, 1)).toEqual(['A', 'New']);
+  });
+
+  // KAN-835. A drop's rows hold until the list shows the move.
+  test("Tab Keeper's own moves are read as soon as they end, not after the coalesce", async () => {
+    handle = setupChromeFake(twoWindows());
+    const { result } = renderHook(() => useOpenWindows(false));
+    await advance(0);
+
+    await act(async () => {
+      await whileMovingTabs(() =>
+        chrome.tabs.move(20, { windowId: 1, index: -1 })
+      );
+    });
+    await advance(0);
+
+    expect(titlesIn(result.current, 1)).toEqual(['A', 'B']);
+  });
+
+  test('CONTROL: the same move made outside Tab Keeper waits for the coalesce', async () => {
+    handle = setupChromeFake(twoWindows());
+    const { result } = renderHook(() => useOpenWindows(false));
+    await advance(0);
+
+    await act(async () => {
+      await chrome.tabs.move(20, { windowId: 1, index: -1 });
+    });
+    await advance(0);
+    expect(titlesIn(result.current, 1)).toEqual(['A']);
+
+    await advance(OPEN_NOW_REFRESH_COALESCE_MS);
+    expect(titlesIn(result.current, 1)).toEqual(['A', 'B']);
   });
 
   // Review Focus 1: a page load fires many onUpdated events.

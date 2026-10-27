@@ -1959,7 +1959,8 @@ test("9. in the narrow tab view's drawer, a drop moves the real tab as in the pa
 // The frames are read only until the re-read reorders the rows: the re-read
 // itself moves scrollTop (scroll anchoring, below), and on CI it landed
 // inside a fixed six-frame window (KAN-372). `frameGapMs` spaces the reads
-// out so that it lands among them every time.
+// out so that it lands among them every time. Since KAN-835 the re-read runs
+// as soon as Chrome's move ends, often before the frame after the release.
 async function expectDropKeepsScroll(
   {
     context,
@@ -2096,10 +2097,8 @@ async function expectDropKeepsScroll(
   });
 
   await expectLandedAsPreviewed(page, grab.id, preview);
-  // PREMISE: a frame after the drop's own was read before the re-read.
-  expect(log.beforeReread.length).toBeGreaterThanOrEqual(2);
-  // PREMISE: spaced reads do catch the re-read among them.
-  if (frameGapMs > 0) expect(log.rereadAt).not.toBeNull();
+  // PREMISE: the reads reached the re-read, so every frame before it was read.
+  expect(log.rereadAt).not.toBeNull();
   // The scroll never followed the row back to its old place: from the
   // release to the re-read it stays where the release left it...
   for (const top of log.beforeReread)

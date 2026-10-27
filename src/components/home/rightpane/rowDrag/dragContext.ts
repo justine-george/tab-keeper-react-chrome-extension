@@ -105,6 +105,13 @@ export interface DragState {
   landingSlotShown: boolean;
   // Keys first measured for this state (KAN-379): drawn at their shift at once.
   newlyMeasured: ReadonlySet<string>;
+  /**
+   * The drop is committed and the list has not drawn it yet (KAN-835). Rows
+   * hold where the drop puts them, the held row where it was let go with no
+   * lift, until the list draws the new order: then every row is at its new
+   * place at once, with nothing left to ease.
+   */
+  settling: boolean;
 }
 
 export interface Ctx {
@@ -160,6 +167,6 @@ export function useRowDragHandle(
     (scope === undefined ? scopes?.nearest : scopes?.byScope[scope]) ?? null;
   return {
     canDrag: ctx !== null && !ctx.disabled,
-    held: ctx?.drag?.rowId === rowId,
+    held: ctx?.drag?.rowId === rowId && !ctx.drag.settling,
   };
 }

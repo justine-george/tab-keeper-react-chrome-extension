@@ -37,6 +37,16 @@ let running = false;
 // undo the step below, and the new step would then clear that step's redo.
 let movesInFlight = 0;
 
+// KAN-835. Told each time an Open now sort or drag's moves end.
+const movesEndedListeners = new Set<() => void>();
+
+export function onTabMovesEnded(listener: () => void): () => void {
+  movesEndedListeners.add(listener);
+  return () => {
+    movesEndedListeners.delete(listener);
+  };
+}
+
 // Runs an Open now sort or drag's Chrome moves, counted as in flight until they end.
 export async function whileMovingTabs<T>(move: () => Promise<T>): Promise<T> {
   movesInFlight += 1;
@@ -44,6 +54,7 @@ export async function whileMovingTabs<T>(move: () => Promise<T>): Promise<T> {
     return await move();
   } finally {
     movesInFlight -= 1;
+    for (const listener of movesEndedListeners) listener();
   }
 }
 
