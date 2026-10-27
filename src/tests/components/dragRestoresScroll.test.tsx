@@ -90,9 +90,13 @@ const mountFoldingScroller = (el: HTMLElement) => {
 const Harness = ({
   restore,
   onMove = () => {},
+  disabled,
+  carryOnly,
 }: {
   restore: boolean;
   onMove?: () => void;
+  disabled?: boolean;
+  carryOnly?: boolean;
 }) => (
   <div data-testid="pane" style={{ overflowY: 'auto' }}>
     <RowDragArea
@@ -100,6 +104,8 @@ const Harness = ({
       onMove={onMove}
       dragKind="window"
       restoreScrollIfNoDrop={restore}
+      disabled={disabled}
+      carryOnly={carryOnly}
     >
       {IDS.map((id) => (
         <DraggableRow key={id} rowId={id}>
@@ -113,7 +119,7 @@ const Harness = ({
 // Mounted, scrolled to the bottom of the EXPANDED list (30), with row b's
 // header picked up -- visible there at viewport 0..30.
 const setUp = (restore: boolean, onMove?: () => void) => {
-  render(<Harness restore={restore} onMove={onMove} />);
+  const { rerender } = render(<Harness restore={restore} onMove={onMove} />);
   const scroller = screen.getByTestId('pane');
   const { rowH, writes } = mountFoldingScroller(scroller);
   IDS.forEach((id, i) => {
@@ -133,7 +139,7 @@ const setUp = (restore: boolean, onMove?: () => void) => {
   // never ran would pass every test below.
   expect(scroller.scrollTop).toBe(0);
   writes.length = 0;
-  return { scroller, writes };
+  return { scroller, writes, rerender };
 };
 
 // KAN-708. DraggableRow reads the platform (useMacKeys), so a drag test needs a chrome to read.
@@ -188,6 +194,27 @@ describe('a window drag that commits nothing puts the view back', () => {
 
     expect(writes).toEqual([]);
   });
+});
+
+// KAN-832. A list that turns drag off with a row held cancels the drag, as Esc
+// does (KAN-335) -- but it turned off because its rows changed (Open now's
+// search starting), and the search has already put its list where it goes.
+// The scroll from the press belongs to the rows before, so it is not put back.
+describe('a drag its list turns off leaves the scroll alone', () => {
+  const offs: Array<'disabled' | 'carryOnly'> = ['disabled', 'carryOnly'];
+  for (const off of offs) {
+    test(`turned ${off}: cancelled, and nothing written to the scroll`, () => {
+      const { rerender, writes } = setUp(true);
+
+      rerender(<Harness restore {...{ [off]: true }} />);
+
+      // PREMISE: the drag was cancelled, the path Esc restores on.
+      expect(document.documentElement.hasAttribute('data-dragging')).toBe(
+        false
+      );
+      expect(writes).toEqual([]);
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------
