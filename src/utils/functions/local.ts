@@ -886,7 +886,10 @@ const isValidTabData = (data: unknown): data is tabData => {
     (data.pinned === undefined || data.pinned === true) &&
     // KAN-460 Part 4.
     (data.splitId === undefined ||
-      (typeof data.splitId === 'string' && data.splitId !== ''))
+      (typeof data.splitId === 'string' && data.splitId !== '')) &&
+    // KAN-824. Absent is unnamed; an empty name is never written.
+    (data.customTitle === undefined ||
+      (typeof data.customTitle === 'string' && data.customTitle !== ''))
   );
 };
 

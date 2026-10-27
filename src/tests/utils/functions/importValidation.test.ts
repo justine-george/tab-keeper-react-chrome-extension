@@ -377,3 +377,54 @@ describe("a saved tab's splitId field (KAN-460 Part 4)", () => {
     expect(isValidTabMasterContainer(withTab({ splitId: 7 }))).toBe(false);
   });
 });
+
+// KAN-824. A tab's own name is a non-empty string or absent.
+describe("a saved tab's customTitle field (KAN-824)", () => {
+  const withTab = (extra: Record<string, unknown>) => ({
+    lastModified: 1,
+    selectedTabGroupId: null,
+    tabGroups: [
+      {
+        tabGroupId: 's',
+        title: 'S',
+        createdTime: '2026-10-09 10:00:00',
+        windowCount: 1,
+        tabCount: 1,
+        isAutoSave: false,
+        isSelected: false,
+        windows: [
+          {
+            windowId: 'w',
+            windowHeight: 1,
+            windowWidth: 1,
+            windowOffsetTop: 0,
+            windowOffsetLeft: 0,
+            tabCount: 1,
+            title: '',
+            tabs: [
+              {
+                tabId: 't',
+                favicon: '',
+                title: 'T',
+                url: 'https://a.co',
+                ...extra,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  test('absent and a name are valid', () => {
+    expect(isValidTabMasterContainer(withTab({}))).toBe(true);
+    expect(isValidTabMasterContainer(withTab({ customTitle: 'Name' }))).toBe(
+      true
+    );
+  });
+
+  test('an empty string and a number are not', () => {
+    expect(isValidTabMasterContainer(withTab({ customTitle: '' }))).toBe(false);
+    expect(isValidTabMasterContainer(withTab({ customTitle: 5 }))).toBe(false);
+  });
+});
