@@ -210,8 +210,8 @@ describe('Add current tab skips a Tab Keeper page', () => {
               id: 11,
               windowId: 1,
               active: true,
-              url: 'chrome-extension://faketestid/index.html?view=tab',
-              title: 'Tab Keeper',
+              url: 'https://ordinary.test/',
+              title: 'Ordinary',
             },
           ],
         },
@@ -221,8 +221,17 @@ describe('Add current tab skips a Tab Keeper page', () => {
         },
       }
     );
+    await act(async () => {});
+    // The popup asked over an ordinary page and offers Add (KAN-823); the tab
+    // turning into a Tab Keeper page before the press leaves only the
+    // handler's own check (KAN-299) to refuse it.
+    await act(() =>
+      chrome.tabs.update(11, {
+        url: 'chrome-extension://faketestid/index.html?view=tab',
+      })
+    );
 
-    await userEvent.click(await screen.findByLabelText('Add current tab'));
+    await userEvent.click(screen.getByLabelText('Add current tab'));
     // Flushes the click handler's own await (chrome.tabs.query) so a
     // dispatch that WOULD have happened has had the chance to.
     await act(async () => {});
@@ -476,7 +485,11 @@ describe('KAN-821 Add current tab opens the window and shows the new tab', () =>
 
   const renderWith = async (
     active: { url: string; title: string },
-    { folded, pinnedFirst = false }: { folded: boolean; pinnedFirst?: boolean }
+    {
+      folded,
+      pinnedFirst = false,
+      becomes,
+    }: { folded: boolean; pinnedFirst?: boolean; becomes?: string }
   ) => {
     scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
     const session: tabContainerData = buildSession();
@@ -501,7 +514,14 @@ describe('KAN-821 Add current tab opens the window and shows the new tab', () =>
           );
       },
     });
-    await userEvent.click(await screen.findByLabelText('Add current tab'));
+    await act(async () => {});
+    if (becomes !== undefined) {
+      // The popup asked over an ordinary page and offers Add (KAN-823); the tab
+      // turning into a Tab Keeper page before the press leaves only the
+      // handler's own check (KAN-299) to refuse it.
+      await act(() => chrome.tabs.update(11, { url: becomes }));
+    }
+    await userEvent.click(screen.getByLabelText('Add current tab'));
     // The handler's own await (chrome.tabs.query), then the frame the
     // scroll waits for.
     await act(async () => {});
@@ -549,7 +569,10 @@ describe('KAN-821 Add current tab opens the window and shows the new tab', () =>
   });
 
   test('a refused add leaves the window collapsed', async () => {
-    const { store, seen } = await renderWith(TAB_VIEW, { folded: true });
+    const { store, seen } = await renderWith(ADDED, {
+      folded: true,
+      becomes: TAB_VIEW.url,
+    });
     expect(seen).not.toContain('globalState/expandWindow');
     expect(foldedIds(store)).toEqual(['win-1']);
     expect(scrolled).not.toHaveBeenCalled();

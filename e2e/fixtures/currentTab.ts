@@ -5,7 +5,9 @@ import { standIn } from './standInPages';
 // KAN-823. Driven as a tab, the popup page is itself the current tab -- a Tab
 // Keeper page -- so it offers no Add current tab. A real popup opens over the
 // user's page: make an ordinary page current in this page's window, then open
-// this page again, still in the background, so it asks afresh.
+// this page again, still in the background, so it asks afresh. The reload
+// re-runs the context's seed scripts and counts as a second open: call it
+// first, before anything the test asserts was written by this page.
 export async function overAnOrdinaryTab(
   page: Page,
   title = 'Current tab'
@@ -21,11 +23,12 @@ export async function overAnOrdinaryTab(
       });
       const id = made.id;
       if (id === undefined) throw new Error('the tab was made without an id');
-      for (;;) {
+      for (let tries = 0; tries < 100; tries++) {
         const now = await chrome.tabs.get(id);
         if (now.status === 'complete' && now.title === name) return;
         await new Promise((r) => setTimeout(r, 50));
       }
+      throw new Error(`"${name}" never finished loading as the current tab`);
     },
     { address: url, name: title }
   );

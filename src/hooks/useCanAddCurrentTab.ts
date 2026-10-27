@@ -17,7 +17,9 @@ export function useCanAddCurrentTab(): boolean {
       .then(([tab]) => {
         if (mounted)
           setOverTabKeeper(tab !== undefined && isTabKeeperPage(tab));
-      });
+      })
+      // Unanswered, it stays offered; the handler asks again and decides.
+      .catch(() => {});
     return () => {
       mounted = false;
     };

@@ -34,7 +34,8 @@ const GROUPS: chromeTabGroupData[] = [
   { groupId: 'g1', title: 'Work', color: 'blue' },
 ];
 
-async function renderOver(currentUrl: string) {
+// `before` runs once the chrome fake is in place, before the row mounts.
+async function renderOver(currentUrl: string, before = () => {}) {
   const live: ChromeSeed = {
     grantedPermissions: ['tabGroups'],
     windows: [
@@ -61,6 +62,7 @@ async function renderOver(currentUrl: string) {
     {
       seed: live,
       seedStore: (store) => {
+        before();
         store.dispatch(setHasTabGroupsPermission(true));
         store.dispatch(
           replaceState(
@@ -124,6 +126,26 @@ describe('KAN-823 Add current tab over a Tab Keeper page', () => {
     await renderOver('chrome-extension://faketestid/index.html');
     expect(windowIcon()).toBeNull();
     expect(groupIcon()).toBeNull();
+  });
+
+  test('offered until the popup has its answer', async () => {
+    await renderOver('chrome-extension://faketestid/index.html', () => {
+      vi.spyOn(chrome.tabs, 'query').mockImplementation(
+        () => new Promise<chrome.tabs.Tab[]>(() => {})
+      );
+    });
+    expect(windowIcon()).not.toBeNull();
+    expect(groupIcon()).not.toBeNull();
+  });
+
+  test('a question that fails still offers it, and the handler decides', async () => {
+    await renderOver('chrome-extension://faketestid/index.html', () => {
+      vi.spyOn(chrome.tabs, 'query').mockImplementation(() =>
+        Promise.reject(new Error('no tabs'))
+      );
+    });
+    expect(windowIcon()).not.toBeNull();
+    expect(groupIcon()).not.toBeNull();
   });
 
   test('CONTROL: over an ordinary page every Add current tab shows', async () => {

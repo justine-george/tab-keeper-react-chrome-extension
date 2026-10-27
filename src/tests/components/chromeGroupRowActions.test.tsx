@@ -182,12 +182,21 @@ describe('add current tab to group skips a Tab Keeper page', () => {
           {
             id: 1,
             active: true,
-            url: 'chrome-extension://faketestid/index.html?view=tab',
-            title: 'Tab Keeper',
+            url: 'https://ordinary.test/',
+            title: 'Ordinary',
           },
         ],
       },
     });
+    await act(async () => {});
+    // The popup asked over an ordinary page and offers Add (KAN-823); the tab
+    // turning into a Tab Keeper page before the press leaves only the
+    // handler's own check (KAN-299) to refuse it.
+    await act(() =>
+      chrome.tabs.update(1, {
+        url: 'chrome-extension://faketestid/index.html?view=tab',
+      })
+    );
 
     await userEvent.click(
       screen.getByRole('button', { name: 'Add current tab to group' })

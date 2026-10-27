@@ -1785,9 +1785,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                               onClick={() => openGroup(item)}
                             />
                           )}
-                          {/* KAN-279 D13. Same reasoning as the window
-                                row's Add current tab: meaningless in the tab
-                                view, so hidden there too. */}
+                          {/* KAN-279 D13 / KAN-823. Hidden where the
+                                window row's Add current tab is: wherever the
+                                current tab is a Tab Keeper page. */}
                           {!isSearching && canAddCurrentTab && (
                             <Icon
                               tooltipText={t('Add current tab to group')}
