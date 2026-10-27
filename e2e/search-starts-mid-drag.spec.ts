@@ -2,17 +2,19 @@ import type { Locator, Page, Worker } from '@playwright/test';
 
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { openPage } from './fixtures/onboarding';
+import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 
-// KAN-832. A search typed while a Currently open group is held (Shift+Tab
-// back to the field mid-drag) cancels the drag (KAN-335) and must still put
-// the list at the top (KAN-339 B), so the first match is in view. The cancel
-// used to put back the scroll from the press, over the search's top.
-// Needs the tabGroups grant, so a group is an item at all.
+// KAN-832. A search typed while a row is held (Shift+Tab back to the field
+// mid-drag) cancels the drag (KAN-335), and the first match is still in
+// view. The cancel used to put back the scroll from the press, over the list
+// the search had just drawn. The lists that put the scroll back on a cancel
+// are Currently open's groups and the saved session's windows and groups.
+// Needs the tabGroups grant, so an Open now group is an item at all.
 
 const VIEW_TAB = 'index.html?view=tab';
 const OPEN_NOW = '[data-pane="open-now"]';
 const SCROLLER = `${OPEN_NOW} [data-open-now-scroller]`;
-// 30 tabs match "trip", 10 don't: the list overflows before and during the
+// 30 tabs match "p", 10 don't: the list overflows before and during the
 // search. The last two are grouped, so the group is on screen at the bottom.
 const TITLES = [
   ...Array.from(
@@ -42,14 +44,11 @@ async function openWithGroupAtBottom(
       const ids = (win?.tabs ?? []).flatMap((tab) =>
         tab.id === undefined ? [] : [tab.id]
       );
-      const id = await chrome.tabGroups.update(
-        await chrome.tabs.group({
-          tabIds: ids.slice(-2),
-          createProperties: { windowId: win?.id },
-        }),
-        { title: 'Bills', color: 'blue' }
-      );
-      return id;
+      const id = await chrome.tabs.group({
+        tabIds: ids.slice(-2),
+        createProperties: { windowId: win?.id },
+      });
+      await chrome.tabGroups.update(id, { title: 'Bills', color: 'blue' });
     },
     TITLES.map((t) => `data:text/html,<title>${t}</title>`)
   );
@@ -162,3 +161,113 @@ test('a search typed while a group is held puts the list at the top, and Esc put
   // KAN-339 B: back to where the search began.
   expect(await scrollTop(page)).toBe(atSearch);
 });
+
+// The saved side, measured on main before the fix: scrolled to the end (928)
+// with the last window held, one letter put the search's list at its end
+// (592 of 592) and its first match at y=-429.
+const savedWindow = (i: number) => ({
+  windowId: `w${i}`,
+  windowHeight: 800,
+  windowWidth: 1200,
+  windowOffsetTop: 0,
+  windowOffsetLeft: 0,
+  tabCount: 4,
+  title: `w${i}`,
+  tabs: Array.from({ length: 4 }, (_, n) => ({
+    tabId: `w${i}-${n}`,
+    favicon: '',
+    // Six windows match "l", so the search's list overflows; w6 and w7 don't.
+    title: i < 6 ? `Lisbon guide ${i}-${n}` : `Notes ${i}-${n}`,
+    url: `https://w${i}-${n}.test/`,
+  })),
+});
+
+test("a saved search typed while a session's window is held shows the first match", async ({
+  context,
+  extensionId,
+}) => {
+  const windows = Array.from({ length: 8 }, (_, i) => savedWindow(i));
+  await seedSessions(context, {
+    ...buildContainer([
+      buildSession({
+        tabGroupId: 's1',
+        title: 'Trip',
+        isSelected: true,
+        windowCount: windows.length,
+        tabCount: windows.length * 4,
+        windows,
+      }),
+    ]),
+    selectedTabGroupId: 's1',
+  });
+  const page = await openPage(context, extensionId, 'index.html', {
+    width: 790,
+    height: 550,
+  });
+  await expect(page.locator('[data-drag-row-id="w7"]')).toBeVisible();
+  // PREMISE: scrolled to the end, so a kept scroll would hide the first match.
+  expect((await savedScroller(page, true)).top).toBeGreaterThan(300);
+
+  const handle = page
+    .locator('[data-drag-row-id="w7"] [data-window-drag-handle]')
+    .first();
+  const box = await handle.boundingBox();
+  if (box === null) throw new Error('w7 has no handle box');
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y - 10, { steps: 3 });
+  await expect.poll(() => isHeld(page)).toBe(true);
+
+  const input = page.locator('[data-saved-search] input');
+  const inputFocused = () =>
+    input.evaluate((el) => el === document.activeElement);
+  for (let i = 0; i < 300 && !(await inputFocused()); i++) {
+    await page.keyboard.press('Shift+Tab');
+  }
+  expect(await inputFocused(), 'Shift+Tab never reached the field').toBe(true);
+  expect(await isHeld(page)).toBe(true);
+
+  await page.keyboard.type('l');
+  await expect(page.getByText('Notes 7-0', { exact: true })).toHaveCount(0);
+  await expect.poll(() => isDragging(page)).toBe(false);
+  // PREMISE: the six matching windows still overflow.
+  const pane = await savedScroller(page);
+  expect(pane.max).toBeGreaterThan(0);
+  await page.evaluate(
+    () =>
+      new Promise((r) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => r(null)))
+      )
+  );
+
+  const first = await page
+    .getByText('Lisbon guide 0-0', { exact: true })
+    .boundingBox();
+  if (first === null) throw new Error('the first match has no box');
+  expect(first.y).toBeGreaterThanOrEqual(pane.boxTop);
+  expect(first.y + first.height).toBeLessThanOrEqual(pane.boxBottom);
+  await page.mouse.up();
+});
+
+// The saved detail's scroller (the window rows' nearest scrolling ancestor):
+// its scroll, how far it can scroll, and its box. `toEnd` scrolls it to the
+// end first.
+const savedScroller = (page: Page, toEnd = false) =>
+  page.evaluate((end) => {
+    let el = document.querySelector<HTMLElement>(
+      '[data-drag-row-id="w0"]'
+    )?.parentElement;
+    while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+      el = el.parentElement;
+    if (!el) throw new Error('no scroller above the windows');
+    if (end) el.scrollTop = el.scrollHeight;
+    const r = el.getBoundingClientRect();
+    return {
+      top: Math.round(el.scrollTop),
+      max: el.scrollHeight - el.clientHeight,
+      boxTop: r.top,
+      boxBottom: r.bottom,
+    };
+  }, toEnd);
