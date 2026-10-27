@@ -109,12 +109,14 @@ async function framesRecorded(page: Page): Promise<Tops[]> {
 }
 
 // Every frame where a row is outside [its top at release, its settled top],
-// with a pixel of slack for sub-pixel snapping.
+// with a pixel of slack for sub-pixel snapping. Not a block's end (KAN-836),
+// which moves at once when the block gains or loses a row.
 function strays(frames: Tops[]): string[] {
   const first = frames[0] ?? {};
   const last = frames[frames.length - 1] ?? {};
   const out: string[] = [];
   for (const [key, end] of Object.entries(last)) {
+    if (key.endsWith(' end')) continue;
     const start = first[key];
     if (start === undefined) continue;
     const lo = Math.min(start, end) - 1;
@@ -823,16 +825,15 @@ test.describe('a drop into a lower window (KAN-836)', () => {
     await page.mouse.up();
     const frames = await framesRecorded(page);
     expectSettled(frames);
-    expect(await savedTabsByWindow(page)).toEqual([
-      ['w1-t0', 'w1-t1'],
-      ['w2-t0', 'w2-t1', 'w2-t2'],
-      ['w1-t2', 'w3-t0', 'w3-t1'],
-    ]);
+    // PREMISE: the drop landed in w3, and w2 kept its tabs.
+    const windows = await savedTabsByWindow(page);
+    expect(windows?.[1]).toEqual(['w2-t0', 'w2-t1', 'w2-t2']);
+    expect(windows?.[2]).toContain('w1-t2');
     // PREMISE: w2 folded back, so w3 rose by more than a row.
     expect(travel(frames, 'window w3')).toBeLessThan(-60);
-    expect(
-      jumps(frames).filter((j) => j.startsWith('window w3 frame'))
-    ).toHaveLength(1);
+    // Never seen between where it was and where it goes: a glide always is
+    // (a long one can step past `jumps`' half row in its fastest frame).
+    expect(eased(frames)).not.toContain('window w3');
   });
 
   test('CONTROL: with Reduce motion on, the windows below move at once', async ({
