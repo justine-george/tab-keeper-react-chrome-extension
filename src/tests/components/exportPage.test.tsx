@@ -677,6 +677,134 @@ describe('the Save as PDF… pointer (KAN-826)', () => {
   });
 });
 
+describe('⌘P and ⌘S run Save as PDF… (KAN-826)', () => {
+  const renderMac = async () => {
+    const r = await renderWithProviders(
+      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      {
+        seed: { platformOs: 'mac' },
+        seedStore: (store) => {
+          store.dispatch(replaceState(buildContainer([SESSION])));
+        },
+      }
+    );
+    // Chrome's platform answer lands.
+    await act(async () => {});
+    return r;
+  };
+
+  const stubPrint = () => {
+    const printed = vi.fn();
+    Object.defineProperty(frame(), 'contentWindow', {
+      configurable: true,
+      value: { print: printed },
+    });
+    return printed;
+  };
+
+  const iconsLanded = async () => {
+    await waitFor(() =>
+      expect(frame().getAttribute('srcdoc')).toContain('data-icons="ready"')
+    );
+    fireEvent.load(frame());
+  };
+
+  // fireEvent answers false when a listener prevented the event.
+  const key = (target: Window | Document | Element, init: KeyboardEventInit) =>
+    fireEvent.keyDown(target, init);
+
+  test.each([
+    ['⌘P', { key: 'p', code: 'KeyP', metaKey: true }],
+    ['⌘S', { key: 's', code: 'KeyS', metaKey: true }],
+  ])(
+    '%s prints the preview once and keeps the browser away',
+    async (_n, init) => {
+      const { store } = await renderMac();
+      const printed = stubPrint();
+      await iconsLanded();
+
+      expect(key(window, init)).toBe(false);
+
+      await waitFor(() => expect(printed).toHaveBeenCalledTimes(1));
+      expect(store.getState().settingsDataState.hasPressedSaveAsPdf).toBe(true);
+    }
+  );
+
+  test('pressed twice before the icons land, it prints once', async () => {
+    const { store } = await renderMac();
+    const printed = stubPrint();
+    const setItem = vi.spyOn(localStorage, 'setItem');
+    setItem.mockClear();
+
+    expect(key(window, { key: 'p', code: 'KeyP', metaKey: true })).toBe(false);
+    expect(key(window, { key: 'p', code: 'KeyP', metaKey: true })).toBe(false);
+    await iconsLanded();
+
+    await waitFor(() => expect(printed).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(printed).toHaveBeenCalledTimes(1);
+    expect(store.getState().settingsDataState.hasPressedSaveAsPdf).toBe(true);
+    const flagWrites = setItem.mock.calls.filter(
+      ([k, v]) =>
+        k === 'settingsData' && v.includes('"hasPressedSaveAsPdf":true')
+    );
+    expect(flagWrites).toHaveLength(1);
+  });
+
+  // Focus inside the preview: the keys reach the frame's document, not the page's.
+  test('⌘P with focus in the preview prints it too', async () => {
+    await renderMac();
+    const printed = stubPrint();
+    await iconsLanded();
+    const doc = frame().contentDocument!;
+
+    expect(key(doc, { key: 'p', code: 'KeyP', metaKey: true })).toBe(false);
+
+    await waitFor(() => expect(printed).toHaveBeenCalledTimes(1));
+  });
+
+  test('in edit mode ⌘P is kept from the browser and prints nothing, and the field keeps its text and focus', async () => {
+    const user = userEvent.setup();
+    await renderMac();
+    const printed = stubPrint();
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    const field = screen.getByRole('textbox', {
+      name: 'Rename session: Weekend in Kyoto',
+    });
+    await user.click(field);
+    await user.type(field, '!');
+
+    expect(key(field, { key: 'p', code: 'KeyP', metaKey: true })).toBe(false);
+    await act(async () => {});
+
+    expect(printed).not.toHaveBeenCalled();
+    expect(field).toHaveFocus();
+    expect(field).toHaveValue('Weekend in Kyoto!');
+  });
+
+  // Emacs keys: Ctrl+P is "previous line" in a Mac text field.
+  test('on a Mac, Ctrl+P in an edit field is left alone', async () => {
+    const user = userEvent.setup();
+    await renderMac();
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    const field = screen.getByRole('textbox', {
+      name: 'Rename session: Weekend in Kyoto',
+    });
+
+    expect(key(field, { key: 'p', code: 'KeyP', ctrlKey: true })).toBe(true);
+  });
+
+  // CONTROL: the page does not swallow every key.
+  test('a plain P is left alone', async () => {
+    await renderMac();
+    const printed = stubPrint();
+
+    expect(key(window, { key: 'p', code: 'KeyP' })).toBe(true);
+    await act(async () => {});
+    expect(printed).not.toHaveBeenCalled();
+  });
+});
+
 // KAN-190. Icon paints TEXT_COLOR by default, invisible on a TEXT_COLOR fill.
 describe('the icon on the filled button (KAN-190)', () => {
   const glyphOf = (name: string) => {

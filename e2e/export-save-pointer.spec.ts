@@ -333,3 +333,52 @@ test('a language change from another page re-aims it, and Dark recolours it', as
     rgb(CHARCOAL_THEME.LABEL_L1_COLOR)
   );
 });
+
+// CDP keys never reach Chrome's own shortcuts, so this proves the page's side:
+// the press prints and is prevented. What a real ⌘P does was measured headed
+// with OS keys (KAN-826 Task 1).
+for (const where of ['the page', 'the preview'] as const) {
+  test(`ControlOrMeta+P with focus in ${where} runs Save as PDF… and keeps the browser away`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seed(context);
+    const page = await openExport(context, extensionId);
+    await stubPrint(page);
+    if (where === 'the preview') {
+      const box = (await page.locator('iframe').boundingBox())!;
+      await page.mouse.click(box.x + box.width / 2, box.y + 200);
+      expect(
+        await page.evaluate(
+          () => document.activeElement === document.querySelector('iframe')
+        )
+      ).toBe(true);
+    }
+    // Added after the app's listeners, so it reads what they did.
+    await page.evaluate((where) => {
+      const w = window as unknown as { prevented: boolean[] };
+      w.prevented = [];
+      const target =
+        where === 'the page'
+          ? window
+          : document.querySelector('iframe')!.contentDocument!;
+      // The modifier's own keydown comes first and is left alone.
+      target.addEventListener('keydown', (e) => {
+        // Not instanceof: the frame's events come from the frame's realm.
+        if ('code' in e && e.code === 'KeyP') {
+          w.prevented.push(e.defaultPrevented);
+        }
+      });
+    }, where);
+
+    await page.keyboard.press('ControlOrMeta+P');
+
+    await expect.poll(() => printed(page)).toBe(1);
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { prevented: boolean[] }).prevented
+      )
+    ).toEqual([true]);
+    await expect(pointer(page)).toHaveCount(0);
+  });
+}

@@ -18,6 +18,7 @@ import Button from '../common/Button';
 import Icon from '../common/Icon';
 import ExportEditor from './ExportEditor';
 import SavePdfPointer from './SavePdfPointer';
+import { isSaveAsPdfShortcut } from './saveAsPdfShortcut';
 import SlidingPair, { type SlidingOption } from '../common/SlidingPair';
 import { EXPORT_PAIR_METRICS, KNOB_TRANSITION } from './slidingPairStyle';
 import {
@@ -28,6 +29,7 @@ import {
 } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useOtherPageSettings } from '../../hooks/useOtherPageSettings';
+import { useIsMac } from '../../hooks/useIsMac';
 import { AppDispatch, RootState } from '../../redux/store';
 import {
   markPressedSaveAsPdf,
@@ -140,6 +142,8 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   }, []);
   // KAN-603. A Save as PDF press waiting for the icons.
   const [printPending, setPrintPending] = useState(false);
+  // KAN-826. A held key repeats faster than a render, so this, not the state, says busy.
+  const printPendingRef = useRef(false);
   // KAN-603. The document the preview frame last finished loading.
   const [loadedHtml, setLoadedHtml] = useState<string | null>(null);
 
@@ -494,6 +498,8 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // KAN-603. Busy at once, so a second press is ignored.
   const afterIcons = useCallback(
     async (run: () => void) => {
+      if (printPendingRef.current) return;
+      printPendingRef.current = true;
       setPrintPending(true);
       await untilFrameShowsIcons();
       // A refused print must not leave the button busy until a reload.
@@ -502,6 +508,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
       } catch (error) {
         console.error('Could not print the export:', error);
       } finally {
+        printPendingRef.current = false;
         setPrintPending(false);
       }
     },
@@ -519,6 +526,39 @@ export default function ExportPage({ source }: { source: ExportSource }) {
     dispatch(markPressedSaveAsPdf());
     return afterIcons(() => frameRef.current?.contentWindow?.print());
   }, [afterIcons, dispatch]);
+
+  // KAN-826. ⌘P and ⌘S run Save as PDF…: the browser's own print or save the
+  // page around the file. Edit mode has no preview to print, but the keys are
+  // still kept from the browser. One listener, reading the latest state.
+  const isMac = useIsMac();
+  const onShortcut = useRef<(e: KeyboardEvent) => void>(() => {});
+  useLayoutEffect(() => {
+    onShortcut.current = (e) => {
+      if (!isSaveAsPdfShortcut(e, isMac)) return;
+      e.preventDefault();
+      if (!editing && frameRef.current) void handlePrint();
+    };
+  });
+  const takeShortcut = useCallback(
+    (e: KeyboardEvent) => onShortcut.current(e),
+    []
+  );
+  useEffect(() => {
+    addEventListener('keydown', takeShortcut);
+    return () => removeEventListener('keydown', takeShortcut);
+  }, [takeShortcut]);
+  // After a click in the preview the keys go to the frame's document, where a
+  // listener the page adds still hears them (measured with real keys).
+  const frameDoc = useRef<Document | null>(null);
+  const listenInFrame = useCallback(
+    (doc: Document | null) => {
+      frameDoc.current?.removeEventListener('keydown', takeShortcut);
+      frameDoc.current = doc;
+      doc?.addEventListener('keydown', takeShortcut);
+    },
+    [takeShortcut]
+  );
+  useEffect(() => () => listenInFrame(null), [listenInFrame]);
 
   // Still capturing: the page, and nothing on it. NOT "Session not found",
   // which would be a false statement for the length of the capture and would
@@ -966,7 +1006,10 @@ export default function ExportPage({ source }: { source: ExportSource }) {
               ref={attachFrame}
               title={edited.title}
               srcDoc={html}
-              onLoad={() => setLoadedHtml(html)}
+              onLoad={(e) => {
+                setLoadedHtml(html);
+                listenInFrame(e.currentTarget.contentDocument);
+              }}
               // allow-modals is what makes print() work: Chrome ignores print()
               // from a sandboxed frame without it, silently but for a console line.
               // allow-scripts is still absent, so the file cannot run anything.
