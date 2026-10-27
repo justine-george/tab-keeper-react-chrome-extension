@@ -20,6 +20,7 @@ import { css, keyframes } from '@emotion/react';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { DURATION, RADIUS, TYPE } from '../../styles/scale';
+import { isCutOff } from './textCutOff';
 import {
   MAX_WIDTH_PX,
   placeTooltip,
@@ -42,6 +43,10 @@ const HIDING_KEYS = new Set(['Escape', 'Enter', ' ']);
 
 interface Shown {
   anchor: Element;
+  // The anchor's data-tooltip and data-tooltip-lead, as set.
+  tip: string;
+  lead: string | null;
+  // What the chip draws: the tip, led by a cut-off title (KAN-825).
   text: string;
   // A new number per show, so each show mounts its own chip and fades in.
   serial: number;
@@ -59,16 +64,25 @@ const isMovingRows = (): boolean => {
   );
 };
 
-// True when the anchor already shows the text in full: some element in it holds
-// exactly that text, and none of those is cut off.
-function repeatsVisibleText(anchor: Element, text: string): boolean {
-  const holders = [anchor, ...anchor.querySelectorAll('*')].filter(
+const holdersOf = (anchor: Element, text: string): Element[] =>
+  [anchor, ...anchor.querySelectorAll('*')].filter(
     (el) => el.textContent?.trim() === text
   );
-  return (
-    holders.length > 0 &&
-    holders.every((el) => el.scrollWidth <= el.clientWidth)
-  );
+
+// True when the anchor already shows the text in full: some element in it holds
+// exactly that text, and none of those is cut off (clipped or covered, KAN-825).
+function repeatsVisibleText(anchor: Element, text: string): boolean {
+  const holders = holdersOf(anchor, text);
+  return holders.length > 0 && holders.every((el) => !isCutOff(el));
+}
+
+// KAN-825. A row's data-tooltip-lead (a tab's title) goes above its tip when the
+// title is cut off; a title you can read in full is left out.
+function chipText(anchor: Element, tip: string): string {
+  const lead = anchor.getAttribute('data-tooltip-lead');
+  if (!lead) return tip;
+  const cutOff = holdersOf(anchor, lead).some((el) => isCutOff(el));
+  return cutOff ? `${lead}\n${tip}` : tip;
 }
 
 // What the chip shows, as a store the layer subscribes to, and the document
@@ -121,9 +135,9 @@ function createTooltips() {
         if (hovered === anchor) hovered = null;
         return;
       }
-      const text = anchor.getAttribute('data-tooltip');
-      if (!text || isMovingRows() || shown?.anchor === anchor) return;
-      if (repeatsVisibleText(anchor, text)) return;
+      const tip = anchor.getAttribute('data-tooltip');
+      if (!tip || isMovingRows() || shown?.anchor === anchor) return;
+      if (repeatsVisibleText(anchor, tip)) return;
       anchorWatch.disconnect();
       anchorWatch.observe(anchor.getRootNode(), {
         childList: true,
@@ -131,9 +145,16 @@ function createTooltips() {
       });
       anchorWatch.observe(anchor, {
         attributes: true,
-        attributeFilter: ['data-tooltip'],
+        attributeFilter: ['data-tooltip', 'data-tooltip-lead'],
       });
-      set({ anchor, text, serial: ++serial, moves: 0 });
+      set({
+        anchor,
+        tip,
+        lead: anchor.getAttribute('data-tooltip-lead'),
+        text: chipText(anchor, tip),
+        serial: ++serial,
+        moves: 0,
+      });
     };
     // The delay is fixed when the pointer arrives; a move only restarts it.
     const schedule = (
@@ -151,9 +172,13 @@ function createTooltips() {
     // The shown anchor gone, or its text changed or removed.
     const anchorWatch = new MutationObserver(() => {
       if (shown === null) return;
-      const text = shown.anchor.getAttribute('data-tooltip');
-      if (!shown.anchor.isConnected || !text) hide();
-      else if (text !== shown.text) set({ ...shown, text });
+      const { anchor } = shown;
+      const tip = anchor.getAttribute('data-tooltip');
+      const lead = anchor.getAttribute('data-tooltip-lead');
+      if (!anchor.isConnected || !tip) hide();
+      else if (tip !== shown.tip || lead !== shown.lead) {
+        set({ ...shown, tip, lead, text: chipText(anchor, tip) });
+      }
     });
     const movingWatch = new MutationObserver(() => {
       if (isMovingRows()) hide();
@@ -333,7 +358,7 @@ function Chip({
         color: ${COLORS.PRIMARY_COLOR};
         font-family: ${FONT_FAMILY};
         font-size: ${TYPE.SECONDARY};
-        /* KAN-824. Keeps a renamed tab's title and address on two lines. */
+        /* KAN-824, KAN-825. Keeps a renamed tab's title, a cut-off lead and the address on their own lines. */
         white-space: pre-line;
         overflow-wrap: break-word;
         pointer-events: none;

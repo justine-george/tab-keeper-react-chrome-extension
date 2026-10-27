@@ -309,11 +309,8 @@ export default function HeroContainerRight() {
     pointer-events: none;
   `;
 
-  // Shared by both non-editing branches so the search-mode label and the
-  // rename button cannot drift apart visually.
   const titleLabel = (
     <NormalLabel
-      tooltipText={title}
       value={title}
       size={TYPE.SECTION}
       color={COLORS.TEXT_COLOR}
@@ -389,6 +386,9 @@ export default function HeroContainerRight() {
               <ClickableRow
                 ariaLabel={t('Rename session') + ': ' + title}
                 onClick={startEditing}
+                // KAN-825. On the button, so a keyboard focus finds it too (the pencil covers the end on hover).
+                tooltipText={title}
+                announceTooltip={false}
                 buttonRef={titleFocus.refFor('title')}
                 tourAnchor="title"
                 // min-width: 0 is load-bearing. A <button> has `overflow:

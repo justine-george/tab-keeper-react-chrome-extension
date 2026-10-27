@@ -1174,6 +1174,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             tooltipText={openBlockedBecause ?? addressTooltip(tab)}
             // The tour's why is said; the address is only seen.
             announceTooltip={isOpenBlocked}
+            // KAN-825. A cut-off title goes above the address; never above the tour's why.
+            tooltipLead={isOpenBlocked ? undefined : shown}
             disable={isOpenBlocked}
             onClick={() => handleTabClick(url)}
             style={childLeftStyle}
@@ -1404,6 +1406,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 <ClickableRow
                   ariaLabel={t('Rename window') + ': ' + label.text}
                   onClick={startEditing}
+                  // KAN-825. Seen when the name is cut off, at its end or under the strip; the name already says it.
+                  tooltipText={label.text}
+                  announceTooltip={false}
                   buttonRef={titleFocus.refFor('window')}
                   // KAN-720. 6px keeps the text 2px clear of the inset ring (KAN-685); the tag's slot takes it back.
                   style={
@@ -1832,6 +1837,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         <ClickableRow
                           ariaLabel={renameGroupLabel(item.group)}
                           onClick={() => startEditingGroup(item.group)}
+                          // KAN-825. Seen when cut off, as the window title's.
+                          tooltipText={groupDisplayName(item.group)}
+                          announceTooltip={false}
                           buttonRef={titleFocus.refFor(item.group.groupId)}
                           // align-self, because the strip centres its children
                           // -- without it the clickable is only as tall as its
