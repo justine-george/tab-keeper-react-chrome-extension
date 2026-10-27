@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { act, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 
 import UserInputContainer from '../../components/home/leftpane/UserInputContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -13,6 +13,8 @@ import { newRun } from '../../utils/functions/firstRun';
 // KAN-828. The mint ring on the save button shows exactly while the saved list's empty line does.
 
 const invite = () => document.querySelector('[data-save-invite]');
+const saveButton = () =>
+  screen.getByLabelText('Save all open windows as a session');
 
 let locks: FakeLocks | undefined;
 afterEach(() => {
@@ -79,10 +81,38 @@ describe('the save invite', () => {
     expect(invite()).not.toBeNull();
   });
 
+  // The CSS stop alone would restart all three pulses when the hover or focus ends.
+  test('a hover on the button stills it for good', async () => {
+    await renderWithProviders(<UserInputContainer />);
+    expect(invite()).not.toHaveAttribute('data-still');
+    fireEvent.pointerEnter(saveButton());
+    expect(invite()).toHaveAttribute('data-still');
+    fireEvent.pointerLeave(saveButton());
+    expect(invite()).toHaveAttribute('data-still');
+  });
+
+  test('focus on the button stills it for good', async () => {
+    await renderWithProviders(<UserInputContainer />);
+    act(() => saveButton().focus());
+    act(() => saveButton().blur());
+    expect(invite()).toHaveAttribute('data-still');
+  });
+
+  test('after a save and a delete, it pulses again', async () => {
+    const { store } = await renderWithProviders(<UserInputContainer />);
+    fireEvent.pointerEnter(saveButton());
+    act(() => {
+      store.dispatch(replaceState(buildContainer([buildSession()])));
+    });
+    act(() => {
+      store.dispatch(replaceState(buildContainer([])));
+    });
+    expect(invite()).not.toBeNull();
+    expect(invite()).not.toHaveAttribute('data-still');
+  });
+
   test('sits right after the save button', async () => {
     await renderWithProviders(<UserInputContainer />);
-    expect(invite()?.previousElementSibling).toBe(
-      screen.getByLabelText('Save all open windows as a session')
-    );
+    expect(invite()?.previousElementSibling).toBe(saveButton());
   });
 });

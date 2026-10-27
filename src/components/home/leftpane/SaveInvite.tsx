@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react';
+
 import { useSelector } from 'react-redux';
 
 import { css, keyframes } from '@emotion/react';
@@ -38,8 +40,10 @@ const inviteStyle = css`
     animation: ${PULSE} ${DURATION.INVITE} ${EASE.OUT} 3;
   }
 
+  /* The hover and focus rules stop it in the same frame; data-still keeps it stopped after. */
   button:hover + &::before,
-  button:focus + &::before {
+  button:focus + &::before,
+  &[data-still]::before {
     animation: none;
   }
 
@@ -57,8 +61,33 @@ export function useSaveInvite(): boolean {
   return isEmpty && !isRunHere;
 }
 
+// One empty state's ring: a hover or focus on the button stills it until it unmounts.
+function Ring() {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [isStill, setStill] = useState(false);
+  useEffect(() => {
+    const button = ref.current?.previousElementSibling;
+    if (!button) return;
+    const still = () => setStill(true);
+    button.addEventListener('pointerenter', still);
+    button.addEventListener('focus', still);
+    return () => {
+      button.removeEventListener('pointerenter', still);
+      button.removeEventListener('focus', still);
+    };
+  }, []);
+  return (
+    <span
+      ref={ref}
+      data-save-invite=""
+      data-still={isStill ? '' : undefined}
+      aria-hidden="true"
+      css={inviteStyle}
+    />
+  );
+}
+
 // KAN-828. A mint ring on the save button while nothing is saved: three pulses, then still.
 export default function SaveInvite() {
-  if (!useSaveInvite()) return null;
-  return <span data-save-invite="" aria-hidden="true" css={inviteStyle} />;
+  return useSaveInvite() ? <Ring /> : null;
 }

@@ -123,6 +123,30 @@ for (const view of VIEWS) {
       expect(await ringShadow(page)).toContain('0px 0px 0px 2px');
     });
 
+    test('after a hover, leaving does not start it again', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openEmpty(context, extensionId, view);
+      await page.locator(SAVE).hover();
+      await expect.poll(() => pulse(page)).toBeNull();
+      await page.mouse.move(1, 1);
+      await page.waitForTimeout(100);
+      expect(await pulse(page)).toBeNull();
+    });
+
+    test('after focus, a blur does not start it again', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openEmpty(context, extensionId, view);
+      await page.locator(SAVE).focus();
+      await expect.poll(() => pulse(page)).toBeNull();
+      await page.locator(SAVE).blur();
+      await page.waitForTimeout(100);
+      expect(await pulse(page)).toBeNull();
+    });
+
     test('reduced motion: no pulse, the still ring', async ({
       context,
       extensionId,
