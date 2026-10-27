@@ -124,3 +124,8 @@ if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
 if (!document.elementFromPoint) {
   document.elementFromPoint = () => null;
 }
+
+// KAN-825. jsdom's Range has no box: every text is zero-width, so isCutOff never calls it covered.
+if (!Range.prototype.getBoundingClientRect) {
+  Range.prototype.getBoundingClientRect = () => new DOMRect();
+}
