@@ -1,6 +1,6 @@
 # Tab Keeper - Chrome Tab Manager & Sync Tool
 
-<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/marquee promo tile/tab-keeper-marquee-promo-tile.png" alt="Tab Keeper — save your tabs, pick up anytime, share sessions as pages or PDFs"></a>
+<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/marquee promo tile/tab-keeper-marquee-promo-tile.png" alt="Tab Keeper: manage tabs now, keep them for later"></a>
 
 Tab Keeper is a free session manager for Chrome. Save your open windows and tabs as sessions, restore them later—including tab group names and colors—save any session as a PDF to share, and sync across desktop Chrome without creating an account or providing an email address.
 
@@ -34,7 +34,7 @@ Tab Keeper is a free session manager for Chrome. Save your open windows and tabs
 
 ## Screenshots
 
-<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/screenshots/tab-keeper-screenshot-1.png" width="800" alt="Tab Keeper saving all open windows as one session, with a session row showing its Open, Switch and Delete actions"></a>
+<a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/screenshots/tab-keeper-screenshot-1.png" width="800" alt="Tab Keeper's full view: saved sessions, the selected session and the windows open right now, side by side"></a>
 
 [View All Screenshots →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Screenshots)
 
