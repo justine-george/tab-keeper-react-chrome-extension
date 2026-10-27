@@ -1,8 +1,8 @@
-# Tab Keeper - Chrome Tab Manager & Sync Tool
+# Tab Keeper - Session & Tab Manager
 
 <a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/marquee promo tile/tab-keeper-marquee-promo-tile.png" alt="Tab Keeper: manage tabs now, keep them for later"></a>
 
-Tab Keeper is a free session manager for Chrome. Save your open windows and tabs as sessions, restore them later—including tab group names and colors—save any session as a PDF to share, and sync across desktop Chrome without creating an account or providing an email address.
+Tab Keeper is a free, open-source session and tab manager for Chrome. It manages the tabs you have open now and keeps the ones you want for later: see every window and tab group in one full view, save them as a session in one click, and bring them back with their tab group names and colors. Sync across desktop Chrome without creating an account or providing an email address.
 
 [![Featured on the Chrome Web Store](https://img.shields.io/badge/Featured_on-Chrome_Web_Store-cce7e8?style=for-the-badge)](https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github)
 [![Current version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjustine-george%2Ftab-keeper-react-chrome-extension%2Fmain%2Fpackage.json&query=version&style=for-the-badge&label=Version)](#changelog)
@@ -13,23 +13,25 @@ Tab Keeper is a free session manager for Chrome. Save your open windows and tabs
 
 ## Features
 
-- **Save & Restore:** Save all your open windows and tabs as a session, or just the current window, then reopen them later.
-- **Tab Groups:** Preserve Chrome tab groups, including their names and colors.
-- **Save as PDF:** Preview any session as a clean document, rename titles or hide rows, then save it as a PDF or print it. Or copy all its links at once.
-- **Drag to Organize:** Reorder tabs, tab groups, windows and sessions by dragging, and move a tab or a whole group into another saved window.
-- **One-Click Switching:** Jump to a saved session while Tab Keeper safely saves your current windows first.
+- **Currently Open:** See every window, tab group and tab you have open right now beside your saved sessions. Bring a window to the front, go to a tab group, or rename and recolor it.
+- **Full View:** Open Tab Keeper in its own tab with panes you can widen, and go back to your tab in one click.
+- **Save & Restore:** Save every open window as a session, or just the current one, and reopen it later. Sessions keep tab groups with their names and colors, pinned tabs, collapsed groups, and maximized and full-screen windows.
+- **Drag Between Open and Saved:** Drop open tabs into a session to keep them, or drag saved tabs into Currently open to open them. Reorder tabs, groups, windows and sessions the same way.
+- **Switch & Replace:** Jump to a saved session while Tab Keeper saves your current windows first, or replace a session with the windows you have open now.
+- **Undo & Tidy Up:** Undo a delete, remove duplicate tabs, and sort tabs by site.
+- **Save as PDF:** Preview any session, or the windows you have open, as a clean document, rename titles or hide rows, then save it as a PDF or print it. Or copy all its links at once.
 - **Device Sync:** Turn on sync to access your sessions from Chrome desktop browsers connected to the same Chrome profile.
 - **Privacy First:** No email address, account setup, or signup required. Sessions stay on your device until you choose to sync.
 - **Backup to File:** Save your sessions to a file, and load them back by merging or replacing.
-- **Quick Search:** Find any saved tab or tab group as you type.
+- **Quick Search:** Find any saved or open tab as you type, by its title or its tab group's name.
 - **Keyboard Friendly:** Open Tab Keeper with a shortcut, and use it fully from the keyboard or with a screen reader.
-- **Multi-Language Support:** Use Tab Keeper in 10 languages.
-- **Custom Themes:** Choose from five light and dark themes.
+- **Multi-Language Support:** Use Tab Keeper in 13 languages. It starts in Chrome's language.
+- **Custom Themes:** Choose from seven light and dark themes, two of them with higher contrast.
 
 ## How It Works
 
-1. Open Tab Keeper and save your current window or all open windows.
-2. Search and organize your saved sessions.
+1. Open Tab Keeper to see the windows and tabs you have open now, and save one window or all of them as a session.
+2. Search, drag and organize your open tabs and saved sessions.
 3. Restore a session later, or switch sessions while saving your current windows first.
 
 ## Screenshots
