@@ -214,7 +214,7 @@ test.describe('saved windows and groups', () => {
     expect(await coverOf(title)).toEqual({ fits: true, underSomething: true });
   });
 
-  test('a window name under the strip shows in full at Large font size', async ({
+  test('a window name shows in full at Large font size', async ({
     context,
     extensionId,
   }) => {
@@ -379,7 +379,7 @@ test.describe('keyboard', () => {
     await expect(page.locator(CHIP)).toHaveText(LONG_WINDOW);
   });
 
-  test('Tab to a group title the just-revealed strip covers shows it', async ({
+  test('Tab to a group title the strip covers shows it', async ({
     context,
     extensionId,
   }) => {
@@ -387,7 +387,7 @@ test.describe('keyboard', () => {
     const button = titleButton(page, `Rename group: ${MID_GROUP}`);
     await tabTo(button);
     await expect(page.locator(CHIP)).toHaveText(MID_GROUP);
-    // PREMISE: it fits; once shown, the strip covers its end.
+    // PREMISE: it fits; once shown, the strip (backing and icons) covers its end.
     expect(await coverOf(textOf(page, MID_GROUP))).toEqual({
       fits: true,
       underSomething: true,
