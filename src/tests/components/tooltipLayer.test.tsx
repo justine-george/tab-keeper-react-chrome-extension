@@ -691,6 +691,24 @@ describe('a lead line', () => {
     expect(chip()?.textContent).toBe('Kagi Search\nhttps://kagi.com/search');
   });
 
+  test('the chip is measured once: an unrelated change keeps the lead', async () => {
+    await setup();
+    cutOffLead();
+    pointerTo(byTip('https://kagi.com/'));
+    wait(300);
+    Object.defineProperty(screen.getByTestId('lead'), 'scrollWidth', {
+      value: 80,
+      configurable: true,
+    });
+    const elsewhere = document.createElement('div');
+    act(() => {
+      document.body.append(elsewhere);
+    });
+    onTestFinished(() => elsewhere.remove());
+    await settle();
+    expect(chip()?.textContent).toBe('Kagi Search\nhttps://kagi.com/');
+  });
+
   test('a renamed lead redraws the chip', async () => {
     await setup();
     cutOffLead();
