@@ -5,12 +5,14 @@ import { isSaveAsPdfShortcut } from '../../components/export/saveAsPdfShortcut';
 const press = (
   key: string,
   code: string,
-  mods: { meta?: boolean; ctrl?: boolean } = {}
+  mods: { meta?: boolean; ctrl?: boolean; altGraph?: boolean } = {}
 ) => ({
   key,
   code,
   metaKey: mods.meta ?? false,
   ctrlKey: mods.ctrl ?? false,
+  getModifierState: (name: string) =>
+    name === 'AltGraph' && (mods.altGraph ?? false),
 });
 
 describe('isSaveAsPdfShortcut (KAN-826)', () => {
@@ -47,6 +49,18 @@ describe('isSaveAsPdfShortcut (KAN-826)', () => {
     ['Meta+P', press('p', 'KeyP', { meta: true }), false],
   ])('elsewhere, %s is taken: %s', (_name, e, taken) => {
     expect(isSaveAsPdfShortcut(e, false)).toBe(taken);
+  });
+
+  // Windows reports AltGr as Ctrl (and Alt): AltGr+S types ś on a Polish
+  // layout, ș on a Romanian one. Chrome's Ctrl+S does not fire, and the letter
+  // must reach the field.
+  test.each([
+    ['ś (Polish)', press('ś', 'KeyS', { ctrl: true, altGraph: true })],
+    ['ș (Romanian)', press('ș', 'KeyS', { ctrl: true, altGraph: true })],
+    ['AltGr+P', press('π', 'KeyP', { ctrl: true, altGraph: true })],
+  ])('elsewhere, AltGr typing %s is left alone', (_name, e) => {
+    expect(isSaveAsPdfShortcut(e, false)).toBe(false);
+    expect(isSaveAsPdfShortcut(e, null)).toBe(false);
   });
 
   // Before Chrome says which platform this is, either modifier counts.

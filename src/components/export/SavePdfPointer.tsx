@@ -11,7 +11,7 @@ import {
 interface Placed {
   button: ButtonBox;
   sheet: SheetBox;
-  viewportWidth: number;
+  viewportRight: number;
 }
 
 // In document coordinates, so a scrolled page keeps the tip on the button.
@@ -25,7 +25,7 @@ const place = (button: HTMLElement, sheet: HTMLElement): Placed => {
       bottom: b.bottom + scrollY,
     },
     sheet: { right: s.right + scrollX, top: s.top + scrollY },
-    viewportWidth: innerWidth + scrollX,
+    viewportRight: innerWidth + scrollX,
   };
 };
 
@@ -67,7 +67,7 @@ export default function SavePdfPointer({
     button &&
     sheet &&
     placed &&
-    savePdfPointerPaths(placed.button, placed.sheet, placed.viewportWidth);
+    savePdfPointerPaths(placed.button, placed.sheet, placed.viewportRight);
   if (!paths) return null;
 
   return (

@@ -277,18 +277,23 @@ test('at a 20px root the tip is under Save as PDF…, or there is no pointer', a
   }
 });
 
-// Review Focus 2. A short window where the page scrolls.
-test('in a short window scrolled to its end, the tip stays under Save as PDF…', async ({
+// Review Focus 2. A short window where the page scrolls. The sheet grows to
+// fill the window, so only below ~280px high is there anything to scroll.
+test('measured while the page is scrolled, the tip stays under Save as PDF…', async ({
   context,
   extensionId,
 }) => {
   await seed(context);
   const page = await openExport(context, extensionId, {
     width: 1280,
-    height: 420,
+    height: 240,
   });
   await expect(pointer(page)).toHaveCount(1);
   await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+  // A resize while scrolled makes the pointer measure again, at this scroll.
+  await page.setViewportSize({ width: 1300, height: 240 });
+  // PREMISE: the page really is scrolled as it measures.
+  expect(await page.evaluate(() => scrollY)).toBeGreaterThan(0);
 
   await settledAim(page);
 });

@@ -17,9 +17,9 @@ const APPROACH_DROPS = [50, 45, 40, 35, 30];
 export function savePdfPointerPaths(
   button: ButtonBox,
   sheet: SheetBox,
-  viewportWidth: number
+  viewportRight: number
 ): { line: string; head: string } | null {
-  if (viewportWidth - sheet.right < MIN_ROOM_PX) return null;
+  if (viewportRight - sheet.right < MIN_ROOM_PX) return null;
   const x0 = sheet.right + 18,
     y0 = sheet.top + 120;
   const c1x = x0 + 70,
