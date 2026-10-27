@@ -33,9 +33,10 @@ import {
 import type { AnchorBox, Spotlight } from './anchorBox';
 import { TYPE } from '../../styles/scale';
 
-// The run's step and its last; null for the note after the run, which has no progress line.
+// The run's step, and which card it is of how many; null for the note after the run, which has no progress line.
 export interface CoachProgress {
   step: number;
+  position: number;
   total: number;
 }
 
@@ -291,10 +292,10 @@ export default function CoachMark({
       >
         {progress !== null && (
           <ProgressLine
-            n={progress.step}
+            n={progress.position}
             total={progress.total}
             label={t('Step {{n}} of {{total}}', {
-              n: progress.step,
+              n: progress.position,
               total: progress.total,
             })}
           />
