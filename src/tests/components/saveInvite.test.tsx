@@ -9,6 +9,8 @@ import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { setSearchInputText } from '../../redux/slices/globalStateSlice';
 import { startRun } from '../../redux/firstRun';
 import { newRun } from '../../utils/functions/firstRun';
+import { markHadSavedSession } from '../../redux/slices/settingsDataStateSlice';
+import { SAMPLE_ID_PREFIX } from '../../utils/functions/sampleSession';
 
 // KAN-828. The mint ring on the save button shows exactly while the saved list's empty line does.
 
@@ -68,16 +70,49 @@ describe('the save invite', () => {
     expect(invite()).toBeNull();
   });
 
-  test('comes back after the last session is deleted', async () => {
+  // His call, 02:26: once a session of the user's has been in the list, the ring is done on this device.
+  test('after the last session is deleted, it stays away', async () => {
     const { store } = await renderWithProviders(<UserInputContainer />, {
       seedStore: (s) => {
         s.dispatch(replaceState(buildContainer([buildSession()])));
       },
     });
-    expect(invite()).toBeNull();
     act(() => {
       store.dispatch(replaceState(buildContainer([])));
     });
+    expect(invite()).toBeNull();
+    expect(store.getState().settingsDataState.hasHadSavedSession).toBe(true);
+    expect(
+      JSON.parse(localStorage.getItem('settingsData') ?? '{}')
+    ).toMatchObject({ hasHadSavedSession: true });
+  });
+
+  test('a device that has held a session shows no ring on an empty list', async () => {
+    await renderWithProviders(<UserInputContainer />, {
+      seedStore: (s) => {
+        s.dispatch(markHadSavedSession());
+      },
+    });
+    expect(invite()).toBeNull();
+  });
+
+  // The tour saves the sample (KAN-7), which is no session of the user's.
+  test('the tour’s sample does not retire it', async () => {
+    const { store } = await renderWithProviders(<UserInputContainer />, {
+      seedStore: (s) => {
+        s.dispatch(
+          replaceState(
+            buildContainer([
+              buildSession({ tabGroupId: `${SAMPLE_ID_PREFIX}tour` }),
+            ])
+          )
+        );
+      },
+    });
+    act(() => {
+      store.dispatch(replaceState(buildContainer([])));
+    });
+    expect(store.getState().settingsDataState.hasHadSavedSession).toBe(false);
     expect(invite()).not.toBeNull();
   });
 
@@ -98,14 +133,15 @@ describe('the save invite', () => {
     expect(invite()).toHaveAttribute('data-still');
   });
 
-  test('after a save and a delete, it pulses again', async () => {
+  test('after a search hides it, it comes back pulsing', async () => {
     const { store } = await renderWithProviders(<UserInputContainer />);
     fireEvent.pointerEnter(saveButton());
     act(() => {
-      store.dispatch(replaceState(buildContainer([buildSession()])));
+      store.dispatch(setSearchInputText('trip'));
     });
+    expect(invite()).toBeNull();
     act(() => {
-      store.dispatch(replaceState(buildContainer([])));
+      store.dispatch(setSearchInputText(''));
     });
     expect(invite()).not.toBeNull();
     expect(invite()).not.toHaveAttribute('data-still');

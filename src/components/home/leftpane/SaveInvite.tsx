@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 
 import { css, keyframes } from '@emotion/react';
 
 import { useIsSavedListEmpty } from '../../../hooks/useIsSavedListEmpty';
 import { selectRunHere } from '../../../redux/firstRun';
+import { markHadSavedSession } from '../../../redux/slices/settingsDataStateSlice';
+import type { RootState } from '../../../redux/store';
+import { isSampleSession } from '../../../utils/functions/sampleSession';
 import { DURATION, EASE } from '../../../styles/scale';
 
 // The save group's wide segment: the save button and the ring over it share it.
@@ -55,11 +58,26 @@ const inviteStyle = css`
   }
 `;
 
-// Shown while the empty line is, unless the tour is on this page with its own save step.
+// Shown while the empty line is, unless the tour is on this page with its own save step,
+// or this device's list has ever held a session of the user's (his call, 2026-10-27 02:26).
 export function useSaveInvite(): boolean {
+  const dispatch = useDispatch();
   const isEmpty = useIsSavedListEmpty();
   const isRunHere = useSelector(selectRunHere) !== null;
-  return isEmpty && !isRunHere;
+  const holdsUsersSession = useSelector((state: RootState) =>
+    state.tabContainerDataState.tabGroups.some(
+      (g) => !isSampleSession(g.tabGroupId)
+    )
+  );
+  const hasHadSavedSession = useSelector(
+    (state: RootState) => state.settingsDataState.hasHadSavedSession
+  );
+  useEffect(() => {
+    if (holdsUsersSession && !hasHadSavedSession) {
+      dispatch(markHadSavedSession());
+    }
+  }, [dispatch, holdsUsersSession, hasHadSavedSession]);
+  return isEmpty && !isRunHere && !hasHadSavedSession;
 }
 
 const isInView = () => document.visibilityState === 'visible';
