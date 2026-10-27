@@ -24,11 +24,20 @@ export function customTitleFrom(
   return name === '' || name === normalizeTitle(pageTitle) ? undefined : name;
 }
 
-// KAN-824. A saved tab's hover: where it goes; a renamed one, its page title above that.
+// KAN-824. The address a tab's hover shows: where it goes, its middle cut past ~300 characters (a data: image runs to megabytes).
+const TOOLTIP_ADDRESS_MAX = 300;
+export function tooltipAddress(url: string): string {
+  const address = resolveTabUrl(url);
+  if (address.length <= TOOLTIP_ADDRESS_MAX) return address;
+  const half = TOOLTIP_ADDRESS_MAX / 2;
+  return `${address.slice(0, half)}…${address.slice(-half)}`;
+}
+
+// KAN-824. A saved tab's hover: its address; a renamed one, its page title above that.
 export function addressTooltip(
   tab: Pick<tabData, 'title' | 'url' | 'customTitle'>
 ): string {
-  const address = resolveTabUrl(tab.url);
+  const address = tooltipAddress(tab.url);
   return tab.customTitle !== undefined && tab.title !== ''
     ? `${tab.title}\n${address}`
     : address;

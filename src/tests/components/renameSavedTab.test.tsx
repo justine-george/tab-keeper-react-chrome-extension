@@ -340,3 +340,13 @@ describe("a saved tab's tooltip (KAN-824)", () => {
     expect(tip(PAGE)).toBe('Open works after the tour');
   });
 });
+
+// Final review fix: the address is seen on hover, not announced (pinned/split rows'
+// aria-describedby would override it, so only some rows would say it).
+describe('the address tooltip is not announced (KAN-824)', () => {
+  test('a saved row has no description from it', async () => {
+    await renderSaved();
+    expect(row(PAGE)).not.toHaveAttribute('aria-description');
+    expect(row('Search')).not.toHaveAttribute('aria-description');
+  });
+});

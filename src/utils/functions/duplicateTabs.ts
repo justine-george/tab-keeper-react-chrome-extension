@@ -2,6 +2,7 @@ import type {
   tabData,
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { customTitleFrom } from './tabTitle';
 
 // A session, or just the windows a row knows about: all the count needs.
 interface WithWindows {
@@ -61,12 +62,15 @@ export function namesKeptCopiesTake(
     }
     const first = kept.get(t.url);
     if (
-      first !== undefined &&
-      first.customTitle === undefined &&
-      t.customTitle !== undefined &&
-      !names.has(first)
+      first === undefined ||
+      first.customTitle !== undefined ||
+      t.customTitle === undefined ||
+      names.has(first)
     )
-      names.set(first, t.customTitle);
+      continue;
+    // A name equal to the kept copy's page title is no name (as a rename).
+    const name = customTitleFrom(t.customTitle, first.title);
+    if (name !== undefined) names.set(first, name);
   }
   return names;
 }

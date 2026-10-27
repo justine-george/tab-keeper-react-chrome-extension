@@ -130,9 +130,9 @@ describe('opens on the tour’s sample', () => {
 
     endTour(r);
     expect(row).not.toHaveAttribute('aria-disabled');
-    // KAN-824. The tour's why gives way to the address, shown and said.
+    // KAN-824. The tour's why gives way to the address, shown but not said.
     expect(row).toHaveAttribute('data-tooltip', 'https://a.co');
-    expect(row).toHaveAttribute('aria-description', 'https://a.co');
+    expect(row).not.toHaveAttribute('aria-description');
     fireEvent.click(row);
     await settle();
     expect(r.chrome.createdTabs.map((t) => t.url)).toEqual(['https://a.co']);

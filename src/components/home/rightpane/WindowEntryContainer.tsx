@@ -1172,6 +1172,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             // As Open now says a pinned tab: its own description, no joiner (KAN-307).
             ariaDescribedBy={describedBy === '' ? undefined : describedBy}
             tooltipText={openBlockedBecause ?? addressTooltip(tab)}
+            // The tour's why is said; the address is only seen.
+            announceTooltip={isOpenBlocked}
             disable={isOpenBlocked}
             onClick={() => handleTabClick(url)}
             style={childLeftStyle}

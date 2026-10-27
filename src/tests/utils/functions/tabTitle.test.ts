@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import { shownTitle, withShownTitle } from '../../../utils/functions/tabTitle';
+import {
+  addressTooltip,
+  shownTitle,
+  withShownTitle,
+} from '../../../utils/functions/tabTitle';
 
 const tab = {
   tabId: 't1',
@@ -27,5 +31,29 @@ describe('withShownTitle (KAN-824)', () => {
 
   test('leaves an unnamed tab as it was', () => {
     expect(withShownTitle(tab)).toEqual(tab);
+  });
+});
+
+describe('addressTooltip caps a long address (KAN-824 final review)', () => {
+  const huge = `data:image/png;base64,${'A'.repeat(50_000)}`;
+
+  test('keeps a short address whole', () => {
+    expect(addressTooltip({ title: 'T', url: 'https://a.test/x' })).toBe(
+      'https://a.test/x'
+    );
+  });
+
+  test('cuts the middle of a long one: its start and end stay', () => {
+    const tip = addressTooltip({ title: 'T', url: huge });
+    expect(tip.length).toBeLessThanOrEqual(301);
+    expect(tip.startsWith('data:image/png;base64,AAA')).toBe(true);
+    expect(tip.endsWith('AAA')).toBe(true);
+    expect(tip).toContain('…');
+  });
+
+  test('a renamed one keeps its page title line', () => {
+    const tip = addressTooltip({ title: 'Page', url: huge, customTitle: 'N' });
+    expect(tip.startsWith('Page\ndata:image/png')).toBe(true);
+    expect(tip.length).toBeLessThanOrEqual(306);
   });
 });

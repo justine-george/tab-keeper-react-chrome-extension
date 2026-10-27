@@ -409,6 +409,15 @@ describe('Remove duplicate tabs keeps a name (KAN-824)', () => {
     expect(tabOf(store, 'a')?.customTitle).toBe('Mine');
   });
 
+  it("a removed copy's name equal to the kept copy's page title is not stored", () => {
+    const same = session('S9', 'Named', T0, [
+      win('w1', [tab('a'), dup('a2', 'a', { customTitle: 'a' })]),
+    ]);
+    const { store } = ready(container([same]));
+    store.dispatch(remove('S9'));
+    expect(tabOf(store, 'a')).not.toHaveProperty('customTitle');
+  });
+
   it('only a copy inside the scope passes its name on', () => {
     const { store } = ready(container([NAMED()]));
     store.dispatch(

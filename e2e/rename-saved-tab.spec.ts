@@ -141,6 +141,25 @@ test('a click away saves', async ({ context, extensionId }) => {
   expect(await customTitleOf(page, 't1')).toBe('Sync notes');
 });
 
+test("a right-click in the field keeps it open with Chrome's own menu", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openSaved(context, extensionId, 'popup', {
+    sessions: SESSIONS,
+  });
+  const input = await startRename(page, PAGE);
+  await input.fill('Sync');
+  await input.click({ button: 'right' });
+  await expect(page.locator('[data-row-menu]')).toHaveCount(0);
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue('Sync');
+  // CONTROL: the same press on another tab row opens the row's menu.
+  await page.keyboard.press('Escape');
+  await row(page, 'Search').click({ button: 'right' });
+  await expect(page.locator('[data-row-menu]')).toHaveCount(1);
+});
+
 test('Esc keeps the old name', async ({ context, extensionId }) => {
   const page = await openSaved(context, extensionId, 'popup', {
     sessions: SESSIONS,
