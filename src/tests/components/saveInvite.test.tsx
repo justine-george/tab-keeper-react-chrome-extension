@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen } from '@testing-library/react';
 
 import UserInputContainer from '../../components/home/leftpane/UserInputContainer';
@@ -109,6 +109,50 @@ describe('the save invite', () => {
     });
     expect(invite()).not.toBeNull();
     expect(invite()).not.toHaveAttribute('data-still');
+  });
+
+  describe('a tab out of view', () => {
+    let visibility: DocumentVisibilityState = 'visible';
+    const setVisibility = (state: DocumentVisibilityState) =>
+      act(() => {
+        visibility = state;
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+    beforeEach(() => {
+      visibility = 'visible';
+      vi.spyOn(document, 'visibilityState', 'get').mockImplementation(
+        () => visibility
+      );
+    });
+    afterEach(() => vi.restoreAllMocks());
+
+    // A Tab Keeper tab opened in the background plays nothing until it is seen.
+    test('loaded hidden, it waits to be seen', async () => {
+      visibility = 'hidden';
+      await renderWithProviders(<UserInputContainer />);
+      expect(invite()).toHaveAttribute('data-unseen');
+      setVisibility('visible');
+      expect(invite()).not.toHaveAttribute('data-unseen');
+    });
+
+    test('coming back into view plays it again, on a new ring', async () => {
+      await renderWithProviders(<UserInputContainer />);
+      const first = invite();
+      expect(first).not.toHaveAttribute('data-unseen');
+      setVisibility('hidden');
+      setVisibility('visible');
+      expect(invite()).not.toBeNull();
+      expect(invite()).not.toBe(first);
+      expect(invite()).not.toHaveAttribute('data-still');
+    });
+
+    test('once stilled on this page, coming back stays still', async () => {
+      await renderWithProviders(<UserInputContainer />);
+      fireEvent.pointerEnter(saveButton());
+      setVisibility('hidden');
+      setVisibility('visible');
+      expect(invite()).toHaveAttribute('data-still');
+    });
   });
 
   test('sits right after the save button', async () => {

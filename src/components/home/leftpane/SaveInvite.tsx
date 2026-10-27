@@ -43,7 +43,8 @@ const inviteStyle = css`
   /* The hover and focus rules stop it in the same frame; data-still keeps it stopped after. */
   button:hover + &::before,
   button:focus + &::before,
-  &[data-still]::before {
+  &[data-still]::before,
+  &[data-unseen]::before {
     animation: none;
   }
 
@@ -61,10 +62,21 @@ export function useSaveInvite(): boolean {
   return isEmpty && !isRunHere;
 }
 
+const isInView = () => document.visibilityState === 'visible';
+
 // One empty state's ring: a hover or focus on the button stills it until it unmounts.
 function Ring() {
   const ref = useRef<HTMLSpanElement>(null);
   const [isStill, setStill] = useState(false);
+  // A hidden tab runs the pulse unseen, so it plays each time the page comes into view.
+  const [timesInView, setTimesInView] = useState(() => (isInView() ? 1 : 0));
+  useEffect(() => {
+    const onVisibility = () => {
+      if (isInView()) setTimesInView((n) => n + 1);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
   useEffect(() => {
     const button = ref.current?.previousElementSibling;
     if (!button) return;
@@ -78,9 +90,12 @@ function Ring() {
   }, []);
   return (
     <span
+      // A new span is a new CSS animation: three pulses from the start.
+      key={timesInView}
       ref={ref}
       data-save-invite=""
       data-still={isStill ? '' : undefined}
+      data-unseen={timesInView === 0 ? '' : undefined}
       aria-hidden="true"
       css={inviteStyle}
     />
