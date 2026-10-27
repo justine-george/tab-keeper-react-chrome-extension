@@ -185,6 +185,8 @@ export interface SettingsData {
   defaultSaveScope: CaptureScope;
   // KAN-578. Go back, or a Pin that worked, on the card warning a press closes the full view.
   isClosesThisTabCardAnswered: boolean;
+  // KAN-828. This device's saved list has held a session of the user's: the save invite is done here.
+  hasHadSavedSession: boolean;
   // KAN-731. This device's stored theme has had the Paper/Graphite to Chalk/Charcoal move.
   isChalkCharcoalMoveApplied: boolean;
 }
@@ -213,6 +215,7 @@ export type OnboardingSettings = Pick<
   | 'firstRun'
   | 'isWhatsNew2Seen'
   | 'isClosesThisTabCardAnswered'
+  | 'hasHadSavedSession'
 >;
 
 export const ONBOARDING_DEFAULTS: OnboardingSettings = {
@@ -224,6 +227,7 @@ export const ONBOARDING_DEFAULTS: OnboardingSettings = {
   firstRun: null,
   isWhatsNew2Seen: false,
   isClosesThisTabCardAnswered: false,
+  hasHadSavedSession: false,
 };
 
 export function asSetupState(value: unknown): SetupState {
@@ -269,6 +273,7 @@ export function guardOnboarding(
     firstRun: read('firstRun', asFirstRun),
     isWhatsNew2Seen: read('isWhatsNew2Seen', asFlag),
     isClosesThisTabCardAnswered: read('isClosesThisTabCardAnswered', asFlag),
+    hasHadSavedSession: read('hasHadSavedSession', asFlag),
   };
 }
 
@@ -659,6 +664,13 @@ export const settingsDataStateSlice = createSlice({
       saveLocalSettings(state);
     },
 
+    // Dispatched while the list holds a session of the user's; only the first writes.
+    markHadSavedSession: (state) => {
+      if (state.hasHadSavedSession) return;
+      state.hasHadSavedSession = true;
+      saveLocalSettings(state);
+    },
+
     setDefaultView: (state, action: PayloadAction<DefaultView>) => {
       state.defaultView = action.payload;
       saveLocalSettings(state);
@@ -766,6 +778,7 @@ export const {
   markFullViewOpened,
   markFullViewCalloutSeen,
   markClosesThisTabCardAnswered,
+  markHadSavedSession,
   setDefaultView,
   recordFirstRun,
   setFirstRunStep,

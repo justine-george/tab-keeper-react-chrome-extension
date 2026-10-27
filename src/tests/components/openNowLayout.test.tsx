@@ -198,6 +198,8 @@ describe('the saved search row heads the session list (S2)', () => {
   test('CONTROL: clicking a session in the popup never writes a fold setting', async () => {
     await renderHome();
     await mounted();
+    // The mount's own write (KAN-828's hasHadSavedSession) stores every setting; only the click's counts.
+    localStorage.removeItem('settingsData');
 
     fireEvent.click(sessionRow(SECOND.title));
 
