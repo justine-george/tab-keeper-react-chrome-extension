@@ -820,6 +820,8 @@ export default function OpenNowWindow({
           // KAN-824. Where it goes, as a saved tab's: seen, not said.
           tooltipText={tooltipAddress(tab.url)}
           announceTooltip={false}
+          // KAN-825. A cut-off title goes above the address.
+          tooltipLead={tab.title}
           // Chrome rejects when the tab closed after this row was drawn. There
           // is nothing to switch to, and the next read drops the row.
           onClick={() => void switchToOpenTab(tab).catch(() => undefined)}
@@ -1260,6 +1262,9 @@ export default function OpenNowWindow({
                           <ClickableRow
                             ariaLabel={t('Rename group') + ': ' + groupName}
                             onClick={() => startEditingGroup(item.group)}
+                            // KAN-825. Seen when cut off, as the saved group title's.
+                            tooltipText={groupName}
+                            announceTooltip={false}
                             buttonRef={titleFocus.refFor(item.group.groupId)}
                             style={
                               'display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box; flex: 0 1 auto; max-width: 100%;' +
