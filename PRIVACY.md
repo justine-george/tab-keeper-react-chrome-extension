@@ -138,6 +138,4 @@ This policy is maintained in Tab Keeper's public source repository, where its re
 
 ## Contact
 
-Justine George
-
 justinegeo96@gmail.com
