@@ -1,6 +1,7 @@
 import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
 import { isValidDate } from './local';
 import { createdInstant } from './mergeTabData';
+import { isSampleSession } from './sampleSession';
 import type { TourLockState } from './tourLock';
 
 // The guided first run's record, one per machine, and what each open does with it.
@@ -35,6 +36,8 @@ export interface FirstRun {
   // How many times the popup's step 0 opened (the welcome, or What's new); a popup record at step 0 only.
   welcomeShows: WelcomeShows | null;
   ended: RunEnding | null;
+  // KAN-830. The run shows only the full view's own steps: Currently open, Find & fit, Two views.
+  onlyFullViewSteps: boolean;
 }
 
 // The last card; step 0 is Hello in the full view and the welcome in the popup.
@@ -86,6 +89,8 @@ const KINDS: Record<RunView, readonly RunStepKind[]> = {
 export type RunSaveCard = 'save' | 'nothingToSave' | 'sessions';
 
 const STEPS: readonly RunStep[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+// KAN-830. The full view's cards the popup tour does not have.
+const FULL_VIEW_ONLY_STEPS: readonly RunStep[] = [1, 2, 9];
 const ENDINGS: readonly RunEnding[] = [
   'finished',
   'skipped',
@@ -120,13 +125,35 @@ export function needsSession(kind: RunStepKind): boolean {
   );
 }
 
-export function nextRunStep(view: RunView, step: RunStep): RunStep | null {
-  return asRunStep(view, step + 1);
+// The run's cards in order, after any Hello.
+export function runSteps(run: FirstRun): readonly RunStep[] {
+  return run.onlyFullViewSteps
+    ? FULL_VIEW_ONLY_STEPS
+    : STEPS.filter((s) => s >= 1 && s <= RUN_STEPS[run.view]);
 }
 
-// Back exists from step 2 on.
-export function previousRunStep(view: RunView, step: RunStep): RunStep | null {
-  return step >= 2 ? asRunStep(view, step - 1) : null;
+export function nextRunStep(run: FirstRun): RunStep | null {
+  if (!run.onlyFullViewSteps) return asRunStep(run.view, run.step + 1);
+  return (
+    FULL_VIEW_ONLY_STEPS[FULL_VIEW_ONLY_STEPS.indexOf(run.step) + 1] ?? null
+  );
+}
+
+// Back exists from the run's second card on.
+export function previousRunStep(run: FirstRun): RunStep | null {
+  const steps = runSteps(run);
+  return steps[steps.indexOf(run.step) - 1] ?? null;
+}
+
+// Which card of how many, for the progress line.
+export function runProgress(run: FirstRun): {
+  position: number;
+  total: number;
+} {
+  const steps = runSteps(run);
+  return run.onlyFullViewSteps
+    ? { position: steps.indexOf(run.step) + 1, total: steps.length }
+    : { position: run.step, total: RUN_STEPS[run.view] };
 }
 
 export function newRun(
@@ -143,7 +170,13 @@ export function newRun(
     helloIn,
     welcomeShows: view === 'popup' && step === 0 ? 1 : null,
     ended: null,
+    onlyFullViewSteps: false,
   };
+}
+
+// KAN-830. A full-view run of only its own steps, holding the popup tour's example if it carries one.
+export function newFullViewStepsRun(sessionId: string | null): FirstRun {
+  return { ...newRun('full', 1), sessionId, onlyFullViewSteps: true };
 }
 
 // A stored record, if it is one; anything else reads as no record.
@@ -163,13 +196,31 @@ export function asFirstRun(value: unknown): FirstRun | null {
   const welcomeShows = asWelcomeShows(Reflect.get(value, 'welcomeShows'));
   const rawEnded: unknown = Reflect.get(value, 'ended');
   const ended = ENDINGS.find((e) => e === rawEnded) ?? null;
+  // Stored before KAN-830: a whole run.
+  const rawOnly: unknown = Reflect.get(value, 'onlyFullViewSteps');
+  const onlyFullViewSteps = rawOnly === undefined ? false : rawOnly;
   if (step === null) return null;
   if (rawId !== null && sessionId === null) return null;
   if (hello !== 'welcome' && hello !== 'whatsNew') return null;
   if (helloIn !== 'popup' && helloIn !== 'full') return null;
   if (rawEnded !== null && ended === null) return null;
   if ((view === 'popup' && step === 0) !== (welcomeShows !== null)) return null;
-  return { view, step, sessionId, hello, helloIn, welcomeShows, ended };
+  if (typeof onlyFullViewSteps !== 'boolean') return null;
+  if (
+    onlyFullViewSteps &&
+    (view !== 'full' || !FULL_VIEW_ONLY_STEPS.includes(step))
+  )
+    return null;
+  return {
+    view,
+    step,
+    sessionId,
+    hello,
+    helloIn,
+    welcomeShows,
+    ended,
+    onlyFullViewSteps,
+  };
 }
 
 // settingsData as stored before this open wrote anything: unvalidated.
@@ -244,6 +295,21 @@ export type RunAtOpen =
   | { action: 'endUnanswered'; check: 'unanswered' }
   | { action: 'start'; check: 'started'; run: FirstRun; beginsSetup: boolean };
 
+// R13, KAN-830. No record: Hello. The welcome only: from step 1. A popup tour that started: only the full view's own
+// steps, carrying a running tour's example so its end removes it (an ended one already did).
+function firstFullViewRun(popupRecord: FirstRun | null): FirstRun {
+  if (popupRecord === null) return newRun('full', 0, 'welcome');
+  if (popupRecord.step >= 1) {
+    const { ended, sessionId } = popupRecord;
+    const example =
+      ended === null && sessionId !== null && isSampleSession(sessionId)
+        ? sessionId
+        : null;
+    return newFullViewStepsRun(example);
+  }
+  return newRun('full', 1);
+}
+
 const start = (run: FirstRun, beginsSetup: boolean): RunAtOpen => ({
   action: 'start',
   check: 'started',
@@ -287,10 +353,7 @@ export async function runAtOpen(
       return start(newRun('full', 0, 'welcome'), true);
     // A popup record means the welcome was seen, and it was the hello.
     if (isFirstFullViewVisit(stored))
-      return start(
-        record === null ? newRun('full', 0, 'welcome') : newRun('full', 1),
-        false
-      );
+      return start(firstFullViewRun(record), false);
     if (isUpgrader(stored, storedSessions))
       return start(newRun('full', 0, 'whatsNew'), false);
   } else if (isNeverSaved19User(stored, storedSessions)) {

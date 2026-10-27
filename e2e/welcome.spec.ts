@@ -66,6 +66,7 @@ test('the welcome: hero, one line, the hint, Show me here and Get started (never
       helloIn: 'popup',
       welcomeShows: 1,
       ended: null,
+      onlyFullViewSteps: false,
     });
   expect(await storedSettings(page)).toMatchObject({
     cloudConsent: 'declined',

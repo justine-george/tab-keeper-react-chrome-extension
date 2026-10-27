@@ -176,6 +176,15 @@ export async function finishFullRun(page: Page): Promise<void> {
   await closeReplayNote(page);
 }
 
+// KAN-830. After a started popup tour: Currently open, Find & fit, Two views, Not now, then the note.
+export async function finishShortFullRun(page: Page): Promise<void> {
+  await expect(cardAt(page, 1)).toBeVisible();
+  await nextTo(page, 2);
+  await nextTo(page, 9);
+  await cardButton(page, 'Not now').click();
+  await closeReplayNote(page);
+}
+
 // openRunFromHelp in another language: every name is read from the locale on screen.
 export async function openRunFromHelpIn(
   context: BrowserContext,

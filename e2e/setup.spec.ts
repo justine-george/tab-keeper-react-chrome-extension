@@ -24,7 +24,11 @@ import { setPin, stubToolbarPin } from './fixtures/toolbarPin';
 import { expectReadable } from './fixtures/textContrast';
 import { contrast, rgbToHex } from './fixtures/pixels';
 import { localeStrings } from './fixtures/locales';
-import { finishFullRun, pastCompactViewCard } from './fixtures/run';
+import {
+  finishFullRun,
+  finishShortFullRun,
+  pastCompactViewCard,
+} from './fixtures/run';
 import { pairFit } from './fixtures/pairFit';
 import { DARKENHEIMER_THEME } from '../src/hooks/useThemeColors';
 
@@ -164,7 +168,7 @@ test.describe('on a new install', () => {
     await stubToolbarPin(context, { pinned: false });
     await welcomeThen(context, extensionId, 'Show me here');
     const full = await openFullView(context, extensionId);
-    await finishFullRun(full);
+    await finishShortFullRun(full);
     await expect(stepHeading(full)).toHaveText('Pick a theme');
     await expect(guide(full)).toHaveCount(0);
     await setup(full).getByText('Skip setup', { exact: true }).click();
@@ -178,7 +182,7 @@ test.describe('on a new install', () => {
     await stubToolbarPin(context, { pinned: true });
     await welcomeThen(context, extensionId, 'Show me here');
     const first = await openFullView(context, extensionId);
-    await finishFullRun(first);
+    await finishShortFullRun(first);
     await press(first, 'Next');
     await press(first, 'Next');
     await expect(stepHeading(first)).toHaveText(

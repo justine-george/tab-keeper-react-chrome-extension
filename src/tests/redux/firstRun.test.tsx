@@ -49,7 +49,7 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import { undo } from '../../redux/slices/undoRedoSlice';
 import { SettingsCategory } from '../../redux/slices/settingsCategoryStateSlice';
-import { newRun } from '../../utils/functions/firstRun';
+import { newFullViewStepsRun, newRun } from '../../utils/functions/firstRun';
 import { RUN_LOCK } from '../../utils/functions/tourLock';
 import * as capture from '../../utils/functions/capture';
 import {
@@ -824,5 +824,80 @@ describe('moving onto a session step shows the run’s session', () => {
       'own'
     );
     expect(selectIsRunCardShown(store.getState())).toBe(true);
+  });
+});
+
+describe('KAN-830: a short run', () => {
+  beforeEach(() => history.replaceState(null, '', '?view=tab'));
+
+  // The popup tour's Use an example, left running when the full view opens.
+  const exampleFromPopupTour = async (store: Store): Promise<string> => {
+    history.replaceState(null, '', '?');
+    store.dispatch(replaceState(buildContainer([OWN])));
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(takeExampleForRun(NAMES));
+    history.replaceState(null, '', '?view=tab');
+    return runOf(store)?.sessionId ?? '';
+  };
+
+  test('Next and Back walk 1 → 2 → 9 → 2 → 1; Next stops at 9', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(startRun(newFullViewStepsRun(null)));
+    const walked: unknown[] = [];
+    const press = async (move: typeof advanceRun) => {
+      await store.dispatch(move());
+      walked.push(runOf(store)?.step);
+    };
+    await press(advanceRun);
+    await press(advanceRun);
+    await press(advanceRun);
+    await press(stepRunBack);
+    await press(stepRunBack);
+    await press(stepRunBack);
+    expect(walked).toEqual([2, 9, 9, 2, 1, 1]);
+  });
+
+  test('its end removes the popup tour’s example it carried, as an undoable delete', async () => {
+    const { store, seen } = makeTestStore();
+    const sampleId = await exampleFromPopupTour(store);
+    expect(isSampleSession(sampleId)).toBe(true);
+    await store.dispatch(startRun(newFullViewStepsRun(sampleId)));
+    store.dispatch(endRun('finished'));
+    expect(ids(store)).toEqual(['own']);
+    expect(seen).toContain(DELETE_TAB_CONTAINER_ACTION);
+    store.dispatch(undo());
+    expect(ids(store)).toContain(sampleId);
+  });
+
+  // CONTROL: the test above, where the same ending removes an untouched example.
+  test('an example holding a tab moved in from the user’s session stays, with that tab', async () => {
+    const { store, seen } = makeTestStore();
+    const sampleId = await exampleFromPopupTour(store);
+    const sample = () =>
+      store
+        .getState()
+        .tabContainerDataState.tabGroups.find((g) => g.tabGroupId === sampleId);
+    await store.dispatch(startRun(newFullViewStepsRun(sampleId)));
+    store.dispatch(
+      moveToSessionInternal({
+        carried: {
+          kind: 'tab',
+          tabGroupId: 'own',
+          windowId: 'window-1',
+          tabId: 'tab-1',
+        },
+        to: {
+          tabGroupId: sampleId,
+          windowId: sample()?.windows[0].windowId ?? '',
+          toIndex: 0,
+        },
+      })
+    );
+    expect(
+      sample()?.windows.flatMap((w) => w.tabs.map((t) => t.url))
+    ).toContain('https://example.com/');
+    store.dispatch(endRun('finished'));
+    expect(ids(store)).toContain(sampleId);
+    expect(seen).not.toContain(DELETE_TAB_CONTAINER_ACTION);
   });
 });

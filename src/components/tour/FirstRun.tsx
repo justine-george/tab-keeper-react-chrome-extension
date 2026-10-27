@@ -46,7 +46,9 @@ import { useOpenNowPlace } from '../../hooks/useOpenNowPlace';
 import { useSessionListSettled } from '../../hooks/useSessionListSettled';
 import {
   needsSession,
-  RUN_STEPS,
+  nextRunStep,
+  previousRunStep,
+  runProgress,
   stepKindOf,
   type RunStepKind,
 } from '../../utils/functions/firstRun';
@@ -393,7 +395,7 @@ export default function FirstRun() {
   };
   const card = cardFor();
 
-  const isLast = run.step === RUN_STEPS[run.view];
+  const isLast = nextRunStep(run) === null;
   const sides = plan.sides;
   const place =
     sides === 'pane'
@@ -410,9 +412,7 @@ export default function FirstRun() {
     <CoachMark
       // KAN-623. The card is outside the tour's count: step 1 still reads 1 of 9.
       progress={
-        kind === 'compactView'
-          ? null
-          : { step: run.step, total: RUN_STEPS[run.view] }
+        kind === 'compactView' ? null : { step: run.step, ...runProgress(run) }
       }
       kind={kind}
       text={card.text}
@@ -423,7 +423,7 @@ export default function FirstRun() {
       width={card.width ?? CARD_WIDTH[run.view]}
       place={place}
       onSkip={isLast ? undefined : skip}
-      onBack={run.step >= 2 ? goBack : undefined}
+      onBack={previousRunStep(run) !== null ? goBack : undefined}
       secondary={card.secondary}
       primary={card.primary}
       onEscape={isLast ? finish : skip}

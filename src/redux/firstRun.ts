@@ -353,11 +353,9 @@ const moveRun =
     }
   };
 
-export const advanceRun = (): Thunk<Promise<void>> =>
-  moveRun((run) => nextRunStep(run.view, run.step));
+export const advanceRun = (): Thunk<Promise<void>> => moveRun(nextRunStep);
 
-export const stepRunBack = (): Thunk<Promise<void>> =>
-  moveRun((run) => previousRunStep(run.view, run.step));
+export const stepRunBack = (): Thunk<Promise<void>> => moveRun(previousRunStep);
 
 // §8, Q3: before the run's save, the save step's field shows the name an empty save would use.
 export const selectRunAwaitsSave = (state: RootState): boolean => {

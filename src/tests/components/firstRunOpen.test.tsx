@@ -6,7 +6,11 @@ import { makeTestStore } from '../setup/makeStore';
 import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
 import { setupChromeFake } from '../setup/chrome.fake';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
-import { asFirstRun, newRun } from '../../utils/functions/firstRun';
+import {
+  asFirstRun,
+  newFullViewStepsRun,
+  newRun,
+} from '../../utils/functions/firstRun';
 import {
   beginSetup,
   recordFirstRun,
@@ -96,7 +100,7 @@ describe('the firstRun entry', () => {
     expect(consentWrites(reshow.seen)).toEqual([]);
   });
 
-  test('R13: a new install’s first full-view visit replaces a popup run at step 1 and deletes nothing', async () => {
+  test('R13, KAN-830: a new install’s first full-view visit replaces a running popup run with the short tour, carrying its example, and deletes nothing yet', async () => {
     const sample = buildSession({ tabGroupId: 'sample:x', title: 'Sample' });
     const { store, check } = await openWith(
       'full',
@@ -111,7 +115,7 @@ describe('the firstRun entry', () => {
     expect(check).toBe('started');
     await expect
       .poll(() => store.getState().settingsDataState.firstRun)
-      .toEqual(newRun('full', 1));
+      .toEqual(newFullViewStepsRun('sample:x'));
     expect(
       store.getState().tabContainerDataState.tabGroups.map((g) => g.tabGroupId)
     ).toEqual(['sample:x']);

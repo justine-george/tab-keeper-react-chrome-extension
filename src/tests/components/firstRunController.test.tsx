@@ -28,7 +28,11 @@ import {
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { firstOpenDialogs } from '../../redux/firstOpenDialogs';
-import { newRun, type FirstRun as Run } from '../../utils/functions/firstRun';
+import {
+  newFullViewStepsRun,
+  newRun,
+  type FirstRun as Run,
+} from '../../utils/functions/firstRun';
 import { OPEN_IN_TAB_MESSAGE } from '../../utils/functions/popOut';
 
 // The controller: Hello at full-view step 0, then the card each step names, with its buttons.
@@ -571,5 +575,62 @@ describe('KAN-623: the compact-view card', () => {
     expect(
       document.querySelector('[data-coach-kind="compactView"]')
     ).toBeNull();
+  });
+});
+
+describe('KAN-830: the short full-view tour', () => {
+  beforeEach(() => history.replaceState(null, '', '?view=tab'));
+
+  const progress = () => screen.getByRole('progressbar');
+  // Placed: an unplaced card is aria-hidden, so its progressbar has no role yet.
+  const shown = (step: string) =>
+    waitFor(() => {
+      expect(mark()).toHaveAttribute('data-coach-step', step);
+      expect(mark()).not.toHaveAttribute('aria-hidden');
+    });
+  const next = async (step: string) => {
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await shown(step);
+  };
+
+  test('Currently open, Find & fit, Two views count 1, 2, 3 of 3; Back from Two views is Find & fit', async () => {
+    const r = await renderAt(newFullViewStepsRun(null));
+    await shown('1');
+    expect(mark()).toHaveAttribute('data-coach-kind', 'openNow');
+    expect(progress()).toHaveAttribute('aria-valuetext', 'Step 1 of 3');
+    expect(progress()).toHaveAttribute('aria-valuemax', '3');
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    await next('2');
+    expect(mark()).toHaveAttribute('data-coach-kind', 'findAndFit');
+    expect(progress()).toHaveAttribute('aria-valuetext', 'Step 2 of 3');
+    expect(screen.getByRole('button', { name: 'Back' })).toBeVisible();
+    await next('9');
+    expect(mark()).toHaveAttribute('data-coach-kind', 'twoViews');
+    expect(progress()).toHaveAttribute('aria-valuetext', 'Step 3 of 3');
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await waitFor(() => expect(runOf(r)?.step).toBe(2));
+    await next('9');
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    await waitFor(() => expect(runOf(r)?.ended).toBe('finished'));
+  });
+
+  test('Esc on its first card skips; on Two views, its last, it finishes', async () => {
+    const first = await renderAt(newFullViewStepsRun(null));
+    await waitFor(() => expect(mark()).not.toHaveAttribute('aria-hidden'));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(runOf(first)?.ended).toBe('skipped');
+    first.unmount();
+    const last = await renderAt({ ...newFullViewStepsRun(null), step: 9 });
+    await waitFor(() => expect(mark()).not.toHaveAttribute('aria-hidden'));
+    expect(screen.queryByRole('button', { name: 'Skip tutorial' })).toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(runOf(last)?.ended).toBe('finished');
+  });
+
+  // CONTROL: the whole tour still counts of 9.
+  test('a whole run at step 1 still reads 1 of 9', async () => {
+    await renderAt(newRun('full', 1));
+    await shown('1');
+    expect(progress()).toHaveAttribute('aria-valuetext', 'Step 1 of 9');
   });
 });
