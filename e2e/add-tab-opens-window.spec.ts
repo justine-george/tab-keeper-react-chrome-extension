@@ -1,13 +1,13 @@
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
-import { test, expect } from './fixtures/extension';
+import { expect, grantedTest as test } from './fixtures/grantedExtension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { standIn } from './fixtures/standInPages';
 
 // KAN-821. Add current tab on a saved window opens it if it was folded and
-// brings the new tab's row into view; a refused add (the current tab is a Tab
-// Keeper page, KAN-299) changes nothing. What jsdom cannot show: the real
-// scroller, and whether the new row actually ends up on screen.
+// brings the new tab's row into view. KAN-823: over a Tab Keeper page no Add
+// current tab is offered at all. What jsdom cannot show: the real scroller,
+// whether the new row actually ends up on screen, and the real current tab.
 
 const POPUP = { width: 790, height: 550 };
 const ADDED = 'Added page';
@@ -44,11 +44,24 @@ const SESSION = buildSession({
     win('w1', 'Inbox'),
     win('w2', 'Notes'),
     win('w3', TARGET),
-    win('w4', 'Later'),
+    {
+      ...win('w4', 'Later'),
+      tabs: win('w4', 'Later').tabs.map((tab, i) =>
+        i < 2 ? { ...tab, chromeGroupId: 'g1' } : tab
+      ),
+      chromeTabGroups: [{ groupId: 'g1', title: 'Queue', color: 'blue' }],
+    },
   ],
 });
 
-async function openPopup(context: BrowserContext, extensionId: string) {
+// `current`: an ordinary page made the current tab. Without one, the popup
+// page itself is the current tab: a Tab Keeper page.
+async function openPopup(
+  context: BrowserContext,
+  extensionId: string,
+  worker: Worker,
+  current?: string
+) {
   await seedSessions(context, {
     ...buildContainer([SESSION]),
     selectedTabGroupId: SESSION.tabGroupId,
@@ -56,6 +69,12 @@ async function openPopup(context: BrowserContext, extensionId: string) {
   const page = await context.newPage();
   await page.setViewportSize(POPUP);
   await page.goto(`chrome-extension://${extensionId}/index.html`);
+  if (current !== undefined) {
+    await makeCurrentTab(worker, current);
+    // The popup asks once, when it opens (KAN-823); a real popup opens over
+    // the current tab, so this page opens again, still in the background.
+    await page.reload();
+  }
   await expect(chevron(page, 'Collapse')).toBeVisible();
   return page;
 }
@@ -94,6 +113,8 @@ const currentTabUrl = (worker: Worker) =>
   );
 
 const block = (page: Page) => page.locator('[data-drop-window-id="w3"]');
+const groupAdd = (page: Page) =>
+  page.getByRole('button', { name: 'Add current tab to group', exact: true });
 const chevron = (page: Page, verb: 'Collapse' | 'Expand') =>
   page.getByRole('button', { name: `${verb}: ${TARGET}`, exact: true });
 const addedRow = (page: Page) => block(page).getByText(ADDED, { exact: true });
@@ -144,10 +165,14 @@ for (const [how, add] of [
     extensionId,
     serviceWorker,
   }) => {
-    const page = await openPopup(context, extensionId);
+    const page = await openPopup(
+      context,
+      extensionId,
+      serviceWorker,
+      standIn(ADDED)
+    );
     await chevron(page, 'Collapse').click();
     await expect(chevron(page, 'Expand')).toBeVisible();
-    await makeCurrentTab(serviceWorker, standIn(ADDED));
     await headerAtBottomEdge(page);
     // PREMISE: the header is on screen and nothing of its body is.
     await expect(chevron(page, 'Expand')).toBeInViewport({ ratio: 0.5 });
@@ -172,8 +197,14 @@ test('an open window at the bottom edge scrolls to the new tab', async ({
   extensionId,
   serviceWorker,
 }) => {
-  const page = await openPopup(context, extensionId);
-  await makeCurrentTab(serviceWorker, standIn(ADDED));
+  const page = await openPopup(
+    context,
+    extensionId,
+    serviceWorker,
+    standIn(ADDED)
+  );
+  // CONTROL for the KAN-823 test below: over an ordinary page, a group offers it.
+  await expect(groupAdd(page)).toHaveCount(1);
   await headerAtBottomEdge(page);
   // PREMISE: open, header on screen, the row the new tab will sit above is not.
   await expect(chevron(page, 'Collapse')).toBeInViewport({ ratio: 0.5 });
@@ -185,28 +216,29 @@ test('an open window at the bottom edge scrolls to the new tab', async ({
   expect(await storedTabCount(page)).toBe(9);
 });
 
-test('a Tab Keeper page as current tab leaves the window collapsed', async ({
+test('a Tab Keeper page as current tab: no Add current tab is offered', async ({
   context,
   extensionId,
   serviceWorker,
 }) => {
-  const page = await openPopup(context, extensionId);
-  // CONTROL: the refusal is the Tab Keeper one, not "no current tab".
+  const page = await openPopup(context, extensionId, serviceWorker);
+  // PREMISE: the current tab is the popup page itself, a Tab Keeper page.
   expect(await currentTabUrl(serviceWorker)).toBe(page.url());
   await chevron(page, 'Collapse').click();
-  await headerAtBottomEdge(page);
 
-  await addViaIcon(page);
-  // Long enough for the handler's query, the add and a frame to have landed.
-  await page.waitForTimeout(500);
-
-  await expect(chevron(page, 'Expand')).toHaveAttribute(
-    'aria-expanded',
-    'false'
-  );
+  await expect(
+    block(page).getByRole('button', { name: 'Add current tab', exact: true })
+  ).toHaveCount(0);
+  await expect(groupAdd(page)).toHaveCount(0);
+  await block(page)
+    .locator('[data-window-drag-handle]')
+    .click({ button: 'right' });
+  // The menu is open: its other top-row items are there.
+  await expect(
+    page.getByRole('menuitem', { name: 'Open', exact: true })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('menuitem', { name: 'Add tab', exact: true })
+  ).toHaveCount(0);
   await expect(block(page)).toHaveAttribute('data-window-collapsed', '');
-  await expect(page.getByText('Current tab added to this window.')).toHaveCount(
-    0
-  );
-  expect(await storedTabCount(page)).toBe(8);
 });
