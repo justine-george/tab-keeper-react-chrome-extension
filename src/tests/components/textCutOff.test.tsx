@@ -81,6 +81,28 @@ describe('isCutOff', () => {
     expect(hitTest).not.toHaveBeenCalled();
   });
 
+  test("a holder's extent is its text, not the boxes it holds", () => {
+    document.body.innerHTML =
+      '<div id="row"><button id="title"><div id="wide"><span>Short page</span></div></button><div id="strip" style="background-color: rgb(240, 240, 240)"></div></div>';
+    const title = byId('title');
+    vi.spyOn(title, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(10, 0, 770, 20)
+    );
+    // A range over an element spans the boxes it holds (the wide div runs to the row's end); over a text node, the glyphs.
+    vi.spyOn(Range.prototype, 'getBoundingClientRect').mockImplementation(
+      function (this: Range) {
+        return this.startContainer.nodeType === Node.TEXT_NODE
+          ? new DOMRect(10, 0, 74, 20)
+          : new DOMRect(10, 0, 766, 20);
+      }
+    );
+    const hitTest = vi
+      .spyOn(document, 'elementFromPoint')
+      .mockImplementation((x) => (x > 700 ? byId('strip') : byId('wide')));
+    expect(isCutOff(title)).toBe(false);
+    expect(hitTest).toHaveBeenLastCalledWith(82, 10);
+  });
+
   test('a null hit is cut off', () => {
     const title = row();
     layOut(title, { hit: null });

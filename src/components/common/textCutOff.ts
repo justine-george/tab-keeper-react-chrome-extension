@@ -52,16 +52,30 @@ function covers(hit: Element, holder: Element): boolean {
   );
 }
 
+// Where the holder's glyphs end. Its text nodes, one by one: a range over the
+// holder itself also spans the boxes of the elements it holds, which in a row
+// button run to the row's end, under the strip.
+function textRightOf(holder: Element): number | null {
+  const walker = document.createTreeWalker(holder, NodeFilter.SHOW_TEXT);
+  const range = document.createRange();
+  let right: number | null = null;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!node.textContent?.trim()) continue;
+    range.selectNodeContents(node);
+    const rect = range.getBoundingClientRect();
+    if (rect.width > 0) right = Math.max(right ?? rect.right, rect.right);
+  }
+  return right;
+}
+
 export function isCutOff(holder: Element): boolean {
   if (holder.scrollWidth > holder.clientWidth) return true;
-  const range = document.createRange();
-  range.selectNodeContents(holder);
-  const text = range.getBoundingClientRect();
+  const textRight = textRightOf(holder);
   // No layout (jsdom), or nothing drawn: nothing to cover.
-  if (text.width === 0) return false;
+  if (textRight === null) return false;
   const box = holder.getBoundingClientRect();
   const hit = document.elementFromPoint(
-    Math.min(text.right, box.right) - 2,
+    Math.min(textRight, box.right) - 2,
     box.top + box.height / 2
   );
   // Off screen: the end can't be read.
