@@ -1,5 +1,6 @@
 import type {
   tabContainerData,
+  tabData,
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import {
@@ -9,22 +10,25 @@ import {
   type CarriedPick,
 } from '../../redux/carriedItem';
 import { normalizeTitle } from './local';
+import { shownTitle } from './tabTitle';
 
 // KAN-394 N4, KAN-280 Part F. The same rule for a pick inside any window: a saved source, or a live snapshot (P12).
+// A tab gives the name it shows (KAN-824).
 export function titleOfPick(w: windowGroupData, pick: CarriedPick): string {
+  const shown = (t: tabData | undefined) => (t ? shownTitle(t) : '');
   const candidates: string[] = [];
   switch (pick.kind) {
     case 'tab':
-      candidates.push(w.tabs.find((t) => t.tabId === pick.tabId)?.title ?? '');
+      candidates.push(shown(w.tabs.find((t) => t.tabId === pick.tabId)));
       break;
     case 'group':
       candidates.push(
         w.chromeTabGroups?.find((g) => g.groupId === pick.groupId)?.title ?? '',
-        w.tabs.find((t) => t.chromeGroupId === pick.groupId)?.title ?? ''
+        shown(w.tabs.find((t) => t.chromeGroupId === pick.groupId))
       );
       break;
     case 'window':
-      candidates.push(w.title, w.tabs[0]?.title ?? '');
+      candidates.push(w.title, shown(w.tabs[0]));
       break;
   }
   return candidates.map(normalizeTitle).find((t) => t !== '') ?? '';

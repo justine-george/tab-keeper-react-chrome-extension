@@ -54,6 +54,7 @@ import {
   formatTabCount,
   resolveFaviconUrl,
 } from '../../../utils/functions/local';
+import { tooltipAddress } from '../../../utils/functions/tabTitle';
 import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
 import { placeholderStyle } from '../../../styles/placeholder';
 import { openSplitPartners } from '../../../utils/functions/splitPartners';
@@ -816,6 +817,9 @@ export default function OpenNowWindow({
           ariaLabel={t('Switch to tab') + ': ' + tab.title}
           ariaCurrent={tab.active}
           ariaDescribedBy={describedBy === '' ? undefined : describedBy}
+          // KAN-824. Where it goes, as a saved tab's: seen, not said.
+          tooltipText={tooltipAddress(tab.url)}
+          announceTooltip={false}
           // Chrome rejects when the tab closed after this row was drawn. There
           // is nothing to switch to, and the next read drops the row.
           onClick={() => void switchToOpenTab(tab).catch(() => undefined)}

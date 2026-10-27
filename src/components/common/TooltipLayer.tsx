@@ -333,7 +333,8 @@ function Chip({
         color: ${COLORS.PRIMARY_COLOR};
         font-family: ${FONT_FAMILY};
         font-size: ${TYPE.SECONDARY};
-        white-space: normal;
+        /* KAN-824. Keeps a renamed tab's title and address on two lines. */
+        white-space: pre-line;
         overflow-wrap: break-word;
         pointer-events: none;
         @media (prefers-reduced-motion: no-preference) {

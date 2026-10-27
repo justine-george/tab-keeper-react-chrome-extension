@@ -38,6 +38,8 @@ export const EDIT_TABGROUP_TITLE_ACTION =
   'tabContainerDataState/updateTabGroupTitle';
 export const EDIT_WINDOWGROUP_TITLE_ACTION =
   'tabContainerDataState/updateWindowGroupTitle';
+// KAN-824.
+export const RENAME_SAVED_TAB_ACTION = 'tabContainerDataState/renameSavedTab';
 export const EDIT_CHROME_GROUP_TITLE_ACTION =
   'tabContainerDataState/updateChromeTabGroupTitle';
 export const ADD_CURR_TAB_TO_CHROME_GROUP_ACTION =

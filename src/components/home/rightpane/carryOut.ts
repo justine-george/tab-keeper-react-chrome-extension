@@ -13,6 +13,7 @@ import {
 import { resolveFaviconUrl } from '../../../utils/functions/local';
 import { windowNumbers } from '../../../utils/functions/windowLabel';
 import { NEW_LAST_WINDOW } from './newWindowTarget';
+import { shownTitle } from '../../../utils/functions/tabTitle';
 
 // The `tabs` list: its rows are tab ids.
 export function tabCarryOut(pane: PaneWindows, tabId: string): CarryOut | null {
@@ -28,7 +29,7 @@ export function tabCarryOut(pane: PaneWindows, tabId: string): CarryOut | null {
       }),
       card: {
         kind: 'tab',
-        title: tab.title,
+        title: shownTitle(tab),
         faviconUrl: resolveFaviconUrl(tab.favicon, tab.url),
       },
     };

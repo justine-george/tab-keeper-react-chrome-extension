@@ -29,6 +29,7 @@ import {
   moveSessionInternal,
   sortSessionsInternal,
   clearSessionOrder,
+  renameSavedTab,
 } from '../../redux/slices/tabContainerDataStateSlice';
 
 // KAN-138. `contentModified` records when a session's CONTENTS changed, as
@@ -129,6 +130,18 @@ const CONTENT_EDITS: [string, (s: Store) => void][] = [
     (s) =>
       s.dispatch(
         updateTabGroupTitle({ tabGroupId: 'tg', editableTitle: 'Renamed' })
+      ),
+  ],
+  [
+    'renameSavedTab',
+    (s) =>
+      s.dispatch(
+        renameSavedTab({
+          tabGroupId: 'tg',
+          windowId: 'w1',
+          tabId: 't1',
+          name: 'Mine',
+        })
       ),
   ],
   [

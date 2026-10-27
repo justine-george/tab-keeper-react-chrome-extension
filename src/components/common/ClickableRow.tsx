@@ -15,6 +15,8 @@ interface ClickableRowProps {
   ariaLabel: string;
   onClick: () => void;
   tooltipText?: string;
+  // False when the tooltip is for the eye only, so assistive tech does not hear it as the description (KAN-824).
+  announceTooltip?: boolean;
   /**
    * Marks the row as the current one of its set -- the tab Chrome is showing,
    * in the Open now pane (KAN-280). A cue that is not colour alone.
@@ -56,6 +58,7 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
   ariaLabel,
   onClick,
   tooltipText,
+  announceTooltip = true,
   ariaCurrent,
   ariaDescribedBy,
   tourAnchor,
@@ -96,7 +99,9 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
       type="button"
       data-tooltip={tooltipText}
       aria-label={ariaLabel}
-      aria-description={tooltipDescription(tooltipText, ariaLabel)}
+      aria-description={
+        announceTooltip ? tooltipDescription(tooltipText, ariaLabel) : undefined
+      }
       aria-current={ariaCurrent ? 'true' : undefined}
       aria-describedby={ariaDescribedBy}
       aria-disabled={disable ? true : undefined}

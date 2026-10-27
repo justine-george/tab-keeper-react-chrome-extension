@@ -19,6 +19,7 @@ import type { RootState } from '../store';
 import {
   countDuplicateTabs,
   duplicateTabsIn,
+  namesKeptCopiesTake,
   type DuplicateScope,
 } from '../../utils/functions/duplicateTabs';
 import { closeFocusModal, openFocusModal, showToast } from './globalStateSlice';
@@ -29,6 +30,7 @@ import {
   normalizeTitle,
   stripEmbeddedFavicons,
 } from '../../utils/functions/local';
+import { customTitleFrom } from '../../utils/functions/tabTitle';
 import { saveLocalSessions } from '../../utils/functions/localSessions';
 import {
   newSessionTitleOf,
@@ -110,6 +112,8 @@ export interface tabData {
   pinned?: true;
   // KAN-460 Part 4. Shared by the two tabs of a Chrome split view; minted per capture, as chromeGroupId is.
   splitId?: string;
+  // KAN-824. The user's own name for the tab; title stays the page's. Never empty: absent is unnamed.
+  customTitle?: string;
 }
 
 // KAN-460 D2. The window states a restore brings back; normal, minimized and locked-fullscreen store nothing.
@@ -250,6 +254,13 @@ export interface updateWindowGroupTitleParams {
   tabGroupId: string;
   windowId: string;
   editableTitle: string;
+}
+
+export interface renameSavedTabParams {
+  tabGroupId: string;
+  windowId: string;
+  tabId: string;
+  name: string;
 }
 
 export interface updateChromeTabGroupTitleParams {
@@ -1467,6 +1478,8 @@ function sameWindowContent(a: windowGroupData, b: windowGroupData): boolean {
         tab.favicon === b.tabs[i].favicon &&
         tab.pinned === b.tabs[i].pinned &&
         tab.splitId === b.tabs[i].splitId &&
+        // KAN-824. Content: an undone rename must outrank the cloud's renamed copy.
+        tab.customTitle === b.tabs[i].customTitle &&
         // The join key to chromeTabGroups. Ungrouping already shows up in the
         // group list below, but this is the field that says WHICH group a tab
         // belongs to, and a comparator that ignores it is one refactor away
@@ -1856,6 +1869,8 @@ export const tabContainerDataStateSlice = createSlice({
       if (!group) return;
       const doomed = new Set(duplicateTabsIn(group, within));
       if (doomed.size === 0) return;
+      for (const [tab, name] of namesKeptCopiesTake(group, within))
+        tab.customTitle = name;
       for (const window of group.windows) {
         const kept = window.tabs.filter((t) => !doomed.has(t));
         if (kept.length === window.tabs.length) continue;
@@ -2042,6 +2057,26 @@ export const tabContainerDataStateSlice = createSlice({
       touchContent(state, tabGroup);
       state.lastModified = Date.now();
       // update localstorage
+      saveLocalSessions(state);
+    },
+
+    // KAN-824. Empty, or the page title itself, removes the tab's own name.
+    renameSavedTab: (state, action: PayloadAction<renameSavedTabParams>) => {
+      const { tabGroupId, windowId, tabId, name } = action.payload;
+
+      const tabGroup = state.tabGroups.find((g) => g.tabGroupId === tabGroupId);
+      const tab = tabGroup?.windows
+        .find((w) => w.windowId === windowId)
+        ?.tabs.find((t) => t.tabId === tabId);
+      if (tabGroup === undefined || tab === undefined) return;
+
+      const customTitle = customTitleFrom(name, tab.title);
+      if (tab.customTitle === customTitle) return;
+
+      if (customTitle === undefined) delete tab.customTitle;
+      else tab.customTitle = customTitle;
+      touchContent(state, tabGroup);
+      state.lastModified = Date.now();
       saveLocalSessions(state);
     },
 
@@ -3605,6 +3640,7 @@ export const {
   addCurrTabToWindowInternal,
   updateTabGroupTitle,
   updateWindowGroupTitle,
+  renameSavedTab,
   updateChromeTabGroupTitle,
   addCurrTabToChromeGroupInternal,
   ungroupChromeTabGroup,

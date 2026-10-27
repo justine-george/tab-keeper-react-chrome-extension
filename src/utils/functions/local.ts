@@ -158,6 +158,9 @@ export const filterTabGroups = (
             const matchedTabs = window.tabs.filter(
               (tab) =>
                 tab.title.toLowerCase().includes(searchTerm) ||
+                // KAN-824. A renamed tab is found by either name.
+                (tab.customTitle?.toLowerCase().includes(searchTerm) ??
+                  false) ||
                 (tab.url && tab.url.toLowerCase().includes(searchTerm)) ||
                 (tab.chromeGroupId !== undefined &&
                   matchedGroupIds.has(tab.chromeGroupId))
@@ -886,7 +889,10 @@ const isValidTabData = (data: unknown): data is tabData => {
     (data.pinned === undefined || data.pinned === true) &&
     // KAN-460 Part 4.
     (data.splitId === undefined ||
-      (typeof data.splitId === 'string' && data.splitId !== ''))
+      (typeof data.splitId === 'string' && data.splitId !== '')) &&
+    // KAN-824. Absent is unnamed; an empty name is never written.
+    (data.customTitle === undefined ||
+      (typeof data.customTitle === 'string' && data.customTitle !== ''))
   );
 };
 
