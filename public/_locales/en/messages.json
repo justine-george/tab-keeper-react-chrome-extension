@@ -1,10 +1,10 @@
 {
   "appName": {
-    "message": "Tab Keeper - Tab & Session Manager",
+    "message": "Tab Keeper - Session & Tab Manager",
     "description": "The extension's name: the Web Store title and chrome://extensions. Keep \"Tab Keeper\" first and untranslated. At most 75 characters."
   },
   "appDesc": {
-    "message": "See open windows and saved sessions side by side. Save tabs and tab groups in one click, switch sessions, and sync with no sign-up.",
+    "message": "Manage your open tabs now, and keep them for later. Search, drag tabs between windows, save in one click, and sync with no sign-up.",
     "description": "The Web Store summary under the title. At most 132 characters. Never say sessions sync \"through Chrome sync\"."
   },
   "actionTitle": {

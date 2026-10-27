@@ -1,8 +1,8 @@
 {
   "appName": {
-    "message": "Tab Keeper - Tab- & Sitzungsmanager"
+    "message": "Tab Keeper - Sitzungs- & Tab-Manager"
   },
   "appDesc": {
-    "message": "Offene Fenster und Sitzungen nebeneinander. Tabs und Tab-Gruppen speichern, Sitzungen wechseln und ohne Anmeldung synchronisieren."
+    "message": "Offene Tabs jetzt verwalten, für später aufbewahren. Suchen, zwischen Fenstern ziehen, per Klick speichern, Sync ohne Anmeldung."
   }
 }

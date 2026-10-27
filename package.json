@@ -1,7 +1,7 @@
 {
   "name": "tab-keeper-react-chrome-extension",
   "author": "Justine George",
-  "description": "See open windows and saved sessions side by side. Save tabs and tab groups in one click, switch sessions, and sync with no sign-up.",
+  "description": "Manage your open tabs now, and keep them for later. Search, drag tabs between windows, save in one click, and sync with no sign-up.",
   "private": true,
   "version": "1.9.0",
   "type": "module",

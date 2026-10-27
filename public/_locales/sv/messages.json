@@ -1,8 +1,8 @@
 {
   "appName": {
-    "message": "Tab Keeper - flik- och sessionshanterare"
+    "message": "Tab Keeper - sessions- och flikhanterare"
   },
   "appDesc": {
-    "message": "Öppna fönster och sparade sessioner sida vid sida. Spara flikar och flikgrupper med ett klick, byt session, synka utan registrering."
+    "message": "Hantera öppna flikar nu och behåll dem till senare. Sök, dra flikar mellan fönster, spara med ett klick och synka utan registrering."
   }
 }
