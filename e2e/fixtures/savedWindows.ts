@@ -7,6 +7,7 @@ import {
   seedSessions,
   seedSettings,
 } from './seed';
+import { overAnOrdinaryTab } from './currentTab';
 import type {
   TabMasterContainer,
   chromeTabGroupData,
@@ -120,10 +121,14 @@ export async function openSaved(
     sessions,
     selected = 'S1',
     settings = {},
+    overOrdinaryTab = false,
   }: {
     sessions: tabContainerData[];
     selected?: string;
     settings?: Record<string, unknown>;
+    // KAN-823. Opened over an ordinary page, as a real popup is, so it offers
+    // Add current tab; otherwise this page is itself the current tab.
+    overOrdinaryTab?: boolean;
   }
 ): Promise<Page> {
   await seedSessions(context, {
@@ -145,6 +150,7 @@ export async function openSaved(
       view === 'tab view' ? '?view=tab' : ''
     }`
   );
+  if (overOrdinaryTab) await overAnOrdinaryTab(page);
   if (view === 'tab view') {
     await page
       .locator(`[data-pane="sessions"] [data-drag-row-id="${selected}"]`)

@@ -17,6 +17,7 @@ import { openFullView, openPopup as openWelcome } from './fixtures/onboarding';
 import { pixelsAt, rgbToHex, rgb } from './fixtures/pixels';
 import { ON_TITLE } from './fixtures/savedRow';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
+import { overAnOrdinaryTab } from './fixtures/currentTab';
 import { standIn } from './fixtures/standInPages';
 import { stubToolbarPin } from './fixtures/toolbarPin';
 import {
@@ -148,14 +149,18 @@ for (const [theme, colors] of THEMES) {
   }) => {
     await seedSettings(context, { theme });
     const page = await openPopup(context, extensionId);
+    // Over an ordinary page, as a real popup is, so the walk reaches Add (KAN-823).
+    await overAnOrdinaryTab(page);
     expectRingEverywhere(await walk(page, 80), colors, [
       '#name',
       'Search saved tabs',
       'Source',
       'Rename session: Source',
       'Rename window: w1',
+      'Add current tab',
       'Open in new tab: Tab a0',
       'Rename group: Alpha',
+      'Add current tab to group',
     ]);
   });
 

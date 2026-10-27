@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -7,6 +7,7 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import {
   setSearchInputText,
   setHasTabGroupsPermission,
+  setAllWindowsCollapsed,
 } from '../../redux/slices/globalStateSlice';
 import {
   saveToTabContainerInternal,
@@ -209,8 +210,8 @@ describe('Add current tab skips a Tab Keeper page', () => {
               id: 11,
               windowId: 1,
               active: true,
-              url: 'chrome-extension://faketestid/index.html?view=tab',
-              title: 'Tab Keeper',
+              url: 'https://ordinary.test/',
+              title: 'Ordinary',
             },
           ],
         },
@@ -220,8 +221,17 @@ describe('Add current tab skips a Tab Keeper page', () => {
         },
       }
     );
+    await act(async () => {});
+    // The popup asked over an ordinary page and offers Add (KAN-823); the tab
+    // turning into a Tab Keeper page before the press leaves only the
+    // handler's own check (KAN-299) to refuse it.
+    await act(() =>
+      chrome.tabs.update(11, {
+        url: 'chrome-extension://faketestid/index.html?view=tab',
+      })
+    );
 
-    await userEvent.click(await screen.findByLabelText('Add current tab'));
+    await userEvent.click(screen.getByLabelText('Add current tab'));
     // Flushes the click handler's own await (chrome.tabs.query) so a
     // dispatch that WOULD have happened has had the chance to.
     await act(async () => {});
@@ -457,5 +467,117 @@ describe('the carried row while over Currently open', () => {
     act(() => noteCarryOverOpenNow(false));
     expect(sourceRow()).not.toBeNull();
     expect(phantom()).toBeNull();
+  });
+});
+
+// KAN-821. Add current tab on a saved window opens it if it was folded and
+// brings the new tab's row into view, only as far as needed. A refused add
+// (KAN-299) changes nothing.
+describe('KAN-821 Add current tab opens the window and shows the new tab', () => {
+  const ADDED = { url: 'https://added.test', title: 'Added' };
+  const TAB_VIEW = {
+    url: 'chrome-extension://faketestid/index.html?view=tab',
+    title: 'Tab Keeper',
+  };
+
+  let scrolled: ReturnType<typeof vi.spyOn>;
+  afterEach(() => scrolled.mockRestore());
+
+  const renderWith = async (
+    active: { url: string; title: string },
+    {
+      folded,
+      pinnedFirst = false,
+      becomes,
+    }: { folded: boolean; pinnedFirst?: boolean; becomes?: string }
+  ) => {
+    scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
+    const session: tabContainerData = buildSession();
+    if (pinnedFirst) session.windows[0].tabs[0].pinned = true;
+    const rendered = await renderWithProviders(<TabGroupDetailsContainer />, {
+      seed: {
+        windows: [{ id: 1, type: 'normal' }],
+        tabs: [{ id: 11, windowId: 1, active: true, ...active }],
+      },
+      seedStore: (store) => {
+        store.dispatch(saveToTabContainerInternal(session));
+        store.dispatch(selectTabContainer('group-1'));
+        // The fold record names THIS session: expandWindow ignores one that
+        // names another, and a refused add would then stay folded for the
+        // wrong reason.
+        if (folded)
+          store.dispatch(
+            setAllWindowsCollapsed({
+              tabGroupId: 'group-1',
+              windowIds: ['win-1'],
+            })
+          );
+      },
+    });
+    await act(async () => {});
+    if (becomes !== undefined) {
+      // The popup asked over an ordinary page and offers Add (KAN-823); the tab
+      // turning into a Tab Keeper page before the press leaves only the
+      // handler's own check (KAN-299) to refuse it.
+      await act(() => chrome.tabs.update(11, { url: becomes }));
+    }
+    await userEvent.click(screen.getByLabelText('Add current tab'));
+    // The handler's own await (chrome.tabs.query), then the frame the
+    // scroll waits for.
+    await act(async () => {});
+    await act(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
+    return rendered;
+  };
+
+  const foldedIds = (store: TestStore) =>
+    store.getState().globalState.collapsedWindows?.windowIds;
+  // What the one scroll was called on, compared by identity with toBe.
+  const scrolledTarget = (): unknown => {
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    expect(scrolled).toHaveBeenCalledWith({ block: 'nearest' });
+    return scrolled.mock.contexts[0];
+  };
+  const addedRow = () =>
+    screen.getByText('Added').closest('[data-drag-row-id]');
+
+  test('a collapsed window opens when the current tab is added', async () => {
+    const { store } = await renderWith(ADDED, { folded: true });
+    expect(foldedIds(store)).toEqual([]);
+    expect(screen.getByText('Added')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Collapse: Morning reading' })
+    ).toBeTruthy();
+  });
+
+  test("the new tab's row is scrolled into view, only as far as needed", async () => {
+    await renderWith(ADDED, { folded: true });
+    expect(addedRow()).not.toBeNull();
+    expect(scrolledTarget()).toBe(addedRow());
+  });
+
+  test('an open window also scrolls to the new tab', async () => {
+    const { store } = await renderWith(ADDED, { folded: false });
+    expect(scrolledTarget()).toBe(addedRow());
+    // Opening an open window changes nothing: no fold record appears.
+    expect(store.getState().globalState.collapsedWindows).toBeNull();
+  });
+
+  test('with a pinned tab first, the scroll targets the new row', async () => {
+    await renderWith(ADDED, { folded: true, pinnedFirst: true });
+    expect(addedRow()?.getAttribute('data-drag-row-id')).not.toBe('t1');
+    expect(scrolledTarget()).toBe(addedRow());
+  });
+
+  test('a refused add leaves the window collapsed', async () => {
+    const { store, seen } = await renderWith(ADDED, {
+      folded: true,
+      becomes: TAB_VIEW.url,
+    });
+    expect(seen).not.toContain('globalState/expandWindow');
+    expect(foldedIds(store)).toEqual(['win-1']);
+    expect(scrolled).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('button', { name: 'Expand: Morning reading' })
+    ).toBeTruthy();
   });
 });

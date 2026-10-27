@@ -81,7 +81,7 @@ import type {
 import { applyTabGroups } from '../../../utils/functions/windows';
 import { savedSplitPartners } from '../../../utils/functions/splitPartners';
 import { isTabKeeperPage, toStoredTab } from '../../../utils/functions/capture';
-import { isTabView } from '../../../utils/functions/viewMode';
+import { useCanAddCurrentTab } from '../../../hooks/useCanAddCurrentTab';
 
 import { DraggableRow } from './rowDrag/RowDragArea';
 import { DragHandle, DragHandleSwap } from './rowDrag/DragHandle';
@@ -158,6 +158,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const labelColor = label.named ? COLORS.TEXT_COLOR : COLORS.LABEL_L2_COLOR;
 
   const dispatch: AppDispatch = useDispatch();
+  const canAddCurrentTab = useCanAddCurrentTab();
 
   // KAN-206. Whether this window is folded shut, read from the store rather
   // than held here. It moved because the session header's "collapse all" has to
@@ -422,9 +423,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       icon: 'reopen_window',
       onSelect: () => onOpenWindow(),
     },
-    ...(isTabView()
-      ? []
-      : [
+    ...(canAddCurrentTab
+      ? [
           {
             key: 'addTab',
             actionRowLabel: t('Add tab'),
@@ -432,7 +432,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             icon: 'playlist_add' as const,
             onSelect: () => onAddCurrTabToWindowClick(),
           },
-        ]),
+        ]
+      : []),
     {
       key: 'rename',
       actionRowLabel: t('Rename'),
@@ -449,9 +450,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       icon: 'reopen_window',
       onSelect: () => openGroup(run),
     },
-    ...(isTabView()
-      ? []
-      : [
+    ...(canAddCurrentTab
+      ? [
           {
             key: 'addTab',
             actionRowLabel: t('Add tab'),
@@ -459,7 +459,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             icon: 'playlist_add' as const,
             onSelect: () => void addCurrentTabToGroup(run.group),
           },
-        ]),
+        ]
+      : []),
     {
       key: 'rename',
       actionRowLabel: t('Rename'),
@@ -1311,9 +1312,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               )
             )}
 
-            {/* KAN-279 D13. This page IS Tab Keeper's own tab in the tab view,
-                so "current tab" could only ever mean itself; hidden there. */}
-            {!isEditing && !isSearching && !isTabView() && (
+            {/* KAN-279 D13 / KAN-823. Hidden where the current tab is a Tab
+                Keeper page: the tab view is one, and the add refuses them. */}
+            {!isEditing && !isSearching && canAddCurrentTab && (
               <Icon
                 tooltipText={t('Add current tab')}
                 ariaLabel={t('Add current tab')}
@@ -1784,10 +1785,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                               onClick={() => openGroup(item)}
                             />
                           )}
-                          {/* KAN-279 D13. Same reasoning as the window
-                                row's Add current tab: meaningless in the tab
-                                view, so hidden there too. */}
-                          {!isSearching && !isTabView() && (
+                          {/* KAN-279 D13 / KAN-823. Hidden where the
+                                window row's Add current tab is: wherever the
+                                current tab is a Tab Keeper page. */}
+                          {!isSearching && canAddCurrentTab && (
                             <Icon
                               tooltipText={t('Add current tab to group')}
                               ariaLabel={t('Add current tab to group')}

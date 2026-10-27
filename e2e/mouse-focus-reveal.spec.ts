@@ -3,6 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 import { standIn } from './fixtures/standInPages';
+import { overAnOrdinaryTab } from './fixtures/currentTab';
 
 // KAN-636, KAN-94's rule for every other row: actions revealed for keyboard
 // focus only. :focus-within also matched the focus a click leaves, so a ⋮
@@ -52,6 +53,8 @@ async function openSaved(
   const page = await context.newPage();
   await page.setViewportSize({ width: 790, height: 550 });
   await page.goto(`chrome-extension://${extensionId}/index.html`);
+  // Over an ordinary page, as a real popup is, so the strips hold Add (KAN-823).
+  await overAnOrdinaryTab(page);
   await expect(page.locator('[data-drag-row-id="group:alpha"]')).toBeAttached();
   return page;
 }

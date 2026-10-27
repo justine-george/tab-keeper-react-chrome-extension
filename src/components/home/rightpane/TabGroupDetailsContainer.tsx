@@ -24,6 +24,7 @@ import {
   openTabsInAWindow,
   updateWindowGroupTitle,
 } from '../../../redux/slices/tabContainerDataStateSlice';
+import { expandWindow } from '../../../redux/slices/globalStateSlice';
 import { useTranslation } from 'react-i18next';
 import { isTabKeeperPage, toStoredTab } from '../../../utils/functions/capture';
 import {
@@ -204,17 +205,13 @@ export default function TabGroupDetailsContainer() {
   // the drop has been rendered, and only as far as needed (`block:
   // 'nearest'`) -- the way the engine follows a row it dropped (KAN-155).
   const scrollerRef = useRef<HTMLDivElement>(null);
-  useEffect(
-    () =>
-      onRevealSavedWindow((windowId) => {
-        requestAnimationFrame(() => {
-          scrollerRef.current
-            ?.querySelector(`[data-drag-row-id="${CSS.escape(windowId)}"]`)
-            ?.scrollIntoView({ block: 'nearest' });
-        });
-      }),
-    []
-  );
+  const bringRowIntoView = (rowId: string) =>
+    requestAnimationFrame(() => {
+      scrollerRef.current
+        ?.querySelector(`[data-drag-row-id="${CSS.escape(rowId)}"]`)
+        ?.scrollIntoView({ block: 'nearest' });
+    });
+  useEffect(() => onRevealSavedWindow(bringRowIntoView), []);
 
   // KAN-366 Q4. While a tab or group is carried, the trailing block's room
   // is the shown session's own to decide (decideNewWindowRoom): when the
@@ -260,6 +257,9 @@ export default function TabGroupDetailsContainer() {
     // three ways to save a tab cannot disagree about what a tab is.
     const tabData = toStoredTab(tab);
     dispatch(addCurrTabToWindow({ tabGroupId, windowId, tabData }));
+    // KAN-821. Show what was added: open a folded window, follow the new row.
+    dispatch(expandWindow({ tabGroupId, windowId }));
+    bringRowIntoView(tabData.tabId);
   }
 
   const handleUpdateWindowGroupTitle = async (

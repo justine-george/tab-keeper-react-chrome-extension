@@ -62,6 +62,7 @@ for (const view of VIEWS) {
   }) => {
     const page = await openSaved(context, extensionId, view, {
       sessions: SESSIONS,
+      overOrdinaryTab: view === 'popup',
     });
     await rightClickTitle(page, windowTitle(page));
     await expect
@@ -195,6 +196,7 @@ test('popup: Shift+F10 on a saved window focuses Open first; ↓ moves into the 
 }) => {
   const page = await openSaved(context, extensionId, 'popup', {
     sessions: SESSIONS,
+    overOrdinaryTab: true,
   });
   await page
     .getByRole('button', { name: 'Rename window: Reading', exact: true })
@@ -433,6 +435,7 @@ for (const language of shippedLanguages()) {
     const page = await openSaved(context, extensionId, 'popup', {
       sessions: SESSIONS,
       settings: { language },
+      overOrdinaryTab: true,
     });
     await waitForFontsLoaded(page, ['Material Symbols Outlined']);
     await rightClickTitle(page, windowTitle(page));

@@ -794,7 +794,12 @@ const openGrouped = (
   settings: Record<string, unknown> = {},
   groups = [RESEARCH, UNNAMED]
 ): Promise<Page> =>
-  openSaved(context, extensionId, view, { sessions: [G1(groups)], settings });
+  // A real popup opens over an ordinary page, so its strips hold Add (KAN-823).
+  openSaved(context, extensionId, view, {
+    sessions: [G1(groups)],
+    settings,
+    overOrdinaryTab: view === 'popup',
+  });
 
 for (const view of VIEWS) {
   grantedTest.describe(`${view}: a group band`, () => {
