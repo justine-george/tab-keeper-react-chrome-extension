@@ -3,10 +3,11 @@ import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 
-// KAN-698. A row's text button acts once for a double-click: Currently open's
-// Save made two identical sessions, and a saved row's Open opened the window
-// twice. Measured on main before the fix: Save 0 -> 2 sessions, Open 1 -> 3
-// Chrome windows (one click: 1 -> 2).
+// KAN-698. A double-click on a button that saves or opens acts once. Before,
+// each click acted: Currently open's row Save made two identical sessions, and
+// a saved row's Open opened the window twice. Measured on main before the fix:
+// row Save 0 -> 2 sessions, row Open 1 -> 3 Chrome windows (one click 1 -> 2),
+// header Save 0 -> 2, the session header's Open 1 -> 3.
 
 const sessionCount = (page: Page) =>
   page.evaluate(
@@ -128,3 +129,125 @@ test.describe('a saved window row Open', () => {
     });
   }
 });
+
+// ---- The other buttons that save or open --------------------------------------
+
+const TRIP = buildSession({
+  tabGroupId: 's1',
+  title: 'Trip',
+  isSelected: true,
+  windowCount: 1,
+  tabCount: 1,
+  windows: [
+    {
+      windowId: 'w1',
+      windowHeight: 800,
+      windowWidth: 1200,
+      windowOffsetTop: 0,
+      windowOffsetLeft: 0,
+      tabCount: 1,
+      title: 'Planning',
+      tabs: [
+        {
+          tabId: 't0',
+          favicon: '',
+          title: 'One',
+          url: 'data:text/html,<title>One</title>',
+        },
+      ],
+    },
+  ],
+});
+
+type Counted = 'sessions' | 'windows';
+const cases: {
+  name: string;
+  view: 'popup' | 'tab';
+  counts: Counted;
+  button: (page: Page) => ReturnType<Page['locator']>;
+}[] = [
+  {
+    name: "the header's Save",
+    view: 'popup',
+    counts: 'sessions',
+    button: (page) =>
+      page
+        .getByRole('button', {
+          name: /^Save (all open windows|current window) as a session$/,
+        })
+        .first(),
+  },
+  {
+    name: "Currently open's Save all",
+    view: 'tab',
+    counts: 'sessions',
+    button: (page) =>
+      page
+        .locator('[data-pane="open-now"]')
+        .getByRole('button', { name: 'Save all open windows as a session' }),
+  },
+  {
+    name: "Currently open's Save current window",
+    view: 'tab',
+    counts: 'sessions',
+    button: (page) =>
+      page
+        .locator('[data-pane="open-now"]')
+        .getByRole('button', { name: 'Save current window as a session' }),
+  },
+  {
+    name: "the session header's Open",
+    view: 'popup',
+    counts: 'windows',
+    button: (page) =>
+      page.locator('[aria-label="Open session, keeping current windows"]'),
+  },
+  {
+    name: "a session row's Open",
+    view: 'popup',
+    counts: 'windows',
+    button: (page) =>
+      page
+        .locator('[data-pane="sessions"]')
+        .getByRole('button', { name: 'Open', exact: true }),
+  },
+];
+
+for (const c of cases) {
+  test(`a double-click on ${c.name} acts once`, async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedSessions(context, {
+      ...buildContainer([TRIP]),
+      selectedTabGroupId: 's1',
+    });
+    const page = await context.newPage();
+    await page.setViewportSize(
+      c.view === 'popup'
+        ? { width: 790, height: 550 }
+        : { width: 1400, height: 900 }
+    );
+    await page.goto(
+      `chrome-extension://${extensionId}/index.html${
+        c.view === 'tab' ? '?view=tab' : ''
+      }`
+    );
+    await page.getByRole('button', { name: 'Sort sessions' }).waitFor();
+    const count = () =>
+      c.counts === 'sessions'
+        ? sessionCount(page)
+        : serviceWorker.evaluate(
+            async () => (await chrome.windows.getAll()).length
+          );
+    const button = c.button(page);
+    await button.hover();
+    const before = await count();
+    await button.dblclick();
+    await expect.poll(count).toBe(before + 1);
+    // And no second one after a wait.
+    await page.waitForTimeout(1500);
+    expect(await count()).toBe(before + 1);
+  });
+}
