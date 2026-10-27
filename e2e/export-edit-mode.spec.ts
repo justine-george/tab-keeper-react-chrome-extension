@@ -406,7 +406,7 @@ const toolbarGeometry = (page: Page, title: string) =>
       labelBottom: label ? label.getBoundingClientRect().bottom : null,
       primaryRight: primary.getBoundingClientRect().right,
       primaryTop: primary.getBoundingClientRect().top,
-      // Not the primary control's top: at 640px the resting row wraps it to a
+      // Not the primary control's top: at 560px the resting row wraps it to a
       // second line.
       firstLineTop: Math.min(
         ...[...header.querySelectorAll('button, [role="status"]')].map(
@@ -420,8 +420,9 @@ const toolbarGeometry = (page: Page, title: string) =>
   }, title);
 
 // At 1200px this title wraps the resting toolbar under it but not the editing
-// one. At 640px the resting row itself wraps (KAN-734: en fits one line at 800).
-for (const width of [1600, 1200, 800, 640]) {
+// one. At 560px the resting row itself wraps (en fits one line at 564px since
+// Layout became glyphs, KAN-827).
+for (const width of [1600, 1200, 800, 560]) {
   test(`at ${width}px the toolbar keeps its own row and does not move when editing starts`, async ({
     context,
     extensionId,
@@ -468,8 +469,8 @@ for (const width of [1600, 1200, 800, 640]) {
       Math.abs(editing.contentRight - editing.primaryRight),
       `Done ends at ${editing.primaryRight}px, the row at ${editing.contentRight}px`
     ).toBeLessThanOrEqual(1);
-    // CONTROL: at 640px the end group really did wrap to its own line.
-    if (width === 640) {
+    // CONTROL: at 560px the end group really did wrap to its own line.
+    if (width === 560) {
       expect(resting.primaryTop).toBeGreaterThan(resting.firstLineTop + 1);
     }
     // CONTROL: the row still starts at the left edge, so it did not simply move
@@ -502,6 +503,7 @@ const headerAndRow = (page: Page) =>
     );
     return {
       headerHeight: header.getBoundingClientRect().height,
+      headerBottom: header.getBoundingClientRect().bottom,
       contentTop: header.nextElementSibling!.getBoundingClientRect().top,
       controls: controls.map((el) => ({
         name: el.getAttribute('aria-label') ?? '',
@@ -528,7 +530,9 @@ async function settledHeaderAndRow(page: Page) {
 }
 
 for (const width of [1600, 1000]) {
-  test(`at ${width}px pressing Edit does not change the header's height or move the page`, async ({
+  // KAN-826. The preview is a sheet 24px under the header; the editor is not
+  // the file, so it meets the header's edge as before.
+  test(`at ${width}px pressing Edit does not change the header's height, and the editor meets its edge`, async ({
     context,
     extensionId,
   }) => {
@@ -543,8 +547,12 @@ for (const width of [1600, 1000]) {
       `header ${resting.headerHeight}px at rest, ${editing.headerHeight}px editing`
     ).toBeLessThanOrEqual(0.5);
     expect(
-      Math.abs(editing.contentTop - resting.contentTop),
-      `content starts at ${resting.contentTop}px at rest, ${editing.contentTop}px editing`
+      resting.contentTop - resting.headerBottom,
+      `the sheet starts ${resting.contentTop - resting.headerBottom}px under the header`
+    ).toBeCloseTo(24, 0);
+    expect(
+      Math.abs(editing.contentTop - editing.headerBottom),
+      `the editor starts ${editing.contentTop - editing.headerBottom}px under the header`
     ).toBeLessThanOrEqual(0.5);
   });
 

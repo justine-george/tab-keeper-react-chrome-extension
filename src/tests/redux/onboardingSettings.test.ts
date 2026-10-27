@@ -20,6 +20,7 @@ import {
   guardOnboarding,
   markClosesThisTabCardAnswered,
   markHadSavedSession,
+  markPressedSaveAsPdf,
   markFullViewCalloutSeen,
   markFullViewOpened,
   markWhatsNew2Seen,
@@ -56,6 +57,7 @@ const GARBAGE = {
   isWhatsNew2Seen: 'yes',
   isClosesThisTabCardAnswered: 'true',
   hasHadSavedSession: 1,
+  hasPressedSaveAsPdf: 'yes',
 };
 
 const ALL_SET = {
@@ -77,6 +79,7 @@ const ALL_SET = {
   isWhatsNew2Seen: true,
   isClosesThisTabCardAnswered: true,
   hasHadSavedSession: true,
+  hasPressedSaveAsPdf: true,
 } as const;
 
 const ONBOARDING_KEYS: string[] = Object.keys(ONBOARDING_DEFAULTS);
@@ -202,6 +205,11 @@ describe('the onboarding reducers persist what they set', () => {
       markHadSavedSession(),
       { hasHadSavedSession: true },
     ],
+    [
+      'markPressedSaveAsPdf',
+      markPressedSaveAsPdf(),
+      { hasPressedSaveAsPdf: true },
+    ],
     ['setDefaultView', setDefaultView('full'), { defaultView: 'full' }],
   ] as const)('%s sets and saves', (_name, action, expected) => {
     expect(reduce([action])).toMatchObject(expected);
@@ -214,6 +222,7 @@ describe('the onboarding reducers persist what they set', () => {
     ['markFullViewOpened', markFullViewOpened()],
     ['markFullViewCalloutSeen', markFullViewCalloutSeen()],
     ['markClosesThisTabCardAnswered', markClosesThisTabCardAnswered()],
+    ['markPressedSaveAsPdf', markPressedSaveAsPdf()],
   ] as const)('%s writes only the first time', (_name, action) => {
     const once = reduce([action]);
     const setItem = vi.spyOn(localStorage, 'setItem');

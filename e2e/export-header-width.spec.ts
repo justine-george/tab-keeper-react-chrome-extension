@@ -154,6 +154,17 @@ test(`at 2000px the editing row's tally and Done span the ${HEADER_CONTENT_MAX_P
   expect(g.toolbarLines).toBe(1);
 });
 
+// KAN-827. As words, Compact and Comfortable wrapped the row at the popup's width in these two.
+for (const lang of ['ru', 'de']) {
+  test(`at 790px the preview toolbar fits one line (${lang})`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openExport(context, extensionId, POPUP, lang);
+    expect((await geometry(page)).toolbarLines).toBe(1);
+  });
+}
+
 // CONTROL: a band that also squeezed narrow screens would pass everything
 // above.
 test('at 790px the layout is what it was: content runs gutter to gutter', async ({

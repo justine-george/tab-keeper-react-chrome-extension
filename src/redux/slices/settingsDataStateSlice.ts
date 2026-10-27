@@ -187,6 +187,8 @@ export interface SettingsData {
   isClosesThisTabCardAnswered: boolean;
   // KAN-828. This device's saved list has held a session of the user's: the save invite is done here.
   hasHadSavedSession: boolean;
+  // KAN-826. This device has pressed Save as PDF…: the export page's pointer is done here.
+  hasPressedSaveAsPdf: boolean;
   // KAN-731. This device's stored theme has had the Paper/Graphite to Chalk/Charcoal move.
   isChalkCharcoalMoveApplied: boolean;
 }
@@ -216,6 +218,7 @@ export type OnboardingSettings = Pick<
   | 'isWhatsNew2Seen'
   | 'isClosesThisTabCardAnswered'
   | 'hasHadSavedSession'
+  | 'hasPressedSaveAsPdf'
 >;
 
 export const ONBOARDING_DEFAULTS: OnboardingSettings = {
@@ -228,6 +231,7 @@ export const ONBOARDING_DEFAULTS: OnboardingSettings = {
   isWhatsNew2Seen: false,
   isClosesThisTabCardAnswered: false,
   hasHadSavedSession: false,
+  hasPressedSaveAsPdf: false,
 };
 
 export function asSetupState(value: unknown): SetupState {
@@ -274,6 +278,7 @@ export function guardOnboarding(
     isWhatsNew2Seen: read('isWhatsNew2Seen', asFlag),
     isClosesThisTabCardAnswered: read('isClosesThisTabCardAnswered', asFlag),
     hasHadSavedSession: read('hasHadSavedSession', asFlag),
+    hasPressedSaveAsPdf: read('hasPressedSaveAsPdf', asFlag),
   };
 }
 
@@ -671,6 +676,13 @@ export const settingsDataStateSlice = createSlice({
       saveLocalSettings(state);
     },
 
+    // Every Save as PDF… press dispatches this; only the first writes.
+    markPressedSaveAsPdf: (state) => {
+      if (state.hasPressedSaveAsPdf) return;
+      state.hasPressedSaveAsPdf = true;
+      saveLocalSettings(state);
+    },
+
     setDefaultView: (state, action: PayloadAction<DefaultView>) => {
       state.defaultView = action.payload;
       saveLocalSettings(state);
@@ -779,6 +791,7 @@ export const {
   markFullViewCalloutSeen,
   markClosesThisTabCardAnswered,
   markHadSavedSession,
+  markPressedSaveAsPdf,
   setDefaultView,
   recordFirstRun,
   setFirstRunStep,

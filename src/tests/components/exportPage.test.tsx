@@ -18,6 +18,7 @@ import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { readExportIcons } from '../../utils/functions/exportIcons';
 import {
+  markPressedSaveAsPdf,
   setTheme,
   setTimeFormat,
   Theme,
@@ -134,13 +135,14 @@ describe('the export preview page (KAN-190)', () => {
 
   // Measured: the worded colour pair costs 168.9px in Russian vs 125.5px in
   // English and wraps the row; a glyph costs the same in every language. The
-  // density glyphs don't say which is roomier, so the layout pair keeps its
-  // words.
-  describe('the colour pair is glyphs, the layout pair is words (KAN-212)', () => {
+  // layout pair is glyphs too since KAN-827: five lines against three.
+  describe('both pairs are glyphs (KAN-212, KAN-827)', () => {
+    // data-icon covers ligatures and SVG glyphs alike (Glyph.tsx).
     const glyphOf = (name: string) =>
       screen
         .getByRole('button', { name })
-        .querySelector('.material-symbols-outlined')?.textContent;
+        .querySelector('[data-icon]')
+        ?.getAttribute('data-icon');
 
     test('Light and Dark render a sun and a moon', async () => {
       await renderPage();
@@ -149,25 +151,34 @@ describe('the export preview page (KAN-190)', () => {
       expect(glyphOf('Dark')).toBe('dark_mode');
     });
 
+    test('Compact and Comfortable render five lines and three', async () => {
+      await renderPage();
+
+      expect(glyphOf('Compact')).toBe('layout_compact');
+      expect(glyphOf('Comfortable')).toBe('layout_comfortable');
+    });
+
     // The glyph is aria-hidden, so the name must come from the label.
     test('each still carries its name and its tooltip', async () => {
       await renderPage();
 
-      for (const name of ['Light', 'Dark']) {
+      for (const name of ['Light', 'Dark', 'Compact', 'Comfortable']) {
         const button = screen.getByRole('button', { name });
         expect(button.getAttribute('aria-label')).toBe(name);
         expect(button.getAttribute('data-tooltip')).toBe(name);
       }
     });
 
-    // CONTROL: the glyph test cannot pass by every segment becoming a glyph.
-    test('Comfortable and Compact keep their words and carry no glyph', async () => {
+    test('no Layout button shows its word as text', async () => {
       await renderPage();
 
-      for (const name of ['Comfortable', 'Compact']) {
-        expect(screen.getByRole('button', { name })).toHaveTextContent(name);
-        expect(glyphOf(name)).toBeUndefined();
+      for (const name of ['Compact', 'Comfortable']) {
+        expect(screen.getByRole('button', { name })).not.toHaveTextContent(
+          name
+        );
       }
+      // CONTROL: glyphOf reads a glyph where one is drawn.
+      expect(glyphOf('Light')).toBe('light_mode');
     });
   });
 
@@ -434,7 +445,8 @@ describe('choosing the file light or dark on the preview page', () => {
     await user.click(screen.getByRole('button', { name: 'Dark' }));
 
     await waitFor(() => expect(frame().srcdoc).toContain('--bg:#18191a'));
-    // The page's own ground: the outermost painted ancestor of the preview.
+    // The page's own ground: the outermost painted ancestor of the preview,
+    // the header's colour since KAN-826, so the sheet reads as a page on it.
     const painted: HTMLElement[] = [];
     for (let el = frame().parentElement; el; el = el.parentElement) {
       if (getComputedStyle(el).backgroundColor !== 'rgba(0, 0, 0, 0)') {
@@ -444,7 +456,7 @@ describe('choosing the file light or dark on the preview page', () => {
     const ground = getComputedStyle(
       painted[painted.length - 1]
     ).backgroundColor;
-    expect(ground).toBe(rgb(CHARCOAL_THEME.PRIMARY_COLOR));
+    expect(ground).toBe(rgb(CHARCOAL_THEME.SECONDARY_COLOR));
   });
 
   // KAN-198. The choice lives only as long as the page; it is never saved.
@@ -579,6 +591,217 @@ describe('printing the previewed file', () => {
     // Measured: without allow-modals, Chrome ignores print().
     expect(sandbox).toBe('allow-same-origin allow-modals');
     expect(sandbox).not.toContain('allow-scripts');
+  });
+});
+
+describe('the Save as PDF… pointer (KAN-826)', () => {
+  // A 1280px window: the 816px sheet centred, Save as PDF… at the row's end.
+  const SHEET = { left: 232, right: 1048, top: 140, bottom: 760 };
+  const BUTTON = { left: 1000, right: 1120, top: 66, bottom: 100 };
+
+  beforeEach(() => {
+    vi.stubGlobal('innerWidth', 1280);
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function (this: HTMLElement) {
+        const box =
+          this.tagName === 'IFRAME'
+            ? SHEET
+            : this.getAttribute('aria-label') === 'Save as PDF…'
+              ? BUTTON
+              : { left: 0, right: 0, top: 0, bottom: 0 };
+        return DOMRect.fromRect({
+          x: box.left,
+          y: box.top,
+          width: box.right - box.left,
+          height: box.bottom - box.top,
+        });
+      }
+    );
+  });
+
+  const pointer = () => document.querySelector('[data-save-pdf-pointer]');
+
+  test('shows with room, its tip under the middle of Save as PDF…', async () => {
+    await renderPage();
+
+    await waitFor(() => expect(pointer()).not.toBeNull());
+    const line = pointer()!.querySelector('path')!.getAttribute('d')!;
+    expect(line.split(/[ ,]+/).slice(-2).map(Number)).toEqual([1060, 108]);
+  });
+
+  test('is gone after a press on Save as PDF…, and the device remembers', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderPage();
+    Object.defineProperty(frame(), 'contentWindow', {
+      configurable: true,
+      value: { print: vi.fn() },
+    });
+    await waitFor(() => expect(pointer()).not.toBeNull());
+
+    await user.click(screen.getByRole('button', { name: 'Save as PDF…' }));
+
+    expect(pointer()).toBeNull();
+    expect(store.getState().settingsDataState.hasPressedSaveAsPdf).toBe(true);
+  });
+
+  test('is absent once this device has pressed Save as PDF…', async () => {
+    await renderWithProviders(
+      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      {
+        seedStore: (store) => {
+          store.dispatch(replaceState(buildContainer([SESSION])));
+          store.dispatch(markPressedSaveAsPdf());
+        },
+      }
+    );
+
+    expect(frame()).toBeTruthy();
+    expect(pointer()).toBeNull();
+  });
+
+  test('is absent in edit mode', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+    await waitFor(() => expect(pointer()).not.toBeNull());
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+
+    expect(pointer()).toBeNull();
+  });
+
+  test('is absent on "Session not found"', async () => {
+    await renderPage('no-such-session');
+
+    expect(screen.getByText('Session not found')).toBeTruthy();
+    expect(pointer()).toBeNull();
+  });
+});
+
+describe('⌘P and ⌘S run Save as PDF… (KAN-826)', () => {
+  const renderMac = async () => {
+    const r = await renderWithProviders(
+      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      {
+        seed: { platformOs: 'mac' },
+        seedStore: (store) => {
+          store.dispatch(replaceState(buildContainer([SESSION])));
+        },
+      }
+    );
+    // Chrome's platform answer lands.
+    await act(async () => {});
+    return r;
+  };
+
+  const stubPrint = () => {
+    const printed = vi.fn();
+    Object.defineProperty(frame(), 'contentWindow', {
+      configurable: true,
+      value: { print: printed },
+    });
+    return printed;
+  };
+
+  const iconsLanded = async () => {
+    await waitFor(() =>
+      expect(frame().getAttribute('srcdoc')).toContain('data-icons="ready"')
+    );
+    fireEvent.load(frame());
+  };
+
+  // fireEvent answers false when a listener prevented the event.
+  const key = (target: Window | Document | Element, init: KeyboardEventInit) =>
+    fireEvent.keyDown(target, init);
+
+  test.each([
+    ['⌘P', { key: 'p', code: 'KeyP', metaKey: true }],
+    ['⌘S', { key: 's', code: 'KeyS', metaKey: true }],
+  ])(
+    '%s prints the preview once and keeps the browser away',
+    async (_n, init) => {
+      const { store } = await renderMac();
+      const printed = stubPrint();
+      await iconsLanded();
+
+      expect(key(window, init)).toBe(false);
+
+      await waitFor(() => expect(printed).toHaveBeenCalledTimes(1));
+      expect(store.getState().settingsDataState.hasPressedSaveAsPdf).toBe(true);
+    }
+  );
+
+  test('pressed twice before the icons land, it prints once', async () => {
+    const { store } = await renderMac();
+    const printed = stubPrint();
+    const setItem = vi.spyOn(localStorage, 'setItem');
+    setItem.mockClear();
+
+    expect(key(window, { key: 'p', code: 'KeyP', metaKey: true })).toBe(false);
+    expect(key(window, { key: 'p', code: 'KeyP', metaKey: true })).toBe(false);
+    await iconsLanded();
+
+    await waitFor(() => expect(printed).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(printed).toHaveBeenCalledTimes(1);
+    expect(store.getState().settingsDataState.hasPressedSaveAsPdf).toBe(true);
+    const flagWrites = setItem.mock.calls.filter(
+      ([k, v]) =>
+        k === 'settingsData' && v.includes('"hasPressedSaveAsPdf":true')
+    );
+    expect(flagWrites).toHaveLength(1);
+  });
+
+  // Focus inside the preview: the keys reach the frame's document, not the page's.
+  test('⌘P with focus in the preview prints it too', async () => {
+    await renderMac();
+    const printed = stubPrint();
+    await iconsLanded();
+    const doc = frame().contentDocument!;
+
+    expect(key(doc, { key: 'p', code: 'KeyP', metaKey: true })).toBe(false);
+
+    await waitFor(() => expect(printed).toHaveBeenCalledTimes(1));
+  });
+
+  test('in edit mode ⌘P is kept from the browser and prints nothing, and the field keeps its text and focus', async () => {
+    const user = userEvent.setup();
+    await renderMac();
+    const printed = stubPrint();
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    const field = screen.getByRole('textbox', {
+      name: 'Rename session: Weekend in Kyoto',
+    });
+    await user.click(field);
+    await user.type(field, '!');
+
+    expect(key(field, { key: 'p', code: 'KeyP', metaKey: true })).toBe(false);
+    await act(async () => {});
+
+    expect(printed).not.toHaveBeenCalled();
+    expect(field).toHaveFocus();
+    expect(field).toHaveValue('Weekend in Kyoto!');
+  });
+
+  // Emacs keys: Ctrl+P is "previous line" in a Mac text field.
+  test('on a Mac, Ctrl+P in an edit field is left alone', async () => {
+    const user = userEvent.setup();
+    await renderMac();
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    const field = screen.getByRole('textbox', {
+      name: 'Rename session: Weekend in Kyoto',
+    });
+
+    expect(key(field, { key: 'p', code: 'KeyP', ctrlKey: true })).toBe(true);
+  });
+
+  // CONTROL: the page does not swallow every key.
+  test('a plain P is left alone', async () => {
+    await renderMac();
+    const printed = stubPrint();
+
+    expect(key(window, { key: 'p', code: 'KeyP' })).toBe(true);
+    await act(async () => {});
+    expect(printed).not.toHaveBeenCalled();
   });
 });
 

@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { css, Global, keyframes } from '@emotion/react';
@@ -10,6 +17,8 @@ import markDataUri from '../../assets/exportMark.png?inline';
 import Button from '../common/Button';
 import Icon from '../common/Icon';
 import ExportEditor from './ExportEditor';
+import SavePdfPointer from './SavePdfPointer';
+import { isSaveAsPdfShortcut } from './saveAsPdfShortcut';
 import SlidingPair, { type SlidingOption } from '../common/SlidingPair';
 import { EXPORT_PAIR_METRICS, KNOB_TRANSITION } from './slidingPairStyle';
 import {
@@ -20,8 +29,12 @@ import {
 } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useOtherPageSettings } from '../../hooks/useOtherPageSettings';
+import { useIsMac } from '../../hooks/useIsMac';
 import { AppDispatch, RootState } from '../../redux/store';
-import { setExportLayout } from '../../redux/slices/settingsDataStateSlice';
+import {
+  markPressedSaveAsPdf,
+  setExportLayout,
+} from '../../redux/slices/settingsDataStateSlice';
 import {
   replaceState,
   type tabContainerData,
@@ -72,12 +85,12 @@ import {
  * How wide the header's content may grow, centred (KAN-235).
  *
  * The document below sits in a 720px column; this is what keeps Edit and
- * Save as PDF… from running to the monitor's edges above it. The number is the
- * toolbar's one-line floor: it wraps its right-hand group onto its own line
- * when it cannot fit. With Save as PDF… (KAN-742) the widest locale's
- * one-line width is Russian at 906px (ko 577, zh 600, zh-TW 600, en 695,
- * hi 722, sv 739, it 748, ja 766, pt 795, es 810, fr 821, de 822). 930 leaves
- * room for Linux text layout on CI.
+ * Save as PDF… from running to the monitor's edges above it. The toolbar wraps
+ * its right-hand group onto its own line when it cannot fit. It was set as the
+ * one-line floor of the worded Layout pair (Russian 906px). With Layout as
+ * glyphs (KAN-827) the widest is Russian at 746px (ko 544, zh 559, zh-TW 559,
+ * en 564, hi 638, it 640, ja 653, sv 654, pt 662, fr 687, de 693, es 699).
+ * 930 stays so the band, and Save as PDF…'s place above the sheet, do not move.
  */
 const HEADER_CONTENT_MAX_PX = 930;
 
@@ -113,9 +126,24 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // and gone when the tab closes. Nothing keeps them, so they always warn.
   const [editing, setEditing] = useState(false);
   const [edits, setEdits] = useState<ExportEdits>(NO_EXPORT_EDITS);
-  const frameRef = useRef<HTMLIFrameElement>(null);
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
+  // KAN-826. The pointer measures the sheet and Save as PDF…; state, so it
+  // re-renders when either mounts. Button forwards no ref, so the button is
+  // read as the last child of the group it ends.
+  const [frameEl, setFrameEl] = useState<HTMLIFrameElement | null>(null);
+  const attachFrame = useCallback((el: HTMLIFrameElement | null) => {
+    frameRef.current = el;
+    setFrameEl(el);
+  }, []);
+  const [saveButton, setSaveButton] = useState<HTMLElement | null>(null);
+  const attachEndGroup = useCallback((el: HTMLSpanElement | null) => {
+    const last = el?.lastElementChild;
+    setSaveButton(last instanceof HTMLElement ? last : null);
+  }, []);
   // KAN-603. A Save as PDF press waiting for the icons.
   const [printPending, setPrintPending] = useState(false);
+  // KAN-826. A held key repeats faster than a render, so this, not the state, says busy.
+  const printPendingRef = useRef(false);
   // KAN-603. The document the preview frame last finished loading.
   const [loadedHtml, setLoadedHtml] = useState<string | null>(null);
 
@@ -262,6 +290,9 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   const timeFormat = useSelector(
     (state: RootState) => state.settingsDataState.timeFormat
   );
+  const hasPressedSaveAsPdf = useSelector(
+    (state: RootState) => state.settingsDataState.hasPressedSaveAsPdf
+  );
 
   // The page opens on the extension theme's polarity and follows it until
   // Light or Dark is pressed here.
@@ -381,9 +412,10 @@ export default function ExportPage({ source }: { source: ExportSource }) {
     for (const done of outputWaiters.current) done();
   }, [frameShowsIcons]);
 
+  // KAN-826. The ground the preview sheet lies on, the header's colour.
   const pageStyle = css`
     min-height: 100vh;
-    background-color: ${COLORS.PRIMARY_COLOR};
+    background-color: ${COLORS.SECONDARY_COLOR};
     font-family: ${FONT_FAMILY};
     color: ${COLORS.TEXT_COLOR};
     display: flex;
@@ -393,15 +425,18 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   /**
    * The two choices, each a SlidingPair (KAN-218).
    *
-   * Colour is GLYPHS and Layout is WORDS, deliberately (KAN-212):
+   * Both pairs are GLYPHS (Colour since KAN-212, Layout since KAN-827):
    *
-   * - the row wraps at the popup width in Russian. Measured at 900px, the
-   *   colour pair cost 168.9px there against 125.5 in English as words, and a
-   *   glyph costs the same in every language.
-   * - light and dark have a symbol everyone already knows. Comfortable and
-   *   compact do not: density_large against density_small is two sets of
-   *   horizontal lines differing by a few pixels of spacing, and neither says
-   *   which one is roomier.
+   * - the row wraps at the popup width in Russian and German. Measured at
+   *   900px, the colour pair cost 168.9px there against 125.5 in English as
+   *   words, and a glyph costs the same in every language.
+   * - light and dark have a symbol everyone already knows. Layout had none:
+   *   Material's density_large and density_small differ by a few pixels of
+   *   spacing and neither says which is roomier. Its own glyphs answer that,
+   *   five lines against three. Three even lines is also the menu icon;
+   *   inside a labelled pair beside five lines it reads as fewer, roomier rows.
+   *
+   * Each word stays as the button's name and its tooltip.
    *
    * Both stay PAIRS rather than a lone sun or moon, which cannot say whether it
    * reports the state you are in or the one you would move to. Both states
@@ -414,8 +449,12 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   const layoutOptions = useMemo(
     () =>
       [
-        { value: 'compact', label: t('Compact') },
-        { value: 'comfortable', label: t('Comfortable') },
+        { value: 'compact', label: t('Compact'), icon: 'layout_compact' },
+        {
+          value: 'comfortable',
+          label: t('Comfortable'),
+          icon: 'layout_comfortable',
+        },
       ] as const satisfies readonly [
         SlidingOption<ExportLayout>,
         SlidingOption<ExportLayout>,
@@ -438,6 +477,88 @@ export default function ExportPage({ source }: { source: ExportSource }) {
       ],
     [t]
   );
+
+  // Above the early returns, as callbacks: they read only refs and setters,
+  // and the ⌘P/⌘S handler (KAN-826) needs the same handlePrint.
+  const untilFrameShowsIcons = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        if (frameShowsIconsRef.current) return resolve();
+        const done = () => {
+          clearTimeout(cap);
+          outputWaiters.current.delete(done);
+          resolve();
+        };
+        const cap = setTimeout(done, OUTPUT_WAIT_CAP_MS);
+        outputWaiters.current.add(done);
+      }),
+    []
+  );
+
+  // KAN-603. Busy at once, so a second press is ignored.
+  const afterIcons = useCallback(
+    async (run: () => void) => {
+      if (printPendingRef.current) return;
+      printPendingRef.current = true;
+      setPrintPending(true);
+      await untilFrameShowsIcons();
+      // A refused print must not leave the button busy until a reload.
+      try {
+        run();
+      } catch (error) {
+        console.error('Could not print the export:', error);
+      } finally {
+        printPendingRef.current = false;
+        setPrintPending(false);
+      }
+    },
+    [untilFrameShowsIcons]
+  );
+
+  // Reaching into the frame needs same-origin, which is why the preview is
+  // sandboxed with allow-same-origin and nothing else: scripts stay blocked,
+  // so the file still cannot run anything, and the browser's print dialog is
+  // where the PDF, or a printer, is picked.
+  //
+  // KAN-826. Every press marks the device; the pointer is done at the press,
+  // since Chrome does not say whether the dialog saved or was cancelled.
+  const handlePrint = useCallback(() => {
+    dispatch(markPressedSaveAsPdf());
+    return afterIcons(() => frameRef.current?.contentWindow?.print());
+  }, [afterIcons, dispatch]);
+
+  // KAN-826. ⌘P and ⌘S run Save as PDF…: the browser's own print or save the
+  // page around the file. Edit mode has no preview to print, but the keys are
+  // still kept from the browser. One listener, reading the latest state.
+  const isMac = useIsMac();
+  const onShortcut = useRef<(e: KeyboardEvent) => void>(() => {});
+  useLayoutEffect(() => {
+    onShortcut.current = (e) => {
+      if (!isSaveAsPdfShortcut(e, isMac)) return;
+      e.preventDefault();
+      if (!editing && frameRef.current) void handlePrint();
+    };
+  });
+  const takeShortcut = useCallback(
+    (e: KeyboardEvent) => onShortcut.current(e),
+    []
+  );
+  useEffect(() => {
+    addEventListener('keydown', takeShortcut);
+    return () => removeEventListener('keydown', takeShortcut);
+  }, [takeShortcut]);
+  // After a click in the preview the keys go to the frame's document, where a
+  // listener the page adds still hears them (measured with real keys).
+  const frameDoc = useRef<Document | null>(null);
+  const listenInFrame = useCallback(
+    (doc: Document | null) => {
+      frameDoc.current?.removeEventListener('keydown', takeShortcut);
+      frameDoc.current = doc;
+      doc?.addEventListener('keydown', takeShortcut);
+    },
+    [takeShortcut]
+  );
+  useEffect(() => () => listenInFrame(null), [listenInFrame]);
 
   // Still capturing: the page, and nothing on it. NOT "Session not found",
   // which would be a false statement for the length of the capture and would
@@ -472,32 +593,6 @@ export default function ExportPage({ source }: { source: ExportSource }) {
       return { ...prev, hidden };
     });
 
-  const untilFrameShowsIcons = () =>
-    new Promise<void>((resolve) => {
-      if (frameShowsIconsRef.current) return resolve();
-      const done = () => {
-        clearTimeout(cap);
-        outputWaiters.current.delete(done);
-        resolve();
-      };
-      const cap = setTimeout(done, OUTPUT_WAIT_CAP_MS);
-      outputWaiters.current.add(done);
-    });
-
-  // KAN-603. Busy at once, so a second press is ignored.
-  const afterIcons = async (run: () => void) => {
-    setPrintPending(true);
-    await untilFrameShowsIcons();
-    // A refused print must not leave the button busy until a reload.
-    try {
-      run();
-    } catch (error) {
-      console.error('Could not print the export:', error);
-    } finally {
-      setPrintPending(false);
-    }
-  };
-
   // KAN-209. The copy itself now lives in copySessionLinks, which the session
   // menu in the popup also calls -- one definition of what "copy all links"
   // means, rather than the same promise implemented twice.
@@ -523,13 +618,6 @@ export default function ExportPage({ source }: { source: ExportSource }) {
     clearTimeout(copiedTimer.current);
     copiedTimer.current = setTimeout(() => setCopied(false), 2000);
   };
-
-  // Reaching into the frame needs same-origin, which is why the preview is
-  // sandboxed with allow-same-origin and nothing else: scripts stay blocked,
-  // so the file still cannot run anything, and the browser's print dialog is
-  // where the PDF, or a printer, is picked.
-  const handlePrint = () =>
-    afterIcons(() => frameRef.current?.contentWindow?.print());
 
   // Icon carries 4px of its own padding all round, and Button adds 8px to
   // its right -- so the gap left of the icon was 4px wider than the gap right
@@ -654,7 +742,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
           html,
           body {
             margin: 0;
-            background-color: ${COLORS.PRIMARY_COLOR};
+            background-color: ${COLORS.SECONDARY_COLOR};
           }
           [data-scheme-switching] * {
             transition: none !important;
@@ -858,7 +946,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
               end of the row -- the primary stands where Done stands while
               editing. A PDF is what people attach to a message; the .html file
               KAN-734 hid is gone for good (KAN-742). */}
-                <span css={endStyle}>
+                <span css={endStyle} ref={attachEndGroup}>
                   {/* Copy first: it ignores the choices, so it sits apart from the
               output that follows them. */}
                   <Button
@@ -915,21 +1003,33 @@ export default function ExportPage({ source }: { source: ExportSource }) {
           own security rule and styling, and nothing on this page can leak
           into what gets saved. */}
             <iframe
-              ref={frameRef}
+              ref={attachFrame}
               title={edited.title}
               srcDoc={html}
-              onLoad={() => setLoadedHtml(html)}
+              onLoad={(e) => {
+                setLoadedHtml(html);
+                listenInFrame(e.currentTarget.contentDocument);
+              }}
               // allow-modals is what makes print() work: Chrome ignores print()
               // from a sandboxed frame without it, silently but for a console line.
               // allow-scripts is still absent, so the file cannot run anything.
               sandbox="allow-same-origin allow-modals"
+              // KAN-826. A sheet on the ground, so it reads as the page that gets saved.
               css={css`
-                border: 0;
+                display: block;
+                box-sizing: border-box;
                 flex-grow: 1;
-                width: 100%;
+                width: calc(100% - 48px);
+                max-width: 816px;
+                margin: 24px auto 0;
+                border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+                box-shadow: ${COLORS.FLOATING_SHADOW};
                 background-color: ${EXPORT_PALETTE[scheme].bg};
               `}
             />
+            {!hasPressedSaveAsPdf && (
+              <SavePdfPointer button={saveButton} sheet={frameEl} />
+            )}
           </>
         )}
         {/* KAN-401, KAN-695. Inside the override, so they take the page's scheme. */}
