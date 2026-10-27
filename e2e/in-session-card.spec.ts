@@ -682,6 +682,55 @@ test.describe('C1: a drag inside a saved list is drawn by the card', () => {
     });
   }
 
+  // KAN-817: every kind's card is one height, its name at one x; the group's dot is 14px (pick B). At Chrome's
+  // default and Large (20px root) text: the icon box is rem, so a fixed-px dot box would pass only at 16px.
+  for (const root of ['16px', '20px']) {
+    test(`every kind's card is one height, its name at one x (root ${root})`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openPopup(context, extensionId);
+      await page.evaluate((px) => {
+        document.documentElement.style.fontSize = px;
+      }, root);
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => getComputedStyle(document.documentElement).fontSize
+          )
+        )
+        .toBe(root);
+      const cards: Record<string, { height: number; nameX: number }> = {};
+      let dot: { width: number; height: number } | null = null;
+      for (const { kind, handle } of CASES) {
+        await pickUp(page, handle(page));
+        const card = page.locator(DRAG_CARD);
+        await expect(card).toHaveCount(1);
+        cards[kind] = await card.evaluate((el) => {
+          const box = el.getBoundingClientRect();
+          const name = el.querySelector('[data-carry-card-name]');
+          if (name === null) throw new Error('the card has no name');
+          return {
+            height: box.height,
+            nameX: name.getBoundingClientRect().x - box.x,
+          };
+        });
+        if (kind === 'group') {
+          dot = await page
+            .locator(`${DRAG_CARD} [data-carry-card-dot]`)
+            .boundingBox();
+        }
+        await cancel(page);
+        await expect(card).toHaveCount(0);
+      }
+      // PREMISE: the tab's card is sized by its icon box, not by its text alone.
+      expect(cards.tab?.height).toBeGreaterThan(40);
+      expect(cards.group).toEqual(cards.tab);
+      expect(cards.window).toEqual(cards.tab);
+      expect(dot).toEqual(expect.objectContaining({ width: 14, height: 14 }));
+    });
+  }
+
   // For a group, its title row and its colour strip are hidden WHEREVER they
   // are drawn, not only under the held row's own node.
   test('a group: its title row and colour strip are not drawn', async ({

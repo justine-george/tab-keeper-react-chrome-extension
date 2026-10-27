@@ -78,10 +78,12 @@ function CardBody({ card }: { card: CarryCard }) {
         <>
           <span
             data-carry-card-dot=""
+            // KAN-817 B: centred in an Icon's box, so the card is a tab's or a window's height, its name at their x.
             css={css`
               flex: none;
-              width: 10px;
-              height: 10px;
+              width: 14px;
+              height: 14px;
+              margin: calc((${ICON.DEFAULT} + 8px - 14px) / 2);
               border-radius: ${RADIUS.CIRCLE};
             `}
             // Chrome's own group colour, not app chrome: a fixed map, the
