@@ -3,6 +3,7 @@ import type { BrowserContext, Page, Worker } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { grantedTest } from './fixtures/grantedExtension';
 import { saveRowMenu } from './fixtures/menus';
+import { overAnOrdinaryTab } from './fixtures/currentTab';
 import {
   buildContainer,
   buildSession,
@@ -281,6 +282,8 @@ grantedTest.describe('controls the tab view hides (KAN-279 D7, D13)', () => {
         'index.html',
         POPUP_VIEWPORT
       );
+      // Over an ordinary page, as a real popup is (KAN-823).
+      await overAnOrdinaryTab(popup);
       const tab = await openPage(context, extensionId, VIEW_TAB, TAB_VIEWPORT);
       // Barrier: the selected session's detail, group band included, has
       // rendered in both pages.

@@ -26,7 +26,9 @@ import {
   landedAt,
   nextTo,
   openRunFromHelp,
+  startRunFromHelp,
 } from './fixtures/run';
+import { overAnOrdinaryTab } from './fixtures/currentTab';
 
 // KAN-695. What Chrome's accessibility tree says about every titled control,
 // recorded on main before the native tooltip is replaced. A `title` on a
@@ -826,6 +828,8 @@ test('popup home: session rows, header, toolbar and the sync button', async ({
 }) => {
   await seedAnswered(context);
   const page = await openPopup(context, extensionId);
+  // Over an ordinary page, as a real popup is, so Add current tab shows (KAN-823).
+  await overAnOrdinaryTab(page);
   const ax = await recordAx(page, 'home');
   await expectAx(page, ax, EXPECTED.home);
 });
@@ -896,8 +900,17 @@ test('the tour: Open, Switch and Replace wait for the tour', async ({
   extensionId,
 }) => {
   await seedAnswered(context);
-  await (await context.newPage()).goto(standIn('Inbox'));
-  const page = await openRunFromHelp(context, extensionId, POPUP_RUN);
+  // Inbox is the page the popup opens over, made current before the run
+  // starts: a reload mid-run re-seeds it (KAN-823).
+  const page = await openPage(
+    context,
+    extensionId,
+    POPUP_RUN.path,
+    POPUP_RUN.viewport
+  );
+  await overAnOrdinaryTab(page, 'Inbox');
+  await startRunFromHelp(page);
+  await expect(cardAt(page, 1)).toBeVisible();
   await page
     .locator('[data-tour-anchor="save"]')
     .getByRole('button', {
@@ -1020,6 +1033,7 @@ test('a saved session with a pinned tab and a split-view pair', async ({
   window.tabs[2].splitId = 'split-1';
   const page = await openSaved(context, extensionId, 'popup', {
     sessions: [session('S1', 'Marks', [window])],
+    overOrdinaryTab: true,
   });
   await page.locator('[data-pin]').waitFor();
   await page.locator('[data-split]').first().waitFor();

@@ -2,6 +2,7 @@ import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import { overAnOrdinaryTab } from './fixtures/currentTab';
 
 // KAN-92. A session row shows two things when you engage with it: it REVEALS
 // its Open/Switch/Delete actions, and it FILLS with the hover colour. Those
@@ -519,6 +520,8 @@ test.describe('a row reveals its actions and fills as one state', () => {
     extensionId,
   }) => {
     const page = await openWith(context, extensionId);
+    // The strip's Add current tab shows over an ordinary page (KAN-823).
+    await overAnOrdinaryTab(page);
 
     await rowFor(page, 'First session').click({ position: { x: 20, y: 20 } });
     const windowRow = page.getByRole('button', {

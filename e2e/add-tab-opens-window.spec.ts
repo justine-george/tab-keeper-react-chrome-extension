@@ -1,8 +1,8 @@
-import type { BrowserContext, Page, Worker } from '@playwright/test';
+import type { BrowserContext, Page } from '@playwright/test';
 
 import { expect, grantedTest as test } from './fixtures/grantedExtension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
-import { standIn } from './fixtures/standInPages';
+import { currentTabUrl, overAnOrdinaryTab } from './fixtures/currentTab';
 
 // KAN-821. Add current tab on a saved window opens it if it was folded and
 // brings the new tab's row into view. KAN-823: over a Tab Keeper page no Add
@@ -54,12 +54,11 @@ const SESSION = buildSession({
   ],
 });
 
-// `current`: an ordinary page made the current tab. Without one, the popup
-// page itself is the current tab: a Tab Keeper page.
+// `current`: the title of an ordinary page made the current tab. Without
+// one, the popup page itself is the current tab: a Tab Keeper page.
 async function openPopup(
   context: BrowserContext,
   extensionId: string,
-  worker: Worker,
   current?: string
 ) {
   await seedSessions(context, {
@@ -69,48 +68,10 @@ async function openPopup(
   const page = await context.newPage();
   await page.setViewportSize(POPUP);
   await page.goto(`chrome-extension://${extensionId}/index.html`);
-  if (current !== undefined) {
-    await makeCurrentTab(worker, current);
-    // The popup asks once, when it opens (KAN-823); a real popup opens over
-    // the current tab, so this page opens again, still in the background.
-    await page.reload();
-  }
+  if (current !== undefined) await overAnOrdinaryTab(page, current);
   await expect(chevron(page, 'Collapse')).toBeVisible();
   return page;
 }
-
-// Driven as a tab, the popup page is itself the active tab, so every add would
-// be refused. An ordinary page made active in its window is the current tab.
-async function makeCurrentTab(worker: Worker, url: string) {
-  await worker.evaluate(async (address) => {
-    const [tk] = await chrome.tabs.query({
-      url: `${chrome.runtime.getURL('index.html')}*`,
-    });
-    const made = await chrome.tabs.create({
-      windowId: tk.windowId,
-      url: address,
-      active: true,
-    });
-    const id = made.id;
-    if (id === undefined) throw new Error('the tab was made without an id');
-    const title = decodeURIComponent(new URL(address).pathname.slice(1));
-    for (;;) {
-      const now = await chrome.tabs.get(id);
-      if (now.status === 'complete' && now.title === title) return;
-      await new Promise((r) => setTimeout(r, 50));
-    }
-  }, url);
-  // CONTROL: the handler's own query now answers with that page.
-  expect(await currentTabUrl(worker)).toBe(url);
-}
-
-// What the Add handler's own query answers.
-const currentTabUrl = (worker: Worker) =>
-  worker.evaluate(
-    async () =>
-      (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0]
-        ?.url
-  );
 
 const block = (page: Page) => page.locator('[data-drop-window-id="w3"]');
 const groupAdd = (page: Page) =>
@@ -163,14 +124,8 @@ for (const [how, add] of [
   test(`collapsed window + ${how} opens it and shows the new tab`, async ({
     context,
     extensionId,
-    serviceWorker,
   }) => {
-    const page = await openPopup(
-      context,
-      extensionId,
-      serviceWorker,
-      standIn(ADDED)
-    );
+    const page = await openPopup(context, extensionId, ADDED);
     await chevron(page, 'Collapse').click();
     await expect(chevron(page, 'Expand')).toBeVisible();
     await headerAtBottomEdge(page);
@@ -195,14 +150,8 @@ for (const [how, add] of [
 test('an open window at the bottom edge scrolls to the new tab', async ({
   context,
   extensionId,
-  serviceWorker,
 }) => {
-  const page = await openPopup(
-    context,
-    extensionId,
-    serviceWorker,
-    standIn(ADDED)
-  );
+  const page = await openPopup(context, extensionId, ADDED);
   // CONTROL for the KAN-823 test below: over an ordinary page, a group offers it.
   await expect(groupAdd(page)).toHaveCount(1);
   await headerAtBottomEdge(page);
@@ -219,11 +168,10 @@ test('an open window at the bottom edge scrolls to the new tab', async ({
 test('a Tab Keeper page as current tab: no Add current tab is offered', async ({
   context,
   extensionId,
-  serviceWorker,
 }) => {
-  const page = await openPopup(context, extensionId, serviceWorker);
+  const page = await openPopup(context, extensionId);
   // PREMISE: the current tab is the popup page itself, a Tab Keeper page.
-  expect(await currentTabUrl(serviceWorker)).toBe(page.url());
+  expect(await currentTabUrl(page)).toBe(page.url());
   await chevron(page, 'Collapse').click();
 
   await expect(

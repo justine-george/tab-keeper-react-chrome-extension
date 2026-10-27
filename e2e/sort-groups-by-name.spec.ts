@@ -121,6 +121,7 @@ for (const view of VIEWS) {
     }) => {
       const page = await openSaved(context, extensionId, view, {
         sessions: [session('S1', 'Planning', [WINDOW])],
+        overOrdinaryTab: view === 'popup',
       });
       const groupsBefore = await storedGroups(page);
       expect(await screenOrder(page)).toEqual(SAVED_BEFORE);
