@@ -22,10 +22,11 @@ async function openEmpty(
   context: BrowserContext,
   extensionId: string,
   view: (typeof VIEWS)[number],
-  reducedMotion: 'reduce' | 'no-preference' = 'no-preference'
+  reducedMotion: 'reduce' | 'no-preference' = 'no-preference',
+  settings: Record<string, unknown> = {}
 ): Promise<Page> {
   await seedSessions(context, buildContainer([]));
-  await seedSettings(context, {});
+  await seedSettings(context, settings);
   const page = await context.newPage();
   await page.emulateMedia({ reducedMotion });
   await page.setViewportSize(view.viewport);
@@ -175,6 +176,28 @@ for (const view of VIEWS) {
             ?.tabGroups?.length ?? 0
       );
       expect(stored).toBe(1);
+      const settings = await page.evaluate(() =>
+        JSON.parse(localStorage.getItem('settingsData') ?? '{}')
+      );
+      expect(settings).toMatchObject({ hasHadSavedSession: true });
+    });
+
+    // His call, 02:26: after a first session of the user's, the ring is done on this device.
+    test('a device that has held a session shows no ring', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openEmpty(
+        context,
+        extensionId,
+        view,
+        'no-preference',
+        {
+          hasHadSavedSession: true,
+        }
+      );
+      await expect(page.locator('[data-empty-list="saved"]')).toHaveCount(1);
+      await expect(page.locator(INVITE)).toHaveCount(0);
     });
 
     test('a search hides it; clearing brings it back', async ({
