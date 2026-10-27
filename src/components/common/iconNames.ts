@@ -87,6 +87,8 @@ export const SVG_ICON_NAMES = [
   'window_add',
   'two_windows_add',
   'group_add',
+  'layout_compact',
+  'layout_comfortable',
 ] as const;
 
 export type LigatureIconName = (typeof LIGATURE_ICON_NAMES)[number];

@@ -638,8 +638,8 @@ for (const mode of ['light', 'dark'] as const) {
 
 // KAN-557. Under load the compositor can skip frames while the page still
 // answers reads. A knob measured in the fallback font then keeps that clip
-// over Libre Franklin's wider "Comfortable" until a frame delivers its
-// ResizeObserver: 6.58px, the flake's exact reading. This holds every
+// over a word Libre Franklin draws wider until a frame delivers its
+// ResizeObserver: 6.58px over "Comfortable", the flake's exact reading. This holds every
 // ResizeObserver callback for `ms`, as a run of skipped frames would.
 const holdResizeObservers = (page: Page, ms: number) =>
   page.evaluate(
@@ -674,40 +674,43 @@ const installObserverHold = (context: Parameters<typeof seedSessions>[0]) =>
     };
   });
 
+// KAN-827 made both export pairs glyphs, so this runs on a pair that still
+// shows words: Settings' Time format.
 test('a knob read while frames stall after a font swap waits for the frame', async ({
   context,
   extensionId,
 }) => {
   await installObserverHold(context);
-  const exportPage = await openExportUnder(context, extensionId, {
-    theme: 'Light',
-  });
+  await seedSettings(context, { theme: 'Light' });
+  const page = await openPopup(context, extensionId);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const pair = page.getByRole('group', { name: 'Time format' });
+  await expect(pair).toBeVisible();
   const cells = '[role="group"] button, [data-sliding-knob] > span';
   // The fallback font, as before Libre Franklin loads.
-  await exportPage.evaluate((cells) => {
+  await page.evaluate((cells) => {
     document
       .querySelectorAll<HTMLElement>(cells)
       .forEach((el) => (el.style.fontFamily = 'Helvetica'));
   }, cells);
-  const fallback = await settledKnob(exportPage, 'Layout');
+  const fallback = await settledKnob(page, pair);
   // CONTROL: the fallback is narrower, so the swap moves the knob's edge.
-  const comfortable = exportPage.getByRole('button', { name: 'Comfortable' });
-  const narrow = await comfortable.evaluate(
+  const pressed = pair.locator('button[aria-pressed="true"]');
+  const narrow = await pressed.evaluate(
     (el) => el.getBoundingClientRect().width
   );
 
-  await holdResizeObservers(exportPage, 400);
-  await exportPage.evaluate((cells) => {
+  await holdResizeObservers(page, 400);
+  await page.evaluate((cells) => {
     document
       .querySelectorAll<HTMLElement>(cells)
       .forEach((el) => (el.style.fontFamily = ''));
   }, cells);
-  const knob = await settledKnob(exportPage, 'Layout');
+  const knob = await settledKnob(page, pair);
 
   expect(
-    (await comfortable.evaluate((el) => el.getBoundingClientRect().width)) -
-      narrow,
-    'PREMISE: Libre Franklin widens Comfortable'
+    (await pressed.evaluate((el) => el.getBoundingClientRect().width)) - narrow,
+    'PREMISE: Libre Franklin widens the pressed word'
   ).toBeGreaterThan(1);
   const report = `fallback ${JSON.stringify(fallback.drawn)}, swapped ${JSON.stringify(knob)}`;
   for (const side of ['left', 'right'] as const) {

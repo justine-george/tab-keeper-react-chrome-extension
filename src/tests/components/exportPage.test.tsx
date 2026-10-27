@@ -134,13 +134,14 @@ describe('the export preview page (KAN-190)', () => {
 
   // Measured: the worded colour pair costs 168.9px in Russian vs 125.5px in
   // English and wraps the row; a glyph costs the same in every language. The
-  // density glyphs don't say which is roomier, so the layout pair keeps its
-  // words.
-  describe('the colour pair is glyphs, the layout pair is words (KAN-212)', () => {
+  // layout pair is glyphs too since KAN-827: five lines against three.
+  describe('both pairs are glyphs (KAN-212, KAN-827)', () => {
+    // data-icon covers ligatures and SVG glyphs alike (Glyph.tsx).
     const glyphOf = (name: string) =>
       screen
         .getByRole('button', { name })
-        .querySelector('.material-symbols-outlined')?.textContent;
+        .querySelector('[data-icon]')
+        ?.getAttribute('data-icon');
 
     test('Light and Dark render a sun and a moon', async () => {
       await renderPage();
@@ -149,25 +150,34 @@ describe('the export preview page (KAN-190)', () => {
       expect(glyphOf('Dark')).toBe('dark_mode');
     });
 
+    test('Compact and Comfortable render five lines and three', async () => {
+      await renderPage();
+
+      expect(glyphOf('Compact')).toBe('layout_compact');
+      expect(glyphOf('Comfortable')).toBe('layout_comfortable');
+    });
+
     // The glyph is aria-hidden, so the name must come from the label.
     test('each still carries its name and its tooltip', async () => {
       await renderPage();
 
-      for (const name of ['Light', 'Dark']) {
+      for (const name of ['Light', 'Dark', 'Compact', 'Comfortable']) {
         const button = screen.getByRole('button', { name });
         expect(button.getAttribute('aria-label')).toBe(name);
         expect(button.getAttribute('data-tooltip')).toBe(name);
       }
     });
 
-    // CONTROL: the glyph test cannot pass by every segment becoming a glyph.
-    test('Comfortable and Compact keep their words and carry no glyph', async () => {
+    test('no Layout button shows its word as text', async () => {
       await renderPage();
 
-      for (const name of ['Comfortable', 'Compact']) {
-        expect(screen.getByRole('button', { name })).toHaveTextContent(name);
-        expect(glyphOf(name)).toBeUndefined();
+      for (const name of ['Compact', 'Comfortable']) {
+        expect(screen.getByRole('button', { name })).not.toHaveTextContent(
+          name
+        );
       }
+      // CONTROL: glyphOf reads a glyph where one is drawn.
+      expect(glyphOf('Light')).toBe('light_mode');
     });
   });
 

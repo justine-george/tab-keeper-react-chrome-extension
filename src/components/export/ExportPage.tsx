@@ -72,12 +72,12 @@ import {
  * How wide the header's content may grow, centred (KAN-235).
  *
  * The document below sits in a 720px column; this is what keeps Edit and
- * Save as PDF… from running to the monitor's edges above it. The number is the
- * toolbar's one-line floor: it wraps its right-hand group onto its own line
- * when it cannot fit. With Save as PDF… (KAN-742) the widest locale's
- * one-line width is Russian at 906px (ko 577, zh 600, zh-TW 600, en 695,
- * hi 722, sv 739, it 748, ja 766, pt 795, es 810, fr 821, de 822). 930 leaves
- * room for Linux text layout on CI.
+ * Save as PDF… from running to the monitor's edges above it. The toolbar wraps
+ * its right-hand group onto its own line when it cannot fit. It was set as the
+ * one-line floor of the worded Layout pair (Russian 906px). With Layout as
+ * glyphs (KAN-827) the widest is Russian at 746px (ko 544, zh 559, zh-TW 559,
+ * en 564, hi 638, it 640, ja 653, sv 654, pt 662, fr 687, de 693, es 699).
+ * 930 stays so the band, and Save as PDF…'s place above the sheet, do not move.
  */
 const HEADER_CONTENT_MAX_PX = 930;
 
@@ -393,15 +393,18 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   /**
    * The two choices, each a SlidingPair (KAN-218).
    *
-   * Colour is GLYPHS and Layout is WORDS, deliberately (KAN-212):
+   * Both pairs are GLYPHS (Colour since KAN-212, Layout since KAN-827):
    *
-   * - the row wraps at the popup width in Russian. Measured at 900px, the
-   *   colour pair cost 168.9px there against 125.5 in English as words, and a
-   *   glyph costs the same in every language.
-   * - light and dark have a symbol everyone already knows. Comfortable and
-   *   compact do not: density_large against density_small is two sets of
-   *   horizontal lines differing by a few pixels of spacing, and neither says
-   *   which one is roomier.
+   * - the row wraps at the popup width in Russian and German. Measured at
+   *   900px, the colour pair cost 168.9px there against 125.5 in English as
+   *   words, and a glyph costs the same in every language.
+   * - light and dark have a symbol everyone already knows. Layout had none:
+   *   Material's density_large and density_small differ by a few pixels of
+   *   spacing and neither says which is roomier. Its own glyphs answer that,
+   *   five lines against three. Three even lines is also the menu icon;
+   *   inside a labelled pair beside five lines it reads as fewer, roomier rows.
+   *
+   * Each word stays as the button's name and its tooltip.
    *
    * Both stay PAIRS rather than a lone sun or moon, which cannot say whether it
    * reports the state you are in or the one you would move to. Both states
@@ -414,8 +417,12 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   const layoutOptions = useMemo(
     () =>
       [
-        { value: 'compact', label: t('Compact') },
-        { value: 'comfortable', label: t('Comfortable') },
+        { value: 'compact', label: t('Compact'), icon: 'layout_compact' },
+        {
+          value: 'comfortable',
+          label: t('Comfortable'),
+          icon: 'layout_comfortable',
+        },
       ] as const satisfies readonly [
         SlidingOption<ExportLayout>,
         SlidingOption<ExportLayout>,
