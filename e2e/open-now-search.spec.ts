@@ -1327,6 +1327,20 @@ test.describe('with a classic scrollbar (KAN-330, KAN-336)', () => {
       };
     });
 
+  // The search row's end less the tab rows', rounded; null while a box is
+  // missing. Polled: the bar's width is written on the next frame, which a
+  // forced layout in evaluate can run ahead of under load.
+  const offset = async (
+    page: Page,
+    search: 'searchSlot' | 'searchX',
+    tab: 'tabStrip' | 'tabX'
+  ) => {
+    const m = await measure(page);
+    const a = m[search];
+    const b = m[tab];
+    return a === null || b === null ? null : Math.round(a - b);
+  };
+
   test("while the list scrolls, the search row's × sits over the tab rows' × (KAN-336)", async ({
     context,
     extensionId,
@@ -1334,6 +1348,7 @@ test.describe('with a classic scrollbar (KAN-330, KAN-336)', () => {
   }) => {
     const page = await openThirtyTabs(context, extensionId, serviceWorker);
     // Empty field: the end slot (where the / chip sits) is over the strips.
+    await expect.poll(() => offset(page, 'searchSlot', 'tabStrip')).toBe(0);
     const empty = await measure(page);
     console.log(`[scrollbar ×, empty] ${JSON.stringify(empty)}`);
     expect(empty.overflows).toBe(true);
@@ -1345,6 +1360,7 @@ test.describe('with a classic scrollbar (KAN-330, KAN-336)', () => {
 
     await field(page).fill('tab');
     await expect(liveRow(page, 'Tab 30')).toHaveCount(1);
+    await expect.poll(() => offset(page, 'searchX', 'tabX')).toBe(0);
     const m = await measure(page);
     console.log(`[scrollbar ×] ${JSON.stringify(m)}`);
     // PREMISES: the list still scrolls, and the bar takes room from it.
@@ -1364,6 +1380,7 @@ test.describe('with a classic scrollbar (KAN-330, KAN-336)', () => {
     const page = await openThirtyTabs(context, extensionId, serviceWorker);
     await field(page).fill('tab');
     await expect(liveRow(page, 'Tab 30')).toHaveCount(1);
+    await expect.poll(() => offset(page, 'searchX', 'tabX')).toBe(0);
     const scrolling = await measure(page);
     expect(scrolling.overflows).toBe(true);
     if (scrolling.scrollbar === null || scrolling.fieldWidth === null) {
@@ -1376,6 +1393,7 @@ test.describe('with a classic scrollbar (KAN-330, KAN-336)', () => {
     await expect(liveRow(page, 'Tab 10')).toHaveCount(0);
     await expect(liveRow(page, 'Tab 09')).toHaveCount(1);
     await expect.poll(async () => (await measure(page)).overflows).toBe(false);
+    await expect.poll(() => offset(page, 'searchX', 'tabX')).toBe(0);
     const m = await measure(page);
     console.log(`[scrollbar ×, fits] ${JSON.stringify(m)}`);
     expect(m.scrollbar).toBe(0);
