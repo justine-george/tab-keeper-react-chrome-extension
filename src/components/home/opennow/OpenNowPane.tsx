@@ -33,6 +33,7 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useRecentTabs } from '../../../hooks/useRecentTabs';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useScrollbarWidthVar } from '../../../hooks/useScrollbarWidthVar';
 import {
   backCloses,
   requestReturn,
@@ -216,6 +217,9 @@ export default function OpenNowPane({
   const dispatch: AppDispatch = useDispatch();
   const paneRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  // KAN-336. The search row sits outside the scroller; this gives it the bar's width.
+  const listBoxRef = useRef<HTMLDivElement>(null);
+  useScrollbarWidthVar(scrollerRef, listBoxRef);
 
   // Folded windows, by Chrome window id. Local and unsaved: a live window has
   // no identity worth keeping past this page, and an id Chrome has since
@@ -1056,7 +1060,7 @@ export default function OpenNowPane({
         </div>
       </div>
       {headerMenu.menu}
-      <div css={listBoxStyle}>
+      <div ref={listBoxRef} css={listBoxStyle}>
         <OpenNowSearchRow
           text={searchText}
           onTextChange={handleSearchTextChange}

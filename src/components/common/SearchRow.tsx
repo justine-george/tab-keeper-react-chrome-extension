@@ -32,6 +32,8 @@ interface SearchRowProps {
   glassBox: 'column' | 'tight';
   // The input's padding-left.
   textInset: string;
+  // Room left at the row's end, past its × slot (KAN-336: the list's scrollbar).
+  endInset?: string;
   // Whose search this is: it marks the row, and shows the / chip while / goes here (KAN-800).
   pane: SearchPane;
   // Without a handler the key keeps its default.
@@ -52,6 +54,7 @@ export default function SearchRow({
   glassInset,
   glassBox,
   textInset,
+  endInset = '0px',
   pane,
   onArrowDown,
   onEnter,
@@ -101,6 +104,7 @@ export default function SearchRow({
     align-items: center;
     flex-shrink: 0;
     height: ${ROW_HEIGHT};
+    padding-right: ${endInset};
     margin-bottom: ${ROW_GAP};
     border-bottom: 1px solid ${COLORS.DIVIDER_COLOR};
     font-family: ${FONT_FAMILY};
