@@ -627,9 +627,10 @@ export default function HeroContainerRight() {
                 type="browser_updated"
                 disable={isOpenBlocked}
                 style={isOpenBlocked ? 'opacity: 0.3;' : undefined}
-                onClick={() =>
-                  void dispatch(replaceSessionWithOpenWindows(tabGroupId))
-                }
+                // KAN-698. Once for a double-click: a second replace is a second ⌘Z step.
+                onClick={onFirstClickOnly(
+                  () => void dispatch(replaceSessionWithOpenWindows(tabGroupId))
+                )}
               />
             )}
             {/* KAN-193. Export and Delete live behind one trigger rather than as

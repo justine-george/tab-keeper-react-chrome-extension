@@ -8,6 +8,7 @@ import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 // a saved row's Open opened the window twice. Measured on main before the fix:
 // row Save 0 -> 2 sessions, row Open 1 -> 3 Chrome windows (one click 1 -> 2),
 // header Save 0 -> 2, the session header's Open 1 -> 3.
+// The session header's Replace replaced twice: two ⌘Z steps for one press.
 
 const sessionCount = (page: Page) =>
   page.evaluate(
@@ -251,3 +252,44 @@ for (const c of cases) {
     expect(await count()).toBe(before + 1);
   });
 }
+
+// One Undo after a double-click on Replace brings the session back: a second
+// replace would leave a second step, and the first Undo would undo only that.
+test("a double-click on the session header's Replace is one Undo step", async ({
+  context,
+  extensionId,
+}) => {
+  await seedSessions(context, {
+    ...buildContainer([TRIP]),
+    selectedTabGroupId: 's1',
+  });
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 790, height: 550 });
+  await page.goto(`chrome-extension://${extensionId}/index.html`);
+  await page.getByRole('button', { name: 'Sort sessions' }).waitFor();
+  const tabsOfTrip = () =>
+    page.evaluate(
+      () =>
+        (
+          JSON.parse(localStorage.getItem('tabContainerData') ?? '{}') as {
+            tabGroups?: {
+              tabGroupId: string;
+              windows: { tabs: { title: string }[] }[];
+            }[];
+          }
+        ).tabGroups
+          ?.find((g) => g.tabGroupId === 's1')
+          ?.windows.flatMap((w) => w.tabs.map((t) => t.title)) ?? []
+    );
+  expect(await tabsOfTrip()).toEqual(['One']);
+  await page
+    .locator('[aria-label="Replace this session with open windows"]')
+    .first()
+    .dblclick();
+  // PREMISE: replaced by the open windows.
+  await expect.poll(tabsOfTrip).not.toEqual(['One']);
+  await page.waitForTimeout(1000);
+
+  await page.getByRole('button', { name: 'Undo' }).first().click();
+  await expect.poll(tabsOfTrip).toEqual(['One']);
+});

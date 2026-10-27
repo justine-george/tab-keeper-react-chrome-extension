@@ -155,6 +155,7 @@ describe('a strip that appears under the pointer (KAN-582)', () => {
     fireEvent.pointerMove(action('Weekend in Kyoto', 'Replace'), AT);
     fireEvent.click(action('Weekend in Kyoto', 'Replace'), SECOND_CLICK);
     expect(h.onReplaceClick).not.toHaveBeenCalled();
+    expect(h.onTabGroupClick).toHaveBeenCalledTimes(1);
   });
 
   test.each([
