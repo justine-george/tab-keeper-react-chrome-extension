@@ -416,6 +416,11 @@ const toolbarGeometry = (page: Page, title: string) =>
       firstLeft: first.getBoundingClientRect().left,
       contentLeft: box.left,
       contentRight: box.right,
+      edit: byLabel('Edit')?.getBoundingClientRect().toJSON() ?? null,
+      done: byLabel('Done')?.getBoundingClientRect().toJSON() ?? null,
+      tallyRight:
+        header.querySelector('[role="status"]')?.getBoundingClientRect()
+          .right ?? null,
     };
   }, title);
 
@@ -451,7 +456,9 @@ for (const width of [1600, 1200, 800, 560]) {
     ).toBeLessThanOrEqual(1);
   });
 
-  test(`at ${width}px Save as PDF…, then Done, sit at the right end of the toolbar`, async ({
+  // KAN-831. Done stands where Edit stood, so finishing an edit is a press in
+  // place; the tally takes the end of the row.
+  test(`at ${width}px Save as PDF… ends the toolbar, and Done takes Edit's spot`, async ({
     context,
     extensionId,
   }) => {
@@ -465,9 +472,19 @@ for (const width of [1600, 1200, 800, 560]) {
       Math.abs(resting.contentRight - resting.primaryRight),
       `Save as PDF… ends at ${resting.primaryRight}px, the row at ${resting.contentRight}px`
     ).toBeLessThanOrEqual(1);
+    const edit = resting.edit!;
+    const done = editing.done!;
     expect(
-      Math.abs(editing.contentRight - editing.primaryRight),
-      `Done ends at ${editing.primaryRight}px, the row at ${editing.contentRight}px`
+      Math.abs(done.left - edit.left),
+      `Done starts at ${done.left}px, Edit started at ${edit.left}px`
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(done.top - edit.top),
+      `Done's top is ${done.top}px, Edit's was ${edit.top}px`
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(editing.contentRight - editing.tallyRight!),
+      `the tally ends at ${editing.tallyRight}px, the row at ${editing.contentRight}px`
     ).toBeLessThanOrEqual(1);
     // CONTROL: at 560px the end group really did wrap to its own line.
     if (width === 560) {

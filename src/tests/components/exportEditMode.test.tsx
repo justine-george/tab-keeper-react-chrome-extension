@@ -156,6 +156,20 @@ describe('Edit mode on the export page (KAN-194)', () => {
     }
   });
 
+  // KAN-831. Done first, where Edit was, so it is also the first stop for Tab.
+  test('while editing, the toolbar reads Done, Reset, then the tally', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+
+    const row = document.querySelector('[data-toolbar-row]')!;
+    const order = [...row.querySelectorAll('button, [role="status"]')].map(
+      (el) => el.getAttribute('aria-label') ?? el.getAttribute('role')
+    );
+    expect(order).toEqual(['Done', 'Reset', 'status']);
+  });
+
   test('Done shows the file again, with the rename in it', async () => {
     const user = userEvent.setup();
     await renderPage();

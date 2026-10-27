@@ -127,9 +127,9 @@ for (const lang of ALL_LANGS) {
   });
 }
 
-// KAN-734. Editing swaps the row but not the band: Reset and Done end where
-// Save as PDF… did.
-test(`at 2000px the editing row's tally and Done span the ${HEADER_CONTENT_MAX_PX}px band (ru)`, async ({
+// KAN-734. Editing swaps the row but not the band. KAN-831: Done starts it,
+// where Edit stood, and the tally ends it.
+test(`at 2000px the editing row's Done and tally span the ${HEADER_CONTENT_MAX_PX}px band (ru)`, async ({
   context,
   extensionId,
 }) => {
@@ -142,12 +142,12 @@ test(`at 2000px the editing row's tally and Done span the ${HEADER_CONTENT_MAX_P
   const tallyBox = (await tally.boundingBox())!;
   const done = (await page
     .locator('[data-toolbar-row] button')
-    .last()
+    .first()
     .boundingBox())!;
 
   const expectedLeft = (WIDE.width - HEADER_CONTENT_MAX_PX) / 2;
-  expect(tallyBox.x, 'the tally starts the band').toBeCloseTo(expectedLeft, 0);
-  expect(done.x + done.width, 'Done ends the band').toBeCloseTo(
+  expect(done.x, 'Done starts the band').toBeCloseTo(expectedLeft, 0);
+  expect(tallyBox.x + tallyBox.width, 'the tally ends the band').toBeCloseTo(
     expectedLeft + HEADER_CONTENT_MAX_PX,
     0
   );
