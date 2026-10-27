@@ -84,6 +84,7 @@ import {
 } from './unfold';
 import { CORNER_SHAPE, DURATION } from '../../../../styles/scale';
 import { settleSlides } from './settleSlides';
+import { landingTops, slideLanding, type LandingTops } from './landingSlides';
 import {
   beginDragHold,
   endDragHold,
@@ -226,6 +227,9 @@ interface Settle {
   timer: ReturnType<typeof setTimeout> | null;
   // The held row, marked while its fold is kept (App.css folds a held group).
   keptFold: HTMLElement | null;
+  // KAN-836. Where the drop showed the window blocks and the dropped row, for
+  // a drag that folds nothing; null for one that does.
+  landing: { tops: LandingTops; rowId: string } | null;
 }
 
 // A kept fold comes off with the hold, unless a drag since has taken it on.
@@ -647,6 +651,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   // ends it drew the move (its rows then jump to their new places).
   const settle = useRef<Settle | null>(null);
   const landed = useRef(false);
+  // KAN-836. What the commit that draws the move glides from.
+  const landedFrom = useRef<Settle['landing']>(null);
   const endSettle = useCallback((drawn: boolean) => {
     const s = settle.current;
     if (s === null) return;
@@ -654,6 +660,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     settle.current = null;
     endFold(s);
     landed.current = drawn;
+    landedFrom.current = drawn ? s.landing : null;
     setDrag(null);
   }, []);
 
@@ -2244,6 +2251,16 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               drawsLater: later,
               timer: null,
               keptFold: later && FOLDING_KINDS.has(dragKind) ? l.heldEl : null,
+              // A folding drag's blocks change height as the fold comes off: not a glide.
+              landing: FOLDING_KINDS.has(dragKind)
+                ? null
+                : {
+                    tops: landingTops(
+                      containerRef.current,
+                      rows.current.get(l.rowId)
+                    ),
+                    rowId: l.rowId,
+                  },
             };
             if (s.keptFold !== null) {
               setDragging(true, dragKind);
@@ -2551,6 +2568,15 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     if (drag !== null || !landed.current) return;
     landed.current = false;
     settleSlides(containerRef.current);
+    // KAN-836. Then the blocks a closed source room moved glide up.
+    const from = landedFrom.current;
+    landedFrom.current = null;
+    if (from !== null)
+      slideLanding(
+        containerRef.current,
+        from.tops,
+        rows.current.get(from.rowId)
+      );
   }, [drag]);
 
   // Known to every footprint's climb as a box holding a list's rows -- see
