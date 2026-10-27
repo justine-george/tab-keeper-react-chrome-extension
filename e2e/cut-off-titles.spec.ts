@@ -384,14 +384,35 @@ test.describe('keyboard', () => {
     });
   });
 
-  test('Tab to a window title that fits shows nothing', async ({
+  test('Tab to a window title that fits shows nothing, though the hidden strip lies over its end', async ({
     context,
     extensionId,
   }) => {
     const page = await open(context, extensionId);
-    await tabTo(titleButton(page, `Rename window: ${SHORT_WINDOW}`));
+    await tabTo(titleButton(page, `Rename window: ${MID_WINDOW}`));
     await page.waitForTimeout(900);
     await expect(page.locator(CHIP)).toHaveCount(0);
+    // PREMISE: its end hits the strip's Open, which a keyboard focus leaves at opacity 0.
+    const end = await textOf(page, MID_WINDOW).evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const text = range.getBoundingClientRect();
+      const box = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(
+        text.right - 2,
+        box.top + box.height / 2
+      );
+      const hidden = hit?.closest('button');
+      return {
+        fits: el.scrollWidth <= el.clientWidth,
+        inside: hit !== null && el.contains(hit),
+        underHiddenButton:
+          hidden !== null &&
+          hidden !== undefined &&
+          getComputedStyle(hidden).opacity === '0',
+      };
+    });
+    expect(end).toEqual({ fits: true, inside: false, underHiddenButton: true });
   });
 });
 
