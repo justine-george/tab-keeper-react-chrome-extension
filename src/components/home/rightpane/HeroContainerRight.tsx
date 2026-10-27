@@ -56,6 +56,7 @@ import { useTranslation } from 'react-i18next';
 import { DURATION, ICON, TYPE } from '../../../styles/scale';
 import { useNewFirstWindowReceiver } from './useNewFirstWindowReceiver';
 import { selectRunHoldsDelete } from '../../../redux/firstRun';
+import { onFirstClickOnly } from '../../common/firstClickOnly';
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
@@ -584,10 +585,11 @@ export default function HeroContainerRight() {
                   type="reopen_window"
                   disable={isOpenBlocked}
                   style={isOpenBlocked ? 'opacity: 0.3;' : undefined}
-                  onClick={() => {
+                  // KAN-698. A double-click opens once.
+                  onClick={onFirstClickOnly(() => {
                     const goToURLText: string = t('Go to URL');
                     dispatch(openAllTabContainer({ tabGroupId, goToURLText }));
-                  }}
+                  })}
                 />
               </span>
             )}
@@ -600,7 +602,7 @@ export default function HeroContainerRight() {
                 type="filter_center_focus"
                 disable={isOpenBlocked}
                 style={isOpenBlocked ? 'opacity: 0.3;' : undefined}
-                onClick={() => {
+                onClick={onFirstClickOnly(() => {
                   dispatch(
                     requestFocusTabContainer({
                       tabGroupId,
@@ -608,7 +610,7 @@ export default function HeroContainerRight() {
                       saveTitle: t('FocusAutoSaveTitle'),
                     })
                   );
-                }}
+                })}
               />
             )}
             {/* KAN-468, KAN-581. Every open window replaces this session's; one ⌘Z undoes it. */}
@@ -625,9 +627,10 @@ export default function HeroContainerRight() {
                 type="browser_updated"
                 disable={isOpenBlocked}
                 style={isOpenBlocked ? 'opacity: 0.3;' : undefined}
-                onClick={() =>
-                  void dispatch(replaceSessionWithOpenWindows(tabGroupId))
-                }
+                // KAN-698. Once for a double-click: a second replace is a second ⌘Z step.
+                onClick={onFirstClickOnly(
+                  () => void dispatch(replaceSessionWithOpenWindows(tabGroupId))
+                )}
               />
             )}
             {/* KAN-193. Export and Delete live behind one trigger rather than as

@@ -13,6 +13,7 @@ import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
 import type { OverflowMenuItem } from '../../common/OverflowMenu';
 import { holdBackDoubleClickTail } from '../../common/doubleClickTail';
+import { onFirstClickOnly } from '../../common/firstClickOnly';
 import RowTextButton from '../../common/RowTextButton';
 import { RowMarkIcon, RowMarkSlot } from '../../common/RowMarks';
 import { NormalLabel } from '../../common/Label';
@@ -120,17 +121,6 @@ function holdBackRepeatedActivation(event: React.KeyboardEvent) {
   if (!event.repeat || (event.key !== 'Enter' && event.key !== ' ')) return;
   event.preventDefault();
   event.stopPropagation();
-}
-
-// A click whose count is past 1 is a double-click's second click, and it
-// does nothing (KAN-280 O7c). On a close, the row below has moved up under
-// the pointer, so it would close that row too. Icon's key press arrives
-// through click() with a count of 0.
-function onFirstClickOnly(action: () => void): React.MouseEventHandler {
-  return (event) => {
-    if (event.detail > 1) return;
-    action();
-  };
 }
 
 interface OpenNowWindowProps {
@@ -904,6 +894,7 @@ export default function OpenNowWindow({
             ariaLabel={t('Close tab') + ': ' + tab.title}
             type="close"
             danger
+            // On a close, the row below moves up under the pointer: a second click would close it too.
             onClick={onFirstClickOnly(() => onCloseTab(tab))}
           />
         </div>

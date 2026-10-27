@@ -160,8 +160,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     (act: MouseEventHandler): MouseEventHandler =>
     (e) => {
       e.stopPropagation();
-      if (pressable(e.currentTarget, e.detail)) act(e);
-      else onTabGroupClick();
+      // KAN-698. A double-click presses once: its second click presses
+      // nothing, and selects the row if the strip appeared under it (KAN-582).
+      if (e.detail <= 1) act(e);
+      else if (!pressable(e.currentTarget, e.detail)) onTabGroupClick();
     };
 
   // A plain string, not css``, because it is handed to ClickableRow's `style`

@@ -117,6 +117,7 @@ import {
 } from './carriedIntoOpenNow';
 import OpenNowNewWindowBlock from './OpenNowNewWindowBlock';
 import { useOpenNowCarryReceiver } from './useOpenNowCarryReceiver';
+import { onFirstClickOnly } from '../../common/firstClickOnly';
 
 export type OpenNowHeaderAction = {
   icon: IconName;
@@ -963,14 +964,15 @@ export default function OpenNowPane({
                 tooltipText={t(SAVE_OF['all-windows'].labelKey)}
                 ariaLabel={t(SAVE_OF['all-windows'].labelKey)}
                 type={SAVE_OF['all-windows'].icon}
-                onClick={() => void handleSaveAll()}
+                // KAN-698. A double-click saves once.
+                onClick={onFirstClickOnly(() => void handleSaveAll())}
               />
               {/* KAN-780. Beside Save all: one window and two, the same plus, so the pair reads as one family. */}
               <Icon
                 tooltipText={t(SAVE_OF['current-window'].labelKey)}
                 ariaLabel={t(SAVE_OF['current-window'].labelKey)}
                 type={SAVE_OF['current-window'].icon}
-                onClick={handleSaveCurrent}
+                onClick={onFirstClickOnly(handleSaveCurrent)}
               />
               {copyAllLinks !== null && (
                 <Icon

@@ -47,6 +47,24 @@ describe('RowOpenButton', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
+  // KAN-698. A double-click is one press: its second click does nothing.
+  test("a double-click's second click calls nothing", async () => {
+    const onClick = vi.fn();
+    await render(onClick);
+    const button = screen.getByRole('button', { name: NAME });
+    fireEvent.click(button, { detail: 1 });
+    fireEvent.click(button, { detail: 2 });
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  // A key press arrives as a click with a count of 0.
+  test('a click from the keyboard (count 0) calls onClick', async () => {
+    const onClick = vi.fn();
+    await render(onClick);
+    fireEvent.click(screen.getByRole('button', { name: NAME }), { detail: 0 });
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
   test('is transparent at rest, with a 1px panel border, 32px high', async () => {
     await render();
     const rules = classRulesFor(screen.getByRole('button', { name: NAME }));
