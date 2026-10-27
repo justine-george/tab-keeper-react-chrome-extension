@@ -73,7 +73,8 @@ describe('asFirstRun', () => {
   });
 
   test('KAN-830: a record stored before onlyFullViewSteps reads as a whole run', () => {
-    const { onlyFullViewSteps: _dropped, ...stored } = FULL_AT_3;
+    const stored: Record<string, unknown> = { ...FULL_AT_3 };
+    delete stored.onlyFullViewSteps;
     expect(asFirstRun(stored)).toEqual({
       ...FULL_AT_3,
       onlyFullViewSteps: false,
