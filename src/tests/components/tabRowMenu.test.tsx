@@ -20,7 +20,7 @@ import { newRun } from '../../utils/functions/firstRun';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import type { OpenTab, OpenWindow } from '../../utils/functions/openNow';
 
-// KAN-708 (4B). Right-clicking a tab row offers three items: open or switch, Copy link, and delete or close.
+// KAN-708 (4B). Right-clicking a tab row offers open or switch, Copy link, and delete or close; a saved tab also Rename tab (KAN-824).
 
 const SUSPENDED =
   'chrome-extension://laameccjpleogmfhilmffpdbiibgbekf/suspended.html?title=Settings&url=chrome%3A%2F%2Fsettings%2F%3Fsearch%3Dzoom&time=1788746910025';
@@ -122,7 +122,7 @@ const savedRow = (title: string) =>
   screen.getByRole('button', { name: `Open in new tab: ${title}` });
 
 describe('a saved tab row right-click (KAN-708)', () => {
-  test('saved tab: Open in new tab, Copy link, Delete tab, in that order', async () => {
+  test('saved tab: Open in new tab, Rename tab, Copy link, Delete tab, in that order', async () => {
     await renderSaved();
 
     expect(fireEvent.contextMenu(savedRow('Title t1'))).toBe(false);
@@ -131,12 +131,13 @@ describe('a saved tab row right-click (KAN-708)', () => {
     expect(menus()[0]).toHaveAccessibleName('Title t1');
     expect(labels(menus()[0])).toEqual([
       'Open in new tab',
+      'Rename tab',
       'Copy link',
       'Delete tab',
     ]);
   });
 
-  test('saved tab while the tour blocks opens: Copy link, Delete tab only', async () => {
+  test('saved tab while the tour blocks opens: no Open in new tab', async () => {
     const { store } = await renderSaved('sample:x');
 
     // A menu already open when the tour starts: a fresh right-click is suppressed while it runs.
@@ -149,7 +150,11 @@ describe('a saved tab row right-click (KAN-708)', () => {
       store.dispatch(runShownHere());
     });
 
-    expect(labels(menus()[0])).toEqual(['Copy link', 'Delete tab']);
+    expect(labels(menus()[0])).toEqual([
+      'Rename tab',
+      'Copy link',
+      'Delete tab',
+    ]);
   });
 
   test('Copy link toasts "1 link copied."', async () => {

@@ -48,6 +48,7 @@ import {
 } from '../../../utils/functions/sessionExportHtml';
 import {
   deleteTab,
+  renameSavedTab,
   tabData,
   updateChromeTabGroupTitle,
   addCurrTabToChromeGroupInternal,
@@ -98,6 +99,7 @@ import { placeholderStyle } from '../../../styles/placeholder';
 import { windowLabel } from '../../../utils/functions/windowLabel';
 import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
 import { useFocusOnRemount } from '../../../hooks/useFocusOnRemount';
+import { customTitleFrom, shownTitle } from '../../../utils/functions/tabTitle';
 
 /**
  * The Chrome group title, and the editor that replaces it (KAN-205).
@@ -200,6 +202,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const [groupDraft, setGroupDraft] = useState('');
   // The group field's Esc, read by its blur as renameCancelled is (D13).
   const groupRenameCancelled = useRef(false);
+  // KAN-824. The saved tab being renamed, and its draft (KAN-51).
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  const [tabDraft, setTabDraft] = useState('');
+  // Set once Enter, Esc, the tick or a blur ends the rename, so the next of them does nothing (D13).
+  const tabRenameEnded = useRef(false);
   // Enter, Esc and the tick end a window or group rename on its title button (KAN-400); a blur leaves focus where it went.
   const titleFocus = useFocusOnRemount();
   // Which group's overflow menu is open, so its action strip can outrank its
@@ -792,6 +799,38 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     cursor: pointer;
   `;
 
+  // KAN-824. Text starts where the title's did: 4px margin + 1px border + 3px padding = the label's 4 + 4.
+  const tabRenameSlotStyle = css`
+    ${childLeftStyle}
+    align-self: stretch;
+  `;
+  const tabRenameFieldStyle = css`
+    color: ${COLORS.TEXT_COLOR};
+    background-color: ${COLORS.PRIMARY_COLOR};
+    border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
+    font-family: ${FONT_FAMILY};
+    font-size: ${TYPE.BODY};
+    margin-left: 4px;
+    /* The right padding clears the tick, one icon button wide. */
+    padding: 0 ${CONTROL.ROW} 0 3px;
+    align-self: stretch;
+    flex-grow: 1;
+    min-width: 0;
+    &:focus {
+      outline: none;
+    }
+    ${renameFieldPlaceholder}
+  `;
+  const tabRenameTickStyle = css`
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    z-index: 1;
+  `;
+
   // The title truncates first, so the pin always shows (KAN-458).
   const markStyle = css`
     display: flex;
@@ -895,6 +934,35 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     }
   };
 
+  // KAN-824. Unchanged writes nothing; the reducer clears a blank or page-title name.
+  const commitTabRename = (tab: tabData) => {
+    if (tabRenameEnded.current) return;
+    tabRenameEnded.current = true;
+    setEditingTabId(null);
+    if (customTitleFrom(tabDraft, tab.title) !== tab.customTitle) {
+      dispatch(
+        renameSavedTab({
+          tabGroupId,
+          windowId,
+          tabId: tab.tabId,
+          name: tabDraft,
+        })
+      );
+    }
+  };
+
+  const cancelTabRename = () => {
+    tabRenameEnded.current = true;
+    setEditingTabId(null);
+  };
+
+  // A rename open on another tab has already saved: the menu took focus, so its field blurred.
+  const startEditingTab = (tab: tabData) => {
+    tabRenameEnded.current = false;
+    setTabDraft(shownTitle(tab));
+    setEditingTabId(tab.tabId);
+  };
+
   const handleTabClick = (url: string) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const currentTabIndex = tabs[0].index;
@@ -906,10 +974,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     });
   };
 
-  // KAN-708. A tab's items: Open in new tab (unless the tour blocks it), Copy link, Delete tab.
+  // KAN-708. A tab's items: Open in new tab (unless the tour blocks it), Rename tab (KAN-824; not while searching), Copy link, Delete tab.
   const tabMenu = useRowContextMenu({
     kind: 'savedTab',
-    ariaLabel: (tabId) => tabs.find((tab) => tab.tabId === tabId)?.title ?? '',
+    ariaLabel: (tabId) => {
+      const tab = tabs.find((candidate) => candidate.tabId === tabId);
+      return tab ? shownTitle(tab) : '';
+    },
     itemsFor: (tabId) => {
       const tab = tabs.find((candidate) => candidate.tabId === tabId);
       if (!tab) return null;
@@ -922,6 +993,16 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 label: t('Open in new tab'),
                 icon: 'tab' as const,
                 onSelect: () => handleTabClick(tab.url),
+              },
+            ]),
+        ...(isSearching
+          ? []
+          : [
+              {
+                key: 'rename',
+                label: t('Rename tab'),
+                icon: 'edit' as const,
+                onSelect: () => startEditingTab(tab),
               },
             ]),
         copyLinkItem(tab.url, { t, dispatch }),
@@ -1008,10 +1089,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // drag -- reveals the wrong row's actions. It also removes the cross-run
   // index arithmetic this used to need, since a run's local index and the
   // window-wide one no longer have to be reconciled.
-  function renderTab(
-    { tabId, favicon, title, url, pinned }: tabData,
-    grouped: boolean
-  ) {
+  function renderTab(tab: tabData, grouped: boolean) {
+    const { tabId, favicon, url, pinned } = tab;
+    const shown = shownTitle(tab);
+    const isRenaming = editingTabId === tabId;
     const pinnedId = `${descriptionIdPrefix}-pinned-${tabId}`;
     // KAN-564 A. The other half of the split this tab restores into.
     const partner = splitPartners.get(tabId);
@@ -1019,7 +1100,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     const splitText =
       partner === undefined
         ? null
-        : t('In a split view with {{title}}', { title: partner.title });
+        : t('In a split view with {{title}}', { title: shownTitle(partner) });
     const describedBy = [
       ...(pinned ? [pinnedId] : []),
       ...(splitText === null ? [] : [splitId]),
@@ -1048,45 +1129,80 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             aria-labels of KAN-65 stay one clean sweep. The favicon Icon
             inside is presentational and aria-hidden, so it does not leak
             into the name. */}
-        <ClickableRow
-          ariaLabel={t('Open in new tab') + ': ' + title}
-          // As Open now says a pinned tab: its own description, no joiner (KAN-307).
-          ariaDescribedBy={describedBy === '' ? undefined : describedBy}
-          tooltipText={openBlockedBecause ?? undefined}
-          disable={isOpenBlocked}
-          onClick={() => handleTabClick(url)}
-          style={childLeftStyle}
-        >
-          <Icon
-            faviconUrl={resolveFaviconUrl(favicon, url)}
-            type="globe"
-            tourAnchor="tab-dot"
-            style={`&:hover {background-color: unset;}`}
-          />
-          <div css={windowChildLinkStyle}>
-            <NormalLabel
-              value={title}
-              color={COLORS.TEXT_COLOR}
-              size={TYPE.BODY}
-              style="padding-left: 4px; height: 100%; max-width: 100%;"
+        {isRenaming ? (
+          // KAN-824. The favicon stays; the field runs from the title's start to the row's end, the tick inside it.
+          <div css={tabRenameSlotStyle}>
+            <Icon
+              faviconUrl={resolveFaviconUrl(favicon, url)}
+              type="globe"
+              style={`&:hover {background-color: unset;}`}
+            />
+            <input
+              value={tabDraft}
+              aria-label={t('Rename tab') + ': ' + shown}
+              placeholder={tab.title}
+              onFocus={(e) => e.currentTarget.select()}
+              onBlur={() => commitTabRename(tab)}
+              onChange={(e) => setTabDraft(e.target.value)}
+              onKeyDown={(e) =>
+                renameKeyDown(
+                  e,
+                  () => {
+                    titleFocus.ask(`tab:${tabId}`);
+                    commitTabRename(tab);
+                  },
+                  () => {
+                    titleFocus.ask(`tab:${tabId}`);
+                    cancelTabRename();
+                  }
+                )
+              }
+              autoFocus
+              css={tabRenameFieldStyle}
             />
           </div>
-          {(pinned || splitText !== null) && (
-            // At the row's end, as Open now draws them (KAN-566).
-            <RowMarkSlot>
-              {pinned && (
-                <span data-pin css={markStyle}>
-                  <RowMarkIcon type="keep" />
-                </span>
-              )}
-              {splitText !== null && (
-                <span data-split css={markStyle}>
-                  <RowMarkIcon type="view_column_2" tooltipText={splitText} />
-                </span>
-              )}
-            </RowMarkSlot>
-          )}
-        </ClickableRow>
+        ) : (
+          <ClickableRow
+            ariaLabel={t('Open in new tab') + ': ' + shown}
+            buttonRef={titleFocus.refFor(`tab:${tabId}`)}
+            // As Open now says a pinned tab: its own description, no joiner (KAN-307).
+            ariaDescribedBy={describedBy === '' ? undefined : describedBy}
+            tooltipText={openBlockedBecause ?? undefined}
+            disable={isOpenBlocked}
+            onClick={() => handleTabClick(url)}
+            style={childLeftStyle}
+          >
+            <Icon
+              faviconUrl={resolveFaviconUrl(favicon, url)}
+              type="globe"
+              tourAnchor="tab-dot"
+              style={`&:hover {background-color: unset;}`}
+            />
+            <div css={windowChildLinkStyle}>
+              <NormalLabel
+                value={shown}
+                color={COLORS.TEXT_COLOR}
+                size={TYPE.BODY}
+                style="padding-left: 4px; height: 100%; max-width: 100%;"
+              />
+            </div>
+            {(pinned || splitText !== null) && (
+              // At the row's end, as Open now draws them (KAN-566).
+              <RowMarkSlot>
+                {pinned && (
+                  <span data-pin css={markStyle}>
+                    <RowMarkIcon type="keep" />
+                  </span>
+                )}
+                {splitText !== null && (
+                  <span data-split css={markStyle}>
+                    <RowMarkIcon type="view_column_2" tooltipText={splitText} />
+                  </span>
+                )}
+              </RowMarkSlot>
+            )}
+          </ClickableRow>
+        )}
         {pinned && (
           <span id={pinnedId} css={visuallyHiddenStyle}>
             {t('Pinned')}
@@ -1100,18 +1216,38 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         {/* data-row-actions is the stylesheet's hook for hiding this strip
             during a drag (KAN-135). The reveal above is an emotion class keyed
             on React state, which App.css cannot name. */}
-        <div data-row-actions css={childRightStyle(tabId)}>
-          <Icon
-            tooltipText={t('Delete tab')}
-            ariaLabel={t('Delete tab')}
-            type="delete"
-            danger
-            onClick={(e) => {
-              e.stopPropagation();
-              dispatch(deleteTab({ tabGroupId, windowId, tabId }));
-            }}
-          />
-        </div>
+        {isRenaming ? (
+          // preventDefault keeps focus in the field, so onClick is the one commit path.
+          <span
+            data-row-actions
+            css={tabRenameTickStyle}
+            onMouseDown={(e) => e.preventDefault()}
+          >
+            <Icon
+              tooltipText={t('Save changes')}
+              ariaLabel={t('Save changes')}
+              type="done"
+              onClick={(e) => {
+                e.stopPropagation();
+                titleFocus.ask(`tab:${tabId}`);
+                commitTabRename(tab);
+              }}
+            />
+          </span>
+        ) : (
+          <div data-row-actions css={childRightStyle(tabId)}>
+            <Icon
+              tooltipText={t('Delete tab')}
+              ariaLabel={t('Delete tab')}
+              type="delete"
+              danger
+              onClick={(e) => {
+                e.stopPropagation();
+                dispatch(deleteTab({ tabGroupId, windowId, tabId }));
+              }}
+            />
+          </div>
+        )}
       </div>
     );
   }

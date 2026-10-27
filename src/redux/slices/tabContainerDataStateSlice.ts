@@ -29,6 +29,7 @@ import {
   normalizeTitle,
   stripEmbeddedFavicons,
 } from '../../utils/functions/local';
+import { customTitleFrom } from '../../utils/functions/tabTitle';
 import { saveLocalSessions } from '../../utils/functions/localSessions';
 import {
   newSessionTitleOf,
@@ -2066,11 +2067,7 @@ export const tabContainerDataStateSlice = createSlice({
         ?.tabs.find((t) => t.tabId === tabId);
       if (tabGroup === undefined || tab === undefined) return;
 
-      const newName = normalizeTitle(name);
-      const customTitle =
-        newName === '' || newName === normalizeTitle(tab.title)
-          ? undefined
-          : newName;
+      const customTitle = customTitleFrom(name, tab.title);
       if (tab.customTitle === customTitle) return;
 
       if (customTitle === undefined) delete tab.customTitle;
