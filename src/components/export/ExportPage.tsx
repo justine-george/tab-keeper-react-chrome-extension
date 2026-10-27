@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { css, Global, keyframes } from '@emotion/react';
@@ -10,6 +17,7 @@ import markDataUri from '../../assets/exportMark.png?inline';
 import Button from '../common/Button';
 import Icon from '../common/Icon';
 import ExportEditor from './ExportEditor';
+import SavePdfPointer from './SavePdfPointer';
 import SlidingPair, { type SlidingOption } from '../common/SlidingPair';
 import { EXPORT_PAIR_METRICS, KNOB_TRANSITION } from './slidingPairStyle';
 import {
@@ -21,7 +29,10 @@ import {
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useOtherPageSettings } from '../../hooks/useOtherPageSettings';
 import { AppDispatch, RootState } from '../../redux/store';
-import { setExportLayout } from '../../redux/slices/settingsDataStateSlice';
+import {
+  markPressedSaveAsPdf,
+  setExportLayout,
+} from '../../redux/slices/settingsDataStateSlice';
 import {
   replaceState,
   type tabContainerData,
@@ -113,7 +124,20 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // and gone when the tab closes. Nothing keeps them, so they always warn.
   const [editing, setEditing] = useState(false);
   const [edits, setEdits] = useState<ExportEdits>(NO_EXPORT_EDITS);
-  const frameRef = useRef<HTMLIFrameElement>(null);
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
+  // KAN-826. The pointer measures the sheet and Save as PDF…; state, so it
+  // re-renders when either mounts. Button forwards no ref, so the button is
+  // read as the last child of the group it ends.
+  const [frameEl, setFrameEl] = useState<HTMLIFrameElement | null>(null);
+  const attachFrame = useCallback((el: HTMLIFrameElement | null) => {
+    frameRef.current = el;
+    setFrameEl(el);
+  }, []);
+  const [saveButton, setSaveButton] = useState<HTMLElement | null>(null);
+  const attachEndGroup = useCallback((el: HTMLSpanElement | null) => {
+    const last = el?.lastElementChild;
+    setSaveButton(last instanceof HTMLElement ? last : null);
+  }, []);
   // KAN-603. A Save as PDF press waiting for the icons.
   const [printPending, setPrintPending] = useState(false);
   // KAN-603. The document the preview frame last finished loading.
@@ -262,6 +286,9 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   const timeFormat = useSelector(
     (state: RootState) => state.settingsDataState.timeFormat
   );
+  const hasPressedSaveAsPdf = useSelector(
+    (state: RootState) => state.settingsDataState.hasPressedSaveAsPdf
+  );
 
   // The page opens on the extension theme's polarity and follows it until
   // Light or Dark is pressed here.
@@ -381,9 +408,10 @@ export default function ExportPage({ source }: { source: ExportSource }) {
     for (const done of outputWaiters.current) done();
   }, [frameShowsIcons]);
 
+  // KAN-826. The ground the preview sheet lies on, the header's colour.
   const pageStyle = css`
     min-height: 100vh;
-    background-color: ${COLORS.PRIMARY_COLOR};
+    background-color: ${COLORS.SECONDARY_COLOR};
     font-family: ${FONT_FAMILY};
     color: ${COLORS.TEXT_COLOR};
     display: flex;
@@ -446,6 +474,52 @@ export default function ExportPage({ source }: { source: ExportSource }) {
     [t]
   );
 
+  // Above the early returns, as callbacks: they read only refs and setters,
+  // and the ⌘P/⌘S handler (KAN-826) needs the same handlePrint.
+  const untilFrameShowsIcons = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        if (frameShowsIconsRef.current) return resolve();
+        const done = () => {
+          clearTimeout(cap);
+          outputWaiters.current.delete(done);
+          resolve();
+        };
+        const cap = setTimeout(done, OUTPUT_WAIT_CAP_MS);
+        outputWaiters.current.add(done);
+      }),
+    []
+  );
+
+  // KAN-603. Busy at once, so a second press is ignored.
+  const afterIcons = useCallback(
+    async (run: () => void) => {
+      setPrintPending(true);
+      await untilFrameShowsIcons();
+      // A refused print must not leave the button busy until a reload.
+      try {
+        run();
+      } catch (error) {
+        console.error('Could not print the export:', error);
+      } finally {
+        setPrintPending(false);
+      }
+    },
+    [untilFrameShowsIcons]
+  );
+
+  // Reaching into the frame needs same-origin, which is why the preview is
+  // sandboxed with allow-same-origin and nothing else: scripts stay blocked,
+  // so the file still cannot run anything, and the browser's print dialog is
+  // where the PDF, or a printer, is picked.
+  //
+  // KAN-826. Every press marks the device; the pointer is done at the press,
+  // since Chrome does not say whether the dialog saved or was cancelled.
+  const handlePrint = useCallback(() => {
+    dispatch(markPressedSaveAsPdf());
+    return afterIcons(() => frameRef.current?.contentWindow?.print());
+  }, [afterIcons, dispatch]);
+
   // Still capturing: the page, and nothing on it. NOT "Session not found",
   // which would be a false statement for the length of the capture and would
   // flash on every load.
@@ -479,32 +553,6 @@ export default function ExportPage({ source }: { source: ExportSource }) {
       return { ...prev, hidden };
     });
 
-  const untilFrameShowsIcons = () =>
-    new Promise<void>((resolve) => {
-      if (frameShowsIconsRef.current) return resolve();
-      const done = () => {
-        clearTimeout(cap);
-        outputWaiters.current.delete(done);
-        resolve();
-      };
-      const cap = setTimeout(done, OUTPUT_WAIT_CAP_MS);
-      outputWaiters.current.add(done);
-    });
-
-  // KAN-603. Busy at once, so a second press is ignored.
-  const afterIcons = async (run: () => void) => {
-    setPrintPending(true);
-    await untilFrameShowsIcons();
-    // A refused print must not leave the button busy until a reload.
-    try {
-      run();
-    } catch (error) {
-      console.error('Could not print the export:', error);
-    } finally {
-      setPrintPending(false);
-    }
-  };
-
   // KAN-209. The copy itself now lives in copySessionLinks, which the session
   // menu in the popup also calls -- one definition of what "copy all links"
   // means, rather than the same promise implemented twice.
@@ -530,13 +578,6 @@ export default function ExportPage({ source }: { source: ExportSource }) {
     clearTimeout(copiedTimer.current);
     copiedTimer.current = setTimeout(() => setCopied(false), 2000);
   };
-
-  // Reaching into the frame needs same-origin, which is why the preview is
-  // sandboxed with allow-same-origin and nothing else: scripts stay blocked,
-  // so the file still cannot run anything, and the browser's print dialog is
-  // where the PDF, or a printer, is picked.
-  const handlePrint = () =>
-    afterIcons(() => frameRef.current?.contentWindow?.print());
 
   // Icon carries 4px of its own padding all round, and Button adds 8px to
   // its right -- so the gap left of the icon was 4px wider than the gap right
@@ -661,7 +702,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
           html,
           body {
             margin: 0;
-            background-color: ${COLORS.PRIMARY_COLOR};
+            background-color: ${COLORS.SECONDARY_COLOR};
           }
           [data-scheme-switching] * {
             transition: none !important;
@@ -865,7 +906,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
               end of the row -- the primary stands where Done stands while
               editing. A PDF is what people attach to a message; the .html file
               KAN-734 hid is gone for good (KAN-742). */}
-                <span css={endStyle}>
+                <span css={endStyle} ref={attachEndGroup}>
                   {/* Copy first: it ignores the choices, so it sits apart from the
               output that follows them. */}
                   <Button
@@ -922,7 +963,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
           own security rule and styling, and nothing on this page can leak
           into what gets saved. */}
             <iframe
-              ref={frameRef}
+              ref={attachFrame}
               title={edited.title}
               srcDoc={html}
               onLoad={() => setLoadedHtml(html)}
@@ -930,13 +971,22 @@ export default function ExportPage({ source }: { source: ExportSource }) {
               // from a sandboxed frame without it, silently but for a console line.
               // allow-scripts is still absent, so the file cannot run anything.
               sandbox="allow-same-origin allow-modals"
+              // KAN-826. A sheet on the ground, so it reads as the page that gets saved.
               css={css`
-                border: 0;
+                display: block;
+                box-sizing: border-box;
                 flex-grow: 1;
-                width: 100%;
+                width: calc(100% - 48px);
+                max-width: 816px;
+                margin: 24px auto 0;
+                border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+                box-shadow: ${COLORS.FLOATING_SHADOW};
                 background-color: ${EXPORT_PALETTE[scheme].bg};
               `}
             />
+            {!hasPressedSaveAsPdf && (
+              <SavePdfPointer button={saveButton} sheet={frameEl} />
+            )}
           </>
         )}
         {/* KAN-401, KAN-695. Inside the override, so they take the page's scheme. */}

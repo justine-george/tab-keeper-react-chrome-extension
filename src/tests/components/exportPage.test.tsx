@@ -18,6 +18,7 @@ import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { readExportIcons } from '../../utils/functions/exportIcons';
 import {
+  markPressedSaveAsPdf,
   setTheme,
   setTimeFormat,
   Theme,
@@ -444,7 +445,8 @@ describe('choosing the file light or dark on the preview page', () => {
     await user.click(screen.getByRole('button', { name: 'Dark' }));
 
     await waitFor(() => expect(frame().srcdoc).toContain('--bg:#18191a'));
-    // The page's own ground: the outermost painted ancestor of the preview.
+    // The page's own ground: the outermost painted ancestor of the preview,
+    // the header's colour since KAN-826, so the sheet reads as a page on it.
     const painted: HTMLElement[] = [];
     for (let el = frame().parentElement; el; el = el.parentElement) {
       if (getComputedStyle(el).backgroundColor !== 'rgba(0, 0, 0, 0)') {
@@ -454,7 +456,7 @@ describe('choosing the file light or dark on the preview page', () => {
     const ground = getComputedStyle(
       painted[painted.length - 1]
     ).backgroundColor;
-    expect(ground).toBe(rgb(CHARCOAL_THEME.PRIMARY_COLOR));
+    expect(ground).toBe(rgb(CHARCOAL_THEME.SECONDARY_COLOR));
   });
 
   // KAN-198. The choice lives only as long as the page; it is never saved.
@@ -589,6 +591,89 @@ describe('printing the previewed file', () => {
     // Measured: without allow-modals, Chrome ignores print().
     expect(sandbox).toBe('allow-same-origin allow-modals');
     expect(sandbox).not.toContain('allow-scripts');
+  });
+});
+
+describe('the Save as PDF… pointer (KAN-826)', () => {
+  // A 1280px window: the 816px sheet centred, Save as PDF… at the row's end.
+  const SHEET = { left: 232, right: 1048, top: 140, bottom: 760 };
+  const BUTTON = { left: 1000, right: 1120, top: 66, bottom: 100 };
+
+  beforeEach(() => {
+    vi.stubGlobal('innerWidth', 1280);
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function (this: HTMLElement) {
+        const box =
+          this.tagName === 'IFRAME'
+            ? SHEET
+            : this.getAttribute('aria-label') === 'Save as PDF…'
+              ? BUTTON
+              : { left: 0, right: 0, top: 0, bottom: 0 };
+        return DOMRect.fromRect({
+          x: box.left,
+          y: box.top,
+          width: box.right - box.left,
+          height: box.bottom - box.top,
+        });
+      }
+    );
+  });
+
+  const pointer = () => document.querySelector('[data-save-pdf-pointer]');
+
+  test('shows with room, its tip under the middle of Save as PDF…', async () => {
+    await renderPage();
+
+    await waitFor(() => expect(pointer()).not.toBeNull());
+    const line = pointer()!.querySelector('path')!.getAttribute('d')!;
+    expect(line.split(/[ ,]+/).slice(-2).map(Number)).toEqual([1060, 108]);
+  });
+
+  test('is gone after a press on Save as PDF…, and the device remembers', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderPage();
+    Object.defineProperty(frame(), 'contentWindow', {
+      configurable: true,
+      value: { print: vi.fn() },
+    });
+    await waitFor(() => expect(pointer()).not.toBeNull());
+
+    await user.click(screen.getByRole('button', { name: 'Save as PDF…' }));
+
+    expect(pointer()).toBeNull();
+    expect(store.getState().settingsDataState.hasPressedSaveAsPdf).toBe(true);
+  });
+
+  test('is absent once this device has pressed Save as PDF…', async () => {
+    await renderWithProviders(
+      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      {
+        seedStore: (store) => {
+          store.dispatch(replaceState(buildContainer([SESSION])));
+          store.dispatch(markPressedSaveAsPdf());
+        },
+      }
+    );
+
+    expect(frame()).toBeTruthy();
+    expect(pointer()).toBeNull();
+  });
+
+  test('is absent in edit mode', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+    await waitFor(() => expect(pointer()).not.toBeNull());
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+
+    expect(pointer()).toBeNull();
+  });
+
+  test('is absent on "Session not found"', async () => {
+    await renderPage('no-such-session');
+
+    expect(screen.getByText('Session not found')).toBeTruthy();
+    expect(pointer()).toBeNull();
   });
 });
 

@@ -10,19 +10,20 @@ import {
 import { rgbToHex } from './fixtures/pixels';
 
 // KAN-731. The export page opens in Chalk's colours from a light theme and
-// Charcoal's from a dark one, and its file's ground is white or #18191a.
+// Charcoal's from a dark one, and its file's ground is white or #18191a. The
+// page's own ground is the palette's SECONDARY, the sheet's desk (KAN-826).
 // Paper and Graphite are seeded with the move applied (seed.ts), so they stay themselves.
 
 const SESSION = buildSession({ tabGroupId: 's-export', title: 'Export me' });
 
 const CASES = [
-  ['Chalk', '#FFFFFF', '#ffffff'],
-  ['Light', '#FFFFFF', '#ffffff'],
-  ['WarmLight', '#FFFFFF', '#ffffff'],
-  ['BBPink', '#FFFFFF', '#ffffff'],
-  ['Charcoal', '#18191A', '#18191a'],
-  ['Darkenheimer', '#18191A', '#18191a'],
-  ['Blue', '#18191A', '#18191a'],
+  ['Chalk', '#F3F5F7', '#ffffff'],
+  ['Light', '#F3F5F7', '#ffffff'],
+  ['WarmLight', '#F3F5F7', '#ffffff'],
+  ['BBPink', '#F3F5F7', '#ffffff'],
+  ['Charcoal', '#242528', '#18191a'],
+  ['Darkenheimer', '#242528', '#18191a'],
+  ['Blue', '#242528', '#18191a'],
 ] as const;
 
 // The page's own ground and the preview file's --bg, as read once the page has drawn.
