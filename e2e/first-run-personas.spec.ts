@@ -27,6 +27,7 @@ import {
   cardButton,
   centreOf,
   closeReplayNote,
+  finishShortFullRun,
   hello,
   nextTo,
   pastCompactViewCard,
@@ -219,7 +220,7 @@ test('new install, Get started, Next only (Use an example): the sample is gone a
   });
 });
 
-test('new install, Show me here: the popup run to ⤢, then the first full-view visit runs the run from step 1, setup and the pin guide', async ({
+test('new install, Show me here: the popup run to ⤢, then the first full-view visit runs the short tour (KAN-830), setup and the pin guide', async ({
   context,
   extensionId,
   serviceWorker,
@@ -240,15 +241,9 @@ test('new install, Show me here: the popup run to ⤢, then the first full-view 
   const full = await waitForFullView(context);
   await runCheck(full, 'started');
   await expectNothingElseYet(full, serviceWorker, tests);
-  await expect(cardAt(full, 1)).toBeVisible();
-  for (let step = 2; step <= 3; step++) await nextTo(full, step);
-  // R10: the popup run's sample is gone, so step 3 is the save card again.
-  await expect(cardButton(full, 'Use an example')).toBeVisible();
-  await cardButton(full, 'Use an example').click();
-  await expect(cardAt(full, 4)).toBeVisible();
-  for (let step = 5; step <= 9; step++) await nextTo(full, step);
-  await cardButton(full, 'Not now').click();
-  await closeReplayNote(full);
+  // R10: the popup run's sample went with its end at ⤢.
+  expect(await storedTitles(full)).toEqual([]);
+  await finishShortFullRun(full);
   await skipSetupThenGuide(full);
   await expect.poll(() => storedTitles(full)).toEqual([]);
   await saveNow(full);
