@@ -57,6 +57,7 @@ import {
   windowBlockAt,
   windowBlocksIn,
   windowOf,
+  type DragKind,
   type DraggableRowProps,
   type RowDragAreaProps,
 } from './dropRules';
@@ -83,7 +84,11 @@ import {
 } from './unfold';
 import { CORNER_SHAPE, DURATION } from '../../../../styles/scale';
 import { settleSlides } from './settleSlides';
-import { beginDragHold, endDragHold } from '../../../../redux/dragHold';
+import {
+  beginDragHold,
+  endDragHold,
+  isDragHeld,
+} from '../../../../redux/dragHold';
 import {
   carryEndedAs,
   carryReceiverAt,
@@ -202,6 +207,56 @@ function fittingOf(pane: HTMLElement | null): Fitting | null {
 
 // A landing slot as wide as the held row.
 const NO_INSET: DragState['landingInset'] = { left: 0, right: 0 };
+
+// KAN-835. The kinds whose drag folds rows (App.css). A drop that lands later
+// keeps the fold until it does: its preview was measured folded.
+const FOLDING_KINDS: ReadonlySet<DragKind> = new Set(['window', 'group']);
+
+// KAN-835. How long a committed drop waits for its list to draw the move
+// before the rows ease back; a Chrome move lands within ~15ms.
+const SETTLE_TIMEOUT_MS = 1000;
+
+// A committed drop, held until its list draws it (KAN-835): the rows and the
+// order they were released in, whether the list draws the move in a later
+// task, and the fold it keeps meanwhile.
+interface Settle {
+  rowIds: readonly string[];
+  rows: ReadonlyMap<string, HTMLElement>;
+  drawsLater: boolean;
+  timer: ReturnType<typeof setTimeout> | null;
+  // The held row, marked while its fold is kept (App.css folds a held group).
+  keptFold: HTMLElement | null;
+}
+
+// A kept fold comes off with the hold, unless a drag since has taken it on.
+const endFold = (s: Settle) => {
+  if (s.keptFold === null) return;
+  s.keptFold.removeAttribute('data-drag-held');
+  if (!isDragHeld()) setDragging(false);
+};
+
+// The preview a committed drop holds: every row where the drop puts it, the
+// held one where it was let go. Not at its slot: a source window's room closes
+// when the move is drawn, which can put the row's place above the slot.
+const settled = (shown: DragState): DragState => ({
+  ...shown,
+  heldShownAsCard: false,
+  sourceRoomDelta: null,
+  landingSlotShown: false,
+  newlyMeasured: new Set(),
+  settling: true,
+});
+
+// Whether the list drew something new since the release: its order, or a row
+// drawn by another element (moved to another window or band).
+const redrawn = (
+  s: Settle,
+  rowIds: readonly string[],
+  rows: ReadonlyMap<string, HTMLElement>
+) =>
+  s.rowIds.length !== rowIds.length ||
+  s.rowIds.some((id, i) => rowIds[i] !== id) ||
+  [...s.rows].some(([id, el]) => rows.get(id) !== el);
 
 // Where a release lands: in which window, and at which index AMONG THAT
 // WINDOW'S ROWS with the held one lifted out -- the index the list applies to
@@ -455,6 +510,8 @@ interface LiveDrag {
   looseEdges: Edges | null;
   // The collapsed window block this drag rests on (KAN-379), or null.
   dwell: HTMLElement | null;
+  // The preview last drawn, which a committed drop holds (KAN-835).
+  shown: DragState | null;
 }
 
 // Ends a dwell; removing the attribute cancels its sweep (KAN-379).
@@ -523,6 +580,7 @@ function pressRecord(
     memberEdges: new Map(),
     looseEdges: null,
     dwell: null,
+    shown: null,
   };
 }
 
@@ -585,6 +643,20 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   );
   const springOpened = useSpringOpenWindows();
 
+  // KAN-835. The committed drop the rows hold for, and whether the commit that
+  // ends it drew the move (its rows then jump to their new places).
+  const settle = useRef<Settle | null>(null);
+  const landed = useRef(false);
+  const endSettle = useCallback((drawn: boolean) => {
+    const s = settle.current;
+    if (s === null) return;
+    if (s.timer !== null) clearTimeout(s.timer);
+    settle.current = null;
+    endFold(s);
+    landed.current = drawn;
+    setDrag(null);
+  }, []);
+
   const register = useCallback((rowId: string, el: HTMLElement | null) => {
     if (el) rows.current.set(rowId, el);
     else rows.current.delete(rowId);
@@ -617,6 +689,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // its text used to fold every window and move the window.
       if (isInEditableField(target)) return;
 
+      // A drop still landing gives its rows back first: a drag measures them at rest.
+      endSettle(false);
+
       // The handle must be inside THIS row, not merely an ancestor of the
       // press. `closest` walks all the way to the document, so without the
       // containment check a handle anywhere above the area would qualify every
@@ -647,7 +722,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
         false
       );
     },
-    [rowIds, handleSelector, disabled, clampDropToEnds]
+    [rowIds, handleSelector, disabled, clampDropToEnds, endSettle]
   );
 
   useEffect(() => {
@@ -1328,7 +1403,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
               right: heldEdges.right - landingEdges.right,
             };
 
-      setDrag({
+      l.shown = {
         rowId: l.rowId,
         // The scroll delta is part of the travel. The held row lives inside the
         // scroller, so scrolling moves it with the content; without this term
@@ -1361,7 +1436,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           !makesNewWindow(l, landing?.windowId) &&
           !(l.adopted && landing === undefined),
         newlyMeasured: l.newlyMeasured,
-      });
+        settling: false,
+      };
+      setDrag(l.shown);
       l.newlyMeasured = new Set();
 
       return target;
@@ -2052,7 +2129,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const finish = (commit: boolean, pressStillDown: boolean) => {
       const l = live.current;
       live.current = null;
-      setDrag(null);
+      // Only this area's own drag: every release and Esc lands here, and a
+      // drop still being held must not end with them (KAN-835).
+      if (l !== null) setDrag(null);
       // Redundant today and kept anyway: autoScroll already bails when
       // live.current is null, which this line has just made true, so the loop
       // would stop on its own (verified -- removing this fails nothing). It
@@ -2136,10 +2215,50 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           // In this task, so the fold-back and the keep render in one commit.
           // Before onMove: the list reads the stored fold to know the window drew its rows (KAN-458 R1).
           if (keep !== undefined) keepWindowOpen?.(keep);
-          if (drop.toWindowId === undefined) {
-            onMove(l.rowId, drop.toIndex, drop.dropTargetId);
-          } else {
-            onMove(l.rowId, drop.toIndex, drop.dropTargetId, drop.toWindowId);
+          const moving =
+            drop.toWindowId === undefined
+              ? onMove(l.rowId, drop.toIndex, drop.dropTargetId)
+              : onMove(
+                  l.rowId,
+                  drop.toIndex,
+                  drop.dropTargetId,
+                  drop.toWindowId
+                );
+
+          // KAN-835. The rows hold where the drop put them until the list
+          // draws the move, so none eases its old shift out over the new
+          // order. Not a drop on the row's own place, which moves nothing and
+          // eases home. One that lands later must find the layout its preview
+          // was measured in: its fold is put back on (nothing has painted
+          // since it came off), and a window folding back cannot be undone.
+          const later = moving instanceof Promise;
+          if (
+            !l.adopted &&
+            l.shown !== null &&
+            l.shown.landingDelta !== 0 &&
+            !(later && foldedBack)
+          ) {
+            const s: Settle = {
+              rowIds,
+              rows: new Map(rows.current),
+              drawsLater: later,
+              timer: null,
+              keptFold: later && FOLDING_KINDS.has(dragKind) ? l.heldEl : null,
+            };
+            if (s.keptFold !== null) {
+              setDragging(true, dragKind);
+              s.keptFold.setAttribute('data-drag-held', '');
+            }
+            settle.current = s;
+            setDrag(settled(l.shown));
+            if (later) {
+              // Nothing moved, or it never lands: the rows ease back.
+              const ease = () => {
+                if (settle.current === s) endSettle(false);
+              };
+              moving.then((moved) => moved === null && ease(), ease);
+              s.timer = setTimeout(ease, SETTLE_TIMEOUT_MS);
+            }
           }
 
           // Follow the row you just dropped (KAN-155).
@@ -2307,6 +2426,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     disabled,
     handsOffOutside,
     carryOnly,
+    endSettle,
   ]);
 
   // The list's latest onLandingWindowChange, for the unmount below, which
@@ -2367,6 +2487,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // area, and would go on drawing the card with no drag behind it. A
       // no-op unless this area showed it.
       hideDragCard(cardOwner);
+      // A drop still landing (KAN-835): its timer would set state on nothing,
+      // and its fold would stay on.
+      const s = settle.current;
+      settle.current = null;
+      if (s !== null) {
+        if (s.timer !== null) clearTimeout(s.timer);
+        endFold(s);
+      }
     };
     // cardOwner never changes (it is state that is never set), so this still
     // runs on unmount and nothing else.
@@ -2405,6 +2533,25 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
   useLayoutEffect(() => {
     remeasure.current?.(springOpened);
   }, [springOpened]);
+
+  // KAN-835. Every commit while a drop is held, before it paints: the list
+  // drew the move, so the hold ends; or it was committed in the drop's own
+  // task and drew nothing, so nothing will come and the rows ease back.
+  useLayoutEffect(() => {
+    const s = settle.current;
+    if (s === null) return;
+    if (redrawn(s, rowIds, rows.current)) endSettle(true);
+    else if (!s.drawsLater) endSettle(false);
+  });
+
+  // KAN-835. The commit that ended a hold on a drawn move: every row is now at
+  // its new place, so whatever its old shift started easing out is finished
+  // before it paints -- the title rows' own transitions included.
+  useLayoutEffect(() => {
+    if (drag !== null || !landed.current) return;
+    landed.current = false;
+    settleSlides(containerRef.current);
+  }, [drag]);
 
   // Known to every footprint's climb as a box holding a list's rows -- see
   // footprintOf. The element is the same for the life of the area.
@@ -2608,7 +2755,7 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
         // The lift, for a row that is drawn lifted. One shown by a card has
         // nothing to lift (KAN-354).
         boxShadow:
-          held && !drag.heldShownAsCard
+          held && !drag.heldShownAsCard && !drag.settling
             ? '0 2px 8px rgba(0,0,0,0.35)'
             : undefined,
         zIndex: held ? 1 : undefined,

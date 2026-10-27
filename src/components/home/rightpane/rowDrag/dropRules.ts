@@ -193,13 +193,17 @@ export interface RowDragAreaProps {
    * `toIndex` counts THAT window's rows with the held one lifted out, which is
    * the index its stored tabs take. For a list with no windows `toWindowId` is
    * undefined and `toIndex` counts every row.
+   *
+   * A list whose move lands later (Open now's, by Chrome) returns its promise,
+   * resolving to null when nothing moved: the rows hold where the drop put
+   * them until the list draws the move (KAN-835).
    */
   onMove: (
     rowId: string,
     toIndex: number,
     dropTargetId?: string,
     toWindowId?: string
-  ) => void;
+  ) => void | Promise<unknown>;
   // A CSS selector for the part of a row that starts a drag. Omitted, the whole
   // row does.
   //
