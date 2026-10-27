@@ -1,7 +1,16 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  onTestFinished,
+  test,
+  vi,
+} from 'vitest';
 import { act, screen } from '@testing-library/react';
 
 import Button from '../../components/common/Button';
+import ClickableRow from '../../components/common/ClickableRow';
 import MainContainer from '../../components/MainContainer';
 import ExportPage from '../../components/export/ExportPage';
 import { TooltipLayer } from '../../components/common/TooltipLayer';
@@ -127,6 +136,9 @@ function Fixture({ withB = true }: { withB?: boolean }) {
         <span data-testid="repeat">Weekend in Kyoto</span>
       </button>
       <button data-tooltip={'Kagi\nhttps://kagi.com/'}>two lines</button>
+      <button data-tooltip="https://kagi.com/" data-tooltip-lead="Kagi Search">
+        <span data-testid="lead">Kagi Search</span>
+      </button>
       <Button
         text="Replace"
         tooltipText="Replace this session with open windows"
@@ -610,6 +622,104 @@ describe('the repeat rule', () => {
     pointerTo(byTip('Weekend in Kyoto'));
     wait(300);
     expect(chip()).toHaveTextContent('Weekend in Kyoto');
+  });
+
+  test('the same tooltip shows while the end of its text is covered', async () => {
+    await setup();
+    const text = screen.getByTestId('repeat');
+    const strip = document.createElement('div');
+    strip.style.backgroundColor = 'rgb(240, 240, 240)';
+    document.body.append(strip);
+    const spies = [
+      vi
+        .spyOn(text, 'getBoundingClientRect')
+        .mockReturnValue(new DOMRect(10, 0, 200, 20)),
+      vi
+        .spyOn(Range.prototype, 'getBoundingClientRect')
+        .mockReturnValue(new DOMRect(10, 0, 180, 20)),
+      vi.spyOn(document, 'elementFromPoint').mockReturnValue(strip),
+    ];
+    onTestFinished(() => {
+      strip.remove();
+      for (const spy of spies) spy.mockRestore();
+    });
+    pointerTo(byTip('Weekend in Kyoto'));
+    wait(300);
+    expect(chip()?.textContent).toBe('Weekend in Kyoto');
+  });
+});
+
+// KAN-825. A tab row's address, led by its title when the title is cut off.
+describe('a lead line', () => {
+  const cutOffLead = () => {
+    const lead = screen.getByTestId('lead');
+    Object.defineProperty(lead, 'scrollWidth', {
+      value: 120,
+      configurable: true,
+    });
+    Object.defineProperty(lead, 'clientWidth', {
+      value: 80,
+      configurable: true,
+    });
+  };
+
+  test('a lead whose text fits is left out', async () => {
+    await setup();
+    pointerTo(byTip('https://kagi.com/'));
+    wait(300);
+    expect(chip()?.textContent).toBe('https://kagi.com/');
+  });
+
+  test('a cut-off lead goes first', async () => {
+    await setup();
+    cutOffLead();
+    pointerTo(byTip('https://kagi.com/'));
+    wait(300);
+    expect(chip()?.textContent).toBe('Kagi Search\nhttps://kagi.com/');
+  });
+
+  test('a changed data-tooltip keeps the lead', async () => {
+    await setup();
+    cutOffLead();
+    const anchor = byTip('https://kagi.com/');
+    pointerTo(anchor);
+    wait(300);
+    act(() => {
+      anchor.setAttribute('data-tooltip', 'https://kagi.com/search');
+    });
+    await settle();
+    expect(chip()?.textContent).toBe('Kagi Search\nhttps://kagi.com/search');
+  });
+
+  test('a renamed lead redraws the chip', async () => {
+    await setup();
+    cutOffLead();
+    const anchor = byTip('https://kagi.com/');
+    pointerTo(anchor);
+    wait(300);
+    act(() => {
+      screen.getByTestId('lead').textContent = 'Kagi';
+      anchor.setAttribute('data-tooltip-lead', 'Kagi');
+    });
+    await settle();
+    expect(chip()?.textContent).toBe('Kagi\nhttps://kagi.com/');
+  });
+
+  test('the lead is never in the accessible description', async () => {
+    await renderWithProviders(
+      <ClickableRow
+        ariaLabel="Open: Kagi Search"
+        onClick={() => {}}
+        tooltipText="https://kagi.com/"
+        tooltipLead="Kagi Search"
+        announceTooltip={false}
+      >
+        Kagi Search
+      </ClickableRow>
+    );
+    const row = screen.getByRole('button', { name: 'Open: Kagi Search' });
+    expect(row).toHaveAttribute('data-tooltip-lead', 'Kagi Search');
+    expect(row).toHaveAccessibleDescription('');
   });
 });
 
