@@ -44,8 +44,11 @@ async function openWithGroupAtBottom(
       const ids = (win?.tabs ?? []).flatMap((tab) =>
         tab.id === undefined ? [] : [tab.id]
       );
+      const [a, b] = ids.slice(-2);
+      if (a === undefined || b === undefined)
+        throw new Error('Chrome gave the window fewer than two tabs');
       const id = await chrome.tabs.group({
-        tabIds: ids.slice(-2),
+        tabIds: [a, b],
         createProperties: { windowId: win?.id },
       });
       await chrome.tabGroups.update(id, { title: 'Bills', color: 'blue' });
