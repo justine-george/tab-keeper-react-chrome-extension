@@ -36,6 +36,7 @@ import { useTranslation } from 'react-i18next';
 import { useNewSessionReceiver } from './useNewSessionReceiver';
 import { otherScope, SAVE_OF } from './saveScopes';
 import SaveInvite, { SAVE_SEGMENT_WIDTH } from './SaveInvite';
+import { onFirstClickOnly } from '../../common/firstClickOnly';
 
 export default function UserInputContainer() {
   const { t } = useTranslation();
@@ -316,7 +317,8 @@ export default function UserInputContainer() {
             tooltipText={t(buttonSave.labelKey)}
             ariaLabel={t(buttonSave.labelKey)}
             iconType={buttonSave.icon}
-            onClick={() => createTabGroup(buttonScope)}
+            // KAN-698. A double-click saves once.
+            onClick={onFirstClickOnly(() => createTabGroup(buttonScope))}
             style={`width: ${SAVE_SEGMENT_WIDTH}; height: 100%; padding: 0; flex-shrink: 0; border: none;`}
           />
           <SaveInvite />

@@ -120,6 +120,21 @@ describe('a strip that appears under the pointer (KAN-582)', () => {
   // The second click of the double-click that selected the row.
   const SECOND_CLICK = { detail: 2 };
 
+  // KAN-698. A button no longer held: a double-click's second click presses
+  // nothing and selects nothing, and a click of its own presses it.
+  function expectNotHeld(
+    h: ReturnType<typeof handlers>,
+    name: string,
+    pressed: () => unknown
+  ) {
+    const selected = h.onTabGroupClick.mock.calls.length;
+    fireEvent.click(action('Weekend in Kyoto', name), SECOND_CLICK);
+    expect(pressed).not.toHaveBeenCalled();
+    expect(h.onTabGroupClick).toHaveBeenCalledTimes(selected);
+    fireEvent.click(action('Weekend in Kyoto', name), { detail: 1 });
+    expect(pressed).toHaveBeenCalledTimes(1);
+  }
+
   test('the button under the pointer selects the row instead for the rest of the double-click, until the pointer leaves it', async () => {
     const h = await selectUnderPointer('Replace');
 
@@ -131,8 +146,7 @@ describe('a strip that appears under the pointer (KAN-582)', () => {
       clientX: 200,
       clientY: 20,
     });
-    fireEvent.click(action('Weekend in Kyoto', 'Replace'), SECOND_CLICK);
-    expect(h.onReplaceClick).toHaveBeenCalledTimes(1);
+    expectNotHeld(h, 'Replace', h.onReplaceClick);
   });
 
   test('moving within that button keeps the double-click a select', async () => {
@@ -157,11 +171,10 @@ describe('a strip that appears under the pointer (KAN-582)', () => {
     }
   );
 
-  test('a button the pointer is not on acts at once', async () => {
+  test('a button the pointer is not on is not held', async () => {
     const h = await selectUnderPointer('Switch');
 
-    fireEvent.click(action('Weekend in Kyoto', 'Replace'), SECOND_CLICK);
-    expect(h.onReplaceClick).toHaveBeenCalledTimes(1);
+    expectNotHeld(h, 'Replace', h.onReplaceClick);
   });
 
   test('leaving the row lifts it', async () => {
@@ -170,17 +183,31 @@ describe('a strip that appears under the pointer (KAN-582)', () => {
     fireEvent.pointerOut(rowButton('Weekend in Kyoto'), {
       relatedTarget: document.body,
     });
-    fireEvent.click(action('Weekend in Kyoto', 'Replace'), SECOND_CLICK);
-    expect(h.onReplaceClick).toHaveBeenCalledTimes(1);
+    expectNotHeld(h, 'Replace', h.onReplaceClick);
   });
 
-  test('the pointer arriving on the shown row: its buttons act at once', async () => {
+  test('the pointer arriving on the shown row: its buttons are not held', async () => {
     const h = handlers();
     await renderWithProviders(row(true, h));
     pointerRestsOn('Weekend in Kyoto', 'Replace');
     fireEvent.pointerOver(action('Weekend in Kyoto', 'Replace'), AT);
 
-    fireEvent.click(action('Weekend in Kyoto', 'Replace'), SECOND_CLICK);
-    expect(h.onReplaceClick).toHaveBeenCalledTimes(1);
+    expectNotHeld(h, 'Replace', h.onReplaceClick);
+  });
+
+  // KAN-698. A double-click on a shown row's Open, Switch or Replace presses once.
+  test.each([
+    ['Open', 'onOpenAllClick'],
+    ['Switch', 'onFocusClick'],
+    ['Replace', 'onReplaceClick'],
+  ] as const)('a double-click on %s presses once', async (name, handler) => {
+    const h = handlers();
+    await renderWithProviders(row(true, h));
+    pointerRestsOn('Weekend in Kyoto', name);
+    fireEvent.pointerOver(action('Weekend in Kyoto', name), AT);
+
+    fireEvent.click(action('Weekend in Kyoto', name), { detail: 1 });
+    fireEvent.click(action('Weekend in Kyoto', name), SECOND_CLICK);
+    expect(h[handler]).toHaveBeenCalledTimes(1);
   });
 });
