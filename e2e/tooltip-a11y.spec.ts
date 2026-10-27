@@ -226,6 +226,9 @@ const EXPECTED: Record<string, AxRecord[]> = {
     ['settings: Help', 'button "Go back" #1', 'button', 'Go back', ''],
   ]),
   export: asRecords([
+    // KAN-827. Layout's glyphs carry their words as tooltips, as Colour's do.
+    ['export', 'button "Compact" #1', 'button', 'Compact', ''],
+    ['export', 'button "Comfortable" #1', 'button', 'Comfortable', ''],
     ['export', 'button "Light" #1', 'button', 'Light', ''],
     ['export', 'button "Dark" #1', 'button', 'Dark', ''],
   ]),
