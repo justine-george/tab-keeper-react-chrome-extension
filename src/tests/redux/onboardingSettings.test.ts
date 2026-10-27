@@ -72,6 +72,7 @@ const ALL_SET = {
     helloIn: 'full',
     welcomeShows: null,
     ended: null,
+    onlyFullViewSteps: false,
   },
   isWhatsNew2Seen: true,
   isClosesThisTabCardAnswered: true,

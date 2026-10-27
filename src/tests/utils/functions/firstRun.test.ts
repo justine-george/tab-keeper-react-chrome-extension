@@ -9,10 +9,13 @@ import {
   isUpgrader,
   latestSession,
   needsSession,
+  newFullViewStepsRun,
   newRun,
   nextRunStep,
   previousRunStep,
   runAtOpen,
+  runProgress,
+  runSteps,
   runStepKind,
   stepKindOf,
   type FirstRun,
@@ -68,6 +71,38 @@ describe('asFirstRun', () => {
   ])('reads %s as no record', (_name, value) => {
     expect(asFirstRun(value)).toBeNull();
   });
+
+  test('KAN-830: a record stored before onlyFullViewSteps reads as a whole run', () => {
+    const { onlyFullViewSteps: _dropped, ...stored } = FULL_AT_3;
+    expect(asFirstRun(stored)).toEqual({
+      ...FULL_AT_3,
+      onlyFullViewSteps: false,
+    });
+  });
+
+  test('KAN-830: a short run round-trips at each of its steps, with or without the example', () => {
+    const short = newFullViewStepsRun(null);
+    expect(asFirstRun(short)).toEqual(short);
+    expect(asFirstRun({ ...short, step: 2 })).toEqual({ ...short, step: 2 });
+    expect(asFirstRun({ ...short, step: 9 })).toEqual({ ...short, step: 9 });
+    const carried = newFullViewStepsRun('sample:abc');
+    expect(asFirstRun(carried)).toEqual(carried);
+  });
+
+  test.each([
+    [
+      'onlyFullViewSteps as text',
+      { ...newFullViewStepsRun(null), onlyFullViewSteps: 'yes' },
+    ],
+    [
+      'onlyFullViewSteps on a popup record',
+      { ...newRun('popup', 1), onlyFullViewSteps: true },
+    ],
+    ['a short run at step 3', { ...newFullViewStepsRun(null), step: 3 }],
+    ['a short run at step 0', { ...newFullViewStepsRun(null), step: 0 }],
+  ])('KAN-830: reads %s as no record', (_name, value) => {
+    expect(asFirstRun(value)).toBeNull();
+  });
 });
 
 describe('the steps', () => {
@@ -112,13 +147,49 @@ describe('the steps', () => {
   });
 
   test('Next stops at the last step; Back exists from step 2', () => {
-    expect(nextRunStep('full', 8)).toBe(9);
-    expect(nextRunStep('full', 9)).toBeNull();
-    expect(nextRunStep('popup', 7)).toBe(8);
-    expect(nextRunStep('popup', 8)).toBeNull();
-    expect(previousRunStep('full', 2)).toBe(1);
-    expect(previousRunStep('full', 1)).toBeNull();
-    expect(previousRunStep('popup', 1)).toBeNull();
+    expect(nextRunStep(newRun('full', 0))).toBe(1);
+    expect(nextRunStep(newRun('full', 8))).toBe(9);
+    expect(nextRunStep(newRun('full', 9))).toBeNull();
+    expect(nextRunStep(newRun('popup', 7))).toBe(8);
+    expect(nextRunStep(newRun('popup', 8))).toBeNull();
+    expect(previousRunStep(newRun('full', 2))).toBe(1);
+    expect(previousRunStep(newRun('full', 1))).toBeNull();
+    expect(previousRunStep(newRun('popup', 1))).toBeNull();
+  });
+
+  test('KAN-830: a short run is the full view’s own steps: Currently open, Find & fit, Two views', () => {
+    const steps = runSteps(newFullViewStepsRun(null));
+    expect(steps).toEqual([1, 2, 9]);
+    expect(steps.map((s) => runStepKind('full', s))).toEqual([
+      'openNow',
+      'findAndFit',
+      'twoViews',
+    ]);
+  });
+
+  test('KAN-830: a short run moves 1 → 2 → 9 and back; no Back on its first', () => {
+    const at = (step: 1 | 2 | 9): FirstRun => ({
+      ...newFullViewStepsRun(null),
+      step,
+    });
+    expect(nextRunStep(at(1))).toBe(2);
+    expect(nextRunStep(at(2))).toBe(9);
+    expect(nextRunStep(at(9))).toBeNull();
+    expect(previousRunStep(at(9))).toBe(2);
+    expect(previousRunStep(at(2))).toBe(1);
+    expect(previousRunStep(at(1))).toBeNull();
+  });
+
+  test('KAN-830: a short run counts 1, 2, 3 of 3; a whole run counts its step of 9', () => {
+    const at = (step: 1 | 2 | 9): FirstRun => ({
+      ...newFullViewStepsRun(null),
+      step,
+    });
+    expect(runProgress(at(1))).toEqual({ position: 1, total: 3 });
+    expect(runProgress(at(2))).toEqual({ position: 2, total: 3 });
+    expect(runProgress(at(9))).toEqual({ position: 3, total: 3 });
+    expect(runProgress(newRun('full', 1))).toEqual({ position: 1, total: 9 });
+    expect(runProgress(newRun('popup', 4))).toEqual({ position: 4, total: 8 });
   });
 
   test('only the session steps wait for the run’s session', () => {
@@ -152,6 +223,7 @@ describe('the steps', () => {
       helloIn: 'full',
       welcomeShows: null,
       ended: null,
+      onlyFullViewSteps: false,
     });
   });
 });
@@ -292,25 +364,46 @@ describe('runAtOpen', () => {
     }
   );
 
-  test('R13: the full view replaces a running popup run on its first visit, at step 1 (the welcome was its hello)', async () => {
-    expect(
-      await runAtOpen(
-        'full',
-        { setupState: 'pending', firstRun: newRun('popup', 4) },
-        1,
-        free
-      )
-    ).toEqual({
-      action: 'start',
-      check: 'started',
-      run: newRun('full', 1),
-      beginsSetup: false,
-    });
-  });
+  test.each([
+    ['running, no session', newRun('popup', 4), null],
+    [
+      'running, holding the example',
+      { ...newRun('popup', 4), sessionId: 'sample:x' },
+      'sample:x',
+    ],
+    [
+      'running, holding the user’s own save',
+      { ...newRun('popup', 4), sessionId: 'own' },
+      null,
+    ],
+    [
+      'finished, holding a stale example id',
+      { ...newRun('popup', 7), ended: 'finished', sessionId: 'sample:x' },
+      null,
+    ],
+    ['skipped', { ...newRun('popup', 3), ended: 'skipped' }, null],
+    [
+      'ended sessionGone',
+      { ...newRun('popup', 5), ended: 'sessionGone' },
+      null,
+    ],
+  ])(
+    'KAN-830: a popup tour %s gives the first full-view visit the short tour',
+    async (_name, firstRun, carried) => {
+      expect(
+        await runAtOpen('full', { setupState: 'pending', firstRun }, 1, free)
+      ).toEqual({
+        action: 'start',
+        check: 'started',
+        run: newFullViewStepsRun(carried),
+        beginsSetup: false,
+      });
+    }
+  );
 
   test.each([
     ['ended unanswered', { ...newRun('popup', 0), ended: 'unanswered' }],
-    ['finished', { ...newRun('popup', 7), ended: 'finished' }],
+    ['still showing', newRun('popup', 0)],
   ])(
     'R13: a popup welcome %s was seen, so the first full-view visit starts at step 1',
     async (_name, firstRun) => {
@@ -452,6 +545,6 @@ describe('KAN-623: where the run’s Hello was', () => {
 
   test('the card waits for no session, and Back never reaches it', () => {
     expect(needsSession('compactView')).toBe(false);
-    expect(previousRunStep('full', 1)).toBeNull();
+    expect(previousRunStep(newRun('full', 1))).toBeNull();
   });
 });
