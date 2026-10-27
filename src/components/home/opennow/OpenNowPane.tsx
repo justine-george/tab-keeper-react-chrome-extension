@@ -4,6 +4,7 @@ import {
   RefObject,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -79,6 +80,7 @@ import { paneInsetCss } from '../../../styles/paneInset';
 
 import { RowDragArea } from '../rightpane/rowDrag/RowDragArea';
 import OpenNowSearchRow from './OpenNowSearchRow';
+import { searchScrollAfter } from './searchScroll';
 import OpenNowWindow from './OpenNowWindow';
 import {
   OPEN_ITEMS_SCOPE,
@@ -294,12 +296,30 @@ export default function OpenNowPane({
 
   // A search starting (no term -> a term) starts its own folds afresh. Every
   // way the text changes -- typing, the clear ×, Esc -- comes through here.
+  const scrollBeforeSearch = useRef<number | null>(null);
+  const scrollAfterSearch = useRef<number | null>(null);
   const handleSearchTextChange = (text: string) => {
     if (searchTerm === null && searchTermOf(text) !== null) {
       setSearchCollapsedIds(new Set());
     }
+    const scroll = searchScrollAfter(
+      searchTerm,
+      searchTermOf(text),
+      scrollerRef.current?.scrollTop ?? 0,
+      scrollBeforeSearch.current
+    );
+    scrollBeforeSearch.current = scroll.before;
+    scrollAfterSearch.current = scroll.scrollTo;
     onSearchTextChange(text);
   };
+  // KAN-339 B. Applied once the list for the new text is drawn.
+  useLayoutEffect(() => {
+    const to = scrollAfterSearch.current;
+    scrollAfterSearch.current = null;
+    if (to !== null && scrollerRef.current !== null) {
+      scrollerRef.current.scrollTop = to;
+    }
+  }, [searchText]);
 
   // What Collapse all acts on: the windows drawn, so during a search it
   // leaves the folds from before alone.
