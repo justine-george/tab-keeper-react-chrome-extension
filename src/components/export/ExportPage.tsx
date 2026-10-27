@@ -862,51 +862,53 @@ export default function ExportPage({ source }: { source: ExportSource }) {
           >
             {editing ? (
               <>
-                <span
-                  role="status"
-                  css={css`
-                    font-size: 0.78rem;
-                    color: ${COLORS.LABEL_L1_COLOR};
-                    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
-                    border-radius: 999px;
-                    corner-shape: ${CORNER_SHAPE};
-                    padding: 2px 9px;
-                    white-space: nowrap;
-                    font-variant-numeric: tabular-nums;
-                  `}
-                >
-                  {t('SavePdfEditTally', {
-                    renamed: tally.renamed,
-                    hidden: tally.hiddenTabs,
-                  })}
-                </span>
+                {/* KAN-831. Done stands where Edit stood, so finishing an edit is a
+              press in place; the tally takes the end of the row. */}
+                <Button
+                  text={t('Done')}
+                  ariaLabel={t('Done')}
+                  ariaDisabled={nothingKept}
+                  tooltipText={
+                    nothingKept ? t('SavePdfNothingKept') : undefined
+                  }
+                  iconType="check"
+                  onClick={() => {
+                    setEditing(false);
+                    setRowSwapped(true);
+                  }}
+                  iconSize="1.2rem"
+                  iconColor={COLORS.PRIMARY_COLOR}
+                  iconStyle={actionIconStyle}
+                  style={primaryStyle}
+                />
+                <Button
+                  text={t('Reset')}
+                  ariaLabel={t('Reset')}
+                  onClick={() => setEdits(NO_EXPORT_EDITS)}
+                  // KAN-221. Nothing to put back until something is edited;
+                  // the same count as the tally, so they agree.
+                  ariaDisabled={tally.renamed === 0 && tally.hiddenTabs === 0}
+                  style={actionStyle}
+                />
                 <span css={endStyle}>
-                  <Button
-                    text={t('Reset')}
-                    ariaLabel={t('Reset')}
-                    onClick={() => setEdits(NO_EXPORT_EDITS)}
-                    // KAN-221. Nothing to put back until something is edited;
-                    // the same count as the tally beside it, so they agree.
-                    ariaDisabled={tally.renamed === 0 && tally.hiddenTabs === 0}
-                    style={actionStyle}
-                  />
-                  <Button
-                    text={t('Done')}
-                    ariaLabel={t('Done')}
-                    ariaDisabled={nothingKept}
-                    tooltipText={
-                      nothingKept ? t('SavePdfNothingKept') : undefined
-                    }
-                    iconType="check"
-                    onClick={() => {
-                      setEditing(false);
-                      setRowSwapped(true);
-                    }}
-                    iconSize="1.2rem"
-                    iconColor={COLORS.PRIMARY_COLOR}
-                    iconStyle={actionIconStyle}
-                    style={primaryStyle}
-                  />
+                  <span
+                    role="status"
+                    css={css`
+                      font-size: 0.78rem;
+                      color: ${COLORS.LABEL_L1_COLOR};
+                      border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+                      border-radius: 999px;
+                      corner-shape: ${CORNER_SHAPE};
+                      padding: 2px 9px;
+                      white-space: nowrap;
+                      font-variant-numeric: tabular-nums;
+                    `}
+                  >
+                    {t('SavePdfEditTally', {
+                      renamed: tally.renamed,
+                      hidden: tally.hiddenTabs,
+                    })}
+                  </span>
                 </span>
               </>
             ) : (
@@ -943,9 +945,8 @@ export default function ExportPage({ source }: { source: ExportSource }) {
                   metrics={EXPORT_PAIR_METRICS}
                 />
                 {/* Deciding ends here; what follows leaves the page, from the
-              end of the row -- the primary stands where Done stands while
-              editing. A PDF is what people attach to a message; the .html file
-              KAN-734 hid is gone for good (KAN-742). */}
+              end of the row. A PDF is what people attach to a message; the
+              .html file KAN-734 hid is gone for good (KAN-742). */}
                 <span css={endStyle} ref={attachEndGroup}>
                   {/* Copy first: it ignores the choices, so it sits apart from the
               output that follows them. */}
