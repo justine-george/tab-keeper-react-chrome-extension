@@ -8,6 +8,11 @@ import {
   seedSettings,
 } from './fixtures/seed';
 import { openLiveWindow } from './fixtures/liveWindows';
+import type {
+  chromeTabGroupData,
+  tabData,
+  windowGroupData,
+} from '../src/redux/slices/tabContainerDataStateSlice';
 import { standIn } from './fixtures/standInPages';
 import {
   POPUP_RUN,
@@ -41,7 +46,11 @@ const OTHER_SESSION = 'Research for the sync rewrites';
 // Fits the popup's header; its end (768) is under the pencil (748-780).
 const HEADER_SESSION = 'Notes and research for the local-first sync rewrite';
 
-const tab = (id: string, title: string, extra: object = {}) => ({
+const tab = (
+  id: string,
+  title: string,
+  extra: Partial<tabData> = {}
+): tabData => ({
   tabId: id,
   favicon: '',
   title,
@@ -52,9 +61,9 @@ const tab = (id: string, title: string, extra: object = {}) => ({
 const win = (
   id: string,
   title: string,
-  tabs: ReturnType<typeof tab>[],
-  groups?: object[]
-) => ({
+  tabs: tabData[],
+  groups?: chromeTabGroupData[]
+): windowGroupData => ({
   windowId: id,
   windowHeight: 1080,
   windowWidth: 1920,
@@ -157,7 +166,7 @@ async function chipAfterRest(target: Locator): Promise<string> {
   return (await chip.textContent()) ?? '';
 }
 
-async function noChipAfterRest(target: Locator) {
+async function expectNoChipAfterRest(target: Locator) {
   await restOn(target);
   await target.page().waitForTimeout(900);
   await expect(target.page().locator(CHIP)).toHaveCount(0);
@@ -219,7 +228,7 @@ test.describe('saved windows and groups', () => {
     extensionId,
   }) => {
     const page = await open(context, extensionId);
-    await noChipAfterRest(textOf(page, SHORT_WINDOW));
+    await expectNoChipAfterRest(textOf(page, SHORT_WINDOW));
   });
 
   test('a long saved group name shows in full', async ({
@@ -242,12 +251,13 @@ test('a long Currently open group name shows in full', async ({
     'Weather',
   ]);
   await serviceWorker.evaluate(
-    async ({ ids, title }) => {
-      const group = await chrome.tabs.group({ tabIds: ids });
+    async ({ first, more, title }) => {
+      const group = await chrome.tabs.group({ tabIds: [first, ...more] });
       await chrome.tabGroups.update(group, { title, color: 'green' });
     },
     {
-      ids: [live.idOf('Trail map'), live.idOf('Hut booking')],
+      first: live.idOf('Trail map'),
+      more: [live.idOf('Hut booking')],
       title: LONG_GROUP,
     }
   );
@@ -282,7 +292,7 @@ test.describe('session titles', () => {
     const title = page
       .locator('[data-pane="sessions"]')
       .getByText(OTHER_SESSION, { exact: true });
-    await noChipAfterRest(title);
+    await expectNoChipAfterRest(title);
     // PREMISE: the same length as the selected title, read in full.
     expect(await coverOf(title)).toEqual({
       fits: true,
@@ -456,11 +466,11 @@ test('the title controls keep their names, and say nothing more', async ({
 }) => {
   const live = await openLiveWindow(serviceWorker, ['Trail map', 'Weather']);
   await serviceWorker.evaluate(
-    async ({ ids, title }) => {
-      const group = await chrome.tabs.group({ tabIds: ids });
+    async ({ first, more, title }) => {
+      const group = await chrome.tabs.group({ tabIds: [first, ...more] });
       await chrome.tabGroups.update(group, { title, color: 'green' });
     },
-    { ids: [live.idOf('Trail map')], title: LONG_GROUP }
+    { first: live.idOf('Trail map'), more: [], title: LONG_GROUP }
   );
   const page = await open(context, extensionId, { view: 'tab' });
   // As on main: the tooltip and its lead are seen, never said.
