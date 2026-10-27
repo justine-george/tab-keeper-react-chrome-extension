@@ -469,14 +469,20 @@ test('the title controls keep their names, and say nothing more', async ({
     [`Rename session: ${MID_SESSION}`, ''],
     [`Open in new tab: ${LONG_TAB}`, ''],
     [`Open in new tab: ${LONG_RENAME}`, ''],
-    // Its own aria-describedby (KAN-280), not the tooltip.
-    ['Switch to tab: Trail map', 'Last used tab'],
   ];
   for (const [name, description] of described) {
     const control = page.getByRole('button', { name, exact: true }).first();
     await expect(control, name).toHaveAccessibleName(name);
     await expect(control, name).toHaveAccessibleDescription(description);
   }
+  // A live tab's description is its own aria-describedby ("Last used tab" once
+  // the worker has seen it, KAN-280): never its address or its title.
+  const liveTab = page.getByRole('button', {
+    name: 'Switch to tab: Trail map',
+    exact: true,
+  });
+  await expect(liveTab).toHaveAccessibleName('Switch to tab: Trail map');
+  await expect(liveTab).not.toHaveAccessibleDescription(/data:|Trail map/);
   const groups = page.getByRole('button', {
     name: `Rename group: ${LONG_GROUP}`,
     exact: true,
