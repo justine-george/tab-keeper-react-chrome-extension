@@ -158,6 +158,9 @@ export const filterTabGroups = (
             const matchedTabs = window.tabs.filter(
               (tab) =>
                 tab.title.toLowerCase().includes(searchTerm) ||
+                // KAN-824. A renamed tab is found by either name.
+                (tab.customTitle?.toLowerCase().includes(searchTerm) ??
+                  false) ||
                 (tab.url && tab.url.toLowerCase().includes(searchTerm)) ||
                 (tab.chromeGroupId !== undefined &&
                   matchedGroupIds.has(tab.chromeGroupId))

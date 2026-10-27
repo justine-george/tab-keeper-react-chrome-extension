@@ -376,3 +376,51 @@ describe('removeDuplicateTabs within a window or group (KAN-616)', () => {
     expect(store.getState().globalState.toasts).toEqual([]);
   });
 });
+
+// KAN-824. A rename never vanishes silently: the kept copy takes the first removed copy's name.
+describe('Remove duplicate tabs keeps a name (KAN-824)', () => {
+  const NAMED = () =>
+    session('S9', 'Named', T0, [
+      win('w1', [tab('a'), dup('a2', 'a', { customTitle: 'Keep me' })]),
+      win('w2', [
+        dup('a3', 'a', { customTitle: 'Not me' }),
+        tab('b'),
+        dup('b2', 'b', { customTitle: 'Other' }),
+      ]),
+    ]);
+  const tabOf = (s: ReturnType<typeof ready>['store'], tabId: string) =>
+    data(s)
+      .tabGroups.find((g) => g.tabGroupId === 'S9')
+      ?.windows.flatMap((w) => w.tabs)
+      .find((t) => t.tabId === tabId);
+
+  it("an unnamed kept copy takes the first removed copy's name, in reading order", () => {
+    const { store } = ready(container([NAMED()]));
+    store.dispatch(remove('S9'));
+    expect(tabOf(store, 'a')?.customTitle).toBe('Keep me');
+    expect(tabOf(store, 'b')?.customTitle).toBe('Other');
+  });
+
+  it('a kept copy with a name of its own keeps it', () => {
+    const own = NAMED();
+    own.windows[0].tabs[0] = { ...own.windows[0].tabs[0], customTitle: 'Mine' };
+    const { store } = ready(container([own]));
+    store.dispatch(remove('S9'));
+    expect(tabOf(store, 'a')?.customTitle).toBe('Mine');
+  });
+
+  it('only a copy inside the scope passes its name on', () => {
+    const { store } = ready(container([NAMED()]));
+    store.dispatch(
+      removeDuplicateTabsInternal({
+        tabGroupId: 'S9',
+        within: { windowId: 'w2' },
+        now: T0,
+      })
+    );
+    // In w2, a3 is the first copy of a, so it is kept with its own name; w1 is untouched.
+    expect(tabOf(store, 'a')).not.toHaveProperty('customTitle');
+    expect(tabOf(store, 'a3')?.customTitle).toBe('Not me');
+    expect(tabOf(store, 'b')?.customTitle).toBe('Other');
+  });
+});

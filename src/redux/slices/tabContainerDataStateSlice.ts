@@ -19,6 +19,7 @@ import type { RootState } from '../store';
 import {
   countDuplicateTabs,
   duplicateTabsIn,
+  namesKeptCopiesTake,
   type DuplicateScope,
 } from '../../utils/functions/duplicateTabs';
 import { closeFocusModal, openFocusModal, showToast } from './globalStateSlice';
@@ -1868,6 +1869,8 @@ export const tabContainerDataStateSlice = createSlice({
       if (!group) return;
       const doomed = new Set(duplicateTabsIn(group, within));
       if (doomed.size === 0) return;
+      for (const [tab, name] of namesKeptCopiesTake(group, within))
+        tab.customTitle = name;
       for (const window of group.windows) {
         const kept = window.tabs.filter((t) => !doomed.has(t));
         if (kept.length === window.tabs.length) continue;

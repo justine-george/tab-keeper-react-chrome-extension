@@ -17,6 +17,7 @@ import {
   CHARCOAL_THEME,
   type ThemeColors,
 } from '../constants/themePalettes';
+import { withShownTitle } from './tabTitle';
 
 export type ExportLayout = 'comfortable' | 'compact';
 
@@ -473,7 +474,11 @@ export function dropNotificationCount(title: string): string {
  * deduplication, no tracking parameters stripped, no site suffix trimmed;
  * those were rejected in KAN-195 as changing what was saved without asking.
  *
- * Returns a copy, and tidying an already tidy session changes nothing.
+ * A renamed tab (KAN-824) leaves with its own name as its title, as typed:
+ * the user's words are not tidied. Tidy once -- a second pass would read that
+ * name as a page title.
+ *
+ * Returns a copy, and tidying an already tidy unrenamed session changes nothing.
  */
 export function tidySessionForExport(
   session: tabContainerData
@@ -490,6 +495,8 @@ export function tidySessionForExport(
 function tidyTabForExport(tab: tabData): tabData {
   const title = dropNotificationCount(tab.title);
   const url = suspendedTabAddress(tab.url);
+  if (tab.customTitle !== undefined)
+    return withShownTitle({ ...tab, title, url });
   return title === tab.title && url === tab.url ? tab : { ...tab, title, url };
 }
 
