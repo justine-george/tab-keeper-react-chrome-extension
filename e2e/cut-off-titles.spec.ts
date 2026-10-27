@@ -182,7 +182,7 @@ const coverOf = (target: Locator) =>
 
 const addressOf = (page: Page, tabId: string) =>
   page
-    .locator(`[data-drag-row-id="${tabId}"] [data-tooltip-lead]`)
+    .locator(`[data-drag-row-id="${tabId}"] [aria-label^="Open in new tab: "]`)
     .getAttribute('data-tooltip');
 
 test.describe('saved windows and groups', () => {
