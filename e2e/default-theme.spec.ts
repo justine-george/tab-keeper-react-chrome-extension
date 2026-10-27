@@ -13,7 +13,7 @@ import {
   LIGHT_THEME,
 } from '../src/hooks/useThemeColors';
 
-// KAN-731. A new install starts on Chalk, or Charcoal on a dark OS; a stored
+// KAN-731/KAN-829. A new install starts on Chalk on every OS; a stored
 // Paper or Graphite moves to Chalk or Charcoal once, and a pick after that sticks.
 
 test.use({ freshProfile: true });
@@ -98,9 +98,10 @@ const pressed = (page: Page, name: string) =>
     .getByRole('button', { name, exact: true })
     .getAttribute('aria-pressed');
 
+// KAN-829. Chalk on either OS: a dark OS no longer picks Charcoal.
 for (const [os, theme, ground, other] of [
   ['light', 'Chalk', CHALK, 'Charcoal'],
-  ['dark', 'Charcoal', CHARCOAL, 'Chalk'],
+  ['dark', 'Chalk', CHALK, 'Charcoal'],
 ] as const) {
   test.describe(`a new install on a ${os} OS`, () => {
     test.use({ colorScheme: os });
