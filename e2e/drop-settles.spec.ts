@@ -41,23 +41,39 @@ declare global {
 }
 
 // From the next `trigger` event on (capture, before the engine's own
-// handler), records the top of every element `rows` matches, keyed by `key`.
+// handler), records the top of every element `rows` matches, keyed by `key`,
+// and of every window block in `blocks`: its top keyed `window <id>`, its
+// bottom `window <id> end`, in the blocks' order (KAN-836).
 async function recordFrames(
   page: Page,
   rows: string,
   key: string,
-  trigger: 'pointerup' | 'keydown'
+  trigger: 'pointerup' | 'keydown',
+  blocks?: string
 ): Promise<void> {
   await page.evaluate(
-    ({ rows, key, trigger, frames }) => {
+    ({ rows, key, trigger, frames, blocks }) => {
       window.__dropFrames = null;
-      const read = (): Record<string, number> =>
-        Object.fromEntries(
+      const read = (): Record<string, number> => ({
+        ...Object.fromEntries(
           [...document.querySelectorAll(rows)].map((el) => [
             el.getAttribute(key) ?? '',
             el.getBoundingClientRect().top,
           ])
-        );
+        ),
+        ...(blocks === undefined
+          ? {}
+          : Object.fromEntries(
+              [...document.querySelectorAll(blocks)].flatMap((el) => {
+                const id = el.getAttribute('data-drop-window-id') ?? '';
+                const box = el.getBoundingClientRect();
+                return [
+                  [`window ${id}`, box.top],
+                  [`window ${id} end`, box.bottom],
+                ];
+              })
+            )),
+      });
       window.__dropTops = read;
       window.addEventListener(
         trigger,
@@ -73,7 +89,7 @@ async function recordFrames(
         { capture: true, once: true }
       );
     },
-    { rows, key, trigger, frames: FRAMES }
+    { rows, key, trigger, frames: FRAMES, blocks }
   );
 }
 
@@ -93,12 +109,14 @@ async function framesRecorded(page: Page): Promise<Tops[]> {
 }
 
 // Every frame where a row is outside [its top at release, its settled top],
-// with a pixel of slack for sub-pixel snapping.
+// with a pixel of slack for sub-pixel snapping. Not a block's end (KAN-836),
+// which moves at once when the block gains or loses a row.
 function strays(frames: Tops[]): string[] {
   const first = frames[0] ?? {};
   const last = frames[frames.length - 1] ?? {};
   const out: string[] = [];
   for (const [key, end] of Object.entries(last)) {
+    if (key.endsWith(' end')) continue;
     const start = first[key];
     if (start === undefined) continue;
     const lo = Math.min(start, end) - 1;
@@ -130,6 +148,46 @@ function eased(frames: Tops[]): string[] {
       : [];
   });
 }
+
+// KAN-836. Every top that steps more than half a row between two frames: an
+// ease over DURATION.MOVE steps a few pixels a frame, a snap a whole row. Not
+// a block's end, which moves at once when the block gains or loses a row.
+function jumps(frames: Tops[]): string[] {
+  const out: string[] = [];
+  frames.slice(1).forEach((tops, i) => {
+    for (const [key, top] of Object.entries(tops)) {
+      if (key.endsWith(' end')) continue;
+      const was = frames[i]?.[key];
+      if (was !== undefined && Math.abs(top - was) > 16)
+        out.push(`${key} frame ${i + 1}: ${was} -> ${top}`);
+    }
+  });
+  return out;
+}
+
+// Every frame where a window block starts above the end of the one before
+// it. Blocks drawn with no height (the New window block at rest) are skipped.
+function overlaps(frames: Tops[]): string[] {
+  return frames.flatMap((tops, i) => {
+    const blocks = Object.keys(tops).filter(
+      (k) =>
+        k.startsWith('window ') &&
+        !k.endsWith(' end') &&
+        (tops[`${k} end`] ?? 0) - (tops[k] ?? 0) >= 1
+    );
+    return blocks.slice(1).flatMap((k, j) => {
+      const above = tops[`${blocks[j]} end`];
+      const top = tops[k];
+      return above !== undefined && top !== undefined && top < above - 1
+        ? [`frame ${i}: ${k} at ${top}, above ${blocks[j]} ends ${above}`]
+        : [];
+    });
+  });
+}
+
+// How far `key` went, release to settled.
+const travel = (frames: Tops[], key: string): number =>
+  (frames[frames.length - 1]?.[key] ?? NaN) - (frames[0]?.[key] ?? NaN);
 
 // PREMISE for every case: the last frames are the settled list (nothing still
 // moving), and nothing scrolled, which would move every row at once.
@@ -593,6 +651,235 @@ grantedTest.describe('folding drags (KAN-835)', () => {
         a1,
         a2,
       ]);
+      expect(strays(frames)).toEqual([]);
+    }
+  );
+});
+
+// ---- KAN-836: a drop into a window below its own ---------------------------
+//
+// The source window keeps the dropped row's room until the move is drawn
+// (KAN-184); then it closes, and every block below it moves up a row. Window
+// blocks carry no transition, so that used to be a snap, headers and all:
+// b0 440 -> 408 in one frame. Now the blocks below glide up, and the dropped
+// row from where it was let go.
+
+const savedBlocks = '[data-pane="detail"] [data-drop-window-id]';
+const savedRowsIn = (ids: string[]) =>
+  ids
+    .map((w) => `[data-pane="detail"] [data-drag-row-id^="${w}-t"]`)
+    .join(', ');
+const openBlocks = '[data-pane="open-now"] [data-drop-window-id]';
+
+// Picks up `from`, releases at `y` (by default, at the top of w2's first
+// tab), recording frames.
+async function savedDrop(
+  page: Page,
+  from: Locator,
+  y?: () => Promise<number>
+): Promise<Tops[]> {
+  const { x } = await pickUp(page, from);
+  await moveTo(
+    page,
+    x,
+    y === undefined ? (await boxOf(savedTabIn(page, 'w2', 0))).y + 6 : await y()
+  );
+  await recordFrames(
+    page,
+    savedRowsIn(['w1', 'w2', 'w3']),
+    'data-drag-row-id',
+    'pointerup',
+    savedBlocks
+  );
+  await page.mouse.up();
+  const frames = await framesRecorded(page);
+  expectSettled(frames);
+  return frames;
+}
+
+const savedTabsByWindow = async (page: Page) =>
+  (await stored(page)).tabGroups
+    .find((g) => g.tabGroupId === 'S1')
+    ?.windows.map((w) => w.tabs.map((t) => t.tabId));
+
+async function dropIntoLowerSavedWindow(page: Page) {
+  await expectFits(savedTabIn(page, 'w3', 1));
+  const frames = await savedDrop(page, savedTabIn(page, 'w1', 2));
+  expect(await savedTabsByWindow(page)).toEqual([
+    ['w1-t0', 'w1-t1'],
+    ['w1-t2', 'w2-t0', 'w2-t1', 'w2-t2'],
+    ['w3-t0', 'w3-t1'],
+  ]);
+  return frames;
+}
+
+const S3 = session('S1', 'Reading', [
+  savedWindow('w1', 'One', 3),
+  savedWindow('w2', 'Two', 3),
+  savedWindow('w3', 'Three', 2),
+]);
+const savedTabIn = (page: Page, w: string, i: number) =>
+  page.locator(`[data-pane="detail"] [data-drag-row-id="${w}-t${i}"]`);
+
+test.describe('a drop into a lower window (KAN-836)', () => {
+  test('saved: the windows below glide up a row, and the dropped row from where it was let go', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: [S3],
+    });
+    const frames = await dropIntoLowerSavedWindow(page);
+    // PREMISE: the source's room closed, so the blocks below moved up a row.
+    expect(travel(frames, 'window w2')).toBeLessThan(-20);
+    expect(travel(frames, 'window w3')).toBeLessThan(-20);
+    expect(jumps(frames)).toEqual([]);
+    expect(strays(frames)).toEqual([]);
+  });
+
+  // Every block after the target steps down while the drag runs, the source
+  // included (windowShiftsAcross); the source keeps its room, so the blocks
+  // below it move up a row when the move is drawn.
+  test('saved, into a window above: the windows below the source glide up', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: [S3],
+    });
+    await expectFits(savedTabIn(page, 'w3', 1));
+    const frames = await savedDrop(
+      page,
+      savedTabIn(page, 'w2', 2),
+      async () => (await boxOf(savedTabIn(page, 'w1', 0))).y + 6
+    );
+    expect(await savedTabsByWindow(page)).toEqual([
+      ['w2-t2', 'w1-t0', 'w1-t1', 'w1-t2'],
+      ['w2-t0', 'w2-t1'],
+      ['w3-t0', 'w3-t1'],
+    ]);
+    // PREMISE: w3 moved up a row.
+    expect(travel(frames, 'window w3')).toBeLessThan(-20);
+    expect(jumps(frames)).toEqual([]);
+    expect(strays(frames)).toEqual([]);
+  });
+
+  // The trailing New window block (KAN-361) becomes a new window, with an id
+  // no frame before the drop had.
+  test('saved, into the New window block below the last: no window is drawn over another', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: [S3],
+    });
+    await expectFits(savedTabIn(page, 'w3', 1));
+    const frames = await savedDrop(
+      page,
+      savedTabIn(page, 'w1', 2),
+      async () => {
+        const box = await boxOf(
+          page.locator('[data-pane="detail"] [data-new-window-target="last"]')
+        );
+        return box.y + box.height / 2;
+      }
+    );
+    const windows = await savedTabsByWindow(page);
+    // PREMISE: a fourth window, holding the dropped tab.
+    expect(windows?.length).toBe(4);
+    expect(windows?.[3]).toEqual(['w1-t2']);
+    expect(overlaps(frames)).toEqual([]);
+    expect(jumps(frames)).toEqual([]);
+  });
+
+  // A window the drag opened by resting on it (KAN-379) folds back when the
+  // drop lands elsewhere: its rows go at once, so the blocks below it move at
+  // once too, as every fold does, rather than glide through the gap.
+  test('saved, past a window the drag opened: the fold back is not a glide', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: [S3],
+    });
+    await page
+      .locator('[data-pane="detail"] [data-drop-window-id="w2"]')
+      .getByRole('button', { name: /^Collapse(: |$)/ })
+      .click();
+    await expect(savedTabIn(page, 'w2', 0)).toHaveCount(0);
+    const { x } = await pickUp(page, savedTabIn(page, 'w1', 2));
+    const w2 = await boxOf(
+      page.locator('[data-pane="detail"] [data-drop-window-id="w2"]')
+    );
+    await page.mouse.move(x, w2.y + w2.height / 2, { steps: 10 });
+    // PREMISE: resting there opened it.
+    await expect(savedTabIn(page, 'w2', 0)).toBeVisible({ timeout: 3000 });
+    await moveTo(page, x, (await boxOf(savedTabIn(page, 'w3', 0))).y + 6);
+    await recordFrames(
+      page,
+      savedRowsIn(['w1', 'w3']),
+      'data-drag-row-id',
+      'pointerup',
+      savedBlocks
+    );
+    await page.mouse.up();
+    const frames = await framesRecorded(page);
+    expectSettled(frames);
+    // PREMISE: the drop landed in w3, and w2 kept its tabs.
+    const windows = await savedTabsByWindow(page);
+    expect(windows?.[1]).toEqual(['w2-t0', 'w2-t1', 'w2-t2']);
+    expect(windows?.[2]).toContain('w1-t2');
+    // PREMISE: w2 folded back, so w3 rose by more than a row.
+    expect(travel(frames, 'window w3')).toBeLessThan(-60);
+    // Never seen between where it was and where it goes: a glide always is
+    // (a long one can step past `jumps`' half row in its fastest frame).
+    expect(eased(frames)).not.toContain('window w3');
+  });
+
+  test('CONTROL: with Reduce motion on, the windows below move at once', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSaved(context, extensionId, 'popup', {
+      sessions: [S3],
+    });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const frames = await dropIntoLowerSavedWindow(page);
+    expect(
+      jumps(frames).filter((j) => j.startsWith('window w2 frame'))
+    ).toHaveLength(1);
+    expect(strays(frames)).toEqual([]);
+  });
+
+  grantedTest(
+    'Currently open: the windows below glide up a row, and the dropped row from where it was let go',
+    async ({ context, extensionId, serviceWorker: worker }) => {
+      const page = await openTabView(context, extensionId);
+      const a = await openWindow(worker, ['a0', 'a1', 'a2']);
+      const b = await openWindow(worker, ['b0', 'b1', 'b2']);
+      const c = await openWindow(worker, ['c0', 'c1']);
+      const a2 = a.tab(2);
+      const [b0, b1, b2] = [b.tab(0), b.tab(1), b.tab(2)];
+      await expect(openTab(page, c.tab(1))).toBeVisible();
+      await expectFits(openTab(page, b0));
+      const { x } = await pickUpOpen(page, openTab(page, a2));
+      await moveTo(page, x, (await boxOf(openTab(page, b0))).y + 6);
+      await recordFrames(
+        page,
+        openTabRows,
+        'data-open-tab-id',
+        'pointerup',
+        openBlocks
+      );
+      await page.mouse.up();
+
+      const frames = await framesRecorded(page);
+      expectSettled(frames);
+      expect(await chromeOrder(worker, b.windowId)).toEqual([a2, b0, b1, b2]);
+      // PREMISE: the source's room closed, so B and C moved up a row.
+      expect(travel(frames, `window ${b.windowId}`)).toBeLessThan(-20);
+      expect(travel(frames, `window ${c.windowId}`)).toBeLessThan(-20);
+      expect(jumps(frames)).toEqual([]);
       expect(strays(frames)).toEqual([]);
     }
   );
