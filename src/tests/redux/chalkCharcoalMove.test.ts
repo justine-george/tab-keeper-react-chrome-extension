@@ -116,7 +116,8 @@ describe.each([
   it('starts a fresh install on the default with the flag set, writing nothing until a save', async () => {
     const { initialState, default: reduce, setTimeFormat } = await openPage();
     expect(initialState).toMatchObject({
-      theme: dark ? Theme.CHARCOAL : Theme.CHALK,
+      // KAN-829. Chalk on either OS.
+      theme: Theme.CHALK,
       isChalkCharcoalMoveApplied: true,
     });
     expect(stored()).toBeNull();

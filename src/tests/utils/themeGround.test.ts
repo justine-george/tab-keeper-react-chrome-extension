@@ -85,10 +85,10 @@ describe('theme-ground.js', () => {
     expect(groundFor(stored(value))).toBe(palette.PRIMARY_COLOR);
   });
 
-  // KAN-731. Absent or unknown follows the OS: Chalk, or Charcoal on a dark system.
+  // KAN-829. Absent or unknown is Chalk on either OS (KAN-731 picked Charcoal on a dark one).
   describe.each([
     ['light OS', false, CHALK_THEME.PRIMARY_COLOR],
-    ['dark OS', true, CHARCOAL_THEME.PRIMARY_COLOR],
+    ['dark OS', true, CHALK_THEME.PRIMARY_COLOR],
   ])('on a %s', (_os, dark, expected) => {
     beforeEach(() => {
       vi.stubGlobal('window', {

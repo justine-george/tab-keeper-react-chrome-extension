@@ -79,7 +79,8 @@ describe('overriding the theme colours for one subtree (KAN-198)', () => {
   // KAN-731. Another page writes a theme this build never shipped: this page reads the default.
   describe.each([
     ['light OS', false, Theme.CHALK, CHALK_THEME],
-    ['dark OS', true, Theme.CHARCOAL, CHARCOAL_THEME],
+    // KAN-829. Chalk on a dark OS too.
+    ['dark OS', true, Theme.CHALK, CHALK_THEME],
   ])('an unknown theme written on a %s', (_os, dark, fallback, table) => {
     const original = window.matchMedia;
     afterEach(() => {

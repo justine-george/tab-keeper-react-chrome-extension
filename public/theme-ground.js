@@ -28,10 +28,7 @@
     typeof theme === 'string' &&
     Object.prototype.hasOwnProperty.call(GROUNDS, theme)
       ? GROUNDS[theme]
-      : // KAN-731. Twin of defaultTheme() in src/utils/constants/theme.ts.
-        window.matchMedia &&
-          window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? GROUNDS.Charcoal
-        : GROUNDS.Chalk;
+      : // KAN-829. Twin of defaultTheme() in src/utils/constants/theme.ts.
+        GROUNDS.Chalk;
   document.documentElement.style.setProperty('--app-background', ground);
 })();

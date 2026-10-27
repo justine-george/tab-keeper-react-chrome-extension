@@ -8,7 +8,7 @@ import {
 } from '../../utils/constants/theme';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 
-// KAN-731. A new install is Chalk, or Charcoal on a dark OS; a known stored theme stays; each test stands up its own window.
+// KAN-829. A new install is Chalk on every OS (KAN-731 followed the OS); a known stored theme stays; each test stands up its own window.
 const setOs = (dark: boolean) =>
   vi.stubGlobal('window', {
     matchMedia: (q: string) => new FakeMediaQueryList(q, dark),
@@ -24,21 +24,9 @@ describe('defaultTheme', () => {
     expect(defaultTheme()).toBe(Theme.CHALK);
   });
 
-  it('is Charcoal on a dark OS', () => {
+  it('is Chalk on a dark OS too', () => {
     setOs(true);
-    expect(defaultTheme()).toBe(Theme.CHARCOAL);
-  });
-
-  it('asks for the dark scheme', () => {
-    const seen: string[] = [];
-    vi.stubGlobal('window', {
-      matchMedia: (q: string) => {
-        seen.push(q);
-        return new FakeMediaQueryList(q, false);
-      },
-    });
-    defaultTheme();
-    expect(seen).toEqual(['(prefers-color-scheme: dark)']);
+    expect(defaultTheme()).toBe(Theme.CHALK);
   });
 
   it('is Chalk where matchMedia is missing (a service worker)', () => {
@@ -76,7 +64,7 @@ describe('asTheme', () => {
       setOs(false);
       expect(asTheme(value)).toBe(Theme.CHALK);
       setOs(true);
-      expect(asTheme(value)).toBe(Theme.CHARCOAL);
+      expect(asTheme(value)).toBe(Theme.CHALK);
     }
   );
 });
@@ -92,7 +80,7 @@ describe('the settings slice', () => {
 
   it.each([
     [false, Theme.CHALK],
-    [true, Theme.CHARCOAL],
+    [true, Theme.CHALK],
   ])('starts a new install on the default (dark OS %s)', async (dark, want) => {
     expect(await fresh(dark)).toBe(want);
   });
@@ -109,7 +97,7 @@ describe('the settings slice', () => {
 
   it.each([
     [false, Theme.CHALK],
-    [true, Theme.CHARCOAL],
+    [true, Theme.CHALK],
   ])(
     'reads an unknown stored theme as the default (dark OS %s)',
     async (dark, want) => {
