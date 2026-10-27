@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import SearchRow from '../../common/SearchRow';
+import { SCROLLBAR_WIDTH_VAR } from '../../../hooks/useScrollbarWidthVar';
 import { ICON } from '../../../styles/scale';
 
 // OpenNowWindow's ICON_SLOT: the glass sits in the window glyph's column.
@@ -27,6 +28,8 @@ export default function OpenNowSearchRow(props: OpenNowSearchRowProps) {
       glassInset={GLASS_INSET}
       glassBox="column"
       textInset="8px"
+      // KAN-336. The pane writes its list's bar width here: the × stays over the tab rows' ×.
+      endInset={`var(${SCROLLBAR_WIDTH_VAR}, 0px)`}
       pane="openNow"
       emptyEscape="pass-on"
     />

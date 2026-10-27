@@ -1267,18 +1267,18 @@ test.describe('an IME composing a word in the field (KAN-330)', () => {
 
 // ---- measured: the two × columns with a classic scrollbar ----
 
-// Headless hides scrollbars by default, and a classic bar takes its width
-// from the scroller only: the tab rows' × moves left by it, the search row's
-// (outside the scroller) does not. KAN-336: known offset under a classic
-// scrollbar; update when KAN-336 lands.
-test.describe('with a classic scrollbar (KAN-330)', () => {
+// Headless hides scrollbars by default. The bar takes its width from the
+// scroller, and the search row sits outside it: KAN-336 (A) has the search
+// row give up the same width while the list scrolls, and take it back when
+// the list fits, so the two × columns line up either way.
+test.describe('with a classic scrollbar (KAN-330, KAN-336)', () => {
   test.use({ showScrollbars: true });
 
-  test("a tab row's × sits one scrollbar width left of the search row's × (KAN-336)", async ({
-    context,
-    extensionId,
-    serviceWorker,
-  }) => {
+  async function openThirtyTabs(
+    context: BrowserContext,
+    extensionId: string,
+    serviceWorker: Worker
+  ): Promise<Page> {
     await seedTwoSessions(context);
     await seedSideBySide(context);
     const titles = Array.from(
@@ -1291,50 +1291,102 @@ test.describe('with a classic scrollbar (KAN-330)', () => {
       height: 800,
     });
     await expect(liveRow(page, 'Tab 01')).toBeVisible();
-    const measure = () =>
-      page.evaluate(() => {
-        const centre = (el: Element | null | undefined) => {
-          if (!el) return null;
-          const r = el.getBoundingClientRect();
-          return { x: (r.left + r.right) / 2, width: r.width };
-        };
-        const row = document.querySelector(
-          '[data-pane="open-now"] [data-open-now-search]'
-        );
-        const slot = row?.lastElementChild;
-        const scroller = document.querySelector(
-          '[data-pane="open-now"] [data-open-window-id]'
-        )?.parentElement;
-        let s: Element | null | undefined = scroller;
-        while (s && !['auto', 'scroll'].includes(getComputedStyle(s).overflowY))
-          s = s.parentElement;
-        const strip = document.querySelector(
-          '[data-pane="open-now"] [data-open-tab-id] [data-close-tab]'
-        );
-        return {
-          searchSlot: centre(slot),
-          searchX: centre(slot?.querySelector('[role="button"]')),
-          tabStrip: centre(strip),
-          tabX: centre(strip?.querySelector('[role="button"]')),
-          scrollbar:
-            s instanceof HTMLElement ? s.offsetWidth - s.clientWidth : null,
-          overflows:
-            s instanceof HTMLElement ? s.scrollHeight > s.clientHeight : null,
-        };
-      });
+    return page;
+  }
+
+  // Centres of the search row's end slot and its ×, and of the first tab
+  // row's × strip and its ×; the scroller's bar width; the field's width.
+  const measure = (page: Page) =>
+    page.evaluate(() => {
+      const centre = (el: Element | null | undefined) => {
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return (r.left + r.right) / 2;
+      };
+      const row = document.querySelector(
+        '[data-pane="open-now"] [data-open-now-search]'
+      );
+      const slot = row?.lastElementChild;
+      const s = document.querySelector(
+        '[data-pane="open-now"] [data-open-now-scroller]'
+      );
+      const strip = document.querySelector(
+        '[data-pane="open-now"] [data-open-tab-id] [data-close-tab]'
+      );
+      return {
+        searchSlot: centre(slot),
+        searchX: centre(slot?.querySelector('[role="button"]')),
+        tabStrip: centre(strip),
+        tabX: centre(strip?.querySelector('[role="button"]')),
+        scrollbar:
+          s instanceof HTMLElement ? s.offsetWidth - s.clientWidth : null,
+        overflows:
+          s instanceof HTMLElement ? s.scrollHeight > s.clientHeight : null,
+        fieldWidth:
+          row?.querySelector('input')?.getBoundingClientRect().width ?? null,
+      };
+    });
+
+  test("while the list scrolls, the search row's × sits over the tab rows' × (KAN-336)", async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openThirtyTabs(context, extensionId, serviceWorker);
+    // Empty field: the end slot (where the / chip sits) is over the strips.
+    const empty = await measure(page);
+    console.log(`[scrollbar ×, empty] ${JSON.stringify(empty)}`);
+    expect(empty.overflows).toBe(true);
+    expect(empty.scrollbar).toBeGreaterThan(0);
+    if (empty.searchSlot === null || empty.tabStrip === null) {
+      throw new Error(`a box is missing: ${JSON.stringify(empty)}`);
+    }
+    expect(empty.searchSlot).toBeCloseTo(empty.tabStrip, 0);
+
     await field(page).fill('tab');
     await expect(liveRow(page, 'Tab 30')).toHaveCount(1);
-    const m = await measure();
+    const m = await measure(page);
     console.log(`[scrollbar ×] ${JSON.stringify(m)}`);
-    // PREMISES: the list scrolls, and the bar takes room from it.
+    // PREMISES: the list still scrolls, and the bar takes room from it.
     expect(m.overflows).toBe(true);
     if (m.searchX === null || m.tabX === null || m.scrollbar === null) {
       throw new Error(`a box is missing: ${JSON.stringify(m)}`);
     }
     expect(m.scrollbar).toBeGreaterThan(0);
-    // KAN-336: known offset under a classic scrollbar; update when KAN-336
-    // lands. Exactly the bar's measured width (10px here).
-    expect(m.searchX.x - m.tabX.x).toBeCloseTo(m.scrollbar, 0);
+    expect(m.searchX).toBeCloseTo(m.tabX, 0);
+  });
+
+  test('when a search makes the list fit, the search row takes the bar’s width back (KAN-336)', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const page = await openThirtyTabs(context, extensionId, serviceWorker);
+    await field(page).fill('tab');
+    await expect(liveRow(page, 'Tab 30')).toHaveCount(1);
+    const scrolling = await measure(page);
+    expect(scrolling.overflows).toBe(true);
+    if (scrolling.scrollbar === null || scrolling.fieldWidth === null) {
+      throw new Error(`a box is missing: ${JSON.stringify(scrolling)}`);
+    }
+    expect(scrolling.scrollbar).toBeGreaterThan(0);
+
+    // Nine matches fit: no bar, and the row has its full width again.
+    await field(page).fill('Tab 0');
+    await expect(liveRow(page, 'Tab 10')).toHaveCount(0);
+    await expect(liveRow(page, 'Tab 09')).toHaveCount(1);
+    await expect.poll(async () => (await measure(page)).overflows).toBe(false);
+    const m = await measure(page);
+    console.log(`[scrollbar ×, fits] ${JSON.stringify(m)}`);
+    expect(m.scrollbar).toBe(0);
+    if (m.searchX === null || m.tabX === null || m.fieldWidth === null) {
+      throw new Error(`a box is missing: ${JSON.stringify(m)}`);
+    }
+    expect(m.searchX).toBeCloseTo(m.tabX, 0);
+    expect(m.fieldWidth - scrolling.fieldWidth).toBeCloseTo(
+      scrolling.scrollbar,
+      0
+    );
   });
 });
 
