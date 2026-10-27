@@ -1,6 +1,7 @@
 import React from 'react';
 
 import Button from './Button';
+import { onFirstClickOnly } from './firstClickOnly';
 import type { IconName } from './iconNames';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { CONTROL, DURATION, TYPE } from '../../styles/scale';
@@ -16,6 +17,7 @@ interface RowTextButtonProps {
 }
 
 // A row's text button (KAN-394 D11, KAN-696): Open on a saved row, Save on a live one.
+// A double-click is one press (KAN-698): it opens or saves once.
 // The label steps up to TEXT on hover and press: LABEL_L1 is under 4.5:1 there.
 const RowTextButton: React.FC<RowTextButtonProps> = ({
   iconType,
@@ -34,7 +36,7 @@ const RowTextButton: React.FC<RowTextButtonProps> = ({
       text={text}
       ariaLabel={ariaLabel}
       tooltipText={tooltipText}
-      onClick={onClick}
+      onClick={onFirstClickOnly(onClick)}
       ariaDisabled={disable}
       style={`
         height: ${CONTROL.ROW};
