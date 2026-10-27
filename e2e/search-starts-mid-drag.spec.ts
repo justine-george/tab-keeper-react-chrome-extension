@@ -5,10 +5,10 @@ import { openPage } from './fixtures/onboarding';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 
 // KAN-832. A search typed while a row is held (Shift+Tab back to the field
-// mid-drag) cancels the drag (KAN-335), and the first match is still in
-// view. The cancel used to put back the scroll from the press, over the list
-// the search had just drawn. The lists that put the scroll back on a cancel
-// are Currently open's groups and the saved session's windows and groups.
+// mid-drag) cancels the drag (KAN-335), and the cancel no longer puts back
+// the scroll from the press over the list the search has just drawn.
+// Currently open's search puts its list at the top (KAN-339 B); the saved
+// search moves nothing, so its list keeps the scroll the drag's fold left.
 // Needs the tabGroups grant, so an Open now group is an item at all.
 
 const VIEW_TAB = 'index.html?view=tab';
@@ -166,8 +166,8 @@ test('a search typed while a group is held puts the list at the top, and Esc put
 });
 
 // The saved side, measured on main before the fix: scrolled to the end (928)
-// with the last window held, one letter put the search's list at its end
-// (592 of 592) and its first match at y=-429.
+// with the last window held (the fold took the scroll to 0), one letter put
+// the search's list at its end (592 of 592) and its first match at y=-429.
 const savedWindow = (i: number) => ({
   windowId: `w${i}`,
   windowHeight: 800,
@@ -185,7 +185,7 @@ const savedWindow = (i: number) => ({
   })),
 });
 
-test("a saved search typed while a session's window is held shows the first match", async ({
+test("a saved search typed while a session's window is held keeps the scroll the fold left", async ({
   context,
   extensionId,
 }) => {
@@ -231,6 +231,10 @@ test("a saved search typed while a session's window is held shows the first matc
   }
   expect(await inputFocused(), 'Shift+Tab never reached the field').toBe(true);
   expect(await isHeld(page)).toBe(true);
+  // PREMISE: the fold took the scroll well short of the press's, so a
+  // restore and a kept scroll differ.
+  const atSearch = (await savedScroller(page)).top;
+  expect(atSearch).toBe(0);
 
   await page.keyboard.type('l');
   await expect(page.getByText('Notes 7-0', { exact: true })).toHaveCount(0);
@@ -245,6 +249,8 @@ test("a saved search typed while a session's window is held shows the first matc
       )
   );
 
+  expect((await savedScroller(page)).top).toBe(atSearch);
+  // So, from the top here, the first match is in view.
   const first = await page
     .getByText('Lisbon guide 0-0', { exact: true })
     .boundingBox();

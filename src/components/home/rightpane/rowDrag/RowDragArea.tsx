@@ -2126,8 +2126,9 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // `pressStillDown` is true for a cancel the pointer has not ended -- Esc,
     // or the list turning drag off (KAN-335) -- whose press will still be
     // released, and whose release Chrome may still turn into a click.
-    // `listTurnedOff` is true for the list turning drag off: its rows changed,
-    // so the scroll from the press is not put back (KAN-832).
+    // `listTurnedOff` is true for the list turning drag off (`disabled`, or
+    // carry-only for an in-list drag): a search changed its rows, so the
+    // scroll from the press is not put back (KAN-832).
     const finish = (
       commit: boolean,
       pressStillDown: boolean,
