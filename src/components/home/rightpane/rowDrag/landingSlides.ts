@@ -67,8 +67,10 @@ export function slideLanding(
   if (row !== undefined && Math.abs(rowBy) >= 1) glide(row, rowBy);
 }
 
-// From `by` px off its place to its place, as rows step aside.
+// From `by` px off its place to its place, as rows step aside. jsdom has no
+// Web Animations: there the move is drawn at once.
 function glide(el: Element, by: number): void {
+  if (typeof el.animate !== 'function') return;
   el.animate([{ transform: `translateY(${by}px)` }, { transform: 'none' }], {
     duration: parseInt(DURATION.MOVE, 10),
     easing: 'ease',
