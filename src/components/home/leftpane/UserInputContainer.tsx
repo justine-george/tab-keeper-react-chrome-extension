@@ -35,6 +35,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useNewSessionReceiver } from './useNewSessionReceiver';
 import { otherScope, SAVE_OF } from './saveScopes';
+import SaveInvite, { SAVE_SEGMENT_WIDTH } from './SaveInvite';
 
 export default function UserInputContainer() {
   const { t } = useTranslation();
@@ -252,6 +253,7 @@ export default function UserInputContainer() {
   // border-box globally (App.css), so the group's own border sits inside that
   // height and the row stays flush -- the segments take 100% of what is left.
   const saveGroupStyle = css`
+    position: relative;
     display: flex;
     flex-shrink: 0;
     border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
@@ -315,8 +317,9 @@ export default function UserInputContainer() {
             ariaLabel={t(buttonSave.labelKey)}
             iconType={buttonSave.icon}
             onClick={() => createTabGroup(buttonScope)}
-            style="width: 58px; height: 100%; padding: 0; flex-shrink: 0; border: none;"
+            style={`width: ${SAVE_SEGMENT_WIDTH}; height: 100%; padding: 0; flex-shrink: 0; border: none;`}
           />
+          <SaveInvite />
           <OverflowMenu
             // The same name the session header's and the group row's menus
             // carry. Three controls in the popup now answer to it, which is

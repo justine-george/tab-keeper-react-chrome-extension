@@ -188,6 +188,8 @@ export const DURATION = {
   DRAWER_IN: '240ms',
   /** ...and out: faster, since the user has already moved on (KAN-810). */
   DRAWER_OUT: '170ms',
+  /** One pulse of the save invite's ring, played three times (KAN-828). */
+  INVITE: '1800ms',
 } as const;
 
 /**

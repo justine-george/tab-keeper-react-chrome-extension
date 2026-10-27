@@ -19,6 +19,7 @@ import {
   finishSetup,
   guardOnboarding,
   markClosesThisTabCardAnswered,
+  markHadSavedSession,
   markFullViewCalloutSeen,
   markFullViewOpened,
   markWhatsNew2Seen,
@@ -54,6 +55,7 @@ const GARBAGE = {
   firstRun: { view: 'tab', step: 1 },
   isWhatsNew2Seen: 'yes',
   isClosesThisTabCardAnswered: 'true',
+  hasHadSavedSession: 1,
 };
 
 const ALL_SET = {
@@ -73,6 +75,7 @@ const ALL_SET = {
   },
   isWhatsNew2Seen: true,
   isClosesThisTabCardAnswered: true,
+  hasHadSavedSession: true,
 } as const;
 
 const ONBOARDING_KEYS: string[] = Object.keys(ONBOARDING_DEFAULTS);
@@ -192,6 +195,11 @@ describe('the onboarding reducers persist what they set', () => {
       'markClosesThisTabCardAnswered',
       markClosesThisTabCardAnswered(),
       { isClosesThisTabCardAnswered: true },
+    ],
+    [
+      'markHadSavedSession',
+      markHadSavedSession(),
+      { hasHadSavedSession: true },
     ],
     ['setDefaultView', setDefaultView('full'), { defaultView: 'full' }],
   ] as const)('%s sets and saves', (_name, action, expected) => {
