@@ -434,3 +434,13 @@ describe('an Open now tab row right-click (KAN-708)', () => {
     expect(getComputedStyle(row).backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
   });
 });
+
+// KAN-824. Open now's tab rows show the address on hover, as saved tabs do.
+describe('an Open now tab tooltip (KAN-824)', () => {
+  test('is its address', async () => {
+    await renderOpenNow(() => undefined);
+    expect(liveRow('Live 2').getAttribute('data-tooltip')).toBe(
+      'https://live2.test/'
+    );
+  });
+});

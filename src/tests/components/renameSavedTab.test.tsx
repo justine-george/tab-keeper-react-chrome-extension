@@ -299,3 +299,44 @@ describe('a renamed tab shows its own name (KAN-824)', () => {
     expect(out?.card).toMatchObject({ kind: 'tab', title: 'Search' });
   });
 });
+
+// KAN-824 (his 1A). Hovering a saved tab shows where it goes.
+describe("a saved tab's tooltip (KAN-824)", () => {
+  const tip = (name: string) => row(name).getAttribute('data-tooltip');
+
+  test('is its address', async () => {
+    await renderSaved();
+    expect(tip(PAGE)).toBe('https://x.com/alexjo/1');
+  });
+
+  test('of a renamed tab is its page title, then its address', async () => {
+    await renderSaved();
+    expect(tip('Search')).toBe('Kagi\nhttps://kagi.com/');
+  });
+
+  test('of a renamed tab with no page title is just its address', async () => {
+    await renderSaved('tg1', [{ ...TABS[1], title: '' }]);
+    expect(tip('Search')).toBe('https://kagi.com/');
+  });
+
+  test('of a suspended tab is the address it stands for', async () => {
+    await renderSaved('tg1', [
+      {
+        ...TABS[2],
+        url: 'chrome-extension://laameccjpleogmfhilmffpdbiibgbekf/suspended.html?title=Docs&url=https%3A%2F%2Fdocs.test%2Fa',
+      },
+    ]);
+    expect(tip('Docs')).toBe('https://docs.test/a');
+  });
+
+  test('says Open works after the tour while the tour blocks it', async () => {
+    const { store } = await renderSaved('sample:x');
+    act(() => {
+      store.dispatch(
+        recordFirstRun({ ...newRun('popup', 6), sessionId: 'sample:x' })
+      );
+      store.dispatch(runShownHere());
+    });
+    expect(tip(PAGE)).toBe('Open works after the tour');
+  });
+});

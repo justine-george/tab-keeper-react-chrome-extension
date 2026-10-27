@@ -126,6 +126,7 @@ function Fixture({ withB = true }: { withB?: boolean }) {
       <button data-tooltip="Weekend in Kyoto">
         <span data-testid="repeat">Weekend in Kyoto</span>
       </button>
+      <button data-tooltip={'Kagi\nhttps://kagi.com/'}>two lines</button>
       <Button
         text="Replace"
         tooltipText="Replace this session with open windows"
@@ -738,5 +739,16 @@ describe('mounted on every page', () => {
     pointerTo(anchor);
     wait(300);
     expect(chip()).toHaveTextContent(anchor.getAttribute('data-tooltip') ?? '');
+  });
+});
+
+// KAN-824. A renamed tab's tooltip is its page title over its address.
+describe('a tooltip of two lines', () => {
+  test('keeps its line break', async () => {
+    await setup();
+    pointerTo(screen.getByText('two lines'));
+    wait(300);
+    expect(chip()?.textContent).toBe('Kagi\nhttps://kagi.com/');
+    expect(getComputedStyle(chip()!).whiteSpace).toBe('pre-line');
   });
 });

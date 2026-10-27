@@ -1,5 +1,5 @@
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
-import { normalizeTitle } from './local';
+import { normalizeTitle, resolveTabUrl } from './local';
 
 // KAN-824. The name a saved tab shows: the user's own, else the page's.
 export function shownTitle(
@@ -22,4 +22,14 @@ export function customTitleFrom(
 ): string | undefined {
   const name = normalizeTitle(typed);
   return name === '' || name === normalizeTitle(pageTitle) ? undefined : name;
+}
+
+// KAN-824. A saved tab's hover: where it goes; a renamed one, its page title above that.
+export function addressTooltip(
+  tab: Pick<tabData, 'title' | 'url' | 'customTitle'>
+): string {
+  const address = resolveTabUrl(tab.url);
+  return tab.customTitle !== undefined && tab.title !== ''
+    ? `${tab.title}\n${address}`
+    : address;
 }

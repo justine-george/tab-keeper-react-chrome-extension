@@ -115,7 +115,7 @@ describe('opens on the tour’s sample', () => {
     expect(r.chrome.createdTabs.map((t) => t.url)).toEqual(['https://b.co']);
   });
 
-  test('a tab row keeps its name, says why, stays focusable and opens nothing; after the tour it opens', async () => {
+  test('a tab row keeps its name, says why, stays focusable and opens nothing; after the tour it opens and shows its address', async () => {
     const r = await renderSampleWindow();
     const row = screen.getByRole('button', { name: 'Open in new tab: Loose' });
     expect(row).toHaveAttribute('aria-disabled', 'true');
@@ -130,7 +130,9 @@ describe('opens on the tour’s sample', () => {
 
     endTour(r);
     expect(row).not.toHaveAttribute('aria-disabled');
-    expect(row).not.toHaveAttribute('data-tooltip');
+    // KAN-824. The tour's why gives way to the address, shown and said.
+    expect(row).toHaveAttribute('data-tooltip', 'https://a.co');
+    expect(row).toHaveAttribute('aria-description', 'https://a.co');
     fireEvent.click(row);
     await settle();
     expect(r.chrome.createdTabs.map((t) => t.url)).toEqual(['https://a.co']);

@@ -99,7 +99,11 @@ import { placeholderStyle } from '../../../styles/placeholder';
 import { windowLabel } from '../../../utils/functions/windowLabel';
 import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
 import { useFocusOnRemount } from '../../../hooks/useFocusOnRemount';
-import { customTitleFrom, shownTitle } from '../../../utils/functions/tabTitle';
+import {
+  addressTooltip,
+  customTitleFrom,
+  shownTitle,
+} from '../../../utils/functions/tabTitle';
 
 /**
  * The Chrome group title, and the editor that replaces it (KAN-205).
@@ -1167,7 +1171,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             buttonRef={titleFocus.refFor(`tab:${tabId}`)}
             // As Open now says a pinned tab: its own description, no joiner (KAN-307).
             ariaDescribedBy={describedBy === '' ? undefined : describedBy}
-            tooltipText={openBlockedBecause ?? undefined}
+            tooltipText={openBlockedBecause ?? addressTooltip(tab)}
             disable={isOpenBlocked}
             onClick={() => handleTabClick(url)}
             style={childLeftStyle}
