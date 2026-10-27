@@ -26,13 +26,13 @@ Tab Keeper stores settings including your theme, language, sync preference, disp
 
 ### Anonymous sync identifier
 
-When you turn on sync, Tab Keeper uses the random identifier that Chrome sync storage already holds from another of your devices, or creates one and stores it there. Chrome may copy this identifier to other devices using the same Chrome profile. Tab Keeper uses it to locate the Firestore document shared by those devices.
+When you turn on sync, Tab Keeper uses the random identifier that Chrome sync storage already holds from another of your devices, or creates one and stores it there. Chrome may copy this identifier to other devices using the same Chrome profile. Tab Keeper uses it to find the synced sessions shared by those devices.
 
 Tab Keeper does not receive or store your name, email address, or Google account identity.
 
 ### Uninstall feedback
 
-When you uninstall Tab Keeper, Chrome opens a short Google Form asking why. The link that opens it includes your Tab Keeper version and the language Tab Keeper uses (or your browser's language, if Tab Keeper hasn't recorded one yet), and nothing else: no tabs, sessions, sync identifier, or account details. Opening the form sends that link to Google, like any web page request. Your answers are recorded only if you press Submit. The form is provided by Google and covered by the [Google Privacy Policy](https://policies.google.com/privacy).
+When you uninstall Tab Keeper, Chrome opens a short Google Form asking why. The link that opens it includes basic technical information, such as your Tab Keeper version and language. It does not include your saved sessions. Opening the form sends that link to Google, like any web page request. Your answers are recorded only if you press Submit. The form is provided by Google and covered by the [Google Privacy Policy](https://policies.google.com/privacy).
 
 ## How Tab Keeper uses information
 
@@ -59,7 +59,7 @@ Tab Keeper asks for your permission before syncing for the first time on each de
 
 When cloud sync is enabled or you manually request a sync, Tab Keeper signs in to Firebase anonymously. Firebase creates an anonymous authentication record; no registration or email address is required.
 
-Tab Keeper then stores your sessions in a single Google Cloud Firestore document identified by the anonymous sync identifier. Google provides the authentication and cloud-storage services under the [Google Privacy Policy](https://policies.google.com/privacy) and [Firebase privacy and security terms](https://firebase.google.com/support/privacy).
+Tab Keeper then stores your sessions in Google Cloud Firestore, linked to the anonymous sync identifier. Google provides the authentication and cloud-storage services under the [Google Privacy Policy](https://policies.google.com/privacy) and [Firebase privacy and security terms](https://firebase.google.com/support/privacy).
 
 ### Backup files
 
@@ -81,7 +81,7 @@ Tab Keeper does not transmit your saved-session data to any other service. Reque
 
 ### Data on this device
 
-Saved sessions remain until you delete them, clear the extension's storage, or uninstall Tab Keeper. Deleting a session removes its saved contents. A deletion record containing only the session's internal identifier and deletion time is kept so the deletion can be synchronized to other devices. It becomes eligible for cleanup after 30 days and may remain until a later sync performs that cleanup.
+Saved sessions remain until you delete them, clear the extension's storage, or uninstall Tab Keeper. Deleting a session removes its saved contents. A minimal deletion record is kept for a limited time so the deletion can reach your other devices.
 
 Settings remain until the extension's storage is cleared or Tab Keeper is uninstalled.
 
@@ -89,19 +89,19 @@ The anonymous identifier remains in Chrome sync storage until the extension's sy
 
 ### Cloud session data
 
-Your Firestore session document remains until you delete it. Turning off Auto sync or uninstalling Tab Keeper does not delete an existing cloud document.
+Your cloud session data remains until you delete it. Turning off Auto sync or uninstalling Tab Keeper does not delete it.
 
 To remove it, open:
 
 **Settings → Sync & backup → Delete cloud data**
 
-This deletes the Firestore session document and turns off Auto sync on that device. It does not delete sessions stored locally on your devices.
+This deletes your cloud session data and turns off Auto sync on that device. It does not delete sessions stored locally on your devices.
 
-Another device using the same Chrome profile may upload its local copy again the next time it syncs. To prevent that, turn off Auto sync on your other devices before deleting the cloud document.
+Another device using the same Chrome profile may upload its local copy again the next time it syncs. To prevent that, turn off Auto sync on your other devices before deleting your cloud data.
 
-Deleting the Firestore document does not necessarily remove Firebase authentication records or operational logs retained by Google under its own policies. Those records do not contain your saved sessions, name, or email address.
+Deleting your cloud data does not necessarily remove Firebase authentication records or operational logs retained by Google under its own policies.
 
-If you cannot use the deletion control, contact the developer at the address below.
+Privacy questions can be sent to the contact address below.
 
 ## Permissions
 
@@ -113,7 +113,7 @@ If you cannot use the deletion control, contact the developer at the address bel
 
 ## Security
 
-Information sent to Google Firebase is transmitted using encrypted connections.
+Information sent to Google Firebase is transmitted using encrypted connections. No method of transmission or storage is completely secure.
 
 Local extension storage and exported backup files are not separately encrypted by Tab Keeper. Anyone with access to your Chrome profile or an exported backup file may be able to read the sessions stored there.
 
@@ -124,7 +124,7 @@ You can:
 - Export a copy of your sessions with **Save sessions to a file**
 - Delete individual sessions from Tab Keeper
 - Turn off Auto sync to stop automatic cloud updates from that device
-- Delete your Firestore session document through **Delete cloud data**
+- Delete your cloud session data through **Delete cloud data**
 - Uninstall Tab Keeper to remove its local extension data
 - Contact the developer with a privacy question or request
 
@@ -134,10 +134,8 @@ Tab Keeper's use of information received from Chrome APIs complies with the [Chr
 
 ## Changes to this policy
 
-This policy is maintained in Tab Keeper's public source repository, where its revision history is visible. When the policy changes, the date at the top of this page will be updated. Material changes to how Tab Keeper handles information will also be disclosed through the extension or its Chrome Web Store listing.
+This policy is maintained in Tab Keeper's public source repository, where its revision history is visible. This policy may be updated from time to time. The date at the top shows the latest revision.
 
 ## Contact
-
-Justine George
 
 justinegeo96@gmail.com
