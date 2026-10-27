@@ -48,7 +48,59 @@ Read the full [privacy policy](PRIVACY.md).
 
 ## Changelog
 
-### v.1.9.0 (Latest)
+### v.2.0.0 (Latest)
+
+#### Features
+
+- Currently open: a pane beside your saved sessions that lists every window, tab group and tab open right now, with its own search. The window you're in comes first, and the tab you came from is marked
+- From Currently open, bring a window to the front, go to a tab group, rename or recolor a group, and save one window, all of them, or a single group as a session
+- Open Tab Keeper as a full view in its own tab, with panes you can widen, and go back to your tab with Back to your tab
+- Drag a tab, tab group or window to another saved session, or out into a new window. A handle shows what can be dragged
+- Drag between Currently open and your saved sessions: drop a saved tab, group or window into Currently open to open it, or drag open tabs into a session to copy them there
+- Drag a tab in among the pinned tabs to pin it, or out to unpin it, in saved sessions and in Currently open
+- Replace a saved session with the windows you have open now, keeping its name and its place in the list
+- Saved sessions keep pinned tabs, the active tab, collapsed tab groups, maximized and full-screen windows, and split view, and restore them
+- Remove duplicate tabs from a session, window or group, sort a window's tabs by site, and sort its tab groups by name
+- Undo a deleted session, window, group or tab, and step back through moves in Currently open with Ctrl+Z. Sessions deleted on this device wait in Settings → Recently deleted for 30 days
+- Copy all links from a window, a group, a saved session, or everything you have open
+- Right-click any row for its menu, and rename sessions, windows, groups and tabs from it or by clicking a title
+- A short setup and a guided tour on first run, and a What's new tour after upgrading. Until your first save, arrows point at the save button
+- Tab Keeper starts in Chrome's language, and adds Traditional Chinese, Korean and Swedish, for 13 languages
+- Two higher-contrast themes, Chalk and Charcoal. A new install starts in Chalk, and Paper and Graphite move to Chalk and Charcoal once
+- Settings for 12- or 24-hour time, and for whether the save button saves all windows or only the current one
+- On a new computer, the first run picks up the sessions you synced from another one, and Settings → Sync & backup shows how much of the sync limit your sessions use
+
+#### Fixes
+
+- Muting a tab in Currently open and Chrome's own site mute now agree, and sorting by site no longer makes Chrome's tabs jump around
+- Search keeps the first match in view and also matches tab group titles. Clearing it puts the list back where it was
+- A dropped row lands where the drag preview showed it, and the rows that made room no longer jump
+- Reopen brings a closed window or tab back where it was, in its tab group, with its Back and Forward history
+- Tab Keeper's own tab is left out of a saved session, and a window is saved as it really is
+- With "Pin Tab Keeper in new windows" on, the pinned tab survives Switch and extension updates, and no longer turns up in a normal window after an incognito one
+- An edit made while a sync runs is kept, two open Tab Keeper pages no longer overwrite each other, and nothing uploads before you say yes to sync
+- Esc closes the menu, dialog or field you're in instead of the whole popup
+- The Delete key deletes the selected session, and keyboard focus lands in a sensible place after a rename or a delete
+- When this device's storage is full, Tab Keeper says so instead of losing the change on the next open
+- A click outside an open menu only closes the menu, and a row's Switch button works on the first click
+
+#### Improvements
+
+- Currently open's rows match the saved list, with a clearer mark for the active tab beside a group's color
+- The narrow Currently open drawer closes with Esc or a click outside, and its close button sits in the top corner
+- Sync status reads more clearly, and size-limit warnings show before you turn sync on
+- Focus rings match the app's look and show only when you move with the keyboard
+- Text and controls are easier to read in every theme, screen readers hear clearer button names, and the Settings gear stays still when your system asks for reduced motion
+- Messages stack instead of replacing each other, and stay longer when they need you
+- Session dates say Today or Yesterday, and sorting by name puts Trip 2 before Trip 10
+- Window and group rows show how many tabs they hold, and a cut-off title shows in full when you point at it
+- Export is now Save as PDF, and the file shows each tab's site icon. The page says it's a preview, and closing it takes you back to the tab you started on
+- Translations read more naturally, counts follow each language's word order, and Japanese and Chinese text uses the right character forms
+- The first run and the tour fit more languages and window sizes, and point at the right place even with vertical tabs. The sample session stays if you moved your own tabs into it
+- Settings is easier to scan and lists Chrome's language first. Change shortcut opens Chrome's shortcuts page and shows the new key when you come back
+- Leaving the full view returns you to the tab you opened it from, and offers to pin it first so it stays open
+
+### v.1.9.0
 
 #### Features
 
@@ -102,21 +154,6 @@ Read the full [privacy policy](PRIVACY.md).
 #### Improvements
 
 - Each session now says whether its date is when it was last edited or when it was first saved
-
-### v.1.7.0
-
-#### Features
-
-- Rename a saved Chrome tab group, and clear its name again, without opening the session
-- Change a saved tab group's color from the colored bar beside it
-- Click a saved tab group to open its tabs next to the current one, re-formed in Chrome as the group you saved
-- Add the current tab to a saved tab group, ungroup it, or delete the group and its tabs
-
-#### Fixes
-
-- Renaming a session now has a visible tick to finish with, like renaming a window already did
-- The window rename box now shows its tick without hovering, and runs to the edge of its row
-- Settings sections now have even space on both sides instead of sitting off-center
 
 [View All Changelog →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Changelog)
 
