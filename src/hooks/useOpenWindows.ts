@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { isDragHeld, whenDragReleases } from '../redux/dragHold';
 import { onTabMovesEnded } from '../redux/undoHistory';
+import { copyLooks, forgetCopyLooks } from '../utils/functions/copyLooks';
 import { toOpenWindows } from '../utils/functions/openNow';
 import type { OpenWindow } from '../utils/functions/openNow';
 
@@ -65,7 +66,10 @@ export function useOpenWindows(showGroups: boolean): OpenWindow[] | null {
         ]);
         if (!live || mine <= appliedSeq) return;
         appliedSeq = mine;
-        setOpenWindows(toOpenWindows(all, groups, self?.windowId ?? null));
+        forgetCopyLooks(all);
+        setOpenWindows(
+          toOpenWindows(all, groups, self?.windowId ?? null, copyLooks())
+        );
       } catch (error) {
         // A window closed between calls, say. Keep the last good snapshot;
         // the next event reads again.

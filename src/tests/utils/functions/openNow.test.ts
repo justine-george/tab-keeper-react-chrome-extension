@@ -199,6 +199,98 @@ describe('toOpenWindows', () => {
     });
   });
 
+  // KAN-851. A copy Tab Keeper opened reads its saved look while Chrome has
+  // no title of its own for it.
+  describe('a copy Tab Keeper opened', () => {
+    const LOOK = {
+      title: 'Kyoto temple guide',
+      favIconUrl: 'data:image/png;base64,AAAA',
+    };
+    const copyIn = async (tab: Partial<chrome.tabs.Tab>) => {
+      handle = setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [{ id: 5, url: 'https://kyoto.test/temple', ...tab }],
+          },
+        ],
+      });
+      return toOpenWindows(
+        await getWindows(),
+        null,
+        null,
+        new Map([[5, LOOK]])
+      )[0].tabs[0];
+    };
+
+    test('loading with no title: its saved title and icon', async () => {
+      expect(await copyIn({ status: 'loading', title: '' })).toMatchObject({
+        title: LOOK.title,
+        favIconUrl: LOOK.favIconUrl,
+        url: 'https://kyoto.test/temple',
+      });
+    });
+
+    test('loading with no address yet either: its saved title', async () => {
+      expect(
+        await copyIn({ status: 'loading', title: '', url: '', pendingUrl: '' })
+      ).toMatchObject({ title: LOOK.title });
+    });
+
+    test('loading, titled with its address, with or without the scheme: its saved title', async () => {
+      expect(
+        await copyIn({ status: 'loading', title: 'https://kyoto.test/temple' })
+      ).toMatchObject({ title: LOOK.title });
+      expect(
+        await copyIn({ status: 'loading', title: 'kyoto.test/temple' })
+      ).toMatchObject({ title: LOOK.title });
+    });
+
+    test("loading, once the page has its own title: the page's, and Chrome's icon once it has one", async () => {
+      expect(
+        await copyIn({
+          status: 'loading',
+          title: 'Kiyomizu-dera',
+          favIconUrl: 'https://kyoto.test/icon.png',
+        })
+      ).toMatchObject({
+        title: 'Kiyomizu-dera',
+        favIconUrl: 'https://kyoto.test/icon.png',
+      });
+    });
+
+    test("loaded: Chrome's, even when that is its address", async () => {
+      expect(
+        await copyIn({ status: 'complete', title: 'kyoto.test/temple' })
+      ).toMatchObject({ title: 'kyoto.test/temple', favIconUrl: '' });
+    });
+
+    test('CONTROL: any other loading tab falls back to its address', async () => {
+      handle = setupChromeFake({
+        windows: [
+          {
+            id: 1,
+            tabs: [
+              {
+                id: 6,
+                status: 'loading',
+                title: '',
+                url: 'https://kyoto.test/',
+              },
+            ],
+          },
+        ],
+      });
+      const [win] = toOpenWindows(
+        await getWindows(),
+        null,
+        null,
+        new Map([[5, LOOK]])
+      );
+      expect(win.tabs[0].title).toBe('https://kyoto.test/');
+    });
+  });
+
   test('groups === null: every groupId is null and groups is [], even for a tab carrying a Chrome group id', async () => {
     handle = setupChromeFake({
       windows: [{ id: 1, tabs: [{ url: 'https://a.test/', groupId: 7 }] }],
