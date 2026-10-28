@@ -30,6 +30,15 @@ describe('forgetCopyLooks', () => {
     expect(copyLooks().get(5)).toEqual(LOOK);
   });
 
+  // As toOpenWindows draws it: anything but loaded is still loading.
+  test('keeps a copy Chrome lists as unloaded', async () => {
+    rememberCopyLook(5, LOOK);
+
+    forgetCopyLooks(await windowsWith({ id: 5, status: 'unloaded' }));
+
+    expect(copyLooks().get(5)).toEqual(LOOK);
+  });
+
   test('forgets a copy Chrome has loaded', async () => {
     rememberCopyLook(5, LOOK);
 
