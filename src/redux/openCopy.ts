@@ -1,14 +1,15 @@
 // KAN-815. A saved tab, group or window let go over Currently open opens a
 // copy in Chrome, in the background: at a slot of a live window, or in a new
 // unfocused window. The saved session is never changed, so there is no toast
-// and no Undo (as Open). The answer is synchronous -- whether Chrome was asked
-// -- because the carry ends in the same call (RowDragArea's finish); the
-// Chrome work runs after it returns and never throws.
+// and no Undo (as Open). Whether Chrome was asked is known at once, because
+// the carry ends in the same call (RowDragArea's finish); whether it opened
+// the copy comes later, and never throws.
 import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 
 import { pickOf, sourceWindowOf } from './carriedItem';
 import type { CarriedItem, CarriedPick } from './carriedItem';
 import { noteReviewMoment } from './reviewAsk';
+import { whileMovingTabs } from './undoHistory';
 import { toWindowSpec } from './slices/tabContainerDataStateSlice';
 import type {
   tabData,
@@ -95,13 +96,20 @@ export function copyWindowSpec(
   }
 }
 
+// Null when Chrome was not asked; else whether it opened the copy. A new
+// window's restore sends no answer, so it is taken as opened. A copy at a slot
+// runs as Tab Keeper's own move (KAN-850): Open now reads it at once.
 export const openCarriedCopy =
-  (item: CarriedItem, place: CopyPlace, goToURLText: string): Thunk<boolean> =>
+  (
+    item: CarriedItem,
+    place: CopyPlace,
+    goToURLText: string
+  ): Thunk<Promise<boolean> | null> =>
   (dispatch, getState) => {
-    if (item.source !== 'saved') return false;
+    if (item.source !== 'saved') return null;
     const state = getState();
     const window = sourceWindowOf(state.tabContainerDataState.tabGroups, item);
-    if (!window) return false;
+    if (!window) return null;
     const pick = pickOf(item);
 
     // As every Open does (KAN-149), except for the sample (KAN-7).
@@ -115,7 +123,7 @@ export const openCarriedCopy =
     let opened: Promise<boolean>;
     if (place.kind === 'newWindow') {
       const spec = copyWindowSpec(window, pick);
-      if (!spec) return false;
+      if (!spec) return null;
       const request: RestoreSessionRequest = {
         type: RESTORE_SESSION_MESSAGE,
         specs: [spec],
@@ -126,29 +134,26 @@ export const openCarriedCopy =
       // The worker's restore sends no answer: counted when asked, as Open.
       noteRestore();
       void chrome.runtime.sendMessage(request);
-      return true;
+      return Promise.resolve(true);
     } else if (place.kind === 'tab' && pick.kind === 'tab') {
       const tab = window.tabs.find((t) => t.tabId === pick.tabId);
-      if (!tab) return false;
-      opened = openTabCopy(unsplit(tab), place.slot).then(
-        (id) => id !== undefined
-      );
+      if (!tab) return null;
+      opened = whileMovingTabs(() =>
+        openTabCopy(unsplit(tab), place.slot)
+      ).then((id) => id !== undefined);
     } else if (place.kind === 'group' && pick.kind === 'group') {
       const found = groupOf(window, pick.groupId);
-      if (!found) return false;
-      opened = openGroupCopy(
-        found.tabs,
-        found.group,
-        place.slot,
-        goToURLText
+      if (!found) return null;
+      opened = whileMovingTabs(() =>
+        openGroupCopy(found.tabs, found.group, place.slot, goToURLText)
       ).then((ids) => ids.some((id) => id !== undefined));
     } else {
-      return false;
+      return null;
     }
 
     // A window closed mid-carry refuses every tab, and is no restore.
-    void opened.then((any) => {
+    return opened.then((any) => {
       if (any) noteRestore();
+      return any;
     });
-    return true;
   };

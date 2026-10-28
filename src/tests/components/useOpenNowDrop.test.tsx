@@ -775,10 +775,25 @@ describe('a saved item carried in', () => {
       },
       expect.any(String)
     );
-    await done;
+    // KAN-850. Once Chrome has opened it: the rows hold until it is drawn.
+    await expect(done).resolves.toBe('copied');
+    expect(handle?.createdTabs).toHaveLength(1);
     expect(moveOpenTab).not.toHaveBeenCalled();
     expect(selectLiveStepOnTop(store.getState())).toBeNull();
-    await waitFor(() => expect(handle?.createdTabs).toHaveLength(1));
+  });
+
+  // KAN-850. Nothing will be drawn at the slot: the rows ease back.
+  test('a tab Chrome refuses at the slot resolves null', async () => {
+    const item = tabItem();
+    const { result, carriedIn } = await carrying(item);
+    vi.mocked(openCarriedCopy).mockImplementationOnce(
+      () => () => Promise.resolve(false)
+    );
+
+    await expect(
+      result.current.tabs.onMove(carriedIn.rowId, 3, undefined, '1')
+    ).resolves.toBeNull();
+    expect(carryEndedAs(item)).toBe('copied');
   });
 
   test('onto a folded window it keeps its saved pin', async () => {
@@ -838,6 +853,20 @@ describe('a saved item carried in', () => {
     expect(carryEndedAs(item)).toBe('copied');
   });
 
+  // KAN-850. Drawn below every window, never at the slot the rows made.
+  test('a new window resolves null: the rows ease back', async () => {
+    const { result, carriedIn } = await carrying(tabItem());
+
+    await expect(
+      result.current.tabs.onMove(
+        carriedIn.rowId,
+        0,
+        undefined,
+        OPEN_NOW_HEADER_NEW_WINDOW
+      )
+    ).resolves.toBeNull();
+  });
+
   // Demo round 1 (D2): the header, where the list keeps the drag.
   test('the header opens it in a new window', async () => {
     const item = tabItem();
@@ -862,7 +891,12 @@ describe('a saved item carried in', () => {
     const item = groupItem();
     const { result, carriedIn, windows } = await carrying(item);
 
-    void result.current.items.onMove(carriedIn.rowId, 1, undefined, '2');
+    const done = result.current.items.onMove(
+      carriedIn.rowId,
+      1,
+      undefined,
+      '2'
+    );
     expect(openCarriedCopy).toHaveBeenLastCalledWith(
       item,
       { kind: 'group', slot: groupCopySlot(windows, '2', 1) },
@@ -870,6 +904,7 @@ describe('a saved item carried in', () => {
     );
     expect(carryEndedAs(item)).toBe('copied');
     expect(moveOpenGroup).not.toHaveBeenCalled();
+    await expect(done).resolves.toBe('copied');
     // Chrome's answer, before the fake goes.
     await waitFor(async () =>
       expect((await chrome.tabGroups.query({})).map((g) => g.title)).toContain(
@@ -898,7 +933,7 @@ describe('a saved item carried in', () => {
   test('when nothing was asked of Chrome, the carry ends cancelled', async () => {
     const item = tabItem();
     const { result, carriedIn } = await carrying(item);
-    vi.mocked(openCarriedCopy).mockImplementationOnce(() => () => false);
+    vi.mocked(openCarriedCopy).mockImplementationOnce(() => () => null);
 
     void result.current.tabs.onMove(carriedIn.rowId, 3, undefined, '1');
 

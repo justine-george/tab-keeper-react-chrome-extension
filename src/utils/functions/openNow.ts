@@ -1,4 +1,5 @@
 import { isTabKeeperPage, pickActiveTabIndex } from './capture';
+import type { CopyLook } from './copyLooks';
 import { SPLIT_VIEW_ID_NONE } from './splitView';
 import { sanitizeTabGroupColor } from './tabGroups';
 import type { TabGroupColor } from './tabGroups';
@@ -79,17 +80,29 @@ function isListableTab(
   return typeof tab.id === 'number' && !isTabKeeperPage(tab);
 }
 
+// KAN-851. Whether Chrome has a title of its own for a tab: none while it
+// loads but its address, which it may show with or without the scheme.
+function hasOwnTitle(tab: chrome.tabs.Tab, url: string): boolean {
+  if (tab.status === 'complete') return true;
+  const title = tab.title ?? '';
+  return (
+    title !== '' && title !== url && title !== url.replace(/^[a-z]+:\/\//, '')
+  );
+}
+
 function toOpenTab(
   tab: chrome.tabs.Tab & { id: number },
-  groupId: number | null
+  groupId: number | null,
+  look: CopyLook | undefined
 ): OpenTab {
   const url = tab.url || tab.pendingUrl || '';
+  const saved = look !== undefined && !hasOwnTitle(tab, url) ? look : undefined;
   return {
     id: tab.id,
     windowId: tab.windowId,
-    title: tab.title || url,
+    title: saved?.title || tab.title || url,
     url,
-    favIconUrl: tab.favIconUrl || '',
+    favIconUrl: tab.favIconUrl || saved?.favIconUrl || '',
     active: tab.active,
     pinned: tab.pinned,
     audible: tab.audible ?? false,
@@ -114,7 +127,9 @@ function toOpenTab(
 export function toOpenWindows(
   windows: chrome.windows.Window[],
   groups: chrome.tabGroups.TabGroup[] | null,
-  thisWindowId: number | null
+  thisWindowId: number | null,
+  // KAN-851. The saved look of each copy Tab Keeper opened, by tab id.
+  looks: ReadonlyMap<number, CopyLook> = new Map()
 ): OpenWindow[] {
   const groupsById = new Map<number, chrome.tabGroups.TabGroup>(
     (groups ?? []).map((group) => [group.id, group])
@@ -146,7 +161,7 @@ export function toOpenWindows(
         });
       }
 
-      return toOpenTab(tab, groupId);
+      return toOpenTab(tab, groupId, looks.get(tab.id));
     });
 
     result.push({

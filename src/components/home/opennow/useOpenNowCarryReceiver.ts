@@ -184,7 +184,10 @@ export function useOpenNowCarryReceiver({
           return false;
         }
         const { dispatch: send, goToURLText: text } = latest.current;
-        if (!send(openCarriedCopy(carry.item, { kind: 'newWindow' }, text))) {
+        if (
+          send(openCarriedCopy(carry.item, { kind: 'newWindow' }, text)) ===
+          null
+        ) {
           return false;
         }
         // A copy: the source's view comes back. The layer's end is a no-op.

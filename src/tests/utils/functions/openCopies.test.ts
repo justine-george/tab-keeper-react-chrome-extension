@@ -6,6 +6,7 @@ import {
   openGroupCopy,
   openTabCopy,
 } from '../../../utils/functions/openCopies';
+import { copyLooks } from '../../../utils/functions/copyLooks';
 import { setupChromeFake } from '../../setup/chrome.fake';
 import type { ChromeFakeHandle } from '../../setup/chrome.fake';
 
@@ -186,6 +187,49 @@ describe('openTabCopy', () => {
       openTabCopy(saved(1), { windowId: 2, index: 0, pinned: false })
     ).resolves.toBeUndefined();
     expect(await tabsNow()).toBe(before);
+  });
+});
+
+// KAN-851. Each copy's saved look, by the id Chrome gave it, for Open now to
+// draw until Chrome has the page's own title.
+describe('the saved look of each copy', () => {
+  test('a tab: its saved title and icon, under its new id', async () => {
+    handle = setupChromeFake({ windows: [{ id: 1, tabs: [{ id: 11 }] }] });
+
+    const id = await openTabCopy(saved(1), {
+      windowId: 1,
+      index: 1,
+      pinned: false,
+    });
+
+    if (id === undefined) throw new Error('Chrome opened no copy');
+    expect(copyLooks().get(id)).toEqual({ title: 'Page 1', favIconUrl: ICON });
+  });
+
+  test("a group: each tab's, under its own id", async () => {
+    handle = setupChromeFake({ windows: [{ id: 1, tabs: [{ id: 11 }] }] });
+
+    const ids = await openGroupCopy(
+      [saved(1), saved(2)],
+      { groupId: 'g1', title: 'Work', color: 'blue' },
+      { windowId: 1, index: 1 },
+      GO_TO
+    );
+
+    expect(ids.map((id) => id !== undefined && copyLooks().get(id))).toEqual([
+      { title: 'Page 1', favIconUrl: ICON },
+      { title: 'Page 2', favIconUrl: ICON },
+    ]);
+  });
+
+  test('a tab Chrome refuses: none', async () => {
+    handle = setupChromeFake({ windows: [{ id: 1, tabs: [{ id: 11 }] }] });
+
+    const before = copyLooks().size;
+
+    await openTabCopy(saved(1), { windowId: 99, index: 0, pinned: false });
+
+    expect(copyLooks().size).toBe(before);
   });
 });
 

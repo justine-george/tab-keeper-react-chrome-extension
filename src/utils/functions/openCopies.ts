@@ -4,6 +4,7 @@
 // background create. Neither function throws: a tab Chrome refuses is
 // skipped, and a refused group step costs the group, never the tabs.
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
+import { rememberCopyLook } from './copyLooks';
 import { resolveTabUrl, restoreRoute } from './local';
 import { belowPinnedRun } from './openNowMoves';
 import type { GroupCopySlot, TabCopySlot } from './openNowMoves';
@@ -41,6 +42,7 @@ export async function openTabCopy(
     slot.index
   );
   if (id === undefined) return undefined;
+  rememberCopyLook(id, { title: tab.title, favIconUrl: tab.favicon });
   try {
     if (slot.groupId !== undefined) {
       await chrome.tabs.group({ groupId: slot.groupId, tabIds: [id] });
@@ -91,7 +93,9 @@ export async function openGroupCopy(
       index
     );
     ids.push(id);
-    if (id !== undefined) index += 1;
+    if (id === undefined) continue;
+    rememberCopyLook(id, { title: tab.title, favIconUrl: tab.favicon });
+    index += 1;
   }
   const members = ids.filter((id): id is number => id !== undefined);
   await applyTabGroups(
