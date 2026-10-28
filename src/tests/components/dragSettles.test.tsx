@@ -12,6 +12,8 @@ import {
   useRowDragHandle,
 } from '../../components/home/rightpane/rowDrag/dragContext';
 import { endDragHold } from '../../redux/dragHold';
+import { endCarry, startCarry } from '../../redux/carry';
+import { savedItem } from '../../redux/carriedItem';
 
 // KAN-835. A committed drop holds its rows where it put them until the list
 // draws the move. Here only the hold's life: whether it starts, what it keeps,
@@ -455,5 +457,110 @@ describe('the commit that draws the move finishes the slides', () => {
 
     expect(probe()).toBe('none');
     expect(finished).toBe(0);
+  });
+});
+
+// KAN-849. A carried item let go in a saved list: its list draws the row it
+// lands as in the drop's own task, as a saved list draws a move.
+describe('an adopted drop (KAN-849)', () => {
+  let finished = 0;
+  beforeEach(() => {
+    finished = 0;
+    vi.spyOn(HTMLElement.prototype, 'getAnimations').mockImplementation(
+      () =>
+        [
+          {
+            transitionProperty: 'transform',
+            playState: 'running',
+            finish: () => {
+              finished += 1;
+            },
+          },
+        ] as unknown as Animation[]
+    );
+  });
+  afterEach(() => {
+    endCarry('cancelled');
+  });
+
+  // Rows a, b, c, then the phantom x the carry is drawn as, in a 300px pane.
+  // `draws`: the drop commits the carry as row n where it was let go.
+  const CarryList = ({ draws }: { draws: boolean }) => {
+    const [ids, setIds] = useState(['a', 'b', 'c', 'x']);
+    const phantom = ids.includes('x') ? 'x' : undefined;
+    return (
+      <div data-testid="pane" style={{ overflowY: 'auto' }}>
+        <RowDragArea
+          rowIds={ids}
+          dragKind="tab"
+          adoptRowId={phantom}
+          onMove={(id, to) => {
+            if (!draws) return void endCarry('cancelled');
+            const rest = ids.filter((r) => r !== id);
+            setIds([...rest.slice(0, to), 'n', ...rest.slice(to)]);
+            endCarry('committed');
+          }}
+        >
+          <Probe />
+          {ids.map((id, i) => (
+            <DraggableRow key={id} rowId={id}>
+              <div
+                ref={(el) => {
+                  if (el?.parentElement)
+                    el.parentElement.getBoundingClientRect = () =>
+                      box(i * ROW_H, ROW_H);
+                }}
+              >
+                Row {id}
+              </div>
+            </DraggableRow>
+          ))}
+        </RowDragArea>
+      </div>
+    );
+  };
+
+  // Carried in over the pane, then let go on b's top half: b and c stand
+  // aside a row for it.
+  const carryInAboveB = () => {
+    screen.getByTestId('pane').getBoundingClientRect = () => box(0, 300);
+    startCarry(
+      savedItem({ kind: 'tab', tabGroupId: 'S2', windowId: 'w9', tabId: 't' }),
+      { kind: 'tab', title: 'Carried', faviconUrl: '' },
+      300,
+      105
+    );
+    fireEvent.pointerMove(document, { clientX: 100, clientY: 105 });
+    fireEvent.pointerMove(document, { clientX: 100, clientY: 70 });
+    fireEvent.pointerMove(document, { clientX: 100, clientY: 38 });
+    // PREMISE: adopted, and b stands aside, so there is a shift to keep.
+    expect(probe()).toBe('dragging');
+    expect(wrapperOf('Row b').style.transform).toBe(`translateY(${ROW_H}px)`);
+    finished = 0;
+    fireEvent.pointerUp(document, { clientX: 100, clientY: 38 });
+  };
+
+  test('drawn: the rows that made room are not left to ease over the new row', () => {
+    render(<CarryList draws />);
+    carryInAboveB();
+
+    expect(screen.getAllByText(/^Row /).map((r) => r.textContent)).toEqual([
+      'Row a',
+      'Row n',
+      'Row b',
+      'Row c',
+    ]);
+    expect(probe()).toBe('none');
+    expect(finished).toBeGreaterThan(0);
+  });
+
+  test('CONTROL: nothing drawn: the rows ease back', () => {
+    render(<CarryList draws={false} />);
+    carryInAboveB();
+
+    expect(probe()).toBe('none');
+    expect(finished).toBe(0);
+    expect(wrapperOf('Row b').style.transform).toBe('');
+    expect(wrapperOf('Row b').style.transition).toContain('transform');
   });
 });

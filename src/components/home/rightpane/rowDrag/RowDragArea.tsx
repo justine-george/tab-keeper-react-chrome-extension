@@ -2245,9 +2245,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           // eases home. One that lands later must find the layout its preview
           // was measured in: its fold is put back on (nothing has painted
           // since it came off), and a window folding back cannot be undone.
+          // An adopted drop too (KAN-849): its list draws the carried row in
+          // this task, where the rows that made room for it must not ease.
           const later = moving instanceof Promise;
           if (
-            !l.adopted &&
             l.shown !== null &&
             l.shown.landingDelta !== 0 &&
             !(later && foldedBack)
