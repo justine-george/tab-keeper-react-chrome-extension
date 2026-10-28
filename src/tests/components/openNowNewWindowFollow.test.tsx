@@ -7,6 +7,7 @@ import {
   clearNewWindowFollow,
   expectNewWindow,
 } from '../../redux/newWindowFollow';
+import { setHasTabGroupsPermission } from '../../redux/slices/globalStateSlice';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
 
@@ -49,6 +50,8 @@ afterEach(() => {
 async function renderOpenNow() {
   const rendered = await renderWithProviders(<OpenNowColumn folded={true} />, {
     seed: twoWindows(),
+    // Groups are listed with the grant only.
+    seedStore: (store) => store.dispatch(setHasTabGroupsPermission(true)),
   });
   await screen.findAllByRole('button', { name: /^Switch to tab: / });
   return rendered;
@@ -114,6 +117,35 @@ describe('a new window from Currently open (KAN-852)', () => {
     );
 
     expect(windowsScrolled()).toEqual([String(made), String(made)]);
+  });
+
+  // A restore forms its groups after its tabs: each band is a row more.
+  test('followed again when it forms a group', async () => {
+    await renderOpenNow();
+    act(() => expectNewWindow());
+    let made = -1;
+    let tabs: number[] = [];
+    await act(async () => {
+      const w = await chrome.windows.create({
+        url: ['https://new.test/', 'https://more.test/'],
+      });
+      made = w?.id ?? -1;
+      tabs = (w?.tabs ?? []).map((t) => t.id ?? -1);
+    });
+    await waitFor(() => expect(windowsScrolled()).toEqual([String(made)]));
+
+    const [first, ...rest] = tabs;
+    if (first === undefined) throw new Error('no tabs made');
+    await act(async () => {
+      await chrome.tabs.group({
+        tabIds: [first, ...rest],
+        createProperties: { windowId: made },
+      });
+    });
+
+    await waitFor(() =>
+      expect(windowsScrolled()).toEqual([String(made), String(made)])
+    );
   });
 
   test('CONTROL: a new window nobody asked for is not followed', async () => {

@@ -491,8 +491,8 @@ export default function OpenNowPane({
 
   // KAN-852. A copy opened as a new window: the first window listed that was
   // not listed when it was asked for is scrolled into view, before it paints,
-  // and again each time it gains a tab -- a restore adds its tabs after the
-  // first -- until the ask runs out.
+  // and again each time it grows -- a restore adds its tabs after the first,
+  // then its groups' bands -- until the ask runs out.
   const newWindowAsk = useSyncExternalStore(
     subscribeNewWindowFollow,
     pendingNewWindow
@@ -500,7 +500,7 @@ export default function OpenNowPane({
   const following = useRef<{
     ask: number;
     listed: Set<number>;
-    window: { id: number; tabs: number } | null;
+    window: { id: number; rows: number } | null;
   } | null>(null);
   useLayoutEffect(() => {
     if (newWindowAsk === null || windows === null) return;
@@ -518,8 +518,9 @@ export default function OpenNowPane({
         ? windows.find((w) => !f.listed.has(w.id))
         : windows.find((w) => w.id === f.window?.id);
     if (shown === undefined) return;
-    if (f.window !== null && shown.tabs.length <= f.window.tabs) return;
-    f.window = { id: shown.id, tabs: shown.tabs.length };
+    const rows = shown.tabs.length + shown.groups.length;
+    if (f.window !== null && rows <= f.window.rows) return;
+    f.window = { id: shown.id, rows };
     paneRef.current
       ?.querySelector(`[data-open-window-id="${shown.id}"]`)
       ?.scrollIntoView({ block: 'nearest' });
