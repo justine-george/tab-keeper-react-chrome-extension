@@ -376,6 +376,56 @@ test.describe('the New window boxes open a new window holding just the tab', () 
   }
 });
 
+// KAN-855 (his pick B). A saved window lands anywhere in Currently open, so
+// the box it lands in is pinned to the bottom of the visible list while it is
+// carried, however long the list.
+test('a saved window held over a long list: the lit New window box shows at its bottom', async ({
+  context,
+  extensionId,
+  serviceWorker: worker,
+}) => {
+  const live = [];
+  for (let w = 0; w < 6; w++)
+    live.push(await openLiveWindow(worker, [`W${w} a`, `W${w} b`, `W${w} c`]));
+  const page = await setUp(context, extensionId);
+  const first = live[0];
+  if (first === undefined) throw new Error('no live windows');
+  await expect(liveRow(page, live[5]?.idOf('W5 c') ?? -1)).toBeAttached();
+  const scroller = page.locator(`${OPEN_NOW} [data-open-now-scroller]`);
+  const box = page.locator(LAST_BOX);
+  const inView = () =>
+    page.evaluate(
+      ({ scroller, box }) => {
+        const v = document.querySelector(scroller)?.getBoundingClientRect();
+        const b = document.querySelector(box)?.getBoundingClientRect();
+        if (!v || !b) return 'not drawn';
+        return b.top >= v.top - 1 && b.bottom <= v.bottom + 1
+          ? 'in view'
+          : `${Math.round(b.top)}..${Math.round(b.bottom)} in ${Math.round(v.top)}..${Math.round(v.bottom)}`;
+      },
+      { scroller: `${OPEN_NOW} [data-open-now-scroller]`, box: LAST_BOX }
+    );
+
+  await pickUp(page, windowHandle(page, 'w1'));
+  await carryTo(page, await middleOf(liveRow(page, first.idOf('W0 b'))));
+  await expect(box).toHaveAttribute('data-landing', '');
+  // PREMISE: the list is scrolled to its top, with more of it below.
+  expect(await scroller.evaluate((el) => el.scrollTop)).toBe(0);
+  expect(
+    await scroller.evaluate((el) => el.scrollHeight - el.clientHeight)
+  ).toBeGreaterThan(100);
+
+  await expect.poll(inView).toBe('in view');
+  await expect(box).toBeVisible();
+
+  // Let go there: a new window, as before.
+  const windowsBefore = await windowIds(worker);
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await windowIds(worker)).length)
+    .toBe(windowsBefore.length + 1);
+});
+
 // KAN-852. Wherever the list was, the new window is drawn whole on screen.
 test.describe('the new window is scrolled into view', () => {
   const SCROLLER = `${OPEN_NOW} [data-open-now-scroller]`;
