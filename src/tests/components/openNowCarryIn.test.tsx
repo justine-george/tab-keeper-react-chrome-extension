@@ -446,7 +446,8 @@ describe('where it takes nothing', () => {
 });
 
 describe('a release the pane takes', () => {
-  test('a tab over the header: lit, the + on, and a release opens it in one new background window', async () => {
+  // KAN-853. A new window comes to the front.
+  test('a tab over the header: lit, the + on, and a release opens it in one new window, in front', async () => {
     await renderPane();
     const item = tabOf();
     carry(item);
@@ -462,7 +463,7 @@ describe('a release the pane takes', () => {
     expect(restores()).toHaveLength(1);
     expect(restores()[0].specs).toHaveLength(1);
     expect(restores()[0].specs[0]).toMatchObject({
-      focused: false,
+      focused: true,
       tabs: [{ tabId: 't1' }],
     });
   });
@@ -479,7 +480,7 @@ describe('a release the pane takes', () => {
     expect(restores()).toEqual([]);
   });
 
-  test('a window anywhere: the block below lit, and a release opens it unfocused, never maximized', async () => {
+  test('a window anywhere: the block below lit, and a release opens it in front, maximized as saved', async () => {
     await renderPane();
     carry(WINDOW, 10, LIST_Y);
     const r = receiver(10, LIST_Y);
@@ -493,8 +494,8 @@ describe('a release the pane takes', () => {
     expect(r.take()).toBe(true);
     expect(carryEndedAs(WINDOW)).toBe('copied');
     const [spec] = restores()[0].specs;
-    expect(spec.focused).toBe(false);
-    expect(spec).not.toHaveProperty('state');
+    expect(spec.focused).toBe(true);
+    expect(spec.state).toBe('maximized');
     expect(spec.tabs).toHaveLength(3);
   });
 

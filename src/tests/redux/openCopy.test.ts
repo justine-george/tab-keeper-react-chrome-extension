@@ -15,6 +15,10 @@ vi.mock('../../utils/functions/external', () => ({
 import { liveItem, savedItem } from '../../redux/carriedItem';
 import type { CarriedItem } from '../../redux/carriedItem';
 import { copyWindowSpec, openCarriedCopy } from '../../redux/openCopy';
+import {
+  clearNewWindowFollow,
+  pendingNewWindow,
+} from '../../redux/newWindowFollow';
 import { onTabMovesEnded } from '../../redux/undoHistory';
 import {
   restoreContainer,
@@ -133,7 +137,8 @@ const restores = () =>
   );
 
 describe('copyWindowSpec', () => {
-  it('a tab: just that tab, unfocused, no bounds, no state, no split', () => {
+  // KAN-853. Every new window comes to the front.
+  it('a tab: just that tab, focused, no bounds, no state, no split', () => {
     expect(
       copyWindowSpec(savedWindow(), {
         kind: 'tab',
@@ -144,7 +149,7 @@ describe('copyWindowSpec', () => {
       tabs: [
         { tabId: 't2', favicon: '', title: 'Two', url: 'https://two.example/' },
       ],
-      focused: false,
+      focused: true,
       bounds: null,
     });
   });
@@ -182,18 +187,19 @@ describe('copyWindowSpec', () => {
         },
       ],
       groups: [{ groupId: 'g1', title: 'Work', color: 'blue' }],
-      focused: false,
+      focused: true,
       bounds: null,
     });
   });
 
-  it('a window: as Open makes it, unfocused and in the normal state, splits kept', () => {
+  // KAN-853. In front, so its saved state comes back too.
+  it('a window: as Open makes it, focused, its saved state and splits kept', () => {
     const spec = copyWindowSpec(savedWindow(), {
       kind: 'window',
       windowId: 'w1',
     });
-    expect(spec?.focused).toBe(false);
-    expect(spec).not.toHaveProperty('state');
+    expect(spec?.focused).toBe(true);
+    expect(spec?.state).toBe('maximized');
     expect(spec?.bounds).toEqual({
       height: 700,
       width: 900,
@@ -256,7 +262,7 @@ describe('openCarriedCopy', () => {
   const reviewAsks = (actions: { type: string }[]) =>
     actions.filter((a) => a.type.endsWith('setPendingReviewAsk')).length;
 
-  it('a new window: one unfocused restore, nothing closed, the pin setting passed', async () => {
+  it('a new window: one focused restore, nothing closed, the pin setting passed', async () => {
     const { store } = ready();
     const before = store.getState().tabContainerDataState;
 
@@ -290,8 +296,9 @@ describe('openCarriedCopy', () => {
     await expect(
       store.dispatch(openCarriedCopy(windowItem, { kind: 'newWindow' }, GO_TO))
     ).resolves.toBe(true);
-    expect(restores()[0].specs[0]).not.toHaveProperty('state');
-    expect(restores()[0].specs[0].focused).toBe(false);
+    // KAN-853. In front, its saved state kept.
+    expect(restores()[0].specs[0].state).toBe('maximized');
+    expect(restores()[0].specs[0].focused).toBe(true);
   });
 
   it('a tab at a slot opens there, in the background', async () => {
@@ -389,6 +396,45 @@ describe('openCarriedCopy', () => {
       );
 
       expect(ended).toBe(0);
+    });
+  });
+
+  // KAN-852. Open now scrolls to the window once it is listed.
+  describe('a new window is followed into view', () => {
+    afterEach(() => clearNewWindowFollow());
+
+    it('when one is asked for', () => {
+      const { store } = ready();
+
+      void store.dispatch(
+        openCarriedCopy(windowItem, { kind: 'newWindow' }, GO_TO)
+      );
+
+      expect(pendingNewWindow()).not.toBeNull();
+    });
+
+    it('not for a copy at a slot', async () => {
+      const { store } = ready();
+
+      await store.dispatch(
+        openCarriedCopy(
+          tabItem(),
+          { kind: 'tab', slot: { windowId: 1, index: 1, pinned: false } },
+          GO_TO
+        )
+      );
+
+      expect(pendingNewWindow()).toBeNull();
+    });
+
+    it('not when nothing is asked', () => {
+      const { store } = ready();
+
+      store.dispatch(
+        openCarriedCopy(tabItem('gone'), { kind: 'newWindow' }, GO_TO)
+      );
+
+      expect(pendingNewWindow()).toBeNull();
     });
   });
 

@@ -1,0 +1,49 @@
+// KAN-852. A copy let go on Currently open that opens as a new window is
+// scrolled into view once listed, and as it fills. The worker opens it and
+// sends no answer, so its id is not known here: the Open now pane follows the
+// first window it lists that it did not list when this was asked. Outside
+// Redux, like reopenFocus: a live window id is never stored.
+export const NEW_WINDOW_FOLLOW_MS = 3000;
+
+// Which ask is waiting, so the pane can tell a new ask from the one it
+// already noted the windows for; null when none is.
+let pending: number | null = null;
+let asks = 0;
+let expiry: ReturnType<typeof setTimeout> | null = null;
+const listeners = new Set<() => void>();
+
+function notify(): void {
+  for (const listener of listeners) listener();
+}
+
+// Replaces any earlier one. The window is followed for NEW_WINDOW_FOLLOW_MS:
+// one not listed by then is not followed at all.
+export function expectNewWindow(): void {
+  if (expiry !== null) clearTimeout(expiry);
+  asks += 1;
+  pending = asks;
+  expiry = setTimeout(clearNewWindowFollow, NEW_WINDOW_FOLLOW_MS);
+  notify();
+}
+
+export function pendingNewWindow(): number | null {
+  return pending;
+}
+
+// Its time ran out: nothing is followed any more.
+export function clearNewWindowFollow(): void {
+  if (expiry !== null) {
+    clearTimeout(expiry);
+    expiry = null;
+  }
+  if (pending === null) return;
+  pending = null;
+  notify();
+}
+
+export function subscribeNewWindowFollow(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}

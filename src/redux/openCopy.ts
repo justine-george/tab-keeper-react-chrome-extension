@@ -1,6 +1,6 @@
 // KAN-815. A saved tab, group or window let go over Currently open opens a
-// copy in Chrome, in the background: at a slot of a live window, or in a new
-// unfocused window. The saved session is never changed, so there is no toast
+// copy in Chrome: in the background at a slot of a live window, or in a new
+// window in front (KAN-853). The saved session is never changed, so there is no toast
 // and no Undo (as Open). Whether Chrome was asked is known at once, because
 // the carry ends in the same call (RowDragArea's finish); whether it opened
 // the copy comes later, and never throws.
@@ -8,6 +8,7 @@ import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 
 import { pickOf, sourceWindowOf } from './carriedItem';
 import type { CarriedItem, CarriedPick } from './carriedItem';
+import { expectNewWindow } from './newWindowFollow';
 import { noteReviewMoment } from './reviewAsk';
 import { whileMovingTabs } from './undoHistory';
 import { toWindowSpec } from './slices/tabContainerDataStateSlice';
@@ -63,9 +64,8 @@ function groupOf(
   };
 }
 
-// The new window a pick opens in: unfocused, and never a saved state, which
-// windows.update applies after create and can take focus (spec builder call
-// 1). Null when the window no longer holds the tab or group.
+// The new window a pick opens in: in front (KAN-853). Null when the window no
+// longer holds the tab or group.
 export function copyWindowSpec(
   window: windowGroupData,
   pick: CarriedPick
@@ -75,7 +75,7 @@ export function copyWindowSpec(
     case 'tab': {
       const tab = window.tabs.find((t) => t.tabId === pick.tabId);
       if (!tab) return null;
-      return { tabs: [unsplit(tab)], focused: false, bounds: null, ...kind };
+      return { tabs: [unsplit(tab)], focused: true, bounds: null, ...kind };
     }
     case 'group': {
       const found = groupOf(window, pick.groupId);
@@ -83,16 +83,14 @@ export function copyWindowSpec(
       return {
         tabs: found.tabs.map(unpinned),
         groups: [found.group],
-        focused: false,
+        focused: true,
         bounds: null,
         ...kind,
       };
     }
-    case 'window': {
-      const spec = toWindowSpec(window, false);
-      delete spec.state;
-      return spec;
-    }
+    // As Open makes it: its saved state too (KAN-853).
+    case 'window':
+      return toWindowSpec(window, true);
   }
 }
 
@@ -133,6 +131,7 @@ export const openCarriedCopy =
       };
       // The worker's restore sends no answer: counted when asked, as Open.
       noteRestore();
+      expectNewWindow();
       void chrome.runtime.sendMessage(request);
       return Promise.resolve(true);
     } else if (place.kind === 'tab' && pick.kind === 'tab') {

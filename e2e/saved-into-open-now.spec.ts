@@ -1,4 +1,4 @@
-import type { Locator, Worker } from '@playwright/test';
+import type { Locator, Page, Worker } from '@playwright/test';
 
 import { expect, grantedTest as test } from './fixtures/grantedExtension';
 import { openTabView, session, tab, win } from './fixtures/betweenSessions';
@@ -54,7 +54,7 @@ const SAVED = (): tabContainerData => {
       [{ groupId: 'day', title: 'Day trips', color: 'green' }]
     ),
   ]);
-  // Builder call 1: a maximized saved window opens in the normal state.
+  // KAN-853: a maximized saved window opens maximized, as Open opens it.
   s.windows[0].state = 'maximized';
   return s;
 };
@@ -292,7 +292,8 @@ test('a group with the grant opens as a group: its look, shown, its first page r
   expect(await stored(page)).toEqual(before);
 });
 
-test('a window opens as a new window, behind, never focused, in the normal state', async ({
+// KAN-853. A new window comes to the front, as his pick: it is not drawn where it was let go.
+test('a window opens as a new window, in front, maximized as saved', async ({
   context,
   extensionId,
   serviceWorker: worker,
@@ -318,15 +319,19 @@ test('a window opens as a new window, behind, never focused, in the normal state
   );
   if (made === undefined) throw new Error('no new window');
   await expect.poll(async () => (await strip(worker, made)).length).toBe(5);
-  await page.waitForTimeout(500);
-  expect((await focusNow(worker)).lastFocused).toBe(focus.lastFocused);
+  // PREMISE: the tab view's window had focus.
+  expect(focus.lastFocused).not.toBe(made);
+  await expect
+    .poll(async () => (await focusNow(worker)).lastFocused)
+    .toBe(made);
+  // Kept: nothing takes it back.
   await page.waitForTimeout(2000);
-  expect((await focusNow(worker)).lastFocused).toBe(focus.lastFocused);
+  expect((await focusNow(worker)).lastFocused).toBe(made);
   const state = await worker.evaluate(
     async (id: number) => (await chrome.windows.get(id)).state,
     made
   );
-  expect(state).toBe('normal');
+  expect(state).toBe('maximized');
   expect(await stored(page)).toEqual(before);
 });
 
@@ -362,7 +367,141 @@ test.describe('the New window boxes open a new window holding just the tab', () 
       await expect
         .poll(async () => (await strip(worker, made)).map((t) => t.url))
         .toEqual(['https://s2.test/']);
-      expect((await focusNow(worker)).lastFocused).toBe(focus.lastFocused);
+      // KAN-853. In front.
+      expect(focus.lastFocused).not.toBe(made);
+      await expect
+        .poll(async () => (await focusNow(worker)).lastFocused)
+        .toBe(made);
+    });
+  }
+});
+
+// KAN-855 (his pick B). A saved window lands anywhere in Currently open, so
+// the box it lands in is pinned to the bottom of the visible list while it is
+// carried, however long the list.
+test('a saved window held over a long list: the lit New window box shows at its bottom', async ({
+  context,
+  extensionId,
+  serviceWorker: worker,
+}) => {
+  const live = [];
+  for (let w = 0; w < 6; w++)
+    live.push(await openLiveWindow(worker, [`W${w} a`, `W${w} b`, `W${w} c`]));
+  const page = await setUp(context, extensionId);
+  const first = live[0];
+  if (first === undefined) throw new Error('no live windows');
+  await expect(liveRow(page, live[5]?.idOf('W5 c') ?? -1)).toBeAttached();
+  const scroller = page.locator(`${OPEN_NOW} [data-open-now-scroller]`);
+  const box = page.locator(LAST_BOX);
+  const inView = () =>
+    page.evaluate(
+      ({ scroller, box }) => {
+        const v = document.querySelector(scroller)?.getBoundingClientRect();
+        const b = document.querySelector(box)?.getBoundingClientRect();
+        if (!v || !b) return 'not drawn';
+        return b.top >= v.top - 1 && b.bottom <= v.bottom + 1
+          ? 'in view'
+          : `${Math.round(b.top)}..${Math.round(b.bottom)} in ${Math.round(v.top)}..${Math.round(v.bottom)}`;
+      },
+      { scroller: `${OPEN_NOW} [data-open-now-scroller]`, box: LAST_BOX }
+    );
+
+  await pickUp(page, windowHandle(page, 'w1'));
+  await carryTo(page, await middleOf(liveRow(page, first.idOf('W0 b'))));
+  await expect(box).toHaveAttribute('data-landing', '');
+  // PREMISE: the list is scrolled to its top, with more of it below.
+  expect(await scroller.evaluate((el) => el.scrollTop)).toBe(0);
+  expect(
+    await scroller.evaluate((el) => el.scrollHeight - el.clientHeight)
+  ).toBeGreaterThan(100);
+
+  await expect.poll(inView).toBe('in view');
+  await expect(box).toBeVisible();
+
+  // Let go there: a new window, as before.
+  const windowsBefore = await windowIds(worker);
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await windowIds(worker)).length)
+    .toBe(windowsBefore.length + 1);
+});
+
+// KAN-852. Wherever the list was, the new window is drawn whole on screen.
+test.describe('the new window is scrolled into view', () => {
+  const SCROLLER = `${OPEN_NOW} [data-open-now-scroller]`;
+
+  // The new window's block lies inside the list's visible box.
+  const shownWhole = (page: Page, windowId: number) =>
+    page.evaluate(
+      ({ scroller, windowId }) => {
+        const view = document.querySelector(scroller)?.getBoundingClientRect();
+        const block = document
+          .querySelector(`[data-open-window-id="${windowId}"]`)
+          ?.getBoundingClientRect();
+        if (!view || !block) return 'not drawn';
+        return block.top >= view.top - 1 && block.bottom <= view.bottom + 1
+          ? 'whole'
+          : `${Math.round(block.top)}..${Math.round(block.bottom)} in ${Math.round(view.top)}..${Math.round(view.bottom)}`;
+      },
+      { scroller: SCROLLER, windowId }
+    );
+
+  for (const drop of ['below', 'header', 'window'] as const) {
+    test(`from the ${drop === 'window' ? 'saved window' : `${drop} box`}`, async ({
+      context,
+      extensionId,
+      serviceWorker: worker,
+    }) => {
+      const live = [];
+      for (let w = 0; w < 6; w++)
+        live.push(
+          await openLiveWindow(worker, [`W${w} a`, `W${w} b`, `W${w} c`])
+        );
+      const page = await setUp(context, extensionId);
+      const last = live[5];
+      if (last === undefined) throw new Error('no live windows');
+      await expect(liveRow(page, last.idOf('W5 c'))).toBeAttached();
+      const scroller = page.locator(SCROLLER);
+      // PREMISE: the list scrolls.
+      expect(
+        await scroller.evaluate((el) => el.scrollHeight - el.clientHeight)
+      ).toBeGreaterThan(100);
+      // The box below the last window is reached at the bottom of the list.
+      if (drop === 'below')
+        await scroller.evaluate((el) => {
+          el.scrollTop = el.scrollHeight;
+        });
+      const windowsBefore = await windowIds(worker);
+
+      await pickUp(
+        page,
+        drop === 'window' ? windowHandle(page, 'w1') : tabHandle(page, 's2')
+      );
+      const anchor =
+        drop === 'below' ? last.idOf('W5 a') : (live[0]?.idOf('W0 a') ?? -1);
+      await carryTo(page, await middleOf(liveRow(page, anchor)));
+      if (drop !== 'window') {
+        const target = page.locator(drop === 'header' ? HEADER_BOX : LAST_BOX);
+        // Drawn once the carry is over the list, below the last window.
+        await expect(target).toBeAttached();
+        if (drop === 'below')
+          await scroller.evaluate((el) => {
+            el.scrollTop = el.scrollHeight;
+          });
+        await expect(target).toBeVisible();
+        await carryTo(page, await middleOf(target));
+      }
+      await expect(page.locator(BADGE)).toBeVisible();
+      await page.mouse.up();
+
+      await expect
+        .poll(async () => (await windowIds(worker)).length)
+        .toBe(windowsBefore.length + 1);
+      const made = (await windowIds(worker)).find(
+        (id) => !windowsBefore.includes(id)
+      );
+      if (made === undefined) throw new Error('no new window');
+      await expect.poll(() => shownWhole(page, made)).toBe('whole');
     });
   }
 });

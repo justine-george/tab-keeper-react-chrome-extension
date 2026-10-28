@@ -1,9 +1,9 @@
 // KAN-815. The New window block below Currently open's last window, drawn
-// while a saved carry can open here: a release in it opens a new background
-// window. To the drag engine it is a window of both lists (data-drop-window-id,
+// while a saved carry can open here: a release in it opens a new window. To the drag engine it is a window of both lists (data-drop-window-id,
 // a trailing block: isTrailingBlock), and a carried tab's or group's phantom
 // rests in it, so the list adopts it there and nothing above moves. A window
-// carry rests nowhere: the block is only the box that lights. Mirrors the
+// carry rests nowhere: the block is only the box that lights, pinned to the
+// bottom of the visible list, since it lands anywhere (KAN-855). Mirrors the
 // saved pane's trailing block (WindowEntryContainer, NEW_LAST_WINDOW), drawn
 // only while lit (demo D4, his pick): unlit it is a blank row, so rows a gap
 // above pushes down never land on its label.
@@ -51,6 +51,15 @@ export default function OpenNowNewWindowBlock({ phantom }: Props) {
             visibility: hidden;
           }
         `,
+        phantom === null &&
+          css`
+            &[data-landing] {
+              position: sticky;
+              bottom: 0;
+              z-index: 1;
+              box-shadow: 0 -8px 16px -8px rgba(0, 0, 0, 0.25);
+            }
+          `,
       ]}
     >
       <DropBoxLabel text={t('CarryNewWindowTarget')} hiddenUnlessLit />

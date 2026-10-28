@@ -72,6 +72,10 @@ import {
   pendingReopenFocus,
   subscribeReopenFocus,
 } from '../../../redux/reopenFocus';
+import {
+  pendingNewWindow,
+  subscribeNewWindowFollow,
+} from '../../../redux/newWindowFollow';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { showToast } from '../../../redux/slices/globalStateSlice';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
@@ -484,6 +488,43 @@ export default function OpenNowPane({
     control.focus();
     clearReopenFocus();
   }, [reopenedRow, windows]);
+
+  // KAN-852. A copy opened as a new window: the first window listed that was
+  // not listed when it was asked for is scrolled into view, before it paints,
+  // and again each time it grows -- a restore adds its tabs after the first,
+  // then its groups' bands -- until the ask runs out.
+  const newWindowAsk = useSyncExternalStore(
+    subscribeNewWindowFollow,
+    pendingNewWindow
+  );
+  const following = useRef<{
+    ask: number;
+    listed: Set<number>;
+    window: { id: number; rows: number } | null;
+  } | null>(null);
+  useLayoutEffect(() => {
+    if (newWindowAsk === null || windows === null) return;
+    const f = following.current;
+    if (f?.ask !== newWindowAsk) {
+      following.current = {
+        ask: newWindowAsk,
+        listed: new Set(windows.map((w) => w.id)),
+        window: null,
+      };
+      return;
+    }
+    const shown =
+      f.window === null
+        ? windows.find((w) => !f.listed.has(w.id))
+        : windows.find((w) => w.id === f.window?.id);
+    if (shown === undefined) return;
+    const rows = shown.tabs.length + shown.groups.length;
+    if (f.window !== null && rows <= f.window.rows) return;
+    f.window = { id: shown.id, rows };
+    paneRef.current
+      ?.querySelector(`[data-open-window-id="${shown.id}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [newWindowAsk, windows]);
 
   // A null close means the tab or window was already gone -- a second press
   // before the re-read, say -- so there is nothing to offer (O8a).
