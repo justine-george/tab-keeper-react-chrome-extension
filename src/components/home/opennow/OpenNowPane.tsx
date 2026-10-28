@@ -234,6 +234,7 @@ export default function OpenNowPane({
   );
 
   const inChromeOrder = windows ?? NO_WINDOWS;
+  const listEmpty = windows !== null && windows.length === 0;
   // KAN-472. Drawn, searched, dragged and saved in this order; numbered in
   // Chrome's. Memoized: the drop tables are rebuilt when it changes.
   const listed = useMemo(() => thisWindowFirst(inChromeOrder), [inChromeOrder]);
@@ -378,6 +379,7 @@ export default function OpenNowPane({
   );
   const drawsWindowBlock =
     drawsCarry && carried !== null && pickOf(carried).kind === 'window';
+  const drawsNewWindowBlock = carriedIn !== null || drawsWindowBlock;
   useOpenNowCarryReceiver({
     paneRef,
     scrollerRef,
@@ -1117,12 +1119,16 @@ export default function OpenNowPane({
           onKeyDown={handleListKeyDown}
           data-open-now-scroller=""
         >
-          {windows !== null && windows.length === 0 ? (
+          {listEmpty && (
             <EmptyListLine
               list="open-now"
               text={t('No other tabs are open.')}
             />
-          ) : windows !== null && matches !== null && matches.size === 0 ? (
+          )}
+          {/* KAN-856. An empty list still takes a saved carry: the lists, with no windows, hold just the block. */}
+          {listEmpty && !drawsNewWindowBlock ? null : windows !== null &&
+            matches !== null &&
+            matches.size === 0 ? (
             <NoMatchState query={searchText.trim()} inset={24} scope="open" />
           ) : (
             // The saved pane's two lists over every window (TabDragArea,
@@ -1233,7 +1239,7 @@ export default function OpenNowPane({
                       />
                     );
                   })}
-                  {(carriedIn !== null || drawsWindowBlock) && (
+                  {drawsNewWindowBlock && (
                     <OpenNowNewWindowBlock
                       phantom={
                         carriedIn === null

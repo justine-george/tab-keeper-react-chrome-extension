@@ -50,6 +50,10 @@ export default function OpenNowNewWindowBlock({ phantom }: Props) {
           &[data-landing] [data-drag-landing-slot] {
             visibility: hidden;
           }
+          /* KAN-856. Out of the pane nothing here takes the carry (D3): no ghost left in the box. */
+          & [data-phantom-resting-slot] {
+            visibility: hidden;
+          }
         `,
         phantom === null &&
           css`
