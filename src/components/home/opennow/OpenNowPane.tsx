@@ -73,7 +73,6 @@ import {
   subscribeReopenFocus,
 } from '../../../redux/reopenFocus';
 import {
-  clearNewWindowFollow,
   pendingNewWindow,
   subscribeNewWindowFollow,
 } from '../../../redux/newWindowFollow';
@@ -491,28 +490,39 @@ export default function OpenNowPane({
   }, [reopenedRow, windows]);
 
   // KAN-852. A copy opened as a new window: the first window listed that was
-  // not listed when it was asked for is scrolled into view, before it paints.
+  // not listed when it was asked for is scrolled into view, before it paints,
+  // and again each time it gains a tab -- a restore adds its tabs after the
+  // first -- until the ask runs out.
   const newWindowAsk = useSyncExternalStore(
     subscribeNewWindowFollow,
     pendingNewWindow
   );
-  const listedAtAsk = useRef<{ ask: number; ids: Set<number> } | null>(null);
+  const following = useRef<{
+    ask: number;
+    listed: Set<number>;
+    window: { id: number; tabs: number } | null;
+  } | null>(null);
   useLayoutEffect(() => {
     if (newWindowAsk === null || windows === null) return;
-    const listed = listedAtAsk.current;
-    if (listed?.ask !== newWindowAsk) {
-      listedAtAsk.current = {
+    const f = following.current;
+    if (f?.ask !== newWindowAsk) {
+      following.current = {
         ask: newWindowAsk,
-        ids: new Set(windows.map((w) => w.id)),
+        listed: new Set(windows.map((w) => w.id)),
+        window: null,
       };
       return;
     }
-    const added = windows.find((w) => !listed.ids.has(w.id));
-    if (added === undefined) return;
+    const shown =
+      f.window === null
+        ? windows.find((w) => !f.listed.has(w.id))
+        : windows.find((w) => w.id === f.window?.id);
+    if (shown === undefined) return;
+    if (f.window !== null && shown.tabs.length <= f.window.tabs) return;
+    f.window = { id: shown.id, tabs: shown.tabs.length };
     paneRef.current
-      ?.querySelector(`[data-open-window-id="${added.id}"]`)
+      ?.querySelector(`[data-open-window-id="${shown.id}"]`)
       ?.scrollIntoView({ block: 'nearest' });
-    clearNewWindowFollow();
   }, [newWindowAsk, windows]);
 
   // A null close means the tab or window was already gone -- a second press

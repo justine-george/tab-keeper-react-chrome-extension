@@ -89,6 +89,33 @@ describe('a new window from Currently open (KAN-852)', () => {
     expect(windowsScrolled()).toHaveLength(1);
   });
 
+  // A restored window is made with one tab, and the rest are added after.
+  test('followed again as it gains tabs, and not when a re-read leaves it as it was', async () => {
+    const rendered = await renderOpenNow();
+    act(() => expectNewWindow());
+    let made = -1;
+    await act(async () => {
+      made =
+        (await chrome.windows.create({ url: 'https://new.test/' }))?.id ?? -1;
+    });
+    await waitFor(() => expect(windowsScrolled()).toEqual([String(made)]));
+
+    await act(async () => {
+      await chrome.tabs.create({ windowId: made, url: 'https://more.test/' });
+    });
+    await waitFor(() =>
+      expect(windowsScrolled()).toEqual([String(made), String(made)])
+    );
+    act(() => rendered.chrome.browser.updateTab(11, { title: 'A2' }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Switch to tab: A2' })
+      ).toBeTruthy()
+    );
+
+    expect(windowsScrolled()).toEqual([String(made), String(made)]);
+  });
+
   test('CONTROL: a new window nobody asked for is not followed', async () => {
     await renderOpenNow();
 
