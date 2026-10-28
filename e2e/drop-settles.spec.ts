@@ -14,6 +14,16 @@ import {
   stored,
 } from './fixtures/savedWindows';
 import { pickUp } from './fixtures/sessionDrag';
+import { elementLanded } from './fixtures/landed';
+import {
+  CARD,
+  aimAt,
+  onto,
+  openPopup as openSessionsPopup,
+  openTabView as openSessionsTabView,
+  selected,
+  sessionOf,
+} from './fixtures/betweenSessions';
 
 // KAN-835. After a drop every row goes straight from where the drag showed it
 // to where the list now draws it. Before, the rows that had stepped aside
@@ -880,6 +890,222 @@ test.describe('a drop into a lower window (KAN-836)', () => {
       expect(travel(frames, `window ${b.windowId}`)).toBeLessThan(-20);
       expect(travel(frames, `window ${c.windowId}`)).toBeLessThan(-20);
       expect(jumps(frames)).toEqual([]);
+      expect(strays(frames)).toEqual([]);
+    }
+  );
+});
+
+// ---- A tab carried from Currently open into a saved session (KAN-849) -------
+
+// The saved detail's rows: the phantom the carry is drawn as while adopted is
+// one of them until the drop, then the row it lands as.
+const detailRows = '[data-pane="detail"] [data-drag-row-id]';
+
+// Presses `handle` in Currently open and carries it out past the pane's left
+// edge: the carry card shows.
+async function carryOutOfOpenNow(page: Page, handle: Locator) {
+  const b = await boxOf(handle);
+  const x = b.x + Math.min(40, b.width / 2);
+  const y = b.y + b.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 10, { steps: 3 });
+  const pane = await boxOf(page.locator('[data-pane="open-now"]'));
+  await page.mouse.move(pane.x - 40, y + 10, { steps: 6 });
+  await expect(page.locator(CARD)).toHaveCount(1);
+}
+
+// betweenSessions' spring-open wait for a session row (KAN-379).
+const SPRING_OPEN_MS = 600;
+
+grantedTest.describe('carried into a saved session (KAN-849)', () => {
+  grantedTest(
+    'an open tab dropped above a1: no row below is drawn a row too low, then glides back',
+    async ({ context, extensionId, serviceWorker: worker }) => {
+      const page = await openSessionsTabView(context, extensionId, false);
+      const live = await openWindow(worker, ['Live A']);
+      const row = openTab(page, live.tab(0));
+      await expect(row).toBeVisible();
+      await expectFits(
+        page.locator('[data-pane="detail"] [data-drag-row-id="a0"]')
+      );
+      await carryOutOfOpenNow(page, row);
+      await aimAt(page, 'a1', 0.25);
+      await recordFrames(page, detailRows, 'data-drag-row-id', 'pointerup');
+      await page.mouse.up();
+
+      const frames = await framesRecorded(page);
+      expectSettled(frames);
+      await expect
+        .poll(async () =>
+          sessionOf(await stored(page), 'S1').windows[0]?.tabs.map((t) => t.url)
+        )
+        .toEqual([
+          'https://a0.test/',
+          dataUrl('Live A'),
+          'https://a1.test/',
+          'https://a2.test/',
+          'https://al0.test/',
+          'https://al1.test/',
+        ]);
+      // PREMISE: a1 stood aside for the slot and keeps that place, so a stale
+      // shift eased out over the new row would draw it a row too low.
+      expect(Math.abs(travel(frames, 'a1'))).toBeLessThan(1);
+      expect(strays(frames)).toEqual([]);
+    }
+  );
+
+  grantedTest(
+    "narrow: an open tab carried out of Currently open's drawer above a1: no row below jumps",
+    async ({ context, extensionId, serviceWorker: worker }) => {
+      const page = await openSessionsTabView(
+        context,
+        extensionId,
+        false,
+        undefined,
+        { width: 1024, height: 768 }
+      );
+      const live = await openWindow(worker, ['Live A']);
+      await page.getByRole('button', { name: /^Currently open/ }).click();
+      const drawer = page.getByRole('dialog');
+      const row = page.locator(`[data-open-tab-id="${live.tab(0)}"]`);
+      await expect(row).toBeVisible();
+      // KAN-810. It slides in: pressed where it comes to rest.
+      await elementLanded(drawer, 'subtree');
+      await expectFits(page.locator('[data-drag-row-id="a0"]'));
+      const drawerBox = await boxOf(drawer);
+      const b = await boxOf(row);
+      const y = b.y + b.height / 2;
+      await page.mouse.move(b.x + 40, y);
+      await page.mouse.down();
+      await page.mouse.move(b.x + 40, y + 10, { steps: 3 });
+      await page.mouse.move(drawerBox.x - 30, y + 10, { steps: 6 });
+      await expect(drawer).toHaveAttribute('data-carry-away', '');
+      await aimAt(page, 'a1', 0.25);
+      await recordFrames(page, detailRows, 'data-drag-row-id', 'pointerup');
+      await page.mouse.up();
+
+      const frames = await framesRecorded(page);
+      expectSettled(frames);
+      await expect
+        .poll(
+          async () =>
+            sessionOf(await stored(page), 'S1').windows[0]?.tabs[1]?.url
+        )
+        .toBe(dataUrl('Live A'));
+      // PREMISE: a1 stood aside for the slot and keeps that place.
+      expect(Math.abs(travel(frames, 'a1'))).toBeLessThan(1);
+      expect(strays(frames)).toEqual([]);
+    }
+  );
+
+  // The popup has no Currently open (KAN-280): its carry into a saved
+  // session is from another one, adopted once that session springs open.
+  test('the popup: a saved tab carried to another session and dropped above e1: no row below jumps', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openSessionsPopup(context, extensionId);
+    await pickUp(page, page.locator('[data-drag-row-id="a1"]'));
+    await onto(page, 'S2');
+    await page.waitForTimeout(SPRING_OPEN_MS + 200);
+    await expect.poll(() => selected(page)).toBe('S2');
+    await expectFits(page.locator('[data-drag-row-id="c0"]'));
+    await aimAt(page, 'e1', 0.25);
+    await recordFrames(page, detailRows, 'data-drag-row-id', 'pointerup');
+    await page.mouse.up();
+
+    const frames = await framesRecorded(page);
+    expectSettled(frames);
+    await expect
+      .poll(async () =>
+        sessionOf(await stored(page), 'S2').windows[1]?.tabs.map((t) => t.tabId)
+      )
+      .toEqual(['e0', expect.any(String), 'e1']);
+    // PREMISE: e1 stood aside for the slot and keeps that place.
+    expect(Math.abs(travel(frames, 'e1'))).toBeLessThan(1);
+    expect(strays(frames)).toEqual([]);
+  });
+
+  // A group's and a window's drag fold rows, which unfold at the drop: those
+  // rows may travel, but never past where they end.
+  grantedTest(
+    'an open group carried to another session and dropped between e0 and e1: no row strays',
+    async ({ context, extensionId, serviceWorker: worker }) => {
+      const page = await openSessionsTabView(context, extensionId, false);
+      const live = await openWindow(worker, ['G1', 'G2', 'Loose']);
+      const tabIds: [number, number] = [live.tab(0), live.tab(1)];
+      await worker.evaluate(
+        async ({ windowId, tabIds }) => {
+          const groupId = await chrome.tabs.group({
+            tabIds,
+            createProperties: { windowId },
+          });
+          await chrome.tabGroups.update(groupId, { title: 'Reading' });
+        },
+        { windowId: live.windowId, tabIds }
+      );
+      const handle = page.locator(
+        `[data-open-window-id="${live.windowId}"] [data-group-drag-handle]`
+      );
+      await expect(handle).toBeVisible();
+      await carryOutOfOpenNow(page, handle);
+      await onto(page, 'S2');
+      await page.waitForTimeout(SPRING_OPEN_MS + 200);
+      await expect.poll(() => selected(page)).toBe('S2');
+      await aimAt(page, 'e1', 0.25);
+      await recordFrames(page, detailRows, 'data-drag-row-id', 'pointerup');
+      await page.mouse.up();
+
+      const frames = await framesRecorded(page);
+      expectSettled(frames);
+      await expect
+        .poll(async () =>
+          sessionOf(await stored(page), 'S2').windows[1]?.tabs.map((t) => t.url)
+        )
+        .toEqual([
+          'https://e0.test/',
+          dataUrl('G1'),
+          dataUrl('G2'),
+          'https://e1.test/',
+        ]);
+      expect(strays(frames)).toEqual([]);
+    }
+  );
+
+  grantedTest(
+    'an open window carried in above w2: no row strays',
+    async ({ context, extensionId, serviceWorker: worker }) => {
+      const page = await openSessionsTabView(context, extensionId, false);
+      const live = await openWindow(worker, ['W A', 'W B']);
+      const handle = page.locator(
+        `[data-open-window-id="${live.windowId}"] [data-open-window-drag-handle]`
+      );
+      await expect(handle).toBeVisible();
+      await carryOutOfOpenNow(page, handle);
+      await aimAt(page, 'w2', 0.25);
+      await recordFrames(page, detailRows, 'data-drag-row-id', 'pointerup');
+      await page.mouse.up();
+
+      const frames = await framesRecorded(page);
+      expectSettled(frames);
+      await expect
+        .poll(async () =>
+          sessionOf(await stored(page), 'S1').windows.map((w) =>
+            w.tabs.map((t) => t.url)
+          )
+        )
+        .toEqual([
+          [
+            'https://a0.test/',
+            'https://a1.test/',
+            'https://a2.test/',
+            'https://al0.test/',
+            'https://al1.test/',
+          ],
+          [dataUrl('W A'), dataUrl('W B')],
+          ['https://b0.test/', 'https://b1.test/'],
+        ]);
       expect(strays(frames)).toEqual([]);
     }
   );
