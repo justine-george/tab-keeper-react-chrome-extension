@@ -312,13 +312,15 @@ export function useOpenNowDrop({
   // KAN-815. A copy is asked of Chrome, or nothing is; either way the carry
   // ends here, synchronously, as an adopted drop must end it (useTabDrop). A
   // live window of the other kind is refused here too, whatever the engine
-  // checked (O11d, ledger R15).
+  // checked (O11d, ledger R15). Resolves 'copied' once Chrome opened a copy at
+  // the slot, so the rows hold until it is drawn (KAN-850); null for anything
+  // else, a new window too, which is drawn below every row.
   const openCopy = useCallback(
-    (
+    async (
       item: CarriedItem,
       toWindowId: string | undefined,
       place: (toWindowId: string) => CopyPlace | null
-    ) => {
+    ): Promise<'copied' | null> => {
       const at =
         toWindowId === undefined
           ? null
@@ -328,24 +330,29 @@ export function useOpenNowDrop({
             : tables.incognito.get(toWindowId) !== carriedIn?.incognito
               ? null
               : place(toWindowId);
-      const asked =
-        at !== null && dispatch(openCarriedCopy(item, at, t('Go to URL')));
-      endCarry(asked ? 'copied' : 'cancelled');
+      const opened =
+        at === null
+          ? null
+          : dispatch(openCarriedCopy(item, at, t('Go to URL')));
+      endCarry(opened !== null ? 'copied' : 'cancelled');
+      if (opened === null || at?.kind === 'newWindow') return null;
+      return (await opened) ? 'copied' : null;
     },
     [tables, carriedIn, dispatch, t]
   );
 
   // The drop, as Chrome calls. A drop the geometry describes no move for
   // (a row this snapshot does not hold, or a release that names no window)
-  // calls nothing. Resolves with each moved tab's place before and after, or
-  // null when nothing moved.
+  // calls nothing. Resolves with each moved tab's place before and after,
+  // 'copied' for a saved item's copy opened at the slot, or null when nothing
+  // moved.
   const onTabMove = useCallback(
     async (
       rowId: string,
       toIndex: number,
       dropTargetId?: string,
       toWindowId?: string
-    ): Promise<MovedTabs | null> => {
+    ): Promise<MovedTabs | 'copied' | null> => {
       // A folded window shows no slot, so the engine's position 0 chose no
       // pin there: the tab keeps its own, as in a saved session.
       const folded = windows.find(
@@ -354,7 +361,7 @@ export function useOpenNowDrop({
       const carried = carriedFor(rowId);
       if (carried !== undefined) {
         const savedPinned = carriedIn?.pinned === true;
-        openCopy(carried, toWindowId, (liveId) => {
+        return openCopy(carried, toWindowId, (liveId) => {
           const slot = tabCopySlot(
             windows,
             liveId,
@@ -367,7 +374,6 @@ export function useOpenNowDrop({
           );
           return slot === null ? null : { kind: 'tab', slot };
         });
-        return null;
       }
       const index =
         folded === undefined
@@ -417,14 +423,13 @@ export function useOpenNowDrop({
       // An items list declares no resolveDrop, so no band is ever named.
       _dropTargetId?: string,
       toWindowId?: string
-    ): Promise<MovedTabs | null> => {
+    ): Promise<MovedTabs | 'copied' | null> => {
       const carried = carriedFor(rowId);
       if (carried !== undefined) {
-        openCopy(carried, toWindowId, (liveId) => {
+        return openCopy(carried, toWindowId, (liveId) => {
           const slot = groupCopySlot(windows, liveId, toIndex);
           return slot === null ? null : { kind: 'group', slot };
         });
-        return null;
       }
       const move = describeGroupMove(rowId, toIndex, toWindowId);
       if (move === undefined) return null;

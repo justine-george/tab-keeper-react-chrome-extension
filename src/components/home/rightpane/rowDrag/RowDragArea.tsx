@@ -223,6 +223,9 @@ const SETTLE_TIMEOUT_MS = 1000;
 interface Settle {
   rowIds: readonly string[];
   rows: ReadonlyMap<string, HTMLElement>;
+  // KAN-850. An adopted drop's phantom, which leaves when the carry ends:
+  // that alone draws nothing.
+  phantomId: string | null;
   drawsLater: boolean;
   timer: ReturnType<typeof setTimeout> | null;
   // The held row, marked while its fold is kept (App.css folds a held group).
@@ -257,10 +260,16 @@ const redrawn = (
   s: Settle,
   rowIds: readonly string[],
   rows: ReadonlyMap<string, HTMLElement>
-) =>
-  s.rowIds.length !== rowIds.length ||
-  s.rowIds.some((id, i) => rowIds[i] !== id) ||
-  [...s.rows].some(([id, el]) => rows.get(id) !== el);
+) => {
+  const kept = (id: string) => id !== s.phantomId;
+  const before = s.rowIds.filter(kept);
+  const now = rowIds.filter(kept);
+  return (
+    before.length !== now.length ||
+    before.some((id, i) => now[i] !== id) ||
+    [...s.rows].some(([id, el]) => kept(id) && rows.get(id) !== el)
+  );
+};
 
 // Where a release lands: in which window, and at which index AMONG THAT
 // WINDOW'S ROWS with the held one lifted out -- the index the list applies to
@@ -2256,6 +2265,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
             const s: Settle = {
               rowIds,
               rows: new Map(rows.current),
+              phantomId: l.adopted ? l.rowId : null,
               drawsLater: later,
               timer: null,
               keptFold: later && FOLDING_KINDS.has(dragKind) ? l.heldEl : null,

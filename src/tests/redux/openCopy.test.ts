@@ -15,6 +15,7 @@ vi.mock('../../utils/functions/external', () => ({
 import { liveItem, savedItem } from '../../redux/carriedItem';
 import type { CarriedItem } from '../../redux/carriedItem';
 import { copyWindowSpec, openCarriedCopy } from '../../redux/openCopy';
+import { onTabMovesEnded } from '../../redux/undoHistory';
 import {
   restoreContainer,
   type windowGroupData,
@@ -255,7 +256,7 @@ describe('openCarriedCopy', () => {
   const reviewAsks = (actions: { type: string }[]) =>
     actions.filter((a) => a.type.endsWith('setPendingReviewAsk')).length;
 
-  it('a new window: one unfocused restore, nothing closed, the pin setting passed', () => {
+  it('a new window: one unfocused restore, nothing closed, the pin setting passed', async () => {
     const { store } = ready();
     const before = store.getState().tabContainerDataState;
 
@@ -263,7 +264,8 @@ describe('openCarriedCopy', () => {
       openCarriedCopy(tabItem(), { kind: 'newWindow' }, GO_TO)
     );
 
-    expect(asked).toBe(true);
+    // The worker's restore sends no answer: taken as opened.
+    await expect(asked).resolves.toBe(true);
     expect(restores()).toEqual([
       {
         type: RESTORE_SESSION_MESSAGE,
@@ -282,12 +284,12 @@ describe('openCarriedCopy', () => {
     expect(store.getState().tabContainerDataState).toEqual(before);
   });
 
-  it('a window carry opens a new window too', () => {
+  it('a window carry opens a new window too', async () => {
     const { store } = ready();
 
-    expect(
+    await expect(
       store.dispatch(openCarriedCopy(windowItem, { kind: 'newWindow' }, GO_TO))
-    ).toBe(true);
+    ).resolves.toBe(true);
     expect(restores()[0].specs[0]).not.toHaveProperty('state');
     expect(restores()[0].specs[0].focused).toBe(false);
   });
@@ -304,8 +306,8 @@ describe('openCarriedCopy', () => {
       )
     );
 
-    expect(asked).toBe(true);
-    await vi.waitFor(() => expect(handle?.createdTabs).toHaveLength(1));
+    await expect(asked).resolves.toBe(true);
+    expect(handle?.createdTabs).toHaveLength(1);
     expect(handle?.createdTabs[0]).toMatchObject({
       windowId: 1,
       index: 1,
@@ -327,14 +329,67 @@ describe('openCarriedCopy', () => {
       )
     );
 
-    expect(asked).toBe(true);
-    await vi.waitFor(() => expect(handle?.createdTabs).toHaveLength(2));
+    await expect(asked).resolves.toBe(true);
+    expect(handle?.createdTabs).toHaveLength(2);
     expect(handle?.createdTabs[0].url).toBe('https://a.example/');
     await vi.waitFor(async () =>
       expect((await chrome.tabGroups.query({})).map((g) => g.title)).toEqual([
         'Work',
       ])
     );
+  });
+
+  // KAN-850. Open now reads the copy at once, as it reads its own moves.
+  describe("a copy at a slot is Tab Keeper's own move until Chrome answers", () => {
+    let ended = 0;
+    let stop = () => {};
+    beforeEach(() => {
+      ended = 0;
+      stop = onTabMovesEnded(() => {
+        ended += 1;
+      });
+    });
+    afterEach(() => stop());
+
+    it('for a tab', async () => {
+      const { store } = ready();
+      const asked = store.dispatch(
+        openCarriedCopy(
+          tabItem(),
+          { kind: 'tab', slot: { windowId: 1, index: 1, pinned: false } },
+          GO_TO
+        )
+      );
+      expect(ended).toBe(0);
+
+      await asked;
+
+      expect(ended).toBe(1);
+    });
+
+    it('for a group', async () => {
+      const { store } = ready();
+
+      await store.dispatch(
+        openCarriedCopy(
+          groupItem,
+          { kind: 'group', slot: { windowId: 1, index: 1 } },
+          GO_TO
+        )
+      );
+
+      expect(ended).toBe(1);
+    });
+
+    it('not a new window, which the worker opens', async () => {
+      const { store } = ready();
+
+      await store.dispatch(
+        openCarriedCopy(tabItem(), { kind: 'newWindow' }, GO_TO)
+      );
+
+      expect(ended).toBe(0);
+    });
   });
 
   it('records the restore moment once per copy', () => {
@@ -367,7 +422,7 @@ describe('openCarriedCopy', () => {
     it('for a tab', async () => {
       const { store, actions } = ready();
 
-      expect(
+      await expect(
         store.dispatch(
           openCarriedCopy(
             tabItem(),
@@ -375,9 +430,9 @@ describe('openCarriedCopy', () => {
             GO_TO
           )
         )
-      ).toBe(true);
+      ).resolves.toBe(false);
 
-      await vi.waitFor(() => expect(handle?.createdTabs).toHaveLength(1));
+      expect(handle?.createdTabs).toHaveLength(1);
       await new Promise((r) => setTimeout(r, 0));
       expect(reviewAsks(actions)).toBe(0);
     });
@@ -385,41 +440,41 @@ describe('openCarriedCopy', () => {
     it('for a group', async () => {
       const { store, actions } = ready();
 
-      store.dispatch(
-        openCarriedCopy(
-          groupItem,
-          { kind: 'group', slot: { windowId: 99, index: 0 } },
-          GO_TO
-        )
-      );
-
       // Asked of Chrome or not, nothing opened.
-      await new Promise((r) => setTimeout(r, 0));
+      await expect(
+        store.dispatch(
+          openCarriedCopy(
+            groupItem,
+            { kind: 'group', slot: { windowId: 99, index: 0 } },
+            GO_TO
+          )
+        )
+      ).resolves.toBe(false);
       expect(await chrome.tabs.query({})).toHaveLength(2);
       expect(reviewAsks(actions)).toBe(0);
     });
   });
 
-  it("the sample opens, but isn't a restore moment", () => {
+  it("the sample opens, but isn't a restore moment", async () => {
     const sample = `${SAMPLE_ID_PREFIX}tour`;
     const { store, actions } = ready(sample);
 
-    expect(
+    await expect(
       store.dispatch(
         openCarriedCopy(tabItem('t2', sample), { kind: 'newWindow' }, GO_TO)
       )
-    ).toBe(true);
+    ).resolves.toBe(true);
     expect(restores()).toHaveLength(1);
     expect(reviewAsks(actions)).toBe(0);
   });
 
-  describe('asks nothing, and answers false', () => {
+  describe('asks nothing, and answers null', () => {
     const expectRefused = (
       item: CarriedItem,
       place: Parameters<typeof openCarriedCopy>[1]
     ) => {
       const { store, actions } = ready();
-      expect(store.dispatch(openCarriedCopy(item, place, GO_TO))).toBe(false);
+      expect(store.dispatch(openCarriedCopy(item, place, GO_TO))).toBeNull();
       expect(restores()).toEqual([]);
       expect(handle?.createdTabs).toEqual([]);
       expect(reviewAsks(actions)).toBe(0);

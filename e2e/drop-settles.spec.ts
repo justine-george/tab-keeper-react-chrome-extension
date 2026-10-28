@@ -13,7 +13,13 @@ import {
   session,
   stored,
 } from './fixtures/savedWindows';
-import { pickUp } from './fixtures/sessionDrag';
+import {
+  groupHandle,
+  pickUp,
+  tabHandle,
+  windowHandle,
+} from './fixtures/sessionDrag';
+import { carryTo, topOf } from './fixtures/liveWindows';
 import { elementLanded } from './fixtures/landed';
 import {
   CARD,
@@ -1107,6 +1113,140 @@ grantedTest.describe('carried into a saved session (KAN-849)', () => {
           ['https://b0.test/', 'https://b1.test/'],
         ]);
       expect(strays(frames)).toEqual([]);
+    }
+  );
+});
+
+// KAN-850. A saved item let go in Currently open opens a copy in Chrome, a
+// few frames later. The rows that stood aside for it hold there until the
+// copy is drawn, and none snaps up a row while the phantom leaves.
+grantedTest.describe('carried into Currently open (KAN-850)', () => {
+  // A live window A B C D, the carry let go on C's top half: the copy opens
+  // between B and C, and C and D keep the place they stood aside to.
+  async function carryIntoOpenWindow(
+    page: Page,
+    worker: Worker,
+    handle: Locator
+  ) {
+    const live = await openWindow(worker, ['A', 'B', 'C', 'D']);
+    await expect(openTab(page, live.tab(3))).toBeVisible();
+    await expectFits(openTab(page, live.tab(0)));
+    await pickUp(page, handle);
+    await carryTo(page, await topOf(openTab(page, live.tab(2))));
+    await page.waitForTimeout(350);
+    return live;
+  }
+
+  grantedTest(
+    'a saved tab let go between B and C: C and D never leave the place they stood aside to',
+    async ({ context, extensionId, serviceWorker: worker }) => {
+      const page = await openSessionsTabView(context, extensionId, false);
+      const live = await carryIntoOpenWindow(
+        page,
+        worker,
+        tabHandle(page, 'a1')
+      );
+      await recordFrames(page, openTabRows, 'data-open-tab-id', 'pointerup');
+      await page.mouse.up();
+
+      const frames = await framesRecorded(page);
+      expectSettled(frames);
+      const order = await chromeOrder(worker, live.windowId);
+      expect(order).toHaveLength(5);
+      expect(order.slice(0, 2)).toEqual([live.tab(0), live.tab(1)]);
+      expect(order.slice(3)).toEqual([live.tab(2), live.tab(3)]);
+      // PREMISE: C and D stood aside for the slot and keep that place.
+      expect(Math.abs(travel(frames, String(live.tab(2))))).toBeLessThan(1);
+      expect(Math.abs(travel(frames, String(live.tab(3))))).toBeLessThan(1);
+      expect(strays(frames)).toEqual([]);
+    }
+  );
+
+  grantedTest(
+    'a saved group let go between B and C: C and D never leave the place they stood aside to',
+    async ({ context, extensionId, serviceWorker: worker }) => {
+      const page = await openSessionsTabView(context, extensionId, false);
+      const live = await carryIntoOpenWindow(
+        page,
+        worker,
+        groupHandle(page, 'alpha')
+      );
+      await recordFrames(page, openTabRows, 'data-open-tab-id', 'pointerup');
+      await page.mouse.up();
+
+      const frames = await framesRecorded(page);
+      expectSettled(frames);
+      const order = await chromeOrder(worker, live.windowId);
+      expect(order).toHaveLength(6);
+      expect(order.slice(4)).toEqual([live.tab(2), live.tab(3)]);
+      // PREMISE: the copy draws taller than the row C and D stood aside for,
+      // so they end lower, and a snap up would leave that span.
+      expect(travel(frames, String(live.tab(2)))).toBeGreaterThan(30);
+      expect(travel(frames, String(live.tab(3)))).toBeGreaterThan(30);
+      expect(strays(frames)).toEqual([]);
+    }
+  );
+
+  // Never adopted (r1 3 A): it opens as a new window, and no row stood aside.
+  grantedTest(
+    'a saved window let go over the list: no row moves',
+    async ({ context, extensionId, serviceWorker: worker }) => {
+      const page = await openSessionsTabView(context, extensionId, false);
+      const live = await openWindow(worker, ['A', 'B', 'C', 'D']);
+      await expect(openTab(page, live.tab(3))).toBeVisible();
+      await expectFits(openTab(page, live.tab(0)));
+      await pickUp(page, windowHandle(page, 'w1'));
+      await carryTo(page, await topOf(openTab(page, live.tab(2))));
+      await page.waitForTimeout(350);
+      const windows = await worker.evaluate(
+        async () => (await chrome.windows.getAll()).length
+      );
+      await recordFrames(page, openTabRows, 'data-open-tab-id', 'pointerup');
+      await page.mouse.up();
+
+      await expect
+        .poll(() =>
+          worker.evaluate(async () => (await chrome.windows.getAll()).length)
+        )
+        .toBe(windows + 1);
+      const frames = await framesRecorded(page);
+      expectSettled(frames);
+      expect(strays(frames)).toEqual([]);
+    }
+  );
+
+  // Chrome refuses the tab (as for a window closed mid-carry): nothing is
+  // drawn, so the rows ease back.
+  grantedTest(
+    'CONTROL: a copy Chrome refuses eases C and D back',
+    async ({ context, extensionId, serviceWorker: worker }) => {
+      const page = await openSessionsTabView(context, extensionId, false);
+      const live = await carryIntoOpenWindow(
+        page,
+        worker,
+        tabHandle(page, 'a1')
+      );
+      await page.evaluate(() => {
+        const refuse = (
+          _props: chrome.tabs.CreateProperties,
+          done?: (tab?: chrome.tabs.Tab) => void
+        ) => done?.(undefined);
+        Object.defineProperty(chrome.tabs, 'create', { value: refuse });
+      });
+      await recordFrames(page, openTabRows, 'data-open-tab-id', 'pointerup');
+      await page.mouse.up();
+
+      const frames = await framesRecorded(page);
+      expectSettled(frames);
+      expect(await chromeOrder(worker, live.windowId)).toEqual([
+        live.tab(0),
+        live.tab(1),
+        live.tab(2),
+        live.tab(3),
+      ]);
+      expect(eased(frames).sort()).toEqual(
+        [String(live.tab(2)), String(live.tab(3))].sort()
+      );
     }
   );
 });

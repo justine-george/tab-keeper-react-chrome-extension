@@ -564,3 +564,130 @@ describe('an adopted drop (KAN-849)', () => {
     expect(wrapperOf('Row b').style.transition).toContain('transform');
   });
 });
+
+// KAN-850. A carried item let go in Currently open: the carry ends in the
+// drop's own task, so the phantom leaves at once, and Chrome draws the copy
+// it opens a few frames later.
+describe('an adopted drop that lands later (KAN-850)', () => {
+  let finished = 0;
+  beforeEach(() => {
+    finished = 0;
+    vi.spyOn(HTMLElement.prototype, 'getAnimations').mockImplementation(
+      () =>
+        [
+          {
+            transitionProperty: 'transform',
+            playState: 'running',
+            finish: () => {
+              finished += 1;
+            },
+          },
+        ] as unknown as Animation[]
+    );
+  });
+  afterEach(() => {
+    endCarry('cancelled');
+  });
+
+  // Rows a, b, c, then the phantom x the carry is drawn as, in a 300px pane.
+  // The drop ends the carry, which takes x out, and resolves when told.
+  const CopyList = ({
+    ids,
+    onMove,
+  }: {
+    ids: string[];
+    onMove: () => Promise<unknown>;
+  }) => {
+    const [carried, setCarried] = useState(true);
+    const rowIds = carried ? [...ids, 'x'] : ids;
+    return (
+      <div data-testid="pane" style={{ overflowY: 'auto' }}>
+        <RowDragArea
+          rowIds={rowIds}
+          dragKind="tab"
+          adoptRowId={carried ? 'x' : undefined}
+          onMove={() => {
+            endCarry('copied');
+            setCarried(false);
+            return onMove();
+          }}
+        >
+          <Probe />
+          {rowIds.map((id, i) => (
+            <DraggableRow key={id} rowId={id}>
+              <div
+                ref={(el) => {
+                  if (el?.parentElement)
+                    el.parentElement.getBoundingClientRect = () =>
+                      box(i * ROW_H, ROW_H);
+                }}
+              >
+                Row {id}
+              </div>
+            </DraggableRow>
+          ))}
+        </RowDragArea>
+      </div>
+    );
+  };
+
+  // As carryInAboveB above.
+  const carryInAboveB = () => {
+    screen.getByTestId('pane').getBoundingClientRect = () => box(0, 300);
+    startCarry(
+      savedItem({ kind: 'tab', tabGroupId: 'S2', windowId: 'w9', tabId: 't' }),
+      { kind: 'tab', title: 'Carried', faviconUrl: '' },
+      300,
+      105
+    );
+    fireEvent.pointerMove(document, { clientX: 100, clientY: 105 });
+    fireEvent.pointerMove(document, { clientX: 100, clientY: 70 });
+    fireEvent.pointerMove(document, { clientX: 100, clientY: 38 });
+    // PREMISE: adopted, and b stands aside, so there is a shift to keep.
+    expect(probe()).toBe('dragging');
+    expect(wrapperOf('Row b').style.transform).toBe(`translateY(${ROW_H}px)`);
+    finished = 0;
+    fireEvent.pointerUp(document, { clientX: 100, clientY: 38 });
+  };
+
+  test('the phantom leaving draws nothing: b and c keep the room they made', () => {
+    const { onMove } = later();
+    render(<CopyList ids={['a', 'b', 'c']} onMove={onMove} />);
+    carryInAboveB();
+
+    // PREMISE: the phantom is gone.
+    expect(screen.queryByText('Row x')).toBeNull();
+    expect(probe()).toBe('settling');
+    expect(wrapperOf('Row b').style.transform).toBe(`translateY(${ROW_H}px)`);
+    expect(finished).toBe(0);
+  });
+
+  test('the copy drawn: the hold ends, and the rows are not left to ease over it', () => {
+    const { onMove } = later();
+    const { rerender } = render(
+      <CopyList ids={['a', 'b', 'c']} onMove={onMove} />
+    );
+    carryInAboveB();
+
+    rerender(<CopyList ids={['a', 'n', 'b', 'c']} onMove={onMove} />);
+
+    expect(probe()).toBe('none');
+    expect(finished).toBeGreaterThan(0);
+  });
+
+  test('CONTROL: Chrome opens nothing (resolves null): the rows ease back', async () => {
+    const { onMove, resolve } = later();
+    render(<CopyList ids={['a', 'b', 'c']} onMove={onMove} />);
+    carryInAboveB();
+
+    await act(async () => {
+      resolve(null);
+      await Promise.resolve();
+    });
+
+    expect(probe()).toBe('none');
+    expect(finished).toBe(0);
+    expect(wrapperOf('Row b').style.transform).toBe('');
+    expect(wrapperOf('Row b').style.transition).toContain('transform');
+  });
+});
