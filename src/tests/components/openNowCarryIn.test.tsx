@@ -480,7 +480,7 @@ describe('a release the pane takes', () => {
     expect(restores()).toEqual([]);
   });
 
-  test('a window anywhere: the block below lit, and a release opens it in front, never maximized', async () => {
+  test('a window anywhere: the block below lit, and a release opens it in front, maximized as saved', async () => {
     await renderPane();
     carry(WINDOW, 10, LIST_Y);
     const r = receiver(10, LIST_Y);
@@ -495,7 +495,7 @@ describe('a release the pane takes', () => {
     expect(carryEndedAs(WINDOW)).toBe('copied');
     const [spec] = restores()[0].specs;
     expect(spec.focused).toBe(true);
-    expect(spec).not.toHaveProperty('state');
+    expect(spec.state).toBe('maximized');
     expect(spec.tabs).toHaveLength(3);
   });
 

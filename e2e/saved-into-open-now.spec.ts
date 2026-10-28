@@ -54,7 +54,7 @@ const SAVED = (): tabContainerData => {
       [{ groupId: 'day', title: 'Day trips', color: 'green' }]
     ),
   ]);
-  // Builder call 1: a maximized saved window opens in the normal state.
+  // KAN-853: a maximized saved window opens maximized, as Open opens it.
   s.windows[0].state = 'maximized';
   return s;
 };
@@ -293,7 +293,7 @@ test('a group with the grant opens as a group: its look, shown, its first page r
 });
 
 // KAN-853. A new window comes to the front, as his pick: it is not drawn where it was let go.
-test('a window opens as a new window, in front, in the normal state', async ({
+test('a window opens as a new window, in front, maximized as saved', async ({
   context,
   extensionId,
   serviceWorker: worker,
@@ -331,7 +331,7 @@ test('a window opens as a new window, in front, in the normal state', async ({
     async (id: number) => (await chrome.windows.get(id)).state,
     made
   );
-  expect(state).toBe('normal');
+  expect(state).toBe('maximized');
   expect(await stored(page)).toEqual(before);
 });
 

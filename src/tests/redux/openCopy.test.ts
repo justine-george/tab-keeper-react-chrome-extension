@@ -192,13 +192,14 @@ describe('copyWindowSpec', () => {
     });
   });
 
-  it('a window: as Open makes it, focused and in the normal state, splits kept', () => {
+  // KAN-853. In front, so its saved state comes back too.
+  it('a window: as Open makes it, focused, its saved state and splits kept', () => {
     const spec = copyWindowSpec(savedWindow(), {
       kind: 'window',
       windowId: 'w1',
     });
     expect(spec?.focused).toBe(true);
-    expect(spec).not.toHaveProperty('state');
+    expect(spec?.state).toBe('maximized');
     expect(spec?.bounds).toEqual({
       height: 700,
       width: 900,
@@ -295,8 +296,8 @@ describe('openCarriedCopy', () => {
     await expect(
       store.dispatch(openCarriedCopy(windowItem, { kind: 'newWindow' }, GO_TO))
     ).resolves.toBe(true);
-    expect(restores()[0].specs[0]).not.toHaveProperty('state');
-    // KAN-853. In front.
+    // KAN-853. In front, its saved state kept.
+    expect(restores()[0].specs[0].state).toBe('maximized');
     expect(restores()[0].specs[0].focused).toBe(true);
   });
 

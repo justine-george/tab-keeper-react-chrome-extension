@@ -64,8 +64,8 @@ function groupOf(
   };
 }
 
-// The new window a pick opens in: in front (KAN-853), and never a saved state
-// (spec builder call 1). Null when the window no longer holds the tab or group.
+// The new window a pick opens in: in front (KAN-853). Null when the window no
+// longer holds the tab or group.
 export function copyWindowSpec(
   window: windowGroupData,
   pick: CarriedPick
@@ -88,11 +88,9 @@ export function copyWindowSpec(
         ...kind,
       };
     }
-    case 'window': {
-      const spec = toWindowSpec(window, true);
-      delete spec.state;
-      return spec;
-    }
+    // As Open makes it: its saved state too (KAN-853).
+    case 'window':
+      return toWindowSpec(window, true);
   }
 }
 
