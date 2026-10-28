@@ -426,6 +426,35 @@ test('a saved window held over a long list: the lit New window box shows at its 
     .toBe(windowsBefore.length + 1);
 });
 
+// KAN-856. Carried straight in below the last window, the list's first landing
+// is the block: it lights then, not only on a later move into it.
+test('a saved tab carried straight in below the last window lights the New window box', async ({
+  context,
+  extensionId,
+  serviceWorker: worker,
+}) => {
+  const live = await openLiveWindow(worker, ['A', 'B']);
+  const page = await setUp(context, extensionId);
+  await expect(liveRow(page, live.idOf('B'))).toBeVisible();
+  const scroller = await boxOf(
+    page.locator(`${OPEN_NOW} [data-open-now-scroller]`)
+  );
+  const low = scroller.y + scroller.height * 0.8;
+
+  await pickUp(page, tabHandle(page, 's2'));
+  // Down the saved side first, so it enters Currently open below every window.
+  const saved = await boxOf(tabHandle(page, 's2'));
+  await page.mouse.move(saved.x + 60, low, { steps: 10 });
+  await carryTo(page, { x: scroller.x + 120, y: low });
+  const box = page.locator(LAST_BOX);
+  await expect(box).toHaveAttribute('data-landing', '');
+  // PREMISE: the box sits above where it entered.
+  expect((await boxOf(box)).y + (await boxOf(box)).height).toBeLessThan(low);
+  await expect(page.locator(BADGE)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+});
+
 // KAN-856. With no other tabs open, Currently open still takes a saved carry:
 // the New window box lights in the empty list, and a release there opens it.
 test.describe('an empty Currently open', () => {

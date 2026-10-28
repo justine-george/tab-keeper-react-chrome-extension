@@ -166,11 +166,12 @@ export function useOpenNowCarryReceiver({
       leave: () => {
         zone = 'none';
         markLiveOver(false);
-        unlightAll();
-        // An Open now list that adopted the carry owns the + from here
-        // (onLandingWindowChange); this leave comes after its first landing.
+        // An Open now list that adopted the carry owns the + and the boxes
+        // from here (onLandingWindowChange); this leave comes after its first
+        // landing, which may be the block below the last window (KAN-856).
         const carry = currentCarry();
         if (carry === null || !pointerIn(carry.x, carry.y)) {
+          unlightAll();
           setCarryOpens(false);
         }
       },
