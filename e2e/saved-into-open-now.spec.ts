@@ -553,6 +553,45 @@ test.describe('an empty Currently open', () => {
   });
 });
 
+// KAN-856, his demo. Carried back to the saved side, the ghost left in the
+// box read as the landing jumping there. Nothing in Currently open takes it
+// out there (D3), so no slot is drawn in it.
+for (const empty of [true, false]) {
+  test(`carried back out of ${empty ? 'an empty' : 'a listed'} Currently open, no ghost is left in its box`, async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = empty ? null : await openLiveWindow(worker, ['A', 'B']);
+    const page = await setUp(context, extensionId);
+    // Empty: only the tab view open (the launch window's about:blank would be listed).
+    if (empty)
+      for (const other of context.pages())
+        if (other !== page) await other.close();
+    if (live) await expect(liveRow(page, live.idOf('B'))).toBeVisible();
+    const box = page.locator(LAST_BOX);
+
+    await pickUp(page, tabHandle(page, 's1'));
+    await carryTo(
+      page,
+      await middleOf(page.locator(`${OPEN_NOW} [data-open-now-scroller]`))
+    );
+    await expect(box).toHaveAttribute('data-landing', '');
+    await carryTo(page, await middleOf(tabHandle(page, 'g0')));
+    // PREMISE: out of Currently open, the box still drawn and unlit.
+    await expect(box).toBeVisible();
+    await expect(box).not.toHaveAttribute('data-landing', '');
+    await expect(
+      page.locator(`${OPEN_NOW} [data-phantom-resting-slot]`)
+    ).toBeHidden();
+    await expect(
+      page.locator(`${OPEN_NOW} [data-drag-landing-slot]`)
+    ).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+}
+
 // KAN-852. Wherever the list was, the new window is drawn whole on screen.
 test.describe('the new window is scrolled into view', () => {
   const SCROLLER = `${OPEN_NOW} [data-open-now-scroller]`;
