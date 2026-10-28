@@ -1,4 +1,4 @@
-import type { Locator, Worker } from '@playwright/test';
+import type { Locator, Page, Worker } from '@playwright/test';
 
 import { expect, grantedTest as test } from './fixtures/grantedExtension';
 import { openTabView, session, tab, win } from './fixtures/betweenSessions';
@@ -292,7 +292,8 @@ test('a group with the grant opens as a group: its look, shown, its first page r
   expect(await stored(page)).toEqual(before);
 });
 
-test('a window opens as a new window, behind, never focused, in the normal state', async ({
+// KAN-853. A new window comes to the front, as his pick: it is not drawn where it was let go.
+test('a window opens as a new window, in front, in the normal state', async ({
   context,
   extensionId,
   serviceWorker: worker,
@@ -318,10 +319,14 @@ test('a window opens as a new window, behind, never focused, in the normal state
   );
   if (made === undefined) throw new Error('no new window');
   await expect.poll(async () => (await strip(worker, made)).length).toBe(5);
-  await page.waitForTimeout(500);
-  expect((await focusNow(worker)).lastFocused).toBe(focus.lastFocused);
+  // PREMISE: the tab view's window had focus.
+  expect(focus.lastFocused).not.toBe(made);
+  await expect
+    .poll(async () => (await focusNow(worker)).lastFocused)
+    .toBe(made);
+  // Kept: nothing takes it back.
   await page.waitForTimeout(2000);
-  expect((await focusNow(worker)).lastFocused).toBe(focus.lastFocused);
+  expect((await focusNow(worker)).lastFocused).toBe(made);
   const state = await worker.evaluate(
     async (id: number) => (await chrome.windows.get(id)).state,
     made
@@ -362,7 +367,91 @@ test.describe('the New window boxes open a new window holding just the tab', () 
       await expect
         .poll(async () => (await strip(worker, made)).map((t) => t.url))
         .toEqual(['https://s2.test/']);
-      expect((await focusNow(worker)).lastFocused).toBe(focus.lastFocused);
+      // KAN-853. In front.
+      expect(focus.lastFocused).not.toBe(made);
+      await expect
+        .poll(async () => (await focusNow(worker)).lastFocused)
+        .toBe(made);
+    });
+  }
+});
+
+// KAN-852. Wherever the list was, the new window is drawn whole on screen.
+test.describe('the new window is scrolled into view', () => {
+  const SCROLLER = `${OPEN_NOW} [data-open-now-scroller]`;
+
+  // The new window's block lies inside the list's visible box.
+  const shownWhole = (page: Page, windowId: number) =>
+    page.evaluate(
+      ({ scroller, windowId }) => {
+        const view = document.querySelector(scroller)?.getBoundingClientRect();
+        const block = document
+          .querySelector(`[data-open-window-id="${windowId}"]`)
+          ?.getBoundingClientRect();
+        if (!view || !block) return 'not drawn';
+        return block.top >= view.top - 1 && block.bottom <= view.bottom + 1
+          ? 'whole'
+          : `${Math.round(block.top)}..${Math.round(block.bottom)} in ${Math.round(view.top)}..${Math.round(view.bottom)}`;
+      },
+      { scroller: SCROLLER, windowId }
+    );
+
+  for (const drop of ['below', 'header', 'window'] as const) {
+    test(`from the ${drop === 'window' ? 'saved window' : `${drop} box`}`, async ({
+      context,
+      extensionId,
+      serviceWorker: worker,
+    }) => {
+      const live = [];
+      for (let w = 0; w < 6; w++)
+        live.push(
+          await openLiveWindow(worker, [`W${w} a`, `W${w} b`, `W${w} c`])
+        );
+      const page = await setUp(context, extensionId);
+      const last = live[5];
+      if (last === undefined) throw new Error('no live windows');
+      await expect(liveRow(page, last.idOf('W5 c'))).toBeAttached();
+      const scroller = page.locator(SCROLLER);
+      // PREMISE: the list scrolls.
+      expect(
+        await scroller.evaluate((el) => el.scrollHeight - el.clientHeight)
+      ).toBeGreaterThan(100);
+      // The box below the last window is reached at the bottom of the list.
+      if (drop === 'below')
+        await scroller.evaluate((el) => {
+          el.scrollTop = el.scrollHeight;
+        });
+      const windowsBefore = await windowIds(worker);
+
+      await pickUp(
+        page,
+        drop === 'window' ? windowHandle(page, 'w1') : tabHandle(page, 's2')
+      );
+      const anchor =
+        drop === 'below' ? last.idOf('W5 a') : (live[0]?.idOf('W0 a') ?? -1);
+      await carryTo(page, await middleOf(liveRow(page, anchor)));
+      if (drop !== 'window') {
+        const target = page.locator(drop === 'header' ? HEADER_BOX : LAST_BOX);
+        // Drawn once the carry is over the list, below the last window.
+        await expect(target).toBeAttached();
+        if (drop === 'below')
+          await scroller.evaluate((el) => {
+            el.scrollTop = el.scrollHeight;
+          });
+        await expect(target).toBeVisible();
+        await carryTo(page, await middleOf(target));
+      }
+      await expect(page.locator(BADGE)).toBeVisible();
+      await page.mouse.up();
+
+      await expect
+        .poll(async () => (await windowIds(worker)).length)
+        .toBe(windowsBefore.length + 1);
+      const made = (await windowIds(worker)).find(
+        (id) => !windowsBefore.includes(id)
+      );
+      if (made === undefined) throw new Error('no new window');
+      await expect.poll(() => shownWhole(page, made)).toBe('whole');
     });
   }
 });

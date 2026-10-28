@@ -72,6 +72,11 @@ import {
   pendingReopenFocus,
   subscribeReopenFocus,
 } from '../../../redux/reopenFocus';
+import {
+  clearNewWindowFollow,
+  pendingNewWindow,
+  subscribeNewWindowFollow,
+} from '../../../redux/newWindowFollow';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { showToast } from '../../../redux/slices/globalStateSlice';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
@@ -484,6 +489,31 @@ export default function OpenNowPane({
     control.focus();
     clearReopenFocus();
   }, [reopenedRow, windows]);
+
+  // KAN-852. A copy opened as a new window: the first window listed that was
+  // not listed when it was asked for is scrolled into view, before it paints.
+  const newWindowAsk = useSyncExternalStore(
+    subscribeNewWindowFollow,
+    pendingNewWindow
+  );
+  const listedAtAsk = useRef<{ ask: number; ids: Set<number> } | null>(null);
+  useLayoutEffect(() => {
+    if (newWindowAsk === null || windows === null) return;
+    const listed = listedAtAsk.current;
+    if (listed?.ask !== newWindowAsk) {
+      listedAtAsk.current = {
+        ask: newWindowAsk,
+        ids: new Set(windows.map((w) => w.id)),
+      };
+      return;
+    }
+    const added = windows.find((w) => !listed.ids.has(w.id));
+    if (added === undefined) return;
+    paneRef.current
+      ?.querySelector(`[data-open-window-id="${added.id}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
+    clearNewWindowFollow();
+  }, [newWindowAsk, windows]);
 
   // A null close means the tab or window was already gone -- a second press
   // before the re-read, say -- so there is nothing to offer (O8a).
