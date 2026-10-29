@@ -143,6 +143,11 @@ describe('readPendingAsk', () => {
     expect(readPendingAsk(value)).toEqual(value);
   });
 
+  test('an updated ask reads back (KAN-861)', () => {
+    const value = { moment: { kind: 'updated' }, at: 5 };
+    expect(readPendingAsk(value)).toEqual(value);
+  });
+
   test('a malformed pending ask reads as none', () => {
     for (const value of [
       undefined,
@@ -174,6 +179,13 @@ describe('reviewCardCopy', () => {
 
   test('the time ask says "If it\'s useful to you"', () => {
     expect(reviewCardCopy({ kind: 'time' }).bodyKey).toBe('ReviewCardBodyTime');
+  });
+
+  test('the updated ask uses the time words (KAN-861)', () => {
+    expect(reviewCardCopy({ kind: 'updated' })).toEqual({
+      titleKey: 'Thanks for using Tab Keeper',
+      bodyKey: 'ReviewCardBodyTime',
+    });
   });
 
   test('the first save says "If you like it so far" (KAN-659)', () => {

@@ -81,7 +81,9 @@ export const showReviewCard =
     // lastReviewRequestTime among them, which reopens the gate.
     if (!canAskForReview(stored, Date.now())) return;
     dispatch(updateLastReviewRequestTime());
-    if (moment.kind === 'time') dispatch(markTimeAskDone());
+    // KAN-861. The updated card uses the time words: nobody sees the same card twice.
+    if (moment.kind === 'time' || moment.kind === 'updated')
+      dispatch(markTimeAskDone());
     dispatch(setPendingReviewAsk(null));
     dispatch(
       openReviewCard({
