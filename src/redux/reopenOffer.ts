@@ -30,10 +30,18 @@ function closedToast(item: ClosedItem, reopenOfferId: number) {
         toastParams: { count: item.window.tabs.length },
         reopenOfferId,
       });
+    case 'duplicateTabs':
+      return showToast({
+        toastText: TOAST_MESSAGES.DUPLICATE_TABS_CLOSED,
+        toastParams: {
+          count: item.closed.reduce((n, w) => n + w.tabs.length, 0),
+        },
+        reopenOfferId,
+      });
   }
 }
 
-// Shows "Tab closed" / "Group closed (N tabs)" / "Window closed (N tabs)" with Reopen, for
+// Shows "Tab closed" / "Group closed (N tabs)" / "Window closed (N tabs)" / "Closed N duplicate tabs." with Reopen, for
 // NEEDS_YOU_TOAST_MS (KAN-508: it asks for a decision). It replaces the offer
 // showing, in its place in the stack (KAN-349 T4); other toasts stay.
 export const offerReopen = createAsyncThunk(

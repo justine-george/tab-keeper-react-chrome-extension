@@ -427,5 +427,6 @@
   "SaveCurrentShort": "현재 창 저장",
   "Go to group": "그룹으로 이동",
   "Replace with current window": "현재 창으로 바꾸기",
-  "Window replaced.": "창을 바꿨습니다."
+  "Window replaced.": "창을 바꿨습니다.",
+  "ClosedDuplicateTabs_other": "중복된 탭 {{count}}개를 닫았습니다."
 }

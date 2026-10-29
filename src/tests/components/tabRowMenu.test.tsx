@@ -298,6 +298,7 @@ async function renderOpenNow(onCloseTab: (tab: OpenTab) => void) {
         onToggle={() => undefined}
         onCloseTab={onCloseTab}
         onSaveWindow={() => undefined}
+        onRemoveDuplicates={() => undefined}
         onSaveGroup={() => undefined}
         onUngroup={() => undefined}
         onCloseGroup={() => undefined}

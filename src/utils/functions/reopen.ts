@@ -1,4 +1,5 @@
 import { isTabKeeperPage } from './capture';
+import { liveDuplicatesToClose } from './liveDuplicates';
 import { toOpenWindowBounds } from './openNow';
 import type {
   OpenGroup,
@@ -44,6 +45,14 @@ export type ClosedItem =
       group: OpenGroup;
       tabs: OpenTab[];
       window: OpenWindow;
+      restorableSessionId: null;
+    }
+  // KAN-867. The extra copies Remove duplicate tabs closed, window by window,
+  // each window as it was. Recreated, never restored: Chrome lists one entry
+  // per tab, so `restorableSessionId` is always null.
+  | {
+      kind: 'duplicateTabs';
+      closed: { window: OpenWindow; tabs: OpenTab[] }[];
       restorableSessionId: null;
     };
 
@@ -277,6 +286,34 @@ export async function closeOpenGroup(
   };
 }
 
+// KAN-867. Closes each window's extra copies (liveDuplicatesToClose), and
+// nothing else. A window whose remove Chrome refuses (a copy already gone, say)
+// is left out of the item; the others still close. Resolves to the ClosedItem,
+// or null when nothing closed. Never rejects. Asks for no `sessions` grant:
+// no recently closed entry is read.
+export async function closeDuplicateTabs(
+  windows: readonly OpenWindow[]
+): Promise<ClosedItem | null> {
+  const closed: { window: OpenWindow; tabs: OpenTab[] }[] = [];
+  for (const openWindow of windows) {
+    const tabs = liveDuplicatesToClose(openWindow);
+    if (tabs.length === 0) continue;
+    const current = await withCurrentGroupVisuals(
+      await withCurrentPlacement(openWindow)
+    );
+    try {
+      await chrome.tabs.remove(tabs.map((tab) => tab.id));
+    } catch (error) {
+      console.warn('Could not close duplicate tabs: ', error);
+      continue;
+    }
+    closed.push({ window: current, tabs });
+  }
+  return closed.length === 0
+    ? null
+    : { kind: 'duplicateTabs', closed, restorableSessionId: null };
+}
+
 // What Reopen brought back, by the new id Chrome gave it: focus goes to its
 // row once Open now lists it (KAN-311, O8c). A tab whose window had gone is
 // still a tab, in the window made around it.
@@ -346,6 +383,7 @@ export async function recreateClosed(
   try {
     if (item.kind === 'tab') return await recreateTab(item);
     if (item.kind === 'group') return await recreateGroup(item);
+    if (item.kind === 'duplicateTabs') return await recreateDuplicateTabs(item);
     const rebuilt = await recreateWindow(item.window);
     if (rebuilt === null) return null;
     if (pinTabKeeper) await ensurePinnedStub(rebuilt.windowId);
@@ -1035,6 +1073,93 @@ async function recreateGroup(
     }
   }
   return { kind: 'tab', tabId: firstId };
+}
+
+// KAN-867. Each window's copies go back at their old indices, lowest first,
+// so every one lands where it was; pinned as they were, never in front (the
+// copy in front stayed). Each rejoins its old group if the window still has it,
+// else every copy of that old group shares one new group with its old look. A
+// window gone since is rebuilt around its copies. Resolves to the first copy
+// that came back, or null when none did.
+async function recreateDuplicateTabs(
+  item: Extract<ClosedItem, { kind: 'duplicateTabs' }>
+): Promise<Reopened | null> {
+  let first: number | undefined;
+  for (const { window: openWindow, tabs } of item.closed) {
+    const used = openWindow.groups.filter((group) =>
+      tabs.some((tab) => tab.groupId === group.id)
+    );
+    try {
+      await chrome.windows.get(openWindow.id);
+    } catch {
+      const rebuilt = await recreateWindow({
+        ...openWindow,
+        tabs,
+        groups: used,
+      });
+      first ??= rebuilt?.createdByOldId.values().next().value;
+      continue;
+    }
+    const byOldGroup = new Map<number | null, number[]>();
+    for (const tab of [...tabs].sort((a, b) => a.index - b.index)) {
+      let reopened: chrome.tabs.Tab;
+      try {
+        reopened = await chrome.tabs.create({
+          windowId: openWindow.id,
+          url: tab.url,
+          index: tab.index,
+          pinned: tab.pinned,
+          active: false,
+        });
+      } catch (error) {
+        // Rule 10: a copy Chrome refuses is skipped; the rest still come back.
+        console.warn('Could not reopen a tab: ', error);
+        continue;
+      }
+      if (reopened.id === undefined) continue;
+      first ??= reopened.id;
+      byOldGroup.set(tab.groupId, [
+        ...(byOldGroup.get(tab.groupId) ?? []),
+        reopened.id,
+      ]);
+    }
+    // Undefined while the tabGroups permission is ungranted: the snapshot
+    // then saw no groups, so nothing is regrouped or ungrouped.
+    if (!chrome.tabGroups) continue;
+    for (const [oldGroupId, ids] of byOldGroup) {
+      const [one, ...rest] = ids;
+      if (oldGroupId === null) {
+        // Chrome groups a tab created between two members; it was loose.
+        for (const id of ids) {
+          const now = await chrome.tabs.get(id).catch(() => null);
+          if (now && now.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE)
+            await leaveGroup(id);
+        }
+        continue;
+      }
+      const look = used.find((group) => group.id === oldGroupId);
+      try {
+        const old = await chrome.tabGroups.get(oldGroupId).catch(() => null);
+        if (old && old.windowId === openWindow.id) {
+          await chrome.tabs.group({ groupId: old.id, tabIds: [one, ...rest] });
+          continue;
+        }
+        const groupId = await chrome.tabs.group({
+          createProperties: { windowId: openWindow.id },
+          tabIds: [one, ...rest],
+        });
+        if (look)
+          await chrome.tabGroups.update(groupId, {
+            title: look.title,
+            color: look.color,
+            collapsed: look.collapsed,
+          });
+      } catch (error) {
+        console.warn('Could not regroup reopened tabs: ', error);
+      }
+    }
+  }
+  return first === undefined ? null : { kind: 'tab', tabId: first };
 }
 
 // Chrome puts a tab created strictly between two tabs of one group into that

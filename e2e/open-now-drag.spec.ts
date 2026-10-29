@@ -439,6 +439,8 @@ async function boxOf(target: Locator) {
 // that a row is held. On a build where Open now has no drag this is where
 // every case fails.
 async function pickUp(page: Page, target: Locator) {
+  // A drop before this one can leave rows still easing to their places: measured mid-glide, the press lands on a neighbour.
+  await elementLanded(target, 'ancestors');
   const box = await boxOf(target);
   const x = box.x + 60;
   const y = box.y + box.height / 2;

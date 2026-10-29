@@ -455,5 +455,8 @@
   "SaveCurrentShort": "Salva la finestra attuale",
   "Go to group": "Vai al gruppo",
   "Replace with current window": "Sostituisci con la finestra attuale",
-  "Window replaced.": "Finestra sostituita."
+  "Window replaced.": "Finestra sostituita.",
+  "ClosedDuplicateTabs_one": "{{count}} scheda duplicata chiusa.",
+  "ClosedDuplicateTabs_many": "{{count}} schede duplicate chiuse.",
+  "ClosedDuplicateTabs_other": "{{count}} schede duplicate chiuse."
 }

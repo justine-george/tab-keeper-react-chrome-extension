@@ -455,5 +455,8 @@
   "SaveCurrentShort": "Guardar ventana actual",
   "Go to group": "Ir al grupo",
   "Replace with current window": "Sustituir por la ventana actual",
-  "Window replaced.": "Ventana reemplazada."
+  "Window replaced.": "Ventana reemplazada.",
+  "ClosedDuplicateTabs_one": "Se cerró {{count}} pestaña duplicada.",
+  "ClosedDuplicateTabs_many": "Se cerraron {{count}} pestañas duplicadas.",
+  "ClosedDuplicateTabs_other": "Se cerraron {{count}} pestañas duplicadas."
 }

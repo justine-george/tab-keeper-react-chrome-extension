@@ -455,5 +455,8 @@
   "SaveCurrentShort": "Salvar janela atual",
   "Go to group": "Ir para o grupo",
   "Replace with current window": "Substituir pela janela atual",
-  "Window replaced.": "Janela substituída."
+  "Window replaced.": "Janela substituída.",
+  "ClosedDuplicateTabs_one": "{{count}} aba duplicada fechada.",
+  "ClosedDuplicateTabs_many": "{{count}} abas duplicadas fechadas.",
+  "ClosedDuplicateTabs_other": "{{count}} abas duplicadas fechadas."
 }
