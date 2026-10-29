@@ -47,6 +47,7 @@ vi.mock('../../utils/constants/whatsNew', async (importOriginal) => {
   const plain: typeof actual.WHATS_NEW = [
     {
       version: 'next',
+      ships: '2.1.0',
       entries: [{ ...actual.WHATS_NEW[0].entries[0], changesDefault: false }],
     },
   ];
@@ -464,13 +465,13 @@ describe('the full-view callout in the order (KAN-7 §6)', () => {
 describe("What's new in the order (KAN-861)", () => {
   afterEach(() => history.replaceState(null, '', '?'));
 
-  // An update from 2.0.1 waits; the manifest is far ahead, so 'next' reads as 99.0.0.
+  // An update from 2.0.1 waits; the manifest is far ahead, so 'next' reads as the 2.1.0 it ships as.
   const updated = (action?: ChromeSeed['action']): ChromeSeed => ({
     localArea: { whatsNewSince: '2.0.1' },
     manifestVersion: '99.0.0',
     action,
   });
-  const TITLE = "What's new in Tab Keeper 99.0.0";
+  const TITLE = "What's new in Tab Keeper 2.1.0";
   const findWhatsNew = () =>
     screen.findByRole('dialog', { name: (n) => n === TITLE });
   const settleAsks = () =>

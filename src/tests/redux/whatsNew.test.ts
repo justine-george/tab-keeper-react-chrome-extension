@@ -34,7 +34,7 @@ afterEach(() => {
 
 const stored = () => handle?.localArea()[WHATS_NEW_SINCE_KEY];
 
-// A manifest far ahead keeps these true after the cut renames 'next'.
+// A manifest far ahead: 'next' reads as the 2.1.0 it ships as, before and after the rename.
 const start = (localArea?: Record<string, unknown>) => {
   handle = setupChromeFake({ localArea, manifestVersion: '99.0.0' });
   return makeTestStore().store;
@@ -49,7 +49,7 @@ describe('deciding', () => {
     expect(opener).not.toBeNull();
     opener?.();
     const shown = store.getState().globalState.whatsNew;
-    expect(shown?.[0].version).toBe('99.0.0');
+    expect(shown?.[0].version).toBe('2.1.0');
     expect(shown?.[0].entries[0].titleKey).toBe('WhatsNewCopyLinksTitle');
     expect(stored()).toBe('2.0.1');
   });

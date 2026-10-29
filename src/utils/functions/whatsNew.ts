@@ -33,6 +33,15 @@ function compare(a: readonly number[], b: readonly number[]): number {
   return 0;
 }
 
+const nextAs = (
+  ships: string,
+  installed: readonly number[],
+  raw: string
+): string => {
+  const cap = parseVersion(ships);
+  return cap !== null && compare(installed, cap) > 0 ? ships : raw;
+};
+
 /** Releases newer than `since` and no newer than `installed`; fixes-only ones show only beside a main one. */
 export function releasesToShow(
   since: unknown,
@@ -44,7 +53,10 @@ export function releasesToShow(
   if (from === null || to === null) return [];
   const inRange = list
     .map((release) => ({
-      version: release.version === 'next' ? installed : release.version,
+      version:
+        release.version === 'next'
+          ? nextAs(release.ships, to, installed)
+          : release.version,
       fixesOnly: release.fixesOnly === true,
       entries: [...release.entries],
     }))

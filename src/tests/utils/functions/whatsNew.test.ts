@@ -39,9 +39,21 @@ describe('releasesToShow', () => {
     expect(versions('2.0.1', '2.1.0', [C])).toEqual(['2.1.0']);
   });
 
+  const next: WhatsNewRelease = {
+    version: 'next',
+    ships: '2.1.0',
+    entries: [entry('N')],
+  };
+
   test("'next' reads as the installed version", () => {
-    const next: WhatsNewRelease = { version: 'next', entries: [entry('N')] };
+    expect(versions('2.0.1', '2.0.9', [next])).toEqual(['2.0.9']);
     expect(versions('2.0.1', '2.1.0', [next])).toEqual(['2.1.0']);
+  });
+
+  // Review: a release cut without renaming 'next' must not show it again on the next update.
+  test("a 'next' left unrenamed reads no later than the version it ships as", () => {
+    expect(versions('2.0.1', '2.1.1', [next])).toEqual(['2.1.0']);
+    expect(versions('2.1.0', '2.1.1', [next])).toEqual([]);
   });
 
   test('a fixes-only release alone shows nothing', () => {
@@ -164,6 +176,7 @@ describe('the shipped list', () => {
   test('the first release is Copy links', () => {
     expect(WHATS_NEW[0]).toEqual({
       version: 'next',
+      ships: '2.1.0',
       entries: [
         {
           titleKey: 'WhatsNewCopyLinksTitle',
