@@ -101,6 +101,9 @@ export default function TabGroupEntryContainer() {
       isSessionOnScreen(state, selectedTabGroupId)
   );
 
+  const copyLinksLayout = useSelector(
+    (state: RootState) => state.settingsDataState.copyLinksLayout
+  );
   // KAN-708. A row's right-click menu: the header ⋮'s items, for the row that was clicked.
   const sessionById = (id: string) =>
     tabContainerDataList.tabGroups.find((g) => g.tabGroupId === id);
@@ -116,6 +119,7 @@ export default function TabGroupEntryContainer() {
         dispatch,
         deleteKey,
         place: 'row',
+        copyLinksLayout,
       });
     },
   });

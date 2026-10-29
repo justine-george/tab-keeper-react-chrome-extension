@@ -4,6 +4,8 @@ import { buildSession } from '../fixtures/sessionFixture';
 import {
   dropNotificationCount,
   groupLinkScope,
+  linksOnlyHtml,
+  linksOnlyList,
   scopeToLinkHtml,
   scopeToLinkList,
   sessionToLinkHtml,
@@ -511,5 +513,89 @@ describe('a window or a group copied on its own (KAN-783)', () => {
 
   test('a group id the window does not hold copies nothing', () => {
     expect(groupLinkScope('Gone', trip, 'nope').tabs).toEqual([]);
+  });
+});
+
+describe('links only (KAN-859)', () => {
+  const hn = tab({
+    title: 'Hacker News',
+    url: 'https://news.ycombinator.com/',
+  });
+  const example = tab({
+    title: 'Example',
+    url: 'https://example.com/?q=a&b=c',
+  });
+
+  test('one URL | Title line per tab, the URL exactly as stored', () => {
+    expect(linksOnlyList([hn, example])).toBe(
+      'https://news.ycombinator.com/ | Hacker News\nhttps://example.com/?q=a&b=c | Example'
+    );
+  });
+
+  test('rich: each title linked to its URL, a <br> between', () => {
+    expect(linksOnlyHtml([hn, example])).toBe(
+      '<a href="https://news.ycombinator.com/">Hacker News</a><br><a href="https://example.com/?q=a&amp;b=c">Example</a>'
+    );
+  });
+
+  test.each([[''], ['   ']])(
+    'a tab titled %j is its bare URL, linked to itself',
+    (title) => {
+      const untitled = tab({ title, url: 'https://example.com/a' });
+      expect(linksOnlyList([untitled])).toBe('https://example.com/a');
+      expect(linksOnlyHtml([untitled])).toBe(
+        '<a href="https://example.com/a">https://example.com/a</a>'
+      );
+    }
+  );
+
+  test('a non-web address is text, never a link', () => {
+    const settings = tab({ title: 'Settings', url: 'chrome://settings/' });
+    expect(linksOnlyList([settings])).toBe('chrome://settings/ | Settings');
+    expect(linksOnlyHtml([settings])).toBe('Settings (chrome://settings/)');
+    const blank = tab({ title: '', url: 'about:blank' });
+    expect(linksOnlyList([blank])).toBe('about:blank');
+    expect(linksOnlyHtml([blank])).toBe('about:blank');
+  });
+
+  test('a | inside a title is kept as it is', () => {
+    const about = tab({
+      title: 'About How It Evolved | How It Evolved',
+      url: 'https://howitevolved.com/about/',
+    });
+    expect(linksOnlyList([about])).toBe(
+      'https://howitevolved.com/about/ | About How It Evolved | How It Evolved'
+    );
+  });
+
+  test('rich escapes markup in a title and URL; plain keeps it raw', () => {
+    const marked = tab({
+      title: '<b>R&D</b> "x"',
+      url: 'https://example.com/?a="1"&b=<2>',
+    });
+    expect(linksOnlyHtml([marked])).toBe(
+      '<a href="https://example.com/?a=&quot;1&quot;&amp;b=&lt;2&gt;">&lt;b&gt;R&amp;D&lt;/b&gt; &quot;x&quot;</a>'
+    );
+    expect(linksOnlyList([marked])).toBe(
+      'https://example.com/?a="1"&b=<2> | <b>R&D</b> "x"'
+    );
+  });
+
+  test('windows and groups flatten to one list in stored order', () => {
+    const tabs = KYOTO.windows.flatMap((w) => w.tabs);
+    expect(linksOnlyList(tabs).split('\n')).toEqual([
+      'https://jr.example/nozomi | Nozomi timetable',
+      'https://haruka.example/ | Haruka',
+      'https://bus.example/ | Airport bus',
+      'https://nishiki.example/ | Nishiki Market',
+    ]);
+    const html = linksOnlyHtml(tabs);
+    expect(html.split('<br>')).toHaveLength(4);
+    expect(html).not.toMatch(/<ul|<li|<h3|<p|Flights|Window/);
+  });
+
+  test('no tabs is an empty string', () => {
+    expect(linksOnlyList([])).toBe('');
+    expect(linksOnlyHtml([])).toBe('');
   });
 });

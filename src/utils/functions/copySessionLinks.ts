@@ -1,8 +1,13 @@
-import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
+import type {
+  tabContainerData,
+  tabData,
+} from '../../redux/slices/tabContainerDataStateSlice';
 import type { TFunction } from 'i18next';
 
 import { formatGroupCounts, formatTabCount } from './local';
 import {
+  linksOnlyHtml,
+  linksOnlyList,
   scopeToLinkHtml,
   scopeToLinkList,
   sessionToLinkHtml,
@@ -10,6 +15,18 @@ import {
   type LinkListStrings,
   type LinkScope,
 } from './sessionExportHtml';
+import { partitionTabsIntoRuns, type chromeTabGroupData } from './tabGroups';
+
+// KAN-859. What every Copy links button pastes; Settings › Sessions picks it.
+export type CopyLinksLayout = 'links-only' | 'with-headings';
+
+// KAN-859. The order the panes draw: a group at its first member, the rest pulled up to it.
+function inShownOrder(
+  tabs: readonly tabData[],
+  groups: readonly chromeTabGroupData[] | undefined
+): tabData[] {
+  return partitionTabsIntoRuns(tabs, groups).flatMap((run) => run.tabs);
+}
 
 /**
  * Puts a session's links on the clipboard: a rich list for editors that read
@@ -43,6 +60,7 @@ import {
  *
  * `t` and `language` are passed in because nothing outside the component tree
  * has a `t` to call -- the same division of labour the toast messages keep.
+ * `layout` comes from the caller's store the same way (KAN-859).
  *
  * Resolves with the number of links copied (KAN-401) once something is on
  * the clipboard. A refused rich write is not a failure the user needs to hear
@@ -55,12 +73,20 @@ import {
 export async function copySessionLinks(
   session: tabContainerData,
   t: TFunction,
-  language: string
+  language: string,
+  layout: CopyLinksLayout
 ): Promise<number | null> {
   const linkCount = session.windows.reduce(
     (sum, window) => sum + window.tabs.length,
     0
   );
+  if (layout === 'links-only') {
+    const tabs = session.windows.flatMap((window) =>
+      inShownOrder(window.tabs, window.chromeTabGroups)
+    );
+    const written = await writeLinks(linksOnlyHtml(tabs), linksOnlyList(tabs));
+    return written ? linkCount : null;
+  }
   const strings: LinkListStrings = {
     window: t('Window'),
     tabCountLabel: (count: number) => formatTabCount(count, t),
@@ -89,19 +115,24 @@ export async function copySessionLinks(
  * One window's or one group's links (KAN-783), with copySessionLinks's
  * promise: the link count once something is on the clipboard, null when both
  * writes were refused, never a rejection. Copies `scope` as given; the scope
- * builders tidy it.
+ * builders tidy it. `layout` comes from the caller's store (KAN-859).
  */
 export async function copyScopeLinks(
   scope: LinkScope,
-  t: TFunction
+  t: TFunction,
+  layout: CopyLinksLayout
 ): Promise<number | null> {
   const strings = {
     tabCountLabel: (count: number) => formatTabCount(count, t),
   };
-  const written = await writeLinks(
-    scopeToLinkHtml(scope, strings),
-    scopeToLinkList(scope, strings)
-  );
+  const shown = inShownOrder(scope.tabs, scope.groups);
+  const written =
+    layout === 'links-only'
+      ? await writeLinks(linksOnlyHtml(shown), linksOnlyList(shown))
+      : await writeLinks(
+          scopeToLinkHtml(scope, strings),
+          scopeToLinkList(scope, strings)
+        );
   return written ? scope.tabs.length : null;
 }
 

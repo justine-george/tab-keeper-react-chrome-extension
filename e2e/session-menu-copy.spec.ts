@@ -1,10 +1,16 @@
 import { test, expect } from './fixtures/extension';
 import { sessionHeaderMenu } from './fixtures/menus';
-import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import {
+  buildContainer,
+  buildSession,
+  seedSessions,
+  seedSettings,
+} from './fixtures/seed';
 
 // KAN-209. The component tests use a fake clipboard; only a real paste proves
 // the popup may write (no `clipboardWrite` permission, and a refused write
 // falls back silently). export-copy-links.spec.ts covers the export page.
+// With headings here (KAN-859); copy-links-layout.spec.ts covers Links only.
 
 const PASTE = process.platform === 'darwin' ? 'Meta+V' : 'Control+V';
 
@@ -45,6 +51,7 @@ test('copying from the session menu reaches the real clipboard, rich and plain',
   context,
   extensionId,
 }) => {
+  await seedSettings(context, { copyLinksLayout: 'with-headings' });
   await seedSessions(context, {
     ...buildContainer([SESSION]),
     selectedTabGroupId: 'session-menu-copy',

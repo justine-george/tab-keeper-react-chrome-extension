@@ -5,6 +5,10 @@ import {
   copyScopeLinks,
   copySessionLinks,
 } from '../../../utils/functions/copySessionLinks';
+import {
+  linksOnlyHtml,
+  linksOnlyList,
+} from '../../../utils/functions/sessionExportHtml';
 import { buildSession } from '../../fixtures/sessionFixture';
 import { tFor } from '../../setup/localeT';
 
@@ -38,7 +42,9 @@ describe('copySessionLinks (KAN-713)', () => {
   test('both writes refused resolves null and does not reject', async () => {
     const { write, writeText } = stubClipboard(refused, refused);
 
-    await expect(copySessionLinks(buildSession(), t, 'en')).resolves.toBeNull();
+    await expect(
+      copySessionLinks(buildSession(), t, 'en', 'with-headings')
+    ).resolves.toBeNull();
 
     expect(write).toHaveBeenCalledTimes(1);
     expect(writeText).toHaveBeenCalledTimes(1);
@@ -47,7 +53,9 @@ describe('copySessionLinks (KAN-713)', () => {
   test('a refused rich write falls back to plain and resolves the count', async () => {
     const { writeText } = stubClipboard(refused, () => Promise.resolve());
 
-    await expect(copySessionLinks(buildSession(), t, 'en')).resolves.toBe(1);
+    await expect(
+      copySessionLinks(buildSession(), t, 'en', 'with-headings')
+    ).resolves.toBe(1);
 
     expect(writeText).toHaveBeenCalledTimes(1);
   });
@@ -58,7 +66,9 @@ describe('copySessionLinks (KAN-713)', () => {
       () => Promise.resolve()
     );
 
-    await expect(copySessionLinks(buildSession(), t, 'en')).resolves.toBe(1);
+    await expect(
+      copySessionLinks(buildSession(), t, 'en', 'with-headings')
+    ).resolves.toBe(1);
 
     expect(writeText).not.toHaveBeenCalled();
   });
@@ -77,7 +87,7 @@ describe('copyScopeLinks (KAN-783)', () => {
       () => Promise.resolve()
     );
 
-    await expect(copyScopeLinks(scope, t)).resolves.toBe(2);
+    await expect(copyScopeLinks(scope, t, 'with-headings')).resolves.toBe(2);
 
     const [[[item]]] = write.mock.calls as unknown as [[[FakeClipboardItem]]];
     const plain = await item.items['text/plain'].text();
@@ -90,7 +100,7 @@ describe('copyScopeLinks (KAN-783)', () => {
   test('a refused rich write falls back to the plain list', async () => {
     const { writeText } = stubClipboard(refused, () => Promise.resolve());
 
-    await expect(copyScopeLinks(scope, t)).resolves.toBe(2);
+    await expect(copyScopeLinks(scope, t, 'with-headings')).resolves.toBe(2);
 
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(String(writeText.mock.calls[0])).toMatch(/^Hotels\n2 Tabs\n/);
@@ -99,6 +109,116 @@ describe('copyScopeLinks (KAN-783)', () => {
   test('both writes refused resolves null and does not reject', async () => {
     stubClipboard(refused, refused);
 
-    await expect(copyScopeLinks(scope, t)).resolves.toBeNull();
+    await expect(copyScopeLinks(scope, t, 'with-headings')).resolves.toBeNull();
+  });
+});
+
+// KAN-859. The caller's stored layout picks what lands on the clipboard.
+describe('links only (KAN-859)', () => {
+  const written = async (write: ReturnType<typeof vi.fn>) => {
+    const [[[item]]] = write.mock.calls as unknown as [[[FakeClipboardItem]]];
+    return {
+      plain: await item.items['text/plain'].text(),
+      html: await item.items['text/html'].text(),
+    };
+  };
+
+  test('a session copies one line per tab and resolves its link count', async () => {
+    const { write } = stubClipboard(
+      () => Promise.resolve(),
+      () => Promise.resolve()
+    );
+    const session = buildSession();
+    const tabs = session.windows.flatMap((w) => w.tabs);
+
+    await expect(
+      copySessionLinks(session, t, 'en', 'links-only')
+    ).resolves.toBe(tabs.length);
+
+    expect(await written(write)).toEqual({
+      plain: linksOnlyList(tabs),
+      html: linksOnlyHtml(tabs),
+    });
+  });
+
+  test('a scope copies its tabs with no heading and resolves its link count', async () => {
+    const { write } = stubClipboard(
+      () => Promise.resolve(),
+      () => Promise.resolve()
+    );
+    const scope = {
+      heading: 'Hotels',
+      tabs: buildSession().windows[0].tabs.concat(
+        buildSession().windows[0].tabs
+      ),
+    };
+
+    await expect(copyScopeLinks(scope, t, 'links-only')).resolves.toBe(2);
+
+    const { plain, html } = await written(write);
+    expect(plain).toBe(linksOnlyList(scope.tabs));
+    expect(plain.split('\n')).toHaveLength(2);
+    expect(plain.startsWith('Hotels')).toBe(false);
+    expect(html).toBe(linksOnlyHtml(scope.tabs));
+  });
+
+  // A group whose members are apart (an import or a merge) is drawn at its
+  // first member, with the rest pulled up to it; Links only pastes that order.
+  const apart = () => {
+    const [first] = buildSession().windows[0].tabs;
+    const tab = (id: string, chromeGroupId?: string) => ({
+      ...first,
+      tabId: id,
+      title: id,
+      url: `https://${id}.test/`,
+      ...(chromeGroupId ? { chromeGroupId } : {}),
+    });
+    return {
+      tabs: [tab('a', 'g1'), tab('b'), tab('c', 'g1')],
+      groups: [{ groupId: 'g1', title: 'Food', color: 'orange' as const }],
+    };
+  };
+  const SHOWN = [
+    'https://a.test/ | a',
+    'https://c.test/ | c',
+    'https://b.test/ | b',
+  ];
+
+  test('a session pastes its tabs in the order shown, a group together', async () => {
+    const { write } = stubClipboard(
+      () => Promise.resolve(),
+      () => Promise.resolve()
+    );
+    const { tabs, groups } = apart();
+    const session = buildSession();
+    session.windows = [
+      { ...session.windows[0], tabs, chromeTabGroups: groups },
+    ];
+
+    await copySessionLinks(session, t, 'en', 'links-only');
+
+    expect((await written(write)).plain.split('\n')).toEqual(SHOWN);
+  });
+
+  test('a scope pastes its tabs in the order shown, a group together', async () => {
+    const { write } = stubClipboard(
+      () => Promise.resolve(),
+      () => Promise.resolve()
+    );
+
+    await copyScopeLinks({ heading: 'Hotels', ...apart() }, t, 'links-only');
+
+    expect((await written(write)).plain.split('\n')).toEqual(SHOWN);
+  });
+
+  test('a refused rich write falls back to the links only text', async () => {
+    const { writeText } = stubClipboard(refused, () => Promise.resolve());
+    const session = buildSession();
+
+    await copySessionLinks(session, t, 'en', 'links-only');
+
+    expect(writeText).toHaveBeenCalledWith(
+      linksOnlyList(session.windows.flatMap((w) => w.tabs))
+    );
   });
 });

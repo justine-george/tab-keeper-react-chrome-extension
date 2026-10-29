@@ -561,12 +561,17 @@ export function sessionToLinkList(
 }
 
 function linkItemHtml(tab: tabData): string {
+  return `<li>${linkHtml(tab)}</li>`;
+}
+
+// A tab's title linked to its URL, or as text when the address is not a link.
+function linkHtml(tab: tabData): string {
   const url = tab.url;
   const title = labelOf(tab);
   if (!LINKABLE.test(url)) {
-    return `<li>${escapeHtml(title === url ? url : `${title} (${url})`)}</li>`;
+    return escapeHtml(title === url ? url : `${title} (${url})`);
   }
-  return `<li><a href="${escapeHtml(url)}">${escapeHtml(title)}</a></li>`;
+  return `<a href="${escapeHtml(url)}">${escapeHtml(title)}</a>`;
 }
 
 // Tabs as one list, each group a nested list under its name and size.
@@ -694,4 +699,19 @@ export function scopeToLinkHtml(
     `<p>${escapeHtml(strings.tabCountLabel(scope.tabs.length))}</p>` +
     runsToHtmlList(scope.tabs, scope.groups, strings)
   );
+}
+
+/** Links only, plain (KAN-859): one `URL | Title` line per tab, nothing else. */
+export function linksOnlyList(tabs: readonly tabData[]): string {
+  return tabs
+    .map((tab) => {
+      const title = labelOf(tab);
+      return title === tab.url ? tab.url : `${tab.url} | ${title}`;
+    })
+    .join('\n');
+}
+
+/** Links only, rich (KAN-859): each tab's linked title, a `<br>` between. */
+export function linksOnlyHtml(tabs: readonly tabData[]): string {
+  return tabs.map(linkHtml).join('<br>');
 }

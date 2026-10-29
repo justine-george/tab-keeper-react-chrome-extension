@@ -46,21 +46,21 @@ const openQuickAccess = (
 ) => openPane(context, extensionId, 'Quick access', 'Default view');
 
 test.describe('the Sessions pane (KAN-249, KAN-250, KAN-253)', () => {
-  test('one pair, Save Tab Groups, Off pressed, on the popup scale; no memory setting, no history setting, no backup', async ({
+  test('two pairs, Save Tab Groups with Off pressed on the popup scale, then Copy links; no memory setting, no history setting, no backup', async ({
     context,
     extensionId,
   }) => {
     const page = await openSessions(context, extensionId);
 
     // Default view and Pin Tab Keeper moved to Quick access (KAN-652); tab
-    // history is always on, with no setting (KAN-663).
+    // history is always on, with no setting (KAN-663). Copy links is KAN-859.
     const groups = page.getByRole('group');
-    await expect(groups).toHaveCount(1);
+    await expect(groups).toHaveCount(2);
     expect(
       await groups.evaluateAll((pairs) =>
         pairs.map((pair) => pair.getAttribute('aria-label'))
       )
-    ).toEqual(['Save tab groups']);
+    ).toEqual(['Save tab groups', 'Copy links']);
     await expect(
       page.getByText('Bring back tab history when reopening')
     ).toHaveCount(0);

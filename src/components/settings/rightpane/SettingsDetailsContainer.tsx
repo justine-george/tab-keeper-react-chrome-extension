@@ -21,6 +21,7 @@ import { AppDispatch, RootState } from '../../../redux/store';
 import { chooseLanguage } from '../../../redux/languageChoice';
 import { openCloudConsentModal } from '../../../redux/slices/globalStateSlice';
 import {
+  setCopyLinksLayout,
   setTheme,
   setPinTabKeeperInNewWindows,
   setTimeFormat,
@@ -80,6 +81,7 @@ const SettingsDetailsContainer: React.FC = () => {
   `;
   const pinTabKeeperHelpId = useId();
   const defaultSaveHelpId = useId();
+  const copyLinksHelpId = useId();
   const popupShortcut = usePopupShortcut();
   const { i18n } = useTranslation();
   const { t } = useTranslation();
@@ -580,6 +582,53 @@ const SettingsDetailsContainer: React.FC = () => {
               metrics={SETTINGS_PAIR_METRICS}
             />
           </div>
+        </div>
+
+        {/* KAN-859. What every Copy links button puts on the clipboard. */}
+        <div
+          data-settings-section
+          css={css`
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 32px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Copy links')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+          <div
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            <SlidingPair
+              label={t('Copy links')}
+              options={[
+                { value: 'links-only', label: t('Links only') },
+                { value: 'with-headings', label: t('With headings') },
+              ]}
+              value={settingsData.copyLinksLayout}
+              onChange={(next) => dispatch(setCopyLinksLayout(next))}
+              metrics={SETTINGS_PAIR_METRICS}
+              describedBy={copyLinksHelpId}
+            />
+          </div>
+          <p id={copyLinksHelpId} css={helpLineStyle}>
+            {t(
+              'Links only pastes one link per line. With headings adds the session name, counts and a heading for each window.'
+            )}
+          </p>
         </div>
       </div>
     );

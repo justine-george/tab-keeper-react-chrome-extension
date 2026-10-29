@@ -277,6 +277,9 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   const layout = useSelector(
     (state: RootState) => state.settingsDataState.exportLayout
   );
+  const copyLinksLayout = useSelector(
+    (state: RootState) => state.settingsDataState.copyLinksLayout
+  );
   const theme = useSelector(
     (state: RootState) => state.settingsDataState.theme
   );
@@ -602,7 +605,12 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // screen. That is the ONLY difference between the two call sites; the menu
   // passes the session as stored because it has no preview to respect.
   const handleCopy = async () => {
-    const count = await copySessionLinks(edited, t, i18n.language);
+    const count = await copySessionLinks(
+      edited,
+      t,
+      i18n.language,
+      copyLinksLayout
+    );
     // KAN-713. Nothing on the clipboard: no toast, no "Copied".
     if (count === null) return;
     // KAN-401. The popup's toast, with the count; the button says Copied.

@@ -165,6 +165,9 @@ export default function HeroContainerRight() {
   const isOpenBlocked = useIsOpenBlockedByTour(selectedTabGroup?.tabGroupId);
   // KAN-592, KAN-638. The row's Delete key also deletes from the open ⋮.
   const deleteKey = useSessionDeleteKey();
+  const copyLinksLayout = useSelector(
+    (state: RootState) => state.settingsDataState.copyLinksLayout
+  );
   // KAN-708. The header ⋮'s ctx; the header's right-click differs only in its place (KAN-793).
   const menuCtx = {
     t,
@@ -172,6 +175,7 @@ export default function HeroContainerRight() {
     dispatch,
     deleteKey,
     place: 'headerMenuButton' as const,
+    copyLinksLayout,
   };
   // KAN-708, KAN-793. Right-clicking the header opens its buttons, then the ⋮ items; none while searching, when the ⋮ is hidden.
   const headerMenu = useRowContextMenu({

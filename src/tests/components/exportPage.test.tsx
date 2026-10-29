@@ -19,6 +19,7 @@ import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 import { readExportIcons } from '../../utils/functions/exportIcons';
 import {
   markPressedSaveAsPdf,
+  setCopyLinksLayout,
   setTheme,
   setTimeFormat,
   Theme,
@@ -75,6 +76,8 @@ const renderPage = (tabGroupId = 'session-kyoto') =>
     {
       seedStore: (store) => {
         store.dispatch(replaceState(buildContainer([SESSION])));
+        // KAN-859. The copy tests below read the headed layout.
+        store.dispatch(setCopyLinksLayout('with-headings'));
       },
     }
   );
