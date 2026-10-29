@@ -51,6 +51,7 @@ const AUTO_SYNC_SENTENCES = [
   'DeleteCloudDataBody',
   'EnableSyncOnceFine',
   'Your sessions stay on this device. Turn on Auto Sync, or press the cloud button on the home screen, to start syncing.',
+  'Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.',
 ];
 
 test('English sentences that name Auto sync use its label (KAN-651)', () => {
