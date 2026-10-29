@@ -165,10 +165,10 @@ export default function HeroContainerRight() {
   const isOpenBlocked = useIsOpenBlockedByTour(selectedTabGroup?.tabGroupId);
   // KAN-592, KAN-638. The row's Delete key also deletes from the open ⋮.
   const deleteKey = useSessionDeleteKey();
-  // KAN-708. The header ⋮'s ctx; the header's right-click differs only in its place (KAN-793).
   const copyLinksLayout = useSelector(
     (state: RootState) => state.settingsDataState.copyLinksLayout
   );
+  // KAN-708. The header ⋮'s ctx; the header's right-click differs only in its place (KAN-793).
   const menuCtx = {
     t,
     language: i18n.language,

@@ -70,7 +70,7 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
 
   // KAN-652. Sessions held six settings, three of them about how Tab Keeper
   // itself opens, which nobody looks for under "Sessions".
-  test('Sessions holds what a save does; Quick access holds how Tab Keeper opens', async () => {
+  test('Sessions holds what a save does and what a copy pastes; Quick access holds how Tab Keeper opens', async () => {
     const { container, unmount } = await renderOn(SettingsCategory.SESSIONS);
     // KAN-663: tab history is always on, so it has no row. KAN-859 added Copy links.
     expect(sectionLabels(container)).toEqual([
