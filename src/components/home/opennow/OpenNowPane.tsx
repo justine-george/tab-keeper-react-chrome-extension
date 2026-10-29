@@ -60,6 +60,7 @@ import {
   searchTermOf,
 } from '../../../utils/functions/openNowSearch';
 import {
+  closeDuplicateTabs,
   closeOpenGroup,
   closeOpenTab,
   closeOpenWindow,
@@ -67,6 +68,7 @@ import {
   withCurrentPlacement,
 } from '../../../utils/functions/reopen';
 import { offerReopen } from '../../../redux/reopenOffer';
+import { countLiveDuplicates } from '../../../utils/functions/liveDuplicates';
 import {
   clearReopenFocus,
   pendingReopenFocus,
@@ -545,6 +547,12 @@ export default function OpenNowPane({
     if (item) void dispatch(offerReopen(item));
   };
 
+  // KAN-867. Each window's extra copies close; one toast offers Reopen for all.
+  const handleRemoveDuplicates = async (windows: readonly OpenWindow[]) => {
+    const item = await closeDuplicateTabs(windows);
+    if (item) void dispatch(offerReopen(item));
+  };
+
   // KAN-696. Moves focus first, as a window's close does: to the window's chevron,
   // or, when the group is every listed tab, the window goes with it, so to where a window close sends it.
   const handleCloseGroup = async (openWindow: OpenWindow, groupId: number) => {
@@ -661,6 +669,7 @@ export default function OpenNowPane({
 
   // With nothing listed there is nothing to save; N1, none while the saved search holds text.
   const canSave = listed.length > 0 && !isSavedSearching;
+  const headerDuplicateCount = countLiveDuplicates(listed);
   // KAN-783. Every open window, as Save all would save it, in the session
   // copy's shape. Null while Open now's search holds text (O14e): the copy
   // would carry tabs the search hides. The menu item and the icon (KAN-792).
@@ -708,6 +717,17 @@ export default function OpenNowPane({
       icon: 'ios_share',
       onSelect: () => void exportOpenWindows(dispatch),
     },
+    // KAN-867. Last, right-click only; left out while a search hides tabs (O14e).
+    ...(searchTerm === null && headerDuplicateCount > 0
+      ? [
+          {
+            key: 'duplicates',
+            label: t('RemoveDuplicateTabs', { count: headerDuplicateCount }),
+            icon: 'stack_off' as const,
+            onSelect: () => void handleRemoveDuplicates(listed),
+          },
+        ]
+      : []),
   ];
   const headerMenu = useRowContextMenu({
     kind: 'openNowHeader',
@@ -1239,6 +1259,9 @@ export default function OpenNowPane({
                           openWindow.isThisWindow
                             ? undefined
                             : () => void handleCloseWindow(openWindow)
+                        }
+                        onRemoveDuplicates={() =>
+                          void handleRemoveDuplicates([openWindow])
                         }
                       />
                     );

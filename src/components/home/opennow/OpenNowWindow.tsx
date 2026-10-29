@@ -32,6 +32,7 @@ import { copyAllLinksItem } from '../../common/rowMenu/copyAllLinksItem';
 import { withoutRename } from '../../common/rowMenu/withoutRename';
 import { copyScopeLinks } from '../../../utils/functions/copySessionLinks';
 import { toSavedWindow } from '../../../utils/functions/openWindowsToSession';
+import { liveDuplicatesToClose } from '../../../utils/functions/liveDuplicates';
 import {
   groupLinkScope,
   windowLinkScope,
@@ -145,6 +146,8 @@ interface OpenNowWindowProps {
   onCloseGroup: (groupId: number) => void;
   // Absent for "This window": closing it would close the tab view itself.
   onCloseWindow?: () => void;
+  // KAN-867. Closes this window's extra copies (liveDuplicatesToClose).
+  onRemoveDuplicates: () => void;
 }
 
 // One live window in the Open now pane (KAN-280): its row, its group bands
@@ -163,6 +166,7 @@ export default function OpenNowWindow({
   onUngroup,
   onCloseGroup,
   onCloseWindow,
+  onRemoveDuplicates,
 }: OpenNowWindowProps) {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -244,6 +248,7 @@ export default function OpenNowWindow({
     canSortOpenWindowLive(openWindow, hasTabGroups) &&
     !isOpenWindowSortedBySite(openWindow);
   const title = windowLabel('', number, t('Window')).text;
+  const duplicateCount = liveDuplicatesToClose(openWindow).length;
   // KAN-696. Close window is last, as Delete window is on a saved row. This window has none.
   // KAN-783. Copy all links is first, as on a session, so every window, This window too, has a ⋮.
   const windowMenuItems: OverflowMenuItem[] = [
@@ -281,6 +286,17 @@ export default function OpenNowWindow({
                   locale: i18n.language,
                 })
               ),
+          },
+        ]
+      : []),
+    // KAN-867. Lighter than Close window; only while this window repeats an address.
+    ...(duplicateCount > 0
+      ? [
+          {
+            key: 'duplicates',
+            label: t('RemoveDuplicateTabs', { count: duplicateCount }),
+            icon: 'stack_off' as const,
+            onSelect: onRemoveDuplicates,
           },
         ]
       : []),
