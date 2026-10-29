@@ -54,11 +54,13 @@ describe("defaultOpenNowWidth (D1: an even split of what the list's default leav
 describe('paneWidths with nothing chosen (the table in KAN-687 comment 11082)', () => {
   it.each([
     // [viewport, list, list min..max, Open now, Open now min..max]
-    [1280, 356, 356, 356, 444, 444, 444],
-    [1440, 360, 356, 420, 540, 480, 600],
-    [1680, 420, 356, 570, 630, 480, 780],
-    [1920, 480, 356, 600, 720, 480, 960],
-    [2560, 520, 356, 600, 1020, 480, 1560],
+    // KAN-868: both drags go down to 340, so even 1100 has a range.
+    [1100, 356, 356, 420, 340, 340, 404],
+    [1280, 356, 356, 496, 444, 340, 584],
+    [1440, 360, 356, 560, 540, 340, 740],
+    [1680, 420, 356, 600, 630, 340, 920],
+    [1920, 480, 356, 600, 720, 340, 1100],
+    [2560, 520, 356, 600, 1020, 340, 1700],
   ])(
     'side by side at %ipx: list %i (%i..%i), Open now %i (%i..%i)',
     (viewportWidth, list, listMin, listMax, openNow, onMin, onMax) => {
@@ -71,7 +73,7 @@ describe('paneWidths with nothing chosen (the table in KAN-687 comment 11082)', 
     }
   );
 
-  // Folded, Open now sits in the saved session's column and keeps 480.
+  // Folded, Open now sits in the saved session's column and keeps 340.
   it.each([
     [1100, 356, 600],
     [1280, 356, 600],
@@ -84,9 +86,9 @@ describe('paneWidths with nothing chosen (the table in KAN-687 comment 11082)', 
   });
 
   // KAN-808. Folded to its rail, Open now takes 44px, so the list may widen
-  // until the saved session is down to 480.
+  // until the saved session is down to 340.
   it.each([
-    [1100, 356, 576],
+    [1100, 356, 600],
     [1280, 356, 600],
     [1920, 480, 600],
   ])(
@@ -133,35 +135,38 @@ describe('paneWidths with chosen widths', () => {
   it("a wider Open now lowers the list's max, and a wider list lowers Open now's", () => {
     const wideOpenNow = paneWidths(1920, 'beside', {
       list: null,
-      openNow: 900,
+      openNow: 1100,
     });
-    expect(wideOpenNow.listRange.max).toBe(1920 - 900 - 480);
+    expect(wideOpenNow.listRange.max).toBe(1920 - 1100 - 340);
     const wideList = paneWidths(1920, 'beside', { list: 600, openNow: null });
-    expect(wideList.openNowRange.max).toBe(1920 - 600 - 480);
+    expect(wideList.openNowRange.max).toBe(1920 - 600 - 340);
   });
 
   // Where both chosen widths no longer fit -- a narrower window, or a width
   // another page saved -- Open now keeps its width and the list gives way.
   it('when both cannot fit, Open now keeps its width and the list gives way', () => {
-    const widths = paneWidths(1440, 'beside', { list: 500, openNow: 600 });
-    expect(widths.openNow).toBe(600);
-    expect(widths.list).toBe(1440 - 600 - 480);
+    const widths = paneWidths(1440, 'beside', { list: 500, openNow: 700 });
+    expect(widths.openNow).toBe(700);
+    expect(widths.list).toBe(1440 - 700 - 340);
   });
 
   // The stored choice is never rewritten: the same chosen width comes back
   // once the window is wide enough again.
   it('the same chosen list width clamps at 1440, and is back at 1920', () => {
     const chosen = { list: 580, openNow: null };
-    expect(paneWidths(1440, 'beside', chosen).list).toBe(420);
+    expect(paneWidths(1440, 'beside', chosen).list).toBe(560);
     expect(paneWidths(1920, 'beside', chosen).list).toBe(580);
   });
 });
 
 describe('the grips show where the window leaves a range', () => {
+  // KAN-868: from 1100px, the narrowest side by side. Below it Open now is
+  // the rail, so there is no grip even where 340..max would leave a range.
   it.each([
-    [1100, false],
-    [1316, false],
-    [1317, true],
+    [1000, false],
+    [1099, false],
+    [1100, true],
+    [1316, true],
     [1600, true],
   ])('Open now at %ipx -> %s', (viewportWidth, expected) => {
     expect(isOpenNowResizable(viewportWidth)).toBe(expected);
@@ -171,7 +176,8 @@ describe('the grips show where the window leaves a range', () => {
     [1099, 'beside', false],
     [1099, 'detail', false],
     [1099, 'rail', false],
-    [1280, 'beside', false],
+    [1100, 'beside', true],
+    [1280, 'beside', true],
     [1280, 'detail', true],
     [1100, 'rail', true],
     [1280, 'rail', true],
@@ -216,24 +222,33 @@ describe('every window, every choice', () => {
     }
   });
 
-  // The saved session keeps its 480px wherever the window can give it that.
-  it('side by side above 1316px, the saved session keeps at least 480', () => {
+  // KAN-868. A drag takes the saved session down to 340, never past it.
+  it('side by side, the saved session keeps at least 340', () => {
     for (const [w, place, list, openNow] of cases) {
-      if (place !== 'beside' || w <= 1316) continue;
+      if (place !== 'beside') continue;
       const r = paneWidths(w, 'beside', { list, openNow });
       expect(
         w - r.list - r.openNow,
         `${w} ${list} ${openNow}`
-      ).toBeGreaterThanOrEqual(480);
+      ).toBeGreaterThanOrEqual(340);
     }
   });
 
-  // KAN-808. Beside the 44px rail, the saved session keeps its 480 too.
-  it('beside the rail, the saved session keeps at least 480', () => {
+  // The defaults are unchanged: undragged, the saved session keeps 480
+  // wherever Open now's 340 floor leaves it that (1176px and wider).
+  it('with nothing dragged, the saved session keeps 480 from 1176px', () => {
+    for (let w = 1176; w <= 3000; w += 7) {
+      const r = paneWidths(w, 'beside', NONE);
+      expect(w - r.list - r.openNow, `${w}`).toBeGreaterThanOrEqual(480);
+    }
+  });
+
+  // KAN-808. Beside the 44px rail, the saved session keeps its 340 too.
+  it('beside the rail, the saved session keeps at least 340', () => {
     for (const [w, place, list, openNow] of cases) {
       if (place !== 'rail') continue;
       const r = paneWidths(w, 'rail', { list, openNow });
-      expect(w - r.list - 44, `${w} ${list}`).toBeGreaterThanOrEqual(480);
+      expect(w - r.list - 44, `${w} ${list}`).toBeGreaterThanOrEqual(340);
     }
   });
 

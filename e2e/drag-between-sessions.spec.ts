@@ -73,7 +73,7 @@ import {
 } from './fixtures/betweenSessions';
 import { ON_TITLE } from './fixtures/savedRow';
 
-// Wide enough for Open now's resize grip (KAN-321: above 1316px).
+// Wide enough for Open now's resize grip (KAN-868: 1100px and wider).
 const TAB_VIEW_WIDE = { width: 1600, height: 900 };
 const D1_START = 'c0 c1 ga0* ga1* c2';
 const windowIdsOf = async (page: Page, id: string): Promise<string[]> =>

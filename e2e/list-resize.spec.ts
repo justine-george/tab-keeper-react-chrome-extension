@@ -5,11 +5,11 @@ import { buildContainer, buildSession } from './fixtures/seed';
 
 // KAN-687 on the real artifact: the saved list's width in the tab view.
 // jsdom has no layout, so the pane widths, the grip in the gap, a real
-// drag, a reload and the 480px floor beside the list are only provable here.
+// drag, a reload and the 340px floor beside the list are only provable here.
 //
 // Widths (paneWidths.ts): the list starts at a quarter of the window, 356 to
 // 520 -- 360 at 1440, 480 at 1920, 356 at 1280 -- and drags from 356 to
-// 600, or to what leaves the pane beside it 480px. Open now starts at an
+// 600, or to what leaves the pane beside it 340px (KAN-868). Open now starts at an
 // even split of what the list's default leaves: 540 at 1440, 720 at 1920.
 
 const VIEW_TAB = 'index.html?view=tab';
@@ -198,7 +198,7 @@ test.describe('resizing the saved list (KAN-687)', () => {
     await expectList(page, 580);
   });
 
-  test('3. the drag stops at 356 and where the saved session keeps its 480', async ({
+  test('3. the drag stops at 356 and where the saved session keeps its 340', async ({
     context,
     extensionId,
   }) => {
@@ -208,11 +208,11 @@ test.describe('resizing the saved list (KAN-687)', () => {
     const grip = page.getByRole('separator', {
       name: 'Resize the saved sessions list',
     });
-    await expect(grip).toHaveAttribute('aria-valuemax', '420');
+    await expect(grip).toHaveAttribute('aria-valuemax', '560');
 
     await dragGrip(page, 300);
-    await expectList(page, 420);
-    expect(await widthOf(page, DETAIL)).toBe(480);
+    await expectList(page, 560);
+    expect(await widthOf(page, DETAIL)).toBe(340);
     expect(await widthOf(page, OPEN_NOW)).toBe(540);
 
     await dragGrip(page, -300);
@@ -242,7 +242,7 @@ test.describe('resizing the saved list (KAN-687)', () => {
     await expect.poll(() => storedListWidth(page)).toBeNull();
   });
 
-  test('5. side by side at 1280 there is no list grip; folded there is, up to 600', async ({
+  test('5. below 1100 there is no list grip; side by side at 1100 there is, up to 420; folded, up to 600', async ({
     context,
     extensionId,
   }) => {
@@ -251,10 +251,23 @@ test.describe('resizing the saved list (KAN-687)', () => {
     // CONTROL: the selector finds the grip where there is one.
     await expect(page.locator(LIST_GRIP)).toHaveCount(1);
 
-    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setViewportSize({ width: 1099, height: 800 });
     await expect(page.locator(DETAIL)).toBeVisible();
     await expect(page.locator(LIST_GRIP)).toHaveCount(0);
     await expectList(page, 356);
+
+    // KAN-868: Open now at 340 and the saved session at its 340 floor.
+    await page.setViewportSize({ width: 1100, height: 800 });
+    await expect(page.locator(LIST_GRIP)).toHaveCount(1);
+    await expect(
+      page.getByRole('separator', { name: 'Resize the saved sessions list' })
+    ).toHaveAttribute('aria-valuemax', '420');
+    await dragGrip(page, 200);
+    await expectList(page, 420);
+    expect(await widthOf(page, OPEN_NOW)).toBe(340);
+    expect(await widthOf(page, DETAIL)).toBe(340);
+
+    await page.setViewportSize({ width: 1280, height: 800 });
 
     await page
       .getByRole('button', { name: 'Fold the saved session away' })

@@ -218,53 +218,77 @@ test("Open now's Back asks first; Go back goes back and closes the full view", a
   await expect.poll(() => page.isClosed()).toBe(true);
 });
 
-// Worst path: the longest label (ru, 321px) in the narrowest header (the drawer). Cut with an ellipsis, never over the icons.
-test('ru, in the drawer: the chip shrinks clear of the icons, its label cut, still in the corner', async ({
-  context,
-  extensionId,
-}) => {
-  await seedSettings(context, {
-    foldSavedSessionInTabView: false,
-    language: 'ru',
-  });
-  const page = await context.newPage();
-  await page.setViewportSize({ width: 1024, height: 768 });
-  await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
-  // The rail's one button (KAN-776: its text is now the glyph and a label).
-  await page.locator('[data-pane="open-now"] button[aria-expanded]').click();
-  const header = page.getByRole('dialog').locator('[data-open-now-header]');
-  const back = header.getByRole('button', {
-    name: 'Вернуться к вашей вкладке',
-    exact: true,
-  });
-  await expect(back).toBeVisible();
-  // KAN-810. The drawer slides in: measure and press it where it comes to rest.
-  await elementLanded(page.getByRole('dialog'), 'subtree');
+// Worst path: the longest label (ru, 321px) in the narrowest header: Open now
+// at 340, side by side at 1100px (KAN-868; the drawer is 480 now). Cut with
+// an ellipsis, never over the icons. In the drawer too, clear of the icons.
+for (const [where, viewport, isCut] of [
+  ['side by side at 340', { width: 1100, height: 768 }, true],
+  ['in the drawer', { width: 1024, height: 768 }, null],
+] as const) {
+  test(`ru, ${where}: the chip shrinks clear of the icons, still in the corner`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, {
+      foldSavedSessionInTabView: false,
+      language: 'ru',
+    });
+    const page = await context.newPage();
+    await page.setViewportSize(viewport);
+    await page.goto(`chrome-extension://${extensionId}/${FULL_VIEW_PATH}`);
+    let header = page.locator('[data-pane="open-now"] [data-open-now-header]');
+    if (isCut === null) {
+      // The rail's one button (KAN-776: its text is now the glyph and a label).
+      await page
+        .locator('[data-pane="open-now"] button[aria-expanded]')
+        .click();
+      header = page.getByRole('dialog').locator('[data-open-now-header]');
+      // KAN-810. The drawer slides in: measure it where it comes to rest.
+      await elementLanded(page.getByRole('dialog'), 'subtree');
+    } else {
+      // PREMISE: Open now is at its narrowest.
+      await expect
+        .poll(async () =>
+          Math.round(
+            (await page.locator('[data-pane="open-now"]').boundingBox())
+              ?.width ?? 0
+          )
+        )
+        .toBe(340);
+    }
+    const back = header.getByRole('button', {
+      name: 'Вернуться к вашей вкладке',
+      exact: true,
+    });
+    await expect(back).toBeVisible();
 
-  const m = await header.evaluate((el) => {
-    // The action row's controls: KAN-784 put the drawer's close on the title line above it.
-    const chip = [...el.querySelectorAll('[aria-label]')].pop()!;
-    const controls = [...el.querySelectorAll('[aria-label]')].filter(
-      (c) => c.getBoundingClientRect().bottom > chip.getBoundingClientRect().top
-    );
-    const label = chip.querySelector(':scope > span:last-child');
-    if (!(label instanceof HTMLElement)) throw new Error('no label');
-    return {
-      gap:
-        chip.getBoundingClientRect().left -
-        Math.max(
-          ...controls.slice(0, -1).map((c) => c.getBoundingClientRect().right)
-        ),
-      cut: label.scrollWidth > label.clientWidth,
-      ellipsis: getComputedStyle(label).textOverflow,
-    };
+    const m = await header.evaluate((el) => {
+      // The action row's controls: KAN-784 put the drawer's close on the title line above it.
+      const chip = [...el.querySelectorAll('[aria-label]')].pop()!;
+      const controls = [...el.querySelectorAll('[aria-label]')].filter(
+        (c) =>
+          c.getBoundingClientRect().bottom > chip.getBoundingClientRect().top
+      );
+      const label = chip.querySelector(':scope > span:last-child');
+      if (!(label instanceof HTMLElement)) throw new Error('no label');
+      return {
+        gap:
+          chip.getBoundingClientRect().left -
+          Math.max(
+            ...controls.slice(0, -1).map((c) => c.getBoundingClientRect().right)
+          ),
+        cut: label.scrollWidth > label.clientWidth,
+        ellipsis: getComputedStyle(label).textOverflow,
+      };
+    });
+    console.log(`[KAN-868 ru ${where}] gap ${m.gap}px, cut ${m.cut}`);
+    expect(m.gap).toBeGreaterThanOrEqual(8);
+    if (isCut) expect(m.cut).toBe(true);
+    expect(m.ellipsis).toBe('ellipsis');
+    expect(await cornerGap(back, header)).toEqual({
+      right: 1,
+      bottom: 1,
+      height: 32,
+    });
   });
-  expect(m.gap).toBeGreaterThanOrEqual(8);
-  expect(m.cut).toBe(true);
-  expect(m.ellipsis).toBe('ellipsis');
-  expect(await cornerGap(back, header)).toEqual({
-    right: 1,
-    bottom: 1,
-    height: 32,
-  });
-});
+}

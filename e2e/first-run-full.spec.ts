@@ -190,7 +190,7 @@ test('step 2 on the narrow rail names the rail’s button, not a search field, e
   ).toHaveText('tab');
 });
 
-// KAN-500. The card offers the edge exactly where the grip is drawn, and follows a resize across 1316px.
+// KAN-500. The card offers the edge exactly where the grip is drawn, and follows a resize across 1100px (KAN-868).
 test('step 2 side by side: the edge only in a window wide enough for the grip', async ({
   context,
   extensionId,
@@ -204,13 +204,17 @@ test('step 2 side by side: the edge only in a window wide enough for the grip', 
   await expect(card(page)).toContainText(
     'Type in the search box to find an open tab. Drag the edge to make this wider, or press'
   );
-  await page.setViewportSize({ width: 1280, height: 800 });
+  // The narrowest side by side still has a grip, so the card keeps the edge.
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await expect(grip).toHaveCount(1);
+  await expect(card(page)).toContainText('Drag the edge');
+  await page.setViewportSize({ width: 1099, height: 800 });
   await expect(grip).toHaveCount(0);
   await expect(card(page)).not.toContainText('Drag the edge');
   await expect(card(page)).toContainText(
-    'to give Currently open the whole view.'
+    'Currently open is tucked in here while the window is narrow.'
   );
-  await page.setViewportSize({ width: 1400, height: 800 });
+  await page.setViewportSize({ width: 1100, height: 800 });
   await expect(grip).toHaveCount(1);
   await expect(card(page)).toContainText('Drag the edge');
 });
@@ -245,11 +249,10 @@ test('step 2 in the default folded view names the fold button it shows, and pres
     .toBe(false);
   await expect(page.locator('[data-pane="detail"]')).toBeVisible();
   await expect(cardAt(page, 2)).toBeVisible();
-  // KAN-500. 1280px leaves no range to drag through: no grip, so no edge in the card.
-  await expect(page.locator('[data-resize-grip]')).toHaveCount(0);
-  await expect(card(page)).not.toContainText('Drag the edge');
+  // KAN-868. 1280px leaves a range to drag through: a grip, so the edge in the card.
+  await expect(page.locator('[data-resize-grip]')).toHaveCount(1);
   await expect(card(page)).toContainText(
-    'Type in the search box to find an open tab. Press'
+    'Type in the search box to find an open tab. Drag the edge to make this wider, or press'
   );
   await expect(card(page)).not.toContainText('Search here');
   await expect(card(page)).toContainText(
@@ -594,54 +597,31 @@ test.describe('side by side', () => {
     await expect.poll(async () => (await ring(page)).width).toBeLessThan(60);
   });
 
-  test('with no room to resize, step 2’s box is the search row and « alone', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await openRunFromHelp(context, extensionId, {
-      ...FULL_RUN,
-      viewport: { width: 1200, height: 800 },
+  // KAN-868. Side by side always has a grip now, down to 1100px.
+  for (const width of [1100, 1400]) {
+    test(`at ${width}px, step 2’s box takes in the resize edge`, async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openRunFromHelp(context, extensionId, {
+        ...FULL_RUN,
+        viewport: { width, height: 800 },
+      });
+      await nextTo(page, 2);
+      const grip = await page.locator('[data-resize-grip]').boundingBox();
+      if (grip === null) throw new Error('no grip');
+      await expect
+        .poll(async () => {
+          const box = await ring(page);
+          return (
+            box.left <= grip.x &&
+            box.top <= grip.y &&
+            box.bottom >= grip.y + grip.height
+          );
+        })
+        .toBe(true);
     });
-    await nextTo(page, 2);
-    await expect(page.locator('[data-resize-grip]')).toHaveCount(0);
-    const [search, fold] = await Promise.all([
-      page
-        .locator('[data-pane="open-now"] [data-open-now-search]')
-        .boundingBox(),
-      page
-        .locator('[data-pane="open-now"] [data-tour-anchor="fold"]')
-        .boundingBox(),
-    ]);
-    if (search === null || fold === null) throw new Error('not drawn');
-    const top = Math.min(search.y, fold.y);
-    const bottom = Math.max(search.y + search.height, fold.y + fold.height);
-    await expect
-      .poll(async () => (await ring(page)).height)
-      .toBeCloseTo(bottom - top + 2 * 4, 0);
-  });
-
-  test('CONTROL: with room to resize, step 2’s box takes in the resize edge', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await openRunFromHelp(context, extensionId, {
-      ...FULL_RUN,
-      viewport: { width: 1400, height: 800 },
-    });
-    await nextTo(page, 2);
-    const grip = await page.locator('[data-resize-grip]').boundingBox();
-    if (grip === null) throw new Error('no grip');
-    await expect
-      .poll(async () => {
-        const box = await ring(page);
-        return (
-          box.left <= grip.x &&
-          box.top <= grip.y &&
-          box.bottom >= grip.y + grip.height
-        );
-      })
-      .toBe(true);
-  });
+  }
 });
 
 test.describe('with saved sessions', () => {

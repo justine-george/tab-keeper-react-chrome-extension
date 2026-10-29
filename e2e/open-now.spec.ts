@@ -473,7 +473,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     await expectFolded(page);
   });
 
-  test('6. below 1100px, side by side, a 44px rail opens a 380px drawer that Esc closes', async ({
+  test('6. below 1100px, side by side, a 44px rail opens a 480px drawer that Esc closes', async ({
     context,
     extensionId,
   }, testInfo) => {
@@ -498,7 +498,7 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     await elementLanded(drawer, 'subtree');
     const box = await drawer.boundingBox();
     if (box === null) throw new Error('the drawer has no box');
-    expect(Math.round(box.width)).toBe(380);
+    expect(Math.round(box.width)).toBe(480);
     expect(Math.round(box.x + box.width)).toBe(NARROW_VIEWPORT.width);
 
     // Over the panes: at a point inside the drawer and over the detail
@@ -526,13 +526,33 @@ test.describe('Open now in the tab view (KAN-280)', () => {
     await expect(rail).toBeFocused();
   });
 
+  // KAN-868. In a window narrower than 480px the drawer is the window's
+  // width, never wider, so its left edge stays on screen.
+  test('6b. under 480px wide, the drawer fills the window', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedTwoSessions(context);
+    await seedSettings(context, { foldSavedSessionInTabView: false });
+    const viewport = { width: 420, height: 700 };
+    const page = await openPage(context, extensionId, VIEW_TAB, viewport);
+    await page.getByRole('button', { name: /^Currently open/ }).click();
+    const drawer = page.getByRole('dialog', { name: 'Currently open' });
+    await expect(drawer).toBeVisible();
+    await elementLanded(drawer, 'subtree');
+    const box = await drawer.boundingBox();
+    if (box === null) throw new Error('the drawer has no box');
+    expect(Math.round(box.x)).toBe(0);
+    expect(Math.round(box.width)).toBe(viewport.width);
+  });
+
   test('6a. the drawer sits under the toast', async ({
     context,
     extensionId,
   }, testInfo) => {
     await seedTwoSessions(context);
     await seedSettings(context, { foldSavedSessionInTabView: false });
-    // Narrow enough that the drawer (the right 380px) reaches the toast
+    // Narrow enough that the drawer (the right 480px) reaches the toast
     // (fixed 20px from the left, 300px wide), so the two overlap.
     const page = await openPage(context, extensionId, VIEW_TAB, {
       width: 680,

@@ -28,9 +28,8 @@ import { rgb } from '../setup/hexColor';
 // KAN-321 O1a. The grip on the line between the saved session and Open now:
 // a focusable role="separator" that a pointer drag and the arrow keys resize,
 // and a double-click resets. At 1600px wide the default is 600px and the
-// limits are 480..720 beside the list's default 400; at 1440, 540 and
-// 480..600; at 1316px and narrower the range is empty and there is no grip
-// (paneWidths.ts).
+// limits are 340..860 beside the list's default 400; at 1440, 540 and
+// 340..740; under 1100px there is no grip (paneWidths.ts, KAN-868).
 //
 // jsdom has no layout and no pointer capture. The drag is driven the way the
 // grip reads it: a press on the grip, then moves and the release on `window`.
@@ -136,8 +135,8 @@ describe('the grip is a separator (O1a)', () => {
     const separator = grip();
     expect(separator).toHaveAttribute('aria-orientation', 'vertical');
     expect(separator).toHaveAttribute('aria-valuenow', '600');
-    expect(separator).toHaveAttribute('aria-valuemin', '480');
-    expect(separator).toHaveAttribute('aria-valuemax', '720');
+    expect(separator).toHaveAttribute('aria-valuemin', '340');
+    expect(separator).toHaveAttribute('aria-valuemax', '860');
     expect(separator).toHaveAttribute('tabindex', '0');
     expect(separator).toHaveAttribute('data-resize-grip');
     // A grid child of its own, beside the panes: inside none of them, so no
@@ -189,8 +188,8 @@ describe('the grip comes and goes in place (O1a)', () => {
     expect(grip()).toBeInTheDocument();
     expect(pane('open-now')).toBe(openNow);
 
-    // A window too narrow for both panes' 480px (O1a).
-    setViewportWidth(1280);
+    // A window under 1100px, read from its width alone (KAN-868).
+    setViewportWidth(1099);
     expect(
       screen.queryByRole('separator', { name: NAME })
     ).not.toBeInTheDocument();
@@ -270,27 +269,28 @@ describe('the arrow keys (O1a)', () => {
     expect(grip()).toHaveAttribute('aria-valuenow', '600');
   });
 
-  // Beside the list's 400 the max is 720 (KAN-687: it reads the list).
-  test('ArrowLeft stops at the max, 720', async () => {
-    await renderHome({ width: 710 });
+  // Beside the list's 400 the max is 860 (KAN-687: it reads the list).
+  test('ArrowLeft stops at the max, 860', async () => {
+    await renderHome({ width: 850 });
     await mounted();
 
     fireEvent.keyDown(grip(), { key: 'ArrowLeft' });
-    expect(storedWidth()).toBe(720);
+    expect(storedWidth()).toBe(860);
     fireEvent.keyDown(grip(), { key: 'ArrowLeft' });
 
-    expect(storedWidth()).toBe(720);
-    expect(grip()).toHaveAttribute('aria-valuenow', '720');
+    expect(storedWidth()).toBe(860);
+    expect(grip()).toHaveAttribute('aria-valuenow', '860');
   });
 
   // O1a: "the stored width is kept". At 1440 a stored 764 shows as the max,
-  // 604; ← there cannot widen anything, so it must not save 604 over 764.
+  // 744 (the list gives way to 356); ← there cannot widen anything, so it
+  // must not save 744 over 764.
   test('ArrowLeft at a clamped max saves nothing, and widening brings the stored width back', async () => {
     const { seen } = await renderHome({ width: 764 });
     await mounted();
     setViewportWidth(1440);
     // PREMISE: the stored width is clamped to 1440's max.
-    expect(grip()).toHaveAttribute('aria-valuenow', '604');
+    expect(grip()).toHaveAttribute('aria-valuenow', '744');
     const writesBefore = widthWrites(seen);
 
     // Still taken: the page must not scroll under the grip.
@@ -303,15 +303,15 @@ describe('the arrow keys (O1a)', () => {
     expect(openNowTrack()).toBe('764px');
   });
 
-  // The mirror at the min. Wherever there is a grip (above 1316px) the min
-  // is 480, so the only stored width it can hide is one under 480: one saved
-  // while the min was 300, or a hand-edited value (asPaneWidth keeps any
-  // positive number).
+  // The mirror at the min. Wherever there is a grip (1100px and wider) the
+  // min is 340, so the only stored width it can hide is one under 340: one
+  // saved while the min was 300, or a hand-edited value (asPaneWidth keeps
+  // any positive number).
   test('ArrowRight at a clamped min saves nothing', async () => {
     const { seen } = await renderHome({ width: 300 });
     await mounted();
     // PREMISE: the stored width is clamped up to the min.
-    expect(grip()).toHaveAttribute('aria-valuenow', '480');
+    expect(grip()).toHaveAttribute('aria-valuenow', '340');
     const writesBefore = widthWrites(seen);
 
     expect(fireEvent.keyDown(grip(), { key: 'ArrowRight' })).toBe(false);
@@ -330,20 +330,20 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
 
     press(1000);
     moveTo(900);
-    // PREMISE: the drag shows a width above 1440's max, 604.
+    // PREMISE: the drag shows a width above 1280's max, 584.
     expect(openNowTrack()).toBe('700px');
 
-    setViewportWidth(1440);
+    setViewportWidth(1280);
 
-    expect(openNowTrack()).toBe('604px');
-    expect(grip()).toHaveAttribute('aria-valuenow', '604');
+    expect(openNowTrack()).toBe('584px');
+    expect(grip()).toHaveAttribute('aria-valuenow', '584');
     release(900);
   });
 
-  // Narrowed past 1316px mid-drag, the range is gone and so is the grip.
+  // Narrowed under 1100px mid-drag, the range is gone and so is the grip.
   // Its unmount must end the drag like a cancel: nothing saved, no root
   // flag, and no live width left on the grid.
-  test('a window narrowed to 1280 mid-drag ends the drag, and saves nothing', async () => {
+  test('a window narrowed to 1099 mid-drag ends the drag, and saves nothing', async () => {
     const { seen } = await renderHome();
     await mounted();
     const writesBefore = widthWrites(seen);
@@ -353,14 +353,14 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
     expect(openNowTrack()).toBe('700px');
     expect(isResizing()).toBe(true);
 
-    setViewportWidth(1280);
+    setViewportWidth(1099);
 
     // PREMISE: the grip is gone mid-drag.
     expect(
       screen.queryByRole('separator', { name: NAME })
     ).not.toBeInTheDocument();
     expect(isResizing()).toBe(false);
-    expect(openNowTrack()).toBe('444px');
+    expect(openNowTrack()).toBe('340px');
     // The drag is over: a later move and release do nothing.
     moveTo(800);
     release(800);

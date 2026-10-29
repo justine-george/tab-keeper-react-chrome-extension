@@ -61,9 +61,10 @@ interface OpenNowRailProps {
   searchInputRef: RefObject<HTMLInputElement>;
 }
 
-// KAN-280 O2. A 44px column with one button, which opens Open now as a 380px
-// drawer over the right side. The drawer's open state lives here, so it goes
-// when the rail does: a window grown past 1100px, or a fold, drops both.
+// KAN-280 O2. A 44px column with one button, which opens Open now as a 480px
+// drawer over the right side (KAN-868; never wider than the window). The
+// drawer's open state lives here, so it goes when the rail does: a window
+// grown past 1100px, or a fold, drops both.
 const slideIn = keyframes`
   from {
     transform: translateX(100%);
@@ -416,7 +417,7 @@ export default function OpenNowRail({
     top: 0;
     right: 0;
     bottom: 0;
-    width: 380px;
+    width: min(480px, 100%);
     z-index: 900;
     overflow: hidden;
     background-color: ${COLORS.PRIMARY_COLOR};

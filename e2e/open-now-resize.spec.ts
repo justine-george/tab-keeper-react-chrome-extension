@@ -13,16 +13,13 @@ import { CHALK_THEME } from '../src/hooks/useThemeColors';
 //
 // Widths (paneWidths.ts): the default is 600 at 1600, 540 at 1440, 444 at
 // 1280 and 340 at 1100: an even split of what the list's default leaves (400
-// at 1600, 360 at 1440, 356 at 1280 and narrower). Both panes right of the
-// list keep at least 480px: at 1600 the range is 480..720. At 1316px and
-// narrower both cannot, so the range is empty (min = max = the default) and
-// there is no grip. The saved session keeps the rest after the list.
+// at 1600, 360 at 1440, 356 at 1280 and narrower). A drag takes either pane
+// right of the list down to 340px (KAN-868): at 1600 the range is 340..860,
+// at 1100 340..404, so every side-by-side window has a grip. The saved
+// session keeps the rest after the list.
 
 const WIDE = { width: 1600, height: 900 };
 const MEDIUM = { width: 1440, height: 900 };
-// The narrowest window with a range (480..484), and the widest without one.
-const NARROWEST_RESIZABLE = { width: 1320, height: 900 };
-const WIDEST_UNRESIZABLE = { width: 1316, height: 900 };
 const NARROW_SIDE_BY_SIDE = { width: 1280, height: 900 };
 const NARROWEST_SIDE_BY_SIDE = { width: 1100, height: 900 };
 const RAIL = { width: 1024, height: 768 };
@@ -683,7 +680,7 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     expect(Math.abs(end.x - (openNow.left + 4))).toBeLessThanOrEqual(1);
   });
 
-  test('2. the drag stops at its limits, both panes keep 480px, and a release outside the window still ends it', async ({
+  test('2. the drag stops at its limits, both panes keep 340px, and a release outside the window still ends it', async ({
     context,
     extensionId,
   }) => {
@@ -693,21 +690,20 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     const separator = page.getByRole('separator', {
       name: 'Resize the Currently open panel',
     });
-    await expect(separator).toHaveAttribute('aria-valuemin', '480');
-    await expect(separator).toHaveAttribute('aria-valuemax', '720');
+    await expect(separator).toHaveAttribute('aria-valuemin', '340');
+    await expect(separator).toHaveAttribute('aria-valuemax', '860');
 
-    // 400px left at 1600: the max, 720, leaves the saved session its 480.
+    // 400px left at 1600: the max, 860, leaves the saved session its 340.
     await dragGrip(page, -400);
-    await expectOpenNow(page, 720);
-    expect(await widthOf(page, DETAIL)).toBe(480);
-    await expect.poll(() => storedWidth(page)).toBe(720);
+    await expectOpenNow(page, 860);
+    expect(await widthOf(page, DETAIL)).toBe(340);
+    await expect.poll(() => storedWidth(page)).toBe(860);
 
-    // Far right (500px from 720 would be 220): stops at the min, 480, the
-    // saved session's own floor.
-    await dragGrip(page, 500);
-    await expectOpenNow(page, 480);
-    expect(await widthOf(page, DETAIL)).toBe(720);
-    await expect.poll(() => storedWidth(page)).toBe(480);
+    // Far right (600px from 860 would be 260): stops at the min, 340.
+    await dragGrip(page, 600);
+    await expectOpenNow(page, 340);
+    expect(await widthOf(page, DETAIL)).toBe(860);
+    await expect.poll(() => storedWidth(page)).toBe(340);
 
     // Dragged far left, past the window's own left edge, and released out
     // there.
@@ -727,17 +723,17 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     await page.mouse.move(from.x, from.y);
     await page.mouse.down();
     await page.mouse.move(-40, from.y, { steps: 30 });
-    await expectOpenNow(page, 720);
+    await expectOpenNow(page, 860);
     expect(await rootHas(page, 'data-resizing')).toBe(true);
     await page.mouse.up();
 
     // PREMISE: the release really happened outside the window.
     expect(await page.evaluate(() => window.__releaseX ?? null)).toBe(-40);
-    await expect.poll(() => storedWidth(page)).toBe(720);
-    expect(await widthOf(page, DETAIL)).toBe(480);
+    await expect.poll(() => storedWidth(page)).toBe(860);
+    expect(await widthOf(page, DETAIL)).toBe(340);
     expect(await rootHas(page, 'data-resizing')).toBe(false);
     // Saved once, and the flag came and went once.
-    expect(await settingsWrites(page)).toEqual([720]);
+    expect(await settingsWrites(page)).toEqual([860]);
     expect(await rootFlagLog(page)).toEqual([
       'data-resizing=',
       'data-resizing=null',
@@ -1112,57 +1108,51 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     ).toHaveAttribute('aria-valuenow', '540');
   });
 
-  // O1a: both panes keep 480px. At 1316px and narrower they cannot both, so
-  // the range is empty: Open now stays at its default and there is no grip.
-  test('12. where both panes cannot keep 480px there is no grip, and Open now keeps its default', async ({
+  // KAN-868. From 1100px, every side-by-side window has a range: 340 up to
+  // what leaves the saved session 340. A stored width clamps to it there,
+  // and is drawn unchanged again once the window is wide enough.
+  test('12. from 1100px side by side there is a grip, and a stored width clamps to its range', async ({
     context,
     extensionId,
   }) => {
     await seedOnce(context, { openNowWidth: 700 });
     const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
     const grip = page.locator(GRIP);
-
-    // CONTROL: at 1600 the same selector finds the grip, and the stored
-    // width shows. Without this every absence below passes on a build with no
-    // grip anywhere.
     await expect(grip).toHaveCount(1);
     await expectOpenNow(page, 700);
-
-    const unresizable: [{ width: number; height: number }, number][] = [
-      [NARROW_SIDE_BY_SIDE, 444],
-      [NARROWEST_SIDE_BY_SIDE, 340],
-      [WIDEST_UNRESIZABLE, 480],
-    ];
-    for (const [viewport, defaultWidth] of unresizable) {
-      await page.setViewportSize(viewport);
-      await expectOpenNow(page, defaultWidth);
-      // PREMISE: side by side, not the rail and not folded -- the saved
-      // detail is beside Open now, so there is a line a grip could sit on.
-      const detail = await need(page, DETAIL);
-      const openNow = await need(page, OPEN_NOW);
-      expect(Math.abs(detail.right - openNow.left)).toBeLessThanOrEqual(1);
-      expect(Math.round(detail.width)).toBe(
-        viewport.width - 356 - defaultWidth
-      );
-      await expect(grip).toHaveCount(0);
-      // The user's width is kept, only not drawn.
-      expect(await storedWidth(page)).toBe(700);
-    }
-
-    // The narrowest window with a range: 1320, 480..484. The stored 700
-    // clamps to its max.
-    await page.setViewportSize(NARROWEST_RESIZABLE);
-    await expect(grip).toHaveCount(1);
-    await expectOpenNow(page, 484);
     const separator = page.getByRole('separator', {
       name: 'Resize the Currently open panel',
     });
-    await expect(separator).toHaveAttribute('aria-valuemin', '480');
-    await expect(separator).toHaveAttribute('aria-valuemax', '484');
+
+    // [window, its max]: 1316 was the widest window with no grip.
+    const narrow: [{ width: number; height: number }, number][] = [
+      [{ width: 1316, height: 900 }, 620],
+      [NARROW_SIDE_BY_SIDE, 584],
+      [NARROWEST_SIDE_BY_SIDE, 404],
+    ];
+    for (const [viewport, max] of narrow) {
+      await page.setViewportSize(viewport);
+      await expect(grip).toHaveCount(1);
+      await expectOpenNow(page, max);
+      await expect(separator).toHaveAttribute('aria-valuemin', '340');
+      await expect(separator).toHaveAttribute('aria-valuemax', String(max));
+      // Side by side, the saved session beside Open now at its 340 floor.
+      const detail = await need(page, DETAIL);
+      const openNow = await need(page, OPEN_NOW);
+      expect(Math.abs(detail.right - openNow.left)).toBeLessThanOrEqual(1);
+      expect(Math.round(detail.width)).toBe(340);
+      // The user's width is kept, only clamped.
+      expect(await storedWidth(page)).toBe(700);
+    }
+
+    // At 1100 the drag goes down to 340.
+    await dragGrip(page, 200);
+    await expectOpenNow(page, 340);
+    await expect.poll(() => storedWidth(page)).toBe(340);
+    expect(Math.round((await need(page, DETAIL)).width)).toBe(1100 - 356 - 340);
 
     await page.setViewportSize(WIDE);
     await expect(grip).toHaveCount(1);
-    await expectOpenNow(page, 700);
-    expect(await storedWidth(page)).toBe(700);
+    await expectOpenNow(page, 340);
   });
 });
