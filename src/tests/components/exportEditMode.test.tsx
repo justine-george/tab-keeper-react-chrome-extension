@@ -7,6 +7,7 @@ import ExportPage from '../../components/export/ExportPage';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
+import { setCopyLinksLayout } from '../../redux/slices/settingsDataStateSlice';
 import {
   exportRowKey,
   NO_EXPORT_EDITS,
@@ -83,6 +84,8 @@ const renderPage = () =>
     {
       seedStore: (store) => {
         store.dispatch(replaceState(buildContainer([SESSION])));
+        // KAN-859. The copy test reads the headed layout.
+        store.dispatch(setCopyLinksLayout('with-headings'));
       },
     }
   );

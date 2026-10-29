@@ -14,7 +14,10 @@ import {
 import { showSessionAndAddCurrentWindow } from '../../redux/showSessionAndAddCurrentWindow';
 import { showSession } from '../../redux/showSession';
 import { requestSessionRename } from '../../redux/slices/globalStateSlice';
-import { copySessionLinks } from '../../utils/functions/copySessionLinks';
+import {
+  copySessionLinks,
+  type CopyLinksLayout,
+} from '../../utils/functions/copySessionLinks';
 import { copyAllLinksItem } from '../common/rowMenu/copyAllLinksItem';
 import { tidySessionForExport } from '../../utils/functions/sessionExportHtml';
 import { countDuplicateTabs } from '../../utils/functions/duplicateTabs';
@@ -51,9 +54,10 @@ export function sessionMenuItems(
     dispatch: AppDispatch;
     deleteKey: DeleteKey;
     place: SessionMenuPlace;
+    copyLinksLayout: CopyLinksLayout;
   }
 ): OverflowMenuItem[] {
-  const { t, language, dispatch, deleteKey, place } = ctx;
+  const { t, language, dispatch, deleteKey, place, copyLinksLayout } = ctx;
   const { tabGroupId } = session;
   const duplicateCount = countDuplicateTabs(session);
   // KAN-775, KAN-793. A right-click leads with the row's buttons; the header's ⋮ sits beside them. Switch is popup only, as the row's.
@@ -133,7 +137,13 @@ export function sessionMenuItems(
     // No edits applied: there is no preview here to respect, which
     // is the only difference left between the two call sites.
     copyAllLinksItem(
-      () => copySessionLinks(tidySessionForExport(session), t, language),
+      () =>
+        copySessionLinks(
+          tidySessionForExport(session),
+          t,
+          language,
+          copyLinksLayout
+        ),
       { t, dispatch }
     ),
     // KAN-805. Shows the session first, as a click on its row does; the header then opens its title.

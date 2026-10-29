@@ -246,6 +246,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
+  const copyLinksLayout = useSelector(
+    (state: RootState) => state.settingsDataState.copyLinksLayout
+  );
 
   // The window's top-level rows as drawn: each loose tab, and each group as
   // one item (KAN-160). useGroupDrop builds this window's stretch of the
@@ -298,7 +301,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       () =>
         copyScopeLinks(
           windowLinkScope(label.text, { tabs, chromeTabGroups }),
-          t
+          t,
+          copyLinksLayout
         ),
       { t, dispatch }
     ),
@@ -375,7 +379,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             { tabs },
             groupId
           ),
-          t
+          t,
+          copyLinksLayout
         );
       },
       { t, dispatch }

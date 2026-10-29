@@ -6,6 +6,7 @@ import ExportPage from '../../components/export/ExportPage';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
+import { setCopyLinksLayout } from '../../redux/slices/settingsDataStateSlice';
 
 // KAN-202. Tidied once, where the page loads the session, so the editor and
 // every output agree.
@@ -46,6 +47,8 @@ const renderPage = () =>
     {
       seedStore: (store) => {
         store.dispatch(replaceState(buildContainer([SESSION])));
+        // KAN-859. The clipboard test reads the headed layout.
+        store.dispatch(setCopyLinksLayout('with-headings'));
       },
     }
   );

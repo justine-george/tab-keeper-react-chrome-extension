@@ -347,6 +347,9 @@ export default function OpenNowPane({
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
+  const copyLinksLayout = useSelector(
+    (state: RootState) => state.settingsDataState.copyLinksLayout
+  );
   // The whole list, not only what a search draws: safe because under a search
   // a tab drag only carries out (O14c amended), which lands nowhere here, and
   // a search that starts mid-drag ends an in-pane drag (KAN-335).
@@ -675,7 +678,8 @@ export default function OpenNowPane({
                 )
               ),
               t,
-              i18n.language
+              i18n.language,
+              copyLinksLayout
             ),
           { t, dispatch }
         )

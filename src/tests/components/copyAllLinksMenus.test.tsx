@@ -14,7 +14,9 @@ import {
   selectTabContainer,
   type tabData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { setCopyLinksLayout } from '../../redux/slices/settingsDataStateSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
+import type { CopyLinksLayout } from '../../utils/functions/copySessionLinks';
 import { buildSession } from '../fixtures/sessionFixture';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { newestToast } from '../setup/toasts';
@@ -22,7 +24,7 @@ import type { ChromeSeed } from '../setup/chrome.fake';
 
 // KAN-783. Copy all links on a window's and a group's menu, live and saved,
 // FIRST (pick 1A); and in Open now's header right-click after the two saves.
-// Each copy is headed by what was copied (pick 2B).
+// Each copy is headed by what was copied (pick 2B), under the With headings layout (KAN-859).
 
 // jsdom has no ClipboardItem, so every copy lands as the plain list.
 const clipboard = (writeText: (text: string) => Promise<void>) => {
@@ -92,6 +94,7 @@ describe('live windows and groups (Open now)', () => {
         seed,
         seedStore: (store) => {
           store.dispatch(setHasTabGroupsPermission(true));
+          store.dispatch(setCopyLinksLayout('with-headings'));
         },
       }
     );
@@ -370,10 +373,16 @@ describe('saved windows and groups', () => {
   });
 
   // Planning: a loose tab, then Research (r1, r2), then another loose tab.
-  const render = ({ windowTitle = 'Planning', groupTitle = 'Research' } = {}) =>
+  const render = ({
+    windowTitle = 'Planning',
+    groupTitle = 'Research',
+    layout = 'with-headings' as CopyLinksLayout | null,
+  } = {}) =>
     renderWithProviders(<MainContainer />, {
       seedStore: (store) => {
         store.dispatch(setHasTabGroupsPermission(true));
+        // null leaves the store's default.
+        if (layout !== null) store.dispatch(setCopyLinksLayout(layout));
         store.dispatch(
           saveToTabContainerInternal(
             buildSession({
@@ -456,6 +465,26 @@ describe('saved windows and groups', () => {
     const toast = newestToast(store.getState());
     expect(toast?.text).toBe(TOAST_MESSAGES.COPY_LINKS_SUCCESS);
     expect(toast?.params).toEqual({ count: 4 });
+  });
+
+  // KAN-859. The button reads the stored layout; a new install's is Links only.
+  test("by default a saved window's copy is Links only: one line per tab, no headings", async () => {
+    const user = userEvent.setup();
+    const writeText = clipboard(() => Promise.resolve());
+    await render({ layout: null });
+
+    await user.click(windowMenuButton());
+    await chooseCopy(user);
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(writeText).toHaveBeenCalledWith(
+      [
+        'https://a.test/ | a',
+        'https://r1.test/ | r1',
+        'https://r2.test/ | r2',
+        'https://z.test/ | z',
+      ].join('\n')
+    );
   });
 
   test("a saved group's ⋮ leads with Copy all links, and it copies only the group's tabs", async () => {

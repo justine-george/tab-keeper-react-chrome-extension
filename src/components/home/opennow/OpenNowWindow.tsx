@@ -236,6 +236,9 @@ export default function OpenNowWindow({
   const hasTabGroups = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
+  const copyLinksLayout = useSelector(
+    (state: RootState) => state.settingsDataState.copyLinksLayout
+  );
   // Only where the live sort would run and change something.
   const offersSort =
     canSortOpenWindowLive(openWindow, hasTabGroups) &&
@@ -248,7 +251,8 @@ export default function OpenNowWindow({
       () =>
         copyScopeLinks(
           windowLinkScope(title, toSavedWindow(openWindow, [])),
-          t
+          t,
+          copyLinksLayout
         ),
       { t, dispatch }
     ),
@@ -667,7 +671,8 @@ export default function OpenNowWindow({
             saved,
             saved.chromeTabGroups?.[index]?.groupId ?? ''
           ),
-          t
+          t,
+          copyLinksLayout
         );
       },
       { t, dispatch }
