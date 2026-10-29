@@ -78,7 +78,13 @@ describe('liveDuplicatesToClose', () => {
   });
 
   test('the closed copies come in strip order', () => {
-    const w = win(1, [tab(B), tab(A), tab(B), tab(A), tab(B, { active: true })]);
+    const w = win(1, [
+      tab(B),
+      tab(A),
+      tab(B),
+      tab(A),
+      tab(B, { active: true }),
+    ]);
     expect(urls(liveDuplicatesToClose(w))).toEqual([
       `${B}#0`,
       `${B}#2`,
