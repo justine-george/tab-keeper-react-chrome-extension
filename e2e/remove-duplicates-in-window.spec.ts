@@ -138,7 +138,14 @@ test.describe('the window ⋮ is drawn over what is below it', () => {
   test('over its own tab rows', async ({ context, extensionId }) => {
     const page = await openPopup(context, extensionId);
     await openWindowMenu(page, 'w1');
-    expect(await itemsOnTop(page)).toEqual([true, true, true, true, true]);
+    expect(await itemsOnTop(page)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+    ]);
     expect(await rowIsHit(page, 'Tab a3')).toBe(true);
   });
 
@@ -152,7 +159,14 @@ test.describe('the window ⋮ is drawn over what is below it', () => {
       .click();
     await expect(page.getByText('Tab guide2')).toBeHidden();
     await openWindowMenu(page, 'w1');
-    expect(await itemsOnTop(page)).toEqual([true, true, true, true, true]);
+    expect(await itemsOnTop(page)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+    ]);
     expect(await rowIsHit(page, 'Tab sun')).toBe(true);
   });
 });
@@ -168,6 +182,8 @@ test('a window removes its own repeats, and one ⌘Z brings them back', async ({
   await expect(page.getByRole('menuitem')).toHaveText([
     /Copy all links$/,
     /Rename window$/,
+    // KAN-866. The page's window holds a tab to take.
+    /Replace with current window$/,
     /Sort tabs by site$/,
     /Remove 2 duplicate tabs$/,
     /Delete window$/,
@@ -198,6 +214,8 @@ test('a window with no repeats of its own offers no Remove', async ({
   await expect(page.getByRole('menuitem')).toHaveText([
     /Copy all links$/,
     /Rename window$/,
+    // KAN-866. The page's window holds a tab to take.
+    /Replace with current window$/,
     /Delete window$/,
   ]);
 });
