@@ -23,6 +23,7 @@ import { newRun, runAtOpen, type RunCheck } from '../utils/functions/firstRun';
 import { RUN_LOCK, tourLockState } from '../utils/functions/tourLock';
 import { readToolbarPin } from '../utils/functions/toolbarPin';
 import { shouldOfferTabGroups } from '../utils/functions/tabGroupsOffer';
+import { decideWhatsNew } from './whatsNew';
 
 export type Surface = 'popup' | 'full';
 
@@ -147,9 +148,15 @@ export function firstOpenDialogs(
         : null,
   };
 
+  // KAN-861. After anything that claims the open, before the uncapped tab-groups offer (KAN-732).
+  const whatsNew: DialogEntry = {
+    id: 'whatsNew',
+    decide: () => decideWhatsNew(dispatch),
+  };
+
   const lists: Record<Surface, DialogEntry[]> = {
-    popup: [cloudConsent, firstRun, tabGroups, fullViewCallout],
-    full: [cloudConsent, firstRun, setup, pinGuide, tabGroups],
+    popup: [cloudConsent, firstRun, whatsNew, tabGroups, fullViewCallout],
+    full: [cloudConsent, firstRun, setup, pinGuide, whatsNew, tabGroups],
   };
   return lists[surface];
 }

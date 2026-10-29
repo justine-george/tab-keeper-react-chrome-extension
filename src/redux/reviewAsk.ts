@@ -71,6 +71,12 @@ export const noteReviewMoment =
     dispatch(setPendingReviewAsk({ moment, at: now }));
   };
 
+// KAN-861. Drops a waiting ask, whichever page noted it; writes only when one is stored.
+export const clearPendingAsk = (): Thunk<void> => (dispatch) => {
+  if (storedSettings().pendingReviewAsk == null) return;
+  dispatch(setPendingReviewAsk(null));
+};
+
 export const showReviewCard =
   (moment: ReviewMoment): Thunk<void> =>
   (dispatch) => {
@@ -81,7 +87,9 @@ export const showReviewCard =
     // lastReviewRequestTime among them, which reopens the gate.
     if (!canAskForReview(stored, Date.now())) return;
     dispatch(updateLastReviewRequestTime());
-    if (moment.kind === 'time') dispatch(markTimeAskDone());
+    // KAN-861. The updated card uses the time words: nobody sees the same card twice.
+    if (moment.kind === 'time' || moment.kind === 'updated')
+      dispatch(markTimeAskDone());
     dispatch(setPendingReviewAsk(null));
     dispatch(
       openReviewCard({

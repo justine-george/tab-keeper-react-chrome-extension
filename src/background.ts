@@ -29,6 +29,7 @@ import type { Reopened } from './utils/functions/reopen';
 import { isReopenPreferringHistoryRequest } from './utils/functions/reopenRequest';
 import { restoreSession } from './utils/functions/restoreSession';
 import { readUiLanguage } from './utils/functions/uiLanguage';
+import { recordWhatsNewSince } from './utils/functions/whatsNewSince';
 import {
   UNINSTALL_SURVEY_FORM_KEY,
   UNINSTALL_SURVEY_LANGUAGE_KEY,
@@ -66,6 +67,9 @@ recordFullViewOrigins();
 
 // KAN-470 A. An update closes every Tab Keeper tab: the windows that pinned one get a stub back.
 keepPinnedTabKeeperWindows();
+
+// KAN-861. An update records the version it came from; the next open shows What's new.
+recordWhatsNewSince();
 
 // KAN-7 §7. Default view, applied again at every start: Task 1 measured whether Chrome keeps setPopup itself.
 const chromeActionApi: ActionApi = {

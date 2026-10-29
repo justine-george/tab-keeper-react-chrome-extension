@@ -141,7 +141,8 @@ function App() {
       document.documentElement.dataset.firstOpen = opened ?? 'none';
       // KAN-653. After the dialogs, so a first open's setup is not raced.
       if (!isUnmounted) {
-        dispatch(askAtOpen());
+        // KAN-861. Got it on What's new makes that open's only ask.
+        if (opened !== 'whatsNew') dispatch(askAtOpen());
         setAreOpenDialogsDecided(true);
       }
       if (!isTabView() || isUnmounted) return;

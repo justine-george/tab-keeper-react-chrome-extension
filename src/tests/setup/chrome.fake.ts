@@ -77,6 +77,10 @@ export type ChromeSeed = {
   storage?: Record<string, unknown>;
   // chrome.storage.session at start (KAN-458's record of activated tabs).
   sessionArea?: Record<string, unknown>;
+  // KAN-861. chrome.storage.local at start (What's new's whatsNewSince).
+  localArea?: Record<string, unknown>;
+  // KAN-861. What runtime.getManifest() reports as the version. Absent means '1.0.0'.
+  manifestVersion?: string;
   tabGroups?: Partial<chrome.tabGroups.TabGroup>[];
   // Optional permissions the profile already holds. Defaults to none, which is
   // what a fresh install looks like. Holding `sessions` here makes
@@ -329,7 +333,9 @@ function registry<F extends (...args: never[]) => void>(): Registry<F> {
 
 export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
   const storage = new Map<string, unknown>(Object.entries(seed.storage ?? {}));
-  const localArea = new Map<string, unknown>();
+  const localArea = new Map<string, unknown>(
+    Object.entries(seed.localArea ?? {})
+  );
   const sessionArea = new Map<string, unknown>(
     Object.entries(seed.sessionArea ?? {})
   );
@@ -2675,6 +2681,11 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           messageListeners.has(listener),
       },
       getURL: (path: string) => `${EXTENSION_ORIGIN}${path}`,
+      getManifest: (): chrome.runtime.ManifestV3 => ({
+        manifest_version: 3,
+        name: 'Tab Keeper',
+        version: seed.manifestVersion ?? '1.0.0',
+      }),
       getPlatformInfo: (cb?: (info: chrome.runtime.PlatformInfo) => void) =>
         seed.platformAnswer ??
         settle<chrome.runtime.PlatformInfo>(

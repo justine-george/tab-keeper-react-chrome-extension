@@ -28,7 +28,9 @@ export type ReviewMoment =
   | { kind: 'firstSave' }
   | { kind: 'bigSave' }
   | { kind: 'sessionsArrived' }
-  | { kind: 'restored' };
+  | { kind: 'restored' }
+  // KAN-861. Got it on What's new, when nothing in it changed a default.
+  | { kind: 'updated' };
 
 /** An ask that is due but not yet on screen. `at` is when it was noted. */
 export interface PendingReviewAsk {
@@ -42,6 +44,7 @@ const MOMENT_KINDS: ReadonlySet<string> = new Set([
   'bigSave',
   'sessionsArrived',
   'restored',
+  'updated',
 ] satisfies ReviewMoment['kind'][]);
 
 function isMomentKind(kind: unknown): kind is ReviewMoment['kind'] {
@@ -126,6 +129,7 @@ export function reviewCardCopy(moment: ReviewMoment): {
 } {
   switch (moment.kind) {
     case 'time':
+    case 'updated':
       return {
         titleKey: 'Thanks for using Tab Keeper',
         bodyKey: 'ReviewCardBodyTime',

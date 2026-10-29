@@ -7,6 +7,7 @@ export type DialogId =
   | 'pinGuide'
   | 'setup'
   | 'rate'
+  | 'whatsNew'
   | 'tabGroups'
   | 'fullViewCallout';
 

@@ -465,6 +465,15 @@ describe('showing the card', () => {
     expect(store.getState().settingsDataState.isTimeAskDone).toBe(true);
   });
 
+  // KAN-861. Its control is the bigSave test above, where it stays false.
+  test('the updated ask marks the time ask done', () => {
+    const { store } = makeTestStore();
+
+    store.dispatch(showReviewCard({ kind: 'updated' }));
+
+    expect(store.getState().settingsDataState.isTimeAskDone).toBe(true);
+  });
+
   test('offers "never" only to someone who has closed one before', () => {
     const { store } = makeTestStore();
     store.dispatch(setSkippedUserReviewOnce());

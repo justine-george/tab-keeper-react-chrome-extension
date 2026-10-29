@@ -55,6 +55,7 @@ import { CloudConsentModal } from './modals/CloudConsentModal';
 import { PinGuideModal } from './modals/PinGuideModal';
 import { SetupModal } from './modals/SetupModal';
 import { TabGroupsPermissionModal } from './modals/TabGroupsPermissionModal';
+import { WhatsNewDialog } from './modals/WhatsNewDialog';
 
 // KAN-52. The undo/redo shortcuts are registered on `window`, so they also see
 // keystrokes aimed at a text field. When they do, the browser's own undo stack
@@ -116,6 +117,9 @@ export default function MainContainer() {
 
   const tabGroupsPromptCount = useSelector(
     (state: RootState) => state.globalState.tabGroupsPromptCount
+  );
+  const whatsNew = useSelector(
+    (state: RootState) => state.globalState.whatsNew
   );
 
   // KAN-280 O4/O5. Folded, Open now takes the saved session's column.
@@ -535,6 +539,7 @@ export default function MainContainer() {
       <FirstRun />
       <ReplayNote />
       <ReviewCard />
+      {whatsNew !== null && <WhatsNewDialog shown={whatsNew} />}
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}
       {focusRequest && <FocusConfirmModal />}
       {isDeleteCloudDataModalOpen && <DeleteCloudDataModal />}

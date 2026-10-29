@@ -16,6 +16,7 @@ import {
   openPinGuide,
   openSetup,
   openTabGroupsPrompt,
+  openWhatsNew,
   runShownHere,
 } from '../../redux/slices/globalStateSlice';
 import {
@@ -84,6 +85,32 @@ const CASES: Case[] = [
           newRun('popup', 1)
         )
       );
+    },
+  },
+  {
+    name: "what's new: answered, no ask",
+    dialog: "What's new in Tab Keeper 2.1.0",
+    seed: { localArea: { whatsNewSince: '2.0.1' } },
+    open: (s) =>
+      s.dispatch(
+        openWhatsNew([
+          {
+            version: '2.1.0',
+            fixesOnly: false,
+            entries: [
+              {
+                titleKey: 'WhatsNewCopyLinksTitle',
+                bodyKey: 'WhatsNewCopyLinksBody',
+                changesDefault: false,
+              },
+            ],
+          },
+        ])
+      ),
+    // KAN-861. Esc answers it, and is a dismissal: no review ask.
+    outcome: ({ store }) => {
+      expect(store.getState().globalState.whatsNew).toBeNull();
+      expect(store.getState().settingsDataState.pendingReviewAsk).toBeNull();
     },
   },
   {
