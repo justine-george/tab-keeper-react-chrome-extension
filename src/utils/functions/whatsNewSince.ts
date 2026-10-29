@@ -10,7 +10,7 @@ async function record(previousVersion: string): Promise<void> {
 
 export function recordWhatsNewSince(): void {
   chrome.runtime.onInstalled.addListener(({ reason, previousVersion }) => {
-    if (reason !== 'update' || previousVersion === undefined) return;
+    if (reason !== 'update') return;
     record(previousVersion).catch((error) => {
       console.warn("Could not record the version for What's new:", error);
     });

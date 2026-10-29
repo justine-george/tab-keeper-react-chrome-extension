@@ -18,8 +18,8 @@ afterEach(() => {
 
 const recorded = () => handle?.localArea()[WHATS_NEW_SINCE_KEY];
 
-const update = (previousVersion?: string) =>
-  handle?.fireInstalled({ reason: 'update', previousVersion } as chrome.runtime.InstalledDetails);
+const update = (previousVersion: string) =>
+  handle?.fireInstalled({ reason: 'update', previousVersion });
 
 describe('recordWhatsNewSince', () => {
   test('an update records the version it came from', async () => {
@@ -35,27 +35,20 @@ describe('recordWhatsNewSince', () => {
     update('2.0.1');
     await vi.waitFor(() => expect(recorded()).toBe('2.0.1'));
     update('2.1.0');
-    // CONTROL for the wait: a later listener sees the settled value.
+    // The fake's storage settles within a few ticks; 20 ms covers the second listener.
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(recorded()).toBe('2.0.1');
   });
 
-  it.each(['install', 'chrome_update', 'shared_module_update'])(
-    '%s records nothing',
-    async (reason) => {
-      handle = setupChromeFake();
-      recordWhatsNewSince();
-      handle.fireInstalled({ reason, previousVersion: '1.0.0' } as chrome.runtime.InstalledDetails);
-      // CONTROL: the listener ran, and the first event wrote nothing.
-      update('9.9.9');
-      await vi.waitFor(() => expect(recorded()).toBe('9.9.9'));
-    }
-  );
-
-  test('an update with no previousVersion records nothing', async () => {
+  it.each<chrome.runtime.InstalledDetails>([
+    { reason: 'install' },
+    { reason: 'chrome_update' },
+    { reason: 'shared_module_update', id: 'abc' },
+  ])('$reason records nothing', async (details) => {
     handle = setupChromeFake();
     recordWhatsNewSince();
-    update(undefined);
+    handle.fireInstalled(details);
+    // CONTROL: the listener ran, and the first event wrote nothing.
     update('9.9.9');
     await vi.waitFor(() => expect(recorded()).toBe('9.9.9'));
   });

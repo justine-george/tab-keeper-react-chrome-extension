@@ -1,10 +1,7 @@
 import { describe, expect, it, test } from 'vitest';
 
 import { SettingsCategory } from '../../../redux/slices/settingsCategoryStateSlice';
-import {
-  WHATS_NEW,
-  WhatsNewRelease,
-} from '../../../utils/constants/whatsNew';
+import { WHATS_NEW, WhatsNewRelease } from '../../../utils/constants/whatsNew';
 import {
   parseVersion,
   releasesToShow,
@@ -19,12 +16,23 @@ const entry = (key: string) => ({
 });
 
 const A: WhatsNewRelease = { version: '2.3.0', entries: [entry('A')] };
-const B: WhatsNewRelease = { version: '2.2.0', fixesOnly: true, entries: [entry('B')] };
+const B: WhatsNewRelease = {
+  version: '2.2.0',
+  fixesOnly: true,
+  entries: [entry('B')],
+};
 const C: WhatsNewRelease = { version: '2.1.0', entries: [entry('C')] };
-const D: WhatsNewRelease = { version: '2.0.2', fixesOnly: true, entries: [entry('D')] };
+const D: WhatsNewRelease = {
+  version: '2.0.2',
+  fixesOnly: true,
+  entries: [entry('D')],
+};
 
-const versions = (since: unknown, installed: string, list: readonly WhatsNewRelease[]) =>
-  releasesToShow(since, installed, list).map((r) => r.version);
+const versions = (
+  since: unknown,
+  installed: string,
+  list: readonly WhatsNewRelease[]
+) => releasesToShow(since, installed, list).map((r) => r.version);
 
 describe('releasesToShow', () => {
   test('since 2.0.1, installed 2.1.0: shows 2.1.0', () => {
@@ -68,12 +76,19 @@ describe('releasesToShow', () => {
     expect(versions('2.3.0', '2.1.0', [A, B, C])).toEqual([]);
   });
 
-  it.each([undefined, null, 2, '', 'abc', '2.x.0', '2.0.1-beta', '1.2.3.4.5', '70000.0.0'])(
-    'a since of %j shows nothing',
-    (since) => {
-      expect(versions(since, '2.3.0', [A, B, C])).toEqual([]);
-    }
-  );
+  it.each([
+    undefined,
+    null,
+    2,
+    '',
+    'abc',
+    '2.x.0',
+    '2.0.1-beta',
+    '1.2.3.4.5',
+    '70000.0.0',
+  ])('a since of %j shows nothing', (since) => {
+    expect(versions(since, '2.3.0', [A, B, C])).toEqual([]);
+  });
 
   test("an installed version of 'abc' shows nothing", () => {
     expect(versions('2.0.1', 'abc', [A, B, C])).toEqual([]);
@@ -92,11 +107,15 @@ describe('showsDefaultChange', () => {
       version: '2.1.0',
       entries: [entry('C'), { ...entry('X'), changesDefault: true }],
     };
-    expect(showsDefaultChange(releasesToShow('2.0.1', '2.3.0', [A, changing]))).toBe(true);
+    expect(
+      showsDefaultChange(releasesToShow('2.0.1', '2.3.0', [A, changing]))
+    ).toBe(true);
   });
 
   test('false otherwise', () => {
-    expect(showsDefaultChange(releasesToShow('2.0.1', '2.3.0', [A, B, C]))).toBe(false);
+    expect(
+      showsDefaultChange(releasesToShow('2.0.1', '2.3.0', [A, B, C]))
+    ).toBe(false);
   });
 });
 
@@ -122,7 +141,9 @@ describe('settingsPageOf', () => {
 
 describe('the shipped list', () => {
   test("at most one 'next', and only at index 0", () => {
-    const nexts = WHATS_NEW.flatMap((r, i) => (r.version === 'next' ? [i] : []));
+    const nexts = WHATS_NEW.flatMap((r, i) =>
+      r.version === 'next' ? [i] : []
+    );
     expect(nexts.length).toBeLessThanOrEqual(1);
     if (nexts.length === 1) expect(nexts[0]).toBe(0);
   });

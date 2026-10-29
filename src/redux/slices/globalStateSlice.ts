@@ -78,6 +78,7 @@ import {
   setAutoSync,
 } from './settingsDataStateSlice';
 import { noteReviewMoment } from '../reviewAsk';
+import type { ShownRelease } from '../../utils/functions/whatsNew';
 
 export type SyncStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -151,6 +152,9 @@ export interface Global {
   // a fact about this popup, while whether it may be shown AGAIN is persisted
   // in settingsData.
   tabGroupsPromptCount: number | null;
+  // KAN-861. The releases What's new is showing, or null when it is not. Session-only:
+  // whether it may show AGAIN is whatsNewSince in chrome.storage.local.
+  whatsNew: ShownRelease[] | null;
   focusRequest: FocusRequest | null;
   // KAN-254. The "Delete cloud data" confirm dialog.
   isDeleteCloudDataModalOpen: boolean;
@@ -335,6 +339,7 @@ export const initialState: Global = {
   toasts: [],
   reviewCard: null,
   tabGroupsPromptCount: null,
+  whatsNew: null,
   focusRequest: null,
   isDeleteCloudDataModalOpen: false,
   isCloudDeletedNoticeOpen: false,
@@ -1257,6 +1262,12 @@ export const globalStateSlice = createSlice({
     closeTabGroupsPrompt: (state) => {
       state.tabGroupsPromptCount = null;
     },
+    openWhatsNew: (state, action: PayloadAction<ShownRelease[]>) => {
+      state.whatsNew = action.payload;
+    },
+    closeWhatsNew: (state) => {
+      state.whatsNew = null;
+    },
 
     openFocusModal: (state, action: PayloadAction<FocusRequest>) => {
       state.focusRequest = action.payload;
@@ -1706,6 +1717,8 @@ export const {
   closeReviewCard,
   openTabGroupsPrompt,
   closeTabGroupsPrompt,
+  openWhatsNew,
+  closeWhatsNew,
   openFocusModal,
   closeFocusModal,
   openDeleteCloudDataModal,

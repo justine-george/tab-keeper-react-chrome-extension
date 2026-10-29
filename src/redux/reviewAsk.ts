@@ -71,6 +71,12 @@ export const noteReviewMoment =
     dispatch(setPendingReviewAsk({ moment, at: now }));
   };
 
+// KAN-861. Drops a waiting ask, whichever page noted it; writes only when one is stored.
+export const clearPendingAsk = (): Thunk<void> => (dispatch) => {
+  if (storedSettings().pendingReviewAsk == null) return;
+  dispatch(setPendingReviewAsk(null));
+};
+
 export const showReviewCard =
   (moment: ReviewMoment): Thunk<void> =>
   (dispatch) => {

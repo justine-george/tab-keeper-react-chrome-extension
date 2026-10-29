@@ -9,7 +9,7 @@ import {
 export interface ShownRelease {
   version: string;
   fixesOnly: boolean;
-  entries: readonly WhatsNewEntry[];
+  entries: WhatsNewEntry[];
 }
 
 const MAX_PART = 65535;
@@ -46,7 +46,7 @@ export function releasesToShow(
     .map((release) => ({
       version: release.version === 'next' ? installed : release.version,
       fixesOnly: release.fixesOnly === true,
-      entries: release.entries,
+      entries: [...release.entries],
     }))
     .filter((release) => {
       const v = parseVersion(release.version);
@@ -60,7 +60,9 @@ export function showsDefaultChange(shown: readonly ShownRelease[]): boolean {
 }
 
 /** The first entry's settings page in list order: newest release first, then entry order. */
-export function settingsPageOf(shown: readonly ShownRelease[]): SettingsCategory | null {
+export function settingsPageOf(
+  shown: readonly ShownRelease[]
+): SettingsCategory | null {
   for (const release of shown) {
     for (const entry of release.entries) {
       if (entry.settingsPage !== undefined) return entry.settingsPage;
