@@ -235,6 +235,25 @@ test('links only from each other button', async ({ context, extensionId }) => {
   const live = await copyAndPaste(page, '4 links copied.');
   expect(linksOnly(live.plain)).toEqual(OTHER_LINES);
 
+  // A live group's ⋮.
+  await openMenu(
+    pane(page, 'open-now').locator('[data-band-id]').first(),
+    pane(page, 'open-now').getByRole('button', {
+      name: 'More actions: Temples',
+    })
+  );
+  const liveGroup = await copyAndPaste(page, '2 links copied.');
+  expect(linksOnly(liveGroup.plain)).toEqual(OTHER_LINES.slice(1, 3));
+
+  // A session row's right-click.
+  await page
+    .locator(
+      '[data-pane="sessions"] [data-drag-row-id="S1"] [data-drag-handle-row]'
+    )
+    .click({ button: 'right' });
+  const sessionRow = await copyAndPaste(page, '6 links copied.');
+  expect(linksOnly(sessionRow.plain)).toEqual(SAVED_LINES);
+
   // A saved window's ⋮.
   const row = pane(page, 'detail').locator('[data-drag-row-id="w1"]');
   await openMenu(

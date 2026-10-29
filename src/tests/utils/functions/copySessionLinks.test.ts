@@ -162,6 +162,55 @@ describe('links only (KAN-859)', () => {
     expect(html).toBe(linksOnlyHtml(scope.tabs));
   });
 
+  // A group whose members are apart (an import or a merge) is drawn at its
+  // first member, with the rest pulled up to it; Links only pastes that order.
+  const apart = () => {
+    const [first] = buildSession().windows[0].tabs;
+    const tab = (id: string, chromeGroupId?: string) => ({
+      ...first,
+      tabId: id,
+      title: id,
+      url: `https://${id}.test/`,
+      ...(chromeGroupId ? { chromeGroupId } : {}),
+    });
+    return {
+      tabs: [tab('a', 'g1'), tab('b'), tab('c', 'g1')],
+      groups: [{ groupId: 'g1', title: 'Food', color: 'orange' as const }],
+    };
+  };
+  const SHOWN = [
+    'https://a.test/ | a',
+    'https://c.test/ | c',
+    'https://b.test/ | b',
+  ];
+
+  test('a session pastes its tabs in the order shown, a group together', async () => {
+    const { write } = stubClipboard(
+      () => Promise.resolve(),
+      () => Promise.resolve()
+    );
+    const { tabs, groups } = apart();
+    const session = buildSession();
+    session.windows = [
+      { ...session.windows[0], tabs, chromeTabGroups: groups },
+    ];
+
+    await copySessionLinks(session, t, 'en', 'links-only');
+
+    expect((await written(write)).plain.split('\n')).toEqual(SHOWN);
+  });
+
+  test('a scope pastes its tabs in the order shown, a group together', async () => {
+    const { write } = stubClipboard(
+      () => Promise.resolve(),
+      () => Promise.resolve()
+    );
+
+    await copyScopeLinks({ heading: 'Hotels', ...apart() }, t, 'links-only');
+
+    expect((await written(write)).plain.split('\n')).toEqual(SHOWN);
+  });
+
   test('a refused rich write falls back to the links only text', async () => {
     const { writeText } = stubClipboard(refused, () => Promise.resolve());
     const session = buildSession();

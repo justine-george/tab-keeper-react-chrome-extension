@@ -1,4 +1,7 @@
-import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
+import type {
+  tabContainerData,
+  tabData,
+} from '../../redux/slices/tabContainerDataStateSlice';
 import type { TFunction } from 'i18next';
 
 import { formatGroupCounts, formatTabCount } from './local';
@@ -12,9 +15,18 @@ import {
   type LinkListStrings,
   type LinkScope,
 } from './sessionExportHtml';
+import { partitionTabsIntoRuns, type chromeTabGroupData } from './tabGroups';
 
 // KAN-859. What every Copy links button pastes; Settings › Sessions picks it.
 export type CopyLinksLayout = 'links-only' | 'with-headings';
+
+// KAN-859. The order the panes draw: a group at its first member, the rest pulled up to it.
+function inShownOrder(
+  tabs: readonly tabData[],
+  groups: readonly chromeTabGroupData[] | undefined
+): tabData[] {
+  return partitionTabsIntoRuns(tabs, groups).flatMap((run) => run.tabs);
+}
 
 /**
  * Puts a session's links on the clipboard: a rich list for editors that read
@@ -69,7 +81,9 @@ export async function copySessionLinks(
     0
   );
   if (layout === 'links-only') {
-    const tabs = session.windows.flatMap((window) => window.tabs);
+    const tabs = session.windows.flatMap((window) =>
+      inShownOrder(window.tabs, window.chromeTabGroups)
+    );
     const written = await writeLinks(linksOnlyHtml(tabs), linksOnlyList(tabs));
     return written ? linkCount : null;
   }
@@ -111,9 +125,10 @@ export async function copyScopeLinks(
   const strings = {
     tabCountLabel: (count: number) => formatTabCount(count, t),
   };
+  const shown = inShownOrder(scope.tabs, scope.groups);
   const written =
     layout === 'links-only'
-      ? await writeLinks(linksOnlyHtml(scope.tabs), linksOnlyList(scope.tabs))
+      ? await writeLinks(linksOnlyHtml(shown), linksOnlyList(shown))
       : await writeLinks(
           scopeToLinkHtml(scope, strings),
           scopeToLinkList(scope, strings)
