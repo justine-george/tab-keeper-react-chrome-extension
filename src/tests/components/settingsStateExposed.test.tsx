@@ -103,7 +103,8 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
   // KAN-280 added the second pair, "Bring back tab history when reopening";
   // Default view and Pin Tab Keeper moved to Quick access (KAN-652), and tab
   // history is always on, with no pair (KAN-663).
-  test('Sessions has one pair, Save Tab Groups, and no memory or history setting', async () => {
+  // KAN-859 added Copy links below it.
+  test('Sessions has two pairs, Save Tab Groups and Copy links, and no memory or history setting', async () => {
     await renderOn(SettingsCategory.SESSIONS);
 
     const groups = screen.getByRole('group', { name: 'Save tab groups' });
@@ -114,7 +115,7 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
     ).toBe('true');
     expect(
       screen.getAllByRole('group').map((g) => g.getAttribute('aria-label'))
-    ).toEqual(['Save tab groups']);
+    ).toEqual(['Save tab groups', 'Copy links']);
     expect(
       screen.queryByText('Bring back tab history when reopening')
     ).toBeNull();
@@ -125,6 +126,31 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
     for (const b of screen.getAllByRole('button')) {
       expect(b.getAttribute('aria-label') ?? '').not.toMatch(/: (On|Off)$/);
     }
+  });
+
+  test('Copy links: Links only is pressed in a fresh store, pressing With headings stores it, and the help line describes the pair', async () => {
+    const user = userEvent.setup();
+    const { store } = await renderOn(SettingsCategory.SESSIONS);
+
+    const pair = screen.getByRole('group', { name: 'Copy links' });
+    const pressed = (name: string) =>
+      within(pair).getByRole('button', { name }).getAttribute('aria-pressed');
+    expect(pressed('Links only')).toBe('true');
+    expect(pressed('With headings')).toBe('false');
+
+    const helpId = pair.getAttribute('aria-describedby');
+    expect(helpId).toBeTruthy();
+    expect(document.getElementById(helpId ?? '')?.textContent).toBe(
+      'Links only pastes one link per line. With headings adds the session name, counts and a heading for each window.'
+    );
+
+    await user.click(
+      within(pair).getByRole('button', { name: 'With headings' })
+    );
+    expect(store.getState().settingsDataState.copyLinksLayout).toBe(
+      'with-headings'
+    );
+    expect(pressed('With headings')).toBe('true');
   });
 
   test('Quick access has two pairs, Default view and Pin Tab Keeper (KAN-652)', async () => {
