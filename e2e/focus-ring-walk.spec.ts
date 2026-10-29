@@ -61,7 +61,8 @@ interface Stop {
 // drawn round its whole row, glass and keycap included. A saved session's is
 // its row's ::after, above the actions strip that covers the row's right. A visually hidden
 // radio's ring is a ::after border inside its label, on the tile it stands
-// for (DefaultSaveChoice). 'lap' at a stop already in `seen`; null outside
+// for (DefaultSaveChoice). A resize grip's ring goes round its dots, its
+// child span (PaneResizeGrip). 'lap' at a stop already in `seen`; null outside
 // the page.
 const readStop = (page: Page, seen: JSHandle<WeakSet<Element>>) =>
   page.evaluate((seen): Stop | 'lap' | null => {
@@ -83,9 +84,17 @@ const readStop = (page: Page, seen: JSHandle<WeakSet<Element>>) =>
     };
     const parent = el.parentElement;
     const hidden = el.getBoundingClientRect().width <= 1;
+    const dots =
+      el.getAttribute('role') === 'separator'
+        ? el.querySelector(':scope > span')
+        : null;
     const candidates = hidden
       ? [...(parent?.querySelectorAll('*') ?? [])].map(after)
-      : [outline(el), ...(parent ? [outline(parent), after(parent)] : [])];
+      : [
+          outline(el),
+          ...(dots ? [outline(dots)] : []),
+          ...(parent ? [outline(parent), after(parent)] : []),
+        ];
     const ring = candidates.find((r) => r !== 'none') ?? 'none';
     // Text a screen reader hears: an aria-hidden glyph's ligature is not part of the name.
     const heard = (n: Node): string =>
@@ -181,6 +190,9 @@ for (const [theme, colors] of THEMES) {
       'Search open tabs',
       'Search saved tabs',
       'Open in new tab: Tab a0',
+      // KAN-868: both grips show at 1280 now.
+      'Resize the saved sessions list',
+      'Resize the Currently open panel',
     ]);
     expect(stops.some((s) => s.name.startsWith('Switch to tab: '))).toBe(true);
   });
