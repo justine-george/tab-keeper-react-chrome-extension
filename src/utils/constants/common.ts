@@ -115,6 +115,8 @@ export const TOAST_MESSAGES = {
   DELETE_TAB_CONTAINER_SUCCESS: 'Session deleted.',
   SESSION_RESTORED: 'Session restored.',
   SESSION_REPLACED: 'Session replaced with all open windows.',
+  // KAN-866. One saved window took the current window's tabs.
+  WINDOW_REPLACED: 'Window replaced.',
   // KAN-609. Plural, with the count removed.
   DUPLICATE_TABS_REMOVED: 'DuplicateTabsRemoved',
   // KAN-694.

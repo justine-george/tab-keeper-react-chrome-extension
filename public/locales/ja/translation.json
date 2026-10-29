@@ -425,5 +425,7 @@
   "GoToGroupShort": "移動",
   "SaveAllShort": "すべて保存",
   "SaveCurrentShort": "現在のウィンドウを保存",
-  "Go to group": "グループに移動"
+  "Go to group": "グループに移動",
+  "Replace with current window": "現在のウィンドウで置き換え",
+  "Window replaced.": "ウィンドウを置き換えました。"
 }

@@ -439,5 +439,7 @@
   "GoToGroupShort": "Gå till gruppen",
   "SaveAllShort": "Spara alla",
   "SaveCurrentShort": "Spara aktuellt fönster",
-  "Go to group": "Gå till gruppen"
+  "Go to group": "Gå till gruppen",
+  "Replace with current window": "Ersätt med aktuellt fönster",
+  "Window replaced.": "Fönstret har ersatts."
 }

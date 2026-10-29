@@ -132,7 +132,11 @@ for (const view of VIEWS) {
       await expect(page.getByRole('menuitem').nth(1)).toHaveAccessibleName(
         'Rename window'
       );
+      // KAN-866. Then Replace: the page's window holds a tab to take.
       await expect(page.getByRole('menuitem').nth(2)).toHaveAccessibleName(
+        'Replace with current window'
+      );
+      await expect(page.getByRole('menuitem').nth(3)).toHaveAccessibleName(
         'Sort tabs by site'
       );
       await sortItem(page).click();

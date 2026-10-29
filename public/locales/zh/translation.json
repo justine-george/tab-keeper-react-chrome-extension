@@ -425,5 +425,7 @@
   "GoToGroupShort": "转到",
   "SaveAllShort": "全部保存",
   "SaveCurrentShort": "保存当前窗口",
-  "Go to group": "转到群组"
+  "Go to group": "转到群组",
+  "Replace with current window": "用当前窗口替换",
+  "Window replaced.": "已替换窗口。"
 }

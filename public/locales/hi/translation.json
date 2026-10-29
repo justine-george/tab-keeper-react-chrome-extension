@@ -439,5 +439,7 @@
   "GoToGroupShort": "जाएं",
   "SaveAllShort": "सभी सहेजें",
   "SaveCurrentShort": "वर्तमान विंडो सहेजें",
-  "Go to group": "समूह पर जाएं"
+  "Go to group": "समूह पर जाएं",
+  "Replace with current window": "वर्तमान विंडो से बदलें",
+  "Window replaced.": "विंडो बदल दी गई।"
 }

@@ -448,8 +448,8 @@ export async function captureOpenWindows(
 }
 
 // Q3. Whether a save now would capture anything: a tab outside Tab Keeper's own pages.
-export async function hasTabsToSave(): Promise<boolean> {
-  const windows = await windowsInScope('all-windows');
+export async function hasTabsToSave(scope: CaptureScope): Promise<boolean> {
+  const windows = await windowsInScope(scope);
   return windows.some((window) =>
     (window.tabs ?? []).some((tab) => !isTabKeeperPage(tab))
   );

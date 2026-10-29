@@ -56,6 +56,7 @@ import {
   deleteChromeTabGroup,
   updateChromeTabGroupColor,
   removeDuplicateTabs,
+  replaceWindowWithCurrentWindow,
   sortGroupTabsBySite,
   sortTabsBySite,
   sortWindowGroupsByName,
@@ -83,6 +84,7 @@ import { applyTabGroups } from '../../../utils/functions/windows';
 import { savedSplitPartners } from '../../../utils/functions/splitPartners';
 import { isTabKeeperPage, toStoredTab } from '../../../utils/functions/capture';
 import { useCanAddCurrentTab } from '../../../hooks/useCanAddCurrentTab';
+import { useCanReplaceWithCurrentWindow } from '../../../hooks/useCanReplaceWithCurrentWindow';
 
 import { DraggableRow } from './rowDrag/RowDragArea';
 import { DragHandle, DragHandleSwap } from './rowDrag/DragHandle';
@@ -165,6 +167,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   const dispatch: AppDispatch = useDispatch();
   const canAddCurrentTab = useCanAddCurrentTab();
+  const canReplaceWithCurrentWindow = useCanReplaceWithCurrentWindow();
 
   // KAN-206. Whether this window is folded shut, read from the store rather
   // than held here. It moved because the session header's "collapse all" has to
@@ -313,6 +316,20 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       icon: 'edit',
       onSelect: () => startEditing(),
     },
+    // KAN-866. After Rename; only while the current window has a tab to take.
+    ...(canReplaceWithCurrentWindow
+      ? [
+          {
+            key: 'replaceWithCurrentWindow',
+            label: t('Replace with current window'),
+            icon: 'browser_updated' as const,
+            onSelect: () =>
+              void dispatch(
+                replaceWindowWithCurrentWindow({ tabGroupId, windowId })
+              ),
+          },
+        ]
+      : []),
     // Only while sorting would change the order.
     ...(isSavedWindowSortedBySite({ tabs })
       ? []

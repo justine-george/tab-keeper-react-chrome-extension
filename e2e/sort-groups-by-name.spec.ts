@@ -139,9 +139,10 @@ for (const view of VIEWS) {
           : ['Open', 'Rename']),
         ...dotItems.filter((name) => name !== 'Rename window'),
       ]);
-      expect(dotItems.slice(0, 4)).toEqual([
+      expect(dotItems.slice(0, 5)).toEqual([
         'Copy all links',
         'Rename window',
+        'Replace with current window',
         'Sort tabs by site',
         'Sort groups by name',
       ]);

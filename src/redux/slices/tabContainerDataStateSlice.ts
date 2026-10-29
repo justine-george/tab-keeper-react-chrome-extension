@@ -994,6 +994,55 @@ export const replaceSessionWithOpenWindows = createAsyncThunk<
   return true;
 });
 
+// KAN-866. The current window, captured as Save current window does, replaces one saved window; it keeps its id, name and place.
+export const replaceWindowWithCurrentWindow = createAsyncThunk<
+  boolean,
+  { tabGroupId: string; windowId: string },
+  { state: RootState }
+>(
+  'global/replaceWindowWithCurrentWindow',
+  async ({ tabGroupId, windowId }, thunkAPI) => {
+    const sessionOf = () =>
+      thunkAPI
+        .getState()
+        .tabContainerDataState.tabGroups.find(
+          (g) => g.tabGroupId === tabGroupId
+        );
+    const holdsWindow = () =>
+      sessionOf()?.windows.some((w) => w.windowId === windowId) ?? false;
+    if (!holdsWindow()) return false;
+    const captured = await captureOpenWindows('', 'current-window');
+    if (!captured) {
+      // The menu hid the item, but the window changed since it last asked.
+      thunkAPI.dispatch(
+        showToast({ toastText: TOAST_MESSAGES.NOTHING_TO_SAVE_IN_WINDOW })
+      );
+      return false;
+    }
+    // Gone while capturing (deleted, or synced away): nothing to replace.
+    const session = sessionOf();
+    if (!session || !holdsWindow()) return false;
+    const windows = session.windows.map((w) =>
+      w.windowId === windowId
+        ? { ...captured.windows[0], windowId, title: w.title }
+        : w
+    );
+    const offersUndo = recordsUndoStep(thunkAPI.getState, () =>
+      thunkAPI.dispatch(
+        replaceSessionContentInternal({ tabGroupId, windows, now: Date.now() })
+      )
+    );
+    thunkAPI.dispatch(
+      showToast({
+        toastText: TOAST_MESSAGES.WINDOW_REPLACED,
+        announcesSavedChange: true,
+        offersUndo,
+      })
+    );
+    return true;
+  }
+);
+
 // KAN-609, KAN-616. The session, window and group menus' action. Says how many went, with Undo; says nothing when there were none.
 export const removeDuplicateTabs = createAsyncThunk<
   void,

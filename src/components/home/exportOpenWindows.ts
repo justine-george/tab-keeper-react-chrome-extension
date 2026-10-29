@@ -7,7 +7,7 @@ import type { AppDispatch } from '../../redux/store';
 // Save open windows as PDF, from the save row's ⋮ and Open now's header (KAN-774).
 export async function exportOpenWindows(dispatch: AppDispatch): Promise<void> {
   // KAN-522. Checked first: with only Tab Keeper open the page would have nothing to export.
-  if (!(await hasTabsToSave())) {
+  if (!(await hasTabsToSave('all-windows'))) {
     void dispatch(showToast({ toastText: TOAST_MESSAGES.NOTHING_TO_SAVE }));
     return;
   }
