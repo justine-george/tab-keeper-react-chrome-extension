@@ -102,12 +102,15 @@ export function useOpenNowCarryReceiver({
     const pane = () => paneRef.current;
     const headerBottom = (paneBox: DOMRect) =>
       scrollerRef.current?.getBoundingClientRect().top ?? paneBox.top;
+    // KAN-871. A live carry comes back to the pane's own edge, the grip's inside half too (KAN-611).
+    const gripFor = (carry: Carry | null) =>
+      carry?.item.source === 'live' ? null : gripBox();
     const pointerIn = (x: number, y: number): boolean => {
       const el = pane();
       return (
         el !== null &&
         !answersNothing(el) &&
-        inPaneBox(el.getBoundingClientRect(), gripBox(), x, y)
+        inPaneBox(el.getBoundingClientRect(), gripFor(currentCarry()), x, y)
       );
     };
     const inHeader = (x: number, y: number): boolean => {
@@ -132,7 +135,8 @@ export function useOpenNowCarryReceiver({
         const el = pane();
         if (el === null) return () => false;
         const b = el.getBoundingClientRect();
-        const grip = gripBox();
+        // A list's own drag has no carry yet: a saved one keeps KAN-352.
+        const grip = gripFor(currentCarry());
         // Open now's own drag stays its own (KAN-352), and so does an adopted
         // saved tab or group, over the header too (adoptedHeaderLanding).
         const held = document.querySelector('[data-drag-held]');

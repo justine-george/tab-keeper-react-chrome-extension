@@ -255,9 +255,8 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
 
   // KAN-611 (Justine, 02:16): one edge for out and back. In Open now's margin outside its list the drag is still
   // Open now's (no + card); just past Open now's edge it is a copy (+); back inside the margin, faded with no +.
-  // KAN-871. Since KAN-868 the grip shows at 1280 and covers the whole margin,
-  // so the way back reads as a copy. Fails the same at 1600 before KAN-868.
-  test.fixme("1c. the same edge out and back: Open now's margin is Open now, just outside it is a copy", async ({
+  // KAN-871. The grip covers the whole margin at 1280: a live carry still counts its inside half as Open now.
+  test("1c. the same edge out and back: Open now's margin is Open now, just outside it is a copy", async ({
     context,
     extensionId,
     serviceWorker,

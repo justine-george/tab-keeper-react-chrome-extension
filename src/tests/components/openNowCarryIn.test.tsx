@@ -314,6 +314,38 @@ describe('the resize grip', () => {
     expect(carryReceiverAt(6, LIST_Y)?.region?.()).toBeUndefined();
     expect(carryReceiverAt(20, LIST_Y)?.region?.()).toBe(root);
   });
+
+  // KAN-871. Open now's own tab carried back: its margin under the grip is Open now (KAN-611's one edge).
+  test("a live carry: the grip's inside half is the pane, just outside it is not", async () => {
+    await renderPane();
+    const grip = document.createElement('div');
+    grip.setAttribute('data-resize-grip', '');
+    grip.setAttribute('data-test-held', '');
+    grip.getBoundingClientRect = () => ({
+      ...box(0, 2000),
+      left: -6,
+      right: 6,
+      width: 12,
+      x: -6,
+    });
+    document.body.append(grip);
+
+    carry(
+      liveItem({
+        pick: { kind: 'tab', windowId: 'live-w', tabId: 'l1' },
+        window: live(),
+        chromeWindowId: 7,
+      }),
+      3,
+      LIST_Y
+    );
+    expect(carryReceiverAt(3, LIST_Y)?.region?.()).toBe(root);
+    expect(carryReceiverAt(-3, LIST_Y)?.region?.()).not.toBe(root);
+    // A list that adopted it outside the pane asks the measured hit.
+    const at = measureCarryReceivers();
+    expect(at(3, LIST_Y)?.region?.()).toBe(root);
+    expect(at(-3, LIST_Y)?.region?.()).not.toBe(root);
+  });
 });
 
 describe('what a saved carry shows', () => {
