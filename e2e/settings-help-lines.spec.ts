@@ -18,15 +18,22 @@ const CLOUD_DATA =
 const SAVE_TAB_GROUPS =
   'Saved sessions keep each tab group’s name and colour, and the groups come back when you reopen the session.';
 
+// The popup, and the tab view in a window the size of the KAN-860 demo's.
+const VIEWS = {
+  popup: { url: 'index.html', size: { width: 790, height: 550 } },
+  tab: { url: 'index.html?view=tab', size: { width: 1100, height: 950 } },
+};
+
 async function openPane(
   page: Page,
   extensionId: string,
   strings: Record<string, string>,
   pane: string,
-  root: number
+  root: number,
+  view: keyof typeof VIEWS
 ) {
-  await page.setViewportSize({ width: 790, height: 550 });
-  await page.goto(`chrome-extension://${extensionId}/index.html`);
+  await page.setViewportSize(VIEWS[view].size);
+  await page.goto(`chrome-extension://${extensionId}/${VIEWS[view].url}`);
   await page
     .getByRole('button', { name: strings.Settings, exact: true })
     .click();
@@ -37,7 +44,7 @@ async function openPane(
 }
 
 // The line is the control's description, sits under it in the same section,
-// and nothing in that section is cut off sideways.
+// and ends inside the pane's visible width, which does not scroll sideways.
 async function expectHelpLine(control: Locator, text: string) {
   await expect(control).toHaveAccessibleDescription(text);
   const line = control.page().getByText(text, { exact: true });
@@ -46,14 +53,20 @@ async function expectHelpLine(control: Locator, text: string) {
     (p, controlEl) => {
       const section = p.closest('[data-settings-section]');
       if (!section) throw new Error('a help line outside any section');
+      // The pane: the nearest box that clips or scrolls sideways.
+      let pane = p.parentElement;
+      while (pane && getComputedStyle(pane).overflowX === 'visible')
+        pane = pane.parentElement;
+      if (!pane) throw new Error('a help line in no clipping pane');
       const c = controlEl.getBoundingClientRect();
       const l = p.getBoundingClientRect();
-      const s = section.getBoundingClientRect();
+      const visibleRight =
+        pane.getBoundingClientRect().left + pane.clientLeft + pane.clientWidth;
       return {
         sameSection: section.contains(controlEl),
         below: l.top >= c.bottom,
-        inside: l.right <= s.right + 0.5,
-        overflow: section.scrollWidth - section.clientWidth,
+        lineEndsBeforePaneEdge: Math.round(visibleRight - l.right) >= 0,
+        paneOverflow: pane.scrollWidth - pane.clientWidth,
       };
     },
     await control.elementHandle()
@@ -61,49 +74,50 @@ async function expectHelpLine(control: Locator, text: string) {
   expect(fit).toEqual({
     sameSection: true,
     below: true,
-    inside: true,
-    overflow: 0,
+    lineEndsBeforePaneEdge: true,
+    paneOverflow: 0,
   });
 }
 
-for (const language of ['en', 'de', 'ru'])
-  for (const root of [16, 20])
-    test(`KAN-860: the help lines describe their controls and fit (${language}, ${root}px root)`, async ({
-      context,
-      extensionId,
-    }) => {
-      const strings = localeStrings(language);
-      // The help lines' keys are their English text.
-      const say = (key: string) => strings[key];
-      await seedSettings(context, { language });
-      const page = await context.newPage();
+for (const view of ['popup', 'tab'] as const)
+  for (const language of ['en', 'de', 'ru'])
+    for (const root of [16, 20])
+      test(`KAN-860: the help lines describe their controls and fit (${view}, ${language}, ${root}px root)`, async ({
+        context,
+        extensionId,
+      }) => {
+        const strings = localeStrings(language);
+        // The help lines' keys are their English text.
+        const say = (key: string) => strings[key];
+        await seedSettings(context, { language });
+        const page = await context.newPage();
 
-      await openPane(page, extensionId, strings, 'Sync & Backup', root);
-      await expectHelpLine(
-        page.getByRole('group', { name: strings['Auto Sync'] }),
-        say(AUTO_SYNC)
-      );
-      for (const button of [
-        'Save sessions to a file',
-        'Load sessions from a backup',
-      ])
+        await openPane(page, extensionId, strings, 'Sync & Backup', root, view);
         await expectHelpLine(
-          page.getByRole('button', { name: strings[button], exact: true }),
-          say(BACKUP)
+          page.getByRole('group', { name: strings['Auto Sync'] }),
+          say(AUTO_SYNC)
         );
-      await expectHelpLine(
-        page.getByRole('button', {
-          name: strings['Delete cloud data'],
-          exact: true,
-        }),
-        say(CLOUD_DATA)
-      );
+        for (const button of [
+          'Save sessions to a file',
+          'Load sessions from a backup',
+        ])
+          await expectHelpLine(
+            page.getByRole('button', { name: strings[button], exact: true }),
+            say(BACKUP)
+          );
+        await expectHelpLine(
+          page.getByRole('button', {
+            name: strings['Delete cloud data'],
+            exact: true,
+          }),
+          say(CLOUD_DATA)
+        );
 
-      await page
-        .getByRole('button', { name: strings.Sessions, exact: true })
-        .click();
-      await expectHelpLine(
-        page.getByRole('group', { name: strings['Save Tab Groups'] }),
-        say(SAVE_TAB_GROUPS)
-      );
-    });
+        await page
+          .getByRole('button', { name: strings.Sessions, exact: true })
+          .click();
+        await expectHelpLine(
+          page.getByRole('group', { name: strings['Save Tab Groups'] }),
+          say(SAVE_TAB_GROUPS)
+        );
+      });
