@@ -11,7 +11,8 @@ import { standIn } from './fixtures/standInPages';
 
 // KAN-783. Copy all links on every window and group menu, live and saved, and
 // on Open now's header right-click, read back off the real clipboard: the unit
-// tests use a fake one. Each paste is headed by what was copied (pick 2B).
+// tests use a fake one. Each paste is headed by what was copied (pick 2B),
+// under the With headings layout (KAN-859).
 
 const PASTE = process.platform === 'darwin' ? 'Meta+V' : 'Control+V';
 
@@ -127,7 +128,10 @@ async function copyAndPaste(
 
 test.beforeEach(async ({ context, serviceWorker }) => {
   await stage(serviceWorker);
-  await seedSettings(context, { foldSavedSessionInTabView: false });
+  await seedSettings(context, {
+    foldSavedSessionInTabView: false,
+    copyLinksLayout: 'with-headings',
+  });
   await seedSessions(context, {
     ...buildContainer([SAVED]),
     selectedTabGroupId: 'S1',

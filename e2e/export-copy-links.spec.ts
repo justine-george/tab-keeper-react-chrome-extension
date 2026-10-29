@@ -3,11 +3,17 @@ import type { BrowserContext } from '@playwright/test';
 import type { tabContainerData } from '../src/redux/slices/tabContainerDataStateSlice';
 import { test, expect } from './fixtures/extension';
 import { previewFile } from './fixtures/previewFile';
-import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import {
+  buildContainer,
+  buildSession,
+  seedSessions,
+  seedSettings,
+} from './fixtures/seed';
 
 // KAN-195. The clipboard carries HTML and plain text and the target picks one;
 // only a real paste shows which. A contenteditable stands in for Gmail, Docs
-// and Notion; a textarea takes plain text only.
+// and Notion; a textarea takes plain text only. The copies here are With
+// headings (KAN-859); copy-links-layout.spec.ts covers Links only.
 
 const SESSION = buildSession({
   tabGroupId: 'session-copy',
@@ -64,6 +70,7 @@ async function copyFromExportPage(
   extensionId: string,
   session: tabContainerData = SESSION
 ) {
+  await seedSettings(context, { copyLinksLayout: 'with-headings' });
   await seedSessions(context, {
     ...buildContainer([session]),
     selectedTabGroupId: 'session-copy',
