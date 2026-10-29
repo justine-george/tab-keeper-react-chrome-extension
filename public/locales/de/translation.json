@@ -439,5 +439,7 @@
   "GoToGroupShort": "Zur Gruppe",
   "SaveAllShort": "Alle speichern",
   "SaveCurrentShort": "Aktuelles Fenster speichern",
-  "Go to group": "Zur Gruppe wechseln"
+  "Go to group": "Zur Gruppe wechseln",
+  "Replace with current window": "Durch aktuelles Fenster ersetzen",
+  "Window replaced.": "Fenster ersetzt."
 }

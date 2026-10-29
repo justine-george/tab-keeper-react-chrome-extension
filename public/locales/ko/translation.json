@@ -425,5 +425,7 @@
   "GoToGroupShort": "이동",
   "SaveAllShort": "모두 저장",
   "SaveCurrentShort": "현재 창 저장",
-  "Go to group": "그룹으로 이동"
+  "Go to group": "그룹으로 이동",
+  "Replace with current window": "현재 창으로 바꾸기",
+  "Window replaced.": "창을 바꿨습니다."
 }

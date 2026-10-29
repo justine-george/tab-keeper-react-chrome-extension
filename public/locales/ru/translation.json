@@ -467,5 +467,7 @@
   "GoToGroupShort": "Перейти",
   "SaveAllShort": "Сохранить все",
   "SaveCurrentShort": "Сохранить текущее окно",
-  "Go to group": "Перейти к группе"
+  "Go to group": "Перейти к группе",
+  "Replace with current window": "Заменить текущим окном",
+  "Window replaced.": "Окно заменено."
 }

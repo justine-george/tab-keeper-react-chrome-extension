@@ -312,7 +312,7 @@ const decideSaveCard =
       return;
     }
     // A failed query falls back to the card whose way on needs no chrome call.
-    const hasTabs = await hasTabsToSave().catch(() => false);
+    const hasTabs = await hasTabsToSave('all-windows').catch(() => false);
     const now = getState();
     if (
       selectRunHere(now)?.step === run.step &&
