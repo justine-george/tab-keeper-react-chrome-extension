@@ -204,7 +204,13 @@ describe('a saved window and its groups', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.getAttribute('data-menu-item'))
-    ).toEqual(['copy', 'rename', 'sortBySite', 'delete']);
+    ).toEqual([
+      'copy',
+      'rename',
+      'replaceWithCurrentWindow',
+      'sortBySite',
+      'delete',
+    ]);
   });
 
   test('Open and Add tab run the row’s own buttons’ actions and close the menu', async () => {
@@ -298,7 +304,13 @@ describe('a saved window and its groups', () => {
     );
     const menu = screen.getByRole('menu');
 
-    expect(listKeys(menu)).toEqual(['copy', 'rename', 'sortBySite', 'delete']);
+    expect(listKeys(menu)).toEqual([
+      'copy',
+      'rename',
+      'replaceWithCurrentWindow',
+      'sortBySite',
+      'delete',
+    ]);
     await user.click(
       within(menu).getByRole('menuitem', { name: 'Rename window' })
     );
