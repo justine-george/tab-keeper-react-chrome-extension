@@ -157,6 +157,19 @@ describe('Replace with current window (KAN-866)', () => {
     );
   });
 
+  test('hidden when only another window has tabs', async () => {
+    const user = userEvent.setup();
+    await render({
+      windows: [
+        { id: 1, focused: true, tabs: [{ id: 11, url: TK, active: true }] },
+        { id: 2, tabs: [{ id: 21, url: 'https://elsewhere.test/' }] },
+      ],
+    });
+    expect(await kebabNames(user)).not.toContainEqual(
+      expect.stringMatching(REPLACE)
+    );
+  });
+
   test('hidden when the current window is not a normal one', async () => {
     const user = userEvent.setup();
     await render(current([{ id: 11, url: 'https://live.test/' }], 'popup'));
