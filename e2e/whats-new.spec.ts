@@ -1,6 +1,7 @@
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
 import { expect, test } from './fixtures/extension';
+import { localeStrings } from './fixtures/locales';
 import { POPUP, openFullView, openPopup } from './fixtures/onboarding';
 import { seedSettings } from './fixtures/seed';
 
@@ -180,6 +181,13 @@ test.describe("What's new fits the popup (KAN-861)", () => {
       await updatedFrom(serviceWorker, SINCE);
       const page = await popupIn(context, extensionId);
       await expect(page.locator('dialog[data-whats-new]')).toBeVisible();
+      // The language took: the title is this locale's own.
+      await expect(page.locator('#whats-new-title')).toHaveText(
+        localeStrings(language)["What's new in Tab Keeper {{version}}"].replace(
+          '{{version}}',
+          '2.0.1'
+        )
+      );
 
       const fit = await box(page);
       testInfo.annotations.push({
