@@ -21,6 +21,7 @@ import type { ChromeFakeHandle } from '../setup/chrome.fake';
 import { toOpenWindows } from '../../utils/functions/openNow';
 import type { OpenWindow } from '../../utils/functions/openNow';
 import {
+  closeDuplicateTabs,
   closeOpenGroup,
   closeOpenTab,
   closeOpenWindow,
@@ -238,6 +239,36 @@ describe('the Reopen offer (KAN-280 O8a)', () => {
 
     expect(store.getState().globalState.toasts).toMatchObject([
       { text: GROUP_CLOSED_FRAME, params: { count: 3 } },
+    ]);
+    const id = shownOfferId(store.getState());
+    if (id === null) throw new Error('no offer id');
+    expect(takeReopenOffer(id)).toBe(item);
+  });
+
+  // KAN-867. Duplicates closed in two windows: one toast, the whole count, one offer for all.
+  test('closed duplicate tabs say how many closed, with one Reopen for all', async () => {
+    handle = setupChromeFake({
+      windows: [
+        { id: 1, focused: true, tabs: [{ url: url('home'), active: true }] },
+        { id: 2, tabs: [{ url: url('a') }, { url: url('a') }] },
+        {
+          id: 3,
+          tabs: [{ url: url('b') }, { url: url('b') }, { url: url('b') }],
+        },
+      ],
+    });
+    const all = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal'],
+    });
+    const item = await closeDuplicateTabs(toOpenWindows(all, null, null));
+    if (!item) throw new Error('close failed');
+    const { store } = makeTestStore();
+
+    await store.dispatch(offerReopen(item));
+
+    expect(store.getState().globalState.toasts).toMatchObject([
+      { text: TOAST_MESSAGES.DUPLICATE_TABS_CLOSED, params: { count: 3 } },
     ]);
     const id = shownOfferId(store.getState());
     if (id === null) throw new Error('no offer id');

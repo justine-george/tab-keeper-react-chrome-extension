@@ -469,5 +469,9 @@
   "SaveCurrentShort": "Сохранить текущее окно",
   "Go to group": "Перейти к группе",
   "Replace with current window": "Заменить текущим окном",
-  "Window replaced.": "Окно заменено."
+  "Window replaced.": "Окно заменено.",
+  "ClosedDuplicateTabs_one": "Закрыта {{count}} повторяющаяся вкладка.",
+  "ClosedDuplicateTabs_few": "Закрыты {{count}} повторяющиеся вкладки.",
+  "ClosedDuplicateTabs_many": "Закрыто {{count}} повторяющихся вкладок.",
+  "ClosedDuplicateTabs_other": "Закрыто {{count}} повторяющейся вкладки."
 }

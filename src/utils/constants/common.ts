@@ -119,6 +119,8 @@ export const TOAST_MESSAGES = {
   WINDOW_REPLACED: 'Window replaced.',
   // KAN-609. Plural, with the count removed.
   DUPLICATE_TABS_REMOVED: 'DuplicateTabsRemoved',
+  // KAN-867. Open now's copies closed, with Reopen; plural, with the count.
+  DUPLICATE_TABS_CLOSED: 'ClosedDuplicateTabs',
   // KAN-694.
   TABS_SORTED_BY_SITE: 'TabsSortedBySite',
   GROUPS_SORTED_BY_NAME: 'GroupsSortedByName',

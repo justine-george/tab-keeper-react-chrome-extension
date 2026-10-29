@@ -427,5 +427,6 @@
   "SaveCurrentShort": "儲存目前視窗",
   "Go to group": "前往群組",
   "Replace with current window": "以目前視窗取代",
-  "Window replaced.": "已取代視窗。"
+  "Window replaced.": "已取代視窗。",
+  "ClosedDuplicateTabs_other": "已關閉 {{count}} 個重複的分頁。"
 }

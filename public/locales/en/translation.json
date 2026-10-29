@@ -441,5 +441,7 @@
   "SaveCurrentShort": "Save current window",
   "Go to group": "Go to group",
   "Replace with current window": "Replace with current window",
-  "Window replaced.": "Window replaced."
+  "Window replaced.": "Window replaced.",
+  "ClosedDuplicateTabs_one": "Closed {{count}} duplicate tab.",
+  "ClosedDuplicateTabs_other": "Closed {{count}} duplicate tabs."
 }

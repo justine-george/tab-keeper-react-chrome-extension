@@ -441,5 +441,7 @@
   "SaveCurrentShort": "Aktuelles Fenster speichern",
   "Go to group": "Zur Gruppe wechseln",
   "Replace with current window": "Durch aktuelles Fenster ersetzen",
-  "Window replaced.": "Fenster ersetzt."
+  "Window replaced.": "Fenster ersetzt.",
+  "ClosedDuplicateTabs_one": "{{count}} doppelter Tab geschlossen.",
+  "ClosedDuplicateTabs_other": "{{count}} doppelte Tabs geschlossen."
 }

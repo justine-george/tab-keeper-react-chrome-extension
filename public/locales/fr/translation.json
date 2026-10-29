@@ -455,5 +455,8 @@
   "SaveCurrentShort": "Enregistrer cette fenêtre",
   "Go to group": "Aller au groupe",
   "Replace with current window": "Remplacer par la fenêtre actuelle",
-  "Window replaced.": "Fenêtre remplacée."
+  "Window replaced.": "Fenêtre remplacée.",
+  "ClosedDuplicateTabs_one": "{{count}} onglet en double fermé.",
+  "ClosedDuplicateTabs_many": "{{count}} onglets en double fermés.",
+  "ClosedDuplicateTabs_other": "{{count}} onglets en double fermés."
 }

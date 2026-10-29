@@ -441,5 +441,7 @@
   "SaveCurrentShort": "वर्तमान विंडो सहेजें",
   "Go to group": "समूह पर जाएं",
   "Replace with current window": "वर्तमान विंडो से बदलें",
-  "Window replaced.": "विंडो बदल दी गई।"
+  "Window replaced.": "विंडो बदल दी गई।",
+  "ClosedDuplicateTabs_one": "{{count}} डुप्लिकेट टैब बंद किया गया।",
+  "ClosedDuplicateTabs_other": "{{count}} डुप्लिकेट टैब बंद किए गए।"
 }

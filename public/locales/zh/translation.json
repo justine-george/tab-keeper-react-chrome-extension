@@ -427,5 +427,6 @@
   "SaveCurrentShort": "保存当前窗口",
   "Go to group": "转到群组",
   "Replace with current window": "用当前窗口替换",
-  "Window replaced.": "已替换窗口。"
+  "Window replaced.": "已替换窗口。",
+  "ClosedDuplicateTabs_other": "已关闭 {{count}} 个重复的标签页。"
 }
