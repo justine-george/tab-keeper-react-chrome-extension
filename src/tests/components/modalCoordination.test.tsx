@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  onTestFinished,
+  test,
+  vi,
+} from 'vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -31,6 +39,25 @@ vi.mock('../../utils/functions/tabGroupsOffer', async (importOriginal) => {
   };
 });
 
+// KAN-861. One describe swaps in a release with no default change; every other test keeps the real list.
+const whatsNewList = vi.hoisted(() => ({ noDefaultChange: false }));
+vi.mock('../../utils/constants/whatsNew', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../utils/constants/whatsNew')>();
+  const plain: typeof actual.WHATS_NEW = [
+    {
+      version: 'next',
+      entries: [{ ...actual.WHATS_NEW[0].entries[0], changesDefault: false }],
+    },
+  ];
+  return {
+    ...actual,
+    get WHATS_NEW() {
+      return whatsNewList.noDefaultChange ? plain : actual.WHATS_NEW;
+    },
+  };
+});
+
 import App from '../../App';
 import { RUN_FINISHED_SETTINGS } from '../fixtures/firstRunFixture';
 import { newRun } from '../../utils/functions/firstRun';
@@ -44,10 +71,13 @@ import {
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { endRises } from '../setup/endRises';
+import { installFakeLocks } from '../setup/fakeLocks';
+import { REVIEW_CARD_SETTLE_MS } from '../../hooks/useReviewAskRelease';
 
 beforeEach(() => localStorage.clear());
 afterEach(() => {
   tabGroupsOffer.throws = false;
+  whatsNewList.noDefaultChange = false;
   vi.restoreAllMocks();
   localStorage.clear();
   delete document.documentElement.dataset.firstOpen;
@@ -429,4 +459,199 @@ describe('the full-view callout in the order (KAN-7 §6)', () => {
     );
     warn.mockRestore();
   });
+});
+
+describe("What's new in the order (KAN-861)", () => {
+  afterEach(() => history.replaceState(null, '', '?'));
+
+  // An update from 2.0.1 waits; the manifest is far ahead, so 'next' reads as 99.0.0.
+  const updated = (action?: ChromeSeed['action']): ChromeSeed => ({
+    localArea: { whatsNewSince: '2.0.1' },
+    manifestVersion: '99.0.0',
+    action,
+  });
+  const TITLE = "What's new in Tab Keeper 99.0.0";
+  const findWhatsNew = () =>
+    screen.findByRole('dialog', { name: (n) => n === TITLE });
+  const settleAsks = () =>
+    act(
+      () =>
+        new Promise<void>((done) =>
+          setTimeout(done, REVIEW_CARD_SETTLE_MS + 100)
+        )
+    );
+
+  test('after an update the popup shows it, and the queue says so', async () => {
+    await renderWithProviders(<App />, {
+      seed: updated(),
+      seedStore: seedSettings(ANSWERED),
+    });
+    expect(await findWhatsNew()).toBeVisible();
+    await waitFor(() =>
+      expect(document.documentElement.dataset.firstOpen).toBe('whatsNew')
+    );
+  });
+
+  test('it goes before the tab-groups offer', async () => {
+    const { store } = await renderWithProviders(<App />, {
+      seed: { ...updated(), ...twoGroupsUngranted },
+      seedStore: seedSettings(ANSWERED),
+    });
+    await findWhatsNew();
+    await waitFor(() =>
+      expect(document.documentElement.dataset.firstOpen).toBe('whatsNew')
+    );
+    expect(store.getState().globalState.tabGroupsPromptCount).toBeNull();
+  });
+
+  const withSessions =
+    (settings: Partial<SettingsData>) =>
+    (store: { dispatch: (action: unknown) => void }) => {
+      seedSettings(settings)(store);
+      localStorage.setItem(
+        'tabContainerData',
+        JSON.stringify(buildContainer([buildSession()]))
+      );
+    };
+
+  test.each([
+    {
+      name: 'the welcome (a new install)',
+      surface: 'popup',
+      action: undefined,
+      seedStore: undefined,
+      claimedBy: 'cloudConsent',
+    },
+    {
+      name: 'the cloud question (an existing user)',
+      surface: 'popup',
+      action: undefined,
+      seedStore: withSessions({
+        ...RUN_FINISHED_SETTINGS,
+        extensionInstalledTime: Date.now() - 30 * DAY,
+      }),
+      claimedBy: 'cloudConsent',
+    },
+    // Review Focus 4: a 1.9 user gets 2.0's What's new first. Its CONTROL is the first test.
+    {
+      name: "the 2.0 What's new",
+      surface: 'popup',
+      action: undefined,
+      seedStore: withSessions({
+        cloudConsent: 'granted',
+        isWhatsNew2Seen: false,
+      }),
+      claimedBy: 'firstRun',
+    },
+    {
+      name: 'a running popup tour',
+      surface: 'popup',
+      action: undefined,
+      seedStore: seedSettings({
+        cloudConsent: 'granted',
+        isWhatsNew2Seen: true,
+        firstRun: newRun('popup', 2),
+      }),
+      // A free lock: no other page shows the run, so this one resumes it.
+      locks: true,
+      claimedBy: 'firstRun',
+    },
+    {
+      name: 'full-view setup',
+      surface: 'full',
+      action: { isOnToolbar: true },
+      seedStore: seedSettings({ ...ANSWERED, setupState: 'pending' }),
+      claimedBy: 'setup',
+    },
+    {
+      name: 'the full-view pin guide',
+      surface: 'full',
+      action: { isOnToolbar: false },
+      seedStore: seedSettings(ANSWERED),
+      claimedBy: 'pinGuide',
+    },
+  ] as const)('$name claims the open first; the key waits', async (c) => {
+    const { surface, action, seedStore, claimedBy } = c;
+    if (surface === 'full') history.replaceState(null, '', '?view=tab');
+    if ('locks' in c) {
+      const locks = installFakeLocks();
+      onTestFinished(() => locks.uninstall());
+    }
+    const { store, chrome } = await renderWithProviders(<App />, {
+      seed: updated(action),
+      seedStore,
+    });
+    await waitFor(() =>
+      expect(document.documentElement.dataset.firstOpen).toBe(claimedBy)
+    );
+    expect(store.getState().globalState.whatsNew).toBeNull();
+    expect(chrome.localArea().whatsNewSince).toBe('2.0.1');
+  });
+
+  test('full view: after setup and the pin guide, the update shows it', async () => {
+    history.replaceState(null, '', '?view=tab');
+    await renderWithProviders(<App />, {
+      seed: updated({ isOnToolbar: true }),
+      seedStore: seedSettings({ ...ANSWERED, setupState: 'done' }),
+    });
+    expect(await findWhatsNew()).toBeVisible();
+  });
+
+  // ANSWERED was installed two days ago: the time ask is due. Its CONTROL is 'a day after install, the open asks with the time card'.
+  test('with a default change, a due time ask is not made at all', async () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+    const { store } = await renderWithProviders(<App />, {
+      seed: updated(),
+      seedStore: seedSettings(ANSWERED),
+    });
+    await findWhatsNew();
+    fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
+    await settleAsks();
+
+    expect(store.getState().globalState.reviewCard).toBeNull();
+    expect(store.getState().settingsDataState.pendingReviewAsk).toBeNull();
+    expect(store.getState().settingsDataState.isTimeAskDone).toBe(false);
+  });
+
+  test('with no default change, Got it raises the updated card', async () => {
+    whatsNewList.noDefaultChange = true;
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+    const { store } = await renderWithProviders(<App />, {
+      seed: updated(),
+      seedStore: seedSettings(ANSWERED),
+    });
+    await findWhatsNew();
+    fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
+
+    await waitFor(() =>
+      expect(store.getState().globalState.reviewCard?.moment).toEqual({
+        kind: 'updated',
+      })
+    );
+    expect(store.getState().settingsDataState.isTimeAskDone).toBe(true);
+  });
+
+  test.each(['Esc', 'Open Settings'])(
+    '%s raises no card, even with no default change',
+    async (how) => {
+      whatsNewList.noDefaultChange = true;
+      vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+      const { store } = await renderWithProviders(<App />, {
+        seed: updated(),
+        seedStore: seedSettings(ANSWERED),
+      });
+      const dialog = await findWhatsNew();
+      if (how === 'Esc') {
+        fireEvent(dialog, new Event('cancel', { cancelable: true }));
+      } else {
+        fireEvent.click(screen.getByRole('button', { name: 'Open Settings' }));
+      }
+      await waitFor(() =>
+        expect(store.getState().globalState.whatsNew).toBeNull()
+      );
+      await settleAsks();
+
+      expect(store.getState().globalState.reviewCard).toBeNull();
+    }
+  );
 });
