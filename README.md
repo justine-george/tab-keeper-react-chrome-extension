@@ -36,7 +36,7 @@ Tab Keeper is a free, open-source session and tab manager for Chrome. It manages
 
 ## Screenshots
 
-VIDEO_URL_PLACEHOLDER
+https://github.com/user-attachments/assets/b447682a-6835-4e4a-9868-14d05a95e489
 
 [Watch on YouTube →](https://www.youtube.com/watch?v=OfRSR3GYYig)
 
