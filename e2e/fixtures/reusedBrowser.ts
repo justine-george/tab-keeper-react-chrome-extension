@@ -243,7 +243,20 @@ async function resetProfile(held: Held): Promise<void> {
   await worker.evaluate(() => {
     setTimeout(() => chrome.runtime.reload(), 0);
   });
-  await started;
+  const fresh = await started;
+  // KAN-861. That update records What's new's since-version; an install records none.
+  await fresh.evaluate(async () => {
+    const deadline = Date.now() + 5_000;
+    while (Date.now() < deadline) {
+      const { whatsNewSince } = await chrome.storage.local.get('whatsNewSince');
+      if (whatsNewSince !== undefined) {
+        await chrome.storage.local.remove('whatsNewSince');
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    throw new Error('the reload recorded no whatsNewSince');
+  });
 }
 
 // One browser per worker. A test that fails, or one whose reset fails, gets
