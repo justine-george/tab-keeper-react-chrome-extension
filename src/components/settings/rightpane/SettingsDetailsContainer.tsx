@@ -82,6 +82,10 @@ const SettingsDetailsContainer: React.FC = () => {
   const pinTabKeeperHelpId = useId();
   const defaultSaveHelpId = useId();
   const copyLinksHelpId = useId();
+  const autoSyncHelpId = useId();
+  const backupHelpId = useId();
+  const cloudDataHelpId = useId();
+  const saveTabGroupsHelpId = useId();
   const popupShortcut = usePopupShortcut();
   const { i18n } = useTranslation();
   const { t } = useTranslation();
@@ -340,8 +344,15 @@ const SettingsDetailsContainer: React.FC = () => {
                 }
               }}
               metrics={SETTINGS_PAIR_METRICS}
+              describedBy={autoSyncHelpId}
             />
           </div>
+          {/* KAN-860. Sync off is the Sync status line's to explain. */}
+          <p id={autoSyncHelpId} css={helpLineStyle}>
+            {t(
+              'Syncs your sessions across your Chrome devices. Settings stay separate on each device.'
+            )}
+          </p>
         </div>
 
         {/* Sync Status */}
@@ -423,14 +434,21 @@ const SettingsDetailsContainer: React.FC = () => {
               iconType="download"
               onClick={handleExportJSON}
               style="width: 100%; justify-content: center;"
+              ariaDescribedBy={backupHelpId}
             />
             <Button
               text={t('Load sessions from a backup')}
               iconType="upload"
               onClick={handleImportJSON}
               style="width: 100%; justify-content: center;"
+              ariaDescribedBy={backupHelpId}
             />
           </div>
+          <p id={backupHelpId} css={helpLineStyle}>
+            {t(
+              'Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.'
+            )}
+          </p>
         </div>
 
         {/* Cloud data. KAN-254: the one way to make the Firestore document
@@ -467,8 +485,13 @@ const SettingsDetailsContainer: React.FC = () => {
               margin-top: 8px;
             `}
           >
-            <DeleteCloudDataButton />
+            <DeleteCloudDataButton describedBy={cloudDataHelpId} />
           </div>
+          <p id={cloudDataHelpId} css={helpLineStyle}>
+            {t(
+              'Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.'
+            )}
+          </p>
         </div>
       </div>
     );
@@ -580,8 +603,14 @@ const SettingsDetailsContainer: React.FC = () => {
                 }
               }}
               metrics={SETTINGS_PAIR_METRICS}
+              describedBy={saveTabGroupsHelpId}
             />
           </div>
+          <p id={saveTabGroupsHelpId} css={helpLineStyle}>
+            {t(
+              'Saved sessions keep each tab group’s name and colour, and the groups come back when you reopen the session.'
+            )}
+          </p>
         </div>
 
         {/* KAN-859. What every Copy links button puts on the clipboard. */}

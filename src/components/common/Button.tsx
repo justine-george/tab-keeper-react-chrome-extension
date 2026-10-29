@@ -24,6 +24,8 @@ interface ButtonProps {
   // toggle would announce it as an unpressed toggle, which is worse than
   // silence.
   ariaPressed?: boolean;
+  // KAN-860. The id of a help line that says what the button does.
+  ariaDescribedBy?: string;
   tooltipText?: string;
   iconSize?: string;
   /** The icon's colour, for buttons whose fill would swallow the default. */
@@ -101,6 +103,7 @@ const Button: React.FC<ButtonProps> = ({
   iconType,
   ariaLabel,
   ariaPressed,
+  ariaDescribedBy,
   tooltipText,
   iconSize,
   iconColor,
@@ -375,6 +378,7 @@ const Button: React.FC<ButtonProps> = ({
       aria-label={ariaLabel}
       aria-description={tooltipDescription(tooltipText, ariaLabel ?? text)}
       aria-pressed={ariaPressed}
+      aria-describedby={ariaDescribedBy}
       aria-disabled={ariaDisabled || busy || undefined}
       aria-keyshortcuts={keyHint?.ariaKeyShortcuts}
       data-second-face-shown={secondFace ? String(secondFace.shown) : undefined}

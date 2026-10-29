@@ -104,9 +104,12 @@ describe('the Delete cloud data dialog (KAN-254)', () => {
     await renderOpen();
     const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveAccessibleName('Delete your cloud data?');
-    const body = within(dialog).getByText(/other devices/i);
-    expect(body.textContent).toMatch(/Auto sync/);
-    expect(body.textContent).toMatch(/stay on this device/);
+    // KAN-860. "turn sync off the next time they sync" read as a contradiction.
+    expect(
+      within(dialog).getByText(
+        'This removes your sessions from the cloud and turns off Auto sync on this device. Your sessions stay here. Your other devices keep their sessions too, and stop syncing the next time they open Tab Keeper.'
+      )
+    ).toBeTruthy();
   });
 
   test('Cancel comes first, and closes without deleting', async () => {

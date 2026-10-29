@@ -25,7 +25,9 @@ const isFaceDue = (startedAt: number): boolean =>
 // KAN-719. Busy for the whole check (guards a second press); "Checking…" shows only past 300ms.
 // KAN-750 R20. The check is the store's, so a remount mid-check shows it as it stands.
 // KAN-750. The delete after the confirm shows "Deleting…" by the same rules.
-const DeleteCloudDataButton: React.FC = () => {
+const DeleteCloudDataButton: React.FC<{ describedBy?: string }> = ({
+  describedBy,
+}) => {
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
   const checkStartedAt = useSelector(
@@ -74,6 +76,7 @@ const DeleteCloudDataButton: React.FC = () => {
       text={t('Delete cloud data')}
       // KAN-719. The shown face hides the resting one from the name, so say it.
       ariaLabel={t('Delete cloud data')}
+      ariaDescribedBy={describedBy}
       iconType="delete"
       variant="danger"
       busy={busy}
