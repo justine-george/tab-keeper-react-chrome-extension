@@ -36,6 +36,10 @@ Tab Keeper is a free, open-source session and tab manager for Chrome. It manages
 
 ## Screenshots
 
+VIDEO_URL_PLACEHOLDER
+
+[Watch on YouTube →](https://www.youtube.com/watch?v=OfRSR3GYYig)
+
 <a href="https://chromewebstore.google.com/detail/tab-keeper-chrome-tab-man/gpibgniomobngodpnikhheifblbpbbah?ref=github" target="_blank"><img src="store-assets/screenshots/tab-keeper-screenshot-1.png" width="800" alt="Tab Keeper's full view: saved sessions, the selected session and the windows open right now, side by side"></a>
 
 [View All Screenshots →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Screenshots)
