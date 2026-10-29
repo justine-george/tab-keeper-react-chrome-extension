@@ -206,11 +206,12 @@ describe('reopenClosed: duplicate tabs', () => {
         {
           id: 2,
           tabs: [
+            // The closed copies end the run: only the regroup puts them back in it.
             { url: url('x'), active: true },
             { url: url('a'), groupId: 80 },
-            { url: url('a'), groupId: 80 },
-            { url: url('a'), groupId: 80 },
             { url: url('c'), groupId: 80 },
+            { url: url('a'), groupId: 80 },
+            { url: url('a'), groupId: 80 },
           ],
         },
       ],
