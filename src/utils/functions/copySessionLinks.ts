@@ -11,6 +11,9 @@ import {
   type LinkScope,
 } from './sessionExportHtml';
 
+// KAN-859. What every Copy links button pastes; Settings › Sessions picks it.
+export type CopyLinksLayout = 'links-only' | 'with-headings';
+
 /**
  * Puts a session's links on the clipboard: a rich list for editors that read
  * HTML, and a plain layout for everything else. The app pasted into picks one.
