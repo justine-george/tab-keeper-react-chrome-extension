@@ -15,10 +15,11 @@ const LIST_MAX_WIDTH = 600;
 // over 520, so even the widest window leaves the drag room to widen it.
 const LIST_DEFAULT_SHARE = 0.25;
 const LIST_DEFAULT_MAX = 520;
-// The panes right of the list keep at least this much: the saved session
-// through each grip's max, Open now through its min. Where the window cannot
-// give both of them this (1316px and narrower), Open now stays at its default.
-const PANE_MIN_WIDTH = 480;
+// The saved session's narrowest default: Open now's default leaves it this.
+const SAVED_SESSION_DEFAULT_MIN_WIDTH = 480;
+// KAN-868 comment 11772. A drag takes the saved session and Open now down
+// to this, at every window: how narrow Open now already starts at 1100px.
+const PANE_DRAG_MIN_WIDTH = 340;
 // Open now's narrowest default. The even split alone would go under it
 // between 1100 and 1176px, because the saved session's 480px caps it there.
 const OPEN_NOW_DEFAULT_FLOOR = 340;
@@ -70,21 +71,23 @@ export function defaultOpenNowWidth(viewportWidth: number): number {
   const rest = viewportWidth - defaultListWidth(viewportWidth);
   return Math.max(
     OPEN_NOW_DEFAULT_FLOOR,
-    Math.min(Math.floor(rest / 2), rest - PANE_MIN_WIDTH)
+    Math.min(Math.floor(rest / 2), rest - SAVED_SESSION_DEFAULT_MIN_WIDTH)
   );
 }
 
-// L1: Open now keeps 480, unless its default is narrower, and leaves the
-// saved session 480 beside a list this wide. Never an inverted range.
+// Open now keeps 340, and leaves the saved session 340 beside a list this
+// wide. Never an inverted range.
 function openNowRange(viewportWidth: number, listWidth: number): WidthRange {
-  const min = Math.min(PANE_MIN_WIDTH, defaultOpenNowWidth(viewportWidth));
   return {
-    min,
-    max: Math.max(min, viewportWidth - listWidth - PANE_MIN_WIDTH),
+    min: PANE_DRAG_MIN_WIDTH,
+    max: Math.max(
+      PANE_DRAG_MIN_WIDTH,
+      viewportWidth - listWidth - PANE_DRAG_MIN_WIDTH
+    ),
   };
 }
 
-// The list leaves the pane beside it 480: the saved session beside Open
+// The list leaves the pane beside it 340: the saved session beside Open
 // now's column (its width, the rail's, or none when Open now is in the
 // saved session's column), or that Open now itself.
 function listRange(viewportWidth: number, beside: number): WidthRange {
@@ -92,7 +95,7 @@ function listRange(viewportWidth: number, beside: number): WidthRange {
     min: LIST_MIN_WIDTH,
     max: Math.max(
       LIST_MIN_WIDTH,
-      Math.min(LIST_MAX_WIDTH, viewportWidth - beside - PANE_MIN_WIDTH)
+      Math.min(LIST_MAX_WIDTH, viewportWidth - beside - PANE_DRAG_MIN_WIDTH)
     ),
   };
 }
@@ -133,8 +136,10 @@ export function paneWidths(
 }
 
 // Whether the window leaves Open now a range to drag through beside the
-// narrowest list: only then is there a grip (above 1316px).
+// narrowest list: only then is there a grip (1100px and wider; below that
+// Open now is the rail).
 export function isOpenNowResizable(viewportWidth: number): boolean {
+  if (viewportWidth < RESIZABLE_MIN_VIEWPORT) return false;
   const { min, max } = openNowRange(viewportWidth, LIST_MIN_WIDTH);
   return min < max;
 }

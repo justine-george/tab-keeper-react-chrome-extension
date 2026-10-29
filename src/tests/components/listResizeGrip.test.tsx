@@ -27,8 +27,8 @@ import { buildSession } from '../fixtures/sessionFixture';
 // it (the saved session, or folded Open now): a focusable role="separator"
 // that a pointer drag and the arrow keys resize, and a double-click resets.
 // At 1600px side by side the list starts at 400 (a quarter) and its range is
-// 356..520, leaving the saved session 480 beside Open now's 600
-// (paneWidths.ts). Dragging RIGHT widens it: its right edge is the line.
+// 356..600, the cap; the saved session keeps at least 340 beside Open now's
+// 600 (paneWidths.ts, KAN-868). Dragging RIGHT widens it: its right edge is the line.
 //
 // jsdom has no layout: the drag is driven as the grip reads it, a press on
 // the grip and then moves and the release on `window`.
@@ -131,7 +131,7 @@ describe('the grip is a separator', () => {
     expect(separator).toHaveAttribute('aria-orientation', 'vertical');
     expect(separator).toHaveAttribute('aria-valuenow', '400');
     expect(separator).toHaveAttribute('aria-valuemin', '356');
-    expect(separator).toHaveAttribute('aria-valuemax', '520');
+    expect(separator).toHaveAttribute('aria-valuemax', '600');
     expect(separator).toHaveAttribute('tabindex', '0');
     // Inside no pane, so no row drag can start from it.
     expect(separator.closest('[data-pane]')).toBeNull();
@@ -173,11 +173,12 @@ describe('where it shows', () => {
     expect(noGrip()).toBeNull();
   });
 
-  test('not side by side at 1280, where the saved session has no room to give', async () => {
+  // KAN-868: up to what leaves the saved session 340 beside Open now's 444.
+  test('side by side at 1280 it shows, up to 496', async () => {
     setViewportWidth(1280);
     await renderHome();
     await mounted();
-    expect(noGrip()).toBeNull();
+    expect(grip()).toHaveAttribute('aria-valuemax', '496');
   });
 
   test('folded at 1280 it shows, up to the 600 cap', async () => {
@@ -227,7 +228,7 @@ describe('the arrow keys', () => {
   });
 
   test('ArrowRight at the max saves nothing', async () => {
-    const { seen } = await renderHome({ list: 520 });
+    const { seen } = await renderHome({ list: 600 });
     await mounted();
     const writesBefore = widthWrites(seen);
     expect(fireEvent.keyDown(grip(), { key: 'ArrowRight' })).toBe(false);
@@ -238,9 +239,9 @@ describe('the arrow keys', () => {
 describe('each max reads the other (KAN-687 comment 11077)', () => {
   test("a wider Open now lowers the list's max", async () => {
     setViewportWidth(1920);
-    await renderHome({ openNow: 900 });
+    await renderHome({ openNow: 1100 });
     await mounted();
-    expect(grip()).toHaveAttribute('aria-valuemax', String(1920 - 900 - 480));
+    expect(grip()).toHaveAttribute('aria-valuemax', String(1920 - 1100 - 340));
   });
 
   test("a wider list lowers Open now's max", async () => {
@@ -252,7 +253,7 @@ describe('each max reads the other (KAN-687 comment 11077)', () => {
     });
     expect(openNowGrip).toHaveAttribute(
       'aria-valuemax',
-      String(1920 - 600 - 480)
+      String(1920 - 600 - 340)
     );
   });
 
@@ -284,7 +285,7 @@ describe('the pointer drag', () => {
     await mounted();
     press(400);
     moveTo(900);
-    expect(listTrack()).toBe('520px');
+    expect(listTrack()).toBe('600px');
     moveTo(0);
     expect(listTrack()).toBe('356px');
     release(0);
@@ -299,12 +300,12 @@ describe('the pointer drag', () => {
     press(400);
     moveTo(600);
     // PREMISE: the drag reached 1600's max.
-    expect(listTrack()).toBe('520px');
+    expect(listTrack()).toBe('600px');
     setViewportWidth(1440);
     moveTo(601);
-    expect(listTrack()).toBe('420px');
+    expect(listTrack()).toBe('560px');
     release(601);
-    expect(storedWidth()).toBe(420);
+    expect(storedWidth()).toBe(560);
   });
 
   test('Escape mid-drag puts the width back and saves nothing', async () => {

@@ -313,7 +313,7 @@ describe('the controller', () => {
 });
 
 describe('step 2 names the fold button the view shows', () => {
-  // KAN-500. The grip needs a window above 1316px; jsdom's own is 1024px.
+  // KAN-500. The grip needs a window of 1100px or wider; jsdom's own is 1024px.
   const ORIGINAL_INNER_WIDTH = window.innerWidth;
   const widthOf = (px: number) => {
     Object.defineProperty(window, 'innerWidth', {

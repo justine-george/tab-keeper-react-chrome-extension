@@ -263,7 +263,7 @@ async function expectEllipsizedBeforeTag(row: Locator, label: string) {
 }
 
 grantedTest(
-  'drawer (380px): a long group title ellipsizes before a whole tag',
+  'drawer (480px): a long group title ellipsizes before a whole tag',
   async ({ context, extensionId, serviceWorker }) => {
     await seedSettings(context, { foldSavedSessionInTabView: false });
     const page = await openPage(context, extensionId, FULL_VIEW_PATH, {
@@ -290,7 +290,7 @@ grantedTest(
     // KAN-810. The drawer slides in: measure and press it where it comes to rest.
     await elementLanded(drawer, 'subtree');
     // PREMISE: the drawer is the narrow one.
-    expect((await boxOf(drawer)).width).toBe(380);
+    expect((await boxOf(drawer)).width).toBe(480);
 
     const block = drawer.locator(`[data-open-window-id="${windowId}"]`);
     const band = block.locator('[data-group-drag-handle]');

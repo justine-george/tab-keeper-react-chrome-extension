@@ -115,7 +115,7 @@ test('folded, the rail opens its drawer over the saved session, and Esc leaves i
   await elementLanded(drawer, 'subtree');
   const box = await drawer.boundingBox();
   if (box === null) throw new Error('the drawer has no box');
-  expect(Math.round(box.width)).toBe(380);
+  expect(Math.round(box.width)).toBe(480);
   expect(Math.round(box.x + box.width)).toBe(WIDE.width);
 
   await page.keyboard.press('Escape');
