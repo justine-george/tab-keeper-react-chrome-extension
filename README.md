@@ -50,7 +50,17 @@ Read the full [privacy policy](PRIVACY.md).
 
 ## Changelog
 
-### v.2.0.0 (Latest)
+### v.2.0.1 (Latest)
+
+#### Fixes
+
+- After a drop, the rows that made room stay put instead of jumping, whether you drop open tabs into a saved session or a saved tab or group into Currently open
+- A saved tab or group dropped into Currently open shows its saved title while its page loads, instead of a blank row or its address
+- A window opened by a drop into Currently open comes to the front, opens maximized if it was saved that way, and scrolls into view in the list
+- While you drag a saved window over a long Currently open list, the New window box stays in view at the bottom of the list
+- With no other tabs open, Currently open still takes a saved tab, group or window dropped on it, and opens it in a new window
+
+### v.2.0.0
 
 #### Features
 
@@ -136,26 +146,6 @@ Read the full [privacy policy](PRIVACY.md).
 - Each language is named in its own language
 - A session's Export and Delete now sit in its More actions menu
 - The popup uses one type scale and one corner radius, and its buttons show when they are pressed
-
-### v.1.8.0
-
-#### Features
-
-- Drag a tab to a new place in its window, into a Chrome tab group, or out of one
-- Drag a whole tab group by its title row to a new place in its window
-- Drag a tab or a whole tab group from one saved window into another
-- Drag saved windows into a new order inside a session, and sessions into your own order in the list
-- Sort the session list by date modified, date saved, name or tab count, with the active order ticked
-
-#### Fixes
-
-- Deleting a tab from a session no longer changes that session's creation date or moves it to the top of the list
-- The rating prompt now waits until the extension has done something for you, instead of asking a day after you install it
-- The extension now calls itself the same name in every language, and shares to X with the current mark
-
-#### Improvements
-
-- Each session now says whether its date is when it was last edited or when it was first saved
 
 [View All Changelog →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Changelog)
 
