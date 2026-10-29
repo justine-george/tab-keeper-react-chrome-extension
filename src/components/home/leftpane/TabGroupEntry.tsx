@@ -143,8 +143,9 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       ? selectRunLitRowButton(state)
       : null
   );
+  // KAN-870. 57px where its word fits, else the word plus 6px a side.
   const blockedStyle = (lit: boolean) =>
-    `padding: 14px 10px; width: 57px;${
+    `padding: 14px 6px; min-width: 57px;${
       isOpenBlocked && !lit ? ' filter: opacity(0.3);' : ''
     }`;
 
