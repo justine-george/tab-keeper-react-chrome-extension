@@ -199,6 +199,65 @@ describe('reopenClosed: duplicate tabs', () => {
     expect(await shape(2)).toEqual(before);
   });
 
+  test('two copies from a group that is still there both rejoin it', async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [
+        {
+          id: 2,
+          tabs: [
+            { url: url('x'), active: true },
+            { url: url('a'), groupId: 80 },
+            { url: url('a'), groupId: 80 },
+            { url: url('a'), groupId: 80 },
+            { url: url('c'), groupId: 80 },
+          ],
+        },
+      ],
+      tabGroups: [{ id: 80, windowId: 2, title: 'Kept', color: 'pink' }],
+    });
+    const before = await shape(2);
+    const item = await closeDuplicateTabs(await snapshot());
+    if (!item) throw new Error('close failed');
+    expect(await shape(2)).toEqual(['x*', 'a[Kept/pink]', 'c[Kept/pink]']);
+    await reopenClosed(item, false);
+    expect(await shape(2)).toEqual(before);
+    expect(await groupCount(2)).toBe(1);
+  });
+
+  // As KAN-309 for one tab: a loose copy whose old spot is now inside a group's run comes back loose, after the run.
+  test("a group formed over a loose copy's old spot: it comes back loose", async () => {
+    handle = setupChromeFake({
+      grantedPermissions: ['tabGroups'],
+      windows: [
+        {
+          id: 2,
+          tabs: [
+            { url: url('a') },
+            { url: url('x') },
+            { url: url('b') },
+            { url: url('x'), active: true },
+          ],
+        },
+      ],
+    });
+    const item = await closeDuplicateTabs(await snapshot());
+    if (!item) throw new Error('close failed');
+    const tabs = await chrome.tabs.query({ windowId: 2 });
+    const id = (name: string) =>
+      tabs.find((t) => t.url === url(name))?.id ?? -1;
+    await chrome.tabs.group({
+      createProperties: { windowId: 2 },
+      tabIds: [id('a'), id('b')],
+    });
+    await reopenClosed(item, false);
+    const x = (await chrome.tabs.query({ windowId: 2 })).filter(
+      (t) => t.url === url('x') && !t.active
+    );
+    expect(x).toHaveLength(1);
+    expect(x[0].groupId).toBe(-1);
+  });
+
   test('a pinned copy comes back pinned', async () => {
     handle = setupChromeFake({
       windows: [
@@ -232,6 +291,19 @@ describe('reopenClosed: duplicate tabs', () => {
     const fresh = (await ids()).filter((id) => !before.includes(id));
     expect(fresh).toHaveLength(1);
     expect(await shape(fresh[0])).toEqual([expect.stringMatching(/^d/)]);
+  });
+
+  test('only a closed window had copies: Reopen still reports what came back', async () => {
+    handle = setupChromeFake({
+      windows: [
+        { id: 1, focused: true, tabs: [{ url: url('home'), active: true }] },
+        { id: 3, tabs: [{ url: url('d'), active: true }, { url: url('d') }] },
+      ],
+    });
+    const item = await closeDuplicateTabs(await snapshot());
+    if (!item) throw new Error('close failed');
+    await chrome.windows.remove(3);
+    expect(await reopenClosed(item, false)).toMatchObject({ kind: 'tab' });
   });
 
   test('never asks for the sessions permission', async () => {

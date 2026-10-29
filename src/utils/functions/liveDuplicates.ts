@@ -12,7 +12,6 @@ const keepRank = (tab: OpenTab): number =>
 export function liveDuplicatesToClose(window: OpenWindow): OpenTab[] {
   const kept = new Map<string, OpenTab>();
   for (const tab of window.tabs) {
-    if (tab.url === '') continue;
     const best = kept.get(tab.url);
     if (best === undefined || keepRank(tab) < keepRank(best))
       kept.set(tab.url, tab);
