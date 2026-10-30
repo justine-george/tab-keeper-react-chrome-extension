@@ -261,6 +261,36 @@ describe('returnFromPreview', () => {
     expect(warn).toHaveBeenCalled();
   });
 
+  test('popup refused, the preview is the last tab: the full view opens over it, and it stays', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { api, log } = makeApi({
+      tabs: [{ id: PREVIEW, windowId: 2, opener: 1 }],
+      refusePopup: true,
+    });
+    await returnFromPreview(api, PREVIEW, 'popup');
+    expect(log).toEqual([
+      { call: 'openPopup', windowId: 2 },
+      { call: 'openFullView', windowId: 2 },
+    ]);
+  });
+
+  test('popup refused, no opener and the preview was alone in its window: the full view opens where Chrome chooses', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { api, log } = makeApi({
+      tabs: [
+        { id: 1, windowId: 1 },
+        { id: PREVIEW, windowId: 2 },
+      ],
+      refusePopup: true,
+    });
+    await returnFromPreview(api, PREVIEW, 'popup');
+    expect(log).toEqual([
+      { call: 'removeTab', tabId: PREVIEW },
+      { call: 'openPopup', windowId: undefined },
+      { call: 'openFullView', windowId: undefined },
+    ]);
+  });
+
   test.each(['full', 'popup'] as const)(
     '%s, an api call rejecting: logged, and it resolves',
     async (from) => {
