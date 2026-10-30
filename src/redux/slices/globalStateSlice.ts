@@ -170,6 +170,10 @@ export interface Global {
   cloudConsentThen: CloudConsentThen | null;
   // KAN-7 §6. The callout under ⤢, popup only.
   isFullViewCalloutOpen: boolean;
+  // KAN-875. Bumped by the first session saved on this device; the save button's pop plays on each new count.
+  firstSavePops: number;
+  // KAN-875. The pop is playing: the review card waits for it.
+  isFirstSavePopping: boolean;
   // KAN-7 §4. The pin guide, full view only.
   isPinGuideOpen: boolean;
   // KAN-7 §5. The setup, full view only.
@@ -348,6 +352,8 @@ export const initialState: Global = {
   cloudConsentVariant: 'welcome',
   cloudConsentThen: null,
   isFullViewCalloutOpen: false,
+  firstSavePops: 0,
+  isFirstSavePopping: false,
   isPinGuideOpen: false,
   isSetupOpen: false,
   doesSetupLeadToPinGuide: true,
@@ -1357,6 +1363,14 @@ export const globalStateSlice = createSlice({
       state.isFullViewCalloutOpen = false;
     },
 
+    noteFirstSave: (state) => {
+      state.firstSavePops += 1;
+    },
+
+    setFirstSavePopping: (state, action: PayloadAction<boolean>) => {
+      state.isFirstSavePopping = action.payload;
+    },
+
     setSearchInputText: (state, action: PayloadAction<string>) => {
       state.searchInputText = action.payload;
     },
@@ -1737,6 +1751,8 @@ export const {
   closeReplayNote,
   openFullViewCallout,
   closeFullViewCallout,
+  noteFirstSave,
+  setFirstSavePopping,
   setSearchInputText,
   toastAdded,
   toastsRemoved,

@@ -128,3 +128,26 @@ test('each element wait leaves animations out of its reach alone', async ({
   expect(await playState(page, 'outer')).toBe('finished');
   expect(await playState(page, 'beside')).toBe('running');
 });
+
+// KAN-875. The save ring loops until the first save: it never lands, so no wait is for it.
+test('a looping animation does not hold the wait; a finite one still does', async ({
+  page,
+}) => {
+  test.setTimeout(10_000);
+  await page.evaluate(() => {
+    const loop = document
+      .getElementById('inner')!
+      .animate({ opacity: [0, 1] }, { duration: 1000, iterations: Infinity });
+    Object.assign(window, { loop });
+  });
+  await start(page, 'box', 'finite', 300);
+  await documentLanded(page);
+  expect(await playState(page, 'finite')).toBe('finished');
+  expect(await playState(page, 'loop')).toBe('running');
+  await page.evaluate(() =>
+    (window as unknown as Record<string, Animation>).finite.cancel()
+  );
+  await start(page, 'box', 'finite', 300);
+  await elementLanded(page.locator('#outer'), 'subtree');
+  expect(await playState(page, 'finite')).toBe('finished');
+});

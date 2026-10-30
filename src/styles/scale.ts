@@ -188,8 +188,14 @@ export const DURATION = {
   DRAWER_IN: '240ms',
   /** ...and out: faster, since the user has already moved on (KAN-810). */
   DRAWER_OUT: '170ms',
-  /** One pulse of the save invite's ring, played three times (KAN-828). */
+  /** One pulse of the save invite's ring (KAN-828). */
   INVITE: '1800ms',
+  /** One pulse and its rest; the ring loops until the first save (KAN-875). */
+  INVITE_CYCLE: '4000ms',
+  /** The first save's floppy disks, out from the save button and gone (KAN-875). */
+  FIRST_SAVE_POP: '900ms',
+  /** ...fading over its last part (KAN-875). */
+  FIRST_SAVE_POP_FADE: '550ms',
 } as const;
 
 /**

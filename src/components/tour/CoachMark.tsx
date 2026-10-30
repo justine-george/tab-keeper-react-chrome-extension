@@ -9,6 +9,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { css } from '@emotion/react';
 
+import { COACH_LAYER } from './coachLayers';
+
 import {
   dialogButtonStyles,
   pairCss,
@@ -116,7 +118,7 @@ function Notch({
   );
 }
 
-const Z = { DIM: 1010, MARK: 1020 } as const;
+const Z = COACH_LAYER;
 
 // A press on the dim does nothing: no focus moves, no menu sees it as a press outside,
 // and a right-click opens no menu, Chrome's included (KAN-736).

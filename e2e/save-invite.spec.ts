@@ -5,7 +5,7 @@ import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import { FULL, FULL_VIEW_PATH, POPUP } from './fixtures/onboarding';
 import { openLiveWindow } from './fixtures/liveWindows';
 
-// KAN-828. With nothing saved, the save button wears a mint ring that pulses three times on the compositor.
+// KAN-828. With nothing saved, the save button wears a mint ring that pulses on the compositor, every 4 s until saved (KAN-875).
 
 const INVITE = '[data-save-invite]';
 // The saved list's save: the full view's Currently open has one of the same name.
@@ -55,6 +55,7 @@ const pulse = (page: Page) =>
       properties: [
         ...new Set(found.effect.getKeyframes().flatMap((k) => Object.keys(k))),
       ],
+      offsets: found.effect.getKeyframes().map((k) => k.computedOffset),
     };
   }, INVITE);
 
@@ -63,13 +64,15 @@ const ringShadow = (page: Page) =>
 
 for (const view of VIEWS) {
   test.describe(view.name, () => {
-    test('pulses three times, moving only transform and opacity', async ({
+    test('pulses every 4 s until saved, moving only transform and opacity', async ({
       context,
       extensionId,
     }) => {
       const page = await openEmpty(context, extensionId, view);
       const running = await pulse(page);
-      expect(running).toMatchObject({ iterations: 3, duration: 1800 });
+      expect(running).toMatchObject({ iterations: Infinity, duration: 4000 });
+      // The 1.8 s pulse, then still for the rest of the cycle.
+      expect(running?.offsets).toEqual([0, 0.45, 1]);
       const moved = (running?.properties ?? []).filter(
         (p) => !COMPOSITED.includes(p)
       );

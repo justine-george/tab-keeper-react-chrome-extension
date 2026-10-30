@@ -162,24 +162,12 @@ describe('the save invite', () => {
     });
     afterEach(() => vi.restoreAllMocks());
 
-    // A Tab Keeper tab opened in the background plays nothing until it is seen.
-    test('loaded hidden, it waits to be seen', async () => {
+    // KAN-875. The ring loops, so a tab opened in the background needs no replay when seen.
+    test('a tab loaded hidden still has its ring', async () => {
       visibility = 'hidden';
       await renderWithProviders(<UserInputContainer />);
-      expect(invite()).toHaveAttribute('data-unseen');
-      setVisibility('visible');
-      expect(invite()).not.toHaveAttribute('data-unseen');
-    });
-
-    test('coming back into view plays it again, on a new ring', async () => {
-      await renderWithProviders(<UserInputContainer />);
-      const first = invite();
-      expect(first).not.toHaveAttribute('data-unseen');
-      setVisibility('hidden');
-      setVisibility('visible');
       expect(invite()).not.toBeNull();
-      expect(invite()).not.toBe(first);
-      expect(invite()).not.toHaveAttribute('data-still');
+      expect(invite()).not.toHaveAttribute('data-unseen');
     });
 
     test('once stilled on this page, coming back stays still', async () => {

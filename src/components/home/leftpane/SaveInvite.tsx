@@ -19,9 +19,11 @@ const MINT = '#99bf9d';
 const RING = `0 0 0 2px ${MINT}`;
 
 // Transform and opacity only, so the compositor runs it with no repaint (KAN-828).
+// KAN-875. One pulse, then still for the rest of the cycle.
+const PULSE_END = `${(100 * parseFloat(DURATION.INVITE)) / parseFloat(DURATION.INVITE_CYCLE)}%`;
 const PULSE = keyframes`
-  from { transform: scale(1); opacity: 0.9; }
-  to { transform: scale(1.45); opacity: 0; }
+  0% { transform: scale(1); opacity: 0.9; }
+  ${PULSE_END}, 100% { transform: scale(1.45); opacity: 0; }
 `;
 
 const inviteStyle = css`
@@ -40,14 +42,13 @@ const inviteStyle = css`
     inset: 0;
     box-shadow: ${RING};
     opacity: 0;
-    animation: ${PULSE} ${DURATION.INVITE} ${EASE.OUT} 3;
+    animation: ${PULSE} ${DURATION.INVITE_CYCLE} ${EASE.OUT} infinite;
   }
 
   /* The hover and focus rules stop it in the same frame; data-still keeps it stopped after. */
   button:hover + &::before,
   button:focus + &::before,
-  &[data-still]::before,
-  &[data-unseen]::before {
+  &[data-still]::before {
     animation: none;
   }
 
@@ -80,21 +81,10 @@ export function useSaveInvite(): boolean {
   return isEmpty && !isRunHere && !hasHadSavedSession;
 }
 
-const isInView = () => document.visibilityState === 'visible';
-
 // One empty state's ring: a hover or focus on the button stills it until it unmounts.
 function Ring() {
   const ref = useRef<HTMLSpanElement>(null);
   const [isStill, setStill] = useState(false);
-  // A hidden tab runs the pulse unseen, so it plays each time the page comes into view.
-  const [timesInView, setTimesInView] = useState(() => (isInView() ? 1 : 0));
-  useEffect(() => {
-    const onVisibility = () => {
-      if (isInView()) setTimesInView((n) => n + 1);
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, []);
   useEffect(() => {
     const button = ref.current?.previousElementSibling;
     if (!button) return;
@@ -108,19 +98,16 @@ function Ring() {
   }, []);
   return (
     <span
-      // A new span is a new CSS animation: three pulses from the start.
-      key={timesInView}
       ref={ref}
       data-save-invite=""
       data-still={isStill ? '' : undefined}
-      data-unseen={timesInView === 0 ? '' : undefined}
       aria-hidden="true"
       css={inviteStyle}
     />
   );
 }
 
-// KAN-828. A mint ring on the save button while nothing is saved: three pulses, then still.
+// KAN-828. A mint ring on the save button while nothing is saved: it pulses every 4 s until the first save (KAN-875).
 export default function SaveInvite() {
   return useSaveInvite() ? <Ring /> : null;
 }
