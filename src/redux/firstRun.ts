@@ -20,6 +20,7 @@ import {
   runShownHere,
   runStoppedHere,
   setEndingCard,
+  setRunPinCard,
   setRunSaveCard,
   setRunSaveEcho,
   setSearchInputText,
@@ -50,6 +51,7 @@ import {
   needsSession,
   newRun,
   nextRunStep,
+  pinCardFor,
   previousRunStep,
   runStepKind,
   stepKindOf,
@@ -209,6 +211,7 @@ export const startRun =
     dispatch(setSearchInputText(''));
     dispatch(closeFullViewCallout());
     dispatch(setRunSaveCard(null));
+    dispatch(setRunPinCard(null));
     // KAN-879. Never on a replay: a Help tour takes away an ending shown or waiting.
     dispatch(setEndingCard(null));
     const before = leavesAndEndsSoFar(getState);
@@ -346,6 +349,33 @@ export const beginSaveStep =
     if (run !== null) await dispatch(decideSaveCard(run.step));
   };
 
+export const selectRunPinCard = (state: RootState): RunPinCard | null =>
+  state.globalState.runPinCard;
+
+// KAN-878. Once per run shown here: skip the pin card on a pinned tab that already pins in new windows; a late answer for a run gone from here is dropped.
+export const decidePinCard =
+  (): Thunk<Promise<void>> => async (dispatch, getState) => {
+    const run = selectRunHere(getState());
+    if (run === null || selectRunPinCard(getState()) !== null) return;
+    if (run.view === 'popup') {
+      dispatch(setRunPinCard('show'));
+      return;
+    }
+    const tab = await chrome.tabs.getCurrent().catch(() => undefined);
+    const now = getState();
+    const still = selectRunHere(now);
+    if (still === null) return;
+    dispatch(
+      setRunPinCard(
+        pinCardFor(
+          still,
+          tab?.pinned ?? null,
+          now.settingsDataState.pinTabKeeperInNewWindows
+        )
+      )
+    );
+  };
+
 // KAN-436. Onto an undecided save step, the card is decided first, so the card glides there and is never drawn anew.
 const moveRun =
   (
@@ -353,7 +383,8 @@ const moveRun =
   ): Thunk<Promise<void>> =>
   async (dispatch, getState) => {
     const run = selectRunHere(getState());
-    const target = run === null ? null : to(run, 'show');
+    const target =
+      run === null ? null : to(run, selectRunPinCard(getState()) ?? 'show');
     if (run === null || target === null) return;
     if (
       runStepKind(run.view, target) === 'save' &&
