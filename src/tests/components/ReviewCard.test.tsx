@@ -24,7 +24,14 @@ import { ReviewCard } from '../../components/reviewCard/ReviewCard';
 import ClickableTabKeeperMark from '../../components/common/ClickableTabKeeperMark';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
-import { openReviewCard } from '../../redux/slices/globalStateSlice';
+import {
+  closeReplayNote,
+  openReplayNote,
+  openReviewCard,
+  runShownHere,
+  runStoppedHere,
+} from '../../redux/slices/globalStateSlice';
+import { PAGE_COVERS } from '../fixtures/pageCoversFixture';
 import type { ReviewMoment } from '../../utils/functions/reviewAsk';
 
 // KAN-653. The review card: a corner card, not a dialog. It never takes
@@ -307,5 +314,69 @@ describe('the mark', () => {
     render(<ClickableTabKeeperMark />);
     act(() => vi.advanceTimersByTime(5_000));
     expect(motion.calls).toHaveLength(0);
+  });
+});
+
+// KAN-877. A tour, setup or any other cover started over an open card hides it; it comes back once the page is clear.
+describe('under a page cover', () => {
+  test.each(PAGE_COVERS)(
+    'hides while %s covers the page, and comes back after',
+    async (_, cover, uncover) => {
+      const { store } = await renderCard();
+      expect(card()).toBeTruthy();
+
+      act(() => cover(store));
+
+      expect(screen.queryByTestId('review-card')).toBeNull();
+      // Hidden, not closed: nothing written, no close remembered.
+      expect(store.getState().globalState.reviewCard).not.toBeNull();
+      expect(store.getState().settingsDataState.isSkippedUserReviewOnce).toBe(
+        false
+      );
+
+      act(() => uncover(store));
+
+      expect(
+        screen.getByRole('heading', { name: 'Thanks for using Tab Keeper' })
+      ).toBeTruthy();
+    }
+  );
+
+  test('one cover handing over to the next keeps it hidden until the last closes', async () => {
+    const { store } = await renderCard();
+    act(() => {
+      store.dispatch(runShownHere());
+    });
+    act(() => {
+      store.dispatch(
+        openReplayNote({
+          leadsToSetup: false,
+          leadsToEnding: false,
+          isAfterHelpTour: true,
+        })
+      );
+      store.dispatch(runStoppedHere());
+    });
+    expect(screen.queryByTestId('review-card')).toBeNull();
+
+    act(() => {
+      store.dispatch(closeReplayNote());
+    });
+
+    expect(card()).toBeTruthy();
+  });
+
+  test('a card opened under a cover waits for it', async () => {
+    const { store } = await renderWithProviders(<ReviewCard />, {
+      seedStore: (s) => s.dispatch(runShownHere()),
+    });
+    act(() => open({ kind: 'time' })(store));
+    expect(screen.queryByTestId('review-card')).toBeNull();
+
+    act(() => {
+      store.dispatch(runStoppedHere());
+    });
+
+    expect(card()).toBeTruthy();
   });
 });

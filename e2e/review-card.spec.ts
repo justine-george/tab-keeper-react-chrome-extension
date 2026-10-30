@@ -16,6 +16,13 @@ import {
   storedSettings,
 } from './fixtures/onboarding';
 import { pressOpen, saveRowSaveAll } from './fixtures/sessionActions';
+import {
+  cardAt,
+  cardButton,
+  closeReplayNote,
+  replayNote,
+  startRunFromHelp,
+} from './fixtures/run';
 
 // KAN-653 on the real build: the review card's asks, its gap and its close.
 // Every seed passes isNeverAskAgainToRate: false, since a seeded profile
@@ -311,4 +318,28 @@ test('a narrow full view: the card stays over the Open now drawer', async ({
     );
   };
   await expect.poll(onTop).toBe(true);
+});
+
+// KAN-877. A tour started over the card hides it; the note after the tour does too. It comes back after.
+test('popup: Help → Show me around over the first-save card hides it until the tour and its note are done', async ({
+  context,
+  extensionId,
+}) => {
+  await seedSessions(context, buildContainer([]));
+  await seedSettings(context, ASKABLE);
+  const page = await openPopup(context, extensionId);
+  await saveRowSaveAll(page).click();
+  const first = card(page, 'Your first session is saved');
+  await expect(first).toBeVisible();
+
+  await startRunFromHelp(page);
+  await expect(cardAt(page, 1)).toBeVisible();
+  await expect(anyCard(page)).toHaveCount(0);
+
+  await cardButton(page, 'Skip tutorial').click();
+  await expect(replayNote(page)).toBeVisible();
+  await expect(anyCard(page)).toHaveCount(0);
+
+  await closeReplayNote(page);
+  await expect(first).toBeVisible();
 });
