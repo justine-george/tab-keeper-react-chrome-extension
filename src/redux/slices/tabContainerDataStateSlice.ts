@@ -22,7 +22,12 @@ import {
   namesKeptCopiesTake,
   type DuplicateScope,
 } from '../../utils/functions/duplicateTabs';
-import { closeFocusModal, openFocusModal, showToast } from './globalStateSlice';
+import {
+  closeFocusModal,
+  noteFirstSave,
+  openFocusModal,
+  showToast,
+} from './globalStateSlice';
 import { initialState } from './tabContainerInitialState';
 import {
   getStringDate,
@@ -879,8 +884,9 @@ const SAVED_TOAST: Record<SavedScope, string> = {
 export const saveToTabContainer = createAsyncThunk(
   'global/saveToTabContainer',
   async (params: saveToTabContainerParams, thunkAPI) => {
-    const existing = (thunkAPI.getState() as RootState).tabContainerDataState
-      .tabGroups;
+    const before = thunkAPI.getState() as RootState;
+    const existing = before.tabContainerDataState.tabGroups;
+    const hadSaved = before.settingsDataState.hasHadSavedSession;
 
     thunkAPI.dispatch(saveToTabContainerInternal(params.container));
 
@@ -908,6 +914,11 @@ export const saveToTabContainer = createAsyncThunk(
       isSubstantialSave(params.container.tabCount, existing)
     ) {
       thunkAPI.dispatch(noteReviewMoment({ kind: 'bigSave' }));
+    }
+
+    // KAN-875. The pop is for the save itself: hasHadSavedSession also turns true when synced sessions land.
+    if (!isSample && isFirst && !hadSaved) {
+      thunkAPI.dispatch(noteFirstSave());
     }
 
     thunkAPI.dispatch(
