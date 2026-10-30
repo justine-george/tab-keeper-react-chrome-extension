@@ -12,6 +12,7 @@ import { CarryLayer } from './home/CarryLayer';
 import { TooltipLayer } from './common/TooltipLayer';
 import FirstRun from './tour/FirstRun';
 import ReplayNote from './tour/ReplayNote';
+import EndingCard from './tour/EndingCard';
 import RightPane from './home/rightpane/RightPane';
 import OpenNowColumn from './home/opennow/OpenNowColumn';
 import PaneResizeGrip from './home/PaneResizeGrip';
@@ -538,6 +539,7 @@ export default function MainContainer() {
       {/* Draws nothing unless this page shows the run; R3 hides its card while Settings is open. */}
       <FirstRun />
       <ReplayNote />
+      <EndingCard />
       <ReviewCard />
       {whatsNew !== null && <WhatsNewDialog shown={whatsNew} />}
       {tabGroupsPromptCount !== null && <TabGroupsPermissionModal />}

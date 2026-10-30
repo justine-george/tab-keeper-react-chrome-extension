@@ -3,7 +3,11 @@ import { v4 as uuidv4 } from 'uuid';
 
 import type { AppDispatch, RootState } from './store';
 import { followWithSetup } from './firstOpenFollowUps';
-import { requestEnding } from './onboardingEnding';
+import {
+  requestEnding,
+  selectEndingTarget,
+  selectIsEndingShown,
+} from './onboardingEnding';
 import { showSession } from './showSession';
 import { selectIsSavedSessionFolded } from './savedSessionFold';
 import {
@@ -119,6 +123,13 @@ export const selectRunEngagedRowId = (state: RootState): string | null => {
   if (run === null || !selectIsRunCardShown(state)) return null;
   const kind = stepKindOf(run);
   return ROW_KINDS.some((k) => k === kind) ? run.sessionId : null;
+};
+
+// KAN-879. The ending card's row, drawn engaged so its Open shows.
+export const selectEndingRowId = (state: RootState): string | null => {
+  if (!selectIsEndingShown(state)) return null;
+  const target = selectEndingTarget(state);
+  return target.kind === 'session' ? target.sessionId : null;
 };
 
 // Hard rule 2: while the Delete step shows, the run's Delete (in its header's ⋮) explains only.

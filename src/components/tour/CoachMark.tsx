@@ -52,6 +52,8 @@ interface CoachMarkProps {
   boxOf?: AnchorBox;
   spotlight?: Spotlight;
   isLive: boolean;
+  // KAN-879. False for a card that leaves the page undimmed, as the onboarding ending does.
+  isDimmed?: boolean;
   width: string;
   place: (
     anchor: Box,
@@ -137,6 +139,7 @@ export default function CoachMark({
   boxOf,
   spotlight,
   isLive,
+  isDimmed = true,
   width,
   place,
   onSkip,
@@ -239,7 +242,7 @@ export default function CoachMark({
   const bright = frame?.kind === 'anchored' ? frame.bright : null;
   return (
     <>
-      {frame && (
+      {frame && isDimmed && (
         <div
           aria-hidden="true"
           data-coach-dim

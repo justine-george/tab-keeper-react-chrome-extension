@@ -17,6 +17,7 @@ import { useTabCloudReads } from './hooks/useTabCloudReads';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { useUninstallSurveyLanguage } from './hooks/useUninstallSurveyLanguage';
 import { useReviewAskRelease } from './hooks/useReviewAskRelease';
+import { useEndingRelease } from './hooks/useEndingRelease';
 import { askAtOpen } from './redux/reviewAsk';
 import { isTabView } from './utils/functions/viewMode';
 import { firstOpenDialogs } from './redux/firstOpenDialogs';
@@ -77,6 +78,8 @@ function App() {
   // nothing covers the page.
   const [areOpenDialogsDecided, setAreOpenDialogsDecided] = useState(false);
   useReviewAskRelease(areOpenDialogsDecided);
+  // KAN-879. The onboarding ending, the same way.
+  useEndingRelease(areOpenDialogsDecided);
 
   const COLORS = useThemeColors();
 
