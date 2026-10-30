@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   isReturnFromPreviewRequest,
+  requestReturnFromPreview,
   returnFromPreview,
   RETURN_FROM_PREVIEW_MESSAGE,
   type PreviewBackApi,
@@ -311,4 +312,32 @@ describe('returnFromPreview', () => {
       expect(warn).toHaveBeenCalled();
     }
   );
+});
+
+describe('requestReturnFromPreview', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  test('sends the request and says true once it is sent', async () => {
+    const sendMessage = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('chrome', { runtime: { sendMessage } });
+
+    await expect(requestReturnFromPreview('popup')).resolves.toBe(true);
+
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: RETURN_FROM_PREVIEW_MESSAGE,
+      from: 'popup',
+    });
+  });
+
+  test('says false, logged, when the send fails; never rejects', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.stubGlobal('chrome', {
+      runtime: { sendMessage: vi.fn().mockRejectedValue(new Error('gone')) },
+    });
+
+    await expect(requestReturnFromPreview('full')).resolves.toBe(false);
+
+    expect(warn).toHaveBeenCalledOnce();
+    warn.mockRestore();
+  });
 });

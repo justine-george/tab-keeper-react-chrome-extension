@@ -34,15 +34,21 @@ export function isReturnFromPreviewRequest(
   );
 }
 
-// The page's half: its tab is about to close, so it waits for nothing.
-export function requestReturnFromPreview(from: PreviewFrom): void {
+// The page's half: true once the worker has the request (its tab is about to close); false, logged, when the send failed. Never rejects.
+export async function requestReturnFromPreview(
+  from: PreviewFrom
+): Promise<boolean> {
   const request: ReturnFromPreviewRequest = {
     type: RETURN_FROM_PREVIEW_MESSAGE,
     from,
   };
-  chrome.runtime.sendMessage(request).catch((error: unknown) => {
+  try {
+    await chrome.runtime.sendMessage(request);
+    return true;
+  } catch (error) {
     console.warn('Could not ask to go back from the preview:', error);
-  });
+    return false;
+  }
 }
 
 export interface PreviewBackApi extends PopupApi {

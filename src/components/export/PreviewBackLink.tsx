@@ -18,6 +18,8 @@ const GAP_PX = 6;
 export const PREVIEW_BACK_HANG_MIN_PX = 880;
 // The glyph's own left side bearing; pulled back so its ink, not its box, meets the edge.
 const ARROW_BEARING_PX = 3;
+// The worker closes this tab well before this; still open means the request failed silently.
+export const RETRY_AFTER_MS = 2000;
 
 interface PreviewBackLinkProps {
   from: PreviewFrom;
@@ -25,6 +27,8 @@ interface PreviewBackLinkProps {
   pending: boolean;
   // Called right before the request, so the page can drop its beforeunload guard.
   onLeave: () => void;
+  // The request failed or went unanswered: the page is still here, so it should guard itself again.
+  onLeaveFailed: () => void;
 }
 
 /**
@@ -36,12 +40,17 @@ export default function PreviewBackLink({
   from,
   pending,
   onLeave,
+  onLeaveFailed,
 }: PreviewBackLinkProps) {
   const COLORS = useThemeColors();
   const { t } = useTranslation();
   const [isOpen, setOpen] = useState(false);
   const anchorRef = useRef<HTMLSpanElement>(null);
+  const linkRef = useRef<HTMLButtonElement>(null);
   const isSentRef = useRef(false);
+  const retryTimerRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(retryTimerRef.current), []);
 
   // Nothing left to lose: the card has nothing to ask.
   if (!pending && isOpen) setOpen(false);
@@ -60,18 +69,26 @@ export default function PreviewBackLink({
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [isOpen]);
 
-  // The first press wins; the tab is on its way out.
+  const failed = () => {
+    isSentRef.current = false;
+    onLeaveFailed();
+  };
+
+  // The first press wins until the request fails or the tab is still here after RETRY_AFTER_MS.
   const leave = () => {
     setOpen(false);
     if (isSentRef.current) return;
     isSentRef.current = true;
     onLeave();
-    requestReturnFromPreview(from);
+    void requestReturnFromPreview(from).then((isSent) => {
+      if (!isSent) failed();
+      else retryTimerRef.current = window.setTimeout(failed, RETRY_AFTER_MS);
+    });
   };
 
   const stay = () => {
     setOpen(false);
-    anchorRef.current?.querySelector<HTMLElement>('button')?.focus();
+    linkRef.current?.focus();
   };
 
   const press = () => {
@@ -116,6 +133,7 @@ export default function PreviewBackLink({
         tooltipText={t('Back to Tab Keeper')}
         onClick={press}
         style={linkStyle}
+        buttonRef={linkRef}
       >
         <Glyph
           type="arrow_back"
