@@ -54,6 +54,7 @@ import {
   runStepKind,
   stepKindOf,
   type FirstRun,
+  type RunPinCard,
   type RunAtOpen,
   type RunEnding,
   type RunHello,
@@ -347,10 +348,12 @@ export const beginSaveStep =
 
 // KAN-436. Onto an undecided save step, the card is decided first, so the card glides there and is never drawn anew.
 const moveRun =
-  (to: (run: FirstRun) => RunStep | null): Thunk<Promise<void>> =>
+  (
+    to: (run: FirstRun, pinCard: RunPinCard) => RunStep | null
+  ): Thunk<Promise<void>> =>
   async (dispatch, getState) => {
     const run = selectRunHere(getState());
-    const target = run === null ? null : to(run);
+    const target = run === null ? null : to(run, 'show');
     if (run === null || target === null) return;
     if (
       runStepKind(run.view, target) === 'save' &&

@@ -395,7 +395,7 @@ export default function FirstRun() {
   };
   const card = cardFor();
 
-  const isLast = nextRunStep(run) === null;
+  const isLast = nextRunStep(run, 'show') === null;
   const sides = plan.sides;
   const place =
     sides === 'pane'
@@ -412,7 +412,9 @@ export default function FirstRun() {
     <CoachMark
       // KAN-623. The card is outside the tour's count: step 1 still reads 1 of 9.
       progress={
-        kind === 'compactView' ? null : { step: run.step, ...runProgress(run) }
+        kind === 'compactView'
+          ? null
+          : { step: run.step, ...runProgress(run, 'show') }
       }
       kind={kind}
       text={card.text}
@@ -423,7 +425,7 @@ export default function FirstRun() {
       width={card.width ?? CARD_WIDTH[run.view]}
       place={place}
       onSkip={isLast ? undefined : skip}
-      onBack={previousRunStep(run) !== null ? goBack : undefined}
+      onBack={previousRunStep(run, 'show') !== null ? goBack : undefined}
       secondary={card.secondary}
       primary={card.primary}
       onEscape={isLast ? finish : skip}
