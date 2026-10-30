@@ -369,20 +369,46 @@ export const selectRunAwaitsSave = (state: RootState): boolean => {
   );
 };
 
+// R9: only a sample holding only its own tabs is removed, as an ordinary, undoable, synced delete with no toast.
+const removeRunSample =
+  (id: string | null): Thunk<void> =>
+  (dispatch, getState) => {
+    if (id === null || !isSampleSession(id)) return;
+    const state = getState();
+    const sample = state.tabContainerDataState.tabGroups.find(
+      (g) => g.tabGroupId === id
+    );
+    // A sample the user moved a tab into is theirs now: it stays as an ordinary session.
+    if (
+      sample !== undefined &&
+      !state.globalState.holdsPlaceholderSessions &&
+      holdsOnlySampleTabs(sample)
+    ) {
+      dispatch(deleteTabContainerInternal(sample.tabGroupId));
+    }
+  };
+
 // The run's own save, once: a second save is an ordinary one (R6).
 export const takeRunSave =
   (tabGroupId: string): Thunk<void> =>
   (dispatch, getState) => {
     const run = selectRunHere(getState());
-    if (run === null || run.sessionId !== null) return;
-    if (stepKindOf(run) !== 'save') return;
+    if (run === null || stepKindOf(run) !== 'save') return;
+    // KAN-876. Back on the save step after the example, the user's own save takes its place.
+    const example =
+      run.sessionId !== null && isSampleSession(run.sessionId)
+        ? run.sessionId
+        : null;
+    if (run.sessionId !== null && example === null) return;
     dispatch(setFirstRunSession(tabGroupId));
+    dispatch(removeRunSample(example));
     dispatch(showSession(tabGroupId));
     dispatch(setRunSaveEcho(tabGroupId));
-    void dispatch(advanceRun());
+    // A step come back to stays, its card now "Saved."
+    if (example === null) void dispatch(advanceRun());
   };
 
-// Q2, Q3. The sample becomes the run's session; R9 removes it at the end.
+// Q2, Q3. The sample becomes the run's session; R9 removes it at the end, or when an own save takes its place.
 export const takeExampleForRun =
   (names: SampleNames): Thunk<void> =>
   (dispatch, getState) => {
@@ -402,29 +428,13 @@ export const takeExampleForRun =
     void dispatch(advanceRun());
   };
 
-// R9: only a sample holding only its own tabs is removed, as an ordinary, undoable, synced delete with no toast.
 export const endRun =
   (ending: RunEnding): Thunk<void> =>
   (dispatch, getState) => {
     countLeaveOrEnd(getState);
-    const state = getState();
-    const run = selectRunHere(state);
+    const run = selectRunHere(getState());
     if (run !== null) {
-      const id = run.sessionId;
-      const sample =
-        id !== null && isSampleSession(id)
-          ? state.tabContainerDataState.tabGroups.find(
-              (g) => g.tabGroupId === id
-            )
-          : undefined;
-      // A sample the user moved a tab into is theirs now: it stays as an ordinary session.
-      if (
-        sample !== undefined &&
-        !state.globalState.holdsPlaceholderSessions &&
-        holdsOnlySampleTabs(sample)
-      ) {
-        dispatch(deleteTabContainerInternal(sample.tabGroupId));
-      }
+      dispatch(removeRunSample(run.sessionId));
       dispatch(endFirstRun(ending));
       // Q6. The popup run has just pointed at ⤢; the callout would say it again.
       if (run.view === 'popup') dispatch(markFullViewCalloutSeen());

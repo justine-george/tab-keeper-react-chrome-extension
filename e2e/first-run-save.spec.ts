@@ -186,6 +186,39 @@ test('Use an example, then Back: the card says it is an example, and Next adds n
   expect(await storedTitles(page)).toEqual(['Sample: Weekend trip']);
 });
 
+// KAN-876.
+for (const { name, saveStep } of [
+  { name: 'popup', saveStep: 1 },
+  { name: 'full view', saveStep: 3 },
+]) {
+  test(`${name}: Use an example, Back, then your own save takes its place; Next points at it`, async ({
+    context,
+    extensionId,
+  }) => {
+    const gmail = await context.newPage();
+    await gmail.goto(GMAIL);
+    const page = await openRunFromHelp(
+      context,
+      extensionId,
+      saveStep === 1 ? POPUP_RUN : FULL_RUN
+    );
+    for (let step = 2; step <= saveStep; step++) await nextTo(page, step);
+    await cardButton(page, 'Use an example').click();
+    await expect(cardAt(page, saveStep + 1)).toBeVisible();
+    await cardButton(page, 'Back').click();
+    await expect(card(page)).toContainText('This is an example. Press');
+    await saveRowSaveAll(page).click();
+    await expect(cardAt(page, saveStep)).toBeVisible();
+    await expect(card(page)).toContainText('Saved. Press');
+    await expect.poll(() => storedTitles(page)).toEqual(['Inbox – Gmail']);
+    await cardButton(page, 'Next').click();
+    await expect(cardAt(page, saveStep + 1)).toBeVisible();
+    const engaged = page.locator('[data-run-engaged]');
+    await expect(engaged).toHaveCount(1);
+    await expect(engaged).toContainText('Inbox – Gmail');
+  });
+}
+
 test('Q3: only Tab Keeper open, the card says so, the field holds New Tab Group, and Use an example is the only way on', async ({
   context,
   extensionId,
