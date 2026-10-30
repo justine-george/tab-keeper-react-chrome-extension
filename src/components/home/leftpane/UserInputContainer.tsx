@@ -211,7 +211,7 @@ export default function UserInputContainer() {
     consumeName(typed);
     // KAN-875. The tour's next card waits for the first save's pop (his pick, option 4).
     await afterFirstSavePop(store, popsBefore);
-    // The run's save step takes its first save; any later one is ordinary (R6).
+    // Every save on the run's save step is the run's (KAN-876).
     dispatch(takeRunSave(containerData.tabGroupId));
   }
 
