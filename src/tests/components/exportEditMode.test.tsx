@@ -80,7 +80,10 @@ const SESSION = buildSession({
 
 const renderPage = () =>
   renderWithProviders(
-    <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+    <ExportPage
+      source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+      from="full"
+    />,
     {
       seedStore: (store) => {
         store.dispatch(replaceState(buildContainer([SESSION])));
@@ -197,7 +200,7 @@ describe('Edit mode on the export page (KAN-194)', () => {
     await user.click(screen.getByRole('button', { name: 'Done' }));
 
     expect(preview()).not.toContain('secure.store.apple.example');
-    expect(screen.getByText('2 Windows · 3 Tabs')).toBeTruthy();
+    expect(preview()).toContain('2 Windows · 3 Tabs');
   });
 
   test('a hidden row stays on screen, marked, and the same control brings it back', async () => {
@@ -446,33 +449,18 @@ describe('closing the page with edits pending (KAN-194)', () => {
   });
 });
 
-describe('the page names its mode above the title (KAN-194)', () => {
-  // The smallest box holding both; it reaches the toolbar only if the label
-  // does.
-  const sharedBox = (a: Element, b: Element): Element => {
-    let box: Element = a;
-    while (!box.contains(b)) box = box.parentElement!;
-    return box;
-  };
-  // While editing, the editor's field matches the title text too.
-  const headerTitle = () =>
-    screen
-      .getAllByText('Weekend in Kyoto')
-      .find((el) => el.tagName === 'SPAN')!;
+// KAN-880 moved the label from the header to just above the sheet.
+describe('the page names its mode above the sheet (KAN-194, KAN-880)', () => {
   const precedes = (a: Element, b: Element) =>
     Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const toolbar = () => document.querySelector('[data-toolbar-row]')!;
 
-  test('at rest it says Preview, above the session title', async () => {
+  test('at rest it says Preview, above the file and outside the toolbar', async () => {
     await renderPage();
 
     const label = screen.getByText('Preview');
-    const title = headerTitle();
-    expect(precedes(label, title)).toBe(true);
-    expect(
-      sharedBox(label, title).contains(
-        screen.getByRole('button', { name: 'Edit' })
-      )
-    ).toBe(false);
+    expect(precedes(label, document.querySelector('iframe')!)).toBe(true);
+    expect(toolbar().contains(label)).toBe(false);
     expect(screen.queryByText('Editing')).toBeNull();
   });
 
@@ -485,13 +473,11 @@ describe('the page names its mode above the title (KAN-194)', () => {
     expect(screen.queryByText('Preview')).toBeNull();
     const labels = screen.getAllByText('Editing');
     expect(labels).toHaveLength(1);
-    const title = headerTitle();
+    const title = screen.getByRole('textbox', {
+      name: 'Rename session: Weekend in Kyoto',
+    });
     expect(precedes(labels[0], title)).toBe(true);
-    expect(
-      sharedBox(labels[0], title).contains(
-        screen.getByRole('button', { name: 'Done' })
-      )
-    ).toBe(false);
+    expect(toolbar().contains(labels[0])).toBe(false);
   });
 });
 
@@ -503,7 +489,10 @@ describe('a window with no name in the editor (KAN-394)', () => {
 
   const renderUnnamed = () =>
     renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="full"
+      />,
       {
         seedStore: (store) => {
           store.dispatch(replaceState(buildContainer([UNNAMED])));

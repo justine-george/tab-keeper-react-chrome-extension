@@ -856,7 +856,10 @@ describe('mounted on every page', () => {
 
   test('the export page', async () => {
     await renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="full"
+      />,
       {
         seedStore: (store) =>
           store.dispatch(replaceState(buildContainer([SESSION]))),

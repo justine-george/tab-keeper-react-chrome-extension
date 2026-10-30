@@ -415,7 +415,10 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
 
       const fromPage = fakeClipboard();
       await renderWithProviders(
-        <ExportPage source={{ kind: 'saved', tabGroupId: 'session-parity' }} />,
+        <ExportPage
+          source={{ kind: 'saved', tabGroupId: 'session-parity' }}
+          from="full"
+        />,
         {
           seedStore: seed,
         }

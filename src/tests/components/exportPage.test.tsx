@@ -13,6 +13,7 @@ import ExportPage from '../../components/export/ExportPage';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { newestToast } from '../setup/toasts';
 import { rgb } from '../setup/hexColor';
+import { EXPORT_PALETTE } from '../../utils/functions/sessionExportHtml';
 import { getPrettyDate } from '../../utils/functions/local';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
@@ -72,7 +73,10 @@ const SESSION = buildSession({
 
 const renderPage = (tabGroupId = 'session-kyoto') =>
   renderWithProviders(
-    <ExportPage source={{ kind: 'saved', tabGroupId: tabGroupId }} />,
+    <ExportPage
+      source={{ kind: 'saved', tabGroupId: tabGroupId }}
+      from="full"
+    />,
     {
       seedStore: (store) => {
         store.dispatch(replaceState(buildContainer([SESSION])));
@@ -111,7 +115,7 @@ describe('the export preview page (KAN-190)', () => {
   test('shows the session, and previews the very file that will be saved', async () => {
     await renderPage();
 
-    expect(screen.getByText('Weekend in Kyoto')).toBeTruthy();
+    expect(screen.getByTitle('Weekend in Kyoto')).toBe(frame());
     await waitFor(() => {
       expect(frame().srcdoc).toContain('https://inari.jp/en/');
     });
@@ -305,10 +309,13 @@ describe('the export preview page (KAN-190)', () => {
     );
 
     await renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="full"
+      />
     );
 
-    expect(await screen.findByText('Weekend in Kyoto')).toBeTruthy();
+    expect(await screen.findByTitle('Weekend in Kyoto')).toBe(frame());
   });
 
   // Storage is not a contract: it can hold something older, or truncated.
@@ -316,7 +323,10 @@ describe('the export preview page (KAN-190)', () => {
     localStorage.setItem('tabContainerData', '{"tabGroups":"not an array"}');
 
     await renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="full"
+      />
     );
 
     expect(screen.getByText('Session not found')).toBeTruthy();
@@ -341,7 +351,7 @@ describe('the export preview page (KAN-190)', () => {
 
   test('a session deleted while the page is open falls back to the same message', async () => {
     const { store } = await renderPage();
-    expect(screen.getByText('Weekend in Kyoto')).toBeTruthy();
+    expect(screen.getByTitle('Weekend in Kyoto')).toBe(frame());
 
     act(() => {
       store.dispatch(replaceState(buildContainer([])));
@@ -356,7 +366,10 @@ describe('the export preview page (KAN-190)', () => {
 describe('the exported file matches the theme it was exported under', () => {
   const renderUnder = (theme: Theme) =>
     renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="full"
+      />,
       {
         seedStore: (store) => {
           store.dispatch(replaceState(buildContainer([SESSION])));
@@ -384,7 +397,10 @@ describe('the exported file matches the theme it was exported under', () => {
 describe('the preview follows a theme change while the page is open', () => {
   test('switching to a dark theme re-renders the file dark', async () => {
     const { store } = await renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="full"
+      />,
       {
         seedStore: (s) => {
           s.dispatch(replaceState(buildContainer([SESSION])));
@@ -406,7 +422,10 @@ describe('the preview follows a theme change while the page is open', () => {
 describe('choosing the file light or dark on the preview page', () => {
   const renderUnder = (theme: Theme) =>
     renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="full"
+      />,
       {
         seedStore: (store) => {
           store.dispatch(replaceState(buildContainer([SESSION])));
@@ -481,7 +500,10 @@ describe('choosing the file light or dark on the preview page', () => {
 describe('the whole page is light or dark, and the switch changes only the page (KAN-198)', () => {
   const renderUnder = (theme: Theme) =>
     renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="full"
+      />,
       {
         seedStore: (store) => {
           store.dispatch(replaceState(buildContainer([SESSION])));
@@ -490,13 +512,15 @@ describe('the whole page is light or dark, and the switch changes only the page 
       }
     );
 
-  // The strip holding the session title and the toolbar.
+  // KAN-880. No band: the header lies on the page's ground, the first fill under Edit.
   const headerFill = () => {
     let el: HTMLElement = screen.getByRole('button', { name: 'Edit' });
-    while (!el.textContent?.includes('Weekend in Kyoto')) {
-      el = el.parentElement!;
+    while (!el.hasAttribute('data-preview-header')) el = el.parentElement!;
+    for (let up = el.parentElement; up; up = up.parentElement) {
+      const fill = getComputedStyle(up).backgroundColor;
+      if (fill && fill !== 'rgba(0, 0, 0, 0)') return fill;
     }
-    return getComputedStyle(el).backgroundColor;
+    return '';
   };
   const LIGHT_HEADER = rgb(CHALK_THEME.SECONDARY_COLOR);
   const DARK_HEADER = rgb(CHARCOAL_THEME.SECONDARY_COLOR);
@@ -649,7 +673,10 @@ describe('the Save as PDF… pointer (KAN-826)', () => {
 
   test('is absent once this device has pressed Save as PDF…', async () => {
     await renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="full"
+      />,
       {
         seedStore: (store) => {
           store.dispatch(replaceState(buildContainer([SESSION])));
@@ -683,7 +710,10 @@ describe('the Save as PDF… pointer (KAN-826)', () => {
 describe('⌘P and ⌘S run Save as PDF… (KAN-826)', () => {
   const renderMac = async () => {
     const r = await renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="full"
+      />,
       {
         seed: { platformOs: 'mac' },
         seedStore: (store) => {
@@ -930,7 +960,10 @@ describe('the exported date line (KAN-347)', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 8, 29, 17, 7, 0));
     await renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="full"
+      />,
       {
         seedStore: (store) => {
           store.dispatch(
@@ -955,7 +988,10 @@ describe('the exported date line (KAN-347)', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 8, 29, 17, 7, 0));
     await renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="full"
+      />,
       {
         seedStore: (store) => {
           store.dispatch(
@@ -980,7 +1016,10 @@ describe('the exported date line (KAN-347)', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 8, 29, 17, 7, 0));
     await renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="full"
+      />,
       {
         seedStore: (store) => {
           store.dispatch(setTimeFormat('h23'));
@@ -1205,6 +1244,201 @@ describe('the icons on the export page (KAN-603)', () => {
         expect(printButton().getAttribute('aria-disabled')).toBeNull()
       );
       expect(error).toHaveBeenCalled();
+    });
+  });
+});
+
+// KAN-880. The header is the way back and the tools; the sheet carries the title.
+describe('the way back, and the slim header (KAN-880)', () => {
+  const backLink = () =>
+    screen.getByRole('button', { name: 'Back to Tab Keeper' });
+  const header = () =>
+    screen
+      .getByRole('button', { name: 'Back to Tab Keeper' })
+      .closest('[data-preview-header]');
+
+  // Chrome asks before closing only when beforeunload is cancelled.
+  const closingAsks = (): boolean => {
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+
+  const hideATab = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Hide: Fushimi Inari' })
+    );
+  };
+
+  test('the header shows neither the title nor the counts; the sheet still does', async () => {
+    await renderPage();
+
+    expect(header()).not.toBeNull();
+    expect(header()).not.toHaveTextContent('Weekend in Kyoto');
+    expect(header()).not.toHaveTextContent('1 Window');
+    expect(screen.queryByText('Weekend in Kyoto')).toBeNull();
+    expect(frame().title).toBe('Weekend in Kyoto');
+    await waitFor(() =>
+      expect(frame().srcdoc).toContain('<h1>Weekend in Kyoto</h1>')
+    );
+  });
+
+  test('while editing, the editor holds the title and the header still does not', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+
+    expect(header()).not.toHaveTextContent('Weekend in Kyoto');
+    expect(
+      screen.getByRole('textbox', { name: 'Rename session: Weekend in Kyoto' })
+    ).toHaveValue('Weekend in Kyoto');
+  });
+
+  test('the link is there in Preview and in Editing, above the toolbar', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+    const precedes = (a: Element, b: Element) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+    expect(
+      precedes(backLink(), screen.getByRole('button', { name: 'Edit' }))
+    ).toBe(true);
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(
+      precedes(backLink(), screen.getByRole('button', { name: 'Done' }))
+    ).toBe(true);
+  });
+
+  test('"Session not found" has the link too', async () => {
+    await renderPage('session-that-was-deleted');
+
+    expect(screen.getByText('Session not found')).toBeTruthy();
+    expect(backLink()).toBeTruthy();
+  });
+
+  test('the capturing state has the link too', async () => {
+    await renderWithProviders(
+      <ExportPage source={{ kind: 'open-windows' }} from="full" />
+    );
+
+    expect(document.querySelector('[data-capturing]')).toBeTruthy();
+    expect(backLink()).toBeTruthy();
+  });
+
+  test('the mode label reads Preview, then Editing, between the toolbar and the sheet', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+    const precedes = (a: Element, b: Element) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+    const preview = screen.getByText('Preview');
+    expect(
+      precedes(screen.getByRole('button', { name: 'Save as PDF…' }), preview)
+    ).toBe(true);
+    expect(precedes(preview, frame())).toBe(true);
+    expect(header()!.contains(preview)).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+
+    expect(screen.queryByText('Preview')).toBeNull();
+    const editing = screen.getByText('Editing');
+    const title = screen.getByRole('textbox', {
+      name: 'Rename session: Weekend in Kyoto',
+    });
+    expect(
+      precedes(screen.getByRole('button', { name: 'Done' }), editing)
+    ).toBe(true);
+    expect(precedes(editing, title)).toBe(true);
+    expect(header()!.contains(editing)).toBe(false);
+  });
+
+  test('the editor lies on the very sheet the file does', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+    const sheetClass = frame().className;
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+
+    const title = screen.getByRole('textbox', {
+      name: 'Rename session: Weekend in Kyoto',
+    });
+    const sheet = title.closest(`.${sheetClass}`);
+    expect(sheet).not.toBeNull();
+    expect(getComputedStyle(sheet!).backgroundColor).toBe(
+      rgb(EXPORT_PALETTE.light.bg)
+    );
+  });
+
+  test('CONTROL: with a hidden tab and no press, closing still asks', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+
+    await hideATab(user);
+
+    expect(closingAsks()).toBe(true);
+  });
+
+  test('Go back drops the guard before asking, so Chrome adds no "Leave site?"', async () => {
+    const user = userEvent.setup();
+    const { chrome } = await renderPage();
+    await hideATab(user);
+
+    await user.click(backLink());
+    await user.click(screen.getByRole('button', { name: 'Go back' }));
+
+    expect(chrome.sentMessages).toContainEqual({
+      type: 'returnFromPreview',
+      from: 'full',
+    });
+    expect(closingAsks()).toBe(false);
+  });
+
+  test('Stay keeps the guard', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+    await hideATab(user);
+
+    await user.click(backLink());
+    await user.click(screen.getByRole('button', { name: 'Stay' }));
+
+    expect(closingAsks()).toBe(true);
+  });
+
+  test('when going back fails, the page guards itself again', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await renderPage();
+    vi.spyOn(chrome.runtime, 'sendMessage').mockRejectedValue(
+      new Error('Receiving end does not exist.')
+    );
+    await hideATab(user);
+
+    await user.click(backLink());
+    await user.click(screen.getByRole('button', { name: 'Go back' }));
+
+    await waitFor(() => expect(closingAsks()).toBe(true));
+  });
+
+  test('the address says where the preview came from, and the request carries it', async () => {
+    const user = userEvent.setup();
+    const { chrome } = await renderWithProviders(
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="popup"
+      />,
+      {
+        seedStore: (store) =>
+          store.dispatch(replaceState(buildContainer([SESSION]))),
+      }
+    );
+
+    await user.click(backLink());
+
+    expect(chrome.sentMessages).toContainEqual({
+      type: 'returnFromPreview',
+      from: 'popup',
     });
   });
 });

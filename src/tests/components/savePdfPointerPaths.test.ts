@@ -69,6 +69,25 @@ describe('savePdfPointerPaths (KAN-826)', () => {
     expect(savePdfPointerPaths(wrapped, sheet, 1280)).not.toBeNull();
   });
 
+  // KAN-880. Measured at 1280 under the slim header: the button ends on the sheet's
+  // edge, 36px above it, so no approach reaches its middle; the tip moves right the least that clears.
+  test.each([
+    ['en', { left: 897.4, width: 150.6, bottom: 82 }, 988.7],
+    ['ru', { left: 846, width: 202, bottom: 82 }, 987],
+  ])(
+    'under the slim header (%s), the tip moves right of the middle just enough',
+    (_, button, tipX) => {
+      const sheet = { right: 1048, top: 118 };
+      const paths = savePdfPointerPaths(button, sheet, 1280);
+
+      expect(paths).not.toBeNull();
+      const [x1, y1] = numbers(paths!.line).slice(-2);
+      expect(x1).toBeCloseTo(tipX, 1);
+      expect(y1).toBe(90);
+      expect(x1).toBeLessThanOrEqual(button.left + button.width * 0.75);
+    }
+  );
+
   // The backstop: a tip just over the sheet's top, far left, cannot be reached
   // from the ground without crossing the file.
   test('is withheld when even the swung curve would cross the sheet', () => {

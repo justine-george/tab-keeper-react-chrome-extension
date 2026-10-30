@@ -159,7 +159,8 @@ export default function PreviewBackLink({
           quiet={{ label: t('Go back'), onPress: leave }}
           filled={{ label: t('Stay'), onPress: stay }}
           align="left"
-          notchInset="16px"
+          // Measured headless: the tip on the arrow's middle within 2px, hung (1280) or not (600).
+          notchInset="8px"
           onCancel={stay}
         />
       )}

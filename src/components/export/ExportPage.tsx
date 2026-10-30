@@ -17,6 +17,7 @@ import markDataUri from '../../assets/exportMark.png?inline';
 import Button from '../common/Button';
 import Icon from '../common/Icon';
 import ExportEditor from './ExportEditor';
+import PreviewBackLink from './PreviewBackLink';
 import SavePdfPointer from './SavePdfPointer';
 import { isSaveAsPdfShortcut } from './saveAsPdfShortcut';
 import SlidingPair, { type SlidingOption } from '../common/SlidingPair';
@@ -62,7 +63,8 @@ import {
   exportIconKey,
   readExportIcons,
 } from '../../utils/functions/exportIcons';
-import { CORNER_SHAPE } from '../../styles/scale';
+import { CORNER_SHAPE, TYPE } from '../../styles/scale';
+import type { PreviewFrom } from '../../utils/functions/previewFrom';
 import {
   applyExportEdits,
   countExportEdits,
@@ -82,17 +84,16 @@ import {
  */
 
 /**
- * How wide the header's content may grow, centred (KAN-235).
- *
- * The document below sits in a 720px column; this is what keeps Edit and
- * Save as PDF… from running to the monitor's edges above it. The toolbar wraps
- * its right-hand group onto its own line when it cannot fit. It was set as the
- * one-line floor of the worded Layout pair (Russian 906px). With Layout as
- * glyphs (KAN-827) the widest is Russian at 746px (ko 544, zh 559, zh-TW 559,
- * en 564, hi 638, it 640, ja 653, sv 654, pt 662, fr 687, de 693, es 699).
- * 930 stays so the band, and Save as PDF…'s place above the sheet, do not move.
+ * KAN-880. The sheet's width, and the header's content's: the toolbar's edges
+ * are the sheet's. Replaces KAN-235's 930px band; with Layout as glyphs
+ * (KAN-827) the widest toolbar is Russian at 746px, so 816 holds every
+ * language on one line.
  */
-const HEADER_CONTENT_MAX_PX = 930;
+const SHEET_WIDTH = `
+  box-sizing: border-box;
+  width: calc(100% - 48px);
+  max-width: 816px;
+`;
 
 // KAN-603. The longest Print waits for the icons; measured, they land 60-160ms after opening.
 const OUTPUT_WAIT_CAP_MS = 1000;
@@ -111,7 +112,14 @@ const OUTPUT_WAIT_CAP_MS = 1000;
 export type ExportSource =
   { kind: 'saved'; tabGroupId: string } | { kind: 'open-windows' };
 
-export default function ExportPage({ source }: { source: ExportSource }) {
+export default function ExportPage({
+  source,
+  from,
+}: {
+  source: ExportSource;
+  // KAN-880. Where "Back to Tab Keeper" goes.
+  from: PreviewFrom;
+}) {
   const { t, i18n } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
   // KAN-305. Layout saves every setting; without this it saves stale ones.
@@ -266,10 +274,12 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   // only when a beforeunload listener cancels the event, and draws its own
   // dialog; the page cannot choose the words.
   const pending = tally.renamed > 0 || tally.hiddenTabs > 0;
+  // KAN-880. Set by Go back, so Chrome adds no "Leave site?" to the card's answer.
+  const leavingRef = useRef(false);
   useEffect(() => {
     if (!pending) return;
     const ask = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
+      if (!leavingRef.current) event.preventDefault();
     };
     window.addEventListener('beforeunload', ask);
     return () => window.removeEventListener('beforeunload', ask);
@@ -563,25 +573,111 @@ export default function ExportPage({ source }: { source: ExportSource }) {
   );
   useEffect(() => () => listenInFrame(null), [listenInFrame]);
 
-  // Still capturing: the page, and nothing on it. NOT "Session not found",
-  // which would be a false statement for the length of the capture and would
-  // flash on every load.
-  if (capturing) {
-    return <div css={pageStyle} data-capturing />;
-  }
+  // KAN-880. No band: the header lies on the sheet's ground. Line 1 is the way back, line 2 the toolbar.
+  const headerStyle = css`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding-top: 16px;
+  `;
+  // KAN-826. A sheet on the ground, so it reads as the page that gets saved; KAN-880: the editor wears it too.
+  const sheetStyle = css`
+    ${SHEET_WIDTH}
+    display: block;
+    flex-grow: 1;
+    margin: 0 auto;
+    border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    box-shadow: ${COLORS.FLOATING_SHADOW};
+    background-color: ${EXPORT_PALETTE[scheme].bg};
+  `;
+  const backLine = (
+    <div
+      css={css`
+        ${SHEET_WIDTH}
+        display: flex;
+        align-items: center;
+        min-height: 22px;
+      `}
+    >
+      <PreviewBackLink
+        from={from}
+        pending={pending}
+        onLeave={() => {
+          leavingRef.current = true;
+        }}
+        onLeaveFailed={() => {
+          leavingRef.current = false;
+        }}
+      />
+    </div>
+  );
 
-  if (!session || !tidied || !edited) {
+  // KAN-880. Every state paints the page, "Session not found" and capturing too.
+  const pageGlobal = (
+    <Global
+      styles={css`
+        /* KAN-212. The browser's default body margin, never reset: this page
+           loads no stylesheet of its own and App.css belongs to the popup.
+           Measured, the page sat at left 8, top 8 in a 1280px viewport with
+           both html and body at rgba(0,0,0,0) -- so the 8px band showed the
+           browser's own canvas, which is white in EITHER scheme because
+           nothing in the app was painting it.
+
+           Both elements are painted, not just body: the overscroll gutter a
+           trackpad opens past the end of the page comes from the root, and
+           leaving it transparent shows the same white there. */
+        html,
+        body {
+          margin: 0;
+          background-color: ${COLORS.SECONDARY_COLOR};
+        }
+        [data-scheme-switching] * {
+          transition: none !important;
+        }
+        /* KAN-218. Except the knobs: pressing Light or Dark changes the
+           palette in the same commit that moves the Colour knob, and the rule
+           above would make it jump. Only the knob's own motion comes back --
+           clip-path on the knob, rotate inside it -- so every colour still
+           switches at once. Never under reduced motion, where the knob does
+           not move at all. */
+        @media (prefers-reduced-motion: no-preference) {
+          [data-scheme-switching] [data-sliding-knob] {
+            transition: clip-path ${KNOB_TRANSITION} !important;
+          }
+          [data-scheme-switching] [data-sliding-knob] * {
+            transition: rotate ${KNOB_TRANSITION} !important;
+          }
+        }
+      `}
+    />
+  );
+
+  // Still capturing: the page and the way back, nothing else. NOT "Session
+  // not found", which would be a false statement for the length of the
+  // capture and would flash on every load. KAN-880: both keep the link, or an
+  // old preview link lands on a dead end.
+  if (capturing || !session || !tidied || !edited) {
     return (
-      <div css={pageStyle}>
-        <p
-          css={css`
-            margin: 48px auto;
-            color: ${COLORS.LABEL_L1_COLOR};
-          `}
-        >
-          {t('Session not found')}
-        </p>
-      </div>
+      <ThemeColorsOverride.Provider value={COLORS}>
+        {pageGlobal}
+        <div css={pageStyle} data-capturing={capturing || undefined}>
+          <div data-preview-header css={headerStyle}>
+            {backLine}
+          </div>
+          {!capturing && (
+            <p
+              css={css`
+                margin: 48px auto;
+                color: ${COLORS.LABEL_L1_COLOR};
+              `}
+            >
+              {t('Session not found')}
+            </p>
+          )}
+          <TooltipLayer />
+        </div>
+      </ThemeColorsOverride.Provider>
     );
   }
 
@@ -735,115 +831,17 @@ export default function ExportPage({ source }: { source: ExportSource }) {
 
   return (
     <ThemeColorsOverride.Provider value={COLORS}>
-      <Global
-        styles={css`
-          /* KAN-212. The browser's default body margin, never reset: this page
-             loads no stylesheet of its own and App.css belongs to the popup.
-             Measured, the page sat at left 8, top 8 in a 1280px viewport with
-             both html and body at rgba(0,0,0,0) -- so the 8px band showed the
-             browser's own canvas, which is white in EITHER scheme because
-             nothing in the app was painting it.
-
-             Both elements are painted, not just body: the overscroll gutter a
-             trackpad opens past the end of the page comes from the root, and
-             leaving it transparent shows the same white there. */
-          html,
-          body {
-            margin: 0;
-            background-color: ${COLORS.SECONDARY_COLOR};
-          }
-          [data-scheme-switching] * {
-            transition: none !important;
-          }
-          /* KAN-218. Except the knobs: pressing Light or Dark changes the
-             palette in the same commit that moves the Colour knob, and the rule
-             above would make it jump. Only the knob's own motion comes back --
-             clip-path on the knob, rotate inside it -- so every colour still
-             switches at once. Never under reduced motion, where the knob does
-             not move at all. */
-          @media (prefers-reduced-motion: no-preference) {
-            [data-scheme-switching] [data-sliding-knob] {
-              transition: clip-path ${KNOB_TRANSITION} !important;
-            }
-            [data-scheme-switching] [data-sliding-knob] * {
-              transition: rotate ${KNOB_TRANSITION} !important;
-            }
-          }
-        `}
-      />
+      {pageGlobal}
       <div css={pageStyle}>
         {/* The toolbar has a row of its own, always. Beside the title it fit
           or wrapped depending on how long each mode's toolbar was, so pressing
-          Edit moved every control up a row.
-
-          KAN-235. The header's CONTENT lives in a centred band; the header
-          itself stays full bleed. The document below sits in a 720px column,
-          and with the toolbar running edge to edge a wide monitor put Edit
-          and Save as PDF… ~1970px apart with the thing they act on in the
-          middle. Done with align-items on this column and a max-width on
-          each child rather than a wrapper, so nothing that walks from
-          data-toolbar-row to its parent changes. Below the band's width this
-          is inert: the 16px gutter is the edge, exactly as before. */}
-        <div
-          css={css`
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 16px;
-            background-color: ${COLORS.SECONDARY_COLOR};
-            border-bottom: 1px solid ${COLORS.PANEL_BORDER_COLOR};
-          `}
-        >
-          <div
-            css={css`
-              display: flex;
-              flex-direction: column;
-              gap: 2px;
-              min-width: 0;
-              width: 100%;
-              max-width: ${HEADER_CONTENT_MAX_PX}px;
-            `}
-          >
-            {/* The page names its mode here and only here (picked from mocks).
-              The header otherwise repeats the title the file shows below it,
-              and nothing said the page is the file rather than the app. The
-              label's height is fixed and the pencil sized into it, so swapping
-              Preview for Editing moves nothing. */}
-            <span
-              css={css`
-                display: inline-flex;
-                align-items: center;
-                gap: 5px;
-                height: 1rem;
-                font-size: 0.68rem;
-                font-weight: 600;
-                letter-spacing: 0.08em;
-                text-transform: uppercase;
-                color: ${COLORS.LABEL_L2_COLOR};
-              `}
-            >
-              {editing && (
-                <Icon type="edit" size="0.9rem" style="padding: 0;" />
-              )}
-              <span>{editing ? t('Editing') : t('Preview')}</span>
-            </span>
-            <span
-              css={css`
-                font-size: 1.125rem;
-              `}
-            >
-              {edited.title}
-            </span>
-            <span
-              css={css`
-                font-size: 0.75rem;
-                color: ${COLORS.LABEL_L2_COLOR};
-              `}
-            >
-              {formatGroupCounts(edited.windowCount, edited.tabCount, false, t)}
-            </span>
-          </div>
+          Edit moved every control up a row. KAN-880: the title and counts left
+          the header; the sheet shows both in large type. Done with
+          align-items on this column and a width on each child rather than a
+          wrapper, so nothing that walks from data-toolbar-row to its parent
+          changes. */}
+        <div data-preview-header css={headerStyle}>
+          {backLine}
 
           <div
             // Keyed by mode so the new row mounts, and its fade plays, on
@@ -856,8 +854,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
               align-items: center;
               gap: 10px;
               flex-wrap: wrap;
-              width: 100%;
-              max-width: ${HEADER_CONTENT_MAX_PX}px;
+              ${SHEET_WIDTH}
               &[data-swapped='true'] {
                 animation: ${rowIn} 180ms cubic-bezier(0.23, 1, 0.32, 1);
               }
@@ -997,15 +994,39 @@ export default function ExportPage({ source }: { source: ExportSource }) {
           </div>
         </div>
 
+        {/* KAN-880. The page names its mode just above the sheet's top-left corner,
+          not in the header. Its height is fixed and the pencil sized into it,
+          so swapping Preview for Editing moves nothing. */}
+        <span
+          css={css`
+            ${SHEET_WIDTH}
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            height: 1rem;
+            margin: 16px auto 4px;
+            font-size: ${TYPE.META};
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: ${COLORS.LABEL_L2_COLOR};
+          `}
+        >
+          {editing && <Icon type="edit" size="0.9rem" style="padding: 0;" />}
+          <span>{editing ? t('Editing') : t('Preview')}</span>
+        </span>
         {editing ? (
-          <ExportEditor
-            session={tidied}
-            edits={edits}
-            scheme={scheme}
-            icons={icons}
-            onRename={renameRow}
-            onToggleHidden={toggleHidden}
-          />
+          // KAN-880. The editor on the same sheet as the file, so Edit and Done change only the words.
+          <div css={sheetStyle}>
+            <ExportEditor
+              session={tidied}
+              edits={edits}
+              scheme={scheme}
+              icons={icons}
+              onRename={renameRow}
+              onToggleHidden={toggleHidden}
+            />
+          </div>
         ) : (
           <>
             {/* The preview is the file itself, in its own document: it carries its
@@ -1023,18 +1044,7 @@ export default function ExportPage({ source }: { source: ExportSource }) {
               // from a sandboxed frame without it, silently but for a console line.
               // allow-scripts is still absent, so the file cannot run anything.
               sandbox="allow-same-origin allow-modals"
-              // KAN-826. A sheet on the ground, so it reads as the page that gets saved.
-              css={css`
-                display: block;
-                box-sizing: border-box;
-                flex-grow: 1;
-                width: calc(100% - 48px);
-                max-width: 816px;
-                margin: 24px auto 0;
-                border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
-                box-shadow: ${COLORS.FLOATING_SHADOW};
-                background-color: ${EXPORT_PALETTE[scheme].bg};
-              `}
+              css={sheetStyle}
             />
             {!hasPressedSaveAsPdf && (
               <SavePdfPointer button={saveButton} sheet={frameEl} />

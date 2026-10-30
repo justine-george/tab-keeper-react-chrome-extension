@@ -40,6 +40,10 @@ interface ExportEditorProps {
 const FILE_FONT =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
+// KAN-880. The file's body padding and main column (sessionExportHtml styles()), so on the same sheet the title starts where the file's h1 does (measured headless: 48px inside the sheet at 1280, 25px at 600).
+const FILE_PADDING = '30px 24px 40px';
+const FILE_COLUMN_PX = 720;
+
 function siteOf(url: string): string {
   try {
     return new URL(url).host || url;
@@ -276,11 +280,10 @@ export default function ExportEditor({
   return (
     <div
       css={css`
-        flex-grow: 1;
         background-color: ${palette.bg};
         color: ${palette.text};
         font: 15px/1.5 ${FILE_FONT};
-        padding: 30px 24px 40px;
+        padding: ${FILE_PADDING};
 
         /* KAN-222. A hidden row stays where it was, faded and struck through,
            so the same eye brings it back. The fade goes on the row's own
@@ -303,7 +306,7 @@ export default function ExportEditor({
     >
       <div
         css={css`
-          max-width: 720px;
+          max-width: ${FILE_COLUMN_PX}px;
           margin: 0 auto;
           display: flex;
           flex-direction: column;

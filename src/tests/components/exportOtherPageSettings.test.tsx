@@ -33,7 +33,10 @@ const STARTING: SettingsData = {
 
 const renderPage = () =>
   renderWithProviders(
-    <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+    <ExportPage
+      source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+      from="full"
+    />,
     {
       seedStore: (store) => {
         store.dispatch(replaceState(buildContainer([SESSION])));
