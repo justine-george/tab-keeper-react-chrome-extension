@@ -147,9 +147,10 @@ describe('the Help category', () => {
     await store.dispatch(openSettingsPage(SettingsCategory.HELP));
     fireEvent.click(screen.getByRole('button', { name: 'Show me around' }));
     await waitFor(() =>
-      expect(store.getState().settingsDataState.firstRun).toEqual(
-        newRun('popup', 1)
-      )
+      expect(store.getState().settingsDataState.firstRun).toEqual({
+        ...newRun('popup', 1),
+        isReplay: true,
+      })
     );
     expect(store.getState().globalState.isSettingsPage).toBe(false);
     expect(store.getState().globalState.isRunHere).toBe(true);
@@ -161,9 +162,10 @@ describe('the Help category', () => {
     await read('unpinned');
     fireEvent.click(screen.getByRole('button', { name: 'Show me around' }));
     await waitFor(() =>
-      expect(store.getState().settingsDataState.firstRun).toEqual(
-        newRun('full', 1)
-      )
+      expect(store.getState().settingsDataState.firstRun).toEqual({
+        ...newRun('full', 1),
+        isReplay: true,
+      })
     );
   });
 });

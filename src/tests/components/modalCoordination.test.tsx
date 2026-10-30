@@ -340,6 +340,27 @@ describe('setup in the order (KAN-7 §5)', () => {
     expect(store.getState().globalState.isPinGuideOpen).toBe(true);
   });
 
+  // KAN-879. A full-view run skipped earlier leaves setup pending; that setup is the first, so the ending follows it.
+  test('a run skipped earlier: the open’s setup leads to the ending', async () => {
+    const { store } = await full(
+      { isOnToolbar: true },
+      {
+        setupState: 'pending',
+        firstRun: { ...newRun('full', 3), ended: 'skipped' },
+      }
+    );
+    await waitFor(() =>
+      expect(store.getState().globalState.isSetupOpen).toBe(true)
+    );
+    expect(store.getState().globalState.isSetupReplay).toBe(false);
+    expect(store.getState().globalState.endingCard).toBeNull();
+
+    await act(async () => {
+      await store.dispatch(leaveSetup());
+    });
+    expect(store.getState().globalState.endingCard).toBe('pending');
+  });
+
   // §"Error and edge cases": no getUserSettings means no guide, and setup still shows.
   test('pending with no getUserSettings: no guide, and setup opens', async () => {
     const { store } = await full({}, { setupState: 'pending' });

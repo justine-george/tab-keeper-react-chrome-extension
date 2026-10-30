@@ -19,6 +19,7 @@ import {
   finishSetup,
   guardOnboarding,
   markClosesThisTabCardAnswered,
+  markEndingSeen,
   markHadSavedSession,
   markPressedSaveAsPdf,
   markFullViewCalloutSeen,
@@ -58,6 +59,8 @@ const GARBAGE = {
   isClosesThisTabCardAnswered: 'true',
   hasHadSavedSession: 1,
   hasPressedSaveAsPdf: 'yes',
+  isPopupEndingSeen: 'true',
+  isFullViewEndingSeen: 1,
 };
 
 const ALL_SET = {
@@ -75,11 +78,15 @@ const ALL_SET = {
     welcomeShows: null,
     ended: null,
     onlyFullViewSteps: false,
+    isReplay: false,
+    isSessionNameTyped: false,
   },
   isWhatsNew2Seen: true,
   isClosesThisTabCardAnswered: true,
   hasHadSavedSession: true,
   hasPressedSaveAsPdf: true,
+  isPopupEndingSeen: true,
+  isFullViewEndingSeen: true,
 } as const;
 
 const ONBOARDING_KEYS: string[] = Object.keys(ONBOARDING_DEFAULTS);
@@ -158,6 +165,17 @@ describe('the slice starts with guarded onboarding fields', () => {
     expect(initialState).toMatchObject(ALL_SET);
   });
 
+  // KAN-879. Nobody updating has seen an ending in either view.
+  it('settings saved before KAN-879 read both endings as not seen', async () => {
+    localStorage.setItem(
+      'settingsData',
+      JSON.stringify({ setupState: 'done', isFullViewCalloutSeen: true })
+    );
+    const { initialState } = await freshSlice();
+    expect(initialState.isPopupEndingSeen).toBe(false);
+    expect(initialState.isFullViewEndingSeen).toBe(false);
+  });
+
   it('settings saved before KAN-7 start as the defaults', async () => {
     localStorage.setItem('settingsData', JSON.stringify({ theme: 'Blue' }));
     const { initialState } = await freshSlice();
@@ -210,6 +228,16 @@ describe('the onboarding reducers persist what they set', () => {
       markPressedSaveAsPdf(),
       { hasPressedSaveAsPdf: true },
     ],
+    [
+      'markEndingSeen popup',
+      markEndingSeen('popup'),
+      { isPopupEndingSeen: true, isFullViewEndingSeen: false },
+    ],
+    [
+      'markEndingSeen full',
+      markEndingSeen('full'),
+      { isPopupEndingSeen: false, isFullViewEndingSeen: true },
+    ],
     ['setDefaultView', setDefaultView('full'), { defaultView: 'full' }],
   ] as const)('%s sets and saves', (_name, action, expected) => {
     expect(reduce([action])).toMatchObject(expected);
@@ -223,6 +251,8 @@ describe('the onboarding reducers persist what they set', () => {
     ['markFullViewCalloutSeen', markFullViewCalloutSeen()],
     ['markClosesThisTabCardAnswered', markClosesThisTabCardAnswered()],
     ['markPressedSaveAsPdf', markPressedSaveAsPdf()],
+    ['markEndingSeen popup', markEndingSeen('popup')],
+    ['markEndingSeen full', markEndingSeen('full')],
   ] as const)('%s writes only the first time', (_name, action) => {
     const once = reduce([action]);
     const setItem = vi.spyOn(localStorage, 'setItem');

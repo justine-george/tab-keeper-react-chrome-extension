@@ -3,6 +3,11 @@ import { v4 as uuidv4 } from 'uuid';
 
 import type { AppDispatch, RootState } from './store';
 import { followWithSetup } from './firstOpenFollowUps';
+import {
+  requestEnding,
+  selectEndingTarget,
+  selectIsEndingShown,
+} from './onboardingEnding';
 import { showSession } from './showSession';
 import { selectIsSavedSessionFolded } from './savedSessionFold';
 import {
@@ -14,6 +19,7 @@ import {
   openReplayNote,
   runShownHere,
   runStoppedHere,
+  setEndingCard,
   setRunSaveCard,
   setRunSaveEcho,
   setSearchInputText,
@@ -25,6 +31,7 @@ import {
   markFullViewCalloutSeen,
   recordFirstRun,
   setFirstRunSession,
+  setFirstRunSessionNameTyped,
   setFirstRunStep,
   setPinTabKeeperInNewWindows,
 } from './slices/settingsDataStateSlice';
@@ -119,6 +126,13 @@ export const selectRunEngagedRowId = (state: RootState): string | null => {
   return ROW_KINDS.some((k) => k === kind) ? run.sessionId : null;
 };
 
+// KAN-879. The ending card's row, drawn engaged so its Open shows.
+export const selectEndingRowId = (state: RootState): string | null => {
+  if (!selectIsEndingShown(state)) return null;
+  const target = selectEndingTarget(state);
+  return target.kind === 'session' ? target.sessionId : null;
+};
+
 // Hard rule 2: while the Delete step shows, the run's Delete (in its header's ⋮) explains only.
 export const selectRunHoldsDelete = (
   state: RootState,
@@ -194,6 +208,8 @@ export const startRun =
     dispatch(setSearchInputText(''));
     dispatch(closeFullViewCallout());
     dispatch(setRunSaveCard(null));
+    // KAN-879. Never on a replay: a Help tour takes away an ending shown or waiting.
+    dispatch(setEndingCard(null));
     const before = leavesAndEndsSoFar(getState);
     // Held before the record is written: no page sees a record no page holds.
     await dispatch(holdLock());
@@ -390,12 +406,13 @@ const removeRunSample =
 
 // KAN-876. Every save on the save step is the run's: the example gives way to it, and the run moves on to it.
 export const takeRunSave =
-  (tabGroupId: string): Thunk<void> =>
+  (tabGroupId: string, isNameTyped: boolean): Thunk<void> =>
   (dispatch, getState) => {
     const run = selectRunHere(getState());
     if (run === null || stepKindOf(run) !== 'save') return;
     const id = run.sessionId;
     dispatch(setFirstRunSession(tabGroupId));
+    dispatch(setFirstRunSessionNameTyped(isNameTyped));
     dispatch(removeRunSample(id));
     dispatch(showSession(tabGroupId));
     // Only the user's first save echoes.
@@ -443,25 +460,47 @@ export const endRun =
 export const skipRun = (): Thunk<void> => (dispatch, getState) => {
   const run = selectRunHere(getState());
   dispatch(endRun('skipped'));
-  if (run !== null) dispatch(openReplayNote({ leadsToSetup: false }));
+  if (run !== null) {
+    dispatch(
+      openReplayNote({
+        leadsToSetup: false,
+        leadsToEnding: false,
+        isAfterHelpTour: run.isReplay,
+      })
+    );
+  }
 };
 
-// The last step done, then the note; a full-view run goes on to setup (begun for an upgrader) once the note closes.
+// The last step done, then the note; a full-view run goes on to setup (begun for an upgrader) once the note closes, a popup run to the ending (KAN-879).
 export const finishRunHere =
   (): Thunk<Promise<void>> => async (dispatch, getState) => {
     const run = selectRunHere(getState());
     dispatch(endRun('finished'));
     if (run === null) return;
     if (run.view === 'full') dispatch(beginSetup());
-    dispatch(openReplayNote({ leadsToSetup: run.view === 'full' }));
+    dispatch(
+      openReplayNote({
+        leadsToSetup: run.view === 'full',
+        leadsToEnding: run.view === 'popup' && !run.isReplay,
+        isAfterHelpTour: run.isReplay,
+      })
+    );
   };
 
 // Got it or Esc on the note.
 export const leaveReplayNote =
   (): Thunk<Promise<void>> => async (dispatch, getState) => {
-    const leadsToSetup = getState().globalState.doesReplayNoteLeadToSetup;
+    const {
+      doesReplayNoteLeadToSetup: leadsToSetup,
+      doesReplayNoteLeadToEnding: leadsToEnding,
+      isReplayNoteAfterHelpTour,
+    } = getState().globalState;
     dispatch(closeReplayNote());
-    if (leadsToSetup) await dispatch(followWithSetup());
+    // KAN-879. The setup after a Help tour is a replay too.
+    if (leadsToSetup) {
+      await dispatch(followWithSetup(isReplayNoteAfterHelpTour));
+    }
+    if (leadsToEnding) dispatch(requestEnding());
   };
 
 // Pins Tab Keeper's own tab and turns on pinning in new windows; a refusal pins nothing, and the run ends either way.

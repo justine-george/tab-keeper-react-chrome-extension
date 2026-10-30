@@ -11,6 +11,7 @@ import {
   type FirstRun,
   type RunEnding,
   type RunStep,
+  type RunView,
 } from '../../utils/functions/firstRun';
 import {
   asPartialSettings,
@@ -194,6 +195,9 @@ export interface SettingsData {
   hasPressedSaveAsPdf: boolean;
   // KAN-731. This device's stored theme has had the Paper/Graphite to Chalk/Charcoal move.
   isChalkCharcoalMoveApplied: boolean;
+  // KAN-879. The onboarding ending has shown in this view on this device.
+  isPopupEndingSeen: boolean;
+  isFullViewEndingSeen: boolean;
 }
 
 /**
@@ -222,6 +226,8 @@ export type OnboardingSettings = Pick<
   | 'isClosesThisTabCardAnswered'
   | 'hasHadSavedSession'
   | 'hasPressedSaveAsPdf'
+  | 'isPopupEndingSeen'
+  | 'isFullViewEndingSeen'
 >;
 
 export const ONBOARDING_DEFAULTS: OnboardingSettings = {
@@ -235,6 +241,8 @@ export const ONBOARDING_DEFAULTS: OnboardingSettings = {
   isClosesThisTabCardAnswered: false,
   hasHadSavedSession: false,
   hasPressedSaveAsPdf: false,
+  isPopupEndingSeen: false,
+  isFullViewEndingSeen: false,
 };
 
 export function asSetupState(value: unknown): SetupState {
@@ -282,6 +290,8 @@ export function guardOnboarding(
     isClosesThisTabCardAnswered: read('isClosesThisTabCardAnswered', asFlag),
     hasHadSavedSession: read('hasHadSavedSession', asFlag),
     hasPressedSaveAsPdf: read('hasPressedSaveAsPdf', asFlag),
+    isPopupEndingSeen: read('isPopupEndingSeen', asFlag),
+    isFullViewEndingSeen: read('isFullViewEndingSeen', asFlag),
   };
 }
 
@@ -699,6 +709,18 @@ export const settingsDataStateSlice = createSlice({
       saveLocalSettings(state);
     },
 
+    // KAN-879. As the ending card opens in that view; only the first writes.
+    markEndingSeen: (state, action: PayloadAction<RunView>) => {
+      if (action.payload === 'full') {
+        if (state.isFullViewEndingSeen) return;
+        state.isFullViewEndingSeen = true;
+      } else {
+        if (state.isPopupEndingSeen) return;
+        state.isPopupEndingSeen = true;
+      }
+      saveLocalSettings(state);
+    },
+
     setDefaultView: (state, action: PayloadAction<DefaultView>) => {
       state.defaultView = action.payload;
       saveLocalSettings(state);
@@ -725,6 +747,15 @@ export const settingsDataStateSlice = createSlice({
       const run = state.firstRun;
       if (run === null || run.ended !== null) return;
       run.sessionId = action.payload;
+      run.isSessionNameTyped = false;
+      saveLocalSettings(state);
+    },
+
+    // KAN-879. Only a save sets it; any other session for the run clears it.
+    setFirstRunSessionNameTyped: (state, action: PayloadAction<boolean>) => {
+      const run = state.firstRun;
+      if (run === null || run.ended !== null) return;
+      run.isSessionNameTyped = action.payload;
       saveLocalSettings(state);
     },
 
@@ -806,6 +837,7 @@ export const {
   dismissPinGuide,
   markFullViewOpened,
   markFullViewCalloutSeen,
+  markEndingSeen,
   markClosesThisTabCardAnswered,
   markHadSavedSession,
   markPressedSaveAsPdf,
@@ -813,6 +845,7 @@ export const {
   recordFirstRun,
   setFirstRunStep,
   setFirstRunSession,
+  setFirstRunSessionNameTyped,
   countWelcomeShow,
   endFirstRun,
   markWhatsNew2Seen,

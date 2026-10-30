@@ -443,5 +443,12 @@
   "Replace with current window": "Durch aktuelles Fenster ersetzen",
   "Window replaced.": "Fenster ersetzt.",
   "ClosedDuplicateTabs_one": "{{count}} doppelter Tab geschlossen.",
-  "ClosedDuplicateTabs_other": "{{count}} doppelte Tabs geschlossen."
+  "ClosedDuplicateTabs_other": "{{count}} doppelte Tabs geschlossen.",
+  "You're all set. {{name}} is saved.": "Alles ist bereit. Die Sitzung „{{name}}“ ist gespeichert.",
+  "Open brings its tabs back, any time.": "Öffnen stellt die Tabs dieser Sitzung jederzeit wieder her.",
+  "You're all set. Your tabs are saved here.": "Alles ist bereit. Ihre Tabs sind hier gespeichert.",
+  "Open brings them back, any time.": "Öffnen stellt die Tabs jederzeit wieder her.",
+  "Have a good day!": "Schönen Tag noch!",
+  "You're all set.": "Alles ist bereit.",
+  "Save your tabs here whenever you like.": "Speichern Sie Ihre Tabs hier, wann immer Sie möchten."
 }

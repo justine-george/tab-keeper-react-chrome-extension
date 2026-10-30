@@ -458,5 +458,12 @@
   "Window replaced.": "Janela substituída.",
   "ClosedDuplicateTabs_one": "{{count}} aba duplicada fechada.",
   "ClosedDuplicateTabs_many": "{{count}} abas duplicadas fechadas.",
-  "ClosedDuplicateTabs_other": "{{count}} abas duplicadas fechadas."
+  "ClosedDuplicateTabs_other": "{{count}} abas duplicadas fechadas.",
+  "You're all set. {{name}} is saved.": "Tudo pronto. A sessão {{name}} foi salva.",
+  "Open brings its tabs back, any time.": "Abrir traz de volta as abas desta sessão a qualquer momento.",
+  "You're all set. Your tabs are saved here.": "Tudo pronto. Suas abas foram salvas aqui.",
+  "Open brings them back, any time.": "Abrir traz as abas de volta a qualquer momento.",
+  "Have a good day!": "Tenha um ótimo dia!",
+  "You're all set.": "Tudo pronto.",
+  "Save your tabs here whenever you like.": "Salve suas abas aqui quando quiser."
 }

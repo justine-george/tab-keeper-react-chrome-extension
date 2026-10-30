@@ -40,7 +40,13 @@ const placed = () =>
 const renderOpen = () =>
   renderWithProviders(<ReplayNote />, {
     seedStore: (store) =>
-      store.dispatch(openReplayNote({ leadsToSetup: false })),
+      store.dispatch(
+        openReplayNote({
+          leadsToSetup: false,
+          leadsToEnding: false,
+          isAfterHelpTour: false,
+        })
+      ),
   });
 
 describe('the replay note', () => {

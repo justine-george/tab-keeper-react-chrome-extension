@@ -15,6 +15,7 @@ import {
   openFullViewCallout,
   noteFirstSave,
   setFirstSavePopping,
+  setEndingCard,
   closePinGuide,
   closeSetup,
   openPinGuide,
@@ -196,6 +197,25 @@ describe('releasing a pending ask', () => {
     advance(REVIEW_CARD_SETTLE_MS);
     expect(cardOf(store)).not.toBeNull();
   });
+
+  // KAN-879. The onboarding ending, asked for or on screen, comes first; the card after.
+  test.each(['pending', 'shown'] as const)(
+    'the ending card (%s) covers the page',
+    (ending) => {
+      const store = mount((s) => {
+        s.dispatch(setEndingCard(ending));
+        s.dispatch(noteReviewMoment({ kind: 'firstSave' }));
+      });
+      advance(5_000);
+      expect(cardOf(store)).toBeNull();
+
+      act(() => {
+        store.dispatch(setEndingCard(null));
+      });
+      advance(REVIEW_CARD_SETTLE_MS);
+      expect(cardOf(store)).not.toBeNull();
+    }
+  );
 
   // KAN-875. Only a pop on screen holds the card: a page with none never says it is popping.
   test('a first save with no pop on the page is not held', () => {

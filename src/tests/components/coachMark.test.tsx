@@ -314,6 +314,15 @@ describe('the coach mark', () => {
     });
   }
 
+  // KAN-879. The onboarding ending's card leaves the page as it is.
+  test('undimmed: no dim and no still box, the ring still drawn', async () => {
+    await render({ isDimmed: false, isLive: true });
+    await placed();
+    expect(dim()).toBeNull();
+    expect(document.querySelector('[data-coach-still]')).toBeNull();
+    expect(ring()).not.toBeNull();
+  });
+
   test('a press on the dim is default-prevented and reaches no listener outside it', async () => {
     await render();
     await placed();

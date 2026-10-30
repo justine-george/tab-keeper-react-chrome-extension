@@ -38,6 +38,10 @@ export interface FirstRun {
   ended: RunEnding | null;
   // KAN-830. The run shows only the full view's own steps: Currently open, Find & fit, Two views.
   onlyFullViewSteps: boolean;
+  // KAN-879. Started from Settings → Help → Show me around.
+  isReplay: boolean;
+  // KAN-879. The user typed the run's session name in the save field (not the suggested one).
+  isSessionNameTyped: boolean;
 }
 
 // The last card; step 0 is Hello in the full view and the welcome in the popup.
@@ -171,7 +175,14 @@ export function newRun(
     welcomeShows: view === 'popup' && step === 0 ? 1 : null,
     ended: null,
     onlyFullViewSteps: false,
+    isReplay: false,
+    isSessionNameTyped: false,
   };
+}
+
+// R11, KAN-879. Help → Show me around: step 1, no Hello, marked a replay.
+export function newReplayRun(view: RunView): FirstRun {
+  return { ...newRun(view, 1), isReplay: true };
 }
 
 // KAN-830. A full-view run of only its own steps, holding the popup tour's example if it carries one.
@@ -199,6 +210,11 @@ export function asFirstRun(value: unknown): FirstRun | null {
   // Stored before KAN-830: a whole run.
   const rawOnly: unknown = Reflect.get(value, 'onlyFullViewSteps');
   const onlyFullViewSteps = rawOnly === undefined ? false : rawOnly;
+  // Stored before KAN-879: not a replay, no typed name.
+  const rawReplay: unknown = Reflect.get(value, 'isReplay');
+  const isReplay = rawReplay === undefined ? false : rawReplay;
+  const rawTyped: unknown = Reflect.get(value, 'isSessionNameTyped');
+  const isSessionNameTyped = rawTyped === undefined ? false : rawTyped;
   if (step === null) return null;
   if (rawId !== null && sessionId === null) return null;
   if (hello !== 'welcome' && hello !== 'whatsNew') return null;
@@ -206,6 +222,8 @@ export function asFirstRun(value: unknown): FirstRun | null {
   if (rawEnded !== null && ended === null) return null;
   if ((view === 'popup' && step === 0) !== (welcomeShows !== null)) return null;
   if (typeof onlyFullViewSteps !== 'boolean') return null;
+  if (typeof isReplay !== 'boolean') return null;
+  if (typeof isSessionNameTyped !== 'boolean') return null;
   if (
     onlyFullViewSteps &&
     (view !== 'full' || !FULL_VIEW_ONLY_STEPS.includes(step))
@@ -220,6 +238,8 @@ export function asFirstRun(value: unknown): FirstRun | null {
     welcomeShows,
     ended,
     onlyFullViewSteps,
+    isReplay,
+    isSessionNameTyped,
   };
 }
 

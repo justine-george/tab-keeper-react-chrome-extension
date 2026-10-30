@@ -31,6 +31,7 @@ import { useRowActionGuard } from './useRowActionGuard';
 import type { RowMenuProps } from '../../common/rowMenu/useRowContextMenu';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import {
+  selectEndingRowId,
   selectRunEngagedRowId,
   selectRunHoldsDelete,
   selectRunLitRowButton,
@@ -133,9 +134,11 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
         replace: t('Replace works after the tour'),
       }
     : null;
-  const isRunEngaged = useSelector(
+  // KAN-879. The ending card's row is drawn engaged as the run's is.
+  const isEngaged = useSelector(
     (state: RootState) =>
-      selectRunEngagedRowId(state) === tabGroupData.tabGroupId
+      selectRunEngagedRowId(state) === tabGroupData.tabGroupId ||
+      selectEndingRowId(state) === tabGroupData.tabGroupId
   );
   // The button the step lights stays at full strength, though still blocked.
   const litButton = useSelector((state: RootState) =>
@@ -154,8 +157,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     selectRunHoldsDelete(state, tabGroupData.tabGroupId)
   );
 
-  // KAN-582. Only the session shown (or the tour's row) has its actions.
-  const shown = drawsSelection || isRunEngaged;
+  // KAN-582. Only the session shown (or the tour's or the ending's row) has its actions.
+  const shown = drawsSelection || isEngaged;
   const { strip, rowEvents, pressable } = useRowActionGuard(shown);
   const press =
     (act: MouseEventHandler): MouseEventHandler =>
@@ -470,7 +473,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   return (
     <div
       css={containerStyle}
-      data-run-engaged={isRunEngaged ? '' : undefined}
+      data-run-engaged={isEngaged ? '' : undefined}
       data-carry-target={carryTarget === undefined ? undefined : ''}
       data-carry-dwell={carryTarget?.dwellSweep ? '' : undefined}
       data-drag-handle-row=""

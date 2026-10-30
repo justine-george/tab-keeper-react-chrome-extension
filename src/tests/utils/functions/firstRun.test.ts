@@ -225,6 +225,8 @@ describe('the steps', () => {
       welcomeShows: null,
       ended: null,
       onlyFullViewSteps: false,
+      isReplay: false,
+      isSessionNameTyped: false,
     });
   });
 });

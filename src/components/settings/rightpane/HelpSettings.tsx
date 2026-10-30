@@ -12,7 +12,7 @@ import type { AppDispatch } from '../../../redux/store';
 import { showInFullView } from '../../../redux/fullViewShow';
 import { restartSetup } from '../../../redux/slices/settingsDataStateSlice';
 import { startRun, thisView } from '../../../redux/firstRun';
-import { newRun } from '../../../utils/functions/firstRun';
+import { newReplayRun } from '../../../utils/functions/firstRun';
 import { requestTabView } from '../../../utils/functions/popOut';
 import {
   readToolbarPin,
@@ -130,7 +130,7 @@ export default function HelpSettings() {
     else void requestTabView('pinGuide');
   };
   // R11. This view's run from its first card, with no Hello: whoever opens Help has met Tab Keeper.
-  const showMeAround = () => void dispatch(startRun(newRun(thisView(), 1)));
+  const showMeAround = () => void dispatch(startRun(newReplayRun(thisView())));
 
   return (
     <div

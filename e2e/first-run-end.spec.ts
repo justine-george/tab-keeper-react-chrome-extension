@@ -15,6 +15,7 @@ import {
   cardAt,
   cardButton,
   closeReplayNote,
+  endingCard,
   landedAt,
   replayNote,
   runCheck,
@@ -110,7 +111,8 @@ test('Not now at step 9: setup, then on Skip setup the pin guide', async ({
   expect(await seen()).toEqual([SETUP, GUIDE]);
 });
 
-test('pinned: setup, and nothing after it', async ({
+// KAN-879: the ending card is no dialog element; onboarding-ending.spec.ts covers its words and place.
+test('pinned: setup, then the ending card and no other dialog', async ({
   context,
   extensionId,
 }) => {
@@ -120,8 +122,10 @@ test('pinned: setup, and nothing after it', async ({
   await cardButton(page, 'Pin this tab').click();
   await closeReplayNote(page);
   await expect(dialogNamed(page, SETUP)).toBeVisible();
+  await expect(endingCard(page)).toHaveCount(0);
   await skipSetup(page).click();
   await expect(page.locator('dialog:modal')).toHaveCount(0);
+  await expect(endingCard(page)).toBeVisible();
   await expect.poll(() => storedRun(page)).toMatchObject({ ended: 'finished' });
   // The control is the setup it did see, and the unpinned test above that saw the guide too.
   expect(await seen()).toEqual([SETUP]);

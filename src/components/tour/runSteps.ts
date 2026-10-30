@@ -23,7 +23,7 @@ export const CARD_WIDTH = { popup: '290px', full: '360px' } as const;
 export const PIN_CARD_WIDTH = '25rem';
 
 const OPEN_NOW = '[data-pane="open-now"]';
-const SAVE = '[data-pane="sessions"] [data-tour-anchor="save"]';
+export const SAVE = '[data-pane="sessions"] [data-tour-anchor="save"]';
 const SESSIONS = '[data-pane="sessions"] [data-tour-anchor="sessions"]';
 const WINDOWS = '[data-pane="detail"] [data-tour-anchor="windows"]';
 const EXPAND = '[data-tour-anchor="expand"]';
@@ -37,8 +37,10 @@ const RIGHT_OF: readonly CoachSide[] = ['right', 'below', 'left'];
 const row = (id: string): string =>
   `[data-pane="sessions"] [data-drag-row-id="${CSS.escape(id)}"]`;
 // Every row draws these buttons; only the run's engaged row shows them.
-const rowButton = (id: string, kind: 'open' | 'switch' | 'replace'): string =>
-  `${row(id)} [data-run-engaged] [data-tour-anchor="row-${kind}"]`;
+export const rowButton = (
+  id: string,
+  kind: 'open' | 'switch' | 'replace'
+): string => `${row(id)} [data-run-engaged] [data-tour-anchor="row-${kind}"]`;
 
 export function runStepPlan(
   view: RunView,

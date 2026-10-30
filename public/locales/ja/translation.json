@@ -428,5 +428,12 @@
   "Go to group": "グループに移動",
   "Replace with current window": "現在のウィンドウで置き換え",
   "Window replaced.": "ウィンドウを置き換えました。",
-  "ClosedDuplicateTabs_other": "重複したタブを {{count}} 個閉じました。"
+  "ClosedDuplicateTabs_other": "重複したタブを {{count}} 個閉じました。",
+  "You're all set. {{name}} is saved.": "準備完了です。セッション「{{name}}」を保存しました。",
+  "Open brings its tabs back, any time.": "「開く」でいつでもタブを元に戻せます。",
+  "You're all set. Your tabs are saved here.": "準備完了です。タブはここに保存されています。",
+  "Open brings them back, any time.": "「開く」でいつでも元に戻せます。",
+  "Have a good day!": "良い一日をお過ごしください！",
+  "You're all set.": "準備完了です。",
+  "Save your tabs here whenever you like.": "タブはいつでもここから保存できます。"
 }
