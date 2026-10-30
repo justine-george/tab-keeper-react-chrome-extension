@@ -147,7 +147,7 @@ async function tabToGoBackTo(
 }
 
 // Resolves to the window the user is back in, or undefined when the switch failed.
-async function goBack(
+export async function goBack(
   api: PopupApi,
   tabId: number | undefined
 ): Promise<number | undefined> {
@@ -161,7 +161,7 @@ async function goBack(
 }
 
 // Under Default view Full there is no popup to open, so set one for this open and put '' back after.
-async function openPopupOnce(
+export async function openPopupOnce(
   api: PopupApi,
   windowId: number | undefined
 ): Promise<void> {
