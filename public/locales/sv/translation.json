@@ -445,9 +445,9 @@
   "ClosedDuplicateTabs_one": "{{count}} dubblettflik stängd.",
   "ClosedDuplicateTabs_other": "{{count}} dubblettflikar stängda.",
   "You're all set. {{name}} is saved.": "Klart. Sessionen {{name}} är sparad.",
-  "Open brings its tabs back, any time.": "Öppna hämtar tillbaka flikarna i sessionen när du vill.",
+  "Open brings its tabs back, any time.": "Öppna återställer flikarna i sessionen när du vill.",
   "You're all set. Your tabs are saved here.": "Klart. Dina flikar är sparade här.",
-  "Open brings them back, any time.": "Öppna hämtar tillbaka flikarna när du vill.",
+  "Open brings them back, any time.": "Öppna återställer flikarna när du vill.",
   "Have a good day!": "Ha en bra dag!",
   "You're all set.": "Klart.",
   "Save your tabs here whenever you like.": "Spara dina flikar här när du vill."

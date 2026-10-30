@@ -444,11 +444,11 @@
   "Window replaced.": "विंडो बदल दी गई।",
   "ClosedDuplicateTabs_one": "{{count}} डुप्लिकेट टैब बंद किया गया।",
   "ClosedDuplicateTabs_other": "{{count}} डुप्लिकेट टैब बंद किए गए।",
-  "You're all set. {{name}} is saved.": "सब तैयार है। सेशन {{name}} सहेज लिया गया है।",
-  "Open brings its tabs back, any time.": "\"खोलें\" इस सेशन के टैब कभी भी वापस लाता है।",
-  "You're all set. Your tabs are saved here.": "सब तैयार है। आपके टैब यहाँ सहेजे गए हैं।",
-  "Open brings them back, any time.": "\"खोलें\" ये टैब कभी भी वापस लाता है।",
+  "You're all set. {{name}} is saved.": "सब कुछ तैयार है। {{name}} सेशन सहेजा गया है।",
+  "Open brings its tabs back, any time.": "\"खोलें\" से इस सेशन के टैब कभी भी फिर से खुल जाते हैं।",
+  "You're all set. Your tabs are saved here.": "सब कुछ तैयार है। आपके टैब यहाँ सहेजे गए हैं।",
+  "Open brings them back, any time.": "\"खोलें\" से ये टैब कभी भी फिर से खुल जाते हैं।",
   "Have a good day!": "आपका दिन अच्छा रहे!",
-  "You're all set.": "सब तैयार है।",
+  "You're all set.": "सब कुछ तैयार है।",
   "Save your tabs here whenever you like.": "जब चाहें, अपने टैब यहाँ सहेजें।"
 }
