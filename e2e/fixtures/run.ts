@@ -156,6 +156,12 @@ export const replayNote = (page: Page) =>
     '[data-coach-mark]:not([data-coach-step]):not([data-coach-kind]):not([aria-hidden])'
   );
 
+// KAN-879. The onboarding's last card, after setup or the popup tour's note.
+export const endingCard = (page: Page) =>
+  page.locator(
+    '[data-coach-mark][data-coach-kind="ending"]:not([aria-hidden])'
+  );
+
 // The note after a skip or the last card; Got it closes it, and setup follows a finished full-view run.
 export async function closeReplayNote(
   page: Page,
