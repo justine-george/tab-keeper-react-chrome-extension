@@ -25,7 +25,7 @@ import type { ToastItem, ToastOffer } from '../toastStack';
 import { startToastTimer } from '../toastTimers';
 import { NEEDS_YOU_TOAST_MS, TOAST_MS } from '../toastDuration';
 import { selectCategory, SettingsCategory } from './settingsCategoryStateSlice';
-import type { RunSaveCard } from '../../utils/functions/firstRun';
+import type { RunPinCard, RunSaveCard } from '../../utils/functions/firstRun';
 import type { ReviewMoment } from '../../utils/functions/reviewAsk';
 import {
   mergeSessionsFromBackupInternal,
@@ -261,6 +261,8 @@ export interface Global {
   hasRunShownHere: boolean;
   // The save step's card in this page, decided when the step first starts here.
   runSaveCard: RunSaveCard | null;
+  // KAN-878. Null until decided for the run shown here.
+  runPinCard: RunPinCard | null;
   // The session whose tabs echo the run's first save, until the echo plays.
   runSaveEcho: string | null;
 }
@@ -388,6 +390,7 @@ export const initialState: Global = {
   isRunHere: false,
   hasRunShownHere: false,
   runSaveCard: null,
+  runPinCard: null,
   runSaveEcho: null,
 };
 
@@ -1622,11 +1625,16 @@ export const globalStateSlice = createSlice({
     runStoppedHere: (state) => {
       state.isRunHere = false;
       state.runSaveCard = null;
+      state.runPinCard = null;
       state.runSaveEcho = null;
     },
 
     setRunSaveCard: (state, action: PayloadAction<RunSaveCard | null>) => {
       state.runSaveCard = action.payload;
+    },
+
+    setRunPinCard: (state, action: PayloadAction<RunPinCard | null>) => {
+      state.runPinCard = action.payload;
     },
 
     setRunSaveEcho: (state, action: PayloadAction<string | null>) => {
@@ -1822,6 +1830,7 @@ export const {
   runShownHere,
   runStoppedHere,
   setRunSaveCard,
+  setRunPinCard,
   setRunSaveEcho,
 } = globalStateSlice.actions;
 

@@ -25,6 +25,7 @@ import {
   setDefaultSaveScope,
   setDefaultView,
   setFoldOpenNowInTabView,
+  setPinTabKeeperInNewWindows,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { firstOpenDialogs } from '../../redux/firstOpenDialogs';
@@ -632,5 +633,134 @@ describe('KAN-830: the short full-view tour', () => {
     await renderAt(newRun('full', 1));
     await shown('1');
     expect(progress()).toHaveAttribute('aria-valuetext', 'Step 1 of 9');
+  });
+});
+
+describe('KAN-878: a tour without the pin card', () => {
+  beforeEach(() => {
+    history.replaceState(null, '', '?view=tab');
+    const detail = document.createElement('div');
+    detail.dataset.pane = 'detail';
+    detail.innerHTML =
+      '<div data-tour-anchor="windows"><div data-drag-row-id="w1"></div></div>';
+    for (const element of [detail, ...detail.querySelectorAll('*')]) {
+      (element as HTMLElement).getBoundingClientRect = () => RECT;
+    }
+    anchors.append(detail);
+  });
+  // A full-view page on its own tab, pinned, with "pin in new windows" as given.
+  async function renderPinnedAt(run: Run, pinsInNewWindows: boolean) {
+    const r = await renderWithProviders(<FirstRun />, {
+      seed: {
+        ...SEED,
+        tabs: [
+          {
+            id: 7,
+            windowId: 1,
+            pinned: true,
+            url: 'chrome-extension://faketestid/index.html?view=tab',
+          },
+        ],
+        currentTabId: 7,
+      },
+      seedStore: (store) => {
+        store.dispatch(replaceState(buildContainer([OWN()])));
+        store.dispatch(setPinTabKeeperInNewWindows(pinsInNewWindows));
+      },
+    });
+    await act(async () => {
+      await r.store.dispatch(startRun(run));
+    });
+    await waitFor(() => expect(mark()).not.toBeNull());
+    return r;
+  }
+  // jsdom never places the card, so it stays aria-hidden: read its buttons and line from the DOM.
+  const cardButtons = () =>
+    [...document.querySelectorAll('[data-coach-mark] button')].map(
+      (b) => b.textContent
+    );
+  const button = (name: string) =>
+    waitFor(() => {
+      const found = [
+        ...document.querySelectorAll<HTMLButtonElement>(
+          '[data-coach-mark] button'
+        ),
+      ].find((b) => b.textContent === name);
+      if (found === undefined) throw new Error(`no ${name} in the card`);
+      return found;
+    });
+  const count = () =>
+    document
+      .querySelector('[data-coach-mark] [role="progressbar"]')
+      ?.getAttribute('aria-valuetext');
+
+  test('the windows card is last: 8 of 8, Done, no Skip tutorial', async () => {
+    await renderPinnedAt({ ...newRun('full', 8), sessionId: 'own' }, true);
+    await button('Done');
+    expect(count()).toBe('Step 8 of 8');
+    expect(cardButtons()).not.toContain('Next');
+    expect(cardButtons()).not.toContain('Skip tutorial');
+  });
+
+  test('Done finishes the run, as Not now does, and the replay note follows', async () => {
+    const r = await renderPinnedAt(
+      { ...newRun('full', 8), sessionId: 'own' },
+      true
+    );
+    fireEvent.click(await button('Done'));
+    await waitFor(() => expect(runOf(r)?.ended).toBe('finished'));
+    expect(r.store.getState().globalState.isReplayNoteOpen).toBe(true);
+  });
+
+  test('the short tour ends on Find & fit: 2 of 2, Done', async () => {
+    await renderPinnedAt({ ...newFullViewStepsRun(null), step: 2 }, true);
+    await button('Done');
+    expect(count()).toBe('Step 2 of 2');
+  });
+
+  test('pinned with the setting off: 8 of 9 with Next, and the pin card after', async () => {
+    await renderPinnedAt({ ...newRun('full', 8), sessionId: 'own' }, false);
+    fireEvent.click(await button('Next'));
+    expect(await button('Pin this tab')).toBeTruthy();
+    expect(count()).toBe('Step 9 of 9');
+  });
+
+  test('counted cards wait for the decision, so 8 of 9 never shows', async () => {
+    let answer: (tab: chrome.tabs.Tab) => void = () => undefined;
+    const counts: (string | null)[] = [];
+    const seen = new MutationObserver(() => {
+      const line = document.querySelector('[role="progressbar"]');
+      if (line) counts.push(line.getAttribute('aria-valuetext'));
+    });
+    seen.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+    });
+    const r = await renderWithProviders(<FirstRun />, {
+      seed: { ...SEED, currentTabId: 7 },
+      seedStore: (store) => {
+        store.dispatch(replaceState(buildContainer([OWN()])));
+        store.dispatch(setPinTabKeeperInNewWindows(true));
+      },
+    });
+    vi.spyOn(chrome.tabs, 'getCurrent').mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }) as unknown as ReturnType<typeof chrome.tabs.getCurrent>
+    );
+    await act(async () => {
+      await r.store.dispatch(
+        startRun({ ...newRun('full', 8), sessionId: 'own' })
+      );
+    });
+    expect(mark()).toBeNull();
+    await act(async () => {
+      answer({ id: 7, pinned: true } as chrome.tabs.Tab);
+    });
+    await button('Done');
+    seen.disconnect();
+    expect(counts).not.toContain('Step 8 of 9');
+    expect(count()).toBe('Step 8 of 8');
   });
 });

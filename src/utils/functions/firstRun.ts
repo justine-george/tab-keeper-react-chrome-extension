@@ -129,35 +129,65 @@ export function needsSession(kind: RunStepKind): boolean {
   );
 }
 
-// The run's cards in order, after any Hello.
-export function runSteps(run: FirstRun): readonly RunStep[] {
-  return run.onlyFullViewSteps
-    ? FULL_VIEW_ONLY_STEPS
-    : STEPS.filter((s) => s >= 1 && s <= RUN_STEPS[run.view]);
+// KAN-878. Whether this page's run shows the pin card (twoViews); decided once per run shown here.
+export type RunPinCard = 'show' | 'skip';
+export const PIN_CARD_STEP: RunStep = 9;
+
+// KAN-878. Skipped only on a pinned tab that already pins in new windows, and never from the card itself; an unknown tab shows it.
+export function pinCardFor(
+  run: FirstRun,
+  isTabPinned: boolean | null,
+  pinsInNewWindows: boolean
+): RunPinCard {
+  return run.view === 'full' &&
+    run.step !== PIN_CARD_STEP &&
+    isTabPinned === true &&
+    pinsInNewWindows
+    ? 'skip'
+    : 'show';
 }
 
-export function nextRunStep(run: FirstRun): RunStep | null {
-  if (!run.onlyFullViewSteps) return asRunStep(run.view, run.step + 1);
-  return (
-    FULL_VIEW_ONLY_STEPS[FULL_VIEW_ONLY_STEPS.indexOf(run.step) + 1] ?? null
-  );
+// The run's cards in order, after any Hello.
+export function runSteps(
+  run: FirstRun,
+  pinCard: RunPinCard
+): readonly RunStep[] {
+  const steps = run.onlyFullViewSteps
+    ? FULL_VIEW_ONLY_STEPS
+    : STEPS.filter((s) => s >= 1 && s <= RUN_STEPS[run.view]);
+  return pinCard === 'skip' && run.view === 'full'
+    ? steps.filter((s) => s !== PIN_CARD_STEP)
+    : steps;
+}
+
+// From Hello (step 0, in no list) the first card.
+export function nextRunStep(
+  run: FirstRun,
+  pinCard: RunPinCard
+): RunStep | null {
+  const steps = runSteps(run, pinCard);
+  return steps[steps.indexOf(run.step) + 1] ?? null;
 }
 
 // Back exists from the run's second card on.
-export function previousRunStep(run: FirstRun): RunStep | null {
-  const steps = runSteps(run);
+export function previousRunStep(
+  run: FirstRun,
+  pinCard: RunPinCard
+): RunStep | null {
+  const steps = runSteps(run, pinCard);
   return steps[steps.indexOf(run.step) - 1] ?? null;
 }
 
 // Which card of how many, for the progress line.
-export function runProgress(run: FirstRun): {
+export function runProgress(
+  run: FirstRun,
+  pinCard: RunPinCard
+): {
   position: number;
   total: number;
 } {
-  const steps = runSteps(run);
-  return run.onlyFullViewSteps
-    ? { position: steps.indexOf(run.step) + 1, total: steps.length }
-    : { position: run.step, total: RUN_STEPS[run.view] };
+  const steps = runSteps(run, pinCard);
+  return { position: steps.indexOf(run.step) + 1, total: steps.length };
 }
 
 export function newRun(

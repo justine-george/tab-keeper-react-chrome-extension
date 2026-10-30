@@ -21,12 +21,14 @@ import type { AppDispatch, RootState } from '../../redux/store';
 import {
   advanceRun,
   beginSaveStep,
+  decidePinCard,
   finishRunHere,
   goToRunStep,
   pinThisTab,
   reconcileRunHere,
   selectIsRunCardShown,
   selectRunHere,
+  selectRunPinCard,
   skipRun,
   stepRunBack,
   takeExampleForRun,
@@ -71,6 +73,7 @@ export default function FirstRun() {
   const run = useSelector(selectRunHere);
   const isShown = useSelector(selectIsRunCardShown);
   const saveCard = useSelector((s: RootState) => s.globalState.runSaveCard);
+  const pinCard = useSelector(selectRunPinCard);
   const isHere = useSelector((s: RootState) => s.globalState.isRunHere);
   const holdsPlaceholder = useSelector(
     (s: RootState) => s.globalState.holdsPlaceholderSessions
@@ -106,6 +109,11 @@ export default function FirstRun() {
   useEffect(() => {
     if (kind === 'save' && isSettled) void dispatch(beginSaveStep());
   }, [kind, isSettled, holdsPlaceholder, dispatch]);
+
+  // KAN-878. Each run shown here decides once whether it ends on the pin card.
+  useEffect(() => {
+    if (isHere && pinCard === null) void dispatch(decidePinCard());
+  }, [isHere, pinCard, dispatch]);
 
   // A6: the run's session is shown once per page, the first time a step needs it.
   const sessionId = run?.sessionId ?? null;
@@ -172,6 +180,10 @@ export default function FirstRun() {
     );
   }
   if (kind === 'welcome' || !isSettled || !isShown) return null;
+  // KAN-878. A counted card waits for that decision, so its count never changes; the compact-view card has none.
+  if (pinCard === null && kind !== 'compactView') return null;
+  const decidedPinCard = pinCard ?? 'show';
+  const isLast = nextRunStep(run, decidedPinCard) === null;
   const plan = runStepPlan(
     run.view,
     kind,
@@ -181,7 +193,10 @@ export default function FirstRun() {
   );
   if (plan === null || (kind === 'save' && saveCard === null)) return null;
 
-  const next: CoachAction = { label: t('Next'), onPress: goNext };
+  // KAN-878. A last card that is not the pin card or ⤢ ends the run as they do.
+  const next: CoachAction = isLast
+    ? { label: t('Done'), onPress: finish }
+    : { label: t('Next'), onPress: goNext };
   const useExample: CoachAction = {
     label: t('Use an example'),
     onPress: example,
@@ -395,7 +410,6 @@ export default function FirstRun() {
   };
   const card = cardFor();
 
-  const isLast = nextRunStep(run) === null;
   const sides = plan.sides;
   const place =
     sides === 'pane'
@@ -410,9 +424,11 @@ export default function FirstRun() {
 
   return (
     <CoachMark
-      // KAN-623. The card is outside the tour's count: step 1 still reads 1 of 9.
+      // KAN-623. The card is outside the tour's count: step 1 is still card 1 of the count.
       progress={
-        kind === 'compactView' ? null : { step: run.step, ...runProgress(run) }
+        kind === 'compactView'
+          ? null
+          : { step: run.step, ...runProgress(run, decidedPinCard) }
       }
       kind={kind}
       text={card.text}
@@ -423,7 +439,9 @@ export default function FirstRun() {
       width={card.width ?? CARD_WIDTH[run.view]}
       place={place}
       onSkip={isLast ? undefined : skip}
-      onBack={previousRunStep(run) !== null ? goBack : undefined}
+      onBack={
+        previousRunStep(run, decidedPinCard) !== null ? goBack : undefined
+      }
       secondary={card.secondary}
       primary={card.primary}
       onEscape={isLast ? finish : skip}

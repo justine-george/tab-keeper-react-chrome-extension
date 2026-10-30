@@ -8,6 +8,7 @@ import {
   recordFirstRun,
   setFirstRunSession,
   setFirstRunStep,
+  setPinTabKeeperInNewWindows,
 } from '../../redux/slices/settingsDataStateSlice';
 
 import { makeTestStore } from '../setup/makeStore';
@@ -17,6 +18,7 @@ import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import {
   advanceRun,
   beginSaveStep,
+  decidePinCard,
   endRun,
   endRunAtFullViewButton,
   finishRunHere,
@@ -50,7 +52,11 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import { undo } from '../../redux/slices/undoRedoSlice';
 import { SettingsCategory } from '../../redux/slices/settingsCategoryStateSlice';
-import { newFullViewStepsRun, newRun } from '../../utils/functions/firstRun';
+import {
+  newFullViewStepsRun,
+  newReplayRun,
+  newRun,
+} from '../../utils/functions/firstRun';
 import { RUN_LOCK } from '../../utils/functions/tourLock';
 import * as capture from '../../utils/functions/capture';
 import {
@@ -1034,5 +1040,108 @@ describe('KAN-830: a short run', () => {
     store.dispatch(endRun('finished'));
     expect(ids(store)).toContain(sampleId);
     expect(seen).not.toContain(DELETE_TAB_CONTAINER_ACTION);
+  });
+});
+
+describe('KAN-878: the pin card is decided per run shown here', () => {
+  const ownTab = (pinned: boolean) => ({
+    id: 7,
+    windowId: 1,
+    pinned,
+    url: 'chrome-extension://faketestid/index.html?view=tab',
+  });
+  const pinCardOf = (store: Store) => store.getState().globalState.runPinCard;
+  // A full-view page on its own tab, with "pin in new windows" as given.
+  function fullPage(pinned: boolean, pinsInNewWindows: boolean): Store {
+    history.replaceState(null, '', '?view=tab');
+    setupChromeFake({
+      windows: [OPEN_PAGE],
+      tabs: [ownTab(pinned)],
+      currentTabId: 7,
+    });
+    const store = withSessions(OWN);
+    store.dispatch(setPinTabKeeperInNewWindows(pinsInNewWindows));
+    return store;
+  }
+
+  test('a pinned tab that pins in new windows skips it', async () => {
+    const store = fullPage(true, true);
+    await store.dispatch(startRun(newRun('full', 1)));
+    await store.dispatch(decidePinCard());
+    expect(pinCardOf(store)).toBe('skip');
+  });
+
+  test('pinned with the setting off, or unpinned with it on, shows it', async () => {
+    for (const [pinned, setting] of [
+      [true, false],
+      [false, true],
+    ]) {
+      const store = fullPage(pinned, setting);
+      await store.dispatch(startRun(newRun('full', 1)));
+      await store.dispatch(decidePinCard());
+      expect(pinCardOf(store)).toBe('show');
+    }
+  });
+
+  test('a failed getCurrent shows it', async () => {
+    const store = fullPage(true, true);
+    vi.spyOn(chrome.tabs, 'getCurrent').mockRejectedValue(new Error('gone'));
+    await store.dispatch(startRun(newRun('full', 1)));
+    await store.dispatch(decidePinCard());
+    expect(pinCardOf(store)).toBe('show');
+  });
+
+  test('decided once: the setting changing mid-run changes nothing', async () => {
+    const store = fullPage(true, true);
+    await store.dispatch(startRun(newRun('full', 1)));
+    await store.dispatch(decidePinCard());
+    store.dispatch(setPinTabKeeperInNewWindows(false));
+    await store.dispatch(decidePinCard());
+    expect(pinCardOf(store)).toBe('skip');
+  });
+
+  test('a new run decides again: Pin this tab, then a Help replay in the same page skips it', async () => {
+    const store = fullPage(false, false);
+    await store.dispatch(startRun({ ...newRun('full', 9), sessionId: 'own' }));
+    await store.dispatch(decidePinCard());
+    expect(pinCardOf(store)).toBe('show');
+    await store.dispatch(pinThisTab());
+    await store.dispatch(startRun(newReplayRun('full')));
+    await store.dispatch(decidePinCard());
+    expect(pinCardOf(store)).toBe('skip');
+  });
+
+  test('Next from Windows goes nowhere when skipped', async () => {
+    const store = fullPage(true, true);
+    await store.dispatch(startRun({ ...newRun('full', 8), sessionId: 'own' }));
+    await store.dispatch(decidePinCard());
+    await store.dispatch(advanceRun());
+    expect(runOf(store)?.step).toBe(8);
+  });
+
+  test('a late answer after the run stopped here is dropped', async () => {
+    const store = fullPage(true, true);
+    let answer: (tab: chrome.tabs.Tab) => void = () => undefined;
+    vi.spyOn(chrome.tabs, 'getCurrent').mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }) as unknown as ReturnType<typeof chrome.tabs.getCurrent>
+    );
+    await store.dispatch(startRun(newRun('full', 1)));
+    const deciding = store.dispatch(decidePinCard());
+    await store.dispatch(leaveRunHere());
+    answer(ownTab(true) as chrome.tabs.Tab);
+    await deciding;
+    expect(pinCardOf(store)).toBeNull();
+  });
+
+  test('the popup decides at once, without asking Chrome', async () => {
+    const store = withSessions(OWN);
+    store.dispatch(setPinTabKeeperInNewWindows(true));
+    const getCurrent = vi.spyOn(chrome.tabs, 'getCurrent');
+    await store.dispatch(startRun(newRun('popup', 1)));
+    await store.dispatch(decidePinCard());
+    expect(pinCardOf(store)).toBe('show');
+    expect(getCurrent).not.toHaveBeenCalled();
   });
 });

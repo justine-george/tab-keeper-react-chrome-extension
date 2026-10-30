@@ -12,6 +12,7 @@ import {
   newFullViewStepsRun,
   newRun,
   nextRunStep,
+  pinCardFor,
   previousRunStep,
   runAtOpen,
   runProgress,
@@ -19,6 +20,7 @@ import {
   runStepKind,
   stepKindOf,
   type FirstRun,
+  type RunStep,
   type StoredAtOpen,
 } from '../../../utils/functions/firstRun';
 import { buildSession } from '../../fixtures/sessionFixture';
@@ -148,18 +150,18 @@ describe('the steps', () => {
   });
 
   test('Next stops at the last step; Back exists from step 2', () => {
-    expect(nextRunStep(newRun('full', 0))).toBe(1);
-    expect(nextRunStep(newRun('full', 8))).toBe(9);
-    expect(nextRunStep(newRun('full', 9))).toBeNull();
-    expect(nextRunStep(newRun('popup', 7))).toBe(8);
-    expect(nextRunStep(newRun('popup', 8))).toBeNull();
-    expect(previousRunStep(newRun('full', 2))).toBe(1);
-    expect(previousRunStep(newRun('full', 1))).toBeNull();
-    expect(previousRunStep(newRun('popup', 1))).toBeNull();
+    expect(nextRunStep(newRun('full', 0), 'show')).toBe(1);
+    expect(nextRunStep(newRun('full', 8), 'show')).toBe(9);
+    expect(nextRunStep(newRun('full', 9), 'show')).toBeNull();
+    expect(nextRunStep(newRun('popup', 7), 'show')).toBe(8);
+    expect(nextRunStep(newRun('popup', 8), 'show')).toBeNull();
+    expect(previousRunStep(newRun('full', 2), 'show')).toBe(1);
+    expect(previousRunStep(newRun('full', 1), 'show')).toBeNull();
+    expect(previousRunStep(newRun('popup', 1), 'show')).toBeNull();
   });
 
   test('KAN-830: a short run is the full view’s own steps: Currently open, Find & fit, Two views', () => {
-    const steps = runSteps(newFullViewStepsRun(null));
+    const steps = runSteps(newFullViewStepsRun(null), 'show');
     expect(steps).toEqual([1, 2, 9]);
     expect(steps.map((s) => runStepKind('full', s))).toEqual([
       'openNow',
@@ -173,12 +175,12 @@ describe('the steps', () => {
       ...newFullViewStepsRun(null),
       step,
     });
-    expect(nextRunStep(at(1))).toBe(2);
-    expect(nextRunStep(at(2))).toBe(9);
-    expect(nextRunStep(at(9))).toBeNull();
-    expect(previousRunStep(at(9))).toBe(2);
-    expect(previousRunStep(at(2))).toBe(1);
-    expect(previousRunStep(at(1))).toBeNull();
+    expect(nextRunStep(at(1), 'show')).toBe(2);
+    expect(nextRunStep(at(2), 'show')).toBe(9);
+    expect(nextRunStep(at(9), 'show')).toBeNull();
+    expect(previousRunStep(at(9), 'show')).toBe(2);
+    expect(previousRunStep(at(2), 'show')).toBe(1);
+    expect(previousRunStep(at(1), 'show')).toBeNull();
   });
 
   test('KAN-830: a short run counts 1, 2, 3 of 3; a whole run counts its step of 9', () => {
@@ -186,11 +188,60 @@ describe('the steps', () => {
       ...newFullViewStepsRun(null),
       step,
     });
-    expect(runProgress(at(1))).toEqual({ position: 1, total: 3 });
-    expect(runProgress(at(2))).toEqual({ position: 2, total: 3 });
-    expect(runProgress(at(9))).toEqual({ position: 3, total: 3 });
-    expect(runProgress(newRun('full', 1))).toEqual({ position: 1, total: 9 });
-    expect(runProgress(newRun('popup', 4))).toEqual({ position: 4, total: 8 });
+    expect(runProgress(at(1), 'show')).toEqual({ position: 1, total: 3 });
+    expect(runProgress(at(2), 'show')).toEqual({ position: 2, total: 3 });
+    expect(runProgress(at(9), 'show')).toEqual({ position: 3, total: 3 });
+    expect(runProgress(newRun('full', 1), 'show')).toEqual({
+      position: 1,
+      total: 9,
+    });
+    expect(runProgress(newRun('popup', 4), 'show')).toEqual({
+      position: 4,
+      total: 8,
+    });
+  });
+
+  test('KAN-878: skipping the pin card, a whole full run is 8 cards ending on Windows', () => {
+    const at = (step: RunStep) => newRun('full', step);
+    expect(runSteps(at(1), 'skip')).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(nextRunStep(at(7), 'skip')).toBe(8);
+    expect(nextRunStep(at(8), 'skip')).toBeNull();
+    expect(previousRunStep(at(8), 'skip')).toBe(7);
+    expect(nextRunStep(at(0), 'skip')).toBe(1);
+    expect(runProgress(at(1), 'skip')).toEqual({ position: 1, total: 8 });
+    expect(runProgress(at(8), 'skip')).toEqual({ position: 8, total: 8 });
+    expect(runProgress(at(8), 'show')).toEqual({ position: 8, total: 9 });
+  });
+
+  test('KAN-878: skipping the pin card, a short run is Currently open, Find & fit', () => {
+    const at = (step: RunStep): FirstRun => ({
+      ...newFullViewStepsRun(null),
+      step,
+    });
+    expect(runSteps(at(1), 'skip')).toEqual([1, 2]);
+    expect(nextRunStep(at(2), 'skip')).toBeNull();
+    expect(previousRunStep(at(2), 'skip')).toBe(1);
+    expect(runProgress(at(2), 'skip')).toEqual({ position: 2, total: 2 });
+  });
+
+  test('KAN-878: the popup run is the same either way', () => {
+    const at = (step: RunStep) => newRun('popup', step);
+    expect(runSteps(at(1), 'skip')).toEqual(runSteps(at(1), 'show'));
+    expect(nextRunStep(at(8), 'skip')).toBeNull();
+    expect(runProgress(at(8), 'skip')).toEqual({ position: 8, total: 8 });
+  });
+
+  test('KAN-878: the card is skipped only on a pinned tab that pins in new windows, and never from the card itself', () => {
+    const full = newRun('full', 1);
+    expect(pinCardFor(full, true, true)).toBe('skip');
+    expect(pinCardFor(full, true, false)).toBe('show');
+    expect(pinCardFor(full, false, true)).toBe('show');
+    expect(pinCardFor(full, null, true)).toBe('show');
+    expect(pinCardFor(newRun('full', 9), true, true)).toBe('show');
+    expect(
+      pinCardFor({ ...newFullViewStepsRun(null), step: 9 }, true, true)
+    ).toBe('show');
+    expect(pinCardFor(newRun('popup', 1), true, true)).toBe('show');
   });
 
   test('only the session steps wait for the run’s session', () => {
@@ -548,6 +599,6 @@ describe('KAN-623: where the run’s Hello was', () => {
 
   test('the card waits for no session, and Back never reaches it', () => {
     expect(needsSession('compactView')).toBe(false);
-    expect(previousRunStep(newRun('full', 1))).toBeNull();
+    expect(previousRunStep(newRun('full', 1), 'show')).toBeNull();
   });
 });
