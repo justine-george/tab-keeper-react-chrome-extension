@@ -459,10 +459,10 @@
   "ClosedDuplicateTabs_one": "{{count}} onglet en double fermé.",
   "ClosedDuplicateTabs_many": "{{count}} onglets en double fermés.",
   "ClosedDuplicateTabs_other": "{{count}} onglets en double fermés.",
-  "You're all set. {{name}} is saved.": "Tout est prêt. {{name}} est enregistrée.",
-  "Open brings its tabs back, any time.": "Ouvrir ramène ses onglets à tout moment.",
+  "You're all set. {{name}} is saved.": "Tout est prêt. La session {{name}} est enregistrée.",
+  "Open brings its tabs back, any time.": "Ouvrir restaure les onglets de cette session à tout moment.",
   "You're all set. Your tabs are saved here.": "Tout est prêt. Vos onglets sont enregistrés ici.",
-  "Open brings them back, any time.": "Ouvrir les ramène à tout moment.",
+  "Open brings them back, any time.": "Ouvrir restaure les onglets à tout moment.",
   "Have a good day!": "Bonne journée !",
   "You're all set.": "Tout est prêt.",
   "Save your tabs here whenever you like.": "Enregistrez vos onglets ici quand vous voulez."

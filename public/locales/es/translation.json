@@ -459,10 +459,10 @@
   "ClosedDuplicateTabs_one": "Se cerró {{count}} pestaña duplicada.",
   "ClosedDuplicateTabs_many": "Se cerraron {{count}} pestañas duplicadas.",
   "ClosedDuplicateTabs_other": "Se cerraron {{count}} pestañas duplicadas.",
-  "You're all set. {{name}} is saved.": "Todo listo. {{name}} está guardada.",
-  "Open brings its tabs back, any time.": "Abrir recupera las pestañas en cualquier momento.",
+  "You're all set. {{name}} is saved.": "Todo listo. La sesión {{name}} está guardada.",
+  "Open brings its tabs back, any time.": "Abrir recupera las pestañas de esta sesión en cualquier momento.",
   "You're all set. Your tabs are saved here.": "Todo listo. Tus pestañas están guardadas aquí.",
-  "Open brings them back, any time.": "Abrir las recupera en cualquier momento.",
+  "Open brings them back, any time.": "Abrir recupera las pestañas en cualquier momento.",
   "Have a good day!": "¡Que tengas un buen día!",
   "You're all set.": "Todo listo.",
   "Save your tabs here whenever you like.": "Guarda tus pestañas aquí cuando quieras."

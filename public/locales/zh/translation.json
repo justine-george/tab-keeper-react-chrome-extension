@@ -430,9 +430,9 @@
   "Window replaced.": "已替换窗口。",
   "ClosedDuplicateTabs_other": "已关闭 {{count}} 个重复的标签页。",
   "You're all set. {{name}} is saved.": "一切就绪。{{name}} 已保存。",
-  "Open brings its tabs back, any time.": "点击“打开”即可随时恢复其中的标签页。",
+  "Open brings its tabs back, any time.": "“打开”会随时恢复这个会话的标签页。",
   "You're all set. Your tabs are saved here.": "一切就绪。您的标签页已保存在这里。",
-  "Open brings them back, any time.": "点击“打开”即可随时恢复它们。",
+  "Open brings them back, any time.": "“打开”会随时恢复这些标签页。",
   "Have a good day!": "祝您今天愉快！",
   "You're all set.": "一切就绪。",
   "Save your tabs here whenever you like.": "您可以随时在这里保存标签页。"

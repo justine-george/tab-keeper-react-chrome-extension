@@ -475,9 +475,9 @@
   "ClosedDuplicateTabs_many": "Закрыто {{count}} повторяющихся вкладок.",
   "ClosedDuplicateTabs_other": "Закрыто {{count}} повторяющейся вкладки.",
   "You're all set. {{name}} is saved.": "Всё готово. Сессия «{{name}}» сохранена.",
-  "Open brings its tabs back, any time.": "Открыть вернёт её вкладки в любой момент.",
+  "Open brings its tabs back, any time.": "«Открыть» вернёт вкладки этой сессии в любой момент.",
   "You're all set. Your tabs are saved here.": "Всё готово. Ваши вкладки сохранены здесь.",
-  "Open brings them back, any time.": "Открыть вернёт их в любой момент.",
+  "Open brings them back, any time.": "«Открыть» вернёт вкладки в любой момент.",
   "Have a good day!": "Хорошего дня!",
   "You're all set.": "Всё готово.",
   "Save your tabs here whenever you like.": "Сохраняйте вкладки здесь, когда захотите."
