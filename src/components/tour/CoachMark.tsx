@@ -44,7 +44,7 @@ export interface CoachProgress {
 
 interface CoachMarkProps {
   progress: CoachProgress | null;
-  // The run step this card is; none on the note after the run.
+  // The run step this card is, or 'ending' (KAN-879); none on the note after the run.
   kind?: string;
   text: ReactNode;
   fine?: string;

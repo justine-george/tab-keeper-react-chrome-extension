@@ -56,6 +56,7 @@ export default function EndingCard() {
   return (
     <CoachMark
       progress={null}
+      kind="ending"
       text={
         <>
           {first}
