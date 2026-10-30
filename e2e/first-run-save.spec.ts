@@ -186,6 +186,24 @@ test('Use an example, then Back: the card says it is an example, and Next adds n
   expect(await storedTitles(page)).toEqual(['Sample: Weekend trip']);
 });
 
+// KAN-876. The two saves share a name: the engaged row must be the newer, the list's first.
+test('Back after the run’s save and a second save: the run moves on and points at the new one', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await popupRunBesideGmail(context, extensionId);
+  await saveRowSaveAll(page).click();
+  await expect(cardAt(page, 2)).toBeVisible();
+  await cardButton(page, 'Back').click();
+  await expect(card(page)).toContainText('Saved. Press');
+  await saveRowSaveAll(page).click();
+  await expect(cardAt(page, 2)).toBeVisible();
+  await expect.poll(() => storedTitles(page)).toHaveLength(2);
+  const rows = page.locator('[data-pane="sessions"] [data-drag-row-id]');
+  await expect(rows.first().locator('[data-run-engaged]')).toHaveCount(1);
+  await expect(page.locator('[data-run-engaged]')).toHaveCount(1);
+});
+
 // KAN-876.
 for (const { name, saveStep } of [
   { name: 'popup', saveStep: 1 },

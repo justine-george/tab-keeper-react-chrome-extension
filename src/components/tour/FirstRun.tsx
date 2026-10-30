@@ -280,7 +280,7 @@ export default function FirstRun() {
             primary: next,
           };
         }
-        // Once the run has its session, the card says so and the way on is Next (R6).
+        // Back after the run's save: the card says so, and the way on is Next.
         if (run.sessionId !== null) {
           // The example is no save of the user's, so it must not say "Saved."
           const sentence = isSampleSession(run.sessionId)

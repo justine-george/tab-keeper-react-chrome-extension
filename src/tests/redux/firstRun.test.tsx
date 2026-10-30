@@ -45,6 +45,7 @@ import {
 import {
   openFullViewCallout,
   openSettingsPage,
+  setRunSaveEcho,
   setSearchInputText,
 } from '../../redux/slices/globalStateSlice';
 import { undo } from '../../redux/slices/undoRedoSlice';
@@ -310,13 +311,27 @@ describe('the run’s save and the example', () => {
     expect(store.getState().globalState.runSaveEcho).toBe('own');
   });
 
-  test('a second save is ordinary: the run keeps its first session (R6)', async () => {
+  test('Back and a second save: it is the run’s now, the run moves on to it, and no echo (KAN-876)', async () => {
     const store = withSessions(OWN, OLDER);
     await store.dispatch(startRun(newRun('popup', 1)));
     store.dispatch(takeRunSave('own'));
+    store.dispatch(setRunSaveEcho(null));
     await store.dispatch(stepRunBack());
     store.dispatch(takeRunSave('older'));
-    expect(runOf(store)).toMatchObject({ step: 1, sessionId: 'own' });
+    expect(runOf(store)).toMatchObject({ step: 2, sessionId: 'older' });
+    expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
+      'older'
+    );
+    expect(store.getState().globalState.runSaveEcho).toBeNull();
+    expect(ids(store)).toEqual(['own', 'older']);
+  });
+
+  test('a save past the save step is ordinary: the run keeps its session', async () => {
+    const store = withSessions(OWN, OLDER);
+    await store.dispatch(startRun(newRun('popup', 1)));
+    store.dispatch(takeRunSave('own'));
+    store.dispatch(takeRunSave('older'));
+    expect(runOf(store)).toMatchObject({ step: 2, sessionId: 'own' });
   });
 
   test('Use an example adds the sample, makes it the run’s session, and moves on', async () => {
@@ -366,15 +381,19 @@ describe('the run’s save and the example', () => {
     expect(ids(store)).toContain(sampleId);
   });
 
-  test('after your own save took the example’s place, a second save is ordinary (R6)', async () => {
+  test('after your own save took the example’s place, Back and a second save: no echo, and nothing else deleted', async () => {
     const { store } = makeTestStore();
     await exampleThenBack(store);
     store.dispatch(saveToTabContainerInternal(structuredClone(OWN)));
     store.dispatch(takeRunSave('own'));
+    store.dispatch(setRunSaveEcho(null));
+    await store.dispatch(stepRunBack());
     store.dispatch(saveToTabContainerInternal(structuredClone(OLDER)));
     store.dispatch(takeRunSave('older'));
-    expect(runOf(store)?.sessionId).toBe('own');
+    expect(runOf(store)).toMatchObject({ step: 2, sessionId: 'older' });
+    expect(store.getState().globalState.runSaveEcho).toBeNull();
     expect(ids(store)).toEqual(expect.arrayContaining(['own', 'older']));
+    expect(ids(store)).toHaveLength(2);
   });
 
   // CONTROL: the test above, where an untouched sample goes.
@@ -405,7 +424,7 @@ describe('the run’s save and the example', () => {
     expect(ids(store)).toContain(sampleId);
   });
 
-  test('the example past the save step: a save is ordinary, and the sample stays the run’s (R6)', async () => {
+  test('the example past the save step: a save is ordinary, and the sample stays the run’s', async () => {
     const { store } = makeTestStore();
     await store.dispatch(startRun(newRun('popup', 1)));
     store.dispatch(takeExampleForRun(NAMES));
