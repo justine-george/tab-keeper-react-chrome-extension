@@ -1198,19 +1198,36 @@ grantedTest.describe('carried into Currently open (KAN-850)', () => {
       await pickUp(page, windowHandle(page, 'w1'));
       await carryTo(page, await topOf(openTab(page, live.tab(2))));
       await page.waitForTimeout(350);
-      const windows = await worker.evaluate(
-        async () => (await chrome.windows.getAll()).length
-      );
-      await recordFrames(page, openTabRows, 'data-open-tab-id', 'pointerup');
+      const windowIds = () =>
+        worker.evaluate(async () =>
+          (await chrome.windows.getAll()).map((w) => w.id ?? -1)
+        );
+      const before = await windowIds();
+      // KAN-872. Only the rows already open: the new window draws its tabs,
+      // then its group header, for most of a second after the release.
+      const rowsBefore = before
+        .map((id) => `[data-open-window-id="${id}"] [data-open-tab-id]`)
+        .join(', ');
+      await recordFrames(page, rowsBefore, 'data-open-tab-id', 'pointerup');
       await page.mouse.up();
 
       await expect
-        .poll(() =>
-          worker.evaluate(async () => (await chrome.windows.getAll()).length)
-        )
-        .toBe(windows + 1);
+        .poll(async () => (await windowIds()).length)
+        .toBe(before.length + 1);
+      const added = (await windowIds()).find((id) => !before.includes(id));
+      // PREMISE: the new window is drawn whole (a0 a1 a2, Alpha's header
+      // over al0 al1) before the last read, so that read covers its arrival.
+      const block = page.locator(
+        `[data-pane="open-now"] [data-open-window-id="${added}"]`
+      );
+      await expect(block.locator('[data-open-tab-id]')).toHaveCount(5);
+      await expect(block.locator('[data-band-id]')).toHaveCount(1);
       const frames = await framesRecorded(page);
       expectSettled(frames);
+      // PREMISE: the read holds the test page's row and A B C D.
+      expect(Object.keys(frames[0] ?? {})).toHaveLength(5);
+      for (const key of Object.keys(frames[0] ?? {}))
+        expect(Math.abs(travel(frames, key)), key).toBeLessThan(1);
       expect(strays(frames)).toEqual([]);
     }
   );
