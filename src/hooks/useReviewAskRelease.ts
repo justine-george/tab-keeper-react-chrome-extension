@@ -10,9 +10,10 @@ import { freshPendingAsk, releasePendingAsk } from '../redux/reviewAsk';
 export const REVIEW_CARD_SETTLE_MS = 300;
 
 // Nothing covers the page: no run here, no note, setup, pin guide,
-// full-view callout, first-save pop (KAN-875), modal dialog or card on screen, and the person is looking at this page. A
-// full-view restore opens focused windows over it, so focus is what says they
-// came back.
+// full-view callout, first-save pop (KAN-875), onboarding ending asked for or
+// shown (KAN-879), modal dialog or card on screen, and the person is looking
+// at this page. A full-view restore opens focused windows over it, so focus is
+// what says they came back.
 export function isClearForReviewCard(state: RootState, doc: Document): boolean {
   const g = state.globalState;
   return (
@@ -22,6 +23,7 @@ export function isClearForReviewCard(state: RootState, doc: Document): boolean {
     !g.isPinGuideOpen &&
     !g.isFullViewCalloutOpen &&
     !g.isFirstSavePopping &&
+    g.endingCard === null &&
     g.reviewCard === null &&
     doc.querySelector('dialog:modal') === null &&
     doc.hasFocus()

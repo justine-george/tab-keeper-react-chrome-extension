@@ -82,6 +82,9 @@ import type { ShownRelease } from '../../utils/functions/whatsNew';
 
 export type SyncStatus = 'idle' | 'loading' | 'success' | 'error';
 
+// KAN-879. The onboarding ending: asked for and waiting to show, or on screen.
+export type EndingCard = 'pending' | 'shown';
+
 export interface Global {
   hasSyncedBefore: boolean;
   // KAN-294. The sessions in this store are still the slice's placeholder:
@@ -180,10 +183,16 @@ export interface Global {
   isSetupOpen: boolean;
   // Whether closing setup goes on to the pin guide: not when Help opened it.
   doesSetupLeadToPinGuide: boolean;
+  // KAN-879. The open setup is a replay (Help, or after a Help tour): no ending follows it.
+  isSetupReplay: boolean;
   // KAN-499. The note after the run, pointing at Settings → Help → Show me around.
   isReplayNoteOpen: boolean;
   // Whether closing the note goes on to setup: only after a finished full-view run.
   doesReplayNoteLeadToSetup: boolean;
+  // KAN-879. Whether closing the note asks for the ending: only after a finished popup run, not a replay.
+  doesReplayNoteLeadToEnding: boolean;
+  // KAN-879. The onboarding ending, or null when neither asked for nor showing.
+  endingCard: EndingCard | null;
   // "the tabGroups permission is granted right now". Mirrors
   // chrome.permissions.contains(), re-read on every popup mount and updated by
   // the permission change listeners -- never persisted, because the user can
@@ -357,8 +366,11 @@ export const initialState: Global = {
   isPinGuideOpen: false,
   isSetupOpen: false,
   doesSetupLeadToPinGuide: true,
+  isSetupReplay: false,
   isReplayNoteOpen: false,
   doesReplayNoteLeadToSetup: false,
+  doesReplayNoteLeadToEnding: false,
+  endingCard: null,
   hasTabGroupsPermission: false,
   collapsedWindows: null,
   syncsInFlight: 0,
@@ -1333,10 +1345,13 @@ export const globalStateSlice = createSlice({
 
     openSetup: (
       state,
-      action: PayloadAction<{ leadsToPinGuide: boolean } | undefined>
+      action: PayloadAction<
+        { leadsToPinGuide?: boolean; isReplay?: boolean } | undefined
+      >
     ) => {
       state.isSetupOpen = true;
       state.doesSetupLeadToPinGuide = action.payload?.leadsToPinGuide ?? true;
+      state.isSetupReplay = action.payload?.isReplay ?? false;
     },
 
     closeSetup: (state) => {
@@ -1345,14 +1360,19 @@ export const globalStateSlice = createSlice({
 
     openReplayNote: (
       state,
-      action: PayloadAction<{ leadsToSetup: boolean }>
+      action: PayloadAction<{ leadsToSetup: boolean; leadsToEnding: boolean }>
     ) => {
       state.isReplayNoteOpen = true;
       state.doesReplayNoteLeadToSetup = action.payload.leadsToSetup;
+      state.doesReplayNoteLeadToEnding = action.payload.leadsToEnding;
     },
 
     closeReplayNote: (state) => {
       state.isReplayNoteOpen = false;
+    },
+
+    setEndingCard: (state, action: PayloadAction<EndingCard | null>) => {
+      state.endingCard = action.payload;
     },
 
     openFullViewCallout: (state) => {
@@ -1749,6 +1769,7 @@ export const {
   closeSetup,
   openReplayNote,
   closeReplayNote,
+  setEndingCard,
   openFullViewCallout,
   closeFullViewCallout,
   noteFirstSave,

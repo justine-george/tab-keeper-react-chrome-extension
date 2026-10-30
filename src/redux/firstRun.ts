@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import type { AppDispatch, RootState } from './store';
 import { followWithSetup } from './firstOpenFollowUps';
+import { requestEnding } from './onboardingEnding';
 import { showSession } from './showSession';
 import { selectIsSavedSessionFolded } from './savedSessionFold';
 import {
@@ -445,25 +446,37 @@ export const endRun =
 export const skipRun = (): Thunk<void> => (dispatch, getState) => {
   const run = selectRunHere(getState());
   dispatch(endRun('skipped'));
-  if (run !== null) dispatch(openReplayNote({ leadsToSetup: false }));
+  if (run !== null) {
+    dispatch(openReplayNote({ leadsToSetup: false, leadsToEnding: false }));
+  }
 };
 
-// The last step done, then the note; a full-view run goes on to setup (begun for an upgrader) once the note closes.
+// The last step done, then the note; a full-view run goes on to setup (begun for an upgrader) once the note closes, a popup run to the ending (KAN-879).
 export const finishRunHere =
   (): Thunk<Promise<void>> => async (dispatch, getState) => {
     const run = selectRunHere(getState());
     dispatch(endRun('finished'));
     if (run === null) return;
     if (run.view === 'full') dispatch(beginSetup());
-    dispatch(openReplayNote({ leadsToSetup: run.view === 'full' }));
+    dispatch(
+      openReplayNote({
+        leadsToSetup: run.view === 'full',
+        leadsToEnding: run.view === 'popup' && !run.isReplay,
+      })
+    );
   };
 
 // Got it or Esc on the note.
 export const leaveReplayNote =
   (): Thunk<Promise<void>> => async (dispatch, getState) => {
-    const leadsToSetup = getState().globalState.doesReplayNoteLeadToSetup;
+    const state = getState();
+    const leadsToSetup = state.globalState.doesReplayNoteLeadToSetup;
+    const leadsToEnding = state.globalState.doesReplayNoteLeadToEnding;
+    // KAN-879. The setup after a Help tour is a replay too.
+    const isReplay = state.settingsDataState.firstRun?.isReplay ?? false;
     dispatch(closeReplayNote());
-    if (leadsToSetup) await dispatch(followWithSetup());
+    if (leadsToSetup) await dispatch(followWithSetup(isReplay));
+    if (leadsToEnding) dispatch(requestEnding());
   };
 
 // Pins Tab Keeper's own tab and turns on pinning in new windows; a refusal pins nothing, and the run ends either way.

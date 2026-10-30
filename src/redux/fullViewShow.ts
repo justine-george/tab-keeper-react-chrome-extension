@@ -63,7 +63,7 @@ export const showInFullView =
       // KAN-589. Over the home page, as Show me around's run starts there.
       dispatch(closeSettingsPage());
       dispatch(restartSetup());
-      dispatch(openSetup({ leadsToPinGuide: false }));
+      dispatch(openSetup({ leadsToPinGuide: false, isReplay: true }));
       return;
     }
     if (show === 'pinGuide') {
