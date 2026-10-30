@@ -182,8 +182,8 @@ export default function FirstRun() {
   if (kind === 'welcome' || !isSettled || !isShown) return null;
   // KAN-878. A counted card waits for that decision, so its count never changes; the compact-view card has none.
   if (pinCard === null && kind !== 'compactView') return null;
-  const steps = pinCard ?? 'show';
-  const isLast = nextRunStep(run, steps) === null;
+  const decidedPinCard = pinCard ?? 'show';
+  const isLast = nextRunStep(run, decidedPinCard) === null;
   const plan = runStepPlan(
     run.view,
     kind,
@@ -424,11 +424,11 @@ export default function FirstRun() {
 
   return (
     <CoachMark
-      // KAN-623. The card is outside the tour's count: step 1 still reads 1 of 9.
+      // KAN-623. The card is outside the tour's count: step 1 is still card 1 of the count.
       progress={
         kind === 'compactView'
           ? null
-          : { step: run.step, ...runProgress(run, steps) }
+          : { step: run.step, ...runProgress(run, decidedPinCard) }
       }
       kind={kind}
       text={card.text}
@@ -439,7 +439,9 @@ export default function FirstRun() {
       width={card.width ?? CARD_WIDTH[run.view]}
       place={place}
       onSkip={isLast ? undefined : skip}
-      onBack={previousRunStep(run, steps) !== null ? goBack : undefined}
+      onBack={
+        previousRunStep(run, decidedPinCard) !== null ? goBack : undefined
+      }
       secondary={card.secondary}
       primary={card.primary}
       onEscape={isLast ? finish : skip}
