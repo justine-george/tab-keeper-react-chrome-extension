@@ -725,6 +725,15 @@ export const settingsDataStateSlice = createSlice({
       const run = state.firstRun;
       if (run === null || run.ended !== null) return;
       run.sessionId = action.payload;
+      run.isSessionNameTyped = false;
+      saveLocalSettings(state);
+    },
+
+    // KAN-879. Only a save sets it; any other session for the run clears it.
+    setFirstRunSessionNameTyped: (state, action: PayloadAction<boolean>) => {
+      const run = state.firstRun;
+      if (run === null || run.ended !== null) return;
+      run.isSessionNameTyped = action.payload;
       saveLocalSettings(state);
     },
 
@@ -813,6 +822,7 @@ export const {
   recordFirstRun,
   setFirstRunStep,
   setFirstRunSession,
+  setFirstRunSessionNameTyped,
   countWelcomeShow,
   endFirstRun,
   markWhatsNew2Seen,

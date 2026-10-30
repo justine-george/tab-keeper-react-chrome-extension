@@ -212,7 +212,10 @@ export default function UserInputContainer() {
     // KAN-875. The tour's next card waits for the first save's pop (his pick, option 4).
     await afterFirstSavePop(store, popsBefore);
     // Every save on the run's save step is the run's (KAN-876).
-    dispatch(takeRunSave(containerData.tabGroupId));
+    // The field's suggested name is `prefill`, never `typed`.
+    dispatch(
+      takeRunSave(containerData.tabGroupId, normalizeTitle(typed) !== '')
+    );
   }
 
   const containerStyle = css`

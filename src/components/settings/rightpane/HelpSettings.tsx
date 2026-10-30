@@ -130,7 +130,8 @@ export default function HelpSettings() {
     else void requestTabView('pinGuide');
   };
   // R11. This view's run from its first card, with no Hello: whoever opens Help has met Tab Keeper.
-  const showMeAround = () => void dispatch(startRun(newRun(thisView(), 1)));
+  const showMeAround = () =>
+    void dispatch(startRun(newRun(thisView(), 1, 'welcome', thisView(), true)));
 
   return (
     <div

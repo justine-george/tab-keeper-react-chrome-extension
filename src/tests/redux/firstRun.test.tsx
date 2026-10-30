@@ -268,7 +268,7 @@ describe('the save step’s card (R10, Q3)', () => {
     const store = withSessions(OWN);
     await store.dispatch(startRun(newRun('popup', 1)));
     await store.dispatch(beginSaveStep());
-    store.dispatch(takeRunSave('own'));
+    store.dispatch(takeRunSave('own', false));
     store.dispatch(stepRunBack());
     await store.dispatch(beginSaveStep());
     expect(store.getState().globalState.runSaveCard).toBe('save');
@@ -303,7 +303,7 @@ describe('the run’s save and the example', () => {
     const store = withSessions(OWN, OLDER);
     await store.dispatch(startRun(newRun('popup', 1)));
     store.dispatch(selectTabContainer('older'));
-    store.dispatch(takeRunSave('own'));
+    store.dispatch(takeRunSave('own', false));
     expect(runOf(store)).toMatchObject({ step: 2, sessionId: 'own' });
     expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
       'own'
@@ -314,10 +314,10 @@ describe('the run’s save and the example', () => {
   test('Back and a second save: it is the run’s now, the run moves on to it, and no echo (KAN-876)', async () => {
     const store = withSessions(OWN, OLDER);
     await store.dispatch(startRun(newRun('popup', 1)));
-    store.dispatch(takeRunSave('own'));
+    store.dispatch(takeRunSave('own', false));
     store.dispatch(setRunSaveEcho(null));
     await store.dispatch(stepRunBack());
-    store.dispatch(takeRunSave('older'));
+    store.dispatch(takeRunSave('older', false));
     expect(runOf(store)).toMatchObject({ step: 2, sessionId: 'older' });
     expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
       'older'
@@ -329,9 +329,50 @@ describe('the run’s save and the example', () => {
   test('a save past the save step is ordinary: the run keeps its session', async () => {
     const store = withSessions(OWN, OLDER);
     await store.dispatch(startRun(newRun('popup', 1)));
-    store.dispatch(takeRunSave('own'));
-    store.dispatch(takeRunSave('older'));
+    store.dispatch(takeRunSave('own', false));
+    store.dispatch(takeRunSave('older', false));
     expect(runOf(store)).toMatchObject({ step: 2, sessionId: 'own' });
+  });
+
+  test('a save records whether its name was typed, and the example resets it (KAN-879)', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(startRun(newRun('popup', 1)));
+    await store.dispatch(beginSaveStep());
+    store.dispatch(takeRunSave('s1', true));
+    expect(runOf(store)).toMatchObject({
+      sessionId: 's1',
+      isSessionNameTyped: true,
+    });
+    // Any other session taking the run's place (the example, the latest-session pick) clears it.
+    store.dispatch(setFirstRunSession('other'));
+    expect(runOf(store)).toMatchObject({
+      sessionId: 'other',
+      isSessionNameTyped: false,
+    });
+  });
+
+  test('the example never touches a typed save it finds in place (KAN-879)', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(startRun(newRun('popup', 1)));
+    await store.dispatch(beginSaveStep());
+    store.dispatch(takeRunSave('s1', true));
+    await store.dispatch(stepRunBack());
+    store.dispatch(takeExampleForRun(NAMES));
+    expect(runOf(store)).toMatchObject({
+      sessionId: 's1',
+      isSessionNameTyped: true,
+    });
+  });
+
+  test('a save with a suggested name records it as not typed (KAN-879)', async () => {
+    const { store } = makeTestStore();
+    await store.dispatch(startRun(newRun('popup', 1)));
+    await store.dispatch(beginSaveStep());
+    store.dispatch(takeRunSave('s1', false));
+    expect(runOf(store)).toMatchObject({
+      sessionId: 's1',
+      isSessionNameTyped: false,
+    });
   });
 
   test('Use an example adds the sample, makes it the run’s session, and moves on', async () => {
@@ -349,7 +390,7 @@ describe('the run’s save and the example', () => {
   test('with the run’s session set, Use an example adds nothing and moves on (R6)', async () => {
     const store = withSessions(OWN);
     await store.dispatch(startRun(newRun('popup', 1)));
-    store.dispatch(takeRunSave('own'));
+    store.dispatch(takeRunSave('own', false));
     await store.dispatch(stepRunBack());
     store.dispatch(takeExampleForRun(NAMES));
     expect(ids(store)).toEqual(['own']);
@@ -369,7 +410,7 @@ describe('the run’s save and the example', () => {
     const sampleId = await exampleThenBack(store);
     expect(isSampleSession(sampleId)).toBe(true);
     store.dispatch(saveToTabContainerInternal(structuredClone(OWN)));
-    store.dispatch(takeRunSave('own'));
+    store.dispatch(takeRunSave('own', false));
     expect(runOf(store)).toMatchObject({ step: 2, sessionId: 'own' });
     expect(ids(store)).toEqual(['own']);
     expect(seen).toContain(DELETE_TAB_CONTAINER_ACTION);
@@ -385,11 +426,11 @@ describe('the run’s save and the example', () => {
     const { store } = makeTestStore();
     await exampleThenBack(store);
     store.dispatch(saveToTabContainerInternal(structuredClone(OWN)));
-    store.dispatch(takeRunSave('own'));
+    store.dispatch(takeRunSave('own', false));
     store.dispatch(setRunSaveEcho(null));
     await store.dispatch(stepRunBack());
     store.dispatch(saveToTabContainerInternal(structuredClone(OLDER)));
-    store.dispatch(takeRunSave('older'));
+    store.dispatch(takeRunSave('older', false));
     expect(runOf(store)).toMatchObject({ step: 2, sessionId: 'older' });
     expect(store.getState().globalState.runSaveEcho).toBeNull();
     expect(ids(store)).toEqual(expect.arrayContaining(['own', 'older']));
@@ -419,7 +460,7 @@ describe('the run’s save and the example', () => {
       })
     );
     store.dispatch(saveToTabContainerInternal(structuredClone(OWN)));
-    store.dispatch(takeRunSave('own'));
+    store.dispatch(takeRunSave('own', false));
     expect(runOf(store)?.sessionId).toBe('own');
     expect(ids(store)).toContain(sampleId);
   });
@@ -430,7 +471,7 @@ describe('the run’s save and the example', () => {
     store.dispatch(takeExampleForRun(NAMES));
     const sampleId = runOf(store)?.sessionId ?? '';
     store.dispatch(saveToTabContainerInternal(structuredClone(OWN)));
-    store.dispatch(takeRunSave('own'));
+    store.dispatch(takeRunSave('own', false));
     expect(runOf(store)).toMatchObject({ step: 2, sessionId: sampleId });
     expect(ids(store)).toContain(sampleId);
   });
@@ -539,7 +580,7 @@ describe('reconcile (R2)', () => {
   test('the run’s session deleted elsewhere: ended quietly, not shown here', async () => {
     const store = withSessions(OWN);
     await store.dispatch(startRun(newRun('popup', 1)));
-    store.dispatch(takeRunSave('own'));
+    store.dispatch(takeRunSave('own', false));
     store.dispatch(deleteTabContainerInternal('own'));
     store.dispatch(reconcileRunHere());
     expect(runOf(store)?.ended).toBe('sessionGone');
@@ -549,7 +590,7 @@ describe('reconcile (R2)', () => {
   test('the run’s session renamed elsewhere: the run carries on', async () => {
     const store = withSessions(OWN);
     await store.dispatch(startRun(newRun('popup', 1)));
-    store.dispatch(takeRunSave('own'));
+    store.dispatch(takeRunSave('own', false));
     store.dispatch(
       updateTabGroupTitle({ tabGroupId: 'own', editableTitle: 'Renamed' })
     );
@@ -566,7 +607,7 @@ describe('when the card shows (R3)', () => {
     const store = withSessions(OWN, OLDER);
     await store.dispatch(startRun(newRun('popup', 1)));
     expect(selectIsRunCardShown(store.getState())).toBe(true);
-    store.dispatch(takeRunSave('own'));
+    store.dispatch(takeRunSave('own', false));
     expect(selectIsRunCardShown(store.getState())).toBe(true);
     store.dispatch(selectTabContainer('older'));
     expect(selectIsRunCardShown(store.getState())).toBe(false);
@@ -584,7 +625,7 @@ describe('no ending deletes what the user made (safety)', () => {
     const harness = makeTestStore();
     harness.store.dispatch(replaceState(buildContainer(sessions)));
     await harness.store.dispatch(startRun(newRun('popup', 1)));
-    harness.store.dispatch(takeRunSave('own'));
+    harness.store.dispatch(takeRunSave('own', false));
     return harness;
   };
 
@@ -606,7 +647,7 @@ describe('no ending deletes what the user made (safety)', () => {
     await store.dispatch(startRun(newRun('popup', 1)));
     vi.setSystemTime(5_001_000);
     store.dispatch(saveToTabContainerInternal(structuredClone(OWN)));
-    store.dispatch(takeRunSave('own'));
+    store.dispatch(takeRunSave('own', false));
     expect(ids(store)).toEqual(['own', 'older']);
     store.dispatch(undo());
     expect(ids(store)).toEqual(['older']);
@@ -717,7 +758,7 @@ describe('the last steps', () => {
     const { store, seen } = makeTestStore();
     store.dispatch(replaceState(buildContainer([OWN, OLDER])));
     await store.dispatch(startRun(newRun('popup', 1)));
-    store.dispatch(takeRunSave('own'));
+    store.dispatch(takeRunSave('own', false));
     store.dispatch(goToRunStep(8));
     store.dispatch(endRunAtFullViewButton());
     expect(runOf(store)?.ended).toBe('finished');
@@ -801,7 +842,7 @@ describe('moving onto the save step (KAN-436)', () => {
     const store = withSessions(OWN);
     await store.dispatch(startRun(newRun('popup', 1)));
     await store.dispatch(beginSaveStep());
-    store.dispatch(takeRunSave('own'));
+    store.dispatch(takeRunSave('own', false));
     void store.dispatch(stepRunBack());
     expect(runOf(store)?.step).toBe(1);
   });

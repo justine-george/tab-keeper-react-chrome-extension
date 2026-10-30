@@ -25,6 +25,7 @@ import {
   markFullViewCalloutSeen,
   recordFirstRun,
   setFirstRunSession,
+  setFirstRunSessionNameTyped,
   setFirstRunStep,
   setPinTabKeeperInNewWindows,
 } from './slices/settingsDataStateSlice';
@@ -390,12 +391,13 @@ const removeRunSample =
 
 // KAN-876. Every save on the save step is the run's: the example gives way to it, and the run moves on to it.
 export const takeRunSave =
-  (tabGroupId: string): Thunk<void> =>
+  (tabGroupId: string, isNameTyped: boolean): Thunk<void> =>
   (dispatch, getState) => {
     const run = selectRunHere(getState());
     if (run === null || stepKindOf(run) !== 'save') return;
     const id = run.sessionId;
     dispatch(setFirstRunSession(tabGroupId));
+    dispatch(setFirstRunSessionNameTyped(isNameTyped));
     dispatch(removeRunSample(id));
     dispatch(showSession(tabGroupId));
     // Only the user's first save echoes.

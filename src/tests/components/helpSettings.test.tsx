@@ -148,7 +148,7 @@ describe('the Help category', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show me around' }));
     await waitFor(() =>
       expect(store.getState().settingsDataState.firstRun).toEqual(
-        newRun('popup', 1)
+        newRun('popup', 1, 'welcome', 'popup', true)
       )
     );
     expect(store.getState().globalState.isSettingsPage).toBe(false);
@@ -162,7 +162,7 @@ describe('the Help category', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show me around' }));
     await waitFor(() =>
       expect(store.getState().settingsDataState.firstRun).toEqual(
-        newRun('full', 1)
+        newRun('full', 1, 'welcome', 'full', true)
       )
     );
   });

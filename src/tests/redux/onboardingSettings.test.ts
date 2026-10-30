@@ -75,6 +75,8 @@ const ALL_SET = {
     welcomeShows: null,
     ended: null,
     onlyFullViewSteps: false,
+    isReplay: false,
+    isSessionNameTyped: false,
   },
   isWhatsNew2Seen: true,
   isClosesThisTabCardAnswered: true,
