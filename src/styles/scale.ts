@@ -192,6 +192,10 @@ export const DURATION = {
   INVITE: '1800ms',
   /** One pulse and its rest; the ring loops until the first save (KAN-875). */
   INVITE_CYCLE: '4000ms',
+  /** The first save's floppy disks, out from the save button and gone (KAN-875). */
+  FIRST_SAVE_POP: '900ms',
+  /** ...fading over its last part (KAN-875). */
+  FIRST_SAVE_POP_FADE: '550ms',
 } as const;
 
 /**

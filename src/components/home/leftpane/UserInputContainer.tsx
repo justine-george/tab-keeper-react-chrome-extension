@@ -35,6 +35,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useNewSessionReceiver } from './useNewSessionReceiver';
 import { otherScope, SAVE_OF } from './saveScopes';
+import FirstSavePop from './FirstSavePop';
 import SaveInvite, { SAVE_SEGMENT_WIDTH } from './SaveInvite';
 import { onFirstClickOnly } from '../../common/firstClickOnly';
 
@@ -322,6 +323,7 @@ export default function UserInputContainer() {
             style={`width: ${SAVE_SEGMENT_WIDTH}; height: 100%; padding: 0; flex-shrink: 0; border: none;`}
           />
           <SaveInvite />
+          <FirstSavePop />
           <OverflowMenu
             // The same name the session header's and the group row's menus
             // carry. Three controls in the popup now answer to it, which is
