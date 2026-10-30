@@ -8,6 +8,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useHasRisen } from '../../hooks/useHasRisen';
 import type { AppDispatch, RootState } from '../../redux/store';
 import { closeReviewCard } from '../../redux/slices/globalStateSlice';
+import { hasPageCover } from '../../redux/pageCovers';
 import {
   setNeverAskAgainToRate,
   setSkippedUserReviewOnce,
@@ -59,14 +60,18 @@ const CLOSE_BOX = CONTROL.ROW;
  *
  * Always mounted, so its live region exists before the card does: a region
  * that arrives with its content is not reliably announced.
+ *
+ * KAN-877. Hidden, not closed, while a cover is on the page: a tour or setup
+ * started over it. It rises again once the page is clear.
  */
 export function ReviewCard() {
   const reviewCard = useSelector(
     (state: RootState) => state.globalState.reviewCard
   );
+  const isCovered = useSelector(hasPageCover);
   return (
     <div aria-live="polite">
-      {reviewCard !== null && (
+      {reviewCard !== null && !isCovered && (
         <OpenReviewCard
           moment={reviewCard.moment}
           offersNever={reviewCard.offersNever}
