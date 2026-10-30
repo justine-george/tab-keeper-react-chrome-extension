@@ -443,5 +443,12 @@
   "Replace with current window": "वर्तमान विंडो से बदलें",
   "Window replaced.": "विंडो बदल दी गई।",
   "ClosedDuplicateTabs_one": "{{count}} डुप्लिकेट टैब बंद किया गया।",
-  "ClosedDuplicateTabs_other": "{{count}} डुप्लिकेट टैब बंद किए गए।"
+  "ClosedDuplicateTabs_other": "{{count}} डुप्लिकेट टैब बंद किए गए।",
+  "You're all set. {{name}} is saved.": "सब तैयार है। {{name}} सहेज लिया गया है।",
+  "Open brings its tabs back, any time.": "खोलें दबाने पर इसके टैब कभी भी वापस आ जाते हैं।",
+  "You're all set. Your tabs are saved here.": "सब तैयार है। आपके टैब यहाँ सहेजे गए हैं।",
+  "Open brings them back, any time.": "खोलें दबाने पर वे कभी भी वापस आ जाते हैं।",
+  "Have a good day!": "आपका दिन शुभ हो!",
+  "You're all set.": "सब तैयार है।",
+  "Save your tabs here whenever you like.": "जब चाहें, अपने टैब यहाँ सहेजें।"
 }

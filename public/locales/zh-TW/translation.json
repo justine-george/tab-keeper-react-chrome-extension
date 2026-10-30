@@ -428,5 +428,12 @@
   "Go to group": "前往群組",
   "Replace with current window": "以目前視窗取代",
   "Window replaced.": "已取代視窗。",
-  "ClosedDuplicateTabs_other": "已關閉 {{count}} 個重複的分頁。"
+  "ClosedDuplicateTabs_other": "已關閉 {{count}} 個重複的分頁。",
+  "You're all set. {{name}} is saved.": "全部完成。{{name}} 已儲存。",
+  "Open brings its tabs back, any time.": "按下「開啟」就能隨時把其中的分頁找回來。",
+  "You're all set. Your tabs are saved here.": "全部完成。你的分頁已儲存在這裡。",
+  "Open brings them back, any time.": "按下「開啟」就能隨時找回它們。",
+  "Have a good day!": "祝你有美好的一天！",
+  "You're all set.": "全部完成。",
+  "Save your tabs here whenever you like.": "你隨時都可以在這裡儲存分頁。"
 }

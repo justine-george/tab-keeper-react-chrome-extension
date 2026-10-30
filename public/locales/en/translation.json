@@ -443,5 +443,12 @@
   "Replace with current window": "Replace with current window",
   "Window replaced.": "Window replaced.",
   "ClosedDuplicateTabs_one": "Closed {{count}} duplicate tab.",
-  "ClosedDuplicateTabs_other": "Closed {{count}} duplicate tabs."
+  "ClosedDuplicateTabs_other": "Closed {{count}} duplicate tabs.",
+  "You're all set. {{name}} is saved.": "You're all set. {{name}} is saved.",
+  "Open brings its tabs back, any time.": "Open brings its tabs back, any time.",
+  "You're all set. Your tabs are saved here.": "You're all set. Your tabs are saved here.",
+  "Open brings them back, any time.": "Open brings them back, any time.",
+  "Have a good day!": "Have a good day!",
+  "You're all set.": "You're all set.",
+  "Save your tabs here whenever you like.": "Save your tabs here whenever you like."
 }
