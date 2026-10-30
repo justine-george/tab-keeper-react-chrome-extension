@@ -15,9 +15,11 @@ import {
   canAnimate,
   prefersReducedMotion,
 } from '../../modals/getStartedMotion';
+import { COACH_LAYER } from '../../tour/coachLayers';
 import { SAVE_SEGMENT_WIDTH } from './SaveInvite';
 
-// A 0×0 point at the save button's centre: the pieces fly out from it, over the panes.
+// A 0×0 point at the save button's centre: the pieces fly out from it, over the panes,
+// and over the tour's dim (under its card) when the save is the tour's own.
 const anchorStyle = css`
   position: absolute;
   left: calc(${SAVE_SEGMENT_WIDTH} / 2);
@@ -25,7 +27,7 @@ const anchorStyle = css`
   width: 0;
   height: 0;
   overflow: visible;
-  z-index: 2;
+  z-index: ${COACH_LAYER.DIM + 1};
   pointer-events: none;
 `;
 
