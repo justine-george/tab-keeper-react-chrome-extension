@@ -13,6 +13,8 @@ import {
   closeReviewCard,
   closeFullViewCallout,
   openFullViewCallout,
+  noteFirstSave,
+  setFirstSavePopping,
   closePinGuide,
   closeSetup,
   openPinGuide,
@@ -174,6 +176,32 @@ describe('releasing a pending ask', () => {
 
     act(() => {
       store.dispatch(closeFullViewCallout());
+    });
+    advance(REVIEW_CARD_SETTLE_MS);
+    expect(cardOf(store)).not.toBeNull();
+  });
+
+  // KAN-875. The first save's pop plays first; its card comes after.
+  test('the first-save pop covers the page', () => {
+    const store = mount((s) => {
+      s.dispatch(setFirstSavePopping(true));
+      s.dispatch(noteReviewMoment({ kind: 'firstSave' }));
+    });
+    advance(5_000);
+    expect(cardOf(store)).toBeNull();
+
+    act(() => {
+      store.dispatch(setFirstSavePopping(false));
+    });
+    advance(REVIEW_CARD_SETTLE_MS);
+    expect(cardOf(store)).not.toBeNull();
+  });
+
+  // KAN-875. Only a pop on screen holds the card: a page with none never says it is popping.
+  test('a first save with no pop on the page is not held', () => {
+    const store = mount((s) => {
+      s.dispatch(noteFirstSave());
+      s.dispatch(noteReviewMoment({ kind: 'firstSave' }));
     });
     advance(REVIEW_CARD_SETTLE_MS);
     expect(cardOf(store)).not.toBeNull();
