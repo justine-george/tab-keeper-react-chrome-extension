@@ -15,7 +15,13 @@ async function settle(el: Element, reach: Reach | 'document') {
     }
     return carried;
   };
-  const moving = () => inReach().filter((a) => a.playState !== 'finished');
+  // A looping animation never lands (the save ring, KAN-875), so no wait is for it.
+  const moving = () =>
+    inReach().filter(
+      (a) =>
+        a.playState !== 'finished' &&
+        a.effect?.getComputedTiming().endTime !== Infinity
+    );
   // allSettled: a cancelled animation's `finished` rejects with AbortError.
   // Then look again: whatever cancelled it may have started its replacement.
   for (let left = moving(); left.length > 0; left = moving()) {
@@ -23,12 +29,12 @@ async function settle(el: Element, reach: Reach | 'document') {
   }
 }
 
-/** Resolves once no animation in the page is still running. */
+/** Resolves once no animation in the page is still running, looping ones aside. */
 export async function documentLanded(page: Page): Promise<void> {
   await page.locator(':root').evaluate(settle, 'document' as const);
 }
 
-/** Resolves once no animation within `reach` of `el` is still running. */
+/** Resolves once no animation within `reach` of `el` is still running, looping ones aside. */
 export async function elementLanded(el: Locator, reach: Reach): Promise<void> {
   await el.evaluate(settle, reach);
 }
