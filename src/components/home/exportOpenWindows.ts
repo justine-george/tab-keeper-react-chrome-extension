@@ -2,6 +2,8 @@ import { hasTabsToSave } from '../../utils/functions/capture';
 import { openBesideActiveTab } from '../../utils/functions/openBesideActiveTab';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { showToast } from '../../redux/slices/globalStateSlice';
+import { isTabView } from '../../utils/functions/viewMode';
+import { withPreviewFrom } from '../../utils/functions/previewFrom';
 import type { AppDispatch } from '../../redux/store';
 
 // Save open windows as PDF, from the save row's ⋮ and Open now's header (KAN-774).
@@ -16,6 +18,11 @@ export async function exportOpenWindows(dispatch: AppDispatch): Promise<void> {
   // captures the windows for itself when it loads, which is
   // also why no snapshot is handed over here.
   void openBesideActiveTab(
-    chrome.runtime.getURL('export.html?source=open-windows')
+    chrome.runtime.getURL(
+      withPreviewFrom(
+        'export.html?source=open-windows',
+        isTabView() ? 'full' : 'popup'
+      )
+    )
   );
 }

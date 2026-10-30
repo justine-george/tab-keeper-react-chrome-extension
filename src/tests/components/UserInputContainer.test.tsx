@@ -346,7 +346,7 @@ describe('the save row menu (KAN-208)', () => {
 
     expect(chrome.createdTabs).toHaveLength(1);
     expect(chrome.createdTabs[0].url).toBe(
-      'chrome-extension://faketestid/export.html?source=open-windows'
+      'chrome-extension://faketestid/export.html?source=open-windows&from=popup'
     );
     // Not a save: no session, no save action, no toast.
     expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
@@ -379,7 +379,7 @@ describe('the save row menu (KAN-208)', () => {
 
     await waitFor(() => expect(chrome.createdTabs).toHaveLength(1));
     expect(chrome.createdTabs[0]).toEqual({
-      url: 'chrome-extension://faketestid/export.html?source=open-windows',
+      url: 'chrome-extension://faketestid/export.html?source=open-windows&from=popup',
       index: 2,
       openerTabId: 2,
       windowId: 7,

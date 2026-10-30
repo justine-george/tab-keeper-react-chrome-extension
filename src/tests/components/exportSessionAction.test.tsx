@@ -145,12 +145,37 @@ describe('the session header keeps three actions and a menu (KAN-193, KAN-581)',
 
     await waitFor(() => expect(chrome.createdTabs).toHaveLength(1));
     expect(chrome.createdTabs[0]).toEqual({
-      url: 'chrome-extension://faketestid/export.html?session=session-kyoto',
+      url: 'chrome-extension://faketestid/export.html?session=session-kyoto&from=popup',
       index: 1,
       openerTabId: 10,
       windowId: 1,
     });
   });
+
+  // KAN-880. The preview's back link needs to know which surface opened it.
+  test.each([
+    ['the popup', 'popup', ''],
+    ['the full view', 'full', '?view=tab'],
+  ])(
+    'Save as PDF from %s opens the export marked from=%s',
+    async (_n, from, search) => {
+      history.replaceState(null, '', search || '?');
+      try {
+        const user = userEvent.setup();
+        const { chrome } = await renderHeader();
+
+        await openMenu(user);
+        await user.click(
+          screen.getByRole('menuitem', { name: 'Save as PDF…' })
+        );
+
+        expect(chrome.createdTabs).toHaveLength(1);
+        expect(chrome.createdTabs[0].url).toMatch(new RegExp(`&from=${from}$`));
+      } finally {
+        history.replaceState(null, '', '?');
+      }
+    }
+  );
 
   // CONTROL: with one session seeded, a hardcoded index would pass.
   test('Save as PDF is for the selected session, not the first one', async () => {

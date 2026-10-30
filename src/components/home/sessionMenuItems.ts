@@ -28,6 +28,7 @@ import {
 } from '../../utils/functions/deleteKey';
 import { useMacKeys } from '../../hooks/useIsMac';
 import { isTabView } from '../../utils/functions/viewMode';
+import { withPreviewFrom } from '../../utils/functions/previewFrom';
 
 type DeleteKey = NonNullable<OverflowMenuItem['shortcut']>;
 
@@ -167,7 +168,10 @@ export function sessionMenuItems(
         // when the context dies.
         void openBesideActiveTab(
           chrome.runtime.getURL(
-            `export.html?session=${encodeURIComponent(tabGroupId)}`
+            withPreviewFrom(
+              `export.html?session=${encodeURIComponent(tabGroupId)}`,
+              isTabView() ? 'full' : 'popup'
+            )
           )
         );
       },
