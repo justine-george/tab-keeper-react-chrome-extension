@@ -435,5 +435,8 @@
   "Open brings them back, any time.": "「開く」でいつでも元に戻せます。",
   "Have a good day!": "良い一日をお過ごしください！",
   "You're all set.": "準備完了です。",
-  "Save your tabs here whenever you like.": "タブはいつでもここから保存できます。"
+  "Save your tabs here whenever you like.": "タブはいつでもここから保存できます。",
+  "Back to Tab Keeper": "Tab Keeper に戻る",
+  "Going back loses your edits. Save as PDF first to keep them.": "戻ると編集内容が失われます。残すには、先にPDFとして保存してください。",
+  "Stay": "とどまる"
 }

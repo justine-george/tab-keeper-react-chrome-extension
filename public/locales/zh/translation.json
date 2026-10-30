@@ -435,5 +435,8 @@
   "Open brings them back, any time.": "“打开”可随时恢复这些标签页。",
   "Have a good day!": "祝您今天愉快！",
   "You're all set.": "一切就绪。",
-  "Save your tabs here whenever you like.": "您可以随时在这里保存标签页。"
+  "Save your tabs here whenever you like.": "您可以随时在这里保存标签页。",
+  "Back to Tab Keeper": "返回 Tab Keeper",
+  "Going back loses your edits. Save as PDF first to keep them.": "返回会丢失所做的编辑。请先保存为 PDF 以保留它们。",
+  "Stay": "留下"
 }
