@@ -19,6 +19,7 @@ import {
   openReplayNote,
   runShownHere,
   runStoppedHere,
+  setEndingCard,
   setRunSaveCard,
   setRunSaveEcho,
   setSearchInputText,
@@ -207,6 +208,8 @@ export const startRun =
     dispatch(setSearchInputText(''));
     dispatch(closeFullViewCallout());
     dispatch(setRunSaveCard(null));
+    // KAN-879. Never on a replay: a Help tour takes away an ending shown or waiting.
+    dispatch(setEndingCard(null));
     const before = leavesAndEndsSoFar(getState);
     // Held before the record is written: no page sees a record no page holds.
     await dispatch(holdLock());
@@ -458,7 +461,13 @@ export const skipRun = (): Thunk<void> => (dispatch, getState) => {
   const run = selectRunHere(getState());
   dispatch(endRun('skipped'));
   if (run !== null) {
-    dispatch(openReplayNote({ leadsToSetup: false, leadsToEnding: false }));
+    dispatch(
+      openReplayNote({
+        leadsToSetup: false,
+        leadsToEnding: false,
+        isAfterHelpTour: run.isReplay,
+      })
+    );
   }
 };
 
@@ -473,6 +482,7 @@ export const finishRunHere =
       openReplayNote({
         leadsToSetup: run.view === 'full',
         leadsToEnding: run.view === 'popup' && !run.isReplay,
+        isAfterHelpTour: run.isReplay,
       })
     );
   };
@@ -480,13 +490,16 @@ export const finishRunHere =
 // Got it or Esc on the note.
 export const leaveReplayNote =
   (): Thunk<Promise<void>> => async (dispatch, getState) => {
-    const state = getState();
-    const leadsToSetup = state.globalState.doesReplayNoteLeadToSetup;
-    const leadsToEnding = state.globalState.doesReplayNoteLeadToEnding;
-    // KAN-879. The setup after a Help tour is a replay too.
-    const isReplay = state.settingsDataState.firstRun?.isReplay ?? false;
+    const {
+      doesReplayNoteLeadToSetup: leadsToSetup,
+      doesReplayNoteLeadToEnding: leadsToEnding,
+      isReplayNoteAfterHelpTour,
+    } = getState().globalState;
     dispatch(closeReplayNote());
-    if (leadsToSetup) await dispatch(followWithSetup(isReplay));
+    // KAN-879. The setup after a Help tour is a replay too.
+    if (leadsToSetup) {
+      await dispatch(followWithSetup(isReplayNoteAfterHelpTour));
+    }
     if (leadsToEnding) dispatch(requestEnding());
   };
 

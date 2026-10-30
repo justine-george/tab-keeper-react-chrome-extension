@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { css } from '@emotion/react';
 import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
@@ -18,6 +19,11 @@ import {
 } from '../../redux/onboardingEnding';
 import { endingLines } from '../../utils/functions/onboardingEnding';
 import type { AppDispatch, RootState } from '../../redux/store';
+
+// A typed name with no spaces wraps rather than running past the card.
+const wrapsAnywhere = css`
+  overflow-wrap: anywhere;
+`;
 
 const place = (
   anchor: Box,
@@ -58,13 +64,13 @@ export default function EndingCard() {
       progress={null}
       kind="ending"
       text={
-        <>
+        <span css={wrapsAnywhere}>
           {first}
           <br />
           {second}
           <br />
           {signOff}
-        </>
+        </span>
       }
       anchors={anchors}
       isLive

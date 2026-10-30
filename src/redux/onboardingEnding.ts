@@ -1,11 +1,12 @@
 import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 
 import type { RootState } from './store';
-import { thisView } from './firstRun';
 import { setEndingCard } from './slices/globalStateSlice';
 import { markEndingSeen } from './slices/settingsDataStateSlice';
 import { hasPageCover } from './pageCovers';
 import { isSearchActive } from '../utils/functions/local';
+import { isTabView } from '../utils/functions/viewMode';
+import type { RunView } from '../utils/functions/firstRun';
 import {
   endingTarget,
   type EndingTarget,
@@ -15,8 +16,11 @@ import {
 
 type Thunk<R> = ThunkAction<R, RootState, unknown, UnknownAction>;
 
+// As firstRun's thisView; read here so this file and firstRun.ts do not import each other.
+const viewHere = (): RunView => (isTabView() ? 'full' : 'popup');
+
 const isEndingSeenHere = (state: RootState): boolean =>
-  thisView() === 'full'
+  viewHere() === 'full'
     ? state.settingsDataState.isFullViewEndingSeen
     : state.settingsDataState.isPopupEndingSeen;
 
@@ -52,7 +56,7 @@ export const showEnding = (): Thunk<void> => (dispatch, getState) => {
     return;
   }
   dispatch(setEndingCard('shown'));
-  dispatch(markEndingSeen(thisView()));
+  dispatch(markEndingSeen(viewHere()));
 };
 
 // Got it or Esc.

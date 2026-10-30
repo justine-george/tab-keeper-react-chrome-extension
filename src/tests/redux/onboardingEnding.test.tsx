@@ -20,8 +20,13 @@ import { openSetup, setEndingCard } from '../../redux/slices/globalStateSlice';
 import {
   beginSetup,
   markEndingSeen,
+  recordFirstRun,
 } from '../../redux/slices/settingsDataStateSlice';
-import { newRun, type RunView } from '../../utils/functions/firstRun';
+import {
+  newReplayRun,
+  newRun,
+  type RunView,
+} from '../../utils/functions/firstRun';
 
 // KAN-879. The ending is asked for once per view: after setup in the full view,
 // after a finished popup run's note in the popup; never after a Help replay.
@@ -128,7 +133,7 @@ describe('the full view: after setup', () => {
   test('a finished Help replay with setup pending: that setup is a replay too, and no ending', async () => {
     const { store } = makeTestStore();
     store.dispatch(beginSetup());
-    await store.dispatch(startRun(newRun('full', 8, 'welcome', 'full', true)));
+    await store.dispatch(startRun({ ...newReplayRun('full'), step: 8 }));
     await store.dispatch(finishRunHere());
     await store.dispatch(leaveReplayNote());
     expect(store.getState().globalState.isSetupOpen).toBe(true);
@@ -136,6 +141,24 @@ describe('the full view: after setup', () => {
     await store.dispatch(leaveSetup());
     expect(endingOf(store)).toBeNull();
   });
+
+  // The record can be rewritten while the note shows; the setup it opens keeps the finished run's marker.
+  test.each([
+    ['a Help replay', true],
+    ['a first run', false],
+  ])(
+    '%s’s note opens its setup as it was, whatever the record says by then',
+    async (_, isReplay) => {
+      const { store } = makeTestStore();
+      const finished = isReplay ? newReplayRun('full') : newRun('full', 1);
+      await store.dispatch(startRun({ ...finished, step: 8 }));
+      await store.dispatch(finishRunHere());
+      store.dispatch(recordFirstRun({ ...finished, isReplay: !isReplay }));
+      await store.dispatch(leaveReplayNote());
+      expect(store.getState().globalState.isSetupOpen).toBe(true);
+      expect(store.getState().globalState.isSetupReplay).toBe(isReplay);
+    }
+  );
 
   test('a skipped run ends at the note: setup waits for a later open', async () => {
     const { store } = makeTestStore();
@@ -171,9 +194,7 @@ describe('the popup: after a finished run’s note', () => {
 
   test('a finished Help replay gets the note and nothing after it', async () => {
     const { store } = makeTestStore();
-    await store.dispatch(
-      startRun(newRun('popup', 7, 'welcome', 'popup', true))
-    );
+    await store.dispatch(startRun({ ...newReplayRun('popup'), step: 7 }));
     await store.dispatch(finishRunHere());
     await store.dispatch(leaveReplayNote());
     expect(endingOf(store)).toBeNull();

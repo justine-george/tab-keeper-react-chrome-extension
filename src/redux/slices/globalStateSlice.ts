@@ -191,6 +191,8 @@ export interface Global {
   doesReplayNoteLeadToSetup: boolean;
   // KAN-879. Whether closing the note asks for the ending: only after a finished popup run, not a replay.
   doesReplayNoteLeadToEnding: boolean;
+  // KAN-879. The note closes a Help tour, as it was when the run ended; a record rewritten since does not change it.
+  isReplayNoteAfterHelpTour: boolean;
   // KAN-879. The onboarding ending, or null when neither asked for nor showing.
   endingCard: EndingCard | null;
   // "the tabGroups permission is granted right now". Mirrors
@@ -370,6 +372,7 @@ export const initialState: Global = {
   isReplayNoteOpen: false,
   doesReplayNoteLeadToSetup: false,
   doesReplayNoteLeadToEnding: false,
+  isReplayNoteAfterHelpTour: false,
   endingCard: null,
   hasTabGroupsPermission: false,
   collapsedWindows: null,
@@ -1360,11 +1363,16 @@ export const globalStateSlice = createSlice({
 
     openReplayNote: (
       state,
-      action: PayloadAction<{ leadsToSetup: boolean; leadsToEnding: boolean }>
+      action: PayloadAction<{
+        leadsToSetup: boolean;
+        leadsToEnding: boolean;
+        isAfterHelpTour: boolean;
+      }>
     ) => {
       state.isReplayNoteOpen = true;
       state.doesReplayNoteLeadToSetup = action.payload.leadsToSetup;
       state.doesReplayNoteLeadToEnding = action.payload.leadsToEnding;
+      state.isReplayNoteAfterHelpTour = action.payload.isAfterHelpTour;
     },
 
     closeReplayNote: (state) => {

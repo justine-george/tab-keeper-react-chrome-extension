@@ -9,6 +9,7 @@ import {
   openPinGuide,
   openSettingsPage,
   openSetup,
+  setEndingCard,
   setSearchInputText,
 } from './slices/globalStateSlice';
 import { SettingsCategory } from './slices/settingsCategoryStateSlice';
@@ -62,6 +63,8 @@ export const showInFullView =
     if (show === 'setup') {
       // KAN-589. Over the home page, as Show me around's run starts there.
       dispatch(closeSettingsPage());
+      // KAN-879. Never on a replay: this setup takes away an ending shown or waiting.
+      dispatch(setEndingCard(null));
       dispatch(restartSetup());
       dispatch(openSetup({ leadsToPinGuide: false, isReplay: true }));
       return;

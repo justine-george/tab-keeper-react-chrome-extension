@@ -8,6 +8,11 @@ import { ringBox, type Box } from '../../components/tour/coachMarkPlacement';
 import { useEndingRelease } from '../../hooks/useEndingRelease';
 import { REVIEW_CARD_SETTLE_MS } from '../../hooks/useReviewAskRelease';
 import { requestEnding } from '../../redux/onboardingEnding';
+import { finishRunHere, leaveReplayNote, startRun } from '../../redux/firstRun';
+import { leaveSetup } from '../../redux/firstOpenFollowUps';
+import { showInFullView } from '../../redux/fullViewShow';
+import { SettingsCategory } from '../../redux/slices/settingsCategoryStateSlice';
+import { installFakeLocks, type FakeLocks } from '../setup/fakeLocks';
 import {
   renderWithProviders,
   type RenderWithProvidersResult,
@@ -17,11 +22,13 @@ import {
   closeFullViewCallout,
   closePinGuide,
   closeReplayNote,
+  closeReviewCard,
   closeSettingsPage,
   closeSetup,
   openFullViewCallout,
   openPinGuide,
   openReplayNote,
+  openReviewCard,
   openSettingsPage,
   openSetup,
   runShownHere,
@@ -31,7 +38,7 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import { recordFirstRun } from '../../redux/slices/settingsDataStateSlice';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
-import { newRun } from '../../utils/functions/firstRun';
+import { newReplayRun, newRun } from '../../utils/functions/firstRun';
 import type { RootState } from '../../redux/store';
 
 // KAN-879. The onboarding ending: at the saved row's Open (or Save with none), once nothing covers the page.
@@ -222,7 +229,11 @@ describe('the ending card', () => {
       'the replay note',
       (s) =>
         s.dispatch(
-          openReplayNote({ leadsToSetup: false, leadsToEnding: false })
+          openReplayNote({
+            leadsToSetup: false,
+            leadsToEnding: false,
+            isAfterHelpTour: false,
+          })
         ),
       (s) => s.dispatch(closeReplayNote()),
     ],
@@ -274,8 +285,12 @@ describe('the ending card', () => {
     await placed();
   });
 
-  // A Help tour can start while it shows; a first save under it pops.
-  test.each(COVERS)(
+  // Help → Show pin guide, or a first save at Save, can open over it.
+  test.each(
+    COVERS.filter(([name]) =>
+      ['the pin guide', 'the first-save pop'].includes(name)
+    )
+  )(
     'hides while %s covers the page, and comes back after',
     async (_, cover, uncover) => {
       const { store } = await renderPending();
@@ -288,6 +303,36 @@ describe('the ending card', () => {
       ringsAt(OPEN);
     }
   );
+
+  test('waits while the review card shows, and shows once it closes', async () => {
+    const { store } = await renderPending((s) => {
+      typedRun(s);
+      s.dispatch(
+        openReviewCard({ moment: { kind: 'time' }, offersNever: false })
+      );
+    });
+    await settled();
+    expect(mark()).toBeNull();
+    expect(endingOf(store)).toBe('pending');
+    act(() => {
+      store.dispatch(closeReviewCard());
+    });
+    await placed();
+    expect(endingOf(store)).toBe('shown');
+  });
+
+  test('a long name typed with no spaces wraps inside the card', async () => {
+    const long = 'x'.repeat(120);
+    await renderPending((store) => {
+      typedRun(store);
+      store.dispatch(replaceState(buildContainer([{ ...TRIP, title: long }])));
+    });
+    await placed();
+    expect(linesOf().text).toContain(`${long} is saved.`);
+    expect(mark()?.querySelector('p > span')).toHaveStyle({
+      overflowWrap: 'anywhere',
+    });
+  });
 
   test.each([
     [
@@ -355,7 +400,7 @@ describe('the ending card', () => {
     ringsAt(OPEN);
   });
 
-  // Not marked seen where it cannot be seen: a page closed on Settings or mid-search gets it next time.
+  // Not marked seen where it cannot be seen. The request lives in this page only: a page closed while it waits loses it.
   test.each([
     [
       'on the Settings page',
@@ -387,6 +432,90 @@ describe('the ending card', () => {
       });
       await placed();
       expect(store.getState().settingsDataState.isPopupEndingSeen).toBe(true);
+    }
+  );
+});
+
+// Never on a replay: Help's tour or setup, started while it shows or waits, takes it away for good.
+describe('a Help replay takes the ending away', () => {
+  let locks: FakeLocks;
+  beforeEach(() => {
+    locks = installFakeLocks();
+  });
+  afterEach(() => {
+    locks.uninstall();
+    history.replaceState(null, '', '?');
+  });
+
+  const run = (step: (s: Store) => unknown) => (store: Store) =>
+    act(async () => {
+      await step(store);
+    });
+  const toHelp = run((s) =>
+    s.dispatch(openSettingsPage(SettingsCategory.HELP))
+  );
+
+  // Shown, then Help; or asked for while on Settings, so still waiting.
+  const AT_HELP = ['shown', 'pending'] as const;
+  const renderAtHelp = async (at: (typeof AT_HELP)[number]) => {
+    const { store } = await renderWithProviders(<Page />, {
+      seedStore: typedRun,
+    });
+    if (at === 'pending') await toHelp(store);
+    act(() => {
+      store.dispatch(requestEnding());
+    });
+    if (at === 'shown') {
+      await placed();
+      await toHelp(store);
+    }
+    await settled();
+    expect(endingOf(store)).toBe(at);
+    return store;
+  };
+  const expectGone = async (store: Store) => {
+    await settled();
+    expect(mark()).toBeNull();
+    expect(endingOf(store)).toBeNull();
+  };
+
+  test.each(AT_HELP)(
+    'popup, %s: Show me around, the replay finished and its note closed: no card',
+    async (at) => {
+      const store = await renderAtHelp(at);
+      await run((s) => s.dispatch(startRun(newReplayRun('popup'))))(store);
+      await run((s) => s.dispatch(finishRunHere()))(store);
+      await run((s) => s.dispatch(leaveReplayNote()))(store);
+      await expectGone(store);
+    }
+  );
+
+  test.each(AT_HELP)(
+    'full view, %s: Show me around, then its note, setup and the pin guide: no card',
+    async (at) => {
+      history.replaceState(null, '', '?view=tab');
+      const store = await renderAtHelp(at);
+      await run((s) => s.dispatch(startRun(newReplayRun('full'))))(store);
+      await run((s) => s.dispatch(finishRunHere()))(store);
+      await run((s) => s.dispatch(leaveReplayNote()))(store);
+      expect(store.getState().globalState.isSetupOpen).toBe(true);
+      await run((s) => s.dispatch(leaveSetup()))(store);
+      act(() => {
+        store.dispatch(closePinGuide());
+      });
+      await expectGone(store);
+    }
+  );
+
+  test.each(AT_HELP)(
+    'full view, %s: Run setup again, then leaving setup: no card',
+    async (at) => {
+      history.replaceState(null, '', '?view=tab');
+      const store = await renderAtHelp(at);
+      await run((s) => s.dispatch(showInFullView('setup')))(store);
+      expect(store.getState().globalState.isSetupOpen).toBe(true);
+      await run((s) => s.dispatch(leaveSetup()))(store);
+      await expectGone(store);
     }
   );
 });

@@ -164,8 +164,7 @@ export function newRun(
   view: RunView,
   step: RunStep,
   hello: RunHello = 'welcome',
-  helloIn: RunView = view,
-  isReplay = false
+  helloIn: RunView = view
 ): FirstRun {
   return {
     view,
@@ -176,9 +175,14 @@ export function newRun(
     welcomeShows: view === 'popup' && step === 0 ? 1 : null,
     ended: null,
     onlyFullViewSteps: false,
-    isReplay,
+    isReplay: false,
     isSessionNameTyped: false,
   };
+}
+
+// R11, KAN-879. Help → Show me around: step 1, no Hello, marked a replay.
+export function newReplayRun(view: RunView): FirstRun {
+  return { ...newRun(view, 1), isReplay: true };
 }
 
 // KAN-830. A full-view run of only its own steps, holding the popup tour's example if it carries one.

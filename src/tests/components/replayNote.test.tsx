@@ -41,7 +41,11 @@ const renderOpen = () =>
   renderWithProviders(<ReplayNote />, {
     seedStore: (store) =>
       store.dispatch(
-        openReplayNote({ leadsToSetup: false, leadsToEnding: false })
+        openReplayNote({
+          leadsToSetup: false,
+          leadsToEnding: false,
+          isAfterHelpTour: false,
+        })
       ),
   });
 
