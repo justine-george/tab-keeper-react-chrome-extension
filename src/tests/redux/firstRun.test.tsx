@@ -349,13 +349,13 @@ describe('the run’s save and the example', () => {
     return runOf(store)?.sessionId ?? '';
   };
 
-  test('after the example, your own save takes its place: the sample goes, undoably, and the card stays (KAN-876)', async () => {
+  test('after the example, your own save takes its place: the sample goes, undoably, and the run moves on (KAN-876)', async () => {
     const { store, seen } = makeTestStore();
     const sampleId = await exampleThenBack(store);
     expect(isSampleSession(sampleId)).toBe(true);
     store.dispatch(saveToTabContainerInternal(structuredClone(OWN)));
     store.dispatch(takeRunSave('own'));
-    expect(runOf(store)).toMatchObject({ step: 1, sessionId: 'own' });
+    expect(runOf(store)).toMatchObject({ step: 2, sessionId: 'own' });
     expect(ids(store)).toEqual(['own']);
     expect(seen).toContain(DELETE_TAB_CONTAINER_ACTION);
     expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(

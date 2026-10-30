@@ -395,17 +395,13 @@ export const takeRunSave =
     const run = selectRunHere(getState());
     if (run === null || stepKindOf(run) !== 'save') return;
     // KAN-876. Back on the save step after the example, the user's own save takes its place.
-    const example =
-      run.sessionId !== null && isSampleSession(run.sessionId)
-        ? run.sessionId
-        : null;
-    if (run.sessionId !== null && example === null) return;
+    const id = run.sessionId;
+    if (id !== null && !isSampleSession(id)) return;
     dispatch(setFirstRunSession(tabGroupId));
-    dispatch(removeRunSample(example));
+    dispatch(removeRunSample(id));
     dispatch(showSession(tabGroupId));
     dispatch(setRunSaveEcho(tabGroupId));
-    // A step come back to stays, its card now "Saved."
-    if (example === null) void dispatch(advanceRun());
+    void dispatch(advanceRun());
   };
 
 // Q2, Q3. The sample becomes the run's session; R9 removes it at the end, or when an own save takes its place.

@@ -191,7 +191,7 @@ for (const { name, saveStep } of [
   { name: 'popup', saveStep: 1 },
   { name: 'full view', saveStep: 3 },
 ]) {
-  test(`${name}: Use an example, Back, then your own save takes its place; Next points at it`, async ({
+  test(`${name}: Use an example, Back, then your own save takes its place and the run points at it`, async ({
     context,
     extensionId,
   }) => {
@@ -208,11 +208,8 @@ for (const { name, saveStep } of [
     await cardButton(page, 'Back').click();
     await expect(card(page)).toContainText('This is an example. Press');
     await saveRowSaveAll(page).click();
-    await expect(cardAt(page, saveStep)).toBeVisible();
-    await expect(card(page)).toContainText('Saved. Press');
-    await expect.poll(() => storedTitles(page)).toEqual(['Inbox – Gmail']);
-    await cardButton(page, 'Next').click();
     await expect(cardAt(page, saveStep + 1)).toBeVisible();
+    await expect.poll(() => storedTitles(page)).toEqual(['Inbox – Gmail']);
     const engaged = page.locator('[data-run-engaged]');
     await expect(engaged).toHaveCount(1);
     await expect(engaged).toContainText('Inbox – Gmail');
