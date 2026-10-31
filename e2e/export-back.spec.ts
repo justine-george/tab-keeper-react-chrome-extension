@@ -181,6 +181,53 @@ test('1. from the full view: the full view is active again and the preview is go
   ]);
 });
 
+// Off the happy path: the opener moved to another window. Only the worker's switch reaches it; Chrome's own pick stays in the preview's window.
+test('1b. the full view moved to another window: that window is focused, on the full view', async ({
+  context,
+  serviceWorker,
+  extensionId,
+}) => {
+  const { preview, fullView, previewTab } = await previewFromFullView(
+    context,
+    serviceWorker,
+    extensionId
+  );
+  await addTabAfter(context, serviceWorker, previewTab);
+  const movedTo = await serviceWorker.evaluate(
+    async ([tabId, previewId]) => {
+      const win = await chrome.windows.create({ tabId, focused: false });
+      await chrome.tabs.update(previewId, { active: true });
+      await chrome.windows.update((await chrome.tabs.get(previewId)).windowId, {
+        focused: true,
+      });
+      return win?.id;
+    },
+    [fullView.id, previewTab.id]
+  );
+  // PREMISE: the full view is alone in its own window, and the preview's window has focus.
+  expect(movedTo).not.toBe(previewTab.windowId);
+  expect(
+    await serviceWorker.evaluate(() =>
+      chrome.windows.getLastFocused().then((w) => w.id)
+    )
+  ).toBe(previewTab.windowId);
+
+  await backLink(preview).click();
+
+  await expect.poll(() => tabsAt(serviceWorker, 'export.html')).toEqual([]);
+  await expect
+    .poll(() =>
+      serviceWorker.evaluate(() =>
+        chrome.windows.getLastFocused().then((w) => w.id)
+      )
+    )
+    .toBe(movedTo);
+  expect(await activeIn(serviceWorker, movedTo ?? -1)).toBe(fullView.id);
+  expect((await tabsAt(serviceWorker, FULL_VIEW)).map((t) => t.id)).toEqual([
+    fullView.id,
+  ]);
+});
+
 test('2. with a hidden tab: the card asks, Stay keeps the page, Go back closes it without "Leave site?"', async ({
   context,
   serviceWorker,
