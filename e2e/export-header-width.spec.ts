@@ -81,6 +81,8 @@ const geometry = (page: Page) =>
       (row.getBoundingClientRect().height + 10) / (tallest + 10)
     );
     return {
+      // The window less a reserved scrollbar gutter (KAN-880): 0px where scroll bars overlay, ~15px where they always show.
+      layoutWidth: document.documentElement.clientWidth,
       header: r(header),
       back: r(back),
       // The way back is the line's one control, named in any language.
@@ -113,11 +115,12 @@ for (const lang of ALL_LANGS) {
     const page = await openExport(context, extensionId, WIDE, lang);
     const g = await geometry(page);
 
-    // Only the content is constrained; the header itself is full bleed.
+    // Only the content is constrained; the header itself is full bleed, up to any scrollbar gutter.
+    expect(WIDE.width - g.layoutWidth).toBeLessThanOrEqual(20);
     expect(g.header.left).toBe(0);
-    expect(g.header.right).toBe(WIDE.width);
+    expect(g.header.right).toBe(g.layoutWidth);
 
-    const expectedLeft = (WIDE.width - SHEET_MAX_PX) / 2;
+    const expectedLeft = (g.layoutWidth - SHEET_MAX_PX) / 2;
     expect(g.toolbar.width).toBeCloseTo(SHEET_MAX_PX, 0);
     expect(g.toolbar.left).toBeCloseTo(expectedLeft, 0);
     expect(g.toolbar.right).toBeCloseTo(expectedLeft + SHEET_MAX_PX, 0);
@@ -152,7 +155,7 @@ test(`at 2000px the editing row's Done and tally span the ${SHEET_MAX_PX}px band
     .first()
     .boundingBox())!;
 
-  const expectedLeft = (WIDE.width - SHEET_MAX_PX) / 2;
+  const expectedLeft = (g.layoutWidth - SHEET_MAX_PX) / 2;
   expect(done.x, 'Done starts the band').toBeCloseTo(expectedLeft, 0);
   expect(tallyBox.x + tallyBox.width, 'the tally ends the band').toBeCloseTo(
     expectedLeft + SHEET_MAX_PX,

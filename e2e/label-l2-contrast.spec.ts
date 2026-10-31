@@ -1,5 +1,6 @@
 // KAN-672. The grey date and count lines read at 4.5:1 on the fills they sit
 // on: the selected row, the session and Open now headers, the export header.
+// KAN-880: the export header's counts moved onto the sheet; its grey text is now the way back.
 import { test, expect } from './fixtures/extension';
 import { seedSettings } from './fixtures/seed';
 import { seed, sessionRow, S1, S2, S3, S4 } from './fixtures/betweenSessions';
@@ -51,12 +52,12 @@ for (const theme of THEMES) {
         await page.getByRole('menuitem', { name: 'Save as PDF…' }).click();
       })(),
     ]);
-    const counts = exportPage.getByText(/^2 Windows/);
-    await expect(counts).toBeVisible();
+    const label = exportPage.getByText('Preview', { exact: true });
+    await expect(label).toBeVisible();
+    await expectReadable(label, `${theme} export label`);
     await expectReadable(
-      exportPage.getByText('Preview', { exact: true }),
-      `${theme} export label`
+      exportPage.getByRole('button', { name: 'Back to Tab Keeper' }),
+      `${theme} export way back`
     );
-    await expectReadable(counts, `${theme} export counts`);
   });
 }
