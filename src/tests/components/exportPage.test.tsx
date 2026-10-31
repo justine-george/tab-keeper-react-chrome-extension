@@ -339,6 +339,59 @@ describe('the export preview page (KAN-190)', () => {
     expect(document.title).toBe('Weekend in Kyoto');
   });
 
+  // KAN-602. Chrome's menu Print… names the PDF after the page's title, so
+  // while its dialog is open the title is the file's.
+  test('beforeprint shows the edited title, afterprint the session title', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    const field = screen.getByRole('textbox', {
+      name: 'Rename session: Weekend in Kyoto',
+    });
+    await user.clear(field);
+    await user.type(field, 'Kyoto, edited');
+
+    act(() => {
+      window.dispatchEvent(new Event('beforeprint'));
+    });
+    expect(document.title).toBe('Kyoto, edited');
+    act(() => {
+      window.dispatchEvent(new Event('afterprint'));
+    });
+    expect(document.title).toBe('Weekend in Kyoto');
+  });
+
+  // KAN-602, spec call 3. Only Save as PDF… and its keys count as using it.
+  test('a print from the menu does not dismiss the Save as PDF… pointer', async () => {
+    const { store } = await renderPage();
+    const before = store.getState().settingsDataState;
+    act(() => {
+      window.dispatchEvent(new Event('beforeprint'));
+      window.dispatchEvent(new Event('afterprint'));
+    });
+    expect(store.getState().settingsDataState).toBe(before);
+  });
+
+  test('the page holds a print-only copy of the file, with its edits', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    const field = screen.getByRole('textbox', {
+      name: 'Rename tab: Fushimi Inari',
+    });
+    await user.clear(field);
+    await user.type(field, 'Inari at dawn');
+
+    const host = document.querySelector('[data-print-copy]');
+    expect(host?.shadowRoot?.textContent).toContain('Inari at dawn');
+  });
+
+  test('a session that is not found has no print copy', async () => {
+    await renderPage('session-that-was-deleted');
+    expect(screen.getByText('Session not found')).toBeTruthy();
+    expect(document.querySelector('[data-print-copy]')).toBeNull();
+  });
+
   // Worst path: a bookmarked or stale URL whose session no longer exists.
   test('an id that matches no session says so, and offers nothing to save', async () => {
     await renderPage('session-that-was-deleted');

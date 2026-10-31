@@ -1,7 +1,12 @@
 import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import {
+  buildContainer,
+  buildSession,
+  seedSessions,
+  seedSettings,
+} from './fixtures/seed';
 
 // KAN-740 on the real export page: in Compact, a rule sits only BETWEEN rows.
 // The last row of a window's list and the last tab of a group draw none, so
@@ -161,3 +166,112 @@ test('Edit mode: the same rows draw the same rules', async ({
   );
   expect(seen).toEqual(EXPECTED);
 });
+
+// KAN-741. In Comfortable, Edit draws the Comfortable file's rows: no rules,
+// and the whole address under each title, wrapping rather than widening the page.
+test('in Comfortable, Edit shows each full address and no row rules, and wraps at 560', async ({
+  context,
+  extensionId,
+}) => {
+  const LONG = `https://long.test/${'a'.repeat(182)}`;
+  const session = {
+    ...SESSION,
+    tabCount: 8,
+    windows: [
+      SESSION.windows[0],
+      {
+        ...SESSION.windows[1],
+        tabCount: 4,
+        tabs: [
+          ...SESSION.windows[1].tabs,
+          { tabId: 'long', favicon: '', title: 'Long', url: LONG },
+        ],
+      },
+    ],
+  };
+  await seedSettings(context, { exportLayout: 'comfortable' });
+  await seedSessions(context, {
+    ...buildContainer([session]),
+    selectedTabGroupId: 'session-rules',
+  });
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 560, height: 900 });
+  await page.goto(
+    `chrome-extension://${extensionId}/export.html?session=session-rules`
+  );
+  // PREMISE: the file is Comfortable.
+  await expect(page.frameLocator('iframe').locator('body')).toHaveClass(
+    /comfortable/
+  );
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  const fields = page.getByRole('textbox', { name: 'Rename tab' });
+  await expect(fields).toHaveCount(8);
+  expect(LONG).toHaveLength(200);
+
+  const rows = await fields.evaluateAll((inputs) =>
+    inputs.map((input) => {
+      const li = input.closest('li');
+      if (li === null) throw new Error('a tab field outside a row');
+      return [li.textContent ?? '', getComputedStyle(li).borderBottomStyle];
+    })
+  );
+  const urls = [
+    ...SESSION.windows[0].tabs.map((t) => t.url),
+    ...SESSION.windows[1].tabs.map((t) => t.url),
+    LONG,
+  ];
+  rows.forEach(([text, border], index) => {
+    expect(text).toContain(urls[index]);
+    expect(border).toBe('none');
+  });
+  // The editor's row, not the print-only copy of the file (KAN-602).
+  const longRow = page
+    .getByRole('listitem')
+    .filter({ has: page.getByRole('textbox', { name: 'Rename tab: Long' }) });
+  await expect(longRow.getByText(LONG, { exact: true })).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth
+    )
+  ).toBe(true);
+});
+
+// KAN-741 final review. Edit changes only the words: every row's icon stands
+// where the file's does, grouped rows included, in both layouts.
+for (const layout of ['compact', 'comfortable'] as const) {
+  test(`${layout}: in Edit each row's icon stands where the file's does`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, { exportLayout: layout });
+    const page = await openExport(context, extensionId);
+    await expect(page.frameLocator('iframe').locator('body')).toHaveClass(
+      new RegExp(layout)
+    );
+    // The frame's content edge: its own border sits outside the file.
+    const frameLeft = await page
+      .locator('iframe')
+      .evaluate(
+        (frame) => frame.getBoundingClientRect().left + frame.clientLeft
+      );
+    const fileLefts = await page
+      .frameLocator('iframe')
+      .locator('li.tab .fav')
+      .evaluateAll((slots) =>
+        slots.map((slot) => slot.getBoundingClientRect().left)
+      );
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
+    const editLefts = await page
+      .locator('[data-icon-slot]')
+      .evaluateAll((slots) =>
+        slots.map((slot) => slot.getBoundingClientRect().left)
+      );
+    expect(editLefts).toHaveLength(EXPECTED.length);
+    editLefts.forEach((left, index) => {
+      expect(
+        Math.abs(left - (frameLeft + fileLefts[index])),
+        `${EXPECTED[index][0]}: editor ${left}, file ${frameLeft + fileLefts[index]}`
+      ).toBeLessThanOrEqual(0.5);
+    });
+  });
+}

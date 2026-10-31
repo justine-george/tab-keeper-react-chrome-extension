@@ -15,6 +15,7 @@ import {
 } from '../../utils/functions/sessionExportEdits';
 import {
   EXPORT_PALETTE,
+  type ExportLayout,
   type ExportScheme,
 } from '../../utils/functions/sessionExportHtml';
 import { isPngDataUri } from '../../utils/functions/exportIcons';
@@ -30,6 +31,8 @@ interface ExportEditorProps {
   edits: ExportEdits;
   /** The file's scheme, so the rows being edited look like the file. */
   scheme: ExportScheme;
+  /** KAN-741. The file's layout, so editing never changes the paper. */
+  layout: ExportLayout;
   /** KAN-603. Each tab address's icon, the same map the file is built from. */
   icons: ReadonlyMap<string, string>;
   onRename: (key: string, title: string) => void;
@@ -64,12 +67,14 @@ export default function ExportEditor({
   session,
   edits,
   scheme,
+  layout,
   icons,
   onRename,
   onToggleHidden,
 }: ExportEditorProps) {
   const { t } = useTranslation();
   const palette = EXPORT_PALETTE[scheme];
+  const comfortable = layout === 'comfortable';
 
   const fieldStyle = css`
     font: inherit;
@@ -225,9 +230,67 @@ export default function ExportEditor({
     );
   };
 
-  const tabRow = (window: windowGroupData, tab: tabData, index: number) => {
+  const tabRow = (
+    window: windowGroupData,
+    tab: tabData,
+    index: number,
+    inGroup: boolean
+  ) => {
     const key = exportRowKey.tab(window, tab.tabId);
     const name = tab.title || tab.url;
+    const titleField = (fontSize: number) =>
+      field(
+        key,
+        tab.title,
+        t('Rename tab'),
+        css`
+          font-size: ${fontSize}px;
+          color: ${
+            /^https?:\/\//i.test(tab.url) ? palette.link : palette.plain
+          };
+        `
+      );
+    if (comfortable) {
+      // KAN-741. The file's Comfortable row: no rules, the whole address beneath the title.
+      return (
+        <li
+          key={`${tab.tabId}-${index}`}
+          css={[
+            rowStyle,
+            css`
+              align-items: flex-start;
+              padding: ${inGroup ? '5px 12px 5px 0' : '7px 0'};
+              & > [data-icon-slot] {
+                margin-top: 3px;
+              }
+            `,
+          ]}
+          data-hidden={edits.hidden.has(key) || undefined}
+        >
+          {iconSlot(tab.url)}
+          <div
+            css={css`
+              flex: 1 1 auto;
+              min-width: 0;
+            `}
+          >
+            {titleField(15)}
+            <div
+              data-dims
+              css={css`
+                padding: 0 2px;
+                font-size: 12px;
+                color: ${palette.muted};
+                overflow-wrap: anywhere;
+              `}
+            >
+              {tab.url}
+            </div>
+          </div>
+          {eye(key, name)}
+        </li>
+      );
+    }
     return (
       <li
         key={`${tab.tabId}-${index}`}
@@ -245,17 +308,7 @@ export default function ExportEditor({
         data-hidden={edits.hidden.has(key) || undefined}
       >
         {iconSlot(tab.url)}
-        {field(
-          key,
-          tab.title,
-          t('Rename tab'),
-          css`
-            font-size: 14px;
-            color: ${
-              /^https?:\/\//i.test(tab.url) ? palette.link : palette.plain
-            };
-          `
-        )}
+        {titleField(14)}
         <span
           data-dims
           css={css`
@@ -310,7 +363,8 @@ export default function ExportEditor({
           margin: 0 auto;
           display: flex;
           flex-direction: column;
-          gap: 24px;
+          /* The file's sections: 20px apart in Compact, 28px in Comfortable. */
+          gap: ${comfortable ? 32 : 24}px;
         `}
       >
         {/* A textarea, not an input: a long session title wraps, as the
@@ -350,11 +404,20 @@ export default function ExportEditor({
               <div
                 css={[
                   rowStyle,
-                  css`
-                    font-size: 14px;
-                    font-weight: 600;
-                    margin-bottom: 6px;
-                  `,
+                  comfortable
+                    ? css`
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: ${palette.muted};
+                        margin-bottom: 10px;
+                        padding-bottom: 8px;
+                        border-bottom: 1px solid ${palette.rule};
+                      `
+                    : css`
+                        font-size: 14px;
+                        font-weight: 600;
+                        margin-bottom: 6px;
+                      `,
                 ]}
               >
                 <span
@@ -362,6 +425,13 @@ export default function ExportEditor({
                   css={css`
                     flex: none;
                     white-space: nowrap;
+                    ${
+                      comfortable &&
+                      css`
+                        letter-spacing: 0.07em;
+                        text-transform: uppercase;
+                      `
+                    }
                   `}
                 >
                   {t('Window')} {index + 1} ·
@@ -370,7 +440,12 @@ export default function ExportEditor({
                   windowKey,
                   windowName.named ? window.title : '',
                   t('Rename window'),
-                  undefined,
+                  // KAN-741. The name as typed; only the file prints it in capitals.
+                  comfortable
+                    ? css`
+                        font-weight: 400;
+                      `
+                    : undefined,
                   windowName.named ? undefined : windowName.text
                 )}
                 {eye(windowKey, windowName.text)}
@@ -386,7 +461,7 @@ export default function ExportEditor({
                   (run, runIndex) => {
                     if (run.kind === 'ungrouped') {
                       return run.tabs.map((tab, tabIndex) =>
-                        tabRow(window, tab, runIndex * 1000 + tabIndex)
+                        tabRow(window, tab, runIndex * 1000 + tabIndex, false)
                       );
                     }
                     const groupKey = exportRowKey.group(
@@ -404,8 +479,8 @@ export default function ExportEditor({
                         css={css`
                           position: relative;
                           isolation: isolate;
-                          margin: 4px 0;
-                          padding: 0 10px 0 14px;
+                          margin: ${comfortable ? '8px 0' : '4px 0'};
+                          padding: ${comfortable ? '6px 0 6px 18px' : '0 10px 0 14px'};
                         `}
                       >
                         {/* The group's colour band, as a layer of its own so it
@@ -422,17 +497,31 @@ export default function ExportEditor({
                             z-index: -1;
                             border-left: 4px solid ${color};
                             background-color: ${palette.groupBg};
+                            ${
+                              comfortable &&
+                              css`
+                                border-radius: 0 4px 4px 0;
+                                corner-shape: ${CORNER_SHAPE};
+                              `
+                            }
                           `}
                         />
                         <div
                           css={[
                             rowStyle,
-                            css`
-                              font-size: 12px;
-                              font-weight: 600;
-                              color: ${palette.muted};
-                              padding-top: 4px;
-                            `,
+                            comfortable
+                              ? css`
+                                  font-size: 13px;
+                                  font-weight: 600;
+                                  margin-bottom: 2px;
+                                  padding-right: 12px;
+                                `
+                              : css`
+                                  font-size: 12px;
+                                  font-weight: 600;
+                                  color: ${palette.muted};
+                                  padding-top: 4px;
+                                `,
                           ]}
                         >
                           {field(groupKey, run.group.title, t('Rename group'))}
@@ -446,7 +535,7 @@ export default function ExportEditor({
                           `}
                         >
                           {run.tabs.map((tab, tabIndex) =>
-                            tabRow(window, tab, tabIndex)
+                            tabRow(window, tab, tabIndex, true)
                           )}
                         </ul>
                       </li>
