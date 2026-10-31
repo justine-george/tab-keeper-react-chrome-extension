@@ -388,7 +388,10 @@ async function toolbarGeometry(page: Page) {
   );
   return page.evaluate(() => {
     const byLabel = (label: string) =>
-      document.querySelector(`button[aria-label="${label}"]`);
+      // The shown row's, never the one kept hidden for its height (KAN-881).
+      document.querySelector(
+        `[data-toolbar-row] button[aria-label="${label}"]`
+      );
     const primary = byLabel('Save as PDF…') ?? byLabel('Done');
     if (!primary) throw new Error('no primary control on the toolbar');
     const header = document.querySelector('[data-preview-header]');
@@ -526,18 +529,58 @@ for (const width of [1600, 1200, 800, 560]) {
   });
 }
 
-// At 560px the resting row wraps and the editing row does not, so the sheet, and the title on it, move up when Edit is pressed.
-test("at 560px pressing Edit moves the sheet's title 44px up", async ({
+// KAN-881. At 560px the resting row wraps and the editing row does not; the
+// toolbar keeps the taller row's height, so Edit and Done leave the sheet put.
+test("at 560px pressing Edit and Done leave the sheet's title where it was", async ({
   context,
   extensionId,
 }) => {
   const page = await openExportPage(context, extensionId, 560);
   const resting = await toolbarGeometry(page);
+  // CONTROL: the resting row really wraps at this width.
+  expect(resting.primaryTop).toBeGreaterThan(resting.firstLineTop + 1);
   await page.getByRole('button', { name: 'Edit' }).click();
   const editing = await toolbarGeometry(page);
-  // Open, his call (KAN-880): today's move, measured -44 headless; red if it changes or the page breaks.
-  expect(editing.titleTop - resting.titleTop).toBeGreaterThanOrEqual(-46);
-  expect(editing.titleTop - resting.titleTop).toBeLessThanOrEqual(-42);
+  expect(Math.abs(editing.titleTop - resting.titleTop)).toBeLessThanOrEqual(
+    0.5
+  );
+  await page.getByRole('button', { name: 'Done' }).click();
+  const back = await toolbarGeometry(page);
+  expect(Math.abs(back.titleTop - resting.titleTop)).toBeLessThanOrEqual(0.5);
+});
+
+// KAN-881. The row kept for height is never reachable: not by Tab, not by role.
+test('at 560px after Edit, Tab never reaches a hidden toolbar control', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openExportPage(context, extensionId, 560);
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await expect(page.getByRole('button', { name: 'Done' })).toBeVisible();
+  // Not in the accessibility tree.
+  await expect(page.getByRole('button', { name: 'Save as PDF…' })).toHaveCount(
+    0
+  );
+  await expect(page.getByRole('button', { name: 'Edit' })).toHaveCount(0);
+
+  await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+  const seen: string[] = [];
+  for (let i = 0; i < 8; i += 1) {
+    await page.keyboard.press('Tab');
+    const where = await page.evaluate(() => {
+      const el = document.activeElement;
+      if (!el || el === document.body) return 'body';
+      if (!el.closest('[data-preview-header]')) return 'past';
+      if (el.closest('[data-toolbar-row]')) return 'row';
+      if (el.matches('button[aria-label="Back to Tab Keeper"]')) return 'back';
+      return `hidden:${el.getAttribute('aria-label') ?? el.tagName}`;
+    });
+    if (where === 'past') break;
+    seen.push(where);
+  }
+  // CONTROL: the walk did pass through the toolbar.
+  expect(seen).toContain('row');
+  expect(seen.filter((where) => where.startsWith('hidden:'))).toEqual([]);
 });
 
 // The pairs once stood 36px against the other controls' 34px, so pressing Edit

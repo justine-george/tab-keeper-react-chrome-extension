@@ -179,7 +179,7 @@ for (const lang of ['ru', 'de']) {
     console.log(
       `${lang} at 790: one line ${await oneLineWidth(page)}px of ${g.toolbar.width}px`
     );
-    // Open, his call (KAN-880): the sheet's 24px gutters leave ru 742px at 790 for its 746px toolbar.
+    // Accepted 2026-10-30 (KAN-880, KAN-881): the sheet's 24px gutters leave ru 742px at 790 for its 746px toolbar.
     expect(g.toolbarLines).toBe(lang === 'ru' ? 2 : 1);
   });
 }

@@ -148,6 +148,10 @@ export default function ExportPage({
     const last = el?.lastElementChild;
     setSaveButton(last instanceof HTMLElement ? last : null);
   }, []);
+  // KAN-881. The toolbar row kept only for its height: hidden, inert, and out of the accessibility tree.
+  const attachReserve = useCallback((el: HTMLDivElement | null) => {
+    if (el && !el.inert) el.inert = true;
+  }, []);
   // KAN-603. A Save as PDF press waiting for the icons.
   const [printPending, setPrintPending] = useState(false);
   // KAN-826. A held key repeats faster than a render, so this, not the state, says busy.
@@ -574,11 +578,12 @@ export default function ExportPage({
   useEffect(() => () => listenInFrame(null), [listenInFrame]);
 
   // KAN-880. No band: the header lies on the sheet's ground. Line 1 is the way back, line 2 the toolbar.
+  // KAN-881. A grid, so the two toolbar rows can share one cell (below).
   const headerStyle = css`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: 100%;
+    justify-items: center;
+    row-gap: 10px;
     padding-top: 16px;
   `;
   // KAN-826. A sheet on the ground, so it reads as the page that gets saved; KAN-880: the editor wears it too.
@@ -833,6 +838,142 @@ export default function ExportPage({
               }
             `;
 
+  // KAN-881. Each mode's controls, so the row not shown can keep its height (below).
+  const editingControls = (
+    <>
+      {/* KAN-831. Done stands where Edit stood, so finishing an edit is a
+        press in place; the tally takes the end of the row. */}
+      <Button
+        text={t('Done')}
+        ariaLabel={t('Done')}
+        ariaDisabled={nothingKept}
+        tooltipText={nothingKept ? t('SavePdfNothingKept') : undefined}
+        iconType="check"
+        onClick={() => {
+          setEditing(false);
+          setRowSwapped(true);
+        }}
+        iconSize="1.2rem"
+        iconColor={COLORS.PRIMARY_COLOR}
+        iconStyle={actionIconStyle}
+        style={primaryStyle}
+      />
+      <Button
+        text={t('Reset')}
+        ariaLabel={t('Reset')}
+        onClick={() => setEdits(NO_EXPORT_EDITS)}
+        // KAN-221. Nothing to put back until something is edited;
+        // the same count as the tally, so they agree.
+        ariaDisabled={tally.renamed === 0 && tally.hiddenTabs === 0}
+        style={actionStyle}
+      />
+      <span css={endStyle}>
+        <span
+          role="status"
+          css={css`
+            font-size: 0.78rem;
+            color: ${COLORS.LABEL_L1_COLOR};
+            border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+            border-radius: 999px;
+            corner-shape: ${CORNER_SHAPE};
+            padding: 2px 9px;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+          `}
+        >
+          {t('SavePdfEditTally', {
+            renamed: tally.renamed,
+            hidden: tally.hiddenTabs,
+          })}
+        </span>
+      </span>
+    </>
+  );
+  const previewControls = (reserve: boolean) => (
+    <>
+      {/* Edit changes what the file says; the choices after it change how
+        it looks, and the outputs after those write it. */}
+      <Button
+        text={t('Edit')}
+        ariaLabel={t('Edit')}
+        iconType="edit"
+        onClick={() => {
+          setEditing(true);
+          setRowSwapped(true);
+          // KAN-603. The frame leaves; the one Done brings back has loaded nothing yet.
+          setLoadedHtml(null);
+        }}
+        iconSize="1.2rem"
+        iconStyle={actionIconStyle}
+        style={actionStyle}
+      />
+      <span aria-hidden="true" css={dividerStyle} />
+      <SlidingPair
+        label={t('Layout')}
+        options={layoutOptions}
+        value={layout}
+        onChange={(value) => dispatch(setExportLayout(value))}
+        metrics={EXPORT_PAIR_METRICS}
+      />
+      <SlidingPair
+        label={t('Colour')}
+        options={schemeOptions}
+        value={scheme}
+        onChange={setPageScheme}
+        metrics={EXPORT_PAIR_METRICS}
+      />
+      {/* Deciding ends here; what follows leaves the page, from the
+        end of the row. A PDF is what people attach to a message; the
+        .html file KAN-734 hid is gone for good (KAN-742). */}
+      <span css={endStyle} ref={reserve ? undefined : attachEndGroup}>
+        {/* Copy first: it ignores the choices, so it sits apart from the
+          output that follows them. */}
+        <Button
+          text={t('Copy all links')}
+          ariaLabel={t('Copy all links')}
+          iconType="link"
+          onClick={handleCopy}
+          // KAN-221. "Copied" appears in the button, where the click
+          // was; the toast (KAN-401) says how many.
+          secondFace={{
+            iconType: 'check',
+            text: t('Copied'),
+            shown: copied,
+          }}
+          iconSize="1.2rem"
+          iconStyle={actionIconStyle}
+          style={actionStyle}
+        />
+        <Button
+          // KAN-742. A PDF is the only file this page makes; the "…" says
+          // Chrome's print dialog follows, where a printer can still be picked
+          // (KAN-207's objection, weighed and accepted).
+          text={t('Save as PDF')}
+          ariaLabel={t('Save as PDF')}
+          iconType="print"
+          onClick={handlePrint}
+          busy={printPending}
+          iconSize="1.2rem"
+          iconColor={COLORS.PRIMARY_COLOR}
+          iconStyle={actionIconStyle}
+          // FILLED, not tinted. A tint is what a pressed segment wears here,
+          // so tinting the primary would make the loudest control on the
+          // row read as one more selected state.
+          style={primaryStyle}
+        />
+      </span>
+    </>
+  );
+  const toolbarRowStyle = css`
+    grid-area: 2 / 1;
+    align-self: start;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    ${SHEET_WIDTH}
+  `;
+
   return (
     <ThemeColorsOverride.Provider value={COLORS}>
       {pageGlobal}
@@ -853,148 +994,39 @@ export default function ExportPage({
             key={editing ? 'editing' : 'preview'}
             data-toolbar-row
             data-swapped={rowSwapped}
-            css={css`
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              flex-wrap: wrap;
-              ${SHEET_WIDTH}
-              &[data-swapped='true'] {
-                animation: ${rowIn} 180ms cubic-bezier(0.23, 1, 0.32, 1);
-              }
-              @media (prefers-reduced-motion: reduce) {
+            css={[
+              toolbarRowStyle,
+              css`
                 &[data-swapped='true'] {
-                  animation: none;
+                  animation: ${rowIn} 180ms cubic-bezier(0.23, 1, 0.32, 1);
                 }
-              }
-            `}
-          >
-            {editing ? (
-              <>
-                {/* KAN-831. Done stands where Edit stood, so finishing an edit is a
-              press in place; the tally takes the end of the row. */}
-                <Button
-                  text={t('Done')}
-                  ariaLabel={t('Done')}
-                  ariaDisabled={nothingKept}
-                  tooltipText={
-                    nothingKept ? t('SavePdfNothingKept') : undefined
+                @media (prefers-reduced-motion: reduce) {
+                  &[data-swapped='true'] {
+                    animation: none;
                   }
-                  iconType="check"
-                  onClick={() => {
-                    setEditing(false);
-                    setRowSwapped(true);
-                  }}
-                  iconSize="1.2rem"
-                  iconColor={COLORS.PRIMARY_COLOR}
-                  iconStyle={actionIconStyle}
-                  style={primaryStyle}
-                />
-                <Button
-                  text={t('Reset')}
-                  ariaLabel={t('Reset')}
-                  onClick={() => setEdits(NO_EXPORT_EDITS)}
-                  // KAN-221. Nothing to put back until something is edited;
-                  // the same count as the tally, so they agree.
-                  ariaDisabled={tally.renamed === 0 && tally.hiddenTabs === 0}
-                  style={actionStyle}
-                />
-                <span css={endStyle}>
-                  <span
-                    role="status"
-                    css={css`
-                      font-size: 0.78rem;
-                      color: ${COLORS.LABEL_L1_COLOR};
-                      border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
-                      border-radius: 999px;
-                      corner-shape: ${CORNER_SHAPE};
-                      padding: 2px 9px;
-                      white-space: nowrap;
-                      font-variant-numeric: tabular-nums;
-                    `}
-                  >
-                    {t('SavePdfEditTally', {
-                      renamed: tally.renamed,
-                      hidden: tally.hiddenTabs,
-                    })}
-                  </span>
-                </span>
-              </>
-            ) : (
-              <>
-                {/* Edit changes what the file says; the choices after it change how
-              it looks, and the outputs after those write it. */}
-                <Button
-                  text={t('Edit')}
-                  ariaLabel={t('Edit')}
-                  iconType="edit"
-                  onClick={() => {
-                    setEditing(true);
-                    setRowSwapped(true);
-                    // KAN-603. The frame leaves; the one Done brings back has loaded nothing yet.
-                    setLoadedHtml(null);
-                  }}
-                  iconSize="1.2rem"
-                  iconStyle={actionIconStyle}
-                  style={actionStyle}
-                />
-                <span aria-hidden="true" css={dividerStyle} />
-                <SlidingPair
-                  label={t('Layout')}
-                  options={layoutOptions}
-                  value={layout}
-                  onChange={(value) => dispatch(setExportLayout(value))}
-                  metrics={EXPORT_PAIR_METRICS}
-                />
-                <SlidingPair
-                  label={t('Colour')}
-                  options={schemeOptions}
-                  value={scheme}
-                  onChange={setPageScheme}
-                  metrics={EXPORT_PAIR_METRICS}
-                />
-                {/* Deciding ends here; what follows leaves the page, from the
-              end of the row. A PDF is what people attach to a message; the
-              .html file KAN-734 hid is gone for good (KAN-742). */}
-                <span css={endStyle} ref={attachEndGroup}>
-                  {/* Copy first: it ignores the choices, so it sits apart from the
-              output that follows them. */}
-                  <Button
-                    text={t('Copy all links')}
-                    ariaLabel={t('Copy all links')}
-                    iconType="link"
-                    onClick={handleCopy}
-                    // KAN-221. "Copied" appears in the button, where the click
-                    // was; the toast (KAN-401) says how many.
-                    secondFace={{
-                      iconType: 'check',
-                      text: t('Copied'),
-                      shown: copied,
-                    }}
-                    iconSize="1.2rem"
-                    iconStyle={actionIconStyle}
-                    style={actionStyle}
-                  />
-                  <Button
-                    // KAN-742. A PDF is the only file this page makes; the "…" says
-                    // Chrome's print dialog follows, where a printer can still be picked
-                    // (KAN-207's objection, weighed and accepted).
-                    text={t('Save as PDF')}
-                    ariaLabel={t('Save as PDF')}
-                    iconType="print"
-                    onClick={handlePrint}
-                    busy={printPending}
-                    iconSize="1.2rem"
-                    iconColor={COLORS.PRIMARY_COLOR}
-                    iconStyle={actionIconStyle}
-                    // FILLED, not tinted. A tint is what a pressed segment wears here,
-                    // so tinting the primary would make the loudest control on the
-                    // row read as one more selected state.
-                    style={primaryStyle}
-                  />
-                </span>
-              </>
-            )}
+                }
+              `,
+            ]}
+          >
+            {editing ? editingControls : previewControls(false)}
+          </div>
+          {/* KAN-881. The other mode's row, in the same grid cell and hidden, so
+            the toolbar is as tall as the taller of the two at every width and
+            Edit or Done never moves the sheet. After the shown row, so that
+            row's previous sibling is still the way back. */}
+          <div
+            key={editing ? 'reserve-preview' : 'reserve-editing'}
+            data-toolbar-row-reserve
+            aria-hidden="true"
+            ref={attachReserve}
+            css={[
+              toolbarRowStyle,
+              css`
+                visibility: hidden;
+              `,
+            ]}
+          >
+            {editing ? previewControls(true) : editingControls}
           </div>
         </div>
 

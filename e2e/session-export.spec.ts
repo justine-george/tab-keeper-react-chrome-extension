@@ -1224,9 +1224,14 @@ for (const width of [1200, 800, 480]) {
         splitGroups: groups.filter((group) => linesIn(group) > 1).length,
         clipped: bar.scrollWidth > bar.clientWidth + 1,
         buttons: document.querySelectorAll('[data-toolbar-row] button').length,
-        // KAN-880. The way back's line, above the toolbar.
+        // KAN-880. The way back's line, above the toolbar. KAN-881: not the
+        // other mode's row, kept hidden and inert for its height.
         others: [...document.querySelectorAll('button')]
-          .filter((b) => !b.closest('[data-toolbar-row]'))
+          .filter(
+            (b) =>
+              !b.closest('[data-toolbar-row]') &&
+              !b.closest('[data-toolbar-row-reserve]')
+          )
           .map((b) => b.getAttribute('aria-label')),
       };
     });
