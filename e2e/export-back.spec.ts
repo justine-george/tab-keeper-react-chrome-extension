@@ -215,11 +215,13 @@ test('1b. the full view moved to another window: that window is focused, on the 
   );
   // PREMISE: the full view is alone in its own window, and the preview's window has focus.
   expect(movedTo).not.toBe(previewTab.windowId);
-  expect(
-    await serviceWorker.evaluate(() =>
-      chrome.windows.getLastFocused().then((w) => w.id)
+  await expect
+    .poll(() =>
+      serviceWorker.evaluate(() =>
+        chrome.windows.getLastFocused().then((w) => w.id)
+      )
     )
-  ).toBe(previewTab.windowId);
+    .toBe(previewTab.windowId);
 
   await backLink(preview).click();
 
@@ -259,7 +261,7 @@ test('2. with a hidden tab: the card asks, Stay keeps the page, Go back closes i
   await expect(preview.getByText('1 hidden')).toBeVisible();
 
   // CONTROL: the guard is on and this listener hears it, so no dialog below means none was raised.
-  void preview.evaluate(() => location.reload());
+  void preview.evaluate(() => location.reload()).catch(() => {});
   await expect.poll(() => dialogs).toEqual(['beforeunload']);
   await expect(preview.getByText('1 hidden')).toBeVisible();
 
@@ -380,7 +382,10 @@ test('4. from the popup: its page is active, the preview is gone, then the popup
   );
   // Until both are pages: a late one is the next 'page' event (KAN-560).
   await expect.poll(() => context.pages().length).toBe(pages + 2);
-  const preview = context.pages().find((p) => p.url().includes('export.html'));
+  const findPreview = () =>
+    context.pages().find((p) => p.url().includes('export.html'));
+  await expect.poll(() => findPreview()?.url()).toContain('export.html');
+  const preview = findPreview();
   if (preview === undefined) throw new Error('no preview page');
   await expect(backLink(preview)).toBeVisible();
   // PREMISE: the preview is active, and the page tab is its opener.
@@ -403,6 +408,14 @@ test('4. from the popup: its page is active, the preview is gone, then the popup
         ]),
       },
     ]);
+  // CONTROL: the record holds the tabs open at the call, so the missing preview above is a real absence.
+  expect(await openPopupCalls(serviceWorker)).toEqual([
+    expect.objectContaining({
+      openUrls: expect.arrayContaining([
+        expect.stringMatching(/^data:text\/html,.*Their/),
+      ]),
+    }),
+  ]);
   expect(await tabsAt(serviceWorker, 'export.html')).toEqual([]);
   expect(await activeIn(serviceWorker, pageTab.windowId)).toBe(pageTab.id);
 });
