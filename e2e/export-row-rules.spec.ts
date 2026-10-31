@@ -235,3 +235,43 @@ test('in Comfortable, Edit shows each full address and no row rules, and wraps a
     )
   ).toBe(true);
 });
+
+// KAN-741 final review. Edit changes only the words: every row's icon stands
+// where the file's does, grouped rows included, in both layouts.
+for (const layout of ['compact', 'comfortable'] as const) {
+  test(`${layout}: in Edit each row's icon stands where the file's does`, async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, { exportLayout: layout });
+    const page = await openExport(context, extensionId);
+    await expect(page.frameLocator('iframe').locator('body')).toHaveClass(
+      new RegExp(layout)
+    );
+    // The frame's content edge: its own border sits outside the file.
+    const frameLeft = await page
+      .locator('iframe')
+      .evaluate(
+        (frame) => frame.getBoundingClientRect().left + frame.clientLeft
+      );
+    const fileLefts = await page
+      .frameLocator('iframe')
+      .locator('li.tab .fav')
+      .evaluateAll((slots) =>
+        slots.map((slot) => slot.getBoundingClientRect().left)
+      );
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
+    const editLefts = await page
+      .locator('[data-icon-slot]')
+      .evaluateAll((slots) =>
+        slots.map((slot) => slot.getBoundingClientRect().left)
+      );
+    expect(editLefts).toHaveLength(EXPECTED.length);
+    editLefts.forEach((left, index) => {
+      expect(
+        Math.abs(left - (frameLeft + fileLefts[index])),
+        `${EXPECTED[index][0]}: editor ${left}, file ${frameLeft + fileLefts[index]}`
+      ).toBeLessThanOrEqual(0.5);
+    });
+  });
+}

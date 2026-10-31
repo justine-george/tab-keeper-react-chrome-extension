@@ -480,7 +480,7 @@ export default function ExportEditor({
                           position: relative;
                           isolation: isolate;
                           margin: ${comfortable ? '8px 0' : '4px 0'};
-                          padding: ${comfortable ? '6px 0 6px 14px' : '0 10px 0 14px'};
+                          padding: ${comfortable ? '6px 0 6px 18px' : '0 10px 0 14px'};
                         `}
                       >
                         {/* The group's colour band, as a layer of its own so it
