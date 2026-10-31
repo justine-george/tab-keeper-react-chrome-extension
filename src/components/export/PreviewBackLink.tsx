@@ -18,8 +18,8 @@ const GAP_PX = 6;
 export const PREVIEW_BACK_HANG_MIN_PX = 880;
 // The glyph's own left side bearing; pulled back so its ink, not its box, meets the edge.
 const ARROW_BEARING_PX = 3;
-// The worker closes this tab well before this; still open means the request failed silently.
-export const RETRY_AFTER_MS = 2000;
+// The worker closes this tab well before this; still open means the request failed silently, so the link works again.
+export const ASSUME_FAILED_AFTER_MS = 2000;
 
 interface PreviewBackLinkProps {
   from: PreviewFrom;
@@ -47,10 +47,10 @@ export default function PreviewBackLink({
   const [isOpen, setOpen] = useState(false);
   const anchorRef = useRef<HTMLSpanElement>(null);
   const linkRef = useRef<HTMLButtonElement>(null);
-  const isSentRef = useRef(false);
-  const retryTimerRef = useRef<number | undefined>(undefined);
+  const isLeavingRef = useRef(false);
+  const assumeFailedTimerRef = useRef<number | undefined>(undefined);
 
-  useEffect(() => () => window.clearTimeout(retryTimerRef.current), []);
+  useEffect(() => () => window.clearTimeout(assumeFailedTimerRef.current), []);
 
   // Nothing left to lose: the card has nothing to ask.
   if (!pending && isOpen) setOpen(false);
@@ -70,19 +70,23 @@ export default function PreviewBackLink({
   }, [isOpen]);
 
   const failed = () => {
-    isSentRef.current = false;
+    isLeavingRef.current = false;
     onLeaveFailed();
   };
 
-  // The first press wins until the request fails or the tab is still here after RETRY_AFTER_MS.
+  // The first press wins until the request fails or the tab is still here after ASSUME_FAILED_AFTER_MS.
   const leave = () => {
     setOpen(false);
-    if (isSentRef.current) return;
-    isSentRef.current = true;
+    if (isLeavingRef.current) return;
+    isLeavingRef.current = true;
     onLeave();
     void requestReturnFromPreview(from).then((isSent) => {
       if (!isSent) failed();
-      else retryTimerRef.current = window.setTimeout(failed, RETRY_AFTER_MS);
+      else
+        assumeFailedTimerRef.current = window.setTimeout(
+          failed,
+          ASSUME_FAILED_AFTER_MS
+        );
     });
   };
 

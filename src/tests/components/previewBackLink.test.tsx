@@ -16,7 +16,7 @@ vi.mock('../../utils/functions/backFromPreview', () => ({
 
 import PreviewBackLink, {
   PREVIEW_BACK_HANG_MIN_PX,
-  RETRY_AFTER_MS,
+  ASSUME_FAILED_AFTER_MS,
 } from '../../components/export/PreviewBackLink';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { classRulesFor } from '../setup/hoverRules';
@@ -254,7 +254,7 @@ describe('when going back does not happen', () => {
 
     fireEvent.click(link());
     await settle();
-    vi.advanceTimersByTime(RETRY_AFTER_MS - 1);
+    vi.advanceTimersByTime(ASSUME_FAILED_AFTER_MS - 1);
     fireEvent.click(link());
     await settle();
 
@@ -268,7 +268,7 @@ describe('when going back does not happen', () => {
     fireEvent.click(link());
     await settle();
     act(() => {
-      vi.advanceTimersByTime(RETRY_AFTER_MS);
+      vi.advanceTimersByTime(ASSUME_FAILED_AFTER_MS);
     });
     expect(request.calls).toEqual(['leave', 'request:popup', 'failed']);
 
@@ -284,7 +284,7 @@ describe('when going back does not happen', () => {
     fireEvent.click(link());
     await settle();
     view.unmount();
-    vi.advanceTimersByTime(RETRY_AFTER_MS * 2);
+    vi.advanceTimersByTime(ASSUME_FAILED_AFTER_MS * 2);
 
     expect(request.calls).toEqual(['leave', 'request:full']);
   });
