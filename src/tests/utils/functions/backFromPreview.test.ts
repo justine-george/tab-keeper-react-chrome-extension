@@ -34,6 +34,7 @@ function makeApi(options: {
   refusePopup?: boolean;
   refuseActivate?: boolean;
   refuseGetTab?: boolean;
+  fullViewOpensNothing?: boolean;
 }): { api: PreviewBackApi; log: Entry[] } {
   const tabs = options.tabs.map((t) => ({ ...t }));
   const log: Entry[] = [];
@@ -85,6 +86,7 @@ function makeApi(options: {
     canOpenPopup: () => !options.noPopupSupport,
     openFullView: async (windowId) => {
       log.push({ call: 'openFullView', windowId });
+      if (options.fullViewOpensNothing) return;
       tabs.push({ id: 100 + tabs.length, windowId: windowId ?? 1 });
     },
   };
@@ -197,6 +199,15 @@ describe('returnFromPreview', () => {
       { call: 'openFullView', windowId: 2 },
       { call: 'removeTab', tabId: PREVIEW },
     ]);
+  });
+
+  test('full, the preview is the only normal tab and no full view opens: the preview stays', async () => {
+    const { api, log } = makeApi({
+      tabs: [{ id: PREVIEW, windowId: 2, opener: 1 }],
+      fullViewOpensNothing: true,
+    });
+    await returnFromPreview(api, PREVIEW, 'full');
+    expect(log).toEqual([{ call: 'openFullView', windowId: 2 }]);
   });
 
   test('popup, opener is a web page: switch to it all the same', async () => {

@@ -106,7 +106,11 @@ export async function returnFromPreview(
     if (from === 'full') {
       // No tab to land on: a full view opens first, so the window keeps a tab.
       if (backInWindow === undefined) await api.openFullView(preview.windowId);
-      await api.removeTab(previewTabId);
+      // Chrome's last tab stays unless the full view opened beside it.
+      const hasTabBeside =
+        !lastTab ||
+        (await api.normalTabIds()).some((id) => id !== previewTabId);
+      if (hasTabBeside) await api.removeTab(previewTabId);
       return;
     }
 
