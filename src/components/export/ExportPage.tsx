@@ -19,6 +19,7 @@ import Icon from '../common/Icon';
 import ExportEditor from './ExportEditor';
 import PreviewBackLink from './PreviewBackLink';
 import SavePdfPointer from './SavePdfPointer';
+import PrintCopy from './PrintCopy';
 import { isSaveAsPdfShortcut } from './saveAsPdfShortcut';
 import SlidingPair, { type SlidingOption } from '../common/SlidingPair';
 import { EXPORT_PAIR_METRICS, KNOB_TRANSITION } from './slidingPairStyle';
@@ -417,6 +418,24 @@ export default function ExportPage({
   useEffect(() => {
     if (session) document.title = session.title;
   }, [session]);
+
+  // KAN-602. Chrome's menu Print… names the PDF after this title, so while its
+  // dialog is open the title is the file's, as Save as PDF… names it.
+  useEffect(() => {
+    if (!session || !edited) return;
+    const toFile = () => {
+      document.title = edited.title;
+    };
+    const toSession = () => {
+      document.title = session.title;
+    };
+    window.addEventListener('beforeprint', toFile);
+    window.addEventListener('afterprint', toSession);
+    return () => {
+      window.removeEventListener('beforeprint', toFile);
+      window.removeEventListener('afterprint', toSession);
+    };
+  }, [session, edited]);
 
   // KAN-603. Print waits until the frame has loaded the file carrying the
   // icons, or OUTPUT_WAIT_CAP_MS, whichever comes first.
@@ -1091,6 +1110,8 @@ export default function ExportPage({
         {/* KAN-401, KAN-695. Inside the override, so they take the page's scheme. */}
         <Toast />
         <TooltipLayer />
+        {/* KAN-602. What Chrome's own Print… prints: the file, with its edits. */}
+        <PrintCopy html={html} background={EXPORT_PALETTE[scheme].bg} />
       </div>
     </ThemeColorsOverride.Provider>
   );
