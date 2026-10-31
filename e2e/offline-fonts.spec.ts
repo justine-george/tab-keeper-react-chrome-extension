@@ -104,7 +104,10 @@ test.describe('fonts ship with the extension', () => {
     await context.setOffline(true);
     const page = await context.newPage();
     await page.goto(`chrome-extension://${extensionId}/export.html?session=s0`);
-    await expect(page.getByText('Weekend in Kyoto').first()).toBeVisible();
+    // KAN-880. The title is the file's now; the page draws once the file is in.
+    await expect(
+      page.frameLocator('iframe').getByText('Weekend in Kyoto').first()
+    ).toBeVisible();
 
     await expectGlyphs(page);
   });
@@ -119,7 +122,11 @@ test.describe('fonts ship with the extension', () => {
     for (const path of ['index.html', 'export.html?session=s0']) {
       const page = await context.newPage();
       await page.goto(`chrome-extension://${extensionId}/${path}`);
-      await expect(page.getByText('Weekend in Kyoto').first()).toBeVisible();
+      // KAN-880. On the export page the title is in the file's frame.
+      const drawn = path.startsWith('export')
+        ? page.frameLocator('iframe').getByText('Weekend in Kyoto')
+        : page.getByText('Weekend in Kyoto');
+      await expect(drawn.first()).toBeVisible();
       await waitForFontsLoaded(page);
       await page.close();
     }

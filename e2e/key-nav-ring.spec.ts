@@ -250,14 +250,21 @@ test('Tab on the export page draws the themed ring', async ({
   );
   const edit = page.getByRole('button', { name: 'Edit', exact: true });
   await edit.waitFor();
+  const outline = (el: Element) => {
+    const s = getComputedStyle(el);
+    return `${s.outlineStyle} ${s.outlineWidth} ${s.outlineColor}`;
+  };
+
+  // KAN-880. The way back comes first, ringed whole, then the toolbar.
+  await page.keyboard.press('Tab');
+  const back = page.getByRole('button', {
+    name: 'Back to Tab Keeper',
+    exact: true,
+  });
+  await expect(back).toBeFocused();
+  expect(await back.evaluate(outline)).toBe(`solid 2px ${rgb(RING)}`);
 
   await page.keyboard.press('Tab');
-
   await expect(edit).toBeFocused();
-  expect(
-    await edit.evaluate((el) => {
-      const s = getComputedStyle(el);
-      return `${s.outlineStyle} ${s.outlineWidth} ${s.outlineColor}`;
-    })
-  ).toBe(`solid 2px ${rgb(RING)}`);
+  expect(await edit.evaluate(outline)).toBe(`solid 2px ${rgb(RING)}`);
 });

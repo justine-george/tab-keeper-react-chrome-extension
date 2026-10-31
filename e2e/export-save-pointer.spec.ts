@@ -11,8 +11,10 @@ import { localeStrings } from './fixtures/locales';
 import { rgb } from './fixtures/pixels';
 import { CHALK_THEME, CHARCOAL_THEME } from '../src/hooks/useThemeColors';
 
-// KAN-826. The preview is a sheet on the header's ground, and a pointer beside
+// KAN-826. The preview is a sheet on the page's ground, and a pointer beside
 // it shows Save as PDF… until this device first presses it.
+// KAN-880: the toolbar is the sheet's width, so Save as PDF… ends on the
+// sheet's edge and the tip may sit right of the button's middle (to 3/4 along).
 
 const SESSION = buildSession({
   tabGroupId: 'session-pointer',
@@ -69,9 +71,15 @@ const aim = (page: Page) =>
       line.getPointAtLength(Math.min(i * 4, total))
     );
     const tip = points[points.length - 1]!;
+    const width = button.right - button.left;
     return {
       tip: { x: tip.x, y: tip.y },
-      target: { x: (button.left + button.right) / 2, y: button.bottom + 8 },
+      // From the button's middle to 3/4 along it (TIP_LAST_ALONG), 8px under it.
+      target: {
+        fromX: button.left + width / 2,
+        toX: button.left + width * 0.75,
+        y: button.bottom + 8,
+      },
       // Off the file: right of the sheet, or above it.
       offSheet: points.every((p) => p.x > sheet.right || p.y < sheet.top),
       stroke: getComputedStyle(svg!).stroke,
@@ -81,7 +89,9 @@ const aim = (page: Page) =>
 
 type Aim = NonNullable<Awaited<ReturnType<typeof aim>>>;
 const onTarget = (a: Aim) =>
-  Math.abs(a.tip.x - a.target.x) <= 2 && Math.abs(a.tip.y - a.target.y) <= 2;
+  a.tip.x >= a.target.fromX - 2 &&
+  a.tip.x <= a.target.toX + 2 &&
+  Math.abs(a.tip.y - a.target.y) <= 2;
 
 /** The aim once the tip rests on the button: the observer re-aims a frame after a box changes. */
 async function settledAim(page: Page): Promise<Aim> {
@@ -118,7 +128,7 @@ for (const [theme, colors] of [
   ['Chalk', CHALK_THEME],
   ['Charcoal', CHARCOAL_THEME],
 ] as const) {
-  test(`at 1280px the preview is an 816px sheet 24px under the header, on the SECONDARY ground (${theme})`, async ({
+  test(`at 1280px the preview is an 816px sheet 36px under the toolbar, on the SECONDARY ground (${theme})`, async ({
     context,
     extensionId,
   }) => {
@@ -128,10 +138,13 @@ for (const [theme, colors] of [
     const g = await page.evaluate(() => {
       const row = document.querySelector('[data-toolbar-row]')!;
       const header = row.parentElement!;
+      const label = header.nextElementSibling!;
       const sheet = document.querySelector('iframe')!.getBoundingClientRect();
       return {
         width: sheet.width,
-        gap: sheet.top - header.getBoundingClientRect().bottom,
+        gap: sheet.top - row.getBoundingClientRect().bottom,
+        underLabel: sheet.top - label.getBoundingClientRect().bottom,
+        label: label.textContent,
         header: getComputedStyle(header).backgroundColor,
         ground: getComputedStyle(
           document.querySelector('iframe')!.parentElement!
@@ -141,12 +154,15 @@ for (const [theme, colors] of [
       };
     });
     expect(g.width).toBe(816);
-    expect(g.gap).toBeCloseTo(24, 0);
-    expect(g.header).toBe(rgb(colors.SECONDARY_COLOR));
-    // The ground is the header's colour, out to the overscroll gutter.
-    expect(g.ground).toBe(g.header);
-    expect(g.body).toBe(g.header);
-    expect(g.root).toBe(g.header);
+    // KAN-880. The mode label sits between them, 4px over the sheet.
+    expect(g.gap).toBeCloseTo(36, 0);
+    expect(g.label).toBe('Preview');
+    expect(g.underLabel).toBeCloseTo(4, 0);
+    // No band (KAN-880): the header lies on the ground, out to the overscroll gutter.
+    expect(g.header).toBe('rgba(0, 0, 0, 0)');
+    expect(g.ground).toBe(rgb(colors.SECONDARY_COLOR));
+    expect(g.body).toBe(g.ground);
+    expect(g.root).toBe(g.ground);
   });
 }
 
@@ -164,9 +180,9 @@ test('the pointer starts right of the sheet and ends under Save as PDF…', asyn
   await expect(pointer(page)).toHaveCSS('pointer-events', 'none');
 });
 
-// Both the toolbar's band and the sheet are centred, so how far Save as PDF…
-// sits from the sheet's edge is the same at every width: a language whose
-// longer label put the tip over the file would never get the pointer.
+// Save as PDF… ends on the sheet's edge at every width, so a language whose
+// longer label pushed every tip over the file would never get the pointer:
+// it must be drawn in every one (spec call 13: it never quietly disappears).
 for (const language of [
   'de',
   'en',
@@ -188,7 +204,7 @@ for (const language of [
   }) => {
     await seed(context, { language });
     const page = await openExport(context, extensionId);
-    await expect(pointer(page)).toHaveCount(1);
+    await expect(pointer(page), 'the pointer is drawn').toHaveCount(1);
     const a = await settledAim(page);
     expect(a.offSheet, JSON.stringify(a)).toBe(true);
   });
@@ -325,7 +341,9 @@ test('a language change from another page re-aims it, and Dark recolours it', as
     .poll(async () => {
       const a = await aim(page);
       return (
-        a !== null && Math.abs(a.target.x - english.target.x) > 1 && onTarget(a)
+        a !== null &&
+        Math.abs(a.target.fromX - english.target.fromX) > 1 &&
+        onTarget(a)
       );
     })
     .toBe(true);

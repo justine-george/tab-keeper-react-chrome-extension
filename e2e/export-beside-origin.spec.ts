@@ -125,9 +125,9 @@ test.describe('the export page opens beside its tab (KAN-527)', () => {
         entry.choose(popup),
       ]);
       await exportPage.waitForLoadState();
-      // PREMISE: the page event caught is the export page's.
+      // PREMISE: the page event caught is the export page's. KAN-880: from the popup, it says so.
       expect(exportPage.url()).toBe(
-        `chrome-extension://${extensionId}/${entry.page}`
+        `chrome-extension://${extensionId}/${entry.page}&from=popup`
       );
 
       const opened = await tabAt(

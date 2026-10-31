@@ -27,9 +27,10 @@ describe('savePdfPointerPaths (KAN-826)', () => {
     expect(savePdfPointerPaths(BUTTON, SHEET, 1138)).not.toBeNull();
   });
 
-  // Both the band and the sheet are centred, so in 9 of 13 languages the
-  // longer label puts the button's middle left of the sheet's edge, and the
+  // KAN-826's 930px band ran past the sheet, so in 9 of 13 languages the
+  // longer label put the button's middle left of the sheet's edge, and the
   // mocked curve's last stretch clipped the file's corner (ru: middle 1020).
+  // Under KAN-880's header every middle is left of it.
   test("swings its approach out past the sheet's edge when the button is over it", () => {
     const ru = { left: 960, width: 120, bottom: 100 }; // middle 1020
     const paths = savePdfPointerPaths(ru, SHEET, 1280);
@@ -61,12 +62,17 @@ describe('savePdfPointerPaths (KAN-826)', () => {
     expect(c2x).toBe(1060 + 40);
   });
 
-  // Measured at a 20px root: the toolbar wraps and the middle lands at 1015;
-  // swung out, the curve still stays off the file.
-  test('draws for the wrapped toolbar of a 20px root', () => {
-    const sheet = { right: 1048, top: 169 };
-    const wrapped = { left: 955, width: 120, bottom: 128 };
-    expect(savePdfPointerPaths(wrapped, sheet, 1280)).not.toBeNull();
+  // KAN-880. Measured at a 20px root at 1280: the toolbar holds one line, the
+  // button grows to 179px and the sheet drops to 127; the tip steps right 3 times.
+  test('draws at a 20px root', () => {
+    const sheet = { right: 1048, top: 127 };
+    const large = { left: 868.734375, width: 179.265625, bottom: 84.5 };
+    const paths = savePdfPointerPaths(large, sheet, 1280);
+
+    expect(paths).not.toBeNull();
+    const [x1, y1] = numbers(paths!.line).slice(-2);
+    expect(x1).toBeCloseTo(large.left + large.width / 2 + 12, 6);
+    expect(y1).toBe(92.5);
   });
 
   // KAN-880. Measured at 1280 under the slim header: the button ends on the sheet's
@@ -87,6 +93,24 @@ describe('savePdfPointerPaths (KAN-826)', () => {
       expect(x1).toBeLessThanOrEqual(button.left + button.width * 0.75);
     }
   );
+
+  // KAN-880. Under the slim header at 1280 (button ending on the sheet's edge,
+  // 36px above it) the last quarter reaches a clear tip for a button up to
+  // 247px wide; Russian's, the widest, is 202. No width below that misses.
+  test('under the slim header, draws for every button up to 247px wide, and none wider', () => {
+    const sheet = { right: 1048, top: 118 };
+    const button = (width: number) => ({
+      left: sheet.right - width,
+      width,
+      bottom: 82,
+    });
+    const missed: number[] = [];
+    for (let width = 100; width <= 247; width += 0.5) {
+      if (!savePdfPointerPaths(button(width), sheet, 1280)) missed.push(width);
+    }
+    expect(missed).toEqual([]);
+    expect(savePdfPointerPaths(button(248), sheet, 1280)).toBeNull();
+  });
 
   // The backstop: a tip just over the sheet's top, far left, cannot be reached
   // from the ground without crossing the file.

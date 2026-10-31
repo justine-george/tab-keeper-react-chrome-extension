@@ -7,6 +7,7 @@ type Point = [x: number, y: number];
 
 const APPROACH_DROPS = [50, 45, 40, 35, 30];
 // KAN-880. How far right of the middle the tip may go, as a share of the button, and in what steps.
+// At 1280 under the slim header that serves a button up to 247px wide; Russian's, the widest, is 202.
 const TIP_LAST_ALONG = 0.75;
 const TIP_STEP_PX = 4;
 
@@ -26,11 +27,13 @@ export function savePdfPointerPaths(
   if (viewportRight - sheet.right < MIN_ROOM_PX) return null;
   // KAN-880. The middle first; where no approach reaches it over the ground, the tip steps right, never past the button's last quarter.
   const lastTipX = button.left + button.width * TIP_LAST_ALONG;
-  for (
-    let x1 = button.left + button.width / 2;
-    x1 <= lastTipX;
-    x1 += TIP_STEP_PX
-  ) {
+  const tips: number[] = [];
+  for (let x = button.left + button.width / 2; x < lastTipX; x += TIP_STEP_PX) {
+    tips.push(x);
+  }
+  // The last quarter's edge too, so no width's steps skip past the first clear tip.
+  tips.push(lastTipX);
+  for (const x1 of tips) {
     const paths = sweepTo(x1, button.bottom + 8, sheet);
     if (paths) return paths;
   }
@@ -46,8 +49,8 @@ function sweepTo(
     y0 = sheet.top + 120;
   const c1x = x0 + 70,
     c1y = y0 - 30;
-  // The approach starts 40px right of the tip, or of the sheet's edge when a
-  // longer label puts the tip left of it (9 of 13 languages), so it comes in
+  // The approach starts 40px right of the tip, or of the sheet's edge when the
+  // tip is left of it (every language under KAN-880's header), so it comes in
   // over the ground.
   const c2x = Math.max(x1, sheet.right) + 40;
   const onSheet = ([x, y]: Point) => x <= sheet.right && y >= sheet.top;
