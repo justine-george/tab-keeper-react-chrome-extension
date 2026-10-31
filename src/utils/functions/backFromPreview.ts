@@ -116,7 +116,11 @@ export async function returnFromPreview(
 
     // KAN-437. The popup opens after the preview closes: one opened first dies with its tab.
     if (!lastTab) await api.removeTab(previewTabId);
-    if (!api.canOpenPopup()) return;
+    if (!api.canOpenPopup()) {
+      // KAN-880. No popup and a last tab that stays: the full view, so the press still lands in Tab Keeper.
+      if (lastTab) await api.openFullView(preview.windowId);
+      return;
+    }
     const windowLeft = lastTab || (await api.windowExists(preview.windowId));
     const popupWindow =
       backInWindow ?? (windowLeft ? preview.windowId : undefined);

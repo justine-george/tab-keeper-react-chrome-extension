@@ -309,6 +309,15 @@ describe('returnFromPreview', () => {
     ]);
   });
 
+  test('popup, Chrome cannot open one and the preview is the last tab: it stays and the full view opens over it', async () => {
+    const { api, log } = makeApi({
+      tabs: [{ id: PREVIEW, windowId: 2, opener: 1 }],
+      noPopupSupport: true,
+    });
+    await returnFromPreview(api, PREVIEW, 'popup');
+    expect(log).toEqual([{ call: 'openFullView', windowId: 2 }]);
+  });
+
   test('popup refused: logged, the full view opens after the close, and it resolves', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { api, log } = makeApi({
