@@ -82,7 +82,8 @@ const geometry = (page: Page) =>
     );
     return {
       // The window less a reserved scrollbar gutter (KAN-880): 0px where scroll bars overlay, ~15px where they always show.
-      layoutWidth: document.documentElement.clientWidth,
+      // From the body's box: an empty reserved gutter leaves documentElement.clientWidth at the window's width (CI, measured).
+      layoutWidth: document.body.getBoundingClientRect().width,
       header: r(header),
       back: r(back),
       // The way back is the line's one control, named in any language.
