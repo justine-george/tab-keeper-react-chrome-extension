@@ -166,18 +166,17 @@ test(`at 2000px the editing row's Done and tally span the ${SHEET_MAX_PX}px band
 
 // KAN-827. As words, Compact and Comfortable wrapped the row at the popup's width in these two.
 for (const lang of ['ru', 'de']) {
-  test(`at 790px the preview toolbar fits one line (${lang})`, async ({
+  test(`at 790px the preview toolbar fits one line, but ru wraps to two (${lang})`, async ({
     context,
     extensionId,
   }) => {
-    // KAN-880. The sheet's 24px gutters leave ru 742px at 790 for its 746px toolbar: it wraps. Open, for his call.
-    test.fail(lang === 'ru', 'ru needs 746px; the 790px window gives 742');
     const page = await openExport(context, extensionId, POPUP, lang);
     const g = await geometry(page);
     console.log(
       `${lang} at 790: one line ${await oneLineWidth(page)}px of ${g.toolbar.width}px`
     );
-    expect(g.toolbarLines).toBe(1);
+    // Open, his call (KAN-880): the sheet's 24px gutters leave ru 742px at 790 for its 746px toolbar.
+    expect(g.toolbarLines).toBe(lang === 'ru' ? 2 : 1);
   });
 }
 

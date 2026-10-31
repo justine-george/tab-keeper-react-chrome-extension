@@ -526,18 +526,18 @@ for (const width of [1600, 1200, 800, 560]) {
   });
 }
 
-// KAN-880. At 560px the resting row wraps and the editing row does not, so the
-// sheet, and the title on it, move up when Edit is pressed. Open, for his call.
-test("at 560px pressing Edit does not move the sheet's title", async ({
+// At 560px the resting row wraps and the editing row does not, so the sheet, and the title on it, move up when Edit is pressed.
+test("at 560px pressing Edit moves the sheet's title 44px up", async ({
   context,
   extensionId,
 }) => {
-  test.fail(true, 'the Preview row wraps at 560px; the sheet moves 44px up');
   const page = await openExportPage(context, extensionId, 560);
   const resting = await toolbarGeometry(page);
   await page.getByRole('button', { name: 'Edit' }).click();
   const editing = await toolbarGeometry(page);
-  expect(Math.abs(editing.titleTop - resting.titleTop)).toBeLessThanOrEqual(1);
+  // Open, his call (KAN-880): today's move, measured -44 headless; red if it changes or the page breaks.
+  expect(editing.titleTop - resting.titleTop).toBeGreaterThanOrEqual(-46);
+  expect(editing.titleTop - resting.titleTop).toBeLessThanOrEqual(-42);
 });
 
 // The pairs once stood 36px against the other controls' 34px, so pressing Edit
