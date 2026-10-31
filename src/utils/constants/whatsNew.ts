@@ -31,6 +31,16 @@ export const WHATS_NEW: readonly WhatsNewRelease[] = [
         settingsPage: SettingsCategory.SESSIONS,
         changesDefault: true,
       },
+      {
+        titleKey: 'WhatsNewReplaceWindowTitle',
+        bodyKey: 'WhatsNewReplaceWindowBody',
+        changesDefault: false,
+      },
+      {
+        titleKey: 'WhatsNewOpenDuplicatesTitle',
+        bodyKey: 'WhatsNewOpenDuplicatesBody',
+        changesDefault: false,
+      },
     ],
   },
 ];
