@@ -96,6 +96,8 @@ export default function PreviewBackLink({
   };
 
   const press = () => {
+    // A request is in flight: nothing to ask about.
+    if (isLeavingRef.current) return;
     if (pending) setOpen(true);
     else leave();
   };

@@ -261,6 +261,21 @@ describe('when going back does not happen', () => {
     expect(request.calls).toEqual(['leave', 'request:full']);
   });
 
+  test('with edits pending, a press after Go back inside the window shows no card and sends nothing', async () => {
+    vi.useFakeTimers();
+    await renderLink('full', true);
+    fireEvent.click(link());
+    fireEvent.click(screen.getByRole('button', { name: 'Go back' }));
+    await settle();
+    vi.advanceTimersByTime(ASSUME_FAILED_AFTER_MS - 1);
+
+    fireEvent.click(link());
+    await settle();
+
+    expect(screen.queryByText(CARD_TEXT)).toBeNull();
+    expect(request.calls).toEqual(['leave', 'request:full']);
+  });
+
   test('a tab still open after the window tells the page, and a press sends again', async () => {
     vi.useFakeTimers();
     await renderLink('popup', false);
