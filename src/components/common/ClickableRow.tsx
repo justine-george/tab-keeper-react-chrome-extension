@@ -13,7 +13,9 @@ interface ClickableRowProps {
    * useful default; every row has to say what it is.
    */
   ariaLabel: string;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  // KAN-884. A middle-click; its press is kept from starting autoscroll.
+  onAuxClick?: React.MouseEventHandler<HTMLButtonElement>;
   tooltipText?: string;
   // False when the tooltip is for the eye only, so assistive tech does not hear it as the description (KAN-824).
   announceTooltip?: boolean;
@@ -59,6 +61,7 @@ interface ClickableRowProps {
 const ClickableRow: React.FC<ClickableRowProps> = ({
   ariaLabel,
   onClick,
+  onAuxClick,
   tooltipText,
   announceTooltip = true,
   tooltipLead,
@@ -113,6 +116,14 @@ const ClickableRow: React.FC<ClickableRowProps> = ({
       data-tour-anchor={tourAnchor}
       css={rowStyle}
       onClick={disable ? undefined : onClick}
+      onAuxClick={disable ? undefined : onAuxClick}
+      onMouseDown={
+        onAuxClick && !disable
+          ? (e) => {
+              if (e.button === 1) e.preventDefault();
+            }
+          : undefined
+      }
       onKeyDown={onKeyDown}
     >
       {children}
