@@ -15,6 +15,7 @@ import {
 } from '../../utils/functions/sessionExportEdits';
 import {
   EXPORT_PALETTE,
+  type ExportLayout,
   type ExportScheme,
 } from '../../utils/functions/sessionExportHtml';
 
@@ -545,6 +546,7 @@ describe('the icons in Edit mode (KAN-603)', () => {
         session={SESSION}
         edits={edits}
         scheme={scheme}
+        layout="compact"
         icons={icons}
         onRename={() => {}}
         onToggleHidden={() => {}}
@@ -621,5 +623,129 @@ describe('the icons in Edit mode (KAN-603)', () => {
     expect(EXPORT_PALETTE.light.iconPlate).toBe('transparent');
     expect(light.backgroundColor).toBe('rgba(0, 0, 0, 0)');
     expect(getComputedStyle(imageIn(slots()[0])).width).toBe('16px');
+  });
+});
+
+describe('Edit wears the chosen layout (KAN-741)', () => {
+  const renderEditor = (
+    layout: ExportLayout,
+    scheme: ExportScheme = 'light',
+    edits: ExportEdits = NO_EXPORT_EDITS
+  ) =>
+    renderWithProviders(
+      <ExportEditor
+        session={SESSION}
+        edits={edits}
+        scheme={scheme}
+        layout={layout}
+        icons={new Map()}
+        onRename={() => {}}
+        onToggleHidden={() => {}}
+      />
+    );
+
+  const rowOf = (title: string): HTMLElement => {
+    const row = screen
+      .getByRole('textbox', { name: `Rename tab: ${title}` })
+      .closest('li');
+    if (!row) throw new Error(`no row for ${title}`);
+    return row;
+  };
+
+  // The same colour as jsdom reports it, whatever form the palette spells it in.
+  const computed = (color: string): string => {
+    const probe = document.createElement('span');
+    probe.style.color = color;
+    document.body.append(probe);
+    const seen = getComputedStyle(probe).color;
+    probe.remove();
+    return seen;
+  };
+
+  const headingOf = (number: number): HTMLElement => {
+    const label = screen.getByText(`Window ${number} ·`);
+    if (!label.parentElement) throw new Error('a window label with no row');
+    return label.parentElement;
+  };
+
+  test('comfortable: each tab shows its whole address under the title, and no rule between rows', async () => {
+    await renderEditor('comfortable');
+    for (const [title, url] of [
+      ['Fushimi Inari', 'https://inari.jp/en/'],
+      ['Nozomi timetable', 'https://jr.example/nozomi'],
+    ]) {
+      const row = rowOf(title);
+      expect(row.textContent).toContain(url);
+      expect(getComputedStyle(row).borderBottomStyle).not.toBe('solid');
+    }
+    expect(screen.queryByText('inari.jp', { exact: true })).toBeNull();
+  });
+
+  test('comfortable: the window heading is uppercase with a rule under it', async () => {
+    await renderEditor('comfortable');
+    const label = screen.getByText('Window 1 ·');
+    expect(getComputedStyle(label).textTransform).toBe('uppercase');
+    expect(getComputedStyle(headingOf(1)).borderBottomWidth).toBe('1px');
+    // The name is shown as typed; only the file prints it in capitals.
+    const name = screen.getByRole('textbox', {
+      name: 'Rename window: Trip planning',
+    });
+    expect(getComputedStyle(name).textTransform).not.toBe('uppercase');
+  });
+
+  test('comfortable: address and heading rule take the dark palette', async () => {
+    await renderEditor('comfortable', 'dark');
+    const address = screen.getByText('https://inari.jp/en/');
+    expect(getComputedStyle(address).color).toBe(
+      computed(EXPORT_PALETTE.dark.muted)
+    );
+    expect(getComputedStyle(headingOf(1)).borderBottomColor).toBe(
+      computed(EXPORT_PALETTE.dark.rule)
+    );
+  });
+
+  test('compact: rows are as today', async () => {
+    await renderEditor('compact');
+    expect(screen.getByText('inari.jp', { exact: true })).toBeTruthy();
+    expect(screen.queryByText('https://inari.jp/en/')).toBeNull();
+    expect(getComputedStyle(rowOf('Fushimi Inari')).borderBottomWidth).toBe(
+      '1px'
+    );
+    // Window 1's last row draws no rule.
+    expect(
+      getComputedStyle(rowOf('Order Details - Apple')).borderBottomWidth
+    ).toBe('0px');
+    expect(getComputedStyle(headingOf(1)).borderBottomStyle).not.toBe('solid');
+    expect(
+      getComputedStyle(screen.getByText('Window 1 ·')).textTransform
+    ).not.toBe('uppercase');
+  });
+
+  test('a hidden row fades its address line too', async () => {
+    const window = SESSION.windows[0];
+    await renderEditor('comfortable', 'light', {
+      titles: {},
+      hidden: new Set([exportRowKey.tab(window, 't-1')]),
+    });
+    const address = screen.getByText('https://inari.jp/en/');
+    expect(address.hasAttribute('data-dims')).toBe(true);
+    expect(address.closest('li')?.hasAttribute('data-hidden')).toBe(true);
+  });
+
+  test('the editor follows a layout changed while it is open', async () => {
+    const { rerender } = await renderEditor('compact');
+    expect(screen.queryByText('https://inari.jp/en/')).toBeNull();
+    rerender(
+      <ExportEditor
+        session={SESSION}
+        edits={NO_EXPORT_EDITS}
+        scheme="light"
+        layout="comfortable"
+        icons={new Map()}
+        onRename={() => {}}
+        onToggleHidden={() => {}}
+      />
+    );
+    expect(screen.getByText('https://inari.jp/en/')).toBeTruthy();
   });
 });

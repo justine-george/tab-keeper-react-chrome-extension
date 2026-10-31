@@ -1026,6 +1026,7 @@ export default function ExportPage({
               session={tidied}
               edits={edits}
               scheme={scheme}
+              layout={layout}
               icons={icons}
               onRename={renameRow}
               onToggleHidden={toggleHidden}
