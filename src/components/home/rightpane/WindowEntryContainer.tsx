@@ -25,6 +25,11 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
+import { useMacKeys } from '../../../hooks/useIsMac';
+import {
+  opensInBackground,
+  switchToOpenCopy,
+} from '../../../utils/functions/openSavedTab';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
   resolveTabUrl,
@@ -194,6 +199,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const isWindowOpen = isOpenInStore || isSpringOpened;
   // KAN-413. Opens on the tour's own sample wait for it; drag, rename and fold do not.
   const isOpenBlocked = useIsOpenBlockedByTour(tabGroupId);
+  // As the Mac Ctrl-click guard reads it: false until Chrome says Mac.
+  const isMac = useMacKeys();
   const openBlockedBecause = isOpenBlocked
     ? t('Open works after the tour')
     : null;
@@ -989,14 +996,26 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     setEditingTabId(tab.tabId);
   };
 
-  const handleTabClick = (url: string) => {
+  // A new copy beside the active tab: in front, or behind for a background open (KAN-884).
+  const openTabCopy = (url: string, active: boolean) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const currentTabIndex = tabs[0].index;
       chrome.tabs.create({
         url: resolveTabUrl(url),
-        active: true,
+        active,
         index: currentTabIndex + 1,
       });
+    });
+  };
+
+  // KAN-884. A plain click switches to an open copy, else opens one; ⌘/Ctrl-click opens one behind.
+  const handleTabClick = (url: string, e: React.MouseEvent) => {
+    if (opensInBackground(e, isMac)) {
+      openTabCopy(url, false);
+      return;
+    }
+    void switchToOpenCopy(url).then((switched) => {
+      if (!switched) openTabCopy(url, true);
     });
   };
 
@@ -1018,7 +1037,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 key: 'open',
                 label: t('Open in new tab'),
                 icon: 'tab' as const,
-                onSelect: () => handleTabClick(tab.url),
+                onSelect: () => openTabCopy(tab.url, true),
               },
             ]),
         ...(isSearching
@@ -1199,7 +1218,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             // KAN-825. A cut-off title goes above the address; never above the tour's why.
             tooltipLead={isOpenBlocked ? undefined : shown}
             disable={isOpenBlocked}
-            onClick={() => handleTabClick(url)}
+            onClick={(e) => handleTabClick(url, e)}
+            onAuxClick={(e) => {
+              if (e.button === 1) openTabCopy(url, false);
+            }}
             style={childLeftStyle}
           >
             <Icon
