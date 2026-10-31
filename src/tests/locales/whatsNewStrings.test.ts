@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 
 import { WHATS_NEW } from '../../utils/constants/whatsNew';
 
-// KAN-861. What's new's words in every locale; the Copy links body names the labels on screen.
+// KAN-861. What's new's words in every locale; each body names the labels on screen.
 
 const localeFiles = import.meta.glob('/public/locales/*/translation.json', {
   import: 'default',
@@ -41,5 +41,15 @@ describe.each(locales)('%s', (_, dict) => {
     const body = dict.WhatsNewCopyLinksBody;
     expect(body).toContain(dict['With headings']);
     expect(body).toContain(`${dict.Settings} › ${dict.Sessions}`);
+  });
+
+  test('the Replace body names Replace with current window as shown', () => {
+    expect(dict.WhatsNewReplaceWindowBody).toContain(
+      dict['Replace with current window']
+    );
+  });
+
+  test('the duplicates body names the Currently open pane as shown', () => {
+    expect(dict.WhatsNewOpenDuplicatesBody).toContain(dict['Open now']);
   });
 });

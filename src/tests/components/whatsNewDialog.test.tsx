@@ -49,7 +49,7 @@ describe("What's new (KAN-861)", () => {
     expect(within(dialog).getByText('Copy links is simpler')).toBeTruthy();
     expect(
       within(dialog).getByText(
-        'It now pastes one link per line. For the old layout with headings, choose With headings in Settings › Sessions.'
+        'Copied links now paste as a plain list, one per line. If you preferred the old layout with headings, choose With headings in Settings › Sessions.'
       )
     ).toBeTruthy();
     expect(within(dialog).queryAllByRole('heading', { level: 3 })).toHaveLength(

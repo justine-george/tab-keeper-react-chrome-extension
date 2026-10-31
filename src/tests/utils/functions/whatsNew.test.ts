@@ -173,16 +173,25 @@ describe('the shipped list', () => {
     }
   });
 
-  test('the first release is Copy links', () => {
+  test('2.1.0 is Copy links, Replace a saved window, then live duplicates', () => {
     expect(WHATS_NEW[0]).toEqual({
-      version: 'next',
-      ships: '2.1.0',
+      version: '2.1.0',
       entries: [
         {
           titleKey: 'WhatsNewCopyLinksTitle',
           bodyKey: 'WhatsNewCopyLinksBody',
           settingsPage: SettingsCategory.SESSIONS,
           changesDefault: true,
+        },
+        {
+          titleKey: 'WhatsNewReplaceWindowTitle',
+          bodyKey: 'WhatsNewReplaceWindowBody',
+          changesDefault: false,
+        },
+        {
+          titleKey: 'WhatsNewOpenDuplicatesTitle',
+          bodyKey: 'WhatsNewOpenDuplicatesBody',
+          changesDefault: false,
         },
       ],
     });
