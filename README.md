@@ -54,7 +54,35 @@ Read the full [privacy policy](PRIVACY.md).
 
 ## Changelog
 
-### v.2.0.1 (Latest)
+### v.2.1.0 (Latest)
+
+#### Features
+
+- Replace a saved window with the window you're in, from its menu. It keeps its name and place, and the rest of the session stays as it was
+- Remove duplicate tabs from the windows you have open, from a window's menu or Currently open's right-click menu. Reopen brings them back
+- After an update, What's new lists the main changes once, with a shortcut to any setting that changed
+- The Save as PDF preview has a slim header with a way back to Tab Keeper, which asks first if your edits would be lost
+
+#### Fixes
+
+- In Save as PDF's Edit, rows follow the Comfortable layout instead of always drawing Compact's lines
+- On a narrow window, Edit and Done in the Save as PDF preview no longer move the sheet
+- Chrome's own Print… on the Save as PDF preview prints the file over as many pages as it needs, instead of one cut-off page with the toolbar
+- A selected session's Open, Switch and Replace buttons no longer overlap in languages with longer words or at a larger font size
+- A tab dragged out of Currently open and brought back over its left edge, by the resize grip, is moved back instead of copied
+- On the tour, a save of your own after Use an example counts as the tour's, and the sample makes way for it
+- A rating card already on screen steps aside for a tour or setup started over it, and comes back after
+- The tour skips the pin step when this tab is already pinned and pinning in new windows is on
+
+#### Improvements
+
+- Copy links pastes one link per line. The old layout with headings is in Settings › Sessions
+- The saved session and Currently open can be resized from a 1100px window, and the Currently open drawer is wider
+- Short help lines under Auto sync, Backup, Cloud data and Save tab groups, and a clearer Delete cloud data dialog
+- Until your first save, the save button's ring keeps pulsing, and the first save pops floppy disks
+- Setup and the popup tour end on a last card: your session is saved, and Open brings it back
+
+### v.2.0.1
 
 #### Fixes
 
@@ -115,41 +143,6 @@ Read the full [privacy policy](PRIVACY.md).
 - The first run and the tour fit more languages and window sizes, and point at the right place even with vertical tabs. The sample session stays if you moved your own tabs into it
 - Settings is easier to scan and lists Chrome's language first. Change shortcut opens Chrome's shortcuts page and shows the new key when you come back
 - Leaving the full view returns you to the tab you opened it from, and offers to pin it first so it stays open
-
-### v.1.9.0
-
-#### Features
-
-- Export a session as a page you can read, print or save as a PDF, and rename titles or hide rows before you share it
-- Copy a session's links from its menu: they paste as links into documents and email, and as plain addresses anywhere else
-- Export the windows you have open right now, without saving them first
-- Load a backup by merging its sessions into yours, or by replacing yours after a confirmation, and a replace now holds on every device that syncs
-- Delete your cloud data from Settings → Sync & backup
-- Open the popup with a keyboard shortcut, shown in Settings
-- Fold every window in a session from one control in its header
-- The extension asks before it first uploads anything to the cloud, on each device, and Settings shows when this device last synced
-- A privacy policy, linked from Settings → About
-
-#### Fixes
-
-- A cloud read that fails, for example while offline, no longer replaces what your other devices saved with this device's sessions
-- With Auto Sync off, restoring a backup no longer uploads it
-- The sync icon now says it is syncing for the whole sync, not only while it uploads
-- Icons and fonts now work offline, instead of showing their names as text
-- A saved tab keeps the page's name without a site's unread count, such as "(3)"
-- A tab can now be picked up by its icon to drag it
-- While dragging, the preview shows exactly where a tab lands beside a tab group, and shows a group closing up when its last tab leaves
-- The outline that marks where a dragged row will land is now visible in every theme
-- The scrollbar is now visible in every theme
-- The colored bar beside a tab group is easier to click
-
-#### Improvements
-
-- Settings is reorganized into Display, Language, Sync & Backup, Sessions and About, and each theme shows as a miniature of the popup
-- The themes are renamed Paper, Parchment, Petal, Graphite and Ink
-- Each language is named in its own language
-- A session's Export and Delete now sit in its More actions menu
-- The popup uses one type scale and one corner radius, and its buttons show when they are pressed
 
 [View All Changelog →](https://github.com/justine-george/tab-keeper-react-chrome-extension/wiki/Changelog)
 

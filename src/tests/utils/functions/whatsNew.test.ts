@@ -175,8 +175,7 @@ describe('the shipped list', () => {
 
   test('2.1.0 is Copy links, Replace a saved window, then live duplicates', () => {
     expect(WHATS_NEW[0]).toEqual({
-      version: 'next',
-      ships: '2.1.0',
+      version: '2.1.0',
       entries: [
         {
           titleKey: 'WhatsNewCopyLinksTitle',

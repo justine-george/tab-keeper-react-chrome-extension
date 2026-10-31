@@ -8,11 +8,12 @@ import { seedSettings } from './fixtures/seed';
 // KAN-861. What's new on the first open after an update.
 // Playwright cannot make Chrome report an update (a folder swap reads as an
 // install), so the key the worker records is seeded in the worker; the
-// worker's own record is unit-tested. The build's manifest is 2.0.1 until the
-// cut, so 'next' reads as 2.0.1. Revisit when a second release joins the list.
+// worker's own record is unit-tested. Updated from 2.0.0, the build shows its
+// own release; bump VERSION at each cut.
 
 const SINCE = '2.0.0';
-const TITLE = "What's new in Tab Keeper 2.0.1";
+const VERSION = '2.1.0';
+const TITLE = `What's new in Tab Keeper ${VERSION}`;
 
 const sinceIn = (worker: Worker) =>
   worker.evaluate(async () => {
@@ -185,7 +186,7 @@ test.describe("What's new fits the popup (KAN-861)", () => {
       await expect(page.locator('#whats-new-title')).toHaveText(
         localeStrings(language)["What's new in Tab Keeper {{version}}"].replace(
           '{{version}}',
-          '2.0.1'
+          VERSION
         )
       );
 
