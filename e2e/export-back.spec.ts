@@ -103,16 +103,24 @@ const card = (page: Page) => page.locator('[data-ask-card]');
 async function previewFromFullView(
   context: BrowserContext,
   worker: Worker,
-  extensionId: string
+  extensionId: string,
+  // 'worker': as the worker opens a full view, with no opener; 'newPage': a newPage tab, which has one.
+  openedBy: 'worker' | 'newPage' = 'worker'
 ): Promise<{ preview: Page; fullView: TabFacts; previewTab: TabFacts }> {
-  // Opened as the worker opens a full view: with no opener, unlike a newPage tab.
-  const [page] = await Promise.all([
-    context.waitForEvent('page'),
-    worker.evaluate(
-      (url) => chrome.tabs.create({ url, active: true }),
-      `chrome-extension://${extensionId}/${FULL_VIEW}`
-    ),
-  ]);
+  const fullViewUrl = `chrome-extension://${extensionId}/${FULL_VIEW}`;
+  const page =
+    openedBy === 'worker'
+      ? (
+          await Promise.all([
+            context.waitForEvent('page'),
+            worker.evaluate(
+              (url) => chrome.tabs.create({ url, active: true }),
+              fullViewUrl
+            ),
+          ])
+        )[0]
+      : await context.newPage();
+  if (openedBy === 'newPage') await page.goto(fullViewUrl);
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(sessionHeaderMenu(page)).toBeVisible();
   await sessionHeaderMenu(page).click();
@@ -129,8 +137,9 @@ async function previewFromFullView(
   const previewTab = await onlyTabAt(worker, 'export.html');
   // PREMISE: the preview's opener is the full view, so going back has a tab to land on.
   expect(previewTab.openerTabId).toBe(fullView.id);
-  // Chrome hands a closed tab's opener on to its children (test 3).
-  expect(fullView.openerTabId).toBeUndefined();
+  // Chrome hands a closed tab's opener on to its children (tests 3, 3b).
+  if (openedBy === 'worker') expect(fullView.openerTabId).toBeUndefined();
+  else expect(fullView.openerTabId).toBeDefined();
   return { preview, fullView, previewTab };
 }
 
@@ -301,6 +310,41 @@ test('3. the full view closed first: a full view opens and is active, and the pr
   expect(more).toEqual([]);
   expect(opened?.active).toBe(true);
   // In the window the preview was in.
+  expect(opened?.windowId).toBe(previewTab.windowId);
+});
+
+// Off the happy path: Chrome hands the closed full view's opener (a web page) on to the preview; that page is not Tab Keeper.
+test('3b. the full view had an opener and closed first: a full view opens and is active, and the preview is gone', async ({
+  context,
+  serviceWorker,
+  extensionId,
+}) => {
+  const { preview, fullView, previewTab } = await previewFromFullView(
+    context,
+    serviceWorker,
+    extensionId,
+    'newPage'
+  );
+  await addTabAfter(context, serviceWorker, previewTab);
+  await serviceWorker.evaluate((id) => chrome.tabs.remove(id), fullView.id);
+  await expect.poll(() => tabsAt(serviceWorker, FULL_VIEW)).toEqual([]);
+  // PREMISE: the preview's opener is now the full view's own opener, a tab that is still open.
+  await expect
+    .poll(
+      async () => (await onlyTabAt(serviceWorker, 'export.html')).openerTabId
+    )
+    .toBe(fullView.openerTabId);
+  const handedOn = (await allTabs(serviceWorker)).find(
+    (t) => t.id === fullView.openerTabId
+  );
+  expect(handedOn?.url).not.toContain(extensionId);
+
+  await backLink(preview).click();
+
+  await expect.poll(() => tabsAt(serviceWorker, 'export.html')).toEqual([]);
+  const [opened, ...more] = await tabsAt(serviceWorker, FULL_VIEW);
+  expect(more).toEqual([]);
+  expect(opened?.active).toBe(true);
   expect(opened?.windowId).toBe(previewTab.windowId);
 });
 

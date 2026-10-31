@@ -7,6 +7,7 @@ import {
   RETURN_FROM_PREVIEW_MESSAGE,
   type PreviewBackApi,
 } from '../../../utils/functions/backFromPreview';
+import { tabKeeperPageOf } from '../../../utils/functions/pinnedTabKeeper';
 
 type Entry =
   | { call: 'activate'; tabId: number }
@@ -18,7 +19,12 @@ interface FakeTab {
   id: number;
   windowId: number;
   opener?: number;
+  url?: string;
 }
+
+const EXT = 'chrome-extension://x/';
+const FULL_VIEW_URL = `${EXT}index.html?view=tab`;
+const STUB_URL = `${EXT}pinned.html`;
 
 // A hand-made browser: a window closes with its last tab; the log is the call order.
 function makeApi(options: {
@@ -33,7 +39,7 @@ function makeApi(options: {
   const log: Entry[] = [];
   const windowExists = (id: number) => tabs.some((t) => t.windowId === id);
   const api: PreviewBackApi = {
-    getURL: (path) => `chrome-extension://x/${path}`,
+    getURL: (path) => `${EXT}${path}`,
     getTab: async (tabId) => {
       if (options.refuseGetTab) throw new Error('getTab refused');
       const tab = tabs.find((t) => t.id === tabId);
@@ -69,9 +75,17 @@ function makeApi(options: {
       const opener = tabs.find((t) => t.id === tabId)?.opener;
       return tabs.some((t) => t.id === opener) ? opener : undefined;
     },
+    isTabKeeperTab: async (tabId) => {
+      const tab = tabs.find((t) => t.id === tabId);
+      return (
+        tab !== undefined &&
+        tabKeeperPageOf({ url: tab.url }, api.getURL) !== undefined
+      );
+    },
     canOpenPopup: () => !options.noPopupSupport,
     openFullView: async (windowId) => {
       log.push({ call: 'openFullView', windowId });
+      tabs.push({ id: 100 + tabs.length, windowId: windowId ?? 1 });
     },
   };
   return { api, log };
@@ -104,7 +118,7 @@ describe('returnFromPreview', () => {
   test('full, opener open: switch to it, then close the preview', async () => {
     const { api, log } = makeApi({
       tabs: [
-        { id: 1, windowId: 1 },
+        { id: 1, windowId: 1, url: FULL_VIEW_URL },
         { id: PREVIEW, windowId: 2, opener: 1 },
       ],
     });
@@ -133,7 +147,7 @@ describe('returnFromPreview', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { api, log } = makeApi({
       tabs: [
-        { id: 1, windowId: 1 },
+        { id: 1, windowId: 1, url: FULL_VIEW_URL },
         { id: PREVIEW, windowId: 2, opener: 1 },
       ],
       refuseActivate: true,
@@ -146,6 +160,34 @@ describe('returnFromPreview', () => {
     ]);
   });
 
+  test('full, opener handed on to a web page: a full view opens, then the preview closes', async () => {
+    const { api, log } = makeApi({
+      tabs: [
+        { id: 1, windowId: 1, url: 'https://travel.example/' },
+        { id: PREVIEW, windowId: 2, opener: 1 },
+      ],
+    });
+    await returnFromPreview(api, PREVIEW, 'full');
+    expect(log).toEqual([
+      { call: 'openFullView', windowId: 2 },
+      { call: 'removeTab', tabId: PREVIEW },
+    ]);
+  });
+
+  test('full, opener is the pinned stub: switch to it, then close the preview', async () => {
+    const { api, log } = makeApi({
+      tabs: [
+        { id: 1, windowId: 1, url: STUB_URL },
+        { id: PREVIEW, windowId: 2, opener: 1 },
+      ],
+    });
+    await returnFromPreview(api, PREVIEW, 'full');
+    expect(log).toEqual([
+      { call: 'activate', tabId: 1 },
+      { call: 'removeTab', tabId: PREVIEW },
+    ]);
+  });
+
   test('full, the preview is the only normal tab: the full view opens before it closes', async () => {
     const { api, log } = makeApi({
       tabs: [{ id: PREVIEW, windowId: 2, opener: 1 }],
@@ -154,6 +196,21 @@ describe('returnFromPreview', () => {
     expect(log).toEqual([
       { call: 'openFullView', windowId: 2 },
       { call: 'removeTab', tabId: PREVIEW },
+    ]);
+  });
+
+  test('popup, opener is a web page: switch to it all the same', async () => {
+    const { api, log } = makeApi({
+      tabs: [
+        { id: 1, windowId: 1, url: 'https://travel.example/' },
+        { id: PREVIEW, windowId: 2, opener: 1 },
+      ],
+    });
+    await returnFromPreview(api, PREVIEW, 'popup');
+    expect(log).toEqual([
+      { call: 'activate', tabId: 1 },
+      { call: 'removeTab', tabId: PREVIEW },
+      { call: 'openPopup', windowId: 1 },
     ]);
   });
 

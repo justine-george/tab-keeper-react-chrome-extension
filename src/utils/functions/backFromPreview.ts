@@ -12,6 +12,7 @@ import {
   OPEN_IN_TAB_MESSAGE,
   openOrFocusTabView,
 } from './popOut';
+import { isTabKeeperTab } from './pinnedTabKeeper';
 import type { PreviewFrom } from './previewFrom';
 
 export const RETURN_FROM_PREVIEW_MESSAGE = 'returnFromPreview';
@@ -52,8 +53,10 @@ export async function requestReturnFromPreview(
 }
 
 export interface PreviewBackApi extends PopupApi {
-  // The tab the preview was opened from, if it is still open.
+  // Chrome's current opener of the tab, if it is still open: a closed opener's own opener is handed on.
   openerOf(tabId: number): Promise<number | undefined>;
+  // A full view or the pinned stub; false for a tab that is gone.
+  isTabKeeperTab(tabId: number): Promise<boolean>;
   canOpenPopup(): boolean;
   // Focuses a full view, or opens one in that window (undefined: where Chrome chooses).
   openFullView(windowId: number | undefined): Promise<void>;
@@ -69,6 +72,8 @@ export const chromePreviewBackApi: PreviewBackApi = {
       () => undefined
     );
   },
+  isTabKeeperTab: (tabId) =>
+    chrome.tabs.get(tabId).then(isTabKeeperTab, () => false),
   canOpenPopup,
   openFullView: (windowId) =>
     openOrFocusTabView(chromeTabApi, { type: OPEN_IN_TAB_MESSAGE, windowId }),
@@ -88,8 +93,15 @@ export async function returnFromPreview(
     );
     const lastTab = others.length === 0;
     const opener = lastTab ? undefined : await api.openerOf(previewTabId);
+    // KAN-880. From the full view, an opener that is not Tab Keeper was handed on by Chrome: counts as gone.
+    const backTo =
+      from === 'full' &&
+      opener !== undefined &&
+      !(await api.isTabKeeperTab(opener))
+        ? undefined
+        : opener;
     // The window the user is back in; undefined when there is no opener or the switch failed.
-    const backInWindow = await goBack(api, opener);
+    const backInWindow = await goBack(api, backTo);
 
     if (from === 'full') {
       // No tab to land on: a full view opens first, so the window keeps a tab.
