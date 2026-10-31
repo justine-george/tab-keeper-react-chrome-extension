@@ -224,7 +224,11 @@ test('in Comfortable, Edit shows each full address and no row rules, and wraps a
     expect(text).toContain(urls[index]);
     expect(border).toBe('none');
   });
-  await expect(page.getByText(LONG, { exact: true })).toBeVisible();
+  // The editor's row, not the print-only copy of the file (KAN-602).
+  const longRow = page
+    .getByRole('listitem')
+    .filter({ has: page.getByRole('textbox', { name: 'Rename tab: Long' }) });
+  await expect(longRow.getByText(LONG, { exact: true })).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth
