@@ -26,7 +26,7 @@ interface AskCardProps {
   onCancel: () => void;
 }
 
-// FullViewCallout's card, sized to its buttons: they never wrap.
+// The KAN-578 card, any two answers; sized to its buttons, they never wrap.
 export default function AskCard({
   text,
   quiet,
