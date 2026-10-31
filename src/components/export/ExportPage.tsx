@@ -632,6 +632,10 @@ export default function ExportPage({
           margin: 0;
           background-color: ${COLORS.SECONDARY_COLOR};
         }
+        /* KAN-880. Edit and Done change the page's height; a classic scrollbar coming or going would shift it sideways. */
+        html {
+          scrollbar-gutter: stable;
+        }
         [data-scheme-switching] * {
           transition: none !important;
         }
