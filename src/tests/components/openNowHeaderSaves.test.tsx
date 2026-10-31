@@ -204,6 +204,27 @@ describe("Open now's header saves (KAN-774)", () => {
     );
   });
 
+  // KAN-880. The preview's back link needs to know which surface opened it.
+  test.each([
+    ['the popup', 'popup', ''],
+    ['the full view', 'full', '?view=tab'],
+  ])(
+    'the PDF icon from %s opens the export marked from=%s',
+    async (_n, from, search) => {
+      history.replaceState(null, '', search || '?');
+      try {
+        const { chrome } = await renderOpenNow(twoWindows);
+
+        fireEvent.click(within(header()).getByRole('button', { name: PDF }));
+
+        await waitFor(() => expect(chrome.createdTabs).toHaveLength(1));
+        expect(chrome.createdTabs[0].url).toMatch(new RegExp(`&from=${from}$`));
+      } finally {
+        history.replaceState(null, '', '?');
+      }
+    }
+  );
+
   test('right-clicking the header leads with Save all · Save current, then Copy all links and Save as PDF (KAN-799)', async () => {
     await renderOpenNow(twoWindows);
 

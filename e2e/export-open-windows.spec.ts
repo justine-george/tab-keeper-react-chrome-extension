@@ -174,13 +174,17 @@ test.describe('export open windows (KAN-208)', () => {
     const excluded = await tabKeeperTabCount(serviceWorker, extensionId);
     expect(excluded).toBe(2);
 
+    // KAN-880. The title and counts are the file's own, on the sheet.
     const open = await openTabCount(serviceWorker);
     await expect(
-      exportPage.getByText(`2 Windows · ${open - excluded} Tabs`)
+      preview.getByText(`2 Windows · ${open - excluded} Tabs`)
     ).toBeVisible();
 
     await expect(
-      exportPage.getByText(strings['Open windows'], { exact: true })
+      preview.getByRole('heading', {
+        name: strings['Open windows'],
+        exact: true,
+      })
     ).toBeVisible();
     const stored = await exportPage.evaluate(() =>
       (

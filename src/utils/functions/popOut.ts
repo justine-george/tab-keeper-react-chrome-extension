@@ -12,7 +12,7 @@
 // background.ts, and tests implement it against a fake.
 
 import { chromeFullViewOrigins, type FullViewTabRef } from './fullViewOrigin';
-import { STUB_PATH, TAB_VIEW_PATH } from './pinnedTabKeeper';
+import { STUB_PATH, TAB_VIEW_PATH, tabKeeperPageOf } from './pinnedTabKeeper';
 
 export const OPEN_IN_TAB_MESSAGE = 'openInTab';
 
@@ -194,9 +194,7 @@ export async function openOrFocusTabView(
       matches.find((tab) => tab.windowId === request.windowId) ?? matches[0];
 
     if (existing) {
-      const isStubTab = (existing.url || existing.pendingUrl || '').startsWith(
-        stubUrl
-      );
+      const isStubTab = tabKeeperPageOf(existing, api.getURL) === 'stub';
       if (isStubTab && request.show !== undefined) {
         // A stub cannot hear the announcement; send it to the full view with the dialog.
         await api.update(existing.id, {

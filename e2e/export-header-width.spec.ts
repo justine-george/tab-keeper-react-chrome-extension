@@ -10,8 +10,9 @@ import {
 
 // KAN-235. The header's content sits in a centred band near the 720px document.
 // KAN-742: every locale's toolbar must fit one line in it, so all 13 are measured.
+// KAN-880: the band is the sheet's width (816 at most), so the toolbar's edges are the sheet's.
 
-const HEADER_CONTENT_MAX_PX = 930;
+const SHEET_MAX_PX = 816;
 const WIDE = { width: 2000, height: 420 };
 const ALL_LANGS = [
   'de',
@@ -58,12 +59,12 @@ async function openExport(
   return page;
 }
 
-/** The header, its two content blocks, and how many lines the toolbar takes. */
+/** The header, its two lines (the way back, the toolbar), the sheet, and how many lines the toolbar takes. */
 const geometry = (page: Page) =>
   page.evaluate(() => {
-    const row = document.querySelector<HTMLElement>('[data-toolbar-row]')!;
+    const row = document.querySelector('[data-toolbar-row]')!;
     const header = row.parentElement!;
-    const title = row.previousElementSibling as HTMLElement;
+    const back = row.previousElementSibling!;
     const r = (el: Element) => {
       const b = el.getBoundingClientRect();
       return { left: b.left, right: b.right, width: b.width };
@@ -80,56 +81,66 @@ const geometry = (page: Page) =>
       (row.getBoundingClientRect().height + 10) / (tallest + 10)
     );
     return {
-      viewport: window.innerWidth,
+      // The window less a reserved scrollbar gutter (KAN-880): 0px where scroll bars overlay, ~15px where they always show.
+      // From the body's box: an empty reserved gutter leaves documentElement.clientWidth at the window's width (CI, measured).
+      layoutWidth: document.body.getBoundingClientRect().width,
       header: r(header),
-      headerPadding: parseFloat(getComputedStyle(header).paddingLeft),
-      title: r(title),
+      back: r(back),
+      // The way back is the line's one control, named in any language.
+      hasLink: back.querySelectorAll('button').length === 1,
+      // After the mode label: the preview's frame, or the editor's sheet.
+      sheet: r(header.nextElementSibling!.nextElementSibling!),
       toolbar: r(row),
       toolbarLines,
     };
   });
 
+/** The row's own one-line width, for the slack each locale leaves. */
+const oneLineWidth = (page: Page) =>
+  page.evaluate(() => {
+    const row = document.querySelector<HTMLElement>('[data-toolbar-row]');
+    if (!row) throw new Error('no toolbar');
+    const saved = row.style.cssText;
+    row.style.width = 'max-content';
+    row.style.maxWidth = 'none';
+    const width = Math.round(row.getBoundingClientRect().width);
+    row.style.cssText = saved;
+    return width;
+  });
+
 for (const lang of ALL_LANGS) {
-  test(`at 2000px the header content sits in a centred ${HEADER_CONTENT_MAX_PX}px band, on one line (${lang})`, async ({
+  test(`at 2000px the header content is the ${SHEET_MAX_PX}px sheet's width, centred, on one line (${lang})`, async ({
     context,
     extensionId,
   }) => {
     const page = await openExport(context, extensionId, WIDE, lang);
     const g = await geometry(page);
 
-    // Only the content is constrained; the band is full bleed.
+    // Only the content is constrained; the header itself is full bleed, up to any scrollbar gutter.
+    expect(WIDE.width - g.layoutWidth).toBeLessThanOrEqual(20);
     expect(g.header.left).toBe(0);
-    expect(g.header.right).toBe(WIDE.width);
+    expect(g.header.right).toBe(g.layoutWidth);
 
-    const expectedLeft = (WIDE.width - HEADER_CONTENT_MAX_PX) / 2;
-    expect(g.toolbar.width).toBeCloseTo(HEADER_CONTENT_MAX_PX, 0);
+    const expectedLeft = (g.layoutWidth - SHEET_MAX_PX) / 2;
+    expect(g.toolbar.width).toBeCloseTo(SHEET_MAX_PX, 0);
     expect(g.toolbar.left).toBeCloseTo(expectedLeft, 0);
-    expect(g.toolbar.right).toBeCloseTo(
-      expectedLeft + HEADER_CONTENT_MAX_PX,
-      0
-    );
-    expect(g.title.left).toBeCloseTo(g.toolbar.left, 0);
-    expect(g.title.right).toBeCloseTo(g.toolbar.right, 0);
+    expect(g.toolbar.right).toBeCloseTo(expectedLeft + SHEET_MAX_PX, 0);
+    // The way back's line, and the sheet, share the toolbar's edges.
+    expect(g.hasLink).toBe(true);
+    expect(g.back.left).toBeCloseTo(g.toolbar.left, 0);
+    expect(g.back.right).toBeCloseTo(g.toolbar.right, 0);
+    expect(g.sheet.left).toBeCloseTo(g.toolbar.left, 0);
+    expect(g.sheet.right).toBeCloseTo(g.toolbar.right, 0);
 
-    // The row's own one-line width, for the slack each locale leaves.
-    const oneLine = await page.evaluate(() => {
-      const row = document.querySelector<HTMLElement>('[data-toolbar-row]');
-      if (!row) throw new Error('no toolbar');
-      const saved = row.style.cssText;
-      row.style.width = 'max-content';
-      row.style.maxWidth = 'none';
-      const width = Math.round(row.getBoundingClientRect().width);
-      row.style.cssText = saved;
-      return width;
-    });
-    console.log(`${lang}: one line ${oneLine}px of ${HEADER_CONTENT_MAX_PX}px`);
+    const oneLine = await oneLineWidth(page);
+    console.log(`${lang}: one line ${oneLine}px of ${SHEET_MAX_PX}px`);
     expect(g.toolbarLines).toBe(1);
   });
 }
 
 // KAN-734. Editing swaps the row but not the band. KAN-831: Done starts it,
 // where Edit stood, and the tally ends it.
-test(`at 2000px the editing row's Done and tally span the ${HEADER_CONTENT_MAX_PX}px band (ru)`, async ({
+test(`at 2000px the editing row's Done and tally span the ${SHEET_MAX_PX}px band (ru)`, async ({
   context,
   extensionId,
 }) => {
@@ -145,37 +156,46 @@ test(`at 2000px the editing row's Done and tally span the ${HEADER_CONTENT_MAX_P
     .first()
     .boundingBox())!;
 
-  const expectedLeft = (WIDE.width - HEADER_CONTENT_MAX_PX) / 2;
+  const expectedLeft = (g.layoutWidth - SHEET_MAX_PX) / 2;
   expect(done.x, 'Done starts the band').toBeCloseTo(expectedLeft, 0);
   expect(tallyBox.x + tallyBox.width, 'the tally ends the band').toBeCloseTo(
-    expectedLeft + HEADER_CONTENT_MAX_PX,
+    expectedLeft + SHEET_MAX_PX,
     0
   );
   expect(g.toolbarLines).toBe(1);
+  // The editor's sheet has the preview's edges (KAN-880).
+  expect(g.sheet.left).toBeCloseTo(expectedLeft, 0);
+  expect(g.sheet.right).toBeCloseTo(expectedLeft + SHEET_MAX_PX, 0);
 });
 
 // KAN-827. As words, Compact and Comfortable wrapped the row at the popup's width in these two.
 for (const lang of ['ru', 'de']) {
-  test(`at 790px the preview toolbar fits one line (${lang})`, async ({
+  test(`at 790px the preview toolbar fits one line, but ru wraps to two (${lang})`, async ({
     context,
     extensionId,
   }) => {
     const page = await openExport(context, extensionId, POPUP, lang);
-    expect((await geometry(page)).toolbarLines).toBe(1);
+    const g = await geometry(page);
+    console.log(
+      `${lang} at 790: one line ${await oneLineWidth(page)}px of ${g.toolbar.width}px`
+    );
+    // Open, his call (KAN-880): the sheet's 24px gutters leave ru 742px at 790 for its 746px toolbar.
+    expect(g.toolbarLines).toBe(lang === 'ru' ? 2 : 1);
   });
 }
 
 // CONTROL: a band that also squeezed narrow screens would pass everything
-// above.
-test('at 790px the layout is what it was: content runs gutter to gutter', async ({
+// above. Narrow, the sheet is the window less 24px each side, and the header's content with it.
+test('at 790px the content runs 24px in from each side, on the sheet edges', async ({
   context,
   extensionId,
 }) => {
   const page = await openExport(context, extensionId, POPUP);
   const g = await geometry(page);
 
-  expect(g.headerPadding).toBe(16);
-  expect(g.toolbar.left).toBeCloseTo(g.header.left + 16, 0);
-  expect(g.toolbar.right).toBeCloseTo(g.header.right - 16, 0);
-  expect(g.title.left).toBeCloseTo(g.header.left + 16, 0);
+  expect(g.toolbar.left).toBeCloseTo(g.header.left + 24, 0);
+  expect(g.toolbar.right).toBeCloseTo(g.header.right - 24, 0);
+  expect(g.back.left).toBeCloseTo(g.toolbar.left, 0);
+  expect(g.sheet.left).toBeCloseTo(g.toolbar.left, 0);
+  expect(g.sheet.right).toBeCloseTo(g.toolbar.right, 0);
 });

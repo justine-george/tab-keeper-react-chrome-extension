@@ -115,10 +115,12 @@ test.describe('exporting a session as a web page', () => {
 
     expect(exportPage.url()).toContain('export.html');
     expect(exportPage.url()).toContain('session=session-kyoto');
-    await expect(exportPage.getByText('Weekend in Kyoto')).toBeVisible();
 
-    // The preview is the file itself, in its own document.
+    // The preview is the file itself, in its own document. KAN-880: the title is the file's, not the header's.
     const preview = exportPage.frameLocator('iframe');
+    await expect(
+      preview.getByRole('heading', { name: 'Weekend in Kyoto' })
+    ).toBeVisible();
     await expect(
       preview.getByRole('link', { name: 'Nozomi timetable' })
     ).toBeVisible();
@@ -1216,19 +1218,22 @@ for (const width of [1200, 800, 480]) {
           )
         ).size;
       const groups = [...document.querySelectorAll('[role="group"]')];
-      const bar = document
-        .querySelector('button')!
-        .closest('div')!.parentElement!;
+      const bar = document.querySelector('[data-preview-header]')!;
       return {
         groups: groups.length,
         splitGroups: groups.filter((group) => linesIn(group) > 1).length,
         clipped: bar.scrollWidth > bar.clientWidth + 1,
-        buttons: document.querySelectorAll('button').length,
+        buttons: document.querySelectorAll('[data-toolbar-row] button').length,
+        // KAN-880. The way back's line, above the toolbar.
+        others: [...document.querySelectorAll('button')]
+          .filter((b) => !b.closest('[data-toolbar-row]'))
+          .map((b) => b.getAttribute('aria-label')),
       };
     });
 
     // KAN-742: Save as HTML is gone, so two actions.
     expect(shape.buttons, 'Edit, two choices, and two actions').toBe(7);
+    expect(shape.others).toEqual(['Back to Tab Keeper']);
     expect(shape.groups, 'layout and colour').toBe(2);
     expect(
       shape.splitGroups,

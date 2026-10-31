@@ -465,5 +465,8 @@
   "Open brings them back, any time.": "Ouvrir restaure les onglets à tout moment.",
   "Have a good day!": "Bonne journée !",
   "You're all set.": "Tout est prêt.",
-  "Save your tabs here whenever you like.": "Enregistrez vos onglets ici quand vous voulez."
+  "Save your tabs here whenever you like.": "Enregistrez vos onglets ici quand vous voulez.",
+  "Back to Tab Keeper": "Revenir à Tab Keeper",
+  "Going back loses your edits. Save as PDF first to keep them.": "Revenir fait perdre vos modifications. Enregistrez d’abord en PDF pour les garder.",
+  "Stay": "Rester"
 }

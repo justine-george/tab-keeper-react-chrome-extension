@@ -15,6 +15,7 @@ import ExportPage, {
 import { store } from './redux/store.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { trackKeyNav } from './utils/functions/keyNav.ts';
+import { previewFrom } from './utils/functions/previewFrom.ts';
 import './styles/keyNav.css';
 
 // Before the first key or press: rings follow it (KAN-689).
@@ -41,7 +42,10 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <ErrorBoundary>
       <Provider store={store}>
         <I18nextProvider i18n={i18n}>
-          <ExportPage source={source} />
+          <ExportPage
+            source={source}
+            from={previewFrom(window.location.search)}
+          />
         </I18nextProvider>
       </Provider>
     </ErrorBoundary>

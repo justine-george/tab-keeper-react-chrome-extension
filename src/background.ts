@@ -11,6 +11,11 @@ import {
   isReturnFromFullViewRequest,
   returnFromFullView,
 } from './utils/functions/backFromFullView';
+import {
+  chromePreviewBackApi,
+  isReturnFromPreviewRequest,
+  returnFromPreview,
+} from './utils/functions/backFromPreview';
 import { recordFullViewOrigins } from './utils/functions/fullViewOrigin';
 import {
   chromeTabApi,
@@ -198,6 +203,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (isOpenInPopupRequest(message)) {
     void defaultViewApplied.then(() =>
       openInPopup(chromePopupApi, sender.tab?.id)
+    );
+  }
+
+  // KAN-880. The Save as PDF preview's Back to Tab Keeper; after the startup reapply, like openInPopup.
+  if (isReturnFromPreviewRequest(message)) {
+    void defaultViewApplied.then(() =>
+      returnFromPreview(chromePreviewBackApi, sender.tab?.id, message.from)
     );
   }
 });

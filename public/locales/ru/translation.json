@@ -480,5 +480,8 @@
   "Open brings them back, any time.": "«Открыть» вернёт вкладки в любой момент.",
   "Have a good day!": "Хорошего дня!",
   "You're all set.": "Всё готово.",
-  "Save your tabs here whenever you like.": "Сохраняйте вкладки здесь, когда захотите."
+  "Save your tabs here whenever you like.": "Сохраняйте вкладки здесь, когда захотите.",
+  "Back to Tab Keeper": "Вернуться в Tab Keeper",
+  "Going back loses your edits. Save as PDF first to keep them.": "При возврате ваши правки будут потеряны. Сначала сохраните как PDF, чтобы они не пропали.",
+  "Stay": "Остаться"
 }

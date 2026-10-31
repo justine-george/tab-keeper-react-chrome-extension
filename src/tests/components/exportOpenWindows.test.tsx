@@ -43,7 +43,7 @@ const frame = (): HTMLIFrameElement => {
 };
 
 const renderLive = (seed = twoWindows) =>
-  renderWithProviders(<ExportPage source={LIVE} />, { seed });
+  renderWithProviders(<ExportPage source={LIVE} from="full" />, { seed });
 
 afterEach(() => {
   localStorage.clear();
@@ -56,7 +56,7 @@ describe('exporting the open windows (KAN-208)', () => {
     await waitFor(() => expect(frame().srcdoc).toContain('Kagi Search'));
     expect(frame().srcdoc).toContain('Example');
     expect(frame().srcdoc).not.toContain('export.html');
-    expect(screen.getByText('2 Windows · 2 Tabs')).toBeTruthy();
+    expect(frame().srcdoc).toContain('2 Windows · 2 Tabs');
   });
 
   // KAN-300: a by-id rule would let this through.
@@ -86,13 +86,14 @@ describe('exporting the open windows (KAN-208)', () => {
     expect(frame().srcdoc).toContain('Example');
     expect(frame().srcdoc).not.toContain('export.html');
     expect(frame().srcdoc).not.toContain('view=tab');
-    expect(screen.getByText('2 Windows · 2 Tabs')).toBeTruthy();
+    expect(frame().srcdoc).toContain('2 Windows · 2 Tabs');
   });
 
-  test('is named "Open windows", in the header and the tab', async () => {
+  // KAN-880. The sheet names it; the header no longer repeats the title.
+  test('is named "Open windows", on the sheet and the tab', async () => {
     await renderLive();
 
-    expect(await screen.findByText('Open windows')).toBeTruthy();
+    expect(await screen.findByTitle('Open windows')).toBe(frame());
     await waitFor(() => expect(document.title).toBe('Open windows'));
   });
 
@@ -106,7 +107,7 @@ describe('exporting the open windows (KAN-208)', () => {
 
   test('CONTROL: a saved session still carries its date line', async () => {
     await renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 's' }} />,
+      <ExportPage source={{ kind: 'saved', tabGroupId: 's' }} from="full" />,
       {
         seedStore: (store) => {
           store.dispatch(
@@ -160,10 +161,10 @@ describe('exporting the open windows (KAN-208)', () => {
     );
 
     const { seen } = await renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 's' }} />
+      <ExportPage source={{ kind: 'saved', tabGroupId: 's' }} from="full" />
     );
 
-    expect(await screen.findByText('Saved one')).toBeTruthy();
+    expect(await screen.findByTitle('Saved one')).toBe(frame());
     expect(seen).toContain('tabContainerDataState/replaceState');
   });
 

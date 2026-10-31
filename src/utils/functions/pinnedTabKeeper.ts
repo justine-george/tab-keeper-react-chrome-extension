@@ -9,12 +9,24 @@ type Addressed = Pick<chrome.tabs.Tab, 'url' | 'pendingUrl'>;
 // `||`, not `??`: an uncommitted url is '' rather than undefined.
 const addressOf = (tab: Addressed): string => tab.url || tab.pendingUrl || '';
 
+// Which Tab Keeper page a tab shows, if any; the one rule for the worker and openOrFocusTabView.
+export function tabKeeperPageOf(
+  tab: Addressed,
+  getURL: (path: string) => string
+): 'fullView' | 'stub' | undefined {
+  const address = addressOf(tab);
+  if (address.startsWith(getURL(STUB_PATH))) return 'stub';
+  if (address.startsWith(getURL(TAB_VIEW_PATH))) return 'fullView';
+  return undefined;
+}
+
+const runtimeURL = (path: string) => chrome.runtime.getURL(path);
+
 export const isStub = (tab: Addressed): boolean =>
-  addressOf(tab).startsWith(chrome.runtime.getURL(STUB_PATH));
+  tabKeeperPageOf(tab, runtimeURL) === 'stub';
 
 export const isTabKeeperTab = (tab: Addressed): boolean =>
-  isStub(tab) ||
-  addressOf(tab).startsWith(chrome.runtime.getURL(TAB_VIEW_PATH));
+  tabKeeperPageOf(tab, runtimeURL) !== undefined;
 
 type TabWithId = chrome.tabs.Tab & { id: number };
 

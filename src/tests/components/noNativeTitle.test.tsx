@@ -82,7 +82,10 @@ describe('no element asks Chrome for a native tooltip (KAN-695)', () => {
 
   test('the export page: its toolbar buttons carry data-tooltip, nothing but the frame carries title', async () => {
     const { container } = await renderWithProviders(
-      <ExportPage source={{ kind: 'saved', tabGroupId: 'session-kyoto' }} />,
+      <ExportPage
+        source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
+        from="full"
+      />,
       {
         seedStore: (store) => {
           store.dispatch(replaceState(buildContainer([SESSION])));
