@@ -536,3 +536,86 @@ test.describe('rows', () => {
     expect(hit).toBe(await last.textContent());
   });
 });
+
+const CLEAR = 'rgba(0, 0, 0, 0)';
+const lineColours = (lines: Locator) =>
+  lines.evaluateAll((els) =>
+    els.map((e) => getComputedStyle(e).borderBottomColor)
+  );
+const rowTops = (page: Page, scope: string) =>
+  page
+    .locator(`${scope} [data-drag-row-id], ${scope} [data-row-divider]`)
+    .evaluateAll((els) => els.map((e) => e.getBoundingClientRect().top));
+
+test.describe('lines', () => {
+  test('session list: the lines touching a filled row hide; the rest stay; nothing moves', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    const lines = page.locator('[data-pane=sessions] [data-row-divider]');
+    await expect(lines).toHaveCount(2);
+    await page.mouse.move(2, 545);
+    const tops = await rowTops(page, '[data-pane=sessions]');
+    const [belowPorto, belowReading] = await lineColours(lines);
+    // Porto is selected: the line below it hides; the next one stays.
+    expect(belowPorto).toBe(CLEAR);
+    expect(belowReading).not.toBe(CLEAR);
+    const drawn = belowReading;
+
+    // Hover Reading list: both lines touching it hide.
+    await rowOf(page, '[data-pane=sessions]', 'Reading list').hover();
+    expect(await lineColours(lines)).toEqual([CLEAR, CLEAR]);
+    expect(await rowTops(page, '[data-pane=sessions]')).toEqual(tops);
+
+    // Hover Work: only the line above it (and still Porto's) hide.
+    await rowOf(page, '[data-pane=sessions]', 'Work').hover();
+    expect(await lineColours(lines)).toEqual([CLEAR, CLEAR]);
+    await page.mouse.move(2, 545);
+    expect(await lineColours(lines)).toEqual([CLEAR, drawn]);
+
+    // Keyboard focus on Work fills it too.
+    const work = rowOf(page, '[data-pane=sessions]', 'Work').getByRole(
+      'button',
+      {
+        name: 'Work',
+        exact: true,
+      }
+    );
+    await work.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(work).toBeFocused();
+    expect(await lineColours(lines)).toEqual([CLEAR, CLEAR]);
+    expect(await rowTops(page, '[data-pane=sessions]')).toEqual(tops);
+  });
+
+  test('Settings nav: the lines touching the selected and the focused row hide', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const nav = page.locator('[data-panel=settings-nav]');
+    await nav.getByRole('button', { name: 'Sessions', exact: true }).click();
+    await page.mouse.move(2, 545);
+    const lines = nav.locator('[data-row-divider]');
+    const names = await nav.getByRole('button').allTextContents();
+    const at = names.findIndex((n) => n.trim() === 'Sessions');
+    expect(at).toBeGreaterThan(0);
+    const colours = await lineColours(lines);
+    // The line above Sessions (after the row before it) and the one below it.
+    expect(colours[at - 1]).toBe(CLEAR);
+    expect(colours[at]).toBe(CLEAR);
+    expect(colours.filter((c) => c === CLEAR)).toHaveLength(2);
+
+    const display = nav.getByRole('button', { name: 'Display', exact: true });
+    await display.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(display).toBeFocused();
+    expect((await lineColours(lines))[0]).toBe(CLEAR);
+  });
+});

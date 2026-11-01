@@ -32,6 +32,11 @@ import {
 import { DURATION, TYPE } from '../../../styles/scale';
 import { springSweepStyle } from '../../common/springOpen';
 import { focusRingRowCss, whileKeyNav } from '../../common/focusRing';
+import {
+  LINE_HIDDEN,
+  lineBeforeWrapped,
+  linesBeside,
+} from '../../common/rowLines';
 import { SAVED_TEXT_INSET } from './savedListInset';
 import { DragHandle } from '../rightpane/rowDrag/DragHandle';
 import { useRowActionGuard } from './useRowActionGuard';
@@ -474,6 +479,25 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     &[data-carry-dwell] {
       ${fill('transparent')}
       ${springSweepStyle(COLORS.ACTIVE_COLOR)}
+    }
+    /* KAN-721. The lines touching this row hide while it is filled: the
+       same states as the fill above, so the two cannot disagree. */
+    ${linesBeside(
+      [
+        '&:hover',
+        '&:active',
+        '&[data-row-menu-held]',
+        '&[data-run-engaged]',
+        '&[data-carry-target]',
+        ...(drawsSelection ? ['&'] : []),
+      ],
+      lineBeforeWrapped
+    )}
+    ${whileKeyNav('&:has(:focus-visible) + [data-row-divider]')} {
+      ${LINE_HIDDEN}
+    }
+    ${whileKeyNav(lineBeforeWrapped('& :focus-visible'))} {
+      ${LINE_HIDDEN}
     }
   `;
 

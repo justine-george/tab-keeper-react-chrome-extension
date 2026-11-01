@@ -18,6 +18,11 @@ import { corners } from '../../../styles/corners';
 import { ROW_GUTTER_PX, rowHighlightCss } from '../../../styles/rowHighlight';
 import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
 import { focusRingRowCss, whileKeyNav } from '../../common/focusRing';
+import {
+  LINE_HIDDEN,
+  lineBeforeSibling,
+  linesBeside,
+} from '../../common/rowLines';
 import { BACK_LABEL_INSET } from '../../common/headerBackTarget';
 
 export interface SettingsCategoryContainer {
@@ -69,6 +74,17 @@ const SettingsCategoryContainer: React.FC = () => {
       outline: none;
     }
     ${focusRingRowCss(COLORS, '&:focus-visible')}
+    /* KAN-721. The lines touching this row hide while it is filled. */
+    ${linesBeside(
+      ['&:hover', '&:active', ...(isSelected ? ['&'] : [])],
+      lineBeforeSibling
+    )}
+    ${whileKeyNav('&:focus-visible + [data-row-divider]')} {
+      ${LINE_HIDDEN}
+    }
+    ${whileKeyNav(lineBeforeSibling('&:focus-visible'))} {
+      ${LINE_HIDDEN}
+    }
     transition: background-color ${DURATION.MOVE};
     width: 100%;
     /* The hover rule is EMITTED ONLY WHEN UNSELECTED (KAN-96).
