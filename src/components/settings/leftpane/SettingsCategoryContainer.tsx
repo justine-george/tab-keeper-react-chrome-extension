@@ -106,6 +106,11 @@ const SettingsCategoryContainer: React.FC = () => {
       !isSelected
         ? `&:hover {
       background-color: ${COLORS.HOVER_COLOR};
+    }
+    /* KAN-721 R5. Keyboard focus fills as hover does, as a session row's does,
+       so the lines beside it hide for the same reason. */
+    ${whileKeyNav('&:focus-visible')} {
+      background-color: ${COLORS.HOVER_COLOR};
     }`
         : ''
     }

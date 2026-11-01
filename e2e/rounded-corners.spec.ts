@@ -874,3 +874,45 @@ test.describe('after the demo', () => {
     expect(fill).toEqual({ radius: '8px', shape: SQUIRCLE });
   });
 });
+
+// Justine's picks, R5 (11-01): C for the nav, rounded for the rail.
+test.describe('round 5 picks', () => {
+  test('a keyboard-focused Settings nav row fills as a hovered one does', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const lang = page
+      .locator('[data-panel=settings-nav]')
+      .getByRole('button', { name: 'Language', exact: true });
+    await lang.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(lang).toBeFocused();
+    await page.mouse.move(780, 540);
+    await expect
+      .poll(() => lang.evaluate((e) => getComputedStyle(e).backgroundColor))
+      .toBe('rgb(237, 238, 240)'); // Chalk HOVER_COLOR #EDEEF0
+  });
+
+  test("the Open now rail button's fills round at 8", async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedCorners(context, 'Chalk', undefined, {
+      foldSavedSessionInTabView: false,
+    });
+    await liveWindows(serviceWorker);
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1000, height: 640 });
+    await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+    await expectCorners(
+      page.locator('[data-open-now-rail] button').first(),
+      '8px',
+      'the rail button'
+    );
+  });
+});
