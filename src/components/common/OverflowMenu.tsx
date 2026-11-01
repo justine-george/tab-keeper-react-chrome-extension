@@ -79,11 +79,10 @@ interface OverflowMenuProps {
  * permission, so it never renders a group row to hang a menu on. Twenty lines
  * of listeners in one shared component is the cheaper trade.
  *
- * Surface tokens come from Toast rather than being invented: this app is
- * deliberately square and flat -- `border-radius` appears five times in the
- * codebase and is `0px` every time. The shadow (KAN-267) is the one
- * exception, and it is the theme's FLOATING_SHADOW rather than a value of
- * this component's own: a menu is the one surface here that floats.
+ * Surface tokens come from Toast and the radius scale rather than being
+ * invented (RADIUS.MENU, KAN-721). The shadow (KAN-267) is the theme's
+ * FLOATING_SHADOW rather than a value of this component's own: a menu is
+ * the one surface here that floats.
  *
  * CONSUMER CONSTRAINT, learned the hard way. The menu's z-index only reaches
  * as far as its nearest STACKING CONTEXT, and every action strip in this app

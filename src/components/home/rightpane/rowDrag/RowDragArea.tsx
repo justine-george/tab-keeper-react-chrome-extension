@@ -82,7 +82,7 @@ import {
   type Slot,
   type UnfoldedRow,
 } from './unfold';
-import { CORNER_SHAPE, DURATION } from '../../../../styles/scale';
+import { CORNER_SHAPE, DURATION, RADIUS } from '../../../../styles/scale';
 import { settleSlides } from './settleSlides';
 import { landingTops, slideLanding, type LandingTops } from './landingSlides';
 import {
@@ -137,7 +137,7 @@ const SLOT_OPACITY = 1;
 // The landing slot's corners (4px on main), and the resting slot's that
 // stands in for it before a carried window is adopted (KAN-350 V3 A): ONE
 // value, so the slot that takes over on entry cannot change shape.
-const SLOT_RADIUS = '4px';
+const SLOT_RADIUS = RADIUS.MARK;
 
 // How strongly the outline over the room a cross-window drag leaves draws
 // (KAN-354 C3 A): the mock's value, below the landing slot's. Its contrast

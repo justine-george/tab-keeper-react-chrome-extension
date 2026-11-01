@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { CORNER_SHAPE } from '../styles/scale';
+import { CORNER_SHAPE, RADIUS } from '../styles/scale';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -97,7 +97,7 @@ export class ErrorBoundary extends React.Component<
           style={{
             padding: '8px 16px',
             border: '1px solid #1a1a1a',
-            borderRadius: '4px',
+            borderRadius: RADIUS.MARK,
             cornerShape: CORNER_SHAPE,
             background: '#ffffff',
             color: '#1a1a1a',
