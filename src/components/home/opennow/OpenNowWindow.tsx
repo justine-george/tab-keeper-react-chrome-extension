@@ -95,10 +95,8 @@ import {
 } from './useOpenNowDrop';
 import { corners } from '../../../styles/corners';
 import {
-  ROW_GUTTER_PX,
   ROW_PULL,
   ROW_PULL_END,
-  ROW_PULL_START,
   rowEndCorners,
   rowHighlightCss,
 } from '../../../styles/rowHighlight';
@@ -512,8 +510,9 @@ export default function OpenNowWindow({
     display: flex;
     align-items: stretch;
     justify-content: space-between;
-    /* KAN-721. The fill 4px in at 8, and the row's ring inside it. */
-    ${rowHighlightCss()}
+    /* KAN-721. Indented: the fill starts with the row, in line with the group
+       band; its end sits 4px in at 8. The row's ring is inside it. */
+    ${rowHighlightCss({ fillFromRowStart: true })}
     ${focusRingRowCss(COLORS, '&:has(> button:focus-visible)')}
     /* KAN-815. Not under a carry: the landing slot says where it goes. */
     html:not([data-carrying]) &:hover {
@@ -534,10 +533,6 @@ export default function OpenNowWindow({
     ${whileKeyNav('&:focus-visible')} {
       outline: none;
     }
-    /* KAN-721. Back where it was before the row's gutter, handle or not (a
-       search drops the handle); its end stays with the strip's, so marks that
-       meet × (the speaker, the pin) keep meeting it. */
-    ${ROW_PULL_START}
     min-width: 0;
   `;
 
@@ -1196,24 +1191,15 @@ export default function OpenNowWindow({
                           display: flex;
                           align-items: center;
                           min-height: 32px;
-                          /* KAN-721. The fill 4px in at 8; the title and its tag back where they were. */
-                          ${rowHighlightCss()}
-                          & > [data-drag-handle] + * {
-                            ${ROW_PULL_START}
-                          }
-                          /* No handle while searching: the first child is the content. */
-                          & > :not([data-drag-handle]):first-child {
-                            ${ROW_PULL_START}
-                          }
-                          & > :has(> [data-row-tag]),
-                          & > input {
+                          /* KAN-721. Indented: the fill starts with the row, in line with the band; its end sits 4px in at 8, and the tag ends where it did. */
+                          ${rowHighlightCss({ fillFromRowStart: true })}
+                          & > :has(> [data-row-tag]) {
                             ${ROW_PULL_END}
                           }
                           transition: transform ${DURATION.MOVE} ease;
                           ${focusRingOverTickCss(
                             COLORS,
-                            '&:has(> input:focus-visible)',
-                            `0 -${ROW_GUTTER_PX}px`
+                            '&:has(> input:focus-visible)'
                           )}
                           /* Keyboard focus only (KAN-636), in its own rule beside :hover (KAN-94). */
                           /* KAN-815. Not under a carry: the landing slot says where it goes. */
@@ -1281,8 +1267,7 @@ export default function OpenNowWindow({
                                 font-size: ${GROUP_TITLE_SIZE};
                                 padding-left: 8px;
                                 align-self: stretch;
-                                /* KAN-721. Over the row's gutters, as the field spanned the row before. */
-                                width: calc(100% + ${2 * ROW_GUTTER_PX}px);
+                                width: 100%;
                                 min-width: 0;
                                 &:focus {
                                   outline: none;
@@ -1295,6 +1280,7 @@ export default function OpenNowWindow({
                               css={css`
                                 position: absolute;
                                 top: 50%;
+                                /* KAN-721. The field ends with the fill, 4px in; the tick ends it there. */
                                 right: 0;
                                 transform: translateY(-50%);
                                 display: flex;

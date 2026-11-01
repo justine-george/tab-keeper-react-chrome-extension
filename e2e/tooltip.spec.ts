@@ -529,6 +529,12 @@ test.describe('placement', () => {
         });
         await setRootFontSize(page, root);
         const view = await viewportOf(page);
+        // KAN-721: the list's first row sits 4px down (the row gutter). Scrolled
+        // by that, the bottom row is whole again, so hovering scrolls nothing
+        // (a scroll would dismiss the chip).
+        await page
+          .locator('[data-panel=windows]')
+          .evaluate((list) => (list.scrollTop = 4));
         // The lowest tab row whose Delete tab is whole on screen and is what the pointer would hit.
         const index = await page.evaluate((h) => {
           const all = [

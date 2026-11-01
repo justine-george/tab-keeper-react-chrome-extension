@@ -55,7 +55,7 @@ export const RADIUS = {
   PILL: '999px',
   /**
    * Any box bordered on all four sides (lists, cards, headers, drop boxes),
-   * and the floating ones: menus, the colour picker, toasts. Also the tour's
+   * and the floating ones: menus, the colour picker, toasts, drag cards. Also the tour's
    * ring, which sits 4px outside a CONTROL.
    */
   PANEL: '12px',
@@ -63,7 +63,7 @@ export const RADIUS = {
   PANEL_INNER: '11px',
   /**
    * Buttons, inputs, icon-button fills, the SlidingPair track, tooltips, and
-   * whatever sits 4px inside a PANEL: menu items, row highlights, drag cards,
+   * whatever sits 4px inside a PANEL: menu items, row highlights,
    * drag slots, the group colour strip.
    */
   CONTROL: '8px',

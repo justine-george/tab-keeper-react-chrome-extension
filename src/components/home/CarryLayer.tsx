@@ -304,8 +304,8 @@ export function CarryLayer() {
         align-items: center;
         gap: 10px;
         padding: 8px 12px;
-        /* A row's card (KAN-721): the row highlight's corner. */
-        ${corners(RADIUS.CONTROL)}
+        /* KAN-721 (his R7 pick). It floats with a shadow, as menus and toasts do: their corners. */
+        ${corners(RADIUS.PANEL)}
         background-color: ${COLORS.PRIMARY_LIGHT};
         color: ${COLORS.TEXT_COLOR};
         box-shadow: ${COLORS.FLOATING_SHADOW};

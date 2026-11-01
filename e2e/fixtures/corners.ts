@@ -144,3 +144,39 @@ export async function liveWindows(worker: Worker): Promise<void> {
 /** Computed border-radius, as Chrome serialises it. */
 export const radius = (loc: Locator): Promise<string> =>
   loc.evaluate((e) => getComputedStyle(e).borderRadius);
+
+/** Fourteen sessions: enough for the popup's session list to scroll. */
+export async function seedLongList(
+  context: BrowserContext,
+  theme = 'Chalk'
+): Promise<void> {
+  await seedCorners(context, theme);
+  await seedSessions(
+    context,
+    buildContainer(
+      Array.from({ length: 14 }, (_, i) =>
+        buildSession({
+          tabGroupId: `s${i}`,
+          title: `Session ${i + 1}`,
+          createdAt: new Date(2026, 9, 29 - i, 10, 10).getTime(),
+          windowCount: 1,
+          tabCount: 1,
+          windows: [win(`w${i}`, [tab(`t${i}`, `Page ${i + 1}`)])],
+        })
+      )
+    )
+  );
+}
+
+/** A live window of `n` tabs, for an Open now list that scrolls. */
+export async function liveWindowOf(worker: Worker, n: number): Promise<void> {
+  await worker.evaluate(
+    async (urls) => {
+      await chrome.windows.create({ focused: false, url: urls });
+    },
+    Array.from(
+      { length: n },
+      (_, i) => `data:text/html,<title>Tab ${i + 1}</title>`
+    )
+  );
+}

@@ -2729,6 +2729,7 @@ export const PhantomRestingSlot: React.FC = () => (
 export const DraggableRow: React.FC<DraggableRowProps> = ({
   rowId,
   scope,
+  liftedByRow = false,
   children,
 }) => {
   const scopes = useContext(DragContext);
@@ -2806,7 +2807,7 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
         // The lift, for a row that is drawn lifted. One shown by a card has
         // nothing to lift (KAN-354).
         boxShadow:
-          held && !drag.heldShownAsCard && !drag.settling
+          held && !drag.heldShownAsCard && !drag.settling && !liftedByRow
             ? '0 2px 8px rgba(0,0,0,0.35)'
             : undefined,
         zIndex: held ? 1 : undefined,

@@ -24,6 +24,7 @@ import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
 import { corners } from '../../../styles/corners';
 import {
+  ROW_GUTTER_END,
   ROW_GUTTER_PX,
   ROW_RADIUS,
   rowEndCorners,
@@ -203,7 +204,9 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     observer.observe(el);
     return () => observer.disconnect();
   }, [drawsStrip, strip]);
-  const textEnd = Math.max(stripWidth, 8 - ROW_GUTTER_PX);
+  // The strip's width while it is drawn; else 8px less the row's end gutter.
+  const textEnd =
+    stripWidth > 0 ? `${stripWidth}px` : `calc(8px - ${ROW_GUTTER_END})`;
 
   // A plain string, not css``, because it is handed to ClickableRow's `style`
   // prop, which composes it into the button's own reset.
@@ -212,7 +215,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     flex-direction: column;
     justify-content: center;
     /* Less the row's 4px gutter (KAN-721), so the text stays where it was. */
-    padding: 8px ${textEnd}px 8px calc(${SAVED_TEXT_INSET} - ${ROW_GUTTER_PX}px);
+    padding: 8px ${textEnd} 8px calc(${SAVED_TEXT_INSET} - ${ROW_GUTTER_PX}px);
     align-items: flex-start;
     width: 100%;
     min-width: 0;
@@ -336,6 +339,11 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
        KAN-721: inside the fill, which sits 4px in at 8. */
     ${focusRingRowCss(COLORS, '&:has(> button:focus-visible)')}
     ${rowHighlightCss()}
+    /* KAN-721 (his R7 pick). Lifted in its list, the shadow is the fill's own,
+       so it hugs the rounded highlight (the wrapper draws none: liftedByRow). */
+    [data-drag-held] > & {
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+    }
     display: flex;
     justify-content: space-between;
     align-items: center;

@@ -155,7 +155,8 @@ export function RecentlyDeleted() {
                   align-items: center;
                   gap: 12px;
                   padding: 8px 0;
-                  border-bottom: 1px solid ${COLORS.DIVIDER_COLOR};
+                  /* KAN-721 R6 (his pick): only the line under the heading;
+                     the rows are set apart by their space and their Restore. */
                 `}
               >
                 <div

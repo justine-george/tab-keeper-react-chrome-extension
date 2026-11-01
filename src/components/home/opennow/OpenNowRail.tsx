@@ -425,6 +425,8 @@ export default function OpenNowRail({
     overflow: hidden;
     background-color: ${COLORS.PRIMARY_COLOR};
     border-left: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    /* KAN-721. Its two corners over the page round as a panel's; the two at the window's edge stay flush. */
+    ${corners(`${RADIUS.PANEL} ${RADIUS.SQUARE} ${RADIUS.SQUARE} ${RADIUS.PANEL}`)}
     box-shadow: ${COLORS.FLOATING_SHADOW};
     /* N2 A. Away during a carry: slid off, then hidden; back without the delay. */
     transition:

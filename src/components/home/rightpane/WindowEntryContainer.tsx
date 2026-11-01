@@ -114,7 +114,6 @@ import {
 } from '../../../utils/functions/tabTitle';
 import { corners } from '../../../styles/corners';
 import {
-  ROW_GUTTER_PX,
   ROW_PULL,
   ROW_PULL_END,
   ROW_PULL_START,
@@ -561,10 +560,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     position: relative;
     display: flex;
     justify-content: space-between;
-    /* KAN-721. The fill 4px in at 8; the content back where it was. */
+    /* KAN-721. The fill 4px in at 8; the content back where it was. While
+       renaming, the field ends with the fill, 4px in, as the strip does at rest. */
     ${rowHighlightCss()}
     & > :first-child {
-      ${ROW_PULL}
+      ${isEditing ? ROW_PULL_START : ROW_PULL}
     }
     /* No transition on the fill, and none on the mask below (KAN-100). The
        action strip is opaque and sits over the title, so it is invisible only
@@ -734,8 +734,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     display: flex;
     align-items: stretch;
     justify-content: space-between;
-    /* KAN-721. The fill 4px in at 8, and the row's ring inside it. */
-    ${rowHighlightCss()}
+    /* KAN-721. Indented: the fill starts with the row, in line with the group
+       band; its end sits 4px in at 8. The row's ring is inside it. */
+    ${rowHighlightCss({ fillFromRowStart: true })}
     ${focusRingRowCss(COLORS, '&:has(> button:focus-visible)')}
     /* No transition on the fill, for the same reason as parentStyle above
        (KAN-100). */
@@ -757,10 +758,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     ${whileKeyNav('&:focus-visible')} {
       outline: none;
     }
-    /* KAN-721. Back where it was before the row's gutter, handle or not (a
-       search drops the handle); its end stays with the strip's, so marks that
-       meet × (the speaker, the pin) keep meeting it. */
-    ${ROW_PULL_START}
     min-width: 0;
   `;
 
@@ -1789,23 +1786,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                          height, so they now fit the row rather than
                          overflowing a shorter one. */
                         min-height: 32px;
-                        /* KAN-721. The fill 4px in at 8; the title and its tag back where they were. */
-                        ${rowHighlightCss()}
-                        & > [data-drag-handle] + * {
-                          ${ROW_PULL_START}
-                        }
-                        /* No handle while searching: the first child is the content. */
-                        & > :not([data-drag-handle]):first-child {
-                          ${ROW_PULL_START}
-                        }
-                        & > :has(> [data-row-tag]),
-                        & > input {
+                        /* KAN-721. Indented: the fill starts with the row, in line with the band; its end sits 4px in at 8, and the tag ends where it did. */
+                        ${rowHighlightCss({ fillFromRowStart: true })}
+                        & > :has(> [data-row-tag]) {
                           ${ROW_PULL_END}
                         }
                         ${focusRingOverTickCss(
                           COLORS,
-                          '&:has(> input:focus-visible)',
-                          `0 -${ROW_GUTTER_PX}px`
+                          '&:has(> input:focus-visible)'
                         )}
                         /* Fills like the window row above and the tab rows
                          below, which both paint HOVER_COLOR under the pointer.
@@ -1911,8 +1899,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                              nothing, and left the field 2px short of its row.
                              Stretching the item is what actually fills it. */
                             align-self: stretch;
-                            /* KAN-721. Over the row's gutters, as the field spanned the row before. */
-                            width: calc(100% + ${2 * ROW_GUTTER_PX}px);
+                            width: 100%;
                             min-width: 0;
                             &:focus {
                               outline: none;
@@ -1961,6 +1948,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                           css={css`
                             position: absolute;
                             top: 50%;
+                            /* KAN-721. The field ends with the fill, 4px in; the tick ends it there. */
                             right: 0;
                             transform: translateY(-50%);
                             opacity: 1;

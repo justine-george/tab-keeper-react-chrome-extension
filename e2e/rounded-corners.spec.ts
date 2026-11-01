@@ -1,11 +1,18 @@
 import type { BrowserContext, Locator, Page } from '@playwright/test';
 
-import { liveWindows, radius, seedCorners } from './fixtures/corners';
+import {
+  liveWindowOf,
+  liveWindows,
+  radius,
+  seedCorners,
+  seedLongList,
+} from './fixtures/corners';
 import { test as freshTest } from './fixtures/extension';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { POPUP, openFullView, openPopup } from './fixtures/onboarding';
 import { cardAt, startRunFromHelp } from './fixtures/run';
 import { CHALK_THEME } from '../src/hooks/useThemeColors';
+import { buildSession } from './fixtures/seed';
 import { differingPixels, pixelsAt } from './fixtures/pixels';
 import { pickUp, tabHandle } from './fixtures/sessionDrag';
 
@@ -257,7 +264,7 @@ test.describe('surfaces', () => {
     );
   });
 
-  test('a lifted tab row is carried on a card at 8', async ({
+  test('a lifted tab row is carried on a card at 12, as floating surfaces are', async ({
     context,
     extensionId,
   }) => {
@@ -267,7 +274,7 @@ test.describe('surfaces', () => {
     await page.mouse.move(at.x + 30, at.y + 70, { steps: 8 });
     await expectCorners(
       page.locator('[data-drag-card]'),
-      '8px',
+      '12px',
       'the drag card'
     );
     await page.keyboard.press('Escape');
@@ -322,7 +329,7 @@ const rowOf = (page: Page, scope: string, text: string) =>
     .filter({ hasText: text })
     .last();
 
-async function expectHighlight(row: Locator, what: string) {
+async function expectHighlight(row: Locator, what: string, indented = false) {
   const s = await row.evaluate((e) => {
     const c = getComputedStyle(e);
     return {
@@ -333,12 +340,13 @@ async function expectHighlight(row: Locator, what: string) {
       radius: c.borderRadius,
     };
   });
-  expect(s, `${what}: 4px in from each side at 8`).toEqual({
-    left: '4px',
+  // An indented row (a tab, a group's header) fills from its own start.
+  expect(s, `${what}: 4px in at 8`).toEqual({
+    left: indented ? '0px' : '4px',
     right: '4px',
-    leftColor: 'rgba(0, 0, 0, 0)',
+    leftColor: indented ? s.leftColor : 'rgba(0, 0, 0, 0)',
     clip: 'padding-box',
-    radius: '12px / 8px',
+    radius: indented ? '8px 12px 12px 8px / 8px' : '12px / 8px',
   });
 }
 
@@ -383,7 +391,7 @@ test.describe('rows', () => {
 
       const tabRow = rowOf(page, '[data-pane=detail]', 'Livraria Lello');
       await tabRow.hover();
-      await expectHighlight(tabRow, 'a hovered tab row');
+      await expectHighlight(tabRow, 'a hovered tab row', true);
       expect(await textX(tabRow, 'Livraria Lello')).toBe(40);
       await expectCorners(
         tabRow.locator('[data-row-actions]'),
@@ -402,7 +410,7 @@ test.describe('rows', () => {
         .locator('[data-pane=detail] [data-group-drag-handle]')
         .first();
       await groupRow.hover();
-      await expectHighlight(groupRow, 'a hovered group row');
+      await expectHighlight(groupRow, 'a hovered group row', true);
       expect(await textX(groupRow, 'Sights')).toBe(4);
     });
   }
@@ -432,7 +440,7 @@ test.describe('rows', () => {
     const page = await openFullView(context, extensionId);
     const row = rowOf(page, '[data-pane=open-now]', 'Tram 28');
     await row.hover();
-    await expectHighlight(row, 'a hovered Open now tab row');
+    await expectHighlight(row, 'a hovered Open now tab row', true);
     expect(await textX(row, 'globe')).toBe(4);
   });
 
@@ -914,5 +922,357 @@ test.describe('round 5 picks', () => {
       '8px',
       'the rail button'
     );
+  });
+
+  test('the Open now drawer rounds the corners that float over the page', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedCorners(context, 'Chalk', undefined, {
+      foldSavedSessionInTabView: false,
+    });
+    await liveWindows(serviceWorker);
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1000, height: 640 });
+    await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+    await page.locator('[data-open-now-rail] button').first().click();
+    await expectCorners(
+      page.locator('[data-pane-layer="drawer"]'),
+      '12px 0px 0px 12px',
+      'the drawer'
+    );
+  });
+
+  test("the saved window list's first row sits 4px below the list's top, as Open now's sits below its search", async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    const gap = await page.locator('[data-panel=windows]').evaluate((list) => {
+      const row = list.querySelector('[data-window-drag-handle]');
+      if (row === null) return Number.NaN;
+      return (
+        row.getBoundingClientRect().top -
+        (list.getBoundingClientRect().top + list.clientTop)
+      );
+    });
+    expect(gap).toBe(4);
+  });
+
+  // Scrolled to its end, a list's last row sits the row gutter above the list's bottom.
+  const endGap = (list: Locator) =>
+    list.evaluate((box) => {
+      const scroller = [...box.querySelectorAll<HTMLElement>('*')].find(
+        (e) =>
+          getComputedStyle(e).overflowY === 'auto' &&
+          e.scrollHeight > e.clientHeight + 1
+      );
+      if (scroller === undefined) return Number.NaN;
+      scroller.scrollTop = scroller.scrollHeight;
+      const rows = [...scroller.querySelectorAll('[data-drag-handle-row]')];
+      const last = rows[rows.length - 1].getBoundingClientRect();
+      const s = scroller.getBoundingClientRect();
+      return (
+        Math.round(
+          (s.top + scroller.clientTop + scroller.clientHeight - last.bottom) *
+            64
+        ) / 64
+      );
+    });
+
+  test('the session list, scrolled to its end, keeps 4px under its last row', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedLongList(context);
+    const page = await openPopup(context, extensionId);
+    expect(await endGap(page.locator('[data-tour-anchor=sessions]'))).toBe(4);
+  });
+
+  test("the Open now list, scrolled to its end, keeps its windows' 8px under its last row", async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedCorners(context);
+    await liveWindowOf(serviceWorker, 30);
+    const page = await openFullView(context, extensionId);
+    await expect(rowOf(page, '[data-pane=open-now]', 'Tab 30')).toHaveCount(1);
+    // Each window block keeps 8px below itself, the last one included: no row touches the edge.
+    expect(await endGap(page.locator('[data-panel=open-now-list]'))).toBe(8);
+  });
+
+  test("an indented row's fill starts in line with the group band", async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    const loose = rowOf(page, '[data-pane=detail]', 'Porto itinerary');
+    await loose.hover();
+    const [fillLeft, bandLeft] = await page.evaluate(() => {
+      const row = [
+        ...document.querySelectorAll<HTMLElement>(
+          '[data-pane=detail] [data-drag-handle-row]'
+        ),
+      ].find((r) => r.textContent?.includes('Porto itinerary'))!;
+      const band = document.querySelector<HTMLElement>(
+        '[data-pane=detail] [data-band-id]'
+      )!;
+      return [
+        row.getBoundingClientRect().left + row.clientLeft,
+        band.getBoundingClientRect().left,
+      ];
+    });
+    expect(fillLeft).toBe(bandLeft);
+  });
+
+  test("the Settings nav's first row sits 4px below the box's top", async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const gap = await page
+      .locator('[data-panel=settings-nav]')
+      .evaluate((nav) => {
+        const first = nav.querySelector('button')!;
+        return (
+          first.getBoundingClientRect().top -
+          (nav.getBoundingClientRect().top + nav.clientTop)
+        );
+      });
+    expect(gap).toBe(4);
+  });
+
+  for (const view of ['popup', 'full view'] as const) {
+    test(`${view}: Settings' Back sits on the Settings header's centre line; the menu box does not move`, async ({
+      context,
+      extensionId,
+    }) => {
+      await seedCorners(context);
+      const page =
+        view === 'popup'
+          ? await openPopup(context, extensionId)
+          : await openFullView(context, extensionId);
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      const m = await page.evaluate(() => {
+        const mid = (root: Element, text: string) => {
+          const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+          for (let n = w.nextNode(); n; n = w.nextNode())
+            if (n.textContent?.trim() === text) {
+              const r = document.createRange();
+              r.selectNodeContents(n);
+              const b = r.getBoundingClientRect();
+              return b.top + b.height / 2;
+            }
+          return Number.NaN;
+        };
+        return {
+          back: mid(document.querySelector('[aria-label="Go back"]')!, 'Back'),
+          settings: mid(
+            document.querySelector('[data-panel=settings-header]')!,
+            'Settings'
+          ),
+          navTop: document
+            .querySelector('[data-panel=settings-nav]')!
+            .getBoundingClientRect().top,
+          detailsTop: document
+            .querySelector('[data-panel=settings-details]')!
+            .getBoundingClientRect().top,
+        };
+      });
+      expect(Math.abs(m.back - m.settings)).toBeLessThanOrEqual(0.5);
+      // KAN-239: the menu box's top still meets the details box's.
+      expect(m.navTop).toBe(m.detailsTop);
+    });
+  }
+
+  test('renaming a window or a group, the tick ends the field with no gap', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    for (const name of ['Rename window: w1', 'Rename group: Sights']) {
+      await page.getByRole('button', { name, exact: true }).click();
+      const field = page.locator('[data-pane=detail] input:focus');
+      await expect(field).toHaveCount(1);
+      const f = (await field.boundingBox())!;
+      const tick = (await page
+        .getByRole('button', { name: 'Save changes' })
+        .boundingBox())!;
+      // And the field ends with the row's fill, 4px in, as the strip does at rest.
+      const fillRight = await page
+        .locator('[data-pane=detail] input:focus')
+        .evaluate((input) => {
+          const row = input.closest<HTMLElement>('[data-drag-handle-row]')!;
+          return (
+            row.getBoundingClientRect().right -
+            parseFloat(getComputedStyle(row).borderRightWidth)
+          );
+        });
+      expect(
+        Math.abs(f.x + f.width - fillRight),
+        `${name}: field ends with the fill`
+      ).toBeLessThanOrEqual(0.5);
+      expect(
+        Math.abs(f.x + f.width - (tick.x + tick.width)),
+        `${name}: tick at the field's end`
+      ).toBeLessThanOrEqual(0.5);
+      await page.keyboard.press('Escape');
+    }
+  });
+
+  test('renaming an Open now group, the tick ends the field with no gap', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedCorners(context);
+    await liveWindows(serviceWorker);
+    const page = await openFullView(context, extensionId);
+    await page
+      .locator('[data-pane=open-now]')
+      .getByRole('button', { name: 'Rename group: Food', exact: true })
+      .click();
+    const field = page.locator('[data-pane=open-now] input:focus');
+    await expect(field).toHaveCount(1);
+    const f = (await field.boundingBox())!;
+    const tick = (await page
+      .locator('[data-pane=open-now]')
+      .getByRole('button', { name: 'Save changes' })
+      .boundingBox())!;
+    expect(Math.abs(f.x + f.width - (tick.x + tick.width))).toBeLessThanOrEqual(
+      0.5
+    );
+    // And the field ends with the row's fill, 4px in, as the strip does at rest.
+    const fillRight = await field.evaluate((input) => {
+      const row = input.closest<HTMLElement>('[data-drag-handle-row]')!;
+      return (
+        row.getBoundingClientRect().right -
+        parseFloat(getComputedStyle(row).borderRightWidth)
+      );
+    });
+    expect(Math.abs(f.x + f.width - fillRight)).toBeLessThanOrEqual(0.5);
+  });
+});
+
+// Justine's picks, R6 (11-01).
+test.describe('round 6 picks', () => {
+  test('Recently deleted keeps only the line under its heading', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    await page.evaluate(
+      async (list) => {
+        const now = Date.now();
+        await chrome.storage.local.set({
+          recentlyDeleted: list.map((session, i) => ({
+            session,
+            deletedAt: now - (i + 1) * 3_600_000,
+          })),
+        });
+      },
+      ['Bike repair', 'Job search'].map((title, i) =>
+        buildSession({ tabGroupId: `d${i}`, title })
+      )
+    );
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page
+      .locator('[data-pane=sessions]')
+      .getByRole('button', { name: 'Recently deleted', exact: true })
+      .click();
+    const rows = page.locator('[data-testid=recently-deleted-row]');
+    await expect(rows).toHaveCount(2);
+    expect(
+      await rows.evaluateAll((els) =>
+        els.map((e) => getComputedStyle(e).borderBottomStyle)
+      )
+    ).toEqual(['none', 'none']);
+    expect(
+      await rows
+        .first()
+        .locator('..')
+        .evaluate((e) => getComputedStyle(e).borderTopWidth)
+    ).toBe('1px');
+  });
+});
+
+test.describe('round 6 picks, with scrollbars drawn', () => {
+  test.use({ showScrollbars: true });
+  // The selected row's fill to the scrollbar thumb, which sits 2px inside its track.
+  const fillToThumb = (page: Page) =>
+    page
+      .locator('[data-pane=sessions] [data-drag-handle-row]')
+      .first()
+      .evaluate((row) => {
+        let s: HTMLElement | null = row.parentElement;
+        while (s && getComputedStyle(s).overflowY !== 'auto')
+          s = s.parentElement;
+        if (s === null) return Number.NaN;
+        const bar = s.offsetWidth - s.clientWidth;
+        if (bar === 0) return Number.NaN;
+        const thumbLeft =
+          s.getBoundingClientRect().left + s.clientLeft + s.clientWidth + 2;
+        const fillRight =
+          row.getBoundingClientRect().right -
+          parseFloat(getComputedStyle(row).borderRightWidth);
+        return Math.round((thumbLeft - fillRight) * 64) / 64;
+      });
+
+  test('beside a scrollbar, the fill sits 4px from the thumb, as from the top', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedLongList(context);
+    const page = await openPopup(context, extensionId);
+    // The row is 336.5px wide: half a pixel is layout rounding.
+    expect(Math.abs((await fillToThumb(page)) - 4)).toBeLessThanOrEqual(0.5);
+  });
+
+  test('with no scrollbar, the row keeps its 4px end gutter', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    const row = rowOf(page, '[data-pane=sessions]', 'Porto weekend');
+    expect(
+      await row.evaluate((e) => getComputedStyle(e).borderRightWidth)
+    ).toBe('4px');
+  });
+});
+
+test.describe('after demo 3', () => {
+  test('a session row lifted in its list draws its shadow on its fill', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    // A session dragged within the session list is drawn lifted, not as a card.
+    const at = await pickUp(
+      page,
+      page.locator('[data-pane=sessions] [data-drag-row-id="reading"]')
+    );
+    await page.mouse.move(at.x, at.y + 40, { steps: 6 });
+    const held = page.locator('[data-drag-held]').first();
+    await expect(held).toHaveCount(1);
+    const look = await held.evaluate((wrapper) => ({
+      wrapper: getComputedStyle(wrapper).boxShadow,
+      fill: getComputedStyle(
+        wrapper.querySelector(':scope > [data-drag-handle-row]')!
+      ).filter,
+    }));
+    expect(look.wrapper).toBe('none');
+    expect(look.fill).toMatch(/^drop-shadow\(/);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
   });
 });

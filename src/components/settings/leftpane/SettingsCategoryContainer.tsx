@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useRef } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -15,7 +15,11 @@ import {
 } from '../../../redux/slices/settingsCategoryStateSlice';
 import { useTranslation } from 'react-i18next';
 import { corners } from '../../../styles/corners';
-import { ROW_GUTTER_PX, rowHighlightCss } from '../../../styles/rowHighlight';
+import {
+  ROW_GUTTER_END,
+  ROW_GUTTER_PX,
+  rowHighlightCss,
+} from '../../../styles/rowHighlight';
 import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
 import { focusRingRowCss, whileKeyNav } from '../../common/focusRing';
 import {
@@ -24,6 +28,7 @@ import {
   linesBeside,
 } from '../../common/rowLines';
 import { BACK_LABEL_INSET } from '../../common/headerBackTarget';
+import { useScrollbarWidthVar } from '../../../hooks/useScrollbarWidthVar';
 
 export interface SettingsCategoryContainer {
   name: SettingsCategory;
@@ -40,6 +45,10 @@ const SettingsCategoryContainer: React.FC = () => {
 
   const dispatch: AppDispatch = useDispatch();
 
+  // KAN-721 R6. A scrolling menu's rows read the end gutter off the box.
+  const navRef = useRef<HTMLDivElement>(null);
+  useScrollbarWidthVar(navRef, navRef);
+
   const handleSelectCategoryClick = (name: SettingsCategory) => {
     dispatch(selectCategory(name));
   };
@@ -50,6 +59,9 @@ const SettingsCategoryContainer: React.FC = () => {
     height: 100%;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     ${corners(RADIUS.PANEL)}
+    /* KAN-721 (his demo pick). The first and last rows' fills sit the row
+       gutter inside the box's top and bottom, as they do from the sides. */
+    padding: ${ROW_GUTTER_PX}px 0;
     /* 10px, not the 8px every other gap uses, so this box's top edge meets
        the details box across the divider (KAN-239). The right pane reaches
        its box by 8px pane padding + a 50px framed card + 8px; this pane by
@@ -128,12 +140,12 @@ const SettingsCategoryContainer: React.FC = () => {
     };
     /* KAN-517. The label starts where the header's "Back" does: its inset, less this box's 1px border.
        KAN-754. The right padding only stops a long label; at 10px the longest word (sv "säkerhetskopia") fits the popup's rail at 24px text. */
-    padding: 15px ${10 - ROW_GUTTER_PX}px 15px
+    padding: 15px calc(10px - ${ROW_GUTTER_END}) 15px
       calc(${BACK_LABEL_INSET} - 1px - ${ROW_GUTTER_PX}px);
   `;
 
   return (
-    <div data-panel="settings-nav" css={containerStyle}>
+    <div data-panel="settings-nav" ref={navRef} css={containerStyle}>
       {settingsCategoryList.map(
         ({ name, isSelected }: SettingsCategoryContainer) => {
           return (
