@@ -835,3 +835,42 @@ test.describe('review', () => {
     expect((await differingPixels(page, shown, bare, 8)).length).toBe(0);
   });
 });
+
+// Justine's demo, 11-01: the drag slots and the Settings Back fill still read square.
+test.describe('after the demo', () => {
+  test("a drag's landing slot takes a row's corners", async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, tabHandle(page, 'p1'));
+    await page.mouse.move(at.x, at.y + 70, { steps: 8 });
+    await expectCorners(
+      page.locator('[data-drag-landing-slot]').first(),
+      '8px',
+      'the landing slot'
+    );
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test("Settings' Back hover fill takes an icon button's corners", async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const back = page.getByRole('button', { name: 'Go back', exact: true });
+    await back.hover();
+    const fill = await back.evaluate((e) => {
+      const s = getComputedStyle(e, '::before');
+      return {
+        radius: s.borderRadius,
+        shape: s.getPropertyValue('corner-shape'),
+      };
+    });
+    expect(fill).toEqual({ radius: '8px', shape: SQUIRCLE });
+  });
+});

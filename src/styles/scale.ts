@@ -64,14 +64,14 @@ export const RADIUS = {
   /**
    * Buttons, inputs, icon-button fills, the SlidingPair track, tooltips, and
    * whatever sits 4px inside a PANEL: menu items, row highlights, drag cards,
-   * the group colour strip.
+   * drag slots, the group colour strip.
    */
   CONTROL: '8px',
   /** The SlidingPair knob and cells: the track less its 2px padding. */
   KNOB: '6px',
   /** Every <dialog> and the tour's coach card. */
   DIALOG: '16px',
-  /** Small marks: keycaps, the search hint, the theme check, drag slots. */
+  /** Small marks: keycaps, the search hint, the theme check. */
   MARK: '4px',
 } as const;
 
