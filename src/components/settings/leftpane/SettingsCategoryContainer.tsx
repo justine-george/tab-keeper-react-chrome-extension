@@ -59,9 +59,11 @@ const SettingsCategoryContainer: React.FC = () => {
     height: 100%;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     ${corners(RADIUS.PANEL)}
-    /* KAN-721 (his demo pick). The first and last rows' fills sit the row
-       gutter inside the box's top and bottom, as they do from the sides. */
-    padding: ${ROW_GUTTER_PX}px 0;
+    /* KAN-721 (his demo pick). The first row's fill sits the row gutter below
+       the box's top, as it does from the sides. Top only: the list ends in
+       empty space anyway, and 4px more at the bottom made it scroll at 24px
+       text in a short popup, narrowing every label by the bar. */
+    padding-top: ${ROW_GUTTER_PX}px;
     /* 10px, not the 8px every other gap uses, so this box's top edge meets
        the details box across the divider (KAN-239). The right pane reaches
        its box by 8px pane padding + a 50px framed card + 8px; this pane by

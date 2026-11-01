@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import { RADIUS } from '../../styles/scale';
 import {
+  ROW_GUTTER_BESIDE_BAR_PX,
+  ROW_GUTTER_END,
+  ROW_GUTTER_END_VAR,
   ROW_GUTTER_PX,
   ROW_RADIUS,
   rowHighlightCss,
@@ -32,10 +35,23 @@ describe('rowHighlightCss (KAN-721)', () => {
   test('the fill stops at the padding box, 4px in from each side', () => {
     expect(css).toContain('background-clip: padding-box');
     expect(css).toContain(`border-left: ${ROW_GUTTER_PX}px solid transparent`);
-    expect(css).toContain(`border-right: ${ROW_GUTTER_PX}px solid transparent`);
+    // The end gutter is a variable: 4px, or 2px beside a scrollbar (R6).
+    expect(css).toContain(`border-right: ${ROW_GUTTER_END} solid transparent`);
+    expect(ROW_GUTTER_END).toBe(
+      `var(${ROW_GUTTER_END_VAR}, ${ROW_GUTTER_PX}px)`
+    );
+    expect(ROW_GUTTER_BESIDE_BAR_PX).toBe(ROW_GUTTER_PX - 2);
   });
   test('the padding-box curve is ROW_RADIUS square: the horizontal radius carries the gutter', () => {
-    expect(css).toContain('border-radius: 12px / 8px');
+    expect(css).toMatch(
+      /border-radius: 12px calc\(8px \+ var\(--row-gutter-end, 4px\)\)\s+calc\(8px \+ var\(--row-gutter-end, 4px\)\) 12px \/ 8px/
+    );
+  });
+  test('an indented row has no start gutter: its fill starts with the row', () => {
+    const indented = rowHighlightCss({ fillFromRowStart: true });
+    expect(indented).toContain('border-left: 0px solid transparent');
+    expect(indented).toMatch(/border-radius: 8px calc\(.*\) 8px \/ 8px/);
+    expect(indented).not.toContain('[data-drag-handle]');
   });
   test('it is a squircle', () => {
     expect(css).toContain('corner-shape: squircle');

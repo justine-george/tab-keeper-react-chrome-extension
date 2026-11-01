@@ -1236,6 +1236,30 @@ test.describe('round 6 picks, with scrollbars drawn', () => {
     expect(Math.abs((await fillToThumb(page)) - 4)).toBeLessThanOrEqual(0.5);
   });
 
+  test("the Settings menu's top gap does not make it scroll at 24px text where it fit before", async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context, 'Chalk', undefined, { language: 'ko' });
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 790, height: 300 });
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    await page.locator('[aria-label="설정"]').first().click();
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '24px';
+    });
+    const nav = page.locator('[data-panel=settings-nav]');
+    await expect(nav).toBeVisible();
+    // Main fit this with no bar; a bar takes 10px from every label (ko wrapped on CI).
+    expect(
+      await nav.evaluate((e) =>
+        e instanceof HTMLElement
+          ? e.offsetWidth - e.clientWidth - 2
+          : Number.NaN
+      )
+    ).toBe(0);
+  });
+
   test('with no scrollbar, the row keeps its 4px end gutter', async ({
     context,
     extensionId,
