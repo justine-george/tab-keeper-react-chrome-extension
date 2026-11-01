@@ -198,14 +198,22 @@ export function ringBox(box: Box): Box {
   };
 }
 
-// A clip-path keeping the whole element but `box`, in the element's own px.
-export function clipPathWithHole(box: Box): string {
-  const right = box.left + box.width;
-  const bottom = box.top + box.height;
+// Past any viewport, so the dim's own box (fixed, inset 0) clips the outer
+// edge and a resize never needs a new path.
+const DIM_EXTENT = 100000;
+
+// A clip-path keeping the whole element but `box`, in the element's own px,
+// the hole's corners rounded at `radius` (KAN-721), capped at half its sides.
+export function clipPathWithHole(box: Box, radius: number): string {
+  const k = Math.min(radius, box.width / 2, box.height / 2);
+  const { left: l, top: t } = box;
+  const r = l + box.width;
+  const b = t + box.height;
+  const arc = (x: number, y: number) => `A${k} ${k} 0 0 1 ${x} ${y}`;
   return (
-    'polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ' +
-    `${box.left}px ${box.top}px, ${right}px ${box.top}px, ` +
-    `${right}px ${bottom}px, ${box.left}px ${bottom}px, ${box.left}px ${box.top}px)`
+    `path(evenodd, "M0 0H${DIM_EXTENT}V${DIM_EXTENT}H0Z ` +
+    `M${l + k} ${t}H${r - k}${arc(r, t + k)}V${b - k}${arc(r - k, b)}` +
+    `H${l + k}${arc(l, b - k)}V${t + k}${arc(l + k, t)}Z")`
   );
 }
 

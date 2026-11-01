@@ -36,6 +36,10 @@ import type { AnchorBox, Spotlight } from './anchorBox';
 import { RADIUS, TYPE } from '../../styles/scale';
 import { corners } from '../../styles/corners';
 
+// KAN-721. The ring sits RING_INSET outside a CONTROL, so it rounds at PANEL;
+// the dim's hole is cut with the same corners, as the approved R4 mock shows.
+const RING_PX = Number.parseFloat(RADIUS.PANEL);
+
 // The run's step, and which card it is of how many; null for the note after the run, which has no progress line.
 export interface CoachProgress {
   step: number;
@@ -209,6 +213,7 @@ export default function CoachMark({
     z-index: ${Z.MARK};
     box-sizing: border-box;
     border: 2px dashed ${COLORS.TEXT_COLOR};
+    ${corners(RADIUS.PANEL)}
     pointer-events: none;
   `;
   const textStyle = css`
@@ -252,7 +257,9 @@ export default function CoachMark({
           onMouseDown={swallow}
           onContextMenu={swallow}
           style={
-            bright === null ? undefined : { clipPath: clipPathWithHole(bright) }
+            bright === null
+              ? undefined
+              : { clipPath: clipPathWithHole(bright, RING_PX) }
           }
         />
       )}

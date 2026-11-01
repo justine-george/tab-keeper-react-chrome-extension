@@ -44,17 +44,20 @@ interface Rect {
   bottom: number;
 }
 
-// The dim's hole, read back from its clip-path: the last five points, after the viewport's.
+// The dim's hole, read back from its clip-path: the second subpath, a
+// rectangle with corners rounded at k (KAN-721), so its edges are k past
+// the first move's x and the last vertical's y.
 const brightBox = (page: Page) =>
   dim(page).evaluate((el): Rect | null => {
     const path = el instanceof HTMLElement ? el.style.clipPath : '';
-    const points = [...path.matchAll(/(-?[\d.]+)px (-?[\d.]+)px/g)].map(
-      (m) => [Number(m[1]), Number(m[2])] as const
+    const n = '(-?[\\d.]+)';
+    const m = path.match(
+      // Chrome serialises the path with a space between every token.
+      new RegExp(`Z M ${n} ${n} H ${n} A ${n} ${n} 0 0 1 ${n} ${n} V ${n}`)
     );
-    const hole = points.slice(-5);
-    if (!path.startsWith('polygon(evenodd') || hole.length !== 5) return null;
-    const [[left, top], , [right, bottom]] = hole;
-    return { left, top, right, bottom };
+    if (!path.startsWith('path(evenodd') || m === null) return null;
+    const [mx, top, , k, , right, , vy] = m.slice(1).map(Number);
+    return { left: mx - k, top, right, bottom: vy + k };
   });
 
 const sameRect = (a: Rect | null, b: Rect | null) =>

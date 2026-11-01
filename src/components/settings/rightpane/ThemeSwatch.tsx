@@ -118,6 +118,8 @@ export default function ThemeSwatch({
     height: 16px;
     background-color: ${knob};
     box-shadow: 0 0 0 2px ${PAGE.PRIMARY_COLOR};
+    /* A small mark: round (KAN-721). */
+    border-radius: ${RADIUS.MARK};
   `;
 
   const headerStyle = css`

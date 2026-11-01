@@ -98,13 +98,16 @@ async function render(
 const mark = () => document.querySelector<HTMLElement>('[data-coach-mark]');
 const ring = () => document.querySelector<HTMLElement>('[data-coach-ring]');
 const dim = () => document.querySelector<HTMLElement>('[data-coach-dim]');
-// The dim's clip-path: the viewport, less a hole at left, top, width, height.
+// The dim's clip-path: everything, less a hole at left, top, width, height,
+// its corners rounded at the ring's 12px (KAN-721), capped at half a side.
 const hole = (left: number, top: number, width: number, height: number) => {
-  const [right, bottom] = [left + width, top + height];
+  const [r, b] = [left + width, top + height];
+  const k = Math.min(12, width / 2, height / 2);
+  const arc = (x: number, y: number) => `A${k} ${k} 0 0 1 ${x} ${y}`;
   return (
-    'polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ' +
-    `${left}px ${top}px, ${right}px ${top}px, ${right}px ${bottom}px, ` +
-    `${left}px ${bottom}px, ${left}px ${top}px)`
+    'path(evenodd, "M0 0H100000V100000H0Z ' +
+    `M${left + k} ${top}H${r - k}${arc(r, top + k)}V${b - k}${arc(r - k, b)}` +
+    `H${left + k}${arc(left, b - k)}V${top + k}${arc(left + k, top)}Z")`
   );
 };
 const twoFrames = () =>

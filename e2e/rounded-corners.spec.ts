@@ -1,8 +1,11 @@
 import type { Locator, Page } from '@playwright/test';
 
 import { liveWindows, radius, seedCorners } from './fixtures/corners';
+import { test as freshTest } from './fixtures/extension';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { openFullView, openPopup } from './fixtures/onboarding';
+import { cardAt, startRunFromHelp } from './fixtures/run';
+import { pickUp, tabHandle } from './fixtures/sessionDrag';
 
 // KAN-721. Every surface rounds by role, as the approved C2 mocks show
 // (docs/superpowers/mocks/kan-721-r3, -r4): panel 12, control 8, a child
@@ -222,4 +225,90 @@ test.describe('controls', () => {
       "the dialog's Cancel"
     );
   });
+});
+
+test.describe('surfaces', () => {
+  test('the tour ring rounds at 12 and the dim cuts its hole with rounded corners', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    await startRunFromHelp(page);
+    await expect(cardAt(page, 1)).toBeVisible();
+    await expectCorners(
+      page.locator('[data-coach-ring]'),
+      '12px',
+      'the tour ring'
+    );
+    await expectCorners(
+      page.locator('[data-coach-mark]'),
+      '16px',
+      'the coach card'
+    );
+    const clip = await page
+      .locator('[data-coach-dim]')
+      .evaluate((e) => (e as HTMLElement).style.clipPath);
+    expect(clip, "the dim's hole").toMatch(
+      // Chrome serialises the path with a space between every token.
+      /^path\(evenodd, "M 0 0 H \d+ V \d+ H 0 Z M .* A 12 12 0 0 1 /
+    );
+  });
+
+  test('a lifted tab row is carried on a card at 8', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, tabHandle(page, 'p2'));
+    await page.mouse.move(at.x + 30, at.y + 70, { steps: 8 });
+    await expectCorners(
+      page.locator('[data-drag-card]'),
+      '8px',
+      'the drag card'
+    );
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test("Settings › Display: the current theme's check is a small round mark", async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Display', exact: true }).click();
+    const check = page.locator('[data-theme-check]').first();
+    await expect(check).toBeVisible();
+    expect(await radius(check), "the theme check's radius").toBe('4px');
+    expect(await shape(check), "the theme check's corner-shape").toBe(ROUND);
+    await expectCorners(
+      page.locator('[data-theme-tile]').first(),
+      '8px',
+      'a theme tile'
+    );
+  });
+});
+
+freshTest.describe('welcome', () => {
+  freshTest.use({ freshProfile: true });
+  freshTest(
+    'the hero and its windows round at 12; a title bar hugs its window',
+    async ({ context, extensionId }) => {
+      const page = await openPopup(context, extensionId);
+      const hero = page.locator('[data-hero-frame]');
+      await expectCorners(hero, '12px', 'the hero frame');
+      for (const side of ['left', 'right']) {
+        const win = page.locator(`[data-hero-part="window-${side}"]`);
+        await expectCorners(win, '12px', `the ${side} window`);
+        await expectCorners(
+          win.locator('> *').first(),
+          '11px 11px 0px 0px',
+          `the ${side} window's title bar`
+        );
+      }
+    }
+  );
 });
