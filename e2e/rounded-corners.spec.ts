@@ -1,9 +1,9 @@
-import type { Locator, Page } from '@playwright/test';
+import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { liveWindows, radius, seedCorners } from './fixtures/corners';
 import { test as freshTest } from './fixtures/extension';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
-import { openFullView, openPopup } from './fixtures/onboarding';
+import { POPUP, openFullView, openPopup } from './fixtures/onboarding';
 import { cardAt, startRunFromHelp } from './fixtures/run';
 import { CHALK_THEME } from '../src/hooks/useThemeColors';
 import { pixelsAt } from './fixtures/pixels';
@@ -617,5 +617,97 @@ test.describe('lines', () => {
     await page.keyboard.press('Tab');
     await expect(display).toBeFocused();
     expect((await lineColours(lines))[0]).toBe(CLEAR);
+  });
+});
+
+// A popup in any language: waits on the selected row's strip, not on an English label.
+async function openPopupIn(context: BrowserContext, extensionId: string) {
+  const page = await context.newPage();
+  await page.setViewportSize(POPUP);
+  await page.goto(`chrome-extension://${extensionId}/index.html`);
+  await page.locator('[data-pane=sessions] [data-row-actions]').waitFor();
+  return page;
+}
+
+// KAN-721, folded in. The selected row's Open / Switch / Replace strip is an
+// opaque block over the row's right; no text line may run under it.
+test.describe('date clip', () => {
+  for (const language of ['ru', 'de']) {
+    test(`${language}, popup: the selected row's lines end before its strip; the date ellipsizes`, async ({
+      context,
+      extensionId,
+    }) => {
+      await seedCorners(
+        context,
+        'Chalk',
+        new Date(2026, 8, 29, 10, 10).getTime(),
+        { language }
+      );
+      const page = await openPopupIn(context, extensionId);
+      const porto = rowOf(page, '[data-pane=sessions]', 'Porto weekend');
+      const strip = porto.locator('[data-row-actions]');
+      await expect(strip).toBeVisible();
+      const stripLeft = (await strip.boundingBox())!.x;
+      const button = porto.locator('> button');
+      const lines = await button.evaluate((b) =>
+        [...b.children].map((line) => {
+          const r = document.createRange();
+          r.selectNodeContents(line);
+          const s = getComputedStyle(line);
+          return {
+            right: r.getBoundingClientRect().right,
+            boxRight: line.getBoundingClientRect().right,
+            clips: line.scrollWidth > line.clientWidth,
+            overflow: s.textOverflow,
+            description: line.getAttribute('aria-description'),
+          };
+        })
+      );
+      expect(lines).toHaveLength(3);
+      for (const [i, line] of lines.entries()) {
+        expect(
+          line.boxRight,
+          `line ${i} ends before the strip`
+        ).toBeLessThanOrEqual(stripLeft + 0.5);
+      }
+      const date = lines[2];
+      expect(date.clips, 'the date is cut').toBe(true);
+      expect(date.overflow).toBe('ellipsis');
+      expect(date.description, 'the full date is still announced').toMatch(
+        /2026|29/
+      );
+    });
+  }
+
+  test('a hovered row draws no strip, so its text does not move', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(
+      context,
+      'Chalk',
+      new Date(2026, 8, 29, 10, 10).getTime(),
+      {
+        language: 'ru',
+      }
+    );
+    const page = await openPopupIn(context, extensionId);
+    const work = rowOf(page, '[data-pane=sessions]', 'Work').locator(
+      '> button'
+    );
+    const at = async () =>
+      work.evaluate((b) =>
+        [...b.children].map((c) => {
+          const r = c.getBoundingClientRect();
+          return [r.left, r.width];
+        })
+      );
+    await page.mouse.move(2, 545);
+    const rest = await at();
+    await work.hover();
+    await expect(
+      rowOf(page, '[data-pane=sessions]', 'Work').locator('[data-row-actions]')
+    ).toHaveCount(0);
+    expect(await at()).toEqual(rest);
   });
 });

@@ -40,7 +40,8 @@ const win = (
 export async function seedCorners(
   context: BrowserContext,
   theme = 'Chalk',
-  portoCreatedAt = new Date(2026, 9, 29, 10, 10).getTime()
+  portoCreatedAt = new Date(2026, 9, 29, 10, 10).getTime(),
+  extraSettings: Record<string, unknown> = {}
 ): Promise<void> {
   const porto = [
     tab('p1', 'Porto itinerary'),
@@ -97,6 +98,7 @@ export async function seedCorners(
     isFullViewEndingSeen: true,
     isPopupEndingSeen: true,
     extensionInstalledTime: Date.now() - 30 * DAY,
+    ...extraSettings,
   });
 }
 

@@ -1,4 +1,4 @@
-import React, { MouseEventHandler } from 'react';
+import React, { MouseEventHandler, useLayoutEffect, useState } from 'react';
 
 import { useSelector } from 'react-redux';
 
@@ -182,6 +182,26 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       else if (!pressable(e.currentTarget, e.detail)) onTabGroupClick();
     };
 
+  // KAN-721 (the date clip). While the strip is drawn, the text column ends
+  // where it begins, so no line runs under it. The strip is sized by its
+  // words, so it is measured, per locale and per font size.
+  const [stripWidth, setStripWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = strip.current;
+    if (!shown || el === null) {
+      setStripWidth(0);
+      return;
+    }
+    const measure = () => setStripWidth(el.getBoundingClientRect().width);
+    measure();
+    // As SlidingPair: jsdom has none; Chrome always does.
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [shown, strip]);
+  const textEnd = Math.max(stripWidth, 8 - ROW_GUTTER_PX);
+
   // A plain string, not css``, because it is handed to ClickableRow's `style`
   // prop, which composes it into the button's own reset.
   const leftStyle = `
@@ -189,7 +209,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     flex-direction: column;
     justify-content: center;
     /* Less the row's 4px gutter (KAN-721), so the text stays where it was. */
-    padding: 8px ${8 - ROW_GUTTER_PX}px 8px calc(${SAVED_TEXT_INSET} - ${ROW_GUTTER_PX}px);
+    padding: 8px ${textEnd}px 8px calc(${SAVED_TEXT_INSET} - ${ROW_GUTTER_PX}px);
     align-items: flex-start;
     width: 100%;
     min-width: 0;
@@ -547,7 +567,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           value={formatGroupCounts(windowCount, tabCount, isSearching, t)}
           color={COLORS.LABEL_L1_COLOR}
           size={TYPE.META}
-          style="margin-top: 2px;"
+          style="margin-top: 2px; max-width: 100%;"
         />
         <div
           data-tooltip={sessionDate}
@@ -558,6 +578,11 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             };
             font-size: ${TYPE.META};
             margin-top: 5px;
+            /* KAN-721. Ends in … before the strip; the full date is the tooltip and the description. */
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           `}
         >
           {/* "Edited <date>" or "Created <date>", following whichever date
