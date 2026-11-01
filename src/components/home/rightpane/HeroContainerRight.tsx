@@ -371,6 +371,7 @@ export default function HeroContainerRight() {
                   color: ${COLORS.TEXT_COLOR};
                   background-color: ${COLORS.PRIMARY_COLOR};
                   border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
+                  ${corners(RADIUS.CONTROL)}
                   display: flex;
                   align-items: center;
                   font-family: ${FONT_FAMILY};

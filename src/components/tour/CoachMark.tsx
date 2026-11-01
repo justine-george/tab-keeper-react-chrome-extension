@@ -33,7 +33,8 @@ import {
   type Size,
 } from './coachMarkPlacement';
 import type { AnchorBox, Spotlight } from './anchorBox';
-import { TYPE } from '../../styles/scale';
+import { RADIUS, TYPE } from '../../styles/scale';
+import { corners } from '../../styles/corners';
 
 // The run's step, and which card it is of how many; null for the note after the run, which has no progress line.
 export interface CoachProgress {
@@ -185,6 +186,7 @@ export default function CoachMark({
     padding: 18px 16px 12px;
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.DIALOG)}
     color: ${COLORS.TEXT_COLOR};
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};

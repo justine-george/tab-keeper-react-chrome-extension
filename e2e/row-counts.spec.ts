@@ -30,7 +30,7 @@ const OPEN_NOW = '[data-pane="open-now"]';
 // Chrome computes `round` as superellipse(1); a squircle is superellipse(2).
 const ROW_TAG_LOOK = {
   padding: '2px 8px',
-  radius: '4px',
+  radius: '999px',
   cornerShape: 'superellipse(1)',
 };
 

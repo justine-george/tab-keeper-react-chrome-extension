@@ -1,7 +1,7 @@
 import { css } from '@emotion/react';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { TYPE } from '../../styles/scale';
+import { RADIUS, TYPE } from '../../styles/scale';
 
 /**
  * Where the keycaps go in a translated sentence (KAN-256).
@@ -38,6 +38,7 @@ export function ShortcutSentence({
     vertical-align: middle;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     border-bottom-width: 2px;
+    border-radius: ${RADIUS.MARK};
     background: ${COLORS.PRIMARY_COLOR};
     font-family: inherit;
     font-size: ${TYPE.SECONDARY};

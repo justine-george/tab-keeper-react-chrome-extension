@@ -97,7 +97,7 @@ export class ErrorBoundary extends React.Component<
           style={{
             padding: '8px 16px',
             border: '1px solid #1a1a1a',
-            borderRadius: RADIUS.MARK,
+            borderRadius: RADIUS.CONTROL,
             cornerShape: CORNER_SHAPE,
             background: '#ffffff',
             color: '#1a1a1a',

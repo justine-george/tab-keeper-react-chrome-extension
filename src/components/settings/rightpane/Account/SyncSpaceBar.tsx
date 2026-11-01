@@ -17,6 +17,7 @@ import {
   isSyncUseShown,
   syncSpaceLevel,
 } from '../../../../utils/functions/syncSpace';
+import { corners } from '../../../../styles/corners';
 
 // KAN-625. What it measures: the sessions here against the sync limit, not storage in the cloud.
 const LINE_KEY = {
@@ -71,7 +72,7 @@ const SyncSpaceBar: React.FC<{ hideWhenOk?: boolean }> = ({
         aria-valuetext={text}
         css={css`
           height: 6px;
-          border-radius: ${RADIUS.SQUARE};
+          ${corners(RADIUS.CONTROL)}
           background: ${COLORS.DIVIDER_COLOR};
           overflow: hidden;
         `}

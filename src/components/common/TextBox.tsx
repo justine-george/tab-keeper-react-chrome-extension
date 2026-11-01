@@ -4,9 +4,10 @@ import { css } from '@emotion/react';
 
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { CONTROL, TYPE } from '../../styles/scale';
+import { CONTROL, RADIUS, TYPE } from '../../styles/scale';
 import { placeholderStyle } from '../../styles/placeholder';
 import { fieldRingCss } from './focusRing';
+import { corners } from '../../styles/corners';
 
 interface TextBoxProps {
   id: string;
@@ -50,6 +51,7 @@ const TextBox: React.FC<TextBoxProps> = ({
   const textInputStyle = css`
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
+    ${corners(RADIUS.CONTROL)}
     padding: 10px;
     height: ${CONTROL.DEFAULT};
     flex-grow: 1;

@@ -109,3 +109,117 @@ test.describe('panels', () => {
     );
   });
 });
+
+const ROUND = 'superellipse(1)';
+
+test.describe('controls', () => {
+  test('popup: inputs, icon buttons, menus, tooltips, tags, strips and the search hint', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    await expectCorners(
+      page.getByPlaceholder('Name the new session'),
+      '8px',
+      'the name input'
+    );
+    await expectCorners(
+      page.getByRole('button', { name: 'Sort sessions' }),
+      '8px',
+      'the Sort icon button'
+    );
+    await expectCorners(
+      page
+        .locator('[data-session-toolbar]')
+        .getByRole('button', { name: 'Open session' }),
+      '8px',
+      "the session card's Open icon button"
+    );
+
+    const tag = page.locator('[data-row-tag]').first();
+    expect(await radius(tag), "the row tag's radius").toBe('999px');
+    expect(await shape(tag), "the row tag's corner-shape").toBe(ROUND);
+
+    await expectCorners(
+      page.locator('[data-group-color-strip]').first(),
+      '8px',
+      'the group colour strip'
+    );
+
+    const hint = page
+      .locator('[data-pane=sessions]')
+      .getByText('/', { exact: true });
+    expect(await radius(hint), "the search hint's radius").toBe('4px');
+    expect(await shape(hint), "the search hint's corner-shape").toBe(ROUND);
+
+    await page
+      .locator('[data-pane=detail]')
+      .getByText('Livraria Lello')
+      .first()
+      .hover();
+    await expectCorners(
+      page.locator('[data-tooltip-chip]').first(),
+      '8px',
+      'the tooltip chip'
+    );
+
+    await page.mouse.move(2, 545);
+    await page
+      .locator(
+        '[data-tour-anchor="session-menu"] [aria-label="More actions"][aria-haspopup="menu"]'
+      )
+      .click();
+    const menu = page.getByRole('menu');
+    await expectCorners(menu, '12px', 'the menu');
+    await expectCorners(
+      menu.getByRole('menuitem').first(),
+      '8px',
+      'a menu item'
+    );
+    await page.keyboard.press('Escape');
+
+    await page
+      .locator('[data-pane=sessions]')
+      .getByRole('button', { name: 'Work', exact: true })
+      .focus();
+    await page.keyboard.press('Delete');
+    await expectCorners(
+      page.locator('[data-toast]').first(),
+      '12px',
+      'the toast'
+    );
+  });
+
+  test('Settings: the sliding pair, and the Empty dialog with its buttons', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    await page
+      .locator('[data-pane=sessions]')
+      .getByRole('button', { name: 'Work', exact: true })
+      .focus();
+    await page.keyboard.press('Delete');
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Sessions', exact: true }).click();
+    const knob = page.locator('[data-sliding-knob]').first();
+    await expectCorners(knob.locator('..'), '8px', 'the sliding pair track');
+    await expectCorners(knob, '6px', 'the sliding pair knob');
+    await expectCorners(knob.locator('span').first(), '6px', "the knob's cell");
+
+    await page
+      .locator('[data-pane=sessions]')
+      .getByRole('button', { name: 'Recently deleted', exact: true })
+      .click();
+    await page.getByRole('button', { name: 'Empty', exact: true }).click();
+    const dialog = page.locator('dialog[open]');
+    await expectCorners(dialog, '16px', 'the Empty dialog');
+    await expectCorners(
+      dialog.getByRole('button', { name: 'Cancel' }),
+      '8px',
+      "the dialog's Cancel"
+    );
+  });
+});

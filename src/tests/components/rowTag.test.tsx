@@ -17,13 +17,13 @@ const tagIn = (container: HTMLElement): HTMLElement => {
 };
 
 describe('the row tag (KAN-720)', () => {
-  test('a row tag has the row look: 2px 8px, 4px round corners, tabular figures', async () => {
+  test('a row tag has the row look: 2px 8px, pill ends, tabular figures', async () => {
     const { container } = await renderWithProviders(<RowTag value="3 Tabs" />);
     const tag = tagIn(container);
     expect(tag).toHaveTextContent('3 Tabs');
     const style = getComputedStyle(tag);
     expect(style.padding).toBe('2px 8px');
-    expect(style.borderRadius).toBe('4px');
+    expect(style.borderRadius).toBe('999px');
     // jsdom drops corner-shape from the computed style; the injected rule is the proof.
     expect(classRulesFor(tag)).toMatch(/corner-shape:\s*round/);
     expect(style.getPropertyValue('font-variant-numeric')).toBe('tabular-nums');
@@ -32,11 +32,11 @@ describe('the row tag (KAN-720)', () => {
     expect(style.marginLeft).toBe('8px');
   });
 
-  test('the plain tag keeps its look, so the "/" hint does not change', async () => {
+  test('the plain tag is a small mark: the "/" hint keeps its padding, rounds at 4px (KAN-721)', async () => {
     await renderWithProviders(<Tag value="/" />);
     const style = getComputedStyle(screen.getByText('/'));
     expect(style.padding).toBe('2px 5px');
-    expect(['', '0px']).toContain(style.borderRadius);
+    expect(style.borderRadius).toBe('4px');
   });
 
   test('"This window" is a row tag', async () => {

@@ -9,8 +9,9 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../redux/store';
 import { closeFocusModal } from '../../redux/slices/globalStateSlice';
 import { focusTabContainer } from '../../redux/slices/tabContainerDataStateSlice';
-import { DIALOG, TYPE } from '../../styles/scale';
+import { DIALOG, RADIUS, TYPE } from '../../styles/scale';
 import { dialogButtonStyles, pairCss, tallButtonCss } from './dialogButtons';
+import { corners } from '../../styles/corners';
 
 const TITLE_ID = 'focus-confirm-title';
 const BODY_ID = 'focus-confirm-body';
@@ -96,6 +97,7 @@ export const FocusConfirmModal: React.FC<FocusConfirmModalProps> = ({
     background-color: ${COLORS.PRIMARY_COLOR};
     color: ${COLORS.LABEL_L1_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.DIALOG)}
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};
 

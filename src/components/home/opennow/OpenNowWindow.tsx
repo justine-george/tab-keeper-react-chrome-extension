@@ -89,6 +89,7 @@ import {
   OPEN_TABS_SCOPE,
   OPEN_WINDOWS_SCOPE,
 } from './useOpenNowDrop';
+import { corners } from '../../../styles/corners';
 
 // WindowEntryContainer's GROUP_TITLE_SIZE, the one documented off-scale size
 // (scaleConformance.test.ts). Copied rather than exported from there, for the
@@ -1229,6 +1230,7 @@ export default function OpenNowWindow({
                                 color: ${COLORS.TEXT_COLOR};
                                 background-color: ${COLORS.PRIMARY_COLOR};
                                 border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
+                                ${corners(RADIUS.CONTROL)}
                                 display: flex;
                                 align-items: center;
                                 font-family: ${FONT_FAMILY};

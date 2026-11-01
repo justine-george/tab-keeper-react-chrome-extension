@@ -10,6 +10,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { CONTROL, DURATION, RADIUS, TYPE } from '../../styles/scale';
 import { tooltipDescription } from './tooltipRules';
 import { focusRingCss, focusRingInInkCss } from './focusRing';
+import { corners } from '../../styles/corners';
 
 interface ButtonProps {
   text?: string;
@@ -235,7 +236,7 @@ const Button: React.FC<ButtonProps> = ({
     border: ${PALETTE.border};
     padding: 10px 20px;
     height: ${CONTROL.DEFAULT};
-    border-radius: ${RADIUS.SQUARE};
+    ${corners(RADIUS.CONTROL)}
     display: flex;
     align-items: center;
     justify-content: space-around;

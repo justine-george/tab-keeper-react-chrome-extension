@@ -12,13 +12,14 @@ import {
   mergeSessionsFromBackup,
   replaceSessionsFromBackup,
 } from '../../redux/slices/globalStateSlice';
-import { DIALOG, TYPE } from '../../styles/scale';
+import { DIALOG, RADIUS, TYPE } from '../../styles/scale';
 import {
   dialogButtonStyles,
   flushLinkCss,
   pairCss,
   tallButtonCss,
 } from './dialogButtons';
+import { corners } from '../../styles/corners';
 
 const TITLE_ID = 'load-backup-title';
 const BODY_ID = 'load-backup-body';
@@ -92,6 +93,7 @@ export const LoadBackupModal: React.FC = () => {
     background-color: ${COLORS.PRIMARY_COLOR};
     color: ${COLORS.LABEL_L1_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.DIALOG)}
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};
 

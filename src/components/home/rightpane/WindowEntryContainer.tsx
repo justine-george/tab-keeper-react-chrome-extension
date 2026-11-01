@@ -111,6 +111,7 @@ import {
   customTitleFrom,
   shownTitle,
 } from '../../../utils/functions/tabTitle';
+import { corners } from '../../../styles/corners';
 
 /**
  * The Chrome group title, and the editor that replaces it (KAN-205).
@@ -841,6 +842,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     color: ${COLORS.TEXT_COLOR};
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
+    ${corners(RADIUS.CONTROL)}
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};
     margin-left: 4px;
@@ -1430,6 +1432,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     color: ${COLORS.TEXT_COLOR};
                     background-color: ${COLORS.PRIMARY_COLOR};
                     border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
+                    ${corners(RADIUS.CONTROL)}
                     display: flex;
                     align-items: center;
                     font-family: ${FONT_FAMILY};
@@ -1839,6 +1842,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                             color: ${COLORS.TEXT_COLOR};
                             background-color: ${COLORS.PRIMARY_COLOR};
                             border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
+                            ${corners(RADIUS.CONTROL)}
                             /* Same four declarations the window title editor
                              carries. Without height and padding the field
                              collapsed to the intrinsic height of its text and

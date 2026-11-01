@@ -2,8 +2,9 @@
 // or keyboard focus a ghost of the field the click opens (PRIMARY fill, here
 // 65% over the ground, and a soft edge that the field then draws dark).
 import type { ThemeColors } from '../../hooks/useThemeColors';
-import { DURATION } from '../../styles/scale';
+import { DURATION, RADIUS } from '../../styles/scale';
 import { whileKeyNav } from './focusRing';
+import { corners } from '../../styles/corners';
 
 // A string, as ClickableRow's `style` takes. `ground` is what the title sits
 // on while hovered. The ghost is the button's own box, which is where the field
@@ -14,6 +15,7 @@ export function renameOnClickStyle(
 ): string {
   return `
     cursor: text;
+    ${corners(RADIUS.CONTROL)}
     position: relative;
     isolation: isolate;
     &::before {
@@ -22,6 +24,8 @@ export function renameOnClickStyle(
       inset: 0;
       z-index: -1;
       border: 1px solid transparent;
+      border-radius: inherit;
+      corner-shape: inherit;
       pointer-events: none;
       transition:
         background-color ${DURATION.COLOR} ease-out,

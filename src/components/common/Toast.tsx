@@ -32,6 +32,7 @@ import {
   SETTINGS_COLUMN,
 } from '../../utils/constants/common';
 import { isTabView } from '../../utils/functions/viewMode';
+import { corners } from '../../styles/corners';
 
 // KAN-583, KAN-694. A toast's Undo closes its own toast only; the other plain toasts stay up.
 const LEAVES_PLAIN_TOASTS: StepPress = { closesPlainToasts: false };
@@ -155,7 +156,7 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
     color: ${COLORS.TEXT_COLOR};
     padding: 10px;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
-    border-radius: ${RADIUS.SQUARE};
+    ${corners(RADIUS.PANEL)}
     /* KAN-401. The popup sets this for every element; the export page does not. */
     box-sizing: border-box;
     width: ${isSettingsPage ? `min(300px, ${settingsCap})` : '300px'};

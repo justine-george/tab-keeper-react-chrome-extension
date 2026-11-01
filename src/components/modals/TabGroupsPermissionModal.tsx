@@ -13,6 +13,7 @@ import { requestTabGroupsPermission } from '../../utils/functions/permissions';
 import { DIALOG, ICON, RADIUS, TYPE } from '../../styles/scale';
 import Icon from '../common/Icon';
 import { dialogButtonStyles, pairCss, tallButtonCss } from './dialogButtons';
+import { corners } from '../../styles/corners';
 
 interface TabGroupsPermissionModalProps {
   style?: string;
@@ -124,7 +125,7 @@ export const TabGroupsPermissionModal: React.FC<
         background-color: ${COLORS.PRIMARY_COLOR};
         color: ${COLORS.LABEL_L1_COLOR};
         border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
-        border-radius: ${RADIUS.SQUARE};
+        ${corners(RADIUS.DIALOG)}
         font-family: ${FONT_FAMILY};
         font-size: ${TYPE.BODY};
 
