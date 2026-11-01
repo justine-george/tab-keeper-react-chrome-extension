@@ -9,6 +9,7 @@ import ClickableRow from '../../common/ClickableRow';
 import {
   focusRingOutsideCss,
   focusRingOverTickCss,
+  focusRingRowCss,
   whileKeyNav,
 } from '../../common/focusRing';
 import { renameOnClickStyle } from '../../common/renameOnClickStyle';
@@ -112,6 +113,14 @@ import {
   shownTitle,
 } from '../../../utils/functions/tabTitle';
 import { corners } from '../../../styles/corners';
+import {
+  ROW_GUTTER_PX,
+  ROW_PULL,
+  ROW_PULL_END,
+  ROW_PULL_START,
+  rowEndCorners,
+  rowHighlightCss,
+} from '../../../styles/rowHighlight';
 
 /**
  * The Chrome group title, and the editor that replaces it (KAN-205).
@@ -552,6 +561,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     position: relative;
     display: flex;
     justify-content: space-between;
+    /* KAN-721. The fill 4px in at 8; the content back where it was. */
+    ${rowHighlightCss()}
+    & > :first-child {
+      ${ROW_PULL}
+    }
     /* No transition on the fill, and none on the mask below (KAN-100). The
        action strip is opaque and sits over the title, so it is invisible only
        while it is fully transparent or while this row has already arrived at
@@ -597,6 +611,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     top: 50%;
     right: 0;
     transform: translateY(-50%);
+    ${rowEndCorners()}
     /* An open menu paints over the tab rows below, later siblings; see openMenuGroupId. */
     z-index: ${isWindowMenuOpen ? 3 : 'auto'};
     /* The mask lands in one frame with the row's fill; only the icons ease
@@ -719,6 +734,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     display: flex;
     align-items: stretch;
     justify-content: space-between;
+    /* KAN-721. The fill 4px in at 8, and the row's ring inside it. */
+    ${rowHighlightCss()}
+    ${focusRingRowCss(COLORS, '&:has(> button:focus-visible)')}
+    /* KAN-721. The title back where it was; its end stays with the strip's,
+       so marks that meet × (the speaker, the pin) keep meeting it. */
+    & > [data-drag-handle] + * {
+      ${ROW_PULL_START}
+    }
     /* No transition on the fill, for the same reason as parentStyle above
        (KAN-100). */
     &:hover {
@@ -735,6 +758,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     display: flex;
     align-items: center;
     flex-grow: 1;
+    /* The row draws the ring (focusRingRowCss). */
+    ${whileKeyNav('&:focus-visible')} {
+      outline: none;
+    }
     min-width: 0;
   `;
 
@@ -756,6 +783,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     top: 50%;
     right: 0;
     transform: translateY(-50%);
+    ${rowEndCorners()}
     /* Mask in one frame, icons ease -- see parentRightStyle (KAN-100). */
     background-color: ${
       isTabEngaged(tabId) ? COLORS.HOVER_COLOR : 'transparent'
@@ -1762,9 +1790,19 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                          height, so they now fit the row rather than
                          overflowing a shorter one. */
                         min-height: 32px;
+                        /* KAN-721. The fill 4px in at 8; the title and its tag back where they were. */
+                        ${rowHighlightCss()}
+                        & > [data-drag-handle] + * {
+                          ${ROW_PULL_START}
+                        }
+                        & > :has(> [data-row-tag]),
+                        & > input {
+                          ${ROW_PULL_END}
+                        }
                         ${focusRingOverTickCss(
                           COLORS,
-                          '&:has(> input:focus-visible)'
+                          '&:has(> input:focus-visible)',
+                          `0 -${ROW_GUTTER_PX}px`
                         )}
                         /* Fills like the window row above and the tab rows
                          below, which both paint HOVER_COLOR under the pointer.
@@ -1870,7 +1908,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                              nothing, and left the field 2px short of its row.
                              Stretching the item is what actually fills it. */
                             align-self: stretch;
-                            width: 100%;
+                            /* KAN-721. Over the row's gutters, as the field spanned the row before. */
+                            width: calc(100% + ${2 * ROW_GUTTER_PX}px);
                             min-width: 0;
                             &:focus {
                               outline: none;
@@ -1952,6 +1991,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                             top: 50%;
                             right: 0;
                             transform: translateY(-50%);
+                            ${rowEndCorners()}
                             & > * {
                               opacity: 0;
                               transition: opacity ${DURATION.COLOR} ease-out;

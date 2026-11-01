@@ -5,6 +5,8 @@ import { test as freshTest } from './fixtures/extension';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { openFullView, openPopup } from './fixtures/onboarding';
 import { cardAt, startRunFromHelp } from './fixtures/run';
+import { CHALK_THEME } from '../src/hooks/useThemeColors';
+import { pixelsAt } from './fixtures/pixels';
 import { pickUp, tabHandle } from './fixtures/sessionDrag';
 
 // KAN-721. Every surface rounds by role, as the approved C2 mocks show
@@ -311,4 +313,226 @@ freshTest.describe('welcome', () => {
       }
     }
   );
+});
+
+// The row element a fill is drawn on, by the text it holds.
+const rowOf = (page: Page, scope: string, text: string) =>
+  page
+    .locator(`${scope} [data-drag-handle-row]`)
+    .filter({ hasText: text })
+    .last();
+
+async function expectHighlight(row: Locator, what: string) {
+  const s = await row.evaluate((e) => {
+    const c = getComputedStyle(e);
+    return {
+      left: c.borderLeftWidth,
+      right: c.borderRightWidth,
+      leftColor: c.borderLeftColor,
+      clip: c.backgroundClip,
+      radius: c.borderRadius,
+    };
+  });
+  expect(s, `${what}: 4px in from each side at 8`).toEqual({
+    left: '4px',
+    right: '4px',
+    leftColor: 'rgba(0, 0, 0, 0)',
+    clip: 'padding-box',
+    radius: '12px / 8px',
+  });
+}
+
+// Where the first text in `row` starts, from the row's own left edge.
+const textX = (row: Locator, text: string) =>
+  row.evaluate((e, text) => {
+    const w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n !== null; n = w.nextNode()) {
+      if (n.textContent?.trim() !== text) continue;
+      const r = document.createRange();
+      r.selectNodeContents(n);
+      return r.getBoundingClientRect().left - e.getBoundingClientRect().left;
+    }
+    return Number.NaN;
+  }, text);
+
+// Measured on main d2bb341b (popup 790x550).
+const WINDOW_TITLE_X = 72;
+
+test.describe('rows', () => {
+  for (const theme of ['Chalk', 'Charcoal']) {
+    test(`${theme} popup: session, detail window, group and tab rows fill 4px in; text stays put; the strip mask meets the fill`, async ({
+      context,
+      extensionId,
+    }) => {
+      await seedCorners(context, theme);
+      const page = await openPopup(context, extensionId);
+      const porto = rowOf(page, '[data-pane=sessions]', 'Porto weekend');
+      await expectHighlight(porto, 'the selected session row');
+      expect(await textX(porto, 'Porto weekend')).toBe(33);
+      await expectCorners(
+        porto.locator('[data-row-actions]'),
+        '0px 8px 8px 0px',
+        'the strip mask'
+      );
+
+      const reading = rowOf(page, '[data-pane=sessions]', 'Reading list');
+      await reading.hover();
+      await expectHighlight(reading, 'a hovered session row');
+      expect(await textX(reading, 'Reading list')).toBe(33);
+
+      const tabRow = rowOf(page, '[data-pane=detail]', 'Livraria Lello');
+      await tabRow.hover();
+      await expectHighlight(tabRow, 'a hovered tab row');
+      expect(await textX(tabRow, 'Livraria Lello')).toBe(40);
+      await expectCorners(
+        tabRow.locator('[data-row-actions]'),
+        '0px 8px 8px 0px',
+        "the tab row's strip mask"
+      );
+
+      const windowRow = page
+        .locator('[data-pane=detail] [data-window-drag-handle]')
+        .first();
+      await windowRow.hover();
+      await expectHighlight(windowRow, 'a hovered window row');
+      expect(await textX(windowRow, 'w1')).toBe(WINDOW_TITLE_X);
+
+      const groupRow = page
+        .locator('[data-pane=detail] [data-group-drag-handle]')
+        .first();
+      await groupRow.hover();
+      await expectHighlight(groupRow, 'a hovered group row');
+      expect(await textX(groupRow, 'Sights')).toBe(4);
+    });
+  }
+
+  test('Settings nav rows fill 4px in; the label stays put', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const display = page
+      .locator('[data-panel=settings-nav]')
+      .getByRole('button', { name: 'Display', exact: true });
+    await display.hover();
+    await expectHighlight(display, 'a hovered Settings nav row');
+    expect(await textX(display, 'Display')).toBe(34);
+  });
+
+  test('full view: an Open now tab row fills 4px in; its favicon stays put', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedCorners(context);
+    await liveWindows(serviceWorker);
+    const page = await openFullView(context, extensionId);
+    const row = rowOf(page, '[data-pane=open-now]', 'Tram 28');
+    await row.hover();
+    await expectHighlight(row, 'a hovered Open now tab row');
+    expect(await textX(row, 'globe')).toBe(4);
+  });
+
+  test("the keyboard ring sits inside a session row's fill, rounded at 6", async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    const row = rowOf(page, '[data-pane=sessions]', 'Reading list');
+    // Focus by script, then a real Shift+Tab and Tab, so the page is in key-nav.
+    await row
+      .getByRole('button', { name: 'Reading list', exact: true })
+      .focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(
+      row.getByRole('button', { name: 'Reading list', exact: true })
+    ).toBeFocused();
+    const ring = await row.evaluate((e) => {
+      const c = getComputedStyle(e, '::after');
+      return {
+        content: c.content,
+        radius: c.borderRadius,
+        left: c.left,
+        right: c.right,
+        width: c.borderTopWidth,
+      };
+    });
+    expect(ring).toEqual({
+      content: '""',
+      radius: '6px',
+      left: '2px',
+      right: '2px',
+      width: '2px',
+    });
+  });
+
+  test("a tab carried onto a session row: the outline is drawn inside the row's fill on all four sides", async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, tabHandle(page, 'p2'));
+    const list = await page.locator('[data-pane=sessions]').boundingBox();
+    if (list === null) throw new Error('no session list');
+    await page.mouse.move(list.x + list.width / 2, at.y, { steps: 8 });
+    const target = rowOf(page, '[data-pane=sessions]', 'Reading list');
+    const b = await target.boundingBox();
+    if (b === null) throw new Error('no Reading list row');
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 6 });
+    await expect(target).toHaveAttribute('data-carry-target', '');
+    const outline = await target.evaluate((e) => {
+      const c = getComputedStyle(e, '::before');
+      const own = getComputedStyle(e);
+      return {
+        content: c.content,
+        border: c.borderTopWidth,
+        radius: c.borderRadius,
+        inset: [c.top, c.right, c.bottom, c.left].join(' '),
+        outline: own.outlineStyle,
+      };
+    });
+    expect(outline).toEqual({
+      content: '""',
+      border: '2px',
+      radius: '8px',
+      inset: '0px 0px 0px 0px',
+      outline: 'none',
+    });
+    // And it paints: 1px inside the fill's left edge, mid-height, is the outline.
+    const [painted] = await pixelsAt(page, [[b.x + 4 + 1, b.y + b.height / 2]]);
+    expect(painted).toBe(CHALK_THEME.LABEL_L2_COLOR);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test("a detail window row's ⋮ menu opens whole, not cut by its rounded row", async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    const windowRow = page
+      .locator('[data-pane=detail] [data-window-drag-handle]')
+      .first();
+    await windowRow.hover();
+    await windowRow.getByRole('button', { name: 'More actions' }).click();
+    const menu = page.getByRole('menu');
+    await expect(menu).toBeVisible();
+    const items = menu.getByRole('menuitem');
+    const last = items.last();
+    const box = await last.boundingBox();
+    if (box === null) throw new Error('no last item');
+    const hit = await page.evaluate(
+      ([x, y]) =>
+        document.elementFromPoint(x, y)?.closest('[role=menuitem]')
+          ?.textContent ?? null,
+      [box.x + box.width / 2, box.y + box.height / 2]
+    );
+    expect(hit).toBe(await last.textContent());
+  });
 });

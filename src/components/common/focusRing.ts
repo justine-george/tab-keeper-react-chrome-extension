@@ -1,4 +1,6 @@
 import type { ThemeColors } from '../../hooks/useThemeColors';
+import { ROW_RADIUS } from '../../styles/rowHighlight';
+import { CORNER_SHAPE } from '../../styles/scale';
 import { KEY_NAV_ATTRIBUTE } from '../../utils/functions/keyNav';
 
 // KAN-689. `on`, a nested selector, only while the user navigates by keyboard
@@ -80,15 +82,31 @@ export const fieldRingCss = (COLORS: ThemeColors): string => `
 // the box's edge, in the field ring's colour.
 export const focusRingOverTickCss = (
   COLORS: ThemeColors,
-  on: string
+  on: string,
+  // KAN-721. A row with a gutter passes `0 -4px`, so the ring meets its field.
+  inset = '0'
 ): string => `
   position: relative;
   ${whileKeyNav(on)}::after {
     content: '';
     position: absolute;
-    inset: 0;
+    inset: ${inset};
     border: 2px solid ${COLORS.LABEL_L2_COLOR};
     pointer-events: none;
     z-index: 2;
+  }
+`;
+
+// KAN-721. A row's ring: focusRingAboveCss's, inside the row's 4px-in fill
+// (inset 2px of the padding box), its corners 2px inside the fill's.
+export const focusRingRowCss = (COLORS: ThemeColors, on: string): string => `
+  ${whileKeyNav(on)}::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    border: 2px solid ${COLORS.TEXT_COLOR};
+    border-radius: ${Number.parseFloat(ROW_RADIUS) - 2}px;
+    corner-shape: ${CORNER_SHAPE};
+    pointer-events: none;
   }
 `;

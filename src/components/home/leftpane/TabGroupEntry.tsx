@@ -22,9 +22,16 @@ import {
 import { selectIsSavedSessionFolded } from '../../../redux/savedSessionFold';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
+import { corners } from '../../../styles/corners';
+import {
+  ROW_GUTTER_PX,
+  ROW_RADIUS,
+  rowEndCorners,
+  rowHighlightCss,
+} from '../../../styles/rowHighlight';
 import { DURATION, TYPE } from '../../../styles/scale';
 import { springSweepStyle } from '../../common/springOpen';
-import { focusRingAboveCss, whileKeyNav } from '../../common/focusRing';
+import { focusRingRowCss, whileKeyNav } from '../../common/focusRing';
 import { SAVED_TEXT_INSET } from './savedListInset';
 import { DragHandle } from '../rightpane/rowDrag/DragHandle';
 import { useRowActionGuard } from './useRowActionGuard';
@@ -176,7 +183,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 8px 8px 8px ${SAVED_TEXT_INSET};
+    /* Less the row's 4px gutter (KAN-721), so the text stays where it was. */
+    padding: 8px ${8 - ROW_GUTTER_PX}px 8px calc(${SAVED_TEXT_INSET} - ${ROW_GUTTER_PX}px);
     align-items: flex-start;
     width: 100%;
     min-width: 0;
@@ -246,6 +254,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
        background that is already uniform, so fading them cannot produce an
        edge -- which is the whole difference between them and this mask. */
     background-color: transparent;
+    /* Its right corners are the fill's (KAN-721). */
+    ${rowEndCorners()}
 
     /* Hidden by default. What reveals them lives on the CONTAINER, not here --
        see the engagement comment on containerStyle for why the two cannot be
@@ -294,8 +304,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
 
   const containerStyle = css`
     position: relative;
-    /* KAN-671. The row's ring, over the actions strip; the button's own is off. */
-    ${focusRingAboveCss(COLORS, '&:has(> button:focus-visible)')}
+    /* KAN-671. The row's ring, over the actions strip; the button's own is off.
+       KAN-721: inside the fill, which sits 4px in at 8. */
+    ${focusRingRowCss(COLORS, '&:has(> button:focus-visible)')}
+    ${rowHighlightCss()}
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -441,10 +453,16 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
        selection, which the target look is neither of. */
     &[data-carry-target] {
       ${fill(COLORS.ACTIVE_COLOR)}
-      outline-width: 2px;
-      outline-style: solid;
-      outline-color: ${COLORS.LABEL_L2_COLOR};
-      outline-offset: -2px;
+      /* KAN-721. On ::before, not outline: an outline follows the border box,
+         which now includes the transparent gutter. The padding box is the fill's. */
+      &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border: 2px solid ${COLORS.LABEL_L2_COLOR};
+        ${corners(ROW_RADIUS)}
+        pointer-events: none;
+      }
       [data-row-actions] {
         background-color: transparent;
       }

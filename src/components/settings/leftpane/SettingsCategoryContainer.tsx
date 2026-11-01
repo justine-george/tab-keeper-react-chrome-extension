@@ -15,7 +15,9 @@ import {
 } from '../../../redux/slices/settingsCategoryStateSlice';
 import { useTranslation } from 'react-i18next';
 import { corners } from '../../../styles/corners';
+import { ROW_GUTTER_PX, rowHighlightCss } from '../../../styles/rowHighlight';
 import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
+import { focusRingRowCss, whileKeyNav } from '../../common/focusRing';
 import { BACK_LABEL_INSET } from '../../common/headerBackTarget';
 
 export interface SettingsCategoryContainer {
@@ -60,6 +62,13 @@ const SettingsCategoryContainer: React.FC = () => {
   // replaced stretched to fill the flex column.
   const selectableStyle = (isSelected: boolean) => `
     cursor: pointer;
+    /* KAN-721. The fill 4px in at 8, and the ring inside it (focusRingRowCss). */
+    position: relative;
+    ${rowHighlightCss()}
+    ${whileKeyNav('&:focus-visible')} {
+      outline: none;
+    }
+    ${focusRingRowCss(COLORS, '&:focus-visible')}
     transition: background-color ${DURATION.MOVE};
     width: 100%;
     /* The hover rule is EMITTED ONLY WHEN UNSELECTED (KAN-96).
@@ -97,7 +106,8 @@ const SettingsCategoryContainer: React.FC = () => {
     };
     /* KAN-517. The label starts where the header's "Back" does: its inset, less this box's 1px border.
        KAN-754. The right padding only stops a long label; at 10px the longest word (sv "säkerhetskopia") fits the popup's rail at 24px text. */
-    padding: 15px 10px 15px calc(${BACK_LABEL_INSET} - 1px);
+    padding: 15px ${10 - ROW_GUTTER_PX}px 15px
+      calc(${BACK_LABEL_INSET} - 1px - ${ROW_GUTTER_PX}px);
   `;
 
   return (

@@ -283,7 +283,8 @@ async function sample(
         // in, because the box starts at a fractional x (623.6): flooring it
         // samples the card pixel OUTSIDE the chip, which is where the first
         // draft of this read the card colour against a correct chip.
-        topEdge: [b.right - 3, b.top + 0.5],
+        // KAN-721. Clear of the chip's rounded top-right corner.
+        topEdge: [b.left + b.width / 2, b.top + 0.5],
         leftEdge: [b.left + 0.5, midY],
         // KAN-731. The card's frame away from the chip: right border above it, bottom border left of it.
         frameRight: [c.right - 0.5, (c.top + b.top) / 2],
