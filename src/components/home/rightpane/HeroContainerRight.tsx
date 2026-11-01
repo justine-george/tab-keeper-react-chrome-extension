@@ -53,7 +53,8 @@ import { runPaneMotion } from '../paneMotion';
 import { selectIsOpenNowFolded } from '../../../redux/savedSessionFold';
 import { setFoldOpenNowInTabView } from '../../../redux/slices/settingsDataStateSlice';
 import { useTranslation } from 'react-i18next';
-import { DURATION, ICON, TYPE } from '../../../styles/scale';
+import { corners, flushIn } from '../../../styles/corners';
+import { DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
 import { useNewFirstWindowReceiver } from './useNewFirstWindowReceiver';
 import { selectRunHoldsDelete } from '../../../redux/firstRun';
 import { onFirstClickOnly } from '../../common/firstClickOnly';
@@ -271,6 +272,7 @@ export default function HeroContainerRight() {
     align-items: flex-start;
     justify-content: space-between;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     font-family: ${FONT_FAMILY};
     user-select: none;
     background-color: ${COLORS.SECONDARY_COLOR};
@@ -326,6 +328,7 @@ export default function HeroContainerRight() {
   return (
     <>
       <div
+        data-panel="session-card"
         css={containerStyle}
         {...headerMenu.rowProps(tabGroupId)}
         onMouseEnter={() => setIsContainerHovered(true)}
@@ -402,7 +405,8 @@ export default function HeroContainerRight() {
                 // truncating and runs under the action block.
                 style={
                   'display: flex; align-items: center; min-width: 0;' +
-                  renameOnClickStyle(COLORS, COLORS.SECONDARY_COLOR)
+                  renameOnClickStyle(COLORS, COLORS.SECONDARY_COLOR) +
+                  flushIn(['top-left'])
                 }
               >
                 {titleLabel}
@@ -463,6 +467,7 @@ export default function HeroContainerRight() {
                       : OPEN_NOW_FOLD_ICON.unfolded
                   }
                   backgroundColor={COLORS.SECONDARY_COLOR}
+                  style={flushIn(['top-right'])}
                   onClick={(e) => {
                     e.stopPropagation();
                     // As Open now's own fold button: the press ends a peek.
@@ -482,6 +487,7 @@ export default function HeroContainerRight() {
                   ariaLabel={t('Rename session')}
                   type="edit"
                   backgroundColor={COLORS.SECONDARY_COLOR}
+                  style={flushIn(['top-right'])}
                   onClick={(e) => {
                     e.stopPropagation();
                     startEditing();
@@ -554,6 +560,7 @@ export default function HeroContainerRight() {
                   : t('Expand all windows')
               }
               type={anyWindowOpen ? 'unfold_less' : 'unfold_more'}
+              style={flushIn(['bottom-left'])}
               // KAN-756. Keyed by session: another session's glyph is drawn, not slid to.
               renderGlyph={(glyphCss) => (
                 <FoldAllGlyph
@@ -717,6 +724,7 @@ export default function HeroContainerRight() {
               height: 32px;
               font-size: ${TYPE.SECONDARY};
               padding: 5px 6px 3px 3px;
+              ${flushIn(['bottom-right'])}
             `}
               />
             )}

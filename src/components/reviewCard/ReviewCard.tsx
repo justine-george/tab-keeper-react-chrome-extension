@@ -20,7 +20,15 @@ import { isTabView } from '../../utils/functions/viewMode';
 import { dialogButtonStyles } from '../modals/dialogButtons';
 import ClickableTabKeeperMark from '../common/ClickableTabKeeperMark';
 import Icon from '../common/Icon';
-import { CONTROL, DURATION, EASE, ICON, TYPE } from '../../styles/scale';
+import { corners } from '../../styles/corners';
+import {
+  CONTROL,
+  DURATION,
+  EASE,
+  ICON,
+  RADIUS,
+  TYPE,
+} from '../../styles/scale';
 
 const TITLE_ID = 'review-card-title';
 
@@ -141,6 +149,7 @@ function OpenReviewCard({
     background-color: ${COLORS.PRIMARY_COLOR};
     color: ${COLORS.LABEL_L1_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     box-shadow: ${COLORS.FLOATING_SHADOW};
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};

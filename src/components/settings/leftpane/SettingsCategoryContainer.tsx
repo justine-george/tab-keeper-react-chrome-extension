@@ -14,7 +14,8 @@ import {
   selectCategory,
 } from '../../../redux/slices/settingsCategoryStateSlice';
 import { useTranslation } from 'react-i18next';
-import { DURATION, TYPE } from '../../../styles/scale';
+import { corners } from '../../../styles/corners';
+import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
 import { BACK_LABEL_INSET } from '../../common/headerBackTarget';
 
 export interface SettingsCategoryContainer {
@@ -41,6 +42,7 @@ const SettingsCategoryContainer: React.FC = () => {
     flex-direction: column;
     height: 100%;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     /* 10px, not the 8px every other gap uses, so this box's top edge meets
        the details box across the divider (KAN-239). The right pane reaches
        its box by 8px pane padding + a 50px framed card + 8px; this pane by
@@ -99,7 +101,7 @@ const SettingsCategoryContainer: React.FC = () => {
   `;
 
   return (
-    <div css={containerStyle}>
+    <div data-panel="settings-nav" css={containerStyle}>
       {settingsCategoryList.map(
         ({ name, isSelected }: SettingsCategoryContainer) => {
           return (

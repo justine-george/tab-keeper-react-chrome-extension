@@ -8,7 +8,8 @@ import { isUnclaimedEscape } from './unclaimedEscape';
 import { dialogButtonStyles } from '../modals/dialogButtons';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useFontFamily } from '../../hooks/useFontFamily';
-import { TYPE } from '../../styles/scale';
+import { corners } from '../../styles/corners';
+import { RADIUS, TYPE } from '../../styles/scale';
 
 interface Answer {
   label: string;
@@ -86,6 +87,7 @@ export default function AskCard({
           padding: 10px 6px 12px 14px;
           background-color: ${COLORS.PRIMARY_COLOR};
           border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+          ${corners(RADIUS.PANEL)}
           color: ${COLORS.LABEL_L1_COLOR};
           font-family: ${FONT_FAMILY};
           font-size: ${TYPE.BODY};

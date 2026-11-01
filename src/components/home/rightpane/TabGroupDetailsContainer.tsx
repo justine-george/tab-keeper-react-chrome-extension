@@ -56,6 +56,8 @@ import { NEW_LAST_WINDOW } from './newWindowTarget';
 import type { windowGroupData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { onRevealSavedWindow } from './revealSavedWindow';
 import { windowNumbers } from '../../../utils/functions/windowLabel';
+import { corners } from '../../../styles/corners';
+import { RADIUS } from '../../../styles/scale';
 
 // The trailing block with nothing resting in it: no title, no rows.
 const EMPTY_TRAILING_BLOCK: Pick<
@@ -319,6 +321,7 @@ export default function TabGroupDetailsContainer() {
     flex-grow: 1;
     margin-top: 8px;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     overflow: auto;
     user-select: none;
   `;
@@ -333,7 +336,7 @@ export default function TabGroupDetailsContainer() {
   const filledContainerStyle = css``;
 
   return (
-    <div css={containerStyle} ref={scrollerRef}>
+    <div data-panel="windows" css={containerStyle} ref={scrollerRef}>
       {isEmptyObject(selectedTabGroup) ? (
         <div css={emptyContainerStyle}>
           {/* KAN-86, same bare literal as TabGroupEntryContainer. */}

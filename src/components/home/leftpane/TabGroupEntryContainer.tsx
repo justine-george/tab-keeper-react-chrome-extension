@@ -58,7 +58,8 @@ import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
 import { sessionMenuItems, useSessionDeleteKey } from '../sessionMenuItems';
 import { selectRunHoldsDelete } from '../../../redux/firstRun';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
-import { DURATION } from '../../../styles/scale';
+import { corners } from '../../../styles/corners';
+import { DURATION, RADIUS } from '../../../styles/scale';
 import {
   newSessionPitch,
   settleNewSessionSlot,
@@ -470,6 +471,7 @@ export default function TabGroupEntryContainer() {
     height: 100%;
     min-height: 0;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     margin: 8px 0;
     user-select: none;
   `;

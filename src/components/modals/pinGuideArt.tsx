@@ -7,6 +7,7 @@ import { PuzzleGlyph } from '../common/glyphs';
 import { toolbarAppName } from '../../utils/functions/toolbarPin';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { ICON, RADIUS, TYPE } from '../../styles/scale';
+import { flushIn } from '../../styles/corners';
 
 // KAN-7 §4. Chrome's toolbar in three pictures, after the round-5 mock. The
 // captions carry the words; these are aria-hidden by their caller. Steps 1
@@ -79,6 +80,8 @@ function ToolbarStrip({ children }: { children: ReactNode }) {
         padding: 0 10px;
         border-bottom: 1px solid ${COLORS.PANEL_BORDER_COLOR};
         background-color: ${COLORS.SELECTION_COLOR};
+        /* Flush in the step card's top corners. */
+        ${flushIn(['top-left', 'top-right'], RADIUS.SQUARE)}
         color: ${COLORS.TEXT_COLOR};
       `}
     >

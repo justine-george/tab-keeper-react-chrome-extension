@@ -12,7 +12,8 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { setDefaultSaveScope } from '../../../redux/slices/settingsDataStateSlice';
 import { visuallyHiddenStyle } from '../../../styles/visuallyHidden';
-import { TYPE, WEIGHT } from '../../../styles/scale';
+import { corners } from '../../../styles/corners';
+import { RADIUS, TYPE, WEIGHT } from '../../../styles/scale';
 import type { CaptureScope } from '../../../utils/functions/capture';
 import { useTranslation } from 'react-i18next';
 
@@ -69,6 +70,7 @@ export default function DefaultSaveChoice({
     display: flex;
     height: 58px;
     border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     /* KAN-675. Chosen: its own frame, 2px of LABEL_L2. Not TEXT_COLOR, which
        is the focus ring's (ThemeSwatch's rule); the second pixel is an inset
        shadow, so the tile keeps its width and its neighbour never moves. */
@@ -97,6 +99,8 @@ export default function DefaultSaveChoice({
       position: absolute;
       inset: 3px;
       border: 2px solid ${COLORS.TEXT_COLOR};
+      /* 4px inside the tile's PANEL corner. */
+      ${corners(RADIUS.CONTROL)}
       pointer-events: none;
     }
   `;
