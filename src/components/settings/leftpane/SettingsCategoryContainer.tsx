@@ -82,7 +82,8 @@ const SettingsCategoryContainer: React.FC = () => {
     ${whileKeyNav('&:focus-visible + [data-row-divider]')} {
       ${LINE_HIDDEN}
     }
-    ${whileKeyNav(lineBeforeSibling('&:focus-visible'))} {
+    /* lineBeforeSibling's selector, written out: the key-nav gate reads literals. */
+    ${whileKeyNav('[data-row-divider]:has(+ &:focus-visible)')} {
       ${LINE_HIDDEN}
     }
     transition: background-color ${DURATION.MOVE};

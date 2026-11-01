@@ -516,7 +516,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     ${whileKeyNav('&:has(:focus-visible) + [data-row-divider]')} {
       ${LINE_HIDDEN}
     }
-    ${whileKeyNav(lineBeforeWrapped('& :focus-visible'))} {
+    /* lineBeforeWrapped's selector, written out: the key-nav gate reads literals. */
+    ${whileKeyNav(
+      '[data-drag-row-id]:has(+ [data-drag-row-id] > & :focus-visible) > [data-row-divider]'
+    )} {
       ${LINE_HIDDEN}
     }
   `;
