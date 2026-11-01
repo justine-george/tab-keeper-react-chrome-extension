@@ -6,7 +6,7 @@ import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { POPUP, openFullView, openPopup } from './fixtures/onboarding';
 import { cardAt, startRunFromHelp } from './fixtures/run';
 import { CHALK_THEME } from '../src/hooks/useThemeColors';
-import { pixelsAt } from './fixtures/pixels';
+import { differingPixels, pixelsAt } from './fixtures/pixels';
 import { pickUp, tabHandle } from './fixtures/sessionDrag';
 
 // KAN-721. Every surface rounds by role, as the approved C2 mocks show
@@ -347,7 +347,8 @@ const textX = (row: Locator, text: string) =>
   row.evaluate((e, text) => {
     const w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
     for (let n = w.nextNode(); n !== null; n = w.nextNode()) {
-      if (n.textContent?.trim() !== text) continue;
+      // By prefix: a search splits a title into marked and unmarked runs.
+      if (!n.textContent?.trim().startsWith(text)) continue;
       const r = document.createRange();
       r.selectNodeContents(n);
       return r.getBoundingClientRect().left - e.getBoundingClientRect().left;
@@ -709,5 +710,128 @@ test.describe('date clip', () => {
       rowOf(page, '[data-pane=sessions]', 'Work').locator('[data-row-actions]')
     ).toHaveCount(0);
     expect(await at()).toEqual(rest);
+  });
+});
+
+// The final review's findings (KAN-721), each seen red before its fix.
+test.describe('review', () => {
+  test('after a search is cleared, the selected row still stops its text before the strip', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(
+      context,
+      'Chalk',
+      new Date(2026, 8, 29, 10, 10).getTime(),
+      {
+        language: 'ru',
+      }
+    );
+    const page = await openPopupIn(context, extensionId);
+    const search = page.locator('[data-saved-search] input');
+    await search.fill('Po');
+    await search.fill('');
+    const porto = rowOf(page, '[data-pane=sessions]', 'Porto weekend');
+    const strip = porto.locator('[data-row-actions]');
+    await expect(strip).toBeVisible();
+    await expect
+      .poll(async () => {
+        const left = (await strip.boundingBox())!.x;
+        const rights = await porto
+          .locator('> button > *')
+          .evaluateAll((els) =>
+            els.map((e) => e.getBoundingClientRect().right)
+          );
+        return rights.every((r) => r <= left + 0.5);
+      })
+      .toBe(true);
+  });
+
+  test('while searching, tab and group rows keep their text where it was', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedCorners(context);
+    await liveWindows(serviceWorker);
+    const page = await openPopup(context, extensionId);
+    const tabRow = rowOf(page, '[data-pane=detail]', 'Livraria Lello');
+    const groupRow = page
+      .locator('[data-pane=detail] [data-group-drag-handle]')
+      .first();
+    const saved = async () => [
+      await textX(tabRow, 'Livraria'),
+      await textX(groupRow, 'Sights'),
+    ];
+    const before = await saved();
+    await page.locator('[data-saved-search] input').fill('Lello');
+    await expect(
+      page.locator('[data-pane=detail] [data-drag-handle]')
+    ).toHaveCount(0);
+    expect(await saved()).toEqual(before);
+
+    // Both searches at once turn Open now's tab drag off: its rows lose their handles.
+    const full = await openFullView(context, extensionId);
+    const liveRow = rowOf(full, '[data-pane=open-now]', 'Tram 28');
+    const liveBefore = await textX(liveRow, 'Tram');
+    await full.locator('[data-open-now-search] input').fill('Tram');
+    await full.locator('[data-saved-search] input').fill('Porto');
+    // PREMISE: the tab row lost its drag handle, so nothing in it follows one.
+    await expect(liveRow.locator('> [data-drag-handle]')).toHaveCount(0);
+    expect(await textX(liveRow, 'Tram')).toBe(liveBefore);
+  });
+
+  test("a rename field's keyboard ring follows its rounded corners", async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    const opener = page.getByRole('button', {
+      name: 'Rename window: w1',
+      exact: true,
+    });
+    await opener.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Enter');
+    const field = page.locator('input:focus');
+    await expect(field).toHaveCount(1);
+    const ring = await field.evaluate((f) => {
+      for (let e: Element | null = f; e !== null; e = e.parentElement) {
+        const a = getComputedStyle(e, '::after');
+        if (a.content !== 'none' && a.borderTopStyle === 'solid')
+          return a.borderRadius;
+      }
+      return null;
+    });
+    expect(ring).toBe('8px');
+  });
+
+  test("Charcoal: the selected row's strip meets the fill's top-right curve with no sliver", async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context, 'Charcoal');
+    const page = await openPopup(context, extensionId);
+    await page.mouse.move(2, 545);
+    const porto = rowOf(page, '[data-pane=sessions]', 'Porto weekend');
+    const b = (await porto.boundingBox())!;
+    // The fill's top-right corner, 4px in: drawn with the strip, then without.
+    const clip = { x: b.x + b.width - 4 - 12, y: b.y, width: 12, height: 12 };
+    // The icons hidden in both shots: only the mask's corner is compared.
+    const icons = await page.addStyleTag({
+      content: '[data-row-actions] > * { visibility: hidden !important; }',
+    });
+    const shown = await page.screenshot({ clip });
+    const hide = await page.addStyleTag({
+      content: '[data-row-actions] { visibility: hidden !important; }',
+    });
+    const bare = await page.screenshot({ clip });
+    await hide.evaluate((el) => el.parentNode?.removeChild(el));
+    await icons.evaluate((el) => el.parentNode?.removeChild(el));
+    // Up to 8 levels is the two curves' antialiasing stacking (measured: 1
+    // pixel at 4, none at 8, with either corner build); a sliver is far more.
+    expect((await differingPixels(page, shown, bare, 8)).length).toBe(0);
   });
 });

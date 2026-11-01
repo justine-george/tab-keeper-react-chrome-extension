@@ -737,11 +737,6 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     /* KAN-721. The fill 4px in at 8, and the row's ring inside it. */
     ${rowHighlightCss()}
     ${focusRingRowCss(COLORS, '&:has(> button:focus-visible)')}
-    /* KAN-721. The title back where it was; its end stays with the strip's,
-       so marks that meet × (the speaker, the pin) keep meeting it. */
-    & > [data-drag-handle] + * {
-      ${ROW_PULL_START}
-    }
     /* No transition on the fill, for the same reason as parentStyle above
        (KAN-100). */
     &:hover {
@@ -762,6 +757,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     ${whileKeyNav('&:focus-visible')} {
       outline: none;
     }
+    /* KAN-721. Back where it was before the row's gutter, handle or not (a
+       search drops the handle); its end stays with the strip's, so marks that
+       meet × (the speaker, the pin) keep meeting it. */
+    ${ROW_PULL_START}
     min-width: 0;
   `;
 
@@ -1793,6 +1792,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                         /* KAN-721. The fill 4px in at 8; the title and its tag back where they were. */
                         ${rowHighlightCss()}
                         & > [data-drag-handle] + * {
+                          ${ROW_PULL_START}
+                        }
+                        /* No handle while searching: the first child is the content. */
+                        & > :not([data-drag-handle]):first-child {
                           ${ROW_PULL_START}
                         }
                         & > :has(> [data-row-tag]),

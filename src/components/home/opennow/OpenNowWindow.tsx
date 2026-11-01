@@ -515,11 +515,6 @@ export default function OpenNowWindow({
     /* KAN-721. The fill 4px in at 8, and the row's ring inside it. */
     ${rowHighlightCss()}
     ${focusRingRowCss(COLORS, '&:has(> button:focus-visible)')}
-    /* KAN-721. The title back where it was; its end stays with the strip's,
-       so marks that meet × (the speaker, the pin) keep meeting it. */
-    & > [data-drag-handle] + * {
-      ${ROW_PULL_START}
-    }
     /* KAN-815. Not under a carry: the landing slot says where it goes. */
     html:not([data-carrying]) &:hover {
       background-color: ${COLORS.HOVER_COLOR};
@@ -539,6 +534,10 @@ export default function OpenNowWindow({
     ${whileKeyNav('&:focus-visible')} {
       outline: none;
     }
+    /* KAN-721. Back where it was before the row's gutter, handle or not (a
+       search drops the handle); its end stays with the strip's, so marks that
+       meet × (the speaker, the pin) keep meeting it. */
+    ${ROW_PULL_START}
     min-width: 0;
   `;
 
@@ -1200,6 +1199,10 @@ export default function OpenNowWindow({
                           /* KAN-721. The fill 4px in at 8; the title and its tag back where they were. */
                           ${rowHighlightCss()}
                           & > [data-drag-handle] + * {
+                            ${ROW_PULL_START}
+                          }
+                          /* No handle while searching: the first child is the content. */
+                          & > :not([data-drag-handle]):first-child {
                             ${ROW_PULL_START}
                           }
                           & > :has(> [data-row-tag]),

@@ -185,10 +185,13 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   // KAN-721 (the date clip). While the strip is drawn, the text column ends
   // where it begins, so no line runs under it. The strip is sized by its
   // words, so it is measured, per locale and per font size.
+  // Keyed on whether it is DRAWN: a search hides it and a cleared one draws a
+  // new element, which the observer has to follow (final review, finding 1).
+  const drawsStrip = !isSearching && shown;
   const [stripWidth, setStripWidth] = useState(0);
   useLayoutEffect(() => {
     const el = strip.current;
-    if (!shown || el === null) {
+    if (!drawsStrip || el === null) {
       setStripWidth(0);
       return;
     }
@@ -199,7 +202,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [shown, strip]);
+  }, [drawsStrip, strip]);
   const textEnd = Math.max(stripWidth, 8 - ROW_GUTTER_PX);
 
   // A plain string, not css``, because it is handed to ClickableRow's `style`
@@ -468,10 +471,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
        below only changes how the fill arrives. After the hover and press
        rules, so it wins over both.
 
-       The outline is on the outline property, which nothing else writes: the
+       The outline is the row's ::before, which nothing else draws: the
        fill is the box-shadow (hover's and press's channel, which the target
        takes over here in full), the selection is background-color.
-       Inset by a negative offset, so the next row cannot paint over it.
+       Inside the fill's padding box (KAN-721), so the next row cannot paint over it.
 
        The actions are hidden while the row is a target: there is nothing to
        click mid-carry, and the mask behind them is painted for hover or
@@ -607,7 +610,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           )}
         </div>
       </ClickableRow>
-      {!isSearching && shown && (
+      {drawsStrip && (
         <div data-row-actions ref={strip} css={rightStyle}>
           <Icon
             tooltipText={afterTheTour?.open ?? t('Open session')}

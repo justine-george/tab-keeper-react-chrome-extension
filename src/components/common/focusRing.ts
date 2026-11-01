@@ -1,6 +1,6 @@
 import type { ThemeColors } from '../../hooks/useThemeColors';
 import { ROW_RADIUS } from '../../styles/rowHighlight';
-import { CORNER_SHAPE } from '../../styles/scale';
+import { CORNER_SHAPE, RADIUS } from '../../styles/scale';
 import { KEY_NAV_ATTRIBUTE } from '../../utils/functions/keyNav';
 
 // KAN-689. `on`, a nested selector, only while the user navigates by keyboard
@@ -92,6 +92,9 @@ export const focusRingOverTickCss = (
     position: absolute;
     inset: ${inset};
     border: 2px solid ${COLORS.LABEL_L2_COLOR};
+    /* The field's corners (KAN-721). */
+    border-radius: ${RADIUS.CONTROL};
+    corner-shape: ${CORNER_SHAPE};
     pointer-events: none;
     z-index: 2;
   }
