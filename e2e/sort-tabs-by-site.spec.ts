@@ -124,19 +124,23 @@ for (const view of VIEWS) {
       expect(await screenOrder(page)).toEqual(BEFORE_IDS);
 
       await openMenu(page);
-      // KAN-783. Copy all links leads every window and group menu.
+      // KAN-892. The other way to open leads a saved window's menu.
       await expect(page.getByRole('menuitem').nth(0)).toHaveAccessibleName(
+        'Open in this window'
+      );
+      // KAN-783. Then Copy all links, as in every window and group menu.
+      await expect(page.getByRole('menuitem').nth(1)).toHaveAccessibleName(
         'Copy all links'
       );
       // KAN-805. Then Rename.
-      await expect(page.getByRole('menuitem').nth(1)).toHaveAccessibleName(
+      await expect(page.getByRole('menuitem').nth(2)).toHaveAccessibleName(
         'Rename window'
       );
       // KAN-866. Then Replace: the page's window holds a tab to take.
-      await expect(page.getByRole('menuitem').nth(2)).toHaveAccessibleName(
+      await expect(page.getByRole('menuitem').nth(3)).toHaveAccessibleName(
         'Replace with current window'
       );
-      await expect(page.getByRole('menuitem').nth(3)).toHaveAccessibleName(
+      await expect(page.getByRole('menuitem').nth(4)).toHaveAccessibleName(
         'Sort tabs by site'
       );
       await sortItem(page).click();

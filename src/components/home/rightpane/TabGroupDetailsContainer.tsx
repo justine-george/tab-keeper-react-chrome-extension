@@ -294,9 +294,10 @@ export default function TabGroupDetailsContainer() {
     title,
     tabs,
     chromeTabGroups,
+    incognito,
   }: Pick<
     windowGroupData,
-    'windowId' | 'title' | 'tabs' | 'chromeTabGroups'
+    'windowId' | 'title' | 'tabs' | 'chromeTabGroups' | 'incognito'
   >) => (
     <WindowEntryContainer
       title={title}
@@ -306,6 +307,7 @@ export default function TabGroupDetailsContainer() {
       chromeTabGroups={chromeTabGroups}
       tabGroupId={tabGroupId}
       windowId={windowId}
+      incognito={incognito}
       onUpdateWindowGroupTitle={(newTitle) =>
         handleUpdateWindowGroupTitle(tabGroupId, windowId, newTitle)
       }
@@ -313,9 +315,11 @@ export default function TabGroupDetailsContainer() {
         handleAddCurrTabToWindowClick(tabGroupId, windowId)
       }
       onDeleteClick={() => dispatch(deleteWindow({ tabGroupId, windowId }))}
-      onOpenWindow={() => {
+      onOpenWindow={(where) => {
         const goToURLText: string = t('Go to URL');
-        dispatch(openTabsInAWindow({ tabGroupId, windowId, goToURLText }));
+        dispatch(
+          openTabsInAWindow({ tabGroupId, windowId, goToURLText, where })
+        );
       }}
     />
   );

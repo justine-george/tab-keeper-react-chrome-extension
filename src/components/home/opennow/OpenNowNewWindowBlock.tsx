@@ -2,11 +2,13 @@
 // while a saved carry can open here: a release in it opens a new window. To the drag engine it is a window of both lists (data-drop-window-id,
 // a trailing block: isTrailingBlock), and a carried tab's or group's phantom
 // rests in it, so the list adopts it there and nothing above moves. A window
-// carry rests nowhere: the block is only the box that lights, pinned to the
-// bottom of the visible list, since it lands anywhere (KAN-855). Mirrors the
-// saved pane's trailing block (WindowEntryContainer, NEW_LAST_WINDOW), drawn
-// only while lit (demo D4, his pick): unlit it is a blank row, so rows a gap
-// above pushes down never land on its label.
+// carry rests nowhere: the block is only a box, pinned to the bottom of the
+// visible list for the whole carry and drawn as a drop box lit or not, so it
+// stays in reach over the windows it could join instead (KAN-855, KAN-892
+// R16). Mirrors the saved pane's trailing block (WindowEntryContainer,
+// NEW_LAST_WINDOW); for a tab or group drawn only while lit (demo D4, his
+// pick): unlit it is a blank row, so rows a gap above pushes down never land
+// on its label.
 import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
@@ -57,11 +59,17 @@ export default function OpenNowNewWindowBlock({ phantom }: Props) {
         `,
         phantom === null &&
           css`
-            &[data-landing] {
-              position: sticky;
-              bottom: 0;
-              z-index: 1;
-              box-shadow: 0 -8px 16px -8px rgba(0, 0, 0, 0.25);
+            position: sticky;
+            bottom: 0;
+            z-index: 1;
+            box-shadow: 0 -8px 16px -8px rgba(0, 0, 0, 0.25);
+            /* Over the rows it pins on: opaque, and dashed and named while unlit. */
+            background-color: ${COLORS.PRIMARY_COLOR};
+            &:not([data-landing]) {
+              border-color: ${COLORS.LABEL_L2_COLOR};
+              & > [data-drop-label-unlit-hidden] {
+                display: flex;
+              }
             }
           `,
       ]}

@@ -111,10 +111,10 @@ for (const view of VIEWS) {
         menu
           .locator('[data-menu-item]')
           .evaluateAll((els) =>
-            els.slice(0, 2).map((el) => el.getAttribute('data-menu-item'))
+            els.slice(0, 3).map((el) => el.getAttribute('data-menu-item'))
           )
       )
-      .toEqual(['copy', 'rename']);
+      .toEqual(['openOtherWay', 'copy', 'rename']);
     await menu.getByRole('menuitem', { name: 'Rename window' }).click();
 
     await expect(menu).toHaveCount(0);
@@ -207,8 +207,9 @@ test('popup: Shift+F10 on a saved window focuses Open first; ↓ moves into the 
   await page.keyboard.press('ArrowRight');
   await expect(rowButton(page, 'Add tab')).toBeFocused();
   await page.keyboard.press('ArrowDown');
+  // KAN-892. The other way to open leads the list.
   await expect(
-    rowMenu(page).getByRole('menuitem', { name: 'Copy all links' })
+    rowMenu(page).getByRole('menuitem', { name: 'Open in this window' })
   ).toBeFocused();
 });
 

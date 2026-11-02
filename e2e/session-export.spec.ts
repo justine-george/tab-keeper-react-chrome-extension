@@ -1493,8 +1493,8 @@ test('the session menu paints above the tab rows it opens over', async ({
   await sessionHeaderMenu(popup).click();
 
   const items = popup.getByRole('menuitem');
-  // Copy, Rename, Export, Delete: an empty or half-open menu cannot pass vacuously.
-  await expect(items).toHaveCount(4);
+  // Open in this window (KAN-892), Copy, Rename, Export, Delete: an empty or half-open menu cannot pass vacuously.
+  await expect(items).toHaveCount(5);
 
   const hits = await items.evaluateAll((elements) =>
     elements.map((item) => {
@@ -1549,77 +1549,119 @@ const ALL_LANGS = [
   'zh',
   'zh-TW',
 ] as const;
+// KAN-892 (R10). Both ways Open saved windows can go: the menu's first item
+// is the other way. This window's other way names one new window or several,
+// so it runs for a one-window session and a two-window one.
+const OPEN_WAYS = [
+  ['new-window', 1],
+  ['this-window', 1],
+  ['this-window', 2],
+] as const;
+// Its second window shares no address with the first: no Remove duplicates item.
+const KYOTO_TWO_WINDOWS = {
+  ...KYOTO,
+  windowCount: 2,
+  windows: [
+    ...KYOTO.windows,
+    {
+      ...KYOTO.windows[0],
+      windowId: 'w-2',
+      tabCount: 1,
+      title: 'Food',
+      tabs: [
+        {
+          tabId: 't-5',
+          favicon: '',
+          title: 'Nishiki Market',
+          url: 'https://www.kyoto-nishiki.or.jp/',
+        },
+      ],
+      chromeTabGroups: [],
+    },
+  ],
+};
 for (const lang of ALL_LANGS) {
-  test(`the session menu stays in its pane with each label on one line (${lang})`, async ({
-    context,
-    extensionId,
-  }) => {
-    await seedSettings(context, {
-      language: lang,
-      isNeverAskAgainForTabGroups: true,
-      isNeverAskAgainToRate: true,
-    });
-    await seedSessions(context, {
-      ...buildContainer([KYOTO]),
-      selectedTabGroupId: 'session-kyoto',
-    });
-    const popup = await context.newPage();
-    await popup.setViewportSize({ width: 790, height: 550 });
-    await popup.goto(`chrome-extension://${extensionId}/index.html`);
+  for (const [way, windows] of OPEN_WAYS) {
+    test(`the session menu stays in its pane with each label on one line (${lang}, Open in ${way}, ${windows} window${windows === 1 ? '' : 's'})`, async ({
+      context,
+      extensionId,
+    }) => {
+      await seedSettings(context, {
+        language: lang,
+        isNeverAskAgainForTabGroups: true,
+        isNeverAskAgainToRate: true,
+        openSavedWindowsIn: way,
+      });
+      await seedSessions(context, {
+        ...buildContainer([windows === 1 ? KYOTO : KYOTO_TWO_WINDOWS]),
+        selectedTabGroupId: 'session-kyoto',
+      });
+      const popup = await context.newPage();
+      await popup.setViewportSize({ width: 790, height: 550 });
+      await popup.goto(`chrome-extension://${extensionId}/index.html`);
 
-    const trigger = sessionHeaderMenu(
-      popup,
-      localeStrings(lang)['More actions']
-    );
-    await expect(trigger).toBeVisible();
-    await trigger.click();
-    await expect(popup.getByRole('menu')).toBeVisible();
-
-    const shape = await trigger.evaluate((triggerEl) => {
-      // The pane has no marker: climb past the header's buttons to pane width.
-      let pane: Element | null = triggerEl;
-      while (
-        pane &&
-        !pane.querySelector('button[aria-label]:not([aria-haspopup])')
-      ) {
-        pane = pane.parentElement;
-      }
-      while (
-        pane &&
-        pane.parentElement &&
-        pane.getBoundingClientRect().width < 380
-      ) {
-        pane = pane.parentElement;
-      }
-      const paneBox = pane!.getBoundingClientRect();
-      const menuBox = document
-        .querySelector('[role="menu"]')!
-        .getBoundingClientRect();
-      const heights = [...document.querySelectorAll('[role="menuitem"]')].map(
-        (item) => Math.round(item.getBoundingClientRect().height)
+      const strings = localeStrings(lang);
+      const trigger = sessionHeaderMenu(popup, strings['More actions']);
+      await expect(trigger).toBeVisible();
+      await trigger.click();
+      await expect(popup.getByRole('menu')).toBeVisible();
+      // PREMISE: the other way's label in the menu, in this count's form.
+      await expect(
+        popup.locator('[role="menu"] [data-menu-item="openOtherWay"]')
+      ).toContainText(
+        way === 'new-window'
+          ? strings['Open session in this window']
+          : strings[
+              `OpenSessionInNewWindows_${new Intl.PluralRules(lang).select(windows)}`
+            ]
       );
-      return {
-        paneLeft: Math.round(paneBox.left),
-        paneRight: Math.round(paneBox.right),
-        menuLeft: Math.round(menuBox.left),
-        menuRight: Math.round(menuBox.right),
-        heights,
-      };
+
+      const shape = await trigger.evaluate((triggerEl) => {
+        // The pane has no marker: climb past the header's buttons to pane width.
+        let pane: Element | null = triggerEl;
+        while (
+          pane &&
+          !pane.querySelector('button[aria-label]:not([aria-haspopup])')
+        ) {
+          pane = pane.parentElement;
+        }
+        while (
+          pane &&
+          pane.parentElement &&
+          pane.getBoundingClientRect().width < 380
+        ) {
+          pane = pane.parentElement;
+        }
+        const paneBox = pane!.getBoundingClientRect();
+        const menuBox = document
+          .querySelector('[role="menu"]')!
+          .getBoundingClientRect();
+        const heights = [...document.querySelectorAll('[role="menuitem"]')].map(
+          (item) => Math.round(item.getBoundingClientRect().height)
+        );
+        return {
+          paneLeft: Math.round(paneBox.left),
+          paneRight: Math.round(paneBox.right),
+          menuLeft: Math.round(menuBox.left),
+          menuRight: Math.round(menuBox.right),
+          heights,
+        };
+      });
+
+      // CONTROL: a pane, not the whole popup, so "inside" can fail.
+      expect(shape.paneRight - shape.paneLeft).toBeLessThan(600);
+
+      expect(
+        shape.menuLeft,
+        `the menu starts at ${shape.menuLeft}px, left of its pane at ${shape.paneLeft}px`
+      ).toBeGreaterThanOrEqual(shape.paneLeft);
+      expect(shape.menuRight).toBeLessThanOrEqual(shape.paneRight);
+      expect(
+        new Set(shape.heights).size,
+        `item heights ${shape.heights.join('/')}px: a label wrapped`
+      ).toBe(1);
     });
-
-    // CONTROL: a pane, not the whole popup, so "inside" can fail.
-    expect(shape.paneRight - shape.paneLeft).toBeLessThan(600);
-
-    expect(
-      shape.menuLeft,
-      `the menu starts at ${shape.menuLeft}px, left of its pane at ${shape.paneLeft}px`
-    ).toBeGreaterThanOrEqual(shape.paneLeft);
-    expect(shape.menuRight).toBeLessThanOrEqual(shape.paneRight);
-    expect(
-      new Set(shape.heights).size,
-      `item heights ${shape.heights.join('/')}px: a label wrapped`
-    ).toBe(1);
-  });
+  }
 
   // KAN-742. The save row's menu holds the longest new label, "Save open windows as PDF…".
   test(`the save row menu stays in its pane (${lang})`, async ({

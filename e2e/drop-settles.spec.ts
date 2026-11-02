@@ -1197,6 +1197,12 @@ grantedTest.describe('carried into Currently open (KAN-850)', () => {
       await expectFits(openTab(page, live.tab(0)));
       await pickUp(page, windowHandle(page, 'w1'));
       await carryTo(page, await topOf(openTab(page, live.tab(2))));
+      // KAN-892 D: over a window it would join it; the box below makes a new one.
+      const newWindowBox = page.locator(
+        '[data-new-window-target="open-now-last"]'
+      );
+      await carryTo(page, await topOf(newWindowBox));
+      await expect(newWindowBox).toHaveAttribute('data-landing', '');
       await page.waitForTimeout(350);
       const windowIds = () =>
         worker.evaluate(async () =>
@@ -1229,6 +1235,43 @@ grantedTest.describe('carried into Currently open (KAN-850)', () => {
       for (const key of Object.keys(frames[0] ?? {}))
         expect(Math.abs(travel(frames, key)), key).toBeLessThan(1);
       expect(strays(frames)).toEqual([]);
+    }
+  );
+
+  // KAN-892 D (Ruling R12). The worker adds the saved window's tabs at the
+  // window's end, so the rows already listed hold still while the new ones
+  // are drawn below them: the end does it, not whileMovingTabs.
+  grantedTest(
+    'a saved window let go on an open window: the rows already there stay put while its tabs arrive',
+    async ({ context, extensionId, serviceWorker: worker }) => {
+      const page = await openSessionsTabView(context, extensionId, false);
+      const live = await openWindow(worker, ['A', 'B', 'C', 'D']);
+      await expect(openTab(page, live.tab(3))).toBeVisible();
+      await expectFits(openTab(page, live.tab(0)));
+      await pickUp(page, windowHandle(page, 'w1'));
+      await carryTo(page, await topOf(openTab(page, live.tab(2))));
+      const block = page.locator(
+        `[data-pane="open-now"] [data-open-window-id="${live.windowId}"]`
+      );
+      await expect(block).toHaveAttribute('data-landing', '');
+      await page.waitForTimeout(350);
+      const rowsBefore = (await chromeOrder(worker, live.windowId))
+        .map((id) => `[data-open-tab-id="${id}"]`)
+        .join(', ');
+      await recordFrames(page, rowsBefore, 'data-open-tab-id', 'pointerup');
+      await page.mouse.up();
+
+      // PREMISE: every new tab is drawn (a0 a1 a2, then Alpha's header over al0 al1).
+      await expect(block.locator('[data-open-tab-id]')).toHaveCount(9);
+      await expect(block.locator('[data-band-id]')).toHaveCount(1);
+      const frames = await framesRecorded(page);
+      expectSettled(frames);
+      // PREMISE: the frames hold A B C D.
+      expect(Object.keys(frames[0] ?? {})).toHaveLength(4);
+      for (const key of Object.keys(frames[0] ?? {}))
+        expect(Math.abs(travel(frames, key)), key).toBeLessThan(1);
+      expect(strays(frames)).toEqual([]);
+      expect(jumps(frames)).toEqual([]);
     }
   );
 

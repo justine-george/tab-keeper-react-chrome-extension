@@ -21,8 +21,20 @@ import {
   restoreContainer,
   type TabMasterContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import { setPinTabKeeperInNewWindows } from '../../redux/slices/settingsDataStateSlice';
-import type { RestoreSessionRequest } from '../../utils/functions/windows';
+import {
+  setOpenSavedWindowsIn,
+  setPinTabKeeperInNewWindows,
+  type OpenSavedWindowsIn,
+} from '../../redux/slices/settingsDataStateSlice';
+import {
+  RESTORE_SESSION_MESSAGE,
+  type RestoreSessionRequest,
+} from '../../utils/functions/windows';
+import {
+  isOpenIntoWindowRequest,
+  OPEN_INTO_WINDOW_MESSAGE,
+  type OpenIntoWindowRequest,
+} from '../../utils/functions/openIntoWindow';
 import { setupChromeFake } from '../setup/chrome.fake';
 import { makeTestStore } from '../setup/makeStore';
 
@@ -187,40 +199,50 @@ describe('every restore call site posts one RestoreSessionRequest to the worker'
     ]);
   });
 
-  it.each([
+  type Store = ReturnType<typeof makeTestStore>['store'];
+  it.each<[string, (store: Store) => Promise<unknown>]>([
     [
       'openTabsInAWindow',
-      openTabsInAWindow({
-        tabGroupId: 'group-1',
-        windowId: 'w-b',
-        goToURLText: GO_TO_URL_TEXT,
-      }),
+      (store) =>
+        store.dispatch(
+          openTabsInAWindow({
+            tabGroupId: 'group-1',
+            windowId: 'w-b',
+            goToURLText: GO_TO_URL_TEXT,
+          })
+        ),
     ],
     [
       'openAllTabContainer',
-      openAllTabContainer({
-        tabGroupId: 'group-1',
-        goToURLText: GO_TO_URL_TEXT,
-      }),
+      (store) =>
+        store.dispatch(
+          openAllTabContainer({
+            tabGroupId: 'group-1',
+            goToURLText: GO_TO_URL_TEXT,
+          })
+        ),
     ],
     [
       'focusTabContainer',
-      focusTabContainer({
-        tabGroupId: 'group-1',
-        goToURLText: GO_TO_URL_TEXT,
-        saveTitle: 'Auto-saved before switching',
-      }),
+      (store) =>
+        store.dispatch(
+          focusTabContainer({
+            tabGroupId: 'group-1',
+            goToURLText: GO_TO_URL_TEXT,
+            saveTitle: 'Auto-saved before switching',
+          })
+        ),
     ],
   ])(
     '%s carries Pin Tab Keeper in new windows as the page has it',
-    async (_name, thunk) => {
+    async (_name, run) => {
       handle = setupChromeFake({
         windows: [{ id: 1, tabs: [{ id: 1, url: 'https://open.example/' }] }],
       });
       const { store } = makeTestStore();
       store.dispatch(restoreContainer(SESSION));
       store.dispatch(setPinTabKeeperInNewWindows(true));
-      await store.dispatch(thunk);
+      await run(store);
       expect(firstSentRequest(handle).pinTabKeeper).toBe(true);
     }
   );
@@ -357,5 +379,212 @@ describe('every restore call site posts one RestoreSessionRequest to the worker'
     const request = firstSentRequest(handle);
     expect('incognito' in request.specs[0]).toBe(false);
     expect(request.specs[1].incognito).toBe(true);
+  });
+});
+
+// KAN-892. With This window chosen, Open adds to the window the page is in; the menus' other way overrides the setting.
+describe('Open saved windows: This window', () => {
+  let handle: ReturnType<typeof setupChromeFake> | undefined;
+
+  beforeEach(() => {
+    handle?.restore();
+    handle = undefined;
+  });
+
+  // windows.getCurrent answers the first seeded window: the one the page is in.
+  const inWindow7 = () =>
+    setupChromeFake({
+      windows: [{ id: 7, tabs: [{ id: 70, url: 'https://here.example/' }] }],
+    });
+  const storeWith = (where: OpenSavedWindowsIn) => {
+    const { store } = makeTestStore();
+    store.dispatch(restoreContainer(SESSION));
+    store.dispatch(setOpenSavedWindowsIn(where));
+    return store;
+  };
+  // The one message sent, narrowed by the worker's own guard.
+  const onlyIntoWindowRequest = (
+    h: ReturnType<typeof setupChromeFake>
+  ): OpenIntoWindowRequest => {
+    expect(h.sentMessages).toHaveLength(1);
+    const [sent] = h.sentMessages;
+    if (!isOpenIntoWindowRequest(sent))
+      throw new Error(`not open-into-window: ${JSON.stringify(sent)}`);
+    return sent;
+  };
+
+  it('Open session sends one open-into-window message for the current window, with every window, pinTabKeeper as set', async () => {
+    handle = inWindow7();
+    const store = storeWith('this-window');
+    store.dispatch(setPinTabKeeperInNewWindows(true));
+    await store.dispatch(
+      openAllTabContainer({
+        tabGroupId: 'group-1',
+        goToURLText: GO_TO_URL_TEXT,
+      })
+    );
+
+    const request = onlyIntoWindowRequest(handle);
+    expect(request).toEqual({
+      type: OPEN_INTO_WINDOW_MESSAGE,
+      windowId: 7,
+      activate: true,
+      goToURLText: GO_TO_URL_TEXT,
+      pinTabKeeper: true,
+      specs: [
+        expect.objectContaining({ focused: true }),
+        expect.objectContaining({ focused: false }),
+      ],
+    });
+    expect(request.specs.map((s) => s.tabs[0].url)).toEqual([
+      'https://a.example/',
+      'https://b.example/',
+    ]);
+  });
+
+  it('Open on a saved window sends that window only, into the current window', async () => {
+    handle = inWindow7();
+    const store = storeWith('this-window');
+    await store.dispatch(
+      openTabsInAWindow({
+        tabGroupId: 'group-1',
+        windowId: 'w-b',
+        goToURLText: GO_TO_URL_TEXT,
+      })
+    );
+
+    const request = onlyIntoWindowRequest(handle);
+    expect(request.type).toBe(OPEN_INTO_WINDOW_MESSAGE);
+    expect(request.windowId).toBe(7);
+    expect(request.activate).toBe(true);
+    expect(request.pinTabKeeper).toBe(false);
+    expect(request.specs.map((s) => s.tabs.map((t) => t.url))).toEqual([
+      ['https://b.example/'],
+    ]);
+  });
+
+  it.each(['openTabsInAWindow', 'openAllTabContainer'])(
+    "%s with where: 'new-window' overrides This window (the menu's other way)",
+    async (name) => {
+      handle = inWindow7();
+      const store = storeWith('this-window');
+      const params = {
+        tabGroupId: 'group-1',
+        goToURLText: GO_TO_URL_TEXT,
+        where: 'new-window' as const,
+      };
+      await store.dispatch(
+        name === 'openTabsInAWindow'
+          ? openTabsInAWindow({ ...params, windowId: 'w-b' })
+          : openAllTabContainer(params)
+      );
+
+      expect(firstSentRequest(handle).type).toBe(RESTORE_SESSION_MESSAGE);
+    }
+  );
+
+  it.each([
+    ['openTabsInAWindow', 1],
+    ['openAllTabContainer', 2],
+  ])(
+    "%s with where: 'this-window' overrides New window",
+    async (name, specCount) => {
+      handle = inWindow7();
+      const store = storeWith('new-window');
+      const params = {
+        tabGroupId: 'group-1',
+        goToURLText: GO_TO_URL_TEXT,
+        where: 'this-window' as const,
+      };
+      await store.dispatch(
+        name === 'openTabsInAWindow'
+          ? openTabsInAWindow({ ...params, windowId: 'w-b' })
+          : openAllTabContainer(params)
+      );
+
+      const request = onlyIntoWindowRequest(handle);
+      expect(request.type).toBe(OPEN_INTO_WINDOW_MESSAGE);
+      expect(request.windowId).toBe(7);
+      expect(request.specs).toHaveLength(specCount);
+    }
+  );
+
+  it("New window chosen and no where: today's restore, and the current window is never asked", async () => {
+    handle = inWindow7();
+    const asked = vi.spyOn(chrome.windows, 'getCurrent');
+    const store = storeWith('new-window');
+    await store.dispatch(
+      openAllTabContainer({
+        tabGroupId: 'group-1',
+        goToURLText: GO_TO_URL_TEXT,
+      })
+    );
+
+    expect(firstSentRequest(handle).type).toBe(RESTORE_SESSION_MESSAGE);
+    expect(asked).not.toHaveBeenCalled();
+  });
+
+  it('falls back to restore-session when getCurrent answers nothing', async () => {
+    // No window seeded: getCurrent answers undefined.
+    handle = setupChromeFake();
+    const store = storeWith('this-window');
+    await store.dispatch(
+      openAllTabContainer({
+        tabGroupId: 'group-1',
+        goToURLText: GO_TO_URL_TEXT,
+      })
+    );
+
+    const request = firstSentRequest(handle);
+    expect(request.type).toBe(RESTORE_SESSION_MESSAGE);
+    expect(request.closeOtherWindows).toBe(false);
+    expect(request.specs).toHaveLength(2);
+  });
+
+  it('falls back to restore-session when getCurrent throws', async () => {
+    handle = inWindow7();
+    vi.spyOn(chrome.windows, 'getCurrent').mockRejectedValue(
+      new Error('No current window')
+    );
+    const store = storeWith('this-window');
+    await store.dispatch(
+      openTabsInAWindow({
+        tabGroupId: 'group-1',
+        windowId: 'w-a',
+        goToURLText: GO_TO_URL_TEXT,
+      })
+    );
+
+    expect(firstSentRequest(handle).type).toBe(RESTORE_SESSION_MESSAGE);
+  });
+
+  it('a session that is not there sends nothing and asks nothing', async () => {
+    handle = inWindow7();
+    const asked = vi.spyOn(chrome.windows, 'getCurrent');
+    const store = storeWith('this-window');
+    await store.dispatch(
+      openAllTabContainer({
+        tabGroupId: 'missing',
+        goToURLText: GO_TO_URL_TEXT,
+      })
+    );
+
+    expect(handle.sentMessages).toEqual([]);
+    expect(asked).not.toHaveBeenCalled();
+  });
+
+  it('notes the review moment as Open into a new window does', async () => {
+    handle = inWindow7();
+    const store = storeWith('this-window');
+    await store.dispatch(
+      openAllTabContainer({
+        tabGroupId: 'group-1',
+        goToURLText: GO_TO_URL_TEXT,
+      })
+    );
+
+    expect(
+      store.getState().settingsDataState.pendingReviewAsk?.moment.kind
+    ).toBe('restored');
   });
 });

@@ -155,7 +155,12 @@ describe('a saved window and its groups', () => {
       'Add current tab',
       'Rename window',
     ]);
-    expect(listKeys(rowMenu())).toEqual(['copy', 'sortBySite', 'delete']);
+    expect(listKeys(rowMenu())).toEqual([
+      'openOtherWay',
+      'copy',
+      'sortBySite',
+      'delete',
+    ]);
   });
 
   // KAN-804. Adding what is open draws what Add current window draws.
@@ -205,6 +210,7 @@ describe('a saved window and its groups', () => {
         .getAllByRole('menuitem')
         .map((i) => i.getAttribute('data-menu-item'))
     ).toEqual([
+      'openOtherWay',
       'copy',
       'rename',
       'replaceWithCurrentWindow',
@@ -305,6 +311,7 @@ describe('a saved window and its groups', () => {
     const menu = screen.getByRole('menu');
 
     expect(listKeys(menu)).toEqual([
+      'openOtherWay',
       'copy',
       'rename',
       'replaceWithCurrentWindow',

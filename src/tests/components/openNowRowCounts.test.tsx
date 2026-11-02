@@ -82,6 +82,18 @@ describe('Open now row counts (KAN-720)', () => {
     expect(windowRowTags(1)).toEqual(['3 Tabs', 'This window']);
   });
 
+  // KAN-896. An incognito window says so: a saved window of the other kind does not drop into it.
+  test('an incognito window tags "Incognito" after its count; a normal one does not', async () => {
+    await renderPane({
+      windows: [
+        { id: 1, focused: true, tabs: [tab('A')] },
+        { id: 2, focused: false, incognito: true, tabs: [tab('B'), tab('C')] },
+      ],
+    });
+    expect(windowRowTags(1)).toEqual(['1 Tab']);
+    expect(windowRowTags(2)).toEqual(['2 Tabs', 'Incognito']);
+  });
+
   test('a group row tags the tabs in its group', async () => {
     await renderPane(groupedWindow());
     expect(tagTexts(groupBand('Research'))).toEqual(['2 Tabs']);

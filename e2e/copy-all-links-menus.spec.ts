@@ -277,7 +277,7 @@ test("Open now's header Copy all links icon pastes what its right-click item pas
   expect(fromIcon).toEqual(fromMenu);
 });
 
-test("a saved window's ⋮ leads with Copy all links and pastes the window under its name", async ({
+test("a saved window's ⋮ has Copy all links right after the other way to open (KAN-892), and it pastes the window under its name", async ({
   context,
   extensionId,
 }) => {
@@ -290,7 +290,7 @@ test("a saved window's ⋮ leads with Copy all links and pastes the window under
     .locator('[aria-label="More actions"][aria-haspopup="menu"]')
     .first()
     .click();
-  expect((await menuKeys(page))[0]).toBe('copy');
+  expect((await menuKeys(page)).slice(0, 2)).toEqual(['openOtherWay', 'copy']);
   const { plain } = await copyAndPaste(page, '4 links copied.');
 
   expect(plain).toBe(

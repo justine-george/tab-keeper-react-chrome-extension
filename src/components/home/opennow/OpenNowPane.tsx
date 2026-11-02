@@ -108,7 +108,13 @@ import {
   useCarried,
   useCarryCrossedIntoOpenNow,
 } from '../../../redux/carry';
-import { isItemStillThere, pickOf } from '../../../redux/carriedItem';
+import {
+  isItemStillThere,
+  pickOf,
+  sourceWindowOf,
+} from '../../../redux/carriedItem';
+import { effectiveIncognito } from '../../../utils/functions/openIntoWindow';
+import { isIncognitoAllowed } from '../../../utils/functions/restoreSession';
 import { readLivePlacement } from '../../../redux/livePlacement';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
@@ -124,6 +130,7 @@ import {
 } from './carriedIntoOpenNow';
 import OpenNowNewWindowBlock from './OpenNowNewWindowBlock';
 import { useOpenNowCarryReceiver } from './useOpenNowCarryReceiver';
+import { useArrival } from './useArrival';
 import { onFirstClickOnly } from '../../common/firstClickOnly';
 
 export type OpenNowHeaderAction = {
@@ -389,11 +396,32 @@ export default function OpenNowPane({
   const drawsWindowBlock =
     drawsCarry && carried !== null && pickOf(carried).kind === 'window';
   const drawsNewWindowBlock = carriedIn !== null || drawsWindowBlock;
+  // KAN-892 D. Read once: a saved window lands only in an open window of the kind it opens as.
+  const [incognitoAllowed, setIncognitoAllowed] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void isIncognitoAllowed().then((allowed) => {
+      if (live) setIncognitoAllowed(allowed);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  const carriedIncognito = useCallback(
+    () =>
+      carried !== null &&
+      effectiveIncognito(
+        sourceWindowOf(savedTabGroups, carried)?.incognito,
+        incognitoAllowed
+      ),
+    [carried, savedTabGroups, incognitoAllowed]
+  );
   useOpenNowCarryReceiver({
     paneRef,
     scrollerRef,
     takes: takesCarry,
     goToURLText: t('Go to URL'),
+    carriedIncognito,
   });
   // While an Open now list drives the adopted carry: the block below lights
   // while the landing is in it, and the + shows wherever a release lands.
@@ -536,6 +564,9 @@ export default function OpenNowPane({
       ?.querySelector(`[data-open-window-id="${shown.id}"]`)
       ?.scrollIntoView({ block: 'nearest' });
   }, [newWindowAsk, windows]);
+
+  // KAN-892 D. A saved window dropped on an open window: its tabs scrolled to, and filled.
+  useArrival(paneRef, scrollerRef, windows);
 
   // A null close means the tab or window was already gone -- a second press
   // before the re-read, say -- so there is nothing to offer (O8a).

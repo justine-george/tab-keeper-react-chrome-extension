@@ -18,7 +18,10 @@ import {
   replaceState,
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
-import { setFoldSavedSessionInTabView } from '../../redux/slices/settingsDataStateSlice';
+import {
+  setFoldSavedSessionInTabView,
+  setOpenSavedWindowsIn,
+} from '../../redux/slices/settingsDataStateSlice';
 import { requestSessionRename } from '../../redux/slices/globalStateSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { ADD_CURR_WINDOW_TO_TABGROUP_ACTION } from '../../utils/constants/actionTypes';
@@ -138,6 +141,7 @@ describe('an unselected row', () => {
       'open',
       'switch',
       'replace',
+      'openOtherWay',
       'add',
       'copy',
       'rename',
@@ -145,6 +149,34 @@ describe('an unselected row', () => {
       'delete',
     ]);
     expect(item('Add current window to this session')).toBeTruthy();
+  });
+
+  // KAN-892. Open says the chosen way; the list leads with the other.
+  test('This window chosen: Open is described as opening in this window, and the list offers a new window first', async () => {
+    await renderWithProviders(<TabGroupEntryContainer />, {
+      seed: twoTabs,
+      seedStore: (store) => {
+        store.dispatch(replaceState(buildContainer([S1, S2])));
+        store.dispatch(selectTabContainer('S1'));
+        store.dispatch(setOpenSavedWindowsIn('this-window'));
+      },
+    });
+    fireEvent.contextMenu(rowOf('Bravo'));
+
+    const row = actionRow();
+    if (row === null) throw new Error('no action row');
+    const open = within(row).getByRole('menuitem', {
+      name: 'Open',
+    });
+    expect(open).toHaveAttribute(
+      'aria-description',
+      'Open session in this window'
+    );
+    expect(open).toHaveAttribute('data-tooltip', 'Open session in this window');
+    expect(keys().slice(3, 5)).toEqual(['openOtherWay', 'add']);
+    expect(
+      item('Open session in a new window').getAttribute('data-menu-item')
+    ).toBe('openOtherWay');
   });
 
   test('full view: no Switch', async () => {
@@ -238,6 +270,7 @@ describe('the selected row', () => {
       'open',
       'switch',
       'replace',
+      'openOtherWay',
       'add',
       'copy',
       'rename',
@@ -311,12 +344,12 @@ describe('keyboard', () => {
     expect(focused()).toBe('Replace');
 
     press('ArrowDown');
-    expect(focused()).toBe('add');
+    expect(focused()).toBe('openOtherWay');
     // ←/→ in the list stay put.
     press('ArrowRight');
-    expect(focused()).toBe('add');
+    expect(focused()).toBe('openOtherWay');
     press('ArrowDown');
-    expect(focused()).toBe('copy');
+    expect(focused()).toBe('add');
     press('ArrowUp');
     press('ArrowUp');
     expect(focused()).toBe('Open');
@@ -365,6 +398,7 @@ describe('the header', () => {
       'open',
       'switch',
       'replace',
+      'openOtherWay',
       'copy',
       'rename',
       'export',
@@ -382,7 +416,7 @@ describe('the header', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((el) => el.getAttribute('data-menu-item'))
-    ).toEqual(['copy', 'rename', 'export', 'delete']);
+    ).toEqual(['openOtherWay', 'copy', 'rename', 'export', 'delete']);
   });
 
   // KAN-805. Rename session, right after Copy all links, opens the title with the cursor in it.

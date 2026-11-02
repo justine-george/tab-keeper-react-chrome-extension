@@ -196,6 +196,22 @@ export function splitPairs(tabs: readonly tabData[]): [number, number][] {
   });
 }
 
+// Besides the target, the tabs a restore opens at their real page: split partners and pages no swap loads (KAN-561).
+export function realPageIndexes(
+  tabs: readonly tabData[],
+  pairs: readonly [number, number][]
+): Set<number> {
+  const loadsPage = new Set(pairs.flat());
+  tabs.forEach((tabInfo, i) => {
+    if (
+      restoreRoute(resolveTabUrl(tabInfo.url), chrome.runtime.id) === 'open'
+    ) {
+      loadsPage.add(i);
+    }
+  });
+  return loadsPage;
+}
+
 // Never throws: a refused split costs the split, never the tabs or the restore.
 async function splitRestoredPair(
   createSplit: CreateSplit,
@@ -205,6 +221,20 @@ async function splitRestoredPair(
     await createSplit(tabIds);
   } catch (error) {
     console.warn('Could not restore a split view:', error);
+  }
+}
+
+// Each pair whose two tabs both opened; `ids` are the created tab ids by saved index.
+export async function splitRestoredPairs(
+  createSplit: CreateSplit,
+  pairs: readonly [number, number][],
+  ids: readonly (number | undefined)[]
+): Promise<void> {
+  for (const [i, j] of pairs) {
+    const [a, b] = [ids[i], ids[j]];
+    if (a !== undefined && b !== undefined) {
+      await splitRestoredPair(createSplit, [a, b]);
+    }
   }
 }
 
@@ -304,14 +334,7 @@ async function fillRestoredWindow(
   // A split shows both tabs, but only the one clicked gets onActivated, so both load their page (measured, Part 4).
   const createSplit = createSplitApi();
   const pairs = createSplit === null ? [] : splitPairs(spec.tabs);
-  const loadsPage = new Set(pairs.flat());
-  spec.tabs.forEach((tabInfo, i) => {
-    if (
-      restoreRoute(resolveTabUrl(tabInfo.url), chrome.runtime.id) === 'open'
-    ) {
-      loadsPage.add(i);
-    }
-  });
+  const loadsPage = realPageIndexes(spec.tabs, pairs);
   // Pinned before any create so later pinned tabs queue behind it; a refused pin (never seen) would also cost order.
   if (spec.tabs[targetIndex].pinned === true && targetId !== undefined) {
     await pinRestoredTab(targetId);
@@ -328,9 +351,7 @@ async function fillRestoredWindow(
         : createRestoredTab(
             windowId,
             tabInfo,
-            loadsPage.has(i)
-              ? resolveTabUrl(tabInfo.url)
-              : placeholderUrl(tabInfo, icons[i], goToURLText),
+            restoredTabUrl(tabInfo, loadsPage.has(i), icons[i], goToURLText),
             i < targetIndex ? i : undefined
           )
     )
@@ -352,14 +373,7 @@ async function fillRestoredWindow(
   }
 
   // Last of the tab steps: a move ends a split (measured, Part 4).
-  if (createSplit !== null) {
-    for (const [i, j] of pairs) {
-      const [a, b] = [ids[i], ids[j]];
-      if (a !== undefined && b !== undefined) {
-        await splitRestoredPair(createSplit, [a, b]);
-      }
-    }
-  }
+  if (createSplit !== null) await splitRestoredPairs(createSplit, pairs, ids);
 
   if (spec.state !== undefined) {
     await oldEnough;
@@ -406,6 +420,17 @@ export const placeholderUrl = (
     resolveTabUrl(tabInfo.url),
     goToURLText
   );
+
+// A restored tab's address: its real page, or a placeholder holding it.
+export const restoredTabUrl = (
+  tabInfo: tabData,
+  loadsPage: boolean,
+  icon: string,
+  goToURLText: string
+): string =>
+  loadsPage
+    ? resolveTabUrl(tabInfo.url)
+    : placeholderUrl(tabInfo, icon, goToURLText);
 
 // KAN-594. The stored favicon, else Chrome's cached icon for the page, inlined: a data: page cannot load _favicon (measured). '' when neither.
 export async function placeholderIcon(tabInfo: tabData): Promise<string> {
@@ -455,7 +480,7 @@ async function moveRestoredTab(tabId: number, index: number): Promise<void> {
 }
 
 // Ids by saved group, in saved order: the target was created first, but it is not first in its group.
-function groupMembers(
+export function groupMembers(
   tabs: readonly tabData[],
   ids: readonly (number | undefined)[]
 ): Map<string, number[]> {

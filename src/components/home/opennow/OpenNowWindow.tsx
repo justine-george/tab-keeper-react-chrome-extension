@@ -94,9 +94,11 @@ import {
   OPEN_WINDOWS_SCOPE,
 } from './useOpenNowDrop';
 import { corners } from '../../../styles/corners';
+import { landingFill, landingLook } from '../../common/dropBoxStyle';
 import {
   ROW_PULL,
   ROW_PULL_END,
+  ROW_RADIUS,
   rowEndCorners,
   rowHighlightCss,
 } from '../../../styles/rowHighlight';
@@ -388,6 +390,24 @@ export default function OpenNowWindow({
     flex-direction: column;
     font-family: ${FONT_FAMILY};
     margin-bottom: 8px;
+    /* KAN-892 D. A saved window carried over it lands here: the whole block lights. */
+    &[data-landing] {
+      ${landingLook(COLORS, 'outline')}
+      ${corners(RADIUS.PANEL)}
+    }
+    /* KAN-892 D. A dropped window's new tabs: one fill behind them, placed by useArrival.
+       A layer of its own only while filled: always, its ⋮ menu would go under the next window. */
+    &:has(> [data-arrival]) {
+      position: relative;
+      isolation: isolate;
+    }
+    & > [data-arrival] {
+      position: absolute;
+      z-index: -1;
+      pointer-events: none;
+      ${corners(ROW_RADIUS)}
+      ${landingFill(COLORS)}
+    }
   `;
 
   // KAN-700. Every row with a strip shades on hover, "This window" too, as
@@ -592,6 +612,8 @@ export default function OpenNowWindow({
         {/* KAN-720. The rows drawn, so a search counts its matches; the box's right padding is the tag's clearance. */}
         <RowTag value={formatTabCount(drawnTabs.length, t)} />
         {openWindow.isThisWindow && <RowTag value={t('This window')} />}
+        {/* KAN-896. A saved window of the other kind does not drop into it; this says why. */}
+        {openWindow.incognito && <RowTag value={t('Incognito')} />}
       </div>
     </div>
   );
@@ -969,6 +991,8 @@ export default function OpenNowWindow({
       <div
         css={containerStyle}
         data-open-window-id={openWindow.id}
+        // KAN-892 D. A saved window lands only in a window of its kind.
+        data-window-incognito={openWindow.incognito ? '' : undefined}
         data-drop-window-id={windowKey}
         data-window-shift={windowShift || undefined}
         style={{

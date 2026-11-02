@@ -128,6 +128,7 @@ describe('Replace with current window (KAN-866)', () => {
       current([{ id: 11, url: 'https://live.test/', active: true }])
     );
     expect(await kebabNames(user)).toEqual([
+      expect.stringMatching(/Open in this window$/),
       expect.stringMatching(/Copy all links$/),
       expect.stringMatching(/Rename window$/),
       expect.stringMatching(REPLACE),
@@ -136,11 +137,12 @@ describe('Replace with current window (KAN-866)', () => {
     ]);
   });
 
-  test('the right-click lists it first below the top row, after Copy all links', async () => {
+  test('the right-click lists it below the top row, after the other way to open (KAN-892) and Copy all links', async () => {
     await render(
       current([{ id: 11, url: 'https://live.test/', active: true }])
     );
-    expect(rightClickNames().slice(0, 2)).toEqual([
+    expect(rightClickNames().slice(0, 3)).toEqual([
+      expect.stringMatching(/Open in this window$/),
       expect.stringMatching(/Copy all links$/),
       expect.stringMatching(REPLACE),
     ]);

@@ -57,7 +57,7 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { useSearchShortcut } from '../../../hooks/useSearchShortcut';
 import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
 import { sessionMenuItems, useSessionDeleteKey } from '../sessionMenuItems';
-import { selectRunHoldsDelete } from '../../../redux/firstRun';
+import { selectRunHere, selectRunHoldsDelete } from '../../../redux/firstRun';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
 import { corners, trackClearOfCorners } from '../../../styles/corners';
 import { DURATION, RADIUS } from '../../../styles/scale';
@@ -112,6 +112,13 @@ export default function TabGroupEntryContainer() {
     (state: RootState) => state.settingsDataState.copyLinksLayout
   );
   const canAddCurrentWindow = useCurrentWindowHasTabsToAdd();
+  // KAN-892. Where Open goes; the menu offers the other way, except on the tour's sample (KAN-413).
+  const openSavedWindowsIn = useSelector(
+    (state: RootState) => state.settingsDataState.openSavedWindowsIn
+  );
+  const tourSessionId = useSelector(
+    (state: RootState) => selectRunHere(state)?.sessionId ?? null
+  );
   // KAN-708. A row's right-click menu: the header ⋮'s items, for the row that was clicked.
   const sessionById = (id: string) =>
     tabContainerDataList.tabGroups.find((g) => g.tabGroupId === id);
@@ -129,6 +136,8 @@ export default function TabGroupEntryContainer() {
         place: 'row',
         copyLinksLayout,
         canAddCurrentWindow,
+        openSavedWindowsIn,
+        isOpenBlocked: session.tabGroupId === tourSessionId,
       });
     },
   });

@@ -139,7 +139,9 @@ for (const view of VIEWS) {
           : ['Open', 'Rename']),
         ...dotItems.filter((name) => name !== 'Rename window'),
       ]);
-      expect(dotItems.slice(0, 5)).toEqual([
+      expect(dotItems.slice(0, 6)).toEqual([
+        // KAN-892. The other way to open leads.
+        'Open in this window',
         'Copy all links',
         'Rename window',
         'Replace with current window',
