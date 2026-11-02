@@ -102,7 +102,6 @@ interface MeasuredBlocks {
   blocks: WindowBlock[];
   // The scroller's box: a block scrolled under the header is not under the pointer.
   list: DOMRect;
-  scrollTop: number;
 }
 
 function measureBlocks(
@@ -115,7 +114,6 @@ function measureBlocks(
   ].map((el) => ({ el, box: el.getBoundingClientRect() }));
   return {
     list: scroller.getBoundingClientRect(),
-    scrollTop,
     blocks: boxes.map(({ el, box }, i) => ({
       windowId: Number(el.getAttribute('data-open-window-id')),
       incognito: el.hasAttribute('data-window-incognito'),
@@ -232,7 +230,7 @@ export function useOpenNowCarryReceiver({
       const scroller = scrollerRef.current;
       if (el === null || scroller === null) return null;
       measured ??= measureBlocks(el, scroller);
-      const over = blockAt(measured, scrollTopNow() - measured.scrollTop, x, y);
+      const over = blockAt(measured, scrollTopNow(), x, y);
       return over !== null &&
         over.incognito === latest.current.carriedIncognito()
         ? over.windowId

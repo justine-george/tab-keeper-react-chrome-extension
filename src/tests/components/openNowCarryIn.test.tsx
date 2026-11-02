@@ -839,6 +839,27 @@ describe('a saved window over an open window', () => {
     scroller.scrollTop = 0;
   });
 
+  // The boxes are drawn as the list sits scrolled at entry: the window under
+  // the pointer is the one drawn there, not one a scroll's distance away.
+  test('the list already scrolled when it is carried in: the window drawn under the pointer lights and takes it', async () => {
+    await renderPane();
+    placeBlocks();
+    const scroller = find('[data-open-now-scroller]');
+    scroller.scrollTop = 80;
+    carry(WINDOW, 10, W2_Y);
+    const r = receiver(10, W2_Y);
+
+    r.hover(10, W2_Y);
+    expect(lit()).toEqual(['2']);
+    r.hover(10, W1_Y);
+    expect(lit()).toEqual(['1']);
+
+    r.hover(10, W2_Y);
+    expect(r.take()).toBe(true);
+    expect(intoWindows()[0]?.windowId).toBe(2);
+    scroller.scrollTop = 0;
+  });
+
   test('a release on a lit window adds the saved window there: nothing activated, unfocused, a copy', async () => {
     await renderPane();
     placeBlocks();

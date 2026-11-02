@@ -572,6 +572,100 @@ test('over a window block on a long list, the New window box shows pinned and un
   await page.mouse.up();
 });
 
+// The list scrolled before the pick-up: the window drawn under the pointer
+// lights and takes the tabs, not one a scroll's distance away.
+test('the list already scrolled at pick-up: the window under the pointer lights and takes the tabs', async ({
+  context,
+  extensionId,
+  serviceWorker: worker,
+}) => {
+  const live = [];
+  for (let w = 0; w < 8; w++)
+    live.push(await openLiveWindow(worker, [`W${w} a`, `W${w} b`, `W${w} c`]));
+  const page = await setUp(context, extensionId);
+  await expect(liveRow(page, live[7]?.idOf('W7 c') ?? -1)).toBeAttached();
+  const scroller = page.locator(
+    '[data-pane="open-now"] [data-open-now-scroller]'
+  );
+  const litBlocks = page.locator(
+    '[data-pane="open-now"] [data-open-window-id][data-landing]'
+  );
+  // PREMISE: the list scrolls well past the scroll used.
+  expect(
+    await scroller.evaluate((el) => el.scrollHeight - el.clientHeight)
+  ).toBeGreaterThan(300);
+  await scroller.evaluate((el) => {
+    el.scrollTop = 200;
+  });
+  // The window whose middle row sits nearest the list's middle.
+  const target = await page.evaluate(
+    ({ scroller, rows }) => {
+      const v = document.querySelector(scroller)?.getBoundingClientRect();
+      if (!v) return null;
+      const mid = (v.top + v.bottom) / 2;
+      const at = rows.map(({ windowId, rowId }) => {
+        const r = document
+          .querySelector(`[data-open-tab-id="${rowId}"]`)
+          ?.getBoundingClientRect();
+        return {
+          windowId,
+          off: r ? Math.abs(r.top + r.height / 2 - mid) : 1e9,
+        };
+      });
+      at.sort((a, b) => a.off - b.off);
+      return at[0]?.windowId ?? null;
+    },
+    {
+      scroller: '[data-pane="open-now"] [data-open-now-scroller]',
+      rows: live.map((w, i) => ({
+        windowId: w.windowId,
+        rowId: w.idOf(`W${i} b`),
+      })),
+    }
+  );
+  const aimed = live.find((w) => w.windowId === target);
+  const index = live.findIndex((w) => w.windowId === target);
+  if (aimed === undefined) throw new Error('no window in view');
+  const before = await Promise.all(
+    live.map(async (w) => (await strip(worker, w.windowId)).length)
+  );
+
+  await pickUp(page, windowHandle(page, 'w1'));
+  const aim = await middleOf(liveRow(page, aimed.idOf(`W${index} b`)));
+  // PREMISE: still scrolled, and the aimed window is the one drawn there.
+  expect(await scroller.evaluate((el) => el.scrollTop)).toBe(200);
+  const beneath = await page.evaluate(
+    ({ x, y }) =>
+      [
+        ...document.querySelectorAll(
+          '[data-pane="open-now"] [data-open-window-id]'
+        ),
+      ]
+        .filter((el) => {
+          const b = el.getBoundingClientRect();
+          return x >= b.left && x < b.right && y >= b.top && y < b.bottom;
+        })
+        .map((el) => Number(el.getAttribute('data-open-window-id'))),
+    aim
+  );
+  expect(beneath).toEqual([aimed.windowId]);
+
+  await carryTo(page, aim);
+  await expect(block(page, aimed.windowId)).toHaveAttribute('data-landing', '');
+  await expect(litBlocks).toHaveCount(1);
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => (await strip(worker, aimed.windowId)).length, SETTLE)
+    .toBe((before[index] ?? 0) + 5);
+  // No other window took any of it.
+  expect(
+    await Promise.all(
+      live.map(async (w) => (await strip(worker, w.windowId)).length)
+    )
+  ).toEqual(before.map((n, i) => (i === index ? n + 5 : n)));
+});
+
 // --- The arrival (spec D, Scroll and Animation): Currently open scrolls the
 // least it must to show the new rows over 280ms, ease-out, and one fill in
 // the landing colour behind them holds 300ms, then fades over 600ms.
