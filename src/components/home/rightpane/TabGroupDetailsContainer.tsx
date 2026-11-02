@@ -352,8 +352,8 @@ export default function TabGroupDetailsContainer() {
   `;
 
   return (
-    // KAN-890. A saved tab's name says whether a click switches or opens.
-    <OpenCopiesProvider>
+    // KAN-890, KAN-885. A saved tab's and group's names say whether a click switches or opens.
+    <OpenCopiesProvider showGroups={hasTabGroupsPermission}>
       <div data-panel="windows" css={containerStyle} ref={scrollerRef}>
         {isEmptyObject(selectedTabGroup) ? (
           <div css={emptyContainerStyle}>

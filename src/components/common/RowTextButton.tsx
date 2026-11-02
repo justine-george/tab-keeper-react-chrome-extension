@@ -11,7 +11,9 @@ interface RowTextButtonProps {
   text: string;
   ariaLabel: string;
   tooltipText: string;
-  onClick: () => void;
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  // KAN-885. A middle-click.
+  onAuxClick?: React.MouseEventHandler<HTMLButtonElement>;
   // KAN-413. Dimmed as Undo is, announced as unavailable, and a click does nothing.
   disable?: boolean;
 }
@@ -25,6 +27,7 @@ const RowTextButton: React.FC<RowTextButtonProps> = ({
   ariaLabel,
   tooltipText,
   onClick,
+  onAuxClick,
   disable,
 }) => {
   const COLORS = useThemeColors();
@@ -37,6 +40,7 @@ const RowTextButton: React.FC<RowTextButtonProps> = ({
       ariaLabel={ariaLabel}
       tooltipText={tooltipText}
       onClick={onFirstClickOnly(onClick)}
+      onAuxClick={onAuxClick}
       ariaDisabled={disable}
       style={`
         height: ${CONTROL.ROW};

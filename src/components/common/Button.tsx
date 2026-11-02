@@ -16,6 +16,8 @@ interface ButtonProps {
   text?: string;
   // The click itself, so a handler can read its count (KAN-280 O7c).
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  // KAN-885. A middle-click; its press is kept from starting autoscroll.
+  onAuxClick?: React.MouseEventHandler<HTMLButtonElement>;
   imageSrc?: string;
   iconType?: IconName;
   ariaLabel?: string;
@@ -100,6 +102,7 @@ export type ButtonVariant = 'quiet' | 'primary' | 'danger' | 'chip' | 'outline';
 const Button: React.FC<ButtonProps> = ({
   text,
   onClick,
+  onAuxClick,
   imageSrc,
   iconType,
   ariaLabel,
@@ -385,6 +388,14 @@ const Button: React.FC<ButtonProps> = ({
       data-second-face-shown={secondFace ? String(secondFace.shown) : undefined}
       css={buttonStyle}
       onClick={ariaDisabled || busy ? undefined : onClick}
+      onAuxClick={ariaDisabled || busy ? undefined : onAuxClick}
+      onMouseDown={
+        onAuxClick && !ariaDisabled && !busy
+          ? (e) => {
+              if (e.button === 1) e.preventDefault();
+            }
+          : undefined
+      }
     >
       {secondFace ? (
         <span

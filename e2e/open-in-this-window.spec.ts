@@ -254,7 +254,16 @@ test.describe('Open saved windows: This window (KAN-892)', () => {
     expect([by('F1')?.collapsed, by('O1')?.collapsed]).toEqual([true, false]);
     expect(by('SpL')?.split).not.toBe(-1);
     expect(by('SpR')?.split).toBe(by('SpL')?.split);
-    expect(after.filter((t) => t.active).map((t) => t.title)).toEqual(['Act']);
+    // KAN-898. Polled: bringing the saved active tab forward is Open's last step.
+    await expect
+      .poll(
+        async () =>
+          (await facts(serviceWorker, here))
+            .filter((t) => t.active)
+            .map((t) => t.title),
+        SETTLE
+      )
+      .toEqual(['Act']);
     // The target and the split pair load; the rest wait as placeholders.
     expect(
       ['Pin', 'F1', 'F2', 'Act', 'SpL', 'SpR', 'O1'].map((t) => [

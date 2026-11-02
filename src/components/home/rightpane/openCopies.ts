@@ -9,3 +9,12 @@ export const OpenCopyAddresses =
 export function useOpenCopyAddresses(): ReadonlySet<string> {
   return useContext(OpenCopyAddresses);
 }
+
+export const NO_OPEN_GROUPS: ReadonlySet<string> = new Set();
+
+// KAN-885. Every open group's key (openGroupKeys); empty outside a provider, before the first read, or without the grant.
+export const OpenGroupKeys = createContext<ReadonlySet<string>>(NO_OPEN_GROUPS);
+
+export function useOpenGroupKeys(): ReadonlySet<string> {
+  return useContext(OpenGroupKeys);
+}

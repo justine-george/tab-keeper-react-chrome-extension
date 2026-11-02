@@ -165,7 +165,7 @@ describe('OpenCopiesProvider', () => {
       return null;
     }
     render(
-      <OpenCopiesProvider>
+      <OpenCopiesProvider showGroups={false}>
         <Probe />
       </OpenCopiesProvider>
     );

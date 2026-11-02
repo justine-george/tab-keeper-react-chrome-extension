@@ -6,7 +6,9 @@ import { useTranslation } from 'react-i18next';
 interface RowOpenButtonProps {
   ariaLabel: string;
   tooltipText: string;
-  onClick: () => void;
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  // KAN-885. A middle-click.
+  onAuxClick?: React.MouseEventHandler<HTMLButtonElement>;
   // KAN-413. Dimmed as Undo is, announced as unavailable, and a click does nothing.
   disable?: boolean;
 }
