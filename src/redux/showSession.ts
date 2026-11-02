@@ -4,6 +4,7 @@ import { peekSavedSession } from './slices/globalStateSlice';
 import { selectTabContainer } from './slices/tabContainerDataStateSlice';
 import { selectIsSavedSessionFolded } from './savedSessionFold';
 import { isTabView } from '../utils/functions/viewMode';
+import { runPaneMotion } from '../components/home/paneMotion';
 import type { RootState } from './store';
 
 // KAN-350. Puts a saved session on screen: what a click on its row does, and
@@ -22,9 +23,21 @@ export const showSession =
     const state = getState();
     const { tabGroups, selectedTabGroupId } = state.tabContainerDataState;
     if (!tabGroups.some((group) => group.tabGroupId === tabGroupId)) return;
-    if (isTabView() && selectIsSavedSessionFolded(state)) {
-      dispatch(peekSavedSession());
+    const select = () => {
+      if (selectedTabGroupId !== tabGroupId)
+        dispatch(selectTabContainer(tabGroupId));
+    };
+    if (!isTabView() || !selectIsSavedSessionFolded(state)) {
+      select();
+      return;
     }
-    if (selectedTabGroupId === tabGroupId) return;
-    dispatch(selectTabContainer(tabGroupId));
+    // KAN-889. The same slide as Show the saved session, with the session it shows.
+    runPaneMotion(
+      () => {
+        dispatch(peekSavedSession());
+        select();
+      },
+      'saved',
+      'unfold'
+    );
   };
