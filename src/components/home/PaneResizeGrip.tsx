@@ -266,8 +266,10 @@ export default function PaneResizeGrip({
       opacity: 1;
       transition-delay: ${DURATION.HOVER_INTENT};
     }
-    /* After :hover, so a dragged grip, hovered too, shows it at once. */
-    ${whileKeyNav('&:focus-visible::before')}, &[data-active]::before {
+    /* After :hover, so a dragged grip, hovered too, shows it at once.
+       KAN-900: also Open now's grip while the tour's search step lights it as the edge to drag. */
+    ${whileKeyNav('&:focus-visible::before')}, &[data-active]::before,
+    html:has([data-coach-mark][data-coach-kind='findAndFit']) &[data-resize-grip]::before {
       opacity: 1;
       /* No wait. */
       transition-delay: initial;

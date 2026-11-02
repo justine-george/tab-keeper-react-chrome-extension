@@ -42,22 +42,35 @@ function firstAnchor(
   return null;
 }
 
+// KAN-900. Each element drawn for the selectors, with a box; one not rendered is skipped.
+function openingBoxes(selectors: readonly string[]): Box[] {
+  return selectors.flatMap((selector) =>
+    [...document.querySelectorAll(selector)].flatMap((element) => {
+      const box = ownBox(element);
+      return box !== null && box.width > 0 && box.height > 0 ? [box] : [];
+    })
+  );
+}
+
 // KAN-413. Re-read every frame: scrolling, folding, renaming and drags move the anchor.
 export function useCoachPlacement(
   markRef: RefObject<HTMLElement>,
   anchors: readonly string[],
   place: Place,
   boxOf: AnchorBox = ownBox,
-  spotlight?: Spotlight
+  spotlight?: Spotlight,
+  openings: readonly string[] = []
 ): CoachFrame | null {
   const [frame, setFrame] = useState<CoachFrame | null>(null);
   const placeRef = useRef(place);
   const boxOfRef = useRef(boxOf);
   const spotlightRef = useRef(spotlight);
+  const openingsRef = useRef(openings);
   useLayoutEffect(() => {
     placeRef.current = place;
     boxOfRef.current = boxOf;
     spotlightRef.current = spotlight;
+    openingsRef.current = openings;
   });
   const key = anchors.join('\n');
 
@@ -95,6 +108,7 @@ export function useCoachPlacement(
           kind: 'anchored',
           anchor: box,
           bright,
+          openings: openingBoxes(openingsRef.current),
           placement: placeRef.current(
             box,
             { width: mark.offsetWidth, height: mark.offsetHeight },

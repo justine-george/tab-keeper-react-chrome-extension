@@ -598,8 +598,10 @@ test.describe('side by side', () => {
   });
 
   // KAN-868. Side by side always has a grip now, down to 1100px.
+  // KAN-900. The ring takes the search row and fold, not the full-height grip and the list under them;
+  // the grip gets a hole of its own, so it shows its line and can be dragged.
   for (const width of [1100, 1400]) {
-    test(`at ${width}px, step 2’s box takes in the resize edge`, async ({
+    test(`at ${width}px, step 2 rings the search row; the edge stays lit and draggable outside the ring`, async ({
       context,
       extensionId,
     }) => {
@@ -608,18 +610,44 @@ test.describe('side by side', () => {
         viewport: { width, height: 800 },
       });
       await nextTo(page, 2);
-      const grip = await page.locator('[data-resize-grip]').boundingBox();
+      const gripLocator = page.locator('[data-resize-grip]');
+      const grip = await gripLocator.boundingBox();
       if (grip === null) throw new Error('no grip');
+      const search = await page
+        .locator('[data-pane="open-now"] [data-open-now-search]')
+        .boundingBox();
+      if (search === null) throw new Error('no search row');
+      // The ring ends at the search row: the list under it stays dimmed.
       await expect
-        .poll(async () => {
-          const box = await ring(page);
-          return (
-            box.left <= grip.x &&
-            box.top <= grip.y &&
-            box.bottom >= grip.y + grip.height
-          );
-        })
-        .toBe(true);
+        .poll(async () => (await ring(page)).bottom)
+        .toBeLessThan(search.y + search.height + 20);
+      // The grip's dots, at mid-height, are outside the ring.
+      expect((await ring(page)).bottom).toBeLessThan(grip.y + grip.height / 2);
+      // Mid-height, the grip's dots: no dim over them, and its line is shown.
+      const [x, y] = await centreOf(gripLocator);
+      expect(['dim', 'still', 'nothing']).not.toContain(
+        await hitAt(page, x, y)
+      );
+      await expect
+        .poll(() =>
+          gripLocator.evaluate((g) => getComputedStyle(g, '::before').opacity)
+        )
+        .toBe('1');
+      // CONTROL: the list beside it is under the dim.
+      const listY = search.y + search.height + 120;
+      expect(await hitAt(page, search.x + 60, listY)).toBe('dim');
+
+      // A drag on the edge widens Currently open, and the card stays.
+      const pane = page.locator('[data-pane="open-now"]');
+      const before = (await pane.boundingBox())?.width ?? 0;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x - 80, y, { steps: 8 });
+      await page.mouse.up();
+      await expect
+        .poll(async () => (await pane.boundingBox())?.width ?? 0)
+        .toBeGreaterThan(before + 40);
+      await expect(cardAt(page, 2)).toBeVisible();
     });
   }
 });

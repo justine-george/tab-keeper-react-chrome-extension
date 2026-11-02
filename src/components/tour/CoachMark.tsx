@@ -24,7 +24,7 @@ import { useCardMotion } from '../../hooks/useCardMotion';
 import ProgressLine from '../common/ProgressLine';
 import {
   COACH,
-  clipPathWithHole,
+  clipPathWithHoles,
   ringBox,
   type AnchoredPlacement,
   type Box,
@@ -56,6 +56,8 @@ interface CoachMarkProps {
   anchors: readonly string[];
   boxOf?: AnchorBox;
   spotlight?: Spotlight;
+  // KAN-900. Elements lit and reachable in holes of their own, outside the ring.
+  openings?: readonly string[];
   isLive: boolean;
   // KAN-879. False for a card that leaves the page undimmed, as the onboarding ending does.
   isDimmed?: boolean;
@@ -143,6 +145,7 @@ export default function CoachMark({
   anchors,
   boxOf,
   spotlight,
+  openings,
   isLive,
   isDimmed = true,
   width,
@@ -159,7 +162,14 @@ export default function CoachMark({
   const textId = useId();
   const markRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
-  const frame = useCoachPlacement(markRef, anchors, place, boxOf, spotlight);
+  const frame = useCoachPlacement(
+    markRef,
+    anchors,
+    place,
+    boxOf,
+    spotlight,
+    openings
+  );
   useCardMotion(markRef, ringRef, progress?.step ?? null, frame);
   const buttons = dialogButtonStyles(COLORS);
   const isPlaced = frame !== null;
@@ -247,6 +257,7 @@ export default function CoachMark({
   const tall = tallButtonCss(20);
 
   const bright = frame?.kind === 'anchored' ? frame.bright : null;
+  const openingBoxes = frame?.kind === 'anchored' ? frame.openings : [];
   return (
     <>
       {frame && isDimmed && (
@@ -259,7 +270,12 @@ export default function CoachMark({
           style={
             bright === null
               ? undefined
-              : { clipPath: clipPathWithHole(bright, RING_PX) }
+              : {
+                  clipPath: clipPathWithHoles(
+                    [bright, ...openingBoxes],
+                    RING_PX
+                  ),
+                }
           }
         />
       )}
