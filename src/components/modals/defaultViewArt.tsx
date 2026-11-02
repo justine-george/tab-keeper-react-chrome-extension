@@ -1,9 +1,24 @@
+import { useId } from 'react';
 import { css } from '@emotion/react';
 
 import TabKeeperMark from '../common/TabKeeperMark';
 import { useThemeColors } from '../../hooks/useThemeColors';
 
 // KAN-7 §5 step 3. The two views in miniature, after the round-5 mock.
+
+// KAN-905. Tab Keeper's parts rounded as the app is, in viewBox units; the
+// browser around them is Chrome's and stays square.
+const ART_RADIUS = {
+  POPUP: 6,
+  PANE: 5,
+  FIELD: 4,
+  // Chrome's address bar is a pill: half its 14 height.
+  ADDRESS: 7,
+  ROW: 3,
+  OUTLINE: 4,
+} as const;
+// A line of "text": round-ended.
+const lineRx = (height: number) => height / 2;
 
 const artStyle = css`
   display: block;
@@ -13,6 +28,7 @@ const artStyle = css`
 
 export function CompactViewArt() {
   const C = useThemeColors();
+  const clip = useId();
   return (
     <svg
       viewBox="0 0 220 120"
@@ -33,6 +49,7 @@ export function CompactViewArt() {
         y="6"
         width="130"
         height="14"
+        rx={ART_RADIUS.ADDRESS}
         fill={C.PRIMARY_COLOR}
         stroke={C.PANEL_BORDER_COLOR}
       />
@@ -41,6 +58,7 @@ export function CompactViewArt() {
         y="5"
         width="16"
         height="16"
+        rx={ART_RADIUS.OUTLINE}
         fill="none"
         stroke={C.TEXT_COLOR}
         strokeDasharray="3 2"
@@ -52,33 +70,71 @@ export function CompactViewArt() {
         <circle key={cy} cx="206" cy={cy} r="1.6" fill={C.TEXT_COLOR} />
       ))}
       <path d="M184 29v4" stroke={C.TEXT_COLOR} strokeWidth="1.5" />
-      <rect
-        x="120.5"
-        y="33.5"
-        width="86"
-        height="80"
-        fill={C.PRIMARY_COLOR}
-        stroke={C.TEXT_COLOR}
-        strokeWidth="1.5"
-      />
-      <rect x="121" y="34" width="85" height="11" fill={C.SELECTION_COLOR} />
-      <rect x="127" y="38" width="30" height="3" fill={C.TEXT_COLOR} />
-      {[
-        [52, 60],
-        [62, 48],
-        [72, 66],
-        [82, 42],
-        [92, 56],
-      ].map(([y, width]) => (
+      <g data-art-part="popup">
+        <clipPath id={clip}>
+          <rect
+            x="120.5"
+            y="33.5"
+            width="86"
+            height="80"
+            rx={ART_RADIUS.POPUP}
+          />
+        </clipPath>
         <rect
-          key={y}
-          x="127"
-          y={y}
-          width={width}
-          height="3"
-          fill={C.LABEL_L2_COLOR}
+          x="120.5"
+          y="33.5"
+          width="86"
+          height="80"
+          rx={ART_RADIUS.POPUP}
+          fill={C.PRIMARY_COLOR}
         />
-      ))}
+        <rect
+          data-art-part="header"
+          x="121"
+          y="34"
+          width="85"
+          height="11"
+          fill={C.SELECTION_COLOR}
+          clipPath={`url(#${clip})`}
+        />
+        <rect
+          x="127"
+          y="38"
+          width="30"
+          height="3"
+          rx={lineRx(3)}
+          fill={C.TEXT_COLOR}
+        />
+        {[
+          [52, 60],
+          [62, 48],
+          [72, 66],
+          [82, 42],
+          [92, 56],
+        ].map(([y, width]) => (
+          <rect
+            key={y}
+            x="127"
+            y={y}
+            width={width}
+            height="3"
+            rx={lineRx(3)}
+            fill={C.LABEL_L2_COLOR}
+          />
+        ))}
+        {/* The frame over its contents, so the header meets its stroke. */}
+        <rect
+          data-art-part="frame"
+          x="120.5"
+          y="33.5"
+          width="86"
+          height="80"
+          rx={ART_RADIUS.POPUP}
+          fill="none"
+          stroke={C.TEXT_COLOR}
+          strokeWidth="1.5"
+        />
+      </g>
     </svg>
   );
 }
@@ -86,8 +142,17 @@ export function CompactViewArt() {
 // KAN-628. Tab Keeper's own tab, outlined as the compact picture outlines its icon, and the full view as it is.
 export function FullViewArt() {
   const C = useThemeColors();
+  const clip = useId();
   const line = (x: number, y: number, width: number, fill: string, h = 3) => (
-    <rect key={`${x}-${y}`} x={x} y={y} width={width} height={h} fill={fill} />
+    <rect
+      key={`${x}-${y}`}
+      x={x}
+      y={y}
+      width={width}
+      height={h}
+      rx={lineRx(h)}
+      fill={fill}
+    />
   );
   return (
     <svg
@@ -147,10 +212,12 @@ export function FullViewArt() {
       />
       <g data-art-part="sessions">
         <rect
+          data-art-part="frame"
           x="8.5"
           y="33.5"
           width="74"
           height="80"
+          rx={ART_RADIUS.PANE}
           fill={C.PRIMARY_COLOR}
           stroke={C.TEXT_COLOR}
           strokeWidth="1.2"
@@ -163,14 +230,25 @@ export function FullViewArt() {
           <circle key={cx} cx={cx} cy="41" r="1.6" fill={C.LABEL_L2_COLOR} />
         ))}
         <rect
+          data-art-part="search"
           x="13.5"
           y="48.5"
           width="64"
           height="8"
+          rx={ART_RADIUS.FIELD}
           fill="none"
           stroke={C.PANEL_BORDER_COLOR}
         />
-        <rect x="13" y="61" width="65" height="14" fill={C.SELECTION_COLOR} />
+        {/* Set in from the pane's sides, as the app's highlight is. */}
+        <rect
+          data-art-part="selected"
+          x="11.5"
+          y="61"
+          width="68"
+          height="14"
+          rx={ART_RADIUS.ROW}
+          fill={C.SELECTION_COLOR}
+        />
         {[
           [64, 34, 22],
           [80, 40, 24],
@@ -181,16 +259,32 @@ export function FullViewArt() {
         ])}
       </g>
       <g data-art-part="open-now">
+        <clipPath id={clip}>
+          <rect
+            x="88.5"
+            y="33.5"
+            width="123"
+            height="80"
+            rx={ART_RADIUS.PANE}
+          />
+        </clipPath>
         <rect
           x="88.5"
           y="33.5"
           width="123"
           height="80"
+          rx={ART_RADIUS.PANE}
           fill={C.PRIMARY_COLOR}
-          stroke={C.TEXT_COLOR}
-          strokeWidth="1.2"
         />
-        <rect x="89" y="34" width="122" height="11" fill={C.SELECTION_COLOR} />
+        <rect
+          data-art-part="header"
+          x="89"
+          y="34"
+          width="122"
+          height="11"
+          fill={C.SELECTION_COLOR}
+          clipPath={`url(#${clip})`}
+        />
         {line(94, 38, 30, C.TEXT_COLOR)}
         {line(94, 51, 24, C.TEXT_COLOR)}
         {[
@@ -209,6 +303,18 @@ export function FullViewArt() {
           />,
           line(107, y, width, C.LABEL_L2_COLOR),
         ])}
+        {/* The frame over its contents, so the header meets its stroke. */}
+        <rect
+          data-art-part="frame"
+          x="88.5"
+          y="33.5"
+          width="123"
+          height="80"
+          rx={ART_RADIUS.PANE}
+          fill="none"
+          stroke={C.TEXT_COLOR}
+          strokeWidth="1.2"
+        />
       </g>
     </svg>
   );

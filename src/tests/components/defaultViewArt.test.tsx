@@ -74,3 +74,63 @@ describe('setup’s view pictures (KAN-628)', () => {
     expect(openNow.querySelectorAll('circle').length).toBeGreaterThanOrEqual(3);
   });
 });
+
+// KAN-905. The drawings are rounded as the app is; the browser around them is
+// Chrome's and stays square.
+describe('setup’s view pictures are rounded like the app (KAN-905)', () => {
+  const rx = (el: Element | null | undefined) => el?.getAttribute('rx');
+  // A band clipped to a rounded box: its clip-path names a clipPath whose rect has `r`.
+  const clippedAt = (svg: SVGSVGElement, band: Element): string | null => {
+    const id = /url\(#(.+)\)/.exec(band.getAttribute('clip-path') ?? '')?.[1];
+    if (id === undefined) return null;
+    const clip = [...svg.querySelectorAll('clipPath')].find((c) => c.id === id);
+    return clip?.querySelector('rect')?.getAttribute('rx') ?? null;
+  };
+
+  test('the compact view: a pill address bar, the icon’s outline at 4, the popup at 6 with its header inside the curve', async () => {
+    const svg = await draw('compact');
+    const rects = [...svg.querySelectorAll('rect')];
+    const toolbar = rects[0];
+    expect(rx(toolbar)).toBeNull();
+    expect(rx(rects[1])).toBe('7');
+    expect(rx(svg.querySelector('[stroke-dasharray]'))).toBe('4');
+    const popup = svg.querySelector('[data-art-part="popup"]');
+    if (popup === null) throw new Error('no popup');
+    expect(rx(popup.querySelector('[data-art-part="frame"]'))).toBe('6');
+    const header = popup.querySelector('[data-art-part="header"]');
+    if (header === null) throw new Error('no header');
+    expect(clippedAt(svg, header)).toBe('6');
+  });
+
+  test('the full view: panes at 5, the search field at 4, the selected row set in at 3, Open now’s header inside the curve', async () => {
+    const svg = await draw('full');
+    const sessions = svg.querySelector('[data-art-part="sessions"]');
+    const openNow = svg.querySelector('[data-art-part="open-now"]');
+    if (sessions === null || openNow === null) throw new Error('no panes');
+    expect(rx(sessions.querySelector('[data-art-part="frame"]'))).toBe('5');
+    expect(rx(openNow.querySelector('[data-art-part="frame"]'))).toBe('5');
+    expect(rx(sessions.querySelector('[data-art-part="search"]'))).toBe('4');
+    const row = sessions.querySelector('[data-art-part="selected"]');
+    const frame = sessions.querySelector('[data-art-part="frame"]');
+    if (row === null || frame === null) throw new Error('no selected row');
+    expect(rx(row)).toBe('3');
+    const [f, r] = [boxOf(frame), boxOf(row)];
+    expect(r.x - f.x).toBeGreaterThanOrEqual(2);
+    expect(f.x + f.width - (r.x + r.width)).toBeGreaterThanOrEqual(2);
+    const header = openNow.querySelector('[data-art-part="header"]');
+    if (header === null) throw new Error('no header');
+    expect(clippedAt(svg, header)).toBe('5');
+  });
+
+  test('its lines of “text” are round-ended', async () => {
+    const svg = await draw('full');
+    const lines = [...svg.querySelectorAll('rect')].filter(
+      (r) => Number(r.getAttribute('height')) <= 3
+    );
+    expect(lines.length).toBeGreaterThan(5);
+    for (const line of lines)
+      expect(Number(line.getAttribute('rx'))).toBe(
+        Number(line.getAttribute('height')) / 2
+      );
+  });
+});

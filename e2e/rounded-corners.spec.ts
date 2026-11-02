@@ -372,11 +372,33 @@ test.describe('surfaces', () => {
     await expect(check).toBeVisible();
     expect(await radius(check), "the theme check's radius").toBe('4px');
     expect(await shape(check), "the theme check's corner-shape").toBe(ROUND);
+    // KAN-904. The tile is a little popup: a panel's corner, and its selected
+    // row set in 3px with its own corners, as the app's highlight is.
     await expectCorners(
       page.locator('[data-theme-tile]').first(),
-      '8px',
+      '12px',
       'a theme tile'
     );
+    await expectCorners(
+      page.locator('[data-theme-band="selection"]').first(),
+      '3px',
+      "a theme tile's selected row"
+    );
+    const inset = await page
+      .locator('[data-theme-tile]')
+      .first()
+      .evaluate((tile) => {
+        const t = tile.getBoundingClientRect();
+        const row = tile
+          .querySelector('[data-theme-band="selection"]')!
+          .getBoundingClientRect();
+        const border = parseFloat(getComputedStyle(tile).borderLeftWidth);
+        return {
+          left: row.left - (t.left + border),
+          right: t.right - border - row.right,
+        };
+      });
+    expect(inset, "the selected row's inset").toEqual({ left: 3, right: 3 });
   });
 });
 
