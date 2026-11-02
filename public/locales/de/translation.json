@@ -302,6 +302,7 @@
   "Pin and go back": "Anheften und zurück",
   "Pin and open": "Anheften und öffnen",
   "Back to your tab": "Zurück zu Ihrem Tab",
+  "BackNowhereToGo": "Kein Tab zum Zurückkehren: In diesem Fenster ist nur Tab Keeper geöffnet",
   "Default view": "Standardansicht",
   "Pin Tab Keeper in new windows": "Tab Keeper in neuen Fenstern anheften",
   "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper ist in jedem Fenster, das es öffnet oder zu dem es wechselt, als erster Tab angeheftet.",

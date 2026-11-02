@@ -312,6 +312,7 @@
   "Pin and go back": "Épingler et revenir",
   "Pin and open": "Épingler et ouvrir",
   "Back to your tab": "Revenir à votre onglet",
+  "BackNowhereToGo": "Aucun onglet où revenir : seul Tab Keeper est ouvert dans cette fenêtre",
   "Default view": "Vue par défaut",
   "Pin Tab Keeper in new windows": "Épingler Tab Keeper dans les nouvelles fenêtres",
   "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper est épinglé en premier onglet dans chaque fenêtre qu’il ouvre ou vers laquelle il bascule.",

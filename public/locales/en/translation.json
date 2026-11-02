@@ -302,6 +302,7 @@
   "Pin and go back": "Pin and go back",
   "Pin and open": "Pin and open",
   "Back to your tab": "Back to your tab",
+  "BackNowhereToGo": "Nowhere to go back to: only Tab Keeper is open in this window",
   "Default view": "Default view",
   "Pin Tab Keeper in new windows": "Pin Tab Keeper in new windows",
   "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "Tab Keeper is pinned as the first tab in every window it opens or switches to.",

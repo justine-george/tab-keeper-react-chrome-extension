@@ -312,6 +312,7 @@
   "Pin and go back": "Fixar e voltar",
   "Pin and open": "Fixar e abrir",
   "Back to your tab": "Voltar à sua aba",
+  "BackNowhereToGo": "Nenhuma aba para voltar: só o Tab Keeper está aberto nesta janela",
   "Default view": "Visualização padrão",
   "Pin Tab Keeper in new windows": "Fixar o Tab Keeper em novas janelas",
   "Windows Tab Keeper opens or switches to start with Tab Keeper pinned.": "O Tab Keeper fica fixado como a primeira aba em todas as janelas que ele abre ou para as quais muda.",

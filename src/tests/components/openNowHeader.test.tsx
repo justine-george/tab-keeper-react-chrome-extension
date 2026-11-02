@@ -57,6 +57,7 @@ const renderPane = (view: DefaultView, seed: Partial<ChromeSeed> = {}) => {
   );
 };
 const back = () => screen.getByRole('button', { name: 'Back to your tab' });
+const NOWHERE = 'Nowhere to go back to: only Tab Keeper is open in this window';
 
 afterEach(() => {
   history.replaceState(null, '', '?');
@@ -95,6 +96,7 @@ describe("Open now's Back to your tab (KAN-577, pick A)", () => {
     });
 
     await waitFor(() => expect(back()).not.toHaveAttribute('aria-disabled'));
+    expect(back()).toHaveAttribute('data-tooltip', 'Back to your tab');
     fireEvent.click(back());
 
     await waitFor(() => expect(chrome.sentMessages).toHaveLength(1));
@@ -125,6 +127,9 @@ describe("Open now's Back to your tab (KAN-577, pick A)", () => {
       expect(back()).toHaveAttribute('aria-disabled', 'true')
     );
     expect(getComputedStyle(back()).opacity).toBe('0.3');
+    // KAN-886. Dimmed, its tooltip and description say why.
+    expect(back()).toHaveAttribute('data-tooltip', NOWHERE);
+    expect(back()).toHaveAttribute('aria-description', NOWHERE);
     fireEvent.click(back());
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(chrome.sentMessages).toEqual([]);

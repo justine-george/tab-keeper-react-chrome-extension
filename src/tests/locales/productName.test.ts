@@ -38,6 +38,7 @@ const KEYS_THAT_NAME_THE_PRODUCT = [
   'AboutPromise',
   'Tab Keeper Creator',
   'AddWindowNothingToAdd',
+  'BackNowhereToGo',
 ];
 
 // The forms that were actually in the files, plus the transliterations a

@@ -222,6 +222,9 @@ export default function OpenNowPane({
   // KAN-577 (pick A). The left header's Back (KAN-509), in both Default views; Open now lives only in the full view.
   const backPlan = useBackPlan(true);
   const canGoBack = backPlan !== null && backPlan.kind !== 'none';
+  // KAN-886. Dimmed with nowhere to go, its tooltip says why; not while the plan is still being read.
+  const backTip =
+    backPlan?.kind === 'none' ? t('BackNowhereToGo') : t('Back to your tab');
   const dispatch: AppDispatch = useDispatch();
   const paneRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -1093,7 +1096,7 @@ export default function OpenNowPane({
               <Button
                 text={t('Back to your tab')}
                 iconSize={ICON.SMALL}
-                tooltipText={t('Back to your tab')}
+                tooltipText={backTip}
                 ariaLabel={t('Back to your tab')}
                 iconType="arrow_back"
                 onClick={press}
