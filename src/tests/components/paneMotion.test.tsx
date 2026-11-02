@@ -83,6 +83,25 @@ describe('runPaneMotion', () => {
     expect(attrs().move).toBeUndefined();
   });
 
+  // KAN-889. A spring-open shows a session under a held carry; a transition
+  // would picture the page and lose the carry card the pointer is moving.
+  test.each(['data-dragging', 'data-carrying'])(
+    'with rows moving (%s), the change happens at once and no transition starts',
+    (attr) => {
+      const { start } = fakeTransitions();
+      root.setAttribute(attr, '');
+      try {
+        const update = vi.fn();
+        runPaneMotion(update, 'saved', 'unfold');
+        expect(update).toHaveBeenCalledTimes(1);
+        expect(start).not.toHaveBeenCalled();
+        expect(attrs().move).toBeUndefined();
+      } finally {
+        root.removeAttribute(attr);
+      }
+    }
+  );
+
   test('a coach card not yet placed (hidden) does not stop the motion', () => {
     const { start } = fakeTransitions();
     const card = document.createElement('div');
