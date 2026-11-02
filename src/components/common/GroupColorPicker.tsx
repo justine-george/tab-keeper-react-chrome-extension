@@ -21,6 +21,7 @@ import {
   useMacCtrlClickGuard,
 } from './rowMenu/useRowContextMenu';
 import { selectRunHere } from '../../redux/firstRun';
+import { corners } from '../../styles/corners';
 
 /**
  * Chrome's own picker order, taken from the browser rather than from our
@@ -104,6 +105,7 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
     margin-right: 9px;
     align-self: stretch;
     background-color: ${TAB_GROUP_COLOR_HEX[current]};
+    ${corners(RADIUS.CONTROL)}
 
     /* KAN-171. The strip changes LENGTH while a tab is dragged into or out of
        this group -- one row's worth -- and it used to be moved by a transform,
@@ -292,8 +294,8 @@ const GroupColorPicker: React.FC<GroupColorPickerProps> = ({
             padding: 8px;
             background-color: ${COLORS.PRIMARY_COLOR};
             border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
-            /* Square and flat, like Toast and OverflowMenu. */
-            border-radius: ${RADIUS.SQUARE};
+            /* A menu, like MenuPanel (KAN-721). */
+            ${corners(RADIUS.PANEL)}
           `}
         >
           {PICKER_ORDER.map((swatch, index) => (

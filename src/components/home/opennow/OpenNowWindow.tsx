@@ -6,7 +6,11 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import ChevronGlyph from '../../common/ChevronGlyph';
 import ClickableRow from '../../common/ClickableRow';
-import { focusRingOverTickCss, whileKeyNav } from '../../common/focusRing';
+import {
+  focusRingOverTickCss,
+  focusRingRowCss,
+  whileKeyNav,
+} from '../../common/focusRing';
 import { renameOnClickStyle } from '../../common/renameOnClickStyle';
 import GroupColorPicker from '../../common/GroupColorPicker';
 import Icon from '../../common/Icon';
@@ -89,6 +93,13 @@ import {
   OPEN_TABS_SCOPE,
   OPEN_WINDOWS_SCOPE,
 } from './useOpenNowDrop';
+import { corners } from '../../../styles/corners';
+import {
+  ROW_PULL,
+  ROW_PULL_END,
+  rowEndCorners,
+  rowHighlightCss,
+} from '../../../styles/rowHighlight';
 
 // WindowEntryContainer's GROUP_TITLE_SIZE, the one documented off-scale size
 // (scaleConformance.test.ts). Copied rather than exported from there, for the
@@ -385,6 +396,11 @@ export default function OpenNowWindow({
     position: relative;
     display: flex;
     justify-content: space-between;
+    /* KAN-721. The fill 4px in at 8; the content back where it was. */
+    ${rowHighlightCss()}
+    & > :first-child {
+      ${ROW_PULL}
+    }
     ${
       offersWindowActions
         ? // KAN-815. Not under a carry: the landing slot says where it goes.
@@ -434,6 +450,7 @@ export default function OpenNowWindow({
     top: 50%;
     right: 0;
     transform: translateY(-50%);
+    ${rowEndCorners()}
     /* An open menu paints over the tab rows below, later siblings. */
     z-index: ${menuOpen ? 3 : 'auto'};
     background-color: ${
@@ -468,6 +485,7 @@ export default function OpenNowWindow({
     top: 50%;
     right: 0;
     transform: translateY(-50%);
+    ${rowEndCorners()}
     background-color: ${
       isTabEngaged(tabId) ? COLORS.HOVER_COLOR : 'transparent'
     };
@@ -492,6 +510,10 @@ export default function OpenNowWindow({
     display: flex;
     align-items: stretch;
     justify-content: space-between;
+    /* KAN-721. Indented: the fill starts with the row, in line with the group
+       band; its end sits 4px in at 8. The row's ring is inside it. */
+    ${rowHighlightCss({ fillFromRowStart: true })}
+    ${focusRingRowCss(COLORS, '&:has(> button:focus-visible)')}
     /* KAN-815. Not under a carry: the landing slot says where it goes. */
     html:not([data-carrying]) &:hover {
       background-color: ${COLORS.HOVER_COLOR};
@@ -507,6 +529,10 @@ export default function OpenNowWindow({
     display: flex;
     align-items: center;
     flex-grow: 1;
+    /* The row draws the ring (focusRingRowCss). */
+    ${whileKeyNav('&:focus-visible')} {
+      outline: none;
+    }
     min-width: 0;
   `;
 
@@ -1165,6 +1191,11 @@ export default function OpenNowWindow({
                           display: flex;
                           align-items: center;
                           min-height: 32px;
+                          /* KAN-721. Indented: the fill starts with the row, in line with the band; its end sits 4px in at 8, and the tag ends where it did. */
+                          ${rowHighlightCss({ fillFromRowStart: true })}
+                          & > :has(> [data-row-tag]) {
+                            ${ROW_PULL_END}
+                          }
                           transition: transform ${DURATION.MOVE} ease;
                           ${focusRingOverTickCss(
                             COLORS,
@@ -1229,6 +1260,7 @@ export default function OpenNowWindow({
                                 color: ${COLORS.TEXT_COLOR};
                                 background-color: ${COLORS.PRIMARY_COLOR};
                                 border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
+                                ${corners(RADIUS.CONTROL)}
                                 display: flex;
                                 align-items: center;
                                 font-family: ${FONT_FAMILY};
@@ -1248,6 +1280,7 @@ export default function OpenNowWindow({
                               css={css`
                                 position: absolute;
                                 top: 50%;
+                                /* KAN-721. The field ends with the fill, 4px in; the tick ends it there. */
                                 right: 0;
                                 transform: translateY(-50%);
                                 display: flex;
@@ -1323,6 +1356,7 @@ export default function OpenNowWindow({
                                 top: 50%;
                                 right: 0;
                                 transform: translateY(-50%);
+                                ${rowEndCorners()}
                                 display: flex;
                                 align-items: center;
                                 /* A stacking context (transform): lifted, so its open menu paints over the rows below. */

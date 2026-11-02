@@ -253,13 +253,32 @@ describe('ringBox', () => {
   });
 });
 
-describe('clipPathWithHole', () => {
+describe('clipPathWithHole (KAN-721: a rounded hole)', () => {
+  const box = { left: 396, top: 96, width: 208, height: 48.5 };
   test('the whole element, less the box, by the even-odd rule', () => {
-    expect(
-      clipPathWithHole({ left: 396, top: 96, width: 208, height: 48.5 })
-    ).toBe(
-      'polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ' +
-        '396px 96px, 604px 96px, 604px 144.5px, 396px 144.5px, 396px 96px)'
+    expect(clipPathWithHole(box, 12)).toBe(
+      'path(evenodd, "M0 0H100000V100000H0Z ' +
+        'M408 96H592A12 12 0 0 1 604 108V132.5A12 12 0 0 1 592 144.5' +
+        'H408A12 12 0 0 1 396 132.5V108A12 12 0 0 1 408 96Z")'
+    );
+  });
+  test('each of the four corners is an arc of the radius', () => {
+    const path = clipPathWithHole(
+      { left: 0, top: 0, width: 100, height: 40 },
+      12
+    );
+    expect(path.match(/A12 12 0 0 1/g)).toHaveLength(4);
+  });
+  test('a hole smaller than two radii caps the radius at half its side', () => {
+    const path = clipPathWithHole(
+      { left: 0, top: 0, width: 10, height: 10 },
+      12
+    );
+    expect(path.match(/A5 5 0 0 1/g)).toHaveLength(4);
+  });
+  test('a square hole (radius 0) is still a closed hole', () => {
+    expect(clipPathWithHole({ left: 1, top: 2, width: 3, height: 4 }, 0)).toBe(
+      'path(evenodd, "M0 0H100000V100000H0Z M1 2H4A0 0 0 0 1 4 2V6A0 0 0 0 1 4 6H1A0 0 0 0 1 1 6V2A0 0 0 0 1 1 2Z")'
     );
   });
 });

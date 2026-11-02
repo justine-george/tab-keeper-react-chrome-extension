@@ -31,7 +31,8 @@ import {
   subscribeCarry,
 } from '../../../redux/carry';
 import type { CarriedItem } from '../../../redux/carriedItem';
-import { DURATION, EASE, TYPE } from '../../../styles/scale';
+import { corners } from '../../../styles/corners';
+import { DURATION, EASE, RADIUS, TYPE } from '../../../styles/scale';
 import { isUnclaimedEscape } from '../../common/unclaimedEscape';
 import { COACH_CARD_SHOWN } from '../paneMotion';
 import { springSweepStyle } from '../../common/springOpen';
@@ -368,6 +369,8 @@ export default function OpenNowRail({
     justify-content: center;
     padding: 4px;
     border: none;
+    /* An icon button's corners (KAN-721, R5). */
+    ${corners(RADIUS.CONTROL)}
     background-color: transparent;
     color: inherit;
     cursor: pointer;
@@ -422,6 +425,8 @@ export default function OpenNowRail({
     overflow: hidden;
     background-color: ${COLORS.PRIMARY_COLOR};
     border-left: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    /* KAN-721. Its two corners over the page round as a panel's; the two at the window's edge stay flush. */
+    ${corners(`${RADIUS.PANEL} ${RADIUS.SQUARE} ${RADIUS.SQUARE} ${RADIUS.PANEL}`)}
     box-shadow: ${COLORS.FLOATING_SHADOW};
     /* N2 A. Away during a carry: slid off, then hidden; back without the delay. */
     transition:

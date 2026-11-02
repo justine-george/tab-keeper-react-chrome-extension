@@ -3,6 +3,9 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures/extension';
 import { seedSessions } from './fixtures/seed';
 
+// KAN-721. Back sits on the Settings header card's centre line: 34px down, against this row's 29.
+const BACK_TO_HEADER_CENTRE_PX = 5;
+
 // KAN-240. The settings page's header "Back" control was a <button> reset to
 // padding: 0, so its hit area was exactly its content: 81x32 inside a 56px
 // row with nothing beside it. A click a few pixels off the label did nothing,
@@ -59,7 +62,8 @@ test.describe('the Back control on the settings page', () => {
     const text = await boxOf(label(control));
 
     expect(box.height).toBe(row.height);
-    expect(box.y).toBe(row.y);
+    // KAN-721: moved down onto the Settings header's centre line, the whole target with it.
+    expect(box.y).toBe(row.y + BACK_TO_HEADER_CENTRE_PX);
     // 8px left of the row's content edge, 16px right of the label.
     expect(box.x).toBe(row.x - 8);
     expect(box.x + box.width).toBe(text.x + text.width + 16);
@@ -94,7 +98,9 @@ test.describe('the Back control on the settings page', () => {
     // unshifted place (KAN-517), both centred in the 56px row.
     expect(glyph.x).toBe(row.x + 2);
     expect(text.x).toBe(row.x + 32 + 3);
-    expect(glyph.y + glyph.height / 2).toBe(row.y + row.height / 2);
+    expect(glyph.y + glyph.height / 2).toBe(
+      row.y + row.height / 2 + BACK_TO_HEADER_CENTRE_PX
+    );
     expect(row.height).toBe(56);
   });
 });

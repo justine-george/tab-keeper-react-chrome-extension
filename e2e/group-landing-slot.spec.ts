@@ -137,6 +137,17 @@ async function pickUp(page: Page, groupId: string): Promise<number> {
 
 // What the hold shows: the slot, and every row it must not sit on -- each
 // tab row and group title row that is drawn and is not the held group's.
+// The detail list's scroll. A drag that auto-scrolls the list to its end can
+// leave it 2px past the end once the drag's extra room goes, so Chrome pulls it
+// back on drop (KAN-721 found this on CI). Slot and landing are compared in the
+// list's own coordinates, so that pull is not read as a misplaced slot.
+const listScroll = (page: Page): Promise<number> =>
+  page.evaluate(
+    () =>
+      document.querySelector('[data-tour-anchor=windows]')?.parentElement
+        ?.scrollTop ?? 0
+  );
+
 async function preview(page: Page) {
   return page.evaluate((tabIds) => {
     const span = (el: Element) => {
@@ -252,11 +263,13 @@ test.describe('a dragged group is shown landing where it lands', () => {
       );
       await settled(page);
       const held = await preview(page);
+      const heldScroll = await listScroll(page);
       await page.mouse.up();
 
       await expect.poll(() => bandOrder(page)).toEqual(c.landsAs);
       await settled(page);
       const landed = await spanOf(page, titleRow(c.held));
+      const landedScroll = await listScroll(page);
 
       const slotTop = held.slot?.top ?? Number.NaN;
       console.log(
@@ -264,7 +277,10 @@ test.describe('a dragged group is shown landing where it lands', () => {
           landed.top
         }..${landed.bottom}, slot sits on [${overlapped(held).join(', ')}]`
       );
-      expect(Math.abs(slotTop - landed.top)).toBeLessThanOrEqual(1);
+      // In the list's coordinates: on screen, plus how far the list is scrolled.
+      expect(
+        Math.abs(slotTop + heldScroll - (landed.top + landedScroll))
+      ).toBeLessThanOrEqual(1);
       expect(overlapped(held)).toEqual([]);
     });
   }

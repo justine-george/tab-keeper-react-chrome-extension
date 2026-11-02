@@ -56,6 +56,10 @@ import { NEW_LAST_WINDOW } from './newWindowTarget';
 import type { windowGroupData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { onRevealSavedWindow } from './revealSavedWindow';
 import { windowNumbers } from '../../../utils/functions/windowLabel';
+import { corners } from '../../../styles/corners';
+import { RADIUS } from '../../../styles/scale';
+import { ROW_GUTTER_PX } from '../../../styles/rowHighlight';
+import { useScrollbarWidthVar } from '../../../hooks/useScrollbarWidthVar';
 
 // The trailing block with nothing resting in it: no title, no rows.
 const EMPTY_TRAILING_BLOCK: Pick<
@@ -205,6 +209,8 @@ export default function TabGroupDetailsContainer() {
   // the drop has been rendered, and only as far as needed (`block:
   // 'nearest'`) -- the way the engine follows a row it dropped (KAN-155).
   const scrollerRef = useRef<HTMLDivElement>(null);
+  // KAN-721 R6. Its rows read the end gutter off the list itself.
+  useScrollbarWidthVar(scrollerRef, scrollerRef);
   const bringRowIntoView = (rowId: string) =>
     requestAnimationFrame(() => {
       scrollerRef.current
@@ -319,6 +325,7 @@ export default function TabGroupDetailsContainer() {
     flex-grow: 1;
     margin-top: 8px;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     overflow: auto;
     user-select: none;
   `;
@@ -330,10 +337,15 @@ export default function TabGroupDetailsContainer() {
     align-items: center;
   `;
 
-  const filledContainerStyle = css``;
+  // KAN-721 (his demo pick). The first row's fill sits the row gutter below the
+  // list's top, as it does from the sides, and as Open now's sits below its
+  // search. The end needs none: each window block keeps 8px below itself.
+  const filledContainerStyle = css`
+    padding-top: ${ROW_GUTTER_PX}px;
+  `;
 
   return (
-    <div css={containerStyle} ref={scrollerRef}>
+    <div data-panel="windows" css={containerStyle} ref={scrollerRef}>
       {isEmptyObject(selectedTabGroup) ? (
         <div css={emptyContainerStyle}>
           {/* KAN-86, same bare literal as TabGroupEntryContainer. */}

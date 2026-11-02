@@ -12,5 +12,6 @@ export default function Divider() {
     border-bottom: 1px solid ${COLORS.DIVIDER_COLOR};
   `;
 
-  return <div css={containerStyle}></div>;
+  // KAN-721. Marked, so a filled row beside it can hide it (rowLines.ts).
+  return <div data-row-divider="" css={containerStyle}></div>;
 }

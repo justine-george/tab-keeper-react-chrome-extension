@@ -12,7 +12,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import type { AppDispatch } from '../../redux/store';
 import { markWhatsNew2Seen } from '../../redux/slices/settingsDataStateSlice';
 import type { RunHello } from '../../utils/functions/firstRun';
-import { DIALOG, ICON, TYPE } from '../../styles/scale';
+import { DIALOG, ICON, RADIUS, TYPE } from '../../styles/scale';
 import { dialogButtonStyles, tallButtonCss } from './dialogButtons';
 import {
   canAnimate,
@@ -25,6 +25,7 @@ import {
   playShutterClick,
   prepareShutterClick,
 } from '../../utils/functions/uiSound';
+import { corners } from '../../styles/corners';
 
 const TITLE_ID = 'run-hello-title';
 const BODY_ID = 'run-hello-body';
@@ -140,6 +141,7 @@ export const RunHelloDialog: React.FC<{
     background-color: ${COLORS.PRIMARY_COLOR};
     color: ${COLORS.LABEL_L1_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.DIALOG)}
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};
     &[open] {

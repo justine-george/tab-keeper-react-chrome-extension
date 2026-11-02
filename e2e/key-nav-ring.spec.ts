@@ -53,11 +53,15 @@ async function settle(page: Page) {
 
 // The pixel 3px inside `box`'s left edge, mid height: inside every ring's
 // 2px band (outline offset -4, or a ::after inset 2 with a 2px border).
-async function leftEdge(page: Page, box: Locator): Promise<string> {
+// `inset`: how far in the box's ring starts (a row's is past its 4px gutter, KAN-721).
+// KAN-721. A session row's fill, and so its ring, starts 4px in.
+const ROW_GUTTER = 4;
+
+async function leftEdge(page: Page, box: Locator, inset = 0): Promise<string> {
   await settle(page);
   const b = await box.boundingBox();
   if (b === null) throw new Error('no box');
-  const [edge] = await pixelsAt(page, [[b.x + 3, b.y + b.height / 2]]);
+  const [edge] = await pixelsAt(page, [[b.x + inset + 3, b.y + b.height / 2]]);
   return edge;
 }
 
@@ -141,7 +145,9 @@ test('Tab to a row, then Delete: the next row takes focus with the ring', async 
     .poll(() => ids(page))
     .toEqual(['s-alpha', 's-charlie', 's-delta']);
   await expect(row(page, 'Charlie')).toBeFocused();
-  expect(await leftEdge(page, row(page, 'Charlie').locator('..'))).toBe(RING);
+  expect(
+    await leftEdge(page, row(page, 'Charlie').locator('..'), ROW_GUTTER)
+  ).toBe(RING);
 });
 
 test('a click into a text field draws no ring; Tab into it does', async ({
@@ -227,7 +233,9 @@ test('a click after keyboard navigation takes the ring away', async ({
   const page = await openPopup(context, extensionId);
   await tabOnto(page, row(page, 'Bravo'));
   // PREMISE: the keyboard drew it.
-  expect(await leftEdge(page, row(page, 'Bravo').locator('..'))).toBe(RING);
+  expect(
+    await leftEdge(page, row(page, 'Bravo').locator('..'), ROW_GUTTER)
+  ).toBe(RING);
 
   await row(page, 'Bravo').click();
 

@@ -92,6 +92,8 @@ const readStop = (page: Page, seen: JSHandle<WeakSet<Element>>) =>
       ? [...(parent?.querySelectorAll('*') ?? [])].map(after)
       : [
           outline(el),
+          // KAN-721. A row that is its own button draws its ring on ::after.
+          after(el),
           ...(dots ? [outline(dots)] : []),
           ...(parent ? [outline(parent), after(parent)] : []),
         ];
@@ -339,11 +341,16 @@ for (const [theme, colors] of THEMES) {
       .locator('[data-row-actions]')
       .boundingBox();
     if (strip === null) throw new Error('no actions strip');
-    expect(strip.x + strip.width).toBeGreaterThanOrEqual(row.x + row.width - 1);
+    // KAN-721. The fill, strip and ring sit inside the row's 4px gutter:
+    // the strip ends at the fill's edge, the ring 2px inside it.
+    const GUTTER = 4;
+    expect(strip.x + strip.width).toBeGreaterThanOrEqual(
+      row.x + row.width - GUTTER - 1
+    );
     const [inside, left, right] = await pixelsAt(page, [
-      [row.x + 6, row.y + 6],
-      [row.x + 3, midY],
-      [row.x + row.width - 3, midY],
+      [row.x + GUTTER + 8, row.y + 8],
+      [row.x + GUTTER + 3, midY],
+      [row.x + row.width - GUTTER - 3, midY],
     ]);
     // Control: the decode reads the selection fill where nothing else paints.
     expect(inside).toBe(rgbToHex(rgb(colors.SELECTION_COLOR)));

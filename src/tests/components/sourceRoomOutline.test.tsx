@@ -308,7 +308,8 @@ describe('the outline over the room a row leaves (KAN-354 C3 A)', () => {
     expect(outline.style.right).toBe('0px');
     expect(outline.style.borderStyle).toBe('dotted');
     expect(outline.style.borderWidth).toBe('1.5px');
-    expect(outline.style.borderRadius).toBe('4px');
+    // A row's corners, as the landing slot's (KAN-721).
+    expect(outline.style.borderRadius).toBe('8px');
     expect(outline.style.opacity).toBe('0.45');
     expect(outline.style.pointerEvents).toBe('none');
     // Seen. Not because HELD_AS_CARD_STYLE leaves it out: its own inline

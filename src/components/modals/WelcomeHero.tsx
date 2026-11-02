@@ -6,6 +6,7 @@ import { focusRingCss } from '../common/focusRing';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { DURATION, ICON, RADIUS } from '../../styles/scale';
 import { WELCOME_LOOP, heroPx } from './welcomeMotion';
+import { corners, flushIn } from '../../styles/corners';
 
 // Geometry from the approved mock, in px, at heroPx's scale: the hero is a drawing, not text.
 const HERO = {
@@ -77,6 +78,7 @@ export default function WelcomeHero({
     margin: 0 0 14px 0;
     overflow: hidden;
     border: 1px solid ${COLORS.DIVIDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     background-color: ${COLORS.SECONDARY_COLOR};
   `;
   const windowStyle = (side: 'left' | 'right') => css`
@@ -87,17 +89,21 @@ export default function WelcomeHero({
     height: ${HERO.WIN_H}px;
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     box-sizing: border-box;
   `;
+  // Hugs its window (R4, approved): the window's top corners, square below.
   const barStyle = css`
     height: ${HERO.BAR}px;
     background-color: ${COLORS.SELECTION_COLOR};
+    ${flushIn(['top-left', 'top-right'], RADIUS.SQUARE)}
   `;
   const chipStyle = css`
     position: absolute;
     top: ${HERO.WIN_TOP + heroPx(5)}px;
     width: ${HERO.CHIP_W}px;
     height: ${HERO.CHIP_H}px;
+    ${corners(RADIUS.MARK)}
     box-sizing: border-box;
     display: flex;
     align-items: center;

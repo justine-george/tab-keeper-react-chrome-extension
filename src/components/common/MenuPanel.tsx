@@ -9,6 +9,7 @@ import type { IconName } from './iconNames';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { DURATION, RADIUS, TYPE } from '../../styles/scale';
+import { corners } from '../../styles/corners';
 
 export interface OverflowMenuItem {
   /** Stable identity for the React key. Not shown. */
@@ -85,7 +86,7 @@ export function MenuPanel({
     min-width: 180px;
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
-    border-radius: ${RADIUS.SQUARE};
+    ${corners(RADIUS.PANEL)}
     /* KAN-267. Same ground as the page, so the border alone read as a panel
        cut INTO it. A shadow says "above it"; a scrim would say "modal",
        which is the dialogs' signal and not true of a light-dismiss menu.
@@ -113,7 +114,7 @@ export function MenuPanel({
     width: 100%;
     padding: 8px 12px;
     border: 0;
-    border-radius: ${RADIUS.SQUARE};
+    ${corners(RADIUS.CONTROL)}
     background: none;
     cursor: pointer;
     text-align: left;

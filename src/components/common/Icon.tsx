@@ -3,13 +3,14 @@ import React, { MouseEventHandler } from 'react';
 import { css, type SerializedStyles } from '@emotion/react';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { DURATION, ICON } from '../../styles/scale';
+import { DURATION, ICON, RADIUS } from '../../styles/scale';
 import { hoverMotionCss } from './hoverMotion';
 import { focusRingCss, whileKeyNav } from './focusRing';
 import type { HoverMotion } from './hoverMotion';
 import { Glyph } from './Glyph';
 import type { IconName } from './iconNames';
 import { tooltipDescription } from './tooltipRules';
+import { corners } from '../../styles/corners';
 
 interface IconBaseProps {
   type: IconName;
@@ -238,6 +239,7 @@ const Icon: React.FC<IconProps> = ({
     }
     ${hoverMotion ? hoverMotionCss(hoverMotion) : ''}`
     }
+    ${corners(RADIUS.CONTROL)}
     ${style && style}
   `;
 

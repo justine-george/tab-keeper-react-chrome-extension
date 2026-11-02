@@ -27,6 +27,7 @@ import { standInSessionList } from '../setup/standInSessionList';
 import { s1, s2, s3, tabIds, windowIn } from '../fixtures/sessionMoveFixture';
 import { snapshot, layOut, tabRow } from '../setup/openNowDragHarness';
 import { carriedRef } from '../setup/carriedRef';
+import { classRulesFor } from '../setup/hoverRules';
 
 // KAN-354 C1 A, C2 A: a drag in a saved tab, group or window list hides the held row (it keeps its box) and shows the carry's card instead,
 // only where carryOut has a card. The session list and Open now keep their lifted row. App.css's held-tab shadow (KAN-355) is e2e's (in-session-card).
@@ -756,12 +757,23 @@ describe('the release’s click, with a card on', () => {
 describe('CONTROLS: no card, the old look', () => {
   // What a lifted row looks like, slot included: the expected fade is the
   // travel (8px) over the row's footprint.
-  function expectLifted(held: HTMLElement, fade: string) {
+  // `byRow`: the row draws its own lift on its fill (a session row, KAN-721 R7),
+  // so the wrapper draws none.
+  function expectLifted(held: HTMLElement, fade: string, byRow = false) {
     expect(held.hasAttribute('data-drag-held')).toBe(true);
     expect(dragCard()).toBeNull();
     expect(currentDragCard()).toBeNull();
     expect(held.hasAttribute('data-held-as-card')).toBe(false);
-    expect(held.style.boxShadow).toContain('0.35');
+    if (byRow) {
+      expect(held.style.boxShadow).toBe('');
+      const fill = held.querySelector(':scope > [data-drag-handle-row]');
+      if (fill === null) throw new Error('no row in the held wrapper');
+      expect(classRulesFor(fill)).toMatch(
+        /\[data-drag-held\]>[^{]*\{[^}]*filter:\s*drop-shadow/
+      );
+    } else {
+      expect(held.style.boxShadow).toContain('0.35');
+    }
     // The premise: the row has content to be seen.
     expect(contentOf(held).length).toBeGreaterThan(0);
     for (const c of contentOf(held)) expect(seen(c)).toBe(true);
@@ -798,7 +810,7 @@ describe('CONTROLS: no card, the old look', () => {
     fireEvent.pointerDown(held, { clientX: X, clientY: at, button: 0 });
     moveTo(at + 8);
 
-    expectLifted(held, '0.2');
+    expectLifted(held, '0.2', true);
     release(at + 8);
   });
 

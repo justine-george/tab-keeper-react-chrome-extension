@@ -8,7 +8,8 @@ import Icon from '../../common/Icon';
 import { dialogButtonStyles } from '../../modals/dialogButtons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useFontFamily } from '../../../hooks/useFontFamily';
-import { ICON, TYPE } from '../../../styles/scale';
+import { corners } from '../../../styles/corners';
+import { ICON, RADIUS, TYPE } from '../../../styles/scale';
 
 interface FullViewCalloutProps {
   onTry: () => void;
@@ -51,6 +52,7 @@ export default function FullViewCallout({
     padding: 10px 6px 12px 14px;
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     color: ${COLORS.LABEL_L1_COLOR};
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};

@@ -82,7 +82,8 @@ import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateS
 import { showToast } from '../../../redux/slices/globalStateSlice';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import type { AppDispatch, RootState } from '../../../redux/store';
-import { ICON, TYPE } from '../../../styles/scale';
+import { corners, flushIn } from '../../../styles/corners';
+import { ICON, RADIUS, TYPE } from '../../../styles/scale';
 import { paneInsetCss } from '../../../styles/paneInset';
 
 import { RowDragArea } from '../rightpane/rowDrag/RowDragArea';
@@ -754,6 +755,7 @@ export default function OpenNowPane({
     justify-content: space-between;
     background-color: ${COLORS.SECONDARY_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     font-family: ${FONT_FAMILY};
     user-select: none;
     width: 100%;
@@ -828,6 +830,7 @@ export default function OpenNowPane({
     min-height: 0;
     margin-top: 8px;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     user-select: none;
   `;
 
@@ -923,6 +926,11 @@ export default function OpenNowPane({
                     type={action.icon}
                     tourAnchor={action.tourAnchor}
                     onClick={action.onClick}
+                    style={
+                      !close && index === titleActions.length - 1
+                        ? flushIn(['top-right'])
+                        : undefined
+                    }
                   />
                 </span>
               ))}
@@ -940,6 +948,7 @@ export default function OpenNowPane({
                   ariaLabel={close.label}
                   type={close.icon}
                   onClick={close.onClick}
+                  style={flushIn(['top-right'])}
                 />
               </span>
             )}
@@ -1013,6 +1022,7 @@ export default function OpenNowPane({
                   : t('Expand all windows')
               }
               type={anyWindowOpen ? 'unfold_less' : 'unfold_more'}
+              style={flushIn(['bottom-left'])}
               renderGlyph={(glyphCss) => (
                 <FoldAllGlyph folds={anyWindowOpen} glyphCss={glyphCss} />
               )}
@@ -1105,6 +1115,7 @@ export default function OpenNowPane({
                   }
                   font-size: ${TYPE.SECONDARY};
                   padding: 5px 6px 3px 3px;
+                  ${flushIn(['bottom-right'])}
                   ${canGoBack ? '' : 'opacity: 0.3;'}
                 `}
               />
@@ -1129,7 +1140,7 @@ export default function OpenNowPane({
         </div>
       </div>
       {headerMenu.menu}
-      <div ref={listBoxRef} css={listBoxStyle}>
+      <div ref={listBoxRef} data-panel="open-now-list" css={listBoxStyle}>
         <OpenNowSearchRow
           text={searchText}
           onTextChange={handleSearchTextChange}

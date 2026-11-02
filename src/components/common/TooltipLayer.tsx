@@ -27,6 +27,7 @@ import {
   showDelay,
   type Box,
 } from './tooltipRules';
+import { corners } from '../../styles/corners';
 
 // Above the carry card (1100) and the tour (1020): the spec draws it over everything.
 const CHIP_Z_INDEX = 2000;
@@ -353,7 +354,7 @@ function Chip({
         width: max-content;
         max-width: ${MAX_WIDTH_PX}px;
         padding: 4px 8px;
-        border-radius: ${RADIUS.SQUARE};
+        ${corners(RADIUS.CONTROL)}
         background-color: ${COLORS.TEXT_COLOR};
         color: ${COLORS.PRIMARY_COLOR};
         font-family: ${FONT_FAMILY};

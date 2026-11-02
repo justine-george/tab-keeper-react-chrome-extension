@@ -191,12 +191,15 @@ async function chipOnTop(page: Page): Promise<boolean[]> {
     if (!(el instanceof HTMLElement)) throw new Error('no chip');
     el.style.pointerEvents = 'auto';
     const r = el.getBoundingClientRect();
+    // KAN-721. Inside the chip's 8px corners: hit-testing follows the curve,
+    // which leaves 1px in from a corner outside the chip.
+    const d = 4;
     const points = [
       [r.left + r.width / 2, r.top + r.height / 2],
-      [r.left + 1, r.top + 1],
-      [r.right - 1, r.top + 1],
-      [r.left + 1, r.bottom - 1],
-      [r.right - 1, r.bottom - 1],
+      [r.left + d, r.top + d],
+      [r.right - d, r.top + d],
+      [r.left + d, r.bottom - d],
+      [r.right - d, r.bottom - d],
     ];
     const hits = points.map(([x, y]) => {
       const top = document.elementFromPoint(x, y);
@@ -244,7 +247,7 @@ test.describe('look', () => {
     ['Light', LIGHT_THEME],
     ['Darkenheimer', DARKENHEIMER_THEME],
   ] as const) {
-    test(`an ink chip in ${theme}: text colour fill, page colour text, square, no shadow, 0.8rem`, async ({
+    test(`an ink chip in ${theme}: text colour fill, page colour text, 8px corners, no shadow, 0.8rem`, async ({
       context,
       extensionId,
     }) => {
@@ -267,7 +270,7 @@ test.describe('look', () => {
       });
       expect(rgbToHex(look.background)).toBe(colors.TEXT_COLOR);
       expect(rgbToHex(look.color)).toBe(colors.PRIMARY_COLOR);
-      expect(look.radius).toBe('0px');
+      expect(look.radius).toBe('8px');
       expect(look.shadow).toBe('none');
       expect(look.border).toBe('0px');
       expect(look.fontSize).toBeCloseTo(0.8 * look.root, 2);
@@ -526,6 +529,12 @@ test.describe('placement', () => {
         });
         await setRootFontSize(page, root);
         const view = await viewportOf(page);
+        // KAN-721: the list's first row sits 4px down (the row gutter). Scrolled
+        // by that, the bottom row is whole again, so hovering scrolls nothing
+        // (a scroll would dismiss the chip).
+        await page
+          .locator('[data-panel=windows]')
+          .evaluate((list) => (list.scrollTop = 4));
         // The lowest tab row whose Delete tab is whole on screen and is what the pointer would hit.
         const index = await page.evaluate((h) => {
           const all = [

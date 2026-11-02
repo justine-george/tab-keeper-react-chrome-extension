@@ -3,6 +3,7 @@
 import { css, type SerializedStyles } from '@emotion/react';
 
 import type { ThemeColors } from '../../hooks/useThemeColors';
+import { corners } from '../../styles/corners';
 import { RADIUS } from '../../styles/scale';
 
 // Dashed, then the press fill and a solid border once [data-landing] is on:
@@ -14,7 +15,7 @@ export function dropBoxStyle(COLORS: ThemeColors): SerializedStyles {
     border-width: 1.5px;
     border-style: dashed;
     border-color: ${COLORS.LABEL_L2_COLOR};
-    border-radius: ${RADIUS.SQUARE};
+    ${corners(RADIUS.PANEL)}
     &[data-landing] {
       background-color: ${COLORS.ACTIVE_COLOR};
       border-style: solid;

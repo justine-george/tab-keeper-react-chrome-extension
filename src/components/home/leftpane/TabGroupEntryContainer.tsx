@@ -58,13 +58,16 @@ import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
 import { sessionMenuItems, useSessionDeleteKey } from '../sessionMenuItems';
 import { selectRunHoldsDelete } from '../../../redux/firstRun';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
-import { DURATION } from '../../../styles/scale';
+import { corners } from '../../../styles/corners';
+import { DURATION, RADIUS } from '../../../styles/scale';
 import {
   newSessionPitch,
   settleNewSessionSlot,
   translateYOf,
   useNewSessionSlot,
 } from './newSessionSlot';
+import { ROW_GUTTER_PX } from '../../../styles/rowHighlight';
+import { useScrollbarWidthVar } from '../../../hooks/useScrollbarWidthVar';
 
 export default function TabGroupEntryContainer() {
   const COLORS = useThemeColors();
@@ -75,6 +78,9 @@ export default function TabGroupEntryContainer() {
   // The scrolling element, so KAN-143's effect scopes its lookup to this list
   // rather than searching the whole document.
   const listRef = useRef<HTMLDivElement>(null);
+  // KAN-721 R6. The search row and the rows read the end gutter off this box.
+  const listBoxRef = useRef<HTMLDivElement>(null);
+  useScrollbarWidthVar(listRef, listBoxRef);
   // The rows' column, which slides down to open the New session place.
   const columnRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -470,6 +476,7 @@ export default function TabGroupEntryContainer() {
     height: 100%;
     min-height: 0;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     margin: 8px 0;
     user-select: none;
   `;
@@ -488,6 +495,10 @@ export default function TabGroupEntryContainer() {
     display: flex;
     flex-direction: column;
     position: relative;
+    /* KAN-721 (his demo pick). Scrolled to the end, the last row's fill sits
+       the row gutter above the list's edge, as it does from the sides. On the
+       rows, not the scroller, so an empty list's message stays centred. */
+    padding-bottom: ${ROW_GUTTER_PX}px;
     transition: transform ${DURATION.MOVE} ease;
     &[data-new-session-slot='open'] {
       transform: translateY(var(--new-session-pitch, 0px));
@@ -511,7 +522,7 @@ export default function TabGroupEntryContainer() {
   `;
 
   return (
-    <div css={listBoxStyle} data-tour-anchor="sessions">
+    <div ref={listBoxRef} css={listBoxStyle} data-tour-anchor="sessions">
       <SearchRow
         text={searchText}
         onTextChange={(text) => dispatch(setSearchInputText(text))}
@@ -568,6 +579,7 @@ export default function TabGroupEntryContainer() {
                   <DraggableRow
                     key={tabGroupData.tabGroupId}
                     rowId={tabGroupData.tabGroupId}
+                    liftedByRow
                   >
                     <TabGroupEntry
                       tabGroupData={tabGroupData}

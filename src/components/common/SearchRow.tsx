@@ -13,6 +13,7 @@ import { placeholderStyle } from '../../styles/placeholder';
 import { SEARCH_SHORTCUT_KEY, type SearchPane } from './searchShortcut';
 import { useSearchTarget } from '../../hooks/useSearchShortcut';
 import { focusRingCss } from './focusRing';
+import { ROW_GUTTER_END } from '../../styles/rowHighlight';
 
 // The header's action row height (8px + CONTROL.ROW), then a 4px gap.
 const ROW_HEIGHT = '40px';
@@ -104,7 +105,8 @@ export default function SearchRow({
     align-items: center;
     flex-shrink: 0;
     height: ${ROW_HEIGHT};
-    padding-right: ${endInset};
+    /* KAN-721. Past the rows' 4px gutter too, so the end slot stays over their strips (KAN-336). */
+    padding-right: calc(${endInset} + ${ROW_GUTTER_END});
     margin-bottom: ${ROW_GAP};
     border-bottom: 1px solid ${COLORS.DIVIDER_COLOR};
     font-family: ${FONT_FAMILY};

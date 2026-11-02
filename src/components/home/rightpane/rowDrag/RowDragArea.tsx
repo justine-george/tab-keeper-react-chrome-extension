@@ -82,7 +82,7 @@ import {
   type Slot,
   type UnfoldedRow,
 } from './unfold';
-import { CORNER_SHAPE, DURATION } from '../../../../styles/scale';
+import { CORNER_SHAPE, DURATION, RADIUS } from '../../../../styles/scale';
 import { settleSlides } from './settleSlides';
 import { landingTops, slideLanding, type LandingTops } from './landingSlides';
 import {
@@ -134,10 +134,11 @@ import {
 // from reading as an outline around the held row, and it is unchanged.
 const SLOT_OPACITY = 1;
 
-// The landing slot's corners (4px on main), and the resting slot's that
-// stands in for it before a carried window is adopted (KAN-350 V3 A): ONE
-// value, so the slot that takes over on entry cannot change shape.
-const SLOT_RADIUS = '4px';
+// The landing slot's corners, and the resting slot's that stands in for it
+// before a carried window is adopted (KAN-350 V3 A), and the source room's:
+// ONE value, so the slot that takes over on entry cannot change shape. A
+// row's corners (KAN-721): the slot is the room a row lands in.
+const SLOT_RADIUS = RADIUS.CONTROL;
 
 // How strongly the outline over the room a cross-window drag leaves draws
 // (KAN-354 C3 A): the mock's value, below the landing slot's. Its contrast
@@ -2728,6 +2729,7 @@ export const PhantomRestingSlot: React.FC = () => (
 export const DraggableRow: React.FC<DraggableRowProps> = ({
   rowId,
   scope,
+  liftedByRow = false,
   children,
 }) => {
   const scopes = useContext(DragContext);
@@ -2805,7 +2807,7 @@ export const DraggableRow: React.FC<DraggableRowProps> = ({
         // The lift, for a row that is drawn lifted. One shown by a card has
         // nothing to lift (KAN-354).
         boxShadow:
-          held && !drag.heldShownAsCard && !drag.settling
+          held && !drag.heldShownAsCard && !drag.settling && !liftedByRow
             ? '0 2px 8px rgba(0,0,0,0.35)'
             : undefined,
         zIndex: held ? 1 : undefined,

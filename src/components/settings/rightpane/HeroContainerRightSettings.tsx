@@ -6,7 +6,8 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { NON_INTERACTIVE_ICON_STYLE } from '../../../utils/constants/common';
 import { useTranslation } from 'react-i18next';
-import { TYPE } from '../../../styles/scale';
+import { corners } from '../../../styles/corners';
+import { RADIUS, TYPE } from '../../../styles/scale';
 
 export default function HeroContainerRightSettings() {
   const COLORS = useThemeColors();
@@ -18,6 +19,7 @@ export default function HeroContainerRightSettings() {
     flex-direction: row;
     align-items: center;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     font-family: ${FONT_FAMILY};
     user-select: none;
     background-color: ${COLORS.SECONDARY_COLOR};
@@ -25,7 +27,7 @@ export default function HeroContainerRightSettings() {
   `;
 
   return (
-    <div css={containerStyle}>
+    <div data-panel="settings-header" css={containerStyle}>
       <Icon type="settings" style={NON_INTERACTIVE_ICON_STYLE} />
       <NormalLabel
         value={t('Settings')}

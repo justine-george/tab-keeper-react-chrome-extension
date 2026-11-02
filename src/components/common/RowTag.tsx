@@ -3,7 +3,7 @@ import { Tag } from './Tag';
 
 // KAN-720. A row's tag: rounded, roomier than the "/" hint's Tag, and never squeezed.
 const rowTagStyle = `
-  border-radius: ${RADIUS.TAG};
+  border-radius: ${RADIUS.PILL};
   corner-shape: ${ROW_TAG.CORNER_SHAPE};
   padding: ${ROW_TAG.PADDING};
   margin-left: 8px;

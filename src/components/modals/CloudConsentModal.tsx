@@ -26,7 +26,7 @@ import {
   prepareShutterClick,
 } from '../../utils/functions/uiSound';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
-import { DIALOG, ICON, TYPE } from '../../styles/scale';
+import { DIALOG, ICON, RADIUS, TYPE } from '../../styles/scale';
 import { dialogButtonStyles, pairCss, tallButtonCss } from './dialogButtons';
 import { dialogTitleSize } from './dialogTitleSize';
 import { dialogRiseCss } from './dialogRise';
@@ -38,6 +38,7 @@ import {
   type Motion,
 } from './getStartedMotion';
 import { useHeroLoop } from './useHeroLoop';
+import { corners } from '../../styles/corners';
 
 const TITLE_ID = 'cloud-consent-title';
 const BODY_ID = 'cloud-consent-body';
@@ -196,6 +197,7 @@ export const CloudConsentModal: React.FC = () => {
     background-color: ${COLORS.PRIMARY_COLOR};
     color: ${COLORS.LABEL_L1_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.DIALOG)}
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};
     &[open] {

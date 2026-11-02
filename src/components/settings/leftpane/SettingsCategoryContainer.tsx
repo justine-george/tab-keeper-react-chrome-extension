@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useRef } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -14,8 +14,21 @@ import {
   selectCategory,
 } from '../../../redux/slices/settingsCategoryStateSlice';
 import { useTranslation } from 'react-i18next';
-import { DURATION, TYPE } from '../../../styles/scale';
+import { corners } from '../../../styles/corners';
+import {
+  ROW_GUTTER_END,
+  ROW_GUTTER_PX,
+  rowHighlightCss,
+} from '../../../styles/rowHighlight';
+import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
+import { focusRingRowCss, whileKeyNav } from '../../common/focusRing';
+import {
+  LINE_HIDDEN,
+  lineBeforeSibling,
+  linesBeside,
+} from '../../common/rowLines';
 import { BACK_LABEL_INSET } from '../../common/headerBackTarget';
+import { useScrollbarWidthVar } from '../../../hooks/useScrollbarWidthVar';
 
 export interface SettingsCategoryContainer {
   name: SettingsCategory;
@@ -32,6 +45,10 @@ const SettingsCategoryContainer: React.FC = () => {
 
   const dispatch: AppDispatch = useDispatch();
 
+  // KAN-721 R6. A scrolling menu's rows read the end gutter off the box.
+  const navRef = useRef<HTMLDivElement>(null);
+  useScrollbarWidthVar(navRef, navRef);
+
   const handleSelectCategoryClick = (name: SettingsCategory) => {
     dispatch(selectCategory(name));
   };
@@ -41,6 +58,12 @@ const SettingsCategoryContainer: React.FC = () => {
     flex-direction: column;
     height: 100%;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
+    /* KAN-721 (his demo pick). The first row's fill sits the row gutter below
+       the box's top, as it does from the sides. Top only: the list ends in
+       empty space anyway, and 4px more at the bottom made it scroll at 24px
+       text in a short popup, narrowing every label by the bar. */
+    padding-top: ${ROW_GUTTER_PX}px;
     /* 10px, not the 8px every other gap uses, so this box's top edge meets
        the details box across the divider (KAN-239). The right pane reaches
        its box by 8px pane padding + a 50px framed card + 8px; this pane by
@@ -58,6 +81,25 @@ const SettingsCategoryContainer: React.FC = () => {
   // replaced stretched to fill the flex column.
   const selectableStyle = (isSelected: boolean) => `
     cursor: pointer;
+    /* KAN-721. The fill 4px in at 8, and the ring inside it (focusRingRowCss). */
+    position: relative;
+    ${rowHighlightCss()}
+    ${whileKeyNav('&:focus-visible')} {
+      outline: none;
+    }
+    ${focusRingRowCss(COLORS, '&:focus-visible')}
+    /* KAN-721. The lines touching this row hide while it is filled. */
+    ${linesBeside(
+      ['&:hover', '&:active', ...(isSelected ? ['&'] : [])],
+      lineBeforeSibling
+    )}
+    ${whileKeyNav('&:focus-visible + [data-row-divider]')} {
+      ${LINE_HIDDEN}
+    }
+    /* lineBeforeSibling's selector, written out: the key-nav gate reads literals. */
+    ${whileKeyNav('[data-row-divider]:has(+ &:focus-visible)')} {
+      ${LINE_HIDDEN}
+    }
     transition: background-color ${DURATION.MOVE};
     width: 100%;
     /* The hover rule is EMITTED ONLY WHEN UNSELECTED (KAN-96).
@@ -78,6 +120,11 @@ const SettingsCategoryContainer: React.FC = () => {
       !isSelected
         ? `&:hover {
       background-color: ${COLORS.HOVER_COLOR};
+    }
+    /* KAN-721 R5. Keyboard focus fills as hover does, as a session row's does,
+       so the lines beside it hide for the same reason. */
+    ${whileKeyNav('&:focus-visible')} {
+      background-color: ${COLORS.HOVER_COLOR};
     }`
         : ''
     }
@@ -95,11 +142,12 @@ const SettingsCategoryContainer: React.FC = () => {
     };
     /* KAN-517. The label starts where the header's "Back" does: its inset, less this box's 1px border.
        KAN-754. The right padding only stops a long label; at 10px the longest word (sv "säkerhetskopia") fits the popup's rail at 24px text. */
-    padding: 15px 10px 15px calc(${BACK_LABEL_INSET} - 1px);
+    padding: 15px calc(10px - ${ROW_GUTTER_END}) 15px
+      calc(${BACK_LABEL_INSET} - 1px - ${ROW_GUTTER_PX}px);
   `;
 
   return (
-    <div css={containerStyle}>
+    <div data-panel="settings-nav" ref={navRef} css={containerStyle}>
       {settingsCategoryList.map(
         ({ name, isSelected }: SettingsCategoryContainer) => {
           return (

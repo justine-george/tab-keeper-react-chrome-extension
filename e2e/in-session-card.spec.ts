@@ -781,7 +781,7 @@ test.describe('C1: a drag inside a saved list is drawn by the card', () => {
 test.describe('C2: the session list keeps its lifted row', () => {
   // CONTROL, aimed where a saved list now shows a card: the same press and
   // travel, on a session row. The row stays visible and lifted.
-  test('a session-list drag shows no card and keeps the lift shadow', async ({
+  test('a session-list drag shows no card and keeps the lift shadow, on its fill', async ({
     context,
     extensionId,
   }) => {
@@ -793,9 +793,17 @@ test.describe('C2: the session list keeps its lifted row', () => {
     await expect(page.locator(DRAG_CARD)).toHaveCount(0);
     await expect(page.locator(CARRY_CARD)).toHaveCount(0);
     await expect(held).not.toHaveAttribute('data-held-as-card');
+    // KAN-721 R7: the shadow is the row's fill's own, so it hugs the rounded highlight.
     await expect
-      .poll(() => shadowOf(held))
-      .toContain('rgba(0, 0, 0, 0.35) 0px 2px 8px');
+      .poll(() =>
+        held.evaluate(
+          (w) =>
+            getComputedStyle(
+              w.querySelector(':scope > [data-drag-handle-row]')!
+            ).filter
+        )
+      )
+      .toContain('drop-shadow(rgba(0, 0, 0, 0.35) 0px 2px 4px)');
     // Its content is drawn.
     const content = await contentOpacities(held);
     expect(content.length).toBeGreaterThan(0);

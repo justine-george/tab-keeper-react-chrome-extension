@@ -1,4 +1,5 @@
 import type { SlidingPairMetrics } from '../common/SlidingPair';
+import { RADIUS } from '../../styles/scale';
 
 /**
  * The knob's motion, shared with ExportPage's KAN-201 exemption.
@@ -18,8 +19,8 @@ export const KNOB_TRANSITION = '280ms cubic-bezier(0.3, 1.45, 0.6, 1)';
  */
 export const EXPORT_PAIR_METRICS: SlidingPairMetrics = {
   minHeight: '34px',
-  radius: '3px',
-  knobRadius: '2px',
+  radius: RADIUS.CONTROL,
+  knobRadius: RADIUS.KNOB,
   slide: KNOB_TRANSITION,
   press: '160ms cubic-bezier(0.23, 1, 0.32, 1)',
 };

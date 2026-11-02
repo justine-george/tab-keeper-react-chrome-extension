@@ -14,6 +14,17 @@ export default function ProgressLine({
   label: string;
 }) {
   const COLORS = useThemeColors();
+  // KAN-721. Fills the parent's padding box and clips to its corners, so the
+  // line along a rounded card's top follows the curve (the card cannot clip:
+  // the coach card's notch hangs outside it).
+  const clipStyle = css`
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    corner-shape: inherit;
+    overflow: hidden;
+    pointer-events: none;
+  `;
   const trackStyle = css`
     position: absolute;
     top: 0;
@@ -33,20 +44,22 @@ export default function ProgressLine({
     }
   `;
   return (
-    <div
-      role="progressbar"
-      aria-valuemin={1}
-      aria-valuemax={total}
-      aria-valuenow={n}
-      aria-valuetext={label}
-      data-progress-line
-      css={trackStyle}
-    >
+    <div css={clipStyle}>
       <div
-        data-progress-fill
-        css={fillStyle}
-        style={{ transform: `scaleX(${n / total})` }}
-      />
+        role="progressbar"
+        aria-valuemin={1}
+        aria-valuemax={total}
+        aria-valuenow={n}
+        aria-valuetext={label}
+        data-progress-line
+        css={trackStyle}
+      >
+        <div
+          data-progress-fill
+          css={fillStyle}
+          style={{ transform: `scaleX(${n / total})` }}
+        />
+      </div>
     </div>
   );
 }

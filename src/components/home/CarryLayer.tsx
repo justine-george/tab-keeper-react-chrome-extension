@@ -40,6 +40,7 @@ import {
 } from '../../redux/carry';
 import { useDragCard } from '../../redux/dragCard';
 import { CARD_WIDTH_PX, cardLeft } from './cardPlace';
+import { corners } from '../../styles/corners';
 
 // Where the card sits from the pointer: just below and to the right of the
 // arrow's tip, as the mock draws it. x gap: CARD_OFFSET_X in cardPlace.ts.
@@ -303,7 +304,8 @@ export function CarryLayer() {
         align-items: center;
         gap: 10px;
         padding: 8px 12px;
-        border-radius: ${RADIUS.SQUARE};
+        /* KAN-721 (his R7 pick). It floats with a shadow, as menus and toasts do: their corners. */
+        ${corners(RADIUS.PANEL)}
         background-color: ${COLORS.PRIMARY_LIGHT};
         color: ${COLORS.TEXT_COLOR};
         box-shadow: ${COLORS.FLOATING_SHADOW};

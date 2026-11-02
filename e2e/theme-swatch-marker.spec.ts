@@ -156,7 +156,8 @@ for (const [theme, colours] of PALETTES) {
     const read = async () =>
       pixelsAt(page, [
         [tile.x + tile.width / 2, tile.y + 0.5],
-        [box.x + 1, box.y + 1],
+        // Inside the check's 4px round corner (KAN-721).
+        [box.x + 3, box.y + 3],
         [tile.x + tile.width / 2, tile.y - 6],
         // The ring, where the check overlaps the tile's header band.
         [box.x - 1, box.y + box.height - 4],

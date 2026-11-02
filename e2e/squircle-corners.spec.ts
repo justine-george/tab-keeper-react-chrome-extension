@@ -128,6 +128,15 @@ test('the export page and its file draw squircles', async ({
     layout.locator('[data-sliding-knob]'),
     "the switch's knob"
   );
+  // KAN-721. Settings' pair radii: the track a control, the knob 2px inside.
+  expect(await layout.evaluate((e) => getComputedStyle(e).borderRadius)).toBe(
+    '8px'
+  );
+  expect(
+    await layout
+      .locator('[data-sliding-knob]')
+      .evaluate((e) => getComputedStyle(e).borderRadius)
+  ).toBe('6px');
   const unpressed = layout.getByRole('button', { name: 'Comfortable' });
   await unpressed.hover();
   await expectSquircle(page, unpressed, "the switch's hover fill");
@@ -182,6 +191,12 @@ test("a restored tab's placeholder page draws a squircle Go to URL", async ({
     )
   );
   await expectSquircle(page, page.locator('#copyButton'), 'Go to URL');
+  // KAN-721. A button: CONTROL.
+  expect(
+    await page
+      .locator('#copyButton')
+      .evaluate((e) => getComputedStyle(e).borderRadius)
+  ).toBe('8px');
 });
 
 test('the dotted room a dragged tab leaves is a squircle', async ({

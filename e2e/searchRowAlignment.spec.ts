@@ -311,10 +311,14 @@ async function firstInkX(page: Page, left: number, top: number, h: number) {
     if (!ctx) throw new Error('no 2d context');
     ctx.drawImage(img, 0, 0);
     const px = ctx.getImageData(0, 0, img.width, img.height).data;
-    const ground = [px[0], px[1], px[2]];
+    // KAN-721. Ground and scan clear of the panel's 12px top corner, whose
+    // curved border is ink in the clip's top-left.
+    const top = 12;
+    const g = top * img.width * 4;
+    const ground = [px[g], px[g + 1], px[g + 2]];
     for (let x = 0; x < img.width; x++) {
       // Above the row's bottom divider, which spans every column.
-      for (let y = 0; y < img.height - 4; y++) {
+      for (let y = top; y < img.height - 4; y++) {
         const i = (y * img.width + x) * 4;
         if ([0, 1, 2].some((c) => Math.abs(px[i + c] - ground[c]) > 16)) {
           return x;

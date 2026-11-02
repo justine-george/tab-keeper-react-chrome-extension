@@ -1,5 +1,6 @@
 import type { ThemeColors } from '../../hooks/useThemeColors';
-import { DURATION, ICON } from '../../styles/scale';
+import { corners } from '../../styles/corners';
+import { DURATION, ICON, RADIUS } from '../../styles/scale';
 
 /**
  * The hit area of a header "Back" control (KAN-240).
@@ -46,6 +47,8 @@ export const headerBackFillCss = (COLORS: ThemeColors) => `
     position: absolute;
     inset: 8px;
     z-index: -1;
+    /* An icon button's corners (KAN-721). */
+    ${corners(RADIUS.CONTROL)}
     transition: background-color ${DURATION.COLOR};
   }
   &:hover::before {

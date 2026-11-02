@@ -561,6 +561,11 @@ export interface DraggableRowProps {
    * list. A name no enclosing list declared leaves the row inert.
    */
   scope?: string;
+  /**
+   * KAN-721 (his R7 pick). The row draws its own lift, a shadow on its rounded
+   * fill, so this wrapper draws none: its box is wider than the fill.
+   */
+  liftedByRow?: boolean;
   children: ReactNode;
 }
 

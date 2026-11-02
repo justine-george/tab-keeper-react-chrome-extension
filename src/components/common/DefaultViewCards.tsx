@@ -11,7 +11,8 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { chooseDefaultView } from '../../redux/defaultViewChoice';
 import type { AppDispatch, RootState } from '../../redux/store';
 import type { DefaultView } from '../../utils/functions/defaultView';
-import { ICON, TYPE } from '../../styles/scale';
+import { corners } from '../../styles/corners';
+import { ICON, RADIUS, TYPE } from '../../styles/scale';
 
 // KAN-7 §5 step 3, and Settings › Default view since KAN-749: the two views as
 // picture cards, each a toggle button that sets Default view. One component, so
@@ -44,6 +45,9 @@ export default function DefaultViewCards() {
     color: ${COLORS.TEXT_COLOR};
     background-color: ${COLORS.PRIMARY_COLOR};
     border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
+    /* A control (KAN-721); the label strip's fill is clipped to its corners. */
+    ${corners(RADIUS.CONTROL)}
+    overflow: hidden;
     ${focusRingCss(COLORS)}
   `;
   // D2: the pressed card's outline is 1px TEXT; its label strip is filled below.

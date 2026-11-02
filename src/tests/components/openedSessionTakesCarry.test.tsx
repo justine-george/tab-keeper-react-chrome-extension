@@ -1341,8 +1341,8 @@ describe('a carried window shows where a drop starts (V3 A)', () => {
     expect(style.display).not.toBe('none');
     expect(style.borderTopStyle).toBe('dashed');
     expect(style.borderTopWidth).toBe('1.5px');
-    // Its colour (--drag-landing-slot) is the browser's to resolve; e2e reads it. 4px corners, as the engine's landing slot (V3 A).
-    expect(style.borderRadius).toBe('4px');
+    // Its colour (--drag-landing-slot) is the browser's to resolve; e2e reads it. A row's 8px corners, as the engine's landing slot (V3 A, KAN-721).
+    expect(style.borderRadius).toBe('8px');
     expect(style.position).toBe('absolute');
     expect([style.top, style.right, style.bottom, style.left]).toEqual([
       '0px',

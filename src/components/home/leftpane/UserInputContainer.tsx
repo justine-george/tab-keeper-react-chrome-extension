@@ -12,7 +12,8 @@ import { NormalLabel } from '../../common/Label';
 import TextBox from '../../common/TextBox';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import { TYPE } from '../../../styles/scale';
+import { corners, flushIn } from '../../../styles/corners';
+import { RADIUS, TYPE } from '../../../styles/scale';
 import { AppDispatch, type RootState } from '../../../redux/store';
 import {
   captureOpenWindows,
@@ -267,6 +268,7 @@ export default function UserInputContainer() {
     display: flex;
     flex-shrink: 0;
     border: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
   `;
 
   return (
@@ -328,7 +330,7 @@ export default function UserInputContainer() {
             iconType={buttonSave.icon}
             // KAN-698. A double-click saves once.
             onClick={onFirstClickOnly(() => createTabGroup(buttonScope))}
-            style={`width: ${SAVE_SEGMENT_WIDTH}; height: 100%; padding: 0; flex-shrink: 0; border: none;`}
+            style={`width: ${SAVE_SEGMENT_WIDTH}; height: 100%; padding: 0; flex-shrink: 0; border: none; ${flushIn(['top-left', 'bottom-left'], RADIUS.SQUARE)}`}
           />
           <SaveInvite />
           <FirstSavePop />
@@ -365,7 +367,8 @@ export default function UserInputContainer() {
             // gets through `height: 100%`.
             fillsHeight
             triggerStyle={`width: 28px; padding: 0;
-                         border-left: 1px solid ${COLORS.CONTROL_BORDER_COLOR};`}
+                         border-left: 1px solid ${COLORS.CONTROL_BORDER_COLOR};
+                         ${flushIn(['top-right', 'bottom-right'], RADIUS.SQUARE)}`}
             items={[
               {
                 key: `save-${menuScope}`,

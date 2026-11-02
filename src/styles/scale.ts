@@ -39,27 +39,46 @@ export const TYPE = {
 } as const;
 
 /**
- * Corner radius. Square, bar the row tag.
+ * Corner radius (KAN-721, the approved C2 mocks). One step per job, and each
+ * step names everything it covers: two names for one number is the drift this
+ * file exists to stop (see the duplicate check in scaleConformance.test.ts).
  *
- * What the codebase already believed about itself -- OverflowMenu documents
- * radius as "0px every time", which had quietly stopped being true. A circle is
- * not a radius decision, it is a shape, so avatars keep theirs. The one round
- * corner is the row tag's (KAN-720); KAN-721 settles the rest of the UI later.
+ * The steps nest by arithmetic, pinned by radiusScale.test.ts: a child flush
+ * in a corner takes its parent's radius less the gap between them, so the two
+ * curves run parallel instead of pinching.
  */
 export const RADIUS = {
   SQUARE: '0px',
-  /** The row tag's corner (KAN-720). */
-  TAG: '4px',
-  /** Avatars only. Not a corner. */
+  /** Avatars, swatches, dots. Not a corner. */
   CIRCLE: '50%',
-  /** A pane resize handle's ends (KAN-747): fully round. A shape, like CIRCLE, so no squircle. */
+  /** Fully round ends: the resize handle (KAN-747), the row tag (KAN-720). */
   PILL: '999px',
+  /**
+   * Any box bordered on all four sides (lists, cards, headers, drop boxes),
+   * and the floating ones: menus, the colour picker, toasts, drag cards. Also the tour's
+   * ring, which sits 4px outside a CONTROL.
+   */
+  PANEL: '12px',
+  /** Something painted flush in a PANEL's corner, inside its 1px border. */
+  PANEL_INNER: '11px',
+  /**
+   * Buttons, inputs, icon-button fills, the SlidingPair track, tooltips, and
+   * whatever sits 4px inside a PANEL: menu items, row highlights,
+   * drag slots, the group colour strip.
+   */
+  CONTROL: '8px',
+  /** The SlidingPair knob and cells: the track less its 2px padding. */
+  KNOB: '6px',
+  /** Every <dialog> and the tour's coach card. */
+  DIALOG: '16px',
+  /** Small marks: keycaps, the search hint, the theme check. */
+  MARK: '4px',
 } as const;
 
 /**
  * KAN-693. A corner that rounds is a squircle, not an arc: set beside its
- * border-radius. The row tag is the one exception and keeps round, see
- * ROW_TAG (KAN-720). A circle is a shape, not a corner, and keeps round too.
+ * border-radius. The row tag (ROW_TAG) and the small marks keep round. A
+ * circle is a shape, not a corner, and keeps round too.
  */
 export const CORNER_SHAPE = 'squircle';
 

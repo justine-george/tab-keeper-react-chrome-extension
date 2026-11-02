@@ -61,7 +61,7 @@ describe('the fallback', () => {
     const reload = html.match(/<button[^>]*style="([^"]*)"[^>]*>Reload</);
     const style = reload?.[1] ?? '';
     // PREMISE: this is the Reload button's style, rounded today.
-    expect(style).toContain('border-radius:4px');
+    expect(style).toContain('border-radius:8px');
     expect(style).toContain('corner-shape:squircle');
   });
 });

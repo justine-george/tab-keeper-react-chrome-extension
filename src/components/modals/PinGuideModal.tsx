@@ -19,7 +19,8 @@ import type { AppDispatch, RootState } from '../../redux/store';
 import { dismissPinGuide } from '../../redux/slices/settingsDataStateSlice';
 import { closePinGuide } from '../../redux/slices/globalStateSlice';
 import { watchToolbarPin } from '../../utils/functions/toolbarPin';
-import { ICON, TYPE } from '../../styles/scale';
+import { corners } from '../../styles/corners';
+import { ICON, RADIUS, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
 
 const TITLE_ID = 'pin-guide-title';
@@ -113,6 +114,7 @@ export const PinGuideModal: React.FC = () => {
     background-color: ${COLORS.PRIMARY_COLOR};
     color: ${COLORS.LABEL_L1_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.DIALOG)}
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};
     &[open] {
@@ -170,6 +172,7 @@ export const PinGuideModal: React.FC = () => {
     display: flex;
     flex-direction: column;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     background-color: ${COLORS.PRIMARY_COLOR};
   `;
   const betweenStyle = css`

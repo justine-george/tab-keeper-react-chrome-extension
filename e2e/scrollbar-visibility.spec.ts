@@ -136,7 +136,8 @@ async function measureList(page: Page): Promise<ListGeometry> {
         trackTop: rect.top + borderT,
         trackBottom: rect.bottom - borderB,
         selected: {
-          beside: barLeft - 3,
+          // KAN-721. Past the row's 4px gutter, on its fill.
+          beside: barLeft - 4 - 3,
           y: firstRect.top + firstRect.height / 2,
           fill: fillOf(first),
         },

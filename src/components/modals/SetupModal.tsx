@@ -40,7 +40,7 @@ import {
 } from '../../utils/functions/permissions';
 import { shouldAskTabGroupsInSetup } from '../../utils/functions/tabGroupsOffer';
 import { PRIVACY_POLICY_LINK } from '../../utils/constants/common';
-import { ICON, TYPE } from '../../styles/scale';
+import { ICON, RADIUS, TYPE } from '../../styles/scale';
 import { focusRingOutsideCss } from '../common/focusRing';
 import {
   dialogButtonStyles,
@@ -51,6 +51,7 @@ import {
 import { dialogTitleSize } from './dialogTitleSize';
 import { dialogRiseCss } from './dialogRise';
 import { useHasRisen } from '../../hooks/useHasRisen';
+import { corners } from '../../styles/corners';
 
 const TITLE_ID = 'setup-title';
 type Step =
@@ -157,6 +158,7 @@ export const SetupModal: React.FC = () => {
     background-color: ${COLORS.PRIMARY_COLOR};
     color: ${COLORS.LABEL_L1_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.DIALOG)}
     font-family: ${FONT_FAMILY};
     font-size: ${TYPE.BODY};
     &[open] {

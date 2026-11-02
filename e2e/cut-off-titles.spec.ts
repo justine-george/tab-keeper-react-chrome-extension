@@ -271,7 +271,7 @@ test('a long Currently open group name shows in full', async ({
 });
 
 test.describe('session titles', () => {
-  test('a session row title under Open/Switch shows in full', async ({
+  test('a session row title cut before Open/Switch shows in full', async ({
     context,
     extensionId,
   }) => {
@@ -280,8 +280,12 @@ test.describe('session titles', () => {
       .locator('[data-pane="sessions"]')
       .getByText(MID_SESSION, { exact: true });
     expect(await chipAfterRest(title)).toBe(MID_SESSION);
-    // PREMISE: it fits, and the row's Open/Switch cover its end.
-    expect(await coverOf(title)).toEqual({ fits: true, underSomething: true });
+    // PREMISE: the selected row's text ends before its Open/Switch strip
+    // (KAN-721), so the title is cut there rather than covered.
+    expect(await coverOf(title)).toEqual({
+      fits: false,
+      underSomething: false,
+    });
   });
 
   test('a session row title that fits, on a row with no strip, shows nothing', async ({

@@ -5,7 +5,8 @@ import { focusRingOutsideCss } from '../../common/focusRing';
 import Icon from '../../common/Icon';
 import { slidingPairColors } from '../../common/slidingPairColors';
 import { useFontFamily } from '../../../hooks/useFontFamily';
-import { DURATION, TYPE } from '../../../styles/scale';
+import { DURATION, RADIUS, TYPE } from '../../../styles/scale';
+import { corners } from '../../../styles/corners';
 
 /**
  * One theme in the picker: a miniature of the popup drawn from that theme's
@@ -87,6 +88,7 @@ export default function ThemeSwatch({
     overflow: hidden;
     background-color: ${palette.PRIMARY_COLOR};
     border: 1px solid ${PAGE.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.CONTROL)}
     transition: border-color ${DURATION.COLOR};
     ${
       isActive
@@ -116,6 +118,8 @@ export default function ThemeSwatch({
     height: 16px;
     background-color: ${knob};
     box-shadow: 0 0 0 2px ${PAGE.PRIMARY_COLOR};
+    /* A small mark: round (KAN-721). */
+    border-radius: ${RADIUS.MARK};
   `;
 
   const headerStyle = css`

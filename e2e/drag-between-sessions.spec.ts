@@ -990,14 +990,16 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
             ?.querySelector<HTMLElement>('[data-carry-target]');
           if (!row) throw new Error(`${rowId} is not the target`);
           const cs = getComputedStyle(row);
+          // KAN-721. The outline is drawn on ::before, inside the fill.
+          const ring = getComputedStyle(row, '::before');
           const b = row.getBoundingClientRect();
           // A dwelling row's fill is the sweep; a shown row's, the shadow.
           const fill = row.hasAttribute('data-carry-dwell')
             ? cs.backgroundImage
             : cs.boxShadow;
           return {
-            outline: cs.outlineColor,
-            outlineWidth: cs.outlineWidth,
+            outline: ring.borderTopColor,
+            outlineWidth: ring.borderTopWidth,
             fillDeclared:
               /rgba?\([^)]*\)|#[0-9a-f]{3,8}/i.exec(fill)?.[0] ?? '',
             dwelling: row.hasAttribute('data-carry-dwell'),
@@ -1142,12 +1144,13 @@ test.describe('the looks (D1 A, D2 A, S1 A)', () => {
         const ground = px[px.length - 1];
         return px.slice(0, -1).filter((p) => p !== ground).length;
       };
+      // KAN-721. The target's outline is drawn on the row's ::before.
       const outlineStyle = (id: string) =>
-        sessionRow(page, id).evaluate((row) =>
-          row.firstElementChild === null
-            ? 'missing'
-            : getComputedStyle(row.firstElementChild).outlineStyle
-        );
+        sessionRow(page, id).evaluate((row) => {
+          if (row.firstElementChild === null) return 'missing';
+          const s = getComputedStyle(row.firstElementChild, '::before');
+          return s.content === 'none' ? 'none' : s.borderTopStyle;
+        });
       // PREMISE: at rest S1's top strip is its ground.
       expect(await edge('S1')).toBe(0);
       const at = await pickUp(page, tabHandle(page, 'a1'));

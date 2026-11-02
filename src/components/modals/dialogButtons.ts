@@ -1,13 +1,14 @@
 import { css } from '@emotion/react';
 
 import type { ThemeColors } from '../../hooks/useThemeColors';
-import { CONTROL, DURATION } from '../../styles/scale';
+import { CONTROL, DURATION, RADIUS } from '../../styles/scale';
 import {
   focusRingCss,
   focusRingInInkCss,
   whileKeyNav,
 } from '../common/focusRing';
 import { mixHex } from '../../styles/mixHex';
+import { corners } from '../../styles/corners';
 
 // A dialog button's padding and border, which a flush link hangs outside.
 const PAD = { BLOCK: 8, INLINE: 16 } as const;
@@ -28,6 +29,7 @@ export function dialogButtonStyles(COLORS: ThemeColors) {
   const base = css`
     padding: ${PAD.BLOCK}px ${PAD.INLINE}px;
     border: ${BORDER}px solid ${COLORS.CONTROL_BORDER_COLOR};
+    ${corners(RADIUS.CONTROL)}
     color: ${COLORS.TEXT_COLOR};
     font-family: inherit;
     font-size: inherit;

@@ -1,4 +1,4 @@
-import React, { MouseEventHandler } from 'react';
+import React, { MouseEventHandler, useLayoutEffect, useState } from 'react';
 
 import { useSelector } from 'react-redux';
 
@@ -22,9 +22,22 @@ import {
 import { selectIsSavedSessionFolded } from '../../../redux/savedSessionFold';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { useTranslation } from 'react-i18next';
+import { corners } from '../../../styles/corners';
+import {
+  ROW_GUTTER_END,
+  ROW_GUTTER_PX,
+  ROW_RADIUS,
+  rowEndCorners,
+  rowHighlightCss,
+} from '../../../styles/rowHighlight';
 import { DURATION, TYPE } from '../../../styles/scale';
 import { springSweepStyle } from '../../common/springOpen';
-import { focusRingAboveCss, whileKeyNav } from '../../common/focusRing';
+import { focusRingRowCss, whileKeyNav } from '../../common/focusRing';
+import {
+  LINE_HIDDEN,
+  lineBeforeWrapped,
+  linesBeside,
+} from '../../common/rowLines';
 import { SAVED_TEXT_INSET } from './savedListInset';
 import { DragHandle } from '../rightpane/rowDrag/DragHandle';
 import { useRowActionGuard } from './useRowActionGuard';
@@ -170,13 +183,39 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       else if (!pressable(e.currentTarget, e.detail)) onTabGroupClick();
     };
 
+  // KAN-721 (the date clip). While the strip is drawn, the text column ends
+  // where it begins, so no line runs under it. The strip is sized by its
+  // words, so it is measured, per locale and per font size.
+  // Keyed on whether it is DRAWN: a search hides it and a cleared one draws a
+  // new element, which the observer has to follow (final review, finding 1).
+  const drawsStrip = !isSearching && shown;
+  const [stripWidth, setStripWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = strip.current;
+    if (!drawsStrip || el === null) {
+      setStripWidth(0);
+      return;
+    }
+    const measure = () => setStripWidth(el.getBoundingClientRect().width);
+    measure();
+    // As SlidingPair: jsdom has none; Chrome always does.
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [drawsStrip, strip]);
+  // The strip's width while it is drawn; else 8px less the row's end gutter.
+  const textEnd =
+    stripWidth > 0 ? `${stripWidth}px` : `calc(8px - ${ROW_GUTTER_END})`;
+
   // A plain string, not css``, because it is handed to ClickableRow's `style`
   // prop, which composes it into the button's own reset.
   const leftStyle = `
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 8px 8px 8px ${SAVED_TEXT_INSET};
+    /* Less the row's 4px gutter (KAN-721), so the text stays where it was. */
+    padding: 8px ${textEnd} 8px calc(${SAVED_TEXT_INSET} - ${ROW_GUTTER_PX}px);
     align-items: flex-start;
     width: 100%;
     min-width: 0;
@@ -246,6 +285,8 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
        background that is already uniform, so fading them cannot produce an
        edge -- which is the whole difference between them and this mask. */
     background-color: transparent;
+    /* Its right corners are the fill's (KAN-721). */
+    ${rowEndCorners()}
 
     /* Hidden by default. What reveals them lives on the CONTAINER, not here --
        see the engagement comment on containerStyle for why the two cannot be
@@ -294,8 +335,15 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
 
   const containerStyle = css`
     position: relative;
-    /* KAN-671. The row's ring, over the actions strip; the button's own is off. */
-    ${focusRingAboveCss(COLORS, '&:has(> button:focus-visible)')}
+    /* KAN-671. The row's ring, over the actions strip; the button's own is off.
+       KAN-721: inside the fill, which sits 4px in at 8. */
+    ${focusRingRowCss(COLORS, '&:has(> button:focus-visible)')}
+    ${rowHighlightCss()}
+    /* KAN-721 (his R7 pick). Lifted in its list, the shadow is the fill's own,
+       so it hugs the rounded highlight (the wrapper draws none: liftedByRow). */
+    [data-drag-held] > & {
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+    }
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -431,20 +479,26 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
        below only changes how the fill arrives. After the hover and press
        rules, so it wins over both.
 
-       The outline is on the outline property, which nothing else writes: the
+       The outline is the row's ::before, which nothing else draws: the
        fill is the box-shadow (hover's and press's channel, which the target
        takes over here in full), the selection is background-color.
-       Inset by a negative offset, so the next row cannot paint over it.
+       Inside the fill's padding box (KAN-721), so the next row cannot paint over it.
 
        The actions are hidden while the row is a target: there is nothing to
        click mid-carry, and the mask behind them is painted for hover or
        selection, which the target look is neither of. */
     &[data-carry-target] {
       ${fill(COLORS.ACTIVE_COLOR)}
-      outline-width: 2px;
-      outline-style: solid;
-      outline-color: ${COLORS.LABEL_L2_COLOR};
-      outline-offset: -2px;
+      /* KAN-721. On ::before, not outline: an outline follows the border box,
+         which now includes the transparent gutter. The padding box is the fill's. */
+      &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border: 2px solid ${COLORS.LABEL_L2_COLOR};
+        ${corners(ROW_RADIUS)}
+        pointer-events: none;
+      }
       [data-row-actions] {
         background-color: transparent;
       }
@@ -456,6 +510,28 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     &[data-carry-dwell] {
       ${fill('transparent')}
       ${springSweepStyle(COLORS.ACTIVE_COLOR)}
+    }
+    /* KAN-721. The lines touching this row hide while it is filled: the
+       same states as the fill above, so the two cannot disagree. */
+    ${linesBeside(
+      [
+        '&:hover',
+        '&:active',
+        '&[data-row-menu-held]',
+        '&[data-run-engaged]',
+        '&[data-carry-target]',
+        ...(drawsSelection ? ['&'] : []),
+      ],
+      lineBeforeWrapped
+    )}
+    ${whileKeyNav('&:has(:focus-visible) + [data-row-divider]')} {
+      ${LINE_HIDDEN}
+    }
+    /* lineBeforeWrapped's selector, written out: the key-nav gate reads literals. */
+    ${whileKeyNav(
+      '[data-drag-row-id]:has(+ [data-drag-row-id] > & :focus-visible) > [data-row-divider]'
+    )} {
+      ${LINE_HIDDEN}
     }
   `;
 
@@ -505,7 +581,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           value={formatGroupCounts(windowCount, tabCount, isSearching, t)}
           color={COLORS.LABEL_L1_COLOR}
           size={TYPE.META}
-          style="margin-top: 2px;"
+          style="margin-top: 2px; max-width: 100%;"
         />
         <div
           data-tooltip={sessionDate}
@@ -516,6 +592,11 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
             };
             font-size: ${TYPE.META};
             margin-top: 5px;
+            /* KAN-721. Ends in … before the strip; the full date is the tooltip and the description. */
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           `}
         >
           {/* "Edited <date>" or "Created <date>", following whichever date
@@ -537,7 +618,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
           )}
         </div>
       </ClickableRow>
-      {!isSearching && shown && (
+      {drawsStrip && (
         <div data-row-actions ref={strip} css={rightStyle}>
           <Icon
             tooltipText={afterTheTour?.open ?? t('Open session')}

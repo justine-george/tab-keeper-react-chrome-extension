@@ -49,13 +49,13 @@ async function boxOf(locator: Locator) {
 
 /**
  * Four points in the click area, clear of the glyph's and label's ink: two
- * 2px inside the fill's corners, two 3px inside the click area's corners,
- * where the fill must not reach.
+ * 4px inside the fill's corners (inside its 8px curve, KAN-721), two 3px
+ * inside the click area's corners, where the fill must not reach.
  */
 function probes(box: { x: number; y: number; width: number; height: number }) {
   const inside: Array<[number, number]> = [
-    [box.x + 10, box.y + 10],
-    [box.x + box.width - 10, box.y + box.height - 10],
+    [box.x + 12, box.y + 12],
+    [box.x + box.width - 12, box.y + box.height - 12],
   ];
   const outside: Array<[number, number]> = [
     [box.x + 3, box.y + 3],

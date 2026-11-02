@@ -50,7 +50,8 @@ import DefaultSaveChoice from './DefaultSaveChoice';
 import DefaultViewCards from '../../common/DefaultViewCards';
 import { SETTINGS_PAIR_METRICS } from '../../common/slidingPairMetrics';
 import { useTranslation } from 'react-i18next';
-import { CONTROL, ICON, TYPE } from '../../../styles/scale';
+import { corners } from '../../../styles/corners';
+import { CONTROL, ICON, RADIUS, TYPE } from '../../../styles/scale';
 import {
   openShortcutsBeside,
   usePopupShortcut,
@@ -115,6 +116,7 @@ const SettingsDetailsContainer: React.FC = () => {
     flex-grow: 1;
     margin-top: 8px;
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+    ${corners(RADIUS.PANEL)}
     /* Contain this pane's content. Several settings rows are still laid out at
        fixed pixel widths, so without this they push the whole popup wide
        instead of scrolling within the pane. */
@@ -1062,7 +1064,7 @@ const SettingsDetailsContainer: React.FC = () => {
   // written out in full -- the <> shorthand cannot, the same constraint as
   // SettingsCategoryContainer in KAN-28.
   return (
-    <div css={containerStyle}>
+    <div data-panel="settings-details" css={containerStyle}>
       <Fragment key={selectedSettingsCategory.name}>
         {settingsOptionsDiv}
       </Fragment>

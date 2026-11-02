@@ -1401,8 +1401,10 @@ test.describe('with a classic scrollbar (KAN-330, KAN-336)', () => {
       throw new Error(`a box is missing: ${JSON.stringify(m)}`);
     }
     expect(m.searchX).toBeCloseTo(m.tabX, 0);
+    // The bar's width back, less the 2px the rows' end gutter takes back as
+    // the bar goes (KAN-721 R6: 2px beside a bar, 4px without).
     expect(m.fieldWidth - scrolling.fieldWidth).toBeCloseTo(
-      scrolling.scrollbar,
+      scrolling.scrollbar - 2,
       0
     );
   });

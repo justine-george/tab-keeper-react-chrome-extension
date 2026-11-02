@@ -32,6 +32,7 @@ import type { RootState } from '../../redux/store';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import { asWritten } from '../setup/asWritten';
+import { classRulesFor } from '../setup/hoverRules';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { toastTexts } from '../setup/toasts';
 import {
@@ -168,6 +169,15 @@ function rowOf(id: string): HTMLElement {
 }
 
 // The element that wears the target look: TabGroupEntry's own container.
+// KAN-721. The target's outline is the row's ::before, which jsdom does not
+// compute: it is drawn when the row is the target and its class has the rule.
+function outlineOf(row: HTMLElement): string | null {
+  const rule = /\[data-carry-target\]::before\s*\{([^}]*)\}/.exec(
+    classRulesFor(row)
+  )?.[1];
+  return row.hasAttribute('data-carry-target') && rule ? rule : null;
+}
+
 function entryOf(id: string): HTMLElement {
   const el = rowOf(id).firstElementChild;
   if (!(el instanceof HTMLElement)) throw new Error(`no entry for ${id}`);
@@ -365,17 +375,17 @@ describe('no origin mark (Q1 A)', () => {
     // CONTROL: the probe sees an outline, on the row under the pointer.
     handOff();
     moveTo(rowY(1));
-    expect(getComputedStyle(entryOf('S2')).outlineStyle).toBe('solid');
+    expect(outlineOf(entryOf('S2'))).toMatch(/border:\s*2px solid/);
 
     moveTo(rowY(2));
-    expect(getComputedStyle(entryOf('S1')).outlineStyle).toBe('none');
+    expect(outlineOf(entryOf('S1'))).toBeNull();
     wait(SPRING_OPEN_MS);
     // PREMISE: S3 opened, so S1 is neither shown nor the target.
     expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
       'S3'
     );
     moveTo(rowY(4));
-    expect(getComputedStyle(entryOf('S1')).outlineStyle).toBe('none');
+    expect(outlineOf(entryOf('S1'))).toBeNull();
     expect(document.querySelectorAll('[data-carry-origin]')).toHaveLength(0);
   });
 });
@@ -436,7 +446,7 @@ describe('the target look (D2 A)', () => {
       rgb(LIGHT_THEME.SELECTION_COLOR)
     );
     expect(getComputedStyle(selected).boxShadow).toContain('transparent');
-    expect(getComputedStyle(selected).outlineStyle).not.toBe('solid');
+    expect(outlineOf(selected)).toBeNull();
 
     handOff();
     moveTo(rowY(0));
@@ -445,10 +455,11 @@ describe('the target look (D2 A)', () => {
     // The shadow paints over the background, so the row reads as pressed (KAN-669).
     expect(style.boxShadow).toContain('100vw');
     expect(style.boxShadow).toMatch(asWritten(LIGHT_THEME.ACTIVE_COLOR));
-    expect(style.outlineStyle).toBe('solid');
-    expect(style.outlineWidth).toBe('2px');
-    expect(style.outlineColor).toMatch(asWritten(LIGHT_THEME.LABEL_L2_COLOR));
-    expect(style.outlineOffset).toBe('-2px');
+    const outline = outlineOf(entryOf('S1'));
+    expect(outline).toMatch(/border:\s*2px solid/);
+    expect(outline).toMatch(asWritten(LIGHT_THEME.LABEL_L2_COLOR));
+    // Inside the fill: the padding box, which sits 4px in (KAN-721).
+    expect(outline).toMatch(/inset:\s*0/);
   });
 
   test('an unselected target row sweeps the press fill in over the dwell, inside the same outline', async () => {
@@ -465,9 +476,9 @@ describe('the target look (D2 A)', () => {
     expect(style.animation).toMatch(
       new RegExp(` ${SPRING_OPEN_MS}ms linear forwards$`)
     );
-    expect(style.outlineStyle).toBe('solid');
+    expect(outlineOf(entryOf('S3'))).toMatch(/border:\s*2px solid/);
     // And the row next to it wears none of it.
-    expect(getComputedStyle(entryOf('S2')).outlineStyle).not.toBe('solid');
+    expect(outlineOf(entryOf('S2'))).toBeNull();
     expect(getComputedStyle(entryOf('S2')).backgroundImage).not.toMatch(
       asWritten(LIGHT_THEME.ACTIVE_COLOR)
     );

@@ -1,5 +1,11 @@
 import { RefObject, useLayoutEffect } from 'react';
 
+import {
+  ROW_GUTTER_BESIDE_BAR_PX,
+  ROW_GUTTER_END_VAR,
+  ROW_GUTTER_PX,
+} from '../styles/rowHighlight';
+
 // Where useScrollbarWidthVar writes the bar's width.
 export const SCROLLBAR_WIDTH_VAR = '--scrollbar-width';
 
@@ -25,11 +31,16 @@ export function useScrollbarWidthVar(
     const scrollerEl = scroller.current;
     const targetEl = target.current;
     if (!scrollerEl || !targetEl) return;
-    const write = () =>
+    const write = () => {
+      const bar = barWidth(scrollerEl);
+      targetEl.style.setProperty(SCROLLBAR_WIDTH_VAR, `${bar}px`);
+      // KAN-721 R6. Beside a scrollbar the rows' end gutter narrows by the
+      // thumb's inset, so the fill sits 4px from the thumb.
       targetEl.style.setProperty(
-        SCROLLBAR_WIDTH_VAR,
-        `${barWidth(scrollerEl)}px`
+        ROW_GUTTER_END_VAR,
+        `${bar > 0 ? ROW_GUTTER_BESIDE_BAR_PX : ROW_GUTTER_PX}px`
       );
+    };
     write();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(write);

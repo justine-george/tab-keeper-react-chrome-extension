@@ -19,6 +19,9 @@ import {
 import { useTranslation } from 'react-i18next';
 import { DURATION, TYPE } from '../../../styles/scale';
 
+// The Settings header card's centre less this row's (34 - 29), measured.
+const BACK_TO_HEADER_CENTRE_PX = 5;
+
 export default function MenuContainer() {
   const COLORS = useThemeColors();
   const { t } = useTranslation();
@@ -29,6 +32,11 @@ export default function MenuContainer() {
     align-items: center;
     ${HEADER_BACK_TARGET}
     ${headerBackFillCss(COLORS)}
+    /* KAN-721 (his demo pick). On the Settings header's centre line: that card
+       is centred 34px down (8px pane padding, 1px, half its 50px), this row 29px
+       (1px, half its 56px). Moved, not laid out again, so the menu box below
+       keeps its KAN-239 top; the fill moves with the label. */
+    top: ${BACK_TO_HEADER_CENTRE_PX}px;
     ${hoverMotionCss({
       translate: `${-BACK_GLYPH_SHIFT_PX}px`,
       duration: DURATION.MOVE,
