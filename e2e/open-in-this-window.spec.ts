@@ -132,6 +132,81 @@ const ownWindow = (page: Page) =>
 const SETTLE = { timeout: 15_000 };
 
 test.describe('Open saved windows: This window (KAN-892)', () => {
+  // Justine 11-02: Tab Keeper's tab, first of its run, stays first: new pinned
+  // tabs go to the pinned run's end, the rest to the window's end.
+  for (const pinned of [true, false]) {
+    test(`Tab Keeper's own tab, first of the ${pinned ? 'pinned' : 'unpinned'} tabs, stays first of them`, async ({
+      context,
+      extensionId,
+      serviceWorker,
+    }) => {
+      const page = await openSaved(context, extensionId, 'tab view', {
+        sessions: [session('S1', 'Trip', [MIXED])],
+        settings: THIS_WINDOW,
+      });
+      const here = await ownWindow(page);
+      const own = await page.evaluate(
+        async () => (await chrome.tabs.getCurrent())?.id ?? -1
+      );
+      // An old pinned tab and an old loose one; Tab Keeper first of its run.
+      await serviceWorker.evaluate(
+        async ({ windowId, own, pinned, urls }) => {
+          const oldPin = await chrome.tabs.create({
+            windowId,
+            url: urls[0],
+            active: false,
+          });
+          await chrome.tabs.create({ windowId, url: urls[1], active: false });
+          if (oldPin.id !== undefined)
+            await chrome.tabs.update(oldPin.id, { pinned: true });
+          if (pinned) {
+            await chrome.tabs.update(own, { pinned: true });
+            await chrome.tabs.move(own, { index: 0 });
+          } else {
+            const run = (await chrome.tabs.query({ windowId, pinned: true }))
+              .length;
+            await chrome.tabs.move(own, { index: run });
+          }
+        },
+        {
+          windowId: here,
+          own,
+          pinned,
+          urls: [standIn('Old pin'), standIn('Old')],
+        }
+      );
+      const at = async () => {
+        const all = await facts(serviceWorker, here);
+        const run = all.filter((t) => t.pinned).length;
+        return {
+          index: all.findIndex((t) => t.id === own),
+          first: pinned ? 0 : run,
+          pins: all.filter((t) => t.pinned && t.id !== own).map((t) => t.title),
+          count: all.length,
+        };
+      };
+      const before = await at();
+      // PREMISE: Tab Keeper is first of its run, and the run has an old tab beside it.
+      expect(before.index).toBe(before.first);
+      expect(before.pins).toEqual(['Old pin']);
+
+      await page
+        .getByRole('button', {
+          name: 'Open in this window: Reading',
+          exact: true,
+        })
+        .click();
+
+      await expect
+        .poll(async () => (await at()).count, SETTLE)
+        .toBe(before.count + MIXED.tabs.length);
+      const after = await at();
+      expect(after.index).toBe(after.first);
+      // The saved pin went after the old one, at the run's end.
+      expect(after.pins).toEqual(['Old pin', 'Pin']);
+    });
+  }
+
   test('Open adds the saved window at the end of the window you are in, pinned to the pinned run, groups and split as Open makes them, its saved active tab current', async ({
     context,
     extensionId,
