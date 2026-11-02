@@ -103,6 +103,38 @@ async function settled(page: Page): Promise<void> {
   });
 }
 
+// DIAG KAN-721 (temporary): every row's box in the detail pane, the list's scroll, the gutter var.
+async function diag(page: Page, label: string): Promise<void> {
+  const out = await page.evaluate(() => {
+    const list =
+      document.querySelector<HTMLElement>('[data-tour-anchor=windows]')
+        ?.parentElement ?? null;
+    const r = (e: Element) => {
+      const b = e.getBoundingClientRect();
+      return `${b.top.toFixed(2)}+${b.height.toFixed(2)}`;
+    };
+    const rows = [
+      ...document.querySelectorAll<HTMLElement>(
+        '[data-pane=detail] [data-drag-row-id], [data-pane=detail] [data-band-id], [data-pane=detail] [data-drag-landing-slot], [data-pane=detail] [data-group-drag-handle]'
+      ),
+    ].map(
+      (e) =>
+        `${e.dataset.dragRowId ?? e.dataset.bandId ?? (e.hasAttribute('data-drag-landing-slot') ? 'SLOT' : 'grouphead')}${e.hasAttribute('data-drag-held') ? '*' : ''}@${r(e)} tf=${getComputedStyle(e).transform}`
+    );
+    return {
+      scroll: list
+        ? `${list.scrollTop}/${list.scrollHeight}/${list.clientHeight}`
+        : 'none',
+      gutter: list
+        ? getComputedStyle(list).getPropertyValue('--row-gutter-end')
+        : '',
+      bar: list ? list.offsetWidth - list.clientWidth : -1,
+      rows,
+    };
+  });
+  console.log(`DIAG ${label} ${JSON.stringify(out)}`);
+}
+
 interface Span {
   top: number;
   bottom: number;
@@ -237,10 +269,17 @@ const CASES: Case[] = [
 ];
 
 test.describe('a dragged group is shown landing where it lands', () => {
-  for (const c of CASES) {
+  // DIAG KAN-721 (temporary): each CONTROL case five times, for CI samples.
+  for (const c of CASES.flatMap((k) =>
+    k.name.startsWith('CONTROL')
+      ? [1, 2, 3, 4, 5].map((n) => ({ ...k, name: `${k.name} #${n}` }))
+      : [k]
+  )) {
     test(c.name, async ({ context, extensionId }) => {
       const page = await open(context, extensionId);
+      await diag(page, `${c.name} rest`);
       const x = await pickUp(page, c.held);
+      await diag(page, `${c.name} picked`);
 
       // Aimed in the FOLDED layout the drag measured, read now that the
       // held group has folded and before anything has stepped aside.
@@ -251,11 +290,13 @@ test.describe('a dragged group is shown landing where it lands', () => {
         { steps: 12 }
       );
       await settled(page);
+      await diag(page, `${c.name} held`);
       const held = await preview(page);
       await page.mouse.up();
 
       await expect.poll(() => bandOrder(page)).toEqual(c.landsAs);
       await settled(page);
+      await diag(page, `${c.name} landed`);
       const landed = await spanOf(page, titleRow(c.held));
 
       const slotTop = held.slot?.top ?? Number.NaN;
