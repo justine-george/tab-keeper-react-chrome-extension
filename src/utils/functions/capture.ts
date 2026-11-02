@@ -362,6 +362,13 @@ export function isTabKeeperPage(tab: chrome.tabs.Tab): boolean {
   return resolveTabUrl(address).startsWith(chrome.runtime.getURL(''));
 }
 
+// KAN-886. What Add current window would add; its chip dims when this is empty.
+export function addableTabs(
+  window: Pick<chrome.windows.Window, 'tabs'>
+): chrome.tabs.Tab[] {
+  return (window.tabs ?? []).filter((tab) => !isTabKeeperPage(tab));
+}
+
 const NAME_SOURCE_NOISE = [
   'https://chromewebstore.google.com/',
   'https://chrome.google.com/webstore',

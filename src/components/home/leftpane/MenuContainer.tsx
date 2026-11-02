@@ -124,6 +124,9 @@ export default function MenuContainer() {
   // Read only in the full view; the popup never draws Back.
   const backPlan = useBackPlan(isTabView() && defaultView === 'full');
   const canGoBack = backPlan !== null && backPlan.kind !== 'none';
+  // KAN-886. Dimmed with nowhere to go, its tooltip says why; not while the plan is still being read.
+  const backTip =
+    backPlan?.kind === 'none' ? t('BackNowhereToGo') : t('Back to your tab');
   const isRedoable = useSelector(isRedoableSelector);
 
   // KAN-744 R15. The same history as ⌘Z / ⌘⇧Z, saved and live steps alike; never a Reopen offer.
@@ -459,7 +462,7 @@ export default function MenuContainer() {
             {(press) => (
               <Icon
                 ariaLabel={t('Back to your tab')}
-                tooltipText={t('Back to your tab')}
+                tooltipText={backTip}
                 type="arrow_back"
                 onClick={press}
                 style={canGoBack ? 'opacity: 1;' : 'opacity: 0.3;'}

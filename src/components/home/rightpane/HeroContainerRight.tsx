@@ -47,6 +47,7 @@ import {
 import { showSessionAndAddCurrentWindow } from '../../../redux/showSessionAndAddCurrentWindow';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { useCurrentWindowHasTabsToAdd } from '../../../hooks/useCurrentWindowHasTabsToAdd';
 import { OPEN_NOW_RAIL_QUERY } from '../opennow/railQuery';
 import { OPEN_NOW_FOLD_ICON } from '../opennow/foldIcon';
 import { runPaneMotion } from '../paneMotion';
@@ -170,6 +171,8 @@ export default function HeroContainerRight() {
     (state: RootState) => state.settingsDataState.copyLinksLayout
   );
   // KAN-708. The header ⋮'s ctx; the header's right-click differs only in its place (KAN-793).
+  // KAN-886. The Add chip dims, and the row menu drops Add, while the current window holds only Tab Keeper.
+  const canAddCurrentWindow = useCurrentWindowHasTabsToAdd();
   const menuCtx = {
     t,
     language: i18n.language,
@@ -177,6 +180,7 @@ export default function HeroContainerRight() {
     deleteKey,
     place: 'headerMenuButton' as const,
     copyLinksLayout,
+    canAddCurrentWindow,
   };
   // KAN-708, KAN-793. Right-clicking the header opens its buttons, then the ⋮ items; none while searching, when the ⋮ is hidden.
   const headerMenu = useRowContextMenu({
@@ -681,8 +685,14 @@ export default function HeroContainerRight() {
               <Button
                 text={t('Add window')}
                 iconSize={ICON.SMALL}
-                tooltipText={t('Add current window')}
+                tooltipText={
+                  canAddCurrentWindow
+                    ? t('Add current window')
+                    : t('AddWindowNothingToAdd')
+                }
                 ariaLabel={t('Add window')}
+                // KAN-886. Dimmed as Back to your tab is with nowhere to go.
+                ariaDisabled={!canAddCurrentWindow}
                 // Not a bare plus. The two saves wear a plus badge on a window
                 // (KAN-780: one window, two windows) and both CREATE a session;
                 // this one appends to the session already on screen. Theirs is a
@@ -726,6 +736,7 @@ export default function HeroContainerRight() {
               font-size: ${TYPE.SECONDARY};
               padding: 5px 6px 3px 3px;
               ${flushIn(['bottom-right'])}
+              ${canAddCurrentWindow ? '' : 'opacity: 0.3;'}
             `}
               />
             )}

@@ -1530,6 +1530,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         tabsOnAttached,
         tabsOnDetached,
         tabsOnActivated,
+        // KAN-886. Add current window's dim listens here too.
+        tabsOnReplaced,
         windowsOnCreated,
         windowsOnRemoved,
         tabGroupsOnCreated,
