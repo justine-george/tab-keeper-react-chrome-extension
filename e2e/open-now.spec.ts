@@ -246,10 +246,11 @@ async function seedSavedTab(
   await seedSettings(context, { foldSavedSessionInTabView: false });
 }
 
+// Either name (KAN-890): 7b opens the saved tab's page live, so its row says Switch to tab.
 const savedTabRow = (page: Page): Locator =>
-  page
-    .locator(DETAIL)
-    .getByRole('button', { name: 'Open in new tab: Saved tab', exact: true });
+  page.locator(DETAIL).getByRole('button', {
+    name: /^(Open in new tab|Switch to tab): Saved tab$/,
+  });
 
 interface HorizontalBox {
   left: number;

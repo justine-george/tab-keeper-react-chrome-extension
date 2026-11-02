@@ -209,14 +209,15 @@ test('Save keeps two pinned tabs and the active third; Switch brings them back t
   expect(saved?.activeTabId).toBe(saved?.tabs[2].tabId);
 
   // A5: the pin mark and the "Pinned" description, on pinned rows only.
+  // Still open, so the rows say Switch to tab (KAN-890).
   const pinnedRow = popup.getByRole('button', {
-    name: 'Open in new tab: PinnedOne',
+    name: 'Switch to tab: PinnedOne',
     exact: true,
   });
   await expect(pinnedRow.locator('[data-pin]')).toBeVisible();
   await expect(pinnedRow).toHaveAccessibleDescription('Pinned');
   const activeRow = popup.getByRole('button', {
-    name: 'Open in new tab: ActiveThree',
+    name: 'Switch to tab: ActiveThree',
     exact: true,
   });
   await expect(activeRow.locator('[data-pin]')).toHaveCount(0);

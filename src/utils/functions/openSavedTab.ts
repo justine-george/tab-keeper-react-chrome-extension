@@ -31,6 +31,29 @@ export function findOpenCopy(
   return best?.tab;
 }
 
+// KAN-890. Every address findOpenCopy would find a copy at, for a row's name.
+export function openCopyAddresses(
+  windows: readonly OpenWindow[]
+): ReadonlySet<string> {
+  const addresses = new Set<string>();
+  for (const window of windows) {
+    for (const tab of window.tabs) {
+      const address = resolveTabUrl(tab.url);
+      if (address !== '') addresses.add(address);
+    }
+  }
+  return addresses;
+}
+
+// KAN-890. Whether a plain click on the saved tab at `url` would switch, not open.
+export function hasOpenCopy(
+  url: string,
+  addresses: ReadonlySet<string>
+): boolean {
+  const address = resolveTabUrl(url);
+  return address !== '' && addresses.has(address);
+}
+
 // KAN-884. Middle-click, ⌘-click on a Mac or Ctrl-click elsewhere: a new copy
 // in the background. A Mac's Ctrl-click is its context menu (KAN-708).
 export function opensInBackground(

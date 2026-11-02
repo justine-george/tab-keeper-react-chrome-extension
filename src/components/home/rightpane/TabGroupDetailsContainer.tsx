@@ -12,6 +12,7 @@ import { css } from '@emotion/react';
 import { NormalLabel } from '../../common/Label';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import WindowEntryContainer from './WindowEntryContainer';
+import { OpenCopiesProvider } from './OpenCopiesProvider';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { AppDispatch, RootState } from '../../../redux/store';
 import {
@@ -347,15 +348,17 @@ export default function TabGroupDetailsContainer() {
   `;
 
   return (
-    <div data-panel="windows" css={containerStyle} ref={scrollerRef}>
-      {isEmptyObject(selectedTabGroup) ? (
-        <div css={emptyContainerStyle}>
-          {/* KAN-86, same bare literal as TabGroupEntryContainer. */}
-          <NormalLabel value={t('Empty')} />
-        </div>
-      ) : (
-        <div css={filledContainerStyle} data-tour-anchor="windows">
-          {/* KAN-132. ONE tab list for the whole session, rather than one per
+    // KAN-890. A saved tab's name says whether a click switches or opens.
+    <OpenCopiesProvider>
+      <div data-panel="windows" css={containerStyle} ref={scrollerRef}>
+        {isEmptyObject(selectedTabGroup) ? (
+          <div css={emptyContainerStyle}>
+            {/* KAN-86, same bare literal as TabGroupEntryContainer. */}
+            <NormalLabel value={t('Empty')} />
+          </div>
+        ) : (
+          <div css={filledContainerStyle} data-tour-anchor="windows">
+            {/* KAN-132. ONE tab list for the whole session, rather than one per
               window, so that a tab drag can name a row in another window.
 
               OUTSIDE the windows area, not inside it. The windows area and
@@ -364,12 +367,12 @@ export default function TabGroupDetailsContainer() {
               directly -- there is no per-window items list any more, only
               the ONE items list a few lines below. Both resolve correctly
               with no context factory (spec 5.1). */}
-          <TabDragArea
-            tabList={shownSession}
-            adoptRowId={adoptRowIdFor('tab')}
-            adoptedRowLandsAs={landsAsFor('tab')}
-          >
-            {/* KAN-132, one level up from the tab list. ONE items list for the
+            <TabDragArea
+              tabList={shownSession}
+              adoptRowId={adoptRowIdFor('tab')}
+              adoptedRowLandsAs={landsAsFor('tab')}
+            >
+              {/* KAN-132, one level up from the tab list. ONE items list for the
                 whole session -- each loose tab and each Chrome group as one
                 row -- rather than one per window.
 
@@ -378,12 +381,12 @@ export default function TabGroupDetailsContainer() {
                 scope="items" and tab rows name scope="tabs", so each reaches
                 its own list through the other; window rows declare no scope and
                 still join the nearest list, the windows area below. */}
-            <GroupDragArea
-              itemList={shownSession}
-              adoptRowId={adoptRowIdFor('group')}
-              adoptedRowLandsAs={landsAsFor('group')}
-            >
-              {/* KAN-129. handleSelector is what keeps this area and the tab list
+              <GroupDragArea
+                itemList={shownSession}
+                adoptRowId={adoptRowIdFor('group')}
+                adoptedRowLandsAs={landsAsFor('group')}
+              >
+                {/* KAN-129. handleSelector is what keeps this area and the tab list
               around it from both claiming one pointerdown: the
               draggable node below wraps a window's whole block, tabs
               included, so only a press that starts on the window's header
@@ -391,73 +394,74 @@ export default function TabGroupDetailsContainer() {
 
               No resolveDrop: a window belongs to nothing, so unlike a tab its
               drop rule really is just an index. */}
-              <RowDragArea
-                rowIds={windowIds}
-                onMove={handleMoveWindow}
-                handleSelector="[data-window-drag-handle]"
-                dragKind="window"
-                clampDropToEnds
-                restoreScrollIfNoDrop
-                carryOut={carryWindowOut}
-                adoptRowId={adoptRowIdFor('window')}
-                adoptedRowLandsAs={landsAsFor('window')}
-                // Off while searching (KAN-385).
-                disabled={isSearching}
-              >
-                {shownSession.windows
-                  .filter((w) => w.windowId !== NEW_LAST_WINDOW)
-                  .map((w) => (
-                    // Keyed by windowId, not by index: WindowEntryContainer owns
-                    // collapse and rename state, and an index key is identical to
-                    // the positional default React already uses, so it would
-                    // leave that state bleeding onto the wrong window after a
-                    // deletion.
-                    //
-                    // This key is also what resets a window's own state -- its
-                    // rename draft -- when the user switches sessions. Window
-                    // ids are uuids minted when a window is saved (capture.ts,
-                    // openWindowsToSession.ts) or made by a move (intoNewWindow,
-                    // KAN-350). A move takes a window's id WITH it rather than
-                    // copying the window, and re-mints an id (uuidv5) only where
-                    // its destination already holds it. So no id the app mints
-                    // is in two sessions at once -- selecting a different one
-                    // swaps the whole key set and React remounts every row.
-                    // Legacy data or an import can still repeat an id across
-                    // sessions; such a row keeps its draft across the switch.
-                    // WindowEntryContainer used to do that reset with an effect
-                    // on tabGroupId; it was deleted as redundant with this key
-                    // (KAN-51). Weaken this key and that reset goes with it --
-                    // renameDrafts.test.tsx covers it. (The fold is no longer
-                    // the row's: it lives in globalState, by session, KAN-206.)
-                    //
-                    // DraggableRow is what carries that key now. It replaces the
-                    // plain wrapper div rather than nesting inside one: it renders
-                    // exactly one element per window, so the tree keeps its shape.
-                    <DraggableRow key={w.windowId} rowId={w.windowId}>
-                      {/* A carried window's phantom shows where a drop
+                <RowDragArea
+                  rowIds={windowIds}
+                  onMove={handleMoveWindow}
+                  handleSelector="[data-window-drag-handle]"
+                  dragKind="window"
+                  clampDropToEnds
+                  restoreScrollIfNoDrop
+                  carryOut={carryWindowOut}
+                  adoptRowId={adoptRowIdFor('window')}
+                  adoptedRowLandsAs={landsAsFor('window')}
+                  // Off while searching (KAN-385).
+                  disabled={isSearching}
+                >
+                  {shownSession.windows
+                    .filter((w) => w.windowId !== NEW_LAST_WINDOW)
+                    .map((w) => (
+                      // Keyed by windowId, not by index: WindowEntryContainer owns
+                      // collapse and rename state, and an index key is identical to
+                      // the positional default React already uses, so it would
+                      // leave that state bleeding onto the wrong window after a
+                      // deletion.
+                      //
+                      // This key is also what resets a window's own state -- its
+                      // rename draft -- when the user switches sessions. Window
+                      // ids are uuids minted when a window is saved (capture.ts,
+                      // openWindowsToSession.ts) or made by a move (intoNewWindow,
+                      // KAN-350). A move takes a window's id WITH it rather than
+                      // copying the window, and re-mints an id (uuidv5) only where
+                      // its destination already holds it. So no id the app mints
+                      // is in two sessions at once -- selecting a different one
+                      // swaps the whole key set and React remounts every row.
+                      // Legacy data or an import can still repeat an id across
+                      // sessions; such a row keeps its draft across the switch.
+                      // WindowEntryContainer used to do that reset with an effect
+                      // on tabGroupId; it was deleted as redundant with this key
+                      // (KAN-51). Weaken this key and that reset goes with it --
+                      // renameDrafts.test.tsx covers it. (The fold is no longer
+                      // the row's: it lives in globalState, by session, KAN-206.)
+                      //
+                      // DraggableRow is what carries that key now. It replaces the
+                      // plain wrapper div rather than nesting inside one: it renders
+                      // exactly one element per window, so the tree keeps its shape.
+                      <DraggableRow key={w.windowId} rowId={w.windowId}>
+                        {/* A carried window's phantom shows where a drop
                           starts while the pointer is outside (V3 A). */}
-                      {w.windowId === adoptRowIdFor('window') && (
-                        <PhantomRestingSlot />
-                      )}
-                      {entryOf(w)}
-                    </DraggableRow>
-                  ))}
-                {/* KAN-361/366. The trailing block, after the last window,
+                        {w.windowId === adoptRowIdFor('window') && (
+                          <PhantomRestingSlot />
+                        )}
+                        {entryOf(w)}
+                      </DraggableRow>
+                    ))}
+                  {/* KAN-361/366. The trailing block, after the last window,
                     always: empty and zero height at rest, a row tall while a
                     tab or group is dragged (App.css, Q4), and where a carried
                     tab's or group's phantom rests (landingView). Drawn here
                     and nowhere else, so there is only ever one. No row of
                     this list: nothing drags it, and no window lands in it. */}
-                {entryOf(
-                  shownSession.windows.find(
-                    (w) => w.windowId === NEW_LAST_WINDOW
-                  ) ?? EMPTY_TRAILING_BLOCK
-                )}
-              </RowDragArea>
-            </GroupDragArea>
-          </TabDragArea>
-        </div>
-      )}
-    </div>
+                  {entryOf(
+                    shownSession.windows.find(
+                      (w) => w.windowId === NEW_LAST_WINDOW
+                    ) ?? EMPTY_TRAILING_BLOCK
+                  )}
+                </RowDragArea>
+              </GroupDragArea>
+            </TabDragArea>
+          </div>
+        )}
+      </div>
+    </OpenCopiesProvider>
   );
 }

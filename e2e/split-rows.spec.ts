@@ -115,8 +115,9 @@ test.describe('a split view in the rows (KAN-564)', () => {
       .click(ON_TITLE);
 
     const saved = (title: string) =>
+      // The saved pair is still open, so its rows say Switch to tab (KAN-890).
       page.locator(DETAIL).getByRole('button', {
-        name: `Open in new tab: ${title}`,
+        name: `Switch to tab: ${title}`,
         exact: true,
       });
     await expect(saved('SplitB').locator('[data-split]')).toBeVisible();
