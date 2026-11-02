@@ -13,6 +13,7 @@ import { renderWithProviders } from '../setup/renderWithProviders';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
 import { rgb } from '../setup/hexColor';
+import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 
 // KAN-413. Not modal, takes no focus; Esc is the card's own (§6).
 
@@ -702,5 +703,98 @@ describe('motion (§10)', () => {
     await waitFor(() => expect(ring()?.style.top).toBe('296px'));
     expect(appear?.cancel).not.toHaveBeenCalled();
     expect(animations).toHaveLength(1);
+  });
+});
+
+// KAN-902. A press on the dim did nothing a person could see. Now the card says
+// why, and draws the eye to it: the line fades in, the card swells and settles.
+describe('a press on the dim', () => {
+  const LINE = 'Everything else works after the tour.';
+  const note = () => document.querySelector<HTMLElement>('[data-coach-nudge]');
+  const press = (target: HTMLElement | null) => {
+    if (target === null) throw new Error('nothing to press');
+    fireEvent.mouseDown(target);
+  };
+  const reduceMotion = (reduce: boolean) =>
+    vi
+      .spyOn(window, 'matchMedia')
+      .mockImplementation(
+        (query: string) =>
+          new FakeMediaQueryList(query, reduce && query.includes('reduce'))
+      );
+
+  test('before any press, the card says nothing more', async () => {
+    await render();
+    await placed();
+    expect(screen.queryByText(LINE)).toBeNull();
+  });
+
+  test('shows the line in the card, between its text and its buttons', async () => {
+    await render();
+    await placed();
+    press(dim());
+    const shown = note();
+    expect(shown).toHaveTextContent(LINE);
+    expect(mark()?.contains(shown)).toBe(true);
+    const text = screen.getByText(TEXT);
+    const next = screen.getByRole('button', { name: 'Next' });
+    expect(
+      text.compareDocumentPosition(shown!) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      shown!.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  test('a press in the card, or on the still box, shows nothing', async () => {
+    await render({ isLive: false });
+    await placed();
+    press(mark());
+    press(document.querySelector<HTMLElement>('[data-coach-still]'));
+    expect(note()).toBeNull();
+  });
+
+  test('the line stays for the step and is gone at the next', async () => {
+    const { rerenderAt } = await render();
+    await placed();
+    press(dim());
+    rerenderAt({ text: 'Another step.' });
+    expect(note()).not.toBeNull();
+    rerenderAt({ progress: { step: 2, position: 2, total: 8 } });
+    expect(note()).toBeNull();
+  });
+
+  test('the line fades in and the card swells 2.5% and settles', async () => {
+    reduceMotion(false);
+    await render();
+    await placed();
+    animations.length = 0;
+    press(dim());
+    const swell = animations.find((a) => a.el === mark());
+    expect(swell?.keyframes.map((k) => k.scale)).toEqual(['1', '1.025', '1']);
+    const fade = animations.find((a) => a.el === note());
+    expect(fade?.keyframes.map((k) => k.opacity)).toEqual([0, 1]);
+  });
+
+  test('a second press swells the card again, and the line shows once', async () => {
+    reduceMotion(false);
+    await render();
+    await placed();
+    press(dim());
+    animations.length = 0;
+    press(dim());
+    expect(animations.filter((a) => a.el === mark())).toHaveLength(1);
+    expect(animations.filter((a) => a.el === note())).toHaveLength(0);
+    expect(document.querySelectorAll('[data-coach-nudge]')).toHaveLength(1);
+  });
+
+  test('reduced motion: the line shows, nothing moves', async () => {
+    reduceMotion(true);
+    await render();
+    await placed();
+    animations.length = 0;
+    press(dim());
+    expect(note()).toHaveTextContent(LINE);
+    expect(animations).toHaveLength(0);
   });
 });
