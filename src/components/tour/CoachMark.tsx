@@ -36,9 +36,10 @@ import type { AnchorBox, Spotlight } from './anchorBox';
 import { RADIUS, TYPE } from '../../styles/scale';
 import { corners } from '../../styles/corners';
 
-// KAN-721. The ring sits RING_INSET outside a CONTROL, so it rounds at PANEL;
-// the dim's hole is cut with the same corners, as the approved R4 mock shows.
-const RING_PX = Number.parseFloat(RADIUS.PANEL);
+// KAN-721. The ring sits RING_INSET outside a CONTROL, so it rounds at PANEL.
+// KAN-901. The dim's hole is the ring's shape brought in by RING_INSET: a
+// CONTROL's corner, so a lit button or row fill is lit whole, to its corners.
+const HOLE_PX = Number.parseFloat(RADIUS.PANEL) - COACH.RING_INSET;
 
 // The run's step, and which card it is of how many; null for the note after the run, which has no progress line.
 export interface CoachProgress {
@@ -273,7 +274,7 @@ export default function CoachMark({
               : {
                   clipPath: clipPathWithHoles(
                     [bright, ...openingBoxes],
-                    RING_PX
+                    HOLE_PX
                   ),
                 }
           }

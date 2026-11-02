@@ -44,20 +44,33 @@ interface Rect {
   bottom: number;
 }
 
-// The dim's hole, read back from its clip-path: the second subpath, a
-// rectangle with corners rounded at k (KAN-721), so its edges are k past
-// the first move's x and the last vertical's y.
+// The dim's hole, read back from its clip-path: the second subpath, whose
+// points (straight edges and squircle corners, KAN-901) span the hole.
 const brightBox = (page: Page) =>
   dim(page).evaluate((el): Rect | null => {
     const path = el instanceof HTMLElement ? el.style.clipPath : '';
-    const n = '(-?[\\d.]+)';
-    const m = path.match(
-      // Chrome serialises the path with a space between every token.
-      new RegExp(`Z M ${n} ${n} H ${n} A ${n} ${n} 0 0 1 ${n} ${n} V ${n}`)
-    );
-    if (!path.startsWith('path(evenodd') || m === null) return null;
-    const [mx, top, , k, , right, , vy] = m.slice(1).map(Number);
-    return { left: mx - k, top, right, bottom: vy + k };
+    // Chrome serialises the path with a space between every token.
+    const hole = /Z M (.*?) Z/.exec(path)?.[1];
+    if (!path.startsWith('path(evenodd') || hole === undefined) return null;
+    const tokens = `M ${hole}`.split(' ');
+    const xs: number[] = [];
+    const ys: number[] = [];
+    let [x, y] = [0, 0];
+    for (let i = 0; i < tokens.length;) {
+      const op = tokens[i];
+      if (op === 'H') x = Number(tokens[i + 1]);
+      else if (op === 'V') y = Number(tokens[i + 1]);
+      else [x, y] = [Number(tokens[i + 1]), Number(tokens[i + 2])];
+      i += op === 'H' || op === 'V' ? 2 : 3;
+      xs.push(x);
+      ys.push(y);
+    }
+    return {
+      left: Math.min(...xs),
+      top: Math.min(...ys),
+      right: Math.max(...xs),
+      bottom: Math.max(...ys),
+    };
   });
 
 const sameRect = (a: Rect | null, b: Rect | null) =>

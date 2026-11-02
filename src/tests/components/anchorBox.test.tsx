@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'vitest';
 
-import { rowsBox } from '../../components/tour/anchorBox';
+import { rowFillBox, rowsBox } from '../../components/tour/anchorBox';
 import type { Box } from '../../components/tour/coachMarkPlacement';
 
 // Measured at 1280x380, root 20px: scroll box 365,135,462x236, client 366,136,460x234.
@@ -80,5 +80,50 @@ describe('rowsBox', () => {
 
   test('scrolled wholly out of the box, there is no box: the step is unplaced', () => {
     expect(rowsBox(windowsAnchor(windowsAt(400)))).toBeNull();
+  });
+});
+
+// KAN-901. A session row's fill sits inside its highlight's transparent side
+// borders (rowHighlight.ts); the ring goes round the fill, not the row.
+describe('rowFillBox', () => {
+  const row = (fill: HTMLElement | null): HTMLElement => {
+    const element = document.createElement('div');
+    element.setAttribute('data-drag-row-id', 's1');
+    element.getBoundingClientRect = () =>
+      rect({ left: 10, top: 168, width: 336.5, height: 71 });
+    if (fill !== null) element.append(fill);
+    return element;
+  };
+  const highlight = (): HTMLElement => {
+    const element = document.createElement('div');
+    element.setAttribute('data-drag-handle-row', '');
+    element.getBoundingClientRect = () =>
+      rect({ left: 10, top: 168, width: 336.5, height: 70 });
+    for (const [name, value] of [
+      ['clientLeft', 4],
+      ['clientTop', 0],
+      ['clientWidth', 328.5],
+      ['clientHeight', 70],
+    ] as const) {
+      Object.defineProperty(element, name, { value });
+    }
+    return element;
+  };
+
+  test('the highlight’s padding box: in by its side borders, without the divider under it', () => {
+    expect(rowFillBox(row(highlight()))).toEqual({
+      left: 14,
+      top: 168,
+      width: 328.5,
+      height: 70,
+    });
+  });
+  test('a row with no highlight drawn is its own box', () => {
+    expect(rowFillBox(row(null))).toEqual({
+      left: 10,
+      top: 168,
+      width: 336.5,
+      height: 71,
+    });
   });
 });

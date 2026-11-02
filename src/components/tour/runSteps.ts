@@ -1,5 +1,10 @@
 import type { CoachSide } from './coachMarkPlacement';
-import { findAndFitBox, rowsBox, type AnchorBox } from './anchorBox';
+import {
+  findAndFitBox,
+  rowFillBox,
+  rowsBox,
+  type AnchorBox,
+} from './anchorBox';
 import type {
   RunSaveCard,
   RunStepKind,
@@ -82,7 +87,13 @@ export function runStepPlan(
     case 'row':
       return sessionId === null
         ? null
-        : { anchors: [row(sessionId)], sides: BELOW, isLive: false };
+        : {
+            anchors: [row(sessionId)],
+            // KAN-901. The fill, not the row: it sits in from the row's sides.
+            boxOf: rowFillBox,
+            sides: BELOW,
+            isLive: false,
+          };
     case 'open':
     case 'switch':
     case 'replace':

@@ -3,6 +3,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 
 import CoachMark from '../../components/tour/CoachMark';
 import {
+  clipPathWithHoles,
   placeBeside,
   type Box,
   type Size,
@@ -98,18 +99,10 @@ async function render(
 const mark = () => document.querySelector<HTMLElement>('[data-coach-mark]');
 const ring = () => document.querySelector<HTMLElement>('[data-coach-ring]');
 const dim = () => document.querySelector<HTMLElement>('[data-coach-dim]');
-// The dim's clip-path: everything, less a hole at left, top, width, height,
-// its corners rounded at the ring's 12px (KAN-721), capped at half a side.
-const hole = (left: number, top: number, width: number, height: number) => {
-  const [r, b] = [left + width, top + height];
-  const k = Math.min(12, width / 2, height / 2);
-  const arc = (x: number, y: number) => `A${k} ${k} 0 0 1 ${x} ${y}`;
-  return (
-    'path(evenodd, "M0 0H100000V100000H0Z ' +
-    `M${left + k} ${top}H${r - k}${arc(r, top + k)}V${b - k}${arc(r - k, b)}` +
-    `H${left + k}${arc(left, b - k)}V${top + k}${arc(left + k, top)}Z")`
-  );
-};
+// The dim's clip-path: everything, less a hole at left, top, width, height.
+// KAN-901: its corner is the ring's 12px squircle brought in by RING_INSET, 8.
+const hole = (left: number, top: number, width: number, height: number) =>
+  clipPathWithHoles([{ left, top, width, height }], 8);
 const twoFrames = () =>
   act(
     () =>
