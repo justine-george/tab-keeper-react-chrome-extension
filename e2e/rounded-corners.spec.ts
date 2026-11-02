@@ -10,7 +10,15 @@ import {
 import { test as freshTest } from './fixtures/extension';
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { POPUP, openFullView, openPopup } from './fixtures/onboarding';
-import { cardAt, startRunFromHelp } from './fixtures/run';
+import {
+  RUN_VIEWS,
+  card,
+  cardAt,
+  cardButton,
+  landedAt,
+  openRunFromHelp,
+  startRunFromHelp,
+} from './fixtures/run';
 import { CHALK_THEME } from '../src/hooks/useThemeColors';
 import { buildSession } from './fixtures/seed';
 import { differingPixels, pixelsAt } from './fixtures/pixels';
@@ -258,11 +266,82 @@ test.describe('surfaces', () => {
     const clip = await page
       .locator('[data-coach-dim]')
       .evaluate((e) => (e as HTMLElement).style.clipPath);
+    // KAN-901. Squircle corners, traced as line-tos: path() has no squircle.
     expect(clip, "the dim's hole").toMatch(
       // Chrome serialises the path with a space between every token.
-      /^path\(evenodd, "M 0 0 H \d+ V \d+ H 0 Z M .* A 12 12 0 0 1 /
+      /^path\(evenodd, "M 0 0 H \d+ V \d+ H 0 Z M [\d.]+ [\d.]+ H [\d.]+ L [\d.]+ [\d.]+ /
     );
+    expect(clip, 'no circular arcs').not.toContain(' A ');
   });
+
+  // KAN-901. The save row lights the name field (8) and the save group (12):
+  // an 8px hole there left the page lit outside the group's corners.
+  test("the tour's save step cuts the dim's hole to the field's corners and the save group's", async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    await startRunFromHelp(page);
+    await expect(cardAt(page, 1)).toBeVisible();
+    await expect(card(page)).toHaveAttribute('data-coach-kind', 'save');
+    const save = await page
+      .locator('[data-tour-anchor="save"]')
+      .evaluate((e) => {
+        const b = e.getBoundingClientRect();
+        return { left: b.left, top: b.top, right: b.right };
+      });
+    const clip = await page
+      .locator('[data-coach-dim]')
+      .evaluate((e) => (e as HTMLElement).style.clipPath);
+    const top = /Z M ([\d.]+) ([\d.]+) H ([\d.]+) /.exec(clip);
+    expect(top, "the hole's top edge").not.toBeNull();
+    const [from, y, to] = top!.slice(1).map(Number);
+    expect(y).toBeCloseTo(save.top, 1);
+    expect(from - save.left, "the field's corner").toBeCloseTo(8, 1);
+    expect(save.right - to, "the save group's corner").toBeCloseTo(12, 1);
+  });
+
+  // KAN-901. The row's fill sits 4px in from the row's sides (C2), so a ring
+  // round the row sat 8px from the fill at the sides and 4–5px above and below.
+  for (const view of RUN_VIEWS)
+    test(`${view.name}: the tour's selected-session ring sits 4px out from the row's fill on every side`, async ({
+      context,
+      extensionId,
+    }) => {
+      await seedCorners(context);
+      const page = await openRunFromHelp(context, extensionId, view);
+      for (let i = 0; i < 8; i++) {
+        if ((await card(page).getAttribute('data-coach-kind')) === 'row') break;
+        const next = cardButton(page, 'Next');
+        await (
+          (await next.isVisible()) ? next : cardButton(page, 'Use an example')
+        ).click();
+      }
+      await expect(card(page)).toHaveAttribute('data-coach-kind', 'row');
+      await landedAt(
+        page,
+        Number(await card(page).getAttribute('data-coach-step'))
+      );
+      const gaps = await page.evaluate(() => {
+        const ring = document
+          .querySelector('[data-coach-ring]')!
+          .getBoundingClientRect();
+        const fill = document.querySelector(
+          '[data-pane="sessions"] [data-run-engaged]'
+        )!;
+        const at = fill.getBoundingClientRect();
+        const left = at.left + fill.clientLeft;
+        const top = at.top + fill.clientTop;
+        return {
+          left: left - ring.left,
+          top: top - ring.top,
+          right: ring.right - (left + fill.clientWidth),
+          bottom: ring.bottom - (top + fill.clientHeight),
+        };
+      });
+      expect(gaps).toEqual({ left: 4, top: 4, right: 4, bottom: 4 });
+    });
 
   test('a lifted tab row is carried on a card at 12, as floating surfaces are', async ({
     context,

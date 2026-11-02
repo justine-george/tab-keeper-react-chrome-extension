@@ -18,6 +18,21 @@ const fromRect = (rect: DOMRect): Box => ({
 export const ownBox: AnchorBox = (element) =>
   fromRect(element.getBoundingClientRect());
 
+// KAN-901. A session row's fill: its highlight's padding box, inside the
+// transparent side borders that make the gutter (rowHighlight.ts), and above
+// the divider under the row. A row with no highlight drawn is its own box.
+export const rowFillBox: AnchorBox = (row) => {
+  const fill = row.querySelector('[data-drag-handle-row]');
+  if (fill === null) return ownBox(row);
+  const rect = fill.getBoundingClientRect();
+  return {
+    left: rect.left + fill.clientLeft,
+    top: rect.top + fill.clientTop,
+    width: fill.clientWidth,
+    height: fill.clientHeight,
+  };
+};
+
 // What a scroll box shows: inside its border, without its scrollbar.
 const clientBox = (element: Element): Box => {
   const rect = element.getBoundingClientRect();

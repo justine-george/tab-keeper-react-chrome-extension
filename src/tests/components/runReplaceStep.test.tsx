@@ -3,6 +3,7 @@ import { screen } from '@testing-library/react';
 
 import TabGroupEntry from '../../components/home/leftpane/TabGroupEntry';
 import { runStepPlan } from '../../components/tour/runSteps';
+import { rowFillBox } from '../../components/tour/anchorBox';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { classRulesFor } from '../setup/hoverRules';
@@ -63,6 +64,17 @@ describe('the run’s Replace step (KAN-586)', () => {
     expect(runStepKind('full', 6)).toBe('replace');
     expect(runStepKind('popup', 6)).toBe('delete');
     expect(runStepKind('full', 7)).toBe('delete');
+  });
+
+  // KAN-901. The row step rings the row's fill, which sits in from the row's sides.
+  test('the row step rings the session row’s fill, below it, in both views', () => {
+    for (const view of ['popup', 'full'] as const)
+      expect(runStepPlan(view, 'row', null, SAMPLE, false)).toStrictEqual({
+        anchors: ['[data-pane="sessions"] [data-drag-row-id="sample\\:x"]'],
+        boxOf: rowFillBox,
+        sides: ['below', 'right', 'left'],
+        isLive: false,
+      });
   });
 
   test('it points at the engaged row’s Replace, below it, in both views', () => {

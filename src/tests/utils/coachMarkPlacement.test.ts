@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
   clipPathWithHoles,
+  sameCorners,
   intersectBox,
   placeBeside,
   placeFree,
@@ -253,34 +254,142 @@ describe('ringBox', () => {
   });
 });
 
-describe('clipPathWithHoles (KAN-721: a rounded hole)', () => {
+// A hole's subpaths, each as its points in order (the outer rectangle dropped).
+const holePoints = (path: string): [number, number][][] => {
+  const body = /^path\(evenodd, "M0 0H100000V100000H0Z(.*)"\)$/.exec(path);
+  if (body === null) throw new Error(`not a dim path: ${path}`);
+  return body[1]
+    .split('M')
+    .slice(1)
+    .map((sub) => {
+      const points: [number, number][] = [];
+      let [x, y] = [0, 0];
+      for (const [, op, a, b] of sub.matchAll(
+        /([MLHVZ]?)\s*(-?[\d.]+)?(?:\s+(-?[\d.]+))?/g
+      )) {
+        if (a === undefined) continue;
+        if (op === 'H') x = Number(a);
+        else if (op === 'V') y = Number(a);
+        else [x, y] = [Number(a), Number(b)];
+        points.push([x, y]);
+      }
+      return points;
+    });
+};
+
+// KAN-901. The ring is a 12px squircle RING_INSET out; the hole is its shape
+// brought in, so the lit thing's 8px squircle corner sits inside it whole.
+describe('clipPathWithHoles: a squircle hole', () => {
   const box = { left: 396, top: 96, width: 208, height: 48.5 };
+  const [points] = holePoints(
+    clipPathWithHoles([{ box, corners: sameCorners(8) }])
+  );
+  const [l, t, r, b] = [396, 96, 604, 144.5];
+
   test('the whole element, less the box, by the even-odd rule', () => {
-    expect(clipPathWithHoles([box], 12)).toBe(
-      'path(evenodd, "M0 0H100000V100000H0Z ' +
-        'M408 96H592A12 12 0 0 1 604 108V132.5A12 12 0 0 1 592 144.5' +
-        'H408A12 12 0 0 1 396 132.5V108A12 12 0 0 1 408 96Z")'
+    expect(clipPathWithHoles([{ box, corners: sameCorners(8) }])).toMatch(
+      /^path\(evenodd, "M0 0H100000V100000H0Z M404 96H596.*Z"\)$/
     );
   });
-  test('each of the four corners is an arc of the radius', () => {
-    const path = clipPathWithHoles(
-      [{ left: 0, top: 0, width: 100, height: 40 }],
-      12
-    );
-    expect(path.match(/A12 12 0 0 1/g)).toHaveLength(4);
+  test('every point is inside the box, and it touches all four sides', () => {
+    for (const [x, y] of points) {
+      expect(x).toBeGreaterThanOrEqual(l);
+      expect(x).toBeLessThanOrEqual(r);
+      expect(y).toBeGreaterThanOrEqual(t);
+      expect(y).toBeLessThanOrEqual(b);
+    }
+    const xs = points.map(([x]) => x);
+    const ys = points.map(([, y]) => y);
+    expect([Math.min(...xs), Math.max(...xs)]).toEqual([l, r]);
+    expect([Math.min(...ys), Math.max(...ys)]).toEqual([t, b]);
+  });
+  test('each corner point lies on |x|^4 + |y|^4 = k^4, as CSS draws squircle', () => {
+    const k = 8;
+    const centres = [
+      [r - k, t + k],
+      [r - k, b - k],
+      [l + k, b - k],
+      [l + k, t + k],
+    ];
+    let onCurve = 0;
+    for (const [x, y] of points) {
+      const centre = centres.find(
+        ([cx, cy]) =>
+          Math.abs(x - cx) <= k &&
+          Math.abs(y - cy) <= k &&
+          Math.abs(x - cx) > 0 &&
+          Math.abs(y - cy) > 0
+      );
+      if (centre === undefined) continue;
+      const [cx, cy] = centre;
+      const d = Math.abs(x - cx) ** 4 + Math.abs(y - cy) ** 4;
+      expect(d / k ** 4).toBeCloseTo(1, 2);
+      onCurve += 1;
+    }
+    expect(onCurve).toBeGreaterThanOrEqual(4 * 8);
+  });
+  test('the corner passes k(1 - 2^-1/4) in from the box corner on the diagonal, not a circle’s k(1 - 2^-1/2)', () => {
+    const inset = 8 * (1 - 2 ** -0.25);
+    expect(
+      points.some(
+        ([x, y]) =>
+          Math.abs(x - (l + inset)) < 0.01 && Math.abs(y - (t + inset)) < 0.01
+      )
+    ).toBe(true);
   });
   test('a hole smaller than two radii caps the radius at half its side', () => {
-    const path = clipPathWithHoles(
-      [{ left: 0, top: 0, width: 10, height: 10 }],
-      12
+    const [small] = holePoints(
+      clipPathWithHoles([
+        {
+          box: { left: 0, top: 0, width: 10, height: 10 },
+          corners: sameCorners(8),
+        },
+      ])
     );
-    expect(path.match(/A5 5 0 0 1/g)).toHaveLength(4);
+    expect(small[0]).toEqual([5, 0]);
   });
-  test('a square hole (radius 0) is still a closed hole', () => {
-    expect(
-      clipPathWithHoles([{ left: 1, top: 2, width: 3, height: 4 }], 0)
-    ).toBe(
-      'path(evenodd, "M0 0H100000V100000H0Z M1 2H4A0 0 0 0 1 4 2V6A0 0 0 0 1 4 6H1A0 0 0 0 1 1 6V2A0 0 0 0 1 1 2Z")'
+  test('a square hole (radius 0) is the box’s rectangle', () => {
+    const [square] = holePoints(
+      clipPathWithHoles([
+        {
+          box: { left: 1, top: 2, width: 3, height: 4 },
+          corners: sameCorners(0),
+        },
+      ])
+    );
+    expect(new Set(square.map((p) => p.join(',')))).toEqual(
+      new Set(['1,2', '4,2', '4,6', '1,6'])
+    );
+  });
+});
+
+// KAN-901. The save row: an 8px field on the left, the 12px save group on the right.
+describe('clipPathWithHoles: each corner its own radius', () => {
+  const box = { left: 9, top: 57, width: 338.5, height: 58 };
+  const [points] = holePoints(
+    clipPathWithHoles([{ box, corners: [8, 12, 12, 8] }])
+  );
+  test('the top edge runs from 8 in at the left to 12 in at the right', () => {
+    expect(points[0]).toEqual([17, 57]);
+    expect(points[1]).toEqual([335.5, 57]);
+  });
+  test('the right corners are squircles of 12, the left of 8', () => {
+    const inset = (k: number) => k * (1 - 2 ** -0.25);
+    const has = (x: number, y: number) =>
+      points.some(
+        ([px, py]) => Math.abs(px - x) < 0.01 && Math.abs(py - y) < 0.01
+      );
+    expect(has(347.5 - inset(12), 57 + inset(12))).toBe(true);
+    expect(has(347.5 - inset(12), 115 - inset(12))).toBe(true);
+    expect(has(9 + inset(8), 115 - inset(8))).toBe(true);
+    expect(has(9 + inset(8), 57 + inset(8))).toBe(true);
+  });
+  test('square corners: the box’s rectangle', () => {
+    const [square] = holePoints(
+      clipPathWithHoles([{ box, corners: sameCorners(0) }])
+    );
+    expect(new Set(square.map((p) => p.join(',')))).toEqual(
+      new Set(['9,57', '347.5,57', '347.5,115', '9,115'])
     );
   });
 });
@@ -288,22 +397,24 @@ describe('clipPathWithHoles (KAN-721: a rounded hole)', () => {
 // KAN-900. Step 2's grip gets a hole of its own beside the search row's.
 describe('clipPathWithHoles: more than one hole', () => {
   test('each box is a hole of its own, in order, each capped at half its side', () => {
-    expect(
-      clipPathWithHoles(
-        [
-          { left: 0, top: 0, width: 100, height: 40 },
-          { left: 200, top: 0, width: 8, height: 800 },
-        ],
-        12
-      )
-    ).toBe(
-      'path(evenodd, "M0 0H100000V100000H0Z ' +
-        'M12 0H88A12 12 0 0 1 100 12V28A12 12 0 0 1 88 40H12A12 12 0 0 1 0 28V12A12 12 0 0 1 12 0Z ' +
-        'M204 0H204A4 4 0 0 1 208 4V796A4 4 0 0 1 204 800H204A4 4 0 0 1 200 796V4A4 4 0 0 1 204 0Z")'
+    const holes = holePoints(
+      clipPathWithHoles([
+        {
+          box: { left: 0, top: 0, width: 100, height: 40 },
+          corners: sameCorners(8),
+        },
+        {
+          box: { left: 200, top: 0, width: 8, height: 800 },
+          corners: sameCorners(8),
+        },
+      ])
     );
+    expect(holes).toHaveLength(2);
+    expect(holes[0][0]).toEqual([8, 0]);
+    expect(holes[1][0]).toEqual([204, 0]);
   });
   test('no boxes: the whole element, no hole', () => {
-    expect(clipPathWithHoles([], 12)).toBe(
+    expect(clipPathWithHoles([])).toBe(
       'path(evenodd, "M0 0H100000V100000H0Z")'
     );
   });

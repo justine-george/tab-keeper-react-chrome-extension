@@ -204,21 +204,56 @@ export function ringBox(box: Box): Box {
 // edge and a resize never needs a new path.
 const DIM_EXTENT = 100000;
 
-// A clip-path keeping the whole element but each of `holes`, in the element's
-// own px, each hole's corners rounded at `radius` (KAN-721), capped at half its sides.
-export function clipPathWithHoles(
-  holes: readonly Box[],
-  radius: number
+// Points per squircle corner; at a 12px corner each is within 0.02px of the curve.
+const CORNER_STEPS = 16;
+const at = (n: number): number => Number(n.toFixed(3));
+
+// One quarter of a CSS squircle (superellipse(2): |x|^4 + |y|^4 = k^4) round
+// (cx, cy), from angle `from` a quarter turn on, as line-tos. clip-path's
+// path() has no squircle, and an arc of the same radius is rounder (KAN-901).
+function squircleCorner(
+  cx: number,
+  cy: number,
+  k: number,
+  from: number
 ): string {
-  const hole = (box: Box) => {
-    const k = Math.min(radius, box.width / 2, box.height / 2);
+  let out = '';
+  for (let i = 1; i <= CORNER_STEPS; i++) {
+    const angle = from + (i / CORNER_STEPS) * (Math.PI / 2);
+    const [c, s] = [Math.cos(angle), Math.sin(angle)];
+    out += `L${at(cx + k * Math.sign(c) * Math.sqrt(Math.abs(c)))} ${at(
+      cy + k * Math.sign(s) * Math.sqrt(Math.abs(s))
+    )}`;
+  }
+  return out;
+}
+
+// KAN-901. A hole's corner radii in px: top-left, top-right, bottom-right,
+// bottom-left, as CSS border-radius lists them.
+export type HoleCorners = readonly [number, number, number, number];
+export const sameCorners = (px: number): HoleCorners => [px, px, px, px];
+
+export interface Hole {
+  box: Box;
+  corners: HoleCorners;
+}
+
+// A clip-path keeping the whole element but each hole, in the element's own
+// px, each corner a squircle of its radius (KAN-721, KAN-901), capped at half
+// the hole's sides.
+export function clipPathWithHoles(holes: readonly Hole[]): string {
+  const hole = ({ box, corners }: Hole) => {
+    const [tl, tr, br, bl] = corners.map((c) =>
+      Math.min(c, box.width / 2, box.height / 2)
+    );
     const { left: l, top: t } = box;
     const r = l + box.width;
     const b = t + box.height;
-    const arc = (x: number, y: number) => `A${k} ${k} 0 0 1 ${x} ${y}`;
     return (
-      ` M${l + k} ${t}H${r - k}${arc(r, t + k)}V${b - k}${arc(r - k, b)}` +
-      `H${l + k}${arc(l, b - k)}V${t + k}${arc(l + k, t)}Z`
+      ` M${l + tl} ${t}H${r - tr}${squircleCorner(r - tr, t + tr, tr, -Math.PI / 2)}` +
+      `V${b - br}${squircleCorner(r - br, b - br, br, 0)}` +
+      `H${l + bl}${squircleCorner(l + bl, b - bl, bl, Math.PI / 2)}` +
+      `V${t + tl}${squircleCorner(l + tl, t + tl, tl, Math.PI)}Z`
     );
   };
   return (
