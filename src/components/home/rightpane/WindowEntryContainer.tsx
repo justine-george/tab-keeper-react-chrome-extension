@@ -1167,6 +1167,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     const { tabId, favicon, url, pinned } = tab;
     const shown = shownTitle(tab);
     const isRenaming = editingTabId === tabId;
+    // KAN-891. The tour's why names the click's action, as the row's name does.
+    const switches = hasOpenCopy(url, openAddresses);
+    const tabBlockedBecause = !isOpenBlocked
+      ? null
+      : switches
+        ? t('Switch works after the tour')
+        : t('Open works after the tour');
     const pinnedId = `${descriptionIdPrefix}-pinned-${tabId}`;
     // KAN-564 A. The other half of the split this tab restores into.
     const partner = splitPartners.get(tabId);
@@ -1239,16 +1246,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           <ClickableRow
             // KAN-890. Said as the click does it: a switch to the open copy, or a new tab.
             ariaLabel={
-              (hasOpenCopy(url, openAddresses)
-                ? t('Switch to tab')
-                : t('Open in new tab')) +
+              (switches ? t('Switch to tab') : t('Open in new tab')) +
               ': ' +
               shown
             }
             buttonRef={titleFocus.refFor(`tab:${tabId}`)}
             // As Open now says a pinned tab: its own description, no joiner (KAN-307).
             ariaDescribedBy={describedBy === '' ? undefined : describedBy}
-            tooltipText={openBlockedBecause ?? addressTooltip(tab)}
+            tooltipText={tabBlockedBecause ?? addressTooltip(tab)}
             // The tour's why is said; the address is only seen.
             announceTooltip={isOpenBlocked}
             // KAN-825. A cut-off title goes above the address; never above the tour's why.

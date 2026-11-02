@@ -24,6 +24,7 @@ import {
   type chromeTabGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import { useIsOpenBlockedByTour } from '../../hooks/useIsOpenBlockedByTour';
+import { OpenCopiesProvider } from '../../components/home/rightpane/OpenCopiesProvider';
 
 // KAN-413. The opens on the tour's sample wait for the tour; each CONTROL ends it and presses again.
 
@@ -136,6 +137,77 @@ describe('opens on the tour’s sample', () => {
     fireEvent.click(row);
     await settle();
     expect(r.chrome.createdTabs.map((t) => t.url)).toEqual(['https://a.co']);
+  });
+
+  // KAN-891. A row named Switch to tab (KAN-890) says Switch waits; the window's Open does not change.
+  test('a tab row with an open copy says Switch works after the tour, and follows the copy', async () => {
+    const SWITCH_BLOCKED = 'Switch works after the tour';
+    const r = await renderWithProviders(
+      <OpenCopiesProvider>
+        <WindowEntryContainer
+          number={1}
+          title="Getting there"
+          tabGroupId={SAMPLE}
+          windowId="w"
+          tabs={TABS}
+          chromeTabGroups={GROUPS}
+          onOpenWindow={() => undefined}
+          onUpdateWindowGroupTitle={() => undefined}
+          onAddCurrTabToWindowClick={() => undefined}
+          onDeleteClick={() => undefined}
+        />
+      </OpenCopiesProvider>,
+      {
+        seed: {
+          windows: [
+            {
+              id: 1,
+              focused: true,
+              tabs: [
+                { id: 1, url: 'https://added.test', active: true },
+                { id: 2, url: 'https://a.co' },
+              ],
+            },
+          ],
+        },
+        seedStore: (store) => {
+          store.dispatch(setHasTabGroupsPermission(true));
+          tourHere(store);
+        },
+      }
+    );
+    const loose = await screen.findByRole('button', {
+      name: 'Switch to tab: Loose',
+    });
+    expect(loose).toHaveAttribute('aria-disabled', 'true');
+    expect(loose).toHaveAttribute('data-tooltip', SWITCH_BLOCKED);
+    expect(loose).toHaveAccessibleDescription(SWITCH_BLOCKED);
+    // No copy of One: it still waits to open.
+    const one = screen.getByRole('button', { name: 'Open in new tab: One' });
+    expect(one).toHaveAttribute('data-tooltip', OPEN_BLOCKED);
+    expect(
+      screen.getByRole('button', { name: 'Open in new window: Getting there' })
+    ).toHaveAttribute('data-tooltip', OPEN_BLOCKED);
+
+    // The copy closes mid-tour: the row opens again, and says so.
+    act(() => r.chrome.browser.closeTab(2));
+    const reopened = await screen.findByRole('button', {
+      name: 'Open in new tab: Loose',
+    });
+    expect(reopened).toHaveAccessibleDescription(OPEN_BLOCKED);
+    // A copy of One opens mid-tour: that row now waits to switch.
+    act(() => {
+      r.chrome.browser.openTab(1, { url: 'https://b.co' });
+    });
+    expect(
+      await screen.findByRole('button', { name: 'Switch to tab: One' })
+    ).toHaveAccessibleDescription(SWITCH_BLOCKED);
+
+    endTour(r);
+    const after = screen.getByRole('button', { name: 'Switch to tab: One' });
+    expect(after).not.toHaveAttribute('aria-disabled');
+    expect(after).toHaveAttribute('data-tooltip', 'https://b.co');
+    expect(after).not.toHaveAttribute('aria-description');
   });
 
   // KAN-586: Replace waits too, and each button names itself in its reason.
