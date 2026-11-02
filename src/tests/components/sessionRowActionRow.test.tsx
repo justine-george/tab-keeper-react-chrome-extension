@@ -175,7 +175,7 @@ describe('an unselected row', () => {
     expect(open).toHaveAttribute('data-tooltip', 'Open session in this window');
     expect(keys().slice(3, 5)).toEqual(['openOtherWay', 'add']);
     expect(
-      item('Open session in new windows').getAttribute('data-menu-item')
+      item('Open session in a new window').getAttribute('data-menu-item')
     ).toBe('openOtherWay');
   });
 

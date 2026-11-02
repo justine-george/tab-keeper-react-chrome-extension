@@ -1549,11 +1549,40 @@ const ALL_LANGS = [
   'zh',
   'zh-TW',
 ] as const;
-// KAN-892 (R10). Both ways Open saved windows can go: the menu's first item is the other way.
-const OPEN_WAYS = ['new-window', 'this-window'] as const;
+// KAN-892 (R10). Both ways Open saved windows can go: the menu's first item
+// is the other way. This window's other way names one new window or several,
+// so it runs for a one-window session and a two-window one.
+const OPEN_WAYS = [
+  ['new-window', 1],
+  ['this-window', 1],
+  ['this-window', 2],
+] as const;
+// Its second window shares no address with the first: no Remove duplicates item.
+const KYOTO_TWO_WINDOWS = {
+  ...KYOTO,
+  windowCount: 2,
+  windows: [
+    ...KYOTO.windows,
+    {
+      ...KYOTO.windows[0],
+      windowId: 'w-2',
+      tabCount: 1,
+      title: 'Food',
+      tabs: [
+        {
+          tabId: 't-5',
+          favicon: '',
+          title: 'Nishiki Market',
+          url: 'https://www.kyoto-nishiki.or.jp/',
+        },
+      ],
+      chromeTabGroups: [],
+    },
+  ],
+};
 for (const lang of ALL_LANGS) {
-  for (const way of OPEN_WAYS) {
-    test(`the session menu stays in its pane with each label on one line (${lang}, Open in ${way})`, async ({
+  for (const [way, windows] of OPEN_WAYS) {
+    test(`the session menu stays in its pane with each label on one line (${lang}, Open in ${way}, ${windows} window${windows === 1 ? '' : 's'})`, async ({
       context,
       extensionId,
     }) => {
@@ -1564,20 +1593,28 @@ for (const lang of ALL_LANGS) {
         openSavedWindowsIn: way,
       });
       await seedSessions(context, {
-        ...buildContainer([KYOTO]),
+        ...buildContainer([windows === 1 ? KYOTO : KYOTO_TWO_WINDOWS]),
         selectedTabGroupId: 'session-kyoto',
       });
       const popup = await context.newPage();
       await popup.setViewportSize({ width: 790, height: 550 });
       await popup.goto(`chrome-extension://${extensionId}/index.html`);
 
-      const trigger = sessionHeaderMenu(
-        popup,
-        localeStrings(lang)['More actions']
-      );
+      const strings = localeStrings(lang);
+      const trigger = sessionHeaderMenu(popup, strings['More actions']);
       await expect(trigger).toBeVisible();
       await trigger.click();
       await expect(popup.getByRole('menu')).toBeVisible();
+      // PREMISE: the other way's label in the menu, in this count's form.
+      await expect(
+        popup.locator('[role="menu"] [data-menu-item="openOtherWay"]')
+      ).toContainText(
+        way === 'new-window'
+          ? strings['Open session in this window']
+          : strings[
+              `OpenSessionInNewWindows_${new Intl.PluralRules(lang).select(windows)}`
+            ]
+      );
 
       const shape = await trigger.evaluate((triggerEl) => {
         // The pane has no marker: climb past the header's buttons to pane width.

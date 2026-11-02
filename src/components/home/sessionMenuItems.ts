@@ -33,6 +33,7 @@ import type { OpenSavedWindowsIn } from '../../redux/slices/settingsDataStateSli
 import {
   openWayIcon,
   otherWay,
+  oneOrSeveral,
   sessionMenuOpenLabelKey,
   sessionOpenLabelKey,
 } from './openWhere';
@@ -133,7 +134,9 @@ export function sessionMenuItems(
     : [
         {
           key: 'openOtherWay',
-          label: t(sessionMenuOpenLabelKey(other)),
+          label: t(sessionMenuOpenLabelKey(other), {
+            count: oneOrSeveral(session.windows.length),
+          }),
           icon: openWayIcon(other),
           onSelect: () =>
             void dispatch(

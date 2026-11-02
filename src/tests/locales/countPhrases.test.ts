@@ -62,6 +62,24 @@ describe('counts are whole phrases, plural-correct in every locale (KAN-286)', (
     expect(ru('LinksCopied', { count: 5 })).toBe('5 ссылок скопировано.');
   });
 
+  // KAN-892. The session menus' new-window item: one window or several.
+  test('the session menu says a new window for one, new windows for several: en, and ru past its "one"', async () => {
+    const en = await tFor('en');
+    expect(en('OpenSessionInNewWindows', { count: 1 })).toBe(
+      'Open session in a new window'
+    );
+    expect(en('OpenSessionInNewWindows', { count: 2 })).toBe(
+      'Open session in new windows'
+    );
+    const ru = await tFor('ru');
+    expect(ru('OpenSessionInNewWindows', { count: 1 })).toBe(
+      'Открыть сеанс в новом окне'
+    );
+    expect(ru('OpenSessionInNewWindows', { count: 2 })).toBe(
+      'Открыть сеанс в новых окнах'
+    );
+  });
+
   // A locale file missing one of its language's categories does not fail
   // loudly: i18next falls back to English, so ru without _many printed
   // "5 Tabs". Measured, not assumed. Hence exactly the categories

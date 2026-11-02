@@ -9,6 +9,7 @@ import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntry
 import {
   otherWay,
   savedWindowOpenWays,
+  oneOrSeveral,
   sessionMenuOpenLabelKey,
   sessionOpenLabelKey,
   windowOpenLabelKey,
@@ -48,7 +49,15 @@ const SEED: ChromeSeed = {
   ],
 };
 const S1 = buildSession({ tabGroupId: 'S1', title: 'Trip' });
-const S2 = buildSession({ tabGroupId: 'S2', title: 'Bravo' });
+// Two windows: the session menus' new-window item says windows.
+const S2 = buildSession({
+  tabGroupId: 'S2',
+  title: 'Bravo',
+  windows: [
+    ...S1.windows,
+    ...S1.windows.map((w) => ({ ...w, windowId: 'window-2' })),
+  ],
+});
 
 type Actions = Awaited<ReturnType<typeof renderWithProviders>>['actions'];
 const argsOf = (actions: Actions, type: string) =>
@@ -98,11 +107,17 @@ describe('openWhere', () => {
       'Open session in this window'
     );
     expect(sessionMenuOpenLabelKey('new-window')).toBe(
-      'Open session in new windows'
+      'OpenSessionInNewWindows'
     );
     expect(sessionMenuOpenLabelKey('this-window')).toBe(
       'Open session in this window'
     );
+  });
+
+  // The label names no number: 1 or 2 picks one window or several in every
+  // locale, where a real 21 would read as ru's singular.
+  test('one window or several, as the new-windows item counts them', () => {
+    expect([1, 2, 3, 21, 0].map(oneOrSeveral)).toEqual([1, 2, 2, 2, 2]);
   });
 
   test('a saved window opening apart: new window either way, no other way', () => {
@@ -331,11 +346,12 @@ describe('a session', () => {
       'Open session in this window',
       'this-window',
     ],
-    // R10. The menu's new-window item is shorter than Open's tooltip.
+    // R10. The menu's new-window item is shorter than Open's tooltip. Trip
+    // has one window.
     [
       'this-window',
       'Open session in this window',
-      'Open session in new windows',
+      'Open session in a new window',
       'new-window',
     ],
   ] as const)(
@@ -379,7 +395,7 @@ describe('a session', () => {
       'aria-description',
       'Open session in this window'
     );
-    // Before Add current window, which is otherwise first.
+    // Before Add current window, which is otherwise first. Bravo has two windows.
     expectOtherWayFirst(rowMenu(), 'Open session in new windows');
     expect(listKeys(rowMenu())[1]).toBe('add');
     fireEvent.click(

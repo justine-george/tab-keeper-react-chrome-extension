@@ -28,13 +28,18 @@ export const sessionOpenLabelKey = (
 ): 'Open session' | 'Open session in this window' =>
   w === 'this-window' ? 'Open session in this window' : 'Open session';
 
-// The session menus' other-way item: shorter than Open's tooltip, so the header ⋮ fits its pane (KAN-193, R10).
+// The session menus' other-way item: shorter than Open's tooltip, so the header ⋮ fits its pane (KAN-193, R10). New windows is plural: give t a count.
 export const sessionMenuOpenLabelKey = (
   w: OpenSavedWindowsIn
-): 'Open session in new windows' | 'Open session in this window' =>
+): 'OpenSessionInNewWindows' | 'Open session in this window' =>
   w === 'this-window'
     ? 'Open session in this window'
-    : 'Open session in new windows';
+    : 'OpenSessionInNewWindows';
+
+// The count for a label that names no number, only one window or several: a
+// real count of 21 would pick ru's "one" form.
+export const oneOrSeveral = (windowCount: number): 1 | 2 =>
+  windowCount === 1 ? 1 : 2;
 
 // A menu item's glyph for that way; new window keeps the Open button's.
 export const openWayIcon = (w: OpenSavedWindowsIn): IconName =>

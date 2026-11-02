@@ -15,7 +15,7 @@
   "Open in this window": "在此窗口中打开",
   "Open session": "打开会话并保留当前窗口",
   "Open session in this window": "在此窗口中打开会话",
-  "Open session in new windows": "在新窗口中打开会话",
+  "OpenSessionInNewWindows_other": "在新窗口中打开会话",
   "Switch to session": "关闭当前窗口并打开此会话",
   "Switch": "切换",
   "FocusAutoSaveTitle": "切换前自动保存",
