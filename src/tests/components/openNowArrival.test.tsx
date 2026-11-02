@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { useArrival } from '../../components/home/opennow/useArrival';
 import { announceArrival } from '../../utils/functions/arrival';
 import type { OpenWindow } from '../../utils/functions/openNow';
+import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 
 // KAN-892 D. When the fill behind a dropped window's new rows shows, and when
 // it doesn't. jsdom lays nothing out and has no Web Animations: the fill's box
@@ -172,4 +173,58 @@ describe('the arrival fill', () => {
     expect(() => act(() => vi.advanceTimersByTime(2000))).not.toThrow();
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  // The parked guard (ledger, Final): the target window closed mid-fill. Its
+  // rows, out of the page, measure 0x0 at the viewport's top; aimed at them,
+  // the list would glide up. It stays where the fill put it.
+  for (const reduced of [true, false]) {
+    test(`the target window closed mid-fill: the list stays put${reduced ? ' (Reduce motion)' : ''}`, () => {
+      const matchMedia = window.matchMedia;
+      window.matchMedia = (query: string) =>
+        new FakeMediaQueryList(query, reduced && query.includes('reduce'));
+      try {
+        const { container, rerender } = render(
+          <List drawn={{ 1: [10], 2: [20, 21] }} windows={reRead()} />
+        );
+        // The list: 100px tall at y 200, 1000px of content, from the top.
+        const scroller = container.querySelector(
+          '[data-open-window-id]'
+        )?.parentElement;
+        if (!scroller) throw new Error('no scroller');
+        let top = 0;
+        Object.defineProperty(scroller, 'scrollTop', {
+          get: () => top,
+          set: (v: number) => {
+            top = v;
+          },
+          configurable: true,
+        });
+        Object.defineProperty(scroller, 'scrollHeight', { value: 1000 });
+        Object.defineProperty(scroller, 'clientHeight', { value: 100 });
+        scroller.getBoundingClientRect = () => new DOMRect(0, 200, 320, 100);
+        // Window 2's rows drawn below the fold while in the page; 0x0 out of it.
+        container
+          .querySelectorAll('[data-open-window-id="2"] [data-open-tab-id]')
+          .forEach((row, i) => {
+            row.getBoundingClientRect = () =>
+              row.isConnected
+                ? new DOMRect(10, 500 + i * ROW_PX - top, 300, ROW_PX)
+                : new DOMRect(0, 0, 0, 0);
+          });
+
+        act(() => announceArrival(2, [21]));
+        if (!reduced) act(() => vi.advanceTimersByTime(100));
+        const mid = top;
+        // PREMISE: the list moved toward the new row.
+        expect(mid).toBeGreaterThan(0);
+
+        // Window 2 closes; Open now re-reads without it.
+        rerender(<List drawn={{ 1: [10] }} windows={reRead()} />);
+        act(() => vi.advanceTimersByTime(1000));
+        expect(top).toBeGreaterThanOrEqual(mid);
+      } finally {
+        window.matchMedia = matchMedia;
+      }
+    });
+  }
 });

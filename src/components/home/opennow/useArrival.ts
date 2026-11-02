@@ -221,6 +221,8 @@ function show(
   return {
     fit: () => {
       if (ended) return;
+      // Its window closed: its detached rows measure 0x0 and would glide the list up.
+      if (!block.isConnected) return end();
       place();
       if (!userScrolled && !scrolling.isRunning())
         scrolling = glide(scroller, aim, reduced);
