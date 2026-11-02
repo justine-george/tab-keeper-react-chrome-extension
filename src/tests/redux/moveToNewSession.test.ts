@@ -11,6 +11,10 @@ vi.hoisted(() => {
   });
 });
 
+// KAN-889. No DOM here: showSession's slide runs its update at once.
+vi.mock('../../components/home/paneMotion', () => ({
+  runPaneMotion: (update: () => void) => update(),
+}));
 vi.mock('../../utils/functions/external', () => ({
   loadFromFirestore: vi.fn(async () => undefined),
   saveToFirestore: vi.fn(async () => undefined),
