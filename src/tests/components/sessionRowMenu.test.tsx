@@ -112,12 +112,15 @@ describe('right-clicking a session row (KAN-708)', () => {
     await user.click(screen.getByRole('button', { name: 'More actions' }));
     const headerItems = labels(screen.getByRole('menu', { name: /./ }));
 
+    // KAN-892. The other way to open leads both lists; Add follows it on a row.
+    expect(headerItems[0]).toMatch(/Open session in this window$/);
     expect(rowItems).toEqual([
       'Open',
       'Switch',
       'Replace',
+      headerItems[0],
       'playlist_addAdd current window to this session',
-      ...headerItems,
+      ...headerItems.slice(1),
     ]);
     expect(headerItems.length).toBeGreaterThanOrEqual(4);
   });

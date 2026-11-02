@@ -105,6 +105,7 @@ describe('Sort tabs by site in a saved window menu (KAN-694)', () => {
     ]);
     const menu = await openMenu(user);
     expect(names(menu)).toEqual([
+      expect.stringMatching(/Open in this window$/),
       expect.stringMatching(/Copy all links$/),
       expect.stringMatching(/Rename window$/),
       expect.stringMatching(/Sort tabs by site$/),
@@ -135,6 +136,7 @@ describe('Sort tabs by site in a saved window menu (KAN-694)', () => {
     ]);
     const menu = await openMenu(user);
     expect(names(menu)).toEqual([
+      expect.stringMatching(/Open in this window$/),
       expect.stringMatching(/Copy all links$/),
       expect.stringMatching(/Rename window$/),
       expect.stringMatching(/Delete window$/),

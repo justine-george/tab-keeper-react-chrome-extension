@@ -105,11 +105,12 @@ for (const view of VIEWS) {
     const box = await boxOf(menu);
     expect(Math.abs(box.x - at.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(box.y - at.y)).toBeLessThanOrEqual(1);
-    // KAN-775. Led by the row's Open · Switch (popup only) · Replace, then Add current window.
+    // KAN-775. Led by the row's Open · Switch (popup only) · Replace, then the other way to open (KAN-892) and Add current window.
     await expectItems(page, [
       'Open',
       ...(view === 'popup' ? ['Switch'] : []),
       'Replace',
+      'Open session in this window',
       'Add current window to this session',
       'Copy all links',
       'Rename session',

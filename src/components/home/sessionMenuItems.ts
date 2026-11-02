@@ -29,6 +29,8 @@ import {
 import { useMacKeys } from '../../hooks/useIsMac';
 import { isTabView } from '../../utils/functions/viewMode';
 import { withPreviewFrom } from '../../utils/functions/previewFrom';
+import type { OpenSavedWindowsIn } from '../../redux/slices/settingsDataStateSlice';
+import { openWayIcon, otherWay, sessionOpenLabelKey } from './openWhere';
 
 type DeleteKey = NonNullable<OverflowMenuItem['shortcut']>;
 
@@ -58,6 +60,10 @@ export function sessionMenuItems(
     copyLinksLayout: CopyLinksLayout;
     // KAN-886. False while the current window holds only Tab Keeper.
     canAddCurrentWindow: boolean;
+    // KAN-892. Where Open goes; the list offers the other way.
+    openSavedWindowsIn: OpenSavedWindowsIn;
+    // KAN-413. The tour's sample: the other way waits, as Open does.
+    isOpenBlocked: boolean;
   }
 ): OverflowMenuItem[] {
   const {
@@ -68,6 +74,8 @@ export function sessionMenuItems(
     place,
     copyLinksLayout,
     canAddCurrentWindow,
+    openSavedWindowsIn,
+    isOpenBlocked,
   } = ctx;
   const { tabGroupId } = session;
   const duplicateCount = countDuplicateTabs(session);
@@ -79,7 +87,7 @@ export function sessionMenuItems(
           {
             key: 'open',
             actionRowLabel: t('Open'),
-            label: t('Open session'),
+            label: t(sessionOpenLabelKey(openSavedWindowsIn)),
             icon: 'reopen_window',
             onSelect: () =>
               void dispatch(
@@ -113,6 +121,25 @@ export function sessionMenuItems(
               void dispatch(replaceSessionWithOpenWindows(tabGroupId)),
           },
         ];
+  // KAN-892. First under the buttons. The menu has no dimmed item, so the tour leaves it out, as a saved tab's Open.
+  const other = otherWay(openSavedWindowsIn);
+  const openOtherWay: OverflowMenuItem[] = isOpenBlocked
+    ? []
+    : [
+        {
+          key: 'openOtherWay',
+          label: t(sessionOpenLabelKey(other)),
+          icon: openWayIcon(other),
+          onSelect: () =>
+            void dispatch(
+              openAllTabContainer({
+                tabGroupId,
+                goToURLText: t('Go to URL'),
+                where: other,
+              })
+            ),
+        },
+      ];
   // KAN-775. The header has its own Add chip beside the ⋮. KAN-886: left out with nothing to add.
   const add: OverflowMenuItem[] =
     place !== 'row' || !canAddCurrentWindow
@@ -128,6 +155,7 @@ export function sessionMenuItems(
         ];
   return [
     ...rowButtons,
+    ...openOtherWay,
     ...add,
     // KAN-209. The one output that needs no preview: Copy ignores
     // the layout and colour choices the export page exists to

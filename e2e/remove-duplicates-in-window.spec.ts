@@ -138,7 +138,9 @@ test.describe('the window ⋮ is drawn over what is below it', () => {
   test('over its own tab rows', async ({ context, extensionId }) => {
     const page = await openPopup(context, extensionId);
     await openWindowMenu(page, 'w1');
+    // Seven items: the other way to open (KAN-892) leads.
     expect(await itemsOnTop(page)).toEqual([
+      true,
       true,
       true,
       true,
@@ -159,7 +161,9 @@ test.describe('the window ⋮ is drawn over what is below it', () => {
       .click();
     await expect(page.getByText('Tab guide2')).toBeHidden();
     await openWindowMenu(page, 'w1');
+    // Seven items: the other way to open (KAN-892) leads.
     expect(await itemsOnTop(page)).toEqual([
+      true,
       true,
       true,
       true,
@@ -180,6 +184,7 @@ test('a window removes its own repeats, and one ⌘Z brings them back', async ({
 
   await openWindowMenu(page, 'w1');
   await expect(page.getByRole('menuitem')).toHaveText([
+    /Open in this window$/,
     /Copy all links$/,
     /Rename window$/,
     // KAN-866. The page's window holds a tab to take.
@@ -212,6 +217,7 @@ test('a window with no repeats of its own offers no Remove', async ({
   const page = await openPopup(context, extensionId);
   await openWindowMenu(page, 'w2');
   await expect(page.getByRole('menuitem')).toHaveText([
+    /Open in this window$/,
     /Copy all links$/,
     /Rename window$/,
     // KAN-866. The page's window holds a tab to take.

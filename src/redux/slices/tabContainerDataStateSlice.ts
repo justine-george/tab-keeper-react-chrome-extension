@@ -59,6 +59,11 @@ import {
   WindowSpec,
 } from '../../utils/functions/windows';
 import {
+  OPEN_INTO_WINDOW_MESSAGE,
+  type OpenIntoWindowRequest,
+} from '../../utils/functions/openIntoWindow';
+import type { OpenSavedWindowsIn } from './settingsDataStateSlice';
+import {
   bySessionRank,
   createdInstant,
   contentInstant,
@@ -567,14 +572,53 @@ interface openTabsInAWindowParams {
   tabGroupId: string;
   windowId: string;
   goToURLText: string;
+  // KAN-892. The ⋮ menu's other way; absent, Open saved windows decides.
+  where?: OpenSavedWindowsIn;
+}
+
+// KAN-892. The window the page is in (the popup's is the window it opened over), asked at the press; null when Chrome names none.
+async function currentWindowId(): Promise<number | null> {
+  try {
+    const current: chrome.windows.Window | undefined =
+      await chrome.windows.getCurrent();
+    return current?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// KAN-892. Open's message: into the current window for This window, else (or with no current window) new windows as before.
+async function openRequest(
+  specs: WindowSpec[],
+  where: OpenSavedWindowsIn,
+  goToURLText: string,
+  pinTabKeeper: boolean
+): Promise<RestoreSessionRequest | OpenIntoWindowRequest> {
+  const windowId = where === 'this-window' ? await currentWindowId() : null;
+  return windowId === null
+    ? {
+        type: RESTORE_SESSION_MESSAGE,
+        specs,
+        goToURLText,
+        closeOtherWindows: false,
+        pinTabKeeper,
+      }
+    : {
+        type: OPEN_INTO_WINDOW_MESSAGE,
+        windowId,
+        specs,
+        goToURLText,
+        activate: true,
+        pinTabKeeper,
+      };
 }
 
 // open all tabs under this section in a single window
 export const openTabsInAWindow = createAsyncThunk(
   'global/openTabsInAWindow',
   async (params: openTabsInAWindowParams, thunkAPI) => {
-    const state: TabMasterContainer = (thunkAPI.getState() as RootState)
-      .tabContainerDataState;
+    const rootState = thunkAPI.getState() as RootState;
+    const state: TabMasterContainer = rootState.tabContainerDataState;
 
     const tabGroup = state.tabGroups.find(
       (group) => group.tabGroupId === params.tabGroupId
@@ -586,14 +630,12 @@ export const openTabsInAWindow = createAsyncThunk(
 
     if (!windowGroup) return;
 
-    const request: RestoreSessionRequest = {
-      type: RESTORE_SESSION_MESSAGE,
-      specs: [toWindowSpec(windowGroup, true)],
-      goToURLText: params.goToURLText,
-      closeOtherWindows: false,
-      pinTabKeeper: (thunkAPI.getState() as RootState).settingsDataState
-        .pinTabKeeperInNewWindows,
-    };
+    const request = await openRequest(
+      [toWindowSpec(windowGroup, true)],
+      params.where ?? rootState.settingsDataState.openSavedWindowsIn,
+      params.goToURLText,
+      rootState.settingsDataState.pinTabKeeperInNewWindows
+    );
     // KAN-149. The last instant the popup can record anything: sendMessage
     // hands the restore to the worker, which creates focused windows, which
     // closes this popup. Recording the INTENT rather than the confirmed
@@ -609,30 +651,30 @@ export const openTabsInAWindow = createAsyncThunk(
 interface openAllTabContainerParams {
   tabGroupId: string;
   goToURLText: string;
+  // KAN-892. As openTabsInAWindowParams.where.
+  where?: OpenSavedWindowsIn;
 }
 
 // open all windows under this tab group in separate windows, with corresponding tabs inside
 export const openAllTabContainer = createAsyncThunk(
   'global/openAllTabContainer',
   async (params: openAllTabContainerParams, thunkAPI) => {
-    const state: TabMasterContainer = (thunkAPI.getState() as RootState)
-      .tabContainerDataState;
+    const rootState = thunkAPI.getState() as RootState;
+    const state: TabMasterContainer = rootState.tabContainerDataState;
     const tabGroup = state.tabGroups.find(
       (group) => group.tabGroupId === params.tabGroupId
     );
 
     if (!tabGroup) return;
 
-    const request: RestoreSessionRequest = {
-      type: RESTORE_SESSION_MESSAGE,
-      specs: tabGroup.windows.map((windowGroup, index) =>
+    const request = await openRequest(
+      tabGroup.windows.map((windowGroup, index) =>
         toWindowSpec(windowGroup, index === 0)
       ),
-      goToURLText: params.goToURLText,
-      closeOtherWindows: false,
-      pinTabKeeper: (thunkAPI.getState() as RootState).settingsDataState
-        .pinTabKeeperInNewWindows,
-    };
+      params.where ?? rootState.settingsDataState.openSavedWindowsIn,
+      params.goToURLText,
+      rootState.settingsDataState.pinTabKeeperInNewWindows
+    );
     // KAN-149. Recorded here for the reason spelled out in openTabsInAWindow:
     // this is the last instant the popup exists. Not for the sample (KAN-7).
     if (!isSampleSession(params.tabGroupId)) {

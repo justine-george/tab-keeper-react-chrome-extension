@@ -838,6 +838,8 @@ describe('right-click (KAN-708)', () => {
       'Open',
       'Add tab',
       'Rename',
+      // KAN-892. The other way to open leads the list.
+      'Open in this window',
       'Copy all links',
       'Sort tabs by site',
       'Sort groups by name',
@@ -848,7 +850,7 @@ describe('right-click (KAN-708)', () => {
     expect(rowItems.slice(3)).toEqual(
       dotsItems.filter((name) => name !== 'Rename window')
     );
-    expect(dotsItems[1]).toBe('Rename window');
+    expect(dotsItems[2]).toBe('Rename window');
   });
 
   test('Delete window calls onDeleteClick', async () => {

@@ -1493,8 +1493,8 @@ test('the session menu paints above the tab rows it opens over', async ({
   await sessionHeaderMenu(popup).click();
 
   const items = popup.getByRole('menuitem');
-  // Copy, Rename, Export, Delete: an empty or half-open menu cannot pass vacuously.
-  await expect(items).toHaveCount(4);
+  // Open in this window (KAN-892), Copy, Rename, Export, Delete: an empty or half-open menu cannot pass vacuously.
+  await expect(items).toHaveCount(5);
 
   const hits = await items.evaluateAll((elements) =>
     elements.map((item) => {

@@ -26,6 +26,8 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
+import type { OpenSavedWindowsIn } from '../../../redux/slices/settingsDataStateSlice';
+import { openWayIcon, otherWay, windowOpenLabelKey } from '../openWhere';
 import { useMacKeys } from '../../../hooks/useIsMac';
 import { useOpenCopyAddresses } from './openCopies';
 import {
@@ -146,7 +148,8 @@ interface WindowEntryContainerProps {
   chromeTabGroups?: chromeTabGroupData[];
   tabGroupId: string;
   windowId: string;
-  onOpenWindow: () => void;
+  // KAN-892. `where` is the ⋮ menu's other way; absent, Open saved windows decides.
+  onOpenWindow: (where?: OpenSavedWindowsIn) => void;
   onUpdateWindowGroupTitle: (newTitle: string) => void;
   onAddCurrTabToWindowClick: () => void;
   onDeleteClick: () => void;
@@ -216,6 +219,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const openBlockedBecause = isOpenBlocked
     ? t('Open works after the tour')
     : null;
+  // KAN-892. Where Open goes; the menus offer the other way.
+  const openSavedWindowsIn = useSelector(
+    (state: RootState) => state.settingsDataState.openSavedWindowsIn
+  );
+  const openLabel = t(windowOpenLabelKey(openSavedWindowsIn));
+  const otherOpenWay = otherWay(openSavedWindowsIn);
   const [newTitle, setNewTitle] = useState(title);
   const [isEditing, setIsEditing] = useState(false);
   // Set by Esc, so a blur dispatched before the editor unmounts cannot commit (D13).
@@ -318,6 +327,17 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   // KAN-708. The window's items: the one source for its ⋮ and its right-click menu.
   const savedWindowMenuItems: OverflowMenuItem[] = [
+    // KAN-892. First under the buttons. The menu has no dimmed item, so the tour leaves it out, as a saved tab's Open.
+    ...(isOpenBlocked
+      ? []
+      : [
+          {
+            key: 'openOtherWay',
+            label: t(windowOpenLabelKey(otherOpenWay)),
+            icon: openWayIcon(otherOpenWay),
+            onSelect: () => onOpenWindow(otherOpenWay),
+          },
+        ]),
     // KAN-783. First, as on a session: the one item that changes nothing.
     copyAllLinksItem(
       () =>
@@ -471,7 +491,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     {
       key: 'open',
       actionRowLabel: t('Open'),
-      label: t('Open in new window'),
+      label: openLabel,
       icon: 'reopen_window',
       onSelect: () => onOpenWindow(),
     },
@@ -1537,10 +1557,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               // Hidden while searching, as every whole-item action is (R7).
               !isSearching && (
                 <RowOpenButton
-                  ariaLabel={t('Open in new window') + ': ' + label.text}
-                  tooltipText={openBlockedBecause ?? t('Open in new window')}
+                  ariaLabel={openLabel + ': ' + label.text}
+                  tooltipText={openBlockedBecause ?? openLabel}
                   disable={isOpenBlocked}
-                  onClick={onOpenWindow}
+                  onClick={() => onOpenWindow()}
                 />
               )
             )}

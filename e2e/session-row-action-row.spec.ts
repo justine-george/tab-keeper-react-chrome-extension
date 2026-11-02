@@ -53,7 +53,7 @@ const names = (items: Locator): Promise<string[]> =>
 
 for (const view of VIEWS) {
   // KAN-793. The selected row's menu is the same as any other's.
-  test(`${view}: every row's menu opens with the action row, then Add current window`, async ({
+  test(`${view}: every row's menu opens with the action row, then the other way to open and Add current window`, async ({
     context,
     extensionId,
   }) => {
@@ -70,6 +70,8 @@ for (const view of VIEWS) {
       );
     await expect(rowMenu(page).locator(':scope > [data-menu-item]')).toHaveText(
       [
+        // KAN-892. The other way to open leads the list.
+        /Open session in this window$/,
         /Add current window to this session$/,
         /Copy all links$/,
         /Rename session$/,
@@ -88,7 +90,7 @@ for (const view of VIEWS) {
         view === 'popup' ? ['Open', 'Switch', 'Replace'] : ['Open', 'Replace']
       );
     await expect(
-      rowMenu(page).locator(':scope > [data-menu-item]').first()
+      rowMenu(page).locator(':scope > [data-menu-item]').nth(1)
     ).toHaveText(/Add current window to this session$/);
   });
 

@@ -135,8 +135,9 @@ describe('the window ⋮ (KAN-616, 1A)', () => {
     const user = userEvent.setup();
     await render();
     const menu = await openWindowMenu(user, 'w1');
-    // Copy all links (KAN-783) first; Planning is out of order, so Sort tabs by site (KAN-694) follows.
+    // The other way to open (KAN-892), then Copy all links (KAN-783); Planning is out of order, so Sort tabs by site (KAN-694) follows.
     expect(items(menu)).toEqual([
+      'Open in this window',
       'Copy all links',
       'Rename window',
       'Sort tabs by site',
@@ -150,6 +151,7 @@ describe('the window ⋮ (KAN-616, 1A)', () => {
     await render();
     const menu = await openWindowMenu(user, 'w2');
     expect(items(menu)).toEqual([
+      'Open in this window',
       'Copy all links',
       'Rename window',
       'Delete window',

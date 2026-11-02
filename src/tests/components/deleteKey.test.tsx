@@ -329,9 +329,9 @@ describe('with the ⋮ open, the key runs Delete session (KAN-638)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
     return rendered;
   };
-  // Opening focuses the first item; the key lands there.
+  // Opening focuses the first item (KAN-892: the other way to open); the key lands there.
   const focusedItem = () =>
-    screen.getByRole('menuitem', { name: 'Copy all links' });
+    screen.getByRole('menuitem', { name: 'Open session in this window' });
 
   describe.each(['mac', 'win', 'linux'] as const)('on %s', (os) => {
     test.each([
@@ -383,10 +383,11 @@ describe('with the ⋮ open, the key runs Delete session (KAN-638)', () => {
   test('the arrows still walk the menu', async () => {
     const { store } = await renderOpenMenu();
 
+    expect(focusedItem()).toHaveFocus();
     fireEvent.keyDown(focusedItem(), { key: 'ArrowDown' });
 
     expect(
-      screen.getByRole('menuitem', { name: 'Rename session' })
+      screen.getByRole('menuitem', { name: 'Copy all links' })
     ).toHaveFocus();
     expect(ids(store)).toEqual(['shown', 'kyoto']);
   });

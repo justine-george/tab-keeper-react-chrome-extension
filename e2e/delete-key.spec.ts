@@ -83,9 +83,9 @@ for (const opened of ['click', 'keyboard'] as const) {
         await sessionMenu(page).focus();
         await page.keyboard.press('Enter');
       }
-      // PREMISE: the key lands in the menu, on its first item, not on a row.
+      // PREMISE: the key lands in the menu, on its first item (KAN-892: the other way to open), not on a row.
       await expect(
-        page.getByRole('menuitem', { name: 'Copy all links' })
+        page.getByRole('menuitem', { name: 'Open session in this window' })
       ).toBeFocused();
 
       await page.keyboard.press(key);

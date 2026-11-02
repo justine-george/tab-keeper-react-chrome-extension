@@ -43,6 +43,7 @@ import { DragHandle } from '../rightpane/rowDrag/DragHandle';
 import { useRowActionGuard } from './useRowActionGuard';
 import type { RowMenuProps } from '../../common/rowMenu/useRowContextMenu';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
+import { sessionOpenLabelKey } from '../openWhere';
 import {
   selectEndingRowId,
   selectRunEngagedRowId,
@@ -139,6 +140,10 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
 
   // KAN-413. Open and Switch on the tour's sample wait for it; a filter dims them, since the row's reveal owns their opacity.
   const isOpenBlocked = useIsOpenBlockedByTour(tabGroupData.tabGroupId);
+  // KAN-892. Open's tooltip says which way it goes.
+  const openSavedWindowsIn = useSelector(
+    (state: RootState) => state.settingsDataState.openSavedWindowsIn
+  );
   // Each button says which one waits (KAN-586).
   const afterTheTour = isOpenBlocked
     ? {
@@ -621,7 +626,9 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       {drawsStrip && (
         <div data-row-actions ref={strip} css={rightStyle}>
           <Icon
-            tooltipText={afterTheTour?.open ?? t('Open session')}
+            tooltipText={
+              afterTheTour?.open ?? t(sessionOpenLabelKey(openSavedWindowsIn))
+            }
             text={t('Open')}
             ariaLabel={t('Open')}
             type="reopen_window"

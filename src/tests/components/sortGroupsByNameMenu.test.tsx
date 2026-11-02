@@ -110,6 +110,7 @@ describe('saved window', () => {
     await render([tab('x'), tab('z1', 'gZ'), tab('a1', 'gA')], [ZULU, ALPHA]);
     const dots = labels(await openMenu(user));
     expect(dots).toEqual([
+      'Open in this window',
       'Copy all links',
       'Rename window',
       'Sort tabs by site',
@@ -169,6 +170,7 @@ describe('saved window', () => {
       [ALPHA, ZULU, { groupId: 'gU', title: '', color: 'grey' }]
     );
     expect(labels(await openMenu(user))).toEqual([
+      'Open in this window',
       'Copy all links',
       'Rename window',
       'Delete window',
@@ -188,6 +190,7 @@ describe('saved window', () => {
     const user = userEvent.setup();
     await render([tab('z1', 'gZ'), tab('x')], [ZULU]);
     expect(labels(await openMenu(user))).toEqual([
+      'Open in this window',
       'Copy all links',
       'Rename window',
       'Delete window',

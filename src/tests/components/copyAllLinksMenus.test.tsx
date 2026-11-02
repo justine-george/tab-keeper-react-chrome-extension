@@ -434,13 +434,13 @@ describe('saved windows and groups', () => {
       name: 'More actions',
     })[0];
 
-  test("a saved window's ⋮ leads with Copy all links, and it copies that window under its name", async () => {
+  test("a saved window's ⋮ has Copy all links right after the other way to open (KAN-892), and it copies that window under its name", async () => {
     const user = userEvent.setup();
     const writeText = clipboard(() => Promise.resolve());
     const { store } = await render();
 
     await user.click(windowMenuButton());
-    expect(menuKeys()[0]).toBe('copy');
+    expect(menuKeys().slice(0, 2)).toEqual(['openOtherWay', 'copy']);
     await chooseCopy(user);
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));

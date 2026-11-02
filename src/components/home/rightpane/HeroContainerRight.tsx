@@ -30,6 +30,7 @@ import {
 } from '../../../utils/functions/local';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
+import { sessionOpenLabelKey } from '../openWhere';
 import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
 import { sessionMenuItems, useSessionDeleteKey } from '../sessionMenuItems';
 import {
@@ -173,6 +174,10 @@ export default function HeroContainerRight() {
   // KAN-708. The header ⋮'s ctx; the header's right-click differs only in its place (KAN-793).
   // KAN-886. The Add chip dims, and the row menu drops Add, while the current window holds only Tab Keeper.
   const canAddCurrentWindow = useCurrentWindowHasTabsToAdd();
+  // KAN-892. Where Open goes; the menus offer the other way.
+  const openSavedWindowsIn = useSelector(
+    (state: RootState) => state.settingsDataState.openSavedWindowsIn
+  );
   const menuCtx = {
     t,
     language: i18n.language,
@@ -181,6 +186,8 @@ export default function HeroContainerRight() {
     place: 'headerMenuButton' as const,
     copyLinksLayout,
     canAddCurrentWindow,
+    openSavedWindowsIn,
+    isOpenBlocked,
   };
   // KAN-708, KAN-793. Right-clicking the header opens its buttons, then the ⋮ items; none while searching, when the ⋮ is hidden.
   const headerMenu = useRowContextMenu({
@@ -596,8 +603,14 @@ export default function HeroContainerRight() {
                 `}
               >
                 <Icon
-                  tooltipText={afterTheTour?.open ?? t('Open session')}
-                  ariaLabel={afterTheTour?.open ?? t('Open session')}
+                  tooltipText={
+                    afterTheTour?.open ??
+                    t(sessionOpenLabelKey(openSavedWindowsIn))
+                  }
+                  ariaLabel={
+                    afterTheTour?.open ??
+                    t(sessionOpenLabelKey(openSavedWindowsIn))
+                  }
                   type="reopen_window"
                   disable={isOpenBlocked}
                   style={isOpenBlocked ? 'opacity: 0.3;' : undefined}
