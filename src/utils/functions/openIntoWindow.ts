@@ -116,14 +116,14 @@ export async function openIntoWindow(
       pinTabKeeper,
     });
 
-  const target = await tabbedWindow(windowId);
-  if (target === null) {
+  const targetWindow = await tabbedWindow(windowId);
+  if (targetWindow === null) {
     await inNewWindows(request.specs);
     return [];
   }
   const { into, apart } = splitByKind(
     request.specs,
-    target.incognito,
+    targetWindow.incognito,
     await isIncognitoAllowed()
   );
   if (apart.length > 0) await inNewWindows(apart);
@@ -139,13 +139,17 @@ export async function openIntoWindow(
     tabs.map((tab, i) => (loadsPage.has(i) ? '' : placeholderIcon(tab)))
   );
   let pinnedSlot = pinnedRunLength(await tabsInOrder(windowId));
-  const create = (tab: tabData, i: number) =>
-    createRestoredTab(
+  // A pinned tab takes the next slot only once Chrome made it.
+  const create = async (tab: tabData, i: number) => {
+    const id = await createRestoredTab(
       windowId,
       tab,
       restoredTabUrl(tab, loadsPage.has(i), icons[i], goToURLText),
-      tab.pinned === true ? pinnedSlot++ : undefined
+      tab.pinned === true ? pinnedSlot : undefined
     );
+    if (tab.pinned === true && id !== undefined) pinnedSlot += 1;
+    return id;
+  };
 
   const [firstTab, ...restTabs] = tabs;
   const firstId = await create(firstTab, 0);
@@ -154,11 +158,20 @@ export async function openIntoWindow(
     await inNewWindows(into);
     return [];
   }
-  // All at once: Chrome runs one extension's calls in order, so they land in order.
-  const ids = [
-    firstId,
-    ...(await Promise.all(restTabs.map((tab, k) => create(tab, k + 1)))),
-  ];
+  // mergeForWindow put the pinned first. They go one at a time, each slot
+  // known from the last; the rest all at once: Chrome runs one extension's
+  // calls in order, so they land in order.
+  const rest = restTabs.map((tab, k) => ({ tab, i: k + 1 }));
+  const ids = [firstId];
+  for (const { tab, i } of rest.filter(({ tab }) => tab.pinned === true))
+    ids.push(await create(tab, i));
+  ids.push(
+    ...(await Promise.all(
+      rest
+        .filter(({ tab }) => tab.pinned !== true)
+        .map(({ tab, i }) => create(tab, i))
+    ))
+  );
 
   // A refused saved active tab falls back as Open's does (retryAfterFailure, KAN-458).
   const currentIndex =

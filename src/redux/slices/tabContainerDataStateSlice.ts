@@ -637,10 +637,11 @@ export const openTabsInAWindow = createAsyncThunk(
       rootState.settingsDataState.pinTabKeeperInNewWindows
     );
     // KAN-149. The last instant the popup can record anything: sendMessage
-    // hands the restore to the worker, which creates focused windows, which
-    // closes this popup. Recording the INTENT rather than the confirmed
-    // restore is therefore not a shortcut -- there is no later moment, and the
-    // worker has no localStorage to write to.
+    // hands the restore to the worker, which focuses a new window or (This
+    // window) activates a tab in this one, either of which closes this popup.
+    // Recording the INTENT rather than the confirmed restore is therefore not
+    // a shortcut -- there is no later moment, and the worker has no
+    // localStorage to write to.
     if (!isSampleSession(params.tabGroupId)) {
       thunkAPI.dispatch(noteReviewMoment({ kind: 'restored' }));
     }

@@ -402,9 +402,15 @@ describe('Open saved windows: This window', () => {
     store.dispatch(setOpenSavedWindowsIn(where));
     return store;
   };
-  const onlyRequest = (h: ReturnType<typeof setupChromeFake>) => {
+  // The one message sent, narrowed by the worker's own guard.
+  const onlyIntoWindowRequest = (
+    h: ReturnType<typeof setupChromeFake>
+  ): OpenIntoWindowRequest => {
     expect(h.sentMessages).toHaveLength(1);
-    return h.sentMessages[0];
+    const [sent] = h.sentMessages;
+    if (!isOpenIntoWindowRequest(sent))
+      throw new Error(`not open-into-window: ${JSON.stringify(sent)}`);
+    return sent;
   };
 
   it('Open session sends one open-into-window message for the current window, with every window, pinTabKeeper as set', async () => {
@@ -418,8 +424,7 @@ describe('Open saved windows: This window', () => {
       })
     );
 
-    const request = onlyRequest(handle);
-    expect(isOpenIntoWindowRequest(request)).toBe(true);
+    const request = onlyIntoWindowRequest(handle);
     expect(request).toEqual({
       type: OPEN_INTO_WINDOW_MESSAGE,
       windowId: 7,
@@ -431,9 +436,10 @@ describe('Open saved windows: This window', () => {
         expect.objectContaining({ focused: false }),
       ],
     });
-    expect(
-      (request as OpenIntoWindowRequest).specs.map((s) => s.tabs[0].url)
-    ).toEqual(['https://a.example/', 'https://b.example/']);
+    expect(request.specs.map((s) => s.tabs[0].url)).toEqual([
+      'https://a.example/',
+      'https://b.example/',
+    ]);
   });
 
   it('Open on a saved window sends that window only, into the current window', async () => {
@@ -447,7 +453,7 @@ describe('Open saved windows: This window', () => {
       })
     );
 
-    const request = onlyRequest(handle) as OpenIntoWindowRequest;
+    const request = onlyIntoWindowRequest(handle);
     expect(request.type).toBe(OPEN_INTO_WINDOW_MESSAGE);
     expect(request.windowId).toBe(7);
     expect(request.activate).toBe(true);
@@ -496,7 +502,7 @@ describe('Open saved windows: This window', () => {
           : openAllTabContainer(params)
       );
 
-      const request = onlyRequest(handle) as OpenIntoWindowRequest;
+      const request = onlyIntoWindowRequest(handle);
       expect(request.type).toBe(OPEN_INTO_WINDOW_MESSAGE);
       expect(request.windowId).toBe(7);
       expect(request.specs).toHaveLength(specCount);

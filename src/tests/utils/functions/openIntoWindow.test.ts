@@ -157,6 +157,31 @@ describe('placement', () => {
     expect(await strip(1)).toEqual(['p0', 'a', 'b', 's0', 's2']);
     expect(ids).toHaveLength(2);
   });
+
+  // Chrome (and the fake) clamp a pinned slot past the run, so the slot asked for is the rule.
+  test('a refused pinned tab takes no slot: each pinned one after asks for the slot after the last made', async () => {
+    handle = setupChromeFake(seed({ refusedUrls: [OTHER_EXTENSION] }));
+    const create = vi.spyOn(chrome.tabs, 'create');
+    await openIntoWindow(
+      req([
+        spec([
+          tab('s0', { pinned: true }),
+          tab('x', { url: OTHER_EXTENSION, pinned: true }),
+          tab('t0', { pinned: true }),
+          tab('u0', { pinned: true }),
+          tab('s1'),
+        ]),
+      ])
+    );
+    expect(create.mock.calls.map(([props]) => props.index)).toEqual([
+      1,
+      2,
+      2,
+      3,
+      undefined,
+    ]);
+    expect(await strip(1)).toEqual(['p0', 's0', 't0', 'u0', 'a', 'b', 's1']);
+  });
 });
 
 describe('groups', () => {
