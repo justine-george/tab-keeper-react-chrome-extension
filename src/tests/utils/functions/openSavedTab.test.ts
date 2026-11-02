@@ -3,6 +3,8 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { OpenTab, OpenWindow } from '../../../utils/functions/openNow';
 import {
   findOpenCopy,
+  hasOpenCopy,
+  openCopyAddresses,
   opensInBackground,
   switchToOpenCopy,
 } from '../../../utils/functions/openSavedTab';
@@ -132,6 +134,38 @@ describe('findOpenCopy', () => {
     const second = tab('https://docs.test/page');
     const windows = [win(2, [first]), win(3, [second])];
     expect(findOpenCopy('https://docs.test/page', windows)?.id).toBe(first.id);
+  });
+});
+
+// KAN-890. The row's name says Switch to tab exactly when a click would switch.
+describe('hasOpenCopy agrees with findOpenCopy', () => {
+  const windows = [
+    win(1, [tab('https://a.test/'), tab('')], true),
+    win(2, [tab(SUSPENDED), tab('https://docs.test/page#a')]),
+  ];
+  const addresses = openCopyAddresses(windows);
+
+  test.each([
+    'https://a.test/',
+    'https://a.test',
+    'https://docs.test/page',
+    'https://docs.test/page#a',
+    'https://docs.test/page#b',
+    generatePlaceholderURL('Docs', '', 'https://docs.test/page', 'Go'),
+    '',
+    'https://nowhere.test/',
+  ])('%s', (url) => {
+    expect(hasOpenCopy(url, addresses)).toBe(
+      findOpenCopy(url, windows) !== undefined
+    );
+  });
+
+  test('an open tab with no address adds none', () => {
+    expect([...openCopyAddresses([win(1, [tab('')])])]).toEqual([]);
+  });
+
+  test('no windows read yet: nothing is open', () => {
+    expect(hasOpenCopy('https://a.test/', openCopyAddresses([]))).toBe(false);
   });
 });
 

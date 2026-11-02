@@ -1,7 +1,7 @@
 // KAN-884 on the real artifact: a saved tab's plain click switches to an open
 // copy in another window and focuses it, else opens one; middle-click and
 // ⌘/Ctrl-click open a copy in the background; the menu's Open in new tab
-// opens a copy in front.
+// opens a copy in front. KAN-890: the row's name says which a click does.
 
 import type { BrowserContext, Page, Worker } from '@playwright/test';
 
@@ -45,8 +45,18 @@ async function stage(
   return { page, ownWindow, other };
 }
 
+// KAN-890. Alpha has an open copy, so its row says Switch to tab; Beta's says Open in new tab.
+// The saved pane only: Currently open's live row for a copy says Switch to tab too.
+const DETAIL = '[data-pane="detail"]';
+
 const row = (page: Page, title: string) =>
-  page.getByRole('button', { name: `Open in new tab: ${title}`, exact: true });
+  page.locator(DETAIL).getByRole('button', {
+    name: `${title === 'Alpha' ? 'Switch to tab' : 'Open in new tab'}: ${title}`,
+    exact: true,
+  });
+
+const named = (page: Page, name: string) =>
+  page.locator(DETAIL).getByRole('button', { name, exact: true });
 
 const lastFocused = (worker: Worker) =>
   worker.evaluate(async () => (await chrome.windows.getLastFocused()).id);
@@ -162,5 +172,34 @@ test.describe('a saved tab click (KAN-884)', () => {
     expect(await activeIn(serviceWorker, other.windowId)).toBe(
       other.idOf('Front')
     );
+  });
+
+  test('the row names follow the copies: Switch to tab while one is open (KAN-890)', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const { page, ownWindow, other } = await stage(
+      context,
+      extensionId,
+      serviceWorker
+    );
+    await expect(named(page, 'Switch to tab: Alpha')).toBeVisible();
+    await expect(named(page, 'Open in new tab: Beta')).toBeVisible();
+
+    await serviceWorker.evaluate(
+      async ({ alpha, windowId, beta }) => {
+        await chrome.tabs.remove(alpha);
+        await chrome.tabs.create({ windowId, url: beta, active: false });
+      },
+      {
+        alpha: other.idOf('Alpha'),
+        windowId: ownWindow,
+        beta: dataUrl('Beta'),
+      }
+    );
+
+    await expect(named(page, 'Open in new tab: Alpha')).toBeVisible();
+    await expect(named(page, 'Switch to tab: Beta')).toBeVisible();
   });
 });

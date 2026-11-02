@@ -27,8 +27,10 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import { useMacKeys } from '../../../hooks/useIsMac';
+import { useOpenCopyAddresses } from './openCopies';
 import {
   opensInBackground,
+  hasOpenCopy,
   switchToOpenCopy,
 } from '../../../utils/functions/openSavedTab';
 import { AppDispatch, RootState } from '../../../redux/store';
@@ -210,6 +212,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const isOpenBlocked = useIsOpenBlockedByTour(tabGroupId);
   // As the Mac Ctrl-click guard reads it: false until Chrome says Mac.
   const isMac = useMacKeys();
+  const openAddresses = useOpenCopyAddresses();
   const openBlockedBecause = isOpenBlocked
     ? t('Open works after the tour')
     : null;
@@ -1234,7 +1237,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           </div>
         ) : (
           <ClickableRow
-            ariaLabel={t('Open in new tab') + ': ' + shown}
+            // KAN-890. Said as the click does it: a switch to the open copy, or a new tab.
+            ariaLabel={
+              (hasOpenCopy(url, openAddresses)
+                ? t('Switch to tab')
+                : t('Open in new tab')) +
+              ': ' +
+              shown
+            }
             buttonRef={titleFocus.refFor(`tab:${tabId}`)}
             // As Open now says a pinned tab: its own description, no joiner (KAN-307).
             ariaDescribedBy={describedBy === '' ? undefined : describedBy}
