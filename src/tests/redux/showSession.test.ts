@@ -96,13 +96,14 @@ describe('showSession (KAN-889)', () => {
     expect(selectIsSavedSessionFolded(store.getState())).toBe(true);
   });
 
-  test('folded: the selection changes inside the motion, so the slide pictures that session', () => {
+  test('folded: the selection happens at once; only the peek waits for the slide', () => {
     const store = storeWith(true);
-    // A motion that never runs its update: nothing may change outside it.
+    // A motion that has not run its update yet (a view transition runs it a frame later).
     vi.mocked(runPaneMotion).mockImplementationOnce(() => {});
     store.dispatch(showSession('S2'));
+    // A caller's next dispatch (a rename, the tour's next step) sees the session selected.
     expect(store.getState().tabContainerDataState.selectedTabGroupId).toBe(
-      'S1'
+      'S2'
     );
     expect(selectIsSavedSessionFolded(store.getState())).toBe(true);
   });
