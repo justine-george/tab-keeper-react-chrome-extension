@@ -278,6 +278,16 @@ test('an incognito open window is no target for a normal saved window: New windo
     'data-window-incognito',
     ''
   );
+  // KAN-896. Its row says so, after the count, as a tag like the count; the normal one does not.
+  const tags = windowRow(page, opened.windowId).locator('[data-row-tag]');
+  await expect(tags).toHaveText(['1 Tab', 'Incognito']);
+  const [count, mark] = [await boxOf(tags.nth(0)), await boxOf(tags.nth(1))];
+  expect(mark.x).toBeGreaterThan(count.x + count.width);
+  expect([count.height, mark.height]).toEqual([20, 20]);
+  expect((await boxOf(windowRow(page, opened.windowId))).height).toBe(32);
+  await expect(
+    windowRow(page, normal.windowId).locator('[data-row-tag]')
+  ).toHaveText(['1 Tab']);
   const windowsBefore = await windowIds(worker);
 
   await pickUp(page, windowHandle(page, 'w1'));

@@ -612,6 +612,8 @@ export default function OpenNowWindow({
         {/* KAN-720. The rows drawn, so a search counts its matches; the box's right padding is the tag's clearance. */}
         <RowTag value={formatTabCount(drawnTabs.length, t)} />
         {openWindow.isThisWindow && <RowTag value={t('This window')} />}
+        {/* KAN-896. A saved window of the other kind does not drop into it; this says why. */}
+        {openWindow.incognito && <RowTag value={t('Incognito')} />}
       </div>
     </div>
   );
