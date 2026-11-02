@@ -1549,77 +1549,82 @@ const ALL_LANGS = [
   'zh',
   'zh-TW',
 ] as const;
+// KAN-892 (R10). Both ways Open saved windows can go: the menu's first item is the other way.
+const OPEN_WAYS = ['new-window', 'this-window'] as const;
 for (const lang of ALL_LANGS) {
-  test(`the session menu stays in its pane with each label on one line (${lang})`, async ({
-    context,
-    extensionId,
-  }) => {
-    await seedSettings(context, {
-      language: lang,
-      isNeverAskAgainForTabGroups: true,
-      isNeverAskAgainToRate: true,
-    });
-    await seedSessions(context, {
-      ...buildContainer([KYOTO]),
-      selectedTabGroupId: 'session-kyoto',
-    });
-    const popup = await context.newPage();
-    await popup.setViewportSize({ width: 790, height: 550 });
-    await popup.goto(`chrome-extension://${extensionId}/index.html`);
+  for (const way of OPEN_WAYS) {
+    test(`the session menu stays in its pane with each label on one line (${lang}, Open in ${way})`, async ({
+      context,
+      extensionId,
+    }) => {
+      await seedSettings(context, {
+        language: lang,
+        isNeverAskAgainForTabGroups: true,
+        isNeverAskAgainToRate: true,
+        openSavedWindowsIn: way,
+      });
+      await seedSessions(context, {
+        ...buildContainer([KYOTO]),
+        selectedTabGroupId: 'session-kyoto',
+      });
+      const popup = await context.newPage();
+      await popup.setViewportSize({ width: 790, height: 550 });
+      await popup.goto(`chrome-extension://${extensionId}/index.html`);
 
-    const trigger = sessionHeaderMenu(
-      popup,
-      localeStrings(lang)['More actions']
-    );
-    await expect(trigger).toBeVisible();
-    await trigger.click();
-    await expect(popup.getByRole('menu')).toBeVisible();
-
-    const shape = await trigger.evaluate((triggerEl) => {
-      // The pane has no marker: climb past the header's buttons to pane width.
-      let pane: Element | null = triggerEl;
-      while (
-        pane &&
-        !pane.querySelector('button[aria-label]:not([aria-haspopup])')
-      ) {
-        pane = pane.parentElement;
-      }
-      while (
-        pane &&
-        pane.parentElement &&
-        pane.getBoundingClientRect().width < 380
-      ) {
-        pane = pane.parentElement;
-      }
-      const paneBox = pane!.getBoundingClientRect();
-      const menuBox = document
-        .querySelector('[role="menu"]')!
-        .getBoundingClientRect();
-      const heights = [...document.querySelectorAll('[role="menuitem"]')].map(
-        (item) => Math.round(item.getBoundingClientRect().height)
+      const trigger = sessionHeaderMenu(
+        popup,
+        localeStrings(lang)['More actions']
       );
-      return {
-        paneLeft: Math.round(paneBox.left),
-        paneRight: Math.round(paneBox.right),
-        menuLeft: Math.round(menuBox.left),
-        menuRight: Math.round(menuBox.right),
-        heights,
-      };
+      await expect(trigger).toBeVisible();
+      await trigger.click();
+      await expect(popup.getByRole('menu')).toBeVisible();
+
+      const shape = await trigger.evaluate((triggerEl) => {
+        // The pane has no marker: climb past the header's buttons to pane width.
+        let pane: Element | null = triggerEl;
+        while (
+          pane &&
+          !pane.querySelector('button[aria-label]:not([aria-haspopup])')
+        ) {
+          pane = pane.parentElement;
+        }
+        while (
+          pane &&
+          pane.parentElement &&
+          pane.getBoundingClientRect().width < 380
+        ) {
+          pane = pane.parentElement;
+        }
+        const paneBox = pane!.getBoundingClientRect();
+        const menuBox = document
+          .querySelector('[role="menu"]')!
+          .getBoundingClientRect();
+        const heights = [...document.querySelectorAll('[role="menuitem"]')].map(
+          (item) => Math.round(item.getBoundingClientRect().height)
+        );
+        return {
+          paneLeft: Math.round(paneBox.left),
+          paneRight: Math.round(paneBox.right),
+          menuLeft: Math.round(menuBox.left),
+          menuRight: Math.round(menuBox.right),
+          heights,
+        };
+      });
+
+      // CONTROL: a pane, not the whole popup, so "inside" can fail.
+      expect(shape.paneRight - shape.paneLeft).toBeLessThan(600);
+
+      expect(
+        shape.menuLeft,
+        `the menu starts at ${shape.menuLeft}px, left of its pane at ${shape.paneLeft}px`
+      ).toBeGreaterThanOrEqual(shape.paneLeft);
+      expect(shape.menuRight).toBeLessThanOrEqual(shape.paneRight);
+      expect(
+        new Set(shape.heights).size,
+        `item heights ${shape.heights.join('/')}px: a label wrapped`
+      ).toBe(1);
     });
-
-    // CONTROL: a pane, not the whole popup, so "inside" can fail.
-    expect(shape.paneRight - shape.paneLeft).toBeLessThan(600);
-
-    expect(
-      shape.menuLeft,
-      `the menu starts at ${shape.menuLeft}px, left of its pane at ${shape.paneLeft}px`
-    ).toBeGreaterThanOrEqual(shape.paneLeft);
-    expect(shape.menuRight).toBeLessThanOrEqual(shape.paneRight);
-    expect(
-      new Set(shape.heights).size,
-      `item heights ${shape.heights.join('/')}px: a label wrapped`
-    ).toBe(1);
-  });
+  }
 
   // KAN-742. The save row's menu holds the longest new label, "Save open windows as PDF…".
   test(`the save row menu stays in its pane (${lang})`, async ({

@@ -30,7 +30,12 @@ import { useMacKeys } from '../../hooks/useIsMac';
 import { isTabView } from '../../utils/functions/viewMode';
 import { withPreviewFrom } from '../../utils/functions/previewFrom';
 import type { OpenSavedWindowsIn } from '../../redux/slices/settingsDataStateSlice';
-import { openWayIcon, otherWay, sessionOpenLabelKey } from './openWhere';
+import {
+  openWayIcon,
+  otherWay,
+  sessionMenuOpenLabelKey,
+  sessionOpenLabelKey,
+} from './openWhere';
 
 type DeleteKey = NonNullable<OverflowMenuItem['shortcut']>;
 
@@ -128,7 +133,7 @@ export function sessionMenuItems(
     : [
         {
           key: 'openOtherWay',
-          label: t(sessionOpenLabelKey(other)),
+          label: t(sessionMenuOpenLabelKey(other)),
           icon: openWayIcon(other),
           onSelect: () =>
             void dispatch(

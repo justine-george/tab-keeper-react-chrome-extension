@@ -17,6 +17,14 @@ export const sessionOpenLabelKey = (
 ): 'Open session' | 'Open session in this window' =>
   w === 'this-window' ? 'Open session in this window' : 'Open session';
 
+// The session menus' other-way item: shorter than Open's tooltip, so the header ⋮ fits its pane (KAN-193, R10).
+export const sessionMenuOpenLabelKey = (
+  w: OpenSavedWindowsIn
+): 'Open session in new windows' | 'Open session in this window' =>
+  w === 'this-window'
+    ? 'Open session in this window'
+    : 'Open session in new windows';
+
 // A menu item's glyph for that way; new window keeps the Open button's.
 export const openWayIcon = (w: OpenSavedWindowsIn): IconName =>
   w === 'this-window' ? 'tab' : 'reopen_window';

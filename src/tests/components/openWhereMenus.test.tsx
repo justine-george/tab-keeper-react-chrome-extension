@@ -8,6 +8,7 @@ import HeroContainerRight from '../../components/home/rightpane/HeroContainerRig
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import {
   otherWay,
+  sessionMenuOpenLabelKey,
   sessionOpenLabelKey,
   windowOpenLabelKey,
 } from '../../components/home/openWhere';
@@ -93,6 +94,12 @@ describe('openWhere', () => {
     expect(windowOpenLabelKey('this-window')).toBe('Open in this window');
     expect(sessionOpenLabelKey('new-window')).toBe('Open session');
     expect(sessionOpenLabelKey('this-window')).toBe(
+      'Open session in this window'
+    );
+    expect(sessionMenuOpenLabelKey('new-window')).toBe(
+      'Open session in new windows'
+    );
+    expect(sessionMenuOpenLabelKey('this-window')).toBe(
       'Open session in this window'
     );
   });
@@ -209,10 +216,11 @@ describe('a session', () => {
       'Open session in this window',
       'this-window',
     ],
+    // R10. The menu's new-window item is shorter than Open's tooltip.
     [
       'this-window',
       'Open session in this window',
-      'Open session, keeping current windows',
+      'Open session in new windows',
       'new-window',
     ],
   ] as const)(
@@ -257,11 +265,11 @@ describe('a session', () => {
       'Open session in this window'
     );
     // Before Add current window, which is otherwise first.
-    expectOtherWayFirst(rowMenu(), 'Open session, keeping current windows');
+    expectOtherWayFirst(rowMenu(), 'Open session in new windows');
     expect(listKeys(rowMenu())[1]).toBe('add');
     fireEvent.click(
       within(rowMenu()).getByRole('menuitem', {
-        name: 'Open session, keeping current windows',
+        name: 'Open session in new windows',
       })
     );
     expect(argsOf(actions, 'global/openAllTabContainer/pending')).toEqual([
