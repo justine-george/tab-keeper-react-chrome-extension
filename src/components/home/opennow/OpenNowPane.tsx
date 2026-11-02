@@ -108,7 +108,13 @@ import {
   useCarried,
   useCarryCrossedIntoOpenNow,
 } from '../../../redux/carry';
-import { isItemStillThere, pickOf } from '../../../redux/carriedItem';
+import {
+  isItemStillThere,
+  pickOf,
+  sourceWindowOf,
+} from '../../../redux/carriedItem';
+import { effectiveIncognito } from '../../../utils/functions/openIntoWindow';
+import { isIncognitoAllowed } from '../../../utils/functions/restoreSession';
 import { readLivePlacement } from '../../../redux/livePlacement';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
@@ -389,11 +395,32 @@ export default function OpenNowPane({
   const drawsWindowBlock =
     drawsCarry && carried !== null && pickOf(carried).kind === 'window';
   const drawsNewWindowBlock = carriedIn !== null || drawsWindowBlock;
+  // KAN-892 D. Read once: a saved window lands only in an open window of the kind it opens as.
+  const [incognitoAllowed, setIncognitoAllowed] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void isIncognitoAllowed().then((allowed) => {
+      if (live) setIncognitoAllowed(allowed);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  const carriedIncognito = useCallback(
+    () =>
+      carried !== null &&
+      effectiveIncognito(
+        sourceWindowOf(savedTabGroups, carried)?.incognito,
+        incognitoAllowed
+      ),
+    [carried, savedTabGroups, incognitoAllowed]
+  );
   useOpenNowCarryReceiver({
     paneRef,
     scrollerRef,
     takes: takesCarry,
     goToURLText: t('Go to URL'),
+    carriedIncognito,
   });
   // While an Open now list drives the adopted carry: the block below lights
   // while the landing is in it, and the + shows wherever a release lands.

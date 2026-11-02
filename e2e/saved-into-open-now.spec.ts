@@ -307,6 +307,8 @@ test('a window opens as a new window, in front, maximized as saved', async ({
 
   await pickUp(page, windowHandle(page, 'w1'));
   await carryTo(page, await middleOf(liveRow(page, live.idOf('A'))));
+  // KAN-892 D: over an open window it would join it; the box below makes a new one.
+  await carryTo(page, await middleOf(page.locator(LAST_BOX)));
   await expect(page.locator(LAST_BOX)).toHaveAttribute('data-landing', '');
   await expect(page.locator(BADGE)).toBeVisible();
   await page.mouse.up();
@@ -408,6 +410,11 @@ test('a saved window held over a long list: the lit New window box shows at its 
 
   await pickUp(page, windowHandle(page, 'w1'));
   await carryTo(page, await middleOf(liveRow(page, first.idOf('W0 b'))));
+  // KAN-892 D: over a window it would join it; over the header the box below lights.
+  await carryTo(
+    page,
+    await middleOf(page.locator(`${OPEN_NOW} [data-open-now-header] h2`))
+  );
   await expect(box).toHaveAttribute('data-landing', '');
   // PREMISE: the list is scrolled to its top, with more of it below.
   expect(await scroller.evaluate((el) => el.scrollTop)).toBe(0);
@@ -656,6 +663,16 @@ test.describe('the new window is scrolled into view', () => {
           });
         await expect(target).toBeVisible();
         await carryTo(page, await middleOf(target));
+      } else {
+        // KAN-892 D: over a window it would join it; over the header the box below lights.
+        await carryTo(
+          page,
+          await middleOf(page.locator(`${OPEN_NOW} [data-open-now-header] h2`))
+        );
+        await expect(page.locator(LAST_BOX)).toHaveAttribute(
+          'data-landing',
+          ''
+        );
       }
       await expect(page.locator(BADGE)).toBeVisible();
       await page.mouse.up();

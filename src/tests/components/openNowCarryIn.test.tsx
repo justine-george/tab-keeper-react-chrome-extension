@@ -1,6 +1,12 @@
 import { createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { act, cleanup, fireEvent, screen } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  screen,
+  within,
+} from '@testing-library/react';
 
 import OpenNowPane from '../../components/home/opennow/OpenNowPane';
 import { CarryLayer } from '../../components/home/CarryLayer';
@@ -34,6 +40,10 @@ import {
 import { carriedRowId } from '../../utils/functions/carriedView';
 import { newRun } from '../../utils/functions/firstRun';
 import type { OpenWindow } from '../../utils/functions/openNow';
+import {
+  isOpenIntoWindowRequest,
+  type OpenIntoWindowRequest,
+} from '../../utils/functions/openIntoWindow';
 import {
   RESTORE_SESSION_MESSAGE,
   type RestoreSessionRequest,
@@ -156,6 +166,7 @@ async function renderPane(
     sessionId?: string;
     searchText?: string;
     seed?: ChromeSeed;
+    saved?: windowGroupData;
   } = {}
 ) {
   result = await renderWithProviders(pane(null), {
@@ -166,7 +177,7 @@ async function renderPane(
         saveToTabContainerInternal(
           buildSession({
             tabGroupId: options.sessionId ?? 'S1',
-            windows: [savedWindow()],
+            windows: [options.saved ?? savedWindow()],
           })
         )
       );
@@ -675,5 +686,252 @@ describe('crossed into Currently open', () => {
     carry(tabOf(), 10, LIST_Y);
     expect(crossed()).toBe('false');
     root.parentElement?.removeAttribute('data-carry-away');
+  });
+});
+
+// KAN-892 D. A saved window over an open window lights that whole window, and
+// a release adds its tabs there. Here the blocks sit in the list as the
+// browser draws them: W1 y 100..196 (its header and two rows), a gap of 8,
+// W2 y 204..268. The header is y 0..100; below W2 the list is empty.
+describe('a saved window over an open window', () => {
+  const W1_Y = 150;
+  const GAP_Y = 200;
+  const W2_Y = 230;
+  const block = (id: number) => find(`[data-open-window-id="${id}"]`);
+  const lit = () =>
+    [...document.querySelectorAll('[data-open-window-id][data-landing]')].map(
+      (el) => el.getAttribute('data-open-window-id')
+    );
+  const intoWindows = (): OpenIntoWindowRequest[] =>
+    result.chrome.sentMessages.filter(isOpenIntoWindowRequest);
+  const placeBlocks = () => {
+    block(1).getBoundingClientRect = () => box(100, 96);
+    block(2).getBoundingClientRect = () => box(204, 64);
+  };
+  const seedWith = (incognito: boolean, allowed: boolean): ChromeSeed => ({
+    ...SEED,
+    windows: SEED.windows?.map((w) => (w.id === 2 ? { ...w, incognito } : w)),
+    incognitoAllowed: allowed,
+  });
+
+  test('over a window, that window lights as one block, the + on, and the box below does not', async () => {
+    await renderPane();
+    placeBlocks();
+    carry(WINDOW, 10, W1_Y);
+    const r = receiver(10, W1_Y);
+
+    r.hover(10, W1_Y);
+    expect(lit()).toEqual(['1']);
+    expect(lastBox()?.hasAttribute('data-landing')).toBe(false);
+    expect(opens()).toBe(true);
+
+    r.hover(10, W2_Y);
+    expect(lit()).toEqual(['2']);
+  });
+
+  test('the gap below a window is still that window: nothing flickers between two', async () => {
+    await renderPane();
+    placeBlocks();
+    carry(WINDOW, 10, GAP_Y);
+    const r = receiver(10, GAP_Y);
+
+    r.hover(10, GAP_Y);
+    expect(lit()).toEqual(['1']);
+    expect(lastBox()?.hasAttribute('data-landing')).toBe(false);
+  });
+
+  test('below the last window, and over the header, the box below lights and no window does', async () => {
+    await renderPane();
+    placeBlocks();
+    carry(WINDOW, 10, W1_Y);
+    const r = receiver(10, W1_Y);
+    r.hover(10, W1_Y);
+
+    r.hover(10, LIST_Y);
+    expect(lit()).toEqual([]);
+    expect(lastBox()?.hasAttribute('data-landing')).toBe(true);
+    expect(opens()).toBe(true);
+
+    r.hover(10, W2_Y);
+    expect(lastBox()?.hasAttribute('data-landing')).toBe(false);
+    r.hover(10, HEADER_Y);
+    expect(lit()).toEqual([]);
+    expect(lastBox()?.hasAttribute('data-landing')).toBe(true);
+  });
+
+  // A window scrolled up under the header is not under a pointer on the header.
+  test('the part of a window scrolled under the header is the header', async () => {
+    await renderPane();
+    placeBlocks();
+    block(1).getBoundingClientRect = () => box(20, 176);
+    carry(WINDOW, 10, HEADER_Y);
+    const r = receiver(10, HEADER_Y);
+
+    r.hover(10, HEADER_Y);
+    expect(lit()).toEqual([]);
+    expect(lastBox()?.hasAttribute('data-landing')).toBe(true);
+    // CONTROL: its part in the list is the window.
+    r.hover(10, W1_Y);
+    expect(lit()).toEqual(['1']);
+  });
+
+  test('leaving the pane unlights the window and takes the + off', async () => {
+    await renderPane();
+    placeBlocks();
+    carry(WINDOW, 10, W1_Y);
+    const r = receiver(10, W1_Y);
+    r.hover(10, W1_Y);
+
+    act(() => moveCarry(-50, W1_Y));
+    r.leave();
+    expect(lit()).toEqual([]);
+    expect(opens()).toBe(false);
+  });
+
+  test('the blocks are read once while it is over the pane, not on every move', async () => {
+    await renderPane();
+    placeBlocks();
+    let reads = 0;
+    const measured = block(2).getBoundingClientRect;
+    block(2).getBoundingClientRect = () => {
+      reads += 1;
+      return measured();
+    };
+    carry(WINDOW, 10, W1_Y);
+    const r = receiver(10, W1_Y);
+
+    for (const y of [W1_Y, W2_Y, GAP_Y, LIST_Y, W2_Y]) r.hover(10, y);
+    expect(reads).toBe(1);
+    expect(lit()).toEqual(['2']);
+  });
+
+  test('back over the pane after leaving it, the blocks are read afresh', async () => {
+    await renderPane();
+    placeBlocks();
+    carry(WINDOW, 10, W1_Y);
+    const r = receiver(10, W1_Y);
+    r.hover(10, W1_Y);
+    act(() => moveCarry(-50, W1_Y));
+    r.leave();
+    // W2 now drawn lower.
+    block(2).getBoundingClientRect = () => box(400, 64);
+
+    act(() => moveCarry(10, 420));
+    r.hover(10, 420);
+    expect(lit()).toEqual(['2']);
+  });
+
+  // The list scrolled under a resting carry (a wheel): the boxes read before
+  // still say where each window is, less the distance scrolled.
+  test('the list scrolled during the carry: the window now under the pointer lights', async () => {
+    await renderPane();
+    placeBlocks();
+    const scroller = find('[data-open-now-scroller]');
+    carry(WINDOW, 10, W1_Y);
+    const r = receiver(10, W1_Y);
+    r.hover(10, W1_Y);
+    // PREMISE: W1 there before the scroll.
+    expect(lit()).toEqual(['1']);
+
+    scroller.scrollTop = 80;
+    r.hover(10, W1_Y);
+    expect(lit()).toEqual(['2']);
+    scroller.scrollTop = 0;
+  });
+
+  test('a release on a lit window adds the saved window there: nothing activated, unfocused, a copy', async () => {
+    await renderPane();
+    placeBlocks();
+    carry(WINDOW, 10, W2_Y);
+    const r = receiver(10, W2_Y);
+    r.hover(10, W2_Y);
+
+    expect(r.take()).toBe(true);
+    expect(carryEndedAs(WINDOW)).toBe('copied');
+    expect(restores()).toEqual([]);
+    expect(intoWindows()).toHaveLength(1);
+    expect(intoWindows()[0]).toMatchObject({
+      windowId: 2,
+      activate: false,
+      specs: [{ focused: false, tabs: [{ tabId: 't1' }, {}, {}] }],
+    });
+  });
+
+  test('a folded window still takes it', async () => {
+    await renderPane();
+    fireEvent.click(
+      within(block(2)).getByRole('button', { name: /^Collapse: / })
+    );
+    // PREMISE: W2 folded, its row gone.
+    expect(document.querySelector('[data-open-tab-id="21"]')).toBeNull();
+    placeBlocks();
+    block(2).getBoundingClientRect = () => box(204, ROW);
+    carry(WINDOW, 10, 210);
+    const r = receiver(10, 210);
+    r.hover(10, 210);
+
+    expect(lit()).toEqual(['2']);
+    expect(r.take()).toBe(true);
+    expect(intoWindows()[0]?.windowId).toBe(2);
+  });
+
+  describe('incognito, with Tab Keeper allowed there', () => {
+    test('an incognito window is no target for a normal saved window: the box below lights, and a release opens a new window', async () => {
+      await renderPane({ seed: seedWith(true, true) });
+      placeBlocks();
+      carry(WINDOW, 10, W2_Y);
+      const r = receiver(10, W2_Y);
+
+      r.hover(10, W2_Y);
+      expect(lit()).toEqual([]);
+      expect(lastBox()?.hasAttribute('data-landing')).toBe(true);
+      // CONTROL: the normal window beside it takes it.
+      r.hover(10, W1_Y);
+      expect(lit()).toEqual(['1']);
+
+      r.hover(10, W2_Y);
+      expect(r.take()).toBe(true);
+      expect(intoWindows()).toEqual([]);
+      expect(restores()).toHaveLength(1);
+    });
+
+    test('an incognito saved window: the incognito window takes it, the normal one does not', async () => {
+      await renderPane({
+        seed: seedWith(true, true),
+        saved: { ...savedWindow(), incognito: true },
+      });
+      placeBlocks();
+      carry(WINDOW, 10, W2_Y);
+      const r = receiver(10, W2_Y);
+
+      r.hover(10, W2_Y);
+      expect(lit()).toEqual(['2']);
+      r.hover(10, W1_Y);
+      expect(lit()).toEqual([]);
+      expect(lastBox()?.hasAttribute('data-landing')).toBe(true);
+    });
+  });
+
+  // Today's rule first: not allowed, a window saved incognito opens normal.
+  test('not allowed in incognito, a window saved incognito counts as normal: a normal window takes it', async () => {
+    await renderPane({
+      seed: seedWith(false, false),
+      saved: { ...savedWindow(), incognito: true },
+    });
+    placeBlocks();
+    carry(WINDOW, 10, W1_Y);
+    const r = receiver(10, W1_Y);
+
+    r.hover(10, W1_Y);
+    expect(lit()).toEqual(['1']);
+  });
+
+  test('nothing lit after the carry ends', async () => {
+    await renderPane();
+    placeBlocks();
+    carry(WINDOW, 10, W1_Y);
+    receiver(10, W1_Y).hover(10, W1_Y);
+    act(() => endCarry('cancelled'));
+    expect(lit()).toEqual([]);
   });
 });

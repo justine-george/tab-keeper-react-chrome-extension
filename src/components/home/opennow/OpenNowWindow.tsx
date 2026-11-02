@@ -94,6 +94,7 @@ import {
   OPEN_WINDOWS_SCOPE,
 } from './useOpenNowDrop';
 import { corners } from '../../../styles/corners';
+import { landingLook } from '../../common/dropBoxStyle';
 import {
   ROW_PULL,
   ROW_PULL_END,
@@ -388,6 +389,11 @@ export default function OpenNowWindow({
     flex-direction: column;
     font-family: ${FONT_FAMILY};
     margin-bottom: 8px;
+    /* KAN-892 D. A saved window carried over it lands here: the whole block lights. */
+    &[data-landing] {
+      ${landingLook(COLORS, 'outline')}
+      ${corners(RADIUS.PANEL)}
+    }
   `;
 
   // KAN-700. Every row with a strip shades on hover, "This window" too, as
@@ -969,6 +975,8 @@ export default function OpenNowWindow({
       <div
         css={containerStyle}
         data-open-window-id={openWindow.id}
+        // KAN-892 D. A saved window lands only in a window of its kind.
+        data-window-incognito={openWindow.incognito ? '' : undefined}
         data-drop-window-id={windowKey}
         data-window-shift={windowShift || undefined}
         style={{

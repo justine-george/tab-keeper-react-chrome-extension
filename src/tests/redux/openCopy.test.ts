@@ -22,8 +22,14 @@ import {
 import { onTabMovesEnded } from '../../redux/undoHistory';
 import {
   restoreContainer,
+  toWindowSpec,
   type windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { subscribeArrival } from '../../utils/functions/arrival';
+import {
+  isOpenIntoWindowRequest,
+  OPEN_INTO_WINDOW_MESSAGE,
+} from '../../utils/functions/openIntoWindow';
 import { SAMPLE_ID_PREFIX } from '../../utils/functions/sampleSession';
 import { RESTORE_SESSION_MESSAGE } from '../../utils/functions/windows';
 import type { RestoreSessionRequest } from '../../utils/functions/windows';
@@ -553,5 +559,142 @@ describe('openCarriedCopy', () => {
         kind: 'group',
         slot: { windowId: 1, index: 0 },
       }));
+
+    it('for a tab into a window', () =>
+      expectRefused(tabItem(), { kind: 'intoWindow', windowId: 1 }));
+
+    it('for a group into a window', () =>
+      expectRefused(groupItem, { kind: 'intoWindow', windowId: 1 }));
+  });
+
+  // KAN-892 D. A saved window let go on an open window: the worker adds its
+  // tabs there, nothing taking focus, and answers with their ids.
+  describe('a window into an open window', () => {
+    const intoWindows = () =>
+      (handle?.sentMessages ?? []).filter(isOpenIntoWindowRequest);
+    // The worker's answer, as background.ts sends it.
+    const answerWith = (answer: unknown) =>
+      chrome.runtime.onMessage.addListener((message, _sender, respond) => {
+        if (!isOpenIntoWindowRequest(message)) return false;
+        respond(answer);
+        return true;
+      });
+    let heard: { windowId: number; tabIds: number[] }[] = [];
+    let stopHearing = () => {};
+    let ended = 0;
+    let stopEnded = () => {};
+    beforeEach(() => {
+      heard = [];
+      stopHearing = subscribeArrival((a) => heard.push(a));
+      ended = 0;
+      stopEnded = onTabMovesEnded(() => {
+        ended += 1;
+      });
+    });
+    afterEach(() => {
+      stopHearing();
+      stopEnded();
+    });
+
+    it('asks the worker once: that window, the saved window unfocused, nothing activated, the pin setting', async () => {
+      answerWith([31, 32, 33, 34, 35]);
+      const { store } = ready();
+      const before = store.getState().tabContainerDataState;
+
+      await store.dispatch(
+        openCarriedCopy(windowItem, { kind: 'intoWindow', windowId: 1 }, GO_TO)
+      );
+
+      expect(intoWindows()).toEqual([
+        {
+          type: OPEN_INTO_WINDOW_MESSAGE,
+          windowId: 1,
+          specs: [toWindowSpec(savedWindow(), false)],
+          goToURLText: GO_TO,
+          activate: false,
+          pinTabKeeper: false,
+        },
+      ]);
+      expect(intoWindows()[0].specs[0].focused).toBe(false);
+      expect(restores()).toEqual([]);
+      expect(store.getState().tabContainerDataState).toEqual(before);
+    });
+
+    it("the worker's ids: opened, a restore moment, and the arrival told", async () => {
+      answerWith([31, 32]);
+      const { store, actions } = ready();
+
+      await expect(
+        store.dispatch(
+          openCarriedCopy(
+            windowItem,
+            { kind: 'intoWindow', windowId: 1 },
+            GO_TO
+          )
+        )
+      ).resolves.toBe(true);
+
+      expect(heard).toEqual([{ windowId: 1, tabIds: [31, 32] }]);
+      expect(reviewAsks(actions)).toBe(1);
+    });
+
+    it("is Tab Keeper's own move until the worker answers", async () => {
+      answerWith([31]);
+      const { store } = ready();
+
+      const asked = store.dispatch(
+        openCarriedCopy(windowItem, { kind: 'intoWindow', windowId: 1 }, GO_TO)
+      );
+      expect(ended).toBe(0);
+      await asked;
+
+      expect(ended).toBe(1);
+    });
+
+    for (const [what, answer] of [
+      ['no tab ids', []],
+      ['no answer', undefined],
+      ['an answer that is not tab ids', ['31']],
+    ] as const) {
+      it(`${what}: not opened here, nothing told, no restore moment`, async () => {
+        answerWith(answer);
+        const { store, actions } = ready();
+
+        await expect(
+          store.dispatch(
+            openCarriedCopy(
+              windowItem,
+              { kind: 'intoWindow', windowId: 1 },
+              GO_TO
+            )
+          )
+        ).resolves.toBe(false);
+
+        expect(heard).toEqual([]);
+        expect(reviewAsks(actions)).toBe(0);
+        expect(ended).toBe(1);
+      });
+    }
+
+    it('the worker unreachable: not opened, and the move still ends', async () => {
+      const { store } = ready();
+      const send = vi
+        .spyOn(chrome.runtime, 'sendMessage')
+        .mockImplementation(() => Promise.reject(new Error('no worker')));
+
+      await expect(
+        store.dispatch(
+          openCarriedCopy(
+            windowItem,
+            { kind: 'intoWindow', windowId: 1 },
+            GO_TO
+          )
+        )
+      ).resolves.toBe(false);
+
+      expect(heard).toEqual([]);
+      expect(ended).toBe(1);
+      send.mockRestore();
+    });
   });
 });

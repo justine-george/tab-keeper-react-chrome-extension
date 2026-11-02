@@ -1,6 +1,7 @@
 // KAN-815. A saved tab, group or window let go over Currently open opens a
 // copy in Chrome: in the background at a slot of a live window, or in a new
-// window in front (KAN-853). The saved session is never changed, so there is no toast
+// window in front (KAN-853); a window also in the background at the end of an
+// open one (KAN-892). The saved session is never changed, so there is no toast
 // and no Undo (as Open). Whether Chrome was asked is known at once, because
 // the carry ends in the same call (RowDragArea's finish); whether it opened
 // the copy comes later, and never throws.
@@ -22,6 +23,9 @@ import type {
   GroupCopySlot,
   TabCopySlot,
 } from '../utils/functions/openNowMoves';
+import { announceArrival } from '../utils/functions/arrival';
+import { OPEN_INTO_WINDOW_MESSAGE } from '../utils/functions/openIntoWindow';
+import type { OpenIntoWindowRequest } from '../utils/functions/openIntoWindow';
 import { isSampleSession } from '../utils/functions/sampleSession';
 import { RESTORE_SESSION_MESSAGE } from '../utils/functions/windows';
 import type {
@@ -35,7 +39,25 @@ type Thunk<R> = ThunkAction<R, RootState, unknown, UnknownAction>;
 export type CopyPlace =
   | { kind: 'tab'; slot: TabCopySlot }
   | { kind: 'group'; slot: GroupCopySlot }
-  | { kind: 'newWindow' };
+  | { kind: 'newWindow' }
+  // KAN-892 D. A whole window, at the end of that open window.
+  | { kind: 'intoWindow'; windowId: number };
+
+const isTabIdList = (answer: unknown): answer is number[] =>
+  Array.isArray(answer) && answer.every((id) => typeof id === 'number');
+
+// The worker's created tab ids; [] when it opened them elsewhere, failed, or could not be reached.
+async function askIntoWindow(
+  request: OpenIntoWindowRequest
+): Promise<number[]> {
+  try {
+    const answer: unknown = await chrome.runtime.sendMessage(request);
+    return isTabIdList(answer) ? answer : [];
+  } catch (error) {
+    console.warn('Could not open the saved window in that window:', error);
+    return [];
+  }
+}
 
 // A split re-forms only from a whole window (Open's rule); a lone tab opens plain.
 function unsplit(tab: tabData): tabData {
@@ -96,7 +118,8 @@ export function copyWindowSpec(
 
 // Null when Chrome was not asked; else whether it opened the copy. A new
 // window's restore sends no answer, so it is taken as opened. A copy at a slot
-// runs as Tab Keeper's own move (KAN-850): Open now reads it at once.
+// or into a window runs as Tab Keeper's own move (KAN-850): Open now reads it
+// at once.
 export const openCarriedCopy =
   (
     item: CarriedItem,
@@ -134,6 +157,20 @@ export const openCarriedCopy =
       expectNewWindow();
       void chrome.runtime.sendMessage(request);
       return Promise.resolve(true);
+    } else if (place.kind === 'intoWindow' && pick.kind === 'window') {
+      // Nothing takes focus (spec D), a fallback new window included.
+      const request: OpenIntoWindowRequest = {
+        type: OPEN_INTO_WINDOW_MESSAGE,
+        windowId: place.windowId,
+        specs: [toWindowSpec(window, false)],
+        goToURLText,
+        activate: false,
+        pinTabKeeper: state.settingsDataState.pinTabKeeperInNewWindows,
+      };
+      opened = whileMovingTabs(() => askIntoWindow(request)).then((ids) => {
+        if (ids.length > 0) announceArrival(place.windowId, ids);
+        return ids.length > 0;
+      });
     } else if (place.kind === 'tab' && pick.kind === 'tab') {
       const tab = window.tabs.find((t) => t.tabId === pick.tabId);
       if (!tab) return null;

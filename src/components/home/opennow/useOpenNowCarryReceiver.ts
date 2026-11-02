@@ -8,8 +8,10 @@
 //   counts, the toolbar and the search row -- is the header's New window box
 //   (spec builder call 2): the layer drives it there, and a release opens a
 //   new window.
-// - A saved window is never adopted: anywhere in the pane the block below the
-//   last window lights, and a release opens it as a new window (r1 3 A).
+// - A saved window is never adopted. Over an open window of its kind, that
+//   whole window lights and a release adds its tabs there (KAN-892 D);
+//   anywhere else in the pane the block below the last window lights, and a
+//   release opens it as a new window (r1 3 A).
 // - A drag inside the pane is never handed here, Open now's own or an
 //   adopted saved one: a held row inside the pane gets no hit. Over the
 //   header an adopted one lands as a new window in its list.
@@ -30,7 +32,7 @@ import {
   type Carry,
 } from '../../../redux/carry';
 import { pickOf } from '../../../redux/carriedItem';
-import { openCarriedCopy } from '../../../redux/openCopy';
+import { openCarriedCopy, type CopyPlace } from '../../../redux/openCopy';
 import type { AppDispatch } from '../../../redux/store';
 import {
   OPEN_NOW_FIRST_TARGET,
@@ -45,6 +47,8 @@ interface Options {
   // tour's sample, still stored (OpenNowPane).
   takes: boolean;
   goToURLText: string;
+  // KAN-892. Whether the saved window carried opens incognito (OpenNowPane: its mark, and Tab Keeper allowed there).
+  carriedIncognito: () => boolean;
 }
 
 const inBox = (b: DOMRect, x: number, y: number) =>
@@ -82,6 +86,73 @@ const markLiveOver = (on: boolean) =>
 const markCrossedOut = (on: boolean) =>
   document.documentElement.toggleAttribute('data-carry-crossed-out', on);
 
+// KAN-892 D. An open window's block, in the list's content space (its top as
+// measured plus the scroll then), down to the next block's top: the gap
+// between two is the upper one's, so nothing lights between them.
+interface WindowBlock {
+  windowId: number;
+  incognito: boolean;
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+interface MeasuredBlocks {
+  blocks: WindowBlock[];
+  // The scroller's box: a block scrolled under the header is not under the pointer.
+  list: DOMRect;
+  scrollTop: number;
+}
+
+function measureBlocks(
+  pane: HTMLElement,
+  scroller: HTMLElement
+): MeasuredBlocks {
+  const scrollTop = scroller.scrollTop;
+  const boxes = [
+    ...pane.querySelectorAll<HTMLElement>('[data-open-window-id]'),
+  ].map((el) => ({ el, box: el.getBoundingClientRect() }));
+  return {
+    list: scroller.getBoundingClientRect(),
+    scrollTop,
+    blocks: boxes.map(({ el, box }, i) => ({
+      windowId: Number(el.getAttribute('data-open-window-id')),
+      incognito: el.hasAttribute('data-window-incognito'),
+      left: box.left,
+      right: box.right,
+      top: box.top + scrollTop,
+      bottom: (boxes[i + 1]?.box.top ?? box.bottom) + scrollTop,
+    })),
+  };
+}
+
+// The block under the pointer, as the list is scrolled now.
+function blockAt(
+  m: MeasuredBlocks,
+  scrollTop: number,
+  x: number,
+  y: number
+): WindowBlock | null {
+  if (!inBox(m.list, x, y)) return null;
+  const at = y + scrollTop;
+  return (
+    m.blocks.find(
+      (b) => x >= b.left && x < b.right && at >= b.top && at < b.bottom
+    ) ?? null
+  );
+}
+
+// Written straight to the DOM, as the boxes are; null unlights every window.
+function lightWindow(pane: HTMLElement | null, windowId: number | null): void {
+  for (const el of pane?.querySelectorAll('[data-open-window-id]') ?? []) {
+    el.toggleAttribute(
+      'data-landing',
+      el.getAttribute('data-open-window-id') === String(windowId)
+    );
+  }
+}
+
 const savedKind = (carry: Carry | null) =>
   carry?.item.source === 'saved' ? pickOf(carry.item).kind : null;
 
@@ -90,13 +161,14 @@ export function useOpenNowCarryReceiver({
   scrollerRef,
   takes,
   goToURLText,
+  carriedIncognito,
 }: Options): void {
   const dispatch: AppDispatch = useDispatch();
   // Read when the receiver is asked, not when it registered.
-  const latest = useRef({ takes, goToURLText, dispatch });
+  const latest = useRef({ takes, goToURLText, dispatch, carriedIncognito });
   useEffect(() => {
-    latest.current = { takes, goToURLText, dispatch };
-  }, [takes, goToURLText, dispatch]);
+    latest.current = { takes, goToURLText, dispatch, carriedIncognito };
+  }, [takes, goToURLText, dispatch, carriedIncognito]);
 
   useEffect(() => {
     const pane = () => paneRef.current;
@@ -119,12 +191,36 @@ export function useOpenNowCarryReceiver({
       const b = el.getBoundingClientRect();
       return inBox(b, x, y) && y < headerBottom(b);
     };
-    // Where the layer last hovered: what take() opens.
-    let zone: 'none' | 'header' | 'window' = 'none';
+    // Where the layer last hovered: what take() opens; null, nothing.
+    let place: CopyPlace | null = null;
+    // KAN-892 D. A window carry's blocks, read once while it is over the pane.
+    let measured: MeasuredBlocks | null = null;
+    const scrollTopNow = () => scrollerRef.current?.scrollTop ?? 0;
+    // The window lit now: the DOM is written only when it changes.
+    let litWindow: number | null = null;
+    const showWindow = (windowId: number | null) => {
+      if (windowId === litWindow) return;
+      litWindow = windowId;
+      lightWindow(pane(), windowId);
+    };
 
     const unlightAll = () => {
       light(pane(), OPEN_NOW_FIRST_TARGET, false);
       light(pane(), OPEN_NOW_LAST_TARGET, false);
+      showWindow(null);
+    };
+
+    // The open window of its kind under the pointer, else none.
+    const windowTarget = (x: number, y: number): number | null => {
+      const el = pane();
+      const scroller = scrollerRef.current;
+      if (el === null || scroller === null) return null;
+      measured ??= measureBlocks(el, scroller);
+      const over = blockAt(measured, scrollTopNow() - measured.scrollTop, x, y);
+      return over !== null &&
+        over.incognito === latest.current.carriedIncognito()
+        ? over.windowId
+        : null;
     };
 
     const unregister = registerCarryReceiver({
@@ -151,24 +247,32 @@ export function useOpenNowCarryReceiver({
         }
         const kind = savedKind(carry);
         if (kind === null || !latest.current.takes) {
-          zone = 'none';
+          place = null;
           unlightAll();
           setCarryOpens(false);
           return;
         }
         if (kind === 'window') {
-          zone = 'window';
-          light(pane(), OPEN_NOW_LAST_TARGET, true);
+          const windowId = windowTarget(x, y);
+          place =
+            windowId === null
+              ? { kind: 'newWindow' }
+              : { kind: 'intoWindow', windowId };
+          showWindow(windowId);
+          light(pane(), OPEN_NOW_LAST_TARGET, windowId === null);
           setCarryOpens(true);
           return;
         }
         // Over the list the layer lands nothing: a list adopts the carry there.
-        zone = inHeader(x, y) ? 'header' : 'none';
-        light(pane(), OPEN_NOW_FIRST_TARGET, zone === 'header');
-        setCarryOpens(zone === 'header');
+        const header = inHeader(x, y);
+        place = header ? { kind: 'newWindow' } : null;
+        light(pane(), OPEN_NOW_FIRST_TARGET, header);
+        setCarryOpens(header);
       },
       leave: () => {
-        zone = 'none';
+        place = null;
+        // Read afresh on the way back in: a drawer may have moved since.
+        measured = null;
         markLiveOver(false);
         // An Open now list that adopted the carry owns the + and the boxes
         // from here (onLandingWindowChange); this leave comes after its first
@@ -184,15 +288,12 @@ export function useOpenNowCarryReceiver({
         if (
           carry?.item.source !== 'saved' ||
           !latest.current.takes ||
-          zone === 'none'
+          place === null
         ) {
           return false;
         }
         const { dispatch: send, goToURLText: text } = latest.current;
-        if (
-          send(openCarriedCopy(carry.item, { kind: 'newWindow' }, text)) ===
-          null
-        ) {
+        if (send(openCarriedCopy(carry.item, place, text)) === null) {
           return false;
         }
         // A copy: the source's view comes back. The layer's end is a no-op.
@@ -213,6 +314,8 @@ export function useOpenNowCarryReceiver({
       const el = pane();
       if (carry?.item.source !== 'saved' || el === null) {
         measuredFor = null;
+        measured = null;
+        showWindow(null);
         markCrossedOut(false);
         return;
       }
