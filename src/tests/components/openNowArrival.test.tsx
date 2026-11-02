@@ -13,6 +13,7 @@ import type { OpenWindow } from '../../utils/functions/openNow';
 
 // Each render stands for one Open now re-read: a new `windows` array.
 const reRead = (): OpenWindow[] => [];
+const ROW_PX = 32;
 
 function List({
   drawn,
@@ -123,6 +124,39 @@ describe('the arrival fill', () => {
 
     act(() => announceArrival(2, [21]));
 
+    expect(fills(container)).toHaveLength(0);
+  });
+
+  // R17. Pinned saved tabs join the pinned run at the top, the rest the end:
+  // one fill per run, so the old rows between them are not shown as new.
+  test('new rows in two runs: a fill on each, the old rows between in neither, both gone together', () => {
+    const { container } = render(
+      <List drawn={{ 2: [25, 20, 21, 26, 27] }} windows={reRead()} />
+    );
+    // Each row 32px tall from y 0, in the order drawn; the block at 0.
+    const rows = [...container.querySelectorAll('[data-open-tab-id]')];
+    rows.forEach((row, i) => {
+      row.getBoundingClientRect = () =>
+        new DOMRect(10, i * ROW_PX, 300, ROW_PX);
+    });
+    const block = container.querySelector('[data-open-window-id="2"]');
+    if (block === null) throw new Error('no block');
+    block.getBoundingClientRect = () => new DOMRect(0, 0, 320, 5 * ROW_PX);
+
+    act(() => announceArrival(2, [25, 26, 27]));
+
+    const spans = fills(container).map((fill) =>
+      fill instanceof HTMLElement
+        ? { top: fill.style.top, height: fill.style.height }
+        : null
+    );
+    expect(spans).toEqual([
+      { top: '0px', height: `${ROW_PX}px` },
+      { top: `${3 * ROW_PX}px`, height: `${2 * ROW_PX}px` },
+    ]);
+    act(() => vi.advanceTimersByTime(899));
+    expect(fills(container)).toHaveLength(2);
+    act(() => vi.advanceTimersByTime(1));
     expect(fills(container)).toHaveLength(0);
   });
 

@@ -32,8 +32,31 @@ export interface ArrivalBox {
   right: number;
 }
 
-// From the first new row's top to the last one's bottom, at the rows' left
-// edge, ROW_GUTTER_PX in from the block's right as a row's highlight is.
+// R17. The new items' runs of ones next to each other, in their order: by
+// Open's rules pinned tabs join the pinned run and the rest the end, so a
+// dropped window's rows make one run or two, with old rows between.
+export function arrivalRuns<T>(
+  listed: readonly T[],
+  isNew: (item: T) => boolean
+): [T, ...T[]][] {
+  const runs: [T, ...T[]][] = [];
+  let run: [T, ...T[]] | null = null;
+  for (const item of listed) {
+    if (!isNew(item)) {
+      run = null;
+    } else if (run === null) {
+      run = [item];
+      runs.push(run);
+    } else {
+      run.push(item);
+    }
+  }
+  return runs;
+}
+
+// One run's fill: from its first row's top to its last one's bottom, at the
+// rows' left edge, ROW_GUTTER_PX in from the block's right as a row's
+// highlight is.
 export function arrivalBox(
   rows: readonly [Edges, ...Edges[]],
   block: Edges

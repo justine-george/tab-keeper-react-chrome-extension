@@ -1097,6 +1097,117 @@ test('the fill is drawn behind the rows, in the landing fill, and a press goes t
   await expect(fill).toHaveCount(0);
 });
 
+// R17. A pinned saved tab joins the pinned run at the top, the rest the end:
+// a fill on each run, and the old rows between them in neither.
+test('pinned saved tabs: a fill on the pinned run and one on the tail, the old rows between uncovered, both gone together', async ({
+  context,
+  extensionId,
+  serviceWorker: worker,
+}) => {
+  const live = await openLiveWindow(worker, ['A', 'B']);
+  const page = await setUp(context, extensionId);
+  await expect(liveRow(page, live.idOf('B'))).toBeVisible();
+  const before = (await strip(worker, live.windowId)).map((t) => t.id);
+
+  await pickUp(page, windowHandle(page, 'w1'));
+  await carryTo(page, await middleOf(windowRow(page, live.windowId)));
+  await expect(block(page, live.windowId)).toHaveAttribute('data-landing', '');
+  await recordArrival(page, live.windowId, { pause: true });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => (await strip(worker, live.windowId)).length, SETTLE)
+    .toBe(before.length + 5);
+  const tabs = await strip(worker, live.windowId);
+  const added = tabs.map((t) => t.id).filter((id) => !before.includes(id));
+  const pinned = tabs.filter((t) => t.pinned).map((t) => t.id);
+  // PREMISE: the new pinned tab first, the old rows next, the rest at the end.
+  expect(pinned).toHaveLength(1);
+  expect(tabs.map((t) => t.id).slice(0, 3)).toEqual([
+    pinned[0],
+    live.idOf('A'),
+    live.idOf('B'),
+  ]);
+
+  const fill = page.locator('[data-arrival]');
+  await expect(fill).toHaveCount(2);
+  const tail = added.filter((id) => !pinned.includes(id));
+  const placed = await page.evaluate(
+    ({ windowId, head, tail, old }) => {
+      const box = (el: Element | null) => {
+        const r = el?.getBoundingClientRect();
+        return r ? { top: r.top, bottom: r.bottom } : null;
+      };
+      const row = (id: number) =>
+        box(document.querySelector(`[data-open-tab-id="${id}"]`));
+      const block = document.querySelector(
+        `[data-pane="open-now"] [data-open-window-id="${windowId}"]`
+      );
+      const span = (ids: number[]) => {
+        const boxes = [
+          ...ids.map(row),
+          // A band all of whose rows are in the run.
+          ...[...(block?.querySelectorAll('[data-band-id]') ?? [])]
+            .filter((band) =>
+              [...band.querySelectorAll('[data-open-tab-id]')].every((r) =>
+                ids.includes(Number(r.getAttribute('data-open-tab-id')))
+              )
+            )
+            .map(box),
+        ].flatMap((b) => (b ? [b] : []));
+        return {
+          top: Math.min(...boxes.map((b) => b.top)),
+          bottom: Math.max(...boxes.map((b) => b.bottom)),
+        };
+      };
+      return {
+        fills: [...document.querySelectorAll('[data-arrival]')].map(box),
+        head: span(head),
+        tail: span(tail),
+        old: old.map(row),
+      };
+    },
+    {
+      windowId: live.windowId,
+      head: pinned,
+      tail,
+      old: [live.idOf('A'), live.idOf('B')],
+    }
+  );
+  const near = (
+    a: { top: number; bottom: number } | null,
+    b: { top: number; bottom: number }
+  ) =>
+    a !== null &&
+    Math.abs(a.top - b.top) <= 1 &&
+    Math.abs(a.bottom - b.bottom) <= 1;
+  expect(placed.fills).toHaveLength(2);
+  expect(near(placed.fills[0] ?? null, placed.head)).toBe(true);
+  expect(near(placed.fills[1] ?? null, placed.tail)).toBe(true);
+  // The old rows between: under neither fill.
+  for (const old of placed.old) {
+    if (old === null) throw new Error('old row not drawn');
+    for (const f of placed.fills) {
+      if (f === null) throw new Error('fill not drawn');
+      expect(f.bottom <= old.top + 1 || f.top >= old.bottom - 1).toBe(true);
+    }
+  }
+
+  // Let go, both fade and go together.
+  await page.evaluate(() =>
+    document
+      .querySelectorAll('[data-arrival]')
+      .forEach((el) => el.getAnimations().forEach((a) => a.play()))
+  );
+  const log = await arrivalLog(page);
+  expect(log.added).toHaveLength(2);
+  expect(log.removed).toHaveLength(2);
+  const [in0 = 0, in1 = -1e9] = log.added;
+  const [out0 = 0, out1 = -1e9] = log.removed;
+  expect(Math.abs(in1 - in0)).toBeLessThan(5);
+  expect(Math.abs(out1 - out0)).toBeLessThan(5);
+});
+
 test('reduce motion: no smooth scroll, the fill shows and goes without a fade', async ({
   context,
   extensionId,

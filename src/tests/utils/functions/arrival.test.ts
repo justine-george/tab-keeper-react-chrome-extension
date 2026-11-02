@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   announceArrival,
   arrivalBox,
+  arrivalRuns,
   nearestScroll,
   subscribeArrival,
 } from '../../../utils/functions/arrival';
@@ -63,6 +64,31 @@ describe('arrivalBox', () => {
     expect(
       arrivalBox([r(110, 200, 32), r(90, 236, 70)], r(10, 100, 400, 800))
     ).toEqual({ top: 100, height: 106, left: 80, right: 4 });
+  });
+});
+
+// R17. One fill per run of new rows next to each other in the block: pinned
+// tabs join the pinned run, the rest the end, so old rows can sit between.
+describe('arrivalRuns', () => {
+  const isNew = (ids: number[]) => (id: number) => ids.includes(id);
+
+  it('new rows all together: one run', () => {
+    expect(arrivalRuns([1, 2, 3, 4], isNew([3, 4]))).toEqual([[3, 4]]);
+  });
+
+  it('a pinned run and a tail with old rows between: two runs, in order', () => {
+    expect(arrivalRuns([9, 1, 2, 3, 4], isNew([9, 3, 4]))).toEqual([
+      [9],
+      [3, 4],
+    ]);
+  });
+
+  it('old rows on both sides of each run are in neither', () => {
+    expect(arrivalRuns([1, 9, 2, 3, 4], isNew([9, 4]))).toEqual([[9], [4]]);
+  });
+
+  it('nothing new: no runs', () => {
+    expect(arrivalRuns([1, 2], isNew([]))).toEqual([]);
   });
 });
 

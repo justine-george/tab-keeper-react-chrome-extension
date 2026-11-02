@@ -10,6 +10,7 @@ import { DURATION } from '../../../styles/scale';
 import {
   type Arrival,
   arrivalBox,
+  arrivalRuns,
   nearestScroll,
   subscribeArrival,
 } from '../../../utils/functions/arrival';
@@ -31,18 +32,17 @@ const SCROLL_MS = parseFloat(DURATION.FOLD);
 
 const easeOutCubic = (k: number) => 1 - (1 - k) ** 3;
 
-// A dropped window's new rows in their block, with each group band all of
-// whose rows are new; null until every one of them is listed.
-function newRowsIn(
-  block: Element,
-  tabIds: readonly number[]
-): [HTMLElement, ...HTMLElement[]] | null {
-  const rows: HTMLElement[] = [];
-  for (const id of tabIds) {
-    const row = block.querySelector<HTMLElement>(`[data-open-tab-id="${id}"]`);
-    if (row === null) return null;
-    rows.push(row);
-  }
+type Run = [HTMLElement, ...HTMLElement[]];
+
+// A dropped window's new rows in their block, one list per run of them next
+// to each other (R17), each with every group band all of whose rows are new;
+// null until every one of them is listed.
+function newRunsIn(block: Element, tabIds: readonly number[]): Run[] | null {
+  const idOf = (row: Element) => row.getAttribute('data-open-tab-id') ?? '';
+  const rows = [...block.querySelectorAll<HTMLElement>('[data-open-tab-id]')];
+  const listed = new Set(rows.map(idOf));
+  if (tabIds.length === 0 || tabIds.some((id) => !listed.has(String(id))))
+    return null;
   const isNew = new Set(tabIds.map(String));
   const bands = [
     ...block.querySelectorAll<HTMLElement>('[data-band-id]'),
@@ -52,8 +52,10 @@ function newRowsIn(
     );
     return ids.length > 0 && ids.every((id) => id !== null && isNew.has(id));
   });
-  const [first, ...rest] = [...rows, ...bands];
-  return first === undefined ? null : [first, ...rest];
+  return arrivalRuns(rows, (row) => isNew.has(idOf(row))).map((run): Run => [
+    ...run,
+    ...bands.filter((band) => run.some((row) => band.contains(row))),
+  ]);
 }
 
 function blockOf(pane: Element | null, windowId: number): HTMLElement | null {
@@ -126,13 +128,13 @@ function glide(
 }
 
 interface Shown {
-  // After a re-read: the fill back over the rows, and the list after them.
+  // After a re-read: the fills back over their rows, and the list after them.
   fit(): void;
   stop(): void;
 }
 
-// The fill is drawn by OpenNowWindow's `[data-arrival]` rule; this places
-// it, scrolls to it, and takes it away. While it shows, the list follows
+// The fills are drawn by OpenNowWindow's `[data-arrival]` rule; this places
+// one per run, scrolls to them, and takes them away together. While it shows, the list follows
 // rows a re-read moves (a group's band drawn after its tabs), until the
 // user scrolls it themselves.
 function show(
@@ -141,29 +143,37 @@ function show(
   scroller: HTMLElement
 ): Shown {
   const reduced = prefersReducedMotion();
-  const fill = document.createElement('div');
-  fill.setAttribute('data-arrival', '');
-  fill.setAttribute('aria-hidden', 'true');
-  block.append(fill);
+  const fills = (newRunsIn(block, tabIds) ?? []).map(() => {
+    const fill = document.createElement('div');
+    fill.setAttribute('data-arrival', '');
+    fill.setAttribute('aria-hidden', 'true');
+    block.append(fill);
+    return fill;
+  });
   const place = () => {
-    const rows = newRowsIn(block, tabIds);
-    if (rows === null) return;
-    const [first, ...rest] = rows;
-    const box = arrivalBox(
-      [
-        first.getBoundingClientRect(),
-        ...rest.map((row) => row.getBoundingClientRect()),
-      ],
-      block.getBoundingClientRect()
-    );
-    fill.style.top = `${box.top}px`;
-    fill.style.height = `${box.height}px`;
-    fill.style.left = `${box.left}px`;
-    fill.style.right = `${box.right}px`;
+    const runs = newRunsIn(block, tabIds);
+    if (runs === null) return;
+    const at = block.getBoundingClientRect();
+    fills.forEach((fill, i) => {
+      const run = runs[i];
+      if (run === undefined) return;
+      const [first, ...rest] = run;
+      const box = arrivalBox(
+        [
+          first.getBoundingClientRect(),
+          ...rest.map((row) => row.getBoundingClientRect()),
+        ],
+        at
+      );
+      fill.style.top = `${box.top}px`;
+      fill.style.height = `${box.height}px`;
+      fill.style.left = `${box.left}px`;
+      fill.style.right = `${box.right}px`;
+    });
   };
   const aim = () => {
-    const rows = newRowsIn(block, tabIds);
-    return rows === null ? null : scrollTopShowing(scroller, rows);
+    const runs = newRunsIn(block, tabIds);
+    return runs === null ? null : scrollTopShowing(scroller, runs.flat());
   };
   place();
   let scrolling = glide(scroller, aim, reduced);
@@ -177,27 +187,32 @@ function show(
     scroller.addEventListener(type, onUserScroll, { passive: true });
 
   let timer: ReturnType<typeof setTimeout> | null = null;
-  let fade: Animation | null = null;
+  const fades: Animation[] = [];
+  let ended = false;
   const end = () => {
+    ended = true;
     scrolling.stop();
     for (const type of USER_SCROLLS)
       scroller.removeEventListener(type, onUserScroll);
     if (timer !== null) clearTimeout(timer);
-    fade?.cancel();
-    fill.remove();
+    for (const fade of fades) fade.cancel();
+    for (const fill of fills) fill.remove();
   };
-  if (reduced || !canAnimate(fill)) {
+  if (reduced || !fills.every(canAnimate)) {
     timer = setTimeout(end, SHOWN_MS);
   } else {
-    fade = fill.animate(
-      [
-        { opacity: 1, offset: 0 },
-        { opacity: 1, offset: HOLD_MS / SHOWN_MS },
-        { opacity: 0, offset: 1 },
-      ],
-      { duration: SHOWN_MS, easing: 'linear' }
-    );
-    fade.finished.then(
+    for (const fill of fills)
+      fades.push(
+        fill.animate(
+          [
+            { opacity: 1, offset: 0 },
+            { opacity: 1, offset: HOLD_MS / SHOWN_MS },
+            { opacity: 0, offset: 1 },
+          ],
+          { duration: SHOWN_MS, easing: 'linear' }
+        )
+      );
+    Promise.all(fades.map((fade) => fade.finished)).then(
       end,
       // Cancelled: end() ran already.
       () => {}
@@ -205,7 +220,7 @@ function show(
   }
   return {
     fit: () => {
-      if (!fill.isConnected) return;
+      if (ended) return;
       place();
       if (!userScrolled && !scrolling.isRunning())
         scrolling = glide(scroller, aim, reduced);
@@ -217,8 +232,8 @@ function show(
 /**
  * KAN-892 D. A saved window dropped on an open window: once Open now lists
  * the tabs it added (`announceArrival`), the list scrolls the least it must
- * to show them, and one fill behind them holds, then fades. Waits for a
- * re-read that lists them all -- read on each `windows` -- for up to
+ * to show them, and a fill behind each run of them holds, then fades. Waits
+ * for a re-read that lists them all -- read on each `windows` -- for up to
  * ARRIVAL_WAIT_MS. A second arrival replaces the first.
  */
 export function useArrival(
@@ -246,7 +261,7 @@ export function useArrival(
       waiting !== null &&
       block !== null &&
       scroller !== null &&
-      newRowsIn(block, waiting.tabIds) !== null
+      newRunsIn(block, waiting.tabIds) !== null
     ) {
       shown.current?.stop();
       shown.current = show(block, waiting.tabIds, scroller);
