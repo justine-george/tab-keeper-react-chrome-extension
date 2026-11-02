@@ -115,7 +115,7 @@ async function focusWindowOne(windowId: number): Promise<void> {
 }
 
 // Never throws: a refused check reads as not allowed, so a window comes back normal rather than unseen.
-async function isIncognitoAllowed(): Promise<boolean> {
+export async function isIncognitoAllowed(): Promise<boolean> {
   try {
     return await chrome.extension.isAllowedIncognitoAccess();
   } catch (error) {
