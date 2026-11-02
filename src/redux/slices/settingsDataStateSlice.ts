@@ -187,6 +187,8 @@ export interface SettingsData {
   defaultSaveScope: CaptureScope;
   // KAN-859. What Copy links pastes: one line per tab, or today's layout.
   copyLinksLayout: CopyLinksLayout;
+  // KAN-892. Where Open on a saved window or session puts its tabs; the other way is in the ⋮ menu.
+  openSavedWindowsIn: OpenSavedWindowsIn;
   // KAN-578. Go back, or a Pin that worked, on the card warning a press closes the full view.
   isClosesThisTabCardAnswered: boolean;
   // KAN-828. This device's saved list has held a session of the user's: the save invite is done here.
@@ -308,6 +310,8 @@ export type SessionDateBasis = 'edited' | 'created';
  */
 export type TimeFormat = 'h12' | 'h23';
 
+export type OpenSavedWindowsIn = 'new-window' | 'this-window';
+
 // A stored time format, else 12-hour: an unknown hourCycle makes Intl throw.
 export function asTimeFormat(value: unknown): TimeFormat {
   return value === 'h23' ? 'h23' : 'h12';
@@ -321,6 +325,11 @@ export function asDefaultSaveScope(value: unknown): CaptureScope {
 // A stored Copy links layout, else links only.
 export function asCopyLinksLayout(value: unknown): CopyLinksLayout {
   return value === 'with-headings' ? 'with-headings' : 'links-only';
+}
+
+// A stored Open saved windows choice, else a new window.
+export function asOpenSavedWindowsIn(value: unknown): OpenSavedWindowsIn {
+  return value === 'this-window' ? 'this-window' : 'new-window';
 }
 
 // Keys no build reads any more: dropped once, and settings written back
@@ -396,6 +405,7 @@ const defaultSettings: SettingsData = {
   pinTabKeeperInNewWindows: false,
   defaultSaveScope: 'all-windows',
   copyLinksLayout: 'links-only',
+  openSavedWindowsIn: 'new-window',
   isChalkCharcoalMoveApplied: true, // KAN-731. A new install has nothing to move.
   ...ONBOARDING_DEFAULTS,
 };
@@ -431,6 +441,10 @@ export const initialState: SettingsData = {
   defaultSaveScope: asDefaultSaveScope(settingsDataLocal.defaultSaveScope),
   // KAN-859. Guarded: settingsDataLocal is unvalidated.
   copyLinksLayout: asCopyLinksLayout(settingsDataLocal.copyLinksLayout),
+  // KAN-892. Guarded: settingsDataLocal is unvalidated.
+  openSavedWindowsIn: asOpenSavedWindowsIn(
+    settingsDataLocal.openSavedWindowsIn
+  ),
   // KAN-653. Guarded: an older build never wrote these.
   pendingReviewAsk: readPendingAsk(settingsDataLocal.pendingReviewAsk),
   isTimeAskDone: asFlag(settingsDataLocal.isTimeAskDone),
@@ -637,6 +651,14 @@ export const settingsDataStateSlice = createSlice({
       saveLocalSettings(state);
     },
 
+    setOpenSavedWindowsIn: (
+      state,
+      action: PayloadAction<OpenSavedWindowsIn>
+    ) => {
+      state.openSavedWindowsIn = action.payload;
+      saveLocalSettings(state);
+    },
+
     // KAN-321 O1a. The grip's release, an arrow key, or a double-click (null).
     setOpenNowWidth: (state, action: PayloadAction<number | null>) => {
       state.openNowWidth = action.payload;
@@ -831,6 +853,7 @@ export const {
   setPinTabKeeperInNewWindows,
   setDefaultSaveScope,
   setCopyLinksLayout,
+  setOpenSavedWindowsIn,
   beginSetup,
   finishSetup,
   restartSetup,

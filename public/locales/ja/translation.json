@@ -421,6 +421,8 @@
   "All windows": "すべてのウィンドウ",
   "Current window": "現在のウィンドウ",
   "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "保存ボタンと Enter キーで使われます。もう一方の保存は ⋮ メニューにあります。",
+  "Open saved windows": "保存済みウィンドウを開く",
+  "OpenSavedWindowsHelp": "保存済みのウィンドウやセッションの「開く」で使われます。もう一方の方法は ⋮ メニューにあります。",
   "Syncs your sessions across your Chrome devices. Settings stay separate on each device.": "Chrome デバイス間でセッションを同期します。設定はデバイスごとに別々に保たれます。",
   "Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.": "セッションをファイルに保存します。設定は含まれません。バックアップを読み込むときは、今のセッションと統合するか置き換えるかを確認します。",
   "Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.": "クラウドからセッションを削除し、自動同期をオフにします。セッションはこのデバイスと他のデバイスに残ります。",

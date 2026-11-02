@@ -449,6 +449,8 @@
   "All windows": "Todas las ventanas",
   "Current window": "Ventana actual",
   "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Lo usan el botón de guardar y la tecla Intro. La otra opción de guardado está en el menú ⋮.",
+  "Open saved windows": "Abrir ventanas guardadas",
+  "OpenSavedWindowsHelp": "Lo usa Abrir en una ventana o sesión guardada. La otra opción está en el menú ⋮.",
   "Syncs your sessions across your Chrome devices. Settings stay separate on each device.": "Sincroniza tus sesiones entre tus dispositivos con Chrome. La configuración se mantiene por separado en cada dispositivo.",
   "Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.": "Guarda tus sesiones en un archivo. La configuración no se incluye. Al cargar una copia de seguridad, se te pregunta si quieres combinarla con tus sesiones o sustituirlas.",
   "Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.": "Elimina tus sesiones de la nube y desactiva la sincronización automática. Tus sesiones se quedan en este dispositivo y en tus otros dispositivos.",

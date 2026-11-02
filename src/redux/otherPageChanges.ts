@@ -9,6 +9,7 @@ import {
   asTimeFormat,
   asDefaultSaveScope,
   asCopyLinksLayout,
+  asOpenSavedWindowsIn,
   asShippedLanguage,
   guardOnboarding,
   hydrateSettingsFromOtherPage,
@@ -147,6 +148,11 @@ export const applyOtherPageSettings =
         'copyLinksLayout' in incoming
           ? asCopyLinksLayout(incoming.copyLinksLayout)
           : current.copyLinksLayout,
+      // KAN-892. Absent means an older page wrote this; keep ours.
+      openSavedWindowsIn:
+        'openSavedWindowsIn' in incoming
+          ? asOpenSavedWindowsIn(incoming.openSavedWindowsIn)
+          : current.openSavedWindowsIn,
       // KAN-731. A theme this build does not know gets the default; absent, keep ours.
       theme: 'theme' in incoming ? asTheme(incoming.theme) : current.theme,
       // KAN-731. Guarded like the pin flag.

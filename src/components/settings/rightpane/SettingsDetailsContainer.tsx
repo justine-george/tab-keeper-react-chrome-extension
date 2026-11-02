@@ -22,6 +22,7 @@ import { chooseLanguage } from '../../../redux/languageChoice';
 import { openCloudConsentModal } from '../../../redux/slices/globalStateSlice';
 import {
   setCopyLinksLayout,
+  setOpenSavedWindowsIn,
   setTheme,
   setPinTabKeeperInNewWindows,
   setTimeFormat,
@@ -83,6 +84,7 @@ const SettingsDetailsContainer: React.FC = () => {
   const pinTabKeeperHelpId = useId();
   const defaultSaveHelpId = useId();
   const copyLinksHelpId = useId();
+  const openSavedWindowsHelpId = useId();
   const autoSyncHelpId = useId();
   const backupHelpId = useId();
   const cloudDataHelpId = useId();
@@ -557,6 +559,51 @@ const SettingsDetailsContainer: React.FC = () => {
             {t(
               'Used by the save button and the Enter key. The other save is in the ⋮ menu.'
             )}
+          </p>
+        </div>
+
+        {/* KAN-892. Where Open on a saved window or session puts its tabs. */}
+        <div
+          data-settings-section
+          css={css`
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 32px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Open saved windows')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+          <div
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            <SlidingPair
+              label={t('Open saved windows')}
+              options={[
+                { value: 'new-window', label: t('CarryNewWindowTarget') },
+                { value: 'this-window', label: t('This window') },
+              ]}
+              value={settingsData.openSavedWindowsIn}
+              onChange={(next) => dispatch(setOpenSavedWindowsIn(next))}
+              metrics={SETTINGS_PAIR_METRICS}
+              describedBy={openSavedWindowsHelpId}
+            />
+          </div>
+          <p id={openSavedWindowsHelpId} css={helpLineStyle}>
+            {t('OpenSavedWindowsHelp')}
           </p>
         </div>
 

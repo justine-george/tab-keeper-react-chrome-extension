@@ -463,6 +463,8 @@
   "All windows": "Все окна",
   "Current window": "Текущее окно",
   "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Используется кнопкой сохранения и клавишей Enter. Другой вариант сохранения — в меню ⋮.",
+  "Open saved windows": "Открывать сохранённые окна",
+  "OpenSavedWindowsHelp": "Используется кнопкой «Открыть» у сохранённого окна или сеанса. Другой способ — в меню ⋮.",
   "Syncs your sessions across your Chrome devices. Settings stay separate on each device.": "Синхронизирует ваши сессии между вашими устройствами с Chrome. Настройки хранятся отдельно на каждом устройстве.",
   "Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.": "Сохраняет ваши сессии в файл. Настройки в него не входят. При загрузке резервной копии вас спросят, объединить её с вашими сессиями или заменить их.",
   "Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.": "Удаляет ваши сессии из облака и выключает авто-синхронизацию. Сессии остаются на этом устройстве и на других ваших устройствах.",

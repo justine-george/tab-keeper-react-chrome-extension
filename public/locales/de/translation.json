@@ -435,6 +435,8 @@
   "All windows": "Alle Fenster",
   "Current window": "Aktuelles Fenster",
   "Used by the save button and the Enter key. The other save is in the ⋮ menu.": "Gilt für die Speichern-Schaltfläche und die Eingabetaste. Die andere Speicheroption ist im ⋮-⁠Menü.",
+  "Open saved windows": "Gespeicherte Fenster öffnen",
+  "OpenSavedWindowsHelp": "Gilt für „Öffnen“ bei einem gespeicherten Fenster oder einer Sitzung. Die andere Möglichkeit ist im ⋮-⁠Menü.",
   "Syncs your sessions across your Chrome devices. Settings stay separate on each device.": "Synchronisiert Ihre Sitzungen zwischen Ihren Chrome-Geräten. Einstellungen bleiben auf jedem Gerät getrennt.",
   "Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.": "Speichert Ihre Sitzungen in einer Datei. Einstellungen sind nicht enthalten. Beim Laden einer Sicherung werden Sie gefragt, ob sie mit Ihren Sitzungen zusammengeführt werden oder diese ersetzen soll.",
   "Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.": "Entfernt Ihre Sitzungen aus der Cloud und schaltet Auto-Sync aus. Ihre Sitzungen bleiben auf diesem Gerät und auf Ihren anderen Geräten.",
