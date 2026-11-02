@@ -34,6 +34,7 @@ import {
 import { pickOf } from '../../../redux/carriedItem';
 import { openCarriedCopy, type CopyPlace } from '../../../redux/openCopy';
 import type { AppDispatch } from '../../../redux/store';
+import { windowCarryScrollStep } from './windowCarryScroll';
 import {
   OPEN_NOW_FIRST_TARGET,
   OPEN_NOW_LAST_TARGET,
@@ -237,6 +238,49 @@ export function useOpenNowCarryReceiver({
         : null;
     };
 
+    // KAN-892 D. A window carry aims at the open window under (x, y), else the New window box.
+    const aimWindow = (x: number, y: number) => {
+      const box = boxBelowNow();
+      const windowId =
+        box !== null && inBox(box, x, y) ? null : windowTarget(x, y);
+      place =
+        windowId === null
+          ? { kind: 'newWindow' }
+          : { kind: 'intoWindow', windowId };
+      showWindow(windowId);
+      light(pane(), OPEN_NOW_LAST_TARGET, windowId === null);
+    };
+
+    // KAN-895. Held near the list's edge, a window carry scrolls it, aimed
+    // again after every step; stops when the pointer leaves the zone or the
+    // list cannot go further, and the next move starts it again.
+    let heldAt: { x: number; y: number } | null = null;
+    let frame = 0;
+    const scrollStep = (x: number, y: number): number => {
+      const scroller = scrollerRef.current;
+      if (scroller === null) return 0;
+      const list = measured?.list ?? scroller.getBoundingClientRect();
+      return windowCarryScrollStep(list, boxBelowNow(), x, y);
+    };
+    const tick = () => {
+      frame = 0;
+      const scroller = scrollerRef.current;
+      if (scroller === null || heldAt === null) return;
+      const delta = scrollStep(heldAt.x, heldAt.y);
+      if (delta === 0) return;
+      const before = scroller.scrollTop;
+      const max = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      scroller.scrollTop = Math.max(0, Math.min(max, before + delta));
+      if (scroller.scrollTop === before) return;
+      aimWindow(heldAt.x, heldAt.y);
+      frame = requestAnimationFrame(tick);
+    };
+    const stopScroll = () => {
+      heldAt = null;
+      if (frame !== 0) cancelAnimationFrame(frame);
+      frame = 0;
+    };
+
     const unregister = registerCarryReceiver({
       inCurrentlyOpen: true,
       region: pane,
@@ -260,6 +304,7 @@ export function useOpenNowCarryReceiver({
           return;
         }
         const kind = savedKind(carry);
+        if (kind !== 'window') stopScroll();
         if (kind === null || !latest.current.takes) {
           place = null;
           unlightAll();
@@ -267,16 +312,12 @@ export function useOpenNowCarryReceiver({
           return;
         }
         if (kind === 'window') {
-          const box = boxBelowNow();
-          const windowId =
-            box !== null && inBox(box, x, y) ? null : windowTarget(x, y);
-          place =
-            windowId === null
-              ? { kind: 'newWindow' }
-              : { kind: 'intoWindow', windowId };
-          showWindow(windowId);
-          light(pane(), OPEN_NOW_LAST_TARGET, windowId === null);
+          aimWindow(x, y);
           setCarryOpens(true);
+          heldAt = { x, y };
+          if (frame === 0 && scrollStep(x, y) !== 0) {
+            frame = requestAnimationFrame(tick);
+          }
           return;
         }
         // Over the list the layer lands nothing: a list adopts the carry there.
@@ -286,6 +327,7 @@ export function useOpenNowCarryReceiver({
         setCarryOpens(header);
       },
       leave: () => {
+        stopScroll();
         place = null;
         // Read afresh on the way back in: a drawer may have moved since.
         measured = null;
@@ -330,6 +372,7 @@ export function useOpenNowCarryReceiver({
       const carry = currentCarry();
       const el = pane();
       if (carry?.item.source !== 'saved' || el === null) {
+        stopScroll();
         measuredFor = null;
         measured = null;
         boxBelow = null;
@@ -353,6 +396,7 @@ export function useOpenNowCarryReceiver({
     });
 
     return () => {
+      stopScroll();
       unregister();
       unsubscribe();
       markLiveOver(false);

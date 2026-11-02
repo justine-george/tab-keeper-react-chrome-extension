@@ -497,7 +497,11 @@ for (const scrolled of [false, true]) {
     await carryTo(page, aim);
     await expect(box).toHaveAttribute('data-landing', '');
     await expect(litBlocks).toHaveCount(0);
-    const scrollBefore = await scroller.evaluate((el) => el.scrollTop);
+    // On its way the pointer crossed the edge zones, which scroll (KAN-895);
+    // held on the box, the list stays put.
+    const scrollOnBox = await scroller.evaluate((el) => el.scrollTop);
+    await page.waitForTimeout(400);
+    const scrollHeld = await scroller.evaluate((el) => el.scrollTop);
     await page.mouse.up();
 
     await expect
@@ -514,8 +518,8 @@ for (const scrolled of [false, true]) {
         live.map(async (w) => (await strip(worker, w.windowId)).length)
       )
     ).toEqual(before);
-    // PREMISE: the aim was held where the test put the list.
-    expect(scrollBefore).toBe(scrolled ? 150 : 0);
+    // PREMISE: the aim was held still over the box.
+    expect(scrollHeld).toBe(scrollOnBox);
   });
 }
 
@@ -1508,4 +1512,115 @@ test('a band drawn after its tabs: the fill takes it in, and the list follows', 
 
   await fill.evaluate((el) => el.getAnimations().forEach((a) => a.play()));
   await expect(fill).toHaveCount(0);
+});
+
+// KAN-895. A saved window held near the bottom of a long list scrolls it, as
+// a tab carry does (KAN-152), so a window below the fold can be reached: the
+// zone ends at the pinned New window box's top, and on the box the list stays
+// put, the box lit. Held near the top, it scrolls back.
+test('held just above the pinned New window box the list scrolls to a window below the fold, which takes the tabs; on the box it stays put', async ({
+  context,
+  extensionId,
+  serviceWorker: worker,
+}) => {
+  const live = [];
+  for (let w = 0; w < 8; w++)
+    live.push(await openLiveWindow(worker, [`W${w} a`, `W${w} b`, `W${w} c`]));
+  const page = await setUp(context, extensionId);
+  const last = live[7];
+  if (last === undefined) throw new Error('no live windows');
+  await expect(liveRow(page, last.idOf('W7 c'))).toBeAttached();
+  const scroller = page.locator(
+    '[data-pane="open-now"] [data-open-now-scroller]'
+  );
+  const box = page.locator(LAST_BOX);
+  const scrollTop = () => scroller.evaluate((el) => el.scrollTop);
+  const maxScroll = await scroller.evaluate(
+    (el) => el.scrollHeight - el.clientHeight
+  );
+  // PREMISE: the list scrolls well past a screen of travel, from its top.
+  expect(maxScroll).toBeGreaterThan(300);
+  expect(await scrollTop()).toBe(0);
+  const before = (await strip(worker, last.windowId)).length;
+
+  await pickUp(page, windowHandle(page, 'w1'));
+  await carryTo(
+    page,
+    await middleOf(liveRow(page, live[0]?.idOf('W0 b') ?? -1))
+  );
+  const list = await boxOf(scroller);
+  const x = list.x + list.width / 2;
+
+  // On the pinned box: the box is lit and the list does not move. (On its way
+  // the pointer crossed the zone above the box, which scrolls a little.)
+  await carryTo(page, await middleOf(box));
+  await expect(box).toHaveAttribute('data-landing', '');
+  const onBox = await scrollTop();
+  await page.waitForTimeout(600);
+  expect(await scrollTop()).toBe(onBox);
+
+  // CONTROL: in the list's middle, nothing scrolls either.
+  await carryTo(page, { x, y: list.y + list.height / 2 });
+  const inMiddle = await scrollTop();
+  await page.waitForTimeout(400);
+  expect(await scrollTop()).toBe(inMiddle);
+  expect(inMiddle).toBeLessThan(maxScroll);
+
+  // Just above the box: the list travels to its end and stops there.
+  const boxTop = (await boxOf(box)).y;
+  await carryTo(page, { x, y: boxTop - 8 });
+  // Its end as drawn now: the box below the last window adds its room.
+  await expect
+    .poll(
+      () =>
+        scroller.evaluate(
+          (el) => el.scrollHeight - el.clientHeight - el.scrollTop
+        ),
+      SETTLE
+    )
+    .toBe(0);
+  expect(await scrollTop()).toBeGreaterThanOrEqual(maxScroll);
+  // Aimed again as the list moved: the window drawn under the pointer now is
+  // the one lit, else (below the last window) the New window box.
+  const under = await page.evaluate(
+    ({ x, y }) =>
+      [
+        ...document.querySelectorAll(
+          '[data-pane="open-now"] [data-open-window-id]'
+        ),
+      ]
+        .filter((el) => {
+          const b = el.getBoundingClientRect();
+          return x >= b.left && x < b.right && y >= b.top && y < b.bottom;
+        })
+        .map((el) => el.getAttribute('data-open-window-id')),
+    { x, y: boxTop - 8 }
+  );
+  const lit = page.locator(
+    '[data-pane="open-now"] [data-open-window-id][data-landing]'
+  );
+  if (under.length === 1) {
+    await expect(lit).toHaveCount(1);
+    await expect(lit).toHaveAttribute('data-open-window-id', under[0] ?? '');
+  } else {
+    await expect(lit).toHaveCount(0);
+    await expect(box).toHaveAttribute('data-landing', '');
+  }
+
+  // The last window, now in view, takes the tabs.
+  await carryTo(page, await middleOf(liveRow(page, last.idOf('W7 b'))));
+  await expect(block(page, last.windowId)).toHaveAttribute('data-landing', '');
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await strip(worker, last.windowId)).length, SETTLE)
+    .toBe(before + 5);
+
+  // Held near the top in a new carry, the list travels back up.
+  await pickUp(page, windowHandle(page, 'w1'));
+  await carryTo(page, { x, y: list.y + list.height / 2 });
+  const travelled = await scrollTop();
+  await carryTo(page, { x, y: list.y + 6 });
+  await expect.poll(scrollTop, SETTLE).toBeLessThan(travelled);
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
 });
