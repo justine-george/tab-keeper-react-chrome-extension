@@ -196,6 +196,22 @@ export function useOpenNowCarryReceiver({
     // KAN-892 D. A window carry's blocks, read once while it is over the pane.
     let measured: MeasuredBlocks | null = null;
     const scrollTopNow = () => scrollerRef.current?.scrollTop ?? 0;
+    // R15, R16 (KAN-855). A window carry's box below the last window, pinned
+    // over the list's bottom the whole carry: there it wins over the window
+    // drawn beneath. Pinned, it keeps its place however the list scrolls, but
+    // at the list's end it rides up by its margin: read once, and again only
+    // after a scroll.
+    let boxBelow: { rect: DOMRect; scrollTop: number } | null = null;
+    const boxBelowNow = (): DOMRect | null => {
+      const scrollTop = scrollTopNow();
+      if (boxBelow === null || boxBelow.scrollTop !== scrollTop) {
+        const rect = pane()
+          ?.querySelector(`[data-new-window-target="${OPEN_NOW_LAST_TARGET}"]`)
+          ?.getBoundingClientRect();
+        boxBelow = rect === undefined ? null : { rect, scrollTop };
+      }
+      return boxBelow?.rect ?? null;
+    };
     // The window lit now: the DOM is written only when it changes.
     let litWindow: number | null = null;
     const showWindow = (windowId: number | null) => {
@@ -253,7 +269,9 @@ export function useOpenNowCarryReceiver({
           return;
         }
         if (kind === 'window') {
-          const windowId = windowTarget(x, y);
+          const box = boxBelowNow();
+          const windowId =
+            box !== null && inBox(box, x, y) ? null : windowTarget(x, y);
           place =
             windowId === null
               ? { kind: 'newWindow' }
@@ -273,6 +291,7 @@ export function useOpenNowCarryReceiver({
         place = null;
         // Read afresh on the way back in: a drawer may have moved since.
         measured = null;
+        boxBelow = null;
         markLiveOver(false);
         // An Open now list that adopted the carry owns the + and the boxes
         // from here (onLandingWindowChange); this leave comes after its first
@@ -315,6 +334,7 @@ export function useOpenNowCarryReceiver({
       if (carry?.item.source !== 'saved' || el === null) {
         measuredFor = null;
         measured = null;
+        boxBelow = null;
         showWindow(null);
         markCrossedOut(false);
         return;

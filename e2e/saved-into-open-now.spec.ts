@@ -424,6 +424,13 @@ test('a saved window held over a long list: the lit New window box shows at its 
 
   await expect.poll(inView).toBe('in view');
   await expect(box).toBeVisible();
+  // KAN-892 R15. The pointer onto the pinned box itself: it stays lit and in view.
+  await carryTo(page, await middleOf(box));
+  await expect(box).toHaveAttribute('data-landing', '');
+  expect(await inView()).toBe('in view');
+  await expect(
+    page.locator(`${OPEN_NOW} [data-open-window-id][data-landing]`)
+  ).toHaveCount(0);
 
   // Let go there: a new window, as before.
   const windowsBefore = await windowIds(worker);

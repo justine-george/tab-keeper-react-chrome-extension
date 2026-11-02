@@ -425,3 +425,148 @@ test('the window closed mid-carry: the saved window opens in a new window, unfoc
   expect((await focusNow(worker)).lastFocused).toBe(focus.lastFocused);
   expect(await stored(page)).toEqual(before);
 });
+
+// KAN-855 + R15. On a list that scrolls, the New window box lit from the header
+// pins over the bottom of the list; the pointer moved onto it keeps it lit,
+// and the window drawn beneath it does not take the carry.
+// Scrolled while lit too: pinned, the box holds its place in the pane, so
+// the place read as it lit is still where it is.
+for (const scrolled of [false, true]) {
+  test(`the pinned New window box over a window block keeps the carry: lit, the block beneath unlit, a new window on release${scrolled ? ' (list scrolled while lit)' : ''}`, async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const live = [];
+    for (let w = 0; w < 6; w++)
+      live.push(
+        await openLiveWindow(worker, [`W${w} a`, `W${w} b`, `W${w} c`])
+      );
+    const page = await setUp(context, extensionId);
+    await expect(liveRow(page, live[5]?.idOf('W5 c') ?? -1)).toBeAttached();
+    const scroller = page.locator(
+      '[data-pane="open-now"] [data-open-now-scroller]'
+    );
+    const box = page.locator(LAST_BOX);
+    const litBlocks = page.locator(
+      '[data-pane="open-now"] [data-open-window-id][data-landing]'
+    );
+    const windowsBefore = await windowIds(worker);
+    const before = await Promise.all(
+      live.map(async (w) => (await strip(worker, w.windowId)).length)
+    );
+
+    await pickUp(page, windowHandle(page, 'w1'));
+    await carryTo(
+      page,
+      await middleOf(liveRow(page, live[0]?.idOf('W0 b') ?? -1))
+    );
+    await carryTo(
+      page,
+      await middleOf(
+        page.locator('[data-pane="open-now"] [data-open-now-header] h2')
+      )
+    );
+    await expect(box).toHaveAttribute('data-landing', '');
+    if (scrolled)
+      await scroller.evaluate((el) => {
+        el.scrollTop = 150;
+      });
+    // PREMISE: the list scrolls, and the pinned box is drawn over a window block.
+    expect(
+      await scroller.evaluate((el) => el.scrollHeight - el.clientHeight)
+    ).toBeGreaterThan(100);
+    const aim = await middleOf(box);
+    const beneath = await page.evaluate(
+      ({ x, y }) =>
+        [
+          ...document.querySelectorAll(
+            '[data-pane="open-now"] [data-open-window-id]'
+          ),
+        ]
+          .filter((el) => {
+            const b = el.getBoundingClientRect();
+            return x >= b.left && x < b.right && y >= b.top && y < b.bottom;
+          })
+          .map((el) => el.getAttribute('data-open-window-id')),
+      aim
+    );
+    expect(beneath).toHaveLength(1);
+
+    await carryTo(page, aim);
+    await expect(box).toHaveAttribute('data-landing', '');
+    await expect(litBlocks).toHaveCount(0);
+    const scrollBefore = await scroller.evaluate((el) => el.scrollTop);
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => (await windowIds(worker)).length, SETTLE)
+      .toBe(windowsBefore.length + 1);
+    const made = (await windowIds(worker)).find(
+      (id) => !windowsBefore.includes(id)
+    );
+    if (made === undefined) throw new Error('no new window');
+    await expect.poll(async () => (await strip(worker, made)).length).toBe(5);
+    // No open window took any of it.
+    expect(
+      await Promise.all(
+        live.map(async (w) => (await strip(worker, w.windowId)).length)
+      )
+    ).toEqual(before);
+    // PREMISE: the aim was held where the test put the list.
+    expect(scrollBefore).toBe(scrolled ? 150 : 0);
+  });
+}
+
+// R16. While a saved window is over a window block of a list that scrolls, the
+// New window box is still in sight: pinned at the list's bottom, unlit
+// (dashed, named), the block under the pointer lit.
+test('over a window block on a long list, the New window box shows pinned and unlit', async ({
+  context,
+  extensionId,
+  serviceWorker: worker,
+}) => {
+  const live = [];
+  for (let w = 0; w < 6; w++)
+    live.push(await openLiveWindow(worker, [`W${w} a`, `W${w} b`, `W${w} c`]));
+  const page = await setUp(context, extensionId);
+  const first = live[0];
+  if (first === undefined) throw new Error('no live windows');
+  await expect(liveRow(page, live[5]?.idOf('W5 c') ?? -1)).toBeAttached();
+  const scroller = page.locator(
+    '[data-pane="open-now"] [data-open-now-scroller]'
+  );
+  const box = page.locator(LAST_BOX);
+
+  await pickUp(page, windowHandle(page, 'w1'));
+  await carryTo(page, await middleOf(liveRow(page, first.idOf('W0 b'))));
+  await expect(block(page, first.windowId)).toHaveAttribute('data-landing', '');
+  // PREMISE: the list scrolls, from its top.
+  expect(await scroller.evaluate((el) => el.scrollTop)).toBe(0);
+  expect(
+    await scroller.evaluate((el) => el.scrollHeight - el.clientHeight)
+  ).toBeGreaterThan(100);
+
+  await expect(box).not.toHaveAttribute('data-landing', '');
+  await expect(box).toBeVisible();
+  await expect(box.getByText('New window')).toBeVisible();
+  const look = await page.evaluate(
+    ({ scroller, box }) => {
+      const v = document.querySelector(scroller)?.getBoundingClientRect();
+      const el = document.querySelector(box);
+      const b = el?.getBoundingClientRect();
+      if (!v || !el || !b) return null;
+      return {
+        inView: b.top >= v.top - 1 && b.bottom <= v.bottom + 1,
+        border: getComputedStyle(el).borderTopStyle,
+      };
+    },
+    {
+      scroller: '[data-pane="open-now"] [data-open-now-scroller]',
+      box: LAST_BOX,
+    }
+  );
+  expect(look).toEqual({ inView: true, border: 'dashed' });
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+});

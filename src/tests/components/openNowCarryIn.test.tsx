@@ -926,6 +926,124 @@ describe('a saved window over an open window', () => {
     expect(lit()).toEqual(['1']);
   });
 
+  // KAN-855 + R15. Lit, the box below pins over the list's bottom: there its
+  // box wins over the window drawn beneath it. Here pinned at y 240..280, over W2.
+  describe('the New window box pinned over a window', () => {
+    const PINNED_Y = 260;
+    // Carried in from the saved side, so the box is drawn (and given its box)
+    // before the pane hears its first move.
+    const carryIn = (y: number) => {
+      carry(WINDOW, -50, y);
+      act(() => moveCarry(10, y));
+    };
+    const pinAt = () => {
+      const el = lastBox();
+      if (!(el instanceof HTMLElement)) throw new Error('no box below');
+      el.getBoundingClientRect = () => box(240, 40);
+    };
+
+    test('lit from the header, the pointer onto it keeps it lit and lights no window; a release opens a new window', async () => {
+      await renderPane();
+      placeBlocks();
+      carryIn(HEADER_Y);
+      pinAt();
+      const r = receiver(10, HEADER_Y);
+      r.hover(10, HEADER_Y);
+      expect(lastBox()?.hasAttribute('data-landing')).toBe(true);
+
+      r.hover(10, PINNED_Y);
+      expect(lastBox()?.hasAttribute('data-landing')).toBe(true);
+      expect(lit()).toEqual([]);
+
+      expect(r.take()).toBe(true);
+      expect(intoWindows()).toEqual([]);
+      expect(restores()).toHaveLength(1);
+    });
+
+    test('carried straight onto it, unlit till then: it lights and the window beneath does not', async () => {
+      await renderPane();
+      placeBlocks();
+      carryIn(PINNED_Y);
+      pinAt();
+      // PREMISE: unlit until the pointer is on it.
+      expect(lastBox()?.hasAttribute('data-landing')).toBe(false);
+      const r = receiver(10, PINNED_Y);
+
+      r.hover(10, PINNED_Y);
+      expect(lastBox()?.hasAttribute('data-landing')).toBe(true);
+      expect(lit()).toEqual([]);
+    });
+
+    test('off it over a window, the window lights and it goes unlit; back on it, it lights again', async () => {
+      await renderPane();
+      placeBlocks();
+      carryIn(HEADER_Y);
+      pinAt();
+      const r = receiver(10, HEADER_Y);
+      r.hover(10, PINNED_Y);
+
+      r.hover(10, W2_Y);
+      expect(lit()).toEqual(['2']);
+      expect(lastBox()?.hasAttribute('data-landing')).toBe(false);
+      r.hover(10, PINNED_Y);
+      expect(lit()).toEqual([]);
+      expect(lastBox()?.hasAttribute('data-landing')).toBe(true);
+    });
+
+    test('its box is read once, and again only after the list scrolls', async () => {
+      await renderPane();
+      placeBlocks();
+      carryIn(HEADER_Y);
+      pinAt();
+      const el = lastBox();
+      if (!(el instanceof HTMLElement)) throw new Error('no box below');
+      let reads = 0;
+      const pinned = el.getBoundingClientRect;
+      el.getBoundingClientRect = () => {
+        reads += 1;
+        return pinned();
+      };
+      const r = receiver(10, HEADER_Y);
+
+      for (const y of [HEADER_Y, PINNED_Y, PINNED_Y + 5, HEADER_Y, PINNED_Y])
+        r.hover(10, y);
+      expect(reads).toBe(1);
+
+      find('[data-open-now-scroller]').scrollTop = 40;
+      r.hover(10, PINNED_Y);
+      r.hover(10, PINNED_Y);
+      expect(reads).toBe(2);
+      find('[data-open-now-scroller]').scrollTop = 0;
+    });
+
+    // jsdom resolves the emotion stylesheet, so these are the rules drawn.
+    test('a window carry draws it pinned, dashed and named while unlit; a tab carry keeps it a blank row', async () => {
+      await renderPane();
+      carryIn(W1_Y);
+      const el = lastBox();
+      if (!(el instanceof HTMLElement)) throw new Error('no box below');
+      const label = el.querySelector('[data-drop-label]');
+      if (!(label instanceof HTMLElement)) throw new Error('no label');
+      expect(el.hasAttribute('data-landing')).toBe(false);
+      expect(getComputedStyle(el).position).toBe('sticky');
+      expect(getComputedStyle(el).borderTopStyle).toBe('dashed');
+      expect(getComputedStyle(el).borderTopColor).not.toBe('rgba(0, 0, 0, 0)');
+      expect(getComputedStyle(label).display).toBe('flex');
+
+      // CONTROL: a tab carry's box, unlit, is today's blank row.
+      act(() => endCarry('cancelled'));
+      carry(tabOf(), -50, W1_Y);
+      act(() => moveCarry(10, W1_Y));
+      const tabBox = lastBox();
+      if (!(tabBox instanceof HTMLElement)) throw new Error('no box below');
+      const tabLabel = tabBox.querySelector('[data-drop-label]');
+      if (!(tabLabel instanceof HTMLElement)) throw new Error('no label');
+      expect(getComputedStyle(tabBox).position).not.toBe('sticky');
+      expect(getComputedStyle(tabBox).borderTopColor).toBe('rgba(0, 0, 0, 0)');
+      expect(getComputedStyle(tabLabel).display).toBe('none');
+    });
+  });
+
   test('nothing lit after the carry ends', async () => {
     await renderPane();
     placeBlocks();
