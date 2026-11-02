@@ -50,7 +50,7 @@ import DefaultSaveChoice from './DefaultSaveChoice';
 import DefaultViewCards from '../../common/DefaultViewCards';
 import { SETTINGS_PAIR_METRICS } from '../../common/slidingPairMetrics';
 import { useTranslation } from 'react-i18next';
-import { corners } from '../../../styles/corners';
+import { corners, trackClearOfCorners } from '../../../styles/corners';
 import { CONTROL, ICON, RADIUS, TYPE } from '../../../styles/scale';
 import {
   openShortcutsBeside,
@@ -123,6 +123,8 @@ const SettingsDetailsContainer: React.FC = () => {
     overflow: auto;
     /* KAN-802. Room for the scrollbar kept free, so a long page's bar never narrows the pane under you. */
     scrollbar-gutter: stable;
+    /* KAN-888. This box is the panel: its bar meets both of its corners. */
+    ${trackClearOfCorners(RADIUS.PANEL, ['top', 'bottom'])}
     min-width: 0;
     user-select: none;
   `;

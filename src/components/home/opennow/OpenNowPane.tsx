@@ -82,7 +82,7 @@ import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateS
 import { showToast } from '../../../redux/slices/globalStateSlice';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import type { AppDispatch, RootState } from '../../../redux/store';
-import { corners, flushIn } from '../../../styles/corners';
+import { corners, flushIn, trackClearOfCorners } from '../../../styles/corners';
 import { ICON, RADIUS, TYPE } from '../../../styles/scale';
 import { paneInsetCss } from '../../../styles/paneInset';
 
@@ -843,6 +843,8 @@ export default function OpenNowPane({
     flex: 1 1 0;
     min-height: 0;
     overflow: auto;
+    /* KAN-888. The bar ends in the panel's bottom corner; the search row sits above its top. */
+    ${trackClearOfCorners(RADIUS.PANEL, ['bottom'])}
   `;
 
   // KAN-330 O14b. The pane is mounted only in the tab view, and only one is

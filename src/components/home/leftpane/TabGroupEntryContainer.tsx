@@ -59,7 +59,7 @@ import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
 import { sessionMenuItems, useSessionDeleteKey } from '../sessionMenuItems';
 import { selectRunHoldsDelete } from '../../../redux/firstRun';
 import { dropBoxStyle } from '../../common/dropBoxStyle';
-import { corners } from '../../../styles/corners';
+import { corners, trackClearOfCorners } from '../../../styles/corners';
 import { DURATION, RADIUS } from '../../../styles/scale';
 import {
   newSessionPitch,
@@ -491,6 +491,8 @@ export default function TabGroupEntryContainer() {
     flex: 1 1 0;
     min-height: 0;
     overflow: auto;
+    /* KAN-888. The bar ends in the panel's bottom corner; the search row sits above its top. */
+    ${trackClearOfCorners(RADIUS.PANEL, ['bottom'])}
   `;
 
   // Slides as a dragged list's rows do; filled, the new row stands in the place at once.
