@@ -32,6 +32,7 @@
   "Delete tab": "Tab löschen",
   "Add window": "Aktuelles Fenster hinzufügen",
   "Add current window": "Aktuelles Fenster zu dieser Sitzung hinzufügen",
+  "AddWindowNothingToAdd": "Nichts hinzuzufügen: In diesem Fenster ist nur Tab Keeper geöffnet",
   "Rename session": "Sitzung umbenennen",
   "Collapse": "Einklappen",
   "Expand": "Erweitern",

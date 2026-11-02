@@ -56,9 +56,19 @@ export function sessionMenuItems(
     deleteKey: DeleteKey;
     place: SessionMenuPlace;
     copyLinksLayout: CopyLinksLayout;
+    // KAN-886. False while the current window holds only Tab Keeper.
+    canAddCurrentWindow: boolean;
   }
 ): OverflowMenuItem[] {
-  const { t, language, dispatch, deleteKey, place, copyLinksLayout } = ctx;
+  const {
+    t,
+    language,
+    dispatch,
+    deleteKey,
+    place,
+    copyLinksLayout,
+    canAddCurrentWindow,
+  } = ctx;
   const { tabGroupId } = session;
   const duplicateCount = countDuplicateTabs(session);
   // KAN-775, KAN-793. A right-click leads with the row's buttons; the header's ⋮ sits beside them. Switch is popup only, as the row's.
@@ -103,9 +113,9 @@ export function sessionMenuItems(
               void dispatch(replaceSessionWithOpenWindows(tabGroupId)),
           },
         ];
-  // KAN-775. The header has its own Add chip beside the ⋮.
+  // KAN-775. The header has its own Add chip beside the ⋮. KAN-886: left out with nothing to add.
   const add: OverflowMenuItem[] =
-    place !== 'row'
+    place !== 'row' || !canAddCurrentWindow
       ? []
       : [
           {

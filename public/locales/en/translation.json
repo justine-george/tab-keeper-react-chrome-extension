@@ -32,6 +32,7 @@
   "Delete tab": "Delete tab",
   "Add window": "Add current window",
   "Add current window": "Add current window to this session",
+  "AddWindowNothingToAdd": "Nothing to add: only Tab Keeper is open in this window",
   "Rename session": "Rename session",
   "Collapse": "Collapse",
   "Expand": "Expand",

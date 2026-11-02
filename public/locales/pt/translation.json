@@ -32,6 +32,7 @@
   "Delete tab": "Excluir aba",
   "Add window": "Adicionar janela atual",
   "Add current window": "Adicionar a janela atual a esta sessão",
+  "AddWindowNothingToAdd": "Nada para adicionar: só o Tab Keeper está aberto nesta janela",
   "Rename session": "Renomear sessão",
   "Collapse": "Recolher",
   "Expand": "Expandir",

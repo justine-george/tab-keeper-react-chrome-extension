@@ -32,6 +32,7 @@
   "Delete tab": "टैब हटाएँ",
   "Add window": "वर्तमान विंडो जोड़ें",
   "Add current window": "वर्तमान विंडो को इस सत्र में जोड़ें",
+  "AddWindowNothingToAdd": "जोड़ने के लिए कुछ नहीं: इस विंडो में सिर्फ़ Tab Keeper खुला है",
   "Rename session": "सत्र का नाम बदलें",
   "Collapse": "संकुचित करें",
   "Expand": "विस्तारित करें",

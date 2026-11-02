@@ -22,6 +22,7 @@ import { setFoldSavedSessionInTabView } from '../../redux/slices/settingsDataSta
 import { requestSessionRename } from '../../redux/slices/globalStateSlice';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { ADD_CURR_WINDOW_TO_TABGROUP_ACTION } from '../../utils/constants/actionTypes';
+import { showSessionAndAddCurrentWindow } from '../../redux/showSessionAndAddCurrentWindow';
 
 // KAN-775, KAN-793. Every session row's right-click opens with Open · Switch · Replace, then Add current window; the header's right-click has the row but no Add, and its ⋮ neither.
 
@@ -206,12 +207,17 @@ describe('an unselected row', () => {
     );
   });
 
-  test('worst path: Tab Keeper alone in its window, Add does nothing at all, the selection included', async () => {
+  // KAN-886. The row menu leaves Add out; the add itself still refuses (a read that lags the window).
+  test('worst path: Tab Keeper alone in its window, the menu leaves Add out and the add does nothing, the selection included', async () => {
     const { store, seen } = await renderList(onlyTabKeeper);
-    fireEvent.contextMenu(rowOf('Bravo'));
-    fireEvent.click(item('Add current window to this session'));
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    fireEvent.contextMenu(rowOf('Bravo'));
+    expect(keys()).not.toContain('add');
+
+    await act(async () => {
+      await store.dispatch(showSessionAndAddCurrentWindow('S2'));
     });
 
     expect(seen).not.toContain(ADD_CURR_WINDOW_TO_TABGROUP_ACTION);

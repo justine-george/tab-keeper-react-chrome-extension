@@ -32,6 +32,7 @@
   "Delete tab": "탭 삭제",
   "Add window": "현재 창 추가",
   "Add current window": "현재 창을 이 세션에 추가",
+  "AddWindowNothingToAdd": "추가할 항목 없음: 이 창에는 Tab Keeper만 열려 있습니다",
   "Rename session": "세션 이름 변경",
   "Collapse": "접기",
   "Expand": "펼치기",

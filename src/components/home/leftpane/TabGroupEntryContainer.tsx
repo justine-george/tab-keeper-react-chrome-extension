@@ -29,6 +29,7 @@ import { filterTabGroups } from '../../../utils/functions/local';
 import { setSearchInputText } from '../../../redux/slices/globalStateSlice';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useIsSavedListEmpty } from '../../../hooks/useIsSavedListEmpty';
+import { useCurrentWindowHasTabsToAdd } from '../../../hooks/useCurrentWindowHasTabsToAdd';
 import {
   replaceSessionWithOpenWindows,
   deleteTabContainer,
@@ -110,6 +111,7 @@ export default function TabGroupEntryContainer() {
   const copyLinksLayout = useSelector(
     (state: RootState) => state.settingsDataState.copyLinksLayout
   );
+  const canAddCurrentWindow = useCurrentWindowHasTabsToAdd();
   // KAN-708. A row's right-click menu: the header ⋮'s items, for the row that was clicked.
   const sessionById = (id: string) =>
     tabContainerDataList.tabGroups.find((g) => g.tabGroupId === id);
@@ -126,6 +128,7 @@ export default function TabGroupEntryContainer() {
         deleteKey,
         place: 'row',
         copyLinksLayout,
+        canAddCurrentWindow,
       });
     },
   });

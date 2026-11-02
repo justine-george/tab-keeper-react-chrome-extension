@@ -32,6 +32,7 @@
   "Delete tab": "刪除分頁",
   "Add window": "新增目前視窗",
   "Add current window": "將目前視窗新增至這個工作階段",
+  "AddWindowNothingToAdd": "沒有可新增的內容：這個視窗中只開啟了 Tab Keeper",
   "Rename session": "重新命名工作階段",
   "Collapse": "收合",
   "Expand": "展開",

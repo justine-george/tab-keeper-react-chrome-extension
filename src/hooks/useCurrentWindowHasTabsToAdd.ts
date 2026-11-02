@@ -61,8 +61,10 @@ export function useCurrentWindowHasTabsToAdd(): boolean {
       chrome.tabs.onDetached,
       chrome.tabs.onReplaced,
     ];
+    // Held, so teardown removes from the same objects it added to.
+    const updated = chrome.tabs.onUpdated;
     for (const event of events) event.addListener(schedule);
-    chrome.tabs.onUpdated.addListener(onUpdated);
+    updated.addListener(onUpdated);
     document.addEventListener('visibilitychange', onShown);
     window.addEventListener('focus', onShown);
     void read();
@@ -71,7 +73,7 @@ export function useCurrentWindowHasTabsToAdd(): boolean {
       live = false;
       if (timer !== null) clearTimeout(timer);
       for (const event of events) event.removeListener(schedule);
-      chrome.tabs.onUpdated.removeListener(onUpdated);
+      updated.removeListener(onUpdated);
       document.removeEventListener('visibilitychange', onShown);
       window.removeEventListener('focus', onShown);
     };

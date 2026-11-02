@@ -64,7 +64,11 @@ function Both() {
 
 const renderBoth = () =>
   renderWithProviders(<Both />, {
-    seed: { platformOs: 'mac', windows: [{ id: 1 }] },
+    // KAN-886. A real tab, so Add current window is offered.
+    seed: {
+      platformOs: 'mac',
+      windows: [{ id: 1, tabs: [{ id: 1, url: 'https://a.test/' }] }],
+    },
     seedStore: (store) => {
       store.dispatch(replaceState(buildContainer([SHOWN, KYOTO])));
       store.dispatch(selectTabContainer('shown'));

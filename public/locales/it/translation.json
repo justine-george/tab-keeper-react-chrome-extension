@@ -32,6 +32,7 @@
   "Delete tab": "Elimina scheda",
   "Add window": "Aggiungi finestra attuale",
   "Add current window": "Aggiungi la finestra attuale a questa sessione",
+  "AddWindowNothingToAdd": "Niente da aggiungere: in questa finestra è aperto solo Tab Keeper",
   "Rename session": "Rinomina sessione",
   "Collapse": "Riduci",
   "Expand": "Espandi",

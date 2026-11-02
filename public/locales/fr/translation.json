@@ -32,6 +32,7 @@
   "Delete tab": "Supprimer l’onglet",
   "Add window": "Ajouter la fenêtre actuelle",
   "Add current window": "Ajouter la fenêtre actuelle à cette session",
+  "AddWindowNothingToAdd": "Rien à ajouter : seul Tab Keeper est ouvert dans cette fenêtre",
   "Rename session": "Renommer la session",
   "Collapse": "Réduire",
   "Expand": "Agrandir",
