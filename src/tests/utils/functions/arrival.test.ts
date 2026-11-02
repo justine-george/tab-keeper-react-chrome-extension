@@ -2,8 +2,18 @@ import { describe, expect, it } from 'vitest';
 
 import {
   announceArrival,
+  arrivalBox,
+  nearestScroll,
   subscribeArrival,
 } from '../../../utils/functions/arrival';
+
+// A box's edges at (left, top), `height` tall and `width` wide.
+const r = (left: number, top: number, height: number, width = 300) => ({
+  left,
+  top,
+  right: left + width,
+  bottom: top + height,
+});
 
 // KAN-892. A saved window dropped on an open window: the worker's tab ids are
 // told to whoever listens (Open now's scroll and fill, Task 5).
@@ -38,5 +48,43 @@ describe('arrival', () => {
 
   it('with no listener, an announcement goes nowhere and throws nothing', () => {
     expect(() => announceArrival(7, [71])).not.toThrow();
+  });
+});
+
+// KAN-892 D. The one fill behind a dropped window's new rows, in its block.
+describe('arrivalBox', () => {
+  it("arrivalBox spans the first new row to the last, the rows' left edge, 4px in from the right", () => {
+    expect(
+      arrivalBox([r(110, 200, 32), r(140, 232, 64)], r(0, 100, 400, 800))
+    ).toEqual({ top: 100, height: 96, left: 110, right: 4 });
+  });
+
+  it('a group band further left than the rows sets the left edge', () => {
+    expect(
+      arrivalBox([r(110, 200, 32), r(90, 236, 70)], r(10, 100, 400, 800))
+    ).toEqual({ top: 100, height: 106, left: 80, right: 4 });
+  });
+});
+
+// The least scroll that shows the new rows, 8px clear of the list's edges
+// (the approved mock's), the first new row winning when they don't fit.
+describe('nearestScroll', () => {
+  const view = { top: 100, bottom: 500 };
+
+  it('rows in view: no scroll', () => {
+    expect(nearestScroll({ top: 200, bottom: 300 }, view)).toBe(0);
+  });
+
+  it('rows below: down just far enough to show the last of them', () => {
+    expect(nearestScroll({ top: 450, bottom: 600 }, view)).toBe(108);
+  });
+
+  it('rows above: up just far enough to show the first of them', () => {
+    expect(nearestScroll({ top: 50, bottom: 120 }, view)).toBe(-58);
+  });
+
+  it('rows taller than the list: the first new row at the top', () => {
+    expect(nearestScroll({ top: 450, bottom: 1000 }, view)).toBe(342);
+    expect(nearestScroll({ top: 50, bottom: 1000 }, view)).toBe(-58);
   });
 });

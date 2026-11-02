@@ -130,6 +130,7 @@ import {
 } from './carriedIntoOpenNow';
 import OpenNowNewWindowBlock from './OpenNowNewWindowBlock';
 import { useOpenNowCarryReceiver } from './useOpenNowCarryReceiver';
+import { useArrival } from './useArrival';
 import { onFirstClickOnly } from '../../common/firstClickOnly';
 
 export type OpenNowHeaderAction = {
@@ -563,6 +564,9 @@ export default function OpenNowPane({
       ?.querySelector(`[data-open-window-id="${shown.id}"]`)
       ?.scrollIntoView({ block: 'nearest' });
   }, [newWindowAsk, windows]);
+
+  // KAN-892 D. A saved window dropped on an open window: its tabs scrolled to, and filled.
+  useArrival(paneRef, scrollerRef, windows);
 
   // A null close means the tab or window was already gone -- a second press
   // before the re-read, say -- so there is nothing to offer (O8a).

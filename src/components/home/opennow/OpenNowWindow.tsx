@@ -94,10 +94,11 @@ import {
   OPEN_WINDOWS_SCOPE,
 } from './useOpenNowDrop';
 import { corners } from '../../../styles/corners';
-import { landingLook } from '../../common/dropBoxStyle';
+import { landingFill, landingLook } from '../../common/dropBoxStyle';
 import {
   ROW_PULL,
   ROW_PULL_END,
+  ROW_RADIUS,
   rowEndCorners,
   rowHighlightCss,
 } from '../../../styles/rowHighlight';
@@ -393,6 +394,19 @@ export default function OpenNowWindow({
     &[data-landing] {
       ${landingLook(COLORS, 'outline')}
       ${corners(RADIUS.PANEL)}
+    }
+    /* KAN-892 D. A dropped window's new tabs: one fill behind them, placed by useArrival.
+       A layer of its own only while filled: always, its ⋮ menu would go under the next window. */
+    &:has(> [data-arrival]) {
+      position: relative;
+      isolation: isolate;
+    }
+    & > [data-arrival] {
+      position: absolute;
+      z-index: -1;
+      pointer-events: none;
+      ${corners(ROW_RADIUS)}
+      ${landingFill(COLORS)}
     }
   `;
 

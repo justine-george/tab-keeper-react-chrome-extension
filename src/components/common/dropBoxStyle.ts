@@ -8,6 +8,12 @@ import { RADIUS } from '../../styles/scale';
 
 const EDGE_WIDTH = '1.5px';
 
+// The landing look's fill alone: also what a dropped window's new tabs in
+// Currently open show behind them as they arrive (KAN-892 D).
+export function landingFill(COLORS: ThemeColors): string {
+  return `background-color: ${COLORS.ACTIVE_COLOR};`;
+}
+
 // What a box a release would land in looks like: the press fill a session
 // row under a drag takes (KAN-669), which stands off the pane in every theme
 // where hover did not, and a solid edge. A drop box's edge is its own border;
@@ -17,7 +23,7 @@ export function landingLook(
   COLORS: ThemeColors,
   edge: 'border' | 'outline'
 ): string {
-  const fill = `background-color: ${COLORS.ACTIVE_COLOR};`;
+  const fill = landingFill(COLORS);
   return edge === 'border'
     ? `${fill} border-style: solid;`
     : `${fill} outline: ${EDGE_WIDTH} solid ${COLORS.LABEL_L2_COLOR}; outline-offset: -${EDGE_WIDTH};`;
