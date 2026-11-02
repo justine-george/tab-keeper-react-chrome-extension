@@ -274,6 +274,34 @@ test.describe('surfaces', () => {
     expect(clip, 'no circular arcs').not.toContain(' A ');
   });
 
+  // KAN-901. The save row lights the name field (8) and the save group (12):
+  // an 8px hole there left the page lit outside the group's corners.
+  test("the tour's save step cuts the dim's hole to the field's corners and the save group's", async ({
+    context,
+    extensionId,
+  }) => {
+    await seedCorners(context);
+    const page = await openPopup(context, extensionId);
+    await startRunFromHelp(page);
+    await expect(cardAt(page, 1)).toBeVisible();
+    await expect(card(page)).toHaveAttribute('data-coach-kind', 'save');
+    const save = await page
+      .locator('[data-tour-anchor="save"]')
+      .evaluate((e) => {
+        const b = e.getBoundingClientRect();
+        return { left: b.left, top: b.top, right: b.right };
+      });
+    const clip = await page
+      .locator('[data-coach-dim]')
+      .evaluate((e) => (e as HTMLElement).style.clipPath);
+    const top = /Z M ([\d.]+) ([\d.]+) H ([\d.]+) /.exec(clip);
+    expect(top, "the hole's top edge").not.toBeNull();
+    const [from, y, to] = top!.slice(1).map(Number);
+    expect(y).toBeCloseTo(save.top, 1);
+    expect(from - save.left, "the field's corner").toBeCloseTo(8, 1);
+    expect(save.right - to, "the save group's corner").toBeCloseTo(12, 1);
+  });
+
   // KAN-901. The row's fill sits 4px in from the row's sides (C2), so a ring
   // round the row sat 8px from the fill at the sides and 4–5px above and below.
   for (const view of RUN_VIEWS)

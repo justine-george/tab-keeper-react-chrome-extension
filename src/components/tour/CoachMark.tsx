@@ -29,7 +29,9 @@ import {
   type AnchoredPlacement,
   type Box,
   type CoachAction,
+  sameCorners,
   type CoachSide,
+  type HoleCorners,
   type Size,
 } from './coachMarkPlacement';
 import type { AnchorBox, Spotlight } from './anchorBox';
@@ -37,9 +39,9 @@ import { RADIUS, TYPE } from '../../styles/scale';
 import { corners } from '../../styles/corners';
 
 // KAN-721. The ring sits RING_INSET outside a CONTROL, so it rounds at PANEL.
-// KAN-901. The dim's hole is the ring's shape brought in by RING_INSET: a
-// CONTROL's corner, so a lit button or row fill is lit whole, to its corners.
-const HOLE_PX = Number.parseFloat(RADIUS.PANEL) - COACH.RING_INSET;
+// KAN-901. The dim's hole takes the corners of what it lights, so it is lit
+// to its corners and no further: a CONTROL's unless the step says otherwise.
+const CONTROL_CORNERS = sameCorners(Number.parseFloat(RADIUS.CONTROL));
 
 // The run's step, and which card it is of how many; null for the note after the run, which has no progress line.
 export interface CoachProgress {
@@ -59,6 +61,8 @@ interface CoachMarkProps {
   spotlight?: Spotlight;
   // KAN-900. Elements lit and reachable in holes of their own, outside the ring.
   openings?: readonly string[];
+  // KAN-901. The corners of what the step lights, when not a CONTROL's.
+  holeCorners?: HoleCorners;
   isLive: boolean;
   // KAN-879. False for a card that leaves the page undimmed, as the onboarding ending does.
   isDimmed?: boolean;
@@ -147,6 +151,7 @@ export default function CoachMark({
   boxOf,
   spotlight,
   openings,
+  holeCorners = CONTROL_CORNERS,
   isLive,
   isDimmed = true,
   width,
@@ -272,10 +277,13 @@ export default function CoachMark({
             bright === null
               ? undefined
               : {
-                  clipPath: clipPathWithHoles(
-                    [bright, ...openingBoxes],
-                    HOLE_PX
-                  ),
+                  clipPath: clipPathWithHoles([
+                    { box: bright, corners: holeCorners },
+                    ...openingBoxes.map((box) => ({
+                      box,
+                      corners: CONTROL_CORNERS,
+                    })),
+                  ]),
                 }
           }
         />

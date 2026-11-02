@@ -436,6 +436,7 @@ export default function FirstRun() {
       anchors={plan.anchors}
       boxOf={plan.boxOf}
       openings={plan.openings}
+      holeCorners={plan.holeCorners}
       isLive={plan.isLive}
       width={card.width ?? CARD_WIDTH[run.view]}
       place={place}

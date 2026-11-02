@@ -228,23 +228,32 @@ function squircleCorner(
   return out;
 }
 
-// A clip-path keeping the whole element but each of `holes`, in the element's
-// own px, each hole's corners squircles of `radius` (KAN-721, KAN-901), capped
-// at half its sides.
-export function clipPathWithHoles(
-  holes: readonly Box[],
-  radius: number
-): string {
-  const hole = (box: Box) => {
-    const k = Math.min(radius, box.width / 2, box.height / 2);
+// KAN-901. A hole's corner radii in px: top-left, top-right, bottom-right,
+// bottom-left, as CSS border-radius lists them.
+export type HoleCorners = readonly [number, number, number, number];
+export const sameCorners = (px: number): HoleCorners => [px, px, px, px];
+
+export interface Hole {
+  box: Box;
+  corners: HoleCorners;
+}
+
+// A clip-path keeping the whole element but each hole, in the element's own
+// px, each corner a squircle of its radius (KAN-721, KAN-901), capped at half
+// the hole's sides.
+export function clipPathWithHoles(holes: readonly Hole[]): string {
+  const hole = ({ box, corners }: Hole) => {
+    const [tl, tr, br, bl] = corners.map((c) =>
+      Math.min(c, box.width / 2, box.height / 2)
+    );
     const { left: l, top: t } = box;
     const r = l + box.width;
     const b = t + box.height;
     return (
-      ` M${l + k} ${t}H${r - k}${squircleCorner(r - k, t + k, k, -Math.PI / 2)}` +
-      `V${b - k}${squircleCorner(r - k, b - k, k, 0)}` +
-      `H${l + k}${squircleCorner(l + k, b - k, k, Math.PI / 2)}` +
-      `V${t + k}${squircleCorner(l + k, t + k, k, Math.PI)}Z`
+      ` M${l + tl} ${t}H${r - tr}${squircleCorner(r - tr, t + tr, tr, -Math.PI / 2)}` +
+      `V${b - br}${squircleCorner(r - br, b - br, br, 0)}` +
+      `H${l + bl}${squircleCorner(l + bl, b - bl, bl, Math.PI / 2)}` +
+      `V${t + tl}${squircleCorner(l + tl, t + tl, tl, Math.PI)}Z`
     );
   };
   return (

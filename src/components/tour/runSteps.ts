@@ -1,4 +1,9 @@
-import type { CoachSide } from './coachMarkPlacement';
+import {
+  sameCorners,
+  type CoachSide,
+  type HoleCorners,
+} from './coachMarkPlacement';
+import { RADIUS } from '../../styles/scale';
 import {
   findAndFitBox,
   rowFillBox,
@@ -18,6 +23,8 @@ export interface RunStepPlan {
   boxOf?: AnchorBox;
   // KAN-900. Elements lit and reachable in holes of their own, outside the ring.
   openings?: readonly string[];
+  // KAN-901. The corners of what the step lights, when not a CONTROL's.
+  holeCorners?: HoleCorners;
   // 'pane': the popup's left pane, the notch pointing right.
   sides: readonly CoachSide[] | 'pane';
   isLive: boolean;
@@ -37,6 +44,14 @@ const EXPAND = '[data-tour-anchor="expand"]';
 const COMPACT = '[data-tour-anchor="compact"]';
 // KAN-582. Delete is only in the shown session's header menu.
 const SESSION_MENU = '[data-pane="detail"] [data-tour-anchor="session-menu"]';
+const px = (radius: string): number => Number.parseFloat(radius);
+// The save row: the name field (CONTROL) left, the save group (PANEL) right.
+const SAVE_CORNERS: HoleCorners = [
+  px(RADIUS.CONTROL),
+  px(RADIUS.PANEL),
+  px(RADIUS.PANEL),
+  px(RADIUS.CONTROL),
+];
 const BELOW: readonly CoachSide[] = ['below', 'right', 'left'];
 const LEFT_OF: readonly CoachSide[] = ['left', 'below', 'right'];
 const RIGHT_OF: readonly CoachSide[] = ['right', 'below', 'left'];
@@ -69,7 +84,13 @@ export function runStepPlan(
         isLive: false,
       };
     case 'openNow':
-      return { anchors: [OPEN_NOW], sides: LEFT_OF, isLive: false };
+      return {
+        anchors: [OPEN_NOW],
+        // The pane is square: it runs to the window's edges.
+        holeCorners: sameCorners(px(RADIUS.SQUARE)),
+        sides: LEFT_OF,
+        isLive: false,
+      };
     case 'findAndFit':
       // The narrow rail draws no search row: the rail itself, as at step 1.
       return {
@@ -82,8 +103,18 @@ export function runStepPlan(
       };
     case 'save':
       return saveCard === 'sessions'
-        ? { anchors: [SESSIONS], sides: RIGHT_OF, isLive: false }
-        : { anchors: [SAVE], sides: RIGHT_OF, isLive: true };
+        ? {
+            anchors: [SESSIONS],
+            holeCorners: sameCorners(px(RADIUS.PANEL)),
+            sides: RIGHT_OF,
+            isLive: false,
+          }
+        : {
+            anchors: [SAVE],
+            holeCorners: SAVE_CORNERS,
+            sides: RIGHT_OF,
+            isLive: true,
+          };
     case 'row':
       return sessionId === null
         ? null

@@ -4,6 +4,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import CoachMark from '../../components/tour/CoachMark';
 import {
   clipPathWithHoles,
+  sameCorners,
   placeBeside,
   type Box,
   type Size,
@@ -100,9 +101,14 @@ const mark = () => document.querySelector<HTMLElement>('[data-coach-mark]');
 const ring = () => document.querySelector<HTMLElement>('[data-coach-ring]');
 const dim = () => document.querySelector<HTMLElement>('[data-coach-dim]');
 // The dim's clip-path: everything, less a hole at left, top, width, height.
-// KAN-901: its corner is the ring's 12px squircle brought in by RING_INSET, 8.
-const hole = (left: number, top: number, width: number, height: number) =>
-  clipPathWithHoles([{ left, top, width, height }], 8);
+// KAN-901: unless the step says otherwise, a CONTROL's 8px corners.
+const hole = (
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  corners = sameCorners(8)
+) => clipPathWithHoles([{ box: { left, top, width, height }, corners }]);
 const twoFrames = () =>
   act(
     () =>
@@ -279,6 +285,13 @@ describe('the coach mark', () => {
       pointerEvents: 'auto',
     });
     expect(dim()?.tabIndex).toBe(-1);
+  });
+
+  // KAN-901. A step lighting a box with other corners says so; the hole takes them.
+  test('the hole takes the corners the step gives', async () => {
+    await render({ holeCorners: [8, 12, 12, 8] });
+    await placed();
+    expect(dim()?.style.clipPath).toBe(hole(400, 100, 200, 40, [8, 12, 12, 8]));
   });
 
   // KAN-736. A right-click on the dim or the still box opens no menu, Chrome's included.

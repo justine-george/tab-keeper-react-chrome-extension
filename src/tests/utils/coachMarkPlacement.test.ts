@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
   clipPathWithHoles,
+  sameCorners,
   intersectBox,
   placeBeside,
   placeFree,
@@ -280,11 +281,13 @@ const holePoints = (path: string): [number, number][][] => {
 // brought in, so the lit thing's 8px squircle corner sits inside it whole.
 describe('clipPathWithHoles: a squircle hole', () => {
   const box = { left: 396, top: 96, width: 208, height: 48.5 };
-  const [points] = holePoints(clipPathWithHoles([box], 8));
+  const [points] = holePoints(
+    clipPathWithHoles([{ box, corners: sameCorners(8) }])
+  );
   const [l, t, r, b] = [396, 96, 604, 144.5];
 
   test('the whole element, less the box, by the even-odd rule', () => {
-    expect(clipPathWithHoles([box], 8)).toMatch(
+    expect(clipPathWithHoles([{ box, corners: sameCorners(8) }])).toMatch(
       /^path\(evenodd, "M0 0H100000V100000H0Z M404 96H596.*Z"\)$/
     );
   });
@@ -336,16 +339,57 @@ describe('clipPathWithHoles: a squircle hole', () => {
   });
   test('a hole smaller than two radii caps the radius at half its side', () => {
     const [small] = holePoints(
-      clipPathWithHoles([{ left: 0, top: 0, width: 10, height: 10 }], 8)
+      clipPathWithHoles([
+        {
+          box: { left: 0, top: 0, width: 10, height: 10 },
+          corners: sameCorners(8),
+        },
+      ])
     );
     expect(small[0]).toEqual([5, 0]);
   });
   test('a square hole (radius 0) is the box’s rectangle', () => {
     const [square] = holePoints(
-      clipPathWithHoles([{ left: 1, top: 2, width: 3, height: 4 }], 0)
+      clipPathWithHoles([
+        {
+          box: { left: 1, top: 2, width: 3, height: 4 },
+          corners: sameCorners(0),
+        },
+      ])
     );
     expect(new Set(square.map((p) => p.join(',')))).toEqual(
       new Set(['1,2', '4,2', '4,6', '1,6'])
+    );
+  });
+});
+
+// KAN-901. The save row: an 8px field on the left, the 12px save group on the right.
+describe('clipPathWithHoles: each corner its own radius', () => {
+  const box = { left: 9, top: 57, width: 338.5, height: 58 };
+  const [points] = holePoints(
+    clipPathWithHoles([{ box, corners: [8, 12, 12, 8] }])
+  );
+  test('the top edge runs from 8 in at the left to 12 in at the right', () => {
+    expect(points[0]).toEqual([17, 57]);
+    expect(points[1]).toEqual([335.5, 57]);
+  });
+  test('the right corners are squircles of 12, the left of 8', () => {
+    const inset = (k: number) => k * (1 - 2 ** -0.25);
+    const has = (x: number, y: number) =>
+      points.some(
+        ([px, py]) => Math.abs(px - x) < 0.01 && Math.abs(py - y) < 0.01
+      );
+    expect(has(347.5 - inset(12), 57 + inset(12))).toBe(true);
+    expect(has(347.5 - inset(12), 115 - inset(12))).toBe(true);
+    expect(has(9 + inset(8), 115 - inset(8))).toBe(true);
+    expect(has(9 + inset(8), 57 + inset(8))).toBe(true);
+  });
+  test('square corners: the box’s rectangle', () => {
+    const [square] = holePoints(
+      clipPathWithHoles([{ box, corners: sameCorners(0) }])
+    );
+    expect(new Set(square.map((p) => p.join(',')))).toEqual(
+      new Set(['9,57', '347.5,57', '347.5,115', '9,115'])
     );
   });
 });
@@ -354,20 +398,23 @@ describe('clipPathWithHoles: a squircle hole', () => {
 describe('clipPathWithHoles: more than one hole', () => {
   test('each box is a hole of its own, in order, each capped at half its side', () => {
     const holes = holePoints(
-      clipPathWithHoles(
-        [
-          { left: 0, top: 0, width: 100, height: 40 },
-          { left: 200, top: 0, width: 8, height: 800 },
-        ],
-        8
-      )
+      clipPathWithHoles([
+        {
+          box: { left: 0, top: 0, width: 100, height: 40 },
+          corners: sameCorners(8),
+        },
+        {
+          box: { left: 200, top: 0, width: 8, height: 800 },
+          corners: sameCorners(8),
+        },
+      ])
     );
     expect(holes).toHaveLength(2);
     expect(holes[0][0]).toEqual([8, 0]);
     expect(holes[1][0]).toEqual([204, 0]);
   });
   test('no boxes: the whole element, no hole', () => {
-    expect(clipPathWithHoles([], 8)).toBe(
+    expect(clipPathWithHoles([])).toBe(
       'path(evenodd, "M0 0H100000V100000H0Z")'
     );
   });
