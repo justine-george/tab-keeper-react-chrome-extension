@@ -4,7 +4,7 @@ import { addCurrWindowToTabGroup } from './slices/tabContainerDataStateSlice';
 import { showSession } from './showSession';
 import type { RootState } from './store';
 import {
-  isTabKeeperPage,
+  addableTabs,
   readCurrentWindowGroups,
   toWindowGroupData,
 } from '../utils/functions/capture';
@@ -20,11 +20,9 @@ export const showSessionAndAddCurrentWindow =
       chrome.windows.getCurrent({ populate: true }, (result) => resolve(result))
     );
 
-    // KAN-279 D14 / KAN-300. Leaves out every Tab Keeper page -- the SAME
-    // rule captureOpenWindows applies (isTabKeeperPage, capture.ts), since
-    // this builds a window the same shape a capture would, without going
-    // through captureOpenWindows itself.
-    const tabs = (windowData.tabs ?? []).filter((tab) => !isTabKeeperPage(tab));
+    // KAN-279 D14 / KAN-300. Leaves out every Tab Keeper page, as a capture
+    // does. KAN-886: the chip's dim reads the same rule.
+    const tabs = addableTabs(windowData);
     // If that empties the window, there is nothing to add, or to show.
     if (tabs.length === 0) return;
 
