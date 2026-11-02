@@ -20,7 +20,8 @@ interface Hit {
 }
 
 // Every overflowing scroller whose scrollbar's top or bottom lies inside a
-// rounded corner of itself or of the bordered box it fills.
+// rounded corner of itself or of the bordered box it fills (the bordered
+// boxes within two levels up; an unbordered wrapper draws no corner).
 const scrollersMeetingCorners = (page: Page): Promise<Hit[]> =>
   page.evaluate(() => {
     const px = (s: string) => parseFloat(s) || 0;
@@ -54,6 +55,7 @@ const scrollersMeetingCorners = (page: Page): Promise<Hit[]> =>
       for (let i = 0; i < 3 && p; i++, p = p.parentElement) {
         const c = getComputedStyle(p);
         const pr = p.getBoundingClientRect();
+        if (px(c.borderRightWidth) === 0) continue;
         if (Math.abs(pr.right - px(c.borderRightWidth) - barRight) > 2)
           continue;
         const box = {
@@ -79,7 +81,9 @@ const scrollersMeetingCorners = (page: Page): Promise<Hit[]> =>
 // The scrollbar side's corner, scrolled to `hit.end`, with and without that
 // scroller's bar (clipped away for the second shot, so the backdrop and the
 // border are the same). Pixels that differ in the corner's outer triangle:
-// the border's curve and what lies outside it, which content never reaches.
+// the curve, what lies outside it, and the strip just inside it. Without the
+// bar the content reflows 10px wider, so the seeds keep fills and buttons out
+// of these corners.
 async function cornerWithAndWithoutBar(page: Page, hit: Hit, tolerance = 24) {
   const scroller = page.locator(`[data-zz-scroller="${hit.scroller}"]`);
   const toEnd = () =>
