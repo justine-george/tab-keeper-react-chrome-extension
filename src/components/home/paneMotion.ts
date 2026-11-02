@@ -44,9 +44,8 @@ export const COACH_CARD_SHOWN = '[data-coach-mark]:not([aria-hidden])';
 /**
  * Runs `update`, the React state change that folds or unfolds a pane, as a
  * view transition of `kind`. Instant where there is no API (jsdom), the
- * user asked for reduced motion, a tour card is on screen, or rows are being
- * dragged or carried (KAN-889: a spring-open under a held carry): `update`
- * runs synchronously, as it would without this.
+ * user asked for reduced motion, or a tour card is on screen: `update` runs
+ * synchronously, as it would without this.
  */
 export function runPaneMotion(
   update: () => void,
@@ -57,9 +56,7 @@ export function runPaneMotion(
   if (
     start === undefined ||
     window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
-    document.querySelector(COACH_CARD_SHOWN) !== null ||
-    document.documentElement.hasAttribute('data-dragging') ||
-    document.documentElement.hasAttribute('data-carrying')
+    document.querySelector(COACH_CARD_SHOWN) !== null
   ) {
     update();
     return;
