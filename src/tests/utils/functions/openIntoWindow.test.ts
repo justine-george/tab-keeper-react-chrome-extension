@@ -437,6 +437,22 @@ describe('falls back to new windows', () => {
     expect(await newWindowTabs()).toEqual([['s0', 's1']]);
   });
 
+  test('not when only the first tab is refused: it is skipped, the rest land here, the target falls back', async () => {
+    handle = setupChromeFake(seed({ refusedUrls: [web('s0')] }));
+    const ids = await openIntoWindow(
+      req([
+        spec([tab('s0', { pinned: true }), tab('s1'), tab('s2')], {
+          activeTabId: 's0',
+        }),
+      ])
+    );
+    expect(await strip(1)).toEqual(['p0', 'a', 'b', 's1', 's2']);
+    expect(await newWindowTabs()).toEqual([]);
+    expect(ids).toHaveLength(2);
+    const active = (await tabsOf(1)).find((t) => t.active);
+    expect(active && nameOf(active).replace('~', '')).toBe('s1');
+  });
+
   test('an empty request opens nothing', async () => {
     handle = setupChromeFake(seed());
     expect(await openIntoWindow(req([]))).toEqual([]);

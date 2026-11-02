@@ -149,8 +149,8 @@ export async function openIntoWindow(
 
   const [firstTab, ...restTabs] = tabs;
   const firstId = await create(firstTab, 0);
-  // The window closed since it was read, or refuses tabs: they open as new windows rather than not at all.
-  if (firstId === undefined) {
+  // Refused with the window gone or unusable: new windows rather than not at all. Refused with it fine: that page alone is skipped.
+  if (firstId === undefined && (await tabbedWindow(windowId)) === null) {
     await inNewWindows(into);
     return [];
   }
