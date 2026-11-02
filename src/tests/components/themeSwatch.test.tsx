@@ -186,3 +186,28 @@ describe('the theme picker spaces its tiles (KAN-247)', () => {
     expect(row.querySelectorAll('[data-theme-tile]').length).toBe(7);
   });
 });
+
+// KAN-904. The little app is rounded as the app is: the tile at a panel's
+// corner, its selected row a fill set in from the sides with its own corners,
+// its lines round-ended.
+describe('the theme tile is rounded like the app (KAN-904)', () => {
+  test('the tile rounds at 12, a panel’s corner', async () => {
+    await renderDisplay();
+    expect(getComputedStyle(tileOf('Chalk')).borderRadius).toBe('12px');
+  });
+  test('the selected row sits 3px in from the tile’s sides, with 3px corners', async () => {
+    await renderDisplay();
+    const row = getComputedStyle(bandOf('Chalk', 'selection'));
+    // The body's padding is 6px: a -3px margin leaves the row 3px in.
+    expect([row.marginLeft, row.marginRight]).toEqual(['-3px', '-3px']);
+    expect([row.paddingLeft, row.paddingRight]).toEqual(['3px', '3px']);
+    expect(row.borderRadius).toBe('3px');
+  });
+  test('its lines are round-ended: half their 3px height', async () => {
+    await renderDisplay();
+    const lines = tileOf('Chalk').querySelectorAll('i');
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines)
+      expect(getComputedStyle(line).borderRadius).toBe('1.5px');
+  });
+});

@@ -35,6 +35,12 @@ import { corners } from '../../../styles/corners';
  */
 const TILE_WIDTH_PX = 72;
 const TILE_HEIGHT_PX = 52;
+// A line of "text" at thumbnail scale: 3px, round-ended (KAN-904).
+const STROKE_PX = 3;
+// KAN-904. The selected row as the app draws it, at the tile's scale: set in
+// from the sides (half the body's 6px padding), with its own corners.
+const TILE_ROW_INSET_PX = 3;
+const TILE_ROW_RADIUS = '3px';
 
 interface ThemeSwatchProps {
   /** The theme this tile depicts. Its tokens paint the tile. */
@@ -75,7 +81,8 @@ export default function ThemeSwatch({
   const stroke = (width: number, color: string) => css`
     display: block;
     width: ${width}px;
-    height: 3px;
+    height: ${STROKE_PX}px;
+    border-radius: ${STROKE_PX / 2}px;
     background-color: ${color};
     flex-shrink: 0;
   `;
@@ -88,7 +95,8 @@ export default function ThemeSwatch({
     overflow: hidden;
     background-color: ${palette.PRIMARY_COLOR};
     border: 1px solid ${PAGE.PANEL_BORDER_COLOR};
-    ${corners(RADIUS.CONTROL)}
+    /* KAN-904. A little popup: a panel's corner. */
+    ${corners(RADIUS.PANEL)}
     transition: border-color ${DURATION.COLOR};
     ${
       isActive
@@ -138,15 +146,17 @@ export default function ThemeSwatch({
     padding: 4px 6px;
   `;
 
-  // A selected row, full width: negative margin against the body's padding,
-  // then the same padding back inside, so its stroke lines up with the rest.
+  // A selected row, set in from the tile's sides (KAN-904): a negative margin
+  // into the body's padding, then the same padding back inside, so its stroke
+  // lines up with the rest.
   const selectionStyle = css`
     display: flex;
     align-items: center;
     height: 9px;
-    margin: 0 -6px;
-    padding: 0 6px;
+    margin: 0 -${TILE_ROW_INSET_PX}px;
+    padding: 0 ${TILE_ROW_INSET_PX}px;
     background-color: ${palette.SELECTION_COLOR};
+    ${corners(TILE_ROW_RADIUS)}
   `;
 
   const nameStyle = css`
