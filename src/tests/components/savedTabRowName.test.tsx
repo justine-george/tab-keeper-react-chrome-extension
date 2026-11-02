@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import RightPane from '../../components/home/rightpane/RightPane';
 import { OpenCopiesProvider } from '../../components/home/rightpane/OpenCopiesProvider';
@@ -25,8 +31,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// Lets pending chrome answers land; never a wait for a re-read (those are polled).
 const settle = () =>
-  act(() => new Promise<void>((done) => setTimeout(done, 60)));
+  act(() => new Promise<void>((done) => setTimeout(done, 0)));
 
 // Window 1 is Tab Keeper's, in front; window 2 holds a copy of a.test.
 const SEED: ChromeSeed = {
@@ -90,39 +97,44 @@ async function renderSaved() {
 
 const named = (name: string) => screen.queryByRole('button', { name });
 
+// Polled: a re-read lands after the 50ms coalesce, later on a slow machine.
+const expectShown = (name: string) =>
+  waitFor(() => expect(named(name)).not.toBeNull());
+
 describe('a saved tab row’s name', () => {
   test('says Switch to tab while a copy is open, Open in new tab otherwise', async () => {
     await renderSaved();
 
-    expect(named('Switch to tab: Open one')).not.toBeNull();
+    await expectShown('Switch to tab: Open one');
     expect(named('Open in new tab: Closed one')).not.toBeNull();
     expect(named('Open in new tab: Open one')).toBeNull();
   });
 
   test('follows the browser: a copy opening or closing changes it', async () => {
     const r = await renderSaved();
+    await expectShown('Switch to tab: Open one');
 
     act(() => {
       r.chrome.browser.openTab(1, { url: 'https://b.test/' });
       r.chrome.browser.closeTab(21);
     });
-    await settle();
 
-    expect(named('Open in new tab: Open one')).not.toBeNull();
-    expect(named('Switch to tab: Closed one')).not.toBeNull();
+    await expectShown('Open in new tab: Open one');
+    await expectShown('Switch to tab: Closed one');
   });
 
   test('a copy navigating away changes it back', async () => {
     const r = await renderSaved();
+    await expectShown('Switch to tab: Open one');
 
     act(() => r.chrome.browser.updateTab(21, { url: 'https://c.test/' }));
-    await settle();
 
-    expect(named('Open in new tab: Open one')).not.toBeNull();
+    await expectShown('Open in new tab: Open one');
   });
 
   test('the row named Switch to tab switches, and opens nothing', async () => {
     const r = await renderSaved();
+    await expectShown('Switch to tab: Open one');
 
     fireEvent.click(
       screen.getByRole('button', { name: 'Switch to tab: Open one' })
@@ -157,15 +169,21 @@ describe('OpenCopiesProvider', () => {
         <Probe />
       </OpenCopiesProvider>
     );
-    await settle();
+    await waitFor(() =>
+      expect(seen[seen.length - 1]?.has('https://a.test/')).toBe(true)
+    );
     const first = seen[seen.length - 1];
-    expect(first?.has('https://a.test/')).toBe(true);
     const renders = seen.length;
+    const reads = fake.windowsGetAllCalls;
 
     act(() => {
       fake?.browser.updateTab(21, { status: 'loading', title: 'Loading' });
       fake?.browser.activateTab(21);
     });
+    // PREMISE: the events were read again, and that read has landed.
+    await waitFor(() =>
+      expect(fake?.windowsGetAllCalls).toBeGreaterThan(reads)
+    );
     await settle();
 
     expect(seen.length).toBe(renders);
