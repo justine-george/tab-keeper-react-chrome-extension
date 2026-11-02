@@ -11,6 +11,8 @@ import type {
 export interface RunStepPlan {
   anchors: readonly string[];
   boxOf?: AnchorBox;
+  // KAN-900. Elements lit and reachable in holes of their own, outside the ring.
+  openings?: readonly string[];
   // 'pane': the popup's left pane, the notch pointing right.
   sides: readonly CoachSide[] | 'pane';
   isLive: boolean;
@@ -68,6 +70,8 @@ export function runStepPlan(
       return {
         anchors: [`${OPEN_NOW} [data-open-now-search]`, OPEN_NOW],
         boxOf: findAndFitBox,
+        // KAN-900. The edge the card says to drag: lit, and reachable, outside the ring.
+        openings: ['[data-resize-grip]'],
         sides: LEFT_OF,
         isLive: true,
       };

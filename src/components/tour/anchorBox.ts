@@ -42,14 +42,15 @@ export const rowsBox: AnchorBox = (element) => {
     : intersectBox(rows, clientBox(scroller));
 };
 
-// Step 2: Open now's search row, its resize edge and fold button, as drawn; null when none is drawn.
+// Step 2: Open now's search row and fold button, as drawn; null when none is drawn.
+// KAN-900. Not the resize grip: it runs the window's height, so the box took in the whole list. It is an opening.
 export const findAndFitBox: AnchorBox = (element) =>
   element.matches('[data-open-now-search]')
     ? unionBox(
         [
           element,
           ...document.querySelectorAll(
-            '[data-resize-grip], [data-pane="open-now"] [data-tour-anchor="fold"]'
+            '[data-pane="open-now"] [data-tour-anchor="fold"]'
           ),
         ].map((part) => fromRect(part.getBoundingClientRect()))
       )

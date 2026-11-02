@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import {
-  clipPathWithHole,
+  clipPathWithHoles,
   intersectBox,
   placeBeside,
   placeFree,
@@ -253,32 +253,58 @@ describe('ringBox', () => {
   });
 });
 
-describe('clipPathWithHole (KAN-721: a rounded hole)', () => {
+describe('clipPathWithHoles (KAN-721: a rounded hole)', () => {
   const box = { left: 396, top: 96, width: 208, height: 48.5 };
   test('the whole element, less the box, by the even-odd rule', () => {
-    expect(clipPathWithHole(box, 12)).toBe(
+    expect(clipPathWithHoles([box], 12)).toBe(
       'path(evenodd, "M0 0H100000V100000H0Z ' +
         'M408 96H592A12 12 0 0 1 604 108V132.5A12 12 0 0 1 592 144.5' +
         'H408A12 12 0 0 1 396 132.5V108A12 12 0 0 1 408 96Z")'
     );
   });
   test('each of the four corners is an arc of the radius', () => {
-    const path = clipPathWithHole(
-      { left: 0, top: 0, width: 100, height: 40 },
+    const path = clipPathWithHoles(
+      [{ left: 0, top: 0, width: 100, height: 40 }],
       12
     );
     expect(path.match(/A12 12 0 0 1/g)).toHaveLength(4);
   });
   test('a hole smaller than two radii caps the radius at half its side', () => {
-    const path = clipPathWithHole(
-      { left: 0, top: 0, width: 10, height: 10 },
+    const path = clipPathWithHoles(
+      [{ left: 0, top: 0, width: 10, height: 10 }],
       12
     );
     expect(path.match(/A5 5 0 0 1/g)).toHaveLength(4);
   });
   test('a square hole (radius 0) is still a closed hole', () => {
-    expect(clipPathWithHole({ left: 1, top: 2, width: 3, height: 4 }, 0)).toBe(
+    expect(
+      clipPathWithHoles([{ left: 1, top: 2, width: 3, height: 4 }], 0)
+    ).toBe(
       'path(evenodd, "M0 0H100000V100000H0Z M1 2H4A0 0 0 0 1 4 2V6A0 0 0 0 1 4 6H1A0 0 0 0 1 1 6V2A0 0 0 0 1 1 2Z")'
+    );
+  });
+});
+
+// KAN-900. Step 2's grip gets a hole of its own beside the search row's.
+describe('clipPathWithHoles: more than one hole', () => {
+  test('each box is a hole of its own, in order, each capped at half its side', () => {
+    expect(
+      clipPathWithHoles(
+        [
+          { left: 0, top: 0, width: 100, height: 40 },
+          { left: 200, top: 0, width: 8, height: 800 },
+        ],
+        12
+      )
+    ).toBe(
+      'path(evenodd, "M0 0H100000V100000H0Z ' +
+        'M12 0H88A12 12 0 0 1 100 12V28A12 12 0 0 1 88 40H12A12 12 0 0 1 0 28V12A12 12 0 0 1 12 0Z ' +
+        'M204 0H204A4 4 0 0 1 208 4V796A4 4 0 0 1 204 800H204A4 4 0 0 1 200 796V4A4 4 0 0 1 204 0Z")'
+    );
+  });
+  test('no boxes: the whole element, no hole', () => {
+    expect(clipPathWithHoles([], 12)).toBe(
+      'path(evenodd, "M0 0H100000V100000H0Z")'
     );
   });
 });
@@ -288,8 +314,25 @@ describe('sameFrame', () => {
     kind: 'anchored' as const,
     anchor: { left: 1, top: 2, width: 3, height: 4 },
     bright: { left: 1, top: 2, width: 3, height: 4 },
+    openings: [{ left: 9, top: 0, width: 2, height: 50 }],
     placement: { side: 'below' as const, left: 5, top: 6, notch: 24 },
   };
+  // KAN-900. A moved or gone opening is a new frame, so the dim's holes follow it.
+  test('an opening moved, added or gone is not the same', () => {
+    expect(
+      sameFrame(frame, {
+        ...frame,
+        openings: [{ left: 10, top: 0, width: 2, height: 50 }],
+      })
+    ).toBe(false);
+    expect(sameFrame(frame, { ...frame, openings: [] })).toBe(false);
+    expect(
+      sameFrame(frame, {
+        ...frame,
+        openings: [...frame.openings, { left: 0, top: 0, width: 1, height: 1 }],
+      })
+    ).toBe(false);
+  });
   test('equal frames, and two nulls, are the same', () => {
     expect(sameFrame(frame, { ...frame })).toBe(true);
     expect(sameFrame(null, null)).toBe(true);
