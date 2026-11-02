@@ -143,7 +143,7 @@ describe('opens on the tour’s sample', () => {
   test('a tab row with an open copy says Switch works after the tour, and follows the copy', async () => {
     const SWITCH_BLOCKED = 'Switch works after the tour';
     const r = await renderWithProviders(
-      <OpenCopiesProvider>
+      <OpenCopiesProvider showGroups>
         <WindowEntryContainer
           number={1}
           title="Getting there"

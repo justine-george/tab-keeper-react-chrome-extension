@@ -35,7 +35,12 @@ import {
 import { useThisWindowKind } from '../useThisWindowKind';
 import { effectiveIncognito } from '../../../utils/functions/openIntoWindow';
 import { useMacKeys } from '../../../hooks/useIsMac';
-import { useOpenCopyAddresses } from './openCopies';
+import { useOpenCopyAddresses, useOpenGroupKeys } from './openCopies';
+import {
+  hasOpenGroup,
+  switchToOpenGroup,
+} from '../../../utils/functions/openSavedGroup';
+import type { SavedGroupContent } from '../../../utils/functions/openSavedGroup';
 import {
   opensInBackground,
   hasOpenCopy,
@@ -225,6 +230,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // As the Mac Ctrl-click guard reads it: false until Chrome says Mac.
   const isMac = useMacKeys();
   const openAddresses = useOpenCopyAddresses();
+  const openGroups = useOpenGroupKeys();
   const openBlockedBecause = isOpenBlocked
     ? t('Open works after the tour')
     : null;
@@ -536,7 +542,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       actionRowLabel: t('Open'),
       label: t('Open group'),
       icon: 'reopen_window',
-      onSelect: () => openGroup(run),
+      onSelect: () => openGroup(run, true),
     },
     ...(canAddCurrentTab
       ? [
@@ -967,8 +973,27 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const renameGroupLabel = (group: chromeTabGroupData) =>
     t('Rename group') + ': ' + groupDisplayName(group);
 
-  const openGroupLabel = (group: chromeTabGroupData) =>
-    t('Open group') + ': ' + groupDisplayName(group);
+  // KAN-885. What a saved group is matched on, and whether its plain click switches.
+  const groupContent = (run: GroupRun): SavedGroupContent => ({
+    title: run.group.title,
+    urls: run.tabs.map((tab) => tab.url),
+  });
+  const groupSwitches = (run: GroupRun) =>
+    hasOpenGroup(groupContent(run), openGroups);
+
+  // KAN-885. Said as the click does it, as a saved tab's name is (KAN-890).
+  const openGroupLabel = (run: GroupRun) =>
+    (groupSwitches(run) ? t('Go to group') : t('Open group')) +
+    ': ' +
+    groupDisplayName(run.group);
+  const openGroupTooltip = (run: GroupRun) => {
+    const switches = groupSwitches(run);
+    if (isOpenBlocked)
+      return switches
+        ? t('Switch works after the tour')
+        : t('Open works after the tour');
+    return switches ? t('Go to group') : t('Open group');
+  };
 
   const groupTitleLabel = (group: chromeTabGroupData) => (
     <NormalLabel
@@ -1127,11 +1152,23 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     },
   });
 
-  // The group's Open (KAN-394): its tabs beside the active one, re-grouped.
+  // KAN-885. A plain click switches to the group open as saved, else opens a copy; ⌘/Ctrl-click opens one behind.
+  const handleGroupOpenClick = (run: GroupRun, e: React.MouseEvent) => {
+    if (opensInBackground(e, isMac)) {
+      openGroup(run, false);
+      return;
+    }
+    void switchToOpenGroup(groupContent(run)).then((switched) => {
+      if (!switched) openGroup(run, true);
+    });
+  };
+
+  // The group's Open (KAN-394): its tabs beside the active one, re-grouped,
+  // and its last tab brought to the front when `active` (KAN-885: behind else).
   //
   // The index advances per tab. Creating them all at currentTabIndex + 1 would
   // reverse the group, because each insert pushes the previous one right.
-  const openGroup = (run: GroupRun) => {
+  const openGroup = (run: GroupRun, active: boolean) => {
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       const current = tabs[0];
       if (!current) return;
@@ -1175,7 +1212,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
       // Focus LAST, once the group exists. This is the step that kills the
       // popup, so nothing may depend on running after it.
-      await chrome.tabs.update(tabIds[tabIds.length - 1], { active: true });
+      if (active)
+        await chrome.tabs.update(tabIds[tabIds.length - 1], { active: true });
     });
   };
 
@@ -2057,12 +2095,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                           {/* Hidden while searching, like every whole-item action (R7). */}
                           {!isSearching && (
                             <RowOpenButton
-                              ariaLabel={openGroupLabel(item.group)}
-                              tooltipText={
-                                openBlockedBecause ?? t('Open group')
-                              }
+                              ariaLabel={openGroupLabel(item)}
+                              tooltipText={openGroupTooltip(item)}
                               disable={isOpenBlocked}
-                              onClick={() => openGroup(item)}
+                              onClick={(e) => handleGroupOpenClick(item, e)}
+                              onAuxClick={(e) => {
+                                if (e.button === 1) openGroup(item, false);
+                              }}
                             />
                           )}
                           {/* KAN-279 D13 / KAN-823. Hidden where the
