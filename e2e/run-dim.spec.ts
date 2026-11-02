@@ -151,6 +151,36 @@ for (const view of RUN_VIEWS) {
       expect(shown[1]).toBe(hidden[1]);
     });
 
+    // KAN-902. The press still does nothing, but the card now says why.
+    test('a press on the dim: the card says everything else works after the tour, until the next step', async ({
+      context,
+      extensionId,
+    }) => {
+      const page = await openRunFromHelp(context, extensionId, view);
+      const line = card(page).getByText(
+        'Everything else works after the tour.',
+        { exact: true }
+      );
+      await expect(line).toHaveCount(0);
+      const [x, y] = await centreOf(
+        page.getByRole('button', { name: 'Settings', exact: true })
+      );
+      expect(await hitAt(page, x, y)).toBe('dim');
+      await page.mouse.click(x, y);
+      await expect(line).toBeVisible();
+      await expect(cardAt(page, 1)).toBeVisible();
+      // The home list is still there: Settings did not open.
+      await expect(page.locator('[aria-label="Sort sessions"]')).toBeVisible();
+      // Only a press on the dim: on to the next card, and the line is gone.
+      // The popup's first card goes on by its example, the full view's by Next.
+      const next = cardButton(page, 'Next');
+      await (
+        (await next.isVisible()) ? next : cardButton(page, 'Use an example')
+      ).click();
+      await expect(cardAt(page, 2)).toBeVisible();
+      await expect(line).toHaveCount(0);
+    });
+
     test('a press on the dim does nothing: Settings stays shut and the card stays', async ({
       context,
       extensionId,

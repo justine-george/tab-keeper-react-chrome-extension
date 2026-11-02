@@ -2,7 +2,13 @@ import { EASE } from '../../styles/scale';
 import type { CoachPlacement } from './coachMarkPlacement';
 
 // Web Animations durations, so not DURATION's (CSS transitions).
-export const CARD_MOTION = { GLIDE_MS: 200, APPEAR_MS: 200 } as const;
+export const CARD_MOTION = {
+  GLIDE_MS: 200,
+  APPEAR_MS: 200,
+  // KAN-902. A press on the dim: the card swells and settles, its line fades in.
+  SWELL_MS: 280,
+  LINE_IN_MS: 220,
+} as const;
 
 // From where it was, mid-glide included, to where it is now; nothing when it did not move.
 export function playGlide(
@@ -44,4 +50,20 @@ export function originFacing(side: CoachPlacement['side']): string {
     case 'free':
       return 'left top';
   }
+}
+
+// KAN-902. "Look here", not "no": the card swells 2.5% and settles. On
+// `scale`, so it adds to an appear or a glide on `transform`.
+export function playSwell(element: HTMLElement): Animation {
+  return element.animate([{ scale: '1' }, { scale: '1.025' }, { scale: '1' }], {
+    duration: CARD_MOTION.SWELL_MS,
+    easing: EASE.IN_OUT,
+  });
+}
+
+export function playLineIn(element: HTMLElement): Animation {
+  return element.animate([{ opacity: 0 }, { opacity: 1 }], {
+    duration: CARD_MOTION.LINE_IN_MS,
+    easing: EASE.OUT,
+  });
 }

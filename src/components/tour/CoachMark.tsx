@@ -2,6 +2,7 @@ import {
   useId,
   useLayoutEffect,
   useRef,
+  useState,
   type CSSProperties,
   type ReactNode,
   type SyntheticEvent,
@@ -35,6 +36,8 @@ import {
   type Size,
 } from './coachMarkPlacement';
 import type { AnchorBox, Spotlight } from './anchorBox';
+import { playLineIn, playSwell } from './cardMotion';
+import { canAnimate, prefersReducedMotion } from '../modals/getStartedMotion';
 import { RADIUS, TYPE } from '../../styles/scale';
 import { corners } from '../../styles/corners';
 
@@ -136,6 +139,10 @@ const Z = COACH_LAYER;
 
 // A press on the dim does nothing: no focus moves, no menu sees it as a press outside,
 // and a right-click opens no menu, Chrome's included (KAN-736).
+// KAN-902. Whether an element may be moved: drawn, animatable, motion allowed.
+const canMove = (element: HTMLElement | null): element is HTMLElement =>
+  element !== null && canAnimate(element) && !prefersReducedMotion();
+
 const swallow = (event: SyntheticEvent) => {
   event.preventDefault();
   event.stopPropagation();
@@ -167,6 +174,22 @@ export default function CoachMark({
   const { t } = useTranslation();
   const textId = useId();
   const markRef = useRef<HTMLDivElement>(null);
+  const nudgeRef = useRef<HTMLParagraphElement>(null);
+  // KAN-902. The step a press on the dim was made at: its card says why
+  // nothing happened, until the step changes.
+  const step = progress?.step ?? null;
+  const [pressedAt, setPressedAt] = useState<{ step: number | null } | null>(
+    null
+  );
+  const isNudged = pressedAt !== null && pressedAt.step === step;
+  const onDimPress = (event: SyntheticEvent) => {
+    swallow(event);
+    setPressedAt({ step });
+    if (canMove(markRef.current)) playSwell(markRef.current);
+  };
+  useLayoutEffect(() => {
+    if (isNudged && canMove(nudgeRef.current)) playLineIn(nudgeRef.current);
+  }, [isNudged]);
   const ringRef = useRef<HTMLDivElement>(null);
   const frame = useCoachPlacement(
     markRef,
@@ -271,7 +294,7 @@ export default function CoachMark({
           aria-hidden="true"
           data-coach-dim
           css={dimStyle}
-          onMouseDown={swallow}
+          onMouseDown={onDimPress}
           onContextMenu={swallow}
           style={
             bright === null
@@ -353,6 +376,11 @@ export default function CoachMark({
           {text}
         </p>
         {fine !== undefined && <p css={fineStyle}>{fine}</p>}
+        {isNudged && (
+          <p ref={nudgeRef} css={fineStyle} data-coach-nudge>
+            {t('Everything else works after the tour.')}
+          </p>
+        )}
         <div css={footStyle}>
           <span css={[endStyle, onBack && pairCss]}>
             {onBack && (
