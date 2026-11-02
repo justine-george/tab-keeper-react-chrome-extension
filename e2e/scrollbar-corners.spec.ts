@@ -157,7 +157,7 @@ async function expectCornersIntact(page: Page, where: string, atLeast: number) {
     expect(
       await cornerWithAndWithoutBar(page, hit),
       `${where}: scroller ${hit.scroller} ${hit.end}-right corner, with vs without its bar (box ${JSON.stringify(hit.box)} r${hit.radius})`
-      // Anti-aliasing along the curve moves a few pixels; the defect measured 44 to 77.
+      // Anti-aliasing along the curve moves a few pixels; the defect measured 23.
     ).toBeLessThanOrEqual(4);
 }
 
