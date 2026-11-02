@@ -88,6 +88,12 @@ describe("Open now's Back to your tab (KAN-577, pick A)", () => {
     }
   );
 
+  // KAN-886. Unread, Back is dimmed but not yet known to have nowhere to go: no reason shown.
+  test('before its plan is read: the plain tooltip, not the reason', async () => {
+    await renderPane('full');
+    expect(back()).toHaveAttribute('data-tooltip', 'Back to your tab');
+  });
+
   test('a recorded tab to go back to: enabled, and a click sends one message', async () => {
     const { chrome } = await renderPane('compact', {
       sessionArea: {

@@ -11,7 +11,8 @@ import {
 } from './fixtures/seed';
 
 // KAN-886. In a window holding only Tab Keeper, Add current window dims, says
-// why, and follows the window's tabs; the row menu leaves Add out.
+// why, and follows the window's tabs; the row menu leaves Add out. Back to your
+// tab, dimmed with nowhere to go, says why too.
 const ADD = 'Add current window';
 const NOTHING = 'Nothing to add: only Tab Keeper is open in this window';
 
@@ -153,7 +154,7 @@ test('the row right-click menu leaves Add current window out while dimmed', asyn
   ).toHaveCount(0);
 });
 
-test('the popup page beside the full view, both alone in a window: still dimmed', async ({
+test('a second Tab Keeper page in the same window: still dimmed', async ({
   context,
   serviceWorker,
   extensionId,
@@ -180,5 +181,29 @@ test('the popup page beside the full view, both alone in a window: still dimmed'
   await expect(popup.getByRole('button', { name: ADD })).toHaveAttribute(
     'aria-disabled',
     'true'
+  );
+});
+
+test('Back to your tab, dimmed with nowhere to go, shows why on hover', async ({
+  context,
+  serviceWorker,
+  extensionId,
+}) => {
+  await seed(context);
+  const url = `chrome-extension://${extensionId}/${FULL_VIEW_PATH}`;
+  const [page] = await Promise.all([
+    context.waitForEvent('page', (p) => p.url() === url),
+    serviceWorker.evaluate(
+      (address) => chrome.windows.create({ url: address, focused: true }),
+      url
+    ),
+  ]);
+  await page.setViewportSize(FULL);
+  // Currently open's chip: its own label hid the plain tooltip, so the reason is the only one it shows.
+  const back = page.getByRole('button', { name: 'Back to your tab' }).last();
+  await expect(back).toHaveAttribute('aria-disabled', 'true');
+  await back.hover();
+  await expect(page.locator('[data-tooltip-chip]')).toHaveText(
+    'Nowhere to go back to: only Tab Keeper is open in this window'
   );
 });
