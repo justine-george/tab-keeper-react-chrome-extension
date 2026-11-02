@@ -724,17 +724,22 @@ declare global {
   }
 }
 
-// From now until a fill has come and gone (and 300ms more), or 6s: every
-// frame's scroll, the window's rows and bands, and the fill. `pause` stops
-// the fill's animation the moment it is in the page; `nudge` scrolls the
-// list 10px back up with a wheel, as a user would, once it has glided past 10px.
+// From now until a fill has come and gone (and 300ms more), or `forMs`
+// (6s): every frame's scroll, the window's rows and bands, and the fill.
+// `pause` stops the fill's animation the moment it is in the page; `nudge`
+// scrolls the list 10px back up with a wheel, as a user would, once it has
+// glided past 10px.
 async function recordArrival(
   page: Page,
   windowId: number,
-  { pause = false, nudge = false }: { pause?: boolean; nudge?: boolean } = {}
+  {
+    pause = false,
+    nudge = false,
+    forMs = 6000,
+  }: { pause?: boolean; nudge?: boolean; forMs?: number } = {}
 ): Promise<void> {
   await page.evaluate(
-    ({ windowId, scroller, pause, nudge }) => {
+    ({ windowId, scroller, pause, nudge, forMs }) => {
       const log: ArrivalLog = {
         frames: [],
         added: [],
@@ -811,7 +816,7 @@ async function recordArrival(
             : null,
         });
         const gone = log.removed[log.removed.length - 1];
-        if ((gone !== undefined && now - gone > 300) || now - start > 6000) {
+        if ((gone !== undefined && now - gone > 300) || now - start > forMs) {
           watch.disconnect();
           log.done = true;
           return;
@@ -820,7 +825,7 @@ async function recordArrival(
       };
       requestAnimationFrame(tick);
     },
-    { windowId, scroller: SCROLLER, pause, nudge }
+    { windowId, scroller: SCROLLER, pause, nudge, forMs }
   );
 }
 
@@ -1324,8 +1329,9 @@ test('the fill waits for rows Open now has not drawn yet, and gives up after 2s'
   expect(waited.removed).toHaveLength(1);
 
   // 2. Still not listed 2s after the answer: nothing shows, then or later.
+  // Recorded long enough to outlast a slow runner's drop and wait.
   await holdReads();
-  await recordArrival(page, live.windowId);
+  await recordArrival(page, live.windowId, { forMs: 30_000 });
   await dropOn();
   await expect.poll(answers, SETTLE).toBe(2);
   // PREMISE: answered and not listed.
@@ -1333,11 +1339,19 @@ test('the fill waits for rows Open now has not drawn yet, and gives up after 2s'
   await expect(rows).toHaveCount(6);
   // The 2s the fill waits for, and a margin: the subject is the wait.
   await page.waitForTimeout(2300);
+  // PREMISE: the recorder is still watching, so a fill can't come and go unseen.
+  expect(await page.evaluate(() => window.__arrival?.done)).toBe(false);
   await releaseReads();
   await expect(rows).toHaveCount(10);
-  // A fill for these rows would be in the page with them, in the same commit.
-  expect(await page.evaluate(() => window.__arrival?.added.length)).toBe(0);
-  await expect(page.locator('[data-arrival]')).toHaveCount(0);
+  // A fill for these rows would be in the page with them, in the same
+  // commit: read once, not retried until a wrong one fades.
+  expect(
+    await page.evaluate(() => ({
+      recorded: window.__arrival?.added.length,
+      inPage: document.querySelectorAll('[data-arrival]').length,
+      watching: window.__arrival?.done === false,
+    }))
+  ).toEqual({ recorded: 0, inPage: 0, watching: true });
 });
 
 // R14. With no fill, a window block is no layer of its own: a folded

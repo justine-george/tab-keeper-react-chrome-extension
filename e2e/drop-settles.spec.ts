@@ -1238,9 +1238,9 @@ grantedTest.describe('carried into Currently open (KAN-850)', () => {
     }
   );
 
-  // KAN-892 D (Ruling R6). The worker adds the saved window's tabs at the
-  // window's end, as Tab Keeper's own move: the rows already listed hold
-  // still while the new ones are drawn below them.
+  // KAN-892 D (Ruling R12). The worker adds the saved window's tabs at the
+  // window's end, so the rows already listed hold still while the new ones
+  // are drawn below them: the end does it, not whileMovingTabs.
   grantedTest(
     'a saved window let go on an open window: the rows already there stay put while its tabs arrive',
     async ({ context, extensionId, serviceWorker: worker }) => {
