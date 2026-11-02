@@ -437,3 +437,80 @@ test.describe('during the tour', () => {
     ).toBeGreaterThan(0);
   });
 });
+
+// KAN-889. Folded away, a click on a saved session's row shows it with the
+// same slide as Show the saved session; side by side, a row click moves nothing.
+test.describe('a click on a saved session row', () => {
+  async function seedTwo(context: BrowserContext, folded: boolean) {
+    await recordTransitions(context);
+    await seedSessions(context, {
+      ...buildContainer([
+        {
+          ...buildSession({ tabGroupId: 'S1', title: 'Q4 product roadmap' }),
+          isSelected: true,
+        },
+        buildSession({ tabGroupId: 'S2', title: 'Weekend in Kyoto' }),
+      ]),
+      selectedTabGroupId: 'S1',
+    });
+    await seedSettings(context, {
+      foldSavedSessionInTabView: folded,
+      foldOpenNowInTabView: false,
+    });
+  }
+  const row = (page: Page, id: string) =>
+    page.locator(`[data-pane="sessions"] [data-drag-row-id="${id}"]`);
+
+  test('folded: another session slides in as the Show button does', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedTwo(context, true);
+    const page = await open(context, extensionId);
+    const run = await press(page, () =>
+      row(page, 'S2').click({ position: { x: 40, y: 12 } })
+    );
+    expect(run).toMatchObject({
+      move: 'saved',
+      dir: 'unfold',
+      ready: 'started',
+    });
+    await expect(page.locator('[data-pane="detail"]')).toContainText(
+      'Weekend in Kyoto'
+    );
+  });
+
+  test('folded: the selected session slides in too', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedTwo(context, true);
+    const page = await open(context, extensionId);
+    const run = await press(page, () =>
+      row(page, 'S1').click({ position: { x: 40, y: 12 } })
+    );
+    expect(run).toMatchObject({
+      move: 'saved',
+      dir: 'unfold',
+      ready: 'started',
+    });
+    await expect(page.locator('[data-pane="detail"]')).toContainText(
+      'Q4 product roadmap'
+    );
+  });
+
+  test('side by side: a row click starts no slide', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedTwo(context, false);
+    const page = await open(context, extensionId);
+    const before = (await runs(page)).length;
+    await row(page, 'S2').click({ position: { x: 40, y: 12 } });
+    await expect(page.locator('[data-pane="detail"]')).toContainText(
+      'Weekend in Kyoto'
+    );
+    await page.waitForTimeout(350);
+    expect((await runs(page)).length).toBe(before);
+  });
+});

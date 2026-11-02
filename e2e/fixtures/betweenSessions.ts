@@ -164,6 +164,10 @@ export async function openTabView(
   );
   await row.click(ON_TITLE);
   await expect(page.locator('[data-drag-row-id="w1"]')).toBeVisible();
+  // KAN-889. Folded, the click slides the detail in; a press during the slide lands on its pictures.
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.dataset.paneMove))
+    .toBeUndefined();
   return page;
 }
 
