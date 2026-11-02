@@ -6,8 +6,8 @@ import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 
 // KAN-888. A scrollbar running into a rounded panel corner painted its track
 // over the curve, so the corner looked cut off. Each corner a scrollbar meets
-// must look like its mirror on the side without one, with the thumb parked
-// at that end.
+// must look the same with the bar as without it, with the thumb parked at
+// that end.
 test.use({ showScrollbars: true });
 
 interface Hit {
@@ -76,60 +76,76 @@ const scrollersMeetingCorners = (page: Page): Promise<Hit[]> =>
     return hits;
   });
 
-// Pixels where the corner at the scrollbar's side differs from the other side's
-// corner, mirrored. One screenshot; a channel may move by `tolerance`.
-async function cornerVersusMirror(page: Page, hit: Hit, tolerance = 24) {
-  await page
-    .locator(`[data-zz-scroller="${hit.scroller}"]`)
-    .evaluate((el, end) => {
+// The scrollbar side's corner, scrolled to `hit.end`, with and without that
+// scroller's bar (clipped away for the second shot, so the backdrop and the
+// border are the same). Pixels that differ in the corner's outer triangle:
+// the border's curve and what lies outside it, which content never reaches.
+async function cornerWithAndWithoutBar(page: Page, hit: Hit, tolerance = 24) {
+  const scroller = page.locator(`[data-zz-scroller="${hit.scroller}"]`);
+  const toEnd = () =>
+    scroller.evaluate((el, end) => {
       el.scrollTop = end === 'top' ? 0 : el.scrollHeight;
     }, hit.end);
+  await toEnd();
   await page.waitForTimeout(150);
-  const png = (await page.screenshot()).toString('base64');
+  const withBar = await page.screenshot();
+  // Without the bar: clipped instead of scrolled, so the box, its border and its place stay put.
+  await scroller.evaluate((el) => {
+    el.style.overflow = 'hidden';
+  });
+  await toEnd();
+  await page.waitForTimeout(150);
+  const withoutBar = await page.screenshot();
+  await scroller.evaluate((el) => {
+    el.style.overflow = '';
+  });
   return page.evaluate(
-    async ({ png, hit, tolerance }) => {
-      const img = new Image();
-      img.src = `data:image/png;base64,${png}`;
-      await img.decode();
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) throw new Error('no 2d context');
-      ctx.drawImage(img, 0, 0);
-      const scale = img.width / window.innerWidth;
-      const n = Math.round(hit.radius * scale);
-      const y0 =
-        Math.round(
-          (hit.end === 'top' ? hit.box.y : hit.box.y + hit.box.height) * scale
-        ) - (hit.end === 'top' ? 0 : n);
-      const left = ctx.getImageData(
-        Math.round(hit.box.x * scale),
-        y0,
-        n,
-        n
-      ).data;
-      const right = ctx.getImageData(
-        Math.round((hit.box.x + hit.box.width) * scale) - n,
-        y0,
-        n,
-        n
-      ).data;
+    async ({ a, b, hit, tolerance }) => {
+      const read = async (png: string) => {
+        const img = new Image();
+        img.src = `data:image/png;base64,${png}`;
+        await img.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) throw new Error('no 2d context');
+        ctx.drawImage(img, 0, 0);
+        const scale = img.width / window.innerWidth;
+        const n = Math.round(hit.radius * scale);
+        const x0 = Math.round((hit.box.x + hit.box.width) * scale) - n;
+        const y0 =
+          Math.round(
+            (hit.end === 'top' ? hit.box.y : hit.box.y + hit.box.height) * scale
+          ) - (hit.end === 'top' ? 0 : n);
+        return { data: ctx.getImageData(x0, y0, n, n).data, n };
+      };
+      const first = await read(a);
+      const second = await read(b);
+      const n = first.n;
       let differing = 0;
       for (let y = 0; y < n; y++)
         for (let x = 0; x < n; x++) {
-          const a = (y * n + x) * 4;
-          const b = (y * n + (n - 1 - x)) * 4;
+          const dx = n - 1 - x;
+          const dy = hit.end === 'top' ? y : n - 1 - y;
+          if (dx + dy >= n) continue;
+          const i = (y * n + x) * 4;
           if (
             [0, 1, 2].some(
-              (c) => Math.abs(left[a + c] - right[b + c]) > tolerance
+              (c) =>
+                Math.abs(first.data[i + c] - second.data[i + c]) > tolerance
             )
           )
             differing++;
         }
       return differing;
     },
-    { png, hit, tolerance }
+    {
+      a: withBar.toString('base64'),
+      b: withoutBar.toString('base64'),
+      hit,
+      tolerance,
+    }
   );
 }
 
@@ -139,9 +155,10 @@ async function expectCornersIntact(page: Page, where: string, atLeast: number) {
   expect(hits.length, `${where}: corners met`).toBeGreaterThanOrEqual(atLeast);
   for (const hit of hits)
     expect(
-      await cornerVersusMirror(page, hit),
-      `${where}: scroller ${hit.scroller} ${hit.end}-right corner vs its mirror`
-    ).toBeLessThanOrEqual(2);
+      await cornerWithAndWithoutBar(page, hit),
+      `${where}: scroller ${hit.scroller} ${hit.end}-right corner, with vs without its bar (box ${JSON.stringify(hit.box)} r${hit.radius})`
+      // Anti-aliasing along the curve moves a few pixels; the defect measured 44 to 77.
+    ).toBeLessThanOrEqual(4);
 }
 
 async function seed(
