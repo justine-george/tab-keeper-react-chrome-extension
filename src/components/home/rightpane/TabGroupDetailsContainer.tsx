@@ -294,9 +294,10 @@ export default function TabGroupDetailsContainer() {
     title,
     tabs,
     chromeTabGroups,
+    incognito,
   }: Pick<
     windowGroupData,
-    'windowId' | 'title' | 'tabs' | 'chromeTabGroups'
+    'windowId' | 'title' | 'tabs' | 'chromeTabGroups' | 'incognito'
   >) => (
     <WindowEntryContainer
       title={title}
@@ -306,6 +307,7 @@ export default function TabGroupDetailsContainer() {
       chromeTabGroups={chromeTabGroups}
       tabGroupId={tabGroupId}
       windowId={windowId}
+      incognito={incognito}
       onUpdateWindowGroupTitle={(newTitle) =>
         handleUpdateWindowGroupTitle(tabGroupId, windowId, newTitle)
       }

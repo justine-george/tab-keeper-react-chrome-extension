@@ -8,6 +8,7 @@ import HeroContainerRight from '../../components/home/rightpane/HeroContainerRig
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import {
   otherWay,
+  savedWindowOpenWays,
   sessionMenuOpenLabelKey,
   sessionOpenLabelKey,
   windowOpenLabelKey,
@@ -103,6 +104,21 @@ describe('openWhere', () => {
       'Open session in this window'
     );
   });
+
+  test('a saved window opening apart: new window either way, no other way', () => {
+    expect(savedWindowOpenWays('this-window', true)).toEqual({
+      open: 'new-window',
+      other: null,
+    });
+    expect(savedWindowOpenWays('new-window', true)).toEqual({
+      open: 'new-window',
+      other: null,
+    });
+    expect(savedWindowOpenWays('this-window', false)).toEqual({
+      open: 'this-window',
+      other: 'new-window',
+    });
+  });
 });
 
 describe('a saved window', () => {
@@ -180,6 +196,105 @@ describe('a saved window', () => {
     fireEvent.click(actionRowOpen());
     const [arg] = argsOf(actions, 'global/openTabsInAWindow/pending');
     expect(arg).toEqual(expect.objectContaining({ where: undefined }));
+  });
+});
+
+// Spec 7. A saved window of the other kind than this window opens in its own
+// new window whichever way is picked: Open says new window, and no other way is offered.
+describe('a saved window of the other kind than this window', () => {
+  const incognitoSaved = buildSession({
+    tabGroupId: 'S1',
+    title: 'Trip',
+    windows: S1.windows.map((w) => ({ ...w, incognito: true as const })),
+  });
+  const render = (
+    where: OpenSavedWindowsIn,
+    seed: ChromeSeed,
+    session = incognitoSaved
+  ) =>
+    renderWithProviders(<MainContainer />, {
+      seed,
+      seedStore: (store) => {
+        store.dispatch(replaceState(buildContainer([session])));
+        store.dispatch(selectTabContainer('S1'));
+        store.dispatch(setOpenSavedWindowsIn(where));
+      },
+    });
+  // Past the reads of this window and the incognito allowance.
+  const settle = () =>
+    act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  const allowed = { ...SEED, incognitoAllowed: true };
+  const block = () => {
+    const found = document.querySelector<HTMLElement>('[data-drop-window-id]');
+    if (!found) throw new Error('no window block');
+    return found;
+  };
+  const openButton = () =>
+    within(block()).getByRole('button', {
+      name: /^Open in (new|this) window: /,
+    });
+  const kebabMenu = async () => {
+    const own = within(block())
+      .queryAllByRole('button', { name: 'More actions' })
+      .filter((b) => !b.closest('[role="group"]'));
+    expect(own).toHaveLength(1);
+    await userEvent.setup().click(own[0]);
+    return screen.getByRole('menu');
+  };
+
+  test.each(['this-window', 'new-window'] as const)(
+    'an incognito saved window, this window normal, allowed in incognito, %s chosen: Open says new window, and no other way is offered',
+    async (where) => {
+      await render(where, allowed);
+      await settle();
+
+      expect(openButton()).toHaveAccessibleName(
+        'Open in new window: Morning reading'
+      );
+      expect(openButton()).toHaveAttribute(
+        'data-tooltip',
+        'Open in new window'
+      );
+      expect(listKeys(await kebabMenu())).not.toContain(OTHER_WAY);
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+
+      const row = block().querySelector<HTMLElement>(
+        '[data-window-drag-handle]'
+      );
+      if (!row) throw new Error('no window row');
+      fireEvent.contextMenu(row);
+      expect(actionRowOpen()).toHaveAttribute(
+        'aria-description',
+        'Open in new window'
+      );
+      expect(listKeys(rowMenu())).not.toContain(OTHER_WAY);
+    }
+  );
+
+  test('a normal saved window, this window incognito, allowed: the same', async () => {
+    await render(
+      'this-window',
+      {
+        ...allowed,
+        windows: SEED.windows?.map((w) => ({ ...w, incognito: true })),
+      },
+      S1
+    );
+    await settle();
+
+    expect(openButton()).toHaveAttribute('data-tooltip', 'Open in new window');
+    expect(listKeys(await kebabMenu())).not.toContain(OTHER_WAY);
+  });
+
+  // Not allowed, a window saved incognito opens normal: here, as chosen.
+  test('not allowed in incognito: it is this window’s kind, so Open says this window and the ⋮ offers new window', async () => {
+    await render('this-window', SEED);
+    await settle();
+
+    expect(openButton()).toHaveAttribute('data-tooltip', 'Open in this window');
+    expectOtherWayFirst(await kebabMenu(), 'Open in new window');
   });
 });
 

@@ -11,6 +11,7 @@ import { expect } from './fixtures/extension';
 import { standIn } from './fixtures/standInPages';
 import { openLiveWindow, strip } from './fixtures/liveWindows';
 import { header, openSaved, session } from './fixtures/savedWindows';
+import { allowInIncognito } from './fixtures/incognito';
 import {
   buildContainer,
   buildSession,
@@ -419,5 +420,58 @@ test.describe('Open saved windows: This window (KAN-892)', () => {
       .toEqual(['A', 'X1', 'Y1']);
     expect(await titles(serviceWorker, helperWindow)).toEqual(helperBefore);
     expect(await normalWindowIds(serviceWorker)).toEqual(windowsBefore);
+  });
+
+  // Spec 7. Allowed in incognito, a window saved incognito opens in its own
+  // new window from this normal one: Open says so, and no other way is offered.
+  test('an incognito saved window from a normal window: Open says new window, the right-click offers no other way, and Open makes a new window', async ({
+    context,
+    extensionId,
+  }) => {
+    const worker = await allowInIncognito(context, extensionId);
+    const page = await openSaved(context, extensionId, 'tab view', {
+      sessions: [
+        session('S1', 'Trip', [
+          savedWindowOf('w1', 'Reading', [tab('I1'), tab('I2')], {
+            incognito: true,
+          }),
+        ]),
+      ],
+      settings: THIS_WINDOW,
+    });
+    const here = await ownWindow(page);
+    const before = await titles(worker, here);
+    const windowsBefore = await normalWindowIds(worker);
+
+    const open = page.getByRole('button', {
+      name: 'Open in new window: Reading',
+      exact: true,
+    });
+    await expect(open).toHaveAttribute('data-tooltip', 'Open in new window');
+    await header(page, 'w1').click({ button: 'right' });
+    const menu = page.locator('[data-row-menu]');
+    await expect(menu).toBeVisible();
+    await expect(menu.locator('[data-menu-item="openOtherWay"]')).toHaveCount(
+      0
+    );
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+
+    await open.click();
+    await expect
+      .poll(async () => (await normalWindowIds(worker)).length, SETTLE)
+      .toBe(windowsBefore.length + 1);
+    const made = (await normalWindowIds(worker)).find(
+      (id) => !windowsBefore.includes(id)
+    );
+    if (made === undefined) throw new Error('no new window');
+    expect(
+      await worker.evaluate(
+        async (id: number) => (await chrome.windows.get(id)).incognito,
+        made
+      )
+    ).toBe(true);
+    await expect.poll(() => titles(worker, made), SETTLE).toEqual(['I1', 'I2']);
+    expect(await titles(worker, here)).toEqual(before);
   });
 });

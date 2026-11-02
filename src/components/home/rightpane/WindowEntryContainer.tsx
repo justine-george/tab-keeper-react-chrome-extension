@@ -27,7 +27,13 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import type { OpenSavedWindowsIn } from '../../../redux/slices/settingsDataStateSlice';
-import { openWayIcon, otherWay, windowOpenLabelKey } from '../openWhere';
+import {
+  openWayIcon,
+  savedWindowOpenWays,
+  windowOpenLabelKey,
+} from '../openWhere';
+import { useThisWindowKind } from '../useThisWindowKind';
+import { effectiveIncognito } from '../../../utils/functions/openIntoWindow';
 import { useMacKeys } from '../../../hooks/useIsMac';
 import { useOpenCopyAddresses } from './openCopies';
 import {
@@ -148,6 +154,8 @@ interface WindowEntryContainerProps {
   chromeTabGroups?: chromeTabGroupData[];
   tabGroupId: string;
   windowId: string;
+  // KAN-460 Part 3. Saved from an incognito window.
+  incognito?: true;
   // KAN-892. `where` is the ⋮ menu's other way; absent, Open saved windows decides.
   onOpenWindow: (where?: OpenSavedWindowsIn) => void;
   onUpdateWindowGroupTitle: (newTitle: string) => void;
@@ -162,6 +170,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   chromeTabGroups,
   tabGroupId,
   windowId,
+  incognito,
   onOpenWindow,
   onUpdateWindowGroupTitle,
   onAddCurrTabToWindowClick,
@@ -223,8 +232,15 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const openSavedWindowsIn = useSelector(
     (state: RootState) => state.settingsDataState.openSavedWindowsIn
   );
-  const openLabel = t(windowOpenLabelKey(openSavedWindowsIn));
-  const otherOpenWay = otherWay(openSavedWindowsIn);
+  const thisWindow = useThisWindowKind();
+  const openWays = savedWindowOpenWays(
+    openSavedWindowsIn,
+    thisWindow !== null &&
+      effectiveIncognito(incognito, thisWindow.incognitoAllowed) !==
+        thisWindow.incognito
+  );
+  const openLabel = t(windowOpenLabelKey(openWays.open));
+  const otherOpenWay = openWays.other;
   const [newTitle, setNewTitle] = useState(title);
   const [isEditing, setIsEditing] = useState(false);
   // Set by Esc, so a blur dispatched before the editor unmounts cannot commit (D13).
@@ -328,7 +344,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // KAN-708. The window's items: the one source for its ⋮ and its right-click menu.
   const savedWindowMenuItems: OverflowMenuItem[] = [
     // KAN-892. First under the buttons. The menu has no dimmed item, so the tour leaves it out, as a saved tab's Open.
-    ...(isOpenBlocked
+    ...(isOpenBlocked || otherOpenWay === null
       ? []
       : [
           {

@@ -7,6 +7,17 @@ import type { IconName } from '../common/iconNames';
 export const otherWay = (w: OpenSavedWindowsIn): OpenSavedWindowsIn =>
   w === 'this-window' ? 'new-window' : 'this-window';
 
+// Spec 7. A saved window of the other kind than this window opens in its
+// own new window whichever way is picked: Open says so, and no other way is
+// offered. `opensApart` is false while the kinds are unknown.
+export const savedWindowOpenWays = (
+  chosen: OpenSavedWindowsIn,
+  opensApart: boolean
+): { open: OpenSavedWindowsIn; other: OpenSavedWindowsIn | null } =>
+  opensApart
+    ? { open: 'new-window', other: null }
+    : { open: chosen, other: otherWay(chosen) };
+
 export const windowOpenLabelKey = (
   w: OpenSavedWindowsIn
 ): 'Open in new window' | 'Open in this window' =>
