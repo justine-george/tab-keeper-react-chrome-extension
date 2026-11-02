@@ -56,7 +56,7 @@ import { NEW_LAST_WINDOW } from './newWindowTarget';
 import type { windowGroupData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { onRevealSavedWindow } from './revealSavedWindow';
 import { windowNumbers } from '../../../utils/functions/windowLabel';
-import { corners } from '../../../styles/corners';
+import { corners, trackClearOfCorners } from '../../../styles/corners';
 import { RADIUS } from '../../../styles/scale';
 import { ROW_GUTTER_PX } from '../../../styles/rowHighlight';
 import { useScrollbarWidthVar } from '../../../hooks/useScrollbarWidthVar';
@@ -327,6 +327,8 @@ export default function TabGroupDetailsContainer() {
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
     ${corners(RADIUS.PANEL)}
     overflow: auto;
+    /* KAN-888. This box is the panel: its bar meets both of its corners. */
+    ${trackClearOfCorners(RADIUS.PANEL, ['top', 'bottom'])}
     user-select: none;
   `;
 

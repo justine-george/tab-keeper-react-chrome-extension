@@ -26,3 +26,18 @@ export const flushIn = (
       touching.includes(c) ? RADIUS.PANEL_INNER : elsewhere
     ).join(' ')
   );
+
+export type ScrollEnd = 'top' | 'bottom';
+
+/**
+ * KAN-888. For a scroller whose bar's `ends` meet a rounded corner of
+ * `radius` (its own, or the panel it fills): the track, and so the thumb,
+ * stops that far short of the end instead of painting over the curve.
+ */
+export const trackClearOfCorners = (
+  radius: string,
+  ends: readonly ScrollEnd[]
+): string =>
+  `&::-webkit-scrollbar-track { ${ends
+    .map((end) => `margin-${end}: ${radius};`)
+    .join(' ')} }`;

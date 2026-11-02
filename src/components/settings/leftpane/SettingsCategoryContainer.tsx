@@ -14,7 +14,7 @@ import {
   selectCategory,
 } from '../../../redux/slices/settingsCategoryStateSlice';
 import { useTranslation } from 'react-i18next';
-import { corners } from '../../../styles/corners';
+import { corners, trackClearOfCorners } from '../../../styles/corners';
 import {
   ROW_GUTTER_END,
   ROW_GUTTER_PX,
@@ -73,6 +73,8 @@ const SettingsCategoryContainer: React.FC = () => {
     margin: 10px 0 8px 0;
     /* No scrollbar-gutter (KAN-807): it drew an empty strip beside every row. The column keeps its 10px. */
     overflow: auto;
+    /* KAN-888. This box is the panel: its bar meets both of its corners. */
+    ${trackClearOfCorners(RADIUS.PANEL, ['top', 'bottom'])}
     user-select: none;
   `;
 
