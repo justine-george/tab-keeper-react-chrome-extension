@@ -3180,7 +3180,8 @@ export const tabContainerDataStateSlice = createSlice({
           if (arriving === undefined) {
             landed = false;
           } else {
-            forgetMissingActiveTab(arriving);
+            // Only a leave-out can strip the active tab; Off keeps the window as it was.
+            if (targetUrls !== null) forgetMissingActiveTab(arriving);
             landWindowIn(target, arriving, move.to.toIndex, remint);
           }
         } else {

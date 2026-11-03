@@ -860,6 +860,27 @@ describe('skipDuplicates in the payload', () => {
     expect(tabIds(windowIn(next, 'S2', 'd1'))).toEqual(['u1', 't1']);
   });
 
+  it('absent: a window moved whole keeps a stale activeTabId, as before', () => {
+    const stale = { ...win('w9', [tab('t9')]), activeTabId: 'gone' };
+    const next = moved(
+      seeded(
+        container([
+          s3(),
+          s2(),
+          session('S1', 'Source', T0 - 3_600_000, [
+            stale,
+            win('w8', [tab('t8')]),
+          ]),
+        ])
+      ),
+      {
+        carried: { kind: 'window', tabGroupId: 'S1', windowId: 'w9' },
+        to: { tabGroupId: 'S2', toIndex: 0 },
+      }
+    );
+    expect(windowIn(next, 'S2', 'w9').activeTabId).toBe('gone');
+  });
+
   it('set: the tab leaves the source, lands nowhere, and only the source is stamped', () => {
     const before = hasT1();
     const next = reducer(before, moveToSessionInternal(T1_TO_D1, NS, T0, true));
