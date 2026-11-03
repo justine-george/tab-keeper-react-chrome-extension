@@ -174,9 +174,16 @@ export const openCarriedCopy =
         })
       );
     // Every page was there: the open copies light up and the drop is done.
-    const sayAlreadyOpen = (windowId: number, ids: number[], text: string) => {
+    const sayAlreadyOpen = (windowId: number, ids: number[]) => {
       announceArrival(windowId, ids);
-      dispatch(showToast({ toastText: text }));
+      dispatch(
+        showToast({
+          toastText:
+            ids.length === 1
+              ? TOAST_MESSAGES.THIS_WINDOW_ALREADY_HAS_THIS_TAB
+              : TOAST_MESSAGES.THIS_WINDOW_ALREADY_HAS_THESE_TABS,
+        })
+      );
     };
 
     let opened: Promise<Outcome>;
@@ -216,11 +223,7 @@ export const openCarriedCopy =
           // Every tab left out; fewer means the rest were refused.
           if (alreadyOpen.length === 0 || leftOut < window.tabs.length)
             return 'nothing';
-          sayAlreadyOpen(
-            place.windowId,
-            alreadyOpen,
-            TOAST_MESSAGES.THIS_WINDOW_ALREADY_HAS_THESE_TABS
-          );
+          sayAlreadyOpen(place.windowId, alreadyOpen);
           return 'alreadyOpen';
         }
       );
@@ -233,11 +236,7 @@ export const openCarriedCopy =
           ? openCopyOf(plain, await pagesOpenIn(place.slot.windowId))
           : undefined;
         if (copy !== undefined) {
-          sayAlreadyOpen(
-            place.slot.windowId,
-            [copy],
-            TOAST_MESSAGES.THIS_WINDOW_ALREADY_HAS_THIS_TAB
-          );
+          sayAlreadyOpen(place.slot.windowId, [copy]);
           return 'alreadyOpen';
         }
         return (await openTabCopy(plain, place.slot)) !== undefined
@@ -252,11 +251,7 @@ export const openCarriedCopy =
           ? leaveOutOpenTabs(found.tabs, await pagesOpenIn(place.slot.windowId))
           : { tabs: found.tabs, leftOut: 0, alreadyOpen: [] };
         if (rest.tabs.length === 0) {
-          sayAlreadyOpen(
-            place.slot.windowId,
-            rest.alreadyOpen,
-            TOAST_MESSAGES.THIS_WINDOW_ALREADY_HAS_THESE_TABS
-          );
+          sayAlreadyOpen(place.slot.windowId, rest.alreadyOpen);
           return 'alreadyOpen';
         }
         const ids = await openGroupCopy(

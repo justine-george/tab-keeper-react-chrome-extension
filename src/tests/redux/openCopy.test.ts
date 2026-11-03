@@ -747,6 +747,14 @@ describe('openCarriedCopy with Skip tabs already open', () => {
     made.store.dispatch(setSkipTabsAlreadyOpen(on));
     return made;
   };
+  // A saved window whose only tab is the group's first (A, in g1).
+  const readyOneTabOn = () => {
+    const w = unsplitGroup();
+    w.tabs = w.tabs.filter((tab) => tab.tabId === 'ga');
+    const made = ready(SESSION, w);
+    made.store.dispatch(setSkipTabsAlreadyOpen(true));
+    return made;
+  };
   const toasts = (store: ReturnType<typeof ready>['store']) =>
     store.getState().globalState.toasts.map((t) => ({
       text: t.text,
@@ -809,6 +817,20 @@ describe('openCarriedCopy with Skip tabs already open', () => {
         { text: 'This window already has these tabs.' },
       ]);
       expect(reviewAsks(actions)).toBe(0);
+    });
+
+    it('a one-tab window drop all open: "this tab" toast', async () => {
+      answerWith({ ids: [], leftOut: 1, alreadyOpen: [11] });
+      const { store } = readyOneTabOn();
+
+      await expect(
+        store.dispatch(openCarriedCopy(windowItem, drop, GO_TO))
+      ).resolves.toBe(true);
+
+      expect(heard).toEqual([{ windowId: 1, tabIds: [11] }]);
+      expect(toasts(store)).toMatchObject([
+        { text: 'This window already has this tab.' },
+      ]);
     });
   });
 
@@ -972,6 +994,23 @@ describe('openCarriedCopy with Skip tabs already open', () => {
         { text: 'This window already has these tabs.' },
       ]);
       expect(reviewAsks(actions)).toBe(0);
+    });
+
+    it('a one-tab group drop all open: "this tab" toast', async () => {
+      liveWith(A);
+      const { store } = readyOneTabOn();
+
+      await expect(
+        store.dispatch(
+          openCarriedCopy(groupItem, { kind: 'group', slot: groupSlot }, GO_TO)
+        )
+      ).resolves.toBe(true);
+
+      expect(handle?.createdTabs).toEqual([]);
+      expect(heard).toEqual([{ windowId: 1, tabIds: [11] }]);
+      expect(toasts(store)).toMatchObject([
+        { text: 'This window already has this tab.' },
+      ]);
     });
 
     it('group drop off: every tab opens', async () => {
