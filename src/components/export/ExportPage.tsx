@@ -586,13 +586,40 @@ export default function ExportPage({
   // After a click in the preview the keys go to the frame's document, where a
   // listener the page adds still hears them (measured with real keys).
   const frameDoc = useRef<Document | null>(null);
+  const explainInsteadOfOpening = useCallback(
+    (e: MouseEvent) => {
+      // The frame's own Element: an element from its document is not this page's.
+      const frame = frameDoc.current?.defaultView;
+      if (
+        frame &&
+        e.target instanceof frame.Element &&
+        e.target.closest('a[href]')
+      ) {
+        e.preventDefault();
+        dispatch(
+          showToast({ toastText: TOAST_MESSAGES.PREVIEW_LINKS_OPEN_FROM_PDF })
+        );
+      }
+    },
+    [dispatch]
+  );
   const listenInFrame = useCallback(
     (doc: Document | null) => {
       frameDoc.current?.removeEventListener('keydown', takeShortcut);
+      frameDoc.current?.removeEventListener('click', explainInsteadOfOpening);
+      frameDoc.current?.removeEventListener(
+        'auxclick',
+        explainInsteadOfOpening
+      );
       frameDoc.current = doc;
       doc?.addEventListener('keydown', takeShortcut);
+      // KAN-909. The file's links are for whoever opens the PDF: here a click
+      // opens nothing and says so ("Get the extension" loaded the Web Store
+      // into the frame, which refuses to be framed). The file is unchanged.
+      doc?.addEventListener('click', explainInsteadOfOpening);
+      doc?.addEventListener('auxclick', explainInsteadOfOpening);
     },
-    [takeShortcut]
+    [takeShortcut, explainInsteadOfOpening]
   );
   useEffect(() => () => listenInFrame(null), [listenInFrame]);
 
