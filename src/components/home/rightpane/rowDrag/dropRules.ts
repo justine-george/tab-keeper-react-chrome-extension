@@ -111,11 +111,22 @@ export interface DropTarget {
 // windows it is the LANDING window's block (KAN-132), so the answer can only
 // name something a release there could land in; for any other list it is the
 // list's own container.
+//
+// `closedUp` names a band the preview has removed (KAN-916): the bands after
+// it in its window are drawn `by` px higher, so they are hit there.
 export type ResolveDrop = (
   within: HTMLElement | null,
   x: number,
-  y: number
+  y: number,
+  closedUp?: ClosedUp
 ) => DropTarget;
+
+// A band the preview draws as gone, and how far everything after it in its
+// window closed up (KAN-916). `bandId` is the removed span's first fixed row.
+export interface ClosedUp {
+  bandId: string;
+  by: number;
+}
 
 // Which list is being dragged. Only the CSS cares, but it has to come from the
 // caller: the area itself has no idea what its rows represent, and that is
@@ -409,7 +420,8 @@ export interface RowDragAreaProps {
    *
    * Same arguments as landsBesideFixedRow, and asked in the same breath; the
    * two are different questions about the same release and either may be
-   * answered without the other. The DROP is unaffected.
+   * answered without the other. The drop is hit-tested where the span's
+   * window is DRAWN (KAN-916): rows and bands below it, closed up.
    */
   fixedRowsRemovedBy?: (
     rowId: string,
@@ -579,15 +591,26 @@ export interface DraggableRowProps {
 //
 // Windows pass no resolveDrop at all: a window has no membership, so its drop
 // rule really is just an index.
+//
+// KAN-916: with `closedUp`, the bands after the removed one in its window are
+// drawn `by` px higher, and are hit where they are drawn. The removed band
+// itself keeps its resting box, so a pointer there still puts the tab back.
 export function bandAt(
   container: HTMLElement | null,
   x: number,
-  y: number
+  y: number,
+  closedUp?: ClosedUp
 ): string | undefined {
   if (!container) return undefined;
+  let closedWindow: HTMLElement | null | undefined;
   for (const band of container.querySelectorAll<HTMLElement>(
     '[data-band-id]'
   )) {
+    const lift =
+      closedWindow !== undefined && windowOf(band) === closedWindow
+        ? (closedUp?.by ?? 0)
+        : 0;
+    if (band.dataset.bandId === closedUp?.bandId) closedWindow = windowOf(band);
     const r = band.getBoundingClientRect();
     // THE CONTENT BOX, not the border box (KAN-171). While a tab is being
     // dropped into a group, the band grows by one row's worth of padding so its
@@ -612,8 +635,8 @@ export function bandAt(
     if (
       x >= r.left &&
       x <= r.right &&
-      y >= r.top + grewBy &&
-      y <= r.bottom - padBottom
+      y + lift >= r.top + grewBy &&
+      y + lift <= r.bottom - padBottom
     ) {
       return band.dataset.bandId;
     }

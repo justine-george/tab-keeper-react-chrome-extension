@@ -58,6 +58,7 @@ import {
   windowBlockAt,
   windowBlocksIn,
   windowOf,
+  type ClosedUp,
   type DragKind,
   type DraggableRowProps,
   type RowDragAreaProps,
@@ -390,6 +391,13 @@ function summed(
     out[key] = (out[key] ?? 0) + shift;
   }
   return out;
+}
+
+// A band a release removes, as the hit test needs it (KAN-916): rows and
+// bands after slot `lastSlot` in `windowId` are drawn `by` px higher.
+interface ClosedSpan extends ClosedUp {
+  windowId: string | undefined;
+  lastSlot: number;
 }
 
 // Everything a live drag needs. One record per drag, made at the press or at
@@ -956,7 +964,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // perf note there. The caller computed it once, for this same move.
     const landingOf = (
       l: NonNullable<typeof live.current>,
-      block: HTMLElement | null
+      block: HTMLElement | null,
+      closed?: ClosedSpan
     ): Landing | undefined => {
       // On the session header's New window target (KAN-361 N1 B): a new
       // first window, whatever window block, row or pane edge is near. Asked
@@ -1037,7 +1046,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // the index is applied to. Counted across the pane it would include
       // every row of every window above (KAN-131, one level up).
       const others = rows.filter((r) => r.id !== l.rowId);
-      const passed = others.filter((r) => dropY > r.mid).length;
+      // KAN-916: a row below a removed band is drawn closed up, and hit there.
+      const liftOf = (r: Rect) =>
+        closed !== undefined &&
+        r.windowId === closed.windowId &&
+        (l.slotOfRow[r.index] ?? -1) > closed.lastSlot
+          ? closed.by
+          : 0;
+      const passed = others.filter((r) => dropY > r.mid - liftOf(r)).length;
 
       // Clamped HERE, in the one decision both the preview and the release
       // read (KAN-280), so the slot drawn is the slot committed. The range is
@@ -1075,12 +1091,85 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const targetOf = (
       l: NonNullable<typeof live.current>,
       block: HTMLElement | null,
-      landing: Landing | undefined
+      landing: Landing | undefined,
+      closed?: ClosedSpan
     ): string | undefined =>
       landing?.clamped === true || makesNewWindow(l, landing?.windowId)
         ? undefined
-        : resolveDrop?.(dropRoot(l, block), l.lastX + l.pressOffRowX, l.lastY)
-            ?.bandId;
+        : resolveDrop?.(
+            dropRoot(l, block),
+            l.lastX + l.pressOffRowX,
+            l.lastY,
+            closed && { bandId: closed.bandId, by: closed.by }
+          )?.bandId;
+
+    // The span of fixed rows a release at `landing` removes (KAN-169), as
+    // slots, with the room it frees. Undefined where nothing is removed.
+    const removedSpanOf = (
+      l: NonNullable<typeof live.current>,
+      landing: Landing | undefined,
+      target: string | undefined
+    ) => {
+      const removed =
+        landing === undefined
+          ? undefined
+          : fixedRowsRemovedBy?.(
+              l.rowId,
+              landing.index,
+              target,
+              landing.windowId
+            );
+      const first =
+        removed === undefined ? undefined : l.slotOfFixed.get(removed.first);
+      const last =
+        removed === undefined ? undefined : l.slotOfFixed.get(removed.last);
+      if (
+        removed === undefined ||
+        first === undefined ||
+        last === undefined ||
+        first > last
+      ) {
+        return undefined;
+      }
+      return {
+        bandId: removed.first,
+        first,
+        last,
+        freed: freedByRemoving(
+          l.slots,
+          first,
+          last,
+          l.height,
+          removed.gapKept,
+          l.listTops.get(l.slots[first]?.windowId)
+        ),
+      };
+    };
+
+    // Where a release lands and what on, as DRAWN (KAN-916). A release that
+    // removes a band closes the rows below it up, so it is decided again
+    // with those rows and bands where they are drawn. The removed band keeps
+    // its own box, so the second pass cannot land back in it: the answer
+    // depends on the pointer alone, never on the last preview.
+    const decide = (
+      l: NonNullable<typeof live.current>,
+      block: HTMLElement | null
+    ): { landing: Landing | undefined; target: string | undefined } => {
+      const resting = landingOf(l, block);
+      const restingTarget = targetOf(l, block, resting);
+      const span = removedSpanOf(l, resting, restingTarget);
+      if (span === undefined || span.freed === 0) {
+        return { landing: resting, target: restingTarget };
+      }
+      const closed: ClosedSpan = {
+        bandId: span.bandId,
+        windowId: l.slots[span.first]?.windowId,
+        lastSlot: span.last,
+        by: span.freed,
+      };
+      const landing = landingOf(l, block, closed);
+      return { landing, target: targetOf(l, block, landing, closed) };
+    };
 
     // KAN-379 D3. The collapsed window landed in, with the pointer on its title row.
     const dwellTarget = (
@@ -1146,7 +1235,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // is already its group's first member, the fallback still satisfies the
       // leaving rule, so a refused release drew a full membership-change
       // preview and promised a move that never came.
-      const landing = landingOf(l, block);
+      //
+      // `target` is what a release HERE would land ON, asked once and spent
+      // twice (KAN-164, KAN-166): the list is told when the answer changes,
+      // and the landing placeholder is corrected by whatever it implies.
+      // Asked on every move, because a drop can change more than an index --
+      // a tab released inside a group's band joins that group.
+      const { landing, target } = decide(l, block);
 
       // Which window a release here lands in, told to the list on change
       // only (KAN-350: a New window target lights up while it is the
@@ -1158,16 +1253,6 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       }
 
       dwellOn(l, dwellTarget(l, block, landing));
-
-      // What a release HERE would land ON, asked once and spent twice (KAN-164,
-      // KAN-166): the list is told when the answer changes, and the landing
-      // placeholder is corrected by whatever that target implies.
-      //
-      // Asked on every move rather than only at the drop, because a drop can
-      // change more than an index -- a tab released inside a group's band joins
-      // that group -- and the user cannot see a rule that is only consulted
-      // once the pointer is already up.
-      const target = targetOf(l, block, landing);
 
       // The whole preview in the list AS DRAWN, decided once (KAN-166). The
       // shifts, the frame and the landing slot all come off this one pair of
@@ -1194,43 +1279,19 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       //
       // Asked only where a release lands: a refused one changes nothing, and
       // must not preview a group vanishing (the KAN-172 lesson, again).
-      const removed =
-        landing === undefined
-          ? undefined
-          : fixedRowsRemovedBy?.(
-              l.rowId,
-              landing.index,
-              target,
-              landing.windowId
-            );
-      const spanFirst =
-        removed === undefined ? undefined : l.slotOfFixed.get(removed.first);
-      const spanLast =
-        removed === undefined ? undefined : l.slotOfFixed.get(removed.last);
+      const removedSpan = removedSpanOf(l, landing, target);
       const span =
-        removed !== undefined &&
-        spanFirst !== undefined &&
-        spanLast !== undefined &&
-        spanFirst <= spanLast
-          ? {
-              first: spanFirst,
-              last: spanLast,
-              freed: freedByRemoving(
-                l.slots,
-                spanFirst,
-                spanLast,
-                l.height,
-                removed.gapKept,
-                l.listTops.get(l.slots[spanFirst]?.windowId)
-              ),
+        removedSpan === undefined
+          ? undefined
+          : {
+              ...removedSpan,
               // Every fixed row in the span, for whoever draws them. The one
               // ROW in it is the held one, which is not drawn there anyway.
               keys: l.slots
-                .slice(spanFirst, spanLast + 1)
+                .slice(removedSpan.first, removedSpan.last + 1)
                 .map((s) => s.key)
                 .filter((key) => l.slotOfFixed.has(key)),
-            }
-          : undefined;
+            };
       const closingUp =
         span === undefined ? {} : removalShifts(l.slots, span.last, span.freed);
 
@@ -2135,14 +2196,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // value computed on an earlier move could describe a layout that no
       // longer exists by the time this runs.
       const block = landingBlock(l);
-      const landing = landingOf(l, block);
+      const { landing, target } = decide(l, block);
       if (landing === undefined) return undefined;
       return {
         // Window-local, in the window named beside it -- see Landing.
         toIndex: landing.index,
         toWindowId: landing.windowId,
-        // The same answer the preview drew and marked -- see targetOf.
-        dropTargetId: targetOf(l, block, landing),
+        // The same answer the preview drew and marked -- see decide.
+        dropTargetId: target,
       };
     };
 

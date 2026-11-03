@@ -190,16 +190,20 @@ const rowY = async (page: Page, id: string, fraction: number) => {
   const b = (await page.locator(`[data-drag-row-id="${id}"]`).boundingBox())!;
   return b.y + b.height * fraction;
 };
+// KAN-916. With its band gone, the rows below it are drawn `closedBy` higher
+// and hit there, so an aim at them subtracts it. The gone band keeps its own
+// box, so these aims sit below it: on the upper part of the row the tab lands
+// before.
+const drawnRowY = async (
+  page: Page,
+  id: string,
+  fraction: number,
+  closedBy: number
+) => (await rowY(page, id, fraction)) - closedBy;
 // Just above a band: outside it, in the lower part of the row over it, so the
 // index is unchanged and only the membership goes (KAN-168's case).
 const aboveBandY = async (page: Page, group: string) =>
   (await page.locator(`[data-band-id="${group}"]`).boundingBox())!.y - 6;
-const titleRowY = async (page: Page, group: string) => {
-  const b = (await page
-    .locator(`[data-band-id="${group}"] [data-group-drag-handle]`)
-    .boundingBox())!;
-  return b.y + b.height / 2;
-};
 
 // ---------------------------------------------------------------------------
 // The ticket's arrangement: a0 a1 a2 [Solo: s0] a3 a4.
@@ -485,7 +489,7 @@ test.describe('the preview predicts the drop', () => {
     const { tops: p, removed } = await previewOfDragging(
       page,
       's0',
-      await rowY(page, 'a3', 0.9)
+      await drawnRowY(page, 'a4', 0.4, 36)
     );
 
     expect(p.a3).toBe(LOOSE_TRUTH.leftDown.a3);
@@ -502,7 +506,7 @@ test.describe('the preview predicts the drop', () => {
     const { tops: p, removed } = await previewOfDragging(
       page,
       's0',
-      await titleRowY(page, 'beta')
+      await drawnRowY(page, 'b0', 0.25, 40)
     );
 
     expect(p['head:beta']).toBe(GROUP_BELOW_TRUTH.joined['head:beta']);
@@ -521,7 +525,7 @@ test.describe('the preview predicts the drop', () => {
     const { tops: p } = await previewOfDragging(
       page,
       's0',
-      await rowY(page, 'a1', 0.9)
+      await drawnRowY(page, 'a2', 0.25, 36)
     );
 
     expect(p.a1).toBe(LEADING_TRUTH.leftDown.a1);
@@ -537,7 +541,7 @@ test.describe('the preview predicts the drop', () => {
     const { tops: p } = await previewOfDragging(
       page,
       's0',
-      await rowY(page, 'a3', 0.9)
+      await drawnRowY(page, 'a4', 0.4, 40)
     );
 
     expect(p.a3).toBe(GROUP_ABOVE_TRUTH.leftDown.a3);

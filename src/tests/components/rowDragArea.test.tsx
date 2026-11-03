@@ -545,4 +545,57 @@ describe('bandAt', () => {
   test('no container resolves to no group rather than throwing', () => {
     expect(bandAt(null, 50, 30)).toBeUndefined();
   });
+
+  // KAN-916. `gone` at 10..50 is removed by the drop; `next` rests at 60..100
+  // and is drawn 40px higher, at 20..60.
+  describe('with a band closed up', () => {
+    const windowBlock = (id: string, bands: [string, number][]) => {
+      const block = document.createElement('div');
+      block.dataset.dropWindowId = id;
+      for (const [bandId, top] of bands) {
+        const band = document.createElement('div');
+        band.dataset.bandId = bandId;
+        band.getBoundingClientRect = () => box(top, 40, 0, 100);
+        block.appendChild(band);
+      }
+      return block;
+    };
+    const closedUp = { bandId: 'gone', by: 40 };
+
+    test('a band after it is hit where it is drawn, not where it rests', () => {
+      const root = windowBlock('w1', [
+        ['gone', 10],
+        ['next', 60],
+      ]);
+      expect(bandAt(root, 50, 55, closedUp)).toBe('next');
+      expect(bandAt(root, 50, 95, closedUp)).toBeUndefined();
+    });
+
+    test('the removed band keeps its own box, ahead of the band drawn over it', () => {
+      const root = windowBlock('w1', [
+        ['gone', 10],
+        ['next', 60],
+      ]);
+      expect(bandAt(root, 50, 30, closedUp)).toBe('gone');
+    });
+
+    test('a band above it is not moved', () => {
+      const root = windowBlock('w1', [
+        ['above', 0],
+        ['gone', 50],
+      ]);
+      expect(bandAt(root, 50, 45, closedUp)).toBeUndefined();
+      expect(bandAt(root, 50, 35, closedUp)).toBe('above');
+    });
+
+    test("another window's bands are not moved", () => {
+      const root = document.createElement('div');
+      root.append(
+        windowBlock('w1', [['gone', 10]]),
+        windowBlock('w2', [['other', 60]])
+      );
+      expect(bandAt(root, 50, 55, closedUp)).toBeUndefined();
+      expect(bandAt(root, 50, 95, closedUp)).toBe('other');
+    });
+  });
 });
