@@ -25,6 +25,8 @@ import {
   toWindowSpec,
   type windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { setSkipTabsAlreadyOpen } from '../../redux/slices/settingsDataStateSlice';
+import { TOAST_MESSAGES } from '../../utils/constants/common';
 import { subscribeArrival } from '../../utils/functions/arrival';
 import {
   isOpenIntoWindowRequest,
@@ -698,6 +700,298 @@ describe('openCarriedCopy', () => {
       expect(heard).toEqual([]);
       expect(ended).toBe(1);
       send.mockRestore();
+    });
+  });
+});
+
+// KAN-910. With Skip tabs already open on, a saved drop into an open window
+// leaves out pages the window has, says so, and lights the rows.
+describe('openCarriedCopy with Skip tabs already open', () => {
+  const A = 'https://a.example/';
+  const B = 'https://b.example/';
+  const TWO = 'https://two.example/';
+  const reviewAsks = (actions: { type: string }[]) =>
+    actions.filter((a) => a.type.endsWith('setPendingReviewAsk')).length;
+  const intoWindows = () =>
+    (handle?.sentMessages ?? []).filter(isOpenIntoWindowRequest);
+  const answerWith = (answer: unknown) =>
+    chrome.runtime.onMessage.addListener((message, _sender, respond) => {
+      if (!isOpenIntoWindowRequest(message)) return false;
+      respond(answer);
+      return true;
+    });
+  // Window 1 holds a tab per address, ids 11, 12, ...
+  const liveWith = (...urls: string[]) => {
+    handle?.restore();
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: urls.map((url, i) => ({ id: 11 + i, url, active: i === 0 })),
+        },
+      ],
+    });
+  };
+  // The group's two tabs unsplit: a split pair is left out only when both halves are open.
+  const unsplitGroup = () => {
+    const w = savedWindow();
+    w.tabs = w.tabs.map((tab) => {
+      const plain = { ...tab };
+      delete plain.splitId;
+      return plain;
+    });
+    return w;
+  };
+  const readyOn = (on: boolean) => {
+    const made = ready(SESSION, unsplitGroup());
+    made.store.dispatch(setSkipTabsAlreadyOpen(on));
+    return made;
+  };
+  const toasts = (store: ReturnType<typeof ready>['store']) =>
+    store.getState().globalState.toasts.map((t) => ({
+      text: t.text,
+      params: t.params,
+      leftOut: t.leftOut,
+    }));
+  const slot = { windowId: 1, index: 1, pinned: false };
+  const groupSlot = { windowId: 1, index: 1 };
+  let heard: { windowId: number; tabIds: number[] }[] = [];
+  let stopHearing = () => {};
+  beforeEach(() => {
+    heard = [];
+    stopHearing = subscribeArrival((a) => heard.push(a));
+  });
+  afterEach(() => stopHearing());
+
+  describe('a window into an open window', () => {
+    const drop = { kind: 'intoWindow', windowId: 1 } as const;
+
+    it('window drop off: today', async () => {
+      // Off, the worker leaves nothing out.
+      answerWith({ ids: [31], leftOut: 0, alreadyOpen: [] });
+      const { store } = readyOn(false);
+
+      await expect(
+        store.dispatch(openCarriedCopy(windowItem, drop, GO_TO))
+      ).resolves.toBe(true);
+
+      expect(intoWindows()[0].skipTabsAlreadyOpen).toBe(false);
+      expect(heard).toEqual([{ windowId: 1, tabIds: [31] }]);
+      expect(toasts(store)).toEqual([]);
+    });
+
+    it('window drop leaves some out: arrival on new ids + left-out toast', async () => {
+      answerWith({ ids: [31, 32], leftOut: 2, alreadyOpen: [11] });
+      const { store, actions } = readyOn(true);
+
+      await expect(
+        store.dispatch(openCarriedCopy(windowItem, drop, GO_TO))
+      ).resolves.toBe(true);
+
+      expect(intoWindows()[0].skipTabsAlreadyOpen).toBe(true);
+      expect(heard).toEqual([{ windowId: 1, tabIds: [31, 32] }]);
+      expect(toasts(store)).toMatchObject([
+        { text: TOAST_MESSAGES.DUPLICATE_TABS_LEFT_OUT, params: { count: 2 } },
+      ]);
+      expect(reviewAsks(actions)).toBe(1);
+    });
+
+    it('window drop all open: arrival on open copies + "these tabs" toast, resolves true, no review moment', async () => {
+      answerWith({ ids: [], leftOut: 5, alreadyOpen: [11, 12] });
+      const { store, actions } = readyOn(true);
+
+      await expect(
+        store.dispatch(openCarriedCopy(windowItem, drop, GO_TO))
+      ).resolves.toBe(true);
+
+      expect(heard).toEqual([{ windowId: 1, tabIds: [11, 12] }]);
+      expect(toasts(store)).toMatchObject([
+        { text: 'This window already has these tabs.' },
+      ]);
+      expect(reviewAsks(actions)).toBe(0);
+    });
+  });
+
+  describe('a tab at a slot', () => {
+    it('tab drop onto a window that has it: no create, arrival on the copy, "this tab" toast', async () => {
+      liveWith(A, TWO);
+      const { store, actions } = readyOn(true);
+
+      await expect(
+        store.dispatch(openCarriedCopy(tabItem(), { kind: 'tab', slot }, GO_TO))
+      ).resolves.toBe(true);
+
+      expect(handle?.createdTabs).toEqual([]);
+      expect(heard).toEqual([{ windowId: 1, tabIds: [12] }]);
+      expect(toasts(store)).toMatchObject([
+        { text: 'This window already has this tab.' },
+      ]);
+      expect(reviewAsks(actions)).toBe(0);
+    });
+
+    it('tab drop onto a window without it opens as today, no toast', async () => {
+      liveWith(A, B);
+      const { store } = readyOn(true);
+
+      await expect(
+        store.dispatch(openCarriedCopy(tabItem(), { kind: 'tab', slot }, GO_TO))
+      ).resolves.toBe(true);
+
+      expect(handle?.createdTabs).toHaveLength(1);
+      expect(toasts(store)).toEqual([]);
+    });
+
+    it('tab drop off: opens a second copy and asks Chrome for no tab list', async () => {
+      liveWith(A, TWO);
+      const { store } = readyOn(false);
+
+      await store.dispatch(
+        openCarriedCopy(tabItem(), { kind: 'tab', slot }, GO_TO)
+      );
+
+      expect(handle?.createdTabs).toHaveLength(1);
+      expect(handle?.tabsQueryCalls).toEqual([]);
+      expect(toasts(store)).toEqual([]);
+    });
+
+    it('a split half dropped alone is judged on its page', async () => {
+      liveWith(A, TWO);
+      const { store } = readyOn(true);
+
+      // t2 is half of the pair "sp": alone it opens plain, so its page counts.
+      await store.dispatch(
+        openCarriedCopy(tabItem('t2'), { kind: 'tab', slot }, GO_TO)
+      );
+
+      expect(handle?.createdTabs).toEqual([]);
+    });
+
+    it('a window closed mid-carry still refuses: false, no toast', async () => {
+      const { store } = readyOn(true);
+
+      await expect(
+        store.dispatch(
+          openCarriedCopy(
+            tabItem(),
+            { kind: 'tab', slot: { ...slot, windowId: 99 } },
+            GO_TO
+          )
+        )
+      ).resolves.toBe(false);
+
+      expect(toasts(store)).toEqual([]);
+    });
+  });
+
+  describe('a group at a slot', () => {
+    it('group drop partial: group of the rest + left-out toast', async () => {
+      liveWith(A, 'https://x.example/');
+      const { store, actions } = readyOn(true);
+
+      await expect(
+        store.dispatch(
+          openCarriedCopy(groupItem, { kind: 'group', slot: groupSlot }, GO_TO)
+        )
+      ).resolves.toBe(true);
+
+      expect(handle?.createdTabs.map((c) => c.url)).toEqual([B]);
+      await vi.waitFor(async () =>
+        expect((await chrome.tabGroups.query({})).map((g) => g.title)).toEqual([
+          'Work',
+        ])
+      );
+      expect(handle?.groupedTabs).toHaveLength(1);
+      expect(handle?.groupedTabs[0].tabIds).toHaveLength(1);
+      expect(toasts(store)).toMatchObject([
+        { text: TOAST_MESSAGES.DUPLICATE_TABS_LEFT_OUT, params: { count: 1 } },
+      ]);
+      expect(reviewAsks(actions)).toBe(1);
+    });
+
+    it('group drop leaves open copies in their own group', async () => {
+      liveWith(A, 'https://x.example/');
+      const moved: number[][] = [];
+      const note = (ids: number | number[]) => moved.push([ids].flat());
+      const group = vi.spyOn(chrome.tabs, 'group');
+      const ungroup = vi.spyOn(chrome.tabs, 'ungroup');
+      const move = vi.spyOn(chrome.tabs, 'move');
+      const { store } = readyOn(true);
+
+      await store.dispatch(
+        openCarriedCopy(groupItem, { kind: 'group', slot: groupSlot }, GO_TO)
+      );
+
+      for (const spy of [group, ungroup, move]) {
+        for (const call of spy.mock.calls) {
+          const first: unknown = call[0];
+          if (typeof first === 'number' || Array.isArray(first)) note(first);
+          else if (typeof first === 'object' && first !== null)
+            note((first as { tabIds?: number | number[] }).tabIds ?? []);
+        }
+      }
+      expect(handle?.createdTabs).toHaveLength(1);
+      expect(group).toHaveBeenCalled();
+      expect(moved.flat()).not.toContain(11);
+    });
+
+    it('group drop all open', async () => {
+      liveWith(A, B);
+      const { store, actions } = readyOn(true);
+
+      await expect(
+        store.dispatch(
+          openCarriedCopy(groupItem, { kind: 'group', slot: groupSlot }, GO_TO)
+        )
+      ).resolves.toBe(true);
+
+      expect(handle?.createdTabs).toEqual([]);
+      expect(handle?.groupedTabs).toEqual([]);
+      expect(heard).toEqual([{ windowId: 1, tabIds: [11, 12] }]);
+      expect(toasts(store)).toMatchObject([
+        { text: 'This window already has these tabs.' },
+      ]);
+      expect(reviewAsks(actions)).toBe(0);
+    });
+
+    it('group drop off: every tab opens', async () => {
+      liveWith(A, B);
+      const { store } = readyOn(false);
+
+      await store.dispatch(
+        openCarriedCopy(groupItem, { kind: 'group', slot: groupSlot }, GO_TO)
+      );
+
+      expect(handle?.createdTabs).toHaveLength(2);
+      expect(toasts(store)).toEqual([]);
+    });
+
+    it('group drop off adds no tab list read', async () => {
+      const reads = async (on: boolean) => {
+        liveWith('https://x.example/');
+        const { store } = readyOn(on);
+        await store.dispatch(
+          openCarriedCopy(groupItem, { kind: 'group', slot: groupSlot }, GO_TO)
+        );
+        return handle?.tabsQueryCalls.length ?? 0;
+      };
+
+      const off = await reads(false);
+      const on = await reads(true);
+
+      expect(on - off).toBe(1);
+    });
+
+    it('a split pair is left out only when both halves are open', async () => {
+      liveWith(A);
+      const made = ready();
+      made.store.dispatch(setSkipTabsAlreadyOpen(true));
+
+      await made.store.dispatch(
+        openCarriedCopy(groupItem, { kind: 'group', slot: groupSlot }, GO_TO)
+      );
+
+      expect(handle?.createdTabs).toHaveLength(2);
+      expect(toasts(made.store)).toEqual([]);
     });
   });
 });

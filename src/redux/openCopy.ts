@@ -11,6 +11,8 @@ import { pickOf, sourceWindowOf } from './carriedItem';
 import type { CarriedItem, CarriedPick } from './carriedItem';
 import { expectNewWindow } from './newWindowFollow';
 import { noteReviewMoment } from './reviewAsk';
+import { showToast } from './slices/globalStateSlice';
+import { selectSkipsTabsAlreadyOpen } from './slices/settingsDataStateSlice';
 import { whileMovingTabs } from './undoHistory';
 import { toWindowSpec } from './slices/tabContainerDataStateSlice';
 import type {
@@ -24,6 +26,13 @@ import type {
   TabCopySlot,
 } from '../utils/functions/openNowMoves';
 import { announceArrival } from '../utils/functions/arrival';
+import { TOAST_MESSAGES } from '../utils/constants/common';
+import {
+  leaveOutOpenTabs,
+  openCopyOf,
+  openPagesOf,
+} from '../utils/functions/skipOpen';
+import type { OpenPages } from '../utils/functions/skipOpen';
 import {
   isOpenIntoWindowAnswer,
   NOTHING_OPENED,
@@ -75,6 +84,18 @@ function unpinned(tab: tabData): tabData {
   const copy = unsplit(tab);
   delete copy.pinned;
   return copy;
+}
+
+// What a copy at a slot came to: opened, finished with every page already there, or nothing.
+type Outcome = 'opened' | 'alreadyOpen' | 'nothing';
+
+// The window's pages; none when Chrome cannot list it (closed mid-carry), so the copy asks as today and is refused.
+async function pagesOpenIn(windowId: number): Promise<OpenPages> {
+  try {
+    return openPagesOf(await chrome.tabs.query({ windowId }));
+  } catch {
+    return openPagesOf([]);
+  }
 }
 
 function groupOf(
@@ -144,8 +165,21 @@ export const openCarriedCopy =
       }
     };
 
-    // Whether Chrome opened anything at the slot.
-    let opened: Promise<boolean>;
+    const skips = selectSkipsTabsAlreadyOpen(state);
+    const sayLeftOut = (count: number) =>
+      dispatch(
+        showToast({
+          toastText: TOAST_MESSAGES.DUPLICATE_TABS_LEFT_OUT,
+          toastParams: { count },
+        })
+      );
+    // Every page was there: the open copies light up and the drop is done.
+    const sayAlreadyOpen = (windowId: number, ids: number[], text: string) => {
+      announceArrival(windowId, ids);
+      dispatch(showToast({ toastText: text }));
+    };
+
+    let opened: Promise<Outcome>;
     if (place.kind === 'newWindow') {
       const spec = copyWindowSpec(window, pick);
       if (!spec) return null;
@@ -170,31 +204,77 @@ export const openCarriedCopy =
         goToURLText,
         activate: false,
         pinTabKeeper: state.settingsDataState.pinTabKeeperInNewWindows,
-        skipTabsAlreadyOpen: false,
+        skipTabsAlreadyOpen: skips,
       };
-      opened = whileMovingTabs(() => askIntoWindow(request)).then(({ ids }) => {
-        if (ids.length > 0) announceArrival(place.windowId, ids);
-        return ids.length > 0;
-      });
+      opened = whileMovingTabs(() => askIntoWindow(request)).then(
+        ({ ids, leftOut, alreadyOpen }): Outcome => {
+          if (ids.length > 0) {
+            announceArrival(place.windowId, ids);
+            if (leftOut > 0) sayLeftOut(leftOut);
+            return 'opened';
+          }
+          if (alreadyOpen.length === 0) return 'nothing';
+          sayAlreadyOpen(
+            place.windowId,
+            alreadyOpen,
+            TOAST_MESSAGES.THIS_WINDOW_ALREADY_HAS_THESE_TABS
+          );
+          return 'alreadyOpen';
+        }
+      );
     } else if (place.kind === 'tab' && pick.kind === 'tab') {
       const tab = window.tabs.find((t) => t.tabId === pick.tabId);
       if (!tab) return null;
-      opened = whileMovingTabs(() =>
-        openTabCopy(unsplit(tab), place.slot)
-      ).then((id) => id !== undefined);
+      const plain = unsplit(tab);
+      opened = whileMovingTabs(async (): Promise<Outcome> => {
+        const copy = skips
+          ? openCopyOf(plain, await pagesOpenIn(place.slot.windowId))
+          : undefined;
+        if (copy !== undefined) {
+          sayAlreadyOpen(
+            place.slot.windowId,
+            [copy],
+            TOAST_MESSAGES.THIS_WINDOW_ALREADY_HAS_THIS_TAB
+          );
+          return 'alreadyOpen';
+        }
+        return (await openTabCopy(plain, place.slot)) !== undefined
+          ? 'opened'
+          : 'nothing';
+      });
     } else if (place.kind === 'group' && pick.kind === 'group') {
       const found = groupOf(window, pick.groupId);
       if (!found) return null;
-      opened = whileMovingTabs(() =>
-        openGroupCopy(found.tabs, found.group, place.slot, goToURLText)
-      ).then((ids) => ids.some((id) => id !== undefined));
+      opened = whileMovingTabs(async (): Promise<Outcome> => {
+        const rest = skips
+          ? leaveOutOpenTabs(found.tabs, await pagesOpenIn(place.slot.windowId))
+          : { tabs: found.tabs, leftOut: 0, alreadyOpen: [] };
+        if (rest.tabs.length === 0) {
+          sayAlreadyOpen(
+            place.slot.windowId,
+            rest.alreadyOpen,
+            TOAST_MESSAGES.THIS_WINDOW_ALREADY_HAS_THESE_TABS
+          );
+          return 'alreadyOpen';
+        }
+        const ids = await openGroupCopy(
+          rest.tabs,
+          found.group,
+          place.slot,
+          goToURLText
+        );
+        if (!ids.some((id) => id !== undefined)) return 'nothing';
+        if (rest.leftOut > 0) sayLeftOut(rest.leftOut);
+        return 'opened';
+      });
     } else {
       return null;
     }
 
-    // A window closed mid-carry refuses every tab, and is no restore.
-    return opened.then((any) => {
-      if (any) noteRestore();
-      return any;
+    // A window closed mid-carry refuses every tab, and is no restore. A drop
+    // with every page already there is a finished one: the carry clears.
+    return opened.then((outcome) => {
+      if (outcome === 'opened') noteRestore();
+      return outcome !== 'nothing';
     });
   };
