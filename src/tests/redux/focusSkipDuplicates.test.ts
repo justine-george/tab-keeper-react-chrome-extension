@@ -118,4 +118,66 @@ describe('focus mode with Skip duplicate tabs (KAN-906)', () => {
     expect(tabGroups[0].windows[0].tabs.map((t) => t.url)).toEqual([A, B]);
     expect(tabGroups[0].tabCount).toBe(2);
   });
+
+  // A session that already holds repeats (saved before the setting, or by Replace) opens as [a, a, b].
+  it('On: open [a, a, b] matching a saved [a, a, b] is already saved, in the dialog and at the switch', async () => {
+    const s = seed(true);
+    handle = s.handle;
+    s.store.dispatch(
+      restoreContainer(
+        buildContainer([
+          sessionOf('other', 'https://z.example/'),
+          sessionOf('kept', A, A, B),
+        ])
+      )
+    );
+    await s.store.dispatch(requestFocusTabContainer(PARAMS));
+    expect(s.store.getState().globalState.focusRequest?.willSave).toBe(false);
+
+    await s.store.dispatch(focusTabContainer(PARAMS));
+    expect(s.store.getState().tabContainerDataState.tabGroups).toHaveLength(2);
+  });
+
+  it('On: a repeat across two open windows still matches the saved, deduped windows', async () => {
+    handle = setupChromeFake({
+      windows: [
+        {
+          id: 1,
+          tabs: [
+            buildChromeTab({ id: 1, url: A }),
+            buildChromeTab({ id: 2, url: B }),
+          ],
+        },
+        {
+          id: 2,
+          tabs: [
+            buildChromeTab({ id: 3, url: A, windowId: 2 }),
+            buildChromeTab({ id: 4, url: 'https://c.example/', windowId: 2 }),
+          ],
+        },
+      ],
+    });
+    const { store } = makeTestStore();
+    store.dispatch(setSkipDuplicateTabs(true));
+    const kept = sessionOf('kept', A, B);
+    const second = sessionOf('kept', 'https://c.example/').windows[0];
+    store.dispatch(
+      restoreContainer(
+        buildContainer([
+          sessionOf('other', 'https://z.example/'),
+          {
+            ...kept,
+            windowCount: 2,
+            tabCount: 3,
+            windows: [...kept.windows, { ...second, windowId: 'w2' }],
+          },
+        ])
+      )
+    );
+    await store.dispatch(requestFocusTabContainer(PARAMS));
+    expect(store.getState().globalState.focusRequest?.willSave).toBe(false);
+
+    await store.dispatch(focusTabContainer(PARAMS));
+    expect(store.getState().tabContainerDataState.tabGroups).toHaveLength(2);
+  });
 });

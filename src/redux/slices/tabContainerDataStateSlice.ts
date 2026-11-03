@@ -689,6 +689,18 @@ export const openAllTabContainer = createAsyncThunk(
 const skipsDuplicates = (state: RootState): boolean =>
   state.settingsDataState.skipDuplicateTabs;
 
+// KAN-906. What focus mode saves, or null when the open windows are already saved: as they are, or, when repeats are left out, as they would be saved.
+function focusSave(
+  captured: tabContainerData,
+  sessions: tabContainerData[],
+  skips: boolean
+): tabContainerData | null {
+  if (isAlreadySaved(captured, sessions)) return null;
+  if (!skips) return captured;
+  const { container } = withoutRepeats(captured);
+  return isAlreadySaved(container, sessions) ? null : container;
+}
+
 interface focusTabContainerParams {
   tabGroupId: string;
   goToURLText: string;
@@ -740,13 +752,12 @@ export const requestFocusTabContainer = createAsyncThunk(
       return;
     }
 
-    // KAN-906. A session saved with repeats left out still matches the windows that made it.
-    const willSave = !isAlreadySaved(
-      skipsDuplicates(thunkAPI.getState() as RootState)
-        ? withoutRepeats(captured).container
-        : captured,
-      state.tabGroups
-    );
+    const willSave =
+      focusSave(
+        captured,
+        state.tabGroups,
+        skipsDuplicates(thunkAPI.getState() as RootState)
+      ) !== null;
 
     thunkAPI.dispatch(
       openFocusModal({
@@ -792,12 +803,13 @@ export const focusTabContainer = createAsyncThunk(
     // this is the save that makes closing every window reversible (KAN-5).
     const captured = await captureOpenWindows(params.saveTitle, 'all-windows');
     if (captured) {
-      const toSave = skipsDuplicates(thunkAPI.getState() as RootState)
-        ? withoutRepeats(captured).container
-        : captured;
-      if (!isAlreadySaved(toSave, state.tabGroups)) {
+      const toSave = focusSave(
+        captured,
+        state.tabGroups,
+        skipsDuplicates(thunkAPI.getState() as RootState)
+      );
+      if (toSave !== null)
         thunkAPI.dispatch(saveToTabContainerInternal(toSave));
-      }
     }
 
     // Unconditional, and after the save rather than inside it: saving selects
