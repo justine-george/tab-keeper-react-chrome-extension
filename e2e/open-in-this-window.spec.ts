@@ -185,10 +185,13 @@ test.describe('Open saved windows: This window (KAN-892)', () => {
           count: all.length,
         };
       };
-      const before = await at();
       // PREMISE: Tab Keeper is first of its run, and the run has an old tab beside it.
+      // Polled: a tab still loading reports no title yet (KAN-903).
+      await expect
+        .poll(async () => (await at()).pins, SETTLE)
+        .toEqual(['Old pin']);
+      const before = await at();
       expect(before.index).toBe(before.first);
-      expect(before.pins).toEqual(['Old pin']);
 
       await page
         .getByRole('button', {
@@ -200,10 +203,12 @@ test.describe('Open saved windows: This window (KAN-892)', () => {
       await expect
         .poll(async () => (await at()).count, SETTLE)
         .toBe(before.count + MIXED.tabs.length);
+      // The saved pin went after the old one, at the run's end.
+      await expect
+        .poll(async () => (await at()).pins, SETTLE)
+        .toEqual(['Old pin', 'Pin']);
       const after = await at();
       expect(after.index).toBe(after.first);
-      // The saved pin went after the old one, at the run's end.
-      expect(after.pins).toEqual(['Old pin', 'Pin']);
     });
   }
 
