@@ -41,6 +41,7 @@ import {
   type BandGapChange,
   type DragTab,
   type DragWindows,
+  type ClosedUp,
   type DropTarget,
   type FixedRowLanding,
   type PaneWindows,
@@ -538,8 +539,13 @@ export function useTabDropGeometry(
   // it names itself from its own hit test and hands to onMove directly --
   // resolveDrop is never asked which window, only which band.
   const resolveDrop = useCallback(
-    (within: HTMLElement | null, x: number, y: number): DropTarget => ({
-      bandId: bandAt(within, x, y),
+    (
+      within: HTMLElement | null,
+      x: number,
+      y: number,
+      closedUp?: ClosedUp
+    ): DropTarget => ({
+      bandId: bandAt(within, x, y, closedUp),
     }),
     []
   );

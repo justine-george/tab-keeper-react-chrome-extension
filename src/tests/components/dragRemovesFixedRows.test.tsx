@@ -181,17 +181,29 @@ describe('a drop that removes the group: the last member leaving upward', () => 
 });
 
 describe('a drop that removes the group: the last member leaving downward', () => {
-  // y = 150: past a3's midpoint (148). Index 3, landing on a3's slot.
+  // KAN-916. With the band gone, a3 and a4 are drawn 36 higher: midpoints
+  // 112 and 144, not 148 and 180. y = 130 passes a3 as drawn: index 3.
   test('a3 closes up by the held row AND the band; a4 by the band alone', () => {
-    hold(REMOVES_G, 150);
+    hold(REMOVES_G, 130);
     expect(shift('a3')).toBe(-ROW - 36);
     expect(shift('a4')).toBe(-36);
   });
 
   test('the landing slot follows the rows it lands among', () => {
-    hold(REMOVES_G, 150);
+    hold(REMOVES_G, 130);
     // On a3's top, which has itself come up by the band's chrome.
     expect(landingDelta()).toBe(TOPS.a3 - TOPS.s0 - 36);
+  });
+
+  // KAN-916. y = 120 is past a3 where it is drawn, short of where it rests.
+  test('a row is passed where it is drawn, not where it rests', () => {
+    hold(REMOVES_G, 120);
+    expect(shift('a3')).toBe(-ROW - 36);
+  });
+
+  test('CONTROL: with nothing removed, the same y passes nothing', () => {
+    hold(undefined, 120);
+    expect(shift('a3')).toBe(0);
   });
 
   test('CONTROL: without the removal only the passed row steps aside', () => {

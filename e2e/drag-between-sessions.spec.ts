@@ -5271,8 +5271,10 @@ test.describe("a group's only tab carried out and back (KAN-371)", () => {
     // Measured as the carry draws the list, once the held row's gap has
     // closed: untransformed until adopted.
     await settled(page);
-    const a2 = await boxOf(tabHandle(page, 'a2'));
-    await releaseAt(page, at.x, a2.y + a2.height - 4);
+    const a3 = await boxOf(tabHandle(page, 'a3'));
+    // KAN-916: back over the list, Solo goes and a3 is drawn 36px higher, hit
+    // there. Its upper quarter lands the tab before it.
+    await releaseAt(page, at.x, a3.y + a3.height / 4 - 36);
     expect(await layout(page, 'S1')).toEqual(['a0 a1 a2 s0 a3', 'b0']);
     expect(await groupEntries(page, 'S1', 0)).toEqual([]);
   });

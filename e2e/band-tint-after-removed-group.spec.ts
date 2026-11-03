@@ -148,8 +148,11 @@ for (const only of [true, false]) {
           await page.mouse.down();
           await page.mouse.move(x, lb.y + lb.height / 2 + 8, { steps: 2 });
           await settled(page);
+          // KAN-916: with Watchlist gone, the rows below it are drawn 40px
+          // higher and hit there, so the aim follows them.
+          const closedBy = only ? 40 : 0;
           const aim = await drawn(page, `[data-drag-row-id="${c.aim}"]`);
-          await page.mouse.move(x, aim.top + 4, { steps: 8 });
+          await page.mouse.move(x, aim.top + 4 - closedBy, { steps: 8 });
           await settled(page);
 
           // PREMISE: nothing scrolled under the hold.
