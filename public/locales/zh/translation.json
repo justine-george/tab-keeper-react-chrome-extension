@@ -432,6 +432,8 @@
   "Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.": "将您的会话保存到文件。不包含设置。加载备份时，会询问您是将其与现有会话合并，还是替换现有会话。",
   "Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.": "从云端移除您的会话并关闭自动同步。您的会话仍保留在此设备和您的其他设备上。",
   "Saved sessions keep each tab group’s name and colour, and the groups come back when you reopen the session.": "保存的会话会保留每个标签组的名称和颜色，重新打开会话时这些组也会恢复。",
+  "Skip duplicate tabs": "跳过重复的标签页",
+  "When you add a window or tabs to a saved session, pages it already has are left out, and a new session keeps one copy of each.": "向已保存的会话添加窗口或标签页时，其中已有的页面会被跳过；新会话中每个页面只保留一份。",
   "Rename": "重命名",
   "GoToWindowShort": "转到",
   "Add tab": "添加标签",

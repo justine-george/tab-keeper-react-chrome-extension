@@ -447,6 +447,8 @@
   "Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.": "Speichert Ihre Sitzungen in einer Datei. Einstellungen sind nicht enthalten. Beim Laden einer Sicherung werden Sie gefragt, ob sie mit Ihren Sitzungen zusammengeführt werden oder diese ersetzen soll.",
   "Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.": "Entfernt Ihre Sitzungen aus der Cloud und schaltet Auto-Sync aus. Ihre Sitzungen bleiben auf diesem Gerät und auf Ihren anderen Geräten.",
   "Saved sessions keep each tab group’s name and colour, and the groups come back when you reopen the session.": "Gespeicherte Sitzungen behalten Name und Farbe jeder Tab-Gruppe, und die Gruppen werden wiederhergestellt, wenn Sie die Sitzung wieder öffnen.",
+  "Skip duplicate tabs": "Doppelte Tabs überspringen",
+  "When you add a window or tabs to a saved session, pages it already has are left out, and a new session keeps one copy of each.": "Wenn Sie einer gespeicherten Sitzung ein Fenster oder Tabs hinzufügen, werden Seiten, die sie schon enthält, weggelassen, und eine neue Sitzung behält von jeder Seite eine Kopie.",
   "Rename": "Umbenennen",
   "GoToWindowShort": "Zum Fenster",
   "Add tab": "Tab hinzufügen",

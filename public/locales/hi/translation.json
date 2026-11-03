@@ -447,6 +447,8 @@
   "Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.": "आपके सेशन एक फ़ाइल में सहेजता है। सेटिंग्स इसमें शामिल नहीं होतीं। बैकअप लोड करने पर पूछा जाता है कि उसे आपके सेशन के साथ मर्ज करना है या उन्हें रिप्लेस करना है।",
   "Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.": "आपके सेशन क्लाउड से हटाता है और ऑटो सिंक बंद करता है। आपके सेशन इस डिवाइस पर और आपके दूसरे डिवाइसों पर बने रहते हैं।",
   "Saved sessions keep each tab group’s name and colour, and the groups come back when you reopen the session.": "सहेजे गए सेशन हर टैब समूह का नाम और रंग रखते हैं, और सेशन दोबारा खोलने पर समूह वापस आ जाते हैं।",
+  "Skip duplicate tabs": "डुप्लिकेट टैब छोड़ें",
+  "When you add a window or tabs to a saved session, pages it already has are left out, and a new session keeps one copy of each.": "जब आप किसी सहेजे गए सेशन में विंडो या टैब जोड़ते हैं, तो उसमें पहले से मौजूद पेज छोड़ दिए जाते हैं, और नया सेशन हर पेज की एक ही कॉपी रखता है।",
   "Rename": "नाम बदलें",
   "GoToWindowShort": "जाएं",
   "Add tab": "टैब जोड़ें",

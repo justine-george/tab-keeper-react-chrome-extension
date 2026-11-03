@@ -189,6 +189,8 @@ export interface SettingsData {
   copyLinksLayout: CopyLinksLayout;
   // KAN-892. Where Open on a saved window or session puts its tabs; the other way is in the ⋮ menu.
   openSavedWindowsIn: OpenSavedWindowsIn;
+  // KAN-906. Adding to a saved session leaves out pages it has; a new one keeps one copy of each.
+  skipDuplicateTabs: boolean;
   // KAN-578. Go back, or a Pin that worked, on the card warning a press closes the full view.
   isClosesThisTabCardAnswered: boolean;
   // KAN-828. This device's saved list has held a session of the user's: the save invite is done here.
@@ -406,6 +408,7 @@ const defaultSettings: SettingsData = {
   defaultSaveScope: 'all-windows',
   copyLinksLayout: 'links-only',
   openSavedWindowsIn: 'new-window',
+  skipDuplicateTabs: false,
   isChalkCharcoalMoveApplied: true, // KAN-731. A new install has nothing to move.
   ...ONBOARDING_DEFAULTS,
 };
@@ -445,6 +448,8 @@ export const initialState: SettingsData = {
   openSavedWindowsIn: asOpenSavedWindowsIn(
     settingsDataLocal.openSavedWindowsIn
   ),
+  // KAN-906. Guarded: settingsDataLocal is unvalidated.
+  skipDuplicateTabs: asFlag(settingsDataLocal.skipDuplicateTabs),
   // KAN-653. Guarded: an older build never wrote these.
   pendingReviewAsk: readPendingAsk(settingsDataLocal.pendingReviewAsk),
   isTimeAskDone: asFlag(settingsDataLocal.isTimeAskDone),
@@ -659,6 +664,11 @@ export const settingsDataStateSlice = createSlice({
       saveLocalSettings(state);
     },
 
+    setSkipDuplicateTabs: (state, action: PayloadAction<boolean>) => {
+      state.skipDuplicateTabs = action.payload;
+      saveLocalSettings(state);
+    },
+
     // KAN-321 O1a. The grip's release, an arrow key, or a double-click (null).
     setOpenNowWidth: (state, action: PayloadAction<number | null>) => {
       state.openNowWidth = action.payload;
@@ -854,6 +864,7 @@ export const {
   setDefaultSaveScope,
   setCopyLinksLayout,
   setOpenSavedWindowsIn,
+  setSkipDuplicateTabs,
   beginSetup,
   finishSetup,
   restartSetup,

@@ -432,6 +432,8 @@
   "Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.": "세션을 파일로 저장합니다. 설정은 포함되지 않습니다. 백업을 불러올 때 현재 세션과 병합할지 바꿀지 묻습니다.",
   "Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.": "클라우드에서 세션을 삭제하고 자동 동기화를 끕니다. 세션은 이 기기와 다른 기기에 그대로 남습니다.",
   "Saved sessions keep each tab group’s name and colour, and the groups come back when you reopen the session.": "저장된 세션에는 각 탭 그룹의 이름과 색상이 유지되며, 세션을 다시 열면 그룹도 돌아옵니다.",
+  "Skip duplicate tabs": "중복된 탭 건너뛰기",
+  "When you add a window or tabs to a saved session, pages it already has are left out, and a new session keeps one copy of each.": "저장된 세션에 창이나 탭을 추가할 때 이미 있는 페이지는 제외되고, 새 세션에는 각 페이지가 하나씩만 저장됩니다.",
   "Rename": "이름 변경",
   "GoToWindowShort": "이동",
   "Add tab": "탭 추가",

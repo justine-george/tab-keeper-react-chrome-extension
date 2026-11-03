@@ -432,6 +432,8 @@
   "Saves your sessions to a file. Settings aren’t included. Loading a backup asks whether to merge it with your sessions or replace them.": "將你的工作階段儲存成檔案。不包含設定。載入備份時，會詢問你要將它與現有的工作階段合併，還是取代現有的工作階段。",
   "Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.": "從雲端移除你的工作階段並關閉自動同步。你的工作階段仍會保留在這部裝置和你的其他裝置上。",
   "Saved sessions keep each tab group’s name and colour, and the groups come back when you reopen the session.": "儲存的工作階段會保留每個分頁群組的名稱和顏色，重新開啟工作階段時群組也會恢復。",
+  "Skip duplicate tabs": "略過重複的分頁",
+  "When you add a window or tabs to a saved session, pages it already has are left out, and a new session keeps one copy of each.": "將視窗或分頁加入已儲存的工作階段時，工作階段中已有的頁面會被略過；新的工作階段則每個頁面只保留一份。",
   "Rename": "重新命名",
   "GoToWindowShort": "前往",
   "Add tab": "新增分頁",

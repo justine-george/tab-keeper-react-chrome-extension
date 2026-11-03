@@ -23,6 +23,7 @@ import { openCloudConsentModal } from '../../../redux/slices/globalStateSlice';
 import {
   setCopyLinksLayout,
   setOpenSavedWindowsIn,
+  setSkipDuplicateTabs,
   setTheme,
   setPinTabKeeperInNewWindows,
   setTimeFormat,
@@ -89,6 +90,7 @@ const SettingsDetailsContainer: React.FC = () => {
   const backupHelpId = useId();
   const cloudDataHelpId = useId();
   const saveTabGroupsHelpId = useId();
+  const skipDuplicateTabsHelpId = useId();
   const popupShortcut = usePopupShortcut();
   const { i18n } = useTranslation();
   const { t } = useTranslation();
@@ -660,6 +662,53 @@ const SettingsDetailsContainer: React.FC = () => {
           <p id={saveTabGroupsHelpId} css={helpLineStyle}>
             {t(
               'Saved sessions keep each tab group’s name and colour, and the groups come back when you reopen the session.'
+            )}
+          </p>
+        </div>
+
+        {/* KAN-906. Whether adding to a saved session leaves out pages it already has. */}
+        <div
+          data-settings-section
+          css={css`
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 32px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Skip duplicate tabs')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+          <div
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            <SlidingPair
+              label={t('Skip duplicate tabs')}
+              options={[
+                { value: 'on', label: t('On') },
+                { value: 'off', label: t('Off') },
+              ]}
+              value={settingsData.skipDuplicateTabs ? 'on' : 'off'}
+              onChange={(next) => dispatch(setSkipDuplicateTabs(next === 'on'))}
+              metrics={SETTINGS_PAIR_METRICS}
+              describedBy={skipDuplicateTabsHelpId}
+            />
+          </div>
+          <p id={skipDuplicateTabsHelpId} css={helpLineStyle}>
+            {t(
+              'When you add a window or tabs to a saved session, pages it already has are left out, and a new session keeps one copy of each.'
             )}
           </p>
         </div>
