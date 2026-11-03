@@ -812,6 +812,27 @@ describe('openCarriedCopy with Skip tabs already open', () => {
     });
   });
 
+  describe('a window drop with some tabs refused', () => {
+    it('is a refusal, not "already there": no toast, no arrival, resolves false', async () => {
+      // Two of the five were left out; the rest were refused.
+      answerWith({ ids: [], leftOut: 2, alreadyOpen: [11] });
+      const { store } = readyOn(true);
+
+      await expect(
+        store.dispatch(
+          openCarriedCopy(
+            windowItem,
+            { kind: 'intoWindow', windowId: 1 },
+            GO_TO
+          )
+        )
+      ).resolves.toBe(false);
+
+      expect(heard).toEqual([]);
+      expect(toasts(store)).toEqual([]);
+    });
+  });
+
   describe('a tab at a slot', () => {
     it('tab drop onto a window that has it: no create, arrival on the copy, "this tab" toast', async () => {
       liveWith(A, TWO);

@@ -213,7 +213,9 @@ export const openCarriedCopy =
             if (leftOut > 0) sayLeftOut(leftOut);
             return 'opened';
           }
-          if (alreadyOpen.length === 0) return 'nothing';
+          // Every tab left out; fewer means the rest were refused.
+          if (alreadyOpen.length === 0 || leftOut < window.tabs.length)
+            return 'nothing';
           sayAlreadyOpen(
             place.windowId,
             alreadyOpen,
