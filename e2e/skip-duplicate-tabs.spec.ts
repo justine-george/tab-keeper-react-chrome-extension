@@ -1,10 +1,17 @@
-import type { BrowserContext, Page } from '@playwright/test';
+import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { expect, grantedTest as test } from './fixtures/grantedExtension';
 import {
   CARD,
   S1,
+  S2,
+  adoptPhantom,
+  aimAt,
+  carryOutLeft,
+  layout,
   onto,
+  openPopup,
+  selected,
   session,
   sessionOf,
   sessionRow,
@@ -14,7 +21,13 @@ import {
 } from './fixtures/betweenSessions';
 import { dataUrl, liveRow, openLiveWindow } from './fixtures/liveWindows';
 import { ON_TITLE } from './fixtures/savedRow';
-import { boxOf, stored } from './fixtures/sessionDrag';
+import {
+  boxOf,
+  pickUp,
+  stored,
+  tabHandle,
+  windowHandle,
+} from './fixtures/sessionDrag';
 import { standIn } from './fixtures/standInPages';
 import { buildContainer, seedSessions, seedSettings } from './fixtures/seed';
 import type { TabMasterContainer } from '../src/redux/slices/tabContainerDataStateSlice';
@@ -130,6 +143,138 @@ test.describe('the setting', () => {
       'aria-pressed',
       'false'
     );
+  });
+
+  // KAN-914.
+  test('the help line names moves', async ({ context, extensionId }) => {
+    const page = await openFullView(
+      context,
+      extensionId,
+      [holding('s0', SESSION, [standIn('Here')])],
+      {}
+    );
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('button', { name: 'Sessions', exact: true }).click();
+
+    await expect(
+      page.getByRole('group', { name: 'Skip duplicate tabs' })
+    ).toHaveAccessibleDescription(
+      'When you add or move a window or tabs to a saved session, pages it already has are left out, and a new session keeps one copy of each.'
+    );
+  });
+});
+
+// ---- KAN-914: moves between saved sessions (the popup, a quick drop on a session row) ----
+
+// S1 w1: b0; w2: a0, a1, then x0 at c0's address, which Target (S2) already has.
+const MOVER = () =>
+  session('S1', 'Source', [
+    win('w1', [tab('b0')]),
+    win('w2', [
+      tab('a0'),
+      tab('a1'),
+      { ...tab('x0'), url: 'https://c0.test/' },
+    ]),
+  ]);
+const D1 = 'c0 c1 ga0* ga1* c2';
+
+async function moveOntoTarget(
+  context: BrowserContext,
+  extensionId: string,
+  handle: (page: Page) => Locator,
+  settings: Record<string, unknown>
+): Promise<Page> {
+  await seedSettings(context, settings);
+  const page = await openPopup(context, extensionId, [MOVER(), S2()], 'S1');
+  const at = await pickUp(page, handle(page));
+  await carryOutLeft(page, at);
+  await onto(page, 'S2');
+  await page.mouse.up();
+  return page;
+}
+
+test.describe('a move to another session', () => {
+  test('On: a move to another session leaves out pages it has (source loses them, toast)', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await moveOntoTarget(
+      context,
+      extensionId,
+      (p) => windowHandle(p, 'w2'),
+      { skipDuplicateTabs: true }
+    );
+
+    await expect.poll(() => layout(page, 'S2')).toEqual(['a0 a1', D1, 'e0 e1']);
+    // x0 left the source too: its page stays saved once, as Target's c0.
+    expect(await layout(page, 'S1')).toEqual(['b0']);
+    await expect
+      .poll(() => toasts(page))
+      .toEqual([
+        { text: 'Moved to “Target”. 1 duplicate tab left out.', show: true },
+      ]);
+  });
+
+  test('On: a tab whose page the session has leaves the source, and the session is unchanged', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await moveOntoTarget(
+      context,
+      extensionId,
+      (p) => tabHandle(p, 'x0'),
+      { skipDuplicateTabs: true }
+    );
+
+    await expect.poll(() => layout(page, 'S1')).toEqual(['b0', 'a0 a1']);
+    expect(await layout(page, 'S2')).toEqual([D1, 'e0 e1']);
+    await expect
+      .poll(() => toasts(page))
+      .toEqual([
+        { text: 'Moved to “Target”. 1 duplicate tab left out.', show: true },
+      ]);
+  });
+
+  // The rows show the move; the toast says why fewer arrived than were carried.
+  test('On: a drop into the session on screen says only how many were left out', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedSettings(context, { skipDuplicateTabs: true });
+    const page = await openPopup(context, extensionId, [MOVER(), S2()], 'S1');
+    const at = await pickUp(page, windowHandle(page, 'w2'));
+    await carryOutLeft(page, at);
+    await onto(page, 'S2');
+    await expect.poll(() => selected(page), { timeout: 3000 }).toBe('S2');
+    await adoptPhantom(page, 'carried:w2');
+    await aimAt(page, 'd2', 0.75);
+    await page.mouse.up();
+
+    await expect.poll(() => layout(page, 'S2')).toEqual([D1, 'e0 e1', 'a0 a1']);
+    expect(await layout(page, 'S1')).toEqual(['b0']);
+    await expect
+      .poll(() => toasts(page))
+      .toEqual([{ text: '1 duplicate tab left out.', show: false }]);
+  });
+
+  test('Off: the same move carries every tab', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await moveOntoTarget(
+      context,
+      extensionId,
+      (p) => windowHandle(p, 'w2'),
+      {}
+    );
+
+    await expect
+      .poll(() => layout(page, 'S2'))
+      .toEqual(['a0 a1 x0', D1, 'e0 e1']);
+    expect(await layout(page, 'S1')).toEqual(['b0']);
+    await expect
+      .poll(() => toasts(page))
+      .toEqual([{ text: 'Moved to “Target”.', show: true }]);
   });
 });
 
