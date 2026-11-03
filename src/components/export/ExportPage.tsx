@@ -586,13 +586,37 @@ export default function ExportPage({
   // After a click in the preview the keys go to the frame's document, where a
   // listener the page adds still hears them (measured with real keys).
   const frameDoc = useRef<Document | null>(null);
+  const keepLinksInert = useCallback((e: MouseEvent) => {
+    // The frame's own Element: an element from its document is not this page's.
+    const frame = frameDoc.current?.defaultView;
+    if (
+      frame &&
+      e.target instanceof frame.Element &&
+      e.target.closest('a[href]')
+    ) {
+      e.preventDefault();
+    }
+  }, []);
   const listenInFrame = useCallback(
     (doc: Document | null) => {
       frameDoc.current?.removeEventListener('keydown', takeShortcut);
+      frameDoc.current?.removeEventListener('click', keepLinksInert);
+      frameDoc.current?.removeEventListener('auxclick', keepLinksInert);
       frameDoc.current = doc;
       doc?.addEventListener('keydown', takeShortcut);
+      // KAN-909. The file's links are for whoever opens the PDF; here they look
+      // the same and do nothing ("Get the extension" loaded the Web Store into
+      // the frame, which refuses to be framed). The saved file is unchanged.
+      doc?.addEventListener('click', keepLinksInert);
+      doc?.addEventListener('auxclick', keepLinksInert);
+      if (doc && !doc.querySelector('style[data-preview-links]')) {
+        const style = doc.createElement('style');
+        style.setAttribute('data-preview-links', '');
+        style.textContent = 'a[href] { cursor: default; }';
+        doc.head.append(style);
+      }
     },
-    [takeShortcut]
+    [takeShortcut, keepLinksInert]
   );
   useEffect(() => () => listenInFrame(null), [listenInFrame]);
 
