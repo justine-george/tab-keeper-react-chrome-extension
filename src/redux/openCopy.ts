@@ -171,8 +171,10 @@ export const openCarriedCopy =
         showToast({
           toastText: TOAST_MESSAGES.DUPLICATE_TABS_LEFT_OUT,
           toastParams: { count },
+          stacksOnTwin: true,
         })
       );
+    // Each drop is its own event, so twin toasts stack (KAN-401).
     // Every page was there: the open copies light up and the drop is done.
     const sayAlreadyOpen = (windowId: number, ids: number[]) => {
       announceArrival(windowId, ids);
@@ -182,6 +184,7 @@ export const openCarriedCopy =
             ids.length === 1
               ? TOAST_MESSAGES.THIS_WINDOW_ALREADY_HAS_THIS_TAB
               : TOAST_MESSAGES.THIS_WINDOW_ALREADY_HAS_THESE_TABS,
+          stacksOnTwin: true,
         })
       );
     };

@@ -804,6 +804,19 @@ describe('openCarriedCopy with Skip tabs already open', () => {
       expect(reviewAsks(actions)).toBe(1);
     });
 
+    it('two window drops that leave some out: two left-out toasts, stacked', async () => {
+      answerWith({ ids: [31, 32], leftOut: 2, alreadyOpen: [11] });
+      const { store } = readyOn(true);
+
+      await store.dispatch(openCarriedCopy(windowItem, drop, GO_TO));
+      await store.dispatch(openCarriedCopy(windowItem, drop, GO_TO));
+
+      expect(toasts(store)).toMatchObject([
+        { text: TOAST_MESSAGES.DUPLICATE_TABS_LEFT_OUT, params: { count: 2 } },
+        { text: TOAST_MESSAGES.DUPLICATE_TABS_LEFT_OUT, params: { count: 2 } },
+      ]);
+    });
+
     it('window drop all open: arrival on open copies + "these tabs" toast, resolves true, no review moment', async () => {
       answerWith({ ids: [], leftOut: 5, alreadyOpen: [11, 12] });
       const { store, actions } = readyOn(true);
@@ -870,6 +883,23 @@ describe('openCarriedCopy with Skip tabs already open', () => {
         { text: 'This window already has this tab.' },
       ]);
       expect(reviewAsks(actions)).toBe(0);
+    });
+
+    it('two drops of a tab the window has: two toasts, stacked', async () => {
+      liveWith(A, TWO);
+      const { store } = readyOn(true);
+
+      await store.dispatch(
+        openCarriedCopy(tabItem(), { kind: 'tab', slot }, GO_TO)
+      );
+      await store.dispatch(
+        openCarriedCopy(tabItem(), { kind: 'tab', slot }, GO_TO)
+      );
+
+      expect(toasts(store)).toMatchObject([
+        { text: 'This window already has this tab.' },
+        { text: 'This window already has this tab.' },
+      ]);
     });
 
     it('tab drop onto a window without it opens as today, no toast', async () => {
