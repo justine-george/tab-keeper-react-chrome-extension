@@ -19,8 +19,8 @@ describe('the radius scale nests (KAN-721)', () => {
   test("a menu item is a PANEL-radius menu less the menu's 4px padding", () => {
     expect(px(RADIUS.CONTROL)).toBe(px(RADIUS.PANEL) - 4);
   });
-  test("the SlidingPair knob is the track less the track's 2px padding", () => {
-    expect(px(RADIUS.KNOB)).toBe(px(RADIUS.CONTROL) - 2);
+  test('the SlidingPair knob is the track less its 1px border and 2px padding (KAN-908)', () => {
+    expect(px(RADIUS.SWITCH_KNOB)).toBe(px(RADIUS.SWITCH) - 3);
   });
   test('the tour ring sits 4px outside a control', () => {
     expect(px(RADIUS.PANEL)).toBe(px(RADIUS.CONTROL) + 4);

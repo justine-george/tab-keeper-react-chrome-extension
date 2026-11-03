@@ -225,9 +225,10 @@ test.describe('controls', () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('button', { name: 'Sessions', exact: true }).click();
     const knob = page.locator('[data-sliding-knob]').first();
-    await expectCorners(knob.locator('..'), '8px', 'the sliding pair track');
-    await expectCorners(knob, '6px', 'the sliding pair knob');
-    await expectCorners(knob.locator('span').first(), '6px', "the knob's cell");
+    // KAN-908. The track 10, the knob 3px inside it at 7.
+    await expectCorners(knob.locator('..'), '10px', 'the sliding pair track');
+    await expectCorners(knob, '7px', 'the sliding pair knob');
+    await expectCorners(knob.locator('span').first(), '7px', "the knob's cell");
 
     await page
       .locator('[data-pane=sessions]')

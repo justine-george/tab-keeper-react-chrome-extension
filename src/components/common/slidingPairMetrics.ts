@@ -4,8 +4,8 @@ import { CONTROL, DURATION, RADIUS } from '../../styles/scale';
 // KAN-248. The pair on the popup's own scale, for Settings and setup alike.
 export const SETTINGS_PAIR_METRICS: SlidingPairMetrics = {
   minHeight: CONTROL.ROW,
-  radius: RADIUS.CONTROL,
-  knobRadius: RADIUS.KNOB,
+  radius: RADIUS.SWITCH,
+  knobRadius: RADIUS.SWITCH_KNOB,
   slide: `${DURATION.MOVE} ease-out`,
   press: `${DURATION.COLOR} ease-out`,
 };

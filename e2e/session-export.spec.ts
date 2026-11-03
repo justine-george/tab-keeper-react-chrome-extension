@@ -475,7 +475,8 @@ test('a tinted light theme opens a light page, not a pink one', async ({
 });
 
 // KAN-218. The knob is clipped with clip-path, so read its drawn box from
-// computed styles, not the props.
+// computed styles, not the props. KAN-908: a traced squircle path(), so its
+// box is the extremes of its points.
 type Box = { left: number; right: number; top: number; bottom: number };
 
 /** A pair by its accessible name, or a locator for one (names are translated). */
@@ -506,11 +507,33 @@ const knobGeometry = (page: Page, group: string | Locator) =>
       bottom: r.bottom,
     });
     const layer = box(knob.getBoundingClientRect());
-    const inset = getComputedStyle(knob)
-      .clipPath.match(/inset\(([^)]*?)(?: round[^)]*)?\)/)?.[1]
-      .split(/\s+/)
-      .map(parseFloat) ?? [0, 0, 0, 0];
-    const [top, right = top, bottom = top, left = right] = inset;
+    const path = /path\("([^"]*)"\)/.exec(getComputedStyle(knob).clipPath)?.[1];
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (const [, op, args] of (path ?? '').matchAll(/([MLHVZ])([^MLHVZ]*)/g)) {
+      const n = args
+        .trim()
+        .split(/[\s,]+/)
+        .filter(Boolean)
+        .map(Number);
+      if (op === 'H') xs.push(n[0]);
+      else if (op === 'V') ys.push(n[0]);
+      else if (op !== 'Z') {
+        xs.push(n[0]);
+        ys.push(n[1]);
+      }
+    }
+    // The path's points are in the layer's own px, untouched by the press dip.
+    const lw = parseFloat(getComputedStyle(knob).width);
+    const lh = parseFloat(getComputedStyle(knob).height);
+    const [left, right, top, bottom] = path
+      ? [
+          Math.min(...xs),
+          lw - Math.max(...xs),
+          Math.min(...ys),
+          lh - Math.max(...ys),
+        ]
+      : [0, 0, 0, 0];
     const trackStyle = getComputedStyle(el);
     const border = parseFloat(trackStyle.borderLeftWidth);
     const outer = el.getBoundingClientRect();
