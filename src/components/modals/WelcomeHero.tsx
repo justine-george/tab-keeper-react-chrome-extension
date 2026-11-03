@@ -2,6 +2,7 @@ import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
 import Icon from '../common/Icon';
+import { MARK_BODY_WIDTH, MARK_RADIUS } from '../common/markShape';
 import { focusRingCss } from '../common/focusRing';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { DURATION, ICON, RADIUS } from '../../styles/scale';
@@ -22,6 +23,9 @@ const HERO = {
   FLOPPY: heroPx(72),
 } as const;
 const LINE_WIDTHS = [120, 96, 130, 80].map(heroPx);
+// The mark's 128-unit radii onto this floppy, which is FLOPPY px for the mark's body width.
+const markPx = (units: number): number =>
+  (units * HERO.FLOPPY) / MARK_BODY_WIDTH;
 
 // §5's wordless loop: tabs saved into the floppy and back out. Still, it shows its end frame.
 // An animated hero offers Play again once its loop rests (KAN-464).
@@ -138,11 +142,13 @@ export default function WelcomeHero({
     height: ${HERO.FLOPPY}px;
     margin: -${HERO.FLOPPY / 2}px 0 0 -${HERO.FLOPPY / 2}px;
     background-color: ${COLORS.FLOPPY_BODY_COLOR};
+    border-radius: ${markPx(MARK_RADIUS.BODY)}px;
   `;
-  const floppyPart = (rules: string, color: string) => css`
+  const floppyPart = (rules: string, color: string, radius: number) => css`
     position: absolute;
     ${rules}
     background-color: ${color};
+    border-radius: ${markPx(radius)}px;
   `;
   const checkStyle = css`
     position: absolute;
@@ -217,21 +223,25 @@ export default function WelcomeHero({
             data-hero-part="shutter"
             css={floppyPart(
               `left: ${heroPx(16)}px; top: ${heroPx(4)}px; width: ${heroPx(40)}px; height: ${heroPx(22)}px;`,
-              COLORS.FLOPPY_PART_COLOR
+              COLORS.FLOPPY_PART_COLOR,
+              MARK_RADIUS.SHUTTER
             )}
           >
             <span
               data-hero-part="slot"
               css={floppyPart(
                 `left: ${heroPx(22)}px; top: ${heroPx(2)}px; width: ${heroPx(12)}px; height: ${heroPx(18)}px;`,
-                COLORS.LABEL_L3_COLOR
+                COLORS.LABEL_L3_COLOR,
+                MARK_RADIUS.SLOT
               )}
             />
           </span>
           <span
+            data-hero-part="label"
             css={floppyPart(
               `left: ${heroPx(12)}px; right: ${heroPx(12)}px; bottom: ${heroPx(6)}px; height: ${heroPx(26)}px;`,
-              COLORS.FLOPPY_PART_COLOR
+              COLORS.FLOPPY_PART_COLOR,
+              MARK_RADIUS.LABEL
             )}
           />
         </div>

@@ -15,6 +15,7 @@ import {
   canAnimate,
   prefersReducedMotion,
 } from '../../modals/getStartedMotion';
+import { MARK_BODY_PATH, MARK_RADIUS } from '../../common/markShape';
 import { COACH_LAYER } from '../../tour/coachLayers';
 import { SAVE_SEGMENT_WIDTH } from './SaveInvite';
 
@@ -41,7 +42,7 @@ const pieceStyle = (p: PopPiece) => css`
 
 // TabKeeperMark's floppy without its tile, in the mark's colours.
 function Disk() {
-  const body = 'M15.2 12.6h12.4v3l5 1.3V13h66.6l14.5 14.5v84.3H15.2z';
+  const body = MARK_BODY_PATH;
   return (
     <svg viewBox="0 0 128 128" width="100%" height="100%" focusable="false">
       <path d={body} transform="translate(1.7 3.6)" fill="#253038" />
@@ -51,7 +52,7 @@ function Disk() {
         y="12.9"
         width="58.4"
         height="34.7"
-        rx="1.5"
+        rx={MARK_RADIUS.SHUTTER}
         fill="#f4eae2"
       />
       <rect
@@ -59,10 +60,17 @@ function Disk() {
         y="18.4"
         width="15.3"
         height="26.6"
-        rx="1"
+        rx={MARK_RADIUS.SLOT}
         fill="#20292e"
       />
-      <rect x="32.9" y="64.8" width="62.5" height="47" rx="2" fill="#f4eae2" />
+      <rect
+        x="32.9"
+        y="64.8"
+        width="62.5"
+        height="47"
+        rx={MARK_RADIUS.LABEL}
+        fill="#f4eae2"
+      />
       <path fill="#d09263" d="M42.9 87.1h42.8v7.5H42.9zm0 12h42.8v7.3H42.9z" />
     </svg>
   );
