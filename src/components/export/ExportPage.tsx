@@ -666,7 +666,7 @@ export default function ExportPage({
         /* KAN-218. Except the knobs: pressing Light or Dark changes the
            palette in the same commit that moves the Colour knob, and the rule
            above would make it jump. Only the knob's own motion comes back --
-           clip-path on the knob, rotate inside it, the fill's sides (KAN-908) -- so every colour still
+           clip-path on the knob, rotate inside it -- so every colour still
            switches at once. Never under reduced motion, where the knob does
            not move at all. */
         @media (prefers-reduced-motion: no-preference) {
@@ -675,11 +675,6 @@ export default function ExportPage({
           }
           [data-scheme-switching] [data-sliding-knob] * {
             transition: rotate ${KNOB_TRANSITION} !important;
-          }
-          [data-scheme-switching] [data-sliding-fill] {
-            transition:
-              left ${KNOB_TRANSITION},
-              right ${KNOB_TRANSITION} !important;
           }
         }
       `}

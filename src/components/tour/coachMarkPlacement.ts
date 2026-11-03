@@ -1,5 +1,7 @@
 // KAN-413. Pure, in CSS px: where a mark goes beside an anchor, inside the window.
 
+import { squircleCorner } from '../../styles/squirclePath';
+
 export type CoachSide = 'right' | 'left' | 'below';
 
 export interface Box {
@@ -203,30 +205,6 @@ export function ringBox(box: Box): Box {
 // Past any viewport, so the dim's own box (fixed, inset 0) clips the outer
 // edge and a resize never needs a new path.
 const DIM_EXTENT = 100000;
-
-// Points per squircle corner; at a 12px corner each is within 0.02px of the curve.
-const CORNER_STEPS = 16;
-const at = (n: number): number => Number(n.toFixed(3));
-
-// One quarter of a CSS squircle (superellipse(2): |x|^4 + |y|^4 = k^4) round
-// (cx, cy), from angle `from` a quarter turn on, as line-tos. clip-path's
-// path() has no squircle, and an arc of the same radius is rounder (KAN-901).
-function squircleCorner(
-  cx: number,
-  cy: number,
-  k: number,
-  from: number
-): string {
-  let out = '';
-  for (let i = 1; i <= CORNER_STEPS; i++) {
-    const angle = from + (i / CORNER_STEPS) * (Math.PI / 2);
-    const [c, s] = [Math.cos(angle), Math.sin(angle)];
-    out += `L${at(cx + k * Math.sign(c) * Math.sqrt(Math.abs(c)))} ${at(
-      cy + k * Math.sign(s) * Math.sqrt(Math.abs(s))
-    )}`;
-  }
-  return out;
-}
 
 // KAN-901. A hole's corner radii in px: top-left, top-right, bottom-right,
 // bottom-left, as CSS border-radius lists them.

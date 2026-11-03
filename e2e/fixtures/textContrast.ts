@@ -21,12 +21,7 @@ export async function textContrasts(root: Locator): Promise<TextContrast[]> {
         node !== null;
         node = node.parentElement
       ) {
-        // KAN-908. A switch's pressed words sit on the knob's fill, a sibling box.
-        const fill = getComputedStyle(
-          (node.matches('[data-sliding-knob]') &&
-            node.parentElement?.querySelector('[data-sliding-fill]')) ||
-            node
-        ).backgroundColor;
+        const fill = getComputedStyle(node).backgroundColor;
         const parts = fill.match(/[\d.]+/g) ?? [];
         const alpha = parts.length >= 4 ? Number(parts[3]) : 1;
         if (alpha === 1) return fill;
