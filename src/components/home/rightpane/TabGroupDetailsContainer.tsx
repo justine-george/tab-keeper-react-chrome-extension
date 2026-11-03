@@ -52,7 +52,7 @@ import {
   landingView,
 } from '../../../utils/functions/carriedView';
 import { windowCarryOut } from './carryOut';
-import { decideNewWindowRoom } from './rowDrag/dropRules';
+import { decideNewWindowRoom, releaseKeptRoom } from './rowDrag/dropRules';
 import { NEW_LAST_WINDOW } from './newWindowTarget';
 import type { windowGroupData } from '../../../redux/slices/tabContainerDataStateSlice';
 import { onRevealSavedWindow } from './revealSavedWindow';
@@ -233,6 +233,10 @@ export default function TabGroupDetailsContainer() {
     if (!isTabOrGroupCarried || scrollerRef.current === null) return;
     decideNewWindowRoom(scrollerRef.current);
   }, [isTabOrGroupCarried, shownId]);
+
+  // KAN-887. A room a drop kept in view is that session's: showing another
+  // (or none) takes it, before the new one is painted.
+  useLayoutEffect(() => () => releaseKeptRoom(), [shownId]);
 
   // Belt and braces: RightPane does not mount this component when the list is
   // empty, so this should be unreachable -- but it is what makes the component

@@ -54,6 +54,7 @@ import {
   setDragging,
   setDragNewSession,
   setDragNewWindow,
+  releaseKeptRoom,
   windowBlockAt,
   windowBlocksIn,
   windowOf,
@@ -120,6 +121,7 @@ import { createClickSuppressor } from './clickSuppressor';
 import { edgeScrollStep } from './edgeScroll';
 import {
   NEW_FIRST_WINDOW,
+  NEW_LAST_WINDOW,
   measureNewFirstWindowTarget,
   newWindowPlacement,
 } from '../newWindowTarget';
@@ -1619,6 +1621,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // COLLAPSED boxes. Measure first and every midpoint would describe a
       // layout that no longer exists.
       l.started = true;
+      // KAN-887. A room the last drag here kept goes now, in the task that
+      // gives a tab or group drag its own (below): nothing moves. A window
+      // drag folds every window, which moves everything anyway.
+      releaseKeptRoom(paneOf(rows.current.get(l.rowId) ?? null));
       setDragging(true, dragKind);
       // KAN-361 (N1 B). The New window target swaps in for the session
       // header's toolbar row, by CSS keyed on this -- so it is on before the
@@ -2248,6 +2254,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
                   drop.dropTargetId,
                   drop.toWindowId
                 );
+
+          // KAN-887. A drop into the room fills it: the new last window
+          // takes its place in this commit, so the room kept at the end goes.
+          if (l.landingWindow === NEW_LAST_WINDOW) releaseKeptRoom();
 
           // KAN-835. The rows hold where the drop put them until the list
           // draws the move, so none eases its old shift out over the new

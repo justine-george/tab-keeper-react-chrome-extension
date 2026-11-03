@@ -159,11 +159,18 @@ body {
    otherwise win on order. Blank until lit (WindowEntryContainer).
 
    During a carry, the session it shows decides again, from its own overflow
-   at rest (decideNewWindowRoom): never the room the carry brought with it. */
-[data-drag-new-window='room'] [data-new-window-target='last'] {
+   at rest (decideNewWindowRoom): never the room the carry brought with it.
+
+   KAN-887. A drag that ends scrolled into the room leaves it, kept, until it
+   is out of view (keepRoomInView): taking it then would pull every row down. */
+[data-drag-new-window='room'] [data-new-window-target='last'],
+[data-new-window-room-kept] [data-new-window-target='last'] {
   border-width: 1.5px;
 }
 [data-drag-new-window='room']
+  [data-new-window-target='last']
+  [data-new-window-room],
+[data-new-window-room-kept]
   [data-new-window-target='last']
   [data-new-window-room] {
   display: block;
