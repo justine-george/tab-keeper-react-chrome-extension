@@ -523,7 +523,9 @@ const knobGeometry = (page: Page, group: string | Locator) =>
         ys.push(n[1]);
       }
     }
-    const [lw, lh] = [layer.right - layer.left, layer.bottom - layer.top];
+    // The path's points are in the layer's own px, untouched by the press dip.
+    const lw = parseFloat(getComputedStyle(knob).width);
+    const lh = parseFloat(getComputedStyle(knob).height);
     const [left, right, top, bottom] = path
       ? [
           Math.min(...xs),

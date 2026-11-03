@@ -114,6 +114,6 @@ describe('the knob clip (KAN-908)', () => {
   test('cuts no arc', async () => {
     await renderWithProviders(<Pair start="off" />);
     expect(clip()).toMatch(/^path\(/);
-    expect(clip()).not.toMatch(/round|[Aa] /);
+    expect(clip()).not.toMatch(/round|[Aa]-?\d/);
   });
 });

@@ -44,6 +44,11 @@ describe('squircleRect (KAN-908)', () => {
     expect(shape(other)).toBe(shape(d));
   });
 
+  test('a radius past half the width is capped at it', () => {
+    const narrow = squircleRect({ left: 0, top: 0, right: 8, bottom: 28 }, 7);
+    expect(narrow).toContain('M4 0');
+  });
+
   test('a radius past half the height is capped at it', () => {
     const tall = squircleRect({ left: 0, top: 0, right: 40, bottom: 10 }, 7);
     expect(tall).toContain('M5 0');

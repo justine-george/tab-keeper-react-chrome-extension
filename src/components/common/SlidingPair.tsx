@@ -26,18 +26,18 @@ export interface SlidingOption<T extends string> {
  *
  * The export page and the popup are on different scales: the export toolbar
  * draws its pairs at 34px with a 280ms overshoot (KAN-218), the popup at
- * CONTROL.ROW and DURATION.MOVE; both at RADIUS.SWITCH / SWITCH_KNOB. The component
- * carries neither set, so it can live in common/ and pass the scale scan
- * while each page keeps its own look; the export's numbers live where the
- * scan exempts them (export/slidingPairStyle.ts).
+ * CONTROL.ROW and DURATION.MOVE; both use RADIUS.SWITCH / SWITCH_KNOB. The
+ * component carries no numbers of its own, so it can live in common/ and pass
+ * the scale scan while each page keeps its own look; the export's numbers
+ * live where the scan exempts them (export/slidingPairStyle.ts).
  */
 export interface SlidingPairMetrics {
   /** The track's least outer height; it grows past it only when its words need more. */
   minHeight: string;
   /** The track's corner. */
   radius: string;
-  /** The knob's corner, and each cell's. */
-  knobRadius: string;
+  /** The knob's corner, and each cell's, in px: the clip's traced corner reads it as a number. */
+  knobRadius: `${number}px`;
   /** The knob's slide -- duration and easing, applied to clip-path and to a glyph's turn. */
   slide: string;
   /** The track's dip while pressed -- duration and easing, applied to transform. */
@@ -54,8 +54,8 @@ const TRACK_PADDING = 2;
  * Two real buttons carry the state (`aria-pressed`), the names and the clicks.
  * Over them lies an `aria-hidden` copy of both labels in the pressed style,
  * clipped to the pressed button's box with squircle corners. Moving the clip
- * is the slide, and
- * because every pixel of a label belongs to exactly one layer, a word crossing
+ * is the slide, and because every pixel of a label belongs to exactly one
+ * layer, a word crossing
  * the knob's edge is dark on the track and light on the knob in the same frame
  * -- which fading the label's colour cannot do.
  *
