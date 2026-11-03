@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -60,6 +60,10 @@ import { DURATION, ICON, RADIUS, TYPE } from '../../../styles/scale';
 import { useNewFirstWindowReceiver } from './useNewFirstWindowReceiver';
 import { selectRunHoldsDelete } from '../../../redux/firstRun';
 import { onFirstClickOnly } from '../../common/firstClickOnly';
+import {
+  clearSessionRenameDraft,
+  setSessionRenameDraft,
+} from '../sessionRenameDraft';
 
 export default function HeroContainerRight() {
   const COLORS = useThemeColors();
@@ -133,6 +137,17 @@ export default function HeroContainerRight() {
   if (editingTabGroupId !== null && !editedSessionIsListed) {
     setEditingTabGroupId(null);
   }
+
+  // KAN-917. The session's row shows the name while it is typed; cleared when
+  // the rename ends (saved, Esc, another session, unmount).
+  const renamingId = isEditing ? editingTabGroupId : null;
+  useLayoutEffect(() => {
+    if (renamingId !== null) setSessionRenameDraft(renamingId, editableTitle);
+  }, [renamingId, editableTitle]);
+  useLayoutEffect(
+    () => (renamingId === null ? undefined : clearSessionRenameDraft),
+    [renamingId]
+  );
 
   // KAN-361 (N1 B). The toolbar row's New window target takes a carry let go
   // on it, into the session on screen. Above the early return, as every hook

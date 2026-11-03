@@ -50,6 +50,7 @@ import {
   selectRunHoldsDelete,
   selectRunLitRowButton,
 } from '../../../redux/firstRun';
+import { useShownSessionTitle } from '../sessionRenameDraft';
 
 /**
  * How far a row's action icon sits inside the row, per side, in CSS px.
@@ -125,7 +126,12 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
   // Redraws the date when the local day changes (KAN-347).
   const today = useToday();
 
-  const { title, windowCount, tabCount } = tabGroupData;
+  const { windowCount, tabCount } = tabGroupData;
+  // KAN-917. While the header renames this session, the name as it would be saved.
+  const title = useShownSessionTitle(
+    tabGroupData.tabGroupId,
+    tabGroupData.title
+  );
   // The full timestamp the row's trimmed date label stands for (KAN-347).
   const sessionDate = sessionDateTitle(
     tabGroupData,
