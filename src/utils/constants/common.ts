@@ -96,6 +96,8 @@ export const TOAST_MESSAGES = {
   // KAN-209. The export page's inline note uses this key too: one wording for
   // one outcome. KAN-401: plural, with the count of links copied.
   COPY_LINKS_SUCCESS: 'LinksCopied',
+  // KAN-909. A click on a link in the export preview.
+  PREVIEW_LINKS_OPEN_FROM_PDF: 'PreviewLinksOpenFromPdf',
   // "added", not "saved". These two report putting something into a session
   // that already exists, which is a different operation from the two above --
   // and the right pane's button now says "Add to this session", so a toast

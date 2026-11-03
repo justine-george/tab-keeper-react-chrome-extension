@@ -182,6 +182,7 @@
   "Session not found": "セッションが見つかりません",
   "Dark": "ダーク",
   "Save as PDF": "PDFとして保存…",
+  "PreviewLinksOpenFromPdf": "リンクは保存したPDFから開けます。",
   "Layout": "レイアウト",
   "Colour": "配色",
   "Edit": "編集",
