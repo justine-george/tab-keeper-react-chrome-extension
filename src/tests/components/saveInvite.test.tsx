@@ -184,3 +184,13 @@ describe('the save invite', () => {
     expect(invite()?.previousElementSibling).toBe(saveButton());
   });
 });
+
+// KAN-913. The ring takes the save half's corners: rounded where the group rounds, square where ⋮ joins.
+describe('the save invite ring corners', () => {
+  test('match the save segment under it', async () => {
+    await renderWithProviders(<UserInputContainer />);
+    const ring = invite();
+    if (ring === null) throw new Error('no ring');
+    expect(getComputedStyle(ring).borderRadius).toBe('11px 0px 0px 11px');
+  });
+});

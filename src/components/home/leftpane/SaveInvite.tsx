@@ -9,10 +9,17 @@ import { selectRunHere } from '../../../redux/firstRun';
 import { markHadSavedSession } from '../../../redux/slices/settingsDataStateSlice';
 import type { RootState } from '../../../redux/store';
 import { isSampleSession } from '../../../utils/functions/sampleSession';
-import { DURATION, EASE } from '../../../styles/scale';
+import { flushIn } from '../../../styles/corners';
+import { DURATION, EASE, RADIUS } from '../../../styles/scale';
 
 // The save group's wide segment: the save button and the ring over it share it.
 export const SAVE_SEGMENT_WIDTH = '58px';
+
+// KAN-913. The save half's corners, for the button and the ring over it: rounded where the group rounds, square where ⋮ joins.
+export const SAVE_SEGMENT_CORNERS = flushIn(
+  ['top-left', 'bottom-left'],
+  RADIUS.SQUARE
+);
 
 // The mark's tile (TabKeeperMark), at full strength.
 const MINT = '#99bf9d';
@@ -35,12 +42,14 @@ const inviteStyle = css`
   z-index: 1;
   pointer-events: none;
   box-shadow: ${RING};
+  ${SAVE_SEGMENT_CORNERS}
 
   &::before {
     content: '';
     position: absolute;
     inset: 0;
     box-shadow: ${RING};
+    ${SAVE_SEGMENT_CORNERS}
     opacity: 0;
     animation: ${PULSE} ${DURATION.INVITE_CYCLE} ${EASE.OUT} infinite;
   }

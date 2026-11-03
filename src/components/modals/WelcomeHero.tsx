@@ -51,6 +51,7 @@ export default function WelcomeHero({
     bottom: 6px;
     width: 28px;
     height: 28px;
+    ${corners(RADIUS.CONTROL)}
     display: grid;
     place-items: center;
     padding: 0;

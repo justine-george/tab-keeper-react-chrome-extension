@@ -131,3 +131,15 @@ describe('the welcome floppy (KAN-907)', () => {
     expect(radius('label')).toBe(scaled(4));
   });
 });
+
+// KAN-913. Play again is an icon button: its fill rounds at CONTROL, as theirs do.
+describe('the welcome Play again (KAN-913)', () => {
+  test('rounds at 8', async () => {
+    await renderWithProviders(
+      <WelcomeHero frame="start" onReplay={() => {}} />
+    );
+    const button = document.querySelector('button[aria-label="Play again"]');
+    if (button === null) throw new Error('no Play again');
+    expect(getComputedStyle(button).borderRadius).toBe('8px');
+  });
+});

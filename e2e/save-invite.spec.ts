@@ -219,3 +219,22 @@ for (const view of VIEWS) {
     });
   });
 }
+
+// KAN-913. The ring and its pulse take the save half's corners, in both views.
+for (const view of VIEWS)
+  test(`${view.name}: the ring and its pulse round like the save button under them`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openEmpty(context, extensionId, view);
+    const radius = (selector: string, pseudo?: string) =>
+      page
+        .locator(selector)
+        .evaluate(
+          (e, p) => getComputedStyle(e, p).borderRadius,
+          pseudo ?? null
+        );
+    expect(await radius(SAVE)).toBe('11px 0px 0px 11px');
+    expect(await radius(INVITE)).toBe(await radius(SAVE));
+    expect(await radius(INVITE, '::before')).toBe(await radius(SAVE));
+  });
