@@ -998,14 +998,16 @@ function keepRoomInView(root: HTMLElement): void {
   scroller.addEventListener('scroll', check, { passive: true });
   // The list's own size changes too: a drop drawn after this (a group
   // unfolding) or a resize can put the room out of view without a scroll.
-  const resized = new ResizeObserver(check);
-  resized.observe(scroller);
-  for (const child of scroller.children) resized.observe(child);
+  // None in jsdom, as elsewhere here.
+  const resized =
+    typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(check);
+  resized?.observe(scroller);
+  for (const child of scroller.children) resized?.observe(child);
   keptRoom = {
     scroller,
     release: () => {
       scroller.removeEventListener('scroll', check);
-      resized.disconnect();
+      resized?.disconnect();
       root.removeAttribute('data-new-window-room-kept');
     },
   };
