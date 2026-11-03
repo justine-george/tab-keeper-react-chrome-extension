@@ -236,8 +236,6 @@ export default function SlidingPair<T extends string>({
     inset: ${TRACK_PADDING}px;
     display: flex;
     align-items: stretch;
-    border-radius: ${metrics.knobRadius};
-    corner-shape: ${CORNER_SHAPE};
     color: ${colors.labelOnKnob};
     pointer-events: none;
     ${moving ? `transition: clip-path ${metrics.slide};` : ''}
