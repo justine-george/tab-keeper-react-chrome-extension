@@ -26,6 +26,7 @@ import { useFontFamily } from '../../../hooks/useFontFamily';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
+import { selectSkipsTabsAlreadyOpen } from '../../../redux/slices/settingsDataStateSlice';
 import type { OpenSavedWindowsIn } from '../../../redux/slices/settingsDataStateSlice';
 import {
   openWayIcon,
@@ -38,6 +39,7 @@ import { useMacKeys } from '../../../hooks/useIsMac';
 import { useOpenCopyAddresses, useOpenGroupKeys } from './openCopies';
 import {
   hasOpenGroup,
+  openGroupBesideActive,
   switchToOpenGroup,
 } from '../../../utils/functions/openSavedGroup';
 import type { SavedGroupContent } from '../../../utils/functions/openSavedGroup';
@@ -101,7 +103,6 @@ import type {
   chromeTabGroupData,
   GroupRun,
 } from '../../../utils/functions/tabGroups';
-import { applyTabGroups } from '../../../utils/functions/windows';
 import { savedSplitPartners } from '../../../utils/functions/splitPartners';
 import { isTabKeeperPage, toStoredTab } from '../../../utils/functions/capture';
 import { useCanAddCurrentTab } from '../../../hooks/useCanAddCurrentTab';
@@ -299,6 +300,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const hasTabGroupsPermission = useSelector(
     (state: RootState) => state.globalState.hasTabGroupsPermission
   );
+  const skipsTabsAlreadyOpen = useSelector(selectSkipsTabsAlreadyOpen);
   const copyLinksLayout = useSelector(
     (state: RootState) => state.settingsDataState.copyLinksLayout
   );
@@ -1163,58 +1165,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     });
   };
 
-  // The group's Open (KAN-394): its tabs beside the active one, re-grouped,
-  // and its last tab brought to the front when `active` (KAN-885: behind else).
-  //
-  // The index advances per tab. Creating them all at currentTabIndex + 1 would
-  // reverse the group, because each insert pushes the previous one right.
   const openGroup = (run: GroupRun, active: boolean) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      const current = tabs[0];
-      if (!current) return;
-
-      // Sequential, not Promise.all. Each create is given an explicit index,
-      // and concurrent inserts would resolve those indexes against a list that
-      // is still shifting -- the group would come out shuffled.
-      const created: chrome.tabs.Tab[] = [];
-      for (const [offset, tab] of run.tabs.entries()) {
-        created.push(
-          await chrome.tabs.create({
-            url: resolveTabUrl(tab.url),
-            // Nothing is created focused. Activating a tab DESTROYS the popup,
-            // and everything below -- including the grouping -- is a
-            // continuation of this handler that would simply never run. The
-            // first version created the last tab active and the tabs opened
-            // ungrouped in the real popup, while looking correct when driven
-            // as a tab, which does not die.
-            active: false,
-            index: current.index + 1 + offset,
-          })
-        );
-      }
-
-      const tabIds = created
-        .map((tab) => tab.id)
-        .filter((id): id is number => id !== undefined);
-      if (tabIds.length === 0) return;
-
-      // Re-forms the saved group -- same name, same colour -- by reusing the
-      // function restore already uses, rather than a second implementation of
-      // the same thing. No permission check here: this row only renders when
-      // hasTabGroupsPermission is true, and applyTabGroups feature-detects
-      // chrome.tabGroups anyway, so a missing namespace leaves the tabs open
-      // and ungrouped rather than failing the click.
-      await applyTabGroups(
-        current.windowId,
-        [run.group],
-        new Map([[run.group.groupId, tabIds]])
-      );
-
-      // Focus LAST, once the group exists. This is the step that kills the
-      // popup, so nothing may depend on running after it.
-      if (active)
-        await chrome.tabs.update(tabIds[tabIds.length - 1], { active: true });
-    });
+    void openGroupBesideActive(
+      run.tabs,
+      run.group,
+      active,
+      active && skipsTabsAlreadyOpen
+    );
   };
 
   function handleAccordionClick() {
