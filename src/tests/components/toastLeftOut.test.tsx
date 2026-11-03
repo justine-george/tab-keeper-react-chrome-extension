@@ -83,7 +83,9 @@ describe('the left-out sentence joins as the language writes (KAN-906)', () => {
     await show(store, 2);
 
     // From the raw JSON, never through t(): the expectation must not share the machinery.
+    expect(SAVED).toBe('Current window saved as a session.');
+    const saved = dict['Current window saved as a session.'];
     const sentence = dict.DuplicateTabsLeftOut_other.replace('{{count}}', '2');
-    expect(container.textContent).toBe(`${dict[SAVED]}${gap}${sentence}`);
+    expect(container.textContent).toBe(`${saved}${gap}${sentence}`);
   });
 });
