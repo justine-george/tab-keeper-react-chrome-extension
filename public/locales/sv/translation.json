@@ -37,6 +37,8 @@
   "Add window": "Lägg till aktuellt fönster",
   "Add current window": "Lägg till aktuellt fönster i den här sessionen",
   "AddWindowNothingToAdd": "Inget att lägga till: bara Tab Keeper är öppet i det här fönstret",
+  "AddWindowAllAlreadyThere": "Inget att lägga till: den här sessionen har redan alla flikar i det här fönstret.",
+  "ThisSessionAlreadyHasThisTab": "Den här sessionen har redan den här fliken.",
   "Rename session": "Byt namn på session",
   "Collapse": "Fäll ihop",
   "Expand": "Fäll ut",

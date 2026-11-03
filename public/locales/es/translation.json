@@ -38,6 +38,8 @@
   "Add window": "Añadir ventana actual",
   "Add current window": "Añadir la ventana actual a esta sesión",
   "AddWindowNothingToAdd": "Nada que añadir: en esta ventana solo está abierto Tab Keeper",
+  "AddWindowAllAlreadyThere": "Nada que añadir: esta sesión ya tiene todas las pestañas de esta ventana.",
+  "ThisSessionAlreadyHasThisTab": "Esta sesión ya tiene esta pestaña.",
   "Rename session": "Renombrar sesión",
   "Collapse": "Contraer",
   "Expand": "Expandir",

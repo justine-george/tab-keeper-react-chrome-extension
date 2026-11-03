@@ -27,6 +27,8 @@ const ADD_OPERATIONS = [
   'Current window added to this session.',
   'Current tab added to this window.',
   'AddWindowNothingToAdd',
+  'AddWindowAllAlreadyThere',
+  'ThisSessionAlreadyHasThisTab',
 ];
 
 const SAVE_OPERATIONS = [

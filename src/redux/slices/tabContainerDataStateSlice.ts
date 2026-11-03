@@ -92,7 +92,11 @@ import {
   sortGroupsByName,
 } from '../../utils/functions/sortGroupsByName';
 import { noteReviewMoment } from '../reviewAsk';
-import { withoutRepeats } from '../../utils/functions/skipDuplicates';
+import {
+  leaveOutDuplicates,
+  urlsIn,
+  withoutRepeats,
+} from '../../utils/functions/skipDuplicates';
 import {
   TAB_GROUP_COLORS,
   isCarriedStillThere,
@@ -1012,12 +1016,30 @@ export const addCurrWindowToTabGroup = createAsyncThunk(
   // first `addCase(saveToTabContainer.fulfilled, ...)` match this one too.
   'global/addCurrWindowToTabGroup',
   async (params: addCurrWindowToTabGroupParams, thunkAPI) => {
-    thunkAPI.dispatch(addCurrWindowToTabGroupInternal(params));
+    const state = thunkAPI.getState() as RootState;
+    const target = state.tabContainerDataState.tabGroups.find(
+      (g) => g.tabGroupId === params.tabGroupId
+    );
+    // KAN-906. Only arriving tabs are compared: repeats the session already holds stay.
+    const { windows, leftOut } =
+      skipsDuplicates(state) && target !== undefined
+        ? leaveOutDuplicates([params.window], urlsIn(target))
+        : { windows: [params.window], leftOut: 0 };
+    const [window] = windows;
+    if (window === undefined) {
+      thunkAPI.dispatch(
+        showToast({ toastText: TOAST_MESSAGES.ADD_WINDOW_ALL_ALREADY_THERE })
+      );
+      return;
+    }
+
+    thunkAPI.dispatch(addCurrWindowToTabGroupInternal({ ...params, window }));
 
     thunkAPI.dispatch(
       showToast({
         toastText: TOAST_MESSAGES.ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS,
         announcesSavedChange: true,
+        leftOut,
       })
     );
   }
@@ -1248,6 +1270,23 @@ export const sortWindowGroupsByName = createAsyncThunk<
 export const addCurrTabToWindow = createAsyncThunk(
   'global/addCurrTabToWindow',
   async (params: addCurrTabToWindowParams, thunkAPI) => {
+    const state = thunkAPI.getState() as RootState;
+    const target = state.tabContainerDataState.tabGroups.find(
+      (g) => g.tabGroupId === params.tabGroupId
+    );
+    // KAN-906. A tab with no address is never an address to match.
+    if (
+      skipsDuplicates(state) &&
+      target !== undefined &&
+      urlsIn(target).has(params.tabData.url)
+    ) {
+      thunkAPI.dispatch(
+        showToast({
+          toastText: TOAST_MESSAGES.THIS_SESSION_ALREADY_HAS_THIS_TAB,
+        })
+      );
+      return;
+    }
     thunkAPI.dispatch(addCurrTabToWindowInternal(params));
 
     thunkAPI.dispatch(

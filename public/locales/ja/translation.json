@@ -36,6 +36,8 @@
   "Add window": "現在のウィンドウを追加",
   "Add current window": "現在のウィンドウをこのセッションに追加",
   "AddWindowNothingToAdd": "追加するものはありません: このウィンドウで開いているのは Tab Keeper だけです",
+  "AddWindowAllAlreadyThere": "追加するものはありません: このセッションには、このウィンドウのタブがすべて含まれています。",
+  "ThisSessionAlreadyHasThisTab": "このセッションには、このタブがすでに含まれています。",
   "Rename session": "セッションの名前を変更",
   "Collapse": "折りたたむ",
   "Expand": "展開",

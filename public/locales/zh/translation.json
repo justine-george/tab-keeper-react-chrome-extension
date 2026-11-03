@@ -36,6 +36,8 @@
   "Add window": "添加当前窗口",
   "Add current window": "将当前窗口添加到此会话",
   "AddWindowNothingToAdd": "没有可添加的内容：此窗口中只打开了 Tab Keeper",
+  "AddWindowAllAlreadyThere": "没有可添加的内容：此会话已包含此窗口中的所有标签页。",
+  "ThisSessionAlreadyHasThisTab": "此会话已包含此标签页。",
   "Rename session": "重命名会话",
   "Collapse": "折叠",
   "Expand": "展开",

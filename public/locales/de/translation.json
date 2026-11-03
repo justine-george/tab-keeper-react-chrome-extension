@@ -37,6 +37,8 @@
   "Add window": "Aktuelles Fenster hinzufügen",
   "Add current window": "Aktuelles Fenster zu dieser Sitzung hinzufügen",
   "AddWindowNothingToAdd": "Nichts hinzuzufügen: In diesem Fenster ist nur Tab Keeper geöffnet",
+  "AddWindowAllAlreadyThere": "Nichts hinzuzufügen: Diese Sitzung hat bereits jeden Tab in diesem Fenster.",
+  "ThisSessionAlreadyHasThisTab": "Diese Sitzung hat diesen Tab bereits.",
   "Rename session": "Sitzung umbenennen",
   "Collapse": "Einklappen",
   "Expand": "Erweitern",

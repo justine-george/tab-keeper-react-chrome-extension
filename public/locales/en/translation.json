@@ -37,6 +37,8 @@
   "Add window": "Add current window",
   "Add current window": "Add current window to this session",
   "AddWindowNothingToAdd": "Nothing to add: only Tab Keeper is open in this window",
+  "AddWindowAllAlreadyThere": "Nothing to add: this session already has every tab in this window.",
+  "ThisSessionAlreadyHasThisTab": "This session already has this tab.",
   "Rename session": "Rename session",
   "Collapse": "Collapse",
   "Expand": "Expand",

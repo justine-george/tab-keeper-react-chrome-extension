@@ -102,6 +102,9 @@ export const TOAST_MESSAGES = {
   // saying "saved" would contradict the control the user just pressed.
   ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS: 'Current window added to this session.',
   ADD_CURR_TAB_TO_WINDOW_SUCCESS: 'Current tab added to this window.',
+  // KAN-906. Skip duplicate tabs is on and there is nothing new to add.
+  ADD_WINDOW_ALL_ALREADY_THERE: 'AddWindowAllAlreadyThere',
+  THIS_SESSION_ALREADY_HAS_THIS_TAB: 'ThisSessionAlreadyHasThisTab',
   // KAN-151. Applying a sort overwrites every rank, so a hand-arranged list is
   // gone in one click. Undo restores it -- sorting goes on the undo stack like
   // any other data change -- but nothing said so, and "my arrangement is gone"
