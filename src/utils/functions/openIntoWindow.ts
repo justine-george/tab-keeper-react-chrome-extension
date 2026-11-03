@@ -1,6 +1,8 @@
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
+import { resolveTabUrl } from './local';
 import { pinnedRunLength } from './pinnedRun';
 import { isIncognitoAllowed, restoreSession } from './restoreSession';
+import { leaveOutOpenSpecs, openCopyOf, openPagesOf } from './skipOpen';
 import { createSplitApi } from './splitView';
 import {
   applyTabGroups,
@@ -31,7 +33,37 @@ export interface OpenIntoWindowRequest {
   activate: boolean;
   // For the windows opened apart or as the fallback.
   pinTabKeeper: boolean;
+  // KAN-910. Leave out saved tabs whose page this window already has.
+  skipTabsAlreadyOpen: boolean;
 }
+
+// ids: the tabs created, in merged order. leftOut: saved tabs not opened for the window already having their page; alreadyOpen: the ids of those open copies.
+export interface OpenIntoWindowAnswer {
+  ids: number[];
+  leftOut: number;
+  alreadyOpen: number[];
+}
+
+const isIdList = (value: unknown): value is number[] =>
+  Array.isArray(value) && value.every((id) => typeof id === 'number');
+
+export function isOpenIntoWindowAnswer(
+  answer: unknown
+): answer is OpenIntoWindowAnswer {
+  if (typeof answer !== 'object' || answer === null) return false;
+  const candidate = answer as Record<string, unknown>;
+  return (
+    isIdList(candidate.ids) &&
+    typeof candidate.leftOut === 'number' &&
+    isIdList(candidate.alreadyOpen)
+  );
+}
+
+export const NOTHING_OPENED: OpenIntoWindowAnswer = {
+  ids: [],
+  leftOut: 0,
+  alreadyOpen: [],
+};
 
 export function isOpenIntoWindowRequest(
   message: unknown
@@ -44,7 +76,8 @@ export function isOpenIntoWindowRequest(
     Array.isArray(candidate.specs) &&
     typeof candidate.goToURLText === 'string' &&
     typeof candidate.activate === 'boolean' &&
-    typeof candidate.pinTabKeeper === 'boolean'
+    typeof candidate.pinTabKeeper === 'boolean' &&
+    typeof candidate.skipTabsAlreadyOpen === 'boolean'
   );
 }
 
@@ -102,10 +135,10 @@ export function mergeForWindow(specs: WindowSpec[]): {
 const scopeSplit = (tab: tabData, w: number): tabData =>
   tab.splitId === undefined ? tab : { ...tab, splitId: `${w}:${tab.splitId}` };
 
-// The created tab ids in merged order, refused ones left out. [] when the tabs went to new windows instead.
+// The created tab ids in merged order, refused ones left out; none when the tabs went to new windows instead.
 export async function openIntoWindow(
   request: OpenIntoWindowRequest
-): Promise<number[]> {
+): Promise<OpenIntoWindowAnswer> {
   const { windowId, goToURLText, pinTabKeeper } = request;
   const inNewWindows = (specs: WindowSpec[]) =>
     restoreSession({
@@ -119,7 +152,7 @@ export async function openIntoWindow(
   const targetWindow = await tabbedWindow(windowId);
   if (targetWindow === null) {
     await inNewWindows(request.specs);
-    return [];
+    return NOTHING_OPENED;
   }
   const { into, apart } = splitByKind(
     request.specs,
@@ -128,8 +161,42 @@ export async function openIntoWindow(
   );
   if (apart.length > 0) await inNewWindows(apart);
 
-  const { tabs, groups, targetIndex } = mergeForWindow(into);
-  if (tabs.length === 0) return [];
+  // With the flag on, one read of the window serves the open pages and, later, the pinned run.
+  const liveTabs = request.skipTabsAlreadyOpen
+    ? await tabsInOrder(windowId)
+    : undefined;
+  const open = liveTabs === undefined ? undefined : openPagesOf(liveTabs);
+  const whole = mergeForWindow(into);
+  const skipped =
+    open === undefined
+      ? { specs: into, leftOut: 0, alreadyOpen: [] }
+      : leaveOutOpenSpecs(into, open);
+  const leftOutAnswer = {
+    leftOut: skipped.leftOut,
+    alreadyOpen: skipped.alreadyOpen,
+  };
+  const merged = skipped.leftOut === 0 ? whole : mergeForWindow(skipped.specs);
+  const { tabs, groups } = merged;
+  let { targetIndex } = merged;
+  // The saved target tab, judged before anything was left out: left out, its open copy is current.
+  let openCopyId: number | undefined;
+  const target = whole.tabs[whole.targetIndex];
+  if (skipped.leftOut > 0 && open !== undefined && target !== undefined) {
+    if (!tabs.some((t) => t.tabId === target.tabId)) {
+      openCopyId = openCopyOf(target, open);
+      if (openCopyId !== undefined) targetIndex = -1;
+      // Left out as a repeat within the item: the kept tab with its page is current.
+      else {
+        const address = resolveTabUrl(target.url);
+        targetIndex = tabs.findIndex((t) => resolveTabUrl(t.url) === address);
+      }
+    }
+  }
+  if (tabs.length === 0) {
+    if (skipped.leftOut > 0 && request.activate)
+      await bringForward(windowId, openCopyId);
+    return { ids: [], ...leftOutAnswer };
+  }
 
   const createSplit = createSplitApi();
   const pairs = createSplit === null ? [] : splitPairs(tabs);
@@ -138,7 +205,7 @@ export async function openIntoWindow(
   const icons = await Promise.all(
     tabs.map((tab, i) => (loadsPage.has(i) ? '' : placeholderIcon(tab)))
   );
-  let pinnedSlot = pinnedRunLength(await tabsInOrder(windowId));
+  let pinnedSlot = pinnedRunLength(liveTabs ?? (await tabsInOrder(windowId)));
   // A pinned tab takes the next slot only once Chrome made it.
   const create = async (tab: tabData, i: number) => {
     const id = await createRestoredTab(
@@ -156,7 +223,7 @@ export async function openIntoWindow(
   // Refused with the window gone or unusable: new windows rather than not at all. Refused with it fine: that page alone is skipped.
   if (firstId === undefined && (await tabbedWindow(windowId)) === null) {
     await inNewWindows(into);
-    return [];
+    return NOTHING_OPENED;
   }
   // mergeForWindow put the pinned first. They go one at a time, each slot
   // known from the last; the rest all at once: Chrome runs one extension's
@@ -175,10 +242,10 @@ export async function openIntoWindow(
 
   // A refused saved active tab falls back as Open's does (retryAfterFailure, KAN-458).
   const currentIndex =
-    ids[targetIndex] === undefined
-      ? mergeForWindow(into.map(withoutActiveTab)).targetIndex
+    openCopyId === undefined && ids[targetIndex] === undefined
+      ? mergeForWindow(skipped.specs.map(withoutActiveTab)).targetIndex
       : targetIndex;
-  const currentId = ids[currentIndex];
+  const currentId = openCopyId ?? ids[currentIndex];
 
   await applyTabGroups(windowId, groups, groupMembers(tabs, ids), {
     kind: 'saved',
@@ -188,7 +255,10 @@ export async function openIntoWindow(
   if (createSplit !== null) await splitRestoredPairs(createSplit, pairs, ids);
 
   if (request.activate) await bringForward(windowId, currentId);
-  return ids.filter((id): id is number => id !== undefined);
+  return {
+    ids: ids.filter((id): id is number => id !== undefined),
+    ...leftOutAnswer,
+  };
 }
 
 // Null when the window is gone, or is a popup or app window: Chrome would put a tab created there in another window.

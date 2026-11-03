@@ -24,6 +24,7 @@ import {
   setCopyLinksLayout,
   setOpenSavedWindowsIn,
   setSkipDuplicateTabs,
+  setSkipTabsAlreadyOpen,
   setTheme,
   setPinTabKeeperInNewWindows,
   setTimeFormat,
@@ -91,6 +92,7 @@ const SettingsDetailsContainer: React.FC = () => {
   const cloudDataHelpId = useId();
   const saveTabGroupsHelpId = useId();
   const skipDuplicateTabsHelpId = useId();
+  const skipTabsAlreadyOpenHelpId = useId();
   const popupShortcut = usePopupShortcut();
   const { i18n } = useTranslation();
   const { t } = useTranslation();
@@ -564,51 +566,6 @@ const SettingsDetailsContainer: React.FC = () => {
           </p>
         </div>
 
-        {/* KAN-892. Where Open on a saved window or session puts its tabs. */}
-        <div
-          data-settings-section
-          css={css`
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
-            width: 100%;
-            margin-top: 32px;
-          `}
-        >
-          <div
-            css={css`
-              display: flex;
-              align-items: flex-start;
-              width: 100%;
-            `}
-          >
-            <NormalLabel
-              value={t('Open saved windows')}
-              size={TYPE.BODY}
-              color={COLORS.LABEL_L1_COLOR}
-            />
-          </div>
-          <div
-            css={css`
-              margin-top: 8px;
-            `}
-          >
-            <SlidingPair
-              label={t('Open saved windows')}
-              options={[
-                { value: 'new-window', label: t('CarryNewWindowTarget') },
-                { value: 'this-window', label: t('This window') },
-              ]}
-              value={settingsData.openSavedWindowsIn}
-              onChange={(next) => dispatch(setOpenSavedWindowsIn(next))}
-              metrics={SETTINGS_PAIR_METRICS}
-              describedBy={openSavedWindowsHelpId}
-            />
-          </div>
-          <p id={openSavedWindowsHelpId} css={helpLineStyle}>
-            {t('OpenSavedWindowsHelp')}
-          </p>
-        </div>
-
         {/* Save Tab Groups */}
         <div
           data-settings-section
@@ -708,7 +665,101 @@ const SettingsDetailsContainer: React.FC = () => {
           </div>
           <p id={skipDuplicateTabsHelpId} css={helpLineStyle}>
             {t(
-              'When you add a window or tabs to a saved session, pages it already has are left out, and a new session keeps one copy of each.'
+              'When you add or move a window or tabs to a saved session, pages it already has are left out, and a new session keeps one copy of each.'
+            )}
+          </p>
+        </div>
+
+        {/* KAN-892. Where Open on a saved window or session puts its tabs. */}
+        <div
+          data-settings-section
+          css={css`
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 32px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Open saved windows')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+          <div
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            <SlidingPair
+              label={t('Open saved windows')}
+              options={[
+                { value: 'new-window', label: t('CarryNewWindowTarget') },
+                { value: 'this-window', label: t('This window') },
+              ]}
+              value={settingsData.openSavedWindowsIn}
+              onChange={(next) => dispatch(setOpenSavedWindowsIn(next))}
+              metrics={SETTINGS_PAIR_METRICS}
+              describedBy={openSavedWindowsHelpId}
+            />
+          </div>
+          <p id={openSavedWindowsHelpId} css={helpLineStyle}>
+            {t('OpenSavedWindowsHelp')}
+          </p>
+        </div>
+
+        {/* KAN-910. Whether Open and drops into an open window leave out pages it already has. */}
+        <div
+          data-settings-section
+          css={css`
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 32px;
+          `}
+        >
+          <div
+            css={css`
+              display: flex;
+              align-items: flex-start;
+              width: 100%;
+            `}
+          >
+            <NormalLabel
+              value={t('Skip tabs already open')}
+              size={TYPE.BODY}
+              color={COLORS.LABEL_L1_COLOR}
+            />
+          </div>
+          <div
+            css={css`
+              margin-top: 8px;
+            `}
+          >
+            <SlidingPair
+              label={t('Skip tabs already open')}
+              options={[
+                { value: 'on', label: t('On') },
+                { value: 'off', label: t('Off') },
+              ]}
+              value={settingsData.skipTabsAlreadyOpen ? 'on' : 'off'}
+              onChange={(next) =>
+                dispatch(setSkipTabsAlreadyOpen(next === 'on'))
+              }
+              metrics={SETTINGS_PAIR_METRICS}
+              describedBy={skipTabsAlreadyOpenHelpId}
+            />
+          </div>
+          <p id={skipTabsAlreadyOpenHelpId} css={helpLineStyle}>
+            {t(
+              'Opening or dropping saved tabs into a window that’s already open leaves out pages it already has.'
             )}
           </p>
         </div>

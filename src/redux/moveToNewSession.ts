@@ -8,6 +8,7 @@ import {
   type CarriedRef,
 } from './slices/tabContainerDataStateSlice';
 import { showSession } from './showSession';
+import { selectSkipsDuplicateTabs } from './slices/settingsDataStateSlice';
 import { TOAST_MESSAGES } from '../utils/constants/common';
 import type { RootState } from './store';
 
@@ -31,7 +32,14 @@ export const moveToNewSession =
     )?.title;
     if (sourceTitle === undefined) return false;
 
-    const action = moveToNewSessionInternal(carried, fallbackTitle, typedTitle);
+    // KAN-914. One copy of each page, as a new save keeps.
+    const action = moveToNewSessionInternal(
+      carried,
+      fallbackTitle,
+      typedTitle,
+      {},
+      selectSkipsDuplicateTabs(getState())
+    );
     const moved = dispatch(dropOnTopMoved(newSessionDrop(carried, action)));
     if (!moved) return false;
 

@@ -66,6 +66,7 @@ import {
 } from '../../utils/functions/openIntoWindow';
 import {
   selectSkipsDuplicateTabs,
+  selectSkipsTabsAlreadyOpen,
   type OpenSavedWindowsIn,
 } from './settingsDataStateSlice';
 import {
@@ -521,6 +522,8 @@ export interface moveToSessionParams {
   // The instant the move is stamped at: the source at `now`, the target at
   // `now + 1`. Minted by the action creator, like the namespace.
   now: number;
+  // KAN-914. Skip duplicate tabs as it was at the drop, so undo, redo and replay leave out the same tabs; absent is off.
+  skipDuplicates?: boolean;
 }
 
 // KAN-394 P3. A carried item moved into a session made for it.
@@ -536,6 +539,8 @@ export interface moveToNewSessionParams {
   // A name typed in the session name field; blank when none was.
   typedTitle: string;
   remintNamespace: string;
+  // KAN-914. As moveToSessionParams': the new session keeps one copy of each page.
+  skipDuplicates?: boolean;
 }
 
 // KAN-280 Part F (N1 A). A live item copied into a session made for it.
@@ -602,7 +607,8 @@ async function openRequest(
   specs: WindowSpec[],
   where: OpenSavedWindowsIn,
   goToURLText: string,
-  pinTabKeeper: boolean
+  pinTabKeeper: boolean,
+  skipTabsAlreadyOpen: boolean
 ): Promise<RestoreSessionRequest | OpenIntoWindowRequest> {
   const windowId = where === 'this-window' ? await currentWindowId() : null;
   return windowId === null
@@ -620,6 +626,7 @@ async function openRequest(
         goToURLText,
         activate: true,
         pinTabKeeper,
+        skipTabsAlreadyOpen,
       };
 }
 
@@ -644,7 +651,8 @@ export const openTabsInAWindow = createAsyncThunk(
       [toWindowSpec(windowGroup, true)],
       params.where ?? rootState.settingsDataState.openSavedWindowsIn,
       params.goToURLText,
-      rootState.settingsDataState.pinTabKeeperInNewWindows
+      rootState.settingsDataState.pinTabKeeperInNewWindows,
+      selectSkipsTabsAlreadyOpen(rootState)
     );
     // KAN-149. The last instant the popup can record anything: sendMessage
     // hands the restore to the worker, which focuses a new window or (This
@@ -684,7 +692,8 @@ export const openAllTabContainer = createAsyncThunk(
       ),
       params.where ?? rootState.settingsDataState.openSavedWindowsIn,
       params.goToURLText,
-      rootState.settingsDataState.pinTabKeeperInNewWindows
+      rootState.settingsDataState.pinTabKeeperInNewWindows,
+      selectSkipsTabsAlreadyOpen(rootState)
     );
     // KAN-149. Recorded here for the reason spelled out in openTabsInAWindow:
     // this is the last instant the popup exists. Not for the sample (KAN-7).
@@ -3108,7 +3117,8 @@ export const tabContainerDataStateSlice = createSlice({
     //  3. its ids are re-minted against the destination AS IT NOW IS, so a
     //     move inside one session does not re-mint ids that only collided
     //     with the item itself;
-    //  4. it lands;
+    //  4. it lands -- with skipDuplicates, only the pages the target lacks
+    //     (KAN-914), and a target that gains none is not stamped;
     //  5. an emptied source window goes, then an emptied source session is
     //     buried (S4 B) -- after the landing, because inside one session the
     //     new window is what keeps the session alive;
@@ -3119,6 +3129,9 @@ export const tabContainerDataStateSlice = createSlice({
         const { move, remintNamespace, now } = action.payload;
         const sameSession = move.carried.tabGroupId === move.to.tabGroupId;
         if (sameSession && !('newWindowId' in move.to)) return;
+        // KAN-914. Inside one session nothing new arrives, so nothing is left out.
+        const skipDuplicates =
+          action.payload.skipDuplicates === true && !sameSession;
 
         const source = state.tabGroups.find(
           (g) => g.tabGroupId === move.carried.tabGroupId
@@ -3150,6 +3163,9 @@ export const tabContainerDataStateSlice = createSlice({
         }
 
         const remint = (id: string) => uuidv5(id, remintNamespace);
+        // KAN-914. Read before anything lands: a page the target already has, or that came earlier in the item.
+        const targetUrls = skipDuplicates ? urlsIn(target) : null;
+        let landed = true;
 
         if (isWindowMove(move)) {
           // Lifted whole: its title, bounds, tabs and groups travel as they are.
@@ -3157,7 +3173,17 @@ export const tabContainerDataStateSlice = createSlice({
           source.windowCount -= 1;
           source.tabCount -= from.tabCount;
 
-          landWindowIn(target, from, move.to.toIndex, remint);
+          const arriving =
+            targetUrls === null
+              ? from
+              : leaveOutDuplicates([from], targetUrls).windows[0];
+          if (arriving === undefined) {
+            landed = false;
+          } else {
+            // Only a leave-out can strip the active tab; Off keeps the window as it was.
+            if (targetUrls !== null) forgetMissingActiveTab(arriving);
+            landWindowIn(target, arriving, move.to.toIndex, remint);
+          }
         } else {
           const landing = tabsLandingIn(target, move.to);
           if (!landing) return;
@@ -3211,7 +3237,24 @@ export const tabContainerDataStateSlice = createSlice({
           source.tabCount -= tabs.length;
           forgetMissingActiveTab(from);
 
-          landTabsIn(target, landing, tabs, group, boundsOf(from), remint);
+          // A group keeps its entry while any of its tabs arrives.
+          const arriving =
+            targetUrls === null
+              ? tabs
+              : (leaveOutDuplicates([{ ...from, tabs }], targetUrls).windows[0]
+                  ?.tabs ?? []);
+          if (arriving.length === 0) {
+            landed = false;
+          } else {
+            landTabsIn(
+              target,
+              landing,
+              arriving,
+              group,
+              boundsOf(from),
+              remint
+            );
+          }
 
           // "An empty window is not a thing" -- the deleteTabInternal cascade.
           if (from.tabs.length === 0) {
@@ -3236,18 +3279,20 @@ export const tabContainerDataStateSlice = createSlice({
         } else if (!sameSession) {
           touchContent(state, source, now);
         }
+        // KAN-914. A target that gained nothing is left as it was, stamp and place included.
         const targetAt = sameSession ? now : now + 1;
-        touchContent(state, target, targetAt);
-        state.lastModified = targetAt;
+        if (landed) touchContent(state, target, targetAt);
+        state.lastModified = landed ? targetAt : now;
 
         saveLocalSessions(state);
       },
       prepare: (
         move: SessionMove,
         remintNamespace: string = uuidv4(),
-        now: number = Date.now()
+        now: number = Date.now(),
+        skipDuplicates: boolean = false
       ) => ({
-        payload: { move, remintNamespace, now },
+        payload: { move, remintNamespace, now, skipDuplicates },
       }),
     },
     // KAN-280 Part F (spec O12c). A copy of a live item into a saved session: the move's landing, nothing removed, one ⌘Z.
@@ -3313,6 +3358,7 @@ export const tabContainerDataStateSlice = createSlice({
           fallbackTitle,
           typedTitle,
           remintNamespace,
+          skipDuplicates,
         } = action.payload;
         // The item is gone (or never listed): there is nothing to lift, and
         // the session made for it would be left empty (D20).
@@ -3348,7 +3394,7 @@ export const tabContainerDataStateSlice = createSlice({
                 };
         tabContainerDataStateSlice.caseReducers.moveToSessionInternal(state, {
           type: moveToSessionInternal.type,
-          payload: { move, remintNamespace, now },
+          payload: { move, remintNamespace, now, skipDuplicates },
         });
         tabContainerDataStateSlice.caseReducers.selectTabContainer(state, {
           type: selectTabContainer.type,
@@ -3364,7 +3410,8 @@ export const tabContainerDataStateSlice = createSlice({
             moveToNewSessionParams,
             'tabGroupId' | 'newWindowId' | 'remintNamespace' | 'now'
           >
-        > = {}
+        > = {},
+        skipDuplicates: boolean = false
       ) => ({
         payload: {
           carried,
@@ -3374,6 +3421,7 @@ export const tabContainerDataStateSlice = createSlice({
           newWindowId: minted.newWindowId ?? uuidv4(),
           remintNamespace: minted.remintNamespace ?? uuidv4(),
           now: minted.now ?? Date.now(),
+          skipDuplicates,
         },
       }),
     },

@@ -107,6 +107,10 @@ export const TOAST_MESSAGES = {
   // KAN-906. Skip duplicate tabs is on and there is nothing new to add.
   ADD_WINDOW_ALL_ALREADY_THERE: 'AddWindowAllAlreadyThere',
   THIS_SESSION_ALREADY_HAS_THIS_TAB: 'ThisSessionAlreadyHasThisTab',
+  // KAN-910. Skip tabs already open is on and a saved drop into an open window leaves pages out.
+  DUPLICATE_TABS_LEFT_OUT: 'DuplicateTabsLeftOut',
+  THIS_WINDOW_ALREADY_HAS_THIS_TAB: 'This window already has this tab.',
+  THIS_WINDOW_ALREADY_HAS_THESE_TABS: 'This window already has these tabs.',
   // KAN-151. Applying a sort overwrites every rank, so a hand-arranged list is
   // gone in one click. Undo restores it -- sorting goes on the undo stack like
   // any other data change -- but nothing said so, and "my arrangement is gone"

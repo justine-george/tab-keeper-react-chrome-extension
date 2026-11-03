@@ -7,6 +7,7 @@ import {
 } from '../../../utils/functions/local';
 import {
   effectiveIncognito,
+  isOpenIntoWindowAnswer,
   isOpenIntoWindowRequest,
   mergeForWindow,
   OPEN_INTO_WINDOW_MESSAGE,
@@ -58,6 +59,7 @@ const req = (
   goToURLText: 'Visit Site',
   activate: true,
   pinTabKeeper: false,
+  skipTabsAlreadyOpen: false,
   ...extra,
 });
 
@@ -94,6 +96,8 @@ const nameOf = (t: chrome.tabs.Tab) => {
 // Window's tabs in order by page name, placeholders unmarked.
 const strip = async (windowId: number) =>
   (await tabsOf(windowId)).map((t) => nameOf(t).replace('~', ''));
+
+const none = { ids: [], leftOut: 0, alreadyOpen: [] };
 
 const windowIds = async () =>
   (await chrome.windows.getAll({ windowTypes: ['normal', 'popup'] })).map(
@@ -139,7 +143,7 @@ describe('placement', () => {
 
   test('answers the created ids in merged order', async () => {
     handle = setupChromeFake(seed());
-    const ids = await openIntoWindow(
+    const { ids } = await openIntoWindow(
       req([spec([tab('s0', { pinned: true }), tab('s1')])])
     );
     const byId = new Map((await tabsOf(1)).map((t) => [t.id, nameOf(t)]));
@@ -151,7 +155,7 @@ describe('placement', () => {
 
   test('a tab Chrome refuses is skipped and left out of the answer; the rest still open', async () => {
     handle = setupChromeFake(seed({ refusedUrls: [OTHER_EXTENSION] }));
-    const ids = await openIntoWindow(
+    const { ids } = await openIntoWindow(
       req([spec([tab('s0'), tab('x', { url: OTHER_EXTENSION }), tab('s2')])])
     );
     expect(await strip(1)).toEqual(['p0', 'a', 'b', 's0', 's2']);
@@ -412,8 +416,8 @@ describe('incognito', () => {
 
   test('every saved window of the other kind: nothing lands here and the answer is empty', async () => {
     handle = setupChromeFake(seed({ incognitoAllowed: true }));
-    const ids = await openIntoWindow(req([inc]));
-    expect(ids).toEqual([]);
+    const answer = await openIntoWindow(req([inc]));
+    expect(answer).toEqual(none);
     expect(await strip(1)).toEqual(['p0', 'a', 'b']);
     expect(await windowIds()).toHaveLength(3);
   });
@@ -428,7 +432,7 @@ describe('falls back to new windows', () => {
 
   test('when this window is gone', async () => {
     handle = setupChromeFake(seed());
-    const ids = await openIntoWindow(req(saved, { windowId: 999 }));
+    const { ids } = await openIntoWindow(req(saved, { windowId: 999 }));
     expect(ids).toEqual([]);
     expect(await newWindowTabs()).toEqual([['s0', 's1']]);
   });
@@ -440,7 +444,7 @@ describe('falls back to new windows', () => {
         { id: 2, focused: true, tabs: [{ id: 20, url: web('other') }] },
       ],
     });
-    const ids = await openIntoWindow(req(saved));
+    const { ids } = await openIntoWindow(req(saved));
     expect(ids).toEqual([]);
     expect(await strip(1)).toEqual(['app']);
     expect(await newWindowTabs()).toEqual([['s0', 's1']]);
@@ -457,14 +461,14 @@ describe('falls back to new windows', () => {
       fake.browser.closeWindow(1);
       return Promise.resolve(false);
     });
-    const ids = await openIntoWindow(req(saved));
+    const { ids } = await openIntoWindow(req(saved));
     expect(ids).toEqual([]);
     expect(await newWindowTabs()).toEqual([['s0', 's1']]);
   });
 
   test('not when only the first tab is refused: it is skipped, the rest land here, the target falls back', async () => {
     handle = setupChromeFake(seed({ refusedUrls: [web('s0')] }));
-    const ids = await openIntoWindow(
+    const { ids } = await openIntoWindow(
       req([
         spec([tab('s0', { pinned: true }), tab('s1'), tab('s2')], {
           activeTabId: 's0',
@@ -480,8 +484,8 @@ describe('falls back to new windows', () => {
 
   test('an empty request opens nothing', async () => {
     handle = setupChromeFake(seed());
-    expect(await openIntoWindow(req([]))).toEqual([]);
-    expect(await openIntoWindow(req([spec([])]))).toEqual([]);
+    expect(await openIntoWindow(req([]))).toEqual(none);
+    expect(await openIntoWindow(req([spec([])]))).toEqual(none);
     expect(await strip(1)).toEqual(['p0', 'a', 'b']);
     expect(await windowIds()).toEqual([1, 2]);
   });
@@ -544,6 +548,21 @@ describe('the message', () => {
     expect(isOpenIntoWindowRequest({ ...ok, pinTabKeeper: undefined })).toBe(
       false
     );
+    expect(
+      isOpenIntoWindowRequest({ ...ok, skipTabsAlreadyOpen: undefined })
+    ).toBe(false);
+  });
+
+  test('isOpenIntoWindowAnswer accepts only ids, a count and ids', () => {
+    const ok = { ids: [1], leftOut: 0, alreadyOpen: [2] };
+    expect(isOpenIntoWindowAnswer(ok)).toBe(true);
+    expect(isOpenIntoWindowAnswer([1, 2])).toBe(false);
+    expect(isOpenIntoWindowAnswer(null)).toBe(false);
+    expect(isOpenIntoWindowAnswer({ ...ok, ids: ['1'] })).toBe(false);
+    expect(isOpenIntoWindowAnswer({ ...ok, leftOut: '0' })).toBe(false);
+    expect(isOpenIntoWindowAnswer({ ...ok, alreadyOpen: undefined })).toBe(
+      false
+    );
   });
 
   test('the worker answers with the created ids', async () => {
@@ -554,7 +573,158 @@ describe('the message', () => {
       req([spec([tab('s0'), tab('s1')])], { activate: false })
     );
     const added = (await tabsOf(1)).slice(3);
-    expect(answer).toEqual(added.map((t) => t.id));
+    expect(answer).toEqual({
+      ids: added.map((t) => t.id),
+      leftOut: 0,
+      alreadyOpen: [],
+    });
     expect(added.map(nameOf)).toEqual(['s0', '~s1']);
+  });
+});
+
+describe('skip tabs already open', () => {
+  const skip = { skipTabsAlreadyOpen: true };
+  const newWindowCount = async () => (await windowIds()).length;
+
+  test('flag off creates every tab (today)', async () => {
+    handle = setupChromeFake(seed());
+    const answer = await openIntoWindow(
+      req([spec([tab('a'), tab('s1')])], { skipTabsAlreadyOpen: false })
+    );
+    expect(await strip(1)).toEqual(['p0', 'a', 'b', 'a', 's1']);
+    expect(answer.ids).toHaveLength(2);
+    expect(answer.leftOut).toBe(0);
+    expect(answer.alreadyOpen).toEqual([]);
+  });
+
+  test('leaves out pages the window has and answers leftOut + alreadyOpen', async () => {
+    handle = setupChromeFake(seed());
+    const answer = await openIntoWindow(
+      req([spec([tab('a'), tab('s1'), tab('b')])], skip)
+    );
+    expect(await strip(1)).toEqual(['p0', 'a', 'b', 's1']);
+    expect(answer.ids).toHaveLength(1);
+    expect(answer.leftOut).toBe(2);
+    expect(answer.alreadyOpen).toEqual([11, 12]);
+  });
+
+  test('all open: creates nothing; with activate, the open copy of the target tab becomes current and the window focuses', async () => {
+    handle = setupChromeFake(seed());
+    const create = vi.spyOn(chrome.tabs, 'create');
+    const answer = await openIntoWindow(
+      req([spec([tab('b'), tab('p0')], { activeTabId: 'b' })], {
+        ...skip,
+        windowId: 1,
+      })
+    );
+    expect(create).not.toHaveBeenCalled();
+    expect(answer).toEqual({ ids: [], leftOut: 2, alreadyOpen: [12, 10] });
+    const active = (await tabsOf(1)).find((t) => t.active);
+    expect(active?.id).toBe(12);
+    expect((await chrome.windows.get(1)).focused).toBe(true);
+  });
+
+  test('all open, no activate: nothing is activated or focused', async () => {
+    handle = setupChromeFake(seed());
+    const create = vi.spyOn(chrome.tabs, 'create');
+    const focus = vi.spyOn(chrome.windows, 'update');
+    const answer = await openIntoWindow(
+      req([spec([tab('b')], { activeTabId: 'b' })], {
+        ...skip,
+        activate: false,
+      })
+    );
+    expect(create).not.toHaveBeenCalled();
+    expect(focus).not.toHaveBeenCalled();
+    expect(answer.leftOut).toBe(1);
+    expect((await tabsOf(1)).find((t) => t.active)?.id).toBe(11);
+  });
+
+  test('activates the open copy when the saved active tab was left out', async () => {
+    handle = setupChromeFake(seed());
+    const answer = await openIntoWindow(
+      req([spec([tab('s0'), tab('b'), tab('s2')], { activeTabId: 'b' })], skip)
+    );
+    expect(await strip(1)).toEqual(['p0', 'a', 'b', 's0', 's2']);
+    expect(answer.ids).toHaveLength(2);
+    expect((await tabsOf(1)).find((t) => t.active)?.id).toBe(12);
+    expect((await chrome.windows.get(1)).focused).toBe(true);
+    // No made tab is the target, so none loads its page.
+    expect((await tabsOf(1)).slice(3).map(nameOf)).toEqual(['~s0', '~s2']);
+  });
+
+  test('activates the kept copy when the saved active tab repeats an earlier one', async () => {
+    handle = setupChromeFake(seed());
+    await openIntoWindow(
+      req(
+        [
+          spec([tab('s1'), tab('s0'), tab('s0', { tabId: 's0again' })], {
+            activeTabId: 's0again',
+          }),
+        ],
+        skip
+      )
+    );
+    const active = (await tabsOf(1)).find((t) => t.active);
+    expect(active && nameOf(active).replace('~', '')).toBe('s0');
+  });
+
+  test('the saved active tab kept stays the one made current, at its index among those kept', async () => {
+    handle = setupChromeFake(seed());
+    await openIntoWindow(
+      req([spec([tab('b'), tab('s1'), tab('s2')], { activeTabId: 's2' })], skip)
+    );
+    const active = (await tabsOf(1)).find((t) => t.active);
+    expect(active && nameOf(active).replace('~', '')).toBe('s2');
+  });
+
+  test('a pinned tab left out takes no pinned slot', async () => {
+    handle = setupChromeFake(seed());
+    const create = vi.spyOn(chrome.tabs, 'create');
+    await openIntoWindow(
+      req(
+        [spec([tab('p0', { pinned: true }), tab('s0', { pinned: true })])],
+        skip
+      )
+    );
+    expect(create.mock.calls.map(([props]) => props.index)).toEqual([1]);
+    expect(await strip(1)).toEqual(['p0', 's0', 'a', 'b']);
+  });
+
+  test('a page in two saved windows opens once', async () => {
+    handle = setupChromeFake(seed());
+    const answer = await openIntoWindow(
+      req([spec([tab('s0')]), spec([tab('s0', { tabId: 'again' })])], skip)
+    );
+    expect(await strip(1)).toEqual(['p0', 'a', 'b', 's0']);
+    expect(answer.leftOut).toBe(1);
+  });
+
+  test("reads the window's tabs once", async () => {
+    handle = setupChromeFake(seed());
+    const query = vi.spyOn(chrome.tabs, 'query');
+    await openIntoWindow(req([spec([tab('a'), tab('s1')])], skip));
+    expect(query.mock.calls.filter(([q]) => q.windowId === 1)).toHaveLength(1);
+  });
+
+  test('specs opened apart (other kind) are not compared', async () => {
+    handle = setupChromeFake(seed({ incognitoAllowed: true }));
+    const answer = await openIntoWindow(
+      req([spec([tab('a')], { incognito: true }), spec([tab('b')])], skip)
+    );
+    expect(answer.leftOut).toBe(1);
+    expect(answer.alreadyOpen).toEqual([12]);
+    expect(await newWindowCount()).toBe(3);
+  });
+
+  test('window gone → new windows, nothing compared', async () => {
+    handle = setupChromeFake(seed());
+    const answer = await openIntoWindow(
+      req([spec([tab('a'), tab('s1')])], { ...skip, windowId: 999 })
+    );
+    expect(answer).toEqual(none);
+    const all = await chrome.windows.getAll({ populate: true });
+    const fresh = all.filter((w) => w.id !== 1 && w.id !== 2);
+    expect(fresh.map((w) => (w.tabs ?? []).length)).toEqual([2]);
   });
 });

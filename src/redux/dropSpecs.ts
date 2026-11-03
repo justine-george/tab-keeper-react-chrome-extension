@@ -233,7 +233,11 @@ function landingListIds(
   return w.tabs.map((t) => t.tabId);
 }
 
-export function sessionMoveDrop(move: SessionMove): DropOnTop {
+// skipDuplicates: Skip duplicate tabs as read at the drop (KAN-914).
+export function sessionMoveDrop(
+  move: SessionMove,
+  skipDuplicates = false
+): DropOnTop {
   const { carried, to } = move;
 
   const targetIds = (s: TabMasterContainer) =>
@@ -254,7 +258,13 @@ export function sessionMoveDrop(move: SessionMove): DropOnTop {
           : Number.MAX_SAFE_INTEGER,
     targetIds,
     rowExists,
-    move: (i) => moveToSessionInternal(withToIndex(move, i)),
+    move: (i) =>
+      moveToSessionInternal(
+        withToIndex(move, i),
+        undefined,
+        undefined,
+        skipDuplicates
+      ),
   };
 }
 

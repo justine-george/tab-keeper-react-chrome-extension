@@ -28,6 +28,7 @@ import {
   showToast,
 } from '../../redux/slices/globalStateSlice';
 import { redo, resetHistory, undo } from '../../redux/slices/undoRedoSlice';
+import { setSkipDuplicateTabs } from '../../redux/slices/settingsDataStateSlice';
 import {
   beginDragHold,
   endDragHold,
@@ -628,5 +629,100 @@ describe('intoNewWindow', () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
     );
     expect(b.newWindowId).not.toBe(a.newWindowId);
+  });
+});
+
+// KAN-914. With Skip duplicate tabs on, the toasts say how many tabs the target already had.
+describe('moveToSession: pages the target has, left out', () => {
+  // S2 already has t1's page, and t2's.
+  const hasT1 = (): tabContainerData => {
+    const t = s2();
+    t.windows[0].tabs.push({ ...tab('x1'), url: 'https://t1.test/' });
+    t.windows[0].tabCount += 1;
+    t.tabCount += 1;
+    return t;
+  };
+  const skipping = (c: TabMasterContainer) => {
+    const made = ready(c);
+    made.store.dispatch(setSkipDuplicateTabs(true));
+    return made.store;
+  };
+  const withLeftOut = (store: Store) =>
+    store.getState().globalState.toasts.map((t) => ({
+      text: t.text,
+      params: t.params,
+      leftOut: t.leftOut,
+    }));
+
+  it('row drop toast: "Moved to “X”." with leftOut', () => {
+    const store = skipping(container([s3(), hasT1(), s1()]));
+    store.dispatch(moveToSession({ move: T1_TO_D1, announceMoved: true }));
+
+    expect(withLeftOut(store)).toEqual([
+      {
+        text: TOAST_MESSAGES.MOVED_TO_SESSION,
+        params: { title: 'Target' },
+        leftOut: 1,
+      },
+    ]);
+  });
+
+  it('on-screen drop with leftOut > 0 shows the left-out sentence alone', async () => {
+    const store = skipping(container([s3(), hasT1(), s1()], 'S2'));
+    await store.dispatch(
+      showToast({ toastText: TOAST_MESSAGES.TAB_CLOSED, reopenOfferId: 7 })
+    );
+    store.dispatch(moveToSession({ move: T1_TO_D1, announceMoved: false }));
+
+    expect(withLeftOut(store).slice(1)).toEqual([
+      {
+        text: TOAST_MESSAGES.DUPLICATE_TABS_LEFT_OUT,
+        params: { count: 1 },
+        leftOut: 0,
+      },
+    ]);
+    // A saved change the user made: it takes ⌘Z from the Reopen offer.
+    expect(selectUndoKeyTarget(store.getState())).toEqual({ kind: 'step' });
+  });
+
+  it('leftOut 0 → toasts as today', () => {
+    const row = skipping(container([s3(), s2(), s1()]));
+    row.dispatch(moveToSession({ move: T1_TO_D1, announceMoved: true }));
+    expect(withLeftOut(row)).toEqual([
+      {
+        text: TOAST_MESSAGES.MOVED_TO_SESSION,
+        params: { title: 'Target' },
+        leftOut: 0,
+      },
+    ]);
+
+    const onScreen = skipping(container([s3(), s2(), s1()], 'S2'));
+    onScreen.dispatch(moveToSession({ move: T1_TO_D1, announceMoved: false }));
+    expect(withLeftOut(onScreen)).toEqual([]);
+  });
+
+  it('an emptied source still says so, after the left-out count', () => {
+    const t3There = (): tabContainerData => {
+      const t = s2();
+      t.windows[1].tabs.push({ ...tab('x3'), url: 'https://t3.test/' });
+      t.windows[1].tabCount += 1;
+      t.tabCount += 1;
+      return t;
+    };
+    const store = skipping(container([s3(), t3There(), lonely()]));
+    store.dispatch(moveToSession({ move: T3_EMPTIES_S1, announceMoved: true }));
+
+    expect(withLeftOut(store)).toEqual([
+      {
+        text: TOAST_MESSAGES.MOVED_TO_SESSION,
+        params: { title: 'Target' },
+        leftOut: 1,
+      },
+      {
+        text: TOAST_MESSAGES.SESSION_EMPTIED_REMOVED,
+        params: { title: 'Source' },
+        leftOut: 0,
+      },
+    ]);
   });
 });

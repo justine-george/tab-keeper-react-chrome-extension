@@ -191,6 +191,8 @@ export interface SettingsData {
   openSavedWindowsIn: OpenSavedWindowsIn;
   // KAN-906. Adding to a saved session leaves out pages it has; a new one keeps one copy of each.
   skipDuplicateTabs: boolean;
+  // KAN-910. Opening or dropping saved tabs into an open window leaves out pages it already has.
+  skipTabsAlreadyOpen: boolean;
   // KAN-578. Go back, or a Pin that worked, on the card warning a press closes the full view.
   isClosesThisTabCardAnswered: boolean;
   // KAN-828. This device's saved list has held a session of the user's: the save invite is done here.
@@ -424,6 +426,7 @@ const defaultSettings: SettingsData = {
   copyLinksLayout: 'links-only',
   openSavedWindowsIn: 'new-window',
   skipDuplicateTabs: false,
+  skipTabsAlreadyOpen: false,
   isChalkCharcoalMoveApplied: true, // KAN-731. A new install has nothing to move.
   ...ONBOARDING_DEFAULTS,
 };
@@ -465,6 +468,8 @@ export const initialState: SettingsData = {
   ),
   // KAN-906. Guarded: settingsDataLocal is unvalidated.
   skipDuplicateTabs: asFlag(settingsDataLocal.skipDuplicateTabs),
+  // KAN-910. Guarded like skipDuplicateTabs.
+  skipTabsAlreadyOpen: asFlag(settingsDataLocal.skipTabsAlreadyOpen),
   // KAN-653. Guarded: an older build never wrote these.
   pendingReviewAsk: readPendingAsk(settingsDataLocal.pendingReviewAsk),
   isTimeAskDone: asFlag(settingsDataLocal.isTimeAskDone),
@@ -684,6 +689,11 @@ export const settingsDataStateSlice = createSlice({
       saveLocalSettings(state);
     },
 
+    setSkipTabsAlreadyOpen: (state, action: PayloadAction<boolean>) => {
+      state.skipTabsAlreadyOpen = action.payload;
+      saveLocalSettings(state);
+    },
+
     // KAN-321 O1a. The grip's release, an arrow key, or a double-click (null).
     setOpenNowWidth: (state, action: PayloadAction<number | null>) => {
       state.openNowWidth = action.payload;
@@ -880,6 +890,7 @@ export const {
   setCopyLinksLayout,
   setOpenSavedWindowsIn,
   setSkipDuplicateTabs,
+  setSkipTabsAlreadyOpen,
   beginSetup,
   finishSetup,
   restartSetup,
@@ -914,6 +925,10 @@ export const cloudSyncAllowed = (settings: SettingsData): boolean =>
 // KAN-906. Whether a save leaves out pages the session already has.
 export const selectSkipsDuplicateTabs = (state: RootState): boolean =>
   state.settingsDataState.skipDuplicateTabs;
+
+// KAN-910. Whether opening or dropping saved tabs into an open window leaves out pages it has.
+export const selectSkipsTabsAlreadyOpen = (state: RootState): boolean =>
+  state.settingsDataState.skipTabsAlreadyOpen;
 
 /**
  * Whether the tab view's own periodic/on-focus cloud read (KAN-279 D11) may
