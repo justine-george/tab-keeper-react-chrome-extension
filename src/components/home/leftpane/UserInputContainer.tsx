@@ -38,7 +38,10 @@ import { useNewSessionReceiver } from './useNewSessionReceiver';
 import { otherScope, SAVE_OF } from './saveScopes';
 import { afterFirstSavePop } from './afterFirstSavePop';
 import FirstSavePop from './FirstSavePop';
-import SaveInvite, { SAVE_SEGMENT_WIDTH } from './SaveInvite';
+import SaveInvite, {
+  SAVE_SEGMENT_CORNERS,
+  SAVE_SEGMENT_WIDTH,
+} from './SaveInvite';
 import { onFirstClickOnly } from '../../common/firstClickOnly';
 
 export default function UserInputContainer() {
@@ -330,7 +333,7 @@ export default function UserInputContainer() {
             iconType={buttonSave.icon}
             // KAN-698. A double-click saves once.
             onClick={onFirstClickOnly(() => createTabGroup(buttonScope))}
-            style={`width: ${SAVE_SEGMENT_WIDTH}; height: 100%; padding: 0; flex-shrink: 0; border: none; ${flushIn(['top-left', 'bottom-left'], RADIUS.SQUARE)}`}
+            style={`width: ${SAVE_SEGMENT_WIDTH}; height: 100%; padding: 0; flex-shrink: 0; border: none; ${SAVE_SEGMENT_CORNERS}`}
           />
           <SaveInvite />
           <FirstSavePop />

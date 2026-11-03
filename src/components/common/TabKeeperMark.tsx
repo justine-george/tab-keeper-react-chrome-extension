@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { css } from '@emotion/react';
 
 import { ICON } from '../../styles/scale';
+import { MARK_BODY_PATH, MARK_RADIUS } from './markShape';
 
 // Inline, not an <img>, so the shutter can be animated. KAN-7 draws it larger in the pin guide.
 export default function TabKeeperMark({
@@ -26,11 +27,14 @@ export default function TabKeeperMark({
       focusable="false"
       css={markStyle}
     >
-      <rect width="128" height="128" fill="#99bf9d" fillOpacity="0.6" />
-      <path
-        id={bodyId}
-        d="M15.2 12.6h12.4v3l5 1.3V13h66.6l14.5 14.5v84.3H15.2z"
+      <rect
+        width="128"
+        height="128"
+        rx={MARK_RADIUS.GROUND}
+        fill="#99bf9d"
+        fillOpacity="0.6"
       />
+      <path id={bodyId} d={MARK_BODY_PATH} />
       <use href={`#${bodyId}`} x="1.7" y="3.6" fill="#253038" />
       <use href={`#${bodyId}`} fill="#445562" />
       {/* KAN-627. The slot is cut into the shutter, so the two slide as one. */}
@@ -40,7 +44,7 @@ export default function TabKeeperMark({
           y="12.9"
           width="58.4"
           height="36.6"
-          rx="1.5"
+          rx={MARK_RADIUS.SHUTTER}
           fill="#222636"
         />
         <rect
@@ -48,7 +52,7 @@ export default function TabKeeperMark({
           y="12.9"
           width="58.4"
           height="34.7"
-          rx="1.5"
+          rx={MARK_RADIUS.SHUTTER}
           fill="#f4eae2"
         />
         <rect
@@ -57,11 +61,18 @@ export default function TabKeeperMark({
           y="18.4"
           width="15.3"
           height="26.6"
-          rx="1"
+          rx={MARK_RADIUS.SLOT}
           fill="#20292e"
         />
       </g>
-      <rect x="32.9" y="64.8" width="62.5" height="47" rx="2" fill="#f4eae2" />
+      <rect
+        x="32.9"
+        y="64.8"
+        width="62.5"
+        height="47"
+        rx={MARK_RADIUS.LABEL}
+        fill="#f4eae2"
+      />
       <path
         fill="#20292e"
         d="M42.9 73.8h42.8v7.3H42.9zM20 100.9h5.1v4H20zm81.8-4.6h8.5v10.2h-8.5z"

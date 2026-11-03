@@ -420,6 +420,12 @@ freshTest.describe('welcome', () => {
           `the ${side} window's title bar`
         );
       }
+      // KAN-913. Play again, once the loop rests, rounds as icon buttons do.
+      await expectCorners(
+        page.getByRole('button', { name: 'Play again' }),
+        '8px',
+        'Play again'
+      );
     }
   );
 });

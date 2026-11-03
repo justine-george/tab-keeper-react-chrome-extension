@@ -11,6 +11,7 @@
     "build": "tsc && vite build",
     "build:dev": "tsc && vite build --mode development",
     "prune-remote-code": "node ./scripts/prune_remote_code.mjs dist",
+    "icons": "node ./scripts/render_icons.mjs",
     "fonts:fetch": "node ./scripts/fetch_fonts.mjs",
     "morph:build": "node ./scripts/build_sync_morph.mjs",
     "build:e2e": "npm run build && npm run prune-remote-code",
