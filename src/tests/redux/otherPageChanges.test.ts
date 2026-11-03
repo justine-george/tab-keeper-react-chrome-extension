@@ -44,6 +44,7 @@ import {
   grantCloudConsent,
   hydrateSettingsFromOtherPage,
   Language,
+  setSkipDuplicateTabs,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { resetHistory, undo } from '../../redux/slices/undoRedoSlice';
@@ -601,6 +602,44 @@ describe('applyOtherPageSettings (KAN-279 D9)', () => {
     store.dispatch(applyOtherPageSettings());
     expect(store.getState().settingsDataState.cloudDeletedElsewhere).toBeNull();
     expect(store.getState().settingsDataState.cloudConsentGrantedAt).toBe('');
+  });
+
+  // KAN-906. Absent means an older page wrote this; keep ours. Present takes theirs, a non-boolean reads as off.
+  it('(7i) skipDuplicateTabs: a write without the key keeps ours, with it takes theirs, a non-boolean is off', () => {
+    const { store } = settingsStore();
+    store.dispatch(setSkipDuplicateTabs(true));
+    const current = store.getState().settingsDataState;
+    const older = Object.fromEntries(
+      Object.entries(current).filter(([key]) => key !== 'skipDuplicateTabs')
+    );
+    // PREMISE: the write differs from this page only in lastSyncedTime, and lacks the key.
+    otherPageWrites('settingsData', { ...older, lastSyncedTime: T0 + MIN });
+    store.dispatch(applyOtherPageSettings());
+    expect(store.getState().settingsDataState).toMatchObject({
+      lastSyncedTime: T0 + MIN,
+      skipDuplicateTabs: true,
+    });
+
+    otherPageWrites('settingsData', {
+      ...store.getState().settingsDataState,
+      skipDuplicateTabs: false,
+    });
+    store.dispatch(applyOtherPageSettings());
+    expect(store.getState().settingsDataState.skipDuplicateTabs).toBe(false);
+
+    otherPageWrites('settingsData', {
+      ...store.getState().settingsDataState,
+      skipDuplicateTabs: true,
+    });
+    store.dispatch(applyOtherPageSettings());
+    expect(store.getState().settingsDataState.skipDuplicateTabs).toBe(true);
+
+    otherPageWrites('settingsData', {
+      ...store.getState().settingsDataState,
+      skipDuplicateTabs: 'yes',
+    });
+    store.dispatch(applyOtherPageSettings());
+    expect(store.getState().settingsDataState.skipDuplicateTabs).toBe(false);
   });
 
   it('(7g) absent: no dispatch and no warning', () => {

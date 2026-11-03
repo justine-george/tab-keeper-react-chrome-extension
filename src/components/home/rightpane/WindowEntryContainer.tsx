@@ -72,7 +72,7 @@ import {
   renameSavedTab,
   tabData,
   updateChromeTabGroupTitle,
-  addCurrTabToChromeGroupInternal,
+  addCurrTabToChromeGroup,
   ungroupChromeTabGroup,
   deleteChromeTabGroup,
   updateChromeTabGroupColor,
@@ -1018,7 +1018,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     // a group as if it were a saved tab.
     if (!tab || isTabKeeperPage(tab)) return;
     dispatch(
-      addCurrTabToChromeGroupInternal({
+      addCurrTabToChromeGroup({
         tabGroupId,
         windowId,
         groupId: group.groupId,

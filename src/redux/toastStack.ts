@@ -29,6 +29,8 @@ export interface ToastItem {
   offersUndo: boolean;
   // KAN-694, KAN-744 R16, KAN-814. The live step (a sort, or a drop that changed a pin) this toast announces, or null once a newer step took its Undo off: shown while that step is the newest in the history.
   liveStepId: number | null;
+  // KAN-906. Duplicate tabs the save left out; 0 says nothing.
+  leftOut: number;
 }
 
 function sameParams(a: ToastItem['params'], b: ToastItem['params']): boolean {
@@ -44,7 +46,7 @@ function sameParams(a: ToastItem['params'], b: ToastItem['params']): boolean {
 // - T4: an offer replaces the offer already showing IN PLACE (one offer at a
 //   time), or is appended if there is none. Two closes of one tab read the
 //   same, so an offer never goes through T5, which would move it.
-// - T5: a plain toast replaces its twin (same key, same params), and goes to
+// - T5: a plain toast replaces its twin (same key, same params, same left-out count), and goes to
 //   the bottom -- unless it announces a saved-session change: each of those
 //   is its own event, so two saves in a row are two toasts (KAN-489).
 //   `stacksOnTwin` stacks the same way without taking ⌘Z: each copy is its
@@ -70,6 +72,7 @@ export function addToast(
             (t) =>
               t.reopenOffer !== null ||
               t.text !== toast.text ||
+              t.leftOut !== toast.leftOut ||
               !sameParams(t.params, toast.params)
           );
     if (announcesSavedChange) {

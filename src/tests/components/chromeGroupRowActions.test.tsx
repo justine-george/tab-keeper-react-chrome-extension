@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { LIGHT_THEME } from '../../hooks/useThemeColors';
-import { act, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import WindowEntryContainer from '../../components/home/rightpane/WindowEntryContainer';
@@ -11,6 +11,7 @@ import {
   setHasTabGroupsPermission,
 } from '../../redux/slices/globalStateSlice';
 import { saveToTabContainerInternal } from '../../redux/slices/tabContainerDataStateSlice';
+import { setSkipDuplicateTabs } from '../../redux/slices/settingsDataStateSlice';
 import type { chromeTabGroupData } from '../../redux/slices/tabContainerDataStateSlice';
 import { ADD_CURR_TAB_TO_CHROME_GROUP_ACTION } from '../../utils/constants/actionTypes';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
@@ -54,7 +55,12 @@ const DEFAULT_SEED: ChromeSeed = {
 async function renderRow({
   isSearching = false,
   seed = DEFAULT_SEED,
-}: { isSearching?: boolean; seed?: ChromeSeed } = {}) {
+  skipsDuplicates = false,
+}: {
+  isSearching?: boolean;
+  seed?: ChromeSeed;
+  skipsDuplicates?: boolean;
+} = {}) {
   return renderWithProviders(
     <WindowEntryContainer
       number={1}
@@ -72,6 +78,7 @@ async function renderRow({
       seed,
       seedStore: (store) => {
         store.dispatch(setHasTabGroupsPermission(true));
+        store.dispatch(setSkipDuplicateTabs(skipsDuplicates));
         if (isSearching) store.dispatch(setSearchInputText('research'));
         store.dispatch(
           saveToTabContainerInternal({
@@ -657,5 +664,61 @@ describe('the group title renames, and Open opens', () => {
     expect(
       screen.getByRole('textbox', { name: 'Rename group: Research' })
     ).toBeInTheDocument();
+  });
+});
+
+// KAN-906. Both group Adds follow Skip duplicate tabs: a page the session has anywhere is left out, and said.
+describe('add current tab to group with Skip duplicate tabs', () => {
+  // The active tab is the session's loose tab, in another part of the window.
+  const HAS_IT: ChromeSeed = {
+    windows: [{ id: 1 }],
+    tabs: [{ id: 1, active: true, url: 'https://a.co', title: 'Loose' }],
+  };
+
+  test('On: the strip icon adds nothing and says the session has it', async () => {
+    const { store } = await renderRow({ seed: HAS_IT, skipsDuplicates: true });
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Add current tab to group' })
+    );
+    await act(async () => {});
+
+    expect(win(store).tabs).toHaveLength(3);
+    expect(toastTexts(store.getState())).toEqual([
+      TOAST_MESSAGES.THIS_SESSION_ALREADY_HAS_THIS_TAB,
+    ]);
+  });
+
+  test("On: the right-click menu's Add tab adds nothing and says the session has it", async () => {
+    const user = userEvent.setup();
+    const { store } = await renderRow({ seed: HAS_IT, skipsDuplicates: true });
+
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: 'Rename group: Research' })
+    );
+    await user.click(screen.getByRole('menuitem', { name: 'Add tab' }));
+    await act(async () => {});
+
+    expect(win(store).tabs).toHaveLength(3);
+    expect(toastTexts(store.getState())).toEqual([
+      TOAST_MESSAGES.THIS_SESSION_ALREADY_HAS_THIS_TAB,
+    ]);
+  });
+
+  test('Off: the same tab joins the group, with no toast', async () => {
+    const { store } = await renderRow({ seed: HAS_IT });
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Add current tab to group' })
+    );
+    await act(async () => {});
+
+    expect(win(store).tabs.map((t) => t.url)).toEqual([
+      'https://a.co',
+      'https://a.co',
+      'https://b.co',
+      'https://c.co',
+    ]);
+    expect(toastTexts(store.getState())).toEqual([]);
   });
 });

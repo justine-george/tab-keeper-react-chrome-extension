@@ -3,6 +3,8 @@ import {
   createSlice,
   current,
   PayloadAction,
+  type ThunkAction,
+  type UnknownAction,
 } from '@reduxjs/toolkit';
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 
@@ -62,7 +64,10 @@ import {
   OPEN_INTO_WINDOW_MESSAGE,
   type OpenIntoWindowRequest,
 } from '../../utils/functions/openIntoWindow';
-import type { OpenSavedWindowsIn } from './settingsDataStateSlice';
+import {
+  selectSkipsDuplicateTabs,
+  type OpenSavedWindowsIn,
+} from './settingsDataStateSlice';
 import {
   bySessionRank,
   createdInstant,
@@ -92,6 +97,11 @@ import {
   sortGroupsByName,
 } from '../../utils/functions/sortGroupsByName';
 import { noteReviewMoment } from '../reviewAsk';
+import {
+  leaveOutDuplicates,
+  urlsIn,
+  withoutRepeats,
+} from '../../utils/functions/skipDuplicates';
 import {
   TAB_GROUP_COLORS,
   isCarriedStillThere,
@@ -685,6 +695,18 @@ export const openAllTabContainer = createAsyncThunk(
   }
 );
 
+// KAN-906. What focus mode saves, or null when the open windows are already saved: as they are, or, when repeats are left out, as they would be saved.
+function focusSave(
+  captured: tabContainerData,
+  sessions: tabContainerData[],
+  skips: boolean
+): tabContainerData | null {
+  if (isAlreadySaved(captured, sessions)) return null;
+  if (!skips) return captured;
+  const { container } = withoutRepeats(captured);
+  return isAlreadySaved(container, sessions) ? null : container;
+}
+
 interface focusTabContainerParams {
   tabGroupId: string;
   goToURLText: string;
@@ -736,7 +758,12 @@ export const requestFocusTabContainer = createAsyncThunk(
       return;
     }
 
-    const willSave = !isAlreadySaved(captured, state.tabGroups);
+    const willSave =
+      focusSave(
+        captured,
+        state.tabGroups,
+        selectSkipsDuplicateTabs(thunkAPI.getState() as RootState)
+      ) !== null;
 
     thunkAPI.dispatch(
       openFocusModal({
@@ -781,8 +808,14 @@ export const focusTabContainer = createAsyncThunk(
     // 'all-windows' for the same reason as in requestFocusTabContainer above:
     // this is the save that makes closing every window reversible (KAN-5).
     const captured = await captureOpenWindows(params.saveTitle, 'all-windows');
-    if (captured && !isAlreadySaved(captured, state.tabGroups)) {
-      thunkAPI.dispatch(saveToTabContainerInternal(captured));
+    if (captured) {
+      const toSave = focusSave(
+        captured,
+        state.tabGroups,
+        selectSkipsDuplicateTabs(thunkAPI.getState() as RootState)
+      );
+      if (toSave !== null)
+        thunkAPI.dispatch(saveToTabContainerInternal(toSave));
     }
 
     // Unconditional, and after the save rather than inside it: saving selects
@@ -931,12 +964,17 @@ export const saveToTabContainer = createAsyncThunk(
     const existing = before.tabContainerDataState.tabGroups;
     const hadSaved = before.settingsDataState.hasHadSavedSession;
 
-    thunkAPI.dispatch(saveToTabContainerInternal(params.container));
+    // KAN-906. A new session keeps one copy of each address.
+    const { container, leftOut } = selectSkipsDuplicateTabs(before)
+      ? withoutRepeats(params.container)
+      : { container: params.container, leftOut: 0 };
+
+    thunkAPI.dispatch(saveToTabContainerInternal(container));
 
     // KAN-653. The first session kept is a payoff of its own, whatever its
     // size. The sample is no session of the user's (KAN-7), so it neither
     // counts as one already kept nor, saved itself, as a first.
-    const isSample = isSampleSession(params.container.tabGroupId);
+    const isSample = isSampleSession(container.tabGroupId);
     const isFirst = !existing.some((g) => !isSampleSession(g.tabGroupId));
     //
     // KAN-149. Otherwise a SUBSTANTIAL save only -- banking one stray tab is
@@ -952,10 +990,7 @@ export const saveToTabContainer = createAsyncThunk(
     // case the product is for, and would score 1 on any window count.
     if (!isSample && isFirst) {
       thunkAPI.dispatch(noteReviewMoment({ kind: 'firstSave' }));
-    } else if (
-      !isSample &&
-      isSubstantialSave(params.container.tabCount, existing)
-    ) {
+    } else if (!isSample && isSubstantialSave(container.tabCount, existing)) {
       thunkAPI.dispatch(noteReviewMoment({ kind: 'bigSave' }));
     }
 
@@ -968,6 +1003,7 @@ export const saveToTabContainer = createAsyncThunk(
       showToast({
         toastText: SAVED_TOAST[params.scope],
         announcesSavedChange: true,
+        leftOut,
       })
     );
   }
@@ -982,12 +1018,30 @@ export const addCurrWindowToTabGroup = createAsyncThunk(
   // first `addCase(saveToTabContainer.fulfilled, ...)` match this one too.
   'global/addCurrWindowToTabGroup',
   async (params: addCurrWindowToTabGroupParams, thunkAPI) => {
-    thunkAPI.dispatch(addCurrWindowToTabGroupInternal(params));
+    const state = thunkAPI.getState() as RootState;
+    const target = state.tabContainerDataState.tabGroups.find(
+      (g) => g.tabGroupId === params.tabGroupId
+    );
+    // KAN-906. Only arriving tabs are compared: repeats the session already holds stay.
+    const { windows, leftOut } =
+      selectSkipsDuplicateTabs(state) && target !== undefined
+        ? leaveOutDuplicates([params.window], urlsIn(target))
+        : { windows: [params.window], leftOut: 0 };
+    const [window] = windows;
+    if (window === undefined) {
+      thunkAPI.dispatch(
+        showToast({ toastText: TOAST_MESSAGES.ADD_WINDOW_ALL_ALREADY_THERE })
+      );
+      return;
+    }
+
+    thunkAPI.dispatch(addCurrWindowToTabGroupInternal({ ...params, window }));
 
     thunkAPI.dispatch(
       showToast({
         toastText: TOAST_MESSAGES.ADD_CURR_WINDOW_TO_TABGROUP_SUCCESS,
         announcesSavedChange: true,
+        leftOut,
       })
     );
   }
@@ -1214,20 +1268,65 @@ export const sortWindowGroupsByName = createAsyncThunk<
   }
 );
 
-// add current tab to the specified window container and display a toast message
-export const addCurrTabToWindow = createAsyncThunk(
-  'global/addCurrTabToWindow',
-  async (params: addCurrTabToWindowParams, thunkAPI) => {
-    thunkAPI.dispatch(addCurrTabToWindowInternal(params));
+// KAN-906. Whether Skip duplicate tabs leaves this tab out: the session already has its address.
+function leavesOutTab(
+  state: RootState,
+  tabGroupId: string,
+  tab: tabData
+): boolean {
+  const target = state.tabContainerDataState.tabGroups.find(
+    (g) => g.tabGroupId === tabGroupId
+  );
+  // A tab with no address is never an address to match.
+  return (
+    selectSkipsDuplicateTabs(state) &&
+    target !== undefined &&
+    urlsIn(target).has(tab.url)
+  );
+}
 
-    thunkAPI.dispatch(
+type Added = ThunkAction<boolean, RootState, unknown, UnknownAction>;
+
+// add current tab to the specified window container and display a toast message; returns whether the session changed
+export const addCurrTabToWindow =
+  (params: addCurrTabToWindowParams): Added =>
+  (dispatch, getState) => {
+    if (leavesOutTab(getState(), params.tabGroupId, params.tabData)) {
+      dispatch(
+        showToast({
+          toastText: TOAST_MESSAGES.THIS_SESSION_ALREADY_HAS_THIS_TAB,
+        })
+      );
+      return false;
+    }
+    const before = getState().tabContainerDataState;
+    dispatch(addCurrTabToWindowInternal(params));
+
+    dispatch(
       showToast({
         toastText: TOAST_MESSAGES.ADD_CURR_TAB_TO_WINDOW_SUCCESS,
         announcesSavedChange: true,
       })
     );
-  }
-);
+    return getState().tabContainerDataState !== before;
+  };
+
+// The current tab into a Chrome group of a saved window, with no toast; returns whether the session changed.
+export const addCurrTabToChromeGroup =
+  (params: addCurrTabToChromeGroupParams): Added =>
+  (dispatch, getState) => {
+    if (leavesOutTab(getState(), params.tabGroupId, params.tabData)) {
+      dispatch(
+        showToast({
+          toastText: TOAST_MESSAGES.THIS_SESSION_ALREADY_HAS_THIS_TAB,
+        })
+      );
+      return false;
+    }
+    const before = getState().tabContainerDataState;
+    dispatch(addCurrTabToChromeGroupInternal(params));
+    return getState().tabContainerDataState !== before;
+  };
 
 // delete tab group by tabGroupId
 export const deleteTabContainer = createAsyncThunk<
@@ -3152,7 +3251,7 @@ export const tabContainerDataStateSlice = createSlice({
       }),
     },
     // KAN-280 Part F (spec O12c). A copy of a live item into a saved session: the move's landing, nothing removed, one ⌘Z.
-    // Declines, stamping nothing, when the target is gone or the kinds clash (Q2 A). Duplicates land (KAN-608).
+    // Declines, stamping nothing, when the target is gone, the kinds clash (Q2 A) or the pick copies nothing. Duplicates land (KAN-608) unless Skip duplicate tabs is on: copyToSession leaves them out of the snapshot.
     copyToSessionInternal: {
       reducer: (state, action: PayloadAction<copyToSessionParams>) => {
         const { copy, snapshot, remintNamespace, now } = action.payload;

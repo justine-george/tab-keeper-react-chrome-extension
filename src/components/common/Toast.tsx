@@ -260,7 +260,13 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
         // keeps a raw platform error -- a JSON SyntaxError naming its
         // offending token -- readable when it is passed through as a
         // {{detail}} value.
-        const message = t(toast.text, toast.params);
+        const text = t(toast.text, toast.params);
+        // A sentence ending in full-width punctuation (zh, ja) runs on with no space.
+        const gap = /[。！？]$/.test(text) ? '' : ' ';
+        const message =
+          toast.leftOut > 0
+            ? `${text}${gap}${t('DuplicateTabsLeftOut', { count: toast.leftOut })}`
+            : text;
         const offer = toast.reopenOffer;
         const show = toast.show;
         const offersLiveUndo =
@@ -295,7 +301,12 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
             ]}
             aria-hidden={leaving || undefined}
           >
-            <span css={offersAnyUndo ? undefined : messageStyle}>
+            {/* KAN-906. The left-out count wraps rather than being cut, as Undo's message does. */}
+            <span
+              css={
+                offersAnyUndo || toast.leftOut > 0 ? undefined : messageStyle
+              }
+            >
               {message}
             </span>
             {offer !== null && (
