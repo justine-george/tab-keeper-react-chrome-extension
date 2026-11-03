@@ -345,6 +345,23 @@ test.describe('a drop after auto-scroll went into the room at the list end', () 
     expect((await list(page)).room).toBe(0);
   });
 
+  test('a drop into the room itself makes a window and keeps no room', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    const x = await pickUp(page, tabRow('ext'));
+    // Held at the list's end, the pointer is over the room: it lights.
+    await scrollToEnd(page, x);
+    await expect(
+      page.locator('[data-new-window-target="last"][data-landing]')
+    ).toBeAttached();
+    await page.mouse.up();
+    await settled(page);
+    await expect(page.locator('[data-window-drag-handle]')).toHaveCount(3);
+    expect((await list(page)).room).toBe(0);
+  });
+
   test('CONTROL: a drop that never scrolled into the room leaves none', async ({
     context,
     extensionId,
