@@ -121,6 +121,7 @@ import { createClickSuppressor } from './clickSuppressor';
 import { edgeScrollStep } from './edgeScroll';
 import {
   NEW_FIRST_WINDOW,
+  NEW_LAST_WINDOW,
   measureNewFirstWindowTarget,
   newWindowPlacement,
 } from '../newWindowTarget';
@@ -2253,6 +2254,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
                   drop.dropTargetId,
                   drop.toWindowId
                 );
+
+          // KAN-887. A drop into the room fills it: the new last window
+          // takes its place in this commit, so the room kept at the end goes.
+          if (l.landingWindow === NEW_LAST_WINDOW) releaseKeptRoom();
 
           // KAN-835. The rows hold where the drop put them until the list
           // draws the move, so none eases its old shift out over the new

@@ -973,13 +973,22 @@ function keepRoomInView(root: HTMLElement): void {
   const block = document.querySelector<HTMLElement>(
     '[data-new-window-target="last"]'
   );
-  // Lit, the drop makes a new last window in the room's place.
-  if (block === null || block.hasAttribute('data-landing')) return;
+  // Lit too: a drop there makes a new last window, which puts the room out
+  // of view at once (below), and an Esc there leaves the list as it was.
+  if (block === null) return;
   const scroller = scrollerOf(block);
   if (scroller === null) return;
-  const room = block.offsetHeight;
-  const outOfView = () =>
-    scroller.scrollTop <= scroller.scrollHeight - room - scroller.clientHeight;
+  // Read off the room's own box, not the scroll range: a held row eased home
+  // from inside the room overflows past it, and the range would call the
+  // room out of view while it shows. Within a pixel: the subpixel left is no
+  // move anyone sees. Looked up each time, as the list may draw it anew.
+  const outOfView = () => {
+    const room = scroller.querySelector('[data-new-window-target="last"]');
+    if (room === null) return true;
+    const view = scroller.getBoundingClientRect();
+    const bottom = view.top + scroller.clientTop + scroller.clientHeight;
+    return room.getBoundingClientRect().top >= bottom - 1;
+  };
   if (outOfView()) return;
 
   root.setAttribute('data-new-window-room-kept', '');
@@ -1002,14 +1011,13 @@ function keepRoomInView(root: HTMLElement): void {
   };
 }
 
-// Takes a kept room away -- only `scroller`'s, when given. Whether one was.
-export function releaseKeptRoom(scroller?: HTMLElement | null): boolean {
+// Takes a kept room away -- only `scroller`'s, when given.
+export function releaseKeptRoom(scroller?: HTMLElement | null): void {
   const kept = keptRoom;
-  if (kept === null) return false;
-  if (scroller !== undefined && scroller !== kept.scroller) return false;
+  if (kept === null) return;
+  if (scroller !== undefined && scroller !== kept.scroller) return;
   keptRoom = null;
   kept.release();
-  return true;
 }
 
 // The nearest ancestor that scrolls (overflow auto or scroll), fitting or not.

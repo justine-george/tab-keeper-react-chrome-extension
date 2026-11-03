@@ -236,7 +236,7 @@ export default function TabGroupDetailsContainer() {
 
   // KAN-887. A room a drop kept in view is that session's: showing another
   // (or none) takes it, before the new one is painted.
-  useLayoutEffect(() => () => void releaseKeptRoom(), [shownId]);
+  useLayoutEffect(() => () => releaseKeptRoom(), [shownId]);
 
   // Belt and braces: RightPane does not mount this component when the list is
   // empty, so this should be unreachable -- but it is what makes the component

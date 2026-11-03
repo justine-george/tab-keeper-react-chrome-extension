@@ -3937,13 +3937,14 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
     await page.mouse.up();
   });
 
-  // After a drag that scrolled into the room the list settles by at most the room: every row together, downward, in consecutive frames
-  // (one for a drop, a few for Esc), in stored order.
+  // After a drag that scrolled into the room the list does not settle at all
+  // (KAN-887, his pick C): the room stays while it shows, so no row moves,
+  // and the rows are in stored order. On main it settled by the room.
   for (const ending of [
     'Esc',
     'a release at the end of the last window',
   ] as const) {
-    test(`after the list scrolled into the room, ${ending}: the list settles in consecutive frames, by at most the room, in the stored order`, async ({
+    test(`after the list scrolled into the room, ${ending}: no row moves, and the rows are in the stored order`, async ({
       context,
       extensionId,
     }) => {
@@ -3989,23 +3990,11 @@ test.describe('the phantom rests in a trailing block after the last window (KAN-
           .join(', ')} = ${total}px`,
       });
       console.log(`SETTLE ${ending}: ${JSON.stringify(steps)} = ${total}px`);
-      // Every row moves together, every step down, and the whole settle is
-      // at most the room.
-      expect(steps.length).toBeGreaterThan(0);
-      expect(steps.every((st) => st.shift > 0)).toBe(true);
-      expect(total).toBeLessThanOrEqual(34);
-      if (ending === 'Esc') {
-        // Measured: Esc eases the held row home under its own transition,
-        // and its transform's overflow shrinks with it, so the clamp follows
-        // it over a few consecutive frames rather than one.
-        expect(
-          steps.every((st, n) => n === 0 || st.frame === steps[n - 1].frame + 1)
-        ).toBe(true);
-        expect(steps.length).toBeLessThanOrEqual(10);
-      } else {
-        // A drop draws the moved row at once: the clamp is one frame.
-        expect(steps).toHaveLength(1);
-      }
+      // The room stays: nothing outside the last window moves.
+      expect(steps).toEqual([]);
+      await expect(
+        page.locator('html[data-new-window-room-kept]')
+      ).toBeAttached();
 
       const want =
         ending === 'Esc' ? 's5-0 s5-1 s5-2 s5-3' : 's5-0 s5-2 s5-3 s5-1';
