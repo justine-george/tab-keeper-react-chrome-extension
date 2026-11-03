@@ -39,6 +39,12 @@ const holding = (id: string, title: string, urls: string[]) =>
 const urlsOf = (c: TabMasterContainer, id: string) =>
   sessionOf(c, id).windows.flatMap((w) => w.tabs.map((t) => t.url));
 
+// The urls of the stored session with this title; none while it is not stored yet.
+const urlsOfTitled = (c: TabMasterContainer, title: string) =>
+  c.tabGroups
+    .find((g) => g.title === title)
+    ?.windows.flatMap((w) => w.tabs.map((t) => t.url)) ?? [];
+
 // Only the pages a spec opened: the harness' own blank tabs are not its business.
 const ours = (urls: string[]) => urls.filter((u) => u.includes('127.0.0.1'));
 
@@ -228,12 +234,9 @@ test.describe('a save', () => {
 
     await saveByEnter(page, 'Fresh');
 
-    const fresh = (await stored(page)).tabGroups.find(
-      (g) => g.title === 'Fresh'
-    );
-    expect(
-      ours(fresh?.windows.flatMap((w) => w.tabs.map((t) => t.url)) ?? [])
-    ).toEqual([standIn('Twice'), standIn('Once')]);
+    await expect
+      .poll(async () => ours(urlsOfTitled(await stored(page), 'Fresh')))
+      .toEqual([standIn('Twice'), standIn('Once')]);
     await expect
       .poll(() => toasts(page))
       .toEqual([
@@ -257,12 +260,9 @@ test.describe('a save', () => {
 
     await saveByEnter(page, 'Fresh');
 
-    const fresh = (await stored(page)).tabGroups.find(
-      (g) => g.title === 'Fresh'
-    );
-    expect(
-      ours(fresh?.windows.flatMap((w) => w.tabs.map((t) => t.url)) ?? [])
-    ).toEqual([standIn('Twice'), standIn('Twice'), standIn('Once')]);
+    await expect
+      .poll(async () => ours(urlsOfTitled(await stored(page), 'Fresh')))
+      .toEqual([standIn('Twice'), standIn('Twice'), standIn('Once')]);
   });
 });
 
