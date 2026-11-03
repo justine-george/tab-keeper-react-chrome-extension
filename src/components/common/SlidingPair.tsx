@@ -37,7 +37,7 @@ export interface SlidingPairMetrics {
   radius: string;
   /** The knob's corner, and each cell's. */
   knobRadius: string;
-  /** The knob's slide -- duration and easing, applied to clip-path and to a glyph's turn. */
+  /** The knob's slide -- duration and easing, applied to clip-path, the fill's sides and a glyph's turn. */
   slide: string;
   /** The track's dip while pressed -- duration and easing, applied to transform. */
   press: string;
@@ -52,7 +52,8 @@ const TRACK_PADDING = 2;
  *
  * Two real buttons carry the state (`aria-pressed`), the names and the clicks.
  * Over them lies an `aria-hidden` copy of both labels in the pressed style,
- * clipped to the pressed button's box. Moving the clip is the slide, and
+ * clipped to the pressed button's box, over a fill sized to the same box.
+ * Moving the clip and the fill is the slide, and
  * because every pixel of a label belongs to exactly one layer, a word crossing
  * the knob's edge is dark on the track and light on the knob in the same frame
  * -- which fading the label's colour cannot do.
@@ -94,6 +95,8 @@ export default function SlidingPair<T extends string>({
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const knob = useRef<HTMLSpanElement>(null);
   const [clip, setClip] = useState<string>();
+  // The fill's sides, inset from the layer's; unset until the first measure.
+  const [edges, setEdges] = useState<{ left: number; right: number }>();
   // Off until the first measured position has painted, so the knob does not
   // slide in from the left edge when the page opens.
   const [moving, setMoving] = useState(false);
@@ -118,6 +121,7 @@ export default function SlidingPair<T extends string>({
       if (!scale) return;
       const left = (buttonBox.left - knobBox.left) / scale;
       const right = (knobBox.right - buttonBox.right) / scale;
+      setEdges({ left, right });
       setClip(
         `inset(0px ${right}px 0px ${left}px round ${metrics.knobRadius})`
       );
@@ -203,6 +207,30 @@ export default function SlidingPair<T extends string>({
     }
   `;
 
+  // KAN-908. The fill is its own box so its corners are a real squircle (a
+  // clip-path cuts only an arc); the box clips an overshoot at the track's wall.
+  const fillBoxStyle = css`
+    position: absolute;
+    inset: ${TRACK_PADDING}px;
+    overflow: hidden;
+    border-radius: ${metrics.knobRadius};
+    corner-shape: ${CORNER_SHAPE};
+    pointer-events: none;
+  `;
+
+  const fillStyle = css`
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: ${metrics.knobRadius};
+    corner-shape: ${CORNER_SHAPE};
+    background-color: ${colors.knob};
+    ${moving ? `transition: left ${metrics.slide}, right ${metrics.slide};` : ''}
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  `;
+
   const knobStyle = css`
     position: absolute;
     inset: ${TRACK_PADDING}px;
@@ -210,7 +238,6 @@ export default function SlidingPair<T extends string>({
     align-items: stretch;
     border-radius: ${metrics.knobRadius};
     corner-shape: ${CORNER_SHAPE};
-    background-color: ${colors.knob};
     color: ${colors.labelOnKnob};
     pointer-events: none;
     ${moving ? `transition: clip-path ${metrics.slide};` : ''}
@@ -279,6 +306,15 @@ export default function SlidingPair<T extends string>({
           {content(option, false)}
         </button>
       ))}
+      <span aria-hidden="true" css={fillBoxStyle}>
+        {edges && (
+          <span
+            data-sliding-fill={value}
+            css={fillStyle}
+            style={{ left: edges.left, right: edges.right }}
+          />
+        )}
+      </span>
       <span
         ref={knob}
         aria-hidden="true"

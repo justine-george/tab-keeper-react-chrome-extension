@@ -67,8 +67,10 @@ export const RADIUS = {
    * drag slots, the group colour strip.
    */
   CONTROL: '8px',
-  /** The SlidingPair knob and cells: the track less its 2px padding. */
-  KNOB: '6px',
+  /** The SlidingPair track (KAN-908): rounder than a CONTROL, his pick. */
+  SWITCH: '10px',
+  /** The SlidingPair knob and cells: 3px inside the track (1px border + 2px padding). */
+  SWITCH_KNOB: '7px',
   /** Every <dialog> and the tour's coach card. */
   DIALOG: '16px',
   /** Small marks: keycaps, the search hint, the theme check. */
