@@ -84,6 +84,7 @@ import { SAVE_OF } from '../leftpane/saveScopes';
 import { DraggableRow } from '../rightpane/rowDrag/RowDragArea';
 import { DragHandle, DragHandleSwap } from '../rightpane/rowDrag/DragHandle';
 import { useDragState } from '../rightpane/rowDrag/dragContext';
+import { DROP_TARGET_TINT } from '../rightpane/bandTint';
 import { markRowContainer } from '../rightpane/rowDrag/dropRules';
 import { GroupFrameFollower } from '../rightpane/rowDrag/GroupFrameFollower';
 import { DURATION, RADIUS, TYPE, WEIGHT } from '../../../styles/scale';
@@ -1150,12 +1151,7 @@ export default function OpenNowWindow({
                       /* KAN-164: a tab released here joins this group, which
                        answers in its own colour. */
                       &[data-drop-target] {
-                        background-color: color-mix(
-                          in srgb,
-                          var(--band-color, transparent) 18%,
-                          transparent
-                        );
-                        border-radius: ${RADIUS.SQUARE};
+                        ${DROP_TARGET_TINT}
                       }
                     `}
                   >

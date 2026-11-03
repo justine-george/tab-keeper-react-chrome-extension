@@ -848,7 +848,8 @@ test.describe('a tab drag says which group it will join', () => {
       return {
         markedStrip: Math.round(strip('alpha')),
         unmarkedStrip: Math.round(strip('gamma')),
-        bandFill: getComputedStyle(band).backgroundColor,
+        // A gradient trimmed to the drawn band (KAN-915), not a colour.
+        bandFill: getComputedStyle(band).backgroundImage,
         bandColourVar: band.style.getPropertyValue('--band-color'),
         heldShadow: getComputedStyle(held).boxShadow,
         cardShadow: getComputedStyle(
@@ -869,7 +870,7 @@ test.describe('a tab drag says which group it will join', () => {
     expect(drawn.markedStrip).toBeGreaterThan(drawn.unmarkedStrip);
     // And it answers in the group's own colour, not a generic accent.
     expect(drawn.bandColourVar).not.toBe('');
-    expect(drawn.bandFill).not.toBe('rgba(0, 0, 0, 0)');
+    expect(drawn.bandFill).toContain('linear-gradient');
     // KAN-354 C4 A: the held tab wears no stripe and casts no shadow -- it
     // is hidden, drawn by the card -- and the card wears no stripe either.
     // The band above is what says which group it joins. (Before KAN-354
