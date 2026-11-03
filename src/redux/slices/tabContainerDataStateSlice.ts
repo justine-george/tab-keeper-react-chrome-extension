@@ -92,6 +92,7 @@ import {
   sortGroupsByName,
 } from '../../utils/functions/sortGroupsByName';
 import { noteReviewMoment } from '../reviewAsk';
+import { withoutRepeats } from '../../utils/functions/skipDuplicates';
 import {
   TAB_GROUP_COLORS,
   isCarriedStillThere,
@@ -685,6 +686,9 @@ export const openAllTabContainer = createAsyncThunk(
   }
 );
 
+const skipsDuplicates = (state: RootState): boolean =>
+  state.settingsDataState.skipDuplicateTabs;
+
 interface focusTabContainerParams {
   tabGroupId: string;
   goToURLText: string;
@@ -736,7 +740,13 @@ export const requestFocusTabContainer = createAsyncThunk(
       return;
     }
 
-    const willSave = !isAlreadySaved(captured, state.tabGroups);
+    // KAN-906. A session saved with repeats left out still matches the windows that made it.
+    const willSave = !isAlreadySaved(
+      skipsDuplicates(thunkAPI.getState() as RootState)
+        ? withoutRepeats(captured).container
+        : captured,
+      state.tabGroups
+    );
 
     thunkAPI.dispatch(
       openFocusModal({
@@ -781,8 +791,13 @@ export const focusTabContainer = createAsyncThunk(
     // 'all-windows' for the same reason as in requestFocusTabContainer above:
     // this is the save that makes closing every window reversible (KAN-5).
     const captured = await captureOpenWindows(params.saveTitle, 'all-windows');
-    if (captured && !isAlreadySaved(captured, state.tabGroups)) {
-      thunkAPI.dispatch(saveToTabContainerInternal(captured));
+    if (captured) {
+      const toSave = skipsDuplicates(thunkAPI.getState() as RootState)
+        ? withoutRepeats(captured).container
+        : captured;
+      if (!isAlreadySaved(toSave, state.tabGroups)) {
+        thunkAPI.dispatch(saveToTabContainerInternal(toSave));
+      }
     }
 
     // Unconditional, and after the save rather than inside it: saving selects
@@ -931,12 +946,17 @@ export const saveToTabContainer = createAsyncThunk(
     const existing = before.tabContainerDataState.tabGroups;
     const hadSaved = before.settingsDataState.hasHadSavedSession;
 
-    thunkAPI.dispatch(saveToTabContainerInternal(params.container));
+    // KAN-906. A new session keeps one copy of each address.
+    const { container, leftOut } = skipsDuplicates(before)
+      ? withoutRepeats(params.container)
+      : { container: params.container, leftOut: 0 };
+
+    thunkAPI.dispatch(saveToTabContainerInternal(container));
 
     // KAN-653. The first session kept is a payoff of its own, whatever its
     // size. The sample is no session of the user's (KAN-7), so it neither
     // counts as one already kept nor, saved itself, as a first.
-    const isSample = isSampleSession(params.container.tabGroupId);
+    const isSample = isSampleSession(container.tabGroupId);
     const isFirst = !existing.some((g) => !isSampleSession(g.tabGroupId));
     //
     // KAN-149. Otherwise a SUBSTANTIAL save only -- banking one stray tab is
@@ -952,10 +972,7 @@ export const saveToTabContainer = createAsyncThunk(
     // case the product is for, and would score 1 on any window count.
     if (!isSample && isFirst) {
       thunkAPI.dispatch(noteReviewMoment({ kind: 'firstSave' }));
-    } else if (
-      !isSample &&
-      isSubstantialSave(params.container.tabCount, existing)
-    ) {
+    } else if (!isSample && isSubstantialSave(container.tabCount, existing)) {
       thunkAPI.dispatch(noteReviewMoment({ kind: 'bigSave' }));
     }
 
@@ -968,6 +985,7 @@ export const saveToTabContainer = createAsyncThunk(
       showToast({
         toastText: SAVED_TOAST[params.scope],
         announcesSavedChange: true,
+        leftOut,
       })
     );
   }

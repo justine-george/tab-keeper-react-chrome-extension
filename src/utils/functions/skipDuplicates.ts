@@ -1,8 +1,10 @@
+import type { CarriedPick } from '../../redux/carriedItem';
 import type {
   tabContainerData,
   tabData,
   windowGroupData,
 } from '../../redux/slices/tabContainerDataStateSlice';
+import { tabsToCopy } from './liveCopy';
 
 // KAN-906. Every address the session has; a tab with none is never an address.
 export function urlsIn(
@@ -72,5 +74,38 @@ export function withoutRepeats(container: tabContainerData): {
       tabCount: windows.reduce((n, w) => n + w.tabCount, 0),
     },
     leftOut,
+  };
+}
+
+// KAN-906. The live window with repeats left out among the tabs `pick` takes; tabs it does not take stay, so the pick still resolves. A lone tab has no repeat to leave out.
+export function withoutPickedRepeats(
+  snapshot: windowGroupData,
+  pick: CarriedPick
+): windowGroupData {
+  if (pick.kind === 'tab') return snapshot;
+  const picked =
+    pick.kind === 'window' ? snapshot.tabs : tabsToCopy(snapshot, pick)?.tabs;
+  if (picked === undefined) return snapshot;
+  const { windows } = leaveOutDuplicates(
+    [{ ...snapshot, tabs: picked }],
+    new Set()
+  );
+  const kept = new Set(windows[0]?.tabs.map((t) => t.tabId));
+  const pickedIds = new Set(picked.map((t) => t.tabId));
+  const tabs = snapshot.tabs.filter(
+    (t) => !pickedIds.has(t.tabId) || kept.has(t.tabId)
+  );
+  // A Chrome group whose every tab was left out goes too; one that was always empty is not ours to prune.
+  const { chromeTabGroups, ...rest } = snapshot;
+  const groups = chromeTabGroups?.filter(
+    (g) =>
+      tabs.some((t) => t.chromeGroupId === g.groupId) ||
+      !snapshot.tabs.some((t) => t.chromeGroupId === g.groupId)
+  );
+  return {
+    ...rest,
+    tabs,
+    tabCount: tabs.length,
+    ...(groups && groups.length > 0 ? { chromeTabGroups: groups } : {}),
   };
 }

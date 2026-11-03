@@ -260,7 +260,11 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
         // keeps a raw platform error -- a JSON SyntaxError naming its
         // offending token -- readable when it is passed through as a
         // {{detail}} value.
-        const message = t(toast.text, toast.params);
+        const text = t(toast.text, toast.params);
+        const message =
+          toast.leftOut > 0
+            ? `${text} ${t('DuplicateTabsLeftOut', { count: toast.leftOut })}`
+            : text;
         const offer = toast.reopenOffer;
         const show = toast.show;
         const offersLiveUndo =

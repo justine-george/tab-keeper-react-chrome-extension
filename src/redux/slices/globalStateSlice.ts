@@ -1150,6 +1150,8 @@ interface ShowToastPayload {
   offersUndo?: boolean;
   // KAN-694, KAN-744 R16, KAN-814. The live step just kept (a sort, or a drop that changed a pin): an Undo button, shown while that step is the newest in the history.
   liveStepId?: number;
+  // KAN-906. How many duplicate tabs the save left out: the toast says so after its text.
+  leftOut?: number;
 }
 
 let lastToastId = 0;
@@ -1186,6 +1188,7 @@ export const showToast = createAsyncThunk(
       show,
       offersUndo = false,
       liveStepId,
+      leftOut = 0,
     }: ShowToastPayload,
     thunkAPI
   ) => {
@@ -1209,6 +1212,7 @@ export const showToast = createAsyncThunk(
           show: show ?? null,
           offersUndo,
           liveStepId: liveStepId ?? null,
+          leftOut,
         },
         announcesSavedChange,
         stacksOnTwin,

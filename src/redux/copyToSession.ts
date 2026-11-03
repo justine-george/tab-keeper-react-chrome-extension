@@ -21,6 +21,7 @@ import { showSession } from './showSession';
 import type { RootState } from './store';
 import { TOAST_MESSAGES } from '../utils/constants/common';
 import { copiedTabCount } from '../utils/functions/liveCopy';
+import { withoutPickedRepeats } from '../utils/functions/skipDuplicates';
 import { newWindowPlacement } from '../components/home/rightpane/newWindowTarget';
 import { revealSavedWindow } from '../components/home/rightpane/revealSavedWindow';
 
@@ -145,10 +146,15 @@ export const copyWindowTo =
 // N1 A. The save row: a new session holding the copy, shown, no toast (KAN-394).
 export const copyToNewSession =
   (live: LiveSnapshot, fallbackTitle: string, typedTitle: string = ''): Took =>
-  (dispatch) => {
+  (dispatch, getState) => {
+    const placed = placedWindowOf(live);
+    // KAN-906. Repeats among the picked tabs are left out; the copy still names no toast (KAN-394).
+    const snapshot = getState().settingsDataState.skipDuplicateTabs
+      ? withoutPickedRepeats(placed, live.pick)
+      : placed;
     const action = copyToNewSessionInternal(
       live.pick,
-      placedWindowOf(live),
+      snapshot,
       fallbackTitle,
       typedTitle
     );

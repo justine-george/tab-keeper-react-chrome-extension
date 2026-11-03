@@ -169,6 +169,7 @@
   "SavePdfNothingKept": "所有列都已隱藏。至少顯示一列才能完成。",
   "LinksCopied_other": "已複製 {{count}} 個連結。",
   "RemoveDuplicateTabs_other": "刪除 {{count}} 個重複的分頁",
+  "DuplicateTabsLeftOut_other": "已略過 {{count}} 個重複的分頁。",
   "DuplicateTabsRemoved_other": "已刪除 {{count}} 個重複的分頁。",
   "Copied": "已複製",
   "Comfortable": "寬鬆",

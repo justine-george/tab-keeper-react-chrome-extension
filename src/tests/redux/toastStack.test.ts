@@ -19,6 +19,7 @@ const plain = (
   show: null,
   offersUndo: false,
   liveStepId: null,
+  leftOut: 0,
 });
 
 const offer = (id: number, offerId: number): ToastItem => ({
@@ -29,6 +30,7 @@ const offer = (id: number, offerId: number): ToastItem => ({
   show: null,
   offersUndo: false,
   liveStepId: null,
+  leftOut: 0,
 });
 
 const ids = (list: readonly ToastItem[]) => list.map((t) => t.id);
@@ -170,5 +172,22 @@ describe('a toast with a Show action (KAN-350)', () => {
       list = addToast(list, withShow(id, `M${id}`, 's'), false);
     }
     expect(ids(list)).toEqual([2, 3, 4, 5]);
+  });
+});
+
+describe('addToast and the left-out count (KAN-906)', () => {
+  const withLeftOut = (id: number, leftOut: number): ToastItem => ({
+    ...plain(id, 'Saved'),
+    leftOut,
+  });
+
+  test('a plain toast differing only in the count is not a twin', () => {
+    const list = addToast([withLeftOut(1, 2)], withLeftOut(2, 3), false);
+    expect(ids(list)).toEqual([1, 2]);
+  });
+
+  test('a plain toast with the same count is still a twin', () => {
+    const list = addToast([withLeftOut(1, 2)], withLeftOut(2, 2), false);
+    expect(ids(list)).toEqual([2]);
   });
 });

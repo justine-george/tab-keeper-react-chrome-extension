@@ -169,6 +169,7 @@
   "SavePdfNothingKept": "すべての行が非表示です。完了するには、1 行以上を表示してください。",
   "LinksCopied_other": "{{count}} 件のリンクをコピーしました。",
   "RemoveDuplicateTabs_other": "重複したタブを {{count}} 個削除",
+  "DuplicateTabsLeftOut_other": "重複したタブ {{count}} 個を除外しました。",
   "DuplicateTabsRemoved_other": "重複したタブを {{count}} 個削除しました。",
   "Copied": "コピーしました",
   "Comfortable": "ゆったり",
