@@ -498,7 +498,10 @@ const knobGeometry = (page: Page, group: string | Locator) =>
       return (hi + 0.05) / (lo + 0.05);
     };
     const knob = el.querySelector('[data-sliding-knob]') as HTMLElement | null;
-    if (!knob) return null;
+    // KAN-908. The knob's colour is its own fill, inside a box that clips it.
+    const fill = el.querySelector<HTMLElement>('[data-sliding-fill]');
+    if (!knob || !fill?.parentElement) return null;
+    const fillBox = fill.parentElement;
     const box = (r: DOMRect) => ({
       left: r.left,
       right: r.right,
@@ -536,6 +539,9 @@ const knobGeometry = (page: Page, group: string | Locator) =>
         bottom: outer.bottom - border,
       },
       pressed: box(pressedButton.getBoundingClientRect()),
+      fill: box(fill.getBoundingClientRect()),
+      fillBox: box(fillBox.getBoundingClientRect()),
+      fillClipped: getComputedStyle(fillBox).overflow === 'hidden',
       // Off by any amount, a word crossing the knob's edge is drawn twice.
       cellDrift: Math.max(
         ...buttons.map((b, i) => {
@@ -557,7 +563,7 @@ const knobGeometry = (page: Page, group: string | Locator) =>
         buttons.map((b) => Math.round(b.getBoundingClientRect().top))
       ).size,
       knobOnTrack: ratio(
-        parse(getComputedStyle(knob).backgroundColor),
+        parse(getComputedStyle(fill).backgroundColor),
         parse(trackStyle.backgroundColor)
       ),
     };
@@ -627,6 +633,10 @@ for (const mode of ['light', 'dark'] as const) {
         expect(
           Math.abs(knob.drawn[side] - knob.pressed[side]),
           `${side} edge. ${report}`
+        ).toBeLessThanOrEqual(0.5);
+        expect(
+          Math.abs(knob.fill[side] - knob.pressed[side]),
+          `the fill's ${side} edge. ${report}`
         ).toBeLessThanOrEqual(0.5);
       }
       expect(knob.knobOnTrack, report).toBeGreaterThanOrEqual(3);
@@ -858,7 +868,8 @@ test('the knob springs past its rest and still never leaves the frame', async ({
 
   const running = await group.evaluate((el) => {
     const knob = el.querySelector('[data-sliding-knob]')!;
-    const animations = knob.getAnimations();
+    const fill = el.querySelector('[data-sliding-fill]')!;
+    const animations = [...knob.getAnimations(), ...fill.getAnimations()];
     animations.forEach((a) => a.pause());
     return animations.length;
   });
@@ -867,17 +878,22 @@ test('the knob springs past its rest and still never leaves the frame', async ({
   let overshot = false;
   for (let t = 0; t <= 400; t += 10) {
     await group.evaluate((el, time) => {
-      for (const a of el
-        .querySelector('[data-sliding-knob]')!
-        .getAnimations()) {
-        a.currentTime = time;
-      }
+      for (const part of ['[data-sliding-knob]', '[data-sliding-fill]'])
+        for (const a of el.querySelector(part)!.getAnimations()) {
+          a.currentTime = time;
+        }
     }, t);
     const knob = (await knobGeometry(exportPage, 'Layout'))!;
     if (knob.inset.right < 0) overshot = true;
     expect(
       within(knob.drawn, knob.inner),
       `at ${t}ms: ${JSON.stringify(knob)}`
+    ).toBe(true);
+    // KAN-908. The fill may overshoot its box; the box clips it at the wall.
+    expect(knob.fillClipped, 'the fill box clips').toBe(true);
+    expect(
+      within(knob.fillBox, knob.inner),
+      `the fill box at ${t}ms: ${JSON.stringify(knob)}`
     ).toBe(true);
   }
   // CONTROL: the sampling saw a real overshoot, so "never left" is not trivial.
@@ -902,16 +918,19 @@ test('pressing Dark slides the knob while the colours switch at once', async ({
   const slide = await exportPage
     .getByRole('group', { name: 'Colour' })
     .evaluate((el) =>
-      el
-        .querySelector('[data-sliding-knob]')!
-        .getAnimations()
-        .map((a) => (a as CSSTransition).transitionProperty)
+      ['[data-sliding-knob]', '[data-sliding-fill]'].flatMap((part) =>
+        el
+          .querySelector(part)!
+          .getAnimations()
+          .map((a) => (a as CSSTransition).transitionProperty)
+      )
     );
   // Same frame: the controls still repaint at once.
   expect(
     await copy.evaluate((el) => getComputedStyle(el).backgroundColor)
   ).toBe(rgb(CHARCOAL_THEME.PRIMARY_COLOR));
   expect(slide, 'the knob is sliding').toContain('clip-path');
+  expect(slide, 'its fill slides with it (KAN-908)').toContain('left');
 });
 
 test('with reduced motion the knob moves without sliding', async ({
@@ -930,6 +949,12 @@ test('with reduced motion the knob moves without sliding', async ({
     .getByRole('group', { name: 'Layout' })
     .locator('[data-sliding-knob]');
   expect(await knob.evaluate((el) => el.getAnimations().length)).toBe(0);
+  expect(
+    await exportPage
+      .getByRole('group', { name: 'Layout' })
+      .locator('[data-sliding-fill]')
+      .evaluate((el) => el.getAnimations().length)
+  ).toBe(0);
   const now = (await knobGeometry(exportPage, 'Layout'))!;
   expect(now.pressedName).toBe('Comfortable');
   expect(Math.abs(now.drawn.left - now.pressed.left)).toBeLessThanOrEqual(0.5);

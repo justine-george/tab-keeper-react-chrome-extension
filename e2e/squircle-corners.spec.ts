@@ -123,20 +123,21 @@ test('the export page and its file draw squircles', async ({
 
   const layout = page.getByRole('group', { name: 'Layout' });
   await expectSquircle(page, layout, 'the Layout switch');
+  // KAN-908. The fill is a real squircle, not the clip's arc.
   await expectSquircle(
     page,
-    layout.locator('[data-sliding-knob]'),
-    "the switch's knob"
+    layout.locator('[data-sliding-fill]'),
+    "the switch knob's fill"
   );
-  // KAN-721. Settings' pair radii: the track a control, the knob 2px inside.
+  // KAN-908. The pair's radii: the track 10, the knob 3px inside it at 7.
   expect(await layout.evaluate((e) => getComputedStyle(e).borderRadius)).toBe(
-    '8px'
+    '10px'
   );
   expect(
     await layout
-      .locator('[data-sliding-knob]')
+      .locator('[data-sliding-fill]')
       .evaluate((e) => getComputedStyle(e).borderRadius)
-  ).toBe('6px');
+  ).toBe('7px');
   const unpressed = layout.getByRole('button', { name: 'Comfortable' });
   await unpressed.hover();
   await expectSquircle(page, unpressed, "the switch's hover fill");
