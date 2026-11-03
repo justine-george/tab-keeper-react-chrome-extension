@@ -35,6 +35,7 @@ import { useIsMac } from '../../hooks/useIsMac';
 import { AppDispatch, RootState } from '../../redux/store';
 import {
   markPressedSaveAsPdf,
+  SAVE_PDF_POINTER_PRESSES,
   setExportLayout,
 } from '../../redux/slices/settingsDataStateSlice';
 import {
@@ -308,8 +309,9 @@ export default function ExportPage({
   const timeFormat = useSelector(
     (state: RootState) => state.settingsDataState.timeFormat
   );
-  const hasPressedSaveAsPdf = useSelector(
-    (state: RootState) => state.settingsDataState.hasPressedSaveAsPdf
+  const isSavePdfPointerDone = useSelector(
+    (state: RootState) =>
+      state.settingsDataState.saveAsPdfPresses >= SAVE_PDF_POINTER_PRESSES
   );
 
   // The page opens on the extension theme's polarity and follows it until
@@ -556,10 +558,11 @@ export default function ExportPage({
   // so the file still cannot run anything, and the browser's print dialog is
   // where the PDF, or a printer, is picked.
   //
-  // KAN-826. Every press marks the device; the pointer is done at the press,
-  // since Chrome does not say whether the dialog saved or was cancelled.
+  // KAN-826, KAN-911. Every press that opens the dialog counts; the pointer is
+  // done at the second, since Chrome does not say whether a dialog saved. A
+  // press while one is already on its way is the same press.
   const handlePrint = useCallback(() => {
-    dispatch(markPressedSaveAsPdf());
+    if (!printPendingRef.current) dispatch(markPressedSaveAsPdf());
     return afterIcons(() => frameRef.current?.contentWindow?.print());
   }, [afterIcons, dispatch]);
 
@@ -1129,7 +1132,7 @@ export default function ExportPage({
               sandbox="allow-same-origin allow-modals"
               css={sheetStyle}
             />
-            {!hasPressedSaveAsPdf && (
+            {!isSavePdfPointerDone && (
               <SavePdfPointer button={saveButton} sheet={frameEl} />
             )}
           </>

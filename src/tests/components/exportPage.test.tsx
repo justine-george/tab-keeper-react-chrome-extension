@@ -709,7 +709,8 @@ describe('the Save as PDF… pointer (KAN-826)', () => {
     expect(line.split(/[ ,]+/).slice(-2).map(Number)).toEqual([1060, 108]);
   });
 
-  test('is gone after a press on Save as PDF…, and the device remembers', async () => {
+  // KAN-911. One look-and-cancel no longer retires it: it goes at the second press.
+  test('stays after the first press on Save as PDF…, goes at the second, and the device remembers', async () => {
     const user = userEvent.setup();
     const { store } = await renderPage();
     Object.defineProperty(frame(), 'contentWindow', {
@@ -718,13 +719,19 @@ describe('the Save as PDF… pointer (KAN-826)', () => {
     });
     await waitFor(() => expect(pointer()).not.toBeNull());
 
-    await user.click(screen.getByRole('button', { name: 'Save as PDF…' }));
+    const save = screen.getByRole('button', { name: 'Save as PDF…' });
+    await user.click(save);
+    await waitFor(() => expect(save).not.toHaveAttribute('aria-disabled'));
+    expect(pointer()).not.toBeNull();
+    expect(store.getState().settingsDataState.saveAsPdfPresses).toBe(1);
+
+    await user.click(save);
 
     expect(pointer()).toBeNull();
-    expect(store.getState().settingsDataState.hasPressedSaveAsPdf).toBe(true);
+    expect(store.getState().settingsDataState.saveAsPdfPresses).toBe(2);
   });
 
-  test('is absent once this device has pressed Save as PDF…', async () => {
+  test('is absent once this device has pressed Save as PDF… twice', async () => {
     await renderWithProviders(
       <ExportPage
         source={{ kind: 'saved', tabGroupId: 'session-kyoto' }}
@@ -733,6 +740,7 @@ describe('the Save as PDF… pointer (KAN-826)', () => {
       {
         seedStore: (store) => {
           store.dispatch(replaceState(buildContainer([SESSION])));
+          store.dispatch(markPressedSaveAsPdf());
           store.dispatch(markPressedSaveAsPdf());
         },
       }
@@ -812,7 +820,7 @@ describe('⌘P and ⌘S run Save as PDF… (KAN-826)', () => {
       expect(key(window, init)).toBe(false);
 
       await waitFor(() => expect(printed).toHaveBeenCalledTimes(1));
-      expect(store.getState().settingsDataState.hasPressedSaveAsPdf).toBe(true);
+      expect(store.getState().settingsDataState.saveAsPdfPresses).toBe(1);
     }
   );
 
@@ -829,10 +837,9 @@ describe('⌘P and ⌘S run Save as PDF… (KAN-826)', () => {
     await waitFor(() => expect(printed).toHaveBeenCalledTimes(1));
     await act(async () => {});
     expect(printed).toHaveBeenCalledTimes(1);
-    expect(store.getState().settingsDataState.hasPressedSaveAsPdf).toBe(true);
+    expect(store.getState().settingsDataState.saveAsPdfPresses).toBe(1);
     const flagWrites = setItem.mock.calls.filter(
-      ([k, v]) =>
-        k === 'settingsData' && v.includes('"hasPressedSaveAsPdf":true')
+      ([k, v]) => k === 'settingsData' && v.includes('"saveAsPdfPresses":1')
     );
     expect(flagWrites).toHaveLength(1);
   });

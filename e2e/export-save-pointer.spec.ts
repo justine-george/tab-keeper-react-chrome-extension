@@ -228,7 +228,8 @@ test('below 90px of room there is no pointer, and it comes back with room', asyn
   await settledAim(page);
 });
 
-test('pressing Save as PDF… ends the pointer here for good', async ({
+// KAN-911. One look-and-cancel no longer retires it: the second press does.
+test('pressing Save as PDF… twice ends the pointer here for good', async ({
   context,
   extensionId,
 }) => {
@@ -240,8 +241,17 @@ test('pressing Save as PDF… ends the pointer here for good', async ({
   await before.close();
 
   await stubPrint(page);
-  await page.getByRole('button', { name: 'Save as PDF…' }).click();
+  const save = page.getByRole('button', { name: 'Save as PDF…' });
+  await save.click();
   await expect.poll(() => printed(page)).toBe(1);
+  await expect(pointer(page), 'after one press it still shows').toHaveCount(1);
+  const again = await openExport(context, extensionId);
+  await expect(pointer(again), 'and on the next visit').toHaveCount(1);
+  await again.close();
+
+  await page.bringToFront();
+  await save.click();
+  await expect.poll(() => printed(page)).toBe(2);
   await expect(pointer(page)).toHaveCount(0);
 
   const after = await openExport(context, extensionId);
@@ -249,7 +259,7 @@ test('pressing Save as PDF… ends the pointer here for good', async ({
   await expect(pointer(after)).toHaveCount(0);
 });
 
-test('a press in one export tab ends the pointer in the other', async ({
+test('a second press in one export tab ends the pointer in the other', async ({
   context,
   extensionId,
 }) => {
@@ -260,7 +270,11 @@ test('a press in one export tab ends the pointer in the other', async ({
 
   await first.bringToFront();
   await stubPrint(first);
-  await first.getByRole('button', { name: 'Save as PDF…' }).click();
+  const save = first.getByRole('button', { name: 'Save as PDF…' });
+  await save.click();
+  await expect.poll(() => printed(first)).toBe(1);
+  await expect(pointer(second), 'one press: still there').toHaveCount(1);
+  await save.click();
 
   await expect(pointer(second)).toHaveCount(0);
 });
@@ -402,6 +416,10 @@ for (const where of ['the page', 'the preview'] as const) {
         () => (window as unknown as { prevented: boolean[] }).prevented
       )
     ).toEqual([true]);
+    // KAN-911. It counts as a press: one press leaves the pointer up.
+    await expect(pointer(page)).toHaveCount(1);
+    await page.keyboard.press('ControlOrMeta+P');
+    await expect.poll(() => printed(page)).toBe(2);
     await expect(pointer(page)).toHaveCount(0);
   });
 }

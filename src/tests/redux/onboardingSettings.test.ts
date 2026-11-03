@@ -22,6 +22,7 @@ import {
   markEndingSeen,
   markHadSavedSession,
   markPressedSaveAsPdf,
+  SAVE_PDF_POINTER_PRESSES,
   markFullViewCalloutSeen,
   markFullViewOpened,
   markWhatsNew2Seen,
@@ -58,7 +59,7 @@ const GARBAGE = {
   isWhatsNew2Seen: 'yes',
   isClosesThisTabCardAnswered: 'true',
   hasHadSavedSession: 1,
-  hasPressedSaveAsPdf: 'yes',
+  saveAsPdfPresses: 'yes',
   isPopupEndingSeen: 'true',
   isFullViewEndingSeen: 1,
 };
@@ -84,7 +85,7 @@ const ALL_SET = {
   isWhatsNew2Seen: true,
   isClosesThisTabCardAnswered: true,
   hasHadSavedSession: true,
-  hasPressedSaveAsPdf: true,
+  saveAsPdfPresses: 2,
   isPopupEndingSeen: true,
   isFullViewEndingSeen: true,
 } as const;
@@ -223,11 +224,7 @@ describe('the onboarding reducers persist what they set', () => {
       markHadSavedSession(),
       { hasHadSavedSession: true },
     ],
-    [
-      'markPressedSaveAsPdf',
-      markPressedSaveAsPdf(),
-      { hasPressedSaveAsPdf: true },
-    ],
+    ['markPressedSaveAsPdf', markPressedSaveAsPdf(), { saveAsPdfPresses: 1 }],
     [
       'markEndingSeen popup',
       markEndingSeen('popup'),
@@ -250,7 +247,6 @@ describe('the onboarding reducers persist what they set', () => {
     ['markFullViewOpened', markFullViewOpened()],
     ['markFullViewCalloutSeen', markFullViewCalloutSeen()],
     ['markClosesThisTabCardAnswered', markClosesThisTabCardAnswered()],
-    ['markPressedSaveAsPdf', markPressedSaveAsPdf()],
     ['markEndingSeen popup', markEndingSeen('popup')],
     ['markEndingSeen full', markEndingSeen('full')],
   ] as const)('%s writes only the first time', (_name, action) => {
@@ -260,6 +256,69 @@ describe('the onboarding reducers persist what they set', () => {
     setItem.mockClear();
     settingsDataStateSlice.reducer(once, action);
     expect(setItem).not.toHaveBeenCalled();
+  });
+});
+
+// KAN-911. The Save as PDF… pointer stays until the second press.
+describe('Save as PDF… presses (KAN-911)', () => {
+  const reduce = (actions: UnknownAction[]) =>
+    actions.reduce(
+      (state, action) => settingsDataStateSlice.reducer(state, action),
+      settingsDataStateSlice.getInitialState()
+    );
+
+  it('counts two presses, then stops writing', () => {
+    const one = reduce([markPressedSaveAsPdf()]);
+    expect(one.saveAsPdfPresses).toBe(1);
+    const two = settingsDataStateSlice.reducer(one, markPressedSaveAsPdf());
+    expect(two.saveAsPdfPresses).toBe(SAVE_PDF_POINTER_PRESSES);
+    expect(saved()).toMatchObject({ saveAsPdfPresses: 2 });
+    const setItem = vi.spyOn(localStorage, 'setItem');
+    setItem.mockClear();
+    expect(
+      settingsDataStateSlice.reducer(two, markPressedSaveAsPdf())
+        .saveAsPdfPresses
+    ).toBe(2);
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [0, 0],
+    [1, 1],
+    [2, 2],
+    [3, 2],
+    [99, 2],
+    [-1, 0],
+    [1.5, 0],
+    ['2', 0],
+    [Number.NaN, 0],
+    [null, 0],
+  ])('reads a stored count %p as %p', (stored, read) => {
+    expect(
+      guardOnboarding({ saveAsPdfPresses: stored }, ONBOARDING_DEFAULTS)
+        .saveAsPdfPresses
+    ).toBe(read);
+  });
+
+  // A device that pressed once before KAN-911 kept only "pressed".
+  it.each([
+    [true, 1],
+    [false, 0],
+    ['yes', 0],
+  ])('an older "pressed" flag %p reads as %p presses', (flag, read) => {
+    expect(
+      guardOnboarding({ hasPressedSaveAsPdf: flag }, ONBOARDING_DEFAULTS)
+        .saveAsPdfPresses
+    ).toBe(read);
+  });
+
+  it('a stored count wins over the older flag', () => {
+    expect(
+      guardOnboarding(
+        { saveAsPdfPresses: 2, hasPressedSaveAsPdf: true },
+        ONBOARDING_DEFAULTS
+      ).saveAsPdfPresses
+    ).toBe(2);
   });
 });
 
