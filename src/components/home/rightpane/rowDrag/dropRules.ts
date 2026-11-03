@@ -933,9 +933,13 @@ export function setDragging(on: boolean, kind: DragKind = 'tab'): void {
 // that drag, or a drag adopting that carry, writes the marker again without
 // asking for it, and the block keeps the height the phantom now fills. Only
 // the list a carry shows decides it again (decideNewWindowRoom).
+//
+// Cleared while the list is scrolled into the room, the room is kept instead
+// (keepRoomInView, KAN-887).
 export function setDragNewWindow(on: boolean, withRoom = false): void {
   const root = document.documentElement;
   if (!on) {
+    keepRoomInView(root);
     root.removeAttribute('data-drag-new-window');
     root.style.removeProperty(NEW_WINDOW_FREE);
     return;
@@ -944,6 +948,79 @@ export function setDragNewWindow(on: boolean, withRoom = false): void {
     'data-drag-new-window',
     withRoom || hasNewWindowRoom() ? 'room' : ''
   );
+}
+
+// KAN-887 (his pick C). Auto-scroll can carry a list into the room below its
+// last window. Taking the room away then shortened the list under its scroll,
+// and Chrome pulled the scroll back in one frame: every row, the dropped one
+// too, jumped down by what was scrolled into it (34px for a tab drag).
+//
+// So a drag that ends with the room in view leaves it, under
+// data-new-window-room-kept (App.css): every row stays where the drag showed
+// it. The room goes once it is out of view -- scrolled up past, or the list
+// growing or the pane resizing past it -- when taking it moves nothing on
+// screen; or when another session is shown (TabGroupDetailsContainer); or
+// when the next drag in this list starts (RowDragArea), in the task that
+// gives a tab or group drag its own room.
+interface KeptRoom {
+  scroller: HTMLElement;
+  release: () => void;
+}
+let keptRoom: KeptRoom | null = null;
+
+function keepRoomInView(root: HTMLElement): void {
+  if (keptRoom !== null || !hasNewWindowRoom()) return;
+  const block = document.querySelector<HTMLElement>(
+    '[data-new-window-target="last"]'
+  );
+  // Lit, the drop makes a new last window in the room's place.
+  if (block === null || block.hasAttribute('data-landing')) return;
+  const scroller = scrollerOf(block);
+  if (scroller === null) return;
+  const room = block.offsetHeight;
+  const outOfView = () =>
+    scroller.scrollTop <= scroller.scrollHeight - room - scroller.clientHeight;
+  if (outOfView()) return;
+
+  root.setAttribute('data-new-window-room-kept', '');
+  const check = () => {
+    if (outOfView()) releaseKeptRoom();
+  };
+  scroller.addEventListener('scroll', check, { passive: true });
+  // The list's own size changes too: a drop drawn after this (a group
+  // unfolding) or a resize can put the room out of view without a scroll.
+  const resized = new ResizeObserver(check);
+  resized.observe(scroller);
+  for (const child of scroller.children) resized.observe(child);
+  keptRoom = {
+    scroller,
+    release: () => {
+      scroller.removeEventListener('scroll', check);
+      resized.disconnect();
+      root.removeAttribute('data-new-window-room-kept');
+    },
+  };
+}
+
+// Takes a kept room away -- only `scroller`'s, when given. Whether one was.
+export function releaseKeptRoom(scroller?: HTMLElement | null): boolean {
+  const kept = keptRoom;
+  if (kept === null) return false;
+  if (scroller !== undefined && scroller !== kept.scroller) return false;
+  keptRoom = null;
+  kept.release();
+  return true;
+}
+
+// The nearest ancestor that scrolls (overflow auto or scroll), fitting or not.
+function scrollerOf(from: HTMLElement): HTMLElement | null {
+  let el = from.parentElement;
+  while (el !== null && el !== document.body) {
+    const overflowY = getComputedStyle(el).overflowY;
+    if (overflowY === 'auto' || overflowY === 'scroll') return el;
+    el = el.parentElement;
+  }
+  return null;
 }
 
 // KAN-394 N1 (revised). "This drag can make a new session", on the document for the reason the New window marker is.

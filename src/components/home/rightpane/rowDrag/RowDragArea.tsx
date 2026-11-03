@@ -54,6 +54,7 @@ import {
   setDragging,
   setDragNewSession,
   setDragNewWindow,
+  releaseKeptRoom,
   windowBlockAt,
   windowBlocksIn,
   windowOf,
@@ -1619,6 +1620,10 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
       // COLLAPSED boxes. Measure first and every midpoint would describe a
       // layout that no longer exists.
       l.started = true;
+      // KAN-887. A room the last drag here kept goes now, in the task that
+      // gives a tab or group drag its own (below): nothing moves. A window
+      // drag folds every window, which moves everything anyway.
+      releaseKeptRoom(paneOf(rows.current.get(l.rowId) ?? null));
       setDragging(true, dragKind);
       // KAN-361 (N1 B). The New window target swaps in for the session
       // header's toolbar row, by CSS keyed on this -- so it is on before the
