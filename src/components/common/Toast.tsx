@@ -301,7 +301,12 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
             ]}
             aria-hidden={leaving || undefined}
           >
-            <span css={offersAnyUndo ? undefined : messageStyle}>
+            {/* KAN-906. The left-out count wraps rather than being cut, as Undo's message does. */}
+            <span
+              css={
+                offersAnyUndo || toast.leftOut > 0 ? undefined : messageStyle
+              }
+            >
               {message}
             </span>
             {offer !== null && (

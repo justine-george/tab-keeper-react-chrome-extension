@@ -432,3 +432,77 @@ test.describe('a copy from Currently open', () => {
       .toEqual([dataUrl('Live A'), dataUrl('Live A')]);
   });
 });
+
+// A live window's handle in Open now.
+const liveWindowHandle = (page: Page, windowId: number) =>
+  page.locator(
+    `[data-open-window-id="${windowId}"] [data-open-window-drag-handle]`
+  );
+
+// The one toast on screen: its message, whether the message is cut, and its chips.
+const toastFit = (page: Page) =>
+  page.evaluate(() => {
+    const toast = document.querySelector<HTMLElement>(
+      '[role="status"] [data-toast]:not([aria-hidden="true"])'
+    );
+    const message = toast?.querySelector<HTMLElement>(':scope > span');
+    if (!toast || !message) return null;
+    return {
+      text: message.textContent ?? '',
+      cut:
+        message.scrollWidth > message.clientWidth ||
+        message.getBoundingClientRect().right >
+          toast.getBoundingClientRect().right,
+      chips: [...toast.querySelectorAll('button')].map(
+        (b) => b.textContent?.trim() ?? ''
+      ),
+    };
+  });
+
+test.describe('the left-out count on a toast with Show', () => {
+  // German runs long: the count sentence was cut off by an ellipsis here.
+  test('On, in German: a live window copied onto a session off screen says, uncut, that one was left out', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const live = await openLiveWindow(serviceWorker, [
+      'Live A',
+      'Live B',
+      'Live C',
+    ]);
+    const page = await openTabView(
+      context,
+      extensionId,
+      holding('S2', SESSION, [dataUrl('Live A')]),
+      { skipDuplicateTabs: true, language: 'de' }
+    );
+    // PREMISE: the UI is in German.
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.lang))
+      .toBe('de');
+    const handle = liveWindowHandle(page, live.windowId);
+    await expect(handle).toBeVisible();
+
+    const b = await boxOf(handle);
+    const x = b.x + Math.min(40, b.width / 2);
+    const y = b.y + b.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + 10, { steps: 3 });
+    await expect(page.locator(CARD)).toHaveCount(1);
+    await onto(page, 'S2');
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => urlsOf(await stored(page), 'S2'))
+      .toEqual([dataUrl('Live B'), dataUrl('Live C'), dataUrl('Live A')]);
+    await expect
+      .poll(() => toastFit(page))
+      .toEqual({
+        text: '2 Tabs nach „Porto weekend“ kopiert. 1 doppelter Tab ausgelassen.',
+        cut: false,
+        chips: ['Anzeigen'],
+      });
+  });
+});
