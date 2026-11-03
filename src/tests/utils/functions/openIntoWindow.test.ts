@@ -653,6 +653,22 @@ describe('skip tabs already open', () => {
     expect((await tabsOf(1)).slice(3).map(nameOf)).toEqual(['~s0', '~s2']);
   });
 
+  test('activates the kept copy when the saved active tab repeats an earlier one', async () => {
+    handle = setupChromeFake(seed());
+    await openIntoWindow(
+      req(
+        [
+          spec([tab('s1'), tab('s0'), tab('s0', { tabId: 's0again' })], {
+            activeTabId: 's0again',
+          }),
+        ],
+        skip
+      )
+    );
+    const active = (await tabsOf(1)).find((t) => t.active);
+    expect(active && nameOf(active).replace('~', '')).toBe('s0');
+  });
+
   test('the saved active tab kept stays the one made current, at its index among those kept', async () => {
     handle = setupChromeFake(seed());
     await openIntoWindow(

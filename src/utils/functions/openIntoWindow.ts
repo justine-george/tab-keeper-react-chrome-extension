@@ -1,4 +1,5 @@
 import type { tabData } from '../../redux/slices/tabContainerDataStateSlice';
+import { resolveTabUrl } from './local';
 import { pinnedRunLength } from './pinnedRun';
 import { isIncognitoAllowed, restoreSession } from './restoreSession';
 import { leaveOutOpenSpecs, openCopyOf, openPagesOf } from './skipOpen';
@@ -160,7 +161,7 @@ export async function openIntoWindow(
   );
   if (apart.length > 0) await inNewWindows(apart);
 
-  // One read of the window serves the open pages and, later, the pinned run.
+  // With the flag on, one read of the window serves the open pages and, later, the pinned run.
   const liveTabs = request.skipTabsAlreadyOpen
     ? await tabsInOrder(windowId)
     : undefined;
@@ -184,6 +185,11 @@ export async function openIntoWindow(
     if (!tabs.some((t) => t.tabId === target.tabId)) {
       openCopyId = openCopyOf(target, open);
       if (openCopyId !== undefined) targetIndex = -1;
+      // Left out as a repeat within the item: the kept tab with its page is current.
+      else {
+        const address = resolveTabUrl(target.url);
+        targetIndex = tabs.findIndex((t) => resolveTabUrl(t.url) === address);
+      }
     }
   }
   if (tabs.length === 0) {
