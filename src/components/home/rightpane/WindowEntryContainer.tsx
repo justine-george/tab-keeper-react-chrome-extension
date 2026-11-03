@@ -114,6 +114,7 @@ import { markRowContainer } from './rowDrag/dropRules';
 import { useDragState } from './rowDrag/dragContext';
 import { GroupFrameFollower } from './rowDrag/GroupFrameFollower';
 import { ADJACENT_GROUP_GAP_PX, BAND_MARGIN_PX } from './bandSpacing';
+import { DROP_TARGET_TINT } from './bandTint';
 import { useIsSpringOpen } from '../../../redux/springOpenWindows';
 import { springSweepStyle } from '../../common/springOpen';
 import { NEW_LAST_WINDOW } from './newWindowTarget';
@@ -1740,12 +1741,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                            (GroupColorPicker) is the part that carries the
                            meaning without relying on hue. */
                     &[data-drop-target] {
-                      background-color: color-mix(
-                        in srgb,
-                        var(--band-color, transparent) 18%,
-                        transparent
-                      );
-                      border-radius: ${RADIUS.SQUARE};
+                      ${DROP_TARGET_TINT}
                     }
                   `}
                 >
