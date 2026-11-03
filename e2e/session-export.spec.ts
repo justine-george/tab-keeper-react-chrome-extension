@@ -586,6 +586,7 @@ async function settledKnob(page: Page, group: string | Locator) {
   for (let i = 0; i < 40; i++) {
     const moving = await pairIn(page, group).evaluate(async (el) => {
       const knob = el.querySelector('[data-sliding-knob]');
+      const fill = el.querySelector('[data-sliding-fill]');
       if (!knob) return 0;
       // A new observer first fires in the next frame, after SlidingPair's.
       await new Promise<void>((resolve) => {
@@ -595,7 +596,10 @@ async function settledKnob(page: Page, group: string | Locator) {
         });
         observer.observe(knob);
       });
-      return knob.getAnimations({ subtree: true }).length;
+      return (
+        knob.getAnimations({ subtree: true }).length +
+        (fill?.getAnimations().length ?? 0)
+      );
     });
     const geometry = await knobGeometry(page, group);
     if (!geometry) throw new Error(`the ${String(group)} pair has no knob`);
@@ -876,6 +880,7 @@ test('the knob springs past its rest and still never leaves the frame', async ({
   expect(running, 'a transition is carrying the knob').toBeGreaterThan(0);
 
   let overshot = false;
+  let fillOvershot = false;
   for (let t = 0; t <= 400; t += 10) {
     await group.evaluate((el, time) => {
       for (const part of ['[data-sliding-knob]', '[data-sliding-fill]'])
@@ -895,7 +900,19 @@ test('the knob springs past its rest and still never leaves the frame', async ({
       within(knob.fillBox, knob.inner),
       `the fill box at ${t}ms: ${JSON.stringify(knob)}`
     ).toBe(true);
+    // KAN-908. The fill and the words' clip move as one, frame by frame.
+    expect(
+      Math.abs(knob.fill.left - (knob.layer.left + knob.inset.left)),
+      `the fill's left edge leaves the words' at ${t}ms`
+    ).toBeLessThanOrEqual(0.5);
+    expect(
+      Math.abs(knob.fill.right - (knob.layer.right - knob.inset.right)),
+      `the fill's right edge leaves the words' at ${t}ms`
+    ).toBeLessThanOrEqual(0.5);
+    if (knob.fill.right > knob.fillBox.right + 0.5) fillOvershot = true;
   }
+  // CONTROL: the fill itself springs past its box, so the clip above is doing work.
+  expect(fillOvershot, 'the spring pushes the fill past the wall').toBe(true);
   // CONTROL: the sampling saw a real overshoot, so "never left" is not trivial.
   expect(overshot, 'the spring pushes the clip past the wall').toBe(true);
   expect(rest.pressedName).toBe('Compact');
@@ -931,6 +948,7 @@ test('pressing Dark slides the knob while the colours switch at once', async ({
   ).toBe(rgb(CHARCOAL_THEME.PRIMARY_COLOR));
   expect(slide, 'the knob is sliding').toContain('clip-path');
   expect(slide, 'its fill slides with it (KAN-908)').toContain('left');
+  expect(slide, 'no colour fades back in').not.toContain('background-color');
 });
 
 test('with reduced motion the knob moves without sliding', async ({

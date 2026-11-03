@@ -62,12 +62,12 @@ export const RADIUS = {
   /** Something painted flush in a PANEL's corner, inside its 1px border. */
   PANEL_INNER: '11px',
   /**
-   * Buttons, inputs, icon-button fills, the SlidingPair track, tooltips, and
+   * Buttons, inputs, icon-button fills, tooltips, and
    * whatever sits 4px inside a PANEL: menu items, row highlights,
    * drag slots, the group colour strip.
    */
   CONTROL: '8px',
-  /** The SlidingPair track (KAN-908): rounder than a CONTROL, his pick. */
+  /** The SlidingPair track (KAN-908): rounder than a CONTROL. */
   SWITCH: '10px',
   /** The SlidingPair knob and cells: 3px inside the track (1px border + 2px padding). */
   SWITCH_KNOB: '7px',

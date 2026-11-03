@@ -5,9 +5,9 @@ import { RADIUS } from '../../styles/scale';
  * The knob's motion, shared with ExportPage's KAN-201 exemption.
  *
  * Overshoots to 106.6% at 162ms and is within 1% of rest by 249ms. The
- * overshoot pushes the clip past the track's inner wall, where it has nothing
- * to paint, so the knob squashes against the wall rather than crossing the
- * frame (Justine's rule).
+ * overshoot pushes the fill past the track's inner wall, where its box clips
+ * it, so the knob squashes against the wall rather than crossing the frame
+ * (Justine's rule; KAN-908).
  */
 export const KNOB_TRANSITION = '280ms cubic-bezier(0.3, 1.45, 0.6, 1)';
 

@@ -24,8 +24,8 @@ export interface SlidingOption<T extends string> {
  * The numbers a pair is drawn with, supplied by the call site (KAN-248).
  *
  * The export page and the popup are on different scales: the export toolbar
- * draws its pairs at 34px with 3px corners and a 280ms overshoot (KAN-218),
- * the popup at CONTROL.ROW, RADIUS.SQUARE and DURATION.MOVE. The component
+ * draws its pairs at 34px with a 280ms overshoot (KAN-218), the popup at
+ * CONTROL.ROW and DURATION.MOVE; both at RADIUS.SWITCH / SWITCH_KNOB. The component
  * carries neither set, so it can live in common/ and pass the scale scan
  * while each page keeps its own look; the export's numbers live where the
  * scan exempts them (export/slidingPairStyle.ts).
