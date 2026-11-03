@@ -261,7 +261,8 @@ const tourSave = (page: Page) =>
     return { popIn: read('popIn'), popOut: read('popOut'), next: read('next') };
   });
 
-// How many pieces something else is drawn over, at each piece's centre.
+// How many pieces the dim or anything else is drawn over, at each piece's centre.
+// Not counted: another piece or the tour's card, both meant to be over a piece (KAN-899).
 const coveredPieces = (page: Page) =>
   page.evaluate((selector) => {
     const pieces = [...document.querySelectorAll<HTMLElement>(selector)];
@@ -273,7 +274,9 @@ const coveredPieces = (page: Page) =>
         box.left + box.width / 2,
         box.top + box.height / 2
       );
-      return at !== null && !p.contains(at);
+      return (
+        at !== null && at.closest(`${selector}, [data-coach-mark]`) === null
+      );
     }).length;
     for (const p of pieces) p.style.pointerEvents = '';
     return covered;
