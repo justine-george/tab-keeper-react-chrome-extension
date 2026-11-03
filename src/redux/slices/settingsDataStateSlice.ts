@@ -195,8 +195,9 @@ export interface SettingsData {
   isClosesThisTabCardAnswered: boolean;
   // KAN-828. This device's saved list has held a session of the user's: the save invite is done here.
   hasHadSavedSession: boolean;
-  // KAN-826. This device has pressed Save as PDF…: the export page's pointer is done here.
-  hasPressedSaveAsPdf: boolean;
+  // KAN-826, KAN-911. Save as PDF… presses on this device, counted up to
+  // SAVE_PDF_POINTER_PRESSES: the export page's pointer shows until then.
+  saveAsPdfPresses: number;
   // KAN-731. This device's stored theme has had the Paper/Graphite to Chalk/Charcoal move.
   isChalkCharcoalMoveApplied: boolean;
   // KAN-879. The onboarding ending has shown in this view on this device.
@@ -229,7 +230,7 @@ export type OnboardingSettings = Pick<
   | 'isWhatsNew2Seen'
   | 'isClosesThisTabCardAnswered'
   | 'hasHadSavedSession'
-  | 'hasPressedSaveAsPdf'
+  | 'saveAsPdfPresses'
   | 'isPopupEndingSeen'
   | 'isFullViewEndingSeen'
 >;
@@ -244,7 +245,7 @@ export const ONBOARDING_DEFAULTS: OnboardingSettings = {
   isWhatsNew2Seen: false,
   isClosesThisTabCardAnswered: false,
   hasHadSavedSession: false,
-  hasPressedSaveAsPdf: false,
+  saveAsPdfPresses: 0,
   isPopupEndingSeen: false,
   isFullViewEndingSeen: false,
 };
@@ -254,6 +255,13 @@ export function asSetupState(value: unknown): SetupState {
 }
 
 const asFlag = (value: unknown): boolean => value === true;
+
+/** KAN-911. Presses after which the Save as PDF… pointer is done. */
+export const SAVE_PDF_POINTER_PRESSES = 2;
+const asPresses = (value: unknown): number =>
+  Number.isInteger(value) && typeof value === 'number' && value > 0
+    ? Math.min(value, SAVE_PDF_POINTER_PRESSES)
+    : 0;
 // KAN-759. Unvalidated like the rest of settingsDataLocal.
 export const asConsentTime = (value: unknown): number | '' =>
   typeof value === 'number' && Number.isFinite(value) ? value : '';
@@ -273,14 +281,13 @@ export function guardOnboarding(
   stored: unknown,
   fallback: OnboardingSettings
 ): OnboardingSettings {
+  const isStoredObject =
+    typeof stored === 'object' && stored !== null && !Array.isArray(stored);
   const read = <K extends keyof OnboardingSettings>(
     key: K,
     guard: (value: unknown) => OnboardingSettings[K]
   ): OnboardingSettings[K] =>
-    typeof stored === 'object' &&
-    stored !== null &&
-    !Array.isArray(stored) &&
-    key in stored
+    isStoredObject && key in stored
       ? guard(Reflect.get(stored, key))
       : fallback[key];
   return {
@@ -293,7 +300,15 @@ export function guardOnboarding(
     isWhatsNew2Seen: read('isWhatsNew2Seen', asFlag),
     isClosesThisTabCardAnswered: read('isClosesThisTabCardAnswered', asFlag),
     hasHadSavedSession: read('hasHadSavedSession', asFlag),
-    hasPressedSaveAsPdf: read('hasPressedSaveAsPdf', asFlag),
+    // KAN-911. A device that pressed before the count kept only a flag: one press.
+    saveAsPdfPresses:
+      isStoredObject &&
+      !('saveAsPdfPresses' in stored) &&
+      'hasPressedSaveAsPdf' in stored
+        ? asFlag(Reflect.get(stored, 'hasPressedSaveAsPdf'))
+          ? 1
+          : 0
+        : read('saveAsPdfPresses', asPresses),
     isPopupEndingSeen: read('isPopupEndingSeen', asFlag),
     isFullViewEndingSeen: read('isFullViewEndingSeen', asFlag),
   };
@@ -734,10 +749,10 @@ export const settingsDataStateSlice = createSlice({
       saveLocalSettings(state);
     },
 
-    // Every Save as PDF… press dispatches this; only the first writes.
+    // Every Save as PDF… press dispatches this; it writes up to the second press.
     markPressedSaveAsPdf: (state) => {
-      if (state.hasPressedSaveAsPdf) return;
-      state.hasPressedSaveAsPdf = true;
+      if (state.saveAsPdfPresses >= SAVE_PDF_POINTER_PRESSES) return;
+      state.saveAsPdfPresses += 1;
       saveLocalSettings(state);
     },
 
