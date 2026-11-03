@@ -96,7 +96,7 @@ test.describe('the sync status line agrees with the Auto Sync pair (KAN-248)', (
     await expect(card(page)).toHaveAttribute('data-sync-state', 'manual');
   });
 
-  test('the pair sits on the popup scale: the row unit, control corners', async ({
+  test('the pair sits on the popup scale: the row unit, switch corners (KAN-908)', async ({
     context,
     extensionId,
   }) => {
@@ -105,7 +105,7 @@ test.describe('the sync status line agrees with the Auto Sync pair (KAN-248)', (
     expect(box.height).toBe(32);
     expect(
       await pair(page).evaluate((el) => getComputedStyle(el).borderRadius)
-    ).toBe('8px');
+    ).toBe('10px');
   });
 
   test('the body line wraps rather than truncating', async ({
