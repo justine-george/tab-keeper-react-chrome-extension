@@ -3,6 +3,7 @@ import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 import { dropOnTop } from './dropOnTop';
 import { sessionMoveDrop } from './dropSpecs';
 import { showToast } from './slices/globalStateSlice';
+import { selectSkipsDuplicateTabs } from './slices/settingsDataStateSlice';
 import type {
   SessionMove,
   TabMasterContainer,
@@ -15,19 +16,29 @@ import type { RootState } from './store';
 // it takes ⌘Z from a Reopen offer (KAN-349 Q1 C′). Show only while the
 // target is not the session on screen after the drop (the Show rule) --
 // `selectedAfter` is the selection once the move has been made.
+// leftOut: tabs the target already had (KAN-914), said after it.
 export const movedToSessionToast = (
   target: { tabGroupId: string; title: string },
-  selectedAfter: string | null
+  selectedAfter: string | null,
+  leftOut = 0
 ) =>
   showToast({
     toastText: TOAST_MESSAGES.MOVED_TO_SESSION,
     toastParams: { title: target.title },
     announcesSavedChange: true,
+    leftOut,
     show:
       selectedAfter === target.tabGroupId
         ? undefined
         : { tabGroupId: target.tabGroupId },
   });
+
+// The tabs saved in a session; none once it is gone.
+const tabsIn = (c: TabMasterContainer, tabGroupId: string): number =>
+  (c.tabGroups.find((g) => g.tabGroupId === tabGroupId)?.windows ?? []).reduce(
+    (n, w) => n + w.tabs.length,
+    0
+  );
 
 export interface MoveToSessionParams {
   move: SessionMove;
@@ -78,7 +89,7 @@ export const moveToSession =
     const targetTitle = titleOf(move.to.tabGroupId);
     if (sourceTitle === undefined || targetTitle === undefined) return false;
 
-    const drop = sessionMoveDrop(move);
+    const drop = sessionMoveDrop(move, selectSkipsDuplicateTabs(getState()));
     const beforeMove: { state: TabMasterContainer | null } = { state: null };
     dispatch(
       dropOnTop({
@@ -93,12 +104,29 @@ export const moveToSession =
     const after = getState().tabContainerDataState;
     if (beforeMove.state === null || after === beforeMove.state) return false;
 
+    // KAN-914. What left the source and never arrived: the target had it.
+    const leftOut =
+      tabsIn(beforeMove.state, move.carried.tabGroupId) -
+      tabsIn(after, move.carried.tabGroupId) -
+      (tabsIn(after, move.to.tabGroupId) -
+        tabsIn(beforeMove.state, move.to.tabGroupId));
+
     if (announceMoved) {
       dispatch(
         movedToSessionToast(
           { tabGroupId: move.to.tabGroupId, title: targetTitle },
-          after.selectedTabGroupId
+          after.selectedTabGroupId,
+          leftOut
         )
+      );
+    } else if (leftOut > 0) {
+      // The rows show the move; this says why fewer arrived than were carried.
+      dispatch(
+        showToast({
+          toastText: TOAST_MESSAGES.DUPLICATE_TABS_LEFT_OUT,
+          toastParams: { count: leftOut },
+          announcesSavedChange: true,
+        })
       );
     }
 

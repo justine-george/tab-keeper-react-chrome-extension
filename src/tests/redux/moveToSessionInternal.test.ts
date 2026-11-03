@@ -836,3 +836,56 @@ describe('ids that collide in the destination are re-minted', () => {
     expect(w1.tabs[1]).toEqual(tab('g1a', 'g1'));
   });
 });
+
+// KAN-914. The flag rides in the payload, so undo, redo and replay leave out the same tabs.
+describe('skipDuplicates in the payload', () => {
+  // S2 already has t1's page.
+  const hasT1 = () =>
+    seeded(
+      container([
+        s3(),
+        session('S2', 'Target', T0 - 2 * 3_600_000, [
+          win('d1', [{ ...tab('u1'), url: 'https://t1.test/' }]),
+        ]),
+        s1(),
+      ])
+    );
+  const T1_TO_D1: SessionMove = {
+    carried: { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 't1' },
+    to: { tabGroupId: 'S2', windowId: 'd1', toIndex: 1 },
+  };
+
+  it('absent: the tab lands beside its repeat, as before', () => {
+    const next = moved(hasT1(), T1_TO_D1);
+    expect(tabIds(windowIn(next, 'S2', 'd1'))).toEqual(['u1', 't1']);
+  });
+
+  it('set: the tab leaves the source, lands nowhere, and only the source is stamped', () => {
+    const before = hasT1();
+    const next = reducer(before, moveToSessionInternal(T1_TO_D1, NS, T0, true));
+
+    expect(sessionIn(next, 'S2')).toEqual(sessionIn(before, 'S2'));
+    expect(tabIds(windowIn(next, 'S1', 'w1'))).not.toContain('t1');
+    expect(sessionIn(next, 'S1').lastModified).toBe(T0);
+    expect(next.lastModified).toBe(T0);
+  });
+
+  it('set, into a new window: no empty window is made', () => {
+    const before = hasT1();
+    const next = reducer(
+      before,
+      moveToSessionInternal(
+        {
+          carried: T1_TO_D1.carried,
+          to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'first' },
+        },
+        NS,
+        T0,
+        true
+      )
+    );
+
+    expect(windowIds(sessionIn(next, 'S2'))).toEqual(['d1']);
+    expect(sessionIn(next, 'S2')).toEqual(sessionIn(before, 'S2'));
+  });
+});
