@@ -1,11 +1,11 @@
 // KAN-907. The icon files' colours, and the mark's markup recoloured with them.
-// The mark is drawn in a desaturated table; the icons keep their own brighter one and an opaque ground.
+// The mark is drawn in a desaturated table; the icons keep the source's brighter one (home-header.spec.ts SOURCE_MARK) and an opaque ground.
 export const ICON_FILL = {
   '#99bf9d': '#87c68e',
   '#445562': '#3a576d',
   '#253038': '#1f313e',
   '#f4eae2': '#f9e9db',
-  '#222636': '#202842',
+  '#222636': '#1f2640',
   '#20292e': '#1b2a33',
   '#d09263': '#f28c3d',
 };
