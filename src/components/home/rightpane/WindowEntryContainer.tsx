@@ -1170,7 +1170,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       run.tabs,
       run.group,
       active,
-      active && skipsTabsAlreadyOpen
+      skipsTabsAlreadyOpen
     );
   };
 

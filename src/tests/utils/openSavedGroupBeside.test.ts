@@ -90,7 +90,7 @@ describe('openGroupBesideActive', () => {
 
   test('background copy ignores the setting', async () => {
     const h = setup();
-    await openGroupBesideActive([saved('a'), saved('c')], GROUP, false, false);
+    await openGroupBesideActive([saved('a'), saved('c')], GROUP, false, true);
     const queries = h.tabsQueryCalls.length;
     expect(await strip()).toEqual(['here*', 'a', 'c', 'a', 'b']);
     expect(queries).toBe(1);
