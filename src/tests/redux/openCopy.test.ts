@@ -579,6 +579,7 @@ describe('openCarriedCopy', () => {
         respond(answer);
         return true;
       });
+    const found = (ids: number[]) => ({ ids, leftOut: 0, alreadyOpen: [] });
     let heard: { windowId: number; tabIds: number[] }[] = [];
     let stopHearing = () => {};
     let ended = 0;
@@ -597,7 +598,7 @@ describe('openCarriedCopy', () => {
     });
 
     it('asks the worker once: that window, the saved window unfocused, nothing activated, the pin setting', async () => {
-      answerWith([31, 32, 33, 34, 35]);
+      answerWith(found([31, 32, 33, 34, 35]));
       const { store } = ready();
       const before = store.getState().tabContainerDataState;
 
@@ -613,6 +614,7 @@ describe('openCarriedCopy', () => {
           goToURLText: GO_TO,
           activate: false,
           pinTabKeeper: false,
+          skipTabsAlreadyOpen: false,
         },
       ]);
       expect(intoWindows()[0].specs[0].focused).toBe(false);
@@ -621,7 +623,7 @@ describe('openCarriedCopy', () => {
     });
 
     it("the worker's ids: opened, a restore moment, and the arrival told", async () => {
-      answerWith([31, 32]);
+      answerWith(found([31, 32]));
       const { store, actions } = ready();
 
       await expect(
@@ -639,7 +641,7 @@ describe('openCarriedCopy', () => {
     });
 
     it("is Tab Keeper's own move until the worker answers", async () => {
-      answerWith([31]);
+      answerWith(found([31]));
       const { store } = ready();
 
       const asked = store.dispatch(
@@ -652,9 +654,10 @@ describe('openCarriedCopy', () => {
     });
 
     for (const [what, answer] of [
-      ['no tab ids', []],
+      ['no tab ids', found([])],
+      ['the old bare list of ids', [31, 32]],
       ['no answer', undefined],
-      ['an answer that is not tab ids', ['31']],
+      ['an answer that is not tab ids', { ...found([]), ids: ['31'] }],
     ] as const) {
       it(`${what}: not opened here, nothing told, no restore moment`, async () => {
         answerWith(answer);

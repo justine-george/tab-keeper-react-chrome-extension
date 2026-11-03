@@ -24,6 +24,7 @@ import {
 import {
   setOpenSavedWindowsIn,
   setPinTabKeeperInNewWindows,
+  setSkipTabsAlreadyOpen,
   type OpenSavedWindowsIn,
 } from '../../redux/slices/settingsDataStateSlice';
 import {
@@ -431,6 +432,7 @@ describe('Open saved windows: This window', () => {
       activate: true,
       goToURLText: GO_TO_URL_TEXT,
       pinTabKeeper: true,
+      skipTabsAlreadyOpen: false,
       specs: [
         expect.objectContaining({ focused: true }),
         expect.objectContaining({ focused: false }),
@@ -508,6 +510,45 @@ describe('Open saved windows: This window', () => {
       expect(request.specs).toHaveLength(specCount);
     }
   );
+
+  it.each([true, false])(
+    'carries Skip tabs already open (%s) from settings, Open on a window and Open session',
+    async (on) => {
+      handle = inWindow7();
+      const store = storeWith('this-window');
+      store.dispatch(setSkipTabsAlreadyOpen(on));
+      await store.dispatch(
+        openTabsInAWindow({
+          tabGroupId: 'group-1',
+          windowId: 'w-b',
+          goToURLText: GO_TO_URL_TEXT,
+        })
+      );
+      await store.dispatch(
+        openAllTabContainer({
+          tabGroupId: 'group-1',
+          goToURLText: GO_TO_URL_TEXT,
+        })
+      );
+      const sent = handle.sentMessages.filter(isOpenIntoWindowRequest);
+      expect(sent.map((r) => r.skipTabsAlreadyOpen)).toEqual([on, on]);
+    }
+  );
+
+  it("the menu's other way (where: 'this-window' over New window) carries the setting too", async () => {
+    handle = inWindow7();
+    const store = storeWith('new-window');
+    store.dispatch(setSkipTabsAlreadyOpen(true));
+    await store.dispatch(
+      openTabsInAWindow({
+        tabGroupId: 'group-1',
+        windowId: 'w-b',
+        goToURLText: GO_TO_URL_TEXT,
+        where: 'this-window',
+      })
+    );
+    expect(onlyIntoWindowRequest(handle).skipTabsAlreadyOpen).toBe(true);
+  });
 
   it("New window chosen and no where: today's restore, and the current window is never asked", async () => {
     handle = inWindow7();

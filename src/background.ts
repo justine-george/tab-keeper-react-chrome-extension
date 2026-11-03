@@ -35,7 +35,9 @@ import { isReopenPreferringHistoryRequest } from './utils/functions/reopenReques
 import { restoreSession } from './utils/functions/restoreSession';
 import {
   isOpenIntoWindowRequest,
+  NOTHING_OPENED,
   openIntoWindow,
+  type OpenIntoWindowAnswer,
 } from './utils/functions/openIntoWindow';
 import { readUiLanguage } from './utils/functions/uiLanguage';
 import { recordWhatsNewSince } from './utils/functions/whatsNewSince';
@@ -193,18 +195,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return;
   }
 
-  // KAN-892. Answers the created tab ids, [] when they went to new windows or the worker failed; a popup is gone by then.
+  // KAN-892. Answers the created tab ids and what was left out, none when they went to new windows or the worker failed; a popup is gone by then.
   if (isOpenIntoWindowRequest(message)) {
-    const answer = (ids: number[]) => {
+    const answer = (result: OpenIntoWindowAnswer) => {
       try {
-        sendResponse(ids);
+        sendResponse(result);
       } catch (error) {
         console.warn('Could not answer Open in this window: ', error);
       }
     };
     void openIntoWindow(message).then(answer, (error) => {
       console.warn('Open in this window failed: ', error);
-      answer([]);
+      answer(NOTHING_OPENED);
     });
     return true;
   }

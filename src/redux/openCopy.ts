@@ -24,8 +24,15 @@ import type {
   TabCopySlot,
 } from '../utils/functions/openNowMoves';
 import { announceArrival } from '../utils/functions/arrival';
-import { OPEN_INTO_WINDOW_MESSAGE } from '../utils/functions/openIntoWindow';
-import type { OpenIntoWindowRequest } from '../utils/functions/openIntoWindow';
+import {
+  isOpenIntoWindowAnswer,
+  NOTHING_OPENED,
+  OPEN_INTO_WINDOW_MESSAGE,
+} from '../utils/functions/openIntoWindow';
+import type {
+  OpenIntoWindowAnswer,
+  OpenIntoWindowRequest,
+} from '../utils/functions/openIntoWindow';
 import { isSampleSession } from '../utils/functions/sampleSession';
 import { RESTORE_SESSION_MESSAGE } from '../utils/functions/windows';
 import type {
@@ -43,19 +50,16 @@ export type CopyPlace =
   // KAN-892 D. A whole window, at the end of that open window.
   | { kind: 'intoWindow'; windowId: number };
 
-const isTabIdList = (answer: unknown): answer is number[] =>
-  Array.isArray(answer) && answer.every((id) => typeof id === 'number');
-
-// The worker's created tab ids; [] when it opened them elsewhere, failed, or could not be reached.
+// The worker's answer; nothing opened when it opened them elsewhere, failed, or could not be reached.
 async function askIntoWindow(
   request: OpenIntoWindowRequest
-): Promise<number[]> {
+): Promise<OpenIntoWindowAnswer> {
   try {
     const answer: unknown = await chrome.runtime.sendMessage(request);
-    return isTabIdList(answer) ? answer : [];
+    return isOpenIntoWindowAnswer(answer) ? answer : NOTHING_OPENED;
   } catch (error) {
     console.warn('Could not open the saved window in that window:', error);
-    return [];
+    return NOTHING_OPENED;
   }
 }
 
@@ -166,8 +170,9 @@ export const openCarriedCopy =
         goToURLText,
         activate: false,
         pinTabKeeper: state.settingsDataState.pinTabKeeperInNewWindows,
+        skipTabsAlreadyOpen: false,
       };
-      opened = whileMovingTabs(() => askIntoWindow(request)).then((ids) => {
+      opened = whileMovingTabs(() => askIntoWindow(request)).then(({ ids }) => {
         if (ids.length > 0) announceArrival(place.windowId, ids);
         return ids.length > 0;
       });

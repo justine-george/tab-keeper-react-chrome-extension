@@ -66,6 +66,7 @@ import {
 } from '../../utils/functions/openIntoWindow';
 import {
   selectSkipsDuplicateTabs,
+  selectSkipsTabsAlreadyOpen,
   type OpenSavedWindowsIn,
 } from './settingsDataStateSlice';
 import {
@@ -602,7 +603,8 @@ async function openRequest(
   specs: WindowSpec[],
   where: OpenSavedWindowsIn,
   goToURLText: string,
-  pinTabKeeper: boolean
+  pinTabKeeper: boolean,
+  skipTabsAlreadyOpen: boolean
 ): Promise<RestoreSessionRequest | OpenIntoWindowRequest> {
   const windowId = where === 'this-window' ? await currentWindowId() : null;
   return windowId === null
@@ -620,6 +622,7 @@ async function openRequest(
         goToURLText,
         activate: true,
         pinTabKeeper,
+        skipTabsAlreadyOpen,
       };
 }
 
@@ -644,7 +647,8 @@ export const openTabsInAWindow = createAsyncThunk(
       [toWindowSpec(windowGroup, true)],
       params.where ?? rootState.settingsDataState.openSavedWindowsIn,
       params.goToURLText,
-      rootState.settingsDataState.pinTabKeeperInNewWindows
+      rootState.settingsDataState.pinTabKeeperInNewWindows,
+      selectSkipsTabsAlreadyOpen(rootState)
     );
     // KAN-149. The last instant the popup can record anything: sendMessage
     // hands the restore to the worker, which focuses a new window or (This
@@ -684,7 +688,8 @@ export const openAllTabContainer = createAsyncThunk(
       ),
       params.where ?? rootState.settingsDataState.openSavedWindowsIn,
       params.goToURLText,
-      rootState.settingsDataState.pinTabKeeperInNewWindows
+      rootState.settingsDataState.pinTabKeeperInNewWindows,
+      selectSkipsTabsAlreadyOpen(rootState)
     );
     // KAN-149. Recorded here for the reason spelled out in openTabsInAWindow:
     // this is the last instant the popup exists. Not for the sample (KAN-7).
