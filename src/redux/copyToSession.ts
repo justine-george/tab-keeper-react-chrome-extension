@@ -12,6 +12,7 @@ import {
 import { placedWindowOf } from './livePlacement';
 import { isSessionOnScreen } from './sessionOnScreen';
 import { showToast } from './slices/globalStateSlice';
+import { selectSkipsDuplicateTabs } from './slices/settingsDataStateSlice';
 import {
   copyToNewSessionInternal,
   type SessionCopy,
@@ -40,7 +41,7 @@ function landingAtDrop(
   const target = state.tabContainerDataState.tabGroups.find(
     (g) => g.tabGroupId === copy.to.tabGroupId
   );
-  return state.settingsDataState.skipDuplicateTabs && target !== undefined
+  return selectSkipsDuplicateTabs(state) && target !== undefined
     ? withoutPickedRepeats(placed, copy.pick, urlsIn(target))
     : { window: placed, leftOut: 0 };
 }
@@ -193,8 +194,8 @@ export const copyToNewSession =
   (live: LiveSnapshot, fallbackTitle: string, typedTitle: string = ''): Took =>
   (dispatch, getState) => {
     const placed = placedWindowOf(live);
-    // KAN-906. Repeats among the picked tabs are left out; the copy still names no toast (KAN-394).
-    const snapshot = getState().settingsDataState.skipDuplicateTabs
+    // KAN-906. Repeats among the picked tabs are left out; the copy still shows no toast (KAN-394).
+    const snapshot = selectSkipsDuplicateTabs(getState())
       ? withoutPickedRepeats(placed, live.pick, new Set()).window
       : placed;
     const action = copyToNewSessionInternal(

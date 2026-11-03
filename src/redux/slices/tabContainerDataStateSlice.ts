@@ -62,7 +62,10 @@ import {
   OPEN_INTO_WINDOW_MESSAGE,
   type OpenIntoWindowRequest,
 } from '../../utils/functions/openIntoWindow';
-import type { OpenSavedWindowsIn } from './settingsDataStateSlice';
+import {
+  selectSkipsDuplicateTabs,
+  type OpenSavedWindowsIn,
+} from './settingsDataStateSlice';
 import {
   bySessionRank,
   createdInstant,
@@ -690,9 +693,6 @@ export const openAllTabContainer = createAsyncThunk(
   }
 );
 
-const skipsDuplicates = (state: RootState): boolean =>
-  state.settingsDataState.skipDuplicateTabs;
-
 // KAN-906. What focus mode saves, or null when the open windows are already saved: as they are, or, when repeats are left out, as they would be saved.
 function focusSave(
   captured: tabContainerData,
@@ -760,7 +760,7 @@ export const requestFocusTabContainer = createAsyncThunk(
       focusSave(
         captured,
         state.tabGroups,
-        skipsDuplicates(thunkAPI.getState() as RootState)
+        selectSkipsDuplicateTabs(thunkAPI.getState() as RootState)
       ) !== null;
 
     thunkAPI.dispatch(
@@ -810,7 +810,7 @@ export const focusTabContainer = createAsyncThunk(
       const toSave = focusSave(
         captured,
         state.tabGroups,
-        skipsDuplicates(thunkAPI.getState() as RootState)
+        selectSkipsDuplicateTabs(thunkAPI.getState() as RootState)
       );
       if (toSave !== null)
         thunkAPI.dispatch(saveToTabContainerInternal(toSave));
@@ -963,7 +963,7 @@ export const saveToTabContainer = createAsyncThunk(
     const hadSaved = before.settingsDataState.hasHadSavedSession;
 
     // KAN-906. A new session keeps one copy of each address.
-    const { container, leftOut } = skipsDuplicates(before)
+    const { container, leftOut } = selectSkipsDuplicateTabs(before)
       ? withoutRepeats(params.container)
       : { container: params.container, leftOut: 0 };
 
@@ -1022,7 +1022,7 @@ export const addCurrWindowToTabGroup = createAsyncThunk(
     );
     // KAN-906. Only arriving tabs are compared: repeats the session already holds stay.
     const { windows, leftOut } =
-      skipsDuplicates(state) && target !== undefined
+      selectSkipsDuplicateTabs(state) && target !== undefined
         ? leaveOutDuplicates([params.window], urlsIn(target))
         : { windows: [params.window], leftOut: 0 };
     const [window] = windows;
@@ -1276,7 +1276,7 @@ export const addCurrTabToWindow = createAsyncThunk(
     );
     // KAN-906. A tab with no address is never an address to match.
     if (
-      skipsDuplicates(state) &&
+      selectSkipsDuplicateTabs(state) &&
       target !== undefined &&
       urlsIn(target).has(params.tabData.url)
     ) {

@@ -896,6 +896,10 @@ export default settingsDataStateSlice.reducer;
 export const cloudSyncAllowed = (settings: SettingsData): boolean =>
   settings.isAutoSync && settings.cloudConsent === 'granted';
 
+// KAN-906. Whether a save leaves out pages the session already has.
+export const selectSkipsDuplicateTabs = (state: RootState): boolean =>
+  state.settingsDataState.skipDuplicateTabs;
+
 /**
  * Whether the tab view's own periodic/on-focus cloud read (KAN-279 D11) may
  * fire right now. Mirrors App's startup-sync condition --
