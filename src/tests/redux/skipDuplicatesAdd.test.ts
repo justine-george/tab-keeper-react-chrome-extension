@@ -15,6 +15,7 @@ vi.mock('../../utils/functions/external', () => ({
 
 import { makeTestStore } from '../setup/makeStore';
 import {
+  addCurrTabToChromeGroup,
   addCurrTabToWindow,
   addCurrWindowToTabGroup,
   saveToTabContainerInternal,
@@ -207,7 +208,7 @@ describe('addCurrTabToWindow (KAN-906)', () => {
   it('On: a tab the session has changes nothing and says so', async () => {
     const store = setup(true, A, B);
     const before = session(store);
-    await add(store, A);
+    expect(add(store, A)).toBe(false);
     expect(session(store)).toEqual(before);
     expect(lastToast(store)).toMatchObject({
       text: TOAST_MESSAGES.THIS_SESSION_ALREADY_HAS_THIS_TAB,
@@ -216,7 +217,7 @@ describe('addCurrTabToWindow (KAN-906)', () => {
 
   it('On: a tab the session lacks is added', async () => {
     const store = setup(true, A, B);
-    await add(store, C);
+    expect(add(store, C)).toBe(true);
     expect(urlsOf(store)).toEqual([[C, A, B]]);
     expect(lastToast(store)).toMatchObject({
       text: TOAST_MESSAGES.ADD_CURR_TAB_TO_WINDOW_SUCCESS,
@@ -225,16 +226,107 @@ describe('addCurrTabToWindow (KAN-906)', () => {
 
   it('On: a tab with no address is added, never an address to compare', async () => {
     const store = setup(true, '');
-    await add(store, '');
+    expect(add(store, '')).toBe(true);
     expect(urlsOf(store)).toEqual([['', '']]);
   });
 
   it('Off: a tab the session has is added anyway', async () => {
     const store = setup(false, A, B);
-    await add(store, A);
+    expect(add(store, A)).toBe(true);
     expect(urlsOf(store)).toEqual([[A, A, B]]);
     expect(lastToast(store)).toMatchObject({
       text: TOAST_MESSAGES.ADD_CURR_TAB_TO_WINDOW_SUCCESS,
     });
+  });
+});
+
+describe('addCurrTabToChromeGroup (KAN-906)', () => {
+  // A session of two windows: [a] and [b, c], where b and c are the Chrome group "grp".
+  const setupGroup = (on: boolean) => {
+    const { store } = makeTestStore();
+    store.dispatch(setSkipDuplicateTabs(on));
+    const grouped = windowOf('w2', B, C);
+    store.dispatch(
+      saveToTabContainerInternal(
+        buildSession({
+          tabGroupId: 'g',
+          tabCount: 3,
+          windowCount: 2,
+          windows: [
+            windowOf('w1', A),
+            {
+              ...grouped,
+              tabs: grouped.tabs.map((t) => ({ ...t, chromeGroupId: 'grp' })),
+              chromeTabGroups: [
+                { groupId: 'grp', title: 'Reading', color: 'blue' },
+              ],
+            },
+          ],
+        })
+      )
+    );
+    return store;
+  };
+  const add = (store: ReturnType<typeof setup>, url: string) =>
+    store.dispatch(
+      addCurrTabToChromeGroup({
+        tabGroupId: 'g',
+        windowId: 'w2',
+        groupId: 'grp',
+        tabData: tabOf(url, 9),
+      })
+    );
+  const toastsOf = (store: ReturnType<typeof setup>) =>
+    store.getState().globalState.toasts.map((t) => t.text);
+
+  it('On: a tab another window of the session has changes nothing and says so', async () => {
+    const store = setupGroup(true);
+    const before = session(store);
+    const steps = store.getState().undoRedo.past.length;
+    expect(add(store, A)).toBe(false);
+    expect(session(store)).toEqual(before);
+    expect(store.getState().undoRedo.past).toHaveLength(steps);
+    expect(toastsOf(store)).toEqual([
+      TOAST_MESSAGES.THIS_SESSION_ALREADY_HAS_THIS_TAB,
+    ]);
+  });
+
+  it('On: a tab the group itself has changes nothing either', async () => {
+    const store = setupGroup(true);
+    const before = session(store);
+    expect(add(store, C)).toBe(false);
+    expect(session(store)).toEqual(before);
+  });
+
+  it('On: a tab the session lacks joins the group at its front, with no toast, as today', async () => {
+    const store = setupGroup(true);
+    expect(add(store, D)).toBe(true);
+    expect(urlsOf(store)).toEqual([[A], [D, B, C]]);
+    expect(session(store).windows[1].tabs[0].chromeGroupId).toBe('grp');
+    expect(session(store).tabCount).toBe(4);
+    expect(toastsOf(store)).toEqual([]);
+  });
+
+  it('On: a group that is not there adds nothing and says added nothing', async () => {
+    const store = setupGroup(true);
+    const before = session(store);
+    expect(
+      store.dispatch(
+        addCurrTabToChromeGroup({
+          tabGroupId: 'g',
+          windowId: 'w2',
+          groupId: 'missing',
+          tabData: tabOf(D, 9),
+        })
+      )
+    ).toBe(false);
+    expect(session(store)).toEqual(before);
+  });
+
+  it('Off: a tab the session has joins the group anyway, with no toast', async () => {
+    const store = setupGroup(false);
+    expect(add(store, A)).toBe(true);
+    expect(urlsOf(store)).toEqual([[A], [A, B, C]]);
+    expect(toastsOf(store)).toEqual([]);
   });
 });

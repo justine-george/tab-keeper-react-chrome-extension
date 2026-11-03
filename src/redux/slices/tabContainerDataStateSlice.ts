@@ -3,6 +3,8 @@ import {
   createSlice,
   current,
   PayloadAction,
+  type ThunkAction,
+  type UnknownAction,
 } from '@reduxjs/toolkit';
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 
@@ -1266,37 +1268,65 @@ export const sortWindowGroupsByName = createAsyncThunk<
   }
 );
 
-// add current tab to the specified window container and display a toast message
-export const addCurrTabToWindow = createAsyncThunk(
-  'global/addCurrTabToWindow',
-  async (params: addCurrTabToWindowParams, thunkAPI) => {
-    const state = thunkAPI.getState() as RootState;
-    const target = state.tabContainerDataState.tabGroups.find(
-      (g) => g.tabGroupId === params.tabGroupId
-    );
-    // KAN-906. A tab with no address is never an address to match.
-    if (
-      selectSkipsDuplicateTabs(state) &&
-      target !== undefined &&
-      urlsIn(target).has(params.tabData.url)
-    ) {
-      thunkAPI.dispatch(
+// KAN-906. Whether Skip duplicate tabs leaves this tab out: the session already has its address.
+function leavesOutTab(
+  state: RootState,
+  tabGroupId: string,
+  tab: tabData
+): boolean {
+  const target = state.tabContainerDataState.tabGroups.find(
+    (g) => g.tabGroupId === tabGroupId
+  );
+  // A tab with no address is never an address to match.
+  return (
+    selectSkipsDuplicateTabs(state) &&
+    target !== undefined &&
+    urlsIn(target).has(tab.url)
+  );
+}
+
+type Added = ThunkAction<boolean, RootState, unknown, UnknownAction>;
+
+// add current tab to the specified window container and display a toast message; returns whether the session changed
+export const addCurrTabToWindow =
+  (params: addCurrTabToWindowParams): Added =>
+  (dispatch, getState) => {
+    if (leavesOutTab(getState(), params.tabGroupId, params.tabData)) {
+      dispatch(
         showToast({
           toastText: TOAST_MESSAGES.THIS_SESSION_ALREADY_HAS_THIS_TAB,
         })
       );
-      return;
+      return false;
     }
-    thunkAPI.dispatch(addCurrTabToWindowInternal(params));
+    const before = getState().tabContainerDataState;
+    dispatch(addCurrTabToWindowInternal(params));
 
-    thunkAPI.dispatch(
+    dispatch(
       showToast({
         toastText: TOAST_MESSAGES.ADD_CURR_TAB_TO_WINDOW_SUCCESS,
         announcesSavedChange: true,
       })
     );
-  }
-);
+    return getState().tabContainerDataState !== before;
+  };
+
+// The current tab into a Chrome group of a saved window, with no toast; returns whether the session changed.
+export const addCurrTabToChromeGroup =
+  (params: addCurrTabToChromeGroupParams): Added =>
+  (dispatch, getState) => {
+    if (leavesOutTab(getState(), params.tabGroupId, params.tabData)) {
+      dispatch(
+        showToast({
+          toastText: TOAST_MESSAGES.THIS_SESSION_ALREADY_HAS_THIS_TAB,
+        })
+      );
+      return false;
+    }
+    const before = getState().tabContainerDataState;
+    dispatch(addCurrTabToChromeGroupInternal(params));
+    return getState().tabContainerDataState !== before;
+  };
 
 // delete tab group by tabGroupId
 export const deleteTabContainer = createAsyncThunk<

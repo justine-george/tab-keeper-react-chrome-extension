@@ -14,6 +14,9 @@ import {
   selectTabContainer,
 } from '../../redux/slices/tabContainerDataStateSlice';
 import type { tabContainerData } from '../../redux/slices/tabContainerDataStateSlice';
+import { setSkipDuplicateTabs } from '../../redux/slices/settingsDataStateSlice';
+import { TOAST_MESSAGES } from '../../utils/constants/common';
+import { toastTexts } from '../setup/toasts';
 import type { RenderWithProvidersResult } from '../setup/renderWithProviders';
 import { ADD_CURR_TAB_TO_WINDOW_ACTION } from '../../utils/constants/actionTypes';
 import { endCarry, noteCarryOverOpenNow, startCarry } from '../../redux/carry';
@@ -489,7 +492,13 @@ describe('KAN-821 Add current tab opens the window and shows the new tab', () =>
       folded,
       pinnedFirst = false,
       becomes,
-    }: { folded: boolean; pinnedFirst?: boolean; becomes?: string }
+      skipsDuplicates = false,
+    }: {
+      folded: boolean;
+      pinnedFirst?: boolean;
+      becomes?: string;
+      skipsDuplicates?: boolean;
+    }
   ) => {
     scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
     const session: tabContainerData = buildSession();
@@ -502,6 +511,7 @@ describe('KAN-821 Add current tab opens the window and shows the new tab', () =>
       seedStore: (store) => {
         store.dispatch(saveToTabContainerInternal(session));
         store.dispatch(selectTabContainer('group-1'));
+        store.dispatch(setSkipDuplicateTabs(skipsDuplicates));
         // The fold record names THIS session: expandWindow ignores one that
         // names another, and a refused add would then stay folded for the
         // wrong reason.
@@ -566,6 +576,29 @@ describe('KAN-821 Add current tab opens the window and shows the new tab', () =>
     await renderWith(ADDED, { folded: true, pinnedFirst: true });
     expect(addedRow()?.getAttribute('data-drag-row-id')).not.toBe('t1');
     expect(scrolledTarget()).toBe(addedRow());
+  });
+
+  // KAN-906. A tab left out added nothing to show.
+  test('a tab Skip duplicate tabs leaves out leaves the window collapsed', async () => {
+    const { store, seen } = await renderWith(
+      { url: 'https://kagi.com/', title: 'Kagi Search' },
+      { folded: true, skipsDuplicates: true }
+    );
+    expect(toastTexts(store.getState())).toEqual([
+      TOAST_MESSAGES.THIS_SESSION_ALREADY_HAS_THIS_TAB,
+    ]);
+    expect(seen).not.toContain('globalState/expandWindow');
+    expect(foldedIds(store)).toEqual(['win-1']);
+    expect(scrolled).not.toHaveBeenCalled();
+  });
+
+  test('CONTROL: with Skip duplicate tabs off, the same tab is added and shown', async () => {
+    const { store } = await renderWith(
+      { url: 'https://kagi.com/', title: 'Kagi Search' },
+      { folded: true }
+    );
+    expect(foldedIds(store)).toEqual([]);
+    expect(scrolled).toHaveBeenCalledTimes(1);
   });
 
   test('a refused add leaves the window collapsed', async () => {

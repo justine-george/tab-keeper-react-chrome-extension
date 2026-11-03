@@ -263,7 +263,8 @@ export default function TabGroupDetailsContainer() {
     // KAN-211. See toStoredTab: the normalising is done in one place so the
     // three ways to save a tab cannot disagree about what a tab is.
     const tabData = toStoredTab(tab);
-    dispatch(addCurrTabToWindow({ tabGroupId, windowId, tabData }));
+    if (!dispatch(addCurrTabToWindow({ tabGroupId, windowId, tabData })))
+      return;
     // KAN-821. Show what was added: open a folded window, follow the new row.
     dispatch(expandWindow({ tabGroupId, windowId }));
     bringRowIntoView(tabData.tabId);
