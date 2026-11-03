@@ -261,9 +261,11 @@ export const Toast: React.FC<ToastProps> = ({ style }) => {
         // offending token -- readable when it is passed through as a
         // {{detail}} value.
         const text = t(toast.text, toast.params);
+        // A sentence ending in full-width punctuation (zh, ja) runs on with no space.
+        const gap = /[。！？]$/.test(text) ? '' : ' ';
         const message =
           toast.leftOut > 0
-            ? `${text} ${t('DuplicateTabsLeftOut', { count: toast.leftOut })}`
+            ? `${text}${gap}${t('DuplicateTabsLeftOut', { count: toast.leftOut })}`
             : text;
         const offer = toast.reopenOffer;
         const show = toast.show;

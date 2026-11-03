@@ -3,8 +3,11 @@ import { act, screen } from '@testing-library/react';
 
 import { Toast } from '../../components/common/Toast';
 import { showToast } from '../../redux/slices/globalStateSlice';
+import ja from '../../../public/locales/ja/translation.json';
+import ko from '../../../public/locales/ko/translation.json';
+import zh from '../../../public/locales/zh/translation.json';
 import { renderWithProviders } from '../setup/renderWithProviders';
-import { initTestI18n } from '../setup/i18nForTests';
+import { initTestI18n, testI18n } from '../setup/i18nForTests';
 import { TOAST_MESSAGES } from '../../utils/constants/common';
 
 // KAN-906. A save that left duplicate tabs out says how many, after its own text.
@@ -14,7 +17,11 @@ beforeEach(async () => {
   await initTestI18n();
 });
 
-afterEach(() => localStorage.clear());
+afterEach(async () => {
+  localStorage.clear();
+  // The instance is shared: a leaked locale would run later tests in it.
+  await testI18n.changeLanguage('en');
+});
 
 const SAVED = TOAST_MESSAGES.SAVE_CURRENT_WINDOW_SUCCESS;
 
@@ -53,5 +60,30 @@ describe('the left-out sentence on a toast (KAN-906)', () => {
     await show(store);
     expect(screen.getAllByText(SAVED)).toHaveLength(2);
     expect(screen.queryByText(/left out/)).toBeNull();
+  });
+});
+
+// Sentences ending in full-width punctuation run on with no space; others take one.
+describe('the left-out sentence joins as the language writes (KAN-906)', () => {
+  const cases = [
+    ['zh', zh, ''],
+    ['ja', ja, ''],
+    ['ko', ko, ' '],
+  ] as const;
+
+  test.each(cases)('%s', async (locale, dict, gap) => {
+    const { store, container } = await renderWithProviders(<Toast />);
+    testI18n.addResourceBundle(locale, 'translation', dict, true, true);
+    await act(async () => {
+      await testI18n.changeLanguage(locale);
+    });
+    // CONTROL: the assertions below are in the locale, not English.
+    expect(testI18n.language).toBe(locale);
+
+    await show(store, 2);
+
+    // From the raw JSON, never through t(): the expectation must not share the machinery.
+    const sentence = dict.DuplicateTabsLeftOut_other.replace('{{count}}', '2');
+    expect(container.textContent).toBe(`${dict[SAVED]}${gap}${sentence}`);
   });
 });
