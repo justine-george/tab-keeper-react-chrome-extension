@@ -262,6 +262,8 @@
   "SessionEmptiedRemoved": "セッション「{{title}}」は空になったため削除されました。",
   "CopiedToSession": "「{{title}}」にコピーしました。",
   "CopiedTabsToSession_other": "{{count}} 個のタブを「{{title}}」にコピーしました。",
+  "SessionAlreadyHasThisTab": "「{{title}}」には、このタブがすでに含まれています。",
+  "SessionAlreadyHasTheseTabs": "「{{title}}」には、これらのタブがすでに含まれています。",
   "Ctrl": "Ctrl",
   "Del": "Del",
   "Tab closed.": "タブを閉じました。",

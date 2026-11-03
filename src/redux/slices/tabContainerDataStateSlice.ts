@@ -3221,7 +3221,7 @@ export const tabContainerDataStateSlice = createSlice({
       }),
     },
     // KAN-280 Part F (spec O12c). A copy of a live item into a saved session: the move's landing, nothing removed, one ⌘Z.
-    // Declines, stamping nothing, when the target is gone or the kinds clash (Q2 A). Duplicates land (KAN-608).
+    // Declines, stamping nothing, when the target is gone, the kinds clash (Q2 A) or the pick copies nothing. Duplicates land (KAN-608) unless Skip duplicate tabs is on: copyToSession leaves them out of the snapshot.
     copyToSessionInternal: {
       reducer: (state, action: PayloadAction<copyToSessionParams>) => {
         const { copy, snapshot, remintNamespace, now } = action.payload;

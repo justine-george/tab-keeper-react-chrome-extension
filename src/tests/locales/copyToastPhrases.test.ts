@@ -40,6 +40,24 @@ describe('the copy toast (KAN-280 Part F, KAN-608)', () => {
     }
   });
 
+  // KAN-906. A copy that leaves out every tab: the title quoted as the copy toast quotes it.
+  it('the "already has" toasts exist in every locale, quoting the title as "Copied to" does', () => {
+    const QUOTED = /([“”„«»「」]\s?)\{\{title\}\}(\s?[“”„«»「」])/;
+    for (const [file, json] of Object.entries(files)) {
+      const marks = QUOTED.exec(json.CopiedToSession)?.slice(1);
+      expect(marks, file).toHaveLength(2);
+      for (const key of [
+        'SessionAlreadyHasThisTab',
+        'SessionAlreadyHasTheseTabs',
+      ]) {
+        expect(QUOTED.exec(json[key])?.slice(1), `${file} ${key}`).toEqual(
+          marks
+        );
+        expect(json[key], `${file} ${key}`).toMatch(FULL_STOP);
+      }
+    }
+  });
+
   it('no locale keeps the retired skip toasts', () => {
     for (const [file, json] of Object.entries(files)) {
       const retired = Object.keys(json).filter(

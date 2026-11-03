@@ -278,6 +278,8 @@
   "CopiedTabsToSession_one": "{{count}} scheda copiata in «{{title}}».",
   "CopiedTabsToSession_many": "{{count}} schede copiate in «{{title}}».",
   "CopiedTabsToSession_other": "{{count}} schede copiate in «{{title}}».",
+  "SessionAlreadyHasThisTab": "«{{title}}» ha già questa scheda.",
+  "SessionAlreadyHasTheseTabs": "«{{title}}» ha già queste schede.",
   "Ctrl": "Ctrl",
   "Del": "Canc",
   "Tab closed.": "Scheda chiusa.",

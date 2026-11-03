@@ -262,6 +262,8 @@
   "SessionEmptiedRemoved": "工作階段「{{title}}」已沒有內容，因此已移除。",
   "CopiedToSession": "已複製到「{{title}}」。",
   "CopiedTabsToSession_other": "已將 {{count}} 個分頁複製到「{{title}}」。",
+  "SessionAlreadyHasThisTab": "「{{title}}」已包含這個分頁。",
+  "SessionAlreadyHasTheseTabs": "「{{title}}」已包含這些分頁。",
   "Ctrl": "Ctrl",
   "Del": "Del",
   "Tab closed.": "分頁已關閉。",

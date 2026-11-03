@@ -278,6 +278,8 @@
   "CopiedTabsToSession_one": "Se copió {{count}} pestaña en «{{title}}».",
   "CopiedTabsToSession_many": "Se copiaron {{count}} pestañas en «{{title}}».",
   "CopiedTabsToSession_other": "Se copiaron {{count}} pestañas en «{{title}}».",
+  "SessionAlreadyHasThisTab": "«{{title}}» ya tiene esta pestaña.",
+  "SessionAlreadyHasTheseTabs": "«{{title}}» ya tiene estas pestañas.",
   "Ctrl": "Ctrl",
   "Del": "Supr",
   "Tab closed.": "Pestaña cerrada.",

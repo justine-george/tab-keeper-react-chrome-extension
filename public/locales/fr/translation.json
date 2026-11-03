@@ -278,6 +278,8 @@
   "CopiedTabsToSession_one": "{{count}} onglet copié dans « {{title}} ».",
   "CopiedTabsToSession_many": "{{count}} onglets copiés dans « {{title}} ».",
   "CopiedTabsToSession_other": "{{count}} onglets copiés dans « {{title}} ».",
+  "SessionAlreadyHasThisTab": "« {{title}} » contient déjà cet onglet.",
+  "SessionAlreadyHasTheseTabs": "« {{title}} » contient déjà ces onglets.",
   "Ctrl": "Ctrl",
   "Del": "Suppr",
   "Tab closed.": "Onglet fermé.",

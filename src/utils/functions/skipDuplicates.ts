@@ -77,18 +77,18 @@ export function withoutRepeats(container: tabContainerData): {
   };
 }
 
-// KAN-906. The live window with repeats left out among the tabs `pick` takes; tabs it does not take stay, so the pick still resolves. A lone tab has no repeat to leave out.
+// KAN-906. The live window with each tab `pick` takes left out when its address is in `already` or earlier in the pick; untaken tabs stay so the pick still resolves. A lone tab is judged as copied: without its split twin.
 export function withoutPickedRepeats(
   snapshot: windowGroupData,
-  pick: CarriedPick
-): windowGroupData {
-  if (pick.kind === 'tab') return snapshot;
+  pick: CarriedPick,
+  already: ReadonlySet<string>
+): { window: windowGroupData; leftOut: number } {
   const picked =
     pick.kind === 'window' ? snapshot.tabs : tabsToCopy(snapshot, pick)?.tabs;
-  if (picked === undefined) return snapshot;
-  const { windows } = leaveOutDuplicates(
+  if (picked === undefined) return { window: snapshot, leftOut: 0 };
+  const { windows, leftOut } = leaveOutDuplicates(
     [{ ...snapshot, tabs: picked }],
-    new Set()
+    already
   );
   const kept = new Set(windows[0]?.tabs.map((t) => t.tabId));
   const pickedIds = new Set(picked.map((t) => t.tabId));
@@ -103,9 +103,12 @@ export function withoutPickedRepeats(
       !snapshot.tabs.some((t) => t.chromeGroupId === g.groupId)
   );
   return {
-    ...rest,
-    tabs,
-    tabCount: tabs.length,
-    ...(groups && groups.length > 0 ? { chromeTabGroups: groups } : {}),
+    window: {
+      ...rest,
+      tabs,
+      tabCount: tabs.length,
+      ...(groups && groups.length > 0 ? { chromeTabGroups: groups } : {}),
+    },
+    leftOut,
   };
 }

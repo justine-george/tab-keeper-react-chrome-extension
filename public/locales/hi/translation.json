@@ -270,6 +270,8 @@
   "CopiedToSession": "“{{title}}” में कॉपी किया गया।",
   "CopiedTabsToSession_one": "{{count}} टैब “{{title}}” में कॉपी किया गया।",
   "CopiedTabsToSession_other": "{{count}} टैब “{{title}}” में कॉपी किए गए।",
+  "SessionAlreadyHasThisTab": "“{{title}}” में यह टैब पहले से है।",
+  "SessionAlreadyHasTheseTabs": "“{{title}}” में ये टैब पहले से हैं।",
   "Ctrl": "Ctrl",
   "Del": "Del",
   "Tab closed.": "टैब बंद किया गया।",

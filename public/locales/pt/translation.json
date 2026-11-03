@@ -278,6 +278,8 @@
   "CopiedTabsToSession_one": "{{count}} aba copiada para “{{title}}”.",
   "CopiedTabsToSession_many": "{{count}} abas copiadas para “{{title}}”.",
   "CopiedTabsToSession_other": "{{count}} abas copiadas para “{{title}}”.",
+  "SessionAlreadyHasThisTab": "“{{title}}” já tem esta aba.",
+  "SessionAlreadyHasTheseTabs": "“{{title}}” já tem estas abas.",
   "Ctrl": "Ctrl",
   "Del": "Del",
   "Tab closed.": "Aba fechada.",

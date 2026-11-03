@@ -197,6 +197,9 @@ export const TOAST_MESSAGES = {
   // KAN-280 Part F (D4 A), KAN-608. A tab from Open now copied into {{title}}; a window or group, {{count}} tabs (plural).
   COPIED_TO_SESSION: 'CopiedToSession',
   COPIED_TABS_TO_SESSION: 'CopiedTabsToSession',
+  // KAN-906. Skip duplicate tabs left out every tab of the copy: a tab, or a window's or group's tabs, with {{title}}.
+  SESSION_ALREADY_HAS_THIS_TAB: 'SessionAlreadyHasThisTab',
+  SESSION_ALREADY_HAS_THESE_TABS: 'SessionAlreadyHasTheseTabs',
 };
 
 // The frame an import failure is reported in, with the reason as {{detail}}

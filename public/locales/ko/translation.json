@@ -262,6 +262,8 @@
   "SessionEmptiedRemoved": "“{{title}}” 세션이 비어 있어서 삭제했습니다.",
   "CopiedToSession": "“{{title}}” 세션에 복사했습니다.",
   "CopiedTabsToSession_other": "탭 {{count}}개를 “{{title}}” 세션에 복사했습니다.",
+  "SessionAlreadyHasThisTab": "“{{title}}” 세션에 이 탭이 이미 있습니다.",
+  "SessionAlreadyHasTheseTabs": "“{{title}}” 세션에 이 탭들이 이미 있습니다.",
   "Ctrl": "Ctrl",
   "Del": "Del",
   "Tab closed.": "탭을 닫았습니다.",

@@ -16,44 +16,90 @@ import {
   copyToNewSessionInternal,
   type SessionCopy,
   type TabMasterContainer,
+  type windowGroupData,
 } from './slices/tabContainerDataStateSlice';
 import { showSession } from './showSession';
 import type { RootState } from './store';
 import { TOAST_MESSAGES } from '../utils/constants/common';
-import { copiedTabCount } from '../utils/functions/liveCopy';
-import { withoutPickedRepeats } from '../utils/functions/skipDuplicates';
+import { copiedTabCount, copiesAnything } from '../utils/functions/liveCopy';
+import {
+  urlsIn,
+  withoutPickedRepeats,
+} from '../utils/functions/skipDuplicates';
 import { newWindowPlacement } from '../components/home/rightpane/newWindowTarget';
 import { revealSavedWindow } from '../components/home/rightpane/revealSavedWindow';
 
 type Took = ThunkAction<boolean, RootState, unknown, UnknownAction>;
 
+// KAN-906. What the copy lands, read at the drop: with Skip duplicate tabs on, the picked tabs the target has are left out.
+function landingAtDrop(
+  state: RootState,
+  copy: SessionCopy,
+  placed: windowGroupData
+): { window: windowGroupData; leftOut: number } {
+  const target = state.tabContainerDataState.tabGroups.find(
+    (g) => g.tabGroupId === copy.to.tabGroupId
+  );
+  return state.settingsDataState.skipDuplicateTabs && target !== undefined
+    ? withoutPickedRepeats(placed, copy.pick, urlsIn(target))
+    : { window: placed, leftOut: 0 };
+}
+
 // Returns whether anything was saved. Every copy says so, wherever it lands (KAN-607), and copies everything,
-// duplicates included (KAN-608); Show only when the target is not on screen after the drop.
+// duplicates included (KAN-608), unless Skip duplicate tabs is on; Show only when the target is not on screen after the drop.
 const copyToSession =
   (copy: SessionCopy, live: LiveSnapshot): Took =>
   (dispatch, getState) => {
-    const snapshot = placedWindowOf(live);
-    const drop = sessionCopyDrop(copy, snapshot);
-    // The state the copy action is dispatched against: after dropOnTop applied what arrived while carried.
-    const at: { state: TabMasterContainer | null } = { state: null };
+    const placed = placedWindowOf(live);
+    const drop = sessionCopyDrop(copy, placed);
+    // The state the copy action is dispatched against, and what it lands: after dropOnTop applied what arrived while carried.
+    const at: {
+      state: TabMasterContainer | null;
+      landing: { window: windowGroupData; leftOut: number };
+    } = { state: null, landing: { window: placed, leftOut: 0 } };
     dispatch(
       dropOnTop({
         ...drop,
         move: (i) => {
-          at.state = getState().tabContainerDataState;
-          return drop.move(i);
+          const now = getState();
+          at.state = now.tabContainerDataState;
+          at.landing = landingAtDrop(now, copy, placed);
+          return sessionCopyDrop(copy, at.landing.window).move(i);
         },
       })
     );
     const before = at.state;
     if (before === null) return false;
-    if (getState().tabContainerDataState === before) return false;
     const target = before.tabGroups.find(
       (g) => g.tabGroupId === copy.to.tabGroupId
     );
+    const show =
+      target === undefined || isSessionOnScreen(getState(), target.tabGroupId)
+        ? undefined
+        : { tabGroupId: target.tabGroupId };
+    // A window or group says how many tabs it copied (Justine, 2026-10-15); a tab, where it went.
+    const several = copy.pick.kind !== 'tab';
+    const { window: landed, leftOut } = at.landing;
+    if (getState().tabContainerDataState === before) {
+      // Every picked tab was left out: the reducer declined a copy of nothing.
+      if (
+        target !== undefined &&
+        leftOut > 0 &&
+        !copiesAnything(landed, copy.pick)
+      ) {
+        dispatch(
+          showToast({
+            toastText: several
+              ? TOAST_MESSAGES.SESSION_ALREADY_HAS_THESE_TABS
+              : TOAST_MESSAGES.SESSION_ALREADY_HAS_THIS_TAB,
+            toastParams: { title: target.title },
+            show,
+          })
+        );
+      }
+      return false;
+    }
     if (target !== undefined) {
-      // A window or group says how many tabs it copied (Justine, 2026-10-15); a tab, where it went.
-      const several = copy.pick.kind !== 'tab';
       dispatch(
         showToast({
           toastText: several
@@ -62,13 +108,12 @@ const copyToSession =
           toastParams: several
             ? {
                 title: target.title,
-                count: copiedTabCount(snapshot, copy.pick),
+                count: copiedTabCount(landed, copy.pick),
               }
             : { title: target.title },
           announcesSavedChange: true,
-          show: isSessionOnScreen(getState(), target.tabGroupId)
-            ? undefined
-            : { tabGroupId: target.tabGroupId },
+          show,
+          leftOut,
         })
       );
     }
@@ -150,7 +195,7 @@ export const copyToNewSession =
     const placed = placedWindowOf(live);
     // KAN-906. Repeats among the picked tabs are left out; the copy still names no toast (KAN-394).
     const snapshot = getState().settingsDataState.skipDuplicateTabs
-      ? withoutPickedRepeats(placed, live.pick)
+      ? withoutPickedRepeats(placed, live.pick, new Set()).window
       : placed;
     const action = copyToNewSessionInternal(
       live.pick,

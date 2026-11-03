@@ -270,6 +270,8 @@
   "CopiedToSession": "Nach „{{title}}“ kopiert.",
   "CopiedTabsToSession_one": "{{count}} Tab nach „{{title}}“ kopiert.",
   "CopiedTabsToSession_other": "{{count}} Tabs nach „{{title}}“ kopiert.",
+  "SessionAlreadyHasThisTab": "„{{title}}“ hat diesen Tab bereits.",
+  "SessionAlreadyHasTheseTabs": "„{{title}}“ hat diese Tabs bereits.",
   "Ctrl": "Strg",
   "Del": "Entf",
   "Tab closed.": "Tab geschlossen.",
