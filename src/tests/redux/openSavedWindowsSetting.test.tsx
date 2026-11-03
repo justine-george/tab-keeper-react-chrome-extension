@@ -170,12 +170,13 @@ describe('Settings › Sessions › Open saved windows', () => {
     expect(pair).toHaveAccessibleDescription(HELP);
   });
 
-  it('sits directly below Default save', async () => {
+  // KAN-910: the open rows follow the save rows.
+  it('sits directly below Skip duplicate tabs', async () => {
     const { container } = await renderSessions();
     const titles = [
       ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
     ].map((s) => s.querySelector('span')?.textContent);
-    const at = titles.indexOf('Default save');
+    const at = titles.indexOf('Skip duplicate tabs');
     expect(at).toBeGreaterThanOrEqual(0);
     expect(titles[at + 1]).toBe('Open saved windows');
   });

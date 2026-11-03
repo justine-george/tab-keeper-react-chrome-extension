@@ -72,13 +72,13 @@ describe('the settings rail names what each pane holds (KAN-253)', () => {
   // itself opens, which nobody looks for under "Sessions".
   test('Sessions holds what a save does and what a copy pastes; Quick access holds how Tab Keeper opens', async () => {
     const { container, unmount } = await renderOn(SettingsCategory.SESSIONS);
-    // KAN-663: tab history is always on, so it has no row. KAN-859 added Copy links; KAN-892 Open saved windows; KAN-906 Skip duplicate tabs; KAN-910 Skip tabs already open.
+    // KAN-663: tab history is always on, so it has no row. KAN-859 added Copy links; KAN-892 Open saved windows; KAN-906 Skip duplicate tabs; KAN-910 Skip tabs already open, and the save rows before the open rows.
     expect(sectionLabels(container)).toEqual([
       'Default save',
-      'Open saved windows',
-      'Skip tabs already open',
       'Save tab groups',
       'Skip duplicate tabs',
+      'Open saved windows',
+      'Skip tabs already open',
       'Copy links',
     ]);
     unmount();

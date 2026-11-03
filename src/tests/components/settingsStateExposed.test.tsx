@@ -103,8 +103,8 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
   // KAN-280 added the second pair, "Bring back tab history when reopening";
   // Default view and Pin Tab Keeper moved to Quick access (KAN-652), and tab
   // history is always on, with no pair (KAN-663).
-  // KAN-859 added Copy links below it; KAN-892 added Open saved windows above Save Tab Groups; KAN-906 added Skip duplicate tabs below it.
-  test('Sessions has five pairs, Open saved windows, Skip tabs already open, Save Tab Groups, Skip duplicate tabs and Copy links, and no memory or history setting', async () => {
+  // KAN-859 added Copy links below it; KAN-892 added Open saved windows above Save Tab Groups; KAN-906 added Skip duplicate tabs below it; KAN-910 put the save rows before the open rows.
+  test('Sessions has five pairs, Save Tab Groups, Skip duplicate tabs, Open saved windows, Skip tabs already open and Copy links, and no memory or history setting', async () => {
     await renderOn(SettingsCategory.SESSIONS);
 
     const groups = screen.getByRole('group', { name: 'Save tab groups' });
@@ -116,10 +116,10 @@ describe('settings toggles say which setting they control (KAN-88)', () => {
     expect(
       screen.getAllByRole('group').map((g) => g.getAttribute('aria-label'))
     ).toEqual([
-      'Open saved windows',
-      'Skip tabs already open',
       'Save tab groups',
       'Skip duplicate tabs',
+      'Open saved windows',
+      'Skip tabs already open',
       'Copy links',
     ]);
     expect(

@@ -46,7 +46,7 @@ const openQuickAccess = (
 ) => openPane(context, extensionId, 'Quick access', 'Default view');
 
 test.describe('the Sessions pane (KAN-249, KAN-250, KAN-253)', () => {
-  test('five pairs, Open saved windows (KAN-892), Skip tabs already open (KAN-910), Save Tab Groups with Off pressed on the popup scale, Skip duplicate tabs (KAN-906), then Copy links; no memory setting, no history setting, no backup', async ({
+  test('five pairs, Save Tab Groups with Off pressed on the popup scale, Skip duplicate tabs (KAN-906), Open saved windows (KAN-892), Skip tabs already open (KAN-910), then Copy links; no memory setting, no history setting, no backup', async ({
     context,
     extensionId,
   }) => {
@@ -61,10 +61,10 @@ test.describe('the Sessions pane (KAN-249, KAN-250, KAN-253)', () => {
         pairs.map((pair) => pair.getAttribute('aria-label'))
       )
     ).toEqual([
-      'Open saved windows',
-      'Skip tabs already open',
       'Save tab groups',
       'Skip duplicate tabs',
+      'Open saved windows',
+      'Skip tabs already open',
       'Copy links',
     ]);
     await expect(
