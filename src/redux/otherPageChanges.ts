@@ -158,6 +158,11 @@ export const applyOtherPageSettings =
         'skipDuplicateTabs' in incoming
           ? incoming.skipDuplicateTabs === true
           : current.skipDuplicateTabs,
+      // KAN-910. Absent means an older page wrote this; keep ours.
+      skipTabsAlreadyOpen:
+        'skipTabsAlreadyOpen' in incoming
+          ? incoming.skipTabsAlreadyOpen === true
+          : current.skipTabsAlreadyOpen,
       // KAN-731. A theme this build does not know gets the default; absent, keep ours.
       theme: 'theme' in incoming ? asTheme(incoming.theme) : current.theme,
       // KAN-731. Guarded like the pin flag.

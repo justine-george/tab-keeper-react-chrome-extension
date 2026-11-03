@@ -11,7 +11,7 @@ import {
 
 // KAN-906. Settings › Sessions › Skip duplicate tabs: On or Off, right after Save tab groups.
 const HELP =
-  'When you add a window or tabs to a saved session, pages it already has are left out, and a new session keeps one copy of each.';
+  'When you add or move a window or tabs to a saved session, pages it already has are left out, and a new session keeps one copy of each.';
 
 const renderSessions = () =>
   renderWithProviders(<SettingsDetailsContainer />, {

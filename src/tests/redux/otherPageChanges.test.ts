@@ -45,6 +45,7 @@ import {
   hydrateSettingsFromOtherPage,
   Language,
   setSkipDuplicateTabs,
+  setSkipTabsAlreadyOpen,
   type SettingsData,
 } from '../../redux/slices/settingsDataStateSlice';
 import { resetHistory, undo } from '../../redux/slices/undoRedoSlice';
@@ -640,6 +641,44 @@ describe('applyOtherPageSettings (KAN-279 D9)', () => {
     });
     store.dispatch(applyOtherPageSettings());
     expect(store.getState().settingsDataState.skipDuplicateTabs).toBe(false);
+  });
+
+  // KAN-910. Same rule as skipDuplicateTabs: absent keeps ours, present takes theirs, a non-boolean is off.
+  it('(7j) skipTabsAlreadyOpen: a write without the key keeps ours, with it takes theirs, a non-boolean is off', () => {
+    const { store } = settingsStore();
+    store.dispatch(setSkipTabsAlreadyOpen(true));
+    const current = store.getState().settingsDataState;
+    const older = Object.fromEntries(
+      Object.entries(current).filter(([key]) => key !== 'skipTabsAlreadyOpen')
+    );
+    // PREMISE: the write differs from this page only in lastSyncedTime, and lacks the key.
+    otherPageWrites('settingsData', { ...older, lastSyncedTime: T0 + MIN });
+    store.dispatch(applyOtherPageSettings());
+    expect(store.getState().settingsDataState).toMatchObject({
+      lastSyncedTime: T0 + MIN,
+      skipTabsAlreadyOpen: true,
+    });
+
+    otherPageWrites('settingsData', {
+      ...store.getState().settingsDataState,
+      skipTabsAlreadyOpen: false,
+    });
+    store.dispatch(applyOtherPageSettings());
+    expect(store.getState().settingsDataState.skipTabsAlreadyOpen).toBe(false);
+
+    otherPageWrites('settingsData', {
+      ...store.getState().settingsDataState,
+      skipTabsAlreadyOpen: true,
+    });
+    store.dispatch(applyOtherPageSettings());
+    expect(store.getState().settingsDataState.skipTabsAlreadyOpen).toBe(true);
+
+    otherPageWrites('settingsData', {
+      ...store.getState().settingsDataState,
+      skipTabsAlreadyOpen: 'yes',
+    });
+    store.dispatch(applyOtherPageSettings());
+    expect(store.getState().settingsDataState.skipTabsAlreadyOpen).toBe(false);
   });
 
   it('(7g) absent: no dispatch and no warning', () => {
