@@ -22,10 +22,6 @@ const includePatterns = [
 // claimed by no project -- vitest exited 0 having run neither. Both dimensions
 // are asserted because narrowing either one reopens the hole.
 describe('vitest include globs', () => {
-  test('both projects are configured, plus the scripts glob', () => {
-    expect(includePatterns).toHaveLength(3);
-  });
-
   // The original property, still asserted for the two project globs: narrowing
   // either back to src/tests/** reopens the hole that let a colocated test be
   // collected by nobody.

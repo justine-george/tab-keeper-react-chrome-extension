@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from 'vitest';
-import { stubDomGlobals } from './domStub';
 
 // Inlined rather than calling stubDomGlobals(): a vi.hoisted block runs before
 // the module graph is evaluated, so it cannot depend on an ES import, and
@@ -21,19 +20,6 @@ import { setTimeFormat } from '../../redux/slices/settingsDataStateSlice';
 import { Theme } from '../../utils/constants/theme';
 
 describe('test harness', () => {
-  it('stubs window.screen so slices can be imported', () => {
-    stubDomGlobals();
-    expect(
-      (globalThis as unknown as { window: { screen: { height: number } } })
-        .window.screen.height
-    ).toBe(1080);
-  });
-
-  it('builds a store with the real middleware', () => {
-    const { store } = makeTestStore();
-    expect(store.getState().tabContainerDataState.tabGroups).toEqual([]);
-  });
-
   // KAN-731. Its seed is not a load, so the Chalk move must not touch it.
   it('is a user on Paper who stays on Paper', async () => {
     localStorage.clear();

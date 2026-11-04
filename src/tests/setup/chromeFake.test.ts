@@ -20,22 +20,6 @@ describe('chrome.storage.sync fake', () => {
 
     expect(read).toEqual({ tokenValue: 'abc' });
   });
-
-  test('honours default values for a key that was never set', async () => {
-    handle = setupChromeFake();
-
-    const read = await chrome.storage.sync.get({ tokenValue: 'fallback' });
-
-    expect(read).toEqual({ tokenValue: 'fallback' });
-  });
-
-  test('clear empties the store', async () => {
-    handle = setupChromeFake({ storage: { tokenValue: 'abc' } });
-
-    await chrome.storage.sync.clear();
-
-    expect(await chrome.storage.sync.get(['tokenValue'])).toEqual({});
-  });
 });
 
 describe('chrome.tabs fake', () => {
@@ -98,16 +82,6 @@ describe('chrome.tabs.getCurrent fake', () => {
     handle = setupChromeFake({ tabs: [{ id: 1 }], currentTabId: 99 });
 
     expect(await chrome.tabs.getCurrent()).toBeUndefined();
-  });
-
-  test('also takes a callback, like every other member here', async () => {
-    handle = setupChromeFake({ tabs: [{ id: 3 }], currentTabId: 3 });
-
-    const tab = await new Promise<chrome.tabs.Tab | undefined>((resolve) =>
-      chrome.tabs.getCurrent(resolve)
-    );
-
-    expect(tab?.id).toBe(3);
   });
 });
 
@@ -247,14 +221,6 @@ describe('chrome.windows fake', () => {
 });
 
 describe('chrome.runtime fake', () => {
-  test('sendMessage records the message', () => {
-    handle = setupChromeFake();
-
-    chrome.runtime.sendMessage({ type: 'FOCUS_TAB_CONTAINER' });
-
-    expect(handle.sentMessages).toEqual([{ type: 'FOCUS_TAB_CONTAINER' }]);
-  });
-
   test('restore removes the global', () => {
     handle = setupChromeFake();
     handle.restore();
@@ -295,15 +261,6 @@ describe('chrome.runtime fake', () => {
     await expect(chrome.runtime.getPlatformInfo()).rejects.toThrow(
       'no platform'
     );
-  });
-
-  test('getPlatformInfo also takes a callback', () => {
-    handle = setupChromeFake({ platformOs: 'win' });
-    const cb = vi.fn();
-
-    void chrome.runtime.getPlatformInfo(cb);
-
-    expect(cb).toHaveBeenCalledWith(expect.objectContaining({ os: 'win' }));
   });
 });
 

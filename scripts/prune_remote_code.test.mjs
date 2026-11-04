@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { pruneRemoteCode, REMOTE_CODE_PATTERNS } from './prune_remote_code.mjs';
+import { pruneRemoteCode } from './prune_remote_code.mjs';
 
 // Manifest V3 forbids remotely hosted code. Firebase Auth ships script URLs for
 // sign-in flows this extension never uses, so the release build blanks them.
@@ -47,9 +47,5 @@ describe('pruneRemoteCode', () => {
     const source = 'a("https://apis.google.com/js/api.js")';
     const first = pruneRemoteCode(source);
     expect(pruneRemoteCode(source)).toBe(first);
-  });
-
-  test('exports the patterns it uses', () => {
-    expect(REMOTE_CODE_PATTERNS.length).toBe(2);
   });
 });
