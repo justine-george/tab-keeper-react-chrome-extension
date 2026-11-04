@@ -8,8 +8,8 @@ import { buildContainer, buildSession } from '../fixtures/sessionFixture';
 import { replaceState } from '../../redux/slices/tabContainerDataStateSlice';
 
 // KAN-582 (picks: A without the reveal; Delete only in the header's ⋮). Only the session shown has row
-// actions, Open, Switch and Replace; a button that appears under a resting pointer selects the row for the rest of
-// that double-click (KAN-779: until a click of its own, or the pointer leaving it).
+// actions, Open, Switch and Replace. KAN-698: a double-click's second click presses none of them, so one that
+// draws the strip under the pointer does nothing more (KAN-839); a click of its own presses (KAN-779).
 
 const SHOWN = buildSession({
   tabGroupId: 'session-shown',
@@ -120,43 +120,22 @@ describe('a strip that appears under the pointer (KAN-582)', () => {
   // The second click of the double-click that selected the row.
   const SECOND_CLICK = { detail: 2 };
 
-  // KAN-698. A button no longer held: a double-click's second click presses
-  // nothing and selects nothing, and a click of its own presses it.
-  function expectNotHeld(
-    h: ReturnType<typeof handlers>,
-    name: string,
-    pressed: () => unknown
-  ) {
-    const selected = h.onTabGroupClick.mock.calls.length;
-    fireEvent.click(action('Weekend in Kyoto', name), SECOND_CLICK);
-    expect(pressed).not.toHaveBeenCalled();
-    expect(h.onTabGroupClick).toHaveBeenCalledTimes(selected);
-    fireEvent.click(action('Weekend in Kyoto', name), { detail: 1 });
-    expect(pressed).toHaveBeenCalledTimes(1);
-  }
+  // KAN-839. The first click already selected the row, so there is nothing left to do.
+  test.each([
+    ['Open', 'onOpenAllClick'],
+    ['Switch', 'onFocusClick'],
+    ['Replace', 'onReplaceClick'],
+  ] as const)(
+    'the second click, on the %s drawn under it, presses nothing and selects nothing',
+    async (name, handler) => {
+      const h = await selectUnderPointer(name);
 
-  test('the button under the pointer selects the row instead for the rest of the double-click, until the pointer leaves it', async () => {
-    const h = await selectUnderPointer('Replace');
-
-    fireEvent.click(action('Weekend in Kyoto', 'Replace'), SECOND_CLICK);
-    expect(h.onReplaceClick).not.toHaveBeenCalled();
-    expect(h.onTabGroupClick).toHaveBeenCalledTimes(1);
-
-    fireEvent.pointerMove(action('Weekend in Kyoto', 'Open'), {
-      clientX: 200,
-      clientY: 20,
-    });
-    expectNotHeld(h, 'Replace', h.onReplaceClick);
-  });
-
-  test('moving within that button keeps the double-click a select', async () => {
-    const h = await selectUnderPointer('Replace');
-
-    fireEvent.pointerMove(action('Weekend in Kyoto', 'Replace'), AT);
-    fireEvent.click(action('Weekend in Kyoto', 'Replace'), SECOND_CLICK);
-    expect(h.onReplaceClick).not.toHaveBeenCalled();
-    expect(h.onTabGroupClick).toHaveBeenCalledTimes(1);
-  });
+      fireEvent.pointerMove(action('Weekend in Kyoto', name), AT);
+      fireEvent.click(action('Weekend in Kyoto', name), SECOND_CLICK);
+      expect(h[handler]).not.toHaveBeenCalled();
+      expect(h.onTabGroupClick).not.toHaveBeenCalled();
+    }
+  );
 
   test.each([
     ['a click of its own', 1],
@@ -172,30 +151,6 @@ describe('a strip that appears under the pointer (KAN-582)', () => {
     }
   );
 
-  test('a button the pointer is not on is not held', async () => {
-    const h = await selectUnderPointer('Switch');
-
-    expectNotHeld(h, 'Replace', h.onReplaceClick);
-  });
-
-  test('leaving the row lifts it', async () => {
-    const h = await selectUnderPointer('Replace');
-
-    fireEvent.pointerOut(rowButton('Weekend in Kyoto'), {
-      relatedTarget: document.body,
-    });
-    expectNotHeld(h, 'Replace', h.onReplaceClick);
-  });
-
-  test('the pointer arriving on the shown row: its buttons are not held', async () => {
-    const h = handlers();
-    await renderWithProviders(row(true, h));
-    pointerRestsOn('Weekend in Kyoto', 'Replace');
-    fireEvent.pointerOver(action('Weekend in Kyoto', 'Replace'), AT);
-
-    expectNotHeld(h, 'Replace', h.onReplaceClick);
-  });
-
   // KAN-698. A double-click on a shown row's Open, Switch or Replace presses once.
   test.each([
     ['Open', 'onOpenAllClick'],
@@ -204,8 +159,6 @@ describe('a strip that appears under the pointer (KAN-582)', () => {
   ] as const)('a double-click on %s presses once', async (name, handler) => {
     const h = handlers();
     await renderWithProviders(row(true, h));
-    pointerRestsOn('Weekend in Kyoto', name);
-    fireEvent.pointerOver(action('Weekend in Kyoto', name), AT);
 
     fireEvent.click(action('Weekend in Kyoto', name), { detail: 1 });
     fireEvent.click(action('Weekend in Kyoto', name), SECOND_CLICK);
