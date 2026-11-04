@@ -65,8 +65,8 @@ afterEach(async () => {
   await testI18n.changeLanguage('en');
 });
 
-// changeLanguage AFTER the render: renderWithProviders calls init({ lng: 'en' }),
-// which RESETS the language, so switching first silently runs English.
+// changeLanguage AFTER the render: renderWithProviders calls initTestI18n(),
+// which RESETS the language to en, so switching first silently runs English.
 const switchUiTo = async (locale: 'ru') => {
   testI18n.addResourceBundle(locale, 'translation', ru, true, true);
   await act(async () => {

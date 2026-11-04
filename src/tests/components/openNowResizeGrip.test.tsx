@@ -598,7 +598,7 @@ describe('the name in another language', () => {
   test('in German the separator is named in German', async () => {
     await renderHome();
     await mounted();
-    // After the render: renderWithProviders' init resets the language.
+    // After the render: renderWithProviders resets the language.
     testI18n.addResourceBundle('de', 'translation', de, true, true);
     await act(async () => {
       await testI18n.changeLanguage('de');

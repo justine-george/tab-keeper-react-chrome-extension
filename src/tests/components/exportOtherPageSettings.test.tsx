@@ -88,7 +88,7 @@ describe('the export page keeps settings changed in another page (KAN-305)', () 
 
   test('a language chosen elsewhere translates this page', async () => {
     await renderPage();
-    // After the render: renderWithProviders' init resets the language.
+    // After the render: renderWithProviders resets the language.
     testI18n.addResourceBundle('de', 'translation', de, true, true);
     expect(screen.getByRole('button', { name: 'Comfortable' })).toBeTruthy();
 
