@@ -176,6 +176,7 @@
   "Sessions reordered. Undo to restore the previous order.": "Сессии переупорядочены. Нажмите «Отменить», чтобы вернуть прежний порядок.",
   "Save session as PDF": "Сохранить как PDF…",
   "Copy all links": "Скопировать все ссылки",
+  "Copy links from open windows": "Скопировать ссылки из открытых окон",
   "Copy link": "Скопировать ссылку",
   "SavePdfNothingKept": "Все строки скрыты. Покажите хотя бы одну, чтобы завершить.",
   "LinksCopied_one": "{{count}} ссылка скопирована.",

@@ -247,7 +247,7 @@ test("Open now's header right-click: Copy all links after the two saves pastes e
 
 // KAN-922. The save row's ⋮ copies what Currently open's header copies, and it is the popup's only way to.
 for (const view of ['full view', 'popup'] as const) {
-  test(`the save row's ⋮ in the ${view}: Copy all links before Save as PDF pastes every open window`, async ({
+  test(`the save row's ⋮ in the ${view}: Copy links from open windows, before Save as PDF, pastes every open window`, async ({
     context,
     extensionId,
   }) => {
@@ -269,7 +269,11 @@ for (const view of ['full view', 'popup'] as const) {
       'copy',
       'export-open-windows',
     ]);
-    const { plain } = await copyAndPaste(page, /links copied\./);
+    const { plain } = await copyAndPaste(
+      page,
+      /links copied\./,
+      page.getByRole('menuitem', { name: 'Copy links from open windows' })
+    );
 
     const lines = plain.split('\n');
     expect(lines).toContain('  Temples (2 Tabs)');

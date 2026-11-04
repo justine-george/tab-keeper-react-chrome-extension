@@ -167,6 +167,7 @@
   "Sessions reordered. Undo to restore the previous order.": "已重新排序工作階段。按「復原」即可恢復先前的順序。",
   "Save session as PDF": "儲存為 PDF…",
   "Copy all links": "複製所有連結",
+  "Copy links from open windows": "複製開啟的視窗中的連結",
   "Copy link": "複製連結",
   "SavePdfNothingKept": "所有列都已隱藏。至少顯示一列才能完成。",
   "LinksCopied_other": "已複製 {{count}} 個連結。",

@@ -306,7 +306,7 @@ test.describe('export open windows (KAN-208)', () => {
         strings['Save current window as a session']
       );
       await expect(menu.getByRole('menuitem').nth(1)).toHaveAccessibleName(
-        strings['Copy all links']
+        strings['Copy links from open windows']
       );
       await expect(menu.getByRole('menuitem').nth(2)).toHaveAccessibleName(
         strings['Save open windows as PDF']

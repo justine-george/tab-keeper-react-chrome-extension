@@ -405,7 +405,7 @@ export default function UserInputContainer() {
                 icon: SAVE_OF[menuScope].icon,
                 onSelect: () => createTabGroup(menuScope),
               },
-              copyAllLinks,
+              { ...copyAllLinks, label: t('Copy links from open windows') },
               {
                 key: 'export-open-windows',
                 label: t('Save open windows as PDF'),

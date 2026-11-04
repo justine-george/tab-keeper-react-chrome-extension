@@ -317,7 +317,7 @@ describe('the save row menu (KAN-208)', () => {
     // span holds its name ("ios_share"), which textContent would include.
     expect(items).toHaveLength(3);
     expect(items[0]).toHaveAccessibleName('Save current window as a session');
-    expect(items[1]).toHaveAccessibleName('Copy all links');
+    expect(items[1]).toHaveAccessibleName('Copy links from open windows');
     expect(items[2]).toHaveAccessibleName('Save open windows as PDF…');
   });
 

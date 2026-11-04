@@ -167,6 +167,7 @@
   "Sessions reordered. Undo to restore the previous order.": "セッションを並べ替えました。「元に戻す」で以前の順序に戻せます。",
   "Save session as PDF": "PDFとして保存…",
   "Copy all links": "すべてのリンクをコピー",
+  "Copy links from open windows": "開いているウィンドウのリンクをコピー",
   "Copy link": "リンクをコピー",
   "SavePdfNothingKept": "すべての行が非表示です。完了するには、1 行以上を表示してください。",
   "LinksCopied_other": "{{count}} 件のリンクをコピーしました。",
