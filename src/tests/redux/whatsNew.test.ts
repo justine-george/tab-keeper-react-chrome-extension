@@ -34,7 +34,7 @@ afterEach(() => {
 
 const stored = () => handle?.localArea()[WHATS_NEW_SINCE_KEY];
 
-// A manifest far ahead: 'next' reads as the 2.1.0 it ships as, before and after the rename.
+// A manifest far ahead, so every listed release counts as shipped.
 const start = (localArea?: Record<string, unknown>) => {
   handle = setupChromeFake({ localArea, manifestVersion: '99.0.0' });
   return makeTestStore().store;
@@ -42,16 +42,18 @@ const start = (localArea?: Record<string, unknown>) => {
 
 describe('deciding', () => {
   test('after an update, it opens the shipped release', async () => {
-    const store = start({ [WHATS_NEW_SINCE_KEY]: '2.0.1' });
+    const store = start({ [WHATS_NEW_SINCE_KEY]: '2.1.0' });
 
     const opener = await decideWhatsNew(store.dispatch);
 
     expect(opener).not.toBeNull();
     opener?.();
     const shown = store.getState().globalState.whatsNew;
-    expect(shown?.[0].version).toBe('2.1.0');
-    expect(shown?.[0].entries[0].titleKey).toBe('WhatsNewCopyLinksTitle');
-    expect(stored()).toBe('2.0.1');
+    expect(shown?.map((r) => r.version)).toEqual(['2.2.0']);
+    expect(shown?.[0].entries[0].titleKey).toBe(
+      'WhatsNewOpenInThisWindowTitle'
+    );
+    expect(stored()).toBe('2.1.0');
   });
 
   test('no key: nothing, and nothing written', async () => {

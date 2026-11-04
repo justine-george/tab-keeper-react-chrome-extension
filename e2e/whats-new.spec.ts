@@ -8,11 +8,11 @@ import { seedSettings } from './fixtures/seed';
 // KAN-861. What's new on the first open after an update.
 // Playwright cannot make Chrome report an update (a folder swap reads as an
 // install), so the key the worker records is seeded in the worker; the
-// worker's own record is unit-tested. Updated from 2.0.0, the build shows its
-// own release; bump VERSION at each cut.
+// worker's own record is unit-tested. Updated from the release before, the build
+// shows its own release; bump SINCE and VERSION at each cut.
 
-const SINCE = '2.0.0';
-const VERSION = '2.1.0';
+const SINCE = '2.1.0';
+const VERSION = '2.2.0';
 const TITLE = `What's new in Tab Keeper ${VERSION}`;
 
 const sinceIn = (worker: Worker) =>

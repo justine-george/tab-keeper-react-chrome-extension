@@ -173,8 +173,33 @@ describe('the shipped list', () => {
     }
   });
 
-  test('2.1.0 is Copy links, Replace a saved window, then live duplicates', () => {
+  test('2.2.0 is open in this window, skip tabs, then switch to an open tab', () => {
     expect(WHATS_NEW[0]).toEqual({
+      version: '2.2.0',
+      entries: [
+        {
+          titleKey: 'WhatsNewOpenInThisWindowTitle',
+          bodyKey: 'WhatsNewOpenInThisWindowBody',
+          settingsPage: SettingsCategory.SESSIONS,
+          changesDefault: false,
+        },
+        {
+          titleKey: 'WhatsNewSkipTabsTitle',
+          bodyKey: 'WhatsNewSkipTabsBody',
+          settingsPage: SettingsCategory.SESSIONS,
+          changesDefault: false,
+        },
+        {
+          titleKey: 'WhatsNewSwitchToOpenTabTitle',
+          bodyKey: 'WhatsNewSwitchToOpenTabBody',
+          changesDefault: true,
+        },
+      ],
+    });
+  });
+
+  test('2.1.0 is Copy links, Replace a saved window, then live duplicates', () => {
+    expect(WHATS_NEW[1]).toEqual({
       version: '2.1.0',
       entries: [
         {
