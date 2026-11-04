@@ -300,12 +300,15 @@ test.describe('export open windows (KAN-208)', () => {
       await saveRowMenu(popup).click();
       const menu = popup.getByRole('menu');
       await expect(menu).toBeVisible();
-      await expect(menu.getByRole('menuitem')).toHaveCount(2);
+      await expect(menu.getByRole('menuitem')).toHaveCount(3);
       // Not toHaveText: it would include the aria-hidden glyph's ligature.
       await expect(menu.getByRole('menuitem').nth(0)).toHaveAccessibleName(
         strings['Save current window as a session']
       );
       await expect(menu.getByRole('menuitem').nth(1)).toHaveAccessibleName(
+        strings['Copy all links']
+      );
+      await expect(menu.getByRole('menuitem').nth(2)).toHaveAccessibleName(
         strings['Save open windows as PDF']
       );
 
@@ -369,9 +372,9 @@ test.describe('export open windows (KAN-208)', () => {
       expect(box.overflow).toBe(0);
       // CONTROL: the metric can report a wrap.
       expect(box.wrapsWhenForced).toBe(true);
-      expect(box.lines).toEqual([1, 1]);
+      expect(box.lines).toEqual([1, 1, 1]);
       // A wrapped item would be taller; nothing fixes its height.
-      expect(box.itemHeights).toEqual([34, 34]);
+      expect(box.itemHeights).toEqual([34, 34, 34]);
       expect(box.hitInsideSecondItem).toBe(true);
     });
   }

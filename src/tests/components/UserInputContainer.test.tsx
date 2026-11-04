@@ -306,7 +306,7 @@ describe('the save row menu (KAN-208)', () => {
     ).toHaveAttribute('aria-haspopup', 'menu');
   });
 
-  test('the menu holds exactly two items, save first', async () => {
+  test('the menu holds exactly three items, save first', async () => {
     await renderWithProviders(<UserInputContainer />, { seed: twoWindows });
     await act(async () => {});
 
@@ -315,9 +315,10 @@ describe('the save row menu (KAN-208)', () => {
 
     // Accessible names, not textContent: a ligature item's aria-hidden glyph
     // span holds its name ("ios_share"), which textContent would include.
-    expect(items).toHaveLength(2);
+    expect(items).toHaveLength(3);
     expect(items[0]).toHaveAccessibleName('Save current window as a session');
-    expect(items[1]).toHaveAccessibleName('Save open windows as PDF…');
+    expect(items[1]).toHaveAccessibleName('Copy all links');
+    expect(items[2]).toHaveAccessibleName('Save open windows as PDF…');
   });
 
   test('Save open windows as PDF… opens the live export page and saves nothing', async () => {

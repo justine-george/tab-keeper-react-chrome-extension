@@ -1725,7 +1725,7 @@ for (const lang of ALL_LANGS) {
 
     // CONTROL: a pane, not the whole popup, so "inside" can fail; and both saves are there.
     expect(shape.paneRight - shape.paneLeft).toBeLessThan(600);
-    expect(shape.items).toBe(2);
+    expect(shape.items).toBe(3);
     expect(shape.left).toBeGreaterThanOrEqual(shape.paneLeft);
     expect(
       shape.right,
