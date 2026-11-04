@@ -22,6 +22,28 @@ export type WhatsNewRelease =
 /** KAN-861: the main changes per release, newest first. The release PR renames 'next' to the manifest's version. */
 export const WHATS_NEW: readonly WhatsNewRelease[] = [
   {
+    version: '2.2.0',
+    entries: [
+      {
+        titleKey: 'WhatsNewOpenInThisWindowTitle',
+        bodyKey: 'WhatsNewOpenInThisWindowBody',
+        settingsPage: SettingsCategory.SESSIONS,
+        changesDefault: false,
+      },
+      {
+        titleKey: 'WhatsNewSkipTabsTitle',
+        bodyKey: 'WhatsNewSkipTabsBody',
+        settingsPage: SettingsCategory.SESSIONS,
+        changesDefault: false,
+      },
+      {
+        titleKey: 'WhatsNewSwitchToOpenTabTitle',
+        bodyKey: 'WhatsNewSwitchToOpenTabBody',
+        changesDefault: true,
+      },
+    ],
+  },
+  {
     version: '2.1.0',
     entries: [
       {

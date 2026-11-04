@@ -52,4 +52,22 @@ describe.each(locales)('%s', (_, dict) => {
   test('the duplicates body names the Currently open pane as shown', () => {
     expect(dict.WhatsNewOpenDuplicatesBody).toContain(dict['Open now']);
   });
+
+  test('the open-in-this-window body names This window, Open saved windows and Settings › Sessions as shown', () => {
+    const body = dict.WhatsNewOpenInThisWindowBody;
+    expect(body).toContain(dict['This window']);
+    expect(body).toContain(dict['Open saved windows']);
+    expect(body).toContain(`${dict.Settings} › ${dict.Sessions}`);
+  });
+
+  test('the skip body names both Skip settings and Settings › Sessions as shown', () => {
+    const body = dict.WhatsNewSkipTabsBody;
+    expect(body).toContain(dict['Skip duplicate tabs']);
+    expect(body).toContain(dict['Skip tabs already open']);
+    expect(body).toContain(`${dict.Settings} › ${dict.Sessions}`);
+  });
+
+  test('the switch body names the Ctrl key as shown', () => {
+    expect(dict.WhatsNewSwitchToOpenTabBody).toContain(dict.Ctrl);
+  });
 });
