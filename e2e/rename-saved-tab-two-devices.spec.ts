@@ -54,6 +54,7 @@ test.describe('a tab rename, on two devices (KAN-824)', () => {
     context,
     extensionId,
     serviceWorker,
+    headless,
   }) => {
     await seedOnce(context, [S1]);
     const page = await context.newPage();
@@ -88,7 +89,7 @@ test.describe('a tab rename, on two devices (KAN-824)', () => {
     );
 
     // B starts from the seed, which has no name: the name can only come from the cloud.
-    const deviceB = await openSecondDevice(token, [S1]);
+    const deviceB = await openSecondDevice(token, [S1], headless);
     try {
       await expect.poll(() => nameOf(deviceB.page)).toBe('Sync notes');
       await expect(

@@ -107,10 +107,11 @@ export interface Profile {
 }
 
 // Another machine: its own profile with the extension loaded and nothing stored, not even an answer to the cloud question.
-export async function launchProfile(): Promise<Profile> {
+// `headless` is the test's own Playwright option, so --headed reaches this browser too.
+export async function launchProfile(headless: boolean): Promise<Profile> {
   const dir = mkdtempSync(join(tmpdir(), 'tabkeeper-e2e-b-'));
   const context = await chromium.launchPersistentContext(dir, {
-    headless: true,
+    headless,
     channel: 'chromium',
     args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
   });
@@ -134,9 +135,10 @@ export async function workerOf(context: BrowserContext): Promise<Worker> {
 // opens the popup holding `sessions`; it stays open until close().
 export async function openSecondDevice(
   token: string,
-  sessions: ReturnType<typeof buildSession>[]
+  sessions: ReturnType<typeof buildSession>[],
+  headless: boolean
 ): Promise<SecondDevice> {
-  const { context, close } = await launchProfile();
+  const { context, close } = await launchProfile(headless);
   try {
     await seedCloudConsentIfSettingsAbsent(context);
     await seedOnce(context, sessions);

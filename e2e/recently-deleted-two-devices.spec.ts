@@ -49,6 +49,7 @@ test.describe('Restore from Recently deleted, on two devices (KAN-595)', () => {
     context,
     extensionId,
     serviceWorker,
+    headless,
   }) => {
     await seedOnce(context, [S1, S2]);
     const page = await context.newPage();
@@ -63,7 +64,7 @@ test.describe('Restore from Recently deleted, on two devices (KAN-595)', () => {
     });
     if (token === null) throw new Error('device A has no tokenValue');
 
-    const deviceB = await openSecondDevice(token, [S1, S2]);
+    const deviceB = await openSecondDevice(token, [S1, S2], headless);
     try {
       await expect.poll(() => ids(deviceB.page)).toEqual(['S1', 'S2']);
 

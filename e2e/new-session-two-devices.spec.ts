@@ -89,6 +89,7 @@ test.describe('a new session made by a drop on the save row, on two devices (KAN
     context,
     extensionId,
     serviceWorker,
+    headless,
   }) => {
     // Device A: a fresh id, so its startup sync writes its local copy.
     await seedOnce(context, [S1, S2]);
@@ -118,7 +119,7 @@ test.describe('a new session made by a drop on the save row, on two devices (KAN
     expect(tabIdsOf(await stored(page), 'S1')).toEqual([['a0', 'a2']]);
 
     // B, with the old copy, receives the new session through the cloud.
-    const deviceB = await openSecondDevice(token, [S1, S2]);
+    const deviceB = await openSecondDevice(token, [S1, S2], headless);
     try {
       await expect
         .poll(async () => madeSessionSummary(await stored(deviceB.page))?.id)

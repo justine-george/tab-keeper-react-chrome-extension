@@ -166,7 +166,8 @@ function holdNextRead(context: BrowserContext) {
 async function stage(
   context: BrowserContext,
   extensionId: string,
-  serviceWorker: Worker
+  serviceWorker: Worker,
+  headless: boolean
 ) {
   test.skip(!hasCloudConfig(), 'this build has no cloud config (CI)');
   // 1. Device A: a fresh id, so its startup sync writes its local copy.
@@ -189,7 +190,7 @@ async function stage(
 
   // 3. Device B: adopts A's id before it first opens, holds a-d plus n, and
   //    its startup sync merges and writes the union.
-  const deviceB = await openSecondDevice(token, [N, A, B, C, D]);
+  const deviceB = await openSecondDevice(token, [N, A, B, C, D], headless);
   try {
     expect(await deviceB.committed, 'device B never wrote to the cloud').toBe(
       true
@@ -246,8 +247,14 @@ test.describe('a drag acts on top of a change arriving mid-drag (KAN-279 D12)', 
     context,
     extensionId,
     serviceWorker,
+    headless,
   }, testInfo) => {
-    const { page, hold } = await stage(context, extensionId, serviceWorker);
+    const { page, hold } = await stage(
+      context,
+      extensionId,
+      serviceWorker,
+      headless
+    );
 
     // 5. Pick up d and aim it between a and b, with the read still held.
     //    Pressed at d's centre, so the pointer and the row's centre agree;
@@ -327,8 +334,14 @@ test.describe('a drag acts on top of a change arriving mid-drag (KAN-279 D12)', 
     context,
     extensionId,
     serviceWorker,
+    headless,
   }) => {
-    const { page, hold } = await stage(context, extensionId, serviceWorker);
+    const { page, hold } = await stage(
+      context,
+      extensionId,
+      serviceWorker,
+      headless
+    );
 
     const landed = page.waitForResponse(READ);
     hold.release();
