@@ -7,7 +7,7 @@ on:
 
 # KAN-227, KAN-444. Five kinds of job, so the slow parts run side by side:
 #
-#   changes whether the PR changes only Markdown docs   one runner
+#   changes whether the PR changes only docs            one runner
 #   checks  lint, E2E typecheck                         one runner
 #   unit    the vitest suite, in 2 shards               one runner per shard
 #   e2e     the E2E suite, in 15 shards                 one runner per shard
@@ -24,9 +24,9 @@ on:
 # browser setup for ~70 min and the gate sat pending instead of failing.
 
 jobs:
-  # KAN-664. A PR that changes only Markdown docs (scripts/docs_only.mjs) skips
-  # checks, unit and e2e. Not `paths-ignore`: that would leave the required
-  # gate unreported, and the PR waiting on it forever.
+  # KAN-664. A PR that changes only Markdown docs or store-assets/
+  # (scripts/docs_only.mjs) skips checks, unit and e2e. Not `paths-ignore`: that
+  # would leave the required gate unreported, and the PR waiting on it forever.
   changes:
     name: Docs only?
     runs-on: ubuntu-latest
