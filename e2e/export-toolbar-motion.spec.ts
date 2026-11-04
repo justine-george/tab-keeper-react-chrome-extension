@@ -218,25 +218,34 @@ test('Copied sits beside its tick, and the button keeps its width', async ({
   });
 });
 
+declare global {
+  interface Window {
+    rowFades: number;
+  }
+}
+
 test('Edit and Done fade their row in, but the page does not on arrival', async ({
   context,
   extensionId,
 }) => {
+  // Counted as each starts: a read after the click can land past a 180ms fade's end.
+  await context.addInitScript(() => {
+    window.rowFades = 0;
+    document.addEventListener('animationstart', (e) => {
+      if (e.target instanceof Element && e.target.matches('[data-toolbar-row]'))
+        window.rowFades++;
+    });
+  });
   const page = await openExport(context, extensionId);
-  const row = page.locator('[data-toolbar-row]');
-  const fading = () =>
-    row.evaluate((el) =>
-      el.getAnimations().map((a) => (a as CSSAnimation).animationName)
-    );
+  const fades = () => page.evaluate(() => window.rowFades);
 
-  expect(await fading(), 'on arrival').toEqual([]);
+  expect(await fades(), 'on arrival').toBe(0);
 
   await page.getByRole('button', { name: 'Edit' }).click();
-  expect((await fading()).length, 'after Edit').toBe(1);
+  await expect.poll(fades, { message: 'after Edit' }).toBe(1);
 
-  await page.waitForTimeout(300);
   await page.getByRole('button', { name: 'Done' }).click();
-  expect((await fading()).length, 'after Done').toBe(1);
+  await expect.poll(fades, { message: 'after Done' }).toBe(2);
 });
 
 test('with reduced motion the row swaps without fading', async ({

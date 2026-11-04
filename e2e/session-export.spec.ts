@@ -1232,6 +1232,10 @@ for (const width of [1200, 800, 480]) {
     ]);
     await exportPage.waitForLoadState();
     await exportPage.setViewportSize({ width, height: 600 });
+    // The first render is the header alone: the session reaches the store in an effect.
+    await expect(
+      exportPage.getByRole('button', { name: 'Save as PDF…' })
+    ).toBeVisible();
 
     const shape = await exportPage.evaluate(() => {
       const linesIn = (el: Element) =>
