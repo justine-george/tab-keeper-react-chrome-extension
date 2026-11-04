@@ -4817,9 +4817,9 @@ describe('chrome.action.openPopup', () => {
     expect(handle.openPopupCalls).toHaveLength(1);
   });
 
-  test('CONTROL: an unseeded fake has no chrome.action', () => {
+  test('an unseeded fake has chrome.action, as the manifest declares it', () => {
     handle = setupChromeFake();
-    expect(Reflect.get(chrome, 'action')).toBeUndefined();
+    expect(chrome.action.setPopup).toBeTypeOf('function');
   });
 });
 

@@ -82,4 +82,21 @@ describe('the Default view row (KAN-7 §7)', () => {
     expect(store.getState().settingsDataState.defaultView).toBe('full');
     expect(savedSettings()).toMatchObject({ defaultView: 'full' });
   });
+
+  // KAN-553. The manifest declares action, so this is only the worst case: logged, the choice kept.
+  test('no chrome.action at all still saves the choice, and says so in the console', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { store } = await renderQuickAccess();
+    Reflect.deleteProperty(chrome, 'action');
+    await userEvent.click(side('Full view'));
+
+    await waitFor(() =>
+      expect(warn).toHaveBeenCalledWith(
+        'Could not apply the default view:',
+        expect.any(TypeError)
+      )
+    );
+    expect(store.getState().settingsDataState.defaultView).toBe('full');
+    expect(savedSettings()).toMatchObject({ defaultView: 'full' });
+  });
 });

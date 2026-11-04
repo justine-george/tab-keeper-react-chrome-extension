@@ -126,12 +126,11 @@ export type ChromeSeed = {
   platformOs?: chrome.runtime.PlatformInfo['os'];
   // KAN-563. When set, getPlatformInfo() returns this promise instead, so a test can hold the answer or fail it.
   platformAnswer?: Promise<chrome.runtime.PlatformInfo>;
-  // KAN-7. chrome.action, present only when seeded: outside an extension
-  // page (and in every older test) it is absent. setPopupRejects makes
-  // setPopup reject, Default view's failure path. isOnToolbar is
-  // getUserSettings' answer; absent leaves getUserSettings undefined (before
-  // Chrome 91). hasUserSettingsEvent false leaves onUserSettingsChanged
-  // undefined (before Chrome 130).
+  // KAN-7. How chrome.action answers; the namespace is always there, as the
+  // manifest declares `action`. setPopupRejects makes setPopup reject, Default
+  // view's failure path. isOnToolbar is getUserSettings' answer; absent leaves
+  // getUserSettings undefined (before Chrome 91). hasUserSettingsEvent false
+  // leaves onUserSettingsChanged undefined (before Chrome 130).
   action?: {
     setPopupRejects?: boolean;
     isOnToolbar?: boolean;
@@ -2714,7 +2713,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     // must fail the same way it would in a real browser.
     ...(seed.tabGroupsApiAbsent ? {} : { tabGroups: tabGroupsApi }),
 
-    ...(seed.action ? { action: actionApi } : {}),
+    action: actionApi,
     ...(seed.i18nMessages || seed.uiLanguage
       ? {
           i18n: {

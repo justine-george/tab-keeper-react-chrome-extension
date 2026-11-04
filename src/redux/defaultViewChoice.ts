@@ -9,12 +9,8 @@ import {
   type DefaultView,
 } from '../utils/functions/defaultView';
 
-// Outside an extension page chrome.action is absent: a rejection, which applyDefaultView logs.
 const pageActionApi: ActionApi = {
-  setPopup: (details) =>
-    typeof chrome.action?.setPopup === 'function'
-      ? chrome.action.setPopup(details)
-      : Promise.reject(new Error('chrome.action is unavailable')),
+  setPopup: (details) => chrome.action.setPopup(details),
 };
 
 /**
