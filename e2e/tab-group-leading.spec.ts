@@ -12,6 +12,9 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import { grantedTest as test, expect } from './fixtures/grantedExtension';
 import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import { elementLanded } from './fixtures/landed';
+import { liveRow, openLiveWindow, strip } from './fixtures/liveWindows';
+import { boxOf } from './fixtures/savedWindows';
 
 const tab = (id: string, g?: string) => ({
   tabId: id,
@@ -76,8 +79,9 @@ const order = (page: Page) =>
       .join(' ');
   });
 
-// Drag `rowId` to `toY` and report what the preview promised, without releasing.
-async function dragTo(page: Page, rowId: string, toY: number) {
+// Drag `rowId` to `toY` (and `toX`, else straight up or down) and report what the
+// preview promised, without releasing.
+async function dragTo(page: Page, rowId: string, toY: number, toX?: number) {
   const b = (await page
     .locator(`[data-drag-row-id="${rowId}"]`)
     .boundingBox())!;
@@ -87,7 +91,7 @@ async function dragTo(page: Page, rowId: string, toY: number) {
   await page.mouse.move(x, startY);
   await page.mouse.down();
   await page.mouse.move(x, startY + dir * 8);
-  await page.mouse.move(x, toY, { steps: 8 });
+  await page.mouse.move(toX ?? x, toY, { steps: 8 });
   // The frame's parts carry a 0.18s transition (KAN-165), so anything compared
   // against a title row's RECT has to wait it out. Read immediately, the title
   // is still at its resting top and a ghost correctly drawn above it reads as
@@ -195,4 +199,107 @@ test.describe('a group at the top of a window', () => {
     await page.mouse.up();
     expect(await order(page)).toBe(START);
   });
+
+  // KAN-529. Beside the block no window is named, so isInsideList alone decides,
+  // and the title row is all that carries its top edge up to this height.
+  test('a release beside the window, level with the title row, lands before the group', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    const block = await boxOf(page.locator('[data-drop-window-id="w1"]'));
+    const title = await boxOf(
+      page.locator('[data-band-id="test"] [data-group-drag-handle]')
+    );
+    const first = await boxOf(page.locator('[data-drag-row-id="g0"]'));
+    const x = block.x + block.width + 2;
+    const y = title.y + 4;
+
+    // PREMISES: beside the block, inside the page, and above the rows' own reach.
+    expect(x).toBeLessThan(page.viewportSize()?.width ?? 0);
+    expect(y).toBeGreaterThan(block.y);
+    expect(y).toBeLessThan(first.y - first.height / 2);
+
+    const preview = await dragTo(page, 'b1', y, x);
+    expect(preview.promisesAMove).toBe(true);
+    expect(preview.bandIsTarget).toBe(false);
+
+    await page.mouse.up();
+    await expect.poll(() => order(page)).toBe('b1 g0* g1* b0');
+  });
+
+  test('CONTROL: beside the window, past half a row above the title row, is refused', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await open(context, extensionId);
+    const block = await boxOf(page.locator('[data-drop-window-id="w1"]'));
+    const title = await boxOf(
+      page.locator('[data-band-id="test"] [data-group-drag-handle]')
+    );
+    const first = await boxOf(page.locator('[data-drag-row-id="g0"]'));
+
+    const preview = await dragTo(
+      page,
+      'b1',
+      title.y - first.height / 2 - 4,
+      block.x + block.width + 2
+    );
+    expect(preview.promisesAMove).toBe(false);
+
+    await page.mouse.up();
+    expect(await order(page)).toBe(START);
+  });
+});
+
+test('KAN-529: in Open now, a release beside the window, level with the title row, lands before the group', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const { windowId, idOf } = await openLiveWindow(serviceWorker, [
+    'g0',
+    'g1',
+    'b0',
+    'b1',
+  ]);
+  const [g0, g1, b0, b1] = [idOf('g0'), idOf('g1'), idOf('b0'), idOf('b1')];
+  const groupId = await serviceWorker.evaluate(
+    ({ first, second, windowId }) =>
+      chrome.tabs.group({
+        tabIds: [first, second],
+        createProperties: { windowId },
+      }),
+    { first: g0, second: g1, windowId }
+  );
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+  const block = page.locator(`[data-open-window-id="${windowId}"]`);
+  const titleRow = block
+    .locator(`[data-band-id="${groupId}"] [data-fixed-row-id]`)
+    .first();
+  await expect(titleRow).toBeAttached();
+  await elementLanded(page.locator('[data-pane="open-now"]'), 'subtree');
+
+  const blockBox = await boxOf(block);
+  const title = await boxOf(titleRow);
+  const first = await boxOf(liveRow(page, g0));
+  const held = await boxOf(liveRow(page, b1));
+  const x = blockBox.x + blockBox.width + 2;
+  const y = title.y + 4;
+
+  // PREMISES: beside the block, inside the page, and above the rows' own reach.
+  expect(x).toBeLessThan(page.viewportSize()?.width ?? 0);
+  expect(y).toBeLessThan(first.y - first.height / 2);
+
+  await page.mouse.move(held.x + 60, held.y + held.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(held.x + 60, held.y + held.height / 2 - 8);
+  await page.mouse.move(x, y, { steps: 8 });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => (await strip(serviceWorker, windowId)).map((t) => t.id))
+    .toEqual([b1, g0, g1, b0]);
 });
