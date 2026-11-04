@@ -173,6 +173,13 @@ describe('the shipped list', () => {
     }
   });
 
+  test('2.2.1 has no entry: 2.1.0 still gets 2.2.0, and 2.2.0 gets nothing', () => {
+    const shipped = (since: string) =>
+      releasesToShow(since, '2.2.1').map((r) => r.version);
+    expect(shipped('2.1.0')).toEqual(['2.2.0']);
+    expect(shipped('2.2.0')).toEqual([]);
+  });
+
   test('2.2.0 is open in this window, skip tabs, then switch to an open tab', () => {
     expect(WHATS_NEW[0]).toEqual({
       version: '2.2.0',

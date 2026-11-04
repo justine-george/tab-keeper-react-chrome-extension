@@ -54,7 +54,14 @@ Read the full [privacy policy](PRIVACY.md).
 
 ## Changelog
 
-### v.2.2.0 (Latest)
+### v.2.2.1 (Latest)
+
+#### Improvements
+
+- Every dialog title shares one style, and its icon lines up with the text
+- Directions to a setting read the same way in every dialog and language, as in Settings › Sync & backup
+
+### v.2.2.0
 
 #### Features
 
@@ -109,16 +116,6 @@ Read the full [privacy policy](PRIVACY.md).
 - Short help lines under Auto sync, Backup, Cloud data and Save tab groups, and a clearer Delete cloud data dialog
 - Until your first save, the save button's ring keeps pulsing, and the first save pops floppy disks
 - Setup and the popup tour end on a last card: your session is saved, and Open brings it back
-
-### v.2.0.1
-
-#### Fixes
-
-- After a drop, the rows that made room stay put instead of jumping, whether you drop open tabs into a saved session or a saved tab or group into Currently open
-- A saved tab or group dropped into Currently open shows its saved title while its page loads, instead of a blank row or its address
-- A window opened by a drop into Currently open comes to the front, opens maximized if it was saved that way, and scrolls into view in the list
-- While you drag a saved window over a long Currently open list, the New window box stays in view at the bottom of the list
-- With no other tabs open, Currently open still takes a saved tab, group or window dropped on it, and opens it in a new window
 
 ## Blog Posts
 
