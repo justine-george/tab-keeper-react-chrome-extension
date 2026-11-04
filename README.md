@@ -58,8 +58,7 @@ Read the full [privacy policy](PRIVACY.md).
 
 #### Improvements
 
-- Every dialog title shares one style, and its icon lines up with the text
-- Directions to a setting read the same way in every dialog and language, as in Settings › Sync & backup
+- Dialogs look more consistent: titles share one style, and their icons line up with the text
 
 ### v.2.2.0
 
