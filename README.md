@@ -34,7 +34,7 @@ Tab Keeper is a free, open-source session and tab manager for Chrome. It manages
 2. Search, drag and organize your open tabs and saved sessions.
 3. Restore a session later, or switch sessions while saving your current windows first.
 
-## Screenshots
+## Video & Screenshots
 
 https://github.com/user-attachments/assets/62f5a6cc-f2c2-4b4b-b722-ae473c3700fc
 
