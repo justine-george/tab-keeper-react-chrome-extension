@@ -22,6 +22,7 @@ import { watchToolbarPin } from '../../utils/functions/toolbarPin';
 import { corners } from '../../styles/corners';
 import { ICON, RADIUS, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
+import { dialogTitleSize } from './dialogTitleSize';
 
 const TITLE_ID = 'pin-guide-title';
 const WHY_ID = 'pin-guide-why';
@@ -153,8 +154,8 @@ export const PinGuideModal: React.FC = () => {
     align-items: center;
     gap: 10px;
     margin: 0;
-    font-size: ${TYPE.SECTION};
-    font-weight: 500;
+    font-size: ${dialogTitleSize()};
+    font-weight: inherit;
     color: ${COLORS.TEXT_COLOR};
   `;
   const stepsStyle = css`

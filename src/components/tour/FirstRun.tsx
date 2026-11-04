@@ -393,7 +393,7 @@ export default function FirstRun() {
         return {
           text: t('Keep Tab Keeper open in a pinned tab.'),
           fine: t(
-            'It moves to the start of your tab bar and stays there, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.'
+            'It moves to the start of your tab bar and stays there, here and in every window Tab Keeper opens. You can turn this off in Settings › Quick access.'
           ),
           width: PIN_CARD_WIDTH,
           secondary: { label: t('Not now'), onPress: finish },

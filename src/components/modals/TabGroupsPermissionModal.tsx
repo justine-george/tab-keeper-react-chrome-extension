@@ -14,6 +14,7 @@ import { DIALOG, ICON, RADIUS, TYPE } from '../../styles/scale';
 import Icon from '../common/Icon';
 import { dialogButtonStyles, pairCss, tallButtonCss } from './dialogButtons';
 import { corners } from '../../styles/corners';
+import { dialogTitleSize } from './dialogTitleSize';
 
 interface TabGroupsPermissionModalProps {
   style?: string;
@@ -153,12 +154,17 @@ export const TabGroupsPermissionModal: React.FC<
           align-items: center;
           gap: 10px;
           margin: 0 0 12px 0;
-          font-size: ${TYPE.SECTION};
-          font-weight: 500;
+          font-size: ${dialogTitleSize()};
+          font-weight: inherit;
           color: ${COLORS.TEXT_COLOR};
         `}
       >
-        <Icon type="tab_group" size={ICON.DEFAULT} disable={true} />
+        <Icon
+          type="tab_group"
+          size={ICON.DEFAULT}
+          disable={true}
+          style="padding: 0;"
+        />
         {t('TabGroupsPromptTitle')}
       </h2>
       <p

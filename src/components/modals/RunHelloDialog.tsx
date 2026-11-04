@@ -26,6 +26,7 @@ import {
   prepareShutterClick,
 } from '../../utils/functions/uiSound';
 import { corners } from '../../styles/corners';
+import { dialogTitleSize } from './dialogTitleSize';
 
 const TITLE_ID = 'run-hello-title';
 const BODY_ID = 'run-hello-body';
@@ -159,8 +160,8 @@ export const RunHelloDialog: React.FC<{
     align-items: center;
     gap: 10px;
     margin: 0 0 12px 0;
-    font-size: ${TYPE.SECTION};
-    font-weight: 500;
+    font-size: ${dialogTitleSize()};
+    font-weight: inherit;
     color: ${COLORS.TEXT_COLOR};
   `;
   const bodyStyle = css`

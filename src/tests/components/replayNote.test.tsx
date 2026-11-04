@@ -54,18 +54,18 @@ describe('the replay note', () => {
     await renderOpen();
     await placed();
     expect(mark()?.textContent?.replace(/\u00a0/g, ' ')).toContain(
-      'Want to see this tour again? Go to Settings → Help → Show me around.'
+      'Want to see this tour again? Go to Settings › Help › Show me around.'
     );
     expect(screen.getByRole('button', { name: 'Got it' })).toBeVisible();
     expect(screen.queryByRole('progressbar')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Skip tutorial' })).toBeNull();
   });
 
-  test('the path breaks only after an arrow: each label kept whole, each arrow held to the label before it', async () => {
+  test('the path breaks only after a separator: each label kept whole, each arrow held to the label before it', async () => {
     await renderOpen();
     await placed();
     expect(mark()?.textContent).toContain(
-      `Settings${NBSP}→ Help${NBSP}→ Show me around`
+      `Settings${NBSP}› Help${NBSP}› Show me around`
     );
     const labels = ['Settings', 'Help', 'Show me around'].map((label) =>
       screen.getByText(label, { exact: true })

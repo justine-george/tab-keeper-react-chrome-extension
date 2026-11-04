@@ -8,6 +8,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { DIALOG, RADIUS, TYPE } from '../../styles/scale';
 import { dialogButtonStyles, pairCss, tallButtonCss } from './dialogButtons';
 import { corners } from '../../styles/corners';
+import { dialogTitleSize } from './dialogTitleSize';
 
 /**
  * Confirms Empty on Recently deleted (KAN-595). The same <dialog> contract as
@@ -73,8 +74,8 @@ export function EmptyRecentlyDeletedModal({
         id={titleId}
         css={css`
           margin: 0 0 12px 0;
-          font-size: ${TYPE.SECTION};
-          font-weight: 500;
+          font-size: ${dialogTitleSize()};
+          font-weight: inherit;
           color: ${COLORS.TEXT_COLOR};
         `}
       >
