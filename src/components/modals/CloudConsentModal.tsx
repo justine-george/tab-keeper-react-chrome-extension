@@ -347,7 +347,12 @@ export const CloudConsentModal: React.FC = () => {
       ) : variant === 'enable' ? (
         <>
           <h2 id={TITLE_ID} css={titleStyle}>
-            <Icon type="cloud" size={ICON.DEFAULT} disable={true} />
+            <Icon
+              type="cloud"
+              size={ICON.DEFAULT}
+              disable={true}
+              style="padding: 0;"
+            />
             {t('Sync your sessions across devices?')}
           </h2>
           <p id={BODY_ID} css={bodyStyle}>
@@ -369,7 +374,12 @@ export const CloudConsentModal: React.FC = () => {
       ) : (
         <>
           <h2 id={TITLE_ID} css={titleStyle}>
-            <Icon type="cloud_done" size={ICON.DEFAULT} disable={true} />
+            <Icon
+              type="cloud_done"
+              size={ICON.DEFAULT}
+              disable={true}
+              style="padding: 0;"
+            />
             {t('Your sessions are currently synced')}
           </h2>
           <p id={BODY_ID} css={bodyStyle}>

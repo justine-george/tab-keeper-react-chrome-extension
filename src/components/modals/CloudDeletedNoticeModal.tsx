@@ -14,6 +14,7 @@ import {
 import { DIALOG, RADIUS, TYPE } from '../../styles/scale';
 import { dialogButtonStyles, pairCss, tallButtonCss } from './dialogButtons';
 import { corners } from '../../styles/corners';
+import { dialogTitleSize } from './dialogTitleSize';
 
 const TITLE_ID = 'cloud-deleted-notice-title';
 const BODY_ID = 'cloud-deleted-notice-body';
@@ -104,8 +105,8 @@ export const CloudDeletedNoticeModal: React.FC = () => {
 
   const titleStyle = css`
     margin: 0 0 12px 0;
-    font-size: ${TYPE.SECTION};
-    font-weight: 500;
+    font-size: ${dialogTitleSize()};
+    font-weight: inherit;
     color: ${COLORS.TEXT_COLOR};
     overflow-wrap: anywhere;
   `;

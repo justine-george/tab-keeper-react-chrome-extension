@@ -41,11 +41,11 @@ export default function ReplayNote() {
   const leave = useCallback(() => void dispatch(leaveReplayNote()), [dispatch]);
   if (!isShown) return null;
 
-  // The labels on screen, each kept whole (Chinese breaks between any two characters), with a break only after an arrow.
+  // The labels on screen, each kept whole (Chinese breaks between any two characters), with a break only after a separator.
   const path = [t('Settings'), t('Help'), t('Show me around')].map(
     (label, i) => (
       <Fragment key={label}>
-        {i > 0 && `${NBSP}→ `}
+        {i > 0 && `${NBSP}› `}
         <span css={whole}>{label}</span>
       </Fragment>
     )

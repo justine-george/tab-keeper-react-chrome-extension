@@ -127,14 +127,14 @@ const settle = (root: Locator) =>
     )
     .toBe(0);
 
-// KAN-499. Settings → Help → Show me around wraps only after an arrow, whatever the language.
+// KAN-499. Settings → Help → Show me around wraps only after a separator, whatever the language.
 async function expectPathWhole(
   note: Locator,
   say: (key: string) => string,
   lang: string
 ) {
   const path = [say('Settings'), say('Help'), say('Show me around')].join(
-    '\u00a0→ '
+    '\u00a0› '
   );
   const breaks = await note
     .locator('p')
@@ -162,7 +162,7 @@ async function expectPathWhole(
     }, path);
   expect(breaks, `${lang}: the path is in the note`).not.toBeNull();
   for (const pair of breaks ?? []) {
-    expect(pair, `${lang}: the path breaks only after an arrow`).toBe('→ ');
+    expect(pair, `${lang}: the path breaks only after a separator`).toBe('› ');
   }
 }
 
@@ -651,7 +651,7 @@ for (const [theme, palette] of THEMES) {
           `${theme} full step ${step}`,
           step === 9
             ? [
-                'It moves to the start of your tab bar and stays there, here and in every window Tab Keeper opens. You can turn this off in Settings → Quick access.',
+                'It moves to the start of your tab bar and stays there, here and in every window Tab Keeper opens. You can turn this off in Settings › Quick access.',
               ]
             : []
         );

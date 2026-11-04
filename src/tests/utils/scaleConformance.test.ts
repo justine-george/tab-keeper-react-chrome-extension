@@ -173,6 +173,35 @@ describe('components take their sizes from the shared scales (KAN-205)', () => {
     }
   );
 
+  // KAN-921: every dialog title is one style, regular and sized by the view.
+  const DIALOG_FILES = FILES.filter(
+    (f) => f.name.startsWith('components/modals/') && f.code.includes('<h2')
+  );
+
+  test('the scan finds the dialogs', () => {
+    expect(DIALOG_FILES.length).toBeGreaterThanOrEqual(11);
+  });
+
+  test.each(DIALOG_FILES.map((f) => [f.name, f.code]))(
+    '%s takes the shared title style',
+    (_, code) => {
+      expect(code).toContain('dialogTitleSize()');
+      expect(code).not.toContain('TYPE.SECTION');
+      expect(code).not.toMatch(/font-size:[^;]+;\s*font-weight: 500/);
+    }
+  );
+
+  // A decorative title icon has no hit area, or it sits right of the text below.
+  test.each(DIALOG_FILES.map((f) => [f.name, f.code]))(
+    '%s draws its title icons with no padding',
+    (_, code) => {
+      const titles = [...code.matchAll(/<h2[\s\S]*?<\/h2>/g)].map((m) => m[0]);
+      for (const title of titles.filter((h) => h.includes('<Icon'))) {
+        expect(title).toContain('style="padding: 0;"');
+      }
+    }
+  );
+
   // The controls people actually click are on the 32px row unit. Asserted by
   // naming them rather than by scanning every height: an 18px colour swatch and
   // a 30px image inside a button are content dimensions, not control heights,

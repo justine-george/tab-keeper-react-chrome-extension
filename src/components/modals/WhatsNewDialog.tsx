@@ -18,6 +18,7 @@ import { WHATS_NEW_SINCE_KEY } from '../../utils/functions/whatsNewSince';
 import { DIALOG, ICON, RADIUS, TYPE } from '../../styles/scale';
 import { dialogButtonStyles, tallButtonCss } from './dialogButtons';
 import { corners, trackClearOfCorners } from '../../styles/corners';
+import { dialogTitleSize } from './dialogTitleSize';
 
 const TITLE_ID = 'whats-new-title';
 
@@ -93,8 +94,8 @@ export const WhatsNewDialog: React.FC<{ shown: readonly ShownRelease[] }> = ({
     align-items: center;
     gap: 10px;
     margin: 0 0 16px 0;
-    font-size: ${TYPE.SECTION};
-    font-weight: 500;
+    font-size: ${dialogTitleSize()};
+    font-weight: inherit;
     color: ${COLORS.TEXT_COLOR};
   `;
   const scrollStyle = css`

@@ -20,6 +20,7 @@ import {
   tallButtonCss,
 } from './dialogButtons';
 import { corners } from '../../styles/corners';
+import { dialogTitleSize } from './dialogTitleSize';
 
 const TITLE_ID = 'load-backup-title';
 const BODY_ID = 'load-backup-body';
@@ -108,8 +109,8 @@ export const LoadBackupModal: React.FC = () => {
 
   const titleStyle = css`
     margin: 0 0 12px 0;
-    font-size: ${TYPE.SECTION};
-    font-weight: 500;
+    font-size: ${dialogTitleSize()};
+    font-weight: inherit;
     color: ${COLORS.TEXT_COLOR};
     overflow-wrap: anywhere;
   `;
