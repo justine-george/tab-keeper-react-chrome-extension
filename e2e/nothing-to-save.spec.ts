@@ -57,6 +57,19 @@ test.describe('with only Tab Keeper open', () => {
     );
   });
 
+  // KAN-922. No tabs means no links, and the toast is the export's.
+  test('Copy links from open windows says so', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openFullView(context, extensionId);
+    await closeOtherTabs(page);
+    await openMenuItem(page, 'Copy links from open windows');
+    await expect(toast(page)).toHaveText(
+      'No tabs to save. Only Tab Keeper is open.'
+    );
+  });
+
   test('Save open windows as PDF says so and opens no tab', async ({
     context,
     extensionId,

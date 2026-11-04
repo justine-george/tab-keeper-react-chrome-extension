@@ -173,6 +173,7 @@
   "Sessions reordered. Undo to restore the previous order.": "Sessões reordenadas. Use \"Desfazer\" para restaurar a ordem anterior.",
   "Save session as PDF": "Salvar como PDF…",
   "Copy all links": "Copiar todos os links",
+  "Copy links from open windows": "Copiar os links das janelas abertas",
   "Copy link": "Copiar link",
   "SavePdfNothingKept": "Todas as linhas estão ocultas. Mostre uma para concluir.",
   "LinksCopied_one": "{{count}} link copiado.",

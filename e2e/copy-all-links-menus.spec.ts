@@ -245,6 +245,42 @@ test("Open now's header right-click: Copy all links after the two saves pastes e
   expect(lines).toContain('  Temples (2 Tabs)');
 });
 
+// KAN-922. The save row's ⋮ copies what Currently open's header copies, and it is the popup's only way to.
+for (const view of ['full view', 'popup'] as const) {
+  test(`the save row's ⋮ in the ${view}: Copy links from open windows, before Save as PDF, pastes every open window`, async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    if (view === 'full view') {
+      await openTabView(page, extensionId);
+    } else {
+      await page.setViewportSize({ width: 790, height: 550 });
+      await page.goto(`chrome-extension://${extensionId}/index.html`);
+      await expect(pane(page, 'detail').getByText('Food')).toBeVisible();
+    }
+
+    await page
+      .locator('[data-save-row]')
+      .getByRole('button', { name: 'More actions' })
+      .click();
+    expect(await menuKeys(page)).toEqual([
+      'save-current-window',
+      'copy',
+      'export-open-windows',
+    ]);
+    const { plain } = await copyAndPaste(
+      page,
+      /links copied\./,
+      page.getByRole('menuitem', { name: 'Copy links from open windows' })
+    );
+
+    const lines = plain.split('\n');
+    expect(lines).toContain('  Temples (2 Tabs)');
+    expect(plain).toContain('Fushimi Inari hours');
+  });
+}
+
 // KAN-792. The same copy as an icon, after the two saves and before Save as PDF.
 test("Open now's header Copy all links icon pastes what its right-click item pastes", async ({
   context,

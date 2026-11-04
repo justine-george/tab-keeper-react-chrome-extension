@@ -27,6 +27,9 @@ import { selectRunAwaitsSave, takeRunSave } from '../../../redux/firstRun';
 import { saveToTabContainer } from '../../../redux/slices/tabContainerDataStateSlice';
 import { normalizeTitle } from '../../../utils/functions/local';
 import { exportOpenWindows } from '../exportOpenWindows';
+import { copyAllLinksItem } from '../../common/rowMenu/copyAllLinksItem';
+import { copySessionLinks } from '../../../utils/functions/copySessionLinks';
+import { tidySessionForExport } from '../../../utils/functions/sessionExportHtml';
 import { showToast } from '../../../redux/slices/globalStateSlice';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import {
@@ -45,7 +48,7 @@ import SaveInvite, {
 import { onFirstClickOnly } from '../../common/firstClickOnly';
 
 export default function UserInputContainer() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const COLORS = useThemeColors();
   const dispatch: AppDispatch = useDispatch();
   const store = useStore<RootState>();
@@ -70,6 +73,32 @@ export default function UserInputContainer() {
     currentTabName !== ''
       ? normalizeTitle(currentTabName) || t('New Tab Group')
       : null;
+
+  const sessionName = () =>
+    normalizeTitle(prefill ?? newTitle) ||
+    normalizeTitle(currentTabName) ||
+    t('New Tab Group');
+
+  // KAN-922. Every open window, as Save all would capture them: the popup has no Currently open to copy from.
+  const copyLinksLayout = useSelector(
+    (state: RootState) => state.settingsDataState.copyLinksLayout
+  );
+  const copyAllLinks = copyAllLinksItem(
+    async () => {
+      const session = await captureOpenWindows(sessionName(), 'all-windows');
+      if (!session) {
+        void dispatch(showToast({ toastText: TOAST_MESSAGES.NOTHING_TO_SAVE }));
+        return null;
+      }
+      return copySessionLinks(
+        tidySessionForExport(session),
+        t,
+        i18n.language,
+        copyLinksLayout
+      );
+    },
+    { t, dispatch }
+  );
 
   // Only a stored session consumes the name, and never text typed since.
   const consumeName = useCallback(
@@ -187,10 +216,7 @@ export default function UserInputContainer() {
     // session at all for a keystroke they may not have noticed. The last
     // resort is translated, because it is a name the user will see and can
     // rename.
-    const title =
-      normalizeTitle(prefill ?? newTitle) ||
-      normalizeTitle(currentTabName) ||
-      t('New Tab Group');
+    const title = sessionName();
 
     // KAN-279 D6 / KAN-300. In the tab, "the current window" includes Tab
     // Keeper's own page -- captureOpenWindows leaves every Tab Keeper page
@@ -379,6 +405,7 @@ export default function UserInputContainer() {
                 icon: SAVE_OF[menuScope].icon,
                 onSelect: () => createTabGroup(menuScope),
               },
+              { ...copyAllLinks, label: t('Copy links from open windows') },
               {
                 key: 'export-open-windows',
                 label: t('Save open windows as PDF'),

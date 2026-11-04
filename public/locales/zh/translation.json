@@ -167,6 +167,7 @@
   "Sessions reordered. Undo to restore the previous order.": "会话已重新排序。使用“撤销”可恢复之前的顺序。",
   "Save session as PDF": "保存为 PDF…",
   "Copy all links": "复制所有链接",
+  "Copy links from open windows": "复制打开的窗口中的链接",
   "Copy link": "复制链接",
   "SavePdfNothingKept": "所有行都已隐藏。至少显示一行才能完成。",
   "LinksCopied_other": "已复制 {{count}} 个链接。",

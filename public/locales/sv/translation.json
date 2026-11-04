@@ -170,6 +170,7 @@
   "Sessions reordered. Undo to restore the previous order.": "Sessionerna har sorterats om. Ångra för att återställa den tidigare ordningen.",
   "Save session as PDF": "Spara som PDF…",
   "Copy all links": "Kopiera alla länkar",
+  "Copy links from open windows": "Kopiera länkar från öppna fönster",
   "Copy link": "Kopiera länk",
   "SavePdfNothingKept": "Alla rader är dolda. Visa en för att slutföra.",
   "LinksCopied_one": "{{count}} länk kopierad.",

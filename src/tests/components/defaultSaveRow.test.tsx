@@ -91,13 +91,14 @@ describe.each([
       expect(savedWindowCount(store)).toBe(buttonWindows);
     });
 
-    test('the menu holds the other save first, then Save open windows as PDF', async () => {
+    test('the menu holds the other save first, then Copy links from open windows and Save open windows as PDF', async () => {
       const { store } = await renderRow(scope);
       const items = within(await openSaveMenu()).getAllByRole('menuitem');
-      expect(items).toHaveLength(2);
+      expect(items).toHaveLength(3);
       expect(items[0]).toHaveAccessibleName(itemName);
       expect(glyphOf(items[0])).toBe(itemGlyph);
-      expect(items[1]).toHaveAccessibleName('Save open windows as PDF…');
+      expect(items[1]).toHaveAccessibleName('Copy links from open windows');
+      expect(items[2]).toHaveAccessibleName('Save open windows as PDF…');
       await userEvent.click(items[0]);
       expect(savedWindowCount(store)).toBe(itemWindows);
     });

@@ -170,6 +170,7 @@
   "Sessions reordered. Undo to restore the previous order.": "Sessions reordered. Undo to restore the previous order.",
   "Save session as PDF": "Save as PDF…",
   "Copy all links": "Copy all links",
+  "Copy links from open windows": "Copy links from open windows",
   "Copy link": "Copy link",
   "SavePdfNothingKept": "Every row is hidden. Show one to finish.",
   "LinksCopied_one": "{{count}} link copied.",
