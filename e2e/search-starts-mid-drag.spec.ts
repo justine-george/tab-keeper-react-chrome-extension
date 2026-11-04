@@ -7,8 +7,7 @@ import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
 // KAN-832. A search typed while a row is held (Shift+Tab back to the field
 // mid-drag) cancels the drag (KAN-335), and the cancel no longer puts back
 // the scroll from the press over the list the search has just drawn.
-// Currently open's search puts its list at the top (KAN-339 B); the saved
-// search moves nothing, so its list keeps the scroll the drag's fold left.
+// Both searches put their list at the top (KAN-339 B, KAN-837).
 // Needs the tabGroups grant, so an Open now group is an item at all.
 
 const VIEW_TAB = 'index.html?view=tab';
@@ -185,7 +184,7 @@ const savedWindow = (i: number) => ({
   })),
 });
 
-test("a saved search typed while a session's window is held keeps the scroll the fold left", async ({
+test("a saved search typed while a session's window is held puts the list at the top", async ({
   context,
   extensionId,
 }) => {

@@ -9,6 +9,7 @@ import { paneInsetCss } from '../../../styles/paneInset';
 import HeroContainerRight from './HeroContainerRight';
 import { selectVisibleTabGroups } from '../../../utils/functions/local';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
+import { useSavedSearchScroll } from '../../../hooks/useSavedSearchScroll';
 import StartHereHint from './StartHereHint';
 import TabGroupDetailsContainer from './TabGroupDetailsContainer';
 import NoMatchState from '../../common/NoMatchState';
@@ -21,6 +22,7 @@ function RightPane() {
   );
 
   const { text: searchText } = useSavedSearch();
+  useSavedSearchScroll(tabContainerDataList.selectedTabGroupId);
   const { query, place } = useNoMatchPlace();
   const isEmpty = useIsSavedListEmpty();
 

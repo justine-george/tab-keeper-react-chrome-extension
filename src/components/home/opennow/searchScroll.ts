@@ -1,4 +1,5 @@
-// KAN-339 B. Where Currently open's list goes when its search term changes:
+// KAN-339 B. Where a searched list goes when its search term changes (Currently
+// open's, and the saved detail's, KAN-837):
 // to the top for every new term, so the first match (Enter's tab) is in view,
 // and back to the place it held before the search once the search is cleared.
 
