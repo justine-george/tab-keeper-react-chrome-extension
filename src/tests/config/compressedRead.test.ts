@@ -28,9 +28,8 @@ const sessions = [
   { tabGroupId: 'a', title: 'Alpha', lastModified: 1000, createdAt: 1000 },
 ];
 
-// A Firestore Bytes value is an object exposing toUint8Array(); the reader must
-// accept that as well as a bare Uint8Array, because the lite SDK hands back the
-// former and tests construct the latter.
+// A Firestore Bytes value is an object exposing toUint8Array(): what the lite
+// SDK hands back, and the only compressed shape the reader accepts.
 const asBytesValue = (bytes: Uint8Array) => ({ toUint8Array: () => bytes });
 
 describe('the reader understands both document shapes', () => {
@@ -72,7 +71,8 @@ describe('the reader understands both document shapes', () => {
     ]);
   });
 
-  it('accepts a bare Uint8Array as well as a Bytes value', async () => {
+  // KAN-545. No read yields this; if one did, the sync stops without writing.
+  it('reads a bare Uint8Array as no payload, not as sessions', async () => {
     const packed = await compressToBytes(JSON.stringify(sessions));
     firestore.getDoc.mockResolvedValue({
       exists: () => true,
@@ -83,7 +83,7 @@ describe('the reader understands both document shapes', () => {
       }),
     });
     const read = await fetchDataFromFirestore('u1');
-    expect(read.tabGroups).toEqual(sessions);
+    expect(read.tabGroups).toBeUndefined();
   });
 
   // "Could not decode" and "no sessions" must never be conflated: an empty
