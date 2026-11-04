@@ -81,6 +81,7 @@ test.describe('a run replayed with sync on keeps its example on this device (KAN
     context,
     extensionId,
     serviceWorker,
+    headless,
   }) => {
     await seedOnce(context, [S1]);
     const started = nextResponse(context, COMMIT);
@@ -100,7 +101,7 @@ test.describe('a run replayed with sync on keeps its example on this device (KAN
     const sample = samples((await ids(page)).sessions);
     expect(sample).toHaveLength(1);
 
-    const deviceB = await openSecondDevice(token, [S1]);
+    const deviceB = await openSecondDevice(token, [S1], headless);
     try {
       await expect.poll(() => lastSynced(deviceB.page)).not.toBe('');
       expect((await ids(deviceB.page)).sessions).toEqual(['S1']);

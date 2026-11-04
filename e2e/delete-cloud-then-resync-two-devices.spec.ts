@@ -155,13 +155,14 @@ test.describe('Delete cloud data, then sync on again, on two devices', () => {
     context,
     extensionId,
     serviceWorker,
+    headless,
   }) => {
     const { page, token, commits } = await startDeviceA(
       context,
       extensionId,
       serviceWorker
     );
-    const deviceB = await openSecondDevice(token, [S1, S2]);
+    const deviceB = await openSecondDevice(token, [S1, S2], headless);
     try {
       // B's startup sync has finished: the seed alone already shows these titles.
       await expect.poll(() => lastSynced(deviceB.page)).not.toBe('');
@@ -233,13 +234,14 @@ test.describe('Delete cloud data, then sync on again, on two devices', () => {
     context,
     extensionId,
     serviceWorker,
+    headless,
   }) => {
     const { page, token } = await startDeviceA(
       context,
       extensionId,
       serviceWorker
     );
-    const deviceB = await openSecondDevice(token, [S1, S2]);
+    const deviceB = await openSecondDevice(token, [S1, S2], headless);
     try {
       // B's startup sync has finished: the seed alone already shows these titles.
       await expect.poll(() => lastSynced(deviceB.page)).not.toBe('');

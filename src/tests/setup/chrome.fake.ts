@@ -59,6 +59,12 @@
 // window), tabs.group/ungroup's own moves and events, and a window closing
 // when its last tab leaves, cited as "Part E Task 6a, Qn" (same plan,
 // "### Task 6a").
+//
+// KAN-41. Query filters are partial, so a test cannot prove a filter the fake
+// drops. tabs.query honours url, active and windowId, and currentWindow for
+// window-consistent seeds; every other field (pinned, groupId,
+// lastFocusedWindow...) is ignored and matches all tabs. windows.getAll
+// honours both its options, windowTypes and populate.
 
 export type ChromeSeed = {
   tabs?: Partial<chrome.tabs.Tab>[];

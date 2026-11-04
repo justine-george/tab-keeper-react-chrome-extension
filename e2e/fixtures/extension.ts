@@ -80,6 +80,7 @@ export const test = base.extend<
   // `test.use({ cloud: true })`.
   cloud: [false, { option: true }],
 
+  // `headless` is Playwright's own option, true unless the run passes --headed.
   context: async (
     {
       showScrollbars,
@@ -87,6 +88,7 @@ export const test = base.extend<
       freshProfile,
       cloud,
       colorScheme,
+      headless,
       reused,
       deviceScaleFactor,
       viewport,
@@ -113,7 +115,7 @@ export const test = base.extend<
         // headless SHELL, which never loads the extension -- the service worker
         // simply never registers and waitForEvent below times out. Measured
         // 2026-09-01 across all three modes.
-        headless: true,
+        headless,
         channel: 'chromium',
         // KAN-731. Playwright's own option, so `test.use({ colorScheme: 'dark' })` emulates a dark OS.
         colorScheme,
@@ -138,6 +140,7 @@ export const test = base.extend<
           showScrollbars,
           audibleTabs,
           colorScheme,
+          headless,
           // The runner hands each of these to every launch, so each is a launch option.
           runner: {
             deviceScaleFactor,

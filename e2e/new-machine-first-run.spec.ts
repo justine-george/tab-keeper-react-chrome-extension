@@ -149,8 +149,11 @@ interface NewMachine {
 }
 
 // Device B: a fresh install, its popup open at the welcome. With a token, Chrome Sync brought A's id before the first open.
-async function newMachine(token: string | null): Promise<NewMachine> {
-  const profile = await launchProfile();
+async function newMachine(
+  token: string | null,
+  headless: boolean
+): Promise<NewMachine> {
+  const profile = await launchProfile(headless);
   try {
     const { context } = profile;
     const cloud: string[] = [];
@@ -234,9 +237,10 @@ test.describe("a new machine's first run picks up the other machine's sessions (
     context,
     extensionId,
     serviceWorker,
+    headless,
   }) => {
     const a = await deviceA(context, extensionId, serviceWorker);
-    const b = await newMachine(a.token);
+    const b = await newMachine(a.token, headless);
     try {
       const { popup } = b;
       let bSave = '';
@@ -265,9 +269,10 @@ test.describe("a new machine's first run picks up the other machine's sessions (
     context,
     extensionId,
     serviceWorker,
+    headless,
   }) => {
     const a = await deviceA(context, extensionId, serviceWorker);
-    const b = await newMachine(null);
+    const b = await newMachine(null, headless);
     try {
       const { popup } = b;
       const wrote = await saveInRunThenSync(popup, async () => {
@@ -289,9 +294,10 @@ test.describe("a new machine's first run picks up the other machine's sessions (
     context,
     extensionId,
     serviceWorker,
+    headless,
   }) => {
     const a = await deviceA(context, extensionId, serviceWorker);
-    const b = await newMachine(null);
+    const b = await newMachine(null, headless);
     try {
       const { popup } = b;
       expect(await saveInRunThenSync(popup)).toBe(true);
@@ -316,9 +322,10 @@ test.describe("a new machine's first run picks up the other machine's sessions (
     context,
     extensionId,
     serviceWorker,
+    headless,
   }) => {
     const a = await deviceA(context, extensionId, serviceWorker);
-    const b = await newMachine(a.token);
+    const b = await newMachine(a.token, headless);
     try {
       await welcome(b.popup)
         .getByRole('button', { name: 'Get started', exact: true })

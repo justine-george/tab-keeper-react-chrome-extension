@@ -4,8 +4,9 @@ import { describe, expect, test } from 'vitest';
 
 import { isDocsOnly } from './docs_only.mjs';
 
-// KAN-664. A PR that changes only Markdown docs skips lint, unit and e2e in
-// build_before_merge.yaml. Anything this cannot vouch for runs everything.
+// KAN-664. A PR that changes only Markdown docs or store assets skips lint, unit
+// and e2e in build_before_merge.yaml. Anything this cannot vouch for runs
+// everything.
 describe('isDocsOnly', () => {
   test('a README change alone is docs-only', () => {
     expect(isDocsOnly(['README.md'])).toBe(true);
@@ -42,6 +43,32 @@ describe('isDocsOnly', () => {
     expect(isDocsOnly(['README.md.ts'])).toBe(false);
     expect(isDocsOnly(['notes.mdx'])).toBe(false);
     expect(isDocsOnly(['NOTES.MD'])).toBe(false);
+  });
+
+  // KAN-841. Store images: only the README uses them, and nothing builds them.
+  test('store assets alone are docs-only', () => {
+    expect(
+      isDocsOnly(['store-assets/screenshots/tab-keeper-screenshot-1.png'])
+    ).toBe(true);
+  });
+
+  test('store assets and the README together are docs-only', () => {
+    expect(
+      isDocsOnly([
+        'store-assets/marquee promo tile/tab-keeper-marquee-promo-tile.png',
+        'README.md',
+      ])
+    ).toBe(true);
+  });
+
+  test('store assets beside a code change are not', () => {
+    expect(isDocsOnly(['store-assets/banners/a.png', 'src/App.tsx'])).toBe(
+      false
+    );
+  });
+
+  test('a folder that only starts like store-assets is not', () => {
+    expect(isDocsOnly(['store-assets-old/a.png'])).toBe(false);
   });
 
   // An empty list means the diff found nothing, or failed: run everything.

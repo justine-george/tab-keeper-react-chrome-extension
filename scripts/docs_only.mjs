@@ -1,11 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-// KAN-664. Whether a PR's changed files are all Markdown docs, so
-// build_before_merge.yaml can skip lint, unit and e2e for it. A `.md` under
+// KAN-664. Whether a PR's changed files are all Markdown docs or store assets,
+// so build_before_merge.yaml can skip lint, unit and e2e for it. A `.md` under
 // public/ ships in the extension (public/ is copied into dist), and one under
 // src/ sits beside code, so neither counts. No test reads a doc's text:
 // noAnalytics.test.ts checks src/ against PRIVACY.md's claim, not the file.
+//
+// KAN-841. store-assets/ is any file type: the README shows its images, and
+// no build or test reads them.
 //
 // An empty list is not docs-only: it means the diff found nothing or failed,
 // and then everything runs.
@@ -14,9 +17,10 @@ export function isDocsOnly(files) {
     files.length > 0 &&
     files.every(
       (file) =>
-        file.endsWith('.md') &&
-        !file.startsWith('public/') &&
-        !file.startsWith('src/')
+        file.startsWith('store-assets/') ||
+        (file.endsWith('.md') &&
+          !file.startsWith('public/') &&
+          !file.startsWith('src/'))
     )
   );
 }

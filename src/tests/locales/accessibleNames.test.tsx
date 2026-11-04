@@ -218,8 +218,8 @@ describe('Label in Name holds in every locale (WCAG 2.5.3)', () => {
       );
 
       // The language switch has to happen AFTER the render, not before.
-      // renderWithProviders calls initTestI18n() itself, and init({ lng: 'en' })
-      // resets the language -- so switching first left every case running
+      // renderWithProviders calls initTestI18n() itself, which resets the
+      // language to en -- so switching first left every case running
       // English labels against English text and passing vacuously. The count
       // control below did not catch it, because the COUNT was right and only
       // the language was wrong.

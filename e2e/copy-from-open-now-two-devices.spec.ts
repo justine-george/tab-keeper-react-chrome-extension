@@ -70,6 +70,7 @@ test.describe('a copy from Open now, on two devices (KAN-280 Part F)', () => {
     context,
     extensionId,
     serviceWorker,
+    headless,
   }) => {
     // Device A: a fresh id, so its startup sync writes its local copy.
     await seedOnce(context, [S1, S2]);
@@ -114,7 +115,7 @@ test.describe('a copy from Open now, on two devices (KAN-280 Part F)', () => {
       .toEqual([[dataUrl('Shared copy')], ['https://c0.test/']]);
     expect(await copied, "device A's copy never reached the cloud").toBe(true);
 
-    const deviceB = await openSecondDevice(token, [S1, S2]);
+    const deviceB = await openSecondDevice(token, [S1, S2], headless);
     try {
       await expect
         .poll(() => urlsOfS2(deviceB.page))

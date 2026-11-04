@@ -46,8 +46,8 @@ afterEach(async () => {
   await testI18n.changeLanguage('en');
 });
 
-// changeLanguage AFTER the render: initTestI18n() calls init({ lng: 'en' }),
-// which RESETS the language, so switching first silently runs English.
+// changeLanguage AFTER the render: initTestI18n() RESETS the language to en,
+// so switching first silently runs English.
 const renderToastIn = async (locale: 'de') => {
   const rendered = await renderWithProviders(<Toast />);
   testI18n.addResourceBundle(locale, 'translation', de, true, true);

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 
 import TabGroupEntryContainer from '../../components/home/leftpane/TabGroupEntryContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -42,8 +42,13 @@ describe('search filtering', () => {
     store.dispatch(
       saveToTabContainerInternal(session('Research', 'Kagi Search'))
     );
+    store.dispatch(saveToTabContainerInternal(session('Cooking', 'Soup')));
+    // On screen first, so its absence below is the search's doing.
+    expect(await screen.findByText('Cooking')).toBeTruthy();
+
     store.dispatch(setSearchInputText('KAGI'));
 
-    expect(await screen.findByText('Research')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText('Cooking')).toBeNull());
+    expect(screen.getByText('Research')).toBeTruthy();
   });
 });
