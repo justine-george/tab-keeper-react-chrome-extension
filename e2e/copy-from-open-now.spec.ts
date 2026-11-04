@@ -40,6 +40,7 @@ const dataUrl = (title: string) =>
 
 // A live window of one tab per title; Chrome's tab ids by title.
 async function openLiveWindow(worker: Worker, titles: string[]) {
+  const urls = titles.map(dataUrl);
   const made = await worker.evaluate(async (urls: string[]) => {
     const win = await chrome.windows.create({ focused: false, url: urls });
     const ids = (win?.tabs ?? []).flatMap((t) =>
@@ -47,8 +48,18 @@ async function openLiveWindow(worker: Worker, titles: string[]) {
     );
     if (win?.id === undefined || ids.length !== urls.length) return null;
     return { windowId: win.id, tabIds: ids };
-  }, titles.map(dataUrl));
+  }, urls);
   if (made === null) throw new Error('Chrome gave no window or tab ids');
+  // A new tab's url is "" until it commits, so a chromeNow before that never matches one after.
+  await expect
+    .poll(() =>
+      worker.evaluate(
+        async (windowId) =>
+          (await chrome.tabs.query({ windowId })).map((t) => t.url),
+        made.windowId
+      )
+    )
+    .toEqual(urls);
   const idOf = (title: string) => {
     const id = made.tabIds[titles.indexOf(title)];
     if (id === undefined) throw new Error(`no tab ${title}`);

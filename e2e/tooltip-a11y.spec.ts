@@ -111,16 +111,32 @@ function markupKeysOf(page: Page, selector: string): Promise<string[]> {
   }, selector);
 }
 
+/** Past the boot sync's 8s limit, the longest a page can say "Syncing…" at the blocked cloud. */
+const SYNC_SETTLES_MS = 10_000;
+
 async function recordAx(page: Page, surface: string): Promise<AxRecord[]> {
   await expectUtc(page);
   // KAN-750 R8b, R14. A cloud build opens on "Syncing…" while the boot sync
   // waits for sign-in, until the blocked cloud fails it. The rows pin the
   // button after that: "Sync now", described as on.
-  await expect(page.locator('[aria-label="Syncing…"]')).toHaveCount(0);
-  const [readings, keys] = await Promise.all([
-    axOf(page, TITLED),
-    markupKeysOf(page, TITLED),
-  ]);
+  // KAN-761. It says "Sync now" for a moment before "Syncing…" too, so a wait
+  // ahead of the read can pass early: the read itself must have no "Syncing…".
+  let readings: AxReading[] = [];
+  let keys: string[] = [];
+  await expect
+    .poll(
+      async () => {
+        [readings, keys] = await Promise.all([
+          axOf(page, TITLED),
+          markupKeysOf(page, TITLED),
+        ]);
+        return [...keys, ...readings.map((r) => r.name)].filter((text) =>
+          text.includes('Syncing…')
+        );
+      },
+      { timeout: SYNC_SETTLES_MS }
+    )
+    .toEqual([]);
   expect(keys, `${surface}: one key per reading`).toHaveLength(readings.length);
   expect(readings.length, `${surface}: some element is titled`).toBeGreaterThan(
     0
@@ -145,13 +161,17 @@ const SYNC_ON_TITLES = ['Cloud sync on', 'Sync unavailable'];
 
 /** The sync button's description in this page, which must be one of the two known "on" titles. */
 async function syncOnTitleOf(page: Page): Promise<string> {
-  const title = await page.evaluate(
-    () =>
-      document
-        .querySelector('[data-tooltip][aria-label="Sync now"]')
-        ?.getAttribute('aria-description') ?? null
-  );
-  expect(SYNC_ON_TITLES).toContain(title);
+  let title: string | null = null;
+  // Retried: a sync that began after the last read has no "Sync now" button yet.
+  await expect(async () => {
+    title = await page.evaluate(
+      () =>
+        document
+          .querySelector('[data-tooltip][aria-label="Sync now"]')
+          ?.getAttribute('aria-description') ?? null
+    );
+    expect(SYNC_ON_TITLES).toContain(title);
+  }).toPass({ timeout: SYNC_SETTLES_MS });
   return String(title);
 }
 
@@ -883,6 +903,8 @@ test('popup home: session rows, header, toolbar and the sync button', async ({
   const page = await openPopup(context, extensionId);
   // Over an ordinary page, as a real popup is, so Add current tab shows (KAN-823).
   await overAnOrdinaryTab(page);
+  // That reloaded the page, and this button waits on a query of its own.
+  await page.getByRole('button', { name: 'Add current tab' }).first().waitFor();
   const ax = await recordAx(page, 'home');
   await expectAx(page, ax, EXPECTED.home);
 });

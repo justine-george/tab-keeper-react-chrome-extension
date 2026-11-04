@@ -152,14 +152,24 @@ test('a second press mid-turn turns it back from where it is', async ({
   extensionId,
 }) => {
   const page = await openPopup(context, extensionId);
-  await page.getByRole('button', { name: 'Collapse: Flights' }).click();
-  // Part way round: the turn has started and not landed.
-  await page.waitForFunction(() => {
-    const turn = document
-      .querySelector('[data-window-chevron]')
-      ?.getAnimations()[0];
-    return turn !== undefined && Number(turn.currentTime) > 50;
+  // Held half way from its first frame: a press can take longer than the turn.
+  await page.evaluate(() => {
+    const hold = (e: TransitionEvent) => {
+      if (!(e.target instanceof Element)) return;
+      if (!e.target.closest('[data-window-chevron]')) return;
+      document.removeEventListener('transitionrun', hold);
+      const [turn] = e.target.getAnimations();
+      turn.pause();
+      turn.currentTime = 100;
+    };
+    document.addEventListener('transitionrun', hold);
   });
+  await page.getByRole('button', { name: 'Collapse: Flights' }).click();
+  await page.waitForFunction(
+    () =>
+      document.querySelector('[data-window-chevron]')?.getAnimations()[0]
+        ?.playState === 'paused'
+  );
   await page.getByRole('button', { name: 'Expand: Flights' }).click();
   expect(
     await pose(page.getByRole('button', { name: 'Collapse: Flights' }))
