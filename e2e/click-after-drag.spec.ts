@@ -96,6 +96,10 @@ const readInput = (page: Page) =>
       (window as unknown as { __input: { type: string; t: number }[] }).__input
   );
 
+// Chrome's own count: context.pages() has to wait for Playwright to attach.
+const tabCount = (page: Page) =>
+  page.evaluate(async () => (await chrome.tabs.query({})).length);
+
 test.describe('the click after a drag', () => {
   // THE PREMISE the fix rests on, measured rather than assumed. A drag that
   // moves nothing is the one Chrome DOES send a click for, on the held row --
@@ -129,14 +133,12 @@ test.describe('the click after a drag', () => {
     extensionId,
   }) => {
     const page = await open(context, extensionId);
-    const before = context.pages().length;
+    const before = await tabCount(page);
 
     const b = await rowBox(page, 't1');
     await page.mouse.click(b.x + 60, b.y + b.height / 2);
 
-    await expect
-      .poll(() => context.pages().length, { timeout: 1000 })
-      .toBe(before + 1);
+    await expect.poll(() => tabCount(page)).toBe(before + 1);
   });
 
   // The KAN-128 guarantee, which the fix must keep.
@@ -145,7 +147,7 @@ test.describe('the click after a drag', () => {
     extensionId,
   }) => {
     const page = await open(context, extensionId);
-    const before = context.pages().length;
+    const before = await tabCount(page);
 
     const b = await rowBox(page, 't1');
     const y = b.y + b.height / 2;
@@ -154,9 +156,9 @@ test.describe('the click after a drag', () => {
     await page.mouse.move(b.x + 120, y, { steps: 6 });
     await page.mouse.up();
 
-    // As long as the control above allows a tab to appear in.
+    // Time for a tab to appear; the control above allows a loaded machine longer.
     await page.waitForTimeout(1000);
-    expect(context.pages().length).toBe(before);
+    expect(await tabCount(page)).toBe(before);
     expect(await order(page)).toBe(START);
   });
 
