@@ -186,7 +186,8 @@ function expectFits(fit: Awaited<ReturnType<typeof ctaFit>>, lang: string) {
 }
 
 test.describe('translated UI still fits its layout', () => {
-  for (const lang of LOCALES) {
+  // zh-TW is the one locale where Turn on and the row's Open read alike (KAN-503).
+  for (const lang of [...LOCALES, 'zh-TW']) {
     test(`the tab groups offer fits the card in ${lang}`, async ({
       context,
       serviceWorker,
@@ -205,7 +206,7 @@ test.describe('translated UI still fits its layout', () => {
       // Located by the LOCALIZED accessible name, so a locale that silently
       // failed to load and fell back to English fails here rather than quietly
       // passing the layout assertions against English text.
-      const cta = page.getByRole('button', {
+      const cta = page.locator('dialog[open]').getByRole('button', {
         name: t['Turn on'],
         exact: true,
       });
