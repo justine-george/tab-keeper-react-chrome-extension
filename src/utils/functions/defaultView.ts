@@ -24,13 +24,11 @@ export interface ActionApi {
 export async function applyDefaultView(
   api: ActionApi,
   view: DefaultView
-): Promise<boolean> {
+): Promise<void> {
   try {
     await api.setPopup({ popup: popupFor(view) });
-    return true;
   } catch (error) {
     console.warn('Could not apply the default view:', error);
-    return false;
   }
 }
 

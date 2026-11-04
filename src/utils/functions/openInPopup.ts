@@ -30,9 +30,7 @@ export function isOpenInPopupRequest(
 
 // action.openPopup is Chrome 127+ for every extension; on older Chrome the full view has no way back to offer.
 export function canOpenPopup(): boolean {
-  const action: Partial<typeof chrome.action> | undefined =
-    typeof chrome === 'undefined' ? undefined : chrome.action;
-  return typeof action?.openPopup === 'function';
+  return typeof chrome.action.openPopup === 'function';
 }
 
 // KAN-623. The full view's ⤡, as its header draws it: in a tab, with a compact view to go back to, on a Chrome that can open it.

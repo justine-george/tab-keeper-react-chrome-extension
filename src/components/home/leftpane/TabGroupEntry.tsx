@@ -1,4 +1,9 @@
-import React, { MouseEventHandler, useLayoutEffect, useState } from 'react';
+import React, {
+  MouseEventHandler,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { useSelector } from 'react-redux';
 
@@ -40,7 +45,6 @@ import {
 } from '../../common/rowLines';
 import { SAVED_TEXT_INSET } from './savedListInset';
 import { DragHandle } from '../rightpane/rowDrag/DragHandle';
-import { useRowActionGuard } from './useRowActionGuard';
 import type { RowMenuProps } from '../../common/rowMenu/useRowContextMenu';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import { sessionOpenLabelKey } from '../openWhere';
@@ -183,15 +187,13 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
 
   // KAN-582. Only the session shown (or the tour's or the ending's row) has its actions.
   const shown = drawsSelection || isEngaged;
-  const { strip, rowEvents, pressable } = useRowActionGuard(shown);
+  const strip = useRef<HTMLDivElement>(null);
   const press =
     (act: MouseEventHandler): MouseEventHandler =>
     (e) => {
       e.stopPropagation();
-      // KAN-698. A double-click presses once: its second click presses
-      // nothing, and selects the row if the strip appeared under it (KAN-582).
+      // KAN-698. A double-click presses once: its second click presses nothing.
       if (e.detail <= 1) act(e);
-      else if (!pressable(e.currentTarget, e.detail)) onTabGroupClick();
     };
 
   // KAN-721 (the date clip). While the strip is drawn, the text column ends
@@ -214,7 +216,7 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [drawsStrip, strip]);
+  }, [drawsStrip]);
   // The strip's width while it is drawn; else 8px less the row's end gutter.
   const textEnd =
     stripWidth > 0 ? `${stripWidth}px` : `calc(8px - ${ROW_GUTTER_END})`;
@@ -564,7 +566,6 @@ const TabGroupEntry: React.FC<TabGroupEntryProps> = ({
       data-carry-target={carryTarget === undefined ? undefined : ''}
       data-carry-dwell={carryTarget?.dwellSweep ? '' : undefined}
       data-drag-handle-row=""
-      {...rowEvents}
       {...rowMenuProps}
     >
       <DragHandle rowId={tabGroupData.tabGroupId} left="9px" />

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
+  applyDefaultView,
   openFullViewFromToolbar,
   reapplyDefaultView,
   type ActionApi,
@@ -42,6 +43,16 @@ const tabs = (open: chrome.tabs.Tab[]) => {
 };
 
 afterEach(() => vi.restoreAllMocks());
+
+describe('applyDefaultView', () => {
+  test('a refused setPopup resolves with nothing, and warns', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await expect(
+      applyDefaultView(action(true).api, 'full')
+    ).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('reapplyDefaultView (the worker at every start)', () => {
   test.each([

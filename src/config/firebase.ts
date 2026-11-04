@@ -174,11 +174,10 @@ export interface CloudCandidate {
   deletedTabGroups: unknown;
 }
 
-// A Firestore Bytes value exposes toUint8Array(); a test or a future caller may
-// pass the array directly. Anything else - including the absent field on every
-// document written today - is not a compressed payload.
+// A read yields bytes only as a Firestore Bytes value, which exposes
+// toUint8Array(). Anything else - including the absent field on every document
+// written today - is not a compressed payload.
 function asUint8Array(value: unknown): Uint8Array | null {
-  if (value instanceof Uint8Array) return value;
   if (
     typeof value === 'object' &&
     value !== null &&

@@ -901,6 +901,9 @@ export function isInsideList(
   // bottom stays measured from the rows, because past it -- and past the slack
   // -- a release names no row of this list, and accepting it would saturate at
   // the bottom (KAN-132's original defect).
+  //
+  // Not dead (KAN-529): beside every block, level with the title row, only this
+  // reaches the release. Pinned in e2e/tab-group-leading.spec.ts.
   if (drawnTop !== undefined) top = Math.min(top, drawnTop);
   return y >= top - slack && y <= bottom + slack;
 }

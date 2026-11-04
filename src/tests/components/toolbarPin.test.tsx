@@ -19,6 +19,7 @@ afterEach(() => {
 describe('readToolbarPin', () => {
   test('no chrome.action at all: unknown', async () => {
     handle = setupChromeFake({});
+    Reflect.deleteProperty(chrome, 'action');
     expect(await readToolbarPin()).toBe('unknown');
   });
 

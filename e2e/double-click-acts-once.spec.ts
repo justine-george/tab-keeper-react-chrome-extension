@@ -1,7 +1,13 @@
-import type { Page } from '@playwright/test';
+import type { Page, Worker } from '@playwright/test';
 
 import { test, expect } from './fixtures/extension';
-import { buildContainer, buildSession, seedSessions } from './fixtures/seed';
+import {
+  buildContainer,
+  buildSession,
+  seedSessions,
+  seedSettings,
+} from './fixtures/seed';
+import { elementLanded } from './fixtures/landed';
 
 // KAN-698. A double-click on a button that saves or opens acts once. Before,
 // each click acted: Currently open's row Save made two identical sessions, and
@@ -292,4 +298,152 @@ test("a double-click on the session header's Replace is one Undo step", async ({
 
   await page.getByRole('button', { name: 'Undo' }).first().click();
   await expect.poll(tabsOfTrip).toEqual(['One']);
+});
+
+// ---- The double-click that draws a row's actions (KAN-839) ---------------------
+
+const KYOTO = buildSession({
+  tabGroupId: 's2',
+  title: 'Kyoto',
+  windowCount: 1,
+  tabCount: 1,
+  windows: TRIP.windows,
+});
+
+// What a press would change: the sessions' tabs. Selection is not one of them.
+const savedTabs = (page: Page) =>
+  page.evaluate(() =>
+    (
+      JSON.parse(localStorage.getItem('tabContainerData') ?? '{}') as {
+        tabGroups?: {
+          title: string;
+          windows: { tabs: { title: string }[] }[];
+        }[];
+      }
+    ).tabGroups?.map(
+      (g) =>
+        `${g.title}: ${g.windows.flatMap((w) => w.tabs.map((t) => t.title))}`
+    )
+  );
+
+// Its second click only, so it can wait for the strip the first click drew: the
+// real interval is too short to read what is under the pointer in between.
+async function secondClickAt(page: Page, x: number, y: number) {
+  await page.evaluate(() =>
+    document.addEventListener(
+      'click',
+      (e) => {
+        const button =
+          e.target instanceof Element
+            ? e.target.closest('[data-row-actions] > *')
+            : null;
+        document.documentElement.dataset.secondClick = `${e.detail} ${button?.getAttribute('aria-label')}`;
+      },
+      { capture: true, once: true }
+    )
+  );
+  await page.mouse.move(x, y);
+  await page.mouse.down({ clickCount: 2 });
+  await page.mouse.up({ clickCount: 2 });
+  return page.evaluate(() => document.documentElement.dataset.secondClick);
+}
+
+const windowCount = (worker: Worker) =>
+  worker.evaluate(async () => (await chrome.windows.getAll()).length);
+
+// Switch's is row-actions.spec.ts: a press there is a dialog, not a count.
+for (const name of ['Open', 'Replace'] as const) {
+  test(`a double-click that selects a row presses nothing of the ${name} drawn under it`, async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await seedSessions(context, {
+      ...buildContainer([TRIP, KYOTO]),
+      selectedTabGroupId: 's1',
+    });
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 790, height: 550 });
+    await page.goto(`chrome-extension://${extensionId}/index.html`);
+    const sessions = page.locator('[data-pane="sessions"]');
+    // Where the button will be: the shown row's strip, at the other row's height.
+    const shownButton = await sessions
+      .getByRole('button', { name, exact: true })
+      .boundingBox();
+    const kyoto = await sessions
+      .getByRole('button', { name: 'Kyoto', exact: true })
+      .boundingBox();
+    if (shownButton === null || kyoto === null) throw new Error('no row boxes');
+    const x = shownButton.x + shownButton.width / 2;
+    const y = kyoto.y + kyoto.height / 2;
+    const before = await savedTabs(page);
+    const windows = await windowCount(serviceWorker);
+
+    await page.mouse.click(x, y);
+    await expect(
+      sessions
+        .getByRole('button', { name: 'Kyoto', exact: true })
+        .locator('xpath=..')
+        .locator('[data-row-actions]')
+    ).toBeVisible();
+
+    // PREMISE: the second click is one, and it reached the button.
+    expect(await secondClickAt(page, x, y)).toBe(`2 ${name}`);
+
+    // And no late press.
+    await page.waitForTimeout(1000);
+    expect(await savedTabs(page)).toEqual(before);
+    expect(await windowCount(serviceWorker)).toBe(windows);
+
+    // CONTROL: a click of its own there is a press. Open's is the one a count sees.
+    if (name === 'Open') {
+      await page.mouse.click(x, y);
+      await expect.poll(() => windowCount(serviceWorker)).toBe(windows + 1);
+    }
+  });
+}
+
+test('a double-click on a selected folded row does no more than peek', async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  await seedSessions(context, {
+    ...buildContainer([TRIP, KYOTO]),
+    selectedTabGroupId: 's1',
+  });
+  await seedSettings(context, { foldSavedSessionInTabView: true });
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+  const row = page
+    .locator('[data-pane="sessions"]')
+    .getByRole('button', { name: 'Trip', exact: true });
+  const detail = page.locator('[data-pane="detail"]');
+  // PREMISE: folded, so nothing is shown and the row has no actions yet.
+  await expect(row).toBeVisible();
+  await expect(detail).toHaveCount(0);
+  const strip = row.locator('xpath=..').locator('[data-row-actions]');
+  await expect(strip).toHaveCount(0);
+
+  const box = await row.boundingBox();
+  if (box === null) throw new Error('no row box');
+  // The row's right end, where Replace, the last of its actions, will be drawn.
+  const x = box.x + box.width - 24;
+  const y = box.y + box.height / 2;
+  const before = await savedTabs(page);
+  const windows = await windowCount(serviceWorker);
+
+  await page.mouse.click(x, y);
+  await expect(strip).toBeVisible();
+  await elementLanded(strip, 'ancestors');
+
+  // PREMISE: the second click is one, and it reached the button.
+  expect(await secondClickAt(page, x, y)).toBe('2 Replace');
+
+  // The peek, and nothing else: no late press.
+  await page.waitForTimeout(1000);
+  await expect(detail).toBeVisible();
+  expect(await savedTabs(page)).toEqual(before);
+  expect(await windowCount(serviceWorker)).toBe(windows);
 });
