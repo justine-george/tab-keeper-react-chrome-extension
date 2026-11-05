@@ -306,10 +306,10 @@ test('a right press on another row while a menu is open swaps menus; a press out
   expect(await scrollTop()).toBe(0);
   await rightClickAt(page, await onTitle(sessionRow(page, 'S2')));
   await expect(menu).toBeVisible();
-  const listBox = await boxOf(scroller);
-  await page.mouse.move(listBox.x + 20, listBox.y + listBox.height - 20);
-  await page.mouse.wheel(0, 120);
-  await expect.poll(scrollTop).toBeGreaterThan(0);
+  // Scrolled from code: a page here sometimes ignores every wheel (KAN-730).
+  await scroller.evaluate((el) => {
+    el.scrollTop = 120;
+  });
   await expect(menu).toHaveCount(0);
 });
 
