@@ -29,6 +29,7 @@ import {
   selectVisibleTabGroups,
 } from '../../../utils/functions/local';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
+import { keepSavedMatchSelected } from '../../../redux/keepSavedMatchSelected';
 import { useIsOpenBlockedByTour } from '../../../hooks/useIsOpenBlockedByTour';
 import { sessionOpenLabelKey } from '../openWhere';
 import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
@@ -257,6 +258,7 @@ export default function HeroContainerRight() {
     setEditingTabGroupId(null);
     if (selectedTabGroup.title !== editableTitle) {
       dispatch(updateTabGroupTitle({ tabGroupId, editableTitle }));
+      dispatch(keepSavedMatchSelected(searchText));
     }
   };
 

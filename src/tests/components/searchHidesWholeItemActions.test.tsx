@@ -336,19 +336,16 @@ describe('Review Focus 1 and 3', () => {
     ).toBeInTheDocument();
   });
 
-  // KAN-496. Still on body: the header unmounts for one commit until the list selects the next match.
-  test.fails(
-    'renaming the selected session out of the match leaves focus on the next match title',
-    async () => {
-      await renameAlphaOutOfTheMatch();
+  // KAN-496. The next match is selected in the rename's own update, so the header never goes.
+  test('renaming the selected session out of the match leaves focus on the next match title', async () => {
+    await renameAlphaOutOfTheMatch();
 
-      expect(document.activeElement).toBe(
-        await screen.findByRole('button', {
-          name: 'Rename session: Research beta',
-        })
-      );
-    }
-  );
+    expect(document.activeElement).toBe(
+      await screen.findByRole('button', {
+        name: 'Rename session: Research beta',
+      })
+    );
+  });
 
   const twoSessionsByTab = (store: RenderWithProvidersResult['store']) => {
     store.dispatch(setHasTabGroupsPermission(false));

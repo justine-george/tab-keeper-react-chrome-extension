@@ -54,6 +54,8 @@ interface OpenNowRailProps {
   // The rail's button. The caller holds it so an unfold that brings the rail
   // back can focus it (OpenNowColumn).
   buttonRef: RefObject<HTMLButtonElement>;
+  // The rail goes with focus inside it, for a reason other than its own buttons.
+  onGoneWithFocus: () => void;
   // The search field's text (KAN-330 O14). Held by OpenNowColumn, above the
   // pane ↔ drawer swap, so a resize or a drawer close keeps it.
   searchText: string;
@@ -81,6 +83,7 @@ export default function OpenNowRail({
   windows,
   foldAction,
   buttonRef,
+  onGoneWithFocus,
   searchText,
   onSearchTextChange,
   searchInputRef,
@@ -228,6 +231,13 @@ export default function OpenNowRail({
 
   // KAN-820 E. A saved carry resting on the rail springs the drawer out.
   const railRef = useRef<HTMLDivElement>(null);
+  // Before the DOM goes, so focus can still be read inside it.
+  useLayoutEffect(() => {
+    const rail = railRef.current;
+    return () => {
+      if (rail?.contains(document.activeElement)) onGoneWithFocus();
+    };
+  }, [onGoneWithFocus]);
   const { isTarget } = useRailSpring({
     railRef,
     drawerRef,

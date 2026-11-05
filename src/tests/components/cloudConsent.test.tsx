@@ -48,6 +48,7 @@ import {
   initialState as settingsInitial,
   settingsDataStateSlice,
   declineCloudConsent,
+  hydrateSettingsFromOtherPage,
   setDefaultView,
   toggleAutoSync,
   type SettingsData,
@@ -175,6 +176,51 @@ describe('who is asked, and which screen (KAN-259)', () => {
     await waitFor(() => expect(mocks.ensureCloudSession).toHaveBeenCalled());
     expect(store.getState().globalState.isCloudConsentModalOpen).toBe(false);
     expect(consentModal()).toBeNull();
+  });
+});
+
+// KAN-296. Two pages can show the question; the second must not overwrite the first's answer.
+describe('an answer from another page', () => {
+  const renderAsked = () =>
+    renderWithProviders(<CloudConsentModal />, {
+      seedStore: (s) =>
+        s.dispatch(openCloudConsentModal({ variant: 'existing' })),
+    });
+  const asked = () =>
+    screen.queryByRole('dialog', {
+      name: 'Your sessions are currently synced',
+    });
+
+  test('closes the open question and leaves that answer as it is', async () => {
+    const { store } = await renderAsked();
+    expect(asked()).toBeInTheDocument();
+
+    act(() => {
+      store.dispatch(
+        hydrateSettingsFromOtherPage({
+          ...store.getState().settingsDataState,
+          cloudConsent: 'declined',
+        })
+      );
+    });
+
+    expect(asked()).not.toBeInTheDocument();
+    expect(store.getState().settingsDataState.cloudConsent).toBe('declined');
+  });
+
+  test('CONTROL: another setting from that page leaves the question open', async () => {
+    const { store } = await renderAsked();
+
+    act(() => {
+      store.dispatch(
+        hydrateSettingsFromOtherPage({
+          ...store.getState().settingsDataState,
+          skipDuplicateTabs: true,
+        })
+      );
+    });
+
+    expect(asked()).toBeInTheDocument();
   });
 });
 

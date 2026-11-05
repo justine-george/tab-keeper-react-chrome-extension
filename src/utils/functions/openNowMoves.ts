@@ -703,6 +703,8 @@ export async function moveOpenGroup(
 export interface OpenNowDrop {
   kind: 'tab' | 'group' | 'sort' | 'groupSort' | 'groupOrder';
   moved: MovedTabs;
+  // A window sort's Tab Keeper pages, where they stood: its moves shift them (KAN-745).
+  pagesBefore?: readonly { tabId: number; index: number }[];
 }
 
 // The kinds that reorder one window: they never change window, and a refused one is told as a sort.
@@ -1016,7 +1018,12 @@ async function moveToBefore(
     const windowId = drop.moved[0]?.before.windowId;
     if (windowId === undefined) return 'couldNotRun';
     const ordered = await applyLiveOrder(windowId, orderBeforeSort(records));
-    return ordered ? 'done' : 'couldNotRun';
+    if (!ordered) return 'couldNotRun';
+    // Not a reason to fail the step: the tabs the user sorted are back.
+    for (const { tabId, index } of drop.pagesBefore ?? []) {
+      await attempt(() => chrome.tabs.move(tabId, { index }));
+    }
+    return 'done';
   }
   // KAN-746. A group sort moves no tab out of its group, so the members' order is the whole run.
   if (drop.kind === 'groupSort') {
