@@ -457,7 +457,7 @@ describe('sortOpenWindow', () => {
     expect(await strip()).toEqual(MOCK_STRIP);
   });
 
-  test('the Tab Keeper page is never moved or recorded, and keeps its group', async () => {
+  test('a sort neither moves nor records the Tab Keeper page, which keeps its group; Undo puts it back', async () => {
     handle = setupChromeFake({
       windows: [
         {
@@ -486,7 +486,7 @@ describe('sortOpenWindow', () => {
 
     await runLiveStep(drop, 'undo', true);
 
-    expect(await strip()).toEqual(['2', '1', '3', '4g5', '5g5', '6']);
+    expect(await strip()).toEqual(['1', '2', '3', '4g5', '5g5', '6']);
   });
 
   test('a pinned Tab Keeper page stays pinned and in the pinned run', async () => {

@@ -17,7 +17,11 @@ export interface LiveStep {
 function writable(step: LiveStep) {
   return {
     id: step.id,
-    drop: { kind: step.drop.kind, moved: [...step.drop.moved] },
+    drop: {
+      kind: step.drop.kind,
+      moved: [...step.drop.moved],
+      pagesBefore: step.drop.pagesBefore && [...step.drop.pagesBefore],
+    },
   };
 }
 

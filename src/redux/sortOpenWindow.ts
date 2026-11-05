@@ -116,7 +116,12 @@ export async function sortOpenWindow(
   if (after === null) return null;
   const moved = sortRecord(before, after, looks);
   if (!changedAnyPlace(moved)) return null;
-  return { kind: 'sort', moved };
+  const pagesBefore = before.flatMap((tab) =>
+    tab.id !== undefined && isTabKeeperPage(tab)
+      ? [{ tabId: tab.id, index: tab.index }]
+      : []
+  );
+  return { kind: 'sort', moved, pagesBefore };
 }
 
 // The Open now menu's action: sorts, keeps the sort as a step in the undo history (KAN-744 R1), and says so with an Undo for that step, only when something moved.
