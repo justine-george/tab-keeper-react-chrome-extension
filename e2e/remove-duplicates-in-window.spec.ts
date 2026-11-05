@@ -237,6 +237,7 @@ test('a group removes its own repeat and leaves the copy outside it', async ({
     .click();
   // KAN-746: guide, tram, guide is out of site order, so Sort follows Copy all links and Rename (KAN-805).
   await expect(page.getByRole('menuitem')).toHaveText([
+    /Open in new window$/,
     /Copy all links$/,
     /Rename group$/,
     /Sort tabs by site$/,

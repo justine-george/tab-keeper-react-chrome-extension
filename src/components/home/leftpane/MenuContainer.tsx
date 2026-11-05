@@ -47,6 +47,7 @@ import {
   type SyncKind,
 } from '../../settings/rightpane/Account/describeSyncState';
 import { isTabView } from '../../../utils/functions/viewMode';
+import { useThisWindowKind } from '../useThisWindowKind';
 import { sessionWhen } from '../../../utils/functions/sessionDate';
 import { useToday } from '../../../hooks/useToday';
 import { requestTabView } from '../../../utils/functions/popOut';
@@ -109,6 +110,7 @@ export default function MenuContainer() {
   );
 
   const COLORS = useThemeColors();
+  const thisWindow = useThisWindowKind();
   const isFullViewCalloutOpen = useSelector(
     (state: RootState) => state.globalState.isFullViewCalloutOpen
   );
@@ -411,8 +413,9 @@ export default function MenuContainer() {
           button opens or focuses, so a copy of itself there has nothing to
           do. Sits LEFT of Sort -- Justine's mockup measured the row with it
           first -- and sends a fire-and-forget message rather than acting
-          directly; see handleClickOpenInTab above for why. */}
-        {!isTabView() && (
+          directly; see handleClickOpenInTab above for why. KAN-923. Absent in
+          an incognito window too: Chrome would open the page in a normal one. */}
+        {!isTabView() && !thisWindow?.incognito && (
           <span
             data-tour-anchor="expand"
             css={css`

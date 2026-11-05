@@ -49,6 +49,8 @@ import {
   switchToOpenCopy,
 } from '../../../utils/functions/openSavedTab';
 import { AppDispatch, RootState } from '../../../redux/store';
+import type { CarriedPick } from '../../../redux/carriedItem';
+import { openSavedInNewWindow } from '../../../redux/openSavedInNewWindow';
 import {
   resolveTabUrl,
   resolveFaviconUrl,
@@ -350,6 +352,20 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
       : [];
   };
 
+  // KAN-923. The menu has no dimmed item, so the tour leaves it out, as a saved tab's Open.
+  const newWindowRow = (pick: CarriedPick): OverflowMenuItem[] =>
+    isOpenBlocked
+      ? []
+      : [
+          {
+            key: 'openNewWindow',
+            label: t('Open in new window'),
+            icon: openWayIcon('new-window'),
+            onSelect: () =>
+              dispatch(openSavedInNewWindow(tabGroupId, pick, t('Go to URL'))),
+          },
+        ];
+
   // KAN-708. The window's items: the one source for its ⋮ and its right-click menu.
   const savedWindowMenuItems: OverflowMenuItem[] = [
     // KAN-892. First under the buttons. The menu has no dimmed item, so the tour leaves it out, as a saved tab's Open.
@@ -450,6 +466,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   // KAN-708. A group's items: the one source for its ⋮ and its right-click menu.
   const savedGroupMenuItems = (groupId: string): OverflowMenuItem[] => [
+    ...newWindowRow({ kind: 'group', windowId, groupId }),
     // KAN-783. First, as on the window.
     copyAllLinksItem(
       () => {
@@ -1112,7 +1129,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     });
   };
 
-  // KAN-708. A tab's items: Open in new tab (unless the tour blocks it), Rename tab (KAN-824; not while searching), Copy link, Delete tab.
+  // KAN-708. A tab's items: its opens (unless the tour blocks them), Rename tab (KAN-824; not while searching), Copy link, Delete tab.
   const tabMenu = useRowContextMenu({
     kind: 'savedTab',
     ariaLabel: (tabId) => {
@@ -1133,6 +1150,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                 onSelect: () => openTabCopy(tab.url, true),
               },
             ]),
+        ...newWindowRow({ kind: 'tab', windowId, tabId }),
         ...(isSearching
           ? []
           : [

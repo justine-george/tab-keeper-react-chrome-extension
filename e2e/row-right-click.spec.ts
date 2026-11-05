@@ -426,6 +426,7 @@ test('Copy link on a saved tab puts the tidied address on the clipboard and toas
   await rightClickAt(page, await onTitle(tabRow(page, 'w1-t0')));
   await expectItems(page, [
     'Open in new tab',
+    'Open in new window',
     'Rename tab',
     'Copy link',
     'Delete tab',
