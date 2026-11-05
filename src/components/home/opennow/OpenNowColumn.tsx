@@ -1,4 +1,4 @@
-import { memo, useEffect, useId, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -61,6 +61,11 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
     (showRail ? railButtonRef.current : headingRef.current)?.focus();
   }, [showRail]);
 
+  // KAN-306. A resize or another page swapped the rail away with focus inside it.
+  const handOnFocus = useCallback(() => {
+    focusAfterSwap.current = true;
+  }, []);
+
   const setFolded = (fold: boolean) => {
     focusAfterSwap.current = isNarrow || showRail;
     runPaneMotion(
@@ -94,6 +99,7 @@ function OpenNowColumn({ folded }: OpenNowColumnProps) {
         windows={windows}
         foldAction={foldAction}
         buttonRef={railButtonRef}
+        onGoneWithFocus={handOnFocus}
         searchText={searchText}
         onSearchTextChange={setSearchText}
         searchInputRef={searchInputRef}

@@ -84,3 +84,37 @@ test('the ✕ closes the drawer and hands focus back to the rail button', async 
   await expect(rail).toBeFocused();
   await expect(rail).toHaveAttribute('aria-expanded', 'false');
 });
+
+// KAN-306. A drawer that goes without a press: focus was inside it, and must not fall to the page.
+test('widening past 1100px with focus in the drawer moves focus to the heading', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await context.newPage();
+  const { drawer } = await openDrawer(page, extensionId);
+  await drawer.getByRole('button', { name: CLOSE }).focus();
+
+  await page.setViewportSize({ width: 1250, height: 700 });
+
+  await expect(
+    page.getByRole('heading', { name: 'Currently open' })
+  ).toBeFocused();
+});
+
+test('CONTROL: widening with focus outside the drawer leaves focus alone', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1024, height: 700 });
+  await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
+  const field = page.getByPlaceholder('Name the new session');
+  await field.focus();
+
+  await page.setViewportSize({ width: 1250, height: 700 });
+
+  await expect(
+    page.locator('[data-pane="open-now"]').getByRole('heading')
+  ).toBeVisible();
+  await expect(field).toBeFocused();
+});

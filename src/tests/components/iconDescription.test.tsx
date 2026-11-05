@@ -142,6 +142,7 @@ describe('the other controls with a tooltip follow the same rule', () => {
         windows={null}
         foldAction={{ icon: 'undo', label: 'Fold', onClick: noop }}
         buttonRef={createRef()}
+        onGoneWithFocus={noop}
         searchText=""
         onSearchTextChange={noop}
         searchInputRef={createRef()}
