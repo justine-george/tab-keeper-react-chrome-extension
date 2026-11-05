@@ -421,7 +421,10 @@ export function generatePlaceholderURL(
   goToURLText: string
 ) {
   const safeTitle = escapeHtml(title);
-  const safeFaviconURL = escapeHtml(faviconURL);
+  // KAN-709. A data: page may not load any other scheme's icon; Chrome logs the refusal.
+  const safeFaviconURL = /^(https?|data):/i.test(faviconURL)
+    ? escapeHtml(faviconURL)
+    : '';
   const safeUrl = escapeHtml(url);
   const safeGoToURLText = escapeHtml(goToURLText);
 
