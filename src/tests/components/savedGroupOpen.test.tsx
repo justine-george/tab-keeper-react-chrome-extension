@@ -277,7 +277,7 @@ describe('the menu’s Open', () => {
     );
     const menu = document.querySelector<HTMLElement>('[data-row-menu]');
     if (!menu) throw new Error('no row menu');
-    fireEvent.click(within(menu).getByRole('menuitem', { name: /^Open/ }));
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Open' }));
 
     await vi.waitFor(() => expect(r.chrome.createdTabs).toHaveLength(2));
     await settle();

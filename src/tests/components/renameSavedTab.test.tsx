@@ -124,11 +124,12 @@ afterEach(() => {
 });
 
 describe('the saved tab menu offers Rename tab (KAN-824)', () => {
-  test('after Open in new tab: open, rename, copy, delete', async () => {
+  test('after the opens: opens, rename, copy, delete', async () => {
     await renderSaved();
     fireEvent.contextMenu(row(PAGE));
     expect(labels()).toEqual([
       'Open in new tab',
+      'Open in new window',
       'Rename tab',
       'Copy link',
       'Delete tab',
@@ -153,7 +154,12 @@ describe('the saved tab menu offers Rename tab (KAN-824)', () => {
       store.dispatch(setSearchInputText('Alex'));
     });
     fireEvent.contextMenu(row(PAGE));
-    expect(labels()).toEqual(['Open in new tab', 'Copy link', 'Delete tab']);
+    expect(labels()).toEqual([
+      'Open in new tab',
+      'Open in new window',
+      'Copy link',
+      'Delete tab',
+    ]);
   });
 });
 

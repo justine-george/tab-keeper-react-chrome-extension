@@ -196,6 +196,7 @@ describe('the group ⋮ (KAN-616, 2A)', () => {
     const menu = await openGroupMenu(user);
     // KAN-746: guide, tram, guide is out of site order, so Sort follows Copy all links and Rename (KAN-805).
     expect(items(menu)).toEqual([
+      'Open in new window',
       'Copy all links',
       'Rename group',
       'Sort tabs by site',

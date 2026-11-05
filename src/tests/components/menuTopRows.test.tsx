@@ -252,7 +252,12 @@ describe('a saved window and its groups', () => {
       'Rename group',
     ]);
     // Already in site order, so no Sort tabs by site.
-    expect(listKeys(rowMenu())).toEqual(['copy', 'ungroup', 'delete']);
+    expect(listKeys(rowMenu())).toEqual([
+      'openNewWindow',
+      'copy',
+      'ungroup',
+      'delete',
+    ]);
   });
 
   test('full view: the group row is Open · Rename', async () => {
@@ -334,7 +339,13 @@ describe('a saved window and its groups', () => {
     );
     const menu = screen.getByRole('menu');
 
-    expect(listKeys(menu)).toEqual(['copy', 'rename', 'ungroup', 'delete']);
+    expect(listKeys(menu)).toEqual([
+      'openNewWindow',
+      'copy',
+      'rename',
+      'ungroup',
+      'delete',
+    ]);
     await user.click(
       within(menu).getByRole('menuitem', { name: 'Rename group' })
     );

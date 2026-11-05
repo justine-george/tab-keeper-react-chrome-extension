@@ -124,7 +124,7 @@ export async function isIncognitoAllowed(): Promise<boolean> {
   }
 }
 
-function withoutIncognito(spec: WindowSpec): WindowSpec {
+export function withoutIncognito(spec: WindowSpec): WindowSpec {
   const normal = { ...spec };
   delete normal.incognito;
   return normal;

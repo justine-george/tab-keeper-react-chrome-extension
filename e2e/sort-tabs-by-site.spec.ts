@@ -786,15 +786,19 @@ for (const view of VIEWS) {
       });
 
       await openGroupMenu(page);
-      // KAN-783. Copy all links leads every window and group menu.
+      // KAN-923. Open in new window leads a group's menu.
       await expect(page.getByRole('menuitem').nth(0)).toHaveAccessibleName(
+        'Open in new window'
+      );
+      // KAN-783. Then Copy all links, as in every window and group menu.
+      await expect(page.getByRole('menuitem').nth(1)).toHaveAccessibleName(
         'Copy all links'
       );
       // KAN-805. Then Rename.
-      await expect(page.getByRole('menuitem').nth(1)).toHaveAccessibleName(
+      await expect(page.getByRole('menuitem').nth(2)).toHaveAccessibleName(
         'Rename group'
       );
-      await expect(page.getByRole('menuitem').nth(2)).toHaveAccessibleName(
+      await expect(page.getByRole('menuitem').nth(3)).toHaveAccessibleName(
         'Sort tabs by site'
       );
       await sortItem(page).click();

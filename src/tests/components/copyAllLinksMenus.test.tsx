@@ -487,13 +487,13 @@ describe('saved windows and groups', () => {
     );
   });
 
-  test("a saved group's ⋮ leads with Copy all links, and it copies only the group's tabs", async () => {
+  test("a saved group's ⋮ has Copy all links right after Open in new window (KAN-923), and it copies only the group's tabs", async () => {
     const user = userEvent.setup();
     const writeText = clipboard(() => Promise.resolve());
     const { store } = await render();
 
     await user.click(groupMenuButton());
-    expect(menuKeys()[0]).toBe('copy');
+    expect(menuKeys().slice(0, 2)).toEqual(['openNewWindow', 'copy']);
     await chooseCopy(user);
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
