@@ -11,17 +11,26 @@ const box = (size: string) => css`
   height: ${size};
 `;
 
-// Material's "extension": Chrome's puzzle-piece button.
+// Chrome's puzzle-piece button, traced from a real toolbar (KAN-932): a square
+// outline, notched at the left, with solid bumps on the top and right.
 export function PuzzleGlyph({ size }: { size: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinejoin="round"
       aria-hidden="true"
       focusable="false"
       css={box(size)}
     >
-      <path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z" />
+      <path d="M3 5.2H18a1 1 0 0 1 1 1V21.4a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V17C3.6 16.5 5 15.6 5 13.8C5 12 3.6 11.1 2 10.6V6.2a1 1 0 0 1 1-1Z" />
+      <path
+        fill="currentColor"
+        stroke="none"
+        d="M7.6 5.2C7.8 2.8 9 1.2 10.5 1.2C12 1.2 13.2 2.8 13.4 5.2ZM19 11C21.3 11.2 23 12.4 23 13.8C23 15.2 21.3 16.4 19 16.6Z"
+      />
     </svg>
   );
 }

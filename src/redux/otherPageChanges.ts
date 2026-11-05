@@ -24,6 +24,7 @@ import {
   loadFromLocalStorage,
 } from '../utils/functions/local';
 import { asTheme } from '../utils/constants/theme';
+import { asToolbarIcon } from '../utils/functions/toolbarIcon';
 import { readLocalSessions } from '../utils/functions/localSessions';
 import { noteStoredSettingsSeen } from '../utils/functions/localSettings';
 import {
@@ -118,6 +119,11 @@ export const applyOtherPageSettings =
         'listWidth' in incoming
           ? asPaneWidth(incoming.listWidth)
           : current.listWidth,
+      // KAN-932. Guarded like the widths; absent means an older page, keep ours.
+      toolbarIcon:
+        'toolbarIcon' in incoming
+          ? asToolbarIcon(incoming.toolbarIcon)
+          : current.toolbarIcon,
       // KAN-459. A flag another page wrote; absent means an older page, keep ours.
       pinTabKeeperInNewWindows:
         'pinTabKeeperInNewWindows' in incoming

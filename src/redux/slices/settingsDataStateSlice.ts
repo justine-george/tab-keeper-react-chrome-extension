@@ -5,6 +5,10 @@ import {
   type DefaultView,
 } from '../../utils/functions/defaultView';
 import {
+  asToolbarIcon,
+  type ToolbarIcon,
+} from '../../utils/functions/toolbarIcon';
+import {
   asFirstRun,
   asRunStep,
   nextWelcomeShows,
@@ -181,6 +185,8 @@ export interface SettingsData {
   firstRun: FirstRun | null;
   // Set when an upgrader's What's new Hello first shows; no later open starts one.
   isWhatsNew2Seen: boolean;
+  // KAN-932. Mirrored to chrome.storage.local for the service worker.
+  toolbarIcon: ToolbarIcon;
   // KAN-459. Windows Tab Keeper opens or switches start with a pinned Tab Keeper tab.
   pinTabKeeperInNewWindows: boolean;
   // KAN-635. What the save button and Enter save; the other scope is in the ⋮ menu.
@@ -421,6 +427,7 @@ const defaultSettings: SettingsData = {
   foldOpenNowInTabView: false,
   openNowWidth: null,
   listWidth: null,
+  toolbarIcon: 'colour',
   pinTabKeeperInNewWindows: false,
   defaultSaveScope: 'all-windows',
   copyLinksLayout: 'links-only',
@@ -447,6 +454,8 @@ export const initialState: SettingsData = {
   openNowWidth: asPaneWidth(settingsDataLocal.openNowWidth),
   // KAN-687. Guarded the same way.
   listWidth: asPaneWidth(settingsDataLocal.listWidth),
+  // KAN-932. Guarded: settingsDataLocal is unvalidated.
+  toolbarIcon: asToolbarIcon(settingsDataLocal.toolbarIcon),
   // KAN-459. Guarded: settingsDataLocal is unvalidated.
   pinTabKeeperInNewWindows: asFlag(settingsDataLocal.pinTabKeeperInNewWindows),
   // KAN-808. Guarded, and off beside a folded saved session: one fold at a time.
@@ -783,6 +792,11 @@ export const settingsDataStateSlice = createSlice({
       saveLocalSettings(state);
     },
 
+    setToolbarIcon: (state, action: PayloadAction<ToolbarIcon>) => {
+      state.toolbarIcon = action.payload;
+      saveLocalSettings(state);
+    },
+
     // Every start writes a new record, replacing any other.
     recordFirstRun: (state, action: PayloadAction<FirstRun>) => {
       state.firstRun = action.payload;
@@ -902,6 +916,7 @@ export const {
   markHadSavedSession,
   markPressedSaveAsPdf,
   setDefaultView,
+  setToolbarIcon,
   recordFirstRun,
   setFirstRunStep,
   setFirstRunSession,

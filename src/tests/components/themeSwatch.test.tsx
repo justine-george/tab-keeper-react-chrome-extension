@@ -49,7 +49,7 @@ const renderDisplay = () =>
 
 const swatch = (name: string) => screen.getByRole('button', { name });
 const tileOf = (name: string) =>
-  swatch(name).querySelector<HTMLElement>('[data-theme-tile]')!;
+  swatch(name).querySelector<HTMLElement>('[data-swatch-tile]')!;
 const bandOf = (name: string, band: string) =>
   tileOf(name).querySelector<HTMLElement>(`[data-theme-band="${band}"]`)!;
 
@@ -134,12 +134,12 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
 
     // The check: on the current tile only, hidden from the name it sits beside.
     const checks = NAMES.filter(
-      (n) => swatch(n).querySelector('[data-theme-check]') !== null
+      (n) => swatch(n).querySelector('[data-swatch-check]') !== null
     );
     expect(checks).toEqual(['Petal']);
     expect(
       swatch('Petal')
-        .querySelector('[data-theme-check]')
+        .querySelector('[data-swatch-check]')
         ?.closest('[aria-hidden="true"]')
     ).not.toBeNull();
   });
@@ -166,7 +166,7 @@ describe('the theme picker shows each theme as a miniature (KAN-237)', () => {
     // The tile comes first, the name second: the picture is what is looked
     // at, the word confirms it.
     const children = Array.from(button.children);
-    expect(children[0].querySelector('[data-theme-tile]')).not.toBeNull();
+    expect(children[0].querySelector('[data-swatch-tile]')).not.toBeNull();
     expect(children[1].textContent).toBe('Parchment');
   });
 });
@@ -183,7 +183,7 @@ describe('the theme picker spaces its tiles (KAN-247)', () => {
       'repeat(4, max-content)'
     );
     // CONTROL: the element read is the picker row, holding all seven.
-    expect(row.querySelectorAll('[data-theme-tile]').length).toBe(7);
+    expect(row.querySelectorAll('[data-swatch-tile]').length).toBe(7);
   });
 });
 

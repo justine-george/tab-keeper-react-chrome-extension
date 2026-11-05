@@ -369,14 +369,14 @@ test.describe('surfaces', () => {
     const page = await openPopup(context, extensionId);
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('button', { name: 'Display', exact: true }).click();
-    const check = page.locator('[data-theme-check]').first();
+    const check = page.locator('[data-swatch-check]').first();
     await expect(check).toBeVisible();
     expect(await radius(check), "the theme check's radius").toBe('4px');
     expect(await shape(check), "the theme check's corner-shape").toBe(ROUND);
     // KAN-904. The tile is a little popup: a panel's corner, and its selected
     // row set in 3px with its own corners, as the app's highlight is.
     await expectCorners(
-      page.locator('[data-theme-tile]').first(),
+      page.locator('[data-swatch-tile]').first(),
       '12px',
       'a theme tile'
     );
@@ -386,7 +386,7 @@ test.describe('surfaces', () => {
       "a theme tile's selected row"
     );
     const inset = await page
-      .locator('[data-theme-tile]')
+      .locator('[data-swatch-tile]')
       .first()
       .evaluate((tile) => {
         const t = tile.getBoundingClientRect();

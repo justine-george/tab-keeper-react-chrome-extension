@@ -470,5 +470,10 @@
   "Save your tabs here whenever you like.": "你隨時都可以在這裡儲存分頁。",
   "Back to Tab Keeper": "返回 Tab Keeper",
   "Going back loses your edits. Save as PDF first to keep them.": "返回會遺失所做的編輯。請先儲存為 PDF 以保留它們。",
-  "Stay": "留下"
+  "Stay": "留下",
+  "Toolbar icon": "工具列圖示",
+  "ToolbarIconColour": "彩色",
+  "ToolbarIconLight": "淺色",
+  "ToolbarIconDark": "深色",
+  "ToolbarIconHelp": "變更 Chrome 工具列中的圖示。"
 }

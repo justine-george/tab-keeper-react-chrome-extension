@@ -39,6 +39,12 @@ import {
   openIntoWindow,
   type OpenIntoWindowAnswer,
 } from './utils/functions/openIntoWindow';
+import {
+  reapplyToolbarIcon,
+  TOOLBAR_ICON_KEY,
+  type ToolbarIconApi,
+  type ToolbarIconStore,
+} from './utils/functions/toolbarIcon';
 import { readUiLanguage } from './utils/functions/uiLanguage';
 import { recordWhatsNewSince } from './utils/functions/whatsNewSince';
 import {
@@ -108,6 +114,22 @@ chrome.runtime.onInstalled.addListener(reapplyDefaultViewNow);
 Object.assign(globalThis, {
   tabKeeperDefaultViewApplied: () => defaultViewApplied,
 });
+
+// KAN-932. The same three moments as Default view above.
+const toolbarIconStore: ToolbarIconStore = {
+  read: () =>
+    chrome.storage.local
+      .get(TOOLBAR_ICON_KEY)
+      .then((items) => items[TOOLBAR_ICON_KEY]),
+};
+const chromeIconApi: ToolbarIconApi = {
+  setIcon: (details) => chrome.action.setIcon(details),
+};
+const reapplyToolbarIconNow = () =>
+  void reapplyToolbarIcon(toolbarIconStore, chromeIconApi);
+reapplyToolbarIconNow();
+chrome.runtime.onStartup.addListener(reapplyToolbarIconNow);
+chrome.runtime.onInstalled.addListener(reapplyToolbarIconNow);
 
 // KAN-642. Chrome keeps the URL across restarts; it changes only on install/update or a language change.
 const applyUninstallSurvey = uninstallSurveyInOrder(

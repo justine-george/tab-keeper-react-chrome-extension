@@ -487,5 +487,10 @@
   "Save your tabs here whenever you like.": "जब चाहें, अपने टैब यहाँ सहेजें।",
   "Back to Tab Keeper": "Tab Keeper पर वापस जाएं",
   "Going back loses your edits. Save as PDF first to keep them.": "वापस जाने पर आपके बदलाव खो जाएंगे। उन्हें रखने के लिए पहले PDF के रूप में सहेजें।",
-  "Stay": "रुकें"
+  "Stay": "रुकें",
+  "Toolbar icon": "टूलबार आइकन",
+  "ToolbarIconColour": "रंगीन",
+  "ToolbarIconLight": "हल्का",
+  "ToolbarIconDark": "गहरा",
+  "ToolbarIconHelp": "Chrome के टूलबार में आइकन बदलता है।"
 }

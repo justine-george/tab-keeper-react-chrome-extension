@@ -504,5 +504,10 @@
   "Save your tabs here whenever you like.": "Guarda tus pestañas aquí cuando quieras.",
   "Back to Tab Keeper": "Volver a Tab Keeper",
   "Going back loses your edits. Save as PDF first to keep them.": "Si vuelves, perderás tus cambios. Guarda primero como PDF para conservarlos.",
-  "Stay": "Quedarse"
+  "Stay": "Quedarse",
+  "Toolbar icon": "Icono de la barra de herramientas",
+  "ToolbarIconColour": "Color",
+  "ToolbarIconLight": "Claro",
+  "ToolbarIconDark": "Oscuro",
+  "ToolbarIconHelp": "Cambia el icono en la barra de herramientas de Chrome."
 }
