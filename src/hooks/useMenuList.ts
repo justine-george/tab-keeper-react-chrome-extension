@@ -41,6 +41,13 @@ export function useMenuList({
     if (isOpen) itemRefs.current[0]?.focus();
   }, [isOpen]);
 
+  // KAN-699. An item that goes while it holds focus leaves focus on the page, out of reach of Esc and the arrows.
+  useEffect(() => {
+    if (isOpen && document.activeElement === document.body) {
+      itemRefs.current[0]?.focus();
+    }
+  }, [isOpen, count]);
+
   useEffect(() => {
     if (!isOpen) return;
     const onPointerDown = (e: PointerEvent) => {
