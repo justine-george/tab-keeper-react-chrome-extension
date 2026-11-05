@@ -23,6 +23,7 @@ import { corners } from '../../styles/corners';
 import { ICON, RADIUS, TYPE } from '../../styles/scale';
 import { dialogButtonStyles } from './dialogButtons';
 import { dialogTitleSize } from './dialogTitleSize';
+import { dialogFitsWindow } from './dialogFit';
 
 const TITLE_ID = 'pin-guide-title';
 const WHY_ID = 'pin-guide-why';
@@ -111,7 +112,7 @@ export const PinGuideModal: React.FC = () => {
     padding: 20px;
     width: min(calc(100% - 64px), 820px);
     max-width: none;
-    max-height: none;
+    ${dialogFitsWindow(112)}
     background-color: ${COLORS.PRIMARY_COLOR};
     color: ${COLORS.LABEL_L1_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
