@@ -1,4 +1,4 @@
-// KAN-907. Draws Chrome's icons (public/icons/icon{16,32,48,128}.png) from TabKeeperMark, so they keep its shape.
+// KAN-907. Draws Chrome's icons (public/icons/icon{16,32,48,128}.png) from TabKeeperMark, so they keep its shape, and KAN-932's toolbar icons.
 // Run: node scripts/render_icons.mjs [outDir]
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -12,6 +12,7 @@ import { createServer } from 'vite';
 import { icon16Pixels } from './icon16_pixels.mjs';
 import { ICON_FILL, iconSvg } from './icon_palette.mjs';
 import { encodePng } from './png.mjs';
+import { TOOLBAR_INK, toolbar16Pixels, toolbarSvg } from './toolbar_icons.mjs';
 
 // 16 is pixelled by hand (icon16_pixels.mjs); the rest are drawn from the mark.
 const DRAWN = [32, 48, 128];
@@ -53,6 +54,20 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       const png = await page.screenshot({ omitBackground: true });
       writeFileSync(resolve(outDir, `icon${px}.png`), png);
       console.log(`icon${px}.png`);
+    }
+    // KAN-932. The toolbar's single-colour icons, 16 by hand and 32 drawn.
+    for (const [name, ink] of Object.entries(TOOLBAR_INK)) {
+      writeFileSync(
+        resolve(outDir, `toolbar-${name}-16.png`),
+        encodePng(toolbar16Pixels(ink))
+      );
+      await page.setViewportSize({ width: 32, height: 32 });
+      await page.setContent(
+        `<style>html,body{margin:0;background:transparent}svg{display:block;width:32px;height:32px}</style>${toolbarSvg(ink)}`
+      );
+      const png = await page.screenshot({ omitBackground: true });
+      writeFileSync(resolve(outDir, `toolbar-${name}-32.png`), png);
+      console.log(`toolbar-${name}`);
     }
   } finally {
     await browser.close();

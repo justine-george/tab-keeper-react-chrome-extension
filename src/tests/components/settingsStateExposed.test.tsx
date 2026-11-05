@@ -269,7 +269,7 @@ describe('the theme picker marks the active theme (KAN-88)', () => {
 
     const marked = swatches(container).filter((b) =>
       /(^|\s)2px(\s|$)/.test(
-        getComputedStyle(b.querySelector('[data-theme-tile]')!).borderWidth
+        getComputedStyle(b.querySelector('[data-swatch-tile]')!).borderWidth
       )
     );
 
@@ -282,7 +282,7 @@ describe('the theme picker marks the active theme (KAN-88)', () => {
     });
     const moved = swatches(container).filter((b) =>
       /(^|\s)2px(\s|$)/.test(
-        getComputedStyle(b.querySelector('[data-theme-tile]')!).borderWidth
+        getComputedStyle(b.querySelector('[data-swatch-tile]')!).borderWidth
       )
     );
     expect(moved).toHaveLength(1);

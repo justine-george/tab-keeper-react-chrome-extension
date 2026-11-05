@@ -487,5 +487,10 @@
   "Save your tabs here whenever you like.": "Speichern Sie Ihre Tabs hier, wann immer Sie möchten.",
   "Back to Tab Keeper": "Zurück zu Tab Keeper",
   "Going back loses your edits. Save as PDF first to keep them.": "Wenn Sie zurückgehen, gehen Ihre Änderungen verloren. Speichern Sie zuerst als PDF, um sie zu behalten.",
-  "Stay": "Bleiben"
+  "Stay": "Bleiben",
+  "Toolbar icon": "Symbol in der Symbolleiste",
+  "ToolbarIconColour": "Farbig",
+  "ToolbarIconLight": "Hell",
+  "ToolbarIconDark": "Dunkel",
+  "ToolbarIconHelp": "Ändert das Symbol in der Chrome-Symbolleiste."
 }

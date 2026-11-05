@@ -4,6 +4,11 @@ import { describe, expect, test } from 'vitest';
 import { ICON16_GRID, icon16Pixels } from './icon16_pixels.mjs';
 import { ICON_FILL, iconSvg } from './icon_palette.mjs';
 import { decodePng } from './png.mjs';
+import {
+  TOOLBAR_16_GRID,
+  TOOLBAR_INK,
+  toolbar16Pixels,
+} from './toolbar_icons.mjs';
 
 // KAN-907. Chrome's icons are the mark's shape with pick B's corners, in the icons' own colours.
 const GROUND = [0x87, 0xc6, 0x8e, 255];
@@ -89,5 +94,75 @@ describe('iconSvg', () => {
   });
   test('markup with no svg throws', () => {
     expect(() => iconSvg('<div></div>')).toThrow('rendered no <svg>');
+  });
+});
+
+// KAN-932. The toolbar's single-colour icons: pick S3, at Chrome's line weight.
+describe('the toolbar icon files', () => {
+  const file = (name, px) =>
+    decodePng(
+      readFileSync(
+        new URL(`../public/icons/toolbar-${name}-${px}.png`, import.meta.url)
+      )
+    );
+
+  test.each(Object.entries(TOOLBAR_INK))(
+    '%s 16 is the hand-pixelled grid, nothing else',
+    (name, ink) => {
+      const png = file(name, 16);
+      const want = toolbar16Pixels(ink);
+      expect([png.width, png.height]).toEqual([16, 16]);
+      for (let y = 0; y < 16; y++)
+        for (let x = 0; x < 16; x++)
+          expect(png.pixel(x, y)).toEqual(want[y][x]);
+    }
+  );
+
+  test.each(Object.keys(TOOLBAR_INK))(
+    '%s 32 fills its box and keeps the disk: cut corner, solid shutter, open label',
+    (name) => {
+      const png = file(name, 32);
+      expect([png.width, png.height]).toEqual([32, 32]);
+      const alpha = (x, y) => png.pixel(x, y)[3];
+      // Left, right, top and bottom edges all reach the box.
+      expect(alpha(0, 16)).toBeGreaterThan(200);
+      expect(alpha(31, 16)).toBeGreaterThan(200);
+      expect(alpha(14, 0)).toBeGreaterThan(200);
+      expect(alpha(16, 31)).toBeGreaterThan(200);
+      // The cut corner, top right, is clear.
+      expect(alpha(31, 0)).toBe(0);
+      // Shutter solid, the wall beside it clear.
+      expect(alpha(15, 6)).toBe(255);
+      expect(alpha(6, 6)).toBe(0);
+      // Label: a line, open inside.
+      expect(alpha(16, 19)).toBe(255);
+      expect(alpha(16, 25)).toBe(0);
+    }
+  );
+
+  test.each(Object.entries(TOOLBAR_INK))(
+    '%s 32 is one colour: only its edges fade',
+    (name, ink) => {
+      const png = file(name, 32);
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(ink.slice(i, i + 2), 16));
+      for (let y = 0; y < 32; y++)
+        for (let x = 0; x < 32; x++) {
+          const [pr, pg, pb, pa] = png.pixel(x, y);
+          // Off by one at most: the browser rounds through premultiplied alpha.
+          if (pa === 255) {
+            expect(Math.abs(pr - r)).toBeLessThanOrEqual(1);
+            expect(Math.abs(pg - g)).toBeLessThanOrEqual(1);
+            expect(Math.abs(pb - b)).toBeLessThanOrEqual(1);
+          }
+        }
+    }
+  );
+
+  test('the 16 grid keeps Chrome-like two pixel lines and the cut corner', () => {
+    expect(TOOLBAR_16_GRID).toHaveLength(16);
+    for (const row of TOOLBAR_16_GRID) expect(row).toHaveLength(16);
+    expect(TOOLBAR_16_GRID[0].slice(13)).toBe('...');
+    expect(TOOLBAR_16_GRID[8].startsWith('##.')).toBe(true);
+    expect(TOOLBAR_16_GRID[8].endsWith('.##')).toBe(true);
   });
 });

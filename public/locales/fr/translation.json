@@ -504,5 +504,10 @@
   "Save your tabs here whenever you like.": "Enregistrez vos onglets ici quand vous voulez.",
   "Back to Tab Keeper": "Revenir à Tab Keeper",
   "Going back loses your edits. Save as PDF first to keep them.": "Revenir fait perdre vos modifications. Enregistrez d’abord en PDF pour les garder.",
-  "Stay": "Rester"
+  "Stay": "Rester",
+  "Toolbar icon": "Icône de la barre d’outils",
+  "ToolbarIconColour": "Couleur",
+  "ToolbarIconLight": "Clair",
+  "ToolbarIconDark": "Sombre",
+  "ToolbarIconHelp": "Change l’icône dans la barre d’outils de Chrome."
 }

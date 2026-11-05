@@ -11,6 +11,7 @@ import { RecentlyDeleted } from './RecentlyDeleted';
 import ClickableTabKeeperMark from '../../common/ClickableTabKeeperMark';
 import HelpSettings from './HelpSettings';
 import ThemeSwatch from './ThemeSwatch';
+import ToolbarIconTiles from './ToolbarIconTiles';
 import { chromeLanguageOrder } from './languageOptions';
 import { pressedCellStyle } from '../../common/pressedCellStyle';
 import { slidingPairColors } from '../../common/slidingPairColors';
@@ -84,6 +85,7 @@ const SettingsDetailsContainer: React.FC = () => {
     color: ${COLORS.LABEL_L1_COLOR};
   `;
   const pinTabKeeperHelpId = useId();
+  const toolbarIconHelpId = useId();
   const defaultSaveHelpId = useId();
   const copyLinksHelpId = useId();
   const openSavedWindowsHelpId = useId();
@@ -244,6 +246,41 @@ const SettingsDetailsContainer: React.FC = () => {
               />
             ))}
           </div>
+        </div>
+
+        {/* KAN-932. The icon in Chrome's toolbar. */}
+        <div
+          data-settings-section
+          css={css`
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            padding-left: clamp(16px, 8%, 72px);
+            padding-right: clamp(16px, 8%, 72px);
+            width: 100%;
+            margin-top: 32px;
+          `}
+        >
+          <NormalLabel
+            value={t('Toolbar icon')}
+            size={TYPE.BODY}
+            color={COLORS.LABEL_L1_COLOR}
+          />
+          <div
+            role="group"
+            aria-label={t('Toolbar icon')}
+            css={css`
+              display: grid;
+              grid-template-columns: repeat(3, max-content);
+              gap: 14px;
+              margin-top: 8px;
+            `}
+          >
+            <ToolbarIconTiles describedBy={toolbarIconHelpId} />
+          </div>
+          <p id={toolbarIconHelpId} css={helpLineStyle}>
+            {t('ToolbarIconHelp')}
+          </p>
         </div>
 
         {/* KAN-587. 12-hour unless picked; every time in the app follows it. */}

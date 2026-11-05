@@ -133,6 +133,8 @@ export type ChromeSeed = {
   // leaves onUserSettingsChanged undefined (before Chrome 130).
   action?: {
     setPopupRejects?: boolean;
+    // KAN-932. setIcon rejects: the toolbar icon's failure path.
+    setIconRejects?: boolean;
     isOnToolbar?: boolean;
     getUserSettingsThrows?: boolean;
     // getUserSettings never settles: Chrome has not answered yet.
@@ -252,6 +254,8 @@ export type ChromeFakeHandle = {
   groupState(groupId: number): chrome.tabGroups.TabGroup | undefined;
   // Every chrome.action.setPopup popup, in call order (KAN-7).
   popupsSet: string[];
+  // Every chrome.action.setIcon path, in call order (KAN-932).
+  iconsSet: unknown[];
   // A log of every chrome.action.openPopup call, rejected calls included: window named, popup set then (KAN-437).
   openPopupCalls: { windowId: number | undefined; popup: string }[];
   // chrome.storage.local as it is now (KAN-7's defaultView mirror).
@@ -1409,6 +1413,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     fireStartup: () => runtimeOnStartup.fire(),
     sentMessages: [],
     popupsSet: [],
+    iconsSet: [],
     openPopupCalls: [],
     localArea: () => Object.fromEntries(localArea),
     sessionArea: () => Object.fromEntries(sessionArea),
@@ -1782,6 +1787,12 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
       }
       popup = details.popup;
       return Promise.resolve();
+    },
+    setIcon: (details: chrome.action.TabIconDetails): Promise<void> => {
+      handle.iconsSet.push(details.path);
+      return seed.action?.setIconRejects
+        ? Promise.reject(new Error('setIcon refused'))
+        : Promise.resolve();
     },
     getPopup: (): Promise<string> =>
       Promise.resolve(

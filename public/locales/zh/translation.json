@@ -470,5 +470,10 @@
   "Save your tabs here whenever you like.": "您可以随时在这里保存标签页。",
   "Back to Tab Keeper": "返回 Tab Keeper",
   "Going back loses your edits. Save as PDF first to keep them.": "返回会丢失所做的编辑。请先保存为 PDF 以保留它们。",
-  "Stay": "留下"
+  "Stay": "留下",
+  "Toolbar icon": "工具栏图标",
+  "ToolbarIconColour": "彩色",
+  "ToolbarIconLight": "浅色",
+  "ToolbarIconDark": "深色",
+  "ToolbarIconHelp": "更改 Chrome 工具栏中的图标。"
 }

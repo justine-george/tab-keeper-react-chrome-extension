@@ -55,7 +55,7 @@ const swatch = (page: Page, name: string): Locator =>
 async function markerOf(
   s: Locator
 ): Promise<{ border: string; outline: string; width: number }> {
-  return s.locator('[data-theme-tile]').evaluate((el) => {
+  return s.locator('[data-swatch-tile]').evaluate((el) => {
     const cs = getComputedStyle(el);
     return {
       border: cs.borderTopWidth,
@@ -148,8 +148,8 @@ for (const [theme, colours] of PALETTES) {
     await expect(current).toHaveAttribute('aria-pressed', 'true');
     await page.mouse.move(0, 0);
 
-    const tile = await current.locator('[data-theme-tile]').boundingBox();
-    const check = current.locator('[data-theme-check]');
+    const tile = await current.locator('[data-swatch-tile]').boundingBox();
+    const check = current.locator('[data-swatch-check]');
     await expect(check).toBeVisible();
     const box = await check.boundingBox();
     if (!tile || !box) throw new Error('no tile or check box');
@@ -180,12 +180,12 @@ for (const [theme, colours] of PALETTES) {
 
     for (const name of Object.values(SHOWN).filter((n) => n !== SHOWN[theme])) {
       await expect(
-        swatch(page, name).locator('[data-theme-check]')
+        swatch(page, name).locator('[data-swatch-check]')
       ).toHaveCount(0);
     }
 
     // The pointer on the current tile leaves its frame as it was (the KAN-96 rule).
-    await current.locator('[data-theme-tile]').hover();
+    await current.locator('[data-swatch-tile]').hover();
     await page.waitForTimeout(400);
     expect((await read())[0]).toBe(frame);
   });

@@ -504,5 +504,10 @@
   "Save your tabs here whenever you like.": "Salva qui le tue schede quando vuoi.",
   "Back to Tab Keeper": "Torna a Tab Keeper",
   "Going back loses your edits. Save as PDF first to keep them.": "Tornando indietro perdi le tue modifiche. Salva prima come PDF per conservarle.",
-  "Stay": "Resta"
+  "Stay": "Resta",
+  "Toolbar icon": "Icona della barra degli strumenti",
+  "ToolbarIconColour": "A colori",
+  "ToolbarIconLight": "Chiaro",
+  "ToolbarIconDark": "Scuro",
+  "ToolbarIconHelp": "Cambia l’icona nella barra degli strumenti di Chrome."
 }

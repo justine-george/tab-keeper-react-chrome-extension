@@ -487,5 +487,10 @@
   "Save your tabs here whenever you like.": "Save your tabs here whenever you like.",
   "Back to Tab Keeper": "Back to Tab Keeper",
   "Going back loses your edits. Save as PDF first to keep them.": "Going back loses your edits. Save as PDF first to keep them.",
-  "Stay": "Stay"
+  "Stay": "Stay",
+  "Toolbar icon": "Toolbar icon",
+  "ToolbarIconColour": "Colour",
+  "ToolbarIconLight": "Light",
+  "ToolbarIconDark": "Dark",
+  "ToolbarIconHelp": "Changes the icon in Chrome’s toolbar."
 }
