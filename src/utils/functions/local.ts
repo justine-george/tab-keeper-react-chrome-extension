@@ -552,8 +552,7 @@ const namesWebPage = (value: string): boolean =>
   isWebPageUrl(decodeDataUrl(value));
 
 export function unwrapSuspendedUrl(url: string): string {
-  const value = suspendedValue(url, namesWebPage);
-  return value === null ? url : decodeDataUrl(value);
+  return suspendedValue(url, namesWebPage) ?? url;
 }
 
 // Give the real page for a captured or stored tab URL. A tab can be wrapped
@@ -590,10 +589,7 @@ export function placeholderTarget(
   const placeholder = tabUrl.startsWith(PLACEHOLDER_URL_PREFIX)
     ? tabUrl
     : isSuspendPage(tabUrl)
-      ? suspendedValue(
-          tabUrl,
-          (value) => isLazyPlaceholder(value) && namesWebPage(value)
-        )
+      ? suspendedValue(tabUrl, namesWebPage)
       : null;
   if (placeholder === null) return null;
 
