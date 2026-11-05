@@ -93,6 +93,18 @@ export const CloudConsentModal: React.FC = () => {
     (s: RootState) => s.globalState.cloudConsentVariant
   );
   const then = useSelector((s: RootState) => s.globalState.cloudConsentThen);
+  const answer = useSelector(
+    (s: RootState) => s.settingsDataState.cloudConsent
+  );
+
+  // KAN-296. Another page answered: this one closes and writes nothing, or it would overwrite that answer.
+  const answerWhenAsked = useRef(answer);
+  useEffect(() => {
+    if (isOpen && answer !== answerWhenAsked.current) {
+      dispatch(closeCloudConsentModal());
+    }
+    answerWhenAsked.current = answer;
+  }, [isOpen, answer, dispatch]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
