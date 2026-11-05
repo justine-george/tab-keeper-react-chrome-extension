@@ -168,10 +168,13 @@ test.describe('a saved tab let go at a slot opens there, in the background', () 
         )
       )
       .toMatchObject({ pinned: false });
-    const urls = (await strip(worker, live.windowId)).map((t) => t.url);
-    expect(urls.indexOf('https://s0.test/')).toBe(
-      urls.indexOf(dataUrl('B')) - 1
-    );
+    // KAN-924. Polled: one read right after the drop can miss the address.
+    await expect
+      .poll(async () => {
+        const urls = (await strip(worker, live.windowId)).map((t) => t.url);
+        return urls.indexOf(dataUrl('B')) - urls.indexOf('https://s0.test/');
+      })
+      .toBe(1);
   });
 
   // Review Focus 1.
