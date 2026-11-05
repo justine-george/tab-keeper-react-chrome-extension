@@ -473,7 +473,6 @@
   "Stay": "とどまる",
   "Toolbar icon": "ツールバーのアイコン",
   "ToolbarIconColour": "カラー",
-  "ToolbarIconLight": "ライト",
-  "ToolbarIconDark": "ダーク",
-  "ToolbarIconHelp": "Chrome のツールバーのアイコンを変更します。"
+  "ToolbarIconMonochrome": "モノクロ",
+  "ToolbarIconHelp": "Chrome のツールバーのアイコンを変更します。モノクロは Chrome のライトモードとダークモードに合わせます。"
 }

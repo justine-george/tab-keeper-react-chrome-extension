@@ -490,7 +490,6 @@
   "Stay": "रुकें",
   "Toolbar icon": "टूलबार आइकन",
   "ToolbarIconColour": "रंगीन",
-  "ToolbarIconLight": "हल्का",
-  "ToolbarIconDark": "गहरा",
-  "ToolbarIconHelp": "Chrome के टूलबार में आइकन बदलता है।"
+  "ToolbarIconMonochrome": "एकरंगा",
+  "ToolbarIconHelp": "Chrome के टूलबार में आइकन बदलता है। एकरंगा Chrome के हल्के या गहरे मोड के अनुसार बदलता है।"
 }

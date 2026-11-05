@@ -490,7 +490,6 @@
   "Stay": "Bleiben",
   "Toolbar icon": "Symbol in der Symbolleiste",
   "ToolbarIconColour": "Farbig",
-  "ToolbarIconLight": "Hell",
-  "ToolbarIconDark": "Dunkel",
-  "ToolbarIconHelp": "Ändert das Symbol in der Chrome-Symbolleiste."
+  "ToolbarIconMonochrome": "Monochrom",
+  "ToolbarIconHelp": "Ändert das Symbol in der Chrome-Symbolleiste. Monochrom folgt dem hellen oder dunklen Modus von Chrome."
 }

@@ -524,7 +524,6 @@
   "Stay": "Остаться",
   "Toolbar icon": "Значок на панели инструментов",
   "ToolbarIconColour": "Цветной",
-  "ToolbarIconLight": "Светлый",
-  "ToolbarIconDark": "Тёмный",
-  "ToolbarIconHelp": "Меняет значок на панели инструментов Chrome."
+  "ToolbarIconMonochrome": "Монохромный",
+  "ToolbarIconHelp": "Меняет значок на панели инструментов Chrome. Монохромный следует светлому или тёмному режиму Chrome."
 }
