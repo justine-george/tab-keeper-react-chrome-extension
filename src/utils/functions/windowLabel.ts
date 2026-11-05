@@ -4,14 +4,13 @@ export function isUnnamedWindow(title: string): boolean {
   return isBlankTitle(title);
 }
 
-// windowWord is the caller's t('Window'): t() needs a literal key at its call site.
+// numberedName is the caller's t('WindowNumbered'): t() needs a literal key at its call site.
 export function windowLabel(
   title: string,
-  number: number,
-  windowWord: string
+  numberedName: string
 ): { text: string; named: boolean } {
   return isUnnamedWindow(title)
-    ? { text: `${windowWord} ${number}`, named: false }
+    ? { text: numberedName, named: false }
     : { text: title, named: true };
 }
 

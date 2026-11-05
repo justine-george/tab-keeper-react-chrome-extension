@@ -55,6 +55,7 @@ import {
   resolveTabUrl,
   resolveFaviconUrl,
   formatTabCount,
+  formatActionOnItem,
 } from '../../../utils/functions/local';
 import { RowTag } from '../../common/RowTag';
 import {
@@ -198,7 +199,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
   const { t, i18n } = useTranslation();
-  const label = windowLabel(title, number, t('Window'));
+  const label = windowLabel(title, t('WindowNumbered', { number }));
   // A label the user did not choose is muted.
   const labelColor = label.named ? COLORS.TEXT_COLOR : COLORS.LABEL_L2_COLOR;
 
@@ -596,7 +597,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // KAN-708. A row's menu exists exactly when its ⋮ shows.
   const windowMenu = useRowContextMenu({
     kind: 'savedWindow',
-    ariaLabel: () => `${t('More actions')}: ${label.text}`,
+    ariaLabel: () => formatActionOnItem(t('More actions'), label.text, t),
     itemsFor: () =>
       !isTrailingBlock && !isEditing && !isSearching
         ? [...windowRowButtons, ...withoutRename(savedWindowMenuItems)]
@@ -606,7 +607,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     kind: 'savedGroup',
     ariaLabel: (groupId) => {
       const group = chromeTabGroups?.find((g) => g.groupId === groupId);
-      return `${t('More actions')}: ${group ? groupDisplayName(group) : ''}`;
+      return formatActionOnItem(
+        t('More actions'),
+        group ? groupDisplayName(group) : '',
+        t
+      );
     },
     itemsFor: (groupId) => {
       const run = items.find(
@@ -1000,7 +1005,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   };
 
   const renameGroupLabel = (group: chromeTabGroupData) =>
-    t('Rename group') + ': ' + groupDisplayName(group);
+    formatActionOnItem(t('Rename group'), groupDisplayName(group), t);
 
   // KAN-885. What a saved group is matched on, and whether its plain click switches.
   const groupContent = (run: GroupRun): SavedGroupContent => ({
@@ -1012,9 +1017,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
 
   // KAN-885. Said as the click does it, as a saved tab's name is (KAN-890).
   const openGroupLabel = (run: GroupRun) =>
-    (groupSwitches(run) ? t('Go to group') : t('Open group')) +
-    ': ' +
-    groupDisplayName(run.group);
+    formatActionOnItem(
+      groupSwitches(run) ? t('Go to group') : t('Open group'),
+      groupDisplayName(run.group),
+      t
+    );
   const openGroupTooltip = (run: GroupRun) => {
     const switches = groupSwitches(run);
     if (isOpenBlocked)
@@ -1279,7 +1286,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             />
             <input
               value={tabDraft}
-              aria-label={t('Rename tab') + ': ' + shown}
+              aria-label={formatActionOnItem(t('Rename tab'), shown, t)}
               placeholder={tab.title}
               onFocus={(e) => e.currentTarget.select()}
               onBlur={() => commitTabRename(tab)}
@@ -1304,11 +1311,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
         ) : (
           <ClickableRow
             // KAN-890. Said as the click does it: a switch to the open copy, or a new tab.
-            ariaLabel={
-              (switches ? t('Switch to tab') : t('Open in new tab')) +
-              ': ' +
-              shown
-            }
+            ariaLabel={formatActionOnItem(
+              switches ? t('Switch to tab') : t('Open in new tab'),
+              shown,
+              t
+            )}
             buttonRef={titleFocus.refFor(`tab:${tabId}`)}
             // As Open now says a pinned tab: its own description, no joiner (KAN-307).
             ariaDescribedBy={describedBy === '' ? undefined : describedBy}
@@ -1477,9 +1484,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             <Icon
               tooltipText={isWindowOpen ? t('Collapse') : t('Expand')}
               // Names its window, as Open now's does (KAN-303).
-              ariaLabel={
-                (isWindowOpen ? t('Collapse') : t('Expand')) + ': ' + label.text
-              }
+              ariaLabel={formatActionOnItem(
+                isWindowOpen ? t('Collapse') : t('Expand'),
+                label.text,
+                t
+              )}
               ariaExpanded={isWindowOpen}
               type={isWindowOpen ? 'expand_less' : 'expand_more'}
               // KAN-757. Turns over on a fold change rather than swapping glyphs.
@@ -1549,7 +1558,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             ) : (
               <>
                 <ClickableRow
-                  ariaLabel={t('Rename window') + ': ' + label.text}
+                  ariaLabel={formatActionOnItem(
+                    t('Rename window'),
+                    label.text,
+                    t
+                  )}
                   onClick={startEditing}
                   // KAN-825. Seen when the name is cut off, at its end or under the strip; the name already says it.
                   tooltipText={label.text}
@@ -1596,7 +1609,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               // Hidden while searching, as every whole-item action is (R7).
               !isSearching && (
                 <RowOpenButton
-                  ariaLabel={openLabel + ': ' + label.text}
+                  ariaLabel={formatActionOnItem(openLabel, label.text, t)}
                   tooltipText={openBlockedBecause ?? openLabel}
                   disable={isOpenBlocked}
                   onClick={() => onOpenWindow()}
@@ -1790,11 +1803,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                     strip so it spans the whole group, as Chrome's does. */}
                   <GroupColorPicker
                     color={item.group.color}
-                    ariaLabel={
-                      t('Change group color') +
-                      ': ' +
-                      groupDisplayName(item.group)
-                    }
+                    ariaLabel={formatActionOnItem(
+                      t('Change group color'),
+                      groupDisplayName(item.group),
+                      t
+                    )}
                     onSelect={(color) =>
                       dispatch(
                         updateChromeTabGroupColor({

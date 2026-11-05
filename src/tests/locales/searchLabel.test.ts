@@ -36,7 +36,7 @@ const LOCALES: Record<string, Record<string, string>> = {
   'zh-TW': zhTW,
 };
 
-// The KEY has no colon; the VALUES all end in one. i18next reads a trailing
+// The KEY has no colon; the VALUES all hold one. i18next reads a trailing
 // ':' as its namespace separator, so a key spelled 'Matches:' resolves to an
 // empty string -- see the trailing-colon test in keyCoverage.test.ts.
 const KEY = 'Matches';
@@ -64,12 +64,13 @@ describe('the search-match prefix is translated everywhere', () => {
     expect(untranslated).toEqual([]);
   });
 
-  // It is a prefix, so it carries its own punctuation: French wants a space
-  // before the colon and ja/zh want the fullwidth form. Hardcoding ":" in the
-  // component would impose the English convention on all ten.
+  // French wants a space before the colon and ja/zh want the fullwidth form,
+  // so the value holds the colon and whatever gap follows it (KAN-307).
   test('every locale carries its own colon rather than borrowing one from code', () => {
     const noColon = Object.entries(LOCALES)
-      .filter(([, strings]) => !/[:：]$/.test(strings[KEY] ?? ''))
+      .filter(
+        ([, strings]) => !/[:：] ?\{\{counts\}\}$/.test(strings[KEY] ?? '')
+      )
       .map(([lang, strings]) => `${lang} -> ${strings[KEY]}`);
 
     expect(noColon).toEqual([]);

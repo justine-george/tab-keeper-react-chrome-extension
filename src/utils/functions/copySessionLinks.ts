@@ -88,7 +88,7 @@ export async function copySessionLinks(
     return written ? linkCount : null;
   }
   const strings: LinkListStrings = {
-    window: t('Window'),
+    windowNumbered: (number: number) => t('WindowNumbered', { number }),
     tabCountLabel: (count: number) => formatTabCount(count, t),
     // DERIVED from the session being copied, not read off its stored
     // windowCount/tabCount (KAN-210). The line describes this copy, so it is

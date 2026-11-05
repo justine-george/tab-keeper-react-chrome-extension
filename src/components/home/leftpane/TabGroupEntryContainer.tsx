@@ -25,7 +25,10 @@ import { useNoMatchPlace } from '../../../hooks/useNoMatchPlace';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { AppDispatch, RootState } from '../../../redux/store';
 import { isSessionOnScreen } from '../../../redux/sessionOnScreen';
-import { filterTabGroups } from '../../../utils/functions/local';
+import {
+  filterTabGroups,
+  formatActionOnItem,
+} from '../../../utils/functions/local';
 import { setSearchInputText } from '../../../redux/slices/globalStateSlice';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { useIsSavedListEmpty } from '../../../hooks/useIsSavedListEmpty';
@@ -124,7 +127,8 @@ export default function TabGroupEntryContainer() {
     tabContainerDataList.tabGroups.find((g) => g.tabGroupId === id);
   const sessionMenu = useRowContextMenu({
     kind: 'session',
-    ariaLabel: (id) => `${t('More actions')}: ${sessionById(id)?.title ?? ''}`,
+    ariaLabel: (id) =>
+      formatActionOnItem(t('More actions'), sessionById(id)?.title ?? '', t),
     itemsFor: (id) => {
       const session = sessionById(id);
       if (isSearching || session === undefined) return null;

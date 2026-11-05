@@ -86,7 +86,7 @@ export interface SessionExportOptions {
   /** Per-window heading suffix, e.g. (3) => "3 Tabs". */
   tabCountLabel: (count: number) => string;
   strings: {
-    window: string;
+    windowNumbered: (number: number) => string;
     notAWebLink: string;
     /**
      * Carries {{brand}} and {{date}}. The brand is substituted as markup, so
@@ -136,9 +136,9 @@ function escapeHtml(value: string): string {
 }
 
 /** "Window N · title", or just "Window N" when the window has no name. */
-function windowHeading(word: string, number: number, title: string): string {
-  const { text, named } = windowLabel(title, number, word);
-  return named ? `${word} ${number} · ${text}` : text;
+function windowHeading(numberedName: string, title: string): string {
+  const { text, named } = windowLabel(title, numberedName);
+  return named ? `${numberedName} · ${text}` : text;
 }
 
 /** A tab's visible label: its title, or its URL when it has none. */
@@ -250,7 +250,7 @@ function windowHtml(
 
   const heading =
     `${escapeHtml(
-      windowHeading(options.strings.window, index + 1, window.title)
+      windowHeading(options.strings.windowNumbered(index + 1), window.title)
     )} ` +
     `<span>(${escapeHtml(options.tabCountLabel(window.tabs.length))})</span>`;
 
@@ -398,7 +398,7 @@ export function sessionToHtml(
 
 /** What the clipboard versions need from the page (KAN-195). */
 export interface LinkListStrings {
-  window: string;
+  windowNumbered: (number: number) => string;
   /** Per-window and per-group suffix, e.g. (3) => "3 Tabs". */
   tabCountLabel: (count: number) => string;
   /** Locale-formatted session counts, e.g. "2 Windows · 47 Tabs". */
@@ -531,14 +531,15 @@ export function sessionToLinkList(
   session: tabContainerData,
   strings: LinkListStrings
 ): string {
-  const label = strings.window.toLocaleUpperCase(strings.locale);
   const lines: string[] = [session.title, strings.countsLabel];
 
   session.windows.forEach((window, index) => {
     lines.push(
       '',
-      `${windowHeading(label, index + 1, window.title)} ` +
-        `(${strings.tabCountLabel(window.tabs.length)})`
+      `${windowHeading(
+        strings.windowNumbered(index + 1).toLocaleUpperCase(strings.locale),
+        window.title
+      )} ` + `(${strings.tabCountLabel(window.tabs.length)})`
     );
     partitionTabsIntoRuns(window.tabs, window.chromeTabGroups).forEach(
       (run, runIndex) => {
@@ -612,7 +613,7 @@ export function sessionToLinkHtml(
     .map(
       (window, index) =>
         `<p><b>${escapeHtml(
-          windowHeading(strings.window, index + 1, window.title)
+          windowHeading(strings.windowNumbered(index + 1), window.title)
         )}</b> ` +
         `(${escapeHtml(strings.tabCountLabel(window.tabs.length))})</p>` +
         runsToHtmlList(window.tabs, window.chromeTabGroups, strings)

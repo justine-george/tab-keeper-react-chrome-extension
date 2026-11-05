@@ -59,6 +59,7 @@ import { updateLiveGroup } from '../../../utils/functions/liveTabGroups';
 import {
   formatTabCount,
   resolveFaviconUrl,
+  formatActionOnItem,
 } from '../../../utils/functions/local';
 import { tooltipAddress } from '../../../utils/functions/tabTitle';
 import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
@@ -88,7 +89,6 @@ import { DROP_TARGET_TINT } from '../rightpane/bandTint';
 import { markRowContainer } from '../rightpane/rowDrag/dropRules';
 import { GroupFrameFollower } from '../rightpane/rowDrag/GroupFrameFollower';
 import { DURATION, RADIUS, TYPE, WEIGHT } from '../../../styles/scale';
-import { windowLabel } from '../../../utils/functions/windowLabel';
 import {
   OPEN_ITEMS_SCOPE,
   OPEN_TABS_SCOPE,
@@ -261,7 +261,7 @@ export default function OpenNowWindow({
   const offersSort =
     canSortOpenWindowLive(openWindow, hasTabGroups) &&
     !isOpenWindowSortedBySite(openWindow);
-  const title = windowLabel('', number, t('Window')).text;
+  const title = t('WindowNumbered', { number });
   const duplicateCount = liveDuplicatesToClose(openWindow).length;
   // KAN-696. Close window is last, as Delete window is on a saved row. This window has none.
   // KAN-783. Copy all links is first, as on a session, so every window, This window too, has a ⋮.
@@ -369,7 +369,7 @@ export default function OpenNowWindow({
   // KAN-708. The window row's right-click shows its buttons, then the items its ⋮ does, and holds the row as hovered.
   const windowMenu = useRowContextMenu({
     kind: 'openWindow',
-    ariaLabel: () => `${t('More actions')}: ${title}`,
+    ariaLabel: () => formatActionOnItem(t('More actions'), title, t),
     itemsFor: () =>
       offersWindowActions ? [...windowRowButtons, ...windowMenuItems] : null,
   });
@@ -797,11 +797,13 @@ export default function OpenNowWindow({
       const group = items.find(
         (item) => item.kind === 'group' && item.group.groupId === groupId
       );
-      return `${t('More actions')}: ${
+      return formatActionOnItem(
+        t('More actions'),
         group?.kind === 'group'
           ? titleOf(group.group) || t('Unnamed group')
-          : ''
-      }`;
+          : '',
+        t
+      );
     },
     itemsFor: (groupId) => {
       const band = items.find(
@@ -874,7 +876,7 @@ export default function OpenNowWindow({
           outsideRow
         />
         <ClickableRow
-          ariaLabel={t('Switch to tab') + ': ' + tab.title}
+          ariaLabel={formatActionOnItem(t('Switch to tab'), tab.title, t)}
           ariaCurrent={tab.active}
           ariaDescribedBy={describedBy === '' ? undefined : describedBy}
           // KAN-824. Where it goes, as a saved tab's: seen, not said.
@@ -961,7 +963,7 @@ export default function OpenNowWindow({
         >
           <Icon
             tooltipText={t('Close tab')}
-            ariaLabel={t('Close tab') + ': ' + tab.title}
+            ariaLabel={formatActionOnItem(t('Close tab'), tab.title, t)}
             type="close"
             danger
             // On a close, the row below moves up under the pointer: a second click would close it too.
@@ -1016,7 +1018,11 @@ export default function OpenNowWindow({
               tooltipText={isOpen ? t('Collapse') : t('Expand')}
               // Names its window, as the tab rows name their tab, so N windows
               // are not N identical "Collapse" buttons (KAN-280).
-              ariaLabel={(isOpen ? t('Collapse') : t('Expand')) + ': ' + title}
+              ariaLabel={formatActionOnItem(
+                isOpen ? t('Collapse') : t('Expand'),
+                title,
+                t
+              )}
               ariaExpanded={isOpen}
               type={isOpen ? 'expand_less' : 'expand_more'}
               // KAN-757. Turns over on a fold change rather than swapping glyphs.
@@ -1027,7 +1033,7 @@ export default function OpenNowWindow({
             />
             {goesToWindow ? (
               <ClickableRow
-                ariaLabel={t('Go to window') + ': ' + title}
+                ariaLabel={formatActionOnItem(t('Go to window'), title, t)}
                 tooltipText={t('Go to window')}
                 // Chrome rejects when the window closed after this row was
                 // drawn. There is nothing to go to, and the next read drops
@@ -1051,12 +1057,16 @@ export default function OpenNowWindow({
                   iconType={SAVE_OF['current-window'].icon}
                   text={t('Save')}
                   tooltipText={t('Save window as a session')}
-                  ariaLabel={t('Save window as a session') + ': ' + title}
+                  ariaLabel={formatActionOnItem(
+                    t('Save window as a session'),
+                    title,
+                    t
+                  )}
                   onClick={onSaveWindow}
                 />
               )}
               <OverflowMenu
-                ariaLabel={t('More actions') + ': ' + title}
+                ariaLabel={formatActionOnItem(t('More actions'), title, t)}
                 onOpenChange={setIsWindowMenuOpen}
                 items={windowMenuItems}
               />
@@ -1162,7 +1172,11 @@ export default function OpenNowWindow({
                     {/* KAN-568. The saved band's picker: Chrome's group, so the next read shows the colour. */}
                     <GroupColorPicker
                       color={color}
-                      ariaLabel={t('Change group color') + ': ' + groupName}
+                      ariaLabel={formatActionOnItem(
+                        t('Change group color'),
+                        groupName,
+                        t
+                      )}
                       onSelect={(picked) =>
                         void updateLiveGroup(Number(item.group.groupId), {
                           color: picked,
@@ -1258,7 +1272,11 @@ export default function OpenNowWindow({
                           <>
                             <input
                               value={groupDraft}
-                              aria-label={t('Rename group') + ': ' + groupName}
+                              aria-label={formatActionOnItem(
+                                t('Rename group'),
+                                groupName,
+                                t
+                              )}
                               onBlur={() => commitGroupRename(item.group)}
                               onChange={(e) => setGroupDraft(e.target.value)}
                               placeholder={t('Name this group')}
@@ -1325,7 +1343,11 @@ export default function OpenNowWindow({
                           // Shrunk to its text, as the saved title is, so the rest of the row is only a drag handle.
                           // The ghost reaches 4px past the text without padding, as the saved band's (KAN-631, D10).
                           <ClickableRow
-                            ariaLabel={t('Rename group') + ': ' + groupName}
+                            ariaLabel={formatActionOnItem(
+                              t('Rename group'),
+                              groupName,
+                              t
+                            )}
                             onClick={() => startEditingGroup(item.group)}
                             // KAN-825. Seen when cut off, as the saved group title's.
                             tooltipText={groupName}
@@ -1397,18 +1419,22 @@ export default function OpenNowWindow({
                                   iconType="group_add"
                                   text={t('Save')}
                                   tooltipText={t('Save group as a session')}
-                                  ariaLabel={
-                                    t('Save group as a session') +
-                                    ': ' +
-                                    groupName
-                                  }
+                                  ariaLabel={formatActionOnItem(
+                                    t('Save group as a session'),
+                                    groupName,
+                                    t
+                                  )}
                                   onClick={() =>
                                     onSaveGroup(Number(item.group.groupId))
                                   }
                                 />
                               )}
                               <OverflowMenu
-                                ariaLabel={t('More actions') + ': ' + groupName}
+                                ariaLabel={formatActionOnItem(
+                                  t('More actions'),
+                                  groupName,
+                                  t
+                                )}
                                 onOpenChange={(open) =>
                                   setOpenMenuGroupId((prev) =>
                                     open

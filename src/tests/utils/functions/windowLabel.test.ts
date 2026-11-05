@@ -16,21 +16,21 @@ describe('isUnnamedWindow', () => {
 
 describe('windowLabel', () => {
   test('a named window shows its title', () => {
-    expect(windowLabel('Research', 3, 'Window')).toEqual({
+    expect(windowLabel('Research', 'Window 3')).toEqual({
       text: 'Research',
       named: true,
     });
   });
 
   test.each(['', '  '])('title %j shows "Window 3", unnamed', (title) => {
-    expect(windowLabel(title, 3, 'Window')).toEqual({
+    expect(windowLabel(title, 'Window 3')).toEqual({
       text: 'Window 3',
       named: false,
     });
   });
 
-  test('uses the caller word', () => {
-    expect(windowLabel('', 1, 'Fenster').text).toBe('Fenster 1');
+  test('uses the caller name', () => {
+    expect(windowLabel('', 'Fenster 1').text).toBe('Fenster 1');
   });
 });
 

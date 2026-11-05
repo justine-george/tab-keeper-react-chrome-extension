@@ -2,6 +2,7 @@ import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
 import Button from '../common/Button';
+import { formatActionOnItem } from '../../utils/functions/local';
 import { windowLabel } from '../../utils/functions/windowLabel';
 import { CORNER_SHAPE } from '../../styles/scale';
 import type {
@@ -113,7 +114,7 @@ export default function ExportEditor({
   ) => (
     <input
       type="text"
-      aria-label={`${label}: ${original || placeholder || ''}`}
+      aria-label={formatActionOnItem(label, original || placeholder || '', t)}
       value={edits.titles[key] ?? original}
       placeholder={placeholder}
       onChange={(event) => onRename(key, event.target.value)}
@@ -148,7 +149,7 @@ export default function ExportEditor({
         shown: edits.hidden.has(key),
         durationMs: 150,
       }}
-      ariaLabel={`${t('Hide')}: ${name}`}
+      ariaLabel={formatActionOnItem(t('Hide'), name, t)}
       ariaPressed={edits.hidden.has(key)}
       tooltipText={t('Hide')}
       onClick={() => onToggleHidden(key)}
@@ -371,7 +372,7 @@ export default function ExportEditor({
             file's heading does, instead of scrolling out of sight. */}
         <textarea
           rows={1}
-          aria-label={`${t('Rename session')}: ${session.title}`}
+          aria-label={formatActionOnItem(t('Rename session'), session.title, t)}
           value={edits.titles[sessionKey] ?? session.title}
           onChange={(event) => onRename(sessionKey, event.target.value)}
           onKeyDown={(event) => {
@@ -395,7 +396,8 @@ export default function ExportEditor({
 
         {session.windows.map((window, index) => {
           const windowKey = exportRowKey.window(window);
-          const windowName = windowLabel(window.title, index + 1, t('Window'));
+          const windowNumbered = t('WindowNumbered', { number: index + 1 });
+          const windowName = windowLabel(window.title, windowNumbered);
           return (
             <section
               key={`${window.windowId}-${index}`}
@@ -434,7 +436,7 @@ export default function ExportEditor({
                     }
                   `}
                 >
-                  {t('Window')} {index + 1} ·
+                  {windowNumbered} ·
                 </span>
                 {field(
                   windowKey,

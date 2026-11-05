@@ -84,7 +84,7 @@ const OPTIONS: SessionExportOptions = {
   countsLabel: '2 Windows · 6 Tabs',
   tabCountLabel: (count) => `${count} Tabs`,
   strings: {
-    window: 'Window',
+    windowNumbered: (number: number) => `Window ${number}`,
     notAWebLink: 'not a web link',
     savedWith: 'Saved with {{brand}} on {{date}}',
     getExtension: 'Get the extension',
@@ -147,7 +147,7 @@ describe('applying export edits (KAN-194)', () => {
     expect(result.windows[0].tabs[3].title).toBe('');
     expect(
       sessionToLinkList(result, {
-        window: OPTIONS.strings.window,
+        windowNumbered: OPTIONS.strings.windowNumbered,
         tabCountLabel: OPTIONS.tabCountLabel,
         countsLabel: OPTIONS.countsLabel,
         locale: 'en',

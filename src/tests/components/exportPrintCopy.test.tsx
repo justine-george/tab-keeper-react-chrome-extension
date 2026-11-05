@@ -18,7 +18,7 @@ const OPTIONS: SessionExportOptions = {
   countsLabel: '1 Window · 3 Tabs',
   tabCountLabel: (count) => `${count} Tabs`,
   strings: {
-    window: 'Window',
+    windowNumbered: (number: number) => `Window ${number}`,
     notAWebLink: 'not a web link',
     savedWith: 'Saved with {{brand}} on {{date}}',
     getExtension: 'Get the extension',

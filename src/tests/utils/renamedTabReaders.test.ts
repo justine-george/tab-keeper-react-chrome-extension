@@ -57,7 +57,7 @@ const SESSION = buildSession({
 });
 
 const strings: LinkListStrings = {
-  window: 'Window',
+  windowNumbered: (number: number) => `Window ${number}`,
   tabCountLabel: (count) => `${count} ${count === 1 ? 'Tab' : 'Tabs'}`,
   countsLabel: '1 Window · 2 Tabs',
   locale: 'en',
