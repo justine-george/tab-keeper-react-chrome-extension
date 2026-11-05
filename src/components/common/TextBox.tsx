@@ -60,6 +60,10 @@ const TextBox: React.FC<TextBoxProps> = ({
     font-size: ${TYPE.BODY};
     color: ${COLORS.LABEL_L1_COLOR};
     ${placeholderStyle(COLORS.PLACEHOLDER_COLOR)}
+    /* KAN-494. A placeholder too long for the field ends in an ellipsis. */
+    &:placeholder-shown {
+      text-overflow: ellipsis;
+    }
     ${fieldRingCss(COLORS)}
     ${style && style}
   `;
