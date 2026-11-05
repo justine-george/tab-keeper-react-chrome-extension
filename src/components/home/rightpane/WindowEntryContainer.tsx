@@ -1,4 +1,4 @@
-import React, { useId, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -256,6 +256,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // Set by Esc, so a blur dispatched before the editor unmounts cannot commit (D13).
   const renameCancelled = useRef(false);
   const [isParentHovered, setIsParentHovered] = useState(false);
+  // KAN-724. Native: React builds onMouseLeave from mouseout, which a rename field gone from under the pointer never sends.
+  const headerRow = useRef<HTMLDivElement>(null);
   // Which Chrome group is being renamed, by its capture-time uuid -- not a
   // boolean, because one window can hold several groups and a boolean would
   // put every one of them into edit mode at once.
@@ -323,6 +325,13 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   );
   // KAN-361/366. The trailing block (NEW_LAST_WINDOW); described where it is styled.
   const isTrailingBlock = windowId === NEW_LAST_WINDOW;
+  useEffect(() => {
+    const row = headerRow.current;
+    if (row === null) return;
+    const onLeave = () => setIsParentHovered(false);
+    row.addEventListener('mouseleave', onLeave);
+    return () => row.removeEventListener('mouseleave', onLeave);
+  }, [isTrailingBlock]);
 
   // What a group is called on screen. An untitled group has no name, so it
   // borrows the string that already named it for assistive tech -- present
@@ -1455,12 +1464,12 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             area checks the handle it finds is CONTAINED by the row, so this
             cannot be satisfied by anything outside the window it belongs to. */
         <div
+          ref={headerRow}
           data-window-drag-handle
           data-drag-handle-row=""
           css={parentStyle}
           {...windowMenu.rowProps(windowId)}
           onMouseEnter={() => setIsParentHovered(true)}
-          onMouseLeave={() => setIsParentHovered(false)}
           onPointerEnter={measureTagsUnder('[data-row-actions]')}
           onFocus={measureTagsUnder('[data-row-actions]')}
         >
