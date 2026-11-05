@@ -1,26 +1,57 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
+import { useToolbarIconMode } from '../../hooks/useToolbarIconMode';
 import { renderWithProviders } from '../setup/renderWithProviders';
 import type { ChromeSeed } from '../setup/chrome.fake';
+import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import {
   SettingsCategory,
   selectCategory,
 } from '../../redux/slices/settingsCategoryStateSlice';
-import { setToolbarIcon } from '../../redux/slices/settingsDataStateSlice';
-import { setTheme, Theme } from '../../redux/slices/settingsDataStateSlice';
-import { toolbarIconPath } from '../../utils/functions/toolbarIcon';
+import {
+  setTheme,
+  setToolbarIcon,
+  Theme,
+} from '../../redux/slices/settingsDataStateSlice';
 
-// KAN-932. Settings › Display › Toolbar icon. Saved first, then mirrored for the
-// worker, then applied with setIcon. Each tile shows the icon beside Chrome's.
+// KAN-932, KAN-933. Settings › Display › Toolbar icon: Colour or Monochrome. A page
+// reads Chrome's mode, because the worker has no way to, and mirrors it for the
+// worker's next start.
+
+const LIGHT_ICON = {
+  16: 'icons/toolbar-light-16.png',
+  32: 'icons/toolbar-light-32.png',
+};
+const DARK_ICON = {
+  16: 'icons/toolbar-dark-16.png',
+  32: 'icons/toolbar-dark-32.png',
+};
+const COLOUR = 'icons/icon128.png';
+
+const original = window.matchMedia;
+const chromeMode = (dark: boolean) => {
+  const list = new FakeMediaQueryList('(prefers-color-scheme: dark)', dark);
+  window.matchMedia = ((query: string) =>
+    query === list.media
+      ? list
+      : new FakeMediaQueryList(query, false)) as typeof window.matchMedia;
+  return list;
+};
+
+// Settings, with the hook App runs on every page.
+function Page() {
+  useToolbarIconMode();
+  return <SettingsDetailsContainer />;
+}
 
 const renderDisplay = (
   seed: ChromeSeed = { action: {} },
   theme = Theme.CHALK
 ) =>
-  renderWithProviders(<SettingsDetailsContainer />, {
+  renderWithProviders(<Page />, {
     seed,
     seedStore: (store) => {
       store.dispatch(selectCategory(SettingsCategory.DISPLAY));
@@ -29,108 +60,181 @@ const renderDisplay = (
   });
 
 const group = () => screen.getByRole('group', { name: 'Toolbar icon' });
-const tile = (name: 'Colour' | 'Light' | 'Dark') =>
+const tile = (name: 'Colour' | 'Monochrome') =>
   within(group()).getByRole('button', { name });
 const savedSettings = (): unknown =>
   JSON.parse(localStorage.getItem('settingsData') ?? '{}');
 
 afterEach(() => {
+  window.matchMedia = original;
   localStorage.clear();
   vi.restoreAllMocks();
 });
 
 describe('the Toolbar icon row', () => {
-  test('sits under Themes, with Colour chosen on a new install', async () => {
+  test('sits under Themes, with Colour chosen on a new install and only two tiles', async () => {
     const { container } = await renderDisplay();
     const labels = [
       ...container.querySelectorAll<HTMLElement>('[data-settings-section]'),
     ].map((section) => section.querySelector('span')?.textContent);
     expect(labels).toEqual(['Themes', 'Toolbar icon', 'Time format']);
+    expect(within(group()).getAllByRole('button')).toHaveLength(2);
     expect(tile('Colour')).toHaveAttribute('aria-pressed', 'true');
-    expect(tile('Light')).toHaveAttribute('aria-pressed', 'false');
-    expect(tile('Dark')).toHaveAttribute('aria-pressed', 'false');
+    expect(tile('Monochrome')).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('says what it changes, as the description of every tile', async () => {
     await renderDisplay();
-    for (const name of ['Colour', 'Light', 'Dark'] as const) {
+    for (const name of ['Colour', 'Monochrome'] as const) {
       expect(tile(name)).toHaveAccessibleDescription(/Chrome’s toolbar/);
     }
   });
 
-  test('a tile saves, mirrors for the worker, then applies', async () => {
-    const user = userEvent.setup();
+  test('on a new install, nothing touches the toolbar', async () => {
     const { chrome } = await renderDisplay();
-
-    await user.click(tile('Dark'));
-
-    await waitFor(() =>
-      expect(chrome.iconsSet).toEqual([toolbarIconPath('dark')])
-    );
-    expect(savedSettings()).toMatchObject({ toolbarIcon: 'dark' });
-    expect(chrome.localArea()).toMatchObject({ toolbarIcon: 'dark' });
-    expect(tile('Dark')).toHaveAttribute('aria-pressed', 'true');
-    expect(tile('Colour')).toHaveAttribute('aria-pressed', 'false');
+    expect(chrome.iconsSet).toEqual([]);
   });
 
-  test('back to Colour restores the default icon', async () => {
+  test('choosing Monochrome saves it, mirrors it and the mode, then applies', async () => {
+    chromeMode(true);
     const user = userEvent.setup();
     const { chrome } = await renderDisplay();
 
-    await user.click(tile('Light'));
-    await user.click(tile('Colour'));
+    await user.click(tile('Monochrome'));
+
+    await waitFor(() => expect(chrome.iconsSet).toEqual([LIGHT_ICON]));
+    expect(savedSettings()).toMatchObject({ toolbarIcon: 'monochrome' });
+    expect(chrome.localArea()).toMatchObject({
+      toolbarIcon: 'monochrome',
+      toolbarMode: 'dark',
+    });
+    expect(tile('Monochrome')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('Monochrome follows Chrome live while the page is open', async () => {
+    const mode = chromeMode(false);
+    const user = userEvent.setup();
+    const { chrome } = await renderDisplay();
+    await user.click(tile('Monochrome'));
+    await waitFor(() => expect(chrome.iconsSet).toEqual([DARK_ICON]));
+
+    act(() => mode.setMatches(true));
 
     await waitFor(() =>
-      expect(chrome.iconsSet).toEqual([
-        toolbarIconPath('light'),
-        'icons/icon128.png',
-      ])
+      expect(chrome.iconsSet).toEqual([DARK_ICON, LIGHT_ICON])
     );
+    await waitFor(() =>
+      expect(chrome.localArea()).toMatchObject({ toolbarMode: 'dark' })
+    );
+  });
+
+  test('a page opened in Monochrome corrects the icon at once', async () => {
+    chromeMode(true);
+    const { chrome } = await renderWithProviders(<Page />, {
+      seed: { action: {} },
+      seedStore: (store) => {
+        store.dispatch(selectCategory(SettingsCategory.DISPLAY));
+        store.dispatch(setToolbarIcon('monochrome'));
+      },
+    });
+    await waitFor(() => expect(chrome.iconsSet).toEqual([LIGHT_ICON]));
+  });
+
+  test('back to Colour restores the default icon and stops following', async () => {
+    const mode = chromeMode(true);
+    const user = userEvent.setup();
+    const { chrome } = await renderDisplay();
+    await user.click(tile('Monochrome'));
+    await waitFor(() => expect(chrome.iconsSet).toEqual([LIGHT_ICON]));
+
+    await user.click(tile('Colour'));
+    await waitFor(() => expect(chrome.iconsSet).toEqual([LIGHT_ICON, COLOUR]));
+
+    act(() => mode.setMatches(false));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(chrome.iconsSet).toEqual([LIGHT_ICON, COLOUR]);
   });
 
   test('worst path: a refused setIcon keeps the choice, so the next start applies it', async () => {
+    chromeMode(true);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const user = userEvent.setup();
     const { chrome } = await renderDisplay({
       action: { setIconRejects: true },
     });
 
-    await user.click(tile('Light'));
+    await user.click(tile('Monochrome'));
 
     await waitFor(() => expect(warn).toHaveBeenCalled());
-    expect(savedSettings()).toMatchObject({ toolbarIcon: 'light' });
-    expect(chrome.localArea()).toMatchObject({ toolbarIcon: 'light' });
-    expect(tile('Light')).toHaveAttribute('aria-pressed', 'true');
+    expect(savedSettings()).toMatchObject({ toolbarIcon: 'monochrome' });
+    expect(chrome.localArea()).toMatchObject({
+      toolbarIcon: 'monochrome',
+      toolbarMode: 'dark',
+    });
+    expect(tile('Monochrome')).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('shows the choice another page made', async () => {
     const { store } = await renderDisplay();
-    store.dispatch(setToolbarIcon('light'));
+    act(() => {
+      store.dispatch(setToolbarIcon('monochrome'));
+    });
     await waitFor(() =>
-      expect(tile('Light')).toHaveAttribute('aria-pressed', 'true')
+      expect(tile('Monochrome')).toHaveAttribute('aria-pressed', 'true')
     );
   });
 
   test.each([
-    ['Colour', Theme.CHALK, '#f1f3f4'],
-    ['Colour', Theme.CHARCOAL, '#3c3c3c'],
-    ['Light', Theme.CHALK, '#3c3c3c'],
-    ['Dark', Theme.CHARCOAL, '#f1f3f4'],
-  ] as const)('%s in %s sits on a %s toolbar', async (name, theme, toolbar) => {
-    await renderDisplay({ action: {} }, theme);
-    const swatch = tile(name).querySelector('[data-swatch-tile]');
-    expect(swatch).toHaveStyle({ backgroundColor: toolbar });
-  });
+    [false, '#f1f3f4'],
+    [true, '#3c3c3c'],
+  ] as const)(
+    'with Chrome dark = %s both tiles sit on a %s toolbar, whatever the theme',
+    async (dark, toolbar) => {
+      chromeMode(dark);
+      await renderDisplay({ action: {} }, dark ? Theme.CHALK : Theme.CHARCOAL);
+      for (const name of ['Colour', 'Monochrome'] as const) {
+        const swatch = tile(name).querySelector('[data-swatch-tile]');
+        expect(swatch).toHaveStyle({ backgroundColor: toolbar });
+      }
+    }
+  );
 
-  test('each tile shows the icon left of the puzzle piece and the ⋮, as Chrome does', async () => {
+  test('the tiles change with Chrome while the page is open', async () => {
+    const mode = chromeMode(false);
     await renderDisplay();
-    const parts = [
-      ...(tile('Dark').querySelector('[data-swatch-tile]')?.children ?? []),
-    ].map((part) => part.getAttribute('data-toolbar-part'));
-    expect(parts).toEqual(['icon', 'puzzle', 'menu']);
-    expect(tile('Dark').querySelector('img')).toHaveAttribute(
-      'src',
-      'icons/toolbar-dark-16.png'
+    const swatch = () => tile('Monochrome').querySelector('[data-swatch-tile]');
+    expect(swatch()).toHaveStyle({ backgroundColor: '#f1f3f4' });
+    act(() => mode.setMatches(true));
+    await waitFor(() =>
+      expect(swatch()).toHaveStyle({ backgroundColor: '#3c3c3c' })
     );
   });
+
+  test.each(['Colour', 'Monochrome'] as const)(
+    '%s shows the icon left of the puzzle piece and the ⋮, as Chrome does',
+    async (name) => {
+      await renderDisplay();
+      const parts = [
+        ...(tile(name).querySelector('[data-swatch-tile]')?.children ?? []),
+      ].map((part) => part.getAttribute('data-toolbar-part'));
+      expect(parts).toEqual(['icon', 'puzzle', 'menu']);
+    }
+  );
+
+  test.each([
+    [true, 'icons/toolbar-light-16.png'],
+    [false, 'icons/toolbar-dark-16.png'],
+  ] as const)(
+    'with Chrome dark = %s, Monochrome shows %s',
+    async (dark, file) => {
+      chromeMode(dark);
+      await renderDisplay();
+      expect(tile('Monochrome').querySelector('img')).toHaveAttribute(
+        'src',
+        file
+      );
+    }
+  );
 });

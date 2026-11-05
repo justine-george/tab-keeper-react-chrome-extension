@@ -490,7 +490,6 @@
   "Stay": "Stanna",
   "Toolbar icon": "Verktygsfältets ikon",
   "ToolbarIconColour": "Färg",
-  "ToolbarIconLight": "Ljus",
-  "ToolbarIconDark": "Mörk",
-  "ToolbarIconHelp": "Ändrar ikonen i Chromes verktygsfält."
+  "ToolbarIconMonochrome": "Monokrom",
+  "ToolbarIconHelp": "Ändrar ikonen i Chromes verktygsfält. Monokrom följer Chromes ljusa eller mörka läge."
 }

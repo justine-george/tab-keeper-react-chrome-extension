@@ -490,7 +490,6 @@
   "Stay": "Stay",
   "Toolbar icon": "Toolbar icon",
   "ToolbarIconColour": "Colour",
-  "ToolbarIconLight": "Light",
-  "ToolbarIconDark": "Dark",
-  "ToolbarIconHelp": "Changes the icon in Chrome’s toolbar."
+  "ToolbarIconMonochrome": "Monochrome",
+  "ToolbarIconHelp": "Changes the icon in Chrome’s toolbar. Monochrome follows Chrome’s light or dark mode."
 }

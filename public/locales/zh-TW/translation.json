@@ -473,7 +473,6 @@
   "Stay": "留下",
   "Toolbar icon": "工具列圖示",
   "ToolbarIconColour": "彩色",
-  "ToolbarIconLight": "淺色",
-  "ToolbarIconDark": "深色",
-  "ToolbarIconHelp": "變更 Chrome 工具列中的圖示。"
+  "ToolbarIconMonochrome": "單色",
+  "ToolbarIconHelp": "變更 Chrome 工具列中的圖示。單色會跟隨 Chrome 的淺色或深色模式。"
 }

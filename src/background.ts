@@ -42,6 +42,7 @@ import {
 import {
   reapplyToolbarIcon,
   TOOLBAR_ICON_KEY,
+  TOOLBAR_MODE_KEY,
   type ToolbarIconApi,
   type ToolbarIconStore,
 } from './utils/functions/toolbarIcon';
@@ -119,8 +120,11 @@ Object.assign(globalThis, {
 const toolbarIconStore: ToolbarIconStore = {
   read: () =>
     chrome.storage.local
-      .get(TOOLBAR_ICON_KEY)
-      .then((items) => items[TOOLBAR_ICON_KEY]),
+      .get([TOOLBAR_ICON_KEY, TOOLBAR_MODE_KEY])
+      .then((items) => ({
+        icon: items[TOOLBAR_ICON_KEY],
+        mode: items[TOOLBAR_MODE_KEY],
+      })),
 };
 const chromeIconApi: ToolbarIconApi = {
   setIcon: (details) => chrome.action.setIcon(details),

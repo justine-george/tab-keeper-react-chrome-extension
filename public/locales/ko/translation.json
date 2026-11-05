@@ -473,7 +473,6 @@
   "Stay": "머무르기",
   "Toolbar icon": "도구 모음 아이콘",
   "ToolbarIconColour": "컬러",
-  "ToolbarIconLight": "라이트",
-  "ToolbarIconDark": "다크",
-  "ToolbarIconHelp": "Chrome 도구 모음의 아이콘을 바꿉니다."
+  "ToolbarIconMonochrome": "단색",
+  "ToolbarIconHelp": "Chrome 도구 모음의 아이콘을 바꿉니다. 단색은 Chrome의 라이트 모드나 다크 모드를 따릅니다."
 }

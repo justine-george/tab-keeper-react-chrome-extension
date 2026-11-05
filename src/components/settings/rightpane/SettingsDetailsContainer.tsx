@@ -271,7 +271,7 @@ const SettingsDetailsContainer: React.FC = () => {
             aria-label={t('Toolbar icon')}
             css={css`
               display: grid;
-              grid-template-columns: repeat(3, max-content);
+              grid-template-columns: repeat(2, max-content);
               gap: 14px;
               margin-top: 8px;
             `}

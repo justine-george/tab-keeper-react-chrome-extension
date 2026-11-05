@@ -507,7 +507,6 @@
   "Stay": "Ficar",
   "Toolbar icon": "Ícone da barra de ferramentas",
   "ToolbarIconColour": "Colorido",
-  "ToolbarIconLight": "Claro",
-  "ToolbarIconDark": "Escuro",
-  "ToolbarIconHelp": "Altera o ícone na barra de ferramentas do Chrome."
+  "ToolbarIconMonochrome": "Monocromático",
+  "ToolbarIconHelp": "Altera o ícone na barra de ferramentas do Chrome. Monocromático segue o modo claro ou escuro do Chrome."
 }
