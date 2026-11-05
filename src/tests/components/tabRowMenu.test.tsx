@@ -122,7 +122,7 @@ const savedRow = (title: string) =>
   screen.getByRole('button', { name: `Open in new tab: ${title}` });
 
 describe('a saved tab row right-click (KAN-708)', () => {
-  test('saved tab: Open in new tab, Rename tab, Copy link, Delete tab, in that order', async () => {
+  test('saved tab: its opens, Rename tab, Copy link, Delete tab, in that order', async () => {
     await renderSaved();
 
     expect(fireEvent.contextMenu(savedRow('Title t1'))).toBe(false);
@@ -131,6 +131,7 @@ describe('a saved tab row right-click (KAN-708)', () => {
     expect(menus()[0]).toHaveAccessibleName('Title t1');
     expect(labels(menus()[0])).toEqual([
       'Open in new tab',
+      'Open in new window',
       'Rename tab',
       'Copy link',
       'Delete tab',

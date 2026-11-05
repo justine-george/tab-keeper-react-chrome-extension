@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 
 import MenuContainer from '../../components/home/leftpane/MenuContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -15,6 +15,34 @@ const render = () =>
   renderWithProviders(<MenuContainer />, {
     seed: { windows: [{ id: 7 }] },
   });
+
+// KAN-923. A Tab Keeper page can't live in an incognito window: Chrome puts it in a normal one, which may stay behind.
+describe('the open-in-a-tab button in an incognito window', () => {
+  const fullView = () =>
+    screen.queryByRole('button', { name: 'Open full view' });
+
+  test('is hidden', async () => {
+    await renderWithProviders(<MenuContainer />, {
+      seed: { windows: [{ id: 7, incognito: true }] },
+    });
+
+    await waitFor(() => expect(fullView()).toBeNull());
+  });
+
+  test('CONTROL: a normal window keeps it, once its kind is known', async () => {
+    await render();
+    await act(async () => {});
+
+    expect(fullView()).not.toBeNull();
+  });
+
+  test('stays when the window cannot be read', async () => {
+    await renderWithProviders(<MenuContainer />, { seed: { windows: [] } });
+    await act(async () => {});
+
+    expect(fullView()).not.toBeNull();
+  });
+});
 
 describe('the open-in-a-tab button', () => {
   test('sits before "Sort sessions" in DOM order', async () => {

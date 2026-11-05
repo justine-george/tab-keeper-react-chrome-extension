@@ -348,7 +348,7 @@ test("a saved window's ⋮ has Copy all links right after the other way to open 
   );
 });
 
-test("a saved group's ⋮ leads with Copy all links and pastes only the group", async ({
+test("a saved group's ⋮ has Copy all links right after Open in new window (KAN-923) and pastes only the group", async ({
   context,
   extensionId,
 }) => {
@@ -361,7 +361,7 @@ test("a saved group's ⋮ leads with Copy all links and pastes only the group", 
     .locator('[aria-label="More actions"][aria-haspopup="menu"]')
     .first()
     .click();
-  expect((await menuKeys(page))[0]).toBe('copy');
+  expect((await menuKeys(page)).slice(0, 2)).toEqual(['openNewWindow', 'copy']);
   const { plain } = await copyAndPaste(page, '2 links copied.');
 
   expect(plain).toBe(

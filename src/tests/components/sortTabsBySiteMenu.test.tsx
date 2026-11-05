@@ -164,6 +164,7 @@ describe('Sort tabs by site in a saved group menu (KAN-746)', () => {
     ]);
     const menu = await openGroupMenu(user);
     expect(names(menu)).toEqual([
+      expect.stringMatching(/Open in new window$/),
       expect.stringMatching(/Copy all links$/),
       expect.stringMatching(/Rename group$/),
       expect.stringMatching(/Sort tabs by site$/),
@@ -211,6 +212,7 @@ describe('Sort tabs by site in a saved group menu (KAN-746)', () => {
     ]);
     const menu = await openGroupMenu(user);
     expect(names(menu)).toEqual([
+      expect.stringMatching(/Open in new window$/),
       expect.stringMatching(/Copy all links$/),
       expect.stringMatching(/Rename group$/),
       expect.stringMatching(/Ungroup$/),
