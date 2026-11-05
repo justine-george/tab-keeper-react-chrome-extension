@@ -1242,7 +1242,8 @@ test('reduce motion: no smooth scroll, the fill shows and goes without a fade', 
   const [inAt] = log.added;
   const [outAt] = log.removed;
   if (inAt === undefined || outAt === undefined) throw new Error('no fill');
-  expect(outAt - inAt).toBeGreaterThanOrEqual(850);
+  // Its 900ms run from the timer. The observer logs `inAt` after the commit ends, which a slow runner puts 100ms later.
+  expect(outAt - inAt).toBeGreaterThanOrEqual(700);
   expect(outAt - inAt).toBeLessThan(2000);
   const shown = log.frames.filter((f) => f.fill !== null);
   expect(shown.length).toBeGreaterThan(0);

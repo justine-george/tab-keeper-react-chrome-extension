@@ -490,6 +490,14 @@ function isWebPageUrl(value: string): boolean {
   }
 }
 
+function isSuspendPage(url: string): boolean {
+  try {
+    return /suspend/i.test(new URL(url).pathname);
+  } catch {
+    return false;
+  }
+}
+
 // A suspended tab's real page survives only inside the suspender's own URL, so
 // a session saved while tabs were suspended stores placeholders - and becomes
 // unrecoverable if that suspender is ever removed. Recover the page instead.
@@ -498,40 +506,53 @@ function isWebPageUrl(value: string): boolean {
 // `url` query parameter, while the Great Suspender family uses a hash fragment
 // whose `uri=` is raw and deliberately last, because the page's own URL may
 // contain '&' - splitting the fragment on '&' would truncate it.
-export function unwrapSuspendedUrl(url: string): string {
-  if (!url.startsWith('chrome-extension://')) return url;
+//
+// The first value in a suspender's URL that `accepts` takes, or null.
+function suspendedValue(
+  url: string,
+  accepts: (value: string) => boolean
+): string | null {
+  if (!url.startsWith('chrome-extension://')) return null;
 
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
-    return url;
+    return null;
   }
 
   const fragment = parsed.hash.slice(1);
   const rawUriIndex = fragment.indexOf('uri=');
   if (rawUriIndex >= 0) {
     const candidate = fragment.slice(rawUriIndex + 4);
-    if (isWebPageUrl(candidate)) return candidate;
+    if (accepts(candidate)) return candidate;
   }
 
   const params = [...parsed.searchParams, ...new URLSearchParams(fragment)];
 
   for (const name of SUSPENDED_URL_PARAMS) {
     const match = params.find(([key]) => key === name);
-    if (match && isWebPageUrl(match[1])) return match[1];
+    if (match && accepts(match[1])) return match[1];
   }
 
   // An unrecognised suspender may name its parameter anything, so fall back to
   // any restorable value - but only on a page that presents itself as a
   // suspend page, so an ordinary extension page that merely references a URL
   // (an onboarding screen with ?ref=, say) is never rewritten.
-  if (/suspend/i.test(parsed.pathname)) {
-    const match = params.find(([, value]) => isWebPageUrl(value));
+  if (isSuspendPage(url)) {
+    const match = params.find(([, value]) => accepts(value));
     if (match) return match[1];
   }
 
-  return url;
+  return null;
+}
+
+// KAN-929. A tab suspended while it waited holds our placeholder, not the page.
+const namesWebPage = (value: string): boolean =>
+  isWebPageUrl(decodeDataUrl(value));
+
+export function unwrapSuspendedUrl(url: string): string {
+  return suspendedValue(url, namesWebPage) ?? url;
 }
 
 // Give the real page for a captured or stored tab URL. A tab can be wrapped
@@ -555,18 +576,25 @@ export function resolveTabUrl(url: string): string {
 // was handed. That matters because the popup is destroyed the moment the
 // restored window takes focus, taking any record it was holding with it.
 //
-// Returns null for everything that is not one of our placeholders. The worker
-// asks this of every tab the user activates, and a wrong answer would navigate
-// a page they were reading, so a foreign data: document, a decode that yields
-// nothing, and any target the swap cannot or must not load all decline.
+// Returns null for everything that is not one of our placeholders, or a
+// suspended tab holding one (KAN-929): its suspender cannot load a data: page.
+// The worker asks this of every tab the user activates, and a wrong answer
+// would navigate a page they were reading, so a foreign data: document, a
+// decode that yields nothing, and any target the swap cannot or must not load
+// all decline.
 export function placeholderTarget(
   tabUrl: string,
   ownExtensionId: string
 ): string | null {
-  if (!tabUrl.startsWith(PLACEHOLDER_URL_PREFIX)) return null;
+  const placeholder = tabUrl.startsWith(PLACEHOLDER_URL_PREFIX)
+    ? tabUrl
+    : isSuspendPage(tabUrl)
+      ? suspendedValue(tabUrl, namesWebPage)
+      : null;
+  if (placeholder === null) return null;
 
-  const resolved = resolveTabUrl(tabUrl);
-  if (resolved === tabUrl) return null;
+  const resolved = resolveTabUrl(placeholder);
+  if (resolved === placeholder) return null;
 
   return restoreRoute(resolved, ownExtensionId) === 'swap' ? resolved : null;
 }

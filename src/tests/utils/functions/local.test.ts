@@ -1236,6 +1236,73 @@ describe('resolveTabUrl', () => {
 
 // The background service worker asks this of every tab the user activates, so
 // it has to be certain: a wrong "yes" navigates a tab the user was reading.
+// KAN-929. A tab suspended while it still waited: the suspender stored our placeholder as the page.
+describe('a suspended tab that wraps our placeholder', () => {
+  const page = 'https://www.youtube.com/watch?v=abc&t=10';
+  const placeholder = generatePlaceholderURL('Video', '', page, 'Visit Site');
+  const suspended = (value: string, path = 'suspended.html') =>
+    `chrome-extension://abc/${path}?title=Video&url=${encodeURIComponent(
+      value
+    )}&time=1`;
+
+  test('resolves to the real page, so a save keeps it', () => {
+    expect(resolveTabUrl(suspended(placeholder))).toBe(page);
+  });
+
+  test('reads a placeholder from a hash-fragment uri too', () => {
+    const wrapped = `chrome-extension://abc/suspended.html#ttl=T&uri=${placeholder}`;
+
+    expect(resolveTabUrl(wrapped)).toBe(page);
+  });
+
+  test('is swapped for the real page on focus', () => {
+    expect(placeholderTarget(suspended(placeholder), OWN_ID)).toBe(page);
+  });
+
+  test("an ordinary suspended tab stays the suspender's to restore", () => {
+    expect(placeholderTarget(suspended(page), OWN_ID)).toBeNull();
+  });
+
+  test('focus leaves an extension page that is no suspend page, url parameter or not', () => {
+    expect(
+      placeholderTarget(suspended(placeholder, 'welcome.html'), OWN_ID)
+    ).toBeNull();
+  });
+
+  test('a page that is no suspender is left alone', () => {
+    const welcome = `chrome-extension://abc/welcome.html?ref=${encodeURIComponent(
+      placeholder
+    )}`;
+
+    expect(placeholderTarget(welcome, OWN_ID)).toBeNull();
+    expect(resolveTabUrl(welcome)).toBe(welcome);
+  });
+
+  // Worst path: a crafted suspended page must not reach anything but a web page.
+  test.each([
+    ['javascript:alert(1)'],
+    ['chrome://settings/'],
+    ['file:///etc/hosts'],
+    ['chrome-extension://other/page.html'],
+  ])('a placeholder for %s is refused', (target) => {
+    const hostile = suspended(
+      generatePlaceholderURL('T', '', target, 'Visit Site')
+    );
+
+    expect(placeholderTarget(hostile, OWN_ID)).toBeNull();
+    expect(unwrapSuspendedUrl(hostile)).toBe(hostile);
+  });
+
+  test('a data page with no link, or that will not decode, is refused', () => {
+    const noLink = suspended('data:text/html;base64,PGgxPmhpPC9oMT4=');
+    const broken = suspended('data:text/html;base64,!!!not!!base64!!!');
+
+    expect(placeholderTarget(noLink, OWN_ID)).toBeNull();
+    expect(placeholderTarget(broken, OWN_ID)).toBeNull();
+    expect(unwrapSuspendedUrl(broken)).toBe(broken);
+  });
+});
+
 describe('placeholderTarget', () => {
   test('should give the real page for a lazy-load placeholder', () => {
     const url = 'https://github.com/justine-george';
