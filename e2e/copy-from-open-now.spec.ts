@@ -469,7 +469,9 @@ test.describe('a copy from Open now (KAN-280 Part F)', () => {
     // D3 A: a carry from the first move, in the pane.
     await expect(page.locator(CARD)).toHaveCount(1);
     await page.mouse.move(at.x - 300, at.y, { steps: 6 });
-    await aimAt(page, 'w2', 0.25);
+    // The rows have pulled up for the end slot: the gap between the windows is w2's lower part (KAN-767).
+    await settled(page);
+    await aimAt(page, 'w2', 0.75);
     await page.mouse.up();
 
     await expect
