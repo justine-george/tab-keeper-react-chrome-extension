@@ -9,6 +9,7 @@ import { DIALOG, RADIUS, TYPE } from '../../styles/scale';
 import { dialogButtonStyles, pairCss, tallButtonCss } from './dialogButtons';
 import { corners } from '../../styles/corners';
 import { dialogTitleSize } from './dialogTitleSize';
+import { dialogFitsWindow } from './dialogFit';
 
 /**
  * Confirms Empty on Recently deleted (KAN-595). The same <dialog> contract as
@@ -53,7 +54,7 @@ export function EmptyRecentlyDeletedModal({
         padding: 20px;
         width: ${DIALOG.WIDTH};
         max-width: none;
-        max-height: none;
+        ${dialogFitsWindow()}
         background-color: ${COLORS.PRIMARY_COLOR};
         color: ${COLORS.LABEL_L1_COLOR};
         border: 1px solid ${COLORS.PANEL_BORDER_COLOR};

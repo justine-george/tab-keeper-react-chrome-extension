@@ -51,7 +51,8 @@ import {
 import { dialogTitleSize } from './dialogTitleSize';
 import { dialogRiseCss } from './dialogRise';
 import { useHasRisen } from '../../hooks/useHasRisen';
-import { corners, trackClearOfCorners } from '../../styles/corners';
+import { corners } from '../../styles/corners';
+import { dialogFitsWindow } from './dialogFit';
 
 const TITLE_ID = 'setup-title';
 type Step =
@@ -153,10 +154,7 @@ export const SetupModal: React.FC = () => {
     /* KAN-731: 600 keeps the sync caption on one line in every locale (KAN-519). */
     width: min(calc(100% - 32px), 600px);
     max-width: none;
-    max-height: calc(100% - 32px);
-    overflow: auto;
-    /* KAN-888. On a short window the dialog scrolls; its bar meets both of its corners. */
-    ${trackClearOfCorners(RADIUS.DIALOG, ['top', 'bottom'])}
+    ${dialogFitsWindow()}
     background-color: ${COLORS.PRIMARY_COLOR};
     color: ${COLORS.LABEL_L1_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};

@@ -276,6 +276,31 @@ describe('placeholderURL', () => {
     );
   });
 
+  // KAN-709. A data: page may not load an extension's files; Chrome logs the refusal.
+  const standInPage = (faviconUrl: string) =>
+    atob(
+      generatePlaceholderURL(title, faviconUrl, url, buttonText).split(',')[1]
+    );
+
+  test.each([
+    'chrome-extension://abc/assets/favicon-57oZo3np.svg',
+    'chrome://favicon/https://example.com',
+    'file:///Users/me/icon.png',
+  ])('a stand-in leaves out an icon it cannot load: %s', (faviconUrl) => {
+    const page = standInPage(faviconUrl);
+
+    expect(page).not.toContain(faviconUrl);
+    expect(page).toContain('type="image/x-icon" href=""');
+  });
+
+  test.each([
+    favicon,
+    'http://example.com/i.ico',
+    'data:image/png;base64,AA==',
+  ])('CONTROL: a stand-in keeps an icon it can load: %s', (faviconUrl) => {
+    expect(standInPage(faviconUrl)).toContain(`href="${faviconUrl}"`);
+  });
+
   test("the page's Go to URL button rounds as a control (KAN-721)", () => {
     const page = atob(
       generatePlaceholderURL(title, favicon, url, buttonText).split(',')[1]

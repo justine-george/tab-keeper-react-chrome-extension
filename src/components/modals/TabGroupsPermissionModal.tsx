@@ -15,6 +15,7 @@ import Icon from '../common/Icon';
 import { dialogButtonStyles, pairCss, tallButtonCss } from './dialogButtons';
 import { corners } from '../../styles/corners';
 import { dialogTitleSize } from './dialogTitleSize';
+import { dialogFitsWindow } from './dialogFit';
 
 interface TabGroupsPermissionModalProps {
   style?: string;
@@ -122,7 +123,7 @@ export const TabGroupsPermissionModal: React.FC<
         padding: 20px;
         width: ${DIALOG.WIDTH};
         max-width: none;
-        max-height: none;
+        ${dialogFitsWindow()}
         background-color: ${COLORS.PRIMARY_COLOR};
         color: ${COLORS.LABEL_L1_COLOR};
         border: 1px solid ${COLORS.PANEL_BORDER_COLOR};

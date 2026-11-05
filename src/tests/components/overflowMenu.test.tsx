@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { describe, expect, test, vi } from 'vitest';
 import {
   act,
@@ -246,6 +247,53 @@ describe('OverflowMenu dismissal', () => {
     await user.click(trigger());
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+});
+
+// KAN-699. Open now drops Sort tabs by site while the menu is open, when a sort elsewhere leaves nothing to do.
+describe('OverflowMenu when the focused item goes', () => {
+  const renderShrinking = async () => {
+    let shrink = () => {};
+    const Shrinking = () => {
+      const [items, setItems] = useState(ITEMS);
+      shrink = () => setItems(ITEMS.slice(1));
+      return <OverflowMenu ariaLabel="More actions" items={items} />;
+    };
+    await renderWithProviders(<Shrinking />);
+    await userEvent.click(trigger());
+    expect(screen.getByRole('menuitem', { name: 'Ungroup' })).toHaveFocus();
+    act(() => shrink());
+  };
+
+  test('focus stays in the menu', async () => {
+    await renderShrinking();
+
+    expect(
+      screen.getByRole('menuitem', { name: 'Delete group' })
+    ).toHaveFocus();
+  });
+
+  test('Escape still closes it and returns focus to the trigger', async () => {
+    await renderShrinking();
+
+    await userEvent.keyboard('{Escape}');
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(trigger()).toHaveFocus();
+  });
+
+  test('CONTROL: an item that goes without focus leaves focus where it is', async () => {
+    let shrink = () => {};
+    const Shrinking = () => {
+      const [items, setItems] = useState(ITEMS);
+      shrink = () => setItems(ITEMS.slice(0, 1));
+      return <OverflowMenu ariaLabel="More actions" items={items} />;
+    };
+    await renderWithProviders(<Shrinking />);
+    await userEvent.click(trigger());
+    act(() => shrink());
+
+    expect(screen.getByRole('menuitem', { name: 'Ungroup' })).toHaveFocus();
   });
 });
 

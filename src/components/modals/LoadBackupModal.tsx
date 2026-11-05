@@ -21,6 +21,7 @@ import {
 } from './dialogButtons';
 import { corners } from '../../styles/corners';
 import { dialogTitleSize } from './dialogTitleSize';
+import { dialogFitsWindow } from './dialogFit';
 
 const TITLE_ID = 'load-backup-title';
 const BODY_ID = 'load-backup-body';
@@ -90,7 +91,7 @@ export const LoadBackupModal: React.FC = () => {
     padding: 20px;
     width: ${DIALOG.WIDTH};
     max-width: none;
-    max-height: none;
+    ${dialogFitsWindow()}
     background-color: ${COLORS.PRIMARY_COLOR};
     color: ${COLORS.LABEL_L1_COLOR};
     border: 1px solid ${COLORS.PANEL_BORDER_COLOR};
