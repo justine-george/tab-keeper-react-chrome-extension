@@ -357,6 +357,10 @@ function expectPressesAtTurnSpeed(frames: Frame[], target: MorphTarget): void {
   const turnDegPerMs = 360 / TURN_MS;
   for (let i = 1; i < turning.length; i++) {
     const [a, b] = [turning[i - 1], turning[i]];
+    // KAN-809. The press ends on a timer, so the turn's first frame can repeat the press's last.
+    const isHandOff = a.rotation !== null && b.rotation === null;
+    if (isHandOff && Math.abs(angleOf(a.transform) - angleOf(b.transform)) < 1)
+      continue;
     const ratio = turnedBetween(a, b) / (b.t - a.t) / turnDegPerMs;
     expect(ratio, `turn speed at ${b.t - t0} ms`).toBeGreaterThan(0.75);
     expect(ratio, `turn speed at ${b.t - t0} ms`).toBeLessThan(1.25);
