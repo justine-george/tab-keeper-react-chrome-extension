@@ -139,8 +139,6 @@ export const sortOpenWindowBySite = createAsyncThunk<
   );
 });
 
-// KAN-746. As sortOpenWindow, for the tabs inside one group: the rest of the window is not moved or recorded.
-// Does nothing without the grant, for a group gone or holding a split view, or when already sorted. Null when no tab moved.
 const tabKeeperPagesIn = (tabs: readonly chrome.tabs.Tab[]) =>
   tabs.flatMap((tab) =>
     tab.id !== undefined && isTabKeeperPage(tab)
@@ -148,6 +146,8 @@ const tabKeeperPagesIn = (tabs: readonly chrome.tabs.Tab[]) =>
       : []
   );
 
+// KAN-746. As sortOpenWindow, for the tabs inside one group: the rest of the window is not moved or recorded.
+// Does nothing without the grant, for a group gone or holding a split view, or when already sorted. Null when no tab moved.
 export async function sortOpenGroup(
   windowId: number,
   groupId: number,
