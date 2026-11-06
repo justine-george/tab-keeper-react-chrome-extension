@@ -16,12 +16,12 @@ export function useMenuList({
   wrapperRef,
   onDismiss,
   onWalk,
-  rowCount = 0,
+  rows = [],
 }: {
   count: number;
   axis: PopoverAxis;
-  /** KAN-775. The first `rowCount` items sit side by side above a vertical list: one stop for ↑/↓, walked with ←/→. */
-  rowCount?: number;
+  /** KAN-775, KAN-936. How many items each row above a vertical list holds, top down: a row is one stop for ↑/↓, walked with ←/→. */
+  rows?: readonly number[];
   isOpen: boolean;
   wrapperRef: React.RefObject<HTMLElement | null>;
   onDismiss: (reason: MenuDismissReason) => void;
@@ -78,19 +78,35 @@ export function useMenuList({
   const prevKey = axis === 'vertical' ? 'ArrowUp' : 'ArrowLeft';
   const nextKey = axis === 'vertical' ? 'ArrowDown' : 'ArrowRight';
 
-  // KAN-775. The row counts as one stop at its first item; the list's items are a stop each.
-  const hasRow = axis === 'vertical' && rowCount > 0;
+  // KAN-775, KAN-936. Each row is one stop, at its first item; the list's items are a stop each.
+  const rowStarts = rows.map((_, row) =>
+    rows.slice(0, row).reduce((sum, size) => sum + size, 0)
+  );
+  const listStart = rows.reduce((sum, size) => sum + size, 0);
+  const stops = [
+    ...rowStarts,
+    ...Array.from({ length: count - listStart }, (_, i) => listStart + i),
+  ];
+  const hasRow = axis === 'vertical' && rows.length > 0;
+  // Which of these ascending starts an index sits at or past; -1 for none.
+  const lastAtOrBefore = (starts: number[], index: number): number =>
+    starts.filter((start) => start <= index).length - 1;
   const stepFrom = (index: number, by: 1 | -1): number => {
     if (!hasRow) return index + by;
-    const stops = count - rowCount + 1;
-    const stop = index < rowCount ? 0 : index - rowCount + 1;
-    const next = (((stop + by) % stops) + stops) % stops;
-    return next === 0 ? 0 : next + rowCount - 1;
+    const stop = lastAtOrBefore(stops, index);
+    return stops[(stop + by + stops.length) % stops.length];
   };
-  const walkRow = (index: number, by: 1 | -1) =>
-    itemRefs.current[
-      (((index + by) % rowCount) + rowCount) % rowCount
-    ]?.focus();
+  // The row an index sits in, or null on the list.
+  const rowOf = (index: number): { start: number; size: number } | null => {
+    if (index < 0 || index >= listStart) return null;
+    const row = lastAtOrBefore(rowStarts, index);
+    return { start: rowStarts[row], size: rows[row] };
+  };
+  const walkRow = (
+    index: number,
+    { start, size }: { start: number; size: number },
+    by: 1 | -1
+  ) => itemRefs.current[start + ((index - start + by + size) % size)]?.focus();
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -113,11 +129,11 @@ export function useMenuList({
       return;
     }
     const focused = indexOfFocused();
-    const inRow = hasRow && focused >= 0 && focused < rowCount;
-    if (inRow && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+    const row = hasRow ? rowOf(focused) : null;
+    if (row !== null && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
       e.preventDefault();
       onWalk?.();
-      walkRow(focused, e.key === 'ArrowRight' ? 1 : -1);
+      walkRow(focused, row, e.key === 'ArrowRight' ? 1 : -1);
     }
   };
 

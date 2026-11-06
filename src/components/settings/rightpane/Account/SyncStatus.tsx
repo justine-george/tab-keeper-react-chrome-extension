@@ -107,7 +107,7 @@ const SyncStatus: React.FC = () => {
   const titleRowStyle = css`
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     min-width: 0;
   `;
 
@@ -146,9 +146,11 @@ const SyncStatus: React.FC = () => {
       data-sync-state={state.kind}
     >
       <div css={titleRowStyle}>
+        {/* KAN-937. No padding, so the glyph starts on the label's edge. */}
         <Icon
           type={state.icon}
           disable={true}
+          style="padding: 0;"
           renderGlyph={(glyphCss) => (
             <SyncGlyph
               glyph={state.icon}

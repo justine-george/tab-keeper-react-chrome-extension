@@ -1,6 +1,11 @@
-import { isAction, Middleware } from '@reduxjs/toolkit';
+import { isAction, Middleware, type Action } from '@reduxjs/toolkit';
 
-import { set, setPresentWithoutHistory } from '../slices/undoRedoSlice';
+import {
+  foldIntoPresent,
+  set,
+  setPresentWithoutHistory,
+} from '../slices/undoRedoSlice';
+import { updateChromeTabGroupColor } from '../slices/tabContainerDataStateSlice';
 import type { ApplyUndoSnapshotPayload } from '../slices/tabContainerDataStateSlice';
 import { cloudSyncAllowed } from '../slices/settingsDataStateSlice';
 import { debounce } from '../../utils/functions/local';
@@ -144,6 +149,12 @@ const viewStateOnlyActions = [SELECT_TAB_CONTAINER_ACTION];
 
 const isUndoRedoAction = (type: string) =>
   [UNDO_ACTION, REDO_ACTION].includes(type);
+
+// KAN-936. The run a group color pick belongs to, if it came from a menu.
+const colorPickRunOf = (action: Action): number | undefined =>
+  updateChromeTabGroupColor.match(action)
+    ? action.payload.colorPickRun
+    : undefined;
 
 // The session ids present in `a` and not in `b`.
 const liveOnlyIn = (a: RootState, b: RootState) => {
@@ -336,19 +347,29 @@ export const customMiddleware: Middleware = (store) => {
     } else if (isDataStateChangeAction(action.type, prevState, nextState)) {
       const { tabContainerDataState } = nextState;
       const isViewStateOnly = viewStateOnlyActions.includes(action.type);
+      const colorPickRun = colorPickRunOf(action);
+      // KAN-936. Folds only the history: the setIsDirty below still syncs this pick.
+      const foldsIntoPresent =
+        colorPickRun !== undefined &&
+        prevState.undoRedo.present.colorPickRun === colorPickRun;
 
-      store.dispatch(
-        isViewStateOnly
-          ? setPresentWithoutHistory({ tabContainerDataState })
-          : set({
-              tabContainerDataState,
-              // Computed here, from two states one action apart, because this
-              // is the only place where "what did the user just add" is
-              // knowable rather than inferable. Nothing can arrive from the
-              // cloud between these two reads. See UndoableStates.
-              addedTabGroupIds: addedTabGroupIds(prevState, nextState),
-            })
-      );
+      if (foldsIntoPresent) {
+        store.dispatch(foldIntoPresent({ tabContainerDataState }));
+      } else {
+        store.dispatch(
+          isViewStateOnly
+            ? setPresentWithoutHistory({ tabContainerDataState })
+            : set({
+                tabContainerDataState,
+                // Computed here, from two states one action apart, because this
+                // is the only place where "what did the user just add" is
+                // knowable rather than inferable. Nothing can arrive from the
+                // cloud between these two reads. See UndoableStates.
+                addedTabGroupIds: addedTabGroupIds(prevState, nextState),
+                colorPickRun,
+              })
+        );
+      }
 
       // KAN-595. The delete stands even if recording it fails. A session back
       // (a restore, a backup merge) spends its entry.

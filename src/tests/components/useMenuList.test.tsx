@@ -44,6 +44,77 @@ function Harness({
   );
 }
 
+// KAN-936. Two rows above a list: a tile row and a swatch row, then two items.
+function RowsHarness() {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const { registerItem, handleKeyDown } = useMenuList({
+    count: 7,
+    axis: 'vertical',
+    rows: [2, 3],
+    isOpen: true,
+    wrapperRef,
+    onDismiss: vi.fn(),
+  });
+  return (
+    <div ref={wrapperRef} onKeyDown={handleKeyDown}>
+      {['a1', 'a2', 'b1', 'b2', 'b3', 'c', 'd'].map((name, i) => (
+        <button key={name} ref={registerItem(i)}>
+          {name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+describe('useMenuList with two rows above the list', () => {
+  const press = (key: string) =>
+    fireEvent.keyDown(document.activeElement as Element, { key });
+
+  it('steps down through one stop per row, then each item, and wraps', () => {
+    render(<RowsHarness />);
+    const seen = [1, 2, 3, 4].map(() => {
+      press('ArrowDown');
+      return document.activeElement?.textContent;
+    });
+    expect(seen).toEqual(['b1', 'c', 'd', 'a1']);
+  });
+
+  it('steps up onto a row at its first item', () => {
+    render(<RowsHarness />);
+    screen.getByText('c').focus();
+    press('ArrowUp');
+    expect(screen.getByText('b1')).toHaveFocus();
+    press('ArrowUp');
+    expect(screen.getByText('a1')).toHaveFocus();
+  });
+
+  it('leaves a row from any of its items', () => {
+    render(<RowsHarness />);
+    screen.getByText('b3').focus();
+    press('ArrowDown');
+    expect(screen.getByText('c')).toHaveFocus();
+  });
+
+  it('walks a row with the side arrows, wrapping inside that row', () => {
+    render(<RowsHarness />);
+    screen.getByText('b3').focus();
+    press('ArrowRight');
+    expect(screen.getByText('b1')).toHaveFocus();
+    press('ArrowLeft');
+    expect(screen.getByText('b3')).toHaveFocus();
+    screen.getByText('a2').focus();
+    press('ArrowRight');
+    expect(screen.getByText('a1')).toHaveFocus();
+  });
+
+  it('the side arrows do nothing on a list item', () => {
+    render(<RowsHarness />);
+    screen.getByText('c').focus();
+    press('ArrowRight');
+    expect(screen.getByText('c')).toHaveFocus();
+  });
+});
+
 describe('useMenuList', () => {
   it('focuses item 0 when opened', () => {
     render(<Harness onDismiss={vi.fn()} />);
