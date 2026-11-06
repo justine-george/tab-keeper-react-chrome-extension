@@ -116,12 +116,7 @@ export async function sortOpenWindow(
   if (after === null) return null;
   const moved = sortRecord(before, after, looks);
   if (!changedAnyPlace(moved)) return null;
-  const pagesBefore = before.flatMap((tab) =>
-    tab.id !== undefined && isTabKeeperPage(tab)
-      ? [{ tabId: tab.id, index: tab.index }]
-      : []
-  );
-  return { kind: 'sort', moved, pagesBefore };
+  return { kind: 'sort', moved, pagesBefore: tabKeeperPagesIn(before) };
 }
 
 // The Open now menu's action: sorts, keeps the sort as a step in the undo history (KAN-744 R1), and says so with an Undo for that step, only when something moved.
@@ -146,6 +141,13 @@ export const sortOpenWindowBySite = createAsyncThunk<
 
 // KAN-746. As sortOpenWindow, for the tabs inside one group: the rest of the window is not moved or recorded.
 // Does nothing without the grant, for a group gone or holding a split view, or when already sorted. Null when no tab moved.
+const tabKeeperPagesIn = (tabs: readonly chrome.tabs.Tab[]) =>
+  tabs.flatMap((tab) =>
+    tab.id !== undefined && isTabKeeperPage(tab)
+      ? [{ tabId: tab.id, index: tab.index }]
+      : []
+  );
+
 export async function sortOpenGroup(
   windowId: number,
   groupId: number,
@@ -170,7 +172,7 @@ export async function sortOpenGroup(
   if (after === null) return null;
   const moved = sortRecord(members, after, looks);
   if (!changedAnyPlace(moved)) return null;
-  return { kind: 'groupSort', moved };
+  return { kind: 'groupSort', moved, pagesBefore: tabKeeperPagesIn(members) };
 }
 
 // The Open now group menu's action, as sortOpenWindowBySite.
