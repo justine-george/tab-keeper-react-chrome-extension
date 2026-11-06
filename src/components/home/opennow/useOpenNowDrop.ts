@@ -40,6 +40,7 @@ import type { OpenWindow } from '../../../utils/functions/openNow';
 import {
   groupCopySlot,
   moveOpenGroup,
+  moveOpenPair,
   moveOpenTab,
   tabCopySlot,
   type MovedTabs,
@@ -48,6 +49,10 @@ import type { AppDispatch } from '../../../redux/store';
 import { keepLiveStep, whileMovingTabs } from '../../../redux/undoHistory';
 import { TOAST_MESSAGES } from '../../../utils/constants/common';
 import { noRowsTabIndex } from '../../../utils/functions/pinnedRun';
+import {
+  splitHeadOf,
+  withoutSplitFollowers,
+} from '../../../utils/functions/splitPartners';
 import {
   itemIdOf,
   partitionTabsIntoItems,
@@ -72,7 +77,9 @@ const NO_GROUP = -1;
 /**
  * The live windows as the drop geometry reads them: ids as strings, each
  * tab's pinned state and group, and each window's groups. Without the grant
- * there are no groups (O11e), even in a snapshot read while it was held.
+ * there are no groups (O11e), even in a snapshot read while it was held. A
+ * split's second half is left out: the pair is one row, named by its head
+ * (KAN-486), so no slot opens between the halves.
  */
 export function openDragWindows(
   windows: readonly OpenWindow[],
@@ -80,7 +87,7 @@ export function openDragWindows(
 ): DragWindows {
   return windows.map((window) => ({
     windowId: String(window.id),
-    tabs: window.tabs.map((tab) => ({
+    tabs: withoutSplitFollowers(window.tabs).map((tab) => ({
       tabId: String(tab.id),
       pinned: tab.pinned,
       ...(hasTabGroups && tab.groupId !== null
@@ -221,7 +228,13 @@ export function useOpenNowDrop({
         });
       }
     }
-    return { shown, incognito, tabs, items };
+    // KAN-486. The rows that are a split pair, by head.
+    const pairHeads = new Set(
+      windows.flatMap((window) =>
+        [...splitHeadOf(window.tabs).values()].map(String)
+      )
+    );
+    return { shown, incognito, tabs, items, pairHeads };
   }, [dragWindows, windows, collapsedIds, carriedIn]);
 
   // T1. The group, if any, holding the Tab Keeper page this pane is on. Open
@@ -367,7 +380,7 @@ export function useOpenNowDrop({
             liveId,
             folded === undefined
               ? toIndex
-              : noRowsTabIndex(folded.tabs, savedPinned),
+              : noRowsTabIndex(withoutSplitFollowers(folded.tabs), savedPinned),
             savedPinned,
             dropTargetId,
             hasTabGroups
@@ -379,16 +392,22 @@ export function useOpenNowDrop({
         folded === undefined
           ? toIndex
           : noRowsTabIndex(
-              folded.tabs,
+              withoutSplitFollowers(folded.tabs),
               tables.tabs.get(rowId)?.pinned === true
             );
       const move = describeTabMove(rowId, index, dropTargetId, toWindowId);
       if (move === undefined) return null;
+      const isPair = tables.pairHeads.has(rowId);
       const moved = await whileMovingTabs(() =>
-        moveOpenTab(move, windows, hasTabGroups)
+        isPair
+          ? moveOpenPair(move, windows, hasTabGroups)
+          : moveOpenTab(move, windows, hasTabGroups)
       );
       if (moved === null) return null;
-      const id = keepLiveStep(dispatch, { kind: 'tab', moved });
+      const id = keepLiveStep(dispatch, {
+        kind: isPair ? 'pair' : 'tab',
+        moved,
+      });
       const pinChange = moved.find(
         ({ before, after }) => before.pinned !== after.pinned
       );

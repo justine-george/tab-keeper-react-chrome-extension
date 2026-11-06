@@ -132,3 +132,35 @@ describe('Open now shows a split view (KAN-564)', () => {
     expect(titleWeight('Notes')).toBe('plain');
   });
 });
+
+describe('a split as one row (KAN-486)', () => {
+  test('both halves render inside one row, each with its own menu and close', async () => {
+    await renderOpenNow();
+    const wiki = document.querySelector('[data-open-tab-id="22"]');
+    const guide = document.querySelector('[data-open-tab-id="23"]');
+    const row = wiki?.closest('[data-drag-row-id="22"]');
+    expect(row).not.toBeNull();
+    expect(guide?.closest('[data-drag-row-id="22"]')).toBe(row);
+    if (!(guide instanceof HTMLElement)) throw new Error('no second half');
+    expect(
+      within(guide).getByRole('button', { name: /^Close tab: Guide/ })
+    ).not.toBeNull();
+    expect(
+      within(guide).getByRole('button', { name: 'Switch to tab: Guide' })
+    ).not.toBeNull();
+  });
+
+  test('a loose tab stays a row of its own', async () => {
+    await renderOpenNow();
+    const docs = document.querySelector('[data-open-tab-id="21"]');
+    expect(docs?.closest('[data-drag-row-id="21"]')).not.toBeNull();
+    const news = document.querySelector('[data-open-tab-id="24"]');
+    expect(news?.closest('[data-drag-row-id="24"]')).not.toBeNull();
+  });
+
+  test('the second half names no row of its own', async () => {
+    await renderOpenNow();
+    expect(document.querySelector('[data-drag-row-id="23"]')).toBeNull();
+    expect(document.querySelector('[data-drag-row-id="tab:23"]')).toBeNull();
+  });
+});
