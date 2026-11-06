@@ -164,7 +164,8 @@ export const undoRedoSlice = createSlice({
       state,
       action: PayloadAction<Pick<UndoableStates, 'tabContainerDataState'>>
     ) => {
-      state.present.tabContainerDataState = action.payload.tabContainerDataState;
+      state.present.tabContainerDataState =
+        action.payload.tabContainerDataState;
       state.future = [];
     },
 

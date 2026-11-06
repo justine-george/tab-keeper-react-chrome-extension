@@ -195,8 +195,9 @@ async function liveGroup(serviceWorker: Worker) {
     async (urls) => {
       const w = await chrome.windows.create({ focused: false, url: urls });
       const tabs = await chrome.tabs.query({ windowId: w!.id });
+      const [first, ...rest] = tabs.map((t) => t.id!);
       const groupId = await chrome.tabs.group({
-        tabIds: tabs.map((t) => t.id!),
+        tabIds: [first, ...rest],
         createProperties: { windowId: w!.id },
       });
       await chrome.tabGroups.update(Number(groupId), {
