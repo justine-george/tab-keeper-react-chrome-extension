@@ -737,6 +737,69 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     }
   };
 
+  // KAN-486. The two tabs of `ids`, in strip order, when they are one split.
+  const splitPairIn = (
+    ids: number[]
+  ): [chrome.tabs.Tab, chrome.tabs.Tab] | undefined => {
+    const [a, b] = ids.flatMap((id) => tabs.filter((tab) => tab.id === id));
+    if (ids.length !== 2 || a === undefined || b === undefined) {
+      return undefined;
+    }
+    const id = a.splitViewId;
+    if (id === undefined || id === SPLIT_VIEW_ID_NONE) return undefined;
+    if (id !== b.splitViewId) return undefined;
+    return a.index < b.index ? [a, b] : [b, a];
+  };
+
+  // KAN-486, measured (probe 3 R1, P3c): a split leaves its group as one unit,
+  // past the run from its middle, in place at the run's head or tail.
+  const ungroupPair = ([first, second]: [
+    chrome.tabs.Tab,
+    chrome.tabs.Tab,
+  ]): void => {
+    const groupId = first.groupId;
+    const run = windowTabsInOrder(first.windowId).filter(
+      (tab) => tab.groupId === groupId
+    );
+    const head = run[0];
+    const tail = run[run.length - 1];
+    const inMiddle = head !== first && tail !== second;
+    for (const tab of [first, second]) {
+      tab.groupId = -1;
+      tabsOnUpdated.fire(idOf(tab), { groupId: -1 }, tab);
+    }
+    if (inMiddle && tail !== undefined) {
+      const end = tail.index;
+      moveWithinWindow(second, end);
+      moveWithinWindow(first, end - 1);
+    }
+    dropGroupIfEmpty(groupId);
+  };
+
+  // KAN-486, measured (P3a, probe 2 Q2): a split joins a group as one unit, at the run's nearest edge, in order.
+  const joinAsPair = (
+    [first, second]: [chrome.tabs.Tab, chrome.tabs.Tab],
+    groupId: number
+  ): void => {
+    const run = windowTabsInOrder(first.windowId).filter(
+      (tab) => tab.groupId === groupId
+    );
+    const head = run[0]?.index;
+    const tail = run[run.length - 1]?.index;
+    if (head !== undefined && second.index < head - 1) {
+      moveWithinWindow(second, head - 1);
+      moveWithinWindow(first, head - 2);
+    } else if (tail !== undefined && first.index > tail + 1) {
+      moveWithinWindow(first, tail + 1);
+      moveWithinWindow(second, tail + 2);
+    }
+    for (const tab of [first, second]) {
+      if (tab.groupId === groupId) continue;
+      tab.groupId = groupId;
+      tabsOnUpdated.fire(idOf(tab), { groupId }, tab);
+    }
+  };
+
   // KAN-486. Whether `slot` falls between the two halves of one split.
   const splitAt = (own: chrome.tabs.Tab[], slot: number): boolean => {
     const id = own[slot - 1]?.splitViewId;
@@ -2372,6 +2435,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const sources = new Set(arriving.map((tab) => tab.windowId));
         // KAN-486, measured: a split carried into another window's group ends.
         arriving.forEach(endSplit);
+        const samePair = splitPairIn(tabIds);
         const groupId = options.groupId ?? nextId++;
         // Measured 2026-10-26 (KAN-814, e2e 5e2): a group holds no pinned
         // tab, so a pinned one is unpinned as it joins. Measured only for the
@@ -2403,6 +2467,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           }
           tabGroupsOnCreated.fire(created);
           tabGroupsOnUpdated.fire(created);
+        } else if (samePair !== undefined && arriving.length === 0) {
+          joinAsPair(samePair, groupId);
         } else {
           for (const target of targets) {
             if (arriving.includes(target)) {
@@ -2449,6 +2515,11 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const unknown = idList.find((id) => !tabs.some((tab) => tab.id === id));
         if (unknown !== undefined) {
           return fail<void>(`No tab with id: ${unknown}.`, cb);
+        }
+        const pair = splitPairIn(idList);
+        if (pair !== undefined && pair[0].groupId !== -1) {
+          ungroupPair(pair);
+          return settle(undefined, cb);
         }
         for (const id of idList) {
           const tab = tabs.find((t) => t.id === id);

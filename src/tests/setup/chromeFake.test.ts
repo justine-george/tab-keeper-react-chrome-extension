@@ -5025,6 +5025,29 @@ describe('split view (Chrome 155+)', () => {
       await expectSplit();
     });
 
+    test.each([
+      [
+        'head, from above',
+        [{}, {}, {}, {}, { groupId: 5 }],
+        [10, 13, 11, 12, 14],
+      ],
+      [
+        'tail, from below',
+        [{ groupId: 5 }, {}, {}, {}, {}],
+        [10, 11, 12, 13, 14],
+      ],
+    ])(
+      "tabs.group of a pair lands whole at the run's %s",
+      async (_name, extra, order) => {
+        handle = fiveAndTwo(extra);
+        await split();
+        await chrome.tabs.group({ tabIds: [11, 12], groupId: 5 });
+        await expectSplit();
+        const strip = await chrome.tabs.query({ windowId: 1 });
+        expect(strip.map((tab) => tab.id)).toEqual(order);
+      }
+    );
+
     test('tabs.group of both halves from another window ends it', async () => {
       handle = fiveAndTwo();
       await split();
@@ -5045,6 +5068,30 @@ describe('split view (Chrome 155+)', () => {
       });
       await chrome.tabs.ungroup([11, 12]);
       await expectSplit();
+    });
+
+    test("tabs.ungroup from a run's middle takes the pair past it, in order", async () => {
+      handle = fiveAndTwo([
+        { groupId: 5 },
+        { groupId: 5 },
+        { groupId: 5 },
+        { groupId: 5 },
+      ]);
+      await split();
+      await chrome.tabs.ungroup([11, 12]);
+      await expectSplit();
+      const strip = await chrome.tabs.query({ windowId: 1 });
+      expect(strip.map((tab) => tab.id)).toEqual([10, 13, 11, 12, 14]);
+      expect(strip.map((tab) => tab.groupId)).toEqual([5, 5, -1, -1, -1]);
+    });
+
+    test("tabs.ungroup at a run's tail leaves the pair where it stands", async () => {
+      handle = fiveAndTwo([{ groupId: 5 }, { groupId: 5 }, { groupId: 5 }]);
+      await split();
+      await chrome.tabs.ungroup([11, 12]);
+      await expectSplit();
+      const strip = await chrome.tabs.query({ windowId: 1 });
+      expect(strip.map((tab) => tab.id)).toEqual([10, 11, 12, 13, 14]);
     });
 
     test.each([
