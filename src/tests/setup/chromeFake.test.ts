@@ -5032,7 +5032,7 @@ describe('split view (Chrome 155+)', () => {
         [10, 13, 11, 12, 14],
       ],
       [
-        'tail, from below',
+        'tail, beside it',
         [{ groupId: 5 }, {}, {}, {}, {}],
         [10, 11, 12, 13, 14],
       ],
@@ -5047,6 +5047,32 @@ describe('split view (Chrome 155+)', () => {
         expect(strip.map((tab) => tab.id)).toEqual(order);
       }
     );
+
+    test('a tabs.move of a half to where it stands keeps the split', async () => {
+      handle = fiveAndTwo();
+      await split();
+      await chrome.tabs.move(11, { index: 1 });
+      await expectSplit();
+    });
+
+    test('a refused tabs.move keeps the split', async () => {
+      handle = fiveAndTwo();
+      await split();
+      await expect(
+        chrome.tabs.move(11, { windowId: 9, index: 0 })
+      ).rejects.toThrow();
+      await expectSplit();
+    });
+
+    test('tabs.group of a pair from past a run lands at its tail', async () => {
+      handle = fiveAndTwo([{ groupId: 5 }, { groupId: 5 }]);
+      await createSplit([13, 14]);
+      await chrome.tabs.group({ tabIds: [13, 14], groupId: 5 });
+      const strip = await chrome.tabs.query({ windowId: 1 });
+      expect(strip.map((tab) => tab.id)).toEqual([10, 11, 13, 14, 12]);
+      expect(await splitOf(13)).toBeGreaterThan(0);
+      expect(await splitOf(14)).toBe(await splitOf(13));
+    });
 
     test('tabs.group of both halves from another window ends it', async () => {
       handle = fiveAndTwo();

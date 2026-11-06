@@ -207,12 +207,11 @@ describe('carryPair (KAN-486)', () => {
   });
 
   test('lands strictly inside a run, another window', async () => {
-    handle = seed(fiveTabs, [
-      { active: true },
-      { groupId: 5 },
-      { groupId: 5 },
-      { groupId: 5 },
-    ]);
+    // Measured (probe 4 S1): tabs.group across takes no front tab, even with a half active.
+    handle = seed(
+      [{}, { active: true }, {}, {}, {}],
+      [{ active: true }, { groupId: 5 }, { groupId: 5 }, { groupId: 5 }]
+    );
     await splitTabs([11, 12]);
     const to = { ...loose(2, 2), groupId: 5 };
     expect(await carryPair(pair, to)).toBe(true);

@@ -156,7 +156,8 @@ describe('moveOpenPair (KAN-486)', () => {
     handle = seed(fiveTabs);
     await splitTabs([11, 12]);
     const windows = await snapshot();
-    // Ended where it stands, so only the split check can see it.
+    // Away and back: ended, with every index as the snapshot holds it.
+    await chrome.tabs.move(11, { index: 3 });
     await chrome.tabs.move(11, { index: 1 });
     expect(await moveOpenPair(pairMove(11, 1, 1, 3), windows, true)).toBeNull();
     expect(await strip(1)).toEqual([10, 11, 12, 13, 14]);
@@ -411,7 +412,8 @@ describe('a pair step undone and redone (KAN-486)', () => {
     handle = seed(fiveTabs);
     await splitTabs([11, 12]);
     const drop = await dropPair(pairMove(11, 1, 1, 3));
-    // Ended where it stands: a tabs.move to its own index ends it in the fake.
+    // Away and back: ended, with every index as the record holds it.
+    await chrome.tabs.move(11, { index: 0 });
     await chrome.tabs.move(11, { index: 3 });
     const run = await runLiveStep(drop, 'undo', true);
     expect(run.outcome).toBe('changedSince');

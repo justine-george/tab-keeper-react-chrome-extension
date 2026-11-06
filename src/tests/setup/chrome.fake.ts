@@ -751,7 +751,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     return a.index < b.index ? [a, b] : [b, a];
   };
 
-  // KAN-486, measured (probe 3 R1, P3c): a split leaves its group as one unit,
+  // KAN-486, measured (probe 3 R1, P3c, probe 4 S2): a split leaves its group as one unit,
   // past the run from its middle, in place at the run's head or tail.
   const ungroupPair = ([first, second]: [
     chrome.tabs.Tab,
@@ -776,7 +776,7 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     dropGroupIfEmpty(groupId);
   };
 
-  // KAN-486, measured (P3a, probe 2 Q2): a split joins a group as one unit, at the run's nearest edge, in order.
+  // KAN-486, measured (P3a, probe 2 Q2, probe 4 S3): a split joins a group as one unit, at the run's nearest edge, in order.
   const joinAsPair = (
     [first, second]: [chrome.tabs.Tab, chrome.tabs.Tab],
     groupId: number
@@ -2295,8 +2295,6 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const target = tabs.find((tab) => tab.id === tabId);
         if (!target)
           return fail<chrome.tabs.Tab>(`No tab with id: ${tabId}.`, cb);
-        // KAN-460 Part 4, measured (M13): moving one tab of a split ends the split. Across windows not measured; assumed the same.
-        endSplit(target);
         if (
           props.windowId !== undefined &&
           props.windowId !== target.windowId
@@ -2306,6 +2304,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           if (refused !== undefined) {
             return fail<chrome.tabs.Tab>(refused, cb);
           }
+          // KAN-486, measured (P5, P7): leaving the window ends the split.
+          endSplit(target);
           closeIfEmpty(fromWindowId);
           return settle(target, cb);
         }
@@ -2317,6 +2317,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           props.index === -1 ? others.length : props.index,
           target.pinned
         );
+        // KAN-460 Part 4, measured (M13): moving one tab of a split ends it. KAN-486, measured (R5): a move to where it stands does not.
+        if (slot !== fromIndex) endSplit(target);
         tabs.splice(tabs.indexOf(target), 1);
         insertAtSlot(target, others, slot);
 
