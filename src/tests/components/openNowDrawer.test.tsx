@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act, fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 
 import MainContainer from '../../components/MainContainer';
 import { OPEN_NOW_RAIL_QUERY } from '../../components/home/opennow/railQuery';
@@ -451,11 +451,25 @@ describe('focus after a fold or unfold (O2)', () => {
     await within(openNowSlot()).findByText('B');
     press(within(openNowSlot()).getByRole('button', { name: FOLD }));
     press(within(openNowSlot()).getByRole('button', { name: UNFOLD }));
+    // Off the pane: focus inside it follows to the rail (KAN-928).
+    act(() => (document.activeElement as HTMLElement).blur());
 
     act(() => railQuery.setMatches(true));
 
     const button = await railButton();
     expect(document.activeElement).not.toBe(button);
+  });
+
+  test('a window narrowed with focus in the pane hands it to the rail (KAN-928)', async () => {
+    installMatchMedia(false);
+    await renderHome(false);
+    await within(openNowSlot()).findByText('B');
+    within(openNowSlot()).getByRole('button', { name: FOLD }).focus();
+
+    act(() => railQuery.setMatches(true));
+
+    const button = await railButton();
+    await waitFor(() => expect(document.activeElement).toBe(button));
   });
 
   // CONTROL. Wide, the pane is not swapped: the pressed button is the same
