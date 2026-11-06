@@ -46,16 +46,18 @@ const Harness = ({
   onMove,
   onDropTargetChange,
   disabled,
+  rowIds = ['a', 'b', 'c'],
 }: {
   onMove: OnMove;
   // Optional: unset, RowDragArea treats it as nobody listening.
   onDropTargetChange?: OnDropTargetChange;
   // Optional for the same reason; RowDragArea defaults it to false.
   disabled?: boolean;
+  rowIds?: string[];
 }) => (
   // bandAt is passed in: only the tab list has a membership question.
   <RowDragArea
-    rowIds={['a', 'b', 'c']}
+    rowIds={rowIds}
     onMove={onMove}
     resolveDrop={resolveDrop}
     onDropTargetChange={onDropTargetChange}
@@ -350,7 +352,7 @@ describe('when a drag should not happen at all', () => {
 // KAN-335 (O14c). A list turning drag off mid-hold (Open now, a search starting) cancels as Esc does: nothing moves, the
 // row goes back, the flag and hold (KAN-279 D12) release with the held change run once, the release click is swallowed.
 // Each assertion runs against Esc too.
-describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
+describe('a drag its list ends while held ends as Esc ends it (KAN-335, KAN-393)', () => {
   let clicks: number;
   const onClick = () => {
     clicks += 1;
@@ -368,7 +370,15 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
     document.documentElement.removeAttribute('data-dragging');
   });
 
-  const ways: Array<'Escape' | 'disabled'> = ['Escape', 'disabled'];
+  // KAN-393: `held row gone` is a keyboard session switch, which leaves this area mounted with other rows.
+  const ways = ['Escape', 'disabled', 'held row gone'] as const;
+  type Way = (typeof ways)[number];
+  const listEnding = (way: Exclude<Way, 'Escape'>, onMove: OnMove) =>
+    way === 'disabled' ? (
+      <Harness onMove={onMove} disabled />
+    ) : (
+      <Harness onMove={onMove} rowIds={['b', 'c']} />
+    );
 
   test.each(ways)(
     '%s: nothing moves, the hold is released once, and the release click is swallowed',
@@ -385,7 +395,7 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
       whenDragReleases(held);
 
       if (way === 'Escape') fireEvent.keyDown(window, { key: 'Escape' });
-      else rerender(<Harness onMove={onMove} disabled />);
+      else rerender(listEnding(way, onMove));
 
       // Ended at the cancel, before any release.
       expect(isDragHeld()).toBe(false);
@@ -418,7 +428,7 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
         expect(isDragHeld()).toBe(true);
 
         if (way === 'Escape') fireEvent.keyDown(window, { key: 'Escape' });
-        else rerender(<Harness onMove={onMove} disabled />);
+        else rerender(listEnding(way, onMove));
 
         // Five seconds on, well past any window a clock would give it.
         now.mockReturnValue(6000);
@@ -452,7 +462,7 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
         expect(isDragHeld()).toBe(true);
 
         if (way === 'Escape') fireEvent.keyDown(window, { key: 'Escape' });
-        else rerender(<Harness onMove={onMove} disabled />);
+        else rerender(listEnding(way, onMove));
 
         now.mockReturnValue(6000);
         release(85);
@@ -491,7 +501,7 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
       expect(isDragHeld()).toBe(true);
 
       if (way === 'Escape') fireEvent.keyDown(window, { key: 'Escape' });
-      else rerender(<Harness onMove={onMove} disabled />);
+      else rerender(listEnding(way, onMove));
 
       fireEvent.click(nodeFor('Row B'));
       expect(clicks).toBe(1);
@@ -500,17 +510,36 @@ describe('a drag disabled while held ends as Esc ends it (KAN-335)', () => {
   );
 
   // A press under the threshold is dropped too, or its next move would start a drag in a list that turned drag off.
-  test('a press under the threshold when drag turns off never becomes a drag', () => {
+  test.each(['disabled', 'held row gone'] as const)(
+    '%s: a press under the threshold never becomes a drag',
+    (way) => {
+      const onMove = vi.fn<OnMove>();
+      const { rerender } = render(<Harness onMove={onMove} />);
+      layout();
+      press('Row A', 15);
+      rerender(listEnding(way, onMove));
+      moveTo(85);
+      expect(isDragHeld()).toBe(false);
+      expect(document.documentElement.hasAttribute('data-dragging')).toBe(
+        false
+      );
+      release(85);
+      expect(onMove).not.toHaveBeenCalled();
+    }
+  );
+
+  // CONTROL: new rows that keep the held one are a re-render, and the drag goes on (KAN-159).
+  test('rows that change around the held one leave the drag alone', () => {
     const onMove = vi.fn<OnMove>();
     const { rerender } = render(<Harness onMove={onMove} />);
     layout();
     press('Row A', 15);
-    rerender(<Harness onMove={onMove} disabled />);
     moveTo(85);
-    expect(isDragHeld()).toBe(false);
-    expect(document.documentElement.hasAttribute('data-dragging')).toBe(false);
+    rerender(<Harness onMove={onMove} rowIds={['a', 'b', 'c', 'd']} />);
+    expect(isDragHeld()).toBe(true);
+    expect(document.documentElement.hasAttribute('data-dragging')).toBe(true);
     release(85);
-    expect(onMove).not.toHaveBeenCalled();
+    expect(onMove).toHaveBeenCalledTimes(1);
   });
 });
 

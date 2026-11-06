@@ -92,15 +92,17 @@ const Harness = ({
   onMove = () => {},
   disabled,
   carryOnly,
+  rowIds = IDS,
 }: {
   restore: boolean;
   onMove?: () => void;
   disabled?: boolean;
   carryOnly?: boolean;
+  rowIds?: string[];
 }) => (
   <div data-testid="pane" style={{ overflowY: 'auto' }}>
     <RowDragArea
-      rowIds={IDS}
+      rowIds={rowIds}
       onMove={onMove}
       dragKind="window"
       restoreScrollIfNoDrop={restore}
@@ -215,6 +217,16 @@ describe('a drag its list turns off leaves the scroll alone', () => {
       expect(writes).toEqual([]);
     });
   }
+
+  // KAN-393. Another session is on screen: the scroll from the press is the old session's.
+  test('its held row gone: cancelled, and nothing written to the scroll', () => {
+    const { rerender, writes } = setUp(true);
+
+    rerender(<Harness restore rowIds={IDS.filter((id) => id !== 'b')} />);
+
+    expect(document.documentElement.hasAttribute('data-dragging')).toBe(false);
+    expect(writes).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------
