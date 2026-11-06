@@ -119,18 +119,24 @@ describe('the toolbar icon files', () => {
   );
 
   test.each(Object.keys(TOOLBAR_INK))(
-    '%s 32 fills its box and keeps the disk: cut corner, solid shutter, open label',
+    '%s 32 is 15px centered and keeps the disk: cut corner, solid shutter, open label',
     (name) => {
       const png = file(name, 32);
       expect([png.width, png.height]).toEqual([32, 32]);
       const alpha = (x, y) => png.pixel(x, y)[3];
-      // Left, right, top and bottom edges all reach the box.
-      expect(alpha(0, 16)).toBeGreaterThan(200);
-      expect(alpha(31, 16)).toBeGreaterThan(200);
-      expect(alpha(14, 0)).toBeGreaterThan(200);
-      expect(alpha(16, 31)).toBeGreaterThan(200);
+      // KAN-938. One device pixel of room on every side, and the mark starts right after it.
+      for (let i = 0; i < 32; i++) {
+        expect(alpha(i, 0)).toBe(0);
+        expect(alpha(i, 31)).toBe(0);
+        expect(alpha(0, i)).toBe(0);
+        expect(alpha(31, i)).toBe(0);
+      }
+      expect(alpha(1, 16)).toBeGreaterThan(200);
+      expect(alpha(30, 16)).toBeGreaterThan(200);
+      expect(alpha(14, 1)).toBeGreaterThan(200);
+      expect(alpha(16, 30)).toBeGreaterThan(200);
       // The cut corner, top right, is clear.
-      expect(alpha(31, 0)).toBe(0);
+      expect(alpha(30, 1)).toBe(0);
       // Shutter solid, the wall beside it clear.
       expect(alpha(15, 6)).toBe(255);
       expect(alpha(6, 6)).toBe(0);
