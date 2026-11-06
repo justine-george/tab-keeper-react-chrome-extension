@@ -340,6 +340,52 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
     release(900);
   });
 
+  // KAN-334. The width saved is the one the user chose, whether or not the pointer moved after the window narrowed.
+  test.each([false, true])(
+    'a window narrowed mid-drag saves the chosen width (a move after it: %s)',
+    async (movedAfter) => {
+      await renderHome();
+      await mounted();
+
+      press(1000);
+      moveTo(900);
+      setViewportWidth(1280);
+      // PREMISE: drawn at the narrow window's limit.
+      expect(openNowTrack()).toBe('584px');
+      if (movedAfter) moveTo(900);
+      expect(openNowTrack()).toBe('584px');
+      release(900);
+
+      expect(storedWidth()).toBe(700);
+    }
+  );
+
+  test('a window narrowed mid-drag: a width past the limit the drag began with is still held to it', async () => {
+    await renderHome();
+    await mounted();
+
+    press(1000);
+    moveTo(900);
+    setViewportWidth(1280);
+    moveTo(0);
+    release(0);
+
+    expect(storedWidth()).toBe(860);
+  });
+
+  test('a window widened mid-drag: the wider limit is the one that holds', async () => {
+    setViewportWidth(1280);
+    await renderHome();
+    await mounted();
+
+    press(1000);
+    setViewportWidth(1600);
+    moveTo(0);
+    release(0);
+
+    expect(storedWidth()).toBe(860);
+  });
+
   // Narrowed under 1100px mid-drag, the range is gone and so is the grip.
   // Its unmount must end the drag like a cancel: nothing saved, no root
   // flag, and no live width left on the grid.
@@ -396,6 +442,89 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
 
     expect(isResizing()).toBe(false);
     expect(live.defaultPrevented).toBe(true);
+  });
+
+  // KAN-333. Only the pointer that started the drag drives it.
+  describe('a second pointer during a drag', () => {
+    const FIRST = 1;
+    const SECOND = 2;
+    const pressBy = (id: number, x: number) =>
+      fireEvent.pointerDown(grip(), {
+        pointerId: id,
+        clientX: x,
+        clientY: 300,
+        button: 0,
+      });
+    const moveBy = (id: number, x: number) =>
+      fireEvent.pointerMove(window, {
+        pointerId: id,
+        clientX: x,
+        clientY: 300,
+      });
+    const releaseBy = (id: number, x: number) =>
+      fireEvent.pointerUp(window, {
+        pointerId: id,
+        clientX: x,
+        clientY: 300,
+      });
+
+    test('its press leaves the width where it is, and the drag goes on from the first', async () => {
+      await renderHome();
+      await mounted();
+      pressBy(FIRST, 1000);
+      moveBy(FIRST, 900);
+      expect(openNowTrack()).toBe('700px');
+
+      pressBy(SECOND, 880);
+      moveBy(FIRST, 895);
+
+      expect(openNowTrack()).toBe('705px');
+      releaseBy(FIRST, 895);
+      expect(storedWidth()).toBe(705);
+    });
+
+    test('its moves do nothing', async () => {
+      await renderHome();
+      await mounted();
+      pressBy(FIRST, 1000);
+      moveBy(FIRST, 900);
+
+      moveBy(SECOND, 500);
+
+      expect(openNowTrack()).toBe('700px');
+      releaseBy(FIRST, 900);
+    });
+
+    test('its release or cancel does not end the drag', async () => {
+      await renderHome();
+      await mounted();
+      pressBy(FIRST, 1000);
+      moveBy(FIRST, 900);
+      pressBy(SECOND, 880);
+
+      releaseBy(SECOND, 880);
+      fireEvent.pointerCancel(window, { pointerId: SECOND });
+
+      expect(isResizing()).toBe(true);
+      expect(storedWidth()).toBe(null);
+      releaseBy(FIRST, 900);
+      expect(isResizing()).toBe(false);
+      expect(storedWidth()).toBe(700);
+    });
+
+    test('after the drag ends, a new press starts one', async () => {
+      await renderHome();
+      await mounted();
+      pressBy(FIRST, 1000);
+      moveBy(FIRST, 900);
+      releaseBy(FIRST, 900);
+
+      pressBy(SECOND, 1100);
+      moveBy(SECOND, 1050);
+      releaseBy(SECOND, 1050);
+
+      expect(storedWidth()).toBe(750);
+    });
   });
 
   test('Escape mid-drag puts the width back and saves nothing', async () => {
