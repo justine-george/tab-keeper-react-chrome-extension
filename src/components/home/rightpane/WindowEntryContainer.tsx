@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { useId, useMemo, useRef, useState } from 'react';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -140,6 +140,7 @@ import {
   rowEndCorners,
   rowHighlightCss,
 } from '../../../styles/rowHighlight';
+import { useNativeMouseLeave } from '../../../hooks/useNativeMouseLeave';
 
 /**
  * The Chrome group title, and the editor that replaces it (KAN-205).
@@ -326,13 +327,14 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   );
   // KAN-361/366. The trailing block (NEW_LAST_WINDOW); described where it is styled.
   const isTrailingBlock = windowId === NEW_LAST_WINDOW;
-  useEffect(() => {
-    const row = headerRow.current;
-    if (row === null) return;
-    const onLeave = () => setIsParentHovered(false);
-    row.addEventListener('mouseleave', onLeave);
-    return () => row.removeEventListener('mouseleave', onLeave);
-  }, [isTrailingBlock]);
+  useNativeMouseLeave(
+    (element) => element === headerRow.current,
+    () => setIsParentHovered(false)
+  );
+  useNativeMouseLeave(
+    (element) => element.hasAttribute('data-saved-tab-row'),
+    () => setHoveredTabId(null)
+  );
 
   // What a group is called on screen. An untitled group has no name, so it
   // borrows the string that already named it for assistive tech -- present
@@ -1261,8 +1263,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             : childrenStyle
         }
         data-drag-handle-row=""
+        data-saved-tab-row=""
         onMouseEnter={() => setHoveredTabId(tabId)}
-        onMouseLeave={() => setHoveredTabId(null)}
         {...tabMenu.rowProps(tabId)}
       >
         <DragHandle
