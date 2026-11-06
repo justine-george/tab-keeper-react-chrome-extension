@@ -675,7 +675,7 @@ test.describe('keyboard', () => {
       await strip.focus();
       await page.keyboard.press('Enter');
       const grey = page.getByRole('menuitemradio', {
-        name: 'Grey',
+        name: 'Gray',
         exact: true,
       });
       await expect(grey).toBeFocused();

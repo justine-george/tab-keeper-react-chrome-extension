@@ -947,7 +947,7 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
         .map((b) => b.getAttribute('aria-label'))
     ).toEqual(['Compact', 'Comfortable']);
 
-    const colour = screen.getByRole('group', { name: 'Colour' });
+    const colour = screen.getByRole('group', { name: 'Color' });
     expect(
       within(colour)
         .getAllByRole('button')
@@ -960,7 +960,7 @@ describe('the toolbar says which controls are choices (KAN-190)', () => {
     await renderPage();
 
     const layout = screen.getByRole('group', { name: 'Layout' });
-    const colour = screen.getByRole('group', { name: 'Colour' });
+    const colour = screen.getByRole('group', { name: 'Color' });
 
     for (const name of ['Save as PDF…', 'Copy all links']) {
       const button = screen.getByRole('button', { name });

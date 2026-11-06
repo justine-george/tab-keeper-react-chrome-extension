@@ -637,7 +637,7 @@ for (const mode of ['light', 'dark'] as const) {
       .getByRole('button', { name: 'Edit' })
       .evaluate((el) => getComputedStyle(el).backgroundColor);
 
-    for (const group of ['Layout', 'Colour']) {
+    for (const group of ['Layout', 'Color']) {
       const knob = await settledKnob(exportPage, group);
       expect(knob.track, `${group}: the track matches Edit`).toBe(buttonFill);
       const report = `${group}: ${JSON.stringify(knob)}`;
@@ -917,13 +917,13 @@ test('pressing Dark slides the knob while the colours switch at once', async ({
   const exportPage = await openExportUnder(context, extensionId, {
     theme: 'Light',
   });
-  await settledKnob(exportPage, 'Colour');
+  await settledKnob(exportPage, 'Color');
   const copy = exportPage.getByRole('button', { name: 'Copy all links' });
 
   await exportPage.getByRole('button', { name: 'Dark' }).click();
 
   const slide = await exportPage
-    .getByRole('group', { name: 'Colour' })
+    .getByRole('group', { name: 'Color' })
     .evaluate((el) =>
       el
         .querySelector('[data-sliding-knob]')!

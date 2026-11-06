@@ -473,7 +473,7 @@ describe("Open opens the group's tabs", () => {
     expect(chrome.createdTabs.map((t) => t.index)).toEqual([1, 2]);
   });
 
-  test('restores the group name and colour', async () => {
+  test('restores the group name and color', async () => {
     await openRow();
     await new Promise((r) => setTimeout(r, 0));
 

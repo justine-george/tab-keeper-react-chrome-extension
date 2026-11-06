@@ -579,7 +579,7 @@ grantedTest(
     await bar.click({ button: 'right' });
 
     const picker = page.getByRole('menu').filter({
-      has: page.getByRole('menuitemradio', { name: 'Grey', exact: true }),
+      has: page.getByRole('menuitemradio', { name: 'Gray', exact: true }),
     });
     await expect(picker).toBeVisible();
     await expect(picker.getByRole('menuitemradio')).toHaveCount(9);

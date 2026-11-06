@@ -676,7 +676,7 @@ for (const width of [1600, 1000]) {
     ).toBe(1);
     // CONTROL: the pairs were found, so a pass is not an empty comparison.
     expect(resting.controls.map((c) => c.name)).toEqual(
-      expect.arrayContaining(['Layout', 'Colour', 'Edit', 'Copy all links'])
+      expect.arrayContaining(['Layout', 'Color', 'Edit', 'Copy all links'])
     );
   });
 }

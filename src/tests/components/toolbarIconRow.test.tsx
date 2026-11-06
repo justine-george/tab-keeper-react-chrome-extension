@@ -60,7 +60,7 @@ const renderDisplay = (
   });
 
 const group = () => screen.getByRole('group', { name: 'Toolbar icon' });
-const tile = (name: 'Colour' | 'Monochrome') =>
+const tile = (name: 'Color' | 'Monochrome') =>
   within(group()).getByRole('button', { name });
 const savedSettings = (): unknown =>
   JSON.parse(localStorage.getItem('settingsData') ?? '{}');
@@ -79,13 +79,13 @@ describe('the Toolbar icon row', () => {
     ].map((section) => section.querySelector('span')?.textContent);
     expect(labels).toEqual(['Themes', 'Toolbar icon', 'Time format']);
     expect(within(group()).getAllByRole('button')).toHaveLength(2);
-    expect(tile('Colour')).toHaveAttribute('aria-pressed', 'true');
+    expect(tile('Color')).toHaveAttribute('aria-pressed', 'true');
     expect(tile('Monochrome')).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('says what it changes, as the description of every tile', async () => {
     await renderDisplay();
-    for (const name of ['Colour', 'Monochrome'] as const) {
+    for (const name of ['Color', 'Monochrome'] as const) {
       expect(tile(name)).toHaveAccessibleDescription(/Chrome’s toolbar/);
     }
   });
@@ -147,7 +147,7 @@ describe('the Toolbar icon row', () => {
     await user.click(tile('Monochrome'));
     await waitFor(() => expect(chrome.iconsSet).toEqual([LIGHT_ICON]));
 
-    await user.click(tile('Colour'));
+    await user.click(tile('Color'));
     await waitFor(() => expect(chrome.iconsSet).toEqual([LIGHT_ICON, COLOUR]));
 
     act(() => mode.setMatches(false));
@@ -194,7 +194,7 @@ describe('the Toolbar icon row', () => {
     async (dark, toolbar) => {
       chromeMode(dark);
       await renderDisplay({ action: {} }, dark ? Theme.CHALK : Theme.CHARCOAL);
-      for (const name of ['Colour', 'Monochrome'] as const) {
+      for (const name of ['Color', 'Monochrome'] as const) {
         const swatch = tile(name).querySelector('[data-swatch-tile]');
         expect(swatch).toHaveStyle({ backgroundColor: toolbar });
       }
@@ -212,7 +212,7 @@ describe('the Toolbar icon row', () => {
     );
   });
 
-  test.each(['Colour', 'Monochrome'] as const)(
+  test.each(['Color', 'Monochrome'] as const)(
     '%s shows the icon left of the puzzle piece and the ⋮, as Chrome does',
     async (name) => {
       await renderDisplay();
