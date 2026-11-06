@@ -10,6 +10,7 @@ import {
   currentCarry,
   endCarry,
   startCarry,
+  subscribeCarry,
   type CarryCard,
 } from '../../redux/carry';
 import { beginDragHold, endDragHold } from '../../redux/dragHold';
@@ -169,6 +170,35 @@ describe('finding 8: the move that hands over is routed to the list', () => {
 
     expect(currentCarry()?.owner).toBe('layer');
     expect(targetIds()).toEqual(['S2']);
+  });
+
+  // KAN-367. In Chrome the render this owner change causes runs between two listeners of the same move, and takes the
+  // layer's listener away before it hears that move: what the layer routes is what the carry holds at that moment.
+  test('an adopted drag handed back: the carry already stands at that move when the layer takes it', async () => {
+    await render([s1(), s2(), s3()], 'S1');
+    handOff(
+      { kind: 'tab', tabGroupId: 'S1', windowId: 'w1', tabId: 't2' },
+      TAB_CARD
+    );
+    act(() => {
+      moveTo(200, 600);
+    });
+    // PREMISE: adopted, at the adopting move's point.
+    expect(currentCarry()).toMatchObject({ owner: 'area', x: 600, y: 200 });
+
+    let takenAt: { x: number; y: number } | null = null;
+    const off = subscribeCarry(() => {
+      const now = currentCarry();
+      if (takenAt === null && now?.owner === 'layer') {
+        takenAt = { x: now.x, y: now.y };
+      }
+    });
+    act(() => {
+      moveTo(rowY(1));
+    });
+    off();
+
+    expect(takenAt).toEqual({ x: X, y: rowY(1) });
   });
 
   test('and the dwell started with it: 600ms later that session opens', async () => {

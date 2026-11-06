@@ -98,6 +98,7 @@ import {
   currentCarry,
   endCarry,
   measureCarryReceivers,
+  moveCarry,
   setCarryOwner,
   startCarry,
   subscribeCarry,
@@ -1625,6 +1626,8 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     const handOff = (l: LiveDrag, x: number, y: number): boolean => {
       if (l.adopted) {
         letGo(l);
+        // KAN-367. Before the owner: the render it causes takes the layer's listener away before it hears this move.
+        moveCarry(x, y);
         setCarryOwner('layer');
         return true;
       }
@@ -2210,13 +2213,13 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // `pressStillDown` is true for a cancel the pointer has not ended -- Esc,
     // or the list turning drag off (KAN-335) -- whose press will still be
     // released, and whose release Chrome may still turn into a click.
-    // `listTurnedOff` is true for the list turning drag off (`disabled`, or
-    // carry-only for an in-list drag): a search changed its rows, so the
+    // `rowsChanged` is true for a drag ended because its list's rows changed
+    // (`disabled`, carry-only for an in-list drag, the held row gone): the
     // scroll from the press is not put back (KAN-832).
     const finish = (
       commit: boolean,
       pressStillDown: boolean,
-      listTurnedOff = false
+      rowsChanged = false
     ) => {
       const l = live.current;
       live.current = null;
@@ -2402,7 +2405,7 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
           restoreScrollIfNoDrop &&
           l.scroller &&
           !l.adopted &&
-          !listTurnedOff
+          !rowsChanged
         ) {
           // Put the view back (KAN-157). For a window drag "nothing happened" is
           // not the same as "leave the scroll alone": the collapse already
@@ -2497,6 +2500,14 @@ export const RowDragArea: React.FC<RowDragAreaProps> = ({
     // still under the threshold is dropped the same way, so it cannot go on
     // to start a drag the list has turned off.
     if (disabled && live.current) finish(false, true, true);
+    // KAN-393. Nor can a drag outlive its row: a keyboard switch of session keeps this area mounted, with other rows. An adopted drag's row is the carry's.
+    if (
+      live.current !== null &&
+      !live.current.adopted &&
+      !rowIds.includes(live.current.rowId)
+    ) {
+      finish(false, true, true);
+    }
     // P2. A list turned carry-only (Open now's search starting) ends an in-list drag; a carry-only drag has already handed off.
     if (carryOnly && live.current?.started === true) finish(false, true, true);
 

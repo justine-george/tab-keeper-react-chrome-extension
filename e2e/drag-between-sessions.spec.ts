@@ -784,6 +784,27 @@ test.describe('only the session list carries (hand-off, KAN-352)', () => {
     expect(await layout(page, 'S1')).toEqual(['a0 a2 al0* al1*', 'b0 b1']);
   });
 
+  // KAN-367. The hand-back's move is the only one: a pointer that then stands still still lights the row and opens it.
+  test('an adopted drag handed back in one move, then held still: the row lights and opens', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPopup(context, extensionId);
+    const at = await pickUp(page, tabHandle(page, 'a1'));
+    await carryOutLeft(page, at);
+    await springOpen(page, 'S2');
+    await adoptPhantom(page, 'carried:a1');
+
+    const third = await boxOf(sessionRow(page, 'S3'));
+    await page.mouse.move(third.x + third.width / 2, third.y + third.height / 2);
+
+    await expect.poll(() => carryTargets(page)).toEqual(['S3']);
+    await expect
+      .poll(() => selected(page), { timeout: SPRING_OPEN_MS + 2000 })
+      .toBe('S3');
+    await page.mouse.up();
+  });
+
   // KAN-352, aimed where the old rule fired: Open now's resize grip sits just
   // right of the detail pane. A saved drag drifting onto it, and let go
   // there, is an ordinary move -- no card, no New window target, ever.
