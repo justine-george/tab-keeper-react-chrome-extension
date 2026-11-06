@@ -75,8 +75,8 @@ describe('sync with invalid localStorage', () => {
       '{"lastModified":9999,"selectedTabGroupId":null,"tabGroups":"x"}',
     ],
     [
-      'a group missing isAutoSave',
-      '{"lastModified":9999,"selectedTabGroupId":null,"tabGroups":[{"tabGroupId":"bad","title":"t","createdTime":"c","windowCount":1,"tabCount":1,"isSelected":false,"windows":[]}]}',
+      'a group with a non-boolean isAutoSave',
+      '{"lastModified":9999,"selectedTabGroupId":null,"tabGroups":[{"tabGroupId":"bad","title":"t","createdTime":"c","windowCount":1,"tabCount":1,"isAutoSave":"yes","isSelected":false,"windows":[]}]}',
     ],
   ])('treats %s as absent and keeps the cloud copy', async (_label, raw) => {
     localStorage.setItem('tabContainerData', raw);

@@ -174,7 +174,8 @@ export interface tabContainerData {
   title: string;
   windowCount: number;
   tabCount: number;
-  isAutoSave: boolean;
+  // KAN-91. No feature reads it. Written only because older versions require it.
+  isAutoSave?: boolean;
   isSelected: boolean;
   windows: windowGroupData[];
   // Optional because every document written before this change lacks it.
@@ -1644,7 +1645,6 @@ function sameSessionContent(a: tabContainerData, b: tabContainerData): boolean {
     //
     // So: add it the moment a reducer touches `contentModified` without
     // touching anything else, and not before (KAN-139).
-    a.isAutoSave === b.isAutoSave &&
     a.windowCount === b.windowCount &&
     a.tabCount === b.tabCount &&
     a.windows.length === b.windows.length &&

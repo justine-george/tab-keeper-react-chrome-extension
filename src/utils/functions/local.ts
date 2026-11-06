@@ -845,7 +845,14 @@ export function readImportedContainer(
     });
   }
 
-  return parsed;
+  // KAN-91. Older versions refuse a session without it, and an import syncs.
+  return {
+    ...parsed,
+    tabGroups: parsed.tabGroups.map((session) => ({
+      isAutoSave: false,
+      ...session,
+    })),
+  };
 }
 
 // validate import JSON structure - tabContainerData
@@ -861,7 +868,8 @@ const isValidTabContainerData = (data: unknown): data is tabContainerData => {
     (data.createdAt === undefined || typeof data.createdAt === 'number') &&
     typeof data.windowCount === 'number' &&
     typeof data.tabCount === 'number' &&
-    typeof data.isAutoSave === 'boolean' &&
+    // KAN-91. Absent is valid; a later release stops writing it.
+    (data.isAutoSave === undefined || typeof data.isAutoSave === 'boolean') &&
     typeof data.isSelected === 'boolean' &&
     Array.isArray(data.windows) &&
     data.windows.every(isValidWindowGroupData)
