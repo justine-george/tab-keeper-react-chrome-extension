@@ -493,5 +493,11 @@
   "Toolbar icon": "Toolbar icon",
   "ToolbarIconColour": "Color",
   "ToolbarIconMonochrome": "Monochrome",
-  "ToolbarIconHelp": "Changes the icon in Chrome’s toolbar. Monochrome follows Chrome’s light or dark mode."
+  "ToolbarIconHelp": "Changes the icon in Chrome’s toolbar. Monochrome follows Chrome’s light or dark mode.",
+  "WhatsNewToolbarIconTitle": "Choose your toolbar icon",
+  "WhatsNewToolbarIconBody": "Tab Keeper's icon in Chrome's toolbar can now be Color or Monochrome, in Settings › Display. Monochrome follows Chrome's light or dark mode.",
+  "WhatsNewGroupColorTitle": "Change a group's color from its menu",
+  "WhatsNewGroupColorBody": "Right-click a group's title, or open its ⋮ menu, and pick a color. It works on saved groups and in Currently open.",
+  "WhatsNewOpenNewWindowTitle": "Open saved tabs in a new window",
+  "WhatsNewOpenNewWindowBody": "Right-click a saved tab or group and choose Open in new window."
 }

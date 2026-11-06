@@ -54,7 +54,39 @@ Read the full [privacy policy](PRIVACY.md).
 
 ## Changelog
 
-### v.2.2.1 (Latest)
+### v.2.3.0 (Latest)
+
+#### Features
+
+- Choose Tab Keeper's toolbar icon, in Settings › Display: Color, or Monochrome, which follows Chrome's light or dark mode
+- Change a group's color from its menu: right-click its title or open its ⋮ menu, on saved groups and in Currently open
+- Open saved tabs and groups in a new window, from their right-click menu
+- Copy links from open windows, in the save row's ⋮ menu. It follows the Copy links setting
+
+#### Improvements
+
+- Saved search starts at the top of the list, so the first match is in view. Clearing it puts you back where you were
+- Dialogs scroll inside a short window instead of running off it
+- Tooltips and screen-reader names use each language's own punctuation
+- A save field's hint that's too long for its field ends in an ellipsis
+- In the popup, Settings content starts under the title, and the Sync status icon lines up with its label
+- A group title's keyboard ring sits outside its text
+- English text uses American spelling
+
+#### Fixes
+
+- A tab suspended by another extension while it waited to load comes back with its real page when you go to it
+- The resize grips keep the width you chose, follow only the first touch, and stop on a lost pointer release. Ctrl+press on a Mac no longer starts a resize
+- A dragged item handed back to the session list lights its row straight away
+- Switching sessions from the keyboard mid-drag ends the drag, and with it the grabbing cursor
+- Undoing a sort puts a Tab Keeper page back in its slot, in a window or inside a group
+- Keyboard focus stays on the page's controls when the Currently open panel closes or goes away without a button press
+- Renaming a session or an open group out of the search match keeps keyboard focus
+- Esc closes Currently open's window menu even if its Sort item goes while the menu is open
+- Row actions hide after a rename once the pointer has moved away
+- An open cloud question closes when another page answers it
+
+### v.2.2.1
 
 #### Improvements
 
@@ -87,34 +119,6 @@ Read the full [privacy policy](PRIVACY.md).
 - Dragging a group's only tab out lands where the rows below are drawn, instead of joining the group above
 - Holding a saved window near Currently open's edge scrolls the list
 - The Japanese session menu fits its pane
-
-### v.2.1.0
-
-#### Features
-
-- Replace a saved window with the window you're in, from its menu. It keeps its name and place, and the rest of the session stays as it was
-- Remove duplicate tabs from the windows you have open, from a window's menu or Currently open's right-click menu. Reopen brings them back
-- After an update, What's new lists the main changes once, with a shortcut to any setting that changed
-- The Save as PDF preview has a slim header with a way back to Tab Keeper, which asks first if your edits would be lost
-
-#### Fixes
-
-- In Save as PDF's Edit, rows follow the Comfortable layout instead of always drawing Compact's lines
-- On a narrow window, Edit and Done in the Save as PDF preview no longer move the sheet
-- Chrome's own Print… on the Save as PDF preview prints the file over as many pages as it needs, instead of one cut-off page with the toolbar
-- A selected session's Open, Switch and Replace buttons no longer overlap in languages with longer words or at a larger font size
-- A tab dragged out of Currently open and brought back over its left edge, by the resize grip, is moved back instead of copied
-- On the tour, a save of your own after Use an example counts as the tour's, and the sample makes way for it
-- A rating card already on screen steps aside for a tour or setup started over it, and comes back after
-- The tour skips the pin step when this tab is already pinned and pinning in new windows is on
-
-#### Improvements
-
-- Copy links pastes one link per line. The old layout with headings is in Settings › Sessions
-- The saved session and Currently open can be resized from a 1100px window, and the Currently open drawer is wider
-- Short help lines under Auto sync, Backup, Cloud data and Save tab groups, and a clearer Delete cloud data dialog
-- Until your first save, the save button's ring keeps pulsing, and the first save pops floppy disks
-- Setup and the popup tour end on a last card: your session is saved, and Open brings it back
 
 ## Blog Posts
 

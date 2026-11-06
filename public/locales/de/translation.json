@@ -493,5 +493,11 @@
   "Toolbar icon": "Symbol in der Symbolleiste",
   "ToolbarIconColour": "Farbig",
   "ToolbarIconMonochrome": "Monochrom",
-  "ToolbarIconHelp": "Ändert das Symbol in der Chrome-Symbolleiste. Monochrom folgt dem hellen oder dunklen Modus von Chrome."
+  "ToolbarIconHelp": "Ändert das Symbol in der Chrome-Symbolleiste. Monochrom passt sich dem hellen oder dunklen Modus von Chrome an.",
+  "WhatsNewToolbarIconTitle": "Symbol in der Symbolleiste wählen",
+  "WhatsNewToolbarIconBody": "Das Symbol von Tab Keeper in der Chrome-Symbolleiste kann jetzt „Farbig“ oder „Monochrom“ sein, unter Einstellungen › Anzeige. „Monochrom“ passt sich dem hellen oder dunklen Modus von Chrome an.",
+  "WhatsNewGroupColorTitle": "Gruppenfarbe über das Menü ändern",
+  "WhatsNewGroupColorBody": "Klicken Sie mit der rechten Maustaste auf den Titel einer Gruppe oder öffnen Sie ihr ⋮-Menü und wählen Sie eine Farbe. Das funktioniert bei gespeicherten Gruppen und in „Offene Tabs“.",
+  "WhatsNewOpenNewWindowTitle": "Gespeicherte Tabs in einem neuen Fenster öffnen",
+  "WhatsNewOpenNewWindowBody": "Klicken Sie mit der rechten Maustaste auf einen gespeicherten Tab oder eine Gruppe und wählen Sie „In neuem Fenster öffnen“."
 }

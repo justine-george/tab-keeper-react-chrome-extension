@@ -90,7 +90,7 @@
   "Session tab group deleted.": "Grupo de guias da sessão excluído.",
   "Sync unavailable: your saved account token could not be read.": "Sincronização indisponível: não foi possível ler o token da conta salvo.",
   "Back": "Voltar",
-  "Display": "Exibir",
+  "Display": "Exibição",
   "Sync & Backup": "Sync & backup",
   "Sessions": "Sessões",
   "Language": "Idioma",
@@ -510,5 +510,11 @@
   "Toolbar icon": "Ícone da barra de ferramentas",
   "ToolbarIconColour": "Colorido",
   "ToolbarIconMonochrome": "Monocromático",
-  "ToolbarIconHelp": "Altera o ícone na barra de ferramentas do Chrome. Monocromático segue o modo claro ou escuro do Chrome."
+  "ToolbarIconHelp": "Altera o ícone na barra de ferramentas do Chrome. Monocromático acompanha o modo claro ou escuro do Chrome.",
+  "WhatsNewToolbarIconTitle": "Escolha o ícone da barra de ferramentas",
+  "WhatsNewToolbarIconBody": "O ícone do Tab Keeper na barra de ferramentas do Chrome agora pode ser “Colorido” ou “Monocromático”, em Configurações › Exibição. “Monocromático” acompanha o modo claro ou escuro do Chrome.",
+  "WhatsNewGroupColorTitle": "Altere a cor de um grupo pelo menu dele",
+  "WhatsNewGroupColorBody": "Clique com o botão direito no título de um grupo, ou abra o menu ⋮ dele, e escolha uma cor. Funciona em grupos salvos e em “Abas abertas”.",
+  "WhatsNewOpenNewWindowTitle": "Abra abas salvas em uma nova janela",
+  "WhatsNewOpenNewWindowBody": "Clique com o botão direito em uma aba ou grupo salvo e escolha “Abrir em nova janela”."
 }

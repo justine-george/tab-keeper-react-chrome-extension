@@ -476,5 +476,11 @@
   "Toolbar icon": "工具列圖示",
   "ToolbarIconColour": "彩色",
   "ToolbarIconMonochrome": "單色",
-  "ToolbarIconHelp": "變更 Chrome 工具列中的圖示。單色會跟隨 Chrome 的淺色或深色模式。"
+  "ToolbarIconHelp": "變更 Chrome 工具列中的圖示。單色會跟隨 Chrome 的淺色或深色模式。",
+  "WhatsNewToolbarIconTitle": "選擇工具列圖示",
+  "WhatsNewToolbarIconBody": "現在可以在「設定 › 顯示」中，將 Chrome 工具列上的 Tab Keeper 圖示設為「彩色」或「單色」。「單色」會跟隨 Chrome 的淺色或深色模式。",
+  "WhatsNewGroupColorTitle": "從選單變更群組顏色",
+  "WhatsNewGroupColorBody": "在群組標題上按右鍵，或開啟該群組的 ⋮ 選單，然後選擇顏色。已儲存的群組和「目前開啟的分頁」都能使用。",
+  "WhatsNewOpenNewWindowTitle": "在新視窗中開啟已儲存的分頁",
+  "WhatsNewOpenNewWindowBody": "在已儲存的分頁或群組上按右鍵，然後選擇「在新視窗中開啟」。"
 }

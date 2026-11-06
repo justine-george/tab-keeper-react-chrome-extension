@@ -510,5 +510,11 @@
   "Toolbar icon": "Icône de la barre d’outils",
   "ToolbarIconColour": "Couleur",
   "ToolbarIconMonochrome": "Monochrome",
-  "ToolbarIconHelp": "Change l’icône dans la barre d’outils de Chrome. Monochrome suit le mode clair ou sombre de Chrome."
+  "ToolbarIconHelp": "Change l’icône dans la barre d’outils de Chrome. Monochrome s’adapte au mode clair ou sombre de Chrome.",
+  "WhatsNewToolbarIconTitle": "Choisissez l’icône de la barre d’outils",
+  "WhatsNewToolbarIconBody": "L’icône de Tab Keeper dans la barre d’outils de Chrome peut désormais être « Couleur » ou « Monochrome », dans Paramètres › Affichage. « Monochrome » s’adapte au mode clair ou sombre de Chrome.",
+  "WhatsNewGroupColorTitle": "Changez la couleur d’un groupe depuis son menu",
+  "WhatsNewGroupColorBody": "Faites un clic droit sur le titre d’un groupe, ou ouvrez son menu ⋮, et choisissez une couleur. Cela fonctionne pour les groupes enregistrés et dans « Onglets ouverts ».",
+  "WhatsNewOpenNewWindowTitle": "Ouvrez des onglets enregistrés dans une nouvelle fenêtre",
+  "WhatsNewOpenNewWindowBody": "Faites un clic droit sur un onglet ou un groupe enregistré et choisissez « Ouvrir dans une nouvelle fenêtre »."
 }

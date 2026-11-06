@@ -90,7 +90,7 @@
   "Session tab group deleted.": "Grupo de pestañas de la sesión eliminado.",
   "Sync unavailable: your saved account token could not be read.": "Sincronización no disponible: no se pudo leer el token de cuenta guardado.",
   "Back": "Atrás",
-  "Display": "Mostrar",
+  "Display": "Visualización",
   "Sync & Backup": "Sincro y copia",
   "Sessions": "Sesiones",
   "Language": "Idioma",
@@ -510,5 +510,11 @@
   "Toolbar icon": "Icono de la barra de herramientas",
   "ToolbarIconColour": "Color",
   "ToolbarIconMonochrome": "Monocromo",
-  "ToolbarIconHelp": "Cambia el icono en la barra de herramientas de Chrome. Monocromo sigue el modo claro u oscuro de Chrome."
+  "ToolbarIconHelp": "Cambia el icono en la barra de herramientas de Chrome. Monocromo se adapta al modo claro u oscuro de Chrome.",
+  "WhatsNewToolbarIconTitle": "Elige el icono de la barra de herramientas",
+  "WhatsNewToolbarIconBody": "El icono de Tab Keeper en la barra de herramientas de Chrome ahora puede ser «Color» o «Monocromo», en Configuración › Visualización. «Monocromo» se adapta al modo claro u oscuro de Chrome.",
+  "WhatsNewGroupColorTitle": "Cambia el color de un grupo desde su menú",
+  "WhatsNewGroupColorBody": "Haz clic derecho en el título de un grupo, o abre su menú ⋮, y elige un color. Funciona en los grupos guardados y en «Pestañas abiertas».",
+  "WhatsNewOpenNewWindowTitle": "Abre pestañas guardadas en una ventana nueva",
+  "WhatsNewOpenNewWindowBody": "Haz clic derecho en una pestaña o un grupo guardado y elige «Abrir en nueva ventana»."
 }

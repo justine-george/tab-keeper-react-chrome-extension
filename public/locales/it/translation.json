@@ -90,7 +90,7 @@
   "Session tab group deleted.": "Gruppo di schede eliminato.",
   "Sync unavailable: your saved account token could not be read.": "Sincronizzazione non disponibile: impossibile leggere il token dell’account salvato.",
   "Back": "Indietro",
-  "Display": "Mostra",
+  "Display": "Visualizzazione",
   "Sync & Backup": "Sync e backup",
   "Sessions": "Sessioni",
   "Language": "Lingua",
@@ -510,5 +510,11 @@
   "Toolbar icon": "Icona della barra degli strumenti",
   "ToolbarIconColour": "A colori",
   "ToolbarIconMonochrome": "Monocromo",
-  "ToolbarIconHelp": "Cambia l’icona nella barra degli strumenti di Chrome. Monocromo segue la modalità chiara o scura di Chrome."
+  "ToolbarIconHelp": "Cambia l’icona nella barra degli strumenti di Chrome. Monocromo si adatta alla modalità chiara o scura di Chrome.",
+  "WhatsNewToolbarIconTitle": "Scegli l’icona della barra degli strumenti",
+  "WhatsNewToolbarIconBody": "L’icona di Tab Keeper nella barra degli strumenti di Chrome ora può essere «A colori» o «Monocromo», in Impostazioni › Visualizzazione. «Monocromo» si adatta alla modalità chiara o scura di Chrome.",
+  "WhatsNewGroupColorTitle": "Cambia il colore di un gruppo dal suo menu",
+  "WhatsNewGroupColorBody": "Fai clic con il tasto destro sul titolo di un gruppo, oppure apri il suo menu ⋮, e scegli un colore. Funziona sui gruppi salvati e in «Schede aperte».",
+  "WhatsNewOpenNewWindowTitle": "Apri le schede salvate in una nuova finestra",
+  "WhatsNewOpenNewWindowBody": "Fai clic con il tasto destro su una scheda o un gruppo salvato e scegli «Apri in nuova finestra»."
 }
