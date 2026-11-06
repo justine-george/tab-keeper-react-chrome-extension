@@ -17,6 +17,7 @@ import GroupColorPicker from '../../common/GroupColorPicker';
 import Icon from '../../common/Icon';
 import OverflowMenu from '../../common/OverflowMenu';
 import type { OverflowMenuItem } from '../../common/OverflowMenu';
+import type { MenuColorRow } from '../../common/MenuPanel';
 import { holdBackDoubleClickTail } from '../../common/doubleClickTail';
 import { onFirstClickOnly } from '../../common/firstClickOnly';
 import RowTextButton from '../../common/RowTextButton';
@@ -804,6 +805,19 @@ export default function OpenNowWindow({
       },
     },
   ];
+  // KAN-936. The strip's colors, in the group's ⋮ and right-click menus.
+  const openGroupColorRow = (groupId: string): MenuColorRow | undefined => {
+    const band = items.find(
+      (item) => item.kind === 'group' && item.group.groupId === groupId
+    );
+    return band?.kind === 'group'
+      ? {
+          ariaLabel: t('Change group color'),
+          color: band.group.color,
+          onPick: (color) => void updateLiveGroup(Number(groupId), { color }),
+        }
+      : undefined;
+  };
   const groupMenu = useRowContextMenu({
     kind: 'openGroup',
     ariaLabel: (groupId) => {
@@ -831,6 +845,7 @@ export default function OpenNowWindow({
           ]
         : null;
     },
+    colorRowFor: openGroupColorRow,
   });
 
   function renderTab(tab: OpenTab, grouped: boolean) {
@@ -1456,6 +1471,7 @@ export default function OpenNowWindow({
                                   )
                                 }
                                 items={openGroupMenuItems(item.group.groupId)}
+                                colorRow={openGroupColorRow(item.group.groupId)}
                               />
                             </div>
                           )}

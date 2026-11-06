@@ -5,9 +5,9 @@ import { css } from '@emotion/react';
 import Icon from './Icon';
 import type { IconName } from './iconNames';
 import { usePopoverList } from '../../hooks/usePopoverList';
-import { MenuPanel } from './MenuPanel';
+import { MenuPanel, menuItemCount, menuRows } from './MenuPanel';
 import { VIEWPORT_GUTTER_PX } from './rowMenu/placeMenu';
-import type { OverflowMenuItem } from './MenuPanel';
+import type { MenuColorRow, OverflowMenuItem } from './MenuPanel';
 
 // Moved to MenuPanel (KAN-708); kept importable from here.
 export type { OverflowMenuItem };
@@ -61,6 +61,8 @@ interface OverflowMenuProps {
   fillsHeight?: boolean;
   // KAN-582. The trigger is held: it opens nothing (the tour's Delete step explains only).
   disabled?: boolean;
+  // KAN-936. Swatches above the items.
+  colorRow?: MenuColorRow;
 }
 
 /**
@@ -103,6 +105,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
   triggerStyle,
   fillsHeight = false,
   disabled = false,
+  colorRow,
 }) => {
   const {
     isOpen,
@@ -113,8 +116,9 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
     registerItem,
     handleKeyDown,
   } = usePopoverList({
-    count: items.length,
+    count: menuItemCount(items, colorRow),
     axis: 'vertical',
+    rows: menuRows(items, colorRow),
     onOpenChange,
   });
 
@@ -229,6 +233,7 @@ const OverflowMenu: React.FC<OverflowMenuProps> = ({
           handleKeyDown={handleKeyDown}
           close={() => close(false)}
           positionCss={positionCss}
+          colorRow={colorRow}
         />
       )}
     </div>

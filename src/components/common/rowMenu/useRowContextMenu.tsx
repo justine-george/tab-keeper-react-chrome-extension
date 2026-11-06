@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 
-import type { OverflowMenuItem } from '../MenuPanel';
+import type { MenuColorRow, OverflowMenuItem } from '../MenuPanel';
 import { RowContextMenu, type RowMenuCloseReason } from './RowContextMenu';
 import {
   closeRowMenu,
@@ -80,10 +80,13 @@ export function useRowContextMenu({
   kind,
   ariaLabel,
   itemsFor,
+  colorRowFor,
 }: {
   kind: RowMenuKind;
   ariaLabel: (id: string) => string;
   itemsFor: (id: string) => OverflowMenuItem[] | null;
+  // KAN-936. Read from the live row like itemsFor, so a pick shows in the open menu.
+  colorRowFor?: (id: string) => MenuColorRow | undefined;
 }): {
   rowProps: (id: string) => RowMenuProps;
   heldId: string | null;
@@ -198,6 +201,7 @@ export function useRowContextMenu({
         target={ownTarget}
         ariaLabel={ariaLabel(ownTarget.ids[0])}
         items={items}
+        colorRow={colorRowFor?.(ownTarget.ids[0])}
         onClose={onClose}
       />
     );

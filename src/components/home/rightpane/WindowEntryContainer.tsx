@@ -18,7 +18,7 @@ import { dropBoxStyle } from '../../common/dropBoxStyle';
 import Icon from '../../common/Icon';
 import { RowMarkIcon, RowMarkSlot } from '../../common/RowMarks';
 import OverflowMenu from '../../common/OverflowMenu';
-import type { OverflowMenuItem } from '../../common/MenuPanel';
+import type { MenuColorRow, OverflowMenuItem } from '../../common/MenuPanel';
 import { useRowContextMenu } from '../../common/rowMenu/useRowContextMenu';
 import GroupColorPicker from '../../common/GroupColorPicker';
 import { NormalLabel } from '../../common/Label';
@@ -542,6 +542,27 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     },
   ];
 
+  // KAN-936. The strip's colors, in the group's ⋮ and right-click menus.
+  const savedGroupColorRow = (groupId: string): MenuColorRow | undefined => {
+    const group = chromeTabGroups?.find((g) => g.groupId === groupId);
+    return (
+      group && {
+        ariaLabel: t('Change group color'),
+        color: group.color,
+        onPick: (color, colorPickRun) =>
+          dispatch(
+            updateChromeTabGroupColor({
+              tabGroupId,
+              windowId,
+              groupId,
+              color,
+              colorPickRun,
+            })
+          ),
+      }
+    );
+  };
+
   // KAN-793. A right-click leads with the strip's Open and Add current tab, and the title's Rename; the ⋮ beside them does not.
   // Lambdas: the handlers are declared further down.
   // No tour check: a running tour keeps every right-click menu shut.
@@ -630,6 +651,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
           ]
         : null;
     },
+    colorRowFor: savedGroupColorRow,
   });
 
   const containerStyle = css`
@@ -2139,6 +2161,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
                                 )
                               }
                               items={savedGroupMenuItems(item.group.groupId)}
+                              colorRow={savedGroupColorRow(item.group.groupId)}
                             />
                           )}
                         </div>

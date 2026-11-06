@@ -302,6 +302,8 @@ export interface chromeTabGroupTargetParams {
 
 export interface updateChromeTabGroupColorParams extends chromeTabGroupTargetParams {
   color: string;
+  // KAN-936. Picks that share one are a single undo step; each still syncs.
+  colorPickRun?: number;
 }
 
 export interface addCurrTabToChromeGroupParams extends chromeTabGroupTargetParams {

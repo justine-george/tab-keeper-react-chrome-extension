@@ -24,10 +24,12 @@ export type PopoverAxis = 'vertical' | 'horizontal';
 export function usePopoverList({
   count,
   axis,
+  rows,
   onOpenChange,
 }: {
   count: number;
   axis: PopoverAxis;
+  rows?: readonly number[];
   onOpenChange?: (isOpen: boolean) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -101,6 +103,7 @@ export function usePopoverList({
   const { registerItem, handleKeyDown } = useMenuList({
     count,
     axis,
+    rows,
     isOpen,
     wrapperRef,
     onDismiss: (reason) => {

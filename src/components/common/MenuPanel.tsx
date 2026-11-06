@@ -1,15 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import { css } from '@emotion/react';
 
 import { focusRingCss, focusRingInInkCss } from './focusRing';
 import { Glyph } from './Glyph';
+import GroupColorSwatches, { SWATCH_COUNT } from './GroupColorSwatches';
 import { tooltipDescription } from './tooltipRules';
 import type { IconName } from './iconNames';
 import { useFontFamily } from '../../hooks/useFontFamily';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { DURATION, RADIUS, TYPE } from '../../styles/scale';
 import { corners } from '../../styles/corners';
+import { nextActionNumber } from '../../redux/actionOrder';
+import {
+  sanitizeTabGroupColor,
+  type TabGroupColor,
+} from '../../utils/functions/tabGroups';
 
 export interface OverflowMenuItem {
   /** Stable identity for the React key. Not shown. */
@@ -45,6 +51,68 @@ export interface OverflowMenuItem {
   };
 }
 
+// KAN-936. A row of a group's colors in the menu. A pick leaves the menu open, since the change shows behind it.
+export interface MenuColorRow {
+  /** Names the row. Must be translated. */
+  ariaLabel: string;
+  /** The group's color, as stored: may be unrecognised. */
+  color: string;
+  /** `colorPickRun` is one number for as long as this menu stays open. */
+  onPick: (color: TabGroupColor, colorPickRun: number) => void;
+}
+
+// KAN-936. How many items each row above the list holds, top down: the walk useMenuList needs.
+export const menuRows = (
+  items: OverflowMenuItem[],
+  colorRow: MenuColorRow | undefined
+): number[] => {
+  const tiles = items.filter((i) => i.actionRowLabel !== undefined).length;
+  return [
+    ...(tiles > 0 ? [tiles] : []),
+    ...(colorRow !== undefined ? [SWATCH_COUNT] : []),
+  ];
+};
+
+export const menuItemCount = (
+  items: OverflowMenuItem[],
+  colorRow: MenuColorRow | undefined
+): number => items.length + (colorRow !== undefined ? SWATCH_COUNT : 0);
+
+function ColorRow({
+  row,
+  firstIndex,
+  registerItem,
+}: {
+  row: MenuColorRow;
+  firstIndex: number;
+  registerItem: (index: number) => (el: HTMLElement | null) => void;
+}): React.ReactElement {
+  const COLORS = useThemeColors();
+  // A menu unmounts on close, so this is new for each open.
+  const [colorPickRun] = useState(nextActionNumber);
+  return (
+    <div
+      role="group"
+      aria-label={row.ariaLabel}
+      data-menu-color-row
+      css={css`
+        display: flex;
+        justify-content: space-between;
+        gap: 6px;
+        padding: 10px 12px;
+        margin-bottom: 4px;
+        border-bottom: 1px solid ${COLORS.PANEL_BORDER_COLOR};
+      `}
+    >
+      <GroupColorSwatches
+        current={sanitizeTabGroupColor(row.color)}
+        registerItem={(index) => registerItem(firstIndex + index)}
+        onPick={(color) => row.onPick(color, colorPickRun)}
+      />
+    </div>
+  );
+}
+
 // A ligature written as JSX text would bypass IconName, and a name missing from
 // the bundled subset renders as the word itself (KAN-215).
 const RADIO_CHECK_ICON: IconName = 'check';
@@ -62,6 +130,7 @@ export function MenuPanel({
   positionCss,
   menuRef,
   dataRowMenu = false,
+  colorRow,
 }: {
   /** Names the menu. Must be translated. */
   ariaLabel: string;
@@ -72,6 +141,7 @@ export function MenuPanel({
   positionCss: string;
   menuRef?: React.Ref<HTMLDivElement>;
   dataRowMenu?: boolean;
+  colorRow?: MenuColorRow;
 }): React.ReactElement {
   const COLORS = useThemeColors();
   const FONT_FAMILY = useFontFamily();
@@ -100,6 +170,7 @@ export function MenuPanel({
   // KAN-775. The row's buttons, then the list's items: the order focus walks.
   const rowItems = items.filter((item) => item.actionRowLabel !== undefined);
   const listItems = items.filter((item) => item.actionRowLabel === undefined);
+  const listStart = rowItems.length + (colorRow ? SWATCH_COUNT : 0);
 
   // KAN-725. A danger item's hint sets its own ink, so it eases on the item's timing itself.
   const dangerHintEase = `
@@ -248,6 +319,13 @@ export function MenuPanel({
           ))}
         </div>
       )}
+      {colorRow !== undefined && (
+        <ColorRow
+          row={colorRow}
+          firstIndex={rowItems.length}
+          registerItem={registerItem}
+        />
+      )}
       {listItems.map((item, index) => (
         <button
           key={item.key}
@@ -256,7 +334,7 @@ export function MenuPanel({
           aria-checked={isRadioGroup ? !!item.checked : undefined}
           aria-keyshortcuts={item.shortcut?.ariaKeyShortcuts}
           data-menu-item={item.key}
-          ref={registerItem(rowItems.length + index)}
+          ref={registerItem(listStart + index)}
           css={itemStyle(item.danger)}
           onClick={choose(item)}
         >

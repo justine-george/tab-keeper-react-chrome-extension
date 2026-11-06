@@ -50,6 +50,9 @@ export interface UndoableStates {
   // The Open now move that led into this state, same meaning as above. Live
   // steps never change the saved container, so every such state shares it.
   liveStep?: LiveStep;
+
+  // KAN-936. The group color menu whose picks made this state; another pick from it folds in here.
+  colorPickRun?: number;
 }
 
 export interface undoRedoState {
@@ -120,6 +123,7 @@ export const undoRedoSlice = createSlice({
         ...action.payload,
         addedTabGroupIds: state.present.addedTabGroupIds,
         liveStep: state.present.liveStep,
+        colorPickRun: state.present.colorPickRun,
       };
     },
 
@@ -151,7 +155,17 @@ export const undoRedoSlice = createSlice({
         ...action.payload,
         addedTabGroupIds: state.present.addedTabGroupIds,
         liveStep: state.present.liveStep,
+        colorPickRun: state.present.colorPickRun,
       };
+    },
+
+    // KAN-936. A new edit to the step on top: `past` stays, and it ends the redo branch as `set` does.
+    foldIntoPresent: (
+      state,
+      action: PayloadAction<Pick<UndoableStates, 'tabContainerDataState'>>
+    ) => {
+      state.present.tabContainerDataState = action.payload.tabContainerDataState;
+      state.future = [];
     },
 
     // A live step is recorded, replied to and dropped by id, so a late reply for
@@ -248,6 +262,7 @@ export const {
   redo,
   setPresentStartup,
   setPresentWithoutHistory,
+  foldIntoPresent,
   pushLiveStep,
   liveStepUndone,
   liveStepRedone,
