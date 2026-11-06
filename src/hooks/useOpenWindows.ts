@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { isDragHeld, whenDragReleases } from '../redux/dragHold';
-import { onTabMovesEnded } from '../redux/undoHistory';
+import { onTabMovesEnded, tabMovesInFlight } from '../redux/undoHistory';
 import { copyLooks, forgetCopyLooks } from '../utils/functions/copyLooks';
 import { toOpenWindows } from '../utils/functions/openNow';
 import type { OpenWindow } from '../utils/functions/openNow';
@@ -27,7 +27,8 @@ interface ChromeEvent {
  * state and nowhere else.
  *
  * Events are coalesced (OPEN_NOW_REFRESH_COALESCE_MS), but the end of Tab
- * Keeper's own moves (whileMovingTabs) is read at once. Any read that comes
+ * Keeper's own moves (whileMovingTabs) is read at once, and nothing is read
+ * while one runs (KAN-486). Any read that comes
  * due while a row is held, the first one included, waits for the drop
  * (KAN-279 D12): the drag engine measures rows once, so a list that moves
  * under the pointer breaks it.
@@ -83,6 +84,8 @@ export function useOpenWindows(showGroups: boolean): OpenWindow[] | null {
     // flushes the held queue before it ends the hold, so a queued refresh can
     // arrive here with the row still held.
     const readUnlessHeld = (): void => {
+      // KAN-486. Mid-move the strip can hold a pair's temporary group; onTabMovesEnded reads next.
+      if (tabMovesInFlight()) return;
       if (isDragHeld()) {
         if (queuedForRelease) return;
         queuedForRelease = true;
