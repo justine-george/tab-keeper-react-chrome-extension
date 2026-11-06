@@ -111,3 +111,31 @@ test('CONTROL: a plain hover and leave still shows and hides a tab row actions',
   await page.mouse.move(0, 0);
   await expect(actions).toHaveCSS('opacity', '0');
 });
+
+// KAN-927. React's enter comes from the native mouseout, before the old row's native mouseleave.
+test('moving straight from one tab row to the next keeps the next row actions', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openSaved(context, extensionId, 'tab view', {
+    sessions: [session('S1', 'Trip', [savedWindow('w1', 'Flow', 3)])],
+  });
+  const rowOf = (name: RegExp) =>
+    page
+      .getByRole('button', { name })
+      .first()
+      .locator('xpath=ancestor::*[@data-drag-handle-row][1]');
+  await rowOf(/Page w1\.1/).hover();
+  await expect(
+    rowOf(/Page w1\.1/).locator('[data-row-actions] > :last-child')
+  ).toHaveCSS('opacity', '1');
+
+  await rowOf(/Page w1\.2/).hover();
+
+  await expect(
+    rowOf(/Page w1\.2/).locator('[data-row-actions] > :last-child')
+  ).toHaveCSS('opacity', '1');
+  await expect(
+    rowOf(/Page w1\.1/).locator('[data-row-actions] > :last-child')
+  ).toHaveCSS('opacity', '0');
+});

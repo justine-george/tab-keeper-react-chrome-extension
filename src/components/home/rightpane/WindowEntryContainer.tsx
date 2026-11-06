@@ -333,7 +333,11 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   );
   useNativeMouseLeave(
     (element) => element.hasAttribute('data-saved-tab-row'),
-    () => setHoveredTabId(null)
+    // The next row's enter lands first, so a leave clears only its own row.
+    (row) => {
+      const left = row.getAttribute('data-saved-tab-row');
+      setHoveredTabId((hovered) => (hovered === left ? null : hovered));
+    }
   );
 
   // What a group is called on screen. An untitled group has no name, so it
@@ -1263,7 +1267,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
             : childrenStyle
         }
         data-drag-handle-row=""
-        data-saved-tab-row=""
+        data-saved-tab-row={tabId}
         onMouseEnter={() => setHoveredTabId(tabId)}
         {...tabMenu.rowProps(tabId)}
       >
