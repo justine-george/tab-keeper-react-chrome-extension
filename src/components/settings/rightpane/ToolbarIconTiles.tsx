@@ -71,7 +71,8 @@ export default function ToolbarIconTiles({
         height={16}
       />
       <span data-toolbar-part="puzzle">
-        <PuzzleGlyph size="17px" />
+        {/* KAN-939. 16 paints 15 of ink, the height of Chrome's own piece. */}
+        <PuzzleGlyph size="16px" />
       </span>
       <span data-toolbar-part="menu" css={menuCss}>
         <i css={dotCss} />
