@@ -50,7 +50,7 @@ export const openNowWindowMenu = (
 ): Locator =>
   windowBlock
     .locator('[data-window-row] [data-row-actions]')
-    .getByRole('button', { name: new RegExp(`^${moreActions}: `) });
+    .getByRole('button', { name: new RegExp(`^${moreActions}\\s?[:：]`) });
 
 /**
  * Closes an Open now window from its ⋮ (KAN-696; it was an inline ×): opens

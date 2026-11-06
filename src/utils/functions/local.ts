@@ -240,19 +240,9 @@ export const isSearchActive = (searchInputText: string): boolean =>
 // statement about the session -- a `Delta` holding 7 windows and 13 tabs read
 // "1 Window - 1 Tab" while a search was running. KAN-60.
 //
-// The prefix carries its own punctuation because the colon is not the same
-// character everywhere: French sets a space before it, Japanese and Chinese
-// use the fullwidth form. A ":" written here would impose the English
-// convention on all ten locales.
-//
-// Note the key is 'Matches' and the colon lives only in the values. i18next's
-// nsSeparator is ':', so a key ENDING in one parses as namespace "Matches"
-// plus an empty key and resolves to "" -- the label rendered as a leading
-// space and nothing else. A colon in the middle of a key is harmless (the
-// unreadable-token toast has one) because the prefix is not a loaded
-// namespace and lookup falls back to the whole key. Only a trailing one bites,
-// and the en locale cannot show it: there the key and the value are the same
-// string either way.
+// The value of 'Matches' holds the colon and the gap after it, because neither
+// is the same everywhere: French sets a space before the colon, and Japanese
+// and Chinese use the fullwidth form with no space after (KAN-307).
 export const formatGroupCounts = (
   windowCount: number,
   tabCount: number,
@@ -267,7 +257,7 @@ export const formatGroupCounts = (
     `${t('WindowCount', { count: windowCount })}` +
     ` · ${formatTabCount(tabCount, t)}`;
 
-  return isFiltered ? `${t('Matches')} ${counts}` : counts;
+  return isFiltered ? t('Matches', { counts }) : counts;
 };
 
 /**
@@ -278,6 +268,20 @@ export const formatGroupCounts = (
  */
 export const formatTabCount = (count: number, t: TFunction): string =>
   t('TabCount', { count });
+
+/** "More actions: Docs", in the locale's own punctuation (KAN-307). */
+export const formatActionOnItem = (
+  action: string,
+  item: string,
+  t: TFunction
+): string => t('ActionOnItem', { action, item });
+
+/** "Currently open, 5 Tabs", in the locale's own punctuation (KAN-307). */
+export const formatNameWithCount = (
+  name: string,
+  counts: string,
+  t: TFunction
+): string => t('NameWithCount', { name, counts });
 
 /**
  * Open now's header count (KAN-280, KAN-330 O14a). Without a search it is

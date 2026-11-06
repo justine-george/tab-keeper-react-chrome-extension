@@ -106,7 +106,10 @@ function CardBody({ card }: { card: CarryCard }) {
           <span data-carry-card-name="" css={nameStyle}>
             {/* Named as its header names it (WindowEntryContainer). */}
             {t('CarryCardNameAndCount', {
-              name: windowLabel(card.title, card.number, t('Window')).text,
+              name: windowLabel(
+                card.title,
+                t('WindowNumbered', { number: card.number })
+              ).text,
               count: card.tabCount,
             })}
           </span>

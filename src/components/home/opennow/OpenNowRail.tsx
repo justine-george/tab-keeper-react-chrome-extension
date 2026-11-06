@@ -20,7 +20,10 @@ import { SEARCH_SHORTCUT_KEY } from '../../common/searchShortcut';
 import Icon from '../../common/Icon';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
-import { formatTabCount } from '../../../utils/functions/local';
+import {
+  formatNameWithCount,
+  formatTabCount,
+} from '../../../utils/functions/local';
 import type { OpenWindow } from '../../../utils/functions/openNow';
 import OpenNowPane from './OpenNowPane';
 import type { OpenNowHeaderAction } from './OpenNowPane';
@@ -336,10 +339,14 @@ export default function OpenNowRail({
   const railLabel =
     windows === null
       ? t('Open now')
-      : `${t('Open now')}, ${formatTabCount(
-          windows.reduce((sum, w) => sum + w.tabs.length, 0),
+      : formatNameWithCount(
+          t('Open now'),
+          formatTabCount(
+            windows.reduce((sum, w) => sum + w.tabs.length, 0),
+            t
+          ),
           t
-        )}`;
+        );
 
   const railStyle = css`
     display: flex;

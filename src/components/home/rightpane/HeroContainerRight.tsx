@@ -27,6 +27,7 @@ import {
 import {
   formatGroupCounts,
   selectVisibleTabGroups,
+  formatActionOnItem,
 } from '../../../utils/functions/local';
 import { useSavedSearch } from '../../../hooks/useSavedSearch';
 import { keepSavedMatchSelected } from '../../../redux/keepSavedMatchSelected';
@@ -209,9 +210,11 @@ export default function HeroContainerRight() {
   const headerMenu = useRowContextMenu({
     kind: 'session',
     ariaLabel: (id) =>
-      `${t('More actions')}: ${
-        id === selectedTabGroup?.tabGroupId ? selectedTabGroup.title : ''
-      }`,
+      formatActionOnItem(
+        t('More actions'),
+        id === selectedTabGroup?.tabGroupId ? selectedTabGroup.title : '',
+        t
+      ),
     itemsFor: (id) =>
       isSearching ||
       selectedTabGroup === undefined ||
@@ -419,9 +422,8 @@ export default function HeroContainerRight() {
               // accessible name has to CONTAIN the visible title rather than
               // replace it (WCAG 2.5.3): a bare "Rename session" would leave a
               // voice-control user saying "click Research" with nothing to hit.
-              // Same `action + ': ' + target` shape as WindowEntryContainer:269.
               <ClickableRow
-                ariaLabel={t('Rename session') + ': ' + title}
+                ariaLabel={formatActionOnItem(t('Rename session'), title, t)}
                 onClick={startEditing}
                 // KAN-825. On the button, so a keyboard focus finds it too (the pencil covers the end on hover).
                 tooltipText={title}

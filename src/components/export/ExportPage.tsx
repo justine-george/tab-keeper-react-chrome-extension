@@ -385,7 +385,7 @@ export default function ExportPage({
       ),
       tabCountLabel: (count) => formatTabCount(count, t),
       strings: {
-        window: t('Window'),
+        windowNumbered: (number) => t('WindowNumbered', { number }),
         notAWebLink: t('SavePdfNotAWebLink'),
         savedWith: t('SavePdfFooterCredit'),
         getExtension: t('Get the extension'),

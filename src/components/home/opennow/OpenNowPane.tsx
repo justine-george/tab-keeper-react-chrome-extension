@@ -38,7 +38,10 @@ import {
   backCloses,
   requestReturn,
 } from '../../../utils/functions/backFromFullView';
-import { formatOpenNowCounts } from '../../../utils/functions/local';
+import {
+  formatActionOnItem,
+  formatOpenNowCounts,
+} from '../../../utils/functions/local';
 import {
   lastUsedTabId,
   thisWindowFirst,
@@ -766,7 +769,7 @@ export default function OpenNowPane({
   ];
   const headerMenu = useRowContextMenu({
     kind: 'openNowHeader',
-    ariaLabel: () => `${t('More actions')}: ${t('Open now')}`,
+    ariaLabel: () => formatActionOnItem(t('More actions'), t('Open now'), t),
     itemsFor: () => (canSave ? saveItems : null),
   });
 

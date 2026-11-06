@@ -48,7 +48,7 @@ const window = (
 });
 
 const strings: LinkListStrings = {
-  window: 'Window',
+  windowNumbered: (number: number) => `Window ${number}`,
   tabCountLabel: (count) => `${count} ${count === 1 ? 'Tab' : 'Tabs'}`,
   countsLabel: '2 Windows · 4 Tabs',
   locale: 'en',
@@ -121,7 +121,11 @@ describe('the plain text on the clipboard (KAN-195)', () => {
   test('the window label is upper-cased for the locale, the window title is not', () => {
     const text = sessionToLinkList(
       buildSession({ windows: [window('Reise nach Kyoto', [tab()])] }),
-      { ...strings, window: 'Fenster', locale: 'de' }
+      {
+        ...strings,
+        windowNumbered: (number: number) => `Fenster ${number}`,
+        locale: 'de',
+      }
     );
 
     expect(text).toContain('FENSTER 1 · Reise nach Kyoto (1 Tab)');

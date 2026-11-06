@@ -1194,7 +1194,9 @@ test.describe('The Reopen toast is as wide as its line (KAN-280 O8b)', () => {
       ]);
       const block = windowBlock(page, made.windowId);
       await expect(
-        block.getByRole('button', { name: `${strings['Switch to tab']}: ` })
+        block.getByRole('button', {
+          name: new RegExp(`^${strings['Switch to tab']}\\s?[:：]`),
+        })
       ).toHaveCount(5);
       await closeOpenNowWindowFromMenu(page, block, {
         moreActions: strings['More actions'],
@@ -1317,7 +1319,9 @@ test.describe('The Reopen toast is as wide as its line (KAN-280 O8b)', () => {
       .click();
     const block = windowBlock(page, made.windowId);
     await expect(
-      block.getByRole('button', { name: `${strings['Switch to tab']}: ` })
+      block.getByRole('button', {
+        name: new RegExp(`^${strings['Switch to tab']}\\s?[:：]`),
+      })
     ).toHaveCount(5);
     await closeOpenNowWindowFromMenu(page, block, {
       moreActions: strings['More actions'],
