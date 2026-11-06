@@ -737,6 +737,16 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
     }
   };
 
+  // KAN-486. Whether `slot` falls between the two halves of one split.
+  const splitAt = (own: chrome.tabs.Tab[], slot: number): boolean => {
+    const id = own[slot - 1]?.splitViewId;
+    return (
+      id !== undefined &&
+      id !== SPLIT_VIEW_ID_NONE &&
+      id === own[slot]?.splitViewId
+    );
+  };
+
   // KAN-460 Part 4, measured on Chrome for Testing 155: the schema refuses a
   // count other than 2 at the call; then Chrome refuses a tab already split, a
   // mixed window, pinned state or group, and non-adjacent tabs. Which of those
@@ -1053,6 +1063,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         ? moveAcross(target, toWindowId, props.index + i)
         : `No tab with id: ${tabId}.`;
       if (refused !== undefined || !target) break;
+      // KAN-486, measured: array moves end a split, whichever halves they carry.
+      endSplit(target);
       moved.push(target);
     }
     for (const windowId of from) closeIfEmpty(windowId);
@@ -2062,7 +2074,9 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const created = makeTab({ url, active, pinned }, windowId);
 
         const own = windowTabsInOrder(windowId);
-        const want = clampSlot(own, props.index, pinned);
+        const slot = clampSlot(own, props.index, pinned);
+        // KAN-486, measured: an index between a split's halves lands after the pair.
+        const want = splitAt(own, slot) ? slot + 1 : slot;
 
         // Chrome's rule for a tab inserted inside a group's run: strictly
         // between two tabs of one group, it joins that group (Chromium's
@@ -2155,6 +2169,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
         const wasPinned = target.pinned;
         Object.assign(target, rest);
         if (rest.pinned !== undefined && rest.pinned !== wasPinned) {
+          // KAN-486, measured: pinning or unpinning one half ends the split.
+          endSplit(target);
           landOnPinnedBoundary(target);
         }
         // A window has one front tab: activating one takes the front from
@@ -2354,6 +2370,8 @@ export function setupChromeFake(seed: ChromeSeed = {}): ChromeFakeHandle {
           return fail<number>(OTHER_PROFILE, cb);
         }
         const sources = new Set(arriving.map((tab) => tab.windowId));
+        // KAN-486, measured: a split carried into another window's group ends.
+        arriving.forEach(endSplit);
         const groupId = options.groupId ?? nextId++;
         // Measured 2026-10-26 (KAN-814, e2e 5e2): a group holds no pinned
         // tab, so a pinned one is unpinned as it joins. Measured only for the
