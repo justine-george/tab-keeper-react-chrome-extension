@@ -80,7 +80,10 @@ async function isInsideRun(
   );
 }
 
-async function frontTabOf(windowId: number): Promise<number | undefined> {
+// The window's active tab, undefined when Chrome won't say.
+export async function frontTabOf(
+  windowId: number
+): Promise<number | undefined> {
   try {
     const [front] = await chrome.tabs.query({ windowId, active: true });
     return front?.id;

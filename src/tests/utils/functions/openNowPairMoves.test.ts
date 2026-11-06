@@ -6,6 +6,7 @@ import type { OpenWindow } from '../../../utils/functions/openNow';
 import {
   changedAnyPlace,
   groupCopySlot,
+  moveOpenGroup,
   moveOpenPair,
   moveOpenTab,
   runLiveStep,
@@ -441,5 +442,74 @@ describe('a pair step undone and redone (KAN-486)', () => {
     const drop = await dropPair(pairMove(11, 1, 2, 1), false);
     const run = await runLiveStep(drop, 'undo', false);
     expect(run.outcome).toBe('done');
+  });
+});
+
+describe('a group holding a split (KAN-486)', () => {
+  const groupMove = (toWindowId: number, toIndex: number) => ({
+    groupId: '5',
+    fromWindowId: '1',
+    toWindowId: String(toWindowId),
+    toIndex,
+  });
+  const inGroup: Extra[] = [
+    {},
+    { groupId: 5, active: true },
+    { groupId: 5 },
+    { groupId: 5 },
+    {},
+  ];
+
+  async function dropGroup(toWindowId: number, toIndex: number) {
+    const moved = await moveOpenGroup(
+      groupMove(toWindowId, toIndex),
+      await snapshot()
+    );
+    if (moved === null) throw new Error('PREMISE: the drop was refused');
+    const drop: OpenNowDrop = { kind: 'group', moved };
+    return drop;
+  }
+
+  test('a group holding a split and the front tab keeps split and id across windows', async () => {
+    handle = seed(inGroup);
+    const id = await splitTabs([11, 12]);
+    const drop = await dropGroup(2, 1);
+    expect(await strip(2)).toEqual([20, 11, 12, 13, 21, 22]);
+    expect(drop.moved.map((tab) => tab.after.groupId)).toEqual([5, 5, 5]);
+    expect((await chrome.tabs.get(11)).splitViewId).toBe(id);
+    expect((await chrome.tabs.get(12)).splitViewId).toBe(id);
+    expect((await chrome.tabs.get(20)).active).toBe(true);
+    expect((await chrome.tabs.get(11)).active).toBe(false);
+  });
+
+  test('undo brings it back the same way', async () => {
+    handle = seed(inGroup);
+    const id = await splitTabs([11, 12]);
+    const drop = await dropGroup(2, 1);
+    await chrome.tabs.update(13, { active: true });
+    await ran(runLiveStep(drop, 'undo', true));
+    expect(await strip(1)).toEqual([10, 11, 12, 13, 14]);
+    expect((await chrome.tabs.get(11)).groupId).toBe(5);
+    expect((await chrome.tabs.get(11)).splitViewId).toBe(id);
+    expect((await chrome.tabs.get(12)).splitViewId).toBe(id);
+  });
+
+  test('undo hands the source window its front tab back', async () => {
+    handle = seed(inGroup);
+    await splitTabs([11, 12]);
+    const drop = await dropGroup(2, 1);
+    const front = (await chrome.tabs.query({ windowId: 1, active: true }))[0];
+    await chrome.tabs.update(12, { active: true });
+    await ran(runLiveStep(drop, 'undo', true));
+    expect(
+      (await chrome.tabs.query({ windowId: 1, active: true }))[0]?.id
+    ).toBe(front?.id);
+    await expectOneSplit(11, 12);
+  });
+
+  test('a group with no split still takes G1', async () => {
+    handle = seed(inGroup);
+    const drop = await dropGroup(2, 1);
+    expect(drop.moved[0]?.after.groupId).not.toBe(5);
   });
 });

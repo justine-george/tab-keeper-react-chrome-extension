@@ -23,7 +23,7 @@ import {
   holdsSplitView,
   orderBeforeSort,
 } from './openNowSort';
-import { carryPair, isStillOneSplit } from './splitPairMove';
+import { carryPair, frontTabOf, isStillOneSplit } from './splitPairMove';
 import {
   openSplitPartners,
   rowSpansOf,
@@ -678,6 +678,26 @@ async function moveAsNewGroup(
   return restyle(newId, look);
 }
 
+// KAN-486. A group holding a split and the front tab, across windows.
+// tabGroups.move keeps the split, the divider and the group's id, where G1's
+// tabs.move would end the split. It takes the destination's front tab, so that
+// is activated again straight after: measured, no flash (spec, headed run 3).
+async function moveKeepingSplit(
+  groupId: number,
+  windowId: number,
+  index: number
+): Promise<boolean> {
+  const front = await frontTabOf(windowId);
+  const moved = await attempt(() =>
+    chrome.tabGroups.move(groupId, { windowId, index })
+  );
+  if (moved === REFUSED) return false;
+  if (front !== undefined) {
+    await attempt(() => chrome.tabs.update(front, { active: true }));
+  }
+  return true;
+}
+
 // A group given `look`'s title, colour and collapsed state. False when
 // Chrome refuses.
 async function restyle(groupId: number, look: GroupLook): Promise<boolean> {
@@ -700,7 +720,8 @@ async function restyle(groupId: number, look: GroupLook): Promise<boolean> {
 // destination's front tab (Task 1 Q5), so the tabs move with tabs.move (each
 // arrives behind), are grouped again in the destination, and get the old
 // title, colour and collapsed state back (G1, spec O11g, Task 6a Q1). That
-// group has a NEW id, which `after.groupId` carries (ledger R14).
+// group has a NEW id, which `after.groupId` carries (ledger R14). A group
+// holding a split skips G1, which would end the split (KAN-486).
 export async function moveOpenGroup(
   move: GroupMove,
   windows: readonly OpenWindow[]
@@ -791,6 +812,8 @@ export async function moveOpenGroup(
       chrome.tabGroups.move(group.id, { windowId: to.id, index: slot })
     );
     if (moved === REFUSED) return null;
+  } else if (holdsSplitView(strip.filter((tab) => tab.groupId === group.id))) {
+    if (!(await moveKeepingSplit(group.id, to.id, target.slot))) return null;
   } else {
     // G1. Any step Chrome refuses ends the move where Chrome left it, with no
     // record (ledger R17).
@@ -1090,15 +1113,24 @@ async function putGroupBack(
     ...ordered.slice(1).map((tab) => tab.tabId),
   ];
 
-  if (across && states.some((state) => state.active)) {
-    return moveAsNewGroup(ids, home, index, look);
+  const carriesFront = across && states.some((state) => state.active);
+  if (carriesFront) {
+    const strip = await attempt(() =>
+      chrome.tabs.query({ windowId: head.after.windowId })
+    );
+    if (strip === REFUSED) return false;
+    if (!holdsSplitView(strip.filter((tab) => tab.groupId === groupId))) {
+      return moveAsNewGroup(ids, home, index, look);
+    }
+    if (!(await moveKeepingSplit(groupId, home, index))) return false;
+  } else {
+    const back = await attempt(() =>
+      across
+        ? chrome.tabGroups.move(groupId, { windowId: home, index })
+        : chrome.tabGroups.move(groupId, { index })
+    );
+    if (back === REFUSED) return false;
   }
-  const back = await attempt(() =>
-    across
-      ? chrome.tabGroups.move(groupId, { windowId: home, index })
-      : chrome.tabGroups.move(groupId, { index })
-  );
-  if (back === REFUSED) return false;
   const { collapsed } = look;
   const restored = await attempt(() =>
     chrome.tabGroups.update(groupId, { collapsed })
