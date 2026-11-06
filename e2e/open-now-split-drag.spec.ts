@@ -644,6 +644,67 @@ test.describe('a pair carried to the saved side (KAN-486)', () => {
       .toBe(true);
   });
 
+  test('16. the landing spot on the saved side is two rows tall', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const w = await openLiveWindow(worker, ['A', 'B', 'C']);
+    const [b, c] = [w.idOf('B'), w.idOf('C')];
+    await makeSplit(worker, [b, c]);
+    const page = await setUp(context, extensionId);
+    await expect(liveRow(page, c)).toBeVisible();
+    const row = (await boxOf(tabHandle(page, 's1'))).height;
+
+    const { y } = await lift(page, liveRow(page, b));
+    const pane = await boxOf(page.locator(OPEN_NOW));
+    await page.mouse.move(pane.x - 40, y, { steps: 6 });
+    await expect(page.locator('[data-carry-card]')).toHaveCount(1);
+    await carryTo(page, await topOf(tabHandle(page, 's1')));
+    await page.waitForTimeout(350);
+
+    const slot = await boxOf(page.locator(SLOT));
+    expect(Math.abs(slot.height - 2 * row)).toBeLessThan(3);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test('17. the last New window target is two rows tall, and takes the pair', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const w = await openLiveWindow(worker, ['A', 'B', 'C']);
+    const [b, c] = [w.idOf('B'), w.idOf('C')];
+    await makeSplit(worker, [b, c]);
+    const page = await setUp(context, extensionId);
+    await expect(liveRow(page, c)).toBeVisible();
+    const row = (await boxOf(tabHandle(page, 's1'))).height;
+
+    const { y } = await lift(page, liveRow(page, b));
+    const pane = await boxOf(page.locator(OPEN_NOW));
+    await page.mouse.move(pane.x - 40, y, { steps: 6 });
+    await expect(page.locator('[data-carry-card]')).toHaveCount(1);
+    const target = page.locator('[data-new-window-target="last"]');
+    const lastRow = await boxOf(tabHandle(page, 'g1'));
+    await carryTo(page, {
+      x: lastRow.x + 80,
+      y: lastRow.y + lastRow.height + 40,
+    });
+    await expect(target).toHaveAttribute('data-landing', /.*/);
+    await page.waitForTimeout(350);
+    const box = await boxOf(target);
+    expect(Math.abs(box.height - 2 * row)).toBeLessThan(6);
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const { tabGroups } = await stored(page);
+        return tabGroups[0]?.windows.at(-1)?.tabs.map((t) => t.title);
+      })
+      .toEqual(['B', 'C']);
+  });
+
   test('15. the card has two rows', async ({
     context,
     extensionId,

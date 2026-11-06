@@ -158,6 +158,8 @@ import { useNativeMouseLeave } from '../../../hooks/useNativeMouseLeave';
 const GROUP_TITLE_SIZE = '0.85rem';
 
 interface WindowEntryContainerProps {
+  // KAN-486. The trailing block's phantom stands for a split pair.
+  carriesPair?: boolean;
   title: string;
   // Its place in the session, as TabGroupDetailsContainer numbers it (D1).
   number: number;
@@ -182,6 +184,7 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   tabGroupId,
   windowId,
   incognito,
+  carriesPair = false,
   onOpenWindow,
   onUpdateWindowGroupTitle,
   onAddCurrTabToWindowClick,
@@ -781,7 +784,8 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
   // slot is the phantom's child, so it is inside this box wherever it is
   // drawn -- hence only while lit.
   //
-  // V1 A: one row tall, whatever is carried. A carried GROUP's phantom is
+  // V1 A: one row tall, whatever is carried, but a split pair, which is always
+  // exactly two rows and lands as two (KAN-486). A carried GROUP's phantom is
   // held folded to its header, as any group drag holds the held group
   // (KAN-160) -- but always, not only once held, so the box does not shrink
   // under the pointer as it comes in. The phantom is the only thing this box
@@ -829,6 +833,9 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
     &[data-landing] [data-drag-landing-slot] {
       visibility: hidden;
     }
+  `;
+  const pairRoomStyle = css`
+    height: ${CONTROL.ROW};
   `;
   const trailingRowsStyle = items.some((item) => item.kind === 'group')
     ? css`
@@ -1709,6 +1716,10 @@ const WindowEntryContainer: React.FC<WindowEntryContainerProps> = ({
               >
                 <DraggableRow scope="tabs" rowId={item.tab.tabId}>
                   {renderTab(item.tab, false)}
+                  {/* KAN-486. A pair lands as two rows, so its phantom holds the room for the second. */}
+                  {isTrailingBlock && carriesPair && (
+                    <div css={pairRoomStyle} />
+                  )}
                 </DraggableRow>
               </DraggableRow>
             ) : (

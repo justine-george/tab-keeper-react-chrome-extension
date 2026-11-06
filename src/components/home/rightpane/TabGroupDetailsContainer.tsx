@@ -313,6 +313,7 @@ export default function TabGroupDetailsContainer() {
       tabGroupId={tabGroupId}
       windowId={windowId}
       incognito={incognito}
+      carriesPair={carried !== null && pickOf(carried).kind === 'pair'}
       onUpdateWindowGroupTitle={(newTitle) =>
         handleUpdateWindowGroupTitle(tabGroupId, windowId, newTitle)
       }
