@@ -52,7 +52,7 @@ async function openRail(
   const rail = page.locator('[data-pane="open-now"] button[aria-expanded]');
   await expect(rail).toHaveCount(1);
   // The count arrives with the first read; a name without it is mid-flight.
-  await expect(rail).toHaveAccessibleName(/, /);
+  await expect(rail).toHaveAccessibleName(/[,、，]/);
   await page.waitForFunction(() => document.fonts.status === 'loaded');
   const label = rail.getByText(strings['Open now'], { exact: true });
   await expect(label).toBeVisible();
@@ -142,9 +142,11 @@ for (const language of shippedLanguages()) {
     }
     // WCAG 2.5.3: the name a voice user speaks starts with what they see.
     const name = await rail.evaluate((el) => el.getAttribute('aria-label'));
-    expect(name?.startsWith(`${strings['Open now']}, `), String(name)).toBe(
-      true
-    );
+    const [nameStart] = strings.NameWithCount.replace(
+      '{{name}}',
+      strings['Open now']
+    ).split('{{counts}}');
+    expect(name?.startsWith(nameStart), String(name)).toBe(true);
 
     const [l, g, b, s] = await Promise.all([
       boxOf(label),
