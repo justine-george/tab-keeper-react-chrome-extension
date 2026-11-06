@@ -26,6 +26,7 @@ import {
 } from '../../redux/slices/globalStateSlice';
 import {
   saveToTabContainerInternal,
+  selectTabContainer,
   updateChromeTabGroupColor,
   updateChromeTabGroupTitle,
 } from '../../redux/slices/tabContainerDataStateSlice';
@@ -167,6 +168,21 @@ describe('group color picks in one open menu', () => {
 
     store.dispatch(redo());
     expect(color()).toBe('green');
+  });
+
+  it('fold across a selection, which is no step of its own', () => {
+    const { store, color, pick, steps } = setup();
+    store.dispatch(
+      saveToTabContainerInternal({ ...session(), tabGroupId: 's2' })
+    );
+    const stepsBefore = steps();
+    pick('red', 1);
+    store.dispatch(selectTabContainer('s1'));
+    pick('green', 1);
+    expect(steps() - stepsBefore).toBe(1);
+
+    store.dispatch(undo());
+    expect(color()).toBe('blue');
   });
 
   it('picking the color the group already has changes nothing', () => {
