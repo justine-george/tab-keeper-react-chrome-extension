@@ -22,6 +22,27 @@ export type WhatsNewRelease =
 /** KAN-861: the main changes per release, newest first. The release PR renames 'next' to the manifest's version. */
 export const WHATS_NEW: readonly WhatsNewRelease[] = [
   {
+    version: '2.3.0',
+    entries: [
+      {
+        titleKey: 'WhatsNewToolbarIconTitle',
+        bodyKey: 'WhatsNewToolbarIconBody',
+        settingsPage: SettingsCategory.DISPLAY,
+        changesDefault: false,
+      },
+      {
+        titleKey: 'WhatsNewGroupColorTitle',
+        bodyKey: 'WhatsNewGroupColorBody',
+        changesDefault: false,
+      },
+      {
+        titleKey: 'WhatsNewOpenNewWindowTitle',
+        bodyKey: 'WhatsNewOpenNewWindowBody',
+        changesDefault: false,
+      },
+    ],
+  },
+  {
     version: '2.2.0',
     entries: [
       {

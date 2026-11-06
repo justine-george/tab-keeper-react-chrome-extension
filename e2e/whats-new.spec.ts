@@ -11,8 +11,8 @@ import { seedSettings } from './fixtures/seed';
 // worker's own record is unit-tested. Updated from the release before the newest
 // listed one, the build shows that release; bump both when a release gets entries.
 
-const SINCE = '2.1.0';
-const NEWEST_LISTED = '2.2.0';
+const SINCE = '2.2.1';
+const NEWEST_LISTED = '2.3.0';
 const TITLE = `What's new in Tab Keeper ${NEWEST_LISTED}`;
 
 const sinceIn = (worker: Worker) =>
@@ -79,7 +79,7 @@ test.describe("What's new (KAN-861)", () => {
     await expect(next.locator('dialog[data-whats-new]')).toHaveCount(0);
   });
 
-  test('Open Settings lands on Settings › Sessions', async ({
+  test('Open Settings lands on Settings › Display', async ({
     context,
     extensionId,
     serviceWorker,
@@ -88,9 +88,42 @@ test.describe("What's new (KAN-861)", () => {
     const page = await openPopup(context, extensionId);
     await whatsNew(page).getByRole('button', { name: 'Open Settings' }).click();
 
-    await expect(page.getByRole('group', { name: 'Copy links' })).toBeVisible();
+    await expect(
+      page.getByRole('group', { name: 'Toolbar icon', exact: true })
+    ).toBeVisible();
     await expect(whatsNew(page)).toBeHidden();
     await expect.poll(() => sinceIn(serviceWorker)).toBeNull();
+  });
+
+  test('Got it brings the rating card, and Open Settings does not', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const askable = { isNeverAskAgainToRate: false, isAutoSync: false };
+    const ratingCard = (page: Page) => page.getByTestId('review-card');
+
+    await seedSettings(context, askable);
+    await updatedFrom(serviceWorker, SINCE);
+    const settings = await openPopup(context, extensionId);
+    await whatsNew(settings)
+      .getByRole('button', { name: 'Open Settings' })
+      .click();
+    await expect(
+      settings.getByRole('group', { name: 'Toolbar icon', exact: true })
+    ).toBeVisible();
+    await expect(ratingCard(settings)).toHaveCount(0);
+    await settings.close();
+
+    await updatedFrom(serviceWorker, SINCE);
+    const page = await openPopup(context, extensionId);
+    await whatsNew(page).getByRole('button', { name: 'Got it' }).click();
+    await expect(
+      page.getByRole('complementary', {
+        name: 'Thanks for using Tab Keeper',
+        exact: true,
+      })
+    ).toBeVisible();
   });
 
   test('the full view shows it too', async ({

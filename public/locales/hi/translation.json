@@ -493,5 +493,11 @@
   "Toolbar icon": "टूलबार आइकन",
   "ToolbarIconColour": "रंगीन",
   "ToolbarIconMonochrome": "एकरंगा",
-  "ToolbarIconHelp": "Chrome के टूलबार में आइकन बदलता है। एकरंगा Chrome के हल्के या गहरे मोड के अनुसार बदलता है।"
+  "ToolbarIconHelp": "Chrome के टूलबार में आइकन बदलता है। एकरंगा Chrome के हल्के या गहरे मोड के अनुसार बदलता है।",
+  "WhatsNewToolbarIconTitle": "अपना टूलबार आइकन चुनें",
+  "WhatsNewToolbarIconBody": "Chrome के टूलबार में Tab Keeper का आइकन अब “रंगीन” या “एकरंगा” हो सकता है, सेटिंग्स › प्रदर्शन में। “एकरंगा” Chrome के हल्के या गहरे मोड के अनुसार बदलता है।",
+  "WhatsNewGroupColorTitle": "समूह का रंग उसके मेन्यू से बदलें",
+  "WhatsNewGroupColorBody": "किसी समूह के शीर्षक पर राइट-क्लिक करें, या उसका ⋮ मेन्यू खोलें, और कोई रंग चुनें। यह सहेजे गए समूहों पर और “अभी खुले टैब” में काम करता है।",
+  "WhatsNewOpenNewWindowTitle": "सहेजे गए टैब नई विंडो में खोलें",
+  "WhatsNewOpenNewWindowBody": "किसी सहेजे गए टैब या समूह पर राइट-क्लिक करें और “नई विंडो में खोलें” चुनें।"
 }

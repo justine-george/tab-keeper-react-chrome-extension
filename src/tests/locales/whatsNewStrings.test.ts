@@ -70,4 +70,21 @@ describe.each(locales)('%s', (_, dict) => {
   test('the switch body names the Ctrl key as shown', () => {
     expect(dict.WhatsNewSwitchToOpenTabBody).toContain(dict.Ctrl);
   });
+
+  test('the toolbar body names Color, Monochrome and Settings › Display as shown', () => {
+    const body = dict.WhatsNewToolbarIconBody;
+    expect(body).toContain(dict.ToolbarIconColour);
+    expect(body).toContain(dict.ToolbarIconMonochrome);
+    expect(body).toContain(`${dict.Settings} › ${dict.Display}`);
+  });
+
+  test('the group color body names Currently open as shown', () => {
+    expect(dict.WhatsNewGroupColorBody).toContain(dict['Open now']);
+  });
+
+  test('the new window body names Open in new window as shown', () => {
+    expect(dict.WhatsNewOpenNewWindowBody).toContain(
+      dict['Open in new window']
+    );
+  });
 });

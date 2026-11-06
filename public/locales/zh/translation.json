@@ -476,5 +476,11 @@
   "Toolbar icon": "工具栏图标",
   "ToolbarIconColour": "彩色",
   "ToolbarIconMonochrome": "单色",
-  "ToolbarIconHelp": "更改 Chrome 工具栏中的图标。单色跟随 Chrome 的浅色或深色模式。"
+  "ToolbarIconHelp": "更改 Chrome 工具栏中的图标。单色会根据 Chrome 的浅色或深色模式调整。",
+  "WhatsNewToolbarIconTitle": "选择工具栏图标",
+  "WhatsNewToolbarIconBody": "现在可以在“设置 › 显示”中将 Chrome 工具栏上的 Tab Keeper 图标设为“彩色”或“单色”。“单色”会根据 Chrome 的浅色或深色模式调整。",
+  "WhatsNewGroupColorTitle": "从菜单更改群组颜色",
+  "WhatsNewGroupColorBody": "右键点击群组标题，或打开其 ⋮ 菜单，然后选择颜色。已保存的群组和“当前打开的标签页”中均可使用。",
+  "WhatsNewOpenNewWindowTitle": "在新窗口中打开已保存的标签页",
+  "WhatsNewOpenNewWindowBody": "右键点击已保存的标签页或群组，然后选择“在新窗口中打开”。"
 }

@@ -476,5 +476,11 @@
   "Toolbar icon": "ツールバーのアイコン",
   "ToolbarIconColour": "カラー",
   "ToolbarIconMonochrome": "モノクロ",
-  "ToolbarIconHelp": "Chrome のツールバーのアイコンを変更します。モノクロは Chrome のライトモードとダークモードに合わせます。"
+  "ToolbarIconHelp": "Chrome のツールバーのアイコンを変更します。モノクロは Chrome のライトモードとダークモードに合わせます。",
+  "WhatsNewToolbarIconTitle": "ツールバーのアイコンを選べます",
+  "WhatsNewToolbarIconBody": "Chrome のツールバーに表示される Tab Keeper のアイコンを、設定 › 表示で「カラー」または「モノクロ」にできるようになりました。「モノクロ」は Chrome のライトモードとダークモードに合わせます。",
+  "WhatsNewGroupColorTitle": "グループの色をメニューから変更できます",
+  "WhatsNewGroupColorBody": "グループのタイトルを右クリックするか、⋮ メニューを開いて色を選びます。保存済みのグループと「現在開いているタブ」で使えます。",
+  "WhatsNewOpenNewWindowTitle": "保存済みタブを新しいウィンドウで開けます",
+  "WhatsNewOpenNewWindowBody": "保存済みのタブまたはグループを右クリックして、「新しいウィンドウで開く」を選びます。"
 }

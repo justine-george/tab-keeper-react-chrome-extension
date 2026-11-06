@@ -47,7 +47,7 @@ vi.mock('../../utils/constants/whatsNew', async (importOriginal) => {
   const plain: typeof actual.WHATS_NEW = [
     {
       version: 'next',
-      ships: '2.2.0',
+      ships: '2.3.0',
       entries: [{ ...actual.WHATS_NEW[0].entries[0], changesDefault: false }],
     },
   ];
@@ -486,13 +486,13 @@ describe('the full-view callout in the order (KAN-7 §6)', () => {
 describe("What's new in the order (KAN-861)", () => {
   afterEach(() => history.replaceState(null, '', '?'));
 
-  // An update from 2.0.1 waits; the manifest is far ahead, so 'next' reads as the 2.1.0 it ships as.
+  // An update from 2.2.1 waits; the manifest is far ahead, so 'next' reads as the 2.3.0 it ships as.
   const updated = (action?: ChromeSeed['action']): ChromeSeed => ({
-    localArea: { whatsNewSince: '2.1.0' },
+    localArea: { whatsNewSince: '2.2.1' },
     manifestVersion: '99.0.0',
     action,
   });
-  const TITLE = "What's new in Tab Keeper 2.2.0";
+  const TITLE = "What's new in Tab Keeper 2.3.0";
   const findWhatsNew = () =>
     screen.findByRole('dialog', { name: (n) => n === TITLE });
   const settleAsks = () =>
@@ -607,7 +607,7 @@ describe("What's new in the order (KAN-861)", () => {
       expect(document.documentElement.dataset.firstOpen).toBe(claimedBy)
     );
     expect(store.getState().globalState.whatsNew).toBeNull();
-    expect(chrome.localArea().whatsNewSince).toBe('2.1.0');
+    expect(chrome.localArea().whatsNewSince).toBe('2.2.1');
   });
 
   test('full view: after setup and the pin guide, the update shows it', async () => {
@@ -622,11 +622,14 @@ describe("What's new in the order (KAN-861)", () => {
   // ANSWERED was installed two days ago: the time ask is due. Its CONTROL is 'a day after install, the open asks with the time card'.
   test('with a default change, a due time ask is not made at all', async () => {
     vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+    // From 2.1.0 the list reaches 2.2.0, whose Switch entry changed a default.
     const { store } = await renderWithProviders(<App />, {
-      seed: updated(),
+      seed: { ...updated(), localArea: { whatsNewSince: '2.1.0' } },
       seedStore: seedSettings(ANSWERED),
     });
-    await findWhatsNew();
+    await screen.findByRole('dialog', {
+      name: (n) => n === "What's new in Tab Keeper",
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
     await settleAsks();
 
