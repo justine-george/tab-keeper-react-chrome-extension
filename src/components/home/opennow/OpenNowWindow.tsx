@@ -7,6 +7,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import ChevronGlyph from '../../common/ChevronGlyph';
 import ClickableRow from '../../common/ClickableRow';
 import {
+  focusRingOutsideCss,
   focusRingOverTickCss,
   focusRingRowCss,
   whileKeyNav,
@@ -1356,7 +1357,9 @@ export default function OpenNowWindow({
                             style={
                               'display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box; flex: 0 1 auto; max-width: 100%;' +
                               renameOnClickStyle(COLORS, COLORS.HOVER_COLOR) +
-                              '&::before { right: -4px; }'
+                              '&::before { right: -4px; }' +
+                              // KAN-722: the box ends at the text, so the ring goes outside it.
+                              focusRingOutsideCss(COLORS)
                             }
                           >
                             <NormalLabel
