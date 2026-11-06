@@ -158,14 +158,15 @@ describe('group color picks in one open menu', () => {
   it('clear the redo branch when a pick folds, as any new edit does', () => {
     const { store, color, pick } = setup();
     pick('red', 1);
+    store.dispatch(
+      updateChromeTabGroupTitle({ ...target, editableTitle: 'Later' })
+    );
+    store.dispatch(undo());
     pick('green', 1);
-    store.dispatch(undo());
-    store.dispatch(redo());
-    pick('pink', 1);
-    store.dispatch(undo());
-    store.dispatch(redo());
-    expect(color()).toBe('pink');
     expect(store.getState().undoRedo.future).toHaveLength(0);
+
+    store.dispatch(redo());
+    expect(color()).toBe('green');
   });
 
   it('picking the color the group already has changes nothing', () => {
