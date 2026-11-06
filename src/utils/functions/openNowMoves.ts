@@ -492,7 +492,7 @@ export async function moveOpenPair(
   if (landing === null) return null;
 
   // Chrome's own answer at drop time (ledger R3): a half closed, moved or
-  // re-pinned, or a split ended, under the hold is refused.
+  // re-pinned under the hold is refused. carryPair refuses a split that ended.
   const pair = { first: head.id, second: partner.id };
   const nowFirst = await readTab(pair.first);
   const nowSecond = await readTab(pair.second);
@@ -505,8 +505,7 @@ export async function moveOpenPair(
     nowFirst === null ||
     nowSecond === null ||
     !standsAsDrawn(nowFirst, head) ||
-    !standsAsDrawn(nowSecond, partner) ||
-    !(await isStillOneSplit(pair))
+    !standsAsDrawn(nowSecond, partner)
   ) {
     return null;
   }

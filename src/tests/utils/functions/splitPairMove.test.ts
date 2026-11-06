@@ -109,6 +109,16 @@ describe('carryPair (KAN-486)', () => {
     expect(await groupCount()).toBe(0);
   });
 
+  test('moves within a window that is not the current one', async () => {
+    handle = seed(fiveTabs, [{ active: true }, {}, {}, {}]);
+    const id = await splitTabs([21, 22]);
+    const inTwo = { first: 21, second: 22 };
+    expect(await carryPair(inTwo, loose(2, 2))).toBe(true);
+    expect(await strip(2)).toEqual([20, 23, 21, 22]);
+    expect(await strip(1)).toEqual([10, 11, 12, 13, 14]);
+    expect((await chrome.tabs.get(21)).splitViewId).toBe(id);
+  });
+
   test('leaves the front tab alone when no half is active', async () => {
     handle = seed([{ active: true }, {}, {}, {}, {}]);
     await splitTabs([11, 12]);
