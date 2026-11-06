@@ -14,6 +14,17 @@ export function tabsToCopy(
   snapshot: windowGroupData,
   pick: Exclude<CarriedPick, { kind: 'window' }>
 ): { tabs: tabData[]; group: chromeTabGroupData | undefined } | null {
+  if (pick.kind === 'pair') {
+    const ids = [pick.tabId, pick.partnerTabId];
+    const tabs = ids.flatMap((id) =>
+      snapshot.tabs.filter((t) => t.tabId === id)
+    );
+    if (tabs.length !== ids.length) return null;
+    // KAN-486. Out of any group, and still one saved pair.
+    const loose = tabs.map(fresh);
+    for (const half of loose) delete half.chromeGroupId;
+    return { tabs: loose, group: undefined };
+  }
   if (pick.kind === 'tab') {
     const tab = snapshot.tabs.find((t) => t.tabId === pick.tabId);
     if (tab === undefined) return null;

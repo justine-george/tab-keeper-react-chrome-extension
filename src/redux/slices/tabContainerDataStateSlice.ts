@@ -43,7 +43,7 @@ import {
   newSessionTitleOf,
   titleOfPick,
 } from '../../utils/functions/newSessionTitle';
-import { savedItem, type CarriedPick } from '../carriedItem';
+import { landsAsTab, savedItem, type CarriedPick } from '../carriedItem';
 import {
   copiesAnything,
   tabsToCopy,
@@ -493,15 +493,15 @@ export function isWindowMove(move: SessionMove): move is WindowMove {
 
 // KAN-280 Part F. Where a copy of a live item lands: the places a move goes (SessionMove's `to`), from a pick in a snapshot.
 export type SessionCopy =
-  | { pick: Extract<CarriedPick, { kind: 'tab' }>; to: TabMove['to'] }
+  | { pick: Extract<CarriedPick, { kind: 'tab' | 'pair' }>; to: TabMove['to'] }
   | { pick: Extract<CarriedPick, { kind: 'group' }>; to: GroupMove['to'] }
   | { pick: Extract<CarriedPick, { kind: 'window' }>; to: WindowMove['to'] };
 
-export type TabCopy = Extract<SessionCopy, { pick: { kind: 'tab' } }>;
+export type TabCopy = Extract<SessionCopy, { pick: { kind: 'tab' | 'pair' } }>;
 export type WindowCopy = Extract<SessionCopy, { pick: { kind: 'window' } }>;
 
 export function isTabCopy(copy: SessionCopy): copy is TabCopy {
-  return copy.pick.kind === 'tab';
+  return landsAsTab(copy.pick);
 }
 
 export function isWindowCopy(copy: SessionCopy): copy is WindowCopy {
@@ -1907,12 +1907,13 @@ function landTabsIn(
     else target.windows.push(newWindow);
     target.windowCount += 1;
   } else if (group === undefined) {
-    const [tab] = tabs;
     const slot = clampIndex(landing.toIndex, landing.window.tabs.length);
-    // KAN-458. Its group, and its pin by where it landed.
-    landTab(tab, landing.window.tabs, slot, landing.toChromeGroupId);
-    landing.window.tabs.splice(slot, 0, tab);
-    landing.window.tabCount += 1;
+    // KAN-458. Its group, and its pin by where it landed. A pair's two tabs (KAN-486) land as one.
+    for (const tab of tabs) {
+      landTab(tab, landing.window.tabs, slot, landing.toChromeGroupId);
+    }
+    landing.window.tabs.splice(slot, 0, ...tabs);
+    landing.window.tabCount += tabs.length;
   } else {
     const items = partitionTabsIntoItems(
       landing.window.tabs,
@@ -3463,7 +3464,7 @@ export const tabContainerDataStateSlice = createSlice({
         const copy: SessionCopy =
           pick.kind === 'window'
             ? { pick, to: { tabGroupId, toIndex: 0 } }
-            : pick.kind === 'tab'
+            : landsAsTab(pick)
               ? { pick, to: { tabGroupId, newWindowId, at: 'first' } }
               : { pick, to: { tabGroupId, newWindowId, at: 'first' } };
         tabContainerDataStateSlice.caseReducers.copyToSessionInternal(state, {

@@ -11,7 +11,7 @@ import {
   strip,
   topOf,
 } from './fixtures/liveWindows';
-import { boxOf, pickUp, tabHandle } from './fixtures/sessionDrag';
+import { boxOf, pickUp, stored, tabHandle } from './fixtures/sessionDrag';
 
 // KAN-486 on the real artifact: a Chrome split moves as one in Currently open.
 // What the fake cannot show: Chrome's own answer to each route on Chromium 156,
@@ -21,6 +21,7 @@ import { boxOf, pickUp, tabHandle } from './fixtures/sessionDrag';
 const OPEN_NOW = '[data-pane="open-now"]';
 const HELD = '[data-drag-held]';
 const SLOT = '[data-drag-landing-slot]';
+const CARD_NAMES = '[data-carry-card-name]';
 const toasts = (page: Page) =>
   page.locator('[role="status"] > [data-toast]:not([aria-hidden="true"])');
 
@@ -534,6 +535,7 @@ test.describe('a split is one row in Currently open (KAN-486)', () => {
     const pane = await boxOf(page.locator(OPEN_NOW));
     await page.mouse.move(pane.x - 40, y, { steps: 6 });
     await expect(page.locator('[data-carry-card]')).toHaveCount(1);
+    await expect(page.locator(CARD_NAMES)).toHaveText(['Bravo', 'Charlie']);
     await page.keyboard.press('Escape');
     await page.mouse.up();
   });
@@ -576,6 +578,93 @@ test.describe('a split is one row in Currently open (KAN-486)', () => {
     expect(await groupOf(worker, g1)).toBe(g);
     expect(await frontOf(worker, x.windowId)).toBe(x.idOf('Y'));
     expect(await order(worker, w.windowId)).toEqual([a]);
+  });
+});
+
+test.describe('a pair carried to the saved side (KAN-486)', () => {
+  test('14. a pair carried to a saved session restores as a split', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const w = await openLiveWindow(worker, ['A', 'B', 'C', 'D']);
+    const [b, c] = [w.idOf('B'), w.idOf('C')];
+    await makeSplit(worker, [b, c]);
+    const page = await setUp(context, extensionId);
+    await expect(liveRow(page, c)).toBeVisible();
+
+    // Onto the saved tab s1: a spot in the session on screen.
+    const { y } = await lift(page, liveRow(page, b));
+    const pane = await boxOf(page.locator(OPEN_NOW));
+    await page.mouse.move(pane.x - 40, y, { steps: 6 });
+    await expect(page.locator('[data-carry-card]')).toHaveCount(1);
+    const to = await topOf(tabHandle(page, 's1'));
+    await carryTo(page, to);
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const { tabGroups } = await stored(page);
+        return tabGroups[0]?.windows[0]?.tabs.map((t) => t.title);
+      })
+      .toEqual(['Tab s0', 'B', 'C', 'Tab s1', 'Tab g0', 'Tab g1']);
+    const saved = (await stored(page)).tabGroups[0]?.windows[0]?.tabs ?? [];
+    expect(saved[1]?.splitId).toBeDefined();
+    expect(saved[2]?.splitId).toBe(saved[1]?.splitId);
+    // Chrome is not touched: a copy.
+    expect(await order(worker, w.windowId)).toEqual([
+      w.idOf('A'),
+      b,
+      c,
+      w.idOf('D'),
+    ]);
+
+    // A restore splits them again.
+    const before = await worker.evaluate(async () =>
+      (await chrome.windows.getAll()).map((x) => x.id)
+    );
+    const header = page.locator('[data-drag-row-id="w1"]').first();
+    await header.hover();
+    await header
+      .getByRole('button', { name: /^Open in new window: / })
+      .first()
+      .click();
+    await expect
+      .poll(async () =>
+        worker.evaluate(async (known) => {
+          const opened = (await chrome.windows.getAll({ populate: true }))
+            .filter((x) => !known.includes(x.id))
+            .flatMap((x) => x.tabs ?? []);
+          const ids = opened
+            .map((t) => t.splitViewId ?? -1)
+            .filter((id) => id > 0);
+          return ids.length === 2 && ids[0] === ids[1];
+        }, before)
+      )
+      .toBe(true);
+  });
+
+  test('15. the card has two rows', async ({
+    context,
+    extensionId,
+    serviceWorker: worker,
+  }) => {
+    const w = await openLiveWindow(worker, ['A', 'B', 'C']);
+    const [b, c] = [w.idOf('B'), w.idOf('C')];
+    await makeSplit(worker, [b, c]);
+    const page = await setUp(context, extensionId);
+    await expect(liveRow(page, c)).toBeVisible();
+
+    await lift(page, liveRow(page, c));
+    await expect(page.locator(CARD_NAMES)).toHaveText(['B', 'C']);
+    const [one, two] = await page
+      .locator(CARD_NAMES)
+      .evaluateAll((names) =>
+        names.map((name) => name.getBoundingClientRect().top)
+      );
+    expect(two).toBeGreaterThan(one ?? 0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
   });
 });
 

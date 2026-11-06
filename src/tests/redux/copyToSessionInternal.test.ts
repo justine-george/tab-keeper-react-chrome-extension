@@ -351,3 +351,113 @@ describe('copyToSessionInternal: what it refuses', () => {
     expect(tabIds(windowIn(into, 'S2', 'd1'))).toEqual(['u1', 'l1']);
   });
 });
+
+describe('copyToSessionInternal: a split pair (KAN-486)', () => {
+  const PAIR: Extract<CarriedPick, { kind: 'pair' }> = {
+    kind: 'pair',
+    windowId: 'live-w',
+    tabId: 'l1',
+    partnerTabId: 'l1b',
+  };
+
+  it('a pair lands as two adjacent tabs sharing one splitId', () => {
+    const after = reducer(
+      base(),
+      copyToSessionInternal(
+        { pick: PAIR, to: { tabGroupId: 'S2', windowId: 'd1', toIndex: 1 } },
+        live(),
+        NS,
+        NOW
+      )
+    );
+    const w = windowIn(after, 'S2', 'd1');
+    expect(tabIds(w)).toEqual(['u1', 'l1', 'l1b', 'u2', 'u3']);
+    expect(w.tabs[1]?.splitId).toBe('sp');
+    expect(w.tabs[2]?.splitId).toBe('sp');
+    expect(w.tabCount).toBe(5);
+    expect(sessionIn(after, 'S2').tabCount).toBe(6);
+  });
+
+  it('a pair lands in a saved group with both tabs in it', () => {
+    const after = reducer(
+      base(),
+      copyToSessionInternal(
+        {
+          pick: PAIR,
+          to: {
+            tabGroupId: 'S2',
+            windowId: 'd1',
+            toIndex: 2,
+            toChromeGroupId: 'h1',
+          },
+        },
+        live(),
+        NS,
+        NOW
+      )
+    );
+    const w = windowIn(after, 'S2', 'd1');
+    expect(tabIds(w)).toEqual(['u1', 'u2', 'l1', 'l1b', 'u3']);
+    expect(w.tabs[2]?.chromeGroupId).toBe('h1');
+    expect(w.tabs[3]?.chromeGroupId).toBe('h1');
+  });
+
+  it('a pair into a new window makes a window of the two', () => {
+    const after = reducer(
+      base(),
+      copyToSessionInternal(
+        {
+          pick: PAIR,
+          to: { tabGroupId: 'S2', newWindowId: 'nw', at: 'first' },
+        },
+        live(),
+        NS,
+        NOW
+      )
+    );
+    const w = windowIn(after, 'S2', 'nw');
+    expect(tabIds(w)).toEqual(['l1', 'l1b']);
+    expect(w.tabs[1]?.splitId).toBe('sp');
+    expect(w.tabCount).toBe(2);
+  });
+
+  it('a pair in the pinned run of the target is pinned, both halves', () => {
+    const pinned = session('S9', 'Pins', T0, [
+      win('p1', [{ ...tab('a'), pinned: true }, tab('b')]),
+    ]);
+    const after = reducer(
+      base(container([pinned])),
+      copyToSessionInternal(
+        { pick: PAIR, to: { tabGroupId: 'S9', windowId: 'p1', toIndex: 0 } },
+        live(),
+        NS,
+        NOW
+      )
+    );
+    const w = windowIn(after, 'S9', 'p1');
+    expect(tabIds(w)).toEqual(['l1', 'l1b', 'a', 'b']);
+    expect(w.tabs.map((t) => t.pinned === true)).toEqual([
+      true,
+      true,
+      true,
+      false,
+    ]);
+  });
+
+  it('a pair the snapshot no longer holds whole lands nothing', () => {
+    const before = base();
+    const after = reducer(
+      before,
+      copyToSessionInternal(
+        {
+          pick: { ...PAIR, partnerTabId: 'gone' },
+          to: { tabGroupId: 'S2', windowId: 'd1', toIndex: 1 },
+        },
+        live(),
+        NS,
+        NOW
+      )
+    );
+    expect(sessionIn(after, 'S2')).toEqual(sessionIn(before, 'S2'));
+  });
+});

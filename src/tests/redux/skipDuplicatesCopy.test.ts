@@ -394,3 +394,57 @@ describe('Off: a copy lands as today, duplicates included (KAN-608)', () => {
     expect(urls(portoIn(store).windows[0])).toEqual([A, A]);
   });
 });
+
+describe('a split pair copied with Skip duplicate tabs on (KAN-486)', () => {
+  const PAIR: CarriedPick = {
+    kind: 'pair',
+    windowId: 'live-w',
+    tabId: 'la',
+    partnerTabId: 'lb',
+  };
+  const pairWindow = () =>
+    snapshotWindow([
+      liveTab('la', A, { splitId: 'sp' }),
+      liveTab('lb', B, { splitId: 'sp' }),
+      liveTab('lc', C),
+    ]);
+  const spot = { tabGroupId: 'P', toWindowId: 'pw', toIndex: 0 };
+
+  it('with one repeat, the pair lands whole', () => {
+    const store = ready(true, { tabId: 'x', favicon: '', title: 'A', url: A });
+    store.dispatch(copyToSpot(liveOf(PAIR, pairWindow()), spot));
+    expect(urls(portoIn(store).windows[0])).toEqual([A, B, A]);
+  });
+
+  it('with both halves repeated, nothing lands and the toast says so', () => {
+    const store = ready(
+      true,
+      { tabId: 'x', favicon: '', title: 'A', url: A },
+      { tabId: 'y', favicon: '', title: 'B', url: B }
+    );
+    expect(store.dispatch(copyToSpot(liveOf(PAIR, pairWindow()), spot))).toBe(
+      false
+    );
+    expect(urls(portoIn(store).windows[0])).toEqual([A, B]);
+    expect(toasts(store).map((toast) => toast.text)).toEqual([
+      TOAST_MESSAGES.SESSION_ALREADY_HAS_THESE_TABS,
+    ]);
+  });
+
+  it('a copy says how many tabs it landed', () => {
+    const store = ready(false, { tabId: 'x', favicon: '', title: 'C', url: C });
+    store.dispatch(copyToSpot(liveOf(PAIR, pairWindow()), spot));
+    expect(toasts(store)[0]).toMatchObject({
+      text: TOAST_MESSAGES.COPIED_TABS_TO_SESSION,
+      params: { count: 2 },
+    });
+  });
+
+  it('undo removes both', () => {
+    const store = ready(false, { tabId: 'x', favicon: '', title: 'C', url: C });
+    store.dispatch(copyToSpot(liveOf(PAIR, pairWindow()), spot));
+    expect(urls(portoIn(store).windows[0])).toEqual([A, B, C]);
+    store.dispatch(undo());
+    expect(urls(portoIn(store).windows[0])).toEqual([C]);
+  });
+});

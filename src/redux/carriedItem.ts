@@ -18,8 +18,20 @@ export const savedItem = (ref: CarriedRef): CarriedItem => ({
 // The item's kind and its ids inside its source window.
 export type CarriedPick =
   | { kind: 'tab'; windowId: string; tabId: string }
+  // KAN-486. A live split's two tabs, carried as one: live only, so no saved ref has it.
+  | { kind: 'pair'; windowId: string; tabId: string; partnerTabId: string }
   | { kind: 'group'; windowId: string; groupId: string }
   | { kind: 'window'; windowId: string };
+
+// KAN-486. A pair lands where a tab lands: in the `tabs` lists, as one row.
+export const landsAsTab = (
+  pick: CarriedPick
+): pick is Extract<CarriedPick, { kind: 'tab' | 'pair' }> =>
+  pick.kind === 'tab' || pick.kind === 'pair';
+
+// The list that drags this pick.
+export const listKindOf = (pick: CarriedPick): 'tab' | 'group' | 'window' =>
+  landsAsTab(pick) ? 'tab' : pick.kind;
 
 // KAN-280 Part F (Q1 A). A live item as it was picked up: its pick inside its Chrome window, converted to storage shape then.
 export interface LiveSnapshot {
@@ -86,7 +98,7 @@ export function isCarriedTabPinned(
   item: CarriedItem
 ): boolean {
   const pick = pickOf(item);
-  if (pick.kind !== 'tab') return false;
+  if (!landsAsTab(pick)) return false;
   return (
     sourceWindowOf(tabGroups, item)?.tabs.find((t) => t.tabId === pick.tabId)
       ?.pinned === true

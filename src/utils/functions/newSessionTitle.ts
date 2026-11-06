@@ -19,6 +19,7 @@ export function titleOfPick(w: windowGroupData, pick: CarriedPick): string {
   const candidates: string[] = [];
   switch (pick.kind) {
     case 'tab':
+    case 'pair':
       candidates.push(shown(w.tabs.find((t) => t.tabId === pick.tabId)));
       break;
     case 'group':

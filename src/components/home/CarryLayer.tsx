@@ -74,6 +74,40 @@ function CardBody({ card }: { card: CarryCard }) {
           </span>
         </>
       );
+    case 'pair':
+      // KAN-486 A1. Two rows, a tab card's each.
+      return (
+        <div
+          css={css`
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+          `}
+        >
+          {[card.first, card.second].map((half, i) => (
+            <div
+              key={i}
+              css={css`
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                min-width: 0;
+              `}
+            >
+              <Icon
+                faviconUrl={half.faviconUrl}
+                type="globe"
+                style={NON_INTERACTIVE_ICON_STYLE}
+              />
+              <span data-carry-card-name="" css={nameStyle}>
+                {half.title}
+              </span>
+            </div>
+          ))}
+        </div>
+      );
     case 'group':
       return (
         <>

@@ -24,7 +24,11 @@ import {
 } from '../../../utils/functions/pinnedRun';
 import { dropSavedTab } from '../../../redux/pinChangeToast';
 import { intoNewWindow } from '../../../redux/dropSpecs';
-import { isCarriedTabPinned, pickOf } from '../../../redux/carriedItem';
+import {
+  isCarriedTabPinned,
+  landsAsTab,
+  pickOf,
+} from '../../../redux/carriedItem';
 import { carryToSpot } from '../../../redux/commitCarry';
 import { moveToSession } from '../../../redux/moveToSession';
 import { currentCarry, endCarry } from '../../../redux/carry';
@@ -713,7 +717,7 @@ export function useTabDrop(
       if (described === undefined) return;
       const carried = currentCarry()?.item;
       const carriedTab =
-        carried !== undefined && pickOf(carried).kind === 'tab'
+        carried !== undefined && landsAsTab(pickOf(carried))
           ? carried
           : undefined;
       // Read at the drop: the engine keeps a window it opened open before calling this (KAN-379).

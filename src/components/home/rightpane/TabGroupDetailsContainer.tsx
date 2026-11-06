@@ -43,7 +43,7 @@ import {
   useCarried,
   useCarryCrossedIntoOpenNow,
 } from '../../../redux/carry';
-import { pickOf } from '../../../redux/carriedItem';
+import { listKindOf, pickOf } from '../../../redux/carriedItem';
 import { carryWindowTo } from '../../../redux/commitCarry';
 import {
   carriedRowId,
@@ -137,12 +137,12 @@ export default function TabGroupDetailsContainer() {
   // Only the list that drags the carried kind adopts it, and follows the row
   // the item lands as once a drop there commits (KAN-155).
   const adoptRowIdFor = (kind: 'tab' | 'group' | 'window') =>
-    carried !== null && pickOf(carried).kind === kind
+    carried !== null && listKindOf(pickOf(carried)) === kind
       ? phantomRowId
       : undefined;
   const landsAsFor = (kind: 'tab' | 'group' | 'window') =>
     carried !== null &&
-    pickOf(carried).kind === kind &&
+    listKindOf(pickOf(carried)) === kind &&
     phantomRowId !== undefined
       ? landedRowId(carried)
       : undefined;

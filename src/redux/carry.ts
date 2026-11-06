@@ -33,8 +33,15 @@ import {
 // What the card that follows the pointer shows (D1 A), snapshotted when the
 // carry starts. One shape per kind, so a group always has its colour and a
 // tab its favicon. Words are the card's to add: this holds data, not text.
+interface CarryCardTab {
+  title: string;
+  faviconUrl: string;
+}
+
 export type CarryCard =
   | { kind: 'tab'; title: string; faviconUrl: string }
+  // KAN-486. Both halves of a split, in strip order.
+  | { kind: 'pair'; first: CarryCardTab; second: CarryCardTab }
   // `title` is the group's own, and may be empty: an unnamed group.
   | { kind: 'group'; title: string; color: string; tabCount: number }
   // `title` is the window's stored title, and may be empty: then `number`

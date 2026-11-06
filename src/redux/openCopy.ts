@@ -119,6 +119,9 @@ export function copyWindowSpec(
 ): WindowSpec | null {
   const kind = window.incognito === true ? { incognito: true as const } : {};
   switch (pick.kind) {
+    // KAN-486. Live only: a copy opens a saved item.
+    case 'pair':
+      return null;
     case 'tab': {
       const tab = window.tabs.find((t) => t.tabId === pick.tabId);
       if (!tab) return null;

@@ -1,7 +1,7 @@
 // KAN-280 Part F (spec O12c). A live item's copy into a saved session: through dropOnTop like every drop, then D4 A's toast.
 import type { ThunkAction, UnknownAction } from '@reduxjs/toolkit';
 
-import type { LiveSnapshot } from './carriedItem';
+import { landsAsTab, type LiveSnapshot } from './carriedItem';
 import type { CarriedSpot } from './dropCarried';
 import { dropOnTop, dropOnTopMoved } from './dropOnTop';
 import {
@@ -78,7 +78,7 @@ const copyToSession =
       target === undefined || isSessionOnScreen(getState(), target.tabGroupId)
         ? undefined
         : { tabGroupId: target.tabGroupId };
-    // A window or group says how many tabs it copied (Justine, 2026-10-15); a tab, where it went.
+    // A window, group or pair says how many tabs it copied (Justine, 2026-10-15); a tab, where it went.
     const several = copy.pick.kind !== 'tab';
     const { window: landed, leftOut } = at.landing;
     if (getState().tabContainerDataState === before) {
@@ -131,7 +131,7 @@ export const copyOnSessionRow =
     const copy: SessionCopy =
       pick.kind === 'window'
         ? { pick, to: { tabGroupId, toIndex: 0 } }
-        : pick.kind === 'tab'
+        : landsAsTab(pick)
           ? { pick, to: intoNewWindow(tabGroupId, 'first') }
           : { pick, to: intoNewWindow(tabGroupId, 'first') };
     const copied = dispatch(copyToSession(copy, live));
@@ -154,29 +154,26 @@ export const copyToSpot =
     if (pick.kind === 'window') return false;
     const { tabGroupId, toWindowId, toIndex, toChromeGroupId } = spot;
     const at = newWindowPlacement(toWindowId);
-    const copy: SessionCopy =
-      pick.kind === 'tab'
-        ? {
-            pick,
-            to:
-              at === undefined
-                ? {
-                    tabGroupId,
-                    windowId: toWindowId,
-                    toIndex,
-                    ...(toChromeGroupId === undefined
-                      ? {}
-                      : { toChromeGroupId }),
-                  }
-                : intoNewWindow(tabGroupId, at),
-          }
-        : {
-            pick,
-            to:
-              at === undefined
-                ? { tabGroupId, windowId: toWindowId, toIndex }
-                : intoNewWindow(tabGroupId, at),
-          };
+    const copy: SessionCopy = landsAsTab(pick)
+      ? {
+          pick,
+          to:
+            at === undefined
+              ? {
+                  tabGroupId,
+                  windowId: toWindowId,
+                  toIndex,
+                  ...(toChromeGroupId === undefined ? {} : { toChromeGroupId }),
+                }
+              : intoNewWindow(tabGroupId, at),
+        }
+      : {
+          pick,
+          to:
+            at === undefined
+              ? { tabGroupId, windowId: toWindowId, toIndex }
+              : intoNewWindow(tabGroupId, at),
+        };
     return dispatch(copyToSession(copy, live));
   };
 
