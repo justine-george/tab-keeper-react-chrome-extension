@@ -23,6 +23,12 @@ import {
   holdsSplitView,
   orderBeforeSort,
 } from './openNowSort';
+import { carryPair, isStillOneSplit } from './splitPairMove';
+import {
+  openSplitPartners,
+  rowSpansOf,
+  withoutSplitFollowers,
+} from './splitPartners';
 import { partitionTabsIntoItems, sanitizeTabGroupColor } from './tabGroups';
 import type { TabGroupColor } from './tabGroups';
 
@@ -300,6 +306,18 @@ async function groupRunAround(
   return { inside: true, groupId, start };
 }
 
+// The group a tab must end in: the destination's band `move` names, or none. Null for any other name.
+function bandGroupId(
+  move: TabMove,
+  to: OpenWindow,
+  groupById: ReturnType<typeof indexSnapshot>['groupById'],
+  hasTabGroups: boolean
+): number | null {
+  if (!hasTabGroups || move.toGroupId === undefined) return NO_GROUP;
+  const group = groupById.get(move.toGroupId);
+  return group && group.windowId === to.id ? group.id : null;
+}
+
 // One tab to the visible row `move.toIndex` of `move.toWindowId`.
 //
 // With the grant (`hasTabGroups`), the tab ends in the group whose band the
@@ -325,23 +343,21 @@ export async function moveOpenTab(
   // R15): Chrome rejects a move between profiles (O11d, Task 1 Q4).
   if (across && from.incognito !== to.incognito) return null;
 
-  // The group the tab must end in. A band names one of the destination's
-  // groups; any other name is refused.
-  let toGroupId = NO_GROUP;
-  if (hasTabGroups && move.toGroupId !== undefined) {
-    const group = groupById.get(move.toGroupId);
-    if (!group || group.windowId !== to.id) return null;
-    toGroupId = group.id;
-  }
+  const toGroupId = bandGroupId(move, to, groupById, hasTabGroups);
+  if (toGroupId === null) return null;
 
   const others = to.tabs.filter((tab) => tab.id !== held.id);
   // KAN-814. The slot decides the pin among the rows the pane draws, as in a
   // saved session (KAN-458): inside the run pins, below unpins, the boundary
   // keeps it. A band unpins, as Chrome's groups hold no pinned tab.
   const endsPinned =
-    toGroupId === NO_GROUP && isPinnedSlot(others, move.toIndex, held.pinned);
-  const rows = others.map((tab) => ({ first: tab.index, last: tab.index }));
-  const landing = landingOf(rows, move.toIndex, across ? null : held.index);
+    toGroupId === NO_GROUP &&
+    isPinnedSlot(withoutSplitFollowers(others), move.toIndex, held.pinned);
+  const landing = landingOf(
+    rowSpansOf(others),
+    move.toIndex,
+    across ? null : held.index
+  );
   if (landing === null) return null;
 
   // Chrome's own answer at drop time (ledger R3). A tab that has left the
@@ -441,12 +457,112 @@ export async function moveOpenTab(
   return [{ tabId: held.id, before, after }];
 }
 
+// KAN-486. Both tabs of a live split to the visible row `move.toIndex`, as
+// one. `move.tabId` is the pair's head, and `toIndex` counts a pair as one
+// row. Mirrors moveOpenTab's checks; carryPair picks the Chrome route.
+// Returns both tabs' records, first then second.
+export async function moveOpenPair(
+  move: TabMove,
+  windows: readonly OpenWindow[],
+  hasTabGroups: boolean
+): Promise<MovedTabs | null> {
+  const { windowById, tabById, groupById } = indexSnapshot(windows);
+  const head = tabById.get(move.tabId);
+  const from = windowById.get(move.fromWindowId);
+  const to = windowById.get(move.toWindowId);
+  if (!head || !from || !to || head.windowId !== from.id) return null;
+  const partner = openSplitPartners(from.tabs).get(head.id);
+  if (partner === undefined || partner.index < head.index) return null;
+  const across = to.id !== from.id;
+  if (across && from.incognito !== to.incognito) return null;
+  const toGroupId = bandGroupId(move, to, groupById, hasTabGroups);
+  if (toGroupId === null) return null;
+
+  const others = to.tabs.filter(
+    (tab) => tab.id !== head.id && tab.id !== partner.id
+  );
+  const endsPinned =
+    toGroupId === NO_GROUP &&
+    isPinnedSlot(withoutSplitFollowers(others), move.toIndex, head.pinned);
+  const landing = landingOf(
+    rowSpansOf(others),
+    move.toIndex,
+    across ? null : head.index
+  );
+  if (landing === null) return null;
+
+  // Chrome's own answer at drop time (ledger R3): a half closed, moved or
+  // re-pinned, or a split ended, under the hold is refused.
+  const pair = { first: head.id, second: partner.id };
+  const nowFirst = await readTab(pair.first);
+  const nowSecond = await readTab(pair.second);
+  const standsAsDrawn = (now: TabState | null, drawn: OpenTab) =>
+    now !== null &&
+    now.windowId === from.id &&
+    now.index === drawn.index &&
+    now.pinned === drawn.pinned;
+  if (
+    nowFirst === null ||
+    nowSecond === null ||
+    !standsAsDrawn(nowFirst, head) ||
+    !standsAsDrawn(nowSecond, partner) ||
+    !(await isStillOneSplit(pair))
+  ) {
+    return null;
+  }
+  const beforeFirst = await placeOf(nowFirst, hasTabGroups);
+  const beforeSecond = await placeOf(nowSecond, hasTabGroups);
+  if (beforeFirst === null || beforeSecond === null) return null;
+
+  const target =
+    landing.inPlace || endsPinned
+      ? landing
+      : await belowPinnedRun(to.id, landing);
+  if (target === null) return null;
+
+  // Without the grant the snapshot shows no groups, so the strip decides them.
+  let groupId = toGroupId;
+  let index = head.index;
+  if (target.inPlace) {
+    if (!hasTabGroups) groupId = nowFirst.groupId;
+  } else {
+    let { slot } = target;
+    if (!endsPinned && toGroupId === NO_GROUP) {
+      const run = await groupRunAround(to.id, slot);
+      if (run === null) return null;
+      // With the grant the preview showed the pair loose, as for a tab in moveOpenTab.
+      if (run.inside && hasTabGroups) slot = run.start;
+      if (run.inside && !hasTabGroups) groupId = run.groupId;
+    }
+    index = across ? slot : finalIndex(slot, head.index, 2);
+  }
+
+  const carried = await carryPair(pair, {
+    windowId: to.id,
+    index,
+    groupId,
+    pinned: endsPinned,
+  });
+  if (!carried) return null;
+
+  const afterFirst = await readPlace(pair.first, hasTabGroups);
+  const afterSecond = await readPlace(pair.second, hasTabGroups);
+  if (afterFirst === null || afterSecond === null) return null;
+  return [
+    { tabId: pair.first, before: beforeFirst, after: afterFirst },
+    { tabId: pair.second, before: beforeSecond, after: afterSecond },
+  ];
+}
+
 // A window's top-level rows as Open now draws them -- a loose or pinned tab is
-// one row, a group is one row (the same partition the pane and the drag
-// engine use, KAN-131) -- without the group being moved.
+// one row, a split pair is one row, a group is one row (the same partition
+// the pane and the drag engine use, KAN-131) -- without the group being moved.
 function topLevelRows(window: OpenWindow, heldGroupId: number): RowSpan[] {
+  const lastOf = new Map(
+    rowSpansOf(window.tabs).map(({ first, last }) => [first, last])
+  );
   const items = partitionTabsIntoItems(
-    window.tabs.map((tab) => ({
+    withoutSplitFollowers(window.tabs).map((tab) => ({
       tabId: String(tab.id),
       chromeGroupId: tab.groupId === null ? undefined : String(tab.groupId),
       index: tab.index,
@@ -459,11 +575,13 @@ function topLevelRows(window: OpenWindow, heldGroupId: number): RowSpan[] {
   );
   return items.flatMap((item) => {
     if (item.kind === 'tab') {
-      return [{ first: item.tab.index, last: item.tab.index }];
+      const { index } = item.tab;
+      return [{ first: index, last: lastOf.get(index) ?? index }];
     }
     if (item.group.groupId === String(heldGroupId)) return [];
     const indices = item.tabs.map((tab) => tab.index);
-    return [{ first: Math.min(...indices), last: Math.max(...indices) }];
+    const ends = indices.map((index) => lastOf.get(index) ?? index);
+    return [{ first: Math.min(...indices), last: Math.max(...ends) }];
   });
 }
 
@@ -495,11 +613,11 @@ export function tabCopySlot(
     if (!group || group.windowId !== to.id) return null;
     groupId = group.id;
   }
-  const rows = to.tabs.map((tab) => ({ first: tab.index, last: tab.index }));
-  const landing = landingOf(rows, toIndex, null);
+  const landing = landingOf(rowSpansOf(to.tabs), toIndex, null);
   if (landing === null || landing.inPlace) return null;
   const pinned =
-    groupId === undefined && isPinnedSlot(to.tabs, toIndex, savedPinned);
+    groupId === undefined &&
+    isPinnedSlot(withoutSplitFollowers(to.tabs), toIndex, savedPinned);
   return {
     windowId: to.id,
     index: landing.slot,
@@ -693,7 +811,8 @@ export async function moveOpenGroup(
 // back where they were, or again where the drop left them.
 
 // One drop as undo and redo run it: moveOpenTab's record (`kind: 'tab'`, one
-// tab, moved on its own), moveOpenGroup's (`kind: 'group'`, every tab of the
+// tab, moved on its own), moveOpenPair's (`kind: 'pair'`, a split's two tabs,
+// first then second, moved as one; KAN-486), moveOpenGroup's (`kind: 'group'`, every tab of the
 // group, moved as one group), or a sort by site's (`kind: 'sort'`, every tab
 // of the window but Tab Keeper pages, put in their old order or their sorted
 // one; KAN-694), or a sort inside one group's (`kind: 'groupSort'`, every tab
@@ -701,7 +820,7 @@ export async function moveOpenGroup(
 // (`kind: 'groupOrder'`, every tab of the window but Tab Keeper pages, only
 // the groups moved; KAN-746 Part 2).
 export interface OpenNowDrop {
-  kind: 'tab' | 'group' | 'sort' | 'groupSort' | 'groupOrder';
+  kind: 'tab' | 'pair' | 'group' | 'sort' | 'groupSort' | 'groupOrder';
   moved: MovedTabs;
   // A window sort's Tab Keeper pages, where they stood: its moves shift them (KAN-745).
   pagesBefore?: readonly { tabId: number; index: number }[];
@@ -906,6 +1025,46 @@ async function putTabBack(
   return true;
 }
 
+// KAN-486. A split's two tabs back to the first tab's `before`, by the drop's
+// own route. A split the user ended stays ended: Undo doesn't make one.
+async function putPairBack(
+  moved: MovedTabs,
+  withLook: boolean
+): Promise<LiveRun['outcome']> {
+  const [firstTab, secondTab] = moved;
+  if (firstTab === undefined || secondTab === undefined) return 'couldNotRun';
+  const pair = { first: firstTab.tabId, second: secondTab.tabId };
+  if (!(await isStillOneSplit(pair))) return 'changedSince';
+  const { before } = firstTab;
+  const back = await groupBackFor(before, withLook);
+  if (back === null) return 'couldNotRun';
+  const carried = await carryPair(pair, {
+    windowId: before.windowId,
+    index: before.index,
+    groupId: back.kind === 'rejoin' ? back.groupId : NO_GROUP,
+    pinned: before.pinned,
+  });
+  if (!carried) return 'couldNotRun';
+  if (back.kind === 'rebuild') {
+    const newId = await attempt(() =>
+      chrome.tabs.group({
+        tabIds: [pair.first, pair.second],
+        createProperties: { windowId: before.windowId },
+      })
+    );
+    if (newId === REFUSED) return 'couldNotRun';
+    return (await restyle(newId, back.look)) ? 'done' : 'couldNotRun';
+  }
+  if (back.kind === 'rejoin' && withLook && before.group !== null) {
+    const { collapsed } = before.group;
+    const restored = await attempt(() =>
+      chrome.tabGroups.update(back.groupId, { collapsed })
+    );
+    if (restored === REFUSED) return 'couldNotRun';
+  }
+  return 'done';
+}
+
 // A whole group back to its `before` window and index, as one group. The
 // group is the one its tabs are in now (`after.groupId`: the same id, or G1's
 // new one). Within a window, and back to another window when the group holds
@@ -996,6 +1155,8 @@ async function moveToBefore(
   if (!isSortKind(drop.kind) && !(await targetWindowsOpen(drop.moved))) {
     return 'windowClosed';
   }
+  // KAN-486. Runs without the grant too: carryPair takes the plain route there.
+  if (drop.kind === 'pair') return putPairBack(drop.moved, withLook);
   // KAN-744 R12: chrome.tabGroups is absent without the grant.
   if (drop.kind !== 'tab' && !withLook) return 'couldNotRun';
 
