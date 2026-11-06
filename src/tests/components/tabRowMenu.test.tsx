@@ -291,6 +291,7 @@ async function renderOpenNow(onCloseTab: (tab: OpenTab) => void) {
   return renderWithProviders(
     <>
       <OpenNowWindow
+        onGroupRenameCommitted={() => undefined}
         openWindow={OPEN_WINDOW}
         number={2}
         lastUsedTabId={null}

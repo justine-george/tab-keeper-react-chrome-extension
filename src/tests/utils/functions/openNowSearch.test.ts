@@ -8,6 +8,7 @@ import type {
 } from '../../../utils/functions/openNow';
 import {
   countMatchedTabs,
+  groupIsDrawn,
   matchOpenWindows,
   openTabTextMatches,
   searchTermOf,
@@ -211,5 +212,24 @@ describe('matchOpenWindows on what toOpenWindows reads (KAN-718)', () => {
 
     const windows = toOpenWindows(chromeWindows, chromeGroups, null);
     expect(countMatchedTabs(matchOpenWindows(windows, 'kyoto'))).toBe(2);
+  });
+});
+
+describe('groupIsDrawn (KAN-739)', () => {
+  const windows = [
+    win(1, [tab(10, 1, 'a', 'https://a.test', 5)]),
+    win(2, [tab(20, 2, 'b', 'https://b.test', 6)]),
+  ];
+
+  test('true while a search draws one of its tabs', () => {
+    expect(groupIsDrawn(windows, new Map([[1, new Set([10])]]), 5)).toBe(true);
+  });
+
+  test('false when only other groups are drawn', () => {
+    expect(groupIsDrawn(windows, new Map([[2, new Set([20])]]), 5)).toBe(false);
+  });
+
+  test('false when its window is drawn but its tab is not', () => {
+    expect(groupIsDrawn(windows, new Map([[1, new Set([99])]]), 5)).toBe(false);
   });
 });

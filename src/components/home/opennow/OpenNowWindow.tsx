@@ -151,6 +151,8 @@ interface OpenNowWindowProps {
   // whole: a tab's click and close still act on the real tab. The window's own
   // Save and Close are not offered while a search is held (O14e).
   matchedTabIds: ReadonlySet<number> | null;
+  // KAN-739. The pane moves focus if this rename takes the group out of the search.
+  onGroupRenameCommitted: (groupId: number) => void;
   isOpen: boolean;
   onToggle: () => void;
   onCloseTab: (tab: OpenTab) => void;
@@ -173,6 +175,7 @@ export default function OpenNowWindow({
   number,
   lastUsedTabId,
   matchedTabIds,
+  onGroupRenameCommitted,
   isOpen,
   onToggle,
   onCloseTab,
@@ -230,6 +233,15 @@ export default function OpenNowWindow({
         }
       );
     }
+  };
+  // Enter or the tick: focus comes back to the title, if the search still draws it.
+  const commitGroupRenameToTitle = (group: {
+    groupId: string;
+    title: string;
+  }) => {
+    titleFocus.ask(group.groupId);
+    onGroupRenameCommitted(Number(group.groupId));
+    commitGroupRename(group);
   };
   const cancelGroupRename = () => {
     groupRenameCancelled.current = true;
@@ -1284,10 +1296,7 @@ export default function OpenNowWindow({
                               onKeyDown={(e) =>
                                 renameKeyDown(
                                   e,
-                                  () => {
-                                    titleFocus.ask(item.group.groupId);
-                                    commitGroupRename(item.group);
-                                  },
+                                  () => commitGroupRenameToTitle(item.group),
                                   () => {
                                     titleFocus.ask(item.group.groupId);
                                     cancelGroupRename();
@@ -1334,8 +1343,7 @@ export default function OpenNowWindow({
                                 type="done"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  titleFocus.ask(item.group.groupId);
-                                  commitGroupRename(item.group);
+                                  commitGroupRenameToTitle(item.group);
                                 }}
                               />
                             </span>

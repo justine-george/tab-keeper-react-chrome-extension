@@ -65,3 +65,16 @@ export function countMatchedTabs(matches: OpenNowMatches): number {
   for (const ids of matches.values()) count += ids.size;
   return count;
 }
+
+/** A search still draws at least one of this group's tabs. */
+export function groupIsDrawn(
+  windows: readonly OpenWindow[],
+  matches: OpenNowMatches,
+  groupId: number
+): boolean {
+  return windows.some((window) =>
+    window.tabs.some(
+      (tab) => tab.groupId === groupId && matches.get(window.id)?.has(tab.id)
+    )
+  );
+}
