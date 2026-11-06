@@ -8,7 +8,9 @@ export function useNativeMouseLeave(
   onLeave: () => void
 ): void {
   const latest = useRef({ isWatched, onLeave });
-  latest.current = { isWatched, onLeave };
+  useEffect(() => {
+    latest.current = { isWatched, onLeave };
+  });
   useEffect(() => {
     const listener = (event: Event) => {
       const { target } = event;
