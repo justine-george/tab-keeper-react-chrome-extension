@@ -21,6 +21,7 @@ import {
 } from '../../../utils/functions/toolbarPin';
 import { isTabView } from '../../../utils/functions/viewMode';
 import { TYPE } from '../../../styles/scale';
+import { sectionInsetCss } from './sectionInset';
 
 const HELP_ICONS: Record<'setup' | 'pin' | 'tour', IconName> = {
   setup: 'tune',
@@ -55,8 +56,7 @@ function HelpRow({
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        padding-left: clamp(16px, 8%, 72px);
-        padding-right: clamp(16px, 8%, 72px);
+        ${sectionInsetCss()}
         width: 100%;
         margin-top: ${isFirst ? '20px' : '32px'};
       `}

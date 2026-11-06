@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import SettingsDetailsContainer from '../../components/settings/rightpane/SettingsDetailsContainer';
 import { renderWithProviders } from '../setup/renderWithProviders';
@@ -16,6 +16,12 @@ import {
 // clamp against the pane's own width -- pinning a number would pin the viewport
 // the test happened to run at.
 describe('the settings pane insets its content evenly', () => {
+  // The full view's rule: the popup's left inset follows the title (KAN-716).
+  beforeEach(() =>
+    window.history.replaceState(null, '', '/index.html?view=tab')
+  );
+  afterEach(() => window.history.replaceState(null, '', '/'));
+
   const sectionsUnderTest = [
     ['Display', SettingsCategory.DISPLAY],
     ['Sync & Backup', SettingsCategory.SYNC],
