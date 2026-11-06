@@ -128,7 +128,7 @@ describe('the group colour band', () => {
         .getAllByRole('menuitemradio')
         .map((s) => s.getAttribute('aria-label'))
     ).toEqual([
-      'Grey',
+      'Gray',
       'Blue',
       'Red',
       'Yellow',
@@ -164,7 +164,7 @@ describe('the group colour band', () => {
 
     await user.click(screen.getByRole('button', { name: BAND }));
 
-    expect(screen.getByRole('menuitemradio', { name: 'Grey' })).toHaveAttribute(
+    expect(screen.getByRole('menuitemradio', { name: 'Gray' })).toHaveAttribute(
       'aria-checked',
       'true'
     );
@@ -289,7 +289,7 @@ describe('the group colour band', () => {
     await renderGroup();
 
     await user.click(screen.getByRole('button', { name: BAND }));
-    expect(screen.getByRole('menuitemradio', { name: 'Grey' })).toHaveFocus();
+    expect(screen.getByRole('menuitemradio', { name: 'Gray' })).toHaveFocus();
 
     await user.keyboard('{ArrowRight}');
     expect(screen.getByRole('menuitemradio', { name: 'Blue' })).toHaveFocus();

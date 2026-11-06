@@ -88,7 +88,7 @@ test('Monochrome mirrors for the worker, draws for the mode, and stays chosen af
   await page.goto(`chrome-extension://${extensionId}/index.html?view=tab`);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   const group = page.getByRole('group', { name: 'Toolbar icon', exact: true });
-  await expect(group.getByRole('button', { name: 'Colour' })).toHaveAttribute(
+  await expect(group.getByRole('button', { name: 'Color' })).toHaveAttribute(
     'aria-pressed',
     'true'
   );
@@ -109,7 +109,7 @@ test('Monochrome mirrors for the worker, draws for the mode, and stays chosen af
   await page.emulateMedia({ colorScheme: 'light' });
   await expect.poll(() => iconsSet(page)).toEqual([LIGHT_ICON, DARK_ICON]);
 
-  await group.getByRole('button', { name: 'Colour' }).click();
+  await group.getByRole('button', { name: 'Color' }).click();
   await expect
     .poll(() => iconsSet(page))
     .toEqual([LIGHT_ICON, DARK_ICON, 'icons/icon128.png']);

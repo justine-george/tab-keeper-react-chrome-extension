@@ -63,6 +63,7 @@ import {
 import { shortcutKeys } from '../../../utils/functions/shortcutKeys';
 import { KEYS_SLOT, ShortcutSentence } from '../../common/ShortcutSentence';
 import { useFontFamily } from '../../../hooks/useFontFamily';
+import { sectionInsetCss } from './sectionInset';
 
 // The theme picker's swatches live in ThemeSwatch (KAN-237), which also carries
 // the KAN-88/KAN-95 marker rule and its reasoning.
@@ -198,13 +199,7 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            /* Matched on both sides. The inset used to be left-only, so every
-               settings section sat off-centre in its pane -- measured on the
-               Language grid, 50px of gutter on the left and 9px on the right.
-               The content inside is flexible, so reserving the right simply
-               narrows it; nothing needed resizing by hand. */
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 20px;
           `}
@@ -255,8 +250,7 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 32px;
           `}
@@ -290,8 +284,7 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 32px;
           `}
@@ -337,8 +330,7 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 20px;
           `}
@@ -409,8 +401,7 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 32px;
           `}
@@ -443,8 +434,7 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 32px;
           `}
@@ -508,8 +498,7 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 32px;
           `}
@@ -570,8 +559,7 @@ const SettingsDetailsContainer: React.FC = () => {
         <div
           data-settings-section
           css={css`
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 20px;
           `}
@@ -607,8 +595,7 @@ const SettingsDetailsContainer: React.FC = () => {
         <div
           data-settings-section
           css={css`
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 32px;
           `}
@@ -664,8 +651,7 @@ const SettingsDetailsContainer: React.FC = () => {
         <div
           data-settings-section
           css={css`
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 32px;
           `}
@@ -711,8 +697,7 @@ const SettingsDetailsContainer: React.FC = () => {
         <div
           data-settings-section
           css={css`
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 32px;
           `}
@@ -756,8 +741,7 @@ const SettingsDetailsContainer: React.FC = () => {
         <div
           data-settings-section
           css={css`
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 32px;
           `}
@@ -805,8 +789,7 @@ const SettingsDetailsContainer: React.FC = () => {
         <div
           data-settings-section
           css={css`
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 32px;
           `}
@@ -864,8 +847,7 @@ const SettingsDetailsContainer: React.FC = () => {
         <div
           data-settings-section
           css={css`
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 20px;
           `}
@@ -899,8 +881,7 @@ const SettingsDetailsContainer: React.FC = () => {
         <div
           data-settings-section
           css={css`
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 32px;
           `}
@@ -952,8 +933,7 @@ const SettingsDetailsContainer: React.FC = () => {
         <div
           data-settings-section
           css={css`
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 32px;
           `}
@@ -1026,8 +1006,7 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 20px;
           `}
@@ -1107,8 +1086,7 @@ const SettingsDetailsContainer: React.FC = () => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            padding-left: clamp(16px, 8%, 72px);
-            padding-right: clamp(16px, 8%, 72px);
+            ${sectionInsetCss()}
             width: 100%;
             margin-top: 20px;
           `}

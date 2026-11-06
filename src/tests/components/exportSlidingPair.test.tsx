@@ -51,7 +51,7 @@ describe('each pair is a sliding knob (KAN-218)', () => {
   test('no segment draws the KAN-199 line any more', async () => {
     await renderUnder(Theme.LIGHT);
 
-    for (const name of ['Layout', 'Colour']) {
+    for (const name of ['Layout', 'Color']) {
       for (const button of within(group(name)).getAllByRole('button')) {
         const shadow = getComputedStyle(button).boxShadow;
         expect(
@@ -66,7 +66,7 @@ describe('each pair is a sliding knob (KAN-218)', () => {
   test('each pair has one knob, hidden from assistive tech', async () => {
     await renderUnder(Theme.LIGHT);
 
-    for (const name of ['Layout', 'Colour']) {
+    for (const name of ['Layout', 'Color']) {
       expect(
         group(name).querySelectorAll('[data-sliding-knob]'),
         `${name} knobs`
@@ -81,7 +81,7 @@ describe('each pair is a sliding knob (KAN-218)', () => {
 
     expect(pressed('Layout')).toEqual(['Compact']);
     expect(knobOf('Layout').getAttribute('data-sliding-knob')).toBe('compact');
-    expect(knobOf('Colour').getAttribute('data-sliding-knob')).toBe('light');
+    expect(knobOf('Color').getAttribute('data-sliding-knob')).toBe('light');
   });
 
   test('pressing the other option moves the knob to it', async () => {
@@ -90,8 +90,8 @@ describe('each pair is a sliding knob (KAN-218)', () => {
 
     await user.click(screen.getByRole('button', { name: 'Dark' }));
 
-    expect(pressed('Colour')).toEqual(['Dark']);
-    expect(knobOf('Colour').getAttribute('data-sliding-knob')).toBe('dark');
+    expect(pressed('Color')).toEqual(['Dark']);
+    expect(knobOf('Color').getAttribute('data-sliding-knob')).toBe('dark');
   });
 
   // A pointer click anywhere flips the pair; the knob sits on the pressed
@@ -145,8 +145,8 @@ describe('each pair is a sliding knob (KAN-218)', () => {
   test('a dark page starts with the knob under Dark', async () => {
     await renderUnder(Theme.DARKENHEIMER);
 
-    expect(pressed('Colour')).toEqual(['Dark']);
-    expect(knobOf('Colour').getAttribute('data-sliding-knob')).toBe('dark');
+    expect(pressed('Color')).toEqual(['Dark']);
+    expect(knobOf('Color').getAttribute('data-sliding-knob')).toBe('dark');
   });
 
   // The font carries the FILL axis (fetch_fonts.mjs); the browser test measures
@@ -171,12 +171,12 @@ describe('each pair is a sliding knob (KAN-218)', () => {
       ...root.querySelectorAll('.material-symbols-outlined'),
     ];
 
-    const knobGlyphs = glyphsIn(knobOf('Colour'));
+    const knobGlyphs = glyphsIn(knobOf('Color'));
     expect(knobGlyphs).toHaveLength(2);
     for (const glyph of knobGlyphs) {
-      expect(fillOf(glyph, knobOf('Colour'))).toContain("'FILL' 1");
+      expect(fillOf(glyph, knobOf('Color'))).toContain("'FILL' 1");
     }
-    for (const button of within(group('Colour')).getAllByRole('button')) {
+    for (const button of within(group('Color')).getAllByRole('button')) {
       for (const glyph of glyphsIn(button)) {
         expect(fillOf(glyph, button)).not.toContain("'FILL' 1");
       }

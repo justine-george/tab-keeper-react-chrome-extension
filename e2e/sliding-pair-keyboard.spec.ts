@@ -86,14 +86,14 @@ test.describe('the sliding pair from the keyboard (KAN-225)', () => {
 
   test('the Colour pair behaves the same', async ({ context, extensionId }) => {
     const page = await openExport(context, extensionId);
-    expect(await pressedIn(page, 'Colour')).toEqual(['Light']);
+    expect(await pressedIn(page, 'Color')).toEqual(['Light']);
 
     await page.getByRole('button', { name: 'Light' }).focus();
     await page.keyboard.press('Space');
-    expect(await pressedIn(page, 'Colour')).toEqual(['Light']);
+    expect(await pressedIn(page, 'Color')).toEqual(['Light']);
 
     await page.getByRole('button', { name: 'Dark' }).focus();
     await page.keyboard.press('Space');
-    expect(await pressedIn(page, 'Colour')).toEqual(['Dark']);
+    expect(await pressedIn(page, 'Color')).toEqual(['Dark']);
   });
 });

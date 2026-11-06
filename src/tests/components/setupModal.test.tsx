@@ -385,7 +385,7 @@ describe('step 5, Save tab groups too? (Q9)', () => {
         .map((b) => b.textContent)
     ).toEqual(['Off', 'On']);
     expect(dialog()).toHaveTextContent(
-      "Saved sessions keep each tab group's name and colour. Chrome will ask you to allow it."
+      "Saved sessions keep each tab group's name and color. Chrome will ask you to allow it."
     );
   });
 

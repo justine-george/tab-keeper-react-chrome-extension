@@ -5,7 +5,7 @@ import { openLiveWindow, strip } from './fixtures/liveWindows';
 
 // KAN-867 on the real artifact. Currently open's Remove duplicate tabs closes
 // the extra copies in each window (the copy in front stays), and one Reopen
-// puts every one back: same window, place and group, its name and colour too.
+// puts every one back: same window, place and group, its name and color too.
 
 const OPEN_NOW = '[data-pane="open-now"]';
 

@@ -60,6 +60,7 @@ import { readRecentTabs } from '../../../utils/functions/recentTabs';
 import {
   countMatchedTabs,
   matchOpenWindows,
+  groupIsDrawn,
   searchTermOf,
 } from '../../../utils/functions/openNowSearch';
 import {
@@ -892,6 +893,19 @@ export default function OpenNowPane({
   };
   useSearchShortcut('openNow', focusSearchField);
 
+  // KAN-739. A rename can take its group out of the search. The title goes on
+  // the next read, not with the rename, so this waits for that read.
+  const renamedInSearch = useRef<number | null>(null);
+  useEffect(() => {
+    const groupId = renamedInSearch.current;
+    if (groupId === null) return;
+    if (matches !== null && groupIsDrawn(listed, matches, groupId)) return;
+    renamedInSearch.current = null;
+    if (matches !== null && document.activeElement === document.body) {
+      focusSearchField();
+    }
+  });
+
   // KAN-330 K1. ↓/↑ on a drawn tab's Switch button move to the next or
   // previous one; ↑ on the first goes back to the field. Other targets (a
   // ×, a chevron) keep the keys.
@@ -1287,6 +1301,10 @@ export default function OpenNowPane({
                           openWindow.isThisWindow ? thisWindowLastUsed : null
                         }
                         matchedTabIds={matchedTabIds}
+                        onGroupRenameCommitted={(groupId) => {
+                          renamedInSearch.current =
+                            matches === null ? null : groupId;
+                        }}
                         isOpen={!foldedIds.has(openWindow.id)}
                         onToggle={() => toggleWindow(openWindow.id)}
                         onCloseTab={(tab) =>

@@ -769,7 +769,7 @@ describe('the live group band matches the saved one (KAN-280)', () => {
   });
 });
 
-// KAN-568 (picks 1-A, 2-U1): the saved band's rename and colour controls, writing Chrome's own group.
+// KAN-568 (picks 1-A, 2-U1): the saved band's rename and color controls, writing Chrome's own group.
 describe('a live group is renamed and recoloured from its band', () => {
   const renameButton = (name = 'Research') =>
     screen.getByRole('button', { name: `Rename group: ${name}` });

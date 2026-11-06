@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest';
 
-import { isValidTabMasterContainer } from '../../../utils/functions/local';
+import {
+  isValidTabMasterContainer,
+  readImportedContainer,
+} from '../../../utils/functions/local';
 
 function container(windowOverrides: Record<string, unknown> = {}) {
   return {
@@ -426,5 +429,40 @@ describe("a saved tab's customTitle field (KAN-824)", () => {
   test('an empty string and a number are not', () => {
     expect(isValidTabMasterContainer(withTab({ customTitle: '' }))).toBe(false);
     expect(isValidTabMasterContainer(withTab({ customTitle: 5 }))).toBe(false);
+  });
+});
+
+// KAN-91, step one. Older versions still require the field, so a session
+// without it may be read here but must never leave this device without it.
+describe('a session without isAutoSave (KAN-91)', () => {
+  const session = (overrides: Record<string, unknown>) => {
+    const base = container();
+    const rest = Object.fromEntries(
+      Object.entries(base.tabGroups[0]).filter(([key]) => key !== 'isAutoSave')
+    );
+    return { ...base, tabGroups: [{ ...rest, ...overrides }] };
+  };
+
+  test('is valid', () => {
+    expect(isValidTabMasterContainer(session({}))).toBe(true);
+  });
+
+  test('a value that is not a boolean is still refused', () => {
+    expect(isValidTabMasterContainer(session({ isAutoSave: 'yes' }))).toBe(
+      false
+    );
+  });
+
+  test('a backup without it imports, and every session gets it back', () => {
+    const imported = readImportedContainer(JSON.stringify(session({})), 'en');
+    expect(imported.tabGroups[0].isAutoSave).toBe(false);
+  });
+
+  test('an imported value is kept as written', () => {
+    const imported = readImportedContainer(
+      JSON.stringify(session({ isAutoSave: true })),
+      'en'
+    );
+    expect(imported.tabGroups[0].isAutoSave).toBe(true);
   });
 });

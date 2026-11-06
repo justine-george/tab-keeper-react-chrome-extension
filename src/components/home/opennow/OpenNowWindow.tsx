@@ -7,6 +7,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import ChevronGlyph from '../../common/ChevronGlyph';
 import ClickableRow from '../../common/ClickableRow';
 import {
+  focusRingOutsideCss,
   focusRingOverTickCss,
   focusRingRowCss,
   whileKeyNav,
@@ -150,6 +151,8 @@ interface OpenNowWindowProps {
   // whole: a tab's click and close still act on the real tab. The window's own
   // Save and Close are not offered while a search is held (O14e).
   matchedTabIds: ReadonlySet<number> | null;
+  // KAN-739. The pane moves focus if this rename takes the group out of the search.
+  onGroupRenameCommitted: (groupId: number) => void;
   isOpen: boolean;
   onToggle: () => void;
   onCloseTab: (tab: OpenTab) => void;
@@ -172,6 +175,7 @@ export default function OpenNowWindow({
   number,
   lastUsedTabId,
   matchedTabIds,
+  onGroupRenameCommitted,
   isOpen,
   onToggle,
   onCloseTab,
@@ -229,6 +233,15 @@ export default function OpenNowWindow({
         }
       );
     }
+  };
+  // Enter or the tick: focus comes back to the title, if the search still draws it.
+  const commitGroupRenameToTitle = (group: {
+    groupId: string;
+    title: string;
+  }) => {
+    titleFocus.ask(group.groupId);
+    onGroupRenameCommitted(Number(group.groupId));
+    commitGroupRename(group);
   };
   const cancelGroupRename = () => {
     groupRenameCancelled.current = true;
@@ -1283,10 +1296,7 @@ export default function OpenNowWindow({
                               onKeyDown={(e) =>
                                 renameKeyDown(
                                   e,
-                                  () => {
-                                    titleFocus.ask(item.group.groupId);
-                                    commitGroupRename(item.group);
-                                  },
+                                  () => commitGroupRenameToTitle(item.group),
                                   () => {
                                     titleFocus.ask(item.group.groupId);
                                     cancelGroupRename();
@@ -1333,8 +1343,7 @@ export default function OpenNowWindow({
                                 type="done"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  titleFocus.ask(item.group.groupId);
-                                  commitGroupRename(item.group);
+                                  commitGroupRenameToTitle(item.group);
                                 }}
                               />
                             </span>
@@ -1356,7 +1365,9 @@ export default function OpenNowWindow({
                             style={
                               'display: flex; align-items: center; align-self: stretch; min-width: 0; box-sizing: border-box; flex: 0 1 auto; max-width: 100%;' +
                               renameOnClickStyle(COLORS, COLORS.HOVER_COLOR) +
-                              '&::before { right: -4px; }'
+                              '&::before { right: -4px; }' +
+                              // KAN-722: the box ends at the text, so the ring goes outside it.
+                              focusRingOutsideCss(COLORS)
                             }
                           >
                             <NormalLabel

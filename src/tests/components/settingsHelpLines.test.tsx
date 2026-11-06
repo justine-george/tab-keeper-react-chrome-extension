@@ -26,7 +26,7 @@ const BACKUP_HELP =
 const CLOUD_DATA_HELP =
   'Removes your sessions from the cloud and turns Auto sync off. Your sessions stay on this device and on your other devices.';
 const SAVE_TAB_GROUPS_HELP =
-  'Saved sessions keep each tab group’s name and colour, and the groups come back when you reopen the session.';
+  'Saved sessions keep each tab group’s name and color, and the groups come back when you reopen the session.';
 
 describe('settings help lines (KAN-860)', () => {
   test('Sync & Backup: Auto sync, Backup and Cloud data each describe their controls', async () => {

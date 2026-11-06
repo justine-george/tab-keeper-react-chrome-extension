@@ -367,7 +367,7 @@ describe('saving from the Open now pane (KAN-280 O13)', () => {
     ]);
   });
 
-  test('a saved group keeps its name and colour', async () => {
+  test('a saved group keeps its name and color', async () => {
     const { store } = await renderOpenNow(
       {
         currentTabId: TAB_VIEW_ID,

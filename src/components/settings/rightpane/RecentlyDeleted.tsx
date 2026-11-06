@@ -14,6 +14,7 @@ import type { AppDispatch, RootState } from '../../../redux/store';
 import { restoreDeletedSession } from '../../../redux/slices/tabContainerDataStateSlice';
 import { TYPE } from '../../../styles/scale';
 import { daysLeft, sessionWhen } from '../../../utils/functions/sessionDate';
+import { sectionInsetCss } from './sectionInset';
 
 // One width for Restore and Empty, kept when text beside them is long, so the
 // column of buttons lines up.
@@ -62,8 +63,7 @@ export function RecentlyDeleted() {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        padding-left: clamp(16px, 8%, 72px);
-        padding-right: clamp(16px, 8%, 72px);
+        ${sectionInsetCss()}
         width: 100%;
         margin-top: 20px;
         padding-bottom: 24px;
