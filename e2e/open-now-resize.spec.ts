@@ -680,6 +680,79 @@ test.describe('resizing Open now (KAN-321 O1, O1a)', () => {
     expect(Math.abs(end.x - (openNow.left + 4))).toBeLessThanOrEqual(1);
   });
 
+  // KAN-334. Chrome's own layout: the window narrows under a held press, and the width saved is the one chosen.
+  for (const movedAfter of [false, true]) {
+    test(`1b. a window narrowed mid-drag saves the width chosen (a move after it: ${movedAfter})`, async ({
+      context,
+      extensionId,
+    }) => {
+      await seedOnce(context, {});
+      const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
+      await expectOpenNow(page, 600);
+      const grip = await page.locator(GRIP).boundingBox();
+      if (grip === null) throw new Error('no grip');
+      const x = grip.x + grip.width / 2;
+      await page.mouse.move(x, 300);
+      await page.mouse.down();
+      await page.mouse.move(x - 122, 300, { steps: 4 });
+      await expectOpenNow(page, 722);
+
+      await page.setViewportSize(NARROW_SIDE_BY_SIDE);
+      await expectOpenNow(page, 584);
+      if (movedAfter) await page.mouse.move(x - 122, 310);
+      await page.mouse.up();
+
+      await expect.poll(() => storedWidth(page)).toBe(722);
+      await expectOpenNow(page, 584);
+      await page.setViewportSize(WIDE);
+      await expectOpenNow(page, 722);
+    });
+  }
+
+  // KAN-333 with real touches: a second finger on the grip neither moves the width nor ends the drag.
+  test('1c. a second touch on the grip changes nothing, and the first finger finishes the drag', async ({
+    context,
+    extensionId,
+  }) => {
+    await seedOnce(context, {});
+    const page = await openPage(context, extensionId, VIEW_TAB, WIDE);
+    await expectOpenNow(page, 600);
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Emulation.setTouchEmulationEnabled', {
+      enabled: true,
+      maxTouchPoints: 2,
+    });
+    const grip = await page.locator(GRIP).boundingBox();
+    if (grip === null) throw new Error('no grip');
+    const x = grip.x + grip.width / 2;
+    const touch = (
+      type: 'touchStart' | 'touchMove' | 'touchEnd',
+      touchPoints: { x: number; y: number; id: number }[]
+    ) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints });
+
+    await touch('touchStart', [{ x, y: 300, id: 1 }]);
+    for (let step = 1; step <= 6; step += 1) {
+      await touch('touchMove', [{ x: x - step * 20, y: 300, id: 1 }]);
+    }
+    await expectOpenNow(page, 720);
+
+    const first = { x: x - 120, y: 300, id: 1 };
+    await touch('touchStart', [first, { x: x - 120, y: 340, id: 2 }]);
+    await touch('touchMove', [
+      { ...first, x: x - 125 },
+      { x: x - 120, y: 340, id: 2 },
+    ]);
+    await expectOpenNow(page, 725);
+    // The second finger lifts, left out of the touches still down: the drag goes on.
+    await touch('touchMove', [{ ...first, x: x - 125 }]);
+    expect(await storedWidth(page)).toBeNull();
+    await touch('touchMove', [{ ...first, x: x - 130 }]);
+    await expectOpenNow(page, 730);
+
+    await touch('touchEnd', []);
+    await expect.poll(() => storedWidth(page)).toBe(730);
+  });
+
   test('2. the drag stops at its limits, both panes keep 340px, and a release outside the window still ends it', async ({
     context,
     extensionId,

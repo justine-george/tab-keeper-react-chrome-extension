@@ -5,6 +5,7 @@ import de from '../../../public/locales/de/translation.json';
 import MainContainer from '../../components/MainContainer';
 import { OPEN_NOW_RAIL_QUERY } from '../../components/home/opennow/railQuery';
 import { renderWithProviders } from '../setup/renderWithProviders';
+import { forgetPlatform } from '../../hooks/useIsMac';
 import { testI18n } from '../setup/i18nForTests';
 import { FakeMediaQueryList } from '../setup/mediaQueryFake';
 import { classRulesFor } from '../setup/hoverRules';
@@ -56,12 +57,14 @@ const goToTabView = () => history.replaceState(null, '', '?view=tab');
 type Setup = {
   fold?: boolean;
   width?: number;
+  platformOs?: chrome.runtime.PlatformInfo['os'];
 };
 
 // One saved session, selected; side by side unless `fold`; `width` stored
 // before the first render when given.
-const renderHome = ({ fold = false, width }: Setup = {}) =>
+const renderHome = ({ fold = false, width, platformOs }: Setup = {}) =>
   renderWithProviders(<MainContainer />, {
+    seed: platformOs === undefined ? undefined : { platformOs },
     seedStore: (store) => {
       store.dispatch(
         saveToTabContainerInternal(
@@ -104,7 +107,7 @@ const isResizing = () => document.documentElement.hasAttribute('data-resizing');
 const press = (x: number) =>
   fireEvent.pointerDown(grip(), { clientX: x, clientY: 300, button: 0 });
 const moveTo = (x: number) =>
-  fireEvent.pointerMove(window, { clientX: x, clientY: 300 });
+  fireEvent.pointerMove(window, { clientX: x, clientY: 300, buttons: 1 });
 const release = (x: number) =>
   fireEvent.pointerUp(window, { clientX: x, clientY: 300 });
 
@@ -340,6 +343,52 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
     release(900);
   });
 
+  // KAN-334. The width saved is the one the user chose, whether or not the pointer moved after the window narrowed.
+  test.each([false, true])(
+    'a window narrowed mid-drag saves the chosen width (a move after it: %s)',
+    async (movedAfter) => {
+      await renderHome();
+      await mounted();
+
+      press(1000);
+      moveTo(900);
+      setViewportWidth(1280);
+      // PREMISE: drawn at the narrow window's limit.
+      expect(openNowTrack()).toBe('584px');
+      if (movedAfter) moveTo(900);
+      expect(openNowTrack()).toBe('584px');
+      release(900);
+
+      expect(storedWidth()).toBe(700);
+    }
+  );
+
+  test('a window narrowed mid-drag: a width past the limit the drag began with is still held to it', async () => {
+    await renderHome();
+    await mounted();
+
+    press(1000);
+    moveTo(900);
+    setViewportWidth(1280);
+    moveTo(0);
+    release(0);
+
+    expect(storedWidth()).toBe(860);
+  });
+
+  test('a window widened mid-drag: the wider limit is the one that holds', async () => {
+    setViewportWidth(1280);
+    await renderHome();
+    await mounted();
+
+    press(1000);
+    setViewportWidth(1600);
+    moveTo(0);
+    release(0);
+
+    expect(storedWidth()).toBe(860);
+  });
+
   // Narrowed under 1100px mid-drag, the range is gone and so is the grip.
   // Its unmount must end the drag like a cancel: nothing saved, no root
   // flag, and no live width left on the grid.
@@ -396,6 +445,147 @@ describe('the pointer drag (O1a, Review Focus 4)', () => {
 
     expect(isResizing()).toBe(false);
     expect(live.defaultPrevented).toBe(true);
+  });
+
+  // KAN-333. Only the pointer that started the drag drives it.
+  describe('a second pointer during a drag', () => {
+    const FIRST = 1;
+    const SECOND = 2;
+    const pressBy = (id: number, x: number) =>
+      fireEvent.pointerDown(grip(), {
+        pointerId: id,
+        clientX: x,
+        clientY: 300,
+        button: 0,
+      });
+    const moveBy = (id: number, x: number) =>
+      fireEvent.pointerMove(window, {
+        pointerId: id,
+        clientX: x,
+        clientY: 300,
+        buttons: 1,
+      });
+    const releaseBy = (id: number, x: number) =>
+      fireEvent.pointerUp(window, {
+        pointerId: id,
+        clientX: x,
+        clientY: 300,
+      });
+
+    test('its press leaves the width where it is, and the drag goes on from the first', async () => {
+      await renderHome();
+      await mounted();
+      pressBy(FIRST, 1000);
+      moveBy(FIRST, 900);
+      expect(openNowTrack()).toBe('700px');
+
+      pressBy(SECOND, 880);
+      moveBy(FIRST, 895);
+
+      expect(openNowTrack()).toBe('705px');
+      releaseBy(FIRST, 895);
+      expect(storedWidth()).toBe(705);
+    });
+
+    test('its moves do nothing', async () => {
+      await renderHome();
+      await mounted();
+      pressBy(FIRST, 1000);
+      moveBy(FIRST, 900);
+
+      moveBy(SECOND, 500);
+
+      expect(openNowTrack()).toBe('700px');
+      releaseBy(FIRST, 900);
+    });
+
+    test('its release or cancel does not end the drag', async () => {
+      await renderHome();
+      await mounted();
+      pressBy(FIRST, 1000);
+      moveBy(FIRST, 900);
+      pressBy(SECOND, 880);
+
+      releaseBy(SECOND, 880);
+      fireEvent.pointerCancel(window, { pointerId: SECOND });
+
+      expect(isResizing()).toBe(true);
+      expect(storedWidth()).toBe(null);
+      releaseBy(FIRST, 900);
+      expect(isResizing()).toBe(false);
+      expect(storedWidth()).toBe(700);
+    });
+
+    test('after the drag ends, a new press starts one', async () => {
+      await renderHome();
+      await mounted();
+      pressBy(FIRST, 1000);
+      moveBy(FIRST, 900);
+      releaseBy(FIRST, 900);
+
+      pressBy(SECOND, 1100);
+      moveBy(SECOND, 1050);
+      releaseBy(SECOND, 1050);
+
+      expect(storedWidth()).toBe(750);
+    });
+  });
+
+  // KAN-332. A native menu can swallow a release. Seen with a real Ctrl+click: no pointerup, and the next click saved a width.
+  test('a move with the button up ends a drag whose release was lost, and saves nothing', async () => {
+    const { seen } = await renderHome();
+    await mounted();
+    const writesBefore = widthWrites(seen);
+    press(1000);
+    moveTo(900);
+    expect(openNowTrack()).toBe('700px');
+
+    fireEvent.pointerMove(window, { clientX: 880, clientY: 300, buttons: 0 });
+
+    expect(isResizing()).toBe(false);
+    expect(openNowTrack()).toBe('600px');
+    release(880);
+    expect(widthWrites(seen)).toBe(writesBefore);
+  });
+
+  describe('a Ctrl+press', () => {
+    afterEach(forgetPlatform);
+
+    const ctrlPress = () =>
+      fireEvent.pointerDown(grip(), {
+        clientX: 1000,
+        clientY: 300,
+        button: 0,
+        ctrlKey: true,
+      });
+
+    test('on a Mac is a right-click: no drag starts', async () => {
+      forgetPlatform();
+      await renderHome({ platformOs: 'mac' });
+      await mounted();
+      // Lets useMacKeys' getPlatformInfo answer land before the press.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      ctrlPress();
+
+      expect(isResizing()).toBe(false);
+    });
+
+    test('elsewhere is a left press: the drag starts', async () => {
+      forgetPlatform();
+      await renderHome({ platformOs: 'win' });
+      await mounted();
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      ctrlPress();
+
+      expect(isResizing()).toBe(true);
+      release(1000);
+    });
   });
 
   test('Escape mid-drag puts the width back and saves nothing', async () => {

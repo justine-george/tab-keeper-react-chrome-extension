@@ -101,7 +101,7 @@ const widthWrites = (seen: string[]) =>
 const press = (x: number) =>
   fireEvent.pointerDown(grip(), { clientX: x, clientY: 300, button: 0 });
 const moveTo = (x: number) =>
-  fireEvent.pointerMove(window, { clientX: x, clientY: 300 });
+  fireEvent.pointerMove(window, { clientX: x, clientY: 300, buttons: 1 });
 const release = (x: number) =>
   fireEvent.pointerUp(window, { clientX: x, clientY: 300 });
 
@@ -292,9 +292,8 @@ describe('the pointer drag', () => {
     expect(storedWidth()).toBe(356);
   });
 
-  // A release saves the width it shows: after the window narrows mid-drag,
-  // the next move clamps to the narrower window's range, not the old one.
-  test('a window narrowed mid-drag: the release saves the width shown', async () => {
+  // KAN-334, the same rule as Open now's grip: the width chosen is saved, and only the shown width follows the window.
+  test('a window narrowed mid-drag: the release saves the width chosen', async () => {
     await renderHome();
     await mounted();
     press(400);
@@ -305,7 +304,7 @@ describe('the pointer drag', () => {
     moveTo(601);
     expect(listTrack()).toBe('560px');
     release(601);
-    expect(storedWidth()).toBe(560);
+    expect(storedWidth()).toBe(600);
   });
 
   test('Escape mid-drag puts the width back and saves nothing', async () => {

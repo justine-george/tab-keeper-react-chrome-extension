@@ -3,6 +3,9 @@
 // on a real toolbar, on the 16 box extension icons get.
 export const TOOLBAR_INK = { light: '#c7c7c7', dark: '#474747' };
 
+// KAN-938. The 32px file draws the mark at 15px, centered: filling the box read as sitting low. 1x stays hand-pixelled at 16, where 15 cannot center.
+export const TOOLBAR_32_MARK_PX = 30;
+
 export const toolbarSvg = (ink) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="${ink}" stroke-width="1.75" stroke-linejoin="round"><path d="M2.1 .9H11.4L15.1 4.6V13.9A1.2 1.2 0 0 1 13.9 15.1H2.1A1.2 1.2 0 0 1 .9 13.9V2.1A1.2 1.2 0 0 1 2.1 .9Z"/><path d="M4.6 .9H10.4V5.6H4.6Z" fill="${ink}" stroke="none"/><path d="M4 15.1V9.4H12V15.1"/></svg>`;
 

@@ -10,6 +10,7 @@ import { css } from '@emotion/react';
 import { useTranslation } from 'react-i18next';
 
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useMacKeys } from '../../hooks/useIsMac';
 import { DURATION } from '../../styles/scale';
 import { whileKeyNav } from '../common/focusRing';
 import {
@@ -39,11 +40,15 @@ interface PaneResizeGripProps {
   onLiveWidth: (width: number | null) => void;
 }
 
-// Where a pointer drag started, and the width it shows now.
+// Where a pointer drag started, and the width it holds now: the width chosen,
+// which a window narrowed mid-drag may draw narrower. `widestMax` is the
+// largest limit this drag has had, so that narrowing does not cut the choice.
 interface Drag {
+  pointerId: number;
   startX: number;
   startWidth: number;
   width: number;
+  widestMax: number;
 }
 
 // The list's grip is on its right edge, so dragging right widens it; Open
@@ -72,6 +77,7 @@ export default function PaneResizeGrip({
   const { t } = useTranslation();
   const COLORS = useThemeColors();
   const dispatch: AppDispatch = useDispatch();
+  const isMac = useMacKeys();
 
   // Read at each move: a window resized mid-drag re-renders with its range.
   const rangeNow = useRef(range);
@@ -107,17 +113,33 @@ export default function PaneResizeGrip({
       }
     };
 
+    // KAN-333. Only the pointer that pressed drives the drag: a second touch does nothing.
+    const isDragPointer = (event: PointerEvent) =>
+      event.pointerId === drag.current?.pointerId;
+
     const onMove = (event: PointerEvent) => {
       const current = drag.current;
-      if (current === null) return;
+      if (current === null || !isDragPointer(event)) return;
+      // KAN-332. The button is up, so the release was lost: a native menu can swallow it. Nothing the user chose is left to save.
+      if ((event.buttons & 1) === 0) {
+        end(false);
+        return;
+      }
+      const { min, max } = rangeNow.current;
+      current.widestMax = Math.max(current.widestMax, max);
       current.width = clampToRange(
         current.startWidth + WIDENS[pane] * (event.clientX - current.startX),
-        rangeNow.current
+        { min, max: current.widestMax }
       );
       onLiveWidth(current.width);
     };
-    const onUp = () => end(true);
-    const onCancel = () => end(false);
+    const onUp = (event: PointerEvent) => {
+      if (isDragPointer(event)) end(true);
+    };
+    const onCancel = (event: PointerEvent) => {
+      if (isDragPointer(event)) end(false);
+    };
+    const onBlur = () => end(false);
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       // Consumed here, so Chrome must not also close the popup.
@@ -128,13 +150,13 @@ export default function PaneResizeGrip({
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
-    window.addEventListener('blur', onCancel);
+    window.addEventListener('blur', onBlur);
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
-      window.removeEventListener('blur', onCancel);
+      window.removeEventListener('blur', onBlur);
       window.removeEventListener('keydown', onKey);
       root.removeAttribute('data-resizing');
       // Also on an unmount mid-drag, which reaches no end(): the grid must
@@ -144,13 +166,17 @@ export default function PaneResizeGrip({
   }, [isResizing, dispatch, onLiveWidth, pane]);
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
+    // A Mac's Ctrl+press is a right-click (KAN-332, the row drag's KAN-708 rule).
+    if (event.button !== 0 || (isMac && event.ctrlKey)) return;
+    if (drag.current !== null) return;
     // No text selection starts under the press.
     event.preventDefault();
     drag.current = {
+      pointerId: event.pointerId,
       startX: event.clientX,
       startWidth: restingWidth,
       width: restingWidth,
+      widestMax: range.max,
     };
     setIsResizing(true);
   };

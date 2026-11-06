@@ -12,7 +12,12 @@ import { createServer } from 'vite';
 import { icon16Pixels } from './icon16_pixels.mjs';
 import { ICON_FILL, iconSvg } from './icon_palette.mjs';
 import { encodePng } from './png.mjs';
-import { TOOLBAR_INK, toolbar16Pixels, toolbarSvg } from './toolbar_icons.mjs';
+import {
+  TOOLBAR_32_MARK_PX,
+  TOOLBAR_INK,
+  toolbar16Pixels,
+  toolbarSvg,
+} from './toolbar_icons.mjs';
 
 // 16 is pixelled by hand (icon16_pixels.mjs); the rest are drawn from the mark.
 const DRAWN = [32, 48, 128];
@@ -63,7 +68,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       );
       await page.setViewportSize({ width: 32, height: 32 });
       await page.setContent(
-        `<style>html,body{margin:0;background:transparent}svg{display:block;width:32px;height:32px}</style>${toolbarSvg(ink)}`
+        `<style>html,body{margin:0;background:transparent}svg{display:block;width:${TOOLBAR_32_MARK_PX}px;height:${TOOLBAR_32_MARK_PX}px;margin:${(32 - TOOLBAR_32_MARK_PX) / 2}px}</style>${toolbarSvg(ink)}`
       );
       const png = await page.screenshot({ omitBackground: true });
       writeFileSync(resolve(outDir, `toolbar-${name}-32.png`), png);
