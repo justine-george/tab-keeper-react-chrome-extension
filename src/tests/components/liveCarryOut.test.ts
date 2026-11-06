@@ -159,6 +159,15 @@ describe('a split pair (KAN-486)', () => {
     });
   });
 
+  it('the second half, drawn alone under a search, hands the same pair', () => {
+    const out = liveTabCarryOut([withPair], '13', noRecents);
+    expect(out?.card).toMatchObject({
+      kind: 'pair',
+      first: { title: 'First half' },
+      second: { title: 'Second half' },
+    });
+  });
+
   it('a tab of no split stays a tab', () => {
     const out = liveTabCarryOut([withPair], '11', noRecents);
     expect(out?.card.kind).toBe('tab');

@@ -247,6 +247,25 @@ describe('openDragWindows: the windows as the drop geometry reads them', () => {
     ]);
   });
 
+  // KAN-486. The pair is one row, so no slot, count or band reads its second half.
+  test("a split's second half is no row", async () => {
+    const windows = await install({
+      splitView: true,
+      windows: [
+        {
+          id: 7,
+          tabs: [
+            { id: 71, url: url('a') },
+            { id: 72, url: url('b'), splitViewId: 80 },
+            { id: 73, url: url('c'), splitViewId: 80 },
+          ],
+        },
+      ],
+    });
+    const [window] = openDragWindows(windows, true);
+    expect(window?.tabs.map((tab) => tab.tabId)).toEqual(['71', '72']);
+  });
+
   // Off the happy path: a snapshot read while the grant was held, handed over
   // after it went. The geometry must not offer bands the pane stops drawing.
   test('a snapshot that still carries groups loses them when the grant is gone', async () => {

@@ -68,7 +68,6 @@ import { renameKeyDown } from '../../../utils/functions/renameKeyDown';
 import { placeholderStyle } from '../../../styles/placeholder';
 import {
   openSplitPartners,
-  splitHeadOf,
   withoutSplitFollowers,
 } from '../../../utils/functions/splitPartners';
 import {
@@ -647,8 +646,6 @@ export default function OpenNowWindow({
   // drag (KAN-335).
   // KAN-564. Each drawn half of a live split, and its other half.
   const splitPartners = openSplitPartners(drawnTabs);
-  // KAN-486. Each half's head. A search can draw one half alone: it still lifts the pair, so it reads the whole window.
-  const splitHeads = splitHeadOf(openWindow.tabs);
   const tabsById = new Map(openWindow.tabs.map((tab) => [String(tab.id), tab]));
   // KAN-708. A live tab's items: Switch to tab, Copy link, Close tab. Only a drawn row has a menu.
   const tabMenu = useRowContextMenu({
@@ -1008,16 +1005,15 @@ export default function OpenNowWindow({
     );
   }
 
-  // A row of the `tabs` list (KAN-280 Part E): one tab, or both halves of a split, named by its head (KAN-486).
+  // A row of the `tabs` list (KAN-280 Part E): one tab, or both halves of a split, named by the first (KAN-486). A search can draw a half alone: it carries out only, and liveTabCarryOut finds its other half.
   const renderTabRow = (tabId: string, grouped: boolean) => {
     const tab = tabsById.get(tabId);
     if (!tab) return null;
-    const rowId = String(splitHeads.get(tab.id) ?? tab.id);
     const partner = splitPartners.get(tab.id);
     return (
-      <DraggableRow key={tabId} scope={OPEN_TABS_SCOPE} rowId={rowId}>
-        {renderTab(tab, grouped, rowId)}
-        {partner && renderTab(partner, grouped, rowId)}
+      <DraggableRow key={tabId} scope={OPEN_TABS_SCOPE} rowId={tabId}>
+        {renderTab(tab, grouped, tabId)}
+        {partner && renderTab(partner, grouped, tabId)}
       </DraggableRow>
     );
   };
